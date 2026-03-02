@@ -8,7 +8,7 @@ This document captures improvement ideas from a full project review: gaps to fix
 
 **What it is:** A debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web UI. Apps pass a query callback (e.g. from Drift’s `customSelect` or any SQLite executor); the server lists tables and serves table rows and schema.
 
-**Current state:** Single package, zero runtime dependencies, strict analysis, CI (analyze + format + test) on `master`, publish workflow and a detailed Python publish script. The web UI includes: table list with row counts, pagination (limit/offset), client-side filter, collapsible schema panel, export table as CSV, light/dark theme (localStorage), read-only SQL runner with templates/autofill, export schema (no data) and full dump (schema + data), live refresh (long-poll), and optional auth (token or HTTP Basic) for secure dev tunnels. Dependabot is configured for pub and github-actions.
+**Current state:** Single package, zero runtime dependencies, strict analysis, CI (analyze + format + test) on `master`, publish workflow and a detailed Python publish script. The web UI includes: table list with row counts, pagination (limit/offset), client-side filter, collapsible schema panel, **schema diagram** (tables + foreign keys; click to open a table), export table as CSV, light/dark theme (localStorage), read-only SQL runner with templates/autofill, export schema (no data) and full dump (schema + data), live refresh (long-poll), and optional auth (token or HTTP Basic) for secure dev tunnels. Dependabot is configured for pub and github-actions.
 
 ---
 
@@ -16,7 +16,6 @@ This document captures improvement ideas from a full project review: gaps to fix
 
 | Priority | Item | Notes |
 |----------|------|--------|
-| **P0** | **Implement or correct `startDriftViewer`** | README documents `myDb.startDriftViewer(enabled: kDebugMode)` and an extension on `GeneratedDatabase`, but this API does not exist in the package (no Drift dependency, no such function). Either: (1) add an optional Drift dependency and an extension that wires `customSelect` into `DriftDebugServer.start`, or (2) remove/adjust README so it only documents `DriftDebugServer.start(query: ...)`. |
 | **P1** | **Example app** | No `example/` in the repo. A small Flutter or Dart example (e.g. Drift app that starts the viewer) would help pub.dev and onboarding. |
 
 ---
@@ -48,12 +47,12 @@ High-impact or differentiator features that could make the package memorable and
 
 | Idea | Description |
 |------|-------------|
-| **Schema diagram** | Visualize tables and relationships (e.g. from `sqlite_master` + PRAGMA foreign_key_list). Click a table to see its data. |
+| **Schema diagram** | Visualize tables and relationships (e.g. from `sqlite_master` + PRAGMA foreign_key_list). Click a table to see its data. *(Implemented: `GET /api/schema/diagram` + UI “Schema diagram”.)* |
 | **DevTools / IDE integration** | Flutter DevTools plugin or VS Code / Cursor extension: “Open Drift viewer” or a sidebar that lists tables and opens the browser at the right URL. Feels native to the toolchain. *(Implemented: Run Task → "Open Drift Viewer" in repo; optional minimal extension in `extension/` with one command.)* |
 | **Database diff** | Compare two databases (e.g. local vs staging): same schema, diff of row counts or row content per table. Export diff report. *(Implemented: optional `queryCompare` at startup; GET /api/compare/report with schema + count diff; export diff-report.json; UI "Database diff" section.)* |
 | **Snapshot / time travel** | Optional “snapshot” of table state at a point in time (e.g. in-memory or file); later, “compare to now” to see what changed. *(Implemented: POST/GET/DELETE /api/snapshot, GET /api/snapshot/compare; export snapshot-diff.json; UI section.)* |
 | **Flutter widget overlay** | In debug builds, a small floating button that opens the viewer in the browser (or an in-app WebView). One tap from the app. |
-| **Query history** | If read-only SQL is added, keep a short history of queries and results in the UI or in `localStorage` for repeat checks. *(SQL runner exists; history not yet.)* |
+| **Query history** | Keep a short history of SQL runner queries and results in the UI / `localStorage` for repeat checks. *(Implemented: stored in browser `localStorage` with a History dropdown in the SQL runner.)* |
 
 *(Live refresh, read-only SQL runner, secure dev tunnel (auth), and export raw SQLite file (getDatabaseBytes / GET /api/database) are implemented.)*
 

@@ -323,6 +323,11 @@ abstract final class DriftDebugServer {
         await _sendSchemaDump(request.response, query);
         return;
       }
+      if (request.method == 'GET' &&
+          (path == '/api/schema/diagram' || path == 'api/schema/diagram')) {
+        await _sendSchemaDiagram(request.response, query);
+        return;
+      }
       if (request.method == 'GET' && (path == '/api/dump' || path == 'api/dump')) {
         await _sendFullDump(request.response, query);
         return;
@@ -647,6 +652,87 @@ abstract final class DriftDebugServer {
     _setAttachmentHeaders(response, 'schema.sql');
     response.write(schema);
     await response.close();
+  }
+
+  static String _escapeSqliteIdentifier(String identifier) {
+    // Escape for double-quoted SQLite identifier: "a""b"
+    return identifier.replaceAll('"', '""');
+  }
+
+  /// Returns tables, columns, and foreign keys for a lightweight schema diagram.
+  static Future<Map<String, dynamic>> _getSchemaDiagramData(
+    DriftDebugQuery query,
+  ) async {
+    final List<String> tableNames = await _getTableNames(query);
+    final List<Map<String, dynamic>> tables = [];
+    final List<Map<String, dynamic>> foreignKeys = [];
+
+    for (final tableName in tableNames) {
+      final escaped = _escapeSqliteIdentifier(tableName);
+
+      final List<Map<String, dynamic>> infoRows =
+          await query('PRAGMA table_info("$escaped")');
+      final List<Map<String, dynamic>> columns = infoRows
+          .map((r) => <String, dynamic>{
+                'name': r['name'] as String? ?? '',
+                'type': r['type'] as String? ?? '',
+                'pk': (r['pk'] is int) ? (r['pk'] as int) != 0 : false,
+              })
+          .where((c) => (c['name'] as String).isNotEmpty)
+          .toList();
+
+      tables.add(<String, dynamic>{
+        'name': tableName,
+        'columns': columns,
+      });
+
+      // Foreign key support depends on schema; skip if it fails for any reason.
+      try {
+        final List<Map<String, dynamic>> fkRows =
+            await query('PRAGMA foreign_key_list("$escaped")');
+        for (final r in fkRows) {
+          final toTable = r['table'] as String?;
+          final fromCol = r['from'] as String?;
+          final toCol = r['to'] as String?;
+          if (toTable == null || toTable.isEmpty) continue;
+          if (fromCol == null || fromCol.isEmpty) continue;
+          if (toCol == null || toCol.isEmpty) continue;
+          foreignKeys.add(<String, dynamic>{
+            'fromTable': tableName,
+            'fromColumn': fromCol,
+            'toTable': toTable,
+            'toColumn': toCol,
+            'id': r['id'],
+            'seq': r['seq'],
+            'onUpdate': r['on_update'],
+            'onDelete': r['on_delete'],
+          });
+        }
+      } on Object {
+        // ignore
+      }
+    }
+
+    return <String, dynamic>{
+      'tables': tables,
+      'foreignKeys': foreignKeys,
+    };
+  }
+
+  /// Sends JSON diagram data for GET /api/schema/diagram.
+  static Future<void> _sendSchemaDiagram(
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
+    try {
+      final data = await _getSchemaDiagramData(query);
+      _setJsonHeaders(response);
+      response.write(const JsonEncoder.withIndent('  ').convert(data));
+      await response.close();
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      await _sendErrorResponse(response, error);
+    }
   }
 
   /// Escapes a value for use in a SQL INSERT literal (no quotes for numbers/null).
@@ -1031,6 +1117,16 @@ abstract final class DriftDebugServer {
     #live-indicator { font-size: 0.75rem; margin-left: 0.5rem; }
     body.theme-dark #live-indicator { color: #7cb342; }
     body.theme-light #live-indicator { color: #558b2f; }
+    #diagram-container { overflow: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-pre); padding: 0.5rem; }
+    .diagram-loading { display: inline-flex; align-items: center; gap: 0.5rem; }
+    .diagram-spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--link); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .diagram-table rect { fill: var(--bg); stroke: var(--border); stroke-width: 1.5; transition: stroke 120ms ease; }
+    .diagram-table:hover rect { stroke: var(--link); }
+    .diagram-table { cursor: pointer; }
+    .diagram-name { font-weight: 600; font-size: 13px; fill: var(--link); }
+    .diagram-col { font-size: 11px; fill: var(--muted); }
+    .diagram-link { stroke: var(--muted); stroke-width: 1; fill: none; opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -1052,6 +1148,8 @@ abstract final class DriftDebugServer {
       <select id="sql-fields" multiple title="Hold Ctrl/Cmd to pick multiple"><option value="">—</option></select>
       <button type="button" id="sql-apply-template">Apply template</button>
       <button type="button" id="sql-run">Run</button>
+      <label for="sql-history">History:</label>
+      <select id="sql-history" title="Recent queries — select to reuse"><option value="">— Recent —</option></select>
       <label for="sql-result-format">Show as:</label>
       <select id="sql-result-format"><option value="table">Table</option><option value="json">JSON</option></select>
     </div>
@@ -1106,6 +1204,11 @@ abstract final class DriftDebugServer {
   </div>
   <div class="collapsible-header" id="schema-toggle">▼ Schema</div>
   <div id="schema-collapsible" class="collapsible-body collapsed"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
+  <div class="collapsible-header" id="diagram-toggle">▼ Schema diagram</div>
+  <div id="diagram-collapsible" class="collapsible-body collapsed">
+    <p class="meta">Tables and relationships. Click a table to view its data.</p>
+    <div id="diagram-container"><span class="meta">Expand to load.</span></div>
+  </div>
   <ul id="tables"></ul>
   <div id="content" class="content-wrap"></div>
   <script>
@@ -1138,6 +1241,10 @@ abstract final class DriftDebugServer {
       return result;
     }
     const THEME_KEY = 'drift-viewer-theme';
+    // SQL runner query history: persist the last N successful SQL statements (not results)
+    // so repeat checks are quick while keeping localStorage small.
+    const SQL_HISTORY_KEY = 'drift-viewer-sql-history';
+    const SQL_HISTORY_MAX = 20;
     const LIMIT_OPTIONS = [50, 200, 500, 1000];
     let cachedSchema = null;
     let currentTableName = null;
@@ -1150,6 +1257,51 @@ abstract final class DriftDebugServer {
     let rowFilter = '';
     let lastGeneration = 0;
     let refreshInFlight = false;
+    let sqlHistory = [];
+
+    function loadSqlHistory() {
+      sqlHistory = [];
+      try {
+        const raw = localStorage.getItem(SQL_HISTORY_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(parsed)) return;
+        sqlHistory = parsed
+          .map((h) => {
+            const sql = h && typeof h.sql === 'string' ? h.sql.trim() : '';
+            if (!sql) return null;
+            const rowCount = h && typeof h.rowCount === 'number' ? h.rowCount : null;
+            const at = h && typeof h.at === 'string' ? h.at : null;
+            return { sql: sql, rowCount: rowCount, at: at };
+          })
+          .filter(Boolean)
+          .slice(0, SQL_HISTORY_MAX);
+      } catch (e) { sqlHistory = []; }
+    }
+    function saveSqlHistory() {
+      try {
+        localStorage.setItem(SQL_HISTORY_KEY, JSON.stringify(sqlHistory));
+      } catch (e) {}
+    }
+    function refreshHistoryDropdown(sel) {
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">— Recent —</option>' + sqlHistory.map((h, i) => {
+        const preview = h.sql.length > 50 ? h.sql.slice(0, 47) + '…' : h.sql;
+        const rows = h.rowCount != null ? (h.rowCount + ' row(s)') : '';
+        const at = h.at ? new Date(h.at).toLocaleString() : '';
+        const label = [rows, at, preview].filter(Boolean).join(' · ');
+        return '<option value="' + i + '" title="' + esc(h.sql) + '">' + esc(label) + '</option>';
+      }).join('');
+      if (cur !== '' && parseInt(cur, 10) < sqlHistory.length) sel.value = cur;
+    }
+    function pushSqlHistory(sql, rowCount) {
+      sql = (sql || '').trim();
+      if (!sql) return;
+      const at = new Date().toISOString();
+      sqlHistory = [{ sql: sql, rowCount: rowCount, at: at }].concat(sqlHistory.filter(h => h.sql !== sql));
+      sqlHistory = sqlHistory.slice(0, SQL_HISTORY_MAX);
+      saveSqlHistory();
+    }
 
     function initTheme() {
       const saved = localStorage.getItem(THEME_KEY);
@@ -1184,6 +1336,135 @@ abstract final class DriftDebugServer {
         }).catch(() => { document.getElementById('schema-inline-pre').textContent = 'Failed to load.'; });
       }
     });
+
+    (function initDiagram() {
+      const toggle = document.getElementById('diagram-toggle');
+      const collapsible = document.getElementById('diagram-collapsible');
+      const container = document.getElementById('diagram-container');
+      if (!toggle || !collapsible || !container) return;
+
+      const BOX_W = 220;
+      const BOX_H = 150;
+      const PAD = 14;
+      const MAX_COLS = 4;
+
+      let diagramData = null;
+      let diagramLoading = false;
+
+      function setLoading(msg) {
+        container.innerHTML = '<div class="diagram-loading meta"><span class="diagram-spinner"></span>' + esc(msg || 'Loading…') + '</div>';
+      }
+
+      function tablePos(index, cols) {
+        const row = Math.floor(index / cols);
+        const col = index % cols;
+        return { x: col * (BOX_W + PAD) + PAD, y: row * (BOX_H + PAD) + PAD };
+      }
+
+      function renderDiagram(data) {
+        const tables = (data && data.tables) ? data.tables : [];
+        const fks = (data && data.foreignKeys) ? data.foreignKeys : [];
+        if (!Array.isArray(tables) || tables.length === 0) {
+          container.innerHTML = '<p class="meta">No tables.</p>';
+          return;
+        }
+
+        const cols = Math.min(MAX_COLS, tables.length);
+        const rows = Math.ceil(tables.length / cols);
+        const width = cols * (BOX_W + PAD) + PAD;
+        const height = rows * (BOX_H + PAD) + PAD;
+
+        const nameToIndex = {};
+        tables.forEach((t, i) => { nameToIndex[t.name] = i; });
+
+        function anchorPoint(iA, iB) {
+          const a = tablePos(iA, cols);
+          const b = tablePos(iB, cols);
+          const aCenter = { x: a.x + BOX_W / 2, y: a.y + BOX_H / 2 };
+          const bCenter = { x: b.x + BOX_W / 2, y: b.y + BOX_H / 2 };
+          const fromRight = aCenter.x <= bCenter.x;
+          return {
+            from: { x: fromRight ? (a.x + BOX_W) : a.x, y: aCenter.y },
+            to: { x: fromRight ? b.x : (b.x + BOX_W), y: bCenter.y },
+          };
+        }
+
+        let svg = '<svg width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
+        svg += '<g class="diagram-links">';
+        if (Array.isArray(fks)) {
+          fks.forEach(function(fk) {
+            const iFrom = nameToIndex[fk.fromTable];
+            const iTo = nameToIndex[fk.toTable];
+            if (iFrom == null || iTo == null) return;
+            const pts = anchorPoint(iFrom, iTo);
+            const midX = (pts.from.x + pts.to.x) / 2;
+            svg += '<path class="diagram-link" d="M' + pts.from.x + ',' + pts.from.y + ' C' + midX + ',' + pts.from.y + ' ' + midX + ',' + pts.to.y + ' ' + pts.to.x + ',' + pts.to.y + '"></path>';
+          });
+        }
+        svg += '</g><g class="diagram-tables">';
+        tables.forEach(function(t, i) {
+          const p = tablePos(i, cols);
+          const displayName = esc(t.name);
+          const attrName = encodeURIComponent(String(t.name || ''));
+          const columns = Array.isArray(t.columns) ? t.columns : [];
+          const colsToShow = columns.slice(0, 7);
+
+          let body = '';
+          colsToShow.forEach(function(c, idx) {
+            const name = c && c.name ? String(c.name) : '';
+            const type = c && c.type ? String(c.type) : '';
+            const pk = c && c.pk ? ' PK' : '';
+            body += '<tspan class="diagram-col" x="8" dy="' + (idx === 0 ? 14 : 14) + '">' + esc(name + (type ? ' ' + type : '') + pk) + '</tspan>';
+          });
+          if (columns.length > colsToShow.length) body += '<tspan class="diagram-col" x="8" dy="14">…</tspan>';
+
+          svg += '<g class="diagram-table" data-table="' + attrName + '" transform="translate(' + p.x + ',' + p.y + ')">';
+          svg += '<rect width="' + BOX_W + '" height="' + BOX_H + '" rx="6"></rect>';
+          svg += '<text class="diagram-name" x="8" y="20">' + displayName + '</text>';
+          svg += '<text x="8" y="36">' + body + '</text>';
+          svg += '</g>';
+        });
+        svg += '</g></svg>';
+        container.innerHTML = svg;
+
+        container.querySelectorAll('.diagram-table').forEach(function(g) {
+          g.addEventListener('click', function() {
+            const encoded = this.getAttribute('data-table') || '';
+            if (!encoded) return;
+            let name = encoded;
+            try { name = decodeURIComponent(encoded); } catch (e) {}
+            if (name) loadTable(name);
+          });
+        });
+      }
+
+      function loadDiagram() {
+        if (diagramLoading) return;
+        diagramLoading = true;
+        setLoading('Loading diagram…');
+        fetch('/api/schema/diagram', authOpts())
+          .then(r => r.json().then(function(d) { return { ok: r.ok, data: d }; }))
+          .then(function(o) {
+            if (!o.ok) throw new Error((o.data && o.data.error) ? o.data.error : 'Request failed');
+            diagramData = o.data;
+            renderDiagram(diagramData);
+          })
+          .catch(function(e) {
+            container.innerHTML = '<p class="meta">Failed to load diagram: ' + esc(String(e && e.message ? e.message : e)) + '</p>';
+          })
+          .finally(function() { diagramLoading = false; });
+      }
+
+      toggle.addEventListener('click', function() {
+        const isCollapsed = collapsible.classList.contains('collapsed');
+        collapsible.classList.toggle('collapsed', !isCollapsed);
+        this.textContent = isCollapsed ? '▲ Schema diagram' : '▼ Schema diagram';
+        if (isCollapsed) {
+          if (diagramData === null) loadDiagram();
+          else renderDiagram(diagramData);
+        }
+      });
+    })();
 
     (function initSnapshot() {
       const toggle = document.getElementById('snapshot-toggle');
@@ -1598,12 +1879,25 @@ abstract final class DriftDebugServer {
       const fieldsSel = document.getElementById('sql-fields');
       const applyBtn = document.getElementById('sql-apply-template');
       const runBtn = document.getElementById('sql-run');
+      const historySel = document.getElementById('sql-history');
       const formatSel = document.getElementById('sql-result-format');
       const inputEl = document.getElementById('sql-input');
       const errorEl = document.getElementById('sql-error');
       const resultEl = document.getElementById('sql-result');
 
       if (!toggle || !collapsible) return;
+
+      loadSqlHistory();
+      refreshHistoryDropdown(historySel);
+      if (historySel && inputEl) {
+        historySel.addEventListener('change', function() {
+          const v = this.value;
+          if (v !== '') {
+            const idx = parseInt(v, 10);
+            if (idx >= 0 && sqlHistory[idx]) inputEl.value = sqlHistory[idx].sql;
+          }
+        });
+      }
 
       toggle.addEventListener('click', function() {
         const isCollapsed = collapsible.classList.contains('collapsed');
@@ -1704,6 +1998,8 @@ abstract final class DriftDebugServer {
                 resultEl.innerHTML = '<p class="meta">' + rows.length + ' row(s)</p><pre>' + esc(JSON.stringify(rows, null, 2)) + '</pre>';
               }
               resultEl.style.display = 'block';
+              pushSqlHistory(sql, rows.length);
+              refreshHistoryDropdown(historySel);
             })
             .catch(e => {
               errorEl.textContent = e.message || String(e);

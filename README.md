@@ -39,24 +39,15 @@ import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
 await myDb.startDriftViewer(enabled: kDebugMode);
 ```
 
+`startDriftViewer` is implemented without a `drift` dependency (runtime “duck typing”). If you prefer compile-time type safety, use `DriftDebugServer.start(query: ...)` directly (see below).
+
 ### 3. Open in a browser
 
-Open **http://127.0.0.1:8642**. From VS Code/Cursor: **Run Task → Open Drift Viewer** (uses `.vscode/tasks.json` in this repo). Or install the **Drift Viewer** extension (`extension/`) for a command-palette shortcut. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **live refresh** (table view updates when data changes, no manual refresh), **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, **export table as CSV**, and a **light/dark theme** (saved in the browser). A **read-only SQL runner** lets you run ad-hoc `SELECT` queries with table/column autofill and templates; results can be shown as a table or JSON. You can **export schema (no data)** as `schema.sql`, **export a full dump (schema + data)** as `dump.sql`, or **download the raw SQLite file** (binary `.sqlite`) to open in DB Browser or similar—the download option requires passing `getDatabaseBytes` when starting the server (see below). **Snapshot / time travel**: take an in-memory snapshot of all tables, then "Compare to now" to see added/removed/unchanged rows per table and export the diff as JSON. **Database diff**: when you pass `queryCompare` at startup (e.g. a second DB such as staging), the UI can show a diff report (schema + per-table row counts) and export it.
+Open **http://127.0.0.1:8642**. From VS Code/Cursor: **Run Task → Open Drift Viewer** (uses `.vscode/tasks.json` in this repo). Or install the **Drift Viewer** extension (`extension/`) for a command-palette shortcut. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **live refresh** (table view updates when data changes, no manual refresh), **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, a **schema diagram** (tables + foreign keys; click a table to open it), **export table as CSV**, and a **light/dark theme** (saved in the browser). A **read-only SQL runner** lets you run ad-hoc `SELECT` queries with table/column autofill and templates; results can be shown as a table or JSON. The SQL runner also keeps a short **History** (last ~20 successful queries) in browser `localStorage`; pick from the **History** dropdown to reuse a query. You can **export schema (no data)** as `schema.sql`, **export a full dump (schema + data)** as `dump.sql`, or **download the raw SQLite file** (binary `.sqlite`) to open in DB Browser or similar—the download option requires passing `getDatabaseBytes` when starting the server (see below). **Snapshot / time travel**: take an in-memory snapshot of all tables, then "Compare to now" to see added/removed/unchanged rows per table and export the diff as JSON. **Database diff**: when you pass `queryCompare` at startup (e.g. a second DB such as staging), the UI can show a diff report (schema + per-table row counts) and export it.
 
 ---
 
-## Drift: one-line setup
-
-For Drift apps, the extension on `GeneratedDatabase` is the simplest option:
-
-```dart
-import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
-
-// One call after DB is initialized:
-await myDb.startDriftViewer(enabled: kDebugMode);
-```
-
-Optional parameters:
+## Optional parameters
 
 - **`port`** — default `8642`.
 - **`loopbackOnly`** — if `true`, bind to `127.0.0.1` only; if `false`, bind to `0.0.0.0`.
@@ -104,7 +95,7 @@ await DriftDebugServer.start(
 
 | API | Use when |
 |-----|----------|
-| **`db.startDriftViewer(enabled: ...)`** | You have a Drift `GeneratedDatabase` (one-line setup). |
+| **`db.startDriftViewer(enabled: ...)`** | You have a Drift database and want one-line setup. |
 | **`DriftDebugServer.start(query: ..., enabled: ...)`** | You use raw SQLite, or want to supply the query callback yourself. |
 
 Common parameters:

@@ -105,6 +105,40 @@ void main() {
       }
     });
 
+    test('GET /api/schema/diagram returns tables, columns, and foreign keys', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/schema/diagram');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        expect(resp.headers.value('content-type'), contains('application/json'));
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded, contains('tables'));
+        expect(decoded, contains('foreignKeys'));
+
+        final tables = decoded['tables'] as List<dynamic>;
+        expect(tables, isNotEmpty);
+        final first = tables.first as Map<String, dynamic>;
+        expect(first, containsPair('name', 'items'));
+        final columns = first['columns'] as List<dynamic>;
+        expect(columns.map((c) => (c as Map)['name']).toList(), ['id', 'name']);
+
+        final fks = decoded['foreignKeys'] as List<dynamic>;
+        expect(fks, isEmpty);
+      } finally {
+        client.close();
+      }
+    });
+
     test('GET /api/dump returns schema plus INSERT statements', () async {
       await DriftDebugServer.start(
         query: mockQuery,
@@ -268,6 +302,29 @@ void main() {
         final body = await resp.transform(utf8.decoder).join();
         final decoded = jsonDecode(body) as Map<String, dynamic>;
         expect(decoded['error'], contains('read-only'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET / serves HTML with SQL history UI', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        expect(resp.headers.value('content-type'), contains('text/html'));
+        final body = await resp.transform(utf8.decoder).join();
+        expect(body, contains('id="sql-history"'));
+        expect(body, contains("drift-viewer-sql-history"));
       } finally {
         client.close();
       }
@@ -569,10 +626,11 @@ void main() {
       );
       final port = DriftDebugServer.port;
       expect(port, isNotNull);
+      final p = port!;
 
       final client = HttpClient();
       try {
-        final postReq = await client.post('localhost', port!, '/api/snapshot');
+        final postReq = await client.post('localhost', p, '/api/snapshot');
         final postResp = await postReq.close();
         expect(postResp.statusCode, HttpStatus.ok);
         final postBody = await postResp.transform(utf8.decoder).join();
@@ -581,7 +639,7 @@ void main() {
         expect(postData['tables'], ['items']);
         expect(postData['tableCount'], 1);
 
-        final getReq = await client.get('localhost', port!, '/api/snapshot');
+        final getReq = await client.get('localhost', p, '/api/snapshot');
         final getResp = await getReq.close();
         expect(getResp.statusCode, HttpStatus.ok);
         final getBody = await getResp.transform(utf8.decoder).join();
@@ -601,11 +659,12 @@ void main() {
       );
       final port = DriftDebugServer.port;
       expect(port, isNotNull);
+      final p = port!;
 
       final client = HttpClient();
       try {
-        await (await client.post('localhost', port!, '/api/snapshot')).close();
-        final req = await client.get('localhost', port!, '/api/snapshot/compare');
+        await (await client.post('localhost', p, '/api/snapshot')).close();
+        final req = await client.get('localhost', p, '/api/snapshot/compare');
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.ok);
         final body = await resp.transform(utf8.decoder).join();
@@ -647,14 +706,15 @@ void main() {
       );
       final port = DriftDebugServer.port;
       expect(port, isNotNull);
+      final p = port!;
 
       final client = HttpClient();
       try {
-        await (await client.post('localhost', port!, '/api/snapshot')).close();
-        final delReq = await client.delete('localhost', port!, '/api/snapshot');
+        await (await client.post('localhost', p, '/api/snapshot')).close();
+        final delReq = await client.delete('localhost', p, '/api/snapshot');
         final delResp = await delReq.close();
         expect(delResp.statusCode, HttpStatus.ok);
-        final getReq = await client.get('localhost', port!, '/api/snapshot');
+        final getReq = await client.get('localhost', p, '/api/snapshot');
         final getResp = await getReq.close();
         final getBody = await getResp.transform(utf8.decoder).join();
         final getData = jsonDecode(getBody) as Map<String, dynamic>;
