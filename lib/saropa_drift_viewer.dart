@@ -2,15 +2,27 @@
 ///
 /// Use from any Flutter or Dart app that has a SQLite (or Drift) database. Add the package
 /// (from pub.dev or a path dependency), then start the server with [DriftDebugServer.start],
-/// passing a [DriftDebugQuery] callback that runs SQL and returns rows as maps. If you use
-/// Drift, see the README for the optional `startDriftViewer` extension (when available).
+/// passing a [DriftDebugQuery] callback that runs SQL and returns rows as maps.
 ///
-/// Main APIs:
-/// * [DriftDebugServer] — [DriftDebugServer.start] and [DriftDebugServer.stop].
-/// * [DriftDebugQuery] — Typedef for the SQL query callback.
-/// * [DriftDebugOnLog], [DriftDebugOnError] — Optional logging callbacks.
-/// * [DriftDebugErrorLogger] — Helpers for log and error callbacks.
+/// ## Public API
+///
+/// * **[DriftDebugServer]** — Static API: [DriftDebugServer.start] to run the server,
+///   [DriftDebugServer.stop] to shut it down, [DriftDebugServer.port] to read the bound port.
+/// * **[DriftDebugQuery]** — Callback that executes a SQL string and returns rows as
+///   `List<Map<String, dynamic>>`. Pass as the `query` argument to [DriftDebugServer.start].
+/// * **[DriftDebugOnLog]** — Optional callback for log messages (e.g. startup banner).
+///   Pass as `onLog` to [DriftDebugServer.start].
+/// * **[DriftDebugOnError]** — Optional callback for errors and stack traces. Pass as
+///   `onError` to [DriftDebugServer.start].
+/// * **[DriftDebugGetDatabaseBytes]** — Optional callback that returns the raw SQLite file
+///   bytes. Pass as `getDatabaseBytes` to enable "Download database" in the UI.
+/// * **[DriftDebugErrorLogger]** — Helpers for [DriftDebugOnLog] and [DriftDebugOnError]:
+///   [DriftDebugErrorLogger.logCallback], [DriftDebugErrorLogger.errorCallback], and
+///   [DriftDebugErrorLogger.callbacks] for a single prefix.
+///
+/// See the package README for HTTP endpoints, UI features, and optional auth for dev tunnels.
 library saropa_drift_viewer;
 
 export 'src/drift_debug_server.dart';
 export 'src/error_logger.dart';
+export 'src/start_drift_viewer_extension.dart';

@@ -7,19 +7,27 @@ import 'dart:io';
 /// Used by [DriftDebugServer.start] to list tables and fetch table data. Implement with
 /// your Drift database's `customSelect` or any SQLite executor. The server only sends
 /// allow-listed queries (e.g. table names from sqlite_master, SELECT with limit/offset).
-typedef DriftDebugQuery = Future<List<Map<String, dynamic>>> Function(String sql);
+/// Each row must be a map from column name (string) to value (dynamic; null allowed).
+typedef DriftDebugQuery = Future<List<Map<String, dynamic>>> Function(
+    String sql);
 
-/// Optional callback for log messages (e.g. startup banner).
-/// Pass as the `onLog` parameter to [DriftDebugServer.start].
+/// Optional callback for log messages (e.g. startup banner when the server binds).
+///
+/// Pass as the `onLog` parameter to [DriftDebugServer.start]. Use [DriftDebugErrorLogger.logCallback]
+/// or [DriftDebugErrorLogger.callbacks] for a ready-made implementation.
 typedef DriftDebugOnLog = void Function(String message);
 
 /// Optional callback for errors (and optional stack trace).
-/// Pass as the `onError` parameter to [DriftDebugServer.start].
+///
+/// Pass as the `onError` parameter to [DriftDebugServer.start]. Use [DriftDebugErrorLogger.errorCallback]
+/// or [DriftDebugErrorLogger.callbacks] for a defensive implementation that never throws.
 typedef DriftDebugOnError = void Function(Object error, StackTrace stack);
 
 /// Optional callback that returns the raw SQLite database file bytes.
-/// Pass as [getDatabaseBytes] to [DriftDebugServer.start] to enable "Download database"
-/// in the UI (GET /api/database). Use e.g. `() => File(yourDbPath).readAsBytes()`.
+///
+/// Pass as `getDatabaseBytes` to [DriftDebugServer.start] to enable "Download database"
+/// in the UI (GET /api/database). Typical implementation: `() => File(yourDbPath).readAsBytes()`.
+/// The downloaded file can be opened in DB Browser for SQLite or similar tools.
 typedef DriftDebugGetDatabaseBytes = Future<List<int>> Function();
 
 /// In-memory snapshot of table state (for time-travel compare).
@@ -35,9 +43,12 @@ class _Snapshot {
 /// Works with any database: pass a [query] callback that runs SQL and returns rows as maps.
 /// Use [start] to bind the server (default port 8642); open http://127.0.0.1:8642 in a browser.
 /// Only one server can run per process; use [stop] to shut down before calling [start] again.
-/// Optional auth for secure dev tunnels (e.g. ngrok). When set, all requests
-/// require either [authToken] (Bearer or query param `token`) or HTTP Basic
-/// ([basicAuthUser] + [basicAuthPassword]). Use one or both.
+///
+/// Optional auth for secure dev tunnels (e.g. ngrok): when [authToken] or HTTP Basic
+/// ([basicAuthUser] + [basicAuthPassword]) is set, all requests must be authenticated.
+///
+/// See the package README for API endpoints, UI features (live refresh, SQL runner, export),
+/// and optional features (snapshots, database diff, download raw .sqlite).
 abstract final class DriftDebugServer {
   static HttpServer? _server;
   static DriftDebugQuery? _query;
@@ -98,7 +109,27 @@ abstract final class DriftDebugServer {
   /// );
   /// ```
   ///
-  /// ## Example (with [DriftDebugErrorLogger])
+  /// ## Example (Drift: wire customSelect as the query callback)
+  ///
+  /// When using Drift, implement [query] with your database's customSelect, or use the
+  /// package's `startDriftViewer()` extension for one-line setup (see README).
+  ///
+  /// ```dart
+  /// // AppDatabase extends GeneratedDatabase; dbPath is your SQLite file path.
+  /// final db = AppDatabase();
+  /// await DriftDebugServer.start(
+  ///   query: (String sql) async {
+  ///     final rows = await db.customSelect(sql).get();
+  ///     return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
+  ///   },
+  ///   enabled: kDebugMode,
+  ///   getDatabaseBytes: () => File(dbPath).readAsBytes(),
+  ///   onLog: DriftDebugErrorLogger.logCallback(prefix: 'DriftDebug'),
+  ///   onError: DriftDebugErrorLogger.errorCallback(prefix: 'DriftDebug'),
+  /// );
+  /// ```
+  ///
+  /// ## Example (with [DriftDebugErrorLogger.callbacks])
   ///
   /// ```dart
   /// final callbacks = DriftDebugErrorLogger.callbacks(prefix: 'DriftDebug');
@@ -138,7 +169,8 @@ abstract final class DriftDebugServer {
     _getDatabaseBytes = getDatabaseBytes;
 
     try {
-      final address = loopbackOnly ? InternetAddress.loopbackIPv4 : InternetAddress.anyIPv4;
+      final address =
+          loopbackOnly ? InternetAddress.loopbackIPv4 : InternetAddress.anyIPv4;
       _server = await HttpServer.bind(address, port);
       _server!.listen(_onRequest);
       _startChangeCheckTimer();
@@ -241,11 +273,13 @@ abstract final class DriftDebugServer {
   static Future<void> _sendUnauthorized(HttpResponse response) async {
     response.statusCode = HttpStatus.unauthorized;
     if (_basicAuthUser != null && _basicAuthPassword != null) {
-      response.headers.set('WWW-Authenticate', 'Basic realm="Drift Debug Viewer"');
+      response.headers
+          .set('WWW-Authenticate', 'Basic realm="Drift Debug Viewer"');
     }
     _setJsonHeaders(response);
     response.write(jsonEncode(<String, String>{
-      'error': 'Authentication required. Use Authorization: Bearer <token>, ?token=<token>, or HTTP Basic.',
+      'error':
+          'Authentication required. Use Authorization: Bearer <token>, ?token=<token>, or HTTP Basic.',
     }));
     await response.close();
   }
@@ -254,7 +288,8 @@ abstract final class DriftDebugServer {
     final String path = request.uri.path;
 
     // When auth is configured, require it on every request (including health and HTML).
-    if (_authToken != null || (_basicAuthUser != null && _basicAuthPassword != null)) {
+    if (_authToken != null ||
+        (_basicAuthUser != null && _basicAuthPassword != null)) {
       if (!_isAuthenticated(request)) {
         await _sendUnauthorized(request.response);
         return;
@@ -263,11 +298,13 @@ abstract final class DriftDebugServer {
 
     // Health and generation are handled before query check so probes / live-refresh work.
     try {
-      if (request.method == 'GET' && (path == '/api/health' || path == 'api/health')) {
+      if (request.method == 'GET' &&
+          (path == '/api/health' || path == 'api/health')) {
         await _sendHealth(request.response);
         return;
       }
-      if (request.method == 'GET' && (path == '/api/generation' || path == 'api/generation')) {
+      if (request.method == 'GET' &&
+          (path == '/api/generation' || path == 'api/generation')) {
         await _handleGeneration(request);
         return;
       }
@@ -289,14 +326,14 @@ abstract final class DriftDebugServer {
         await _sendHtml(request.response, request);
         return;
       }
-      if (request.method == 'GET' && (path == '/api/tables' || path == 'api/tables')) {
+      if (request.method == 'GET' &&
+          (path == '/api/tables' || path == 'api/tables')) {
         await _sendTableList(request.response, query);
         return;
       }
       if (request.method == 'GET' &&
           (path.startsWith('/api/table/') || path.startsWith('api/table/'))) {
-        final String suffix =
-            path.replaceFirst(RegExp(r'^/?api/table/'), '');
+        final String suffix = path.replaceFirst(RegExp(r'^/?api/table/'), '');
         // GET /api/table/<name>/count returns {"count": N}; limit/offset via query params for table data.
         if (suffix.endsWith('/count')) {
           final String tableName = suffix.replaceFirst(RegExp(r'/count$'), '');
@@ -305,7 +342,8 @@ abstract final class DriftDebugServer {
         }
         // GET /api/table/<name>/columns returns list of column names for autofill.
         if (suffix.endsWith('/columns')) {
-          final String tableName = suffix.replaceFirst(RegExp(r'/columns$'), '');
+          final String tableName =
+              suffix.replaceFirst(RegExp(r'/columns$'), '');
           await _sendTableColumns(request.response, query, tableName);
           return;
         }
@@ -315,11 +353,13 @@ abstract final class DriftDebugServer {
         await _sendTableData(request.response, query, tableName, limit, offset);
         return;
       }
-      if (request.method == 'POST' && (path == '/api/sql' || path == 'api/sql')) {
+      if (request.method == 'POST' &&
+          (path == '/api/sql' || path == 'api/sql')) {
         await _handleRunSql(request, query);
         return;
       }
-      if (request.method == 'GET' && (path == '/api/schema' || path == 'api/schema')) {
+      if (request.method == 'GET' &&
+          (path == '/api/schema' || path == 'api/schema')) {
         await _sendSchemaDump(request.response, query);
         return;
       }
@@ -328,19 +368,23 @@ abstract final class DriftDebugServer {
         await _sendSchemaDiagram(request.response, query);
         return;
       }
-      if (request.method == 'GET' && (path == '/api/dump' || path == 'api/dump')) {
+      if (request.method == 'GET' &&
+          (path == '/api/dump' || path == 'api/dump')) {
         await _sendFullDump(request.response, query);
         return;
       }
-      if (request.method == 'GET' && (path == '/api/database' || path == 'api/database')) {
+      if (request.method == 'GET' &&
+          (path == '/api/database' || path == 'api/database')) {
         await _sendDatabaseFile(request.response);
         return;
       }
-      if (request.method == 'POST' && (path == '/api/snapshot' || path == 'api/snapshot')) {
+      if (request.method == 'POST' &&
+          (path == '/api/snapshot' || path == 'api/snapshot')) {
         await _handleSnapshotCreate(request.response, query);
         return;
       }
-      if (request.method == 'GET' && (path == '/api/snapshot' || path == 'api/snapshot')) {
+      if (request.method == 'GET' &&
+          (path == '/api/snapshot' || path == 'api/snapshot')) {
         await _handleSnapshotGet(request.response);
         return;
       }
@@ -349,12 +393,14 @@ abstract final class DriftDebugServer {
         await _handleSnapshotCompare(request.response, request, query);
         return;
       }
-      if (request.method == 'DELETE' && (path == '/api/snapshot' || path == 'api/snapshot')) {
+      if (request.method == 'DELETE' &&
+          (path == '/api/snapshot' || path == 'api/snapshot')) {
         await _handleSnapshotDelete(request.response);
         return;
       }
       if (request.method == 'GET' &&
-          (path.startsWith('/api/compare/') || path.startsWith('api/compare/'))) {
+          (path.startsWith('/api/compare/') ||
+              path.startsWith('api/compare/'))) {
         await _handleCompareReport(request.response, request, query);
         return;
       }
@@ -388,12 +434,24 @@ abstract final class DriftDebugServer {
     }
     if (s.endsWith(';')) s = s.substring(0, s.length - 1).trim();
     final upper = s.toUpperCase();
-    if (!upper.startsWith('SELECT ') && !upper.startsWith('WITH ')) return false;
+    if (!upper.startsWith('SELECT ') && !upper.startsWith('WITH '))
+      return false;
     // Forbidden keywords (word boundary to avoid false positives in identifiers).
     const forbidden = [
-      'INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'TRUNCATE',
-      'CREATE', 'ALTER', 'DROP', 'ATTACH', 'DETACH',
-      'PRAGMA', 'VACUUM', 'ANALYZE', 'REINDEX',
+      'INSERT',
+      'UPDATE',
+      'DELETE',
+      'REPLACE',
+      'TRUNCATE',
+      'CREATE',
+      'ALTER',
+      'DROP',
+      'ATTACH',
+      'DETACH',
+      'PRAGMA',
+      'VACUUM',
+      'ANALYZE',
+      'REINDEX',
     ];
     final words = RegExp(r'\b\w+\b');
     for (final match in words.allMatches(upper)) {
@@ -403,7 +461,8 @@ abstract final class DriftDebugServer {
   }
 
   /// Handles POST /api/sql: body {"sql": "SELECT ..."}, runs read-only SQL, returns rows.
-  static Future<void> _handleRunSql(HttpRequest request, DriftDebugQuery query) async {
+  static Future<void> _handleRunSql(
+      HttpRequest request, DriftDebugQuery query) async {
     final HttpResponse response = request.response;
     String body;
     try {
@@ -417,7 +476,8 @@ abstract final class DriftDebugServer {
       _logError(e, st);
       response.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(response);
-      response.write(jsonEncode(<String, String>{'error': 'Invalid request body'}));
+      response
+          .write(jsonEncode(<String, String>{'error': 'Invalid request body'}));
       await response.close();
       return;
     }
@@ -436,7 +496,8 @@ abstract final class DriftDebugServer {
     if (sql.isEmpty) {
       response.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(response);
-      response.write(jsonEncode(<String, String>{'error': 'Missing or empty sql'}));
+      response
+          .write(jsonEncode(<String, String>{'error': 'Missing or empty sql'}));
       await response.close();
       return;
     }
@@ -465,7 +526,8 @@ abstract final class DriftDebugServer {
   }
 
   /// Sends a 500 JSON error response and closes the response.
-  static Future<void> _sendErrorResponse(HttpResponse response, Object error) async {
+  static Future<void> _sendErrorResponse(
+      HttpResponse response, Object error) async {
     response.statusCode = HttpStatus.internalServerError;
     response.headers.contentType = ContentType.json;
     _setCors(response);
@@ -499,7 +561,10 @@ abstract final class DriftDebugServer {
     const String sql =
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
     final List<Map<String, dynamic>> rows = await query(sql);
-    return rows.map((r) => r['name'] as String? ?? '').where((s) => s.isNotEmpty).toList();
+    return rows
+        .map((r) => r['name'] as String? ?? '')
+        .where((s) => s.isNotEmpty)
+        .toList();
   }
 
   /// If [tableName] is not in the allow-list, sends 400 and returns false; otherwise returns true.
@@ -512,14 +577,16 @@ abstract final class DriftDebugServer {
     if (!allowed.contains(tableName)) {
       response.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(response);
-      response.write(jsonEncode(<String, String>{'error': 'Unknown table: $tableName'}));
+      response.write(
+          jsonEncode(<String, String>{'error': 'Unknown table: $tableName'}));
       await response.close();
       return false;
     }
     return true;
   }
 
-  static Future<void> _sendTableList(HttpResponse response, DriftDebugQuery query) async {
+  static Future<void> _sendTableList(
+      HttpResponse response, DriftDebugQuery query) async {
     final List<String> names = await _getTableNames(query);
     _setJsonHeaders(response);
     response.write(jsonEncode(names));
@@ -578,7 +645,8 @@ abstract final class DriftDebugServer {
 
   /// Fetches schema (CREATE statements) from sqlite_master, no data.
   static Future<String> _getSchemaSql(DriftDebugQuery query) async {
-    const String sql = "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type, name";
+    const String sql =
+        "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type, name";
     final List<Map<String, dynamic>> rows = await query(sql);
     final buffer = StringBuffer();
     for (final row in rows) {
@@ -610,13 +678,15 @@ abstract final class DriftDebugServer {
       }
     }
     _setJsonHeaders(request.response);
-    request.response.write(jsonEncode(<String, int>{'generation': _generation}));
+    request.response
+        .write(jsonEncode(<String, int>{'generation': _generation}));
     await request.response.close();
   }
 
   static void _startChangeCheckTimer() {
     _changeCheckTimer?.cancel();
-    _changeCheckTimer = Timer.periodic(_changeCheckInterval, (_) => _checkDataChange());
+    _changeCheckTimer =
+        Timer.periodic(_changeCheckInterval, (_) => _checkDataChange());
   }
 
   /// Runs a lightweight fingerprint of table row counts; bumps [_generation] when it changes.
@@ -646,7 +716,8 @@ abstract final class DriftDebugServer {
   }
 
   /// Sends schema-only SQL dump (CREATE statements from sqlite_master, no data).
-  static Future<void> _sendSchemaDump(HttpResponse response, DriftDebugQuery query) async {
+  static Future<void> _sendSchemaDump(
+      HttpResponse response, DriftDebugQuery query) async {
     final String schema = await _getSchemaSql(query);
     response.statusCode = HttpStatus.ok;
     _setAttachmentHeaders(response, 'schema.sql');
@@ -654,31 +725,22 @@ abstract final class DriftDebugServer {
     await response.close();
   }
 
-  static String _escapeSqliteIdentifier(String identifier) {
-    // Escape for double-quoted SQLite identifier: "a""b"
-    return identifier.replaceAll('"', '""');
-  }
-
-  /// Returns tables, columns, and foreign keys for a lightweight schema diagram.
-  static Future<Map<String, dynamic>> _getSchemaDiagramData(
-    DriftDebugQuery query,
-  ) async {
+  /// Returns diagram data: tables with columns, and foreign keys (from sqlite_master + PRAGMA).
+  static Future<Map<String, dynamic>> _getDiagramData(
+      DriftDebugQuery query) async {
     final List<String> tableNames = await _getTableNames(query);
     final List<Map<String, dynamic>> tables = [];
     final List<Map<String, dynamic>> foreignKeys = [];
 
     for (final tableName in tableNames) {
-      final escaped = _escapeSqliteIdentifier(tableName);
-
       final List<Map<String, dynamic>> infoRows =
-          await query('PRAGMA table_info("$escaped")');
+          await query('PRAGMA table_info("$tableName")');
       final List<Map<String, dynamic>> columns = infoRows
           .map((r) => <String, dynamic>{
                 'name': r['name'] as String? ?? '',
                 'type': r['type'] as String? ?? '',
                 'pk': (r['pk'] is int) ? (r['pk'] as int) != 0 : false,
               })
-          .where((c) => (c['name'] as String).isNotEmpty)
           .toList();
 
       tables.add(<String, dynamic>{
@@ -686,30 +748,27 @@ abstract final class DriftDebugServer {
         'columns': columns,
       });
 
-      // Foreign key support depends on schema; skip if it fails for any reason.
       try {
         final List<Map<String, dynamic>> fkRows =
-            await query('PRAGMA foreign_key_list("$escaped")');
+            await query('PRAGMA foreign_key_list("$tableName")');
         for (final r in fkRows) {
           final toTable = r['table'] as String?;
           final fromCol = r['from'] as String?;
           final toCol = r['to'] as String?;
-          if (toTable == null || toTable.isEmpty) continue;
-          if (fromCol == null || fromCol.isEmpty) continue;
-          if (toCol == null || toCol.isEmpty) continue;
-          foreignKeys.add(<String, dynamic>{
-            'fromTable': tableName,
-            'fromColumn': fromCol,
-            'toTable': toTable,
-            'toColumn': toCol,
-            'id': r['id'],
-            'seq': r['seq'],
-            'onUpdate': r['on_update'],
-            'onDelete': r['on_delete'],
-          });
+          if (toTable != null &&
+              toTable.isNotEmpty &&
+              fromCol != null &&
+              toCol != null) {
+            foreignKeys.add(<String, dynamic>{
+              'fromTable': tableName,
+              'fromColumn': fromCol,
+              'toTable': toTable,
+              'toColumn': toCol,
+            });
+          }
         }
       } on Object {
-        // ignore
+        // PRAGMA foreign_key_list may not be supported or may fail on some DBs; skip FKs.
       }
     }
 
@@ -719,13 +778,11 @@ abstract final class DriftDebugServer {
     };
   }
 
-  /// Sends JSON diagram data for GET /api/schema/diagram.
+  /// Sends JSON diagram data for GET /api/schema/diagram (tables + columns + foreign keys).
   static Future<void> _sendSchemaDiagram(
-    HttpResponse response,
-    DriftDebugQuery query,
-  ) async {
+      HttpResponse response, DriftDebugQuery query) async {
     try {
-      final data = await _getSchemaDiagramData(query);
+      final Map<String, dynamic> data = await _getDiagramData(query);
       _setJsonHeaders(response);
       response.write(const JsonEncoder.withIndent('  ').convert(data));
       await response.close();
@@ -771,7 +828,8 @@ abstract final class DriftDebugServer {
   }
 
   /// Sends full dump (schema + data) as downloadable SQL file. May be slow for large DBs.
-  static Future<void> _sendFullDump(HttpResponse response, DriftDebugQuery query) async {
+  static Future<void> _sendFullDump(
+      HttpResponse response, DriftDebugQuery query) async {
     final String dump = await _getFullDumpSql(query);
     response.statusCode = HttpStatus.ok;
     _setAttachmentHeaders(response, 'dump.sql');
@@ -787,7 +845,8 @@ abstract final class DriftDebugServer {
       response.statusCode = HttpStatus.notImplemented;
       _setJsonHeaders(response);
       response.write(jsonEncode(<String, String>{
-        'error': 'Database download not configured. Pass getDatabaseBytes to DriftDebugServer.start (e.g. () => File(dbPath).readAsBytes()).',
+        'error':
+            'Database download not configured. Pass getDatabaseBytes to DriftDebugServer.start (e.g. () => File(dbPath).readAsBytes()).',
       }));
       await response.close();
       return;
@@ -796,7 +855,8 @@ abstract final class DriftDebugServer {
       final bytes = await getBytes();
       response.statusCode = HttpStatus.ok;
       response.headers.contentType = ContentType('application', 'octet-stream');
-      response.headers.set('Content-Disposition', 'attachment; filename="database.sqlite"');
+      response.headers
+          .set('Content-Disposition', 'attachment; filename="database.sqlite"');
       _setCors(response);
       response.add(bytes);
       await response.close();
@@ -829,7 +889,8 @@ abstract final class DriftDebugServer {
         data[table] = rows.map((r) => Map<String, dynamic>.from(r)).toList();
       }
       final id = DateTime.now().toUtc().toIso8601String();
-      _snapshot = _Snapshot(id: id, createdAt: DateTime.now().toUtc(), tables: data);
+      _snapshot =
+          _Snapshot(id: id, createdAt: DateTime.now().toUtc(), tables: data);
       _setJsonHeaders(response);
       response.write(jsonEncode(<String, dynamic>{
         'id': _snapshot!.id,
@@ -956,7 +1017,8 @@ abstract final class DriftDebugServer {
       response.statusCode = HttpStatus.notImplemented;
       _setJsonHeaders(response);
       response.write(jsonEncode(<String, String>{
-        'error': 'Database compare not configured. Pass queryCompare to DriftDebugServer.start.',
+        'error':
+            'Database compare not configured. Pass queryCompare to DriftDebugServer.start.',
       }));
       await response.close();
       return;
@@ -989,8 +1051,10 @@ abstract final class DriftDebugServer {
         int countA = 0;
         int countB = 0;
         int idx = 0;
-        if (tablesA.contains(table)) countA = _extractCountFromRows(results[idx++]);
-        if (tablesB.contains(table)) countB = _extractCountFromRows(results[idx++]);
+        if (tablesA.contains(table))
+          countA = _extractCountFromRows(results[idx++]);
+        if (tablesB.contains(table))
+          countB = _extractCountFromRows(results[idx++]);
         countDiffs.add(<String, dynamic>{
           'table': table,
           'countA': countA,
@@ -1002,7 +1066,8 @@ abstract final class DriftDebugServer {
       }
       final report = <String, dynamic>{
         'schemaSame': schemaSame,
-        'schemaDiff': schemaSame ? null : <String, String>{'a': schemaA, 'b': schemaB},
+        'schemaDiff':
+            schemaSame ? null : <String, String>{'a': schemaA, 'b': schemaB},
         'tablesOnlyInA': tablesA.where((t) => !tablesB.contains(t)).toList(),
         'tablesOnlyInB': tablesB.where((t) => !tablesA.contains(t)).toList(),
         'tableCounts': countDiffs,
@@ -1031,8 +1096,10 @@ abstract final class DriftDebugServer {
   }
 
   static void _setAttachmentHeaders(HttpResponse response, String filename) {
-    response.headers.contentType = ContentType('text', 'plain', charset: 'utf-8');
-    response.headers.set('Content-Disposition', 'attachment; filename="$filename"');
+    response.headers.contentType =
+        ContentType('text', 'plain', charset: 'utf-8');
+    response.headers
+        .set('Content-Disposition', 'attachment; filename="$filename"');
     _setCors(response);
   }
 
@@ -1048,7 +1115,8 @@ abstract final class DriftDebugServer {
     _setCors(response);
   }
 
-  static Future<void> _sendHtml(HttpResponse response, HttpRequest request) async {
+  static Future<void> _sendHtml(
+      HttpResponse response, HttpRequest request) async {
     String html = _indexHtml;
     // Inject auth token into page so client-side fetch() can send Bearer header on all API calls.
     final authToken = _authToken;
@@ -1117,16 +1185,13 @@ abstract final class DriftDebugServer {
     #live-indicator { font-size: 0.75rem; margin-left: 0.5rem; }
     body.theme-dark #live-indicator { color: #7cb342; }
     body.theme-light #live-indicator { color: #558b2f; }
-    #diagram-container { overflow: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-pre); padding: 0.5rem; }
-    .diagram-loading { display: inline-flex; align-items: center; gap: 0.5rem; }
-    .diagram-spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--link); border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .diagram-table rect { fill: var(--bg); stroke: var(--border); stroke-width: 1.5; transition: stroke 120ms ease; }
+    #diagram-container { min-height: 200px; }
+    .diagram-table rect { fill: var(--bg-pre); stroke: var(--border); stroke-width: 1.5; }
     .diagram-table:hover rect { stroke: var(--link); }
     .diagram-table { cursor: pointer; }
-    .diagram-name { font-weight: 600; font-size: 13px; fill: var(--link); }
-    .diagram-col { font-size: 11px; fill: var(--muted); }
-    .diagram-link { stroke: var(--muted); stroke-width: 1; fill: none; opacity: 0.8; }
+    .diagram-table .diagram-name { font-weight: 600; font-size: 13px; }
+    .diagram-table .diagram-col { font-size: 11px; fill: var(--muted); }
+    .diagram-link { stroke: var(--muted); stroke-width: 1; fill: none; }
   </style>
 </head>
 <body>
@@ -1207,7 +1272,7 @@ abstract final class DriftDebugServer {
   <div class="collapsible-header" id="diagram-toggle">▼ Schema diagram</div>
   <div id="diagram-collapsible" class="collapsible-body collapsed">
     <p class="meta">Tables and relationships. Click a table to view its data.</p>
-    <div id="diagram-container"><span class="meta">Expand to load.</span></div>
+    <div id="diagram-container"></div>
   </div>
   <ul id="tables"></ul>
   <div id="content" class="content-wrap"></div>
@@ -1342,86 +1407,64 @@ abstract final class DriftDebugServer {
       const collapsible = document.getElementById('diagram-collapsible');
       const container = document.getElementById('diagram-container');
       if (!toggle || !collapsible || !container) return;
-
-      const BOX_W = 220;
-      const BOX_H = 150;
-      const PAD = 14;
-      const MAX_COLS = 4;
-
+      const BOX_W = 200;
+      const BOX_H = 160;
+      const PAD = 12;
+      const COLS = 4;
       let diagramData = null;
-      let diagramLoading = false;
 
-      function setLoading(msg) {
-        container.innerHTML = '<div class="diagram-loading meta"><span class="diagram-spinner"></span>' + esc(msg || 'Loading…') + '</div>';
-      }
-
-      function tablePos(index, cols) {
-        const row = Math.floor(index / cols);
-        const col = index % cols;
+      function tablePos(index) {
+        const row = Math.floor(index / COLS);
+        const col = index % COLS;
         return { x: col * (BOX_W + PAD) + PAD, y: row * (BOX_H + PAD) + PAD };
       }
 
       function renderDiagram(data) {
-        const tables = (data && data.tables) ? data.tables : [];
-        const fks = (data && data.foreignKeys) ? data.foreignKeys : [];
-        if (!Array.isArray(tables) || tables.length === 0) {
+        const tables = data.tables || [];
+        const fks = data.foreignKeys || [];
+        if (tables.length === 0) {
           container.innerHTML = '<p class="meta">No tables.</p>';
           return;
         }
-
-        const cols = Math.min(MAX_COLS, tables.length);
-        const rows = Math.ceil(tables.length / cols);
-        const width = cols * (BOX_W + PAD) + PAD;
+        const rows = Math.ceil(tables.length / COLS);
+        const width = COLS * (BOX_W + PAD) + PAD;
         const height = rows * (BOX_H + PAD) + PAD;
-
         const nameToIndex = {};
         tables.forEach((t, i) => { nameToIndex[t.name] = i; });
-
-        function anchorPoint(iA, iB) {
-          const a = tablePos(iA, cols);
-          const b = tablePos(iB, cols);
-          const aCenter = { x: a.x + BOX_W / 2, y: a.y + BOX_H / 2 };
-          const bCenter = { x: b.x + BOX_W / 2, y: b.y + BOX_H / 2 };
-          const fromRight = aCenter.x <= bCenter.x;
-          return {
-            from: { x: fromRight ? (a.x + BOX_W) : a.x, y: aCenter.y },
-            to: { x: fromRight ? b.x : (b.x + BOX_W), y: bCenter.y },
-          };
-        }
+        const getCenter = (index, side) => {
+          const p = tablePos(index);
+          const cx = p.x + BOX_W / 2;
+          const cy = p.y + BOX_H / 2;
+          if (side === 'right') return { x: p.x + BOX_W, y: cy };
+          if (side === 'left') return { x: p.x, y: cy };
+          return { x: cx, y: cy };
+        };
 
         let svg = '<svg width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
         svg += '<g class="diagram-links">';
-        if (Array.isArray(fks)) {
-          fks.forEach(function(fk) {
-            const iFrom = nameToIndex[fk.fromTable];
-            const iTo = nameToIndex[fk.toTable];
-            if (iFrom == null || iTo == null) return;
-            const pts = anchorPoint(iFrom, iTo);
-            const midX = (pts.from.x + pts.to.x) / 2;
-            svg += '<path class="diagram-link" d="M' + pts.from.x + ',' + pts.from.y + ' C' + midX + ',' + pts.from.y + ' ' + midX + ',' + pts.to.y + ' ' + pts.to.x + ',' + pts.to.y + '"></path>';
-          });
-        }
+        fks.forEach(function(fk) {
+          const iFrom = nameToIndex[fk.fromTable];
+          const iTo = nameToIndex[fk.toTable];
+          if (iFrom == null || iTo == null) return;
+          const from = getCenter(iFrom, 'right');
+          const to = getCenter(iTo, 'left');
+          const mid = (from.x + to.x) / 2;
+          svg += '<path class="diagram-link" d="M' + from.x + ',' + from.y + ' C' + mid + ',' + from.y + ' ' + mid + ',' + to.y + ' ' + to.x + ',' + to.y + '" />';
+        });
         svg += '</g><g class="diagram-tables">';
         tables.forEach(function(t, i) {
-          const p = tablePos(i, cols);
-          const displayName = esc(t.name);
-          const attrName = encodeURIComponent(String(t.name || ''));
-          const columns = Array.isArray(t.columns) ? t.columns : [];
-          const colsToShow = columns.slice(0, 7);
-
-          let body = '';
-          colsToShow.forEach(function(c, idx) {
-            const name = c && c.name ? String(c.name) : '';
-            const type = c && c.type ? String(c.type) : '';
-            const pk = c && c.pk ? ' PK' : '';
-            body += '<tspan class="diagram-col" x="8" dy="' + (idx === 0 ? 14 : 14) + '">' + esc(name + (type ? ' ' + type : '') + pk) + '</tspan>';
-          });
-          if (columns.length > colsToShow.length) body += '<tspan class="diagram-col" x="8" dy="14">…</tspan>';
-
-          svg += '<g class="diagram-table" data-table="' + attrName + '" transform="translate(' + p.x + ',' + p.y + ')">';
-          svg += '<rect width="' + BOX_W + '" height="' + BOX_H + '" rx="6"></rect>';
-          svg += '<text class="diagram-name" x="8" y="20">' + displayName + '</text>';
-          svg += '<text x="8" y="36">' + body + '</text>';
+          const p = tablePos(i);
+          const cols = (t.columns || []).slice(0, 6);
+          const name = esc(t.name);
+          let body = cols.map(function(c) {
+            const pk = c.pk ? ' <tspan class="diagram-pk">PK</tspan>' : '';
+            return '<tspan class="diagram-col" x="' + (p.x + 8) + '" dy="16">' + esc(c.name) + (c.type ? ' ' + esc(c.type) : '') + pk + '</tspan>';
+          }).join('');
+          if ((t.columns || []).length > 6) body += '<tspan class="diagram-col" x="' + (p.x + 8) + '" dy="16">…</tspan>';
+          svg += '<g class="diagram-table" data-table="' + name + '" transform="translate(' + p.x + ',' + p.y + ')">';
+          svg += '<rect width="' + BOX_W + '" height="' + BOX_H + '" rx="4"/>';
+          svg += '<text class="diagram-name" x="8" y="22" style="fill: var(--link);">' + name + '</text>';
+          svg += '<text x="8" y="38">' + body + '</text>';
           svg += '</g>';
         });
         svg += '</g></svg>';
@@ -1429,39 +1472,29 @@ abstract final class DriftDebugServer {
 
         container.querySelectorAll('.diagram-table').forEach(function(g) {
           g.addEventListener('click', function() {
-            const encoded = this.getAttribute('data-table') || '';
-            if (!encoded) return;
-            let name = encoded;
-            try { name = decodeURIComponent(encoded); } catch (e) {}
+            const name = this.getAttribute('data-table');
             if (name) loadTable(name);
           });
         });
-      }
-
-      function loadDiagram() {
-        if (diagramLoading) return;
-        diagramLoading = true;
-        setLoading('Loading diagram…');
-        fetch('/api/schema/diagram', authOpts())
-          .then(r => r.json().then(function(d) { return { ok: r.ok, data: d }; }))
-          .then(function(o) {
-            if (!o.ok) throw new Error((o.data && o.data.error) ? o.data.error : 'Request failed');
-            diagramData = o.data;
-            renderDiagram(diagramData);
-          })
-          .catch(function(e) {
-            container.innerHTML = '<p class="meta">Failed to load diagram: ' + esc(String(e && e.message ? e.message : e)) + '</p>';
-          })
-          .finally(function() { diagramLoading = false; });
       }
 
       toggle.addEventListener('click', function() {
         const isCollapsed = collapsible.classList.contains('collapsed');
         collapsible.classList.toggle('collapsed', !isCollapsed);
         this.textContent = isCollapsed ? '▲ Schema diagram' : '▼ Schema diagram';
-        if (isCollapsed) {
-          if (diagramData === null) loadDiagram();
-          else renderDiagram(diagramData);
+        if (isCollapsed && diagramData === null) {
+          container.innerHTML = '<p class="meta">Loading…</p>';
+          fetch('/api/schema/diagram', authOpts())
+            .then(r => r.json())
+            .then(function(data) {
+              diagramData = data;
+              renderDiagram(data);
+            })
+            .catch(function(e) {
+              container.innerHTML = '<p class="meta">Failed to load diagram: ' + esc(String(e)) + '</p>';
+            });
+        } else if (isCollapsed && diagramData) {
+          renderDiagram(diagramData);
         }
       });
     })();
@@ -1884,9 +1917,6 @@ abstract final class DriftDebugServer {
       const inputEl = document.getElementById('sql-input');
       const errorEl = document.getElementById('sql-error');
       const resultEl = document.getElementById('sql-result');
-
-      if (!toggle || !collapsible) return;
-
       loadSqlHistory();
       refreshHistoryDropdown(historySel);
       if (historySel && inputEl) {
@@ -1898,6 +1928,8 @@ abstract final class DriftDebugServer {
           }
         });
       }
+
+      if (!toggle || !collapsible) return;
 
       toggle.addEventListener('click', function() {
         const isCollapsed = collapsible.classList.contains('collapsed');

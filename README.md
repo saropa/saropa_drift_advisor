@@ -6,6 +6,8 @@
 
 Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web UI. Use from any Flutter/Dart app that has a Drift (or other SQLite) database.
 
+**Features:** Table list with row counts; pagination (limit/offset) and client-side filter; collapsible schema panel; export table as CSV; light/dark theme (localStorage); read-only SQL runner with templates/autofill + query history (localStorage); export schema-only or full dump (schema + data); download raw SQLite file (when `getDatabaseBytes` is set); live refresh (long-poll); snapshot / time travel (in-memory snapshot, compare to now, export diff); database diff (optional `queryCompare` vs another DB, schema + row count diff, export report); optional auth (token or HTTP Basic) for secure dev tunnels; bind address (loopback or any), CORS, health endpoint (`GET /api/health`), and `DriftDebugServer.stop()`. Open from VS Code/Cursor via **Run Task → Open Drift Viewer** or the **Drift Viewer** extension in `extension/`.
+
 ## Setup
 
 ### 1. Add the dependency
@@ -28,75 +30,48 @@ dependencies:
 
 Then run `flutter pub get` or `dart pub get`.
 
-### 2. Start the viewer (Drift apps)
+**Example app:** An [example/](example/) Flutter app demonstrates a Drift database with the viewer. From the repo root: `flutter run -d windows` (or another device), then open http://127.0.0.1:8642 in a browser. See [example/README.md](example/README.md).
 
-After your Drift database is initialized, call `startDriftViewer` on it (e.g. in `main()` or right after DB init):
+### 2. Start the viewer (Drift one-line)
+
+If you use Drift, you can start the viewer with one call:
 
 ```dart
 import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
 
-// After your database is ready (e.g. AppDatabase, or your GeneratedDatabase subclass):
 await myDb.startDriftViewer(enabled: kDebugMode);
 ```
 
-`startDriftViewer` is implemented without a `drift` dependency (runtime “duck typing”). If you prefer compile-time type safety, use `DriftDebugServer.start(query: ...)` directly (see below).
-
-### 3. Open in a browser
-
-Open **http://127.0.0.1:8642**. From VS Code/Cursor: **Run Task → Open Drift Viewer** (uses `.vscode/tasks.json` in this repo). Or install the **Drift Viewer** extension (`extension/`) for a command-palette shortcut. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **live refresh** (table view updates when data changes, no manual refresh), **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, a **schema diagram** (tables + foreign keys; click a table to open it), **export table as CSV**, and a **light/dark theme** (saved in the browser). A **read-only SQL runner** lets you run ad-hoc `SELECT` queries with table/column autofill and templates; results can be shown as a table or JSON. The SQL runner also keeps a short **History** (last ~20 successful queries) in browser `localStorage`; pick from the **History** dropdown to reuse a query. You can **export schema (no data)** as `schema.sql`, **export a full dump (schema + data)** as `dump.sql`, or **download the raw SQLite file** (binary `.sqlite`) to open in DB Browser or similar—the download option requires passing `getDatabaseBytes` when starting the server (see below). **Snapshot / time travel**: take an in-memory snapshot of all tables, then "Compare to now" to see added/removed/unchanged rows per table and export the diff as JSON. **Database diff**: when you pass `queryCompare` at startup (e.g. a second DB such as staging), the UI can show a diff report (schema + per-table row counts) and export it.
+This package does **not** depend on `drift`. The extension uses runtime wiring (`customSelect(sql).get()`), so if you prefer compile-time type safety you can use the callback API below.
 
 ---
 
-## Optional parameters
+## Callback-based API (Drift or non-Drift)
 
-- **`port`** — default `8642`.
-- **`loopbackOnly`** — if `true`, bind to `127.0.0.1` only; if `false`, bind to `0.0.0.0`.
-- **`corsOrigin`** — `'*'` (default), a specific origin, or `null` to omit CORS.
-- **`authToken`** — optional. When set, every request must include `Authorization: Bearer <token>` or `?token=<token>`. Use for secure dev tunnels (e.g. ngrok).
-- **`basicAuthUser`** and **`basicAuthPassword`** — optional. When both set, HTTP Basic auth is accepted (alternative to token).
-- **`getDatabaseBytes`** — optional. When set, the UI offers "Download database (raw .sqlite)" and `GET /api/database` serves the file (e.g. `() => File(yourDbPath).readAsBytes()`). Open the downloaded file in DB Browser or similar.
-- **`onLog`** — e.g. `(msg) => debugPrint(msg)`.
-- **`onError`** — e.g. `(err, stack) => debugPrint('$err\n$stack')`.
-
-Example with logging:
-
-```dart
-await myDb.startDriftViewer(
-  enabled: kDebugMode,
-  onLog: (String message) => debugPrint(message),
-  onError: (Object error, StackTrace stack) => debugPrint('$error\n$stack'),
-);
-```
-
----
-
-## Callback-based API (non-Drift or custom)
-
-If you don't use Drift or want to plug in another SQL source, use `DriftDebugServer.start` with a `query` callback:
+Wire in your own `query` callback (Drift apps typically use `customSelect(sql).get()`):
 
 ```dart
 import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
 
 await DriftDebugServer.start(
   query: (String sql) async {
-    // Run [sql] with your executor and return rows as list of maps.
-    final rows = await yourExecutor.customSelect(sql).get();
+    final rows = await myDb.customSelect(sql).get();
     return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   },
   enabled: kDebugMode,
-  onLog: debugPrint,
-  onError: (e, s) => debugPrint('$e\n$s'),
 );
 ```
 
----
+### 3. Open in a browser
+
+Open **http://127.0.0.1:8642**. From VS Code/Cursor: **Run Task → Open Drift Viewer** (uses `.vscode/tasks.json` in this repo). Or install the **Drift Viewer** extension (`extension/`) for a command-palette shortcut. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **live refresh** (table view updates when data changes, no manual refresh), **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, **export table as CSV**, and a **light/dark theme** (saved in the browser). A **read-only SQL runner** lets you run ad-hoc `SELECT` queries with table/column autofill and templates; results can be shown as a table or JSON. The SQL runner also keeps a short **History** (last ~20 successful queries) in browser `localStorage`; pick from the **History** dropdown to reuse a query. You can **export schema (no data)** as `schema.sql`, **export a full dump (schema + data)** as `dump.sql`, or **download the raw SQLite file** (binary `.sqlite`) to open in DB Browser or similar—the download option requires passing `getDatabaseBytes` when starting the server (see below). **Snapshot / time travel**: take an in-memory snapshot of all tables, then "Compare to now" to see added/removed/unchanged rows per table and export the diff as JSON. **Database diff**: when you pass `queryCompare` at startup (e.g. a second DB such as staging), the UI can show a diff report (schema + per-table row counts) and export it.
 
 ## API summary
 
 | API | Use when |
 |-----|----------|
-| **`db.startDriftViewer(enabled: ...)`** | You have a Drift database and want one-line setup. |
-| **`DriftDebugServer.start(query: ..., enabled: ...)`** | You use raw SQLite, or want to supply the query callback yourself. |
+| **`db.startDriftViewer(enabled: ...)`** | Drift app; one-line setup (runtime wiring). |
+| **`DriftDebugServer.start(query: ..., enabled: ...)`** | Drift or raw SQLite; you supply the query callback yourself. |
 
 Common parameters:
 
