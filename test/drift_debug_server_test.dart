@@ -296,6 +296,30 @@ void main() {
         client.close();
       }
     });
+
+    test('GET /api/generation?since=N accepts query param and returns same format', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        // since=-1 ensures server skips long-poll (generation >= 0 > -1) and returns immediately.
+        final req = await client.getUrl(Uri.parse('http://localhost:$port/api/generation?since=-1'));
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded.containsKey('generation'), isTrue);
+        expect(decoded['generation'], isA<int>());
+      } finally {
+        client.close();
+      }
+    });
   });
 
   group('secure dev tunnel auth', () {

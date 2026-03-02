@@ -60,7 +60,7 @@ High-impact or differentiator features that could make the package memorable and
 
 | Idea | Description |
 |------|-------------|
-| **Live refresh** | WebSocket or long-polling so the table view updates when data changes (e.g. after app writes). No manual refresh. |
+| ~~**Live refresh**~~ | *Implemented:* Long-polling `GET /api/generation?since=N`; server bumps a generation when table row-count fingerprint changes (every 2s). Table view and list auto-update; "● Live" indicator and "Updating…" during refresh. |
 | **Read-only SQL runner** | A small input in the UI to run **read-only** SQL (e.g. only `SELECT`; reject `INSERT/UPDATE/DELETE` and DDL). Results shown in the same JSON/pre or a simple table. Huge for ad-hoc debugging. |
 | **Schema diagram** | Visualize tables and relationships (e.g. from `sqlite_master` + PRAGMA foreign_key_list). Click a table to see its data. |
 | **DevTools / IDE integration** | Flutter DevTools plugin or VS Code / Cursor extension: “Open Drift viewer” or a sidebar that lists tables and opens the browser at the right URL. Feels native to the toolchain. |

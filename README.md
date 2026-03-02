@@ -41,7 +41,7 @@ await myDb.startDriftViewer(enabled: kDebugMode);
 
 ### 3. Open in a browser
 
-Open **http://127.0.0.1:8642**. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, **export table as CSV**, and a **light/dark theme** (saved in the browser). A **read-only SQL runner** lets you run ad-hoc `SELECT` queries with table/column autofill and templates; results can be shown as a table or JSON. You can also **export schema (no data)** as `schema.sql` or **export a full dump (schema + data)** as `dump.sql`; the full dump may take a moment for large databases.
+Open **http://127.0.0.1:8642**. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **live refresh** (table view updates when data changes, no manual refresh), **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, **export table as CSV**, and a **light/dark theme** (saved in the browser). A **read-only SQL runner** lets you run ad-hoc `SELECT` queries with table/column autofill and templates; results can be shown as a table or JSON. You can also **export schema (no data)** as `schema.sql` or **export a full dump (schema + data)** as `dump.sql`; the full dump may take a moment for large databases.
 
 ---
 
@@ -119,6 +119,8 @@ Common parameters:
 Only one server can run per process; calling start again when already running is a no-op. Use **`DriftDebugServer.stop()`** to shut down the server so you can call **`start`** again (e.g. in tests or graceful shutdown).
 
 **Health:** `GET http://127.0.0.1:8642/api/health` returns `{"ok": true}` for scripts or probes.
+
+**Live refresh:** `GET http://127.0.0.1:8642/api/generation` returns `{"generation": N}`. Use `?since=N` to long-poll until the generation changes (or 30s timeout); the UI uses this to refresh when data changes.
 
 ---
 

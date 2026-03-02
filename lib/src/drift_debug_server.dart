@@ -537,7 +537,8 @@ abstract final class DriftDebugServer {
     await response.close();
   }
 
-  /// Handles GET /api/generation. Query param [since] triggers long-poll until generation > since or timeout.
+  /// Handles GET /api/generation. Returns current [_generation]. Query param [since] triggers long-poll
+  /// until generation > since or [_longPollTimeout]; reduces client polling when idle.
   static Future<void> _handleGeneration(HttpRequest request) async {
     final sinceRaw = request.uri.queryParameters['since'];
     final int? since = sinceRaw != null ? int.tryParse(sinceRaw) : null;
