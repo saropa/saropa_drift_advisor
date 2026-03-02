@@ -655,6 +655,7 @@ def run_analysis(package_dir: Path) -> bool:
 def validate_changelog(package_dir: Path, version: str) -> tuple[bool, str]:
     """Validate version exists in CHANGELOG and get release notes."""
     print_header("STEP 7: VALIDATING CHANGELOG")
+    print_info("Keep CHANGELOG.md in sync with every release (see https://keepachangelog.com).")
 
     release_notes = validate_changelog_version(package_dir, version)
 
