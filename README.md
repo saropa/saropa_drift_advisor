@@ -37,7 +37,7 @@ await myDb.startDriftViewer(enabled: kDebugMode);
 
 ### 3. Open in a browser
 
-Open **http://127.0.0.1:8642**. You'll see a list of tables; click one to view its rows as JSON. From the UI you can also **export schema (no data)** as `schema.sql` or **export a full dump (schema + data)** as `dump.sql`; the full dump may take a moment for large databases.
+Open **http://127.0.0.1:8642**. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, **export table as CSV**, and a **light/dark theme** (saved in the browser). You can also **export schema (no data)** as `schema.sql` or **export a full dump (schema + data)** as `dump.sql`; the full dump may take a moment for large databases.
 
 ---
 

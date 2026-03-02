@@ -56,6 +56,9 @@ void main() {
         if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
           return [{'name': 'items'}];
         }
+        if (sql.contains('COUNT(*)') && sql.contains('items')) {
+          return [{'c': 2}];
+        }
         if (sql.contains('SELECT * FROM "items"')) {
           return [
             {'id': 1, 'name': 'first'},
@@ -113,6 +116,54 @@ void main() {
         expect(body, contains("'first'"));
         expect(body, contains("'second''s'"));
         expect(resp.headers.value('content-disposition'), contains('dump.sql'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET /api/table/<name> with limit and offset returns JSON array', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client
+            .getUrl(Uri.parse('http://localhost:$port/api/table/items?limit=10&offset=0'));
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        expect(resp.headers.value('content-type'), contains('application/json'));
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as List<dynamic>;
+        expect(decoded.length, 2);
+        expect(decoded[0], containsPair('name', 'first'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET /api/table/<name>/count returns JSON with count', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/table/items/count');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        expect(resp.headers.value('content-type'), contains('application/json'));
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded, containsPair('count', 2));
       } finally {
         client.close();
       }

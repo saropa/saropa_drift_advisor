@@ -132,10 +132,20 @@ abstract final class DriftDebugServer {
         await _sendTableList(request.response, query);
         return;
       }
-      if (request.method == 'GET' && (path.startsWith('/api/table/') || path.startsWith('api/table/'))) {
-        final String tableName = path.replaceFirst(RegExp(r'^/?api/table/'), '');
+      if (request.method == 'GET' &&
+          (path.startsWith('/api/table/') || path.startsWith('api/table/'))) {
+        final String suffix =
+            path.replaceFirst(RegExp(r'^/?api/table/'), '');
+        // GET /api/table/<name>/count returns {"count": N}; limit/offset via query params for table data.
+        if (suffix.endsWith('/count')) {
+          final String tableName = suffix.replaceFirst(RegExp(r'/count$'), '');
+          await _sendTableCount(request.response, query, tableName);
+          return;
+        }
+        final String tableName = suffix;
         final int limit = _parseLimit(request.uri.queryParameters['limit']);
-        await _sendTableData(request.response, query, tableName, limit);
+        final int offset = _parseOffset(request.uri.queryParameters['offset']);
+        await _sendTableData(request.response, query, tableName, limit, offset);
         return;
       }
       if (request.method == 'GET' && (path == '/api/schema' || path == 'api/schema')) {
@@ -171,6 +181,14 @@ abstract final class DriftDebugServer {
     return n.clamp(1, _maxLimit);
   }
 
+  /// Parses offset query param; returns 0 if missing or invalid.
+  static int _parseOffset(String? value) {
+    if (value == null) return 0;
+    final int? n = int.tryParse(value);
+    if (n == null || n < 0) return 0;
+    return n;
+  }
+
   static Future<List<String>> _getTableNames(DriftDebugQuery query) async {
     const String sql =
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
@@ -185,11 +203,38 @@ abstract final class DriftDebugServer {
     await response.close();
   }
 
+  /// Returns JSON {"count": N} for GET /api/table/<name>/count.
+  static Future<void> _sendTableCount(
+    HttpResponse response,
+    DriftDebugQuery query,
+    String tableName,
+  ) async {
+    final List<String> allowed = await _getTableNames(query);
+    if (!allowed.contains(tableName)) {
+      response.statusCode = HttpStatus.badRequest;
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, String>{'error': 'Unknown table: $tableName'}));
+      await response.close();
+      return;
+    }
+    final List<Map<String, dynamic>> rows =
+        await query('SELECT COUNT(*) AS c FROM "$tableName"');
+    final int count = (rows.isNotEmpty && rows.first['c'] != null)
+        ? (rows.first['c'] is int
+            ? rows.first['c'] as int
+            : (rows.first['c'] as num).toInt())
+        : 0;
+    _setJsonHeaders(response);
+    response.write(jsonEncode(<String, int>{'count': count}));
+    await response.close();
+  }
+
   static Future<void> _sendTableData(
     HttpResponse response,
     DriftDebugQuery query,
     String tableName,
     int limit,
+    int offset,
   ) async {
     final List<String> allowed = await _getTableNames(query);
     if (!allowed.contains(tableName)) {
@@ -200,8 +245,9 @@ abstract final class DriftDebugServer {
       return;
     }
 
-    // Table name came from sqlite_master so safe to interpolate; limit is clamped.
-    final List<Map<String, dynamic>> data = await query('SELECT * FROM "$tableName" LIMIT $limit');
+    // Table name came from sqlite_master so safe to interpolate; limit/offset are validated.
+    final List<Map<String, dynamic>> data =
+        await query('SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset');
     _setJsonHeaders(response);
     response.write(const JsonEncoder.withIndent('  ').convert(data));
     await response.close();
@@ -315,26 +361,33 @@ abstract final class DriftDebugServer {
   <title>Drift DB</title>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; margin: 1rem; background: #1a1a1a; color: #e0e0e0; max-width: 100%; overflow-x: hidden; }
+    body { font-family: system-ui, sans-serif; margin: 1rem; background: var(--bg); color: var(--fg); max-width: 100%; overflow-x: hidden; }
+    body.theme-light { --bg: #f5f5f5; --fg: #1a1a1a; --bg-pre: #e8e8e8; --border: #ccc; --muted: #666; --link: #1565c0; --highlight-bg: #fff3cd; --highlight-fg: #856404; }
+    body.theme-dark, body { --bg: #1a1a1a; --fg: #e0e0e0; --bg-pre: #252525; --border: #444; --muted: #888; --link: #7eb8da; --highlight-bg: #5a4a32; --highlight-fg: #f0e0c0; }
     h1 { font-size: 1.25rem; }
     ul { list-style: none; padding: 0; }
     li { margin: 0.25rem 0; }
-    a { color: #7eb8da; text-decoration: none; }
+    a { color: var(--link); text-decoration: none; }
     a:hover { text-decoration: underline; }
     .content-wrap { max-width: 100%; min-width: 0; }
-    pre { background: #252525; padding: 1rem; overflow: auto; font-size: 12px; border-radius: 6px; max-height: 70vh; white-space: pre-wrap; word-break: break-word; margin: 0; }
-    .meta { color: #888; font-size: 0.875rem; margin-bottom: 0.5rem; }
+    pre { background: var(--bg-pre); padding: 1rem; overflow: auto; font-size: 12px; border-radius: 6px; max-height: 70vh; white-space: pre-wrap; word-break: break-word; margin: 0; color: var(--fg); border: 1px solid var(--border); }
+    .meta { color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem; }
     .search-bar { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
-    .search-bar input { padding: 0.35rem 0.5rem; background: #252525; border: 1px solid #444; color: #e0e0e0; border-radius: 4px; min-width: 12rem; }
-    .search-bar select { padding: 0.35rem 0.5rem; background: #252525; border: 1px solid #444; color: #e0e0e0; border-radius: 4px; }
-    .search-bar label { color: #888; font-size: 0.875rem; }
-    .highlight { background: #5a4a32; color: #f0e0c0; border-radius: 2px; }
+    .search-bar input, .search-bar select, .search-bar button { padding: 0.35rem 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); color: var(--fg); border-radius: 4px; }
+    .search-bar input { min-width: 12rem; }
+    .search-bar label { color: var(--muted); font-size: 0.875rem; }
+    .highlight { background: var(--highlight-bg); color: var(--highlight-fg); border-radius: 2px; }
     .search-section { margin-bottom: 1rem; }
-    .search-section h2 { font-size: 1rem; color: #aaa; margin: 0 0 0.25rem 0; }
+    .search-section h2 { font-size: 1rem; color: var(--muted); margin: 0 0 0.25rem 0; }
+    .toolbar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .collapsible-header { cursor: pointer; user-select: none; padding: 0.25rem 0; color: var(--link); }
+    .collapsible-header:hover { text-decoration: underline; }
+    .collapsible-body { margin-top: 0.25rem; }
+    .collapsible-body.collapsed { display: none; }
   </style>
 </head>
 <body>
-  <h1>Drift tables</h1>
+  <h1>Drift tables <button type="button" id="theme-toggle" title="Toggle light/dark">Theme</button></h1>
   <div class="search-bar">
     <label for="search-input">Search:</label>
     <input type="text" id="search-input" placeholder="Search…" />
@@ -344,9 +397,22 @@ abstract final class DriftDebugServer {
       <option value="data">DB data only</option>
       <option value="both">Both</option>
     </select>
+    <label for="row-filter">Filter rows:</label>
+    <input type="text" id="row-filter" placeholder="Column value…" title="Client-side filter on current table" />
+  </div>
+  <div id="pagination-bar" class="toolbar" style="display: none;">
+    <label>Limit</label>
+    <select id="pagination-limit"></select>
+    <label>Offset</label>
+    <input type="number" id="pagination-offset" min="0" step="200" style="width: 5rem;" />
+    <button type="button" id="pagination-prev">Prev</button>
+    <button type="button" id="pagination-next">Next</button>
+    <button type="button" id="pagination-apply">Apply</button>
   </div>
   <p id="tables-loading" class="meta">Loading tables…</p>
-  <p class="meta"><a href="/api/schema" id="export-schema" download="schema.sql">Export schema (no data)</a> · <a href="#" id="export-dump">Export full dump (schema + data)</a><span id="export-dump-status" class="meta"></span> · <a href="#" id="view-schema">View schema</a></p>
+  <p class="meta"><a href="/api/schema" id="export-schema" download="schema.sql">Export schema (no data)</a> · <a href="#" id="export-dump">Export full dump (schema + data)</a><span id="export-dump-status" class="meta"></span> · <a href="#" id="export-csv">Export table as CSV</a><span id="export-csv-status" class="meta"></span></p>
+  <div class="collapsible-header" id="schema-toggle">▼ Schema</div>
+  <div id="schema-collapsible" class="collapsible-body collapsed"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
   <ul id="tables"></ul>
   <div id="content" class="content-wrap"></div>
   <script>
@@ -372,15 +438,87 @@ abstract final class DriftDebugServer {
       result += esc(text.slice(lastEnd));
       return result;
     }
+    const THEME_KEY = 'drift-viewer-theme';
+    const LIMIT_OPTIONS = [50, 200, 500, 1000];
     let cachedSchema = null;
     let currentTableName = null;
     let currentTableJson = null;
     let lastRenderedSchema = null;
     let lastRenderedData = null;
-    const limit = 200;
+    let limit = 200;
+    let offset = 0;
+    let tableCounts = {};
+    let rowFilter = '';
+
+    function initTheme() {
+      const saved = localStorage.getItem(THEME_KEY);
+      const dark = saved !== 'light';
+      document.body.classList.toggle('theme-light', !dark);
+      document.body.classList.toggle('theme-dark', dark);
+      document.getElementById('theme-toggle').textContent = dark ? 'Dark' : 'Light';
+    }
+    document.getElementById('theme-toggle').addEventListener('click', function() {
+      const isLight = document.body.classList.contains('theme-light');
+      document.body.classList.toggle('theme-light', isLight);
+      document.body.classList.toggle('theme-dark', !isLight);
+      localStorage.setItem(THEME_KEY, isLight ? 'dark' : 'light');
+      document.getElementById('theme-toggle').textContent = isLight ? 'Dark' : 'Light';
+    });
+    initTheme();
+
+    document.getElementById('schema-toggle').addEventListener('click', function() {
+      const el = document.getElementById('schema-collapsible');
+      const isCollapsed = el.classList.contains('collapsed');
+      el.classList.toggle('collapsed', !isCollapsed);
+      this.textContent = isCollapsed ? '▲ Schema' : '▼ Schema';
+      if (isCollapsed && cachedSchema === null) {
+        fetch('/api/schema').then(r => r.text()).then(schema => {
+          cachedSchema = schema;
+          document.getElementById('schema-inline-pre').textContent = schema;
+        }).catch(() => { document.getElementById('schema-inline-pre').textContent = 'Failed to load.'; });
+      }
+    });
+
+    document.getElementById('export-csv').addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!currentTableName || !currentTableJson || currentTableJson.length === 0) {
+        document.getElementById('export-csv-status').textContent = ' Select a table with data first.';
+        return;
+      }
+      const statusEl = document.getElementById('export-csv-status');
+      statusEl.textContent = ' Preparing…';
+      try {
+        const keys = Object.keys(currentTableJson[0]);
+        const rowToCsv = (row) => keys.map(k => {
+          const v = row[k];
+          if (v == null) return '';
+          const s = String(v);
+          return s.includes(',') || s.includes('"') || s.includes('\\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+        }).join(',');
+        const csv = [keys.join(','), ...currentTableJson.map(rowToCsv)].join('\\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = currentTableName + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        statusEl.textContent = ' Failed: ' + err.message;
+        return;
+      }
+      statusEl.textContent = '';
+    });
 
     function getScope() { return document.getElementById('search-scope').value; }
     function getSearchTerm() { return (document.getElementById('search-input').value || '').trim(); }
+    function getRowFilter() { return (document.getElementById('row-filter').value || '').trim(); }
+    function filterRows(data) {
+      const term = getRowFilter();
+      if (!term || !data || data.length === 0) return data || [];
+      const lower = term.toLowerCase();
+      return data.filter(row => Object.values(row).some(v => v != null && String(v).toLowerCase().includes(lower)));
+    }
 
     function applySearch() {
       const term = getSearchTerm();
@@ -402,26 +540,28 @@ abstract final class DriftDebugServer {
 
     document.getElementById('search-input').addEventListener('input', applySearch);
     document.getElementById('search-input').addEventListener('keyup', applySearch);
+    document.getElementById('row-filter').addEventListener('input', function() { if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson); });
+    document.getElementById('row-filter').addEventListener('keyup', function() { if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson); });
     document.getElementById('search-scope').addEventListener('change', function() {
       const scope = getScope();
       const content = document.getElementById('content');
+      const paginationBar = document.getElementById('pagination-bar');
       if (scope === 'both') {
         loadBothView();
+        paginationBar.style.display = (currentTableName ? 'flex' : 'none');
       } else if (scope === 'schema') {
         loadSchemaView();
+        paginationBar.style.display = 'none';
       } else if (currentTableName) {
         renderTableView(currentTableName, currentTableJson);
+        paginationBar.style.display = 'flex';
       } else {
         content.innerHTML = '';
         lastRenderedSchema = null;
         lastRenderedData = null;
+        paginationBar.style.display = 'none';
       }
       applySearch();
-    });
-
-    document.getElementById('view-schema').addEventListener('click', function(e) {
-      e.preventDefault();
-      getScope() === 'both' ? loadBothView() : loadSchemaView();
     });
 
     document.getElementById('export-dump').addEventListener('click', function(e) {
@@ -444,6 +584,19 @@ abstract final class DriftDebugServer {
         .catch(err => { statusEl.textContent = ' Failed: ' + err.message; })
         .finally(() => { link.textContent = origText; });
     });
+
+    function setupPagination() {
+      const bar = document.getElementById('pagination-bar');
+      const limitSel = document.getElementById('pagination-limit');
+      limitSel.innerHTML = LIMIT_OPTIONS.map(n => '<option value="' + n + '"' + (n === limit ? ' selected' : '') + '>' + n + '</option>').join('');
+      document.getElementById('pagination-offset').value = offset;
+      bar.style.display = getScope() === 'schema' ? 'none' : 'flex';
+    }
+    document.getElementById('pagination-limit').addEventListener('change', function() { limit = parseInt(this.value, 10); loadTable(currentTableName); });
+    document.getElementById('pagination-offset').addEventListener('change', function() { offset = parseInt(this.value, 10) || 0; });
+    document.getElementById('pagination-prev').addEventListener('click', function() { offset = Math.max(0, offset - limit); document.getElementById('pagination-offset').value = offset; loadTable(currentTableName); });
+    document.getElementById('pagination-next').addEventListener('click', function() { offset = offset + limit; document.getElementById('pagination-offset').value = offset; loadTable(currentTableName); });
+    document.getElementById('pagination-apply').addEventListener('click', function() { offset = parseInt(document.getElementById('pagination-offset').value, 10) || 0; loadTable(currentTableName); });
 
     function loadSchemaView() {
       const content = document.getElementById('content');
@@ -471,9 +624,11 @@ abstract final class DriftDebugServer {
         container.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data</h2><p class="meta">Select a table above to load data.</p></div>';
         const dataSection = document.getElementById('both-data-section');
         if (currentTableName && currentTableJson !== null) {
-          const jsonStr = JSON.stringify(currentTableJson, null, 2);
+          const filtered = filterRows(currentTableJson);
+          const jsonStr = JSON.stringify(filtered, null, 2);
           lastRenderedData = jsonStr;
-          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><pre id="data-pre">' + esc(jsonStr) + '</pre>';
+          const metaText = rowCountText(currentTableName) + (getRowFilter() ? ' (filtered: ' + filtered.length + ' of ' + currentTableJson.length + ')' : '');
+          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><p class="meta">' + metaText + '</p><pre id="data-pre">' + esc(jsonStr) + '</pre>';
         }
       } else {
         container.innerHTML = '<p class="meta">Schema</p><pre id="content-pre">' + esc(schema) + '</pre>';
@@ -489,9 +644,11 @@ abstract final class DriftDebugServer {
         lastRenderedSchema = schema;
         let dataHtml = '';
         if (currentTableName && currentTableJson !== null) {
-          const jsonStr = JSON.stringify(currentTableJson, null, 2);
+          const filtered = filterRows(currentTableJson);
+          const jsonStr = JSON.stringify(filtered, null, 2);
           lastRenderedData = jsonStr;
-          dataHtml = '<p class="meta">' + esc(currentTableName) + ' (up to ' + limit + ' rows)</p><pre id="data-pre">' + esc(jsonStr) + '</pre>';
+          const metaText = rowCountText(currentTableName) + (getRowFilter() ? ' (filtered: ' + filtered.length + ' of ' + currentTableJson.length + ')' : '');
+          dataHtml = '<p class="meta">' + metaText + '</p><pre id="data-pre">' + esc(jsonStr) + '</pre>';
         } else {
           lastRenderedData = null;
           dataHtml = '<p class="meta">Select a table above to load data.</p>';
@@ -501,30 +658,39 @@ abstract final class DriftDebugServer {
       }).catch(e => { content.innerHTML = '<p class="meta">Error</p><pre>' + esc(String(e)) + '</pre>'; });
     }
 
+    function rowCountText(name) {
+      const total = tableCounts[name];
+      const len = (currentTableJson && currentTableJson.length) || 0;
+      if (total == null) return esc(name) + ' (up to ' + limit + ' rows)';
+      const rangeText = len > 0 ? ('showing ' + (offset + 1) + '–' + (offset + len)) : 'no rows in this range';
+      return esc(name) + ' (' + total + ' row' + (total !== 1 ? 's' : '') + '; ' + rangeText + ')';
+    }
     function renderTableView(name, data) {
       const content = document.getElementById('content');
       const scope = getScope();
-      const jsonStr = JSON.stringify(data, null, 2);
+      const filtered = filterRows(data);
+      const jsonStr = JSON.stringify(filtered, null, 2);
       lastRenderedData = jsonStr;
+      const metaText = rowCountText(name) + (getRowFilter() ? ' (filtered: ' + filtered.length + ' of ' + data.length + ')' : '');
       if (scope === 'both') {
         lastRenderedSchema = cachedSchema;
         if (cachedSchema === null) {
           fetch('/api/schema').then(r => r.text()).then(schema => {
             cachedSchema = schema;
             lastRenderedSchema = schema;
-            content.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data: ' + esc(name) + '</h2><p class="meta">' + esc(name) + ' (up to ' + limit + ' rows)</p><pre id="data-pre">' + esc(jsonStr) + '</pre></div>';
+            content.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p><pre id="data-pre">' + esc(jsonStr) + '</pre></div>';
             applySearch();
           });
         } else {
           const dataSection = document.getElementById('both-data-section');
           if (dataSection) {
-            dataSection.innerHTML = '<h2>Table data: ' + esc(name) + '</h2><p class="meta">' + esc(name) + ' (up to ' + limit + ' rows)</p><pre id="data-pre">' + esc(jsonStr) + '</pre>';
+            dataSection.innerHTML = '<h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p><pre id="data-pre">' + esc(jsonStr) + '</pre>';
           }
           applySearch();
         }
       } else {
         lastRenderedSchema = null;
-        content.innerHTML = '<p class="meta">' + esc(name) + ' (up to ' + limit + ' rows)</p><pre id="content-pre">' + esc(jsonStr) + '</pre>';
+        content.innerHTML = '<p class="meta">' + metaText + '</p><pre id="content-pre">' + esc(jsonStr) + '</pre>';
         applySearch();
       }
     }
@@ -538,29 +704,52 @@ abstract final class DriftDebugServer {
       } else if (scope !== 'both') {
         content.innerHTML = '<p class="meta">' + esc(name) + '</p><p class="meta">Loading…</p>';
       }
-      fetch('/api/table/' + encodeURIComponent(name) + '?limit=' + limit)
+      fetch('/api/table/' + encodeURIComponent(name) + '?limit=' + limit + '&offset=' + offset)
         .then(r => r.json())
         .then(data => {
+          if (currentTableName !== name) return;
           currentTableJson = data;
+          setupPagination();
           renderTableView(name, data);
+          fetch('/api/table/' + encodeURIComponent(name) + '/count')
+            .then(r => r.json())
+            .then(o => {
+              if (currentTableName !== name) return;
+              tableCounts[name] = o.count;
+              renderTableView(name, data);
+            })
+            .catch(() => {});
         })
-        .catch(e => { content.innerHTML = '<p class="meta">Error</p><pre>' + esc(String(e)) + '</pre>'; });
+        .catch(e => {
+          if (currentTableName !== name) return;
+          content.innerHTML = '<p class="meta">Error</p><pre>' + esc(String(e)) + '</pre>';
+        });
     }
 
+    function renderTableList(tables) {
+      const ul = document.getElementById('tables');
+      ul.innerHTML = '';
+      tables.forEach(t => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = '#' + encodeURIComponent(t);
+        a.textContent = (tableCounts[t] != null) ? (t + ' (' + tableCounts[t] + ' rows)') : t;
+        a.onclick = e => { e.preventDefault(); loadTable(t); };
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+    }
     fetch('/api/tables')
       .then(r => r.json())
       .then(tables => {
         const loadingEl = document.getElementById('tables-loading');
         loadingEl.style.display = 'none';
-        const ul = document.getElementById('tables');
+        renderTableList(tables);
         tables.forEach(t => {
-          const li = document.createElement('li');
-          const a = document.createElement('a');
-          a.href = '#' + encodeURIComponent(t);
-          a.textContent = t;
-          a.onclick = e => { e.preventDefault(); loadTable(t); };
-          li.appendChild(a);
-          ul.appendChild(li);
+          fetch('/api/table/' + encodeURIComponent(t) + '/count')
+            .then(r => r.json())
+            .then(o => { tableCounts[t] = o.count; renderTableList(tables); })
+            .catch(() => {});
         });
       })
       .catch(e => { document.getElementById('tables-loading').textContent = 'Failed to load tables: ' + e; });
