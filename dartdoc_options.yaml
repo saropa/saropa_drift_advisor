@@ -1,0 +1,7 @@
+dartdoc:
+  exclude:
+    - '**/*.md'
+    - '**/*.bak'
+    - '**/*.txt'
+    - '**/*.log'
+    - '**/*.yaml'
