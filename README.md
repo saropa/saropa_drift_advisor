@@ -37,7 +37,7 @@ await myDb.startDriftViewer(enabled: kDebugMode);
 
 ### 3. Open in a browser
 
-Open **http://127.0.0.1:8642**. You'll see a list of tables; click one to view its rows as JSON.
+Open **http://127.0.0.1:8642**. You'll see a list of tables; click one to view its rows as JSON. From the UI you can also **export schema (no data)** as `schema.sql` or **export a full dump (schema + data)** as `dump.sql`; the full dump may take a moment for large databases.
 
 ---
 
@@ -55,6 +55,8 @@ await myDb.startDriftViewer(enabled: kDebugMode);
 Optional parameters:
 
 - **`port`** — default `8642`.
+- **`loopbackOnly`** — if `true`, bind to `127.0.0.1` only; if `false`, bind to `0.0.0.0`.
+- **`corsOrigin`** — `'*'` (default), a specific origin, or `null` to omit CORS.
 - **`onLog`** — e.g. `(msg) => debugPrint(msg)`.
 - **`onError`** — e.g. `(err, stack) => debugPrint('$err\n$stack')`.
 
@@ -102,15 +104,19 @@ Common parameters:
 
 - **`enabled`** — typically `kDebugMode`. If `false`, the server is not started.
 - **`port`** — default `8642`.
+- **`loopbackOnly`** — bind to loopback only (default `false`).
+- **`corsOrigin`** — CORS header: `'*'`, specific origin, or `null` to disable.
 - **`onLog`**, **`onError`** — optional; for your logger or `debugPrint` / `print`.
 
-Only one server can run per process; calling start again when already running is a no-op.
+Only one server can run per process; calling start again when already running is a no-op. Use **`DriftDebugServer.stop()`** to shut down the server so you can call **`start`** again (e.g. in tests or graceful shutdown).
+
+**Health:** `GET http://127.0.0.1:8642/api/health` returns `{"ok": true}` for scripts or probes.
 
 ---
 
 ## Security
 
-**Debug only.** Do not enable in production. The server binds to `0.0.0.0` and serves read-only table listing and table data. It does not accept arbitrary SQL from the client; table names and limit are taken from allow-lists and clamped values.
+**Debug only.** Do not enable in production. By default the server binds to `0.0.0.0`; use **`loopbackOnly: true`** to bind to `127.0.0.1` only. It serves read-only table listing and table data. It does not accept arbitrary SQL from the client; table names and limit are taken from allow-lists and clamped values.
 
 ---
 
