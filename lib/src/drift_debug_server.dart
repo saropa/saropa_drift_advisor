@@ -346,7 +346,7 @@ abstract final class DriftDebugServer {
     </select>
   </div>
   <p id="tables-loading" class="meta">Loading tables…</p>
-  <p class="meta"><a href="/api/schema" id="export-schema" download="schema.sql">Export schema (no data)</a> · <a href="/api/dump" id="export-dump" download="dump.sql">Export full dump (schema + data)</a> · <a href="#" id="view-schema">View schema</a></p>
+  <p class="meta"><a href="/api/schema" id="export-schema" download="schema.sql">Export schema (no data)</a> · <a href="#" id="export-dump">Export full dump (schema + data)</a><span id="export-dump-status" class="meta"></span> · <a href="#" id="view-schema">View schema</a></p>
   <ul id="tables"></ul>
   <div id="content" class="content-wrap"></div>
   <script>
@@ -422,6 +422,27 @@ abstract final class DriftDebugServer {
     document.getElementById('view-schema').addEventListener('click', function(e) {
       e.preventDefault();
       getScope() === 'both' ? loadBothView() : loadSchemaView();
+    });
+
+    document.getElementById('export-dump').addEventListener('click', function(e) {
+      e.preventDefault();
+      const link = this;
+      const statusEl = document.getElementById('export-dump-status');
+      const origText = link.textContent;
+      link.textContent = 'Preparing dump…';
+      statusEl.textContent = '';
+      fetch('/api/dump')
+        .then(r => { if (!r.ok) throw new Error(r.statusText); return r.blob(); })
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'dump.sql';
+          a.click();
+          URL.revokeObjectURL(url);
+        })
+        .catch(err => { statusEl.textContent = ' Failed: ' + err.message; })
+        .finally(() => { link.textContent = origText; });
     });
 
     function loadSchemaView() {
