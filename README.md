@@ -61,6 +61,8 @@ Optional parameters:
 - **`port`** — default `8642`.
 - **`loopbackOnly`** — if `true`, bind to `127.0.0.1` only; if `false`, bind to `0.0.0.0`.
 - **`corsOrigin`** — `'*'` (default), a specific origin, or `null` to omit CORS.
+- **`authToken`** — optional. When set, every request must include `Authorization: Bearer <token>` or `?token=<token>`. Use for secure dev tunnels (e.g. ngrok).
+- **`basicAuthUser`** and **`basicAuthPassword`** — optional. When both set, HTTP Basic auth is accepted (alternative to token).
 - **`onLog`** — e.g. `(msg) => debugPrint(msg)`.
 - **`onError`** — e.g. `(err, stack) => debugPrint('$err\n$stack')`.
 
@@ -110,6 +112,8 @@ Common parameters:
 - **`port`** — default `8642`.
 - **`loopbackOnly`** — bind to loopback only (default `false`).
 - **`corsOrigin`** — CORS header: `'*'`, specific origin, or `null` to disable.
+- **`authToken`** — optional; when set, requests require Bearer token or `?token=`. Use for tunnels (ngrok, port forwarding).
+- **`basicAuthUser`** / **`basicAuthPassword`** — optional; when both set, HTTP Basic auth is accepted.
 - **`onLog`**, **`onError`** — optional; for your logger or `debugPrint` / `print`.
 
 Only one server can run per process; calling start again when already running is a no-op. Use **`DriftDebugServer.stop()`** to shut down the server so you can call **`start`** again (e.g. in tests or graceful shutdown).
@@ -121,6 +125,19 @@ Only one server can run per process; calling start again when already running is
 ## Security
 
 **Debug only.** Do not enable in production. By default the server binds to `0.0.0.0`; use **`loopbackOnly: true`** to bind to `127.0.0.1` only. It serves read-only table listing and table data. The SQL runner accepts arbitrary **read-only** SQL (`SELECT` / `WITH ... SELECT` only); all write and DDL statements are rejected. Table and column endpoints use allow-lists; table names and limit/offset are validated.
+
+**Secure dev tunnel:** When exposing the viewer over a tunnel (e.g. ngrok) or port forwarding, use **`authToken`** or **`basicAuthUser`** / **`basicAuthPassword`** so the server is not open to the internet. Example:
+
+```dart
+await DriftDebugServer.start(
+  query: runQuery,
+  enabled: kDebugMode,
+  authToken: 'your-secret-token',  // open https://your-tunnel.example/?token=your-secret-token
+  // or: basicAuthUser: 'dev', basicAuthPassword: 'pass',
+);
+```
+
+With token auth, open the viewer at `https://your-tunnel.example/?token=your-secret-token`; the page will use the token for all API calls. You can also send `Authorization: Bearer your-secret-token` on requests.
 
 ---
 

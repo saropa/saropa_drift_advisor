@@ -37,6 +37,7 @@ abstract final class DriftDebugServer {
   static Timer? _changeCheckTimer;
   static int _generation = 0;
   static String? _lastDataSignature;
+  static bool _changeCheckInProgress = false;
 
   static const int _defaultPort = 8642;
   static const int _maxLimit = 1000;
@@ -107,7 +108,8 @@ abstract final class DriftDebugServer {
     _onLog = onLog;
     _onError = onError;
     _corsOrigin = corsOrigin;
-    _authToken = authToken;
+    // Only enable token auth when a non-empty token is provided.
+    _authToken = (authToken != null && authToken.isNotEmpty) ? authToken : null;
     _basicAuthUser = basicAuthUser;
     _basicAuthPassword = basicAuthPassword;
 
@@ -148,6 +150,7 @@ abstract final class DriftDebugServer {
     _changeCheckTimer = null;
     _lastDataSignature = null;
     _generation = 0;
+    _changeCheckInProgress = false;
     await server.close();
   }
 
@@ -169,6 +172,7 @@ abstract final class DriftDebugServer {
     return result == 0;
   }
 
+  /// Returns true if the request has valid token (Bearer or ?token=) or HTTP Basic credentials.
   static bool _isAuthenticated(HttpRequest request) {
     final token = _authToken;
     if (token != null && token.isNotEmpty) {
@@ -206,6 +210,7 @@ abstract final class DriftDebugServer {
     return false;
   }
 
+  /// Sends 401 with JSON body; sets WWW-Authenticate for Basic when Basic auth is configured.
   static Future<void> _sendUnauthorized(HttpResponse response) async {
     response.statusCode = HttpStatus.unauthorized;
     if (_basicAuthUser != null && _basicAuthPassword != null) {
@@ -539,7 +544,7 @@ abstract final class DriftDebugServer {
     if (since != null && since >= 0) {
       final deadline = DateTime.now().add(_longPollTimeout);
       while (DateTime.now().isBefore(deadline) && _generation <= since) {
-        await Future.delayed(_longPollCheckInterval);
+        await Future<void>.delayed(_longPollCheckInterval);
       }
     }
     _setJsonHeaders(request.response);
@@ -553,9 +558,12 @@ abstract final class DriftDebugServer {
   }
 
   /// Runs a lightweight fingerprint of table row counts; bumps [_generation] when it changes.
+  /// One COUNT(*) per table per run — acceptable for typical debug DBs; many tables may add latency.
   static Future<void> _checkDataChange() async {
+    if (_changeCheckInProgress) return;
     final query = _query;
     if (query == null) return;
+    _changeCheckInProgress = true;
     try {
       final tables = await _getTableNames(query);
       final parts = <String>[];
@@ -575,6 +583,8 @@ abstract final class DriftDebugServer {
       _lastDataSignature = signature;
     } on Object catch (_) {
       // Ignore errors (e.g. DB busy); will retry next interval.
+    } finally {
+      _changeCheckInProgress = false;
     }
   }
 
@@ -651,22 +661,18 @@ abstract final class DriftDebugServer {
 
   static Future<void> _sendHtml(HttpResponse response, HttpRequest request) async {
     String html = _indexHtml;
+    // Inject auth token into page so client-side fetch() can send Bearer header on all API calls.
     final authToken = _authToken;
-    if (authToken != null && authToken.isNotEmpty) {
-      final queryToken = request.uri.queryParameters['token'];
-      final tokenToInject =
-          (queryToken != null && _secureCompare(queryToken, authToken))
-              ? _escapeJsString(queryToken)
-              : '';
-      html = html.replaceFirst('__DRIFT_AUTH_TOKEN__', tokenToInject);
-    } else {
-      html = html.replaceFirst('__DRIFT_AUTH_TOKEN__', '');
-    }
+    final tokenToInject = (authToken != null && authToken.isNotEmpty)
+        ? _escapeJsString(authToken)
+        : '';
+    html = html.replaceFirst('__DRIFT_AUTH_TOKEN__', tokenToInject);
     response.headers.contentType = ContentType.html;
     response.write(html);
     await response.close();
   }
 
+  /// Escapes a string for safe use inside a JavaScript string literal (quoted).
   static String _escapeJsString(String s) {
     return s
         .replaceAll(r'\', r'\\')
@@ -718,10 +724,13 @@ abstract final class DriftDebugServer {
     .sql-runner .sql-result th { font-weight: 600; }
     .sql-runner .sql-error { color: #e57373; margin-top: 0.35rem; font-size: 0.875rem; }
     .sql-runner .sql-result, .sql-runner .sql-error { transition: opacity 0.15s ease; }
+    #live-indicator { font-size: 0.75rem; margin-left: 0.5rem; }
+    body.theme-dark #live-indicator { color: #7cb342; }
+    body.theme-light #live-indicator { color: #558b2f; }
   </style>
 </head>
 <body>
-  <h1>Drift tables <button type="button" id="theme-toggle" title="Toggle light/dark">Theme</button></h1>
+  <h1>Drift tables <button type="button" id="theme-toggle" title="Toggle light/dark">Theme</button> <span id="live-indicator" class="meta" title="Table view updates when data changes">● Live</span></h1>
   <div class="collapsible-header sql-runner" id="sql-runner-toggle">▼ Run SQL (read-only)</div>
   <div id="sql-runner-collapsible" class="collapsible-body collapsed sql-runner">
     <div class="sql-toolbar">
@@ -813,6 +822,8 @@ abstract final class DriftDebugServer {
     let offset = 0;
     let tableCounts = {};
     let rowFilter = '';
+    let lastGeneration = 0;
+    let refreshInFlight = false;
 
     function initTheme() {
       const saved = localStorage.getItem(THEME_KEY);
@@ -1240,18 +1251,54 @@ abstract final class DriftDebugServer {
       }
     })();
 
+    // Shared: render table list and kick off count fetches (used by initial load and live refresh).
+    function applyTableListAndCounts(tables) {
+      renderTableList(tables);
+      tables.forEach(t => {
+        fetch('/api/table/' + encodeURIComponent(t) + '/count', authOpts())
+          .then(r => r.json())
+          .then(o => { tableCounts[t] = o.count; renderTableList(tables); })
+          .catch(() => {});
+      });
+    }
+    function refreshOnGenerationChange() {
+      if (refreshInFlight) return;
+      refreshInFlight = true;
+      const liveEl = document.getElementById('live-indicator');
+      if (liveEl) liveEl.textContent = 'Updating…';
+      fetch('/api/tables', authOpts())
+        .then(r => r.json())
+        .then(tables => {
+          applyTableListAndCounts(tables);
+          if (currentTableName) loadTable(currentTableName);
+        })
+        .catch(() => {})
+        .finally(() => {
+          refreshInFlight = false;
+          if (liveEl) liveEl.textContent = '● Live';
+        });
+    }
+    // Long-poll /api/generation?since=N; when generation changes, refresh table list and current table.
+    function pollGeneration() {
+      fetch('/api/generation?since=' + lastGeneration, authOpts())
+        .then(r => r.json())
+        .then(data => {
+          const g = data.generation;
+          if (g !== lastGeneration) {
+            lastGeneration = g;
+            refreshOnGenerationChange();
+          }
+          pollGeneration();
+        })
+        .catch(() => { setTimeout(pollGeneration, 2000); });
+    }
     fetch('/api/tables', authOpts())
       .then(r => r.json())
       .then(tables => {
         const loadingEl = document.getElementById('tables-loading');
         loadingEl.style.display = 'none';
-        renderTableList(tables);
-        tables.forEach(t => {
-          fetch('/api/table/' + encodeURIComponent(t) + '/count', authOpts())
-            .then(r => r.json())
-            .then(o => { tableCounts[t] = o.count; renderTableList(tables); })
-            .catch(() => {});
-        });
+        applyTableListAndCounts(tables);
+        pollGeneration();
       })
       .catch(e => { document.getElementById('tables-loading').textContent = 'Failed to load tables: ' + e; });
   </script>

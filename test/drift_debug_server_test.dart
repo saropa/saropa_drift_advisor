@@ -272,5 +272,176 @@ void main() {
         client.close();
       }
     });
+
+    test('GET /api/generation returns JSON with generation number for live refresh', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/generation');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded.containsKey('generation'), isTrue);
+        expect(decoded['generation'], isA<int>());
+        expect((decoded['generation'] as int), greaterThanOrEqualTo(0));
+      } finally {
+        client.close();
+      }
+    });
+  });
+
+  group('secure dev tunnel auth', () {
+    late Future<List<Map<String, dynamic>>> Function(String sql) mockQuery;
+
+    setUp(() {
+      mockQuery = (String sql) async {
+        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          return [{'name': 'items'}];
+        }
+        return <Map<String, dynamic>>[];
+      };
+    });
+
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    test('request without auth gets 401 when authToken is set', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+        authToken: 'secret-token',
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/tables');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.unauthorized);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], contains('Authentication required'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('request with Bearer token succeeds when authToken is set', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+        authToken: 'secret-token',
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/tables');
+        req.headers.set('Authorization', 'Bearer secret-token');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('request with query param token succeeds when authToken is set', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+        authToken: 'secret-token',
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.getUrl(
+          Uri.parse('http://localhost:$port/api/tables?token=secret-token'),
+        );
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('request with Basic auth succeeds when basicAuthUser/Password set', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+        basicAuthUser: 'dev',
+        basicAuthPassword: 'pass',
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final credentials = base64.encode(utf8.encode('dev:pass'));
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/tables');
+        req.headers.set('Authorization', 'Basic $credentials');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('request without auth gets 401 when only Basic auth is set', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+        basicAuthUser: 'dev',
+        basicAuthPassword: 'pass',
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/health');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.unauthorized);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('empty authToken does not require auth (treated as disabled)', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+        authToken: '',
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/tables');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+      } finally {
+        client.close();
+      }
+    });
   });
 }

@@ -67,7 +67,7 @@ High-impact or differentiator features that could make the package memorable and
 | **Database diff** | Compare two databases (e.g. local vs staging): same schema, diff of row counts or row content per table. Export diff report. |
 | **Snapshot / time travel** | Optional “snapshot” of table state at a point in time (e.g. in-memory or file); later, “compare to now” to see what changed. |
 | **Export full DB** | “Download database” that streams the SQLite file (or a copy) so devs can inspect it in DB Browser or another tool. |
-| **Secure dev tunnel** | Optional token or simple auth so the viewer can be used over a tunnel (e.g. ngrok) or on a device with port forwarding, without exposing an open server. |
+| ~~**Secure dev tunnel**~~ | *Implemented:* Optional `authToken` (Bearer or `?token=`) and/or HTTP Basic (`basicAuthUser`/`basicAuthPassword`) so the viewer can be used over a tunnel (e.g. ngrok) or port forwarding without exposing an open server. |
 | **Flutter widget overlay** | In debug builds, a small floating button that opens the viewer in the browser (or an in-app WebView). One tap from the app. |
 | **Query history** | If read-only SQL is added, keep a short history of queries and results in the UI or in `localStorage` for repeat checks. |
 
