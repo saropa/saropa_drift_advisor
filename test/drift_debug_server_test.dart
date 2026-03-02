@@ -65,6 +65,15 @@ void main() {
             {'id': 2, 'name': "second's"},
           ];
         }
+        if (sql.contains('PRAGMA table_info("items")')) {
+          return [
+            {'cid': 0, 'name': 'id', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': null, 'pk': 1},
+            {'cid': 1, 'name': 'name', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+          ];
+        }
+        if (sql.contains('SELECT') && !sql.contains('INSERT') && !sql.contains('sqlite_master')) {
+          return [{'id': 1, 'name': 'first'}];
+        }
         return <Map<String, dynamic>>[];
       };
     });
@@ -164,6 +173,101 @@ void main() {
         final body = await resp.transform(utf8.decoder).join();
         final decoded = jsonDecode(body) as Map<String, dynamic>;
         expect(decoded, containsPair('count', 2));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET /api/table/<name>/columns returns column names', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/table/items/columns');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as List<dynamic>;
+        expect(decoded, ['id', 'name']);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('POST /api/sql runs read-only SQL and returns rows', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.post('localhost', port!, '/api/sql');
+        req.headers.contentType = ContentType.json;
+        req.write(jsonEncode(<String, String>{'sql': 'SELECT 1'}));
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded.containsKey('rows'), isTrue);
+        expect(decoded['rows'] as List, isNotEmpty);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('POST /api/sql accepts SELECT with keyword inside string literal', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.post('localhost', port!, '/api/sql');
+        req.headers.contentType = ContentType.json;
+        req.write(jsonEncode(<String, String>{"sql": "SELECT 'INSERT' AS x"}));
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded.containsKey('rows'), isTrue);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('POST /api/sql rejects non-SELECT SQL', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.post('localhost', port!, '/api/sql');
+        req.headers.contentType = ContentType.json;
+        req.write(jsonEncode(<String, String>{'sql': 'INSERT INTO items (name) VALUES (\'x\')'}));
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.badRequest);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], contains('read-only'));
       } finally {
         client.close();
       }

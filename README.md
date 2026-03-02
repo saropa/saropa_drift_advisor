@@ -41,7 +41,7 @@ await myDb.startDriftViewer(enabled: kDebugMode);
 
 ### 3. Open in a browser
 
-Open **http://127.0.0.1:8642**. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, **export table as CSV**, and a **light/dark theme** (saved in the browser). You can also **export schema (no data)** as `schema.sql` or **export a full dump (schema + data)** as `dump.sql`; the full dump may take a moment for large databases.
+Open **http://127.0.0.1:8642**. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, **export table as CSV**, and a **light/dark theme** (saved in the browser). A **read-only SQL runner** lets you run ad-hoc `SELECT` queries with table/column autofill and templates; results can be shown as a table or JSON. You can also **export schema (no data)** as `schema.sql` or **export a full dump (schema + data)** as `dump.sql`; the full dump may take a moment for large databases.
 
 ---
 
@@ -120,7 +120,7 @@ Only one server can run per process; calling start again when already running is
 
 ## Security
 
-**Debug only.** Do not enable in production. By default the server binds to `0.0.0.0`; use **`loopbackOnly: true`** to bind to `127.0.0.1` only. It serves read-only table listing and table data. It does not accept arbitrary SQL from the client; table names and limit are taken from allow-lists and clamped values.
+**Debug only.** Do not enable in production. By default the server binds to `0.0.0.0`; use **`loopbackOnly: true`** to bind to `127.0.0.1` only. It serves read-only table listing and table data. The SQL runner accepts arbitrary **read-only** SQL (`SELECT` / `WITH ... SELECT` only); all write and DDL statements are rejected. Table and column endpoints use allow-lists; table names and limit/offset are validated.
 
 ---
 

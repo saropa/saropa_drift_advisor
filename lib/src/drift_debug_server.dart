@@ -1,55 +1,102 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-/// Runs a single SQL query and returns rows as list of maps (column name -> value).
-/// Used by [DriftDebugServer] to list tables and fetch table data; implement with
-/// your Drift database's [customSelect] or any SQLite executor.
+/// Callback that runs a single SQL query and returns rows as list of maps (column name → value).
+///
+/// Used by [DriftDebugServer.start] to list tables and fetch table data. Implement with
+/// your Drift database's `customSelect` or any SQLite executor. The server only sends
+/// allow-listed queries (e.g. table names from sqlite_master, SELECT with limit/offset).
 typedef DriftDebugQuery = Future<List<Map<String, dynamic>>> Function(String sql);
 
-/// Optional logging: message only (for startup banner), or error + stack.
+/// Optional callback for log messages (e.g. startup banner).
+/// Pass as the `onLog` parameter to [DriftDebugServer.start].
 typedef DriftDebugOnLog = void Function(String message);
+
+/// Optional callback for errors (and optional stack trace).
+/// Pass as the `onError` parameter to [DriftDebugServer.start].
 typedef DriftDebugOnError = void Function(Object error, StackTrace stack);
 
 /// Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer.
-/// Works with any database: pass a [query] callback that runs SQL and returns rows as maps.
 ///
-/// Example (Drift):
-/// ```dart
-/// Future<List<Map<String, dynamic>>> runQuery(String sql) async {
-///   final rows = await yourDriftDb.customSelect(sql).get();
-///   return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
-/// }
-/// DriftDebugServer.start(
-///   query: runQuery,
-///   enabled: kDebugMode,
-///   onLog: DriftDebugErrorLogger.logCallback(),
-///   onError: DriftDebugErrorLogger.errorCallback(),
-/// );
-/// ```
+/// Works with any database: pass a [query] callback that runs SQL and returns rows as maps.
+/// Use [start] to bind the server (default port 8642); open http://127.0.0.1:8642 in a browser.
+/// Only one server can run per process; use [stop] to shut down before calling [start] again.
+/// Optional auth for secure dev tunnels (e.g. ngrok). When set, all requests
+/// require either [authToken] (Bearer or query param `token`) or HTTP Basic
+/// ([basicAuthUser] + [basicAuthPassword]). Use one or both.
 abstract final class DriftDebugServer {
   static HttpServer? _server;
   static DriftDebugQuery? _query;
   static DriftDebugOnLog? _onLog;
   static DriftDebugOnError? _onError;
   static String? _corsOrigin;
+  static String? _authToken;
+  static String? _basicAuthUser;
+  static String? _basicAuthPassword;
+  static Timer? _changeCheckTimer;
+  static int _generation = 0;
+  static String? _lastDataSignature;
 
   static const int _defaultPort = 8642;
   static const int _maxLimit = 1000;
   static const int _defaultLimit = 200;
+  static const Duration _changeCheckInterval = Duration(seconds: 2);
+  static const Duration _longPollTimeout = Duration(seconds: 30);
+  static const Duration _longPollCheckInterval = Duration(milliseconds: 300);
 
-  /// Starts the server if [enabled] is true and [query] is provided. No-op otherwise.
-  /// Only one server per process; calling [start] when already running is a no-op.
-  /// [query] must run the given SQL and return rows as list of maps (e.g. from Drift's customSelect).
-  /// [port] defaults to 8642 so the URL stays stable across restarts.
-  /// [loopbackOnly] if true, binds to 127.0.0.1 only; if false, binds to 0.0.0.0.
-  /// [corsOrigin] sets the Access-Control-Allow-Origin response header: use `'*'` (default),
-  /// a specific origin, or `null` to omit the header.
+  /// Starts the debug server if [enabled] is true and [query] is provided.
+  ///
+  /// No-op if [enabled] is false or the server is already running. [query] must execute
+  /// the given SQL and return rows as a list of maps (e.g. from Drift's `customSelect` or
+  /// any SQLite executor). The server serves a web UI and JSON APIs for table listing and
+  /// table data; see the package README for endpoints.
+  ///
+  /// Parameters:
+  /// * [query] — Required. Executes SQL and returns rows as `List<Map<String, dynamic>>`.
+  /// * [enabled] — If false, the server is not started (default true).
+  /// * [port] — Port to bind (default 8642).
+  /// * [loopbackOnly] — If true, bind to 127.0.0.1 only; if false, bind to 0.0.0.0.
+  /// * [corsOrigin] — Value for Access-Control-Allow-Origin: `'*'`, a specific origin, or null to omit.
+  /// * [authToken] — Optional. When set, requests must include `Authorization: Bearer <token>` or `?token=<token>`.
+  /// * [basicAuthUser] and [basicAuthPassword] — Optional. When both set, HTTP Basic auth is accepted as an alternative.
+  /// * [onLog] — Optional callback for startup banner and log messages.
+  /// * [onError] — Optional callback for errors (e.g. [DriftDebugErrorLogger.errorCallback]).
+  ///
+  /// ## Example (callback-based, e.g. raw SQLite or custom executor)
+  ///
+  /// ```dart
+  /// await DriftDebugServer.start(
+  ///   query: (String sql) async {
+  ///     final rows = await yourExecutor.customSelect(sql).get();
+  ///     return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
+  ///   },
+  ///   enabled: kDebugMode,
+  ///   onLog: (msg) => debugPrint(msg),
+  ///   onError: (err, stack) => debugPrint('$err\n$stack'),
+  /// );
+  /// ```
+  ///
+  /// ## Example (with [DriftDebugErrorLogger])
+  ///
+  /// ```dart
+  /// final callbacks = DriftDebugErrorLogger.callbacks(prefix: 'DriftDebug');
+  /// await DriftDebugServer.start(
+  ///   query: runQuery,
+  ///   enabled: kDebugMode,
+  ///   onLog: callbacks.log,
+  ///   onError: callbacks.error,
+  /// );
+  /// ```
   static Future<void> start({
     required DriftDebugQuery query,
     bool enabled = true,
     int port = _defaultPort,
     bool loopbackOnly = false,
     String? corsOrigin = '*',
+    String? authToken,
+    String? basicAuthUser,
+    String? basicAuthPassword,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
   }) async {
@@ -60,11 +107,15 @@ abstract final class DriftDebugServer {
     _onLog = onLog;
     _onError = onError;
     _corsOrigin = corsOrigin;
+    _authToken = authToken;
+    _basicAuthUser = basicAuthUser;
+    _basicAuthPassword = basicAuthPassword;
 
     try {
       final address = loopbackOnly ? InternetAddress.loopbackIPv4 : InternetAddress.anyIPv4;
       _server = await HttpServer.bind(address, port);
       _server!.listen(_onRequest);
+      _startChangeCheckTimer();
 
       _log('╔══════════════════════════════════════════════════════════════╗');
       _log('║                   DRIFT DEBUG SERVER                         ║');
@@ -90,6 +141,13 @@ abstract final class DriftDebugServer {
     _onLog = null;
     _onError = null;
     _corsOrigin = null;
+    _authToken = null;
+    _basicAuthUser = null;
+    _basicAuthPassword = null;
+    _changeCheckTimer?.cancel();
+    _changeCheckTimer = null;
+    _lastDataSignature = null;
+    _generation = 0;
     await server.close();
   }
 
@@ -101,13 +159,84 @@ abstract final class DriftDebugServer {
     _onError?.call(error, stack);
   }
 
+  /// Constant-time string comparison to reduce timing side channels.
+  static bool _secureCompare(String a, String b) {
+    if (a.length != b.length) return false;
+    int result = 0;
+    for (int i = 0; i < a.length; i++) {
+      result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return result == 0;
+  }
+
+  static bool _isAuthenticated(HttpRequest request) {
+    final token = _authToken;
+    if (token != null && token.isNotEmpty) {
+      final authHeader = request.headers.value('authorization');
+      if (authHeader != null &&
+          authHeader.startsWith('Bearer ') &&
+          _secureCompare(authHeader.substring(7), token)) {
+        return true;
+      }
+      final queryToken = request.uri.queryParameters['token'];
+      if (queryToken != null && _secureCompare(queryToken, token)) {
+        return true;
+      }
+    }
+    final user = _basicAuthUser;
+    final password = _basicAuthPassword;
+    if (user != null && user.isNotEmpty && password != null) {
+      final authHeader = request.headers.value('authorization');
+      if (authHeader != null && authHeader.startsWith('Basic ')) {
+        try {
+          final decoded = utf8.decode(base64.decode(authHeader.substring(6)));
+          final colon = decoded.indexOf(':');
+          if (colon >= 0) {
+            final u = decoded.substring(0, colon);
+            final p = decoded.substring(colon + 1);
+            if (_secureCompare(u, user) && _secureCompare(p, password)) {
+              return true;
+            }
+          }
+        } on Object {
+          // ignore decode errors
+        }
+      }
+    }
+    return false;
+  }
+
+  static Future<void> _sendUnauthorized(HttpResponse response) async {
+    response.statusCode = HttpStatus.unauthorized;
+    if (_basicAuthUser != null && _basicAuthPassword != null) {
+      response.headers.set('WWW-Authenticate', 'Basic realm="Drift Debug Viewer"');
+    }
+    _setJsonHeaders(response);
+    response.write(jsonEncode(<String, String>{
+      'error': 'Authentication required. Use Authorization: Bearer <token>, ?token=<token>, or HTTP Basic.',
+    }));
+    await response.close();
+  }
+
   static Future<void> _onRequest(HttpRequest request) async {
     final String path = request.uri.path;
 
-    // Health is handled before query check so probes get 200 while server is running.
+    // When auth is configured, require it on every request (including health and HTML).
+    if (_authToken != null || (_basicAuthUser != null && _basicAuthPassword != null)) {
+      if (!_isAuthenticated(request)) {
+        await _sendUnauthorized(request.response);
+        return;
+      }
+    }
+
+    // Health and generation are handled before query check so probes / live-refresh work.
     try {
       if (request.method == 'GET' && (path == '/api/health' || path == 'api/health')) {
         await _sendHealth(request.response);
+        return;
+      }
+      if (request.method == 'GET' && (path == '/api/generation' || path == 'api/generation')) {
+        await _handleGeneration(request);
         return;
       }
     } on Object catch (error, stack) {
@@ -125,7 +254,7 @@ abstract final class DriftDebugServer {
 
     try {
       if (request.method == 'GET' && (path == '/' || path.isEmpty)) {
-        await _sendHtml(request.response);
+        await _sendHtml(request.response, request);
         return;
       }
       if (request.method == 'GET' && (path == '/api/tables' || path == 'api/tables')) {
@@ -142,10 +271,20 @@ abstract final class DriftDebugServer {
           await _sendTableCount(request.response, query, tableName);
           return;
         }
+        // GET /api/table/<name>/columns returns list of column names for autofill.
+        if (suffix.endsWith('/columns')) {
+          final String tableName = suffix.replaceFirst(RegExp(r'/columns$'), '');
+          await _sendTableColumns(request.response, query, tableName);
+          return;
+        }
         final String tableName = suffix;
         final int limit = _parseLimit(request.uri.queryParameters['limit']);
         final int offset = _parseOffset(request.uri.queryParameters['offset']);
         await _sendTableData(request.response, query, tableName, limit, offset);
+        return;
+      }
+      if (request.method == 'POST' && (path == '/api/sql' || path == 'api/sql')) {
+        await _handleRunSql(request, query);
         return;
       }
       if (request.method == 'GET' && (path == '/api/schema' || path == 'api/schema')) {
@@ -162,6 +301,103 @@ abstract final class DriftDebugServer {
     } on Object catch (error, stack) {
       _logError(error, stack);
       await _sendErrorResponse(request.response, error);
+    }
+  }
+
+  /// Validates that [sql] is read-only: single statement, SELECT or WITH...SELECT only.
+  /// Rejects INSERT/UPDATE/DELETE and DDL (CREATE/ALTER/DROP etc.).
+  static bool _isReadOnlySql(String sql) {
+    String s = sql.trim();
+    if (s.isEmpty) return false;
+    // Remove single-line and block comments so keywords inside comments are ignored.
+    s = s.replaceAll(RegExp(r'--[^\n]*'), ' ');
+    s = s.replaceAll(RegExp(r'/\*[\s\S]*?\*/'), ' ');
+    // Replace string literals with placeholders so keywords inside strings don't trigger.
+    // SQLite escapes single quote as ''; double-quoted identifiers allow "".
+    s = s.replaceAllMapped(RegExp(r"'(?:[^']|'')*'"), (_) => '?');
+    s = s.replaceAllMapped(RegExp(r'"(?:[^"]|"")*"'), (_) => '?');
+    s = s.trim();
+    // Only one statement (no semicolon in the middle; trailing semicolon allowed).
+    final firstSemicolon = s.indexOf(';');
+    if (firstSemicolon >= 0 && firstSemicolon < s.length - 1) {
+      final after = s.substring(firstSemicolon + 1).trim();
+      if (after.isNotEmpty) return false;
+    }
+    if (s.endsWith(';')) s = s.substring(0, s.length - 1).trim();
+    final upper = s.toUpperCase();
+    if (!upper.startsWith('SELECT ') && !upper.startsWith('WITH ')) return false;
+    // Forbidden keywords (word boundary to avoid false positives in identifiers).
+    const forbidden = [
+      'INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'TRUNCATE',
+      'CREATE', 'ALTER', 'DROP', 'ATTACH', 'DETACH',
+      'PRAGMA', 'VACUUM', 'ANALYZE', 'REINDEX',
+    ];
+    final words = RegExp(r'\b\w+\b');
+    for (final match in words.allMatches(upper)) {
+      if (forbidden.contains(match.group(0))) return false;
+    }
+    return true;
+  }
+
+  /// Handles POST /api/sql: body {"sql": "SELECT ..."}, runs read-only SQL, returns rows.
+  static Future<void> _handleRunSql(HttpRequest request, DriftDebugQuery query) async {
+    final HttpResponse response = request.response;
+    String body;
+    try {
+      // Read body once; request stream is single-use.
+      final bytes = <int>[];
+      await for (final chunk in request) {
+        bytes.addAll(chunk);
+      }
+      body = utf8.decode(bytes);
+    } on Object catch (e, st) {
+      _logError(e, st);
+      response.statusCode = HttpStatus.badRequest;
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, String>{'error': 'Invalid request body'}));
+      await response.close();
+      return;
+    }
+    final Map<String, dynamic>? map;
+    try {
+      map = jsonDecode(body) as Map<String, dynamic>?;
+    } on Object catch (e, st) {
+      _logError(e, st);
+      response.statusCode = HttpStatus.badRequest;
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, String>{'error': 'Invalid JSON'}));
+      await response.close();
+      return;
+    }
+    final String sql = (map?['sql'] as String?)?.trim() ?? '';
+    if (sql.isEmpty) {
+      response.statusCode = HttpStatus.badRequest;
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, String>{'error': 'Missing or empty sql'}));
+      await response.close();
+      return;
+    }
+    if (!_isReadOnlySql(sql)) {
+      response.statusCode = HttpStatus.badRequest;
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, String>{
+        'error': 'Only read-only SQL is allowed (SELECT or WITH ... SELECT). '
+            'INSERT/UPDATE/DELETE and DDL are rejected.',
+      }));
+      await response.close();
+      return;
+    }
+    try {
+      final List<Map<String, dynamic>> rows = await query(sql);
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, dynamic>{'rows': rows}));
+      await response.close();
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      response.statusCode = HttpStatus.internalServerError;
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, String>{'error': error.toString()}));
+      await response.close();
     }
   }
 
@@ -196,15 +432,8 @@ abstract final class DriftDebugServer {
     return rows.map((r) => r['name'] as String? ?? '').where((s) => s.isNotEmpty).toList();
   }
 
-  static Future<void> _sendTableList(HttpResponse response, DriftDebugQuery query) async {
-    final List<String> names = await _getTableNames(query);
-    _setJsonHeaders(response);
-    response.write(jsonEncode(names));
-    await response.close();
-  }
-
-  /// Returns JSON {"count": N} for GET /api/table/<name>/count.
-  static Future<void> _sendTableCount(
+  /// If [tableName] is not in the allow-list, sends 400 and returns false; otherwise returns true.
+  static Future<bool> _requireKnownTable(
     HttpResponse response,
     DriftDebugQuery query,
     String tableName,
@@ -215,8 +444,44 @@ abstract final class DriftDebugServer {
       _setJsonHeaders(response);
       response.write(jsonEncode(<String, String>{'error': 'Unknown table: $tableName'}));
       await response.close();
-      return;
+      return false;
     }
+    return true;
+  }
+
+  static Future<void> _sendTableList(HttpResponse response, DriftDebugQuery query) async {
+    final List<String> names = await _getTableNames(query);
+    _setJsonHeaders(response);
+    response.write(jsonEncode(names));
+    await response.close();
+  }
+
+  /// Returns JSON list of column names for GET /api/table/<name>/columns (for SQL autofill).
+  static Future<void> _sendTableColumns(
+    HttpResponse response,
+    DriftDebugQuery query,
+    String tableName,
+  ) async {
+    if (!await _requireKnownTable(response, query, tableName)) return;
+    // PRAGMA table_info returns cid, name, type, notnull, dflt_value, pk.
+    final List<Map<String, dynamic>> rows =
+        await query('PRAGMA table_info("$tableName")');
+    final List<String> columns = rows
+        .map((r) => r['name'] as String? ?? '')
+        .where((s) => s.isNotEmpty)
+        .toList();
+    _setJsonHeaders(response);
+    response.write(jsonEncode(columns));
+    await response.close();
+  }
+
+  /// Returns JSON {"count": N} for GET /api/table/<name>/count.
+  static Future<void> _sendTableCount(
+    HttpResponse response,
+    DriftDebugQuery query,
+    String tableName,
+  ) async {
+    if (!await _requireKnownTable(response, query, tableName)) return;
     final List<Map<String, dynamic>> rows =
         await query('SELECT COUNT(*) AS c FROM "$tableName"');
     final int count = (rows.isNotEmpty && rows.first['c'] != null)
@@ -236,16 +501,8 @@ abstract final class DriftDebugServer {
     int limit,
     int offset,
   ) async {
-    final List<String> allowed = await _getTableNames(query);
-    if (!allowed.contains(tableName)) {
-      response.statusCode = HttpStatus.badRequest;
-      _setJsonHeaders(response);
-      response.write(jsonEncode(<String, String>{'error': 'Unknown table: $tableName'}));
-      await response.close();
-      return;
-    }
-
-    // Table name came from sqlite_master so safe to interpolate; limit/offset are validated.
+    if (!await _requireKnownTable(response, query, tableName)) return;
+    // Table name from allow-list; limit/offset validated.
     final List<Map<String, dynamic>> data =
         await query('SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset');
     _setJsonHeaders(response);
@@ -273,6 +530,52 @@ abstract final class DriftDebugServer {
     _setJsonHeaders(response);
     response.write(jsonEncode(<String, dynamic>{'ok': true}));
     await response.close();
+  }
+
+  /// Handles GET /api/generation. Query param [since] triggers long-poll until generation > since or timeout.
+  static Future<void> _handleGeneration(HttpRequest request) async {
+    final sinceRaw = request.uri.queryParameters['since'];
+    final int? since = sinceRaw != null ? int.tryParse(sinceRaw) : null;
+    if (since != null && since >= 0) {
+      final deadline = DateTime.now().add(_longPollTimeout);
+      while (DateTime.now().isBefore(deadline) && _generation <= since) {
+        await Future.delayed(_longPollCheckInterval);
+      }
+    }
+    _setJsonHeaders(request.response);
+    request.response.write(jsonEncode(<String, int>{'generation': _generation}));
+    await request.response.close();
+  }
+
+  static void _startChangeCheckTimer() {
+    _changeCheckTimer?.cancel();
+    _changeCheckTimer = Timer.periodic(_changeCheckInterval, (_) => _checkDataChange());
+  }
+
+  /// Runs a lightweight fingerprint of table row counts; bumps [_generation] when it changes.
+  static Future<void> _checkDataChange() async {
+    final query = _query;
+    if (query == null) return;
+    try {
+      final tables = await _getTableNames(query);
+      final parts = <String>[];
+      for (final t in tables) {
+        final rows = await query('SELECT COUNT(*) AS c FROM "$t"');
+        final c = (rows.isNotEmpty && rows.first['c'] != null)
+            ? (rows.first['c'] is int
+                ? rows.first['c'] as int
+                : (rows.first['c'] as num).toInt())
+            : 0;
+        parts.add('$t:$c');
+      }
+      final signature = parts.join(',');
+      if (_lastDataSignature != null && _lastDataSignature != signature) {
+        _generation++;
+      }
+      _lastDataSignature = signature;
+    } on Object catch (_) {
+      // Ignore errors (e.g. DB busy); will retry next interval.
+    }
   }
 
   /// Sends schema-only SQL dump (CREATE statements from sqlite_master, no data).
@@ -346,10 +649,30 @@ abstract final class DriftDebugServer {
     _setCors(response);
   }
 
-  static Future<void> _sendHtml(HttpResponse response) async {
+  static Future<void> _sendHtml(HttpResponse response, HttpRequest request) async {
+    String html = _indexHtml;
+    final authToken = _authToken;
+    if (authToken != null && authToken.isNotEmpty) {
+      final queryToken = request.uri.queryParameters['token'];
+      final tokenToInject =
+          (queryToken != null && _secureCompare(queryToken, authToken))
+              ? _escapeJsString(queryToken)
+              : '';
+      html = html.replaceFirst('__DRIFT_AUTH_TOKEN__', tokenToInject);
+    } else {
+      html = html.replaceFirst('__DRIFT_AUTH_TOKEN__', '');
+    }
     response.headers.contentType = ContentType.html;
-    response.write(_indexHtml);
+    response.write(html);
     await response.close();
+  }
+
+  static String _escapeJsString(String s) {
+    return s
+        .replaceAll(r'\', r'\\')
+        .replaceAll('"', r'\"')
+        .replaceAll('\n', r'\n')
+        .replaceAll('\r', r'\r');
   }
 
   static const String _indexHtml = '''
@@ -384,10 +707,45 @@ abstract final class DriftDebugServer {
     .collapsible-header:hover { text-decoration: underline; }
     .collapsible-body { margin-top: 0.25rem; }
     .collapsible-body.collapsed { display: none; }
+    .sql-runner { margin-bottom: 1rem; }
+    .sql-runner .sql-toolbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.35rem; }
+    .sql-runner .sql-toolbar select, .sql-runner .sql-toolbar button { padding: 0.35rem 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); color: var(--fg); border-radius: 4px; }
+    .sql-runner textarea { width: 100%; min-height: 4rem; font-family: ui-monospace, monospace; font-size: 13px; padding: 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); color: var(--fg); border-radius: 4px; resize: vertical; }
+    .sql-runner .sql-result { margin-top: 0.5rem; }
+    .sql-runner .sql-result pre { max-height: 50vh; }
+    .sql-runner .sql-result table { border-collapse: collapse; width: 100%; font-size: 12px; background: var(--bg-pre); border: 1px solid var(--border); }
+    .sql-runner .sql-result th, .sql-runner .sql-result td { border: 1px solid var(--border); padding: 0.35rem 0.5rem; text-align: left; }
+    .sql-runner .sql-result th { font-weight: 600; }
+    .sql-runner .sql-error { color: #e57373; margin-top: 0.35rem; font-size: 0.875rem; }
+    .sql-runner .sql-result, .sql-runner .sql-error { transition: opacity 0.15s ease; }
   </style>
 </head>
 <body>
   <h1>Drift tables <button type="button" id="theme-toggle" title="Toggle light/dark">Theme</button></h1>
+  <div class="collapsible-header sql-runner" id="sql-runner-toggle">▼ Run SQL (read-only)</div>
+  <div id="sql-runner-collapsible" class="collapsible-body collapsed sql-runner">
+    <div class="sql-toolbar">
+      <label for="sql-template">Template:</label>
+      <select id="sql-template">
+        <option value="custom">Custom</option>
+        <option value="select-star-limit">SELECT * FROM table LIMIT 10</option>
+        <option value="select-star">SELECT * FROM table</option>
+        <option value="count">SELECT COUNT(*) FROM table</option>
+        <option value="select-fields">SELECT columns FROM table LIMIT 10</option>
+      </select>
+      <label for="sql-table">Table:</label>
+      <select id="sql-table"><option value="">—</option></select>
+      <label for="sql-fields">Fields:</label>
+      <select id="sql-fields" multiple title="Hold Ctrl/Cmd to pick multiple"><option value="">—</option></select>
+      <button type="button" id="sql-apply-template">Apply template</button>
+      <button type="button" id="sql-run">Run</button>
+      <label for="sql-result-format">Show as:</label>
+      <select id="sql-result-format"><option value="table">Table</option><option value="json">JSON</option></select>
+    </div>
+    <textarea id="sql-input" placeholder="SELECT * FROM my_table LIMIT 10"></textarea>
+    <div id="sql-error" class="sql-error" style="display: none;"></div>
+    <div id="sql-result" class="sql-result" style="display: none;"></div>
+  </div>
   <div class="search-bar">
     <label for="search-input">Search:</label>
     <input type="text" id="search-input" placeholder="Search…" />
@@ -416,6 +774,12 @@ abstract final class DriftDebugServer {
   <ul id="tables"></ul>
   <div id="content" class="content-wrap"></div>
   <script>
+    var DRIFT_VIEWER_AUTH_TOKEN = "__DRIFT_AUTH_TOKEN__";
+    function authOpts(o) {
+      o = o || {}; o.headers = o.headers || {};
+      if (DRIFT_VIEWER_AUTH_TOKEN) o.headers['Authorization'] = 'Bearer ' + DRIFT_VIEWER_AUTH_TOKEN;
+      return o;
+    }
     function esc(s) {
       if (s == null) return '';
       const d = document.createElement('div');
@@ -466,13 +830,18 @@ abstract final class DriftDebugServer {
     });
     initTheme();
 
+    if (DRIFT_VIEWER_AUTH_TOKEN) {
+      var schemaLink = document.getElementById('export-schema');
+      if (schemaLink) schemaLink.href = '/api/schema?token=' + encodeURIComponent(DRIFT_VIEWER_AUTH_TOKEN);
+    }
+
     document.getElementById('schema-toggle').addEventListener('click', function() {
       const el = document.getElementById('schema-collapsible');
       const isCollapsed = el.classList.contains('collapsed');
       el.classList.toggle('collapsed', !isCollapsed);
       this.textContent = isCollapsed ? '▲ Schema' : '▼ Schema';
       if (isCollapsed && cachedSchema === null) {
-        fetch('/api/schema').then(r => r.text()).then(schema => {
+        fetch('/api/schema', authOpts()).then(r => r.text()).then(schema => {
           cachedSchema = schema;
           document.getElementById('schema-inline-pre').textContent = schema;
         }).catch(() => { document.getElementById('schema-inline-pre').textContent = 'Failed to load.'; });
@@ -571,7 +940,7 @@ abstract final class DriftDebugServer {
       const origText = link.textContent;
       link.textContent = 'Preparing dump…';
       statusEl.textContent = '';
-      fetch('/api/dump')
+      fetch('/api/dump', authOpts())
         .then(r => { if (!r.ok) throw new Error(r.statusText); return r.blob(); })
         .then(blob => {
           const url = URL.createObjectURL(blob);
@@ -606,7 +975,7 @@ abstract final class DriftDebugServer {
         applySearch();
         return;
       }
-      fetch('/api/schema')
+      fetch('/api/schema', authOpts())
         .then(r => r.text())
         .then(schema => {
           cachedSchema = schema;
@@ -638,7 +1007,7 @@ abstract final class DriftDebugServer {
     function loadBothView() {
       const content = document.getElementById('content');
       content.innerHTML = '<p class="meta">Loading…</p>';
-      (cachedSchema !== null ? Promise.resolve(cachedSchema) : fetch('/api/schema').then(r => r.text()))
+      (cachedSchema !== null ? Promise.resolve(cachedSchema) : fetch('/api/schema', authOpts()).then(r => r.text()))
       .then(schema => {
         if (cachedSchema === null) cachedSchema = schema;
         lastRenderedSchema = schema;
@@ -675,7 +1044,7 @@ abstract final class DriftDebugServer {
       if (scope === 'both') {
         lastRenderedSchema = cachedSchema;
         if (cachedSchema === null) {
-          fetch('/api/schema').then(r => r.text()).then(schema => {
+          fetch('/api/schema', authOpts()).then(r => r.text()).then(schema => {
             cachedSchema = schema;
             lastRenderedSchema = schema;
             content.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p><pre id="data-pre">' + esc(jsonStr) + '</pre></div>';
@@ -704,14 +1073,14 @@ abstract final class DriftDebugServer {
       } else if (scope !== 'both') {
         content.innerHTML = '<p class="meta">' + esc(name) + '</p><p class="meta">Loading…</p>';
       }
-      fetch('/api/table/' + encodeURIComponent(name) + '?limit=' + limit + '&offset=' + offset)
+      fetch('/api/table/' + encodeURIComponent(name) + '?limit=' + limit + '&offset=' + offset, authOpts())
         .then(r => r.json())
         .then(data => {
           if (currentTableName !== name) return;
           currentTableJson = data;
           setupPagination();
           renderTableView(name, data);
-          fetch('/api/table/' + encodeURIComponent(name) + '/count')
+          fetch('/api/table/' + encodeURIComponent(name) + '/count', authOpts())
             .then(r => r.json())
             .then(o => {
               if (currentTableName !== name) return;
@@ -738,15 +1107,147 @@ abstract final class DriftDebugServer {
         li.appendChild(a);
         ul.appendChild(li);
       });
+      const sqlTableSel = document.getElementById('sql-table');
+      if (sqlTableSel) {
+        sqlTableSel.innerHTML = '<option value="">—</option>' + tables.map(t => '<option value="' + esc(t) + '">' + esc(t) + '</option>').join('');
+      }
     }
-    fetch('/api/tables')
+
+    (function initSqlRunner() {
+      const toggle = document.getElementById('sql-runner-toggle');
+      const collapsible = document.getElementById('sql-runner-collapsible');
+      const templateSel = document.getElementById('sql-template');
+      const tableSel = document.getElementById('sql-table');
+      const fieldsSel = document.getElementById('sql-fields');
+      const applyBtn = document.getElementById('sql-apply-template');
+      const runBtn = document.getElementById('sql-run');
+      const formatSel = document.getElementById('sql-result-format');
+      const inputEl = document.getElementById('sql-input');
+      const errorEl = document.getElementById('sql-error');
+      const resultEl = document.getElementById('sql-result');
+
+      if (!toggle || !collapsible) return;
+
+      toggle.addEventListener('click', function() {
+        const isCollapsed = collapsible.classList.contains('collapsed');
+        collapsible.classList.toggle('collapsed', !isCollapsed);
+        this.textContent = isCollapsed ? '▲ Run SQL (read-only)' : '▼ Run SQL (read-only)';
+      });
+
+      const TEMPLATES = {
+        'select-star-limit': function(t, cols) { return 'SELECT * FROM "' + t + '" LIMIT 10'; },
+        'select-star': function(t, cols) { return 'SELECT * FROM "' + t + '"'; },
+        'count': function(t, cols) { return 'SELECT COUNT(*) FROM "' + t + '"'; },
+        'select-fields': function(t, cols) {
+          const list = (cols && cols.length) ? cols.map(c => '"' + c + '"').join(', ') : '*';
+          return 'SELECT ' + list + ' FROM "' + t + '" LIMIT 10';
+        }
+      };
+
+      function getSelectedFields() {
+        const opts = fieldsSel ? Array.from(fieldsSel.selectedOptions || []) : [];
+        return opts.map(o => o.value).filter(Boolean);
+      }
+
+      function applyTemplate() {
+        const table = (tableSel && tableSel.value) || '';
+        const templateId = (templateSel && templateSel.value) || 'custom';
+        if (templateId === 'custom') return;
+        const fn = TEMPLATES[templateId];
+        if (!fn) return;
+        const cols = getSelectedFields();
+        const sql = table ? fn(table, cols) : ('SELECT * FROM "' + (table || 'table_name') + '" LIMIT 10');
+        if (inputEl) inputEl.value = sql;
+      }
+
+      if (applyBtn) applyBtn.addEventListener('click', applyTemplate);
+      if (templateSel) templateSel.addEventListener('change', applyTemplate);
+
+      if (tableSel) {
+        tableSel.addEventListener('change', function() {
+          const name = this.value;
+          fieldsSel.innerHTML = '<option value="">—</option>';
+          if (!name) return;
+          fieldsSel.innerHTML = '<option value="">Loading…</option>';
+          const requestedTable = name;
+          fetch('/api/table/' + encodeURIComponent(name) + '/columns', authOpts())
+            .then(r => r.json())
+            .then(cols => {
+              if (tableSel.value !== requestedTable) return;
+              if (Array.isArray(cols)) {
+                fieldsSel.innerHTML = '<option value="">—</option>' + cols.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+              } else {
+                fieldsSel.innerHTML = '<option value="">—</option>';
+              }
+            })
+            .catch(() => {
+              if (tableSel.value !== requestedTable) return;
+              fieldsSel.innerHTML = '<option value="">—</option>';
+            });
+        });
+      }
+
+      if (runBtn && inputEl && errorEl && resultEl) {
+        runBtn.addEventListener('click', function() {
+          const sql = inputEl.value.trim();
+          errorEl.style.display = 'none';
+          resultEl.style.display = 'none';
+          resultEl.innerHTML = '';
+          if (!sql) {
+            errorEl.textContent = 'Enter a SELECT query.';
+            errorEl.style.display = 'block';
+            return;
+          }
+          const runBtnOrigText = runBtn.textContent;
+          runBtn.textContent = 'Running…';
+          runBtn.disabled = true;
+          fetch('/api/sql', authOpts({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sql: sql })
+          }))
+            .then(r => r.json().then(data => ({ ok: r.ok, data: data })))
+            .then(({ ok, data }) => {
+              if (!ok) {
+                errorEl.textContent = data.error || 'Request failed';
+                errorEl.style.display = 'block';
+                return;
+              }
+              const rows = data.rows || [];
+              const asTable = formatSel && formatSel.value === 'table';
+              if (asTable && rows.length > 0) {
+                const keys = Object.keys(rows[0]);
+                let html = '<p class="meta">' + rows.length + ' row(s)</p><table><thead><tr>' + keys.map(k => '<th>' + esc(k) + '</th>').join('') + '</tr></thead><tbody>';
+                rows.forEach(row => {
+                  html += '<tr>' + keys.map(k => '<td>' + esc(row[k] != null ? String(row[k]) : '') + '</td>').join('') + '</tr>';
+                });
+                html += '</tbody></table>';
+                resultEl.innerHTML = html;
+              } else {
+                resultEl.innerHTML = '<p class="meta">' + rows.length + ' row(s)</p><pre>' + esc(JSON.stringify(rows, null, 2)) + '</pre>';
+              }
+              resultEl.style.display = 'block';
+            })
+            .catch(e => {
+              errorEl.textContent = e.message || String(e);
+              errorEl.style.display = 'block';
+            })
+            .finally(() => {
+              runBtn.disabled = false;
+              runBtn.textContent = runBtnOrigText;
+            });
+        });
+      }
+    })();
+
+    fetch('/api/tables', authOpts())
       .then(r => r.json())
       .then(tables => {
         const loadingEl = document.getElementById('tables-loading');
         loadingEl.style.display = 'none';
         renderTableList(tables);
         tables.forEach(t => {
-          fetch('/api/table/' + encodeURIComponent(t) + '/count')
+          fetch('/api/table/' + encodeURIComponent(t) + '/count', authOpts())
             .then(r => r.json())
             .then(o => { tableCounts[t] = o.count; renderTableList(tables); })
             .catch(() => {});
