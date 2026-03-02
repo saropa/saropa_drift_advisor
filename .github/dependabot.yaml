@@ -1,3 +1,4 @@
+# Dependabot: daily updates for pub and github-actions; grouped PRs and limit to reduce noise.
 version: 2
 enable-beta-ecosystems: true
 updates:
@@ -5,7 +6,18 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    groups:
+      actions:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+
   - package-ecosystem: "pub"
     directory: "/"
     schedule:
       interval: "daily"
+    groups:
+      dart-deps:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5

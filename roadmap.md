@@ -49,8 +49,8 @@ This document captures improvement ideas from a full project review: gaps to fix
 
 ### Infrastructure
 
-- **Dependabot** — Already configured for `pub` and `github-actions`; consider grouping or auto-merge rules if desired.
-- **Branch consistency** — Align default branch name and workflow triggers everywhere (see P0 above).
+- ~~**Dependabot**~~ — *Implemented:* Grouping for `pub` and `github-actions`; `open-pull-requests-limit: 5`. Auto-merge remains optional (repo rules or workflow).
+- ~~**Branch consistency**~~ — *Implemented:* Workflow triggers use `master` to match default branch (see P0).
 
 ---
 
