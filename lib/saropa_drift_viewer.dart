@@ -1,5 +1,10 @@
 /// Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer.
 ///
+/// **Architecture:** The package is dependency-injection friendly: it does not depend on `drift`.
+/// You supply a [DriftDebugQuery] that runs SQL; the server uses it for table listing, table data,
+/// schema, and optional read-only SQL runner. One server per process; [DriftDebugServer.stop]
+/// clears state so [DriftDebugServer.start] can be called again (e.g. in tests).
+///
 /// Use from any Flutter or Dart app that has a SQLite (or Drift) database. Add the package
 /// (from pub.dev or a path dependency), then start the server with [DriftDebugServer.start],
 /// passing a [DriftDebugQuery] callback that runs SQL and returns rows as maps.
