@@ -26,7 +26,8 @@ class ExampleApp extends StatelessWidget {
       ),
       onGenerateRoute: (RouteSettings settings) {
         if (settings.name != null &&
-            settings.name!.startsWith(DriftViewerFloatingButton.webViewRouteName)) {
+            settings.name!
+                .startsWith(DriftViewerFloatingButton.webViewRouteName)) {
           return DriftViewerFloatingButton.buildWebViewRoute(settings);
         }
         return null;

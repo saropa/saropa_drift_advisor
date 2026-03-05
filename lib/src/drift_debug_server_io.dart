@@ -54,7 +54,8 @@ typedef DriftDebugGetDatabaseBytes = Future<List<int>> Function();
 /// In-memory snapshot of table state (for time-travel compare). Captured by POST /api/snapshot;
 /// GET /api/snapshot/compare diffs current DB vs this snapshot (per-table added/removed/unchanged).
 class _Snapshot {
-  const _Snapshot({required this.id, required this.createdAt, required this.tables});
+  const _Snapshot(
+      {required this.id, required this.createdAt, required this.tables});
   final String id;
   final DateTime createdAt;
   final Map<String, List<Map<String, dynamic>>> tables;
@@ -192,6 +193,7 @@ class _DriftDebugServerImpl {
     }
     return (body: bodyObj, error: null);
   }
+
   static const String _jsonKeyCount = 'count';
   static const String _jsonKeyOk = 'ok';
   static const String _jsonKeyGeneration = 'generation';

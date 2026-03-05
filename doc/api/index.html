@@ -64,6 +64,7 @@
 <li><strong>Bind address</strong> (loopback or any), CORS, health endpoint (<code>GET /api/health</code>), and <code>DriftDebugServer.stop()</code></li>
 </ul>
 <p><strong>Editor integration:</strong> Run Task → <strong>Open Drift Viewer</strong> (VS Code/Cursor) or use the <strong>Drift Viewer</strong> extension in <code>extension/</code>.</p>
+<p><strong>Flutter overlay:</strong> In debug builds, wrap your app with <a href="https://pub.dev/documentation/saropa_drift_viewer/latest/flutter/DriftViewerOverlay-class.html">DriftViewerOverlay</a> to show a floating button that opens the viewer in the browser or in an in-app WebView. See <a href="#flutter-overlay">Flutter overlay</a> below.</p>
 <hr>
 <h2 id="quick-start">Quick start</h2>
 <h3 id="1-add-the-dependency">1. Add the dependency</h3>
@@ -100,6 +101,17 @@ await DriftDebugServer.start(
 <p>Open <strong><a href="http://127.0.0.1:8642">http://127.0.0.1:8642</a></strong>.<br>
 From VS Code/Cursor: <strong>Run Task → Open Drift Viewer</strong>, or use the <strong>Drift Viewer</strong> extension (<code>extension/</code>) for a command-palette shortcut.</p>
 <p><strong>Example app:</strong> <a href="example/">example/</a> — from repo root: <code>flutter run -d windows</code>, then open <a href="http://127.0.0.1:8642">http://127.0.0.1:8642</a>. See <a href="example/README.md">example/README.md</a>.</p>
+<h3 id="4-flutter-overlay-optional">4. Flutter overlay (optional)</h3>
+<p>In Flutter apps, add a floating button in debug builds that opens the viewer in the browser or in an in-app WebView:</p>
+<pre class="language-dart"><code class="language-dart">import 'package:saropa_drift_viewer/flutter.dart';
+
+void main() {
+  runApp(DriftViewerOverlay(
+    child: MaterialApp(home: MyHomePage()),
+  ));
+}
+</code></pre>
+<p>Start the server as usual (e.g. <code>await myDb.startDriftViewer(enabled: kDebugMode);</code>). The overlay shows a small button (e.g. bottom-right); tap it for a menu: <strong>Open in browser</strong> or <strong>Open in WebView</strong>. The button is only visible when <code>kDebugMode</code> is true and the server is running. For custom layout, use <a href="https://pub.dev/documentation/saropa_drift_viewer/latest/flutter/DriftViewerFloatingButton-class.html">DriftViewerFloatingButton</a> inside your own <code>Stack</code>.</p>
 <hr>
 <h2 id="api-summary">API summary</h2>
 <table>
@@ -203,6 +215,13 @@ From VS Code/Cursor: <strong>Run Task → Open Drift Viewer</strong>, or use the
       <section class="summary">
           <h2>Libraries</h2>
         <dl>
+          <dt id="flutter">
+  <span class="name"><a href="flutter/">flutter</a></span> 
+
+</dt>
+<dd>Flutter-specific API: overlay widget for opening the Drift viewer in debug builds.
+</dd>
+
           <dt id="saropa_drift_viewer">
   <span class="name"><a href="saropa_drift_viewer/">saropa_drift_viewer</a></span> 
 
@@ -227,6 +246,7 @@ From VS Code/Cursor: <strong>Run Task → Open Drift Viewer</strong>, or use the
     <h5 class="hidden-xs"><span class="package-name">saropa_drift_viewer</span> <span class="package-kind">package</span></h5>
     <ol>
       <li class="section-title">Libraries</li>
+      <li><a href="flutter/">flutter</a></li>
       <li><a href="saropa_drift_viewer/">saropa_drift_viewer</a></li>
 </ol>
 
@@ -237,7 +257,7 @@ From VS Code/Cursor: <strong>Run Task → Open Drift Viewer</strong>, or use the
 <footer>
   <span class="no-break">
     saropa_drift_viewer
-      0.1.0
+      0.2.0
   </span>
   
 </footer>

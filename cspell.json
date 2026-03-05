@@ -7,6 +7,8 @@
     "keyup",
     "ngrok",
     "notnull",
-    "onclick"
+    "onclick",
+    "Sandboxed",
+    "writeln"
   ]
 }

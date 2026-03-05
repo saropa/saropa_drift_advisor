@@ -6,8 +6,12 @@ This script automates the complete release workflow for the Dart package.
 The package is at the repository root (single package, no subfolder).
 
   Pre-checks (before numbered steps):
-    - Validates pubspec.yaml and CHANGELOG.md versions are in sync
-      (auto-fixes pubspec if changelog is ahead)
+    - Validates pubspec.yaml and CHANGELOG.md versions: if changelog is ahead,
+      pubspec is updated; if pubspec is ahead and [Unreleased] exists, it is
+      converted to that version so pubspec wins.
+    - If CHANGELOG shows the current version as already released (first
+      versioned section matches pubspec) and has [Unreleased], offers to
+      auto-bump to next patch so you do not re-publish the same version.
     - If version tag already exists on remote and CHANGELOG.md has an
       [Unreleased] section, offers to auto-bump to the next patch version
       (updates both CHANGELOG.md and pubspec.yaml)
@@ -1053,14 +1057,53 @@ def main() -> int:
             version = changelog_version
             print_success(f"pubspec.yaml updated to {version}")
         else:
-            exit_with_error(
-                f"Version mismatch: pubspec.yaml has {version}, "
-                f"but CHANGELOG.md latest is {changelog_version}. "
-                "Add a CHANGELOG.md entry for the new version before publishing.",
-                ExitCode.CHANGELOG_FAILED,
-            )
+            # pubspec has higher version: use it as source of truth
+            if has_unreleased_section(changelog_path):
+                print_warning(
+                    f"Version mismatch: pubspec.yaml has {version}, "
+                    f"CHANGELOG.md latest is {changelog_version}. Using pubspec version."
+                )
+                update_changelog_unreleased(changelog_path, version)
+                print_success(f"CHANGELOG.md: [Unreleased] → [{version}]")
+                changelog_version = version
+            else:
+                exit_with_error(
+                    f"Version mismatch: pubspec.yaml has {version}, "
+                    f"but CHANGELOG.md latest is {changelog_version}. "
+                    "Add a CHANGELOG.md entry (or [Unreleased] section) for the new "
+                    "version before publishing.",
+                    ExitCode.CHANGELOG_FAILED,
+                )
 
     tag_name = f"v{version}"
+
+    # If CHANGELOG already has this version as a released section and [Unreleased]
+    # exists, this version is already released—do not re-publish it.
+    if version == changelog_version and has_unreleased_section(changelog_path):
+        next_version = bump_patch_version(version)
+        print_warning(
+            f"CHANGELOG.md shows {version} as already released and has [Unreleased] "
+            "content. Publishing the same version again would be incorrect."
+        )
+        response = (
+            input(
+                f"  Would you like to publish as v{next_version} instead? [y/N] "
+            )
+            .strip()
+            .lower()
+        )
+        if not response.startswith("y"):
+            exit_with_error(
+                "Publish cancelled. Bump version (or add [Unreleased] and run again).",
+                ExitCode.USER_CANCELLED,
+            )
+        update_changelog_unreleased(changelog_path, next_version)
+        print_success(f"CHANGELOG.md: [Unreleased] → [{next_version}]")
+        update_pubspec_version(pubspec_path, next_version)
+        print_success(f"pubspec.yaml: {version} → {next_version}")
+        version = next_version
+        tag_name = f"v{version}"
+
     use_shell = get_shell_mode()
     result = subprocess.run(
         ["git", "ls-remote", "--tags", "origin", f"refs/tags/{tag_name}"],

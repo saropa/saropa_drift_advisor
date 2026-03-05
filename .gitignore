@@ -29,3 +29,4 @@ extension/out/
 extension/*.vsix
 
 # Root is the Dart package.
+*.bak

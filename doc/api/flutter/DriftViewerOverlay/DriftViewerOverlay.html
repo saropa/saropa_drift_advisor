@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the toString method from the DriftDebugServer mixin, for the Dart programming language.">
-  <title>toString method - DriftDebugServer mixin - saropa_drift_viewer library - Dart API</title>
+  <meta name="description" content="API docs for the DriftViewerOverlay.new constructor from Class DriftViewerOverlay from the flutter library, for the Dart programming language.">
+  <title>DriftViewerOverlay.new constructor - DriftViewerOverlay - flutter library - Dart API</title>
 
 
   
@@ -25,11 +25,11 @@
   <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
   <ol class="breadcrumbs gt-separated dark hidden-xs">
     <li><a href="../../index.html">saropa_drift_viewer</a></li>
-    <li><a href="../../saropa_drift_viewer/">saropa_drift_viewer.dart</a></li>
-    <li><a href="../../saropa_drift_viewer/DriftDebugServer-mixin.html">DriftDebugServer</a></li>
-    <li class="self-crumb">toString method</li>
+    <li><a href="../../flutter/">flutter.dart</a></li>
+    <li><a href="../../flutter/DriftViewerOverlay-class.html">DriftViewerOverlay</a></li>
+    <li class="self-crumb">DriftViewerOverlay.new const constructor</li>
   </ol>
-  <div class="self-name">toString</div>
+  <div class="self-name">DriftViewerOverlay.new</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -43,42 +43,38 @@
   </button>
 </header>
 <main>
-<div
-    id="dartdoc-main-content"
-    class="main-content"
-    data-above-sidebar="saropa_drift_viewer&#47;DriftDebugServer-mixin-sidebar.html"
-    data-below-sidebar="">
-    <div>
-<h1><span class="kind-method">toString</span> method 
+  <div
+      id="dartdoc-main-content"
+      class="main-content"
+      data-above-sidebar="flutter&#47;DriftViewerOverlay-class-sidebar.html"
+      data-below-sidebar="">
+      <div>
+<h1><span class="kind-constructor">DriftViewerOverlay</span> constructor 
 </h1></div>
 
     <section class="multi-line-signature">
-      
-<span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
-<span class="name ">toString</span>(<wbr>)
-
-      <div class="features"><span class="feature">inherited</span></div>
-
+      const
+      <span class="name ">DriftViewerOverlay</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="-param-key"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/foundation/Key-class.html">Key</a>?</span> <span class="parameter-name">key</span>, </span></li>
+<li><span class="parameter" id="-param-child"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/widgets/Widget-class.html">Widget</a></span> <span class="parameter-name">child</span>, </span></li>
+<li><span class="parameter" id="-param-alignment"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/painting/AlignmentGeometry-class.html">AlignmentGeometry</a></span> <span class="parameter-name">alignment</span> = <span class="default-value">AlignmentDirectional.bottomEnd</span>, </span></li>
+<li><span class="parameter" id="-param-margin"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/painting/EdgeInsetsGeometry-class.html">EdgeInsetsGeometry</a>?</span> <span class="parameter-name">margin</span>, </span></li>
+</ol>})
     </section>
     
 <section class="desc markdown">
-  <p>A string representation of this object.</p>
-<p>Some classes have a default textual representation,
-often paired with a static <code>parse</code> function (like <a href="https://api.flutter.dev/flutter/dart-core/int/parse.html">int.parse</a>).
-These classes will provide the textual representation as
-their string representation.</p>
-<p>Other classes have no meaningful textual representation
-that a program will care about.
-Such classes will typically override <code>toString</code> to provide
-useful information when inspecting the object,
-mainly for debugging or logging.</p>
+  <p>Creates an overlay that wraps <code>child</code> and shows a viewer button when applicable.</p>
 </section>
 
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">external String toString();</code></pre>
+  <pre class="language-dart"><code class="language-dart">const DriftViewerOverlay({
+  super.key,
+  required this.child,
+  this.alignment = AlignmentDirectional.bottomEnd,
+  EdgeInsetsGeometry? margin,
+}) : margin = margin ?? const EdgeInsetsDirectional.all(16);</code></pre>
 </section>
 
 
@@ -92,16 +88,16 @@ mainly for debugging or logging.</p>
 </header>
 <ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
     <li><a href="../../index.html">saropa_drift_viewer</a></li>
-    <li><a href="../../saropa_drift_viewer/">saropa_drift_viewer</a></li>
-    <li><a href="../../saropa_drift_viewer/DriftDebugServer-mixin.html">DriftDebugServer</a></li>
-    <li class="self-crumb">toString method</li>
+    <li><a href="../../flutter/">flutter</a></li>
+    <li><a href="../../flutter/DriftViewerOverlay-class.html">DriftViewerOverlay</a></li>
+    <li class="self-crumb">DriftViewerOverlay.new const constructor</li>
 </ol>
 
-    <h5>DriftDebugServer mixin</h5>
+    <h5>DriftViewerOverlay class</h5>
     <div id="dartdoc-sidebar-left-content"></div>
-  </div><!--/.sidebar-offcanvas-->
+  </div><!--/.sidebar-offcanvas-left-->
   <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
-</div><!--/.sidebar-offcanvas-->
+  </div><!--/.sidebar-offcanvas-->
 </main>
 <footer>
   <span class="no-break">

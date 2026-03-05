@@ -46,57 +46,57 @@ const int _kErrorMessageMaxLines = 3;
 // ---------------------------------------------------------------------------
 
 String get _sOpenDriftViewer => Intl.message(
-  'Open Drift Viewer',
-  name: 'sOpenDriftViewer',
-  desc: 'Tooltip for the Drift Viewer overlay floating button',
-);
+      'Open Drift Viewer',
+      name: 'sOpenDriftViewer',
+      desc: 'Tooltip for the Drift Viewer overlay floating button',
+    );
 String get _sOpenInBrowser => Intl.message(
-  'Open in browser',
-  name: 'sOpenInBrowser',
-  desc: 'Menu item to open the viewer in the external browser',
-);
+      'Open in browser',
+      name: 'sOpenInBrowser',
+      desc: 'Menu item to open the viewer in the external browser',
+    );
 String get _sOpenInWebView => Intl.message(
-  'Open in WebView',
-  name: 'sOpenInWebView',
-  desc: 'Menu item to open the viewer in an in-app WebView',
-);
+      'Open in WebView',
+      name: 'sOpenInWebView',
+      desc: 'Menu item to open the viewer in an in-app WebView',
+    );
 String get _sBrowser => Intl.message(
-  'Browser',
-  name: 'sBrowser',
-  desc: 'Semantic label for the open-in-browser icon',
-);
+      'Browser',
+      name: 'sBrowser',
+      desc: 'Semantic label for the open-in-browser icon',
+    );
 String get _sWebView => Intl.message(
-  'WebView',
-  name: 'sWebView',
-  desc: 'Semantic label for the open-in-WebView icon',
-);
+      'WebView',
+      name: 'sWebView',
+      desc: 'Semantic label for the open-in-WebView icon',
+    );
 String get _sBack => Intl.message(
-  'Back',
-  name: 'sBack',
-  desc: 'Back button tooltip and semantic label on WebView screen',
-);
+      'Back',
+      name: 'sBack',
+      desc: 'Back button tooltip and semantic label on WebView screen',
+    );
 String get _sDriftViewer => Intl.message(
-  'Drift Viewer',
-  name: 'sDriftViewer',
-  desc: 'Semantic label for the Drift Viewer floating button icon',
-);
+      'Drift Viewer',
+      name: 'sDriftViewer',
+      desc: 'Semantic label for the Drift Viewer floating button icon',
+    );
 String _sCouldNotOpen(Uri uri) => Intl.message(
-  'Could not open $uri',
-  name: 'sCouldNotOpen',
-  desc: 'SnackBar when url_launcher cannot open the viewer URL',
-  args: [uri.toString()],
-);
+      'Could not open $uri',
+      name: 'sCouldNotOpen',
+      desc: 'SnackBar when url_launcher cannot open the viewer URL',
+      args: [uri.toString()],
+    );
 String get _sFailedToOpenViewer => Intl.message(
-  'Failed to open viewer. Try opening the URL manually.',
-  name: 'sFailedToOpenViewer',
-  desc: 'SnackBar when launchUrl throws an exception',
-);
+      'Failed to open viewer. Try opening the URL manually.',
+      name: 'sFailedToOpenViewer',
+      desc: 'SnackBar when launchUrl throws an exception',
+    );
 String _sInvalidOrUnsupportedUrl(String urlSample) => Intl.message(
-  'Invalid or unsupported URL: $urlSample',
-  name: 'sInvalidOrUnsupportedUrl',
-  desc: 'WebView route error when URI is invalid or not http(s)',
-  args: [urlSample],
-);
+      'Invalid or unsupported URL: $urlSample',
+      name: 'sInvalidOrUnsupportedUrl',
+      desc: 'WebView route error when URI is invalid or not http(s)',
+      args: [urlSample],
+    );
 
 // ---------------------------------------------------------------------------
 // URI and visibility
@@ -147,8 +147,7 @@ final class DriftViewerFloatingButton extends StatelessWidget {
     final String uriString = _uriStringFromRouteSettings(settingsOrUriString);
     final uri = Uri.tryParse(uriString);
     final routeName = '$webViewRouteName?uri=${Uri.encodeComponent(uriString)}';
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https')) {
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
       return _buildWebViewErrorRoute(routeName, uriString);
     }
     return _buildWebViewScreenRoute(routeName, uri);
@@ -178,7 +177,8 @@ final class DriftViewerFloatingButton extends StatelessWidget {
 
   /// Named route builder for error screen (prefer_named_routes_for_deep_links).
   @useResult
-  static Route<void> _buildWebViewErrorRoute(String routeName, String uriString) {
+  static Route<void> _buildWebViewErrorRoute(
+      String routeName, String uriString) {
     final urlSample = uriString.length > _kUriStringDisplayMaxLength
         ? '${uriString.substring(0, _kUriStringDisplayMaxLength)}...'
         : uriString;
@@ -595,8 +595,8 @@ class _DriftViewerWebViewScreenState extends State<_DriftViewerWebViewScreen> {
     if (platform is AndroidWebViewController) {
       unawaited(
         platform.setAllowFileAccess(false).catchError(
-          (Object e, StackTrace st) => _logLoadError(e, st),
-        ),
+              (Object e, StackTrace st) => _logLoadError(e, st),
+            ),
       );
     }
     _controller = controller;
