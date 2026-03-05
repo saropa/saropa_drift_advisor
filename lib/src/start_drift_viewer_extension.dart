@@ -30,17 +30,16 @@ Future<List<Map<String, dynamic>>> _runDriftQuery(Object db, String sql) async {
       return Map<String, dynamic>.from(data);
     }).toList(growable: false);
   } on NoSuchMethodError catch (e, st) {
-    // Error path only; developer.log has no lazy message API.
-    developer.log(
-      // ignore: avoid_expensive_log_string_construction
-      'startDriftViewer requires a Drift-like database with customSelect(sql).get() and rows exposing row.data as a Map. Missing member: $e',
-      name: _kStartViewerLogName,
-      error: e,
-      stackTrace: st,
-    );
-    // throwWithStackTrace returns Never; no return value to use.
-    // ignore: avoid_ignoring_return_values
-    Error.throwWithStackTrace(
+    // Only build log message in debug so we avoid expensive string construction in release.
+    if (!bool.fromEnvironment('dart.vm.product', defaultValue: false)) {
+      developer.log(
+        'startDriftViewer requires a Drift-like database with customSelect(sql).get() and rows exposing row.data as a Map. Missing member: $e',
+        name: _kStartViewerLogName,
+        error: e,
+        stackTrace: st,
+      );
+    }
+    return Error.throwWithStackTrace(
       StateError(
         'startDriftViewer requires a Drift-like database with customSelect(sql).get() and rows exposing row.data as a Map. Missing member: $e',
       ),
@@ -85,7 +84,6 @@ extension StartDriftViewerExtension on Object {
     DriftDebugOnError? onError,
   }) async {
     // Preserve return await so async stack trace is retained (prefer_return_await).
-    // ignore: unnecessary_await_in_return
     return await DriftDebugServer.start(
       query: (sql) => _runDriftQuery(this, sql),
       enabled: enabled,

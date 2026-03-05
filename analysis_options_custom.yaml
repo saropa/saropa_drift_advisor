@@ -387,6 +387,9 @@ prefer_digit_separators: false
 prefer_correct_throws: false             # StateError/UnsupportedError by design
 avoid_unnecessary_to_list: false        # .toList() for JSON serialization
 prefer_extension_over_utility_class: false  # Class kept for stable API
+handle_throwing_invocations: false         # Extension propagates throws; @Throws not used
+avoid_expensive_log_string_construction: false  # developer.log has no lazy API; debug-only guarded by dart.vm.product
+unnecessary_await_in_return: false  # Preserve return await for async stack traces (prefer_return_await).
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STYLISTIC RULES
@@ -410,23 +413,7 @@ prefer_extension_over_utility_class: false  # Class kept for stable API
 
 
 
-
-
-
-
-
 # --- Naming conventions ---
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -442,20 +429,6 @@ prefer_extension_over_utility_class: false  # Class kept for stable API
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # --- Function & Parameter style ---
 
 
@@ -463,10 +436,6 @@ prefer_extension_over_utility_class: false  # Class kept for stable API
 
 
 # --- Widget style ---
-
-
-
-
 
 
 

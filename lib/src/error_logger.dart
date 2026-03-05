@@ -31,8 +31,8 @@ typedef DriftDebugLoggerCallbacks = ({_LogCallback log, _ErrorCallback error});
 /// ```
 ///
 /// Kept as a class (not an extension) for stable public API.
-// Static methods take [prefix] as first arg; kept as class for API stability.
-abstract final class DriftDebugErrorLogger { // ignore: prefer_extension_over_utility_class
+/// Static methods take [prefix] as first arg; kept as class for API stability.
+abstract final class DriftDebugErrorLogger {
   const DriftDebugErrorLogger._();
 
   /// Default prefix used in log messages when none is provided.

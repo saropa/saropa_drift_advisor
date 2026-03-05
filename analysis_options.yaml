@@ -27,7 +27,7 @@ linter:
     - literal_only_boolean_expressions
     - no_duplicate_case_values
     - prefer_void_to_null
-    - unnecessary_await_in_return
+    # unnecessary_await_in_return removed: we preserve return await for async stack traces (prefer_return_await).
     - unnecessary_brace_in_string_interps
     - unnecessary_null_checks
     - unnecessary_statements
@@ -580,7 +580,7 @@ plugins:
       avoid_passing_async_when_sync_expected: true  # [WARNING] Async callback passed to a sync-only method such as forEach, map, or where. The returned Future is silently discarded, which means any errors thrown inside the callback are lost and never reported. This makes debugging extremely difficult and can hide critical failures in your application logic. {v4}
       avoid_passing_bloc_to_bloc: true  # [WARNING] Bloc should not depend on another Bloc. This creates tight coupling and makes testing difficult. {v2}
       avoid_passing_build_context_to_blocs: true  # [WARNING] BuildContext in Bloc couples UI to business logic and makes testing difficult. {v2}
-      avoid_platform_specific_imports: true  # [WARNING] dart:io import detected in shared code. dart:io is unavailable on web and will cause compile failures when targeting browser platforms. Shared library code and packages that support multiple platforms should use conditional imports or package:universal_io to remain platform-agnostic. {v1}
+      avoid_platform_specific_imports: false  # VM-only impl; conditional export uses stub on web (analysis_options_custom.yaml).
       avoid_prefs_for_large_data: true  # [WARNING] SharedPreferences loads its entire file into memory on first access, making it unsuitable for large datasets. Storing collections or large JSON blobs here causes slow app startup, excessive memory consumption, UI freezes, and potential data corruption on write failures. {v3}
       avoid_provider_in_widget: true  # [ERROR] Declaring a provider inside a widget class breaks Riverpod's global state model, leading to multiple provider instances, lost state, and unpredictable bugs. This can make your app behave inconsistently and is hard to debug. {v2}
       avoid_provider_listen_false_in_build: true  # [INFO] Provider.of() is called with listen: false inside a build() method. This prevents the widget from rebuilding when the provided value changes, causing the UI to display stale data that does not reflect the current application state. Users see outdated information until something else triggers a rebuild, creating confusing and inconsistent UI behavior that is difficult to debug. {v2}
@@ -1044,7 +1044,7 @@ plugins:
       avoid_expando_circular_references: true  # [WARNING] Creating a circular reference by storing a reference to an Expando key inside its own value prevents Dart’s garbage collector from reclaiming memory, resulting in memory leaks. This subtle bug can cause your app’s memory usage to grow over time, degrade performance, and eventually lead to crashes or out-of-memory errors, especially in long-running or data-intensive applications. Such leaks are difficult to detect and debug, making it critical to avoid circular references when using Expando for metadata or caching. {v5}
       avoid_expensive_computation_in_build: true  # [WARNING] Expensive computation detected inside build() method. Build runs on every frame during animations and on every state change, so heavy operations here cause jank, dropped frames, and sluggish UI responsiveness. Users will experience visible stuttering especially during transitions and scrolling. {v2}
       avoid_expensive_did_change_dependencies: true  # [WARNING] Expensive operation detected inside didChangeDependencies(). This callback runs every time an InheritedWidget dependency changes (theme, locale, media query), which can be very frequent. Network calls, database queries, and heavy computation here cause redundant work, jank, and wasted bandwidth on every dependency change. {v1}
-      avoid_expensive_log_string_construction: true  # [INFO] Log call uses string interpolation; the string is built even when the log level would not print it. Add a level guard or use a lazy message. {v1}
+      avoid_expensive_log_string_construction: false  # developer.log has no lazy API; we guard with dart.vm.product (analysis_options_custom.yaml).
       avoid_explicit_pattern_field_name: true  # [INFO] Explicit pattern field name matches variable name. Explicit field names are used in pattern matching when they match the variable name. This pattern matching usage can cause unexpected behavior or miss important type information. {v3}
       avoid_extensions_on_records: true  # [INFO] Extension on record type. Records lack identity for extension discovery. This pattern matching usage can cause unexpected behavior or miss important type information. {v4}
       avoid_field_initializers_in_const_classes: true  # [INFO] Const class has a field with an inline initializer. Prefer moving it to the constructor initializer list for clarity.
@@ -1235,7 +1235,7 @@ plugins:
       avoid_unnecessary_return: true  # [INFO] Unnecessary return statement at end of void function. This return pattern causes unexpected control flow and makes function behavior harder to predict. {v5}
       avoid_unnecessary_stateful_widgets: true  # [INFO] StatefulWidget may be unnecessary. If a State class never calls setState and has no mutable state, it should probably be a StatelessWidget. This violates the widget lifecycle, risking setState-after-dispose errors or silent state corruption. {v6}
       avoid_unnecessary_super: true  # [INFO] Unnecessary super() call with no arguments. Super call is unnecessary in constructor. This unnecessary code increases cognitive load without providing functional benefit. {v4}
-      avoid_unnecessary_to_list: true  # [INFO] .toList() may be unnecessary here. Lazy iterables are more efficient. Calling .toList() after .map(), .where(), .take(), etc. creates an intermediate list that may not be needed. Dart's lazy iterables are more memory efficient. {v3}
+      avoid_unnecessary_to_list: false  # .toList() for JSON serialization (analysis_options_custom.yaml). Lazy iterables are more efficient. Calling .toList() after .map(), .where(), .take(), etc. creates an intermediate list that may not be needed. Dart's lazy iterables are more memory efficient. {v3}
       avoid_unrestricted_text_field_length: true  # [INFO] TextField without maxLength allows unbounded input, enabling users to paste megabytes of text that can freeze the UI, exhaust memory, and create oversized payloads for backend APIs. Setting maxLength protects against denial-of-service scenarios and enforces data integrity constraints. {v6}
       avoid_unused_callback_parameters: true  # [INFO] Callback parameter is declared but never referenced in the closure body, adding visual noise and misleading readers into thinking the value is needed. Unused parameters also trigger analyzer warnings and obscure the actual data flow of the callback. {v4}
       avoid_vague_test_descriptions: true  # [INFO] Test description is too vague. Test names should clearly describe what is being tested. This weakens test quality, making failures harder to diagnose and reducing confidence in the test suite. {v5}
@@ -1250,7 +1250,7 @@ plugins:
       consistent_update_render_object: true  # [WARNING] updateRenderObject may be missing property updates from createRenderObject. When a RenderObjectWidget creates a RenderObject with properties, the updateRenderObject method should update all those same properties. {v4}
       dispose_getx_fields: true  # [WARNING] Undisposed Worker keeps timer running after GetxController closes, causing memory leaks and stale updates. {v2}
       function_always_returns_same_value: true  # [INFO] Function returns the same value on every code path regardless of input. The function body adds complexity without varying the output, suggesting the logic branches are incomplete or the function can be replaced by a constant. {v5}
-      handle_throwing_invocations: true  # [INFO] This invocation can throw. Wrap in try/catch or annotate the containing method with @Throws to propagate.
+      handle_throwing_invocations: false  # Extension propagates throws by design; @Throws not used (analysis_options_custom.yaml).
       limit_max_imports: true  # [INFO] File has more than 20 imports. A high import count signals the file depends on too many modules, which increases coupling, makes refactoring risky, and slows incremental compilation. {v3}
       match_base_class_default_value: true  # [INFO] Overridden method parameter has a different default value than the parent class. Callers using the parent type see the parent default, while callers using the subtype see the override default, creating inconsistent behavior depending on the variable type. {v3}
       match_getter_setter_field_names: true  # [INFO] Getter/setter name should match the backing field. Getter/setter must have the same name as the backing field (without underscore). {v4}
@@ -1318,7 +1318,7 @@ plugins:
       prefer_correct_stream_return_type: true  # [INFO] Missing Stream return type causes listeners to receive dynamic, losing type safety and IDE support. {v5}
       prefer_correct_switch_length: true  # [INFO] Switch statement has fewer cases than the minimum threshold, making the switch overhead unnecessary. A switch with one or two cases is more verbosely expressed than an equivalent if/else and adds boilerplate (case, break) without benefit. {v4}
       prefer_correct_test_file_name: true  # [INFO] Test files not following the _test.dart naming convention are invisible to dart test and CI runners. Non-matching names cause tests to be silently skipped. {v6}
-      prefer_correct_throws: true  # [INFO] Document thrown exceptions with @Throws annotation. Methods that throw should declare @Throws so callers know what to catch.
+      prefer_correct_throws: false  # StateError/ArgumentError by design; no @Throws (analysis_options_custom.yaml). Methods that throw should declare @Throws so callers know what to catch.
       prefer_correct_topics: true  # [INFO] Use valid FCM topic format (e.g. /topics/name) and subscribe/unsubscribe in pairs to avoid leaks.
       prefer_csrf_protection: true  # [WARNING] State-changing request with Cookie header but no CSRF token or Bearer auth. Cookie-based auth in web/WebView is vulnerable to CSRF.
       prefer_cubit_for_simple: true  # [ERROR] Using Bloc for simple state management with few events adds unnecessary boilerplate, indirection, and makes code harder to maintain. This can slow down development and introduce avoidable complexity. {v3}
@@ -1330,7 +1330,7 @@ plugins:
       prefer_dedicated_media_query_method: true  # [INFO] MediaQuery.of(context) accessed for a single property. This registers a dependency on the entire MediaQueryData object, causing the widget to rebuild whenever any media query value changes (orientation, padding, text scale), even if only one property is needed. {v6}
       prefer_deep_link_auth: true  # [INFO] Validate deep link data and require authentication for protected routes opened via deep links.
       prefer_descriptive_test_name: true  # [INFO] Test name must be descriptive. Test names must be descriptive and follow conventions. Test names don't follow the expected format. This reduces test maintainability and makes it harder to identify which behavior failed when tests break. {v7}
-      prefer_digit_separators: true  # [INFO] Large number should use digit separators. Digit separators improve readability of large numbers. This numeric literal usage can cause precision errors or make the intended value unclear. {v4}
+      prefer_digit_separators: false  # Disabled in analysis_options_custom.yaml. Digit separators improve readability of large numbers. This numeric literal usage can cause precision errors or make the intended value unclear. {v4}
       prefer_dio_cancel_token: true  # [INFO] Long-running Dio request without CancelToken. Cannot be canceled. Requests must be cancellable to avoid wasting resources when the user navigates away. {v3}
       prefer_dio_over_http: true  # [INFO] Using http package. Dio provides interceptors, cancellation, and structured error handling suited for production apps. {v2}
       prefer_dio_transformer: true  # [INFO] Dio instance without custom transformer for large data. Parsing large JSON responses on the main thread causes jank. Use BackgroundTransformer or compute() for heavy parsing. {v2}
@@ -1346,7 +1346,7 @@ plugins:
       prefer_explicit_parameter_names: true  # [INFO] Function type parameters must have descriptive names. Unnamed parameters lose intent and force callers to guess what each positional argument represents. {v4}
       prefer_explicit_semantics: true  # [INFO] Custom build methods lack explicit Semantics, making their child elements invisible or meaningless to screen readers and assistive technologies. All non-trivial elements in the widget tree must provide a semantic label or description for accessibility. {v2}
       prefer_extension_methods: true  # [INFO] This top-level function could be an extension method on its first parameter type for better discoverability and readability.
-      prefer_extension_over_utility_class: true  # [INFO] Class with only static methods that share the same first parameter type could be an extension on that type.
+      prefer_extension_over_utility_class: false  # Class kept for stable API (analysis_options_custom.yaml).
       prefer_extension_type_for_wrapper: true  # [INFO] Single-field wrapper class could be an extension type for zero runtime cost (Dart 3.3+).
       prefer_extracting_callbacks: true  # [INFO] Inline callback exceeds a reasonable length, reducing readability and making the build method harder to maintain. Long inline closures obscure widget structure, complicate debugging, and prevent reuse of the callback logic across widgets. {v3}
       prefer_extracting_function_callbacks: true  # [INFO] Large inline callback detected spanning 10+ lines. Inline callbacks make code harder to read, test in isolation, and reuse across multiple call sites, reducing code maintainability and increasing complexity. {v4}

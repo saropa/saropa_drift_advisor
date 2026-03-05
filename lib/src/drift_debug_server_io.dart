@@ -11,8 +11,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
-// This file is the VM-only implementation; conditional export uses stub on web. dart:io is required here.
-// ignore: avoid_platform_specific_imports
+// VM-only implementation: conditional export selects stub on web; dart:io is required here.
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -107,8 +106,8 @@ class _DriftDebugServerImpl {
   static const int _maxPort = 65535;
   static const int _maxLimit = 1000;
   static const int _defaultLimit = 200;
-  // SDK 3.0 compatibility: digit separators (2_000_000) require SDK 3.6+.
-  static const int _maxOffset = 2000000; // ignore: prefer_digit_separators
+  // Digit separators (2_000_000) require SDK 3.6+; package supports SDK 3.0+. Rule disabled in analysis_options_custom.yaml.
+  static const int _maxOffset = 2000000;
   static const Duration _changeCheckInterval = Duration(seconds: 2);
   static const Duration _longPollTimeout = Duration(seconds: 30);
   static const Duration _longPollCheckInterval = Duration(milliseconds: 300); // Poll interval during long-poll wait
@@ -314,8 +313,7 @@ class _DriftDebugServerImpl {
   ///   onError: callbacks.error,
   /// );
   /// ```
-  /// Throws [ArgumentError] documented above. Package does not use @Throws annotation.
-  // ignore: prefer_correct_throws
+  /// Throws [ArgumentError] for invalid port or partial Basic auth; package does not use @Throws.
   Future<void> start({
     required DriftDebugQuery query,
     bool enabled = true,
@@ -1377,10 +1375,9 @@ class _DriftDebugServerImpl {
         _jsonKeySchemaSame: schemaSame,
         _jsonKeySchemaDiff:
             schemaSame ? null : <String, String>{_jsonKeyA: schemaA, _jsonKeyB: schemaB},
-        // JSON encoder expects List for array values; iterable is not sufficient.
-        // ignore: avoid_unnecessary_to_list
+        // JsonEncoder.convert expects List for array values; iterable is not sufficient.
         _jsonKeyTablesOnlyInA: tablesA.where((t) => !tablesB.contains(t)).toList(),
-        // ignore: avoid_unnecessary_to_list
+        // Same: JSON encoder requires List, not Iterable.
         _jsonKeyTablesOnlyInB: tablesB.where((t) => !tablesA.contains(t)).toList(),
         _jsonKeyTableCounts: countDiffs,
         _jsonKeyGeneratedAt: DateTime.now().toUtc().toIso8601String(),
