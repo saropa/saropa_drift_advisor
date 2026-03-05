@@ -13,19 +13,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dart-lang/setup-dart@v1
+      # Package depends on flutter SDK (pubspec.yaml); use Flutter so pub get and analyze succeed.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
 
       - name: Install dependencies
-        run: dart pub get
+        run: flutter pub get
 
       - name: Analyze
-        run: dart analyze --fatal-infos
+        run: flutter analyze --fatal-infos
 
       - name: Format check
         run: dart format --set-exit-if-changed .
 
       - name: Run tests
-        run: dart test
+        run: flutter test
 
       - name: Dry run
         run: dart pub publish --dry-run || [ $? -eq 65 ]
