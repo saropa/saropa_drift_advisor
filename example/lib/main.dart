@@ -47,7 +47,8 @@ class _HomePageState extends State<HomePage> {
       enabled: kDebugMode,
       running: false,
       url: null,
-      errorMessage: 'Initialization timed out after ${_kInitTimeout.inSeconds} seconds.',
+      errorMessage:
+          'Initialization timed out after ${_kInitTimeout.inSeconds} seconds.',
     );
   });
 

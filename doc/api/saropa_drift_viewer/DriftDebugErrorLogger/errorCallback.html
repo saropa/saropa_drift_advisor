@@ -68,8 +68,11 @@
   <p>Creates a <a href="../../saropa_drift_viewer/DriftDebugOnError.html">DriftDebugOnError</a>-compatible callback that logs errors and
 optionally stack traces.</p>
 <p><code>prefix</code> is included in the log name for filtering. When <code>includeStack</code>
-is true (default), the stack trace is passed to <a href="https://api.flutter.dev/flutter/dart-developer/log.html">developer.log</a> so
-tools can display it. Logging never throws.</p>
+is true (default), the stack trace is passed to <a href="https://api.flutter.dev/flutter/dart-developer/log.html">developer.log</a> only in
+debug builds (avoid_stack_trace_in_production). Logging never throws.
+Empty <code>prefix</code> uses the default prefix constant for the log name.
+<code>useDeveloperLog</code> is reserved for future use.</p>
+<p>Returns a function that logs the given error and stack with optional <code>prefix</code>.</p>
 </section>
 
 
@@ -83,24 +86,23 @@ tools can display it. Logging never throws.</p>
 }) {
   return (Object error, StackTrace stack) {
     try {
-      final String name = prefix.isEmpty ? &#39;DriftDebug&#39; : prefix;
-      if (useDeveloperLog) {
-        developer.log(
-          error.toString(),
-          name: name,
-          level: 1000, &#47;&#47; SEVERE
-          error: error,
-          stackTrace: includeStack ? stack : null,
-        );
-      } else {
-        &#47;&#47; Use stderr (not print) for avoid_print linter compliance.
-        final buffer = StringBuffer();
-        buffer.writeln(&#39;[$name] $error&#39;);
-        if (includeStack) buffer.writeln(stack);
-        stderr.writeln(buffer);
-      }
-    } on Object catch (_) {
-      &#47;&#47; Defensive: never let logging throw.
+      final String name = prefix.isEmpty ? defaultPrefix : prefix;
+      final bool includeTrace = includeStack &amp;&amp; _isDebugEnvironment();
+      developer.log(
+        error.toString(),
+        name: name,
+        level: _severityLevel,
+        error: error,
+        stackTrace: includeTrace ? stack : null,
+      );
+    } on Object catch (e, st) {
+      &#47;&#47; Defensive: error callback must not throw so server catch blocks stay safe.
+      developer.log(
+        &#39;Error callback failed&#39;,
+        name: _kLoggerFailureName,
+        error: e,
+        stackTrace: _isDebugEnvironment() ? st : null,
+      );
     }
   };
 }</code></pre>

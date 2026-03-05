@@ -60,16 +60,13 @@
     
 <section class="desc markdown">
   <p>Callback that runs a single SQL query and returns rows as list of maps (column name → value).</p>
-<p>Used by <a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a> to list tables and fetch table data. Implement with
-your Drift database's <code>customSelect</code> or any SQLite executor. The server only sends
-allow-listed queries (e.g. table names from sqlite_master, SELECT with limit/offset).
-Each row must be a map from column name (string) to value (dynamic; null allowed).</p>
 </section>
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">typedef DriftDebugQuery = Future&lt;List&lt;Map&lt;String, dynamic&gt;&gt;&gt; Function(String sql);</code></pre>
+  <pre class="language-dart"><code class="language-dart">typedef DriftDebugQuery = Future&lt;List&lt;Map&lt;String, dynamic&gt;&gt;&gt; Function(
+    String sql);</code></pre>
 </section>
 
   </div> <!-- /.main-content -->

@@ -60,7 +60,8 @@ class _Snapshot {
   final Map<String, List<Map<String, dynamic>>> tables;
 
   @override
-  String toString() => '_Snapshot(id: $id, createdAt: $createdAt, tables: ${tables.length} tables)';
+  String toString() =>
+      '_Snapshot(id: $id, createdAt: $createdAt, tables: ${tables.length} tables)';
 }
 
 /// Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer.
@@ -84,16 +85,20 @@ class _DriftDebugServerImpl {
   DriftDebugOnLog? _onLog;
   DriftDebugOnError? _onError;
   String? _corsOrigin;
+
   /// SHA256 hash of auth token (stored instead of plain token for require_data_encryption).
   List<int>? _authTokenHash;
   String? _basicAuthUser;
   String? _basicAuthPassword;
   DriftDebugGetDatabaseBytes? _getDatabaseBytes;
+
   /// Second query callback for DB diff (main [query] vs [queryCompare]); used by GET /api/compare/report.
   DriftDebugQuery? _queryCompare;
   Timer? _changeCheckTimer;
+
   /// Monotonically incremented when table row counts change; used for live refresh and long-poll.
   int _generation = 0;
+
   /// Fingerprint "table1:count1,table2:count2,..." to detect changes without storing full data.
   String? _lastDataSignature;
   bool _changeCheckInProgress = false;
@@ -110,7 +115,8 @@ class _DriftDebugServerImpl {
   static const int _maxOffset = 2000000;
   static const Duration _changeCheckInterval = Duration(seconds: 2);
   static const Duration _longPollTimeout = Duration(seconds: 30);
-  static const Duration _longPollCheckInterval = Duration(milliseconds: 300); // Poll interval during long-poll wait
+  static const Duration _longPollCheckInterval =
+      Duration(milliseconds: 300); // Poll interval during long-poll wait
 
   // --- Route constants (method + path; alt forms allow path without leading slash) ---
   static const String _methodGet = 'GET';
@@ -196,19 +202,27 @@ class _DriftDebugServerImpl {
   static const String _pathApiCompareReport = '/api/compare/report';
   static const String _pathApiCompareReportAlt = 'api/compare/report';
   static const String _jsonKeyCountColumn = 'c';
-  static const String _attachmentDatabaseSqlite = 'attachment; filename="database.sqlite"';
-  static const String _attachmentSnapshotDiff = 'attachment; filename="snapshot-diff.json"';
-  static const String _attachmentDiffReport = 'attachment; filename="diff-report.json"';
+  static const String _attachmentDatabaseSqlite =
+      'attachment; filename="database.sqlite"';
+  static const String _attachmentSnapshotDiff =
+      'attachment; filename="snapshot-diff.json"';
+  static const String _attachmentDiffReport =
+      'attachment; filename="diff-report.json"';
   static const String _messageSnapshotCleared = 'Snapshot cleared.';
   static const String _sqlTableNames =
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
   // Banner (no_magic_string)
-  static const String _bannerTop = '╔══════════════════════════════════════════════════════════════╗';
-  static const String _bannerTitle = '║                   DRIFT DEBUG SERVER                         ║';
-  static const String _bannerDivider = '╟──────────────────────────────────────────────────────────────╢';
-  static const String _bannerOpen = '║  Open in browser to view SQLite/Drift data as JSON:           ║';
+  static const String _bannerTop =
+      '╔══════════════════════════════════════════════════════════════╗';
+  static const String _bannerTitle =
+      '║                   DRIFT DEBUG SERVER                         ║';
+  static const String _bannerDivider =
+      '╟──────────────────────────────────────────────────────────────╢';
+  static const String _bannerOpen =
+      '║  Open in browser to view SQLite/Drift data as JSON:           ║';
   static const String _bannerUrlPrefix = '║  http://127.0.0.1:';
-  static const String _bannerBottom = '╚══════════════════════════════════════════════════════════════╝';
+  static const String _bannerBottom =
+      '╚══════════════════════════════════════════════════════════════╝';
   static const String _jsonKeyCounts = 'counts';
   static const String _jsonKeyType = 'type';
   static const String _jsonKeyPk = 'pk';
@@ -232,8 +246,10 @@ class _DriftDebugServerImpl {
   static const String _jsonKeyB = 'b';
   static const int _indexAfterSemicolon = 1;
   static const int _minLimit = 1;
+
   /// Number of hex digits per byte in SQL X'...' literal (no_magic_number).
   static const int _hexBytePadding = 2;
+
   /// Radix for hex in SQL X'...' literal (no_magic_number).
   static const int _hexRadix = 16;
   static const String _attachmentSchemaSql = 'schema.sql';
@@ -343,7 +359,7 @@ class _DriftDebugServerImpl {
         basicAuthPassword != null && basicAuthPassword.isNotEmpty;
     if (hasBasicUser != hasBasicPassword) {
       throw ArgumentError(
-        'Basic auth requires both basicAuthUser and basicAuthPassword to be set, or neither. Partial configuration is not allowed.');
+          'Basic auth requires both basicAuthUser and basicAuthPassword to be set, or neither. Partial configuration is not allowed.');
     }
 
     _query = query;
@@ -380,18 +396,19 @@ class _DriftDebugServerImpl {
   }
 
   /// The port the server is bound to, or null if not running. Exposed for tests.
-   int? get port => _server?.port;
+  int? get port => _server?.port;
 
   /// Stops the server if running and clears stored state so [DriftDebugServer.start] can be called again.
   /// No-op if the server was not started.
   Future<void> dispose() => stop();
 
   @override
-  String toString() => '_DriftDebugServerImpl(port: ${_server?.port}, running: ${_server != null})';
+  String toString() =>
+      '_DriftDebugServerImpl(port: ${_server?.port}, running: ${_server != null})';
 
   /// Stops the server if running and clears stored state so [DriftDebugServer.start] can be called again.
   /// No-op if the server was not started.
-   Future<void> stop() async {
+  Future<void> stop() async {
     final server = _server;
     if (server == null) return;
     await _serverSubscription?.cancel();
@@ -415,12 +432,12 @@ class _DriftDebugServerImpl {
     await server.close();
   }
 
-   void _log(String message) {
+  void _log(String message) {
     final callback = _onLog;
     if (callback != null) callback(message);
   }
 
-   void _logError(Object error, StackTrace stack) {
+  void _logError(Object error, StackTrace stack) {
     developer.log(
       error.toString(),
       name: 'DriftDebugServer',
@@ -432,7 +449,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Returns substring from [start] to [end] (or end of string). Safe for auth header parsing (avoids range errors).
-   String _safeSubstring(String s, int start, [int? end]) {
+  String _safeSubstring(String s, int start, [int? end]) {
     if (start < 0 || start >= s.length) return '';
     final endIndex = end ?? s.length;
     if (endIndex <= start) return '';
@@ -442,7 +459,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Constant-time string comparison to reduce timing side channels (e.g. Basic auth user/password).
-   bool _secureCompare(String a, String b) {
+  bool _secureCompare(String a, String b) {
     if (a.length != b.length) return false;
     int result = 0;
     for (int i = 0; i < a.length; i++) {
@@ -452,7 +469,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Constant-time comparison of two byte lists (for token hash comparison; avoids timing leaks).
-   bool _secureCompareBytes(List<int> a, List<int> b) {
+  bool _secureCompareBytes(List<int> a, List<int> b) {
     if (a.length != b.length) return false;
     int result = 0;
     for (int i = 0; i < a.length; i++) {
@@ -464,7 +481,7 @@ class _DriftDebugServerImpl {
   /// Returns true if the request has valid token (Bearer header only) or HTTP Basic credentials.
   /// Token in URL is not supported (avoid_token_in_url: tokens in URLs leak via history/logs/referrers).
   /// Token is verified via SHA256 hash comparison (constant-time).
-   bool _isAuthenticated(HttpRequest request) {
+  bool _isAuthenticated(HttpRequest request) {
     final tokenHash = _authTokenHash;
     if (tokenHash != null) {
       final authHeader = request.headers.value(_headerAuthorization);
@@ -485,14 +502,16 @@ class _DriftDebugServerImpl {
           authHeader.length >= _authSchemeBasic.length &&
           authHeader.startsWith(_authSchemeBasic)) {
         try {
-          final basicPayload = _safeSubstring(authHeader, _authSchemeBasic.length);
+          final basicPayload =
+              _safeSubstring(authHeader, _authSchemeBasic.length);
           if (basicPayload.isEmpty) return false;
           final decoded = utf8.decode(base64.decode(basicPayload));
           final colon = decoded.indexOf(':');
           if (colon >= 0 && colon < decoded.length) {
             final userPart = _safeSubstring(decoded, 0, colon);
             final passwordPart = _safeSubstring(decoded, colon + 1);
-            if (_secureCompare(userPart, user) && _secureCompare(passwordPart, password)) {
+            if (_secureCompare(userPart, user) &&
+                _secureCompare(passwordPart, password)) {
               return true;
             }
           }
@@ -505,20 +524,22 @@ class _DriftDebugServerImpl {
   }
 
   /// Sends 401 with JSON body; sets WWW-Authenticate for Basic when Basic auth is configured.
-   Future<void> _sendUnauthorized(HttpResponse response) async {
+  Future<void> _sendUnauthorized(HttpResponse response) async {
     final res = response;
     res.statusCode = HttpStatus.unauthorized;
     if (_basicAuthUser != null && _basicAuthPassword != null) {
-      res.headers.set(_headerWwwAuthenticate, 'Basic realm="$_realmDriftDebug"');
+      res.headers
+          .set(_headerWwwAuthenticate, 'Basic realm="$_realmDriftDebug"');
     }
     _setJsonHeaders(res);
-    res.write(jsonEncode(<String, String>{_jsonKeyError: _authRequiredMessage}));
+    res.write(
+        jsonEncode(<String, String>{_jsonKeyError: _authRequiredMessage}));
     await res.close();
   }
 
   /// Main request handler: auth → health/generation (no query) → route by method and path.
   /// All API routes that need DB access require _query; 503 if null. Errors are logged and sent as JSON.
-   Future<void> _onRequest(HttpRequest request) async {
+  Future<void> _onRequest(HttpRequest request) async {
     final req = request;
     final res = req.response;
     final String path = req.uri.path;
@@ -570,11 +591,9 @@ class _DriftDebugServerImpl {
       if (req.method == _methodGet &&
           (path.startsWith(_pathApiTablePrefix) ||
               path.startsWith(_pathApiTablePrefixAlt))) {
-        final String suffix =
-            path.replaceFirst(RegExp(r'^/?api/table/'), '');
+        final String suffix = path.replaceFirst(RegExp(r'^/?api/table/'), '');
         if (suffix.endsWith(_pathSuffixCount)) {
-          final String tableName =
-              suffix.replaceFirst(RegExp(r'/count$'), '');
+          final String tableName = suffix.replaceFirst(RegExp(r'/count$'), '');
           await _sendTableCount(res, query, tableName);
           return;
         }
@@ -589,7 +608,12 @@ class _DriftDebugServerImpl {
             _parseLimit(req.uri.queryParameters[_queryParamLimit]);
         final int offset =
             _parseOffset(req.uri.queryParameters[_queryParamOffset]);
-        await _sendTableData(response: res, query: query, tableName: tableName, limit: limit, offset: offset);
+        await _sendTableData(
+            response: res,
+            query: query,
+            tableName: tableName,
+            limit: limit,
+            offset: offset);
         return;
       }
       if (req.method == _methodPost &&
@@ -603,8 +627,7 @@ class _DriftDebugServerImpl {
         return;
       }
       if (req.method == _methodGet &&
-          (path == _pathApiSchemaDiagram ||
-              path == _pathApiSchemaDiagramAlt)) {
+          (path == _pathApiSchemaDiagram || path == _pathApiSchemaDiagramAlt)) {
         await _sendSchemaDiagram(res, query);
         return;
       }
@@ -656,31 +679,39 @@ class _DriftDebugServerImpl {
 
   /// Validates that [sql] is read-only: single statement, SELECT or WITH...SELECT only.
   /// Rejects INSERT/UPDATE/DELETE and DDL (CREATE/ALTER/DROP etc.). Used by POST /api/sql only.
-   bool _isReadOnlySql(String sql) {
+  bool _isReadOnlySql(String sql) {
     final trimmed = sql.trim();
     if (trimmed.isEmpty) return false;
     // Remove single-line and block comments so keywords inside comments are ignored.
     final noLineComments = trimmed.replaceAll(RegExp(r'--[^\n]*'), ' ');
-    final noBlockComments = noLineComments.replaceAll(RegExp(r'/\*[\s\S]*?\*/'), ' ');
+    final noBlockComments =
+        noLineComments.replaceAll(RegExp(r'/\*[\s\S]*?\*/'), ' ');
     // Replace string literals with placeholders so keywords inside strings (e.g. SELECT 'INSERT') don't trigger.
-    final noSingleQuotes = noBlockComments.replaceAllMapped(RegExp(r"'(?:[^']|'')*'"), (_) => '?');
-    final noStrings = noSingleQuotes.replaceAllMapped(RegExp(r'"(?:[^"]|"")*"'), (_) => '?');
+    final noSingleQuotes =
+        noBlockComments.replaceAllMapped(RegExp(r"'(?:[^']|'')*'"), (_) => '?');
+    final noStrings =
+        noSingleQuotes.replaceAllMapped(RegExp(r'"(?:[^"]|"")*"'), (_) => '?');
     final sqlNoStrings = noStrings.trim();
     // Only one statement (no semicolon in the middle; trailing semicolon allowed).
     final firstSemicolon = sqlNoStrings.indexOf(';');
     if (firstSemicolon >= 0 &&
         firstSemicolon + _indexAfterSemicolon <= sqlNoStrings.length &&
         firstSemicolon < sqlNoStrings.length - _indexAfterSemicolon) {
-      final after = _safeSubstring(sqlNoStrings, firstSemicolon + _indexAfterSemicolon).trim();
+      final after =
+          _safeSubstring(sqlNoStrings, firstSemicolon + _indexAfterSemicolon)
+              .trim();
       if (after.isNotEmpty) return false;
     }
     final withoutTrailingSemicolon = sqlNoStrings.endsWith(';')
-        ? _safeSubstring(sqlNoStrings, 0, sqlNoStrings.length - _indexAfterSemicolon).trim()
+        ? _safeSubstring(
+                sqlNoStrings, 0, sqlNoStrings.length - _indexAfterSemicolon)
+            .trim()
         : sqlNoStrings;
     final upper = withoutTrailingSemicolon.toUpperCase();
     const selectPrefix = 'SELECT ';
     const withPrefix = 'WITH ';
-    if (!upper.startsWith(selectPrefix) && !upper.startsWith(withPrefix)) return false;
+    if (!upper.startsWith(selectPrefix) && !upper.startsWith(withPrefix))
+      return false;
     // Forbidden keywords (word boundary to avoid false positives in identifiers).
     const forbidden = <String>{
       'INSERT',
@@ -707,8 +738,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Handles POST /api/sql: body {"sql": "SELECT ..."}. Validates read-only via _isReadOnlySql; returns {"rows": [...]}.
-   Future<void> _handleRunSql(
-      HttpRequest request, DriftDebugQuery query) async {
+  Future<void> _handleRunSql(HttpRequest request, DriftDebugQuery query) async {
     final req = request;
     final res = req.response;
     String body;
@@ -723,7 +753,8 @@ class _DriftDebugServerImpl {
       _logError(error, stack);
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: _errorInvalidRequestBody}));
+      res.write(jsonEncode(
+          <String, String>{_jsonKeyError: _errorInvalidRequestBody}));
       await res.close();
       return;
     }
@@ -772,8 +803,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Sends a 500 JSON error response and closes the response.
-   Future<void> _sendErrorResponse(
-      HttpResponse response, Object error) async {
+  Future<void> _sendErrorResponse(HttpResponse response, Object error) async {
     final res = response;
     res.statusCode = HttpStatus.internalServerError;
     res.headers.contentType = ContentType.json;
@@ -783,7 +813,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Parses limit query param; clamps to 1.._maxLimit; default _defaultLimit.
-   int _parseLimit(String? value) {
+  int _parseLimit(String? value) {
     if (value == null) return _defaultLimit;
     final int? n = int.tryParse(value);
     if (n == null || n < _minLimit) return _defaultLimit;
@@ -791,7 +821,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Parses offset query param; returns 0 if missing or invalid; caps at [_maxOffset].
-   int _parseOffset(String? value) {
+  int _parseOffset(String? value) {
     if (value == null) return 0;
     final int? n = int.tryParse(value);
     if (n == null || n < 0) return 0;
@@ -812,16 +842,18 @@ class _DriftDebugServerImpl {
   }
 
   /// Extracts COUNT(*) result from a single-row query (column 'c'). Returns 0 if empty or null. Used for table count and diff.
-   int _extractCountFromRows(List<Map<String, dynamic>> rows) {
+  int _extractCountFromRows(List<Map<String, dynamic>> rows) {
     final firstRow = rows.firstOrNull;
     if (firstRow == null || firstRow[_jsonKeyCountColumn] == null) return 0;
     final countValue = firstRow[_jsonKeyCountColumn];
-    return countValue is int ? countValue : (countValue is num ? countValue.toInt() : 0);
+    return countValue is int
+        ? countValue
+        : (countValue is num ? countValue.toInt() : 0);
   }
 
   /// Fetches table names from sqlite_master (type='table', exclude sqlite_*). Used as allow-list for table routes.
   /// Defensively handles query returning null or non-List / non-Map rows.
-   Future<List<String>> _getTableNames(DriftDebugQuery query) async {
+  Future<List<String>> _getTableNames(DriftDebugQuery query) async {
     final dynamic raw = await query(_sqlTableNames);
     final List<Map<String, dynamic>> rows = _normalizeRows(raw);
     return rows
@@ -831,7 +863,7 @@ class _DriftDebugServerImpl {
   }
 
   /// If [tableName] is not in the allow-list (from sqlite_master), sends 400 and returns false; otherwise returns true.
-   Future<bool> _requireKnownTable(
+  Future<bool> _requireKnownTable(
     HttpResponse response,
     DriftDebugQuery query,
     String tableName,
@@ -851,7 +883,7 @@ class _DriftDebugServerImpl {
   }
 
   /// GET /api/tables — returns JSON array of table names (from sqlite_master, excluding sqlite_*).
-   Future<void> _sendTableList(
+  Future<void> _sendTableList(
       HttpResponse response, DriftDebugQuery query) async {
     final res = response;
     final List<String> names = await _getTableNames(query);
@@ -861,7 +893,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Returns JSON list of column names for GET /api/table/<name>/columns (for SQL autofill).
-   Future<void> _sendTableColumns(
+  Future<void> _sendTableColumns(
     HttpResponse response,
     DriftDebugQuery query,
     String tableName,
@@ -881,14 +913,15 @@ class _DriftDebugServerImpl {
   }
 
   /// Returns JSON {"count": N} for GET /api/table/<name>/count.
-   Future<void> _sendTableCount(
+  Future<void> _sendTableCount(
     HttpResponse response,
     DriftDebugQuery query,
     String tableName,
   ) async {
     final res = response;
     if (!await _requireKnownTable(res, query, tableName)) return;
-    final dynamic rawCount = await query('SELECT COUNT(*) AS c FROM "$tableName"');
+    final dynamic rawCount =
+        await query('SELECT COUNT(*) AS c FROM "$tableName"');
     final List<Map<String, dynamic>> rows = _normalizeRows(rawCount);
     final int count = _extractCountFromRows(rows);
     _setJsonHeaders(res);
@@ -897,7 +930,7 @@ class _DriftDebugServerImpl {
   }
 
   /// GET /api/table/<name>?limit=&offset= — returns JSON array of rows. Table name is allow-listed; limit/offset validated.
-   Future<void> _sendTableData({
+  Future<void> _sendTableData({
     required HttpResponse response,
     required DriftDebugQuery query,
     required String tableName,
@@ -907,8 +940,8 @@ class _DriftDebugServerImpl {
     final res = response;
     if (!await _requireKnownTable(res, query, tableName)) return;
     // Table name from allow-list; limit/offset validated so interpolation is safe.
-    final dynamic raw = await query(
-        'SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset');
+    final dynamic raw =
+        await query('SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset');
     final List<Map<String, dynamic>> data = _normalizeRows(raw);
     _setJsonHeaders(res);
     res.write(const JsonEncoder.withIndent('  ').convert(data));
@@ -916,7 +949,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Fetches schema (CREATE statements) from sqlite_master, no data. Used for export and compare.
-   Future<String> _getSchemaSql(DriftDebugQuery query) async {
+  Future<String> _getSchemaSql(DriftDebugQuery query) async {
     final dynamic raw = await query(_sqlSchemaMaster);
     final List<Map<String, dynamic>> rows = _normalizeRows(raw);
     final buffer = StringBuffer();
@@ -932,7 +965,7 @@ class _DriftDebugServerImpl {
   }
 
   /// GET /api/health — returns {"ok": true}. Used by health checks and tunnels.
-   Future<void> _sendHealth(HttpResponse response) async {
+  Future<void> _sendHealth(HttpResponse response) async {
     final res = response;
     _setJsonHeaders(res);
     res.write(jsonEncode(<String, dynamic>{_jsonKeyOk: true}));
@@ -941,7 +974,7 @@ class _DriftDebugServerImpl {
 
   /// Handles GET /api/generation. Returns current [_generation]. Query parameter `since` triggers long-poll
   /// until generation > since or [_longPollTimeout]; reduces client polling when idle.
-   Future<void> _handleGeneration(HttpRequest request) async {
+  Future<void> _handleGeneration(HttpRequest request) async {
     final req = request;
     final res = req.response;
     final sinceRaw = req.uri.queryParameters[_queryParamSince];
@@ -949,7 +982,8 @@ class _DriftDebugServerImpl {
     if (since != null && since >= 0) {
       // Long-poll: wait until generation changes or timeout so UI doesn't hammer the server.
       final deadline = DateTime.now().toUtc().add(_longPollTimeout);
-      while (DateTime.now().toUtc().isBefore(deadline) && _generation <= since) {
+      while (
+          DateTime.now().toUtc().isBefore(deadline) && _generation <= since) {
         await Future<void>.delayed(_longPollCheckInterval);
       }
     }
@@ -959,7 +993,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Starts a periodic timer that runs _checkDataChange to bump _generation when table counts change.
-   void _startChangeCheckTimer() {
+  void _startChangeCheckTimer() {
     _changeCheckTimer?.cancel();
     _changeCheckTimer =
         Timer.periodic(_changeCheckInterval, (_) => _checkDataChange());
@@ -967,7 +1001,7 @@ class _DriftDebugServerImpl {
 
   /// Runs a lightweight fingerprint of table row counts; bumps [_generation] when it changes so clients can refresh.
   /// One COUNT(*) per table per run — acceptable for typical debug DBs; many tables may add latency.
-   Future<void> _checkDataChange() async {
+  Future<void> _checkDataChange() async {
     if (_changeCheckInProgress) return;
     final query = _query;
     if (query == null) return;
@@ -992,7 +1026,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Sends schema-only SQL dump (CREATE statements from sqlite_master, no data).
-   Future<void> _sendSchemaDump(
+  Future<void> _sendSchemaDump(
       HttpResponse response, DriftDebugQuery query) async {
     final res = response;
     final String schema = await _getSchemaSql(query);
@@ -1003,8 +1037,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Returns diagram data for GET /api/schema/diagram: tables with columns, and foreign keys (PRAGMA foreign_key_list).
-   Future<Map<String, dynamic>> _getDiagramData(
-      DriftDebugQuery query) async {
+  Future<Map<String, dynamic>> _getDiagramData(DriftDebugQuery query) async {
     final List<String> tableNames = await _getTableNames(query);
     final List<Map<String, dynamic>> tables = [];
     final List<Map<String, dynamic>> foreignKeys = [];
@@ -1012,18 +1045,16 @@ class _DriftDebugServerImpl {
     for (final tableName in tableNames) {
       final List<Map<String, dynamic>> infoRows =
           await query('PRAGMA table_info("$tableName")');
-      final List<Map<String, dynamic>> columns = infoRows
-          .map((r) {
-            final name = r['name'];
-            final type = r['type'];
-            final pk = r['pk'];
-            return <String, dynamic>{
-              _jsonKeyName: name is String? ? name ?? '' : '',
-              _jsonKeyType: type is String? ? type ?? '' : '',
-              _jsonKeyPk: pk is int ? pk != 0 : false,
-            };
-          })
-          .toList();
+      final List<Map<String, dynamic>> columns = infoRows.map((r) {
+        final name = r['name'];
+        final type = r['type'];
+        final pk = r['pk'];
+        return <String, dynamic>{
+          _jsonKeyName: name is String? ? name ?? '' : '',
+          _jsonKeyType: type is String? ? type ?? '' : '',
+          _jsonKeyPk: pk is int ? pk != 0 : false,
+        };
+      }).toList();
 
       tables.add(<String, dynamic>{
         _jsonKeyName: tableName,
@@ -1031,7 +1062,8 @@ class _DriftDebugServerImpl {
       });
 
       try {
-        final dynamic rawFk = await query('PRAGMA foreign_key_list("$tableName")');
+        final dynamic rawFk =
+            await query('PRAGMA foreign_key_list("$tableName")');
         final List<Map<String, dynamic>> fkRows = _normalizeRows(rawFk);
         for (final r in fkRows) {
           final toTable = r[_jsonKeyTable] as String?;
@@ -1061,7 +1093,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Sends JSON diagram data for GET /api/schema/diagram (tables + columns + foreign keys).
-   Future<void> _sendSchemaDiagram(
+  Future<void> _sendSchemaDiagram(
       HttpResponse response, DriftDebugQuery query) async {
     final res = response;
     try {
@@ -1080,7 +1112,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Escapes a value for use in a SQL INSERT literal (no quotes for numbers/null; strings and blobs escaped).
-   String _sqlLiteral(Object? value) {
+  String _sqlLiteral(Object? value) {
     if (value == null) return 'NULL';
     if (value is num) return value.toString();
     if (value is bool) return value ? '1' : '0';
@@ -1095,7 +1127,7 @@ class _DriftDebugServerImpl {
 
   /// Builds full dump SQL: schema (CREATEs) plus INSERT statements for every table row.
   /// Table names come from allow-list so interpolation is safe.
-   Future<String> _getFullDumpSql(DriftDebugQuery query) async {
+  Future<String> _getFullDumpSql(DriftDebugQuery query) async {
     final buffer = StringBuffer();
     final schema = await _getSchemaSql(query);
     buffer.writeln(schema);
@@ -1119,7 +1151,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Sends full dump (schema + data) as downloadable SQL file. May be slow for large DBs.
-   Future<void> _sendFullDump(
+  Future<void> _sendFullDump(
       HttpResponse response, DriftDebugQuery query) async {
     final res = response;
     final String dump = await _getFullDumpSql(query);
@@ -1131,7 +1163,7 @@ class _DriftDebugServerImpl {
 
   /// Sends the raw SQLite database file when the server was started with the getDatabaseBytes callback.
   /// Returns 501 Not Implemented if not configured. Used by the UI "Download database (raw .sqlite)" link.
-   Future<void> _sendDatabaseFile(HttpResponse response) async {
+  Future<void> _sendDatabaseFile(HttpResponse response) async {
     final res = response;
     final getBytes = _getDatabaseBytes;
     if (getBytes == null) {
@@ -1147,7 +1179,8 @@ class _DriftDebugServerImpl {
       final bytes = await getBytes();
       // Empty list is valid (e.g. in-memory DB); respond 200 with zero-length body.
       res.statusCode = HttpStatus.ok;
-      res.headers.contentType = ContentType(_contentTypeApplicationOctetStream, _contentTypeOctetStream);
+      res.headers.contentType = ContentType(
+          _contentTypeApplicationOctetStream, _contentTypeOctetStream);
       res.headers.set(_headerContentDisposition, _attachmentDatabaseSqlite);
       _setCors(res);
       res.add(bytes);
@@ -1163,7 +1196,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Stable string representation of a row for diffing (sorted keys). Used by snapshot compare to count added/removed/unchanged.
-   String _rowSignature(Map<String, dynamic> row) {
+  String _rowSignature(Map<String, dynamic> row) {
     final keys = row.keys.toList()..sort();
     final sorted = <String, dynamic>{};
     for (final k in keys) {
@@ -1173,7 +1206,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Handles POST /api/snapshot: captures full table data for all tables into in-memory [_snapshot].
-   Future<void> _handleSnapshotCreate(
+  Future<void> _handleSnapshotCreate(
     HttpResponse response,
     DriftDebugQuery query,
   ) async {
@@ -1209,7 +1242,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Handles GET /api/snapshot: returns snapshot metadata (id, createdAt, table counts) or null.
-   Future<void> _handleSnapshotGet(HttpResponse response) async {
+  Future<void> _handleSnapshotGet(HttpResponse response) async {
     final res = response;
     final snap = _snapshot;
     if (snap == null) {
@@ -1236,7 +1269,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Handles GET /api/snapshot/compare: diffs current DB vs [_snapshot] (per-table added/removed/unchanged). Optional ?format=download.
-   Future<void> _handleSnapshotCompare(
+  Future<void> _handleSnapshotCompare(
     HttpResponse response,
     HttpRequest request,
     DriftDebugQuery query,
@@ -1304,16 +1337,17 @@ class _DriftDebugServerImpl {
   }
 
   /// Handles DELETE /api/snapshot: clears the in-memory snapshot.
-   Future<void> _handleSnapshotDelete(HttpResponse response) async {
+  Future<void> _handleSnapshotDelete(HttpResponse response) async {
     final res = response;
     _snapshot = null;
     _setJsonHeaders(res);
-    res.write(jsonEncode(<String, String>{_jsonKeyOk: _messageSnapshotCleared}));
+    res.write(
+        jsonEncode(<String, String>{_jsonKeyOk: _messageSnapshotCleared}));
     await res.close();
   }
 
   /// Handles GET /api/compare/report: schema and per-table row count diff between main [query] and [_queryCompare]. Optional ?format=download.
-   Future<void> _handleCompareReport(
+  Future<void> _handleCompareReport(
     HttpResponse response,
     HttpRequest request,
     DriftDebugQuery query,
@@ -1373,12 +1407,15 @@ class _DriftDebugServerImpl {
       }
       final report = <String, dynamic>{
         _jsonKeySchemaSame: schemaSame,
-        _jsonKeySchemaDiff:
-            schemaSame ? null : <String, String>{_jsonKeyA: schemaA, _jsonKeyB: schemaB},
+        _jsonKeySchemaDiff: schemaSame
+            ? null
+            : <String, String>{_jsonKeyA: schemaA, _jsonKeyB: schemaB},
         // JsonEncoder.convert expects List for array values; iterable is not sufficient.
-        _jsonKeyTablesOnlyInA: tablesA.where((t) => !tablesB.contains(t)).toList(),
+        _jsonKeyTablesOnlyInA:
+            tablesA.where((t) => !tablesB.contains(t)).toList(),
         // Same: JSON encoder requires List, not Iterable.
-        _jsonKeyTablesOnlyInB: tablesB.where((t) => !tablesA.contains(t)).toList(),
+        _jsonKeyTablesOnlyInB:
+            tablesB.where((t) => !tablesA.contains(t)).toList(),
         _jsonKeyTableCounts: countDiffs,
         _jsonKeyGeneratedAt: DateTime.now().toUtc().toIso8601String(),
       };
@@ -1404,7 +1441,7 @@ class _DriftDebugServerImpl {
     }
   }
 
-   void _setAttachmentHeaders(HttpResponse response, String filename) {
+  void _setAttachmentHeaders(HttpResponse response, String filename) {
     final res = response;
     res.headers.contentType =
         ContentType(_contentTypeTextPlain, 'plain', charset: _charsetUtf8);
@@ -1414,7 +1451,7 @@ class _DriftDebugServerImpl {
   }
 
   /// Sets Access-Control-Allow-Origin when a CORS origin was provided at start.
-   void _setCors(HttpResponse response) {
+  void _setCors(HttpResponse response) {
     final res = response;
     final origin = _corsOrigin;
     if (origin != null) {
@@ -1423,15 +1460,14 @@ class _DriftDebugServerImpl {
   }
 
   /// Sets Content-Type to JSON and CORS. Used by all JSON API responses.
-   void _setJsonHeaders(HttpResponse response) {
+  void _setJsonHeaders(HttpResponse response) {
     final res = response;
     res.headers.contentType = ContentType.json;
     _setCors(res);
   }
 
   /// Serves the single-page viewer UI (table list, SQL runner, schema, snapshot, compare, etc.).
-   Future<void> _sendHtml(
-      HttpResponse response, HttpRequest request) async {
+  Future<void> _sendHtml(HttpResponse response, HttpRequest request) async {
     final res = response;
     res.headers.contentType = ContentType.html;
     res.write(_indexHtml);

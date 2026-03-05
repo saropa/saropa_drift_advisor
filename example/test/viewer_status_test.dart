@@ -70,10 +70,12 @@ void main() {
       ),
     );
 
-    expect(find.text('Database init failed: permission denied'), findsOneWidget);
+    expect(
+        find.text('Database init failed: permission denied'), findsOneWidget);
   });
 
-  testWidgets('ReadyView with running true and url null disables copy and does not crash',
+  testWidgets(
+      'ReadyView with running true and url null disables copy and does not crash',
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(

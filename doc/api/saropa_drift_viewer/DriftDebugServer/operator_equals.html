@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the logCallback method from the DriftDebugErrorLogger class, for the Dart programming language.">
-  <title>logCallback method - DriftDebugErrorLogger class - saropa_drift_viewer library - Dart API</title>
+  <meta name="description" content="API docs for the operator == method from the DriftDebugServer mixin, for the Dart programming language.">
+  <title>operator == method - DriftDebugServer mixin - saropa_drift_viewer library - Dart API</title>
 
 
   
@@ -26,10 +26,10 @@
   <ol class="breadcrumbs gt-separated dark hidden-xs">
     <li><a href="../../index.html">saropa_drift_viewer</a></li>
     <li><a href="../../saropa_drift_viewer/">saropa_drift_viewer.dart</a></li>
-    <li><a href="../../saropa_drift_viewer/DriftDebugErrorLogger-class.html">DriftDebugErrorLogger</a></li>
-    <li class="self-crumb">logCallback static method</li>
+    <li><a href="../../saropa_drift_viewer/DriftDebugServer-mixin.html">DriftDebugServer</a></li>
+    <li class="self-crumb">operator == method</li>
   </ol>
-  <div class="self-name">logCallback</div>
+  <div class="self-name">operator ==</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -46,56 +46,57 @@
 <div
     id="dartdoc-main-content"
     class="main-content"
-    data-above-sidebar="saropa_drift_viewer&#47;DriftDebugErrorLogger-class-sidebar.html"
+    data-above-sidebar="saropa_drift_viewer&#47;DriftDebugServer-mixin-sidebar.html"
     data-below-sidebar="">
     <div>
-<h1><span class="kind-method">logCallback</span> static method 
+<h1><span class="kind-method">operator ==</span> method 
 </h1></div>
 
     <section class="multi-line-signature">
       
-<span class="returntype">void Function<span class="signature">(<span class="parameter" id="param-message"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">message</span></span>)</span></span>
-<span class="name ">logCallback</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="logCallback-param-prefix"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">prefix</span> = <span class="default-value">defaultPrefix</span>, </span></li>
-<li><span class="parameter" id="logCallback-param-useDeveloperLog"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">useDeveloperLog</span> = <span class="default-value">true</span>, </span></li>
-</ol>})
+<span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+<span class="name ">operator ==</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="==-param-other"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></span> <span class="parameter-name">other</span></span></li>
+</ol>)
 
-      
+      <div class="features"><span class="feature">inherited</span></div>
 
     </section>
     
 <section class="desc markdown">
-  <p>Creates a <a href="../../saropa_drift_viewer/DriftDebugOnLog.html">DriftDebugOnLog</a>-compatible callback that logs messages.</p>
-<p><code>prefix</code> is prepended to messages for easier filtering. Uses <a href="https://api.flutter.dev/flutter/dart-developer/log.html">developer.log</a>
-so IDEs and debugging tools can display output. Logging never throws.
-Empty message is allowed (logged as-is). Empty <code>prefix</code> uses the default prefix constant for the log name.
-<code>useDeveloperLog</code> is reserved for future use; logging always uses <a href="https://api.flutter.dev/flutter/dart-developer/log.html">developer.log</a>.</p>
-<p>Returns a function that logs the given message with optional <code>prefix</code>.</p>
+  <p>The equality operator.</p>
+<p>The default behavior for all <a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a>s is to return true if and
+only if this object and <code>other</code> are the same object.</p>
+<p>Override this method to specify a different equality relation on
+a class. The overriding method must still be an equivalence relation.
+That is, it must be:</p>
+<ul>
+<li>
+<p>Total: It must return a boolean for all arguments. It should never throw.</p>
+</li>
+<li>
+<p>Reflexive: For all objects <code>o</code>, <code>o == o</code> must be true.</p>
+</li>
+<li>
+<p>Symmetric: For all objects <code>o1</code> and <code>o2</code>, <code>o1 == o2</code> and <code>o2 == o1</code> must
+either both be true, or both be false.</p>
+</li>
+<li>
+<p>Transitive: For all objects <code>o1</code>, <code>o2</code>, and <code>o3</code>, if <code>o1 == o2</code> and
+<code>o2 == o3</code> are true, then <code>o1 == o3</code> must be true.</p>
+</li>
+</ul>
+<p>The method should also be consistent over time,
+so whether two objects are equal should only change
+if at least one of the objects was modified.</p>
+<p>If a subclass overrides the equality operator, it should override
+the <a href="https://api.flutter.dev/flutter/dart-core/Object/hashCode.html">hashCode</a> method as well to maintain consistency.</p>
 </section>
 
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">static void Function(String message) logCallback({
-  String prefix = defaultPrefix,
-  bool useDeveloperLog = true,
-}) {
-  return (String message) {
-    try {
-      final String line = prefix.isEmpty ? message : &#39;[$prefix] $message&#39;;
-      final String name = prefix.isEmpty ? defaultPrefix : prefix;
-      developer.log(line, name: name);
-    } on Object catch (e, st) {
-      &#47;&#47; Defensive: if the logging call fails (e.g. encoding), report it without rethrowing.
-      developer.log(
-        &#39;Log callback failed&#39;,
-        name: _kLoggerFailureName,
-        error: e,
-        stackTrace: _isDebugEnvironment() ? st : null,
-      );
-    }
-  };
-}</code></pre>
+  <pre class="language-dart"><code class="language-dart">external bool operator ==(Object other);</code></pre>
 </section>
 
 
@@ -110,11 +111,11 @@ Empty message is allowed (logged as-is). Empty <code>prefix</code> uses the defa
 <ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
     <li><a href="../../index.html">saropa_drift_viewer</a></li>
     <li><a href="../../saropa_drift_viewer/">saropa_drift_viewer</a></li>
-    <li><a href="../../saropa_drift_viewer/DriftDebugErrorLogger-class.html">DriftDebugErrorLogger</a></li>
-    <li class="self-crumb">logCallback static method</li>
+    <li><a href="../../saropa_drift_viewer/DriftDebugServer-mixin.html">DriftDebugServer</a></li>
+    <li class="self-crumb">operator == method</li>
 </ol>
 
-    <h5>DriftDebugErrorLogger class</h5>
+    <h5>DriftDebugServer mixin</h5>
     <div id="dartdoc-sidebar-left-content"></div>
   </div><!--/.sidebar-offcanvas-->
   <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">

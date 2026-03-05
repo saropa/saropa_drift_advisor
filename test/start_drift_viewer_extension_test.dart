@@ -59,7 +59,9 @@ void main() {
     }
   });
 
-  test('startDriftViewer when customSelect().get() returns non-List returns 500 for /api/tables', () async {
+  test(
+      'startDriftViewer when customSelect().get() returns non-List returns 500 for /api/tables',
+      () async {
     final db = _FakeDriftDbNonList();
     await db.startDriftViewer(enabled: true, port: 0);
     final port = DriftDebugServer.port;
@@ -78,7 +80,8 @@ void main() {
     }
   });
 
-  test('startDriftViewer when row.data is not Map returns 500 for /api/tables', () async {
+  test('startDriftViewer when row.data is not Map returns 500 for /api/tables',
+      () async {
     final db = _FakeDriftDbBadRowData();
     await db.startDriftViewer(enabled: true, port: 0);
     final port = DriftDebugServer.port;

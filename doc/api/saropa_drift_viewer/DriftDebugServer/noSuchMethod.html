@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the stop method from the DriftDebugServer mixin, for the Dart programming language.">
-  <title>stop method - DriftDebugServer mixin - saropa_drift_viewer library - Dart API</title>
+  <meta name="description" content="API docs for the noSuchMethod method from the DriftDebugServer mixin, for the Dart programming language.">
+  <title>noSuchMethod method - DriftDebugServer mixin - saropa_drift_viewer library - Dart API</title>
 
 
   
@@ -27,9 +27,9 @@
     <li><a href="../../index.html">saropa_drift_viewer</a></li>
     <li><a href="../../saropa_drift_viewer/">saropa_drift_viewer.dart</a></li>
     <li><a href="../../saropa_drift_viewer/DriftDebugServer-mixin.html">DriftDebugServer</a></li>
-    <li class="self-crumb">stop static method</li>
+    <li class="self-crumb">noSuchMethod method</li>
   </ol>
-  <div class="self-name">stop</div>
+  <div class="self-name">noSuchMethod</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -49,27 +49,64 @@
     data-above-sidebar="saropa_drift_viewer&#47;DriftDebugServer-mixin-sidebar.html"
     data-below-sidebar="">
     <div>
-<h1><span class="kind-method">stop</span> static method 
+<h1><span class="kind-method">noSuchMethod</span> method 
 </h1></div>
 
     <section class="multi-line-signature">
       
-<span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span>
-<span class="name ">stop</span>(<wbr>)
+<span class="returntype">dynamic</span>
+<span class="name ">noSuchMethod</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="noSuchMethod-param-invocation"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Invocation-class.html">Invocation</a></span> <span class="parameter-name">invocation</span></span></li>
+</ol>)
 
-      
+      <div class="features"><span class="feature">inherited</span></div>
 
     </section>
     
 <section class="desc markdown">
-  <p>Stub: no-op.</p>
+  <p>Invoked when a nonexistent method or property is accessed.</p>
+<p>A dynamic member invocation can attempt to call a member which
+doesn't exist on the receiving object. Example:</p>
+<pre class="language-dart"><code class="language-dart">dynamic object = 1;
+object.add(42); // Statically allowed, run-time error
+</code></pre>
+<p>This invalid code will invoke the <code>noSuchMethod</code> method
+of the integer <code>1</code> with an <a href="https://api.flutter.dev/flutter/dart-core/Invocation-class.html">Invocation</a> representing the
+<code>.add(42)</code> call and arguments (which then throws).</p>
+<p>Classes can override <a href="https://api.flutter.dev/flutter/dart-core/Object/noSuchMethod.html">noSuchMethod</a> to provide custom behavior
+for such invalid dynamic invocations.</p>
+<p>A class with a non-default <a href="https://api.flutter.dev/flutter/dart-core/Object/noSuchMethod.html">noSuchMethod</a> invocation can also
+omit implementations for members of its interface.
+Example:</p>
+<pre class="language-dart"><code class="language-dart">class MockList&lt;T&gt; implements List&lt;T&gt; {
+  noSuchMethod(Invocation invocation) {
+    log(invocation);
+    super.noSuchMethod(invocation); // Will throw.
+  }
+}
+void main() {
+  MockList().add(42);
+}
+</code></pre>
+<p>This code has no compile-time warnings or errors even though
+the <code>MockList</code> class has no concrete implementation of
+any of the <code>List</code> interface methods.
+Calls to <code>List</code> methods are forwarded to <code>noSuchMethod</code>,
+so this code will <code>log</code> an invocation similar to
+<code>Invocation.method(#add, [42])</code> and then throw.</p>
+<p>If a value is returned from <code>noSuchMethod</code>,
+it becomes the result of the original invocation.
+If the value is not of a type that can be returned by the original
+invocation, a type error occurs at the invocation.</p>
+<p>The default behavior is to throw a <a href="https://api.flutter.dev/flutter/dart-core/NoSuchMethodError-class.html">NoSuchMethodError</a>.</p>
 </section>
 
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">static Future&lt;void&gt; stop() =&gt; Future&lt;void&gt;.value();</code></pre>
+  <pre class="language-dart"><code class="language-dart">@pragma(&quot;vm:entry-point&quot;)
+@pragma(&quot;wasm:entry-point&quot;)
+external dynamic noSuchMethod(Invocation invocation);</code></pre>
 </section>
 
 
@@ -85,7 +122,7 @@
     <li><a href="../../index.html">saropa_drift_viewer</a></li>
     <li><a href="../../saropa_drift_viewer/">saropa_drift_viewer</a></li>
     <li><a href="../../saropa_drift_viewer/DriftDebugServer-mixin.html">DriftDebugServer</a></li>
-    <li class="self-crumb">stop static method</li>
+    <li class="self-crumb">noSuchMethod method</li>
 </ol>
 
     <h5>DriftDebugServer mixin</h5>

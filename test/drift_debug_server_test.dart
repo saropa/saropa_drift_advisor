@@ -35,12 +35,15 @@ void main() {
     );
   });
 
-  test('DriftDebugErrorLogger.logCallback with empty prefix and empty message does not throw', () {
+  test(
+      'DriftDebugErrorLogger.logCallback with empty prefix and empty message does not throw',
+      () {
     final log = DriftDebugErrorLogger.logCallback(prefix: '');
     expect(() => log(''), returnsNormally);
   });
 
-  test('DriftDebugErrorLogger.errorCallback with empty prefix does not throw', () {
+  test('DriftDebugErrorLogger.errorCallback with empty prefix does not throw',
+      () {
     final error = DriftDebugErrorLogger.errorCallback(prefix: '');
     expect(
       () => error(Exception('e'), StackTrace.current),
@@ -140,7 +143,8 @@ void main() {
         expect(
           resp.statusCode,
           HttpStatus.internalServerError,
-          reason: 'Query throws should yield 500; got ${resp.statusCode} body: $body',
+          reason:
+              'Query throws should yield 500; got ${resp.statusCode} body: $body',
         );
         final decoded = jsonDecode(body) as Map<String, dynamic>;
         expect(decoded['error'], isNotNull);
@@ -151,7 +155,8 @@ void main() {
     });
 
     // Server normalizes null/non-List via _normalizeRows; empty list yields 200 + [].
-    test('when query returns empty list, GET /api/tables returns 200 with empty list',
+    test(
+        'when query returns empty list, GET /api/tables returns 200 with empty list',
         () async {
       await DriftDebugServer.start(
         query: (_) async => <Map<String, dynamic>>[],
@@ -178,7 +183,9 @@ void main() {
       await DriftDebugServer.start(
         query: (String sql) async {
           if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-            return [{'name': 'items'}];
+            return [
+              {'name': 'items'}
+            ];
           }
           return <Map<String, dynamic>>[];
         },
@@ -208,7 +215,9 @@ void main() {
       await DriftDebugServer.start(
         query: (String sql) async {
           if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-            return [{'name': 'items'}];
+            return [
+              {'name': 'items'}
+            ];
           }
           if (sql.contains('SELECT * FROM "items"')) {
             return [
@@ -246,12 +255,15 @@ void main() {
       }
     });
 
-    test('getDatabaseBytes returning empty list returns 200 with zero-length body',
+    test(
+        'getDatabaseBytes returning empty list returns 200 with zero-length body',
         () async {
       await DriftDebugServer.start(
         query: (String sql) async {
           if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-            return [{'name': 'items'}];
+            return [
+              {'name': 'items'}
+            ];
           }
           return <Map<String, dynamic>>[];
         },
@@ -590,9 +602,7 @@ void main() {
       try {
         final req = await client.post('localhost', port!, '/api/sql');
         req.headers.contentType = ContentType.json;
-        req.write(jsonEncode(<String, String>{
-          'sql': 'SELECT 1; SELECT 2'
-        }));
+        req.write(jsonEncode(<String, String>{'sql': 'SELECT 1; SELECT 2'}));
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.badRequest);
         final body = await resp.transform(utf8.decoder).join();
@@ -617,7 +627,8 @@ void main() {
         final req = await client.post('localhost', port!, '/api/sql');
         req.headers.contentType = ContentType.json;
         req.write(jsonEncode(<String, String>{
-          'sql': 'WITH x AS (SELECT 1) INSERT INTO items (name) SELECT \'a\' FROM x'
+          'sql':
+              'WITH x AS (SELECT 1) INSERT INTO items (name) SELECT \'a\' FROM x'
         }));
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.badRequest);

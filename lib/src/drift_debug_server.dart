@@ -3,4 +3,4 @@
 // [UnsupportedError] instead of failing at compile time. Barrel export keeps a single entry point
 // for the package (avoid_barrel_files is accepted for this API/platform pattern).
 export 'drift_debug_server_stub.dart'
-  if (dart.library.io) 'drift_debug_server_io.dart';
+    if (dart.library.io) 'drift_debug_server_io.dart';

@@ -641,6 +641,8 @@ def run_tests(package_dir: Path) -> bool:
     return True
 
 
+# cspell:ignore keepends
+
 def _analysis_options_without_plugins(path: Path) -> tuple[str, str] | None:
     """Read analysis_options.yaml and return (content_without_plugins, full_content).
     If no 'plugins:' section at root level, return None (no change needed).

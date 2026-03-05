@@ -54,7 +54,7 @@
 
     <section class="multi-line-signature">
       
-<span class="returntype">(<span class="field">{<span class="type-annotation">void Function<span class="signature">(<span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></span>, </span><span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/StackTrace-class.html">StackTrace</a></span></span>)</span></span> <span class="field-name">error</span>, </span><span class="field"><span class="type-annotation">void Function<span class="signature">(<span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span></span>)</span></span> <span class="field-name">log</span>}</span>)</span>
+<span class="returntype"><a href="../../saropa_drift_viewer/DriftDebugLoggerCallbacks.html">DriftDebugLoggerCallbacks</a></span>
 <span class="name ">callbacks</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="callbacks-param-prefix"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">prefix</span> = <span class="default-value">defaultPrefix</span>, </span></li>
 <li><span class="parameter" id="callbacks-param-includeStack"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">includeStack</span> = <span class="default-value">true</span>, </span></li>
 <li><span class="parameter" id="callbacks-param-useDeveloperLog"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">useDeveloperLog</span> = <span class="default-value">true</span>, </span></li>
@@ -65,16 +65,15 @@
     </section>
     
 <section class="desc markdown">
-  <p>Convenience: both <a href="../../saropa_drift_viewer/DriftDebugErrorLogger/logCallback.html">logCallback</a> and <a href="../../saropa_drift_viewer/DriftDebugErrorLogger/errorCallback.html">errorCallback</a> with the same <code>prefix</code>.</p>
-<p>Returns a record with <code>log</code> and <code>error</code> callbacks, suitable for the <code>onLog</code> and <code>onError</code>
-parameters of <a href="../../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a>.</p>
+  <p>Convenience: returns both log and error callbacks with the same <code>prefix</code>,
+<code>includeStack</code>, and <code>useDeveloperLog</code> options.</p>
 </section>
 
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">static ({void Function(String) log, void Function(Object, StackTrace) error}) callbacks({
+  <pre class="language-dart"><code class="language-dart">static DriftDebugLoggerCallbacks callbacks({
   String prefix = defaultPrefix,
   bool includeStack = true,
   bool useDeveloperLog = true,

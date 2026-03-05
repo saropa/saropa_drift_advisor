@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the DriftDebugGetDatabaseBytes typedef from the saropa_drift_viewer library, for the Dart programming language.">
-  <title>DriftDebugGetDatabaseBytes typedef - saropa_drift_viewer library - Dart API</title>
+  <meta name="description" content="API docs for the DriftDebugLoggerCallbacks typedef from the saropa_drift_viewer library, for the Dart programming language.">
+  <title>DriftDebugLoggerCallbacks typedef - saropa_drift_viewer library - Dart API</title>
 
 
   
@@ -26,9 +26,9 @@
   <ol class="breadcrumbs gt-separated dark hidden-xs">
     <li><a href="../index.html">saropa_drift_viewer</a></li>
     <li><a href="../saropa_drift_viewer/">saropa_drift_viewer.dart</a></li>
-    <li class="self-crumb">DriftDebugGetDatabaseBytes typedef</li>
+    <li class="self-crumb">DriftDebugLoggerCallbacks typedef</li>
   </ol>
-  <div class="self-name">DriftDebugGetDatabaseBytes</div>
+  <div class="self-name">DriftDebugLoggerCallbacks</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -48,24 +48,26 @@
       data-above-sidebar="saropa_drift_viewer&#47;saropa_drift_viewer-library-sidebar.html"
       data-below-sidebar="">
       <div>
-<h1><span class="kind-typedef">DriftDebugGetDatabaseBytes</span> typedef 
+<h1><span class="kind-typedef">DriftDebugLoggerCallbacks</span> typedef 
  
 </h1></div>
     <section class="multi-line-signature">
-        <span class="name ">DriftDebugGetDatabaseBytes</span> =
-     <span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span>&gt;</span> Function<span class="signature">()</span></span>
+        
+  
+<span class="name ">DriftDebugLoggerCallbacks</span> = (<span class="field">{<span class="type-annotation">_ErrorCallback</span> <span class="field-name">error</span>, </span><span class="field"><span class="type-annotation">_LogCallback</span> <span class="field-name">log</span>}</span>)</span>
+
 
     </section>
 
     
 <section class="desc markdown">
-  <p>Optional callback that returns the raw SQLite database file bytes.</p>
+  <p>Type for the pair of log and error callbacks returned by <a href="../saropa_drift_viewer/DriftDebugErrorLogger/callbacks.html">DriftDebugErrorLogger.callbacks</a>.</p>
 </section>
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">typedef DriftDebugGetDatabaseBytes = Future&lt;List&lt;int&gt;&gt; Function();</code></pre>
+  <pre class="language-dart"><code class="language-dart">typedef DriftDebugLoggerCallbacks = ({_LogCallback log, _ErrorCallback error});</code></pre>
 </section>
 
   </div> <!-- /.main-content -->
@@ -79,7 +81,7 @@
 <ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
     <li><a href="../index.html">saropa_drift_viewer</a></li>
     <li><a href="../saropa_drift_viewer/">saropa_drift_viewer</a></li>
-    <li class="self-crumb">DriftDebugGetDatabaseBytes typedef</li>
+    <li class="self-crumb">DriftDebugLoggerCallbacks typedef</li>
 </ol>
 
     <h5>saropa_drift_viewer library</h5>

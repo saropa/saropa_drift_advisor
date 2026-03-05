@@ -9,6 +9,7 @@ const String _kLoggerFailureName = 'DriftDebugErrorLogger';
 
 /// Log callback type (used in [DriftDebugLoggerCallbacks] to satisfy avoid_function_type_in_records).
 typedef _LogCallback = void Function(String message);
+
 /// Error callback type (used in [DriftDebugLoggerCallbacks] to satisfy avoid_function_type_in_records).
 typedef _ErrorCallback = void Function(Object error, StackTrace stack);
 
@@ -88,8 +89,7 @@ abstract final class DriftDebugErrorLogger {
     return (Object error, StackTrace stack) {
       try {
         final String name = prefix.isEmpty ? defaultPrefix : prefix;
-        final bool includeTrace =
-            includeStack && _isDebugEnvironment();
+        final bool includeTrace = includeStack && _isDebugEnvironment();
         developer.log(
           error.toString(),
           name: name,
