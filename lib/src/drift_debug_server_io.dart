@@ -54,7 +54,7 @@ typedef DriftDebugGetDatabaseBytes = Future<List<int>> Function();
 /// In-memory snapshot of table state (for time-travel compare). Captured by POST /api/snapshot;
 /// GET /api/snapshot/compare diffs current DB vs this snapshot (per-table added/removed/unchanged).
 class _Snapshot {
-  _Snapshot({required this.id, required this.createdAt, required this.tables});
+  const _Snapshot({required this.id, required this.createdAt, required this.tables});
   final String id;
   final DateTime createdAt;
   final Map<String, List<Map<String, dynamic>>> tables;
@@ -94,7 +94,6 @@ class _DriftDebugServerImpl {
 
   /// Second query callback for DB diff (main [query] vs [queryCompare]); used by GET /api/compare/report.
   DriftDebugQuery? _queryCompare;
-  Timer? _changeCheckTimer;
 
   /// Monotonically incremented when table row counts change; used for live refresh and long-poll.
   int _generation = 0;
@@ -113,7 +112,6 @@ class _DriftDebugServerImpl {
   static const int _defaultLimit = 200;
   // Digit separators (2_000_000) require SDK 3.6+; package supports SDK 3.0+. Rule disabled in analysis_options_custom.yaml.
   static const int _maxOffset = 2000000;
-  static const Duration _changeCheckInterval = Duration(seconds: 2);
   static const Duration _longPollTimeout = Duration(seconds: 30);
   static const Duration _longPollCheckInterval =
       Duration(milliseconds: 300); // Poll interval during long-poll wait
@@ -382,7 +380,6 @@ class _DriftDebugServerImpl {
       final server = _server;
       if (server == null) return;
       _serverSubscription = server.listen(_onRequest);
-      _startChangeCheckTimer();
 
       _log(_bannerTop);
       _log(_bannerTitle);
@@ -424,8 +421,6 @@ class _DriftDebugServerImpl {
     _basicAuthUser = null;
     _basicAuthPassword = null;
     _getDatabaseBytes = null;
-    _changeCheckTimer?.cancel();
-    _changeCheckTimer = null;
     _lastDataSignature = null;
     _generation = 0;
     _changeCheckInProgress = false;
@@ -737,13 +732,37 @@ class _DriftDebugServerImpl {
     return true;
   }
 
+  /// Decodes and validates body shape for POST /api/sql. Call only after checking
+  /// Content-Type is application/json (require_content_type_validation). Returns the trimmed sql
+  /// and null error, or null sql and an error message.
+  ({String? sql, String? error}) _decodeAndValidateSqlBody(String body) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(body);
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      return (sql: null, error: _errorInvalidJson);
+    }
+    if (decoded is! Map<String, dynamic>) {
+      return (sql: null, error: _errorInvalidJson);
+    }
+    final rawSql = decoded[_jsonKeySql];
+    if (rawSql is! String) {
+      return (sql: null, error: _errorMissingSql);
+    }
+    final String sql = rawSql.trim();
+    if (sql.isEmpty) {
+      return (sql: null, error: _errorMissingSql);
+    }
+    return (sql: sql, error: null);
+  }
+
   /// Handles POST /api/sql: body {"sql": "SELECT ..."}. Validates read-only via _isReadOnlySql; returns {"rows": [...]}.
   Future<void> _handleRunSql(HttpRequest request, DriftDebugQuery query) async {
     final req = request;
     final res = req.response;
     String body;
     try {
-      // Read body once; request stream is single-use.
       final builder = BytesBuilder();
       await for (final chunk in req) {
         builder.add(chunk);
@@ -758,26 +777,33 @@ class _DriftDebugServerImpl {
       await res.close();
       return;
     }
-    final Map<String, dynamic>? map;
-    try {
-      map = jsonDecode(body) as Map<String, dynamic>?;
-    } on Object catch (error, stack) {
-      _logError(error, stack);
+    if (req.headers.contentType?.mimeType != 'application/json') {
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: _errorInvalidJson}));
+      res.write(jsonEncode(<String, String>{
+        _jsonKeyError: 'Content-Type must be application/json',
+      }));
       await res.close();
       return;
     }
-    final rawSql = map?[_jsonKeySql];
-    final String sql = (rawSql is String ? rawSql.trim() : null) ?? '';
-    if (sql.isEmpty) {
+    final result = _decodeAndValidateSqlBody(body);
+    final errorMsg = result.error;
+    if (errorMsg != null) {
+      res.statusCode = HttpStatus.badRequest;
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, String>{_jsonKeyError: errorMsg}));
+      await res.close();
+      return;
+    }
+    final String? sqlNullable = result.sql;
+    if (sqlNullable == null || sqlNullable.isEmpty) {
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{_jsonKeyError: _errorMissingSql}));
       await res.close();
       return;
     }
+    final String sql = sqlNullable;
     if (!_isReadOnlySql(sql)) {
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);
@@ -886,6 +912,7 @@ class _DriftDebugServerImpl {
   Future<void> _sendTableList(
       HttpResponse response, DriftDebugQuery query) async {
     final res = response;
+    await _checkDataChange();
     final List<String> names = await _getTableNames(query);
     _setJsonHeaders(res);
     res.write(jsonEncode(names));
@@ -974,29 +1001,24 @@ class _DriftDebugServerImpl {
 
   /// Handles GET /api/generation. Returns current [_generation]. Query parameter `since` triggers long-poll
   /// until generation > since or [_longPollTimeout]; reduces client polling when idle.
+  /// Change detection runs on demand (here and in the long-poll loop) to satisfy avoid_work_in_paused_state.
   Future<void> _handleGeneration(HttpRequest request) async {
     final req = request;
     final res = req.response;
+    await _checkDataChange();
     final sinceRaw = req.uri.queryParameters[_queryParamSince];
     final int? since = sinceRaw != null ? int.tryParse(sinceRaw) : null;
     if (since != null && since >= 0) {
-      // Long-poll: wait until generation changes or timeout so UI doesn't hammer the server.
       final deadline = DateTime.now().toUtc().add(_longPollTimeout);
       while (
           DateTime.now().toUtc().isBefore(deadline) && _generation <= since) {
         await Future<void>.delayed(_longPollCheckInterval);
+        await _checkDataChange();
       }
     }
     _setJsonHeaders(res);
     res.write(jsonEncode(<String, int>{_jsonKeyGeneration: _generation}));
     await res.close();
-  }
-
-  /// Starts a periodic timer that runs _checkDataChange to bump _generation when table counts change.
-  void _startChangeCheckTimer() {
-    _changeCheckTimer?.cancel();
-    _changeCheckTimer =
-        Timer.periodic(_changeCheckInterval, (_) => _checkDataChange());
   }
 
   /// Runs a lightweight fingerprint of table row counts; bumps [_generation] when it changes so clients can refresh.
@@ -2453,7 +2475,15 @@ class _DriftDebugServerImpl {
 ///
 /// See the package README for API endpoints and optional features (snapshots, compare, download).
 mixin DriftDebugServer {
-  static final _DriftDebugServerImpl _instance = _DriftDebugServerImpl();
+  /// Lazy singleton without [late]: avoids avoid_late_keyword while keeping one server per process.
+  static _DriftDebugServerImpl? _instanceStorage;
+  static _DriftDebugServerImpl get _instance {
+    final existing = _instanceStorage;
+    if (existing != null) return existing;
+    final created = _DriftDebugServerImpl();
+    _instanceStorage = created;
+    return created;
+  }
 
   /// Starts the debug server if [enabled] is true and [query] is provided.
   ///

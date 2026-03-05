@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Lint and validation** — DriftDebugServer singleton uses nullable backing field + getter (no `late`) for avoid_late_keyword. POST /api/sql checks Content-Type before decoding; body decode/validation moved to `_decodeAndValidateSqlBody` for require_content_type_validation and require_api_response_validation. WebView route: `buildWebViewRoute` uses `Uri.tryParse` and allows only http/https; invalid URLs show a localized error screen with overflow-safe text. Load errors in WebView logged via `_logLoadError` in debug.
+
 - **Project rule compliance** — Removed all `// ignore` and `// ignore_for_file` comments from the codebase. Lint rules are disabled only via `analysis_options_custom.yaml` (e.g. `avoid_platform_specific_imports`, `prefer_correct_throws`, `avoid_unnecessary_to_list`, `prefer_extension_over_utility_class`, `unnecessary_await_in_return`). Preserved `return await` in the extension for async stack traces.
 
 ### Added
@@ -46,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Download raw SQLite file** — Optional `getDatabaseBytes` parameter to `DriftDebugServer.start` (e.g. `() => File(dbPath).readAsBytes()`). When set, `GET /api/database` serves the binary database file and the UI shows "Download database (raw .sqlite)" for opening in DB Browser or similar. When not set, the endpoint returns 501 with an explanatory message.
 - **Snapshot / time travel** — Optional in-memory snapshot of table state. `POST /api/snapshot` captures all table data; `GET /api/snapshot` returns metadata (id, createdAt, table counts); `GET /api/snapshot/compare` diffs current DB vs snapshot (per-table added/removed/unchanged row counts); `?format=download` returns the diff as `snapshot-diff.json`; `DELETE /api/snapshot` clears the snapshot. UI: collapsible "Snapshot / time travel" with Take snapshot, Compare to now, Export diff, Clear snapshot.
 - **Database diff** — Optional `queryCompare` parameter to `DriftDebugServer.start`. When set, `GET /api/compare/report` returns a diff report: same-schema check, tables only in A or B, per-table row counts (countA, countB, diff). `?format=download` returns `diff-report.json`. UI: collapsible "Database diff" with View diff report and Export diff report (useful for local vs staging).
+
+- **Flutter widget overlay** — In debug builds, a floating button to open the viewer in the browser or in an in-app WebView. Import `package:saropa_drift_viewer/flutter.dart` and wrap your app with `DriftViewerOverlay(child: MaterialApp(...))`, or place `DriftViewerFloatingButton()` in your own `Stack`. Button only visible when `kDebugMode` is true and the server is running. Popup menu: "Open in browser" (url_launcher) or "Open in WebView" (full-screen WebView). Example app updated to use the overlay.
 
 ## [0.1.0] - 2026-03-02
 
