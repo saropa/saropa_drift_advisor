@@ -3,7 +3,13 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**pub.dev** — [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer)
+**pub.dev** — [saropa_drift_viewer](https://github.com/saropa/saropa_drift_viewer) (package not yet published)
+
+## [0.2.1] - 2026-03-05
+
+### Changed
+
+- CHANGELOG: link to GitHub until package is on pub.dev.
 
 ## [0.2.0] - 2026-03-05
 

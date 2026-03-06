@@ -1064,7 +1064,7 @@ def main() -> int:
                     f"CHANGELOG.md latest is {changelog_version}. Using pubspec version."
                 )
                 update_changelog_unreleased(changelog_path, version)
-                print_success(f"CHANGELOG.md: [Unreleased] → [{version}]")
+                print_success(f"CHANGELOG.md: [Unreleased] -> [{version}]")
                 changelog_version = version
             else:
                 exit_with_error(
@@ -1098,9 +1098,9 @@ def main() -> int:
                 ExitCode.USER_CANCELLED,
             )
         update_changelog_unreleased(changelog_path, next_version)
-        print_success(f"CHANGELOG.md: [Unreleased] → [{next_version}]")
+        print_success(f"CHANGELOG.md: [Unreleased] -> [{next_version}]")
         update_pubspec_version(pubspec_path, next_version)
-        print_success(f"pubspec.yaml: {version} → {next_version}")
+        print_success(f"pubspec.yaml: {version} -> {next_version}")
         version = next_version
         tag_name = f"v{version}"
 
@@ -1133,9 +1133,9 @@ def main() -> int:
                     "User cancelled version bump.", ExitCode.USER_CANCELLED
                 )
             update_changelog_unreleased(changelog_path, next_version)
-            print_success(f"CHANGELOG.md: [Unreleased] → [{next_version}]")
+            print_success(f"CHANGELOG.md: [Unreleased] -> [{next_version}]")
             update_pubspec_version(pubspec_path, next_version)
-            print_success(f"pubspec.yaml: {version} → {next_version}")
+            print_success(f"pubspec.yaml: {version} -> {next_version}")
             version = next_version
             tag_name = f"v{version}"
         else:
