@@ -331,6 +331,19 @@ def bump_patch_version(version: str) -> str:
     return f"{major}.{minor}.{patch + 1}"
 
 
+def add_unreleased_section(changelog_path: Path) -> None:
+    """Insert an [Unreleased] section before the first versioned section."""
+    content = changelog_path.read_text(encoding="utf-8")
+    new_section = "\n\n## [Unreleased]\n\n### Changed\n\n- Bump for release.\n\n"
+    updated = re.sub(
+        r"(?=\n##\s*\[\d+\.\d+\.\d+\])",
+        new_section,
+        content,
+        count=1,
+    )
+    changelog_path.write_text(updated, encoding="utf-8")
+
+
 def update_changelog_unreleased(changelog_path: Path, new_version: str) -> None:
     """Replace [Unreleased] header with versioned header and today's date."""
     content = changelog_path.read_text(encoding="utf-8")
@@ -1139,13 +1152,31 @@ def main() -> int:
             version = next_version
             tag_name = f"v{version}"
         else:
-            exit_with_error(
+            next_version = bump_patch_version(version)
+            print_warning(
                 f"Tag {tag_name} already exists on remote. "
-                "This version has already been released.\n"
-                "  Tip: Add an [Unreleased] section to CHANGELOG.md "
-                "to enable automatic version bumping.",
-                ExitCode.VALIDATION_FAILED,
+                "This version has already been released."
             )
+            response = (
+                input(
+                    f"  Bump to v{next_version} and continue? [y/N] "
+                )
+                .strip()
+                .lower()
+            )
+            if not response.startswith("y"):
+                exit_with_error(
+                    "Publish cancelled. Add an [Unreleased] section to "
+                    "CHANGELOG.md and run again to enable version bumping.",
+                    ExitCode.USER_CANCELLED,
+                )
+            add_unreleased_section(changelog_path)
+            update_changelog_unreleased(changelog_path, next_version)
+            print_success(f"CHANGELOG.md: [Unreleased] -> [{next_version}]")
+            update_pubspec_version(pubspec_path, next_version)
+            print_success(f"pubspec.yaml: {version} -> {next_version}")
+            version = next_version
+            tag_name = f"v{version}"
 
     print_header("SAROPA DRIFT VIEWER PUBLISHER")
 
@@ -1240,6 +1271,30 @@ def main() -> int:
             f'          gh release create v{version} --title "Release v{version}" --notes-file CHANGELOG.md',
             Color.WHITE,
         )
+    print()
+
+    print_colored(
+        "  If this is a first-time publish (or the package is not yet on pub.dev), "
+        "run locally: dart pub publish",
+        Color.YELLOW,
+    )
+    response = (
+        input("  Run 'dart pub publish' now? [y/N] ").strip().lower()
+    )
+    if response.startswith("y"):
+        print()
+        print_colored("  Running: dart pub publish", Color.CYAN)
+        use_shell = get_shell_mode()
+        result = subprocess.run(
+            ["dart", "pub", "publish"],
+            cwd=package_dir,
+            shell=use_shell,
+        )
+        if result.returncode != 0:
+            print_warning(
+                f"dart pub publish exited with code {result.returncode}. "
+                "Fix any errors and run it again from the package directory."
+            )
     print()
 
     try:

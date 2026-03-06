@@ -3,15 +3,27 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**pub.dev** — [saropa_drift_viewer](https://github.com/saropa/saropa_drift_viewer) (package not yet published)
+**pub.dev** — [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer)
 
-## [0.2.1] - 2026-03-05
+
+## [0.2.2] - 2026-03-05
 
 ### Changed
 
-- CHANGELOG: link to GitHub until package is on pub.dev.
+- Bump for release.
+
+
+## [0.2.1] - 2026-03-05
+
+In this release we only updated the CHANGELOG link to point at the repo until the package was live on pub.dev.
+
+### Changed
+
+- CHANGELOG: link to GitHub until package was on pub.dev.
 
 ## [0.2.0] - 2026-03-05
+
+In this release we focused on making the viewer more useful day to day: the table view now refreshes when data changes, you can run read-only SQL from the browser, and you can protect the viewer with a token or Basic auth when using a dev tunnel. We added a schema diagram, CSV export, snapshot/time travel, and a Flutter overlay so you can open the viewer from your app.
 
 ### Fixed
 
@@ -60,6 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Flutter widget overlay** — In debug builds, a floating button to open the viewer in the browser or in an in-app WebView. Import `package:saropa_drift_viewer/flutter.dart` and wrap your app with `DriftViewerOverlay(child: MaterialApp(...))`, or place `DriftViewerFloatingButton()` in your own `Stack`. Button only visible when `kDebugMode` is true and the server is running. Popup menu: "Open in browser" (url_launcher) or "Open in WebView" (full-screen WebView). Example app updated to use the overlay.
 
 ## [0.1.0] - 2026-03-02
+
+In this release we shipped the first version: a debug-only HTTP server that exposes your SQLite or Drift tables as JSON and a small web UI. It works with any SQLite executor, so you don’t need Drift as a dependency.
 
 ### Fixed
 
