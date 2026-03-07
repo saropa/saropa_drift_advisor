@@ -1,4 +1,6 @@
-# saropa_drift_viewer
+![Saropa Drift Viewer - SQLite/Drift](https://raw.githubusercontent.com/saropa/saropa_drift_viewer/main/assets/banner_v2.png)
+
+<!-- # Saropa Drift Viewer -->
 
 [![pub package](https://img.shields.io/pub/v/saropa_drift_viewer.svg)](https://pub.dev/packages/saropa_drift_viewer)
 [![CI](https://github.com/saropa/saropa_drift_viewer/actions/workflows/main.yaml/badge.svg)](https://github.com/saropa/saropa_drift_viewer/actions/workflows/main.yaml)
@@ -103,24 +105,24 @@ Start the server as usual (e.g. `await myDb.startDriftViewer(enabled: kDebugMode
 
 ## API summary
 
-| API | Use when |
-|-----|----------|
-| **`db.startDriftViewer(enabled: ...)`** | Drift app; one-line setup (runtime wiring). |
+| API                                                    | Use when                                            |
+| ------------------------------------------------------ | --------------------------------------------------- |
+| **`db.startDriftViewer(enabled: ...)`**                | Drift app; one-line setup (runtime wiring).         |
 | **`DriftDebugServer.start(query: ..., enabled: ...)`** | Drift or raw SQLite; you supply the query callback. |
 
 ### Common parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| **`enabled`** | Typically `kDebugMode`. If `false`, server is not started. |
-| **`port`** | Default `8642`. |
-| **`loopbackOnly`** | Bind to loopback only (default `false`). |
-| **`corsOrigin`** | CORS header: `'*'`, specific origin, or `null` to disable. |
-| **`authToken`** | Optional; requests require Bearer token or `?token=`. Use for tunnels. |
-| **`basicAuthUser`** / **`basicAuthPassword`** | Optional; HTTP Basic auth when both set. |
-| **`getDatabaseBytes`** | Optional; when set, `GET /api/database` serves raw SQLite file for download. |
-| **`queryCompare`** | Optional; enables database diff vs another DB (e.g. staging). |
-| **`onLog`**, **`onError`** | Optional; for your logger or `debugPrint` / `print`. |
+| Parameter                                     | Description                                                                  |
+| --------------------------------------------- | ---------------------------------------------------------------------------- |
+| **`enabled`**                                 | Typically `kDebugMode`. If `false`, server is not started.                   |
+| **`port`**                                    | Default `8642`.                                                              |
+| **`loopbackOnly`**                            | Bind to loopback only (default `false`).                                     |
+| **`corsOrigin`**                              | CORS header: `'*'`, specific origin, or `null` to disable.                   |
+| **`authToken`**                               | Optional; requests require Bearer token or `?token=`. Use for tunnels.       |
+| **`basicAuthUser`** / **`basicAuthPassword`** | Optional; HTTP Basic auth when both set.                                     |
+| **`getDatabaseBytes`**                        | Optional; when set, `GET /api/database` serves raw SQLite file for download. |
+| **`queryCompare`**                            | Optional; enables database diff vs another DB (e.g. staging).                |
+| **`onLog`**, **`onError`**                    | Optional; for your logger or `debugPrint` / `print`.                         |
 
 - Only one server per process; calling `start` again when running is a no-op. Use **`DriftDebugServer.stop()`** to shut down and restart (e.g. tests or graceful shutdown).
 - **Health:** `GET /api/health` → `{"ok": true}`.
