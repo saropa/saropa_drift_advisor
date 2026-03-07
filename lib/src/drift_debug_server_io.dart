@@ -1990,36 +1990,41 @@ class _DriftDebugServerImpl {
     String sessionId,
   ) async {
     final res = request.response;
+    try {
+      final builder = BytesBuilder();
+      await for (final chunk in request) {
+        builder.add(chunk);
+      }
+      final body = jsonDecode(utf8.decode(builder.toBytes()))
+          as Map<String, dynamic>;
 
-    final builder = BytesBuilder();
-    await for (final chunk in request) {
-      builder.add(chunk);
-    }
-    final body = jsonDecode(utf8.decode(builder.toBytes()))
-        as Map<String, dynamic>;
+      final added = _sessionStore.annotate(
+        sessionId,
+        text: (body[DriftDebugSessionStore.keyText] as String?) ?? '',
+        author: (body[DriftDebugSessionStore.keyAuthor] as String?) ??
+            'anonymous',
+      );
 
-    final added = _sessionStore.annotate(
-      sessionId,
-      text: (body[DriftDebugSessionStore.keyText] as String?) ?? '',
-      author: (body[DriftDebugSessionStore.keyAuthor] as String?) ??
-          'anonymous',
-    );
+      if (!added) {
+        res.statusCode = HttpStatus.notFound;
+        _setJsonHeaders(res);
+        res.write(jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
+        }));
+        await res.close();
+        return;
+      }
 
-    if (!added) {
-      res.statusCode = HttpStatus.notFound;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
+        DriftDebugSessionStore.keyStatus: 'added',
       }));
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      await _sendErrorResponse(res, error);
+    } finally {
       await res.close();
-      return;
     }
-
-    _setJsonHeaders(res);
-    res.write(jsonEncode(<String, String>{
-      DriftDebugSessionStore.keyStatus: 'added',
-    }));
-    await res.close();
   }
 
   Future<void> _handleSizeAnalytics(
@@ -3301,6 +3306,50 @@ class _DriftDebugServerImpl {
       });
     })();
 
+    (function initMigrationPreview() {
+      var btn = document.getElementById('migration-preview');
+      var statusEl = document.getElementById('compare-status');
+      var resultPre = document.getElementById('compare-result');
+      if (!btn) return;
+      btn.addEventListener('click', function() {
+        btn.disabled = true;
+        btn.textContent = 'Generating…';
+        resultPre.style.display = 'none';
+        statusEl.textContent = '';
+        fetch('/api/migration/preview', authOpts())
+          .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
+          .then(function(o) {
+            if (o.status === 501) {
+              statusEl.textContent = 'Migration preview requires queryCompare. Pass queryCompare to DriftDebugServer.start().';
+              return;
+            }
+            if (o.status >= 400) {
+              statusEl.textContent = o.data.error || 'Request failed';
+              return;
+            }
+            var sql = o.data.migrationSql || '-- No changes detected.';
+            var html = '<p class="meta">' + o.data.changeCount + ' statement(s) generated';
+            if (o.data.hasWarnings) html += ' (includes warnings)';
+            html += '</p>';
+            html += '<pre style="font-size:11px;max-height:30vh;overflow:auto;background:var(--bg-pre);padding:0.5rem;border-radius:4px;">' + esc(sql) + '</pre>';
+            html += '<button type="button" id="migration-copy-sql">Copy SQL</button>';
+            resultPre.innerHTML = html;
+            resultPre.style.display = 'block';
+            statusEl.textContent = '';
+            var copyBtn = document.getElementById('migration-copy-sql');
+            if (copyBtn) copyBtn.addEventListener('click', function() {
+              navigator.clipboard.writeText(sql);
+              this.textContent = 'Copied!';
+            });
+          })
+          .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
+          .finally(function() {
+            btn.disabled = false;
+            btn.textContent = 'Migration Preview';
+          });
+      });
+    })();
+
     (function initIndexSuggestions() {
       const toggle = document.getElementById('index-toggle');
       const collapsible = document.getElementById('index-collapsible');
@@ -4397,9 +4446,27 @@ class _DriftDebugServerImpl {
       };
     }
 
-    document.getElementById('share-btn').addEventListener('click', function () {
+    function copyShareUrl(shareUrl, expiresAt) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl)
+          .then(function () {
+            alert('Share URL copied to clipboard!\\n\\n' + shareUrl +
+              '\\n\\nExpires: ' + new Date(expiresAt).toLocaleString());
+          })
+          .catch(function () {
+            prompt('Copy this share URL:', shareUrl);
+          });
+      } else {
+        prompt('Copy this share URL:', shareUrl);
+      }
+    }
+
+    function createShareSession() {
       var note = prompt('Add a note for your team (optional):');
       if (note === null) return;
+      var btn = document.getElementById('share-btn');
+      btn.disabled = true;
+      btn.textContent = 'Sharing\\u2026';
       var state = captureViewerState();
       if (note) state.note = note;
 
@@ -4408,28 +4475,67 @@ class _DriftDebugServerImpl {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(state),
       }))
-        .then(function (r) { return r.json(); })
+        .then(function (r) {
+          if (!r.ok) throw new Error('Server error ' + r.status);
+          return r.json();
+        })
         .then(function (data) {
-          var shareUrl = location.origin + location.pathname + data.url;
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(shareUrl)
-              .then(function () {
-                alert('Share URL copied to clipboard!\\n\\n' + shareUrl +
-                  '\\n\\nExpires: ' + new Date(data.expiresAt).toLocaleString());
-              })
-              .catch(function () {
-                prompt('Copy this share URL:', shareUrl);
-              });
-          } else {
-            prompt('Copy this share URL:', shareUrl);
-          }
+          copyShareUrl(location.origin + location.pathname + data.url, data.expiresAt);
         })
         .catch(function (e) {
           alert('Failed to create share: ' + e.message);
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.textContent = 'Share';
         });
-    });
+    }
 
-    (function restoreSession() {
+    document.getElementById('share-btn').addEventListener('click', createShareSession);
+
+    function applySessionState(state) {
+      if (state.currentTable) {
+        setTimeout(function () { loadTable(state.currentTable); }, 500);
+      }
+      if (state.sqlInput) {
+        document.getElementById('sql-input').value = state.sqlInput;
+      }
+      if (state.searchTerm && document.getElementById('search-input')) {
+        document.getElementById('search-input').value = state.searchTerm;
+      }
+      if (state.limit) limit = state.limit;
+      if (state.offset) offset = state.offset;
+    }
+
+    function renderSessionInfoBar(state, createdAt) {
+      var infoBar = document.createElement('div');
+      infoBar.style.cssText =
+        'background:var(--link);color:var(--bg);padding:0.3rem 0.5rem;font-size:12px;text-align:center;';
+      var info = 'Shared session';
+      if (state.note) info += ': "' + esc(state.note) + '"';
+      info += ' (created ' + new Date(createdAt).toLocaleString() + ')';
+      infoBar.textContent = info;
+      document.body.prepend(infoBar);
+    }
+
+    function renderSessionAnnotations(annotations) {
+      if (!annotations || annotations.length === 0) return;
+      var annoEl = document.createElement('div');
+      annoEl.style.cssText =
+        'background:var(--bg-pre);padding:0.3rem 0.5rem;font-size:11px;border-left:3px solid var(--link);margin:0.3rem 0;';
+      var annoHtml = '<strong>Annotations:</strong><br>';
+      annotations.forEach(function (a) {
+        annoHtml += '<span class="meta">[' + esc(a.author) + ' at ' +
+          new Date(a.at).toLocaleTimeString() + ']</span> ' +
+          esc(a.text) + '<br>';
+      });
+      annoEl.innerHTML = annoHtml;
+      document.body.children[1]
+        ? document.body.insertBefore(annoEl, document.body.children[1])
+        : document.body.appendChild(annoEl);
+    }
+
+    function restoreSession() {
       var params = new URLSearchParams(location.search);
       var sessionId = params.get('session');
       if (!sessionId) return;
@@ -4441,49 +4547,16 @@ class _DriftDebugServerImpl {
         })
         .then(function (data) {
           var state = data.state || {};
-
-          if (state.currentTable) {
-            setTimeout(function () { loadTable(state.currentTable); }, 500);
-          }
-          if (state.sqlInput) {
-            document.getElementById('sql-input').value = state.sqlInput;
-          }
-          if (state.searchTerm && document.getElementById('search-input')) {
-            document.getElementById('search-input').value = state.searchTerm;
-          }
-          if (state.limit) limit = state.limit;
-          if (state.offset) offset = state.offset;
-
-          var infoBar = document.createElement('div');
-          infoBar.style.cssText =
-            'background:var(--link);color:var(--bg);padding:0.3rem 0.5rem;font-size:12px;text-align:center;';
-          var info = 'Shared session';
-          if (state.note) info += ': "' + esc(state.note) + '"';
-          info += ' (created ' + new Date(data.createdAt).toLocaleString() + ')';
-          infoBar.textContent = info;
-          document.body.prepend(infoBar);
-
-          var annotations = data.annotations || [];
-          if (annotations.length > 0) {
-            var annoEl = document.createElement('div');
-            annoEl.style.cssText =
-              'background:var(--bg-pre);padding:0.3rem 0.5rem;font-size:11px;border-left:3px solid var(--link);margin:0.3rem 0;';
-            var annoHtml = '<strong>Annotations:</strong><br>';
-            annotations.forEach(function (a) {
-              annoHtml += '<span class="meta">[' + esc(a.author) + ' at ' +
-                new Date(a.at).toLocaleTimeString() + ']</span> ' +
-                esc(a.text) + '<br>';
-            });
-            annoEl.innerHTML = annoHtml;
-            document.body.children[1]
-              ? document.body.insertBefore(annoEl, document.body.children[1])
-              : document.body.appendChild(annoEl);
-          }
+          applySessionState(state);
+          renderSessionInfoBar(state, data.createdAt);
+          renderSessionAnnotations(data.annotations);
         })
         .catch(function (e) {
           console.warn('Session restore failed:', e.message);
         });
-    })();
+    }
+
+    restoreSession();
   </script>
 </body>
 </html>''';
