@@ -20,6 +20,7 @@ import 'package:crypto/crypto.dart';
 import 'package:saropa_drift_viewer/src/drift_debug_session.dart';
 
 import 'server/server_constants.dart';
+import 'server/server_types.dart';
 
 // --- Public API (typedefs) ---
 
@@ -60,61 +61,6 @@ typedef DriftDebugGetDatabaseBytes = Future<List<int>> Function();
 /// If not provided, the import endpoint returns 501 Not Implemented.
 typedef DriftDebugWriteQuery = Future<void> Function(String sql);
 
-// --- Snapshot (time-travel) ---
-
-/// In-memory snapshot of table state (for time-travel compare). Captured by POST /api/snapshot;
-/// GET /api/snapshot/compare diffs current DB vs this snapshot (per-table added/removed/unchanged).
-class _Snapshot {
-  const _Snapshot(
-      {required this.id, required this.createdAt, required this.tables});
-  final String id;
-  final DateTime createdAt;
-  final Map<String, List<Map<String, dynamic>>> tables;
-
-  @override
-  String toString() =>
-      '_Snapshot(id: $id, createdAt: $createdAt, tables: ${tables.length} tables)';
-}
-
-/// A single query timing record for the performance monitor.
-class _QueryTiming {
-  _QueryTiming({
-    required this.sql,
-    required this.durationMs,
-    required this.rowCount,
-    required this.at,
-    this.error,
-  });
-
-  final String sql;
-  final int durationMs;
-  final int rowCount;
-  final DateTime at;
-  final String? error;
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        'sql': sql,
-        'durationMs': durationMs,
-        'rowCount': rowCount,
-        'error': error,
-        'at': at.toIso8601String(),
-      };
-}
-
-/// Validated POST /api/sql request body (prefer_extension_type_for_wrapper, require_api_response_validation).
-extension type _SqlRequestBody(String sql) implements Object {
-  static const String _keySql = 'sql';
-
-  /// Validates shape and returns null on invalid (require_api_response_validation).
-  static _SqlRequestBody? fromJson(Object? decoded) {
-    if (decoded is! Map<String, dynamic>) return null;
-    final raw = decoded[_keySql];
-    if (raw is! String) return null;
-    final trimmedSql = raw.trim();
-    if (trimmedSql.isEmpty) return null;
-    return _SqlRequestBody(trimmedSql);
-  }
-}
 
 /// Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer.
 ///
@@ -158,15 +104,15 @@ class _DriftDebugServerImpl {
   bool _changeCheckInProgress = false;
 
   /// In-memory snapshot: id, createdAt, and full table data per table (for GET /api/snapshot/compare).
-  _Snapshot? _snapshot;
+  Snapshot? _snapshot;
 
   /// In-memory shared sessions for collaborative debug (POST /api/session/share, GET /api/session/{id}).
   final DriftDebugSessionStore _sessionStore = DriftDebugSessionStore();
 
-  final List<_QueryTiming> _queryTimings = [];
+  final List<QueryTiming> _queryTimings = [];
 
   /// Validated POST /api/sql request body. Checks Content-Type then decodes and validates (require_content_type_validation, require_api_response_validation).
-  ({_SqlRequestBody? body, String? error}) _parseSqlBody(
+  ({SqlRequestBody? body, String? error}) _parseSqlBody(
       HttpRequest request, String body) {
     final contentType = request.headers.contentType?.mimeType;
     if (contentType != 'application/json') {
@@ -187,7 +133,7 @@ class _DriftDebugServerImpl {
     if (rawSql is! String || rawSql.trim().isEmpty) {
       return (body: null, error: ServerConstants.errorMissingSql);
     }
-    final bodyObj = _SqlRequestBody.fromJson(decoded);
+    final bodyObj = SqlRequestBody.fromJson(decoded);
     if (bodyObj == null) {
       return (body: null, error: ServerConstants.errorMissingSql);
     }
@@ -405,7 +351,7 @@ class _DriftDebugServerImpl {
 
   /// Appends a timing entry; evicts oldest when buffer exceeds [ServerConstants.maxQueryTimings].
   void _recordTiming(String sql, int durationMs, int rowCount, String? error) {
-    _queryTimings.add(_QueryTiming(
+    _queryTimings.add(QueryTiming(
       sql: sql,
       durationMs: durationMs,
       rowCount: rowCount,
@@ -1373,7 +1319,7 @@ class _DriftDebugServerImpl {
       }
       final id = DateTime.now().toUtc().toIso8601String();
       final createdAt = DateTime.now().toUtc();
-      final created = _Snapshot(id: id, createdAt: createdAt, tables: data);
+      final created = Snapshot(id: id, createdAt: createdAt, tables: data);
       _snapshot = created;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, dynamic>{
@@ -2369,27 +2315,26 @@ class _DriftDebugServerImpl {
   }
 
   /// Check 5: Duplicate rows (total count vs distinct count).
+  /// [tableRowCount] is pre-cached to avoid redundant queries.
   Future<void> _detectDuplicateRows(
     DriftDebugQuery query,
     String tableName,
+    int tableRowCount,
     List<Map<String, dynamic>> anomalies,
   ) async {
-    final totalCount = _extractCountFromRows(_normalizeRows(
-      await query('SELECT COUNT(*) AS c FROM "$tableName"'),
-    ));
     final distinctCount = _extractCountFromRows(_normalizeRows(
       await query(
         'SELECT COUNT(*) AS c FROM (SELECT DISTINCT * FROM "$tableName")',
       ),
     ));
-    if (totalCount > distinctCount) {
+    if (tableRowCount > distinctCount) {
       anomalies.add(<String, dynamic>{
         'table': tableName,
         'type': 'duplicate_rows',
         'severity': 'warning',
-        'count': totalCount - distinctCount,
+        'count': tableRowCount - distinctCount,
         'message':
-            '${totalCount - distinctCount} duplicate row(s) in $tableName',
+            '${tableRowCount - distinctCount} duplicate row(s) in $tableName',
       });
     }
   }
@@ -2786,6 +2731,7 @@ class _DriftDebugServerImpl {
     <div class="toolbar">
       <button type="button" id="compare-view">View diff report</button>
       <a href="/api/compare/report?format=download" id="compare-export">Export diff report</a>
+      <button type="button" id="migration-preview">Migration Preview</button>
     </div>
     <p id="compare-status" class="meta"></p>
     <pre id="compare-result" class="meta diff-result" style="display: none; max-height: 40vh;"></pre>
@@ -4570,7 +4516,7 @@ mixin DriftDebugServer {
   static Future<void> start({
     required DriftDebugQuery query,
     bool enabled = true,
-    int port = _DriftDebugServerImpl._defaultPort,
+    int port = ServerConstants.defaultPort,
     bool loopbackOnly = false,
     String? corsOrigin = '*',
     String? authToken,
