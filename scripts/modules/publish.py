@@ -20,7 +20,7 @@ from modules.constants import (
     TAG_PREFIX,
 )
 from modules.display import ask_yn, fail, fix, info, ok
-from modules.utils import get_ovsx_pat, is_version_tagged, run
+from modules.utils import get_ovsx_pat, run
 
 
 # ── Publish: Confirmation ────────────────────────────────────
