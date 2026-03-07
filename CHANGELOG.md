@@ -12,6 +12,9 @@ We're focusing on backend tooling and documentation in this release.
 ### Fixed
 
 - CI workflow: trigger branch changed from `master` to `main` to match the repository default branch; PRs and pushes now correctly run CI.
+- Static analysis: added curly braces to three bare `if`-body statements in `drift_debug_server_io.dart` (lint: `always_put_control_body_on_new_line`).
+- Static analysis: wrapped three doc-comment URL paths containing angle brackets in backticks to prevent HTML interpretation (lint: `unintended_html_in_doc_comment`).
+- Dependency lower bounds: bumped `webview_flutter` from `^4.12.0` to `^4.13.0` so the minimum version includes `onSslAuthError`/`SslAuthError` (added in 4.13.0), fixing the downgrade analysis failure.
 
 ### Changed
 
