@@ -2387,6 +2387,88 @@ class _DriftDebugServerImpl {
     _setCors(res);
   }
 
+  // --- Query performance analytics ---
+
+  /// GET /api/analytics/performance — returns query timing stats, slow queries,
+  /// and patterns.
+  Future<void> _handlePerformanceAnalytics(HttpResponse response) async {
+    final res = response;
+    try {
+      final timings = List<QueryTiming>.from(_queryTimings);
+      final totalQueries = timings.length;
+      final totalDuration = timings.fold<int>(
+        0,
+        (sum, t) => sum + t.durationMs,
+      );
+      final avgDuration =
+          totalQueries > 0 ? (totalDuration / totalQueries).round() : 0;
+
+      // Slow queries (> 100ms), sorted by duration desc.
+      final slowQueries = timings
+          .where((t) => t.durationMs > 100)
+          .toList()
+        ..sort((a, b) => b.durationMs.compareTo(a.durationMs));
+
+      // Group by SQL pattern (first 60 chars) for frequency.
+      final queryGroups = <String, List<QueryTiming>>{};
+      for (final t in timings) {
+        final key = t.sql.trim().length > 60
+            ? t.sql.trim().substring(0, 60)
+            : t.sql.trim();
+        queryGroups.putIfAbsent(key, () => []).add(t);
+      }
+
+      final patterns = queryGroups.entries.map((e) {
+        final durations = e.value.map((t) => t.durationMs).toList();
+        final avg = durations.reduce((a, b) => a + b) / durations.length;
+        final max = durations.reduce((a, b) => a > b ? a : b);
+        final total = durations.reduce((a, b) => a + b);
+        return <String, dynamic>{
+          'pattern': e.key,
+          'count': durations.length,
+          'avgMs': avg.round(),
+          'maxMs': max,
+          'totalMs': total,
+        };
+      }).toList()
+        ..sort(
+            (a, b) => (b['totalMs'] as int).compareTo(a['totalMs'] as int));
+
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, dynamic>{
+        'totalQueries': totalQueries,
+        'totalDurationMs': totalDuration,
+        'avgDurationMs': avgDuration,
+        'slowQueries':
+            slowQueries.take(20).map((t) => t.toJson()).toList(),
+        'queryPatterns': patterns.take(20).toList(),
+        'recentQueries':
+            timings.reversed.take(50).map((t) => t.toJson()).toList(),
+      }));
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      await _sendErrorResponse(res, error);
+      return;
+    }
+    await res.close();
+  }
+
+  /// DELETE /api/analytics/performance — clears all recorded query timings.
+  Future<void> _clearPerformanceData(HttpResponse response) async {
+    final res = response;
+    try {
+      _queryTimings.clear();
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, String>{'status': 'cleared'}));
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      await _sendErrorResponse(res, error);
+      return;
+    }
+    await res.close();
+  }
+
+
   /// Handles POST /api/import: imports CSV, JSON, or SQL data into a table.
   /// Requires [_writeQuery] to be configured; returns 501 if not.
   Future<void> _handleImport(HttpRequest request) async {
@@ -2437,87 +2519,21 @@ class _DriftDebugServerImpl {
         return;
       }
 
-      int imported = 0;
-      final errors = <String>[];
-
-      if (format == 'json') {
-        final rows = jsonDecode(data) as List<dynamic>;
-        for (int i = 0; i < rows.length; i++) {
-          final row = rows[i];
-          if (row is! Map) {
-            errors.add('Row $i: not an object');
-            continue;
-          }
-          try {
-            final keys = row.keys.toList();
-            final cols = keys.map((k) => '"$k"').join(', ');
-            final vals = keys.map((k) => _sqlLiteral(row[k])).join(', ');
-            await writeQuery('INSERT INTO "$table" ($cols) VALUES ($vals)');
-            imported++;
-          } on Object catch (e) {
-            errors.add('Row $i: $e');
-          }
-        }
-      } else if (format == 'csv') {
-        final lines = _parseCsvLines(data);
-        if (lines.length < 2) {
-          res.statusCode = HttpStatus.badRequest;
-          _setJsonHeaders(res);
-          res.write(jsonEncode(<String, String>{
-            ServerConstants.jsonKeyError:
-                'CSV must have a header row and at least one data row.',
-          }));
-          await res.close();
-          return;
-        }
-        final headers = lines[0];
-        for (int i = 1; i < lines.length; i++) {
-          try {
-            final values = lines[i];
-            if (values.length != headers.length) {
-              errors.add(
-                  'Row $i: column count mismatch (${values.length} vs ${headers.length})');
-              continue;
-            }
-            final cols = headers.map((h) => '"$h"').join(', ');
-            final vals = values.map((v) => _sqlLiteral(v)).join(', ');
-            await writeQuery('INSERT INTO "$table" ($cols) VALUES ($vals)');
-            imported++;
-          } on Object catch (e) {
-            errors.add('Row $i: $e');
-          }
-        }
-      } else if (format == 'sql') {
-        final statements =
-            data.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty);
-        for (final stmt in statements) {
-          try {
-            await writeQuery('$stmt;');
-            imported++;
-          } on Object catch (e) {
-            errors.add('Statement error: $e');
-          }
-        }
-      } else {
-        res.statusCode = HttpStatus.badRequest;
-        _setJsonHeaders(res);
-        res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError: 'Unsupported format: $format. Use json, csv, or sql.',
-        }));
-        await res.close();
-        return;
-      }
+      // Delegate import logic to modular processor.
+      const processor = DriftDebugImportProcessor();
+      final result = await processor.processImport(
+        format: format,
+        data: data,
+        table: table,
+        writeQuery: writeQuery,
+        sqlLiteral: _sqlLiteral,
+      );
 
       // Bump generation so live-refresh picks up new rows immediately.
       await _checkDataChange();
 
       _setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{
-        'imported': imported,
-        'errors': errors,
-        'format': format,
-        'table': table,
-      }));
+      res.write(jsonEncode(result.toJson()));
     } on Object catch (error, stack) {
       _logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
@@ -2528,38 +2544,6 @@ class _DriftDebugServerImpl {
     } finally {
       await res.close();
     }
-  }
-
-  /// Parses CSV text into a list of rows (each a list of field strings).
-  /// Handles quoted fields with embedded commas and escaped quotes ("").
-  static List<List<String>> _parseCsvLines(String csv) {
-    final result = <List<String>>[];
-    final lines = csv.split('\n');
-    for (final line in lines) {
-      if (line.trim().isEmpty) continue;
-      final fields = <String>[];
-      var inQuotes = false;
-      final current = StringBuffer();
-      for (int i = 0; i < line.length; i++) {
-        final c = line[i];
-        if (c == '"') {
-          if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
-            current.write('"');
-            i++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (c == ',' && !inQuotes) {
-          fields.add(current.toString().trim());
-          current.clear();
-        } else {
-          current.write(c);
-        }
-      }
-      fields.add(current.toString().trim());
-      result.add(fields);
-    }
-    return result;
   }
 
   /// Serves the single-page viewer UI (table list, SQL runner, schema, snapshot, compare, etc.).
@@ -3485,6 +3469,119 @@ class _DriftDebugServerImpl {
       });
     })();
 
+    // --- Data import (debug only) ---
+    (function initImport() {
+      var toggle = document.getElementById('import-toggle');
+      var collapsible = document.getElementById('import-collapsible');
+      var fileInput = document.getElementById('import-file');
+      var runBtn = document.getElementById('import-run');
+      var preview = document.getElementById('import-preview');
+      var status = document.getElementById('import-status');
+      var formatSel = document.getElementById('import-format');
+      var importFileData = null;
+
+      if (toggle && collapsible) {
+        toggle.addEventListener('click', function() {
+          var isCollapsed = collapsible.classList.contains('collapsed');
+          collapsible.classList.toggle('collapsed', !isCollapsed);
+          this.textContent = isCollapsed ? '▲ Import data (debug only)' : '▼ Import data (debug only)';
+        });
+      }
+
+      if (fileInput) {
+        fileInput.addEventListener('change', function() {
+          var file = this.files[0];
+          if (!file) {
+            importFileData = null;
+            if (runBtn) runBtn.disabled = true;
+            if (preview) preview.style.display = 'none';
+            return;
+          }
+          var reader = new FileReader();
+          reader.onload = function() {
+            importFileData = reader.result;
+            if (!importFileData || importFileData.trim().length === 0) {
+              status.textContent = 'File is empty.';
+              status.style.color = '#e57373';
+              if (runBtn) runBtn.disabled = true;
+              if (preview) preview.style.display = 'none';
+              return;
+            }
+            if (runBtn) runBtn.disabled = false;
+            if (preview) {
+              var text = importFileData.length > 2000 ? importFileData.slice(0, 2000) + '\\n… (truncated)' : importFileData;
+              preview.textContent = text;
+              preview.style.display = 'block';
+            }
+            // Auto-detect format from file extension.
+            if (formatSel && file.name) {
+              var ext = file.name.split('.').pop().toLowerCase();
+              if (ext === 'json' || ext === 'csv' || ext === 'sql') {
+                formatSel.value = ext;
+              }
+            }
+          };
+          reader.onerror = function() {
+            status.textContent = 'Failed to read file.';
+            status.style.color = '#e57373';
+          };
+          reader.readAsText(file);
+        });
+      }
+
+      if (runBtn) {
+        runBtn.addEventListener('click', function() {
+          if (!importFileData) return;
+          var tableSel = document.getElementById('import-table');
+          var table = tableSel ? tableSel.value : '';
+          var format = formatSel ? formatSel.value : 'json';
+          if (!table) { status.textContent = 'Select a table first.'; status.style.color = '#e57373'; return; }
+          if (!confirm('Import ' + format.toUpperCase() + ' data into "' + table + '"? This modifies the database.')) return;
+
+          runBtn.disabled = true;
+          runBtn.textContent = 'Importing…';
+          status.textContent = 'Importing…';
+          status.style.color = 'var(--muted)';
+
+          fetch('/api/import', authOpts({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format: format, data: importFileData, table: table })
+          }))
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed (' + r.status + ')'); });
+            return r.json();
+          })
+          .then(function(data) {
+            if (data.error) {
+              status.textContent = 'Error: ' + data.error;
+              status.style.color = '#e57373';
+            } else {
+              var msg = 'Imported ' + data.imported + ' row(s) into "' + data.table + '".';
+              if (data.errors && data.errors.length > 0) {
+                msg += ' ' + data.errors.length + ' error(s): ' + data.errors.slice(0, 3).join('; ');
+                if (data.errors.length > 3) msg += '…';
+              }
+              status.textContent = msg;
+              status.style.color = data.errors && data.errors.length > 0 ? '#ffb74d' : '#81c784';
+              // Refresh current table if it matches the imported table.
+              if (typeof currentTableName !== 'undefined' && currentTableName === table) {
+                loadTable(table);
+              }
+            }
+          })
+          .catch(function(e) {
+            status.textContent = 'Request failed: ' + e.message;
+            status.style.color = '#e57373';
+          })
+          .finally(function() {
+            runBtn.disabled = false;
+            runBtn.textContent = 'Import';
+          });
+        });
+      }
+    })();
+
     (function initAnomalyDetection() {
       const toggle = document.getElementById('anomaly-toggle');
       const collapsible = document.getElementById('anomaly-collapsible');
@@ -3950,7 +4047,7 @@ class _DriftDebugServerImpl {
       }
       const importTableSel = document.getElementById('import-table');
       if (importTableSel) {
-        importTableSel.innerHTML = tables.map(t => '<option value="' + esc(t) + '">' + esc(t) + (tableCounts[t] != null ? ' (' + tableCounts[t] + ' rows)' : '') + '</option>').join('');
+        importTableSel.innerHTML = '<option value="">— select table —</option>' + tables.map(t => '<option value="' + esc(t) + '">' + esc(t) + (tableCounts[t] != null ? ' (' + tableCounts[t] + ' rows)' : '') + '</option>').join('');
       }
     }
 
@@ -4596,128 +4693,6 @@ mixin DriftDebugServer {
     String? authToken,
     String? basicAuthUser,
     String? basicAuthPassword,
-
-    (function initPerformance() {
-      var toggle = document.getElementById('perf-toggle');
-      var collapsible = document.getElementById('perf-collapsible');
-      var refreshBtn = document.getElementById('perf-refresh');
-      var clearBtn = document.getElementById('perf-clear');
-      var container = document.getElementById('perf-results');
-
-      if (toggle && collapsible) {
-        toggle.addEventListener('click', function() {
-          var isCollapsed = collapsible.classList.contains('collapsed');
-          collapsible.classList.toggle('collapsed', !isCollapsed);
-          this.textContent = isCollapsed ? '▲ Query performance' : '▼ Query performance';
-        });
-      }
-
-      function renderPerformance(data) {
-        var html = '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.3rem 0;">';
-        html += '<div class="meta">Total: ' + data.totalQueries + ' queries</div>';
-        html += '<div class="meta">Total time: ' + data.totalDurationMs + ' ms</div>';
-        html += '<div class="meta">Avg: ' + data.avgDurationMs + ' ms</div>';
-        html += '</div>';
-
-        if (data.slowQueries && data.slowQueries.length > 0) {
-          html += '<p class="meta" style="color:#e57373;font-weight:bold;">Slow queries (&gt;100ms):</p>';
-          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-          html += '<tr><th style="border:1px solid var(--border);padding:4px;">Duration</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Time</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
-          data.slowQueries.forEach(function(q) {
-            html += '<tr>';
-            html += '<td style="border:1px solid var(--border);padding:4px;color:#e57373;font-weight:bold;">' + q.durationMs + ' ms</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + q.rowCount + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;font-size:11px;">' + esc(q.at) + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(q.sql) + '">' + esc(q.sql.length > 80 ? q.sql.slice(0, 80) + '…' : q.sql) + '</td>';
-            html += '</tr>';
-          });
-          html += '</table>';
-        }
-
-        if (data.queryPatterns && data.queryPatterns.length > 0) {
-          html += '<p class="meta" style="margin-top:0.5rem;">Most time-consuming patterns:</p>';
-          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-          html += '<tr><th style="border:1px solid var(--border);padding:4px;">Total ms</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Count</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Avg ms</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Max ms</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Pattern</th></tr>';
-          data.queryPatterns.forEach(function(p) {
-            html += '<tr>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.totalMs + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.count + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.avgMs + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.maxMs + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;" title="' + esc(p.pattern) + '">' + esc(p.pattern.length > 60 ? p.pattern.slice(0, 60) + '…' : p.pattern) + '</td>';
-            html += '</tr>';
-          });
-          html += '</table>';
-        }
-
-        if (data.recentQueries && data.recentQueries.length > 0) {
-          html += '<p class="meta" style="margin-top:0.5rem;">Recent queries (newest first):</p>';
-          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-          html += '<tr><th style="border:1px solid var(--border);padding:4px;">ms</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
-          data.recentQueries.forEach(function(q) {
-            var color = q.durationMs > 100 ? '#e57373' : (q.durationMs > 50 ? '#ffb74d' : 'var(--fg)');
-            html += '<tr>';
-            html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';">' + q.durationMs + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + q.rowCount + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(q.sql) + '">' + esc(q.sql.length > 80 ? q.sql.slice(0, 80) + '…' : q.sql) + '</td>';
-            html += '</tr>';
-          });
-          html += '</table>';
-        }
-
-        return html;
-      }
-
-      if (refreshBtn) refreshBtn.addEventListener('click', function() {
-        refreshBtn.disabled = true;
-        refreshBtn.textContent = 'Loading…';
-        container.style.display = 'none';
-        fetch('/api/analytics/performance', authOpts())
-          .then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
-            return r.json();
-          })
-          .then(function(data) {
-            if (data.totalQueries === 0) {
-              container.innerHTML = '<p class="meta">No queries recorded yet. Browse some tables, then refresh.</p>';
-            } else {
-              container.innerHTML = renderPerformance(data);
-            }
-            container.style.display = 'block';
-          })
-          .catch(function(e) {
-            container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
-            container.style.display = 'block';
-          })
-          .finally(function() {
-            refreshBtn.disabled = false;
-            refreshBtn.textContent = 'Refresh';
-          });
-      });
-
-      if (clearBtn) clearBtn.addEventListener('click', function() {
-        clearBtn.disabled = true;
-        fetch('/api/analytics/performance', authOpts({ method: 'DELETE' }))
-          .then(function() {
-            container.innerHTML = '<p class="meta">Cleared.</p>';
-            container.style.display = 'block';
-          })
-          .catch(function(e) {
-            container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
-            container.style.display = 'block';
-          })
-          .finally(function() { clearBtn.disabled = false; });
-      });
-    })();
     DriftDebugGetDatabaseBytes? getDatabaseBytes,
     DriftDebugQuery? queryCompare,
     DriftDebugWriteQuery? writeQuery,
