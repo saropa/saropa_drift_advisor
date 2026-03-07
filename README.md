@@ -19,6 +19,7 @@ Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minima
 - **Read-only SQL runner** with table/column autofill, templates, and query history (localStorage)
 - **EXPLAIN QUERY PLAN** — one-click query plan viewer highlights full table scans (red) and index lookups (green)
 - **Data charts** — Bar, pie, line/time-series, and histogram from SQL results (inline SVG, no dependencies)
+- **Data anomaly detection** — one-click scan for NULLs, empty strings, orphaned FKs, duplicates, and numeric outliers with severity-coded results
 - **Export** schema-only (`schema.sql`), full dump (schema + data), or raw SQLite file (when `getDatabaseBytes` is set)
 - **Live refresh** via long-poll when data changes
 - **Snapshot / time travel** — in-memory snapshot, compare to now, export diff
