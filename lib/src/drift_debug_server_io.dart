@@ -1821,15 +1821,15 @@ class _DriftDebugServerImpl {
         final schemaRows = _normalizeRows(
           await queryB(
             "SELECT sql FROM sqlite_master "
-            "WHERE type='table' AND name='\$table'",
+            "WHERE type='table' AND name='$table'",
           ),
         );
         final createStmt = schemaRows.isNotEmpty
             ? schemaRows.first['sql'] as String?
             : null;
         if (createStmt != null) {
-          migrations.add('-- NEW TABLE: \$table');
-          migrations.add('\$createStmt;');
+          migrations.add('-- NEW TABLE: $table');
+          migrations.add('$createStmt;');
           migrations.add('');
         }
       }
@@ -1837,8 +1837,8 @@ class _DriftDebugServerImpl {
       // --- Dropped tables (in A but not in B) ---
       for (final table in tablesA) {
         if (tablesB.contains(table)) continue;
-        migrations.add('-- DROPPED TABLE: \$table');
-        migrations.add('DROP TABLE IF EXISTS "\$table";');
+        migrations.add('-- DROPPED TABLE: $table');
+        migrations.add('DROP TABLE IF EXISTS "$table";');
         migrations.add('');
       }
 
@@ -1847,10 +1847,10 @@ class _DriftDebugServerImpl {
         if (!tablesB.contains(table)) continue;
 
         final colsA = _normalizeRows(
-          await query('PRAGMA table_info("\$table")'),
+          await query('PRAGMA table_info("$table")'),
         );
         final colsB = _normalizeRows(
-          await queryB('PRAGMA table_info("\$table")'),
+          await queryB('PRAGMA table_info("$table")'),
         );
 
         final colMapA = <String, Map<String, dynamic>>{};
@@ -1874,12 +1874,12 @@ class _DriftDebugServerImpl {
 
           // SQLite requires DEFAULT for NOT NULL columns in ALTER TABLE ADD
           final dflt = dfltValue != null
-              ? ' DEFAULT \$dfltValue'
+              ? ' DEFAULT $dfltValue'
               : (notNull ? " DEFAULT ''" : '');
           final nn = notNull ? ' NOT NULL' : '';
 
           tableChanges.add(
-            'ALTER TABLE "\$table" ADD COLUMN "\$colName" \$type\$nn\$dflt;',
+            'ALTER TABLE "$table" ADD COLUMN "$colName" $type$nn$dflt;',
           );
         }
 
@@ -1887,7 +1887,7 @@ class _DriftDebugServerImpl {
         for (final colName in colMapA.keys) {
           if (colMapB.containsKey(colName)) continue;
           tableChanges.add(
-            '-- WARNING: Column "\$colName" removed from "\$table".',
+            '-- WARNING: Column "$colName" removed from "$table".',
           );
           tableChanges.add(
             '-- SQLite < 3.35.0: Use table recreation '
@@ -1895,7 +1895,7 @@ class _DriftDebugServerImpl {
           );
           tableChanges.add('-- SQLite >= 3.35.0:');
           tableChanges.add(
-            'ALTER TABLE "\$table" DROP COLUMN "\$colName";',
+            'ALTER TABLE "$table" DROP COLUMN "$colName";',
           );
         }
 
@@ -1911,15 +1911,15 @@ class _DriftDebugServerImpl {
 
           if (typeA != typeB || nnA != nnB) {
             tableChanges.add(
-              '-- WARNING: Column "\$colName" in "\$table" changed:',
+              '-- WARNING: Column "$colName" in "$table" changed:',
             );
             if (typeA != typeB) {
-              tableChanges.add('--   Type: \$typeA -> \$typeB');
+              tableChanges.add('--   Type: $typeA -> $typeB');
             }
             if (nnA != nnB) {
               tableChanges.add(
-                '--   Nullable: \${nnA ? 'NOT NULL' : 'nullable'} '
-                '-> \${nnB ? 'NOT NULL' : 'nullable'}',
+                "--   Nullable: ${nnA ? 'NOT NULL' : 'nullable'} "
+                "-> ${nnB ? 'NOT NULL' : 'nullable'}",
               );
             }
             tableChanges.add(
@@ -1931,10 +1931,10 @@ class _DriftDebugServerImpl {
 
         // Index changes
         final idxA = _normalizeRows(
-          await query('PRAGMA index_list("\$table")'),
+          await query('PRAGMA index_list("$table")'),
         );
         final idxB = _normalizeRows(
-          await queryB('PRAGMA index_list("\$table")'),
+          await queryB('PRAGMA index_list("$table")'),
         );
         final idxNamesA = idxA
             .map((r) => r['name']?.toString() ?? '')
@@ -1951,25 +1951,25 @@ class _DriftDebugServerImpl {
           final idxSqlRows = _normalizeRows(
             await queryB(
               "SELECT sql FROM sqlite_master "
-              "WHERE type='index' AND name='\$idxName'",
+              "WHERE type='index' AND name='$idxName'",
             ),
           );
           final idxSql = idxSqlRows.isNotEmpty
               ? idxSqlRows.first['sql'] as String?
               : null;
           if (idxSql != null) {
-            tableChanges.add('\$idxSql;');
+            tableChanges.add('$idxSql;');
           }
         }
 
         // Dropped indexes
         for (final idxName in idxNamesA) {
           if (idxNamesB.contains(idxName)) continue;
-          tableChanges.add('DROP INDEX IF EXISTS "\$idxName";');
+          tableChanges.add('DROP INDEX IF EXISTS "$idxName";');
         }
 
         if (tableChanges.isNotEmpty) {
-          migrations.add('-- MODIFIED TABLE: \$table');
+          migrations.add('-- MODIFIED TABLE: $table');
           migrations.addAll(tableChanges);
           migrations.add('');
         }
@@ -2528,14 +2528,6 @@ class _DriftDebugServerImpl {
     return null;
   }
 
-    final res = response;
-    res.headers.contentType =
-        ContentType(_contentTypeTextPlain, 'plain', charset: _charsetUtf8);
-    res.headers
-        .set(_headerContentDisposition, 'attachment; filename="$filename"');
-    _setCors(res);
-  }
-
   /// Sets Access-Control-Allow-Origin when a CORS origin was provided at start.
   void _setCors(HttpResponse response) {
     final res = response;
@@ -3047,6 +3039,38 @@ class _DriftDebugServerImpl {
       result += esc(text.slice(lastEnd));
       return result;
     }
+    function loadFkMeta(tableName) {
+      if (fkMetaCache[tableName]) return Promise.resolve(fkMetaCache[tableName]);
+      return fetch('/api/table/' + encodeURIComponent(tableName) + '/fk-meta', authOpts())
+        .then(function(r) { return r.json(); })
+        .then(function(fks) { fkMetaCache[tableName] = fks; return fks; })
+        .catch(function() { return []; });
+    }
+    function renderBreadcrumb() {
+      var el = document.getElementById('nav-breadcrumb');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'nav-breadcrumb';
+        el.style.cssText = 'font-size:11px;margin:0.3rem 0;color:var(--muted);';
+        document.getElementById('content').prepend(el);
+      }
+      if (navHistory.length === 0) { el.style.display = 'none'; return; }
+      var html = '<a href="#" id="nav-back" style="color:var(--link);">&#8592; Back</a> | Path: ';
+      html += navHistory.map(function(h) { return esc(h.table); }).join(' &#8594; ');
+      html += ' &#8594; <strong>' + esc(currentTableName || '') + '</strong>';
+      el.innerHTML = html;
+      el.style.display = 'block';
+      document.getElementById('nav-back').addEventListener('click', function(e) {
+        e.preventDefault();
+        var prev = navHistory.pop();
+        if (prev) {
+          offset = prev.offset || 0;
+          loadTable(prev.table);
+          if (prev.filter) document.getElementById('row-filter').value = prev.filter;
+          renderBreadcrumb();
+        }
+      });
+    }
     const THEME_KEY = 'drift-viewer-theme';
     // SQL runner query history: persist the last N successful SQL statements (not results)
     // so repeat checks are quick while keeping localStorage small.
@@ -3114,6 +3138,16 @@ class _DriftDebugServerImpl {
       saveSqlHistory();
     }
 
+    // --- Shared: bind a dropdown so selecting an item loads its .sql into the input ---
+    function bindDropdownToInput(sel, items, inputEl) {
+      if (!sel || !inputEl) return;
+      sel.addEventListener('change', function() {
+        const idx = parseInt(this.value, 10);
+        if (!isNaN(idx) && items[idx]) inputEl.value = items[idx].sql;
+      });
+    }
+
+    // --- Bookmarks: localStorage CRUD ---
     function loadBookmarks() {
       sqlBookmarks = [];
       try {
@@ -3144,6 +3178,23 @@ class _DriftDebugServerImpl {
           return '<option value="' + i + '" title="' + esc(b.sql) + '">' + esc(b.name) + '</option>';
         }).join('');
       if (cur !== '' && parseInt(cur, 10) < sqlBookmarks.length) sel.value = cur;
+    }
+    function addBookmark(inputEl, bookmarksSel) {
+      const sql = inputEl.value.trim();
+      if (!sql) return;
+      const name = prompt('Bookmark name:', sql.slice(0, 40));
+      if (!name) return;
+      sqlBookmarks.unshift({ name: name, sql: sql, createdAt: new Date().toISOString() });
+      saveBookmarks();
+      refreshBookmarksDropdown(bookmarksSel);
+    }
+    function deleteBookmark(bookmarksSel) {
+      const idx = parseInt(bookmarksSel.value, 10);
+      if (isNaN(idx) || !sqlBookmarks[idx]) return;
+      if (!confirm('Delete bookmark "' + sqlBookmarks[idx].name + '"?')) return;
+      sqlBookmarks.splice(idx, 1);
+      saveBookmarks();
+      refreshBookmarksDropdown(bookmarksSel);
     }
     function exportBookmarks() {
       if (sqlBookmarks.length === 0) { alert('No bookmarks to export.'); return; }
@@ -4025,51 +4076,12 @@ class _DriftDebugServerImpl {
       refreshHistoryDropdown(historySel);
       loadBookmarks();
       refreshBookmarksDropdown(bookmarksSel);
-      if (historySel && inputEl) {
-        historySel.addEventListener('change', function() {
-          const v = this.value;
-          if (v !== '') {
-            const idx = parseInt(v, 10);
-            if (idx >= 0 && sqlHistory[idx]) inputEl.value = sqlHistory[idx].sql;
-          }
-        });
-      }
-      if (bookmarksSel && inputEl) {
-        bookmarksSel.addEventListener('change', function() {
-          const v = this.value;
-          if (v !== '') {
-            const idx = parseInt(v, 10);
-            if (idx >= 0 && sqlBookmarks[idx]) inputEl.value = sqlBookmarks[idx].sql;
-          }
-        });
-      }
-      if (bookmarkSaveBtn && inputEl) {
-        bookmarkSaveBtn.addEventListener('click', function() {
-          const sql = inputEl.value.trim();
-          if (!sql) return;
-          const name = prompt('Bookmark name:', sql.slice(0, 40));
-          if (!name) return;
-          sqlBookmarks.unshift({ name: name, sql: sql, createdAt: new Date().toISOString() });
-          saveBookmarks();
-          refreshBookmarksDropdown(bookmarksSel);
-        });
-      }
-      if (bookmarkDeleteBtn && bookmarksSel) {
-        bookmarkDeleteBtn.addEventListener('click', function() {
-          const idx = parseInt(bookmarksSel.value, 10);
-          if (isNaN(idx) || !sqlBookmarks[idx]) return;
-          if (!confirm('Delete bookmark "' + sqlBookmarks[idx].name + '"?')) return;
-          sqlBookmarks.splice(idx, 1);
-          saveBookmarks();
-          refreshBookmarksDropdown(bookmarksSel);
-        });
-      }
-      if (bookmarkExportBtn) {
-        bookmarkExportBtn.addEventListener('click', exportBookmarks);
-      }
-      if (bookmarkImportBtn) {
-        bookmarkImportBtn.addEventListener('click', function() { importBookmarks(bookmarksSel); });
-      }
+      bindDropdownToInput(historySel, sqlHistory, inputEl);
+      bindDropdownToInput(bookmarksSel, sqlBookmarks, inputEl);
+      if (bookmarkSaveBtn) bookmarkSaveBtn.addEventListener('click', function() { addBookmark(inputEl, bookmarksSel); });
+      if (bookmarkDeleteBtn) bookmarkDeleteBtn.addEventListener('click', function() { deleteBookmark(bookmarksSel); });
+      if (bookmarkExportBtn) bookmarkExportBtn.addEventListener('click', exportBookmarks);
+      if (bookmarkImportBtn) bookmarkImportBtn.addEventListener('click', function() { importBookmarks(bookmarksSel); });
 
       if (!toggle || !collapsible) return;
 
@@ -4519,6 +4531,7 @@ mixin DriftDebugServer {
     String? basicAuthPassword,
     DriftDebugGetDatabaseBytes? getDatabaseBytes,
     DriftDebugQuery? queryCompare,
+    DriftDebugWriteQuery? writeQuery,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
   }) =>
@@ -4533,6 +4546,7 @@ mixin DriftDebugServer {
         basicAuthPassword: basicAuthPassword,
         getDatabaseBytes: getDatabaseBytes,
         queryCompare: queryCompare,
+        writeQuery: writeQuery,
         onLog: onLog,
         onError: onError,
       );
