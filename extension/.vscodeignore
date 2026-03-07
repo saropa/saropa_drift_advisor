@@ -6,5 +6,8 @@ tsconfig.json
 .mocharc.yml
 node_modules/**
 .gitignore
+package-lock.json
+*.vsix
 *.md
 !README.md
+!CHANGELOG.md
