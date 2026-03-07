@@ -102,6 +102,13 @@ def print_timing(results: list[tuple[str, bool, float]]) -> None:
     print(f"    {'Total':<23s} {C.BOLD}{elapsed_str(total)}{C.RESET}")
 
 
+def print_report_path(report: str | None) -> None:
+    """Print the report file path if a report was saved."""
+    if report:
+        rel = os.path.relpath(report, REPO_ROOT)
+        ok(f"Report: {C.WHITE}{rel}{C.RESET}")
+
+
 def print_success_banner(version: str, vsix_path: str) -> None:
     """Print the final success summary with links."""
     tag = f"{TAG_PREFIX}{version}"
