@@ -174,13 +174,6 @@ final class SnapshotHandler {
     }
   }
 
-  /// Builds a composite primary key string for [row] from [pkColumns].
-  static String _pkKey(
-    List<String> pkColumns,
-    Map<String, dynamic> row,
-  ) =>
-      pkColumns.map((c) => '${row[c]}').join('|');
-
   /// Adds row-level diff fields to [tableDiff] by comparing
   /// [rowsThen] (snapshot) with [rowsNow] (current) using primary keys.
   Future<void> _addRowLevelDiff({
@@ -223,22 +216,26 @@ final class SnapshotHandler {
     final thenByPk = <String, Map<String, dynamic>>{};
 
     for (final r in rowsThen) {
-      thenByPk[_pkKey(pkColumns, r)] = r;
+      thenByPk[ServerContext.compositePkKey(pkColumns, r)] = r;
     }
 
     final nowByPk = <String, Map<String, dynamic>>{};
 
     for (final r in rowsNow) {
-      nowByPk[_pkKey(pkColumns, r)] = r;
+      nowByPk[ServerContext.compositePkKey(pkColumns, r)] = r;
     }
 
-    final addedRows = rowsNow
-        .where((r) => !thenByPk.containsKey(_pkKey(pkColumns, r)))
-        .toList();
+    final addedRows = rowsNow.where((r) {
+      final key = ServerContext.compositePkKey(pkColumns, r);
 
-    final removedRows = rowsThen
-        .where((r) => !nowByPk.containsKey(_pkKey(pkColumns, r)))
-        .toList();
+      return !thenByPk.containsKey(key);
+    }).toList();
+
+    final removedRows = rowsThen.where((r) {
+      final key = ServerContext.compositePkKey(pkColumns, r);
+
+      return !nowByPk.containsKey(key);
+    }).toList();
 
     final changedRows = <Map<String, dynamic>>[];
 
