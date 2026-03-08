@@ -1,10 +1,5 @@
-// Generated: HTML content for the Drift Viewer single-page app.
-// Extracted from drift_debug_server_io.dart to reduce file size.
-// Do not edit by hand unless updating the viewer UI.
-
-/// Holds the inline HTML/JS/CSS served by the debug server.
+/// Inline HTML/JS/CSS for the single-page viewer UI.
 abstract final class HtmlContent {
-  /// Single-page viewer UI (table list, SQL runner, schema, snapshot, compare, etc.).
   static const String indexHtml = '''
 <!DOCTYPE html>
 <html>
@@ -183,6 +178,11 @@ abstract final class HtmlContent {
     <div id="index-results" style="display:none;"></div>
   </div>
   <div class="collapsible-header" id="size-toggle">▼ Database size analytics</div>
+  <div id="size-collapsible" class="collapsible-body collapsed">
+    <p class="meta">Analyze database storage: total size, page stats, and per-table breakdown.</p>
+    <button type="button" id="size-analyze">Analyze</button>
+    <div id="size-results" style="display:none;"></div>
+  </div>
   <div class="collapsible-header" id="perf-toggle">▼ Query performance</div>
   <div id="perf-collapsible" class="collapsible-body collapsed">
     <p class="meta">Track query execution times, identify slow queries, and view patterns.</p>
@@ -191,11 +191,6 @@ abstract final class HtmlContent {
       <button type="button" id="perf-clear">Clear</button>
     </div>
     <div id="perf-results" style="display:none;"></div>
-  </div>
-  <div id="size-collapsible" class="collapsible-body collapsed">
-    <p class="meta">Analyze database storage: total size, page stats, and per-table breakdown.</p>
-    <button type="button" id="size-analyze">Analyze</button>
-    <div id="size-results" style="display:none;"></div>
   </div>
   <div class="collapsible-header" id="anomaly-toggle">▼ Data health</div>
   <div id="anomaly-collapsible" class="collapsible-body collapsed">
@@ -1991,90 +1986,19 @@ abstract final class HtmlContent {
         });
     }
 
+    restoreSession();
 
     (function initPerformance() {
-      var toggle = document.getElementById('perf-toggle');
-      var collapsible = document.getElementById('perf-collapsible');
-      var refreshBtn = document.getElementById('perf-refresh');
-      var clearBtn = document.getElementById('perf-clear');
-      var container = document.getElementById('perf-results');
+      const toggle = document.getElementById('perf-toggle');
+      const collapsible = document.getElementById('perf-collapsible');
+      const refreshBtn = document.getElementById('perf-refresh');
+      const clearBtn = document.getElementById('perf-clear');
+      const container = document.getElementById('perf-results');
+      let perfLoaded = false;
 
-      if (toggle && collapsible) {
-        toggle.addEventListener('click', function() {
-          var isCollapsed = collapsible.classList.contains('collapsed');
-          collapsible.classList.toggle('collapsed', !isCollapsed);
-          this.textContent = isCollapsed ? '▲ Query performance' : '▼ Query performance';
-        });
-      }
-
-      function renderPerformance(data) {
-        var html = '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.3rem 0;">';
-        html += '<div class="meta">Total: ' + data.totalQueries + ' queries</div>';
-        html += '<div class="meta">Total time: ' + data.totalDurationMs + ' ms</div>';
-        html += '<div class="meta">Avg: ' + data.avgDurationMs + ' ms</div>';
-        html += '</div>';
-
-        if (data.slowQueries && data.slowQueries.length > 0) {
-          html += '<p class="meta" style="color:#e57373;font-weight:bold;">Slow queries (&gt;100ms):</p>';
-          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-          html += '<tr><th style="border:1px solid var(--border);padding:4px;">Duration</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Time</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
-          data.slowQueries.forEach(function(q) {
-            html += '<tr>';
-            html += '<td style="border:1px solid var(--border);padding:4px;color:#e57373;font-weight:bold;">' + q.durationMs + ' ms</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + q.rowCount + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;font-size:11px;">' + esc(q.at) + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(q.sql) + '">' + esc(q.sql.length > 80 ? q.sql.slice(0, 80) + '…' : q.sql) + '</td>';
-            html += '</tr>';
-          });
-          html += '</table>';
-        }
-
-        if (data.queryPatterns && data.queryPatterns.length > 0) {
-          html += '<p class="meta" style="margin-top:0.5rem;">Most time-consuming patterns:</p>';
-          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-          html += '<tr><th style="border:1px solid var(--border);padding:4px;">Total ms</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Count</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Avg ms</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Max ms</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Pattern</th></tr>';
-          data.queryPatterns.forEach(function(p) {
-            html += '<tr>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.totalMs + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.count + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.avgMs + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.maxMs + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;" title="' + esc(p.pattern) + '">' + esc(p.pattern.length > 60 ? p.pattern.slice(0, 60) + '…' : p.pattern) + '</td>';
-            html += '</tr>';
-          });
-          html += '</table>';
-        }
-
-        if (data.recentQueries && data.recentQueries.length > 0) {
-          html += '<p class="meta" style="margin-top:0.5rem;">Recent queries (newest first):</p>';
-          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-          html += '<tr><th style="border:1px solid var(--border);padding:4px;">ms</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
-          html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
-          data.recentQueries.forEach(function(q) {
-            var color = q.durationMs > 100 ? '#e57373' : (q.durationMs > 50 ? '#ffb74d' : 'var(--fg)');
-            html += '<tr>';
-            html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';">' + q.durationMs + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;">' + q.rowCount + '</td>';
-            html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(q.sql) + '">' + esc(q.sql.length > 80 ? q.sql.slice(0, 80) + '…' : q.sql) + '</td>';
-            html += '</tr>';
-          });
-          html += '</table>';
-        }
-
-        return html;
-      }
-
-      if (refreshBtn) refreshBtn.addEventListener('click', function() {
+      function fetchPerformance() {
         refreshBtn.disabled = true;
-        refreshBtn.textContent = 'Loading…';
+        refreshBtn.textContent = 'Loading\u2026';
         container.style.display = 'none';
         fetch('/api/analytics/performance', authOpts())
           .then(function(r) {
@@ -2082,6 +2006,7 @@ abstract final class HtmlContent {
             return r.json();
           })
           .then(function(data) {
+            perfLoaded = true;
             if (data.totalQueries === 0) {
               container.innerHTML = '<p class="meta">No queries recorded yet. Browse some tables, then refresh.</p>';
             } else {
@@ -2097,24 +2022,108 @@ abstract final class HtmlContent {
             refreshBtn.disabled = false;
             refreshBtn.textContent = 'Refresh';
           });
-      });
+      }
+
+      function renderPerformance(data) {
+        var html = '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.3rem 0;">';
+        html += '<div class="meta">Total: ' + esc(String(data.totalQueries)) + ' queries</div>';
+        html += '<div class="meta">Total time: ' + esc(String(data.totalDurationMs)) + ' ms</div>';
+        html += '<div class="meta">Avg: ' + esc(String(data.avgDurationMs)) + ' ms</div>';
+        html += '</div>';
+
+        if (data.slowQueries && data.slowQueries.length > 0) {
+          html += '<p class="meta" style="color:#e57373;font-weight:bold;">Slow queries (&gt;100ms):</p>';
+          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
+          html += '<tr><th style="border:1px solid var(--border);padding:4px;">Duration</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Time</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+          data.slowQueries.forEach(function(q) {
+            var sql = q.sql || '';
+            html += '<tr>';
+            html += '<td style="border:1px solid var(--border);padding:4px;color:#e57373;font-weight:bold;">' + esc(String(q.durationMs)) + ' ms</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(String(q.rowCount)) + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;font-size:11px;">' + esc(q.at) + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(sql) + '">' + esc(sql.length > 80 ? sql.slice(0, 80) + '\u2026' : sql) + '</td>';
+            html += '</tr>';
+          });
+          html += '</table>';
+        }
+
+        if (data.queryPatterns && data.queryPatterns.length > 0) {
+          html += '<p class="meta" style="margin-top:0.5rem;">Most time-consuming patterns:</p>';
+          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
+          html += '<tr><th style="border:1px solid var(--border);padding:4px;">Total ms</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Count</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Avg ms</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Max ms</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Pattern</th></tr>';
+          data.queryPatterns.forEach(function(p) {
+            var pattern = p.pattern || '';
+            html += '<tr>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(String(p.totalMs)) + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(String(p.count)) + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(String(p.avgMs)) + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(String(p.maxMs)) + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;" title="' + esc(pattern) + '">' + esc(pattern.length > 60 ? pattern.slice(0, 60) + '\u2026' : pattern) + '</td>';
+            html += '</tr>';
+          });
+          html += '</table>';
+        }
+
+        if (data.recentQueries && data.recentQueries.length > 0) {
+          html += '<p class="meta" style="margin-top:0.5rem;">Recent queries (newest first):</p>';
+          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
+          html += '<tr><th style="border:1px solid var(--border);padding:4px;">ms</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+          data.recentQueries.forEach(function(q) {
+            var sql = q.sql || '';
+            var color = q.durationMs > 100 ? '#e57373' : (q.durationMs > 50 ? '#ffb74d' : 'var(--fg)');
+            html += '<tr>';
+            html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';">' + esc(String(q.durationMs)) + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(String(q.rowCount)) + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(sql) + '">' + esc(sql.length > 80 ? sql.slice(0, 80) + '\u2026' : sql) + '</td>';
+            html += '</tr>';
+          });
+          html += '</table>';
+        }
+
+        return html;
+      }
+
+      if (toggle && collapsible) {
+        toggle.addEventListener('click', function() {
+          const isCollapsed = collapsible.classList.contains('collapsed');
+          collapsible.classList.toggle('collapsed', !isCollapsed);
+          this.textContent = isCollapsed ? '\u25B2 Query performance' : '\u25BC Query performance';
+          if (isCollapsed && !perfLoaded) fetchPerformance();
+        });
+      }
+
+      if (refreshBtn) refreshBtn.addEventListener('click', fetchPerformance);
 
       if (clearBtn) clearBtn.addEventListener('click', function() {
         clearBtn.disabled = true;
+        clearBtn.textContent = 'Clearing\u2026';
         fetch('/api/analytics/performance', authOpts({ method: 'DELETE' }))
-          .then(function() {
-            container.innerHTML = '<p class="meta">Cleared.</p>';
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Clear failed'); });
+            container.innerHTML = '<p class="meta">Performance history cleared.</p>';
             container.style.display = 'block';
+            perfLoaded = false;
           })
           .catch(function(e) {
             container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
             container.style.display = 'block';
           })
-          .finally(function() { clearBtn.disabled = false; });
+          .finally(function() {
+            clearBtn.disabled = false;
+            clearBtn.textContent = 'Clear';
+          });
       });
     })();
 
-    restoreSession();
   </script>
 </body>
 </html>
