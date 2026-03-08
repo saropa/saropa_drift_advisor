@@ -52,8 +52,7 @@ final class ServerContext {
   /// query callback and optional configuration.
   ///
   /// The [query] callback is wrapped with timing
-  /// instrumentation via [instrumentedQuery] so all
-  /// queries are recorded in [queryTimings].
+  /// instrumentation so all queries are recorded.
   ServerContext({
     required DriftDebugQuery query,
     this.corsOrigin,
@@ -476,6 +475,31 @@ final class ServerContext {
         .replaceAll("'", "''");
 
     return "'$escaped'";
+  }
+
+  /// Returns substring from [start] to [end] safely.
+  ///
+  /// Avoids RangeError by clamping indices. Returns
+  /// empty string when bounds are invalid.
+  static String safeSubstring(
+    String s,
+    int start, [
+    int? end,
+  ]) {
+    if (start < 0 || start >= s.length) return '';
+
+    final endIndex = end ?? s.length;
+
+    if (endIndex <= start) return '';
+
+    final safeEnd =
+        endIndex > s.length ? s.length : endIndex;
+
+    if (start >= safeEnd) return '';
+
+    return s
+        .replaceRange(safeEnd, s.length, '')
+        .replaceRange(0, start, '');
   }
 
   /// Stable JSON string representation of a row for
