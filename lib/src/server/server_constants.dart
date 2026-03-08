@@ -80,7 +80,9 @@ abstract final class ServerConstants {
   static const String queryParamOffset = 'offset';
   static const String queryParamSince = 'since';
   static const String queryParamFormat = 'format';
+  static const String queryParamDetail = 'detail';
   static const String formatDownload = 'download';
+  static const String detailRows = 'rows';
   static const String jsonKeyError = 'error';
   static const String jsonKeyRows = 'rows';
   static const String jsonKeySql = 'sql';
@@ -163,6 +165,13 @@ abstract final class ServerConstants {
   static const String fkToTable = 'toTable';
   static const String fkToColumn = 'toColumn';
   static const String jsonKeyForeignKeys = 'foreignKeys';
+  static const String jsonKeyHasPk = 'hasPk';
+  static const String jsonKeyAddedRows = 'addedRows';
+  static const String jsonKeyRemovedRows = 'removedRows';
+  static const String jsonKeyChangedRows = 'changedRows';
+  static const String jsonKeyChangedColumns = 'changedColumns';
+  static const String jsonKeyThen = 'then';
+  static const String jsonKeyNow = 'now';
   static const String jsonKeySnapshotId = 'snapshotId';
   static const String jsonKeySnapshotCreatedAt = 'snapshotCreatedAt';
   static const String jsonKeyComparedAt = 'comparedAt';

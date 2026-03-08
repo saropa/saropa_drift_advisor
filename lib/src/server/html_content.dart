@@ -668,15 +668,79 @@ abstract final class HtmlContent {
           .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
           .finally(function() { takeBtn.disabled = false; });
       });
+      function renderDiffRows(rows, type) {
+        if (rows.length === 0) return '';
+        var keys = Object.keys(rows[0]);
+        var bgColor = type === 'added' ? 'rgba(124,179,66,0.15)' : 'rgba(229,115,115,0.15)';
+        var html = '<table style="border-collapse:collapse;width:100%;font-size:11px;margin-bottom:0.3rem;">';
+        html += '<tr>' + keys.map(function(k) {
+          return '<th style="border:1px solid var(--border);padding:2px 4px;">' + esc(k) + '</th>';
+        }).join('') + '</tr>';
+        rows.forEach(function(r) {
+          html += '<tr style="background:' + bgColor + ';">' + keys.map(function(k) {
+            return '<td style="border:1px solid var(--border);padding:2px 4px;">' + esc(String(r[k] != null ? r[k] : '')) + '</td>';
+          }).join('') + '</tr>';
+        });
+        html += '</table>';
+        return html;
+      }
+      function renderRowDiff(container, tables) {
+        var html = '';
+        tables.forEach(function(t) {
+          html += '<h4 style="margin:0.5rem 0 0.25rem;">' + esc(t.table) + '</h4>';
+          html += '<p class="meta">Then: ' + t.countThen + ' rows | Now: ' + t.countNow + ' rows</p>';
+          if (!t.hasPk) {
+            html += '<p class="meta" style="color:var(--muted);">No primary key \u2014 showing counts only.</p>';
+            html += '<p class="meta">Added: ' + t.added + ' | Removed: ' + t.removed + ' | Unchanged: ' + t.unchanged + '</p>';
+            return;
+          }
+          if (t.addedRows && t.addedRows.length > 0) {
+            html += '<p class="meta" style="color:#7cb342;">+ ' + t.addedRows.length + ' added:</p>';
+            html += renderDiffRows(t.addedRows, 'added');
+          }
+          if (t.removedRows && t.removedRows.length > 0) {
+            html += '<p class="meta" style="color:#e57373;">- ' + t.removedRows.length + ' removed:</p>';
+            html += renderDiffRows(t.removedRows, 'removed');
+          }
+          if (t.changedRows && t.changedRows.length > 0) {
+            html += '<p class="meta" style="color:#ffb74d;">~ ' + t.changedRows.length + ' changed:</p>';
+            t.changedRows.forEach(function(cr) {
+              var keys = Object.keys(cr.now);
+              var changed = new Set(cr.changedColumns || []);
+              html += '<table style="border-collapse:collapse;width:100%;font-size:11px;margin-bottom:0.4rem;">';
+              html += '<tr>' + keys.map(function(k) {
+                return '<th style="border:1px solid var(--border);padding:2px 4px;' + (changed.has(k) ? 'background:rgba(255,183,77,0.2);' : '') + '">' + esc(k) + '</th>';
+              }).join('') + '</tr>';
+              html += '<tr>' + keys.map(function(k) {
+                var isChanged = changed.has(k);
+                return '<td style="border:1px solid var(--border);padding:2px 4px;' + (isChanged ? 'background:rgba(229,115,115,0.2);text-decoration:line-through;' : '') + '">' + esc(String(cr.then[k] != null ? cr.then[k] : '')) + '</td>';
+              }).join('') + '</tr>';
+              html += '<tr>' + keys.map(function(k) {
+                var isChanged = changed.has(k);
+                return '<td style="border:1px solid var(--border);padding:2px 4px;' + (isChanged ? 'background:rgba(124,179,66,0.2);font-weight:bold;' : '') + '">' + esc(String(cr.now[k] != null ? cr.now[k] : '')) + '</td>';
+              }).join('') + '</tr>';
+              html += '</table>';
+            });
+          }
+          if ((!t.addedRows || t.addedRows.length === 0) && (!t.removedRows || t.removedRows.length === 0) && (!t.changedRows || t.changedRows.length === 0)) {
+            html += '<p class="meta" style="color:#7cb342;">No changes detected.</p>';
+          }
+        });
+        container.innerHTML = html;
+      }
       if (compareBtn) compareBtn.addEventListener('click', function() {
         compareBtn.disabled = true;
         resultPre.style.display = 'none';
         statusEl.textContent = 'Comparing…';
-        fetch('/api/snapshot/compare', authOpts())
+        fetch('/api/snapshot/compare?detail=rows', authOpts())
           .then(r => r.json().then(function(d) { return { ok: r.ok, data: d }; }))
           .then(function(o) {
             if (o.ok) {
-              resultPre.textContent = JSON.stringify(o.data, null, 2);
+              if (o.data.tables) {
+                renderRowDiff(resultPre, o.data.tables);
+              } else {
+                resultPre.textContent = JSON.stringify(o.data, null, 2);
+              }
               resultPre.style.display = 'block';
               statusEl.textContent = '';
             } else {
