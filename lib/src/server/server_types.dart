@@ -39,7 +39,7 @@ class QueryTiming {
         'sql': sql,
         'durationMs': durationMs,
         'rowCount': rowCount,
-        'error': error,
+        if (error != null) 'error': error,
         'at': at.toIso8601String(),
       };
 }

@@ -18,7 +18,7 @@
 | [10](10-database-size-analytics.md) | Database Size Analytics | S | 3 | — |
 | [11](11-anomaly-detection.md) | AI Data Anomaly Detection | L | 13 | — |
 | [12](12-migration-diff-preview.md) | Migration Diff Preview | M | 11 | Existing queryCompare |
-| [13](13-query-performance-monitor.md) | Live Query Performance Monitor | M | 7 | — |
+| [13](13-query-performance-monitor.md) | Live Query Performance Monitor | M | 7 | — | DONE |
 | [14](14-collaborative-sessions.md) | Collaborative Debug Sessions | M | 9 | — |
 
 ## Recommended Implementation Order
