@@ -141,6 +141,23 @@ export class DriftApiClient {
     return resp.json() as Promise<PerformanceData>;
   }
 
+  async explainSql(
+    query: string,
+  ): Promise<{ rows: Record<string, unknown>[]; sql: string }> {
+    const resp = await fetch(`${this._baseUrl}/api/sql/explain`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql: query }),
+    });
+    if (!resp.ok) {
+      throw new Error(`Explain failed: ${resp.status}`);
+    }
+    return resp.json() as Promise<{
+      rows: Record<string, unknown>[];
+      sql: string;
+    }>;
+  }
+
   async clearPerformance(): Promise<void> {
     const resp = await fetch(`${this._baseUrl}/api/analytics/performance`, {
       method: 'DELETE',
