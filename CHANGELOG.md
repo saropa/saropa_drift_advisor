@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0]
 
+This release improves everyday usability with a visual query builder, smarter data formatting, per-table state persistence, and one-click cell copying.
+
 ### Added
+
+- **VS Code extension: CodeLens on Drift table classes** — Inline annotations appear above `class ... extends Table` definitions in Dart files. Each table class shows a live row count from the running server (e.g. "42 rows"), a "View in Drift Viewer" action that opens the webview panel, and a "Run Query" action that executes `SELECT *` and opens the results as JSON in a side editor. Row counts update automatically via the generation watcher. When the server is offline, lenses show "not connected". Dart PascalCase class names are mapped to SQL snake_case table names with case-insensitive fallback. New files: `codelens/drift-codelens-provider.ts`, `codelens/table-name-mapper.ts`. New commands: `driftViewer.viewTableInPanel`, `driftViewer.runTableQuery`.
 
 - **Web UI: visual query builder** — Collapsible "Query builder" section appears below table metadata when viewing any table. Build SQL queries visually with SELECT column checkboxes, type-aware WHERE clause builder (text: contains/equals/starts-with; numeric: comparison operators; blob: null checks only), ORDER BY column/direction picker, and LIMIT control. Live SQL preview updates as selections change. "Run query" executes via `POST /api/sql` with loading state feedback; "Reset to table view" returns to raw data. Query builder state is persisted per table via localStorage. Column types sourced from existing `/api/schema/metadata` endpoint — no new server endpoints.
 - **Web UI: copy cell to clipboard** — Hover over any data table cell to reveal a copy button. Click copies the raw cell value via `navigator.clipboard.writeText()` with a brief "Copied!" toast notification (auto-dismisses after 1.2s). Works alongside FK navigation links without interference (copy button uses `stopPropagation`). Copy buttons are preserved during search highlighting.
@@ -17,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [0.2.4]
+
+This release adds powerful web UI features for exploring and understanding your data: charts, natural language queries, anomaly detection, collaborative sharing, and a query performance monitor.
 
 ### Added
 
@@ -54,6 +60,8 @@ We're focusing on backend tooling and documentation in this release.
 - Upgraded `saropa_lints` from 6.2.2 to 8.0.7 (professional tier: 1649 → 1666 rules enabled).
 
 ## [0.2.2]
+
+Housekeeping release to re-publish with corrected package metadata.
 
 ### Changed
 
@@ -93,6 +101,7 @@ In this release we focused on making the viewer more useful day to day: the tabl
 - **Read-only SQL runner** — In the web UI, a collapsible “Run SQL (read-only)” section: run ad-hoc `SELECT` (or `WITH ... SELECT`) from the browser. Only read-only SQL is accepted; `INSERT`/`UPDATE`/`DELETE` and DDL are rejected. Templates (e.g. “SELECT \* FROM table LIMIT 10”), table and column dropdowns (autofill from `GET /api/tables` and `GET /api/table/<name>/columns`), result as table or JSON, loading states (“Running…”, “Loading…” for columns), and race-safe column fetch. `POST /api/sql` with body `{"sql": "SELECT ..."}` returns `{"rows": [...]}`. `GET /api/table/<name>/columns` returns a JSON array of column names for autofill.
 - **SQL runner: query history** — The web UI remembers the last ~20 successful SQL runner queries in browser `localStorage` and offers a “History” dropdown to reuse them.
 
+<!-- cspell:ignore subosito -->
 - **Infrastructure** — CI workflow triggers aligned to default branch `master`; Dependabot grouping for `pub` and `github-actions` with `open-pull-requests-limit: 5`. Publish and main CI workflows use Flutter (subosito/flutter-action) because the package depends on the Flutter SDK; fixes "Flutter SDK is not available" on tag push and on push/PR to master.
 
 - **Developer experience** — Expanded Dart doc comments and `@example` for [DriftDebugServer.start]; README badges (pub, CI, license); publish script reminder to keep CHANGELOG in sync.

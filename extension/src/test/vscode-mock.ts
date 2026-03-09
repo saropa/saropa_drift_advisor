@@ -40,6 +40,56 @@ export class MarkdownString {
   }
 }
 
+// --- CodeLens support ---
+
+export class Position {
+  constructor(
+    public readonly line: number,
+    public readonly character: number,
+  ) {}
+}
+
+export class Range {
+  readonly start: Position;
+  readonly end: Position;
+  constructor(startLine: number, startCharacter: number, endLine: number, endCharacter: number) {
+    this.start = new Position(startLine, startCharacter);
+    this.end = new Position(endLine, endCharacter);
+  }
+}
+
+export class Location {
+  public readonly uri: any;
+  public readonly range: Range;
+
+  constructor(uri: any, rangeOrPosition: Position | Range) {
+    this.uri = uri;
+    if (rangeOrPosition instanceof Range) {
+      this.range = rangeOrPosition;
+    } else {
+      // Convert Position to zero-width Range (matches real vscode behavior)
+      this.range = new Range(
+        rangeOrPosition.line, rangeOrPosition.character,
+        rangeOrPosition.line, rangeOrPosition.character,
+      );
+    }
+  }
+}
+
+export const CancellationTokenNone = {
+  isCancellationRequested: false,
+  onCancellationRequested: () => ({ dispose: () => { /* no-op */ } }),
+};
+
+export class CodeLens {
+  range: Range;
+  command?: { title: string; command: string; arguments?: any[] };
+  constructor(range: Range, command?: { title: string; command: string; arguments?: any[] }) {
+    this.range = range;
+    this.command = command;
+  }
+}
+
 export class TreeItem {
   label?: string;
   description?: string;
@@ -126,9 +176,12 @@ export class MockWebviewPanel {
   }
 }
 
-// Track panels & tree views created
+// Track panels, tree views & CodeLens providers created
 export const createdPanels: MockWebviewPanel[] = [];
 export const createdTreeViews: MockTreeView[] = [];
+export const registeredCodeLensProviders: Array<{ selector: any; provider: any }> = [];
+export const registeredDefinitionProviders: Array<{ selector: any; provider: any }> = [];
+export const createdTextDocuments: Array<{ content: string; language: string }> = [];
 
 // --- Clipboard mock ---
 
@@ -198,6 +251,7 @@ export const window = {
   showErrorMessage: async (msg: string) => {
     messageMock.errors.push(msg);
   },
+  showTextDocument: async (_doc: any, _column?: any) => { /* no-op */ },
 };
 
 const registeredCommands: Record<string, (...args: any[]) => any> = {};
@@ -216,6 +270,13 @@ export const workspace = {
   getConfiguration: (_section?: string) => ({
     get: <T>(key: string, defaultValue?: T): T | undefined => defaultValue,
   }),
+  openTextDocument: async (options: any) => {
+    if (options && typeof options === 'object' && 'content' in options) {
+      createdTextDocuments.push(options);
+    }
+    return options;
+  },
+  findFiles: async (_include: any, _exclude?: any): Promise<any[]> => [],
   fs: {
     writeFile: async (uri: any, content: Uint8Array) => {
       writtenFiles.push({ uri, content });
@@ -236,6 +297,17 @@ export const Uri = {
   file: (path: string) => ({ toString: () => path, scheme: 'file', path }),
 };
 
+export const languages = {
+  registerCodeLensProvider: (selector: any, provider: any) => {
+    registeredCodeLensProviders.push({ selector, provider });
+    return { dispose: () => { /* no-op */ } };
+  },
+  registerDefinitionProvider: (selector: any, provider: any) => {
+    registeredDefinitionProviders.push({ selector, provider });
+    return { dispose: () => { /* no-op */ } };
+  },
+};
+
 export enum ViewColumn {
   Active = -1,
   Beside = -2,
@@ -254,6 +326,76 @@ export enum StatusBarAlignment {
   Right = 2,
 }
 
+// --- Task support ---
+
+export enum TaskScope {
+  Global = 1,
+  Workspace = 2,
+}
+
+export enum TaskRevealKind {
+  Always = 1,
+  Silent = 2,
+  Never = 3,
+}
+
+export enum TaskPanelKind {
+  Shared = 1,
+  Dedicated = 2,
+  New = 3,
+}
+
+export const TaskGroup = {
+  Clean: { id: 'clean' },
+  Build: { id: 'build' },
+  Rebuild: { id: 'rebuild' },
+  Test: { id: 'test' },
+};
+
+export class CustomExecution {
+  constructor(public readonly callback: () => Promise<any>) {}
+}
+
+export class Task {
+  definition: any;
+  scope: any;
+  name: string;
+  source: string;
+  execution: any;
+  detail?: string;
+  group?: any;
+  presentationOptions: any = {};
+
+  constructor(
+    definition: any,
+    scope: any,
+    name: string,
+    source: string,
+    execution?: any,
+  ) {
+    this.definition = definition;
+    this.scope = scope;
+    this.name = name;
+    this.source = source;
+    this.execution = execution;
+  }
+}
+
+const registeredTaskProviders: Array<{ type: string; provider: any }> = [];
+
+export const tasks = {
+  registerTaskProvider: (type: string, provider: any) => {
+    registeredTaskProviders.push({ type, provider });
+    return {
+      dispose: () => {
+        const idx = registeredTaskProviders.findIndex((r) => r.provider === provider);
+        if (idx >= 0) { registeredTaskProviders.splice(idx, 1); }
+      },
+    };
+  },
+  getRegisteredProviders: () => [...registeredTaskProviders],
+};
+
 /** Reset all shared mock state between tests. */
 export function resetMocks(): void {
   createdPanels.length = 0;
@@ -262,6 +404,10 @@ export function resetMocks(): void {
   clipboardMock.reset();
   dialogMock.reset();
   messageMock.reset();
+  registeredCodeLensProviders.length = 0;
+  registeredDefinitionProviders.length = 0;
+  createdTextDocuments.length = 0;
+  registeredTaskProviders.length = 0;
   for (const key of Object.keys(registeredCommands)) {
     delete registeredCommands[key];
   }

@@ -10,7 +10,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": ["onLanguage:dart"],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -63,6 +63,14 @@
       {
         "command": "driftViewer.filterByColumn",
         "title": "Filter by Column"
+      },
+      {
+        "command": "driftViewer.viewTableInPanel",
+        "title": "Drift Viewer: View Table"
+      },
+      {
+        "command": "driftViewer.runTableQuery",
+        "title": "Drift Viewer: Run Table Query"
       }
     ],
     "menus": {
@@ -101,6 +109,37 @@
         }
       ]
     },
+    "taskDefinitions": [
+      {
+        "type": "drift",
+        "required": [
+          "check"
+        ],
+        "properties": {
+          "check": {
+            "type": "string",
+            "enum": [
+              "healthCheck",
+              "anomalyScan",
+              "indexCoverage"
+            ],
+            "description": "Which health check to run."
+          }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "drift-health",
+        "owner": "driftViewer",
+        "pattern": {
+          "regexp": "^\\s*[✗⚠]\\s+(.+\\.\\w+):\\s+(.+)$",
+          "file": 1,
+          "message": 2
+        },
+        "severity": "warning"
+      }
+    ],
     "configuration": {
       "title": "Drift Viewer",
       "properties": {
@@ -113,6 +152,11 @@
           "type": "string",
           "default": "127.0.0.1",
           "description": "Host of the Drift debug server."
+        },
+        "driftViewer.tasks.blockOnWarnings": {
+          "type": "boolean",
+          "default": false,
+          "description": "Block app launch when health check finds warnings (not just errors)."
         }
       }
     }
