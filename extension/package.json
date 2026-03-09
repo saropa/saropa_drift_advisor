@@ -169,6 +169,15 @@
         "command": "driftViewer.removeChange",
         "title": "Remove Change",
         "icon": "$(close)"
+      },
+      {
+        "command": "driftViewer.openSqlNotebook",
+        "title": "Drift Viewer: Open SQL Notebook",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "driftViewer.schemaDiff",
+        "title": "Drift Viewer: Schema Diff (Code vs Runtime)"
       }
     ],
     "menus": {
@@ -254,6 +263,12 @@
         "command": "driftViewer.redoEdit",
         "key": "ctrl+shift+z",
         "when": "driftViewer.editingActive && focusedView == driftViewer.pendingChanges"
+      },
+      {
+        "command": "driftViewer.openSqlNotebook",
+        "key": "ctrl+shift+q",
+        "mac": "cmd+shift+q",
+        "when": "driftViewer.serverConnected"
       }
     ],
     "taskDefinitions": [

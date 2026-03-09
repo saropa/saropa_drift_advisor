@@ -25,6 +25,10 @@ import { SnapshotDiffPanel } from './timeline/snapshot-diff-panel';
 import { computeTableDiff, ROW_LIMIT, rowsToObjects, SnapshotStore } from './timeline/snapshot-store';
 import { DriftTreeProvider } from './tree/drift-tree-provider';
 import { ColumnItem, TableItem } from './tree/tree-items';
+import { SqlNotebookPanel } from './sql-notebook/sql-notebook-panel';
+import { parseDartTables } from './schema-diff/dart-parser';
+import { computeSchemaDiff, generateMigrationSql } from './schema-diff/schema-diff';
+import { SchemaDiffPanel } from './schema-diff/schema-diff-panel';
 import { WatchManager } from './watch/watch-manager';
 import { WatchPanel } from './watch/watch-panel';
 
@@ -517,6 +521,40 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  // Schema diff (code vs runtime)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.schemaDiff', async () => {
+      try {
+        const { diff, sql } = await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: 'Comparing schema\u2026',
+          },
+          async () => {
+            const dartUris = await vscode.workspace.findFiles(
+              '**/*.dart',
+              '{**/build/**,.dart_tool/**,**/*.g.dart,**/*.freezed.dart}',
+            );
+            const tables = [];
+            for (const uri of dartUris) {
+              const doc = await vscode.workspace.openTextDocument(uri);
+              tables.push(
+                ...parseDartTables(doc.getText(), uri.toString()),
+              );
+            }
+            const runtime = await client.schemaMetadata();
+            const d = computeSchemaDiff(tables, runtime);
+            return { diff: d, sql: generateMigrationSql(d) };
+          },
+        );
+        SchemaDiffPanel.createOrShow(diff, sql);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Schema diff failed: ${msg}`);
+      }
+    }),
+  );
+
   // Watch commands
   context.subscriptions.push(
     vscode.commands.registerCommand(
@@ -543,6 +581,11 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openWatchPanel', () => {
       WatchPanel.createOrShow(context, watchManager);
+    }),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.openSqlNotebook', () => {
+      SqlNotebookPanel.createOrShow(context, client);
     }),
   );
 
