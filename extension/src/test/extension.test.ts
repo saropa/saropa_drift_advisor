@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { commands, registeredCodeLensProviders, resetMocks } from './vscode-mock';
+import { commands, registeredCodeLensProviders, resetMocks, tasks } from './vscode-mock';
 import { activate, deactivate } from '../extension';
 import * as vscode from 'vscode';
 
@@ -73,6 +73,13 @@ describe('Extension activation', () => {
       language: 'dart',
       scheme: 'file',
     });
+  });
+
+  it('should register a drift task provider', () => {
+    activate(fakeContext());
+    const providers = tasks.getRegisteredProviders();
+    assert.strictEqual(providers.length, 1);
+    assert.strictEqual(providers[0].type, 'drift');
   });
 
   it('deactivate should not throw', () => {
