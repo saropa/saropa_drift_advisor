@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { commands, resetMocks } from './vscode-mock';
+import { commands, registeredCodeLensProviders, resetMocks } from './vscode-mock';
 import { activate, deactivate } from '../extension';
 import * as vscode from 'vscode';
 
@@ -50,8 +50,29 @@ describe('Extension activation', () => {
 
   it('should push expected disposables', () => {
     activate(fakeContext());
-    // treeView + watcher + 8 commands + statusBar = 11
-    assert.strictEqual(subscriptions.length, 11, `expected 11 disposables, got ${subscriptions.length}`);
+    // treeView + definitionProvider + codeLensProvider + watcher + taskProvider + 10 commands + statusBar = 16
+    assert.strictEqual(subscriptions.length, 16, `expected 16 disposables, got ${subscriptions.length}`);
+  });
+
+  it('should register driftViewer.viewTableInPanel command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.viewTableInPanel' in registered);
+  });
+
+  it('should register driftViewer.runTableQuery command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.runTableQuery' in registered);
+  });
+
+  it('should register a CodeLens provider for Dart files', () => {
+    activate(fakeContext());
+    assert.strictEqual(registeredCodeLensProviders.length, 1);
+    assert.deepStrictEqual(registeredCodeLensProviders[0].selector, {
+      language: 'dart',
+      scheme: 'file',
+    });
   });
 
   it('deactivate should not throw', () => {

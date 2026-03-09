@@ -1,7 +1,11 @@
 import * as vscode from 'vscode';
 import { DriftApiClient } from './api-client';
+import { DriftCodeLensProvider } from './codelens/drift-codelens-provider';
+import { TableNameMapper } from './codelens/table-name-mapper';
+import { DriftDefinitionProvider } from './definition/drift-definition-provider';
 import { GenerationWatcher } from './generation-watcher';
 import { DriftViewerPanel } from './panel';
+import { DriftTaskProvider } from './tasks/drift-task-provider';
 import { DriftTreeProvider } from './tree/drift-tree-provider';
 import { ColumnItem, TableItem } from './tree/tree-items';
 
@@ -35,12 +39,42 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   context.subscriptions.push(treeView);
 
+  // Peek / Go to Definition for SQL table/column names in Dart strings
+  const definitionProvider = new DriftDefinitionProvider(client);
+  context.subscriptions.push(
+    vscode.languages.registerDefinitionProvider(
+      { language: 'dart', scheme: 'file' },
+      definitionProvider,
+    ),
+  );
+
+  // CodeLens on Drift table classes
+  const mapper = new TableNameMapper();
+  const codeLensProvider = new DriftCodeLensProvider(client, mapper);
+  context.subscriptions.push(
+    vscode.languages.registerCodeLensProvider(
+      { language: 'dart', scheme: 'file' },
+      codeLensProvider,
+    ),
+  );
+
   // Auto-refresh on data changes
-  watcher.onDidChange(() => treeProvider.refresh());
+  watcher.onDidChange(async () => {
+    treeProvider.refresh();
+    definitionProvider.clearCache();
+    await codeLensProvider.refreshRowCounts();
+    codeLensProvider.notifyChange();
+  });
   watcher.start();
   treeProvider.refresh(); // initial load
+  codeLensProvider.refreshRowCounts(); // initial CodeLens load
 
   context.subscriptions.push({ dispose: () => watcher.stop() });
+
+  // Task provider for preLaunchTask integration
+  context.subscriptions.push(
+    vscode.tasks.registerTaskProvider(DriftTaskProvider.type, new DriftTaskProvider()),
+  );
 
   // --- Commands ---
 
@@ -150,6 +184,42 @@ export function activate(context: vscode.ExtensionContext): void {
       const cfg = getServerConfig();
       DriftViewerPanel.createOrShow(cfg.host, cfg.port);
     }),
+  );
+
+  // View table in panel (CodeLens action)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.viewTableInPanel',
+      (_tableName: string) => {
+        DriftViewerPanel.createOrShow(host, port);
+      },
+    ),
+  );
+
+  // Run table query (CodeLens action)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.runTableQuery',
+      async (tableName: string) => {
+        try {
+          const result = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: `Querying ${tableName}\u2026`,
+            },
+            () => client.sql(`SELECT * FROM "${tableName}"`),
+          );
+          const doc = await vscode.workspace.openTextDocument({
+            content: JSON.stringify(result.rows, null, 2),
+            language: 'json',
+          });
+          await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Query failed: ${msg}`);
+        }
+      },
+    ),
   );
 
   // Status bar item
