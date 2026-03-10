@@ -229,6 +229,15 @@
         "title": "Drift Viewer: Annotate Session"
       },
       {
+        "command": "driftViewer.seedTable",
+        "title": "Drift Viewer: Seed Test Data",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "driftViewer.seedAllTables",
+        "title": "Drift Viewer: Seed All Tables"
+      },
+      {
         "command": "driftViewer.clearTable",
         "title": "Drift Viewer: Clear Table Data",
         "icon": "$(trash)"
@@ -265,6 +274,47 @@
         "command": "driftViewer.profileColumn",
         "title": "Drift Viewer: Profile Column",
         "icon": "$(graph)"
+      },
+      {
+        "command": "driftViewer.snapshotChangelog",
+        "title": "Drift Viewer: Generate Snapshot Changelog",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "driftViewer.annotateTable",
+        "title": "Annotate Table",
+        "icon": "$(bookmark)"
+      },
+      {
+        "command": "driftViewer.annotateColumn",
+        "title": "Annotate Column",
+        "icon": "$(bookmark)"
+      },
+      {
+        "command": "driftViewer.openBookmarks",
+        "title": "Drift Viewer: Open Bookmarks",
+        "icon": "$(bookmark)"
+      },
+      {
+        "command": "driftViewer.exportAnnotations",
+        "title": "Drift Viewer: Export Annotations"
+      },
+      {
+        "command": "driftViewer.importAnnotations",
+        "title": "Drift Viewer: Import Annotations"
+      },
+      {
+        "command": "driftViewer.addDataBreakpoint",
+        "title": "Add Data Breakpoint",
+        "icon": "$(debug-breakpoint-data)"
+      },
+      {
+        "command": "driftViewer.removeDataBreakpoint",
+        "title": "Drift Viewer: Remove Data Breakpoint"
+      },
+      {
+        "command": "driftViewer.toggleDataBreakpoint",
+        "title": "Drift Viewer: Toggle Data Breakpoint"
       }
     ],
     "menus": {
@@ -307,6 +357,11 @@
         {
           "command": "driftViewer.globalSearch",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.openBookmarks",
+          "when": "view == driftViewer.databaseExplorer",
           "group": "navigation"
         }
       ],
@@ -359,9 +414,29 @@
           "group": "5_compare"
         },
         {
+          "command": "driftViewer.seedTable",
+          "when": "viewItem == driftTable",
+          "group": "6_data"
+        },
+        {
           "command": "driftViewer.clearTable",
           "when": "viewItem == driftTable",
           "group": "6_data"
+        },
+        {
+          "command": "driftViewer.addDataBreakpoint",
+          "when": "viewItem == driftTable",
+          "group": "7_breakpoint"
+        },
+        {
+          "command": "driftViewer.annotateTable",
+          "when": "viewItem == driftTable",
+          "group": "8_annotate"
+        },
+        {
+          "command": "driftViewer.annotateColumn",
+          "when": "viewItem == driftColumn || viewItem == driftColumnPk",
+          "group": "8_annotate"
         },
         {
           "command": "driftViewer.removeChange",
@@ -531,6 +606,30 @@
           "type": "number",
           "default": 10,
           "description": "Maximum number of simultaneous watch queries."
+        },
+        "driftViewer.dataBreakpoints.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable data breakpoint evaluation during debug sessions."
+        },
+        "driftViewer.dataBreakpoints.pollIntervalMs": {
+          "type": "number",
+          "default": 1000,
+          "description": "Minimum interval between breakpoint evaluations (ms)."
+        },
+        "driftViewer.seeder.defaultRowCount": {
+          "type": "number",
+          "default": 100,
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Default number of rows to generate per table."
+        },
+        "driftViewer.seeder.nullProbability": {
+          "type": "number",
+          "default": 0.05,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Probability of generating NULL for nullable columns (0.0-1.0)."
         }
       }
     }

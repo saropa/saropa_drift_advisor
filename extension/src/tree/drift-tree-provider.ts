@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DriftApiClient, TableMetadata } from '../api-client';
+import type { AnnotationStore } from '../annotations/annotation-store';
 import {
   ColumnItem,
   ConnectionStatusItem,
@@ -11,6 +12,7 @@ type TreeNode = ConnectionStatusItem | TableItem | ColumnItem | ForeignKeyItem;
 
 export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly _client: DriftApiClient;
+  private readonly _annotationStore?: AnnotationStore;
   private _tables: TableMetadata[] = [];
   private _tableItems: TableItem[] = [];
   private _connected = false;
@@ -21,8 +23,9 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(client: DriftApiClient) {
+  constructor(client: DriftApiClient, annotationStore?: AnnotationStore) {
     this._client = client;
+    this._annotationStore = annotationStore;
   }
 
   /** Fetch schema from server and re-render the tree. Serialised to prevent overlapping calls. */
@@ -55,6 +58,7 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
         this._client.baseUrl,
         this._connected,
       );
+      this._decorateTableItems();
       return [status, ...this._tableItems];
     }
 
@@ -63,6 +67,7 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       const columns = element.table.columns.map(
         (c) => new ColumnItem(c, element.table.name),
       );
+      this._decorateColumnItems(columns, element.table.name);
       let fks: ForeignKeyItem[] = [];
       try {
         const fkData = await this._client.tableFkMeta(element.table.name);
@@ -74,6 +79,39 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     }
 
     return [];
+  }
+
+  /** Append annotation count to table item descriptions. */
+  private _decorateTableItems(): void {
+    if (!this._annotationStore) return;
+    for (const item of this._tableItems) {
+      // Reset to base description to avoid accumulation on repeated calls
+      const rc = item.table.rowCount;
+      const base = `${rc} ${rc === 1 ? 'row' : 'rows'}`;
+      const count = this._annotationStore.countForTable(
+        item.table.name,
+      );
+      item.description = count > 0
+        ? `${base} \u00B7 ${count === 1 ? '1 note' : `${count} notes`}`
+        : base;
+    }
+  }
+
+  /** Append annotation indicator to column item descriptions. */
+  private _decorateColumnItems(
+    columns: ColumnItem[],
+    tableName: string,
+  ): void {
+    if (!this._annotationStore) return;
+    for (const col of columns) {
+      const has = this._annotationStore.hasAnnotations(
+        tableName,
+        col.column.name,
+      );
+      if (has) {
+        col.description = `${col.description} \u00B7 \u{1F4CC}`;
+      }
+    }
   }
 
   /** Find a cached TableItem by name (for tree view reveal). */
