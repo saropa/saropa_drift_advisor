@@ -38,7 +38,12 @@ export function getNotebookHtml(): string {
       <div id="result-area"></div>
     </div>
     <div id="history-sidebar">
-      <h3>History</h3>
+      <div class="history-header">
+        <h3>History</h3>
+        <button id="btn-clear-history" title="Clear all history">Clear</button>
+      </div>
+      <input type="text" id="history-search" placeholder="Search history..." />
+      <div id="history-counter" class="history-counter"></div>
       <div id="history-list"></div>
     </div>
   </div>
@@ -51,7 +56,10 @@ export function getNotebookHtml(): string {
   var activeTabId = 't1';
   var tabCounter = 1;
   var schema = null;
-  var history = [];
+  var historyEntries = [];
+  var historyTotal = 0;
+  var historyQuery = '';
+  var historyDebounce = null;
 
   // --- Message Listener ---
   window.addEventListener('message', function (event) {
@@ -61,9 +69,15 @@ export function getNotebookHtml(): string {
       case 'queryError': handleQueryError(msg); break;
       case 'explainResult': handleExplainResult(msg); break;
       case 'schema': schema = msg.tables; break;
-      case 'history':
-        history = msg.entries || [];
+      case 'historyResults':
+        historyEntries = msg.entries || [];
+        historyTotal = msg.total || 0;
+        historyQuery = msg.query || '';
         renderHistory();
+        break;
+      case 'loadEntry':
+        document.getElementById('sql-input').value = msg.sql;
+        getActiveTab().sql = msg.sql;
         break;
     }
   });
@@ -164,34 +178,109 @@ export function getNotebookHtml(): string {
 
   // --- History ---
   function addToHistory(sql, rowCount, durationMs, error) {
-    history.unshift({ sql: sql, timestamp: Date.now(), rowCount: rowCount, durationMs: durationMs, error: error });
-    if (history.length > 50) history.length = 50;
-    renderHistory();
-    vscode.postMessage({ command: 'saveHistory', history: history });
+    vscode.postMessage({
+      command: 'addHistoryEntry',
+      entry: { sql: sql, timestamp: Date.now(), rowCount: rowCount, durationMs: durationMs, error: error || undefined }
+    });
+  }
+
+  function relativeTime(ts) {
+    var diff = Math.floor((Date.now() - ts) / 1000);
+    if (diff < 60) return diff + 's ago';
+    var mins = Math.floor(diff / 60);
+    if (mins < 60) return mins + 'm ago';
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    var days = Math.floor(hrs / 24);
+    if (days === 1) return 'yesterday';
+    return days + 'd ago';
   }
 
   function renderHistory() {
+    var counter = document.getElementById('history-counter');
+    if (historyQuery) {
+      counter.textContent = historyEntries.length + ' of ' + historyTotal;
+    } else {
+      counter.textContent = historyTotal ? historyTotal + ' entries' : '';
+    }
+
     var list = document.getElementById('history-list');
     var html = '';
-    for (var i = 0; i < history.length; i++) {
-      var h = history[i];
-      var preview = h.sql.length > 40 ? h.sql.substring(0, 40) + '...' : h.sql;
-      var meta = h.error
-        ? '<div class="history-meta history-error">Error</div>'
-        : '<div class="history-meta">' + h.rowCount + ' rows, ' + h.durationMs + 'ms</div>';
-      html += '<div class="history-entry" data-hist="' + i + '" title="' + esc(h.sql) + '">'
-        + esc(preview) + meta + '</div>';
+    for (var i = 0; i < historyEntries.length; i++) {
+      var h = historyEntries[i];
+      var preview = h.sql.length > 80 ? h.sql.substring(0, 80) + '...' : h.sql;
+      var metaLeft = h.error
+        ? '<span class="history-error">Error</span>'
+        : '<span>' + h.rowCount + ' rows, ' + h.durationMs + 'ms</span>';
+      html += '<div class="history-entry" data-ts="' + h.timestamp + '" title="' + esc(h.sql) + '">'
+        + '<div class="history-sql">' + esc(preview) + '</div>'
+        + '<div class="history-meta">' + metaLeft
+        + '<span class="history-time">' + relativeTime(h.timestamp) + '</span>'
+        + '</div></div>';
     }
     list.innerHTML = html;
+
     list.querySelectorAll('.history-entry').forEach(function (el) {
       el.addEventListener('click', function () {
-        var idx = Number(el.dataset.hist);
-        document.getElementById('sql-input').value = history[idx].sql;
-        var tab = getActiveTab();
-        tab.sql = history[idx].sql;
+        vscode.postMessage({ command: 'loadHistoryEntry', timestamp: Number(el.dataset.ts) });
+      });
+      el.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        showHistoryMenu(e.clientX, e.clientY, Number(el.dataset.ts));
       });
     });
   }
+
+  function showHistoryMenu(x, y, ts) {
+    closeHistoryMenu();
+    var menu = document.createElement('div');
+    menu.className = 'history-ctx-menu';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.innerHTML = '<div data-action="copy">Copy SQL</div>'
+      + '<div data-action="run">Run Again</div>'
+      + '<div data-action="delete">Delete</div>';
+
+    menu.querySelectorAll('[data-action]').forEach(function (item) {
+      item.addEventListener('click', function () {
+        var action = item.dataset.action;
+        var entry = historyEntries.find(function (e) { return e.timestamp === ts; });
+        if (action === 'copy' && entry) {
+          vscode.postMessage({ command: 'copyToClipboard', text: entry.sql });
+        } else if (action === 'run' && entry) {
+          document.getElementById('sql-input').value = entry.sql;
+          getActiveTab().sql = entry.sql;
+          executeQuery();
+        } else if (action === 'delete') {
+          vscode.postMessage({ command: 'deleteHistoryEntry', timestamp: ts, query: historyQuery });
+        }
+        closeHistoryMenu();
+      });
+    });
+
+    document.body.appendChild(menu);
+    document.addEventListener('click', closeHistoryMenu, { once: true });
+  }
+
+  function closeHistoryMenu() {
+    var existing = document.querySelector('.history-ctx-menu');
+    if (existing) existing.remove();
+  }
+
+  // --- History search (debounced) ---
+  document.getElementById('history-search').addEventListener('input', function (e) {
+    clearTimeout(historyDebounce);
+    var q = e.target.value;
+    historyDebounce = setTimeout(function () {
+      historyQuery = q;
+      vscode.postMessage({ command: 'searchHistory', query: q });
+    }, 200);
+  });
+
+  document.getElementById('btn-clear-history').addEventListener('click', function () {
+    vscode.postMessage({ command: 'clearHistory' });
+    document.getElementById('history-search').value = '';
+  });
 
   // --- Init ---
   vscode.postMessage({ command: 'getSchema' });
