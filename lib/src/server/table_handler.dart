@@ -26,14 +26,15 @@ final class TableHandler {
   }
 
   /// Returns JSON list of column names for
-  /// GET /api/table/<name>/columns.
+  /// GET `/api/table/<name>/columns`.
   Future<void> sendTableColumns({
     required HttpResponse response,
     required DriftDebugQuery query,
     required String tableName,
   }) async {
     final res = response;
-    if (!await _ctx.requireKnownTable(response: res, queryFn: query, tableName: tableName)) return;
+    if (!await _ctx.requireKnownTable(
+        response: res, queryFn: query, tableName: tableName)) return;
     final dynamic rawInfo = await query('PRAGMA table_info("$tableName")');
     final List<Map<String, dynamic>> rows =
         ServerContext.normalizeRows(rawInfo);
@@ -46,14 +47,15 @@ final class TableHandler {
     await res.close();
   }
 
-  /// Returns FK metadata for GET /api/table/<name>/fk-meta.
+  /// Returns FK metadata for GET `/api/table/<name>/fk-meta`.
   Future<void> sendTableFkMeta({
     required HttpResponse response,
     required DriftDebugQuery query,
     required String tableName,
   }) async {
     final res = response;
-    if (!await _ctx.requireKnownTable(response: res, queryFn: query, tableName: tableName)) return;
+    if (!await _ctx.requireKnownTable(
+        response: res, queryFn: query, tableName: tableName)) return;
     try {
       final List<Map<String, dynamic>> fkRows = ServerContext.normalizeRows(
         await query('PRAGMA foreign_key_list("$tableName")'),
@@ -83,14 +85,15 @@ final class TableHandler {
     }
   }
 
-  /// Returns JSON {"count": N} for GET /api/table/<name>/count.
+  /// Returns JSON {"count": N} for GET `/api/table/<name>/count`.
   Future<void> sendTableCount({
     required HttpResponse response,
     required DriftDebugQuery query,
     required String tableName,
   }) async {
     final res = response;
-    if (!await _ctx.requireKnownTable(response: res, queryFn: query, tableName: tableName)) return;
+    if (!await _ctx.requireKnownTable(
+        response: res, queryFn: query, tableName: tableName)) return;
     final dynamic rawCount =
         await query('SELECT COUNT(*) AS c FROM "$tableName"');
     final List<Map<String, dynamic>> rows =
@@ -101,7 +104,7 @@ final class TableHandler {
     await res.close();
   }
 
-  /// GET /api/table/<name>?limit=&offset= — returns JSON array of rows.
+  /// GET `/api/table/<name>?limit=&offset=` — returns JSON array of rows.
   Future<void> sendTableData({
     required HttpResponse response,
     required DriftDebugQuery query,
@@ -110,7 +113,8 @@ final class TableHandler {
     required int offset,
   }) async {
     final res = response;
-    if (!await _ctx.requireKnownTable(response: res, queryFn: query, tableName: tableName)) return;
+    if (!await _ctx.requireKnownTable(
+        response: res, queryFn: query, tableName: tableName)) return;
     final dynamic raw =
         await query('SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset');
     final List<Map<String, dynamic>> data = ServerContext.normalizeRows(raw);
