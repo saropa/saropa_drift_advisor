@@ -31,6 +31,7 @@ import { computeSchemaDiff, generateMigrationSql } from './schema-diff/schema-di
 import { SchemaDiffPanel } from './schema-diff/schema-diff-panel';
 import { WatchManager } from './watch/watch-manager';
 import { WatchPanel } from './watch/watch-panel';
+import { generateDartTables } from './codegen/dart-codegen';
 
 function escapeCsvCell(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -553,6 +554,48 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.showErrorMessage(`Schema diff failed: ${msg}`);
       }
     }),
+  );
+
+  // Generate Dart from runtime schema
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.generateDart',
+      async () => {
+        try {
+          const schema = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Fetching schema\u2026',
+            },
+            () => client.schemaMetadata(),
+          );
+          if (schema.length === 0) {
+            vscode.window.showInformationMessage('No tables found.');
+            return;
+          }
+          const picked = await vscode.window.showQuickPick(
+            schema.map((t) => ({
+              label: t.name,
+              description: `${t.columns.length} columns`,
+              table: t,
+            })),
+            { canPickMany: true, placeHolder: 'Select tables to generate' },
+          );
+          if (!picked?.length) return;
+          const dart = generateDartTables(picked.map((p) => p.table));
+          const doc = await vscode.workspace.openTextDocument({
+            content: dart,
+            language: 'dart',
+          });
+          await vscode.window.showTextDocument(doc);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(
+            `Generate Dart failed: ${msg}`,
+          );
+        }
+      },
+    ),
   );
 
   // Watch commands
