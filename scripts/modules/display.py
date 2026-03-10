@@ -36,6 +36,14 @@ def info(text: str) -> None:
     print(f"  {C.BLUE}[INFO]{C.RESET} {text}")
 
 
+def print_cmd_output(result) -> None:
+    """Print stdout/stderr from a subprocess result (if non-empty)."""
+    if hasattr(result, "stdout") and result.stdout and result.stdout.strip():
+        print(result.stdout)
+    if hasattr(result, "stderr") and result.stderr and result.stderr.strip():
+        print(result.stderr)
+
+
 def dim(text: str) -> str:
     """Wrap text in dim ANSI codes for secondary information."""
     return f"{C.DIM}{text}{C.RESET}"

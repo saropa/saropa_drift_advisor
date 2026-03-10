@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Constants, exit codes, and color setup for the extension publish pipeline."""
+"""Constants, exit codes, and color setup for the publish pipeline."""
 
 import os
 
@@ -8,6 +8,13 @@ _MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 SCRIPT_DIR = os.path.dirname(_MODULE_DIR)
 REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 EXTENSION_DIR = os.path.join(REPO_ROOT, "extension")
+
+# Dart package paths.
+PUBSPEC_PATH = os.path.join(REPO_ROOT, "pubspec.yaml")
+PACKAGE_JSON_PATH = os.path.join(EXTENSION_DIR, "package.json")
+CHANGELOG_PATH = os.path.join(REPO_ROOT, "CHANGELOG.md")
+TEST_DIR = os.path.join(REPO_ROOT, "test")
+LIB_DIR = os.path.join(REPO_ROOT, "lib")
 
 # Maximum lines allowed per TypeScript source file.
 MAX_FILE_LINES = 300
