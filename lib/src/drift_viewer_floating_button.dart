@@ -120,7 +120,9 @@ String _sInvalidOrUnsupportedUrl(String urlSample) => Intl.message(
 Uri? _viewerUri() {
   final port = DriftDebugServer.port;
 
-  if (port == null) return null;
+  if (port == null) {
+    return null;
+  }
   return Uri(scheme: 'http', host: '127.0.0.1', port: port);
 }
 
@@ -182,12 +184,16 @@ final class DriftViewerFloatingButton extends StatelessWidget {
           final params = Uri.splitQueryString(query);
           final uri = params['uri'];
 
-          if (uri != null && uri.isNotEmpty) return uri;
+          if (uri != null && uri.isNotEmpty) {
+            return uri;
+          }
         }
       }
       final args = settingsOrUriString.arguments;
 
-      if (args is String && args.isNotEmpty) return args;
+      if (args is String && args.isNotEmpty) {
+        return args;
+      }
     }
     if (settingsOrUriString is String && settingsOrUriString.isNotEmpty) {
       return settingsOrUriString;
@@ -220,10 +226,14 @@ final class DriftViewerFloatingButton extends StatelessWidget {
   @override
   @useResult
   Widget build(BuildContext context) {
-    if (!isDriftViewerOverlayVisible) return const SizedBox.shrink();
+    if (!isDriftViewerOverlayVisible) {
+      return const SizedBox.shrink();
+    }
     final uri = _viewerUri();
 
-    if (uri == null) return const SizedBox.shrink();
+    if (uri == null) {
+      return const SizedBox.shrink();
+    }
     final colorScheme = Theme.of(context).colorScheme;
     final transparentSurface = colorScheme.surface.withValues(alpha: 0);
     return Material(
@@ -359,7 +369,9 @@ void _showFailedToOpenSnackBar(ScaffoldMessengerState messenger) {
 Future<void> _openInBrowser(BuildContext context, Uri uri) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
 
-  if (messenger == null) return;
+  if (messenger == null) {
+    return;
+  }
   try {
     // Call launchUrl directly; avoid canLaunchUrl so
     // apps need not add <queries> (Android) /
@@ -370,7 +382,9 @@ Future<void> _openInBrowser(BuildContext context, Uri uri) async {
       mode: LaunchMode.externalApplication,
     );
 
-    if (!context.mounted) return;
+    if (!context.mounted) {
+      return;
+    }
     if (!launched) {
       _showCouldNotOpenSnackBar(messenger, uri);
     }
@@ -379,21 +393,27 @@ Future<void> _openInBrowser(BuildContext context, Uri uri) async {
       debugPrint('DriftViewer launchUrl PlatformException: $e');
       debugPrint('$st');
     }
-    if (!context.mounted) return;
+    if (!context.mounted) {
+      return;
+    }
     _showFailedToOpenSnackBar(messenger);
   } on ArgumentError catch (e, st) {
     if (kDebugMode) {
       debugPrint('DriftViewer launchUrl ArgumentError: $e');
       debugPrint('$st');
     }
-    if (!context.mounted) return;
+    if (!context.mounted) {
+      return;
+    }
     _showFailedToOpenSnackBar(messenger);
   } on FormatException catch (e, st) {
     if (kDebugMode) {
       debugPrint('DriftViewer launchUrl FormatException: $e');
       debugPrint('$st');
     }
-    if (!context.mounted) return;
+    if (!context.mounted) {
+      return;
+    }
     _showFailedToOpenSnackBar(messenger);
   }
 }
@@ -436,8 +456,8 @@ NavigationDelegate _createWebViewNavigationDelegate(Uri allowedUri) {
   final allowedPort = allowedUri.port;
 
   return NavigationDelegate(
-    onNavigationRequest: (NavigationRequest request) =>
-        _onNavigationRequest(request: request, allowedHost: allowedHost, allowedPort: allowedPort),
+    onNavigationRequest: (NavigationRequest request) => _onNavigationRequest(
+        request: request, allowedHost: allowedHost, allowedPort: allowedPort),
     onWebResourceError: (WebResourceError error) {
       if (kDebugMode) {
         debugPrint('DriftViewer WebView error: ${error.description}');
@@ -474,8 +494,7 @@ class _SkeletonBars extends StatelessWidget {
 
   @override
   @useResult
-  Widget build(BuildContext context) =>
-      _SkeletonBarsContent(
+  Widget build(BuildContext context) => _SkeletonBarsContent(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
       );
 }
