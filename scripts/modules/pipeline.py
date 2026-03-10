@@ -122,47 +122,69 @@ def _run_ext_build_and_validate(
 def run_dart_analysis(
     args: argparse.Namespace,
     results: list[tuple[str, bool, float]],
-) -> bool:
-    """Run all Dart analysis steps. Returns True if all pass."""
+) -> tuple[str, bool]:
+    """Run all Dart analysis steps. Returns (version, all_passed)."""
     from modules.dart_prereqs import check_dart, check_flutter, check_publish_workflow
+    from modules.checks_git import check_git, check_working_tree, check_remote_sync
     from modules.dart_build import (
         format_code, run_tests, run_analysis,
         generate_docs, pre_publish_validation,
     )
+    from modules.checks_version import validate_version_changelog
+    from modules.target_config import DART
 
     heading("Dart \u00b7 Prerequisites")
     for name, fn in [
         ("Dart SDK", check_dart),
         ("Flutter SDK", check_flutter),
+        ("git", check_git),
         ("Publish workflow", check_publish_workflow),
     ]:
         if not run_step(name, fn, results):
-            return False
+            return "", False
+
+    heading("Dart \u00b7 Working Tree")
+    if not run_step("Working tree", check_working_tree, results):
+        return "", False
+
+    heading("Dart \u00b7 Remote Sync")
+    if not run_step("Remote sync", check_remote_sync, results):
+        return "", False
 
     heading("Dart \u00b7 Format")
     if not run_step("Dart format", format_code, results):
-        return False
+        return "", False
 
     if getattr(args, "skip_tests", False):
         heading("Dart \u00b7 Tests (skipped)")
     else:
         heading("Dart \u00b7 Tests")
         if not run_step("Dart tests", run_tests, results):
-            return False
+            return "", False
 
     heading("Dart \u00b7 Analysis")
     if not run_step("Dart analysis", run_analysis, results):
-        return False
+        return "", False
 
     heading("Dart \u00b7 Documentation")
     if not run_step("Dart docs", generate_docs, results):
-        return False
+        return "", False
 
     heading("Dart \u00b7 Dry Run")
     if not run_step("Dart dry-run", pre_publish_validation, results):
-        return False
+        return "", False
 
-    return True
+    heading("Dart \u00b7 Version & CHANGELOG")
+    if getattr(args, "yes", False):
+        os.environ["PUBLISH_YES"] = "1"
+    t0 = time.time()
+    version, version_ok = validate_version_changelog(config=DART)
+    elapsed = time.time() - t0
+    results.append(("Dart version", version_ok, elapsed))
+    if not version_ok:
+        return "", False
+
+    return version, True
 
 
 def run_ext_analysis(
@@ -377,5 +399,60 @@ def run_publish(
     report = save_report(results, version, vsix_path, is_publish=True)
     print_timing(results)
     print_success_banner(version, vsix_path)
+    print_report_path(report)
+    return True
+
+
+# ── Dart Publish ─────────────────────────────────────────
+
+
+def run_dart_publish(
+    version: str,
+    results: list[tuple[str, bool, float]],
+) -> bool:
+    """Run Dart publish steps. Returns True on success."""
+    from modules.checks_git import check_gh_cli
+    from modules.git_ops import is_version_tagged, git_commit_and_push, create_git_tag
+    from modules.dart_publish import publish_to_pubdev
+    from modules.github_release import create_github_release
+    from modules.target_config import DART
+    from modules.report import (
+        save_report, print_timing, print_success_banner, print_report_path,
+    )
+
+    heading("Dart \u00b7 Publish Credentials")
+    if not run_step("GitHub CLI", check_gh_cli, results):
+        return False
+
+    tagged = is_version_tagged(version, DART.tag_prefix)
+    if tagged:
+        heading("Dart \u00b7 Git Commit & Push")
+        info(f"Tag v{version} already exists; skipping commit & tag.")
+        heading("Dart \u00b7 Git Tag")
+        info("Skipped (tag exists).")
+    else:
+        heading("Dart \u00b7 Git Commit & Push")
+        if not run_step("Git commit & push",
+                        lambda: git_commit_and_push(DART, version), results):
+            return False
+        heading("Dart \u00b7 Git Tag")
+        if not run_step("Git tag",
+                        lambda: create_git_tag(DART, version), results):
+            return False
+
+    heading("Dart \u00b7 Publish to pub.dev")
+    if not run_step("pub.dev publish", publish_to_pubdev, results):
+        return False
+
+    heading("Dart \u00b7 GitHub Release")
+    if not run_step("GitHub release",
+                    lambda: create_github_release(DART, version),
+                    results):
+        warn("pub.dev publish triggered but GitHub release failed.")
+        warn(f"Create manually: gh release create v{version}")
+
+    report = save_report(results, version, is_publish=True)
+    print_timing(results)
+    print_success_banner(version, config=DART)
     print_report_path(report)
     return True
