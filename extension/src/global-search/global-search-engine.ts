@@ -4,6 +4,7 @@
  */
 
 import { DriftApiClient } from '../api-client';
+import { zipRow } from '../shared-utils';
 import type {
   ISearchMatch, ISearchResult, SearchMode, SearchScope,
 } from './global-search-types';
@@ -75,16 +76,6 @@ export class GlobalSearchEngine {
   }
 }
 
-/** Zip column names with a row array into an object. */
-function zipRow(
-  columns: string[], row: unknown[],
-): Record<string, unknown> {
-  const obj: Record<string, unknown> = {};
-  for (let i = 0; i < columns.length; i++) {
-    obj[columns[i]] = row[i];
-  }
-  return obj;
-}
 
 /** Build a SQL WHERE condition for a single column. */
 export function buildCondition(

@@ -3,6 +3,7 @@
  * All statistics are computed via SQL — no raw data is transferred.
  */
 
+import { q } from '../shared-utils';
 import type {
   IColumnProfile,
   IHistogramBucket,
@@ -12,10 +13,6 @@ import type {
   ITopValue,
 } from './profiler-types';
 
-/** Quote a SQL identifier (table or column name). */
-function q(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
 /** Check whether a column type string represents a numeric type. */
 export function isNumericType(type: string): boolean {
   return /INT|REAL|FLOAT|DOUBLE|DECIMAL|NUMERIC/i.test(type);
