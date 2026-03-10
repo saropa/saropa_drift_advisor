@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Terminal display helpers and the Saropa logo."""
+"""Terminal display helpers, publish log, and the Saropa logo."""
 
-from modules.constants import C
+import os
+import re
+import sys
+from datetime import datetime
+
+from modules.constants import C, REPO_ROOT
 
 
 # ── Display Helpers ──────────────────────────────────────────
@@ -67,9 +72,69 @@ def ask_yn(question: str, default: bool = True) -> bool:
     return answer in ("y", "yes")
 
 
+# ── Publish Log (tee stdout to file) ────────────────────────
+
+_ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+_original_stdout = None
+_log_file = None
+
+
+class _TeeWriter:
+    """Wraps stdout to also write ANSI-stripped text to a log file."""
+
+    def __init__(self, terminal, logfile):
+        self.terminal = terminal
+        self.logfile = logfile
+
+    def write(self, text):
+        self.terminal.write(text)
+        self.logfile.write(_ANSI_RE.sub("", text))
+
+    def flush(self):
+        self.terminal.flush()
+        self.logfile.flush()
+
+    def isatty(self):
+        return self.terminal.isatty()
+
+    @property
+    def encoding(self):
+        return self.terminal.encoding
+
+
+def open_publish_log() -> None:
+    """Start teeing stdout to reports/YYYYMMDD/YYYYMMDD_publish_report.log."""
+    global _original_stdout, _log_file  # noqa: PLW0603
+    now = datetime.now()
+    date_dir = os.path.join(REPO_ROOT, "reports", now.strftime("%Y%m%d"))
+    os.makedirs(date_dir, exist_ok=True)
+    path = os.path.join(
+        date_dir, f"{now:%Y%m%d}_publish_report.log",
+    )
+    _log_file = open(path, "w", encoding="utf-8")  # noqa: SIM115
+    _original_stdout = sys.stdout
+    sys.stdout = _TeeWriter(_original_stdout, _log_file)
+
+
+def close_publish_log() -> None:
+    """Stop teeing and close the log file."""
+    global _original_stdout, _log_file  # noqa: PLW0603
+    if _original_stdout is None:
+        return
+    path = _log_file.name
+    sys.stdout = _original_stdout
+    _log_file.close()
+    _original_stdout = None
+    _log_file = None
+    rel = os.path.relpath(path, REPO_ROOT)
+    ok(f"Publish log: {C.WHITE}{rel}{C.RESET}")
+
+
+# ── Logo ─────────────────────────────────────────────────────
+
 # cSpell:disable
-def show_logo(version: str) -> None:
-    """Print the Saropa rainbow-gradient logo and script version."""
+def show_logo(version: str = "") -> None:
+    """Print the Saropa rainbow-gradient logo and optional version."""
     logo = f"""
 {C.ORANGE_208}                               ....{C.RESET}
 {C.ORANGE_208}                       `-+shdmNMMMMNmdhs+-{C.RESET}
@@ -89,9 +154,9 @@ def show_logo(version: str) -> None:
 {C.BLUE_57}                       `-+shdNNMMMMNNdhs+-{C.RESET}
 {C.BLUE_57}                               ````{C.RESET}
 
-  {C.PINK_195}Drift Viewer -- Extension Publish Pipeline{C.RESET}
-  {C.LIGHT_BLUE_117}Extension v{version}{C.RESET}
-"""
+  {C.PINK_195}Drift Viewer -- Publish Pipeline{C.RESET}"""
     print(logo)
-    print(f"{C.CYAN}{'-' * 60}{C.RESET}")
+    if version:
+        print(f"  {C.LIGHT_BLUE_117}v{version}{C.RESET}")
+    print(f"\n{C.CYAN}{'-' * 60}{C.RESET}")
 # cSpell:enable
