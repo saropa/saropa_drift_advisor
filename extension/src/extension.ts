@@ -15,6 +15,7 @@ import { GenerationWatcher } from './generation-watcher';
 import { DriftHoverProvider, HoverCache } from './hover/drift-hover-provider';
 import { ExplainPanel } from './explain/explain-panel';
 import { extractSqlFromContext } from './explain/sql-extractor';
+import { FkNavigator } from './navigation/fk-navigator';
 import { DriftViewerPanel } from './panel';
 import { ServerDiscovery } from './server-discovery';
 import { ServerManager } from './server-manager';
@@ -24,6 +25,7 @@ import { DriftTimelineProvider } from './timeline/drift-timeline-provider';
 import { SnapshotDiffPanel } from './timeline/snapshot-diff-panel';
 import { computeTableDiff, ROW_LIMIT, rowsToObjects, SnapshotStore } from './timeline/snapshot-store';
 import { DriftTreeProvider } from './tree/drift-tree-provider';
+import { PinStore } from './tree/pin-store';
 import { ColumnItem, TableItem } from './tree/tree-items';
 import { SqlNotebookPanel } from './sql-notebook/sql-notebook-panel';
 import { parseDartTables } from './schema-diff/dart-parser';
@@ -58,6 +60,11 @@ import { registerAnnotationCommands } from './annotations/annotation-commands';
 import { registerSeederCommands } from './seeder/seeder-commands';
 import { registerConstraintWizardCommands } from './constraint-wizard/constraint-commands';
 import { registerIsarGenCommands } from './isar-gen/isar-gen-commands';
+import { exportTable } from './export/format-export';
+import { SnippetStore } from './snippets/snippet-store';
+import { SnippetRunner, snippetUuid, STARTER_SNIPPETS } from './snippets/snippet-runner';
+import { SnippetLibraryPanel } from './snippets/snippet-library-panel';
+import { SchemaSearchViewProvider } from './schema-search/schema-search-view';
 
 async function pickTable(
   client: DriftApiClient,
@@ -70,13 +77,6 @@ async function pickTable(
   return vscode.window.showQuickPick(names, {
     placeHolder: 'Select a table',
   });
-}
-
-function escapeCsvCell(value: unknown): string {
-  const s = value === null || value === undefined ? '' : String(value);
-  return s.includes(',') || s.includes('"') || s.includes('\n')
-    ? `"${s.replace(/"/g, '""')}"`
-    : s;
 }
 
 function updateStatusBar(
@@ -171,6 +171,22 @@ export function activate(context: vscode.ExtensionContext): void {
     { treeDataProvider: treeProvider, showCollapseAll: true },
   );
   context.subscriptions.push(treeView);
+
+  // Pin store — persists pinned tables per workspace
+  const pinStore = new PinStore(context.workspaceState);
+  treeProvider.setPinStore(pinStore);
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.pinTable',
+      (item: TableItem) => pinStore.pin(item.table.name),
+    ),
+    vscode.commands.registerCommand(
+      'driftViewer.unpinTable',
+      (item: TableItem) => pinStore.unpin(item.table.name),
+    ),
+    pinStore.onDidChange(() => treeProvider.refresh()),
+    { dispose: () => pinStore.dispose() },
+  );
 
   // Peek / Go to Definition for SQL table/column names in Dart strings
   const definitionProvider = new DriftDefinitionProvider(client);
@@ -300,6 +316,8 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(changeTracker);
   const editingBridge = new EditingBridge(changeTracker);
   context.subscriptions.push(editingBridge);
+  const fkNavigator = new FkNavigator(client);
+  context.subscriptions.push(fkNavigator);
   const pendingProvider = new PendingChangesProvider(changeTracker);
 
   const pendingView = vscode.window.createTreeView(
@@ -338,7 +356,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'driftViewer.viewTableData',
       (_item: TableItem) => {
-        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge);
+        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator);
       },
     ),
   );
@@ -353,41 +371,13 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // Export table as CSV
+  // Export table in multiple formats
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'driftViewer.exportTableCsv',
+      'driftViewer.exportTable',
       async (item: TableItem) => {
         try {
-          const csv = await vscode.window.withProgress(
-            {
-              location: vscode.ProgressLocation.Notification,
-              title: `Exporting ${item.table.name}\u2026`,
-            },
-            async () => {
-              const result = await client.sql(
-                `SELECT * FROM "${item.table.name}"`,
-              );
-              const header = result.columns.map(escapeCsvCell).join(',');
-              const rows = result.rows.map((row) =>
-                row.map(escapeCsvCell).join(','),
-              );
-              return [header, ...rows].join('\n');
-            },
-          );
-          const uri = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.file(`${item.table.name}.csv`),
-            filters: { CSV: ['csv'] },
-          });
-          if (uri) {
-            await vscode.workspace.fs.writeFile(
-              uri,
-              Buffer.from(csv, 'utf-8'),
-            );
-            vscode.window.showInformationMessage(
-              `Exported ${item.table.name} to CSV.`,
-            );
-          }
+          await exportTable(client, item.table.name);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Export failed: ${msg}`);
@@ -411,7 +401,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'driftViewer.filterByColumn',
       (_item: ColumnItem) => {
-        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge);
+        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator);
       },
     ),
   );
@@ -428,7 +418,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Open in editor panel
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInPanel', () => {
-      DriftViewerPanel.createOrShow(client.host, client.port, editingBridge);
+      DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator);
     }),
   );
 
@@ -437,7 +427,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'driftViewer.viewTableInPanel',
       (_tableName: string) => {
-        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge);
+        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator);
       },
     ),
   );
@@ -845,6 +835,14 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  // Schema search sidebar panel
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      SchemaSearchViewProvider.viewType,
+      new SchemaSearchViewProvider(client, revealTable),
+    ),
+  );
+
   // Refresh performance
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.refreshPerformance', () =>
@@ -1211,6 +1209,38 @@ export function activate(context: vscode.ExtensionContext): void {
   registerConstraintWizardCommands(context, client);
   // --- Isar-to-Drift Schema Generator ---
   registerIsarGenCommands(context);
+
+  // --- SQL Snippet Library ---
+  const snippetStore = new SnippetStore(context.workspaceState);
+  if (snippetStore.getAll().length === 0) {
+    for (const starter of STARTER_SNIPPETS) {
+      snippetStore.save({ ...starter, createdAt: new Date().toISOString() });
+    }
+  }
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.openSnippetLibrary', () => {
+      SnippetLibraryPanel.createOrShow(client, snippetStore);
+    }),
+    vscode.commands.registerCommand('driftViewer.saveAsSnippet', async () => {
+      const sql = await vscode.window.showInputBox({ prompt: 'SQL query to save' });
+      if (!sql) return;
+      const name = await vscode.window.showInputBox({ prompt: 'Snippet name' });
+      if (!name) return;
+      const runner = new SnippetRunner(client);
+      const varNames = runner.extractVariables(sql);
+      const variables = runner.inferVariableTypes(varNames);
+      snippetStore.save({
+        id: snippetUuid(),
+        name,
+        sql,
+        category: 'Uncategorized',
+        variables,
+        createdAt: new Date().toISOString(),
+        useCount: 0,
+      });
+      vscode.window.showInformationMessage(`Snippet "${name}" saved.`);
+    }),
+  );
 
   // --- Data Breakpoints ---
   context.subscriptions.push(

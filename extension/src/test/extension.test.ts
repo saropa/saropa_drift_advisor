@@ -54,7 +54,7 @@ describe('Extension activation', () => {
     assert.ok('driftViewer.refreshTree' in registered);
     assert.ok('driftViewer.viewTableData' in registered);
     assert.ok('driftViewer.copyTableName' in registered);
-    assert.ok('driftViewer.exportTableCsv' in registered);
+    assert.ok('driftViewer.exportTable' in registered);
     assert.ok('driftViewer.copyColumnName' in registered);
     assert.ok('driftViewer.filterByColumn' in registered);
   });
@@ -86,8 +86,12 @@ describe('Extension activation', () => {
     // Seeder: seedTable, seedAllTables (2)
     // Constraint wizard: constraintWizard (1)
     // Isar-to-Drift: isarToDrift (1)
-    // Total = 92
-    assert.strictEqual(subscriptions.length, 92, `expected 92 disposables, got ${subscriptions.length}`);
+    // Snippet library: openSnippetLibrary, saveAsSnippet (2)
+    // FK navigation: fkNavigator (1)
+    // Schema search: schemaSearchViewProvider (1)
+    // Pin store: pinTable, unpinTable, onDidChange, dispose (4)
+    // Total = 100
+    assert.strictEqual(subscriptions.length, 100, `expected 100 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
