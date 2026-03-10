@@ -78,8 +78,14 @@ describe('Extension activation', () => {
     // Row comparator: compareRows (1)
     // Schema docs: generateSchemaDocs (1)
     // Column profiler: profileColumn (1)
-    // Total = 77
-    assert.strictEqual(subscriptions.length, 77, `expected 77 disposables, got ${subscriptions.length}`);
+    // Snapshot changelog: snapshotChangelog (1)
+    // Data breakpoints: dbpProvider, addDataBreakpoint,
+    //   removeDataBreakpoint, toggleDataBreakpoint (4)
+    // Annotations: annotateTable, annotateColumn, openBookmarks,
+    //   exportAnnotations, importAnnotations (5)
+    // Seeder: seedTable, seedAllTables (2)
+    // Total = 89
+    assert.strictEqual(subscriptions.length, 89, `expected 89 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

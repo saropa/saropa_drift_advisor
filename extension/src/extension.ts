@@ -42,6 +42,7 @@ import { WatchManager } from './watch/watch-manager';
 import { WatchPanel } from './watch/watch-panel';
 import { generateDartTables } from './codegen/dart-codegen';
 import { registerDataManagementCommands } from './data-management/data-management-commands';
+import { registerChangelogCommands } from './changelog/changelog-commands';
 import { registerComparatorCommands } from './comparator/comparator-commands';
 import { collectSchemaDocsData } from './schema-docs/schema-docs-command';
 import { DocsHtmlRenderer } from './schema-docs/docs-html-renderer';
@@ -49,6 +50,24 @@ import { DocsMdRenderer } from './schema-docs/docs-md-renderer';
 import { GlobalSearchPanel } from './global-search/global-search-panel';
 import { buildProfileQueries, assembleProfile } from './profiler/profiler-queries';
 import { ProfilerPanel } from './profiler/profiler-panel';
+import { DataBreakpointProvider } from './data-breakpoint/data-breakpoint-provider';
+import type { DataBreakpointType } from './data-breakpoint/data-breakpoint-types';
+import { AnnotationStore } from './annotations/annotation-store';
+import { registerAnnotationCommands } from './annotations/annotation-commands';
+import { registerSeederCommands } from './seeder/seeder-commands';
+
+async function pickTable(
+  client: DriftApiClient,
+): Promise<string | undefined> {
+  const meta = await client.schemaMetadata();
+  const names = meta
+    .filter((t) => !t.name.startsWith('sqlite_'))
+    .map((t) => t.name)
+    .sort();
+  return vscode.window.showQuickPick(names, {
+    placeHolder: 'Select a table',
+  });
+}
 
 function escapeCsvCell(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -140,7 +159,8 @@ export function activate(context: vscode.ExtensionContext): void {
   }
   context.subscriptions.push({ dispose: () => discovery.dispose() });
   context.subscriptions.push({ dispose: () => serverManager.dispose() });
-  const treeProvider = new DriftTreeProvider(client);
+  const annotationStore = new AnnotationStore(context.workspaceState);
+  const treeProvider = new DriftTreeProvider(client, annotationStore);
 
   // Tree view
   const treeView = vscode.window.createTreeView(
@@ -230,6 +250,10 @@ export function activate(context: vscode.ExtensionContext): void {
     await fileDecoProvider.refresh(client, map);
   }
 
+  // Data breakpoints (evaluate on generation change during debug)
+  const dbpProvider = new DataBreakpointProvider(client);
+  context.subscriptions.push(dbpProvider);
+
   // Auto-refresh on data changes
   watcher.onDidChange(async () => {
     treeProvider.refresh();
@@ -243,6 +267,7 @@ export function activate(context: vscode.ExtensionContext): void {
       snapshotStore.capture(client).catch(() => { /* server down */ });
     }
     watchManager.refresh().catch(() => { /* server down */ });
+    dbpProvider.onGenerationChange().catch(() => { /* eval failed */ });
   });
   watcher.start();
   treeProvider.refresh(); // initial load
@@ -1167,6 +1192,76 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // --- Row Comparator ---
   registerComparatorCommands(context, client);
+
+  // --- Snapshot Changelog ---
+  registerChangelogCommands(context, snapshotStore);
+
+  // --- Annotations & Bookmarks ---
+  registerAnnotationCommands(context, annotationStore, treeProvider);
+
+  // --- Test Data Seeder ---
+  registerSeederCommands(context, client);
+
+  // --- Data Breakpoints ---
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.addDataBreakpoint',
+      async (item?: TableItem) => {
+        const table = item?.table.name ?? await pickTable(client);
+        if (!table) return;
+
+        const type = await vscode.window.showQuickPick(
+          [
+            {
+              label: 'Condition Met',
+              value: 'conditionMet' as DataBreakpointType,
+              description: 'SQL returns non-zero count',
+            },
+            {
+              label: 'Row Inserted',
+              value: 'rowInserted' as DataBreakpointType,
+              description: 'Row count increases',
+            },
+            {
+              label: 'Row Deleted',
+              value: 'rowDeleted' as DataBreakpointType,
+              description: 'Row count decreases',
+            },
+            {
+              label: 'Row Changed',
+              value: 'rowChanged' as DataBreakpointType,
+              description: 'Any data changes',
+            },
+          ],
+          { placeHolder: 'Breakpoint type' },
+        );
+        if (!type) return;
+
+        let condition: string | undefined;
+        if (type.value === 'conditionMet') {
+          condition = await vscode.window.showInputBox({
+            prompt: 'SQL condition (must return count)',
+            placeHolder:
+              'SELECT COUNT(*) FROM "users" WHERE balance < 0',
+          });
+          if (!condition) return;
+        }
+
+        dbpProvider.add(table, type.value, condition);
+        vscode.window.showInformationMessage(
+          `Data breakpoint added on ${table}.`,
+        );
+      },
+    ),
+    vscode.commands.registerCommand(
+      'driftViewer.removeDataBreakpoint',
+      (id: string) => dbpProvider.remove(id),
+    ),
+    vscode.commands.registerCommand(
+      'driftViewer.toggleDataBreakpoint',
+      (id: string) => dbpProvider.toggle(id),
+    ),
+  );
 
   // Debug session lifecycle — start/stop performance auto-refresh
   const perfCfg = vscode.workspace.getConfiguration('driftViewer');
