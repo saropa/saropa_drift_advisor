@@ -1,20 +1,28 @@
 import * as vscode from 'vscode';
 import { DriftApiClient, TableMetadata } from '../api-client';
 import type { AnnotationStore } from '../annotations/annotation-store';
+import type { PinStore } from './pin-store';
 import {
   ColumnItem,
   ConnectionStatusItem,
   ForeignKeyItem,
+  PinnedGroupItem,
   TableItem,
 } from './tree-items';
 
-type TreeNode = ConnectionStatusItem | TableItem | ColumnItem | ForeignKeyItem;
+type TreeNode =
+  | ConnectionStatusItem
+  | PinnedGroupItem
+  | TableItem
+  | ColumnItem
+  | ForeignKeyItem;
 
 export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly _client: DriftApiClient;
   private readonly _annotationStore?: AnnotationStore;
   private _tables: TableMetadata[] = [];
   private _tableItems: TableItem[] = [];
+  private _pinStore?: PinStore;
   private _connected = false;
   private _refreshing = false;
 
@@ -28,6 +36,10 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     this._annotationStore = annotationStore;
   }
 
+  setPinStore(store: PinStore): void {
+    this._pinStore = store;
+  }
+
   /** Fetch schema from server and re-render the tree. Serialised to prevent overlapping calls. */
   async refresh(): Promise<void> {
     if (this._refreshing) return;
@@ -35,7 +47,9 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     try {
       await this._client.health();
       this._tables = await this._client.schemaMetadata();
-      this._tableItems = this._tables.map((t) => new TableItem(t));
+      this._tableItems = this._tables.map(
+        (t) => new TableItem(t, this._pinStore?.isPinned(t.name)),
+      );
       this._connected = true;
     } catch {
       this._tables = [];
@@ -52,14 +66,22 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   }
 
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
-    // Root level: connection status + tables
+    // Root level: connection status + pinned group + tables
     if (!element) {
       const status = new ConnectionStatusItem(
         this._client.baseUrl,
         this._connected,
       );
       this._decorateTableItems();
-      return [status, ...this._tableItems];
+
+      const pinned = this._tableItems.filter((t) => t.pinned);
+      const unpinned = this._tableItems.filter((t) => !t.pinned);
+      const items: TreeNode[] = [status];
+      if (pinned.length > 0) {
+        items.push(new PinnedGroupItem(pinned.length));
+      }
+      items.push(...pinned, ...unpinned);
+      return items;
     }
 
     // Table level: columns + foreign keys (lazy-loaded)

@@ -27,12 +27,24 @@ export class ConnectionStatusItem extends vscode.TreeItem {
   }
 }
 
+export class PinnedGroupItem extends vscode.TreeItem {
+  constructor(count: number) {
+    super('Pinned', vscode.TreeItemCollapsibleState.None);
+    this.description = `${count} table${count === 1 ? '' : 's'}`;
+    this.iconPath = new vscode.ThemeIcon('pin');
+    this.contextValue = 'pinnedGroup';
+  }
+}
+
 export class TableItem extends vscode.TreeItem {
-  constructor(public readonly table: TableMetadata) {
+  constructor(
+    public readonly table: TableMetadata,
+    public readonly pinned = false,
+  ) {
     super(table.name, vscode.TreeItemCollapsibleState.Collapsed);
     this.description = `${table.rowCount} ${table.rowCount === 1 ? 'row' : 'rows'}`;
     this.iconPath = new vscode.ThemeIcon('table');
-    this.contextValue = 'driftTable';
+    this.contextValue = pinned ? 'driftTablePinned' : 'driftTable';
   }
 }
 
