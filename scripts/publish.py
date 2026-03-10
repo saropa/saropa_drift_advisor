@@ -17,6 +17,11 @@ Exit codes match the ExitCode enum in modules/constants.py.
 import argparse
 import subprocess
 import sys
+from pathlib import Path
+
+# Ensure the scripts/ directory is on sys.path so `from modules ...` works
+# regardless of which directory the script is invoked from.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 # Ensure colorama is available so modules.constants can init it on Windows.
 try:
@@ -29,7 +34,9 @@ except ImportError:
     )
 
 from modules.constants import C, ExitCode, REPO_ROOT, EXTENSION_DIR
-from modules.display import ask_yn, dim, heading, info, show_logo
+from modules.display import (
+    ask_yn, close_publish_log, dim, heading, info, open_publish_log, show_logo,
+)
 
 
 # ── CLI ──────────────────────────────────────────────────────
@@ -61,7 +68,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-# ── Banner ───────────────────────────────────────────────────
+# ── Target Info ──────────────────────────────────────────────
 
 
 def _read_banner_version(target: str) -> str:
@@ -73,14 +80,10 @@ def _read_banner_version(target: str) -> str:
     return read_version(DART)
 
 
-def _print_banner(args: argparse.Namespace, target: str, version: str) -> None:
-    """Print the script banner (logo or compact header)."""
+def _print_target_info(target: str, version: str) -> None:
+    """Print target and version info after the logo."""
     labels = {"dart": "Dart", "extension": "Extension", "all": "All Targets"}
-    if not args.no_logo:
-        show_logo(version)
-    else:
-        print(f"\n  {C.BOLD}Drift Viewer -- {labels[target]} Pipeline"
-              f"{C.RESET}  {dim(f'v{version}')}")
+    print(f"\n  {C.BOLD}{labels[target]} Pipeline{C.RESET}  {dim(f'v{version}')}")
     print(f"  Project root: {dim(REPO_ROOT)}")
     if target in ("extension", "all"):
         print(f"  Extension:    {dim(EXTENSION_DIR)}")
@@ -217,12 +220,8 @@ def _run_publish(args, target, dart_version, ext_version, vsix_path, results):
             return _exit_code_from_results(results)
 
     if target in ("extension", "all"):
-        from modules.ext_publish import ask_publish_stores, run_ext_publish
-        from modules.ext_prereqs import get_installed_extension_versions
-        stores = "both"
-        if not get_installed_extension_versions():
-            stores = ask_publish_stores()
-        if not run_ext_publish(ext_version, vsix_path, results, stores):
+        from modules.ext_publish import run_ext_publish
+        if not run_ext_publish(ext_version, vsix_path, results):
             _print_results(results, ext_version, vsix_path)
             return _exit_code_from_results(results)
 
@@ -230,13 +229,24 @@ def _run_publish(args, target, dart_version, ext_version, vsix_path, results):
 
 
 def main() -> int:
-    """Unified entry point: analyze -> package -> publish."""
+    """Unified entry point: logo -> log -> analyze -> package -> publish."""
+    if "--no-logo" not in sys.argv:
+        show_logo()
+    open_publish_log()
+    try:
+        return _main_inner()
+    finally:
+        close_publish_log()
+
+
+def _main_inner() -> int:
+    """Parse args, run pipeline, return exit code."""
     args = parse_args()
     target = args.target
     version = _read_banner_version(target)
     results: list[tuple[str, bool, float]] = []
 
-    _print_banner(args, target, version)
+    _print_target_info(target, version)
 
     dart_ver, ext_ver, vsix_path, ok = _run_analysis(args, target, results)
     if not ok:

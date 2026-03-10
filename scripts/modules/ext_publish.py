@@ -224,11 +224,19 @@ def _run_publish_steps(
     return True
 
 
+def _determine_stores() -> str:
+    """Decide which store(s) to publish to based on local installs."""
+    from modules.ext_prereqs import get_installed_extension_versions
+
+    if get_installed_extension_versions():
+        return "both"
+    return ask_publish_stores()
+
+
 def run_ext_publish(
     version: str,
     vsix_path: str,
     results: list[tuple[str, bool, float]],
-    stores: str,
 ) -> bool:
     """Run extension publish steps (11-15). Returns True on success."""
     from modules.report import (
@@ -236,6 +244,7 @@ def run_ext_publish(
     )
     from modules.target_config import EXTENSION
 
+    stores = _determine_stores()
     if not _check_publish_credentials(results, stores):
         return False
     if not _run_publish_steps(version, vsix_path, results, stores=stores):
