@@ -59,7 +59,9 @@ final class DriftViewerOverlay extends StatelessWidget {
   @override
   @useResult
   Widget build(BuildContext _) {
-    if (!isDriftViewerOverlayVisible) return child;
+    if (!isDriftViewerOverlayVisible) {
+      return child;
+    }
 
     return Stack(
       clipBehavior: Clip.none,

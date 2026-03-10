@@ -63,7 +63,9 @@ final class DriftDebugSessionStore {
     // Evict oldest sessions when at capacity.
     while (_sessions.length >= maxSessions) {
       final oldest = _sessions.keys.firstOrNull;
-      if (oldest == null) break;
+      if (oldest == null) {
+        break;
+      }
       _sessions.remove(oldest);
     }
 
@@ -100,11 +102,15 @@ final class DriftDebugSessionStore {
     required String author,
   }) {
     final session = _sessions[id];
-    if (session == null) return false;
+    if (session == null) {
+      return false;
+    }
 
     final annotations = session[keyAnnotations];
 
-    if (annotations is! List<Map<String, dynamic>>) return false;
+    if (annotations is! List<Map<String, dynamic>>) {
+      return false;
+    }
 
     annotations.add(<String, dynamic>{
       keyText: text,

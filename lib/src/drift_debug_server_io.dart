@@ -91,9 +91,13 @@ class _DriftDebugServerImpl {
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
   }) async {
-    if (!enabled) return;
+    if (!enabled) {
+      return;
+    }
     final existing = _server;
-    if (existing != null) return;
+    if (existing != null) {
+      return;
+    }
 
     // Defensive: reject invalid port and partial Basic auth.
     if (port < ServerConstants.minPort || port > ServerConstants.maxPort) {
@@ -141,7 +145,9 @@ class _DriftDebugServerImpl {
 
       _server = await HttpServer.bind(address, port);
       final server = _server;
-      if (server == null) return;
+      if (server == null) {
+        return;
+      }
 
       _serverSubscription = server.listen(_router!.onRequest);
 
@@ -162,7 +168,9 @@ class _DriftDebugServerImpl {
   /// Stops the server if running and clears stored state.
   Future<void> stop() async {
     final server = _server;
-    if (server == null) return;
+    if (server == null) {
+      return;
+    }
 
     await _serverSubscription?.cancel();
     _serverSubscription = null;
@@ -195,7 +203,9 @@ mixin DriftDebugServer {
 
   static _DriftDebugServerImpl get _instance {
     final existing = _instanceStorage;
-    if (existing != null) return existing;
+    if (existing != null) {
+      return existing;
+    }
 
     final created = _DriftDebugServerImpl();
     _instanceStorage = created;

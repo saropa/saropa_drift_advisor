@@ -20,7 +20,9 @@ final class SqlHandler {
   /// Validates read-only; returns {"rows": [...]}.
   Future<void> handleRunSql(HttpRequest request, DriftDebugQuery query) async {
     final sql = await _readAndValidateSqlBody(request);
-    if (sql == null) return;
+    if (sql == null) {
+      return;
+    }
     final res = request.response;
     try {
       final dynamic raw = await query(sql);
@@ -44,7 +46,9 @@ final class SqlHandler {
   Future<void> handleExplainSql(
       HttpRequest request, DriftDebugQuery query) async {
     final sql = await _readAndValidateSqlBody(request);
-    if (sql == null) return;
+    if (sql == null) {
+      return;
+    }
     final res = request.response;
     try {
       final explainSql = 'EXPLAIN QUERY PLAN $sql';
@@ -70,7 +74,9 @@ final class SqlHandler {
   /// WITH...SELECT only. Rejects INSERT/UPDATE/DELETE and DDL.
   bool isReadOnlySql(String sql) {
     final trimmed = sql.trim();
-    if (trimmed.isEmpty) return false;
+    if (trimmed.isEmpty) {
+      return false;
+    }
     final noLineComments = trimmed.replaceAll(RegExp(r'--[^\n]*'), ' ');
     final noBlockComments =
         noLineComments.replaceAll(RegExp(r'/\*[\s\S]*?\*/'), ' ');
@@ -88,10 +94,13 @@ final class SqlHandler {
       final after = ServerContext.safeSubstring(sqlNoStrings,
               start: firstSemicolon + ServerConstants.indexAfterSemicolon)
           .trim();
-      if (after.isNotEmpty) return false;
+      if (after.isNotEmpty) {
+        return false;
+      }
     }
     final withoutTrailingSemicolon = sqlNoStrings.endsWith(';')
-        ? ServerContext.safeSubstring(sqlNoStrings, start: 0,
+        ? ServerContext.safeSubstring(sqlNoStrings,
+                start: 0,
                 end: sqlNoStrings.length - ServerConstants.indexAfterSemicolon)
             .trim()
         : sqlNoStrings;
@@ -120,7 +129,9 @@ final class SqlHandler {
     final words = RegExp(r'\b\w+\b');
     for (final match in words.allMatches(upper)) {
       final word = match.group(0);
-      if (word != null && forbidden.contains(word)) return false;
+      if (word != null && forbidden.contains(word)) {
+        return false;
+      }
     }
 
     return true;

@@ -49,11 +49,17 @@ class QueryTiming {
 extension type SqlRequestBody(String sql) implements Object {
   /// Validates shape and returns null on invalid (require_api_response_validation).
   static SqlRequestBody? fromJson(Object? decoded) {
-    if (decoded is! Map<String, dynamic>) return null;
+    if (decoded is! Map<String, dynamic>) {
+      return null;
+    }
     final raw = decoded[ServerConstants.jsonKeySql];
-    if (raw is! String) return null;
+    if (raw is! String) {
+      return null;
+    }
     final trimmedSql = raw.trim();
-    if (trimmedSql.isEmpty) return null;
+    if (trimmedSql.isEmpty) {
+      return null;
+    }
     return SqlRequestBody(trimmedSql);
   }
 }

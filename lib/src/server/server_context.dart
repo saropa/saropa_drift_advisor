@@ -139,7 +139,9 @@ final class ServerContext {
   /// [ServerConstants.longPollTimeout].
   bool get isExtensionConnected {
     final last = _lastExtensionSeen;
-    if (last == null) return false;
+    if (last == null) {
+      return false;
+    }
     return DateTime.now().toUtc().difference(last).inSeconds <
         ServerConstants.longPollTimeout.inSeconds;
   }
@@ -282,7 +284,9 @@ final class ServerContext {
   /// Runs a lightweight fingerprint of table row
   /// counts; bumps [generation] when it changes.
   Future<void> checkDataChange() async {
-    if (isChangeCheckInProgress) return;
+    if (isChangeCheckInProgress) {
+      return;
+    }
     isChangeCheckInProgress = true;
     try {
       final tables = await getTableNames(instrumentedQuery);
@@ -347,8 +351,12 @@ final class ServerContext {
   static List<Map<String, dynamic>> normalizeRows(
     dynamic raw,
   ) {
-    if (raw == null) return [];
-    if (raw is! List) return [];
+    if (raw == null) {
+      return [];
+    }
+    if (raw is! List) {
+      return [];
+    }
 
     final out = <Map<String, dynamic>>[];
 
@@ -408,7 +416,9 @@ final class ServerContext {
   /// Returns [ServerConstants.defaultLimit] when
   /// [value] is null or not a valid positive integer.
   static int parseLimit(String? value) {
-    if (value == null) return ServerConstants.defaultLimit;
+    if (value == null) {
+      return ServerConstants.defaultLimit;
+    }
 
     final int? n = int.tryParse(value);
 
@@ -428,11 +438,15 @@ final class ServerContext {
   /// non-negative integer; caps at
   /// [ServerConstants.maxOffset].
   static int parseOffset(String? value) {
-    if (value == null) return 0;
+    if (value == null) {
+      return 0;
+    }
 
     final int? n = int.tryParse(value);
 
-    if (n == null || n < 0) return 0;
+    if (n == null || n < 0) {
+      return 0;
+    }
 
     return n > ServerConstants.maxOffset ? ServerConstants.maxOffset : n;
   }
@@ -443,9 +457,15 @@ final class ServerContext {
   /// null, unquoted for numbers, quoted for strings,
   /// and X'...' for byte lists.
   static String sqlLiteral(Object? value) {
-    if (value == null) return 'NULL';
-    if (value is num) return value.toString();
-    if (value is bool) return value ? '1' : '0';
+    if (value == null) {
+      return 'NULL';
+    }
+    if (value is num) {
+      return value.toString();
+    }
+    if (value is bool) {
+      return value ? '1' : '0';
+    }
 
     if (value is String) {
       final escaped = value.replaceAll(r'\', r'\\').replaceAll("'", "''");
@@ -481,15 +501,21 @@ final class ServerContext {
     required int start,
     int? end,
   }) {
-    if (start < 0 || start >= s.length) return '';
+    if (start < 0 || start >= s.length) {
+      return '';
+    }
 
     final endIndex = end ?? s.length;
 
-    if (endIndex <= start) return '';
+    if (endIndex <= start) {
+      return '';
+    }
 
     final safeEnd = endIndex > s.length ? s.length : endIndex;
 
-    if (start >= safeEnd) return '';
+    if (start >= safeEnd) {
+      return '';
+    }
 
     return s.replaceRange(safeEnd, s.length, '').replaceRange(0, start, '');
   }
@@ -590,9 +616,15 @@ final class ServerContext {
   /// Returns null when [value] is not a number or
   /// parseable string.
   static double? toDouble(Object? value) {
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    if (value is String) return double.tryParse(value);
+    if (value is double) {
+      return value;
+    }
+    if (value is int) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value);
+    }
 
     return null;
   }

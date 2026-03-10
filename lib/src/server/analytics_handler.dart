@@ -149,7 +149,9 @@ final class AnalyticsHandler {
 
     try {
       int pragmaInt(List<Map<String, dynamic>> rows) {
-        if (rows.isEmpty) return 0;
+        if (rows.isEmpty) {
+          return 0;
+        }
 
         final v = rows.first.values.firstOrNull;
 
@@ -337,7 +339,9 @@ final class AnalyticsHandler {
         ),
       ),
     );
-    if (nullCount == 0) return;
+    if (nullCount == 0) {
+      return;
+    }
 
     final pct = tableRowCount > 0 ? (nullCount / tableRowCount * 100) : 0;
 
@@ -366,7 +370,9 @@ final class AnalyticsHandler {
         ),
       ),
     );
-    if (emptyCount == 0) return;
+    if (emptyCount == 0) {
+      return;
+    }
 
     anomalies.add(<String, dynamic>{
       'table': tableName,
@@ -390,7 +396,9 @@ final class AnalyticsHandler {
       'MAX("$colName") AS max_val '
       'FROM "$tableName" WHERE "$colName" IS NOT NULL',
     ));
-    if (statsRows.isEmpty) return;
+    if (statsRows.isEmpty) {
+      return;
+    }
 
     final avg = ServerContext.toDouble(statsRows.first['avg_val']);
     final min = ServerContext.toDouble(statsRows.first['min_val']);
