@@ -5,11 +5,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **pub.dev** — [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer)
 
-## [0.3.0]
+## [0.3.0] - Unreleased
 
 This release improves everyday usability with a visual query builder, smarter data formatting, per-table state persistence, and one-click cell copying.
 
 ### Added
+
+- **VS Code extension: Isar-to-Drift schema generator** — Convert Isar `@collection` classes to Drift table definitions. Scan the workspace to auto-discover all `@collection` / `@embedded` files, or manually pick Dart source files or Isar JSON schema exports. The parser extracts collections, embedded objects, links, indexes, and enum fields. Type mapper converts Isar types to Drift column types, generates foreign key columns for `IsarLink`, junction tables for `IsarLinks`, and supports configurable strategies for embedded objects (JSON serialization or column flattening) and enums (ordinal int or name text). Interactive webview panel shows a live preview of the generated Drift code with options to copy, open as editor tab, or save to file. New files: `isar-gen/isar-gen-types.ts`, `isar-gen/isar-parser.ts`, `isar-gen/isar-json-parser.ts`, `isar-gen/isar-type-mapper.ts`, `isar-gen/isar-drift-codegen.ts`, `isar-gen/isar-gen-panel.ts`, `isar-gen/isar-gen-html.ts`, `isar-gen/isar-gen-commands.ts`, `isar-gen/isar-workspace-scanner.ts`.
 
 - **VS Code extension: Pre-launch health check tasks** — Register VS Code tasks ("Drift: Health Check", "Drift: Anomaly Scan", "Drift: Index Coverage") that can be wired into `launch.json` as `preLaunchTask` to automatically scan for database issues every time you press F5. Tasks use `CustomExecution` with a `Pseudoterminal` for formatted terminal output showing connection status, index coverage gaps, and data anomalies with severity icons. Exit code 1 blocks launch when errors are found; warnings pass by default (configurable via `driftViewer.tasks.blockOnWarnings`). A `drift-health` problem matcher routes task output to the Problems panel. New API client methods: `indexSuggestions()`, `anomalies()`. New files: `tasks/drift-task-provider.ts`, `tasks/health-check-runner.ts`.
 

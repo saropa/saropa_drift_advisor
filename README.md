@@ -24,54 +24,9 @@ Your app runs a lightweight debug server that exposes database tables over HTTP.
 
 ## VS Code Extension
 
-Install **Drift Viewer** (`saropa.drift-viewer`) from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer). The extension auto-discovers running debug servers and provides full IDE integration.
+Install **Drift Viewer** (`saropa.drift-viewer`) from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer). The extension auto-discovers running debug servers and provides full IDE integration: database explorer tree view, Go to Definition, CodeLens, SQL notebook, schema diff, data editing, snapshots, and more.
 
-### Database Explorer
-- **Tree view** in the activity bar — tables, columns (with type icons), foreign keys, row counts
-- **Auto-refresh** when your app writes to the database
-- Right-click: View Data, Copy Name, Export CSV, Watch Table
-
-### Code Intelligence (Dart files)
-- **Go to Definition** (F12) on SQL table/column names in Dart strings
-- **CodeLens** on Drift table classes — row counts, quick actions
-- **Hover preview** — see recent rows when hovering over table class names
-- **Schema linter** — diagnostics on table definitions with quick-fix suggestions
-
-### Query Tools
-- **SQL Notebook** — multi-statement editor with autocomplete, results grid, and charts
-- **EXPLAIN panel** — color-coded query plan with index suggestions
-- **Live Watch** — monitor queries in real time with diff highlighting
-
-### Schema & Migration
-- **Schema Diff** — compare code-defined tables vs runtime schema, generate migration SQL
-- **Schema Diagram** — ER-style visualization of tables and foreign key relationships
-- **Generate Dart** — scaffold Drift table classes from the runtime schema
-- **Migration Preview** — preview migration DDL from compare-database results
-
-### Data Management
-- **Import Data** — wizard for importing JSON, CSV, or SQL files into tables
-- **Data Editing** — track cell edits, row inserts/deletes, generate SQL statements
-- **Export SQL Dump** — full schema + data export to `.sql` file
-- **Download Database** — save the raw `.db` file locally
-
-### Debugging
-- **Query Performance** — debug sidebar showing slow queries, timing, and stats
-- **Snapshot Timeline** — capture database snapshots, compare to current state
-- **Database Comparison** — diff two databases (schema + row counts)
-- **Size Analytics** — dashboard with storage breakdown, table sizes, index info
-- **Terminal Links** — clickable SQLite error messages in the terminal
-- **Pre-launch Tasks** — health check, anomaly scan, index coverage before app launch
-
-### Sessions & Collaboration
-- **Share Session** — snapshot current state and copy a shareable URL
-- **Open Session** — view a shared session by ID
-- **Annotate Session** — add notes to shared sessions
-
-### Other
-- **File Badges** — row count badges on Drift table files in the explorer
-- **Auto-discovery** — scans ports 8642-8649 for running debug servers
-- **Auth support** — configure `driftViewer.authToken` for token-protected servers
-- **Saropa Log Capture** integration — mirrors query events to the log capture extension
+See the [extension README](extension/README.md) for the full feature list, configuration, and command reference.
 
 ---
 

@@ -39,6 +39,7 @@ Works in Dart files with Drift table definitions:
 - **Schema Diff** — compare code-defined tables vs runtime schema
 - **Schema Diagram** — ER-style visualization of tables and FK relationships
 - **Generate Dart** — scaffold Drift table classes from the runtime schema
+- **Isar-to-Drift Generator** — scan workspace or pick files to convert Isar `@collection` classes (Dart source or JSON schema) to Drift table definitions with configurable embedded/enum strategies
 - **Migration Preview** — preview migration DDL from database comparison
 
 ### Data Management
