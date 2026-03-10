@@ -25,6 +25,12 @@
     "views": {
       "driftViewer": [
         {
+          "id": "driftViewer.schemaSearch",
+          "name": "Schema Search",
+          "type": "webview",
+          "when": "driftViewer.serverConnected"
+        },
+        {
           "id": "driftViewer.databaseExplorer",
           "name": "Database"
         },
@@ -65,8 +71,9 @@
         "title": "Copy Table Name"
       },
       {
-        "command": "driftViewer.exportTableCsv",
-        "title": "Export as CSV"
+        "command": "driftViewer.exportTable",
+        "title": "Export Table\u2026",
+        "icon": "$(export)"
       },
       {
         "command": "driftViewer.copyColumnName",
@@ -330,6 +337,25 @@
         "command": "driftViewer.isarToDrift",
         "title": "Drift Viewer: Generate Drift from Isar Schema",
         "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "driftViewer.openSnippetLibrary",
+        "title": "Drift Viewer: Open SQL Snippet Library",
+        "icon": "$(notebook)"
+      },
+      {
+        "command": "driftViewer.saveAsSnippet",
+        "title": "Drift Viewer: Save Query as Snippet"
+      },
+      {
+        "command": "driftViewer.pinTable",
+        "title": "Pin Table",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "driftViewer.unpinTable",
+        "title": "Unpin Table",
+        "icon": "$(pinned)"
       }
     ],
     "menus": {
@@ -378,6 +404,16 @@
           "command": "driftViewer.openBookmarks",
           "when": "view == driftViewer.databaseExplorer",
           "group": "navigation"
+        },
+        {
+          "command": "driftViewer.isarToDrift",
+          "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.openSnippetLibrary",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation"
         }
       ],
       "editor/context": [
@@ -389,18 +425,28 @@
       ],
       "view/item/context": [
         {
-          "command": "driftViewer.viewTableData",
+          "command": "driftViewer.pinTable",
           "when": "viewItem == driftTable",
+          "group": "0_pin"
+        },
+        {
+          "command": "driftViewer.unpinTable",
+          "when": "viewItem == driftTablePinned",
+          "group": "0_pin"
+        },
+        {
+          "command": "driftViewer.viewTableData",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "1_view"
         },
         {
           "command": "driftViewer.copyTableName",
-          "when": "viewItem == driftTable",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "2_copy"
         },
         {
-          "command": "driftViewer.exportTableCsv",
-          "when": "viewItem == driftTable",
+          "command": "driftViewer.exportTable",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "3_export"
         },
         {
@@ -420,37 +466,37 @@
         },
         {
           "command": "driftViewer.watchTable",
-          "when": "viewItem == driftTable",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "4_watch"
         },
         {
           "command": "driftViewer.compareRows",
-          "when": "viewItem == driftTable",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "5_compare"
         },
         {
           "command": "driftViewer.seedTable",
-          "when": "viewItem == driftTable",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "6_data"
         },
         {
           "command": "driftViewer.clearTable",
-          "when": "viewItem == driftTable",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "6_data"
         },
         {
           "command": "driftViewer.addDataBreakpoint",
-          "when": "viewItem == driftTable",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "7_breakpoint"
         },
         {
           "command": "driftViewer.constraintWizard",
-          "when": "viewItem == driftTable",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "9_constraints"
         },
         {
           "command": "driftViewer.annotateTable",
-          "when": "viewItem == driftTable",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "8_annotate"
         },
         {
@@ -637,6 +683,11 @@
           "default": 1000,
           "description": "Minimum interval between breakpoint evaluations (ms)."
         },
+        "driftViewer.fkHyperlinks.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show foreign key values as clickable links in table data views."
+        },
         "driftViewer.seeder.defaultRowCount": {
           "type": "number",
           "default": 100,
@@ -650,6 +701,13 @@
           "minimum": 0,
           "maximum": 1,
           "description": "Probability of generating NULL for nullable columns (0.0-1.0)."
+        },
+        "driftViewer.sqlNotebook.maxHistory": {
+          "type": "number",
+          "default": 200,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "Maximum number of SQL queries to keep in history."
         }
       }
     }

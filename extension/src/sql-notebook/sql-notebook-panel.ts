@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DriftApiClient } from '../api-client';
+import { QueryHistoryStore } from './query-history-store';
 import { getNotebookHtml } from './sql-notebook-html';
 
 /** Persisted query history entry. */
@@ -11,9 +12,6 @@ export interface IQueryHistoryEntry {
   error?: string;
 }
 
-const HISTORY_KEY = 'driftViewer.sqlNotebookHistory';
-const MAX_HISTORY = 50;
-
 /**
  * Singleton webview panel providing an interactive SQL query notebook
  * with schema-aware autocomplete, sortable results, explain
@@ -24,7 +22,7 @@ export class SqlNotebookPanel {
 
   private readonly _panel: vscode.WebviewPanel;
   private readonly _client: DriftApiClient;
-  private readonly _globalState: vscode.Memento;
+  private readonly _history: QueryHistoryStore;
   private _disposed = false;
   private _disposables: vscode.Disposable[] = [];
 
@@ -59,7 +57,7 @@ export class SqlNotebookPanel {
   ) {
     this._panel = panel;
     this._client = client;
-    this._globalState = context.globalState;
+    this._history = new QueryHistoryStore(context.globalState);
 
     this._panel.onDidDispose(
       () => this.dispose(),
@@ -77,7 +75,7 @@ export class SqlNotebookPanel {
 
     // Send schema on first load (async, fire-and-forget).
     void this._sendSchema();
-    this._sendHistory();
+    this._postHistoryResults('');
   }
 
   private async _handleMessage(msg: {
@@ -85,7 +83,9 @@ export class SqlNotebookPanel {
     sql?: string;
     tabId?: string;
     text?: string;
-    history?: IQueryHistoryEntry[];
+    query?: string;
+    timestamp?: number;
+    entry?: IQueryHistoryEntry;
   }): Promise<void> {
     switch (msg.command) {
       case 'execute':
@@ -100,11 +100,26 @@ export class SqlNotebookPanel {
       case 'copyToClipboard':
         await vscode.env.clipboard.writeText(msg.text!);
         break;
-      case 'saveHistory':
-        await this._saveHistory(msg.history!);
+      case 'addHistoryEntry':
+        await this._history.add(msg.entry!);
+        this._postHistoryResults('');
         break;
       case 'loadHistory':
-        this._sendHistory();
+        this._postHistoryResults('');
+        break;
+      case 'searchHistory':
+        this._postHistoryResults(msg.query ?? '');
+        break;
+      case 'deleteHistoryEntry':
+        await this._history.delete(msg.timestamp!);
+        this._postHistoryResults(msg.query ?? '');
+        break;
+      case 'clearHistory':
+        await this._history.clear();
+        this._postHistoryResults('');
+        break;
+      case 'loadHistoryEntry':
+        this._loadHistoryEntry(msg.timestamp!);
         break;
     }
   }
@@ -156,19 +171,24 @@ export class SqlNotebookPanel {
     }
   }
 
-  private _sendHistory(): void {
-    const entries = this._globalState.get<IQueryHistoryEntry[]>(
-      HISTORY_KEY,
-      [],
-    );
-    this._post({ command: 'history', entries });
+  private _postHistoryResults(query: string): void {
+    const all = this._history.getAll();
+    const entries = query ? this._history.search(query) : all;
+    this._post({
+      command: 'historyResults',
+      entries,
+      query,
+      total: all.length,
+    });
   }
 
-  private async _saveHistory(
-    entries: IQueryHistoryEntry[],
-  ): Promise<void> {
-    const trimmed = entries.slice(0, MAX_HISTORY);
-    await this._globalState.update(HISTORY_KEY, trimmed);
+  private _loadHistoryEntry(timestamp: number): void {
+    const entry = this._history.getAll().find(
+      (e) => e.timestamp === timestamp,
+    );
+    if (entry) {
+      this._post({ command: 'loadEntry', sql: entry.sql });
+    }
   }
 
   private _post(msg: unknown): void {
