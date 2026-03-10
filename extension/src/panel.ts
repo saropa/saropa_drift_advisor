@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { EditingBridge } from './editing/editing-bridge';
+import { FkNavigator } from './navigation/fk-navigator';
 
 export class DriftViewerPanel {
   public static currentPanel: DriftViewerPanel | undefined;
@@ -11,6 +12,7 @@ export class DriftViewerPanel {
     host: string,
     port: number,
     editingBridge?: EditingBridge,
+    fkNavigator?: FkNavigator,
   ): void {
     const column = vscode.ViewColumn.Beside;
     if (DriftViewerPanel.currentPanel) {
@@ -28,7 +30,7 @@ export class DriftViewerPanel {
       },
     );
     DriftViewerPanel.currentPanel = new DriftViewerPanel(
-      panel, host, port, editingBridge,
+      panel, host, port, editingBridge, fkNavigator,
     );
   }
 
@@ -37,12 +39,16 @@ export class DriftViewerPanel {
     host: string,
     port: number,
     private readonly _editingBridge?: EditingBridge,
+    private readonly _fkNavigator?: FkNavigator,
   ) {
     this._panel = panel;
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
     if (this._editingBridge) {
       this._editingBridge.attach(this._panel.webview);
+    }
+    if (this._fkNavigator) {
+      this._fkNavigator.attach(this._panel.webview);
     }
 
     // Listen for messages from the webview
@@ -51,6 +57,10 @@ export class DriftViewerPanel {
         if (msg.command === 'retry') {
           this._loadContent(host, port);
           return;
+        }
+        // Forward to FK navigator
+        if (this._fkNavigator) {
+          if (this._fkNavigator.handleMessage(msg)) return;
         }
         // Forward editing messages to the bridge
         if (this._editingBridge) {
@@ -103,6 +113,12 @@ export class DriftViewerPanel {
         html = html.replace('</body>', `<script>${script}</script></body>`);
       }
 
+      // Inject FK navigation script if navigator is available
+      if (this._fkNavigator) {
+        const fkScript = FkNavigator.injectedScript();
+        html = html.replace('</body>', `<script>${fkScript}</script></body>`);
+      }
+
       this._panel.webview.html = html;
     } catch {
       if (this._disposed) return;
@@ -124,6 +140,9 @@ export class DriftViewerPanel {
     DriftViewerPanel.currentPanel = undefined;
     if (this._editingBridge) {
       this._editingBridge.detach();
+    }
+    if (this._fkNavigator) {
+      this._fkNavigator.detach();
     }
     this._panel.dispose();
     this._disposables.forEach((d) => d.dispose());
