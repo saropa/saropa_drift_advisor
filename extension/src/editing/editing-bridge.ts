@@ -122,7 +122,7 @@ export class EditingBridge implements vscode.Disposable {
  */
 const EDITING_SCRIPT = `
 (function() {
-  const vscodeApi = acquireVsCodeApi();
+  const vscodeApi = window._vscodeApi || (window._vscodeApi = acquireVsCodeApi());
   let pendingChanges = [];
   let editingEnabled = true;
 
