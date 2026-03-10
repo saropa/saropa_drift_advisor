@@ -178,6 +178,10 @@
       {
         "command": "driftViewer.schemaDiff",
         "title": "Drift Viewer: Schema Diff (Code vs Runtime)"
+      },
+      {
+        "command": "driftViewer.generateDart",
+        "title": "Drift Viewer: Generate Dart from Schema"
       }
     ],
     "menus": {

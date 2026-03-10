@@ -67,8 +67,9 @@ describe('Extension activation', () => {
     // Discovery: discovery, serverManager (2)
     // Lifecycle: watcher, statusBar, perfView, logBridge, 2 debug listeners,
     //   perf cleanup, snapshotStore (8)
-    // Total = 56
-    assert.strictEqual(subscriptions.length, 56, `expected 56 disposables, got ${subscriptions.length}`);
+    // Codegen: generateDart (1)
+    // Total = 57
+    assert.strictEqual(subscriptions.length, 57, `expected 57 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
