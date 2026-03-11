@@ -15,12 +15,12 @@ Save named filter/sort/column-visibility configurations per table and switch bet
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║  TABLE: orders                                               ║
-║  Filter: [Recent Failed ▼]  [Save] [Clear]                  ║
+║  Filter: [Recent Failed ▼]  [Save] [Clear]                   ║
 ║  ┌──────────────────────┐                                    ║
-║  │ ● Recent Failed      │  WHERE: status = 'failed'         ║
-║  │   All Rows           │    AND created_at > '2026-03-01'  ║
+║  │ ● Recent Failed      │  WHERE: status = 'failed'          ║
+║  │   All Rows           │    AND created_at > '2026-03-01'   ║
 ║  │   High Value         │  Sort: created_at DESC             ║
-║  │   Pending Review     │  Show: id, user_id, total, status ║
+║  │   Pending Review     │  Show: id, user_id, total, status  ║
 ║  └──────────────────────┘                                    ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  id  │ user_id │ total  │ status │                           ║
@@ -58,12 +58,12 @@ extension/src/sql-notebook/sql-notebook-panel.ts  # Optional: load filter as SQL
 
 ```typescript
 interface ISavedFilter {
-  id: string;           // crypto.randomUUID()
+  id: string; // crypto.randomUUID()
   name: string;
   table: string;
-  where?: string;       // SQL WHERE clause (without WHERE keyword)
-  orderBy?: string;     // e.g. "created_at DESC"
-  columns?: string[];   // Visible columns (undefined = all)
+  where?: string; // SQL WHERE clause (without WHERE keyword)
+  orderBy?: string; // e.g. "created_at DESC"
+  columns?: string[]; // Visible columns (undefined = all)
   createdAt: number;
   updatedAt: number;
 }
@@ -72,7 +72,7 @@ interface ISavedFilter {
 ### Filter Store
 
 ```typescript
-const FILTER_KEY = 'driftViewer.savedFilters';
+const FILTER_KEY = "driftViewer.savedFilters";
 
 class FilterStore {
   private readonly _onDidChange = new vscode.EventEmitter<string>();
@@ -81,12 +81,12 @@ class FilterStore {
   constructor(private readonly _state: vscode.Memento) {}
 
   getForTable(table: string): ISavedFilter[] {
-    return this._getAll().filter(f => f.table === table);
+    return this._getAll().filter((f) => f.table === table);
   }
 
   async save(filter: ISavedFilter): Promise<void> {
     const all = this._getAll();
-    const idx = all.findIndex(f => f.id === filter.id);
+    const idx = all.findIndex((f) => f.id === filter.id);
     if (idx >= 0) {
       all[idx] = { ...filter, updatedAt: Date.now() };
     } else {
@@ -98,8 +98,8 @@ class FilterStore {
 
   async delete(id: string): Promise<void> {
     const all = this._getAll();
-    const filter = all.find(f => f.id === id);
-    const updated = all.filter(f => f.id !== id);
+    const filter = all.find((f) => f.id === id);
+    const updated = all.filter((f) => f.id !== id);
     await this._state.update(FILTER_KEY, updated);
     if (filter) this._onDidChange.fire(filter.table);
   }
@@ -116,7 +116,7 @@ The filter is applied by constructing a SQL query:
 
 ```typescript
 function buildFilteredQuery(table: string, filter: ISavedFilter): string {
-  const cols = filter.columns?.map(c => `"${c}"`).join(', ') ?? '*';
+  const cols = filter.columns?.map((c) => `"${c}"`).join(", ") ?? "*";
   let sql = `SELECT ${cols} FROM "${table}"`;
   if (filter.where) sql += ` WHERE ${filter.where}`;
   if (filter.orderBy) sql += ` ORDER BY ${filter.orderBy}`;
@@ -127,6 +127,7 @@ function buildFilteredQuery(table: string, filter: ISavedFilter): string {
 ### Webview Message Protocol
 
 Webview → Extension:
+
 ```typescript
 { command: 'getFilters', table: string }
 { command: 'saveFilter', filter: ISavedFilter }
@@ -136,6 +137,7 @@ Webview → Extension:
 ```
 
 Extension → Webview:
+
 ```typescript
 { command: 'filters', table: string, filters: ISavedFilter[] }
 { command: 'filterApplied', filter: ISavedFilter, rows: unknown[], columns: string[] }
@@ -154,10 +156,10 @@ None. Filters are built as SQL and executed via existing `sql()` endpoint.
     "commands": [
       {
         "command": "driftViewer.saveFilter",
-        "title": "Saropa Drift Advisor: Save Current Filter"
-      }
-    ]
-  }
+        "title": "Saropa Drift Advisor: Save Current Filter",
+      },
+    ],
+  },
 }
 ```
 
@@ -171,7 +173,7 @@ None. Filters are built as SQL and executed via existing `sql()` endpoint.
   - Multiple filters per table sorted by creation order
   - `onDidChange` fires with correct table name
   - Empty `where` and `orderBy` are optional (omit from query)
-  - Column list of `undefined` means SELECT *
+  - Column list of `undefined` means SELECT \*
   - Filter ID is unique across all tables
   - Filter with SQL injection in WHERE is passed through (server validates)
 
