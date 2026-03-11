@@ -5,6 +5,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **pub.dev** — [saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
 
+## [Unreleased]
+
+### Added
+
+- **Row Impact Analysis** — Right-click any table and select "Analyze Row Impact" to see what breaks if you delete a row. Shows outbound dependencies (parents), inbound dependents grouped by table with counts, cascade delete summary, and generates safe DELETE SQL in correct FK order.
+
 ## [0.4.0]
 
 ### Removed

@@ -1,7 +1,8 @@
 /**
- * Shared test fixtures for lineage-tracer tests.
+ * Shared test fixtures for lineage and impact analysis tests.
  */
 
+import { ImpactAnalyzer } from '../impact/impact-analyzer';
 import { LineageTracer } from '../lineage/lineage-tracer';
 
 export interface ISqlResult {
@@ -55,4 +56,23 @@ export function sqlResult(
   columns: string[], ...rows: unknown[][]
 ): ISqlResult {
   return { columns, rows };
+}
+
+/** Build a minimal mock client that returns an ImpactAnalyzer for testing. */
+export function mockImpactClient(opts: {
+  tables: ITableMeta[];
+  fks: Record<string, IFkResult[]>;
+  rows: Record<string, ISqlResult>;
+}): InstanceType<typeof ImpactAnalyzer> {
+  const client = {
+    schemaMetadata: async () => opts.tables,
+    tableFkMeta: async (name: string) => opts.fks[name] ?? [],
+    sql: async (query: string) => {
+      for (const [key, val] of Object.entries(opts.rows)) {
+        if (query.includes(key)) return val;
+      }
+      return { columns: [], rows: [] };
+    },
+  };
+  return new ImpactAnalyzer(client as never);
 }

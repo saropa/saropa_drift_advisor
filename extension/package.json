@@ -92,6 +92,10 @@
         "title": "Filter by Column"
       },
       {
+        "command": "driftViewer.saveFilter",
+        "title": "Saropa Drift Advisor: Save Current Filter"
+      },
+      {
         "command": "driftViewer.viewTableInPanel",
         "title": "Saropa Drift Advisor: View Table"
       },
