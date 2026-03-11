@@ -5,7 +5,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **pub.dev** — [saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
 
-## [0.3.0] - Unreleased
+## [0.3.1] - Unreleased
+
+- Added MIT license for Open VSX release.
+- Refactored extension source to enforce 300-line file limit: split `extension.ts` (1359→300 lines) into 9 command modules plus a status-bar utility, split `vscode-mock.ts` (719→299 lines) into 3 files, extracted `seeder-html-shell.ts` from `seeder-html.ts`, and extracted shared test fixtures from 7 test files.
+- Renamed all user-facing display text from "Drift Viewer" to "Saropa Drift Advisor" across extension commands, activity bar, status bar, generated code comments, documentation, and example app.
+
+## [0.3.0]
 
 **Package renamed from `saropa_drift_viewer` to `saropa_drift_advisor`.**
 Update your `pubspec.yaml` dependency and replace `package:saropa_drift_viewer/`
@@ -21,7 +27,7 @@ This release also improves everyday usability with a visual query builder, smart
 
 - **VS Code extension: Peek / Go to Definition for SQL names** — Place the cursor on a table or column name inside a raw SQL string in Dart code, then press Alt+F12 (Peek Definition) or F12 (Go to Definition) to jump to the corresponding Drift table class or column getter. Table names are resolved via snake_case-to-PascalCase conversion (e.g. `users` → `class Users extends Table`), and column names match both snake_case and camelCase getters (e.g. `created_at` → `get createdAt`). Schema metadata is cached from the API with 30-second TTL and auto-cleared on generation changes. New files: `definition/drift-definition-provider.ts`, `definition/sql-string-detector.ts`.
 
-- **VS Code extension: CodeLens on Drift table classes** — Inline annotations appear above `class ... extends Table` definitions in Dart files. Each table class shows a live row count from the running server (e.g. "42 rows"), a "View in Drift Viewer" action that opens the webview panel, and a "Run Query" action that executes `SELECT *` and opens the results as JSON in a side editor. Row counts update automatically via the generation watcher. When the server is offline, lenses show "not connected". Dart PascalCase class names are mapped to SQL snake_case table names with case-insensitive fallback. New files: `codelens/drift-codelens-provider.ts`, `codelens/table-name-mapper.ts`. New commands: `driftViewer.viewTableInPanel`, `driftViewer.runTableQuery`.
+- **VS Code extension: CodeLens on Drift table classes** — Inline annotations appear above `class ... extends Table` definitions in Dart files. Each table class shows a live row count from the running server (e.g. "42 rows"), a "View in Saropa Drift Advisor" action that opens the webview panel, and a "Run Query" action that executes `SELECT *` and opens the results as JSON in a side editor. Row counts update automatically via the generation watcher. When the server is offline, lenses show "not connected". Dart PascalCase class names are mapped to SQL snake_case table names with case-insensitive fallback. New files: `codelens/drift-codelens-provider.ts`, `codelens/table-name-mapper.ts`. New commands: `driftViewer.viewTableInPanel`, `driftViewer.runTableQuery`.
 
 - **VS Code extension: Query Performance Panel in Debug sidebar** — Live-updating tree panel appears in the Run & Debug sidebar during active Dart debug sessions when the Drift server is connected. Shows aggregate stats (query count, total/avg duration), slow queries (>500ms with flame icon, >100ms with watch icon), and recent queries in collapsible categories. Click any query to view full SQL with duration, row count, and timestamp in a readonly editor. Auto-refreshes every 3 seconds (configurable via `driftViewer.performance.refreshIntervalMs`). Panel visibility controlled by compound `when` clause (`inDebugMode && driftViewer.serverConnected`) with server health check on debug session start. Toolbar buttons for manual refresh and clearing stats. Concurrency guard prevents overlapping refresh calls. New files: `debug/performance-items.ts`, `debug/performance-tree-provider.ts`. New commands: `driftViewer.refreshPerformance`, `driftViewer.clearPerformance`, `driftViewer.showQueryDetail`. New settings: `driftViewer.performance.slowThresholdMs`, `driftViewer.performance.refreshIntervalMs`.
 
@@ -108,7 +114,7 @@ In this release we focused on making the viewer more useful day to day: the tabl
 - **Defensive coding** — Param validation: port must be 0..65535 (ArgumentError otherwise); Basic auth requires both user and password or neither. Query result normalization: null or non-List/non-Map rows from the query callback are handled safely (empty list / skip invalid rows). Offset query param capped at 2M to avoid unbounded queries. Example app: init timeout (30s) with clear error message; AppDatabase.create() wrapped in try/catch with context; ViewerInitResult documented. New tests: port/auth validation, query throws → 500, query returns null → 200 empty list, unknown table → 400, limit/offset edge cases, empty getDatabaseBytes → 200, ErrorLogger empty prefix/message, extension non-List/bad row.data → 500, viewer_status errorMessage and running+url null.
 
 - **Example app** — Flutter example in `example/` (Drift DB + viewer); run from repo root with `flutter run -d windows`, then open http://127.0.0.1:8642. See [example/README.md](example/README.md).
-- **DevTools / IDE integration** — Run Task → "Open Drift Viewer" (`.vscode/tasks.json`) opens the viewer in the browser; optional minimal VS Code/Cursor extension in `extension/` with one command. Web UI supports URL hash `#TableName` so links open with that table selected.
+- **DevTools / IDE integration** — Run Task → "Open Saropa Drift Advisor" (`.vscode/tasks.json`) opens the viewer in the browser; optional minimal VS Code/Cursor extension in `extension/` with one command. Web UI supports URL hash `#TableName` so links open with that table selected.
 
 - **Live refresh** — Table view updates automatically when data changes (e.g. after the app writes). Server runs a lightweight change check every 2s (table row-count fingerprint); clients long-poll `GET /api/generation?since=N` and refetch table list and current table when the generation changes. UI shows "● Live" in the header and "Updating…" briefly during refresh. No manual refresh needed.
 - **Secure dev tunnel** — Optional `authToken` and/or HTTP Basic (`basicAuthUser` / `basicAuthPassword`) so the viewer can be used over ngrok or port forwarding without exposing an open server. When `authToken` is set, requests must include `Authorization: Bearer <token>` or `?token=<token>`. The web UI injects the token when opened with a valid `?token=` so all API calls are authenticated. See README “Secure dev tunnel”.
@@ -116,6 +122,7 @@ In this release we focused on making the viewer more useful day to day: the tabl
 - **SQL runner: query history** — The web UI remembers the last ~20 successful SQL runner queries in browser `localStorage` and offers a “History” dropdown to reuse them.
 
 <!-- cspell:ignore subosito -->
+
 - **Infrastructure** — CI workflow triggers aligned to default branch `master`; Dependabot grouping for `pub` and `github-actions` with `open-pull-requests-limit: 5`. Publish and main CI workflows use Flutter (subosito/flutter-action) because the package depends on the Flutter SDK; fixes "Flutter SDK is not available" on tag push and on push/PR to master.
 
 - **Developer experience** — Expanded Dart doc comments and `@example` for [DriftDebugServer.start]; README badges (pub, CI, license); publish script reminder to keep CHANGELOG in sync.
