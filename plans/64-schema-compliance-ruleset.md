@@ -19,17 +19,16 @@ Define team-wide schema conventions in a `.drift-rules.json` config file and val
 ║    "naming": {                                               ║
 ║      "tables": "snake_case",                                 ║
 ║      "columns": "snake_case",                                ║
-║      "fkColumns": "{table}_id",                              ║
-║      "indexes": "idx_{table}_{column}"                       ║
+║      "fkColumns": "{table}_id"                               ║
 ║    },                                                        ║
 ║    "requiredColumns": [                                      ║
-║      { "name": "created_at", "type": "INTEGER" },           ║
-║      { "name": "updated_at", "type": "INTEGER" }            ║
+║      { "name": "created_at", "type": "INTEGER" },            ║
+║      { "name": "updated_at", "type": "INTEGER" }             ║
 ║    ],                                                        ║
 ║    "rules": [                                                ║
 ║      { "rule": "no-text-primary-key" },                      ║
-║      { "rule": "require-fk-index" },                         ║
-║      { "rule": "max-columns", "max": 20 },                  ║
+║      { "rule": "max-columns", "max": 20 },                   ║
+║      { "rule": "require-pk" },                               ║
 ║      { "rule": "no-nullable-fk" }                            ║
 ║    ]                                                         ║
 ║  }                                                           ║
@@ -48,14 +47,80 @@ orders.dart:
   ❌ Line 3: Table "Orders" violates snake_case naming convention
 ```
 
+## Available Metadata
+
+Rules must be derived from data the extension already has. Here is what each source provides:
+
+### From `schemaMetadata()` → `TableMetadata[]`
+
+| Field | Type | Available |
+|-------|------|-----------|
+| `table.name` | `string` | ✓ |
+| `table.columns[].name` | `string` | ✓ |
+| `table.columns[].type` | `string` | ✓ (INTEGER, TEXT, REAL, BLOB) |
+| `table.columns[].pk` | `boolean` | ✓ |
+| `table.rowCount` | `number` | ✓ |
+
+### From `schemaDiagram()` → `IDiagramData`
+
+| Field | Type | Available |
+|-------|------|-----------|
+| `foreignKeys[].fromTable` | `string` | ✓ |
+| `foreignKeys[].fromColumn` | `string` | ✓ |
+| `foreignKeys[].toTable` | `string` | ✓ |
+| `foreignKeys[].toColumn` | `string` | ✓ |
+
+Better than per-table `tableFkMeta()` — gives all FKs in one call.
+
+### From Dart source parsing → `IDartTable[]` / `IDartColumn[]`
+
+| Field | Type | Available |
+|-------|------|-----------|
+| `column.nullable` | `boolean` | ✓ (from `.nullable()` in builder chain) |
+| `column.autoIncrement` | `boolean` | ✓ |
+| `table.fileUri` | `string` | ✓ |
+| `table.line` | `number` | ✓ (0-based) |
+| `column.line` | `number` | ✓ (0-based) |
+
+### From `sizeAnalytics()` → `ISizeAnalytics`
+
+| Field | Type | Available |
+|-------|------|-----------|
+| `table.indexCount` | `number` | ✓ |
+| `table.indexes` | `string[]` | ✓ (names only — no column mapping) |
+
+### NOT available
+
+| Field | Reason |
+|-------|--------|
+| Column nullability from DB | Would need `PRAGMA table_info()` — not exposed |
+| Index → column mapping | `indexes` is names only, no column info |
+
+## Rule Derivation
+
+Each rule maps to available metadata:
+
+| Rule | Data Source | Fields Used |
+|------|------------|-------------|
+| `naming.tables` | `TableMetadata.name` | name |
+| `naming.columns` | `ColumnMetadata.name` | name |
+| `naming.fkColumns` | `IDiagramForeignKey` | fromColumn, toTable |
+| `requiredColumns` | `TableMetadata.columns` | name, type |
+| `no-text-primary-key` | `ColumnMetadata` | type, pk |
+| `require-pk` | `ColumnMetadata` | pk |
+| `max-columns` | `TableMetadata.columns` | length |
+| `no-nullable-fk` | `IDartColumn` + `IDiagramForeignKey` | nullable, fromColumn |
+
 ## New Files
 
 ```
 extension/src/compliance/
   compliance-checker.ts       # Rule evaluation engine
   compliance-rules.ts         # Built-in rule definitions
-  compliance-config.ts        # Config file parser
-  compliance-types.ts         # Interfaces
+  compliance-config.ts        # Config file parser + file watcher
+  compliance-types.ts         # IComplianceConfig, IComplianceViolation, IComplianceRule
+extension/schemas/
+  drift-rules.schema.json     # JSON Schema for .drift-rules.json (autocomplete + validation)
 extension/src/test/
   compliance-checker.test.ts
 ```
@@ -63,39 +128,46 @@ extension/src/test/
 ## Modified Files
 
 ```
-extension/src/extension.ts                    # Register checker, watch config file
-extension/src/diagnostics/schema-diagnostics.ts  # Add compliance violations to existing diagnostics
-extension/package.json                        # Configuration, task type
+extension/src/linter/schema-diagnostics.ts  # Add compliance violations to existing refresh cycle
+extension/src/linter/issue-mapper.ts        # Add 'compliance' to ServerIssue source union
+extension/src/extension.ts                  # Register config watcher, wire up checker
+extension/package.json                      # Configuration, command, jsonValidation
 ```
 
 ## Dependencies
 
-- `api-client.ts` — `schemaMetadata()`, `tableFkMeta()`
+- `api-client.ts` — `schemaMetadata()`, `schemaDiagram()` (all FKs in one call)
+- `schema-diff/dart-schema.ts` — `IDartTable`, `IDartColumn` (for nullable detection)
+- `linter/issue-mapper.ts` — `ServerIssue`, `mapIssuesToDiagnostics()` (reuse existing source mapping)
+- `linter/schema-diagnostics.ts` — `SchemaDiagnostics` (integrate into existing diagnostic refresh)
 - `GenerationWatcher` — trigger re-check on schema change
 - `vscode.workspace.fs` — read `.drift-rules.json`
-- `vscode.DiagnosticCollection` — surface violations
-- `DriftDefinitionProvider` — map table/column names to Dart file locations
+
+Source location mapping is already solved by `findTableLine()` and `findColumnLine()` in `issue-mapper.ts`. Compliance violations produce `ServerIssue[]` and feed into the existing pipeline — no separate diagnostic infrastructure needed.
 
 ## Architecture
 
 ### Config Schema
 
 ```typescript
+type Severity = 'error' | 'warning' | 'info';
+
 interface IComplianceConfig {
   naming?: {
     tables?: NamingConvention;
     columns?: NamingConvention;
     fkColumns?: string;        // Pattern like "{table}_id"
-    indexes?: string;          // Pattern like "idx_{table}_{column}"
+    severity?: Severity;       // Default: 'warning'
   };
   requiredColumns?: Array<{
     name: string;
     type?: string;
     excludeTables?: string[];  // Tables exempt from this requirement
+    severity?: Severity;       // Default: 'warning'
   }>;
   rules?: Array<{
     rule: string;
-    severity?: 'error' | 'warning' | 'info';
+    severity?: Severity;       // Default: 'warning'
     [key: string]: unknown;    // Rule-specific config
   }>;
   exclude?: string[];          // Tables to skip entirely
@@ -123,9 +195,9 @@ async function loadConfig(workspaceRoot: vscode.Uri): Promise<IComplianceConfig 
 ### Compliance Checker
 
 ```typescript
-interface IViolation {
+interface IComplianceViolation {
   rule: string;
-  severity: vscode.DiagnosticSeverity;
+  severity: Severity;
   table: string;
   column?: string;
   message: string;
@@ -138,16 +210,25 @@ class ComplianceChecker {
     this._registerBuiltinRules();
   }
 
-  async check(
+  check(
     config: IComplianceConfig,
     meta: TableMetadata[],
-    fkMap: Map<string, ForeignKey[]>,
-  ): Promise<IViolation[]> {
-    const violations: IViolation[] = [];
+    fks: IDiagramForeignKey[],
+    dartTables?: IDartTable[],
+  ): IComplianceViolation[] {
+    const violations: IComplianceViolation[] = [];
     const tables = meta.filter(t =>
       !t.name.startsWith('sqlite_') &&
       !(config.exclude ?? []).includes(t.name)
     );
+
+    // Build FK lookup: tableName → ForeignKey[]
+    const fkMap = new Map<string, IDiagramForeignKey[]>();
+    for (const fk of fks) {
+      const list = fkMap.get(fk.fromTable) ?? [];
+      list.push(fk);
+      fkMap.set(fk.fromTable, list);
+    }
 
     // Naming checks
     if (config.naming) {
@@ -159,110 +240,56 @@ class ComplianceChecker {
       violations.push(...this._checkRequired(config.requiredColumns, tables));
     }
 
-    // Custom rules
+    // Built-in rules
     for (const ruleConfig of config.rules ?? []) {
       const rule = this._rules.get(ruleConfig.rule);
       if (rule) {
-        const severity = this._toSeverity(ruleConfig.severity ?? 'warning');
-        violations.push(...rule.check(tables, fkMap, ruleConfig, severity));
+        violations.push(...rule.check(tables, fkMap, dartTables, ruleConfig));
       }
     }
 
     return violations;
-  }
-
-  private _checkNaming(
-    naming: NonNullable<IComplianceConfig['naming']>,
-    tables: TableMetadata[],
-    fkMap: Map<string, ForeignKey[]>,
-  ): IViolation[] {
-    const violations: IViolation[] = [];
-
-    for (const table of tables) {
-      if (naming.tables && !matchesConvention(table.name, naming.tables)) {
-        violations.push({
-          rule: 'naming.tables',
-          severity: vscode.DiagnosticSeverity.Warning,
-          table: table.name,
-          message: `Table "${table.name}" violates ${naming.tables} naming convention.`,
-        });
-      }
-
-      for (const col of table.columns) {
-        if (naming.columns && !matchesConvention(col.name, naming.columns)) {
-          violations.push({
-            rule: 'naming.columns',
-            severity: vscode.DiagnosticSeverity.Warning,
-            table: table.name,
-            column: col.name,
-            message: `Column "${col.name}" violates ${naming.columns} naming convention.`,
-          });
-        }
-      }
-
-      // FK column naming pattern
-      if (naming.fkColumns) {
-        const fks = fkMap.get(table.name) ?? [];
-        for (const fk of fks) {
-          const expected = naming.fkColumns.replace('{table}', fk.toTable);
-          if (fk.fromColumn !== expected) {
-            violations.push({
-              rule: 'naming.fkColumns',
-              severity: vscode.DiagnosticSeverity.Warning,
-              table: table.name,
-              column: fk.fromColumn,
-              message: `FK column "${fk.fromColumn}" should be "${expected}" (pattern: ${naming.fkColumns}).`,
-            });
-          }
-        }
-      }
-    }
-
-    return violations;
-  }
-
-  private _checkRequired(
-    required: NonNullable<IComplianceConfig['requiredColumns']>,
-    tables: TableMetadata[],
-  ): IViolation[] {
-    const violations: IViolation[] = [];
-
-    for (const req of required) {
-      for (const table of tables) {
-        if (req.excludeTables?.includes(table.name)) continue;
-
-        const col = table.columns.find(c => c.name === req.name);
-        if (!col) {
-          violations.push({
-            rule: 'requiredColumns',
-            severity: vscode.DiagnosticSeverity.Warning,
-            table: table.name,
-            message: `Table "${table.name}" missing required column "${req.name}"${req.type ? ` (${req.type})` : ''}.`,
-          });
-        } else if (req.type && !col.type.toUpperCase().includes(req.type.toUpperCase())) {
-          violations.push({
-            rule: 'requiredColumns',
-            severity: vscode.DiagnosticSeverity.Warning,
-            table: table.name,
-            column: col.name,
-            message: `Column "${req.name}" should be ${req.type} but is ${col.type}.`,
-          });
-        }
-      }
-    }
-
-    return violations;
-  }
-
-  private _registerBuiltinRules(): void {
-    this._rules.set('no-text-primary-key', new NoTextPrimaryKeyRule());
-    this._rules.set('require-fk-index', new RequireFkIndexRule());
-    this._rules.set('max-columns', new MaxColumnsRule());
-    this._rules.set('no-nullable-fk', new NoNullableFkRule());
-    this._rules.set('no-wide-text', new NoWideTextRule());
-    this._rules.set('require-pk', new RequirePkRule());
   }
 }
+```
+
+### Integration with Existing Diagnostics
+
+Compliance violations convert to `ServerIssue[]` and merge into the existing `SchemaDiagnostics.refresh()` pipeline:
+
+```typescript
+// In compliance-checker.ts
+function toServerIssues(violations: IComplianceViolation[]): ServerIssue[] {
+  return violations.map(v => ({
+    source: 'compliance' as const,
+    severity: v.severity,
+    table: v.table,
+    column: v.column,
+    message: v.message,
+  }));
+}
+```
+
+```typescript
+// In issue-mapper.ts — extend the source union
+export interface ServerIssue {
+  source: 'index-suggestion' | 'anomaly' | 'compliance';
+  // ... rest unchanged
+}
+```
+
+```typescript
+// In schema-diagnostics.ts — add to refresh()
+const [suggestions, anomalies, complianceViolations] = await Promise.all([
+  this._client.indexSuggestions(),
+  this._client.anomalies(),
+  this._complianceChecker.run(),  // returns ServerIssue[]
+]);
+
+const issues = [
+  ...mergeServerIssues(suggestions, anomalies),
+  ...complianceViolations,
+];
 ```
 
 ### Naming Convention Matcher
@@ -288,30 +315,72 @@ function matchesConvention(name: string, convention: NamingConvention): boolean 
 interface IComplianceRule {
   check(
     tables: TableMetadata[],
-    fkMap: Map<string, ForeignKey[]>,
+    fkMap: Map<string, IDiagramForeignKey[]>,
+    dartTables: IDartTable[] | undefined,
     config: Record<string, unknown>,
-    severity: vscode.DiagnosticSeverity,
-  ): IViolation[];
+  ): IComplianceViolation[];
 }
+```
 
-class MaxColumnsRule implements IComplianceRule {
-  check(tables: TableMetadata[], _fk: Map<string, ForeignKey[]>, config: Record<string, unknown>, severity: vscode.DiagnosticSeverity): IViolation[] {
-    const max = (config.max as number) ?? 20;
-    return tables
-      .filter(t => t.columns.length > max)
-      .map(t => ({
-        rule: 'max-columns',
-        severity,
-        table: t.name,
-        message: `Table "${t.name}" has ${t.columns.length} columns (max: ${max}).`,
-      }));
+### Built-in Rules
+
+**`no-text-primary-key`** — flags any column where `pk === true && type === 'TEXT'`
+- Data: `ColumnMetadata.pk`, `ColumnMetadata.type`
+
+**`require-pk`** — flags tables with no column where `pk === true`
+- Data: `ColumnMetadata.pk`
+
+**`max-columns`** — flags tables where `columns.length > config.max` (default 20)
+- Data: `TableMetadata.columns.length`
+
+**`no-nullable-fk`** — flags FK columns declared as `.nullable()` in Dart source
+- Data: `IDiagramForeignKey.fromColumn` cross-referenced with `IDartColumn.nullable`
+- Requires `dartTables` parameter; silently skips if Dart parsing unavailable
+
+```typescript
+class NoNullableFkRule implements IComplianceRule {
+  check(
+    _tables: TableMetadata[],
+    fkMap: Map<string, IDiagramForeignKey[]>,
+    dartTables: IDartTable[] | undefined,
+    config: Record<string, unknown>,
+  ): IComplianceViolation[] {
+    if (!dartTables) return [];
+    const severity = (config.severity as Severity) ?? 'warning';
+    const violations: IComplianceViolation[] = [];
+
+    // Build lookup: sqlTableName → IDartColumn[]
+    const dartLookup = new Map<string, IDartColumn[]>();
+    for (const dt of dartTables) {
+      dartLookup.set(dt.sqlTableName, dt.columns);
+    }
+
+    for (const [tableName, fks] of fkMap) {
+      const dartCols = dartLookup.get(tableName);
+      if (!dartCols) continue;
+
+      for (const fk of fks) {
+        const dartCol = dartCols.find(c => c.sqlName === fk.fromColumn);
+        if (dartCol?.nullable) {
+          violations.push({
+            rule: 'no-nullable-fk',
+            severity,
+            table: tableName,
+            column: fk.fromColumn,
+            message: `FK column "${fk.fromColumn}" is nullable — consider making it required.`,
+          });
+        }
+      }
+    }
+
+    return violations;
   }
 }
 ```
 
 ## Server-Side Changes
 
-None. Uses existing schema metadata and FK endpoints.
+None. Uses existing schema metadata, diagram, and Dart source parsing.
 
 ## package.json Contributions
 
@@ -333,15 +402,6 @@ None. Uses existing schema metadata and FK endpoints.
         }
       }
     },
-    "taskDefinitions": [{
-      "type": "drift",
-      "properties": {
-        "check": {
-          "type": "string",
-          "enum": ["healthCheck", "anomalyScan", "indexCoverage", "compliance"]
-        }
-      }
-    }],
     "jsonValidation": [{
       "fileMatch": ".drift-rules.json",
       "url": "./schemas/drift-rules.schema.json"
@@ -355,27 +415,36 @@ None. Uses existing schema metadata and FK endpoints.
 - `compliance-checker.test.ts`:
   - snake_case: "user_name" passes, "userName" fails
   - camelCase: "userName" passes, "user_name" fails
+  - PascalCase: "UserName" passes, "user_name" fails
+  - UPPER_SNAKE: "USER_NAME" passes, "userName" fails
   - Required column present → no violation
   - Required column missing → violation with table name
   - Required column wrong type → violation
   - Required column with excludeTables → excluded table skipped
+  - Required column with severity override → uses specified severity
   - FK column pattern: "{table}_id" matches "user_id" for FK to "user"
+  - FK column pattern with multi-word table: "user_accounts" → expects "user_accounts_id"
   - No config file → no violations (feature disabled)
   - Empty rules array → naming and required still checked
-  - `no-text-primary-key`: TEXT PK → violation
-  - `require-fk-index`: FK without index → violation
-  - `max-columns`: 21 columns with max=20 → violation
+  - `no-text-primary-key`: TEXT PK → violation, INTEGER PK → no violation
+  - `require-pk`: table with no pk column → violation
+  - `max-columns`: 21 columns with max=20 → violation, 20 → no violation
+  - `no-nullable-fk`: nullable FK column → violation, non-nullable → no violation
+  - `no-nullable-fk`: skipped when dartTables unavailable
   - Excluded tables skipped for all checks
   - Multiple violations per table reported individually
-  - Config file change triggers re-check
   - `sqlite_` internal tables always excluded
+  - Naming severity override applies to table, column, and FK violations
+  - Violations convert to `ServerIssue[]` with source `'compliance'`
 
 ## Known Limitations
 
-- Column nullability is not available from schema metadata — `no-nullable-fk` requires PRAGMA queries
-- Index detection requires parsing the schema dump (no dedicated endpoint)
-- FK column patterns only support `{table}` placeholder — no `{column}` or custom transforms
-- No auto-fix — violations are diagnostic-only (use Feature 24 for migration code generation)
+- FK column pattern only supports `{table}` placeholder with literal table name — multi-word tables like `user_accounts` produce `user_accounts_id`. No singularization or custom transforms.
+- No auto-fix — violations are diagnostic-only
 - Config file must be in workspace root — no support for monorepo with multiple config files
-- JSON Schema validation provides autocomplete in the config file but requires a bundled schema file
 - Custom rule plugins are not supported — only built-in rules
+- `no-nullable-fk` depends on Dart source parsing — won't fire if table files can't be parsed
+
+## Future Rules (blocked on metadata)
+
+- `require-fk-index` — `ITableSizeInfo.indexes` has index names but not which columns they cover. Needs column-level index mapping.
