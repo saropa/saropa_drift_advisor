@@ -162,14 +162,13 @@ def check_vsce_auth() -> bool:
 
 
 def check_ovsx_token() -> bool:
-    """Check OVSX_PAT. Never blocks — missing = skip step."""
+    """Check OVSX_PAT. Non-blocking — missing just means prompt at publish time."""
     pat = get_ovsx_pat()
     if pat:
         ok("OVSX_PAT set (Open VSX publish)")
         return True
-    warn("OVSX_PAT not set; Open VSX step will be skipped.")
-    info(f"  Set in shell, or add to {C.WHITE}.env{C.RESET}: {C.YELLOW}OVSX_PAT=your-token{C.RESET}")
-    info(f"  Token: {C.WHITE}https://open-vsx.org/user-settings/tokens{C.RESET}")
+    warn("OVSX_PAT not set; will prompt at publish time or skip.")
+    info(f"  To avoid prompt: add {C.YELLOW}OVSX_PAT=your-token{C.RESET} to {C.WHITE}.env{C.RESET}")
     return True
 
 

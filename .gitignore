@@ -21,6 +21,9 @@ doc/api/
 # Reports (optional)
 reports/
 
+# Secrets
+.env
+
 # Python (scripts)
 __pycache__/
 *.py[cod]
