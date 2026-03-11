@@ -10,7 +10,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": ["onLanguage:dart"],
+  "activationEvents": [
+    "onLanguage:dart"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -72,7 +74,7 @@
       },
       {
         "command": "driftViewer.exportTable",
-        "title": "Export Table\u2026",
+        "title": "Export Table…",
         "icon": "$(export)"
       },
       {
@@ -616,7 +618,11 @@
         },
         "driftViewer.performance.logToCapture": {
           "type": "string",
-          "enum": ["off", "slow-only", "all"],
+          "enum": [
+            "off",
+            "slow-only",
+            "all"
+          ],
           "default": "slow-only",
           "description": "Log queries to Saropa Log Capture: off, slow queries only, or all queries."
         },
@@ -644,7 +650,12 @@
         },
         "driftViewer.linter.anomalySeverity": {
           "type": "string",
-          "enum": ["error", "warning", "information", "hint"],
+          "enum": [
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
           "default": "warning",
           "description": "Severity level for data anomaly diagnostics."
         },
@@ -718,12 +729,15 @@
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node --max-old-space-size=4096 node_modules/mocha/bin/mocha.js"
   },
+  "overrides": {
+    "serialize-javascript": "^7.0.3"
+  },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.10.0",
     "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.85.0",
-    "mocha": "^11.7.5",
+    "mocha": "^11.3.0",
     "sinon": "^21.0.2",
     "typescript": "^5.3.0"
   }
