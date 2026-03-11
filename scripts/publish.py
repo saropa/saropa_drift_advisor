@@ -53,7 +53,7 @@ _CLI_FLAGS = [
 ]
 
 
-_TARGETS = ["dart", "extension", "all"]
+_TARGETS = ["dart", "extension", "all", "openvsx"]
 
 
 def _prompt_target() -> str:
@@ -116,10 +116,10 @@ def _read_banner_version(target: str) -> str:
 
 def _print_target_info(target: str, version: str) -> None:
     """Print target and version info after the logo."""
-    labels = {"dart": "Dart", "extension": "Extension", "all": "All Targets"}
+    labels = {"dart": "Dart", "extension": "Extension", "all": "All Targets", "openvsx": "Open VSX"}
     print(f"\n  {C.BOLD}{labels[target]} Pipeline{C.RESET}  {dim(f'v{version}')}")
     print(f"  Project root: {dim(REPO_ROOT)}")
-    if target in ("extension", "all"):
+    if target in ("extension", "all", "openvsx"):
         print(f"  Extension:    {dim(EXTENSION_DIR)}")
 
 
@@ -273,14 +273,57 @@ def main() -> int:
         close_publish_log()
 
 
+def _run_openvsx_only() -> int:
+    """Publish the latest .vsix to Open VSX (skip full pipeline)."""
+    import glob
+    import os
+    from modules.ext_prereqs import get_ovsx_pat
+    from modules.ext_publish import publish_openvsx, _save_ovsx_pat_to_env
+
+    pattern = os.path.join(EXTENSION_DIR, "*.vsix")
+    vsix_files = sorted(glob.glob(pattern), key=os.path.getmtime)
+    if not vsix_files:
+        from modules.display import fail
+        fail(f"No .vsix found in {EXTENSION_DIR}. Run 'extension' target first.")
+        return ExitCode.PACKAGE_FAILED
+
+    vsix_path = vsix_files[-1]
+    info(f"Using: {os.path.basename(vsix_path)}")
+
+    pat = get_ovsx_pat()
+    if not pat:
+        try:
+            import getpass
+            info(f"Token page: {C.WHITE}https://open-vsx.org/user-settings/tokens{C.RESET}")
+            pat = (getpass.getpass(
+                prompt="  Paste Open VSX token: ",
+            ) or "").strip()
+            if pat:
+                os.environ["OVSX_PAT"] = pat
+                _save_ovsx_pat_to_env(pat)
+        except (EOFError, KeyboardInterrupt):
+            pat = ""
+    if not pat:
+        from modules.display import fail
+        fail("No OVSX_PAT. Cannot publish to Open VSX.")
+        return ExitCode.PREREQUISITE_FAILED
+
+    if publish_openvsx(vsix_path):
+        return ExitCode.SUCCESS
+    return ExitCode.OPENVSX_FAILED
+
+
 def _main_inner() -> int:
     """Parse args, run pipeline, return exit code."""
     args = parse_args()
     target = args.target
-    version = _read_banner_version(target)
+    version = _read_banner_version(target if target != "openvsx" else "extension")
     results: list[tuple[str, bool, float]] = []
 
     _print_target_info(target, version)
+
+    if target == "openvsx":
+        return _run_openvsx_only()
 
     dart_ver, ext_ver, vsix_path, ok = _run_analysis(args, target, results)
     if not ok:

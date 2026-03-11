@@ -159,28 +159,52 @@ def _check_publish_credentials(
     return True
 
 
+def _save_ovsx_pat_to_env(pat: str) -> None:
+    """Append OVSX_PAT to .env so it persists across runs."""
+    from modules.constants import REPO_ROOT
+    from modules.display import fix as fix_msg, info as info_msg
+    env_path = os.path.join(REPO_ROOT, ".env")
+    try:
+        existing = ""
+        if os.path.exists(env_path):
+            with open(env_path, encoding="utf-8") as f:
+                existing = f.read()
+        if "OVSX_PAT=" in existing:
+            return  # already present
+        with open(env_path, "a", encoding="utf-8") as f:
+            if existing and not existing.endswith("\n"):
+                f.write("\n")
+            f.write(f"OVSX_PAT={pat}\n")
+        fix_msg(f"Saved OVSX_PAT to {C.WHITE}.env{C.RESET} (won't ask again)")
+    except OSError:
+        info_msg("Could not save to .env — you'll be prompted again next time.")
+
+
 def _publish_openvsx_step(
     vsix_path: str,
     results: list[tuple[str, bool, float]],
 ) -> None:
-    """Attempt Open VSX publish, prompting for token if needed."""
+    """Publish to Open VSX, prompting for token if not already set."""
     pat = get_ovsx_pat()
     if not pat:
         try:
             import getpass
-            prompt = "Paste Open VSX token or Enter to skip: "
-            pat = (getpass.getpass(prompt=prompt) or "").strip()
+            info(f"Token page: {C.WHITE}https://open-vsx.org/user-settings/tokens{C.RESET}")
+            pat = (getpass.getpass(
+                prompt="  Paste Open VSX token or Enter to skip: ",
+            ) or "").strip()
             if pat:
                 os.environ["OVSX_PAT"] = pat
+                _save_ovsx_pat_to_env(pat)
         except (EOFError, KeyboardInterrupt):
             pat = ""
         if not pat:
-            warn("No token; skipping Open VSX.")
-    if pat:
-        openvsx_ok = run_step("Open VSX publish",
-                              lambda: publish_openvsx(vsix_path), results)
-        if not openvsx_ok:
-            warn("Open VSX publish failed; continuing to GitHub release.")
+            info("No token; skipping Open VSX.")
+            return
+    openvsx_ok = run_step("Open VSX publish",
+                          lambda: publish_openvsx(vsix_path), results)
+    if not openvsx_ok:
+        warn("Open VSX publish failed; continuing to GitHub release.")
 
 
 def _run_publish_steps(

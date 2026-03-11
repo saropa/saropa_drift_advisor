@@ -66,7 +66,7 @@ def prompt_install(vsix_path: str) -> None:
 
     prompt = "Install via CLI now?"
     if sys.platform == "win32":
-        prompt = "Install via CLI now? (will briefly open a VS Code window)"
+        prompt = "Install via CLI now? (opens a VS Code window)"
     if not ask_yn(prompt, default=False):
         return
 
