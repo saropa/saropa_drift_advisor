@@ -2,7 +2,7 @@
   "name": "drift-viewer",
   "displayName": "Drift Viewer",
   "description": "Open the Drift debug viewer (saropa_drift_advisor) in the browser.",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "publisher": "saropa",
   "engines": {
     "vscode": "^1.85.0"

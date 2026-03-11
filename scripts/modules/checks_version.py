@@ -231,11 +231,22 @@ def _unreleased_section_has_content(content: str) -> bool:
     return False
 
 
+def _changelog_has_version(version: str, content: str) -> bool:
+    """True if CHANGELOG already has a ## [version] heading (dated or not)."""
+    pattern = re.compile(rf'^## \[{re.escape(version)}\]', re.MULTILINE)
+    return bool(pattern.search(content))
+
+
 def _stamp_changelog(
     version: str,
     config: TargetConfig | None = None,
 ) -> bool:
-    """Replace '## [Unreleased]' with '## [version] - date'."""
+    """Replace '## [Unreleased]' with '## [version] - date'.
+
+    If ## [version] already exists and ## [Unreleased] is present,
+    the [Unreleased] section content is merged into the existing
+    version heading instead of creating a duplicate.
+    """
     changelog_path = _changelog_for(config)
     try:
         with open(changelog_path, encoding="utf-8") as f:
@@ -251,11 +262,24 @@ def _stamp_changelog(
             return False
 
     today = datetime.datetime.now().strftime("%Y-%m-%d")
-    replacement = f'## [{version}] - {today}'
-    updated, count = _UNPUBLISHED_HEADING_RE.subn(replacement, content, count=1)
-    if count == 0:
-        fail("Could not find '## [Unreleased]' (or [Unpublished]/[Undefined]) in CHANGELOG.md")
-        return False
+    dated_heading = f'## [{version}] - {today}'
+
+    if _changelog_has_version(version, content):
+        # Version heading already exists — remove the [Unreleased] line
+        # so its content merges into the existing section below it.
+        updated, count = _UNPUBLISHED_HEADING_RE.subn('', content, count=1)
+        if count == 0:
+            fail("Could not find '## [Unreleased]' to merge into existing heading.")
+            return False
+        # Clean up any extra blank lines left behind
+        updated = re.sub(r'\n{3,}', '\n\n', updated)
+        ok(f"CHANGELOG: merged [Unreleased] into existing [{version}]")
+    else:
+        updated, count = _UNPUBLISHED_HEADING_RE.subn(dated_heading, content, count=1)
+        if count == 0:
+            fail("Could not find '## [Unreleased]' (or [Unpublished]/[Undefined]) in CHANGELOG.md")
+            return False
+        ok(f"CHANGELOG: [Unreleased] -> [{version}] - {today}")
 
     try:
         with open(changelog_path, "w", encoding="utf-8") as f:
@@ -264,7 +288,6 @@ def _stamp_changelog(
         fail("Could not write CHANGELOG.md")
         return False
 
-    ok(f"CHANGELOG: [Unreleased] -> [{version}] - {today}")
     return True
 
 
@@ -417,8 +440,19 @@ def validate_version_changelog(
             return pkg_version, result
 
     if not _changelog_has_unpublished_heading(config):
-        if not _ensure_unreleased_section(config):
-            return pkg_version, False
+        # Only insert [Unreleased] if the version doesn't already have a heading.
+        # Otherwise _stamp_changelog would create a duplicate.
+        changelog_path = _changelog_for(config)
+        try:
+            with open(changelog_path, encoding="utf-8") as f:
+                cl_content = f.read()
+        except OSError:
+            cl_content = ""
+        if not _changelog_has_version(pkg_version, cl_content):
+            if not _ensure_unreleased_section(config):
+                return pkg_version, False
+        else:
+            ok(f"CHANGELOG already has ## [{pkg_version}] — skipping [Unreleased] insert")
 
     version, tag_ok = _ensure_untagged_version(pkg_version, config)
     if not tag_ok:
