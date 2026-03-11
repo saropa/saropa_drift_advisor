@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **In-app Flutter overlay** — Removed `DriftViewerOverlay`, `DriftViewerFloatingButton`, and `lib/flutter.dart`. The VS Code extension and browser already provide the same functionality without shipping native code in consumer APKs.
 - **6 dependencies** — Removed `webview_flutter`, `webview_flutter_android`, `url_launcher`, `intl`, `meta`, `collection`, and the `flutter` SDK dependency. The package is now pure Dart with a single dependency (`crypto`).
 
+### Added
+
+- Marketplace icon for the VS Code extension (128×128 database + delta symbol with pink-to-cyan gradient).
+- View-level icons for Schema Search, Database, Pending Changes, and Drift Queries sidebar entries.
+
 ### Changed
 
 - Added MIT license for Open VSX release.
