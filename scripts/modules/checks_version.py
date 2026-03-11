@@ -8,7 +8,6 @@ them separate from git/build checks improves readability.
 
 from __future__ import annotations
 
-import datetime
 import os
 import re
 import sys
@@ -165,7 +164,7 @@ _UNPUBLISHED_HEADING_RE = re.compile(
     r'^##\s*\[(?:Unreleased|Unpublished|Undefined)\]', re.IGNORECASE | re.MULTILINE
 )
 
-# First release heading: ## [x.y.z] or ## [x.y.z] - date (so we know where to insert [Unreleased])
+# First release heading: ## [x.y.z] (so we know where to insert [Unreleased])
 _FIRST_RELEASE_HEADING_RE = re.compile(r'^##\s*\[\d+\.\d+\.\d+\]', re.MULTILINE)
 
 
@@ -232,7 +231,7 @@ def _unreleased_section_has_content(content: str) -> bool:
 
 
 def _changelog_has_version(version: str, content: str) -> bool:
-    """True if CHANGELOG already has a ## [version] heading (dated or not)."""
+    """True if CHANGELOG already has a ## [version] heading."""
     pattern = re.compile(rf'^## \[{re.escape(version)}\]', re.MULTILINE)
     return bool(pattern.search(content))
 
@@ -241,7 +240,7 @@ def _stamp_changelog(
     version: str,
     config: TargetConfig | None = None,
 ) -> bool:
-    """Replace '## [Unreleased]' with '## [version] - date'.
+    """Replace '## [Unreleased]' with '## [version]'.
 
     If ## [version] already exists and ## [Unreleased] is present,
     the [Unreleased] section content is merged into the existing
@@ -261,8 +260,7 @@ def _stamp_changelog(
             fail("Add changelog entries before publishing.")
             return False
 
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
-    dated_heading = f'## [{version}] - {today}'
+    stamped_heading = f'## [{version}]'
 
     if _changelog_has_version(version, content):
         # Version heading already exists — remove the [Unreleased] line
@@ -275,11 +273,11 @@ def _stamp_changelog(
         updated = re.sub(r'\n{3,}', '\n\n', updated)
         ok(f"CHANGELOG: merged [Unreleased] into existing [{version}]")
     else:
-        updated, count = _UNPUBLISHED_HEADING_RE.subn(dated_heading, content, count=1)
+        updated, count = _UNPUBLISHED_HEADING_RE.subn(stamped_heading, content, count=1)
         if count == 0:
             fail("Could not find '## [Unreleased]' (or [Unpublished]/[Undefined]) in CHANGELOG.md")
             return False
-        ok(f"CHANGELOG: [Unreleased] -> [{version}] - {today}")
+        ok(f"CHANGELOG: [Unreleased] -> [{version}]")
 
     try:
         with open(changelog_path, "w", encoding="utf-8") as f:
