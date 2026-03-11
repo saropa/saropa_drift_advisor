@@ -1,46 +1,11 @@
 import * as assert from 'assert';
 import {
   computeSchemaDiff,
-  generateFullSchemaSql,
   generateMigrationSql,
   hasDifferences,
   ISchemaDiffResult,
 } from '../schema-diff/schema-diff';
-import { IDartColumn, IDartTable } from '../schema-diff/dart-schema';
-import { TableMetadata } from '../api-client';
-
-function dartCol(overrides: Partial<IDartColumn> = {}): IDartColumn {
-  return {
-    dartName: 'id',
-    sqlName: 'id',
-    dartType: 'IntColumn',
-    sqlType: 'INTEGER',
-    nullable: false,
-    autoIncrement: false,
-    line: 0,
-    ...overrides,
-  };
-}
-
-function dartTable(overrides: Partial<IDartTable> = {}): IDartTable {
-  return {
-    dartClassName: 'Users',
-    sqlTableName: 'users',
-    columns: [dartCol()],
-    fileUri: 'file:///test.dart',
-    line: 0,
-    ...overrides,
-  };
-}
-
-function dbMeta(overrides: Partial<TableMetadata> = {}): TableMetadata {
-  return {
-    name: 'users',
-    columns: [{ name: 'id', type: 'INTEGER', pk: true }],
-    rowCount: 10,
-    ...overrides,
-  };
-}
+import { dartCol, dartTable, dbMeta } from './schema-diff-fixtures';
 
 describe('computeSchemaDiff', () => {
   it('should identify tables only in code', () => {
@@ -306,39 +271,4 @@ describe('hasDifferences', () => {
   });
 });
 
-describe('generateFullSchemaSql', () => {
-  it('should generate CREATE TABLE for each table', () => {
-    const tables = [
-      dartTable({
-        columns: [
-          dartCol({ sqlName: 'id', sqlType: 'INTEGER' }),
-          dartCol({ sqlName: 'name', sqlType: 'TEXT' }),
-        ],
-      }),
-    ];
-    const sql = generateFullSchemaSql(tables);
-    assert.ok(sql.includes('CREATE TABLE "users"'));
-    assert.ok(sql.includes('"id" INTEGER'));
-    assert.ok(sql.includes('"name" TEXT'));
-  });
-
-  it('should handle multiple tables', () => {
-    const tables = [
-      dartTable({ sqlTableName: 'users' }),
-      dartTable({ sqlTableName: 'posts', dartClassName: 'Posts' }),
-    ];
-    const sql = generateFullSchemaSql(tables);
-    assert.ok(sql.includes('CREATE TABLE "users"'));
-    assert.ok(sql.includes('CREATE TABLE "posts"'));
-  });
-
-  it('should return empty string for empty input', () => {
-    assert.strictEqual(generateFullSchemaSql([]), '');
-  });
-
-  it('should handle table with no columns', () => {
-    const tables = [dartTable({ columns: [] })];
-    const sql = generateFullSchemaSql(tables);
-    assert.ok(sql.includes('CREATE TABLE "users"'));
-  });
-});
+// generateFullSchemaSql tests moved to schema-diff-gen.test.ts

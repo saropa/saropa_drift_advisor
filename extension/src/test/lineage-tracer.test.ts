@@ -1,67 +1,9 @@
 import * as assert from 'assert';
 import {
-  LineageTracer, sqlLiteral, generateDeleteSql,
+  sqlLiteral, generateDeleteSql,
 } from '../lineage/lineage-tracer';
 import type { ILineageResult } from '../lineage/lineage-types';
-
-// ---- Stub API client ----
-
-interface ISqlResult {
-  columns: string[];
-  rows: unknown[][];
-}
-
-interface IFkResult {
-  fromColumn: string;
-  toTable: string;
-  toColumn: string;
-}
-
-interface ITableMeta {
-  name: string;
-  columns: { name: string; type: string; pk: boolean }[];
-  rowCount: number;
-}
-
-/** Build a minimal mock client for testing. */
-function mockClient(opts: {
-  tables: ITableMeta[];
-  fks: Record<string, IFkResult[]>;
-  rows: Record<string, ISqlResult>;
-}): InstanceType<typeof LineageTracer> {
-  const client = {
-    schemaMetadata: async () => opts.tables,
-    tableFkMeta: async (name: string) => opts.fks[name] ?? [],
-    sql: async (query: string) => {
-      for (const [key, val] of Object.entries(opts.rows)) {
-        if (query.includes(key)) return val;
-      }
-      return { columns: [], rows: [] };
-    },
-  };
-  return new LineageTracer(client as never);
-}
-
-// ---- Test data builders ----
-
-function tbl(name: string, pk = 'id'): ITableMeta {
-  return {
-    name,
-    columns: [
-      { name: pk, type: 'INTEGER', pk: true },
-      { name: 'name', type: 'TEXT', pk: false },
-    ],
-    rowCount: 1,
-  };
-}
-
-function sqlResult(
-  columns: string[], ...rows: unknown[][]
-): ISqlResult {
-  return { columns, rows };
-}
-
-// ---- Tests ----
+import { mockClient, tbl, sqlResult } from './lineage-test-fixtures';
 
 describe('sqlLiteral', () => {
   it('handles numbers', () => {
