@@ -93,8 +93,9 @@ describe('Extension activation', () => {
     // Pin store: pinTable, unpinTable, onDidChange, dispose (4)
     // Health score: healthScore (1)
     // Impact analysis: analyzeRowImpact (1)
-    // Total = 103
-    assert.strictEqual(subscriptions.length, 103, `expected 103 disposables, got ${subscriptions.length}`);
+    // Query cost: analyzeQueryCost (1)
+    // Total = 104
+    assert.strictEqual(subscriptions.length, 104, `expected 104 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

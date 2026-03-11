@@ -150,6 +150,11 @@
         "title": "Saropa Drift Advisor: Explain Query Plan"
       },
       {
+        "command": "driftViewer.analyzeQueryCost",
+        "title": "Saropa Drift Advisor: Analyze Query Cost",
+        "icon": "$(pulse)"
+      },
+      {
         "command": "driftViewer.watchTable",
         "title": "Watch Table",
         "icon": "$(eye)"

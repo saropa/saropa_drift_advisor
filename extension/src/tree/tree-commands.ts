@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { DriftTreeProvider } from './drift-tree-provider';
 import type { EditingBridge } from '../editing/editing-bridge';
+import type { FilterBridge } from '../filters/filter-bridge';
 import type { FkNavigator } from '../navigation/fk-navigator';
 import { DriftViewerPanel } from '../panel';
 import { PinStore } from './pin-store';
@@ -15,6 +16,7 @@ export function registerTreeCommands(
   treeProvider: DriftTreeProvider,
   editingBridge: EditingBridge,
   fkNavigator: FkNavigator,
+  filterBridge: FilterBridge,
 ): void {
   // Pin store — persists pinned tables per workspace
   const pinStore = new PinStore(context.workspaceState);
@@ -41,7 +43,7 @@ export function registerTreeCommands(
     vscode.commands.registerCommand(
       'driftViewer.viewTableData',
       (_item: TableItem) => {
-        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator);
+        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator, filterBridge);
       },
     ),
   );
@@ -82,7 +84,7 @@ export function registerTreeCommands(
     vscode.commands.registerCommand(
       'driftViewer.filterByColumn',
       (_item: ColumnItem) => {
-        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator);
+        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator, filterBridge);
       },
     ),
   );
