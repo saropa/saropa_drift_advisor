@@ -15,6 +15,9 @@ pubspec.lock
 .DS_Store
 Thumbs.db
 
+# Generated API docs (pub.dev generates its own)
+doc/api/
+
 # Reports (optional)
 reports/
 
@@ -31,6 +34,7 @@ extension/*.vsix
 # AI / LLM tooling config (Claude Code, Cursor, Copilot, etc.)
 .claude/
 CLAUDE.md
+**/claude-code-*
 .cursor/
 .cursorignore
 .cursorindexingignore
