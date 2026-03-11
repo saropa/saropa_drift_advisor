@@ -52,14 +52,22 @@ def print_install_instructions(vsix_path: str) -> None:
 
 
 def prompt_install(vsix_path: str) -> None:
-    """Ask the user whether to install the .vsix via the code CLI."""
+    """Ask the user whether to install the .vsix via the code CLI.
+
+    On Windows, ``code --install-extension`` opens a VS Code window as a
+    side effect.  The prompt warns about this so the user can choose the
+    Command Palette method instead.
+    """
     if not shutil.which("code"):
         warn("VS Code CLI (code) not found on PATH -- cannot auto-install.")
         info("Add it via: VS Code > Ctrl+Shift+P > "
              "'Shell Command: Install code command in PATH'")
         return
 
-    if not ask_yn("Install via CLI now?", default=False):
+    prompt = "Install via CLI now?"
+    if sys.platform == "win32":
+        prompt = "Install via CLI now? (will briefly open a VS Code window)"
+    if not ask_yn(prompt, default=False):
         return
 
     vsix_name = os.path.basename(vsix_path)

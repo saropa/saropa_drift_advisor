@@ -44,28 +44,50 @@ def get_ovsx_pat() -> str:
     return ""
 
 
+def _get_extension_dirs() -> list[str]:
+    """Return paths to VS Code / Cursor extension directories."""
+    dirs: list[str] = []
+    if sys.platform == "win32":
+        appdata = os.environ.get("USERPROFILE", "")
+        if appdata:
+            dirs.append(os.path.join(appdata, ".vscode", "extensions"))
+            dirs.append(os.path.join(appdata, ".cursor", "extensions"))
+    elif sys.platform == "darwin":
+        home = os.path.expanduser("~")
+        dirs.append(os.path.join(home, ".vscode", "extensions"))
+        dirs.append(os.path.join(home, ".cursor", "extensions"))
+    else:
+        home = os.path.expanduser("~")
+        dirs.append(os.path.join(home, ".vscode", "extensions"))
+        dirs.append(os.path.join(home, ".cursor", "extensions"))
+    return dirs
+
+
 def get_installed_extension_versions(
     extension_id: str = MARKETPLACE_EXTENSION_ID,
 ) -> dict[str, str]:
-    """Return installed version per editor (vscode, cursor)."""
+    """Return installed version per editor (vscode, cursor).
+
+    Reads extension directories on disk to avoid calling ``code
+    --list-extensions`` which opens an unwanted VS Code window on Windows.
+    """
     out: dict[str, str] = {}
-    for editor in ("code", "cursor"):
-        if not shutil.which(editor):
+    # extension_id is like "saropa.drift-viewer"; folder names are
+    # "saropa.drift-viewer-0.3.0"
+    prefix = extension_id.lower() + "-"
+
+    for ext_dir in _get_extension_dirs():
+        if not os.path.isdir(ext_dir):
             continue
-        result = run(
-            [editor, "--list-extensions", "--show-versions"],
-            check=False,
-        )
-        if result.returncode != 0:
+        editor = "cursor" if ".cursor" in ext_dir else "code"
+        try:
+            for entry in os.listdir(ext_dir):
+                if entry.lower().startswith(prefix):
+                    version = entry[len(prefix):]
+                    if version and editor not in out:
+                        out[editor] = version
+        except OSError:
             continue
-        prefix = f"{extension_id.lower()}@"
-        for line in result.stdout.strip().splitlines():
-            line = line.strip().lower()
-            if line.startswith(prefix):
-                version = line[len(prefix):].strip()
-                if version:
-                    out[editor] = version
-                break
     return out
 
 
@@ -197,32 +219,36 @@ def check_global_npm_packages() -> bool:
 
 
 def check_vscode_extensions() -> bool:
-    """Check and install required VS Code extensions."""
+    """Check required VS Code extensions are installed.
+
+    Reads extension directories on disk to avoid calling ``code
+    --list-extensions`` which opens an unwanted VS Code window on Windows.
+    Missing extensions are reported as warnings (manual install required).
+    """
     if not REQUIRED_VSCODE_EXTENSIONS:
         ok("No VS Code extensions required")
         return True
 
-    if not shutil.which("code"):
-        warn("Skipping VS Code extension check — 'code' CLI not available.")
-        return True
-
-    result = run(["code", "--list-extensions"], check=False)
-    if result.returncode != 0:
-        warn("Could not list VS Code extensions.")
-        return True
-
-    installed = set(result.stdout.strip().lower().splitlines())
+    # Gather all installed extension IDs from disk
+    installed: set[str] = set()
+    for ext_dir in _get_extension_dirs():
+        if not os.path.isdir(ext_dir):
+            continue
+        try:
+            for entry in os.listdir(ext_dir):
+                # Folder names are like "publisher.name-version"
+                parts = entry.rsplit("-", 1)
+                if len(parts) == 2:
+                    installed.add(parts[0].lower())
+        except OSError:
+            continue
 
     all_ok = True
     for ext in REQUIRED_VSCODE_EXTENSIONS:
         if ext.lower() in installed:
             ok(f"VS Code extension: {C.WHITE}{ext}{C.RESET}")
         else:
-            fix(f"Installing VS Code extension: {C.WHITE}{ext}{C.RESET}")
-            install_result = run(["code", "--install-extension", ext], check=False)
-            if install_result.returncode != 0:
-                fail(f"Failed to install {ext}: {install_result.stderr.strip()}")
-                all_ok = False
-            else:
-                ok(f"Installed: {C.WHITE}{ext}{C.RESET}")
+            warn(f"VS Code extension not found: {C.WHITE}{ext}{C.RESET}")
+            info(f"  Install manually: {C.YELLOW}code --install-extension {ext}{C.RESET}")
+            all_ok = False
     return all_ok
