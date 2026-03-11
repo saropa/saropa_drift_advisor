@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { SchemaDiagnostics } from '../linter/schema-diagnostics';
 import type { EditingBridge } from '../editing/editing-bridge';
+import type { FilterBridge } from '../filters/filter-bridge';
 import type { FkNavigator } from '../navigation/fk-navigator';
 import type { ServerManager } from '../server-manager';
 import type { ServerDiscovery } from '../server-discovery';
@@ -16,6 +17,7 @@ export function registerNavCommands(
   fkNavigator: FkNavigator,
   serverManager: ServerManager,
   discovery: ServerDiscovery,
+  filterBridge: FilterBridge,
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInBrowser', async () => {
@@ -27,7 +29,7 @@ export function registerNavCommands(
 
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInPanel', () => {
-      DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator);
+      DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator, filterBridge);
     }),
   );
 
@@ -35,7 +37,7 @@ export function registerNavCommands(
     vscode.commands.registerCommand(
       'driftViewer.viewTableInPanel',
       (_tableName: string) => {
-        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator);
+        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator, filterBridge);
       },
     ),
   );

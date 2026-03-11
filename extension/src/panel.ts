@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { EditingBridge } from './editing/editing-bridge';
+import { FilterBridge } from './filters/filter-bridge';
 import { FkNavigator } from './navigation/fk-navigator';
 
 export class DriftViewerPanel {
@@ -13,6 +14,7 @@ export class DriftViewerPanel {
     port: number,
     editingBridge?: EditingBridge,
     fkNavigator?: FkNavigator,
+    filterBridge?: FilterBridge,
   ): void {
     const column = vscode.ViewColumn.Beside;
     if (DriftViewerPanel.currentPanel) {
@@ -30,7 +32,7 @@ export class DriftViewerPanel {
       },
     );
     DriftViewerPanel.currentPanel = new DriftViewerPanel(
-      panel, host, port, editingBridge, fkNavigator,
+      panel, host, port, editingBridge, fkNavigator, filterBridge,
     );
   }
 
@@ -40,6 +42,7 @@ export class DriftViewerPanel {
     port: number,
     private readonly _editingBridge?: EditingBridge,
     private readonly _fkNavigator?: FkNavigator,
+    private readonly _filterBridge?: FilterBridge,
   ) {
     this._panel = panel;
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
@@ -49,6 +52,9 @@ export class DriftViewerPanel {
     }
     if (this._fkNavigator) {
       this._fkNavigator.attach(this._panel.webview);
+    }
+    if (this._filterBridge) {
+      this._filterBridge.attach(this._panel.webview);
     }
 
     // Listen for messages from the webview
@@ -61,6 +67,10 @@ export class DriftViewerPanel {
         // Forward to FK navigator
         if (this._fkNavigator) {
           if (this._fkNavigator.handleMessage(msg)) return;
+        }
+        // Forward filter messages to the bridge
+        if (this._filterBridge) {
+          if (this._filterBridge.handleMessage(msg)) return;
         }
         // Forward editing messages to the bridge
         if (this._editingBridge) {
@@ -119,6 +129,12 @@ export class DriftViewerPanel {
         html = html.replace('</body>', `<script>${fkScript}</script></body>`);
       }
 
+      // Inject filter script if bridge is available
+      if (this._filterBridge) {
+        const filterScript = FilterBridge.injectedScript();
+        html = html.replace('</body>', `<script>${filterScript}</script></body>`);
+      }
+
       this._panel.webview.html = html;
     } catch {
       if (this._disposed) return;
@@ -143,6 +159,9 @@ export class DriftViewerPanel {
     }
     if (this._fkNavigator) {
       this._fkNavigator.detach();
+    }
+    if (this._filterBridge) {
+      this._filterBridge.detach();
     }
     this._panel.dispose();
     this._disposables.forEach((d) => d.dispose());
