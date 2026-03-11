@@ -4,6 +4,8 @@ import { DriftFileDecorationProvider, buildTableFileMap } from './decorations/fi
 import { ChangeTracker } from './editing/change-tracker';
 import { EditingBridge } from './editing/editing-bridge';
 import { PendingChangesProvider } from './editing/pending-changes-provider';
+import { FilterBridge } from './filters/filter-bridge';
+import { FilterStore } from './filters/filter-store';
 import { DriftCodeActionProvider, SchemaDiagnostics } from './linter/schema-diagnostics';
 import { DriftCodeLensProvider } from './codelens/drift-codelens-provider';
 import { TableNameMapper } from './codelens/table-name-mapper';
@@ -40,6 +42,7 @@ import { registerEditingCommands } from './editing/editing-commands';
 import { registerDataBreakpointCommands } from './data-breakpoint/data-breakpoint-commands';
 import { registerDebugCommands } from './debug/debug-commands';
 import { registerHealthCommands } from './health/health-commands';
+import { registerQueryCostCommands } from './query-cost/query-cost-commands';
 import { updateStatusBar } from './status-bar';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -221,6 +224,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(editingBridge);
   const fkNavigator = new FkNavigator(client);
   context.subscriptions.push(fkNavigator);
+  const filterStore = new FilterStore(context.workspaceState);
+  const filterBridge = new FilterBridge(filterStore, client);
+  context.subscriptions.push(filterBridge);
   const pendingProvider = new PendingChangesProvider(changeTracker);
 
   const pendingView = vscode.window.createTreeView(
@@ -276,8 +282,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // --- Register command modules ---
 
-  registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator);
-  registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery);
+  registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge);
+  registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge);
   registerSnapshotCommands(context, client, snapshotStore);
   registerSchemaDiffCommands(context, client);
   registerEditingCommands(context, client, changeTracker, watchManager);
@@ -294,6 +300,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerImpactCommands(context, client);
   registerIsarGenCommands(context);
   registerHealthCommands(context, client);
+  registerQueryCostCommands(context, client);
   registerDebugCommands(context, {
     client, treeProvider, treeView, hoverCache, linter,
     logBridge, discovery, serverManager, watcher, codeLensProvider,

@@ -88,12 +88,13 @@ describe('Extension activation', () => {
     // Isar-to-Drift: isarToDrift (1)
     // Snippet library: openSnippetLibrary, saveAsSnippet (2)
     // FK navigation: fkNavigator (1)
+    // Saved filters: filterBridge (1)
     // Schema search: schemaSearchViewProvider (1)
     // Pin store: pinTable, unpinTable, onDidChange, dispose (4)
     // Health score: healthScore (1)
     // Impact analysis: analyzeRowImpact (1)
-    // Total = 102
-    assert.strictEqual(subscriptions.length, 102, `expected 102 disposables, got ${subscriptions.length}`);
+    // Total = 103
+    assert.strictEqual(subscriptions.length, 103, `expected 103 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
