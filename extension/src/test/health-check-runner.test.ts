@@ -2,30 +2,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { resetMocks, workspace } from './vscode-mock';
 import { HealthCheckTerminal } from '../tasks/health-check-runner';
-
-/** Collect all writes and the close code from a HealthCheckTerminal. */
-function runTerminal(check: 'healthCheck' | 'anomalyScan' | 'indexCoverage'): {
-  terminal: HealthCheckTerminal;
-  lines: string[];
-  closeCode: Promise<number>;
-} {
-  const terminal = new HealthCheckTerminal(check);
-  const lines: string[] = [];
-
-  // Access the emitters through the onDidWrite/onDidClose events
-  // The mock EventEmitter exposes an event function that registers listeners
-  terminal.onDidWrite((text: string) => {
-    lines.push(text);
-  });
-
-  const closeCode = new Promise<number>((resolve) => {
-    terminal.onDidClose((code: number) => {
-      resolve(code);
-    });
-  });
-
-  return { terminal, lines, closeCode };
-}
+import { runTerminal } from './health-check-helpers';
 
 describe('HealthCheckTerminal', () => {
   let fetchStub: sinon.SinonStub;

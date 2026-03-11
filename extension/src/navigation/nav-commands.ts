@@ -1,0 +1,92 @@
+import * as vscode from 'vscode';
+import type { DriftApiClient } from '../api-client';
+import type { SchemaDiagnostics } from '../linter/schema-diagnostics';
+import type { EditingBridge } from '../editing/editing-bridge';
+import type { FkNavigator } from '../navigation/fk-navigator';
+import type { ServerManager } from '../server-manager';
+import type { ServerDiscovery } from '../server-discovery';
+import { DriftViewerPanel } from '../panel';
+
+/** Register navigation, linter, and discovery commands. */
+export function registerNavCommands(
+  context: vscode.ExtensionContext,
+  client: DriftApiClient,
+  linter: SchemaDiagnostics,
+  editingBridge: EditingBridge,
+  fkNavigator: FkNavigator,
+  serverManager: ServerManager,
+  discovery: ServerDiscovery,
+): void {
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.openInBrowser', async () => {
+      await vscode.env.openExternal(
+        vscode.Uri.parse(`http://${client.host}:${client.port}`),
+      );
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.openInPanel', () => {
+      DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.viewTableInPanel',
+      (_tableName: string) => {
+        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator);
+      },
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.runTableQuery',
+      async (tableName: string) => {
+        try {
+          const result = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: `Querying ${tableName}\u2026`,
+            },
+            () => client.sql(`SELECT * FROM "${tableName}"`),
+          );
+          const doc = await vscode.workspace.openTextDocument({
+            content: JSON.stringify(result.rows, null, 2),
+            language: 'json',
+          });
+          await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Query failed: ${msg}`);
+        }
+      },
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.runLinter', () =>
+      linter.refresh(),
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.copySuggestedSql',
+      (sql: string) => {
+        vscode.env.clipboard.writeText(sql);
+      },
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.selectServer', () =>
+      serverManager.selectServer(),
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.retryDiscovery', () =>
+      discovery.retry(),
+    ),
+  );
+}

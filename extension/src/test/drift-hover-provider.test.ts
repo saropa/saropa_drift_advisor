@@ -1,122 +1,23 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { DriftApiClient, TableMetadata } from '../api-client';
+import { DriftApiClient } from '../api-client';
 import { TableNameMapper } from '../codelens/table-name-mapper';
 import {
   DriftHoverProvider,
   HoverCache,
   buildHoverMarkdown,
 } from '../hover/drift-hover-provider';
+import {
+  fakePosition,
+  fakeDocument,
+  SAMPLE_METADATA,
+  SAMPLE_SQL_RESULT,
+} from './hover-test-fixtures';
 
 const vscodeMock = vscode as any;
 
-// --- Helpers ---
-
-function fakePosition(line = 0, character = 0): any {
-  return { line, character };
-}
-
-function fakeDocument(word: string): any {
-  return {
-    languageId: 'dart',
-    getWordRangeAtPosition: (pos: any) => {
-      if (!word) return undefined;
-      return new vscodeMock.Range(
-        pos.line, 0,
-        pos.line, word.length,
-      );
-    },
-    getText: (range?: any) => {
-      if (range) return word;
-      return `class ${word} extends Table {}`;
-    },
-  };
-}
-
-const SAMPLE_METADATA: TableMetadata[] = [
-  {
-    name: 'users',
-    columns: [
-      { name: 'id', type: 'INTEGER', pk: true },
-      { name: 'name', type: 'TEXT', pk: false },
-      { name: 'email', type: 'TEXT', pk: false },
-    ],
-    rowCount: 42,
-  },
-];
-
-const SAMPLE_SQL_RESULT = {
-  columns: ['id', 'name', 'email'],
-  rows: [
-    [42, 'Alice', 'alice@example.com'],
-    [41, 'Bob', 'bob@example.com'],
-    [40, 'Carol', null],
-  ],
-};
-
-// --- HoverCache ---
-
-describe('HoverCache', () => {
-  let clock: sinon.SinonFakeTimers;
-  let cache: HoverCache;
-
-  beforeEach(() => {
-    clock = sinon.useFakeTimers();
-    cache = new HoverCache();
-  });
-
-  afterEach(() => {
-    clock.restore();
-  });
-
-  it('should return null for unknown key', () => {
-    assert.strictEqual(cache.get('missing'), null);
-  });
-
-  it('should return cached hover within TTL', () => {
-    const hover = new vscodeMock.Hover(
-      new vscodeMock.MarkdownString('test'),
-    );
-    cache.set('users', hover, 10_000);
-    assert.strictEqual(cache.get('users'), hover);
-  });
-
-  it('should return null after TTL expires', () => {
-    const hover = new vscodeMock.Hover(
-      new vscodeMock.MarkdownString('test'),
-    );
-    cache.set('users', hover, 10_000);
-    clock.tick(10_001);
-    assert.strictEqual(cache.get('users'), null);
-  });
-
-  it('should remove expired entries on read', () => {
-    const hover = new vscodeMock.Hover(
-      new vscodeMock.MarkdownString('test'),
-    );
-    cache.set('users', hover, 5000);
-    clock.tick(5001);
-    cache.get('users'); // triggers cleanup
-    // Set a new value — should not conflict with old entry
-    const hover2 = new vscodeMock.Hover(
-      new vscodeMock.MarkdownString('test2'),
-    );
-    cache.set('users', hover2, 5000);
-    assert.strictEqual(cache.get('users'), hover2);
-  });
-
-  it('should clear all entries', () => {
-    const hover = new vscodeMock.Hover(
-      new vscodeMock.MarkdownString('test'),
-    );
-    cache.set('users', hover, 10_000);
-    cache.set('orders', hover, 10_000);
-    cache.clear();
-    assert.strictEqual(cache.get('users'), null);
-    assert.strictEqual(cache.get('orders'), null);
-  });
-});
+// HoverCache tests moved to hover-cache.test.ts
 
 // --- buildHoverMarkdown ---
 
