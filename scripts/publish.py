@@ -248,17 +248,45 @@ def _confirm_dart_publish(version: str) -> bool:
     return ask_yn("Proceed with publish?", default=False)
 
 
+def _confirm_full_publish(dart_version: str, ext_version: str) -> bool:
+    """Confirm combined Dart + Extension publish for 'all' target."""
+    from modules.constants import MARKETPLACE_EXTENSION_ID, REPO_URL, TAG_PREFIX
+    ext_tag = f"{TAG_PREFIX}{ext_version}"
+
+    print(f"\n  {C.BOLD}{C.YELLOW}Full Publish Summary{C.RESET}")
+    print(f"  {'-' * 40}")
+    print(f"\n  {C.CYAN}Dart Package (pub.dev){C.RESET}")
+    print(f"    Version: {C.WHITE}v{dart_version}{C.RESET}")
+    print(f"    Tag:     {C.WHITE}v{dart_version}{C.RESET}")
+    print(f"\n  {C.CYAN}VS Code Extension (Marketplace){C.RESET}")
+    print(f"    Version: {C.WHITE}v{ext_version}{C.RESET}")
+    print(f"    Tag:     {C.WHITE}{ext_tag}{C.RESET}")
+    print(f"    ID:      {C.WHITE}{MARKETPLACE_EXTENSION_ID}{C.RESET}")
+
+    print(f"\n  {C.YELLOW}This will:{C.RESET}")
+    print(f"    1. Commit and push to origin")
+    print(f"    2. Create git tags v{dart_version} + {ext_tag}")
+    print(f"    3. Publish Dart package to pub.dev (via GitHub Actions)")
+    print(f"    4. Publish extension to VS Code Marketplace + Open VSX")
+    print(f"    5. Create GitHub releases for both")
+    print(f"\n  {C.RED}These actions are irreversible.{C.RESET}")
+    return ask_yn("Proceed with publish?", default=False)
+
+
 def _run_publish(args, target, dart_version, ext_version, vsix_path, results):
     """Run per-target publish steps. Returns exit code or None on success."""
-    if target in ("dart", "all"):
-        heading("Publish Confirmation")
+    heading("Publish Confirmation")
+
+    if target == "all":
+        if not _confirm_full_publish(dart_version, ext_version):
+            info("Publish cancelled by user.")
+            return ExitCode.USER_CANCELLED
+    elif target == "dart":
         if not _confirm_dart_publish(dart_version):
             info("Publish cancelled by user.")
             return ExitCode.USER_CANCELLED
-
-    if target in ("extension", "all"):
+    elif target == "extension":
         from modules.ext_publish import confirm_publish
-        heading("Publish Confirmation")
         if not confirm_publish(ext_version):
             info("Publish cancelled by user.")
             return ExitCode.USER_CANCELLED
