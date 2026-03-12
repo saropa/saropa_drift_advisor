@@ -94,15 +94,14 @@ describe('DriftTreeProvider', () => {
       assert.ok(children[2] instanceof TableItem);
     });
 
-    it('should show disconnected status when server is down', async () => {
+    it('should return empty array when server is down (for viewsWelcome)', async () => {
       fetchStub.rejects(new Error('connection refused'));
 
       await provider.refresh();
       const children = await provider.getChildren();
 
-      assert.strictEqual(children.length, 1); // just status
-      const status = children[0] as ConnectionStatusItem;
-      assert.strictEqual(status.label, 'Disconnected');
+      assert.strictEqual(children.length, 0);
+      assert.strictEqual(provider.connected, false);
     });
   });
 

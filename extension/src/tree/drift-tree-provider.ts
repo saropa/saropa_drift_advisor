@@ -66,8 +66,11 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   }
 
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
-    // Root level: connection status + pinned group + tables
+    // Root level: return empty when disconnected to show viewsWelcome content
     if (!element) {
+      if (!this._connected) {
+        return [];
+      }
       const status = new ConnectionStatusItem(
         this._client.baseUrl,
         this._connected,
