@@ -423,6 +423,19 @@
         "command": "driftViewer.showErDiagram",
         "title": "Saropa Drift Advisor: Show ER Diagram",
         "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "driftViewer.clipboardImport",
+        "title": "Paste from Clipboard",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "driftViewer.undoClipboardImport",
+        "title": "Saropa Drift Advisor: Undo Clipboard Import"
+      },
+      {
+        "command": "driftViewer.showImportHistory",
+        "title": "Saropa Drift Advisor: Show Import History"
       }
     ],
     "menus": {
@@ -568,6 +581,11 @@
         },
         {
           "command": "driftViewer.clearTable",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
+          "group": "6_data"
+        },
+        {
+          "command": "driftViewer.clipboardImport",
           "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "6_data"
         },
