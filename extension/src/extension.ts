@@ -54,6 +54,7 @@ import { updateStatusBar } from './status-bar';
 import { registerInvariantCommands } from './invariants';
 import { registerErDiagramCommands } from './er-diagram';
 import { registerNarratorCommands } from './narrator';
+import { registerClipboardImportCommands } from './import/clipboard-import-commands';
 
 export function activate(context: vscode.ExtensionContext): void {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
@@ -398,6 +399,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerInvariantCommands(context, client, watcher);
   registerNarratorCommands(context, client);
   registerErDiagramCommands(context, client, watcher);
+  registerClipboardImportCommands(context, client);
   registerDebugCommands(context, {
     client, treeProvider, treeView, hoverCache, linter,
     logBridge, discovery, serverManager, watcher, codeLensProvider,
