@@ -86,6 +86,13 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "driftViewer.databaseExplorer",
+        "contents": "No Drift debug server connected.\n\n**Troubleshooting**\n\n• Ensure your Flutter app is running with Drift debug server enabled\n• Check that `DriftDbViewer` is initialized in your app\n• Verify the server port (default: 8642) matches your configuration\n• Make sure no firewall is blocking localhost connections\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Select Server](command:driftViewer.selectServer)\n\n**Resources**\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
+        "when": "!driftViewer.serverConnected"
+      }
+    ],
     "commands": [
       {
         "command": "driftViewer.openInBrowser",

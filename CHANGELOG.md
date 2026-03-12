@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.2]
 
+### Added
+
+- **Disconnected Welcome View** — When no Drift debug server is connected, the Database panel now shows a helpful welcome screen instead of a bare "Disconnected" message. Includes troubleshooting checklist (app running, DriftDbViewer initialized, port config, firewall), action buttons (Retry Connection, Select Server), and resource links (Getting Started guide, Report Issue). Uses VS Code's native viewsWelcome API for consistent styling.
+
 ### Changed
 
 - **VS Code Marketplace metadata** — Added rich marketplace metadata: categories (Debuggers, Visualization), 15 searchable keywords (dart, drift, flutter, sqlite, database, orm, schema, debug, visualization, data viewer, moor, query, sql, table viewer, database explorer), homepage link, issues link, and gallery banner. The extension listing now shows Project Details with GitHub activity, and Resources links to Issues, Repository, Homepage, License, and Changelog.
