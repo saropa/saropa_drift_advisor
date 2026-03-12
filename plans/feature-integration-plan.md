@@ -11,14 +11,14 @@
 | Phase | Description | Status |
 |-------|-------------|--------|
 | Phase 1 | Foundation — Shared Intelligence Layer | ✅ Complete |
-| Phase 2 | Health Score as Command Center | 🟡 Partial (2.1 done, 2.2 pending) |
+| Phase 2 | Health Score as Command Center | ✅ Complete |
 | Phase 3 | Smart Data Generation | ✅ Complete |
 | Phase 4 | Schema Workflow Pipeline | 🟡 Partial (4.1 done, 4.2 pending) |
 | Phase 5 | Context-Aware Annotations | ✅ Complete |
 | Phase 6 | Unified Timelines | ⬜ Not Started |
 | Phase 7 | Learning & Suggestions | ✅ Complete |
 
-**Overall Progress:** 10/13 integrations complete (77%)
+**Overall Progress:** 11/13 integrations complete (85%)
 
 ---
 
@@ -147,11 +147,11 @@ The current feature set operates as independent tools. This plan introduces **3 
 
 ---
 
-## Phase 2: Health Score as Command Center 🟡
+## Phase 2: Health Score as Command Center ✅
 
 **Scope:** Transform Health Score (30) from passive dashboard to active command center.
 
-**Status:** 2.1 implemented (metric actions), 2.2 pending (Pre-Launch bridge).
+**Status:** Complete. Both integrations implemented.
 
 ### 2.1 Actionable Health Metrics ✅
 
@@ -195,7 +195,7 @@ interface HealthMetricAction {
 
 ---
 
-### 2.2 Health Score → Pre-Launch Tasks Bridge ⬜
+### 2.2 Health Score → Pre-Launch Tasks Bridge ✅
 
 **Current:** Pre-launch tasks (13) and Health Score (30) both check health but don't share logic.
 
@@ -218,7 +218,7 @@ interface HealthMetricAction {
 
 **Effort:** Low (share scoring logic)
 
-**Status:** Not yet implemented. Pre-launch tasks do not currently consume Health Score engine.
+**Implementation:** `HealthCheckTerminal` uses `HealthScorer.compute()` internally. Terminal output shows "Health: C (68%)" summary. Failed checks display a clickable link ("View Health Score Dashboard") via `HealthTerminalLinkProvider` that opens the Health Score panel for detailed breakdown and fix actions.
 
 ---
 
@@ -494,7 +494,7 @@ completions.push(
 | 1.2 Schema Intelligence Cache | High | Medium | None | **P1** | ✅ Done |
 | 1.3 Query Intelligence | High | Medium | None | **P1** | ✅ Done |
 | 3.1 Profiler → Seeder | Medium | Medium | 1.2 | **P1** | ✅ Done |
-| 2.2 Health → Pre-Launch | Medium | Low | 2.1 | **P1** | ⬜ Pending |
+| 2.2 Health → Pre-Launch | Medium | Low | 2.1 | **P1** | ✅ Done |
 | 1.1 Relationship Engine | Medium | Medium | None | **P2** | ✅ Done |
 | 5.1 Annotations Everywhere | Medium | Medium | None | **P2** | ✅ Done |
 | 7.1 Autocomplete from History | Low | Low | None | **P2** | ✅ Done |
@@ -516,9 +516,9 @@ completions.push(
 - [x] 1.3 Extract QueryIntelligence service
 - [x] Migrate existing features to use shared services
 
-### Sprint 3: Smart Generation (P1) 🟡 In Progress
+### Sprint 3: Smart Generation (P1) ✅ Complete
 - [x] 3.1 Seeder reads Column Profiler data
-- [ ] 2.2 Pre-launch tasks use Health Score engine
+- [x] 2.2 Pre-launch tasks use Health Score engine
 
 ### Sprint 4: Relationship & Context (P2) ✅ Complete
 - [x] 1.1 Extract RelationshipEngine
@@ -598,18 +598,12 @@ completions.push(
 
 ## Remaining Work
 
-### High Priority (P1)
-1. **2.2 Health Score → Pre-Launch Bridge**
-   - Modify pre-launch tasks to consume Health Score engine
-   - Display health grade in terminal output
-   - Link failed checks to Health Score panel
-
 ### Medium Priority (P3)
-2. **4.2 Schema Evolution → Migration Generator**
+1. **4.2 Schema Evolution → Migration Generator**
    - Add "Generate Migration" action to schema evolution timeline entries
    - Auto-detect changes between two schema snapshots
 
-3. **6.1 Unified Timeline**
+2. **6.1 Unified Timeline**
    - Create `TimelineService` to aggregate events
    - Merge Snapshot Timeline, Schema Evolution, and Changelog Narrative
    - Implement event type filtering in VS Code Timeline provider

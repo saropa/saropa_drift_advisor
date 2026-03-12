@@ -4,6 +4,9 @@ import { HealthScorer, toGrade } from '../health/health-scorer';
 import type { IHealthScore } from '../health/health-types';
 import type { DriftCheckKind } from './drift-task-provider';
 
+/** Link text that triggers opening the Health Score panel. */
+export const HEALTH_PANEL_LINK = 'View Health Score Dashboard';
+
 export class HealthCheckTerminal implements vscode.Pseudoterminal {
   private readonly _writeEmitter = new vscode.EventEmitter<string>();
   private readonly _closeEmitter = new vscode.EventEmitter<number>();
@@ -21,8 +24,8 @@ export class HealthCheckTerminal implements vscode.Pseudoterminal {
   private async run(): Promise<void> {
     const write = (text: string) => this._writeEmitter.fire(text + '\r\n');
 
-    write('Saropa Drift Advisor - Health Check');
-    write('\u2550'.repeat(40));
+    write('Saropa Drift Advisor - Pre-Launch Health Check');
+    write('\u2550'.repeat(46));
     write('');
 
     const cfg = vscode.workspace.getConfiguration('driftViewer');
@@ -57,7 +60,7 @@ export class HealthCheckTerminal implements vscode.Pseudoterminal {
 
         const gradeColor = this._gradeColor(healthScore.grade);
         write('');
-        write(`  Overall Health: ${gradeColor}${healthScore.grade}${this._resetColor()} (${healthScore.overall}/100)`);
+        write(`  ${this._bold()}Health: ${gradeColor}${healthScore.grade}${this._resetColor()} (${healthScore.overall}%)${this._resetColor()}`);
         write('');
 
         for (const metric of healthScore.metrics) {
@@ -131,7 +134,7 @@ export class HealthCheckTerminal implements vscode.Pseudoterminal {
       write('');
     }
 
-    write('\u2550'.repeat(40));
+    write('\u2550'.repeat(46));
 
     let shouldBlock = false;
 
@@ -153,6 +156,11 @@ export class HealthCheckTerminal implements vscode.Pseudoterminal {
       shouldBlock = shouldBlock || errorCount > 0 || (blockOnWarnings && warningCount > 0);
     }
 
+    if (shouldBlock && healthScore) {
+      write('');
+      write(`\u2192 ${this._linkColor()}${HEALTH_PANEL_LINK}${this._resetColor()} for detailed breakdown and fix actions`);
+    }
+
     this._closeEmitter.fire(shouldBlock ? 1 : 0);
   }
 
@@ -167,6 +175,14 @@ export class HealthCheckTerminal implements vscode.Pseudoterminal {
 
   private _resetColor(): string {
     return '\x1b[0m';
+  }
+
+  private _bold(): string {
+    return '\x1b[1m';
+  }
+
+  private _linkColor(): string {
+    return '\x1b[4m\x1b[36m';
   }
 
   private _isGradeBelowMinimum(grade: string, minGrade: string): boolean {

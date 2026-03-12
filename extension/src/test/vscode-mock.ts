@@ -124,12 +124,15 @@ const registeredCommands: Record<string, (...args: any[]) => any> = {};
 
 const contextValues: Record<string, unknown> = {};
 
+const executedCommands: string[] = [];
+
 export const commands = {
   registerCommand: (id: string, handler: (...args: any[]) => any) => {
     registeredCommands[id] = handler;
     return { dispose: () => { delete registeredCommands[id]; } };
   },
   executeCommand: async (id: string, ...args: any[]) => {
+    executedCommands.push(id);
     if (id === 'setContext' && args.length >= 2) {
       contextValues[args[0] as string] = args[1];
       return;
@@ -141,6 +144,11 @@ export const commands = {
   getRegistered: () => ({ ...registeredCommands }),
   /** Read a context value set via setContext. */
   getContext: (key: string) => contextValues[key],
+};
+
+export const mockCommands = {
+  get executed() { return executedCommands; },
+  reset() { executedCommands.length = 0; },
 };
 
 export const workspace = {
@@ -276,6 +284,7 @@ export function resetMocks(): void {
   clipboardMock.reset();
   dialogMock.reset();
   messageMock.reset();
+  mockCommands.reset();
   registeredCodeLensProviders.length = 0;
   registeredDefinitionProviders.length = 0;
   registeredHoverProviders.length = 0;

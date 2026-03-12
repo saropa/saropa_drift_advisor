@@ -20,6 +20,7 @@ import { FkNavigator } from './navigation/fk-navigator';
 import { ServerDiscovery } from './server-discovery';
 import { ServerManager } from './server-manager';
 import { DriftTaskProvider } from './tasks/drift-task-provider';
+import { HealthTerminalLinkProvider } from './tasks/health-link-provider';
 import { DriftTimelineProvider } from './timeline/drift-timeline-provider';
 import { SnapshotStore } from './timeline/snapshot-store';
 import { DriftTreeProvider } from './tree/drift-tree-provider';
@@ -289,6 +290,11 @@ export function activate(context: vscode.ExtensionContext): void {
   // Task provider for preLaunchTask integration
   context.subscriptions.push(
     vscode.tasks.registerTaskProvider(DriftTaskProvider.type, new DriftTaskProvider()),
+  );
+
+  // Terminal link provider for Health Score panel links in task output
+  context.subscriptions.push(
+    vscode.window.registerTerminalLinkProvider(new HealthTerminalLinkProvider()),
   );
 
   // Saropa Log Capture integration (optional)
