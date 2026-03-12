@@ -1,5 +1,15 @@
 /**
- * Command registration for clipboard import functionality.
+ * VS Code command registration for clipboard import functionality.
+ *
+ * This module registers three commands:
+ * 1. driftViewer.clipboardImport: Open import panel for a table
+ * 2. driftViewer.undoClipboardImport: Undo a previous import
+ * 3. driftViewer.showImportHistory: View import history
+ *
+ * Commands are registered with the extension context and cleaned up
+ * automatically when the extension deactivates.
+ *
+ * @module clipboard-import-commands
  */
 
 import * as vscode from 'vscode';
@@ -8,6 +18,19 @@ import { ClipboardImportPanel } from './clipboard-import-panel';
 import { ImportHistory, formatHistoryEntry } from './import-history';
 import { ImportExecutor } from './import-executor';
 
+/**
+ * Register all clipboard import commands with VS Code.
+ *
+ * Commands registered:
+ * - `driftViewer.clipboardImport`: Opens the import panel for a table.
+ *   Can be invoked from tree view context menu or command palette.
+ * - `driftViewer.undoClipboardImport`: Shows undoable imports and
+ *   allows reversing a selected import.
+ * - `driftViewer.showImportHistory`: Displays recent import history.
+ *
+ * @param context - Extension context for registration and storage
+ * @param client - API client for database operations
+ */
 export function registerClipboardImportCommands(
   context: vscode.ExtensionContext,
   client: DriftApiClient,

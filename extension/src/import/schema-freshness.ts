@@ -1,6 +1,18 @@
 /**
- * Schema freshness checking.
- * Detects when table schema has changed since mapping was created.
+ * Schema freshness checking for clipboard imports.
+ *
+ * This module provides functionality to detect when a table's schema
+ * has changed between when the import was set up (columns mapped) and
+ * when the import is actually executed. This prevents data corruption
+ * from importing to columns that no longer exist or have changed type.
+ *
+ * The workflow:
+ * 1. Capture schema snapshot when import panel opens
+ * 2. Before executing import, check current schema against snapshot
+ * 3. If schema changed, warn user about specific changes
+ * 4. User can choose to proceed or cancel
+ *
+ * @module schema-freshness
  */
 
 import type { ColumnMetadata } from '../api-types';
@@ -8,7 +20,16 @@ import type { ISchemaSnapshot } from './clipboard-import-types';
 
 /**
  * Compute a version hash for a table schema.
- * Changes when columns are added, removed, or modified.
+ *
+ * Creates a deterministic hash from column definitions that changes
+ * when columns are added, removed, or modified. Used for quick
+ * comparison before doing detailed diff.
+ *
+ * Hash is computed from sorted column definitions to be order-independent.
+ * Format per column: "name:type:notnull:pk"
+ *
+ * @param columns - Table column metadata
+ * @returns 8-character hex hash string
  */
 export function computeSchemaVersion(columns: ColumnMetadata[]): string {
   const structure = columns
@@ -27,6 +48,13 @@ export function computeSchemaVersion(columns: ColumnMetadata[]): string {
 
 /**
  * Create a schema snapshot for a table.
+ *
+ * Captures the current state of table columns for later comparison.
+ * Called when the import panel opens to establish baseline.
+ *
+ * @param table - Table name
+ * @param columns - Current column metadata
+ * @returns Snapshot with column info, version hash, and timestamp
  */
 export function captureSchemaSnapshot(
   table: string,
@@ -46,6 +74,17 @@ export function captureSchemaSnapshot(
 
 /**
  * Check if schema has changed since snapshot was captured.
+ *
+ * First does a quick version hash comparison. If hashes differ,
+ * performs detailed diff to identify specific changes:
+ * - Columns removed from table
+ * - Columns added to table
+ * - Column type changes
+ * - Nullability changes
+ *
+ * @param snapshot - Previously captured schema snapshot
+ * @param currentColumns - Current table columns
+ * @returns Whether schema is fresh and list of human-readable changes
  */
 export function checkSchemaFreshness(
   snapshot: ISchemaSnapshot,
@@ -88,6 +127,15 @@ export function checkSchemaFreshness(
 
 /**
  * Get elapsed time since snapshot was captured in human-readable format.
+ *
+ * Formats elapsed time with appropriate units:
+ * - Seconds (< 1 minute): "45s ago"
+ * - Minutes (< 1 hour): "15m ago"
+ * - Hours (< 1 day): "3h ago"
+ * - Days: "2d ago"
+ *
+ * @param snapshot - Schema snapshot to check age of
+ * @returns Human-readable age string
  */
 export function getSnapshotAge(snapshot: ISchemaSnapshot): string {
   const now = new Date();
