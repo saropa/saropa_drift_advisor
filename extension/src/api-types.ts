@@ -10,6 +10,7 @@ export interface ColumnMetadata {
   name: string;
   type: string; // INTEGER, TEXT, REAL, BLOB
   pk: boolean;
+  notnull?: boolean;
 }
 
 export interface ForeignKey {

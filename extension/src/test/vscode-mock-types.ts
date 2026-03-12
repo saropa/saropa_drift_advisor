@@ -148,22 +148,3 @@ export class Task {
   }
 }
 
-// --- Memento mock (for workspaceState) ---
-
-export class MockMemento {
-  private _data = new Map<string, unknown>();
-
-  get<T>(key: string, defaultValue?: T): T | undefined {
-    return this._data.has(key)
-      ? (this._data.get(key) as T)
-      : defaultValue;
-  }
-
-  async update(key: string, value: unknown): Promise<void> {
-    this._data.set(key, value);
-  }
-
-  keys(): readonly string[] {
-    return [...this._data.keys()];
-  }
-}

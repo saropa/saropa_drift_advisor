@@ -29,6 +29,9 @@ __pycache__/
 *.py[cod]
 *.pyo
 
+# Root workspace node_modules (husky)
+node_modules/
+
 # VS Code / Cursor extension (extension/)
 extension/node_modules/
 extension/out/

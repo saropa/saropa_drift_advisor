@@ -175,10 +175,6 @@ export const env = {
   },
 };
 
-export const Uri = {
-  parse: (value: string) => ({ toString: () => value, scheme: 'http', authority: '', path: value }),
-  file: (path: string) => ({ toString: () => path, scheme: 'file', path, fsPath: path }),
-};
 
 export const languages = {
   createDiagnosticCollection: (name: string): MockDiagnosticCollection => {

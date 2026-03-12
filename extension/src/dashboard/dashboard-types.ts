@@ -1,3 +1,6 @@
+import type { DriftApiClient } from '../api-client';
+import type { IHealthScore } from '../health/health-types';
+
 /** Widget type identifiers for the dashboard. */
 export type WidgetType =
   | 'tableStats'
@@ -88,7 +91,7 @@ export interface IWidgetTypeInfo {
 
 /** Health scorer provider interface for dependency injection. */
 export interface IHealthScorerProvider {
-  compute: (client: unknown) => Promise<unknown>;
+  compute: (client: DriftApiClient) => Promise<IHealthScore>;
 }
 
 /** Escape HTML special characters to prevent XSS. */

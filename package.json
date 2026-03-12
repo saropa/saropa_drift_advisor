@@ -1,0 +1,14 @@
+{
+  "name": "saropa-drift-advisor-workspace",
+  "private": true,
+  "description": "Workspace root for saropa_drift_advisor (Dart package + VS Code extension)",
+  "scripts": {
+    "prepare": "husky",
+    "lint:extension": "cd extension && npm run lint",
+    "compile:extension": "cd extension && npm run compile",
+    "test:extension": "cd extension && npm run test"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}
