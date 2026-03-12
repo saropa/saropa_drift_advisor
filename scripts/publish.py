@@ -6,11 +6,13 @@ Supports both the Dart package (pub.dev) and VS Code extension
 (Marketplace / Open VSX) from a single entry point.
 
 Usage:
-    python scripts/publish.py dart               # Dart package pipeline
-    python scripts/publish.py extension           # Extension pipeline
-    python scripts/publish.py all                 # Both targets
-    python scripts/publish.py dart --analyze-only # Analysis only (no publish)
-    python scripts/publish.py dart --bump minor   # Bump minor before validation
+    python scripts/publish.py                     # Interactive menu
+    python scripts/publish.py all                 # Full pipeline (Dart + Extension)
+    python scripts/publish.py dart                # Dart package only (pub.dev)
+    python scripts/publish.py extension           # VS Code extension only (Marketplace)
+    python scripts/publish.py analyze             # Full analysis without publishing
+    python scripts/publish.py openvsx             # Republish existing .vsix to Open VSX
+    python scripts/publish.py dart --bump minor   # Bump version before validation
 
 Exit codes match the ExitCode enum in modules/constants.py.
 """
@@ -53,14 +55,22 @@ _CLI_FLAGS = [
 ]
 
 
-_TARGETS = ["dart", "extension", "all", "openvsx"]
+_TARGETS = {
+    "all": "Full pipeline: Dart package + VS Code extension (pub.dev & Marketplace)",
+    "dart": "Dart package only: validate, test, and publish to pub.dev",
+    "extension": "VS Code extension only: compile, package, and publish to Marketplace",
+    "analyze": "Analysis only: run all checks and packaging without publishing",
+    "openvsx": "Open VSX republish: upload existing .vsix to Open VSX registry",
+}
+
+_TARGET_KEYS = list(_TARGETS.keys())
 
 
 def _prompt_target() -> str:
     """Interactively ask the user which target to publish."""
     print(f"\n  {C.BOLD}Which target do you want to build/publish?{C.RESET}\n")
-    for i, name in enumerate(_TARGETS, 1):
-        print(f"    {C.CYAN}{i}{C.RESET}) {name}")
+    for i, (key, desc) in enumerate(_TARGETS.items(), 1):
+        print(f"    {C.CYAN}{i}{C.RESET}) {C.WHITE}{key:10}{C.RESET} {dim(desc)}")
     print()
     while True:
         try:
@@ -69,8 +79,8 @@ def _prompt_target() -> str:
             print()
             sys.exit(ExitCode.USER_CANCELLED)
         if choice in {str(i) for i in range(1, len(_TARGETS) + 1)}:
-            return _TARGETS[int(choice) - 1]
-        if choice.lower() in _TARGETS:
+            return _TARGET_KEYS[int(choice) - 1]
+        if choice.lower() in _TARGET_KEYS:
             return choice.lower()
         print(f"  {C.RED}Invalid choice. Please enter 1-{len(_TARGETS)} or a target name.{C.RESET}")
 
@@ -84,7 +94,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "target",
         nargs="?",
-        choices=_TARGETS,
+        choices=_TARGET_KEYS,
         default=None,
         help="Which target to build/publish (prompted if omitted).",
     )
@@ -107,7 +117,7 @@ def parse_args() -> argparse.Namespace:
 
 def _read_banner_version(target: str) -> str:
     """Read the version to display in the banner (target-appropriate)."""
-    if target == "extension":
+    if target in ("extension", "openvsx"):
         from modules.target_config import EXTENSION, read_version
         return read_version(EXTENSION)
     from modules.target_config import DART, read_version
@@ -116,10 +126,16 @@ def _read_banner_version(target: str) -> str:
 
 def _print_target_info(target: str, version: str) -> None:
     """Print target and version info after the logo."""
-    labels = {"dart": "Dart", "extension": "Extension", "all": "All Targets", "openvsx": "Open VSX"}
-    print(f"\n  {C.BOLD}{labels[target]} Pipeline{C.RESET}  {dim(f'v{version}')}")
+    labels = {
+        "all": "Full Pipeline",
+        "dart": "Dart Package",
+        "extension": "VS Code Extension",
+        "analyze": "Analysis Only",
+        "openvsx": "Open VSX Republish",
+    }
+    print(f"\n  {C.BOLD}{labels[target]}{C.RESET}  {dim(f'v{version}')}")
     print(f"  Project root: {dim(REPO_ROOT)}")
-    if target in ("extension", "all", "openvsx"):
+    if target in ("extension", "all", "openvsx", "analyze"):
         print(f"  Extension:    {dim(EXTENSION_DIR)}")
 
 
@@ -317,13 +333,18 @@ def _main_inner() -> int:
     """Parse args, run pipeline, return exit code."""
     args = parse_args()
     target = args.target
-    version = _read_banner_version(target if target != "openvsx" else "extension")
+    version = _read_banner_version(target if target not in ("openvsx", "analyze") else "extension")
     results: list[tuple[str, bool, float]] = []
 
     _print_target_info(target, version)
 
     if target == "openvsx":
         return _run_openvsx_only()
+
+    # "analyze" target runs full pipeline analysis without publishing
+    if target == "analyze":
+        args.analyze_only = True
+        target = "all"
 
     dart_ver, ext_ver, vsix_path, ok = _run_analysis(args, target, results)
     if not ok:

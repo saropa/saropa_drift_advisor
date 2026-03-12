@@ -5,15 +5,36 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import time
 from typing import TYPE_CHECKING
 
-from modules.constants import C
+from modules.constants import C, CHANGELOG_PATH, EXTENSION_DIR
 from modules.display import heading, info, ok
 from modules.utils import run_step
 
 if TYPE_CHECKING:
     from modules.target_config import TargetConfig
+
+
+# ── Changelog Sync ────────────────────────────────────────
+
+
+def sync_extension_changelog() -> bool:
+    """Copy root CHANGELOG.md to extension/ for VS Code Marketplace.
+
+    The Marketplace uses extension/CHANGELOG.md when displaying version history.
+    This ensures the extension changelog stays in sync with the root changelog.
+    """
+    ext_changelog = os.path.join(EXTENSION_DIR, "CHANGELOG.md")
+    try:
+        shutil.copy2(CHANGELOG_PATH, ext_changelog)
+        ok(f"Synced CHANGELOG.md → extension/CHANGELOG.md")
+        return True
+    except OSError as e:
+        from modules.display import fail
+        fail(f"Failed to sync changelog: {e}")
+        return False
 
 
 # ── Shared Helpers ───────────────────────────────────────
@@ -261,6 +282,14 @@ def package_and_install(
     from modules.ext_prereqs import get_installed_extension_versions
     from modules.ext_install import print_install_instructions, prompt_install
     from modules.report import save_report, print_timing, print_report_path
+
+    heading("Changelog Sync")
+    t0 = time.time()
+    sync_ok = sync_extension_changelog()
+    elapsed = time.time() - t0
+    results.append(("Changelog sync", sync_ok, elapsed))
+    if not sync_ok:
+        return None
 
     heading("Package")
     t0 = time.time()
