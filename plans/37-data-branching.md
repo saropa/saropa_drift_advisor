@@ -647,6 +647,87 @@ context.subscriptions.push(
   - Empty diff → only comments, no SQL statements
   - FK order: deletes child rows before parent rows
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Cached schema for branch capture |
+| RelationshipEngine | FK-ordered table operations for restore |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Table metadata for branch capture |
+| Data Management (20a) | `DependencySorter` for FK-safe restore |
+| Snapshot Timeline (12) | Reuses snapshot capture logic |
+| PII Anonymizer (28) | "Export Anonymized Branch" |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Portable Report (25) | Export branch as portable HTML |
+| Migration Generator (24) | Generate migration from branch diff |
+| Unified Timeline (6.1) | Branch creation/restore events |
+| Data Editing (16) | Restore branch to undo bulk edits |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Branch Manager | "Export as Report" | Portable Report from branch data |
+| Branch Manager | "Export Anonymized" | PII Anonymizer + export |
+| Branch Manager | "Generate Migration" | Migration Generator from diff |
+| Branch Diff | "View in Time Travel" | Time-Travel Slider at branch point |
+| Bulk Edit Grid | "Create Branch" | Branch before destructive edit |
+| Health Score | "Create Safety Branch" | Quick branch before risky operation |
+
+### Unified Timeline Events
+
+| Event Type | Data |
+|------------|------|
+| `branch-created` | `{ branchName, tableCount, rowCount, timestamp }` |
+| `branch-restored` | `{ branchName, tablesAffected, timestamp }` |
+| `branch-deleted` | `{ branchName, timestamp }` |
+
+### Integration with Unified Timeline
+
+Branch events appear in the Unified Timeline (Phase 6):
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Database Timeline                     │
+├─────────────────────────────────────────────────────────┤
+│ Mar 11, 15:42 │ 🌿 BRANCH │ Created "experiment-1"     │
+│               │           │ 8 tables, 52,389 rows      │
+│               │           │ [Diff] [Restore] [Delete]  │
+├─────────────────────────────────────────────────────────┤
+│ Mar 11, 14:30 │ 📊 DATA   │ +3 users, +12 orders       │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Pre-Operation Safety
+
+Before destructive operations, prompt to create a branch:
+
+```typescript
+// In bulk edit commit
+if (changes.deletes.length > 10) {
+  const createBranch = await vscode.window.showWarningMessage(
+    'You are deleting 10+ rows. Create a backup branch first?',
+    'Create Branch', 'Continue Without'
+  );
+  if (createBranch === 'Create Branch') {
+    await branchManager.createBranch(`before-delete-${Date.now()}`);
+  }
+}
+```
+
+---
+
 ## Known Limitations
 
 - Branch data is stored in workspace state — large branches (10k+ rows per table) may hit VS Code storage limits

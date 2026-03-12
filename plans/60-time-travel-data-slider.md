@@ -268,6 +268,88 @@ None. Uses existing snapshot data captured by `DriftTimelineProvider`.
   - Diff summary counts are accurate
   - Snapshot index bounds checked (0 to count-1)
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Column metadata for diff display |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Snapshot Timeline (12) | Snapshot data storage |
+| Query Replay DVR (26) | Sync slider to DVR position |
+| Data Branching (37) | View branch state at creation time |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Row Comparator (33) | Compare row at two time points |
+| Data Branching (37) | "Create Branch from Snapshot" |
+| Unified Timeline (6.1) | Visual representation of data state |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Time-Travel Slider | "Create Branch Here" | Data Branch from snapshot |
+| Time-Travel Slider | "Compare to Now" | Row Comparator |
+| Time-Travel Slider | "View Changes" | Snapshot Changelog Narrative |
+| DVR Timeline | "Sync Time-Travel" | Slider jumps to DVR position |
+| Table Data Viewer | "Show History" | Time-Travel for current table |
+| Unified Timeline | "View Data at Point" | Slider jumps to event time |
+
+### Unified Timeline Integration
+
+Time-Travel Slider syncs with the Unified Timeline (Phase 6):
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ UNIFIED TIMELINE                                        │
+├─────────────────────────────────────────────────────────┤
+│ 15:42 │ 📊 DATA │ +3 users, +12 orders                 │
+│       │         │ [View in Time-Travel]  ← clicks here │
+├───────┴─────────┴───────────────────────────────────────┤
+│                                                         │
+│ TIME-TRAVEL: orders — Snapshot 3 of 14                 │
+│ ◀ ▶ ⏸  ──────●───────────────────────── ▶             │
+│              ↑ synced to 15:42                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### DVR Sync Mode
+
+When DVR is recording, Time-Travel can sync to query execution points:
+
+```typescript
+// DVR scrub triggers Time-Travel sync
+dvrPanel.onQuerySelected((query) => {
+  const nearestSnapshot = timeline.findSnapshotNear(query.timestamp);
+  timeTravelPanel.seekTo(nearestSnapshot.id);
+});
+```
+
+### Branch Creation from Snapshot
+
+"Create Branch Here" captures the historical state:
+
+```typescript
+// Create branch from time-travel position
+commands.registerCommand('driftViewer.branchFromSnapshot', async (snapshotId) => {
+  const snapshot = timeline.getSnapshot(snapshotId);
+  const branch = await branchManager.createFromSnapshot(snapshot);
+  vscode.window.showInformationMessage(
+    `Branch "${branch.name}" created from snapshot at ${snapshot.timestamp}`
+  );
+});
+```
+
+---
+
 ## Known Limitations
 
 - Depends on snapshots being captured — if auto-capture is disabled or interval is too long, gaps appear in the timeline

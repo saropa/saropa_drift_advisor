@@ -416,6 +416,118 @@ None. Uses existing schema, FK, and SQL endpoints.
   - Split plan generates correct FK between new tables
   - Merge plan generates correct UPDATE + DROP statements
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Cached schema metadata for analysis |
+| QueryIntelligence | Query patterns inform refactoring priorities |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Table/column metadata |
+| Column Profiler (29) | Cardinality analysis, null percentages |
+| QueryIntelligence (1.3) | JOIN patterns suggest relationships |
+| AI Schema Reviewer (59) | AI suggestions feed into refactoring |
+| Health Score (30) | Low scores trigger refactoring suggestions |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Migration Generator (24) | Multi-step migration plans |
+| ER Diagram (38) | "Preview Refactored Schema" |
+| Health Score (30) | Refactoring improves schema quality |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Refactoring Suggestion | "Generate Migration" | Migration with multi-step plan |
+| Refactoring Suggestion | "Preview Schema" | ER Diagram showing result |
+| Refactoring Suggestion | "Estimate Impact" | Impact analysis |
+| Health Score | "Suggest Refactorings" | Refactoring Engine |
+| AI Schema Reviewer | "Apply Suggestion" | Refactoring with AI-generated plan |
+| Column Profiler | "Normalize Column" | Normalization refactoring |
+
+### Health Score Contribution
+
+| Metric | Contribution |
+|--------|--------------|
+| Schema Quality | Refactoring opportunities affect score |
+| Action | "View Refactoring Suggestions" → panel |
+
+### Column Profiler Integration
+
+The Refactoring Engine uses Column Profiler data for smarter suggestions:
+
+```typescript
+async function _detectNormalization(tables: TableMetadata[]): Promise<IRefactoringSuggestion[]> {
+  for (const table of tables) {
+    for (const col of table.columns) {
+      // Use Column Profiler for cardinality analysis
+      const profile = await columnProfiler.getProfile(table.name, col.name);
+      
+      if (profile && profile.distinctCount <= 20 && profile.totalCount > 50) {
+        const ratio = profile.distinctCount / profile.totalCount;
+        if (ratio < 0.1) {
+          suggestions.push({
+            type: 'normalize',
+            title: `Normalize ${table.name}.${col.name}`,
+            description: `${profile.distinctCount} distinct values across ${profile.totalCount} rows`,
+            confidence: ratio < 0.01 ? 0.9 : 0.7,
+            // Include actual values for preview
+            topValues: profile.topValues,
+          });
+        }
+      }
+    }
+  }
+}
+```
+
+### AI Schema Reviewer Bridge
+
+AI suggestions can be implemented through the Refactoring Engine:
+
+```
+AI Schema Review Finding:
+  "orders.status should be normalized to a lookup table"
+      │
+      ▼
+[Apply Suggestion] button
+      │
+      ▼
+Refactoring Engine:
+  - Receives: { type: 'normalize', table: 'orders', column: 'status' }
+  - Generates: Multi-step migration plan
+  - Outputs: SQL + Dart code + Drift table class
+```
+
+### Health Score Feedback Loop
+
+```
+Low Health Score (Schema Quality: D)
+      │
+      ▼
+Health Score Panel: "Suggest Refactorings" button
+      │
+      ▼
+Refactoring Engine runs analysis
+      │
+      ▼
+Suggestions prioritized by health impact:
+  1. Normalize orders.status → +8% schema quality
+  2. Split users table → +5% schema quality
+  3. Add FK constraint → +3% schema quality
+```
+
+---
+
 ## Known Limitations
 
 - Analysis requires querying data (DISTINCT counts, JOINs) — slow on large databases

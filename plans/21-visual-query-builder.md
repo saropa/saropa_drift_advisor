@@ -304,6 +304,56 @@ context.subscriptions.push(
   - Empty model → `SELECT * FROM "t"`
   - SQL injection in filter values → properly escaped
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | `getTable()`, `getForeignKeys()` for table metadata + auto-join suggestions |
+| RelationshipEngine | `getForeignKeys(table)` → draw FK arrows between tables on canvas |
+| QueryIntelligence | `recordQuery()` when executing built queries; `getFrequentJoins()` for suggested joins |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Table list, column metadata, FK relationships for canvas |
+| Natural Language SQL (18) | "Edit Visually" action loads generated SQL into builder |
+| SQL Snippet Library (40) | "Load Snippet" inserts saved query patterns |
+| Query History Search (50) | "Open in Builder" reconstructs visual model from SQL |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| SQL Notebook (3) | "Open in Notebook" creates cell with built SQL |
+| Query Intelligence (1.3) | Built queries recorded for pattern learning |
+| Dashboard Builder (36) | "Add to Dashboard" creates query result widget |
+| Query Cost Analyzer (43) | "Analyze Cost" button sends built SQL for EXPLAIN |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Visual Builder | "Analyze Performance" | Query Cost Analyzer |
+| Visual Builder | "Open in Notebook" | SQL Notebook with generated SQL |
+| Visual Builder | "Save as Snippet" | SQL Snippet Library |
+| Tree View (table) | "Build Query From…" | Visual Builder with table pre-loaded |
+| NL-SQL Result | "Edit Visually" | Visual Builder |
+
+### Health Score Contribution
+
+None — query building tool.
+
+### Query Autocomplete Enhancement
+
+The Visual Builder benefits from Query Intelligence:
+- **Frequent JOINs**: When adding a second table, auto-suggest JOIN based on most common patterns from `QueryIntelligence.getFrequentJoins()`
+- **Column suggestions**: Checkboxes sorted by frequency of use in historical queries
+
+---
+
 ## Known Limitations
 
 - No HAVING clause support (only WHERE)

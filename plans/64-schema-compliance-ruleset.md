@@ -437,6 +437,120 @@ None. Uses existing schema metadata, diagram, and Dart source parsing.
   - Naming severity override applies to table, column, and FK violations
   - Violations convert to `ServerIssue[]` with source `'compliance'`
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Cached schema metadata for rule evaluation |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Table/column metadata |
+| Schema Linter (7) | Shares diagnostic infrastructure |
+| Generation Watcher | Triggers re-evaluation |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Health Score (30) | "Schema Compliance" metric |
+| Pre-Launch Tasks (13) | Block launch on compliance errors |
+| Schema Linter (7) | Additional compliance-based diagnostics |
+| Migration Generator (24) | "Fix Violation" generates migration |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Compliance Violation | "Generate Fix Migration" | Migration Generator |
+| Compliance Violation | "View Table" | Table definition in editor |
+| Health Score | "View Compliance" | Compliance panel |
+| Pre-Launch Tasks | "Show Compliance Issues" | Compliance panel |
+| Schema Linter | "Check Compliance" | Run compliance rules |
+
+### Health Score Contribution
+
+| Metric | Contribution |
+|--------|--------------|
+| Schema Quality | Compliance pass/fail ratio |
+| Action | "View Compliance Violations" → Compliance panel |
+| Quick Fix | "Generate All Fix Migrations" → batch migration |
+
+### Integration with Schema Linter
+
+Compliance violations merge into the existing diagnostic system:
+
+```typescript
+// compliance-checker.ts
+function toServerIssues(violations: IComplianceViolation[]): ServerIssue[] {
+  return violations.map(v => ({
+    source: 'compliance' as const,  // New source type
+    severity: v.severity,
+    table: v.table,
+    column: v.column,
+    message: v.message,
+    rule: v.rule,  // Rule ID for filtering
+  }));
+}
+
+// schema-diagnostics.ts — merged into existing refresh
+const [suggestions, anomalies, compliance] = await Promise.all([
+  this._client.indexSuggestions(),
+  this._client.anomalies(),
+  this._complianceChecker.run(),
+]);
+
+const issues = [...suggestions, ...anomalies, ...compliance];
+this._refreshDiagnostics(issues);
+```
+
+### Pre-Launch Task Integration
+
+```typescript
+// Pre-launch task checks compliance
+tasks.registerTask('drift.compliance', async () => {
+  const violations = await complianceChecker.check(config, schema);
+  const errors = violations.filter(v => v.severity === 'error');
+  
+  if (errors.length > 0) {
+    return {
+      success: false,
+      message: `${errors.length} compliance errors block launch`,
+      action: 'driftViewer.showCompliance',
+    };
+  }
+  
+  return { success: true };
+});
+```
+
+### Batch Migration Generation
+
+"Fix All Violations" generates migrations for all fixable violations:
+
+```typescript
+commands.registerCommand('driftViewer.fixAllCompliance', async () => {
+  const violations = complianceChecker.getViolations();
+  const fixable = violations.filter(v => v.suggestedFix);
+  
+  const migrations = fixable.map(v => v.suggestedFix);
+  const combined = MigrationGenerator.combine(migrations);
+  
+  // Open as SQL document
+  const doc = await vscode.workspace.openTextDocument({
+    content: combined,
+    language: 'sql'
+  });
+  await vscode.window.showTextDocument(doc);
+});
+```
+
+---
+
 ## Known Limitations
 
 - FK column pattern only supports `{table}` placeholder with literal table name — multi-word tables like `user_accounts` produce `user_accounts_id`. No singularization or custom transforms.

@@ -374,6 +374,64 @@ context.subscriptions.push(
   - Theme toggle attribute is present
   - File size is reasonable (~1MB for 1000 rows across 5 tables)
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Cached schema metadata for report header (table list, column types) |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Table metadata, schema SQL |
+| Anomaly Detection (existing) | Include anomaly summary in report |
+| Health Score (30) | Include health grade + metrics in report |
+| Data Branching (37) | "Export Branch as Report" |
+| PII Anonymizer (28) | Pre-anonymize before export |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Standalone | Self-contained HTML file for sharing |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Health Score Panel | "Export Health Report" | Portable Report with health data |
+| Branch Manager | "Export Branch as Report" | Report from branch snapshot |
+| Anomaly Viewer | "Export with Anomalies" | Report including anomaly details |
+| Tree View | "Export Portable Report" | Full database export |
+
+### Report Enhancements from Integration
+
+The Portable Report becomes richer by embedding data from multiple features:
+
+| Section | Source Feature |
+|---------|----------------|
+| Schema Overview | SchemaIntelligence |
+| Health Score Summary | Database Health Score (30) |
+| Anomaly Summary | Anomaly Detection |
+| Data Invariant Status | Data Invariant Checker (27) |
+| Performance Metrics | Debug Performance (15) |
+
+### Export Options Extension
+
+```typescript
+interface IReportConfig {
+  // ... existing fields
+  includeHealthScore?: boolean;    // Embed health metrics
+  includeInvariants?: boolean;     // Embed invariant check results
+  anonymize?: boolean;             // Run PII Anonymizer before export
+}
+```
+
+---
+
 ## Known Limitations
 
 - Large datasets produce large HTML files (10,000 rows × 10 columns ≈ 5MB HTML)

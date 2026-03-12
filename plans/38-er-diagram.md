@@ -397,6 +397,80 @@ watcher.onDidChange(async () => {
   - All tables and relationships represented in exports
   - Column types and PK/FK markers present
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Cached table/column metadata + FK relationships |
+| RelationshipEngine | FK data for drawing relationship arrows |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Table metadata, column types, row counts |
+| RelationshipEngine (1.1) | All FK relationships in one call |
+| Data Annotations (42) | Show annotation icons on tables |
+| Health Score (30) | Color-code tables by health status |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Portable Report (25) | Embed ER diagram as SVG in report |
+| Schema Docs Generator (32) | Include diagram in documentation |
+| AI Schema Reviewer (59) | Visual context for schema analysis |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| ER Diagram (table) | "View Data" | Table data viewer |
+| ER Diagram (table) | "Seed Data" | Test Data Seeder |
+| ER Diagram (table) | "Profile Columns" | Column Profiler |
+| ER Diagram (table) | "View Health" | Health Score filtered to table |
+| ER Diagram (FK line) | "Trace Lineage" | Data Lineage from relationship |
+| ER Diagram (FK line) | "Check Impact" | Row Impact Analysis |
+| Tree View | "Show in Diagram" | ER Diagram centered on table |
+
+### Visual Enhancements from Integration
+
+| Enhancement | Source |
+|-------------|--------|
+| Health color-coding | Tables colored by Health Score grade |
+| Annotation badges | Tables with notes show 📝 icon |
+| Row count badges | SchemaIntelligence provides counts |
+| FK integrity warnings | Anomaly detection orphan count on FK lines |
+
+### Diagram Export for Reports
+
+```typescript
+// Portable Report can embed ER diagram
+interface IReportConfig {
+  // ...existing
+  includeErDiagram?: boolean;  // Embed SVG in report header
+}
+```
+
+### Health-Colored Tables
+
+Tables in the diagram show health status visually:
+
+```
+┌──────────────┐     ┌──────────────────┐
+│ users    🟢  │◄────│ orders       🟡  │
+│ A+ (95%)     │     │ B  (78%)         │
+├──────────────┤     ├──────────────────┤
+│ 🔑 id        │     │ 🔑 id            │
+│ ...          │     │ 🔗 user_id ⚠️    │
+└──────────────┘     └──────────────────┘
+                     (⚠️ = FK has orphans)
+```
+
+---
+
 ## Known Limitations
 
 - Force-directed layout is non-deterministic — positions vary on each render

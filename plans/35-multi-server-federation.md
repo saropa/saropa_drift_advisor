@@ -455,6 +455,72 @@ if (fedConfig.get('enabled', false)) {
   - Results display for multiple servers side-by-side
   - Error results display error message instead of table
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Per-server SchemaIntelligence instances for each federated server |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Server Discovery (6) | Auto-detect servers on configured ports |
+| Schema Intelligence Cache (1.2) | Cached metadata per server |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Health Score (30) | Aggregated health across all federated servers |
+| Dashboard Builder (36) | Multi-server dashboard widgets |
+| Schema Diff (5) | Cross-server schema comparison |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Federated Tree | "Compare Schemas" | Schema comparison panel |
+| Federated Tree | "Cross-Server Query" | Query execution on multiple servers |
+| Server Item | "View Health" | Health Score for specific server |
+| Server Item | "Open Dashboard" | Dashboard scoped to server |
+| Cross-Query Result | "Copy to Notebook" | SQL Notebook with server prefix |
+
+### Health Score Contribution
+
+| Metric | Contribution |
+|--------|--------------|
+| Federation Health | Per-server health grades aggregated |
+| Server Availability | Connected vs. expected servers |
+
+### Dashboard Integration
+
+The Dashboard Builder (Feature 36) gains federation-aware widgets:
+
+| Widget | Description |
+|--------|-------------|
+| Server Grid | Health status of all federated servers |
+| Cross-Server Row Count | Same query, row counts per server |
+| Schema Drift Alert | Tables that differ between servers |
+
+### Unified View
+
+```
+┌─────────────────────────────────────────┐
+│ FEDERATED HEALTH OVERVIEW               │
+├─────────────────────────────────────────┤
+│ :8642 User Service      A- (87%)       │
+│ :8643 Order Service     B+ (82%)       │
+│ :8644 Payment Service   ⚠ Disconnected │
+├─────────────────────────────────────────┤
+│ Overall: B (84%)        [Details]       │
+└─────────────────────────────────────────┘
+```
+
+---
+
 ## Known Limitations
 
 - Federation is opt-in (`federation.enabled: false` by default) to avoid confusion with single-server usage

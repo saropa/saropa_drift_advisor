@@ -451,6 +451,70 @@ if (vscode.workspace.getConfiguration('driftViewer.dvr').get('autoRecord', true)
   - No matches returns empty array
   - Case-insensitive matching
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| QueryIntelligence | DVR playback data feeds into query pattern analysis |
+| SchemaIntelligence | Table/column metadata for displaying recorded query context |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Real-time Mutation Stream (22) | Write queries captured by mutation tracker also recorded in DVR |
+| Debug Performance (15) | Query execution times included in DVR entries |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Query Intelligence (1.3) | Full session query patterns for learning |
+| Query Perf Regression Detector (63) | Historical execution times per query |
+| Unified Timeline (6.1) | Query events with timeline markers |
+| SQL Notebook (3) | "Open in Notebook" for any recorded query |
+| Query Cost Analyzer (43) | "Analyze" action on slow queries |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| DVR Timeline | "View Row at Time" | Time-Travel Data Slider (60) synced to query point |
+| DVR Query | "Explain This Query" | Query Cost Analyzer |
+| DVR Query | "Open in Notebook" | SQL Notebook with query pre-loaded |
+| DVR Query | "Find Similar" | Query History Search filtered by pattern |
+| DVR Slow Query | "Check for Regression" | Query Perf Regression Detector |
+
+### Health Score Contribution
+
+| Metric | Contribution |
+|--------|--------------|
+| Query Performance | DVR timing data feeds into "slow query %" metric |
+
+### Unified Timeline Events
+
+| Event Type | Data |
+|------------|------|
+| `query` | `{ id, sql, durationMs, rowCount, type, timestamp }` |
+
+### DVR + Time Travel Sync
+
+When scrubbing the DVR timeline, the Time-Travel Data Slider (Feature 60) can optionally sync to show database state at each query point:
+
+```
+DVR Scrub Position → Query #23 (10:42:31)
+         │
+         ▼
+Time-Travel Slider → Snapshot nearest to 10:42:31
+         │
+         ▼
+Table View shows data state at that moment
+```
+
+---
+
 ## Known Limitations
 
 - Before/after state capture adds 2 extra queries per write — noticeable performance overhead

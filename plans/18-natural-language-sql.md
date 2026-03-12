@@ -315,6 +315,53 @@ context.subscriptions.push(
 - `nl-sql-history.test.ts`: test add, deduplication, max length cap, persistence round-trip
 - LLM client is not unit-tested (external dependency) — integration test with a mock HTTP server if desired
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Provides cached schema context for LLM prompts (tables, columns, FKs, types) — eliminates redundant `schemaMetadata()` calls |
+| QueryIntelligence | Records generated queries for pattern learning; suggests improvements based on query history |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | `SchemaIntelligence.getCompactContext()` → formatted schema for LLM prompt |
+| Query History Search (50) | Previous NL queries shown as suggestions in input dropdown |
+| Saved Filters (52) | Saved WHERE clauses offered as autocomplete hints |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| SQL Notebook (3) | Generated SQL injected as new notebook cell |
+| Query Intelligence (1.3) | `QueryIntelligence.recordQuery(sql, source: 'nl-to-sql')` for pattern learning |
+| Visual Query Builder (21) | "Edit in Visual Builder" action on generated SQL |
+| Dashboard Builder (36) | "Add to Dashboard" quick action for generated query |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| NL-SQL Result | "Edit Visually" | Visual Query Builder with pre-loaded SQL |
+| NL-SQL Result | "Explain Query" | Query Cost Analyzer with generated SQL |
+| NL-SQL Result | "Save as Snippet" | SQL Snippet Library |
+| SQL Notebook | "Ask in English" | NL-SQL input modal |
+
+### Health Score Contribution
+
+None — this is a query tool, not a health metric.
+
+### Unified Timeline Events
+
+| Event Type | Data |
+|------------|------|
+| `nl-query` | `{ question, generatedSql, timestamp }` — logged for debugging if enabled |
+
+---
+
 ## Known Limitations
 
 - Requires an external LLM API key — no built-in model
