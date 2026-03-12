@@ -20,6 +20,8 @@ const ICON_MAP: Record<AnnotationIcon, string> = {
   bug: '\u{1F41B}',
   star: '\u2B50',
   pin: '\u{1F4CC}',
+  todo: '\u{1F4CB}',
+  bookmark: '\u{1F516}',
 };
 
 function targetLabel(ann: IAnnotation): string {

@@ -1,5 +1,5 @@
 /** Icon category for visual distinction in annotations. */
-export type AnnotationIcon = 'note' | 'warning' | 'bug' | 'star' | 'pin';
+export type AnnotationIcon = 'note' | 'warning' | 'bug' | 'star' | 'pin' | 'todo' | 'bookmark';
 
 /** Which kind of database entity the annotation targets. */
 export type AnnotationTargetKind = 'table' | 'column' | 'row';

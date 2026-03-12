@@ -294,3 +294,44 @@ export class MockMemento {
     this._data.clear();
   }
 }
+
+/** Mock vscode.Uri for file paths. */
+export class Uri {
+  readonly scheme: string;
+  readonly authority: string;
+  readonly path: string;
+  readonly query: string;
+  readonly fragment: string;
+  readonly fsPath: string;
+
+  private constructor(scheme: string, authority: string, path: string, query: string, fragment: string) {
+    this.scheme = scheme;
+    this.authority = authority;
+    this.path = path;
+    this.query = query;
+    this.fragment = fragment;
+    this.fsPath = path;
+  }
+
+  static file(path: string): Uri {
+    return new Uri('file', '', path, '', '');
+  }
+
+  static parse(value: string): Uri {
+    return new Uri('file', '', value, '', '');
+  }
+
+  toString(): string {
+    return `${this.scheme}://${this.path}`;
+  }
+
+  with(_change: { scheme?: string; authority?: string; path?: string; query?: string; fragment?: string }): Uri {
+    return new Uri(
+      _change.scheme ?? this.scheme,
+      _change.authority ?? this.authority,
+      _change.path ?? this.path,
+      _change.query ?? this.query,
+      _change.fragment ?? this.fragment,
+    );
+  }
+}

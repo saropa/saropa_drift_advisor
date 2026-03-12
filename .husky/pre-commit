@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Run TypeScript type checking on the extension before allowing commit
+# This catches type errors BEFORE they get committed
+
+echo "🔍 Running TypeScript lint check on extension..."
+
+cd extension
+
+# Run tsc --noEmit to check for type errors without generating output
+npm run lint
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ TypeScript errors detected! Fix the errors above before committing."
+  echo ""
+  echo "   To see errors:  cd extension && npm run lint"
+  echo "   To compile:     cd extension && npm run compile"
+  echo ""
+  exit 1
+fi
+
+echo "✅ TypeScript check passed"
