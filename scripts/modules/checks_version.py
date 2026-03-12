@@ -362,33 +362,42 @@ def _is_tagged(version: str, config: TargetConfig | None = None) -> bool:
 def _ensure_untagged_version(
     version: str,
     config: TargetConfig | None = None,
-) -> tuple[str, bool]:
-    """If the version is already tagged, offer to bump patch.
+) -> tuple[str, bool, bool]:
+    """If the version is already tagged, offer to bump and confirm in one step.
 
-    Keeps bumping until an available tag is found or the user declines.
+    Keeps prompting until an available tag is found or the user declines.
     Updates both the version file AND the CHANGELOG heading when bumping.
-    Returns (resolved_version, success).
+    Returns (resolved_version, success, already_confirmed).
+
+    When a tag conflict is resolved, the user has already confirmed the version
+    via the combined prompt, so caller can skip separate confirmation.
     """
     prefix = _tag_prefix_for(config)
+    label = _version_file_label(config)
     original = version
+    had_conflict = False
+
     while _is_tagged(version, config):
+        had_conflict = True
         next_ver = _bump_version(version)
         warn(f"Tag '{prefix}{version}' already exists.")
-        if not ask_yn(f"Bump to {next_ver}?", default=True):
-            fail("Version already tagged. Bump manually.")
-            return version, False
-        version = next_ver
+
+        # Combined prompt: resolve conflict + confirm in one question
+        confirmed = _ask_version(next_ver)
+        if confirmed is None:
+            fail("Version not confirmed.")
+            return version, False, False
+        version = confirmed
 
     if version != original:
         if not _write_version(version, config):
-            return version, False
-        label = _version_file_label(config)
+            return version, False, False
         fix(f"{label}: {original} -> {C.WHITE}{version}{C.RESET}")
-        # Also update CHANGELOG heading if it has the old version
         if not _update_changelog_version(original, version, config):
-            return version, False
+            return version, False, False
+
     ok(f"Tag '{prefix}{version}' is available")
-    return version, True
+    return version, True, had_conflict
 
 
 # ── Main Validation ───────────────────────────────────────
@@ -520,13 +529,15 @@ def validate_version_changelog(
             fail("Add changelog entries before publishing.")
             return pkg_version, False
 
-    version, tag_ok = _ensure_untagged_version(pkg_version, config)
+    version, tag_ok, already_confirmed = _ensure_untagged_version(pkg_version, config)
     if not tag_ok:
         return version, False
 
-    version, confirmed = _confirm_version(version, config)
-    if not confirmed:
-        return version, False
+    # Skip confirmation if user already confirmed during tag conflict resolution
+    if not already_confirmed:
+        version, confirmed = _confirm_version(version, config)
+        if not confirmed:
+            return version, False
 
     if needs_stamp and not _stamp_changelog(version, config):
         return version, False
