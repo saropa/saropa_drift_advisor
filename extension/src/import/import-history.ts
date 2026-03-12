@@ -1,6 +1,22 @@
 /**
  * Import history tracking for undo support.
- * Stores import records with enough detail to reverse them.
+ *
+ * This module provides persistent storage of import operations to enable
+ * undo functionality. Each import is recorded with:
+ * - Inserted row IDs (for DELETE on undo)
+ * - Updated rows with previous values (for UPDATE on undo)
+ * - Metadata for display (timestamp, table, row count)
+ *
+ * History is stored in VS Code workspace state and persists across
+ * editor sessions. Old entries are pruned when the limit is reached.
+ *
+ * Undo eligibility:
+ * - Imports are undoable immediately after completion
+ * - If imported rows are subsequently modified, the import becomes
+ *   non-undoable (stale data would be restored)
+ * - Successful undo removes the entry from history
+ *
+ * @module import-history
  */
 
 import type * as vscode from 'vscode';
@@ -12,15 +28,49 @@ import type {
   IUpdatedRow,
 } from './clipboard-import-types';
 
+/**
+ * Manages import history for undo support.
+ *
+ * Stores import records in VS Code workspace state, enabling undo
+ * operations to be available across editor sessions.
+ *
+ * @example
+ * ```typescript
+ * const history = new ImportHistory(context.workspaceState);
+ * const id = history.recordImport(table, result, strategy, format);
+ * // Later...
+ * const entry = history.getEntry(id);
+ * if (entry?.canUndo) {
+ *   // Perform undo...
+ *   history.removeEntry(id);
+ * }
+ * ```
+ */
 export class ImportHistory {
+  /** In-memory cache of history entries, keyed by ID */
   private _entries: Map<string, IImportHistoryEntry> = new Map();
 
+  /**
+   * Create a new history tracker.
+   * Loads existing history from storage on construction.
+   *
+   * @param _storage - VS Code Memento for persistent storage
+   */
   constructor(private readonly _storage: vscode.Memento) {
     this._load();
   }
 
   /**
    * Record a completed import for potential undo.
+   *
+   * Creates a history entry with all information needed to reverse
+   * the import: inserted IDs and previous values of updated rows.
+   *
+   * @param table - Table where import was performed
+   * @param result - Import result with IDs and updated rows
+   * @param strategy - Strategy used (insert, upsert, etc.)
+   * @param format - Source data format
+   * @returns Generated entry ID for future reference
    */
   recordImport(
     table: string,
@@ -52,6 +102,11 @@ export class ImportHistory {
 
   /**
    * Get an import history entry by ID.
+   *
+   * Ensures timestamp is properly deserialized as Date object.
+   *
+   * @param id - Entry ID from recordImport
+   * @returns Entry if found, undefined otherwise
    */
   getEntry(id: string): IImportHistoryEntry | undefined {
     const entry = this._entries.get(id);
@@ -62,7 +117,13 @@ export class ImportHistory {
   }
 
   /**
-   * Get recent import history entries for a table.
+   * Get recent import history entries for a specific table.
+   *
+   * Useful for showing table-specific undo options or history.
+   *
+   * @param table - Table name to filter by
+   * @param limit - Maximum entries to return (default 10)
+   * @returns Entries sorted by timestamp descending (newest first)
    */
   getRecentForTable(table: string, limit = 10): IImportHistoryEntry[] {
     const entries = [...this._entries.values()]
@@ -75,7 +136,10 @@ export class ImportHistory {
   }
 
   /**
-   * Get all recent import history entries.
+   * Get all recent import history entries across all tables.
+   *
+   * @param limit - Maximum entries to return (default 20)
+   * @returns Entries sorted by timestamp descending (newest first)
    */
   getRecent(limit = 20): IImportHistoryEntry[] {
     return [...this._entries.values()]
@@ -86,6 +150,11 @@ export class ImportHistory {
 
   /**
    * Mark an import as no longer undoable.
+   *
+   * Called when the undo would produce incorrect results, such as
+   * when the imported rows have been subsequently modified.
+   *
+   * @param id - Entry ID to mark
    */
   markNotUndoable(id: string): void {
     const entry = this._entries.get(id);
@@ -97,6 +166,13 @@ export class ImportHistory {
 
   /**
    * Mark imports as not undoable when their rows have been modified.
+   *
+   * Called when rows are edited or deleted outside the import system.
+   * Checks all undoable imports for the table and marks any that
+   * reference the affected row IDs as non-undoable.
+   *
+   * @param table - Table where modifications occurred
+   * @param affectedIds - IDs of modified/deleted rows
    */
   markAffectedImports(table: string, affectedIds: (string | number)[]): void {
     const affectedSet = new Set(affectedIds.map(String));
@@ -127,6 +203,11 @@ export class ImportHistory {
 
   /**
    * Remove an entry after successful undo.
+   *
+   * Called when undo completes successfully to remove the entry
+   * from history (it's no longer relevant).
+   *
+   * @param id - Entry ID to remove
    */
   removeEntry(id: string): void {
     this._entries.delete(id);
@@ -134,17 +215,34 @@ export class ImportHistory {
   }
 
   /**
-   * Clear all history.
+   * Clear all history entries.
+   *
+   * Removes all entries from memory and storage. Use with caution
+   * as this prevents undo of all previous imports.
    */
   clear(): void {
     this._entries.clear();
     this._save();
   }
 
+  /**
+   * Generate a unique ID for a new history entry.
+   *
+   * Format: imp_<timestamp>_<random>
+   * Example: imp_1678901234567_abc123d
+   *
+   * @returns Unique entry ID
+   */
   private _generateId(): string {
     return `imp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   }
 
+  /**
+   * Remove oldest entries when history exceeds maximum size.
+   *
+   * Keeps the 100 most recent entries to prevent unbounded storage
+   * growth while preserving reasonable undo history.
+   */
   private _prune(): void {
     const maxEntries = 100;
     if (this._entries.size <= maxEntries) {
@@ -162,6 +260,11 @@ export class ImportHistory {
     this._entries = new Map(toKeep);
   }
 
+  /**
+   * Load history from VS Code workspace state.
+   *
+   * Called on construction to restore history from previous sessions.
+   */
   private _load(): void {
     const data = this._storage.get<Record<string, IImportHistoryEntry>>(
       'clipboardImportHistory',
@@ -170,6 +273,11 @@ export class ImportHistory {
     this._entries = new Map(Object.entries(data));
   }
 
+  /**
+   * Save history to VS Code workspace state.
+   *
+   * Called after any modification to persist changes across sessions.
+   */
   private _save(): void {
     const data: Record<string, IImportHistoryEntry> = {};
     for (const [id, entry] of this._entries) {
@@ -185,7 +293,17 @@ export class ImportHistory {
 }
 
 /**
- * Format an import history entry for display.
+ * Format an import history entry for display in UI.
+ *
+ * Creates a human-readable summary including:
+ * - Time (HH:MM format)
+ * - Action (imported/upserted)
+ * - Row count
+ * - Table name
+ * - Undo status
+ *
+ * @param entry - History entry to format
+ * @returns Formatted string like "10:30: imported 5 rows into users (can undo)"
  */
 export function formatHistoryEntry(entry: IImportHistoryEntry): string {
   const date = entry.timestamp instanceof Date

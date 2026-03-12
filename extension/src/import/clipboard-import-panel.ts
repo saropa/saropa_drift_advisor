@@ -1,6 +1,22 @@
 /**
- * Webview panel for clipboard import functionality.
- * Coordinates parsing, validation, and import execution.
+ * Webview panel controller for clipboard import functionality.
+ *
+ * This module manages the clipboard import UI panel and coordinates
+ * between the various import components:
+ * - ClipboardParser: Parses raw clipboard text
+ * - ImportValidator: Validates data before import
+ * - ImportExecutor: Performs the actual database operations
+ * - ImportHistory: Tracks imports for undo support
+ *
+ * The panel uses a VS Code webview to render an interactive UI where
+ * users can:
+ * - Preview parsed clipboard data
+ * - Map clipboard columns to table columns
+ * - Select import strategy (insert, upsert, etc.)
+ * - Run validation and preview changes
+ * - Execute the import with transaction safety
+ *
+ * @module clipboard-import-panel
  */
 
 import * as vscode from 'vscode';
@@ -23,31 +39,54 @@ import { ImportHistory } from './import-history';
 import { ImportValidator, validateForeignKeys } from './import-validator';
 import { captureSchemaSnapshot, checkSchemaFreshness } from './schema-freshness';
 
+/**
+ * Message from webview to update a column mapping.
+ */
 interface IUpdateMappingMessage {
   command: 'updateMapping';
+  /** Index of the mapping in the mapping array */
   index: number;
+  /** Target table column name, or null to skip this column */
   tableColumn: string | null;
 }
 
+/**
+ * Message from webview to change import strategy.
+ */
 interface IUpdateStrategyMessage {
   command: 'updateStrategy';
+  /** New import strategy selection */
   strategy: ImportStrategy;
 }
 
+/**
+ * Message from webview to change match-by setting.
+ */
 interface IUpdateMatchByMessage {
   command: 'updateMatchBy';
+  /** Column name to match by, or 'pk' for primary key */
   matchBy: string;
 }
 
+/**
+ * Message from webview to toggle continue-on-error setting.
+ */
 interface IUpdateContinueOnErrorMessage {
   command: 'updateContinueOnError';
+  /** Whether to continue importing when individual rows fail */
   continueOnError: boolean;
 }
 
+/**
+ * Simple command messages without additional data.
+ */
 interface ISimpleMessage {
   command: 'cancel' | 'validate' | 'import';
 }
 
+/**
+ * Union type of all possible messages from the webview.
+ */
 type PanelMessage =
   | IUpdateMappingMessage
   | IUpdateStrategyMessage
@@ -55,18 +94,54 @@ type PanelMessage =
   | IUpdateContinueOnErrorMessage
   | ISimpleMessage;
 
+/**
+ * Manages the clipboard import webview panel.
+ *
+ * Implements a singleton pattern - only one import panel can be open at
+ * a time. If createOrShow is called while a panel exists, it updates
+ * the existing panel with new data.
+ *
+ * The panel lifecycle:
+ * 1. User triggers import command
+ * 2. Clipboard is read and parsed
+ * 3. Panel is created with parsed data and auto-mapped columns
+ * 4. User adjusts mappings and options
+ * 5. User runs validation (optional) then import
+ * 6. Import is recorded in history for undo support
+ * 7. Panel can be closed or reused for next import
+ */
 export class ClipboardImportPanel {
+  /** Singleton instance of the current panel */
   private static _currentPanel: ClipboardImportPanel | undefined;
 
+  /** VS Code webview panel instance */
   private readonly _panel: vscode.WebviewPanel;
+  /** Disposables to clean up on panel close */
   private readonly _disposables: vscode.Disposable[] = [];
+  /** API client for database operations */
   private readonly _client: DriftApiClient;
+  /** History tracker for undo support */
   private readonly _history: ImportHistory;
+  /** Executor for database import operations */
   private readonly _executor: ImportExecutor;
+  /** Validator for pre-import data checking */
   private readonly _validator: ImportValidator;
 
+  /** Current state of the import panel */
   private _state: IClipboardImportState;
 
+  /**
+   * Create a new panel or reveal existing one with new data.
+   *
+   * Reads clipboard content, parses it, auto-maps columns, and shows
+   * the import panel. If clipboard is empty or unparseable, shows
+   * an error message instead.
+   *
+   * @param client - API client for database operations
+   * @param storage - VS Code Memento for history persistence
+   * @param table - Target table name for import
+   * @param tableColumns - Column metadata for the target table
+   */
   static async createOrShow(
     client: DriftApiClient,
     storage: vscode.Memento,
@@ -137,6 +212,17 @@ export class ClipboardImportPanel {
     );
   }
 
+  /**
+   * Private constructor - use createOrShow() to create instances.
+   *
+   * Sets up the panel, initializes dependencies, and wires up
+   * event handlers for webview messages.
+   *
+   * @param panel - VS Code webview panel
+   * @param client - API client for database operations
+   * @param storage - Memento for history persistence
+   * @param state - Initial panel state
+   */
   private constructor(
     panel: vscode.WebviewPanel,
     client: DriftApiClient,
@@ -165,6 +251,16 @@ export class ClipboardImportPanel {
     this._render();
   }
 
+  /**
+   * Render the panel HTML with current state.
+   *
+   * Regenerates the complete HTML from current state and updates
+   * the webview. Called after any state change.
+   *
+   * @param loading - Show loading indicator
+   * @param error - Error message to display
+   * @param success - Success result with row counts
+   */
   private _render(loading = false, error?: string, success?: { imported: number; skipped: number }): void {
     this._panel.webview.html = buildClipboardImportHtml(
       this._state,
@@ -174,6 +270,14 @@ export class ClipboardImportPanel {
     );
   }
 
+  /**
+   * Handle messages from the webview.
+   *
+   * Routes messages to appropriate handlers based on command type.
+   * Updates state and re-renders as needed.
+   *
+   * @param msg - Message from webview
+   */
   private async _handleMessage(msg: PanelMessage): Promise<void> {
     switch (msg.command) {
       case 'cancel':
@@ -211,6 +315,15 @@ export class ClipboardImportPanel {
     }
   }
 
+  /**
+   * Update a column mapping and clear validation results.
+   *
+   * Changing mappings invalidates previous validation, so results
+   * are cleared and user must re-validate.
+   *
+   * @param index - Index of mapping to update
+   * @param tableColumn - New target column, or null to skip
+   */
   private _updateMapping(index: number, tableColumn: string | null): void {
     if (index >= 0 && index < this._state.mapping.length) {
       this._state.mapping[index].tableColumn = tableColumn;
@@ -220,6 +333,12 @@ export class ClipboardImportPanel {
     }
   }
 
+  /**
+   * Run validation on current data and mappings.
+   *
+   * Validates all rows against table schema and foreign key constraints.
+   * Updates state with validation results and shows summary message.
+   */
   private async _runValidation(): Promise<void> {
     this._render(true);
 
@@ -271,6 +390,16 @@ export class ClipboardImportPanel {
     }
   }
 
+  /**
+   * Execute the import operation.
+   *
+   * Flow:
+   * 1. Check schema freshness (warn if changed since mapping)
+   * 2. Build import payload from current mappings
+   * 3. Execute import or dry run based on strategy
+   * 4. Record successful import in history for undo
+   * 5. Display results in panel
+   */
   private async _runImport(): Promise<void> {
     this._render(true);
 
@@ -342,6 +471,14 @@ export class ClipboardImportPanel {
     }
   }
 
+  /**
+   * Check if table schema has changed since import was started.
+   *
+   * Compares current schema against snapshot taken when panel opened.
+   * Warns user if columns were added, removed, or modified.
+   *
+   * @returns Whether schema is fresh and list of detected changes
+   */
   private async _checkSchemaFreshness(): Promise<{ fresh: boolean; changes: string[] }> {
     try {
       const tables = await this._client.schemaMetadata();
@@ -355,6 +492,11 @@ export class ClipboardImportPanel {
     }
   }
 
+  /**
+   * Clean up panel resources.
+   *
+   * Clears singleton reference and disposes all registered disposables.
+   */
   private _dispose(): void {
     ClipboardImportPanel._currentPanel = undefined;
     this._panel.dispose();

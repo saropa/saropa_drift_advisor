@@ -1,6 +1,18 @@
 /**
- * Import execution with transaction handling.
- * Supports multiple import strategies with rollback on failure.
+ * Import executor with transaction handling and multiple strategies.
+ *
+ * This module handles the actual database operations for importing data,
+ * supporting multiple import strategies:
+ * - Insert: Add new rows, fail on conflicts
+ * - Insert Skip Conflicts: Add new rows, skip duplicates silently
+ * - Upsert: Add new rows, update existing ones
+ * - Dry Run: Preview what would happen without making changes
+ *
+ * All import operations are wrapped in database transactions for atomicity.
+ * Failed imports are rolled back, and the executor tracks inserted/updated
+ * rows for potential undo operations.
+ *
+ * @module import-executor
  */
 
 import type { DriftApiClient } from '../api-client';
@@ -16,12 +28,46 @@ import type {
 } from './clipboard-import-types';
 import { ImportValidator } from './import-validator';
 
+/**
+ * Executes database import operations with transaction safety.
+ *
+ * Handles row-by-row import with conflict detection and resolution
+ * based on the selected strategy. Tracks all changes for undo support.
+ *
+ * @example
+ * ```typescript
+ * const executor = new ImportExecutor(apiClient);
+ * const result = await executor.execute(tableName, rows, columns, options);
+ * if (result.success) {
+ *   console.log(`Imported ${result.imported} rows`);
+ * }
+ * ```
+ */
 export class ImportExecutor {
+  /**
+   * Create a new import executor.
+   * @param _client - API client for database operations
+   */
   constructor(private readonly _client: DriftApiClient) {}
 
   /**
    * Execute import with the specified strategy.
-   * All operations are performed in a transaction.
+   *
+   * All operations are wrapped in a database transaction. If any row
+   * fails and continueOnError is false, the entire import is rolled back.
+   * If continueOnError is true, failing rows are recorded and the
+   * transaction commits with the successful rows.
+   *
+   * The method tracks:
+   * - insertedIds: IDs of newly inserted rows (for undo via DELETE)
+   * - updatedRows: Previous values of updated rows (for undo via UPDATE)
+   *
+   * @param table - Target table name
+   * @param rows - Array of row objects to import
+   * @param tableColumns - Table column metadata for PK detection
+   * @param options - Import strategy and error handling options
+   * @returns Import result with success status, counts, and error details
+   * @throws Error if transaction fails and cannot be rolled back
    */
   async execute(
     table: string,
@@ -120,6 +166,21 @@ export class ImportExecutor {
 
   /**
    * Perform a dry run to preview what would happen.
+   *
+   * Executes validation and conflict detection without modifying data.
+   * For each row, determines whether it would be:
+   * - Inserted as new (no matching row exists)
+   * - Updated (upsert mode with matching row)
+   * - Skipped (insert_skip_conflicts mode with matching row)
+   *
+   * For updates, generates a detailed diff showing which columns
+   * would change and their before/after values.
+   *
+   * @param table - Target table name
+   * @param rows - Array of row objects to preview
+   * @param tableColumns - Table column metadata
+   * @param options - Import options (strategy affects preview behavior)
+   * @returns Dry run result with counts, conflicts, and validation errors
    */
   async dryRun(
     table: string,
@@ -186,6 +247,20 @@ export class ImportExecutor {
 
   /**
    * Undo a previous import by deleting inserted rows and restoring updated rows.
+   *
+   * Reverses an import operation by:
+   * 1. Deleting all rows that were inserted (by their tracked IDs)
+   * 2. Restoring previous values for rows that were updated
+   *
+   * The undo operation is wrapped in a transaction for atomicity.
+   * If the undo fails, changes are rolled back and the original
+   * import remains in effect.
+   *
+   * @param table - Table where import was performed
+   * @param insertedIds - IDs of rows that were inserted
+   * @param updatedRows - Updated rows with their previous values
+   * @param pkColumn - Primary key column name for WHERE clauses
+   * @returns Success status and error message if failed
    */
   async undoImport(
     table: string,
@@ -234,6 +309,19 @@ export class ImportExecutor {
     }
   }
 
+  /**
+   * Determine which columns to use for matching existing rows.
+   *
+   * Resolves the matchBy option to actual column names:
+   * - 'pk': Use the primary key column
+   * - string[]: Use the specified columns directly
+   *
+   * Falls back to primary key if available when no match columns specified.
+   *
+   * @param options - Import options containing matchBy setting
+   * @param pkColumn - Primary key column name, if table has one
+   * @returns Array of column names to use for matching
+   */
   private _getMatchColumns(options: IImportOptions, pkColumn: string | undefined): string[] {
     if (options.matchBy === 'pk' && pkColumn) {
       return [pkColumn];
@@ -243,6 +331,18 @@ export class ImportExecutor {
     return pkColumn ? [pkColumn] : [];
   }
 
+  /**
+   * Find an existing row matching the given values.
+   *
+   * Queries the database for a row where all match columns equal
+   * the corresponding values in the input row. Used for conflict
+   * detection in upsert and skip_conflicts modes.
+   *
+   * @param table - Table to search
+   * @param row - Row data containing values for match columns
+   * @param matchColumns - Columns to match on
+   * @returns Existing row data if found, null otherwise
+   */
   private async _findExisting(
     table: string,
     row: Record<string, unknown>,
@@ -276,6 +376,17 @@ export class ImportExecutor {
     }
   }
 
+  /**
+   * Insert a single row into the table.
+   *
+   * Constructs and executes an INSERT statement, then retrieves
+   * the auto-generated ID if the table has a primary key column.
+   *
+   * @param table - Target table name
+   * @param row - Row data to insert
+   * @param pkColumn - Primary key column for ID retrieval
+   * @returns Inserted row ID if available, undefined otherwise
+   */
   private async _insertRow(
     table: string,
     row: Record<string, unknown>,
@@ -303,6 +414,16 @@ export class ImportExecutor {
     return undefined;
   }
 
+  /**
+   * Update an existing row with new values.
+   *
+   * Constructs and executes an UPDATE statement setting all columns
+   * except the match columns (which are used in the WHERE clause).
+   *
+   * @param table - Target table name
+   * @param row - Row data containing new values
+   * @param matchColumns - Columns used to identify the row (WHERE clause)
+   */
   private async _updateRow(
     table: string,
     row: Record<string, unknown>,
@@ -327,6 +448,15 @@ export class ImportExecutor {
     }
   }
 
+  /**
+   * Escape single quotes in SQL string values.
+   *
+   * Doubles single quotes per SQL standard to prevent injection
+   * and allow literal quotes in values.
+   *
+   * @param value - String value to escape
+   * @returns Escaped string safe for SQL insertion
+   */
   private _escape(value: string): string {
     return value.replace(/'/g, "''");
   }

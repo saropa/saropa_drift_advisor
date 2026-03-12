@@ -1,24 +1,55 @@
 /**
- * Multi-step import wizard using VS Code native QuickPick + file picker.
- * No webview panel needed.
+ * File-based import wizard using VS Code native UI.
+ *
+ * This module provides a simpler alternative to the clipboard import
+ * panel for importing data from files. Uses VS Code's built-in UI
+ * components (QuickPick, file picker, progress notification) rather
+ * than a custom webview.
+ *
+ * Wizard steps:
+ * 1. Select format (JSON, CSV, or SQL)
+ * 2. Pick file using native file dialog
+ * 3. Select target table
+ * 4. Execute import with progress indicator
+ *
+ * This approach is faster to invoke and doesn't require column mapping
+ * as it expects the file to match the table structure.
+ *
+ * @module import-command
  */
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 
+/**
+ * Available import format options for the format selection step.
+ */
 const FORMAT_OPTIONS: vscode.QuickPickItem[] = [
   { label: 'JSON', description: 'Array of objects' },
   { label: 'CSV', description: 'Header row + data rows' },
   { label: 'SQL', description: 'INSERT statements' },
 ];
 
+/**
+ * File extension filters for each format.
+ * Used in the native file picker dialog.
+ */
 const FILE_FILTERS: Record<string, Record<string, string[]>> = {
   json: { JSON: ['json'] },
   csv: { CSV: ['csv', 'tsv'] },
   sql: { SQL: ['sql'] },
 };
 
-/** Run the import wizard. Returns when complete or cancelled. */
+/**
+ * Run the multi-step import wizard.
+ *
+ * Guides user through format selection, file picking, and table
+ * selection using VS Code's native UI components. Cancelling at
+ * any step aborts the wizard.
+ *
+ * @param client - API client for database operations
+ * @returns Promise that resolves when wizard completes or is cancelled
+ */
 export async function runImportWizard(
   client: DriftApiClient,
 ): Promise<void> {
