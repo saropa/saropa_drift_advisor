@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.2]
 
+Improve the first-run experience with a helpful welcome screen when disconnected, and make the extension easier to discover on the VS Code Marketplace.
+
 ### Added
 
 - **Disconnected Welcome View** — When no Drift debug server is connected, the Database panel now shows a helpful welcome screen instead of a bare "Disconnected" message. Includes troubleshooting checklist (app running, DriftDbViewer initialized, port config, firewall), action buttons (Retry Connection, Select Server), and resource links (Getting Started guide, Report Issue). Uses VS Code's native viewsWelcome API for consistent styling.
@@ -16,8 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **VS Code Marketplace metadata** — Added rich marketplace metadata: categories (Debuggers, Visualization), 15 searchable keywords (dart, drift, flutter, sqlite, database, orm, schema, debug, visualization, data viewer, moor, query, sql, table viewer, database explorer), homepage link, issues link, and gallery banner. The extension listing now shows Project Details with GitHub activity, and Resources links to Issues, Repository, Homepage, License, and Changelog.
+- **Dependabot Configuration** — `.github/dependabot.yaml` extended to keep npm dependencies up to date; weekly schedule with grouped minor/patch updates for both root and extension directories.
 
 ## [1.0.1]
+
+Major feature release adding data import from clipboard, interactive ER diagrams, data narratives, custom dashboards, and data quality invariant checking.
 
 ### Fixed
 
@@ -37,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.1]
 
+Analytics and insights release: database health scoring, query cost analysis with index suggestions, saved filters, and row deletion impact analysis.
+
 ### Added
 
 - **Database Health Score** — Overall database health grade (A+–F) computed from six weighted metrics: index coverage, FK integrity, null density, query performance, table balance, and schema quality. Webview dashboard with color-coded cards, per-metric scores, and actionable recommendations.
@@ -45,6 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Row Impact Analysis** — Right-click any table and select "Analyze Row Impact" to see what breaks if you delete a row. Shows outbound dependencies (parents), inbound dependents grouped by table with counts, cascade delete summary, and generates safe DELETE SQL in correct FK order.
 
 ## [0.4.0]
+
+Simplification release: removed the in-app Flutter overlay and 6 dependencies to make the package pure Dart, reducing bundle size for consumer apps.
 
 ### Removed
 

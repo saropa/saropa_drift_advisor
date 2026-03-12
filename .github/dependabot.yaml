@@ -1,4 +1,6 @@
-# Dependabot: daily updates for pub and github-actions; grouped PRs and limit to reduce noise.
+# Dependabot configuration for automated dependency updates.
+# - GitHub Actions & Dart/pub: daily updates
+# - npm: weekly updates with grouped minor/patch
 version: 2
 enable-beta-ecosystems: true
 updates:
@@ -20,4 +22,30 @@ updates:
       dart-deps:
         patterns:
           - "*"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "npm"
+    directory: "/extension"
+    schedule:
+      interval: "weekly"
+    groups:
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     open-pull-requests-limit: 5
