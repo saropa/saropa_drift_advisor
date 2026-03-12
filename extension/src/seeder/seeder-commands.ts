@@ -3,8 +3,20 @@ import type { DriftApiClient } from '../api-client';
 import type { TableMetadata } from '../api-types';
 import type { TableItem } from '../tree/tree-items';
 import { detectTableGenerators } from './column-detector';
+import { ProfileInformedGenerator } from './profile-informed-generator';
 import { SeederPanel } from './seeder-panel';
 import type { ITableSeederConfig } from './seeder-types';
+
+/** Shared profile-informed generator instance. */
+let profileGenerator: ProfileInformedGenerator | undefined;
+
+/** Get or create the profile-informed generator. */
+export function getProfileGenerator(client: DriftApiClient): ProfileInformedGenerator {
+  if (!profileGenerator) {
+    profileGenerator = new ProfileInformedGenerator(client);
+  }
+  return profileGenerator;
+}
 
 /** Register seeder commands on the extension context. */
 export function registerSeederCommands(
@@ -20,6 +32,15 @@ export function registerSeederCommands(
           if (!table) return;
           const meta = await client.schemaMetadata();
           const config = await buildTableConfig(client, table, meta);
+
+          const useProfiles = vscode.workspace
+            .getConfiguration('driftViewer.seeder')
+            .get<boolean>('useProfileData', true);
+
+          if (useProfiles) {
+            await loadProfilesForTable(client, table, meta);
+          }
+
           SeederPanel.createOrShow(client, [config]);
         } catch (err) {
           showError(err);
@@ -38,9 +59,17 @@ export function registerSeederCommands(
             vscode.window.showInformationMessage('No tables found.');
             return;
           }
+
+          const useProfiles = vscode.workspace
+            .getConfiguration('driftViewer.seeder')
+            .get<boolean>('useProfileData', true);
+
           const configs: ITableSeederConfig[] = [];
           for (const table of tables) {
             configs.push(await buildTableConfig(client, table, meta));
+            if (useProfiles) {
+              await loadProfilesForTable(client, table, meta);
+            }
           }
           SeederPanel.createOrShow(client, configs);
         } catch (err) {
@@ -48,6 +77,49 @@ export function registerSeederCommands(
         }
       },
     ),
+    vscode.commands.registerCommand(
+      'driftViewer.seedWithProfiles',
+      async (item?: TableItem) => {
+        try {
+          const table = item?.table.name ?? await pickTable(client);
+          if (!table) return;
+          const meta = await client.schemaMetadata();
+
+          await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: `Loading column profiles for ${table}...`,
+            },
+            async () => {
+              await loadProfilesForTable(client, table, meta);
+            },
+          );
+
+          const config = await buildTableConfig(client, table, meta);
+          SeederPanel.createOrShow(client, [config]);
+          vscode.window.showInformationMessage(
+            `Seeder will use actual data distributions from ${table}.`,
+          );
+        } catch (err) {
+          showError(err);
+        }
+      },
+    ),
+  );
+}
+
+async function loadProfilesForTable(
+  client: DriftApiClient,
+  table: string,
+  meta: TableMetadata[],
+): Promise<void> {
+  const tableMeta = meta.find((t) => t.name === table);
+  if (!tableMeta) return;
+
+  const generator = getProfileGenerator(client);
+  await generator.loadProfiles(
+    table,
+    tableMeta.columns.map((c) => ({ name: c.name, type: c.type })),
   );
 }
 

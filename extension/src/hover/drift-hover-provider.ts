@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DriftApiClient, TableMetadata } from '../api-client';
+import type { AnnotationService } from '../annotations/annotation-service';
 import { TableNameMapper } from '../codelens/table-name-mapper';
 
 /** Maximum display width for a cell value in the hover table. */
@@ -53,14 +54,16 @@ function formatCell(value: unknown, maxLen: number): string {
 /**
  * Build a markdown hover card showing table metadata and recent rows.
  *
- * @param table   Schema metadata (name, columns, row count).
- * @param columns Column names returned by the SQL query.
- * @param rows    Row data as arrays (positional, matching `columns`).
+ * @param table       Schema metadata (name, columns, row count).
+ * @param columns     Column names returned by the SQL query.
+ * @param rows        Row data as arrays (positional, matching `columns`).
+ * @param annotations Optional annotation text to append.
  */
 export function buildHoverMarkdown(
   table: TableMetadata,
   columns: string[],
   rows: unknown[][],
+  annotations?: string,
 ): vscode.Hover {
   const parts: string[] = [];
 
@@ -86,6 +89,12 @@ export function buildHoverMarkdown(
     parts.push('\n');
   }
 
+  // Annotations (if any)
+  if (annotations) {
+    parts.push(annotations);
+    parts.push('\n\n');
+  }
+
   // Action links (trusted command URIs)
   const nameArg = encodeURIComponent(JSON.stringify(table.name));
   parts.push(
@@ -103,13 +112,22 @@ export function buildHoverMarkdown(
  * Shows a live database preview when hovering over Drift table class names.
  *
  * Only active during debug sessions to avoid unnecessary server calls.
+ * Includes annotations when available.
  */
 export class DriftHoverProvider implements vscode.HoverProvider {
+  private _annotationService: AnnotationService | undefined;
+
   constructor(
     private readonly _client: DriftApiClient,
     private readonly _mapper: TableNameMapper,
     private readonly _cache: HoverCache,
   ) {}
+
+  /** Set the annotation service for displaying notes in hovers. */
+  setAnnotationService(service: AnnotationService): void {
+    this._annotationService = service;
+    service.onDidChange(() => this._cache.clear());
+  }
 
   async provideHover(
     document: vscode.TextDocument,
@@ -152,7 +170,14 @@ export class DriftHoverProvider implements vscode.HoverProvider {
       const table = metadata.find((t) => t.name === sqlTable);
       if (!table) return null;
 
-      const hover = buildHoverMarkdown(table, result.columns, result.rows);
+      // Get annotations for this table
+      let annotationText: string | undefined;
+      if (this._annotationService) {
+        const summary = this._annotationService.getTableSummary(sqlTable);
+        annotationText = this._annotationService.formatForHover(summary);
+      }
+
+      const hover = buildHoverMarkdown(table, result.columns, result.rows, annotationText);
       this._cache.set(sqlTable, hover, CACHE_TTL_MS);
       return hover;
     } catch {

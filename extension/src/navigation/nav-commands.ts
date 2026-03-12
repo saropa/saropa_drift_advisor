@@ -80,6 +80,27 @@ export function registerNavCommands(
       },
     ),
   );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.runIndexSql',
+      async (sql: string) => {
+        try {
+          await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Creating index\u2026',
+            },
+            () => client.sql(sql),
+          );
+          vscode.window.showInformationMessage('Index created successfully.');
+          linter.refresh();
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Failed to create index: ${msg}`);
+        }
+      },
+    ),
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.selectServer', () =>

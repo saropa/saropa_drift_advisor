@@ -93,8 +93,10 @@ export class SchemaDiagnostics {
 }
 
 /**
- * Provides "Copy CREATE INDEX SQL" quick-fix code actions
- * for index-suggestion diagnostics.
+ * Provides quick-fix code actions for Drift diagnostics:
+ * - "Copy CREATE INDEX SQL" for index suggestions
+ * - "Generate Migration" for schema issues
+ * - "Run CREATE INDEX" to execute index creation immediately
  */
 export class DriftCodeActionProvider implements vscode.CodeActionProvider {
   provideCodeActions(
@@ -103,27 +105,81 @@ export class DriftCodeActionProvider implements vscode.CodeActionProvider {
     context: vscode.CodeActionContext,
   ): vscode.CodeAction[] {
     const actions: vscode.CodeAction[] = [];
+    let hasSchemaIssue = false;
+
     for (const diag of context.diagnostics) {
       if (diag.source !== 'Saropa Drift Advisor') continue;
-      if (diag.code !== 'index-suggestion') continue;
-      if (!diag.relatedInformation?.[0]) continue;
 
-      const sql = diag.relatedInformation[0].message.replace(
-        /^Suggested fix: /,
-        '',
-      );
-      const action = new vscode.CodeAction(
-        'Copy CREATE INDEX SQL',
-        vscode.CodeActionKind.QuickFix,
-      );
-      action.command = {
-        command: 'driftViewer.copySuggestedSql',
-        title: 'Copy SQL',
-        arguments: [sql],
-      };
-      action.diagnostics = [diag];
-      actions.push(action);
+      if (diag.code === 'index-suggestion' && diag.relatedInformation?.[0]) {
+        const sql = diag.relatedInformation[0].message.replace(
+          /^Suggested fix: /,
+          '',
+        );
+
+        const copyAction = new vscode.CodeAction(
+          'Copy CREATE INDEX SQL',
+          vscode.CodeActionKind.QuickFix,
+        );
+        copyAction.command = {
+          command: 'driftViewer.copySuggestedSql',
+          title: 'Copy SQL',
+          arguments: [sql],
+        };
+        copyAction.diagnostics = [diag];
+        actions.push(copyAction);
+
+        const runAction = new vscode.CodeAction(
+          'Run CREATE INDEX Now',
+          vscode.CodeActionKind.QuickFix,
+        );
+        runAction.command = {
+          command: 'driftViewer.runIndexSql',
+          title: 'Run Index SQL',
+          arguments: [sql],
+        };
+        runAction.diagnostics = [diag];
+        runAction.isPreferred = true;
+        actions.push(runAction);
+      }
+
+      if (diag.code === 'anomaly') {
+        hasSchemaIssue = true;
+
+        const viewAction = new vscode.CodeAction(
+          'View in Anomaly Panel',
+          vscode.CodeActionKind.QuickFix,
+        );
+        viewAction.command = {
+          command: 'driftViewer.showAnomalies',
+          title: 'Show Anomalies',
+        };
+        viewAction.diagnostics = [diag];
+        actions.push(viewAction);
+      }
     }
+
+    if (hasSchemaIssue || actions.length > 0) {
+      const migrationAction = new vscode.CodeAction(
+        'Generate Migration Code',
+        vscode.CodeActionKind.RefactorRewrite,
+      );
+      migrationAction.command = {
+        command: 'driftViewer.generateMigration',
+        title: 'Generate Migration',
+      };
+      actions.push(migrationAction);
+
+      const schemaDiffAction = new vscode.CodeAction(
+        'View Schema Diff',
+        vscode.CodeActionKind.Empty,
+      );
+      schemaDiffAction.command = {
+        command: 'driftViewer.schemaDiff',
+        title: 'Schema Diff',
+      };
+      actions.push(schemaDiffAction);
+    }
+
     return actions;
   }
 }
