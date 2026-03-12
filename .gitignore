@@ -36,6 +36,7 @@ node_modules/
 extension/node_modules/
 extension/out/
 extension/*.vsix
+extension/CHANGELOG.md
 
 # AI / LLM tooling config (Claude Code, Cursor, Copilot, etc.)
 .claude/

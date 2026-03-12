@@ -255,6 +255,8 @@ def _stamp_changelog(
     1. ``## [x.y.z] - Unreleased`` → ``## [x.y.z]`` (remove suffix)
     2. ``## [Unreleased]`` + existing ``## [x.y.z]`` → merge sections
     3. ``## [Unreleased]`` alone → ``## [x.y.z]``
+
+    Note: Empty changelog validation is done earlier in validate_version_changelog.
     """
     changelog_path = _changelog_for(config)
     try:
@@ -263,12 +265,6 @@ def _stamp_changelog(
     except OSError:
         fail("Could not read CHANGELOG.md")
         return False
-
-    if not _unreleased_section_has_content(content):
-        warn("CHANGELOG [Unreleased] section has no entries.")
-        if not ask_yn("Publish with empty changelog section?", default=False):
-            fail("Add changelog entries before publishing.")
-            return False
 
     stamped_heading = f'## [{version}]'
 
@@ -445,19 +441,33 @@ def validate_version_changelog(
             return pkg_version, result
 
     needs_stamp = _changelog_has_unpublished_heading(config)
+    changelog_path = _changelog_for(config)
+    try:
+        with open(changelog_path, encoding="utf-8") as f:
+            cl_content = f.read()
+    except OSError:
+        cl_content = ""
+
     if not needs_stamp:
-        changelog_path = _changelog_for(config)
-        try:
-            with open(changelog_path, encoding="utf-8") as f:
-                cl_content = f.read()
-        except OSError:
-            cl_content = ""
         if not _changelog_has_version(pkg_version, cl_content):
             if not _ensure_unreleased_section(config):
                 return pkg_version, False
             needs_stamp = True
+            # Re-read after adding [Unreleased]
+            try:
+                with open(changelog_path, encoding="utf-8") as f:
+                    cl_content = f.read()
+            except OSError:
+                cl_content = ""
         else:
             ok(f"CHANGELOG: ## [{pkg_version}] is ready")
+
+    # Check for empty changelog section BEFORE asking for version confirmation
+    if needs_stamp and not _unreleased_section_has_content(cl_content):
+        warn("CHANGELOG [Unreleased] section has no entries.")
+        if not ask_yn("Continue with empty changelog section?", default=False):
+            fail("Add changelog entries before publishing.")
+            return pkg_version, False
 
     version, tag_ok = _ensure_untagged_version(pkg_version, config)
     if not tag_ok:
