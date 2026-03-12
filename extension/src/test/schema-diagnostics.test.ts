@@ -162,13 +162,16 @@ describe('DriftCodeActionProvider', () => {
       { diagnostics: [diag] } as any,
     );
 
-    assert.strictEqual(actions.length, 1);
+    assert.strictEqual(actions.length, 4);
     assert.strictEqual(actions[0].title, 'Copy CREATE INDEX SQL');
     assert.strictEqual(actions[0].command!.command, 'driftViewer.copySuggestedSql');
     assert.deepStrictEqual(
       actions[0].command!.arguments,
       ['CREATE INDEX idx ON users(email)'],
     );
+    assert.strictEqual(actions[1].title, 'Run CREATE INDEX Now');
+    assert.strictEqual(actions[2].title, 'Generate Migration Code');
+    assert.strictEqual(actions[3].title, 'View Schema Diff');
   });
 
   it('should skip index-suggestion without relatedInformation', () => {
@@ -188,7 +191,7 @@ describe('DriftCodeActionProvider', () => {
     assert.strictEqual(actions.length, 0);
   });
 
-  it('should skip anomaly diagnostics (no quick fix)', () => {
+  it('should offer anomaly actions with migration option', () => {
     const diag = new vscode.Diagnostic(
       new vscode.Range(0, 0, 0, 10),
       'NULL values detected',
@@ -202,6 +205,9 @@ describe('DriftCodeActionProvider', () => {
       new vscode.Range(0, 0, 0, 10),
       { diagnostics: [diag] } as any,
     );
-    assert.strictEqual(actions.length, 0);
+    assert.strictEqual(actions.length, 3);
+    assert.strictEqual(actions[0].title, 'View in Anomaly Panel');
+    assert.strictEqual(actions[1].title, 'Generate Migration Code');
+    assert.strictEqual(actions[2].title, 'View Schema Diff');
   });
 });

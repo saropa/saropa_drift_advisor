@@ -109,9 +109,9 @@ describe('RuntimeProvider', () => {
     });
 
     it('should report connection error when API fails', async () => {
-      fetchStub.rejects(new Error('ECONNREFUSED'));
-
-      const ctx = createContext();
+      const ctx = createContext({
+        generation: () => Promise.reject(new Error('ECONNREFUSED')),
+      });
       const issues = await provider.collectDiagnostics(ctx);
 
       const issue = issues.find((i) => i.code === 'connection-error');
@@ -121,9 +121,9 @@ describe('RuntimeProvider', () => {
 
     it('should not duplicate connection errors within 30 seconds', async () => {
       provider.recordConnectionError('Connection refused');
-      fetchStub.rejects(new Error('ECONNREFUSED'));
-
-      const ctx = createContext();
+      const ctx = createContext({
+        generation: () => Promise.reject(new Error('ECONNREFUSED')),
+      });
       const issues = await provider.collectDiagnostics(ctx);
 
       const connectionErrors = issues.filter((i) => i.code === 'connection-error');
@@ -215,9 +215,11 @@ describe('RuntimeProvider', () => {
   });
 });
 
-function createContext(): IDiagnosticContext {
+function createContext(clientOverrides?: Partial<{
+  generation: () => Promise<number>;
+}>): IDiagnosticContext {
   const client = {
-    generation: () => Promise.resolve(1),
+    generation: clientOverrides?.generation ?? (() => Promise.resolve(1)),
     schemaMetadata: () => Promise.resolve([]),
   } as any;
 

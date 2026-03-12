@@ -94,10 +94,10 @@ describe('SchemaProvider', () => {
 
     it('should report column-type-drift when types mismatch', async () => {
       const ctx = createContext({
-        dartFiles: [createDartFile('users', ['id', 'age'])],
+        dartFiles: [createDartFile('users', ['id', 'user_id'])],
         dbTables: [{ name: 'users', columns: [
           { name: 'id', type: 'INTEGER', pk: true },
-          { name: 'age', type: 'TEXT', pk: false }, // Should be INTEGER
+          { name: 'user_id', type: 'TEXT', pk: false }, // Should be INTEGER (ends with _id)
         ], rowCount: 10 }],
       });
 
@@ -105,7 +105,7 @@ describe('SchemaProvider', () => {
 
       const issue = issues.find((i) => i.code === 'column-type-drift');
       assert.ok(issue, 'Should report column-type-drift');
-      assert.ok(issue.message.includes('age'));
+      assert.ok(issue.message.includes('user_id'));
       assert.ok(issue.message.includes('INTEGER'));
       assert.ok(issue.message.includes('TEXT'));
     });

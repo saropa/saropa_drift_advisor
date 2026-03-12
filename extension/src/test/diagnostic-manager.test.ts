@@ -172,6 +172,7 @@ describe('DiagnosticManager', () => {
         },
       } as any);
 
+      (manager as any)._lastRefresh = 0;
       await manager.refresh();
 
       assert.strictEqual([...collection.entries().values()].flat().length, 0);

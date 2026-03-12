@@ -46,11 +46,6 @@ describe('ImportExecutor', () => {
           return { columns: [], rows: [] };
         }
 
-        if (options.shouldFail && options.failOnRow === currentRow) {
-          currentRow++;
-          throw new Error('Simulated failure');
-        }
-
         if (query.startsWith('SELECT * FROM')) {
           const match = query.match(/WHERE "id" = '(\d+)'/);
           if (match && options.existingRows) {
@@ -67,18 +62,30 @@ describe('ImportExecutor', () => {
         }
 
         if (query.startsWith('INSERT INTO')) {
+          if (options.shouldFail && options.failOnRow === currentRow) {
+            currentRow++;
+            throw new Error('Simulated failure');
+          }
           insertedRows.push({ query });
           currentRow++;
           return { columns: [], rows: [] };
         }
 
         if (query.startsWith('UPDATE')) {
+          if (options.shouldFail && options.failOnRow === currentRow) {
+            currentRow++;
+            throw new Error('Simulated failure');
+          }
           updatedRows.push({ query });
           currentRow++;
           return { columns: [], rows: [] };
         }
 
         if (query.startsWith('DELETE FROM')) {
+          if (options.shouldFail && options.failOnRow === currentRow) {
+            currentRow++;
+            throw new Error('Simulated failure');
+          }
           const match = query.match(/WHERE "id" = '(\d+)'/);
           if (match) {
             deletedIds.push(match[1]);

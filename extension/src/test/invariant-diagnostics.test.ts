@@ -185,7 +185,7 @@ describe('InvariantCodeActionProvider', () => {
   it('should have correct provided code action kinds', () => {
     assert.deepStrictEqual(
       InvariantCodeActionProvider.providedCodeActionKinds,
-      [{ value: 'quickfix' }],
+      ['quickfix'],
     );
   });
 });
