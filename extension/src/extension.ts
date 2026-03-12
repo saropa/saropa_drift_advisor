@@ -7,7 +7,7 @@ import { PendingChangesProvider } from './editing/pending-changes-provider';
 import { FilterBridge } from './filters/filter-bridge';
 import { FilterStore } from './filters/filter-store';
 import { DriftCodeActionProvider, SchemaDiagnostics } from './linter/schema-diagnostics';
-import { DataQualityProvider, DiagnosticCodeActionProvider, DiagnosticManager, PerformanceProvider, SchemaProvider } from './diagnostics';
+import { BestPracticeProvider, DataQualityProvider, DiagnosticCodeActionProvider, DiagnosticManager, NamingProvider, PerformanceProvider, RuntimeProvider, SchemaProvider } from './diagnostics';
 import { SchemaIntelligence } from './engines/schema-intelligence';
 import { QueryIntelligence } from './engines/query-intelligence';
 import { DriftCodeLensProvider } from './codelens/drift-codelens-provider';
@@ -157,6 +157,54 @@ export function activate(context: vscode.ExtensionContext): void {
     diagnosticManager.registerProvider(new SchemaProvider()),
     diagnosticManager.registerProvider(new PerformanceProvider()),
     diagnosticManager.registerProvider(new DataQualityProvider()),
+    diagnosticManager.registerProvider(new BestPracticeProvider()),
+    diagnosticManager.registerProvider(new NamingProvider()),
+    diagnosticManager.registerProvider(new RuntimeProvider()),
+  );
+
+  // Command to disable a diagnostic rule
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.disableDiagnosticRule',
+      async (ruleCode: string) => {
+        const config = vscode.workspace.getConfiguration('driftViewer.diagnostics');
+        const currentDisabled = config.get<string[]>('disabledRules', []);
+        if (!currentDisabled.includes(ruleCode)) {
+          await config.update(
+            'disabledRules',
+            [...currentDisabled, ruleCode],
+            vscode.ConfigurationTarget.Workspace,
+          );
+          vscode.window.showInformationMessage(
+            `Disabled diagnostic rule: ${ruleCode}`,
+          );
+        }
+      },
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.clearRuntimeAlerts',
+      () => {
+        const runtimeProvider = diagnosticManager.getProvider('runtime') as RuntimeProvider | undefined;
+        if (runtimeProvider) {
+          runtimeProvider.clearEvents();
+          diagnosticManager.refresh();
+          vscode.window.showInformationMessage('Runtime alerts cleared');
+        }
+      },
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.copySuggestedName',
+      async (name: string) => {
+        await vscode.env.clipboard.writeText(name);
+        vscode.window.showInformationMessage(`Copied "${name}" to clipboard`);
+      },
+    ),
   );
 
   context.subscriptions.push(
