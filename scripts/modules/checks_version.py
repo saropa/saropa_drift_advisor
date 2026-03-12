@@ -75,9 +75,10 @@ def apply_bump(
     bump: str,
     config: TargetConfig | None = None,
 ) -> bool:
-    """Apply a --bump (patch|minor|major) to the version file.
+    """Apply a --bump (patch|minor|major) to the version file and CHANGELOG.
 
-    Reads the current version, bumps it, writes it back, and reports.
+    Reads the current version, bumps it, writes it back, updates the
+    CHANGELOG heading if present, and reports.
     Returns True on success.
     """
     from modules.target_config import EXTENSION, read_version
@@ -92,6 +93,9 @@ def apply_bump(
     if not _write_version(new_ver, cfg):
         return False
     fix(f"{label}: {current} -> {C.WHITE}{new_ver}{C.RESET} ({bump} bump)")
+    # Also update CHANGELOG heading if it has the old version
+    if not _update_changelog_version(current, new_ver, cfg):
+        return False
     return True
 
 
@@ -129,7 +133,10 @@ def _offer_bump_and_apply(
     default_yes: bool = True,
     config: TargetConfig | None = None,
 ) -> tuple[str, bool]:
-    """Ask to bump; if yes, write version file and report. Returns (version, ok)."""
+    """Ask to bump; if yes, write version file and CHANGELOG, then report.
+
+    Returns (version, ok).
+    """
     if not ask_yn(f"Bump to v{next_ver}?", default=default_yes):
         fail(fail_msg)
         return current, False
@@ -137,6 +144,9 @@ def _offer_bump_and_apply(
         return current, False
     label = _version_file_label(config)
     fix(f"{label}: {current} -> {C.WHITE}{next_ver}{C.RESET}")
+    # Also update CHANGELOG heading if it has the old version
+    if not _update_changelog_version(current, next_ver, config):
+        return current, False
     return next_ver, True
 
 
@@ -245,6 +255,43 @@ def _changelog_has_version(version: str, content: str) -> bool:
     return bool(pattern.search(content))
 
 
+def _update_changelog_version(
+    old_version: str,
+    new_version: str,
+    config: TargetConfig | None = None,
+) -> bool:
+    """Update an existing CHANGELOG version heading from old_version to new_version.
+
+    Used when bumping a version due to tag conflicts — the CHANGELOG already
+    has a stamped heading that needs to be updated to match the new version.
+    """
+    changelog_path = _changelog_for(config)
+    try:
+        with open(changelog_path, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        fail("Could not read CHANGELOG.md")
+        return False
+
+    old_heading = f'## [{old_version}]'
+    new_heading = f'## [{new_version}]'
+
+    if old_heading not in content:
+        # No heading to update — might be [Unreleased] which will be stamped later
+        return True
+
+    updated = content.replace(old_heading, new_heading, 1)
+    try:
+        with open(changelog_path, "w", encoding="utf-8") as f:
+            f.write(updated)
+    except OSError:
+        fail("Could not write CHANGELOG.md")
+        return False
+
+    fix(f"CHANGELOG: [{old_version}] -> [{new_version}]")
+    return True
+
+
 def _stamp_changelog(
     version: str,
     config: TargetConfig | None = None,
@@ -319,6 +366,7 @@ def _ensure_untagged_version(
     """If the version is already tagged, offer to bump patch.
 
     Keeps bumping until an available tag is found or the user declines.
+    Updates both the version file AND the CHANGELOG heading when bumping.
     Returns (resolved_version, success).
     """
     prefix = _tag_prefix_for(config)
@@ -336,6 +384,9 @@ def _ensure_untagged_version(
             return version, False
         label = _version_file_label(config)
         fix(f"{label}: {original} -> {C.WHITE}{version}{C.RESET}")
+        # Also update CHANGELOG heading if it has the old version
+        if not _update_changelog_version(original, version, config):
+            return version, False
     ok(f"Tag '{prefix}{version}' is available")
     return version, True
 
