@@ -52,3 +52,6 @@ CLAUDE.md
 
 # Root is the Dart package.
 *.bak
+
+# Saropa Log Capture (index & cache)
+.saropa/

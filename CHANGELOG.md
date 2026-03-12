@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
 
-## [1.0.2]
+## [1.0.3]
 
 Improve the first-run experience with a helpful welcome screen when disconnected, and make the extension easier to discover on the VS Code Marketplace.
 
@@ -20,7 +20,7 @@ Improve the first-run experience with a helpful welcome screen when disconnected
 - **VS Code Marketplace metadata** — Added rich marketplace metadata: categories (Debuggers, Visualization), 15 searchable keywords (dart, drift, flutter, sqlite, database, orm, schema, debug, visualization, data viewer, moor, query, sql, table viewer, database explorer), homepage link, issues link, and gallery banner. The extension listing now shows Project Details with GitHub activity, and Resources links to Issues, Repository, Homepage, License, and Changelog.
 - **Dependabot Configuration** — `.github/dependabot.yaml` extended to keep npm dependencies up to date; weekly schedule with grouped minor/patch updates for both root and extension directories.
 
-## [1.0.1]
+## [1.0.3]
 
 Major feature release adding data import from clipboard, interactive ER diagrams, data narratives, custom dashboards, and data quality invariant checking.
 
