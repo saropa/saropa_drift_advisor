@@ -296,6 +296,108 @@ None. Uses existing `/api/analytics/performance` endpoint.
   - Debug session end triggers baseline capture
   - Server disconnected at session end → no crash
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| QueryIntelligence | Query pattern normalization and historical data |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| QueryIntelligence (1.3) | Normalized query patterns |
+| Debug Performance (15) | Raw query timing data |
+| Query Replay DVR (26) | Historical query timings |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Health Score (30) | "Query Performance" metric |
+| Dashboard Builder (36) | Performance trend widget |
+| Query Cost Analyzer (43) | Auto-analyze regressed queries |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Regression Alert | "Show EXPLAIN" | Query Cost Analyzer with regressed query |
+| Regression Alert | "View History" | DVR filtered to this query |
+| Regression Alert | "Check Index" | Index Suggestions for query |
+| Health Score | "Fix Performance" | Regression detector panel |
+| Dashboard Widget | "View Trend" | Full regression details |
+
+### Health Score Contribution
+
+| Metric | Contribution |
+|--------|--------------|
+| Query Performance | Regression count and severity |
+| Action | "Analyze Slowest Query" → Cost Analyzer |
+| Quick Fix | "Suggest Indexes" → Index Suggestions |
+
+### Unified Timeline Events
+
+| Event Type | Data |
+|------------|------|
+| `perf-regression` | `{ query, currentMs, baselineMs, changePercent, timestamp }` |
+
+### Query Intelligence Integration
+
+Regression data feeds back into QueryIntelligence:
+
+```typescript
+// QueryIntelligence records regression metadata
+interface IQueryPattern {
+  sqlNormalized: string;
+  avgMs: number;
+  callCount: number;
+  // New: regression tracking
+  regressionHistory?: {
+    detectedAt: number;
+    fromMs: number;
+    toMs: number;
+  }[];
+}
+```
+
+### Health Score Command Center Link
+
+Regression alerts surface in Health Score with one-click actions:
+
+```
+Health Score Panel:
+┌─────────────────────────────────────────┐
+│ Query Performance          D (42%)     │
+│ ─────────────────────────────────────  │
+│ ⚠ 2 queries regressed this session     │
+│                                         │
+│ [Analyze Slowest] [View All] [Ignore]  │
+└─────────────────────────────────────────┘
+```
+
+### Proactive Index Suggestions
+
+When a regression is detected, automatically check if an index would help:
+
+```typescript
+baselineStore.onDidDetectRegression(async (regressions) => {
+  for (const reg of regressions) {
+    const indexSuggestions = await indexAnalyzer.suggestForQuery(reg.sql);
+    if (indexSuggestions.length > 0) {
+      reg.suggestedFix = {
+        type: 'add-index',
+        indexes: indexSuggestions,
+      };
+    }
+  }
+});
+```
+
+---
+
 ## Known Limitations
 
 - Baseline only captured at debug session end — if the session crashes, data is lost

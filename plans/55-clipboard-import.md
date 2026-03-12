@@ -290,6 +290,89 @@ None. Uses existing `importData()` endpoint with JSON format.
   - Skipped columns excluded from payload
   - Trailing empty rows/cells trimmed
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Table/column metadata for auto-mapping clipboard columns |
+| RelationshipEngine | Validate FK columns in imported data |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Column names for auto-mapping |
+| Data Management (20a) | Import infrastructure |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Bulk Edit Grid (47) | Paste action in edit mode |
+| Unified Timeline (6.1) | Import event logged |
+| Real-time Mutation Stream (22) | Generated INSERTs captured |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Tree View (table) | "Paste from Clipboard" | Clipboard Import panel |
+| Bulk Edit Grid | "Paste Rows" | Import clipboard into pending changes |
+| Data Management | "Quick Import" | Clipboard as data source |
+
+### Unified Timeline Events
+
+| Event Type | Data |
+|------------|------|
+| `clipboard-import` | `{ table, rowCount, source: 'tsv'|'csv'|'html', timestamp }` |
+
+### Integration with Bulk Edit Grid
+
+Clipboard Import can feed directly into Bulk Edit Grid as pending changes:
+
+```typescript
+// Two modes:
+// 1. Direct import (existing)
+await client.importData(table, rows);
+
+// 2. Import as pending edits (new)
+BulkEditPanel.addPendingRows(rows);  // User reviews before commit
+```
+
+### Smart Column Mapping
+
+Auto-mapping uses SchemaIntelligence for better matches:
+
+```typescript
+function autoMapColumns(clipboardHeaders: string[], tableColumns: string[]): IColumnMapping[] {
+  // Enhanced with SchemaIntelligence
+  const schema = await schemaIntelligence.getTable(tableName);
+  
+  return clipboardHeaders.map(header => {
+    // Try exact match
+    let match = tableColumns.find(c => c.toLowerCase() === header.toLowerCase());
+    
+    // Try without underscores/spaces
+    if (!match) {
+      const normalized = header.toLowerCase().replace(/[_\s-]/g, '');
+      match = tableColumns.find(c => 
+        c.toLowerCase().replace(/[_\s-]/g, '') === normalized
+      );
+    }
+    
+    // Use column type for disambiguation
+    // (e.g., if clipboard has "ID" and table has both "id" and "user_id",
+    //  prefer the PK column)
+    
+    return { clipboardHeader: header, tableColumn: match ?? null };
+  });
+}
+```
+
+---
+
 ## Known Limitations
 
 - HTML parsing uses regex, not a full DOM parser — may fail on malformed or complex HTML

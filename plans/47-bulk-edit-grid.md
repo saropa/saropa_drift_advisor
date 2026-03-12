@@ -443,6 +443,93 @@ context.subscriptions.push(
   - Empty changeset → no statements
   - Order: DELETEs first, then UPDATEs, then INSERTs
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Cached table/column metadata for grid headers |
+| RelationshipEngine | FK validation before commit (check referenced rows exist) |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Column types, PK identification |
+| Data Invariant Checker (27) | Pre-commit validation against invariants |
+| Anomaly Detection | Highlight anomalous values in grid |
+| Clipboard Import (55) | "Paste Rows" action imports clipboard data |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Unified Timeline (6.1) | Bulk edit events logged |
+| Real-time Mutation Stream (22) | Generated SQL captured as mutations |
+| Data Branching (37) | "Create Branch Before Edit" safety action |
+| Query Replay DVR (26) | Committed SQL recorded in DVR |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Bulk Edit Grid | "Preview Invariant Violations" | Invariant check on pending changes |
+| Bulk Edit Grid | "Create Branch" | Data Branch before commit |
+| Bulk Edit Grid | "Paste Rows" | Clipboard Import |
+| Bulk Edit Grid | "View in Diagram" | ER Diagram centered on table |
+| Table Data Viewer | "Edit Mode" | Bulk Edit Grid for table |
+| Anomaly Viewer | "Fix Anomalies" | Bulk Edit Grid with affected rows |
+| Invariant Violation | "Fix Rows" | Bulk Edit Grid with violating rows |
+
+### Health Score Contribution
+
+| Metric | Contribution |
+|--------|--------------|
+| Data Quality | Edits that fix anomalies improve score |
+
+### Unified Timeline Events
+
+| Event Type | Data |
+|------------|------|
+| `bulk-edit` | `{ table, inserts, updates, deletes, timestamp }` |
+
+### Pre-Commit Validation Pipeline
+
+Before committing changes, the Bulk Edit Grid validates through multiple systems:
+
+```
+Pending Changes
+    │
+    ├── 1. FK Validation (RelationshipEngine)
+    │   └── Check all FK references exist
+    │
+    ├── 2. Invariant Check (InvariantManager)
+    │   └── Preview which invariants would fail
+    │
+    ├── 3. Anomaly Check (AnomalyDetector)
+    │   └── Flag if changes create new anomalies
+    │
+    ▼
+Commit or Show Warnings
+```
+
+### Integration with Anomaly Viewer
+
+"Fix" actions in Anomaly Viewer open Bulk Edit Grid with affected rows:
+
+```typescript
+// Anomaly → Bulk Edit flow
+vscode.commands.registerCommand('driftViewer.fixAnomalyRows', (anomaly) => {
+  BulkEditPanel.createOrShow(context.extensionUri, client, anomaly.table, {
+    filter: `WHERE ${anomaly.condition}`,  // Pre-filter to anomalous rows
+    highlightColumns: anomaly.affectedColumns,
+  });
+});
+```
+
+---
+
 ## Known Limitations
 
 - Requires a primary key column — tables without PK cannot be edited

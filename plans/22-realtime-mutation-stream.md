@@ -320,6 +320,68 @@ context.subscriptions.push(
 ### Extension Tests
 - `mutation-client.test.ts`: test cursor advancement, event deduplication, reconnection on error
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| RelationshipEngine | On mutation event, optionally show affected FK rows via `walkDownstream(table, pk)` |
+| SchemaIntelligence | Cached table metadata for event formatting (column types for display) |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Table/column metadata for rich event rendering |
+| Data Breakpoints (19) | Mutation events filtered through active breakpoint conditions |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Data Breakpoints (19) | Mutation events trigger breakpoint evaluation |
+| Query Replay DVR (26) | Mutation events feed into DVR timeline |
+| Dashboard Builder (36) | "Mutations" widget shows live mutation count/rate |
+| Unified Timeline (6.1) | `DATA` events with mutation details |
+| Snapshot Changelog Narrative (34) | Mutation batch summarized in prose |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Mutation Event | "View Row" | Table data viewer at affected row |
+| Mutation Event | "View Impact" | Row Impact Analysis for deleted rows |
+| Mutation Event | "Trace Lineage" | Data Lineage starting from mutated row |
+| Mutation Event | "Add Breakpoint" | Data Breakpoints with pre-filled condition |
+
+### Health Score Contribution
+
+| Metric | Contribution |
+|--------|--------------|
+| Data Velocity | Mutations/second tracked → "Activity" indicator in Health Score |
+
+### Unified Timeline Events
+
+| Event Type | Data |
+|------------|------|
+| `mutation` | `{ type, table, pkValue, timestamp, beforeState?, afterState? }` |
+
+### Data Flow Enhancement
+
+The Mutation Stream integrates with the **Unified Timeline** (Phase 6):
+
+```
+Mutation Event
+    │
+    ├── Fire to Data Breakpoints (if watching)
+    ├── Record in DVR (if recording)
+    ├── Emit to Unified Timeline
+    └── Update Dashboard mutation widget (if visible)
+```
+
+---
+
 ## Known Limitations
 
 - Requires `writeQuery` callback — if the app uses read-only mode, no mutations are captured

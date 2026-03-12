@@ -277,6 +277,101 @@ None. Uses existing schema and metadata endpoints.
   - No LLM available → clear error message with install instructions
   - `sqlite_` internal tables excluded from schema collection
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Complete schema context for LLM prompt |
+| QueryIntelligence | Query patterns inform "missing index" suggestions |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Full schema metadata |
+| Index Suggestions | Existing index analysis |
+| Schema Linter (7) | Current linter issues |
+| Health Score (30) | Health metrics context |
+| Column Profiler (29) | Data distribution info for LLM context |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Migration Generator (24) | "Generate Migration" from AI suggestion |
+| Schema Linter (7) | Additional AI-detected issues |
+| Health Score (30) | AI review grade contributes to schema quality |
+| Dashboard Builder (36) | "AI Review" widget |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| AI Review Finding | "Generate Migration" | Migration Generator with SQL |
+| AI Review Finding | "Add Index" | Index creation |
+| AI Review Finding | "View in Diagram" | ER Diagram highlighting issue |
+| Health Score | "AI Review" | Full AI schema analysis |
+| Schema Linter | "Explain with AI" | AI context for linter issue |
+
+### Health Score Contribution
+
+| Metric | Contribution |
+|--------|--------------|
+| Schema Quality | AI review grade factors into overall schema score |
+| Action | "Run AI Review" button in Health Score panel |
+
+### Enhanced LLM Context
+
+The AI Schema Reviewer builds a richer prompt using integration data:
+
+```typescript
+function buildReviewPrompt(schema: ISchemaSnapshot): string {
+  // Base schema from SchemaIntelligence
+  let prompt = `Schema:\n${schema.createStatements}\n\n`;
+  
+  // Add Health Score context
+  const health = await healthScorer.getMetrics();
+  prompt += `Current Health Metrics:\n`;
+  prompt += `- Index Coverage: ${health.indexCoverage}%\n`;
+  prompt += `- FK Integrity: ${health.fkIntegrity}%\n\n`;
+  
+  // Add query patterns from QueryIntelligence
+  const patterns = await queryIntelligence.getSlowPatterns();
+  if (patterns.length > 0) {
+    prompt += `Slow Query Patterns:\n`;
+    for (const p of patterns.slice(0, 5)) {
+      prompt += `- ${p.sql} (${p.avgMs}ms, ${p.callCount} calls)\n`;
+    }
+  }
+  
+  return prompt;
+}
+```
+
+### Finding → Migration Flow
+
+AI findings link directly to migration generation:
+
+```
+AI Finding: "orders.status should be normalized"
+    │
+    ├── [Copy SQL] → Raw SQL to clipboard
+    │
+    ├── [Generate Migration] → 
+    │   Opens Migration Generator with:
+    │   - AI-suggested SQL
+    │   - Multi-step plan
+    │   - Dart migration code
+    │
+    └── [View Refactoring Plan] →
+        Opens Drift Refactoring Engine (66)
+        with normalization pre-selected
+```
+
+---
+
 ## Known Limitations
 
 - Requires a Language Model extension (GitHub Copilot or compatible) — no built-in LLM

@@ -16,17 +16,17 @@ Select any row in any table and generate a human-readable English narrative that
 ║  DATA STORY — users #42                                      ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
-║  User "Alice" (id: 42) was created on 2026-01-15 and is     ║
+║  User "Alice" (id: 42) was created on 2026-01-15 and is      ║
 ║  currently active (active = 1). Their email is               ║
 ║  alice@example.com.                                          ║
 ║                                                              ║
 ║  This user has 3 orders:                                     ║
-║  • Order #91 ($59.99, shipped on 2026-03-08) with 2 items:  ║
+║  • Order #91 ($59.99, shipped on 2026-03-08) with 2 items:   ║
 ║    - Product "Widget A" ×1 ($29.99)                          ║
 ║    - Product "Widget B" ×2 ($15.00 each)                     ║
-║  • Order #92 ($120.00, pending since 2026-03-09) with 3     ║
+║  • Order #92 ($120.00, pending since 2026-03-09) with 3      ║
 ║    items across 2 categories                                 ║
-║  • Order #95 ($15.99, pending since 2026-03-10) with 1 item ║
+║  • Order #95 ($15.99, pending since 2026-03-10) with 1 item  ║
 ║                                                              ║
 ║  Total spending: $195.98 across 6 items.                     ║
 ║                                                              ║
@@ -291,6 +291,89 @@ None. Uses existing `schemaMetadata()`, `tableFkMeta()`, and `sql()`.
   - `singularize` handles common patterns (orders→order, categories→category)
   - Narrative output is valid Markdown
   - Graph traversal depth is 1 level (no recursive FK following)
+
+## Integration Points
+
+### Shared Services Used
+
+| Service            | Usage                                                    |
+| ------------------ | -------------------------------------------------------- |
+| RelationshipEngine | `walkUpstream()` and `walkDownstream()` for FK traversal |
+| SchemaIntelligence | Table/column metadata for narrative context              |
+
+### Consumes From
+
+| Feature                         | Data/Action                        |
+| ------------------------------- | ---------------------------------- |
+| RelationshipEngine (1.1)        | FK relationship traversal          |
+| Schema Intelligence Cache (1.2) | Table/column descriptions          |
+| Data Annotations (42)           | Include annotations in narrative   |
+| Column Profiler (29)            | Aggregate stats (totals, averages) |
+
+### Produces For
+
+| Feature                    | Data/Action                         |
+| -------------------------- | ----------------------------------- |
+| Portable Report (25)       | Narrative summaries for key rows    |
+| Schema Docs Generator (32) | Example narratives in documentation |
+
+### Cross-Feature Actions
+
+| From                     | Action                  | To                             |
+| ------------------------ | ----------------------- | ------------------------------ |
+| Table Data Viewer        | "Tell This Row's Story" | Data Story Narrator            |
+| ER Diagram (row)         | "Narrate Row"           | Story for selected row         |
+| Data Lineage (46)        | "Explain Connection"    | Narrative of lineage path      |
+| Row Impact Analysis (23) | "Narrate Impact"        | Story of deletion consequences |
+
+### RelationshipEngine Integration
+
+The Data Story Narrator uses the **RelationshipEngine** from Phase 1:
+
+```typescript
+class DataNarrator {
+  async buildGraph(table: string, pkColumn: string, pkValue: unknown): Promise<IEntityGraph> {
+    // Use RelationshipEngine for FK traversal
+    const parents = await this._relationshipEngine.walkUpstream(table, pkValue);
+    const children = await this._relationshipEngine.walkDownstream(table, pkValue);
+    
+    return {
+      root: { table, pkColumn, pkValue, row: await this._fetchRow(table, pkColumn, pkValue) },
+      parents,
+      children,
+    };
+  }
+}
+```
+
+### Enhanced Narrative with Annotations
+
+If Data Annotations (Feature 42) exist for the row, include them:
+
+```
+User "Alice" (id: 42) was created on 2026-01-15...
+
+📝 Notes:
+  • "VIP customer - handle with care" (added by dev@example.com, Mar 5)
+  • "Test account - do not delete" (added by qa@example.com, Mar 8)
+```
+
+### Aggregate Stats from Profiler
+
+Use Column Profiler (Feature 29) for richer narratives:
+
+```typescript
+// Enhanced narrative with profiler data
+const orderStats = await columnProfiler.getAggregates('orders', {
+  filter: `user_id = ${pkValue}`,
+  columns: ['total'],
+});
+
+// Produces:
+// "Total spending: $195.98 across 6 items (average order: $32.66)"
+```
+
+---
 
 ## Known Limitations
 

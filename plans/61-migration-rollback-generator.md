@@ -265,6 +265,102 @@ None. Uses existing `schemaDump()` and schema tracker workspace state.
   - Schema dump parser handles multi-line CREATE statements
   - Rollback ordering: indexes dropped before tables, tables created before indexes
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Schema snapshots for diff comparison |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Evolution Timeline (41) | Schema fingerprints over time |
+| Schema Intelligence Cache (1.2) | Current schema state |
+| Migration Generator (24) | Reuses SQL generation utilities |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| SQL Notebook (3) | Generated rollback SQL |
+| Data Branching (37) | "Rollback to Branch" generates SQL |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Schema Evolution Timeline | "Generate Rollback" | Rollback Generator for change |
+| Migration Generator | "Generate Reverse" | Rollback for pending migration |
+| Schema Linter | "Undo Fix" | Rollback for applied fix |
+| AI Schema Reviewer | "Undo Change" | Rollback for AI-suggested migration |
+
+### Unified Timeline Events
+
+| Event Type | Data |
+|------------|------|
+| `rollback-generated` | `{ fromVersion, toVersion, sqlStatements[], timestamp }` |
+
+### Schema Workflow Integration
+
+The Rollback Generator completes the **Schema Workflow Pipeline** (Phase 4):
+
+```
+Schema Issue Detected
+    │
+    ├── Schema Linter → "Generate Fix" →
+    │   Migration Generator produces forward SQL
+    │       │
+    │       └── "Generate Rollback" →
+    │           Rollback Generator produces reverse SQL
+    │
+    └── Schema Evolution Timeline →
+        Select any historical change →
+        "Generate Rollback" → reverse migration
+```
+
+### Integration with Schema Evolution Timeline
+
+```
+Schema Evolution Timeline:
+  ┌─────────────────────────────────────────────┐
+  │ Mar 10, 14:32 │ +orders.tracking_id column  │
+  │               │ [Generate Rollback ▶]       │ ← New action
+  ├─────────────────────────────────────────────┤
+  │ Mar 09, 09:15 │ +users table                │
+  │               │ [Generate Rollback ▶]       │
+  └─────────────────────────────────────────────┘
+```
+
+### Safe Rollback with Branching
+
+Before executing rollback, prompt to create a safety branch:
+
+```typescript
+// Rollback execution flow
+async function executeRollback(rollback: IRollback) {
+  const shouldBranch = await vscode.window.showWarningMessage(
+    'Create a data branch before rolling back schema?',
+    'Create Branch', 'Skip'
+  );
+  
+  if (shouldBranch === 'Create Branch') {
+    await branchManager.createBranch(`before-rollback-${Date.now()}`);
+  }
+  
+  // Show generated SQL for review before execution
+  const doc = await vscode.workspace.openTextDocument({
+    content: rollback.sql.join('\n'),
+    language: 'sql'
+  });
+  await vscode.window.showTextDocument(doc);
+}
+```
+
+---
+
 ## Known Limitations
 
 - `ALTER TABLE DROP COLUMN` requires SQLite 3.35.0+ — older Android devices may not support it

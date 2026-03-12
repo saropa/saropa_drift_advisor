@@ -433,6 +433,82 @@ context.subscriptions.push(
   - SQL escaping handles quotes and special characters
   - Comment header includes timestamp and PII column count
 
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | Cached table/column metadata for PII detection |
+| RelationshipEngine | Ensure FK consistency when anonymizing related tables |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Table/column metadata |
+| Column Profiler (29) | Value patterns help detect PII (e.g., email regex matches) |
+| Data Branching (37) | "Anonymize Branch" before sharing |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Portable Report (25) | Pre-anonymize data before export |
+| Data Branching (37) | "Export Anonymized Branch" |
+| Test Data Seeder (20) | Anonymization patterns reused for realistic fake data |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Tree View | "Anonymize Database" | PII Anonymizer panel |
+| Portable Report | "Export Anonymized" | Report with PII masked |
+| Branch Manager | "Export Anonymized Branch" | Anonymized SQL/JSON |
+| Column Profiler | "Mark as PII" | Add column to PII config |
+| Column Profiler | "Anonymize Column" | Anonymizer with column pre-selected |
+
+### Health Score Contribution
+
+| Metric | Contribution |
+|--------|--------------|
+| Data Safety | Count of unmasked PII columns detected |
+| Action | "Review PII Columns" → opens Anonymizer config |
+
+### Integration with Seeder
+
+The PII Anonymizer's fake data generators are shared with Test Data Seeder (Feature 20):
+
+```typescript
+// Shared generator registry
+const GENERATORS = {
+  'email': () => `user${nextId()}@example.com`,
+  'full_name': () => `${randomFirst()} ${randomLast()}`,
+  'phone': () => `+1555${randomDigits(7)}`,
+  // ...
+};
+
+// Used by both:
+// - AnonymizerEngine.anonymize(category, value)
+// - SeederGenerator.generateValue(column)
+```
+
+### Pre-Export Workflow
+
+```
+Portable Report Export
+    │
+    ├── "Include Anonymization?" checkbox
+    │
+    ▼ (if checked)
+PII Anonymizer runs
+    │
+    ▼
+Report generated with masked data
+```
+
+---
+
 ## Known Limitations
 
 - Name-based detection only — columns named `data` or `notes` containing PII won't be detected
