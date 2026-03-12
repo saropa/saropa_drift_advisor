@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
 
-## [0.5.0]
+## [1.0.0]
+
+### Fixed
+
+- **VS Code extension test isolation** — Fixed missing mock methods in `vscode-mock.ts` (`workspace.onDidSaveTextDocument`, `workspace.onDidChangeTextDocument`, `statusBarItem.hide()`) that caused test cascade failures when running the full test suite via CLI. Tests passed individually in Test Explorer but failed in batch due to incomplete stub cleanup when `beforeEach` threw.
 
 ### Added
 
