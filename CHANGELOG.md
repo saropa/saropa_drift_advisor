@@ -3,12 +3,28 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**pub.dev** — [saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
+**pub.dev** — [pub.dev / packages / saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
+
+**VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
+
+## [Unreleased]
+
+### Added
+
+- **ER Diagram** — Auto-generate an interactive entity-relationship diagram from the live schema. Tables render as boxes with column lists (PK with 🔑, FK with 🔗), relationships as connecting arrows. Three layout modes: Auto (force-directed), Hierarchical (parent tables on top), and Clustered (grouped by FK relationships). Drag tables to rearrange, zoom with scroll wheel, pan by dragging canvas. Right-click a table for quick actions (View Data, Seed, Profile). Export to SVG or Mermaid markdown. Auto-refreshes when schema changes. Access via Command Palette or the tree view title bar icon.
+- **Data Story Narrator** — Right-click any table and select "Tell This Row's Story" to generate a human-readable narrative that follows FK relationships. Enter a primary key value and see a paragraph-style description: the root entity with notable columns, parent relationships ("Belongs to User Alice via user_id"), and child relationships ("Has 3 orders: ..."). Supports truncated results for large datasets, detects name columns automatically (name, title, email, etc.), and outputs both plain text and Markdown. Copy narrative to clipboard or regenerate. Loading spinner and error states included.
+- **Custom Dashboard Builder** — Drag-and-drop dashboard with resizable widget tiles. Choose from 10+ widget types (row counts, health score, query stats, anomaly list, etc.). Save/load named layouts per workspace. Real-time data via the shared API client.
+- **Data Invariant Checker** — Define SQL-based invariants (e.g. "user.email must be unique", "order.total > 0") and run them on demand or continuously. Violations surface as VS Code diagnostics with severity levels. Invariant templates for common patterns (uniqueness, referential integrity, range checks).
+- **Centralized Diagnostic Manager** — Unified diagnostic pipeline that merges schema linter, anomaly detection, and invariant violations into a single Problems panel view with consistent severity mapping and quick-fix actions.
+- **Health Score + Pre-Launch Integration** — The pre-launch health check task now computes and displays the overall health grade (A+–F) with per-metric breakdown. Terminal output includes clickable "View Health Score Dashboard" link.
+- **Quick Actions for Health Metrics** — Health Score dashboard cards are now clickable. Index coverage opens the Query Cost Analyzer with suggestions; anomaly count opens the anomaly scan panel.
+- **Profile-Informed Seeding** — Test data seeder uses column profiling stats (min/max, patterns, distributions) to generate more realistic fake data that matches your actual data characteristics.
 
 ## [0.4.1]
 
 ### Added
 
+- **Database Health Score** — Overall database health grade (A+–F) computed from six weighted metrics: index coverage, FK integrity, null density, query performance, table balance, and schema quality. Webview dashboard with color-coded cards, per-metric scores, and actionable recommendations.
 - **Query Cost Analyzer** — Run any SQL query and see its execution plan visualized as a color-coded tree. Highlights full table scans, missing indexes, and temporary sorts. Suggests CREATE INDEX statements based on WHERE, JOIN, and ORDER BY analysis. Click "Run" to create an index and re-analyze to see the improvement. Access via Command Palette: "Saropa Drift Advisor: Analyze Query Cost".
 - **Saved Filters** — Save named filter/sort/column-visibility configurations per table and switch between them instantly. A sticky toolbar in the data panel provides a dropdown of saved filters with Apply, Save As, Clear, and Delete controls. Filters persist in workspace state and execute via the existing SQL endpoint.
 - **Row Impact Analysis** — Right-click any table and select "Analyze Row Impact" to see what breaks if you delete a row. Shows outbound dependencies (parents), inbound dependents grouped by table with counts, cascade delete summary, and generates safe DELETE SQL in correct FK order.

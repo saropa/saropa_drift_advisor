@@ -52,6 +52,8 @@ import { DashboardPanel } from './dashboard/dashboard-panel';
 import { HealthScorer } from './health/health-scorer';
 import { updateStatusBar } from './status-bar';
 import { registerInvariantCommands } from './invariants';
+import { registerErDiagramCommands } from './er-diagram';
+import { registerNarratorCommands } from './narrator';
 
 export function activate(context: vscode.ExtensionContext): void {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
@@ -394,6 +396,8 @@ export function activate(context: vscode.ExtensionContext): void {
   registerQueryCostCommands(context, client);
   registerDashboardCommands(context, client, new HealthScorer());
   registerInvariantCommands(context, client, watcher);
+  registerNarratorCommands(context, client);
+  registerErDiagramCommands(context, client, watcher);
   registerDebugCommands(context, {
     client, treeProvider, treeView, hoverCache, linter,
     logBridge, discovery, serverManager, watcher, codeLensProvider,

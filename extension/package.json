@@ -413,6 +413,16 @@
       {
         "command": "driftViewer.runAllInvariants",
         "title": "Saropa Drift Advisor: Run All Invariants"
+      },
+      {
+        "command": "driftViewer.narrateRow",
+        "title": "Tell This Row's Story",
+        "icon": "$(book)"
+      },
+      {
+        "command": "driftViewer.showErDiagram",
+        "title": "Saropa Drift Advisor: Show ER Diagram",
+        "icon": "$(type-hierarchy)"
       }
     ],
     "menus": {
@@ -484,6 +494,11 @@
         },
         {
           "command": "driftViewer.manageInvariants",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.showErDiagram",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
         }
@@ -573,6 +588,11 @@
         },
         {
           "command": "driftViewer.analyzeRowImpact",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
+          "group": "5_analysis"
+        },
+        {
+          "command": "driftViewer.narrateRow",
           "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "5_analysis"
         },
