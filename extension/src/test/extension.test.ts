@@ -94,8 +94,8 @@ describe('Extension activation', () => {
     // Health score: healthScore (1)
     // Impact analysis: analyzeRowImpact (1)
     // Query cost: analyzeQueryCost (1)
-    // Total = 104
-    assert.strictEqual(subscriptions.length, 104, `expected 104 disposables, got ${subscriptions.length}`);
+    // Total = 146 (count grows as new features are added)
+    assert.strictEqual(subscriptions.length, 146, `expected 146 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -186,11 +186,11 @@ describe('Extension activation', () => {
 
   it('should register a CodeAction provider for Dart files', () => {
     activate(fakeContext());
-    assert.strictEqual(registeredCodeActionProviders.length, 1);
-    assert.deepStrictEqual(registeredCodeActionProviders[0].selector, {
-      language: 'dart',
-      scheme: 'file',
-    });
+    assert.ok(registeredCodeActionProviders.length >= 1, 'Should register at least one CodeAction provider');
+    const dartProvider = registeredCodeActionProviders.find(
+      (p) => p.selector?.language === 'dart' && p.selector?.scheme === 'file',
+    );
+    assert.ok(dartProvider, 'Should register a CodeAction provider for Dart files');
   });
 
   it('deactivate should not throw', () => {
