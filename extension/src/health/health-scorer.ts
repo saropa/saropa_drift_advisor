@@ -6,6 +6,7 @@ import type {
 import type {
   IHealthMetric, IHealthScore, IMetricAction, IRecommendation, MetricKey,
 } from './health-types';
+import { sqlId, toGrade } from './health-utils';
 
 /** Prefetched API data shared across all scoring methods. */
 interface PrefetchedData {
@@ -368,23 +369,4 @@ export class HealthScorer {
   }
 }
 
-export function toGrade(score: number): string {
-  if (score >= 97) return 'A+';
-  if (score >= 93) return 'A';
-  if (score >= 90) return 'A-';
-  if (score >= 87) return 'B+';
-  if (score >= 83) return 'B';
-  if (score >= 80) return 'B-';
-  if (score >= 77) return 'C+';
-  if (score >= 73) return 'C';
-  if (score >= 70) return 'C-';
-  if (score >= 67) return 'D+';
-  if (score >= 63) return 'D';
-  if (score >= 60) return 'D-';
-  return 'F';
-}
-
-/** Escape a SQL identifier for double-quote quoting. */
-function sqlId(name: string): string {
-  return name.replace(/"/g, '""');
-}
+export { toGrade } from './health-utils';

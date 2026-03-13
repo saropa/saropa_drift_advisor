@@ -1,16 +1,10 @@
 import * as vscode from 'vscode';
 import { PerformanceData, QueryEntry } from '../api-client';
+import { truncateSql } from '../diagnostics/utils/sql-utils';
 
 export type { PerformanceData, QueryEntry };
 
 export type PerfTreeItem = SummaryItem | CategoryItem | QueryItem;
-
-function truncateSql(sql: string, maxLen: number): string {
-  const oneLine = sql.replace(/\s+/g, ' ').trim();
-  return oneLine.length > maxLen
-    ? oneLine.slice(0, maxLen - 1) + '\u2026'
-    : oneLine;
-}
 
 export class SummaryItem extends vscode.TreeItem {
   constructor(stats: PerformanceData) {

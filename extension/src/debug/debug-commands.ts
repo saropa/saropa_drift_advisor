@@ -21,9 +21,15 @@ import { DocsMdRenderer } from '../schema-docs/docs-md-renderer';
 import { GlobalSearchPanel } from '../global-search/global-search-panel';
 import {
   getVmServiceUri,
+  isValidVmServiceUri,
   registerVmServiceOutputListener,
 } from '../vm-service-uri';
 import { VmServiceClient } from '../transport/vm-service-client';
+
+/** Optional connection log for troubleshooting (e.g. Output > Saropa Drift Advisor). */
+export interface IConnectionLog {
+  appendLine(msg: string): void;
+}
 
 export interface IDebugCommandDeps {
   client: DriftApiClient;
@@ -40,6 +46,8 @@ export interface IDebugCommandDeps {
   refreshBadges: () => Promise<void>;
   /** Called when VM Service connection state changes (connect or disconnect). */
   refreshStatusBar?: () => void;
+  /** When set, connection attempts and errors are written here for troubleshooting. */
+  connectionLog?: IConnectionLog;
 }
 
 /** Register debug panel, profiler, docs, and global search commands. */
@@ -50,8 +58,12 @@ export function registerDebugCommands(
   const {
     client, treeProvider, treeView, hoverCache, linter,
     logBridge, discovery, serverManager, watcher, codeLensProvider,
-    watchManager, refreshBadges, refreshStatusBar,
+    watchManager, refreshBadges, refreshStatusBar, connectionLog,
   } = deps;
+
+  const logConnection = (msg: string): void => {
+    connectionLog?.appendLine(`[${new Date().toISOString()}] ${msg}`);
+  };
 
   // Performance tree view
   const perfProvider = new PerformanceTreeProvider();
@@ -253,14 +265,25 @@ export function registerDebugCommands(
   const tryConnectVm = async (
     session: vscode.DebugSession,
     vmUri: string,
+    clearReported: (sessionId: string) => void,
   ): Promise<boolean> => {
     if (session.type !== 'dart' && session.type !== 'flutter') return false;
     if (client.usingVmService) return true;
+
+    if (!isValidVmServiceUri(vmUri)) {
+      const msg = `VM Service URI invalid or missing; got length ${vmUri?.length ?? 0}`;
+      logConnection(`VM Service: ${msg}`);
+      logBridge.writeConnectionEvent(`VM Service: ${msg}`);
+      return false;
+    }
+
+    logConnection(`VM Service: connecting to ${vmUri.replace(/\/[^/]+\/?$/, '/…')}`);
+
     try {
       const vmClient = new VmServiceClient({
         wsUri: vmUri,
         onClose: () => {
-          // Hot restart or VM disconnect: clear VM client and UI state so we don't stay in a broken state.
+          clearReported(session.id);
           client.setVmClient(null);
           vscode.commands.executeCommand(
             'setContext',
@@ -272,6 +295,7 @@ export function registerDebugCommands(
           linter.clear();
           refreshStatusBar?.();
           treeProvider.refresh();
+          logConnection('VM Service disconnected (e.g. hot restart). Next URI from debug output will retry.');
           logBridge.writeConnectionEvent('VM Service disconnected (e.g. hot restart)');
         },
       });
@@ -286,26 +310,35 @@ export function registerDebugCommands(
       await treeProvider.refresh();
       perfProvider.startAutoRefresh(client, refreshInterval);
       refreshStatusBar?.();
+      logConnection('Connected via VM Service.');
       logBridge.writeConnectionEvent(
         'Connected to Drift debug server via VM Service',
       );
       return true;
-    } catch {
+    } catch (err) {
       client.setVmClient(null);
+      const message = err instanceof Error ? err.message : String(err);
+      logConnection(`VM Service connection failed: ${message}`);
+      logBridge.writeConnectionEvent(`VM Service connection failed: ${message}`);
       return false;
     }
   };
 
-  registerVmServiceOutputListener((session, wsUri) => {
-    void tryConnectVm(session, wsUri);
-  }).forEach((d) => context.subscriptions.push(d));
+  const vmListener = registerVmServiceOutputListener((session, wsUri) => {
+    void tryConnectVm(session, wsUri, vmListener.clearReported);
+  });
+  vmListener.disposables.forEach((d) => context.subscriptions.push(d));
 
   context.subscriptions.push(
     vscode.debug.onDidStartDebugSession(async (session) => {
       if (session.type !== 'dart' && session.type !== 'flutter') return;
+      logConnection(`Debug session started (${session.type}). Trying VM Service…`);
       hoverCache.clear();
       const vmUri = await getVmServiceUri(session);
-      if (vmUri && (await tryConnectVm(session, vmUri))) return;
+      if (vmUri && (await tryConnectVm(session, vmUri, vmListener.clearReported))) return;
+      if (!vmUri) {
+        logConnection('VM Service URI not available from adapter; will try from debug output if it appears.');
+      }
       if (!serverManager.activeServer) discovery.retry();
       try {
         await client.health();
@@ -315,11 +348,13 @@ export function registerDebugCommands(
           true,
         );
         perfProvider.startAutoRefresh(client, refreshInterval);
+        logConnection(`Connected via HTTP at ${client.baseUrl}`);
         logBridge.writeConnectionEvent(
           `Connected to Drift debug server at ${client.baseUrl}`,
         );
-      } catch {
-        // Server not reachable — panel stays hidden
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logConnection(`HTTP connection failed: ${message}. Ensure app calls DriftDebugServer.start() and port is correct.`);
       }
     }),
   );
@@ -327,6 +362,7 @@ export function registerDebugCommands(
   context.subscriptions.push(
     vscode.debug.onDidTerminateDebugSession((session) => {
       if (session.type !== 'dart' && session.type !== 'flutter') return;
+      logConnection('Debug session ended. Drift disconnected.');
       client.setVmClient(null);
       vscode.commands.executeCommand(
         'setContext',
