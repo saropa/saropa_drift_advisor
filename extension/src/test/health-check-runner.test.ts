@@ -37,9 +37,9 @@ describe('HealthCheckTerminal', () => {
   }
 
   function mockAnomalies(data: any[]): void {
-    fetchStub.withArgs(sinon.match(/\/api\/anomalies$/)).resolves({
+    fetchStub.withArgs(sinon.match(/\/api\/analytics\/anomalies$/)).resolves({
       ok: true,
-      json: async () => data,
+      json: async () => ({ anomalies: data }),
     });
   }
 
@@ -51,7 +51,7 @@ describe('HealthCheckTerminal', () => {
   }
 
   function mockAnomaliesFail(): void {
-    fetchStub.withArgs(sinon.match(/\/api\/anomalies$/)).resolves({
+    fetchStub.withArgs(sinon.match(/\/api\/analytics\/anomalies$/)).resolves({
       ok: false,
       status: 500,
     });

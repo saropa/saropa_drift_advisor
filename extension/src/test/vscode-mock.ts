@@ -249,6 +249,9 @@ export const debug = {
   simulateTerminate: (session: any) => {
     for (const l of [...debugTerminateListeners]) l(session);
   },
+  registerDebugAdapterTrackerFactory: (_adapterId: string, _factory: any) => ({
+    dispose: () => {},
+  }),
 };
 
 // --- Extensions mock ---

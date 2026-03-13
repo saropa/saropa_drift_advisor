@@ -9,12 +9,17 @@ export class DriftViewerPanel {
   private _disposed = false;
   private _disposables: vscode.Disposable[] = [];
 
+  /**
+   * @param options.vmOnly - When true, connected via VM Service only (no HTTP);
+   *   show fallback message instead of loading the web app.
+   */
   static createOrShow(
     host: string,
     port: number,
     editingBridge?: EditingBridge,
     fkNavigator?: FkNavigator,
     filterBridge?: FilterBridge,
+    options?: { vmOnly?: boolean },
   ): void {
     const column = vscode.ViewColumn.Beside;
     if (DriftViewerPanel.currentPanel) {
@@ -32,9 +37,11 @@ export class DriftViewerPanel {
       },
     );
     DriftViewerPanel.currentPanel = new DriftViewerPanel(
-      panel, host, port, editingBridge, fkNavigator, filterBridge,
+      panel, host, port, editingBridge, fkNavigator, filterBridge, options?.vmOnly,
     );
   }
+
+  private readonly _vmOnly: boolean;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -43,8 +50,10 @@ export class DriftViewerPanel {
     private readonly _editingBridge?: EditingBridge,
     private readonly _fkNavigator?: FkNavigator,
     private readonly _filterBridge?: FilterBridge,
+    vmOnly = false,
   ) {
     this._panel = panel;
+    this._vmOnly = vmOnly;
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
     if (this._editingBridge) {
@@ -61,7 +70,7 @@ export class DriftViewerPanel {
     this._panel.webview.onDidReceiveMessage(
       (msg) => {
         if (msg.command === 'retry') {
-          this._loadContent(host, port);
+          if (!this._vmOnly) this._loadContent(host, port);
           return;
         }
         // Forward to FK navigator
@@ -81,7 +90,24 @@ export class DriftViewerPanel {
       this._disposables,
     );
 
-    this._loadContent(host, port);
+    if (this._vmOnly) {
+      this._showVmOnlyFallback();
+    } else {
+      this._loadContent(host, port);
+    }
+  }
+
+  /** Static HTML when connected via VM Service only (no HTTP server to load). */
+  private _showVmOnlyFallback(): void {
+    this._panel.webview.html = `
+      <html><body style="padding:2rem;font-family:system-ui;color:var(--vscode-foreground);max-width:42rem;">
+        <h2>Connected via VM Service</h2>
+        <p>You're connected to the Drift debug server through the Dart VM Service (debug session). The full web UI is not available in this mode.</p>
+        <ul>
+          <li>Use the <strong>Database</strong> tree in the sidebar for schema, tables, and running SQL.</li>
+          <li><strong>Open in browser</strong> is only available when the app is reachable over HTTP (e.g. same network or port forward).</li>
+        </ul>
+      </body></html>`;
   }
 
   private async _loadContent(host: string, port: number): Promise<void> {

@@ -15,6 +15,7 @@ import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
 import 'server/router.dart';
 import 'server/server_constants.dart';
 import 'server/server_context.dart';
+import 'server/vm_service_bridge.dart';
 
 // Public API typedefs are defined in server/server_context.dart
 // and re-exported here so the barrel export chain is preserved.
@@ -36,6 +37,9 @@ class _DriftDebugServerImpl {
 
   /// Router for dispatching requests; null when server is not running.
   Router? _router;
+
+  /// VM Service extension bridge (Plan 68). Cleared on stop.
+  VmServiceBridge? _vmBridge;
 
   /// In-memory shared sessions for collaborative debug.
   final DriftDebugSessionStore _sessionStore = DriftDebugSessionStore();
@@ -149,7 +153,11 @@ class _DriftDebugServerImpl {
         return;
       }
 
-      _serverSubscription = server.listen(_router!.onRequest);
+      final router = _router!;
+      _serverSubscription = server.listen(router.onRequest);
+
+      _vmBridge = VmServiceBridge(router);
+      _vmBridge?.register();
 
       ctx.log(ServerConstants.bannerTop);
       ctx.log(ServerConstants.bannerTitle);
@@ -174,8 +182,10 @@ class _DriftDebugServerImpl {
 
     await _serverSubscription?.cancel();
     _serverSubscription = null;
-    _server = null;
+    _vmBridge?.clear();
+    _vmBridge = null;
     _router = null;
+    _server = null;
     await server.close();
   }
 

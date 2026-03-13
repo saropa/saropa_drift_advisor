@@ -22,15 +22,31 @@ export function registerNavCommands(
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInBrowser', async () => {
+      if (client.usingVmService && !serverManager.activeServer) {
+        await vscode.window.showInformationMessage(
+          'Open in browser is only available when the app is reachable over HTTP. Use the Database tree while connected via VM Service.',
+        );
+        return;
+      }
       await vscode.env.openExternal(
         vscode.Uri.parse(`http://${client.host}:${client.port}`),
       );
     }),
   );
 
+  const openInPanelOptions = (): { vmOnly?: boolean } | undefined => {
+    if (client.usingVmService && !serverManager.activeServer) {
+      return { vmOnly: true };
+    }
+    return undefined;
+  };
+
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInPanel', () => {
-      DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator, filterBridge);
+      DriftViewerPanel.createOrShow(
+        client.host, client.port, editingBridge, fkNavigator, filterBridge,
+        openInPanelOptions(),
+      );
     }),
   );
 
@@ -38,7 +54,10 @@ export function registerNavCommands(
     vscode.commands.registerCommand(
       'driftViewer.viewTableInPanel',
       (_tableName: string) => {
-        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge, fkNavigator, filterBridge);
+        DriftViewerPanel.createOrShow(
+          client.host, client.port, editingBridge, fkNavigator, filterBridge,
+          openInPanelOptions(),
+        );
       },
     ),
   );

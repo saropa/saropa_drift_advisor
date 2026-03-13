@@ -16,6 +16,34 @@ final class SqlHandler {
 
   final ServerContext _ctx;
 
+  /// Runs read-only SQL and returns result map (for VM service RPC).
+  /// Returns {@code {"rows": [...]}} on success or {@code {"error": "..."}} on failure.
+  Future<Map<String, dynamic>> runSqlResult(
+    DriftDebugQuery query,
+    String sql,
+  ) async {
+    if (sql.trim().isEmpty) {
+      return <String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.errorMissingSql,
+      };
+    }
+    if (!isReadOnlySql(sql)) {
+      return <String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.errorReadOnlyOnly,
+      };
+    }
+    try {
+      final dynamic raw = await query(sql);
+      final List<Map<String, dynamic>> rows = ServerContext.normalizeRows(raw);
+      return <String, dynamic>{ServerConstants.jsonKeyRows: rows};
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      return <String, String>{
+        ServerConstants.jsonKeyError: error.toString(),
+      };
+    }
+  }
+
   /// Handles POST /api/sql: body {"sql": "SELECT ..."}.
   /// Validates read-only; returns {"rows": [...]}.
   Future<void> handleRunSql(HttpRequest request, DriftDebugQuery query) async {
@@ -24,20 +52,44 @@ final class SqlHandler {
       return;
     }
     final res = request.response;
+    final result = await runSqlResult(query, sql);
+    _ctx.setJsonHeaders(res);
+    if (result.containsKey(ServerConstants.jsonKeyError)) {
+      res.statusCode = HttpStatus.internalServerError;
+    }
+    res.write(jsonEncode(result));
+    await res.close();
+  }
+
+  /// Returns explain result for VM service RPC (Plan 68).
+  /// [sql] must be read-only. Returns {rows, sql} or {error}.
+  Future<Map<String, dynamic>> explainSqlResult(
+    DriftDebugQuery query,
+    String sql,
+  ) async {
+    if (sql.trim().isEmpty) {
+      return <String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.errorMissingSql,
+      };
+    }
+    if (!isReadOnlySql(sql)) {
+      return <String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.errorReadOnlyOnly,
+      };
+    }
     try {
-      final dynamic raw = await query(sql);
-      final List<Map<String, dynamic>> rows = ServerContext.normalizeRows(raw);
-      _ctx.setJsonHeaders(res);
-      res.write(
-          jsonEncode(<String, dynamic>{ServerConstants.jsonKeyRows: rows}));
+      final explainSql = 'EXPLAIN QUERY PLAN $sql';
+      final dynamic raw = await query(explainSql);
+      final rows = ServerContext.normalizeRows(raw);
+      return <String, dynamic>{
+        ServerConstants.jsonKeyRows: rows,
+        ServerConstants.jsonKeySql: explainSql,
+      };
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
-      res.statusCode = HttpStatus.internalServerError;
-      _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(
-          <String, String>{ServerConstants.jsonKeyError: error.toString()}));
-    } finally {
-      await res.close();
+      return <String, String>{
+        ServerConstants.jsonKeyError: error.toString(),
+      };
     }
   }
 
@@ -50,24 +102,13 @@ final class SqlHandler {
       return;
     }
     final res = request.response;
-    try {
-      final explainSql = 'EXPLAIN QUERY PLAN $sql';
-      final dynamic raw = await query(explainSql);
-      final rows = ServerContext.normalizeRows(raw);
-      _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{
-        ServerConstants.jsonKeyRows: rows,
-        ServerConstants.jsonKeySql: explainSql,
-      }));
-    } on Object catch (error, stack) {
-      _ctx.logError(error, stack);
+    final result = await explainSqlResult(query, sql);
+    _ctx.setJsonHeaders(res);
+    if (result.containsKey(ServerConstants.jsonKeyError)) {
       res.statusCode = HttpStatus.internalServerError;
-      _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(
-          <String, String>{ServerConstants.jsonKeyError: error.toString()}));
-    } finally {
-      await res.close();
     }
+    res.write(jsonEncode(result));
+    await res.close();
   }
 
   /// Validates that [sql] is read-only: single statement, SELECT or
