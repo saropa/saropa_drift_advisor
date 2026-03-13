@@ -14,33 +14,12 @@
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { ForeignKey, TableMetadata } from '../api-types';
-
-export interface IRelationshipNode {
-  table: string;
-  column: string;
-  pkValue: unknown;
-  depth: number;
-  children: IRelationshipNode[];
-}
-
-export interface IRelationshipChain {
-  table: string;
-  column: string;
-  referencedTable: string;
-  referencedColumn: string;
-}
-
-export interface IAffectedTable {
-  table: string;
-  rowCount: number;
-  relationship: 'parent' | 'child';
-}
-
-export interface IDeletePlan {
-  statements: string[];
-  affectedTables: IAffectedTable[];
-  totalRows: number;
-}
+import type {
+  IAffectedTable,
+  IDeletePlan,
+  IRelationshipChain,
+  IRelationshipNode,
+} from './relationship-types';
 
 /** Cache TTL in milliseconds (60 seconds for relationship data). */
 const CACHE_TTL_MS = 60_000;

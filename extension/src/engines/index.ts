@@ -13,9 +13,9 @@ export type {
 export { QueryIntelligence } from './query-intelligence';
 export type {
   IJoinPattern, IPatternIndexSuggestion, IQueryPattern,
-} from './query-intelligence';
+} from './query-intelligence-types';
 
 export { RelationshipEngine } from './relationship-engine';
 export type {
   IAffectedTable, IDeletePlan, IRelationshipChain, IRelationshipNode,
-} from './relationship-engine';
+} from './relationship-types';

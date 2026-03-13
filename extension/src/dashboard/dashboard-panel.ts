@@ -3,12 +3,13 @@ import type { DriftApiClient } from '../api-client';
 import type {
   IDashboardLayout,
   IHealthScorerProvider,
-  IWidgetConfig,
   WebviewToExtensionMessage,
   WidgetType,
 } from './dashboard-types';
 import { DashboardState } from './dashboard-state';
 import { buildDashboardHtml } from './dashboard-html';
+import { handleDashboardMessage } from './panel/message-handler';
+import { findNextGridX, findNextGridY, generateId } from './panel/widget-layout';
 import { getDefaultWidgetConfig, WidgetDataFetcher } from './widget-data-fetcher';
 import { getWidgetDefinition, getWidgetTypeInfoList } from './widget-registry';
 
@@ -124,57 +125,29 @@ export class DashboardPanel {
   }
 
   private async _handleMessage(msg: WebviewToExtensionMessage): Promise<void> {
-    switch (msg.command) {
-      case 'addWidget':
-        await this._addWidget(msg.type, msg.config);
-        break;
+    const ctx = this._getMessageContext();
+    await handleDashboardMessage(msg, ctx);
+  }
 
-      case 'removeWidget':
-        this._removeWidget(msg.id);
-        break;
-
-      case 'swapWidgets':
-        this._swapWidgets(msg.idA, msg.idB);
-        break;
-
-      case 'resizeWidget':
-        this._resizeWidget(msg.id, msg.w, msg.h);
-        break;
-
-      case 'editWidget':
-        await this._editWidget(msg.id, msg.config);
-        break;
-
-      case 'refreshAll':
-        await this._refreshAllWidgets();
-        break;
-
-      case 'refreshWidget':
-        await this._refreshWidget(msg.id);
-        break;
-
-      case 'saveLayout':
-        this.saveAs(msg.name);
-        break;
-
-      case 'loadLayout': {
-        const layout = this._state.load(msg.name);
-        if (layout) {
-          this._updateLayout(layout);
-        }
-        break;
-      }
-
-      case 'getConfigSchema':
-        await this._sendConfigSchema(msg.type, msg.existingConfig);
-        break;
-
-      case 'executeAction':
-        if (msg.actionCommand) {
-          vscode.commands.executeCommand(msg.actionCommand, msg.args);
-        }
-        break;
-    }
+  private _getMessageContext() {
+    return {
+      layout: this._layout,
+      state: this._state,
+      panel: this._panel,
+      saveAndNotify: () => this._saveAndNotify(),
+      getWidgetDefinition,
+      getDefaultWidgetConfig,
+      findNextGridX: () => findNextGridX(this._layout),
+      findNextGridY: () => findNextGridY(this._layout),
+      generateId,
+      getTableNames: () => this._fetcher.getTableNames(),
+      refreshWidget: (id: string) => this._refreshWidget(id),
+      refreshAllWidgets: () => this._refreshAllWidgets(),
+      updateLayout: (layout: IDashboardLayout) => this._updateLayout(layout),
+      sendConfigSchema: (type: WidgetType, config: Record<string, unknown>) =>
+        this._sendConfigSchema(type, config),
+      saveAs: (name: string) => this.saveAs(name),
+    };
   }
 
   private async _sendConfigSchema(
@@ -193,95 +166,6 @@ export class DashboardPanel {
     });
   }
 
-  private async _addWidget(type: WidgetType, config: Record<string, unknown>): Promise<void> {
-    const def = getWidgetDefinition(type);
-    if (!def) return;
-
-    const newWidget: IWidgetConfig = {
-      id: generateId(),
-      type,
-      title: config.title as string || def.label,
-      gridX: this._findNextGridX(),
-      gridY: this._findNextGridY(),
-      gridW: def.defaultSize.w,
-      gridH: def.defaultSize.h,
-      config,
-    };
-
-    this._layout.widgets.push(newWidget);
-    this._saveAndNotify();
-
-    const result = await this._fetcher.fetchOne(newWidget);
-    this._panel.webview.postMessage({
-      command: 'updateWidget',
-      id: result.id,
-      html: result.html,
-    });
-  }
-
-  private _removeWidget(id: string): void {
-    this._layout.widgets = this._layout.widgets.filter((w) => w.id !== id);
-    this._saveAndNotify();
-  }
-
-  private _swapWidgets(idA: string, idB: string): void {
-    const widgetA = this._layout.widgets.find((w) => w.id === idA);
-    const widgetB = this._layout.widgets.find((w) => w.id === idB);
-    if (!widgetA || !widgetB) return;
-
-    const tempX = widgetA.gridX;
-    const tempY = widgetA.gridY;
-    widgetA.gridX = widgetB.gridX;
-    widgetA.gridY = widgetB.gridY;
-    widgetB.gridX = tempX;
-    widgetB.gridY = tempY;
-
-    this._saveAndNotify();
-  }
-
-  private _resizeWidget(id: string, w: number, h: number): void {
-    const widget = this._layout.widgets.find((wgt) => wgt.id === id);
-    if (!widget) return;
-
-    widget.gridW = Math.max(1, Math.min(this._layout.columns, w));
-    widget.gridH = Math.max(1, Math.min(3, h));
-    this._saveAndNotify();
-  }
-
-  private async _editWidget(id: string, config: Record<string, unknown>): Promise<void> {
-    const widget = this._layout.widgets.find((w) => w.id === id);
-    if (!widget) return;
-
-    widget.config = { ...widget.config, ...config };
-    if (config.title) {
-      widget.title = String(config.title);
-    }
-    this._saveAndNotify();
-
-    await this._refreshWidget(id);
-  }
-
-  private _findNextGridX(): number {
-    if (this._layout.widgets.length === 0) return 0;
-    const maxX = Math.max(...this._layout.widgets.map((w) => w.gridX + w.gridW));
-    return maxX >= this._layout.columns ? 0 : maxX;
-  }
-
-  private _findNextGridY(): number {
-    if (this._layout.widgets.length === 0) return 0;
-    const nextX = this._findNextGridX();
-    if (nextX === 0) {
-      return Math.max(...this._layout.widgets.map((w) => w.gridY + w.gridH));
-    }
-    const widgetsOnLastRow = this._layout.widgets.filter(
-      (w) => w.gridY === Math.max(...this._layout.widgets.map((w2) => w2.gridY))
-    );
-    if (widgetsOnLastRow.length > 0) {
-      return widgetsOnLastRow[0].gridY;
-    }
-    return 0;
-  }
-
   private _saveAndNotify(): void {
     this._state.save(this._layout);
     this._panel.webview.postMessage({
@@ -297,8 +181,4 @@ export class DashboardPanel {
       d.dispose();
     }
   }
-}
-
-function generateId(): string {
-  return `w-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
 }
