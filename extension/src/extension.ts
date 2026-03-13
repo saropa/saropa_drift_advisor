@@ -55,6 +55,7 @@ import { registerInvariantCommands } from './invariants';
 import { registerErDiagramCommands } from './er-diagram';
 import { registerNarratorCommands } from './narrator';
 import { registerClipboardImportCommands } from './import/clipboard-import-commands';
+import { hasFlutterOrDartDebugSession, tryAdbForwardAndRetry } from './android-forward';
 
 export function activate(context: vscode.ExtensionContext): void {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
@@ -97,6 +98,21 @@ export function activate(context: vscode.ExtensionContext): void {
   }
   context.subscriptions.push({ dispose: () => discovery.dispose() });
   context.subscriptions.push({ dispose: () => serverManager.dispose() });
+
+  // When no server is found and a Flutter/Dart debug session is active (e.g. app on
+  // emulator), automatically try adb forward so the host can reach the Drift server.
+  context.subscriptions.push(
+    discovery.onDidChangeServers((servers) => {
+      if (servers.length > 0) return;
+      if (!hasFlutterOrDartDebugSession()) return;
+      void tryAdbForwardAndRetry(
+        client.port,
+        discovery,
+        context.workspaceState,
+      );
+    }),
+  );
+
   const annotationStore = new AnnotationStore(context.workspaceState);
   const treeProvider = new DriftTreeProvider(client, annotationStore);
 
