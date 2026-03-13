@@ -11,37 +11,7 @@
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { PerformanceData, QueryEntry } from '../api-types';
-
-/** Pattern extracted from SQL queries. */
-export interface IQueryPattern {
-  pattern: string;
-  tables: string[];
-  whereColumns: string[];
-  joinColumns: string[];
-  orderByColumns: string[];
-  executionCount: number;
-  totalDurationMs: number;
-  avgDurationMs: number;
-  lastSeen: number;
-}
-
-/** Index suggestion based on query patterns. */
-export interface IPatternIndexSuggestion {
-  table: string;
-  column: string;
-  reason: string;
-  usageCount: number;
-  potentialSavingsMs: number;
-  sql: string;
-}
-
-/** Frequent table join pattern for autocomplete. */
-export interface IJoinPattern {
-  fromTable: string;
-  toTable: string;
-  joinClause: string;
-  usageCount: number;
-}
+import type { IJoinPattern, IPatternIndexSuggestion, IQueryPattern } from './query-intelligence-types';
 
 /** Cache TTL in milliseconds (15 seconds). */
 const CACHE_TTL_MS = 15_000;

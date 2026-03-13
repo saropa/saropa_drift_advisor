@@ -94,6 +94,22 @@ export interface IHealthScorerProvider {
   compute: (client: DriftApiClient) => Promise<IHealthScore>;
 }
 
+/** Definition for a widget type (fetch + render). Used by widget registry. */
+export interface IWidgetDefinition {
+  type: WidgetType;
+  label: string;
+  icon: string;
+  description: string;
+  defaultSize: { w: number; h: number };
+  configSchema: IConfigField[];
+  fetchData: (
+    client: DriftApiClient,
+    config: Record<string, unknown>,
+    healthScorer?: IHealthScorerProvider,
+  ) => Promise<unknown>;
+  renderHtml: (data: unknown, config: Record<string, unknown>) => string;
+}
+
 /** Escape HTML special characters to prevent XSS. */
 export function escapeHtml(s: string): string {
   return String(s)
