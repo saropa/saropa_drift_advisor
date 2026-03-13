@@ -239,13 +239,8 @@ final class AnalyticsHandler {
     }
   }
 
-  /// Scans all tables for data quality anomalies.
-  Future<void> handleAnomalyDetection(
-    HttpResponse response,
-    DriftDebugQuery query,
-  ) async {
-    final res = response;
-
+  /// Returns anomaly scan result for VM service RPC (Plan 68).
+  Future<Map<String, dynamic>> getAnomaliesResult(DriftDebugQuery query) async {
     try {
       final tableNames = await ServerContext.getTableNames(query);
       final anomalies = <Map<String, dynamic>>[];
@@ -254,7 +249,6 @@ final class AnalyticsHandler {
         final colInfoRows = ServerContext.normalizeRows(
           await query('PRAGMA table_info("$tableName")'),
         );
-
         final tableRowCount = ServerContext.extractCountFromRows(
           ServerContext.normalizeRows(
             await query('SELECT COUNT(*) AS c FROM "$tableName"'),
@@ -304,24 +298,35 @@ final class AnalyticsHandler {
       }
 
       ServerContext.sortAnomaliesBySeverity(anomalies);
-
-      _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{
+      return <String, dynamic>{
         'anomalies': anomalies,
         'tablesScanned': tableNames.length,
         'analyzedAt': DateTime.now().toUtc().toIso8601String(),
-      }));
+      };
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
+      return <String, String>{
+        ServerConstants.jsonKeyError: error.toString(),
+      };
+    }
+  }
+
+  /// Scans all tables for data quality anomalies.
+  Future<void> handleAnomalyDetection(
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
+    final res = response;
+    final result = await getAnomaliesResult(query);
+    if (result.containsKey(ServerConstants.jsonKeyError)) {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _ctx.setCors(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: error.toString(),
-      }));
-    } finally {
-      await res.close();
+    } else {
+      _ctx.setJsonHeaders(res);
     }
+    res.write(jsonEncode(result));
+    await res.close();
   }
 
   Future<void> _detectNullValues({

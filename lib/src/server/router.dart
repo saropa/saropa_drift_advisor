@@ -358,6 +358,42 @@ final class Router {
     }
   }
 
+  // --- VM Service extension delegates (Plan 68) ---
+  // Used by VmServiceBridge to serve ext.saropa.drift.* RPCs without HTTP.
+
+  /// Returns schema metadata for VM service RPC getSchemaMetadata.
+  Future<List<Map<String, dynamic>>> getSchemaMetadataList() =>
+      _schema.getSchemaMetadataList(_ctx.instrumentedQuery);
+
+  /// Returns FK metadata for a table for VM service RPC getTableFkMeta.
+  Future<List<Map<String, dynamic>>> getTableFkMetaList(String tableName) =>
+      _table.getTableFkMetaList(
+        query: _ctx.instrumentedQuery,
+        tableName: tableName,
+      );
+
+  /// Runs read-only SQL for VM service RPC runSql.
+  Future<Map<String, dynamic>> runSqlResult(String sql) =>
+      _sql.runSqlResult(_ctx.instrumentedQuery, sql);
+
+  /// Returns current generation for VM service RPC getGeneration.
+  Future<int> getGeneration() => _generation.getCurrentGeneration();
+
+  /// Returns performance data for VM service RPC getPerformance.
+  Future<Map<String, dynamic>> getPerformanceData() =>
+      _performance.getPerformanceData();
+
+  /// Clears performance timings for VM service RPC clearPerformance.
+  void clearPerformance() => _performance.clearPerformance();
+
+  /// Returns anomaly scan result for VM service RPC getAnomalies.
+  Future<Map<String, dynamic>> getAnomaliesResult() =>
+      _analytics.getAnomaliesResult(_ctx.instrumentedQuery);
+
+  /// Returns explain plan for VM service RPC explainSql.
+  Future<Map<String, dynamic>> explainSqlResult(String sql) =>
+      _sql.explainSqlResult(_ctx.instrumentedQuery, sql);
+
   @override
   String toString() => 'Router()';
 }

@@ -1,13 +1,30 @@
 import * as vscode from 'vscode';
+import type { DriftApiClient } from './api-client';
 import type { ServerDiscovery } from './server-discovery';
 import type { ServerManager } from './server-manager';
 
+/**
+ * Update the status bar with connection state. When [client] is provided and
+ * connected via VM Service (Plan 68), shows "VM Service" instead of HTTP server.
+ */
 export function updateStatusBar(
   item: vscode.StatusBarItem,
   discovery: ServerDiscovery,
   manager: ServerManager,
   discoveryEnabled: boolean,
+  client?: DriftApiClient,
 ): void {
+  if (client?.usingVmService) {
+    item.text = '$(database) Drift: VM Service';
+    item.command = 'driftViewer.openInPanel';
+    item.tooltip = 'Connected via Dart VM Service (debug session)';
+    item.backgroundColor = new vscode.ThemeColor(
+      'statusBarItem.prominentBackground',
+    );
+    item.show();
+    return;
+  }
+
   const active = manager.activeServer;
   const count = manager.servers.length;
 

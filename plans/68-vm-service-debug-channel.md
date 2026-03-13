@@ -1,15 +1,40 @@
-# Plan 68: VM Service as Debug Channel (Discussion)
+# Plan 68: VM Service as Debug Channel
 
-> **Status: For discussion only — not for implementation yet.**  
-> This document explores replacing or complementing the in-app HTTP debug server with the Dart VM Service so the extension (and optionally the browser) can reach the app without port forwarding on Android emulators/devices.
+> **Status: Implemented (Option A hybrid).**  
+> Dart: VM service extensions in `lib/src/server/vm_service_bridge.dart`; extension: VM client in `extension/src/transport/vm-service-client.ts`, URI from `vm-service-uri.ts`, debug lifecycle in `debug-commands.ts`.
+
+### Implementation status (what’s done vs partial)
+
+| Area | Status | Notes |
+|------|--------|--------|
+| **Dart VM extensions** | Done | `getHealth`, `getSchemaMetadata`, `getTableFkMeta`, `runSql`, `getGeneration`, **`getPerformance`**, **`clearPerformance`**, **`getAnomalies`**, **`explainSql`** — all delegate to existing handlers. |
+| **Extension VM client** | Done | WebSocket JSON-RPC client; calls all RPCs above. Status bar shows "VM Service" when connected via VM. |
+| **VM URI resolution** | Done | (1) `customRequest` and `session.configuration.vmServiceUri`; (2) **parsing debug adapter output** via `registerDebugAdapterTrackerFactory` for `dart`/`flutter`. Unit tests: `vm-service-uri.test.ts` for `parseVmServiceUriFromOutput`. |
+| **Debug lifecycle** | Done | On session start: VM first (URI from API or output), then HTTP discovery. On session end: clear VM client. **Hot restart**: on WebSocket close we clear VM client, setContext, refresh tree (no broken state). |
+| **API over VM** | Extended | Core + generation + **performance**, **anomalies**, **explainSql**, **clearPerformance** over VM. |
+| **Panel / Open in browser** | Done (fallback) | When **VM-only** (no HTTP): panel shows fallback message ("Use the Database tree…"); "Open in browser" shows an info message. When HTTP is available, behavior unchanged. |
+
+So: **core path and nice-to-haves are implemented**. VM URI from output or API; tree and status bar show "VM Service"; hot restart clears state; panel and "Open in browser" show clear messaging when VM-only; extra APIs (performance, anomalies, explain) work over VM.
+
+### Manual testing (VM Service path)
+
+1. Start a Flutter app with `DriftDebugServer.start()` (or equivalent) in debug mode from VS Code.
+2. Confirm the **Database** tree shows **"VM Service"** as the connection and schema/tables load.
+3. Run a query from the tree or SQL notebook; confirm results.
+4. Open **Query performance** view; confirm data (or empty) and refresh.
+5. **Panel**: Click "Open in Panel" (or status bar). If only VM is reachable, confirm the fallback message; if HTTP is reachable, confirm the full UI loads.
+6. **Open in browser**: If VM-only, confirm the info message; if HTTP reachable, confirm browser opens.
+7. **Hot restart**: Trigger a hot restart in the app; confirm the extension clears VM state (e.g. tree shows disconnected), then reconnects when the adapter prints a new VM URI (or on next session start).
 
 ---
 
 ## 1. Motivation
 
+**User impact:** The current connection model (HTTP server in app + extension port-scan discovery on 8642–8649, optional adb forward on emulator) does not work for users. The extension stays disconnected; troubleshooting in the welcome view is insufficient because the underlying design is unreliable. This plan fixes that by using the VM Service when debugging so connection "just works."
+
 - **Current**: The app runs an HTTP server (e.g. `http://127.0.0.1:8642`). The VS Code extension and the browser connect to it. On an **Android emulator**, that server is inside the emulator; the host has no route to it unless we run `adb forward tcp:8642 tcp:8642` (we added auto adb forward when a Flutter debug session is active to reduce friction).
 - **Isar**: The Isar Inspector connects over the **Dart VM Service** (same channel as the debugger). Flutter/IDE already forwards the VM Service port when debugging on an emulator, so no adb forward is needed.
-- **Goal**: Consider moving our debug channel to the VM Service so that, like Isar, connection “just works” on emulators without any adb forward or special logic.
+- **Goal**: Move our debug channel to the VM Service so that, like Isar, connection “just works” on emulators without any adb forward or special logic. Keep HTTP for "Open in browser" and non-debug use; fall back to current HTTP + discovery when no debug session (e.g. desktop app run without debugger). Current design: [Plan 6: Server Auto-Discovery](history/20260309/06-auto-discovery.md).
 
 ---
 
