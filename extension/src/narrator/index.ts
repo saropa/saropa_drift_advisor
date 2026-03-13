@@ -2,7 +2,8 @@
  * Data Story Narrator module exports.
  */
 
-export { DataNarrator, capitalize, formatValue, singularize, sqlLiteral } from './data-narrator';
+export { DataNarrator } from './data-narrator';
+export { capitalize, formatValue, singularize, sqlLiteral } from './narrator-utils';
 export { buildErrorHtml, buildLoadingHtml, buildNarratorHtml } from './narrator-html';
 export { NarratorPanel } from './narrator-panel';
 export { registerNarratorCommands } from './narrator-commands';
