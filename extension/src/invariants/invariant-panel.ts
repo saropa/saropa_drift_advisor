@@ -9,9 +9,10 @@ import type { InvariantManager } from './invariant-manager';
 import type { IInvariantWebviewMessage } from './invariant-types';
 import { buildInvariantHtml } from './invariant-html';
 import {
-  InvariantTemplates,
-  templateToQuickPickItem,
-} from './invariant-templates';
+  promptAddRule,
+  promptEditRule,
+  promptRemoveRule,
+} from './invariant-prompts';
 
 /** Singleton webview panel for managing data invariants. */
 export class InvariantPanel {
@@ -97,18 +98,18 @@ export class InvariantPanel {
         break;
 
       case 'addRule':
-        await this._promptAddRule();
+        await promptAddRule(this._getPromptContext());
         break;
 
       case 'edit':
         if (msg.id) {
-          await this._promptEditRule(msg.id);
+          await promptEditRule(this._getPromptContext(), msg.id);
         }
         break;
 
       case 'remove':
         if (msg.id) {
-          await this._promptRemoveRule(msg.id);
+          await promptRemoveRule(this._getPromptContext(), msg.id);
         }
         break;
 
@@ -139,169 +140,12 @@ export class InvariantPanel {
     );
   }
 
-  private async _promptAddRule(): Promise<void> {
-    const tables = await this._getTableList();
-    if (tables.length === 0) {
-      vscode.window.showWarningMessage('No tables found in database.');
-      return;
-    }
-
-    const tablePick = await vscode.window.showQuickPick(
-      tables.map((t) => ({ label: t, table: t })),
-      { placeHolder: 'Select a table for the invariant' },
-    );
-    if (!tablePick) return;
-
-    const table = tablePick.table;
-
-    // Fetch templates with progress indicator (can be slow for tables with many FKs)
-    const allTemplates = await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: 'Loading invariant templates...',
-        cancellable: false,
-      },
-      async () => {
-        const templates = new InvariantTemplates(this._client);
-        const available = await templates.getTemplatesForTable(table);
-        const common = templates.getCommonTemplates(table);
-        return [...available, ...common];
-      },
-    );
-
-    const items = [
-      ...allTemplates.map((t) => templateToQuickPickItem(t)),
-      {
-        label: '$(code) Custom SQL',
-        description: 'custom',
-        detail: 'Write your own invariant query',
-        template: null,
-      },
-    ];
-
-    const pick = await vscode.window.showQuickPick(items, {
-      placeHolder: 'Select an invariant template',
-      matchOnDescription: true,
-      matchOnDetail: true,
-    });
-    if (!pick) return;
-
-    if (pick.template) {
-      this._manager.add({
-        name: pick.template.name,
-        table,
-        sql: pick.template.sql,
-        expectation: pick.template.expectation,
-        severity: pick.template.severity,
-        enabled: true,
-      });
-      vscode.window.showInformationMessage(`Added invariant: ${pick.template.name}`);
-    } else {
-      await this._promptCustomRule(table);
-    }
-  }
-
-  private async _promptCustomRule(table: string): Promise<void> {
-    const name = await vscode.window.showInputBox({
-      prompt: 'Invariant name',
-      placeHolder: 'e.g., "Users must have email"',
-    });
-    if (!name) return;
-
-    const sql = await vscode.window.showInputBox({
-      prompt: 'SQL query (should return violating rows)',
-      placeHolder: `SELECT * FROM "${table}" WHERE ...`,
-      value: `SELECT * FROM "${table}" WHERE `,
-    });
-    if (!sql) return;
-
-    const expectation = await vscode.window.showQuickPick(
-      [
-        { label: 'Zero rows (violations are errors)', value: 'zero_rows' as const },
-        { label: 'At least one row (empty is error)', value: 'non_zero' as const },
-      ],
-      { placeHolder: 'What should the query return to pass?' },
-    );
-    if (!expectation) return;
-
-    const severity = await vscode.window.showQuickPick(
-      [
-        { label: '$(error) Error', value: 'error' as const },
-        { label: '$(warning) Warning', value: 'warning' as const },
-        { label: '$(info) Info', value: 'info' as const },
-      ],
-      { placeHolder: 'Severity level for violations' },
-    );
-    if (!severity) return;
-
-    this._manager.add({
-      name,
-      table,
-      sql,
-      expectation: expectation.value,
-      severity: severity.value,
-      enabled: true,
-    });
-    vscode.window.showInformationMessage(`Added invariant: ${name}`);
-  }
-
-  private async _promptEditRule(id: string): Promise<void> {
-    const inv = this._manager.get(id);
-    if (!inv) return;
-
-    const name = await vscode.window.showInputBox({
-      prompt: 'Invariant name',
-      value: inv.name,
-    });
-    if (name === undefined) return;
-
-    const sql = await vscode.window.showInputBox({
-      prompt: 'SQL query',
-      value: inv.sql,
-    });
-    if (sql === undefined) return;
-
-    const expectation = await vscode.window.showQuickPick(
-      [
-        { label: 'Zero rows (violations are errors)', value: 'zero_rows' as const, picked: inv.expectation === 'zero_rows' },
-        { label: 'At least one row (empty is error)', value: 'non_zero' as const, picked: inv.expectation === 'non_zero' },
-      ],
-      { placeHolder: 'What should the query return to pass?' },
-    );
-    if (!expectation) return;
-
-    const severity = await vscode.window.showQuickPick(
-      [
-        { label: '$(error) Error', value: 'error' as const, picked: inv.severity === 'error' },
-        { label: '$(warning) Warning', value: 'warning' as const, picked: inv.severity === 'warning' },
-        { label: '$(info) Info', value: 'info' as const, picked: inv.severity === 'info' },
-      ],
-      { placeHolder: 'Severity level for violations' },
-    );
-    if (!severity) return;
-
-    this._manager.update(id, {
-      name: name || inv.name,
-      sql: sql || inv.sql,
-      expectation: expectation.value,
-      severity: severity.value,
-    });
-    vscode.window.showInformationMessage(`Updated invariant: ${name || inv.name}`);
-  }
-
-  private async _promptRemoveRule(id: string): Promise<void> {
-    const inv = this._manager.get(id);
-    if (!inv) return;
-
-    const confirm = await vscode.window.showWarningMessage(
-      `Remove invariant "${inv.name}"?`,
-      { modal: true },
-      'Remove',
-    );
-    if (confirm !== 'Remove') return;
-
-    this._manager.remove(id);
-    vscode.window.showInformationMessage(`Removed invariant: ${inv.name}`);
+  private _getPromptContext() {
+    return {
+      client: this._client,
+      manager: this._manager,
+      getTableList: () => this._getTableList(),
+    };
   }
 
   private async _showViolations(id: string): Promise<void> {
