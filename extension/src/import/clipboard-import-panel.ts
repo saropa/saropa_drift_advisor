@@ -28,71 +28,16 @@ import {
   buildImportPayload,
   ClipboardParser,
 } from './clipboard-parser';
+import type { PanelMessage } from './clipboard-import-messages';
 import type {
   IClipboardImportState,
   IColumnMapping,
   IImportOptions,
-  ImportStrategy,
 } from './clipboard-import-types';
 import { ImportExecutor } from './import-executor';
 import { ImportHistory } from './import-history';
 import { ImportValidator, validateForeignKeys } from './import-validator';
 import { captureSchemaSnapshot, checkSchemaFreshness } from './schema-freshness';
-
-/**
- * Message from webview to update a column mapping.
- */
-interface IUpdateMappingMessage {
-  command: 'updateMapping';
-  /** Index of the mapping in the mapping array */
-  index: number;
-  /** Target table column name, or null to skip this column */
-  tableColumn: string | null;
-}
-
-/**
- * Message from webview to change import strategy.
- */
-interface IUpdateStrategyMessage {
-  command: 'updateStrategy';
-  /** New import strategy selection */
-  strategy: ImportStrategy;
-}
-
-/**
- * Message from webview to change match-by setting.
- */
-interface IUpdateMatchByMessage {
-  command: 'updateMatchBy';
-  /** Column name to match by, or 'pk' for primary key */
-  matchBy: string;
-}
-
-/**
- * Message from webview to toggle continue-on-error setting.
- */
-interface IUpdateContinueOnErrorMessage {
-  command: 'updateContinueOnError';
-  /** Whether to continue importing when individual rows fail */
-  continueOnError: boolean;
-}
-
-/**
- * Simple command messages without additional data.
- */
-interface ISimpleMessage {
-  command: 'cancel' | 'validate' | 'import';
-}
-
-/**
- * Union type of all possible messages from the webview.
- */
-type PanelMessage =
-  | IUpdateMappingMessage
-  | IUpdateStrategyMessage
-  | IUpdateMatchByMessage
-  | IUpdateContinueOnErrorMessage
-  | ISimpleMessage;
 
 /**
  * Manages the clipboard import webview panel.

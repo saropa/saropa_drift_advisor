@@ -26,6 +26,7 @@ import type {
   IUpdatedRow,
   IValidationResult,
 } from './clipboard-import-types';
+import { undoImport } from './import-undo';
 import { ImportValidator } from './import-validator';
 
 /**
@@ -248,20 +249,7 @@ export class ImportExecutor {
 
   /**
    * Undo a previous import by deleting inserted rows and restoring updated rows.
-   *
-   * Reverses an import operation by:
-   * 1. Deleting all rows that were inserted (by their tracked IDs)
-   * 2. Restoring previous values for rows that were updated
-   *
-   * The undo operation is wrapped in a transaction for atomicity.
-   * If the undo fails, changes are rolled back and the original
-   * import remains in effect.
-   *
-   * @param table - Table where import was performed
-   * @param insertedIds - IDs of rows that were inserted
-   * @param updatedRows - Updated rows with their previous values
-   * @param pkColumn - Primary key column name for WHERE clauses
-   * @returns Success status and error message if failed
+   * Delegates to import-undo module.
    */
   async undoImport(
     table: string,
@@ -269,45 +257,7 @@ export class ImportExecutor {
     updatedRows: IUpdatedRow[],
     pkColumn: string,
   ): Promise<{ success: boolean; error?: string }> {
-    try {
-      await this._client.sql('BEGIN TRANSACTION');
-
-      for (const id of insertedIds) {
-        await this._client.sql(
-          `DELETE FROM "${table}" WHERE "${pkColumn}" = '${this._escape(String(id))}'`,
-        );
-      }
-
-      for (const update of updatedRows) {
-        const setClauses = Object.entries(update.previousValues)
-          .filter(([col]) => col !== pkColumn)
-          .map(([col, val]) => {
-            if (val === null || val === undefined) {
-              return `"${col}" = NULL`;
-            }
-            return `"${col}" = '${this._escape(String(val))}'`;
-          })
-          .join(', ');
-
-        if (setClauses) {
-          await this._client.sql(
-            `UPDATE "${table}" SET ${setClauses} WHERE "${pkColumn}" = '${this._escape(String(update.id))}'`,
-          );
-        }
-      }
-
-      await this._client.sql('COMMIT');
-      return { success: true };
-    } catch (err) {
-      try {
-        await this._client.sql('ROLLBACK');
-      } catch {
-        // Ignore rollback errors
-      }
-
-      const message = err instanceof Error ? err.message : String(err);
-      return { success: false, error: message };
-    }
+    return undoImport(this._client, table, insertedIds, updatedRows, pkColumn);
   }
 
   /**
