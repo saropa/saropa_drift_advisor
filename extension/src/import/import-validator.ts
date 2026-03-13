@@ -24,6 +24,7 @@ import type {
   IValidationResult,
   IValidationWarning,
 } from './clipboard-import-types';
+export { validateForeignKeys } from './import-fk-validator';
 
 /**
  * Validates import data against table schema before execution.
@@ -244,90 +245,3 @@ export class ImportValidator {
   }
 }
 
-/**
- * Validate that foreign key references exist in referenced tables.
- *
- * This is a separate validation step that requires additional database
- * queries. For each foreign key column in the mapping, it:
- * 1. Collects all unique FK values from the import data
- * 2. Queries the referenced table to check which values exist
- * 3. Reports errors for any missing references
- *
- * This validation is optional and runs after basic type validation
- * to provide comprehensive constraint checking.
- *
- * @param client - API client for database queries
- * @param table - Source table with foreign key constraints
- * @param rows - Row data to validate
- * @param mapping - Column mappings (used to identify FK columns)
- * @returns Validation results for rows with missing FK references
- */
-export async function validateForeignKeys(
-  client: DriftApiClient,
-  table: string,
-  rows: Record<string, unknown>[],
-  mapping: IColumnMapping[],
-): Promise<IValidationResult[]> {
-  const results: IValidationResult[] = [];
-
-  try {
-    const fkMeta = await client.tableFkMeta(table);
-    if (fkMeta.length === 0) {
-      return results;
-    }
-
-    for (const fk of fkMeta) {
-      const fkValues = new Set<string>();
-      const rowIndices: Map<string, number[]> = new Map();
-
-      rows.forEach((row, i) => {
-        const val = row[fk.fromColumn];
-        if (val !== null && val !== undefined && val !== '') {
-          const key = String(val);
-          fkValues.add(key);
-          const indices = rowIndices.get(key) ?? [];
-          indices.push(i);
-          rowIndices.set(key, indices);
-        }
-      });
-
-      if (fkValues.size === 0) {
-        continue;
-      }
-
-      const escapedValues = [...fkValues]
-        .map((v) => `'${v.replace(/'/g, "''")}'`)
-        .join(',');
-      const sql = `SELECT "${fk.toColumn}" FROM "${fk.toTable}" WHERE "${fk.toColumn}" IN (${escapedValues})`;
-
-      try {
-        const result = await client.sql(sql);
-        const existingValues = new Set(result.rows.map((r) => String(r[0])));
-
-        for (const [value, indices] of rowIndices) {
-          if (!existingValues.has(value)) {
-            for (const rowIdx of indices) {
-              let existing = results.find((r) => r.row === rowIdx);
-              if (!existing) {
-                existing = { row: rowIdx, errors: [], warnings: [] };
-                results.push(existing);
-              }
-              existing.errors.push({
-                column: fk.fromColumn,
-                value,
-                code: 'fk_missing',
-                message: `Foreign key "${value}" not found in ${fk.toTable}.${fk.toColumn}`,
-              });
-            }
-          }
-        }
-      } catch {
-        // FK validation failed, skip this FK
-      }
-    }
-  } catch {
-    // Could not load FK metadata
-  }
-
-  return results;
-}
