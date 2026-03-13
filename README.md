@@ -231,9 +231,9 @@ await DriftDebugServer.start(
 
 ### 3. Connect a client
 
-**VS Code extension (recommended):** Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the Marketplace. It auto-discovers the running server — no configuration needed.
+**VS Code extension (recommended):** Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the Marketplace. It auto-discovers the running server — no configuration needed. On Android emulator, the extension automatically forwards the debug server port when a Flutter/Dart debug session is active.
 
-**Browser:** Open **http://127.0.0.1:8642**.
+**Browser:** Open **http://127.0.0.1:8642** (on emulator, run `adb forward tcp:8642 tcp:8642` first).
 
 **Example app:** [example/](example/) — from repo root: `flutter run -d windows`, then connect via VS Code or browser. See [example/README.md](example/README.md).
 

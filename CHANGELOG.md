@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
 
+---
+## [1.1.0]
+
+### Added
+
+- **Android emulator connection** — When no Drift server is found and a Flutter/Dart debug session is active, the extension automatically runs `adb forward tcp:8642 tcp:8642` (or the configured port) and retries discovery so the host can reach the server running inside the emulator. Throttled to one attempt per 60 seconds per workspace.
+- **Forward Port (Android Emulator) command** — Manual command and welcome-view link to run `adb forward` and retry discovery. Shows a progress notification while forwarding. Useful when auto-forward did not run or failed (e.g. adb not on PATH).
+
+### Changed
+
+- **Disconnected welcome view** — Troubleshooting now includes Android emulator: explains that the extension will try to forward the port automatically when debugging, and offers the Forward Port (Android Emulator) action and the manual `adb forward` command. Corrected server setup wording to `startDriftViewer()` / `DriftDebugServer.start()`.
+
+---
+
+## [1.0.4]
+
+### Fixed
+
+- The changelog now has the correct version sequence
+
+---
+
 ## [1.0.3]
 
 Improve the first-run experience with a helpful welcome screen when disconnected, and make the extension easier to discover on the VS Code Marketplace.
@@ -20,7 +42,9 @@ Improve the first-run experience with a helpful welcome screen when disconnected
 - **VS Code Marketplace metadata** — Added rich marketplace metadata: categories (Debuggers, Visualization), 15 searchable keywords (dart, drift, flutter, sqlite, database, orm, schema, debug, visualization, data viewer, moor, query, sql, table viewer, database explorer), homepage link, issues link, and gallery banner. The extension listing now shows Project Details with GitHub activity, and Resources links to Issues, Repository, Homepage, License, and Changelog.
 - **Dependabot Configuration** — `.github/dependabot.yaml` extended to keep npm dependencies up to date; weekly schedule with grouped minor/patch updates for both root and extension directories.
 
-## [1.0.3]
+---
+
+## [1.0.1]
 
 Major feature release adding data import from clipboard, interactive ER diagrams, data narratives, custom dashboards, and data quality invariant checking.
 

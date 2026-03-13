@@ -95,7 +95,7 @@ describe('Extension activation', () => {
     // Impact analysis: analyzeRowImpact (1)
     // Query cost: analyzeQueryCost (1)
     // Total = 146 (count grows as new features are added)
-    assert.strictEqual(subscriptions.length, 146, `expected 146 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 148, `expected 148 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -146,6 +146,7 @@ describe('Extension activation', () => {
     const registered = commands.getRegistered();
     assert.ok('driftViewer.selectServer' in registered);
     assert.ok('driftViewer.retryDiscovery' in registered);
+    assert.ok('driftViewer.forwardPortAndroid' in registered);
   });
 
   it('should register snapshot commands', () => {

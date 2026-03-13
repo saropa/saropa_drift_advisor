@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { runAdbForward } from '../android-forward';
 import type { DriftApiClient } from '../api-client';
 import type { SchemaDiagnostics } from '../linter/schema-diagnostics';
 import type { EditingBridge } from '../editing/editing-bridge';
@@ -111,5 +112,31 @@ export function registerNavCommands(
     vscode.commands.registerCommand('driftViewer.retryDiscovery', () =>
       discovery.retry(),
     ),
+  );
+
+  /** Forward host port to Android emulator so the extension can reach the Drift server. */
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.forwardPortAndroid', async () => {
+      const port = client.port;
+      try {
+        await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: 'Forwarding port to Android…',
+            cancellable: false,
+          },
+          () => runAdbForward(port),
+        );
+        discovery.retry();
+        void vscode.window.showInformationMessage(
+          `Port ${port} forwarded. Retrying discovery…`,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(
+          `adb forward failed: ${msg}. Ensure an emulator or device is running and adb is on PATH. Run manually: adb forward tcp:${port} tcp:${port}`,
+        );
+      }
+    }),
   );
 }
