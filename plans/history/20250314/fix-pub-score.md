@@ -1,5 +1,11 @@
 # 68 — Fix pub.dev Score (120/160)
 
+## Summary (completed 2025-03-14)
+
+**Done.** Verification steps are now part of the publish script. When you run the Dart target (`python scripts/publish.py dart` or `--analyze-only`), the pipeline runs in order: (1) `flutter analyze` (static analysis), (2) downgrade check (`flutter pub downgrade` then `flutter analyze lib/`), (3) restore with `flutter pub upgrade`, (4) outdated check (`dart pub outdated --no-dev-dependencies --no-dependency-overrides`), (5) docs, (6) `dart pub publish --dry-run`. Implemented in `scripts/modules/dart_build.py` (`run_downgrade_check`, `run_outdated_check`) and `scripts/modules/pipeline.py` (Dart build steps). Plan archived here; active verification is automated.
+
+---
+
 ## Status
 
 **In progress** — static analysis and dependency fixes applied locally, pending
@@ -111,12 +117,17 @@ Post-fix: `flutter analyze lib/` reports **no issues found**.
 
 ### Before publishing
 
-1. Run `flutter analyze lib/` — must report 0 issues
+These steps are included in the publish script when running the Dart target:
+
+1. Run `flutter analyze lib/` — must report 0 issues (Dart · Analysis)
 2. Run `flutter pub downgrade` then `flutter analyze lib/` — must pass
-   (verifies lower-bound compatibility)
-3. Run `dart pub outdated --no-dev-dependencies --up-to-date
-   --no-dependency-overrides` — all constraints must accept latest stable
-4. Run `dart pub publish --dry-run` — must succeed
+   (Dart · Downgrade check; verifies lower-bound compatibility)
+3. Run `dart pub outdated --no-dev-dependencies --no-dependency-overrides` —
+   exit 0 required (Dart · Outdated check; all constraints must accept latest stable)
+4. Run `dart pub publish --dry-run` — must succeed (Dart · Dry Run)
+
+To run all of the above: `python scripts/publish.py dart` or
+`python scripts/publish.py dart --analyze-only`.
 
 ### After publishing
 

@@ -193,10 +193,15 @@ def _run_dart_build_steps(
     args: argparse.Namespace,
     results: list[tuple[str, bool, float]],
 ) -> bool:
-    """Run Dart format, test, analysis, docs, and dry-run."""
+    """Run Dart format, test, analysis, pub-score checks, docs, and dry-run."""
     from modules.dart_build import (
-        format_code, run_tests, run_analysis,
-        generate_docs, pre_publish_validation,
+        format_code,
+        run_tests,
+        run_analysis,
+        run_downgrade_check,
+        run_outdated_check,
+        generate_docs,
+        pre_publish_validation,
     )
 
     heading("Dart \u00b7 Format")
@@ -212,6 +217,14 @@ def _run_dart_build_steps(
 
     heading("Dart \u00b7 Analysis")
     if not run_step("Dart analysis", run_analysis, results):
+        return False
+
+    heading("Dart \u00b7 Downgrade check")
+    if not run_step("Downgrade + analyze", run_downgrade_check, results):
+        return False
+
+    heading("Dart \u00b7 Outdated check")
+    if not run_step("Dependencies up-to-date", run_outdated_check, results):
         return False
 
     heading("Dart \u00b7 Documentation")

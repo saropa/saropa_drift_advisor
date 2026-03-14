@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Master switch (driftViewer.enabled)** — Extension can be turned off entirely via Settings → Saropa Drift Advisor → **Enable** (`driftViewer.enabled`, default true). When false: no server discovery or connection, watcher stopped, status bar shows "Drift: Disabled", Database view shows a welcome with [Open Settings]. Toggling back on starts discovery (if enabled), watcher, and refreshes tree/codelens/diagnostics.
 - **Add package to project** — Installing the extension should install the package, and vice versa. Command **Saropa Drift Advisor: Add package to project** adds `saropa_drift_advisor` to the project’s `pubspec.yaml` (dependencies) and runs `dart pub get` / `flutter pub get`. Welcome view (when no server connected) includes [Add package to project]; command also in Command Palette and Database Explorer view.
+- **Pub.dev score checks in publish script** — The Dart publish pipeline (`python scripts/publish.py dart`) now runs pub.dev score verification: downgrade check (`flutter pub downgrade` then `flutter analyze lib/`), restore with `flutter pub upgrade`, then outdated check (`dart pub outdated --no-dev-dependencies --no-dependency-overrides`). Ensures lower-bound compatibility and up-to-date constraints before publish. Plan 68 (fix pub score) archived to `plans/history/20250314/fix-pub-score.md`.
 
 ---
 
