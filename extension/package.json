@@ -52,7 +52,7 @@
         {
           "id": "driftViewer",
           "title": "Saropa Drift Advisor",
-          "icon": "$(database)"
+          "icon": "media/icon-activitybar.svg"
         }
       ]
     },
