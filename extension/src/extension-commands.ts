@@ -35,6 +35,7 @@ import { registerInvariantCommands } from './invariants';
 import { registerErDiagramCommands } from './er-diagram';
 import { registerNarratorCommands } from './narrator';
 import { registerClipboardImportCommands } from './import/clipboard-import-commands';
+import { registerWorkspaceSetupCommands } from './workspace-setup/workspace-setup-commands';
 import { HealthScorer } from './health/health-scorer';
 import { updateStatusBar } from './status-bar';
 
@@ -104,6 +105,7 @@ export function registerAllCommands(
   registerNarratorCommands(context, client);
   registerErDiagramCommands(context, client, watcher);
   registerClipboardImportCommands(context, client);
+  registerWorkspaceSetupCommands(context);
 
   // Connection log for troubleshooting (Output > Saropa Drift Advisor)
   const connectionChannel = vscode.window.createOutputChannel('Saropa Drift Advisor');

@@ -85,9 +85,7 @@ Works in Dart files with Drift table definitions:
 
 ## Design: extension enablement
 
-**Drift Advisor** has a master switch: `driftViewer.enabled` (default true). When false, the extension does not discover or connect to servers and all Drift Advisor features are off; the Database view shows “Saropa Drift Advisor is disabled” and the status bar shows “Drift: Disabled”. When true, activation is as before (`onLanguage:dart`); individual features can still be turned off via other settings. There is no “turn on = setup project” flow—flipping the switch on is enough.
-
-By contrast, the **saropa_lints** extension is designed to have an explicit enabled/disabled switch and a “turn on = setup project” flow (e.g. add dev_dependency, run `dart run saropa_lints:init`, configure `analysis_options.yaml`). That distinction is intentional: Drift Advisor is a single master switch plus per-feature toggles; saropa_lints is opt-in at the project level with setup.
+**Drift Advisor** has a master switch: `driftViewer.enabled` (default true). When false, the extension does not discover or connect to servers and all Drift Advisor features are off; the Database view shows “Saropa Drift Advisor is disabled” and the status bar shows “Drift: Disabled”. When true, activation is as before (`onLanguage:dart`); individual features can still be turned off via other settings. Use **Add package to project** to add the Dart package to your app so the extension and package stay in sync.
 
 ## Server Discovery
 
@@ -104,6 +102,7 @@ All commands are available via the command palette (`Ctrl+Shift+P`):
 
 | Command | Description |
 |---|---|
+| Add package to project | Add saropa_drift_advisor to pubspec (dependencies) and run pub get |
 | Open in Browser | Open web UI in default browser |
 | Open in Editor Panel | Open web UI in VS Code tab |
 | Schema Diff | Compare code vs runtime schema |
