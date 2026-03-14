@@ -409,7 +409,11 @@ def _resolve_tagged_stale(
     max_cl: str,
     config: TargetConfig | None,
 ) -> tuple[str, bool | None]:
-    """Handle stale version when tag already exists. Returns (version, result)."""
+    """Handle stale version when tag already exists. Returns (version, result).
+
+    When the version is already released we never re-publish it; we only offer
+    to bump to the next version so the user can release forward.
+    """
     prefix = _tag_prefix_for(config)
     label = _version_file_label(config)
     warn(f"{prefix}{pkg_version} is already released (tag exists).")
@@ -422,12 +426,10 @@ def _resolve_tagged_stale(
         )
         return pkg_version, (None if bump_ok else False)
 
-    if ask_yn(f"Publish v{pkg_version} as-is (e.g. sync)?", default=True):
-        ok(f"Publishing v{pkg_version} as-is")
-        return pkg_version, True
+    # Already released: only sensible action is to bump to next version.
     pkg_version, bump_ok = _offer_bump_and_apply(
         pkg_version, next_ver,
-        f"Set {label} version higher than {max_cl}",
+        f"Version already released. Bump to v{next_ver} to release next, or add changelog and re-run.",
         config=config,
     )
     return pkg_version, (None if bump_ok else False)
