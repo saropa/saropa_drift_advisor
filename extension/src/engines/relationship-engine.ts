@@ -13,22 +13,19 @@
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
-import type { ForeignKey, TableMetadata } from '../api-types';
+import type { ForeignKey } from '../api-types';
 import type {
   IAffectedTable,
   IDeletePlan,
   IRelationshipChain,
   IRelationshipNode,
 } from './relationship-types';
+import { createRelationshipCache } from './relationship-engine-cache';
 
-/** Cache TTL in milliseconds (60 seconds for relationship data). */
 const CACHE_TTL_MS = 60_000;
 
 export class RelationshipEngine implements vscode.Disposable {
-  private _fkCache = new Map<string, { fks: ForeignKey[]; time: number }>();
-  private _reverseFkCache = new Map<string, { fks: IRelationshipChain[]; time: number }>();
-  private _schemaCache: TableMetadata[] | undefined;
-  private _schemaCacheTime = 0;
+  private readonly _cache: ReturnType<typeof createRelationshipCache>;
 
   private readonly _onRelationshipChange = new vscode.EventEmitter<string>();
   readonly onRelationshipChange = this._onRelationshipChange.event;
@@ -36,6 +33,7 @@ export class RelationshipEngine implements vscode.Disposable {
   private readonly _disposables: vscode.Disposable[] = [];
 
   constructor(private readonly _client: DriftApiClient) {
+    this._cache = createRelationshipCache(_client, CACHE_TTL_MS);
     this._disposables.push(this._onRelationshipChange);
   }
 
@@ -48,7 +46,7 @@ export class RelationshipEngine implements vscode.Disposable {
     pkValue: unknown,
     maxDepth = 5,
   ): Promise<IRelationshipNode> {
-    const fks = await this._getForeignKeys(table);
+    const fks = await this._cache.getForeignKeys(table);
     const root: IRelationshipNode = {
       table,
       column: 'id',
@@ -82,7 +80,7 @@ export class RelationshipEngine implements vscode.Disposable {
     maxDepth = 3,
     maxBreadth = 10,
   ): Promise<IRelationshipNode> {
-    const reverseFks = await this._getReverseForeignKeys(table);
+    const reverseFks = await this._cache.getReverseForeignKeys(table);
     const root: IRelationshipNode = {
       table,
       column: 'id',
@@ -157,27 +155,16 @@ export class RelationshipEngine implements vscode.Disposable {
     };
   }
 
-  /**
-   * Get all foreign key relationships for a table.
-   */
   async getForeignKeys(table: string): Promise<ForeignKey[]> {
-    return this._getForeignKeys(table);
+    return this._cache.getForeignKeys(table);
   }
 
-  /**
-   * Get all tables that reference the given table.
-   */
   async getReverseForeignKeys(table: string): Promise<IRelationshipChain[]> {
-    return this._getReverseForeignKeys(table);
+    return this._cache.getReverseForeignKeys(table);
   }
 
-  /**
-   * Invalidate all caches.
-   */
   invalidate(): void {
-    this._fkCache.clear();
-    this._reverseFkCache.clear();
-    this._schemaCache = undefined;
+    this._cache.clear();
   }
 
   /**
@@ -185,61 +172,6 @@ export class RelationshipEngine implements vscode.Disposable {
    */
   notifyChange(table: string): void {
     this._onRelationshipChange.fire(table);
-  }
-
-  private async _getForeignKeys(table: string): Promise<ForeignKey[]> {
-    const cached = this._fkCache.get(table);
-    const now = Date.now();
-
-    if (cached && (now - cached.time) < CACHE_TTL_MS) {
-      return cached.fks;
-    }
-
-    const fks = await this._client.tableFkMeta(table);
-    this._fkCache.set(table, { fks, time: now });
-    return fks;
-  }
-
-  private async _getReverseForeignKeys(table: string): Promise<IRelationshipChain[]> {
-    const cached = this._reverseFkCache.get(table);
-    const now = Date.now();
-
-    if (cached && (now - cached.time) < CACHE_TTL_MS) {
-      return cached.fks;
-    }
-
-    const schema = await this._getSchema();
-    const reverseFks: IRelationshipChain[] = [];
-
-    for (const t of schema) {
-      if (t.name === table) continue;
-
-      const fks = await this._getForeignKeys(t.name);
-      for (const fk of fks) {
-        if (fk.toTable === table) {
-          reverseFks.push({
-            table: t.name,
-            column: fk.fromColumn,
-            referencedTable: table,
-            referencedColumn: fk.toColumn,
-          });
-        }
-      }
-    }
-
-    this._reverseFkCache.set(table, { fks: reverseFks, time: now });
-    return reverseFks;
-  }
-
-  private async _getSchema(): Promise<TableMetadata[]> {
-    const now = Date.now();
-    if (this._schemaCache && (now - this._schemaCacheTime) < CACHE_TTL_MS) {
-      return this._schemaCache;
-    }
-
-    this._schemaCache = await this._client.schemaMetadata();
-    this._schemaCacheTime = now;
-    return this._schemaCache;
   }
 
   private async _getFkValue(

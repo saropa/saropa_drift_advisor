@@ -26,6 +26,11 @@ import type {
   IUpdatedRow,
   IValidationResult,
 } from './clipboard-import-types';
+import {
+  findExistingRow,
+  insertRow,
+  updateRow,
+} from './import-sql-helpers';
 import { undoImport } from './import-undo';
 import { ImportValidator } from './import-validator';
 
@@ -101,40 +106,29 @@ export class ImportExecutor {
 
         try {
           if (options.strategy === 'upsert' && matchColumns.length > 0) {
-            const existing = await this._findExisting(table, row, matchColumns);
-
+            const existing = await findExistingRow(this._client, table, row, matchColumns);
             if (existing) {
               const existingId = existing[pkColumn ?? matchColumns[0]] as string | number;
-              result.updatedRows.push({
-                id: existingId,
-                previousValues: existing,
-              });
-              await this._updateRow(table, row, matchColumns);
+              result.updatedRows.push({ id: existingId, previousValues: existing });
+              await updateRow(this._client, table, row, matchColumns);
               result.imported++;
             } else {
-              const id = await this._insertRow(table, row, pkColumn);
-              if (id !== undefined) {
-                result.insertedIds.push(id);
-              }
+              const id = await insertRow(this._client, table, row, pkColumn);
+              if (id !== undefined) result.insertedIds.push(id);
               result.imported++;
             }
           } else if (options.strategy === 'insert_skip_conflicts' && matchColumns.length > 0) {
-            const existing = await this._findExisting(table, row, matchColumns);
-
+            const existing = await findExistingRow(this._client, table, row, matchColumns);
             if (existing) {
               result.skipped++;
             } else {
-              const id = await this._insertRow(table, row, pkColumn);
-              if (id !== undefined) {
-                result.insertedIds.push(id);
-              }
+              const id = await insertRow(this._client, table, row, pkColumn);
+              if (id !== undefined) result.insertedIds.push(id);
               result.imported++;
             }
           } else {
-            const id = await this._insertRow(table, row, pkColumn);
-            if (id !== undefined) {
-              result.insertedIds.push(id);
-            }
+            const id = await insertRow(this._client, table, row, pkColumn);
+            if (id !== undefined) result.insertedIds.push(id);
             result.imported++;
           }
         } catch (err) {
@@ -207,7 +201,7 @@ export class ImportExecutor {
       const row = rows[i];
 
       if (matchColumns.length > 0) {
-        const existing = await this._findExisting(table, row, matchColumns);
+        const existing = await findExistingRow(this._client, table, row, matchColumns);
 
         if (existing) {
           if (options.strategy === 'insert') {
@@ -260,19 +254,7 @@ export class ImportExecutor {
     return undoImport(this._client, table, insertedIds, updatedRows, pkColumn);
   }
 
-  /**
-   * Determine which columns to use for matching existing rows.
-   *
-   * Resolves the matchBy option to actual column names:
-   * - 'pk': Use the primary key column
-   * - string[]: Use the specified columns directly
-   *
-   * Falls back to primary key if available when no match columns specified.
-   *
-   * @param options - Import options containing matchBy setting
-   * @param pkColumn - Primary key column name, if table has one
-   * @returns Array of column names to use for matching
-   */
+  /** Resolve matchBy to column names: 'pk' → pk column, or array of columns. */
   private _getMatchColumns(options: IImportOptions, pkColumn: string | undefined): string[] {
     if (options.matchBy === 'pk' && pkColumn) {
       return [pkColumn];
@@ -282,133 +264,4 @@ export class ImportExecutor {
     return pkColumn ? [pkColumn] : [];
   }
 
-  /**
-   * Find an existing row matching the given values.
-   *
-   * Queries the database for a row where all match columns equal
-   * the corresponding values in the input row. Used for conflict
-   * detection in upsert and skip_conflicts modes.
-   *
-   * @param table - Table to search
-   * @param row - Row data containing values for match columns
-   * @param matchColumns - Columns to match on
-   * @returns Existing row data if found, null otherwise
-   */
-  private async _findExisting(
-    table: string,
-    row: Record<string, unknown>,
-    matchColumns: string[],
-  ): Promise<Record<string, unknown> | null> {
-    const conditions = matchColumns
-      .filter((col) => row[col] !== null && row[col] !== undefined)
-      .map((col) => `"${col}" = '${this._escape(String(row[col]))}'`)
-      .join(' AND ');
-
-    if (!conditions) {
-      return null;
-    }
-
-    try {
-      const result = await this._client.sql(
-        `SELECT * FROM "${table}" WHERE ${conditions} LIMIT 1`,
-      );
-
-      if (result.rows.length === 0) {
-        return null;
-      }
-
-      const existing: Record<string, unknown> = {};
-      result.columns.forEach((col, i) => {
-        existing[col] = result.rows[0][i];
-      });
-      return existing;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Insert a single row into the table.
-   *
-   * Constructs and executes an INSERT statement, then retrieves
-   * the auto-generated ID if the table has a primary key column.
-   *
-   * @param table - Target table name
-   * @param row - Row data to insert
-   * @param pkColumn - Primary key column for ID retrieval
-   * @returns Inserted row ID if available, undefined otherwise
-   */
-  private async _insertRow(
-    table: string,
-    row: Record<string, unknown>,
-    pkColumn: string | undefined,
-  ): Promise<string | number | undefined> {
-    const columns = Object.keys(row).filter((k) => row[k] !== undefined);
-    const values = columns.map((col) => {
-      const val = row[col];
-      if (val === null) {
-        return 'NULL';
-      }
-      return `'${this._escape(String(val))}'`;
-    });
-
-    const sql = `INSERT INTO "${table}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${values.join(', ')})`;
-    await this._client.sql(sql);
-
-    if (pkColumn) {
-      const lastId = await this._client.sql('SELECT last_insert_rowid()');
-      if (lastId.rows.length > 0) {
-        return lastId.rows[0][0] as number;
-      }
-    }
-
-    return undefined;
-  }
-
-  /**
-   * Update an existing row with new values.
-   *
-   * Constructs and executes an UPDATE statement setting all columns
-   * except the match columns (which are used in the WHERE clause).
-   *
-   * @param table - Target table name
-   * @param row - Row data containing new values
-   * @param matchColumns - Columns used to identify the row (WHERE clause)
-   */
-  private async _updateRow(
-    table: string,
-    row: Record<string, unknown>,
-    matchColumns: string[],
-  ): Promise<void> {
-    const setClauses = Object.entries(row)
-      .filter(([col]) => !matchColumns.includes(col))
-      .map(([col, val]) => {
-        if (val === null || val === undefined) {
-          return `"${col}" = NULL`;
-        }
-        return `"${col}" = '${this._escape(String(val))}'`;
-      })
-      .join(', ');
-
-    const conditions = matchColumns
-      .map((col) => `"${col}" = '${this._escape(String(row[col]))}'`)
-      .join(' AND ');
-
-    if (setClauses && conditions) {
-      await this._client.sql(`UPDATE "${table}" SET ${setClauses} WHERE ${conditions}`);
-    }
-  }
-
-  /**
-   * Escape single quotes in SQL string values.
-   *
-   * Doubles single quotes per SQL standard to prevent injection
-   * and allow literal quotes in values.
-   *
-   * @param value - String value to escape
-   * @returns Escaped string safe for SQL insertion
-   */
-  private _escape(value: string): string {
-    return value.replace(/'/g, "''");
-  }
 }

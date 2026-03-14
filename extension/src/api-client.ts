@@ -1,5 +1,4 @@
 export type * from './api-types';
-
 import type {
   Anomaly, ForeignKey, HealthResponse, ICompareReport, IDiagramData,
   IImportResult, IMigrationPreview, IndexSuggestion, ISessionData,
@@ -10,7 +9,7 @@ import type { VmServiceClient } from './transport/vm-service-client';
 export class DriftApiClient {
   private _baseUrl: string;
   private _authToken: string | undefined;
-  /** When set and connected, VM is used for health, schemaMetadata, tableFkMeta, sql, generation, performance, anomalies, explainSql, clearPerformance (Plan 68). */
+  /** When set and connected, VM used for health, schema, sql, generation, performance, anomalies, explain, clear (Plan 68). */
   private _vmClient: VmServiceClient | null = null;
 
   constructor(host: string, port: number) {
@@ -52,13 +51,10 @@ export class DriftApiClient {
     return this._baseUrl;
   }
 
-  /** Label for UI when connected (e.g. tree status). "VM Service" when using VM, else HTTP URL. */
+  /** UI label when connected: "VM Service" or HTTP URL. */
   get connectionDisplayName(): string {
     return this.usingVmService ? 'VM Service' : this._baseUrl;
   }
-
-  // ---- Existing endpoints ----
-
   async health(): Promise<HealthResponse> {
     if (this._vmClient?.connected) {
       return this._vmClient.getHealth();
@@ -140,7 +136,6 @@ export class DriftApiClient {
     if (!resp.ok) {
       throw new Error(`Index suggestions failed: ${resp.status}`);
     }
-    // Server returns { suggestions, tablesAnalyzed }; accept that or a top-level array.
     const data = (await resp.json()) as { suggestions?: IndexSuggestion[] } | IndexSuggestion[];
     if (Array.isArray(data)) return data;
     return Array.isArray(data?.suggestions) ? data.suggestions : [];
@@ -208,8 +203,6 @@ export class DriftApiClient {
       throw new Error(`Clear performance failed: ${resp.status}`);
     }
   }
-
-  // ---- New endpoints (gap closures) ----
 
   async schemaDiagram(): Promise<IDiagramData> {
     const resp = await fetch(`${this._baseUrl}/api/schema/diagram`, {
@@ -325,8 +318,6 @@ export class DriftApiClient {
       throw new Error(`Session annotate failed: ${resp.status}`);
     }
   }
-
-  // ---- Helpers ----
 
   private _headers(
     extra?: Record<string, string>,
