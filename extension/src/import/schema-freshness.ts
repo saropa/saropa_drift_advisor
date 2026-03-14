@@ -15,6 +15,7 @@
  * @module schema-freshness
  */
 
+import type { DriftApiClient } from '../api-client';
 import type { ColumnMetadata } from '../api-types';
 import type { ISchemaSnapshot } from './clipboard-import-types';
 
@@ -123,6 +124,32 @@ export function checkSchemaFreshness(
   }
 
   return { fresh: false, changes };
+}
+
+/**
+ * Check schema freshness by fetching current table metadata from the client.
+ * Use when the panel does not already have current columns (e.g. before import).
+ *
+ * @param client - API client to fetch schema
+ * @param table - Table name
+ * @param snapshot - Snapshot captured when panel opened
+ * @returns Whether schema is fresh and list of changes
+ */
+export async function checkSchemaFreshnessForImport(
+  client: DriftApiClient,
+  table: string,
+  snapshot: ISchemaSnapshot,
+): Promise<{ fresh: boolean; changes: string[] }> {
+  try {
+    const tables = await client.schemaMetadata();
+    const current = tables.find((t) => t.name === table);
+    if (!current) {
+      return { fresh: false, changes: ['Table no longer exists'] };
+    }
+    return checkSchemaFreshness(snapshot, current.columns);
+  } catch {
+    return { fresh: true, changes: [] };
+  }
 }
 
 /**
