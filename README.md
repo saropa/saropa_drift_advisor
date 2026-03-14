@@ -55,6 +55,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Collapsible schema** panel with CREATE statements
 - **ER diagram** — tables and FK relationship lines; click to navigate
 - **Export** — CSV per table, schema-only SQL, full dump (schema + data), raw SQLite file
+- **Portable report** — self-contained HTML file with all data, schema, and anomalies inlined; opens in any browser with zero dependencies
 
 #### Snapshots & Comparison
 
@@ -137,6 +138,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 - **Migration preview & code gen** — preview DDL, generate migration code
 - **Constraint wizard** — interactive FK, unique, and check constraint builder
 - **Schema documentation generator** — export Markdown docs from schema
+- **Portable report export** — generate a self-contained HTML file with table data, schema SQL, and anomaly report; light/dark theme, search, pagination; share via Slack, attach to bug reports, or archive
 
 #### Data Management
 

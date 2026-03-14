@@ -94,8 +94,10 @@ describe('Extension activation', () => {
     // Health score: healthScore (1)
     // Impact analysis: analyzeRowImpact (1)
     // Query cost: analyzeQueryCost (1)
+    // Portable report: exportReport (1)
+    // Perf regression: resetPerfBaseline, resetAllPerfBaselines (2)
     // Total grows as new features are added (workspace-setup command = +1)
-    assert.strictEqual(subscriptions.length, 153, `expected 153 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 158, `expected 158 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

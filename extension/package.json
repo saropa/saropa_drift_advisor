@@ -487,6 +487,23 @@
         "command": "driftViewer.addPackageToProject",
         "title": "Saropa Drift Advisor: Add package to project",
         "icon": "$(package)"
+      },
+      {
+        "command": "driftViewer.exportReport",
+        "title": "Saropa Drift Advisor: Export Portable Report",
+        "icon": "$(file-binary)"
+      },
+      {
+        "command": "driftViewer.resetPerfBaseline",
+        "title": "Saropa Drift Advisor: Reset Query Performance Baseline"
+      },
+      {
+        "command": "driftViewer.resetAllPerfBaselines",
+        "title": "Saropa Drift Advisor: Reset All Performance Baselines"
+      },
+      {
+        "command": "driftViewer.openComplianceConfig",
+        "title": "Saropa Drift Advisor: Open Compliance Config"
       }
     ],
     "menus": {
@@ -563,6 +580,11 @@
         },
         {
           "command": "driftViewer.showErDiagram",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.exportReport",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
         },
@@ -805,6 +827,18 @@
           "default": "slow-only",
           "description": "Log queries to Saropa Log Capture: off, slow queries only, or all queries."
         },
+        "driftViewer.perfRegression.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Detect query performance regressions when a debug session ends."
+        },
+        "driftViewer.perfRegression.threshold": {
+          "type": "number",
+          "default": 2.0,
+          "minimum": 1.1,
+          "maximum": 10.0,
+          "description": "Regression alert threshold: current avg / baseline avg. E.g. 2.0 means 2x slower."
+        },
         "driftViewer.fileBadges.enabled": {
           "type": "boolean",
           "default": true,
@@ -927,9 +961,37 @@
           ],
           "default": "warning",
           "description": "Default severity level for new invariant violations."
+        },
+        "driftViewer.report.defaultMaxRows": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 1,
+          "maximum": 50000,
+          "description": "Default maximum rows per table in exported portable reports."
+        },
+        "driftViewer.report.includeSchema": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include schema SQL (CREATE TABLE statements) in exported reports."
+        },
+        "driftViewer.report.includeAnomalies": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include anomaly report in exported reports."
+        },
+        "driftViewer.diagnostics.categories.compliance": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable schema compliance checks from .drift-rules.json."
         }
       }
-    }
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": ".drift-rules.json",
+        "url": "./schemas/drift-rules.schema.json"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
