@@ -101,6 +101,61 @@ def generate_docs() -> bool:
     return True
 
 
+def run_downgrade_check() -> bool:
+    """Run ``flutter pub downgrade`` then ``flutter analyze lib/``.
+
+    Verifies lower-bound dependency compatibility (pub.dev score: support
+    up-to-date dependencies). Ensures the package still analyzes clean when
+    resolving to minimum allowed versions. Restores resolution with
+    ``flutter pub upgrade`` afterward so the next step (outdated check) runs
+    against normal resolution, not the downgraded lockfile.
+    """
+    downgrade = run(["flutter", "pub", "downgrade"], cwd=REPO_ROOT)
+    if downgrade.returncode != 0:
+        fail("flutter pub downgrade failed")
+        print_cmd_output(downgrade)
+        return False
+
+    result = run(["flutter", "analyze", "lib/"], cwd=REPO_ROOT)
+    if result.returncode != 0:
+        fail("Analysis failed after downgrade (lower-bound compatibility)")
+        print_cmd_output(result)
+        return False
+    ok("Downgrade check passed (lower-bound compatibility)")
+
+    # Restore lockfile to latest-within-constraints so run_outdated_check sees
+    # normal resolution; otherwise outdated would always report upgradable.
+    restore = run(["flutter", "pub", "upgrade"], cwd=REPO_ROOT)
+    if restore.returncode != 0:
+        warn("Could not restore dependencies after downgrade (outdated check may fail)")
+
+    return True
+
+
+def run_outdated_check() -> bool:
+    """Run ``dart pub outdated`` and require all dependencies up-to-date.
+
+    Ensures dependency constraints accept latest stable (pub.dev score: support
+    up-to-date dependencies). Exits with 1 if any package is upgradable.
+    """
+    result = run(
+        [
+            "dart",
+            "pub",
+            "outdated",
+            "--no-dev-dependencies",
+            "--no-dependency-overrides",
+        ],
+        cwd=REPO_ROOT,
+    )
+    if result.returncode != 0:
+        fail("Dependencies not up-to-date (run: dart pub outdated)")
+        print_cmd_output(result)
+        return False
+    ok("All dependencies up-to-date")
+    return True
+
+
 def pre_publish_validation() -> bool:
     """Run ``dart pub publish --dry-run``.
 

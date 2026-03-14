@@ -297,8 +297,10 @@ With token auth, open `https://your-tunnel.example/?token=your-secret-token`; th
 From repo root:
 
 ```bash
-python scripts/publish_pub_dev.py
+python scripts/publish.py dart
 ```
+
+The Dart pipeline runs pub.dev score checks (downgrade + analyze, dependency up-to-date) before dry-run. Use `python scripts/publish.py` for the full menu (Dart, extension, or both).
 
 - **Stale override check:** `python scripts/check_stale_overrides.py [--pubspec PATH] [--flutter]` — classifies `dependency_overrides` as required vs safe-to-remove by running a version solve with each override removed.
 
