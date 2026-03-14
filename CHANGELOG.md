@@ -15,6 +15,13 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ## [1.3.4]
 
+Export your database as a shareable, self-contained HTML report — open it in any browser with zero dependencies.
+
+### Added
+
+- **Portable Snapshot Report** — Command palette → *Export Portable Report*: select tables, collect data with progress, save as a single HTML file. The report includes a table sidebar with row counts, paginated data view (50 rows/page), client-side search/filter, light/dark theme toggle, optional schema SQL and anomaly summary, and a generation timestamp footer. Configurable via `driftViewer.report.defaultMaxRows`, `.includeSchema`, `.includeAnomalies`. Tables with 10,000+ rows are auto-deselected. XSS-safe HTML escaping throughout. Also available as a toolbar icon in the Database Explorer view.
+- **Schema Compliance Rules** — Define team-wide schema conventions in a `.drift-rules.json` config file. The extension validates the live database against naming conventions (snake_case, camelCase, PascalCase, UPPER_SNAKE for tables and columns), FK column naming patterns (`{table}_id`), required columns (with optional type enforcement and per-table exclusions), and four built-in structural rules: `no-text-primary-key`, `require-pk`, `max-columns`, `no-nullable-fk`. Violations appear as VS Code diagnostics on Dart table class files with severity overrides. Quick-fix actions to disable individual rules or open the config file. JSON Schema provides autocomplete and validation for `.drift-rules.json`. File watcher auto-refreshes diagnostics on config changes. Toggle via `driftViewer.diagnostics.categories.compliance`.
+
 ### Maintenance
 
 - **Modularization (final 18 files)** — All 18 TypeScript source files that exceeded the 300-line quality gate are now within limits. Source splits: `api-client-sessions.ts` (session/import HTTP methods), `health-metrics-secondary.ts` (table-balance, schema-quality, recommendations), `data-narrator-describe.ts` (narrative description helpers), `import-history-format.ts` (entry formatting). Mock splits: `vscode-mock-diagnostics.ts`, `vscode-mock-extras.ts` (debug/extensions/tasks). Test helpers consolidated: `diagnostic-test-helpers.ts` shared across 3 provider tests; 5 test files split to extract utility/batch tests. Zero violations; all 1570 tests pass.

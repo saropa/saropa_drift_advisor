@@ -1,6 +1,6 @@
 # Saropa Drift Advisor — Roadmap
 
-**Status:** 14 features remaining • Last updated March 12, 2026
+**Status:** 12 features remaining • Last updated March 14, 2026
 
 > Completed features are documented in [CHANGELOG.md](CHANGELOG.md) and [README.md](README.md).
 
@@ -12,7 +12,6 @@
 | -------- | ----------------------------------------------------------------------- | :---: | :----: | ------------------------------------ |
 | **1**    | [55: Clipboard Import](plans/55-clipboard-import.md)                    |  3→4  | Medium | High practical utility               |
 | **2**    | [63: Query Perf Regression](plans/63-query-perf-regression-detector.md) |  5→6  | Medium | Uses QueryIntelligence already built |
-| **3**    | [64: Schema Compliance Rules](plans/64-schema-compliance-ruleset.md)    |  4→5  | Medium | Feeds Health Score, Pre-Launch       |
 
 ---
 
@@ -38,14 +37,13 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 
 ---
 
-## Remaining Features (14)
+## Remaining Features (12)
 
 ### Tier 1: Extension-Only (no Dart changes)
 
 | #   | Feature                                                             |  Wow  | Effort | Integration                         |
 | --- | ------------------------------------------------------------------- | :---: | :----: | ----------------------------------- |
 | 63  | [Query Perf Regression](plans/63-query-perf-regression-detector.md) |  5→6  | Medium | ← QueryIntelligence, → Health Score |
-| 64  | [Schema Compliance Rules](plans/64-schema-compliance-ruleset.md)    |  4→5  | Medium | → Health Score, Pre-Launch          |
 | 61  | [Migration Rollback Gen](plans/61-migration-rollback-generator.md)  |   5   | Medium | ← Schema Evolution                  |
 | 60  | [Time-Travel Slider](plans/60-time-travel-data-slider.md)           |  5→6  | Medium | ↔ DVR, Timeline                     |
 | 59  | [AI Schema Reviewer](plans/59-ai-schema-reviewer.md)                |  5→6  | Medium | Requires LLM integration            |
@@ -58,7 +56,6 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 | #   | Feature                                                        |  Wow  | Effort | Server Change           |
 | --- | -------------------------------------------------------------- | :---: | :----: | ----------------------- |
 | 28  | [PII Anonymizer](plans/28-pii-anonymizer.md)                   |  5→6  | Medium | Anonymization endpoint  |
-| 25  | [Portable Report](plans/25-portable-snapshot-report.md)        |  4→5  | Medium | `report_handler.dart`   |
 | 22  | [Mutation Stream](plans/22-realtime-mutation-stream.md)        |  4→5  | Medium | `mutation_tracker.dart` |
 | 26  | [Query Replay DVR](plans/26-query-replay-dvr.md)               |  5→7  |  High  | `query_recorder.dart`   |
 | 35  | [Multi-Server Federation](plans/35-multi-server-federation.md) |  5→6  |  High  | Multiple clients        |

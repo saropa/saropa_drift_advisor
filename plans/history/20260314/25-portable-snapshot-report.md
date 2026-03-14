@@ -1,5 +1,17 @@
 # Feature 25: Portable Snapshot Report
 
+## Implementation Summary
+
+Extension-side fully implemented in v1.3.4. Server-side `report_handler.dart` deferred (marked optional).
+
+**New files:** `report-types.ts`, `report-collector.ts`, `report-css.ts`, `report-scripts.ts`, `report-html.ts`, `report-commands.ts`, `report-html.test.ts`, `report-collector.test.ts` — all under `extension/src/report/` and `extension/src/test/`.
+
+**Modified:** `extension-commands.ts` (wiring), `package.json` (command, menu, 3 config properties).
+
+**Features:** QuickPick table selector with auto-deselect for large tables (≥10k rows), inlined CSS/JS/data, light/dark theme, client-side pagination (50 rows/page), search/filter, schema SQL blocks, anomaly severity list, XSS-safe escaping, configurable max rows/schema/anomalies via settings.
+
+---
+
 ## What It Does
 
 Export a database snapshot as a self-contained HTML file — the web UI with all data baked in, no server required. Open it in any browser, attach it to a bug report, share in Slack, or archive for later. One file, zero dependencies.
