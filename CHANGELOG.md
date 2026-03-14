@@ -15,11 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Master switch (driftViewer.enabled)** — Extension can be turned off entirely via Settings → Saropa Drift Advisor → **Enable** (`driftViewer.enabled`, default true). When false: no server discovery or connection, watcher stopped, status bar shows "Drift: Disabled", Database view shows a welcome with [Open Settings]. Toggling back on starts discovery (if enabled), watcher, and refreshes tree/codelens/diagnostics. Distinguishes Drift Advisor (single master switch + per-feature toggles) from saropa_lints extension (opt-in + "turn on = setup project" flow).
-
-### Documented
-
-- **Saropa Lints extension workspace setup (Plan 65)** — Spec for the **saropa_lints** VS Code extension (separate product): when the user "turns on" that extension, it should add the `saropa_lints` Dart package to the project’s `pubspec.yaml` and add or update `analysis_options.yaml`, modifying the workspace (pubspec + config) on enable. Not implemented in Saropa Drift Advisor.
+- **Master switch (driftViewer.enabled)** — Extension can be turned off entirely via Settings → Saropa Drift Advisor → **Enable** (`driftViewer.enabled`, default true). When false: no server discovery or connection, watcher stopped, status bar shows "Drift: Disabled", Database view shows a welcome with [Open Settings]. Toggling back on starts discovery (if enabled), watcher, and refreshes tree/codelens/diagnostics.
+- **Add package to project** — Installing the extension should install the package, and vice versa. Command **Saropa Drift Advisor: Add package to project** adds `saropa_drift_advisor` to the project’s `pubspec.yaml` (dependencies) and runs `dart pub get` / `flutter pub get`. Welcome view (when no server connected) includes [Add package to project]; command also in Command Palette and Database Explorer view.
 
 ---
 

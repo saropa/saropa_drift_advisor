@@ -94,8 +94,8 @@ describe('Extension activation', () => {
     // Health score: healthScore (1)
     // Impact analysis: analyzeRowImpact (1)
     // Query cost: analyzeQueryCost (1)
-    // Total = 146 (count grows as new features are added)
-    assert.strictEqual(subscriptions.length, 152, `expected 152 disposables, got ${subscriptions.length}`);
+    // Total grows as new features are added (workspace-setup command = +1)
+    assert.strictEqual(subscriptions.length, 153, `expected 153 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -147,6 +147,12 @@ describe('Extension activation', () => {
     assert.ok('driftViewer.selectServer' in registered);
     assert.ok('driftViewer.retryDiscovery' in registered);
     assert.ok('driftViewer.forwardPortAndroid' in registered);
+  });
+
+  it('should register addPackageToProject command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.addPackageToProject' in registered, 'addPackageToProject should be registered');
   });
 
   it('should register snapshot commands', () => {
