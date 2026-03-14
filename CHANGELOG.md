@@ -9,22 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Open VSX Registry** - [open-vsx.org / extension / saropa / drift-viewer](https://open-vsx.org/extension/saropa/drift-viewer)
 
+Each version (and [Unreleased]) has a short commentary line in plain language—what this release is about for humans. Only discuss user-facing features; vary the phrasing.
+
 ---
 
-## [Unreleased]
+## [1.3.2]
+
+Implemented a master switch to turn the extension off, and an “Add package to project” flow.
 
 ### Added
 
-- **Modularization (Phases 6–7 and remaining files)** — Health scorer split into `health-metrics.ts` (all 6 metric scorers) and slim `health-scorer.ts`; test fixtures under `test/fixtures/health-test-fixtures.ts` and health tests split into `health-scorer-grade.test.ts`, `health-panel.test.ts`, `health-scorer.test.ts`. Clipboard import: `clipboard-import-actions.ts` (validation/import flow, `executeImportFlow`), `checkSchemaFreshnessForImport` in schema-freshness; panel under 300 lines. Debug commands split into `debug-commands-types.ts`, `debug-commands-perf.ts`, `debug-commands-panels.ts`, `debug-commands-vm.ts` with slim orchestrator. Import: `import-sql-helpers.ts` (`escapeSqlValue`, `findExistingRow`, `insertRow`, `updateRow`); `import-executor.ts` under 300 lines. Engines: `relationship-engine-cache.ts` (TTL-cached FK/schema fetchers); `relationship-engine.ts` under 300 lines. `api-client.ts` trimmed. Aligns with `plans/modularization-plan.md`; no source file exceeds 300 lines except api-client (301).
 - **Master switch (driftViewer.enabled)** — Extension can be turned off entirely via Settings → Saropa Drift Advisor → **Enable** (`driftViewer.enabled`, default true). When false: no server discovery or connection, watcher stopped, status bar shows "Drift: Disabled", Database view shows a welcome with [Open Settings]. Toggling back on starts discovery (if enabled), watcher, and refreshes tree/codelens/diagnostics.
 - **Add package to project** — Installing the extension should install the package, and vice versa. Command **Saropa Drift Advisor: Add package to project** adds `saropa_drift_advisor` to the project’s `pubspec.yaml` (dependencies) and runs `dart pub get` / `flutter pub get`. Welcome view (when no server connected) includes [Add package to project]; command also in Command Palette and Database Explorer view.
+
+### Maintenance
+
+- **Modularization (Phases 6–7 and remaining files)** — Health scorer split into `health-metrics.ts` (all 6 metric scorers) and slim `health-scorer.ts`; test fixtures under `test/fixtures/health-test-fixtures.ts` and health tests split into `health-scorer-grade.test.ts`, `health-panel.test.ts`, `health-scorer.test.ts`. Clipboard import: `clipboard-import-actions.ts` (validation/import flow, `executeImportFlow`), `checkSchemaFreshnessForImport` in schema-freshness; panel under 300 lines. Debug commands split into `debug-commands-types.ts`, `debug-commands-perf.ts`, `debug-commands-panels.ts`, `debug-commands-vm.ts` with slim orchestrator. Import: `import-sql-helpers.ts` (`escapeSqlValue`, `findExistingRow`, `insertRow`, `updateRow`); `import-executor.ts` under 300 lines. Engines: `relationship-engine-cache.ts` (TTL-cached FK/schema fetchers); `relationship-engine.ts` under 300 lines. `api-client.ts` trimmed. Aligns with `plans/modularization-plan.md`; no source file exceeds 300 lines except api-client (301).
 - **Pub.dev score checks in publish script** — The Dart publish pipeline (`python scripts/publish.py dart`) now runs pub.dev score verification: downgrade check (`flutter pub downgrade` then `flutter analyze lib/`), restore with `flutter pub upgrade`, then outdated check (`dart pub outdated --no-dev-dependencies --no-dependency-overrides`). Ensures lower-bound compatibility and up-to-date constraints before publish. Plan 68 (fix pub score) archived to `plans/history/20250314/fix-pub-score.md`.
 
 ---
 
-## [1.3.1]
+## [1.3.2]
 
-Extension code is split into focused modules, and index-based features (Health Score, schema linter, timeline) now work when connected only via the VM Service—e.g. on emulator without HTTP.
+Health Score, schema linter, and timeline now work over the VM Service—so you can use them on an emulator without HTTP.
 
 ### Added
 
@@ -40,7 +47,7 @@ Extension code is split into focused modules, and index-based features (Health S
 
 ## [1.2.0]
 
-Debug sessions can connect over the Dart VM Service instead of HTTP—no port forwarding or discovery needed when you're already debugging.
+Debug sessions can connect over the Dart VM Service instead of HTTP—no port forwarding or discovery needed when you’re already debugging.
 
 ### Added
 
@@ -56,7 +63,7 @@ Debug sessions can connect over the Dart VM Service instead of HTTP—no port fo
 
 ## [1.3.0]
 
-Android emulator support: automatic port forwarding when debugging so the extension can reach the Drift server inside the emulator.
+Android emulator users get automatic port forwarding when debugging, so the extension can reach the Drift server inside the emulator.
 
 ### Added
 
@@ -71,7 +78,7 @@ Android emulator support: automatic port forwarding when debugging so the extens
 
 ## [1.0.4]
 
-Changelog version order corrected; no functional changes.
+No user-visible changes; changelog order corrected.
 
 ### Fixed
 
@@ -81,7 +88,7 @@ Changelog version order corrected; no functional changes.
 
 ## [1.1.0]
 
-Improve the first-run experience with a helpful welcome screen when disconnected, and make the extension easier to discover on the VS Code Marketplace.
+A welcome screen when disconnected and richer VS Code Marketplace metadata—smoother first run and easier to find the extension.
 
 ### Added
 
@@ -96,7 +103,7 @@ Improve the first-run experience with a helpful welcome screen when disconnected
 
 ## [1.0.1]
 
-Major feature release adding data import from clipboard, interactive ER diagrams, data narratives, custom dashboards, and data quality invariant checking.
+Clipboard import, interactive ER diagrams, data stories, custom dashboards, and invariant checking—a big feature drop.
 
 ### Fixed
 
@@ -116,7 +123,7 @@ Major feature release adding data import from clipboard, interactive ER diagrams
 
 ## [0.4.1]
 
-Analytics and insights release: database health scoring, query cost analysis with index suggestions, saved filters, and row deletion impact analysis.
+Database health score, query cost analysis with index suggestions, saved filters, and row impact analysis—analytics and insights land here.
 
 ### Added
 
@@ -127,7 +134,7 @@ Analytics and insights release: database health scoring, query cost analysis wit
 
 ## [0.4.0]
 
-Simplification release: removed the in-app Flutter overlay and 6 dependencies to make the package pure Dart, reducing bundle size for consumer apps.
+Smaller bundle for apps that ship the package: in-app Flutter overlay removed; use the VS Code extension or browser instead.
 
 ### Removed
 
@@ -147,11 +154,7 @@ Simplification release: removed the in-app Flutter overlay and 6 dependencies to
 
 ## [0.3.0]
 
-**Package renamed from `saropa_drift_viewer` to `saropa_drift_advisor`.**
-Update your `pubspec.yaml` dependency and replace `package:saropa_drift_viewer/`
-imports with `package:saropa_drift_advisor/`. All APIs are unchanged.
-
-This release also improves everyday usability with a visual query builder, smarter data formatting, per-table state persistence, and one-click cell copying.
+Package renamed to `saropa_drift_advisor`—update `pubspec.yaml` and imports; APIs are unchanged. Also: visual query builder, smarter data formatting, per-table state, and one-click cell copy.
 
 ### Added
 
@@ -176,7 +179,7 @@ This release also improves everyday usability with a visual query builder, smart
 
 ## [0.2.4]
 
-This release adds powerful web UI features for exploring and understanding your data: charts, natural language queries, anomaly detection, collaborative sharing, and a query performance monitor.
+Charts, natural-language queries, anomaly detection, session sharing, and a query performance monitor—the web UI gets a serious upgrade.
 
 ### Added
 
@@ -196,7 +199,7 @@ This release adds powerful web UI features for exploring and understanding your 
 
 ## [0.2.3]
 
-We're focusing on backend tooling and documentation in this release.
+No user-facing changes; tooling and documentation updates.
 
 ### Fixed
 
@@ -215,7 +218,7 @@ We're focusing on backend tooling and documentation in this release.
 
 ## [0.2.2]
 
-Housekeeping release to re-publish with corrected package metadata.
+No user-facing changes; package metadata corrected.
 
 ### Changed
 
@@ -223,7 +226,7 @@ Housekeeping release to re-publish with corrected package metadata.
 
 ## [0.2.1]
 
-In this release we only updated the CHANGELOG link to point at the repo until the package was live on pub.dev.
+No user-facing changes; CHANGELOG link updated for the repo.
 
 ### Changed
 
@@ -231,7 +234,7 @@ In this release we only updated the CHANGELOG link to point at the repo until th
 
 ## [0.2.0]
 
-In this release we focused on making the viewer more useful day to day: the table view now refreshes when data changes, you can run read-only SQL from the browser, and you can protect the viewer with a token or Basic auth when using a dev tunnel. We added a schema diagram, CSV export, snapshot/time travel, and a Flutter overlay so you can open the viewer from your app.
+Viewer gets more useful day to day: live table refresh, read-only SQL from the browser, and optional token or Basic auth for dev tunnels. Plus schema diagram, CSV export, snapshot/time travel, and a Flutter overlay to open the viewer from your app.
 
 ### Fixed
 
@@ -283,7 +286,7 @@ In this release we focused on making the viewer more useful day to day: the tabl
 
 ## [0.1.0]
 
-In this release we shipped the first version: a debug-only HTTP server that exposes your SQLite or Drift tables as JSON and a small web UI. It works with any SQLite executor, so you don’t need Drift as a dependency.
+First release: a debug-only HTTP server that exposes your SQLite or Drift tables as JSON and a small web UI. Works with any SQLite executor—no Drift dependency required.
 
 ### Fixed
 
