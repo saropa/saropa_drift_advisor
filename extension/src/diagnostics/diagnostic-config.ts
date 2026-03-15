@@ -38,6 +38,7 @@ export function loadDiagnosticConfig(): IDiagnosticConfig {
     bestPractices: cfg.get('categories.bestPractices', DEFAULT_DIAGNOSTIC_CONFIG.categories.bestPractices),
     naming: cfg.get('categories.naming', DEFAULT_DIAGNOSTIC_CONFIG.categories.naming),
     runtime: cfg.get('categories.runtime', DEFAULT_DIAGNOSTIC_CONFIG.categories.runtime),
+    compliance: cfg.get('categories.compliance', DEFAULT_DIAGNOSTIC_CONFIG.categories.compliance),
   };
 
   const severityOverrides: Record<string, vscode.DiagnosticSeverity> = {};

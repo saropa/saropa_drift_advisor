@@ -175,6 +175,12 @@ export const workspace = {
     registeredTimelineProviders.push({ scheme, provider });
     return { dispose: () => { /* no-op */ } };
   },
+  createFileSystemWatcher: (_pattern: any) => ({
+    onDidCreate: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+    onDidChange: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+    onDidDelete: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+    dispose: () => { /* no-op */ },
+  }),
   fs: {
     readFile: async (_uri: any): Promise<Uint8Array> => new Uint8Array(),
     writeFile: async (uri: any, content: Uint8Array) => {

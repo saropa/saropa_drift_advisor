@@ -13,6 +13,16 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [1.3.5]
+
+Detects when queries slow down across debug sessions and alerts you before regressions become production issues.
+
+### Added
+
+- **Query Performance Regression Detector** — Tracks per-query performance baselines across debug sessions using exponential moving average. When a debug session ends, compares current query durations against historical baselines and shows a VS Code warning if any query exceeds the configurable threshold (default 2x slower). Baselines adapt over time (capped at 20 samples) and persist in workspace state. Configurable via `driftViewer.perfRegression.enabled` and `driftViewer.perfRegression.threshold`. Reset baselines via Command Palette: *Reset Query Performance Baseline* (individual) or *Reset All Performance Baselines*.
+
+---
+
 ## [1.3.4]
 
 Export your database as a shareable, self-contained HTML report — open it in any browser with zero dependencies.

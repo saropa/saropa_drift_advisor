@@ -42,7 +42,7 @@ export function createDartFile(
 /** Create a mock diagnostic provider. */
 export function createMockProvider(
   id: string,
-  category: 'schema' | 'performance' | 'dataQuality' | 'bestPractices' | 'naming' | 'runtime',
+  category: 'schema' | 'performance' | 'dataQuality' | 'bestPractices' | 'naming' | 'runtime' | 'compliance',
   issues: IDiagnosticIssue[],
 ): IDiagnosticProvider {
   return {

@@ -268,6 +268,7 @@ function createContext(options: {
         bestPractices: true,
         naming: false,
         runtime: true,
+        compliance: true,
       },
       severityOverrides: {},
       disabledRules: new Set(),

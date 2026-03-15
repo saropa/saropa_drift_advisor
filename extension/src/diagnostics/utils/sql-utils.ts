@@ -36,20 +36,27 @@ export function truncateSql(sql: string, maxLen: number): string {
 }
 
 /**
+ * Normalize SQL by stripping literals and collapsing whitespace.
+ * Used to group equivalent queries regardless of parameter values.
+ * E.g., `SELECT * FROM users WHERE id = 42` → `select * from users where id = ?`
+ */
+export function normalizeSql(sql: string): string {
+  return sql
+    .replace(/\s+/g, ' ')
+    .replace(/'[^']*'/g, '?')
+    .replace(/\b\d+(\.\d+)?\b/g, '?')
+    .toLowerCase()
+    .trim();
+}
+
+/**
  * Returns true if all queries normalize to the same pattern (ignoring numbers and string literals).
  * Used to detect N+1-style repeated queries.
  */
 export function areSimilarQueries(queries: QueryEntry[]): boolean {
   if (queries.length < 2) return false;
 
-  const normalized = queries.map((q) =>
-    q.sql
-      .replace(/\s+/g, ' ')
-      .replace(/\d+/g, '?')
-      .replace(/'[^']*'/g, '?')
-      .toLowerCase()
-      .trim(),
-  );
+  const normalized = queries.map((q) => normalizeSql(q.sql));
 
   const first = normalized[0];
   return normalized.every((n) => n === first);

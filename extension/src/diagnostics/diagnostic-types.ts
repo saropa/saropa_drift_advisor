@@ -11,7 +11,8 @@ export type DiagnosticCategory =
   | 'dataQuality'
   | 'bestPractices'
   | 'naming'
-  | 'runtime';
+  | 'runtime'
+  | 'compliance';
 
 /** Metadata for a diagnostic code. */
 export interface IDiagnosticCode {
@@ -125,6 +126,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: IDiagnosticConfig = {
     bestPractices: true,
     naming: false,
     runtime: true,
+    compliance: true,
   },
   severityOverrides: {},
   disabledRules: new Set(),

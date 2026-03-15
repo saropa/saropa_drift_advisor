@@ -4,7 +4,13 @@
 
 import * as vscode from 'vscode';
 import type { IDebugCommandDeps } from './debug-commands-types';
+import type { PerfBaselineStore } from './perf-baseline-store';
 import type { PerformanceTreeProvider } from './performance-tree-provider';
+import {
+  detectRegressions,
+  recordSessionBaselines,
+  showRegressionWarning,
+} from './perf-regression-detector';
 import {
   getVmServiceUri,
   isValidVmServiceUri,
@@ -14,6 +20,7 @@ import { VmServiceClient } from '../transport/vm-service-client';
 
 export interface IVmRegistrationOptions {
   perfProvider: PerformanceTreeProvider;
+  baselineStore?: PerfBaselineStore;
   refreshInterval: number;
   logConnection: (msg: string) => void;
 }
@@ -30,7 +37,7 @@ export function registerDebugCommandsVm(
     client, treeProvider, hoverCache, linter, logBridge,
     discovery, serverManager, refreshStatusBar,
   } = deps;
-  const { perfProvider, refreshInterval, logConnection } = options;
+  const { perfProvider, baselineStore, refreshInterval, logConnection } = options;
 
   const tryConnectVm = async (
     session: vscode.DebugSession,
@@ -141,6 +148,18 @@ export function registerDebugCommandsVm(
       );
       hoverCache.clear();
       perfProvider.stopAutoRefresh();
+
+      if (baselineStore) {
+        const perfConfig = vscode.workspace.getConfiguration('driftViewer.perfRegression');
+        const enabled = perfConfig.get<boolean>('enabled', true);
+        if (enabled && perfProvider.data) {
+          const threshold = perfConfig.get<number>('threshold', 2.0);
+          const regressions = detectRegressions(perfProvider.data, baselineStore, threshold);
+          showRegressionWarning(regressions);
+          recordSessionBaselines(perfProvider.data, baselineStore);
+        }
+      }
+
       linter.clear();
       refreshStatusBar?.();
       logBridge.writeConnectionEvent('Drift debug server disconnected');

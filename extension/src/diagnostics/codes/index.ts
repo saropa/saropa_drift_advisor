@@ -4,6 +4,7 @@
 
 import type { IDiagnosticCode } from '../diagnostic-types';
 import { BEST_PRACTICE_CODES } from './best-practice-codes';
+import { COMPLIANCE_CODES } from './compliance-codes';
 import { DATA_QUALITY_CODES } from './data-quality-codes';
 import { NAMING_CODES, isSnakeCase, isSqlReservedWord, SQL_RESERVED_WORDS } from './naming-codes';
 import { PERFORMANCE_CODES } from './performance-codes';
@@ -18,6 +19,7 @@ export const DIAGNOSTIC_CODES: Record<string, IDiagnosticCode> = {
   ...BEST_PRACTICE_CODES,
   ...NAMING_CODES,
   ...RUNTIME_CODES,
+  ...COMPLIANCE_CODES,
 };
 
 export { SQL_RESERVED_WORDS, isSnakeCase, isSqlReservedWord } from './naming-codes';
