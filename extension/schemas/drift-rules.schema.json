@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Drift Rules Configuration",
+  "description": "Schema compliance rules for Saropa Drift Advisor",
+  "type": "object",
+  "properties": {
+    "naming": {
+      "type": "object",
+      "description": "Naming convention rules for tables, columns, and FK columns.",
+      "properties": {
+        "tables": {
+          "type": "string",
+          "enum": ["snake_case", "camelCase", "PascalCase", "UPPER_SNAKE"],
+          "description": "Required naming convention for table names."
+        },
+        "columns": {
+          "type": "string",
+          "enum": ["snake_case", "camelCase", "PascalCase", "UPPER_SNAKE"],
+          "description": "Required naming convention for column names."
+        },
+        "fkColumns": {
+          "type": "string",
+          "description": "FK column naming pattern. Use {table} as placeholder for the target table name, e.g. \"{table}_id\"."
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info"],
+          "default": "warning",
+          "description": "Severity for naming violations."
+        }
+      },
+      "additionalProperties": false
+    },
+    "requiredColumns": {
+      "type": "array",
+      "description": "Columns that must exist in every table (unless excluded).",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Required column name."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["INTEGER", "TEXT", "REAL", "BLOB"],
+            "description": "Expected SQL type. Omit to accept any type."
+          },
+          "excludeTables": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Tables exempt from this requirement."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["error", "warning", "info"],
+            "description": "Severity override for this requirement."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "rules": {
+      "type": "array",
+      "description": "Built-in structural rules to enable.",
+      "items": {
+        "type": "object",
+        "required": ["rule"],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "enum": [
+              "no-text-primary-key",
+              "require-pk",
+              "max-columns",
+              "no-nullable-fk"
+            ],
+            "description": "Built-in rule identifier."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["error", "warning", "info"],
+            "description": "Severity override for this rule."
+          },
+          "max": {
+            "type": "number",
+            "description": "Maximum column count (for max-columns rule). Default: 20."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "exclude": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Table names to exclude from all compliance checks."
+    }
+  },
+  "additionalProperties": false
+}

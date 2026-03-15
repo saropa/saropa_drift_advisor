@@ -1,6 +1,6 @@
 # Saropa Drift Advisor — Roadmap
 
-**Status:** 12 features remaining • Last updated March 14, 2026
+**Status:** 11 features remaining • Last updated March 14, 2026
 
 > Completed features are documented in [CHANGELOG.md](CHANGELOG.md) and [README.md](README.md).
 
@@ -11,7 +11,6 @@
 | Priority | Feature                                                                 |  Wow  | Effort | Why                                  |
 | -------- | ----------------------------------------------------------------------- | :---: | :----: | ------------------------------------ |
 | **1**    | [55: Clipboard Import](plans/55-clipboard-import.md)                    |  3→4  | Medium | High practical utility               |
-| **2**    | [63: Query Perf Regression](plans/63-query-perf-regression-detector.md) |  5→6  | Medium | Uses QueryIntelligence already built |
 
 ---
 
@@ -37,13 +36,12 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 
 ---
 
-## Remaining Features (12)
+## Remaining Features (11)
 
 ### Tier 1: Extension-Only (no Dart changes)
 
 | #   | Feature                                                             |  Wow  | Effort | Integration                         |
 | --- | ------------------------------------------------------------------- | :---: | :----: | ----------------------------------- |
-| 63  | [Query Perf Regression](plans/63-query-perf-regression-detector.md) |  5→6  | Medium | ← QueryIntelligence, → Health Score |
 | 61  | [Migration Rollback Gen](plans/61-migration-rollback-generator.md)  |   5   | Medium | ← Schema Evolution                  |
 | 60  | [Time-Travel Slider](plans/60-time-travel-data-slider.md)           |  5→6  | Medium | ↔ DVR, Timeline                     |
 | 59  | [AI Schema Reviewer](plans/59-ai-schema-reviewer.md)                |  5→6  | Medium | Requires LLM integration            |

@@ -9,6 +9,7 @@ import type { SchemaIntelligence } from './engines/schema-intelligence';
 import type { QueryIntelligence } from './engines/query-intelligence';
 import {
   BestPracticeProvider,
+  ComplianceProvider,
   DataQualityProvider,
   DiagnosticCodeActionProvider,
   DiagnosticManager,
@@ -42,6 +43,33 @@ export function setupDiagnostics(
     diagnosticManager.registerProvider(new BestPracticeProvider()),
     diagnosticManager.registerProvider(new NamingProvider()),
     diagnosticManager.registerProvider(new RuntimeProvider()),
+    diagnosticManager.registerProvider(
+      new ComplianceProvider(() => {
+        diagnosticManager.refresh().catch(() => {});
+      }),
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.openComplianceConfig',
+      async () => {
+        const folders = vscode.workspace.workspaceFolders;
+        if (!folders?.length) return;
+        const configUri = vscode.Uri.joinPath(
+          folders[0].uri,
+          '.drift-rules.json',
+        );
+        try {
+          const doc = await vscode.workspace.openTextDocument(configUri);
+          await vscode.window.showTextDocument(doc);
+        } catch {
+          vscode.window.showInformationMessage(
+            'No .drift-rules.json found. Create one in your workspace root.',
+          );
+        }
+      },
+    ),
   );
 
   context.subscriptions.push(

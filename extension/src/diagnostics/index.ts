@@ -31,3 +31,4 @@ export { DataQualityProvider } from './providers/data-quality-provider';
 export { BestPracticeProvider } from './providers/best-practice-provider';
 export { NamingProvider } from './providers/naming-provider';
 export { RuntimeProvider } from './providers/runtime-provider';
+export { ComplianceProvider } from './providers/compliance-provider';

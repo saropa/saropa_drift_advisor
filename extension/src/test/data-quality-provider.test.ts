@@ -269,7 +269,7 @@ function createContext(options: {
     dartFiles: options.dartFiles,
     config: {
       enabled: true, refreshOnSave: true, refreshIntervalMs: 30000,
-      categories: { schema: true, performance: true, dataQuality: true, bestPractices: true, naming: false, runtime: true },
+      categories: { schema: true, performance: true, dataQuality: true, bestPractices: true, naming: false, runtime: true, compliance: true },
       disabledRules: new Set(), severityOverrides: {},
     },
   };

@@ -150,6 +150,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 #### Debugging & Performance
 
 - **Query performance panel** — live in debug sidebar; slow query detection (>500 ms), timing stats, click to view full SQL
+- **Query regression detector** — tracks per-query baselines across sessions; warns when queries regress beyond threshold
 - **Data breakpoints** — break on table data conditions during debug sessions
 - **Snapshot timeline** — capture snapshots via VS Code timeline, auto-capture on data change, generate changelog
 - **Database comparison** — diff two databases (schema match, row count differences)
