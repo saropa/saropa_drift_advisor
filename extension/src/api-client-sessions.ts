@@ -1,12 +1,13 @@
 /** HTTP-only session and import API methods (extracted from api-client). */
 
 import type { IImportResult, ISessionData, ISessionShareResult } from './api-types';
+import { fetchWithRetry } from './transport/fetch-utils';
 
 export async function importDataRequest(
   baseUrl: string, headers: Record<string, string>,
   format: string, table: string, data: string,
 ): Promise<IImportResult> {
-  const resp = await fetch(`${baseUrl}/api/import`, {
+  const resp = await fetchWithRetry(`${baseUrl}/api/import`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ format, table, data }),
@@ -21,7 +22,7 @@ export async function sessionShareRequest(
   baseUrl: string, headers: Record<string, string>,
   state: Record<string, unknown>,
 ): Promise<ISessionShareResult> {
-  const resp = await fetch(`${baseUrl}/api/session/share`, {
+  const resp = await fetchWithRetry(`${baseUrl}/api/session/share`, {
     method: 'POST',
     headers,
     body: JSON.stringify(state),
@@ -36,7 +37,7 @@ export async function sessionGetRequest(
   baseUrl: string, headers: Record<string, string>,
   id: string,
 ): Promise<ISessionData> {
-  const resp = await fetch(
+  const resp = await fetchWithRetry(
     `${baseUrl}/api/session/${encodeURIComponent(id)}`,
     { headers },
   );
@@ -50,7 +51,7 @@ export async function sessionAnnotateRequest(
   baseUrl: string, headers: Record<string, string>,
   id: string, text: string, author: string,
 ): Promise<void> {
-  const resp = await fetch(
+  const resp = await fetchWithRetry(
     `${baseUrl}/api/session/${encodeURIComponent(id)}/annotate`,
     {
       method: 'POST',

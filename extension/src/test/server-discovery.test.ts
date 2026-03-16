@@ -175,6 +175,23 @@ describe('ServerDiscovery', () => {
     assert.ok(fetchStub.callCount > 0);
   });
 
+  it('should auto-recover from backoff to searching after 3 backoff cycles', async () => {
+    discovery = new ServerDiscovery(defaultConfig());
+    discovery.start();
+
+    // 5 empty scans → backoff (initial scan + 4 at 3s)
+    for (let i = 0; i < 5; i++) {
+      await clock.tickAsync(3001);
+    }
+    assert.strictEqual(discovery.state, 'backoff');
+
+    // 3 backoff polls at 30s → auto-recovery to searching
+    for (let i = 0; i < 3; i++) {
+      await clock.tickAsync(30001);
+    }
+    assert.strictEqual(discovery.state, 'searching');
+  });
+
   it('should reject servers failing secondary validation', async () => {
     // Health passes but metadata fails
     fetchStub

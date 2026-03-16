@@ -55,6 +55,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const connectionChannel = vscode.window.createOutputChannel('Saropa Drift Advisor');
   context.subscriptions.push(connectionChannel);
   discovery.setLog(connectionChannel);
+  watcher.setLog(connectionChannel);
 
   const serverManager = new ServerManager(discovery, client, context.workspaceState);
   serverManager.setShowLog(() => connectionChannel.show());

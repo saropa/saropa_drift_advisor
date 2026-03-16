@@ -50,7 +50,12 @@ export class ServerManager {
     }
   }
 
-  /** Show QuickPick for manual server selection. */
+  /**
+   * Show QuickPick for manual server selection.
+   * - 0 servers: warns with Retry + View Log actions.
+   * - 1 server: auto-selects.
+   * - 2+ servers: shows QuickPick (guards against concurrent dialogs).
+   */
   async selectServer(): Promise<void> {
     const servers = this.servers;
     if (servers.length === 0) {
@@ -96,6 +101,13 @@ export class ServerManager {
     this._onDidChangeActive.dispose();
   }
 
+  /**
+   * React to discovery server list changes. 4-case state machine:
+   * 1. Active server still alive → no-op.
+   * 2. Active server died, 1 alternative → auto-switch.
+   * 3. Active server died, 2+ alternatives → prompt user.
+   * 4. No active server yet → auto-select if 1, prompt if 2+.
+   */
   private _onServersChanged(servers: IServerInfo[]): void {
     this._persistKnownPorts(servers);
     const activeStillAlive = servers.some(

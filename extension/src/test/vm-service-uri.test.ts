@@ -44,6 +44,24 @@ describe('parseVmServiceUriFromOutput', () => {
     const uri = parseVmServiceUriFromOutput(text);
     assert.strictEqual(uri, 'ws://127.0.0.1:1111/a/ws');
   });
+
+  it('extracts URI with hostname (localhost)', () => {
+    const text = 'VM service at http://localhost:56083/abc123/';
+    const uri = parseVmServiceUriFromOutput(text);
+    assert.strictEqual(uri, 'ws://localhost:56083/abc123/ws');
+  });
+
+  it('extracts URI with IPv6 address', () => {
+    const text = 'VM service at http://[::1]:56083/abc123/';
+    const uri = parseVmServiceUriFromOutput(text);
+    assert.strictEqual(uri, 'ws://[::1]:56083/abc123/ws');
+  });
+
+  it('extracts URI with qualified hostname', () => {
+    const text = 'http://my-dev-box.local:8642/token/';
+    const uri = parseVmServiceUriFromOutput(text);
+    assert.strictEqual(uri, 'ws://my-dev-box.local:8642/token/ws');
+  });
 });
 
 describe('isValidVmServiceUri', () => {

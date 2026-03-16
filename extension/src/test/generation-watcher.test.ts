@@ -54,7 +54,7 @@ describe('GenerationWatcher', () => {
     assert.strictEqual(fireCount, 0, 'should not fire when generation unchanged');
   });
 
-  it('should continue polling after errors', async () => {
+  it('should continue polling after errors with exponential backoff', async () => {
     genStub.onFirstCall().rejects(new Error('connection refused'));
     genStub.onSecondCall().resolves(1);
 
@@ -66,11 +66,33 @@ describe('GenerationWatcher', () => {
     await flush();
     assert.strictEqual(fired, false, 'should not fire on error');
 
-    // Advance timer for retry
+    // First error backoff: 1000 * 2^1 = 2000ms
     clock.tick(1000);
     await flush();
+    assert.strictEqual(fired, false, 'should not retry at 1s (backoff is 2s)');
 
-    assert.strictEqual(fired, true, 'should fire after successful retry');
+    clock.tick(1000);
+    await flush();
+    assert.strictEqual(fired, true, 'should fire after successful retry at 2s');
+  });
+
+  it('should reset backoff to 1s after a successful poll', async () => {
+    genStub.onFirstCall().rejects(new Error('fail'));
+    genStub.onSecondCall().resolves(1);
+    genStub.onThirdCall().resolves(2);
+
+    let fireCount = 0;
+    watcher.onDidChange(() => { fireCount++; });
+    watcher.start();
+
+    await flush(); // error → backoff 2s
+    clock.tick(2000);
+    await flush(); // success (gen 1) → reset to 1s
+    assert.strictEqual(fireCount, 1);
+
+    clock.tick(1000);
+    await flush(); // success (gen 2) at 1s delay
+    assert.strictEqual(fireCount, 2, 'should poll at 1s after success');
   });
 
   it('should stop polling when stop() is called', async () => {

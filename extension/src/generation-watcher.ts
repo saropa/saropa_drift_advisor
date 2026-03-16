@@ -1,16 +1,33 @@
+import type { IDiscoveryLog } from './server-discovery';
 import { DriftApiClient } from './api-client';
 
 type Listener = () => void;
 
+const BASE_POLL_MS = 1000;
+const MAX_BACKOFF_MS = 30000;
+
+/**
+ * Polls the server's `/api/generation` endpoint and fires listeners when the
+ * generation number changes (indicating schema mutation). Uses exponential
+ * backoff on consecutive errors: 1s → 2s → 4s → … → 30s cap, resetting
+ * immediately on success.
+ */
 export class GenerationWatcher {
   private readonly _client: DriftApiClient;
   private _generation = 0;
   private _running = false;
+  private _consecutiveErrors = 0;
   private _listeners: Listener[] = [];
   private _pollTimeout: ReturnType<typeof setTimeout> | undefined;
+  private _log: IDiscoveryLog | undefined;
 
   constructor(client: DriftApiClient) {
     this._client = client;
+  }
+
+  /** Attach a log sink for diagnostics. */
+  setLog(log: IDiscoveryLog): void {
+    this._log = log;
   }
 
   onDidChange(listener: Listener): { dispose: () => void } {
@@ -39,9 +56,11 @@ export class GenerationWatcher {
   private async _poll(): Promise<void> {
     if (!this._running) return;
 
+    let delay = BASE_POLL_MS;
     try {
       const gen = await this._client.generation(this._generation);
       if (!this._running) return;
+      this._consecutiveErrors = 0;
 
       if (gen !== this._generation) {
         this._generation = gen;
@@ -49,18 +68,26 @@ export class GenerationWatcher {
           listener();
         }
       }
-    } catch {
-      // Server unreachable — retry after delay
+    } catch (err) {
+      this._consecutiveErrors++;
+      delay = Math.min(BASE_POLL_MS * Math.pow(2, this._consecutiveErrors), MAX_BACKOFF_MS);
+      if (this._consecutiveErrors === 1 || this._consecutiveErrors % 10 === 0) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this._log?.appendLine(
+          `[${new Date().toISOString()}] GenerationWatcher: poll error #${this._consecutiveErrors}: ${msg} (next retry in ${delay}ms)`,
+        );
+      }
     }
 
     if (this._running) {
-      this._pollTimeout = setTimeout(() => this._poll(), 1000);
+      this._pollTimeout = setTimeout(() => this._poll(), delay);
     }
   }
 
   /** Reset the generation counter (e.g., after active server changes). */
   reset(): void {
     this._generation = 0;
+    this._consecutiveErrors = 0;
   }
 
   get generation(): number {
