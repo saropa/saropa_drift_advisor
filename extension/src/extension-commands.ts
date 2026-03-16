@@ -48,6 +48,7 @@ export interface CommandRegistrationDeps extends ProviderSetupResult, EditingSet
   discoveryEnabled: boolean;
   watcher: GenerationWatcher;
   updateStatusBar: () => void;
+  connectionChannel: vscode.OutputChannel;
 }
 
 /**
@@ -80,6 +81,7 @@ export function registerAllCommands(
     discoveryEnabled,
     watcher,
     updateStatusBar,
+    connectionChannel,
   } = deps;
 
   registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager);
@@ -109,9 +111,6 @@ export function registerAllCommands(
   registerReportCommands(context, client);
   registerWorkspaceSetupCommands(context);
 
-  // Connection log for troubleshooting (Output > Saropa Drift Advisor)
-  const connectionChannel = vscode.window.createOutputChannel('Saropa Drift Advisor');
-  context.subscriptions.push(connectionChannel);
   registerDebugCommands(context, {
     client,
     treeProvider,

@@ -29,6 +29,11 @@ const MISS_THRESHOLD = 2;
 const BACKOFF_THRESHOLD = 5;
 const NOTIFY_THROTTLE_MS = 60000;
 
+/** Optional log sink for discovery diagnostics. */
+export interface IDiscoveryLog {
+  appendLine(msg: string): void;
+}
+
 /** Scans a port range for running Drift debug servers. */
 export class ServerDiscovery {
   private readonly _onDidChangeServers = new vscode.EventEmitter<IServerInfo[]>();
@@ -42,9 +47,19 @@ export class ServerDiscovery {
   private _pollId = 0; // Incremented on stop/retry to cancel stale polls
   private _pollTimeout: ReturnType<typeof setTimeout> | undefined;
   private _notifiedAt = new Map<number, number>();
+  private _log: IDiscoveryLog | undefined;
 
   constructor(config: IDiscoveryConfig) {
     this._config = config;
+  }
+
+  /** Attach a log sink (e.g. OutputChannel) for connection diagnostics. */
+  setLog(log: IDiscoveryLog): void {
+    this._log = log;
+  }
+
+  private _logLine(msg: string): void {
+    this._log?.appendLine(`[${new Date().toISOString()}] Discovery: ${msg}`);
   }
 
   get state(): DiscoveryState {
@@ -72,6 +87,7 @@ export class ServerDiscovery {
 
   /** Force immediate re-scan from searching state. */
   retry(): void {
+    this._logLine('Retry requested — resetting to searching state');
     this.stop();
     this._state = 'searching';
     this._emptyScans = 0;
@@ -112,6 +128,10 @@ export class ServerDiscovery {
       for (const p of additionalPorts) portSet.add(p);
     }
     const ports = [...portSet];
+    const extra = ports.length - (portRangeEnd - portRangeStart + 1);
+    this._logLine(
+      `Scanning ${ports.length} port${ports.length === 1 ? '' : 's'} on ${host} (${portRangeStart}-${portRangeEnd}${extra > 0 ? ` +${extra} remembered` : ''})`,
+    );
 
     const results = await Promise.allSettled(
       ports.map((port) => this._checkHealth(host, port)),
@@ -123,6 +143,9 @@ export class ServerDiscovery {
       if (r.status === 'fulfilled' && r.value) {
         alive.push(ports[i]);
       }
+    }
+    if (alive.length > 0) {
+      this._logLine(`Found servers on ports: ${alive.join(', ')}`);
     }
     return alive;
   }
@@ -138,9 +161,17 @@ export class ServerDiscovery {
         signal: controller.signal,
       });
       const body = (await resp.json()) as { ok?: boolean };
-      if (body?.ok !== true) return false;
+      if (body?.ok !== true) {
+        this._logLine(`Port ${port}: health responded but ok=${body?.ok}`);
+        return false;
+      }
       return this._validateServer(host, port, controller.signal);
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Only log non-connection-refused errors to avoid noise
+      if (!msg.includes('ECONNREFUSED')) {
+        this._logLine(`Port ${port}: ${msg}`);
+      }
       return false;
     } finally {
       clearTimeout(timer);
@@ -158,8 +189,14 @@ export class ServerDiscovery {
         `http://${host}:${port}/api/schema/metadata`, { signal },
       );
       const data: unknown = await resp.json();
-      return Array.isArray(data);
-    } catch {
+      if (!Array.isArray(data)) {
+        this._logLine(`Port ${port}: schema/metadata returned non-array (${typeof data})`);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this._logLine(`Port ${port}: schema/metadata validation failed: ${msg}`);
       return false;
     }
   }
@@ -201,12 +238,16 @@ export class ServerDiscovery {
     }
 
     // State transitions
+    const prevState = this._state;
     if (this._servers.size > 0) {
       this._state = 'connected';
       this._emptyScans = 0;
     } else if (alivePorts.length === 0) {
       this._emptyScans++;
       this._state = this._emptyScans >= BACKOFF_THRESHOLD ? 'backoff' : 'searching';
+    }
+    if (this._state !== prevState) {
+      this._logLine(`State: ${prevState} → ${this._state} (empty scans: ${this._emptyScans})`);
     }
 
     if (changed) {

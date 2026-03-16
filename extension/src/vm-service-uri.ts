@@ -100,10 +100,14 @@ export function registerVmServiceOutputListener(
 ): VmServiceOutputListenerResult {
   const reported = new Set<string>();
 
-  const createTracker = (session: vscode.DebugSession) => {
+  const createTracker = (session: vscode.DebugSession): vscode.DebugAdapterTracker => {
     let buffer = '';
     return {
-      onOutput(output: string): void {
+      onDidSendMessage(message: unknown): void {
+        const msg = message as { type?: string; event?: string; body?: { output?: string } };
+        if (msg.type !== 'event' || msg.event !== 'output') return;
+        const output = msg.body?.output;
+        if (typeof output !== 'string') return;
         buffer += output;
         const uri = parseVmServiceUriFromOutput(buffer);
         if (uri && !reported.has(session.id)) {
@@ -112,7 +116,7 @@ export function registerVmServiceOutputListener(
         }
         if (buffer.length > 4096) buffer = buffer.slice(-2048);
       },
-    } as any;
+    };
   };
 
   const dart = vscode.debug.registerDebugAdapterTrackerFactory('dart', {
