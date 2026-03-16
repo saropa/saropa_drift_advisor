@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#1e1e1e"/>
+  <!-- Tree view icon -->
+  <g transform="translate(150, 45)">
+    <!-- Database icon -->
+    <ellipse cx="50" cy="10" rx="30" ry="10" fill="none" stroke="#569cd6" stroke-width="2"/>
+    <line x1="20" y1="10" x2="20" y2="35" stroke="#569cd6" stroke-width="2"/>
+    <line x1="80" y1="10" x2="80" y2="35" stroke="#569cd6" stroke-width="2"/>
+    <ellipse cx="50" cy="35" rx="30" ry="10" fill="none" stroke="#569cd6" stroke-width="2"/>
+    <!-- Tree branches -->
+    <line x1="50" y1="55" x2="50" y2="70" stroke="#858585" stroke-width="1.5"/>
+    <line x1="50" y1="70" x2="30" y2="70" stroke="#858585" stroke-width="1.5"/>
+    <line x1="50" y1="70" x2="70" y2="70" stroke="#858585" stroke-width="1.5"/>
+    <!-- Table icons -->
+    <rect x="20" y="68" width="20" height="12" rx="2" fill="none" stroke="#4ec9b0" stroke-width="1.5"/>
+    <rect x="60" y="68" width="20" height="12" rx="2" fill="none" stroke="#4ec9b0" stroke-width="1.5"/>
+  </g>
+  <!-- Title -->
+  <text x="200" y="175" font-family="Segoe UI, sans-serif" font-size="18" fill="#cccccc" text-anchor="middle" font-weight="600">Explore Your Database</text>
+  <!-- Subtitle -->
+  <text x="200" y="205" font-family="Segoe UI, sans-serif" font-size="13" fill="#858585" text-anchor="middle">Browse tables, columns, and foreign keys</text>
+  <text x="200" y="223" font-family="Segoe UI, sans-serif" font-size="13" fill="#858585" text-anchor="middle">in the Database Explorer sidebar.</text>
+</svg>

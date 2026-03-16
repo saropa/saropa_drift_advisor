@@ -12,7 +12,8 @@ export type WidgetType =
   | 'invariantStatus'
   | 'dvrStatus'
   | 'watchDiff'
-  | 'customText';
+  | 'customText'
+  | 'featureDiscovery';
 
 /** Chart types supported by the chart widget. */
 export type ChartType = 'bar' | 'pie' | 'line';

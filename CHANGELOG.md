@@ -15,6 +15,22 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [1.4.2]
+
+Most of the extension's ~105 commands were only accessible via the Command Palette. Five new discovery surfaces ensure every major feature has a visible entry point.
+
+### Added
+
+- **Getting Started Walkthrough** — VS Code's built-in walkthrough system (Help → Get Started). Five illustrated steps guide new users from package installation through health checks and migration generation. Each step has a completion event so progress persists.
+- **Quick Actions in Database Explorer** — Collapsible "Quick Actions" node at the top of the tree when connected. Five categorized groups (Schema, Health, Data, Visualization, Tools) with clickable items that execute commands directly.
+- **Drift Tools sidebar view** — Always-visible "Drift Tools" tree view in the sidebar listing all major commands grouped by category. Server-dependent items show a disabled state with "(not connected)" when offline, teaching users what the extension can do before they connect.
+- **Health Score status bar** — Displays the last computed health grade (e.g. `Health: A (92)`) color-coded by grade. Hidden until the first health check; click re-runs the check. Priority 80, between the connection indicator and invariants.
+- **Drift Tools QuickPick status bar** — Shows a `$(tools) Drift Tools` button when connected. Click opens a QuickPick with the 15 most-used commands, searchable by description. Priority 60.
+- **Dashboard on-connect notification** — On first server connection each session, an information message offers to open the Dashboard. "Don't Show Again" persists per workspace. Controlled by `driftViewer.dashboard.showOnConnect` setting.
+- **Feature Discovery dashboard widget** — New `featureDiscovery` widget type in the default dashboard layout. Renders five category cards with command buttons, letting users explore all features from a single panel.
+
+---
+
 ## [1.4.1]
 
 Select any schema change from the timeline and instantly generate the reverse migration — both the rollback SQL and the Dart code.

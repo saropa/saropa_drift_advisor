@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#1e1e1e"/>
+  <!-- Code file with diff arrows -->
+  <g transform="translate(135, 40)">
+    <!-- Left file (Code) -->
+    <rect x="0" y="0" width="45" height="60" rx="4" fill="none" stroke="#569cd6" stroke-width="2"/>
+    <line x1="8" y1="14" x2="37" y2="14" stroke="#569cd6" stroke-width="1.5" opacity="0.5"/>
+    <line x1="8" y1="24" x2="30" y2="24" stroke="#569cd6" stroke-width="1.5" opacity="0.5"/>
+    <line x1="8" y1="34" x2="34" y2="34" stroke="#569cd6" stroke-width="1.5" opacity="0.5"/>
+    <line x1="8" y1="44" x2="28" y2="44" stroke="#569cd6" stroke-width="1.5" opacity="0.5"/>
+    <!-- Arrow -->
+    <line x1="55" y1="30" x2="75" y2="30" stroke="#dcdcaa" stroke-width="2.5"/>
+    <polyline points="70,24 78,30 70,36" fill="none" stroke="#dcdcaa" stroke-width="2.5"/>
+    <!-- Right file (Migration) -->
+    <rect x="85" y="0" width="45" height="60" rx="4" fill="none" stroke="#4ec9b0" stroke-width="2"/>
+    <line x1="93" y1="14" x2="122" y2="14" stroke="#4ec9b0" stroke-width="1.5" opacity="0.5"/>
+    <line x1="93" y1="24" x2="115" y2="24" stroke="#4ec9b0" stroke-width="1.5" opacity="0.5"/>
+    <line x1="93" y1="34" x2="119" y2="34" stroke="#4ec9b0" stroke-width="1.5" opacity="0.5"/>
+    <line x1="93" y1="44" x2="113" y2="44" stroke="#4ec9b0" stroke-width="1.5" opacity="0.5"/>
+  </g>
+  <!-- Title -->
+  <text x="200" y="150" font-family="Segoe UI, sans-serif" font-size="18" fill="#cccccc" text-anchor="middle" font-weight="600">Generate a Migration</text>
+  <!-- Subtitle -->
+  <text x="200" y="180" font-family="Segoe UI, sans-serif" font-size="13" fill="#858585" text-anchor="middle">Diff your Dart code against the runtime</text>
+  <text x="200" y="198" font-family="Segoe UI, sans-serif" font-size="13" fill="#858585" text-anchor="middle">database and generate migration code</text>
+  <text x="200" y="216" font-family="Segoe UI, sans-serif" font-size="13" fill="#858585" text-anchor="middle">automatically.</text>
+</svg>

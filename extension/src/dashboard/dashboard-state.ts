@@ -48,13 +48,24 @@ export class DashboardState {
     return this._state.get<string>(DASHBOARD_CURRENT_KEY);
   }
 
-  /** Create a default empty layout. */
+  /** Create a default layout with the Feature Discovery widget pre-loaded. */
   static createDefault(name: string = 'default'): IDashboardLayout {
     return {
       version: 1,
       name,
       columns: 4,
-      widgets: [],
+      widgets: [
+        {
+          id: 'discovery-default',
+          type: 'featureDiscovery',
+          title: 'Explore Drift Advisor',
+          gridX: 0,
+          gridY: 0,
+          gridW: 4,
+          gridH: 3,
+          config: {},
+        },
+      ],
     };
   }
 }

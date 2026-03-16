@@ -198,7 +198,10 @@ describe('DashboardState', () => {
       assert.strictEqual(layout.version, 1);
       assert.strictEqual(layout.name, 'my-dashboard');
       assert.strictEqual(layout.columns, 4);
-      assert.deepStrictEqual(layout.widgets, []);
+      // Default layout includes the Feature Discovery widget
+      assert.strictEqual(layout.widgets.length, 1);
+      assert.strictEqual(layout.widgets[0].type, 'featureDiscovery');
+      assert.strictEqual(layout.widgets[0].id, 'discovery-default');
     });
 
     it('should use "default" as name when not provided', () => {

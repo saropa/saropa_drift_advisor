@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { IndexSuggestion, Anomaly } from '../api-types';
+import type { HealthStatusBar } from '../status-bar-health';
 import { HealthScorer } from './health-scorer';
 import { HealthPanel } from './health-panel';
 
@@ -8,6 +9,7 @@ import { HealthPanel } from './health-panel';
 export function registerHealthCommands(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
+  healthStatusBar?: HealthStatusBar,
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
@@ -23,6 +25,8 @@ export function registerHealthCommands(
             () => scorer.compute(client),
           );
           HealthPanel.createOrShow(score, client);
+          // Update the status bar so the score is always visible
+          healthStatusBar?.update(score.overall, score.grade);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Health score failed: ${msg}`);

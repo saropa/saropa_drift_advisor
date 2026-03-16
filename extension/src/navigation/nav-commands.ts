@@ -146,6 +146,17 @@ export function registerNavCommands(
     }),
   );
 
+  // Open the Getting Started walkthrough so users can discover features step by step.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.openWalkthrough', () => {
+      vscode.commands.executeCommand(
+        'workbench.action.openWalkthrough',
+        'saropa.drift-viewer#driftViewer.gettingStarted',
+        false,
+      );
+    }),
+  );
+
   /** Forward host port to Android emulator so the extension can reach the Drift server. */
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.forwardPortAndroid', async () => {

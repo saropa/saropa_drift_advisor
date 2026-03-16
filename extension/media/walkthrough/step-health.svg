@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#1e1e1e"/>
+  <!-- Heart icon with pulse line -->
+  <g transform="translate(160, 45)">
+    <path d="M40 25 C40 15, 25 5, 15 15 C5 25, 15 40, 40 55 C65 40, 75 25, 65 15 C55 5, 40 15, 40 25Z"
+          fill="none" stroke="#d16969" stroke-width="2.5"/>
+  </g>
+  <!-- Pulse line -->
+  <polyline points="120,95 155,95 170,75 185,115 200,85 215,95 280,95"
+            fill="none" stroke="#4ec9b0" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Score badge -->
+  <circle cx="200" cy="125" r="14" fill="none" stroke="#dcdcaa" stroke-width="2"/>
+  <text x="200" y="130" font-family="Segoe UI, sans-serif" font-size="14" fill="#dcdcaa" text-anchor="middle" font-weight="700">A</text>
+  <!-- Title -->
+  <text x="200" y="175" font-family="Segoe UI, sans-serif" font-size="18" fill="#cccccc" text-anchor="middle" font-weight="600">Run a Health Check</text>
+  <!-- Subtitle -->
+  <text x="200" y="205" font-family="Segoe UI, sans-serif" font-size="13" fill="#858585" text-anchor="middle">Assess index coverage, FK integrity,</text>
+  <text x="200" y="223" font-family="Segoe UI, sans-serif" font-size="13" fill="#858585" text-anchor="middle">null density, and query performance.</text>
+</svg>

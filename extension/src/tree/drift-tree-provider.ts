@@ -9,10 +9,19 @@ import {
   PinnedGroupItem,
   TableItem,
 } from './tree-items';
+import {
+  ActionCategoryItem,
+  ActionItem,
+  getQuickActionCategories,
+  QuickActionsGroupItem,
+} from './quick-action-items';
 
 type TreeNode =
   | ConnectionStatusItem
   | PinnedGroupItem
+  | QuickActionsGroupItem
+  | ActionCategoryItem
+  | ActionItem
   | TableItem
   | ColumnItem
   | ForeignKeyItem;
@@ -80,11 +89,21 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       const pinned = this._tableItems.filter((t) => t.pinned);
       const unpinned = this._tableItems.filter((t) => !t.pinned);
       const items: TreeNode[] = [status];
+      // Quick Actions shortcut group — lets users discover key commands
+      items.push(new QuickActionsGroupItem());
       if (pinned.length > 0) {
         items.push(new PinnedGroupItem(pinned.length));
       }
       items.push(...pinned, ...unpinned);
       return items;
+    }
+
+    // Quick Actions group → return categorised action lists
+    if (element instanceof QuickActionsGroupItem) {
+      return getQuickActionCategories();
+    }
+    if (element instanceof ActionCategoryItem) {
+      return element.actions;
     }
 
     // Table level: columns + foreign keys (lazy-loaded)

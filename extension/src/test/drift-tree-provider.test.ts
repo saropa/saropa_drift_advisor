@@ -8,6 +8,7 @@ import {
   ForeignKeyItem,
   TableItem,
 } from '../tree/tree-items';
+import { QuickActionsGroupItem } from '../tree/quick-action-items';
 
 describe('DriftTreeProvider', () => {
   let fetchStub: sinon.SinonStub;
@@ -88,10 +89,11 @@ describe('DriftTreeProvider', () => {
       await provider.refresh();
       const children = await provider.getChildren();
 
-      assert.strictEqual(children.length, 3); // status + 2 tables
+      assert.strictEqual(children.length, 4); // status + quickActions + 2 tables
       assert.ok(children[0] instanceof ConnectionStatusItem);
-      assert.ok(children[1] instanceof TableItem);
+      assert.ok(children[1] instanceof QuickActionsGroupItem);
       assert.ok(children[2] instanceof TableItem);
+      assert.ok(children[3] instanceof TableItem);
     });
 
     it('should return empty array when server is down (for viewsWelcome)', async () => {
@@ -116,7 +118,7 @@ describe('DriftTreeProvider', () => {
 
       await provider.refresh();
       const root = await provider.getChildren();
-      const usersTable = root[1] as TableItem;
+      const usersTable = root[2] as TableItem;
 
       // FK metadata fetch
       const fks = [{ fromColumn: 'manager_id', toTable: 'users', toColumn: 'id' }];
@@ -145,7 +147,7 @@ describe('DriftTreeProvider', () => {
 
       await provider.refresh();
       const root = await provider.getChildren();
-      const usersTable = root[1] as TableItem;
+      const usersTable = root[2] as TableItem;
 
       // FK metadata fetch fails
       fetchStub.rejects(new Error('fk fetch failed'));
@@ -168,7 +170,7 @@ describe('DriftTreeProvider', () => {
 
       await provider.refresh();
       const root = await provider.getChildren();
-      const usersTable = root[1] as TableItem;
+      const usersTable = root[2] as TableItem;
       const children = await provider.getChildren(usersTable) as ColumnItem[];
 
       // id: INTEGER PK → key
@@ -195,7 +197,7 @@ describe('DriftTreeProvider', () => {
 
       await provider.refresh();
       const root = await provider.getChildren();
-      const usersTable = root[1] as TableItem;
+      const usersTable = root[2] as TableItem;
 
       assert.strictEqual(usersTable.description, '42 rows');
       assert.strictEqual((usersTable.iconPath as any).id, 'table');
