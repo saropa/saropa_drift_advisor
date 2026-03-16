@@ -54,7 +54,7 @@ Select any schema change from the timeline and instantly generate the reverse mi
 
 ---
 
-## [1.4.0]
+## [1.4.2]
 
 Fixes a critical bug that prevented VM Service auto-detection during Flutter/Dart debugging, hardens the entire connection/discovery subsystem with timeouts, retries, and exponential backoff, and adds comprehensive connection diagnostics.
 
