@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { fetchWithTimeout, HEALTH_PROBE_TIMEOUT_MS } from './transport/fetch-utils';
 
 /** Discovered server info. */
 export interface IServerInfo {
@@ -21,12 +22,16 @@ export interface IDiscoveryConfig {
 /** Polling state machine states. */
 export type DiscoveryState = 'searching' | 'connected' | 'backoff';
 
+// Polling schedule: 3s while searching → 15s once connected → 30s during backoff.
 const SEARCH_INTERVAL = 3000;
 const CONNECTED_INTERVAL = 15000;
 const BACKOFF_INTERVAL = 30000;
-const HEALTH_TIMEOUT_MS = 2000;
+/** Consecutive missed polls before removing a server from the active list. */
 const MISS_THRESHOLD = 2;
+/** Empty scans before entering backoff state (5 scans × 3s = 15s of no servers). */
 const BACKOFF_THRESHOLD = 5;
+/** After this many backoff polls (~90s at 30s intervals), reset to searching for auto-recovery. */
+const BACKOFF_CYCLES = 3;
 const NOTIFY_THROTTLE_MS = 60000;
 
 /** Optional log sink for discovery diagnostics. */
@@ -43,6 +48,7 @@ export class ServerDiscovery {
   private _servers = new Map<number, IServerInfo>();
   private _state: DiscoveryState = 'searching';
   private _emptyScans = 0;
+  private _backoffPolls = 0;
   private _running = false;
   private _pollId = 0; // Incremented on stop/retry to cancel stale polls
   private _pollTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -154,27 +160,22 @@ export class ServerDiscovery {
     host: string,
     port: number,
   ): Promise<boolean> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
     try {
-      const resp = await fetch(`http://${host}:${port}/api/health`, {
-        signal: controller.signal,
+      const resp = await fetchWithTimeout(`http://${host}:${port}/api/health`, {
+        timeoutMs: HEALTH_PROBE_TIMEOUT_MS,
       });
       const body = (await resp.json()) as { ok?: boolean };
       if (body?.ok !== true) {
         this._logLine(`Port ${port}: health responded but ok=${body?.ok}`);
         return false;
       }
-      return this._validateServer(host, port, controller.signal);
+      return this._validateServer(host, port);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // Only log non-connection-refused errors to avoid noise
       if (!msg.includes('ECONNREFUSED')) {
         this._logLine(`Port ${port}: ${msg}`);
       }
       return false;
-    } finally {
-      clearTimeout(timer);
     }
   }
 
@@ -182,11 +183,11 @@ export class ServerDiscovery {
   private async _validateServer(
     host: string,
     port: number,
-    signal: AbortSignal,
   ): Promise<boolean> {
     try {
-      const resp = await fetch(
-        `http://${host}:${port}/api/schema/metadata`, { signal },
+      const resp = await fetchWithTimeout(
+        `http://${host}:${port}/api/schema/metadata`,
+        { timeoutMs: HEALTH_PROBE_TIMEOUT_MS },
       );
       const data: unknown = await resp.json();
       if (!Array.isArray(data)) {
@@ -237,14 +238,25 @@ export class ServerDiscovery {
       }
     }
 
-    // State transitions
+    // State transitions: searching → backoff after BACKOFF_THRESHOLD empty scans,
+    // backoff → searching after BACKOFF_CYCLES polls (auto-recovery).
     const prevState = this._state;
     if (this._servers.size > 0) {
       this._state = 'connected';
       this._emptyScans = 0;
+      this._backoffPolls = 0;
     } else if (alivePorts.length === 0) {
       this._emptyScans++;
-      this._state = this._emptyScans >= BACKOFF_THRESHOLD ? 'backoff' : 'searching';
+      if (this._state === 'backoff') {
+        this._backoffPolls++;
+        if (this._backoffPolls >= BACKOFF_CYCLES) {
+          this._state = 'searching';
+          this._emptyScans = 0;
+          this._backoffPolls = 0;
+        }
+      } else {
+        this._state = this._emptyScans >= BACKOFF_THRESHOLD ? 'backoff' : 'searching';
+      }
     }
     if (this._state !== prevState) {
       this._logLine(`State: ${prevState} → ${this._state} (empty scans: ${this._emptyScans})`);

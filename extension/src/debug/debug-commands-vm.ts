@@ -39,6 +39,9 @@ export function registerDebugCommandsVm(
   } = deps;
   const { perfProvider, baselineStore, refreshInterval, logConnection } = options;
 
+  const VM_CONNECT_ATTEMPTS = 2;
+  const VM_CONNECT_RETRY_MS = 500;
+
   const tryConnectVm = async (
     session: vscode.DebugSession,
     vmUri: string,
@@ -56,49 +59,56 @@ export function registerDebugCommandsVm(
 
     logConnection(`VM Service: connecting to ${vmUri.replace(/\/[^/]+\/?$/, '/…')}`);
 
-    try {
-      const vmClient = new VmServiceClient({
-        wsUri: vmUri,
-        onClose: () => {
-          clearReported(session.id);
-          client.setVmClient(null);
-          vscode.commands.executeCommand(
-            'setContext',
-            'driftViewer.serverConnected',
-            false,
-          );
-          hoverCache.clear();
-          perfProvider.stopAutoRefresh();
-          linter.clear();
-          refreshStatusBar?.();
-          treeProvider.refresh();
-          logConnection('VM Service disconnected (e.g. hot restart). Next URI from debug output will retry.');
-          logBridge.writeConnectionEvent('VM Service disconnected (e.g. hot restart)');
-        },
-      });
-      await vmClient.connect();
-      client.setVmClient(vmClient);
-      await client.health();
-      vscode.commands.executeCommand(
-        'setContext',
-        'driftViewer.serverConnected',
-        true,
-      );
-      await treeProvider.refresh();
-      perfProvider.startAutoRefresh(client, refreshInterval);
-      refreshStatusBar?.();
-      logConnection('Connected via VM Service.');
-      logBridge.writeConnectionEvent(
-        'Connected to Drift debug server via VM Service',
-      );
-      return true;
-    } catch (err) {
-      client.setVmClient(null);
-      const message = err instanceof Error ? err.message : String(err);
-      logConnection(`VM Service connection failed: ${message}`);
-      logBridge.writeConnectionEvent(`VM Service connection failed: ${message}`);
-      return false;
+    for (let attempt = 1; attempt <= VM_CONNECT_ATTEMPTS; attempt++) {
+      try {
+        const vmClient = new VmServiceClient({
+          wsUri: vmUri,
+          onClose: () => {
+            clearReported(session.id);
+            client.setVmClient(null);
+            vscode.commands.executeCommand(
+              'setContext',
+              'driftViewer.serverConnected',
+              false,
+            );
+            hoverCache.clear();
+            perfProvider.stopAutoRefresh();
+            linter.clear();
+            refreshStatusBar?.();
+            treeProvider.refresh();
+            logConnection('VM Service disconnected (e.g. hot restart). Next URI from debug output will retry.');
+            logBridge.writeConnectionEvent('VM Service disconnected (e.g. hot restart)');
+          },
+        });
+        await vmClient.connect();
+        client.setVmClient(vmClient);
+        await client.health();
+        vscode.commands.executeCommand(
+          'setContext',
+          'driftViewer.serverConnected',
+          true,
+        );
+        await treeProvider.refresh();
+        perfProvider.startAutoRefresh(client, refreshInterval);
+        refreshStatusBar?.();
+        logConnection(`Connected via VM Service (attempt ${attempt}).`);
+        logBridge.writeConnectionEvent(
+          'Connected to Drift debug server via VM Service',
+        );
+        return true;
+      } catch (err) {
+        client.setVmClient(null);
+        const message = err instanceof Error ? err.message : String(err);
+        if (attempt < VM_CONNECT_ATTEMPTS) {
+          logConnection(`VM Service attempt ${attempt} failed: ${message}. Retrying in ${VM_CONNECT_RETRY_MS}ms…`);
+          await new Promise((r) => setTimeout(r, VM_CONNECT_RETRY_MS));
+        } else {
+          logConnection(`VM Service connection failed after ${attempt} attempts: ${message}`);
+          logBridge.writeConnectionEvent(`VM Service connection failed: ${message}`);
+        }
+      }
     }
+    return false;
   };
 
   const vmListener = registerVmServiceOutputListener((session, wsUri) => {

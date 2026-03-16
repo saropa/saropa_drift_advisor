@@ -5,6 +5,7 @@ import type {
   ISessionShareResult, ISizeAnalytics, PerformanceData, TableMetadata,
 } from './api-types';
 import type { VmServiceClient } from './transport/vm-service-client';
+import { fetchWithRetry, fetchWithTimeout } from './transport/fetch-utils';
 import {
   importDataRequest, sessionAnnotateRequest,
   sessionGetRequest, sessionShareRequest,
@@ -63,7 +64,7 @@ export class DriftApiClient {
     if (this._vmClient?.connected) {
       return this._vmClient.getHealth();
     }
-    const resp = await fetch(`${this._baseUrl}/api/health`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/health`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
@@ -76,7 +77,7 @@ export class DriftApiClient {
     if (this._vmClient?.connected) {
       return this._vmClient.getSchemaMetadata();
     }
-    const resp = await fetch(`${this._baseUrl}/api/schema/metadata`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/schema/metadata`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
@@ -90,7 +91,7 @@ export class DriftApiClient {
     if (this._vmClient?.connected) {
       return this._vmClient.getTableFkMeta(tableName);
     }
-    const resp = await fetch(
+    const resp = await fetchWithRetry(
       `${this._baseUrl}/api/table/${encodeURIComponent(tableName)}/fk-meta`,
       { headers: this._headers() },
     );
@@ -104,7 +105,7 @@ export class DriftApiClient {
     if (this._vmClient?.connected) {
       return this._vmClient.getGeneration();
     }
-    const resp = await fetch(
+    const resp = await fetchWithTimeout(
       `${this._baseUrl}/api/generation?since=${since}`,
       { headers: this._headers() },
     );
@@ -119,7 +120,7 @@ export class DriftApiClient {
     if (this._vmClient?.connected) {
       return this._vmClient.runSql(query);
     }
-    const resp = await fetch(`${this._baseUrl}/api/sql`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/sql`, {
       method: 'POST',
       headers: this._headers({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ sql: query }),
@@ -134,7 +135,7 @@ export class DriftApiClient {
     if (this._vmClient?.connected) {
       return this._vmClient.getIndexSuggestions();
     }
-    const resp = await fetch(`${this._baseUrl}/api/index-suggestions`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/index-suggestions`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
@@ -150,7 +151,7 @@ export class DriftApiClient {
       const { anomalies } = await this._vmClient.getAnomalies();
       return anomalies;
     }
-    const resp = await fetch(`${this._baseUrl}/api/analytics/anomalies`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/analytics/anomalies`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
@@ -165,7 +166,7 @@ export class DriftApiClient {
     if (this._vmClient?.connected) {
       return this._vmClient.getPerformance();
     }
-    const resp = await fetch(`${this._baseUrl}/api/analytics/performance`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/analytics/performance`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
@@ -180,7 +181,7 @@ export class DriftApiClient {
     if (this._vmClient?.connected) {
       return this._vmClient.explainSql(query);
     }
-    const resp = await fetch(`${this._baseUrl}/api/sql/explain`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/sql/explain`, {
       method: 'POST',
       headers: this._headers({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ sql: query }),
@@ -199,7 +200,7 @@ export class DriftApiClient {
       await this._vmClient.clearPerformance();
       return;
     }
-    const resp = await fetch(`${this._baseUrl}/api/analytics/performance`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/analytics/performance`, {
       method: 'DELETE',
       headers: this._headers(),
     });
@@ -209,7 +210,7 @@ export class DriftApiClient {
   }
 
   async schemaDiagram(): Promise<IDiagramData> {
-    const resp = await fetch(`${this._baseUrl}/api/schema/diagram`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/schema/diagram`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
@@ -219,7 +220,7 @@ export class DriftApiClient {
   }
 
   async schemaDump(): Promise<string> {
-    const resp = await fetch(`${this._baseUrl}/api/schema/dump`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/schema/dump`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
@@ -229,7 +230,7 @@ export class DriftApiClient {
   }
 
   async databaseFile(): Promise<ArrayBuffer> {
-    const resp = await fetch(`${this._baseUrl}/api/database`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/database`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
@@ -239,7 +240,7 @@ export class DriftApiClient {
   }
 
   async compareReport(): Promise<ICompareReport> {
-    const resp = await fetch(`${this._baseUrl}/api/compare/report`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/compare/report`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
@@ -249,7 +250,7 @@ export class DriftApiClient {
   }
 
   async migrationPreview(): Promise<IMigrationPreview> {
-    const resp = await fetch(`${this._baseUrl}/api/migration/preview`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/migration/preview`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
@@ -259,7 +260,7 @@ export class DriftApiClient {
   }
 
   async sizeAnalytics(): Promise<ISizeAnalytics> {
-    const resp = await fetch(`${this._baseUrl}/api/analytics/size`, {
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/analytics/size`, {
       headers: this._headers(),
     });
     if (!resp.ok) {

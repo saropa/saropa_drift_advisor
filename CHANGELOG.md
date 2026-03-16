@@ -3,6 +3,8 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+Dates are not included in version headers — [pub.dev](https://pub.dev/packages/saropa_lints/changelog) displays publish dates separately.
+
 **pub.dev** — [pub.dev / packages / saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
 
 **VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
@@ -15,16 +17,21 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ## [1.4.0]
 
-Fixes a critical bug that prevented VM Service auto-detection during Flutter/Dart debugging, and adds connection diagnostics to help troubleshoot server discovery on all platforms.
+Fixes a critical bug that prevented VM Service auto-detection during Flutter/Dart debugging, hardens the entire connection/discovery subsystem with timeouts, retries, and exponential backoff, and adds comprehensive connection diagnostics.
 
 ### Fixed
 
 - **VM Service output listener was non-functional** — The debug adapter tracker used `onOutput()` which does not exist on the VS Code `DebugAdapterTracker` interface. Replaced with `onDidSendMessage()` to correctly intercept DAP output events containing the VM Service URI. This was the primary cause of "drift is never detected" when debugging.
 - **"Select Server" button appeared to do nothing** — When no servers were found, a bare toast notification was easy to miss. Now shows an actionable warning with **Retry** and **View Log** buttons plus guidance about `DriftDebugServer.start()`.
+- **VM Service URI regex only matched IPv4 addresses** — Hostnames (`localhost`, `my-dev.local`) and IPv6 addresses (`[::1]`) were silently rejected. Broadened the regex to match all valid host formats.
 
 ### Added
 
-- **Connection diagnostics in Output channel** — Server discovery now writes timestamped diagnostic logs to the _Saropa Drift Advisor_ Output channel: port scan activity, health check failures (with error details), schema validation failures, and state transitions (searching/connected/backoff). Enables troubleshooting connection issues on Windows and other platforms.
+- **Request timeouts and retry** — All HTTP API calls now use `fetchWithTimeout` (8s default) and `fetchWithRetry` (single retry on transient errors with 200ms delay). Prevents fetch calls from hanging indefinitely on Windows and other platforms.
+- **Discovery backoff auto-recovery** — After 3 polls in backoff state (~90s), discovery automatically resets to searching. Users no longer wait indefinitely for the extension to try again.
+- **Generation watcher exponential backoff** — Poll errors now use exponential backoff (1s → 2s → 4s → … → 30s cap) instead of fixed 1s retries. First and every 10th error is logged. Resets to 1s on success.
+- **VM Service connect retry** — VM connection attempts now retry once (500ms delay) before failing. Isolate resolution also retries once (300ms delay) to handle VM startup timing.
+- **Connection diagnostics in Output channel** — Server discovery and generation watcher write timestamped diagnostic logs to the _Saropa Drift Advisor_ Output channel: port scan activity, health check failures, schema validation, state transitions, and backoff behavior.
 
 ---
 

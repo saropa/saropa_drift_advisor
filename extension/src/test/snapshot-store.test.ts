@@ -98,7 +98,9 @@ describe('SnapshotStore', () => {
     it('should return null on API failure', async () => {
       fetchStub.rejects(new Error('network error'));
       const store = new SnapshotStore(20, 0);
-      const snap = await store.capture(client);
+      const promise = store.capture(client);
+      await clock.tickAsync(300); // advance past fetchWithRetry 200ms retry delay
+      const snap = await promise;
       assert.strictEqual(snap, null);
     });
   });

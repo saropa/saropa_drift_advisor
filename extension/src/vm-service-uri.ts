@@ -5,9 +5,9 @@
 
 import * as vscode from 'vscode';
 
-/** Regex: HTTP or WS VM Service URL as printed by Flutter/Dart (e.g. http://127.0.0.1:56083/abc/ or ws://.../ws). */
+/** Regex: HTTP or WS VM Service URL as printed by Flutter/Dart. Matches IPv4, IPv6 ([::1]), and hostnames. */
 const VM_SERVICE_URL_RE =
-  /(?:https?|wss?):\/\/[0-9.]+:\d+\/[^\s'")\]]+(?:\/ws)?/gi;
+  /(?:https?|wss?):\/\/(?:\[[^\]]+\]|[a-zA-Z0-9._-]+):\d+\/[^\s'")\]]+(?:\/ws)?/gi;
 
 /** WebSocket URI format: ws(s)://host:port/path (path may end with /ws). Used to validate before connect. */
 const VM_WS_URI_RE = /^wss?:\/\/[^\s/]+:\d+\/[^\s]+$/;

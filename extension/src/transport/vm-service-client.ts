@@ -66,15 +66,24 @@ export class VmServiceClient {
       this._pending.clear();
       this._onClose?.();
     };
-    const isolates = (await this._request('getIsolates', {})) as {
-      isolates?: { id: string }[];
-    };
-    const list = isolates?.isolates;
+    let list = await this._resolveIsolates();
+    if (!list?.length) {
+      // VM may still be starting — retry once after a short delay.
+      await new Promise((r) => setTimeout(r, 300));
+      list = await this._resolveIsolates();
+    }
     if (!list?.length) {
       this.close();
       throw new Error('VM Service: no isolates');
     }
     this._isolateId = list[0].id;
+  }
+
+  private async _resolveIsolates(): Promise<{ id: string }[] | undefined> {
+    const result = (await this._request('getIsolates', {})) as {
+      isolates?: { id: string }[];
+    };
+    return result?.isolates;
   }
 
   get connected(): boolean {
