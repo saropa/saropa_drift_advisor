@@ -73,6 +73,17 @@ final class Router {
       _ctx.markExtensionSeen();
     }
 
+    // Favicon: return 204 so the browser stops requesting /favicon.ico.
+    // The HTML <head> already provides an inline SVG data-URI icon.
+    if (req.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathFavicon ||
+            path == ServerConstants.pathFaviconAlt)) {
+      res.statusCode = HttpStatus.noContent;
+      await res.close();
+
+      return;
+    }
+
     // Health and generation are checked before the
     // DB query so probes / live-refresh work.
     try {

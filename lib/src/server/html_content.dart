@@ -7,6 +7,7 @@ abstract final class HtmlContent {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Drift DB</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='8' rx='12' ry='5' fill='%23546e7a'/%3E%3Cpath d='M4 8v16c0 2.8 5.4 5 12 5s12-2.2 12-5V8' fill='none' stroke='%23546e7a' stroke-width='2'/%3E%3Cellipse cx='16' cy='24' rx='12' ry='5' fill='none' stroke='%23546e7a' stroke-width='2'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='5' fill='none' stroke='%23546e7a' stroke-width='2'/%3E%3C/svg%3E">
   <style>
     * { box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; margin: 1rem; background: var(--bg); color: var(--fg); max-width: 100%; overflow-x: hidden; }
@@ -676,9 +677,9 @@ abstract final class HtmlContent {
         var val = item.querySelector('.qb-where-val').value;
         if (op === 'IS NULL') { whereParts.push('"' + col + '" IS NULL'); }
         else if (op === 'IS NOT NULL') { whereParts.push('"' + col + '" IS NOT NULL'); }
-        else if (op === 'LIKE') { whereParts.push('"' + col + "\" LIKE '%" + val.replace(/'/g, "''") + "%'"); }
-        else if (op === 'NOT_LIKE') { whereParts.push('"' + col + "\" NOT LIKE '%" + val.replace(/'/g, "''") + "%'"); }
-        else if (op === 'LIKE_START') { whereParts.push('"' + col + "\" LIKE '" + val.replace(/'/g, "''") + "%'"); }
+        else if (op === 'LIKE') { whereParts.push('"' + col + "\\" LIKE '%" + val.replace(/'/g, "''") + "%'"); }
+        else if (op === 'NOT_LIKE') { whereParts.push('"' + col + "\\" NOT LIKE '%" + val.replace(/'/g, "''") + "%'"); }
+        else if (op === 'LIKE_START') { whereParts.push('"' + col + "\\" LIKE '" + val.replace(/'/g, "''") + "%'"); }
         else {
           var isNum = !isNaN(val) && val.trim() !== '';
           var sqlVal = isNum ? val : "'" + val.replace(/'/g, "''") + "'";

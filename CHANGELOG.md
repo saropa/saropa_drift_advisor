@@ -26,6 +26,8 @@ The extension couldn't connect to running servers and now has an About button fo
 ### Fixed
 
 - **Server discovery rejected valid servers** — The secondary validation in `ServerDiscovery._validateServer` checked `Array.isArray(data)` on the `/api/schema/metadata` response, but the server returns `{ tables: [...] }` (an object wrapping the array). Health checks passed but every server was then silently rejected, preventing the extension from ever connecting. Now accepts both raw array and wrapped `{ tables: [...] }` formats.
+- **Query builder LIKE operators caused JS syntax error** — The Dart `'''` string escape `"\"` was consumed by Dart as an escaped double-quote, producing `""` in the served JavaScript. This broke `LIKE`, `NOT LIKE`, and `LIKE_START` operator conditions in the query builder with `Uncaught SyntaxError: missing ) after argument list`. Fixed by using `"\\"` so Dart emits `\"` (a valid JS string escape).
+- **Browser console 404 for `/favicon.ico`** — Added an inline SVG database-cylinder favicon via `<link rel="icon">` data URI in the HTML head, and a lightweight 204 No Content route for `/favicon.ico` requests.
 
 ---
 
