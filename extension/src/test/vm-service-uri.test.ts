@@ -74,6 +74,10 @@ describe('isValidVmServiceUri', () => {
     assert.strictEqual(isValidVmServiceUri('wss://127.0.0.1:443/foo/ws'), true);
   });
 
+  it('accepts valid ws URI with IPv6 address', () => {
+    assert.strictEqual(isValidVmServiceUri('ws://[::1]:8642/abc123/ws'), true);
+  });
+
   it('rejects non-WS URIs', () => {
     assert.strictEqual(isValidVmServiceUri('http://127.0.0.1:8642/'), false);
     assert.strictEqual(isValidVmServiceUri('file:///tmp/foo'), false);

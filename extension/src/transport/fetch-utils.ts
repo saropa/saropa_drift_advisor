@@ -70,6 +70,7 @@ export function isTransientError(err: unknown): boolean {
  * Fetch with timeout + a single retry on transient errors.
  * Adds 200ms delay before retry to avoid hammering a recovering server.
  * Non-transient errors (4xx, parse failures) are thrown immediately.
+ * Does not retry if the caller's signal was intentionally aborted.
  */
 export async function fetchWithRetry(
   url: string,
@@ -82,9 +83,15 @@ export async function fetchWithRetry(
     }
     return resp;
   } catch (err) {
+    // Don't retry if the caller intentionally aborted the request.
+    if (init?.signal?.aborted) throw err;
     if (isTransientError(err)) {
       await new Promise((r) => setTimeout(r, 200));
-      return fetchWithTimeout(url, init);
+      const resp = await fetchWithTimeout(url, init);
+      if (resp.status >= 500) {
+        throw new Error(`Server error: ${resp.status}`);
+      }
+      return resp;
     }
     throw err;
   }

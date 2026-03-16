@@ -225,7 +225,7 @@ export class VmServiceClient {
       jsonrpc: '2.0',
       id,
       method,
-      params: this._stringifyParams(params),
+      params,
     });
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -244,10 +244,6 @@ export class VmServiceClient {
       });
       ws.send(msg);
     });
-  }
-
-  private _stringifyParams(params: Record<string, string>): Record<string, string> {
-    return params;
   }
 
   private _onMessage(ev: MessageEvent): void {

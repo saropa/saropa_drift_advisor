@@ -60,8 +60,9 @@ export function registerDebugCommandsVm(
     logConnection(`VM Service: connecting to ${vmUri.replace(/\/[^/]+\/?$/, '/…')}`);
 
     for (let attempt = 1; attempt <= VM_CONNECT_ATTEMPTS; attempt++) {
+      let vmClient: VmServiceClient | undefined;
       try {
-        const vmClient = new VmServiceClient({
+        vmClient = new VmServiceClient({
           wsUri: vmUri,
           onClose: () => {
             clearReported(session.id);
@@ -97,6 +98,8 @@ export function registerDebugCommandsVm(
         );
         return true;
       } catch (err) {
+        // Close the failed client's WebSocket (may not have been set on DriftApiClient yet).
+        vmClient?.close();
         client.setVmClient(null);
         const message = err instanceof Error ? err.message : String(err);
         if (attempt < VM_CONNECT_ATTEMPTS) {

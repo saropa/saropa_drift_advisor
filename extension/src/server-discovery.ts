@@ -282,9 +282,8 @@ export class ServerDiscovery {
     this._notifiedAt.set(port, now);
 
     if (event === 'found') {
-      vscode.window.showInformationMessage(
+      void vscode.window.showInformationMessage(
         `Drift debug server detected on port ${port}`,
-        'Open Panel',
         'Dismiss',
       );
     } else {
