@@ -190,8 +190,12 @@ export class ServerDiscovery {
         { timeoutMs: HEALTH_PROBE_TIMEOUT_MS },
       );
       const data: unknown = await resp.json();
-      if (!Array.isArray(data)) {
-        this._logLine(`Port ${port}: schema/metadata returned non-array (${typeof data})`);
+      // Accept both formats: raw array [...] or wrapped { tables: [...] }
+      const tables = Array.isArray(data)
+        ? data
+        : (data as Record<string, unknown>)?.tables;
+      if (!Array.isArray(tables)) {
+        this._logLine(`Port ${port}: schema/metadata returned unexpected shape (${typeof data})`);
         return false;
       }
       return true;

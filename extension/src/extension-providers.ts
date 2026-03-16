@@ -147,7 +147,9 @@ export function setupProviders(
 
   // Standalone "Drift Tools" sidebar view: always visible, lists all major
   // commands grouped by category. Greyed-out items when not connected.
-  const toolsProvider = new ToolsTreeProvider();
+  // Version is passed for the "About Saropa Drift Advisor vX.Y.Z" tree item.
+  const extensionVersion = (context.extension?.packageJSON as { version?: string } | undefined)?.version ?? '0.0.0';
+  const toolsProvider = new ToolsTreeProvider(extensionVersion);
   const toolsView = vscode.window.createTreeView('driftViewer.toolbox', {
     treeDataProvider: toolsProvider,
     showCollapseAll: true,

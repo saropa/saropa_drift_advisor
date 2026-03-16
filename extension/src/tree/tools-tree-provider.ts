@@ -83,9 +83,14 @@ export class ToolCommandItem extends vscode.TreeItem {
 
 export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode> {
   private _connected = false;
+  private readonly _version: string;
   private readonly _onDidChangeTreeData =
     new vscode.EventEmitter<ToolsTreeNode | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+  constructor(version?: string) {
+    this._version = version ?? '0.0.0';
+  }
 
   /** Called when server connection state changes. Re-renders the tree. */
   setConnected(connected: boolean): void {
@@ -105,7 +110,7 @@ export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode>
 
   getChildren(element?: ToolsTreeNode): ToolsTreeNode[] {
     if (!element) {
-      return buildCategories();
+      return buildCategories(this._version);
     }
     if (element instanceof ToolCategoryItem) {
       return element.tools;
@@ -117,9 +122,13 @@ export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode>
 // ── Static category definitions ───────────────────────────────────────
 
 /** Build the full categorised tool list. Called on every render. */
-function buildCategories(): ToolCategoryItem[] {
+function buildCategories(version: string): ToolCategoryItem[] {
   return [
     new ToolCategoryItem('Getting Started', 'star', [
+      new ToolCommandItem(
+        `About Saropa Drift Advisor v${version}`, 'driftViewer.about', 'book',
+        false, 'View release notes and changelog',
+      ),
       new ToolCommandItem(
         'Open Walkthrough', 'driftViewer.openWalkthrough', 'info',
         false, 'Step-by-step guide to the extension',
