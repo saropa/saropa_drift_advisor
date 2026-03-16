@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#1e1e1e"/>
+  <!-- Plug/connection icon -->
+  <circle cx="160" cy="90" r="20" fill="none" stroke="#569cd6" stroke-width="2.5"/>
+  <circle cx="240" cy="90" r="20" fill="none" stroke="#4ec9b0" stroke-width="2.5"/>
+  <!-- Connection line -->
+  <line x1="180" y1="90" x2="220" y2="90" stroke="#dcdcaa" stroke-width="3" stroke-dasharray="6,4"/>
+  <!-- Phone icon (left) -->
+  <rect x="150" y="78" width="20" height="24" rx="3" fill="none" stroke="#569cd6" stroke-width="1.5"/>
+  <!-- VS Code icon (right) -->
+  <rect x="230" y="78" width="20" height="24" rx="3" fill="none" stroke="#4ec9b0" stroke-width="1.5"/>
+  <line x1="230" y1="84" x2="250" y2="84" stroke="#4ec9b0" stroke-width="1.5"/>
+  <!-- Title -->
+  <text x="200" y="160" font-family="Segoe UI, sans-serif" font-size="18" fill="#cccccc" text-anchor="middle" font-weight="600">Connect to Your App</text>
+  <!-- Subtitle -->
+  <text x="200" y="190" font-family="Segoe UI, sans-serif" font-size="13" fill="#858585" text-anchor="middle">Run your Flutter app in debug mode.</text>
+  <text x="200" y="208" font-family="Segoe UI, sans-serif" font-size="13" fill="#858585" text-anchor="middle">The extension auto-discovers Drift servers</text>
+  <text x="200" y="226" font-family="Segoe UI, sans-serif" font-size="13" fill="#858585" text-anchor="middle">or connects via VM Service.</text>
+</svg>

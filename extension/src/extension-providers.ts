@@ -18,6 +18,7 @@ import { HealthTerminalLinkProvider } from './tasks/health-link-provider';
 import { DriftTimelineProvider } from './timeline/drift-timeline-provider';
 import { SnapshotStore } from './timeline/snapshot-store';
 import { DriftTreeProvider } from './tree/drift-tree-provider';
+import { ToolsTreeProvider } from './tree/tools-tree-provider';
 import { WatchManager } from './watch/watch-manager';
 import { DataBreakpointProvider } from './data-breakpoint/data-breakpoint-provider';
 
@@ -37,6 +38,7 @@ export interface ProviderSetupResult {
   refreshBadges: () => Promise<void>;
   dbpProvider: DataBreakpointProvider;
   logBridge: LogCaptureBridge;
+  toolsProvider: ToolsTreeProvider;
 }
 
 /**
@@ -143,6 +145,15 @@ export function setupProviders(
   logBridge.init(context, client).catch(() => { /* extension not installed */ });
   context.subscriptions.push({ dispose: () => logBridge.dispose() });
 
+  // Standalone "Drift Tools" sidebar view: always visible, lists all major
+  // commands grouped by category. Greyed-out items when not connected.
+  const toolsProvider = new ToolsTreeProvider();
+  const toolsView = vscode.window.createTreeView('driftViewer.toolbox', {
+    treeDataProvider: toolsProvider,
+    showCollapseAll: true,
+  });
+  context.subscriptions.push(toolsView);
+
   return {
     treeProvider,
     treeView,
@@ -159,5 +170,6 @@ export function setupProviders(
     refreshBadges,
     dbpProvider,
     logBridge,
+    toolsProvider,
   };
 }

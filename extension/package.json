@@ -75,6 +75,11 @@
           "name": "Pending Changes",
           "icon": "$(edit)",
           "when": "driftViewer.hasEdits"
+        },
+        {
+          "id": "driftViewer.toolbox",
+          "name": "Drift Tools",
+          "icon": "$(tools)"
         }
       ],
       "debug": [
@@ -90,6 +95,11 @@
       {
         "view": "driftViewer.databaseExplorer",
         "contents": "Saropa Drift Advisor is disabled.\n\nTurn on the extension to discover and connect to Drift debug servers.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22driftViewer.enabled%22%5D)",
+        "when": "!driftViewer.enabled"
+      },
+      {
+        "view": "driftViewer.toolbox",
+        "contents": "Saropa Drift Advisor is disabled.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22driftViewer.enabled%22%5D)",
         "when": "!driftViewer.enabled"
       },
       {
@@ -509,6 +519,16 @@
       {
         "command": "driftViewer.openComplianceConfig",
         "title": "Saropa Drift Advisor: Open Compliance Config"
+      },
+      {
+        "command": "driftViewer.openWalkthrough",
+        "title": "Saropa Drift Advisor: Getting Started",
+        "icon": "$(info)"
+      },
+      {
+        "command": "driftViewer.showToolsQuickPick",
+        "title": "Saropa Drift Advisor: Drift Tools Menu",
+        "icon": "$(tools)"
       }
     ],
     "menus": {
@@ -596,6 +616,11 @@
         {
           "command": "driftViewer.addPackageToProject",
           "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.openWalkthrough",
+          "when": "view == driftViewer.toolbox",
           "group": "navigation"
         }
       ],
@@ -988,9 +1013,83 @@
           "type": "boolean",
           "default": true,
           "description": "Enable schema compliance checks from .drift-rules.json."
+        },
+        "driftViewer.dashboard.showOnConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a notification to open the Dashboard when a server first connects."
         }
       }
     },
+    "walkthroughs": [
+      {
+        "id": "driftViewer.gettingStarted",
+        "title": "Get Started with Saropa Drift Advisor",
+        "description": "Learn how to connect to your Flutter/Drift app and explore your SQLite database.",
+        "steps": [
+          {
+            "id": "addPackage",
+            "title": "Add the Drift Advisor Package",
+            "description": "Add `saropa_drift_advisor` to your Flutter project's dev dependencies. This enables the debug server that the extension connects to.\n\n[Add Package to Project](command:driftViewer.addPackageToProject)",
+            "media": {
+              "svg": "media/walkthrough/step-add-package.svg",
+              "altText": "Adding the drift advisor package to your project"
+            },
+            "completionEvents": [
+              "onCommand:driftViewer.addPackageToProject"
+            ]
+          },
+          {
+            "id": "connectServer",
+            "title": "Connect to a Running App",
+            "description": "Start your Flutter app in debug mode. The extension auto-discovers Drift debug servers, or connects via VM Service during debugging.\n\nCheck the status bar for connection state. If offline, click it to retry.\n\n[Retry Discovery](command:driftViewer.retryDiscovery)\n[Select Server](command:driftViewer.selectServer)",
+            "media": {
+              "svg": "media/walkthrough/step-connect.svg",
+              "altText": "Connecting to the debug server"
+            },
+            "completionEvents": [
+              "onContext:driftViewer.serverConnected"
+            ]
+          },
+          {
+            "id": "exploreDatabase",
+            "title": "Explore Your Database",
+            "description": "Open the Database Explorer in the sidebar to see your tables, columns, and foreign keys. Click any table to view its data.\n\n[Open Database Explorer](command:driftViewer.databaseExplorer.focus)",
+            "media": {
+              "svg": "media/walkthrough/step-explore.svg",
+              "altText": "Exploring the database tree"
+            },
+            "completionEvents": [
+              "onView:driftViewer.databaseExplorer"
+            ]
+          },
+          {
+            "id": "runHealthCheck",
+            "title": "Run a Health Check",
+            "description": "Get an instant assessment of your database's health \u2014 index coverage, FK integrity, null density, query performance, and more.\n\n[Run Health Check](command:driftViewer.healthScore)",
+            "media": {
+              "svg": "media/walkthrough/step-health.svg",
+              "altText": "Running a database health check"
+            },
+            "completionEvents": [
+              "onCommand:driftViewer.healthScore"
+            ]
+          },
+          {
+            "id": "generateMigration",
+            "title": "Generate a Migration",
+            "description": "Diff your Dart code schema against the runtime database and generate migration code automatically.\n\n[Schema Diff](command:driftViewer.schemaDiff)\n[Generate Migration](command:driftViewer.generateMigration)",
+            "media": {
+              "svg": "media/walkthrough/step-migration.svg",
+              "altText": "Generating migration code"
+            },
+            "completionEvents": [
+              "onCommand:driftViewer.generateMigration"
+            ]
+          }
+        ]
+      }
+    ],
     "jsonValidation": [
       {
         "fileMatch": ".drift-rules.json",

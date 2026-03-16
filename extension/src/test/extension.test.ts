@@ -98,8 +98,10 @@ describe('Extension activation', () => {
     // Perf regression: resetPerfBaseline, resetAllPerfBaselines (2)
     // Rollback generator: schemaTracker, generateRollback (2)
     // ADB forward: onDidStartDebugSession, timer cleanup (2)
+    // Discoverability: toolsView, healthStatusBar, toolsQuickPick,
+    //   openWalkthrough, showToolsQuickPick (5)
     // Total grows as new features are added
-    assert.strictEqual(subscriptions.length, 162, `expected 162 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 167, `expected 167 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
