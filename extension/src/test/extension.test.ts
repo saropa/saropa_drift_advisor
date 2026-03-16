@@ -100,8 +100,9 @@ describe('Extension activation', () => {
     // ADB forward: onDidStartDebugSession, timer cleanup (2)
     // Discoverability: toolsView, healthStatusBar, toolsQuickPick,
     //   openWalkthrough, showToolsQuickPick (5)
+    // About: about (1)
     // Total grows as new features are added
-    assert.strictEqual(subscriptions.length, 167, `expected 167 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 168, `expected 168 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

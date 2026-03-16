@@ -192,8 +192,25 @@ describe('ServerDiscovery', () => {
     assert.strictEqual(discovery.state, 'searching');
   });
 
+  it('should accept wrapped metadata format { tables: [...] }', async () => {
+    // Real servers return metadata wrapped in { tables: [...] } instead of a raw array
+    fetchStub
+      .withArgs('http://127.0.0.1:8642/api/health', sinon.match.any)
+      .resolves(makeResponse(healthJson()));
+    fetchStub
+      .withArgs('http://127.0.0.1:8642/api/schema/metadata')
+      .resolves(makeResponse(JSON.stringify({ tables: [{ name: 'users', columns: [], rowCount: 5 }] })));
+
+    discovery = new ServerDiscovery(defaultConfig());
+    discovery.start();
+    await clock.tickAsync(1);
+
+    assert.strictEqual(discovery.servers.length, 1, 'should accept wrapped {tables:[...]} format');
+    assert.strictEqual(discovery.servers[0].port, 8642);
+  });
+
   it('should reject servers failing secondary validation', async () => {
-    // Health passes but metadata fails
+    // Health passes but metadata fails — response has neither array nor tables key
     fetchStub
       .withArgs('http://127.0.0.1:8642/api/health', sinon.match.any)
       .resolves(makeResponse(healthJson()));

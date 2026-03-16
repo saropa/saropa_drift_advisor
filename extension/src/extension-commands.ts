@@ -38,6 +38,7 @@ import { registerClipboardImportCommands } from './import/clipboard-import-comma
 import { registerReportCommands } from './report/report-commands';
 import { registerWorkspaceSetupCommands } from './workspace-setup/workspace-setup-commands';
 import { registerRollbackCommands } from './rollback/rollback-commands';
+import { registerAboutCommands } from './about/about-commands';
 import { HealthScorer } from './health/health-scorer';
 import { updateStatusBar } from './status-bar';
 import type { HealthStatusBar } from './status-bar-health';
@@ -145,6 +146,7 @@ export function registerAllCommands(
     ['report', () => registerReportCommands(context, client)],
     ['workspaceSetup', () => registerWorkspaceSetupCommands(context)],
     ['rollback', () => registerRollbackCommands(context, schemaTracker)],
+    ['about', () => registerAboutCommands(context)],
   ];
   for (const [name, register] of featureModules) {
     try {

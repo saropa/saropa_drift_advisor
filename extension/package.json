@@ -529,6 +529,11 @@
         "command": "driftViewer.showToolsQuickPick",
         "title": "Saropa Drift Advisor: Drift Tools Menu",
         "icon": "$(tools)"
+      },
+      {
+        "command": "driftViewer.about",
+        "title": "Saropa Drift Advisor: About",
+        "icon": "$(info)"
       }
     ],
     "menus": {
