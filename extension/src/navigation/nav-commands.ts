@@ -123,14 +123,27 @@ export function registerNavCommands(
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('driftViewer.selectServer', () =>
-      serverManager.selectServer(),
-    ),
+    vscode.commands.registerCommand('driftViewer.selectServer', async () => {
+      try {
+        await serverManager.selectServer();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(`Select Server failed: ${msg}`);
+      }
+    }),
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('driftViewer.retryDiscovery', () =>
-      discovery.retry(),
-    ),
+    vscode.commands.registerCommand('driftViewer.retryDiscovery', () => {
+      try {
+        discovery.retry();
+        void vscode.window.showInformationMessage(
+          'Retrying server discovery… Check Output → Saropa Drift Advisor for details.',
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(`Retry discovery failed: ${msg}`);
+      }
+    }),
   );
 
   /** Forward host port to Android emulator so the extension can reach the Drift server. */
@@ -141,7 +154,7 @@ export function registerNavCommands(
         await vscode.window.withProgress(
           {
             location: vscode.ProgressLocation.Notification,
-            title: 'Forwarding port to Android…',
+            title: `Forwarding port ${port} to Android…`,
             cancellable: false,
           },
           () => runAdbForward(port),

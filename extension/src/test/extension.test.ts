@@ -97,9 +97,9 @@ describe('Extension activation', () => {
     // Portable report: exportReport (1)
     // Perf regression: resetPerfBaseline, resetAllPerfBaselines (2)
     // Rollback generator: schemaTracker, generateRollback (2)
-    // ADB forward: onDidStartDebugSession (1)
+    // ADB forward: onDidStartDebugSession, timer cleanup (2)
     // Total grows as new features are added
-    assert.strictEqual(subscriptions.length, 161, `expected 161 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 162, `expected 162 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -202,6 +202,12 @@ describe('Extension activation', () => {
       (p) => p.selector?.language === 'dart' && p.selector?.scheme === 'file',
     );
     assert.ok(dartProvider, 'Should register a CodeAction provider for Dart files');
+  });
+
+  it('should register rollback generator command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.generateRollback' in registered, 'generateRollback should be registered');
   });
 
   it('deactivate should not throw', () => {

@@ -28,11 +28,6 @@ function col(name: string, type = 'TEXT', pk = false) {
   return { name, type, pk };
 }
 
-/** Create a foreign key definition for use in snapshots. */
-function fk(fromColumn: string, toTable: string, toColumn: string) {
-  return { fromColumn, toTable, toColumn };
-}
-
 // ---- extractColumnName tests ----
 
 describe('extractColumnName', () => {

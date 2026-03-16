@@ -159,12 +159,16 @@ class _DriftDebugServerImpl {
       _vmBridge = VmServiceBridge(router);
       _vmBridge?.register();
 
-      ctx.log(ServerConstants.bannerTop);
-      ctx.log(ServerConstants.bannerTitle);
-      ctx.log(ServerConstants.bannerDivider);
-      ctx.log(ServerConstants.bannerOpen);
-      ctx.log('${ServerConstants.bannerUrlPrefix}$port');
-      ctx.log(ServerConstants.bannerBottom);
+      // Single log call so the banner is one output entry,
+      // avoiding per-line stack traces in debug console.
+      ctx.log(
+        '${ServerConstants.bannerTop}\n'
+        '${ServerConstants.bannerTitle}\n'
+        '${ServerConstants.bannerDivider}\n'
+        '${ServerConstants.bannerOpen}\n'
+        '${ServerConstants.bannerUrlPrefix}$port\n'
+        '${ServerConstants.bannerBottom}',
+      );
     } on Object catch (error, stack) {
       ctx.logError(error, stack);
     }
