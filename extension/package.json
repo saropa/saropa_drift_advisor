@@ -1011,7 +1011,7 @@
     "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.85.0",
     "husky": "^9.1.7",
-    "lint-staged": "^16.3.3",
+    "lint-staged": "^16.4.0",
     "mocha": "^11.3.0",
     "sinon": "^21.0.2",
     "typescript": "^5.3.0"
