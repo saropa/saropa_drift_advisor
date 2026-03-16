@@ -300,8 +300,11 @@ def _stamp_changelog(
 
     Handles three formats:
     1. ``## [x.y.z] - Unreleased`` → ``## [x.y.z]`` (remove suffix)
-    2. ``## [Unreleased]`` + existing ``## [x.y.z]`` → merge sections
+    2. ``## [Unreleased]`` + existing ``## [x.y.z]`` → merge content into [x.y.z]
     3. ``## [Unreleased]`` alone → ``## [x.y.z]``
+
+    In all cases a fresh empty ``## [Unreleased]`` section is re-added above
+    the stamped heading so the CHANGELOG is ready for future changes.
 
     Note: Empty changelog validation is done earlier in validate_version_changelog.
     """
@@ -324,12 +327,38 @@ def _stamp_changelog(
     if count:
         ok(f"CHANGELOG: [{version}] - Unreleased -> [{version}]")
     elif _changelog_has_version(version, content):
-        # Case 2: separate [Unreleased] heading + existing [version] heading
-        updated, count = _UNPUBLISHED_HEADING_RE.subn('', content, count=1)
-        if count == 0:
+        # Case 2: separate [Unreleased] heading + existing [version] heading.
+        # Move unreleased content into the [version] section so it's not
+        # orphaned without a heading.
+        unrel_match = _UNPUBLISHED_HEADING_RE.search(content)
+        if not unrel_match:
             fail("Could not find '## [Unreleased]' to merge into existing heading.")
             return False
-        updated = re.sub(r'\n{3,}', '\n\n', updated)
+        ver_re = re.compile(
+            rf'^##\s*\[{re.escape(version)}\]',
+            re.MULTILINE,
+        )
+        ver_match = ver_re.search(content, unrel_match.end())
+        if not ver_match:
+            fail(f"Could not find '## [{version}]' after [Unreleased].")
+            return False
+        # Extract content between [Unreleased] heading and [version] heading,
+        # stripping any trailing --- separator.
+        between = content[unrel_match.end():ver_match.start()]
+        unreleased_body = re.sub(r'\s*---\s*$', '', between).strip()
+        # Find end of the [version] heading line
+        ver_line_end = content.find('\n', ver_match.start())
+        if ver_line_end == -1:
+            ver_line_end = len(content)
+        # Rebuild: before [Unreleased] + [version] heading + merged content + rest
+        before = content[:unrel_match.start()].rstrip('\n')
+        ver_heading = content[ver_match.start():ver_line_end]
+        after_ver = content[ver_line_end:]
+        parts = [before, '\n\n', ver_heading]
+        if unreleased_body:
+            parts.append(f'\n\n{unreleased_body}')
+        parts.append(after_ver)
+        updated = ''.join(parts)
         ok(f"CHANGELOG: merged [Unreleased] into existing [{version}]")
     else:
         # Case 3: [Unreleased] → [version]
@@ -338,6 +367,24 @@ def _stamp_changelog(
             fail("Could not find '## [Unreleased]' (or [Unpublished]/[Undefined]) in CHANGELOG.md")
             return False
         ok(f"CHANGELOG: [Unreleased] -> [{version}]")
+
+    # Re-add a fresh empty [Unreleased] section above the stamped heading
+    # so the CHANGELOG is ready for future changes.
+    if not _UNPUBLISHED_HEADING_RE.search(updated):
+        ver_re = re.compile(
+            rf'^##\s*\[{re.escape(version)}\]',
+            re.MULTILINE,
+        )
+        ver_match = ver_re.search(updated)
+        if ver_match:
+            updated = (
+                updated[:ver_match.start()].rstrip('\n')
+                + '\n\n## [Unreleased]\n\n---\n\n'
+                + updated[ver_match.start():]
+            )
+
+    # Clean up triple+ blank lines
+    updated = re.sub(r'\n{3,}', '\n\n', updated)
 
     try:
         with open(changelog_path, "w", encoding="utf-8") as f:
