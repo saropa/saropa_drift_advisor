@@ -22,7 +22,16 @@ Select any schema change from the timeline and instantly generate the reverse mi
 ### Added
 
 - **Migration Rollback Generator** — Command palette → _Generate Migration Rollback_: pick a schema change from the timeline QuickPick, then the extension generates the reverse SQL (`DROP TABLE`, `ALTER TABLE DROP COLUMN`, etc.) and wraps it in Dart `customStatement()` calls. Opens in a new editor tab for review. Handles all change types: table add/drop, column add/remove, type changes, and FK changes. Warns about SQLite limitations (DROP COLUMN requires 3.35.0+, type/FK changes need manual table recreation). Multi-line CREATE TABLE uses triple-quote Dart strings for readability. Rollback statements are ordered correctly (drops before recreates). Warnings are deduplicated.
-- **ADB auto-forward on debug start** — When a Flutter/Dart debug session starts, the extension now waits 5 seconds then automatically attempts ADB port-forwarding if no server is found. Complements the existing discovery-based forwarding for emulator debugging.
+- **ADB auto-forward on debug start** — When a Flutter/Dart debug session starts, the extension now waits 5 seconds then automatically attempts ADB port-forwarding if no server is found. Complements the existing discovery-based forwarding for emulator debugging. Timer is properly cleaned up on deactivation.
+
+### Fixed
+
+- **Welcome-view buttons gave no user feedback** — "Retry Connection" now shows an info notification on click. "Select Server" and "Forward Port" errors are now caught and displayed. Previously all three buttons appeared to do nothing when clicked.
+- **Discovery event not fired on state transitions** — `onDidChangeServers` now also fires when the discovery state machine transitions (e.g. searching → backoff), allowing listeners like the auto-adb-forward trigger to fire even when the server list stays permanently empty.
+
+### Changed
+
+- **Dart server banner consolidated** — The six separate `ctx.log()` calls for the startup banner are now a single concatenated call, avoiding per-line stack traces in the debug console.
 
 ---
 

@@ -262,7 +262,10 @@ export class ServerDiscovery {
       this._logLine(`State: ${prevState} → ${this._state} (empty scans: ${this._emptyScans})`);
     }
 
-    if (changed) {
+    // Fire when server list changes OR on state transitions (e.g. searching →
+    // backoff). Without this, listeners like the adb-forward trigger never fire
+    // when the list stays permanently empty.
+    if (changed || this._state !== prevState) {
       this._onDidChangeServers.fire(this.servers);
     }
   }
