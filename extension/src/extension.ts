@@ -16,6 +16,8 @@ import { SchemaIntelligence } from './engines/schema-intelligence';
 import { QueryIntelligence } from './engines/query-intelligence';
 import { DashboardPanel } from './dashboard/dashboard-panel';
 import { updateStatusBar } from './status-bar';
+import { HealthStatusBar } from './status-bar-health';
+import { ToolsQuickPickStatusBar, registerToolsQuickPickCommand } from './status-bar-tools';
 import { hasFlutterOrDartDebugSession, tryAdbForwardAndRetry } from './android-forward';
 import { setupProviders } from './extension-providers';
 import { setupDiagnostics } from './extension-diagnostics';
@@ -109,6 +111,9 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   });
 
+  // Session flag: only show the "Open Dashboard" prompt once per activation
+  let dashboardPromptShown = false;
+
   const annotationStore = new AnnotationStore(context.workspaceState);
   const providers = setupProviders(context, client, annotationStore);
 
@@ -136,6 +141,15 @@ export function activate(context: vscode.ExtensionContext): void {
   refreshStatusBar();
   context.subscriptions.push(statusItem);
 
+  // Health score status bar: hidden until first health check, click re-runs
+  const healthStatusBar = new HealthStatusBar();
+  context.subscriptions.push(healthStatusBar);
+
+  // Drift Tools QuickPick status bar: visible when connected, opens command menu
+  const toolsQuickPick = new ToolsQuickPickStatusBar();
+  context.subscriptions.push(toolsQuickPick);
+  registerToolsQuickPickCommand(context);
+
   /** Apply master switch: start/stop discovery and watcher, clear or refresh UI. */
   const applyEnabledState = (enabled: boolean): void => {
     void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', enabled);
@@ -143,6 +157,9 @@ export function activate(context: vscode.ExtensionContext): void {
       discovery.stop();
       watcher.stop();
       serverManager.clearActive();
+      providers.toolsProvider.setConnected(false);
+      healthStatusBar.hide();
+      toolsQuickPick.setConnected(false);
     } else {
       if (discoveryEnabled) discovery.start();
       watcher.start();
@@ -167,6 +184,12 @@ export function activate(context: vscode.ExtensionContext): void {
   serverManager.onDidChangeActive((server) => {
     refreshStatusBar();
     void vscode.commands.executeCommand('setContext', 'driftViewer.serverConnected', server !== undefined);
+    // Keep the Drift Tools sidebar and status bar in sync with connection state
+    providers.toolsProvider.setConnected(server !== undefined);
+    toolsQuickPick.setConnected(server !== undefined);
+    if (!server) {
+      healthStatusBar.hide();
+    }
     if (server) {
       watcher.stop();
       watcher.reset();
@@ -177,6 +200,31 @@ export function activate(context: vscode.ExtensionContext): void {
       diagnosticManager.refresh().catch(() => {});
       providers.refreshBadges().catch(() => {});
       providers.watchManager.refresh().catch(() => {});
+
+      // On first server connection per session, offer to open the Dashboard
+      // so users discover the full feature set. Controlled by a config setting
+      // and a per-workspace "don't show again" flag.
+      if (!dashboardPromptShown) {
+        dashboardPromptShown = true;
+        const showOnConnect = vscode.workspace
+          .getConfiguration('driftViewer')
+          .get<boolean>('dashboard.showOnConnect', true);
+        const suppressKey = 'driftViewer.suppressDashboardPrompt';
+        const suppressed = context.workspaceState.get<boolean>(suppressKey, false);
+        if (showOnConnect && !suppressed) {
+          void vscode.window.showInformationMessage(
+            'Drift server connected! Open the Dashboard to explore all features.',
+            'Open Dashboard',
+            "Don't Show Again",
+          ).then((choice) => {
+            if (choice === 'Open Dashboard') {
+              vscode.commands.executeCommand('driftViewer.openDashboard');
+            } else if (choice === "Don't Show Again") {
+              context.workspaceState.update(suppressKey, true);
+            }
+          });
+        }
+      }
     }
   });
   discovery.onDidChangeServers(refreshStatusBar);
@@ -222,6 +270,7 @@ export function activate(context: vscode.ExtensionContext): void {
     schemaTracker,
     updateStatusBar: refreshStatusBar,
     connectionChannel,
+    healthStatusBar,
   });
 }
 
