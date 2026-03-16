@@ -24,8 +24,8 @@ describe('DriftApiClient', () => {
     });
 
     it('should throw on non-200 status', async () => {
-      fetchStub.resolves(new Response('', { status: 500 }));
-      await assert.rejects(() => client.health(), /Health check failed: 500/);
+      fetchStub.resolves(new Response('', { status: 403 }));
+      await assert.rejects(() => client.health(), /Health check failed: 403/);
     });
   });
 
@@ -161,8 +161,8 @@ describe('DriftApiClient', () => {
     });
 
     it('should throw on non-200 status', async () => {
-      fetchStub.resolves(new Response('', { status: 500 }));
-      await assert.rejects(() => client.schemaDump(), /Schema dump failed/);
+      fetchStub.resolves(new Response('', { status: 403 }));
+      await assert.rejects(() => client.schemaDump(), /Schema dump failed: 403/);
     });
   });
 
@@ -175,8 +175,8 @@ describe('DriftApiClient', () => {
     });
 
     it('should throw on non-200 status', async () => {
-      fetchStub.resolves(new Response('', { status: 500 }));
-      await assert.rejects(() => client.databaseFile(), /Database download failed/);
+      fetchStub.resolves(new Response('', { status: 403 }));
+      await assert.rejects(() => client.databaseFile(), /Database download failed: 403/);
     });
   });
 

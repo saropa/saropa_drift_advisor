@@ -65,7 +65,7 @@ export class GenerationWatcher {
       if (gen !== this._generation) {
         this._generation = gen;
         for (const listener of this._listeners) {
-          listener();
+          try { listener(); } catch { /* swallow — listener errors must not corrupt poll state */ }
         }
       }
     } catch (err) {
