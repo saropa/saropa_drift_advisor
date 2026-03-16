@@ -35,7 +35,7 @@ Fixes a critical bug that prevented VM Service auto-detection during Flutter/Dar
 
 ---
 
-## [1.3.4]
+## [1.4.0]
 
 Export your database as a shareable, self-contained HTML report — open it in any browser with zero dependencies. Detects when queries slow down across debug sessions and alerts you before regressions become production issues.
 
