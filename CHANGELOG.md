@@ -15,7 +15,7 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [Unreleased]
+## [1.5.0]
 
 The extension couldn't connect to running servers and now has an About button for easy access to release notes.
 
@@ -31,7 +31,7 @@ The extension couldn't connect to running servers and now has an About button fo
 
 ---
 
-## [1.4.2]
+## [1.4.3]
 
 Most of the extension's ~105 commands were only accessible via the Command Palette. Five new discovery surfaces ensure every major feature has a visible entry point.
 
