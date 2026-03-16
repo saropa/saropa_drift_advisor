@@ -15,6 +15,17 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [1.4.1]
+
+Select any schema change from the timeline and instantly generate the reverse migration — both the rollback SQL and the Dart code.
+
+### Added
+
+- **Migration Rollback Generator** — Command palette → _Generate Migration Rollback_: pick a schema change from the timeline QuickPick, then the extension generates the reverse SQL (`DROP TABLE`, `ALTER TABLE DROP COLUMN`, etc.) and wraps it in Dart `customStatement()` calls. Opens in a new editor tab for review. Handles all change types: table add/drop, column add/remove, type changes, and FK changes. Warns about SQLite limitations (DROP COLUMN requires 3.35.0+, type/FK changes need manual table recreation). Multi-line CREATE TABLE uses triple-quote Dart strings for readability. Rollback statements are ordered correctly (drops before recreates). Warnings are deduplicated.
+- **ADB auto-forward on debug start** — When a Flutter/Dart debug session starts, the extension now waits 5 seconds then automatically attempts ADB port-forwarding if no server is found. Complements the existing discovery-based forwarding for emulator debugging.
+
+---
+
 ## [1.4.0]
 
 Fixes a critical bug that prevented VM Service auto-detection during Flutter/Dart debugging, hardens the entire connection/discovery subsystem with timeouts, retries, and exponential backoff, and adds comprehensive connection diagnostics.

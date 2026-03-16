@@ -96,8 +96,10 @@ describe('Extension activation', () => {
     // Query cost: analyzeQueryCost (1)
     // Portable report: exportReport (1)
     // Perf regression: resetPerfBaseline, resetAllPerfBaselines (2)
-    // Total grows as new features are added (workspace-setup command = +1)
-    assert.strictEqual(subscriptions.length, 158, `expected 158 disposables, got ${subscriptions.length}`);
+    // Rollback generator: schemaTracker, generateRollback (2)
+    // ADB forward: onDidStartDebugSession (1)
+    // Total grows as new features are added
+    assert.strictEqual(subscriptions.length, 161, `expected 161 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
