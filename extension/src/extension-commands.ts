@@ -40,6 +40,7 @@ import { registerWorkspaceSetupCommands } from './workspace-setup/workspace-setu
 import { registerRollbackCommands } from './rollback/rollback-commands';
 import { HealthScorer } from './health/health-scorer';
 import { updateStatusBar } from './status-bar';
+import type { HealthStatusBar } from './status-bar-health';
 import type { SchemaTracker } from './schema-timeline/schema-tracker';
 
 export interface CommandRegistrationDeps extends ProviderSetupResult, EditingSetupResult {
@@ -53,6 +54,8 @@ export interface CommandRegistrationDeps extends ProviderSetupResult, EditingSet
   schemaTracker: SchemaTracker;
   updateStatusBar: () => void;
   connectionChannel: vscode.OutputChannel;
+  /** Status bar item updated after each health check. */
+  healthStatusBar: HealthStatusBar;
 }
 
 /**
@@ -87,36 +90,14 @@ export function registerAllCommands(
     updateStatusBar,
     connectionChannel,
     schemaTracker,
+    healthStatusBar,
   } = deps;
 
-  registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager);
-  registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge);
-  registerSnapshotCommands(context, client, snapshotStore);
-  registerSchemaDiffCommands(context, client);
-  registerEditingCommands(context, client, changeTracker, watchManager);
-  registerExportCommands(context, client);
-  registerSnippetCommands(context, client);
-  registerDataBreakpointCommands(context, client, dbpProvider);
-  registerMigrationGenCommands(context, client);
-  registerDataManagementCommands(context, client);
-  registerComparatorCommands(context, client);
-  registerChangelogCommands(context, snapshotStore);
-  registerAnnotationCommands(context, annotationStore, treeProvider);
-  registerSeederCommands(context, client);
-  registerConstraintWizardCommands(context, client);
-  registerImpactCommands(context, client);
-  registerIsarGenCommands(context);
-  registerHealthCommands(context, client);
-  registerQueryCostCommands(context, client);
-  registerDashboardCommands(context, client, new HealthScorer());
-  registerInvariantCommands(context, client, watcher);
-  registerNarratorCommands(context, client);
-  registerErDiagramCommands(context, client, watcher);
-  registerClipboardImportCommands(context, client);
-  registerReportCommands(context, client);
-  registerWorkspaceSetupCommands(context);
-  registerRollbackCommands(context, schemaTracker);
-
+  // Debug commands (VM Service connection, debug session lifecycle) are
+  // registered FIRST because they are critical for server connectivity.
+  // Feature command modules are registered afterwards inside a try/catch so
+  // that a failure in any single module cannot prevent the core connection
+  // logic from running.
   registerDebugCommands(context, {
     client,
     treeProvider,
@@ -133,4 +114,46 @@ export function registerAllCommands(
     refreshStatusBar: updateStatusBar,
     connectionLog: { appendLine: (msg) => connectionChannel.appendLine(msg) },
   });
+
+  // Feature command modules — each is isolated so one failing module does not
+  // block the others or the core debug/connection logic above.
+  const featureModules: Array<[string, () => void]> = [
+    ['tree', () => registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager)],
+    ['nav', () => registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge)],
+    ['snapshot', () => registerSnapshotCommands(context, client, snapshotStore)],
+    ['schemaDiff', () => registerSchemaDiffCommands(context, client)],
+    ['editing', () => registerEditingCommands(context, client, changeTracker, watchManager)],
+    ['export', () => registerExportCommands(context, client)],
+    ['snippet', () => registerSnippetCommands(context, client)],
+    ['dataBreakpoint', () => registerDataBreakpointCommands(context, client, dbpProvider)],
+    ['migrationGen', () => registerMigrationGenCommands(context, client)],
+    ['dataManagement', () => registerDataManagementCommands(context, client)],
+    ['comparator', () => registerComparatorCommands(context, client)],
+    ['changelog', () => registerChangelogCommands(context, snapshotStore)],
+    ['annotation', () => registerAnnotationCommands(context, annotationStore, treeProvider)],
+    ['seeder', () => registerSeederCommands(context, client)],
+    ['constraintWizard', () => registerConstraintWizardCommands(context, client)],
+    ['impact', () => registerImpactCommands(context, client)],
+    ['isarGen', () => registerIsarGenCommands(context)],
+    ['health', () => registerHealthCommands(context, client, healthStatusBar)],
+    ['queryCost', () => registerQueryCostCommands(context, client)],
+    ['dashboard', () => registerDashboardCommands(context, client, new HealthScorer())],
+    ['invariant', () => registerInvariantCommands(context, client, watcher)],
+    ['narrator', () => registerNarratorCommands(context, client)],
+    ['erDiagram', () => registerErDiagramCommands(context, client, watcher)],
+    ['clipboardImport', () => registerClipboardImportCommands(context, client)],
+    ['report', () => registerReportCommands(context, client)],
+    ['workspaceSetup', () => registerWorkspaceSetupCommands(context)],
+    ['rollback', () => registerRollbackCommands(context, schemaTracker)],
+  ];
+  for (const [name, register] of featureModules) {
+    try {
+      register();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      connectionChannel.appendLine(
+        `[${new Date().toISOString()}] Failed to register ${name} commands: ${msg}`,
+      );
+    }
+  }
 }
