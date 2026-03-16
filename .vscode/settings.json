@@ -10,5 +10,6 @@
     
     // TypeScript project-wide error reporting for the extension subfolder
     // Shows ALL errors in Problems panel, not just open files
-    "typescript.tsserver.experimental.enableProjectDiagnostics": true
+    "typescript.tsserver.experimental.enableProjectDiagnostics": true,
+    "saropaLints.enabled": true
 }

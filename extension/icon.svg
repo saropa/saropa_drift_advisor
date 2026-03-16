@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Gradient for the cylinder body: purple-pink at top to cyan at bottom -->
+    <linearGradient id="cylinderGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cd87cd"/>
+      <stop offset="50%" stop-color="#9e8eda"/>
+      <stop offset="100%" stop-color="#5ac6e4"/>
+    </linearGradient>
+
+    <!-- Lighter fill for the top ellipse cap -->
+    <radialGradient id="topCapGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#e8c6e8"/>
+      <stop offset="70%" stop-color="#daa8da"/>
+      <stop offset="100%" stop-color="#cd87cd"/>
+    </radialGradient>
+
+    <!-- Gradient for bottom ellipse face -->
+    <linearGradient id="bottomGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5ac6e4"/>
+      <stop offset="100%" stop-color="#4dbdd8"/>
+    </linearGradient>
+
+    <!-- Clip path to hide the back half of the bottom ellipse -->
+    <clipPath id="frontArcClip">
+      <rect x="0" y="700" width="1024" height="200"/>
+    </clipPath>
+
+    <!-- Clip path for mid divider front arc -->
+    <clipPath id="midArcClip">
+      <rect x="0" y="478" width="1024" height="100"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background rounded rectangle -->
+  <rect x="0" y="0" width="1024" height="1024" rx="120" ry="120" fill="#f5f0eb"/>
+
+  <!-- Cylinder body (gradient-filled rectangle between top and bottom ellipse centers) -->
+  <rect x="212" y="200" width="600" height="500" fill="url(#cylinderGradient)"/>
+
+  <!-- Bottom ellipse face (filled, clipped to front half) -->
+  <ellipse cx="512" cy="700" rx="300" ry="68" fill="url(#bottomGradient)" clip-path="url(#frontArcClip)"/>
+
+  <!-- Left side outline -->
+  <line x1="212" y1="200" x2="212" y2="700" stroke="#5f3773" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Right side outline -->
+  <line x1="812" y1="200" x2="812" y2="700" stroke="#5f3773" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Bottom ellipse front arc outline -->
+  <ellipse cx="512" cy="700" rx="300" ry="68"
+           fill="none" stroke="#5f3773" stroke-width="8"
+           clip-path="url(#frontArcClip)"/>
+
+  <!-- Middle divider front arc outline -->
+  <ellipse cx="512" cy="478" rx="300" ry="28"
+           fill="none" stroke="#5f3773" stroke-width="8"
+           clip-path="url(#midArcClip)"/>
+
+  <!-- Top ellipse (filled cap) -->
+  <ellipse cx="512" cy="200" rx="300" ry="68" fill="url(#topCapGradient)" stroke="#5f3773" stroke-width="8"/>
+
+  <!-- Top ellipse highlight -->
+  <ellipse cx="512" cy="192" rx="240" ry="42" fill="#e8c6e8" opacity="0.6"/>
+
+  <!-- Triangle (pointing up) below the cylinder -->
+  <polygon points="512,788 474,872 550,872" fill="#5f3773"/>
+  <polygon points="512,808 484,862 540,862" fill="#aa78b4"/>
+</svg>
