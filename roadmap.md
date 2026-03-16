@@ -1,6 +1,6 @@
 # Saropa Drift Advisor — Roadmap
 
-**Status:** 11 features remaining • Last updated March 14, 2026
+**Status:** 11 features remaining • Last updated March 16, 2026
 
 > Completed features are documented in [CHANGELOG.md](CHANGELOG.md) and [README.md](README.md).
 
@@ -8,9 +8,10 @@
 
 ## What to Build Next
 
-| Priority | Feature                                                                 |  Wow  | Effort | Why                                  |
-| -------- | ----------------------------------------------------------------------- | :---: | :----: | ------------------------------------ |
-| **1**    | [55: Clipboard Import](plans/55-clipboard-import.md)                    |  3→4  | Medium | High practical utility               |
+| Priority | Feature                                                  |  Wow  | Effort | Why                                         |
+| -------- | -------------------------------------------------------- | :---: | :----: | ------------------------------------------- |
+| **1**    | [28: PII Anonymizer](plans/28-pii-anonymizer.md)        |  5→6  | Medium | Extension-only, uses existing endpoints     |
+| **2**    | [60: Time-Travel Slider](plans/60-time-travel-data-slider.md) | 5→6 | Medium | Builds on timeline + DVR infrastructure |
 
 ---
 
@@ -42,7 +43,7 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 
 | #   | Feature                                                             |  Wow  | Effort | Integration                         |
 | --- | ------------------------------------------------------------------- | :---: | :----: | ----------------------------------- |
-| 61  | [Migration Rollback Gen](plans/61-migration-rollback-generator.md)  |   5   | Medium | ← Schema Evolution                  |
+| 28  | [PII Anonymizer](plans/28-pii-anonymizer.md)                        |  5→6  | Medium | Extension-only (existing endpoints) |
 | 60  | [Time-Travel Slider](plans/60-time-travel-data-slider.md)           |  5→6  | Medium | ↔ DVR, Timeline                     |
 | 59  | [AI Schema Reviewer](plans/59-ai-schema-reviewer.md)                |  5→6  | Medium | Requires LLM integration            |
 | 18  | [Natural Language SQL](plans/18-natural-language-sql.md)            |  5→6  | Medium | Requires LLM integration            |
@@ -53,7 +54,6 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 
 | #   | Feature                                                        |  Wow  | Effort | Server Change           |
 | --- | -------------------------------------------------------------- | :---: | :----: | ----------------------- |
-| 28  | [PII Anonymizer](plans/28-pii-anonymizer.md)                   |  5→6  | Medium | Anonymization endpoint  |
 | 22  | [Mutation Stream](plans/22-realtime-mutation-stream.md)        |  4→5  | Medium | `mutation_tracker.dart` |
 | 26  | [Query Replay DVR](plans/26-query-replay-dvr.md)               |  5→7  |  High  | `query_recorder.dart`   |
 | 35  | [Multi-Server Federation](plans/35-multi-server-federation.md) |  5→6  |  High  | Multiple clients        |

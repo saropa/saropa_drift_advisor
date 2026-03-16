@@ -21,6 +21,7 @@ import { setupProviders } from './extension-providers';
 import { setupDiagnostics } from './extension-diagnostics';
 import { setupEditing } from './extension-editing';
 import { registerAllCommands } from './extension-commands';
+import { SchemaTracker } from './schema-timeline/schema-tracker';
 
 export function activate(context: vscode.ExtensionContext): void {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
@@ -77,12 +78,49 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  // When a Flutter/Dart debug session starts on an emulator, the server inside
+  // the app needs adb port-forwarding before the host can reach it. Wait a few
+  // seconds for the server to boot, then try adb forward if no server found.
+  // The timer handle is tracked so it can be cancelled on deactivation,
+  // preventing a stale callback from restarting the disposed discovery loop.
+  const ADB_FORWARD_DELAY_MS = 5000;
+  let adbForwardTimer: ReturnType<typeof setTimeout> | undefined;
+  context.subscriptions.push(
+    vscode.debug.onDidStartDebugSession((session) => {
+      const t = session.type?.toLowerCase() ?? '';
+      if (t !== 'dart' && t !== 'flutter') return;
+      // Cancel any pending timer from a previous session to avoid duplicates.
+      if (adbForwardTimer !== undefined) clearTimeout(adbForwardTimer);
+      adbForwardTimer = setTimeout(() => {
+        adbForwardTimer = undefined;
+        if (discovery.servers.length === 0) {
+          void tryAdbForwardAndRetry(client.port, discovery, context.workspaceState);
+        }
+      }, ADB_FORWARD_DELAY_MS);
+    }),
+  );
+  // Cancel pending adb-forward timer on deactivation to prevent polling leaks.
+  context.subscriptions.push({
+    dispose: () => {
+      if (adbForwardTimer !== undefined) {
+        clearTimeout(adbForwardTimer);
+        adbForwardTimer = undefined;
+      }
+    },
+  });
+
   const annotationStore = new AnnotationStore(context.workspaceState);
   const providers = setupProviders(context, client, annotationStore);
 
+  // Schema intelligence engines for diagnostics and code actions.
   const schemaIntel = new SchemaIntelligence(client);
   const queryIntel = new QueryIntelligence(client);
   context.subscriptions.push(schemaIntel, queryIntel);
+
+  // Schema timeline tracker: captures schema snapshots on each generation
+  // change for use by the rollback generator and timeline panel.
+  const schemaTracker = new SchemaTracker(client, context.workspaceState, watcher);
+  context.subscriptions.push(schemaTracker);
   const { diagnosticManager } = setupDiagnostics(context, client, schemaIntel, queryIntel);
 
   const editing = setupEditing(context, client);
@@ -181,6 +219,7 @@ export function activate(context: vscode.ExtensionContext): void {
     serverManager,
     discoveryEnabled,
     watcher,
+    schemaTracker,
     updateStatusBar: refreshStatusBar,
     connectionChannel,
   });

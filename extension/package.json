@@ -392,6 +392,11 @@
         "icon": "$(file-code)"
       },
       {
+        "command": "driftViewer.generateRollback",
+        "title": "Saropa Drift Advisor: Generate Migration Rollback",
+        "icon": "$(discard)"
+      },
+      {
         "command": "driftViewer.constraintWizard",
         "title": "Saropa Drift Advisor: Constraint Wizard",
         "icon": "$(shield)"

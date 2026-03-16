@@ -136,6 +136,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 - **Generate Dart from schema** — scaffold Drift table classes from runtime schema
 - **Isar-to-Drift generator** — convert `@collection` classes to Drift tables (Dart source or JSON schema, configurable embedded/enum strategies)
 - **Migration preview & code gen** — preview DDL, generate migration code
+- **Migration rollback generator** — select any schema change from the timeline and generate reverse SQL + Dart `customStatement()` code to undo it
 - **Constraint wizard** — interactive FK, unique, and check constraint builder
 - **Schema documentation generator** — export Markdown docs from schema
 - **Portable report export** — generate a self-contained HTML file with table data, schema SQL, and anomaly report; light/dark theme, search, pagination; share via Slack, attach to bug reports, or archive

@@ -37,8 +37,10 @@ import { registerNarratorCommands } from './narrator';
 import { registerClipboardImportCommands } from './import/clipboard-import-commands';
 import { registerReportCommands } from './report/report-commands';
 import { registerWorkspaceSetupCommands } from './workspace-setup/workspace-setup-commands';
+import { registerRollbackCommands } from './rollback/rollback-commands';
 import { HealthScorer } from './health/health-scorer';
 import { updateStatusBar } from './status-bar';
+import type { SchemaTracker } from './schema-timeline/schema-tracker';
 
 export interface CommandRegistrationDeps extends ProviderSetupResult, EditingSetupResult {
   annotationStore: AnnotationStore;
@@ -47,6 +49,8 @@ export interface CommandRegistrationDeps extends ProviderSetupResult, EditingSet
   serverManager: ServerManager;
   discoveryEnabled: boolean;
   watcher: GenerationWatcher;
+  /** Schema timeline tracker for rollback generation. */
+  schemaTracker: SchemaTracker;
   updateStatusBar: () => void;
   connectionChannel: vscode.OutputChannel;
 }
@@ -82,6 +86,7 @@ export function registerAllCommands(
     watcher,
     updateStatusBar,
     connectionChannel,
+    schemaTracker,
   } = deps;
 
   registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager);
@@ -110,6 +115,7 @@ export function registerAllCommands(
   registerClipboardImportCommands(context, client);
   registerReportCommands(context, client);
   registerWorkspaceSetupCommands(context);
+  registerRollbackCommands(context, schemaTracker);
 
   registerDebugCommands(context, {
     client,
