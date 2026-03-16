@@ -79,6 +79,8 @@ abstract final class ServerConstants {
   static const String pathSuffixAnnotate = '/annotate';
   static const String pathApiImport = '/api/import';
   static const String pathApiImportAlt = 'api/import';
+  static const String pathFavicon = '/favicon.ico';
+  static const String pathFaviconAlt = 'favicon.ico';
   static const String queryParamLimit = 'limit';
   static const String queryParamOffset = 'offset';
   static const String queryParamSince = 'since';
