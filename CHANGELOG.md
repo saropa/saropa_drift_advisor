@@ -13,6 +13,21 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [1.4.0]
+
+Fixes a critical bug that prevented VM Service auto-detection during Flutter/Dart debugging, and adds connection diagnostics to help troubleshoot server discovery on all platforms.
+
+### Fixed
+
+- **VM Service output listener was non-functional** — The debug adapter tracker used `onOutput()` which does not exist on the VS Code `DebugAdapterTracker` interface. Replaced with `onDidSendMessage()` to correctly intercept DAP output events containing the VM Service URI. This was the primary cause of "drift is never detected" when debugging.
+- **"Select Server" button appeared to do nothing** — When no servers were found, a bare toast notification was easy to miss. Now shows an actionable warning with **Retry** and **View Log** buttons plus guidance about `DriftDebugServer.start()`.
+
+### Added
+
+- **Connection diagnostics in Output channel** — Server discovery now writes timestamped diagnostic logs to the _Saropa Drift Advisor_ Output channel: port scan activity, health check failures (with error details), schema validation failures, and state transitions (searching/connected/backoff). Enables troubleshooting connection issues on Windows and other platforms.
+
+---
+
 ## [1.3.4]
 
 Export your database as a shareable, self-contained HTML report — open it in any browser with zero dependencies. Detects when queries slow down across debug sessions and alerts you before regressions become production issues.

@@ -15,6 +15,7 @@ export class ServerManager {
   private readonly _client: DriftApiClient;
   private readonly _workspaceState: vscode.Memento;
   private readonly _disposable: vscode.Disposable;
+  private _showLog?: () => void;
 
   constructor(
     discovery: ServerDiscovery,
@@ -27,6 +28,11 @@ export class ServerManager {
     this._disposable = discovery.onDidChangeServers((servers) =>
       this._onServersChanged(servers),
     );
+  }
+
+  /** Set callback to show the connection log (e.g. OutputChannel.show). */
+  setShowLog(fn: () => void): void {
+    this._showLog = fn;
   }
 
   get activeServer(): IServerInfo | undefined {
@@ -48,7 +54,16 @@ export class ServerManager {
   async selectServer(): Promise<void> {
     const servers = this.servers;
     if (servers.length === 0) {
-      vscode.window.showWarningMessage('No Drift debug servers found.');
+      const action = await vscode.window.showWarningMessage(
+        'No Drift debug servers found. Ensure your app is running with DriftDebugServer.start().',
+        'Retry',
+        'View Log',
+      );
+      if (action === 'Retry') {
+        this._discovery.retry();
+      } else if (action === 'View Log') {
+        this._showLog?.();
+      }
       return;
     }
     if (servers.length === 1) {

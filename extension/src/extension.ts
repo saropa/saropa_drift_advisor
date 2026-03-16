@@ -52,7 +52,12 @@ export function activate(context: vscode.ExtensionContext): void {
     portRangeEnd: cfg.get<number>('discovery.portRangeEnd', 8649) ?? 8649,
     additionalPorts: lastKnownPorts,
   });
+  const connectionChannel = vscode.window.createOutputChannel('Saropa Drift Advisor');
+  context.subscriptions.push(connectionChannel);
+  discovery.setLog(connectionChannel);
+
   const serverManager = new ServerManager(discovery, client, context.workspaceState);
+  serverManager.setShowLog(() => connectionChannel.show());
   const discoveryEnabled = cfg.get<boolean>('discovery.enabled', true) !== false;
 
   if (!extensionEnabled) {
@@ -176,6 +181,7 @@ export function activate(context: vscode.ExtensionContext): void {
     discoveryEnabled,
     watcher,
     updateStatusBar: refreshStatusBar,
+    connectionChannel,
   });
 }
 
