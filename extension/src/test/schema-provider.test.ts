@@ -14,8 +14,9 @@ import { DriftApiClient } from '../api-client';
 import { SchemaIntelligence } from '../engines/schema-intelligence';
 import { QueryIntelligence } from '../engines/query-intelligence';
 import { SchemaProvider } from '../diagnostics/providers/schema-provider';
-import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-types';
+import type { IDartFileInfo } from '../diagnostics/diagnostic-types';
 import { createDartFile } from './diagnostic-test-helpers';
+import { createContext } from './schema-provider-test-helpers';
 
 describe('SchemaProvider', () => {
   let client: DriftApiClient;
@@ -251,51 +252,4 @@ describe('SchemaProvider', () => {
     });
   });
 });
-
-function createContext(options: {
-  dartFiles: IDartFileInfo[];
-  dbTables: Array<{ name: string; columns: Array<{ name: string; type: string; pk: boolean }>; rowCount: number }>;
-  indexSuggestions?: Array<{ table: string; column: string; reason: string; sql: string; priority: 'high' | 'low' }>;
-  anomalies?: Array<{ message: string; severity: 'error' | 'warning' | 'info' }>;
-}): IDiagnosticContext {
-  const schemaIntel = {
-    getInsights: () => Promise.resolve({
-      tables: [],
-      totalTables: 0,
-      totalColumns: 0,
-      totalRows: 0,
-      missingIndexes: options.indexSuggestions ?? [],
-      anomalies: options.anomalies ?? [],
-      tablesWithoutPk: [],
-      orphanedFkTables: [],
-    }),
-  } as any;
-
-  const client = {
-    schemaMetadata: () => Promise.resolve(options.dbTables),
-  } as any;
-
-  return {
-    client,
-    schemaIntel,
-    queryIntel: {} as any,
-    dartFiles: options.dartFiles,
-    config: {
-      enabled: true,
-      refreshOnSave: true,
-      refreshIntervalMs: 30000,
-      categories: {
-        schema: true,
-        performance: true,
-        dataQuality: true,
-        bestPractices: true,
-        naming: false,
-        runtime: true,
-        compliance: true,
-      },
-      disabledRules: new Set(),
-      severityOverrides: {},
-    },
-  };
-}
 

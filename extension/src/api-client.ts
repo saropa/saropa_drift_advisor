@@ -1,15 +1,32 @@
+/**
+ * Drift API client: routes requests to VM Service when debugging,
+ * otherwise uses HTTP. Re-exports API types for convenience.
+ */
+
 export type * from './api-types';
 import type {
-  Anomaly, ForeignKey, HealthResponse, ICompareReport, IDiagramData,
-  IImportResult, IMigrationPreview, IndexSuggestion, ISessionData,
-  ISessionShareResult, ISizeAnalytics, PerformanceData, TableMetadata,
+  Anomaly,
+  ForeignKey,
+  HealthResponse,
+  ICompareReport,
+  IDiagramData,
+  IImportResult,
+  IMigrationPreview,
+  IndexSuggestion,
+  ISessionData,
+  ISessionShareResult,
+  ISizeAnalytics,
+  PerformanceData,
+  TableMetadata,
 } from './api-types';
 import type { VmServiceClient } from './transport/vm-service-client';
-import { fetchWithRetry, fetchWithTimeout } from './transport/fetch-utils';
 import {
-  importDataRequest, sessionAnnotateRequest,
-  sessionGetRequest, sessionShareRequest,
+  importDataRequest,
+  sessionAnnotateRequest,
+  sessionGetRequest,
+  sessionShareRequest,
 } from './api-client-sessions';
+import * as http from './api-client-http';
 
 export class DriftApiClient {
   private _baseUrl: string;
@@ -60,90 +77,43 @@ export class DriftApiClient {
   get connectionDisplayName(): string {
     return this.usingVmService ? 'VM Service' : this._baseUrl;
   }
+
+  private _headers(extra?: Record<string, string>): Record<string, string> {
+    const h: Record<string, string> = { 'X-Drift-Client': 'vscode', ...extra };
+    if (this._authToken) {
+      h['Authorization'] = `Bearer ${this._authToken}`;
+    }
+    return h;
+  }
+
   async health(): Promise<HealthResponse> {
-    if (this._vmClient?.connected) {
-      return this._vmClient.getHealth();
-    }
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/health`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Health check failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<HealthResponse>;
+    if (this._vmClient?.connected) return this._vmClient.getHealth();
+    return http.httpHealth(this._baseUrl, this._headers());
   }
 
   async schemaMetadata(): Promise<TableMetadata[]> {
-    if (this._vmClient?.connected) {
-      return this._vmClient.getSchemaMetadata();
-    }
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/schema/metadata`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Schema metadata failed: ${resp.status}`);
-    }
-    const data = (await resp.json()) as { tables?: TableMetadata[] };
-    return Array.isArray(data?.tables) ? data.tables : (data as unknown as TableMetadata[]);
+    if (this._vmClient?.connected) return this._vmClient.getSchemaMetadata();
+    return http.httpSchemaMetadata(this._baseUrl, this._headers());
   }
 
   async tableFkMeta(tableName: string): Promise<ForeignKey[]> {
-    if (this._vmClient?.connected) {
-      return this._vmClient.getTableFkMeta(tableName);
-    }
-    const resp = await fetchWithRetry(
-      `${this._baseUrl}/api/table/${encodeURIComponent(tableName)}/fk-meta`,
-      { headers: this._headers() },
-    );
-    if (!resp.ok) {
-      throw new Error(`FK metadata failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<ForeignKey[]>;
+    if (this._vmClient?.connected) return this._vmClient.getTableFkMeta(tableName);
+    return http.httpTableFkMeta(this._baseUrl, this._headers(), tableName);
   }
 
   async generation(since: number): Promise<number> {
-    if (this._vmClient?.connected) {
-      return this._vmClient.getGeneration();
-    }
-    const resp = await fetchWithTimeout(
-      `${this._baseUrl}/api/generation?since=${since}`,
-      { headers: this._headers() },
-    );
-    if (!resp.ok) {
-      throw new Error(`Generation poll failed: ${resp.status}`);
-    }
-    const data = (await resp.json()) as { generation: number };
-    return data.generation;
+    if (this._vmClient?.connected) return this._vmClient.getGeneration();
+    return http.httpGeneration(this._baseUrl, this._headers(), since);
   }
 
   async sql(query: string): Promise<{ columns: string[]; rows: unknown[][] }> {
-    if (this._vmClient?.connected) {
-      return this._vmClient.runSql(query);
-    }
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/sql`, {
-      method: 'POST',
-      headers: this._headers({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ sql: query }),
-    });
-    if (!resp.ok) {
-      throw new Error(`SQL query failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<{ columns: string[]; rows: unknown[][] }>;
+    if (this._vmClient?.connected) return this._vmClient.runSql(query);
+    return http.httpSql(this._baseUrl, this._headers(), query);
   }
 
   async indexSuggestions(): Promise<IndexSuggestion[]> {
-    if (this._vmClient?.connected) {
-      return this._vmClient.getIndexSuggestions();
-    }
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/index-suggestions`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Index suggestions failed: ${resp.status}`);
-    }
-    const data = (await resp.json()) as { suggestions?: IndexSuggestion[] } | IndexSuggestion[];
-    if (Array.isArray(data)) return data;
-    return Array.isArray(data?.suggestions) ? data.suggestions : [];
+    if (this._vmClient?.connected) return this._vmClient.getIndexSuggestions();
+    return http.httpIndexSuggestions(this._baseUrl, this._headers());
   }
 
   async anomalies(): Promise<Anomaly[]> {
@@ -151,82 +121,29 @@ export class DriftApiClient {
       const { anomalies } = await this._vmClient.getAnomalies();
       return anomalies;
     }
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/analytics/anomalies`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Anomaly scan failed: ${resp.status}`);
-    }
-    const data = (await resp.json()) as { anomalies?: Anomaly[] } | Anomaly[];
-    if (Array.isArray(data)) return data;
-    return Array.isArray(data.anomalies) ? data.anomalies : [];
+    return http.httpAnomalies(this._baseUrl, this._headers());
   }
 
   async performance(): Promise<PerformanceData> {
-    if (this._vmClient?.connected) {
-      return this._vmClient.getPerformance();
-    }
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/analytics/performance`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Performance query failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<PerformanceData>;
+    if (this._vmClient?.connected) return this._vmClient.getPerformance();
+    return http.httpPerformance(this._baseUrl, this._headers());
   }
 
   async explainSql(
     query: string,
   ): Promise<{ rows: Record<string, unknown>[]; sql: string }> {
-    if (this._vmClient?.connected) {
-      return this._vmClient.explainSql(query);
-    }
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/sql/explain`, {
-      method: 'POST',
-      headers: this._headers({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ sql: query }),
-    });
-    if (!resp.ok) {
-      throw new Error(`Explain failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<{
-      rows: Record<string, unknown>[];
-      sql: string;
-    }>;
+    if (this._vmClient?.connected) return this._vmClient.explainSql(query);
+    return http.httpExplainSql(this._baseUrl, this._headers(), query);
   }
 
-  /** Returns whether change detection polling is enabled on the server. */
   async getChangeDetection(): Promise<boolean> {
-    // Prefer VM Service transport when available (no HTTP overhead).
-    if (this._vmClient?.connected) {
-      return this._vmClient.getChangeDetection();
-    }
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/change-detection`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Get change detection failed: ${resp.status}`);
-    }
-    const data = (await resp.json()) as { changeDetection?: boolean };
-    return data?.changeDetection !== false;
+    if (this._vmClient?.connected) return this._vmClient.getChangeDetection();
+    return http.httpGetChangeDetection(this._baseUrl, this._headers());
   }
 
-  /** Enables or disables change detection polling. Returns the new state. */
   async setChangeDetection(enabled: boolean): Promise<boolean> {
-    // Prefer VM Service transport when available.
-    if (this._vmClient?.connected) {
-      return this._vmClient.setChangeDetection(enabled);
-    }
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/change-detection`, {
-      method: 'POST',
-      headers: this._headers({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ enabled }),
-    });
-    if (!resp.ok) {
-      throw new Error(`Set change detection failed: ${resp.status}`);
-    }
-    const data = (await resp.json()) as { changeDetection?: boolean };
-    return data?.changeDetection !== false;
+    if (this._vmClient?.connected) return this._vmClient.setChangeDetection(enabled);
+    return http.httpSetChangeDetection(this._baseUrl, this._headers(), enabled);
   }
 
   async clearPerformance(): Promise<void> {
@@ -234,83 +151,53 @@ export class DriftApiClient {
       await this._vmClient.clearPerformance();
       return;
     }
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/analytics/performance`, {
-      method: 'DELETE',
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Clear performance failed: ${resp.status}`);
-    }
+    return http.httpClearPerformance(this._baseUrl, this._headers());
   }
 
   async schemaDiagram(): Promise<IDiagramData> {
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/schema/diagram`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Schema diagram failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<IDiagramData>;
+    return http.httpSchemaDiagram(this._baseUrl, this._headers());
   }
 
   async schemaDump(): Promise<string> {
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/schema/dump`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Schema dump failed: ${resp.status}`);
-    }
-    return resp.text();
+    return http.httpSchemaDump(this._baseUrl, this._headers());
   }
 
   async databaseFile(): Promise<ArrayBuffer> {
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/database`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Database download failed: ${resp.status}`);
-    }
-    return resp.arrayBuffer();
+    return http.httpDatabaseFile(this._baseUrl, this._headers());
   }
 
   async compareReport(): Promise<ICompareReport> {
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/compare/report`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Compare report failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<ICompareReport>;
+    return http.httpCompareReport(this._baseUrl, this._headers());
   }
 
   async migrationPreview(): Promise<IMigrationPreview> {
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/migration/preview`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Migration preview failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<IMigrationPreview>;
+    return http.httpMigrationPreview(this._baseUrl, this._headers());
   }
 
   async sizeAnalytics(): Promise<ISizeAnalytics> {
-    const resp = await fetchWithRetry(`${this._baseUrl}/api/analytics/size`, {
-      headers: this._headers(),
-    });
-    if (!resp.ok) {
-      throw new Error(`Size analytics failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<ISizeAnalytics>;
+    return http.httpSizeAnalytics(this._baseUrl, this._headers());
   }
 
   async importData(
-    format: string, table: string, data: string,
+    format: string,
+    table: string,
+    data: string,
   ): Promise<IImportResult> {
-    return importDataRequest(this._baseUrl, this._headers({ 'Content-Type': 'application/json' }), format, table, data);
+    return importDataRequest(
+      this._baseUrl,
+      this._headers({ 'Content-Type': 'application/json' }),
+      format,
+      table,
+      data,
+    );
   }
 
   async sessionShare(state: Record<string, unknown>): Promise<ISessionShareResult> {
-    return sessionShareRequest(this._baseUrl, this._headers({ 'Content-Type': 'application/json' }), state);
+    return sessionShareRequest(
+      this._baseUrl,
+      this._headers({ 'Content-Type': 'application/json' }),
+      state,
+    );
   }
 
   async sessionGet(id: string): Promise<ISessionData> {
@@ -318,16 +205,12 @@ export class DriftApiClient {
   }
 
   async sessionAnnotate(id: string, text: string, author: string): Promise<void> {
-    return sessionAnnotateRequest(this._baseUrl, this._headers({ 'Content-Type': 'application/json' }), id, text, author);
-  }
-
-  private _headers(
-    extra?: Record<string, string>,
-  ): Record<string, string> {
-    const h: Record<string, string> = { 'X-Drift-Client': 'vscode', ...extra };
-    if (this._authToken) {
-      h['Authorization'] = `Bearer ${this._authToken}`;
-    }
-    return h;
+    return sessionAnnotateRequest(
+      this._baseUrl,
+      this._headers({ 'Content-Type': 'application/json' }),
+      id,
+      text,
+      author,
+    );
   }
 }

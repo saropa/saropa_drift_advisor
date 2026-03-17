@@ -1,12 +1,6 @@
 // Contract tests for API type definitions (api-types.ts).
-//
-// These tests validate at compile-time and runtime that the TypeScript
-// interfaces match the documented API shapes in doc/API.md. If a field
-// is removed from an interface, this file fails to compile. If a field
-// is renamed, the runtime assertions catch the mismatch.
-//
-// See also: test/handler_integration_test.dart for server-side contract
-// assertions.
+// Part 1: Health, Tables, Schema/Export, Compare, Analytics, Performance.
+// See api-contract-sessions.test.ts for Sessions and Import.
 
 import * as assert from 'assert';
 import type {
@@ -26,19 +20,8 @@ import type {
   IMigrationPreview,
   ISizeAnalytics,
   ITableSizeInfo,
-  IImportResult,
-  ISessionShareResult,
-  ISessionData,
-  IAnnotation,
 } from '../api-types';
-
-// Helper: asserts that an object has all expected keys. This catches
-// drift between the interface and the documented API contract.
-function assertHasKeys(obj: Record<string, unknown>, keys: string[], context: string): void {
-  for (const key of keys) {
-    assert.ok(key in obj, `${context}: missing key "${key}"`);
-  }
-}
+import { assertHasKeys } from './api-contract-helpers';
 
 describe('API type contracts (doc/API.md)', () => {
   // -------------------------------------------------------
@@ -268,66 +251,5 @@ describe('API type contracts (doc/API.md)', () => {
     );
     assert.ok(Array.isArray(perf.slowQueries));
     assert.ok(Array.isArray(perf.recentQueries));
-  });
-
-  // -------------------------------------------------------
-  // Sessions
-  // -------------------------------------------------------
-  it('ISessionShareResult matches documented shape', () => {
-    const result: ISessionShareResult = {
-      id: 'abc123',
-      url: 'http://localhost:8642/?session=abc123',
-      expiresAt: '2025-06-15T11:30:00.000Z',
-    };
-    assertHasKeys(
-      result as unknown as Record<string, unknown>,
-      ['id', 'url', 'expiresAt'],
-      'ISessionShareResult',
-    );
-  });
-
-  it('IAnnotation matches documented shape', () => {
-    const a: IAnnotation = {
-      text: 'Found issue',
-      author: 'dev@example.com',
-      at: '2025-06-15T10:35:00.000Z',
-    };
-    assertHasKeys(a as unknown as Record<string, unknown>, ['text', 'author', 'at'], 'IAnnotation');
-  });
-
-  it('ISessionData matches documented shape', () => {
-    const session: ISessionData = {
-      state: { currentTable: 'items' },
-      createdAt: '2025-06-15T10:30:00.000Z',
-      expiresAt: '2025-06-15T11:30:00.000Z',
-      annotations: [],
-    };
-    assertHasKeys(
-      session as unknown as Record<string, unknown>,
-      ['state', 'createdAt', 'expiresAt', 'annotations'],
-      'ISessionData',
-    );
-    assert.ok(Array.isArray(session.annotations));
-  });
-
-  // -------------------------------------------------------
-  // Import
-  // -------------------------------------------------------
-  it('IImportResult matches documented shape', () => {
-    const result: IImportResult = {
-      imported: 5,
-      errors: [],
-      format: 'csv',
-      table: 'users',
-    };
-    assertHasKeys(
-      result as unknown as Record<string, unknown>,
-      ['imported', 'errors', 'format', 'table'],
-      'IImportResult',
-    );
-    assert.strictEqual(typeof result.imported, 'number');
-    assert.ok(Array.isArray(result.errors));
-    assert.strictEqual(typeof result.format, 'string');
-    assert.strictEqual(typeof result.table, 'string');
   });
 });

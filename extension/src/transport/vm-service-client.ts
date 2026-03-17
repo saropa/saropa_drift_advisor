@@ -12,8 +12,21 @@ import type {
   PerformanceData,
   TableMetadata,
 } from '../api-types';
-
-const EXT_PREFIX = 'ext.saropa.drift.';
+import {
+  apiClearPerformance,
+  apiExplainSql,
+  apiGetAnomalies,
+  apiGetChangeDetection,
+  apiGetGeneration,
+  apiGetHealth,
+  apiGetIndexSuggestions,
+  apiGetPerformance,
+  apiGetSchemaMetadata,
+  apiGetTableFkMeta,
+  apiRunSql,
+  apiSetChangeDetection,
+  type ExtensionRequest,
+} from './vm-service-api';
 
 export interface VmServiceClientConfig {
   wsUri: string;
@@ -68,7 +81,6 @@ export class VmServiceClient {
     };
     let list = await this._resolveIsolates();
     if (!list?.length) {
-      // VM may still be starting — retry once after a short delay.
       await new Promise((r) => setTimeout(r, 300));
       list = await this._resolveIsolates();
     }
@@ -79,20 +91,12 @@ export class VmServiceClient {
     this._isolateId = list[0].id;
   }
 
-  /**
-   * Get the list of isolates from the VM Service.
-   * Uses the standard `getVM` method which returns a VM object containing
-   * an `isolates` array of IsolateRef objects (each with `id`, `name`, etc.).
-   * Note: `getIsolates` is NOT a valid VM Service method — only `getVM` works.
-   */
   private async _resolveIsolates(): Promise<{ id: string }[] | undefined> {
     const result = (await this._request('getVM', {})) as {
       isolates?: { id: string; isSystemIsolate?: boolean }[];
     };
     const all = result?.isolates;
     if (!all?.length) return all;
-    // Prefer non-system isolates — the main app isolate is where
-    // DriftDebugServer registers its ext.saropa.drift.* extensions.
     const nonSystem = all.filter((i) => i.isSystemIsolate !== true);
     return nonSystem.length > 0 ? nonSystem : all;
   }
@@ -113,133 +117,12 @@ export class VmServiceClient {
     this._isolateId = null;
   }
 
-  async getHealth(): Promise<HealthResponse> {
-    const raw = await this._callExtension('getHealth', {});
-    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return obj as HealthResponse;
-  }
-
-  async getSchemaMetadata(): Promise<TableMetadata[]> {
-    const raw = await this._callExtension('getSchemaMetadata', {});
-    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    const tables = (obj as { tables?: TableMetadata[] }).tables;
-    if (!Array.isArray(tables)) {
-      throw new Error('Invalid getSchemaMetadata response');
-    }
-    return tables;
-  }
-
-  async getTableFkMeta(tableName: string): Promise<ForeignKey[]> {
-    const raw = await this._callExtension('getTableFkMeta', { tableName });
-    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!Array.isArray(arr)) {
-      throw new Error('Invalid getTableFkMeta response');
-    }
-    return arr as ForeignKey[];
-  }
-
-  async runSql(sql: string): Promise<{ columns: string[]; rows: unknown[][] }> {
-    const raw = await this._callExtension('runSql', { sql });
-    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (obj?.error) {
-      throw new Error(String(obj.error));
-    }
-    const rows = obj?.rows as unknown[][];
-    if (!Array.isArray(rows)) {
-      throw new Error('Invalid runSql response');
-    }
-    const columns =
-      rows.length > 0 && typeof rows[0] === 'object' && rows[0] !== null
-        ? (Object.keys(rows[0] as object) as string[])
-        : [];
-    return { columns, rows };
-  }
-
-  /** Returns current generation (no long-poll over VM). */
-  async getGeneration(): Promise<number> {
-    const raw = await this._callExtension('getGeneration', {});
-    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    const gen = (obj as { generation?: number })?.generation;
-    if (typeof gen !== 'number') {
-      throw new Error('Invalid getGeneration response');
-    }
-    return gen;
-  }
-
-  async getPerformance(): Promise<PerformanceData> {
-    const raw = await this._callExtension('getPerformance', {});
-    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return obj as PerformanceData;
-  }
-
-  async clearPerformance(): Promise<void> {
-    await this._callExtension('clearPerformance', {});
-  }
-
-  async getAnomalies(): Promise<{ anomalies: Anomaly[] }> {
-    const raw = await this._callExtension('getAnomalies', {});
-    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    const anomalies = (obj as { anomalies?: Anomaly[] })?.anomalies;
-    if (!Array.isArray(anomalies)) {
-      throw new Error('Invalid getAnomalies response');
-    }
-    return { anomalies };
-  }
-
-  async explainSql(sql: string): Promise<{ rows: Record<string, unknown>[]; sql: string }> {
-    const raw = await this._callExtension('explainSql', { sql });
-    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (obj?.error) {
-      throw new Error(String(obj.error));
-    }
-    const rows = obj?.rows as Record<string, unknown>[];
-    const sqlOut = obj?.sql as string;
-    if (!Array.isArray(rows) || typeof sqlOut !== 'string') {
-      throw new Error('Invalid explainSql response');
-    }
-    return { rows, sql: sqlOut };
-  }
-
-  /** Returns index suggestions (missing FK/column indexes). Plan 68 VM path. */
-  async getIndexSuggestions(): Promise<IndexSuggestion[]> {
-    const raw = await this._callExtension('getIndexSuggestions', {});
-    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!Array.isArray(arr)) {
-      throw new Error('Invalid getIndexSuggestions response');
-    }
-    return arr as IndexSuggestion[];
-  }
-
-  /** Returns whether change detection polling is enabled. */
-  async getChangeDetection(): Promise<boolean> {
-    const raw = await this._callExtension('getChangeDetection', {});
-    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    const enabled = (obj as { changeDetection?: boolean })?.changeDetection;
-    return enabled !== false;
-  }
-
-  /** Enables or disables change detection polling. Returns the new state. */
-  async setChangeDetection(enabled: boolean): Promise<boolean> {
-    const raw = await this._callExtension('setChangeDetection', {
-      enabled: String(enabled),
-    });
-    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    const result = (obj as { changeDetection?: boolean })?.changeDetection;
-    return result !== false;
-  }
-
-  private _callExtension(
-    method: string,
-    params: Record<string, string>,
-  ): Promise<unknown> {
+  private _callExtension: ExtensionRequest = (method, params) => {
     if (!this._isolateId) {
       return Promise.reject(new Error('VM Service: not connected'));
     }
-    return this._request(`${EXT_PREFIX}${method}`, {
-      isolateId: this._isolateId,
-      ...params,
-    });
-  }
+    return this._request(method, { isolateId: this._isolateId, ...params });
+  };
 
   private _request(
     method: string,
@@ -250,12 +133,7 @@ export class VmServiceClient {
       return Promise.reject(new Error('VM Service: WebSocket not open'));
     }
     const id = this._nextId++;
-    const msg = JSON.stringify({
-      jsonrpc: '2.0',
-      id,
-      method,
-      params,
-    });
+    const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params });
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this._pending.delete(id);
@@ -273,7 +151,7 @@ export class VmServiceClient {
       });
       ws.send(msg);
     });
-  }
+  };
 
   private _onMessage(ev: MessageEvent): void {
     let data: { id?: number; result?: unknown; error?: { message?: string } };
@@ -289,7 +167,6 @@ export class VmServiceClient {
     if (data.error) {
       entry.reject(new Error(data.error.message ?? JSON.stringify(data.error)));
     } else {
-      // VM may return extension result as raw string or wrapped (e.g. { value: string })
       const result = data.result;
       const unwrapped =
         typeof result === 'object' && result !== null && 'value' in result
@@ -297,5 +174,53 @@ export class VmServiceClient {
           : result;
       entry.resolve(unwrapped);
     }
+  }
+
+  async getHealth(): Promise<HealthResponse> {
+    return apiGetHealth(this._callExtension);
+  }
+
+  async getSchemaMetadata(): Promise<TableMetadata[]> {
+    return apiGetSchemaMetadata(this._callExtension);
+  }
+
+  async getTableFkMeta(tableName: string): Promise<ForeignKey[]> {
+    return apiGetTableFkMeta(this._callExtension, tableName);
+  }
+
+  async runSql(sql: string): Promise<{ columns: string[]; rows: unknown[][] }> {
+    return apiRunSql(this._callExtension, sql);
+  }
+
+  async getGeneration(): Promise<number> {
+    return apiGetGeneration(this._callExtension);
+  }
+
+  async getPerformance(): Promise<PerformanceData> {
+    return apiGetPerformance(this._callExtension);
+  }
+
+  async clearPerformance(): Promise<void> {
+    return apiClearPerformance(this._callExtension);
+  }
+
+  async getAnomalies(): Promise<{ anomalies: Anomaly[] }> {
+    return apiGetAnomalies(this._callExtension);
+  }
+
+  async explainSql(sql: string): Promise<{ rows: Record<string, unknown>[]; sql: string }> {
+    return apiExplainSql(this._callExtension, sql);
+  }
+
+  async getIndexSuggestions(): Promise<IndexSuggestion[]> {
+    return apiGetIndexSuggestions(this._callExtension);
+  }
+
+  async getChangeDetection(): Promise<boolean> {
+    return apiGetChangeDetection(this._callExtension);
+  }
+
+  async setChangeDetection(enabled: boolean): Promise<boolean> {
+    return apiSetChangeDetection(this._callExtension, enabled);
   }
 }

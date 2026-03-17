@@ -1,5 +1,20 @@
+/**
+ * Discovers Drift debug servers by scanning a port range and validates
+ * health + schema metadata. Emits server list changes and optional notifications.
+ */
+
 import * as vscode from 'vscode';
-import { fetchWithTimeout, HEALTH_PROBE_TIMEOUT_MS } from './transport/fetch-utils';
+import {
+  BACKOFF_CYCLES,
+  BACKOFF_INTERVAL,
+  BACKOFF_THRESHOLD,
+  CONNECTED_INTERVAL,
+  MISS_THRESHOLD,
+  NOTIFY_THROTTLE_MS,
+  SEARCH_INTERVAL,
+} from './server-discovery-constants';
+import { maybeNotifyServerEvent } from './server-discovery-notify';
+import { scanPorts } from './server-discovery-scan';
 
 /** Discovered server info. */
 export interface IServerInfo {
@@ -22,18 +37,6 @@ export interface IDiscoveryConfig {
 /** Polling state machine states. */
 export type DiscoveryState = 'searching' | 'connected' | 'backoff';
 
-// Polling schedule: 3s while searching → 15s once connected → 30s during backoff.
-const SEARCH_INTERVAL = 3000;
-const CONNECTED_INTERVAL = 15000;
-const BACKOFF_INTERVAL = 30000;
-/** Consecutive missed polls before removing a server from the active list. */
-const MISS_THRESHOLD = 2;
-/** Empty scans before entering backoff state (5 scans × 3s = 15s of no servers). */
-const BACKOFF_THRESHOLD = 5;
-/** After this many backoff polls (~90s at 30s intervals), reset to searching for auto-recovery. */
-const BACKOFF_CYCLES = 3;
-const NOTIFY_THROTTLE_MS = 60000;
-
 /** Optional log sink for discovery diagnostics. */
 export interface IDiscoveryLog {
   appendLine(msg: string): void;
@@ -50,7 +53,7 @@ export class ServerDiscovery {
   private _emptyScans = 0;
   private _backoffPolls = 0;
   private _running = false;
-  private _pollId = 0; // Incremented on stop/retry to cancel stale polls
+  private _pollId = 0;
   private _pollTimeout: ReturnType<typeof setTimeout> | undefined;
   private _notifiedAt = new Map<number, number>();
   private _log: IDiscoveryLog | undefined;
@@ -109,7 +112,7 @@ export class ServerDiscovery {
     if (!this._running || id !== this._pollId) return;
 
     try {
-      const alivePorts = await this._scanPorts();
+      const alivePorts = await scanPorts(this._config, (msg) => this._logLine(msg));
       if (!this._running || id !== this._pollId) return;
       this._updateServers(alivePorts);
     } catch {
@@ -119,90 +122,9 @@ export class ServerDiscovery {
 
     if (this._running && id === this._pollId) {
       this._pollTimeout = setTimeout(
-        () => this._poll(id), this._getInterval(),
+        () => this._poll(id),
+        this._getInterval(),
       );
-    }
-  }
-
-  private async _scanPorts(): Promise<number[]> {
-    const { host, portRangeStart, portRangeEnd, additionalPorts } = this._config;
-    const portSet = new Set<number>();
-    for (let p = portRangeStart; p <= portRangeEnd; p++) {
-      portSet.add(p);
-    }
-    if (additionalPorts) {
-      for (const p of additionalPorts) portSet.add(p);
-    }
-    const ports = [...portSet];
-    const extra = ports.length - (portRangeEnd - portRangeStart + 1);
-    this._logLine(
-      `Scanning ${ports.length} port${ports.length === 1 ? '' : 's'} on ${host} (${portRangeStart}-${portRangeEnd}${extra > 0 ? ` +${extra} remembered` : ''})`,
-    );
-
-    const results = await Promise.allSettled(
-      ports.map((port) => this._checkHealth(host, port)),
-    );
-
-    const alive: number[] = [];
-    for (let i = 0; i < ports.length; i++) {
-      const r = results[i];
-      if (r.status === 'fulfilled' && r.value) {
-        alive.push(ports[i]);
-      }
-    }
-    if (alive.length > 0) {
-      this._logLine(`Found servers on ports: ${alive.join(', ')}`);
-    }
-    return alive;
-  }
-
-  private async _checkHealth(
-    host: string,
-    port: number,
-  ): Promise<boolean> {
-    try {
-      const resp = await fetchWithTimeout(`http://${host}:${port}/api/health`, {
-        timeoutMs: HEALTH_PROBE_TIMEOUT_MS,
-      });
-      const body = (await resp.json()) as { ok?: boolean };
-      if (body?.ok !== true) {
-        this._logLine(`Port ${port}: health responded but ok=${body?.ok}`);
-        return false;
-      }
-      return this._validateServer(host, port);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (!msg.includes('ECONNREFUSED')) {
-        this._logLine(`Port ${port}: ${msg}`);
-      }
-      return false;
-    }
-  }
-
-  /** Secondary validation: confirm /api/schema/metadata returns expected shape. */
-  private async _validateServer(
-    host: string,
-    port: number,
-  ): Promise<boolean> {
-    try {
-      const resp = await fetchWithTimeout(
-        `http://${host}:${port}/api/schema/metadata`,
-        { timeoutMs: HEALTH_PROBE_TIMEOUT_MS },
-      );
-      const data: unknown = await resp.json();
-      // Accept both formats: raw array [...] or wrapped { tables: [...] }
-      const tables = Array.isArray(data)
-        ? data
-        : (data as Record<string, unknown>)?.tables;
-      if (!Array.isArray(tables)) {
-        this._logLine(`Port ${port}: schema/metadata returned unexpected shape (${typeof data})`);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this._logLine(`Port ${port}: schema/metadata validation failed: ${msg}`);
-      return false;
     }
   }
 
@@ -211,7 +133,6 @@ export class ServerDiscovery {
     const aliveSet = new Set(alivePorts);
     let changed = false;
 
-    // Update or add alive servers
     for (const port of alivePorts) {
       const existing = this._servers.get(port);
       if (existing) {
@@ -225,25 +146,34 @@ export class ServerDiscovery {
           lastSeen: now,
           missedPolls: 0,
         });
-        this._maybeNotify(port, 'found');
+        maybeNotifyServerEvent(
+          this._config.host,
+          port,
+          'found',
+          this._notifiedAt,
+          NOTIFY_THROTTLE_MS,
+        );
         changed = true;
       }
     }
 
-    // Increment misses for servers not in alive set
     for (const [port, info] of this._servers) {
       if (!aliveSet.has(port)) {
         info.missedPolls++;
         if (info.missedPolls >= MISS_THRESHOLD) {
           this._servers.delete(port);
-          this._maybeNotify(port, 'lost');
+          maybeNotifyServerEvent(
+            this._config.host,
+            port,
+            'lost',
+            this._notifiedAt,
+            NOTIFY_THROTTLE_MS,
+          );
           changed = true;
         }
       }
     }
 
-    // State transitions: searching → backoff after BACKOFF_THRESHOLD empty scans,
-    // backoff → searching after BACKOFF_CYCLES polls (auto-recovery).
     const prevState = this._state;
     if (this._servers.size > 0) {
       this._state = 'connected';
@@ -259,16 +189,16 @@ export class ServerDiscovery {
           this._backoffPolls = 0;
         }
       } else {
-        this._state = this._emptyScans >= BACKOFF_THRESHOLD ? 'backoff' : 'searching';
+        this._state =
+          this._emptyScans >= BACKOFF_THRESHOLD ? 'backoff' : 'searching';
       }
     }
     if (this._state !== prevState) {
-      this._logLine(`State: ${prevState} → ${this._state} (empty scans: ${this._emptyScans})`);
+      this._logLine(
+        `State: ${prevState} → ${this._state} (empty scans: ${this._emptyScans})`,
+      );
     }
 
-    // Fire when server list changes OR on state transitions (e.g. searching →
-    // backoff). Without this, listeners like the adb-forward trigger never fire
-    // when the list stays permanently empty.
     if (changed || this._state !== prevState) {
       this._onDidChangeServers.fire(this.servers);
     }
@@ -276,37 +206,12 @@ export class ServerDiscovery {
 
   private _getInterval(): number {
     switch (this._state) {
-      case 'searching': return SEARCH_INTERVAL;
-      case 'connected': return CONNECTED_INTERVAL;
-      case 'backoff': return BACKOFF_INTERVAL;
-    }
-  }
-
-  private _maybeNotify(port: number, event: 'found' | 'lost'): void {
-    const now = Date.now();
-    const last = this._notifiedAt.get(port);
-    if (last !== undefined && now - last < NOTIFY_THROTTLE_MS) return;
-    this._notifiedAt.set(port, now);
-
-    if (event === 'found') {
-      const url = `http://${this._config.host}:${port}`;
-      // Open URL opens in default browser; Copy URL copies to clipboard; Dismiss closes.
-      void vscode.window.showInformationMessage(
-        `Drift debug server detected on port ${port}`,
-        'Open URL',
-        'Copy URL',
-        'Dismiss',
-      ).then((choice) => {
-        if (choice === 'Open URL') {
-          void vscode.env.openExternal(vscode.Uri.parse(url));
-        } else if (choice === 'Copy URL') {
-          void vscode.env.clipboard.writeText(url);
-        }
-      });
-    } else {
-      vscode.window.showWarningMessage(
-        `Drift debug server on port ${port} is no longer responding`,
-      );
+      case 'searching':
+        return SEARCH_INTERVAL;
+      case 'connected':
+        return CONNECTED_INTERVAL;
+      case 'backoff':
+        return BACKOFF_INTERVAL;
     }
   }
 }
