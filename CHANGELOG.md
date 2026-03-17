@@ -21,6 +21,8 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ### Added
 
+• **Web UI: navigate-away confirmation** — Closing the tab, refreshing the page, or navigating away (e.g. back button) now triggers the browser’s native “Leave site?” confirmation dialog so users can avoid losing context by accident.
+
 • **Web UI: Index tab auto-analyze** — Opening the Index tab runs index suggestion analysis automatically (no manual Analyze click). Uses the shared `triggerToolButtonIfReady` helper; does not re-trigger if analysis is in progress or server is offline.
 
 • **Web UI: Size tab auto-analyze** — Opening the Size tab runs database size analysis immediately (no manual Analyze click). The existing "Analyzing…" state and results UI apply; does not re-trigger if a run is already in progress or if the server is offline. Implemented via the same shared `triggerToolButtonIfReady` helper used for Index, Size, Perf, and Health tabs.
@@ -33,7 +35,13 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ### Changed
 
+• **Web UI: Export diff report in new tab** — The DB diff panel "Export diff report" link now opens in a new browser tab (`target="_blank"` with `rel="noopener noreferrer"`) so the current view stays open.
+
 • **Web UI: sidebar Export section** — Replaced the inline export toolbar in the sidebar with a brief note: "Export schema, dumps, and table data from the **Export** tab (toolbar button above)."
+
+### Fixed
+
+• **Web UI: toolbar Search and Tables buttons** — The toolbar **Search** button now opens the Search tab and expands the sidebar search options (it had no `data-tool`, so it only toggled the sidebar). A **Tables** toolbar button was added so the Tables view can be opened from the toolbar like other tools; both use `data-tool` and the shared `openTool` flow.
 
 ---
 
