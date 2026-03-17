@@ -16,6 +16,7 @@ abstract final class HtmlContent {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='8' rx='12' ry='5' fill='%23546e7a'/%3E%3Cpath d='M4 8v16c0 2.8 5.4 5 12 5s12-2.2 12-5V8' fill='none' stroke='%23546e7a' stroke-width='2'/%3E%3Cellipse cx='16' cy='24' rx='12' ry='5' fill='none' stroke='%23546e7a' stroke-width='2'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='5' fill='none' stroke='%23546e7a' stroke-width='2'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css">
 </head>
@@ -32,8 +33,8 @@ abstract final class HtmlContent {
       <span id="version-badge" class="app-version meta" style="opacity:0;" title="Saropa Drift Advisor version"></span>
     </div>
     <div class="app-header-actions">
-      <button type="button" id="theme-toggle" class="header-btn" title="Toggle light/dark">Theme</button>
-      <button type="button" id="share-btn" class="header-btn" title="Share current view with your team">Share</button>
+      <button type="button" id="theme-toggle" class="header-btn" title="Toggle light/dark"><span class="material-symbols-outlined header-icon" aria-hidden="true">dark_mode</span><span id="theme-toggle-label">Theme</span></button>
+      <button type="button" id="share-btn" class="header-btn" title="Share current view with your team"><span class="material-symbols-outlined header-icon" aria-hidden="true">share</span>Share</button>
       <button type="button" id="polling-toggle" class="header-pill" title="Toggle database polling on/off">Polling: ON</button>
       <span id="live-indicator" class="header-pill live" title="Table view updates when data changes">● Live</span>
     </div>
@@ -64,17 +65,17 @@ abstract final class HtmlContent {
         <h2 class="sidebar-section-title">Export</h2>
       <div class="export-toolbar">
         <span class="export-toolbar-label">Export:</span>
-        <a href="/api/schema" id="export-schema" class="export-link" download="schema.sql">Schema</a>
-        <a href="#" id="export-dump" class="export-link">Full dump</a><span id="export-dump-status" class="meta"></span>
-        <a href="#" id="export-database" class="export-link">Database</a><span id="export-database-status" class="meta"></span>
-        <a href="#" id="export-csv" class="export-link">Table CSV</a><span id="export-csv-status" class="meta"></span>
+        <a href="/api/schema" id="export-schema" class="export-link" download="schema.sql"><span class="material-symbols-outlined export-icon" aria-hidden="true">code</span>Schema</a>
+        <a href="#" id="export-dump" class="export-link"><span class="material-symbols-outlined export-icon" aria-hidden="true">download</span>Full dump</a><span id="export-dump-status" class="meta"></span>
+        <a href="#" id="export-database" class="export-link"><span class="material-symbols-outlined export-icon" aria-hidden="true">storage</span>Database</a><span id="export-database-status" class="meta"></span>
+        <a href="#" id="export-csv" class="export-link"><span class="material-symbols-outlined export-icon" aria-hidden="true">table_chart</span>Table CSV</a><span id="export-csv-status" class="meta"></span>
       </div>
       </div>
       <p id="tables-loading" class="meta">Loading tables…</p>
       <div class="sidebar-section">
         <h2 class="sidebar-section-title">Tools</h2>
       <div class="feature-card">
-        <div class="collapsible-header" id="snapshot-toggle">▼ Snapshot / time travel</div>
+        <div class="collapsible-header" id="snapshot-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">photo_camera</span><span class="collapsible-title">Snapshot / time travel</span></div>
         <div id="snapshot-collapsible" class="collapsible-body collapsed">
         <p class="meta">Capture current DB state, then compare to now to see what changed.</p>
         <div class="toolbar">
@@ -88,7 +89,7 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="compare-toggle">▼ Database diff</div>
+        <div class="collapsible-header" id="compare-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">compare_arrows</span><span class="collapsible-title">Database diff</span></div>
         <div id="compare-collapsible" class="collapsible-body collapsed">
         <p class="meta">Compare this DB with another (e.g. staging). Requires queryCompare at startup.</p>
         <div class="toolbar">
@@ -101,7 +102,7 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="index-toggle">▼ Index suggestions</div>
+        <div class="collapsible-header" id="index-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">format_list_bulleted</span><span class="collapsible-title">Index suggestions</span></div>
         <div id="index-collapsible" class="collapsible-body collapsed">
         <p class="meta">Analyze tables for missing indexes based on schema patterns.</p>
         <div class="toolbar">
@@ -116,7 +117,7 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="size-toggle">▼ Database size analytics</div>
+        <div class="collapsible-header" id="size-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">bar_chart</span><span class="collapsible-title">Database size analytics</span></div>
         <div id="size-collapsible" class="collapsible-body collapsed">
         <p class="meta">Analyze database storage: total size, page stats, and per-table breakdown.</p>
         <div class="toolbar">
@@ -131,7 +132,7 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="perf-toggle">▼ Query performance</div>
+        <div class="collapsible-header" id="perf-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">speed</span><span class="collapsible-title">Query performance</span></div>
         <div id="perf-collapsible" class="collapsible-body collapsed">
         <p class="meta">Track query execution times, identify slow queries, and view patterns.</p>
         <div class="toolbar">
@@ -147,7 +148,7 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="anomaly-toggle">▼ Data health</div>
+        <div class="collapsible-header" id="anomaly-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">favorite</span><span class="collapsible-title">Data health</span></div>
         <div id="anomaly-collapsible" class="collapsible-body collapsed">
         <p class="meta">Scan all tables for data quality issues: NULLs, empty strings, orphaned FKs, duplicates, outliers.</p>
         <div class="toolbar">
@@ -162,7 +163,7 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="import-toggle">▼ Import data (debug only)</div>
+        <div class="collapsible-header" id="import-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">upload</span><span class="collapsible-title">Import data (debug only)</span></div>
         <div id="import-collapsible" class="collapsible-body collapsed">
         <p class="meta import-warning">Warning: This modifies the database. Debug use only.</p>
         <div class="sql-runner">
@@ -193,11 +194,11 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="schema-toggle">▼ Schema</div>
+        <div class="collapsible-header" id="schema-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">grid_on</span><span class="collapsible-title">Schema</span></div>
         <div id="schema-collapsible" class="collapsible-body collapsed"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="diagram-toggle">▼ Schema diagram</div>
+        <div class="collapsible-header" id="diagram-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">account_tree</span><span class="collapsible-title">Schema diagram</span></div>
         <div id="diagram-collapsible" class="collapsible-body collapsed">
         <p class="meta">Tables and relationships. Click or press Enter on a table to view its data. Use arrow keys to navigate between tables.</p>
         <div id="diagram-container"></div>
@@ -212,7 +213,7 @@ abstract final class HtmlContent {
     </aside>
     <div class="app-main-content">
       <div class="feature-card sql-runner-card">
-  <div class="collapsible-header sql-runner" id="sql-runner-toggle">▼ Run SQL (read-only)</div>
+  <div class="collapsible-header sql-runner" id="sql-runner-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">play_arrow</span><span class="collapsible-title">Run SQL (read-only)</span></div>
   <div id="sql-runner-collapsible" class="collapsible-body collapsed sql-runner">
     <div class="sql-toolbar">
       <label for="sql-template">Template:</label>

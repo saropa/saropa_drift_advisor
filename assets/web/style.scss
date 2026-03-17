@@ -288,13 +288,61 @@ body.theme-light .feature-card.expanded {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
+/* Material Symbols (Phase 4.1): icon font from Google Fonts CDN. */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: 400;
+  font-style: normal;
+  font-size: 1.25rem;
+  line-height: 1;
+  letter-spacing: normal;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.feature-icon {
+  font-size: 1.15rem;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+  color: inherit;
+}
+
+.header-icon {
+  font-size: 1.1rem;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.export-icon {
+  font-size: 1rem;
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+
 .feature-card .collapsible-header {
+  display: flex;
+  align-items: center;
   font-weight: 600;
   font-size: var(--text-sm);
   padding: 0.2rem 0;
   margin: 0;
   border-radius: var(--radius-sm);
   transition: background 0.15s ease;
+}
+
+.feature-card .collapsible-header::before {
+  content: "▼";
+  margin-right: 0.35rem;
+  font-size: 0.65em;
+  opacity: 0.9;
+}
+
+.feature-card.expanded .collapsible-header::before {
+  content: "▲";
+}
+
+.feature-card .collapsible-title {
+  flex: 1;
 }
 
 .feature-card .collapsible-header:hover {

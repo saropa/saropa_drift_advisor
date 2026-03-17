@@ -1203,7 +1203,9 @@
     function applyTheme(dark) {
       document.body.classList.toggle('theme-light', !dark);
       document.body.classList.toggle('theme-dark', dark);
-      document.getElementById('theme-toggle').textContent = dark ? 'Dark' : 'Light';
+      // Update only the label span so the Material icon is preserved (Phase 4.1).
+      var themeLabel = document.getElementById('theme-toggle-label');
+      if (themeLabel) themeLabel.textContent = dark ? 'Dark' : 'Light';
     }
 
     // Detect whether we are running inside a VS Code webview by checking
@@ -1274,7 +1276,6 @@
       const isCollapsed = el.classList.contains('collapsed');
       el.classList.toggle('collapsed', !isCollapsed);
       syncFeatureCardExpanded(el);
-      this.textContent = isCollapsed ? '▲ Schema' : '▼ Schema';
       if (isCollapsed && cachedSchema === null) {
         fetch('/api/schema', authOpts()).then(r => r.text()).then(schema => {
           cachedSchema = schema;
@@ -1421,7 +1422,6 @@
         const isCollapsed = collapsible.classList.contains('collapsed');
         collapsible.classList.toggle('collapsed', !isCollapsed);
         syncFeatureCardExpanded(collapsible);
-        this.textContent = isCollapsed ? '▲ Schema diagram' : '▼ Schema diagram';
         if (isCollapsed && diagramData === null) {
           container.innerHTML = '<p class="meta">Loading…</p>';
           fetch('/api/schema/diagram', authOpts())
@@ -1469,7 +1469,6 @@
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
           syncFeatureCardExpanded(collapsible);
-          this.textContent = isCollapsed ? '▲ Snapshot / time travel' : '▼ Snapshot / time travel';
           if (isCollapsed) refreshSnapshotStatus();
         });
       }
@@ -1537,7 +1536,6 @@
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
           syncFeatureCardExpanded(collapsible);
-          this.textContent = isCollapsed ? '▲ Database diff' : '▼ Database diff';
         });
       }
 
@@ -1655,7 +1653,6 @@
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
           syncFeatureCardExpanded(collapsible);
-          this.textContent = isCollapsed ? '▲ Index suggestions' : '▼ Index suggestions';
         });
       }
 
@@ -1781,7 +1778,6 @@
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
           syncFeatureCardExpanded(collapsible);
-          this.textContent = isCollapsed ? '▲ Database size analytics' : '▼ Database size analytics';
         });
       }
 
@@ -1882,7 +1878,6 @@
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
           syncFeatureCardExpanded(collapsible);
-          this.textContent = isCollapsed ? '▲ Data health' : '▼ Data health';
         });
       }
 
@@ -2032,7 +2027,6 @@
           var isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
           syncFeatureCardExpanded(collapsible);
-          this.textContent = isCollapsed ? '▲ Import data (debug only)' : '▼ Import data (debug only)';
         });
       }
 
@@ -3261,7 +3255,6 @@
         const isCollapsed = collapsible.classList.contains('collapsed');
         collapsible.classList.toggle('collapsed', !isCollapsed);
         syncFeatureCardExpanded(collapsible);
-        this.textContent = isCollapsed ? '▲ Run SQL (read-only)' : '▼ Run SQL (read-only)';
       });
 
       const TEMPLATES = {
@@ -4224,7 +4217,6 @@
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
           syncFeatureCardExpanded(collapsible);
-          this.textContent = isCollapsed ? '\u25B2 Query performance' : '\u25BC Query performance';
           if (isCollapsed && !perfLoaded) fetchPerformance();
         });
       }
