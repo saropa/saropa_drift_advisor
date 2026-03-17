@@ -103,8 +103,8 @@ describe('Extension activation', () => {
     // About: about (1)
     // Troubleshooting: showTroubleshooting (1)
     // Package status monitor: packageMonitor, onDidChangeInstalled listener (2)
-    // Total grows as new features are added
-    assert.strictEqual(subscriptions.length, 171, `expected 171 disposables, got ${subscriptions.length}`);
+    // Total grows as new features/commands are added; update when adding registrations
+    assert.strictEqual(subscriptions.length, 173, `expected 173 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

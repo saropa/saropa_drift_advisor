@@ -205,4 +205,77 @@ describe('DriftApiClient', () => {
       assert.strictEqual(body.table, 'users');
     });
   });
+
+  describe('getChangeDetection()', () => {
+    it('should return true when server returns changeDetection true', async () => {
+      fetchStub.resolves(
+        new Response(JSON.stringify({ changeDetection: true }), { status: 200 }),
+      );
+      const result = await client.getChangeDetection();
+      assert.strictEqual(result, true);
+      assert.ok(
+        fetchStub.calledOnceWith(
+          'http://127.0.0.1:8642/api/change-detection',
+          sinon.match.any,
+        ),
+      );
+    });
+
+    it('should return false when server returns changeDetection false', async () => {
+      fetchStub.resolves(
+        new Response(JSON.stringify({ changeDetection: false }), { status: 200 }),
+      );
+      const result = await client.getChangeDetection();
+      assert.strictEqual(result, false);
+    });
+
+    it('should treat missing changeDetection as true (default enabled)', async () => {
+      fetchStub.resolves(new Response(JSON.stringify({}), { status: 200 }));
+      const result = await client.getChangeDetection();
+      assert.strictEqual(result, true);
+    });
+
+    it('should throw on non-200 status', async () => {
+      fetchStub.resolves(new Response('', { status: 500 }));
+      // fetchWithRetry throws "Server error: 500" for 5xx before returning to caller
+      await assert.rejects(
+        () => client.getChangeDetection(),
+        /500/,
+      );
+    });
+  });
+
+  describe('setChangeDetection()', () => {
+    it('should POST enabled true and return new state', async () => {
+      fetchStub.resolves(
+        new Response(JSON.stringify({ changeDetection: true }), { status: 200 }),
+      );
+      const result = await client.setChangeDetection(true);
+      assert.strictEqual(result, true);
+      const [url, opts] = fetchStub.firstCall.args;
+      assert.strictEqual(url, 'http://127.0.0.1:8642/api/change-detection');
+      assert.strictEqual(opts.method, 'POST');
+      assert.deepStrictEqual(JSON.parse(opts.body), { enabled: true });
+    });
+
+    it('should POST enabled false and return new state', async () => {
+      fetchStub.resolves(
+        new Response(JSON.stringify({ changeDetection: false }), { status: 200 }),
+      );
+      const result = await client.setChangeDetection(false);
+      assert.strictEqual(result, false);
+      assert.deepStrictEqual(
+        JSON.parse(fetchStub.firstCall.args[1].body),
+        { enabled: false },
+      );
+    });
+
+    it('should throw on non-200 status', async () => {
+      fetchStub.resolves(new Response('', { status: 403 }));
+      await assert.rejects(
+        () => client.setChangeDetection(true),
+        /Set change detection failed: 403/,
+      );
+    });
+  });
 });
