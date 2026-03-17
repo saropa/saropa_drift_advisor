@@ -41,4 +41,32 @@ import feature.
 - Show a save/cancel button pair on the edited row
 - Track pending changes visually (highlight modified cells)
 - Require explicit "Save" action (no auto-save to prevent accidents)
-- Consider a confirmation dialog for destructive changes (DELETE)
+- Confirmation dialog for destructive changes (DELETE), including row identity in the copy (e.g. "Delete row where id = 42?")
+- Escape key cancels the current cell edit and reverts to the original value
+- When leaving the table/tab or refreshing with unsaved changes, prompt: "You have unsaved changes. Leave anyway?"
+
+Edit and delete controls must only be shown when the server reports write capability (see Safeguards).
+
+## Safeguards
+
+Implement the following to minimize user error and accidental data loss:
+
+1. **Capability check** — Expose write capability in `/api/health` (e.g. `writeEnabled: true` when `writeQuery` is set). UI shows edit/delete only when writes are allowed; avoids dead buttons and 501 when not configured.
+
+2. **Single edit at a time** — Allow only one cell (or one row) in edit mode; user must Save or Cancel before starting another edit.
+
+3. **Primary key required** — Only allow updates/deletes when the table has a clear primary key. Disable or hide edit/delete for tables without safe row identity.
+
+4. **Read-only columns** — Do not allow editing of computed/generated or server-marked read-only columns.
+
+5. **Validation before Save** — Validate types and constraints in the UI before sending; show inline errors. Optionally surface server validation errors instead of a generic "Save failed."
+
+6. **Unsaved-changes prompt** — On table change, tab switch, or refresh: if there are unsaved changes, confirm before leaving.
+
+7. **Esc to cancel** — Escape cancels the current cell edit and reverts to the original value.
+
+8. **DELETE confirmation copy** — In the DELETE dialog, include the row's primary key or a short summary (e.g. "Delete row where id = 42?").
+
+9. **No bulk delete (v1)** — Only single-row delete (e.g. row action or context menu). Defer multi-select bulk delete to a later iteration.
+
+10. **Parameterized writes on server** — Any new write endpoint must build SQL from parameters (table, primary key, column names from schema), not raw user SQL. Preserves the read-only-SQL + writeQuery model and avoids injection.
