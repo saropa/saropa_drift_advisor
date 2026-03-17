@@ -66,12 +66,31 @@ a {
   background: rgba(128, 128, 128, 0.10);
 }
 
+/* Sticky headers: keep visible during vertical and horizontal scroll inside .data-table-scroll-wrap */
 #data-table th,
 .sql-result table th {
   background: var(--bg-pre);
   position: sticky;
   top: 0;
+  z-index: 2;
+}
+
+/* Pinned columns: stay visible when scrolling horizontally (e.g. ID column) */
+#data-table th.col-pinned,
+#data-table td.col-pinned {
+  position: sticky;
+  left: 0;
   z-index: 1;
+  background: var(--bg-pre);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.08);
+}
+
+#data-table tbody tr:nth-child(even) td.col-pinned {
+  background: rgba(128, 128, 128, 0.05);
+}
+
+#data-table tbody tr:hover td.col-pinned {
+  background: rgba(128, 128, 128, 0.10);
 }
 
 /* ── Pulsing live indicator ───────────────────────────────────── */
