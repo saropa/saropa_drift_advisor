@@ -10,9 +10,9 @@ import * as vscode from 'vscode';
 const execAsync = promisify(exec);
 
 /** Package name as it appears in pubspec dependencies. */
-const PACKAGE_NAME = 'saropa_drift_advisor';
+export const PACKAGE_NAME = 'saropa_drift_advisor';
 /** Version constraint; keep in sync with repo pubspec when cutting releases. */
-const PACKAGE_VERSION = '^0.3.0';
+export const PACKAGE_VERSION = '^1.6.1';
 
 /** Prevents concurrent runs (double-click or repeated command). */
 let addPackageInProgress = false;
