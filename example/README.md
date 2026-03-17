@@ -24,21 +24,21 @@ flutter run
 
 ## What it does
 
-1. Creates a Drift database with a single `items` table (id, title, createdAt).
-2. Seeds a few rows if the table is empty.
+1. Creates a Drift database with a **multi-table schema**: `users`, `posts`, `comments`, `tags`, and `post_tags` (with foreign keys) so you can try **ER diagrams**, **FK navigation**, schema diff, and migration tooling.
+2. Seeds realistic data when empty (multiple users, posts including a draft with null `publishedAt`, comments, tags, and post–tag links) to demonstrate date formatting, null handling, and varied types.
 3. Starts Saropa Drift Advisor in debug builds (`kDebugMode`).
-4. Opens a simple Flutter UI that tells you to open **http://127.0.0.1:8642** in a browser. A **floating button** (bottom-right in debug) opens the advisor in the browser or in an in-app WebView.
-
-Open that URL (or tap the overlay button) to use the advisor: list tables, browse rows, run read-only SQL, export schema or data, or download the raw `.sqlite` file.
+4. Opens a simple Flutter UI that shows the viewer URL (**http://127.0.0.1:8642**). Open that URL in a browser (or use the overlay button in debug) to list tables, browse rows, run SQL, **navigate FKs**, use the **Import** feature, export schema/data, or download the `.sqlite` file.
 
 Note: This example uses Drift's native (dart:io) database, so it is intended for mobile/desktop targets (not web).
 
 ## Integration pattern
 
-The app wires the advisor using the callback API (no `startDriftViewer` extension):
+The app uses the **`startDriftViewer()`** extension on the database instance; `lib/main.dart` also documents the equivalent **callback style** (`DriftDebugServer.start`) in comments.
 
-- **`query`** — runs SQL via `db.customSelect(sql).get()` and returns rows as `List<Map<String, dynamic>>`.
-- **`getDatabaseBytes`** — returns the SQLite file bytes so the UI can offer "Download database".
-- **`onLog` / `onError`** — uses `DriftDebugErrorLogger` for startup banner and errors.
+- **`query`** — provided by the extension via `db.customSelect(sql).get()` → `List<Map<String, dynamic>>`.
+- **`getDatabaseBytes`** — returns the SQLite file bytes for "Download database".
+- **`writeQuery`** — executes write SQL (e.g. from Import) via `db.customStatement(sql)`.
+- **`authToken`** — opt-in: set `_kExampleAuthToken` to a non-null value to require Bearer auth in the web UI.
+- **`onLog` / `onError`** — uses `DriftDebugErrorLogger` for startup and errors.
 
 See `lib/main.dart` for the full setup.
