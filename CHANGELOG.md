@@ -21,9 +21,9 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 Changelog version labels corrected so the right fixes are listed under the right release.
 
-• **Web UI: full page-based pagination (BUG-005)** — CHANGELOG_ARCHIVE.md for older issues 
-
 ### Added
+
+• **Web UI: PII masking toggle (BUG-015)** — Header toggle "Mask data" lets you mask sensitive columns (email, phone, password, token, SSN, address, etc.) in the table view and in Table CSV exports. Column detection is name-based (e.g. columns containing "email", "phone", "password"); when masking is on, values are partially redacted (e.g. `j***@example.com`, `***-***-1234`). Copy and export respect the toggle. Server-side config and `.drift-mask.json` are not yet implemented.
 
 • **Web UI: chart improvements (BUG-008)** — New chart types: Scatter, Area, and Stacked bar. Optional chart title. Export toolbar: PNG download, SVG download, and Copy image to clipboard. Charts use responsive sizing (viewBox + container width), X/Y axis labels (default to column names), and readable font size (--text-min-readable). ResizeObserver re-renders chart on container resize (throttled 150ms). Export buttons disable during async export; Copy shows brief "Copied!" feedback.
 

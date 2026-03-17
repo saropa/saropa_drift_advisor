@@ -133,9 +133,14 @@
       return s.length <= 2 ? '***' : s.slice(0, 2) + '***';
     }
 
-    /** Returns the value to display/copy for a cell: masked when PII mask is on and column is PII, else raw. */
-    function getDisplayValue(colName, rawValue) {
-      if (!isPiiMaskEnabled() || !isPiiColumn(colName)) return rawValue != null ? String(rawValue) : '';
+    /**
+     * Returns the value to display/copy for a cell: masked when PII mask is on and column is PII, else raw.
+     * Optional _optMaskOn and _optIsPii avoid repeated DOM/heuristic work when building many cells (e.g. in buildDataTableHtml).
+     */
+    function getDisplayValue(colName, rawValue, _optMaskOn, _optIsPii) {
+      var maskOn = _optMaskOn !== undefined ? _optMaskOn : isPiiMaskEnabled();
+      var isPii = _optIsPii !== undefined ? _optIsPii : isPiiColumn(colName);
+      if (!maskOn || !isPii) return rawValue != null ? String(rawValue) : '';
       return maskPiiValue(colName, rawValue);
     }
 
@@ -1463,6 +1468,15 @@
     });
 
     initTheme();
+
+    // PII mask toggle (BUG-015): re-render table and search results when toggled so display matches.
+    (function initPiiMaskToggle() {
+      var cb = document.getElementById('pii-mask-toggle');
+      if (!cb) return;
+      cb.addEventListener('change', function() {
+        if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson);
+      });
+    })();
 
     // Listen for real-time OS theme changes (e.g. the user toggles system
     // dark mode while the page is open). Only react if the user hasn't
@@ -3343,15 +3357,18 @@
         html += '<th data-column-key="' + esc(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc(k) + fkLabel + '</th>';
       });
       html += '</tr></thead><tbody>';
+      var maskOn = isPiiMaskEnabled();
+      var piiCols = {};
+      visible.forEach(function(k) { piiCols[k] = isPiiColumn(k); });
       filtered.forEach(function(row) {
         html += '<tr>';
         visible.forEach(function(k) {
           var val = row[k];
           var fk = fkMap[k];
           var rawStr = val != null ? String(val) : '';
-          var displayStr = getDisplayValue(k, val);
+          var displayStr = getDisplayValue(k, val, maskOn, piiCols[k]);
           var cellContent;
-          if (displayFormat === 'formatted' && colTypes && !(isPiiMaskEnabled() && isPiiColumn(k))) {
+          if (displayFormat === 'formatted' && colTypes && !(maskOn && piiCols[k])) {
             var fmt = formatCellValue(val, k, colTypes[k]);
             if (fmt.wasFormatted) {
               cellContent = '<span title="Raw: ' + esc(fmt.raw) + '">' + esc(fmt.formatted) + '</span>'
@@ -3366,6 +3383,7 @@
           var tdClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
           var tdAttrs = ' data-column-key="' + esc(k) + '"' + tdClass;
           /* cell-text wrapper allows CSS truncation with ellipsis while copy button stays visible on hover */
+          /* FK link keeps data-value as rawStr so navigation filter uses real key; displayed text is displayStr (masked when on). */
           if (fk && val != null) {
             html += '<td' + tdAttrs + '><span class="cell-text"><a href="#" class="fk-link" style="color:var(--link);text-decoration:underline;" ';
             html += 'data-table="' + esc(fk.toTable) + '" ';

@@ -185,6 +185,7 @@ body.theme-light .header-pill.live {
   border-radius: var(--radius-md);
   background: var(--bg-pre);
   user-select: none;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .header-mask-toggle:hover {
