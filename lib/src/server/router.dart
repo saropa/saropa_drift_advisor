@@ -1,5 +1,9 @@
 // Request router extracted from _DriftDebugServerImpl._onRequest.
 // Dispatches HTTP requests to the appropriate handler.
+//
+// Route matching is grouped by domain — each _route*
+// method handles one handler's endpoints and returns
+// true when matched. See onRequest() for dispatch order.
 
 import 'dart:convert';
 import 'dart:io';
@@ -13,6 +17,7 @@ import 'compare_handler.dart';
 import 'generation_handler.dart';
 import 'import_handler.dart';
 import 'performance_handler.dart';
+import 'rate_limiter.dart';
 import 'schema_handler.dart';
 import 'server_constants.dart';
 import 'server_context.dart';
@@ -26,8 +31,19 @@ import 'table_handler.dart';
 final class Router {
   /// Creates a [Router] with the given [ServerContext] and
   /// [DriftDebugSessionStore].
-  Router(ServerContext ctx, DriftDebugSessionStore sessionStore)
-      : _ctx = ctx,
+  ///
+  /// When [maxRequestsPerSecond] is non-null, per-IP rate limiting
+  /// is enabled: requests exceeding the limit receive HTTP 429.
+  /// The `/api/generation` (long-poll) and `/api/health` endpoints
+  /// are exempt from rate limiting.
+  Router(
+    ServerContext ctx,
+    DriftDebugSessionStore sessionStore, {
+    int? maxRequestsPerSecond,
+  })  : _ctx = ctx,
+        _rateLimiter = maxRequestsPerSecond != null
+            ? RateLimiter(maxRequestsPerSecond, ctx)
+            : null,
         _auth = AuthHandler(ctx),
         _generation = GenerationHandler(ctx),
         _table = TableHandler(ctx),
@@ -41,6 +57,10 @@ final class Router {
         _import = ImportHandler(ctx);
 
   final ServerContext _ctx;
+
+  /// Per-IP rate limiter; null when rate limiting is disabled.
+  final RateLimiter? _rateLimiter;
+
   final AuthHandler _auth;
   final GenerationHandler _generation;
   final TableHandler _table;
@@ -53,8 +73,12 @@ final class Router {
   final SessionHandler _session;
   final ImportHandler _import;
 
-  /// Main request handler: auth -> health/generation -> route by
+  /// Main request handler: auth -> rate limit -> route by
   /// method and path.
+  ///
+  /// Route groups are dispatched in order — the first
+  /// match wins. Each `_route*` method returns true when
+  /// it matches and handles the request.
   Future<void> onRequest(HttpRequest request) async {
     final req = request;
     final res = req.response;
@@ -65,6 +89,24 @@ final class Router {
         (_ctx.basicAuthUser != null && _ctx.basicAuthPassword != null)) {
       if (!_auth.isAuthenticated(req)) {
         await _auth.sendUnauthorized(res);
+
+        return;
+      }
+    }
+
+    // Per-IP rate limiting: check before any handler work. Exempt the
+    // long-poll generation endpoint (holds connections by design) and
+    // the lightweight health probe so monitoring tools are never blocked.
+    final limiter = _rateLimiter;
+    if (limiter != null) {
+      final bool isExempt =
+          path == ServerConstants.pathApiGeneration ||
+          path == ServerConstants.pathApiGenerationAlt ||
+          path == ServerConstants.pathApiHealth ||
+          path == ServerConstants.pathApiHealthAlt;
+
+      if (!isExempt && limiter.shouldThrottle(req)) {
+        await limiter.sendTooManyRequests(res);
 
         return;
       }
@@ -87,40 +129,10 @@ final class Router {
       return;
     }
 
-    // Health and generation are checked before the
-    // DB query so probes / live-refresh work.
+    // Health, generation, and change-detection are checked
+    // before the DB query so probes / live-refresh work.
     try {
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiHealth ||
-              path == ServerConstants.pathApiHealthAlt)) {
-        await _generation.sendHealth(res);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiGeneration ||
-              path == ServerConstants.pathApiGenerationAlt)) {
-        await _generation.handleGeneration(req);
-
-        return;
-      }
-
-      // Change detection toggle (lightweight control,
-      // no DB query needed).
-      if (path == ServerConstants.pathApiChangeDetection ||
-          path == ServerConstants.pathApiChangeDetectionAlt) {
-        if (req.method == ServerConstants.methodGet) {
-          await _handleGetChangeDetection(res);
-
-          return;
-        }
-        if (req.method == ServerConstants.methodPost) {
-          await _handleSetChangeDetection(req);
-
-          return;
-        }
-      }
+      if (await _routePreQuery(req, res, path)) return;
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       await _ctx.sendErrorResponse(res, error);
@@ -131,6 +143,7 @@ final class Router {
     final DriftDebugQuery query = _ctx.instrumentedQuery;
 
     try {
+      // Root HTML UI (single route, kept inline).
       if (req.method == ServerConstants.methodGet &&
           (path == '/' || path.isEmpty)) {
         await _generation.sendHtml(res, req);
@@ -138,264 +151,467 @@ final class Router {
         return;
       }
 
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiTables ||
-              path == ServerConstants.pathApiTablesAlt)) {
-        await _table.sendTableList(res, query);
+      // Dispatch to domain-specific route groups.
+      if (await _routeTableApi(req, res, path, query)) return;
+      if (await _routeSqlApi(req, res, path, query)) return;
+      if (await _routeSchemaApi(req, res, path, query)) return;
+      if (await _routeSnapshotApi(req, res, path, query)) return;
+      if (await _routeCompareApi(req, res, path, query)) return;
+      if (await _routeAnalyticsApi(req, res, path, query)) return;
+      if (await _routeImportApi(req, res, path, query)) return;
+      if (await _routeSessionApi(req, res, path, query)) return;
+      if (await _routePerformanceApi(req, res, path, query)) return;
 
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path.startsWith(ServerConstants.pathApiTablePrefix) ||
-              path.startsWith(ServerConstants.pathApiTablePrefixAlt))) {
-        final String suffix = path.replaceFirst(RegExp(r'^/?api/table/'), '');
-
-        if (suffix.endsWith(ServerConstants.pathSuffixCount)) {
-          final String tableName = suffix.replaceFirst(RegExp(r'/count$'), '');
-
-          await _table.sendTableCount(
-              response: res, query: query, tableName: tableName);
-
-          return;
-        }
-        if (suffix.endsWith(ServerConstants.pathSuffixColumns)) {
-          final String tableName =
-              suffix.replaceFirst(RegExp(r'/columns$'), '');
-
-          await _table.sendTableColumns(
-              response: res, query: query, tableName: tableName);
-
-          return;
-        }
-        if (suffix.endsWith(ServerConstants.pathSuffixFkMeta)) {
-          final String tableName =
-              suffix.replaceFirst(RegExp(r'/fk-meta$'), '');
-
-          await _table.sendTableFkMeta(
-              response: res, query: query, tableName: tableName);
-
-          return;
-        }
-
-        final String tableName = suffix;
-        final int limit = ServerUtils.parseLimit(
-            req.uri.queryParameters[ServerConstants.queryParamLimit]);
-        final int offset = ServerUtils.parseOffset(
-            req.uri.queryParameters[ServerConstants.queryParamOffset]);
-
-        await _table.sendTableData(
-            response: res,
-            query: query,
-            tableName: tableName,
-            limit: limit,
-            offset: offset);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodPost &&
-          (path == ServerConstants.pathApiSqlExplain ||
-              path == ServerConstants.pathApiSqlExplainAlt)) {
-        await _sql.handleExplainSql(req, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodPost &&
-          (path == ServerConstants.pathApiSql ||
-              path == ServerConstants.pathApiSqlAlt)) {
-        await _sql.handleRunSql(req, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiSchema ||
-              path == ServerConstants.pathApiSchemaAlt)) {
-        await _schema.sendSchemaDump(res, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiSchemaDiagram ||
-              path == ServerConstants.pathApiSchemaDiagramAlt)) {
-        await _schema.sendSchemaDiagram(res, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiSchemaMetadata ||
-              path == ServerConstants.pathApiSchemaMetadataAlt)) {
-        await _schema.sendSchemaMetadata(res, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiDump ||
-              path == ServerConstants.pathApiDumpAlt)) {
-        await _schema.sendFullDump(res, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiDatabase ||
-              path == ServerConstants.pathApiDatabaseAlt)) {
-        await _schema.sendDatabaseFile(res);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodPost &&
-          (path == ServerConstants.pathApiSnapshot ||
-              path == ServerConstants.pathApiSnapshotAlt)) {
-        await _snapshot.handleSnapshotCreate(res, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiSnapshot ||
-              path == ServerConstants.pathApiSnapshotAlt)) {
-        await _snapshot.handleSnapshotGet(res);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiSnapshotCompare ||
-              path == ServerConstants.pathApiSnapshotCompareAlt)) {
-        await _snapshot.handleSnapshotCompare(
-            response: res, request: req, query: query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodDelete &&
-          (path == ServerConstants.pathApiSnapshot ||
-              path == ServerConstants.pathApiSnapshotAlt)) {
-        await _snapshot.handleSnapshotDelete(res);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path.startsWith(ServerConstants.pathApiComparePrefix) ||
-              path.startsWith(ServerConstants.pathApiComparePrefixAlt))) {
-        await _compare.handleCompareReport(
-          response: res,
-          request: req,
-          query: query,
-        );
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiIndexSuggestions ||
-              path == ServerConstants.pathApiIndexSuggestionsAlt)) {
-        await _analytics.handleIndexSuggestions(res, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiMigrationPreview ||
-              path == ServerConstants.pathApiMigrationPreviewAlt)) {
-        await _compare.handleMigrationPreview(res, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiAnalyticsAnomalies ||
-              path == ServerConstants.pathApiAnalyticsAnomaliesAlt)) {
-        await _analytics.handleAnomalyDetection(res, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiAnalyticsSize ||
-              path == ServerConstants.pathApiAnalyticsSizeAlt)) {
-        await _analytics.handleSizeAnalytics(res, query);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodPost &&
-          (path == ServerConstants.pathApiImport ||
-              path == ServerConstants.pathApiImportAlt)) {
-        await _import.handleImport(req);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodPost &&
-          (path == ServerConstants.pathApiSessionShare ||
-              path == ServerConstants.pathApiSessionShareAlt)) {
-        await _session.handleSessionShare(req);
-
-        return;
-      }
-
-      if (path.startsWith(ServerConstants.pathApiSessionPrefix) ||
-          path.startsWith(ServerConstants.pathApiSessionPrefixAlt)) {
-        final suffix = path.startsWith(ServerConstants.pathApiSessionPrefix)
-            ? path.substring(ServerConstants.pathApiSessionPrefix.length)
-            : path.substring(ServerConstants.pathApiSessionPrefixAlt.length);
-
-        // POST /api/session/{id}/extend — extend session expiry.
-        if (suffix.endsWith(ServerConstants.pathSuffixExtend) &&
-            req.method == ServerConstants.methodPost) {
-          final sessionId = suffix.replaceFirst(RegExp(r'/extend$'), '');
-
-          await _session.handleSessionExtend(req, sessionId);
-
-          return;
-        }
-
-        if (suffix.endsWith(ServerConstants.pathSuffixAnnotate) &&
-            req.method == ServerConstants.methodPost) {
-          final sessionId = suffix.replaceFirst(RegExp(r'/annotate$'), '');
-
-          await _session.handleSessionAnnotate(req, sessionId);
-
-          return;
-        }
-        if (req.method == ServerConstants.methodGet) {
-          await _session.handleSessionGet(res, suffix);
-
-          return;
-        }
-      }
-
-      if (req.method == ServerConstants.methodGet &&
-          (path == ServerConstants.pathApiAnalyticsPerformance ||
-              path == ServerConstants.pathApiAnalyticsPerformanceAlt)) {
-        await _performance.handlePerformanceAnalytics(res);
-
-        return;
-      }
-
-      if (req.method == ServerConstants.methodDelete &&
-          (path == ServerConstants.pathApiAnalyticsPerformance ||
-              path == ServerConstants.pathApiAnalyticsPerformanceAlt)) {
-        await _performance.clearPerformanceData(res);
-
-        return;
-      }
-
+      // No route matched — 404.
       res.statusCode = HttpStatus.notFound;
       await res.close();
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       await _ctx.sendErrorResponse(res, error);
     }
+  }
+
+  // -------- Pre-DB route group --------
+
+  /// Routes health, generation, and change-detection
+  /// endpoints. These do not require a DB query.
+  Future<bool> _routePreQuery(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+  ) async {
+    // GET /api/health — lightweight health probe.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiHealth ||
+            path == ServerConstants.pathApiHealthAlt)) {
+      await _generation.sendHealth(response);
+
+      return true;
+    }
+
+    // GET /api/generation — long-poll for data changes.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiGeneration ||
+            path == ServerConstants.pathApiGenerationAlt)) {
+      await _generation.handleGeneration(request);
+
+      return true;
+    }
+
+    // GET/POST /api/change-detection — toggle or query
+    // the change-detection flag.
+    if (path == ServerConstants.pathApiChangeDetection ||
+        path == ServerConstants.pathApiChangeDetectionAlt) {
+      if (request.method == ServerConstants.methodGet) {
+        await _handleGetChangeDetection(response);
+
+        return true;
+      }
+      if (request.method == ServerConstants.methodPost) {
+        await _handleSetChangeDetection(request);
+
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // -------- Table route group --------
+
+  /// Routes GET /api/tables and GET /api/table/{name}/*
+  /// endpoints for table listing and data retrieval.
+  Future<bool> _routeTableApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+    DriftDebugQuery query,
+  ) async {
+    // GET /api/tables — list all table names.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiTables ||
+            path == ServerConstants.pathApiTablesAlt)) {
+      await _table.sendTableList(response, query);
+
+      return true;
+    }
+
+    // GET /api/table/{tableName}[/count|/columns|/fk-meta]
+    // — dynamic path parsing for table-specific data.
+    if (request.method == ServerConstants.methodGet &&
+        (path.startsWith(ServerConstants.pathApiTablePrefix) ||
+            path.startsWith(ServerConstants.pathApiTablePrefixAlt))) {
+      final String suffix = path.replaceFirst(RegExp(r'^/?api/table/'), '');
+
+      if (suffix.endsWith(ServerConstants.pathSuffixCount)) {
+        final String tableName = suffix.replaceFirst(RegExp(r'/count$'), '');
+
+        await _table.sendTableCount(
+            response: response, query: query, tableName: tableName);
+
+        return true;
+      }
+      if (suffix.endsWith(ServerConstants.pathSuffixColumns)) {
+        final String tableName =
+            suffix.replaceFirst(RegExp(r'/columns$'), '');
+
+        await _table.sendTableColumns(
+            response: response, query: query, tableName: tableName);
+
+        return true;
+      }
+      if (suffix.endsWith(ServerConstants.pathSuffixFkMeta)) {
+        final String tableName =
+            suffix.replaceFirst(RegExp(r'/fk-meta$'), '');
+
+        await _table.sendTableFkMeta(
+            response: response, query: query, tableName: tableName);
+
+        return true;
+      }
+
+      // Default: fetch table rows with limit/offset.
+      final String tableName = suffix;
+      final int limit = ServerUtils.parseLimit(
+          request.uri.queryParameters[ServerConstants.queryParamLimit]);
+      final int offset = ServerUtils.parseOffset(
+          request.uri.queryParameters[ServerConstants.queryParamOffset]);
+
+      await _table.sendTableData(
+          response: response,
+          query: query,
+          tableName: tableName,
+          limit: limit,
+          offset: offset);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  // -------- SQL route group --------
+
+  /// Routes POST /api/sql and POST /api/sql/explain
+  /// endpoints for read-only SQL execution.
+  Future<bool> _routeSqlApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+    DriftDebugQuery query,
+  ) async {
+    // POST /api/sql/explain — explain query plan.
+    // Checked before /api/sql so the longer path wins.
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiSqlExplain ||
+            path == ServerConstants.pathApiSqlExplainAlt)) {
+      await _sql.handleExplainSql(request, query);
+
+      return true;
+    }
+
+    // POST /api/sql — execute read-only SQL.
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiSql ||
+            path == ServerConstants.pathApiSqlAlt)) {
+      await _sql.handleRunSql(request, query);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  // -------- Schema route group --------
+
+  /// Routes GET /api/schema/* and GET /api/dump|database
+  /// endpoints for schema inspection and database export.
+  Future<bool> _routeSchemaApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+    DriftDebugQuery query,
+  ) async {
+    if (request.method != ServerConstants.methodGet) return false;
+
+    // GET /api/schema — raw schema DDL dump.
+    if (path == ServerConstants.pathApiSchema ||
+        path == ServerConstants.pathApiSchemaAlt) {
+      await _schema.sendSchemaDump(response, query);
+
+      return true;
+    }
+
+    // GET /api/schema/diagram — visual schema diagram data.
+    if (path == ServerConstants.pathApiSchemaDiagram ||
+        path == ServerConstants.pathApiSchemaDiagramAlt) {
+      await _schema.sendSchemaDiagram(response, query);
+
+      return true;
+    }
+
+    // GET /api/schema/metadata — column-level metadata.
+    if (path == ServerConstants.pathApiSchemaMetadata ||
+        path == ServerConstants.pathApiSchemaMetadataAlt) {
+      await _schema.sendSchemaMetadata(response, query);
+
+      return true;
+    }
+
+    // GET /api/dump — full database content dump.
+    if (path == ServerConstants.pathApiDump ||
+        path == ServerConstants.pathApiDumpAlt) {
+      await _schema.sendFullDump(response, query);
+
+      return true;
+    }
+
+    // GET /api/database — raw SQLite file download.
+    if (path == ServerConstants.pathApiDatabase ||
+        path == ServerConstants.pathApiDatabaseAlt) {
+      await _schema.sendDatabaseFile(response);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  // -------- Snapshot route group --------
+
+  /// Routes /api/snapshot/* endpoints for snapshot
+  /// create, get, compare, and delete operations.
+  Future<bool> _routeSnapshotApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+    DriftDebugQuery query,
+  ) async {
+    // POST /api/snapshot — create a new snapshot.
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiSnapshot ||
+            path == ServerConstants.pathApiSnapshotAlt)) {
+      await _snapshot.handleSnapshotCreate(response, query);
+
+      return true;
+    }
+
+    // GET /api/snapshot — retrieve current snapshot.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiSnapshot ||
+            path == ServerConstants.pathApiSnapshotAlt)) {
+      await _snapshot.handleSnapshotGet(response);
+
+      return true;
+    }
+
+    // GET /api/snapshot/compare — diff snapshot vs current.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiSnapshotCompare ||
+            path == ServerConstants.pathApiSnapshotCompareAlt)) {
+      await _snapshot.handleSnapshotCompare(
+          response: response, request: request, query: query);
+
+      return true;
+    }
+
+    // DELETE /api/snapshot — clear snapshot.
+    if (request.method == ServerConstants.methodDelete &&
+        (path == ServerConstants.pathApiSnapshot ||
+            path == ServerConstants.pathApiSnapshotAlt)) {
+      await _snapshot.handleSnapshotDelete(response);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  // -------- Compare route group --------
+
+  /// Routes GET /api/compare/{id} and
+  /// GET /api/migration/preview endpoints for database
+  /// comparison and migration preview.
+  Future<bool> _routeCompareApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+    DriftDebugQuery query,
+  ) async {
+    if (request.method != ServerConstants.methodGet) return false;
+
+    // GET /api/compare/{id} — compare report for a
+    // specific snapshot ID (dynamic path prefix match).
+    if (path.startsWith(ServerConstants.pathApiComparePrefix) ||
+        path.startsWith(ServerConstants.pathApiComparePrefixAlt)) {
+      await _compare.handleCompareReport(
+        response: response,
+        request: request,
+        query: query,
+      );
+
+      return true;
+    }
+
+    // GET /api/migration/preview — preview migration SQL.
+    if (path == ServerConstants.pathApiMigrationPreview ||
+        path == ServerConstants.pathApiMigrationPreviewAlt) {
+      await _compare.handleMigrationPreview(response, query);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  // -------- Analytics route group --------
+
+  /// Routes GET /api/index-suggestions,
+  /// GET /api/analytics/anomalies, and
+  /// GET /api/analytics/size endpoints for database
+  /// analysis.
+  Future<bool> _routeAnalyticsApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+    DriftDebugQuery query,
+  ) async {
+    if (request.method != ServerConstants.methodGet) return false;
+
+    // GET /api/index-suggestions — index optimization hints.
+    if (path == ServerConstants.pathApiIndexSuggestions ||
+        path == ServerConstants.pathApiIndexSuggestionsAlt) {
+      await _analytics.handleIndexSuggestions(response, query);
+
+      return true;
+    }
+
+    // GET /api/analytics/anomalies — data quality scan.
+    if (path == ServerConstants.pathApiAnalyticsAnomalies ||
+        path == ServerConstants.pathApiAnalyticsAnomaliesAlt) {
+      await _analytics.handleAnomalyDetection(response, query);
+
+      return true;
+    }
+
+    // GET /api/analytics/size — storage metrics.
+    if (path == ServerConstants.pathApiAnalyticsSize ||
+        path == ServerConstants.pathApiAnalyticsSizeAlt) {
+      await _analytics.handleSizeAnalytics(response, query);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  // -------- Import route group --------
+
+  /// Routes POST /api/import for CSV, JSON, and SQL
+  /// data import.
+  Future<bool> _routeImportApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+    DriftDebugQuery query,
+  ) async {
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiImport ||
+            path == ServerConstants.pathApiImportAlt)) {
+      await _import.handleImport(request);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  // -------- Session route group --------
+
+  /// Routes /api/session/* endpoints for session sharing,
+  /// retrieval, extension, and annotation.
+  Future<bool> _routeSessionApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+    DriftDebugQuery query,
+  ) async {
+    // POST /api/session/share — create a shareable session.
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiSessionShare ||
+            path == ServerConstants.pathApiSessionShareAlt)) {
+      await _session.handleSessionShare(request);
+
+      return true;
+    }
+
+    // Dynamic /api/session/{id}[/extend|/annotate] routes.
+    if (path.startsWith(ServerConstants.pathApiSessionPrefix) ||
+        path.startsWith(ServerConstants.pathApiSessionPrefixAlt)) {
+      final suffix = path.startsWith(ServerConstants.pathApiSessionPrefix)
+          ? path.substring(ServerConstants.pathApiSessionPrefix.length)
+          : path.substring(ServerConstants.pathApiSessionPrefixAlt.length);
+
+      // POST /api/session/{id}/extend — extend session expiry.
+      if (suffix.endsWith(ServerConstants.pathSuffixExtend) &&
+          request.method == ServerConstants.methodPost) {
+        final sessionId = suffix.replaceFirst(RegExp(r'/extend$'), '');
+
+        await _session.handleSessionExtend(request, sessionId);
+
+        return true;
+      }
+
+      // POST /api/session/{id}/annotate — add annotation.
+      if (suffix.endsWith(ServerConstants.pathSuffixAnnotate) &&
+          request.method == ServerConstants.methodPost) {
+        final sessionId = suffix.replaceFirst(RegExp(r'/annotate$'), '');
+
+        await _session.handleSessionAnnotate(request, sessionId);
+
+        return true;
+      }
+
+      // GET /api/session/{id} — retrieve session data.
+      if (request.method == ServerConstants.methodGet) {
+        await _session.handleSessionGet(response, suffix);
+
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // -------- Performance route group --------
+
+  /// Routes GET/DELETE /api/analytics/performance for
+  /// query timing metrics.
+  Future<bool> _routePerformanceApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+    DriftDebugQuery query,
+  ) async {
+    // GET /api/analytics/performance — retrieve timing data.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiAnalyticsPerformance ||
+            path == ServerConstants.pathApiAnalyticsPerformanceAlt)) {
+      await _performance.handlePerformanceAnalytics(response);
+
+      return true;
+    }
+
+    // DELETE /api/analytics/performance — clear timing data.
+    if (request.method == ServerConstants.methodDelete &&
+        (path == ServerConstants.pathApiAnalyticsPerformance ||
+            path == ServerConstants.pathApiAnalyticsPerformanceAlt)) {
+      await _performance.clearPerformanceData(response);
+
+      return true;
+    }
+
+    return false;
   }
 
   // --- VM Service extension delegates (Plan 68) ---

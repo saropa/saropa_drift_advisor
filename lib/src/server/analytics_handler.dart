@@ -1,128 +1,38 @@
 // Analytics handler extracted from _DriftDebugServerImpl.
 // Handles index suggestions, size analytics, and anomaly detection.
+//
+// Core logic lives in index_analyzer.dart and anomaly_detector.dart.
+// This handler provides HTTP wrappers, error logging, and size analytics.
 
 import 'dart:convert';
 import 'dart:io';
 
+import 'anomaly_detector.dart';
+import 'index_analyzer.dart';
 import 'server_constants.dart';
 import 'server_context.dart';
 import 'server_utils.dart';
 
 /// Handles analytics-related API endpoints.
+///
+/// Delegates core analysis to [IndexAnalyzer] and
+/// [AnomalyDetector] for pure, testable logic. This
+/// handler adds HTTP response handling, CORS headers,
+/// and error logging via [ServerContext].
 final class AnalyticsHandler {
   /// Creates an [AnalyticsHandler] with the given [ServerContext].
   AnalyticsHandler(this._ctx);
 
   final ServerContext _ctx;
 
-  /// Returns index suggestions and table count (for HTTP and VM service RPC).
+  /// Returns index suggestions and table count
+  /// (for HTTP and VM service RPC).
+  ///
+  /// Delegates to [IndexAnalyzer.getIndexSuggestionsList].
   Future<Map<String, dynamic>> getIndexSuggestionsList(
     DriftDebugQuery query,
-  ) async {
-    final tableNames = await ServerUtils.getTableNames(query);
-    final suggestions = <Map<String, dynamic>>[];
-
-    for (final tableName in tableNames) {
-      final existingIndexRows = ServerUtils.normalizeRows(
-        await query('PRAGMA index_list("$tableName")'),
-      );
-      final indexedColumns = <String>{};
-
-      for (final idx in existingIndexRows) {
-        final idxName = idx['name'] as String?;
-        if (idxName != null) {
-          final idxInfoRows = ServerUtils.normalizeRows(
-            await query('PRAGMA index_info("$idxName")'),
-          );
-
-          for (final col in idxInfoRows) {
-            final colName = col['name'] as String?;
-            if (colName != null) indexedColumns.add(colName);
-          }
-        }
-      }
-
-      // Check foreign keys
-      final fkRows = ServerUtils.normalizeRows(
-        await query('PRAGMA foreign_key_list("$tableName")'),
-      );
-
-      for (final fk in fkRows) {
-        final fromCol = fk['from'] as String?;
-
-        if (fromCol != null && !indexedColumns.contains(fromCol)) {
-          suggestions.add(<String, dynamic>{
-            'table': tableName,
-            'column': fromCol,
-            'reason': 'Foreign key without index '
-                '(references ${fk['table']}.${fk['to']})',
-            'sql': 'CREATE INDEX idx_${tableName}_$fromCol '
-                'ON "$tableName"("$fromCol");',
-            'priority': 'high',
-          });
-        }
-      }
-
-      // Check column naming patterns
-      final colInfoRows = ServerUtils.normalizeRows(
-        await query('PRAGMA table_info("$tableName")'),
-      );
-
-      for (final col in colInfoRows) {
-        final colName = col['name'] as String?;
-        final pk = col['pk'];
-        if (colName != null &&
-            !(pk is int && pk > 0) &&
-            !indexedColumns.contains(colName)) {
-          final alreadySuggested = suggestions.any(
-            (s) => s['table'] == tableName && s['column'] == colName,
-          );
-
-          if (!alreadySuggested &&
-              ServerConstants.reIdSuffix.hasMatch(colName)) {
-            suggestions.add(<String, dynamic>{
-              'table': tableName,
-              'column': colName,
-              'reason': 'Column ending in _id \u2014 likely used in '
-                  'JOINs/WHERE',
-              'sql': 'CREATE INDEX idx_${tableName}_$colName '
-                  'ON "$tableName"("$colName");',
-              'priority': 'medium',
-            });
-          }
-
-          if (!alreadySuggested &&
-              ServerConstants.reDateTimeSuffix.hasMatch(colName)) {
-            suggestions.add(<String, dynamic>{
-              'table': tableName,
-              'column': colName,
-              'reason': 'Date/time column \u2014 often used in '
-                  'ORDER BY or range queries',
-              'sql': 'CREATE INDEX idx_${tableName}_$colName '
-                  'ON "$tableName"("$colName");',
-              'priority': 'low',
-            });
-          }
-        }
-      }
-    }
-
-    const priorityOrder = <String, int>{
-      'high': 0,
-      'medium': 1,
-      'low': 2,
-    };
-
-    suggestions.sort(
-      (a, b) => (priorityOrder[a['priority']] ?? 3)
-          .compareTo(priorityOrder[b['priority']] ?? 3),
-    );
-
-    return <String, dynamic>{
-      'suggestions': suggestions,
-      'tablesAnalyzed': tableNames.length,
-    };
-  }
+  ) =>
+      IndexAnalyzer.getIndexSuggestionsList(query);
 
   /// Handles GET /api/index-suggestions (writes JSON to [response]).
   Future<void> handleIndexSuggestions(
@@ -131,7 +41,7 @@ final class AnalyticsHandler {
   ) async {
     final res = response;
     try {
-      final result = await getIndexSuggestionsList(query);
+      final result = await IndexAnalyzer.getIndexSuggestionsList(query);
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(result));
     } on Object catch (error, stack) {
@@ -147,6 +57,40 @@ final class AnalyticsHandler {
     }
   }
 
+  /// Returns anomaly scan result for VM service RPC
+  /// (Plan 68).
+  ///
+  /// Delegates to [AnomalyDetector.getAnomaliesResult]
+  /// and wraps errors with [ServerContext.logError].
+  Future<Map<String, dynamic>> getAnomaliesResult(DriftDebugQuery query) async {
+    try {
+      return await AnomalyDetector.getAnomaliesResult(query);
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      return <String, String>{
+        ServerConstants.jsonKeyError: error.toString(),
+      };
+    }
+  }
+
+  /// Scans all tables for data quality anomalies.
+  Future<void> handleAnomalyDetection(
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
+    final res = response;
+    final result = await getAnomaliesResult(query);
+    if (result.containsKey(ServerConstants.jsonKeyError)) {
+      res.statusCode = HttpStatus.internalServerError;
+      res.headers.contentType = ContentType.json;
+      _ctx.setCors(res);
+    } else {
+      _ctx.setJsonHeaders(res);
+    }
+    res.write(jsonEncode(result));
+    await res.close();
+  }
+
   /// Handles GET /api/analytics/size: database-level and per-table
   /// storage metrics.
   Future<void> handleSizeAnalytics(
@@ -156,6 +100,8 @@ final class AnalyticsHandler {
     final res = response;
 
     try {
+      // Helper to extract a single integer from a PRAGMA
+      // result set (e.g. PRAGMA page_size → 4096).
       int pragmaInt(List<Map<String, dynamic>> rows) {
         if (rows.isEmpty) {
           return 0;
@@ -166,6 +112,8 @@ final class AnalyticsHandler {
         return v is int ? v : int.tryParse('$v') ?? 0;
       }
 
+      // Fetch database-level storage metrics from SQLite
+      // PRAGMAs (page size, page count, freelist, journal).
       final pageSize = pragmaInt(
         ServerUtils.normalizeRows(await query('PRAGMA page_size')),
       );
@@ -183,9 +131,12 @@ final class AnalyticsHandler {
           ? (journalModeRows.first.values.firstOrNull?.toString() ?? 'unknown')
           : 'unknown';
 
+      // Compute aggregate sizes from page metrics.
       final totalSizeBytes = pageSize * pageCount;
       final freeSpaceBytes = pageSize * freelistCount;
 
+      // Fetch per-table statistics: row count, column
+      // count, and index list.
       final tableNames = await ServerUtils.getTableNames(query);
       final tableStats = <Map<String, dynamic>>[];
 
@@ -218,6 +169,8 @@ final class AnalyticsHandler {
         });
       }
 
+      // Sort tables by row count descending so the
+      // largest tables appear first.
       tableStats.sort((a, b) =>
           ((b[ServerConstants.jsonKeyRowCount] as int?) ?? 0)
               .compareTo((a[ServerConstants.jsonKeyRowCount] as int?) ?? 0));
@@ -244,264 +197,6 @@ final class AnalyticsHandler {
       }));
     } finally {
       await res.close();
-    }
-  }
-
-  /// Returns anomaly scan result for VM service RPC (Plan 68).
-  Future<Map<String, dynamic>> getAnomaliesResult(DriftDebugQuery query) async {
-    try {
-      final tableNames = await ServerUtils.getTableNames(query);
-      final anomalies = <Map<String, dynamic>>[];
-
-      for (final tableName in tableNames) {
-        final colInfoRows = ServerUtils.normalizeRows(
-          await query('PRAGMA table_info("$tableName")'),
-        );
-        final tableRowCount = ServerUtils.extractCountFromRows(
-          ServerUtils.normalizeRows(
-            await query('SELECT COUNT(*) AS c FROM "$tableName"'),
-          ),
-        );
-
-        for (final col in colInfoRows) {
-          final colName = col['name'] as String?;
-          final colType = (col['type'] as String?) ?? '';
-          final isNullable = col['notnull'] == 0;
-          if (colName != null) {
-            if (isNullable) {
-              await _detectNullValues(
-                  query: query,
-                  tableName: tableName,
-                  colName: colName,
-                  tableRowCount: tableRowCount,
-                  anomalies: anomalies);
-            }
-            if (ServerUtils.isTextType(colType)) {
-              await _detectEmptyStrings(
-                  query: query,
-                  tableName: tableName,
-                  colName: colName,
-                  anomalies: anomalies);
-            }
-            if (ServerUtils.isNumericType(colType)) {
-              await _detectNumericOutliers(
-                  query: query,
-                  tableName: tableName,
-                  colName: colName,
-                  anomalies: anomalies);
-            }
-          }
-        }
-
-        await _detectOrphanedForeignKeys(
-            query: query,
-            tableName: tableName,
-            tableNames: tableNames,
-            anomalies: anomalies);
-        await _detectDuplicateRows(
-            query: query,
-            tableName: tableName,
-            tableRowCount: tableRowCount,
-            anomalies: anomalies);
-      }
-
-      ServerUtils.sortAnomaliesBySeverity(anomalies);
-      return <String, dynamic>{
-        'anomalies': anomalies,
-        'tablesScanned': tableNames.length,
-        'analyzedAt': DateTime.now().toUtc().toIso8601String(),
-      };
-    } on Object catch (error, stack) {
-      _ctx.logError(error, stack);
-      return <String, String>{
-        ServerConstants.jsonKeyError: error.toString(),
-      };
-    }
-  }
-
-  /// Scans all tables for data quality anomalies.
-  Future<void> handleAnomalyDetection(
-    HttpResponse response,
-    DriftDebugQuery query,
-  ) async {
-    final res = response;
-    final result = await getAnomaliesResult(query);
-    if (result.containsKey(ServerConstants.jsonKeyError)) {
-      res.statusCode = HttpStatus.internalServerError;
-      res.headers.contentType = ContentType.json;
-      _ctx.setCors(res);
-    } else {
-      _ctx.setJsonHeaders(res);
-    }
-    res.write(jsonEncode(result));
-    await res.close();
-  }
-
-  Future<void> _detectNullValues({
-    required DriftDebugQuery query,
-    required String tableName,
-    required String colName,
-    required int tableRowCount,
-    required List<Map<String, dynamic>> anomalies,
-  }) async {
-    final nullCount = ServerUtils.extractCountFromRows(
-      ServerUtils.normalizeRows(
-        await query(
-          'SELECT COUNT(*) AS c FROM "$tableName" '
-          'WHERE "$colName" IS NULL',
-        ),
-      ),
-    );
-    if (nullCount == 0) {
-      return;
-    }
-
-    final pct = tableRowCount > 0 ? (nullCount / tableRowCount * 100) : 0;
-
-    anomalies.add(<String, dynamic>{
-      'table': tableName,
-      'column': colName,
-      'type': 'null_values',
-      'severity': pct > 50 ? 'warning' : 'info',
-      'count': nullCount,
-      'message': '$nullCount NULL value(s) in $tableName.$colName '
-          '(${pct.toStringAsFixed(1)}%)',
-    });
-  }
-
-  Future<void> _detectEmptyStrings({
-    required DriftDebugQuery query,
-    required String tableName,
-    required String colName,
-    required List<Map<String, dynamic>> anomalies,
-  }) async {
-    final emptyCount = ServerUtils.extractCountFromRows(
-      ServerUtils.normalizeRows(
-        await query(
-          'SELECT COUNT(*) AS c FROM "$tableName" '
-          "WHERE \"$colName\" = ''",
-        ),
-      ),
-    );
-    if (emptyCount == 0) {
-      return;
-    }
-
-    anomalies.add(<String, dynamic>{
-      'table': tableName,
-      'column': colName,
-      'type': 'empty_strings',
-      'severity': 'warning',
-      'count': emptyCount,
-      'message': '$emptyCount empty string(s) in $tableName.$colName',
-    });
-  }
-
-  Future<void> _detectNumericOutliers({
-    required DriftDebugQuery query,
-    required String tableName,
-    required String colName,
-    required List<Map<String, dynamic>> anomalies,
-  }) async {
-    final statsRows = ServerUtils.normalizeRows(await query(
-      'SELECT AVG("$colName") AS avg_val, '
-      'MIN("$colName") AS min_val, '
-      'MAX("$colName") AS max_val '
-      'FROM "$tableName" WHERE "$colName" IS NOT NULL',
-    ));
-    if (statsRows.isEmpty) {
-      return;
-    }
-
-    final avg = ServerUtils.toDouble(statsRows.first['avg_val']);
-    final min = ServerUtils.toDouble(statsRows.first['min_val']);
-    final max = ServerUtils.toDouble(statsRows.first['max_val']);
-    if (avg == null || min == null || max == null || avg == 0) {
-      return;
-    }
-
-    if (max.abs() > avg.abs() * 10 || min.abs() > avg.abs() * 10) {
-      anomalies.add(<String, dynamic>{
-        'table': tableName,
-        'column': colName,
-        'type': 'potential_outlier',
-        'severity': 'info',
-        'message': 'Potential outlier in $tableName.$colName: '
-            'range [$min, $max], avg '
-            '${avg.toStringAsFixed(2)}',
-      });
-    }
-  }
-
-  Future<void> _detectOrphanedForeignKeys({
-    required DriftDebugQuery query,
-    required String tableName,
-    required List<String> tableNames,
-    required List<Map<String, dynamic>> anomalies,
-  }) async {
-    final fkRows = ServerUtils.normalizeRows(
-      await query('PRAGMA foreign_key_list("$tableName")'),
-    );
-
-    for (final fk in fkRows) {
-      final fromCol = fk['from'] as String?;
-      final toTable = fk['table'] as String?;
-      final toCol = fk['to'] as String?;
-      if (fromCol != null &&
-          toTable != null &&
-          toCol != null &&
-          tableNames.contains(toTable)) {
-        final orphanCount = ServerUtils.extractCountFromRows(
-          ServerUtils.normalizeRows(
-            await query(
-              'SELECT COUNT(*) AS c FROM "$tableName" t '
-              'LEFT JOIN "$toTable" r '
-              'ON t."$fromCol" = r."$toCol" '
-              'WHERE t."$fromCol" IS NOT NULL '
-              'AND r."$toCol" IS NULL',
-            ),
-          ),
-        );
-
-        if (orphanCount > 0) {
-          anomalies.add(<String, dynamic>{
-            'table': tableName,
-            'column': fromCol,
-            'type': 'orphaned_fk',
-            'severity': 'error',
-            'count': orphanCount,
-            'message': '$orphanCount orphaned FK(s): '
-                '$tableName.$fromCol -> $toTable.$toCol',
-          });
-        }
-      }
-    }
-  }
-
-  Future<void> _detectDuplicateRows({
-    required DriftDebugQuery query,
-    required String tableName,
-    required int tableRowCount,
-    required List<Map<String, dynamic>> anomalies,
-  }) async {
-    final distinctCount = ServerUtils.extractCountFromRows(
-      ServerUtils.normalizeRows(
-        await query(
-          'SELECT COUNT(*) AS c FROM '
-          '(SELECT DISTINCT * FROM "$tableName")',
-        ),
-      ),
-    );
-
-    if (tableRowCount > distinctCount) {
-      anomalies.add(<String, dynamic>{
-        'table': tableName,
-        'type': 'duplicate_rows',
-        'severity': 'warning',
-        'count': tableRowCount - distinctCount,
-        'message': '${tableRowCount - distinctCount} duplicate '
-            'row(s) in $tableName',
-      });
     }
   }
 }
