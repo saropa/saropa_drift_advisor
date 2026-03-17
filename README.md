@@ -32,8 +32,8 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 
 - **Table list** with row counts
 - **View rows** as JSON with pagination (limit/offset)
-- **Client-side row filter** search
-- **Foreign key navigation** — click FK values to jump to the referenced row, with breadcrumb trail
+- **Client-side row filter** search with **result navigation** — auto-scroll to match, "X of Y" counter, Prev/Next buttons; keyboard shortcuts (Enter/Shift+Enter, Ctrl+G, Ctrl+F, Escape); active match highlight; collapsed sections expand when navigating to a match
+- **Foreign key navigation** — click FK values to jump to the referenced row; **clickable breadcrumb steps** (jump to any table in the trail); breadcrumb persistence in localStorage; "Clear path" button
 - **Data type display toggle** — raw SQLite values or human-readable (epoch → ISO 8601, 0/1 → true/false)
 - **One-click cell copy** on hover with toast notification
 
@@ -64,12 +64,14 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 
 #### Live Features
 
-- **Live refresh** via long-poll (`GET /api/generation`) when data changes
-- **Collaborative sessions** — share viewer state as a URL with annotations (configurable expiry, default 1 hour, 50-session cap, extend button, countdown timer)
+- **Live refresh** via long-poll (`GET /api/generation`) when data changes; **polling toggle** (web UI and extension) to turn change detection on/off; batched row-count checks and table-name caching to reduce load
+- **Connection resilience** — connection health banner when server is unreachable; reconnecting pulse and exponential backoff; offline state disables server-dependent controls; keep-alive health check when polling is off; server restart detection triggers full refresh
+- **Collaborative sessions** — share viewer state as a URL with annotations; **session expiry countdown** in the info bar (warning under 10 minutes); **Extend session** button (e.g. +1 hour); configurable **session duration** (default 1 hour); 50-session cap; expired-session and expiry-warning banners
 
 #### Data Import (opt-in)
 
 - **Import** CSV, JSON, or SQL files into tables (requires `DriftDebugWriteQuery` callback)
+- **CSV column mapping** — map file headers to table columns (or skip); no need for exact header names
 - Auto-detect format, per-row error reporting, partial import support
 
 #### Performance & Analytics
@@ -83,6 +85,8 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Bind** — `0.0.0.0` by default; `loopbackOnly: true` for `127.0.0.1` only
 - **CORS** — `'*'`, specific origin, or disabled
 - **Auth** — optional Bearer token or HTTP Basic for dev tunnels
+- **Session duration** — optional `sessionDuration` (e.g. 1 hour) for shared session URLs
+- **Rate limiting** — optional `maxRequestsPerSecond`; 429 with `Retry-After` when exceeded; long-poll and health endpoints exempt
 - **Health** — `GET /api/health` → `{"ok": true}`
 
 #### API Reference
@@ -91,16 +95,7 @@ Full REST endpoint documentation with request/response schemas, error codes, and
 
 #### Theme
 
-- **Light/dark toggle** saved in localStorage
-
----
-
-### Flutter Overlay (optional)
-
-- **Floating button** in debug builds to open the viewer
-- **Opens in browser** (url_launcher) or **in-app WebView** (webview_flutter)
-- Customizable alignment and margin
-- Auto-hides when the server stops
+- **Light/dark toggle** saved in localStorage; **OS dark-mode sync** on first visit (`prefers-color-scheme`); VS Code webview theme auto-detected when running in the extension
 
 ---
 
@@ -115,6 +110,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 - **Tree view** — tables with row counts, columns with type icons, FK relationships
 - **Right-click menus** — view data, copy name, export CSV, watch, compare rows, profile column, seed, clear, pin, annotate
 - **Status bar** — connection state, multi-server selector, auto-discovery (ports 8642–8649)
+- **Polling toggle** — enable/disable change detection from the Drift Tools sidebar (VM service or HTTP)
 - **File decoration badges** — row counts on Drift table files in the Explorer
 
 #### Code Intelligence
@@ -272,6 +268,8 @@ Use the **VS Code extension** (recommended) or open **http://127.0.0.1:8642** in
 | **`basicAuthUser`** / **`basicAuthPassword`** | Optional; HTTP Basic auth when both set.                                     |
 | **`getDatabaseBytes`**                        | Optional; when set, `GET /api/database` serves raw SQLite file for download. |
 | **`queryCompare`**                            | Optional; enables database diff vs another DB (e.g. staging).                |
+| **`sessionDuration`**                         | Optional; expiry for shared session URLs (default 1 hour).                   |
+| **`maxRequestsPerSecond`**                     | Optional; per-IP rate limiting; 429 when exceeded.                         |
 | **`onLog`**, **`onError`**                    | Optional; for your logger or `debugPrint` / `print`.                         |
 
 - Only one server per process; calling `start` again when running is a no-op. Use **`DriftDebugServer.stop()`** to shut down and restart (e.g. tests or graceful shutdown).

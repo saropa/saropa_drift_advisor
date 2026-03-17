@@ -80,10 +80,32 @@ abstract final class HtmlContent {
     .chart-slice:hover { opacity: 0.8; }
     .chart-legend { font-size: 11px; fill: var(--fg); }
     .cell-raw { color: var(--muted); font-size: 10px; display: block; }
+    /* Scroll container for data table: enables sticky headers and horizontal scroll
+       while keeping headers visible. Inline fallback when drift-enhanced.css is unavailable. */
+    .data-table-scroll-wrap { overflow: auto; max-height: 70vh; margin-bottom: 1rem; }
+    #data-table { border-collapse: collapse; width: 100%; font-size: 12px; background: var(--bg-pre); border: 1px solid var(--border); }
+    #data-table th, #data-table td { border: 1px solid var(--border); padding: 0.35rem 0.5rem; text-align: left; }
+    #data-table th { font-weight: 600; background: var(--bg-pre); position: sticky; top: 0; z-index: 2; }
+    #data-table th.col-pinned, #data-table td.col-pinned { position: sticky; left: 0; z-index: 1; background: var(--bg-pre); }
+    #data-table tbody tr:nth-child(even) td.col-pinned { background: rgba(128, 128, 128, 0.05); }
+    #data-table tbody tr:hover td.col-pinned { background: rgba(128, 128, 128, 0.10); }
+    #data-table th[draggable="true"] { cursor: grab; }
+    #data-table th[draggable="true"]:active { cursor: grabbing; }
+    #data-table th.drag-over { outline: 2px dashed var(--link); outline-offset: -2px; }
     #data-table td { position: relative; }
     #data-table td .cell-copy-btn { display: none; position: absolute; top: 2px; right: 2px; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-size: 10px; padding: 1px 4px; cursor: pointer; line-height: 1; z-index: 1; }
     #data-table td:hover .cell-copy-btn { display: inline-block; }
     #data-table td .cell-copy-btn:hover { color: var(--fg); border-color: var(--link); }
+    /* Column context menu and chooser panel */
+    #column-context-menu { display: none; position: fixed; z-index: 10001; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); min-width: 10rem; padding: 0.25rem 0; }
+    #column-context-menu button { display: block; width: 100%; text-align: left; padding: 0.35rem 0.75rem; border: none; background: none; color: var(--fg); cursor: pointer; font-size: 13px; }
+    #column-context-menu button:hover { background: rgba(128, 128, 128, 0.15); }
+    #column-chooser { display: none; position: fixed; z-index: 10001; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); padding: 0.75rem; max-height: 70vh; overflow: auto; min-width: 16rem; }
+    #column-chooser h3 { margin: 0 0 0.5rem 0; font-size: 0.9rem; }
+    .column-chooser-list { list-style: none; padding: 0; margin: 0 0 0.5rem 0; }
+    .column-chooser-list li { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; }
+    .column-chooser-list li label { flex: 1; cursor: pointer; font-size: 12px; }
+    .column-chooser-actions { margin-top: 0.5rem; display: flex; gap: 0.35rem; flex-wrap: wrap; }
     .copy-toast { position: fixed; bottom: 1rem; right: 1rem; background: var(--link); color: var(--bg); padding: 0.3rem 0.75rem; border-radius: 4px; font-size: 12px; z-index: 9999; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
     .copy-toast.show { opacity: 1; }
     .qb-section { margin-bottom: 0.5rem; }
@@ -216,6 +238,20 @@ abstract final class HtmlContent {
       <option value="raw">Raw</option>
       <option value="formatted">Formatted</option>
     </select>
+    <button type="button" id="column-chooser-btn" title="Show/hide columns, reorder, pin">Columns</button>
+  </div>
+  <div id="column-context-menu" role="menu" aria-hidden="true">
+    <button type="button" data-action="hide" role="menuitem">Hide column</button>
+    <button type="button" data-action="pin" role="menuitem">Pin column</button>
+    <button type="button" data-action="unpin" role="menuitem">Unpin column</button>
+  </div>
+  <div id="column-chooser" aria-label="Column chooser" aria-modal="true" aria-hidden="true">
+    <h3>Columns</h3>
+    <ul id="column-chooser-list" class="column-chooser-list"></ul>
+    <div class="column-chooser-actions">
+      <button type="button" id="column-chooser-reset">Reset to default</button>
+      <button type="button" id="column-chooser-close">Close</button>
+    </div>
   </div>
   <p id="tables-loading" class="meta">Loading tables…</p>
   <p class="meta"><a href="/api/schema" id="export-schema" download="schema.sql">Export schema (no data)</a> · <a href="#" id="export-dump">Export full dump (schema + data)</a><span id="export-dump-status" class="meta"></span> · <a href="#" id="export-database">Download database (raw .sqlite)</a><span id="export-database-status" class="meta"></span> · <a href="#" id="export-csv">Export table as CSV</a><span id="export-csv-status" class="meta"></span></p>
@@ -287,6 +323,13 @@ abstract final class HtmlContent {
         <input type="file" id="import-file" accept=".json,.csv,.sql" />
         <button type="button" id="import-run" disabled>Import</button>
       </div>
+    </div>
+    <div id="import-column-mapping" class="meta" style="display:none;margin-top:0.5rem;">
+      <p class="meta" style="font-weight:bold;">Map CSV columns to table columns</p>
+      <table id="import-mapping-table" style="border-collapse:collapse;font-size:12px;width:100%;max-width:500px;">
+        <thead><tr><th style="border:1px solid var(--border);padding:4px;">CSV column</th><th style="border:1px solid var(--border);padding:4px;">→ Table column</th></tr></thead>
+        <tbody id="import-mapping-tbody"></tbody>
+      </table>
     </div>
     <pre id="import-preview" class="meta" style="display:none;max-height:15vh;overflow:auto;font-size:11px;"></pre>
     <p id="import-status" class="meta"></p>
@@ -715,6 +758,21 @@ abstract final class HtmlContent {
     // exploration context.
     const NAV_HISTORY_KEY = 'drift-viewer-nav-history';
 
+    // Per-table column config: order, hidden, pinned. Persisted in saveTableState.
+    var tableColumnConfig = {};
+
+    /** Returns column config for a table, or null to use default (all columns, natural order). */
+    function getColumnConfig(tableName) {
+      if (!tableName) return null;
+      return tableColumnConfig[tableName] || null;
+    }
+
+    /** Updates in-memory column config for a table and optionally persists. */
+    function setColumnConfig(tableName, config) {
+      if (!tableName) return;
+      tableColumnConfig[tableName] = config;
+    }
+
     function saveTableState(tableName) {
       if (!tableName) return;
       var state = {
@@ -722,7 +780,8 @@ abstract final class HtmlContent {
         limit: limit,
         offset: offset,
         displayFormat: (typeof displayFormat !== 'undefined') ? displayFormat : 'raw',
-        queryBuilder: (typeof captureQueryBuilderState === 'function') ? captureQueryBuilderState() : null
+        queryBuilder: (typeof captureQueryBuilderState === 'function') ? captureQueryBuilderState() : null,
+        columnConfig: getColumnConfig(tableName) || null
       };
       try { localStorage.setItem(TABLE_STATE_KEY_PREFIX + tableName, JSON.stringify(state)); } catch (e) {}
     }
@@ -740,10 +799,13 @@ abstract final class HtmlContent {
           if (sel) sel.value = displayFormat;
         }
         if (state.queryBuilder) queryBuilderState = state.queryBuilder;
+        if (state.columnConfig && state.columnConfig.order) setColumnConfig(tableName, state.columnConfig);
       } catch (e) {}
     }
     function clearTableState(tableName) {
       if (!tableName) return;
+      setColumnConfig(tableName, null);
+      delete tableColumnConfig[tableName];
       try { localStorage.removeItem(TABLE_STATE_KEY_PREFIX + tableName); } catch (e) {}
     }
 
@@ -1064,10 +1126,11 @@ abstract final class HtmlContent {
           var html = '<p class="meta">Query builder result: ' + rows.length + ' row(s)</p>';
           html += '<p class="meta" style="font-family:monospace;font-size:11px;color:var(--muted);">' + esc(sql) + '</p>';
           html += buildQueryBuilderHtml(currentTableName, colTypes);
-          html += buildDataTableHtml(rows, fkMap, colTypes);
+          html += wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, getColumnConfig(currentTableName)));
           content.innerHTML = html;
           bindQueryBuilderEvents(colTypes);
           restoreQueryBuilderUIState(savedState);
+          bindColumnTableEvents();
           // Expand the QB body since user is actively using it
           var body = document.getElementById('qb-body');
           var toggle = document.getElementById('qb-toggle');
@@ -1910,6 +1973,175 @@ abstract final class HtmlContent {
       });
     })();
 
+    // Import data: file picker, CSV column mapping (source → table column), and POST /api/import.
+    (function initImport() {
+      const toggle = document.getElementById('import-toggle');
+      const collapsible = document.getElementById('import-collapsible');
+      const tableSel = document.getElementById('import-table');
+      const formatSel = document.getElementById('import-format');
+      const fileInput = document.getElementById('import-file');
+      const runBtn = document.getElementById('import-run');
+      const previewEl = document.getElementById('import-preview');
+      const statusEl = document.getElementById('import-status');
+      const mappingContainer = document.getElementById('import-column-mapping');
+      const mappingTbody = document.getElementById('import-mapping-tbody');
+
+      let importFileData = null;
+      let importCsvHeaders = [];
+
+      function parseCsvHeaderLine(line) {
+        var fields = [];
+        var cur = '';
+        var inQuotes = false;
+        for (var i = 0; i < line.length; i++) {
+          var c = line[i];
+          if (c === '"') {
+            if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+            else inQuotes = !inQuotes;
+          } else if (c === ',' && !inQuotes) {
+            fields.push(cur.trim());
+            cur = '';
+          } else cur += c;
+        }
+        fields.push(cur.trim());
+        return fields;
+      }
+
+      function renderMappingTable() {
+        if (!mappingTbody || importCsvHeaders.length === 0) return;
+        var tableName = tableSel && tableSel.value;
+        if (!tableName) {
+          mappingContainer.style.display = 'none';
+          return;
+        }
+        var requestedTable = tableName;
+        mappingTbody.innerHTML = '<tr><td colspan="2" class="meta">Loading columns…</td></tr>';
+        mappingContainer.style.display = 'block';
+        fetch('/api/table/' + encodeURIComponent(tableName) + '/columns', authOpts())
+          .then(function(r) { return r.json(); })
+          .then(function(tableColumns) {
+            if (tableSel.value !== requestedTable) return;
+            if (!Array.isArray(tableColumns)) { mappingContainer.style.display = 'none'; return; }
+            var html = '';
+            importCsvHeaders.forEach(function(csvCol) {
+              var optHtml = '<option value="">(skip)</option>' + tableColumns.map(function(tc) {
+                return '<option value="' + esc(tc) + '">' + esc(tc) + '</option>';
+              }).join('');
+              html += '<tr><td style="border:1px solid var(--border);padding:4px;">' + esc(csvCol) + '</td>';
+              html += '<td style="border:1px solid var(--border);padding:4px;"><select class="import-map-select" data-csv-header="' + esc(csvCol) + '">' + optHtml + '</select></td></tr>';
+            });
+            mappingTbody.innerHTML = html;
+          })
+          .catch(function() {
+            if (tableSel.value !== requestedTable) return;
+            mappingTbody.innerHTML = '<tr><td colspan="2" class="meta" style="color:#e57373;">Failed to load table columns.</td></tr>';
+          });
+      }
+
+      function updateImportState() {
+        var hasFile = importFileData !== null && importFileData !== '';
+        var table = tableSel && tableSel.value;
+        runBtn.disabled = !hasFile || !table;
+        if (hasFile && previewEl) {
+          previewEl.style.display = 'block';
+          previewEl.textContent = importFileData.length > 2000 ? importFileData.slice(0, 2000) + '\\n…' : importFileData;
+        }
+        var fmt = formatSel && formatSel.value;
+        if (fmt === 'csv' && hasFile && importCsvHeaders.length > 0) {
+          renderMappingTable();
+        } else {
+          if (mappingContainer) mappingContainer.style.display = 'none';
+        }
+      }
+
+      if (toggle && collapsible) {
+        toggle.addEventListener('click', function() {
+          var isCollapsed = collapsible.classList.contains('collapsed');
+          collapsible.classList.toggle('collapsed', !isCollapsed);
+          this.textContent = isCollapsed ? '▲ Import data (debug only)' : '▼ Import data (debug only)';
+        });
+      }
+
+      if (fileInput) {
+        fileInput.addEventListener('change', function() {
+          var f = this.files && this.files[0];
+          if (!f) { importFileData = null; importCsvHeaders = []; updateImportState(); return; }
+          var reader = new FileReader();
+          reader.onload = function() {
+            importFileData = reader.result;
+            if (typeof importFileData !== 'string') importFileData = null;
+            importCsvHeaders = [];
+            if (importFileData && (formatSel && formatSel.value) === 'csv') {
+              var firstLine = importFileData.split(/\\r?\\n/)[0] || '';
+              importCsvHeaders = parseCsvHeaderLine(firstLine);
+            }
+            updateImportState();
+          };
+          reader.readAsText(f);
+        });
+      }
+
+      if (formatSel) formatSel.addEventListener('change', function() {
+        if (this.value === 'csv' && importFileData) {
+          var firstLine = importFileData.split(/\\r?\\n/)[0] || '';
+          importCsvHeaders = parseCsvHeaderLine(firstLine);
+        } else importCsvHeaders = [];
+        updateImportState();
+      });
+
+      if (tableSel) tableSel.addEventListener('change', updateImportState);
+
+      if (runBtn) {
+        runBtn.addEventListener('click', function() {
+          var table = tableSel && tableSel.value;
+          var format = formatSel && formatSel.value;
+          if (!table || !importFileData) return;
+          if (!confirm('Import data into table "' + esc(table) + '"? This cannot be undone.')) return;
+          runBtn.disabled = true;
+          var runBtnOrigText = runBtn.textContent;
+          runBtn.textContent = 'Importing…';
+          statusEl.textContent = 'Importing…';
+          var body = { format: format, data: importFileData, table: table };
+          if (format === 'csv' && mappingContainer && mappingContainer.style.display !== 'none') {
+            var mapping = {};
+            mappingContainer.querySelectorAll('.import-map-select').forEach(function(sel) {
+              var csvHeader = sel.getAttribute('data-csv-header');
+              var tableCol = sel.value;
+              if (csvHeader && tableCol) mapping[csvHeader] = tableCol;
+            });
+            if (Object.keys(mapping).length > 0) body.columnMapping = mapping;
+          }
+          fetch('/api/import', authOpts({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          }))
+            .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+            .then(function(o) {
+              if (!o.ok) {
+                statusEl.textContent = 'Error: ' + (o.data.error || 'Request failed');
+                statusEl.style.color = '#e57373';
+                return;
+              }
+              var d = o.data;
+              var msg = 'Imported ' + d.imported + ' row(s).';
+              if (d.errors && d.errors.length > 0) msg += ' ' + d.errors.length + ' error(s): ' + d.errors.slice(0, 3).join('; ');
+              statusEl.textContent = msg;
+              statusEl.style.color = '';
+              if (d.imported > 0 && currentTableName === table) loadTable(table);
+            })
+            .catch(function(e) {
+              statusEl.textContent = 'Error: ' + (e.message || 'Import failed');
+              statusEl.style.color = '#e57373';
+            })
+            .finally(function() {
+              runBtn.disabled = !importFileData || !tableSel || !tableSel.value;
+              runBtn.textContent = runBtnOrigText || 'Import';
+            });
+        });
+      }
+    })();
+
     document.getElementById('export-csv').addEventListener('click', function(e) {
       e.preventDefault();
       if (!currentTableName || !currentTableJson || currentTableJson.length === 0) {
@@ -2255,7 +2487,7 @@ abstract final class HtmlContent {
           var cachedFks = fkMetaCache[currentTableName] || [];
           cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
           var colTypes = tableColumnTypes[currentTableName] || {};
-          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><p class="meta">' + metaText + '</p>' + buildDataTableHtml(filtered, fkMap, colTypes);
+          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(currentTableName)));
         }
       } else {
         container.innerHTML = '<p class="meta">Schema</p><pre id="content-pre">' + esc(schema) + '</pre>';
@@ -2279,7 +2511,7 @@ abstract final class HtmlContent {
           var cachedFks = fkMetaCache[currentTableName] || [];
           cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
           var colTypes = tableColumnTypes[currentTableName] || {};
-          dataHtml = '<p class="meta">' + metaText + '</p>' + buildDataTableHtml(filtered, fkMap, colTypes);
+          dataHtml = '<p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(currentTableName)));
         } else {
           lastRenderedData = null;
           dataHtml = '<p class="meta">Select a table above to load data.</p>';
@@ -2436,19 +2668,39 @@ abstract final class HtmlContent {
       });
     }
 
-    function buildDataTableHtml(filtered, fkMap, colTypes) {
+    /**
+     * Builds the data table HTML with optional column order, visibility, and pinning.
+     * @param filtered - Array of row objects
+     * @param fkMap - Map of column name to FK metadata
+     * @param colTypes - Map of column name to type for formatting
+     * @param columnConfig - Optional { order: string[], hidden: string[], pinned: string[] }
+     * @returns HTML string for <table id="data-table"> with data-column-key and col-pinned where applicable
+     */
+    function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
       if (!filtered || filtered.length === 0) return '<p class="meta">No rows.</p>';
-      var keys = Object.keys(filtered[0]);
+      var dataKeys = Object.keys(filtered[0]);
+      var order = dataKeys.slice();
+      var hidden = [];
+      var pinned = [];
+      if (columnConfig && columnConfig.order && columnConfig.order.length) {
+        order = columnConfig.order.filter(function(k) { return dataKeys.indexOf(k) >= 0; });
+        dataKeys.forEach(function(k) { if (order.indexOf(k) < 0) order.push(k); });
+      }
+      if (columnConfig && columnConfig.hidden) hidden = columnConfig.hidden;
+      if (columnConfig && columnConfig.pinned) pinned = columnConfig.pinned;
+      var visible = order.filter(function(k) { return hidden.indexOf(k) < 0; });
+
       var html = '<table id="data-table"><thead><tr>';
-      keys.forEach(function(k) {
+      visible.forEach(function(k) {
         var fk = fkMap[k];
         var fkLabel = fk ? ' <span style="color:var(--muted);font-size:10px;" title="FK to ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '">&#8599;</span>' : '';
-        html += '<th>' + esc(k) + fkLabel + '</th>';
+        var thClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
+        html += '<th data-column-key="' + esc(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc(k) + fkLabel + '</th>';
       });
       html += '</tr></thead><tbody>';
       filtered.forEach(function(row) {
         html += '<tr>';
-        keys.forEach(function(k) {
+        visible.forEach(function(k) {
           var val = row[k];
           var fk = fkMap[k];
           var rawStr = val != null ? String(val) : '';
@@ -2465,20 +2717,28 @@ abstract final class HtmlContent {
             cellContent = esc(rawStr);
           }
           var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc(rawStr) + '" title="Copy value">&#x2398;</button>';
+          var tdClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
+          var tdAttrs = ' data-column-key="' + esc(k) + '"' + tdClass;
           if (fk && val != null) {
-            html += '<td><a href="#" class="fk-link" style="color:var(--link);text-decoration:underline;" ';
+            html += '<td' + tdAttrs + '><a href="#" class="fk-link" style="color:var(--link);text-decoration:underline;" ';
             html += 'data-table="' + esc(fk.toTable) + '" ';
             html += 'data-column="' + esc(fk.toColumn) + '" ';
             html += 'data-value="' + esc(rawStr) + '">' ;
             html += cellContent + ' &#8594;</a>' + copyBtn + '</td>';
           } else {
-            html += '<td>' + cellContent + copyBtn + '</td>';
+            html += '<td' + tdAttrs + '>' + cellContent + copyBtn + '</td>';
           }
         });
         html += '</tr>';
       });
       html += '</tbody></table>';
       return html;
+    }
+
+    /** Wraps table HTML in the scroll container so sticky headers and horizontal scroll work. */
+    function wrapDataTableInScroll(tableHtml) {
+      if (!tableHtml || tableHtml.indexOf('<table') < 0) return tableHtml;
+      return '<div id="data-table-scroll-wrap" class="data-table-scroll-wrap">' + tableHtml + '</div>';
     }
 
     function renderTableView(name, data) {
@@ -2496,7 +2756,7 @@ abstract final class HtmlContent {
         content.innerHTML = '<p class="meta">' + metaText + '</p><p class="meta">Loading\u2026</p>';
       }
       function renderDataHtml(fkMap, colTypes) {
-        var tableHtml = buildDataTableHtml(filtered, fkMap, colTypes);
+        var tableHtml = wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(name)));
         var qbHtml = buildQueryBuilderHtml(name, colTypes);
         if (scope === 'both') {
           lastRenderedSchema = cachedSchema;
@@ -2509,11 +2769,13 @@ abstract final class HtmlContent {
               if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);
               applySearch();
               renderBreadcrumb();
+              bindColumnTableEvents();
             });
           } else {
             var dataSection = document.getElementById('both-data-section');
             if (dataSection) {
               dataSection.innerHTML = '<h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p>' + qbHtml + tableHtml;
+              bindColumnTableEvents();
               bindQueryBuilderEvents(colTypes);
               if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);
             }
@@ -2527,6 +2789,7 @@ abstract final class HtmlContent {
           if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);
           applySearch();
           renderBreadcrumb();
+          bindColumnTableEvents();
         }
       }
       // Load FK metadata and column types in parallel, then render

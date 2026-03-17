@@ -78,6 +78,20 @@ final class ImportHandler {
         return;
       }
 
+      // Optional column mapping for CSV: map from CSV header name to table column name.
+      Map<String, String>? csvColumnMapping;
+      final rawMapping = decoded['columnMapping'];
+      if (rawMapping is Map) {
+        csvColumnMapping = <String, String>{};
+        for (final entry in rawMapping.entries) {
+          final k = entry.key;
+          final v = entry.value;
+          if (k is String && v is String) {
+            csvColumnMapping[k] = v;
+          }
+        }
+      }
+
       // Validate table exists
       final tableNames =
           await ServerUtils.getTableNames(_ctx.instrumentedQuery);
@@ -100,6 +114,7 @@ final class ImportHandler {
         table: table,
         writeQuery: writeQuery,
         sqlLiteral: ServerUtils.sqlLiteral,
+        csvColumnMapping: csvColumnMapping,
       );
 
       // Invalidate cached table names so checkDataChange
