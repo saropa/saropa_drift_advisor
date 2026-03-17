@@ -104,19 +104,20 @@
       },
       {
         "view": "driftViewer.databaseExplorer",
-        "contents": "No Drift debug server connected.\n\nGET STARTED — Add the Drift Advisor package to your project, then run your app with the debug server.\n\n[Add Saropa Drift Advisor](command:driftViewer.addPackageToProject)\n\n[Troubleshooting](command:driftViewer.showTroubleshooting)\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\nRESOURCES\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
+        "contents": "No Drift debug server connected.\n\nGET STARTED — Add the Drift Advisor package to your project, then run your app with the debug server.\n\n[Add Saropa Drift Advisor](command:driftViewer.addPackageToProject)\n\n[Open in Browser](command:driftViewer.openInBrowser)\n[Troubleshooting](command:driftViewer.showTroubleshooting)\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\nRESOURCES\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
         "when": "driftViewer.enabled && !driftViewer.serverConnected && !driftViewer.packageInstalled"
       },
       {
         "view": "driftViewer.databaseExplorer",
-        "contents": "No Drift debug server connected.\n\nRun your app with the Drift debug server to connect.\n\n[Troubleshooting](command:driftViewer.showTroubleshooting)\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\nRESOURCES\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
+        "contents": "No Drift debug server connected.\n\nRun your app with the Drift debug server to connect.\n\n[Open in Browser](command:driftViewer.openInBrowser)\n[Troubleshooting](command:driftViewer.showTroubleshooting)\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\nRESOURCES\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
         "when": "driftViewer.enabled && !driftViewer.serverConnected && driftViewer.packageInstalled"
       }
     ],
     "commands": [
       {
         "command": "driftViewer.openInBrowser",
-        "title": "Saropa Drift Advisor: Open in Browser"
+        "title": "Saropa Drift Advisor: Open in Browser",
+        "icon": "$(globe)"
       },
       {
         "command": "driftViewer.openInPanel",
@@ -556,6 +557,11 @@
         {
           "command": "driftViewer.aboutSaropa",
           "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.openInBrowser",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
         },
         {

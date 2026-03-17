@@ -79,7 +79,32 @@ def prompt_install(vsix_path: str) -> None:
         fail(f"Install failed: {result.stderr.strip()}")
         return
     ok("Extension installed successfully!")
+
+    # Post-install verification: confirm the extension directory now
+    # exists on disk.  This catches silent install failures (e.g.
+    # permissions, corrupt VSIX, or VS Code ignoring the request).
+    if _verify_installed_on_disk():
+        ok("Post-install check: extension directory confirmed on disk")
+    else:
+        warn(
+            "Post-install check: extension directory not found on disk. "
+            "The install may have failed silently -- check VS Code."
+        )
+
     info("Reload VS Code to activate the updated extension.")
+
+
+def _verify_installed_on_disk() -> bool:
+    """Check that the extension directory exists in VS Code's extensions folder.
+
+    Reads the extensions directory directly (same approach as
+    ``ext_prereqs.get_installed_extension_versions``) so we don't
+    invoke ``code --list-extensions`` which opens a VS Code window
+    on Windows.
+    """
+    from modules.ext_prereqs import get_installed_extension_versions
+
+    return len(get_installed_extension_versions()) > 0
 
 
 # cspell:ignore startfile

@@ -38,7 +38,14 @@ def confirm_publish(version: str) -> bool:
 
 
 def step_package() -> str | None:
-    """Package the extension into a .vsix file. Returns the file path."""
+    """Package the extension into a .vsix file. Returns the file path.
+
+    After packaging, inspects the VSIX (which is a zip archive) to
+    verify that the critical entry-point ``extension/out/extension.js``
+    is actually present inside the archive.  This catches cases where
+    the compiled output was missing or ``.vscodeignore`` accidentally
+    excluded the ``out/`` directory.
+    """
     info("Packaging .vsix file...")
     result = run(
         ["npx", "@vscode/vsce", "package", "--no-dependencies"],
@@ -57,8 +64,51 @@ def step_package() -> str | None:
 
     vsix_path = vsix_files[-1]
     size_kb = os.path.getsize(vsix_path) / 1024
+
+    # Verify the VSIX actually contains the compiled entry point.
+    # A VSIX is a zip; the main field in package.json points to
+    # ./out/extension.js which appears as extension/out/extension.js
+    # inside the archive.
+    if not _verify_vsix_contents(vsix_path):
+        return None
+
     ok(f"Created: {os.path.basename(vsix_path)} ({size_kb:.0f} KB)")
     return vsix_path
+
+
+# Files that MUST be present inside the VSIX for the extension to
+# function.  Paths are relative to the archive root (vsce prefixes
+# files with "extension/").
+_REQUIRED_VSIX_FILES = [
+    "extension/out/extension.js",
+    "extension/package.json",
+]
+
+
+def _verify_vsix_contents(vsix_path: str) -> bool:
+    """Open the VSIX as a zip and confirm required files are present."""
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(vsix_path, "r") as zf:
+            names = set(zf.namelist())
+            missing = [f for f in _REQUIRED_VSIX_FILES if f not in names]
+    except (zipfile.BadZipFile, OSError) as exc:
+        fail(f"Cannot read VSIX archive: {exc}")
+        return False
+
+    if missing:
+        fail("VSIX is missing critical files:")
+        for m in missing:
+            info(f"  {C.RED}✗{C.RESET} {m}")
+        fail(
+            "The extension will silently fail to activate without these. "
+            "Check .vscodeignore and ensure 'npm run compile' succeeded."
+        )
+        return False
+
+    ok("VSIX contents verified (entry point + package.json present)")
+    return True
 
 
 def get_marketplace_published_version() -> str | None:

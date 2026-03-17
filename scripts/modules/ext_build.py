@@ -42,14 +42,31 @@ def _run_npm_install() -> bool:
 
 
 def step_compile() -> bool:
-    """Run the TypeScript compiler (``npm run compile``)."""
+    """Run the TypeScript compiler (``npm run compile``).
+
+    After a successful tsc exit, verifies that the critical entry-point
+    file ``out/extension.js`` actually exists on disk.  This guards
+    against silent emit failures (e.g. empty outDir, disk-full, or
+    tsconfig misconfiguration) that would produce a zero exit code but
+    leave VS Code unable to activate the extension.
+    """
     info("Running npm run compile...")
     result = run(["npm", "run", "compile"], cwd=EXTENSION_DIR, check=False)
     if result.returncode != 0:
         fail("Compile failed:")
         print_cmd_output(result)
         return False
-    ok("Compile passed (tsc)")
+
+    # Verify the critical entry-point file was actually emitted.
+    entry_point = os.path.join(EXTENSION_DIR, "out", "extension.js")
+    if not os.path.isfile(entry_point):
+        fail(
+            "tsc exited successfully but out/extension.js was not created. "
+            "Check tsconfig.json outDir and rootDir settings."
+        )
+        return False
+
+    ok("Compile passed (tsc) -- out/extension.js verified")
     return True
 
 

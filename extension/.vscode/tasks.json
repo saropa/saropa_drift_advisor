@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // One-shot compile: runs tsc and exits.
+      // Used as preLaunchTask by launch.json so F5 always has fresh JS.
+      "type": "npm",
+      "script": "compile",
+      "group": "build",
+      "label": "npm: compile",
+      "problemMatcher": "$tsc",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    },
+    {
+      // Continuous watch: recompiles on every .ts save.
+      // Start this when doing iterative development so out/ stays current.
+      "type": "npm",
+      "script": "watch",
+      "group": "build",
+      "label": "npm: watch",
+      "isBackground": true,
+      "problemMatcher": "$tsc-watch",
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

@@ -21,6 +21,15 @@ Smart package lifecycle management: the extension now detects whether the Dart p
 
 ### Added
 
+- **Build safeguards (defense-in-depth)** — Seven independent layers now prevent shipping an extension that silently fails to activate:
+  - `npm install` auto-compiles TypeScript via `postprepare` hook — fresh clones and `git clean` are self-healing
+  - Pre-commit hook verifies `out/extension.js` exists alongside the existing type check
+  - F5 launch config (`launch.json`) with `preLaunchTask` ensures compilation before every debug run
+  - Background `watch` task available for continuous recompilation during development
+  - Publish pipeline verifies `out/extension.js` on disk after `tsc` exits
+  - Publish pipeline inspects VSIX archive contents before allowing publish
+  - Post-install verification confirms the extension directory exists on disk after `code --install-extension`
+
 - **Package upgrade detection** — On activation the extension checks pub.dev for newer versions of `saropa_drift_advisor`. If the workspace pubspec.yaml has an older constraint, an upgrade notification offers a one-click update (rewrites the constraint and runs `pub get`). Checks are throttled to once per hour; network errors are silently ignored.
 - **Conditional "Add Package" button** — The "Add Saropa Drift Advisor" button, welcome view link, and tools tree item are now hidden when the package is already present in pubspec.yaml. A new context key `driftViewer.packageInstalled` drives all three locations.
 - **Pubspec file watcher** — A `PackageStatusMonitor` watches `pubspec.yaml` for changes and keeps the installed-state UI in sync automatically.
