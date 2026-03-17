@@ -17,8 +17,7 @@ void main() {
 
       /// Starts a server with the given main and compare queries.
       Future<void> startServer({
-        required Future<List<Map<String, dynamic>>> Function(String)
-            queryMain,
+        required Future<List<Map<String, dynamic>>> Function(String) queryMain,
         Future<List<Map<String, dynamic>>> Function(String)? queryCompare,
       }) async {
         await DriftDebugServer.start(
@@ -288,8 +287,7 @@ void main() {
               sql.contains("name='idx_orders_user_id'")) {
             return [
               {
-                'sql':
-                    'CREATE INDEX idx_orders_user_id ON "orders"("user_id")',
+                'sql': 'CREATE INDEX idx_orders_user_id ON "orders"("user_id")',
               }
             ];
           }

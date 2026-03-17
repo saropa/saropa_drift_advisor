@@ -246,7 +246,8 @@ void main() {
         expect(executedSql[0], isNot(contains('extra')));
       });
 
-      test('CSV columnMapping duplicate table column: last mapping wins', () async {
+      test('CSV columnMapping duplicate table column: last mapping wins',
+          () async {
         final executedSql = <String>[];
 
         final result = await processor.processImport(

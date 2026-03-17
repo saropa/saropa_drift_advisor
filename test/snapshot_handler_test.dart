@@ -30,8 +30,7 @@ void main() {
       await DriftDebugServer.start(
         query: (sql) async {
           // Table names.
-          if (sql.contains("type='table'") &&
-              sql.contains('ORDER BY name')) {
+          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
             return [
               {'name': 'items'}
             ];
@@ -155,8 +154,7 @@ void main() {
 
     test('compare returns 400 when no snapshot exists', () async {
       await startServer();
-      final resp =
-          await httpGet(serverPort!, '/api/snapshot/compare');
+      final resp = await httpGet(serverPort!, '/api/snapshot/compare');
       expect(resp.status, 400);
     });
 
@@ -164,8 +162,7 @@ void main() {
       await startServer();
       // Create snapshot, then compare (data unchanged).
       await httpPost(serverPort!, '/api/snapshot');
-      final resp =
-          await httpGet(serverPort!, '/api/snapshot/compare');
+      final resp = await httpGet(serverPort!, '/api/snapshot/compare');
 
       expect(resp.status, 200);
       final body = resp.body as Map;
@@ -188,11 +185,9 @@ void main() {
         {'id': 3, 'title': 'Gamma'},
       ];
 
-      final resp =
-          await httpGet(serverPort!, '/api/snapshot/compare');
+      final resp = await httpGet(serverPort!, '/api/snapshot/compare');
       expect(resp.status, 200);
-      final tableDiff =
-          ((resp.body as Map)['tables'] as List).first as Map;
+      final tableDiff = ((resp.body as Map)['tables'] as List).first as Map;
       expect(tableDiff['countNow'], 3);
       expect(tableDiff['added'], greaterThan(0));
     });
@@ -207,11 +202,9 @@ void main() {
         {'id': 1, 'title': 'Alpha'},
       ];
 
-      final resp =
-          await httpGet(serverPort!, '/api/snapshot/compare');
+      final resp = await httpGet(serverPort!, '/api/snapshot/compare');
       expect(resp.status, 200);
-      final tableDiff =
-          ((resp.body as Map)['tables'] as List).first as Map;
+      final tableDiff = ((resp.body as Map)['tables'] as List).first as Map;
       expect(tableDiff['countNow'], 1);
       expect(tableDiff['removed'], greaterThan(0));
     });
@@ -234,8 +227,7 @@ void main() {
         '/api/snapshot/compare?detail=rows',
       );
       expect(resp.status, 200);
-      final tableDiff =
-          ((resp.body as Map)['tables'] as List).first as Map;
+      final tableDiff = ((resp.body as Map)['tables'] as List).first as Map;
 
       // Should have PK-based diff info.
       expect(tableDiff['hasPk'], true);
@@ -265,8 +257,7 @@ void main() {
       await startServer();
       await httpPost(serverPort!, '/api/snapshot');
 
-      final resp =
-          await httpGet(serverPort!, '/api/snapshot/compare');
+      final resp = await httpGet(serverPort!, '/api/snapshot/compare');
       final body = resp.body as Map;
 
       expect(body['snapshotId'], isNotNull);

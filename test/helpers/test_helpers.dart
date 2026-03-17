@@ -169,8 +169,7 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
     // covered by the named index.
     if (sql.contains('PRAGMA index_info')) {
       if (indexInfoColumns != null) {
-        final match =
-            RegExp(r'PRAGMA index_info\("([^"]+)"\)').firstMatch(sql);
+        final match = RegExp(r'PRAGMA index_info\("([^"]+)"\)').firstMatch(sql);
         if (match != null) {
           final idxName = match.group(1)!;
           final cols = indexInfoColumns[idxName] ?? [];

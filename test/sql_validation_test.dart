@@ -91,8 +91,7 @@ void main() {
 
       test('UPDATE keyword inside double-quoted identifier', () {
         expect(
-          SqlValidator.isReadOnlySql(
-              'SELECT * FROM "UPDATE_LOG" WHERE id = 1'),
+          SqlValidator.isReadOnlySql('SELECT * FROM "UPDATE_LOG" WHERE id = 1'),
           isTrue,
         );
       });
@@ -101,16 +100,14 @@ void main() {
     group('forbidden keywords in comments are allowed', () {
       test('INSERT in line comment', () {
         expect(
-          SqlValidator.isReadOnlySql(
-              '-- INSERT INTO x\nSELECT * FROM users'),
+          SqlValidator.isReadOnlySql('-- INSERT INTO x\nSELECT * FROM users'),
           isTrue,
         );
       });
 
       test('DELETE in block comment', () {
         expect(
-          SqlValidator.isReadOnlySql(
-              '/* DELETE FROM x */ SELECT * FROM users'),
+          SqlValidator.isReadOnlySql('/* DELETE FROM x */ SELECT * FROM users'),
           isTrue,
         );
       });
@@ -119,8 +116,7 @@ void main() {
     group('rejected queries', () {
       test('INSERT statement', () {
         expect(
-          SqlValidator.isReadOnlySql(
-              'INSERT INTO users (name) VALUES ("x")'),
+          SqlValidator.isReadOnlySql('INSERT INTO users (name) VALUES ("x")'),
           isFalse,
         );
       });
@@ -153,8 +149,7 @@ void main() {
 
       test('ALTER TABLE', () {
         expect(
-          SqlValidator.isReadOnlySql(
-              'ALTER TABLE users ADD COLUMN age INT'),
+          SqlValidator.isReadOnlySql('ALTER TABLE users ADD COLUMN age INT'),
           isFalse,
         );
       });
@@ -172,8 +167,7 @@ void main() {
 
       test('REPLACE INTO', () {
         expect(
-          SqlValidator.isReadOnlySql(
-              'REPLACE INTO users (id) VALUES (1)'),
+          SqlValidator.isReadOnlySql('REPLACE INTO users (id) VALUES (1)'),
           isFalse,
         );
       });
@@ -218,8 +212,7 @@ void main() {
 
       test('SELECT followed by INSERT', () {
         expect(
-          SqlValidator.isReadOnlySql(
-              'SELECT 1; INSERT INTO x (id) VALUES (1)'),
+          SqlValidator.isReadOnlySql('SELECT 1; INSERT INTO x (id) VALUES (1)'),
           isFalse,
         );
       });

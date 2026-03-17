@@ -234,14 +234,16 @@ void main() {
         // Verify specific columns are present.
         final suggestedCols =
             suggestions.map((s) => (s as Map)['column']).toSet();
-        expect(suggestedCols, containsAll([
-          'created_at',
-          'event_date',
-          'start_time',
-          'created',
-          'updated',
-          'deleted',
-        ]));
+        expect(
+            suggestedCols,
+            containsAll([
+              'created_at',
+              'event_date',
+              'start_time',
+              'created',
+              'updated',
+              'deleted',
+            ]));
       });
 
       test('suggestions sorted by priority: high, medium, low', () async {
@@ -338,8 +340,7 @@ void main() {
         expect((suggestions.first as Map)['priority'], 'medium');
       });
 
-      test('suggestion SQL includes correct table and column names',
-          () async {
+      test('suggestion SQL includes correct table and column names', () async {
         final result = await IndexAnalyzer.getIndexSuggestionsList(
           mockQueryWithTables(
             tableColumns: {

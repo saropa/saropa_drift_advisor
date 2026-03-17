@@ -10,8 +10,7 @@ import 'helpers/test_helpers.dart';
 void main() {
   group('TableHandler', () {
     group('getTableFkMetaList', () {
-      test('returns FK metadata with fromColumn, toTable, toColumn',
-          () async {
+      test('returns FK metadata with fromColumn, toTable, toColumn', () async {
         final ctx = createTestContext();
         final handler = TableHandler(ctx);
         final query = mockQueryWithTables(
@@ -58,8 +57,7 @@ void main() {
         expect(fks, isEmpty);
       });
 
-      test('filters out FKs with null fromCol, toTable, or toCol',
-          () async {
+      test('filters out FKs with null fromCol, toTable, or toCol', () async {
         final ctx = createTestContext();
         final handler = TableHandler(ctx);
         final query = mockQueryWithTables(
