@@ -63,6 +63,11 @@ abstract final class HtmlContent {
     .diagram-table .diagram-name { font-weight: 600; font-size: 13px; }
     .diagram-table .diagram-col { font-size: 11px; fill: var(--muted); }
     .diagram-link { stroke: var(--muted); stroke-width: 1; fill: none; }
+    /* Focus ring for keyboard navigation of diagram table boxes */
+    .diagram-table:focus rect { stroke: var(--link); stroke-width: 2.5; }
+    .diagram-table:focus { outline: none; }
+    /* Screen-reader-only text (visually hidden, announced by assistive tech) */
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     .chart-bar { fill: var(--link); }
     .chart-bar:hover { fill: var(--fg); }
     .chart-label { font-size: 10px; fill: var(--muted); }
@@ -290,8 +295,10 @@ abstract final class HtmlContent {
   <div id="schema-collapsible" class="collapsible-body collapsed"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
   <div class="collapsible-header" id="diagram-toggle">▼ Schema diagram</div>
   <div id="diagram-collapsible" class="collapsible-body collapsed">
-    <p class="meta">Tables and relationships. Click a table to view its data.</p>
+    <p class="meta">Tables and relationships. Click or press Enter on a table to view its data. Use arrow keys to navigate between tables.</p>
     <div id="diagram-container"></div>
+    <!-- Screen-reader-only text alternative for the SVG diagram -->
+    <div id="diagram-text-alt" class="sr-only"></div>
   </div>
   <ul id="tables"></ul>
   <div id="content" class="content-wrap"></div>
@@ -1419,7 +1426,9 @@ abstract final class HtmlContent {
           return { x: cx, y: cy };
         };
 
-        let svg = '<svg width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
+        // Use role="group" (not "img") so screen readers announce the summary
+        // label but still allow navigation into the focusable table children.
+        let svg = '<svg role="group" aria-label="Schema diagram showing ' + tables.length + ' table' + (tables.length !== 1 ? 's' : '') + ' and ' + fks.length + ' foreign key relationship' + (fks.length !== 1 ? 's' : '') + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
         svg += '<g class="diagram-links">';
         fks.forEach(function(fk) {
           const iFrom = nameToIndex[fk.fromTable];
@@ -1428,19 +1437,30 @@ abstract final class HtmlContent {
           const from = getCenter(iFrom, 'right');
           const to = getCenter(iTo, 'left');
           const mid = (from.x + to.x) / 2;
-          svg += '<path class="diagram-link" d="M' + from.x + ',' + from.y + ' C' + mid + ',' + from.y + ' ' + mid + ',' + to.y + ' ' + to.x + ',' + to.y + '" />';
+          // Each FK path gets a <title> so screen readers and hover-tooltips
+          // describe the relationship (matches chart tooltip pattern).
+          svg += '<path class="diagram-link" d="M' + from.x + ',' + from.y + ' C' + mid + ',' + from.y + ' ' + mid + ',' + to.y + ' ' + to.x + ',' + to.y + '">'
+            + '<title>' + esc(fk.fromTable) + '.' + esc(fk.fromColumn) + ' \u2192 ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '</title></path>';
         });
         svg += '</g><g class="diagram-tables">';
         tables.forEach(function(t, i) {
           const p = tablePos(i);
-          const cols = (t.columns || []).slice(0, 6);
+          const allCols = t.columns || [];
+          const cols = allCols.slice(0, 6);
           const name = esc(t.name);
+          // Build an ARIA label summarising the table for screen readers:
+          // e.g. "users table, 5 columns, primary key: id"
+          const pkCols = allCols.filter(function(c) { return c.pk; }).map(function(c) { return c.name; });
+          const ariaLabel = t.name + ' table, ' + allCols.length + ' column' + (allCols.length !== 1 ? 's' : '')
+            + (pkCols.length ? ', primary key: ' + pkCols.join(', ') : '');
           let body = cols.map(function(c) {
             const pk = c.pk ? ' <tspan class="diagram-pk">PK</tspan>' : '';
             return '<tspan class="diagram-col" x="' + (p.x + 8) + '" dy="16">' + esc(c.name) + (c.type ? ' ' + esc(c.type) : '') + pk + '</tspan>';
           }).join('');
-          if ((t.columns || []).length > 6) body += '<tspan class="diagram-col" x="' + (p.x + 8) + '" dy="16">…</tspan>';
-          svg += '<g class="diagram-table" data-table="' + name + '" transform="translate(' + p.x + ',' + p.y + ')">';
+          if (allCols.length > 6) body += '<tspan class="diagram-col" x="' + (p.x + 8) + '" dy="16">…</tspan>';
+          // tabindex="0" makes the box keyboard-focusable; role="button" tells
+          // screen readers it is activatable (clicking loads the table view).
+          svg += '<g class="diagram-table" data-table="' + name + '" tabindex="0" role="button" aria-label="' + esc(ariaLabel) + '" transform="translate(' + p.x + ',' + p.y + ')">';
           svg += '<rect width="' + BOX_W + '" height="' + BOX_H + '" rx="4"/>';
           svg += '<text class="diagram-name" x="8" y="22" style="fill: var(--link);">' + name + '</text>';
           svg += '<text x="8" y="38">' + body + '</text>';
@@ -1449,12 +1469,56 @@ abstract final class HtmlContent {
         svg += '</g></svg>';
         container.innerHTML = svg;
 
-        container.querySelectorAll('.diagram-table').forEach(function(g) {
+        // Attach click + keyboard handlers to each table box.
+        // Enter/Space activates (same as click); arrow keys navigate the grid.
+        const tableEls = container.querySelectorAll('.diagram-table');
+        tableEls.forEach(function(g, i) {
           g.addEventListener('click', function() {
             const name = this.getAttribute('data-table');
             if (name) loadTable(name);
           });
+          g.addEventListener('keydown', function(e) {
+            // Enter or Space activates the table (loads its data view).
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              const name = this.getAttribute('data-table');
+              if (name) loadTable(name);
+              return;
+            }
+            // Arrow keys navigate between table boxes in grid layout.
+            var target = -1;
+            if (e.key === 'ArrowRight') target = i + 1;
+            else if (e.key === 'ArrowLeft') target = i - 1;
+            else if (e.key === 'ArrowDown') target = i + COLS;
+            else if (e.key === 'ArrowUp') target = i - COLS;
+            if (target >= 0 && target < tableEls.length) {
+              e.preventDefault();
+              tableEls[target].focus();
+            }
+          });
         });
+
+        // Build a text-based alternative for screen readers (sr-only div).
+        // Lists every table with its columns plus FK relationships.
+        var altEl = document.getElementById('diagram-text-alt');
+        if (altEl) {
+          var altHtml = '<h4>Schema table list</h4><ul>';
+          tables.forEach(function(t) {
+            var cols = t.columns || [];
+            altHtml += '<li><strong>' + esc(t.name) + '</strong> (' + cols.length + ' column' + (cols.length !== 1 ? 's' : '') + '): ';
+            altHtml += cols.map(function(c) { return esc(c.name) + (c.pk ? ' (PK)' : ''); }).join(', ');
+            altHtml += '</li>';
+          });
+          altHtml += '</ul>';
+          if (fks.length > 0) {
+            altHtml += '<h4>Foreign key relationships</h4><ul>';
+            fks.forEach(function(fk) {
+              altHtml += '<li>' + esc(fk.fromTable) + '.' + esc(fk.fromColumn) + ' \u2192 ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '</li>';
+            });
+            altHtml += '</ul>';
+          }
+          altEl.innerHTML = altHtml;
+        }
       }
 
       toggle.addEventListener('click', function() {

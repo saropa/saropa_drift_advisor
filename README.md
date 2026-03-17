@@ -53,7 +53,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 #### Schema & Export
 
 - **Collapsible schema** panel with CREATE statements
-- **ER diagram** — tables and FK relationship lines; click to navigate
+- **ER diagram** — tables and FK relationship lines; click or keyboard-navigate to view table data
 - **Export** — CSV per table, schema-only SQL, full dump (schema + data), raw SQLite file
 - **Portable report** — self-contained HTML file with all data, schema, and anomalies inlined; opens in any browser with zero dependencies
 
@@ -136,7 +136,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 #### Schema & Migration
 
 - **Schema diff** — compare Drift table definitions in code vs runtime schema
-- **Schema diagram** — ER-style visualization with FK relationship lines
+- **Schema diagram** — ER-style visualization with FK relationship lines; keyboard-navigable with screen reader support
 - **Generate Dart from schema** — scaffold Drift table classes from runtime schema
 - **Isar-to-Drift generator** — convert `@collection` classes to Drift tables (Dart source or JSON schema, configurable embedded/enum strategies)
 - **Migration preview & code gen** — preview DDL, generate migration code

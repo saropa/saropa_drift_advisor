@@ -52,6 +52,7 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 - **Accessibility: color-only severity indicators** — index suggestion priorities (`HIGH`/`MEDIUM`/`LOW`) and performance query durations now show `[!!]`/`[!]`/`[✓]` icon prefixes alongside color, matching the anomaly detection pattern (WCAG 2.1 1.4.1)
 - **Stale search match guard** — navigating to a match inside a collapsed section now rebuilds the match list if the expand causes a re-render, preventing scroll-to-nothing
 - **Version constant CI guard** — added `version_sync_test.dart` that verifies `ServerConstants.packageVersion` matches `pubspec.yaml`; prevents stale version reporting in health endpoint and web UI (BUG-022)
+- **Accessibility: schema diagram** — SVG diagram now has `role="group"` with `aria-label` summary, ARIA-labelled keyboard-focusable table boxes (`tabindex`, `role="button"`, arrow-key grid navigation, Enter/Space activation), `<title>` tooltips on FK relationship paths, and a screen-reader-only text alternative listing all tables and foreign keys (WCAG 2.1 1.1.1, 2.1.1, 4.1.2) (BUG-012)
 - **Stale data table highlights** — clearing the search term now properly removes highlight markup from data table cells (previously they persisted until re-render)
 
 ---
