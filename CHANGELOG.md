@@ -15,9 +15,9 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [Unreleased]
+## [2.1.0]
 
-Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable.
+Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable. Search now scrolls to matches and lets you step through them with Next/Previous.
 
 ### Added
 
@@ -38,28 +38,20 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 - **"Clear path" breadcrumb button** — discards the entire FK navigation trail
 - **OS dark-mode sync** — first visit respects `prefers-color-scheme`; VS Code webview theme auto-detected via body classes and `data-vscode-theme-kind`; real-time updates when OS or VS Code theme changes (MutationObserver for webview, matchMedia listener for OS)
 - **Per-IP rate limiting** — optional `maxRequestsPerSecond` parameter on `DriftDebugServer.start()` enables fixed-window counter rate limiting; returns HTTP 429 with `Retry-After` header when exceeded; `/api/generation` (long-poll) and `/api/health` endpoints are exempt (BUG-023)
+- **Search result navigation** — auto-scrolls to the first match when typing, shows "X of Y" match counter, and provides Prev/Next buttons to step through results
+- **Keyboard shortcuts** — Enter/Shift+Enter for next/prev match in search input, Ctrl+G/Shift+Ctrl+G globally, Ctrl+F to focus search, Escape to clear
+- **Active match highlight** — distinct orange highlight with outline distinguishes the current match from passive highlights (supports both light and dark themes)
+- **Collapsed section expansion** — navigating to a match inside a collapsed section automatically expands it
+
+### Tests
+
+- **Handler unit tests** — dedicated test files for `IndexAnalyzer`, `AnomalyDetector`, `PerformanceHandler`, `SchemaHandler`, `CompareHandler`, `SnapshotHandler`, `TableHandler`, and `GenerationHandler`; covers edge cases, error paths, boundary conditions, and business logic not exercised by the existing integration tests (BUG-017)
 
 ### Fixed
 
 - **Accessibility: color-only severity indicators** — index suggestion priorities (`HIGH`/`MEDIUM`/`LOW`) and performance query durations now show `[!!]`/`[!]`/`[✓]` icon prefixes alongside color, matching the anomaly detection pattern (WCAG 2.1 1.4.1)
 - **Stale search match guard** — navigating to a match inside a collapsed section now rebuilds the match list if the expand causes a re-render, preventing scroll-to-nothing
 - **Version constant CI guard** — added `version_sync_test.dart` that verifies `ServerConstants.packageVersion` matches `pubspec.yaml`; prevents stale version reporting in health endpoint and web UI (BUG-022)
-
----
-
-## [2.1.0]
-
-Search now scrolls to matches and lets you step through them with Next/Previous.
-
-### Added
-
-- **Search result navigation** — auto-scrolls to the first match when typing, shows "X of Y" match counter, and provides Prev/Next buttons to step through results
-- **Keyboard shortcuts** — Enter/Shift+Enter for next/prev match in search input, Ctrl+G/Shift+Ctrl+G globally, Ctrl+F to focus search, Escape to clear
-- **Active match highlight** — distinct orange highlight with outline distinguishes the current match from passive highlights (supports both light and dark themes)
-- **Collapsed section expansion** — navigating to a match inside a collapsed section automatically expands it
-
-### Fixed
-
 - **Stale data table highlights** — clearing the search term now properly removes highlight markup from data table cells (previously they persisted until re-render)
 
 ---

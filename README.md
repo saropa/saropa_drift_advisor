@@ -85,6 +85,10 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Auth** — optional Bearer token or HTTP Basic for dev tunnels
 - **Health** — `GET /api/health` → `{"ok": true}`
 
+#### API Reference
+
+Full REST endpoint documentation with request/response schemas, error codes, and examples: **[doc/API.md](doc/API.md)**
+
 #### Theme
 
 - **Light/dark toggle** saved in localStorage
