@@ -1694,8 +1694,17 @@ abstract final class HtmlContent {
       var current = searchMatches[searchCurrentIndex];
       current.classList.add('highlight-active');
 
-      // Expand any collapsed section containing this match
+      // Expand any collapsed section containing this match.
       expandSectionContaining(current);
+
+      // Guard against stale DOM references: expanding a collapsed section
+      // can re-render its contents, detaching the match element from the
+      // document. If that happens, rebuild the match list and bail out
+      // (the next navigation click will use the fresh list).
+      if (!current.isConnected) {
+        applySearch(document.getElementById('search-input').value);
+        return;
+      }
 
       // Scroll match into viewport, centered vertically.
       // Uses 'auto' (instant) to avoid competing smooth-scroll animations

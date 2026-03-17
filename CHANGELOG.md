@@ -33,11 +33,13 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 - **Clickable FK breadcrumb steps** — each table in the navigation trail is now a link; clicking jumps directly to that table instead of one-step-back only
 - **FK breadcrumb persistence** — navigation history saved to localStorage and restored on page refresh, with validation against the current table list
 - **"Clear path" breadcrumb button** — discards the entire FK navigation trail
-- **OS dark-mode sync** — first visit respects `prefers-color-scheme`; VS Code webview theme auto-detected; real-time updates when OS theme changes
+- **OS dark-mode sync** — first visit respects `prefers-color-scheme`; VS Code webview theme auto-detected via body classes and `data-vscode-theme-kind`; real-time updates when OS or VS Code theme changes (MutationObserver for webview, matchMedia listener for OS)
 
 ### Fixed
 
 - **Accessibility: color-only severity indicators** — index suggestion priorities (`HIGH`/`MEDIUM`/`LOW`) and performance query durations now show `[!!]`/`[!]`/`[✓]` icon prefixes alongside color, matching the anomaly detection pattern (WCAG 2.1 1.4.1)
+
+---
 
 ## [2.1.0]
 
