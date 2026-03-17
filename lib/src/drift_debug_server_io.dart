@@ -214,6 +214,18 @@ class _DriftDebugServerImpl {
     await server.close();
   }
 
+  /// Whether change detection (row-count fingerprinting)
+  /// is currently enabled. Returns null if the server
+  /// is not running.
+  bool? get changeDetectionEnabled =>
+      _router?.isChangeDetectionEnabled;
+
+  /// Enables or disables automatic change detection
+  /// at runtime. No-op if the server is not running.
+  void setChangeDetection(bool enabled) {
+    _router?.setChangeDetectionEnabled(enabled);
+  }
+
   @override
   String toString() => '_DriftDebugServerImpl(port: ${_server?.port}, '
       'running: ${_server != null})';
@@ -287,6 +299,26 @@ mixin DriftDebugServer {
 
   /// The port the server is bound to, or null if not running.
   static int? get port => _instance.port;
+
+  /// Whether change detection (generation bumping via
+  /// periodic row-count fingerprinting) is currently
+  /// enabled. Returns null if the server is not running.
+  ///
+  /// When disabled, no COUNT queries are issued during
+  /// the long-poll loop, eliminating console spam from
+  /// logStatements. The generation number freezes at
+  /// its current value until re-enabled.
+  static bool? get changeDetectionEnabled =>
+      _instance.changeDetectionEnabled;
+
+  /// Enables or disables automatic change detection
+  /// at runtime. When [enabled] is false, the
+  /// long-poll loop still runs but skips the COUNT
+  /// queries, so no log spam is produced.
+  ///
+  /// No-op if the server is not running.
+  static void setChangeDetection(bool enabled) =>
+      _instance.setChangeDetection(enabled);
 
   /// Stops the server and releases the port. No-op if not running.
   static Future<void> stop() => _instance.stop();

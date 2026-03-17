@@ -602,5 +602,144 @@ void main() {
         expect(ctx.toString(), contains('generation'));
       });
     });
+
+    group('checkDataChange', () {
+      test('is no-op when changeDetectionEnabled is false', () async {
+        int queryCount = 0;
+        final ctx = ServerContext(
+          query: (_) async {
+            queryCount++;
+
+            return [
+              <String, dynamic>{'name': 'items'},
+            ];
+          },
+        );
+
+        ctx.changeDetectionEnabled = false;
+        await ctx.checkDataChange();
+
+        // No queries should have been issued.
+        expect(queryCount, 0);
+        expect(ctx.generation, 0);
+      });
+
+      test('uses single UNION ALL query for row counts', () async {
+        final executedSql = <String>[];
+        final ctx = ServerContext(
+          query: (sql) async {
+            executedSql.add(sql);
+
+            // Return table names for sqlite_master query.
+            if (sql.contains("type='table'")) {
+              return [
+                <String, dynamic>{'name': 'a'},
+                <String, dynamic>{'name': 'b'},
+              ];
+            }
+
+            // Return counts for UNION ALL query.
+            if (sql.contains('UNION ALL')) {
+              return [
+                <String, dynamic>{'t': 'a', 'c': 5},
+                <String, dynamic>{'t': 'b', 'c': 3},
+              ];
+            }
+
+            return <Map<String, dynamic>>[];
+          },
+        );
+
+        await ctx.checkDataChange();
+
+        // Should issue exactly 2 queries:
+        // getTableNames + single UNION ALL.
+        expect(executedSql, hasLength(2));
+        expect(executedSql[1], contains('UNION ALL'));
+      });
+
+      test('caches table names across calls', () async {
+        int tableNameQueries = 0;
+        final ctx = ServerContext(
+          query: (sql) async {
+            if (sql.contains("type='table'")) {
+              tableNameQueries++;
+
+              return [
+                <String, dynamic>{'name': 'x'},
+              ];
+            }
+
+            // UNION ALL result.
+            return [
+              <String, dynamic>{'t': 'x', 'c': 1},
+            ];
+          },
+        );
+
+        await ctx.checkDataChange();
+        await ctx.checkDataChange();
+
+        // Table names should only be queried once
+        // (cached on first call).
+        expect(tableNameQueries, 1);
+      });
+
+      test('invalidateTableNameCache forces re-query', () async {
+        int tableNameQueries = 0;
+        final ctx = ServerContext(
+          query: (sql) async {
+            if (sql.contains("type='table'")) {
+              tableNameQueries++;
+
+              return [
+                <String, dynamic>{'name': 'x'},
+              ];
+            }
+
+            return [
+              <String, dynamic>{'t': 'x', 'c': 1},
+            ];
+          },
+        );
+
+        await ctx.checkDataChange();
+        ctx.invalidateTableNameCache();
+        await ctx.checkDataChange();
+
+        // Table names should be queried twice (once
+        // before invalidation, once after).
+        expect(tableNameQueries, 2);
+      });
+
+      test('bumps generation when row counts change', () async {
+        int callCount = 0;
+        final ctx = ServerContext(
+          query: (sql) async {
+            if (sql.contains("type='table'")) {
+              return [
+                <String, dynamic>{'name': 'users'},
+              ];
+            }
+
+            // Return different count on second call.
+            callCount++;
+            final count = callCount <= 1 ? 5 : 10;
+
+            return [
+              <String, dynamic>{'t': 'users', 'c': count},
+            ];
+          },
+        );
+
+        await ctx.checkDataChange();
+        expect(ctx.generation, 0);
+
+        await ctx.checkDataChange();
+
+        // Generation should bump because count changed.
+        expect(ctx.generation, 1);
+      });
+    });
   });
 }

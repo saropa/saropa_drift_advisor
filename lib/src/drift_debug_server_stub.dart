@@ -55,6 +55,13 @@ mixin DriftDebugServer {
   /// Stub: always returns null (server not running).
   static int? get port => null;
 
+  /// Stub: always returns null (server not available
+  /// on web).
+  static bool? get changeDetectionEnabled => null;
+
+  /// Stub: no-op (server not available on web).
+  static void setChangeDetection(bool enabled) {}
+
   /// Stub: no-op.
   static Future<void> stop() => Future<void>.value();
 }

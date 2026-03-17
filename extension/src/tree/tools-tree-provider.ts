@@ -93,6 +93,11 @@ export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode>
     this._version = version ?? '0.0.0';
   }
 
+  /** Force a full tree re-render (e.g. after toggling polling state). */
+  refresh(): void {
+    this._onDidChangeTreeData.fire();
+  }
+
   /** Called when server connection state changes. Re-renders the tree. */
   setConnected(connected: boolean): void {
     if (this._connected !== connected) {
@@ -237,6 +242,10 @@ function buildCategories(version: string, packageInstalled: boolean): ToolCatego
     ]),
 
     new ToolCategoryItem('Tools', 'tools', [
+      new ToolCommandItem(
+        'Toggle Polling', 'driftViewer.togglePolling', 'radio-tower',
+        true, 'Enable/disable database change detection polling',
+      ),
       new ToolCommandItem(
         'SQL Notebook', 'driftViewer.openSqlNotebook', 'terminal',
         true, 'Interactive SQL console',

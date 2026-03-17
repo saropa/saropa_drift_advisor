@@ -195,6 +195,40 @@ export class DriftApiClient {
     }>;
   }
 
+  /** Returns whether change detection polling is enabled on the server. */
+  async getChangeDetection(): Promise<boolean> {
+    // Prefer VM Service transport when available (no HTTP overhead).
+    if (this._vmClient?.connected) {
+      return this._vmClient.getChangeDetection();
+    }
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/change-detection`, {
+      headers: this._headers(),
+    });
+    if (!resp.ok) {
+      throw new Error(`Get change detection failed: ${resp.status}`);
+    }
+    const data = (await resp.json()) as { changeDetection?: boolean };
+    return data?.changeDetection !== false;
+  }
+
+  /** Enables or disables change detection polling. Returns the new state. */
+  async setChangeDetection(enabled: boolean): Promise<boolean> {
+    // Prefer VM Service transport when available.
+    if (this._vmClient?.connected) {
+      return this._vmClient.setChangeDetection(enabled);
+    }
+    const resp = await fetchWithRetry(`${this._baseUrl}/api/change-detection`, {
+      method: 'POST',
+      headers: this._headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ enabled }),
+    });
+    if (!resp.ok) {
+      throw new Error(`Set change detection failed: ${resp.status}`);
+    }
+    const data = (await resp.json()) as { changeDetection?: boolean };
+    return data?.changeDetection !== false;
+  }
+
   async clearPerformance(): Promise<void> {
     if (this._vmClient?.connected) {
       await this._vmClient.clearPerformance();

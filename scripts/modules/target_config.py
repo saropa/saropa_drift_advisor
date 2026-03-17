@@ -15,6 +15,7 @@ from modules.constants import (
     PACKAGE_JSON_PATH,
     PUBSPEC_PATH,
     REPO_ROOT,
+    SERVER_CONSTANTS_PATH,
 )
 from modules.display import fail
 
@@ -160,11 +161,11 @@ def write_version(config: TargetConfig, version: str) -> bool:
         fail(f"Could not write {filename}")
         return False
 
-    # When the Dart package version changes, also update the PACKAGE_VERSION
-    # constant in add-package.ts so the "Add Saropa Drift Advisor" button
-    # always installs the correct version.
+    # When the Dart package version changes, also update dependent constants
+    # so the extension install button and web UI stay in sync.
     if config.name == "dart":
         sync_add_package_version(version)
+        sync_server_constants_version(version)
 
     return True
 
@@ -199,11 +200,43 @@ def sync_add_package_version(version: str) -> bool:
     return True
 
 
+def sync_server_constants_version(version: str) -> bool:
+    """Update the packageVersion constant in server_constants.dart.
+
+    This keeps the web UI health endpoint and CDN CSS URL in sync with
+    the published Dart package version so the correct enhanced styles
+    load from jsDelivr.
+    """
+    try:
+        with open(SERVER_CONSTANTS_PATH, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        fail(f"Could not read {os.path.basename(SERVER_CONSTANTS_PATH)}")
+        return False
+
+    # Match the packageVersion constant: static const String packageVersion = 'x.y.z';
+    pattern = r"(static const String packageVersion = ')\d+\.\d+\.\d+(')"
+    replacement = rf"\g<1>{version}\2"
+    updated, count = re.subn(pattern, replacement, content, count=1)
+    if count == 0:
+        fail(f"Could not find packageVersion in {os.path.basename(SERVER_CONSTANTS_PATH)}")
+        return False
+
+    try:
+        with open(SERVER_CONSTANTS_PATH, "w", encoding="utf-8") as f:
+            f.write(updated)
+    except OSError:
+        fail(f"Could not write {os.path.basename(SERVER_CONSTANTS_PATH)}")
+        return False
+    return True
+
+
 def sync_versions(version: str) -> bool:
-    """Write *version* to pubspec.yaml, package.json, and add-package.ts.
+    """Write *version* to pubspec.yaml, package.json, and dependent constants.
 
     Note: write_version(DART, ...) already calls sync_add_package_version()
-    internally, so add-package.ts is updated as a side-effect of the Dart write.
+    and sync_server_constants_version() internally, so add-package.ts and
+    server_constants.dart are updated as side-effects of the Dart write.
     """
     ok_dart = write_version(DART, version)
     ok_ext = write_version(EXTENSION, version)

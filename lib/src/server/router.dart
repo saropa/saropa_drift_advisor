@@ -1,7 +1,9 @@
 // Request router extracted from _DriftDebugServerImpl._onRequest.
 // Dispatches HTTP requests to the appropriate handler.
 
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
 
@@ -101,6 +103,22 @@ final class Router {
         await _generation.handleGeneration(req);
 
         return;
+      }
+
+      // Change detection toggle (lightweight control,
+      // no DB query needed).
+      if (path == ServerConstants.pathApiChangeDetection ||
+          path == ServerConstants.pathApiChangeDetectionAlt) {
+        if (req.method == ServerConstants.methodGet) {
+          await _handleGetChangeDetection(res);
+
+          return;
+        }
+        if (req.method == ServerConstants.methodPost) {
+          await _handleSetChangeDetection(req);
+
+          return;
+        }
       }
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
@@ -411,6 +429,87 @@ final class Router {
         await _analytics.getIndexSuggestionsList(_ctx.instrumentedQuery);
     final list = result['suggestions'];
     return list is List<Map<String, dynamic>> ? list : <Map<String, dynamic>>[];
+  }
+
+  /// The current generation counter value, without
+  /// triggering a change check. Used by VM service
+  /// handlers when change detection is disabled.
+  int get currentGeneration => _ctx.generation;
+
+  /// Whether change detection is enabled (delegate for
+  /// VM service and HTTP endpoints).
+  bool get isChangeDetectionEnabled =>
+      _ctx.changeDetectionEnabled;
+
+  /// Sets change detection enabled state (delegate for
+  /// VM service and HTTP endpoints).
+  void setChangeDetectionEnabled(bool enabled) {
+    _ctx.changeDetectionEnabled = enabled;
+  }
+
+  // --- Change detection HTTP handlers ---
+
+  /// Handles GET /api/change-detection.
+  /// Returns {"changeDetection": true|false}.
+  Future<void> _handleGetChangeDetection(
+    HttpResponse response,
+  ) async {
+    final res = response;
+
+    _ctx.setJsonHeaders(res);
+    res.write(jsonEncode(<String, dynamic>{
+      ServerConstants.jsonKeyChangeDetection:
+          _ctx.changeDetectionEnabled,
+    }));
+    await res.close();
+  }
+
+  /// Handles POST /api/change-detection.
+  /// Expects JSON body: {"enabled": true|false}.
+  /// Returns {"changeDetection": true|false}.
+  Future<void> _handleSetChangeDetection(
+    HttpRequest request,
+  ) async {
+    final res = request.response;
+
+    try {
+      final builder = BytesBuilder();
+
+      await for (final chunk in request) {
+        builder.add(chunk);
+      }
+
+      final body = utf8.decode(builder.toBytes());
+      final decoded = ServerContext.parseJsonMap(body);
+
+      if (decoded == null ||
+          decoded[ServerConstants.jsonKeyEnabled] is! bool) {
+        res.statusCode = HttpStatus.badRequest;
+        _ctx.setJsonHeaders(res);
+        res.write(jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError:
+              'Expected JSON body with '
+                  '"${ServerConstants.jsonKeyEnabled}": '
+                  'true|false',
+        }));
+        await res.close();
+
+        return;
+      }
+
+      final enabled =
+          decoded[ServerConstants.jsonKeyEnabled] as bool;
+      _ctx.changeDetectionEnabled = enabled;
+
+      _ctx.setJsonHeaders(res);
+      res.write(jsonEncode(<String, dynamic>{
+        ServerConstants.jsonKeyChangeDetection: enabled,
+      }));
+      await res.close();
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      await _ctx.sendErrorResponse(res, error);
+    }
   }
 
   @override

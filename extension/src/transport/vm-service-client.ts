@@ -210,6 +210,24 @@ export class VmServiceClient {
     return arr as IndexSuggestion[];
   }
 
+  /** Returns whether change detection polling is enabled. */
+  async getChangeDetection(): Promise<boolean> {
+    const raw = await this._callExtension('getChangeDetection', {});
+    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const enabled = (obj as { changeDetection?: boolean })?.changeDetection;
+    return enabled !== false;
+  }
+
+  /** Enables or disables change detection polling. Returns the new state. */
+  async setChangeDetection(enabled: boolean): Promise<boolean> {
+    const raw = await this._callExtension('setChangeDetection', {
+      enabled: String(enabled),
+    });
+    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const result = (obj as { changeDetection?: boolean })?.changeDetection;
+    return result !== false;
+  }
+
   private _callExtension(
     method: string,
     params: Record<string, string>,

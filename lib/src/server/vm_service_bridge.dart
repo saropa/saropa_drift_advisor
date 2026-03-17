@@ -61,6 +61,14 @@ final class VmServiceBridge {
       '${_kExtPrefix}getIndexSuggestions',
       _handleGetIndexSuggestions,
     );
+    developer.registerExtension(
+      '${_kExtPrefix}getChangeDetection',
+      _handleGetChangeDetection,
+    );
+    developer.registerExtension(
+      '${_kExtPrefix}setChangeDetection',
+      _handleSetChangeDetection,
+    );
   }
 
   /// Clears the router reference so handlers no longer run after server stop.
@@ -97,6 +105,23 @@ final class VmServiceBridge {
         'Drift server not running',
       );
     }
+
+    // When change detection is off, skip the heavy
+    // per-table PRAGMA + COUNT queries that produce
+    // log spam. Return an empty table list so the
+    // extension gets a valid response without any
+    // database I/O.
+    if (!router.isChangeDetectionEnabled) {
+      final body = <String, dynamic>{
+        ServerConstants.jsonKeyTables: <Map<String, dynamic>>[],
+        ServerConstants.jsonKeyChangeDetection: false,
+      };
+
+      return developer.ServiceExtensionResponse.result(
+        jsonEncode(body),
+      );
+    }
+
     try {
       final tables = await router.getSchemaMetadataList();
       final body = <String, dynamic>{
@@ -180,6 +205,23 @@ final class VmServiceBridge {
         'Drift server not running',
       );
     }
+
+    // When change detection is off, return the frozen
+    // generation value without querying the database.
+    // checkDataChange() already gates itself, but this
+    // avoids the handler overhead entirely.
+    if (!router.isChangeDetectionEnabled) {
+      final body = <String, dynamic>{
+        ServerConstants.jsonKeyGeneration:
+            router.currentGeneration,
+        ServerConstants.jsonKeyChangeDetection: false,
+      };
+
+      return developer.ServiceExtensionResponse.result(
+        jsonEncode(body),
+      );
+    }
+
     try {
       final gen = await router.getGeneration();
       final body = <String, dynamic>{ServerConstants.jsonKeyGeneration: gen};
@@ -309,5 +351,67 @@ final class VmServiceBridge {
         e.toString(),
       );
     }
+  }
+
+  /// Handles ext.saropa.drift.getChangeDetection.
+  /// Returns {"changeDetection": true|false}.
+  Future<developer.ServiceExtensionResponse>
+      _handleGetChangeDetection(
+    String method,
+    Map<String, String> params,
+  ) async {
+    final router = _router;
+    if (router == null) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        'Drift server not running',
+      );
+    }
+    return developer.ServiceExtensionResponse.result(
+      jsonEncode(<String, dynamic>{
+        ServerConstants.jsonKeyChangeDetection:
+            router.isChangeDetectionEnabled,
+      }),
+    );
+  }
+
+  /// Handles ext.saropa.drift.setChangeDetection.
+  /// Expects param "enabled" = "true" or "false".
+  /// Returns {"changeDetection": true|false}.
+  Future<developer.ServiceExtensionResponse>
+      _handleSetChangeDetection(
+    String method,
+    Map<String, String> params,
+  ) async {
+    final router = _router;
+    if (router == null) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        'Drift server not running',
+      );
+    }
+
+    // VM service params are always strings; parse
+    // "true"/"false" to bool.
+    final enabledStr =
+        params[ServerConstants.jsonKeyEnabled];
+
+    if (enabledStr == null ||
+        (enabledStr != 'true' && enabledStr != 'false')) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        'Missing or invalid "${ServerConstants.jsonKeyEnabled}" '
+            'parameter (expected "true" or "false")',
+      );
+    }
+
+    final enabled = enabledStr == 'true';
+    router.setChangeDetectionEnabled(enabled);
+
+    return developer.ServiceExtensionResponse.result(
+      jsonEncode(<String, dynamic>{
+        ServerConstants.jsonKeyChangeDetection: enabled,
+      }),
+    );
   }
 }

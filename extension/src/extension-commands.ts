@@ -40,6 +40,7 @@ import { registerWorkspaceSetupCommands } from './workspace-setup/workspace-setu
 import { registerTroubleshootingCommands } from './troubleshooting/troubleshooting-commands';
 import { registerRollbackCommands } from './rollback/rollback-commands';
 import { registerAboutCommands } from './about/about-commands';
+import { registerPollingCommands } from './polling/polling-commands';
 import { HealthScorer } from './health/health-scorer';
 import { updateStatusBar } from './status-bar';
 import type { HealthStatusBar } from './status-bar-health';
@@ -149,6 +150,7 @@ export function registerAllCommands(
     ['troubleshooting', () => registerTroubleshootingCommands(context)],
     ['rollback', () => registerRollbackCommands(context, schemaTracker)],
     ['about', () => registerAboutCommands(context)],
+    ['polling', () => registerPollingCommands(context, client, deps.toolsProvider)],
   ];
   for (const [name, register] of featureModules) {
     try {
