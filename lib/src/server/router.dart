@@ -321,6 +321,26 @@ final class Router {
 
   // -------- Schema route group --------
 
+  /// Sends minimal JSON (empty tables, optional foreignKeys) when
+  /// change detection is disabled so schema endpoints avoid
+  /// PRAGMA table_info and SELECT COUNT(*) and spamming the app log.
+  Future<void> _sendEmptySchemaResponse(
+    HttpResponse response, {
+    required bool includeDiagram,
+  }) async {
+    _ctx.setJsonHeaders(response);
+    final body = <String, dynamic>{
+      ServerConstants.jsonKeyTables: <Map<String, dynamic>>[],
+      ServerConstants.jsonKeyChangeDetection: false,
+    };
+    if (includeDiagram) {
+      body[ServerConstants.jsonKeyForeignKeys] =
+          <Map<String, dynamic>>[];
+    }
+    response.write(jsonEncode(body));
+    await response.close();
+  }
+
   /// Routes GET /api/schema/* and GET /api/dump|database
   /// endpoints for schema inspection and database export.
   Future<bool> _routeSchemaApi(
@@ -339,17 +359,27 @@ final class Router {
       return true;
     }
 
-    // GET /api/schema/diagram — visual schema diagram data.
+    // GET /api/schema/diagram — when change detection off, return
+    // empty data to avoid PRAGMA table_info/foreign_key_list spam.
     if (path == ServerConstants.pathApiSchemaDiagram ||
         path == ServerConstants.pathApiSchemaDiagramAlt) {
+      if (!_ctx.changeDetectionEnabled) {
+        await _sendEmptySchemaResponse(response, includeDiagram: true);
+        return true;
+      }
       await _schema.sendSchemaDiagram(response, query);
 
       return true;
     }
 
-    // GET /api/schema/metadata — column-level metadata.
+    // GET /api/schema/metadata — when change detection off, return
+    // empty tables to avoid PRAGMA table_info and COUNT(*) spam.
     if (path == ServerConstants.pathApiSchemaMetadata ||
         path == ServerConstants.pathApiSchemaMetadataAlt) {
+      if (!_ctx.changeDetectionEnabled) {
+        await _sendEmptySchemaResponse(response, includeDiagram: false);
+        return true;
+      }
       await _schema.sendSchemaMetadata(response, query);
 
       return true;

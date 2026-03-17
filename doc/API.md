@@ -362,7 +362,7 @@ CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
 
 ### `GET /api/schema/diagram`
 
-Returns structured table and foreign key data for rendering an ER diagram.
+Returns structured table and foreign key data for rendering an ER diagram. When change detection is disabled, the response is `200` with empty `tables`, empty `foreignKeys`, and `changeDetection: false` (no schema queries run).
 
 **Response** `200 OK`
 
@@ -398,7 +398,7 @@ Returns structured table and foreign key data for rendering an ER diagram.
 
 ### `GET /api/schema/metadata`
 
-Returns table metadata including column info and row counts.
+Returns table metadata including column info and row counts. When change detection is disabled, the response is `200` with empty `tables` and `changeDetection: false` (no schema or count queries run).
 
 **Response** `200 OK`
 

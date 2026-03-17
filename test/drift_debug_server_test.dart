@@ -1553,6 +1553,52 @@ void main() {
         client.close();
       }
     });
+
+    test('returns empty tables when change detection is disabled', () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          if (sql.contains("type='table'")) {
+            return [{'name': 'users'}];
+          }
+          return <Map<String, dynamic>>[];
+        },
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+      final portValue = port!;
+
+      final client = HttpClient();
+      try {
+        DriftDebugServer.setChangeDetection(false);
+
+        final metaReq =
+            await client.get('localhost', portValue, '/api/schema/metadata');
+        final metaResp = await metaReq.close();
+        expect(metaResp.statusCode, HttpStatus.ok);
+        final metaBody =
+            await metaResp.transform(utf8.decoder).join();
+        final metaDecoded =
+            jsonDecode(metaBody) as Map<String, dynamic>;
+        expect(metaDecoded['tables'], isEmpty);
+        expect(metaDecoded['changeDetection'], isFalse);
+
+        final diagramReq =
+            await client.get('localhost', portValue, '/api/schema/diagram');
+        final diagramResp = await diagramReq.close();
+        expect(diagramResp.statusCode, HttpStatus.ok);
+        final diagramBody =
+            await diagramResp.transform(utf8.decoder).join();
+        final diagramDecoded =
+            jsonDecode(diagramBody) as Map<String, dynamic>;
+        expect(diagramDecoded['tables'], isEmpty);
+        expect(diagramDecoded['foreignKeys'], isEmpty);
+        expect(diagramDecoded['changeDetection'], isFalse);
+      } finally {
+        client.close();
+      }
+    });
   });
 
   group('GET /api/table/{name}/fk-meta', () {

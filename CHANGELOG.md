@@ -15,6 +15,16 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [2.1.1]
+
+Fixes console log spam when polling is turned off in the web UI.
+
+### Fixed
+
+- **HTTP schema metadata and diagram when polling off** — `GET /api/schema/metadata` and `GET /api/schema/diagram` now return empty `tables` (and empty `foreignKeys` for diagram) with `changeDetection: false` when change detection is disabled, so no `PRAGMA table_info` or `SELECT COUNT(*)` queries run and the app's Drift log is no longer spammed. Matches the existing VM service behaviour (extension already received empty schema when polling was off).
+
+---
+
 ## [2.1.0]
 
 Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable. Search now scrolls to matches and lets you step through them with Next/Previous.
