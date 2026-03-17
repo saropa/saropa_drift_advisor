@@ -77,6 +77,9 @@ abstract final class ServerConstants {
   static const String pathApiSessionPrefix = '/api/session/';
   static const String pathApiSessionPrefixAlt = 'api/session/';
   static const String pathSuffixAnnotate = '/annotate';
+
+  /// Route suffix for the session extend endpoint (POST /api/session/{id}/extend).
+  static const String pathSuffixExtend = '/extend';
   static const String pathApiImport = '/api/import';
   static const String pathApiImportAlt = 'api/import';
   static const String pathApiChangeDetection = '/api/change-detection';

@@ -156,9 +156,9 @@ void main() {
     });
 
     group('constants', () {
-      test('sessionExpiry is 1 hour', () {
+      test('defaultSessionExpiry is 1 hour', () {
         expect(
-          DriftDebugSessionStore.sessionExpiry,
+          DriftDebugSessionStore.defaultSessionExpiry,
           const Duration(hours: 1),
         );
       });
@@ -172,6 +172,98 @@ void main() {
           DriftDebugSessionStore.errorNotFound,
           contains('not found'),
         );
+      });
+    });
+
+    group('extend', () {
+      test('extends session expiry and returns new expiresAt', () {
+        final created = store.create(<String, dynamic>{});
+        final id = created['id'] as String;
+
+        final newExpiresAt = store.extend(id);
+
+        expect(newExpiresAt, isNotNull);
+
+        // The new expiry should be approximately 1 hour from now.
+        // (May equal the original if create and extend happen
+        // within the same millisecond.)
+        final parsed = DateTime.parse(newExpiresAt!);
+        final diff = parsed.difference(DateTime.now().toUtc()).inMinutes;
+        expect(diff, greaterThanOrEqualTo(59));
+        expect(diff, lessThanOrEqualTo(61));
+      });
+
+      test('returns null for unknown session id', () {
+        expect(store.extend('nonexistent'), isNull);
+      });
+
+      test('session data is preserved after extension', () {
+        final created = store.create(<String, dynamic>{'key': 'val'});
+        final id = created['id'] as String;
+
+        // Add an annotation before extending.
+        store.annotate(id, text: 'note', author: 'a');
+
+        store.extend(id);
+
+        // Verify state and annotations survive the extension.
+        final session = store.get(id)!;
+        expect(session['state'], <String, dynamic>{'key': 'val'});
+        final annotations =
+            session['annotations'] as List<Map<String, dynamic>>;
+        expect(annotations, hasLength(1));
+        expect(annotations[0]['text'], 'note');
+      });
+
+      test('extended session is retrievable via get', () {
+        final created = store.create(<String, dynamic>{});
+        final id = created['id'] as String;
+
+        store.extend(id);
+
+        // Session should still be accessible after extension.
+        expect(store.get(id), isNotNull);
+      });
+    });
+
+    group('configurable duration', () {
+      test('custom sessionExpiry is used in create', () {
+        // Create a store with 30-minute expiry.
+        final customStore = DriftDebugSessionStore(
+          sessionExpiry: const Duration(minutes: 30),
+        );
+        final result = customStore.create(<String, dynamic>{});
+        final expiresAt = DateTime.parse(result['expiresAt'] as String);
+        final now = DateTime.now().toUtc();
+
+        // Should be approximately 30 minutes from now.
+        final diff = expiresAt.difference(now).inMinutes;
+        expect(diff, greaterThanOrEqualTo(29));
+        expect(diff, lessThanOrEqualTo(31));
+      });
+
+      test('default constructor uses 1-hour expiry', () {
+        expect(
+          DriftDebugSessionStore().sessionExpiry,
+          const Duration(hours: 1),
+        );
+      });
+
+      test('custom sessionExpiry is used in extend', () {
+        // Create a store with 2-hour expiry.
+        final customStore = DriftDebugSessionStore(
+          sessionExpiry: const Duration(hours: 2),
+        );
+        final created = customStore.create(<String, dynamic>{});
+        final id = created['id'] as String;
+
+        final newExpiresAt = customStore.extend(id);
+
+        // The new expiry should be approximately 2 hours from now.
+        final parsed = DateTime.parse(newExpiresAt!);
+        final diff = parsed.difference(DateTime.now().toUtc()).inMinutes;
+        expect(diff, greaterThanOrEqualTo(119));
+        expect(diff, lessThanOrEqualTo(121));
       });
     });
 

@@ -11,8 +11,8 @@ abstract final class HtmlContent {
   <style>
     * { box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; margin: 1rem; background: var(--bg); color: var(--fg); max-width: 100%; overflow-x: hidden; }
-    body.theme-light { --bg: #f5f5f5; --fg: #1a1a1a; --bg-pre: #e8e8e8; --border: #ccc; --muted: #666; --link: #1565c0; --highlight-bg: #fff3cd; --highlight-fg: #856404; }
-    body.theme-dark, body { --bg: #1a1a1a; --fg: #e0e0e0; --bg-pre: #252525; --border: #444; --muted: #888; --link: #7eb8da; --highlight-bg: #5a4a32; --highlight-fg: #f0e0c0; }
+    body.theme-light { --bg: #f5f5f5; --fg: #1a1a1a; --bg-pre: #e8e8e8; --border: #ccc; --muted: #666; --link: #1565c0; --highlight-bg: #fff3cd; --highlight-fg: #856404; --highlight-active-bg: #ff9800; --highlight-active-fg: #fff; }
+    body.theme-dark, body { --bg: #1a1a1a; --fg: #e0e0e0; --bg-pre: #252525; --border: #444; --muted: #888; --link: #7eb8da; --highlight-bg: #5a4a32; --highlight-fg: #f0e0c0; --highlight-active-bg: #e65100; --highlight-active-fg: #fff; }
     h1 { font-size: 1.25rem; }
     ul { list-style: none; padding: 0; }
     li { margin: 0.25rem 0; }
@@ -26,6 +26,11 @@ abstract final class HtmlContent {
     .search-bar input { min-width: 12rem; }
     .search-bar label { color: var(--muted); font-size: 0.875rem; }
     .highlight { background: var(--highlight-bg); color: var(--highlight-fg); border-radius: 2px; }
+    .highlight-active { background: var(--highlight-active-bg); color: var(--highlight-active-fg); border-radius: 2px; outline: 2px solid var(--highlight-active-fg); outline-offset: 1px; }
+    .search-nav { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+    .search-nav button { padding: 0.2rem 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); color: var(--fg); border-radius: 4px; cursor: pointer; font-size: 0.75rem; line-height: 1; }
+    .search-nav button:hover { border-color: var(--link); color: var(--link); }
+    .search-nav button:disabled { opacity: 0.4; cursor: default; }
     .search-section { margin-bottom: 1rem; }
     .search-section h2 { font-size: 1rem; color: var(--muted); margin: 0 0 0.25rem 0; }
     .toolbar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
@@ -159,6 +164,12 @@ abstract final class HtmlContent {
       <option value="data">DB data only</option>
       <option value="both">Both</option>
     </select>
+    <!-- Search navigation: match count display and prev/next buttons (hidden until a search is active) -->
+    <span id="search-nav" class="search-nav" style="display:none;">
+      <button type="button" id="search-prev" title="Previous match (Shift+Enter)">&#9650; Prev</button>
+      <span id="search-count"></span>
+      <button type="button" id="search-next" title="Next match (Enter)">Next &#9660;</button>
+    </span>
     <label for="row-filter">Filter rows:</label>
     <input type="text" id="row-filter" placeholder="Column value…" title="Client-side filter on current table" />
   </div>
@@ -440,6 +451,14 @@ abstract final class HtmlContent {
     let rowFilter = '';
     let lastGeneration = 0;
     let refreshInFlight = false;
+
+    // --- Search navigation state ---
+    // Array of all DOM elements with class 'highlight' from the most recent search.
+    // Built by applySearch() each time the search term or scope changes.
+    let searchMatches = [];
+    // Zero-based index of the currently active (focused) match, or -1 if none.
+    let searchCurrentIndex = -1;
+
     let sqlHistory = [];
     const BOOKMARKS_KEY = 'drift-viewer-sql-bookmarks';
     let sqlBookmarks = [];
@@ -972,21 +991,82 @@ abstract final class HtmlContent {
       input.click();
     }
 
-    function initTheme() {
-      const saved = localStorage.getItem(THEME_KEY);
-      const dark = saved !== 'light';
+    // Apply the given theme to the document body and update the toggle
+    // button label so users always see the current mode at a glance.
+    function applyTheme(dark) {
       document.body.classList.toggle('theme-light', !dark);
       document.body.classList.toggle('theme-dark', dark);
       document.getElementById('theme-toggle').textContent = dark ? 'Dark' : 'Light';
     }
+
+    // Detect whether we are running inside a VS Code webview by checking
+    // for the vscode-dark / vscode-light body classes that VS Code injects,
+    // or the data-vscode-theme-kind attribute on <html>.
+    function detectVscodeTheme() {
+      if (document.body.classList.contains('vscode-dark')) return 'dark';
+      if (document.body.classList.contains('vscode-light')) return 'light';
+      var kind = document.documentElement.getAttribute('data-vscode-theme-kind');
+      if (kind === 'vscode-dark' || kind === 'vscode-high-contrast') return 'dark';
+      if (kind === 'vscode-light' || kind === 'vscode-high-contrast-light') return 'light';
+      return null;
+    }
+
+    // Theme priority: 1) explicit localStorage override, 2) VS Code
+    // webview context, 3) OS prefers-color-scheme, 4) default dark.
+    function initTheme() {
+      var saved = localStorage.getItem(THEME_KEY);
+      if (saved) {
+        applyTheme(saved === 'dark');
+        return;
+      }
+      var vscodeTheme = detectVscodeTheme();
+      if (vscodeTheme) {
+        applyTheme(vscodeTheme === 'dark');
+        return;
+      }
+      var prefersDark = window.matchMedia
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        : true;
+      applyTheme(prefersDark);
+    }
+
+    // Toggle button: saves choice to localStorage so it takes priority
+    // over OS / VS Code detection on future visits.
     document.getElementById('theme-toggle').addEventListener('click', function() {
-      const isLight = document.body.classList.contains('theme-light');
-      document.body.classList.toggle('theme-light', isLight);
-      document.body.classList.toggle('theme-dark', !isLight);
-      localStorage.setItem(THEME_KEY, isLight ? 'dark' : 'light');
-      document.getElementById('theme-toggle').textContent = isLight ? 'Dark' : 'Light';
+      var nowDark = document.body.classList.contains('theme-light');
+      localStorage.setItem(THEME_KEY, nowDark ? 'dark' : 'light');
+      applyTheme(nowDark);
     });
+
     initTheme();
+
+    // Dynamically react to OS dark-mode changes. Only applies when the
+    // user has not set an explicit localStorage override.
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (!localStorage.getItem(THEME_KEY)) {
+          applyTheme(e.matches);
+        }
+      });
+    }
+
+    // When running inside a VS Code webview, watch for live theme switches
+    // (VS Code mutates body classes or html[data-vscode-theme-kind]). Only
+    // applies when the user has no explicit localStorage override.
+    (function observeVscodeTheme() {
+      if (typeof MutationObserver === 'undefined') return;
+      // Only install the observer if we detected a VS Code environment.
+      if (!detectVscodeTheme()) return;
+      var observer = new MutationObserver(function() {
+        if (localStorage.getItem(THEME_KEY)) return;
+        var vsTheme = detectVscodeTheme();
+        if (vsTheme) applyTheme(vsTheme === 'dark');
+      });
+      // Watch body class changes (vscode-dark / vscode-light toggling).
+      observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+      // Watch html element for data-vscode-theme-kind attribute changes.
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-vscode-theme-kind'] });
+    })();
 
     if (DRIFT_VIEWER_AUTH_TOKEN) {
       var schemaLink = document.getElementById('export-schema');
@@ -1302,14 +1382,20 @@ abstract final class HtmlContent {
            
    return;
             }
+            // Icon + color for each priority level ensures accessibility
+            // for users with color vision deficiency (WCAG 2.1 1.4.1)
             var priorityColors = { high: '#e57373', medium: '#ffb74d', low: '#7cb342' };
+            var priorityIcons = { high: '!!', medium: '!', low: '✓' };
             var html = '<p class="meta">' + suggestions.length + ' suggestion(s) across ' + data.tablesAnalyzed + ' tables:</p>';
             html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
             html += '<tr><th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
             suggestions.forEach(function(s) {
               var color = priorityColors[s.priority] || 'var(--fg)';
+              var icon = priorityIcons[s.priority] || '';
               html += '<tr>';
-              html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';font-weight:bold;">' + esc(s.priority).toUpperCase() + '</td>';
+              // Show [icon] prefix alongside color+text so priority is
+              // distinguishable without relying on color alone
+              html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';font-weight:bold;">[' + esc(icon) + '] ' + esc(s.priority).toUpperCase() + '</td>';
               html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.table) + '.' + esc(s.column) + '</td>';
               html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.reason) + '</td>';
               html += '<td style="border:1px solid var(--border);padding:4px;"><code style="font-size:11px;cursor:pointer;" title="Click to copy" onclick="navigator.clipboard.writeText(this.textContent)">' + esc(s.sql) + '</code></td>';
@@ -1509,9 +1595,30 @@ abstract final class HtmlContent {
       return data.filter(row => Object.values(row).some(v => v != null && String(v).toLowerCase().includes(lower)));
     }
 
+    // Expand any collapsed section that contains the given DOM element.
+    // Walks up the DOM tree looking for a .collapsible-body.collapsed parent,
+    // then clicks its preceding .collapsible-header sibling to trigger the
+    // existing expand logic (which may lazy-load content and update the arrow).
+    function expandSectionContaining(el) {
+      var node = el;
+      while (node && node !== document.body) {
+        if (node.classList && node.classList.contains('collapsible-body') && node.classList.contains('collapsed')) {
+          var prev = node.previousElementSibling;
+          if (prev && prev.classList.contains('collapsible-header')) {
+            prev.click();
+          }
+        }
+        node = node.parentElement;
+      }
+    }
+
     function applySearch() {
       const term = getSearchTerm();
       const scope = getScope();
+      const navEl = document.getElementById('search-nav');
+      const countEl = document.getElementById('search-count');
+
+      // --- Phase 1: Apply highlight markup to matching text ---
       const schemaPre = document.getElementById('schema-pre');
       if (schemaPre && lastRenderedSchema !== null && (scope === 'schema' || scope === 'both')) {
         schemaPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc(lastRenderedSchema);
@@ -1521,15 +1628,16 @@ abstract final class HtmlContent {
         contentPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc(lastRenderedSchema);
       }
       var dataTable = document.getElementById('data-table');
-      if (dataTable && term && (scope === 'data' || scope === 'both')) {
+      if (dataTable && (scope === 'data' || scope === 'both')) {
         dataTable.querySelectorAll('td').forEach(function(td) {
           if (!td.querySelector('.fk-link')) {
-            // Preserve copy button while highlighting text
+            // Preserve copy button while highlighting (or clearing) text
             var copyBtn = td.querySelector('.cell-copy-btn');
             var textNodes = [];
             td.childNodes.forEach(function(n) { if (n !== copyBtn) textNodes.push(n.textContent || ''); });
             var text = textNodes.join('');
-            var highlighted = highlightText(text, term);
+            // When term is empty, this restores plain escaped text (removes stale highlights)
+            var highlighted = term ? highlightText(text, term) : esc(text);
             if (copyBtn) {
               var btnHtml = copyBtn.outerHTML;
               td.innerHTML = highlighted + btnHtml;
@@ -1539,10 +1647,117 @@ abstract final class HtmlContent {
           }
         });
       }
+
+      // --- Phase 2: Build navigable match list from all highlight spans ---
+      searchMatches = [];
+      searchCurrentIndex = -1;
+
+      if (term) {
+        // Collect all highlighted spans in document order (top to bottom)
+        searchMatches = Array.from(document.querySelectorAll('.highlight'));
+      }
+
+      // --- Phase 3: Update navigation UI visibility and state ---
+      if (searchMatches.length > 0) {
+        navEl.style.display = 'flex';
+        navigateToMatch(0);
+      } else {
+        // Show "No matches" when user typed something, hide entirely when empty
+        navEl.style.display = term ? 'flex' : 'none';
+        countEl.textContent = term ? 'No matches' : '';
+        document.getElementById('search-prev').disabled = true;
+        document.getElementById('search-next').disabled = true;
+      }
     }
 
+    // Navigate to a specific match by zero-based index in searchMatches.
+    // Removes highlight-active from old match, applies to new, scrolls into view.
+    function navigateToMatch(index) {
+      var countEl = document.getElementById('search-count');
+      var prevBtn = document.getElementById('search-prev');
+      var nextBtn = document.getElementById('search-next');
+
+      if (searchMatches.length === 0) return;
+
+      // Wrap around: past last loops to first, before first loops to last
+      if (index < 0) index = searchMatches.length - 1;
+      if (index >= searchMatches.length) index = 0;
+
+      // Remove active class from previously focused match
+      if (searchCurrentIndex >= 0 && searchCurrentIndex < searchMatches.length) {
+        searchMatches[searchCurrentIndex].classList.remove('highlight-active');
+      }
+
+      searchCurrentIndex = index;
+
+      // Apply active class to the newly focused match
+      var current = searchMatches[searchCurrentIndex];
+      current.classList.add('highlight-active');
+
+      // Expand any collapsed section containing this match
+      expandSectionContaining(current);
+
+      // Scroll match into viewport, centered vertically.
+      // Uses 'auto' (instant) to avoid competing smooth-scroll animations
+      // when applySearch fires rapidly on each keystroke.
+      current.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+
+      // Update "X of Y" counter (1-based for display)
+      countEl.textContent = (searchCurrentIndex + 1) + ' of ' + searchMatches.length;
+
+      // Both buttons always enabled (wrap-around navigation)
+      prevBtn.disabled = false;
+      nextBtn.disabled = false;
+    }
+
+    // Move to the next match (wraps to first after last)
+    function nextMatch() {
+      if (searchMatches.length === 0) return;
+      navigateToMatch(searchCurrentIndex + 1);
+    }
+
+    // Move to the previous match (wraps to last before first)
+    function prevMatch() {
+      if (searchMatches.length === 0) return;
+      navigateToMatch(searchCurrentIndex - 1);
+    }
+
+    // Live highlighting on every character typed
     document.getElementById('search-input').addEventListener('input', applySearch);
-    document.getElementById('search-input').addEventListener('keyup', applySearch);
+
+    // Keyboard navigation in search input:
+    // Enter = next match, Shift+Enter = previous, Escape = clear.
+    // Replaces the old keyup→applySearch (input event already handles that).
+    document.getElementById('search-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) { prevMatch(); } else { nextMatch(); }
+      }
+      if (e.key === 'Escape') {
+        this.value = '';
+        applySearch();
+        this.blur();
+      }
+    });
+
+    // Wire prev/next button clicks
+    document.getElementById('search-prev').addEventListener('click', prevMatch);
+    document.getElementById('search-next').addEventListener('click', nextMatch);
+
+    // Global keyboard shortcuts for search navigation.
+    // Ctrl+G / Shift+Ctrl+G = next/prev match (mirrors browser find-next).
+    // Ctrl+F = focus our custom search input instead of browser's native find.
+    document.addEventListener('keydown', function(e) {
+      if (e.ctrlKey && e.key === 'g') {
+        e.preventDefault();
+        if (e.shiftKey) { prevMatch(); } else { nextMatch(); }
+      }
+      if (e.ctrlKey && e.key === 'f') {
+        e.preventDefault();
+        document.getElementById('search-input').focus();
+        document.getElementById('search-input').select();
+      }
+    });
     document.getElementById('row-filter').addEventListener('input', function() { if (currentTableName && currentTableJson) { renderTableView(currentTableName, currentTableJson); saveTableState(currentTableName); } });
     document.getElementById('row-filter').addEventListener('keyup', function() { if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson); });
     document.getElementById('search-scope').addEventListener('change', function() {
@@ -2708,7 +2923,8 @@ abstract final class HtmlContent {
           data.slowQueries.forEach(function(q) {
             var sql = q.sql || '';
             html += '<tr>';
-            html += '<td style="border:1px solid var(--border);padding:4px;color:#e57373;font-weight:bold;">' + esc(String(q.durationMs)) + ' ms</td>';
+            // Prefix with [!!] icon so slow status is conveyed without color alone
+            html += '<td style="border:1px solid var(--border);padding:4px;color:#e57373;font-weight:bold;">[!!] ' + esc(String(q.durationMs)) + ' ms</td>';
             html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(String(q.rowCount)) + '</td>';
             html += '<td style="border:1px solid var(--border);padding:4px;font-size:11px;">' + esc(q.at) + '</td>';
             html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(sql) + '">' + esc(sql.length > 80 ? sql.slice(0, 80) + '\u2026' : sql) + '</td>';
@@ -2746,9 +2962,14 @@ abstract final class HtmlContent {
           html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
           data.recentQueries.forEach(function(q) {
             var sql = q.sql || '';
+            // Use icon + color so speed is distinguishable without color alone
+            // (WCAG 2.1 1.4.1 — Use of Color)
             var color = q.durationMs > 100 ? '#e57373' : (q.durationMs > 50 ? '#ffb74d' : 'var(--fg)');
+            var speedIcon = q.durationMs > 100 ? '[!!] ' : (q.durationMs > 50 ? '[!] ' : '');
+            // Bold slow/warning durations to match the slow queries table style
+            var speedWeight = speedIcon ? 'font-weight:bold;' : '';
             html += '<tr>';
-            html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';">' + esc(String(q.durationMs)) + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';' + speedWeight + '">' + esc(speedIcon) + esc(String(q.durationMs)) + '</td>';
             html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(String(q.rowCount)) + '</td>';
             html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(sql) + '">' + esc(sql.length > 80 ? sql.slice(0, 80) + '\u2026' : sql) + '</td>';
             html += '</tr>';

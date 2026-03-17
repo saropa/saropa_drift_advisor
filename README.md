@@ -65,7 +65,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 #### Live Features
 
 - **Live refresh** via long-poll (`GET /api/generation`) when data changes
-- **Collaborative sessions** — share viewer state as a URL with annotations (1-hour expiry, 50-session cap)
+- **Collaborative sessions** — share viewer state as a URL with annotations (configurable expiry, default 1 hour, 50-session cap, extend button, countdown timer)
 
 #### Data Import (opt-in)
 
@@ -167,7 +167,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 
 #### Sessions & Collaboration
 
-- **Share session** — snapshot viewer state as a URL with annotations
+- **Share session** — snapshot viewer state as a URL with annotations; live countdown timer, 10-minute warning, extend button, configurable duration
 - **Annotations panel** — notes on tables and columns; import/export as JSON
 
 #### Pre-launch Health Checks
