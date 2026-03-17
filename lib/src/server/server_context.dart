@@ -42,6 +42,7 @@ final class ServerContext {
     this.getDatabaseBytes,
     this.queryCompare,
     this.writeQuery,
+    this.changeDetectionMinInterval,
   }) : queryRaw = query;
 
   /// The raw (unwrapped) query callback, before timing
@@ -120,6 +121,17 @@ final class ServerContext {
   /// on first [checkDataChange] call; cleared by
   /// [invalidateTableNameCache].
   List<String>? _cachedTableNames;
+
+  /// Minimum interval between running the actual DB check (UNION ALL).
+  /// When null, no throttling (every [checkDataChange] call runs the query).
+  /// When set (e.g. [ServerConstants.changeDetectionMinInterval]), skips
+  /// the query if the last check was more recent, reducing log spam.
+  Duration? changeDetectionMinInterval;
+
+  /// UTC time of the last [checkDataChange] run that executed the
+  /// row-count query. Used for throttling when [changeDetectionMinInterval]
+  /// is non-null.
+  DateTime? _lastChangeCheck;
 
   /// Clears the cached table name list so the next
   /// [checkDataChange] call re-queries sqlite_master.
@@ -290,6 +302,10 @@ final class ServerContext {
   /// When [changeDetectionEnabled] is false, returns
   /// immediately without issuing any queries.
   ///
+  /// When [changeDetectionMinInterval] is set, skips the DB check if the last
+  /// successful run was within that interval (reduces "Drift: Sent SELECT"
+  /// log spam when the extension or web UI long-polls every 300ms).
+  ///
   /// Uses cached table names and a single UNION ALL
   /// query to fetch all row counts in one round-trip,
   /// minimizing console spam when logStatements is
@@ -303,6 +319,18 @@ final class ServerContext {
     if (isChangeCheckInProgress) {
       return;
     }
+
+    // Throttle: skip the DB check if we ran one recently (reduces
+    // "Drift: Sent SELECT" log spam when long-polling every 300ms).
+    final minInterval = changeDetectionMinInterval;
+    if (minInterval != null && minInterval.inMilliseconds > 0) {
+      final now = DateTime.now().toUtc();
+      final last = _lastChangeCheck;
+      if (last != null && now.difference(last) < minInterval) {
+        return;
+      }
+    }
+
     isChangeCheckInProgress = true;
     try {
       // Use cached table names if available; otherwise
@@ -328,6 +356,9 @@ final class ServerContext {
         generation++;
       }
       lastDataSignature = signature;
+
+      // Record time so throttling can skip the next run if too soon.
+      _lastChangeCheck = DateTime.now().toUtc();
     } on Object catch (error, stack) {
       logError(error, stack);
     } finally {

@@ -155,6 +155,7 @@ class _DriftDebugServerImpl {
       getDatabaseBytes: getDatabaseBytes,
       queryCompare: queryCompare,
       writeQuery: writeQuery,
+      changeDetectionMinInterval: ServerConstants.changeDetectionMinInterval,
     );
 
     _router = Router(

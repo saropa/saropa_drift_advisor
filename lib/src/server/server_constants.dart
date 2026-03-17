@@ -22,6 +22,12 @@ abstract final class ServerConstants {
   /// Poll interval during long-poll wait.
   static const Duration longPollCheckInterval = Duration(milliseconds: 300);
 
+  /// Minimum time between change-detection DB checks. When set on
+  /// [ServerContext], [checkDataChange] skips the UNION ALL query if
+  /// the last check was more recent, reducing "Drift: Sent SELECT"
+  /// log spam when the extension or web UI long-polls frequently.
+  static const Duration changeDetectionMinInterval = Duration(seconds: 2);
+
   /// Route constants (method + path; alt forms allow path without leading slash).
   ///
   static const String methodGet = 'GET';
@@ -90,7 +96,7 @@ abstract final class ServerConstants {
   /// Package version displayed in the web UI and health endpoint.
   /// Automatically synced with pubspec.yaml by the publish scripts
   /// (see sync_server_constants_version in target_config.py).
-  static const String packageVersion = '2.2.0';
+  static const String packageVersion = '2.3.0';
   static const String jsonKeyVersion = 'version';
   static const String queryParamLimit = 'limit';
   static const String queryParamOffset = 'offset';

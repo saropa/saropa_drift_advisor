@@ -67,7 +67,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 
 #### Live Features
 
-- **Live refresh** via long-poll (`GET /api/generation`) when data changes; **polling toggle** (web UI and extension) to turn change detection on/off; batched row-count checks and table-name caching to reduce load
+- **Live refresh** via long-poll (`GET /api/generation`) when data changes; **polling toggle** (web UI and extension) to turn change detection on/off; batched row-count checks, table-name caching, and throttled change checks (every 2s) to reduce debug console log volume
 - **Connection resilience** — connection health banner when server is unreachable; reconnecting pulse and exponential backoff; offline state disables server-dependent controls; keep-alive health check when polling is off; server restart detection triggers full refresh
 - **Collaborative sessions** — share viewer state as a URL with annotations; **session expiry countdown** in the info bar (warning under 10 minutes); **Extend session** button (e.g. +1 hour); configurable **session duration** (default 1 hour); 50-session cap; expired-session and expiry-warning banners
 

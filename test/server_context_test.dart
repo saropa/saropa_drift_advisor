@@ -747,6 +747,29 @@ void main() {
         // Generation should bump because count changed.
         expect(ctx.generation, 1);
       });
+
+      test('skips DB check when within changeDetectionMinInterval', () async {
+        final executedSql = <String>[];
+        final ctx = ServerContext(
+          changeDetectionMinInterval: const Duration(seconds: 2),
+          query: (sql) async {
+            executedSql.add(sql);
+            if (sql.contains("type='table'")) {
+              return [<String, dynamic>{'name': 't1'}];
+            }
+            return [<String, dynamic>{'t': 't1', 'c': 1}];
+          },
+        );
+
+        await ctx.checkDataChange();
+        expect(executedSql, hasLength(2)); // getTableNames + UNION ALL
+
+        executedSql.clear();
+        await ctx.checkDataChange();
+
+        // Throttled: no queries on second call.
+        expect(executedSql, isEmpty);
+      });
     });
   });
 }
