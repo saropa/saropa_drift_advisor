@@ -82,6 +82,12 @@
       return d.innerHTML;
     }
 
+    /** Syncs .feature-card.expanded with collapsible open state (UI redesign: card border/highlight when expanded). */
+    function syncFeatureCardExpanded(collapsible) {
+      var card = collapsible && collapsible.closest && collapsible.closest('.feature-card');
+      if (card) card.classList.toggle('expanded', !collapsible.classList.contains('collapsed'));
+    }
+
     // --- Saved analysis results (localStorage). BUG-014: persist index/size/perf/anomaly
     // results so users can save, export, recall from History, and compare before/after.
     var ANALYSIS_STORAGE_PREFIX = 'saropa_analysis_';
@@ -1267,6 +1273,7 @@
       const el = document.getElementById('schema-collapsible');
       const isCollapsed = el.classList.contains('collapsed');
       el.classList.toggle('collapsed', !isCollapsed);
+      syncFeatureCardExpanded(el);
       this.textContent = isCollapsed ? '▲ Schema' : '▼ Schema';
       if (isCollapsed && cachedSchema === null) {
         fetch('/api/schema', authOpts()).then(r => r.text()).then(schema => {
@@ -1413,6 +1420,7 @@
       toggle.addEventListener('click', function() {
         const isCollapsed = collapsible.classList.contains('collapsed');
         collapsible.classList.toggle('collapsed', !isCollapsed);
+        syncFeatureCardExpanded(collapsible);
         this.textContent = isCollapsed ? '▲ Schema diagram' : '▼ Schema diagram';
         if (isCollapsed && diagramData === null) {
           container.innerHTML = '<p class="meta">Loading…</p>';
@@ -1460,6 +1468,7 @@
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
+          syncFeatureCardExpanded(collapsible);
           this.textContent = isCollapsed ? '▲ Snapshot / time travel' : '▼ Snapshot / time travel';
           if (isCollapsed) refreshSnapshotStatus();
         });
@@ -1527,6 +1536,7 @@
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
+          syncFeatureCardExpanded(collapsible);
           this.textContent = isCollapsed ? '▲ Database diff' : '▼ Database diff';
         });
       }
@@ -1644,6 +1654,7 @@
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
+          syncFeatureCardExpanded(collapsible);
           this.textContent = isCollapsed ? '▲ Index suggestions' : '▼ Index suggestions';
         });
       }
@@ -1769,6 +1780,7 @@
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
+          syncFeatureCardExpanded(collapsible);
           this.textContent = isCollapsed ? '▲ Database size analytics' : '▼ Database size analytics';
         });
       }
@@ -1869,6 +1881,7 @@
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
+          syncFeatureCardExpanded(collapsible);
           this.textContent = isCollapsed ? '▲ Data health' : '▼ Data health';
         });
       }
@@ -2018,6 +2031,7 @@
         toggle.addEventListener('click', function() {
           var isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
+          syncFeatureCardExpanded(collapsible);
           this.textContent = isCollapsed ? '▲ Import data (debug only)' : '▼ Import data (debug only)';
         });
       }
@@ -2723,7 +2737,7 @@
       if (collapsible && collapsible.classList.contains('collapsed')) { toggle.click(); }
       document.getElementById('sql-run').click();
       currentTableName = table;
-      // Persist the updated trail to localStorage so it survives refresh.
+      updateTableListActive();
       saveNavHistory();
       renderBreadcrumb();
     }
@@ -2995,12 +3009,24 @@
       return esc(name) + ' (' + total + ' row' + (total !== 1 ? 's' : '') + '; ' + rangeText + ')';
     }
 
+    /** Updates which table link has .active in the sidebar (UI redesign: current table highlight). */
+    function updateTableListActive() {
+      var name = currentTableName;
+      var ul = document.getElementById('tables');
+      if (!ul) return;
+      var targetHash = name ? '#' + encodeURIComponent(name) : '';
+      ul.querySelectorAll('a.table-link').forEach(function(a) {
+        a.classList.toggle('active', a.getAttribute('href') === targetHash);
+      });
+    }
+
     function loadTable(name) {
       if (currentTableName && currentTableName !== name) {
         saveTableState(currentTableName);
       }
       var isNewTable = (currentTableName !== name);
       currentTableName = name;
+      updateTableListActive();
       if (isNewTable) restoreTableState(name);
       const content = document.getElementById('content');
       const scope = getScope();
@@ -3033,11 +3059,14 @@
 
     function renderTableList(tables) {
       const ul = document.getElementById('tables');
+      if (!ul) return;
       ul.innerHTML = '';
       tables.forEach(t => {
         const li = document.createElement('li');
         const a = document.createElement('a');
         a.href = '#' + encodeURIComponent(t);
+        a.className = 'table-link' + (t === currentTableName ? ' active' : '');
+        a.setAttribute('data-table', t);
         a.textContent = (tableCounts[t] != null) ? (t + ' (' + tableCounts[t] + ' rows)') : t;
         a.onclick = e => { e.preventDefault(); loadTable(t); };
         li.appendChild(a);
@@ -3231,6 +3260,7 @@
       toggle.addEventListener('click', function() {
         const isCollapsed = collapsible.classList.contains('collapsed');
         collapsible.classList.toggle('collapsed', !isCollapsed);
+        syncFeatureCardExpanded(collapsible);
         this.textContent = isCollapsed ? '▲ Run SQL (read-only)' : '▼ Run SQL (read-only)';
       });
 
@@ -3452,13 +3482,21 @@
     })();
 
     // Shared: render table list and kick off count fetches (used by initial load and live refresh).
+    // When each count arrives we update only that table's link text to avoid N full re-renders and preserve active state.
     function applyTableListAndCounts(tables) {
       renderTableList(tables);
-      tables.forEach(t => {
+      tables.forEach(function(t) {
         fetch('/api/table/' + encodeURIComponent(t) + '/count', authOpts())
-          .then(r => r.json())
-          .then(o => { tableCounts[t] = o.count; renderTableList(tables); })
-          .catch(() => {});
+          .then(function(r) { return r.json(); })
+          .then(function(o) {
+            tableCounts[t] = o.count;
+            var ul = document.getElementById('tables');
+            if (!ul) return;
+            ul.querySelectorAll('a.table-link').forEach(function(a) {
+              if (a.getAttribute('data-table') === t) a.textContent = t + ' (' + o.count + ' rows)';
+            });
+          })
+          .catch(function() {});
       });
     }
     function refreshOnGenerationChange() {
@@ -4185,6 +4223,7 @@
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
+          syncFeatureCardExpanded(collapsible);
           this.textContent = isCollapsed ? '\u25B2 Query performance' : '\u25BC Query performance';
           if (isCollapsed && !perfLoaded) fetchPerformance();
         });

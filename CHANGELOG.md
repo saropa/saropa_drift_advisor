@@ -17,16 +17,24 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- **VS Code: "command driftViewer.refreshTree not found" (issue #7)** — Extension now activates when the Drift Advisor sidebar views are opened (`onView:driftViewer.databaseExplorer`, `onView:driftViewer.toolbox`), so the Refresh command is registered even if no Dart file was opened first.
-- **drift_sqlite_async compatibility (issue #7)** — README and error messages now document using `DriftDebugServer.start(query: ...)` with an explicit query callback when the web UI stays on "Loading tables…" or when using drift_sqlite_async; ensure the database is open before starting the server. Error hint extracted to a single constant; unit tests assert error response contains the callback-API guidance.
+- **Web UI redesign** — Two-column layout (sticky sidebar + main content), semantic header with branding and actions, export toolbar as buttons, feature sections as cards with expand/collapse state. Sidebar sections: Search, Export, Tools, Tables. Design tokens (type scale, radius, tap targets), refreshed light/dark palette, loading spinner for "Loading tables…", copy-toast animation. Table list shows active table; feature cards show expanded state. Styling and script loaded from CDN (not embedded in APK). See `docs/UI_REDESIGN_PLAN.md`.
+
+### Changed
+
+- **Web viewer performance** — Table list no longer re-renders on every table count fetch; only the updated table's link text is changed, reducing DOM updates and preserving active state.
 
 ---
 
 ## [2.1.1]
 
 Fixes console log spam when polling is turned off in the web UI.
+
+### Fixed
+
+- **VS Code: "command driftViewer.refreshTree not found" (issue #7)** — Extension now activates when the Drift Advisor sidebar views are opened (`onView:driftViewer.databaseExplorer`, `onView:driftViewer.toolbox`), so the Refresh command is registered even if no Dart file was opened first.
+- **drift_sqlite_async compatibility (issue #7)** — README and error messages now document using `DriftDebugServer.start(query: ...)` with an explicit query callback when the web UI stays on "Loading tables…" or when using drift_sqlite_async; ensure the database is open before starting the server. Error hint extracted to a single constant; unit tests assert error response contains the callback-API guidance.
 
 ### Fixed
 
@@ -176,7 +184,7 @@ VM Service connection now works — Android emulator connects without port forwa
 ### Added
 
 - **Enhanced CSS loaded from jsDelivr CDN** — The web UI dynamically loads a `drift-enhanced.css` stylesheet from jsDelivr, version-pinned to the exact release tag. Adds polished button hover/active states, focus rings for accessibility, zebra-striped tables with hover highlighting, sticky table headers, a pulsing live indicator, accented collapsible section headers, card-style expanded sections, smooth theme transitions, custom scrollbars, and chart/toast polish. Falls back gracefully to inline styles when offline or CDN-blocked (3-second timeout).
-- **`.pubignore`** — Excludes `web/`, `extension/`, `.github/`, Node tooling, and `.claude/` from the pub.dev package, reducing download size for consumers.
+- **`.pubignore`** — Excludes `web/`, `extension/`, `.github/`, and Node tooling from the pub.dev package, reducing download size for consumers.
 
 ### Fixed
 
@@ -530,12 +538,9 @@ Viewer gets more useful day to day: live table refresh, read-only SQL from the b
 ### Added
 
 - **Code review (comments and tests)** — Expanded concise code comments across the library (architecture, platform export, stub, error logger, extension, server implementation). Added unit tests: POST /api/sql rejects wrong Content-Type (400); read-only SQL edge cases (multi-statement, WITH...INSERT) (400, read-only). Flutter overlay: localized semantic label for floating button icon (`_sDriftViewer`).
-
 - **Defensive coding** — Param validation: port must be 0..65535 (ArgumentError otherwise); Basic auth requires both user and password or neither. Query result normalization: null or non-List/non-Map rows from the query callback are handled safely (empty list / skip invalid rows). Offset query param capped at 2M to avoid unbounded queries. Example app: init timeout (30s) with clear error message; AppDatabase.create() wrapped in try/catch with context; ViewerInitResult documented. New tests: port/auth validation, query throws → 500, query returns null → 200 empty list, unknown table → 400, limit/offset edge cases, empty getDatabaseBytes → 200, ErrorLogger empty prefix/message, extension non-List/bad row.data → 500, viewer_status errorMessage and running+url null.
-
 - **Example app** — Flutter example in `example/` (Drift DB + viewer); run from repo root with `flutter run -d windows`, then open http://127.0.0.1:8642. See [example/README.md](example/README.md).
 - **DevTools / IDE integration** — Run Task → "Open Saropa Drift Advisor" (`.vscode/tasks.json`) opens the viewer in the browser; optional minimal VS Code/Cursor extension in `extension/` with one command. Web UI supports URL hash `#TableName` so links open with that table selected.
-
 - **Live refresh** — Table view updates automatically when data changes (e.g. after the app writes). Server runs a lightweight change check every 2s (table row-count fingerprint); clients long-poll `GET /api/generation?since=N` and refetch table list and current table when the generation changes. UI shows "● Live" in the header and "Updating…" briefly during refresh. No manual refresh needed.
 - **Secure dev tunnel** — Optional `authToken` and/or HTTP Basic (`basicAuthUser` / `basicAuthPassword`) so the viewer can be used over ngrok or port forwarding without exposing an open server. When `authToken` is set, requests must include `Authorization: Bearer <token>` or `?token=<token>`. The web UI injects the token when opened with a valid `?token=` so all API calls are authenticated. See README “Secure dev tunnel”.
 - **Read-only SQL runner** — In the web UI, a collapsible “Run SQL (read-only)” section: run ad-hoc `SELECT` (or `WITH ... SELECT`) from the browser. Only read-only SQL is accepted; `INSERT`/`UPDATE`/`DELETE` and DDL are rejected. Templates (e.g. “SELECT \* FROM table LIMIT 10”), table and column dropdowns (autofill from `GET /api/tables` and `GET /api/table/<name>/columns`), result as table or JSON, loading states (“Running…”, “Loading…” for columns), and race-safe column fetch. `POST /api/sql` with body `{"sql": "SELECT ..."}` returns `{"rows": [...]}`. `GET /api/table/<name>/columns` returns a JSON array of column names for autofill.
