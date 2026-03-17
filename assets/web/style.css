@@ -115,6 +115,14 @@ body {
 .app-version {
   font-size: var(--text-xs);
   opacity: 0.8;
+  color: var(--fg);
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.app-version:hover {
+  text-decoration: underline;
+  opacity: 1;
 }
 
 .app-header-actions {
@@ -194,7 +202,7 @@ body.theme-light .header-pill.live {
   background: var(--surface);
 }
 
-.header-mask-toggle input[type="checkbox"] {
+.header-mask-toggle input[type=checkbox] {
   margin: 0;
   width: 1rem;
   height: 1rem;
@@ -304,6 +312,14 @@ body.theme-light .header-pill.live {
 .export-link:focus-visible {
   outline: 2px solid var(--link);
   outline-offset: 2px;
+}
+
+/* Narrative block in Export tab: readable width and spacing */
+.export-narrative {
+  max-width: 52rem;
+  line-height: 1.6;
+  color: var(--fg);
+  margin: 0;
 }
 
 /* --- Feature cards --- */
@@ -518,6 +534,156 @@ body.theme-light .feature-card.expanded {
   border-color: var(--link);
   color: var(--link);
   background: var(--surface);
+}
+
+/* --- Tools toolbar: primary action buttons (Search, Snapshot, DB diff, etc.) --- */
+#tools-toolbar.tools-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0;
+  padding: 0.5rem 0;
+}
+
+.toolbar-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: var(--tap-min);
+  padding: 0 1rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+body.theme-dark .toolbar-tool-btn {
+  background: var(--bg-pre);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.toolbar-tool-btn:hover {
+  border-color: var(--link);
+  color: var(--link);
+  background: var(--surface);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+body.theme-dark .toolbar-tool-btn:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.toolbar-tool-btn:active {
+  transform: scale(0.98);
+}
+
+.toolbar-tool-btn:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+.toolbar-tool-btn .toolbar-icon {
+  font-size: 1.15rem;
+  opacity: 0.9;
+}
+
+.toolbar-tool-btn .toolbar-tool-label {
+  white-space: nowrap;
+}
+
+/* --- Tab bar: looks like real tabs with wider header and border to content --- */
+#tab-bar.tab-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
+  padding: 0 0.5rem 0 0;
+  min-height: 2.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--header-bg);
+  flex-wrap: wrap;
+}
+
+.tab-bar .tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  position: relative;
+}
+
+.tab-bar .tab-btn:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+
+.tab-bar .tab-btn.active {
+  color: var(--link);
+  background: var(--bg);
+  border-color: var(--border);
+  border-bottom-color: var(--bg);
+  z-index: 1;
+}
+
+.tab-bar .tab-btn-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  margin-left: 0.25rem;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.tab-bar .tab-btn-close:hover {
+  color: var(--fg);
+  background: rgba(128, 128, 128, 0.2);
+}
+
+#tab-panels.tab-panels {
+  margin: 0;
+  padding: 1rem 0 0;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: var(--bg);
+  min-height: 12rem;
+}
+
+.tab-panels .tab-panel {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.tab-panels .tab-panel.active {
+  opacity: 1;
 }
 
 .import-warning {
@@ -902,6 +1068,40 @@ body.theme-dark .search-bar select:focus {
 
 .diff-result {
   transition: opacity 0.2s ease;
+}
+
+/* Snapshot compare result container: scrollable region for summary table + detail */
+.snapshot-compare-result-container {
+  max-height: 60vh;
+  overflow: auto;
+  transition: opacity 0.2s ease;
+}
+
+/* Snapshot compare summary: table of Table | Then | Now | Status */
+.snapshot-summary-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1rem;
+  font-size: var(--text-sm);
+}
+.snapshot-summary-table th, .snapshot-summary-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.snapshot-summary-table th {
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+}
+.snapshot-summary-table th:nth-child(2), .snapshot-summary-table th:nth-child(3) {
+  text-align: right;
+}
+.snapshot-summary-table td:nth-child(2), .snapshot-summary-table td:nth-child(3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.snapshot-summary-table tbody tr:hover {
+  background: var(--row-alt);
 }
 
 /* Single connection-status pill: Live | Paused | Offline; tap toggles Live ↔ Paused when connected. */

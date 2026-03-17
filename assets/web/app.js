@@ -464,12 +464,8 @@
      */
     function renderRowDiff(container, tables) {
       var html = '';
-      // Summary table: one row per table for quick scanning
-      html += '<table class="snapshot-summary-table" style="border-collapse:collapse;width:100%;margin-bottom:1rem;">';
-      html += '<thead><tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);">Table</th>';
-      html += '<th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);">Then</th>';
-      html += '<th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);">Now</th>';
-      html += '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);">Status</th></tr></thead><tbody>';
+      // Summary table: one row per table for quick scanning (styles in .snapshot-summary-table)
+      html += '<table class="snapshot-summary-table"><thead><tr><th>Table</th><th>Then</th><th>Now</th><th>Status</th></tr></thead><tbody>';
       tables.forEach(function(t) {
         var status = '';
         if (!t.hasPk) {
@@ -483,10 +479,7 @@
         } else {
           status = 'No changes detected';
         }
-        html += '<tr><td style="padding:6px 8px;border-bottom:1px solid var(--border);">' + esc(t.table) + '</td>';
-        html += '<td style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;">' + t.countThen + '</td>';
-        html += '<td style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;">' + t.countNow + '</td>';
-        html += '<td style="padding:6px 8px;border-bottom:1px solid var(--border);">' + esc(status) + '</td></tr>';
+        html += '<tr><td>' + esc(t.table) + '</td><td>' + t.countThen + '</td><td>' + t.countNow + '</td><td>' + esc(status) + '</td></tr>';
       });
       html += '</tbody></table>';
       // Per-table detail for added/removed/changed rows
@@ -1779,6 +1772,7 @@
       const clearBtn = document.getElementById('snapshot-clear');
       const statusEl = document.getElementById('snapshot-status');
       const resultPre = document.getElementById('snapshot-compare-result');
+      // resultPre is a div: holds HTML table (from renderRowDiff) or plain text (JSON fallback)
       function updateSnapshotUI(hasSnapshot, createdAt) {
         compareBtn.disabled = !hasSnapshot;
         exportLink.style.display = hasSnapshot ? '' : 'none';
@@ -1821,7 +1815,9 @@
       if (compareBtn) compareBtn.addEventListener('click', function() {
         compareBtn.disabled = true;
         resultPre.style.display = 'none';
+        resultPre.innerHTML = '';
         statusEl.textContent = 'Comparing…';
+        statusEl.setAttribute('aria-busy', 'true');
         fetch('/api/snapshot/compare?detail=rows', authOpts())
           .then(r => r.json().then(function(d) { return { ok: r.ok, data: d }; }))
           .then(function(o) {
@@ -1838,13 +1834,21 @@
             }
           })
           .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
-          .finally(function() { compareBtn.disabled = false; });
+          .finally(function() {
+            compareBtn.disabled = false;
+            statusEl.removeAttribute('aria-busy');
+          });
       });
       if (clearBtn) clearBtn.addEventListener('click', function() {
         clearBtn.disabled = true;
         statusEl.textContent = 'Clearing…';
         fetch('/api/snapshot', authOpts({ method: 'DELETE' }))
-          .then(function() { updateSnapshotUI(false); resultPre.style.display = 'none'; refreshSnapshotStatus(); })
+          .then(function() {
+            updateSnapshotUI(false);
+            resultPre.style.display = 'none';
+            resultPre.innerHTML = '';
+            refreshSnapshotStatus();
+          })
           .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
           .finally(function() { clearBtn.disabled = false; });
       });

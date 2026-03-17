@@ -31,6 +31,7 @@ abstract final class HtmlContent {
   <header class="app-header">
     <div class="app-header-brand">
       <h1 class="app-title">Saropa Drift Adviser</h1>
+      <!-- Version badge links to VS Code Marketplace changelog; text filled by JS from /api/health. -->
       <a id="version-badge" class="app-version meta" style="opacity:0;" href="https://marketplace.visualstudio.com/items/Saropa.drift-viewer/changelog" target="_blank" rel="noopener noreferrer" title="View changelog"> </a>
     </div>
     <div class="app-header-actions">
@@ -73,14 +74,7 @@ abstract final class HtmlContent {
       </div>
       </div>
       <div class="sidebar-section">
-        <h2 class="sidebar-section-title">Export</h2>
-      <div class="export-toolbar">
-        <span class="export-toolbar-label">Export:</span>
-        <a href="/api/schema" id="export-schema" class="export-link" download="schema.sql" title="Download schema as SQL"><span class="material-symbols-outlined export-icon" aria-hidden="true">code</span>Schema</a>
-        <a href="#" id="export-dump" class="export-link" title="Download full database dump"><span class="material-symbols-outlined export-icon" aria-hidden="true">download</span>Full dump</a><span id="export-dump-status" class="meta"></span>
-        <a href="#" id="export-database" class="export-link" title="Download database file"><span class="material-symbols-outlined export-icon" aria-hidden="true">storage</span>Database</a><span id="export-database-status" class="meta"></span>
-        <a href="#" id="export-csv" class="export-link" title="Export current table as CSV"><span class="material-symbols-outlined export-icon" aria-hidden="true">table_chart</span>Table CSV</a><span id="export-csv-status" class="meta"></span>
-      </div>
+        <p class="meta" style="margin:0 0 0.5rem 0;">Export schema, dumps, and table data from the <strong>Export</strong> tab (toolbar button above).</p>
       </div>
       <p id="tables-loading" class="meta">Loading tables…</p>
       <div class="sidebar-section">
@@ -89,9 +83,10 @@ abstract final class HtmlContent {
       </div>
     </aside>
     <div class="app-main-content">
-      <!-- Tools toolbar: each button opens the tool in a tab for full-width use. -->
+      <!-- Tools toolbar: each button has data-tool so openTool() switches to that tab. Tables and Search use fixed tabs; others get dynamic tabs with close button. -->
       <div id="tools-toolbar" class="tools-toolbar" role="toolbar" aria-label="Tools">
-        <button type="button" id="search-toggle-btn" class="toolbar-tool-btn" title="Show or hide search options"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">search</span><span class="toolbar-tool-label">Search</span></button>
+        <button type="button" class="toolbar-tool-btn" data-tool="tables" title="Open Tables view"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">table_chart</span><span class="toolbar-tool-label">Tables</span></button>
+        <button type="button" id="search-toggle-btn" class="toolbar-tool-btn" data-tool="search" title="Open Search tab and show search options"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">search</span><span class="toolbar-tool-label">Search</span></button>
         <button type="button" class="toolbar-tool-btn" data-tool="snapshot" title="Snapshot / time travel"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">photo_camera</span><span class="toolbar-tool-label">Snapshot</span></button>
         <button type="button" class="toolbar-tool-btn" data-tool="compare" title="Database diff"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">compare_arrows</span><span class="toolbar-tool-label">DB diff</span></button>
         <button type="button" class="toolbar-tool-btn" data-tool="index" title="Index suggestions"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">format_list_bulleted</span><span class="toolbar-tool-label">Index</span></button>
@@ -101,6 +96,7 @@ abstract final class HtmlContent {
         <button type="button" class="toolbar-tool-btn" data-tool="import" title="Import data (debug only)"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">upload</span><span class="toolbar-tool-label">Import</span></button>
         <button type="button" class="toolbar-tool-btn" data-tool="schema" title="Schema"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">grid_on</span><span class="toolbar-tool-label">Schema</span></button>
         <button type="button" class="toolbar-tool-btn" data-tool="diagram" title="Schema diagram"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">account_tree</span><span class="toolbar-tool-label">Diagram</span></button>
+        <button type="button" class="toolbar-tool-btn" data-tool="export" title="Export schema, data, or database"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">download</span><span class="toolbar-tool-label">Export</span></button>
       </div>
       <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Views">
         <button type="button" class="tab-btn active" data-tab="tables" role="tab" aria-selected="true" aria-controls="panel-tables" id="tab-tables">Tables</button>
@@ -229,7 +225,7 @@ abstract final class HtmlContent {
           <button type="button" id="snapshot-clear" style="display: none;" title="Discard saved snapshot">Clear snapshot</button>
         </div>
         <p id="snapshot-status" class="meta"></p>
-        <pre id="snapshot-compare-result" class="meta diff-result" style="display: none; max-height: 60vh;"></pre>
+        <div id="snapshot-compare-result" class="diff-result snapshot-compare-result-container" role="region" aria-label="Snapshot compare results" style="display: none;"></div>
           </div>
         </div>
         <div id="panel-compare" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-compare" hidden>
@@ -340,6 +336,19 @@ abstract final class HtmlContent {
         <p class="meta">Tables and relationships. Click or press Enter on a table to view its data. Use arrow keys to navigate between tables.</p>
         <div id="diagram-container"></div>
         <div id="diagram-text-alt" class="sr-only"></div>
+          </div>
+        </div>
+        <!-- Export tab: opened from toolbar; narrative + same export links (IDs kept for JS). -->
+        <div id="panel-export" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-export" hidden>
+          <div id="export-collapsible" class="tool-panel-body">
+        <p class="export-narrative">Export your database schema, full dumps, or the current table as CSV. Use <strong>Schema</strong> for DDL only (CREATE TABLE, indexes). Use <strong>Full dump</strong> for schema plus all data as SQL. Use <strong>Database</strong> to download the raw SQLite file. Use <strong>Table CSV</strong> to export the table currently selected in the Tables view.</p>
+        <div class="export-toolbar" style="margin-top:1rem;">
+          <span class="export-toolbar-label">Download:</span>
+          <a href="/api/schema" id="export-schema" class="export-link" download="schema.sql" title="Download schema as SQL"><span class="material-symbols-outlined export-icon" aria-hidden="true">code</span>Schema</a>
+          <a href="#" id="export-dump" class="export-link" title="Download full database dump"><span class="material-symbols-outlined export-icon" aria-hidden="true">download</span>Full dump</a><span id="export-dump-status" class="meta"></span>
+          <a href="#" id="export-database" class="export-link" title="Download database file"><span class="material-symbols-outlined export-icon" aria-hidden="true">storage</span>Database</a><span id="export-database-status" class="meta"></span>
+          <a href="#" id="export-csv" class="export-link" title="Export current table as CSV"><span class="material-symbols-outlined export-icon" aria-hidden="true">table_chart</span>Table CSV</a><span id="export-csv-status" class="meta"></span>
+        </div>
           </div>
         </div>
       </div>

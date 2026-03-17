@@ -35,6 +35,8 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 • **SQL syntax highlighting** — Schema tab, Run SQL results, migration preview, Schema Diff panel, Compare report, and portable Report schema section now show SQL with basic syntax highlighting (keywords, strings, numbers, comments, identifiers). Implemented via a shared highlighter module (`extension/src/sql-highlight.ts` and `assets/web/sql-highlight.js`) used everywhere SQL is displayed.
 
+• **Web UI: version badge links to changelog** — The version number in the header (e.g. v2.2.0) is now a link that opens the extension’s changelog on the VS Code Marketplace in a new tab. Tooltip and aria-label indicate version and “View changelog”; hover uses a short opacity transition.
+
 ### Changed
 
 • **Web UI: Export diff report in new tab** — The DB diff panel "Export diff report" link now opens in a new browser tab (`target="_blank"` with `rel="noopener noreferrer"`) so the current view stays open.
