@@ -2440,13 +2440,35 @@ abstract final class HtmlContent {
       .catch(e => { document.getElementById('tables-loading').textContent = 'Failed to load tables: ' + e; });
 
     // Fetch server version from health endpoint and display in header badge.
+    // Also loads enhanced CSS from jsDelivr CDN, version-pinned to this
+    // release tag. Falls back gracefully to inline styles if the CDN is
+    // unreachable, the tag doesn't exist yet, or the user is offline.
     fetch('/api/health', authOpts())
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d.version) {
+          // Show version badge in the page header.
           var badge = document.getElementById('version-badge');
           badge.textContent = 'v' + d.version;
           badge.style.opacity = '1';
+
+          // Load enhanced CSS from jsDelivr CDN. The URL is pinned to the
+          // exact git tag matching this package version, so the styles are
+          // immutably cached per release. If the CDN is down, blocked by a
+          // firewall, or the tag hasn't been pushed yet, the onerror handler
+          // fires silently and the inline CSS provides the full baseline.
+          // A 3-second timeout prevents indefinite hanging on slow networks.
+          var link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = 'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v'
+            + d.version + '/web/drift-enhanced.css';
+          var cssTimer = setTimeout(function() {
+            link.onerror = null;
+            link.onload = null;
+          }, 3000);
+          link.onload = function() { clearTimeout(cssTimer); };
+          link.onerror = function() { clearTimeout(cssTimer); };
+          document.head.appendChild(link);
         }
       })
       .catch(function() { /* version badge stays hidden on failure */ });
