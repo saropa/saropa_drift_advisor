@@ -7,10 +7,18 @@
 import * as vscode from 'vscode';
 import { TroubleshootingPanel } from './troubleshooting-panel';
 
-export function registerTroubleshootingCommands(context: vscode.ExtensionContext): void {
+export function registerTroubleshootingCommands(
+  context: vscode.ExtensionContext,
+  connectionChannel: vscode.OutputChannel,
+): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.showTroubleshooting', () => {
-      // Read the configured port so the panel can show accurate help text
+      connectionChannel.appendLine(
+        `[${new Date().toISOString()}] Troubleshooting: opened panel (user triggered)`,
+      );
+      void vscode.window.showInformationMessage(
+        'Opening Troubleshooting panel.',
+      );
       const cfg = vscode.workspace.getConfiguration('driftViewer');
       const port = cfg.get<number>('port', 8642) ?? 8642;
       TroubleshootingPanel.createOrShow(port);

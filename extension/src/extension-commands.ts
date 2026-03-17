@@ -96,8 +96,12 @@ export function registerAllCommands(
     healthStatusBar,
   } = deps;
 
+  // About commands (no deps) are registered first so the Database view (i) icon
+  // works even if a later feature module fails to register.
+  registerAboutCommands(context);
+
   // Debug commands (VM Service connection, debug session lifecycle) are
-  // registered FIRST because they are critical for server connectivity.
+  // registered next because they are critical for server connectivity.
   // Feature command modules are registered afterwards inside a try/catch so
   // that a failure in any single module cannot prevent the core connection
   // logic from running.
@@ -122,7 +126,7 @@ export function registerAllCommands(
   // block the others or the core debug/connection logic above.
   const featureModules: Array<[string, () => void]> = [
     ['tree', () => registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager)],
-    ['nav', () => registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge)],
+    ['nav', () => registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge, connectionChannel)],
     ['snapshot', () => registerSnapshotCommands(context, client, snapshotStore)],
     ['schemaDiff', () => registerSchemaDiffCommands(context, client)],
     ['editing', () => registerEditingCommands(context, client, changeTracker, watchManager)],
@@ -146,10 +150,9 @@ export function registerAllCommands(
     ['erDiagram', () => registerErDiagramCommands(context, client, watcher)],
     ['clipboardImport', () => registerClipboardImportCommands(context, client)],
     ['report', () => registerReportCommands(context, client)],
-    ['workspaceSetup', () => registerWorkspaceSetupCommands(context)],
-    ['troubleshooting', () => registerTroubleshootingCommands(context)],
+    ['workspaceSetup', () => registerWorkspaceSetupCommands(context, connectionChannel)],
+    ['troubleshooting', () => registerTroubleshootingCommands(context, connectionChannel)],
     ['rollback', () => registerRollbackCommands(context, schemaTracker)],
-    ['about', () => registerAboutCommands(context)],
     ['polling', () => registerPollingCommands(context, client, deps.toolsProvider)],
   ];
   for (const [name, register] of featureModules) {

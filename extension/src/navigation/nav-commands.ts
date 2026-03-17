@@ -19,7 +19,13 @@ export function registerNavCommands(
   serverManager: ServerManager,
   discovery: ServerDiscovery,
   filterBridge: FilterBridge,
+  connectionChannel: vscode.OutputChannel,
 ): void {
+  // Timestamped log to connection output channel for welcome-view and status-bar commands.
+  const log = (msg: string): void => {
+    connectionChannel.appendLine(`[${new Date().toISOString()}] ${msg}`);
+  };
+
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInBrowser', async () => {
       if (client.usingVmService && !serverManager.activeServer) {
@@ -122,25 +128,45 @@ export function registerNavCommands(
     ),
   );
 
+  // Welcome-view / status-bar: Select Server, Retry, Forward Port — each gives toast + output log.
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.selectServer', async () => {
+      log('Select Server: triggered by user');
       try {
         await serverManager.selectServer();
+        const active = serverManager.activeServer;
+        if (active) {
+          log(`Select Server: connected to :${active.port}`);
+          void vscode.window.showInformationMessage(
+            `Connected to Drift server on port :${active.port}`,
+          );
+        } else if (serverManager.servers.length > 0) {
+          log('Select Server: dialog dismissed (servers were available)');
+          void vscode.window.showInformationMessage(
+            'No server selected. Use Select Server again to pick one.',
+          );
+        } else {
+          log('Select Server: no servers found (warning already shown)');
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        log(`Select Server: failed — ${msg}`);
         void vscode.window.showErrorMessage(`Select Server failed: ${msg}`);
       }
     }),
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.retryDiscovery', () => {
+      log('Retry Connection: triggered by user');
+      void vscode.window.showInformationMessage(
+        'Retrying server discovery… See Output → Saropa Drift Advisor for details.',
+      );
+      connectionChannel.show();
       try {
         discovery.retry();
-        void vscode.window.showInformationMessage(
-          'Retrying server discovery… Check Output → Saropa Drift Advisor for details.',
-        );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        log(`Retry Connection: failed — ${msg}`);
         void vscode.window.showErrorMessage(`Retry discovery failed: ${msg}`);
       }
     }),
@@ -161,6 +187,11 @@ export function registerNavCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.forwardPortAndroid', async () => {
       const port = client.port;
+      log('Forward Port (Android Emulator): triggered by user');
+      void vscode.window.showInformationMessage(
+        `Forwarding port ${port} to Android… Check Output → Saropa Drift Advisor.`,
+      );
+      connectionChannel.show();
       try {
         await vscode.window.withProgress(
           {
@@ -170,12 +201,14 @@ export function registerNavCommands(
           },
           () => runAdbForward(port),
         );
+        log(`Forward Port: adb forward tcp:${port} tcp:${port} succeeded`);
         discovery.retry();
         void vscode.window.showInformationMessage(
           `Port ${port} forwarded. Retrying discovery…`,
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        log(`Forward Port: failed — ${msg}`);
         void vscode.window.showErrorMessage(
           `adb forward failed: ${msg}. Ensure an emulator or device is running and adb is on PATH. Run manually: adb forward tcp:${port} tcp:${port}`,
         );

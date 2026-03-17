@@ -100,11 +100,12 @@ describe('Extension activation', () => {
     // ADB forward: onDidStartDebugSession, timer cleanup (2)
     // Discoverability: toolsView, healthStatusBar, toolsQuickPick,
     //   openWalkthrough, showToolsQuickPick (5)
-    // About: about (1)
+    // About: about, aboutSaropa (2)
     // Troubleshooting: showTroubleshooting (1)
     // Package status monitor: packageMonitor, onDidChangeInstalled listener (2)
+    // Snapshot/explain: onDidChangeActiveTextEditor, onDidChangeTextEditorSelection, debounce dispose (3)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 173, `expected 173 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 178, `expected 178 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -117,6 +118,24 @@ describe('Extension activation', () => {
     activate(fakeContext());
     const registered = commands.getRegistered();
     assert.ok('driftViewer.runTableQuery' in registered);
+  });
+
+  it('should register driftViewer.aboutSaropa command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.aboutSaropa' in registered, 'aboutSaropa (Database header (i) icon) should be registered');
+  });
+
+  it('should register driftViewer.about command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.about' in registered, 'about (Drift Tools / changelog) should be registered');
+  });
+
+  it('should register driftViewer.saveFilter command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.saveFilter' in registered, 'saveFilter should be registered');
   });
 
   it('should register a CodeLens provider for Dart files', () => {

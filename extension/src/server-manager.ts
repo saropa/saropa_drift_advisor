@@ -16,6 +16,7 @@ export class ServerManager {
   private readonly _workspaceState: vscode.Memento;
   private readonly _disposable: vscode.Disposable;
   private _showLog?: () => void;
+  private _log?: (msg: string) => void;
 
   constructor(
     discovery: ServerDiscovery,
@@ -33,6 +34,11 @@ export class ServerManager {
   /** Set callback to show the connection log (e.g. OutputChannel.show). */
   setShowLog(fn: () => void): void {
     this._showLog = fn;
+  }
+
+  /** Optional log sink for connection events (e.g. when auto-selecting a server). */
+  setLog(log: (msg: string) => void): void {
+    this._log = log;
   }
 
   get activeServer(): IServerInfo | undefined {
@@ -143,6 +149,7 @@ export class ServerManager {
     this._activeServer = server;
     if (server) {
       this._client.reconfigure(server.host, server.port);
+      this._log?.(`Selected server :${server.port}`);
     }
     this._onDidChangeActive.fire(server);
   }

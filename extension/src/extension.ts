@@ -63,6 +63,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const serverManager = new ServerManager(discovery, client, context.workspaceState);
   serverManager.setShowLog(() => connectionChannel.show());
+  serverManager.setLog((msg) =>
+    connectionChannel.appendLine(`[${new Date().toISOString()}] ${msg}`),
+  );
   const discoveryEnabled = cfg.get<boolean>('discovery.enabled', true) !== false;
 
   if (!extensionEnabled) {
@@ -75,7 +78,18 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     discovery.onDidChangeServers((servers) => {
-      if (servers.length > 0) return;
+      if (servers.length > 0) {
+        // Backup sync: ensure sidebar context reflects active server (ServerManager listener
+        // runs first, so activeServer is set by the time we run). Handles races where
+        // the view evaluated before onDidChangeActive or the context update was missed.
+        const active = serverManager.activeServer;
+        void vscode.commands.executeCommand(
+          'setContext',
+          'driftViewer.serverConnected',
+          active !== undefined,
+        );
+        return;
+      }
       if (!hasFlutterOrDartDebugSession()) return;
       void tryAdbForwardAndRetry(client.port, discovery, context.workspaceState);
     }),
@@ -243,6 +257,21 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   });
+
+  // Delayed sync so sidebar "connected" state catches up if discovery found a server
+  // before the view evaluated (avoids "Found servers on ports: X" but sidebar still "No server").
+  const syncContextTimeout = setTimeout(() => {
+    const active = serverManager.activeServer;
+    void vscode.commands.executeCommand(
+      'setContext',
+      'driftViewer.serverConnected',
+      active !== undefined,
+    );
+  }, 1500);
+  context.subscriptions.push({
+    dispose: () => clearTimeout(syncContextTimeout),
+  });
+
   discovery.onDidChangeServers(refreshStatusBar);
 
   // On generation change: refresh tree, codelens, linter, diagnostics, badges, timeline, watch, dashboard. Fire-and-forget async to avoid blocking.
