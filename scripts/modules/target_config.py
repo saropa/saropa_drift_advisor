@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass, field
 
 from modules.constants import (
+    ADD_PACKAGE_TS_PATH,
     CHANGELOG_PATH,
     EXTENSION_DIR,
     PACKAGE_JSON_PATH,
@@ -158,11 +159,52 @@ def write_version(config: TargetConfig, version: str) -> bool:
     except OSError:
         fail(f"Could not write {filename}")
         return False
+
+    # When the Dart package version changes, also update the PACKAGE_VERSION
+    # constant in add-package.ts so the "Add Saropa Drift Advisor" button
+    # always installs the correct version.
+    if config.name == "dart":
+        sync_add_package_version(version)
+
+    return True
+
+
+def sync_add_package_version(version: str) -> bool:
+    """Update the PACKAGE_VERSION constant in add-package.ts to '^{version}'.
+
+    This keeps the "Add Saropa Drift Advisor" button in sync with the
+    published Dart package version so users get the correct constraint.
+    """
+    try:
+        with open(ADD_PACKAGE_TS_PATH, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        fail(f"Could not read {os.path.basename(ADD_PACKAGE_TS_PATH)}")
+        return False
+
+    # Match the PACKAGE_VERSION constant: const PACKAGE_VERSION = '^x.y.z';
+    pattern = r"(const PACKAGE_VERSION\s*=\s*'\^)\d+\.\d+\.\d+(')"
+    replacement = rf"\g<1>{version}\2"
+    updated, count = re.subn(pattern, replacement, content, count=1)
+    if count == 0:
+        fail(f"Could not find PACKAGE_VERSION in {os.path.basename(ADD_PACKAGE_TS_PATH)}")
+        return False
+
+    try:
+        with open(ADD_PACKAGE_TS_PATH, "w", encoding="utf-8") as f:
+            f.write(updated)
+    except OSError:
+        fail(f"Could not write {os.path.basename(ADD_PACKAGE_TS_PATH)}")
+        return False
     return True
 
 
 def sync_versions(version: str) -> bool:
-    """Write *version* to both pubspec.yaml and package.json."""
+    """Write *version* to pubspec.yaml, package.json, and add-package.ts.
+
+    Note: write_version(DART, ...) already calls sync_add_package_version()
+    internally, so add-package.ts is updated as a side-effect of the Dart write.
+    """
     ok_dart = write_version(DART, version)
     ok_ext = write_version(EXTENSION, version)
     return ok_dart and ok_ext

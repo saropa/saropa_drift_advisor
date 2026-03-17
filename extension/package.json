@@ -104,7 +104,7 @@
       },
       {
         "view": "driftViewer.databaseExplorer",
-        "contents": "No Drift debug server connected.\n\n**Get started** — Add the Drift Advisor package to your project, then run your app with the debug server.\n\n[Add package to project](command:driftViewer.addPackageToProject)\n\n**Troubleshooting**\n\n• Ensure your Flutter app is running with the Drift debug server enabled (`startDriftViewer()` or `DriftDebugServer.start()`)\n• **Flutter/Dart debugging**: We connect via VM Service when you start a debug session—no port forward needed. If still disconnected, open **Output** → **Saropa Drift Advisor** for connection errors and ensure your app calls `DriftDebugServer.start()`\n• **Android emulator (HTTP)**: The extension will try to forward the port automatically when you debug. If it still fails, use **Forward Port (Android Emulator)** below or run `adb forward tcp:8642 tcp:8642` then Retry\n• Verify the server port (default: 8642) matches your configuration\n• Make sure no firewall is blocking localhost connections\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\n**Resources**\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
+        "contents": "No Drift debug server connected.\n\nGET STARTED — Add the Drift Advisor package to your project, then run your app with the debug server.\n\n[Add Saropa Drift Advisor](command:driftViewer.addPackageToProject)\n\n[Troubleshooting](command:driftViewer.showTroubleshooting)\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\nRESOURCES\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
         "when": "driftViewer.enabled && !driftViewer.serverConnected"
       }
     ],
@@ -500,8 +500,13 @@
       },
       {
         "command": "driftViewer.addPackageToProject",
-        "title": "Saropa Drift Advisor: Add package to project",
+        "title": "Saropa Drift Advisor: Add Saropa Drift Advisor",
         "icon": "$(package)"
+      },
+      {
+        "command": "driftViewer.showTroubleshooting",
+        "title": "Saropa Drift Advisor: Troubleshooting",
+        "icon": "$(question)"
       },
       {
         "command": "driftViewer.exportReport",
@@ -1035,7 +1040,7 @@
           {
             "id": "addPackage",
             "title": "Add the Drift Advisor Package",
-            "description": "Add `saropa_drift_advisor` to your Flutter project's dev dependencies. This enables the debug server that the extension connects to.\n\n[Add Package to Project](command:driftViewer.addPackageToProject)",
+            "description": "Add `saropa_drift_advisor` to your Flutter project's dependencies. This enables the debug server that the extension connects to.\n\n[Add Saropa Drift Advisor](command:driftViewer.addPackageToProject)",
             "media": {
               "svg": "media/walkthrough/step-add-package.svg",
               "altText": "Adding the drift advisor package to your project"

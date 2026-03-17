@@ -12,7 +12,7 @@ const execAsync = promisify(exec);
 /** Package name as it appears in pubspec dependencies. */
 const PACKAGE_NAME = 'saropa_drift_advisor';
 /** Version constraint; keep in sync with repo pubspec when cutting releases. */
-const PACKAGE_VERSION = '^1.3.1';
+const PACKAGE_VERSION = '^0.3.0';
 
 /** Prevents concurrent runs (double-click or repeated command). */
 let addPackageInProgress = false;
@@ -116,7 +116,18 @@ async function addPackageToProjectImpl(progress?: AddPackageProgress): Promise<A
   }
 
   const content = doc.getText();
-  const { modified: pubspecModified, content: newContent } = addPackageToPubspec(content);
+
+  let pubspecModified: boolean;
+  let newContent: string;
+  try {
+    const result = addPackageToPubspec(content);
+    pubspecModified = result.modified;
+    newContent = result.content;
+  } catch (e) {
+    // addPackageToPubspec throws when pubspec is missing a dependencies section
+    const msg = e instanceof Error ? e.message : String(e);
+    return { pubspecModified: false, pubGetOk: false, message: msg };
+  }
 
   if (pubspecModified) {
     const edit = new vscode.WorkspaceEdit();
@@ -143,7 +154,11 @@ async function addPackageToProjectImpl(progress?: AddPackageProgress): Promise<A
   }
 
   const parts: string[] = [];
-  if (pubspecModified) parts.push(`Added ${PACKAGE_NAME} to dependencies.`);
+  if (pubspecModified) {
+    parts.push(`Added ${PACKAGE_NAME} ${PACKAGE_VERSION} to dependencies.`);
+  } else {
+    parts.push(`${PACKAGE_NAME} is already in pubspec.yaml.`);
+  }
   parts.push('Run your app with the Drift debug server to connect.');
   return {
     pubspecModified,

@@ -101,8 +101,9 @@ describe('Extension activation', () => {
     // Discoverability: toolsView, healthStatusBar, toolsQuickPick,
     //   openWalkthrough, showToolsQuickPick (5)
     // About: about (1)
+    // Troubleshooting: showTroubleshooting (1)
     // Total grows as new features are added
-    assert.strictEqual(subscriptions.length, 168, `expected 168 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 169, `expected 169 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
