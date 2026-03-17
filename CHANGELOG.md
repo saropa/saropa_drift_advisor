@@ -19,6 +19,8 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ### Changed
 
+• **Web UI: sidebar collapsible polish** — Removed the blue vertical accent line to the left of collapsible section headers (drift-enhanced.css). Expand/collapse arrow is now right-aligned and dimmed (opacity 0.4) until the header is hovered (0.9), with a 0.15s opacity transition (style.scss / style.css).
+
 • **Extension: 300-line limit compliance** — Ten TypeScript source files that exceeded the 300-line limit were modularized so all extension source files are now within the limit. New modules: `api-client-http.ts` (HTTP endpoint helpers), `server-discovery-constants.ts` / `server-discovery-scan.ts` / `server-discovery-notify.ts`, `debug-vm-connect.ts` (VM connect + health retry), `rollback-order.ts` / `rollback-dart.ts` / `rollback-helpers.ts` / `rollback-utils.ts`, `vm-service-api.ts` (VM extension method wrappers), `troubleshooting-styles.ts`. Test files split with shared helpers (`api-contract-helpers`, `compliance-checker-test-helpers`, `rollback-generator-test-helpers`, `schema-provider-test-helpers`) and additional test modules for API contract sessions, compliance rules/general, rollback ordering/Dart. No behavior changes; all 1810 tests pass.
 
 ---

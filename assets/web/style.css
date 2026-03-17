@@ -331,15 +331,21 @@ body.theme-light .feature-card.expanded {
   transition: background 0.15s ease;
 }
 
-.feature-card .collapsible-header::before {
+/* Expand/collapse arrow: right-aligned, dimmed until hover */
+.feature-card .collapsible-header::after {
   content: "▼";
-  margin-right: 0.35rem;
+  margin-left: auto;
   font-size: 0.65em;
-  opacity: 0.9;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
 }
 
-.feature-card.expanded .collapsible-header::before {
+.feature-card.expanded .collapsible-header::after {
   content: "▲";
+}
+
+.feature-card .collapsible-header:hover::after {
+  opacity: 0.9;
 }
 
 .feature-card .collapsible-title {
@@ -734,13 +740,23 @@ body.theme-dark .search-bar select:focus {
   max-height: 50vh;
 }
 
+/* SQL result table: allow natural column widths and horizontal scroll in container */
+.sql-runner .sql-result .data-table-scroll-wrap {
+  overflow: auto;
+  max-height: 70vh;
+  margin-top: 0.35rem;
+  margin-bottom: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
 .sql-runner .sql-result table {
   border-collapse: collapse;
-  width: 100%;
+  width: max-content;
   font-size: 13px;
   background: var(--surface);
   border-radius: var(--radius-md);
-  overflow: hidden;
   border: 1px solid var(--border);
 }
 
@@ -749,6 +765,8 @@ body.theme-dark .search-bar select:focus {
   border-bottom: 1px solid var(--border-subtle);
   padding: 0.5rem 0.65rem;
   text-align: left;
+  white-space: nowrap;
+  min-width: 5rem;
 }
 
 .sql-runner .sql-result th {
@@ -936,7 +954,8 @@ body.theme-dark .data-table-scroll-wrap {
 
 #data-table {
   border-collapse: collapse;
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   font-size: 13px;
   background: var(--surface);
 }
@@ -946,6 +965,8 @@ body.theme-dark .data-table-scroll-wrap {
   border-bottom: 1px solid var(--border-subtle);
   padding: 0.6rem 0.75rem;
   text-align: left;
+  white-space: nowrap;
+  min-width: 5rem;
 }
 
 #data-table th {

@@ -105,14 +105,10 @@ a {
 }
 
 /* ── Collapsible section headers ──────────────────────────────── */
-/* Uses background-image for the left accent line instead of      */
-/* border-left + padding-left, avoiding layout shifts.            */
+/* No left accent bar (was a 3px link-colored strip); arrow is in  */
+/* style.css as ::after, right-aligned and dimmed until hover.    */
 
 .collapsible-header {
-  background-image: linear-gradient(var(--link), var(--link));
-  background-size: 3px 100%;
-  background-repeat: no-repeat;
-  background-position: left center;
   transition: background-color 0.15s ease;
 }
 
