@@ -29,6 +29,8 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ### Added
 
+• **Web UI: search behind toolbar icon; Search tab; row toggle; collapsible sections** — Search options (search input, scope, filter rows, Prev/Next) are hidden by default and shown via the toolbar **Search** (magnifying glass) button. A dedicated **Search** tab displays search results in a readable panel; when you switch to it, the current Tables content is copied and highlighted so match navigation (Prev/Next, "X of Y") applies there. When viewing a table, **Show: All rows | Matching** lets you toggle between displaying every row or only rows matching the row filter. In the "Both" (schema + table data) view, **Schema** and **Table data** sections are collapsible (click header to expand/collapse).
+
 • **Web UI: tools toolbar and tabbed tools** — Tools (Snapshot, DB diff, Index, Size, Perf, Health, Import, Schema, Diagram) moved from the sidebar into a horizontal toolbar above the main content. Clicking a tool opens it in a dedicated tab, giving full width to each tool. Tables and Run SQL remain fixed tabs; tool tabs can be closed (×). Tab switch uses a short opacity transition; Schema and Diagram load on first open.
 
 • **Web UI: table cell truncation and full-value popup** — Long cell text in the data table is truncated with an ellipsis (max width 18rem). Double-click any cell to open a popup showing the full value, with a Copy button and Close/backdrop/Escape to dismiss. Popup uses a short fade transition; column name appears in the popup title.

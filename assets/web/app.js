@@ -1401,12 +1401,58 @@
       }).catch(function() { pre.textContent = 'Failed to load.'; });
     }
 
+    /**
+     * Copies current Tables content into the Search results panel and remaps ids so
+     * applySearch can target the search panel. Call when switching to Search tab.
+     * If Tables content is empty (no schema/table yet), shows a short hint instead.
+     */
+    function refreshSearchResultsPanel() {
+      var content = document.getElementById('content');
+      var searchPanel = document.getElementById('search-results-content');
+      if (!content || !searchPanel) return;
+      var hasSearchable = content.querySelector('#schema-pre, #content-pre, #data-table');
+      if (!hasSearchable) {
+        searchPanel.innerHTML = '<p class="meta">Open Search (toolbar), choose scope and a table in the Tables tab, then return here to see search results.</p>';
+        return;
+      }
+      searchPanel.innerHTML = content.innerHTML;
+      searchPanel.querySelectorAll('[id="schema-pre"]').forEach(function(el) { el.id = 'search-panel-schema-pre'; });
+      searchPanel.querySelectorAll('[id="content-pre"]').forEach(function(el) { el.id = 'search-panel-content-pre'; });
+      searchPanel.querySelectorAll('[id="data-table"]').forEach(function(el) { el.id = 'search-panel-data-table'; });
+      applySearch();
+    }
+
     window.onTabSwitch = function(tabId) {
       if (tabId === 'schema' && cachedSchema === null) loadSchemaIntoPre();
       if (tabId === 'diagram' && typeof window.ensureDiagramInited === 'function') window.ensureDiagramInited();
+      if (tabId === 'search') refreshSearchResultsPanel();
     };
 
     initTabsAndToolbar();
+
+    // Search options: hidden by default; toolbar magnifying glass toggles visibility
+    (function initSearchToggle() {
+      var btn = document.getElementById('search-toggle-btn');
+      var wrap = document.getElementById('sidebar-search-wrap');
+      if (!btn || !wrap) return;
+      btn.addEventListener('click', function() {
+        wrap.classList.toggle('collapsed');
+        wrap.setAttribute('aria-hidden', wrap.classList.contains('collapsed'));
+        if (!wrap.classList.contains('collapsed')) document.getElementById('search-input').focus();
+      });
+    })();
+
+    // Collapsible sections in search/both view: click header to toggle body
+    document.addEventListener('click', function(e) {
+      var header = e.target.closest('.collapsible-header[data-collapsible]');
+      if (!header) return;
+      var wrap = header.closest('.search-section-collapsible');
+      var body = wrap && wrap.querySelector('.collapsible-body');
+      if (body) {
+        body.classList.toggle('collapsed');
+        wrap.classList.toggle('expanded', !body.classList.contains('collapsed'));
+      }
+    });
 
     (function initDiagram() {
       const container = document.getElementById('diagram-container');
@@ -2278,11 +2324,31 @@
     function getScope() { return document.getElementById('search-scope').value || ''; }
     function getSearchTerm() { return String(document.getElementById('search-input').value || '').trim(); }
     function getRowFilter() { return String(document.getElementById('row-filter').value || '').trim(); }
+    /** When true, table shows only rows matching the row filter; when false, shows all rows. */
+    var showOnlyMatchingRows = true;
     function filterRows(data) {
       const term = getRowFilter();
       if (!term || !data || data.length === 0) return data || [];
       const lower = term.toLowerCase();
       return data.filter(row => Object.values(row).some(v => v != null && String(v).toLowerCase().includes(lower)));
+    }
+    /** Returns the data to display for the table: filtered or all rows depending on showOnlyMatchingRows. */
+    function getTableDisplayData(data) {
+      if (!data || data.length === 0) return data || [];
+      if (showOnlyMatchingRows && getRowFilter()) return filterRows(data);
+      return data;
+    }
+
+    /**
+     * Builds the filter-status suffix for table meta text (row count line).
+     * @param {number} filteredLen - Number of rows matching the row filter
+     * @param {number} totalLen - Total rows in the table
+     * @returns {string} Empty, " (filtered: X of Y)", or " (showing all rows; filter: X match)"
+     */
+    function buildTableFilterMetaSuffix(filteredLen, totalLen) {
+      if (!getRowFilter()) return '';
+      if (showOnlyMatchingRows) return ' (filtered: ' + filteredLen + ' of ' + totalLen + ')';
+      return ' (showing all rows; filter: ' + filteredLen + ' match)';
     }
 
     // Expand any collapsed section that contains the given DOM element.
@@ -2307,26 +2373,34 @@
       const scope = getScope();
       const navEl = document.getElementById('search-nav');
       const countEl = document.getElementById('search-count');
+      const isSearchPanel = activeTabId === 'search';
+      const root = isSearchPanel ? document.getElementById('search-results-content') : null;
+
+      function getEl(mainId, panelId) {
+        if (isSearchPanel && root) {
+          var el = root.querySelector('#' + panelId);
+          return el || null;
+        }
+        return document.getElementById(mainId);
+      }
+      const schemaPre = getEl('schema-pre', 'search-panel-schema-pre');
+      const contentPre = getEl('content-pre', 'search-panel-content-pre');
+      var dataTable = getEl('data-table', 'search-panel-data-table');
 
       // --- Phase 1: Apply highlight markup to matching text ---
-      const schemaPre = document.getElementById('schema-pre');
       if (schemaPre && lastRenderedSchema !== null && (scope === 'schema' || scope === 'both')) {
         schemaPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc(lastRenderedSchema);
       }
-      var contentPre = document.getElementById('content-pre');
       if (contentPre && lastRenderedSchema !== null && scope === 'schema') {
         contentPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc(lastRenderedSchema);
       }
-      var dataTable = document.getElementById('data-table');
       if (dataTable && (scope === 'data' || scope === 'both')) {
         dataTable.querySelectorAll('td').forEach(function(td) {
           if (!td.querySelector('.fk-link')) {
-            // Preserve copy button while highlighting (or clearing) text
             var copyBtn = td.querySelector('.cell-copy-btn');
             var textNodes = [];
             td.childNodes.forEach(function(n) { if (n !== copyBtn) textNodes.push(n.textContent || ''); });
             var text = textNodes.join('');
-            // When term is empty, this restores plain escaped text (removes stale highlights)
             var highlighted = term ? highlightText(text, term) : esc(text);
             if (copyBtn) {
               var btnHtml = copyBtn.outerHTML;
@@ -2338,13 +2412,13 @@
         });
       }
 
-      // --- Phase 2: Build navigable match list from all highlight spans ---
+      // --- Phase 2: Build navigable match list from highlight spans in the active panel ---
       searchMatches = [];
       searchCurrentIndex = -1;
 
       if (term) {
-        // Collect all highlighted spans in document order (top to bottom)
-        searchMatches = Array.from(document.querySelectorAll('.highlight'));
+        var searchRoot = isSearchPanel && root ? root : document;
+        searchMatches = Array.from(searchRoot.querySelectorAll ? searchRoot.querySelectorAll('.highlight') : []);
       }
 
       // --- Phase 3: Update navigation UI visibility and state ---
@@ -2451,6 +2525,20 @@
 
     document.getElementById('row-filter').addEventListener('input', function() { if (currentTableName && currentTableJson) { renderTableView(currentTableName, currentTableJson); saveTableState(currentTableName); } });
     document.getElementById('row-filter').addEventListener('keyup', function() { if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson); });
+    var rowDisplayAll = document.getElementById('row-display-all');
+    var rowDisplayMatching = document.getElementById('row-display-matching');
+    if (rowDisplayAll) rowDisplayAll.addEventListener('click', function() {
+      showOnlyMatchingRows = false;
+      rowDisplayAll.classList.add('active');
+      if (rowDisplayMatching) rowDisplayMatching.classList.remove('active');
+      if (currentTableName && currentTableJson) { renderTableView(currentTableName, currentTableJson); saveTableState(currentTableName); }
+    });
+    if (rowDisplayMatching) rowDisplayMatching.addEventListener('click', function() {
+      showOnlyMatchingRows = true;
+      rowDisplayMatching.classList.add('active');
+      if (rowDisplayAll) rowDisplayAll.classList.remove('active');
+      if (currentTableName && currentTableJson) { renderTableView(currentTableName, currentTableJson); saveTableState(currentTableName); }
+    });
     document.getElementById('search-scope').addEventListener('change', function() {
       const scope = getScope();
       const content = document.getElementById('content');
@@ -2471,6 +2559,7 @@
         paginationBar.style.display = 'none';
       }
       applySearch();
+      if (activeTabId === 'search') refreshSearchResultsPanel();
     });
 
     document.getElementById('export-dump').addEventListener('click', function(e) {
@@ -2785,22 +2874,45 @@
       lastRenderedSchema = schema;
       const scope = getScope();
       if (scope === 'both') {
-        container.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data</h2><p class="meta">Select a table above to load data.</p></div>';
+        container.innerHTML = '<div class="search-section-collapsible expanded">' +
+          '<div class="collapsible-header" data-collapsible>Schema</div>' +
+          '<div class="collapsible-body"><pre id="schema-pre">' + esc(schema) + '</pre></div>' +
+          '</div>' +
+          '<div class="search-section-collapsible expanded" id="both-data-section">' +
+          '<div class="collapsible-header" data-collapsible>Table data</div>' +
+          '<div class="collapsible-body"><p class="meta">Select a table above to load data.</p></div>' +
+          '</div>';
         const dataSection = document.getElementById('both-data-section');
-        if (currentTableName && currentTableJson !== null) {
+        if (dataSection && currentTableName && currentTableJson !== null) {
+          const displayData = getTableDisplayData(currentTableJson);
           const filtered = filterRows(currentTableJson);
-          const jsonStr = JSON.stringify(filtered, null, 2);
-          lastRenderedData = jsonStr;
-          const metaText = rowCountText(currentTableName) + (getRowFilter() ? ' (filtered: ' + filtered.length + ' of ' + currentTableJson.length + ')' : '');
+          const metaText = rowCountText(currentTableName) + buildTableFilterMetaSuffix(filtered.length, currentTableJson.length);
           var fkMap = {};
           var cachedFks = fkMetaCache[currentTableName] || [];
           cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
           var colTypes = tableColumnTypes[currentTableName] || {};
-          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, filtered.length, getVisibleColumnCount(Object.keys(filtered[0] || {}), getColumnConfig(currentTableName)));
+          var dataBody = dataSection.querySelector('.collapsible-body');
+          var headerEl = dataSection.querySelector('.collapsible-header');
+          if (headerEl) headerEl.textContent = 'Table data: ' + currentTableName;
+          if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(currentTableName)));
         }
       } else {
         container.innerHTML = '<p class="meta">Schema</p><pre id="content-pre">' + esc(schema) + '</pre>';
       }
+    }
+
+    /**
+     * Builds HTML for the "both" (schema + table data) view with collapsible sections.
+     */
+    function buildBothViewSectionsHtml(tableName, metaText, qbHtml, tableHtml, schema) {
+      return '<div class="search-section-collapsible expanded">' +
+        '<div class="collapsible-header" data-collapsible>Schema</div>' +
+        '<div class="collapsible-body"><pre id="schema-pre">' + esc(schema) + '</pre></div>' +
+        '</div>' +
+        '<div class="search-section-collapsible expanded" id="both-data-section">' +
+        '<div class="collapsible-header" data-collapsible>Table data: ' + esc(tableName) + '</div>' +
+        '<div class="collapsible-body"><p class="meta">' + metaText + '</p>' + qbHtml + tableHtml + '</div>' +
+        '</div>';
     }
 
     function loadBothView() {
@@ -2812,20 +2924,26 @@
         lastRenderedSchema = schema;
         let dataHtml = '';
         if (currentTableName && currentTableJson !== null) {
+          const displayData = getTableDisplayData(currentTableJson);
           const filtered = filterRows(currentTableJson);
-          const jsonStr = JSON.stringify(filtered, null, 2);
-          lastRenderedData = jsonStr;
-          const metaText = rowCountText(currentTableName) + (getRowFilter() ? ' (filtered: ' + filtered.length + ' of ' + currentTableJson.length + ')' : '');
+          const metaText = rowCountText(currentTableName) + buildTableFilterMetaSuffix(filtered.length, currentTableJson.length);
           var fkMap = {};
           var cachedFks = fkMetaCache[currentTableName] || [];
           cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
           var colTypes = tableColumnTypes[currentTableName] || {};
-          dataHtml = '<p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, filtered.length, getVisibleColumnCount(Object.keys(filtered[0] || {}), getColumnConfig(currentTableName)));
+          dataHtml = '<p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(currentTableName)));
         } else {
           lastRenderedData = null;
           dataHtml = '<p class="meta">Select a table above to load data.</p>';
         }
-        content.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data</h2>' + dataHtml + '</div>';
+        content.innerHTML = '<div class="search-section-collapsible expanded">' +
+          '<div class="collapsible-header" data-collapsible>Schema</div>' +
+          '<div class="collapsible-body"><pre id="schema-pre">' + esc(schema) + '</pre></div>' +
+          '</div>' +
+          '<div class="search-section-collapsible expanded" id="both-data-section">' +
+          '<div class="collapsible-header" data-collapsible>Table data</div>' +
+          '<div class="collapsible-body">' + dataHtml + '</div>' +
+          '</div>';
         applySearch();
       }).catch(e => { content.innerHTML = '<p class="meta">Error</p><pre>' + esc(String(e)) + '</pre>'; });
     }
@@ -3096,18 +3214,28 @@
       const content = document.getElementById('content');
       const scope = getScope();
       const filtered = filterRows(data);
-      const jsonStr = JSON.stringify(filtered, null, 2);
+      const displayData = getTableDisplayData(data);
+      const jsonStr = JSON.stringify(displayData, null, 2);
       lastRenderedData = jsonStr;
-      const metaText = rowCountText(name) + (getRowFilter() ? ' (filtered: ' + filtered.length + ' of ' + data.length + ')' : '');
+      const metaText = rowCountText(name) + buildTableFilterMetaSuffix(filtered.length, data.length);
       // Show/hide display format bar when viewing table data
       var formatBar = document.getElementById('display-format-bar');
       if (formatBar) formatBar.style.display = (scope !== 'schema') ? 'flex' : 'none';
+      // Show row display toggle (All / Matching) when viewing a table
+      var rowDisplayWrap = document.getElementById('row-display-toggle-wrap');
+      if (rowDisplayWrap) {
+        rowDisplayWrap.style.display = (scope === 'data' || scope === 'both') ? 'flex' : 'none';
+        var allBtn = document.getElementById('row-display-all');
+        var matchBtn = document.getElementById('row-display-matching');
+        if (allBtn) allBtn.classList.toggle('active', !showOnlyMatchingRows);
+        if (matchBtn) matchBtn.classList.toggle('active', showOnlyMatchingRows);
+      }
       // Show loading hint while FK metadata is being fetched for the first time
       if (!fkMetaCache[name] && scope !== 'both') {
         content.innerHTML = '<p class="meta">' + metaText + '</p><p class="meta">Loading\u2026</p>';
       }
       function renderDataHtml(fkMap, colTypes) {
-        var tableHtml = wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(name))) + buildTableStatusBar(tableCounts[name], offset, limit, filtered.length, getVisibleColumnCount(Object.keys(filtered[0] || {}), getColumnConfig(name)));
+        var tableHtml = wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(name))) + buildTableStatusBar(tableCounts[name], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(name)));
         var qbHtml = buildQueryBuilderHtml(name, colTypes);
         if (scope === 'both') {
           lastRenderedSchema = cachedSchema;
@@ -3115,7 +3243,7 @@
             fetch('/api/schema', authOpts()).then(function(r) { return r.text(); }).then(function(schema) {
               cachedSchema = schema;
               lastRenderedSchema = schema;
-              content.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p>' + qbHtml + tableHtml + '</div>';
+              content.innerHTML = buildBothViewSectionsHtml(name, metaText, qbHtml, tableHtml, schema);
               bindQueryBuilderEvents(colTypes);
               if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);
               applySearch();
@@ -3125,7 +3253,10 @@
           } else {
             var dataSection = document.getElementById('both-data-section');
             if (dataSection) {
-              dataSection.innerHTML = '<h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p>' + qbHtml + tableHtml;
+              var dataBody = dataSection.querySelector('.collapsible-body');
+              var headerEl = dataSection.querySelector('.collapsible-header');
+              if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + '</p>' + qbHtml + tableHtml;
+              if (headerEl) headerEl.textContent = 'Table data: ' + name;
               bindColumnTableEvents();
               bindQueryBuilderEvents(colTypes);
               if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);

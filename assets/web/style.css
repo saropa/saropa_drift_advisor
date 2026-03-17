@@ -647,6 +647,49 @@ body.theme-dark .search-bar select:focus {
   cursor: default;
 }
 
+/* Search options in sidebar: hidden by default, expanded via toolbar magnifying glass */
+.search-options-wrap.collapsed {
+  display: none;
+}
+
+.search-options-wrap:not(.collapsed) {
+  display: block;
+}
+
+/* Toggle between showing all rows vs only matching rows when row filter is set */
+.row-display-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  font-size: var(--text-sm);
+}
+
+.row-display-label {
+  color: var(--muted);
+}
+
+.row-display-btn {
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.row-display-btn:hover {
+  border-color: var(--link);
+  color: var(--link);
+}
+
+.row-display-btn.active {
+  background: var(--link);
+  color: var(--btn-primary-fg);
+  border-color: var(--link);
+}
+
 .search-section {
   margin-bottom: 1rem;
 }
@@ -655,6 +698,34 @@ body.theme-dark .search-bar select:focus {
   font-size: 1rem;
   color: var(--muted);
   margin: 0 0 0.25rem 0;
+}
+
+/* Collapsible table/section blocks in search and both views */
+.search-section-collapsible .collapsible-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0;
+  margin-bottom: 0.25rem;
+}
+
+.search-section-collapsible .collapsible-header::after {
+  content: "▼";
+  margin-left: auto;
+  font-size: 0.75em;
+  opacity: 0.6;
+}
+
+.search-section-collapsible.expanded .collapsible-header::after {
+  content: "▲";
+}
+
+.search-section-collapsible .collapsible-body {
+  margin-top: 0;
+}
+
+.search-results-content .search-section-collapsible {
+  margin-bottom: 1rem;
 }
 
 .toolbar {

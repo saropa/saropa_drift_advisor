@@ -33,7 +33,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Tools toolbar and tabs** — Snapshot, DB diff, Index, Size, Perf, Health, Import, Schema, and Diagram open in full-width tabs from a top toolbar; Tables and Run SQL are fixed tabs.
 - **Table list** with row counts
 - **View rows** as JSON with pagination (limit/offset)
-- **Client-side row filter** search with **result navigation** — auto-scroll to match, "X of Y" counter, Prev/Next buttons; keyboard shortcuts (Enter/Shift+Enter, Ctrl+G, Ctrl+F, Escape); active match highlight; collapsed sections expand when navigating to a match
+- **Client-side row filter** search with **result navigation** — Search options live behind the toolbar **Search** icon; a **Search** tab shows results in a dedicated panel. Auto-scroll to match, "X of Y" counter, Prev/Next buttons; keyboard shortcuts (Enter/Shift+Enter, Ctrl+G, Ctrl+F, Escape); active match highlight; collapsed sections expand when navigating to a match. **All rows / Matching** toggle when a row filter is set; **Schema** and **Table data** sections are collapsible in the Both view.
 - **Foreign key navigation** — click FK values to jump to the referenced row; **clickable breadcrumb steps** (jump to any table in the trail); breadcrumb persistence in localStorage; "Clear path" button
 - **Data type display toggle** — raw SQLite values or human-readable (epoch → ISO 8601, 0/1 → true/false)
 - **One-click cell copy** on hover with toast notification; long values truncate with ellipsis; **double-click a cell** to view full value in a popup with Copy button (Escape or backdrop to close)

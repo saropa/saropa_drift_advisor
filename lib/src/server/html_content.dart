@@ -41,7 +41,8 @@ abstract final class HtmlContent {
   </header>
   <div class="app-layout">
     <aside class="app-sidebar">
-      <div class="sidebar-section">
+      <!-- Search options: collapsed by default; toolbar Search button toggles visibility. -->
+      <div id="sidebar-search-wrap" class="sidebar-section search-options-wrap collapsed" aria-hidden="true">
         <h2 class="sidebar-section-title">Search</h2>
       <div class="search-bar">
         <label for="search-input">Search:</label>
@@ -59,6 +60,11 @@ abstract final class HtmlContent {
         </span>
         <label for="row-filter">Filter rows:</label>
         <input type="text" id="row-filter" placeholder="Column value…" title="Client-side filter on current table" />
+        <div id="row-display-toggle-wrap" class="row-display-toggle" style="display:none;">
+          <span class="row-display-label">Show:</span>
+          <button type="button" id="row-display-all" class="row-display-btn" title="Show all rows">All rows</button>
+          <button type="button" id="row-display-matching" class="row-display-btn active" title="Show only rows matching filter">Matching</button>
+        </div>
       </div>
       </div>
       <div class="sidebar-section">
@@ -80,6 +86,7 @@ abstract final class HtmlContent {
     <div class="app-main-content">
       <!-- Tools toolbar: each button opens the tool in a tab for full-width use. -->
       <div id="tools-toolbar" class="tools-toolbar" role="toolbar" aria-label="Tools">
+        <button type="button" id="search-toggle-btn" class="toolbar-tool-btn" title="Show or hide search options"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">search</span><span class="toolbar-tool-label">Search</span></button>
         <button type="button" class="toolbar-tool-btn" data-tool="snapshot" title="Snapshot / time travel"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">photo_camera</span><span class="toolbar-tool-label">Snapshot</span></button>
         <button type="button" class="toolbar-tool-btn" data-tool="compare" title="Database diff"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">compare_arrows</span><span class="toolbar-tool-label">DB diff</span></button>
         <button type="button" class="toolbar-tool-btn" data-tool="index" title="Index suggestions"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">format_list_bulleted</span><span class="toolbar-tool-label">Index</span></button>
@@ -92,6 +99,7 @@ abstract final class HtmlContent {
       </div>
       <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Views">
         <button type="button" class="tab-btn active" data-tab="tables" role="tab" aria-selected="true" aria-controls="panel-tables" id="tab-tables">Tables</button>
+        <button type="button" class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="panel-search" id="tab-search">Search</button>
         <button type="button" class="tab-btn" data-tab="sql" role="tab" aria-selected="false" aria-controls="panel-sql" id="tab-sql">Run SQL</button>
       </div>
       <div id="tab-panels" class="tab-panels">
@@ -115,6 +123,9 @@ abstract final class HtmlContent {
         <button type="button" id="column-chooser-btn" title="Show/hide columns, reorder, pin">Columns</button>
       </div>
       <div id="content" class="content-wrap"></div>
+        </div>
+        <div id="panel-search" class="tab-panel" role="tabpanel" aria-labelledby="tab-search" hidden>
+          <div id="search-results-content" class="content-wrap search-results-content"></div>
         </div>
         <div id="panel-sql" class="tab-panel" role="tabpanel" aria-labelledby="tab-sql" hidden>
       <div class="feature-card sql-runner-card">
