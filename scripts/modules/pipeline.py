@@ -9,7 +9,7 @@ import shutil
 import time
 from typing import TYPE_CHECKING
 
-from modules.constants import C, CHANGELOG_PATH, EXTENSION_DIR
+from modules.constants import ABOUT_SAROPA_PATH, C, CHANGELOG_PATH, EXTENSION_DIR
 from modules.display import heading, info, ok
 from modules.utils import run_step
 
@@ -34,6 +34,23 @@ def sync_extension_changelog() -> bool:
     except OSError as e:
         from modules.display import fail
         fail(f"Failed to sync changelog: {e}")
+        return False
+
+
+def sync_extension_about() -> bool:
+    """Copy root ABOUT_SAROPA.md to extension/ for the About Saropa command.
+
+    The extension bundles this file so the (i) icon in the Database header
+    can open the company overview in VS Code's markdown preview.
+    """
+    ext_about = os.path.join(EXTENSION_DIR, "ABOUT_SAROPA.md")
+    try:
+        shutil.copy2(ABOUT_SAROPA_PATH, ext_about)
+        ok("Synced ABOUT_SAROPA.md → extension/ABOUT_SAROPA.md")
+        return True
+    except OSError as e:
+        from modules.display import fail
+        fail(f"Failed to sync about file: {e}")
         return False
 
 
@@ -296,11 +313,11 @@ def package_and_install(
     from modules.ext_install import print_install_instructions, prompt_install
     from modules.report import save_report, print_timing, print_report_path
 
-    heading("Changelog Sync")
+    heading("Extension File Sync")
     t0 = time.time()
-    sync_ok = sync_extension_changelog()
+    sync_ok = sync_extension_changelog() and sync_extension_about()
     elapsed = time.time() - t0
-    results.append(("Changelog sync", sync_ok, elapsed))
+    results.append(("Extension file sync", sync_ok, elapsed))
     if not sync_ok:
         return None
 

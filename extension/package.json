@@ -544,10 +544,20 @@
         "command": "driftViewer.about",
         "title": "Saropa Drift Advisor: About",
         "icon": "$(info)"
+      },
+      {
+        "command": "driftViewer.aboutSaropa",
+        "title": "Saropa Drift Advisor: About Saropa",
+        "icon": "$(info)"
       }
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "driftViewer.aboutSaropa",
+          "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation"
+        },
         {
           "command": "driftViewer.refreshTree",
           "when": "view == driftViewer.databaseExplorer",
@@ -1119,7 +1129,8 @@
     "lint": "tsc --noEmit -p ./",
     "pretest": "npm run compile",
     "test": "node --max-old-space-size=4096 node_modules/mocha/bin/mocha.js",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postprepare": "npm run compile"
   },
   "overrides": {
     "serialize-javascript": "^7.0.3"
