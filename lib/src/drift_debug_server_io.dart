@@ -163,17 +163,38 @@ class _DriftDebugServerImpl {
       // no per-line stack traces in the debug console. Uses stdout
       // instead of ctx.log() because dart:developer.log() attaches
       // expandable stack traces to every [log] entry.
+      final url = 'http://127.0.0.1:$port';
+      final urlLine = _bannerCentered(url);
+      final versionLine = _bannerCentered(
+        'v${ServerConstants.packageVersion}',
+      );
       stdout.writeln(
         '${ServerConstants.bannerTop}\n'
+        '${ServerConstants.bannerEmpty}\n'
         '${ServerConstants.bannerTitle}\n'
+        '$versionLine\n'
+        '${ServerConstants.bannerEmpty}\n'
         '${ServerConstants.bannerDivider}\n'
+        '${ServerConstants.bannerEmpty}\n'
         '${ServerConstants.bannerOpen}\n'
-        '${ServerConstants.bannerUrlPrefix}$port\n'
+        '${ServerConstants.bannerEmpty}\n'
+        '$urlLine\n'
+        '${ServerConstants.bannerEmpty}\n'
         '${ServerConstants.bannerBottom}',
       );
     } on Object catch (error, stack) {
       ctx.logError(error, stack);
     }
+  }
+
+  /// Builds a banner line with [text] horizontally centered
+  /// between ║ borders, padded to [ServerConstants.bannerInnerWidth].
+  static String _bannerCentered(String text) {
+    final w = ServerConstants.bannerInnerWidth;
+    final pad = (w - text.length) ~/ 2;
+    final left = ' ' * pad;
+    final right = ' ' * (w - pad - text.length);
+    return '║$left$text$right║';
   }
 
   /// The port the server is bound to, or null if not running.
