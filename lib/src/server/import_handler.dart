@@ -18,7 +18,12 @@ import 'server_utils.dart';
 /// final handler = ImportHandler(ctx);
 /// await handler.handleImport(request);
 /// ```
-extension type ImportHandler(ServerContext _ctx) implements Object {
+final class ImportHandler {
+  /// Creates an [ImportHandler] with the given [ServerContext].
+  ImportHandler(this._ctx);
+
+  final ServerContext _ctx;
+
   /// Handles POST /api/import: imports CSV, JSON, or SQL data.
   Future<void> handleImport(HttpRequest request) async {
     final res = request.response;
