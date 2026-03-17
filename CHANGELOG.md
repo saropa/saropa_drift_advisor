@@ -15,7 +15,9 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [Unreleased]
+## [2.1.0]
+
+Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable. Search now scrolls to matches and lets you step through them with Next/Previous.
 
 ### Added
 
@@ -25,15 +27,6 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 - **Example app: multi-table schema and full feature demo (BUG-021)** — example uses 5 tables (users, posts, comments, tags, post_tags) with foreign keys for ER diagram and FK navigation demos; `writeQuery` configured for Import; opt-in auth token (`_kExampleAuthToken`); startup via `startDriftViewer()` with callback-style alternative in comments; seed data with dates, nulls (draft posts), and varied types
 - **CSV column mapping in Import (Web UI)** — when importing CSV, the UI shows a mapping step: each CSV header can be mapped to a table column or skipped. Headers no longer need to match table column names exactly. Optional `columnMapping` in POST /api/import (object: CSV header → table column); duplicate table columns resolve with last mapping wins (BUG-007 item 1)
 - **Server-detection notification actions** — when a Drift debug server is detected, the notification now offers **Open URL** (opens the server in the default browser), **Copy URL** (copies the URL to the clipboard), and **Dismiss**
-
----
-
-## [2.1.0]
-
-Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable. Search now scrolls to matches and lets you step through them with Next/Previous.
-
-### Added
-
 - **REST API reference** (`doc/API.md`) — formal specification for all ~30 endpoints with request/response JSON schemas, HTTP status codes, query parameter documentation, authentication details, and error format reference; contract test assertions in Dart integration tests and TypeScript type tests catch API drift between server and extension
 - **Connection health banner** — fixed-position "Connection lost — reconnecting..." banner with dismiss button when the server becomes unreachable; slides down with a smooth CSS transition; auto-recovers via `/api/health` heartbeat with exponential backoff (1 s → 30 s max)
 - **Offline control disabling** — 17 server-dependent buttons are visually dimmed (`opacity: 0.4`, `pointer-events: none`) while disconnected; re-enabled automatically on reconnection
@@ -55,10 +48,12 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 - **Keyboard shortcuts** — Enter/Shift+Enter for next/prev match in search input, Ctrl+G/Shift+Ctrl+G globally, Ctrl+F to focus search, Escape to clear
 - **Active match highlight** — distinct orange highlight with outline distinguishes the current match from passive highlights (supports both light and dark themes)
 - **Collapsed section expansion** — navigating to a match inside a collapsed section automatically expands it
+- **Saved and shareable analysis results (BUG-014)** — Index suggestions, database size analytics, query performance, and data health (anomaly) sections now offer **Save result** (stores in localStorage with timestamp), **Export as JSON** (download for sharing), **History** dropdown (past runs), and **Compare** (before/after modal with two runs side-by-side). Results persist across refresh and can be compared over time.
 
 ### Tests
 
 - **Handler unit tests** — dedicated test files for `IndexAnalyzer`, `AnomalyDetector`, `PerformanceHandler`, `SchemaHandler`, `CompareHandler`, `SnapshotHandler`, `TableHandler`, and `GenerationHandler`; covers edge cases, error paths, boundary conditions, and business logic not exercised by the existing integration tests (BUG-017)
+- **Stress and performance tests (BUG-018)** — `test/stress_performance_test.dart`: change detection with 100+ tables (single UNION ALL query), query timing ring buffer under concurrent insertions and eviction, snapshot capture with many tables/rows (30×200 and 50×100), anomaly detection completion within timeout on wide tables (25 tables × 20 columns)
 
 ### Fixed
 
@@ -348,12 +343,6 @@ Android emulator users get automatic port forwarding when debugging, so the exte
 ### Changed
 
 - **Disconnected welcome view** — Troubleshooting now includes Android emulator: explains that the extension will try to forward the port automatically when debugging, and offers the Forward Port (Android Emulator) action and the manual `adb forward` command. Corrected server setup wording to `startDriftViewer()` / `DriftDebugServer.start()`.
-
----
-
-## [1.0.4]
-
-No user-visible changes; changelog order corrected.
 
 ### Fixed
 
