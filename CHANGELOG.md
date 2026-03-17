@@ -21,9 +21,11 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 
 ### Added
 
-- **Connection health banner** — fixed-position "Connection lost — reconnecting..." banner with dismiss button when the server becomes unreachable; auto-recovers via heartbeat with exponential backoff
-- **Offline control disabling** — server-dependent buttons are visually dimmed and non-interactive while disconnected
-- **Keep-alive** — periodic lightweight health check when polling is toggled OFF, so disconnection is still detected
+- **Connection health banner** — fixed-position "Connection lost — reconnecting..." banner with dismiss button when the server becomes unreachable; slides down with a smooth CSS transition; auto-recovers via `/api/health` heartbeat with exponential backoff (1 s → 30 s max)
+- **Offline control disabling** — 17 server-dependent buttons are visually dimmed (`opacity: 0.4`, `pointer-events: none`) while disconnected; re-enabled automatically on reconnection
+- **Reconnecting pulse animation** — live indicator pulses during reconnection to convey ongoing retry activity
+- **Keep-alive health check** — periodic lightweight `/api/health` ping (every 15 s) when polling is toggled OFF, so disconnection is still detected
+- **Server restart detection** — generation going backwards triggers a console log and full data refresh
 - **Session expiry countdown** — info bar displays remaining time, switching to yellow under 10 minutes
 - **Extend session** button in the info bar resets the timer by another hour (POST `/api/session/{id}/extend`)
 - **Expiry warning banner** — yellow banner appears below the info bar when under 10 minutes remain
@@ -38,6 +40,7 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 ### Fixed
 
 - **Accessibility: color-only severity indicators** — index suggestion priorities (`HIGH`/`MEDIUM`/`LOW`) and performance query durations now show `[!!]`/`[!]`/`[✓]` icon prefixes alongside color, matching the anomaly detection pattern (WCAG 2.1 1.4.1)
+- **Stale search match guard** — navigating to a match inside a collapsed section now rebuilds the match list if the expand causes a re-render, preventing scroll-to-nothing
 
 ---
 

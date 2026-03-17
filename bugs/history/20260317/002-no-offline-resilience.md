@@ -11,8 +11,10 @@ Full connection health system implemented in `lib/src/server/html_content.dart`:
 3. **Heartbeat** — after consecutive poll failures, switches to lightweight `/api/health` pings with exponential backoff (1s → 30s max)
 4. **Keep-alive** — periodic health check when polling is OFF to detect disconnection
 5. **Controls disabled** — server-dependent buttons get `offline-disabled` class (opacity + pointer-events:none)
-6. **Live indicator** — shows "Disconnected" or "Reconnecting..." in red when connection is lost
+6. **Live indicator** — shows "Disconnected" or "Reconnecting..." in red when connection is lost; pulse animation during reconnection
 7. **Auto-recovery** — heartbeat detects server return, resumes normal polling
+8. **Server restart detection** — generation going backwards triggers console log and full data refresh
+9. **Slide-down transition** — banner and body padding animate smoothly via CSS transitions
 
 ## Files Changed
 
