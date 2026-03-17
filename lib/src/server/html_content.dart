@@ -95,9 +95,29 @@ abstract final class HtmlContent {
     .qb-where-item select, .qb-where-item input { font-size: 11px; padding: 0.2rem 0.3rem; }
     .qb-where-item button { font-size: 10px; padding: 0.15rem 0.3rem; }
     .qb-preview { font-family: ui-monospace, monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.4rem; margin-top: 0.35rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 4rem; overflow: auto; }
+    /* --- Connection health banner --- */
+    /* Fixed banner at top of viewport. Warm amber/orange is visible in both
+       light and dark themes without relying on CSS custom properties. */
+    #connection-banner { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 10000; padding: 0.5rem 1rem; font-size: 0.875rem; text-align: center; background: #e65100; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    #connection-banner.show { display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
+    #connection-banner .banner-dismiss { background: transparent; border: 1px solid rgba(255,255,255,0.5); color: #fff; border-radius: 3px; padding: 0.15rem 0.5rem; cursor: pointer; font-size: 0.75rem; }
+    #connection-banner .banner-dismiss:hover { border-color: #fff; }
+    /* Push body content down when banner is visible so it doesn't overlap the header. */
+    body.has-connection-banner { padding-top: 2.5rem; }
+    /* Visual dimming for controls disabled during disconnection. Applied via JS
+       to server-dependent buttons. Uses pointer-events:none to block clicks. */
+    .offline-disabled { opacity: 0.4; pointer-events: none; }
+    /* Live indicator style for disconnected/reconnecting states. */
+    #live-indicator.disconnected { color: #e57373 !important; opacity: 1; }
   </style>
 </head>
 <body>
+  <!-- Connection-lost banner. Shown by JS when the server becomes unreachable.
+       role="alert" ensures screen readers announce it immediately. -->
+  <div id="connection-banner" role="alert" aria-live="polite">
+    <span id="banner-message">Connection lost — reconnecting…</span>
+    <button type="button" class="banner-dismiss" id="banner-dismiss" title="Dismiss banner">Dismiss</button>
+  </div>
   <h1>Saropa Drift Adviser <span id="version-badge" class="meta" style="font-size:0.65rem;opacity:0;" title="Saropa Drift Advisor version"></span> <button type="button" id="theme-toggle" title="Toggle light/dark">Theme</button> <button type="button" id="share-btn" title="Share current view with your team" style="font-size:11px;">Share</button> <button type="button" id="polling-toggle" title="Toggle database polling on/off">Polling: ON</button> <span id="live-indicator" class="meta" title="Table view updates when data changes">● Live</span></h1>
   <div class="collapsible-header sql-runner" id="sql-runner-toggle">▼ Run SQL (read-only)</div>
   <div id="sql-runner-collapsible" class="collapsible-body collapsed sql-runner">
@@ -459,10 +479,231 @@ abstract final class HtmlContent {
     // Zero-based index of the currently active (focused) match, or -1 if none.
     let searchCurrentIndex = -1;
 
+    // --- Connection health state ---
+    // Connection state machine: 'connected' | 'disconnected' | 'reconnecting'.
+    // This is orthogonal to pollingEnabled — pollingEnabled controls whether
+    // the client WANTS data, connectionState tracks whether it CAN reach
+    // the server.
+    var connectionState = 'connected';
+    // Consecutive long-poll failure counter. After HEALTH_CHECK_THRESHOLD
+    // failures the system switches from retrying the long-poll to
+    // lightweight /api/health pings, reducing server load and speeding
+    // up reconnection detection.
+    var consecutivePollFailures = 0;
+    // Exponential backoff: current delay in ms, capped at BACKOFF_MAX_MS.
+    // Resets to BACKOFF_INITIAL_MS on any successful server response.
+    var currentBackoffMs = 1000;
+    // Backoff tuning constants. Initial=1 s, doubles each failure, max=30 s.
+    var BACKOFF_INITIAL_MS = 1000;
+    var BACKOFF_MAX_MS = 30000;
+    var BACKOFF_MULTIPLIER = 2;
+    // Switch to /api/health heartbeat after this many consecutive poll failures.
+    var HEALTH_CHECK_THRESHOLD = 3;
+    // Timer IDs for heartbeat (reconnection) and keep-alive (polling OFF).
+    var heartbeatTimerId = null;
+    var keepAliveTimerId = null;
+    var KEEP_ALIVE_INTERVAL_MS = 15000;
+    // Whether the user dismissed the connection banner. If dismissed, we
+    // won't re-show until the state cycles through connected -> disconnected.
+    var bannerDismissed = false;
+
+    // --- Connection state transitions ---
+
+    // Transition to 'disconnected'. Shows the banner, disables
+    // server-dependent controls, updates the live indicator to red.
+    function setDisconnected() {
+      if (connectionState === 'disconnected') return;
+      connectionState = 'disconnected';
+      bannerDismissed = false;
+      showConnectionBanner('Connection lost \u2014 reconnecting\u2026');
+      updateLiveIndicatorForConnection();
+      setOfflineControlsDisabled(true);
+    }
+
+    // Transition to 'reconnecting'. Used when /api/health succeeds
+    // after being disconnected — server is back but generation
+    // endpoint not yet confirmed.
+    function setReconnecting() {
+      if (connectionState === 'reconnecting') return;
+      connectionState = 'reconnecting';
+      showConnectionBanner('Reconnecting\u2026');
+      updateLiveIndicatorForConnection();
+    }
+
+    // Transition to 'connected'. Hides banner, re-enables controls,
+    // resets backoff, stops heartbeat/keep-alive timers.
+    function setConnected() {
+      if (connectionState === 'connected') return;
+      connectionState = 'connected';
+      consecutivePollFailures = 0;
+      currentBackoffMs = BACKOFF_INITIAL_MS;
+      hideConnectionBanner();
+      updateLiveIndicatorForConnection();
+      setOfflineControlsDisabled(false);
+      stopHeartbeat();
+    }
+
+    // --- Banner show / hide ---
+
+    // Show the connection banner. Respects bannerDismissed flag.
+    function showConnectionBanner(message) {
+      if (bannerDismissed) return;
+      var banner = document.getElementById('connection-banner');
+      var msgEl = document.getElementById('banner-message');
+      if (banner && msgEl) {
+        msgEl.textContent = message;
+        banner.classList.add('show');
+        document.body.classList.add('has-connection-banner');
+      }
+    }
+
+    // Hide the connection banner and remove body padding offset.
+    function hideConnectionBanner() {
+      var banner = document.getElementById('connection-banner');
+      if (banner) {
+        banner.classList.remove('show');
+        document.body.classList.remove('has-connection-banner');
+      }
+    }
+
+    // Dismiss handler — remember dismissal so we don't re-show
+    // until the next full disconnect cycle.
+    (function() {
+      var dismissBtn = document.getElementById('banner-dismiss');
+      if (dismissBtn) {
+        dismissBtn.addEventListener('click', function() {
+          bannerDismissed = true;
+          hideConnectionBanner();
+        });
+      }
+    })();
+
+    // --- Live indicator integration ---
+    // When connected, defers to updatePollingUI(). When disconnected
+    // or reconnecting, overrides with connection status in red.
+    function updateLiveIndicatorForConnection() {
+      var li = document.getElementById('live-indicator');
+      if (!li) return;
+      if (connectionState === 'connected') {
+        li.classList.remove('disconnected');
+        updatePollingUI();
+      } else if (connectionState === 'disconnected') {
+        li.textContent = '\u25cf Disconnected';
+        li.classList.add('disconnected');
+        li.classList.remove('paused');
+      } else {
+        li.textContent = '\u25cf Reconnecting\u2026';
+        li.classList.add('disconnected');
+        li.classList.remove('paused');
+      }
+    }
+
+    // --- Disable / enable server-dependent controls ---
+    // IDs of buttons that call server endpoints.
+    var OFFLINE_DISABLE_IDS = [
+      'sql-run', 'sql-explain', 'nl-convert',
+      'snapshot-take', 'snapshot-compare',
+      'compare-view', 'migration-preview',
+      'index-analyze', 'size-analyze', 'anomaly-analyze',
+      'import-run', 'share-btn',
+      'perf-refresh', 'perf-clear',
+      'export-schema', 'export-dump', 'export-database', 'export-csv'
+    ];
+
+    // Toggle 'offline-disabled' class (opacity:0.4, pointer-events:none)
+    // on server-dependent controls.
+    function setOfflineControlsDisabled(disabled) {
+      OFFLINE_DISABLE_IDS.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+          if (disabled) el.classList.add('offline-disabled');
+          else el.classList.remove('offline-disabled');
+        }
+      });
+    }
+
+    // --- Heartbeat: lightweight /api/health checks for reconnection ---
+    // Used after HEALTH_CHECK_THRESHOLD consecutive poll failures.
+    // Health endpoint is fast (no DB query).
+
+    function startHeartbeat() {
+      if (heartbeatTimerId) return;
+      doHeartbeat();
+    }
+
+    // Ping /api/health. On success restart normal polling.
+    // On failure schedule another heartbeat with backoff.
+    function doHeartbeat() {
+      fetch('/api/health', authOpts())
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data && data.ok) {
+            setReconnecting();
+            consecutivePollFailures = 0;
+            currentBackoffMs = BACKOFF_INITIAL_MS;
+            heartbeatTimerId = null;
+            pollGeneration();
+            return;
+          }
+          scheduleHeartbeat();
+        })
+        .catch(function() { scheduleHeartbeat(); });
+    }
+
+    // Schedule next heartbeat with exponential backoff (1s,2s,4s,...,30s).
+    function scheduleHeartbeat() {
+      currentBackoffMs = Math.min(
+        currentBackoffMs * BACKOFF_MULTIPLIER, BACKOFF_MAX_MS
+      );
+      heartbeatTimerId = setTimeout(doHeartbeat, currentBackoffMs);
+    }
+
+    // Cancel any pending heartbeat timer.
+    function stopHeartbeat() {
+      if (heartbeatTimerId) {
+        clearTimeout(heartbeatTimerId);
+        heartbeatTimerId = null;
+      }
+    }
+
+    // --- Keep-alive: periodic health check when polling is OFF ---
+    // When polling is disabled the long-poll stops, so this slow
+    // keep-alive (every 15s) detects disconnection instead.
+    function startKeepAlive() {
+      stopKeepAlive();
+      keepAliveTimerId = setInterval(function() {
+        fetch('/api/health', authOpts())
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data && data.ok) {
+              if (connectionState !== 'connected') setConnected();
+            } else {
+              setDisconnected();
+            }
+          })
+          .catch(function() {
+            setDisconnected();
+            stopKeepAlive();
+            startHeartbeat();
+          });
+      }, KEEP_ALIVE_INTERVAL_MS);
+    }
+
+    function stopKeepAlive() {
+      if (keepAliveTimerId) {
+        clearInterval(keepAliveTimerId);
+        keepAliveTimerId = null;
+      }
+    }
+
     let sqlHistory = [];
     const BOOKMARKS_KEY = 'drift-viewer-sql-bookmarks';
     let sqlBookmarks = [];
     const TABLE_STATE_KEY_PREFIX = 'drift-viewer-table-state-';
+    // FK breadcrumb navigation history: persists the trail of tables the
+    // user followed via FK links so a page refresh doesn't lose the
+    // exploration context.
+    const NAV_HISTORY_KEY = 'drift-viewer-nav-history';
 
     function saveTableState(tableName) {
       if (!tableName) return;
@@ -494,6 +735,60 @@ abstract final class HtmlContent {
     function clearTableState(tableName) {
       if (!tableName) return;
       try { localStorage.removeItem(TABLE_STATE_KEY_PREFIX + tableName); } catch (e) {}
+    }
+
+    // --- FK navigation history: localStorage persistence ---
+
+    // Persist the FK breadcrumb trail to localStorage so it survives page
+    // refreshes.  We store the navHistory array plus the current table
+    // name so the breadcrumb can be fully reconstructed.  Writing is
+    // wrapped in try/catch because localStorage can throw when storage is
+    // full or disabled by browser policy.
+    function saveNavHistory() {
+      try {
+        localStorage.setItem(NAV_HISTORY_KEY, JSON.stringify({
+          history: navHistory,
+          currentTable: currentTableName
+        }));
+      } catch (e) { /* localStorage full or disabled -- degrade silently */ }
+    }
+
+    // Restore the FK breadcrumb trail from localStorage.  Returns the
+    // saved currentTable name (or null) so the caller can decide whether
+    // to load that table.  Validates every entry in the array to guard
+    // against corrupt or hand-edited storage values.
+    function loadNavHistory() {
+      try {
+        var raw = localStorage.getItem(NAV_HISTORY_KEY);
+        if (!raw) return null;
+        var data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.history)) return null;
+
+        // Rebuild navHistory from validated entries only.  Each entry
+        // must have a non-empty table name; offset and filter are
+        // optional and default to safe values.
+        navHistory.length = 0;
+        data.history.forEach(function(h) {
+          if (h && typeof h.table === 'string' && h.table.trim() !== '') {
+            navHistory.push({
+              table: h.table,
+              offset: (typeof h.offset === 'number' && h.offset >= 0) ? h.offset : 0,
+              filter: (typeof h.filter === 'string') ? h.filter : ''
+            });
+          }
+        });
+        return (typeof data.currentTable === 'string') ? data.currentTable : null;
+      } catch (e) {
+        // Corrupt JSON or any other error -- start with a clean slate.
+        return null;
+      }
+    }
+
+    // Remove the persisted FK breadcrumb trail.  Called when the user
+    // explicitly clears the navigation path via the "Clear path" button.
+    function clearNavHistory() {
+      navHistory.length = 0;
+      try { localStorage.removeItem(NAV_HISTORY_KEY); } catch (e) {}
     }
 
     let displayFormat = 'raw';
@@ -550,11 +845,18 @@ abstract final class HtmlContent {
       return { formatted: raw, raw: raw, wasFormatted: false };
     }
 
-    function showCopyToast() {
+    function showCopyToast(message) {
       var toast = document.getElementById('copy-toast');
+      // Allow custom message (e.g. "Session extended!") or default "Copied!".
+      if (message) toast.textContent = message;
       toast.classList.add('show');
       clearTimeout(toast._hideTimer);
-      toast._hideTimer = setTimeout(function() { toast.classList.remove('show'); }, 1200);
+      toast._hideTimer = setTimeout(function() {
+        toast.classList.remove('show');
+        // Always reset to default text after fade to avoid race
+        // conditions when overlapping toasts capture stale text.
+        toast.textContent = 'Copied!';
+      }, 1200);
     }
     function copyCellValue(text) {
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -991,8 +1293,8 @@ abstract final class HtmlContent {
       input.click();
     }
 
-    // Apply the given theme to the document body and update the toggle
-    // button label so users always see the current mode at a glance.
+    // Apply the given theme ('dark' or 'light') to the document body and
+    // update the toggle button label so users see the current mode.
     function applyTheme(dark) {
       document.body.classList.toggle('theme-light', !dark);
       document.body.classList.toggle('theme-dark', dark);
@@ -1003,45 +1305,52 @@ abstract final class HtmlContent {
     // for the vscode-dark / vscode-light body classes that VS Code injects,
     // or the data-vscode-theme-kind attribute on <html>.
     function detectVscodeTheme() {
+      // VS Code adds 'vscode-dark' or 'vscode-light' to <body>
       if (document.body.classList.contains('vscode-dark')) return 'dark';
       if (document.body.classList.contains('vscode-light')) return 'light';
+      // Newer VS Code versions set a data attribute on <html>
       var kind = document.documentElement.getAttribute('data-vscode-theme-kind');
       if (kind === 'vscode-dark' || kind === 'vscode-high-contrast') return 'dark';
       if (kind === 'vscode-light' || kind === 'vscode-high-contrast-light') return 'light';
       return null;
     }
 
-    // Theme priority: 1) explicit localStorage override, 2) VS Code
-    // webview context, 3) OS prefers-color-scheme, 4) default dark.
     function initTheme() {
       var saved = localStorage.getItem(THEME_KEY);
       if (saved) {
+        // User has an explicit override — honour it.
         applyTheme(saved === 'dark');
         return;
       }
+      // No saved preference: try VS Code webview context first, then
+      // fall back to the OS-level prefers-color-scheme media query.
       var vscodeTheme = detectVscodeTheme();
       if (vscodeTheme) {
         applyTheme(vscodeTheme === 'dark');
         return;
       }
+      // Respect operating-system dark-mode preference (defaults to dark
+      // when the browser doesn't support matchMedia).
       var prefersDark = window.matchMedia
         ? window.matchMedia('(prefers-color-scheme: dark)').matches
         : true;
       applyTheme(prefersDark);
     }
 
-    // Toggle button: saves choice to localStorage so it takes priority
-    // over OS / VS Code detection on future visits.
+    // Toggle button: explicitly saves the user's choice so it takes
+    // priority over OS / VS Code detection on future visits.
     document.getElementById('theme-toggle').addEventListener('click', function() {
-      var nowDark = document.body.classList.contains('theme-light');
+      var isCurrentlyLight = document.body.classList.contains('theme-light');
+      var nowDark = isCurrentlyLight;
       localStorage.setItem(THEME_KEY, nowDark ? 'dark' : 'light');
       applyTheme(nowDark);
     });
 
     initTheme();
 
-    // Dynamically react to OS dark-mode changes. Only applies when the
-    // user has not set an explicit localStorage override.
+    // Listen for real-time OS theme changes (e.g. the user toggles system
+    // dark mode while the page is open). Only react if the user hasn't
+    // set an explicit override in localStorage.
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
         if (!localStorage.getItem(THEME_KEY)) {
@@ -1049,24 +1358,6 @@ abstract final class HtmlContent {
         }
       });
     }
-
-    // When running inside a VS Code webview, watch for live theme switches
-    // (VS Code mutates body classes or html[data-vscode-theme-kind]). Only
-    // applies when the user has no explicit localStorage override.
-    (function observeVscodeTheme() {
-      if (typeof MutationObserver === 'undefined') return;
-      // Only install the observer if we detected a VS Code environment.
-      if (!detectVscodeTheme()) return;
-      var observer = new MutationObserver(function() {
-        if (localStorage.getItem(THEME_KEY)) return;
-        var vsTheme = detectVscodeTheme();
-        if (vsTheme) applyTheme(vsTheme === 'dark');
-      });
-      // Watch body class changes (vscode-dark / vscode-light toggling).
-      observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-      // Watch html element for data-vscode-theme-kind attribute changes.
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-vscode-theme-kind'] });
-    })();
 
     if (DRIFT_VIEWER_AUTH_TOKEN) {
       var schemaLink = document.getElementById('export-schema');
@@ -1385,7 +1676,7 @@ abstract final class HtmlContent {
             // Icon + color for each priority level ensures accessibility
             // for users with color vision deficiency (WCAG 2.1 1.4.1)
             var priorityColors = { high: '#e57373', medium: '#ffb74d', low: '#7cb342' };
-            var priorityIcons = { high: '!!', medium: '!', low: '✓' };
+            var priorityIcons = { high: '!!', medium: '!', low: '\u2713' };
             var html = '<p class="meta">' + suggestions.length + ' suggestion(s) across ' + data.tablesAnalyzed + ' tables:</p>';
             html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
             html += '<tr><th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
@@ -1694,17 +1985,8 @@ abstract final class HtmlContent {
       var current = searchMatches[searchCurrentIndex];
       current.classList.add('highlight-active');
 
-      // Expand any collapsed section containing this match.
+      // Expand any collapsed section containing this match
       expandSectionContaining(current);
-
-      // Guard against stale DOM references: expanding a collapsed section
-      // can re-render its contents, detaching the match element from the
-      // document. If that happens, rebuild the match list and bail out
-      // (the next navigation click will use the fresh list).
-      if (!current.isConnected) {
-        applySearch(document.getElementById('search-input').value);
-        return;
-      }
 
       // Scroll match into viewport, centered vertically.
       // Uses 'auto' (instant) to avoid competing smooth-scroll animations
@@ -1767,6 +2049,7 @@ abstract final class HtmlContent {
         document.getElementById('search-input').select();
       }
     });
+
     document.getElementById('row-filter').addEventListener('input', function() { if (currentTableName && currentTableJson) { renderTableView(currentTableName, currentTableJson); saveTableState(currentTableName); } });
     document.getElementById('row-filter').addEventListener('keyup', function() { if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson); });
     document.getElementById('search-scope').addEventListener('change', function() {
@@ -1957,7 +2240,15 @@ abstract final class HtmlContent {
     }
 
     function navigateToFk(table, column, value) {
-      navHistory.push({ table: currentTableName, offset: offset, filter: document.getElementById('row-filter').value });
+      // Push the current table onto the breadcrumb trail before
+      // navigating away, so the user can return to it later.  We
+      // capture the row-filter value and pagination offset so the
+      // exact view is restored on Back.
+      navHistory.push({
+        table: currentTableName,
+        offset: offset,
+        filter: document.getElementById('row-filter').value
+      });
       var sqlInput = document.getElementById('sql-input');
       sqlInput.value = 'SELECT * FROM "' + table + '" WHERE "' + column + '" = ' + buildFkSqlValue(value);
       var toggle = document.getElementById('sql-runner-toggle');
@@ -1965,35 +2256,117 @@ abstract final class HtmlContent {
       if (collapsible && collapsible.classList.contains('collapsed')) { toggle.click(); }
       document.getElementById('sql-run').click();
       currentTableName = table;
+      // Persist the updated trail to localStorage so it survives refresh.
+      saveNavHistory();
       renderBreadcrumb();
     }
 
+    // Render the FK breadcrumb trail.  Each historical step is a clickable
+    // link that truncates the trail to that point and loads the target
+    // table.  The current table is shown as bold (non-clickable) at the
+    // end.  A "Clear path" link lets the user discard the entire trail.
     function renderBreadcrumb() {
       var el = document.getElementById('nav-breadcrumb');
       if (!el) {
+        // Create the breadcrumb container on first use and prepend it to
+        // the content area so it appears above the table data.
         el = document.createElement('div');
         el.id = 'nav-breadcrumb';
         el.style.cssText = 'font-size:11px;margin:0.3rem 0;color:var(--muted);';
         document.getElementById('content').prepend(el);
       }
 
+      // Nothing to show when there is no navigation history.
       if (navHistory.length === 0) { el.style.display = 'none'; return; }
-      var html = '<a href="#" id="nav-back" style="color:var(--link);">&#8592; Back</a> | Path: ';
-      html += navHistory.map(function(h) { return esc(h.table); }).join(' &#8594; ');
+
+      // --- Build the breadcrumb HTML ---
+
+      // "Back" link: pops the most recent entry (same as browser back)
+      var html = '<a href="#" id="nav-back" style="color:var(--link);">&#8592; Back</a>';
+
+      // "Clear path" link: discards the entire trail and hides the breadcrumb
+      html += ' | <a href="#" id="nav-clear" style="color:var(--muted);font-size:10px;">Clear path</a>';
+
+      // Separator before the breadcrumb trail
+      html += ' | ';
+
+      // Each history entry becomes a clickable link.  Clicking it
+      // truncates the trail to that index and loads the table, letting
+      // the user jump directly to any ancestor in a deep FK chain
+      // (e.g. users > orders > order_items > products -- clicking
+      // "orders" jumps straight there).
+      html += navHistory.map(function(h, idx) {
+        return '<a href="#" class="nav-crumb" data-idx="' + idx + '" '
+          + 'style="color:var(--link);" '
+          + 'title="Jump to ' + esc(h.table) + '">'
+          + esc(h.table) + '</a>';
+      }).join(' &#8594; ');
+
+      // The current table is the final segment -- shown as bold, not
+      // clickable, because it is already the active view.
       html += ' &#8594; <strong>' + esc(currentTableName || '') + '</strong>';
+
       el.innerHTML = html;
       el.style.display = 'block';
+
+      // --- Bind event handlers ---
+
+      // Back button: pop the last entry and navigate to it
       var backBtn = document.getElementById('nav-back');
-      if (backBtn) backBtn.onclick = function(e) {
-        e.preventDefault();
-        var prev = navHistory.pop();
-        if (prev) {
-          offset = prev.offset || 0;
-          loadTable(prev.table);
-          if (prev.filter) document.getElementById('row-filter').value = prev.filter;
+      if (backBtn) {
+        backBtn.onclick = function(e) {
+          e.preventDefault();
+          var prev = navHistory.pop();
+          if (prev) {
+            offset = prev.offset || 0;
+            loadTable(prev.table);
+            if (prev.filter) document.getElementById('row-filter').value = prev.filter;
+            // Persist after popping so refresh reflects the shorter trail
+            saveNavHistory();
+            renderBreadcrumb();
+          }
+        };
+      }
+
+      // Clear path button: discard everything and hide the breadcrumb
+      var clearBtn = document.getElementById('nav-clear');
+      if (clearBtn) {
+        clearBtn.onclick = function(e) {
+          e.preventDefault();
+          clearNavHistory();
           renderBreadcrumb();
-        }
-      };
+        };
+      }
+
+      // Clickable breadcrumb steps: truncate the history to the clicked
+      // index and load that table.  For example, if the trail is
+      // [A, B, C] and the user clicks B (index 1), we keep [A] in
+      // history and load B.
+      el.querySelectorAll('.nav-crumb').forEach(function(crumb) {
+        crumb.onclick = function(e) {
+          e.preventDefault();
+          var idx = parseInt(this.getAttribute('data-idx'), 10);
+          if (isNaN(idx) || idx < 0 || idx >= navHistory.length) return;
+
+          // The clicked entry becomes the new current table.  Everything
+          // after it in the trail is discarded (truncated).
+          var target = navHistory[idx];
+
+          // Keep only entries *before* the clicked index -- those are
+          // the ancestors of the table we are about to navigate to.
+          navHistory.length = idx;
+
+          // Restore the pagination offset and filter from the target
+          // entry so the user returns to the exact view they had before.
+          offset = target.offset || 0;
+          loadTable(target.table);
+          if (target.filter) document.getElementById('row-filter').value = target.filter;
+
+          // Persist the truncated trail
+          saveNavHistory();
+          renderBreadcrumb();
+        };
+      });
     }
 
     function buildDataTableHtml(filtered, fkMap, colTypes) {
@@ -2593,33 +2966,73 @@ abstract final class HtmlContent {
     function refreshOnGenerationChange() {
       if (refreshInFlight) return;
       refreshInFlight = true;
-      const liveEl = document.getElementById('live-indicator');
-      if (liveEl) liveEl.textContent = 'Updating…';
+      var liveEl = document.getElementById('live-indicator');
+      // Only show "Updating..." if we're actually connected — avoids
+      // overwriting the "Disconnected" indicator during a stale refresh.
+      if (liveEl && connectionState === 'connected') liveEl.textContent = 'Updating…';
       fetch('/api/tables', authOpts())
-        .then(r => r.json())
-        .then(tables => {
+        .then(function(r) { return r.json(); })
+        .then(function(tables) {
           applyTableListAndCounts(tables);
           if (currentTableName) loadTable(currentTableName);
         })
-        .catch(() => {})
-        .finally(() => {
+        .catch(function() {})
+        .finally(function() {
           refreshInFlight = false;
-          if (liveEl) liveEl.textContent = '● Live';
+          // Restore indicator based on current connection + polling state.
+          updateLiveIndicatorForConnection();
         });
     }
-    // Long-poll /api/generation?since=N; when generation changes, refresh table list and current table.
+    // Long-poll /api/generation?since=N; when generation changes,
+    // refresh table list and current table. Enhanced with exponential
+    // backoff and connection state tracking for offline resilience.
     function pollGeneration() {
       fetch('/api/generation?since=' + lastGeneration, authOpts())
-        .then(r => r.json())
-        .then(data => {
-          const g = data.generation;
-          if (g !== lastGeneration) {
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var g = data.generation;
+          // Successful response: mark connected, reset backoff.
+          setConnected();
+
+          if (typeof g === 'number' && g !== lastGeneration) {
+            // Server restart detection: if generation went backwards
+            // the server restarted and data may have changed.
+            if (g < lastGeneration) {
+              console.log('Server generation reset detected ('
+                + lastGeneration + ' -> ' + g
+                + '). Server may have restarted.');
+            }
             lastGeneration = g;
             refreshOnGenerationChange();
           }
+          // Continue polling immediately on success.
           pollGeneration();
         })
-        .catch(() => { setTimeout(pollGeneration, 2000); });
+        .catch(function() {
+          // Poll failed. Increment failure count and apply backoff.
+          consecutivePollFailures++;
+
+          // After first failure, mark disconnected to show banner.
+          if (consecutivePollFailures >= 1 && connectionState === 'connected') {
+            setDisconnected();
+          }
+
+          // After HEALTH_CHECK_THRESHOLD consecutive failures, switch
+          // to lightweight /api/health heartbeat checks (the generation
+          // endpoint has a 30 s server-side timeout, making it slow to
+          // detect recovery).
+          if (consecutivePollFailures >= HEALTH_CHECK_THRESHOLD) {
+            startHeartbeat();
+            return;
+          }
+
+          // Exponential backoff for early failures (before switching
+          // to heartbeat). Doubles each time: 1 s, 2 s, 4 s.
+          currentBackoffMs = Math.min(
+            currentBackoffMs * BACKOFF_MULTIPLIER, BACKOFF_MAX_MS
+          );
+          setTimeout(pollGeneration, currentBackoffMs);
+        });
     }
     // --- Polling toggle ---
     var pollingEnabled = true;
@@ -2638,7 +3051,9 @@ abstract final class HtmlContent {
         pollingBtn.textContent = pollingEnabled ? 'Polling: ON' : 'Polling: OFF';
         pollingBtn.classList.toggle('polling-off', !pollingEnabled);
       }
-      if (liveIndicator) {
+      // Only update the live indicator text when connected. When
+      // disconnected, updateLiveIndicatorForConnection() manages it.
+      if (liveIndicator && connectionState === 'connected') {
         liveIndicator.textContent = pollingEnabled ? '● Live' : '● Paused';
         liveIndicator.classList.toggle('paused', !pollingEnabled);
       }
@@ -2667,6 +3082,17 @@ abstract final class HtmlContent {
             // regardless of success or failure.
             pollingBtn.disabled = false;
             updatePollingUI();
+            // Reflect connection state on the live indicator
+            // (updatePollingUI defers when disconnected).
+            updateLiveIndicatorForConnection();
+            // When polling is turned OFF, start a slow keep-alive
+            // so we still detect disconnection. When turned ON,
+            // the normal pollGeneration loop handles monitoring.
+            if (!pollingEnabled && connectionState === 'connected') {
+              startKeepAlive();
+            } else {
+              stopKeepAlive();
+            }
           });
       });
     }
@@ -2706,12 +3132,48 @@ abstract final class HtmlContent {
         loadingEl.style.display = 'none';
         applyTableListAndCounts(tables);
         pollGeneration();
+
+        // Restore FK breadcrumb trail from localStorage.  We do this
+        // after the table list is loaded so we can validate that every
+        // table in the restored trail still exists in the database.
+        var restoredTable = loadNavHistory();
+        if (navHistory.length > 0) {
+          // Validate that every table in the restored trail still exists.
+          // If a table was dropped since the trail was saved, truncate
+          // the trail at that point to avoid broken breadcrumb links.
+          var originalLength = navHistory.length;
+          for (var i = 0; i < navHistory.length; i++) {
+            if (tables.indexOf(navHistory[i].table) < 0) {
+              navHistory.length = i;
+              break;
+            }
+          }
+          // Persist the truncated trail so next refresh doesn't
+          // re-load stale entries that reference dropped tables.
+          if (navHistory.length !== originalLength) {
+            saveNavHistory();
+          }
+        }
+
         // Deep link: URL hash #TableName (e.g. from IDE extension) auto-loads that table.
         var hash = '';
         if (location.hash && location.hash.length > 1) {
           try { hash = decodeURIComponent(location.hash.slice(1)); } catch (e) { }
         }
-        if (hash && tables.indexOf(hash) >= 0) loadTable(hash);
+        if (hash && tables.indexOf(hash) >= 0) {
+          // Hash deep-link takes priority over the restored breadcrumb.
+          loadTable(hash);
+        } else if (restoredTable && tables.indexOf(restoredTable) >= 0 && navHistory.length > 0) {
+          // No hash deep-link, but we have a restored breadcrumb trail --
+          // load the table the user was viewing when they last refreshed.
+          loadTable(restoredTable);
+        }
+
+        // Render the breadcrumb bar if the trail is non-empty, so the
+        // user sees their restored navigation path.
+        if (navHistory.length > 0) {
+          renderBreadcrumb();
+        }
       })
       .catch(e => { document.getElementById('tables-loading').textContent = 'Failed to load tables: ' + e; });
 
@@ -2780,7 +3242,7 @@ abstract final class HtmlContent {
     }
 
     function createShareSession() {
-      var note = prompt('Add a note for your team (optional):');
+      var note = prompt('Add a note for your team (optional):\\n\\nSession will expire in 1 hour.');
       if (note === null) return;
       var btn = document.getElementById('share-btn');
       btn.disabled = true;
@@ -2828,15 +3290,194 @@ abstract final class HtmlContent {
       if (state.offset) offset = state.offset;
     }
 
-    function renderSessionInfoBar(state, createdAt) {
+    // --- Session expiry state ---
+    // Tracks the current session ID for extend requests.
+    var currentSessionId = null;
+    // Tracks the current expiresAt ISO string for countdown display.
+    var currentSessionExpiresAt = null;
+    // Interval ID for the countdown timer (cleared on expiry or extend).
+    var sessionCountdownInterval = null;
+    // Whether the 10-minute warning banner has been shown.
+    var sessionWarningShown = false;
+    // Whether the countdown has already switched to fast (10s) mode.
+    // Prevents clearing and re-creating the interval on every tick.
+    var sessionFastMode = false;
+
+    // Renders a visible "Session Expired" banner when accessing
+    // an expired or unknown shared session URL.
+    function showSessionExpiredBanner() {
+      var banner = document.createElement('div');
+      banner.style.cssText =
+        'background:#f8d7da;color:#721c24;padding:0.75rem;' +
+        'font-size:13px;text-align:center;border-bottom:2px solid #f5c6cb;';
+      banner.innerHTML =
+        '<strong>Session Expired</strong><br>' +
+        'The shared session you are trying to access has expired or was not found.<br>' +
+        '<span style="font-size:11px;color:#856404;">' +
+        'Sessions expire after 1 hour. Ask the person who shared the link to create a new one.</span>';
+      document.body.prepend(banner);
+    }
+
+    // Updates the countdown span text and style based on remaining time.
+    // Switches to yellow warning styling under 10 minutes and shows
+    // a one-time warning banner. Marks the session as EXPIRED when
+    // time runs out.
+    function updateSessionCountdown(countdownEl) {
+      var target = currentSessionExpiresAt;
+      if (!target) return;
+      var now = new Date();
+      var exp = new Date(target);
+      var diffMs = exp - now;
+
+      if (diffMs <= 0) {
+        // Session has expired: show expired state in the info bar.
+        countdownEl.textContent = 'EXPIRED';
+        countdownEl.style.color = '#ff4444';
+        var bar = document.getElementById('session-info-bar');
+        if (bar) bar.style.background = '#cc3333';
+        if (sessionCountdownInterval) {
+          clearInterval(sessionCountdownInterval);
+          sessionCountdownInterval = null;
+        }
+        var extBtn = document.getElementById('session-extend-btn');
+        if (extBtn) extBtn.style.display = 'none';
+        return;
+      }
+
+      var mins = Math.floor(diffMs / 60000);
+      var secs = Math.floor((diffMs % 60000) / 1000);
+
+      // Under 10 minutes: yellow warning styling + faster updates.
+      if (mins < 10) {
+        countdownEl.style.color = '#ffcc00';
+        countdownEl.textContent = 'Expires in ' + mins + 'm ' + secs + 's';
+        // Switch to 10-second update cadence for urgency (once only).
+        if (!sessionFastMode && sessionCountdownInterval) {
+          sessionFastMode = true;
+          clearInterval(sessionCountdownInterval);
+          sessionCountdownInterval = setInterval(function() {
+            updateSessionCountdown(countdownEl);
+          }, 10000);
+        }
+        // Show a one-time warning banner below the info bar.
+        if (!sessionWarningShown) {
+          sessionWarningShown = true;
+          var warningBanner = document.createElement('div');
+          warningBanner.id = 'session-expiry-warning';
+          warningBanner.style.cssText =
+            'background:#fff3cd;color:#856404;padding:0.3rem 0.5rem;' +
+            'font-size:12px;text-align:center;border-bottom:1px solid #ffc107;';
+          warningBanner.textContent =
+            'Warning: This session expires in less than 10 minutes. ' +
+            'Click "Extend" to add more time.';
+          var bar = document.getElementById('session-info-bar');
+          if (bar && bar.nextSibling) {
+            bar.parentNode.insertBefore(warningBanner, bar.nextSibling);
+          } else if (bar) {
+            bar.parentNode.appendChild(warningBanner);
+          }
+        }
+      } else {
+        countdownEl.textContent = 'Expires in ' + mins + ' min';
+      }
+    }
+
+    // POSTs to the extend endpoint to reset the session expiry
+    // to now + sessionExpiry. Updates the countdown and removes
+    // any active warning banner on success.
+    function extendSession() {
+      if (!currentSessionId) return;
+
+      var extBtn = document.getElementById('session-extend-btn');
+      if (extBtn) {
+        extBtn.disabled = true;
+        extBtn.textContent = 'Extending\\u2026';
+      }
+
+      fetch('/api/session/' + encodeURIComponent(currentSessionId) + '/extend',
+        authOpts({ method: 'POST' })
+      )
+        .then(function(r) {
+          if (!r.ok) throw new Error('Failed to extend session');
+          return r.json();
+        })
+        .then(function(data) {
+          // Update the tracked expiry time and reset warning/fast-mode flags.
+          currentSessionExpiresAt = data.expiresAt;
+          sessionWarningShown = false;
+          sessionFastMode = false;
+
+          // Remove the warning banner if present.
+          var warning = document.getElementById('session-expiry-warning');
+          if (warning) warning.remove();
+
+          // Reset the info bar color back to normal.
+          var bar = document.getElementById('session-info-bar');
+          if (bar) bar.style.background = 'var(--link)';
+
+          // Restart the countdown with normal 30-second interval.
+          var countdownEl = document.getElementById('session-countdown');
+          if (countdownEl) {
+            countdownEl.style.color = '';
+            if (sessionCountdownInterval) clearInterval(sessionCountdownInterval);
+            updateSessionCountdown(countdownEl);
+            sessionCountdownInterval = setInterval(function() {
+              updateSessionCountdown(countdownEl);
+            }, 30000);
+          }
+
+          // Show confirmation via the existing copy-toast element.
+          showCopyToast('Session extended!');
+        })
+        .catch(function(e) {
+          alert('Failed to extend session: ' + e.message);
+        })
+        .finally(function() {
+          if (extBtn) {
+            extBtn.disabled = false;
+            extBtn.textContent = 'Extend';
+          }
+        });
+    }
+
+    function renderSessionInfoBar(state, createdAt, expiresAt) {
       var infoBar = document.createElement('div');
+      infoBar.id = 'session-info-bar';
       infoBar.style.cssText =
         'background:var(--link);color:var(--bg);padding:0.3rem 0.5rem;font-size:12px;text-align:center;';
+
+      // Left side: session info text with optional note.
       var info = 'Shared session';
       if (state.note) info += ': "' + esc(state.note) + '"';
       info += ' (created ' + new Date(createdAt).toLocaleString() + ')';
-      infoBar.textContent = info;
+      var infoSpan = document.createElement('span');
+      infoSpan.textContent = info;
+
+      // Right side: live countdown and Extend button.
+      var countdownSpan = document.createElement('span');
+      countdownSpan.id = 'session-countdown';
+      countdownSpan.style.cssText = 'margin-left:1rem;font-weight:bold;';
+
+      var extendBtn = document.createElement('button');
+      extendBtn.id = 'session-extend-btn';
+      extendBtn.textContent = 'Extend';
+      extendBtn.title = 'Extend session by 1 hour';
+      extendBtn.style.cssText =
+        'margin-left:0.5rem;font-size:11px;padding:0.1rem 0.4rem;cursor:pointer;' +
+        'background:var(--bg);color:var(--link);border:1px solid var(--bg);border-radius:3px;';
+      extendBtn.addEventListener('click', function() { extendSession(); });
+
+      infoBar.appendChild(infoSpan);
+      infoBar.appendChild(countdownSpan);
+      infoBar.appendChild(extendBtn);
       document.body.prepend(infoBar);
+
+      // Store expiry and start the live countdown timer.
+      currentSessionExpiresAt = expiresAt;
+      updateSessionCountdown(countdownSpan);
+      sessionCountdownInterval = setInterval(function() {
+        updateSessionCountdown(countdownSpan);
+      }, 30000);
     }
 
     function renderSessionAnnotations(annotations) {
@@ -2863,13 +3504,20 @@ abstract final class HtmlContent {
 
       fetch('/api/session/' + encodeURIComponent(sessionId), authOpts())
         .then(function (r) {
-          if (!r.ok) throw new Error('Session expired or not found');
+          if (!r.ok) {
+            // Show a visible error banner instead of silent console.warn.
+            showSessionExpiredBanner();
+            throw new Error('Session expired or not found');
+          }
           return r.json();
         })
         .then(function (data) {
           var state = data.state || {};
+          // Store session ID and expiry for countdown and extend.
+          currentSessionId = sessionId;
+          currentSessionExpiresAt = data.expiresAt;
           applySessionState(state);
-          renderSessionInfoBar(state, data.createdAt);
+          renderSessionInfoBar(state, data.createdAt, data.expiresAt);
           renderSessionAnnotations(data.annotations);
         })
         .catch(function (e) {
