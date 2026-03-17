@@ -140,7 +140,7 @@ Select any schema change from the timeline and instantly generate the reverse mi
 
 ### Changed
 
-- **Dart server banner uses stdout** — The startup banner now writes directly to `stdout` instead of `ctx.log()` → `dart:developer.log()`, which attached expandable stack traces to every line in the debug console. Now displays as clean `I/flutter` lines matching Isar Inspector's banner style.
+- **Dart server banner uses print()** — The startup banner now uses `print()` instead of `ctx.log()` → `dart:developer.log()`, which attached expandable stack traces to every line in the debug console. Displays as clean `I/flutter` lines matching Isar Inspector's banner style. (`stdout.writeln()` was tried first but is invisible on Android because Flutter only intercepts `print()`/Zone output.)
 
 ---
 
