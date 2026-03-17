@@ -1,0 +1,212 @@
+/*
+ * Drift Advisor — Enhanced Styles
+ * ================================
+ * Loaded from jsDelivr CDN, version-pinned to each release tag.
+ * Falls back gracefully to inline styles if this file cannot be fetched.
+ *
+ * Contract: uses the same CSS custom properties defined inline in
+ * html_content.dart (--bg, --fg, --bg-pre, --border, --muted, --link,
+ * --highlight-bg, --highlight-fg). Both theme-dark and theme-light
+ * work automatically through these variables.
+ *
+ * Design rule: use box-shadow, background-image, and visual-only
+ * properties instead of border, padding, or margin to prevent layout
+ * shifts when this stylesheet loads after the initial render. The
+ * inline CSS in html_content.dart is the layout source of truth.
+ */
+
+/* ── Smooth theme transitions ─────────────────────────────────── */
+
+body {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+
+button {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+              background-color 0.15s ease;
+}
+
+button:hover {
+  border-color: var(--link);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+button:active {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+/* ── Focus rings (accessibility + polish) ─────────────────────── */
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 1px;
+}
+
+/* ── Links ────────────────────────────────────────────────────── */
+
+a {
+  transition: color 0.15s ease;
+}
+
+/* ── Table zebra-striping, hover, and sticky headers ──────────── */
+
+#data-table tbody tr:nth-child(even),
+.sql-result table tbody tr:nth-child(even) {
+  background: rgba(128, 128, 128, 0.05);
+}
+
+#data-table tbody tr:hover,
+.sql-result table tbody tr:hover {
+  background: rgba(128, 128, 128, 0.10);
+}
+
+#data-table th,
+.sql-result table th {
+  background: var(--bg-pre);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* ── Pulsing live indicator ───────────────────────────────────── */
+
+@keyframes drift-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+#live-indicator {
+  animation: drift-pulse 2s ease-in-out infinite;
+}
+
+/* ── Collapsible section headers ──────────────────────────────── */
+/* Uses background-image for the left accent line instead of      */
+/* border-left + padding-left, avoiding layout shifts.            */
+
+.collapsible-header {
+  background-image: linear-gradient(var(--link), var(--link));
+  background-size: 3px 100%;
+  background-repeat: no-repeat;
+  background-position: left center;
+  transition: background-color 0.15s ease;
+}
+
+.collapsible-header:hover {
+  background-color: rgba(128, 128, 128, 0.08);
+}
+
+/* ── Card-style expanded sections ─────────────────────────────── */
+/* Uses box-shadow instead of border to avoid layout shifts and   */
+/* specificity conflicts with .sql-runner margin-bottom.          */
+
+.collapsible-body:not(.collapsed) {
+  box-shadow: 0 0 0 1px var(--border);
+  border-radius: 6px;
+}
+
+/* ── Version badge pill ───────────────────────────────────────── */
+/* The badge starts hidden (opacity:0) and is revealed by JS      */
+/* after the /api/health fetch, so these styles apply before the  */
+/* element is visible — no layout shift risk.                     */
+
+#version-badge {
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.1rem 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Input / select / textarea transitions ────────────────────── */
+
+input,
+select,
+textarea {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--muted);
+}
+
+/* ── Pre blocks ───────────────────────────────────────────────── */
+
+pre {
+  transition: border-color 0.15s ease;
+}
+
+/* ── Copy toast polish ────────────────────────────────────────── */
+
+.copy-toast {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Custom scrollbars (Webkit/Blink) ─────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* ── Chart enhancements ───────────────────────────────────────── */
+
+.chart-bar {
+  transition: fill 0.15s ease;
+}
+
+.chart-dot {
+  transition: r 0.15s ease, fill 0.15s ease;
+}
+
+.chart-slice {
+  transition: opacity 0.15s ease;
+}
+
+/* ── Diff result tables ───────────────────────────────────────── */
+
+.diff-result {
+  border-radius: 6px;
+}
+
+/* ── Query builder sections ───────────────────────────────────── */
+
+.qb-section .qb-header {
+  transition: color 0.15s ease;
+}
+
+.qb-section .qb-body {
+  transition: border-color 0.15s ease;
+}
+
+/* ── Search highlight ─────────────────────────────────────────── */
+
+.highlight {
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(133, 100, 4, 0.2);
+}
+
+body.theme-dark .highlight {
+  box-shadow: 0 0 0 1px rgba(240, 224, 192, 0.15);
+}

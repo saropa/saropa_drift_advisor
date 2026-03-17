@@ -17,7 +17,12 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ## [1.6.0]
 
-VM Service connection now works — Android emulator connects without port forwarding.
+VM Service connection now works — Android emulator connects without port forwarding. Web UI gets a visual polish layer loaded from CDN, and the published package is leaner.
+
+### Added
+
+- **Enhanced CSS loaded from jsDelivr CDN** — The web UI dynamically loads a `drift-enhanced.css` stylesheet from jsDelivr, version-pinned to the exact release tag. Adds polished button hover/active states, focus rings for accessibility, zebra-striped tables with hover highlighting, sticky table headers, a pulsing live indicator, accented collapsible section headers, card-style expanded sections, smooth theme transitions, custom scrollbars, and chart/toast polish. Falls back gracefully to inline styles when offline or CDN-blocked (3-second timeout).
+- **`.pubignore`** — Excludes `web/`, `extension/`, `.github/`, Node tooling, and `.claude/` from the pub.dev package, reducing download size for consumers.
 
 ### Fixed
 
