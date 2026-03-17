@@ -15,6 +15,32 @@ final class SchemaHandler {
 
   final ServerContext _ctx;
 
+  /// Reads primary-key flag from a PRAGMA table_info row (handles pk or PK key).
+  static bool _pragmaPkBool(Map<String, dynamic> r) {
+    final v = r[ServerConstants.jsonKeyPk] ?? r['PK'];
+    return v is int ? v != 0 : false;
+  }
+
+  /// Converts PRAGMA table_info rows to normalized column maps (name, type, pk).
+  /// Handles both lowercase and uppercase keys (NAME/TYPE/PK) from different drivers.
+  static List<Map<String, dynamic>> _pragmaTableInfoToColumns(
+    List<Map<String, dynamic>> infoRows,
+  ) {
+    return infoRows
+        .map((r) => <String, dynamic>{
+              ServerConstants.jsonKeyName:
+                  r[ServerConstants.jsonKeyName]?.toString() ??
+                  r['NAME']?.toString() ??
+                  '',
+              ServerConstants.jsonKeyType:
+                  r[ServerConstants.jsonKeyType]?.toString() ??
+                  r['TYPE']?.toString() ??
+                  '',
+              ServerConstants.jsonKeyPk: _pragmaPkBool(r),
+            })
+        .toList();
+  }
+
   /// Sends schema-only SQL dump (CREATE statements, no data).
   Future<void> sendSchemaDump(
       HttpResponse response, DriftDebugQuery query) async {
@@ -34,19 +60,11 @@ final class SchemaHandler {
     final List<Map<String, dynamic>> foreignKeys = [];
 
     for (final tableName in tableNames) {
-      final List<Map<String, dynamic>> infoRows =
-          await query('PRAGMA table_info("$tableName")');
-      final List<Map<String, dynamic>> columns = infoRows.map((r) {
-        final name = r['name'];
-        final type = r['type'];
-        final pk = r['pk'];
-
-        return <String, dynamic>{
-          ServerConstants.jsonKeyName: name is String? ? name ?? '' : '',
-          ServerConstants.jsonKeyType: type is String? ? type ?? '' : '',
-          ServerConstants.jsonKeyPk: pk is int ? pk != 0 : false,
-        };
-      }).toList();
+      final List<Map<String, dynamic>> infoRows = ServerUtils.normalizeRows(
+        await query('PRAGMA table_info("$tableName")'),
+      );
+      final List<Map<String, dynamic>> columns =
+          _pragmaTableInfoToColumns(infoRows);
 
       tables.add(<String, dynamic>{
         ServerConstants.jsonKeyName: tableName,
@@ -121,17 +139,7 @@ final class SchemaHandler {
       final infoRows = ServerUtils.normalizeRows(
         await query('PRAGMA table_info("$tableName")'),
       );
-      final columns = infoRows
-          .map((r) => <String, dynamic>{
-                ServerConstants.jsonKeyName:
-                    r[ServerConstants.jsonKeyName] ?? '',
-                ServerConstants.jsonKeyType:
-                    r[ServerConstants.jsonKeyType] ?? '',
-                ServerConstants.jsonKeyPk: (r[ServerConstants.jsonKeyPk] is int)
-                    ? r[ServerConstants.jsonKeyPk] != 0
-                    : false,
-              })
-          .toList();
+      final columns = _pragmaTableInfoToColumns(infoRows);
       final countRows = ServerUtils.normalizeRows(
         await query(
           'SELECT COUNT(*) AS '

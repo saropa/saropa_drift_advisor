@@ -17,6 +17,26 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
+## [Unreleased]
+
+### Added
+
+• **Web UI: Index tab auto-analyze** — Opening the Index tab runs index suggestion analysis automatically (no manual Analyze click). Uses the shared `triggerToolButtonIfReady` helper; does not re-trigger if analysis is in progress or server is offline.
+
+• **Web UI: Size tab auto-analyze** — Opening the Size tab runs database size analysis immediately (no manual Analyze click). The existing "Analyzing…" state and results UI apply; does not re-trigger if a run is already in progress or if the server is offline. Implemented via the same shared `triggerToolButtonIfReady` helper used for Index, Size, Perf, and Health tabs.
+
+• **Web UI: Health tab auto-scan** — Opening the Health tab (toolbar or tab) automatically starts the data quality scan ("Scan for anomalies"). No need to click the button; the existing "Scanning…" state and results UI apply. Does not re-trigger if a scan is already in progress or if the server is offline. Matches the pattern used for Index, Size, and Perf tabs.
+
+• **Web UI: toolbar and tab styling** — Tools toolbar buttons (Search, Snapshot, DB diff, Index, Size, Perf, Health, Import, Schema, Diagram, Export) use distinct styling: surface background, subtle shadow, clear hover and focus states. Tab bar is styled as real tabs: wider header area, rounded top corners, active tab visually connected to content via shared border; tab panels have a full border (except top) so content clearly belongs to the selected tab.
+
+• **Web UI: Export as tab** — Export is now a toolbar button that opens a dedicated **Export** tab. The tab contains a short narrative explaining each option (Schema, Full dump, Database, Table CSV) and the same download links; sidebar shows a single line directing users to the Export tab. Export link IDs unchanged so existing JS (dump, database, CSV handlers) continues to work.
+
+### Changed
+
+• **Web UI: sidebar Export section** — Replaced the inline export toolbar in the sidebar with a brief note: "Export schema, dumps, and table data from the **Export** tab (toolbar button above)."
+
+---
+
 ## [2.3.0]
 
 Web UI: PII masking, richer charts and exports, query-builder AND/OR, page-based pagination, and larger touch targets for accessibility.
@@ -31,17 +51,21 @@ Web UI: PII masking, richer charts and exports, query-builder AND/OR, page-based
 
 ### Changed
 
+• **Web UI: Perf tab auto-update and button label** — Opening the Perf tab now triggers an automatic update of performance data (same pattern as Size and Health). The action button label is renamed from "Refresh" to "Update" with tooltip "Update performance data"; loading state still shows "Loading…".
+
 • **Web UI: full page-based pagination (BUG-005)** — Table pagination is now page-based: First | Prev | Page [dropdown] of N | Next | Last, with a "Showing X–Y of Z rows" status. Rows per page is a clear selector; raw offset and Apply are under an "Advanced" toggle. First/Last and the page dropdown are disabled when not applicable; "(past end of results)" still appears when offset is beyond total.
 
 • **Web UI: small interactive targets (BUG-010)** — Cell copy buttons, chart labels, and other small controls used 10px font and sub-24px tap targets, hurting usability on high-DPI and touch devices. All readable text now uses design token `--text-min-readable` (12px); interactive targets are at least 24×24px (pointer) and 44×44px on touch (WCAG 2.5.8). Copy button has a hover scale effect; breadcrumb and FK label use CSS classes instead of inline font-size.
 
 ### Fixed
 
+• **Web UI: Diagram tab table cards empty** — Schema diagram now normalizes PRAGMA table_info results and supports both lowercase and uppercase column keys (name/type/pk and NAME/TYPE/PK), so all table cards show column names and types instead of appearing empty on some drivers.
+
 • **CHANGELOG version labeling** — The fix for "command driftViewer.refreshTree not found" [GitHub issue #7], drift_sqlite_async compatibility, Web UI redesign, Web viewer performance, and HTTP schema/diagram when polling off were previously under a duplicate [2.2.0] section. They are now correctly listed under [2.1.1]. Duplicate [2.2.0] block removed; [2.2.0] now contains only 2.2.0 changes.
 
 ---
 
-## [2.2.0]
+## [2.3.0]
 
 ### Fixed
 
