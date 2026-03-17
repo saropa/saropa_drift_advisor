@@ -117,6 +117,38 @@ void main() {
         throwsA(isA<ArgumentError>()),
       );
     });
+
+    test(
+        'start with maxRequestsPerSecond 0 throws ArgumentError',
+        () async {
+      expect(
+        DriftDebugServer.start(
+          query: (_) async => <Map<String, dynamic>>[],
+          enabled: true,
+          port: 0,
+          maxRequestsPerSecond: 0,
+        ),
+        throwsA(isA<ArgumentError>().having(
+          (e) => e.message,
+          'message',
+          contains('maxRequestsPerSecond must be a positive'),
+        )),
+      );
+    });
+
+    test(
+        'start with negative maxRequestsPerSecond throws ArgumentError',
+        () async {
+      expect(
+        DriftDebugServer.start(
+          query: (_) async => <Map<String, dynamic>>[],
+          enabled: true,
+          port: 0,
+          maxRequestsPerSecond: -5,
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
   });
 
   group('defensive behavior: query and edge cases', () {

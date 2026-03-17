@@ -228,4 +228,23 @@ abstract final class ServerConstants {
     r'(created|updated|deleted|date|time|_at)$',
     caseSensitive: false,
   );
+
+  // --- Rate limiting ---
+
+  /// Default per-IP rate limit (requests per second). Applied when
+  /// `maxRequestsPerSecond` is passed to `DriftDebugServer.start()`.
+  static const int defaultMaxRequestsPerSecond = 100;
+
+  /// HTTP header name for the retry-after interval (seconds) in 429
+  /// responses.
+  static const String headerRetryAfter = 'Retry-After';
+
+  /// JSON error message returned in the body of HTTP 429 responses.
+  static const String errorRateLimited =
+      'Rate limit exceeded. Try again shortly.';
+
+  /// When the per-IP rate-limit map grows beyond this many entries,
+  /// stale entries (from IPs not seen in the current one-second
+  /// window) are pruned to prevent unbounded memory growth.
+  static const int rateLimitPruneThreshold = 256;
 }

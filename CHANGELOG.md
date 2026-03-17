@@ -21,6 +21,7 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 
 ### Added
 
+- **REST API reference** (`doc/API.md`) — formal specification for all ~30 endpoints with request/response JSON schemas, HTTP status codes, query parameter documentation, authentication details, and error format reference; contract test assertions in Dart integration tests and TypeScript type tests catch API drift between server and extension
 - **Connection health banner** — fixed-position "Connection lost — reconnecting..." banner with dismiss button when the server becomes unreachable; slides down with a smooth CSS transition; auto-recovers via `/api/health` heartbeat with exponential backoff (1 s → 30 s max)
 - **Offline control disabling** — 17 server-dependent buttons are visually dimmed (`opacity: 0.4`, `pointer-events: none`) while disconnected; re-enabled automatically on reconnection
 - **Reconnecting pulse animation** — live indicator pulses during reconnection to convey ongoing retry activity
@@ -36,6 +37,7 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 - **FK breadcrumb persistence** — navigation history saved to localStorage and restored on page refresh, with validation against the current table list
 - **"Clear path" breadcrumb button** — discards the entire FK navigation trail
 - **OS dark-mode sync** — first visit respects `prefers-color-scheme`; VS Code webview theme auto-detected via body classes and `data-vscode-theme-kind`; real-time updates when OS or VS Code theme changes (MutationObserver for webview, matchMedia listener for OS)
+- **Per-IP rate limiting** — optional `maxRequestsPerSecond` parameter on `DriftDebugServer.start()` enables fixed-window counter rate limiting; returns HTTP 429 with `Retry-After` header when exceeded; `/api/generation` (long-poll) and `/api/health` endpoints are exempt (BUG-023)
 
 ### Fixed
 

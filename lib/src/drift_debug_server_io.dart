@@ -62,6 +62,10 @@ class _DriftDebugServerImpl {
   /// * [onLog] — Optional log callback.
   /// * [onError] — Optional error callback.
   /// * [sessionDuration] — Optional session expiry override (default 1 hour).
+  /// * [maxRequestsPerSecond] — Optional per-IP rate limit. When set,
+  ///   requests exceeding this limit receive HTTP 429 (Too Many Requests)
+  ///   with a `Retry-After: 1` header. The `/api/generation` (long-poll)
+  ///   and `/api/health` endpoints are exempt. Defaults to null (no limit).
   ///
   /// Throws [ArgumentError] for invalid port or partial Basic auth.
   ///
@@ -93,6 +97,7 @@ class _DriftDebugServerImpl {
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
     Duration? sessionDuration,
+    int? maxRequestsPerSecond,
   }) async {
     if (!enabled) {
       return;
@@ -126,6 +131,14 @@ class _DriftDebugServerImpl {
       );
     }
 
+    // Reject non-positive rate limit (null = disabled, which is fine).
+    if (maxRequestsPerSecond != null && maxRequestsPerSecond <= 0) {
+      throw ArgumentError(
+        'maxRequestsPerSecond must be a positive integer, '
+        'got: $maxRequestsPerSecond',
+      );
+    }
+
     // Store SHA256 hash of token only (require_data_encryption).
     final List<int>? tokenHash = (authToken != null && authToken.isNotEmpty)
         ? sha256.convert(utf8.encode(authToken)).bytes
@@ -144,7 +157,11 @@ class _DriftDebugServerImpl {
       writeQuery: writeQuery,
     );
 
-    _router = Router(ctx, _sessionStore);
+    _router = Router(
+      ctx,
+      _sessionStore,
+      maxRequestsPerSecond: maxRequestsPerSecond,
+    );
 
     try {
       final address =
@@ -288,6 +305,11 @@ mixin DriftDebugServer {
     /// Controls how long collaborative shared sessions remain valid
     /// before they expire and are cleaned up.
     Duration? sessionDuration,
+
+    /// Optional per-IP rate limit (requests per second). When set,
+    /// requests exceeding this limit receive HTTP 429. The long-poll
+    /// `/api/generation` and `/api/health` endpoints are exempt.
+    int? maxRequestsPerSecond,
   }) =>
       _instance.start(
         query: query,
@@ -304,6 +326,7 @@ mixin DriftDebugServer {
         onLog: onLog,
         onError: onError,
         sessionDuration: sessionDuration,
+        maxRequestsPerSecond: maxRequestsPerSecond,
       );
 
   /// The port the server is bound to, or null if not running.
