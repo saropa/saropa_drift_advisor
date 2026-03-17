@@ -1,10 +1,42 @@
 // Shared test utilities for Saropa Drift Advisor tests.
 //
-// Provides reusable mock query callbacks and HTTP helper methods
-// to reduce duplication across test files.
+// Provides reusable mock query callbacks, HTTP helper methods,
+// and factory functions to reduce duplication across test files.
 
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:saropa_drift_advisor/src/server/server_context.dart';
+
+/// Creates a minimal [ServerContext] for handler unit tests.
+///
+/// The [query] callback defaults to returning empty results.
+/// Optional overrides for auth, CORS, write, compare, etc.
+ServerContext createTestContext({
+  DriftDebugQuery? query,
+  String? corsOrigin,
+  DriftDebugOnLog? onLog,
+  DriftDebugOnError? onError,
+  List<int>? authTokenHash,
+  String? basicAuthUser,
+  String? basicAuthPassword,
+  DriftDebugQuery? queryCompare,
+  DriftDebugWriteQuery? writeQuery,
+  DriftDebugGetDatabaseBytes? getDatabaseBytes,
+}) {
+  return ServerContext(
+    query: query ?? (_) async => <Map<String, dynamic>>[],
+    corsOrigin: corsOrigin,
+    onLog: onLog,
+    onError: onError,
+    authTokenHash: authTokenHash,
+    basicAuthUser: basicAuthUser,
+    basicAuthPassword: basicAuthPassword,
+    queryCompare: queryCompare,
+    writeQuery: writeQuery,
+    getDatabaseBytes: getDatabaseBytes,
+  );
+}
 
 /// Creates a mock query function that returns canned data
 /// based on pattern matching against the SQL string.
@@ -29,6 +61,10 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
   /// Optional list of indexes for PRAGMA index_list queries.
   /// Each index is {name, unique, origin, partial}.
   Map<String, List<Map<String, dynamic>>>? tableIndexes,
+
+  /// Maps index name → list of column names covered by that index.
+  /// Used for PRAGMA index_info queries (e.g. IndexAnalyzer tests).
+  Map<String, List<String>>? indexInfoColumns,
 }) {
   // Build schema SQL entries from table columns.
   final schemaEntries = <Map<String, dynamic>>[];
@@ -54,6 +90,30 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
       return tableColumns.keys
           .map((name) => <String, dynamic>{'name': name})
           .toList();
+    }
+
+    // Single-table schema lookup (used by migration preview to get
+    // CREATE TABLE statements for individual tables).
+    if (sql.contains('sqlite_master') &&
+        sql.contains("type='table'") &&
+        sql.contains("name='")) {
+      for (final entry in schemaEntries) {
+        final tableName = entry['name'] as String;
+        if (sql.contains("name='$tableName'")) {
+          return [entry];
+        }
+      }
+      return <Map<String, dynamic>>[];
+    }
+
+    // Single-index schema lookup (used by migration preview to get
+    // CREATE INDEX statements for individual indexes).
+    if (sql.contains('sqlite_master') &&
+        sql.contains("type='index'") &&
+        sql.contains("name='")) {
+      // No index SQL in the mock — return empty. Tests that need
+      // this can provide a custom query callback.
+      return <Map<String, dynamic>>[];
     }
 
     // PRAGMA table_info for specific table.
@@ -100,6 +160,29 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
         if (match != null) {
           final tableName = match.group(1)!;
           return tableIndexes[tableName] ?? <Map<String, dynamic>>[];
+        }
+      }
+      return <Map<String, dynamic>>[];
+    }
+
+    // PRAGMA index_info for specific index — returns columns
+    // covered by the named index.
+    if (sql.contains('PRAGMA index_info')) {
+      if (indexInfoColumns != null) {
+        final match =
+            RegExp(r'PRAGMA index_info\("([^"]+)"\)').firstMatch(sql);
+        if (match != null) {
+          final idxName = match.group(1)!;
+          final cols = indexInfoColumns[idxName] ?? [];
+          return cols
+              .asMap()
+              .entries
+              .map((e) => <String, dynamic>{
+                    'seqno': e.key,
+                    'cid': e.key,
+                    'name': e.value,
+                  })
+              .toList();
         }
       }
       return <Map<String, dynamic>>[];
