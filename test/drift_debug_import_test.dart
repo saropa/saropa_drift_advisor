@@ -204,6 +204,65 @@ void main() {
         // The SQL should contain the full unquoted name.
         expect(executedSql[0], contains('Smith, John'));
       });
+
+      test('CSV with columnMapping maps headers to table columns', () async {
+        final executedSql = <String>[];
+
+        // CSV has user_id, full_name but table has id, name.
+        final result = await processor.processImport(
+          format: 'csv',
+          data: 'user_id,full_name\n1,Alice\n2,Bob',
+          table: 'users',
+          writeQuery: (sql) async => executedSql.add(sql),
+          sqlLiteral: testSqlLiteral,
+          csvColumnMapping: {'user_id': 'id', 'full_name': 'name'},
+        );
+
+        expect(result.imported, 2);
+        expect(result.errors, isEmpty);
+        expect(executedSql[0], contains('"id"'));
+        expect(executedSql[0], contains('"name"'));
+        expect(executedSql[0], isNot(contains('user_id')));
+        expect(executedSql[0], contains("'1'"));
+        expect(executedSql[0], contains("'Alice'"));
+      });
+
+      test('CSV columnMapping skips unmapped CSV columns', () async {
+        final executedSql = <String>[];
+
+        final result = await processor.processImport(
+          format: 'csv',
+          data: 'id,name,extra\n1,Alice,skip\n2,Bob,skip',
+          table: 'users',
+          writeQuery: (sql) async => executedSql.add(sql),
+          sqlLiteral: testSqlLiteral,
+          csvColumnMapping: {'id': 'id', 'name': 'name'},
+        );
+
+        expect(result.imported, 2);
+        expect(result.errors, isEmpty);
+        expect(executedSql[0], contains('"id"'));
+        expect(executedSql[0], contains('"name"'));
+        expect(executedSql[0], isNot(contains('extra')));
+      });
+
+      test('CSV columnMapping duplicate table column: last mapping wins', () async {
+        final executedSql = <String>[];
+
+        final result = await processor.processImport(
+          format: 'csv',
+          data: 'a,b\n1,2',
+          table: 't',
+          writeQuery: (sql) async => executedSql.add(sql),
+          sqlLiteral: testSqlLiteral,
+          csvColumnMapping: {'a': 'id', 'b': 'id'},
+        );
+
+        expect(result.imported, 1);
+        expect(result.errors, isEmpty);
+        expect(executedSql[0], contains('"id"'));
+        expect(executedSql[0], contains("'2'")); // b wins
+      });
     });
 
     group('SQL import', () {

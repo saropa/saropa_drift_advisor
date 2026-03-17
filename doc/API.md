@@ -1021,6 +1021,7 @@ Imports data into a table. Requires `writeQuery` to be configured.
 | `format` | string | Yes | Import format: `"csv"`, `"json"`, or `"sql"` |
 | `data` | string | Yes | The data to import (CSV text, JSON array string, or SQL statements) |
 | `table` | string | Yes | Target table name (must exist) |
+| `columnMapping` | object | No | For CSV only: map from CSV header name to table column name (e.g. `{"user_id": "id", "full_name": "name"}`). Unmapped CSV columns are skipped. |
 
 **Response** `200 OK`
 

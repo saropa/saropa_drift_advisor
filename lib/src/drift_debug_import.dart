@@ -32,6 +32,11 @@ final class DriftDebugImportProcessor {
   /// [sqlLiteral] converts a Dart value to a SQL literal
   /// string (for quoting).
   ///
+  /// For CSV, [csvColumnMapping] is optional. When provided, keys are
+  /// CSV header names (source) and values are table column names (target).
+  /// Only mapped columns are inserted; unmapped CSV columns are skipped.
+  /// When null, CSV headers are used as column names (existing behavior).
+  ///
   /// Throws [FormatException] for unsupported formats or
   /// malformed CSV. Per-row failures are collected in
   /// [DriftDebugImportResult.errors].
@@ -44,6 +49,7 @@ final class DriftDebugImportProcessor {
     required String table,
     required Future<void> Function(String sql) writeQuery,
     required String Function(dynamic value) sqlLiteral,
+    Map<String, String>? csvColumnMapping,
   }) async {
     switch (format) {
       case formatJson:
@@ -60,6 +66,7 @@ final class DriftDebugImportProcessor {
           table: table,
           writeQuery: writeQuery,
           sqlLiteral: sqlLiteral,
+          columnMapping: csvColumnMapping,
         );
 
       case formatSql:
@@ -138,6 +145,7 @@ final class DriftDebugImportProcessor {
     required String table,
     required Future<void> Function(String sql) writeQuery,
     required String Function(dynamic value) sqlLiteral,
+    Map<String, String>? columnMapping,
   }) async {
     final lines = parseCsvLines(data);
 
@@ -148,23 +156,53 @@ final class DriftDebugImportProcessor {
     }
 
     final headers = lines[0];
+    final List<String> insertHeaders;
+    final List<int> valueIndices;
+
+    if (columnMapping != null && columnMapping.isNotEmpty) {
+      // Build list of table columns and corresponding CSV column indices.
+      // Only include mappings whose CSV header exists in the file.
+      // If multiple CSV columns map to the same table column, last mapping wins.
+      final tableColToCsvIdx = <String, int>{};
+      for (final entry in columnMapping.entries) {
+        final csvHeader = entry.key;
+        final tableCol = entry.value;
+        if (tableCol.isEmpty) continue;
+        final idx = headers.indexOf(csvHeader);
+        if (idx >= 0) tableColToCsvIdx[tableCol] = idx;
+      }
+      if (tableColToCsvIdx.isEmpty) {
+        throw const FormatException(
+          'Column mapping did not match any CSV headers.',
+        );
+      }
+      insertHeaders = tableColToCsvIdx.keys.toList();
+      valueIndices = tableColToCsvIdx.values.toList();
+    } else {
+      insertHeaders = headers;
+      valueIndices = List.generate(headers.length, (i) => i);
+    }
+
+    final cols = insertHeaders.map(_escapeIdentifier).join(', ');
     int imported = 0;
     final errors = <String>[];
 
     for (int i = 1; i < lines.length; i++) {
       try {
-        final values = lines[i];
+        final rowValues = lines[i];
 
-        if (values.length == headers.length) {
-          final cols = headers.map(_escapeIdentifier).join(', ');
-          final vals = values.map((v) => sqlLiteral(v)).join(', ');
+        if (rowValues.length >= headers.length) {
+          final vals = valueIndices
+              .map((idx) => idx < rowValues.length ? rowValues[idx] : '')
+              .map((v) => sqlLiteral(v))
+              .join(', ');
 
           await writeQuery(
             'INSERT INTO "$table" ($cols) VALUES ($vals)',
           );
           imported++;
         } else {
-          final colCount = values.length;
+          final colCount = rowValues.length;
           final headerCount = headers.length;
 
           errors.add(
