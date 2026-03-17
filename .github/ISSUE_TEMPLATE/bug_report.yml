@@ -1,0 +1,81 @@
+name: Bug Report
+description: Report a bug in Saropa Drift Advisor
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please fill out the sections below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Start the debug server with ...
+        2. Open browser to ...
+        3. Click on ...
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the project is affected?
+      options:
+        - Dart package (lib/)
+        - VS Code extension
+        - Web UI (browser)
+        - Example app
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Please provide version information.
+      placeholder: |
+        - Saropa Drift Advisor version: 1.5.0
+        - Dart SDK version: 3.x.x
+        - Flutter version: 3.x.x
+        - VS Code version (if extension): 1.x.x
+        - OS: Windows 11 / macOS / Linux
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Screenshots
+      description: Paste any relevant log output or screenshots.
+    validations:
+      required: false

@@ -7,6 +7,17 @@ repository: https://github.com/saropa/saropa_drift_advisor
 issue_tracker: https://github.com/saropa/saropa_drift_advisor/issues
 documentation: https://pub.dev/documentation/saropa_drift_advisor/latest/
 
+topics:
+  - drift
+  - sqlite
+  - database
+  - debug
+  - flutter
+
+screenshots:
+  - description: Saropa Drift Advisor banner
+    path: assets/banner_v2.png
+
 environment:
   sdk: ">=3.3.0 <4.0.0"
 
