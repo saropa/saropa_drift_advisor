@@ -79,11 +79,22 @@ export class VmServiceClient {
     this._isolateId = list[0].id;
   }
 
+  /**
+   * Get the list of isolates from the VM Service.
+   * Uses the standard `getVM` method which returns a VM object containing
+   * an `isolates` array of IsolateRef objects (each with `id`, `name`, etc.).
+   * Note: `getIsolates` is NOT a valid VM Service method — only `getVM` works.
+   */
   private async _resolveIsolates(): Promise<{ id: string }[] | undefined> {
-    const result = (await this._request('getIsolates', {})) as {
-      isolates?: { id: string }[];
+    const result = (await this._request('getVM', {})) as {
+      isolates?: { id: string; isSystemIsolate?: boolean }[];
     };
-    return result?.isolates;
+    const all = result?.isolates;
+    if (!all?.length) return all;
+    // Prefer non-system isolates — the main app isolate is where
+    // DriftDebugServer registers its ext.saropa.drift.* extensions.
+    const nonSystem = all.filter((i) => i.isSystemIsolate !== true);
+    return nonSystem.length > 0 ? nonSystem : all;
   }
 
   get connected(): boolean {

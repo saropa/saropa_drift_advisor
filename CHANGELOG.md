@@ -15,6 +15,15 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [1.6.0]
+
+VM Service connection now works — Android emulator connects without port forwarding.
+
+### Fixed
+
+- **VM Service connection never worked** — The extension called `getIsolates` (not a valid Dart VM Service method) instead of `getVM` when resolving isolates, causing every VM Service connection to silently fail and fall back to HTTP. This made Android emulator connections fragile since HTTP requires `adb forward`. With the fix, the extension connects via VM Service (like Isar Inspector), which Flutter auto-forwards — no manual port forwarding needed.
+- **Isolate selection** — When multiple isolates exist (e.g. main + vm-service), the extension now prefers non-system isolates to reliably find the one where `DriftDebugServer` registers its extensions.
+
 ## [1.5.1]
 
 Web UI now shows the server version and has a proper favicon.
