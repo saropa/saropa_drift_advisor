@@ -237,8 +237,7 @@ class _DriftDebugServerImpl {
   /// Whether change detection (row-count fingerprinting)
   /// is currently enabled. Returns null if the server
   /// is not running.
-  bool? get changeDetectionEnabled =>
-      _router?.isChangeDetectionEnabled;
+  bool? get changeDetectionEnabled => _router?.isChangeDetectionEnabled;
 
   /// Enables or disables automatic change detection
   /// at runtime. No-op if the server is not running.
@@ -340,8 +339,7 @@ mixin DriftDebugServer {
   /// the long-poll loop, eliminating console spam from
   /// logStatements. The generation number freezes at
   /// its current value until re-enabled.
-  static bool? get changeDetectionEnabled =>
-      _instance.changeDetectionEnabled;
+  static bool? get changeDetectionEnabled => _instance.changeDetectionEnabled;
 
   /// Enables or disables automatic change detection
   /// at runtime. When [enabled] is false, the

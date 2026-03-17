@@ -37,8 +37,7 @@ final class TableHandler {
     if (!await _ctx.requireKnownTable(
         response: res, queryFn: query, tableName: tableName)) return;
     final dynamic rawInfo = await query('PRAGMA table_info("$tableName")');
-    final List<Map<String, dynamic>> rows =
-        ServerUtils.normalizeRows(rawInfo);
+    final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(rawInfo);
     final List<String> columns = rows
         .map((r) => r[ServerConstants.jsonKeyName] as String? ?? '')
         .where((s) => s.isNotEmpty)
@@ -106,8 +105,7 @@ final class TableHandler {
         response: res, queryFn: query, tableName: tableName)) return;
     final dynamic rawCount =
         await query('SELECT COUNT(*) AS c FROM "$tableName"');
-    final List<Map<String, dynamic>> rows =
-        ServerUtils.normalizeRows(rawCount);
+    final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(rawCount);
     final int count = ServerUtils.extractCountFromRows(rows);
     _ctx.setJsonHeaders(res);
     res.write(jsonEncode(<String, int>{ServerConstants.jsonKeyCount: count}));

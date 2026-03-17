@@ -212,8 +212,7 @@ final class VmServiceBridge {
     // avoids the handler overhead entirely.
     if (!router.isChangeDetectionEnabled) {
       final body = <String, dynamic>{
-        ServerConstants.jsonKeyGeneration:
-            router.currentGeneration,
+        ServerConstants.jsonKeyGeneration: router.currentGeneration,
         ServerConstants.jsonKeyChangeDetection: false,
       };
 
@@ -355,8 +354,7 @@ final class VmServiceBridge {
 
   /// Handles ext.saropa.drift.getChangeDetection.
   /// Returns {"changeDetection": true|false}.
-  Future<developer.ServiceExtensionResponse>
-      _handleGetChangeDetection(
+  Future<developer.ServiceExtensionResponse> _handleGetChangeDetection(
     String method,
     Map<String, String> params,
   ) async {
@@ -369,8 +367,7 @@ final class VmServiceBridge {
     }
     return developer.ServiceExtensionResponse.result(
       jsonEncode(<String, dynamic>{
-        ServerConstants.jsonKeyChangeDetection:
-            router.isChangeDetectionEnabled,
+        ServerConstants.jsonKeyChangeDetection: router.isChangeDetectionEnabled,
       }),
     );
   }
@@ -378,8 +375,7 @@ final class VmServiceBridge {
   /// Handles ext.saropa.drift.setChangeDetection.
   /// Expects param "enabled" = "true" or "false".
   /// Returns {"changeDetection": true|false}.
-  Future<developer.ServiceExtensionResponse>
-      _handleSetChangeDetection(
+  Future<developer.ServiceExtensionResponse> _handleSetChangeDetection(
     String method,
     Map<String, String> params,
   ) async {
@@ -393,15 +389,13 @@ final class VmServiceBridge {
 
     // VM service params are always strings; parse
     // "true"/"false" to bool.
-    final enabledStr =
-        params[ServerConstants.jsonKeyEnabled];
+    final enabledStr = params[ServerConstants.jsonKeyEnabled];
 
-    if (enabledStr == null ||
-        (enabledStr != 'true' && enabledStr != 'false')) {
+    if (enabledStr == null || (enabledStr != 'true' && enabledStr != 'false')) {
       return developer.ServiceExtensionResponse.error(
         developer.ServiceExtensionResponse.extensionErrorMin,
         'Missing or invalid "${ServerConstants.jsonKeyEnabled}" '
-            'parameter (expected "true" or "false")',
+        'parameter (expected "true" or "false")',
       );
     }
 
