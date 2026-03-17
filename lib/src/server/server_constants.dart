@@ -156,22 +156,20 @@ abstract final class ServerConstants {
   static const String sqlTableNames =
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
 
-  /// Banner box interior width (between the left and right ║).
-  static const int bannerInnerWidth = 62;
+  /// Banner box interior width (between the left and right │).
+  static const int bannerInnerWidth = 50;
 
-  /// Banner (no_magic_string).
+  /// Rounded-corner banner lines (no_magic_string).
   static const String bannerTop =
-      '╔══════════════════════════════════════════════════════════════╗';
-  static const String bannerTitle =
-      '║                      DRIFT DEBUG SERVER                      ║';
+      '╭──────────────────────────────────────────────────╮';
   static const String bannerDivider =
-      '╟──────────────────────────────────────────────────────────────╢';
-  static const String bannerOpen =
-      '║     Open in browser to view SQLite/Drift data as JSON:       ║';
+      '├──────────────────────────────────────────────────┤';
   static const String bannerEmpty =
-      '║                                                              ║';
+      '│                                                  │';
   static const String bannerBottom =
-      '╚══════════════════════════════════════════════════════════════╝';
+      '╰──────────────────────────────────────────────────╯';
+  static const String bannerDescription =
+      'Open in browser to view your database:';
   static const String jsonKeyCounts = 'counts';
   static const String jsonKeyType = 'type';
   static const String jsonKeyPk = 'pk';
