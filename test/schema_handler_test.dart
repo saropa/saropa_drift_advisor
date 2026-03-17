@@ -110,8 +110,7 @@ void main() {
         expect(data['foreignKeys'] as List, isEmpty);
       });
 
-      test('FK query error is swallowed and tables still returned',
-          () async {
+      test('FK query error is swallowed and tables still returned', () async {
         final ctx = createTestContext();
         final handler = SchemaHandler(ctx);
 
@@ -279,7 +278,8 @@ void main() {
         // Exact INSERT line shape: INSERT INTO "table" ("col1", "col2") VALUES (...).
         expect(
           sql,
-          matches(RegExp(r'INSERT INTO "items"\s+\("id",\s*"title"\)\s*VALUES')),
+          matches(
+              RegExp(r'INSERT INTO "items"\s+\("id",\s*"title"\)\s*VALUES')),
         );
       });
 

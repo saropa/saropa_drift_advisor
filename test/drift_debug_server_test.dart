@@ -118,9 +118,7 @@ void main() {
       );
     });
 
-    test(
-        'start with maxRequestsPerSecond 0 throws ArgumentError',
-        () async {
+    test('start with maxRequestsPerSecond 0 throws ArgumentError', () async {
       expect(
         DriftDebugServer.start(
           query: (_) async => <Map<String, dynamic>>[],
@@ -136,8 +134,7 @@ void main() {
       );
     });
 
-    test(
-        'start with negative maxRequestsPerSecond throws ArgumentError',
+    test('start with negative maxRequestsPerSecond throws ArgumentError',
         () async {
       expect(
         DriftDebugServer.start(

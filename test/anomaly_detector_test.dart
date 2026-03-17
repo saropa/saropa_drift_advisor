@@ -188,9 +188,8 @@ void main() {
 
         final anomalies =
             (result['anomalies'] as List).cast<Map<String, dynamic>>();
-        final emptyAnomaly = anomalies
-            .where((a) => a['type'] == 'empty_strings')
-            .firstOrNull;
+        final emptyAnomaly =
+            anomalies.where((a) => a['type'] == 'empty_strings').firstOrNull;
         expect(emptyAnomaly, isNotNull);
         expect(emptyAnomaly!['severity'], 'warning');
         expect(emptyAnomaly['count'], 4);
@@ -353,9 +352,8 @@ void main() {
 
         final anomalies =
             (result['anomalies'] as List).cast<Map<String, dynamic>>();
-        final orphan = anomalies
-            .where((a) => a['type'] == 'orphaned_fk')
-            .firstOrNull;
+        final orphan =
+            anomalies.where((a) => a['type'] == 'orphaned_fk').firstOrNull;
         expect(orphan, isNotNull);
         expect(orphan!['severity'], 'error');
         expect(orphan['count'], 2);
@@ -438,9 +436,8 @@ void main() {
 
         final anomalies =
             (result['anomalies'] as List).cast<Map<String, dynamic>>();
-        final dupAnomaly = anomalies
-            .where((a) => a['type'] == 'duplicate_rows')
-            .firstOrNull;
+        final dupAnomaly =
+            anomalies.where((a) => a['type'] == 'duplicate_rows').firstOrNull;
         expect(dupAnomaly, isNotNull);
         expect(dupAnomaly!['severity'], 'warning');
         expect(dupAnomaly['count'], 2);
@@ -625,8 +622,7 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
       if (emptyCounts != null) {
         for (final entry in emptyCounts.entries) {
           final parts = entry.key.split('.');
-          if (sql.contains('"${parts[0]}"') &&
-              sql.contains('"${parts[1]}"')) {
+          if (sql.contains('"${parts[0]}"') && sql.contains('"${parts[1]}"')) {
             return [
               <String, dynamic>{'c': entry.value}
             ];
@@ -665,14 +661,11 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
     }
 
     // AVG/MIN/MAX numeric stats queries.
-    if (sql.contains('AVG(') &&
-        sql.contains('MIN(') &&
-        sql.contains('MAX(')) {
+    if (sql.contains('AVG(') && sql.contains('MIN(') && sql.contains('MAX(')) {
       if (numericStats != null) {
         for (final entry in numericStats.entries) {
           final parts = entry.key.split('.');
-          if (sql.contains('"${parts[0]}"') &&
-              sql.contains('"${parts[1]}"')) {
+          if (sql.contains('"${parts[0]}"') && sql.contains('"${parts[1]}"')) {
             return [entry.value];
           }
         }
