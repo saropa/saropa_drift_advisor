@@ -3,7 +3,7 @@
  */
 
 import * as assert from 'assert';
-import { addPackageToPubspec } from '../workspace-setup/add-package';
+import { addPackageToPubspec, PACKAGE_NAME, PACKAGE_VERSION } from '../workspace-setup/add-package';
 
 describe('addPackageToPubspec', () => {
   it('should return unmodified when package already in dependencies', () => {
@@ -39,7 +39,7 @@ dependencies:
 `;
     const result = addPackageToPubspec(content);
     assert.strictEqual(result.modified, true);
-    assert.ok(result.content.includes('saropa_drift_advisor: ^0.3.0'));
+    assert.ok(result.content.includes(`${PACKAGE_NAME}: ${PACKAGE_VERSION}`));
     assert.ok(result.content.includes('flutter:'));
     const lineAfterDeps = result.content.split('\n').findIndex((l) => l.trim().startsWith('saropa_drift_advisor'));
     const flutterLine = result.content.split('\n').findIndex((l) => l.trim().startsWith('flutter:'));

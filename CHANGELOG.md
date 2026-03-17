@@ -15,7 +15,7 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [Unreleased]
+## [1.6.1]
 
 Project gets contributor-facing documentation, GitHub templates, pub.dev discoverability fields, and comprehensive Dart test coverage.
 
@@ -74,7 +74,7 @@ Web UI now shows the server version and has a proper favicon.
 
 ---
 
-## [1.5.0]
+## [1.6.1]
 
 The extension couldn't connect to running servers and now has an About button for easy access to release notes.
 
