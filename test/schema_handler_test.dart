@@ -110,18 +110,31 @@ void main() {
         expect(data['foreignKeys'] as List, isEmpty);
       });
 
-      test('parses PRAGMA table_info with uppercase NAME/TYPE/PK keys', () async {
+      test('parses PRAGMA table_info with uppercase NAME/TYPE/PK keys',
+          () async {
         // Some drivers return PRAGMA table_info with uppercase column names.
         final ctx = createTestContext();
         final handler = SchemaHandler(ctx);
         final query = (String sql) async {
           if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-            return [<String, dynamic>{'name': 'items'}];
+            return [
+              <String, dynamic>{'name': 'items'}
+            ];
           }
           if (sql.contains('PRAGMA table_info')) {
             return [
-              <String, dynamic>{'cid': 0, 'NAME': 'id', 'TYPE': 'INTEGER', 'PK': 1},
-              <String, dynamic>{'cid': 1, 'NAME': 'label', 'TYPE': 'TEXT', 'PK': 0},
+              <String, dynamic>{
+                'cid': 0,
+                'NAME': 'id',
+                'TYPE': 'INTEGER',
+                'PK': 1
+              },
+              <String, dynamic>{
+                'cid': 1,
+                'NAME': 'label',
+                'TYPE': 'TEXT',
+                'PK': 0
+              },
             ];
           }
           if (sql.contains('PRAGMA foreign_key_list')) {

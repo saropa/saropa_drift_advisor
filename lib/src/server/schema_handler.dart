@@ -30,12 +30,12 @@ final class SchemaHandler {
         .map((r) => <String, dynamic>{
               ServerConstants.jsonKeyName:
                   r[ServerConstants.jsonKeyName]?.toString() ??
-                  r['NAME']?.toString() ??
-                  '',
+                      r['NAME']?.toString() ??
+                      '',
               ServerConstants.jsonKeyType:
                   r[ServerConstants.jsonKeyType]?.toString() ??
-                  r['TYPE']?.toString() ??
-                  '',
+                      r['TYPE']?.toString() ??
+                      '',
               ServerConstants.jsonKeyPk: _pragmaPkBool(r),
             })
         .toList();

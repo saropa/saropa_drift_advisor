@@ -755,9 +755,13 @@ void main() {
           query: (sql) async {
             executedSql.add(sql);
             if (sql.contains("type='table'")) {
-              return [<String, dynamic>{'name': 't1'}];
+              return [
+                <String, dynamic>{'name': 't1'}
+              ];
             }
-            return [<String, dynamic>{'t': 't1', 'c': 1}];
+            return [
+              <String, dynamic>{'t': 't1', 'c': 1}
+            ];
           },
         );
 
