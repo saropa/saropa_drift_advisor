@@ -171,7 +171,8 @@
       anomaly: 'Health',
       import: 'Import',
       schema: 'Schema',
-      diagram: 'Diagram'
+      diagram: 'Diagram',
+      export: 'Export'
     };
 
     var activeTabId = 'tables';
