@@ -1,5 +1,6 @@
 // SQL handler extracted from _DriftDebugServerImpl.
-// Handles POST /api/sql, POST /api/sql/explain, and SQL validation.
+// Handles POST /api/sql and POST /api/sql/explain.
+// Read-only validation lives in sql_validator.dart.
 
 import 'dart:convert';
 import 'dart:io';
@@ -9,6 +10,7 @@ import 'server_constants.dart';
 import 'server_context.dart';
 import 'server_utils.dart';
 import 'server_types.dart';
+import 'sql_validator.dart';
 
 /// Handles SQL execution and explain plan endpoints.
 final class SqlHandler {
@@ -28,7 +30,7 @@ final class SqlHandler {
         ServerConstants.jsonKeyError: ServerConstants.errorMissingSql,
       };
     }
-    if (!isReadOnlySql(sql)) {
+    if (!SqlValidator.isReadOnlySql(sql)) {
       return <String, String>{
         ServerConstants.jsonKeyError: ServerConstants.errorReadOnlyOnly,
       };
@@ -73,7 +75,7 @@ final class SqlHandler {
         ServerConstants.jsonKeyError: ServerConstants.errorMissingSql,
       };
     }
-    if (!isReadOnlySql(sql)) {
+    if (!SqlValidator.isReadOnlySql(sql)) {
       return <String, String>{
         ServerConstants.jsonKeyError: ServerConstants.errorReadOnlyOnly,
       };
@@ -110,73 +112,6 @@ final class SqlHandler {
     }
     res.write(jsonEncode(result));
     await res.close();
-  }
-
-  /// Validates that [sql] is read-only: single statement, SELECT or
-  /// WITH...SELECT only. Rejects INSERT/UPDATE/DELETE and DDL.
-  bool isReadOnlySql(String sql) {
-    final trimmed = sql.trim();
-    if (trimmed.isEmpty) {
-      return false;
-    }
-    final noLineComments = trimmed.replaceAll(RegExp(r'--[^\n]*'), ' ');
-    final noBlockComments =
-        noLineComments.replaceAll(RegExp(r'/\*[\s\S]*?\*/'), ' ');
-    final noSingleQuotes =
-        noBlockComments.replaceAllMapped(RegExp(r"'(?:[^']|'')*'"), (_) => '?');
-    final noStrings =
-        noSingleQuotes.replaceAllMapped(RegExp(r'"(?:[^"]|"")*"'), (_) => '?');
-    final sqlNoStrings = noStrings.trim();
-    final firstSemicolon = sqlNoStrings.indexOf(';');
-    if (firstSemicolon >= 0 &&
-        firstSemicolon + ServerConstants.indexAfterSemicolon <=
-            sqlNoStrings.length &&
-        firstSemicolon <
-            sqlNoStrings.length - ServerConstants.indexAfterSemicolon) {
-      final after = ServerUtils.safeSubstring(sqlNoStrings,
-              start: firstSemicolon + ServerConstants.indexAfterSemicolon)
-          .trim();
-      if (after.isNotEmpty) {
-        return false;
-      }
-    }
-    final withoutTrailingSemicolon = sqlNoStrings.endsWith(';')
-        ? ServerUtils.safeSubstring(sqlNoStrings,
-                start: 0,
-                end: sqlNoStrings.length - ServerConstants.indexAfterSemicolon)
-            .trim()
-        : sqlNoStrings;
-    final upper = withoutTrailingSemicolon.toUpperCase();
-    const selectPrefix = 'SELECT ';
-    const withPrefix = 'WITH ';
-    if (!upper.startsWith(selectPrefix) && !upper.startsWith(withPrefix)) {
-      return false;
-    }
-    const forbidden = <String>{
-      'INSERT',
-      'UPDATE',
-      'DELETE',
-      'REPLACE',
-      'TRUNCATE',
-      'CREATE',
-      'ALTER',
-      'DROP',
-      'ATTACH',
-      'DETACH',
-      'PRAGMA',
-      'VACUUM',
-      'ANALYZE',
-      'REINDEX',
-    };
-    final words = RegExp(r'\b\w+\b');
-    for (final match in words.allMatches(upper)) {
-      final word = match.group(0);
-      if (word != null && forbidden.contains(word)) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   /// Validated POST /api/sql request body. Checks Content-Type then
@@ -244,7 +179,7 @@ final class SqlHandler {
       return null;
     }
     final String sql = bodyObj.sql;
-    if (!isReadOnlySql(sql)) {
+    if (!SqlValidator.isReadOnlySql(sql)) {
       res.statusCode = HttpStatus.badRequest;
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{

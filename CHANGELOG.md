@@ -15,6 +15,47 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [Unreleased]
+
+Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable.
+
+### Added
+
+- **Connection health banner** — fixed-position "Connection lost — reconnecting..." banner with dismiss button when the server becomes unreachable; auto-recovers via heartbeat with exponential backoff
+- **Offline control disabling** — server-dependent buttons are visually dimmed and non-interactive while disconnected
+- **Keep-alive** — periodic lightweight health check when polling is toggled OFF, so disconnection is still detected
+- **Session expiry countdown** — info bar displays remaining time, switching to yellow under 10 minutes
+- **Extend session** button in the info bar resets the timer by another hour (POST `/api/session/{id}/extend`)
+- **Expiry warning banner** — yellow banner appears below the info bar when under 10 minutes remain
+- **Expired session banner** — red banner with clear message when accessing an expired or unknown session URL (replaces silent failure)
+- **Share dialog expiry notice** — prompt now mentions "Session will expire in 1 hour"
+- **Configurable session duration** — new optional `sessionDuration` parameter on `DriftDebugServer.start()` (defaults to 1 hour)
+- **Clickable FK breadcrumb steps** — each table in the navigation trail is now a link; clicking jumps directly to that table instead of one-step-back only
+- **FK breadcrumb persistence** — navigation history saved to localStorage and restored on page refresh, with validation against the current table list
+- **"Clear path" breadcrumb button** — discards the entire FK navigation trail
+- **OS dark-mode sync** — first visit respects `prefers-color-scheme`; VS Code webview theme auto-detected; real-time updates when OS theme changes
+
+### Fixed
+
+- **Accessibility: color-only severity indicators** — index suggestion priorities (`HIGH`/`MEDIUM`/`LOW`) and performance query durations now show `[!!]`/`[!]`/`[✓]` icon prefixes alongside color, matching the anomaly detection pattern (WCAG 2.1 1.4.1)
+
+## [2.1.0]
+
+Search now scrolls to matches and lets you step through them with Next/Previous.
+
+### Added
+
+- **Search result navigation** — auto-scrolls to the first match when typing, shows "X of Y" match counter, and provides Prev/Next buttons to step through results
+- **Keyboard shortcuts** — Enter/Shift+Enter for next/prev match in search input, Ctrl+G/Shift+Ctrl+G globally, Ctrl+F to focus search, Escape to clear
+- **Active match highlight** — distinct orange highlight with outline distinguishes the current match from passive highlights (supports both light and dark themes)
+- **Collapsed section expansion** — navigating to a match inside a collapsed section automatically expands it
+
+### Fixed
+
+- **Stale data table highlights** — clearing the search term now properly removes highlight markup from data table cells (previously they persisted until re-render)
+
+---
+
 ## [2.0.0]
 
 Internal modularization: split the 793-line server_context.dart god object into three focused modules for maintainability.

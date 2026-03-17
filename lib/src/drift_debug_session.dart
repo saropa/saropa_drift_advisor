@@ -1,12 +1,23 @@
 /// In-memory session store for collaborative debug sessions.
 ///
-/// Provides create / get / annotate / cleanup semantics with a configurable
-/// expiry ([sessionExpiry]) and a hard cap on stored sessions ([maxSessions]).
-/// Sessions are keyed by a base-36 timestamp ID and auto-evicted when
-/// expired or when the cap is reached.
+/// Provides create / get / annotate / extend / cleanup semantics with a
+/// configurable expiry ([sessionExpiry]) and a hard cap on stored sessions
+/// ([maxSessions]). Sessions are keyed by a base-36 timestamp ID and
+/// auto-evicted when expired or when the cap is reached.
 final class DriftDebugSessionStore {
-  /// How long a session is valid after creation.
-  static const Duration sessionExpiry = Duration(hours: 1);
+  /// Creates a session store with the given [sessionExpiry] duration.
+  ///
+  /// Defaults to [defaultSessionExpiry] (1 hour) if not provided.
+  DriftDebugSessionStore({Duration? sessionExpiry})
+      : sessionExpiry = sessionExpiry ?? defaultSessionExpiry;
+
+  /// Default session expiry duration when no custom value is provided.
+  static const Duration defaultSessionExpiry = Duration(hours: 1);
+
+  /// How long a session is valid after creation (or extension).
+  ///
+  /// Configurable at construction time; defaults to [defaultSessionExpiry].
+  final Duration sessionExpiry;
 
   /// Maximum number of sessions stored simultaneously.
   static const int maxSessions = 50;
@@ -89,6 +100,28 @@ final class DriftDebugSessionStore {
     cleanExpired();
 
     return _sessions[id];
+  }
+
+  /// Extends the expiry of session [id] by [sessionExpiry] from now.
+  ///
+  /// Returns the new `expiresAt` ISO 8601 string if the session exists
+  /// and was extended, or `null` if the session was not found or already
+  /// expired.
+  String? extend(String id) {
+    cleanExpired();
+
+    final session = _sessions[id];
+    if (session == null) {
+      return null;
+    }
+
+    // Extend from the current moment (not the old expiresAt) so the
+    // user always receives a full-duration extension.
+    final newExpiresAt =
+        DateTime.now().toUtc().add(sessionExpiry).toIso8601String();
+    session[keyExpiresAt] = newExpiresAt;
+
+    return newExpiresAt;
   }
 
   /// Appends an annotation to the session identified by [id].
