@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_utils.dart';
 
 /// Handles table-related API endpoints.
 final class TableHandler {
@@ -19,7 +20,7 @@ final class TableHandler {
       HttpResponse response, DriftDebugQuery query) async {
     final res = response;
     await _ctx.checkDataChange();
-    final List<String> names = await ServerContext.getTableNames(query);
+    final List<String> names = await ServerUtils.getTableNames(query);
     _ctx.setJsonHeaders(res);
     res.write(jsonEncode(names));
     await res.close();
@@ -37,7 +38,7 @@ final class TableHandler {
         response: res, queryFn: query, tableName: tableName)) return;
     final dynamic rawInfo = await query('PRAGMA table_info("$tableName")');
     final List<Map<String, dynamic>> rows =
-        ServerContext.normalizeRows(rawInfo);
+        ServerUtils.normalizeRows(rawInfo);
     final List<String> columns = rows
         .map((r) => r[ServerConstants.jsonKeyName] as String? ?? '')
         .where((s) => s.isNotEmpty)
@@ -53,7 +54,7 @@ final class TableHandler {
     required DriftDebugQuery query,
     required String tableName,
   }) async {
-    final List<Map<String, dynamic>> fkRows = ServerContext.normalizeRows(
+    final List<Map<String, dynamic>> fkRows = ServerUtils.normalizeRows(
       await query('PRAGMA foreign_key_list("$tableName")'),
     );
     return fkRows
@@ -106,8 +107,8 @@ final class TableHandler {
     final dynamic rawCount =
         await query('SELECT COUNT(*) AS c FROM "$tableName"');
     final List<Map<String, dynamic>> rows =
-        ServerContext.normalizeRows(rawCount);
-    final int count = ServerContext.extractCountFromRows(rows);
+        ServerUtils.normalizeRows(rawCount);
+    final int count = ServerUtils.extractCountFromRows(rows);
     _ctx.setJsonHeaders(res);
     res.write(jsonEncode(<String, int>{ServerConstants.jsonKeyCount: count}));
     await res.close();
@@ -126,7 +127,7 @@ final class TableHandler {
         response: res, queryFn: query, tableName: tableName)) return;
     final dynamic raw =
         await query('SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset');
-    final List<Map<String, dynamic>> data = ServerContext.normalizeRows(raw);
+    final List<Map<String, dynamic>> data = ServerUtils.normalizeRows(raw);
     _ctx.setJsonHeaders(res);
     res.write(const JsonEncoder.withIndent('  ').convert(data));
     await res.close();

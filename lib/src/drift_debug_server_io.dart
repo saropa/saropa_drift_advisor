@@ -17,15 +17,9 @@ import 'server/server_constants.dart';
 import 'server/server_context.dart';
 import 'server/vm_service_bridge.dart';
 
-// Public API typedefs are defined in server/server_context.dart
+// Public API typedefs are defined in server/server_typedefs.dart
 // and re-exported here so the barrel export chain is preserved.
-export 'server/server_context.dart'
-    show
-        DriftDebugQuery,
-        DriftDebugOnLog,
-        DriftDebugOnError,
-        DriftDebugGetDatabaseBytes,
-        DriftDebugWriteQuery;
+export 'server/server_typedefs.dart';
 
 /// Internal implementation; state is instance-based to satisfy
 /// avoid_static_state. Database access is via [DriftDebugQuery]
@@ -42,7 +36,10 @@ class _DriftDebugServerImpl {
   VmServiceBridge? _vmBridge;
 
   /// In-memory shared sessions for collaborative debug.
-  final DriftDebugSessionStore _sessionStore = DriftDebugSessionStore();
+  ///
+  /// Constructed in [start] with the configured session duration
+  /// (or default 1 hour if not specified).
+  DriftDebugSessionStore _sessionStore = DriftDebugSessionStore();
 
   /// Starts the debug server if [enabled] is true and [query] is provided.
   ///
@@ -64,6 +61,7 @@ class _DriftDebugServerImpl {
   /// * [writeQuery] — Optional write callback for import endpoint.
   /// * [onLog] — Optional log callback.
   /// * [onError] — Optional error callback.
+  /// * [sessionDuration] — Optional session expiry override (default 1 hour).
   ///
   /// Throws [ArgumentError] for invalid port or partial Basic auth.
   ///
@@ -94,6 +92,7 @@ class _DriftDebugServerImpl {
     DriftDebugWriteQuery? writeQuery,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
+    Duration? sessionDuration,
   }) async {
     if (!enabled) {
       return;
@@ -102,6 +101,10 @@ class _DriftDebugServerImpl {
     if (existing != null) {
       return;
     }
+
+    // Construct session store with the configured duration
+    // (or default 1 hour if not specified).
+    _sessionStore = DriftDebugSessionStore(sessionExpiry: sessionDuration);
 
     // Defensive: reject invalid port and partial Basic auth.
     if (port < ServerConstants.minPort || port > ServerConstants.maxPort) {
@@ -280,6 +283,11 @@ mixin DriftDebugServer {
     DriftDebugWriteQuery? writeQuery,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
+
+    /// Optional session duration override. Defaults to 1 hour.
+    /// Controls how long collaborative shared sessions remain valid
+    /// before they expire and are cleaned up.
+    Duration? sessionDuration,
   }) =>
       _instance.start(
         query: query,
@@ -295,6 +303,7 @@ mixin DriftDebugServer {
         writeQuery: writeQuery,
         onLog: onLog,
         onError: onError,
+        sessionDuration: sessionDuration,
       );
 
   /// The port the server is bound to, or null if not running.

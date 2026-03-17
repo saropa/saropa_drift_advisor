@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_utils.dart';
 import 'server_types.dart';
 
 /// Handles SQL execution and explain plan endpoints.
@@ -34,7 +35,7 @@ final class SqlHandler {
     }
     try {
       final dynamic raw = await query(sql);
-      final List<Map<String, dynamic>> rows = ServerContext.normalizeRows(raw);
+      final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(raw);
       return <String, dynamic>{ServerConstants.jsonKeyRows: rows};
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
@@ -80,7 +81,7 @@ final class SqlHandler {
     try {
       final explainSql = 'EXPLAIN QUERY PLAN $sql';
       final dynamic raw = await query(explainSql);
-      final rows = ServerContext.normalizeRows(raw);
+      final rows = ServerUtils.normalizeRows(raw);
       return <String, dynamic>{
         ServerConstants.jsonKeyRows: rows,
         ServerConstants.jsonKeySql: explainSql,
@@ -132,7 +133,7 @@ final class SqlHandler {
             sqlNoStrings.length &&
         firstSemicolon <
             sqlNoStrings.length - ServerConstants.indexAfterSemicolon) {
-      final after = ServerContext.safeSubstring(sqlNoStrings,
+      final after = ServerUtils.safeSubstring(sqlNoStrings,
               start: firstSemicolon + ServerConstants.indexAfterSemicolon)
           .trim();
       if (after.isNotEmpty) {
@@ -140,7 +141,7 @@ final class SqlHandler {
       }
     }
     final withoutTrailingSemicolon = sqlNoStrings.endsWith(';')
-        ? ServerContext.safeSubstring(sqlNoStrings,
+        ? ServerUtils.safeSubstring(sqlNoStrings,
                 start: 0,
                 end: sqlNoStrings.length - ServerConstants.indexAfterSemicolon)
             .trim()

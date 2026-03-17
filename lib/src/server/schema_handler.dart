@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_utils.dart';
 
 /// Handles schema-related API endpoints.
 final class SchemaHandler {
@@ -18,7 +19,7 @@ final class SchemaHandler {
   Future<void> sendSchemaDump(
       HttpResponse response, DriftDebugQuery query) async {
     final res = response;
-    final String schema = await ServerContext.getSchemaSql(query);
+    final String schema = await ServerUtils.getSchemaSql(query);
 
     res.statusCode = HttpStatus.ok;
     _ctx.setAttachmentHeaders(res, ServerConstants.attachmentSchemaSql);
@@ -28,7 +29,7 @@ final class SchemaHandler {
 
   /// Returns diagram data: tables with columns and foreign keys.
   Future<Map<String, dynamic>> getDiagramData(DriftDebugQuery query) async {
-    final List<String> tableNames = await ServerContext.getTableNames(query);
+    final List<String> tableNames = await ServerUtils.getTableNames(query);
     final List<Map<String, dynamic>> tables = [];
     final List<Map<String, dynamic>> foreignKeys = [];
 
@@ -56,7 +57,7 @@ final class SchemaHandler {
         final dynamic rawFk =
             await query('PRAGMA foreign_key_list("$tableName")');
         final List<Map<String, dynamic>> fkRows =
-            ServerContext.normalizeRows(rawFk);
+            ServerUtils.normalizeRows(rawFk);
 
         for (final r in fkRows) {
           final toTable = r[ServerConstants.jsonKeyTable] as String?;
@@ -113,11 +114,11 @@ final class SchemaHandler {
   Future<List<Map<String, dynamic>>> getSchemaMetadataList(
     DriftDebugQuery query,
   ) async {
-    final tableNames = await ServerContext.getTableNames(query);
+    final tableNames = await ServerUtils.getTableNames(query);
     final tables = <Map<String, dynamic>>[];
 
     for (final tableName in tableNames) {
-      final infoRows = ServerContext.normalizeRows(
+      final infoRows = ServerUtils.normalizeRows(
         await query('PRAGMA table_info("$tableName")'),
       );
       final columns = infoRows
@@ -131,14 +132,14 @@ final class SchemaHandler {
                     : false,
               })
           .toList();
-      final countRows = ServerContext.normalizeRows(
+      final countRows = ServerUtils.normalizeRows(
         await query(
           'SELECT COUNT(*) AS '
           '${ServerConstants.jsonKeyCountColumn} '
           'FROM "$tableName"',
         ),
       );
-      final count = ServerContext.extractCountFromRows(countRows);
+      final count = ServerUtils.extractCountFromRows(countRows);
 
       tables.add(<String, dynamic>{
         ServerConstants.jsonKeyName: tableName,
@@ -171,15 +172,15 @@ final class SchemaHandler {
   /// Builds full dump SQL: schema + INSERT statements for every row.
   Future<String> getFullDumpSql(DriftDebugQuery query) async {
     final buffer = StringBuffer();
-    final schema = await ServerContext.getSchemaSql(query);
+    final schema = await ServerUtils.getSchemaSql(query);
 
     buffer.writeln(schema);
     buffer.writeln('-- Data dump');
-    final tables = await ServerContext.getTableNames(query);
+    final tables = await ServerUtils.getTableNames(query);
 
     for (final table in tables) {
       final dynamic raw = await query('SELECT * FROM "$table"');
-      final List<Map<String, dynamic>> rows = ServerContext.normalizeRows(raw);
+      final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(raw);
 
       if (rows.isNotEmpty) {
         final firstRow = rows.firstOrNull;
@@ -193,7 +194,7 @@ final class SchemaHandler {
             for (final row in rows) {
               final values = keys
                   .map(
-                    (k) => ServerContext.sqlLiteral(row[k]),
+                    (k) => ServerUtils.sqlLiteral(row[k]),
                   )
                   .join(', ');
 

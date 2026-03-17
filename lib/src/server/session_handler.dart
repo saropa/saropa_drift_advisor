@@ -9,6 +9,7 @@ import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
 
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_utils.dart';
 
 /// Handles collaborative session API endpoints.
 final class SessionHandler {
@@ -31,7 +32,7 @@ final class SessionHandler {
       }
 
       final body = utf8.decode(builder.toBytes());
-      final decoded = ServerContext.parseJsonMap(body);
+      final decoded = ServerUtils.parseJsonMap(body);
 
       if (decoded == null) {
         res.statusCode = HttpStatus.badRequest;
@@ -79,6 +80,49 @@ final class SessionHandler {
     await res.close();
   }
 
+  /// POST /api/session/{id}/extend — extend session expiry.
+  ///
+  /// Resets the session's [DriftDebugSessionStore.keyExpiresAt] to
+  /// `now + sessionExpiry`. Returns `{expiresAt}` on success, or 404
+  /// if the session is not found or already expired.
+  Future<void> handleSessionExtend(
+    HttpRequest request,
+    String sessionId,
+  ) async {
+    final res = request.response;
+
+    try {
+      // Drain the request body (may be empty for extend).
+      final builder = BytesBuilder();
+
+      await for (final chunk in request) {
+        builder.add(chunk);
+      }
+
+      final newExpiresAt = _sessionStore.extend(sessionId);
+
+      if (newExpiresAt == null) {
+        res.statusCode = HttpStatus.notFound;
+        _ctx.setJsonHeaders(res);
+        res.write(jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
+        }));
+        await res.close();
+
+        return;
+      }
+
+      _ctx.setJsonHeaders(res);
+      res.write(jsonEncode(<String, String>{
+        DriftDebugSessionStore.keyExpiresAt: newExpiresAt,
+      }));
+      await res.close();
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      await _ctx.sendErrorResponse(res, error);
+    }
+  }
+
   /// POST /api/session/{id}/annotate — add an annotation.
   Future<void> handleSessionAnnotate(
     HttpRequest request,
@@ -93,7 +137,7 @@ final class SessionHandler {
         builder.add(chunk);
       }
 
-      final body = ServerContext.parseJsonMap(utf8.decode(builder.toBytes())) ??
+      final body = ServerUtils.parseJsonMap(utf8.decode(builder.toBytes())) ??
           <String, dynamic>{};
 
       final added = _sessionStore.annotate(

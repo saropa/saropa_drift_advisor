@@ -1,23 +1,8 @@
 // Stub implementation when dart:io is not available (e.g. web). The conditional export in
 // drift_debug_server.dart selects this file on web and drift_debug_server_io.dart on VM.
-// Typedefs are duplicated here so the stub is self-contained and the public API is identical.
+// Typedefs are imported from the shared server_typedefs.dart file.
 
-/// Callback that runs a single SQL query and returns rows as list of maps (column name → value).
-typedef DriftDebugQuery = Future<List<Map<String, dynamic>>> Function(
-    String sql);
-
-/// Optional callback for log messages.
-typedef DriftDebugOnLog = void Function(String message);
-
-/// Optional callback for errors (and optional stack trace).
-typedef DriftDebugOnError = void Function(Object error, StackTrace stack);
-
-/// Optional callback that returns the raw SQLite database file bytes.
-typedef DriftDebugGetDatabaseBytes = Future<List<int>> Function();
-
-/// Optional callback for write queries (INSERT/UPDATE/DELETE).
-/// Debug-only: used exclusively by the import endpoint.
-typedef DriftDebugWriteQuery = Future<void> Function(String sql);
+export 'server/server_typedefs.dart';
 
 /// Unsupported-error message when VM (dart:io) is not available.
 const String _kUnsupportedMessage =
@@ -35,7 +20,7 @@ mixin DriftDebugServer {
   ///
   /// Throws [UnsupportedError] because dart:io is not available on web.
   static Future<void> start({
-    required DriftDebugQuery query,
+    required Future<List<Map<String, dynamic>>> Function(String sql) query,
     bool enabled = true,
     int port = 8642,
     bool loopbackOnly = false,
@@ -43,11 +28,12 @@ mixin DriftDebugServer {
     String? authToken,
     String? basicAuthUser,
     String? basicAuthPassword,
-    DriftDebugGetDatabaseBytes? getDatabaseBytes,
-    DriftDebugQuery? queryCompare,
-    DriftDebugWriteQuery? writeQuery,
-    DriftDebugOnLog? onLog,
-    DriftDebugOnError? onError,
+    Future<List<int>> Function()? getDatabaseBytes,
+    Future<List<Map<String, dynamic>>> Function(String sql)? queryCompare,
+    Future<void> Function(String sql)? writeQuery,
+    void Function(String message)? onLog,
+    void Function(Object error, StackTrace stack)? onError,
+    Duration? sessionDuration,
   }) {
     throw UnsupportedError(_kUnsupportedMessage);
   }

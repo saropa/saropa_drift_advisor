@@ -1,27 +1,34 @@
-// Tests for ServerContext static utility methods: normalizeRows,
-// extractCountFromRows, parseLimit, parseOffset, sqlLiteral,
-// safeSubstring, rowSignature, compositePkKey, parseJsonMap,
-// isTextType, isNumericType, toDouble, sortAnomaliesBySeverity,
-// and parseCsvLines.
+// Tests for ServerUtils static utility methods and
+// ServerContext instance methods.
+//
+// Static methods (normalizeRows, extractCountFromRows,
+// parseLimit, parseOffset, sqlLiteral, safeSubstring,
+// rowSignature, compositePkKey, parseJsonMap, isTextType,
+// isNumericType, toDouble, sortAnomaliesBySeverity,
+// parseCsvLines, getTableNames, getSchemaSql) live in
+// ServerUtils. Instance methods (log, logError,
+// recordTiming, timedQuery, checkDataChange, etc.) live
+// in ServerContext.
 
 import 'package:test/test.dart';
 
 import 'package:saropa_drift_advisor/src/server/server_context.dart';
+import 'package:saropa_drift_advisor/src/server/server_utils.dart';
 
 void main() {
-  group('ServerContext static methods', () {
+  group('ServerUtils static methods', () {
     group('normalizeRows', () {
       test('returns empty list for null', () {
-        expect(ServerContext.normalizeRows(null), isEmpty);
+        expect(ServerUtils.normalizeRows(null), isEmpty);
       });
 
       test('returns empty list for non-List value', () {
-        expect(ServerContext.normalizeRows('not a list'), isEmpty);
-        expect(ServerContext.normalizeRows(42), isEmpty);
+        expect(ServerUtils.normalizeRows('not a list'), isEmpty);
+        expect(ServerUtils.normalizeRows(42), isEmpty);
       });
 
       test('converts List<Map> to List<Map<String, dynamic>>', () {
-        final result = ServerContext.normalizeRows([
+        final result = ServerUtils.normalizeRows([
           <String, dynamic>{'a': 1},
           <String, dynamic>{'b': 2},
         ]);
@@ -31,7 +38,7 @@ void main() {
       });
 
       test('skips non-Map items in list', () {
-        final result = ServerContext.normalizeRows([
+        final result = ServerUtils.normalizeRows([
           <String, dynamic>{'a': 1},
           'not a map',
           42,
@@ -41,14 +48,14 @@ void main() {
       });
 
       test('returns empty list for empty list input', () {
-        expect(ServerContext.normalizeRows(<dynamic>[]), isEmpty);
+        expect(ServerUtils.normalizeRows(<dynamic>[]), isEmpty);
       });
     });
 
     group('extractCountFromRows', () {
       test('extracts integer count from column c', () {
         expect(
-          ServerContext.extractCountFromRows([
+          ServerUtils.extractCountFromRows([
             <String, dynamic>{'c': 42}
           ]),
           42,
@@ -57,14 +64,14 @@ void main() {
 
       test('returns 0 for empty rows', () {
         expect(
-          ServerContext.extractCountFromRows(<Map<String, dynamic>>[]),
+          ServerUtils.extractCountFromRows(<Map<String, dynamic>>[]),
           0,
         );
       });
 
       test('returns 0 when c column is null', () {
         expect(
-          ServerContext.extractCountFromRows([
+          ServerUtils.extractCountFromRows([
             <String, dynamic>{'c': null}
           ]),
           0,
@@ -73,7 +80,7 @@ void main() {
 
       test('converts num to int', () {
         expect(
-          ServerContext.extractCountFromRows([
+          ServerUtils.extractCountFromRows([
             <String, dynamic>{'c': 3.14}
           ]),
           3,
@@ -82,7 +89,7 @@ void main() {
 
       test('returns 0 for non-numeric c value', () {
         expect(
-          ServerContext.extractCountFromRows([
+          ServerUtils.extractCountFromRows([
             <String, dynamic>{'c': 'not a number'}
           ]),
           0,
@@ -92,160 +99,160 @@ void main() {
 
     group('parseLimit', () {
       test('returns default for null', () {
-        expect(ServerContext.parseLimit(null), 200);
+        expect(ServerUtils.parseLimit(null), 200);
       });
 
       test('returns default for non-numeric string', () {
-        expect(ServerContext.parseLimit('abc'), 200);
+        expect(ServerUtils.parseLimit('abc'), 200);
       });
 
       test('returns default for zero', () {
-        expect(ServerContext.parseLimit('0'), 200);
+        expect(ServerUtils.parseLimit('0'), 200);
       });
 
       test('returns default for negative', () {
-        expect(ServerContext.parseLimit('-5'), 200);
+        expect(ServerUtils.parseLimit('-5'), 200);
       });
 
       test('returns parsed value within range', () {
-        expect(ServerContext.parseLimit('50'), 50);
+        expect(ServerUtils.parseLimit('50'), 50);
       });
 
       test('clamps to maxLimit for large values', () {
-        expect(ServerContext.parseLimit('9999'), 1000);
+        expect(ServerUtils.parseLimit('9999'), 1000);
       });
 
       test('returns 1 for value of 1', () {
-        expect(ServerContext.parseLimit('1'), 1);
+        expect(ServerUtils.parseLimit('1'), 1);
       });
     });
 
     group('parseOffset', () {
       test('returns 0 for null', () {
-        expect(ServerContext.parseOffset(null), 0);
+        expect(ServerUtils.parseOffset(null), 0);
       });
 
       test('returns 0 for non-numeric string', () {
-        expect(ServerContext.parseOffset('abc'), 0);
+        expect(ServerUtils.parseOffset('abc'), 0);
       });
 
       test('returns 0 for negative value', () {
-        expect(ServerContext.parseOffset('-1'), 0);
+        expect(ServerUtils.parseOffset('-1'), 0);
       });
 
       test('returns parsed value', () {
-        expect(ServerContext.parseOffset('100'), 100);
+        expect(ServerUtils.parseOffset('100'), 100);
       });
 
       test('caps at maxOffset for very large values', () {
-        expect(ServerContext.parseOffset('999999999'), 2000000);
+        expect(ServerUtils.parseOffset('999999999'), 2000000);
       });
 
       test('returns 0 for zero', () {
-        expect(ServerContext.parseOffset('0'), 0);
+        expect(ServerUtils.parseOffset('0'), 0);
       });
     });
 
     group('sqlLiteral', () {
       test('returns NULL for null', () {
-        expect(ServerContext.sqlLiteral(null), 'NULL');
+        expect(ServerUtils.sqlLiteral(null), 'NULL');
       });
 
       test('returns number string for int', () {
-        expect(ServerContext.sqlLiteral(42), '42');
+        expect(ServerUtils.sqlLiteral(42), '42');
       });
 
       test('returns number string for double', () {
-        expect(ServerContext.sqlLiteral(3.14), '3.14');
+        expect(ServerUtils.sqlLiteral(3.14), '3.14');
       });
 
       test('returns 1 for true', () {
-        expect(ServerContext.sqlLiteral(true), '1');
+        expect(ServerUtils.sqlLiteral(true), '1');
       });
 
       test('returns 0 for false', () {
-        expect(ServerContext.sqlLiteral(false), '0');
+        expect(ServerUtils.sqlLiteral(false), '0');
       });
 
       test('wraps string in single quotes', () {
-        expect(ServerContext.sqlLiteral('hello'), "'hello'");
+        expect(ServerUtils.sqlLiteral('hello'), "'hello'");
       });
 
       test('escapes single quotes in strings', () {
-        expect(ServerContext.sqlLiteral("it's"), "'it''s'");
+        expect(ServerUtils.sqlLiteral("it's"), "'it''s'");
       });
 
       test('escapes backslash in strings', () {
-        expect(ServerContext.sqlLiteral(r'path\to'), r"'path\\to'");
+        expect(ServerUtils.sqlLiteral(r'path\to'), r"'path\\to'");
       });
 
       test('returns hex literal for byte list', () {
-        expect(ServerContext.sqlLiteral(<int>[0xDE, 0xAD]), "X'dead'");
+        expect(ServerUtils.sqlLiteral(<int>[0xDE, 0xAD]), "X'dead'");
       });
 
       test('returns quoted toString for other types', () {
         // An arbitrary object falls through to toString().
-        expect(ServerContext.sqlLiteral(Uri.parse('http://x')), "'http://x'");
+        expect(ServerUtils.sqlLiteral(Uri.parse('http://x')), "'http://x'");
       });
     });
 
     group('safeSubstring', () {
       test('returns substring for valid range', () {
         expect(
-          ServerContext.safeSubstring('hello', start: 1, end: 4),
+          ServerUtils.safeSubstring('hello', start: 1, end: 4),
           'ell',
         );
       });
 
       test('returns from start to end of string when end is null', () {
-        expect(ServerContext.safeSubstring('hello', start: 2), 'llo');
+        expect(ServerUtils.safeSubstring('hello', start: 2), 'llo');
       });
 
       test('returns empty for negative start', () {
-        expect(ServerContext.safeSubstring('hello', start: -1), '');
+        expect(ServerUtils.safeSubstring('hello', start: -1), '');
       });
 
       test('returns empty when start >= length', () {
-        expect(ServerContext.safeSubstring('hello', start: 5), '');
-        expect(ServerContext.safeSubstring('hello', start: 10), '');
+        expect(ServerUtils.safeSubstring('hello', start: 5), '');
+        expect(ServerUtils.safeSubstring('hello', start: 10), '');
       });
 
       test('returns empty when end <= start', () {
         expect(
-          ServerContext.safeSubstring('hello', start: 3, end: 2),
+          ServerUtils.safeSubstring('hello', start: 3, end: 2),
           '',
         );
         expect(
-          ServerContext.safeSubstring('hello', start: 3, end: 3),
+          ServerUtils.safeSubstring('hello', start: 3, end: 3),
           '',
         );
       });
 
       test('clamps end to string length', () {
         expect(
-          ServerContext.safeSubstring('hello', start: 3, end: 100),
+          ServerUtils.safeSubstring('hello', start: 3, end: 100),
           'lo',
         );
       });
 
       test('returns empty for empty string', () {
-        expect(ServerContext.safeSubstring('', start: 0), '');
+        expect(ServerUtils.safeSubstring('', start: 0), '');
       });
     });
 
     group('rowSignature', () {
       test('produces deterministic JSON with sorted keys', () {
         final sig1 =
-            ServerContext.rowSignature(<String, dynamic>{'b': 2, 'a': 1});
+            ServerUtils.rowSignature(<String, dynamic>{'b': 2, 'a': 1});
         final sig2 =
-            ServerContext.rowSignature(<String, dynamic>{'a': 1, 'b': 2});
+            ServerUtils.rowSignature(<String, dynamic>{'a': 1, 'b': 2});
 
         expect(sig1, sig2);
         expect(sig1, '{"a":1,"b":2}');
       });
 
       test('handles empty map', () {
-        expect(ServerContext.rowSignature(<String, dynamic>{}), '{}');
+        expect(ServerUtils.rowSignature(<String, dynamic>{}), '{}');
       });
     });
 
@@ -254,21 +261,21 @@ void main() {
         final row = <String, dynamic>{'id': 1, 'type': 'a', 'name': 'x'};
 
         expect(
-          ServerContext.compositePkKey(['id', 'type'], row),
+          ServerUtils.compositePkKey(['id', 'type'], row),
           '1|a',
         );
       });
 
       test('handles single PK column', () {
         expect(
-          ServerContext.compositePkKey(['id'], <String, dynamic>{'id': 42}),
+          ServerUtils.compositePkKey(['id'], <String, dynamic>{'id': 42}),
           '42',
         );
       });
 
       test('includes null as string for missing columns', () {
         expect(
-          ServerContext.compositePkKey(
+          ServerUtils.compositePkKey(
               ['id', 'missing'], <String, dynamic>{'id': 1}),
           '1|null',
         );
@@ -277,87 +284,87 @@ void main() {
 
     group('parseJsonMap', () {
       test('parses valid JSON object', () {
-        final result = ServerContext.parseJsonMap('{"key": "value"}');
+        final result = ServerUtils.parseJsonMap('{"key": "value"}');
         expect(result, {'key': 'value'});
       });
 
       test('returns null for JSON array', () {
-        expect(ServerContext.parseJsonMap('[1, 2, 3]'), isNull);
+        expect(ServerUtils.parseJsonMap('[1, 2, 3]'), isNull);
       });
 
       test('returns null for invalid JSON', () {
-        expect(ServerContext.parseJsonMap('{not valid}'), isNull);
+        expect(ServerUtils.parseJsonMap('{not valid}'), isNull);
       });
 
       test('returns null for JSON scalar', () {
-        expect(ServerContext.parseJsonMap('"just a string"'), isNull);
+        expect(ServerUtils.parseJsonMap('"just a string"'), isNull);
       });
     });
 
     group('isTextType', () {
       test('matches TEXT types', () {
-        expect(ServerContext.isTextType('TEXT'), isTrue);
-        expect(ServerContext.isTextType('VARCHAR(255)'), isTrue);
-        expect(ServerContext.isTextType('CHAR(10)'), isTrue);
-        expect(ServerContext.isTextType('CLOB'), isTrue);
-        expect(ServerContext.isTextType('STRING'), isTrue);
+        expect(ServerUtils.isTextType('TEXT'), isTrue);
+        expect(ServerUtils.isTextType('VARCHAR(255)'), isTrue);
+        expect(ServerUtils.isTextType('CHAR(10)'), isTrue);
+        expect(ServerUtils.isTextType('CLOB'), isTrue);
+        expect(ServerUtils.isTextType('STRING'), isTrue);
       });
 
       test('case insensitive', () {
-        expect(ServerContext.isTextType('text'), isTrue);
-        expect(ServerContext.isTextType('Text'), isTrue);
+        expect(ServerUtils.isTextType('text'), isTrue);
+        expect(ServerUtils.isTextType('Text'), isTrue);
       });
 
       test('does not match numeric types', () {
-        expect(ServerContext.isTextType('INTEGER'), isFalse);
-        expect(ServerContext.isTextType('REAL'), isFalse);
+        expect(ServerUtils.isTextType('INTEGER'), isFalse);
+        expect(ServerUtils.isTextType('REAL'), isFalse);
       });
     });
 
     group('isNumericType', () {
       test('matches numeric types', () {
-        expect(ServerContext.isNumericType('INTEGER'), isTrue);
-        expect(ServerContext.isNumericType('REAL'), isTrue);
-        expect(ServerContext.isNumericType('FLOAT'), isTrue);
-        expect(ServerContext.isNumericType('DOUBLE'), isTrue);
-        expect(ServerContext.isNumericType('DECIMAL'), isTrue);
-        expect(ServerContext.isNumericType('NUMERIC'), isTrue);
+        expect(ServerUtils.isNumericType('INTEGER'), isTrue);
+        expect(ServerUtils.isNumericType('REAL'), isTrue);
+        expect(ServerUtils.isNumericType('FLOAT'), isTrue);
+        expect(ServerUtils.isNumericType('DOUBLE'), isTrue);
+        expect(ServerUtils.isNumericType('DECIMAL'), isTrue);
+        expect(ServerUtils.isNumericType('NUMERIC'), isTrue);
       });
 
       test('case insensitive', () {
-        expect(ServerContext.isNumericType('integer'), isTrue);
-        expect(ServerContext.isNumericType('Real'), isTrue);
+        expect(ServerUtils.isNumericType('integer'), isTrue);
+        expect(ServerUtils.isNumericType('Real'), isTrue);
       });
 
       test('does not match text types', () {
-        expect(ServerContext.isNumericType('TEXT'), isFalse);
-        expect(ServerContext.isNumericType('VARCHAR'), isFalse);
+        expect(ServerUtils.isNumericType('TEXT'), isFalse);
+        expect(ServerUtils.isNumericType('VARCHAR'), isFalse);
       });
     });
 
     group('toDouble', () {
       test('returns double for double input', () {
-        expect(ServerContext.toDouble(3.14), 3.14);
+        expect(ServerUtils.toDouble(3.14), 3.14);
       });
 
       test('converts int to double', () {
-        expect(ServerContext.toDouble(42), 42.0);
+        expect(ServerUtils.toDouble(42), 42.0);
       });
 
       test('parses numeric string', () {
-        expect(ServerContext.toDouble('3.14'), 3.14);
+        expect(ServerUtils.toDouble('3.14'), 3.14);
       });
 
       test('returns null for non-numeric string', () {
-        expect(ServerContext.toDouble('abc'), isNull);
+        expect(ServerUtils.toDouble('abc'), isNull);
       });
 
       test('returns null for null', () {
-        expect(ServerContext.toDouble(null), isNull);
+        expect(ServerUtils.toDouble(null), isNull);
       });
 
       test('returns null for non-numeric object', () {
-        expect(ServerContext.toDouble(<int>[1, 2]), isNull);
+        expect(ServerUtils.toDouble(<int>[1, 2]), isNull);
       });
     });
 
@@ -369,7 +376,7 @@ void main() {
           <String, dynamic>{'severity': 'warning', 'msg': 'w'},
         ];
 
-        ServerContext.sortAnomaliesBySeverity(anomalies);
+        ServerUtils.sortAnomaliesBySeverity(anomalies);
 
         expect(anomalies[0]['severity'], 'error');
         expect(anomalies[1]['severity'], 'warning');
@@ -382,7 +389,7 @@ void main() {
           <String, dynamic>{'severity': 'info', 'msg': 'i'},
         ];
 
-        ServerContext.sortAnomaliesBySeverity(anomalies);
+        ServerUtils.sortAnomaliesBySeverity(anomalies);
 
         expect(anomalies[0]['severity'], 'info');
         expect(anomalies[1]['severity'], 'unknown');
@@ -390,38 +397,38 @@ void main() {
 
       test('handles empty list', () {
         final anomalies = <Map<String, dynamic>>[];
-        ServerContext.sortAnomaliesBySeverity(anomalies);
+        ServerUtils.sortAnomaliesBySeverity(anomalies);
         expect(anomalies, isEmpty);
       });
     });
 
     group('parseCsvLines', () {
       test('parses basic CSV rows', () {
-        final rows = ServerContext.parseCsvLines('a,b\n1,2');
+        final rows = ServerUtils.parseCsvLines('a,b\n1,2');
         expect(rows, hasLength(2));
         expect(rows[0], ['a', 'b']);
         expect(rows[1], ['1', '2']);
       });
 
       test('handles quoted fields', () {
-        final rows = ServerContext.parseCsvLines('name\n"a,b"');
+        final rows = ServerUtils.parseCsvLines('name\n"a,b"');
         expect(rows[1][0], 'a,b');
       });
 
       test('handles escaped quotes', () {
-        final rows = ServerContext.parseCsvLines('name\n"he said ""hi"""');
+        final rows = ServerUtils.parseCsvLines('name\n"he said ""hi"""');
         expect(rows[1][0], 'he said "hi"');
       });
 
       test('skips empty lines', () {
-        final rows = ServerContext.parseCsvLines('a\n\n1\n\n2');
+        final rows = ServerUtils.parseCsvLines('a\n\n1\n\n2');
         expect(rows, hasLength(3));
       });
     });
 
     group('getTableNames', () {
       test('returns sorted table names excluding sqlite_ prefix', () async {
-        final names = await ServerContext.getTableNames((sql) async {
+        final names = await ServerUtils.getTableNames((sql) async {
           return [
             <String, dynamic>{'name': 'items'},
             <String, dynamic>{'name': 'users'},
@@ -432,7 +439,7 @@ void main() {
       });
 
       test('filters out empty names', () async {
-        final names = await ServerContext.getTableNames((sql) async {
+        final names = await ServerUtils.getTableNames((sql) async {
           return [
             <String, dynamic>{'name': 'items'},
             <String, dynamic>{'name': ''},
@@ -446,7 +453,7 @@ void main() {
 
     group('getSchemaSql', () {
       test('returns schema DDL from sqlite_master', () async {
-        final sql = await ServerContext.getSchemaSql((sql) async {
+        final sql = await ServerUtils.getSchemaSql((sql) async {
           return [
             <String, dynamic>{
               'sql': 'CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)'
@@ -459,7 +466,7 @@ void main() {
       });
 
       test('skips null and empty sql entries', () async {
-        final sql = await ServerContext.getSchemaSql((sql) async {
+        final sql = await ServerUtils.getSchemaSql((sql) async {
           return [
             <String, dynamic>{'sql': null},
             <String, dynamic>{'sql': ''},

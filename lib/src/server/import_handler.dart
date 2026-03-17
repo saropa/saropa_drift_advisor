@@ -9,6 +9,7 @@ import 'package:saropa_drift_advisor/src/drift_debug_import.dart';
 
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_utils.dart';
 
 /// Handles data import API endpoint.
 ///
@@ -43,7 +44,7 @@ extension type ImportHandler(ServerContext _ctx) implements Object {
       }
 
       final body = utf8.decode(builder.toBytes());
-      final decoded = ServerContext.parseJsonMap(body);
+      final decoded = ServerUtils.parseJsonMap(body);
 
       if (decoded == null) {
         res.statusCode = HttpStatus.badRequest;
@@ -74,7 +75,7 @@ extension type ImportHandler(ServerContext _ctx) implements Object {
 
       // Validate table exists
       final tableNames =
-          await ServerContext.getTableNames(_ctx.instrumentedQuery);
+          await ServerUtils.getTableNames(_ctx.instrumentedQuery);
 
       if (!tableNames.contains(table)) {
         res.statusCode = HttpStatus.badRequest;
@@ -93,7 +94,7 @@ extension type ImportHandler(ServerContext _ctx) implements Object {
         data: data,
         table: table,
         writeQuery: writeQuery,
-        sqlLiteral: ServerContext.sqlLiteral,
+        sqlLiteral: ServerUtils.sqlLiteral,
       );
 
       // Invalidate cached table names so checkDataChange
