@@ -457,17 +457,43 @@
       html += '</table>';
       return html;
     }
+    /**
+     * Renders snapshot compare result: summary table (Table | Then | Now | Status)
+     * plus per-table detail for added/removed/changed rows when present.
+     */
     function renderRowDiff(container, tables) {
       var html = '';
+      // Summary table: one row per table for quick scanning
+      html += '<table class="snapshot-summary-table" style="border-collapse:collapse;width:100%;margin-bottom:1rem;">';
+      html += '<thead><tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);">Table</th>';
+      html += '<th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);">Then</th>';
+      html += '<th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);">Now</th>';
+      html += '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);">Status</th></tr></thead><tbody>';
       tables.forEach(function(t) {
-        html += '<h4 style="margin:0.5rem 0 0.25rem;">' + esc(t.table) + '</h4>';
-        html += '<p class="meta">Then: ' + t.countThen + ' rows | Now: ' + t.countNow + ' rows</p>';
+        var status = '';
         if (!t.hasPk) {
-          html += '<p class="meta" style="color:var(--muted);">No primary key \u2014 showing counts only.</p>';
-          html += '<p class="meta">Added: ' + t.added + ' | Removed: ' + t.removed + ' | Unchanged: ' + t.unchanged + '</p>';
-       
-   return;
+          status = 'No primary key \u2014 counts only';
+        } else if ((t.addedRows && t.addedRows.length > 0) || (t.removedRows && t.removedRows.length > 0) || (t.changedRows && t.changedRows.length > 0)) {
+          var parts = [];
+          if (t.addedRows && t.addedRows.length > 0) parts.push('+' + t.addedRows.length + ' added');
+          if (t.removedRows && t.removedRows.length > 0) parts.push('-' + t.removedRows.length + ' removed');
+          if (t.changedRows && t.changedRows.length > 0) parts.push('~' + t.changedRows.length + ' changed');
+          status = parts.join(', ');
+        } else {
+          status = 'No changes detected';
         }
+        html += '<tr><td style="padding:6px 8px;border-bottom:1px solid var(--border);">' + esc(t.table) + '</td>';
+        html += '<td style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;">' + t.countThen + '</td>';
+        html += '<td style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;">' + t.countNow + '</td>';
+        html += '<td style="padding:6px 8px;border-bottom:1px solid var(--border);">' + esc(status) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+      // Per-table detail for added/removed/changed rows
+      tables.forEach(function(t) {
+        if (!t.hasPk) return;
+        var hasDetail = (t.addedRows && t.addedRows.length > 0) || (t.removedRows && t.removedRows.length > 0) || (t.changedRows && t.changedRows.length > 0);
+        if (!hasDetail) return;
+        html += '<h4 style="margin:0.5rem 0 0.25rem;">' + esc(t.table) + '</h4>';
         if (t.addedRows && t.addedRows.length > 0) {
           html += '<p class="meta" style="color:#7cb342;">+ ' + t.addedRows.length + ' added:</p>';
           html += renderDiffRows(t.addedRows, 'added');
@@ -495,9 +521,6 @@
             }).join('') + '</tr>';
             html += '</table>';
           });
-        }
-        if ((!t.addedRows || t.addedRows.length === 0) && (!t.removedRows || t.removedRows.length === 0) && (!t.changedRows || t.changedRows.length === 0)) {
-          html += '<p class="meta" style="color:#7cb342;">No changes detected.</p>';
         }
       });
       container.innerHTML = html;
@@ -1534,10 +1557,27 @@
       applySearch();
     }
 
+    /**
+     * Triggers a tool's primary button on tab open when safe: not offline and not already running.
+     * @param {string} buttonId - DOM id of the button (e.g. 'size-analyze')
+     * @param {{ checkDisabled?: boolean }} opts - checkDisabled: do not click if button.disabled (avoids duplicate in-flight requests)
+     */
+    function triggerToolButtonIfReady(buttonId, opts) {
+      var btn = document.getElementById(buttonId);
+      if (!btn || btn.classList.contains('offline-disabled')) return;
+      if (opts && opts.checkDisabled && btn.disabled) return;
+      btn.click();
+    }
+
     window.onTabSwitch = function(tabId) {
       if (tabId === 'schema' && cachedSchema === null) loadSchemaIntoPre();
       if (tabId === 'diagram' && typeof window.ensureDiagramInited === 'function') window.ensureDiagramInited();
       if (tabId === 'search') refreshSearchResultsPanel();
+      // Auto-run when tool tab opens (no manual button click). checkDisabled avoids duplicate runs if analysis already in progress.
+      if (tabId === 'index') triggerToolButtonIfReady('index-analyze', { checkDisabled: true });
+      if (tabId === 'size') triggerToolButtonIfReady('size-analyze', { checkDisabled: true });
+      if (tabId === 'perf') triggerToolButtonIfReady('perf-refresh', { checkDisabled: true });
+      if (tabId === 'anomaly') triggerToolButtonIfReady('anomaly-analyze', { checkDisabled: true });
     };
 
     initTabsAndToolbar();
@@ -4998,6 +5038,7 @@
       var lastPerfData = null;
 
       function fetchPerformance() {
+        if (!refreshBtn || !container) return;
         refreshBtn.disabled = true;
         refreshBtn.textContent = 'Loading\u2026';
         container.style.display = 'none';
@@ -5010,7 +5051,7 @@
             perfLoaded = true;
             lastPerfData = data;
             if (data.totalQueries === 0) {
-              container.innerHTML = '<p class="meta">No queries recorded yet. Browse some tables, then refresh.</p>';
+              container.innerHTML = '<p class="meta">No queries recorded yet. Browse some tables, then update.</p>';
             } else {
               container.innerHTML = renderPerformance(data);
             }
@@ -5022,8 +5063,11 @@
             container.style.display = 'block';
           })
           .finally(function() {
-            refreshBtn.disabled = false;
-            refreshBtn.textContent = 'Refresh';
+            // Restore Update button state so user can run again
+            if (refreshBtn) {
+              refreshBtn.disabled = false;
+              refreshBtn.textContent = 'Update';
+            }
           });
       }
 
