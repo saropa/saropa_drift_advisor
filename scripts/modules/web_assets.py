@@ -91,3 +91,19 @@ def check_web_assets_sync() -> bool:
             os.unlink(tmp)
         except OSError:
             pass
+
+
+def ensure_web_assets_sync() -> bool:
+    """Ensure style.css is in sync with style.scss; if not, build and re-verify.
+
+    When the sync check fails, runs npm run build:style to regenerate
+    assets/web/style.css, then re-runs the sync check. The updated style.css
+    will be included in the release commit when the pipeline runs Git commit & push.
+    Returns True if in sync (or after a successful auto-build).
+    """
+    if check_web_assets_sync():
+        return True
+    info("Building style.scss → style.css...")
+    if not build_web_assets():
+        return False
+    return check_web_assets_sync()

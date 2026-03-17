@@ -281,9 +281,9 @@ def run_dart_analysis(
     if not run_step("Remote sync", check_remote_sync, results):
         return "", False
 
-    from modules.web_assets import check_web_assets_sync
+    from modules.web_assets import ensure_web_assets_sync
     heading("Dart \u00b7 Web assets sync")
-    if not run_step("Web assets sync", check_web_assets_sync, results):
+    if not run_step("Web assets sync", ensure_web_assets_sync, results):
         return "", False
 
     if not _run_dart_build_steps(args, results):
