@@ -247,6 +247,27 @@ describe('DriftTreeProvider', () => {
     });
   });
 
+  describe('ConnectionStatusItem click behavior', () => {
+    it('should set openInBrowser command when connected', () => {
+      const item = new ConnectionStatusItem('http://127.0.0.1:8642', true);
+      assert.ok(item.command, 'connected item should have a command');
+      assert.strictEqual(item.command!.command, 'driftViewer.openInBrowser');
+    });
+
+    it('should set tooltip with URL hint when connected', () => {
+      const item = new ConnectionStatusItem('http://127.0.0.1:8642', true);
+      assert.strictEqual(
+        item.tooltip,
+        'http://127.0.0.1:8642 — click to open in browser',
+      );
+    });
+
+    it('should not set a command when disconnected', () => {
+      const item = new ConnectionStatusItem('http://127.0.0.1:8642', false);
+      assert.strictEqual(item.command, undefined);
+    });
+  });
+
   describe('getTreeItem()', () => {
     it('should return the element itself', () => {
       const item = new ConnectionStatusItem('http://localhost', true);
