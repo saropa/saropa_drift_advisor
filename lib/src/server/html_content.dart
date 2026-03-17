@@ -3,6 +3,7 @@
 /// CSS and JS are loaded from jsDelivr CDN (assets/web/style.css and app.js).
 /// CDN URLs use [ServerConstants.packageVersion]; a matching git tag (e.g. v1.6.1)
 /// must exist on the repo for the CDN to serve the assets.
+/// Buttons and collapsible headers include [title] attributes for hover tooltips.
 import 'server_constants.dart';
 
 abstract final class HtmlContent {
@@ -65,48 +66,48 @@ abstract final class HtmlContent {
         <h2 class="sidebar-section-title">Export</h2>
       <div class="export-toolbar">
         <span class="export-toolbar-label">Export:</span>
-        <a href="/api/schema" id="export-schema" class="export-link" download="schema.sql"><span class="material-symbols-outlined export-icon" aria-hidden="true">code</span>Schema</a>
-        <a href="#" id="export-dump" class="export-link"><span class="material-symbols-outlined export-icon" aria-hidden="true">download</span>Full dump</a><span id="export-dump-status" class="meta"></span>
-        <a href="#" id="export-database" class="export-link"><span class="material-symbols-outlined export-icon" aria-hidden="true">storage</span>Database</a><span id="export-database-status" class="meta"></span>
-        <a href="#" id="export-csv" class="export-link"><span class="material-symbols-outlined export-icon" aria-hidden="true">table_chart</span>Table CSV</a><span id="export-csv-status" class="meta"></span>
+        <a href="/api/schema" id="export-schema" class="export-link" download="schema.sql" title="Download schema as SQL"><span class="material-symbols-outlined export-icon" aria-hidden="true">code</span>Schema</a>
+        <a href="#" id="export-dump" class="export-link" title="Download full database dump"><span class="material-symbols-outlined export-icon" aria-hidden="true">download</span>Full dump</a><span id="export-dump-status" class="meta"></span>
+        <a href="#" id="export-database" class="export-link" title="Download database file"><span class="material-symbols-outlined export-icon" aria-hidden="true">storage</span>Database</a><span id="export-database-status" class="meta"></span>
+        <a href="#" id="export-csv" class="export-link" title="Export current table as CSV"><span class="material-symbols-outlined export-icon" aria-hidden="true">table_chart</span>Table CSV</a><span id="export-csv-status" class="meta"></span>
       </div>
       </div>
       <p id="tables-loading" class="meta">Loading tables…</p>
       <div class="sidebar-section">
         <h2 class="sidebar-section-title">Tools</h2>
       <div class="feature-card">
-        <div class="collapsible-header" id="snapshot-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">photo_camera</span><span class="collapsible-title">Snapshot / time travel</span></div>
+        <div class="collapsible-header" id="snapshot-toggle" title="Expand or collapse Snapshot / time travel"><span class="material-symbols-outlined feature-icon" aria-hidden="true">photo_camera</span><span class="collapsible-title">Snapshot / time travel</span></div>
         <div id="snapshot-collapsible" class="collapsible-body collapsed">
         <p class="meta">Capture current DB state, then compare to now to see what changed.</p>
         <div class="toolbar">
-          <button type="button" id="snapshot-take" class="btn-primary">Take snapshot</button>
+          <button type="button" id="snapshot-take" class="btn-primary" title="Capture current database state for later comparison">Take snapshot</button>
           <button type="button" id="snapshot-compare" disabled title="Take a snapshot first">Compare to now</button>
-          <a href="#" id="snapshot-export-diff" class="export-link" style="display: none;">Export diff (JSON)</a>
-          <button type="button" id="snapshot-clear" style="display: none;">Clear snapshot</button>
+          <a href="#" id="snapshot-export-diff" class="export-link" style="display: none;" title="Download diff as JSON">Export diff (JSON)</a>
+          <button type="button" id="snapshot-clear" style="display: none;" title="Discard saved snapshot">Clear snapshot</button>
         </div>
         <p id="snapshot-status" class="meta"></p>
         <pre id="snapshot-compare-result" class="meta diff-result" style="display: none; max-height: 40vh;"></pre>
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="compare-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">compare_arrows</span><span class="collapsible-title">Database diff</span></div>
+        <div class="collapsible-header" id="compare-toggle" title="Expand or collapse Database diff"><span class="material-symbols-outlined feature-icon" aria-hidden="true">compare_arrows</span><span class="collapsible-title">Database diff</span></div>
         <div id="compare-collapsible" class="collapsible-body collapsed">
         <p class="meta">Compare this DB with another (e.g. staging). Requires queryCompare at startup.</p>
         <div class="toolbar">
-          <button type="button" id="compare-view">View diff report</button>
-          <a href="/api/compare/report?format=download" id="compare-export">Export diff report</a>
-          <button type="button" id="migration-preview">Migration Preview</button>
+          <button type="button" id="compare-view" title="Open full diff report in a new view">View diff report</button>
+          <a href="/api/compare/report?format=download" id="compare-export" title="Download diff report">Export diff report</a>
+          <button type="button" id="migration-preview" title="Generate SQL migration from diff">Migration Preview</button>
         </div>
         <p id="compare-status" class="meta"></p>
         <pre id="compare-result" class="meta diff-result" style="display: none; max-height: 40vh;"></pre>
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="index-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">format_list_bulleted</span><span class="collapsible-title">Index suggestions</span></div>
+        <div class="collapsible-header" id="index-toggle" title="Expand or collapse Index suggestions"><span class="material-symbols-outlined feature-icon" aria-hidden="true">format_list_bulleted</span><span class="collapsible-title">Index suggestions</span></div>
         <div id="index-collapsible" class="collapsible-body collapsed">
         <p class="meta">Analyze tables for missing indexes based on schema patterns.</p>
         <div class="toolbar">
-          <button type="button" id="index-analyze" class="btn-primary">Analyze</button>
+          <button type="button" id="index-analyze" class="btn-primary" title="Analyze tables for missing indexes">Analyze</button>
           <button type="button" id="index-save" title="Save this result for later">Save result</button>
           <button type="button" id="index-export" title="Download result as JSON">Export as JSON</button>
           <label for="index-history">History:</label>
@@ -117,11 +118,11 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="size-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">bar_chart</span><span class="collapsible-title">Database size analytics</span></div>
+        <div class="collapsible-header" id="size-toggle" title="Expand or collapse Database size analytics"><span class="material-symbols-outlined feature-icon" aria-hidden="true">bar_chart</span><span class="collapsible-title">Database size analytics</span></div>
         <div id="size-collapsible" class="collapsible-body collapsed">
         <p class="meta">Analyze database storage: total size, page stats, and per-table breakdown.</p>
         <div class="toolbar">
-          <button type="button" id="size-analyze" class="btn-primary">Analyze</button>
+          <button type="button" id="size-analyze" class="btn-primary" title="Analyze database storage and per-table size">Analyze</button>
           <button type="button" id="size-save" title="Save this result for later">Save result</button>
           <button type="button" id="size-export" title="Download result as JSON">Export as JSON</button>
           <label for="size-history">History:</label>
@@ -132,12 +133,12 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="perf-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">speed</span><span class="collapsible-title">Query performance</span></div>
+        <div class="collapsible-header" id="perf-toggle" title="Expand or collapse Query performance"><span class="material-symbols-outlined feature-icon" aria-hidden="true">speed</span><span class="collapsible-title">Query performance</span></div>
         <div id="perf-collapsible" class="collapsible-body collapsed">
         <p class="meta">Track query execution times, identify slow queries, and view patterns.</p>
         <div class="toolbar">
-          <button type="button" id="perf-refresh">Refresh</button>
-          <button type="button" id="perf-clear">Clear</button>
+          <button type="button" id="perf-refresh" title="Reload performance data">Refresh</button>
+          <button type="button" id="perf-clear" title="Clear performance history">Clear</button>
           <button type="button" id="perf-save" title="Save this result for later">Save result</button>
           <button type="button" id="perf-export" title="Download result as JSON">Export as JSON</button>
           <label for="perf-history">History:</label>
@@ -148,11 +149,11 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="anomaly-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">favorite</span><span class="collapsible-title">Data health</span></div>
+        <div class="collapsible-header" id="anomaly-toggle" title="Expand or collapse Data health"><span class="material-symbols-outlined feature-icon" aria-hidden="true">favorite</span><span class="collapsible-title">Data health</span></div>
         <div id="anomaly-collapsible" class="collapsible-body collapsed">
         <p class="meta">Scan all tables for data quality issues: NULLs, empty strings, orphaned FKs, duplicates, outliers.</p>
         <div class="toolbar">
-          <button type="button" id="anomaly-analyze" class="btn-primary">Scan for anomalies</button>
+          <button type="button" id="anomaly-analyze" class="btn-primary" title="Scan tables for data quality issues">Scan for anomalies</button>
           <button type="button" id="anomaly-save" title="Save this result for later">Save result</button>
           <button type="button" id="anomaly-export" title="Download result as JSON">Export as JSON</button>
           <label for="anomaly-history">History:</label>
@@ -163,7 +164,7 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="import-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">upload</span><span class="collapsible-title">Import data (debug only)</span></div>
+        <div class="collapsible-header" id="import-toggle" title="Expand or collapse Import data"><span class="material-symbols-outlined feature-icon" aria-hidden="true">upload</span><span class="collapsible-title">Import data (debug only)</span></div>
         <div id="import-collapsible" class="collapsible-body collapsed">
         <p class="meta import-warning">Warning: This modifies the database. Debug use only.</p>
         <div class="sql-runner">
@@ -179,7 +180,7 @@ abstract final class HtmlContent {
           </div>
           <div class="sql-toolbar" style="margin-top:0.25rem;">
             <input type="file" id="import-file" accept=".json,.csv,.sql" />
-            <button type="button" id="import-run" disabled class="btn-primary">Import</button>
+            <button type="button" id="import-run" disabled class="btn-primary" title="Run import with selected file and options">Import</button>
           </div>
         </div>
         <div id="import-column-mapping" class="meta" style="display:none;margin-top:0.5rem;">
@@ -194,11 +195,11 @@ abstract final class HtmlContent {
         </div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="schema-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">grid_on</span><span class="collapsible-title">Schema</span></div>
+        <div class="collapsible-header" id="schema-toggle" title="Expand or collapse Schema"><span class="material-symbols-outlined feature-icon" aria-hidden="true">grid_on</span><span class="collapsible-title">Schema</span></div>
         <div id="schema-collapsible" class="collapsible-body collapsed"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
       </div>
       <div class="feature-card">
-        <div class="collapsible-header" id="diagram-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">account_tree</span><span class="collapsible-title">Schema diagram</span></div>
+        <div class="collapsible-header" id="diagram-toggle" title="Expand or collapse Schema diagram"><span class="material-symbols-outlined feature-icon" aria-hidden="true">account_tree</span><span class="collapsible-title">Schema diagram</span></div>
         <div id="diagram-collapsible" class="collapsible-body collapsed">
         <p class="meta">Tables and relationships. Click or press Enter on a table to view its data. Use arrow keys to navigate between tables.</p>
         <div id="diagram-container"></div>
@@ -213,7 +214,7 @@ abstract final class HtmlContent {
     </aside>
     <div class="app-main-content">
       <div class="feature-card sql-runner-card">
-  <div class="collapsible-header sql-runner" id="sql-runner-toggle"><span class="material-symbols-outlined feature-icon" aria-hidden="true">play_arrow</span><span class="collapsible-title">Run SQL (read-only)</span></div>
+  <div class="collapsible-header sql-runner" id="sql-runner-toggle" title="Expand or collapse Run SQL"><span class="material-symbols-outlined feature-icon" aria-hidden="true">play_arrow</span><span class="collapsible-title">Run SQL (read-only)</span></div>
   <div id="sql-runner-collapsible" class="collapsible-body collapsed sql-runner">
     <div class="sql-toolbar">
       <label for="sql-template">Template:</label>
@@ -228,26 +229,26 @@ abstract final class HtmlContent {
       <select id="sql-table"><option value="">—</option></select>
       <label for="sql-fields">Fields:</label>
       <select id="sql-fields" multiple title="Hold Ctrl/Cmd to pick multiple"><option value="">—</option></select>
-      <button type="button" id="sql-apply-template">Apply template</button>
-      <button type="button" id="sql-run" class="btn-primary">Run</button>
-      <button type="button" id="sql-explain">Explain</button>
+      <button type="button" id="sql-apply-template" title="Insert template query into editor">Apply template</button>
+      <button type="button" id="sql-run" class="btn-primary" title="Execute the SQL query">Run</button>
+      <button type="button" id="sql-explain" title="Show query execution plan">Explain</button>
       <label for="sql-history">History:</label>
       <select id="sql-history" title="Recent queries — select to reuse"><option value="">— Recent —</option></select>
     </div>
     <div class="sql-toolbar" style="margin-top:0;">
-      <label for="sql-bookmarks">Bookmarks:</label>
-      <select id="sql-bookmarks" title="Saved queries" style="max-width:14rem;"><option value="">— Bookmarks —</option></select>
-      <button type="button" id="sql-bookmark-save" title="Save current query as bookmark">Save</button>
-      <button type="button" id="sql-bookmark-delete" title="Delete selected bookmark">Del</button>
-      <button type="button" id="sql-bookmark-export" title="Export bookmarks as JSON">Export</button>
-      <button type="button" id="sql-bookmark-import" title="Import bookmarks from JSON">Import</button>
+      <label for="sql-bookmarks">Saved queries:</label>
+      <select id="sql-bookmarks" title="Load a saved query" style="max-width:14rem;"><option value="">— Saved queries —</option></select>
+      <button type="button" id="sql-bookmark-save" title="Save current query">Save</button>
+      <button type="button" id="sql-bookmark-delete" title="Delete selected">Del</button>
+      <button type="button" id="sql-bookmark-export" title="Export as JSON">Export</button>
+      <button type="button" id="sql-bookmark-import" title="Import from JSON">Import</button>
       <label for="sql-result-format">Show as:</label>
       <select id="sql-result-format"><option value="table">Table</option><option value="json">JSON</option></select>
     </div>
     <div class="sql-toolbar" style="margin-bottom:0.35rem;">
       <label for="nl-input">Ask in English:</label>
       <input type="text" id="nl-input" placeholder="e.g. how many users were created today?" style="flex:1;min-width:20rem;" />
-      <button type="button" id="nl-convert">Convert to SQL</button>
+      <button type="button" id="nl-convert" title="Generate SQL from natural language">Convert to SQL</button>
     </div>
     <textarea id="sql-input" placeholder="SELECT * FROM my_table LIMIT 10"></textarea>
     <div id="sql-error" class="sql-error" style="display: none;"></div>
@@ -265,7 +266,7 @@ abstract final class HtmlContent {
       <select id="chart-x"></select>
       <label for="chart-y">Y / Value:</label>
       <select id="chart-y"></select>
-      <button type="button" id="chart-render">Render</button>
+      <button type="button" id="chart-render" title="Draw chart from result set">Render</button>
     </div>
     <div id="chart-container" style="display:none;margin-top:0.5rem;"></div>
   </div>
@@ -275,9 +276,9 @@ abstract final class HtmlContent {
     <select id="pagination-limit"></select>
     <label>Offset</label>
     <input type="number" id="pagination-offset" min="0" step="200" style="width: 5rem;" />
-    <button type="button" id="pagination-prev">Prev</button>
-    <button type="button" id="pagination-next">Next</button>
-    <button type="button" id="pagination-apply">Apply</button>
+    <button type="button" id="pagination-prev" title="Previous page">Prev</button>
+    <button type="button" id="pagination-next" title="Next page">Next</button>
+    <button type="button" id="pagination-apply" title="Apply limit and offset">Apply</button>
     <button type="button" id="clear-table-state" title="Reset cached filter/pagination state for this table">Clear state</button>
   </div>
   <div id="display-format-bar" class="toolbar" style="display:none;">
@@ -292,16 +293,16 @@ abstract final class HtmlContent {
     </div>
   </div>
   <div id="column-context-menu" role="menu" aria-hidden="true">
-    <button type="button" data-action="hide" role="menuitem">Hide column</button>
-    <button type="button" data-action="pin" role="menuitem">Pin column</button>
-    <button type="button" data-action="unpin" role="menuitem">Unpin column</button>
+    <button type="button" data-action="hide" role="menuitem" title="Hide this column from the table">Hide column</button>
+    <button type="button" data-action="pin" role="menuitem" title="Pin column to the left">Pin column</button>
+    <button type="button" data-action="unpin" role="menuitem" title="Unpin column">Unpin column</button>
   </div>
   <div id="column-chooser" aria-label="Column chooser" aria-modal="true" aria-hidden="true">
     <h3>Columns</h3>
     <ul id="column-chooser-list" class="column-chooser-list"></ul>
     <div class="column-chooser-actions">
-      <button type="button" id="column-chooser-reset">Reset to default</button>
-      <button type="button" id="column-chooser-close">Close</button>
+      <button type="button" id="column-chooser-reset" title="Restore default column visibility and order">Reset to default</button>
+      <button type="button" id="column-chooser-close" title="Close column chooser">Close</button>
     </div>
   </div>
   <div id="copy-toast" class="copy-toast">Copied!</div>

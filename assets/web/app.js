@@ -220,6 +220,7 @@
       var closeBtn = document.createElement('button');
       closeBtn.type = 'button';
       closeBtn.textContent = 'Close';
+      closeBtn.title = 'Close compare panel';
       toolbar.appendChild(beforeLabel);
       toolbar.appendChild(beforeSel);
       toolbar.appendChild(afterLabel);
@@ -784,7 +785,7 @@
       html += '</div></div>';
       html += '<div class="qb-row"><label>WHERE</label><div style="flex:1;">';
       html += '<div id="qb-where-list"></div>';
-      html += '<button type="button" id="qb-add-where" style="font-size:11px;">+ Add condition</button>';
+      html += '<button type="button" id="qb-add-where" style="font-size:11px;" title="Add another WHERE condition">+ Add condition</button>';
       html += '</div></div>';
       html += '<div class="qb-row"><label>ORDER BY</label>';
       html += '<select id="qb-order-col"><option value="">None</option>';
@@ -797,8 +798,8 @@
       html += '</div>';
       html += '<div class="qb-preview" id="qb-preview"></div>';
       html += '<div class="qb-row" style="margin-top:0.35rem;">';
-      html += '<button type="button" id="qb-run">Run query</button>';
-      html += '<button type="button" id="qb-reset">Reset to table view</button>';
+      html += '<button type="button" id="qb-run" title="Execute the built query">Run query</button>';
+      html += '<button type="button" id="qb-reset" title="Return to table view">Reset to table view</button>';
       html += '</div>';
       html += '</div></div>';
       return html;
@@ -958,6 +959,7 @@
           html += '<p class="meta" style="font-family:monospace;font-size:11px;color:var(--muted);">' + esc(sql) + '</p>';
           html += buildQueryBuilderHtml(currentTableName, colTypes);
           html += wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, getColumnConfig(currentTableName)));
+          html += buildTableStatusBar(tableCounts[currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(Object.keys(rows[0] || {}), getColumnConfig(currentTableName)));
           content.innerHTML = html;
           bindQueryBuilderEvents(colTypes);
           restoreQueryBuilderUIState(savedState);
@@ -1133,7 +1135,7 @@
     function refreshBookmarksDropdown(sel) {
       if (!sel) return;
       const cur = sel.value;
-      sel.innerHTML = '<option value="">— Bookmarks (' + sqlBookmarks.length + ') —</option>' +
+      sel.innerHTML = '<option value="">— Saved queries (' + sqlBookmarks.length + ') —</option>' +
         sqlBookmarks.map(function(b, i) {
           return '<option value="' + i + '" title="' + esc(b.sql) + '">' + esc(b.name) + '</option>';
         }).join('');
@@ -1142,7 +1144,7 @@
     function addBookmark(inputEl, bookmarksSel) {
       const sql = inputEl.value.trim();
       if (!sql) return;
-      const name = prompt('Bookmark name:', sql.slice(0, 40));
+      const name = prompt('Name for this query:', sql.slice(0, 40));
       if (!name) return;
       sqlBookmarks.unshift({ name: name, sql: sql, createdAt: new Date().toISOString() });
       saveBookmarks();
@@ -1151,18 +1153,18 @@
     function deleteBookmark(bookmarksSel) {
       const idx = parseInt(bookmarksSel.value, 10);
       if (isNaN(idx) || !sqlBookmarks[idx]) return;
-      if (!confirm('Delete bookmark "' + sqlBookmarks[idx].name + '"?')) return;
+      if (!confirm('Delete saved query "' + sqlBookmarks[idx].name + '"?')) return;
       sqlBookmarks.splice(idx, 1);
       saveBookmarks();
       refreshBookmarksDropdown(bookmarksSel);
     }
     function exportBookmarks() {
-      if (sqlBookmarks.length === 0) { alert('No bookmarks to export.'); return; }
+      if (sqlBookmarks.length === 0) { alert('No saved queries to export.'); return; }
       const blob = new Blob([JSON.stringify(sqlBookmarks, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'drift-viewer-bookmarks.json';
+      a.download = 'drift-viewer-saved-queries.json';
       a.click();
       URL.revokeObjectURL(url);
     }
@@ -1188,9 +1190,9 @@
             });
             saveBookmarks();
             refreshBookmarksDropdown(bookmarksSel);
-            alert('Imported ' + newCount + ' new bookmark(s). ' + (imported.length - newCount) + ' duplicate(s) skipped.');
+            alert('Imported ' + newCount + ' new saved query(s). ' + (imported.length - newCount) + ' duplicate(s) skipped.');
           } catch (e) {
-            alert('Invalid bookmark file: ' + e.message);
+            alert('Invalid file: ' + e.message);
           }
         };
         reader.readAsText(file);
@@ -1589,7 +1591,7 @@
             if (o.data.hasWarnings) html += ' (includes warnings)';
             html += '</p>';
             html += '<pre style="font-size:11px;max-height:30vh;overflow:auto;background:var(--bg-pre);padding:0.5rem;border-radius:4px;">' + esc(sql) + '</pre>';
-            html += '<button type="button" id="migration-copy-sql">Copy SQL</button>';
+            html += '<button type="button" id="migration-copy-sql" title="Copy migration SQL to clipboard">Copy SQL</button>';
             resultPre.innerHTML = html;
             resultPre.style.display = 'block';
             statusEl.textContent = '';
@@ -2477,6 +2479,7 @@
         var pinBtn = document.createElement('button');
         pinBtn.type = 'button';
         pinBtn.textContent = config.pinned.indexOf(key) >= 0 ? 'Unpin' : 'Pin';
+        pinBtn.title = config.pinned.indexOf(key) >= 0 ? 'Unpin this column' : 'Pin this column to the left';
         pinBtn.style.fontSize = '11px';
         pinBtn.addEventListener('click', function() {
           var idx = config.pinned.indexOf(key);
@@ -2663,7 +2666,7 @@
           var cachedFks = fkMetaCache[currentTableName] || [];
           cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
           var colTypes = tableColumnTypes[currentTableName] || {};
-          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(currentTableName)));
+          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, filtered.length, getVisibleColumnCount(Object.keys(filtered[0] || {}), getColumnConfig(currentTableName)));
         }
       } else {
         container.innerHTML = '<p class="meta">Schema</p><pre id="content-pre">' + esc(schema) + '</pre>';
@@ -2687,7 +2690,7 @@
           var cachedFks = fkMetaCache[currentTableName] || [];
           cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
           var colTypes = tableColumnTypes[currentTableName] || {};
-          dataHtml = '<p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(currentTableName)));
+          dataHtml = '<p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, filtered.length, getVisibleColumnCount(Object.keys(filtered[0] || {}), getColumnConfig(currentTableName)));
         } else {
           lastRenderedData = null;
           dataHtml = '<p class="meta">Select a table above to load data.</p>';
@@ -2757,10 +2760,10 @@
       // --- Build the breadcrumb HTML ---
 
       // "Back" link: pops the most recent entry (same as browser back)
-      var html = '<a href="#" id="nav-back" style="color:var(--link);">&#8592; Back</a>';
+      var html = '<a href="#" id="nav-back" style="color:var(--link);" title="Go back to previous table">&#8592; Back</a>';
 
       // "Clear path" link: discards the entire trail and hides the breadcrumb
-      html += ' | <a href="#" id="nav-clear" style="color:var(--muted);font-size:10px;">Clear path</a>';
+      html += ' | <a href="#" id="nav-clear" style="color:var(--muted);font-size:10px;" title="Clear navigation trail">Clear path</a>';
 
       // Separator before the breadcrumb trail
       html += ' | ';
@@ -2917,6 +2920,38 @@
       return '<div id="data-table-scroll-wrap" class="data-table-scroll-wrap">' + tableHtml + '</div>';
     }
 
+    /** Returns count of visible columns for a table given data keys and column config. */
+    function getVisibleColumnCount(dataKeys, columnConfig) {
+      if (!dataKeys || dataKeys.length === 0) return 0;
+      var order = dataKeys.slice();
+      var hidden = [];
+      if (columnConfig && columnConfig.order && columnConfig.order.length) {
+        order = columnConfig.order.filter(function(k) { return dataKeys.indexOf(k) >= 0; });
+        dataKeys.forEach(function(k) { if (order.indexOf(k) < 0) order.push(k); });
+      }
+      if (columnConfig && columnConfig.hidden) hidden = columnConfig.hidden;
+      return order.filter(function(k) { return hidden.indexOf(k) < 0; }).length;
+    }
+
+    /**
+     * Builds the table status bar HTML (row range, total, column count).
+     * @param total - Total row count from server (or null if unknown)
+     * @param offset - Current offset
+     * @param limit - Page size
+     * @param displayedLen - Number of rows on current page
+     * @param columnCount - Visible column count
+     */
+    function buildTableStatusBar(total, offset, limit, displayedLen, columnCount) {
+      var rangeText = displayedLen > 0
+        ? (offset + 1) + '\u2013' + (offset + displayedLen)
+        : '0';
+      var totalText = total != null ? total.toLocaleString() : '?';
+      var colText = (columnCount != null && columnCount > 0) ? (columnCount + ' column' + (columnCount !== 1 ? 's' : '')) : '';
+      var parts = ['Showing <span class="table-status-range">' + rangeText + '</span> of ' + totalText + ' rows'];
+      if (colText) parts.push(colText);
+      return '<div class="table-status-bar" role="status">' + parts.join(' \u2022 ') + '</div>';
+    }
+
     function renderTableView(name, data) {
       const content = document.getElementById('content');
       const scope = getScope();
@@ -2932,7 +2967,7 @@
         content.innerHTML = '<p class="meta">' + metaText + '</p><p class="meta">Loading\u2026</p>';
       }
       function renderDataHtml(fkMap, colTypes) {
-        var tableHtml = wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(name)));
+        var tableHtml = wrapDataTableInScroll(buildDataTableHtml(filtered, fkMap, colTypes, getColumnConfig(name))) + buildTableStatusBar(tableCounts[name], offset, limit, filtered.length, getVisibleColumnCount(Object.keys(filtered[0] || {}), getColumnConfig(name)));
         var qbHtml = buildQueryBuilderHtml(name, colTypes);
         if (scope === 'both') {
           lastRenderedSchema = cachedSchema;
@@ -3234,6 +3269,10 @@
       const errorEl = document.getElementById('sql-error');
       const resultEl = document.getElementById('sql-result');
       const bookmarksSel = document.getElementById('sql-bookmarks');
+      /** Client-side pagination for SQL result table: full row set and current page index. */
+      let sqlResultAllRows = [];
+      let sqlResultPage = 0;
+      const SQL_RESULT_PAGE_SIZE = 100;
       const bookmarkSaveBtn = document.getElementById('sql-bookmark-save');
       const bookmarkDeleteBtn = document.getElementById('sql-bookmark-delete');
       const bookmarkExportBtn = document.getElementById('sql-bookmark-export');
@@ -3310,11 +3349,40 @@
         });
       }
 
+      /** Renders the current page of SQL result table (uses sqlResultAllRows, sqlResultPage). */
+      function renderSqlResultPage() {
+        const rows = sqlResultAllRows;
+        const pageSize = SQL_RESULT_PAGE_SIZE;
+        const start = sqlResultPage * pageSize;
+        const pageRows = rows.slice(start, start + pageSize);
+        const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+        const total = rows.length;
+        let tableHtml = '<div class="data-table-scroll-wrap"><table><thead><tr>' + keys.map(function(k) { return '<th>' + esc(k) + '</th>'; }).join('') + '</tr></thead><tbody>';
+        pageRows.forEach(function(row) {
+          tableHtml += '<tr>' + keys.map(function(k) { return '<td>' + esc(row[k] != null ? String(row[k]) : '') + '</td>'; }).join('') + '</tr>';
+        });
+        tableHtml += '</tbody></table></div>';
+        const statusHtml = buildTableStatusBar(total, start, pageSize, pageRows.length, keys.length);
+        const prevDisabled = sqlResultPage <= 0;
+        const nextDisabled = (start + pageSize) >= total;
+        const paginationHtml = '<div class="sql-result-pagination toolbar" style="margin-top:0.35rem;">' +
+          '<button type="button" id="sql-result-prev"' + (prevDisabled ? ' disabled' : '') + '>Prev</button>' +
+          '<button type="button" id="sql-result-next"' + (nextDisabled ? ' disabled' : '') + '>Next</button>' +
+          '</div>';
+        resultEl.innerHTML = '<p class="meta">' + total + ' row(s)</p>' + tableHtml + statusHtml + paginationHtml;
+        const prevBtn = resultEl.querySelector('#sql-result-prev');
+        const nextBtn = resultEl.querySelector('#sql-result-next');
+        if (prevBtn) prevBtn.addEventListener('click', function() { sqlResultPage--; renderSqlResultPage(); });
+        if (nextBtn) nextBtn.addEventListener('click', function() { sqlResultPage++; renderSqlResultPage(); });
+      }
+
       // Shared: clear previous results and hide chart controls before any SQL operation.
       function clearSqlResults() {
         errorEl.style.display = 'none';
         resultEl.style.display = 'none';
         resultEl.innerHTML = '';
+        sqlResultAllRows = [];
+        sqlResultPage = 0;
         document.getElementById('chart-controls').style.display = 'none';
         document.getElementById('chart-container').style.display = 'none';
       }
@@ -3353,13 +3421,9 @@
               const rows = data.rows || [];
               const asTable = formatSel && formatSel.value === 'table';
               if (asTable && rows.length > 0) {
-                const keys = Object.keys(rows[0]);
-                let html = '<p class="meta">' + rows.length + ' row(s)</p><table><thead><tr>' + keys.map(k => '<th>' + esc(k) + '</th>').join('') + '</tr></thead><tbody>';
-                rows.forEach(row => {
-                  html += '<tr>' + keys.map(k => '<td>' + esc(row[k] != null ? String(row[k]) : '') + '</td>').join('') + '</tr>';
-                });
-                html += '</tbody></table>';
-                resultEl.innerHTML = html;
+                sqlResultAllRows = rows;
+                sqlResultPage = 0;
+                renderSqlResultPage();
               } else {
                 resultEl.innerHTML = '<p class="meta">' + rows.length + ' row(s)</p><pre>' + esc(JSON.stringify(rows, null, 2)) + '</pre>';
               }
@@ -3419,46 +3483,27 @@
    return;
               }
               const rows = data.rows || [];
-              // Build parent-to-depth map for tree indentation
-              var depthMap = {};
+              var hasScan = false;
+              var scanTable = null;
+              var hasIndex = false;
               rows.forEach(function(r) {
-                var pid = r.parent || 0;
-                depthMap[r.id] = (depthMap[pid] != null ? depthMap[pid] + 1 : 0);
-              });
-              let html = '<p class="meta" style="font-weight:bold;">EXPLAIN QUERY PLAN</p>';
-              html += '<pre style="font-family:monospace;font-size:12px;line-height:1.6;">';
-              let hasScan = false;
-              let hasIndex = false;
-              rows.forEach(function(r) {
-                const detail = r.detail || JSON.stringify(r);
-                const depth = depthMap[r.id] || 0;
-                const indent = '  '.repeat(depth);
-                let icon = '   ';
-                let style = '';
-                if (/\\bSCAN\\b/.test(detail)) {
-                  icon = '!! ';
-                  style = ' style="color:#e57373;"';
+                var d = String(r.detail || '').trim();
+                if (/\bSCAN\s+(?:TABLE\s+)?([^\s\n]+)/i.test(d)) {
                   hasScan = true;
-                } else if (/\\bSEARCH\\b.*\\bINDEX\\b/.test(detail)) {
-                  icon = 'OK ';
-                  style = ' style="color:#7cb342;"';
-                  hasIndex = true;
-                } else if (/\\bUSING\\b.*\\bINDEX\\b/.test(detail)) {
-                  icon = 'OK ';
-                  style = ' style="color:#7cb342;"';
-                  hasIndex = true;
-                }
-                html += '<span' + style + '>' + icon + indent + esc(detail) + '</span>\\n';
+                  var m = d.match(/\bSCAN\s+(?:TABLE\s+)?([^\s\n]+)/i);
+                  if (m) scanTable = m[1];
+                } else if (/\bSEARCH\b.*\bINDEX\b/.test(d) || /\bUSING\b.*\bINDEX\b/.test(d)) hasIndex = true;
               });
-              html += '</pre>';
+              var msg;
               if (hasScan) {
-                html += '<p class="meta" style="color:#e57373;margin-top:0.3rem;">';
-                html += 'Warning: Full table scan detected. Consider adding an index on the filtered/sorted column.</p>';
+                msg = 'This query reads every row of ' + (scanTable ? '<strong>' + esc(scanTable) + '</strong>' : 'the table') + '. ';
+                msg += 'For large tables, add a WHERE on an indexed column or create an index.';
+              } else if (hasIndex) {
+                msg = 'This query uses an index for efficient lookup.';
+              } else {
+                msg = rows.length ? 'Plan: ' + esc(String(rows[0].detail || '').trim() || '—') : 'No plan.';
               }
-              if (hasIndex && !hasScan) {
-                html += '<p class="meta" style="color:#7cb342;margin-top:0.3rem;">';
-                html += 'Good: Query uses index(es) for efficient lookup.</p>';
-              }
+              let html = '<p class="meta" style="line-height:1.5;">' + (hasScan ? '<span style="color:#e57373;">' + msg + '</span>' : (hasIndex ? '<span style="color:#81c784;">' + msg + '</span>' : msg)) + '</p>';
               resultEl.innerHTML = html;
               resultEl.style.display = 'block';
             })

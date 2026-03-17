@@ -17,6 +17,10 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ## [Unreleased]
 
+### Added
+
+• **Web UI: tooltips on all buttons and expanders** — Every button and collapsible header in the web view has a [title] attribute for native hover tooltips. Covers sidebar tools (snapshot, compare, index, size, perf, anomaly, import, schema, diagram), SQL runner and bookmarks, pagination, column chooser and context menu, query builder, migration copy, compare panel close, breadcrumb Back/Clear path, and export links.
+
 ### Changed
 
 • **Web UI: sidebar collapsible polish** — Removed the blue vertical accent line to the left of collapsible section headers (drift-enhanced.css). Expand/collapse arrow is now right-aligned and dimmed (opacity 0.4) until the header is hovered (0.9), with a 0.15s opacity transition (style.scss / style.css).
