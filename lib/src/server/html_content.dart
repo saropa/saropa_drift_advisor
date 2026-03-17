@@ -104,14 +104,23 @@ abstract final class HtmlContent {
       </div>
       <div id="tab-panels" class="tab-panels">
         <div id="panel-tables" class="tab-panel active" role="tabpanel" aria-labelledby="tab-tables">
-      <div id="pagination-bar" class="toolbar" style="display: none;">
-        <label>Limit</label>
-        <select id="pagination-limit"></select>
-        <label>Offset</label>
-        <input type="number" id="pagination-offset" min="0" step="200" style="width: 5rem;" />
-        <button type="button" id="pagination-prev" title="Previous page">Prev</button>
-        <button type="button" id="pagination-next" title="Next page">Next</button>
-        <button type="button" id="pagination-apply" title="Apply limit and offset">Apply</button>
+      <div id="pagination-bar" class="toolbar pagination-toolbar" style="display: none;" role="navigation" aria-label="Table pagination">
+        <label for="pagination-limit">Rows per page</label>
+        <select id="pagination-limit" aria-label="Rows per page"></select>
+        <span id="pagination-status" class="pagination-status" aria-live="polite"></span>
+        <div class="pagination-nav" role="group" aria-label="Page navigation">
+          <button type="button" id="pagination-first" title="First page" aria-label="First page">First</button>
+          <button type="button" id="pagination-prev" title="Previous page" aria-label="Previous page">Prev</button>
+          <span id="pagination-pages" class="pagination-pages" aria-label="Current page"></span>
+          <button type="button" id="pagination-next" title="Next page" aria-label="Next page">Next</button>
+          <button type="button" id="pagination-last" title="Last page" aria-label="Last page">Last</button>
+        </div>
+        <button type="button" id="pagination-advanced-toggle" class="pagination-advanced-toggle" title="Show raw offset (advanced)">Advanced</button>
+        <div id="pagination-advanced" class="pagination-advanced collapsed" aria-hidden="true">
+          <label for="pagination-offset">Offset</label>
+          <input type="number" id="pagination-offset" min="0" step="1" aria-label="Row offset (advanced)" style="width: 5rem;" />
+          <button type="button" id="pagination-apply" title="Apply offset and reload">Apply</button>
+        </div>
         <button type="button" id="clear-table-state" title="Reset cached filter/pagination state for this table">Clear state</button>
       </div>
       <div id="display-format-bar" class="toolbar" style="display:none;">

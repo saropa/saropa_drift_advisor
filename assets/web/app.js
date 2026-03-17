@@ -2650,18 +2650,135 @@
         .finally(() => { link.textContent = origText; });
     });
 
+    /**
+     * Navigates to a given offset: updates state, syncs advanced offset input,
+     * saves table state, and reloads the table. Single place for all page/offset navigation.
+     */
+    function goToOffset(newOffset) {
+      offset = Math.max(0, newOffset);
+      const offsetInput = document.getElementById('pagination-offset');
+      if (offsetInput) offsetInput.value = String(offset);
+      saveTableState(currentTableName);
+      loadTable(currentTableName);
+    }
+
+    /**
+     * Updates the pagination bar: status text, First/Prev/Next/Last disabled state,
+     * page dropdown, and syncs the advanced offset input. Call after limit/offset/total change.
+     * Rebuilds the page dropdown each time so it always reflects current state.
+     * @param {number|null} total - Total row count from server, or null if unknown
+     */
+    function updatePaginationBar(total) {
+      const statusEl = document.getElementById('pagination-status');
+      const firstBtn = document.getElementById('pagination-first');
+      const prevBtn = document.getElementById('pagination-prev');
+      const nextBtn = document.getElementById('pagination-next');
+      const lastBtn = document.getElementById('pagination-last');
+      const pagesEl = document.getElementById('pagination-pages');
+      const offsetInput = document.getElementById('pagination-offset');
+      if (!pagesEl || !offsetInput) return;
+
+      const currentPage = limit > 0 ? Math.floor(offset / limit) + 1 : 1;
+      const totalPages = (total != null && total > 0 && limit > 0) ? Math.max(1, Math.ceil(total / limit)) : null;
+      // When offset is past end (e.g. Advanced offset), clamp so dropdown has a valid selection
+      const selectedPage = totalPages != null && currentPage > totalPages ? totalPages : currentPage;
+
+      // Status: "Showing 1–50 of 500" or "Page 1" when total unknown
+      if (statusEl) {
+        if (total != null) {
+          const from = offset + 1;
+          const to = Math.min(offset + limit, total);
+          statusEl.textContent = total === 0 ? '0 rows' : 'Showing ' + from + '\u2013' + to + ' of ' + total.toLocaleString() + ' rows';
+        } else {
+          statusEl.textContent = 'Page ' + currentPage + ' (total unknown)';
+        }
+      }
+
+      // First / Prev: disabled on first page
+      const onFirstPage = offset <= 0;
+      if (firstBtn) firstBtn.disabled = onFirstPage;
+      if (prevBtn) prevBtn.disabled = onFirstPage;
+
+      // Next / Last: disabled when we know total and we're on last page
+      const onLastPage = totalPages != null && currentPage >= totalPages;
+      if (nextBtn) nextBtn.disabled = onLastPage;
+      if (lastBtn) lastBtn.disabled = onLastPage;
+
+      // Page selector: dropdown with 1..totalPages, or "Page 1 of ?"
+      pagesEl.innerHTML = '';
+      const pageLabel = document.createElement('label');
+      pageLabel.setAttribute('for', 'pagination-page');
+      pageLabel.textContent = 'Page ';
+      pageLabel.className = 'pagination-page-label';
+      pagesEl.appendChild(pageLabel);
+      const pageSel = document.createElement('select');
+      pageSel.id = 'pagination-page';
+      pageSel.setAttribute('aria-label', 'Current page');
+      if (totalPages != null) {
+        for (let p = 1; p <= totalPages; p++) {
+          const opt = document.createElement('option');
+          opt.value = String(p);
+          opt.textContent = String(p);
+          if (p === selectedPage) opt.selected = true;
+          pageSel.appendChild(opt);
+        }
+      } else {
+        const opt = document.createElement('option');
+        opt.value = '1';
+        opt.textContent = '1';
+        opt.selected = true;
+        pageSel.appendChild(opt);
+      }
+      pagesEl.appendChild(pageSel);
+      const ofSpan = document.createElement('span');
+      ofSpan.id = 'pagination-of';
+      ofSpan.className = 'pagination-of';
+      ofSpan.textContent = totalPages != null ? ' of ' + totalPages : '';
+      pagesEl.appendChild(ofSpan);
+
+      pageSel.addEventListener('change', function() {
+        const p = parseInt(this.value, 10) || 1;
+        goToOffset((p - 1) * limit);
+      });
+
+      // Sync advanced offset input
+      offsetInput.value = String(offset);
+    }
+
     function setupPagination() {
       const bar = document.getElementById('pagination-bar');
+      if (!bar) return;
       const limitSel = document.getElementById('pagination-limit');
       limitSel.innerHTML = LIMIT_OPTIONS.map(n => '<option value="' + n + '"' + (n === limit ? ' selected' : '') + '>' + n + '</option>').join('');
-      document.getElementById('pagination-offset').value = String(offset);
+      const total = currentTableName ? (tableCounts[currentTableName] ?? null) : null;
+      updatePaginationBar(total);
       bar.style.display = getScope() === 'schema' ? 'none' : 'flex';
     }
     document.getElementById('pagination-limit').addEventListener('change', function() { limit = parseInt(this.value, 10); saveTableState(currentTableName); loadTable(currentTableName); });
     document.getElementById('pagination-offset').addEventListener('change', function() { offset = parseInt(this.value || '0', 10) || 0; });
-    document.getElementById('pagination-prev').addEventListener('click', function() { offset = Math.max(0, offset - limit); document.getElementById('pagination-offset').value = String(offset); saveTableState(currentTableName); loadTable(currentTableName); });
-    document.getElementById('pagination-next').addEventListener('click', function() { offset = offset + limit; document.getElementById('pagination-offset').value = String(offset); saveTableState(currentTableName); loadTable(currentTableName); });
-    document.getElementById('pagination-apply').addEventListener('click', function() { offset = parseInt(document.getElementById('pagination-offset').value || '0', 10) || 0; saveTableState(currentTableName); loadTable(currentTableName); });
+    document.getElementById('pagination-prev').addEventListener('click', function() { goToOffset(Math.max(0, offset - limit)); });
+    document.getElementById('pagination-next').addEventListener('click', function() { goToOffset(offset + limit); });
+    document.getElementById('pagination-first').addEventListener('click', function() { goToOffset(0); });
+    document.getElementById('pagination-last').addEventListener('click', function() {
+      const total = currentTableName ? (tableCounts[currentTableName] ?? null) : null;
+      if (total == null || total <= 0) return;
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      goToOffset((totalPages - 1) * limit);
+    });
+    document.getElementById('pagination-apply').addEventListener('click', function() { goToOffset(parseInt(document.getElementById('pagination-offset').value || '0', 10) || 0); });
+    // Advanced toggle: show/hide raw offset row
+    (function() {
+      const toggle = document.getElementById('pagination-advanced-toggle');
+      const advanced = document.getElementById('pagination-advanced');
+      if (toggle && advanced) {
+        toggle.addEventListener('click', function() {
+          const collapsed = advanced.classList.toggle('collapsed');
+          advanced.style.display = collapsed ? 'none' : 'flex';
+          advanced.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
+        });
+        advanced.style.display = 'none';
+      }
+    })();
     document.getElementById('clear-table-state').addEventListener('click', function() {
       clearTableState(currentTableName);
       document.getElementById('row-filter').value = '';
@@ -3437,6 +3554,7 @@
             .then(o => {
               if (currentTableName !== name) return;
               tableCounts[name] = o.count;
+              updatePaginationBar(o.count);
               renderTableView(name, data);
             })
             .catch(() => {});
