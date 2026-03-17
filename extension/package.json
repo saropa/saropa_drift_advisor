@@ -2,7 +2,7 @@
   "name": "drift-viewer",
   "displayName": "Saropa Drift Advisor",
   "description": "Debug SQLite/Drift databases in VS Code with Saropa Drift Advisor.",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "publisher": "saropa",
   "license": "MIT",
   "repository": {
@@ -46,7 +46,8 @@
     "onView:driftViewer.databaseExplorer",
     "onView:driftViewer.toolbox",
     "onCommand:driftViewer.aboutSaropa",
-    "onCommand:driftViewer.about"
+    "onCommand:driftViewer.about",
+    "onCommand:driftViewer.openDashboard"
   ],
   "icon": "icon.png",
   "main": "./out/extension.js",
@@ -581,7 +582,7 @@
         {
           "command": "driftViewer.generateSchemaDocs",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "navigation"
+          "group": "1_more"
         },
         {
           "command": "driftViewer.refreshPerformance",
@@ -606,27 +607,27 @@
         {
           "command": "driftViewer.importDataset",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "navigation"
+          "group": "1_more"
         },
         {
           "command": "driftViewer.globalSearch",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "navigation"
+          "group": "1_more"
         },
         {
           "command": "driftViewer.openBookmarks",
           "when": "view == driftViewer.databaseExplorer",
-          "group": "navigation"
+          "group": "1_more"
         },
         {
           "command": "driftViewer.isarToDrift",
           "when": "view == driftViewer.databaseExplorer",
-          "group": "navigation"
+          "group": "1_more"
         },
         {
           "command": "driftViewer.openSnippetLibrary",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "navigation"
+          "group": "1_more"
         },
         {
           "command": "driftViewer.healthScore",
@@ -639,24 +640,29 @@
           "group": "navigation"
         },
         {
+          "command": "driftViewer.showToolsQuickPick",
+          "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation"
+        },
+        {
           "command": "driftViewer.manageInvariants",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "navigation"
+          "group": "1_more"
         },
         {
           "command": "driftViewer.showErDiagram",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "navigation"
+          "group": "1_more"
         },
         {
           "command": "driftViewer.exportReport",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "navigation"
+          "group": "1_more"
         },
         {
           "command": "driftViewer.addPackageToProject",
           "when": "view == driftViewer.databaseExplorer && !driftViewer.packageInstalled",
-          "group": "navigation"
+          "group": "1_more"
         },
         {
           "command": "driftViewer.openWalkthrough",
