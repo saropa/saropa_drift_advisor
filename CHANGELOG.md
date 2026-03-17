@@ -134,7 +134,7 @@ Smart package lifecycle management: the extension now detects whether the Dart p
 
 ---
 
-## [1.6.1]
+## [2.1.0]
 
 Project gets contributor-facing documentation, GitHub templates, pub.dev discoverability fields, and comprehensive Dart test coverage.
 
