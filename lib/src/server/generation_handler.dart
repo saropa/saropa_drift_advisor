@@ -23,6 +23,7 @@ final class GenerationHandler {
     res.write(jsonEncode(<String, dynamic>{
       ServerConstants.jsonKeyOk: true,
       ServerConstants.jsonKeyExtensionConnected: _ctx.isExtensionConnected,
+      ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
     }));
     await res.close();
   }
