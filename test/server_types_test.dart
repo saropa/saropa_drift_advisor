@@ -1,0 +1,115 @@
+// Tests for server helper types: Snapshot, QueryTiming,
+// SqlRequestBody.
+
+import 'package:test/test.dart';
+
+import 'package:saropa_drift_advisor/src/server/server_types.dart';
+
+void main() {
+  group('Snapshot', () {
+    test('stores id, createdAt, and tables', () {
+      final now = DateTime.now().toUtc();
+      final snapshot = Snapshot(
+        id: 'abc123',
+        createdAt: now,
+        tables: <String, List<Map<String, dynamic>>>{
+          'users': [
+            <String, dynamic>{'id': 1, 'name': 'Alice'},
+          ],
+        },
+      );
+
+      expect(snapshot.id, 'abc123');
+      expect(snapshot.createdAt, now);
+      expect(snapshot.tables, hasLength(1));
+      expect(snapshot.tables['users'], hasLength(1));
+    });
+
+    test('toString includes id and table count', () {
+      final snapshot = Snapshot(
+        id: 'test',
+        createdAt: DateTime.now().toUtc(),
+        tables: <String, List<Map<String, dynamic>>>{
+          'a': <Map<String, dynamic>>[],
+          'b': <Map<String, dynamic>>[],
+        },
+      );
+
+      expect(snapshot.toString(), contains('test'));
+      expect(snapshot.toString(), contains('2'));
+    });
+  });
+
+  group('QueryTiming', () {
+    test('toJson includes all fields', () {
+      final now = DateTime.utc(2025, 1, 15, 12, 0, 0);
+      final timing = QueryTiming(
+        sql: 'SELECT * FROM users',
+        durationMs: 42,
+        rowCount: 10,
+        at: now,
+      );
+
+      final json = timing.toJson();
+      expect(json['sql'], 'SELECT * FROM users');
+      expect(json['durationMs'], 42);
+      expect(json['rowCount'], 10);
+      expect(json['at'], now.toIso8601String());
+      // Error should not be present when null.
+      expect(json.containsKey('error'), isFalse);
+    });
+
+    test('toJson includes error when present', () {
+      final timing = QueryTiming(
+        sql: 'BAD SQL',
+        durationMs: 1,
+        rowCount: 0,
+        at: DateTime.now().toUtc(),
+        error: 'syntax error',
+      );
+
+      final json = timing.toJson();
+      expect(json['error'], 'syntax error');
+    });
+  });
+
+  group('SqlRequestBody', () {
+    test('fromJson parses valid map with sql key', () {
+      final body =
+          SqlRequestBody.fromJson(<String, dynamic>{'sql': 'SELECT 1'});
+
+      expect(body, isNotNull);
+      expect(body!.sql, 'SELECT 1');
+    });
+
+    test('fromJson trims whitespace from sql', () {
+      final body =
+          SqlRequestBody.fromJson(<String, dynamic>{'sql': '  SELECT 1  '});
+
+      expect(body, isNotNull);
+      expect(body!.sql, 'SELECT 1');
+    });
+
+    test('fromJson returns null for non-Map', () {
+      expect(SqlRequestBody.fromJson('not a map'), isNull);
+      expect(SqlRequestBody.fromJson(42), isNull);
+      expect(SqlRequestBody.fromJson(null), isNull);
+    });
+
+    test('fromJson returns null when sql key is missing', () {
+      expect(SqlRequestBody.fromJson(<String, dynamic>{'other': 'x'}), isNull);
+    });
+
+    test('fromJson returns null when sql is not a String', () {
+      expect(SqlRequestBody.fromJson(<String, dynamic>{'sql': 42}), isNull);
+    });
+
+    test('fromJson returns null when sql is empty after trim', () {
+      expect(SqlRequestBody.fromJson(<String, dynamic>{'sql': '   '}), isNull);
+    });
+
+    test('fromJson returns null for empty string sql', () {
+      expect(SqlRequestBody.fromJson(<String, dynamic>{'sql': ''}), isNull);
+    });
+  });
+}

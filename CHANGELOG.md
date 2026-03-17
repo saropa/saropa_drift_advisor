@@ -15,6 +15,22 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [Unreleased]
+
+Project gets contributor-facing documentation, GitHub templates, pub.dev discoverability fields, and comprehensive Dart test coverage.
+
+### Added
+
+- **`CODE_OF_CONDUCT.md`** — Contributor Covenant v2.1 (condensed, links to full text). Identical file added to `saropa_lints`.
+- **`CONTRIBUTING.md`** — Developer setup guide covering the Dart package, VS Code extension, and example app. Includes coding standards, commit conventions, PR checklist, and architecture overview.
+- **GitHub issue templates** — Structured YAML forms for bug reports (`bug_report.yml`) and feature requests (`feature_request.yml`) with component dropdowns and environment fields.
+- **GitHub pull request template** — Checklist-driven PR template with summary, change type, testing, and related-issues sections.
+- **Dart test suite** — Eight new test files with shared test helpers, covering `ServerContext`, `SqlHandler` (read-only validation), `DriftDebugSessionStore`, `DriftDebugImportProcessor` (JSON/CSV/SQL), `DriftDebugImportResult`, server types (`Snapshot`, `QueryTiming`, `SqlRequestBody`), and full HTTP integration tests for all API endpoints (auth, tables, SQL, schema, snapshots, sessions, import, CORS, 404).
+- **`topics` in `pubspec.yaml`** — drift, sqlite, database, debug, flutter for pub.dev discoverability.
+- **`screenshots` in `pubspec.yaml`** — Banner image reference for pub.dev listing.
+
+---
+
 ## [1.6.0]
 
 VM Service connection now works — Android emulator connects without port forwarding. Web UI gets a visual polish layer loaded from CDN, and the published package is leaner.
