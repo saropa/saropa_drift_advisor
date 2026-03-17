@@ -45,6 +45,7 @@
     "onLanguage:dart",
     "onView:driftViewer.databaseExplorer",
     "onView:driftViewer.toolbox",
+    "onCommand:driftViewer.refreshTree",
     "onCommand:driftViewer.aboutSaropa",
     "onCommand:driftViewer.about",
     "onCommand:driftViewer.openDashboard"
