@@ -37,6 +37,7 @@ import { registerNarratorCommands } from './narrator';
 import { registerClipboardImportCommands } from './import/clipboard-import-commands';
 import { registerReportCommands } from './report/report-commands';
 import { registerWorkspaceSetupCommands } from './workspace-setup/workspace-setup-commands';
+import { registerTroubleshootingCommands } from './troubleshooting/troubleshooting-commands';
 import { registerRollbackCommands } from './rollback/rollback-commands';
 import { registerAboutCommands } from './about/about-commands';
 import { HealthScorer } from './health/health-scorer';
@@ -145,6 +146,7 @@ export function registerAllCommands(
     ['clipboardImport', () => registerClipboardImportCommands(context, client)],
     ['report', () => registerReportCommands(context, client)],
     ['workspaceSetup', () => registerWorkspaceSetupCommands(context)],
+    ['troubleshooting', () => registerTroubleshootingCommands(context)],
     ['rollback', () => registerRollbackCommands(context, schemaTracker)],
     ['about', () => registerAboutCommands(context)],
   ];

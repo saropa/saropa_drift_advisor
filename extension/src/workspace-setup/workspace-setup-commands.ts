@@ -1,5 +1,5 @@
 /**
- * Registers the "Add package to project" command. Installing the extension
+ * Registers the "Add Saropa Drift Advisor" command. Installing the extension
  * can install the saropa_drift_advisor Dart package in the workspace (and vice versa).
  * Progress notification shows step messages (e.g. "Running pub get…").
  */

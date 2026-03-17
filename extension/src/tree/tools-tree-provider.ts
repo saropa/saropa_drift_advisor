@@ -134,7 +134,7 @@ function buildCategories(version: string): ToolCategoryItem[] {
         false, 'Step-by-step guide to the extension',
       ),
       new ToolCommandItem(
-        'Add Package to Project', 'driftViewer.addPackageToProject', 'package',
+        'Add Saropa Drift Advisor', 'driftViewer.addPackageToProject', 'package',
         false, 'Add saropa_drift_advisor to pubspec.yaml',
       ),
     ]),

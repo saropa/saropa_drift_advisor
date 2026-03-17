@@ -15,7 +15,7 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [Unreleased]
+## [1.5.1]
 
 Web UI now shows the server version and has a proper favicon.
 
@@ -23,10 +23,24 @@ Web UI now shows the server version and has a proper favicon.
 
 - **Version badge in web UI header** — The page header now displays the Drift Advisor version (e.g. "v1.5.0") fetched from the `/api/health` endpoint, so users can verify which server version is running. The health endpoint now includes a `version` field.
 - **Favicon** — Added an inline SVG database-cylinder favicon via `<link rel="icon">` data URI in the HTML head, and a lightweight 204 No Content route for `/favicon.ico` requests to silence browser console 404s.
+- **Troubleshooting webview panel** — The sidebar "Troubleshooting" button now opens a rich webview with a quick checklist, connection architecture diagram, collapsible FAQ sections for common issues, and action buttons (Retry Connection, Forward Port, Select Server, Open Output Log, Open Settings).
+
+### Changed
+
+- **Renamed "Add package to project" to "Add Saropa Drift Advisor"** — The sidebar button, command palette entry, and walkthrough step now use the clearer name.
+- **Sidebar welcome panel formatting** — Replaced `**` markdown bold (which rendered as literal asterisks in VS Code panels) with CAPS headers (GET STARTED, RESOURCES). Moved troubleshooting tips out of inline text into the new webview panel.
+- **Walkthrough dependency type corrected** — Changed "dev dependencies" to "dependencies" since the package must be a regular dependency (users import it in `lib/` code).
+- **Package version constraint** — Updated the "Add Saropa Drift Advisor" button to install `^0.3.0`.
 
 ### Fixed
 
+- **"Add Saropa Drift Advisor" silent failure on missing dependencies section** — When a pubspec.yaml had no `dependencies:` section, the error was thrown but not caught, causing the command to fail silently with no user notification. Now properly caught and shown as an error message.
+- **"Already present" feedback** — When the package was already in pubspec.yaml, the success message now explicitly says so instead of only showing "Run your app with the Drift debug server to connect."
 - **Query builder LIKE operators caused JS syntax error** — The Dart `'''` string escape `"\"` was consumed by Dart as an escaped double-quote, producing `""` in the served JavaScript. This broke `LIKE`, `NOT LIKE`, and `LIKE_START` operator conditions in the query builder with `Uncaught SyntaxError: missing ) after argument list`. Fixed by using `"\\"` so Dart emits `\"` (a valid JS string escape).
+
+### Internal
+
+- **Publish script syncs PACKAGE_VERSION** — `write_version(DART, ...)` now automatically updates the `PACKAGE_VERSION` constant in `add-package.ts` so the "Add Saropa Drift Advisor" button always installs the correct version after a release.
 
 ---
 

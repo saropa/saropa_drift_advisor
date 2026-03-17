@@ -24,7 +24,7 @@ dependencies:
   flutter:
     sdk: flutter
 dev_dependencies:
-  saropa_drift_advisor: ^1.3.1
+  saropa_drift_advisor: ^0.3.0
 `;
     const result = addPackageToPubspec(content);
     assert.strictEqual(result.modified, false);
@@ -39,7 +39,7 @@ dependencies:
 `;
     const result = addPackageToPubspec(content);
     assert.strictEqual(result.modified, true);
-    assert.ok(result.content.includes('saropa_drift_advisor: ^1.3.1'));
+    assert.ok(result.content.includes('saropa_drift_advisor: ^0.3.0'));
     assert.ok(result.content.includes('flutter:'));
     const lineAfterDeps = result.content.split('\n').findIndex((l) => l.trim().startsWith('saropa_drift_advisor'));
     const flutterLine = result.content.split('\n').findIndex((l) => l.trim().startsWith('flutter:'));

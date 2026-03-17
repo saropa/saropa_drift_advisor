@@ -16,6 +16,13 @@ CHANGELOG_PATH = os.path.join(REPO_ROOT, "CHANGELOG.md")
 TEST_DIR = os.path.join(REPO_ROOT, "test")
 LIB_DIR = os.path.join(REPO_ROOT, "lib")
 
+# Extension TypeScript file that embeds the Dart package version constraint.
+# Updated automatically during publish so the "Add Saropa Drift Advisor"
+# button installs the correct version.
+ADD_PACKAGE_TS_PATH = os.path.join(
+    EXTENSION_DIR, "src", "workspace-setup", "add-package.ts",
+)
+
 # Maximum lines allowed per TypeScript source file.
 MAX_FILE_LINES = 300
 
