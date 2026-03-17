@@ -17,9 +17,9 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
-## [Unreleased]
+## [2.3.0]
 
-Changelog version labels corrected so the right fixes are listed under the right release.
+Web UI: PII masking, richer charts and exports, query-builder AND/OR, page-based pagination, and larger touch targets for accessibility.
 
 ### Added
 
