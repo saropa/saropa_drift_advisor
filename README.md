@@ -35,7 +35,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Client-side row filter** search with **result navigation** — auto-scroll to match, "X of Y" counter, Prev/Next buttons; keyboard shortcuts (Enter/Shift+Enter, Ctrl+G, Ctrl+F, Escape); active match highlight; collapsed sections expand when navigating to a match
 - **Foreign key navigation** — click FK values to jump to the referenced row; **clickable breadcrumb steps** (jump to any table in the trail); breadcrumb persistence in localStorage; "Clear path" button
 - **Data type display toggle** — raw SQLite values or human-readable (epoch → ISO 8601, 0/1 → true/false)
-- **One-click cell copy** on hover with toast notification
+- **One-click cell copy** on hover with toast notification; long values truncate with ellipsis; **double-click a cell** to view full value in a popup with Copy button (Escape or backdrop to close)
 
 #### Query Tools
 

@@ -742,10 +742,10 @@ body.theme-dark .search-bar select:focus {
 
 /* SQL result table: allow natural column widths and horizontal scroll in container */
 .sql-runner .sql-result .data-table-scroll-wrap {
-  overflow: auto;
+  overflow: scroll;
   max-height: 70vh;
   margin-top: 0.35rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
@@ -936,12 +936,12 @@ body.theme-light #live-indicator {
   display: block;
 }
 
-/* Scroll container for data table: enables sticky headers and horizontal scroll
-   while keeping headers visible. Inline fallback when drift-enhanced.css is unavailable. */
+/* Scroll container for data table: sticky headers, horizontal/vertical scroll.
+   Scrollbars always visible (overflow: scroll). */
 .data-table-scroll-wrap {
-  overflow: auto;
+  overflow: scroll;
   max-height: 70vh;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
@@ -950,6 +950,25 @@ body.theme-light #live-indicator {
 
 body.theme-dark .data-table-scroll-wrap {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.table-status-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.4rem 0.75rem;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+.table-status-bar .table-status-range {
+  font-variant-numeric: tabular-nums;
 }
 
 #data-table {
@@ -967,6 +986,18 @@ body.theme-dark .data-table-scroll-wrap {
   text-align: left;
   white-space: nowrap;
   min-width: 5rem;
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Wrapper for cell text so ellipsis applies to content while copy button stays visible on hover */
+#data-table td .cell-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 #data-table th {
@@ -1141,6 +1172,101 @@ body.theme-dark .data-table-scroll-wrap {
 .copy-toast.show {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Cell value popup: full untruncated value on double-tap, with Copy button.
+   Uses visibility + opacity (not display) so open/close can transition smoothly. */
+#cell-value-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+
+#cell-value-popup.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.2s ease, visibility 0s;
+}
+
+.cell-value-popup-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  min-width: 20rem;
+}
+
+.cell-value-popup-title {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cell-value-popup-content {
+  padding: 0.75rem;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.cell-value-popup-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--text-sm);
+  max-height: 50vh;
+}
+
+.cell-value-popup-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cell-value-popup-actions button {
+  min-height: 36px;
+  padding: 0 0.85rem;
+  font-size: var(--text-sm);
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.cell-value-popup-actions button:hover {
+  border-color: var(--link);
+  color: var(--link);
+  background: var(--surface);
+}
+
+.cell-value-popup-actions button.btn-primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+  border-color: var(--btn-primary-bg);
+}
+
+.cell-value-popup-actions button.btn-primary:hover {
+  background: var(--btn-primary-hover-bg);
+  border-color: var(--btn-primary-hover-bg);
+  color: var(--btn-primary-fg);
 }
 
 .qb-section {
