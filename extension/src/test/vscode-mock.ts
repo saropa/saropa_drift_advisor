@@ -120,6 +120,9 @@ export const window = {
   registerWebviewViewProvider: (_viewId: string, _provider: any) => {
     return { dispose: () => { /* no-op */ } };
   },
+  activeTextEditor: undefined as any,
+  onDidChangeActiveTextEditor: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+  onDidChangeTextEditorSelection: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
 };
 
 const registeredCommands: Record<string, (...args: any[]) => any> = {};

@@ -15,7 +15,7 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [Unreleased]
+## [2.2.0]
 
 ### Fixed
 
@@ -55,7 +55,7 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [2.1.1]
+## [2.2.0]
 
 Web UI gets a clearer layout and sidebar; the extension activates when you open the Drift views; drift_sqlite_async users get clearer guidance; and turning polling off no longer spams the console.
 

@@ -108,7 +108,7 @@ All commands are available via the command palette (`Ctrl+Shift+P`):
 | Schema Diff | Compare code vs runtime schema |
 | Schema Diagram | ER-style table visualization |
 | Open SQL Notebook | Multi-statement SQL editor |
-| Explain Query Plan | EXPLAIN for selected SQL |
+| Explain Query Plan | EXPLAIN for selected SQL (context menu when cursor/selection has SQL) |
 | Generate Dart from Schema | Scaffold Drift table classes |
 | Export SQL Dump | Save schema + data as `.sql` |
 | Download Database File | Save raw `.db` file |
