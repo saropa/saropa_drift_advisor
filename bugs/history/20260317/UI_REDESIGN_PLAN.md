@@ -2,7 +2,7 @@
 
 Plan to evolve the web viewer from a functional but visually flat interface into a clear, modern, and pleasant UI while keeping the same capabilities and CDN-based asset delivery.
 
-**Implementation status:** Complete. Phases 1–4 implemented, including Phase 4.1 icons via Google Material Symbols Outlined (CDN). Feature headers, Theme/Share buttons, and export links use icon + text; expand/collapse arrow is CSS ::before. See CHANGELOG and `bugs/history/20260317/027-ui-redesign-complete.md`.
+**Implementation status:** Complete. Phases 1–4 implemented, including Phase 4.1 icons via Google Material Symbols Outlined (CDN). Feature headers, Theme/Share buttons, and export links use icon + text; expand/collapse arrow is CSS ::before. See CHANGELOG and `bugs/history/20260317/027-ui-redesign-complete.md`. **Tools toolbar and tabs:** Tools moved from sidebar to a horizontal toolbar; each opens in a full-width tab (see `bugs/history/20260317/028-web-ui-tools-tabs.md`).
 
 ---
 

@@ -1,5 +1,7 @@
 # BUG-005: Pagination UX is clunky and unintuitive
 
+**Partial implementation (2025-03):** Status bar added: "Showing X–Y of Z rows" and "(past end of results)" when offset is beyond total. Table and SQL result tables now show row range and column count. Page-based navigation (Page 1, 2, 3), First/Last buttons, and raw offset as advanced option remain open.
+
 ## Severity: Significant
 
 ## Component: Web UI

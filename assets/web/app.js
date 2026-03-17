@@ -88,7 +88,9 @@
       if (card) card.classList.toggle('expanded', !collapsible.classList.contains('collapsed'));
     }
 
-    // --- Tab system: toolbar opens tools in tabs; multiple views can be open. ---
+    // --- Tab system: tools toolbar + tabbed content; tools open in full-width tabs. ---
+    // Toolbar buttons open/switch to a tab; tool tabs are closeable; Tables and Run SQL are fixed.
+    // Lazy load: Schema and Diagram fetch data on first tab switch (onTabSwitch).
     var TOOL_LABELS = {
       tables: 'Tables',
       sql: 'Run SQL',
@@ -3048,7 +3050,10 @@
       return '<div id="data-table-scroll-wrap" class="data-table-scroll-wrap">' + tableHtml + '</div>';
     }
 
-    /** Returns count of visible columns for a table given data keys and column config. */
+    /**
+     * Returns count of visible columns (mirrors visibility logic in buildDataTableHtml:
+     * order + hidden from columnConfig). Used for the table status bar.
+     */
     function getVisibleColumnCount(dataKeys, columnConfig) {
       if (!dataKeys || dataKeys.length === 0) return 0;
       var order = dataKeys.slice();
@@ -3076,6 +3081,9 @@
       var totalText = total != null ? total.toLocaleString() : '?';
       var colText = (columnCount != null && columnCount > 0) ? (columnCount + ' column' + (columnCount !== 1 ? 's' : '')) : '';
       var parts = ['Showing <span class="table-status-range">' + rangeText + '</span> of ' + totalText + ' rows'];
+      if (displayedLen === 0 && total != null && total > 0 && offset >= total) {
+        parts.push('(past end of results)');
+      }
       if (colText) parts.push(colText);
       return '<div class="table-status-bar" role="status">' + parts.join(' \u2022 ') + '</div>';
     }
@@ -3526,7 +3534,7 @@
         });
       }
 
-      /** Renders the current page of SQL result table (uses sqlResultAllRows, sqlResultPage). */
+      /** Renders the current page of SQL result table from in-memory sqlResultAllRows. */
       function renderSqlResultPage() {
         const rows = sqlResultAllRows;
         const pageSize = SQL_RESULT_PAGE_SIZE;

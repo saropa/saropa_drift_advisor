@@ -25,11 +25,17 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ### Added
 
+• **Web UI: tools toolbar and tabbed tools** — Tools (Snapshot, DB diff, Index, Size, Perf, Health, Import, Schema, Diagram) moved from the sidebar into a horizontal toolbar above the main content. Clicking a tool opens it in a dedicated tab, giving full width to each tool. Tables and Run SQL remain fixed tabs; tool tabs can be closed (×). Tab switch uses a short opacity transition; Schema and Diagram load on first open.
+
 • **Web UI: table cell truncation and full-value popup** — Long cell text in the data table is truncated with an ellipsis (max width 18rem). Double-click any cell to open a popup showing the full value, with a Copy button and Close/backdrop/Escape to dismiss. Popup uses a short fade transition; column name appears in the popup title.
+
+• **Web UI: table status bar, scrollbars always on, SQL result pagination** — Data tables show a status bar below the grid: "Showing X–Y of Z rows • N columns" (and "(past end of results)" when offset is beyond total). Table and SQL result scroll containers use `overflow: scroll` so scrollbars are always visible. SQL runner table results are paginated client-side (100 rows per page) with Prev/Next and the same status bar. Column widths use natural content width with horizontal scroll instead of wrapping (e.g. episodes, URLs stay on one line).
 
 • **Web UI: tooltips on all buttons and expanders** — Every button and collapsible header in the web view has a [title] attribute for native hover tooltips. Covers sidebar tools (snapshot, compare, index, size, perf, anomaly, import, schema, diagram), SQL runner and saved queries, pagination, column chooser and context menu, query builder, migration copy, compare panel close, breadcrumb Back/Clear path, and export links.
 
 ### Changed
+
+• **Extension: Explain Query Plan context menu only when SQL at cursor** — The right-click "Explain Query Plan" entry now appears only in Dart files when the cursor or selection contains extractable SQL (e.g. SELECT/WITH string, triple-quoted SQL, or customSelect/customStatement). Reduces noise in files without SQL; command remains available from the Command Palette. Context updates are debounced on selection changes (50 ms) to avoid unnecessary work.
 
 • **Web UI: Run SQL Explain and Saved queries** — Explain shows a single plain-English message (e.g. full table scan on table name, or index lookup) instead of raw EXPLAIN output. "Bookmarks" renamed to "Saved queries" throughout the Run SQL section (label, dropdown, prompts, alerts, export filename).
 

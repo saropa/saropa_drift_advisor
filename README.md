@@ -30,6 +30,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 
 #### Data Browsing
 
+- **Tools toolbar and tabs** — Snapshot, DB diff, Index, Size, Perf, Health, Import, Schema, and Diagram open in full-width tabs from a top toolbar; Tables and Run SQL are fixed tabs.
 - **Table list** with row counts
 - **View rows** as JSON with pagination (limit/offset)
 - **Client-side row filter** search with **result navigation** — auto-scroll to match, "X of Y" counter, Prev/Next buttons; keyboard shortcuts (Enter/Shift+Enter, Ctrl+G, Ctrl+F, Escape); active match highlight; collapsed sections expand when navigating to a match
