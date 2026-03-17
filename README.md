@@ -42,7 +42,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 
 - **Read-only SQL runner** with table/column autocomplete, templates, and query history
 - **Saved queries** — save, name, export/import as JSON
-- **Visual query builder** — SELECT checkboxes, type-aware WHERE clauses, ORDER BY, LIMIT, live SQL preview
+- **Visual query builder** — SELECT checkboxes, type-aware WHERE clauses with AND/OR between conditions, ORDER BY, LIMIT, live SQL preview
 - **Natural language → SQL** — English questions (count, average, latest, group-by) converted via pattern matching
 - **Explain plan** — plain-English summary (full table scan vs index lookup)
 

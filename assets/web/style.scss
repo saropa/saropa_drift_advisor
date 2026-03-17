@@ -11,6 +11,8 @@
   --text-base: 1rem;
   --text-lg: 1.125rem;
   --text-xl: 1.35rem;
+  /** Minimum readable font size (WCAG / BUG-010); use for labels and secondary UI text. */
+  --text-min-readable: 12px;
   --tap-min: 44px;
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -752,16 +754,17 @@ body.theme-light #live-indicator.connection-status { color: #558b2f; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .chart-bar { fill: var(--link); }
 .chart-bar:hover { fill: var(--fg); }
-.chart-label { font-size: 10px; fill: var(--muted); }
+/* Chart text: use --text-min-readable for accessibility (WCAG / BUG-010) */
+.chart-label { font-size: var(--text-min-readable); fill: var(--muted); }
 .chart-axis { stroke: var(--border); stroke-width: 1; }
-.chart-axis-label { font-size: 11px; fill: var(--muted); }
+.chart-axis-label { font-size: var(--text-min-readable); fill: var(--muted); }
 .chart-line { stroke: var(--link); stroke-width: 2; fill: none; }
 .chart-dot { fill: var(--link); }
 .chart-dot:hover { fill: var(--fg); r: 5; }
 .chart-slice { stroke: var(--bg); stroke-width: 2; cursor: pointer; }
 .chart-slice:hover { opacity: 0.8; }
-.chart-legend { font-size: 11px; fill: var(--fg); }
-.cell-raw { color: var(--muted); font-size: 10px; display: block; }
+.chart-legend { font-size: var(--text-min-readable); fill: var(--fg); }
+.cell-raw { color: var(--muted); font-size: var(--text-min-readable); display: block; }
 /* Scroll container for data table: sticky headers, horizontal/vertical scroll.
    Scrollbars always visible (overflow: scroll). */
 .data-table-scroll-wrap {
@@ -859,9 +862,41 @@ body.theme-dark .data-table-scroll-wrap {
 #data-table th[draggable="true"]:active { cursor: grabbing; }
 #data-table th.drag-over { outline: 2px dashed var(--link); outline-offset: -2px; }
 #data-table td { position: relative; }
-#data-table td .cell-copy-btn { display: none; position: absolute; top: 2px; right: 2px; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-size: 10px; padding: 1px 4px; cursor: pointer; line-height: 1; z-index: 1; }
-#data-table td:hover .cell-copy-btn { display: inline-block; }
-#data-table td .cell-copy-btn:hover { color: var(--fg); border-color: var(--link); }
+/* Cell copy button: min 12px font and 24×24px pointer target (WCAG 2.5.8 / BUG-010).
+   Touch devices get 44×44px via media; hover expands for discoverability. */
+#data-table td .cell-copy-btn {
+  display: none;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 12px;
+  padding: 4px 8px;
+  min-width: 24px;
+  min-height: 24px;
+  cursor: pointer;
+  line-height: 1;
+  z-index: 1;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+@media (pointer: coarse) {
+  #data-table td .cell-copy-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+}
+#data-table td:hover .cell-copy-btn { display: inline-flex; }
+#data-table td .cell-copy-btn:hover {
+  color: var(--fg);
+  border-color: var(--link);
+  transform: scale(1.08);
+}
 /* Column context menu and chooser panel */
 #column-context-menu { display: none; position: fixed; z-index: 10001; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); min-width: 10rem; padding: 0.25rem 0; }
 #column-context-menu button { display: block; width: 100%; text-align: left; padding: 0.35rem 0.75rem; border: none; background: none; color: var(--fg); cursor: pointer; font-size: 13px; }
@@ -1001,7 +1036,25 @@ body.theme-dark .data-table-scroll-wrap {
 .qb-columns label { font-size: 11px; color: var(--fg); display: inline-flex; align-items: center; gap: 2px; min-width: auto; }
 .qb-where-item { display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.2rem; flex-wrap: wrap; }
 .qb-where-item select, .qb-where-item input { font-size: 11px; padding: 0.2rem 0.3rem; }
-.qb-where-item button { font-size: 10px; padding: 0.15rem 0.3rem; }
+/* Connector (AND/OR) between conditions: compact width, same touch target as other controls (BUG-010) */
+.qb-where-connector { min-width: 3.5rem; font-weight: 600; }
+@media (pointer: coarse) {
+  .qb-where-connector { min-height: 44px; }
+}
+/* Query builder where-clause buttons: min 12px font, 24×24px target (BUG-010) */
+.qb-where-item button {
+  font-size: 12px;
+  padding: 0.35rem 0.5rem;
+  min-height: 24px;
+  min-width: 24px;
+}
+@media (pointer: coarse) {
+  .qb-where-item button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.5rem 0.65rem;
+  }
+}
 .qb-preview { font-family: ui-monospace, monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.4rem; margin-top: 0.35rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 4rem; overflow: auto; }
 /* --- Connection health banner --- */
 /* Fixed banner slides down from top with a smooth CSS transition.

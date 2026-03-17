@@ -941,13 +941,36 @@
       ];
     }
 
+    /**
+     * Adds one WHERE condition row. For the 2nd and subsequent rows, prepends an
+     * AND/OR connector dropdown so users can combine conditions.
+     * @param {Object} colTypes - Map of column name to type (for operators).
+     * @param {Object} [preset] - Optional { column, op, value, connector } to restore state.
+     */
     function addWhereClause(colTypes, preset) {
       var list = document.getElementById('qb-where-list');
       if (!list) return;
       var cols = Object.keys(colTypes || {});
       if (cols.length === 0) return;
+      var isFirst = list.children.length === 0;
       var div = document.createElement('div');
       div.className = 'qb-where-item';
+      if (!isFirst) {
+        var connSel = document.createElement('select');
+        connSel.className = 'qb-where-connector';
+        connSel.title = 'Combine with previous condition';
+        var optAnd = document.createElement('option');
+        optAnd.value = 'AND';
+        optAnd.textContent = 'AND';
+        var optOr = document.createElement('option');
+        optOr.value = 'OR';
+        optOr.textContent = 'OR';
+        connSel.appendChild(optAnd);
+        connSel.appendChild(optOr);
+        if (preset && (preset.connector === 'OR')) connSel.value = 'OR';
+        connSel.addEventListener('change', updateQbPreview);
+        div.appendChild(connSel);
+      }
       var colSel = document.createElement('select');
       colSel.className = 'qb-where-col';
       cols.forEach(function(c) {
@@ -1007,27 +1030,38 @@
         ? selectedCols.map(function(c) { return '"' + c + '"'; }).join(', ')
         : '*';
       var whereParts = [];
+      var whereConnectors = []; // AND/OR for 2nd+ conditions (first has no connector in DOM)
       var whereItems = document.querySelectorAll('#qb-where-list .qb-where-item');
       whereItems.forEach(function(item) {
+        var connSel = item.querySelector('.qb-where-connector');
+        if (connSel) whereConnectors.push(connSel.value);
         var col = item.querySelector('.qb-where-col').value;
         var op = item.querySelector('.qb-where-op').value;
         var val = item.querySelector('.qb-where-val').value;
-        if (op === 'IS NULL') { whereParts.push('"' + col + '" IS NULL'); }
-        else if (op === 'IS NOT NULL') { whereParts.push('"' + col + '" IS NOT NULL'); }
-        else if (op === 'LIKE') { whereParts.push('"' + col + '" LIKE \'%' + val.replace(/'/g, "''") + '%\''); }
-        else if (op === 'NOT_LIKE') { whereParts.push('"' + col + '" NOT LIKE \'%' + val.replace(/'/g, "''") + '%\''); }
-        else if (op === 'LIKE_START') { whereParts.push('"' + col + '" LIKE \'' + val.replace(/'/g, "''") + '%\''); }
+        var part;
+        if (op === 'IS NULL') { part = '"' + col + '" IS NULL'; }
+        else if (op === 'IS NOT NULL') { part = '"' + col + '" IS NOT NULL'; }
+        else if (op === 'LIKE') { part = '"' + col + '" LIKE \'%' + val.replace(/'/g, "''") + '%\''; }
+        else if (op === 'NOT_LIKE') { part = '"' + col + '" NOT LIKE \'%' + val.replace(/'/g, "''") + '%\''; }
+        else if (op === 'LIKE_START') { part = '"' + col + '" LIKE \'' + val.replace(/'/g, "''") + '%\''; }
         else {
           var isNum = !isNaN(Number(val)) && val.trim() !== '';
           var sqlVal = isNum ? val : "'" + val.replace(/'/g, "''") + "'";
-          whereParts.push('"' + col + '" ' + op + ' ' + sqlVal);
+          part = '"' + col + '" ' + op + ' ' + sqlVal;
         }
+        whereParts.push(part);
       });
       var orderCol = document.getElementById('qb-order-col').value;
       var orderDir = document.getElementById('qb-order-dir').value;
       var qbLimit = parseInt(document.getElementById('qb-limit').value || '200', 10) || 200;
       var sql = 'SELECT ' + selectPart + ' FROM "' + tableName + '"';
-      if (whereParts.length > 0) sql += ' WHERE ' + whereParts.join(' AND ');
+      if (whereParts.length > 0) {
+        var whereClause = whereParts[0];
+        for (var i = 1; i < whereParts.length; i++) {
+          whereClause += ' ' + (whereConnectors[i - 1] || 'AND') + ' ' + whereParts[i];
+        }
+        sql += ' WHERE ' + whereClause;
+      }
       if (orderCol) sql += ' ORDER BY "' + orderCol + '" ' + orderDir;
       sql += ' LIMIT ' + qbLimit;
       return sql;
@@ -1128,10 +1162,12 @@
       checkboxes.forEach(function(cb) { if (cb.checked) state.selectedColumns.push(cb.value); });
       var whereItems = document.querySelectorAll('#qb-where-list .qb-where-item');
       whereItems.forEach(function(item) {
+        var connSel = item.querySelector('.qb-where-connector');
         state.whereClauses.push({
           column: item.querySelector('.qb-where-col').value,
           op: item.querySelector('.qb-where-op').value,
-          value: item.querySelector('.qb-where-val').value
+          value: item.querySelector('.qb-where-val').value,
+          connector: connSel ? connSel.value : 'AND'
         });
       });
       var orderCol = document.getElementById('qb-order-col');
@@ -1153,7 +1189,12 @@
       }
       if (state.whereClauses && state.whereClauses.length > 0) {
         state.whereClauses.forEach(function(wc) {
-          addWhereClause(_qbColTypes, { column: wc.column, op: wc.op, value: wc.value });
+          addWhereClause(_qbColTypes, {
+            column: wc.column,
+            op: wc.op,
+            value: wc.value,
+            connector: wc.connector || 'AND'
+          });
         });
       }
       var orderCol = document.getElementById('qb-order-col');
@@ -3014,7 +3055,7 @@
       var html = '<a href="#" id="nav-back" style="color:var(--link);" title="Go back to previous table">&#8592; Back</a>';
 
       // "Clear path" link: discards the entire trail and hides the breadcrumb
-      html += ' | <a href="#" id="nav-clear" style="color:var(--muted);font-size:10px;" title="Clear navigation trail">Clear path</a>';
+      html += ' | <a href="#" id="nav-clear" style="color:var(--muted);font-size:12px;" title="Clear navigation trail">Clear path</a>';
 
       // Separator before the breadcrumb trail
       html += ' | ';
@@ -3123,7 +3164,7 @@
       var html = '<table id="data-table"><thead><tr>';
       visible.forEach(function(k) {
         var fk = fkMap[k];
-        var fkLabel = fk ? ' <span style="color:var(--muted);font-size:10px;" title="FK to ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '">&#8599;</span>' : '';
+        var fkLabel = fk ? ' <span style="color:var(--muted);font-size:12px;" title="FK to ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '">&#8599;</span>' : '';
         var thClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
         html += '<th data-column-key="' + esc(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc(k) + fkLabel + '</th>';
       });
