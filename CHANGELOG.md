@@ -55,35 +55,13 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [2.2.0]
+## [2.1.1]
 
-Web UI gets a clearer layout and sidebar; the extension activates when you open the Drift views; drift_sqlite_async users get clearer guidance; and turning polling off no longer spams the console.
+Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable. Search now scrolls to matches and lets you step through them with Next/Previous. Web UI gets a clearer layout and sidebar; the extension activates when you open the Drift views; drift_sqlite_async users get clearer guidance; and turning polling off no longer spams the console.
 
 ### Added
 
 • **Web UI redesign** — Two-column layout (sticky sidebar + main content), semantic header with branding and actions, export toolbar as buttons, feature sections as cards with expand/collapse state. Sidebar sections: Search, Export, Tools, Tables. Design tokens (type scale, radius, tap targets), refreshed light/dark palette, loading spinner for "Loading tables…", copy-toast animation. Table list shows active table; feature cards show expanded state. **Phase 4.1:** Icons via Google Material Symbols Outlined (CDN) on feature headers, Theme/Share, and export links; expand/collapse arrow is CSS-only so icons are preserved. Styling and script loaded from CDN (not embedded in APK). See `docs/UI_REDESIGN_PLAN.md`.
-
-### Changed
-
-• **Web viewer performance** — Table list no longer re-renders on every table count fetch; only the updated table's link text is changed, reducing DOM updates and preserving active state.
-
-Fixes console log spam when polling is turned off in the web UI.
-
-### Fixed
-
-• **VS Code: "command driftViewer.refreshTree not found" [GitHub issue #7](https://github.com/saropa/saropa_drift_advisor/issues/7)** — Extension now activates when the Drift Advisor sidebar views are opened (`onView:driftViewer.databaseExplorer`, `onView:driftViewer.toolbox`), so the Refresh command is registered even if no Dart file was opened first.
-
-• **drift_sqlite_async compatibility (issue #7)** — README and error messages now document using `DriftDebugServer.start(query: ...)` with an explicit query callback when the web UI stays on "Loading tables…" or when using drift_sqlite_async; ensure the database is open before starting the server. Error hint extracted to a single constant; unit tests assert error response contains the callback-API guidance.
-
-• **HTTP schema metadata and diagram when polling off** — `GET /api/schema/metadata` and `GET /api/schema/diagram` now return empty `tables` (and empty `foreignKeys` for diagram) with `changeDetection: false` when change detection is disabled, so no `PRAGMA table_info` or `SELECT COUNT(*)` queries run and the app's Drift log is no longer spammed. Matches the existing VM service behavior (extension already received empty schema when polling was off).
-
----
-
-## [2.1.1]
-
-Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable. Search now scrolls to matches and lets you step through them with Next/Previous.
-
-### Added
 
 • **Web UI assets on CDN (BUG-001)** — CSS and JavaScript extracted from inline Dart string into `assets/web/style.css` and `assets/web/app.js`; served via jsDelivr CDN with version pinning. `html_content.dart` reduced from ~4,200 lines to a ~227-line HTML shell. Consuming app binaries no longer embed ~143KB of static UI; CDN URLs use `ServerConstants.packageVersion` (requires matching git tag for CDN to serve).
 
@@ -139,6 +117,10 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 
 • **Saved and shareable analysis results (BUG-014)** — Index suggestions, database size analytics, query performance, and data health (anomaly) sections now offer **Save result** (stores in localStorage with timestamp), **Export as JSON** (download for sharing), **History** dropdown (past runs), and **Compare** (before/after modal with two runs side-by-side). Results persist across refresh and can be compared over time.
 
+### Changed
+
+• **Web viewer performance** — Table list no longer re-renders on every table count fetch; only the updated table's link text is changed, reducing DOM updates and preserving active state.
+
 ### Tests
 
 • **Handler unit tests** — dedicated test files for `IndexAnalyzer`, `AnomalyDetector`, `PerformanceHandler`, `SchemaHandler`, `CompareHandler`, `SnapshotHandler`, `TableHandler`, and `GenerationHandler`; covers edge cases, error paths, boundary conditions, and business logic not exercised by the existing integration tests (BUG-017)
@@ -146,6 +128,12 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 • **Stress and performance tests (BUG-018)** — `test/stress_performance_test.dart`: change detection with 100+ tables (single UNION ALL query), query timing ring buffer under concurrent insertions and eviction, snapshot capture with many tables/rows (30×200 and 50×100), anomaly detection completion within timeout on wide tables (25 tables × 20 columns)
 
 ### Fixed
+
+• **VS Code: "command driftViewer.refreshTree not found" [GitHub issue #7](https://github.com/saropa/saropa_drift_advisor/issues/7)** — Extension now activates when the Drift Advisor sidebar views are opened (`onView:driftViewer.databaseExplorer`, `onView:driftViewer.toolbox`), so the Refresh command is registered even if no Dart file was opened first.
+
+• **drift_sqlite_async compatibility (issue #7)** — README and error messages now document using `DriftDebugServer.start(query: ...)` with an explicit query callback when the web UI stays on "Loading tables…" or when using drift_sqlite_async; ensure the database is open before starting the server. Error hint extracted to a single constant; unit tests assert error response contains the callback-API guidance.
+
+• **HTTP schema metadata and diagram when polling off** — `GET /api/schema/metadata` and `GET /api/schema/diagram` now return empty `tables` (and empty `foreignKeys` for diagram) with `changeDetection: false` when change detection is disabled, so no `PRAGMA table_info` or `SELECT COUNT(*)` queries run and the app's Drift log is no longer spammed. Matches the existing VM service behavior (extension already received empty schema when polling was off).
 
 • **Accessibility: color-only severity indicators** — index suggestion priorities (`HIGH`/`MEDIUM`/`LOW`) and performance query durations now show `[!!]`/`[!]`/`[✓]` icon prefixes alongside color, matching the anomaly detection pattern (WCAG 2.1 1.4.1)
 
