@@ -10,7 +10,7 @@ Automatically detects running Drift debug servers by scanning ports. No more man
 2. Run your app (which calls `DriftDebugServer.start()`)
 3. Status bar shows: `$(sync~spin) Drift: Searching...`
 4. A few seconds later: `$(database) Drift: :8642` (green)
-5. Notification: "Drift debug server detected on port 8642" with "Open Panel" button
+5. Notification: "Drift debug server detected on port 8642" with "Open URL", "Copy URL", and "Dismiss" buttons
 6. If the app stops: `$(circle-slash) Drift: Offline`
 7. If multiple apps running: `$(database) Drift: 2 servers` — click to pick one
 
@@ -116,10 +116,10 @@ class ServerManager {
 ## Notifications
 
 ```typescript
-// Server found
+// Server found — Open URL opens in browser, Copy URL copies to clipboard
 vscode.window.showInformationMessage(
   `Drift debug server detected on port ${port}`,
-  'Open Panel', 'Dismiss'
+  'Open URL', 'Copy URL', 'Dismiss'
 );
 
 // Server lost
@@ -129,6 +129,7 @@ vscode.window.showWarningMessage(
 ```
 
 Throttled: max 1 notification per port per 60 seconds (handles hot-reload churn).
+Implemented: notification offers Open URL, Copy URL, and Dismiss (see `extension/src/server-discovery.ts`).
 
 ## Persistence
 

@@ -70,6 +70,11 @@ describe('ServerDiscovery', () => {
     assert.strictEqual(discovery.servers.length, 1);
     assert.strictEqual(discovery.servers[0].port, 8642);
     assert.ok(changed.calledOnce);
+    assert.strictEqual(messageMock.infos.length, 1);
+    assert.ok(
+      messageMock.infos[0].includes('Drift debug server detected on port 8642'),
+      'notification should show detected port',
+    );
   });
 
   it('should find multiple servers', async () => {

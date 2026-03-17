@@ -15,6 +15,14 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Server-detection notification actions** — when a Drift debug server is detected, the notification now offers **Open URL** (opens the server in the default browser), **Copy URL** (copies the URL to the clipboard), and **Dismiss**
+
+---
+
 ## [2.1.0]
 
 Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable. Search now scrolls to matches and lets you step through them with Next/Previous.
