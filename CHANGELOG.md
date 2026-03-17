@@ -49,6 +49,8 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 • **Extension: 300-line limit compliance** — Ten TypeScript source files that exceeded the 300-line limit were modularized so all extension source files are now within the limit. New modules: `api-client-http.ts` (HTTP endpoint helpers), `server-discovery-constants.ts` / `server-discovery-scan.ts` / `server-discovery-notify.ts`, `debug-vm-connect.ts` (VM connect + health retry), `rollback-order.ts` / `rollback-dart.ts` / `rollback-helpers.ts` / `rollback-utils.ts`, `vm-service-api.ts` (VM extension method wrappers), `troubleshooting-styles.ts`. Test files split with shared helpers (`api-contract-helpers`, `compliance-checker-test-helpers`, `rollback-generator-test-helpers`, `schema-provider-test-helpers`) and additional test modules for API contract sessions, compliance rules/general, rollback ordering/Dart. No behavior changes; all 1810 tests pass.
 
+• **Web UI: merged connection status** — Header previously showed separate "Polling: ON/OFF" and "● Live" pills. A single connection-status control now shows **Live** | **Paused** | **Offline**. Tap toggles Live ↔ Paused when connected; when disconnected the control shows Offline and is disabled (Reconnecting… during retry). Tooltips and `aria-live="polite"` clarify state; opacity transition (0.2s) on state change.
+
 ---
 
 ## [2.1.1]

@@ -98,4 +98,19 @@ export function registerTreeCommands(
       },
     ),
   );
+
+  // Save Current Filter: opens/focuses the Data Viewer so the user can use the
+  // in-panel Save Filter control. Filter state is in the webview; saving is
+  // triggered from the panel UI via FilterBridge messages.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.saveFilter', () => {
+      DriftViewerPanel.createOrShow(
+        client.host, client.port, editingBridge, fkNavigator, filterBridge,
+        panelOptions(),
+      );
+      void vscode.window.showInformationMessage(
+        'Use the Save Filter control in the Data Viewer panel to save the current filter.',
+      );
+    }),
+  );
 }

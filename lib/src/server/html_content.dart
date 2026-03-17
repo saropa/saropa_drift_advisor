@@ -36,8 +36,7 @@ abstract final class HtmlContent {
     <div class="app-header-actions">
       <button type="button" id="theme-toggle" class="header-btn" title="Toggle light/dark"><span class="material-symbols-outlined header-icon" aria-hidden="true">dark_mode</span><span id="theme-toggle-label">Theme</span></button>
       <button type="button" id="share-btn" class="header-btn" title="Share current view with your team"><span class="material-symbols-outlined header-icon" aria-hidden="true">share</span>Share</button>
-      <button type="button" id="polling-toggle" class="header-pill" title="Toggle database polling on/off">Polling: ON</button>
-      <span id="live-indicator" class="header-pill live" title="Table view updates when data changes">● Live</span>
+      <button type="button" id="live-indicator" class="header-pill connection-status" title="Connection status. When live, click to pause; when paused, click to resume." aria-live="polite">● Live</button>
     </div>
   </header>
   <div class="app-layout">

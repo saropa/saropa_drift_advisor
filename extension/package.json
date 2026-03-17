@@ -44,7 +44,9 @@
   "activationEvents": [
     "onLanguage:dart",
     "onView:driftViewer.databaseExplorer",
-    "onView:driftViewer.toolbox"
+    "onView:driftViewer.toolbox",
+    "onCommand:driftViewer.aboutSaropa",
+    "onCommand:driftViewer.about"
   ],
   "icon": "icon.png",
   "main": "./out/extension.js",
@@ -665,7 +667,7 @@
       "editor/context": [
         {
           "command": "driftViewer.explainQuery",
-          "when": "editorLangId == dart",
+          "when": "editorLangId == dart && driftViewer.hasSqlAtCursor",
           "group": "drift@1"
         }
       ],

@@ -666,6 +666,7 @@ body.theme-dark .search-bar select:focus {
   font-size: 0.75rem;
   margin-left: 0.5rem;
   cursor: pointer;
+  transition: opacity 0.2s ease;
 }
 #live-indicator.connection-status:disabled {
   cursor: default;

@@ -2,13 +2,13 @@
 
 Plan to evolve the web viewer from a functional but visually flat interface into a clear, modern, and pleasant UI while keeping the same capabilities and CDN-based asset delivery.
 
-**Implementation status:** Complete. Phases 1–4 implemented, including Phase 4.1 icons via Google Material Symbols Outlined (CDN). Feature headers, Theme/Share buttons, and export links use icon + text; expand/collapse arrow is CSS ::before. See CHANGELOG and `bugs/history/20260317/027-ui-redesign-complete.md`. **Tools toolbar and tabs:** Tools moved from sidebar to a horizontal toolbar; each opens in a full-width tab (see `bugs/history/20260317/028-web-ui-tools-tabs.md`). **Panel padding:** Standardized horizontal padding via `--panel-padding-x` so sidebar, main content, feature cards, and table list are no longer flush with edges.
+**Implementation status:** Complete. Phases 1–4 implemented, including Phase 4.1 icons via Google Material Symbols Outlined (CDN). Feature headers, Theme/Share buttons, and export links use icon + text; expand/collapse arrow is CSS ::before. See CHANGELOG and `bugs/history/20260317/027-ui-redesign-complete.md`. **Tools toolbar and tabs:** Tools moved from sidebar to a horizontal toolbar; each opens in a full-width tab (see `bugs/history/20260317/028-web-ui-tools-tabs.md`). **Panel padding:** Standardized horizontal padding via `--panel-padding-x` so sidebar, main content, feature cards, and table list are no longer flush with edges. **Later refinement:** Polling and Live were merged into a single connection-status pill (Live / Paused / Offline) with tap-to-toggle when connected.
 
 ---
 
 ## Current state (summary)
 
-- **HTML** (`lib/src/server/html_content.dart`): Single long page; everything in one flow. Header is an `<h1>` with inline buttons (Theme, Share, Polling, Live). Export options are a single paragraph of links. Feature list is many `.collapsible-header` / `.collapsible-body` pairs; table list is a plain `<ul id="tables">`.
+- **HTML** (`lib/src/server/html_content.dart`): Single long page; everything in one flow. Header is an `<h1>` with inline buttons (Theme, Share, and a single connection-status pill: Live / Paused / Offline). Export options are a single paragraph of links. Feature list is many `.collapsible-header` / `.collapsible-body` pairs; table list is a plain `<ul id="tables">`.
 - **CSS** (`assets/web/style.css`, source `assets/web/style.scss`): System font, basic light/dark variables, minimal spacing, flat buttons, no typographic scale, no cards or surfaces, no icons. Good foundations (variables, focus, connection banner) but no visual hierarchy or “product” feel.
 - **JS** (`assets/web/app.js`): Renders table list as `<li><a>table (n rows)</a></li>`; collapsibles toggle `.collapsed` and arrow (▼/▲). No layout or structure changes required for a visual-only redesign.
 

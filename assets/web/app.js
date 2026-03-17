@@ -565,8 +565,8 @@
     })();
 
     // --- Connection status integration ---
-    // When connected, defers to updatePollingUI() (Live/Paused). When disconnected
-    // or reconnecting, shows Offline state and disables the toggle.
+    // Single source for connection-state display: when connected, defers to updatePollingUI()
+    // (Live/Paused); when disconnected or reconnecting, shows Offline/Reconnecting and disables the toggle.
     function updateLiveIndicatorForConnection() {
       var li = document.getElementById('live-indicator');
       if (!li) return;
@@ -3826,9 +3826,10 @@
     }
     if (liveIndicator) {
       liveIndicator.addEventListener('click', function() {
-        if (connectionState !== 'connected') return;
+        // Only toggle when connected and not already in-flight (avoids double POST).
+        if (connectionState !== 'connected' || liveIndicator.disabled) return;
         liveIndicator.disabled = true;
-        liveIndicator.textContent = '…';
+        liveIndicator.textContent = '\u2026';
         var newState = !pollingEnabled;
         fetch('/api/change-detection', Object.assign({}, authOpts(), {
           method: 'POST',
@@ -3845,7 +3846,7 @@
           })
           .finally(function() {
             liveIndicator.disabled = false;
-            updatePollingUI();
+            // Restore label and keep-alive; updateLiveIndicatorForConnection calls updatePollingUI when connected.
             updateLiveIndicatorForConnection();
             if (!pollingEnabled && connectionState === 'connected') {
               startKeepAlive();
