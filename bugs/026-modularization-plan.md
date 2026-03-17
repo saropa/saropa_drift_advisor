@@ -104,13 +104,11 @@ Three distinct concerns in one handler:
 
 ### 7. Convert import_handler.dart from extension type to plain class
 
-**Status: OPEN**
+**Status: COMPLETE**
 
-`ImportHandler` (121 lines) uses `extension type ImportHandler(ServerContext _ctx) implements Object`
-— the only file in the server module using this pattern. All other handlers are `final class`
-with a `_ctx` field. Converting to `final class` would standardize the pattern.
-
-**Impact:** Trivial rename. No behavioral change.
+Converted `extension type ImportHandler(ServerContext _ctx) implements Object` to
+`final class ImportHandler` with a constructor and `_ctx` field, matching all other handlers.
+One-line declaration change; zero behavioral difference.
 
 ### 8. Standardize import ordering across all files
 
@@ -138,8 +136,8 @@ and analytics_handler. No action needed.
 | 4 | Extract SQL validator | MEDIUM | COMPLETE |
 | 5 | Refactor router.dart | MEDIUM | OPEN |
 | 6 | Split analytics_handler.dart | MEDIUM | OPEN |
-| 7 | Convert import_handler extension type | LOW | OPEN |
+| 7 | Convert import_handler extension type | LOW | COMPLETE |
 | 8 | Standardize import ordering | LOW | COMPLETE |
 
-**Completed:** 4 of 8
-**Remaining:** 4 issues (1 HIGH, 2 MEDIUM, 1 LOW)
+**Completed:** 5 of 8
+**Remaining:** 3 issues (1 HIGH, 2 MEDIUM)
