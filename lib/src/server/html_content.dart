@@ -96,19 +96,21 @@ abstract final class HtmlContent {
     .qb-where-item button { font-size: 10px; padding: 0.15rem 0.3rem; }
     .qb-preview { font-family: ui-monospace, monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.4rem; margin-top: 0.35rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 4rem; overflow: auto; }
     /* --- Connection health banner --- */
-    /* Fixed banner at top of viewport. Warm amber/orange is visible in both
-       light and dark themes without relying on CSS custom properties. */
-    #connection-banner { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 10000; padding: 0.5rem 1rem; font-size: 0.875rem; text-align: center; background: #e65100; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-    #connection-banner.show { display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
+    /* Fixed banner slides down from top with a smooth CSS transition.
+       Warm amber/orange is visible in both light and dark themes. */
+    #connection-banner { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 10000; padding: 0.5rem 1rem; font-size: 0.875rem; text-align: center; background: #e65100; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transform: translateY(-100%); transition: transform 0.3s ease-out; }
+    #connection-banner.show { display: flex; align-items: center; justify-content: center; gap: 0.75rem; transform: translateY(0); }
     #connection-banner .banner-dismiss { background: transparent; border: 1px solid rgba(255,255,255,0.5); color: #fff; border-radius: 3px; padding: 0.15rem 0.5rem; cursor: pointer; font-size: 0.75rem; }
     #connection-banner .banner-dismiss:hover { border-color: #fff; }
-    /* Push body content down when banner is visible so it doesn't overlap the header. */
-    body.has-connection-banner { padding-top: 2.5rem; }
-    /* Visual dimming for controls disabled during disconnection. Applied via JS
-       to server-dependent buttons. Uses pointer-events:none to block clicks. */
+    /* Push body content down when banner is visible. */
+    body.has-connection-banner { padding-top: 2.5rem; transition: padding-top 0.3s ease-out; }
+    /* Visual dimming for controls disabled during disconnection. */
     .offline-disabled { opacity: 0.4; pointer-events: none; }
-    /* Live indicator style for disconnected/reconnecting states. */
+    /* Live indicator styles for disconnected/reconnecting states. */
     #live-indicator.disconnected { color: #e57373 !important; opacity: 1; }
+    /* Subtle pulse animation during reconnection to convey retry activity. */
+    @keyframes reconnect-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    #live-indicator.reconnecting { animation: reconnect-pulse 1.5s ease-in-out infinite; }
   </style>
 </head>
 <body>
@@ -585,15 +587,16 @@ abstract final class HtmlContent {
       var li = document.getElementById('live-indicator');
       if (!li) return;
       if (connectionState === 'connected') {
-        li.classList.remove('disconnected');
+        li.classList.remove('disconnected', 'reconnecting');
         updatePollingUI();
       } else if (connectionState === 'disconnected') {
         li.textContent = '\u25cf Disconnected';
         li.classList.add('disconnected');
-        li.classList.remove('paused');
+        li.classList.remove('paused', 'reconnecting');
       } else {
+        // 'reconnecting' class triggers a CSS pulse animation.
         li.textContent = '\u25cf Reconnecting\u2026';
-        li.classList.add('disconnected');
+        li.classList.add('disconnected', 'reconnecting');
         li.classList.remove('paused');
       }
     }
