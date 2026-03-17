@@ -157,13 +157,27 @@ abstract final class HtmlContent {
   <div class="collapsible-header" id="index-toggle">▼ Index suggestions</div>
   <div id="index-collapsible" class="collapsible-body collapsed">
     <p class="meta">Analyze tables for missing indexes based on schema patterns.</p>
-    <button type="button" id="index-analyze">Analyze</button>
+    <div class="toolbar">
+      <button type="button" id="index-analyze">Analyze</button>
+      <button type="button" id="index-save" title="Save this result for later">Save result</button>
+      <button type="button" id="index-export" title="Download result as JSON">Export as JSON</button>
+      <label for="index-history">History:</label>
+      <select id="index-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
+      <button type="button" id="index-compare" title="Compare two saved or current results">Compare</button>
+    </div>
     <div id="index-results" style="display:none;"></div>
   </div>
   <div class="collapsible-header" id="size-toggle">▼ Database size analytics</div>
   <div id="size-collapsible" class="collapsible-body collapsed">
     <p class="meta">Analyze database storage: total size, page stats, and per-table breakdown.</p>
-    <button type="button" id="size-analyze">Analyze</button>
+    <div class="toolbar">
+      <button type="button" id="size-analyze">Analyze</button>
+      <button type="button" id="size-save" title="Save this result for later">Save result</button>
+      <button type="button" id="size-export" title="Download result as JSON">Export as JSON</button>
+      <label for="size-history">History:</label>
+      <select id="size-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
+      <button type="button" id="size-compare" title="Compare two saved or current results">Compare</button>
+    </div>
     <div id="size-results" style="display:none;"></div>
   </div>
   <div class="collapsible-header" id="perf-toggle">▼ Query performance</div>
@@ -172,13 +186,25 @@ abstract final class HtmlContent {
     <div class="toolbar">
       <button type="button" id="perf-refresh">Refresh</button>
       <button type="button" id="perf-clear">Clear</button>
+      <button type="button" id="perf-save" title="Save this result for later">Save result</button>
+      <button type="button" id="perf-export" title="Download result as JSON">Export as JSON</button>
+      <label for="perf-history">History:</label>
+      <select id="perf-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
+      <button type="button" id="perf-compare" title="Compare two saved or current results">Compare</button>
     </div>
     <div id="perf-results" style="display:none;"></div>
   </div>
   <div class="collapsible-header" id="anomaly-toggle">▼ Data health</div>
   <div id="anomaly-collapsible" class="collapsible-body collapsed">
     <p class="meta">Scan all tables for data quality issues: NULLs, empty strings, orphaned FKs, duplicates, outliers.</p>
-    <button type="button" id="anomaly-analyze">Scan for anomalies</button>
+    <div class="toolbar">
+      <button type="button" id="anomaly-analyze">Scan for anomalies</button>
+      <button type="button" id="anomaly-save" title="Save this result for later">Save result</button>
+      <button type="button" id="anomaly-export" title="Download result as JSON">Export as JSON</button>
+      <label for="anomaly-history">History:</label>
+      <select id="anomaly-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
+      <button type="button" id="anomaly-compare" title="Compare two saved or current results">Compare</button>
+    </div>
     <div id="anomaly-results" style="display:none;"></div>
   </div>
   <div class="collapsible-header" id="import-toggle">▼ Import data (debug only)</div>

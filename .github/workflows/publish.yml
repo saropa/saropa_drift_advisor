@@ -22,6 +22,21 @@ jobs:
           channel: "stable"
           cache: true
 
+      # Web viewer assets: style.css must be built from style.scss (edit only .scss, then npm run build:style).
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Build web assets (SCSS → CSS)
+        run: npm ci && npm run build:style
+      - name: Verify web assets in sync
+        run: |
+          if [ -n "$(git status --porcelain assets/web/style.css)" ]; then
+            echo "::error::assets/web/style.css is out of sync with style.scss. Edit only style.scss, run 'npm run build:style', and commit style.css."
+            exit 1
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 

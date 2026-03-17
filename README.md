@@ -301,6 +301,16 @@ With token auth, open `https://your-tunnel.example/?token=your-secret-token`; th
 
 ---
 
+## Development
+
+From repo root:
+
+- **Web viewer type-check:** `npm run typecheck:web` — runs TypeScript over `assets/web/app.js` (with `allowJs`/`checkJs`) so the viewer is type-checked without a separate build. Add JSDoc or migrate to `.ts` over time for stricter typing.
+- **Web viewer styles (SCSS):** Source is `assets/web/style.scss`; compile to `style.css` with `npm run build:style`. Use `npm run build:style:watch` to recompile on save. **Edit only the `.scss`**; the committed `style.css` must match the build (CI and `scripts/publish.py` enforce this). Run `npm run build:style` before committing after any style change.
+- **Extension:** `npm run compile:extension`, `npm run lint:extension`, `npm run test:extension` (run from root; they `cd` into `extension/`).
+
+---
+
 ## Publishing
 
 From repo root:

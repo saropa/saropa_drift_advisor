@@ -1,3 +1,4 @@
+    /* Web viewer script. Type-checked with tsconfig.web.json (npm run typecheck:web). Do not edit compiled outputs when a TS source exists. */
     var DRIFT_VIEWER_AUTH_TOKEN = "";
     function authOpts(o) {
       o = o || {}; o.headers = o.headers || {};
@@ -80,6 +81,176 @@
       d.textContent = s;
       return d.innerHTML;
     }
+
+    // --- Saved analysis results (localStorage). BUG-014: persist index/size/perf/anomaly
+    // results so users can save, export, recall from History, and compare before/after.
+    var ANALYSIS_STORAGE_PREFIX = 'saropa_analysis_';
+    var ANALYSIS_MAX_SAVED = 50;
+
+    function analysisStorageKey(type) {
+      return ANALYSIS_STORAGE_PREFIX + type;
+    }
+
+    function getSavedAnalyses(type) {
+      try {
+        var raw = localStorage.getItem(analysisStorageKey(type));
+        if (!raw) return [];
+        var list = JSON.parse(raw);
+        return Array.isArray(list) ? list : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveAnalysis(type, data) {
+      if (!data) return null;
+      var list = getSavedAnalyses(type);
+      var id = 'id_' + Date.now();
+      var label = new Date().toLocaleString();
+      list.unshift({ id: id, savedAt: label, data: data });
+      if (list.length > ANALYSIS_MAX_SAVED) list.length = ANALYSIS_MAX_SAVED;
+      try {
+        localStorage.setItem(analysisStorageKey(type), JSON.stringify(list));
+        return id;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getSavedAnalysisById(type, id) {
+      var list = getSavedAnalyses(type);
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].id === id) return list[i];
+      }
+      return null;
+    }
+
+    function downloadJSON(data, filename) {
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename || 'analysis.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function populateHistorySelect(selectEl, type) {
+      if (!selectEl) return;
+      var list = getSavedAnalyses(type);
+      var value = selectEl.value;
+      selectEl.innerHTML = '<option value="">— Past runs —</option>';
+      list.forEach(function (item) {
+        var opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = item.savedAt;
+        selectEl.appendChild(opt);
+      });
+      if (value) selectEl.value = value;
+    }
+
+    /** Before/after comparison modal for analysis results. */
+    function showAnalysisCompare(type, title, savedList, currentData, renderFn, summaryFn) {
+      var overlay = document.getElementById('analysis-compare-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'analysis-compare-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', 'Compare analysis results');
+        document.body.appendChild(overlay);
+      }
+      var beforeId = '';
+      var afterId = '';
+      var beforeData = null;
+      var afterData = null;
+      function getData(optionValue) {
+        if (optionValue === '_current') return currentData;
+        if (!optionValue) return null;
+        for (var i = 0; i < savedList.length; i++) {
+          if (savedList[i].id === optionValue) return savedList[i].data;
+        }
+        return null;
+      }
+      function updateSummary() {
+        beforeData = getData(beforeId);
+        afterData = getData(afterId);
+        summaryEl.textContent = summaryFn ? summaryFn(beforeData, afterData) : 'Select Before and After to compare.';
+        if (beforeData && afterData && renderFn) {
+          leftPanel.innerHTML = renderFn(beforeData);
+          rightPanel.innerHTML = renderFn(afterData);
+        } else {
+          leftPanel.innerHTML = beforeData ? renderFn(beforeData) : '<p class="meta">Select Before.</p>';
+          rightPanel.innerHTML = afterData ? renderFn(afterData) : '<p class="meta">Select After.</p>';
+        }
+      }
+      var panel = document.createElement('div');
+      panel.style.cssText = 'background:var(--bg, #fff);color:var(--fg, #111);padding:1rem;border-radius:8px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+      panel.innerHTML = '<h3 style="margin:0 0 0.75rem;">Compare: ' + esc(title) + '</h3>';
+      var toolbar = document.createElement('div');
+      toolbar.className = 'toolbar';
+      toolbar.style.marginBottom = '0.5rem';
+      var beforeLabel = document.createElement('label');
+      beforeLabel.textContent = 'Before:';
+      var beforeSel = document.createElement('select');
+      beforeSel.id = 'compare-before';
+      beforeSel.innerHTML = '<option value="">— select —</option><option value="_current">Current result</option>';
+      (savedList || []).forEach(function (item) {
+        var opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = item.savedAt;
+        beforeSel.appendChild(opt);
+      });
+      var afterLabel = document.createElement('label');
+      afterLabel.textContent = 'After:';
+      var afterSel = document.createElement('select');
+      afterSel.id = 'compare-after';
+      afterSel.innerHTML = '<option value="">— select —</option><option value="_current">Current result</option>';
+      (savedList || []).forEach(function (item) {
+        var opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = item.savedAt;
+        afterSel.appendChild(opt);
+      });
+      var closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.textContent = 'Close';
+      toolbar.appendChild(beforeLabel);
+      toolbar.appendChild(beforeSel);
+      toolbar.appendChild(afterLabel);
+      toolbar.appendChild(afterSel);
+      toolbar.appendChild(closeBtn);
+      panel.appendChild(toolbar);
+      var summaryEl = document.createElement('p');
+      summaryEl.className = 'meta';
+      summaryEl.style.marginBottom = '0.5rem';
+      summaryEl.textContent = 'Select Before and After to compare.';
+      panel.appendChild(summaryEl);
+      var columns = document.createElement('div');
+      columns.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:1rem;';
+      var leftPanel = document.createElement('div');
+      leftPanel.style.cssText = 'border:1px solid var(--border);padding:0.5rem;border-radius:4px;max-height:50vh;overflow:auto;';
+      leftPanel.innerHTML = '<p class="meta">Select Before.</p>';
+      var rightPanel = document.createElement('div');
+      rightPanel.style.cssText = 'border:1px solid var(--border);padding:0.5rem;border-radius:4px;max-height:50vh;overflow:auto;';
+      rightPanel.innerHTML = '<p class="meta">Select After.</p>';
+      columns.appendChild(leftPanel);
+      columns.appendChild(rightPanel);
+      panel.appendChild(columns);
+      overlay.innerHTML = '';
+      overlay.appendChild(panel);
+      beforeSel.addEventListener('change', function() { beforeId = this.value; updateSummary(); });
+      afterSel.addEventListener('change', function() { afterId = this.value; updateSummary(); });
+      function closeOverlay() {
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', escapeHandler);
+      }
+      function escapeHandler(e) { if (e.key === 'Escape') closeOverlay(); }
+      closeBtn.addEventListener('click', closeOverlay);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) closeOverlay(); });
+      document.addEventListener('keydown', escapeHandler);
+      overlay.style.display = 'flex';
+    }
+
     function escapeRe(s) {
       return s.replace(/[\\\\^\$*+?.()|[\\]{}]/g, '\\\\\$&');
     }
@@ -309,8 +480,11 @@
       'snapshot-take', 'snapshot-compare',
       'compare-view', 'migration-preview',
       'index-analyze', 'size-analyze', 'anomaly-analyze',
+      'index-save', 'index-export', 'index-compare',
+      'size-save', 'size-export', 'size-compare',
+      'anomaly-save', 'anomaly-export', 'anomaly-compare',
+      'perf-refresh', 'perf-clear', 'perf-save', 'perf-export', 'perf-compare',
       'import-run', 'share-btn',
-      'perf-refresh', 'perf-clear',
       'export-schema', 'export-dump', 'export-database', 'export-csv'
     ];
 
@@ -724,18 +898,18 @@
         var val = item.querySelector('.qb-where-val').value;
         if (op === 'IS NULL') { whereParts.push('"' + col + '" IS NULL'); }
         else if (op === 'IS NOT NULL') { whereParts.push('"' + col + '" IS NOT NULL'); }
-        else if (op === 'LIKE') { whereParts.push('"' + col + "\\" LIKE '%" + val.replace(/'/g, "''") + "%'"); }
-        else if (op === 'NOT_LIKE') { whereParts.push('"' + col + "\\" NOT LIKE '%" + val.replace(/'/g, "''") + "%'"); }
-        else if (op === 'LIKE_START') { whereParts.push('"' + col + "\\" LIKE '" + val.replace(/'/g, "''") + "%'"); }
+        else if (op === 'LIKE') { whereParts.push('"' + col + '" LIKE \'%' + val.replace(/'/g, "''") + '%\''); }
+        else if (op === 'NOT_LIKE') { whereParts.push('"' + col + '" NOT LIKE \'%' + val.replace(/'/g, "''") + '%\''); }
+        else if (op === 'LIKE_START') { whereParts.push('"' + col + '" LIKE \'' + val.replace(/'/g, "''") + '%\''); }
         else {
-          var isNum = !isNaN(val) && val.trim() !== '';
+          var isNum = !isNaN(Number(val)) && val.trim() !== '';
           var sqlVal = isNum ? val : "'" + val.replace(/'/g, "''") + "'";
           whereParts.push('"' + col + '" ' + op + ' ' + sqlVal);
         }
       });
       var orderCol = document.getElementById('qb-order-col').value;
       var orderDir = document.getElementById('qb-order-dir').value;
-      var qbLimit = parseInt(document.getElementById('qb-limit').value, 10) || 200;
+      var qbLimit = parseInt(document.getElementById('qb-limit').value || '200', 10) || 200;
       var sql = 'SELECT ' + selectPart + ' FROM "' + tableName + '"';
       if (whereParts.length > 0) sql += ' WHERE ' + whereParts.join(' AND ');
       if (orderCol) sql += ' ORDER BY "' + orderCol + '" ' + orderDir;
@@ -848,7 +1022,7 @@
       var qbLimit = document.getElementById('qb-limit');
       if (orderCol) state.orderBy = orderCol.value;
       if (orderDir) state.orderDir = orderDir.value;
-      if (qbLimit) state.limit = parseInt(qbLimit.value, 10) || 200;
+      if (qbLimit) state.limit = parseInt(qbLimit.value || '200', 10) || 200;
       return state;
     }
 
@@ -870,7 +1044,7 @@
       var qbLimit = document.getElementById('qb-limit');
       if (orderCol && state.orderBy) orderCol.value = state.orderBy;
       if (orderDir && state.orderDir) orderDir.value = state.orderDir;
-      if (qbLimit && state.limit) qbLimit.value = state.limit;
+      if (qbLimit && state.limit) qbLimit.value = String(state.limit);
       updateQbPreview();
     }
 
@@ -996,7 +1170,8 @@
         const reader = new FileReader();
         reader.onload = function() {
           try {
-            const imported = JSON.parse(reader.result);
+            const raw = typeof reader.result === 'string' ? reader.result : '';
+            const imported = JSON.parse(raw);
             if (!Array.isArray(imported)) throw new Error('Expected JSON array');
             let newCount = 0;
             imported.forEach(function(b) {
@@ -1429,11 +1604,60 @@
       const collapsible = document.getElementById('index-collapsible');
       const btn = document.getElementById('index-analyze');
       const container = document.getElementById('index-results');
+      const saveBtn = document.getElementById('index-save');
+      const exportBtn = document.getElementById('index-export');
+      const historySel = document.getElementById('index-history');
+      const compareBtn = document.getElementById('index-compare');
+      var lastIndexData = null;
+
+      function renderIndexData(data) {
+        if (!data) return '<p class="meta">No current result. Run Analyze first.</p>';
+        var suggestions = data.suggestions || [];
+        if (suggestions.length === 0) {
+          return '<p class="meta" style="color:#7cb342;">No index suggestions — schema looks good!</p>';
+        }
+        var priorityColors = { high: '#e57373', medium: '#ffb74d', low: '#7cb342' };
+        var priorityIcons = { high: '!!', medium: '!', low: '\u2713' };
+        var html = '<p class="meta">' + suggestions.length + ' suggestion(s) across ' + (data.tablesAnalyzed || 0) + ' tables:</p>';
+        html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
+        html += '<tr><th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+        suggestions.forEach(function(s) {
+          var color = priorityColors[s.priority] || 'var(--fg)';
+          var icon = priorityIcons[s.priority] || '';
+          html += '<tr>';
+          html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';font-weight:bold;">[' + esc(icon) + '] ' + esc(s.priority).toUpperCase() + '</td>';
+          html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.table) + '.' + esc(s.column) + '</td>';
+          html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.reason) + '</td>';
+          html += '<td style="border:1px solid var(--border);padding:4px;"><code style="font-size:11px;cursor:pointer;" title="Click to copy" onclick="navigator.clipboard.writeText(this.textContent)">' + esc(s.sql) + '</code></td>';
+          html += '</tr>';
+        });
+        html += '</table>';
+        return html;
+      }
+
+      function showIndexResult(html, isError) {
+        container.innerHTML = html;
+        container.style.display = 'block';
+      }
+
       if (toggle && collapsible) {
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
           this.textContent = isCollapsed ? '▲ Index suggestions' : '▼ Index suggestions';
+        });
+      }
+
+      if (historySel) {
+        populateHistorySelect(historySel, 'index');
+        historySel.addEventListener('change', function() {
+          var id = this.value;
+          if (!id) return;
+          var saved = getSavedAnalysisById('index', id);
+          if (saved && saved.data) {
+            lastIndexData = saved.data;
+            showIndexResult(renderIndexData(saved.data));
+          }
         });
       }
 
@@ -1447,44 +1671,37 @@
             return r.json();
           })
           .then(function(data) {
-            var suggestions = data.suggestions || [];
-            if (suggestions.length === 0) {
-              container.innerHTML = '<p class="meta" style="color:#7cb342;">No index suggestions — schema looks good!</p>';
-              container.style.display = 'block';
-           
-   return;
-            }
-            // Icon + color for each priority level ensures accessibility
-            // for users with color vision deficiency (WCAG 2.1 1.4.1)
-            var priorityColors = { high: '#e57373', medium: '#ffb74d', low: '#7cb342' };
-            var priorityIcons = { high: '!!', medium: '!', low: '\u2713' };
-            var html = '<p class="meta">' + suggestions.length + ' suggestion(s) across ' + data.tablesAnalyzed + ' tables:</p>';
-            html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-            html += '<tr><th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
-            suggestions.forEach(function(s) {
-              var color = priorityColors[s.priority] || 'var(--fg)';
-              var icon = priorityIcons[s.priority] || '';
-              html += '<tr>';
-              // Show [icon] prefix alongside color+text so priority is
-              // distinguishable without relying on color alone
-              html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';font-weight:bold;">[' + esc(icon) + '] ' + esc(s.priority).toUpperCase() + '</td>';
-              html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.table) + '.' + esc(s.column) + '</td>';
-              html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.reason) + '</td>';
-              html += '<td style="border:1px solid var(--border);padding:4px;"><code style="font-size:11px;cursor:pointer;" title="Click to copy" onclick="navigator.clipboard.writeText(this.textContent)">' + esc(s.sql) + '</code></td>';
-              html += '</tr>';
-            });
-            html += '</table>';
-            container.innerHTML = html;
-            container.style.display = 'block';
+            lastIndexData = data;
+            showIndexResult(renderIndexData(data));
+            populateHistorySelect(historySel, 'index');
           })
           .catch(function(e) {
-            container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
-            container.style.display = 'block';
+            showIndexResult('<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>');
           })
           .finally(function() {
             btn.disabled = false;
             btn.textContent = 'Analyze';
           });
+      });
+
+      if (saveBtn) saveBtn.addEventListener('click', function() {
+        if (!lastIndexData) return;
+        var id = saveAnalysis('index', lastIndexData);
+        showCopyToast(id != null ? 'Saved' : 'Save failed (storage may be full)');
+        populateHistorySelect(historySel, 'index');
+      });
+
+      if (exportBtn) exportBtn.addEventListener('click', function() {
+        if (!lastIndexData) return;
+        downloadJSON(lastIndexData, 'index-suggestions-' + (new Date().toISOString().slice(0, 10)) + '.json');
+      });
+
+      if (compareBtn) compareBtn.addEventListener('click', function() {
+        showAnalysisCompare('index', 'Index suggestions', getSavedAnalyses('index'), lastIndexData, renderIndexData, function(a, b) {
+          var sa = (a && a.suggestions) ? a.suggestions.length : 0;
+          var sb = (b && b.suggestions) ? b.suggestions.length : 0;
+          return 'Before: ' + sa + ' suggestion(s) · After: ' + sb + ' suggestion(s)';
+        });
       });
     })();
 
@@ -1493,10 +1710,59 @@
       const collapsible = document.getElementById('size-collapsible');
       const btn = document.getElementById('size-analyze');
       const container = document.getElementById('size-results');
+      const saveBtn = document.getElementById('size-save');
+      const exportBtn = document.getElementById('size-export');
+      const historySel = document.getElementById('size-history');
+      const compareBtn = document.getElementById('size-compare');
+      var lastSizeData = null;
+
       function formatBytes(bytes) {
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / 1048576).toFixed(2) + ' MB';
+      }
+
+      function renderSizeData(data) {
+        if (!data) return '<p class="meta">No data.</p>';
+        var html = '<div style="margin:0.5rem 0;">';
+        html += '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">';
+        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
+        html += '<div class="meta">Total Size</div>';
+        html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.totalSizeBytes) + '</div></div>';
+        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
+        html += '<div class="meta">Used</div>';
+        html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.usedSizeBytes) + '</div></div>';
+        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
+        html += '<div class="meta">Free</div>';
+        html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.freeSpaceBytes) + '</div></div>';
+        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
+        html += '<div class="meta">Journal</div>';
+        html += '<div style="font-size:1.2rem;font-weight:bold;">' + esc(data.journalMode || '') + '</div></div>';
+        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
+        html += '<div class="meta">Pages</div>';
+        html += '<div style="font-size:1.2rem;font-weight:bold;">' + (data.pageCount || 0) + ' × ' + (data.pageSize || 0) + '</div></div>';
+        html += '</div>';
+        html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
+        html += '<tr><th style="border:1px solid var(--border);padding:4px;">Table</th>';
+        html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
+        html += '<th style="border:1px solid var(--border);padding:4px;">Columns</th>';
+        html += '<th style="border:1px solid var(--border);padding:4px;">Indexes</th></tr>';
+        var tables = data.tables || [];
+        var maxRows = Math.max.apply(null, tables.map(function(t) { return t.rowCount; }).concat([1]));
+        tables.forEach(function(t) {
+          var barWidth = Math.max(1, (t.rowCount / maxRows) * 100);
+          html += '<tr>';
+          html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(t.table) + '</td>';
+          html += '<td style="border:1px solid var(--border);padding:4px;">';
+          html += '<div style="background:var(--link);height:12px;width:' + barWidth + '%;opacity:0.3;display:inline-block;vertical-align:middle;margin-right:4px;"></div>';
+          html += t.rowCount.toLocaleString() + '</td>';
+          html += '<td style="border:1px solid var(--border);padding:4px;">' + t.columnCount + '</td>';
+          html += '<td style="border:1px solid var(--border);padding:4px;">' + t.indexCount;
+          if (t.indexes && t.indexes.length > 0) html += ' <span class="meta">(' + t.indexes.map(esc).join(', ') + ')</span>';
+          html += '</td></tr>';
+        });
+        html += '</table></div>';
+        return html;
       }
 
       if (toggle && collapsible) {
@@ -1504,6 +1770,20 @@
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
           this.textContent = isCollapsed ? '▲ Database size analytics' : '▼ Database size analytics';
+        });
+      }
+
+      if (historySel) {
+        populateHistorySelect(historySel, 'size');
+        historySel.addEventListener('change', function() {
+          var id = this.value;
+          if (!id) return;
+          var saved = getSavedAnalysisById('size', id);
+          if (saved && saved.data) {
+            lastSizeData = saved.data;
+            container.innerHTML = renderSizeData(saved.data);
+            container.style.display = 'block';
+          }
         });
       }
 
@@ -1517,45 +1797,10 @@
             return r.json();
           })
           .then(function(data) {
-            var html = '<div style="margin:0.5rem 0;">';
-            html += '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">';
-            html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
-            html += '<div class="meta">Total Size</div>';
-            html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.totalSizeBytes) + '</div></div>';
-            html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
-            html += '<div class="meta">Used</div>';
-            html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.usedSizeBytes) + '</div></div>';
-            html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
-            html += '<div class="meta">Free</div>';
-            html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.freeSpaceBytes) + '</div></div>';
-            html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
-            html += '<div class="meta">Journal</div>';
-            html += '<div style="font-size:1.2rem;font-weight:bold;">' + esc(data.journalMode) + '</div></div>';
-            html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
-            html += '<div class="meta">Pages</div>';
-            html += '<div style="font-size:1.2rem;font-weight:bold;">' + data.pageCount + ' × ' + data.pageSize + '</div></div>';
-            html += '</div>';
-            html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-            html += '<tr><th style="border:1px solid var(--border);padding:4px;">Table</th>';
-            html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
-            html += '<th style="border:1px solid var(--border);padding:4px;">Columns</th>';
-            html += '<th style="border:1px solid var(--border);padding:4px;">Indexes</th></tr>';
-            var maxRows = Math.max.apply(null, (data.tables || []).map(function(t) { return t.rowCount; }).concat([1]));
-            (data.tables || []).forEach(function(t) {
-              var barWidth = Math.max(1, (t.rowCount / maxRows) * 100);
-              html += '<tr>';
-              html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(t.table) + '</td>';
-              html += '<td style="border:1px solid var(--border);padding:4px;">';
-              html += '<div style="background:var(--link);height:12px;width:' + barWidth + '%;opacity:0.3;display:inline-block;vertical-align:middle;margin-right:4px;"></div>';
-              html += t.rowCount.toLocaleString() + '</td>';
-              html += '<td style="border:1px solid var(--border);padding:4px;">' + t.columnCount + '</td>';
-              html += '<td style="border:1px solid var(--border);padding:4px;">' + t.indexCount;
-              if (t.indexes.length > 0) html += ' <span class="meta">(' + t.indexes.map(esc).join(', ') + ')</span>';
-              html += '</td></tr>';
-            });
-            html += '</table></div>';
-            container.innerHTML = html;
+            lastSizeData = data;
+            container.innerHTML = renderSizeData(data);
             container.style.display = 'block';
+            populateHistorySelect(historySel, 'size');
           })
           .catch(function(e) {
             container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
@@ -1566,6 +1811,26 @@
             btn.textContent = 'Analyze';
           });
       });
+
+      if (saveBtn) saveBtn.addEventListener('click', function() {
+        if (!lastSizeData) return;
+        var id = saveAnalysis('size', lastSizeData);
+        showCopyToast(id != null ? 'Saved' : 'Save failed (storage may be full)');
+        populateHistorySelect(historySel, 'size');
+      });
+
+      if (exportBtn) exportBtn.addEventListener('click', function() {
+        if (!lastSizeData) return;
+        downloadJSON(lastSizeData, 'size-analytics-' + (new Date().toISOString().slice(0, 10)) + '.json');
+      });
+
+      if (compareBtn) compareBtn.addEventListener('click', function() {
+        showAnalysisCompare('size', 'Database size analytics', getSavedAnalyses('size'), lastSizeData, renderSizeData, function(a, b) {
+          var ta = (a && a.totalSizeBytes) != null ? formatBytes(a.totalSizeBytes) : '—';
+          var tb = (b && b.totalSizeBytes) != null ? formatBytes(b.totalSizeBytes) : '—';
+          return 'Before: ' + ta + ' total · After: ' + tb + ' total';
+        });
+      });
     })();
 
     (function initAnomalyDetection() {
@@ -1573,11 +1838,52 @@
       const collapsible = document.getElementById('anomaly-collapsible');
       const btn = document.getElementById('anomaly-analyze');
       const container = document.getElementById('anomaly-results');
+      const saveBtn = document.getElementById('anomaly-save');
+      const exportBtn = document.getElementById('anomaly-export');
+      const historySel = document.getElementById('anomaly-history');
+      const compareBtn = document.getElementById('anomaly-compare');
+      var lastAnomalyData = null;
+
+      function renderAnomalyData(data) {
+        if (!data) return '<p class="meta">No current result. Run Scan first.</p>';
+        var anomalies = data.anomalies || [];
+        if (anomalies.length === 0) {
+          return '<p class="meta" style="color:#7cb342;">No anomalies detected across ' + (data.tablesScanned || 0) + ' tables. Data looks clean!</p>';
+        }
+        var icons = { error: '!!', warning: '!', info: 'i' };
+        var colors = { error: '#e57373', warning: '#ffb74d', info: '#7cb342' };
+        var html = '<p class="meta">' + anomalies.length + ' finding(s) across ' + (data.tablesScanned || 0) + ' tables:</p>';
+        anomalies.forEach(function(a) {
+          var color = colors[a.severity] || 'var(--fg)';
+          var icon = icons[a.severity] || '';
+          html += '<div style="padding:0.3rem 0.5rem;margin:0.2rem 0;border-left:3px solid ' + color + ';background:rgba(0,0,0,0.1);">';
+          html += '<span style="color:' + color + ';font-weight:bold;">[' + icon + '] ' + esc(a.severity).toUpperCase() + '</span> ';
+          html += esc(a.message);
+          if (a.count) html += ' <span class="meta">(' + a.count + ')</span>';
+          html += '</div>';
+        });
+        return html;
+      }
+
       if (toggle && collapsible) {
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
           collapsible.classList.toggle('collapsed', !isCollapsed);
           this.textContent = isCollapsed ? '▲ Data health' : '▼ Data health';
+        });
+      }
+
+      if (historySel) {
+        populateHistorySelect(historySel, 'anomaly');
+        historySel.addEventListener('change', function() {
+          var id = this.value;
+          if (!id) return;
+          var saved = getSavedAnalysisById('anomaly', id);
+          if (saved && saved.data) {
+            lastAnomalyData = saved.data;
+            container.innerHTML = renderAnomalyData(saved.data);
+            container.style.display = 'block';
+          }
         });
       }
 
@@ -1591,27 +1897,10 @@
             return r.json();
           })
           .then(function(data) {
-            var anomalies = data.anomalies || [];
-            if (anomalies.length === 0) {
-              container.innerHTML = '<p class="meta" style="color:#7cb342;">No anomalies detected across ' + data.tablesScanned + ' tables. Data looks clean!</p>';
-              container.style.display = 'block';
-           
-   return;
-            }
-            var icons = { error: '!!', warning: '!', info: 'i' };
-            var colors = { error: '#e57373', warning: '#ffb74d', info: '#7cb342' };
-            var html = '<p class="meta">' + anomalies.length + ' finding(s) across ' + data.tablesScanned + ' tables:</p>';
-            anomalies.forEach(function(a) {
-              var color = colors[a.severity] || 'var(--fg)';
-              var icon = icons[a.severity] || '';
-              html += '<div style="padding:0.3rem 0.5rem;margin:0.2rem 0;border-left:3px solid ' + color + ';background:rgba(0,0,0,0.1);">';
-              html += '<span style="color:' + color + ';font-weight:bold;">[' + icon + '] ' + esc(a.severity).toUpperCase() + '</span> ';
-              html += esc(a.message);
-              if (a.count) html += ' <span class="meta">(' + a.count + ')</span>';
-              html += '</div>';
-            });
-            container.innerHTML = html;
+            lastAnomalyData = data;
+            container.innerHTML = renderAnomalyData(data);
             container.style.display = 'block';
+            populateHistorySelect(historySel, 'anomaly');
           })
           .catch(function(e) {
             container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
@@ -1621,6 +1910,26 @@
             btn.disabled = false;
             btn.textContent = 'Scan for anomalies';
           });
+      });
+
+      if (saveBtn) saveBtn.addEventListener('click', function() {
+        if (!lastAnomalyData) return;
+        var id = saveAnalysis('anomaly', lastAnomalyData);
+        showCopyToast(id != null ? 'Saved' : 'Save failed (storage may be full)');
+        populateHistorySelect(historySel, 'anomaly');
+      });
+
+      if (exportBtn) exportBtn.addEventListener('click', function() {
+        if (!lastAnomalyData) return;
+        downloadJSON(lastAnomalyData, 'anomaly-scan-' + (new Date().toISOString().slice(0, 10)) + '.json');
+      });
+
+      if (compareBtn) compareBtn.addEventListener('click', function() {
+        showAnalysisCompare('anomaly', 'Data health', getSavedAnalyses('anomaly'), lastAnomalyData, renderAnomalyData, function(a, b) {
+          var na = (a && a.anomalies) ? a.anomalies.length : 0;
+          var nb = (b && b.anomalies) ? b.anomalies.length : 0;
+          return 'Before: ' + na + ' finding(s) · After: ' + nb + ' finding(s)';
+        });
       });
     })();
 
@@ -1826,9 +2135,9 @@
       statusEl.textContent = '';
     });
 
-    function getScope() { return document.getElementById('search-scope').value; }
-    function getSearchTerm() { return (document.getElementById('search-input').value || '').trim(); }
-    function getRowFilter() { return (document.getElementById('row-filter').value || '').trim(); }
+    function getScope() { return document.getElementById('search-scope').value || ''; }
+    function getSearchTerm() { return String(document.getElementById('search-input').value || '').trim(); }
+    function getRowFilter() { return String(document.getElementById('row-filter').value || '').trim(); }
     function filterRows(data) {
       const term = getRowFilter();
       if (!term || !data || data.length === 0) return data || [];
@@ -2075,14 +2384,14 @@
       const bar = document.getElementById('pagination-bar');
       const limitSel = document.getElementById('pagination-limit');
       limitSel.innerHTML = LIMIT_OPTIONS.map(n => '<option value="' + n + '"' + (n === limit ? ' selected' : '') + '>' + n + '</option>').join('');
-      document.getElementById('pagination-offset').value = offset;
+      document.getElementById('pagination-offset').value = String(offset);
       bar.style.display = getScope() === 'schema' ? 'none' : 'flex';
     }
     document.getElementById('pagination-limit').addEventListener('change', function() { limit = parseInt(this.value, 10); saveTableState(currentTableName); loadTable(currentTableName); });
-    document.getElementById('pagination-offset').addEventListener('change', function() { offset = parseInt(this.value, 10) || 0; });
-    document.getElementById('pagination-prev').addEventListener('click', function() { offset = Math.max(0, offset - limit); document.getElementById('pagination-offset').value = offset; saveTableState(currentTableName); loadTable(currentTableName); });
-    document.getElementById('pagination-next').addEventListener('click', function() { offset = offset + limit; document.getElementById('pagination-offset').value = offset; saveTableState(currentTableName); loadTable(currentTableName); });
-    document.getElementById('pagination-apply').addEventListener('click', function() { offset = parseInt(document.getElementById('pagination-offset').value, 10) || 0; saveTableState(currentTableName); loadTable(currentTableName); });
+    document.getElementById('pagination-offset').addEventListener('change', function() { offset = parseInt(this.value || '0', 10) || 0; });
+    document.getElementById('pagination-prev').addEventListener('click', function() { offset = Math.max(0, offset - limit); document.getElementById('pagination-offset').value = String(offset); saveTableState(currentTableName); loadTable(currentTableName); });
+    document.getElementById('pagination-next').addEventListener('click', function() { offset = offset + limit; document.getElementById('pagination-offset').value = String(offset); saveTableState(currentTableName); loadTable(currentTableName); });
+    document.getElementById('pagination-apply').addEventListener('click', function() { offset = parseInt(document.getElementById('pagination-offset').value || '0', 10) || 0; saveTableState(currentTableName); loadTable(currentTableName); });
     document.getElementById('clear-table-state').addEventListener('click', function() {
       clearTableState(currentTableName);
       document.getElementById('row-filter').value = '';
@@ -2096,7 +2405,7 @@
       if (currentTableName) loadTable(currentTableName);
     });
     document.getElementById('display-format-toggle').addEventListener('change', function() {
-      displayFormat = this.value;
+      displayFormat = String(this.value || 'raw');
       if (currentTableName) {
         saveTableState(currentTableName);
         if (currentTableJson) renderTableView(currentTableName, currentTableJson);
@@ -2252,7 +2561,7 @@
       document.getElementById('column-context-menu').style.display = 'none';
       document.getElementById('column-context-menu').setAttribute('aria-hidden', 'true');
       var chooser = document.getElementById('column-chooser');
-      if (chooser && chooser.style.display === 'block' && !chooser.contains(e.target) && e.target.id !== 'column-chooser-btn') {
+      if (chooser && chooser.style.display === 'block' && !chooser.contains(/** @type {Node} */ (e.target)) && e.target.id !== 'column-chooser-btn') {
         chooser.style.display = 'none';
         chooser.setAttribute('aria-hidden', 'true');
       }
@@ -2503,7 +2812,7 @@
       el.querySelectorAll('.nav-crumb').forEach(function(crumb) {
         crumb.onclick = function(e) {
           e.preventDefault();
-          var idx = parseInt(this.getAttribute('data-idx'), 10);
+          var idx = parseInt(/** @type {Element} */ (/** @type {unknown} */ (this)).getAttribute('data-idx'), 10);
           if (isNaN(idx) || idx < 0 || idx >= navHistory.length) return;
 
           // The clicked entry becomes the new current table.  Everything
@@ -2994,7 +3303,7 @@
 
       if (runBtn && inputEl && errorEl && resultEl) {
         runBtn.addEventListener('click', function() {
-          const sql = inputEl.value.trim();
+          const sql = String(inputEl.value || '').trim();
           clearSqlResults();
           if (!sql) {
             errorEl.textContent = 'Enter a SELECT query.';
@@ -3062,7 +3371,7 @@
 
       if (explainBtn && inputEl && errorEl && resultEl) {
         explainBtn.addEventListener('click', function() {
-          const sql = inputEl.value.trim();
+          const sql = String(inputEl.value || '').trim();
           clearSqlResults();
           if (!sql) {
             errorEl.textContent = 'Enter a SELECT query.';
@@ -3287,7 +3596,7 @@
     }
     // --- NL-to-SQL event handlers ---
     document.getElementById('nl-convert').addEventListener('click', async function () {
-      var question = document.getElementById('nl-input').value.trim();
+      var question = String(document.getElementById('nl-input').value || '').trim();
       if (!question) return;
       var btn = this;
       btn.disabled = true;
@@ -3516,7 +3825,7 @@
       if (!target) return;
       var now = new Date();
       var exp = new Date(target);
-      var diffMs = exp - now;
+      var diffMs = exp.getTime() - now.getTime();
 
       if (diffMs <= 0) {
         // Session has expired: show expired state in the info bar.
@@ -3722,7 +4031,12 @@
       const refreshBtn = document.getElementById('perf-refresh');
       const clearBtn = document.getElementById('perf-clear');
       const container = document.getElementById('perf-results');
+      const saveBtn = document.getElementById('perf-save');
+      const exportBtn = document.getElementById('perf-export');
+      const historySel = document.getElementById('perf-history');
+      const compareBtn = document.getElementById('perf-compare');
       let perfLoaded = false;
+      var lastPerfData = null;
 
       function fetchPerformance() {
         refreshBtn.disabled = true;
@@ -3735,12 +4049,14 @@
           })
           .then(function(data) {
             perfLoaded = true;
+            lastPerfData = data;
             if (data.totalQueries === 0) {
               container.innerHTML = '<p class="meta">No queries recorded yet. Browse some tables, then refresh.</p>';
             } else {
               container.innerHTML = renderPerformance(data);
             }
             container.style.display = 'block';
+            populateHistorySelect(historySel, 'perf');
           })
           .catch(function(e) {
             container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
@@ -3753,10 +4069,11 @@
       }
 
       function renderPerformance(data) {
+        if (!data) return '<p class="meta">No data.</p>';
         var html = '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.3rem 0;">';
-        html += '<div class="meta">Total: ' + esc(String(data.totalQueries)) + ' queries</div>';
-        html += '<div class="meta">Total time: ' + esc(String(data.totalDurationMs)) + ' ms</div>';
-        html += '<div class="meta">Avg: ' + esc(String(data.avgDurationMs)) + ' ms</div>';
+        html += '<div class="meta">Total: ' + esc(String(data.totalQueries || 0)) + ' queries</div>';
+        html += '<div class="meta">Total time: ' + esc(String(data.totalDurationMs || 0)) + ' ms</div>';
+        html += '<div class="meta">Avg: ' + esc(String(data.avgDurationMs || 0)) + ' ms</div>';
         html += '</div>';
 
         if (data.slowQueries && data.slowQueries.length > 0) {
@@ -3826,6 +4143,44 @@
         return html;
       }
 
+      if (historySel) {
+        populateHistorySelect(historySel, 'perf');
+        historySel.addEventListener('change', function() {
+          var id = this.value;
+          if (!id) return;
+          var saved = getSavedAnalysisById('perf', id);
+          if (saved && saved.data) {
+            lastPerfData = saved.data;
+            container.innerHTML = (saved.data.totalQueries === 0)
+              ? '<p class="meta">No queries recorded (saved run).</p>'
+              : renderPerformance(saved.data);
+            container.style.display = 'block';
+          }
+        });
+      }
+
+      if (saveBtn) saveBtn.addEventListener('click', function() {
+        if (!lastPerfData) return;
+        var id = saveAnalysis('perf', lastPerfData);
+        showCopyToast(id != null ? 'Saved' : 'Save failed (storage may be full)');
+        populateHistorySelect(historySel, 'perf');
+      });
+
+      if (exportBtn) exportBtn.addEventListener('click', function() {
+        if (!lastPerfData) return;
+        downloadJSON(lastPerfData, 'performance-' + (new Date().toISOString().slice(0, 10)) + '.json');
+      });
+
+      if (compareBtn) compareBtn.addEventListener('click', function() {
+        showAnalysisCompare('perf', 'Query performance', getSavedAnalyses('perf'), lastPerfData, function(d) {
+          return d && d.totalQueries !== 0 ? renderPerformance(d) : '<p class="meta">No queries in this run.</p>';
+        }, function(a, b) {
+          var qa = (a && a.totalQueries) != null ? a.totalQueries : 0;
+          var qb = (b && b.totalQueries) != null ? b.totalQueries : 0;
+          return 'Before: ' + qa + ' queries · After: ' + qb + ' queries';
+        });
+      });
+
       if (toggle && collapsible) {
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
@@ -3843,6 +4198,7 @@
         fetch('/api/analytics/performance', authOpts({ method: 'DELETE' }))
           .then(function(r) {
             if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Clear failed'); });
+            lastPerfData = null;
             container.innerHTML = '<p class="meta">Performance history cleared.</p>';
             container.style.display = 'block';
             perfLoaded = false;

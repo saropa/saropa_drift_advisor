@@ -1,0 +1,133 @@
+/**
+ * Web viewer styles. SOURCE FILE — edit this, not style.css.
+ * Compiled to style.css by `npm run build:style`. Do not edit style.css by hand.
+ */
+* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; margin: 1rem; background: var(--bg); color: var(--fg); max-width: 100%; overflow-x: hidden; }
+body.theme-light { --bg: #f5f5f5; --fg: #1a1a1a; --bg-pre: #e8e8e8; --border: #ccc; --muted: #666; --link: #1565c0; --highlight-bg: #fff3cd; --highlight-fg: #856404; --highlight-active-bg: #ff9800; --highlight-active-fg: #fff; }
+body.theme-dark, body { --bg: #1a1a1a; --fg: #e0e0e0; --bg-pre: #252525; --border: #444; --muted: #888; --link: #7eb8da; --highlight-bg: #5a4a32; --highlight-fg: #f0e0c0; --highlight-active-bg: #e65100; --highlight-active-fg: #fff; }
+h1 { font-size: 1.25rem; }
+ul { list-style: none; padding: 0; }
+li { margin: 0.25rem 0; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.content-wrap { max-width: 100%; min-width: 0; }
+pre { background: var(--bg-pre); padding: 1rem; overflow: auto; font-size: 12px; border-radius: 6px; max-height: 70vh; white-space: pre-wrap; word-break: break-word; margin: 0; color: var(--fg); border: 1px solid var(--border); }
+.meta { color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem; }
+.search-bar { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+.search-bar input, .search-bar select, .search-bar button { padding: 0.35rem 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); color: var(--fg); border-radius: 4px; }
+.search-bar input { min-width: 12rem; }
+.search-bar label { color: var(--muted); font-size: 0.875rem; }
+.highlight { background: var(--highlight-bg); color: var(--highlight-fg); border-radius: 2px; }
+.highlight-active { background: var(--highlight-active-bg); color: var(--highlight-active-fg); border-radius: 2px; outline: 2px solid var(--highlight-active-fg); outline-offset: 1px; }
+.search-nav { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.search-nav button { padding: 0.2rem 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); color: var(--fg); border-radius: 4px; cursor: pointer; font-size: 0.75rem; line-height: 1; }
+.search-nav button:hover { border-color: var(--link); color: var(--link); }
+.search-nav button:disabled { opacity: 0.4; cursor: default; }
+.search-section { margin-bottom: 1rem; }
+.search-section h2 { font-size: 1rem; color: var(--muted); margin: 0 0 0.25rem 0; }
+.toolbar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.collapsible-header { cursor: pointer; user-select: none; padding: 0.25rem 0; color: var(--link); }
+.collapsible-header:hover { text-decoration: underline; }
+.collapsible-body { margin-top: 0.25rem; }
+.collapsible-body.collapsed { display: none; }
+.sql-runner { margin-bottom: 1rem; }
+.sql-runner .sql-toolbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.35rem; }
+.sql-runner .sql-toolbar select, .sql-runner .sql-toolbar button { padding: 0.35rem 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); color: var(--fg); border-radius: 4px; }
+.sql-runner textarea { width: 100%; min-height: 4rem; font-family: ui-monospace, monospace; font-size: 13px; padding: 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); color: var(--fg); border-radius: 4px; resize: vertical; }
+.sql-runner .sql-result { margin-top: 0.5rem; }
+.sql-runner .sql-result pre { max-height: 50vh; }
+.sql-runner .sql-result table { border-collapse: collapse; width: 100%; font-size: 12px; background: var(--bg-pre); border: 1px solid var(--border); }
+.sql-runner .sql-result th, .sql-runner .sql-result td { border: 1px solid var(--border); padding: 0.35rem 0.5rem; text-align: left; }
+.sql-runner .sql-result th { font-weight: 600; }
+.sql-runner .sql-error { color: #e57373; margin-top: 0.35rem; font-size: 0.875rem; }
+.sql-runner .sql-result, .sql-runner .sql-error { transition: opacity 0.15s ease; }
+.diff-result { transition: opacity 0.2s ease; }
+#live-indicator { font-size: 0.75rem; margin-left: 0.5rem; }
+body.theme-dark #live-indicator { color: #7cb342; }
+body.theme-light #live-indicator { color: #558b2f; }
+#polling-toggle { cursor: pointer; font-size: 11px; }
+#polling-toggle.polling-off { opacity: 0.6; }
+#live-indicator.paused { opacity: 0.5; }
+#diagram-container { min-height: 200px; }
+.diagram-table rect { fill: var(--bg-pre); stroke: var(--border); stroke-width: 1.5; }
+.diagram-table:hover rect { stroke: var(--link); }
+.diagram-table { cursor: pointer; }
+.diagram-table .diagram-name { font-weight: 600; font-size: 13px; }
+.diagram-table .diagram-col { font-size: 11px; fill: var(--muted); }
+.diagram-link { stroke: var(--muted); stroke-width: 1; fill: none; }
+/* Focus ring for keyboard navigation of diagram table boxes */
+.diagram-table:focus rect { stroke: var(--link); stroke-width: 2.5; }
+.diagram-table:focus { outline: none; }
+/* Screen-reader-only text (visually hidden, announced by assistive tech) */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.chart-bar { fill: var(--link); }
+.chart-bar:hover { fill: var(--fg); }
+.chart-label { font-size: 10px; fill: var(--muted); }
+.chart-axis { stroke: var(--border); stroke-width: 1; }
+.chart-axis-label { font-size: 11px; fill: var(--muted); }
+.chart-line { stroke: var(--link); stroke-width: 2; fill: none; }
+.chart-dot { fill: var(--link); }
+.chart-dot:hover { fill: var(--fg); r: 5; }
+.chart-slice { stroke: var(--bg); stroke-width: 2; cursor: pointer; }
+.chart-slice:hover { opacity: 0.8; }
+.chart-legend { font-size: 11px; fill: var(--fg); }
+.cell-raw { color: var(--muted); font-size: 10px; display: block; }
+/* Scroll container for data table: enables sticky headers and horizontal scroll
+   while keeping headers visible. Inline fallback when drift-enhanced.css is unavailable. */
+.data-table-scroll-wrap { overflow: auto; max-height: 70vh; margin-bottom: 1rem; }
+#data-table { border-collapse: collapse; width: 100%; font-size: 12px; background: var(--bg-pre); border: 1px solid var(--border); }
+#data-table th, #data-table td { border: 1px solid var(--border); padding: 0.35rem 0.5rem; text-align: left; }
+#data-table th { font-weight: 600; background: var(--bg-pre); position: sticky; top: 0; z-index: 2; }
+#data-table th.col-pinned, #data-table td.col-pinned { position: sticky; left: 0; z-index: 1; background: var(--bg-pre); }
+#data-table tbody tr:nth-child(even) td.col-pinned { background: rgba(128, 128, 128, 0.05); }
+#data-table tbody tr:hover td.col-pinned { background: rgba(128, 128, 128, 0.10); }
+#data-table th[draggable="true"] { cursor: grab; }
+#data-table th[draggable="true"]:active { cursor: grabbing; }
+#data-table th.drag-over { outline: 2px dashed var(--link); outline-offset: -2px; }
+#data-table td { position: relative; }
+#data-table td .cell-copy-btn { display: none; position: absolute; top: 2px; right: 2px; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-size: 10px; padding: 1px 4px; cursor: pointer; line-height: 1; z-index: 1; }
+#data-table td:hover .cell-copy-btn { display: inline-block; }
+#data-table td .cell-copy-btn:hover { color: var(--fg); border-color: var(--link); }
+/* Column context menu and chooser panel */
+#column-context-menu { display: none; position: fixed; z-index: 10001; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); min-width: 10rem; padding: 0.25rem 0; }
+#column-context-menu button { display: block; width: 100%; text-align: left; padding: 0.35rem 0.75rem; border: none; background: none; color: var(--fg); cursor: pointer; font-size: 13px; }
+#column-context-menu button:hover { background: rgba(128, 128, 128, 0.15); }
+#column-chooser { display: none; position: fixed; z-index: 10001; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); padding: 0.75rem; max-height: 70vh; overflow: auto; min-width: 16rem; }
+#column-chooser h3 { margin: 0 0 0.5rem 0; font-size: 0.9rem; }
+.column-chooser-list { list-style: none; padding: 0; margin: 0 0 0.5rem 0; }
+.column-chooser-list li { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; }
+.column-chooser-list li label { flex: 1; cursor: pointer; font-size: 12px; }
+.column-chooser-actions { margin-top: 0.5rem; display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.copy-toast { position: fixed; bottom: 1rem; right: 1rem; background: var(--link); color: var(--bg); padding: 0.3rem 0.75rem; border-radius: 4px; font-size: 12px; z-index: 9999; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+.copy-toast.show { opacity: 1; }
+.qb-section { margin-bottom: 0.5rem; }
+.qb-section .qb-header { cursor: pointer; user-select: none; color: var(--link); font-size: 0.875rem; padding: 0.25rem 0; }
+.qb-section .qb-header:hover { text-decoration: underline; }
+.qb-section .qb-body { padding: 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 4px; }
+.qb-section .qb-body.collapsed { display: none; }
+.qb-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap; }
+.qb-row label { color: var(--muted); font-size: 0.8rem; min-width: 5rem; }
+.qb-row select, .qb-row input[type="text"], .qb-row input[type="number"], .qb-row button { padding: 0.3rem 0.4rem; background: var(--bg); border: 1px solid var(--border); color: var(--fg); border-radius: 3px; font-size: 12px; }
+.qb-columns { display: flex; flex-wrap: wrap; gap: 0.25rem; max-height: 6rem; overflow-y: auto; }
+.qb-columns label { font-size: 11px; color: var(--fg); display: inline-flex; align-items: center; gap: 2px; min-width: auto; }
+.qb-where-item { display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.2rem; flex-wrap: wrap; }
+.qb-where-item select, .qb-where-item input { font-size: 11px; padding: 0.2rem 0.3rem; }
+.qb-where-item button { font-size: 10px; padding: 0.15rem 0.3rem; }
+.qb-preview { font-family: ui-monospace, monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.4rem; margin-top: 0.35rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 4rem; overflow: auto; }
+/* --- Connection health banner --- */
+/* Fixed banner slides down from top with a smooth CSS transition.
+   Warm amber/orange is visible in both light and dark themes. */
+#connection-banner { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 10000; padding: 0.5rem 1rem; font-size: 0.875rem; text-align: center; background: #e65100; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transform: translateY(-100%); transition: transform 0.3s ease-out; }
+#connection-banner.show { display: flex; align-items: center; justify-content: center; gap: 0.75rem; transform: translateY(0); }
+#connection-banner .banner-dismiss { background: transparent; border: 1px solid rgba(255,255,255,0.5); color: #fff; border-radius: 3px; padding: 0.15rem 0.5rem; cursor: pointer; font-size: 0.75rem; }
+#connection-banner .banner-dismiss:hover { border-color: #fff; }
+/* Push body content down when banner is visible. */
+body.has-connection-banner { padding-top: 2.5rem; transition: padding-top 0.3s ease-out; }
+/* Visual dimming for controls disabled during disconnection. */
+.offline-disabled { opacity: 0.4; pointer-events: none; }
+/* Live indicator styles for disconnected/reconnecting states. */
+#live-indicator.disconnected { color: #e57373 !important; opacity: 1; }
+/* Subtle pulse animation during reconnection to convey retry activity. */
+@keyframes reconnect-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+#live-indicator.reconnecting { animation: reconnect-pulse 1.5s ease-in-out infinite; }
