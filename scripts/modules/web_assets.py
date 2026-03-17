@@ -13,7 +13,7 @@ import os
 import tempfile
 
 from modules.constants import REPO_ROOT
-from modules.display import fail, info, ok
+from modules.display import fail, info, ok, warn
 from modules.utils import run
 
 
@@ -78,11 +78,10 @@ def check_web_assets_sync() -> bool:
         with open(STYLE_CSS, "rb") as f:
             committed = f.read()
         if built != committed:
-            fail(
-                "assets/web/style.css is out of sync with style.scss. "
-                "Edit only style.scss, then run: npm run build:style"
+            warn(
+                "assets/web/style.css is out of sync with style.scss; "
+                "rebuilding automatically (npm run build:style)."
             )
-            info("Commit the updated style.css after building.")
             return False
         ok("Web assets in sync (style.css matches style.scss)")
         return True
