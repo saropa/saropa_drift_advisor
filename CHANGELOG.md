@@ -39,6 +39,8 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ### Changed
 
+• **Web UI: colorful favicon** — Browser tab favicon now uses the same purple-to-cyan gradient database cylinder as the extension store icon (replacing the previous single-tone gray-blue favicon).
+
 • **Web UI: Snapshot compare results in a table** — Compare-to-now results are shown in a summary table (columns: Table | Then | Now | Status) for easier scanning; per-table detail for added/removed/changed rows appears below when present. Result container is a scrollable div with opacity transition; loading state shows "Comparing…" and `aria-busy` for accessibility. Clearing a snapshot or starting a new compare clears the previous result.
 
 • **Web UI: Export diff report in new tab** — The DB diff panel "Export diff report" link now opens in a new browser tab (`target="_blank"` with `rel="noopener noreferrer"`) so the current view stays open.
@@ -47,7 +49,11 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ### Fixed
 
+• **Extension: Database toolbar and Dashboard command** — The Database view toolbar showed many icons in one row and was hard to scan. Primary actions (About, Open in Browser, Refresh, Health, Dashboard, Drift Tools menu) now stay in the main bar; Schema Docs, Import, Search, Bookmarks, Snippet Library, ER Diagram, Export, and Add Package move to the overflow (…) menu for discoverability. An activation event for `driftViewer.openDashboard` was added so the Dashboard toolbar button works when the extension activates on first use of that command (fixes "command 'driftViewer.openDashboard' not found").
+
 • **Web UI: toolbar Search and Tables buttons** — The toolbar **Search** button now opens the Search tab and expands the sidebar search options (it had no `data-tool`, so it only toggled the sidebar). A **Tables** toolbar button was added so the Tables view can be opened from the toolbar like other tools; both use `data-tool` and the shared `openTool` flow.
+
+• **Debug console log spam at rest** — Change detection now throttles the row-count (UNION ALL) query to at most once every 2 seconds when the extension or web UI long-polls. The long-poll loop still runs every 300ms for responsive UI, but the app’s Drift "Sent SELECT" logs drop from many per second to about one per 2 seconds when the Advisor is open. Turn polling off (web UI or extension) for zero queries when idle.
 
 ---
 
