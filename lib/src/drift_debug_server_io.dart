@@ -159,16 +159,18 @@ class _DriftDebugServerImpl {
       _vmBridge = VmServiceBridge(router);
       _vmBridge?.register();
 
-      // Single stdout.writeln so the banner is one atomic write —
-      // no per-line stack traces in the debug console. Uses stdout
-      // instead of ctx.log() because dart:developer.log() attaches
-      // expandable stack traces to every [log] entry.
+      // Single print() call so the banner appears as clean I/flutter lines
+      // in the debug console (like Isar Inspector). stdout.writeln() does
+      // NOT appear on Android because Flutter only intercepts print/Zone
+      // output. ctx.log() (dart:developer.log) works but attaches expandable
+      // stack traces to every line. print() is the correct choice here.
       final title = _bannerCentered(
         'DRIFT DEBUG SERVER   v${ServerConstants.packageVersion}',
       );
       final desc = _bannerCentered(ServerConstants.bannerDescription);
       final url = _bannerCentered('http://127.0.0.1:$port');
-      stdout.writeln(
+      // ignore: avoid_print
+      print(
         '${ServerConstants.bannerTop}\n'
         '$title\n'
         '${ServerConstants.bannerDivider}\n'

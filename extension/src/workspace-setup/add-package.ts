@@ -34,14 +34,68 @@ export interface AddPackageProgress {
 /**
  * Returns true if pubspec content already declares this package (any section).
  */
-function hasPackage(pubspecContent: string): boolean {
+export function hasPackage(pubspecContent: string): boolean {
   return new RegExp(`\\b${PACKAGE_NAME}\\s*:`).test(pubspecContent);
 }
 
 /**
- * Detects Flutter projects so we run flutter pub get instead of dart pub get.
+ * Extracts the version constraint string for saropa_drift_advisor from pubspec content.
+ * Returns null if the package is not found or uses a non-version dependency (path/git/hosted).
+ *
+ * Matches patterns like:
+ *   saropa_drift_advisor: ^1.6.1
+ *   saropa_drift_advisor: ">=1.5.0 <2.0.0"
+ *   saropa_drift_advisor: 1.6.1
  */
-function isFlutterProject(pubspecContent: string): boolean {
+export function extractPackageVersion(pubspecContent: string): string | null {
+  // Match the package name followed by a colon, then capture the version constraint
+  // on the same line. Handles optional quotes around the constraint.
+  const match = pubspecContent.match(
+    new RegExp(`\\b${PACKAGE_NAME}\\s*:\\s*["']?([^"'\\n]+?)["']?\\s*$`, 'm'),
+  );
+  if (!match) return null;
+
+  // If the captured value looks like a version constraint (starts with ^, >=, <, or a digit),
+  // return it. Otherwise it might be a path/git/hosted block — return null.
+  const value = match[1].trim();
+  if (/^[\^>=<\d]/.test(value)) return value;
+  return null;
+}
+
+/**
+ * Extracts the minimum version number from a Dart version constraint.
+ * Given "^1.6.1" returns "1.6.1". Given ">=1.5.0 <2.0.0" returns "1.5.0".
+ * Given "1.6.1" returns "1.6.1". Returns null for unparseable constraints.
+ */
+export function parseMinVersion(constraint: string): string | null {
+  // Strip leading ^ or >= and grab the first version-like token
+  const match = constraint.match(/(\d+\.\d+\.\d+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Returns true if versionA is strictly older than versionB.
+ * Both inputs must be "X.Y.Z" format. Returns false on parse failure or equality.
+ */
+export function isVersionOlder(versionA: string, versionB: string): boolean {
+  const partsA = versionA.split('.').map(Number);
+  const partsB = versionB.split('.').map(Number);
+  if (partsA.length !== 3 || partsB.length !== 3) return false;
+  if (partsA.some(isNaN) || partsB.some(isNaN)) return false;
+
+  for (let i = 0; i < 3; i++) {
+    if (partsA[i] < partsB[i]) return true;
+    if (partsA[i] > partsB[i]) return false;
+  }
+  return false; // equal
+}
+
+/**
+ * Detects Flutter projects so we run flutter pub get instead of dart pub get.
+ * Exported so the package status monitor can determine whether to run
+ * `flutter pub get` or `dart pub get` after an upgrade.
+ */
+export function isFlutterProject(pubspecContent: string): boolean {
   return /^\s*flutter\s*:/m.test(pubspecContent);
 }
 
@@ -63,7 +117,8 @@ export function addPackageToPubspec(content: string): { modified: boolean; conte
   return { modified: true, content: newContent };
 }
 
-async function runInWorkspace(cwd: string, command: string): Promise<{ stdout: string; stderr: string }> {
+/** Run a shell command in the given workspace directory. 2 MB output buffer. */
+export async function runInWorkspace(cwd: string, command: string): Promise<{ stdout: string; stderr: string }> {
   const opts = { cwd, maxBuffer: 2 * 1024 * 1024 };
   return execAsync(command, opts) as Promise<{ stdout: string; stderr: string }>;
 }

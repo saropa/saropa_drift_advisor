@@ -83,6 +83,7 @@ export class ToolCommandItem extends vscode.TreeItem {
 
 export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode> {
   private _connected = false;
+  private _packageInstalled = false;
   private readonly _version: string;
   private readonly _onDidChangeTreeData =
     new vscode.EventEmitter<ToolsTreeNode | undefined | void>();
@@ -100,6 +101,14 @@ export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode>
     }
   }
 
+  /** Called when package-installed state changes. Hides the "Add Package" item when installed. */
+  setPackageInstalled(installed: boolean): void {
+    if (this._packageInstalled !== installed) {
+      this._packageInstalled = installed;
+      this._onDidChangeTreeData.fire();
+    }
+  }
+
   getTreeItem(element: ToolsTreeNode): vscode.TreeItem {
     // Apply dynamic enable/disable state to command items
     if (element instanceof ToolCommandItem) {
@@ -110,7 +119,7 @@ export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode>
 
   getChildren(element?: ToolsTreeNode): ToolsTreeNode[] {
     if (!element) {
-      return buildCategories(this._version);
+      return buildCategories(this._version, this._packageInstalled);
     }
     if (element instanceof ToolCategoryItem) {
       return element.tools;
@@ -122,22 +131,30 @@ export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode>
 // ── Static category definitions ───────────────────────────────────────
 
 /** Build the full categorised tool list. Called on every render. */
-function buildCategories(version: string): ToolCategoryItem[] {
-  return [
-    new ToolCategoryItem('Getting Started', 'star', [
-      new ToolCommandItem(
-        `About Saropa Drift Advisor v${version}`, 'driftViewer.about', 'book',
-        false, 'View release notes and changelog',
-      ),
-      new ToolCommandItem(
-        'Open Walkthrough', 'driftViewer.openWalkthrough', 'info',
-        false, 'Step-by-step guide to the extension',
-      ),
+function buildCategories(version: string, packageInstalled: boolean): ToolCategoryItem[] {
+  // "Getting Started" tools — the "Add Package" item is only shown when the
+  // package is not yet present in pubspec.yaml.
+  const gettingStartedTools: ToolCommandItem[] = [
+    new ToolCommandItem(
+      `About Saropa Drift Advisor v${version}`, 'driftViewer.about', 'book',
+      false, 'View release notes and changelog',
+    ),
+    new ToolCommandItem(
+      'Open Walkthrough', 'driftViewer.openWalkthrough', 'info',
+      false, 'Step-by-step guide to the extension',
+    ),
+  ];
+  if (!packageInstalled) {
+    gettingStartedTools.push(
       new ToolCommandItem(
         'Add Saropa Drift Advisor', 'driftViewer.addPackageToProject', 'package',
         false, 'Add saropa_drift_advisor to pubspec.yaml',
       ),
-    ]),
+    );
+  }
+
+  return [
+    new ToolCategoryItem('Getting Started', 'star', gettingStartedTools),
 
     new ToolCategoryItem('Schema & Migrations', 'diff', [
       new ToolCommandItem(
