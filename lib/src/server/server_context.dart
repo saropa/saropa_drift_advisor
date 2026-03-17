@@ -324,8 +324,7 @@ final class ServerContext {
       // N individual SELECT COUNT(*) queries.
       final signature = await _buildDataSignature(tables);
 
-      if (lastDataSignature != null &&
-          lastDataSignature != signature) {
+      if (lastDataSignature != null && lastDataSignature != signature) {
         generation++;
       }
       lastDataSignature = signature;
@@ -365,8 +364,7 @@ final class ServerContext {
     });
     final sql = parts.join(' UNION ALL ');
 
-    final rows =
-        ServerUtils.normalizeRows(await instrumentedQuery(sql));
+    final rows = ServerUtils.normalizeRows(await instrumentedQuery(sql));
 
     // Map the result rows into a lookup by table name.
     final counts = <String, int>{};
@@ -375,16 +373,12 @@ final class ServerContext {
       final name = row['t'] as String? ?? '';
       final count = row[ServerConstants.jsonKeyCountColumn];
 
-      counts[name] = count is int
-          ? count
-          : (count is num ? count.toInt() : 0);
+      counts[name] = count is int ? count : (count is num ? count.toInt() : 0);
     }
 
     // Build signature in sorted table order (tables
     // list is already sorted from getTableNames).
-    return tables
-        .map((t) => '$t:${counts[t] ?? 0}')
-        .join(',');
+    return tables.map((t) => '$t:${counts[t] ?? 0}').join(',');
   }
 
   /// Validates that [tableName] exists in the
@@ -400,8 +394,7 @@ final class ServerContext {
     required DriftDebugQuery queryFn,
     required String tableName,
   }) async {
-    final List<String> allowed =
-        await ServerUtils.getTableNames(queryFn);
+    final List<String> allowed = await ServerUtils.getTableNames(queryFn);
 
     if (!allowed.contains(tableName)) {
       response.statusCode = HttpStatus.badRequest;

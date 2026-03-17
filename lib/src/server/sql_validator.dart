@@ -71,12 +71,10 @@ abstract final class SqlValidator {
         firstSemicolon + ServerConstants.indexAfterSemicolon <=
             sqlNoStrings.length &&
         firstSemicolon <
-            sqlNoStrings.length -
-                ServerConstants.indexAfterSemicolon) {
+            sqlNoStrings.length - ServerConstants.indexAfterSemicolon) {
       final after = ServerUtils.safeSubstring(
         sqlNoStrings,
-        start: firstSemicolon +
-            ServerConstants.indexAfterSemicolon,
+        start: firstSemicolon + ServerConstants.indexAfterSemicolon,
       ).trim();
       if (after.isNotEmpty) {
         return false;
@@ -89,8 +87,7 @@ abstract final class SqlValidator {
         ? ServerUtils.safeSubstring(
             sqlNoStrings,
             start: 0,
-            end: sqlNoStrings.length -
-                ServerConstants.indexAfterSemicolon,
+            end: sqlNoStrings.length - ServerConstants.indexAfterSemicolon,
           ).trim()
         : sqlNoStrings;
 
@@ -98,8 +95,7 @@ abstract final class SqlValidator {
     final upper = withoutTrailingSemicolon.toUpperCase();
     const selectPrefix = 'SELECT ';
     const withPrefix = 'WITH ';
-    if (!upper.startsWith(selectPrefix) &&
-        !upper.startsWith(withPrefix)) {
+    if (!upper.startsWith(selectPrefix) && !upper.startsWith(withPrefix)) {
       return false;
     }
 

@@ -34,8 +34,8 @@ final class RateLimiter {
   ///
   /// [maxRequestsPerSecond] must be positive.
   RateLimiter(this.maxRequestsPerSecond, this._ctx)
-      : assert(maxRequestsPerSecond > 0,
-            'maxRequestsPerSecond must be positive');
+      : assert(
+            maxRequestsPerSecond > 0, 'maxRequestsPerSecond must be positive');
 
   /// Maximum number of requests each IP may send per second.
   final int maxRequestsPerSecond;
@@ -91,8 +91,7 @@ final class RateLimiter {
   /// `Retry-After` header indicating the client should wait 1 second.
   Future<void> sendTooManyRequests(HttpResponse response) async {
     response.statusCode = HttpStatus.tooManyRequests;
-    response.headers
-        .set(ServerConstants.headerRetryAfter, '1');
+    response.headers.set(ServerConstants.headerRetryAfter, '1');
     _ctx.setJsonHeaders(response);
     response.write(jsonEncode(<String, String>{
       ServerConstants.jsonKeyError: ServerConstants.errorRateLimited,

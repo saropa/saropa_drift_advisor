@@ -99,8 +99,7 @@ final class Router {
     // the lightweight health probe so monitoring tools are never blocked.
     final limiter = _rateLimiter;
     if (limiter != null) {
-      final bool isExempt =
-          path == ServerConstants.pathApiGeneration ||
+      final bool isExempt = path == ServerConstants.pathApiGeneration ||
           path == ServerConstants.pathApiGenerationAlt ||
           path == ServerConstants.pathApiHealth ||
           path == ServerConstants.pathApiHealthAlt;
@@ -252,8 +251,7 @@ final class Router {
         return true;
       }
       if (suffix.endsWith(ServerConstants.pathSuffixColumns)) {
-        final String tableName =
-            suffix.replaceFirst(RegExp(r'/columns$'), '');
+        final String tableName = suffix.replaceFirst(RegExp(r'/columns$'), '');
 
         await _table.sendTableColumns(
             response: response, query: query, tableName: tableName);
@@ -261,8 +259,7 @@ final class Router {
         return true;
       }
       if (suffix.endsWith(ServerConstants.pathSuffixFkMeta)) {
-        final String tableName =
-            suffix.replaceFirst(RegExp(r'/fk-meta$'), '');
+        final String tableName = suffix.replaceFirst(RegExp(r'/fk-meta$'), '');
 
         await _table.sendTableFkMeta(
             response: response, query: query, tableName: tableName);
@@ -665,8 +662,7 @@ final class Router {
 
   /// Whether change detection is enabled (delegate for
   /// VM service and HTTP endpoints).
-  bool get isChangeDetectionEnabled =>
-      _ctx.changeDetectionEnabled;
+  bool get isChangeDetectionEnabled => _ctx.changeDetectionEnabled;
 
   /// Sets change detection enabled state (delegate for
   /// VM service and HTTP endpoints).
@@ -685,8 +681,7 @@ final class Router {
 
     _ctx.setJsonHeaders(res);
     res.write(jsonEncode(<String, dynamic>{
-      ServerConstants.jsonKeyChangeDetection:
-          _ctx.changeDetectionEnabled,
+      ServerConstants.jsonKeyChangeDetection: _ctx.changeDetectionEnabled,
     }));
     await res.close();
   }
@@ -709,23 +704,20 @@ final class Router {
       final body = utf8.decode(builder.toBytes());
       final decoded = ServerUtils.parseJsonMap(body);
 
-      if (decoded == null ||
-          decoded[ServerConstants.jsonKeyEnabled] is! bool) {
+      if (decoded == null || decoded[ServerConstants.jsonKeyEnabled] is! bool) {
         res.statusCode = HttpStatus.badRequest;
         _ctx.setJsonHeaders(res);
         res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError:
-              'Expected JSON body with '
-                  '"${ServerConstants.jsonKeyEnabled}": '
-                  'true|false',
+          ServerConstants.jsonKeyError: 'Expected JSON body with '
+              '"${ServerConstants.jsonKeyEnabled}": '
+              'true|false',
         }));
         await res.close();
 
         return;
       }
 
-      final enabled =
-          decoded[ServerConstants.jsonKeyEnabled] as bool;
+      final enabled = decoded[ServerConstants.jsonKeyEnabled] as bool;
       _ctx.changeDetectionEnabled = enabled;
 
       _ctx.setJsonHeaders(res);
