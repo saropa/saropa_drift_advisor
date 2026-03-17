@@ -24,6 +24,15 @@ export class ConnectionStatusItem extends vscode.TreeItem {
       ? new vscode.ThemeIcon('database', new vscode.ThemeColor('testing.iconPassed'))
       : new vscode.ThemeIcon('error', new vscode.ThemeColor('testing.iconFailed'));
     this.contextValue = 'connectionStatus';
+
+    // When connected, clicking the status item opens the server in a browser.
+    if (connected) {
+      this.command = {
+        command: 'driftViewer.openInBrowser',
+        title: 'Open in Browser',
+      };
+      this.tooltip = `${baseUrl} — click to open in browser`;
+    }
   }
 }
 

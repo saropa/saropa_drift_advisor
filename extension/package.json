@@ -550,6 +550,11 @@
         "command": "driftViewer.aboutSaropa",
         "title": "Saropa Drift Advisor: About Saropa",
         "icon": "$(info)"
+      },
+      {
+        "command": "driftViewer.togglePolling",
+        "title": "Saropa Drift Advisor: Toggle Database Polling",
+        "icon": "$(radio-tower)"
       }
     ],
     "menus": {

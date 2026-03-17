@@ -21,6 +21,11 @@ Smart package lifecycle management: the extension now detects whether the Dart p
 
 ### Added
 
+- **Open in Browser button** — quickly open the Drift debug server UI from the Database sidebar:
+  - Globe icon in the header toolbar (visible when connected)
+  - Clickable "Connected" status item opens the server URL
+  - "Open in Browser" button in the welcome view (visible when not connected)
+
 - **Build safeguards (defense-in-depth)** — Seven independent layers now prevent shipping an extension that silently fails to activate:
   - `npm install` auto-compiles TypeScript via `postprepare` hook — fresh clones and `git clean` are self-healing
   - Pre-commit hook verifies `out/extension.js` exists alongside the existing type check
