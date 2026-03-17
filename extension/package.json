@@ -42,7 +42,9 @@
     "theme": "dark"
   },
   "activationEvents": [
-    "onLanguage:dart"
+    "onLanguage:dart",
+    "onView:driftViewer.databaseExplorer",
+    "onView:driftViewer.toolbox"
   ],
   "icon": "icon.png",
   "main": "./out/extension.js",

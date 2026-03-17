@@ -5,6 +5,10 @@ import 'drift_debug_server.dart';
 /// Log name for startDriftViewer errors (used when duck-typing fails).
 const String _kStartViewerLogName = 'StartDriftViewer';
 
+/// Hint appended to StateErrors when duck-typing fails; guides users of drift_sqlite_async or custom executors to the callback API.
+const String _kCallbackApiHint =
+    ' If using drift_sqlite_async or a custom executor, use DriftDebugServer.start(query: ...) with an explicit query callback.';
+
 /// Runs [sql] against [db] using Drift-like API: customSelect(sql).get(), then maps row.data to Map.
 ///
 /// Throws [StateError] if the return type or row shape is wrong.
@@ -16,7 +20,7 @@ Future<List<Map<String, dynamic>>> _runDriftQuery(Object db, String sql) async {
     final dynamic rows = await selectable.get();
     if (rows is! List) {
       throw StateError(
-        'startDriftViewer expected customSelect(sql).get() to return a List, but got ${rows.runtimeType}.',
+        'startDriftViewer expected customSelect(sql).get() to return a List, but got ${rows.runtimeType}.$_kCallbackApiHint',
       );
     }
 
@@ -24,7 +28,7 @@ Future<List<Map<String, dynamic>>> _runDriftQuery(Object db, String sql) async {
       final dynamic data = row.data;
       if (data is! Map) {
         throw StateError(
-          'startDriftViewer expected each row to have a Map-like data field, but got ${data.runtimeType}.',
+          'startDriftViewer expected each row to have a Map-like data field, but got ${data.runtimeType}.$_kCallbackApiHint',
         );
       }
       return Map<String, dynamic>.from(data);
@@ -33,7 +37,7 @@ Future<List<Map<String, dynamic>>> _runDriftQuery(Object db, String sql) async {
     // Only build log message in debug so we avoid expensive string construction in release.
     if (!bool.fromEnvironment('dart.vm.product', defaultValue: false)) {
       developer.log(
-        'startDriftViewer requires a Drift-like database with customSelect(sql).get() and rows exposing row.data as a Map. Missing member: $e',
+        'startDriftViewer requires a Drift-like database with customSelect(sql).get() and rows exposing row.data as a Map. Missing member: $e$_kCallbackApiHint',
         name: _kStartViewerLogName,
         error: e,
         stackTrace: st,
@@ -41,7 +45,7 @@ Future<List<Map<String, dynamic>>> _runDriftQuery(Object db, String sql) async {
     }
     return Error.throwWithStackTrace(
       StateError(
-        'startDriftViewer requires a Drift-like database with customSelect(sql).get() and rows exposing row.data as a Map. Missing member: $e',
+        'startDriftViewer requires a Drift-like database with customSelect(sql).get() and rows exposing row.data as a Map. Missing member: $e$_kCallbackApiHint',
       ),
       st,
     );

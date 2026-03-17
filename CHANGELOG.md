@@ -15,13 +15,22 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **VS Code: "command driftViewer.refreshTree not found" (issue #7)** — Extension now activates when the Drift Advisor sidebar views are opened (`onView:driftViewer.databaseExplorer`, `onView:driftViewer.toolbox`), so the Refresh command is registered even if no Dart file was opened first.
+- **drift_sqlite_async compatibility (issue #7)** — README and error messages now document using `DriftDebugServer.start(query: ...)` with an explicit query callback when the web UI stays on "Loading tables…" or when using drift_sqlite_async; ensure the database is open before starting the server. Error hint extracted to a single constant; unit tests assert error response contains the callback-API guidance.
+
+---
+
 ## [2.1.1]
 
 Fixes console log spam when polling is turned off in the web UI.
 
 ### Fixed
 
-- **HTTP schema metadata and diagram when polling off** — `GET /api/schema/metadata` and `GET /api/schema/diagram` now return empty `tables` (and empty `foreignKeys` for diagram) with `changeDetection: false` when change detection is disabled, so no `PRAGMA table_info` or `SELECT COUNT(*)` queries run and the app's Drift log is no longer spammed. Matches the existing VM service behaviour (extension already received empty schema when polling was off).
+- **HTTP schema metadata and diagram when polling off** — `GET /api/schema/metadata` and `GET /api/schema/diagram` now return empty `tables` (and empty `foreignKeys` for diagram) with `changeDetection: false` when change detection is disabled, so no `PRAGMA table_info` or `SELECT COUNT(*)` queries run and the app's Drift log is no longer spammed. Matches the existing VM service behavior (extension already received empty schema when polling was off).
 
 ---
 

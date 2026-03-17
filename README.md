@@ -236,6 +236,20 @@ await DriftDebugServer.start(
 );
 ```
 
+**Using with drift_sqlite_async:** If you use [drift_sqlite_async](https://pub.dev/packages/drift_sqlite_async), `startDriftViewer(myDb)` should work if your database class exposes `customSelect(sql).get()` and rows with `row.data`. If the web UI stays on "Loading tables…" or the VS Code extension never shows tables, use the callback API and ensure the database is **open and ready** before starting the server (e.g. call `DriftDebugServer.start` after your async DB initialization):
+
+```dart
+await DriftDebugServer.start(
+  query: (String sql) async {
+    final rows = await driftDb.customSelect(sql).get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
+  },
+  enabled: kDebugMode,
+);
+```
+
+If you see **"command 'driftViewer.refreshTree' not found"** in VS Code, open a Dart file or the Drift Advisor sidebar first so the extension activates, then use the Refresh button or reload the window.
+
 ### 3. Connect a client
 
 **VS Code extension (recommended):** Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the Marketplace. It auto-discovers the running server — no configuration needed. On Android emulator, the extension automatically forwards the debug server port when a Flutter/Dart debug session is active.

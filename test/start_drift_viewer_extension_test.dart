@@ -75,6 +75,8 @@ void main() {
       final body = await resp.transform(utf8.decoder).join();
       final decoded = jsonDecode(body) as Map<String, dynamic>;
       expect(decoded['error'], isNotNull);
+      // Regression: error message should guide users to DriftDebugServer.start (e.g. drift_sqlite_async).
+      expect(decoded['error'].toString(), contains('DriftDebugServer.start'));
     } finally {
       client.close();
     }
@@ -95,6 +97,8 @@ void main() {
       final body = await resp.transform(utf8.decoder).join();
       final decoded = jsonDecode(body) as Map<String, dynamic>;
       expect(decoded['error'], isNotNull);
+      // Regression: error message should guide users to DriftDebugServer.start (e.g. drift_sqlite_async).
+      expect(decoded['error'].toString(), contains('DriftDebugServer.start'));
     } finally {
       client.close();
     }
