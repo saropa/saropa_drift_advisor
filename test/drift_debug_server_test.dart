@@ -1647,4 +1647,147 @@ void main() {
       }
     });
   });
+
+  group('change detection toggle', () {
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    test('GET /api/change-detection returns enabled by default', () async {
+      await DriftDebugServer.start(
+        query: (sql) async {
+          if (sql.contains("type='table'")) {
+            return [
+              {'name': 'items'},
+            ];
+          }
+
+          return <Map<String, dynamic>>[];
+        },
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req =
+            await client.get('localhost', port!, '/api/change-detection');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['changeDetection'], isTrue);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('POST /api/change-detection toggles state', () async {
+      await DriftDebugServer.start(
+        query: (sql) async {
+          if (sql.contains("type='table'")) {
+            return [
+              {'name': 'items'},
+            ];
+          }
+
+          return <Map<String, dynamic>>[];
+        },
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        // Disable change detection.
+        final postReq =
+            await client.post('localhost', port!, '/api/change-detection');
+        postReq.headers.contentType = ContentType.json;
+        postReq.write(jsonEncode({'enabled': false}));
+        final postResp = await postReq.close();
+        expect(postResp.statusCode, HttpStatus.ok);
+
+        final postBody = await postResp.transform(utf8.decoder).join();
+        final postDecoded = jsonDecode(postBody) as Map<String, dynamic>;
+        expect(postDecoded['changeDetection'], isFalse);
+
+        // Verify via GET that state persisted.
+        final getReq =
+            await client.get('localhost', port, '/api/change-detection');
+        final getResp = await getReq.close();
+        final getBody = await getResp.transform(utf8.decoder).join();
+        final getDecoded = jsonDecode(getBody) as Map<String, dynamic>;
+        expect(getDecoded['changeDetection'], isFalse);
+
+        // Also verify via static API.
+        expect(DriftDebugServer.changeDetectionEnabled, isFalse);
+
+        // Re-enable.
+        final reEnableReq =
+            await client.post('localhost', port, '/api/change-detection');
+        reEnableReq.headers.contentType = ContentType.json;
+        reEnableReq.write(jsonEncode({'enabled': true}));
+        final reEnableResp = await reEnableReq.close();
+        expect(reEnableResp.statusCode, HttpStatus.ok);
+
+        final reEnableBody = await reEnableResp.transform(utf8.decoder).join();
+        final reEnableDecoded =
+            jsonDecode(reEnableBody) as Map<String, dynamic>;
+        expect(reEnableDecoded['changeDetection'], isTrue);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('POST /api/change-detection rejects invalid body', () async {
+      await DriftDebugServer.start(
+        query: (sql) async => <Map<String, dynamic>>[],
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        // Send non-boolean 'enabled' value.
+        final req =
+            await client.post('localhost', port!, '/api/change-detection');
+        req.headers.contentType = ContentType.json;
+        req.write(jsonEncode({'enabled': 'not-a-bool'}));
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.badRequest);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('static API setChangeDetection works', () async {
+      await DriftDebugServer.start(
+        query: (sql) async {
+          if (sql.contains("type='table'")) {
+            return [
+              {'name': 'items'},
+            ];
+          }
+
+          return <Map<String, dynamic>>[];
+        },
+        port: 0,
+      );
+
+      // Default is enabled.
+      expect(DriftDebugServer.changeDetectionEnabled, isTrue);
+
+      // Disable via static API.
+      DriftDebugServer.setChangeDetection(false);
+      expect(DriftDebugServer.changeDetectionEnabled, isFalse);
+
+      // Re-enable.
+      DriftDebugServer.setChangeDetection(true);
+      expect(DriftDebugServer.changeDetectionEnabled, isTrue);
+    });
+  });
 }

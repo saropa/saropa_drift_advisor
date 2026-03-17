@@ -6,7 +6,7 @@ abstract final class HtmlContent {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Drift DB</title>
+  <title>Saropa Drift Adviser</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='8' rx='12' ry='5' fill='%23546e7a'/%3E%3Cpath d='M4 8v16c0 2.8 5.4 5 12 5s12-2.2 12-5V8' fill='none' stroke='%23546e7a' stroke-width='2'/%3E%3Cellipse cx='16' cy='24' rx='12' ry='5' fill='none' stroke='%23546e7a' stroke-width='2'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='5' fill='none' stroke='%23546e7a' stroke-width='2'/%3E%3C/svg%3E">
   <style>
     * { box-sizing: border-box; }
@@ -48,6 +48,9 @@ abstract final class HtmlContent {
     #live-indicator { font-size: 0.75rem; margin-left: 0.5rem; }
     body.theme-dark #live-indicator { color: #7cb342; }
     body.theme-light #live-indicator { color: #558b2f; }
+    #polling-toggle { cursor: pointer; font-size: 11px; }
+    #polling-toggle.polling-off { opacity: 0.6; }
+    #live-indicator.paused { opacity: 0.5; }
     #diagram-container { min-height: 200px; }
     .diagram-table rect { fill: var(--bg-pre); stroke: var(--border); stroke-width: 1.5; }
     .diagram-table:hover rect { stroke: var(--link); }
@@ -90,7 +93,7 @@ abstract final class HtmlContent {
   </style>
 </head>
 <body>
-  <h1>Drift tables <span id="version-badge" class="meta" style="font-size:0.65rem;opacity:0;" title="Saropa Drift Advisor version"></span> <button type="button" id="theme-toggle" title="Toggle light/dark">Theme</button> <button type="button" id="share-btn" title="Share current view with your team" style="font-size:11px;">Share</button> <span id="live-indicator" class="meta" title="Table view updates when data changes">● Live</span></h1>
+  <h1>Saropa Drift Adviser <span id="version-badge" class="meta" style="font-size:0.65rem;opacity:0;" title="Saropa Drift Advisor version"></span> <button type="button" id="theme-toggle" title="Toggle light/dark">Theme</button> <button type="button" id="share-btn" title="Share current view with your team" style="font-size:11px;">Share</button> <button type="button" id="polling-toggle" title="Toggle database polling on/off">Polling: ON</button> <span id="live-indicator" class="meta" title="Table view updates when data changes">● Live</span></h1>
   <div class="collapsible-header sql-runner" id="sql-runner-toggle">▼ Run SQL (read-only)</div>
   <div id="sql-runner-collapsible" class="collapsible-body collapsed sql-runner">
     <div class="sql-toolbar">
@@ -2393,6 +2396,55 @@ abstract final class HtmlContent {
           pollGeneration();
         })
         .catch(() => { setTimeout(pollGeneration, 2000); });
+    }
+    // --- Polling toggle ---
+    var pollingEnabled = true;
+    var pollingBtn = document.getElementById('polling-toggle');
+    var liveIndicator = document.getElementById('live-indicator');
+    // Read initial state from server on page load.
+    fetch('/api/change-detection', authOpts())
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        pollingEnabled = data.changeDetection !== false;
+        updatePollingUI();
+      })
+      .catch(function() { /* keep default ON */ });
+    function updatePollingUI() {
+      if (pollingBtn) {
+        pollingBtn.textContent = pollingEnabled ? 'Polling: ON' : 'Polling: OFF';
+        pollingBtn.classList.toggle('polling-off', !pollingEnabled);
+      }
+      if (liveIndicator) {
+        liveIndicator.textContent = pollingEnabled ? '● Live' : '● Paused';
+        liveIndicator.classList.toggle('paused', !pollingEnabled);
+      }
+    }
+    if (pollingBtn) {
+      pollingBtn.addEventListener('click', function() {
+        // Prevent double-clicks while the request is in flight.
+        pollingBtn.disabled = true;
+        pollingBtn.textContent = 'Polling...';
+        var newState = !pollingEnabled;
+        fetch('/api/change-detection', Object.assign({}, authOpts(), {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' },
+            (authOpts().headers || {})),
+          body: JSON.stringify({ enabled: newState })
+        }))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            pollingEnabled = data.changeDetection !== false;
+          })
+          .catch(function(e) {
+            console.error('Failed to toggle polling:', e);
+          })
+          .finally(function() {
+            // Re-enable the button and restore its label
+            // regardless of success or failure.
+            pollingBtn.disabled = false;
+            updatePollingUI();
+          });
+      });
     }
     // --- NL-to-SQL event handlers ---
     document.getElementById('nl-convert').addEventListener('click', async function () {

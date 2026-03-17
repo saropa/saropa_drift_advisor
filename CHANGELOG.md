@@ -15,6 +15,31 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [1.8.0]
+
+Silence the log spam: batched change detection, runtime polling toggle, and UI buttons in both the web viewer and VSCode extension.
+
+### Added
+
+- **Polling toggle button (web UI)** — "Polling: ON/OFF" button in the browser header toggles change detection on/off via `POST /api/change-detection`. The live indicator updates to show "Paused" when polling is disabled.
+- **Polling toggle button (VSCode)** — "Toggle Polling" item in the Drift Tools sidebar tree (`driftViewer.togglePolling` command) toggles change detection via VM service or HTTP fallback. Shows an info message confirming the new state.
+- **Change detection HTTP endpoint** — `GET/POST /api/change-detection` reads and sets the polling toggle state at runtime.
+- **Change detection VM service extensions** — `ext.saropa.drift.getChangeDetection` and `ext.saropa.drift.setChangeDetection` allow the VSCode extension to toggle polling without HTTP.
+- **Static Dart API** — `DriftDebugServer.changeDetectionEnabled` getter and `DriftDebugServer.setChangeDetection(bool)` for programmatic control from app code.
+
+### Changed
+
+- **Web UI branding** — Browser tab and page heading now show "Saropa Drift Adviser" instead of "Drift tables" / "Drift DB".
+- **Batched row-count queries** — `checkDataChange()` now uses a single `UNION ALL` query instead of N individual `SELECT COUNT(*)` queries, reducing per-check queries from N+1 to 2 (first call) or 1 (cached table names).
+- **Table name caching** — sqlite_master table names are cached across change detection cycles and invalidated only on schema-altering operations (e.g., import).
+- **VM service handler gating** — `getSchemaMetadata` and `getGeneration` VM service handlers return lightweight cached/empty responses when change detection is disabled, eliminating `PRAGMA table_info` and `SELECT COUNT(*)` spam from the debug console.
+
+### Fixed
+
+- **Web UI version drift** — `packageVersion` in `server_constants.dart` was hardcoded at `1.5.0` while pubspec was at `1.6.1`, causing the health endpoint to report the wrong version and the CDN enhanced CSS URL to 404. The publish scripts now auto-sync `server_constants.dart` alongside `add-package.ts` whenever the Dart version changes.
+- **SQL identifier escaping** — `_buildDataSignature()` now escapes double-quote characters in table names for the SQL identifier context, preventing malformed SQL if a table name contains a literal `"`.
+- **Polling toggle button UX** — The web UI polling toggle now disables itself and shows "Polling..." during the request, preventing double-clicks and providing clear visual feedback.
+
 ## [1.7.0]
 
 Smart package lifecycle management: the extension now detects whether the Dart package is already in your project and hides redundant setup prompts.

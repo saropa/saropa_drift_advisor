@@ -79,12 +79,15 @@ abstract final class ServerConstants {
   static const String pathSuffixAnnotate = '/annotate';
   static const String pathApiImport = '/api/import';
   static const String pathApiImportAlt = 'api/import';
+  static const String pathApiChangeDetection = '/api/change-detection';
+  static const String pathApiChangeDetectionAlt = 'api/change-detection';
   static const String pathFavicon = '/favicon.ico';
   static const String pathFaviconAlt = 'favicon.ico';
 
   /// Package version displayed in the web UI and health endpoint.
-  /// Must be kept in sync with pubspec.yaml.
-  static const String packageVersion = '1.5.0';
+  /// Automatically synced with pubspec.yaml by the publish scripts
+  /// (see sync_server_constants_version in target_config.py).
+  static const String packageVersion = '1.6.1';
   static const String jsonKeyVersion = 'version';
   static const String queryParamLimit = 'limit';
   static const String queryParamOffset = 'offset';
@@ -93,6 +96,8 @@ abstract final class ServerConstants {
   static const String queryParamDetail = 'detail';
   static const String formatDownload = 'download';
   static const String detailRows = 'rows';
+  static const String jsonKeyEnabled = 'enabled';
+  static const String jsonKeyChangeDetection = 'changeDetection';
   static const String jsonKeyError = 'error';
   static const String jsonKeyRows = 'rows';
   static const String jsonKeySql = 'sql';

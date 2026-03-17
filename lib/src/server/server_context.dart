@@ -124,6 +124,28 @@ final class ServerContext {
   /// Guard to prevent concurrent change-check runs.
   bool isChangeCheckInProgress = false;
 
+  /// Whether automatic change detection (generation
+  /// bumping) is active. When false, [checkDataChange]
+  /// is a no-op and no COUNT queries are issued,
+  /// eliminating console spam from logStatements.
+  /// Toggle at runtime via
+  /// DriftDebugServer.setChangeDetection() or the
+  /// POST /api/change-detection endpoint.
+  bool changeDetectionEnabled = true;
+
+  /// Cached table names from sqlite_master. Populated
+  /// on first [checkDataChange] call; cleared by
+  /// [invalidateTableNameCache].
+  List<String>? _cachedTableNames;
+
+  /// Clears the cached table name list so the next
+  /// [checkDataChange] call re-queries sqlite_master.
+  /// Call after operations that may change the schema
+  /// (e.g., data import).
+  void invalidateTableNameCache() {
+    _cachedTableNames = null;
+  }
+
   /// UTC timestamp of the last request bearing a
   /// VS Code extension client header.
   DateTime? _lastExtensionSeen;
@@ -281,28 +303,46 @@ final class ServerContext {
 
   /// Runs a lightweight fingerprint of table row
   /// counts; bumps [generation] when it changes.
+  ///
+  /// When [changeDetectionEnabled] is false, returns
+  /// immediately without issuing any queries.
+  ///
+  /// Uses cached table names and a single UNION ALL
+  /// query to fetch all row counts in one round-trip,
+  /// minimizing console spam when logStatements is
+  /// enabled on the user's Drift database.
   Future<void> checkDataChange() async {
+    // Skip entirely when change detection is off.
+    if (!changeDetectionEnabled) {
+      return;
+    }
+
     if (isChangeCheckInProgress) {
       return;
     }
     isChangeCheckInProgress = true;
     try {
-      final tables = await getTableNames(instrumentedQuery);
-      final parts = <String>[];
+      // Use cached table names if available; otherwise
+      // query sqlite_master and cache the result.
+      final tables = _cachedTableNames ??
+          await getTableNames(instrumentedQuery);
 
-      for (final t in tables) {
-        final raw = await instrumentedQuery(
-          'SELECT COUNT(*) AS c FROM "$t"',
-        );
+      // Cache for subsequent calls. Cleared by
+      // invalidateTableNameCache() (e.g., after import).
+      _cachedTableNames = tables;
 
-        parts.add(
-          '$t:${extractCountFromRows(normalizeRows(raw))}',
-        );
+      if (tables.isEmpty) {
+        // No user tables to fingerprint.
+        return;
       }
 
-      final signature = parts.join(',');
+      // Build a single UNION ALL query to fetch all
+      // table row counts in one round-trip instead of
+      // N individual SELECT COUNT(*) queries.
+      final signature = await _buildDataSignature(tables);
 
-      if (lastDataSignature != null && lastDataSignature != signature) {
+      if (lastDataSignature != null &&
+          lastDataSignature != signature) {
         generation++;
       }
       lastDataSignature = signature;
@@ -313,9 +353,64 @@ final class ServerContext {
     }
   }
 
+  /// Builds a fingerprint string
+  /// "table1:count1,table2:count2,..." using a single
+  /// UNION ALL query instead of N individual queries.
+  ///
+  /// Each SELECT returns the table name as a string
+  /// literal and its COUNT(*). Single quotes in table
+  /// names are escaped for the string literal; double
+  /// quotes are escaped in the identifier context.
+  Future<String> _buildDataSignature(
+    List<String> tables,
+  ) async {
+    // Build UNION ALL: each arm returns the table name
+    // as a literal string and its row count.
+    // Example output:
+    //   SELECT 'users' AS t, COUNT(*) AS c FROM "users"
+    //   UNION ALL
+    //   SELECT 'items' AS t, COUNT(*) AS c FROM "items"
+    final parts = tables.map((t) {
+      // Escape single quotes for the string literal
+      // and double quotes for the identifier, so table
+      // names containing either character produce valid SQL.
+      final literal = t.replaceAll("'", "''");
+      final identifier = t.replaceAll('"', '""');
+
+      return "SELECT '$literal' AS t, COUNT(*) AS c "
+          'FROM "$identifier"';
+    });
+    final sql = parts.join(' UNION ALL ');
+
+    final rows = normalizeRows(await instrumentedQuery(sql));
+
+    // Map the result rows into a lookup by table name.
+    final counts = <String, int>{};
+
+    for (final row in rows) {
+      final name = row['t'] as String? ?? '';
+      final count = row[ServerConstants.jsonKeyCountColumn];
+
+      counts[name] = count is int
+          ? count
+          : (count is num ? count.toInt() : 0);
+    }
+
+    // Build signature in sorted table order (tables
+    // list is already sorted from getTableNames).
+    return tables
+        .map((t) => '$t:${counts[t] ?? 0}')
+        .join(',');
+  }
+
   /// Validates that [tableName] exists in the
   /// allow-list (from sqlite_master). Sends 400 and
   /// returns false if unknown; otherwise returns true.
+  ///
+  /// Intentionally does NOT use [_cachedTableNames]
+  /// because callers may pass a different [queryFn]
+  /// (e.g., queryCompare) and validation must always
+  /// reflect the actual current schema.
   Future<bool> requireKnownTable({
     required HttpResponse response,
     required DriftDebugQuery queryFn,

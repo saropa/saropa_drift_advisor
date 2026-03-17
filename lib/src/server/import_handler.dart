@@ -96,6 +96,11 @@ extension type ImportHandler(ServerContext _ctx) implements Object {
         sqlLiteral: ServerContext.sqlLiteral,
       );
 
+      // Invalidate cached table names so checkDataChange
+      // re-queries sqlite_master in case the import
+      // changed the schema (e.g., new tables).
+      _ctx.invalidateTableNameCache();
+
       // Bump generation so live-refresh picks up new rows.
       await _ctx.checkDataChange();
 

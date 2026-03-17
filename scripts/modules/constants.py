@@ -24,6 +24,13 @@ ADD_PACKAGE_TS_PATH = os.path.join(
     EXTENSION_DIR, "src", "workspace-setup", "add-package.ts",
 )
 
+# Dart server constants file that embeds the package version for the
+# web UI health endpoint and CDN CSS URL. Updated automatically during
+# publish so the displayed version stays in sync with pubspec.yaml.
+SERVER_CONSTANTS_PATH = os.path.join(
+    LIB_DIR, "src", "server", "server_constants.dart",
+)
+
 # Maximum lines allowed per TypeScript source file.
 MAX_FILE_LINES = 300
 
