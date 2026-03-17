@@ -67,6 +67,7 @@ Internal modularization: split the 793-line server_context.dart god object into 
 - **Extracted `ServerUtils`** — 16 static utility methods (normalizeRows, getTableNames, sqlLiteral, etc.) moved from `ServerContext` to a dedicated `abstract final class ServerUtils` in `server_utils.dart`.
 - **Extracted `server_typedefs.dart`** — 5 callback typedefs (`DriftDebugQuery`, `DriftDebugOnLog`, etc.) consolidated into a single source of truth, eliminating duplication between `server_context.dart` and the web stub.
 - **Slimmed `ServerContext`** — reduced from 793 to 423 lines; now contains only instance state and instance methods (auth, CORS, logging, timing, change detection).
+- **Extracted `SqlValidator`** — `isReadOnlySql()` moved from `SqlHandler` instance method to a dedicated `abstract final class SqlValidator` in `sql_validator.dart`, enabling direct static testing without a handler context.
 
 ---
 
