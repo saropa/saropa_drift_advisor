@@ -24,6 +24,7 @@ class Posts extends Table {
   IntColumn get userId => integer().references(Users, #id)();
   TextColumn get title => text()();
   TextColumn get body => text()();
+
   /// When null, post is a draft (demonstrates null handling in UI).
   DateTimeColumn get publishedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();

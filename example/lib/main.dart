@@ -276,8 +276,8 @@ class _HomePageState extends State<HomePage> {
     return posts
         .firstWhere(
           (p) => p.title.contains(substring),
-          orElse: () =>
-              throw StateError('Seed post with title containing "$substring" not found'),
+          orElse: () => throw StateError(
+              'Seed post with title containing "$substring" not found'),
         )
         .id;
   }
