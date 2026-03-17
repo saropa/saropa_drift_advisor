@@ -800,6 +800,18 @@ body.theme-dark .data-table-scroll-wrap {
   font-variant-numeric: tabular-nums;
 }
 
+/* Breadcrumb "Clear path" link: single source of truth for muted, readable size (BUG-010) */
+.nav-clear-link {
+  color: var(--muted);
+  font-size: var(--text-min-readable);
+}
+
+/* FK indicator in table header: same readable size (BUG-010) */
+.table-header-fk {
+  color: var(--muted);
+  font-size: var(--text-min-readable);
+}
+
 #data-table {
   border-collapse: collapse;
   width: max-content;
@@ -862,8 +874,8 @@ body.theme-dark .data-table-scroll-wrap {
 #data-table th[draggable="true"]:active { cursor: grabbing; }
 #data-table th.drag-over { outline: 2px dashed var(--link); outline-offset: -2px; }
 #data-table td { position: relative; }
-/* Cell copy button: min 12px font and 24×24px pointer target (WCAG 2.5.8 / BUG-010).
-   Touch devices get 44×44px via media; hover expands for discoverability. */
+/* Cell copy button: --text-min-readable font, 24×24px pointer target (WCAG 2.5.8 / BUG-010).
+   Touch devices get 44×44px via media; hover scale(1.08) for discoverability. */
 #data-table td .cell-copy-btn {
   display: none;
   position: absolute;
@@ -873,7 +885,7 @@ body.theme-dark .data-table-scroll-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-min-readable);
   padding: 4px 8px;
   min-width: 24px;
   min-height: 24px;
@@ -1041,9 +1053,9 @@ body.theme-dark .data-table-scroll-wrap {
 @media (pointer: coarse) {
   .qb-where-connector { min-height: 44px; }
 }
-/* Query builder where-clause buttons: min 12px font, 24×24px target (BUG-010) */
+/* Query builder where-clause buttons: --text-min-readable, 24×24px target (BUG-010) */
 .qb-where-item button {
-  font-size: 12px;
+  font-size: var(--text-min-readable);
   padding: 0.35rem 0.5rem;
   min-height: 24px;
   min-width: 24px;

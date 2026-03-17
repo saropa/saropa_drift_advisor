@@ -14,6 +14,8 @@
   --text-base: 1rem;
   --text-lg: 1.125rem;
   --text-xl: 1.35rem;
+  /** Minimum readable font size (WCAG / BUG-010); use for labels and secondary UI text. */
+  --text-min-readable: 12px;
   --tap-min: 44px;
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -957,9 +959,9 @@ body.theme-light #live-indicator.connection-status {
   fill: var(--fg);
 }
 
-/* Chart text: minimum 12px for readability (WCAG / BUG-010) */
+/* Chart text: use --text-min-readable for accessibility (WCAG / BUG-010) */
 .chart-label {
-  font-size: 12px;
+  font-size: var(--text-min-readable);
   fill: var(--muted);
 }
 
@@ -969,7 +971,7 @@ body.theme-light #live-indicator.connection-status {
 }
 
 .chart-axis-label {
-  font-size: 12px;
+  font-size: var(--text-min-readable);
   fill: var(--muted);
 }
 
@@ -999,13 +1001,13 @@ body.theme-light #live-indicator.connection-status {
 }
 
 .chart-legend {
-  font-size: 12px;
+  font-size: var(--text-min-readable);
   fill: var(--fg);
 }
 
 .cell-raw {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-min-readable);
   display: block;
 }
 
@@ -1042,6 +1044,18 @@ body.theme-dark .data-table-scroll-wrap {
 
 .table-status-bar .table-status-range {
   font-variant-numeric: tabular-nums;
+}
+
+/* Breadcrumb "Clear path" link: single source of truth for muted, readable size (BUG-010) */
+.nav-clear-link {
+  color: var(--muted);
+  font-size: var(--text-min-readable);
+}
+
+/* FK indicator in table header: same readable size (BUG-010) */
+.table-header-fk {
+  color: var(--muted);
+  font-size: var(--text-min-readable);
 }
 
 #data-table {
@@ -1125,8 +1139,8 @@ body.theme-dark .data-table-scroll-wrap {
   position: relative;
 }
 
-/* Cell copy button: min 12px font and 24×24px pointer target (WCAG 2.5.8 / BUG-010).
-   Touch devices get 44×44px via media; hover expands for discoverability. */
+/* Cell copy button: --text-min-readable font, 24×24px pointer target (WCAG 2.5.8 / BUG-010).
+   Touch devices get 44×44px via media; hover scale(1.08) for discoverability. */
 #data-table td .cell-copy-btn {
   display: none;
   position: absolute;
@@ -1136,7 +1150,7 @@ body.theme-dark .data-table-scroll-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-min-readable);
   padding: 4px 8px;
   min-width: 24px;
   min-height: 24px;
@@ -1448,9 +1462,9 @@ body.theme-dark .data-table-scroll-wrap {
     min-height: 44px;
   }
 }
-/* Query builder where-clause buttons: min 12px font, 24×24px target (BUG-010) */
+/* Query builder where-clause buttons: --text-min-readable, 24×24px target (BUG-010) */
 .qb-where-item button {
-  font-size: 12px;
+  font-size: var(--text-min-readable);
   padding: 0.35rem 0.5rem;
   min-height: 24px;
   min-width: 24px;

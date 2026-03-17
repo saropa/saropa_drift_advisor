@@ -1,5 +1,9 @@
 # BUG-010: Small interactive targets (10px buttons and labels)
 
+**Fixed (2026-03-17).** Minimum 12px font for all readable text; interactive targets 24×24px (pointer) and 44×44px on touch (WCAG 2.5.8). Design token `--text-min-readable: 12px` and classes `.nav-clear-link`, `.table-header-fk` added. Cell copy button has hover scale(1.08). Chart labels, cell-raw, qb-where-item buttons, breadcrumb "Clear path", and FK header indicator updated. See CHANGELOG [2.2.1].
+
+---
+
 ## Severity: Significant
 
 ## Component: Web UI

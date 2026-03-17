@@ -3055,7 +3055,7 @@
       var html = '<a href="#" id="nav-back" style="color:var(--link);" title="Go back to previous table">&#8592; Back</a>';
 
       // "Clear path" link: discards the entire trail and hides the breadcrumb
-      html += ' | <a href="#" id="nav-clear" style="color:var(--muted);font-size:12px;" title="Clear navigation trail">Clear path</a>';
+      html += ' | <a href="#" id="nav-clear" class="nav-clear-link" title="Clear navigation trail">Clear path</a>';
 
       // Separator before the breadcrumb trail
       html += ' | ';
@@ -3164,7 +3164,7 @@
       var html = '<table id="data-table"><thead><tr>';
       visible.forEach(function(k) {
         var fk = fkMap[k];
-        var fkLabel = fk ? ' <span style="color:var(--muted);font-size:12px;" title="FK to ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '">&#8599;</span>' : '';
+        var fkLabel = fk ? ' <span class="table-header-fk" title="FK to ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '">&#8599;</span>' : '';
         var thClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
         html += '<th data-column-key="' + esc(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc(k) + fkLabel + '</th>';
       });
