@@ -20,22 +20,11 @@ Implemented in commit `3a0c245`. The 793-line god object was split into three fo
 
 All 283 tests pass. Zero analyzer issues from our changes.
 
-### 2. Extract html_content.dart (3,180 lines) — Bloated Constant
+### 2. Extract html_content.dart (3,680 lines) — Bloated Constant
 
-**Status: OPEN**
+**Status: COMPLETE**
 
-Single `HtmlContent` abstract final class with one massive `static const String indexHtml`
-containing the entire embedded web UI (HTML + CSS + JavaScript) in a single string literal.
-
-**Options:**
-
-| Option | Description | Pros | Cons |
-|--------|-------------|------|------|
-| A | Move to `assets/index.html`, load at build time or embed via codegen | Clean separation, IDE tooling for HTML/CSS/JS | Requires build step or runtime file loading |
-| B | Split into `html_layout.dart`, `html_styles.dart`, `html_scripts.dart` string constants | No build step, simple concatenation | Still string literals, no IDE HTML support |
-| C | Leave as-is | Zero effort, it's pure data with no logic | 3,180 lines of grep noise, hard to maintain |
-
-**Related:** `bugs/001-monolithic-html-payload.md`
+CSS and JS moved to `assets/web/style.css` and `assets/web/app.js`; served via jsDelivr CDN. `html_content.dart` is now a ~227-line HTML shell with version-pinned CDN `<link>`/`<script>` tags. See `bugs/history/20250317/001-monolithic-html-payload.md`.
 
 ### 3. Deduplicate typedefs
 
@@ -134,7 +123,7 @@ and analytics_handler. No action needed.
 | # | Issue | Priority | Status |
 |---|-------|----------|--------|
 | 1 | Split server_context.dart | HIGH | COMPLETE |
-| 2 | Extract html_content.dart | HIGH | OPEN |
+| 2 | Extract html_content.dart | HIGH | COMPLETE |
 | 3 | Deduplicate typedefs | HIGH | COMPLETE |
 | 4 | Extract SQL validator | MEDIUM | COMPLETE |
 | 5 | Refactor router.dart | MEDIUM | COMPLETE |
@@ -142,5 +131,5 @@ and analytics_handler. No action needed.
 | 7 | Convert import_handler extension type | LOW | COMPLETE |
 | 8 | Standardize import ordering | LOW | COMPLETE |
 
-**Completed:** 7 of 8
-**Remaining:** 1 issue (1 HIGH — html_content.dart)
+**Completed:** 8 of 8
+**Remaining:** 0

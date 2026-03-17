@@ -762,7 +762,8 @@ void main() {
         expect(resp.headers.value('content-type'), contains('text/html'));
         final body = await resp.transform(utf8.decoder).join();
         expect(body, contains('id="sql-history"'));
-        expect(body, contains("drift-viewer-sql-history"));
+        // SQL history UI is implemented in app.js (CDN); ensure script is loaded
+        expect(body, contains('assets/web/app.js'));
       } finally {
         client.close();
       }
