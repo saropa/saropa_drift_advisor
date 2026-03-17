@@ -159,16 +159,17 @@ class _DriftDebugServerImpl {
       _vmBridge = VmServiceBridge(router);
       _vmBridge?.register();
 
-      // Single log call so the banner is one output entry,
-      // avoiding per-line stack traces in debug console.
-      ctx.log(
-        '${ServerConstants.bannerTop}\n'
-        '${ServerConstants.bannerTitle}\n'
-        '${ServerConstants.bannerDivider}\n'
-        '${ServerConstants.bannerOpen}\n'
-        '${ServerConstants.bannerUrlPrefix}$port\n'
-        '${ServerConstants.bannerBottom}',
-      );
+      // Write banner directly to stdout so it appears as clean
+      // I/flutter lines without per-line stack traces — same as
+      // Isar Inspector's banner. Using stdout instead of ctx.log()
+      // because dart:developer.log() attaches expandable stack
+      // traces to every [log] entry in the debug console.
+      stdout.writeln(ServerConstants.bannerTop);
+      stdout.writeln(ServerConstants.bannerTitle);
+      stdout.writeln(ServerConstants.bannerDivider);
+      stdout.writeln(ServerConstants.bannerOpen);
+      stdout.writeln('${ServerConstants.bannerUrlPrefix}$port');
+      stdout.writeln(ServerConstants.bannerBottom);
     } on Object catch (error, stack) {
       ctx.logError(error, stack);
     }
