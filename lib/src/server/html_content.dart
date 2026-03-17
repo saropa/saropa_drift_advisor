@@ -36,6 +36,11 @@ abstract final class HtmlContent {
     <div class="app-header-actions">
       <button type="button" id="theme-toggle" class="header-btn" title="Toggle light/dark"><span class="material-symbols-outlined header-icon" aria-hidden="true">dark_mode</span><span id="theme-toggle-label">Theme</span></button>
       <button type="button" id="share-btn" class="header-btn" title="Share current view with your team"><span class="material-symbols-outlined header-icon" aria-hidden="true">share</span>Share</button>
+      <label class="header-mask-toggle" title="When on, PII columns (e.g. email, phone) are masked in table view and exports">
+        <input type="checkbox" id="pii-mask-toggle" aria-label="Mask sensitive data" />
+        <span class="material-symbols-outlined header-icon" aria-hidden="true">visibility_off</span>
+        <span id="pii-mask-label">Mask data</span>
+      </label>
       <button type="button" id="live-indicator" class="header-pill connection-status" title="Connection status. When live, click to pause; when paused, click to resume." aria-live="polite">● Live</button>
     </div>
   </header>
@@ -182,17 +187,34 @@ abstract final class HtmlContent {
       <select id="chart-type">
         <option value="none">None</option>
         <option value="bar">Bar</option>
+        <option value="stacked-bar">Stacked bar</option>
         <option value="pie">Pie</option>
         <option value="line">Line / Time series</option>
+        <option value="area">Area</option>
+        <option value="scatter">Scatter</option>
         <option value="histogram">Histogram</option>
       </select>
       <label for="chart-x">X / Label:</label>
       <select id="chart-x"></select>
       <label for="chart-y">Y / Value:</label>
       <select id="chart-y"></select>
+      <label for="chart-title-input">Title:</label>
+      <input type="text" id="chart-title-input" placeholder="Chart title (optional)" title="Optional chart title" />
       <button type="button" id="chart-render" title="Draw chart from result set">Render</button>
     </div>
-    <div id="chart-container" style="display:none;margin-top:0.5rem;"></div>
+    <div id="chart-container" class="chart-container" style="display:none;margin-top:0.5rem;">
+      <div id="chart-wrapper" class="chart-wrapper" aria-live="polite">
+        <p id="chart-title" class="chart-title" style="display:none;"></p>
+        <p id="chart-description" class="chart-description" style="display:none;"></p>
+        <div id="chart-svg-wrap" class="chart-svg-wrap"></div>
+        <div id="chart-export-toolbar" class="chart-export-toolbar" style="display:none;">
+          <span class="chart-export-label">Export:</span>
+          <button type="button" id="chart-export-png" title="Download chart as PNG">PNG</button>
+          <button type="button" id="chart-export-svg" title="Download chart as SVG">SVG</button>
+          <button type="button" id="chart-export-copy" title="Copy chart image to clipboard">Copy image</button>
+        </div>
+      </div>
+    </div>
   </div>
   </div>
         </div>

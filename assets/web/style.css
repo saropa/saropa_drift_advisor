@@ -171,6 +171,40 @@ body.theme-light .header-pill.live {
   color: #558b2f;
 }
 
+/* PII mask toggle: checkbox + label in header (BUG-015). */
+.header-mask-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: var(--tap-min);
+  padding: 0 0.75rem;
+  font-size: var(--text-sm);
+  color: var(--fg);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-pre);
+  user-select: none;
+}
+
+.header-mask-toggle:hover {
+  border-color: var(--link);
+  color: var(--link);
+  background: var(--surface);
+}
+
+.header-mask-toggle input[type="checkbox"] {
+  margin: 0;
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+.header-mask-toggle:focus-within {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
 /* --- Two-column layout --- */
 .app-layout {
   display: grid;
@@ -951,6 +985,60 @@ body.theme-light #live-indicator.connection-status {
   border: 0;
 }
 
+/* Chart container: responsive width, minimum height for resize/export (BUG-008). */
+.chart-container {
+  width: 100%;
+}
+
+.chart-wrapper {
+  width: 100%;
+  min-height: 320px;
+}
+
+.chart-svg-wrap {
+  width: 100%;
+  min-height: 320px;
+  position: relative;
+}
+
+.chart-svg {
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  display: block;
+}
+
+.chart-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+}
+
+.chart-description {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  margin: 0 0 0.5rem 0;
+}
+
+.chart-export-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.chart-export-label {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.chart-export-toolbar button {
+  font-size: var(--text-min-readable);
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
 .chart-bar {
   fill: var(--link);
 }
@@ -975,10 +1063,20 @@ body.theme-light #live-indicator.connection-status {
   fill: var(--muted);
 }
 
+.chart-axis-title {
+  font-size: var(--text-min-readable);
+  fill: var(--muted);
+}
+
 .chart-line {
   stroke: var(--link);
   stroke-width: 2;
   fill: none;
+}
+
+.chart-area {
+  fill: var(--link);
+  opacity: 0.25;
 }
 
 .chart-dot {
@@ -988,6 +1086,11 @@ body.theme-light #live-indicator.connection-status {
 .chart-dot:hover {
   fill: var(--fg);
   r: 5;
+}
+
+.chart-scatter-dot {
+  stroke: var(--bg);
+  stroke-width: 1;
 }
 
 .chart-slice {

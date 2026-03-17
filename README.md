@@ -48,7 +48,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 
 #### Data Visualization
 
-- **Charts** — bar, pie, line/time-series, histogram from SQL results (pure inline SVG)
+- **Charts** — bar, stacked bar, pie, line, area, scatter, histogram from SQL results (pure inline SVG); optional title; export to PNG/SVG or copy image
 - **Data anomaly detection** — NULLs, empty strings, orphaned FKs, duplicates, numeric outliers with severity icons
 
 #### Schema & Export

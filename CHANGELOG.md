@@ -21,11 +21,21 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 Changelog version labels corrected so the right fixes are listed under the right release.
 
-### Fixed
+• **Web UI: full page-based pagination (BUG-005)** — CHANGELOG_ARCHIVE.md for older issues 
+
+### Added
+
+• **Web UI: chart improvements (BUG-008)** — New chart types: Scatter, Area, and Stacked bar. Optional chart title. Export toolbar: PNG download, SVG download, and Copy image to clipboard. Charts use responsive sizing (viewBox + container width), X/Y axis labels (default to column names), and readable font size (--text-min-readable). ResizeObserver re-renders chart on container resize (throttled 150ms). Export buttons disable during async export; Copy shows brief "Copied!" feedback.
+
+• **Web UI: query builder AND/OR connectors (BUG-006)** — The visual query builder only supported multiple WHERE conditions combined with AND. It now shows an AND/OR connector dropdown on the second and subsequent conditions so users can build expressions like `status = 'active' AND created_at > '2024-01-01'` or `role = 'admin' OR role = 'moderator'`. The live SQL preview and saved query-builder state include the chosen connectors.
+
+### Changed
 
 • **Web UI: full page-based pagination (BUG-005)** — Table pagination is now page-based: First | Prev | Page [dropdown] of N | Next | Last, with a "Showing X–Y of Z rows" status. Rows per page is a clear selector; raw offset and Apply are under an "Advanced" toggle. First/Last and the page dropdown are disabled when not applicable; "(past end of results)" still appears when offset is beyond total.
 
 • **Web UI: small interactive targets (BUG-010)** — Cell copy buttons, chart labels, and other small controls used 10px font and sub-24px tap targets, hurting usability on high-DPI and touch devices. All readable text now uses design token `--text-min-readable` (12px); interactive targets are at least 24×24px (pointer) and 44×44px on touch (WCAG 2.5.8). Copy button has a hover scale effect; breadcrumb and FK label use CSS classes instead of inline font-size.
+
+### Fixed
 
 • **CHANGELOG version labeling** — The fix for "command driftViewer.refreshTree not found" [GitHub issue #7], drift_sqlite_async compatibility, Web UI redesign, Web viewer performance, and HTTP schema/diagram when polling off were previously under a duplicate [2.2.0] section. They are now correctly listed under [2.1.1]. Duplicate [2.2.0] block removed; [2.2.0] now contains only 2.2.0 changes.
 
@@ -34,8 +44,6 @@ Changelog version labels corrected so the right fixes are listed under the right
 ## [2.2.0]
 
 ### Fixed
-
-• **Web UI: query builder AND/OR connectors (BUG-006)** — The visual query builder only supported multiple WHERE conditions combined with AND. It now shows an AND/OR connector dropdown on the second and subsequent conditions so users can build expressions like `status = 'active' AND created_at > '2024-01-01'` or `role = 'admin' OR role = 'moderator'`. The live SQL preview and saved query-builder state include the chosen connectors.
 
 • **Extension: (i) icon and About/Save Filter commands** — Clicking the info icon on the Database section header could show "command driftViewer.aboutSaropa not found" if the extension had not yet finished activating. About and Save Current Filter are now wired so they always work: activation events for both about commands ensure the extension activates when the command is invoked; about commands are registered first (before other feature modules) so the (i) icon works even if a later module fails; and the previously contributed-but-unregistered `driftViewer.saveFilter` command now has a handler that opens the Data Viewer and directs users to the in-panel Save Filter control.
 

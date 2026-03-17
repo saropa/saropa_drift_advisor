@@ -82,6 +82,63 @@
       return d.innerHTML;
     }
 
+    // --- PII masking (BUG-015): user toggle; column heuristics; mask in table view and exports. ---
+    /** Whether the "Mask sensitive data" header toggle is checked. */
+    function isPiiMaskEnabled() {
+      var cb = document.getElementById('pii-mask-toggle');
+      return cb ? cb.checked : false;
+    }
+
+    /** Heuristic: true if column name suggests PII (email, password, phone, ssn, token, secret, api_key). */
+    function isPiiColumn(colName) {
+      if (!colName || typeof colName !== 'string') return false;
+      var lower = colName.toLowerCase();
+      var patterns = ['email', 'password', 'phone', 'ssn', 'token', 'secret', 'api_key', 'apikey', 'address'];
+      return patterns.some(function (p) { return lower.indexOf(p) >= 0; });
+    }
+
+    /**
+     * Returns a masked display value for PII when masking is enabled.
+     * email -> first char + *** + @ + domain; phone -> ***-***-last4; ssn -> ***-**-last4;
+     * password/token/secret/api_key -> ****; other PII -> first 2 chars + ***.
+     */
+    function maskPiiValue(colName, value) {
+      if (value == null) return '';
+      var s = String(value).trim();
+      if (s.length === 0) return '';
+      var lower = colName.toLowerCase();
+      if (lower.indexOf('email') >= 0 && s.indexOf('@') >= 0) {
+        var at = s.indexOf('@');
+        var local = s.slice(0, at);
+        var domain = s.slice(at);
+        var first = local.charAt(0);
+        return (first ? first + '***' : '***') + domain;
+      }
+      if (lower.indexOf('phone') >= 0 || lower.indexOf('tel') >= 0) {
+        var digits = s.replace(/\D/g, '');
+        var last4 = digits.length >= 4 ? digits.slice(-4) : '****';
+        return '***-***-' + last4;
+      }
+      if (lower.indexOf('ssn') >= 0) {
+        var d = s.replace(/\D/g, '');
+        var l4 = d.length >= 4 ? d.slice(-4) : '****';
+        return '***-**-' + l4;
+      }
+      if (lower.indexOf('password') >= 0 || lower.indexOf('token') >= 0 || lower.indexOf('secret') >= 0 || lower.indexOf('api_key') >= 0 || lower.indexOf('apikey') >= 0) {
+        return '****';
+      }
+      if (lower.indexOf('address') >= 0) {
+        return s.length <= 2 ? '***' : s.slice(0, 2) + '***';
+      }
+      return s.length <= 2 ? '***' : s.slice(0, 2) + '***';
+    }
+
+    /** Returns the value to display/copy for a cell: masked when PII mask is on and column is PII, else raw. */
+    function getDisplayValue(colName, rawValue) {
+      if (!isPiiMaskEnabled() || !isPiiColumn(colName)) return rawValue != null ? String(rawValue) : '';
+      return maskPiiValue(colName, rawValue);
+    }
+
     /** Syncs .feature-card.expanded with collapsible open state (UI redesign: card border/highlight when expanded). */
     function syncFeatureCardExpanded(collapsible) {
       var card = collapsible && collapsible.closest && collapsible.closest('.feature-card');
@@ -2342,8 +2399,8 @@
         const keys = Object.keys(currentTableJson[0]);
         const rowToCsv = (row) => keys.map(k => {
           const v = row[k];
-          if (v == null) return '';
-          const s = String(v);
+          const s = getDisplayValue(k, v);
+          if (s === '') return '';
           return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
         }).join(',');
         const csv = [keys.join(','), ...currentTableJson.map(rowToCsv)].join('\n');
@@ -3292,19 +3349,20 @@
           var val = row[k];
           var fk = fkMap[k];
           var rawStr = val != null ? String(val) : '';
+          var displayStr = getDisplayValue(k, val);
           var cellContent;
-          if (displayFormat === 'formatted' && colTypes) {
+          if (displayFormat === 'formatted' && colTypes && !(isPiiMaskEnabled() && isPiiColumn(k))) {
             var fmt = formatCellValue(val, k, colTypes[k]);
             if (fmt.wasFormatted) {
               cellContent = '<span title="Raw: ' + esc(fmt.raw) + '">' + esc(fmt.formatted) + '</span>'
                 + '<span class="cell-raw">' + esc(fmt.raw) + '</span>';
             } else {
-              cellContent = esc(rawStr);
+              cellContent = esc(displayStr);
             }
           } else {
-            cellContent = esc(rawStr);
+            cellContent = esc(displayStr);
           }
-          var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc(rawStr) + '" title="Copy value">&#x2398;</button>';
+          var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc(displayStr) + '" title="Copy value">&#x2398;</button>';
           var tdClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
           var tdAttrs = ' data-column-key="' + esc(k) + '"' + tdClass;
           /* cell-text wrapper allows CSS truncation with ellipsis while copy button stays visible on hover */
@@ -3590,43 +3648,139 @@
       }
     }
 
-    // --- Chart rendering (pure SVG, no dependencies) ---
+    // --- Chart rendering (pure SVG, no dependencies). BUG-008: responsive, axis labels, export, title. ---
     var CHART_COLORS = [
       '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
       '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac'
     ];
 
-    function renderBarChart(container, data, xKey, yKey) {
-      var W = 600, H = 300, PAD = 50;
+    /** Returns { w, h } for the chart wrapper; used for responsive sizing. */
+    function getChartSize() {
+      var wrap = document.getElementById('chart-wrapper');
+      if (!wrap) return { w: 600, h: 320 };
+      var w = wrap.clientWidth || 600;
+      var h = Math.max(320, wrap.clientHeight || 320);
+      return { w: w, h: h };
+    }
+
+    /** Shows chart container, sets optional title/description, and shows export toolbar. Call after rendering SVG into #chart-svg-wrap. */
+    function applyChartUI(title, description) {
+      var container = document.getElementById('chart-container');
+      if (!container) return;
+      var titleEl = document.getElementById('chart-title');
+      var descEl = document.getElementById('chart-description');
+      var exportBar = document.getElementById('chart-export-toolbar');
+      container.style.display = 'block';
+      if (titleEl) {
+        if (title && title.trim()) {
+          titleEl.textContent = title.trim();
+          titleEl.style.display = 'block';
+        } else {
+          titleEl.style.display = 'none';
+        }
+      }
+      if (descEl) {
+        if (description && description.trim()) {
+          descEl.textContent = description.trim();
+          descEl.style.display = 'block';
+        } else {
+          descEl.style.display = 'none';
+        }
+      }
+      if (exportBar) exportBar.style.display = 'flex';
+    }
+
+    function renderBarChart(container, data, xKey, yKey, opts) {
+      opts = opts || {};
+      var size = getChartSize();
+      var W = size.w, H = size.h, PAD = 56;
+      var xLabel = opts.xLabel != null ? opts.xLabel : xKey;
+      var yLabel = opts.yLabel != null ? opts.yLabel : yKey;
       var vals = data.map(function(d) { return Number(d[yKey]) || 0; });
       var maxVal = Math.max.apply(null, vals.concat([1]));
       var barW = Math.max(4, (W - PAD * 2) / data.length - 2);
-      var svg = '<svg width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg">';
+      var plotH = H - PAD * 2;
+      var svg = '<svg class="chart-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">';
       svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + (H - PAD) + '" x2="' + (W - PAD) + '" y2="' + (H - PAD) + '"/>';
       svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + PAD + '" x2="' + PAD + '" y2="' + (H - PAD) + '"/>';
       for (var i = 0; i <= 4; i++) {
         var v = (maxVal / 4 * i).toFixed(maxVal > 100 ? 0 : 1);
-        var y = H - PAD - (i / 4) * (H - PAD * 2);
-        svg += '<text class="chart-axis-label" x="' + (PAD - 4) + '" y="' + (y + 3) + '" text-anchor="end">' + v + '</text>';
+        var y = H - PAD - (i / 4) * plotH;
+        svg += '<text class="chart-axis-label" x="' + (PAD - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + esc(v) + '</text>';
       }
       data.forEach(function(d, i) {
         var val = Number(d[yKey]) || 0;
-        var bh = (val / maxVal) * (H - PAD * 2);
+        var bh = (val / maxVal) * plotH;
         var x = PAD + i * (barW + 2);
         var by = H - PAD - bh;
         svg += '<rect class="chart-bar" x="' + x + '" y="' + by + '" width="' + barW + '" height="' + bh + '">';
         svg += '<title>' + esc(String(d[xKey])) + ': ' + val + '</title></rect>';
         if (data.length <= 20) {
-          svg += '<text class="chart-label" x="' + (x + barW / 2) + '" y="' + (H - PAD + 14) + '" text-anchor="middle" transform="rotate(-45,' + (x + barW / 2) + ',' + (H - PAD + 14) + ')">' + esc(String(d[xKey]).slice(0, 12)) + '</text>';
+          svg += '<text class="chart-label" x="' + (x + barW / 2) + '" y="' + (H - PAD + 16) + '" text-anchor="middle" transform="rotate(-45,' + (x + barW / 2) + ',' + (H - PAD + 16) + ')">' + esc(String(d[xKey]).slice(0, 12)) + '</text>';
         }
       });
+      svg += '<text class="chart-axis-title chart-axis-y" x="12" y="' + (H / 2) + '" text-anchor="middle" transform="rotate(-90, 12, ' + (H / 2) + ')">' + esc(yLabel) + '</text>';
+      svg += '<text class="chart-axis-title chart-axis-x" x="' + (W / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(xLabel) + '</text>';
       svg += '</svg>';
       container.innerHTML = svg;
-      container.style.display = 'block';
+      applyChartUI(opts.title, opts.description);
     }
 
-    function renderPieChart(container, data, labelKey, valueKey) {
-      var W = 500, H = 350, R = 130, CX = 200, CY = H / 2;
+    /** Stacked bar: group by xKey, stack segment heights per group. */
+    function renderStackedBarChart(container, data, xKey, yKey, opts) {
+      opts = opts || {};
+      var size = getChartSize();
+      var W = size.w, H = size.h, PAD = 56;
+      var xLabel = opts.xLabel != null ? opts.xLabel : xKey;
+      var yLabel = opts.yLabel != null ? opts.yLabel : yKey;
+      var groups = {};
+      data.forEach(function(d) {
+        var k = String(d[xKey]);
+        if (!groups[k]) groups[k] = [];
+        groups[k].push(Number(d[yKey]) || 0);
+      });
+      var labels = Object.keys(groups);
+      var sums = labels.map(function(k) {
+        return groups[k].reduce(function(a, b) { return a + b; }, 0);
+      });
+      var maxVal = Math.max.apply(null, sums.concat([1]));
+      var barW = Math.max(8, (W - PAD * 2) / labels.length - 4);
+      var plotH = H - PAD * 2;
+      var svg = '<svg class="chart-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">';
+      svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + (H - PAD) + '" x2="' + (W - PAD) + '" y2="' + (H - PAD) + '"/>';
+      svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + PAD + '" x2="' + PAD + '" y2="' + (H - PAD) + '"/>';
+      for (var i = 0; i <= 4; i++) {
+        var v = (maxVal / 4 * i).toFixed(maxVal > 100 ? 0 : 1);
+        var y = H - PAD - (i / 4) * plotH;
+        svg += '<text class="chart-axis-label" x="' + (PAD - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + esc(v) + '</text>';
+      }
+      labels.forEach(function(label, gi) {
+        var segs = groups[label];
+        var x = PAD + gi * (barW + 4) + 2;
+        var accY = H - PAD;
+        segs.forEach(function(val, si) {
+          var bh = (val / maxVal) * plotH;
+          var by = accY - bh;
+          var color = CHART_COLORS[si % CHART_COLORS.length];
+          svg += '<rect class="chart-bar chart-stacked-segment" x="' + x + '" y="' + by + '" width="' + barW + '" height="' + bh + '" fill="' + color + '">';
+          svg += '<title>' + esc(label) + ' segment ' + (si + 1) + ': ' + val + '</title></rect>';
+          accY = by;
+        });
+        if (labels.length <= 20) {
+          svg += '<text class="chart-label" x="' + (x + barW / 2) + '" y="' + (H - PAD + 16) + '" text-anchor="middle" transform="rotate(-45,' + (x + barW / 2) + ',' + (H - PAD + 16) + ')">' + esc(String(label).slice(0, 10)) + '</text>';
+        }
+      });
+      svg += '<text class="chart-axis-title chart-axis-y" x="12" y="' + (H / 2) + '" text-anchor="middle" transform="rotate(-90, 12, ' + (H / 2) + ')">' + esc(yLabel) + '</text>';
+      svg += '<text class="chart-axis-title chart-axis-x" x="' + (W / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(xLabel) + '</text>';
+      svg += '</svg>';
+      container.innerHTML = svg;
+      applyChartUI(opts.title, opts.description);
+    }
+
+    function renderPieChart(container, data, labelKey, valueKey, opts) {
+      opts = opts || {};
+      var size = getChartSize();
+      var W = size.w, H = size.h, R = Math.min(130, (Math.min(W, H) / 2) - 60), CX = Math.min(200, W / 2 - 40), CY = H / 2;
       var vals = data.map(function(d) { return Math.max(0, Number(d[valueKey]) || 0); });
       var total = vals.reduce(function(a, b) { return a + b; }, 0) || 1;
       var threshold = total * 0.02;
@@ -3637,7 +3791,7 @@
         else otherVal += vals[i];
       });
       if (otherVal > 0) significant.push({ label: 'Other', value: otherVal });
-      var svg = '<svg width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg">';
+      var svg = '<svg class="chart-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">';
       var angle = 0;
       significant.forEach(function(d, i) {
         var sweep = (d.value / total) * 2 * Math.PI;
@@ -3645,7 +3799,6 @@
         var pct = (d.value / total * 100).toFixed(1);
         var tip = '<title>' + esc(String(d.label)) + ': ' + d.value + ' (' + pct + '%)</title>';
         if (sweep >= 2 * Math.PI - 0.001) {
-          // Full circle — SVG arc degenerates when start ≈ end; use <circle> instead
           svg += '<circle class="chart-slice" cx="' + CX + '" cy="' + CY + '" r="' + R + '" fill="' + color + '">' + tip + '</circle>';
         } else {
           var x1 = CX + R * Math.cos(angle);
@@ -3657,49 +3810,154 @@
         }
         angle += sweep;
       });
+      var lx = CX + R + 24;
       significant.forEach(function(d, i) {
-        var ly = 20 + i * 18;
-        var lx = CX + R + 30;
+        var ly = 24 + i * 20;
         var color = CHART_COLORS[i % CHART_COLORS.length];
-        svg += '<rect x="' + lx + '" y="' + (ly - 8) + '" width="10" height="10" fill="' + color + '"/>';
-        svg += '<text class="chart-legend" x="' + (lx + 14) + '" y="' + ly + '">' + esc(String(d.label).slice(0, 20)) + ' (' + d.value + ')</text>';
+        svg += '<rect x="' + lx + '" y="' + (ly - 10) + '" width="12" height="12" fill="' + color + '"/>';
+        svg += '<text class="chart-legend" x="' + (lx + 18) + '" y="' + ly + '">' + esc(String(d.label).slice(0, 24)) + ' (' + d.value + ')</text>';
       });
       svg += '</svg>';
       container.innerHTML = svg;
-      container.style.display = 'block';
+      applyChartUI(opts.title, opts.description);
     }
 
-    function renderLineChart(container, data, xKey, yKey) {
-      var W = 600, H = 300, PAD = 50;
+    function renderLineChart(container, data, xKey, yKey, opts) {
+      opts = opts || {};
+      var size = getChartSize();
+      var W = size.w, H = size.h, PAD = 56;
+      var xLabel = opts.xLabel != null ? opts.xLabel : xKey;
+      var yLabel = opts.yLabel != null ? opts.yLabel : yKey;
       var vals = data.map(function(d) { return Number(d[yKey]) || 0; });
       var maxVal = Math.max.apply(null, vals.concat([1]));
       var minVal = Math.min.apply(null, vals.concat([0]));
       var range = maxVal - minVal || 1;
       var stepX = (W - PAD * 2) / Math.max(data.length - 1, 1);
-      var svg = '<svg width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg">';
+      var plotH = H - PAD * 2;
+      var svg = '<svg class="chart-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">';
       svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + (H - PAD) + '" x2="' + (W - PAD) + '" y2="' + (H - PAD) + '"/>';
       svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + PAD + '" x2="' + PAD + '" y2="' + (H - PAD) + '"/>';
+      for (var i = 0; i <= 4; i++) {
+        var v = (minVal + range * i / 4).toFixed(range > 100 ? 0 : 1);
+        var y = H - PAD - (i / 4) * plotH;
+        svg += '<text class="chart-axis-label" x="' + (PAD - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + esc(v) + '</text>';
+      }
       var points = data.map(function(d, i) {
         var x = PAD + i * stepX;
-        var y = H - PAD - ((Number(d[yKey]) || 0) - minVal) / range * (H - PAD * 2);
+        var y = H - PAD - ((Number(d[yKey]) || 0) - minVal) / range * plotH;
         return x + ',' + y;
       });
-      svg += '<polygon points="' + PAD + ',' + (H - PAD) + ' ' + points.join(' ') + ' ' + (PAD + (data.length - 1) * stepX) + ',' + (H - PAD) + '" fill="var(--link)" opacity="0.1"/>';
       svg += '<polyline class="chart-line" points="' + points.join(' ') + '"/>';
       data.forEach(function(d, i) {
         var x = PAD + i * stepX;
-        var y = H - PAD - ((Number(d[yKey]) || 0) - minVal) / range * (H - PAD * 2);
-        svg += '<circle class="chart-dot" cx="' + x + '" cy="' + y + '" r="3"><title>' + esc(String(d[xKey])) + ': ' + d[yKey] + '</title></circle>';
+        var y = H - PAD - ((Number(d[yKey]) || 0) - minVal) / range * plotH;
+        svg += '<circle class="chart-dot" cx="' + x + '" cy="' + y + '" r="4"><title>' + esc(String(d[xKey])) + ': ' + d[yKey] + '</title></circle>';
       });
+      svg += '<text class="chart-axis-title chart-axis-y" x="12" y="' + (H / 2) + '" text-anchor="middle" transform="rotate(-90, 12, ' + (H / 2) + ')">' + esc(yLabel) + '</text>';
+      svg += '<text class="chart-axis-title chart-axis-x" x="' + (W / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(xLabel) + '</text>';
       svg += '</svg>';
       container.innerHTML = svg;
-      container.style.display = 'block';
+      applyChartUI(opts.title, opts.description);
     }
 
-    function renderHistogram(container, data, valueKey, bins) {
+    /** Area chart: filled region under the line (no line stroke by default for clarity). */
+    function renderAreaChart(container, data, xKey, yKey, opts) {
+      opts = opts || {};
+      var size = getChartSize();
+      var W = size.w, H = size.h, PAD = 56;
+      var xLabel = opts.xLabel != null ? opts.xLabel : xKey;
+      var yLabel = opts.yLabel != null ? opts.yLabel : yKey;
+      var vals = data.map(function(d) { return Number(d[yKey]) || 0; });
+      var maxVal = Math.max.apply(null, vals.concat([1]));
+      var minVal = Math.min.apply(null, vals.concat([0]));
+      var range = maxVal - minVal || 1;
+      var stepX = (W - PAD * 2) / Math.max(data.length - 1, 1);
+      var plotH = H - PAD * 2;
+      var points = data.map(function(d, i) {
+        var x = PAD + i * stepX;
+        var y = H - PAD - ((Number(d[yKey]) || 0) - minVal) / range * plotH;
+        return x + ',' + y;
+      });
+      var areaPoints = PAD + ',' + (H - PAD) + ' ' + points.join(' ') + ' ' + (PAD + (data.length - 1) * stepX) + ',' + (H - PAD);
+      var svg = '<svg class="chart-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">';
+      svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + (H - PAD) + '" x2="' + (W - PAD) + '" y2="' + (H - PAD) + '"/>';
+      svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + PAD + '" x2="' + PAD + '" y2="' + (H - PAD) + '"/>';
+      for (var i = 0; i <= 4; i++) {
+        var v = (minVal + range * i / 4).toFixed(range > 100 ? 0 : 1);
+        var y = H - PAD - (i / 4) * plotH;
+        svg += '<text class="chart-axis-label" x="' + (PAD - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + esc(v) + '</text>';
+      }
+      svg += '<polygon class="chart-area" points="' + areaPoints + '"/>';
+      svg += '<polyline class="chart-line" points="' + points.join(' ') + '"/>';
+      data.forEach(function(d, i) {
+        var x = PAD + i * stepX;
+        var y = H - PAD - ((Number(d[yKey]) || 0) - minVal) / range * plotH;
+        svg += '<circle class="chart-dot" cx="' + x + '" cy="' + y + '" r="3"><title>' + esc(String(d[xKey])) + ': ' + d[yKey] + '</title></circle>';
+      });
+      svg += '<text class="chart-axis-title chart-axis-y" x="12" y="' + (H / 2) + '" text-anchor="middle" transform="rotate(-90, 12, ' + (H / 2) + ')">' + esc(yLabel) + '</text>';
+      svg += '<text class="chart-axis-title chart-axis-x" x="' + (W / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(xLabel) + '</text>';
+      svg += '</svg>';
+      container.innerHTML = svg;
+      applyChartUI(opts.title, opts.description);
+    }
+
+    /** Scatter plot: X and Y must be numeric; two numeric axes with labels. */
+    function renderScatterChart(container, data, xKey, yKey, opts) {
+      opts = opts || {};
+      var size = getChartSize();
+      var W = size.w, H = size.h, PAD = 56;
+      var xLabel = opts.xLabel != null ? opts.xLabel : xKey;
+      var yLabel = opts.yLabel != null ? opts.yLabel : yKey;
+      var xs = data.map(function(d) { return Number(d[xKey]); }).filter(function(v) { return isFinite(v); });
+      var ys = data.map(function(d) { return Number(d[yKey]); }).filter(function(v) { return isFinite(v); });
+      if (xs.length === 0 || ys.length === 0) {
+        container.innerHTML = '<p class="meta">Scatter requires numeric X and Y columns.</p>';
+        document.getElementById('chart-container').style.display = 'block';
+        var exportBar = document.getElementById('chart-export-toolbar');
+        if (exportBar) exportBar.style.display = 'none';
+        return;
+      }
+      var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs), rangeX = maxX - minX || 1;
+      var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys), rangeY = maxY - minY || 1;
+      var plotW = W - PAD * 2, plotH = H - PAD * 2;
+      var svg = '<svg class="chart-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">';
+      svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + (H - PAD) + '" x2="' + (W - PAD) + '" y2="' + (H - PAD) + '"/>';
+      svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + PAD + '" x2="' + PAD + '" y2="' + (H - PAD) + '"/>';
+      for (var i = 0; i <= 4; i++) {
+        var vx = (minX + rangeX * i / 4).toFixed(rangeX > 100 ? 0 : 1);
+        var vy = (minY + rangeY * i / 4).toFixed(rangeY > 100 ? 0 : 1);
+        var x = PAD + (i / 4) * plotW;
+        var y = H - PAD - (i / 4) * plotH;
+        svg += '<text class="chart-axis-label" x="' + (x + (i === 0 ? -6 : 0)) + '" y="' + (H - PAD + 16) + '" text-anchor="' + (i === 0 ? 'end' : 'middle') + '">' + esc(vx) + '</text>';
+        svg += '<text class="chart-axis-label" x="' + (PAD - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + esc(vy) + '</text>';
+      }
+      data.forEach(function(d, i) {
+        var nx = (Number(d[xKey]) - minX) / rangeX;
+        var ny = (Number(d[yKey]) - minY) / rangeY;
+        if (!isFinite(nx) || !isFinite(ny)) return;
+        var x = PAD + nx * plotW;
+        var y = H - PAD - ny * plotH;
+        var color = CHART_COLORS[i % CHART_COLORS.length];
+        svg += '<circle class="chart-dot chart-scatter-dot" cx="' + x + '" cy="' + y + '" r="5" fill="' + color + '"><title>' + esc(String(d[xKey])) + ', ' + d[yKey] + '</title></circle>';
+      });
+      svg += '<text class="chart-axis-title chart-axis-y" x="12" y="' + (H / 2) + '" text-anchor="middle" transform="rotate(-90, 12, ' + (H / 2) + ')">' + esc(yLabel) + '</text>';
+      svg += '<text class="chart-axis-title chart-axis-x" x="' + (W / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(xLabel) + '</text>';
+      svg += '</svg>';
+      container.innerHTML = svg;
+      applyChartUI(opts.title, opts.description);
+    }
+
+    function renderHistogram(container, data, valueKey, bins, opts) {
+      opts = opts || {};
       bins = bins || 10;
       var vals = data.map(function(d) { return Number(d[valueKey]); }).filter(function(v) { return isFinite(v); });
-      if (vals.length === 0) { container.innerHTML = '<p class="meta">No numeric data.</p>'; container.style.display = 'block'; return; }
+      if (vals.length === 0) {
+        container.innerHTML = '<p class="meta">No numeric data.</p>';
+        document.getElementById('chart-container').style.display = 'block';
+        var exportBar = document.getElementById('chart-export-toolbar');
+        if (exportBar) exportBar.style.display = 'none';
+        return;
+      }
       var min = Math.min.apply(null, vals);
       var max = Math.max.apply(null, vals);
       var binWidth = (max - min) / bins || 1;
@@ -3711,27 +3969,157 @@
       var histData = counts.map(function(c, i) {
         return { label: (min + i * binWidth).toFixed(1) + '-' + (min + (i + 1) * binWidth).toFixed(1), value: c };
       });
-      renderBarChart(container, histData, 'label', 'value');
+      renderBarChart(container, histData, 'label', 'value', { title: opts.title, description: opts.description, xLabel: 'Bin', yLabel: 'Count' });
     }
+
+    /** Last render state for resize re-run and export. */
+    var lastChartState = null;
 
     document.getElementById('chart-render').addEventListener('click', function() {
       var type = document.getElementById('chart-type').value;
       var xKey = document.getElementById('chart-x').value;
       var yKey = document.getElementById('chart-y').value;
-      var container = document.getElementById('chart-container');
+      var titleInput = document.getElementById('chart-title-input');
+      var title = titleInput ? titleInput.value : '';
+      var container = document.getElementById('chart-svg-wrap');
       var rows = window._chartRows || [];
-      if (type === 'none' || rows.length === 0) { container.style.display = 'none'; return; }
+      if (type === 'none' || rows.length === 0) {
+        document.getElementById('chart-container').style.display = 'none';
+        lastChartState = null;
+        return;
+      }
       var chartData = rows;
       if (rows.length > 500) {
         var nth = Math.ceil(rows.length / 500);
         chartData = rows.filter(function(_, i) { return i % nth === 0; });
       }
+      var opts = { title: title, description: '', xLabel: xKey, yLabel: yKey };
+      lastChartState = { type: type, xKey: xKey, yKey: yKey, data: chartData, opts: opts };
 
-      if (type === 'bar') renderBarChart(container, chartData, xKey, yKey);
-      else if (type === 'pie') renderPieChart(container, chartData, xKey, yKey);
-      else if (type === 'line') renderLineChart(container, chartData, xKey, yKey);
-      else if (type === 'histogram') renderHistogram(container, chartData, yKey);
+      if (type === 'bar') renderBarChart(container, chartData, xKey, yKey, opts);
+      else if (type === 'stacked-bar') renderStackedBarChart(container, chartData, xKey, yKey, opts);
+      else if (type === 'pie') renderPieChart(container, chartData, xKey, yKey, opts);
+      else if (type === 'line') renderLineChart(container, chartData, xKey, yKey, opts);
+      else if (type === 'area') renderAreaChart(container, chartData, xKey, yKey, opts);
+      else if (type === 'scatter') renderScatterChart(container, chartData, xKey, yKey, opts);
+      else if (type === 'histogram') renderHistogram(container, chartData, yKey, 10, opts);
     });
+
+    /** Export chart as PNG: serialize SVG to image, draw to canvas, download. Disables button during async export. */
+    function exportChartPng() {
+      var wrap = document.getElementById('chart-svg-wrap');
+      var svgEl = wrap ? wrap.querySelector('svg') : null;
+      var btn = document.getElementById('chart-export-png');
+      if (!svgEl) return;
+      if (btn) btn.disabled = true;
+      var svgStr = new XMLSerializer().serializeToString(svgEl);
+      var blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      function done() { if (btn) btn.disabled = false; }
+      img.onload = function() {
+        var c = document.createElement('canvas');
+        c.width = img.width;
+        c.height = img.height;
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#fff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0);
+        c.toBlob(function(blob) {
+          URL.revokeObjectURL(url);
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'chart.png';
+          a.click();
+          URL.revokeObjectURL(a.href);
+          done();
+        }, 'image/png');
+      };
+      img.onerror = function() { URL.revokeObjectURL(url); done(); };
+      img.src = url;
+    }
+
+    /** Export chart as SVG file download. */
+    function exportChartSvg() {
+      var wrap = document.getElementById('chart-svg-wrap');
+      var svgEl = wrap ? wrap.querySelector('svg') : null;
+      if (!svgEl) return;
+      var svgStr = new XMLSerializer().serializeToString(svgEl);
+      var blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'chart.svg';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    /** Copy chart image to clipboard (PNG). Disables button during async copy; shows brief "Copied!" feedback. */
+    function exportChartCopy() {
+      var wrap = document.getElementById('chart-svg-wrap');
+      var svgEl = wrap ? wrap.querySelector('svg') : null;
+      var btn = document.getElementById('chart-export-copy');
+      if (!svgEl) return;
+      if (btn) btn.disabled = true;
+      var svgStr = new XMLSerializer().serializeToString(svgEl);
+      var blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      function done() { if (btn) btn.disabled = false; }
+      img.onload = function() {
+        var c = document.createElement('canvas');
+        c.width = img.width;
+        c.height = img.height;
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#fff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0);
+        c.toBlob(function(blob) {
+          URL.revokeObjectURL(url);
+          if (navigator.clipboard && navigator.clipboard.write) {
+            var copyBtn = btn;
+            navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(function() {
+              if (copyBtn) { copyBtn.textContent = 'Copied!'; setTimeout(function() { copyBtn.textContent = 'Copy image'; }, 1500); }
+            }).catch(function() {}).finally(done);
+          } else { done(); }
+        }, 'image/png');
+      };
+      img.onerror = function() { URL.revokeObjectURL(url); done(); };
+      img.src = url;
+    }
+
+    document.getElementById('chart-export-png').addEventListener('click', exportChartPng);
+    document.getElementById('chart-export-svg').addEventListener('click', exportChartSvg);
+    document.getElementById('chart-export-copy').addEventListener('click', exportChartCopy);
+
+    /** Responsive: re-render chart when wrapper is resized. Throttled to avoid excessive redraws. */
+    var chartResizeObserver = null;
+    (function setupChartResize() {
+      var wrap = document.getElementById('chart-wrapper');
+      if (!wrap) return;
+      var resizeTimer = null;
+      var THROTTLE_MS = 150;
+      function redrawChart() {
+        if (!lastChartState) return;
+        var container = document.getElementById('chart-svg-wrap');
+        if (!container || !container.querySelector('svg')) return;
+        var s = lastChartState;
+        if (s.type === 'bar') renderBarChart(container, s.data, s.xKey, s.yKey, s.opts);
+        else if (s.type === 'stacked-bar') renderStackedBarChart(container, s.data, s.xKey, s.yKey, s.opts);
+        else if (s.type === 'pie') renderPieChart(container, s.data, s.xKey, s.yKey, s.opts);
+        else if (s.type === 'line') renderLineChart(container, s.data, s.xKey, s.yKey, s.opts);
+        else if (s.type === 'area') renderAreaChart(container, s.data, s.xKey, s.yKey, s.opts);
+        else if (s.type === 'scatter') renderScatterChart(container, s.data, s.xKey, s.yKey, s.opts);
+        else if (s.type === 'histogram') renderHistogram(container, s.data, s.yKey, 10, s.opts);
+      }
+      chartResizeObserver = new ResizeObserver(function() {
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+          resizeTimer = null;
+          redrawChart();
+        }, THROTTLE_MS);
+      });
+      chartResizeObserver.observe(wrap);
+    })();
 
     (function initSqlRunner() {
       const toggle = document.getElementById('sql-runner-toggle');
