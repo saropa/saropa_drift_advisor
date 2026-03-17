@@ -62,41 +62,44 @@ without constructing a throwaway `ServerContext`. `sql_handler.dart` dropped fro
 - `lib/src/server/sql_handler.dart` — removed method, 3 call sites updated
 - `test/sql_validation_test.dart` — `handler.isReadOnlySql(...)` → `SqlValidator.isReadOnlySql(...)`
 
-### 5. Refactor router.dart (528 lines)
+### 5. Refactor router.dart — group routes by domain
 
-**Status: OPEN**
+**Status: COMPLETE**
 
-The `onRequest()` method is 348 lines routing ~20+ HTTP paths. The method is well-structured
-(each route is a clear if-block delegating to a handler), but the sheer length makes it
-hard to scan.
+Option C selected: extracted 10 private `_route*` methods from the 341-line `onRequest()` method.
+Each method handles one handler's endpoints and returns `Future<bool>` (true = route matched).
+`onRequest()` is now a ~40-line dispatcher; total file length unchanged but the main method
+is easy to scan.
 
-**Options:**
+| Route group | Handler | Endpoints |
+|-------------|---------|-----------|
+| `_routePreQuery` | GenerationHandler + inline | health, generation, change-detection |
+| `_routeTableApi` | TableHandler | table list, table data/count/columns/fk-meta |
+| `_routeSqlApi` | SqlHandler | sql run, sql explain |
+| `_routeSchemaApi` | SchemaHandler | schema, diagram, metadata, dump, database |
+| `_routeSnapshotApi` | SnapshotHandler | snapshot create/get/compare/delete |
+| `_routeCompareApi` | CompareHandler | compare report, migration preview |
+| `_routeAnalyticsApi` | AnalyticsHandler | index suggestions, anomalies, size |
+| `_routeImportApi` | ImportHandler | import |
+| `_routeSessionApi` | SessionHandler | session share/get/extend/annotate |
+| `_routePerformanceApi` | PerformanceHandler | performance get/clear |
 
-| Option | Description | Pros | Cons |
-|--------|-------------|------|------|
-| A | Route table/registry | Map of `(method, path)` → handler; declarative | Loses type safety on handler signatures |
-| B | Split into `HttpRouter` + `VmServiceRouter` | Clear separation of transport concerns | Two files to maintain |
-| C | Group routes by domain (table, schema, analytics) | Logical grouping, smaller methods | Still one Router class |
-
-**VM Service delegates** (lines 401-528) are already clean, short one-liners. The HTTP routing
-in `onRequest()` is the main target.
+VM service delegates and change-detection handlers unchanged.
 
 ### 6. Split analytics_handler.dart (507 lines)
 
-**Status: OPEN**
+**Status: COMPLETE**
 
-Three distinct concerns in one handler:
+Extracted two `abstract final class` modules (matching `SqlValidator`/`ServerUtils` pattern)
+containing pure static logic. `AnalyticsHandler` kept as HTTP wrapper + size analytics.
 
-| Concern | Methods | Lines |
-|---------|---------|-------|
-| Index suggestions | `getIndexSuggestionsList()`, `handleIndexSuggestions()` | ~110 |
-| Size analytics | `handleSizeAnalytics()` | ~100 |
-| Anomaly detection | `getAnomaliesResult()`, `handleAnomalyDetection()`, 5 private detectors | ~260 |
+| File | Responsibility | Lines |
+|------|---------------|-------|
+| `index_analyzer.dart` | `IndexAnalyzer.getIndexSuggestionsList()` — FK, _id, date/time heuristics | ~135 |
+| `anomaly_detector.dart` | `AnomalyDetector.getAnomaliesResult()` + 5 private detectors | ~275 |
+| `analytics_handler.dart` | HTTP wrappers, error logging, size analytics, delegations | ~195 |
 
-**Suggested split:**
-- `index_analyzer.dart` — index suggestion heuristics
-- `anomaly_detector.dart` — anomaly scanning (null values, empty strings, outliers, orphaned FKs, duplicates)
-- `analytics_handler.dart` (remaining) — size analytics + HTTP routing for all three
+Router unchanged — `_analytics.*` public API preserved via thin delegations.
 
 ---
 
@@ -134,10 +137,10 @@ and analytics_handler. No action needed.
 | 2 | Extract html_content.dart | HIGH | OPEN |
 | 3 | Deduplicate typedefs | HIGH | COMPLETE |
 | 4 | Extract SQL validator | MEDIUM | COMPLETE |
-| 5 | Refactor router.dart | MEDIUM | OPEN |
-| 6 | Split analytics_handler.dart | MEDIUM | OPEN |
+| 5 | Refactor router.dart | MEDIUM | COMPLETE |
+| 6 | Split analytics_handler.dart | MEDIUM | COMPLETE |
 | 7 | Convert import_handler extension type | LOW | COMPLETE |
 | 8 | Standardize import ordering | LOW | COMPLETE |
 
-**Completed:** 5 of 8
-**Remaining:** 3 issues (1 HIGH, 2 MEDIUM)
+**Completed:** 7 of 8
+**Remaining:** 1 issue (1 HIGH — html_content.dart)
