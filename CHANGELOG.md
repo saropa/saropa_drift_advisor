@@ -15,7 +15,7 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [1.6.2]
+## [1.7.0]
 
 Smart package lifecycle management: the extension now detects whether the Dart package is already in your project and hides redundant setup prompts.
 
@@ -24,6 +24,8 @@ Smart package lifecycle management: the extension now detects whether the Dart p
 - **Package upgrade detection** — On activation the extension checks pub.dev for newer versions of `saropa_drift_advisor`. If the workspace pubspec.yaml has an older constraint, an upgrade notification offers a one-click update (rewrites the constraint and runs `pub get`). Checks are throttled to once per hour; network errors are silently ignored.
 - **Conditional "Add Package" button** — The "Add Saropa Drift Advisor" button, welcome view link, and tools tree item are now hidden when the package is already present in pubspec.yaml. A new context key `driftViewer.packageInstalled` drives all three locations.
 - **Pubspec file watcher** — A `PackageStatusMonitor` watches `pubspec.yaml` for changes and keeps the installed-state UI in sync automatically.
+- **Version display in Database header** — The Database section header shows the extension version (e.g. "v1.6.1") at all times, whether connected or disconnected.
+- **About Saropa icon** — An `$(info)` icon in the Database section title bar opens `ABOUT_SAROPA.md` in VS Code's markdown preview, giving users quick access to the Saropa product overview. Also available via Command Palette.
 
 ### Fixed
 

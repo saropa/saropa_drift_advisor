@@ -13,6 +13,7 @@ EXTENSION_DIR = os.path.join(REPO_ROOT, "extension")
 PUBSPEC_PATH = os.path.join(REPO_ROOT, "pubspec.yaml")
 PACKAGE_JSON_PATH = os.path.join(EXTENSION_DIR, "package.json")
 CHANGELOG_PATH = os.path.join(REPO_ROOT, "CHANGELOG.md")
+ABOUT_SAROPA_PATH = os.path.join(REPO_ROOT, "ABOUT_SAROPA.md")
 TEST_DIR = os.path.join(REPO_ROOT, "test")
 LIB_DIR = os.path.join(REPO_ROOT, "lib")
 
