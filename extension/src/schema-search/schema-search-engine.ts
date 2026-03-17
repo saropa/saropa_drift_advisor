@@ -10,6 +10,9 @@ import type {
   SchemaSearchScope,
 } from './schema-search-types';
 
+/** When match count exceeds this, we skip cross-ref building so the search resolves quickly. */
+const CROSS_REF_MATCH_CAP = 80;
+
 export class SchemaSearchEngine {
   constructor(private readonly _client: DriftApiClient) {}
 
@@ -60,7 +63,10 @@ export class SchemaSearchEngine {
       }
     }
 
-    const crossRefs = await this._buildCrossReferences(meta, matches);
+    const crossRefs =
+      matches.length <= CROSS_REF_MATCH_CAP
+        ? await this._buildCrossReferences(meta, matches)
+        : [];
     this._annotateCrossRefs(matches, crossRefs);
     return { query, matches, crossReferences: crossRefs };
   }

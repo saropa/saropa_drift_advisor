@@ -216,4 +216,30 @@ describe('SchemaSearchEngine', () => {
       assert.strictEqual(meta[0].name, 'users');
     });
   });
+
+  describe('large result set (cross-ref cap)', () => {
+    it('should skip cross-ref building when match count exceeds cap so search resolves quickly', async () => {
+      const manyTables: TableMetadata[] = [];
+      for (let i = 1; i <= 11; i++) {
+        manyTables.push({
+          name: `table_${i}`,
+          columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            ...Array.from({ length: 8 }, (_, j) => ({
+              name: `col_${j}`,
+              type: 'TEXT' as const,
+              pk: false as const,
+            })),
+          ],
+          rowCount: 0,
+        });
+      }
+      const client = fakeClient(manyTables);
+      const engine = new SchemaSearchEngine(client);
+      const result = await engine.search('', 'all');
+      assert.ok(result.matches.length > 80, 'expect many matches to trigger cap');
+      assert.strictEqual(result.crossReferences.length, 0, 'cross-refs skipped for large result');
+      assert.strictEqual((client.tableFkMeta as sinon.SinonStub).callCount, 0, 'tableFkMeta not called');
+    });
+  });
 });

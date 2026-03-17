@@ -36,10 +36,10 @@ export function getSchemaSearchHtml(nonce: string): string {
   .cross-ref { padding-left: 24px; font-size: 11px; opacity: 0.7; }
   .cross-ref .warn { color: var(--vscode-editorWarning-foreground, #cca700); }
   .empty { opacity: 0.6; font-style: italic; padding: 8px 0; }
+  .error { color: var(--vscode-errorForeground); font-size: 12px; padding: 8px 0; }
   .status { font-size: 11px; opacity: 0.6; margin-bottom: 4px; }
-  .loading { opacity: 0.6; font-style: italic; padding: 8px 0; }
+  .loading { opacity: 0.6; font-style: italic; padding: 8px 0; animation: pulse 1.2s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
-  .loading { animation: pulse 1.2s ease-in-out infinite; }
 </style>
 </head>
 <body>
@@ -58,6 +58,7 @@ export function getSchemaSearchHtml(nonce: string): string {
   <button class="type-btn" data-type="BLOB">BLOB</button>
 </div>
 <div id="status" class="status"></div>
+<div id="error" class="error" style="display: none;"></div>
 <ul id="results" class="results"></ul>
 <script nonce="${nonce}">
 (function() {
@@ -65,6 +66,7 @@ export function getSchemaSearchHtml(nonce: string): string {
   const queryEl = document.getElementById('query');
   const resultsEl = document.getElementById('results');
   const statusEl = document.getElementById('status');
+  const errorEl = document.getElementById('error');
   let scope = 'all';
   let typeFilter = '';
   let debounceTimer;
@@ -100,9 +102,16 @@ export function getSchemaSearchHtml(nonce: string): string {
   window.addEventListener('message', e => {
     const msg = e.data;
     if (msg.command === 'loading') {
+      if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
       statusEl.textContent = '';
       resultsEl.innerHTML = '<li class="loading">Searching\u2026</li>';
+    } else if (msg.command === 'error') {
+      /* Timeout or API failure: show message and clear results so the panel always resolves. */
+      statusEl.textContent = '';
+      resultsEl.innerHTML = '';
+      if (errorEl) { errorEl.textContent = msg.message || 'Search failed'; errorEl.style.display = 'block'; }
     } else if (msg.command === 'results') {
+      if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
       renderResults(msg.result, msg.crossRefs);
     }
   });

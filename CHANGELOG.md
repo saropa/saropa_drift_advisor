@@ -55,6 +55,8 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 • **Debug console log spam at rest** — Change detection now throttles the row-count (UNION ALL) query to at most once every 2 seconds when the extension or web UI long-polls. The long-poll loop still runs every 300ms for responsive UI, but the app’s Drift "Sent SELECT" logs drop from many per second to about one per 2 seconds when the Advisor is open. Turn polling off (web UI or extension) for zero queries when idle.
 
+• **Extension: Schema Search never resolves** — The Schema Search sidebar could hang on "Searching…" when the initial empty query matched many tables/columns (hundreds of sequential FK API calls) or when the server was slow/unreachable. Search now has a 15s timeout and shows a clear error message on timeout or failure; cross-reference building is skipped when there are more than 80 matches so the panel resolves quickly. Loading state uses a pulse animation; errors are shown in the panel so the view always reaches a resolved state.
+
 ---
 
 ## [2.3.0]

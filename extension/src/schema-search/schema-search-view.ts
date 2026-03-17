@@ -9,6 +9,9 @@ import { SchemaSearchEngine } from './schema-search-engine';
 import { getSchemaSearchHtml } from './schema-search-html';
 import type { SchemaSearchMessage } from './schema-search-types';
 
+/** Max time to wait for a search before showing a timeout error (ms). */
+const SEARCH_TIMEOUT_MS = 15_000;
+
 /** Callback to reveal a table in the Database Explorer tree view. */
 export type RevealTableFn = (name: string) => Promise<void>;
 
@@ -53,6 +56,10 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /**
+   * Runs a search with a timeout so the UI never hangs.
+   * Stale results (from a superseded search) are discarded via gen check.
+   */
   private async _doSearch(
     query: string,
     scope: 'all' | 'tables' | 'columns',
@@ -60,21 +67,42 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
   ): Promise<void> {
     const gen = ++this._searchGen;
     this._view?.webview.postMessage({ command: 'loading' });
+
+    const sendError = (message: string): void => {
+      if (gen !== this._searchGen) return;
+      this._view?.webview.postMessage({ command: 'error', message });
+    };
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error('Search timed out')),
+        SEARCH_TIMEOUT_MS,
+      );
+    });
+
     try {
-      const result = await this._engine.search(query, scope, typeFilter);
+      const result = await Promise.race([
+        this._engine.search(query, scope, typeFilter),
+        timeoutPromise,
+      ]);
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
       if (gen !== this._searchGen) return; // Stale result; discard
       this._view?.webview.postMessage({
         command: 'results',
         result,
         crossRefs: result.crossReferences,
       });
-    } catch {
+    } catch (err) {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
       if (gen !== this._searchGen) return;
-      this._view?.webview.postMessage({
-        command: 'results',
-        result: { query, matches: [], crossReferences: [] },
-        crossRefs: [],
-      });
+      const message =
+        err instanceof Error ? err.message : String(err);
+      sendError(
+        message.includes('timed out')
+          ? 'Search timed out. Try a more specific query or check the server.'
+          : `Search failed: ${message}`,
+      );
     }
   }
 }
