@@ -1,14 +1,13 @@
 #!/bin/sh
 
-# Pre-commit hook: Run TypeScript type checking on the extension
-# This catches type errors BEFORE they get committed
+# Pre-commit hook: Type-check AND verify compiled output exists.
+# Two independent gates — both must pass before a commit is allowed.
 
 echo "🔍 Running TypeScript lint check on extension..."
 
 cd extension || exit 1
 
-# Run tsc --noEmit to check for type errors without generating output
-# Exit immediately if lint fails
+# Gate 1: Type checking (catches type errors without emitting files)
 npm run lint || {
   echo ""
   echo "❌ TypeScript errors detected! Fix the errors above before committing."
@@ -20,3 +19,19 @@ npm run lint || {
 }
 
 echo "✅ TypeScript check passed"
+
+# Gate 2: Verify compiled entry point exists.
+# If out/extension.js is missing, VS Code silently fails to activate
+# the extension — no error message, no output channel, nothing works.
+# This catches git clean, stale builds, or tsconfig misconfiguration.
+if [ ! -f "out/extension.js" ]; then
+  echo ""
+  echo "❌ CRITICAL: out/extension.js does not exist!"
+  echo ""
+  echo "   The extension cannot activate without compiled JavaScript."
+  echo "   Run:  cd extension && npm run compile"
+  echo ""
+  exit 1
+fi
+
+echo "✅ Compiled output verified (out/extension.js exists)"

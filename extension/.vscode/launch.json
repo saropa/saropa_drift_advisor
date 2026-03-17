@@ -1,0 +1,36 @@
+{
+  // Launch the Extension Development Host for debugging the VS Code extension.
+  // F5 will compile TypeScript first (preLaunchTask), then open a new
+  // VS Code window with the extension loaded from out/.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      // Compile TypeScript before launching so out/extension.js is fresh.
+      "preLaunchTask": "npm: compile",
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ],
+      "sourceMaps": true
+    },
+    {
+      "name": "Run Extension Tests",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--extensionTestsPath=${workspaceFolder}/out/test"
+      ],
+      "preLaunchTask": "npm: compile",
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ],
+      "sourceMaps": true
+    }
+  ]
+}
