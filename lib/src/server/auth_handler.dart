@@ -8,6 +8,7 @@ import 'package:crypto/crypto.dart';
 
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_utils.dart';
 
 /// Handles authentication for the Drift Debug Server.
 ///
@@ -30,7 +31,7 @@ final class AuthHandler {
       if (authHeader != null &&
           authHeader.length > ServerConstants.authSchemeBearer.length &&
           authHeader.startsWith(ServerConstants.authSchemeBearer)) {
-        final token = ServerContext.safeSubstring(authHeader,
+        final token = ServerUtils.safeSubstring(authHeader,
             start: ServerConstants.authSchemeBearer.length);
         if (token.isEmpty) {
           return false;
@@ -50,7 +51,7 @@ final class AuthHandler {
           authHeader.length >= ServerConstants.authSchemeBasic.length &&
           authHeader.startsWith(ServerConstants.authSchemeBasic)) {
         try {
-          final basicPayload = ServerContext.safeSubstring(authHeader,
+          final basicPayload = ServerUtils.safeSubstring(authHeader,
               start: ServerConstants.authSchemeBasic.length);
           if (basicPayload.isEmpty) {
             return false;
@@ -59,9 +60,9 @@ final class AuthHandler {
           final colon = decoded.indexOf(':');
           if (colon >= 0 && colon < decoded.length) {
             final userPart =
-                ServerContext.safeSubstring(decoded, start: 0, end: colon);
+                ServerUtils.safeSubstring(decoded, start: 0, end: colon);
             final passwordPart =
-                ServerContext.safeSubstring(decoded, start: colon + 1);
+                ServerUtils.safeSubstring(decoded, start: colon + 1);
             if (_secureCompare(userPart, user) &&
                 _secureCompare(passwordPart, password)) {
               return true;

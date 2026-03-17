@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_utils.dart';
 
 /// Handles compare and migration-related API endpoints.
 final class CompareHandler {
@@ -47,10 +48,10 @@ final class CompareHandler {
     }
 
     try {
-      final schemaA = await ServerContext.getSchemaSql(query);
-      final schemaB = await ServerContext.getSchemaSql(queryB);
-      final tablesA = await ServerContext.getTableNames(query);
-      final tablesB = await ServerContext.getTableNames(queryB);
+      final schemaA = await ServerUtils.getSchemaSql(query);
+      final schemaB = await ServerUtils.getSchemaSql(queryB);
+      final tablesA = await ServerUtils.getTableNames(query);
+      final tablesB = await ServerUtils.getTableNames(queryB);
       final allTables = <String>{...tablesA, ...tablesB}.toList()..sort();
       final isSchemaSame = schemaA == schemaB;
 
@@ -74,10 +75,10 @@ final class CompareHandler {
         int idx = 0;
 
         if (tablesA.contains(table)) {
-          countA = ServerContext.extractCountFromRows(results[idx++]);
+          countA = ServerUtils.extractCountFromRows(results[idx++]);
         }
         if (tablesB.contains(table)) {
-          countB = ServerContext.extractCountFromRows(results[idx++]);
+          countB = ServerUtils.extractCountFromRows(results[idx++]);
         }
 
         countDiffs.add(<String, dynamic>{
@@ -155,8 +156,8 @@ final class CompareHandler {
     }
 
     try {
-      final tablesA = await ServerContext.getTableNames(query);
-      final tablesB = await ServerContext.getTableNames(queryB);
+      final tablesA = await ServerUtils.getTableNames(query);
+      final tablesB = await ServerUtils.getTableNames(queryB);
       final migrations = <String>[];
 
       await _migrationNewTables(
@@ -205,7 +206,7 @@ final class CompareHandler {
   }) async {
     for (final table in tablesB) {
       if (!tablesA.contains(table)) {
-        final schemaRows = ServerContext.normalizeRows(
+        final schemaRows = ServerUtils.normalizeRows(
           await queryB(
             'SELECT sql FROM sqlite_master '
             'WHERE type=\'table\' AND name=\'$table\'',
@@ -288,7 +289,7 @@ final class CompareHandler {
     DriftDebugQuery query,
     String table,
   ) async {
-    final cols = ServerContext.normalizeRows(
+    final cols = ServerUtils.normalizeRows(
       await query('PRAGMA table_info("$table")'),
     );
     final map = <String, Map<String, dynamic>>{};
@@ -390,10 +391,10 @@ final class CompareHandler {
     required DriftDebugQuery queryA,
     required DriftDebugQuery queryB,
   }) async {
-    final idxA = ServerContext.normalizeRows(
+    final idxA = ServerUtils.normalizeRows(
       await queryA('PRAGMA index_list("$table")'),
     );
-    final idxB = ServerContext.normalizeRows(
+    final idxB = ServerUtils.normalizeRows(
       await queryB('PRAGMA index_list("$table")'),
     );
     final idxNamesA = idxA
@@ -407,7 +408,7 @@ final class CompareHandler {
 
     for (final idxName in idxNamesB) {
       if (!idxNamesA.contains(idxName)) {
-        final idxSqlRows = ServerContext.normalizeRows(
+        final idxSqlRows = ServerUtils.normalizeRows(
           await queryB(
             'SELECT sql FROM sqlite_master '
             'WHERE type=\'index\' AND name=\'$idxName\'',

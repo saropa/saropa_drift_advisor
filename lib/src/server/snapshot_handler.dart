@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_utils.dart';
 import 'server_types.dart';
 
 /// Handles snapshot-related API endpoints.
@@ -23,7 +24,7 @@ final class SnapshotHandler {
   ) async {
     final res = response;
     try {
-      final tables = await ServerContext.getTableNames(query);
+      final tables = await ServerUtils.getTableNames(query);
       final Map<String, List<Map<String, dynamic>>> data = {};
       for (final table in tables) {
         final List<Map<String, dynamic>> rows =
@@ -106,7 +107,7 @@ final class SnapshotHandler {
       return;
     }
     try {
-      final tablesNow = await ServerContext.getTableNames(query);
+      final tablesNow = await ServerUtils.getTableNames(query);
       final allTables = <String>{...snap.tables.keys, ...tablesNow};
       final detailed =
           req.uri.queryParameters[ServerConstants.queryParamDetail] ==
@@ -115,10 +116,10 @@ final class SnapshotHandler {
       for (final table in allTables.toList()..sort()) {
         final rowsThen = snap.tables[table] ?? [];
         final rowsNowList = tablesNow.contains(table)
-            ? ServerContext.normalizeRows(await query('SELECT * FROM "$table"'))
+            ? ServerUtils.normalizeRows(await query('SELECT * FROM "$table"'))
             : <Map<String, dynamic>>[];
-        final setThen = rowsThen.map(ServerContext.rowSignature).toSet();
-        final setNow = rowsNowList.map(ServerContext.rowSignature).toSet();
+        final setThen = rowsThen.map(ServerUtils.rowSignature).toSet();
+        final setNow = rowsNowList.map(ServerUtils.rowSignature).toSet();
         final added = setNow.difference(setThen).length;
         final removed = setThen.difference(setNow).length;
         final inBoth = setThen.intersection(setNow).length;
@@ -184,7 +185,7 @@ final class SnapshotHandler {
     required List<Map<String, dynamic>> rowsNow,
     required DriftDebugQuery query,
   }) async {
-    final pkInfoRows = ServerContext.normalizeRows(
+    final pkInfoRows = ServerUtils.normalizeRows(
       await query('PRAGMA table_info("$table")'),
     );
 
@@ -214,23 +215,23 @@ final class SnapshotHandler {
     final thenByPk = <String, Map<String, dynamic>>{};
 
     for (final r in rowsThen) {
-      thenByPk[ServerContext.compositePkKey(pkColumns, r)] = r;
+      thenByPk[ServerUtils.compositePkKey(pkColumns, r)] = r;
     }
 
     final nowByPk = <String, Map<String, dynamic>>{};
 
     for (final r in rowsNow) {
-      nowByPk[ServerContext.compositePkKey(pkColumns, r)] = r;
+      nowByPk[ServerUtils.compositePkKey(pkColumns, r)] = r;
     }
 
     final addedRows = rowsNow.where((r) {
-      final key = ServerContext.compositePkKey(pkColumns, r);
+      final key = ServerUtils.compositePkKey(pkColumns, r);
 
       return !thenByPk.containsKey(key);
     }).toList();
 
     final removedRows = rowsThen.where((r) {
-      final key = ServerContext.compositePkKey(pkColumns, r);
+      final key = ServerUtils.compositePkKey(pkColumns, r);
 
       return !nowByPk.containsKey(key);
     }).toList();

@@ -15,6 +15,18 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [2.0.0]
+
+Internal modularization: split the 793-line server_context.dart god object into three focused modules for maintainability.
+
+### Changed
+
+- **Extracted `ServerUtils`** — 16 static utility methods (normalizeRows, getTableNames, sqlLiteral, etc.) moved from `ServerContext` to a dedicated `abstract final class ServerUtils` in `server_utils.dart`.
+- **Extracted `server_typedefs.dart`** — 5 callback typedefs (`DriftDebugQuery`, `DriftDebugOnLog`, etc.) consolidated into a single source of truth, eliminating duplication between `server_context.dart` and the web stub.
+- **Slimmed `ServerContext`** — reduced from 793 to 423 lines; now contains only instance state and instance methods (auth, CORS, logging, timing, change detection).
+
+---
+
 ## [1.8.0]
 
 Silence the log spam: batched change detection, runtime polling toggle, and UI buttons in both the web viewer and VSCode extension.

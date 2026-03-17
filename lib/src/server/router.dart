@@ -16,6 +16,7 @@ import 'performance_handler.dart';
 import 'schema_handler.dart';
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_utils.dart';
 import 'session_handler.dart';
 import 'snapshot_handler.dart';
 import 'sql_handler.dart';
@@ -178,9 +179,9 @@ final class Router {
         }
 
         final String tableName = suffix;
-        final int limit = ServerContext.parseLimit(
+        final int limit = ServerUtils.parseLimit(
             req.uri.queryParameters[ServerConstants.queryParamLimit]);
-        final int offset = ServerContext.parseOffset(
+        final int offset = ServerUtils.parseOffset(
             req.uri.queryParameters[ServerConstants.queryParamOffset]);
 
         await _table.sendTableData(
@@ -348,6 +349,16 @@ final class Router {
             ? path.substring(ServerConstants.pathApiSessionPrefix.length)
             : path.substring(ServerConstants.pathApiSessionPrefixAlt.length);
 
+        // POST /api/session/{id}/extend — extend session expiry.
+        if (suffix.endsWith(ServerConstants.pathSuffixExtend) &&
+            req.method == ServerConstants.methodPost) {
+          final sessionId = suffix.replaceFirst(RegExp(r'/extend$'), '');
+
+          await _session.handleSessionExtend(req, sessionId);
+
+          return;
+        }
+
         if (suffix.endsWith(ServerConstants.pathSuffixAnnotate) &&
             req.method == ServerConstants.methodPost) {
           final sessionId = suffix.replaceFirst(RegExp(r'/annotate$'), '');
@@ -480,7 +491,7 @@ final class Router {
       }
 
       final body = utf8.decode(builder.toBytes());
-      final decoded = ServerContext.parseJsonMap(body);
+      final decoded = ServerUtils.parseJsonMap(body);
 
       if (decoded == null ||
           decoded[ServerConstants.jsonKeyEnabled] is! bool) {

@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_utils.dart';
 
 /// Handles analytics-related API endpoints.
 final class AnalyticsHandler {
@@ -18,11 +19,11 @@ final class AnalyticsHandler {
   Future<Map<String, dynamic>> getIndexSuggestionsList(
     DriftDebugQuery query,
   ) async {
-    final tableNames = await ServerContext.getTableNames(query);
+    final tableNames = await ServerUtils.getTableNames(query);
     final suggestions = <Map<String, dynamic>>[];
 
     for (final tableName in tableNames) {
-      final existingIndexRows = ServerContext.normalizeRows(
+      final existingIndexRows = ServerUtils.normalizeRows(
         await query('PRAGMA index_list("$tableName")'),
       );
       final indexedColumns = <String>{};
@@ -30,7 +31,7 @@ final class AnalyticsHandler {
       for (final idx in existingIndexRows) {
         final idxName = idx['name'] as String?;
         if (idxName != null) {
-          final idxInfoRows = ServerContext.normalizeRows(
+          final idxInfoRows = ServerUtils.normalizeRows(
             await query('PRAGMA index_info("$idxName")'),
           );
 
@@ -42,7 +43,7 @@ final class AnalyticsHandler {
       }
 
       // Check foreign keys
-      final fkRows = ServerContext.normalizeRows(
+      final fkRows = ServerUtils.normalizeRows(
         await query('PRAGMA foreign_key_list("$tableName")'),
       );
 
@@ -63,7 +64,7 @@ final class AnalyticsHandler {
       }
 
       // Check column naming patterns
-      final colInfoRows = ServerContext.normalizeRows(
+      final colInfoRows = ServerUtils.normalizeRows(
         await query('PRAGMA table_info("$tableName")'),
       );
 
@@ -166,16 +167,16 @@ final class AnalyticsHandler {
       }
 
       final pageSize = pragmaInt(
-        ServerContext.normalizeRows(await query('PRAGMA page_size')),
+        ServerUtils.normalizeRows(await query('PRAGMA page_size')),
       );
       final pageCount = pragmaInt(
-        ServerContext.normalizeRows(await query('PRAGMA page_count')),
+        ServerUtils.normalizeRows(await query('PRAGMA page_count')),
       );
       final freelistCount = pragmaInt(
-        ServerContext.normalizeRows(await query('PRAGMA freelist_count')),
+        ServerUtils.normalizeRows(await query('PRAGMA freelist_count')),
       );
 
-      final journalModeRows = ServerContext.normalizeRows(
+      final journalModeRows = ServerUtils.normalizeRows(
         await query('PRAGMA journal_mode'),
       );
       final journalMode = journalModeRows.isNotEmpty
@@ -185,22 +186,22 @@ final class AnalyticsHandler {
       final totalSizeBytes = pageSize * pageCount;
       final freeSpaceBytes = pageSize * freelistCount;
 
-      final tableNames = await ServerContext.getTableNames(query);
+      final tableNames = await ServerUtils.getTableNames(query);
       final tableStats = <Map<String, dynamic>>[];
 
       for (final tableName in tableNames) {
-        final countRows = ServerContext.normalizeRows(
+        final countRows = ServerUtils.normalizeRows(
           await query('SELECT COUNT(*) AS '
               '${ServerConstants.jsonKeyCountColumn} '
               'FROM "$tableName"'),
         );
-        final rowCount = ServerContext.extractCountFromRows(countRows);
+        final rowCount = ServerUtils.extractCountFromRows(countRows);
 
-        final colInfoRows = ServerContext.normalizeRows(
+        final colInfoRows = ServerUtils.normalizeRows(
           await query('PRAGMA table_info("$tableName")'),
         );
 
-        final indexRows = ServerContext.normalizeRows(
+        final indexRows = ServerUtils.normalizeRows(
           await query('PRAGMA index_list("$tableName")'),
         );
         final indexNames = indexRows
@@ -249,15 +250,15 @@ final class AnalyticsHandler {
   /// Returns anomaly scan result for VM service RPC (Plan 68).
   Future<Map<String, dynamic>> getAnomaliesResult(DriftDebugQuery query) async {
     try {
-      final tableNames = await ServerContext.getTableNames(query);
+      final tableNames = await ServerUtils.getTableNames(query);
       final anomalies = <Map<String, dynamic>>[];
 
       for (final tableName in tableNames) {
-        final colInfoRows = ServerContext.normalizeRows(
+        final colInfoRows = ServerUtils.normalizeRows(
           await query('PRAGMA table_info("$tableName")'),
         );
-        final tableRowCount = ServerContext.extractCountFromRows(
-          ServerContext.normalizeRows(
+        final tableRowCount = ServerUtils.extractCountFromRows(
+          ServerUtils.normalizeRows(
             await query('SELECT COUNT(*) AS c FROM "$tableName"'),
           ),
         );
@@ -275,14 +276,14 @@ final class AnalyticsHandler {
                   tableRowCount: tableRowCount,
                   anomalies: anomalies);
             }
-            if (ServerContext.isTextType(colType)) {
+            if (ServerUtils.isTextType(colType)) {
               await _detectEmptyStrings(
                   query: query,
                   tableName: tableName,
                   colName: colName,
                   anomalies: anomalies);
             }
-            if (ServerContext.isNumericType(colType)) {
+            if (ServerUtils.isNumericType(colType)) {
               await _detectNumericOutliers(
                   query: query,
                   tableName: tableName,
@@ -304,7 +305,7 @@ final class AnalyticsHandler {
             anomalies: anomalies);
       }
 
-      ServerContext.sortAnomaliesBySeverity(anomalies);
+      ServerUtils.sortAnomaliesBySeverity(anomalies);
       return <String, dynamic>{
         'anomalies': anomalies,
         'tablesScanned': tableNames.length,
@@ -343,8 +344,8 @@ final class AnalyticsHandler {
     required int tableRowCount,
     required List<Map<String, dynamic>> anomalies,
   }) async {
-    final nullCount = ServerContext.extractCountFromRows(
-      ServerContext.normalizeRows(
+    final nullCount = ServerUtils.extractCountFromRows(
+      ServerUtils.normalizeRows(
         await query(
           'SELECT COUNT(*) AS c FROM "$tableName" '
           'WHERE "$colName" IS NULL',
@@ -374,8 +375,8 @@ final class AnalyticsHandler {
     required String colName,
     required List<Map<String, dynamic>> anomalies,
   }) async {
-    final emptyCount = ServerContext.extractCountFromRows(
-      ServerContext.normalizeRows(
+    final emptyCount = ServerUtils.extractCountFromRows(
+      ServerUtils.normalizeRows(
         await query(
           'SELECT COUNT(*) AS c FROM "$tableName" '
           "WHERE \"$colName\" = ''",
@@ -402,7 +403,7 @@ final class AnalyticsHandler {
     required String colName,
     required List<Map<String, dynamic>> anomalies,
   }) async {
-    final statsRows = ServerContext.normalizeRows(await query(
+    final statsRows = ServerUtils.normalizeRows(await query(
       'SELECT AVG("$colName") AS avg_val, '
       'MIN("$colName") AS min_val, '
       'MAX("$colName") AS max_val '
@@ -412,9 +413,9 @@ final class AnalyticsHandler {
       return;
     }
 
-    final avg = ServerContext.toDouble(statsRows.first['avg_val']);
-    final min = ServerContext.toDouble(statsRows.first['min_val']);
-    final max = ServerContext.toDouble(statsRows.first['max_val']);
+    final avg = ServerUtils.toDouble(statsRows.first['avg_val']);
+    final min = ServerUtils.toDouble(statsRows.first['min_val']);
+    final max = ServerUtils.toDouble(statsRows.first['max_val']);
     if (avg == null || min == null || max == null || avg == 0) {
       return;
     }
@@ -438,7 +439,7 @@ final class AnalyticsHandler {
     required List<String> tableNames,
     required List<Map<String, dynamic>> anomalies,
   }) async {
-    final fkRows = ServerContext.normalizeRows(
+    final fkRows = ServerUtils.normalizeRows(
       await query('PRAGMA foreign_key_list("$tableName")'),
     );
 
@@ -450,8 +451,8 @@ final class AnalyticsHandler {
           toTable != null &&
           toCol != null &&
           tableNames.contains(toTable)) {
-        final orphanCount = ServerContext.extractCountFromRows(
-          ServerContext.normalizeRows(
+        final orphanCount = ServerUtils.extractCountFromRows(
+          ServerUtils.normalizeRows(
             await query(
               'SELECT COUNT(*) AS c FROM "$tableName" t '
               'LEFT JOIN "$toTable" r '
@@ -483,8 +484,8 @@ final class AnalyticsHandler {
     required int tableRowCount,
     required List<Map<String, dynamic>> anomalies,
   }) async {
-    final distinctCount = ServerContext.extractCountFromRows(
-      ServerContext.normalizeRows(
+    final distinctCount = ServerUtils.extractCountFromRows(
+      ServerUtils.normalizeRows(
         await query(
           'SELECT COUNT(*) AS c FROM '
           '(SELECT DISTINCT * FROM "$tableName")',
