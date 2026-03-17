@@ -37,3 +37,5 @@ All 10 reported files are now under 300 lines. New modules and test splits were 
 ## Status
 
 Complete — no extension source or test file exceeds the 300-line limit.
+
+**Follow-up (same day):** `extension.ts` was later reported over the limit (322 lines). Addressed in plan `027-extension-ts-modularization.md` Phase 1: connection bootstrap extracted to `extension-bootstrap.ts`; entry point now ~232 lines.

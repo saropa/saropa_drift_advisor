@@ -1,8 +1,14 @@
 # extension.ts Modularization Plan
 
+**Status: Phase 1 COMPLETE** (2026-03-17). Connection bootstrap extracted to `extension-bootstrap.ts`; `extension.ts` is ~232 lines. Phase 2 (optional) not started.
+
 **Goal:** Reduce `extension/src/extension.ts` below the 300-line quality limit (current: 322 lines) by extracting cohesive blocks into dedicated modules.
 
 **Constraint:** Preserve existing behavior and the current `extension-*` naming pattern (`extension-providers`, `extension-diagnostics`, `extension-editing`, `extension-commands`).
+
+**Implementation summary (Phase 1):** New file `extension/src/extension-bootstrap.ts` exports `bootstrapExtension(context)` and `ExtensionBootstrapResult`. It creates and wires DriftApiClient, GenerationWatcher, ServerDiscovery, ServerManager, output channel, auth token listener, discovery.onDidChangeServers (backup context sync + adb forward), and adb-forward-on-debug-start timer. `extension.ts` calls `bootstrapExtension(context)` and uses the returned client, watcher, discovery, serverManager, connectionChannel, discoveryEnabled, extensionEnabled, cfg for the rest of activation. No behavior change; all tests pass.
+
+**Optional follow-ups:** (1) The "refresh suite" (treeProvider.refresh, codeLensProvider.refreshRowCounts, linter.refresh, diagnosticManager.refresh, refreshBadges) is duplicated in four places in extension.ts; a shared helper could reduce duplication. (2) Optional unit test: assert that `bootstrapExtension(fakeContext)` returns an object with the expected shape (client, watcher, discovery, serverManager, connectionChannel, discoveryEnabled, extensionEnabled, cfg).
 
 ---
 

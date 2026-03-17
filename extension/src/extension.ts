@@ -1,130 +1,38 @@
 /**
  * Drift Advisor extension entry point.
- * Activates client, discovery, then delegates to setup modules for providers,
- * diagnostics, editing, and command registration.
+ * Delegates to extension-bootstrap for client, discovery, watcher, and server manager;
+ * then sets up providers, diagnostics, editing, status bars, and command registration.
  * Master switch: when driftViewer.enabled is false, discovery and watcher do not
  * start; re-enabling applies state via onDidChangeConfiguration.
  */
 
 import * as vscode from 'vscode';
-import { DriftApiClient } from './api-client';
 import { AnnotationStore } from './annotations/annotation-store';
-import { GenerationWatcher } from './generation-watcher';
-import { ServerDiscovery } from './server-discovery';
-import { ServerManager } from './server-manager';
+import { DashboardPanel } from './dashboard/dashboard-panel';
 import { SchemaIntelligence } from './engines/schema-intelligence';
 import { QueryIntelligence } from './engines/query-intelligence';
-import { DashboardPanel } from './dashboard/dashboard-panel';
 import { updateStatusBar } from './status-bar';
 import { HealthStatusBar } from './status-bar-health';
 import { ToolsQuickPickStatusBar, registerToolsQuickPickCommand } from './status-bar-tools';
-import { hasFlutterOrDartDebugSession, tryAdbForwardAndRetry } from './android-forward';
 import { setupProviders } from './extension-providers';
 import { setupDiagnostics } from './extension-diagnostics';
 import { setupEditing } from './extension-editing';
 import { registerAllCommands } from './extension-commands';
+import { bootstrapExtension } from './extension-bootstrap';
 import { SchemaTracker } from './schema-timeline/schema-tracker';
 import { PackageStatusMonitor } from './workspace-setup/package-status-monitor';
 
 export function activate(context: vscode.ExtensionContext): void {
-  const cfg = vscode.workspace.getConfiguration('driftViewer');
-  const extensionEnabled = cfg.get<boolean>('enabled', true) !== false;
-  void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', extensionEnabled);
-
-  const host = cfg.get<string>('host', '127.0.0.1') ?? '127.0.0.1';
-  const port = cfg.get<number>('port', 8642) ?? 8642;
-
-  const client = new DriftApiClient(host, port);
-  const authToken = cfg.get<string>('authToken', '') ?? '';
-  if (authToken) client.setAuthToken(authToken);
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('driftViewer.authToken')) {
-        const token = vscode.workspace
-          .getConfiguration('driftViewer')
-          .get<string>('authToken', '') ?? '';
-        client.setAuthToken(token || undefined);
-      }
-    }),
-  );
-
-  const watcher = new GenerationWatcher(client);
-  const lastKnownPorts = context.workspaceState.get<number[]>('driftViewer.lastKnownPorts', []);
-  const discovery = new ServerDiscovery({
-    host,
-    portRangeStart: cfg.get<number>('discovery.portRangeStart', 8642) ?? 8642,
-    portRangeEnd: cfg.get<number>('discovery.portRangeEnd', 8649) ?? 8649,
-    additionalPorts: lastKnownPorts,
-  });
-  const connectionChannel = vscode.window.createOutputChannel('Saropa Drift Advisor');
-  context.subscriptions.push(connectionChannel);
-  discovery.setLog(connectionChannel);
-  watcher.setLog(connectionChannel);
-
-  const serverManager = new ServerManager(discovery, client, context.workspaceState);
-  serverManager.setShowLog(() => connectionChannel.show());
-  serverManager.setLog((msg) =>
-    connectionChannel.appendLine(`[${new Date().toISOString()}] ${msg}`),
-  );
-  const discoveryEnabled = cfg.get<boolean>('discovery.enabled', true) !== false;
-
-  if (!extensionEnabled) {
-    serverManager.clearActive();
-  } else {
-    if (discoveryEnabled) discovery.start();
-  }
-  context.subscriptions.push({ dispose: () => discovery.dispose() });
-  context.subscriptions.push({ dispose: () => serverManager.dispose() });
-
-  context.subscriptions.push(
-    discovery.onDidChangeServers((servers) => {
-      if (servers.length > 0) {
-        // Backup sync: ensure sidebar context reflects active server (ServerManager listener
-        // runs first, so activeServer is set by the time we run). Handles races where
-        // the view evaluated before onDidChangeActive or the context update was missed.
-        const active = serverManager.activeServer;
-        void vscode.commands.executeCommand(
-          'setContext',
-          'driftViewer.serverConnected',
-          active !== undefined,
-        );
-        return;
-      }
-      if (!hasFlutterOrDartDebugSession()) return;
-      void tryAdbForwardAndRetry(client.port, discovery, context.workspaceState);
-    }),
-  );
-
-  // When a Flutter/Dart debug session starts on an emulator, the server inside
-  // the app needs adb port-forwarding before the host can reach it. Wait a few
-  // seconds for the server to boot, then try adb forward if no server found.
-  // The timer handle is tracked so it can be cancelled on deactivation,
-  // preventing a stale callback from restarting the disposed discovery loop.
-  const ADB_FORWARD_DELAY_MS = 5000;
-  let adbForwardTimer: ReturnType<typeof setTimeout> | undefined;
-  context.subscriptions.push(
-    vscode.debug.onDidStartDebugSession((session) => {
-      const t = session.type?.toLowerCase() ?? '';
-      if (t !== 'dart' && t !== 'flutter') return;
-      // Cancel any pending timer from a previous session to avoid duplicates.
-      if (adbForwardTimer !== undefined) clearTimeout(adbForwardTimer);
-      adbForwardTimer = setTimeout(() => {
-        adbForwardTimer = undefined;
-        if (discovery.servers.length === 0) {
-          void tryAdbForwardAndRetry(client.port, discovery, context.workspaceState);
-        }
-      }, ADB_FORWARD_DELAY_MS);
-    }),
-  );
-  // Cancel pending adb-forward timer on deactivation to prevent polling leaks.
-  context.subscriptions.push({
-    dispose: () => {
-      if (adbForwardTimer !== undefined) {
-        clearTimeout(adbForwardTimer);
-        adbForwardTimer = undefined;
-      }
-    },
-  });
+  const {
+    client,
+    watcher,
+    discovery,
+    serverManager,
+    connectionChannel,
+    discoveryEnabled,
+    extensionEnabled,
+    cfg,
+  } = bootstrapExtension(context);
 
   // Session flag: only show the "Open Dashboard" prompt once per activation
   let dashboardPromptShown = false;

@@ -53,6 +53,8 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 • **Extension: 300-line limit compliance** — Ten TypeScript source files that exceeded the 300-line limit were modularized so all extension source files are now within the limit. New modules: `api-client-http.ts` (HTTP endpoint helpers), `server-discovery-constants.ts` / `server-discovery-scan.ts` / `server-discovery-notify.ts`, `debug-vm-connect.ts` (VM connect + health retry), `rollback-order.ts` / `rollback-dart.ts` / `rollback-helpers.ts` / `rollback-utils.ts`, `vm-service-api.ts` (VM extension method wrappers), `troubleshooting-styles.ts`. Test files split with shared helpers (`api-contract-helpers`, `compliance-checker-test-helpers`, `rollback-generator-test-helpers`, `schema-provider-test-helpers`) and additional test modules for API contract sessions, compliance rules/general, rollback ordering/Dart. No behavior changes; all 1810 tests pass.
 
+• **Extension: entry point under 300 lines** — `extension.ts` exceeded the limit; connection bootstrap (client, discovery, watcher, server manager, auth token listener, adb-forward on debug start) moved to `extension-bootstrap.ts`. Entry point now delegates to bootstrap then sets up providers, diagnostics, editing, and commands. Behavior unchanged; all tests pass.
+
 • **Web UI: merged connection status** — Header previously showed separate "Polling: ON/OFF" and "● Live" pills. A single connection-status control now shows **Live** | **Paused** | **Offline**. Tap toggles Live ↔ Paused when connected; when disconnected the control shows Offline and is disabled (Reconnecting… during retry). Tooltips and `aria-live="polite"` clarify state; opacity transition (0.2s) on state change.
 
 ---
@@ -63,7 +65,7 @@ Changelog version labels corrected so the right fixes are listed under the right
 
 ### Fixed
 
-• **Web UI: small interactive targets (BUG-010)** — Cell copy buttons, chart labels, and other small controls used 10px font and sub-24px tap targets, hurting usability on high-DPI and touch devices. All readable text is now at least 12px; interactive targets are at least 24×24px (pointer) and 44×44px on touch devices (WCAG 2.5.8). Copy button has a hover expansion effect and larger padding for easier tapping.
+• **Web UI: small interactive targets (BUG-010)** — Cell copy buttons, chart labels, and other small controls used 10px font and sub-24px tap targets, hurting usability on high-DPI and touch devices. All readable text now uses design token `--text-min-readable` (12px); interactive targets are at least 24×24px (pointer) and 44×44px on touch (WCAG 2.5.8). Copy button has a hover scale effect; breadcrumb and FK label use CSS classes instead of inline font-size.
 
 • **CHANGELOG version labeling** — The fix for "command driftViewer.refreshTree not found" [GitHub issue #7], drift_sqlite_async compatibility, Web UI redesign, Web viewer performance, and HTTP schema/diagram when polling off were previously under a duplicate [2.2.0] section. They are now correctly listed under [2.1.1]. Duplicate [2.2.0] block removed; [2.2.0] now contains only 2.2.0 changes.
 
