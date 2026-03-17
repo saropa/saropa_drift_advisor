@@ -17,7 +17,7 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
-## [Unreleased]
+## [2.4.0]
 
 ### Added
 
@@ -48,6 +48,8 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 • **Web UI: sidebar Export section** — Replaced the inline export toolbar in the sidebar with a brief note: "Export schema, dumps, and table data from the **Export** tab (toolbar button above)."
 
 ### Fixed
+
+• **Extension: Refresh command not found after second launch (issue #7)** — Added `onCommand:driftViewer.refreshTree` to activation events so the extension activates when the user invokes Refresh (e.g. from the Database view toolbar), fixing the case where the command was not yet registered on later app launches or when the view was restored before activation completed.
 
 • **Extension: Database toolbar and Dashboard command** — The Database view toolbar showed many icons in one row and was hard to scan. Primary actions (About, Open in Browser, Refresh, Health, Dashboard, Drift Tools menu) now stay in the main bar; Schema Docs, Import, Search, Bookmarks, Snippet Library, ER Diagram, Export, and Add Package move to the overflow (…) menu for discoverability. An activation event for `driftViewer.openDashboard` was added so the Dashboard toolbar button works when the extension activates on first use of that command (fixes "command 'driftViewer.openDashboard' not found").
 
