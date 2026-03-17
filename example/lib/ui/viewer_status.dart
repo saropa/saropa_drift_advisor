@@ -136,7 +136,7 @@ class ReadyView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'Browse tables, run read-only SQL, export schema/data, or download the raw .sqlite file.',
+          'Browse tables, run SQL, explore FK relationships and ER diagrams, import data, or download the .sqlite file.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

@@ -8,6 +8,10 @@ import 'package:saropa_drift_advisor/saropa_drift_advisor.dart';
 import 'database/app_database.dart';
 import 'ui/viewer_status.dart';
 
+/// Optional auth token for the Drift Advisor server.
+/// Set to a non-null value (e.g. 'demo-token') to require Bearer auth in the web UI.
+const String? _kExampleAuthToken = null;
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const ExampleApp());
@@ -113,31 +117,25 @@ class _HomePageState extends State<HomePage> {
   Future<ViewerInitResult> _initialize() async {
     final db = await AppDatabase.create();
 
-    // Seed sample data if the table is empty.
-    final countExp = db.items.id.count();
-    final existing = await (db.selectOnly(db.items)..addColumns([countExp]))
-        .map((row) => row.read(countExp) ?? 0)
-        .getSingle();
-    if (existing == 0) {
-      final now = DateTime.now();
-      await db.batch((batch) {
-        batch.insert(db.items,
-            ItemsCompanion.insert(title: 'First item', createdAt: now));
-        batch.insert(db.items,
-            ItemsCompanion.insert(title: 'Second item', createdAt: now));
-        batch.insert(db.items,
-            ItemsCompanion.insert(title: 'Third item', createdAt: now));
-      });
-    }
+    await _seedIfEmpty(db);
 
-    // Start Saropa Drift Advisor (debug only). Open http://127.0.0.1:8642 in a browser.
-    await DriftDebugServer.start(
-      query: (String sql) async {
-        final rows = await db.customSelect(sql).get();
-        return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
-      },
+    // Start the Drift Advisor using the extension method (recommended).
+    // This wires: query via customSelect, getDatabaseBytes, writeQuery for import, optional auth.
+    // Alternative (callback style): use DriftDebugServer.start(
+    //   query: (sql) async {
+    //     final rows = await db.customSelect(sql).get();
+    //     return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
+    //   },
+    //   writeQuery: (sql) => db.customStatement(sql),
+    //   getDatabaseBytes: () => File(db.dbPath).readAsBytes(),
+    //   authToken: _kExampleAuthToken,
+    //   ... );
+    await db.startDriftViewer(
       enabled: kDebugMode,
       getDatabaseBytes: () => File(db.dbPath).readAsBytes(),
+      // Enables Import (CSV/JSON/SQL) in the web UI; executes each statement via Drift.
+      writeQuery: (String sql) => db.customStatement(sql),
+      authToken: _kExampleAuthToken,
       onLog: DriftDebugErrorLogger.logCallback(prefix: 'DriftViewer'),
       onError: DriftDebugErrorLogger.errorCallback(prefix: 'DriftViewer'),
     );
@@ -150,5 +148,146 @@ class _HomePageState extends State<HomePage> {
       running: isRunning,
       url: isRunning ? Uri.parse('http://127.0.0.1:$runningPort') : null,
     );
+  }
+
+  /// Seeds users, posts, comments, and tags with realistic data when the DB is empty.
+  /// Demonstrates date formatting, nulls (draft posts), and various data types.
+  static Future<void> _seedIfEmpty(AppDatabase db) async {
+    final countExp = db.users.id.count();
+    final existing = await (db.selectOnly(db.users)..addColumns([countExp]))
+        .map((row) => row.read(countExp) ?? 0)
+        .getSingle();
+    if (existing > 0) return;
+
+    final now = DateTime.now();
+    final yesterday = now.subtract(const Duration(days: 1));
+    final lastWeek = now.subtract(const Duration(days: 7));
+
+    await db.batch((batch) {
+      batch.insertAll(db.users, [
+        UsersCompanion.insert(
+          email: 'alice@example.com',
+          displayName: 'Alice',
+          createdAt: lastWeek,
+        ),
+        UsersCompanion.insert(
+          email: 'bob@example.com',
+          displayName: 'Bob',
+          createdAt: lastWeek,
+        ),
+        UsersCompanion.insert(
+          email: 'charlie@example.com',
+          displayName: 'Charlie',
+          createdAt: yesterday,
+        ),
+      ]);
+    });
+
+    final users = await db.select(db.users).get();
+    final aliceId = _idForEmail(users, 'alice@example.com');
+    final bobId = _idForEmail(users, 'bob@example.com');
+    final charlieId = _idForEmail(users, 'charlie@example.com');
+
+    await db.batch((batch) {
+      batch.insertAll(db.posts, [
+        PostsCompanion.insert(
+          userId: aliceId,
+          title: 'Getting started with Drift',
+          body: 'Drift is a reactive persistence library for Dart.',
+          publishedAt: Value(lastWeek),
+          createdAt: lastWeek,
+        ),
+        PostsCompanion.insert(
+          userId: aliceId,
+          title: 'Draft: Advanced migrations',
+          body: 'Work in progress...',
+          publishedAt: const Value.absent(),
+          createdAt: yesterday,
+        ),
+        PostsCompanion.insert(
+          userId: bobId,
+          title: 'Schema design tips',
+          body: 'Use foreign keys for relationships.',
+          publishedAt: Value(yesterday),
+          createdAt: yesterday,
+        ),
+      ]);
+    });
+
+    final posts = await db.select(db.posts).get();
+    final post1Id = _postIdByTitleSubstring(posts, 'Getting started');
+    final post2Id = _postIdByTitleSubstring(posts, 'Schema');
+
+    await db.batch((batch) {
+      batch.insertAll(db.comments, [
+        CommentsCompanion.insert(
+          postId: post1Id,
+          userId: bobId,
+          body: 'Great intro!',
+          createdAt: lastWeek.add(const Duration(hours: 2)),
+        ),
+        CommentsCompanion.insert(
+          postId: post1Id,
+          userId: charlieId,
+          body: 'Helped me set up FKs.',
+          createdAt: yesterday,
+        ),
+        CommentsCompanion.insert(
+          postId: post2Id,
+          userId: aliceId,
+          body: 'Agree on using FKs.',
+          createdAt: now,
+        ),
+      ]);
+    });
+
+    await db.batch((batch) {
+      batch.insertAll(db.tags, [
+        TagsCompanion.insert(name: 'dart'),
+        TagsCompanion.insert(name: 'drift'),
+        TagsCompanion.insert(name: 'sql'),
+      ]);
+    });
+
+    final tags = await db.select(db.tags).get();
+    final dartId = _tagIdByName(tags, 'dart');
+    final driftId = _tagIdByName(tags, 'drift');
+    final sqlId = _tagIdByName(tags, 'sql');
+
+    await db.batch((batch) {
+      batch.insertAll(db.postTags, [
+        PostTagsCompanion.insert(postId: post1Id, tagId: dartId),
+        PostTagsCompanion.insert(postId: post1Id, tagId: driftId),
+        PostTagsCompanion.insert(postId: post2Id, tagId: sqlId),
+      ]);
+    });
+  }
+
+  static int _idForEmail(List<User> users, String email) {
+    return users
+        .firstWhere(
+          (u) => u.email == email,
+          orElse: () => throw StateError('Seed user "$email" not found'),
+        )
+        .id;
+  }
+
+  static int _postIdByTitleSubstring(List<Post> posts, String substring) {
+    return posts
+        .firstWhere(
+          (p) => p.title.contains(substring),
+          orElse: () =>
+              throw StateError('Seed post with title containing "$substring" not found'),
+        )
+        .id;
+  }
+
+  static int _tagIdByName(List<Tag> tags, String name) {
+    return tags
+        .firstWhere(
+          (t) => t.name == name,
+          orElse: () => throw StateError('Seed tag "$name" not found'),
+        )
+        .id;
   }
 }

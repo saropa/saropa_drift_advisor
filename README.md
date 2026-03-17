@@ -241,7 +241,7 @@ await DriftDebugServer.start(
 
 **Browser:** Open **http://127.0.0.1:8642** (on emulator, run `adb forward tcp:8642 tcp:8642` first).
 
-**Example app:** [example/](example/) — from repo root: `flutter run -d windows`, then connect via VS Code or browser. See [example/README.md](example/README.md).
+**Example app:** [example/](example/) — multi-table schema (users, posts, comments, tags) with FKs, Import, and opt-in auth. From repo root: `flutter run -d windows`, then connect via VS Code or browser. See [example/README.md](example/README.md).
 
 ### 4. View your data
 
