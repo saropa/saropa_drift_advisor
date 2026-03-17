@@ -163,22 +163,18 @@ class _DriftDebugServerImpl {
       // no per-line stack traces in the debug console. Uses stdout
       // instead of ctx.log() because dart:developer.log() attaches
       // expandable stack traces to every [log] entry.
-      final url = 'http://127.0.0.1:$port';
-      final urlLine = _bannerCentered(url);
-      final versionLine = _bannerCentered(
-        'v${ServerConstants.packageVersion}',
+      final title = _bannerCentered(
+        'DRIFT DEBUG SERVER   v${ServerConstants.packageVersion}',
       );
+      final desc = _bannerCentered(ServerConstants.bannerDescription);
+      final url = _bannerCentered('http://127.0.0.1:$port');
       stdout.writeln(
         '${ServerConstants.bannerTop}\n'
-        '${ServerConstants.bannerEmpty}\n'
-        '${ServerConstants.bannerTitle}\n'
-        '$versionLine\n'
-        '${ServerConstants.bannerEmpty}\n'
+        '$title\n'
         '${ServerConstants.bannerDivider}\n'
         '${ServerConstants.bannerEmpty}\n'
-        '${ServerConstants.bannerOpen}\n'
-        '${ServerConstants.bannerEmpty}\n'
-        '$urlLine\n'
+        '$desc\n'
+        '$url\n'
         '${ServerConstants.bannerEmpty}\n'
         '${ServerConstants.bannerBottom}',
       );
@@ -188,13 +184,13 @@ class _DriftDebugServerImpl {
   }
 
   /// Builds a banner line with [text] horizontally centered
-  /// between ║ borders, padded to [ServerConstants.bannerInnerWidth].
+  /// between │ borders, padded to [ServerConstants.bannerInnerWidth].
   static String _bannerCentered(String text) {
     final w = ServerConstants.bannerInnerWidth;
     final pad = (w - text.length) ~/ 2;
     final left = ' ' * pad;
     final right = ' ' * (w - pad - text.length);
-    return '║$left$text$right║';
+    return '│$left$text$right│';
   }
 
   /// The port the server is bound to, or null if not running.
