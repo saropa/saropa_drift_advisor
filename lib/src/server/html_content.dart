@@ -31,7 +31,7 @@ abstract final class HtmlContent {
   <header class="app-header">
     <div class="app-header-brand">
       <h1 class="app-title">Saropa Drift Adviser</h1>
-      <span id="version-badge" class="app-version meta" style="opacity:0;" title="Saropa Drift Advisor version"></span>
+      <a id="version-badge" class="app-version meta" style="opacity:0;" href="https://marketplace.visualstudio.com/items/Saropa.drift-viewer/changelog" target="_blank" rel="noopener noreferrer" title="View changelog"> </a>
     </div>
     <div class="app-header-actions">
       <button type="button" id="theme-toggle" class="header-btn" title="Toggle light/dark"><span class="material-symbols-outlined header-icon" aria-hidden="true">dark_mode</span><span id="theme-toggle-label">Theme</span></button>
@@ -237,7 +237,8 @@ abstract final class HtmlContent {
         <p class="meta">Compare this DB with another (e.g. staging). Requires queryCompare at startup.</p>
         <div class="toolbar">
           <button type="button" id="compare-view" title="Open full diff report in a new view">View diff report</button>
-          <a href="/api/compare/report?format=download" id="compare-export" title="Download diff report">Export diff report</a>
+          <!-- Export opens in new tab so the current DB diff view stays open; rel=noopener noreferrer for security -->
+          <a href="/api/compare/report?format=download" id="compare-export" target="_blank" rel="noopener noreferrer" title="Download diff report in a new tab">Export diff report</a>
           <button type="button" id="migration-preview" title="Generate SQL migration from diff">Migration Preview</button>
         </div>
         <p id="compare-status" class="meta"></p>
@@ -276,7 +277,7 @@ abstract final class HtmlContent {
           <div id="perf-collapsible" class="tool-panel-body">
         <p class="meta">Track query execution times, identify slow queries, and view patterns.</p>
         <div class="toolbar">
-          <button type="button" id="perf-refresh" title="Reload performance data">Refresh</button>
+          <button type="button" id="perf-refresh" title="Update performance data">Update</button>
           <button type="button" id="perf-clear" title="Clear performance history">Clear</button>
           <button type="button" id="perf-save" title="Save this result for later">Save result</button>
           <button type="button" id="perf-export" title="Download result as JSON">Export as JSON</button>

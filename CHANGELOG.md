@@ -33,6 +33,8 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 • **Web UI: Export as tab** — Export is now a toolbar button that opens a dedicated **Export** tab. The tab contains a short narrative explaining each option (Schema, Full dump, Database, Table CSV) and the same download links; sidebar shows a single line directing users to the Export tab. Export link IDs unchanged so existing JS (dump, database, CSV handlers) continues to work.
 
+• **SQL syntax highlighting** — Schema tab, Run SQL results, migration preview, Schema Diff panel, Compare report, and portable Report schema section now show SQL with basic syntax highlighting (keywords, strings, numbers, comments, identifiers). Implemented via a shared highlighter module (`extension/src/sql-highlight.ts` and `assets/web/sql-highlight.js`) used everywhere SQL is displayed.
+
 ### Changed
 
 • **Web UI: Export diff report in new tab** — The DB diff panel "Export diff report" link now opens in a new browser tab (`target="_blank"` with `rel="noopener noreferrer"`) so the current view stays open.

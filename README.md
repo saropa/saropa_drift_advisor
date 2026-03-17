@@ -30,7 +30,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 
 #### Data Browsing
 
-- **Tools toolbar and tabs** — Snapshot, DB diff, Index, Size, Perf, Health, Import, Schema, and Diagram open in full-width tabs from a top toolbar; Tables and Run SQL are fixed tabs.
+- **Tools toolbar and tabs** — Tables, Search, Snapshot, DB diff, Index, Size, Perf, Health, Import, Schema, Diagram, and Export: each toolbar button opens the corresponding tab (Tables and Search are fixed tabs; others are closeable). Toolbar and tab bar use clear visual styling (tabs show a border to content).
 - **Table list** with row counts
 - **View rows** as JSON with pagination (limit/offset)
 - **Client-side row filter** search with **result navigation** — Search options live behind the toolbar **Search** icon; a **Search** tab shows results in a dedicated panel. Auto-scroll to match, "X of Y" counter, Prev/Next buttons; keyboard shortcuts (Enter/Shift+Enter, Ctrl+G, Ctrl+F, Escape); active match highlight; collapsed sections expand when navigating to a match. **All rows / Matching** toggle when a row filter is set; **Schema** and **Table data** sections are collapsible in the Both view.
@@ -54,15 +54,16 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 
 #### Schema & Export
 
+- **SQL syntax highlighting** — Schema tab, migration preview, and SQL blocks (viewer and extension) show keywords, strings, numbers, and comments with basic highlighting
 - **Collapsible schema** panel with CREATE statements
 - **ER diagram** — tables and FK relationship lines; click or keyboard-navigate to view table data
-- **Export** — CSV per table, schema-only SQL, full dump (schema + data), raw SQLite file
+- **Export** — Toolbar button opens an Export tab with narrative and links: schema-only SQL, full dump (schema + data), raw SQLite file, Table CSV
 - **Portable report** — self-contained HTML file with all data, schema, and anomalies inlined; opens in any browser with zero dependencies
 
 #### Snapshots & Comparison
 
 - **Snapshot / time travel** — capture all table state, compare to current, export diff as JSON
-- **Database comparison** — diff vs another DB (schema match, row counts, migration preview DDL)
+- **Database comparison** — diff vs another DB (schema match, row counts, migration preview DDL); export diff report opens in a new tab so the current view stays open
 
 #### Live Features
 
@@ -79,7 +80,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 #### Performance & Analytics
 
 - **Query performance stats** — total queries, slow queries (>100 ms), patterns, recent queries
-- **Storage size analytics** — table sizes, indexes, journal mode
+- **Storage size analytics** — table sizes, indexes, journal mode; opening the Size tab runs analysis automatically
 
 #### Server Configuration
 
