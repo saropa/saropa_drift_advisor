@@ -18,6 +18,8 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
+  /* Horizontal padding for panels so content is not squashed against edges */
+  --panel-padding-x: 1.5rem;
 }
 
 body {
@@ -187,7 +189,7 @@ body.theme-light .header-pill.live {
   min-width: 0;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
-  padding: 1rem 1rem 2rem;
+  padding: 1rem var(--panel-padding-x) 2rem;
   overflow-y: auto;
   overflow-x: hidden;
   position: sticky;
@@ -208,159 +210,8 @@ body.theme-light .header-pill.live {
 .app-main-content {
   min-width: 0;
   min-height: 0;
-  padding: 1.25rem 1.5rem 2rem;
+  padding: 1.25rem var(--panel-padding-x) 2rem;
   background: var(--bg);
-  display: flex;
-  flex-direction: column;
-}
-
-/* --- Tools toolbar and tab system: tools open in full-width tabs. --- */
-.tools-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.toolbar-tool-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 0 0.65rem;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--fg);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
-}
-
-.toolbar-tool-btn:hover {
-  border-color: var(--link);
-  color: var(--link);
-  background: var(--bg-pre);
-}
-
-.toolbar-tool-btn:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 2px;
-}
-
-.toolbar-tool-btn .toolbar-icon {
-  font-size: 1.1rem;
-  margin-right: 0.35rem;
-}
-
-@media (max-width: 700px) {
-  .toolbar-tool-label {
-    display: none;
-  }
-  .toolbar-tool-btn .toolbar-icon {
-    margin-right: 0;
-  }
-}
-
-.tab-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.15rem;
-  margin-bottom: 0.5rem;
-  min-height: 36px;
-}
-
-.tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 32px;
-  padding: 0 0.75rem;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-}
-
-.tab-btn:hover {
-  color: var(--fg);
-  background: var(--surface);
-}
-
-.tab-btn.active {
-  color: var(--link);
-  background: var(--surface);
-  border-color: var(--border);
-}
-
-.tab-btn:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 2px;
-}
-
-.tab-btn-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  margin-left: 0.2rem;
-  font-size: 1rem;
-  line-height: 1;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  border-radius: 2px;
-  cursor: pointer;
-}
-
-.tab-btn-close:hover {
-  color: var(--fg);
-  background: rgba(128, 128, 128, 0.2);
-}
-
-.tab-panels {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.tab-panel {
-  display: none;
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  overflow: auto;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.tab-panel.active {
-  display: flex;
-  opacity: 1;
-}
-
-.tab-panel[hidden] {
-  display: none !important;
-}
-
-.tool-panel-body {
-  padding: 0.5rem 0;
-  max-width: 100%;
-}
-
-.tool-panel .diff-result {
-  max-height: 60vh;
 }
 
 /* --- Sidebar sections (visual grouping) --- */
@@ -423,7 +274,7 @@ body.theme-light .header-pill.live {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 0.85rem 1rem;
+  padding: 0.85rem 1.25rem;
   margin-bottom: 0.65rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -554,7 +405,7 @@ body.theme-light .feature-card.expanded {
 .table-list a {
   display: block;
   min-height: var(--tap-min);
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 0.85rem;
   border-radius: var(--radius-sm);
   color: var(--link);
   text-decoration: none;
@@ -945,30 +796,28 @@ body.theme-dark .search-bar select:focus {
   transition: opacity 0.2s ease;
 }
 
-#live-indicator {
+/* Single connection-status pill: Live | Paused | Offline; tap toggles Live ↔ Paused when connected. */
+#live-indicator.connection-status {
   font-size: 0.75rem;
   margin-left: 0.5rem;
+  cursor: pointer;
 }
 
-body.theme-dark #live-indicator {
+#live-indicator.connection-status:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+
+body.theme-dark #live-indicator.connection-status {
   color: #7cb342;
 }
 
-body.theme-light #live-indicator {
+body.theme-light #live-indicator.connection-status {
   color: #558b2f;
 }
 
-#polling-toggle {
-  cursor: pointer;
-  font-size: 11px;
-}
-
-#polling-toggle.polling-off {
+#live-indicator.connection-status.paused {
   opacity: 0.6;
-}
-
-#live-indicator.paused {
-  opacity: 0.5;
 }
 
 #diagram-container {
@@ -1088,7 +937,7 @@ body.theme-light #live-indicator {
 }
 
 /* Scroll container for data table: sticky headers, horizontal/vertical scroll.
-   overflow: scroll keeps scrollbars always visible (reserves track space). */
+   Scrollbars always visible (overflow: scroll). */
 .data-table-scroll-wrap {
   overflow: scroll;
   max-height: 70vh;

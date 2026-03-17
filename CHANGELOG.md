@@ -19,9 +19,13 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ### Fixed
 
+• **Extension: (i) icon and About/Save Filter commands** — Clicking the info icon on the Database section header could show "command driftViewer.aboutSaropa not found" if the extension had not yet finished activating. About and Save Current Filter are now wired so they always work: activation events for both about commands ensure the extension activates when the command is invoked; about commands are registered first (before other feature modules) so the (i) icon works even if a later module fails; and the previously contributed-but-unregistered `driftViewer.saveFilter` command now has a handler that opens the Data Viewer and directs users to the in-panel Save Filter control.
+
 • **Share modal and dialogs: newlines and ellipsis now render correctly** — The share prompt, "Copy to clipboard" alert, and "Sharing…" / "Extending…" button labels used double-escaped sequences (`\\n`, `\\u2026`) and showed literal `\n` or `\u2026` in the UI. All now use literal newlines and the Unicode ellipsis character so messages and loading states display as intended. CSV export and import were also corrected (row separators and newline-in-cell quoting use real newlines; CSV header split uses `\r?\n`).
 
 • **Sidebar stayed "No Drift debug server connected" despite discovery finding a server** — Discovery reported "Found servers on ports: 8642" and ServerManager auto-selected the server, but the `driftViewer.serverConnected` context could fail to reach the welcome view (e.g. view evaluated before context was set), so the Database sidebar kept showing the disconnected message. Now we sync the context when discovery fires with servers (backup sync after ServerManager’s listener), run a one-time 1.5 s delayed sync after activation so the view catches up if the first poll already found a server, and log "Selected server :port" to the Saropa Drift Advisor output channel when a server is auto-selected for diagnostics.
+
+• **Welcome-view buttons gave no user feedback** — The Database sidebar welcome content (Add Saropa Drift Advisor, Troubleshooting, Retry Connection, Forward Port, Select Server) ran commands with no visible response. Each button now shows an immediate information or error toast, appends a timestamped line to **Output → Saropa Drift Advisor**, and (for Retry, Forward Port, Add Package) reveals the output channel so users see that the action ran and can inspect discovery or adb output. Select Server reports success when connected or when the picker was dismissed.
 
 ### Added
 
@@ -40,6 +44,8 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 • **Web UI: Run SQL Explain and Saved queries** — Explain shows a single plain-English message (e.g. full table scan on table name, or index lookup) instead of raw EXPLAIN output. "Bookmarks" renamed to "Saved queries" throughout the Run SQL section (label, dropdown, prompts, alerts, export filename).
 
 • **Web UI: sidebar collapsible polish** — Removed the blue vertical accent line to the left of collapsible section headers (drift-enhanced.css). Expand/collapse arrow is now right-aligned and dimmed (opacity 0.4) until the header is hovered (0.9), with a 0.15s opacity transition (style.scss / style.css).
+
+• **Web UI: panel padding** — All main panels (sidebar, main content, feature cards, table list links) now use a shared design token `--panel-padding-x: 1.5rem` so content is no longer squashed against the left and right edges. Sidebar and main content use the token for horizontal padding; feature cards and table list links have slightly increased internal padding for consistency.
 
 • **Extension: 300-line limit compliance** — Ten TypeScript source files that exceeded the 300-line limit were modularized so all extension source files are now within the limit. New modules: `api-client-http.ts` (HTTP endpoint helpers), `server-discovery-constants.ts` / `server-discovery-scan.ts` / `server-discovery-notify.ts`, `debug-vm-connect.ts` (VM connect + health retry), `rollback-order.ts` / `rollback-dart.ts` / `rollback-helpers.ts` / `rollback-utils.ts`, `vm-service-api.ts` (VM extension method wrappers), `troubleshooting-styles.ts`. Test files split with shared helpers (`api-contract-helpers`, `compliance-checker-test-helpers`, `rollback-generator-test-helpers`, `schema-provider-test-helpers`) and additional test modules for API contract sessions, compliance rules/general, rollback ordering/Dart. No behavior changes; all 1810 tests pass.
 

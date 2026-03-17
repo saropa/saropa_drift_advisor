@@ -15,6 +15,8 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
+  /* Horizontal padding for panels so content is not squashed against edges */
+  --panel-padding-x: 1.5rem;
 }
 
 body {
@@ -185,7 +187,7 @@ body.theme-light .header-pill.live {
   min-width: 0;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
-  padding: 1rem 1rem 2rem;
+  padding: 1rem var(--panel-padding-x) 2rem;
   overflow-y: auto;
   overflow-x: hidden;
   position: sticky;
@@ -207,7 +209,7 @@ body.theme-light .header-pill.live {
 .app-main-content {
   min-width: 0;
   min-height: 0;
-  padding: 1.25rem 1.5rem 2rem;
+  padding: 1.25rem var(--panel-padding-x) 2rem;
   background: var(--bg);
 }
 
@@ -271,7 +273,7 @@ body.theme-light .header-pill.live {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 0.85rem 1rem;
+  padding: 0.85rem 1.25rem;
   margin-bottom: 0.65rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -399,7 +401,7 @@ body.theme-light .feature-card.expanded {
 .table-list a {
   display: block;
   min-height: var(--tap-min);
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 0.85rem;
   border-radius: var(--radius-sm);
   color: var(--link);
   text-decoration: none;
@@ -659,12 +661,19 @@ body.theme-dark .search-bar select:focus {
 .sql-runner .sql-error { color: #e57373; margin-top: 0.35rem; font-size: 0.875rem; }
 .sql-runner .sql-result, .sql-runner .sql-error { transition: opacity 0.15s ease; }
 .diff-result { transition: opacity 0.2s ease; }
-#live-indicator { font-size: 0.75rem; margin-left: 0.5rem; }
-body.theme-dark #live-indicator { color: #7cb342; }
-body.theme-light #live-indicator { color: #558b2f; }
-#polling-toggle { cursor: pointer; font-size: 11px; }
-#polling-toggle.polling-off { opacity: 0.6; }
-#live-indicator.paused { opacity: 0.5; }
+/* Single connection-status pill: Live | Paused | Offline; tap toggles Live ↔ Paused when connected. */
+#live-indicator.connection-status {
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  cursor: pointer;
+}
+#live-indicator.connection-status:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+body.theme-dark #live-indicator.connection-status { color: #7cb342; }
+body.theme-light #live-indicator.connection-status { color: #558b2f; }
+#live-indicator.connection-status.paused { opacity: 0.6; }
 #diagram-container { min-height: 200px; }
 .diagram-table rect { fill: var(--bg-pre); stroke: var(--border); stroke-width: 1.5; }
 .diagram-table:hover rect { stroke: var(--link); }

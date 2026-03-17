@@ -564,24 +564,28 @@
       }
     })();
 
-    // --- Live indicator integration ---
-    // When connected, defers to updatePollingUI(). When disconnected
-    // or reconnecting, overrides with connection status in red.
+    // --- Connection status integration ---
+    // When connected, defers to updatePollingUI() (Live/Paused). When disconnected
+    // or reconnecting, shows Offline state and disables the toggle.
     function updateLiveIndicatorForConnection() {
       var li = document.getElementById('live-indicator');
       if (!li) return;
       if (connectionState === 'connected') {
         li.classList.remove('disconnected', 'reconnecting');
+        li.disabled = false;
         updatePollingUI();
       } else if (connectionState === 'disconnected') {
-        li.textContent = '\u25cf Disconnected';
+        li.textContent = '\u25cf Offline';
         li.classList.add('disconnected');
         li.classList.remove('paused', 'reconnecting');
+        li.disabled = true;
+        li.title = 'Connection lost. Reconnect to toggle Live/Paused.';
       } else {
-        // 'reconnecting' class triggers a CSS pulse animation.
         li.textContent = '\u25cf Reconnecting\u2026';
         li.classList.add('disconnected', 'reconnecting');
         li.classList.remove('paused');
+        li.disabled = true;
+        li.title = 'Reconnecting…';
       }
     }
 
@@ -3796,9 +3800,8 @@
           setTimeout(pollGeneration, currentBackoffMs);
         });
     }
-    // --- Polling toggle ---
+    // --- Connection status: Live / Paused / Offline (single control, tap toggles Live ↔ Paused when connected) ---
     var pollingEnabled = true;
-    var pollingBtn = document.getElementById('polling-toggle');
     var liveIndicator = document.getElementById('live-indicator');
     // Read initial state from server on page load.
     fetch('/api/change-detection', authOpts())
@@ -3808,23 +3811,24 @@
         updatePollingUI();
       })
       .catch(function() { /* keep default ON */ });
+    /** Updates the single connection-status pill: Live, Paused, or Offline/Reconnecting when not connected. */
     function updatePollingUI() {
-      if (pollingBtn) {
-        pollingBtn.textContent = pollingEnabled ? 'Polling: ON' : 'Polling: OFF';
-        pollingBtn.classList.toggle('polling-off', !pollingEnabled);
-      }
-      // Only update the live indicator text when connected. When
-      // disconnected, updateLiveIndicatorForConnection() manages it.
-      if (liveIndicator && connectionState === 'connected') {
-        liveIndicator.textContent = pollingEnabled ? '● Live' : '● Paused';
+      if (!liveIndicator) return;
+      if (connectionState === 'connected') {
+        liveIndicator.textContent = pollingEnabled ? '\u25cf Live' : '\u25cf Paused';
         liveIndicator.classList.toggle('paused', !pollingEnabled);
+        liveIndicator.disabled = false;
+        liveIndicator.title = pollingEnabled
+          ? 'Live. Click to pause change detection.'
+          : 'Paused. Click to resume live updates.';
       }
+      // When disconnected, updateLiveIndicatorForConnection() sets text and disabled state.
     }
-    if (pollingBtn) {
-      pollingBtn.addEventListener('click', function() {
-        // Prevent double-clicks while the request is in flight.
-        pollingBtn.disabled = true;
-        pollingBtn.textContent = 'Polling...';
+    if (liveIndicator) {
+      liveIndicator.addEventListener('click', function() {
+        if (connectionState !== 'connected') return;
+        liveIndicator.disabled = true;
+        liveIndicator.textContent = '…';
         var newState = !pollingEnabled;
         fetch('/api/change-detection', Object.assign({}, authOpts(), {
           method: 'POST',
@@ -3840,16 +3844,9 @@
             console.error('Failed to toggle polling:', e);
           })
           .finally(function() {
-            // Re-enable the button and restore its label
-            // regardless of success or failure.
-            pollingBtn.disabled = false;
+            liveIndicator.disabled = false;
             updatePollingUI();
-            // Reflect connection state on the live indicator
-            // (updatePollingUI defers when disconnected).
             updateLiveIndicatorForConnection();
-            // When polling is turned OFF, start a slow keep-alive
-            // so we still detect disconnection. When turned ON,
-            // the normal pollGeneration loop handles monitoring.
             if (!pollingEnabled && connectionState === 'connected') {
               startKeepAlive();
             } else {
