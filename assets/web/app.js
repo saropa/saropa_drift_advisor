@@ -156,20 +156,6 @@
       if (card) card.classList.toggle('expanded', !collapsible.classList.contains('collapsed'));
     }
 
-    /**
-     * Registers a beforeunload handler so the browser shows a confirmation dialog
-     * when the user closes the tab, refreshes, or navigates away (e.g. back button).
-     * preventDefault() and returnValue are required for cross-browser support.
-     */
-    function setupNavigateAwayConfirmation() {
-      window.addEventListener('beforeunload', function (e) {
-        e.preventDefault();
-        e.returnValue = '';
-        return '';
-      });
-    }
-    setupNavigateAwayConfirmation();
-
     // --- Tab system: tools toolbar + tabbed content; tools open in full-width tabs. ---
     // Toolbar buttons open/switch to a tab; tool tabs are closeable; Tables and Run SQL are fixed.
     // Lazy load: Schema and Diagram fetch data on first tab switch (onTabSwitch).
