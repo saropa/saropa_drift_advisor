@@ -156,6 +156,7 @@
     var TOOL_LABELS = {
       tables: 'Tables',
       sql: 'Run SQL',
+      search: 'Search',
       snapshot: 'Snapshot',
       compare: 'DB diff',
       index: 'Index',
@@ -4681,9 +4682,10 @@
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d.version) {
-          // Show version badge in the page header.
+          // Show version badge in the page header (links to Marketplace changelog).
           var badge = document.getElementById('version-badge');
           badge.textContent = 'v' + d.version;
+          badge.title = 'v' + d.version + ' — View changelog';
           badge.style.opacity = '1';
 
           // Load enhanced CSS from jsDelivr CDN. The URL is pinned to the
