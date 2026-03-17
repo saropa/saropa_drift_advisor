@@ -19,6 +19,8 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ### Added
 
+- **Web UI assets on CDN (BUG-001)** — CSS and JavaScript extracted from inline Dart string into `assets/web/style.css` and `assets/web/app.js`; served via jsDelivr CDN with version pinning. `html_content.dart` reduced from ~4,200 lines to a ~227-line HTML shell. Consuming app binaries no longer embed ~143KB of static UI; CDN URLs use `ServerConstants.packageVersion` (requires matching git tag for CDN to serve).
+
 - **Extension test coverage (BUG-019)** — New unit tests for command handlers (dashboard open/save/load/delete, polling toggle), webview HTML (dashboard, health: structure, XSS escaping, empty state), API client (getChangeDetection/setChangeDetection and error paths), and Tools tree provider (categories, connection state, Add Package visibility). Extension disposable count assertion updated to 173.
 - **Example app: multi-table schema and full feature demo (BUG-021)** — example uses 5 tables (users, posts, comments, tags, post_tags) with foreign keys for ER diagram and FK navigation demos; `writeQuery` configured for Import; opt-in auth token (`_kExampleAuthToken`); startup via `startDriftViewer()` with callback-style alternative in comments; seed data with dates, nulls (draft posts), and varied types
 - **CSV column mapping in Import (Web UI)** — when importing CSV, the UI shows a mapping step: each CSV header can be mapped to a table column or skipped. Headers no longer need to match table column names exactly. Optional `columnMapping` in POST /api/import (object: CSV header → table column); duplicate table columns resolve with last mapping wins (BUG-007 item 1)

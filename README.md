@@ -88,6 +88,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Session duration** — optional `sessionDuration` (e.g. 1 hour) for shared session URLs
 - **Rate limiting** — optional `maxRequestsPerSecond`; 429 with `Retry-After` when exceeded; long-poll and health endpoints exempt
 - **Health** — `GET /api/health` → `{"ok": true}`
+- **Web UI assets** — CSS and JS are loaded from jsDelivr CDN (version-pinned to the package release); a matching git tag must exist for the CDN to serve them
 
 #### API Reference
 
