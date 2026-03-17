@@ -24,6 +24,7 @@ import { setupDiagnostics } from './extension-diagnostics';
 import { setupEditing } from './extension-editing';
 import { registerAllCommands } from './extension-commands';
 import { SchemaTracker } from './schema-timeline/schema-tracker';
+import { PackageStatusMonitor } from './workspace-setup/package-status-monitor';
 
 export function activate(context: vscode.ExtensionContext): void {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
@@ -114,8 +115,23 @@ export function activate(context: vscode.ExtensionContext): void {
   // Session flag: only show the "Open Dashboard" prompt once per activation
   let dashboardPromptShown = false;
 
+  // Monitor pubspec.yaml for package presence and version. Runs independently
+  // of the master switch because the "Add Package" button visibility should
+  // always reflect the actual pubspec state.
+  const packageMonitor = new PackageStatusMonitor();
+  packageMonitor.start();
+  context.subscriptions.push(packageMonitor);
+
   const annotationStore = new AnnotationStore(context.workspaceState);
   const providers = setupProviders(context, client, annotationStore);
+
+  // Sync package-installed state to the Drift Tools sidebar so the
+  // "Add Package" tree item hides when the package is already in pubspec.
+  context.subscriptions.push(
+    packageMonitor.onDidChangeInstalled((installed) => {
+      providers.toolsProvider.setPackageInstalled(installed);
+    }),
+  );
 
   // Schema intelligence engines for diagnostics and code actions.
   const schemaIntel = new SchemaIntelligence(client);

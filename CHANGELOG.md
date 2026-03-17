@@ -15,6 +15,22 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [1.6.2]
+
+Smart package lifecycle management: the extension now detects whether the Dart package is already in your project and hides redundant setup prompts.
+
+### Added
+
+- **Package upgrade detection** — On activation the extension checks pub.dev for newer versions of `saropa_drift_advisor`. If the workspace pubspec.yaml has an older constraint, an upgrade notification offers a one-click update (rewrites the constraint and runs `pub get`). Checks are throttled to once per hour; network errors are silently ignored.
+- **Conditional "Add Package" button** — The "Add Saropa Drift Advisor" button, welcome view link, and tools tree item are now hidden when the package is already present in pubspec.yaml. A new context key `driftViewer.packageInstalled` drives all three locations.
+- **Pubspec file watcher** — A `PackageStatusMonitor` watches `pubspec.yaml` for changes and keeps the installed-state UI in sync automatically.
+
+### Fixed
+
+- **Server banner invisible on Android emulator** — The startup banner used `stdout.writeln()`, which writes to the native process stdout — invisible on Android because Flutter only intercepts `print()`/Zone output. Switched to `print()` (with `// ignore: avoid_print`) so the banner appears as clean `I/flutter` lines, matching Isar Inspector's banner style.
+
+---
+
 ## [1.6.1]
 
 Project gets contributor-facing documentation, GitHub templates, pub.dev discoverability fields, and comprehensive Dart test coverage.
