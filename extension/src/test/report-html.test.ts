@@ -2,6 +2,9 @@ import * as assert from 'assert';
 import { buildReportHtml } from '../report/report-html';
 import type { IReportData } from '../report/report-types';
 
+/** Max chars to slice for "schema section only" assertions (avoids matching data tab). */
+const SCHEMA_SECTION_SLICE_LENGTH = 1500;
+
 function sampleData(overrides: Partial<IReportData> = {}): IReportData {
   return {
     generatedAt: '2026-03-14T10:00:00.000Z',
@@ -119,7 +122,25 @@ describe('buildReportHtml', () => {
     });
     const html = buildReportHtml(data);
     assert.ok(html.includes('id="section-schema"'));
-    assert.ok(html.includes('CREATE TABLE'));
+    const schemaStart = html.indexOf('id="section-schema"');
+    const schemaSlice = html.slice(schemaStart, schemaStart + SCHEMA_SECTION_SLICE_LENGTH);
+    assert.ok(schemaSlice.includes('users'), 'schema section should contain table name');
+    // highlightSql wraps keywords in <span>s, so "CREATE TABLE" is not a literal substring
+    assert.ok(schemaSlice.includes('CREATE') && schemaSlice.includes('TABLE'), 'schema SQL (CREATE TABLE) should be present in section');
+  });
+
+  it('should render schema section with defensive fallbacks for missing table or empty sql', () => {
+    const data = sampleData({
+      schema: [
+        { table: '', sql: 'CREATE TABLE "x" (id INT);' },
+        { table: 't2', sql: '' },
+      ],
+    });
+    const html = buildReportHtml(data);
+    assert.ok(html.includes('id="section-schema"'));
+    assert.ok(html.includes('(unnamed)'), 'empty table name should show (unnamed)');
+    assert.ok(html.includes('CREATE') && html.includes('TABLE'), 'SQL should be present');
+    assert.ok(html.includes('t2'), 'second table name should be present');
   });
 
   it('should omit schema section when schema is undefined', () => {

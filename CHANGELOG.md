@@ -59,6 +59,8 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 • **Extension: Schema Search never resolves** — The Schema Search sidebar could hang on "Searching…" when the initial empty query matched many tables/columns (hundreds of sequential FK API calls) or when the server was slow/unreachable. Search now has a 15s timeout and shows a clear error message on timeout or failure; cross-reference building is skipped when there are more than 80 matches so the panel resolves quickly. Loading state uses a pulse animation; errors are shown in the panel so the view always reaches a resolved state.
 
+• **Portable report: schema section test and defensive handling** — The "include schema section when schema is provided" test failed because the SQL highlighter wraps keywords in `<span>`s, so the literal substring "CREATE TABLE" never appears. Test now asserts on content within the schema section slice and on CREATE/TABLE separately. Report HTML builder now guards against null/empty schema array, missing or empty table name (shows "(unnamed)"), non-string or empty sql, and falls back to escaped plain SQL when the highlighter returns empty so schema content is never dropped. Anomaly section uses the same null/empty guard for consistency.
+
 ---
 
 ## [2.3.0]

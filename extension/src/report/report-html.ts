@@ -80,18 +80,27 @@ function buildNavTabs(data: IReportData): string {
   return html;
 }
 
+/**
+ * Renders the schema tab content: one block per table with highlighted SQL.
+ * Defensive: null/empty schema array; missing/empty table name → "(unnamed)";
+ * non-string or empty sql → safe empty; if highlightSql returns empty for non-empty sql, fall back to escaped plain text.
+ */
 function buildSchemaSection(schemas: IReportSchema[]): string {
-  if (schemas.length === 0) {
+  if (!schemas || schemas.length === 0) {
     return '<div id="section-schema" style="display:none"><p class="empty">No schema data available.</p></div>';
   }
-  const items = schemas.map((s) =>
-    `<div class="schema-item"><h3>${esc(s.table)}</h3><pre><code>${highlightSql(s.sql)}</code></pre></div>`,
-  ).join('\n');
+  const items = schemas.map((s) => {
+    const tableName = typeof s.table === 'string' && s.table.length > 0 ? s.table : '(unnamed)';
+    const rawSql = typeof s.sql === 'string' ? s.sql : '';
+    const codeHtml = highlightSql(rawSql);
+    const safeCode = codeHtml.length > 0 ? codeHtml : esc(rawSql);
+    return `<div class="schema-item"><h3>${esc(tableName)}</h3><pre><code>${safeCode}</code></pre></div>`;
+  }).join('\n');
   return `<div id="section-schema" style="display:none">${items}</div>`;
 }
 
 function buildAnomalySection(anomalies: Anomaly[]): string {
-  if (anomalies.length === 0) {
+  if (!anomalies || anomalies.length === 0) {
     return '<div id="section-anomalies" style="display:none"><p class="empty">No anomalies detected.</p></div>';
   }
   const items = anomalies.map((a) => {
