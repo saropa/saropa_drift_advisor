@@ -133,6 +133,12 @@ td { max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
   font-size: 12px; line-height: 1.6; margin: 0;
   border: 1px solid var(--border);
 }
+.schema-item pre .sql-kw { color: #569cd6; font-weight: 600; }
+.schema-item pre .sql-str { color: #ce9178; }
+.schema-item pre .sql-num { color: #b5cea8; }
+.schema-item pre .sql-cmt { color: #6a9955; font-style: italic; }
+.schema-item pre .sql-id { color: #9cdcfe; }
+.schema-item pre .sql-plain { color: inherit; }
 .anomaly {
   display: flex; align-items: flex-start; gap: 8px;
   padding: 8px 12px; border-radius: 4px; margin-bottom: 6px;

@@ -1,5 +1,6 @@
 import type { Anomaly } from '../api-types';
 import type { IReportData, IReportSchema } from './report-types';
+import { highlightSql } from '../sql-highlight';
 import { getReportCss } from './report-css';
 import { getReportJs } from './report-scripts';
 
@@ -84,7 +85,7 @@ function buildSchemaSection(schemas: IReportSchema[]): string {
     return '<div id="section-schema" style="display:none"><p class="empty">No schema data available.</p></div>';
   }
   const items = schemas.map((s) =>
-    `<div class="schema-item"><h3>${esc(s.table)}</h3><pre><code>${esc(s.sql)}</code></pre></div>`,
+    `<div class="schema-item"><h3>${esc(s.table)}</h3><pre><code>${highlightSql(s.sql)}</code></pre></div>`,
   ).join('\n');
   return `<div id="section-schema" style="display:none">${items}</div>`;
 }

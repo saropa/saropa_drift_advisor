@@ -39,6 +39,8 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ### Changed
 
+• **Web UI: Snapshot compare results in a table** — Compare-to-now results are shown in a summary table (columns: Table | Then | Now | Status) for easier scanning; per-table detail for added/removed/changed rows appears below when present. Result container is a scrollable div with opacity transition; loading state shows "Comparing…" and `aria-busy` for accessibility. Clearing a snapshot or starting a new compare clears the previous result.
+
 • **Web UI: Export diff report in new tab** — The DB diff panel "Export diff report" link now opens in a new browser tab (`target="_blank"` with `rel="noopener noreferrer"`) so the current view stays open.
 
 • **Web UI: sidebar Export section** — Replaced the inline export toolbar in the sidebar with a brief note: "Export schema, dumps, and table data from the **Export** tab (toolbar button above)."

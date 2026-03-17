@@ -82,6 +82,12 @@
       return d.innerHTML;
     }
 
+    /** SQL syntax highlighting for schema and SQL blocks; uses sql-highlight.js when loaded. */
+    function highlightSqlSafe(sql) {
+      if (sql == null) return '';
+      return (typeof window.sqlHighlight === 'function' && window.sqlHighlight(sql)) || esc(sql);
+    }
+
     // --- PII masking (BUG-015): user toggle; column heuristics; mask in table view and exports. ---
     /** Whether the "Mask sensitive data" header toggle is checked. */
     function isPiiMaskEnabled() {
@@ -1526,7 +1532,7 @@
       if (!pre) return;
       fetch('/api/schema', authOpts()).then(r => r.text()).then(function(schema) {
         cachedSchema = schema;
-        pre.textContent = schema;
+        pre.innerHTML = highlightSqlSafe(schema);
       }).catch(function() { pre.textContent = 'Failed to load.'; });
     }
 
@@ -1923,7 +1929,7 @@
             var html = '<p class="meta">' + o.data.changeCount + ' statement(s) generated';
             if (o.data.hasWarnings) html += ' (includes warnings)';
             html += '</p>';
-            html += '<pre style="font-size:11px;max-height:30vh;overflow:auto;background:var(--bg-pre);padding:0.5rem;border-radius:4px;">' + esc(sql) + '</pre>';
+            html += '<pre style="font-size:11px;max-height:30vh;overflow:auto;background:var(--bg-pre);padding:0.5rem;border-radius:4px;">' + highlightSqlSafe(sql) + '</pre>';
             html += '<button type="button" id="migration-copy-sql" title="Copy migration SQL to clipboard">Copy SQL</button>';
             resultPre.innerHTML = html;
             resultPre.style.display = 'block';
@@ -3150,7 +3156,7 @@
       if (scope === 'both') {
         container.innerHTML = '<div class="search-section-collapsible expanded">' +
           '<div class="collapsible-header" data-collapsible>Schema</div>' +
-          '<div class="collapsible-body"><pre id="schema-pre">' + esc(schema) + '</pre></div>' +
+          '<div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
           '</div>' +
           '<div class="search-section-collapsible expanded" id="both-data-section">' +
           '<div class="collapsible-header" data-collapsible>Table data</div>' +
@@ -3171,7 +3177,7 @@
           if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(currentTableName)));
         }
       } else {
-        container.innerHTML = '<p class="meta">Schema</p><pre id="content-pre">' + esc(schema) + '</pre>';
+        container.innerHTML = '<p class="meta">Schema</p><pre id="content-pre">' + highlightSqlSafe(schema) + '</pre>';
       }
     }
 
@@ -3181,7 +3187,7 @@
     function buildBothViewSectionsHtml(tableName, metaText, qbHtml, tableHtml, schema) {
       return '<div class="search-section-collapsible expanded">' +
         '<div class="collapsible-header" data-collapsible>Schema</div>' +
-        '<div class="collapsible-body"><pre id="schema-pre">' + esc(schema) + '</pre></div>' +
+        '<div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
         '</div>' +
         '<div class="search-section-collapsible expanded" id="both-data-section">' +
         '<div class="collapsible-header" data-collapsible>Table data: ' + esc(tableName) + '</div>' +
@@ -3212,7 +3218,7 @@
         }
         content.innerHTML = '<div class="search-section-collapsible expanded">' +
           '<div class="collapsible-header" data-collapsible>Schema</div>' +
-          '<div class="collapsible-body"><pre id="schema-pre">' + esc(schema) + '</pre></div>' +
+          '<div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
           '</div>' +
           '<div class="search-section-collapsible expanded" id="both-data-section">' +
           '<div class="collapsible-header" data-collapsible>Table data</div>' +

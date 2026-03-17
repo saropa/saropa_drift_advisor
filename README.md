@@ -62,7 +62,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 
 #### Snapshots & Comparison
 
-- **Snapshot / time travel** — capture all table state, compare to current, export diff as JSON
+- **Snapshot / time travel** — capture all table state, compare to current, export diff as JSON. Compare results appear in a summary table (Table | Then | Now | Status) with optional row-level detail for added/removed/changed rows.
 - **Database comparison** — diff vs another DB (schema match, row counts, migration preview DDL); export diff report opens in a new tab so the current view stays open
 
 #### Live Features

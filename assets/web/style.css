@@ -758,6 +758,14 @@ pre {
   border: 1px solid var(--border);
 }
 
+/* SQL syntax highlighting (schema, Run SQL result, migration preview) */
+pre .sql-kw { color: var(--sql-kw, #569cd6); font-weight: 600; }
+pre .sql-str { color: var(--sql-str, #ce9178); }
+pre .sql-num { color: var(--sql-num, #b5cea8); }
+pre .sql-cmt { color: var(--sql-cmt, #6a9955); font-style: italic; }
+pre .sql-id { color: var(--sql-id, #9cdcfe); }
+pre .sql-plain { color: inherit; }
+
 .meta {
   color: var(--muted);
   font-size: 0.875rem;

@@ -1,4 +1,5 @@
 import type { ICompareReport } from '../api-types';
+import { highlightSql, sqlHighlightCss } from '../sql-highlight';
 
 /** Build the HTML for the database comparison webview panel. */
 export function buildCompareHtml(report: ICompareReport): string {
@@ -10,8 +11,8 @@ export function buildCompareHtml(report: ICompareReport): string {
     ? `<details class="schema-diff">
         <summary>Schema Diff</summary>
         <div class="diff-pair">
-          <div><h4>Database A</h4><pre>${esc(report.schemaDiff.a)}</pre></div>
-          <div><h4>Database B</h4><pre>${esc(report.schemaDiff.b)}</pre></div>
+          <div><h4>Database A</h4><pre>${highlightSql(report.schemaDiff.a)}</pre></div>
+          <div><h4>Database B</h4><pre>${highlightSql(report.schemaDiff.b)}</pre></div>
         </div>
        </details>`
     : '';
@@ -67,6 +68,7 @@ export function buildCompareHtml(report: ICompareReport): string {
   .diff-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   pre { white-space: pre-wrap; font-size: 12px;
         background: var(--vscode-textCodeBlock-background); padding: 8px; }
+  ${sqlHighlightCss}
   h3 { margin-top: 16px; }
   ul { margin: 4px 0; }
   .footer { margin-top: 16px; font-size: 11px; opacity: 0.7; }

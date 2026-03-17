@@ -10,6 +10,7 @@ import {
 } from './schema-diff';
 import { IDartTable } from './dart-schema';
 import { TableMetadata } from '../api-client';
+import { highlightSql, sqlHighlightCss } from '../sql-highlight';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -114,7 +115,7 @@ function renderSqlBlock(title: string, action: string, sql: string): string {
   return `<h3>${esc(title)}</h3>`
     + `<div class="toolbar"><button class="copy-btn" data-action="${esc(action)}">`
     + `Copy ${esc(title)}</button></div>`
-    + `<pre class="sql-block">${esc(sql)}</pre>`;
+    + `<pre class="sql-block">${highlightSql(sql)}</pre>`;
 }
 
 /** Build self-contained HTML for the schema diff panel. */
@@ -211,6 +212,7 @@ function wrapHtml(body: string): string {
   .copy-btn { background:var(--vscode-button-background,#0e639c); color:var(--vscode-button-foreground,#fff); border:none; padding:4px 10px; border-radius:3px; cursor:pointer; font-size:12px; }
   .copy-btn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
   .sql-block { background:var(--vscode-editor-inactiveSelectionBackground,#333); padding:8px 12px; border-radius:4px; font-family:var(--vscode-editor-font-family,monospace); font-size:13px; white-space:pre-wrap; word-break:break-word; }
+  ${sqlHighlightCss}
   details { margin: 4px 0; padding: 8px 12px; border-radius: 4px; }
   summary { cursor:pointer; font-family:var(--vscode-editor-font-family,monospace); font-size:13px; }
   .row-ok { border-left: 4px solid #28a745; background: rgba(40,167,69,0.08); }
