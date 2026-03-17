@@ -2138,7 +2138,7 @@
         runBtn.disabled = !hasFile || !table;
         if (hasFile && previewEl) {
           previewEl.style.display = 'block';
-          previewEl.textContent = importFileData.length > 2000 ? importFileData.slice(0, 2000) + '\\n…' : importFileData;
+          previewEl.textContent = importFileData.length > 2000 ? importFileData.slice(0, 2000) + '\n…' : importFileData;
         }
         var fmt = formatSel && formatSel.value;
         if (fmt === 'csv' && hasFile && importCsvHeaders.length > 0) {
@@ -2166,7 +2166,7 @@
             if (typeof importFileData !== 'string') importFileData = null;
             importCsvHeaders = [];
             if (importFileData && (formatSel && formatSel.value) === 'csv') {
-              var firstLine = importFileData.split(/\\r?\\n/)[0] || '';
+              var firstLine = importFileData.split(/\r?\n/)[0] || '';
               importCsvHeaders = parseCsvHeaderLine(firstLine);
             }
             updateImportState();
@@ -2177,7 +2177,7 @@
 
       if (formatSel) formatSel.addEventListener('change', function() {
         if (this.value === 'csv' && importFileData) {
-          var firstLine = importFileData.split(/\\r?\\n/)[0] || '';
+          var firstLine = importFileData.split(/\r?\n/)[0] || '';
           importCsvHeaders = parseCsvHeaderLine(firstLine);
         } else importCsvHeaders = [];
         updateImportState();
@@ -2251,9 +2251,9 @@
           const v = row[k];
           if (v == null) return '';
           const s = String(v);
-          return s.includes(',') || s.includes('"') || s.includes('\\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+          return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
         }).join(',');
-        const csv = [keys.join(','), ...currentTableJson.map(rowToCsv)].join('\\n');
+        const csv = [keys.join(','), ...currentTableJson.map(rowToCsv)].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -3158,7 +3158,10 @@
       navigateToFk(link.dataset.table, link.dataset.column, link.dataset.value);
     });
 
-    /** Double-tap (dblclick) on a data-table cell opens popup with full value and Copy button. */
+    /**
+     * Opens the cell-value popup with full (untruncated) value and column name.
+     * Used on double-click of a data-table cell; popup has Copy and Close, Escape to close.
+     */
     function showCellValuePopup(rawValue, columnKey) {
       var popup = document.getElementById('cell-value-popup');
       var textEl = document.getElementById('cell-value-popup-text');
@@ -3198,6 +3201,9 @@
       closeBtn.addEventListener('click', hideCellValuePopup);
       popup.addEventListener('click', function(e) {
         if (e.target === popup) hideCellValuePopup();
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && popup.classList.contains('show')) hideCellValuePopup();
       });
     })();
 
@@ -3978,8 +3984,8 @@
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(shareUrl)
           .then(function () {
-            alert('Share URL copied to clipboard!\\n\\n' + shareUrl +
-              '\\n\\nExpires: ' + new Date(expiresAt).toLocaleString());
+            alert('Share URL copied to clipboard!\n\n' + shareUrl +
+              '\n\nExpires: ' + new Date(expiresAt).toLocaleString());
           })
           .catch(function () {
             prompt('Copy this share URL:', shareUrl);
@@ -3990,6 +3996,7 @@
     }
 
     function createShareSession() {
+      // Use literal newlines so the native prompt() shows line breaks in the message.
       var note = prompt('Add a note for your team (optional):\n\nSession will expire in 1 hour.');
       if (note === null) return;
       var btn = document.getElementById('share-btn');
@@ -4139,7 +4146,7 @@
       var extBtn = document.getElementById('session-extend-btn');
       if (extBtn) {
         extBtn.disabled = true;
-        extBtn.textContent = 'Extending\\u2026';
+        extBtn.textContent = 'Extending\u2026';
       }
 
       fetch('/api/session/' + encodeURIComponent(currentSessionId) + '/extend',

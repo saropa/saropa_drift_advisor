@@ -10,7 +10,7 @@ All 6 requirements implemented:
 2. **Expiry warning** — yellow banner when under 10 minutes, faster countdown cadence
 3. **Expired URL banner** — red "Session Expired" banner replaces silent console.warn
 4. **Extend button** — resets expiry via POST `/api/session/{id}/extend`
-5. **Share dialog** — prompt now mentions "Session will expire in 1 hour"
+5. **Share dialog** — prompt now mentions "Session will expire in 1 hour" (follow-up: prompt and copy alert newlines fixed to render in modal, not as literal `\n`)
 6. **Configurable duration** — `sessionDuration` parameter on `DriftDebugServer.start()`
 
 ## Files Changed
