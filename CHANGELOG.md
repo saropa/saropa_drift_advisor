@@ -15,6 +15,21 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [Unreleased]
+
+Web UI now shows the server version and has a proper favicon.
+
+### Added
+
+- **Version badge in web UI header** — The page header now displays the Drift Advisor version (e.g. "v1.5.0") fetched from the `/api/health` endpoint, so users can verify which server version is running. The health endpoint now includes a `version` field.
+- **Favicon** — Added an inline SVG database-cylinder favicon via `<link rel="icon">` data URI in the HTML head, and a lightweight 204 No Content route for `/favicon.ico` requests to silence browser console 404s.
+
+### Fixed
+
+- **Query builder LIKE operators caused JS syntax error** — The Dart `'''` string escape `"\"` was consumed by Dart as an escaped double-quote, producing `""` in the served JavaScript. This broke `LIKE`, `NOT LIKE`, and `LIKE_START` operator conditions in the query builder with `Uncaught SyntaxError: missing ) after argument list`. Fixed by using `"\\"` so Dart emits `\"` (a valid JS string escape).
+
+---
+
 ## [1.5.0]
 
 The extension couldn't connect to running servers and now has an About button for easy access to release notes.
@@ -28,8 +43,6 @@ The extension couldn't connect to running servers and now has an About button fo
 ### Fixed
 
 - **Server discovery rejected valid servers** — The secondary validation in `ServerDiscovery._validateServer` checked `Array.isArray(data)` on the `/api/schema/metadata` response, but the server returns `{ tables: [...] }` (an object wrapping the array). Health checks passed but every server was then silently rejected, preventing the extension from ever connecting. Now accepts both raw array and wrapped `{ tables: [...] }` formats.
-- **Query builder LIKE operators caused JS syntax error** — The Dart `'''` string escape `"\"` was consumed by Dart as an escaped double-quote, producing `""` in the served JavaScript. This broke `LIKE`, `NOT LIKE`, and `LIKE_START` operator conditions in the query builder with `Uncaught SyntaxError: missing ) after argument list`. Fixed by using `"\\"` so Dart emits `\"` (a valid JS string escape).
-- **Browser console 404 for `/favicon.ico`** — Added an inline SVG database-cylinder favicon via `<link rel="icon">` data URI in the HTML head, and a lightweight 204 No Content route for `/favicon.ico` requests.
 - **VM Service connection too impatient for emulator debugging** — The original `tryConnectVm` made only 2 quick attempts with 500ms delay, but on Android emulators the Drift debug server typically needs 5–15 seconds after VM Service is available before its extension methods are registered. Rewrote as a two-phase approach: Phase 1 connects the WebSocket (2 quick attempts — the VM port is auto-forwarded by Flutter); Phase 2 patiently polls health with increasing delays (500ms → 1s → 2s → 3s → 5s, ~30s total) while the app initializes. Includes a concurrency guard to prevent concurrent connection attempts.
 - **Core debug commands silently failed to register** — `registerDebugCommands` (which wires VM Service lifecycle, debug session listeners, and server connectivity) was the last call in `registerAllCommands`. If any preceding feature module threw during registration, the entire function aborted and the core connection logic never ran — silently. Discovery kept scanning ports, but no VM Service handlers were registered, producing the symptom of 17+ minutes of only port-scan output with zero VM connection attempts. Fixed by calling `registerDebugCommands` first and wrapping each of the 27 feature modules in individual try/catch blocks so one failing module cannot take down the rest.
 

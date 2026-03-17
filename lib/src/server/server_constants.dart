@@ -81,6 +81,11 @@ abstract final class ServerConstants {
   static const String pathApiImportAlt = 'api/import';
   static const String pathFavicon = '/favicon.ico';
   static const String pathFaviconAlt = 'favicon.ico';
+
+  /// Package version displayed in the web UI and health endpoint.
+  /// Must be kept in sync with pubspec.yaml.
+  static const String packageVersion = '1.5.0';
+  static const String jsonKeyVersion = 'version';
   static const String queryParamLimit = 'limit';
   static const String queryParamOffset = 'offset';
   static const String queryParamSince = 'since';
@@ -151,16 +156,20 @@ abstract final class ServerConstants {
   static const String sqlTableNames =
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
 
+  /// Banner box interior width (between the left and right ║).
+  static const int bannerInnerWidth = 62;
+
   /// Banner (no_magic_string).
   static const String bannerTop =
       '╔══════════════════════════════════════════════════════════════╗';
   static const String bannerTitle =
-      '║                   DRIFT DEBUG SERVER                         ║';
+      '║                      DRIFT DEBUG SERVER                      ║';
   static const String bannerDivider =
       '╟──────────────────────────────────────────────────────────────╢';
   static const String bannerOpen =
-      '║  Open in browser to view SQLite/Drift data as JSON:           ║';
-  static const String bannerUrlPrefix = '║  http://127.0.0.1:';
+      '║     Open in browser to view SQLite/Drift data as JSON:       ║';
+  static const String bannerEmpty =
+      '║                                                              ║';
   static const String bannerBottom =
       '╚══════════════════════════════════════════════════════════════╝';
   static const String jsonKeyCounts = 'counts';

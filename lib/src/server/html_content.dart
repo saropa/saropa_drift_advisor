@@ -90,7 +90,7 @@ abstract final class HtmlContent {
   </style>
 </head>
 <body>
-  <h1>Drift tables <button type="button" id="theme-toggle" title="Toggle light/dark">Theme</button> <button type="button" id="share-btn" title="Share current view with your team" style="font-size:11px;">Share</button> <span id="live-indicator" class="meta" title="Table view updates when data changes">● Live</span></h1>
+  <h1>Drift tables <span id="version-badge" class="meta" style="font-size:0.65rem;opacity:0;" title="Saropa Drift Advisor version"></span> <button type="button" id="theme-toggle" title="Toggle light/dark">Theme</button> <button type="button" id="share-btn" title="Share current view with your team" style="font-size:11px;">Share</button> <span id="live-indicator" class="meta" title="Table view updates when data changes">● Live</span></h1>
   <div class="collapsible-header sql-runner" id="sql-runner-toggle">▼ Run SQL (read-only)</div>
   <div id="sql-runner-collapsible" class="collapsible-body collapsed sql-runner">
     <div class="sql-toolbar">
@@ -2438,6 +2438,18 @@ abstract final class HtmlContent {
         if (hash && tables.indexOf(hash) >= 0) loadTable(hash);
       })
       .catch(e => { document.getElementById('tables-loading').textContent = 'Failed to load tables: ' + e; });
+
+    // Fetch server version from health endpoint and display in header badge.
+    fetch('/api/health', authOpts())
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.version) {
+          var badge = document.getElementById('version-badge');
+          badge.textContent = 'v' + d.version;
+          badge.style.opacity = '1';
+        }
+      })
+      .catch(function() { /* version badge stays hidden on failure */ });
 
     // --- Collaborative session: capture, share, restore ---
     function captureViewerState() {
