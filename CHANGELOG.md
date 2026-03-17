@@ -39,7 +39,7 @@ Fixes console log spam when polling is turned off in the web UI.
 
 ---
 
-## [2.1.0]
+## [2.1.1]
 
 Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable. Search now scrolls to matches and lets you step through them with Next/Previous.
 

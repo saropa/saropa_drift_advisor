@@ -1558,7 +1558,9 @@ void main() {
       await DriftDebugServer.start(
         query: (String sql) async {
           if (sql.contains("type='table'")) {
-            return [{'name': 'users'}];
+            return [
+              {'name': 'users'}
+            ];
           }
           return <Map<String, dynamic>>[];
         },
@@ -1577,10 +1579,8 @@ void main() {
             await client.get('localhost', portValue, '/api/schema/metadata');
         final metaResp = await metaReq.close();
         expect(metaResp.statusCode, HttpStatus.ok);
-        final metaBody =
-            await metaResp.transform(utf8.decoder).join();
-        final metaDecoded =
-            jsonDecode(metaBody) as Map<String, dynamic>;
+        final metaBody = await metaResp.transform(utf8.decoder).join();
+        final metaDecoded = jsonDecode(metaBody) as Map<String, dynamic>;
         expect(metaDecoded['tables'], isEmpty);
         expect(metaDecoded['changeDetection'], isFalse);
 
@@ -1588,10 +1588,8 @@ void main() {
             await client.get('localhost', portValue, '/api/schema/diagram');
         final diagramResp = await diagramReq.close();
         expect(diagramResp.statusCode, HttpStatus.ok);
-        final diagramBody =
-            await diagramResp.transform(utf8.decoder).join();
-        final diagramDecoded =
-            jsonDecode(diagramBody) as Map<String, dynamic>;
+        final diagramBody = await diagramResp.transform(utf8.decoder).join();
+        final diagramDecoded = jsonDecode(diagramBody) as Map<String, dynamic>;
         expect(diagramDecoded['tables'], isEmpty);
         expect(diagramDecoded['foreignKeys'], isEmpty);
         expect(diagramDecoded['changeDetection'], isFalse);

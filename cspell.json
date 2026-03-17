@@ -6,9 +6,11 @@
     "AUTOINCREMENT",
     "CLOB",
     "codegen",
+    "collapsibles",
     "dflt",
     "dragover",
     "dragstart",
+    "Flexbox",
     "freelist",
     "Gamified",
     "Hostnames",
@@ -34,6 +36,7 @@
     "summarising",
     "undertested",
     "VARCHAR",
+    "viewports",
     "WCAG",
     "writeln"
   ]

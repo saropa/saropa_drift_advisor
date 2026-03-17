@@ -334,8 +334,7 @@ final class Router {
       ServerConstants.jsonKeyChangeDetection: false,
     };
     if (includeDiagram) {
-      body[ServerConstants.jsonKeyForeignKeys] =
-          <Map<String, dynamic>>[];
+      body[ServerConstants.jsonKeyForeignKeys] = <Map<String, dynamic>>[];
     }
     response.write(jsonEncode(body));
     await response.close();
