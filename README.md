@@ -40,10 +40,10 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 #### Query Tools
 
 - **Read-only SQL runner** with table/column autocomplete, templates, and query history
-- **SQL bookmarks** — save, name, export/import as JSON
+- **Saved queries** — save, name, export/import as JSON
 - **Visual query builder** — SELECT checkboxes, type-aware WHERE clauses, ORDER BY, LIMIT, live SQL preview
 - **Natural language → SQL** — English questions (count, average, latest, group-by) converted via pattern matching
-- **EXPLAIN QUERY PLAN** — color-coded tree (red = table scans, green = index lookups)
+- **Explain plan** — plain-English summary (full table scan vs index lookup)
 
 #### Data Visualization
 

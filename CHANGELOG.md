@@ -17,11 +17,17 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ## [Unreleased]
 
+### Fixed
+
+• **Sidebar stayed "No Drift debug server connected" despite discovery finding a server** — Discovery correctly reported "Found servers on ports: 8642" and ServerManager auto-selected the server, but the `driftViewer.serverConnected` context sometimes never reached the views (or the welcome content evaluated before it was set), so the Database sidebar kept showing the disconnected state. Fix: (1) When discovery fires with at least one server, we now sync `driftViewer.serverConnected` from `serverManager.activeServer` in the same listener (runs after ServerManager’s listener), so the sidebar state is updated even if `onDidChangeActive` was missed. (2) A one-time delayed sync (1.5 s after activation) reapplies the context so the view catches up if the first discovery poll had already found a server. (3) ServerManager logs "Selected server :port" to the Saropa Drift Advisor output channel when it auto-selects a server, so users can confirm the connection path. See also 1.6.1 (schema validation rejection, core commands registration order) and 1.4.2 (VM listener, diagnostics).
+
 ### Added
 
-• **Web UI: tooltips on all buttons and expanders** — Every button and collapsible header in the web view has a [title] attribute for native hover tooltips. Covers sidebar tools (snapshot, compare, index, size, perf, anomaly, import, schema, diagram), SQL runner and bookmarks, pagination, column chooser and context menu, query builder, migration copy, compare panel close, breadcrumb Back/Clear path, and export links.
+• **Web UI: tooltips on all buttons and expanders** — Every button and collapsible header in the web view has a [title] attribute for native hover tooltips. Covers sidebar tools (snapshot, compare, index, size, perf, anomaly, import, schema, diagram), SQL runner and saved queries, pagination, column chooser and context menu, query builder, migration copy, compare panel close, breadcrumb Back/Clear path, and export links.
 
 ### Changed
+
+• **Web UI: Run SQL Explain and Saved queries** — Explain shows a single plain-English message (e.g. full table scan on table name, or index lookup) instead of raw EXPLAIN output. "Bookmarks" renamed to "Saved queries" throughout the Run SQL section (label, dropdown, prompts, alerts, export filename).
 
 • **Web UI: sidebar collapsible polish** — Removed the blue vertical accent line to the left of collapsible section headers (drift-enhanced.css). Expand/collapse arrow is now right-aligned and dimmed (opacity 0.4) until the header is hovered (0.9), with a 0.15s opacity transition (style.scss / style.css).
 

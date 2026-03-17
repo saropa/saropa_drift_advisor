@@ -88,6 +88,109 @@
       if (card) card.classList.toggle('expanded', !collapsible.classList.contains('collapsed'));
     }
 
+    // --- Tab system: toolbar opens tools in tabs; multiple views can be open. ---
+    var TOOL_LABELS = {
+      tables: 'Tables',
+      sql: 'Run SQL',
+      snapshot: 'Snapshot',
+      compare: 'DB diff',
+      index: 'Index',
+      size: 'Size',
+      perf: 'Perf',
+      anomaly: 'Health',
+      import: 'Import',
+      schema: 'Schema',
+      diagram: 'Diagram'
+    };
+
+    var activeTabId = 'tables';
+
+    /**
+     * Switches the main content area to the given tab.
+     * @param {string} tabId - One of: tables, sql, snapshot, compare, index, size, perf, anomaly, import, schema, diagram
+     */
+    function switchTab(tabId) {
+      var tabBar = document.getElementById('tab-bar');
+      var panels = document.getElementById('tab-panels');
+      if (!tabBar || !panels) return;
+      activeTabId = tabId;
+      tabBar.querySelectorAll('.tab-btn').forEach(function(btn) {
+        var id = btn.getAttribute('data-tab');
+        var isActive = id === tabId;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      panels.querySelectorAll('.tab-panel').forEach(function(panel) {
+        var id = panel.id && panel.id.replace(/^panel-/, '');
+        var isActive = id === tabId;
+        panel.classList.toggle('active', isActive);
+        panel.hidden = !isActive;
+      });
+      if (typeof window.onTabSwitch === 'function') window.onTabSwitch(tabId);
+    }
+
+    /**
+     * Opens a tool in a tab: adds the tab if missing, then switches to it.
+     * Reusable for most tools; calling again for the same tool just focuses that tab.
+     */
+    function openTool(toolId) {
+      var tabBar = document.getElementById('tab-bar');
+      var existing = tabBar && tabBar.querySelector('.tab-btn[data-tab="' + toolId + '"]');
+      if (!existing) {
+        var label = TOOL_LABELS[toolId] || toolId;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tab-btn';
+        btn.setAttribute('data-tab', toolId);
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-controls', 'panel-' + toolId);
+        btn.id = 'tab-' + toolId;
+        btn.textContent = label;
+        var closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'tab-btn-close';
+        closeBtn.title = 'Close tab';
+        closeBtn.setAttribute('aria-label', 'Close ' + label);
+        closeBtn.textContent = '\u00d7';
+        closeBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          closeToolTab(toolId);
+        });
+        btn.appendChild(closeBtn);
+        btn.addEventListener('click', function(e) {
+          if (e.target !== closeBtn && !closeBtn.contains(e.target)) switchTab(toolId);
+        });
+        tabBar.appendChild(btn);
+      }
+      switchTab(toolId);
+    }
+
+    /** Closes a tool tab and switches to Tables if that was the active tab. */
+    function closeToolTab(toolId) {
+      var tabBar = document.getElementById('tab-bar');
+      var btn = tabBar && tabBar.querySelector('.tab-btn[data-tab="' + toolId + '"]');
+      if (!btn) return;
+      btn.remove();
+      if (activeTabId === toolId) {
+        var first = tabBar && tabBar.querySelector('.tab-btn');
+        switchTab(first ? first.getAttribute('data-tab') : 'tables');
+      }
+    }
+
+    /** Binds tools toolbar and tab bar. Call once when DOM is ready. */
+    function initTabsAndToolbar() {
+      document.querySelectorAll('#tools-toolbar .toolbar-tool-btn').forEach(function(btn) {
+        var toolId = btn.getAttribute('data-tool');
+        if (toolId) btn.addEventListener('click', function() { openTool(toolId); });
+      });
+      document.querySelectorAll('#tab-bar .tab-btn').forEach(function(btn) {
+        var tabId = btn.getAttribute('data-tab');
+        if (tabId && !btn.querySelector('.tab-btn-close')) {
+          btn.addEventListener('click', function() { switchTab(tabId); });
+        }
+      });
+    }
+
     // --- Saved analysis results (localStorage). BUG-014: persist index/size/perf/anomaly
     // results so users can save, export, recall from History, and compare before/after.
     var ANALYSIS_STORAGE_PREFIX = 'saropa_analysis_';
@@ -1145,7 +1248,7 @@
       const sql = inputEl.value.trim();
       if (!sql) return;
       const name = prompt('Name for this query:', sql.slice(0, 40));
-      if (!name) return;
+      if (name == null || String(name).trim() === '') return;
       sqlBookmarks.unshift({ name: name, sql: sql, createdAt: new Date().toISOString() });
       saveBookmarks();
       refreshBookmarksDropdown(bookmarksSel);
@@ -1273,24 +1376,37 @@
       if (schemaLink) schemaLink.href = '/api/schema';
     }
 
-    document.getElementById('schema-toggle').addEventListener('click', function() {
-      const el = document.getElementById('schema-collapsible');
-      const isCollapsed = el.classList.contains('collapsed');
-      el.classList.toggle('collapsed', !isCollapsed);
-      syncFeatureCardExpanded(el);
-      if (isCollapsed && cachedSchema === null) {
-        fetch('/api/schema', authOpts()).then(r => r.text()).then(schema => {
-          cachedSchema = schema;
-          document.getElementById('schema-inline-pre').textContent = schema;
-        }).catch(() => { document.getElementById('schema-inline-pre').textContent = 'Failed to load.'; });
-      }
-    });
+    var schemaToggle = document.getElementById('schema-toggle');
+    if (schemaToggle) {
+      schemaToggle.addEventListener('click', function() {
+        const el = document.getElementById('schema-collapsible');
+        const isCollapsed = el && el.classList.contains('collapsed');
+        if (el) el.classList.toggle('collapsed', !isCollapsed);
+        syncFeatureCardExpanded(el);
+        if (isCollapsed && cachedSchema === null) loadSchemaIntoPre();
+      });
+    }
+    function loadSchemaIntoPre() {
+      var pre = document.getElementById('schema-inline-pre');
+      if (!pre) return;
+      fetch('/api/schema', authOpts()).then(r => r.text()).then(function(schema) {
+        cachedSchema = schema;
+        pre.textContent = schema;
+      }).catch(function() { pre.textContent = 'Failed to load.'; });
+    }
+
+    window.onTabSwitch = function(tabId) {
+      if (tabId === 'schema' && cachedSchema === null) loadSchemaIntoPre();
+      if (tabId === 'diagram' && typeof window.ensureDiagramInited === 'function') window.ensureDiagramInited();
+    };
+
+    initTabsAndToolbar();
 
     (function initDiagram() {
+      const container = document.getElementById('diagram-container');
+      if (!container) return;
       const toggle = document.getElementById('diagram-toggle');
       const collapsible = document.getElementById('diagram-collapsible');
-      const container = document.getElementById('diagram-container');
-      if (!toggle || !collapsible || !container) return;
       const BOX_W = 200;
       const BOX_H = 160;
       const PAD = 12;
@@ -1420,11 +1536,8 @@
         }
       }
 
-      toggle.addEventListener('click', function() {
-        const isCollapsed = collapsible.classList.contains('collapsed');
-        collapsible.classList.toggle('collapsed', !isCollapsed);
-        syncFeatureCardExpanded(collapsible);
-        if (isCollapsed && diagramData === null) {
+      function loadAndRenderDiagram() {
+        if (diagramData === null) {
           container.innerHTML = '<p class="meta">Loading…</p>';
           fetch('/api/schema/diagram', authOpts())
             .then(r => r.json())
@@ -1435,10 +1548,21 @@
             .catch(function(e) {
               container.innerHTML = '<p class="meta">Failed to load diagram: ' + esc(String(e)) + '</p>';
             });
-        } else if (isCollapsed && diagramData) {
+        } else {
           renderDiagram(diagramData);
         }
-      });
+      }
+
+      window.ensureDiagramInited = loadAndRenderDiagram;
+
+      if (toggle && collapsible) {
+        toggle.addEventListener('click', function() {
+          const isCollapsed = collapsible.classList.contains('collapsed');
+          collapsible.classList.toggle('collapsed', !isCollapsed);
+          syncFeatureCardExpanded(collapsible);
+          if (isCollapsed) loadAndRenderDiagram();
+        });
+      }
     })();
 
     (function initSnapshot() {
@@ -2729,9 +2853,12 @@
       });
       var sqlInput = document.getElementById('sql-input');
       sqlInput.value = 'SELECT * FROM "' + table + '" WHERE "' + column + '" = ' + buildFkSqlValue(value);
-      var toggle = document.getElementById('sql-runner-toggle');
+      switchTab('sql');
       var collapsible = document.getElementById('sql-runner-collapsible');
-      if (collapsible && collapsible.classList.contains('collapsed')) { toggle.click(); }
+      if (collapsible && collapsible.classList.contains('collapsed')) {
+        collapsible.classList.remove('collapsed');
+        syncFeatureCardExpanded(collapsible);
+      }
       document.getElementById('sql-run').click();
       currentTableName = table;
       updateTableListActive();
@@ -2898,14 +3025,15 @@
           var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc(rawStr) + '" title="Copy value">&#x2398;</button>';
           var tdClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
           var tdAttrs = ' data-column-key="' + esc(k) + '"' + tdClass;
+          /* cell-text wrapper allows CSS truncation with ellipsis while copy button stays visible on hover */
           if (fk && val != null) {
-            html += '<td' + tdAttrs + '><a href="#" class="fk-link" style="color:var(--link);text-decoration:underline;" ';
+            html += '<td' + tdAttrs + '><span class="cell-text"><a href="#" class="fk-link" style="color:var(--link);text-decoration:underline;" ';
             html += 'data-table="' + esc(fk.toTable) + '" ';
             html += 'data-column="' + esc(fk.toColumn) + '" ';
             html += 'data-value="' + esc(rawStr) + '">' ;
-            html += cellContent + ' &#8594;</a>' + copyBtn + '</td>';
+            html += cellContent + ' &#8594;</a></span>' + copyBtn + '</td>';
           } else {
-            html += '<td' + tdAttrs + '>' + cellContent + copyBtn + '</td>';
+            html += '<td' + tdAttrs + '><span class="cell-text">' + cellContent + '</span>' + copyBtn + '</td>';
           }
         });
         html += '</tr>';
@@ -3029,6 +3157,49 @@
       e.preventDefault();
       navigateToFk(link.dataset.table, link.dataset.column, link.dataset.value);
     });
+
+    /** Double-tap (dblclick) on a data-table cell opens popup with full value and Copy button. */
+    function showCellValuePopup(rawValue, columnKey) {
+      var popup = document.getElementById('cell-value-popup');
+      var textEl = document.getElementById('cell-value-popup-text');
+      var titleEl = document.getElementById('cell-value-popup-title');
+      if (!popup || !textEl || !titleEl) return;
+      titleEl.textContent = columnKey ? 'Cell value: ' + columnKey : 'Cell value';
+      textEl.textContent = rawValue !== undefined && rawValue !== null ? String(rawValue) : '';
+      popup.classList.add('show');
+      popup.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideCellValuePopup() {
+      var popup = document.getElementById('cell-value-popup');
+      if (!popup) return;
+      popup.classList.remove('show');
+      popup.setAttribute('aria-hidden', 'true');
+    }
+
+    document.addEventListener('dblclick', function(e) {
+      var td = e.target.closest('#data-table td');
+      if (!td) return;
+      var copyBtn = td.querySelector('.cell-copy-btn');
+      var rawValue = copyBtn ? (copyBtn.getAttribute('data-raw') || '') : (td.textContent || '').trim();
+      var columnKey = td.getAttribute('data-column-key') || '';
+      showCellValuePopup(rawValue, columnKey);
+    });
+
+    (function setupCellValuePopupButtons() {
+      var popup = document.getElementById('cell-value-popup');
+      var copyBtn = document.getElementById('cell-value-popup-copy');
+      var closeBtn = document.getElementById('cell-value-popup-close');
+      var textEl = document.getElementById('cell-value-popup-text');
+      if (!popup || !copyBtn || !closeBtn || !textEl) return;
+      copyBtn.addEventListener('click', function() {
+        copyCellValue(textEl.textContent || '');
+      });
+      closeBtn.addEventListener('click', hideCellValuePopup);
+      popup.addEventListener('click', function(e) {
+        if (e.target === popup) hideCellValuePopup();
+      });
+    })();
 
     function rowCountText(name) {
       const total = tableCounts[name];
@@ -3486,12 +3657,15 @@
               var hasScan = false;
               var scanTable = null;
               var hasIndex = false;
+              // Single plain-English message: interpret SQLite EXPLAIN detail (SCAN = full table scan, SEARCH/USING INDEX = index lookup).
               rows.forEach(function(r) {
                 var d = String(r.detail || '').trim();
                 if (/\bSCAN\s+(?:TABLE\s+)?([^\s\n]+)/i.test(d)) {
                   hasScan = true;
-                  var m = d.match(/\bSCAN\s+(?:TABLE\s+)?([^\s\n]+)/i);
-                  if (m) scanTable = m[1];
+                  if (scanTable == null) {
+                    var m = d.match(/\bSCAN\s+(?:TABLE\s+)?([^\s\n]+)/i);
+                    if (m) scanTable = m[1];
+                  }
                 } else if (/\bSEARCH\b.*\bINDEX\b/.test(d) || /\bUSING\b.*\bINDEX\b/.test(d)) hasIndex = true;
               });
               var msg;
@@ -3816,11 +3990,11 @@
     }
 
     function createShareSession() {
-      var note = prompt('Add a note for your team (optional):\\n\\nSession will expire in 1 hour.');
+      var note = prompt('Add a note for your team (optional):\n\nSession will expire in 1 hour.');
       if (note === null) return;
       var btn = document.getElementById('share-btn');
       btn.disabled = true;
-      btn.textContent = 'Sharing\\u2026';
+      btn.textContent = 'Sharing\u2026';
       var state = captureViewerState();
       if (note) state.note = note;
 

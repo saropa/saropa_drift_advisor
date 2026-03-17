@@ -74,148 +74,53 @@ abstract final class HtmlContent {
       </div>
       <p id="tables-loading" class="meta">Loading tables…</p>
       <div class="sidebar-section">
-        <h2 class="sidebar-section-title">Tools</h2>
-      <div class="feature-card">
-        <div class="collapsible-header" id="snapshot-toggle" title="Expand or collapse Snapshot / time travel"><span class="material-symbols-outlined feature-icon" aria-hidden="true">photo_camera</span><span class="collapsible-title">Snapshot / time travel</span></div>
-        <div id="snapshot-collapsible" class="collapsible-body collapsed">
-        <p class="meta">Capture current DB state, then compare to now to see what changed.</p>
-        <div class="toolbar">
-          <button type="button" id="snapshot-take" class="btn-primary" title="Capture current database state for later comparison">Take snapshot</button>
-          <button type="button" id="snapshot-compare" disabled title="Take a snapshot first">Compare to now</button>
-          <a href="#" id="snapshot-export-diff" class="export-link" style="display: none;" title="Download diff as JSON">Export diff (JSON)</a>
-          <button type="button" id="snapshot-clear" style="display: none;" title="Discard saved snapshot">Clear snapshot</button>
-        </div>
-        <p id="snapshot-status" class="meta"></p>
-        <pre id="snapshot-compare-result" class="meta diff-result" style="display: none; max-height: 40vh;"></pre>
-        </div>
-      </div>
-      <div class="feature-card">
-        <div class="collapsible-header" id="compare-toggle" title="Expand or collapse Database diff"><span class="material-symbols-outlined feature-icon" aria-hidden="true">compare_arrows</span><span class="collapsible-title">Database diff</span></div>
-        <div id="compare-collapsible" class="collapsible-body collapsed">
-        <p class="meta">Compare this DB with another (e.g. staging). Requires queryCompare at startup.</p>
-        <div class="toolbar">
-          <button type="button" id="compare-view" title="Open full diff report in a new view">View diff report</button>
-          <a href="/api/compare/report?format=download" id="compare-export" title="Download diff report">Export diff report</a>
-          <button type="button" id="migration-preview" title="Generate SQL migration from diff">Migration Preview</button>
-        </div>
-        <p id="compare-status" class="meta"></p>
-        <pre id="compare-result" class="meta diff-result" style="display: none; max-height: 40vh;"></pre>
-        </div>
-      </div>
-      <div class="feature-card">
-        <div class="collapsible-header" id="index-toggle" title="Expand or collapse Index suggestions"><span class="material-symbols-outlined feature-icon" aria-hidden="true">format_list_bulleted</span><span class="collapsible-title">Index suggestions</span></div>
-        <div id="index-collapsible" class="collapsible-body collapsed">
-        <p class="meta">Analyze tables for missing indexes based on schema patterns.</p>
-        <div class="toolbar">
-          <button type="button" id="index-analyze" class="btn-primary" title="Analyze tables for missing indexes">Analyze</button>
-          <button type="button" id="index-save" title="Save this result for later">Save result</button>
-          <button type="button" id="index-export" title="Download result as JSON">Export as JSON</button>
-          <label for="index-history">History:</label>
-          <select id="index-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
-          <button type="button" id="index-compare" title="Compare two saved or current results">Compare</button>
-        </div>
-        <div id="index-results" style="display:none;"></div>
-        </div>
-      </div>
-      <div class="feature-card">
-        <div class="collapsible-header" id="size-toggle" title="Expand or collapse Database size analytics"><span class="material-symbols-outlined feature-icon" aria-hidden="true">bar_chart</span><span class="collapsible-title">Database size analytics</span></div>
-        <div id="size-collapsible" class="collapsible-body collapsed">
-        <p class="meta">Analyze database storage: total size, page stats, and per-table breakdown.</p>
-        <div class="toolbar">
-          <button type="button" id="size-analyze" class="btn-primary" title="Analyze database storage and per-table size">Analyze</button>
-          <button type="button" id="size-save" title="Save this result for later">Save result</button>
-          <button type="button" id="size-export" title="Download result as JSON">Export as JSON</button>
-          <label for="size-history">History:</label>
-          <select id="size-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
-          <button type="button" id="size-compare" title="Compare two saved or current results">Compare</button>
-        </div>
-        <div id="size-results" style="display:none;"></div>
-        </div>
-      </div>
-      <div class="feature-card">
-        <div class="collapsible-header" id="perf-toggle" title="Expand or collapse Query performance"><span class="material-symbols-outlined feature-icon" aria-hidden="true">speed</span><span class="collapsible-title">Query performance</span></div>
-        <div id="perf-collapsible" class="collapsible-body collapsed">
-        <p class="meta">Track query execution times, identify slow queries, and view patterns.</p>
-        <div class="toolbar">
-          <button type="button" id="perf-refresh" title="Reload performance data">Refresh</button>
-          <button type="button" id="perf-clear" title="Clear performance history">Clear</button>
-          <button type="button" id="perf-save" title="Save this result for later">Save result</button>
-          <button type="button" id="perf-export" title="Download result as JSON">Export as JSON</button>
-          <label for="perf-history">History:</label>
-          <select id="perf-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
-          <button type="button" id="perf-compare" title="Compare two saved or current results">Compare</button>
-        </div>
-        <div id="perf-results" style="display:none;"></div>
-        </div>
-      </div>
-      <div class="feature-card">
-        <div class="collapsible-header" id="anomaly-toggle" title="Expand or collapse Data health"><span class="material-symbols-outlined feature-icon" aria-hidden="true">favorite</span><span class="collapsible-title">Data health</span></div>
-        <div id="anomaly-collapsible" class="collapsible-body collapsed">
-        <p class="meta">Scan all tables for data quality issues: NULLs, empty strings, orphaned FKs, duplicates, outliers.</p>
-        <div class="toolbar">
-          <button type="button" id="anomaly-analyze" class="btn-primary" title="Scan tables for data quality issues">Scan for anomalies</button>
-          <button type="button" id="anomaly-save" title="Save this result for later">Save result</button>
-          <button type="button" id="anomaly-export" title="Download result as JSON">Export as JSON</button>
-          <label for="anomaly-history">History:</label>
-          <select id="anomaly-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
-          <button type="button" id="anomaly-compare" title="Compare two saved or current results">Compare</button>
-        </div>
-        <div id="anomaly-results" style="display:none;"></div>
-        </div>
-      </div>
-      <div class="feature-card">
-        <div class="collapsible-header" id="import-toggle" title="Expand or collapse Import data"><span class="material-symbols-outlined feature-icon" aria-hidden="true">upload</span><span class="collapsible-title">Import data (debug only)</span></div>
-        <div id="import-collapsible" class="collapsible-body collapsed">
-        <p class="meta import-warning">Warning: This modifies the database. Debug use only.</p>
-        <div class="sql-runner">
-          <div class="sql-toolbar">
-            <label>Table:</label>
-            <select id="import-table"></select>
-            <label>Format:</label>
-            <select id="import-format">
-              <option value="json">JSON</option>
-              <option value="csv">CSV</option>
-              <option value="sql">SQL</option>
-            </select>
-          </div>
-          <div class="sql-toolbar" style="margin-top:0.25rem;">
-            <input type="file" id="import-file" accept=".json,.csv,.sql" />
-            <button type="button" id="import-run" disabled class="btn-primary" title="Run import with selected file and options">Import</button>
-          </div>
-        </div>
-        <div id="import-column-mapping" class="meta" style="display:none;margin-top:0.5rem;">
-          <p class="meta" style="font-weight:bold;">Map CSV columns to table columns</p>
-          <table id="import-mapping-table" style="border-collapse:collapse;font-size:12px;width:100%;max-width:500px;">
-            <thead><tr><th style="border:1px solid var(--border);padding:4px;">CSV column</th><th style="border:1px solid var(--border);padding:4px;">→ Table column</th></tr></thead>
-            <tbody id="import-mapping-tbody"></tbody>
-          </table>
-        </div>
-        <pre id="import-preview" class="meta" style="display:none;max-height:15vh;overflow:auto;font-size:11px;"></pre>
-        <p id="import-status" class="meta"></p>
-        </div>
-      </div>
-      <div class="feature-card">
-        <div class="collapsible-header" id="schema-toggle" title="Expand or collapse Schema"><span class="material-symbols-outlined feature-icon" aria-hidden="true">grid_on</span><span class="collapsible-title">Schema</span></div>
-        <div id="schema-collapsible" class="collapsible-body collapsed"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
-      </div>
-      <div class="feature-card">
-        <div class="collapsible-header" id="diagram-toggle" title="Expand or collapse Schema diagram"><span class="material-symbols-outlined feature-icon" aria-hidden="true">account_tree</span><span class="collapsible-title">Schema diagram</span></div>
-        <div id="diagram-collapsible" class="collapsible-body collapsed">
-        <p class="meta">Tables and relationships. Click or press Enter on a table to view its data. Use arrow keys to navigate between tables.</p>
-        <div id="diagram-container"></div>
-        <div id="diagram-text-alt" class="sr-only"></div>
-        </div>
-      </div>
-      </div>
-      <div class="sidebar-section">
       <h2 class="tables-heading">Tables</h2>
       <ul id="tables" class="table-list"></ul>
       </div>
     </aside>
     <div class="app-main-content">
+      <!-- Tools toolbar: each button opens the tool in a tab for full-width use. -->
+      <div id="tools-toolbar" class="tools-toolbar" role="toolbar" aria-label="Tools">
+        <button type="button" class="toolbar-tool-btn" data-tool="snapshot" title="Snapshot / time travel"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">photo_camera</span><span class="toolbar-tool-label">Snapshot</span></button>
+        <button type="button" class="toolbar-tool-btn" data-tool="compare" title="Database diff"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">compare_arrows</span><span class="toolbar-tool-label">DB diff</span></button>
+        <button type="button" class="toolbar-tool-btn" data-tool="index" title="Index suggestions"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">format_list_bulleted</span><span class="toolbar-tool-label">Index</span></button>
+        <button type="button" class="toolbar-tool-btn" data-tool="size" title="Database size analytics"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">bar_chart</span><span class="toolbar-tool-label">Size</span></button>
+        <button type="button" class="toolbar-tool-btn" data-tool="perf" title="Query performance"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">speed</span><span class="toolbar-tool-label">Perf</span></button>
+        <button type="button" class="toolbar-tool-btn" data-tool="anomaly" title="Data health"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">favorite</span><span class="toolbar-tool-label">Health</span></button>
+        <button type="button" class="toolbar-tool-btn" data-tool="import" title="Import data (debug only)"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">upload</span><span class="toolbar-tool-label">Import</span></button>
+        <button type="button" class="toolbar-tool-btn" data-tool="schema" title="Schema"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">grid_on</span><span class="toolbar-tool-label">Schema</span></button>
+        <button type="button" class="toolbar-tool-btn" data-tool="diagram" title="Schema diagram"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">account_tree</span><span class="toolbar-tool-label">Diagram</span></button>
+      </div>
+      <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Views">
+        <button type="button" class="tab-btn active" data-tab="tables" role="tab" aria-selected="true" aria-controls="panel-tables" id="tab-tables">Tables</button>
+        <button type="button" class="tab-btn" data-tab="sql" role="tab" aria-selected="false" aria-controls="panel-sql" id="tab-sql">Run SQL</button>
+      </div>
+      <div id="tab-panels" class="tab-panels">
+        <div id="panel-tables" class="tab-panel active" role="tabpanel" aria-labelledby="tab-tables">
+      <div id="pagination-bar" class="toolbar" style="display: none;">
+        <label>Limit</label>
+        <select id="pagination-limit"></select>
+        <label>Offset</label>
+        <input type="number" id="pagination-offset" min="0" step="200" style="width: 5rem;" />
+        <button type="button" id="pagination-prev" title="Previous page">Prev</button>
+        <button type="button" id="pagination-next" title="Next page">Next</button>
+        <button type="button" id="pagination-apply" title="Apply limit and offset">Apply</button>
+        <button type="button" id="clear-table-state" title="Reset cached filter/pagination state for this table">Clear state</button>
+      </div>
+      <div id="display-format-bar" class="toolbar" style="display:none;">
+        <label>Display:</label>
+        <select id="display-format-toggle">
+          <option value="raw">Raw</option>
+          <option value="formatted">Formatted</option>
+        </select>
+        <button type="button" id="column-chooser-btn" title="Show/hide columns, reorder, pin">Columns</button>
+      </div>
+      <div id="content" class="content-wrap"></div>
+        </div>
+        <div id="panel-sql" class="tab-panel" role="tabpanel" aria-labelledby="tab-sql" hidden>
       <div class="feature-card sql-runner-card">
   <div class="collapsible-header sql-runner" id="sql-runner-toggle" title="Expand or collapse Run SQL"><span class="material-symbols-outlined feature-icon" aria-hidden="true">play_arrow</span><span class="collapsible-title">Run SQL (read-only)</span></div>
-  <div id="sql-runner-collapsible" class="collapsible-body collapsed sql-runner">
+  <div id="sql-runner-collapsible" class="collapsible-body sql-runner">
     <div class="sql-toolbar">
       <label for="sql-template">Template:</label>
       <select id="sql-template">
@@ -271,27 +176,132 @@ abstract final class HtmlContent {
     <div id="chart-container" style="display:none;margin-top:0.5rem;"></div>
   </div>
   </div>
-  <div id="pagination-bar" class="toolbar" style="display: none;">
-    <label>Limit</label>
-    <select id="pagination-limit"></select>
-    <label>Offset</label>
-    <input type="number" id="pagination-offset" min="0" step="200" style="width: 5rem;" />
-    <button type="button" id="pagination-prev" title="Previous page">Prev</button>
-    <button type="button" id="pagination-next" title="Next page">Next</button>
-    <button type="button" id="pagination-apply" title="Apply limit and offset">Apply</button>
-    <button type="button" id="clear-table-state" title="Reset cached filter/pagination state for this table">Clear state</button>
-  </div>
-  <div id="display-format-bar" class="toolbar" style="display:none;">
-    <label>Display:</label>
-    <select id="display-format-toggle">
-      <option value="raw">Raw</option>
-      <option value="formatted">Formatted</option>
-    </select>
-    <button type="button" id="column-chooser-btn" title="Show/hide columns, reorder, pin">Columns</button>
-  </div>
-  <div id="content" class="content-wrap"></div>
+        </div>
+        <!-- Tool panels: opened from toolbar; IDs preserved for JS. -->
+        <div id="panel-snapshot" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-snapshot" hidden>
+          <div id="snapshot-collapsible" class="tool-panel-body">
+        <p class="meta">Capture current DB state, then compare to now to see what changed.</p>
+        <div class="toolbar">
+          <button type="button" id="snapshot-take" class="btn-primary" title="Capture current database state for later comparison">Take snapshot</button>
+          <button type="button" id="snapshot-compare" disabled title="Take a snapshot first">Compare to now</button>
+          <a href="#" id="snapshot-export-diff" class="export-link" style="display: none;" title="Download diff as JSON">Export diff (JSON)</a>
+          <button type="button" id="snapshot-clear" style="display: none;" title="Discard saved snapshot">Clear snapshot</button>
+        </div>
+        <p id="snapshot-status" class="meta"></p>
+        <pre id="snapshot-compare-result" class="meta diff-result" style="display: none; max-height: 60vh;"></pre>
+          </div>
+        </div>
+        <div id="panel-compare" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-compare" hidden>
+          <div id="compare-collapsible" class="tool-panel-body">
+        <p class="meta">Compare this DB with another (e.g. staging). Requires queryCompare at startup.</p>
+        <div class="toolbar">
+          <button type="button" id="compare-view" title="Open full diff report in a new view">View diff report</button>
+          <a href="/api/compare/report?format=download" id="compare-export" title="Download diff report">Export diff report</a>
+          <button type="button" id="migration-preview" title="Generate SQL migration from diff">Migration Preview</button>
+        </div>
+        <p id="compare-status" class="meta"></p>
+        <pre id="compare-result" class="meta diff-result" style="display: none; max-height: 60vh;"></pre>
+          </div>
+        </div>
+        <div id="panel-index" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-index" hidden>
+          <div id="index-collapsible" class="tool-panel-body">
+        <p class="meta">Analyze tables for missing indexes based on schema patterns.</p>
+        <div class="toolbar">
+          <button type="button" id="index-analyze" class="btn-primary" title="Analyze tables for missing indexes">Analyze</button>
+          <button type="button" id="index-save" title="Save this result for later">Save result</button>
+          <button type="button" id="index-export" title="Download result as JSON">Export as JSON</button>
+          <label for="index-history">History:</label>
+          <select id="index-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
+          <button type="button" id="index-compare" title="Compare two saved or current results">Compare</button>
+        </div>
+        <div id="index-results" style="display:none;"></div>
+          </div>
+        </div>
+        <div id="panel-size" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-size" hidden>
+          <div id="size-collapsible" class="tool-panel-body">
+        <p class="meta">Analyze database storage: total size, page stats, and per-table breakdown.</p>
+        <div class="toolbar">
+          <button type="button" id="size-analyze" class="btn-primary" title="Analyze database storage and per-table size">Analyze</button>
+          <button type="button" id="size-save" title="Save this result for later">Save result</button>
+          <button type="button" id="size-export" title="Download result as JSON">Export as JSON</button>
+          <label for="size-history">History:</label>
+          <select id="size-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
+          <button type="button" id="size-compare" title="Compare two saved or current results">Compare</button>
+        </div>
+        <div id="size-results" style="display:none;"></div>
+          </div>
+        </div>
+        <div id="panel-perf" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-perf" hidden>
+          <div id="perf-collapsible" class="tool-panel-body">
+        <p class="meta">Track query execution times, identify slow queries, and view patterns.</p>
+        <div class="toolbar">
+          <button type="button" id="perf-refresh" title="Reload performance data">Refresh</button>
+          <button type="button" id="perf-clear" title="Clear performance history">Clear</button>
+          <button type="button" id="perf-save" title="Save this result for later">Save result</button>
+          <button type="button" id="perf-export" title="Download result as JSON">Export as JSON</button>
+          <label for="perf-history">History:</label>
+          <select id="perf-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
+          <button type="button" id="perf-compare" title="Compare two saved or current results">Compare</button>
+        </div>
+        <div id="perf-results" style="display:none;"></div>
+          </div>
+        </div>
+        <div id="panel-anomaly" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-anomaly" hidden>
+          <div id="anomaly-collapsible" class="tool-panel-body">
+        <p class="meta">Scan all tables for data quality issues: NULLs, empty strings, orphaned FKs, duplicates, outliers.</p>
+        <div class="toolbar">
+          <button type="button" id="anomaly-analyze" class="btn-primary" title="Scan tables for data quality issues">Scan for anomalies</button>
+          <button type="button" id="anomaly-save" title="Save this result for later">Save result</button>
+          <button type="button" id="anomaly-export" title="Download result as JSON">Export as JSON</button>
+          <label for="anomaly-history">History:</label>
+          <select id="anomaly-history" title="Past runs — select to view"><option value="">— Past runs —</option></select>
+          <button type="button" id="anomaly-compare" title="Compare two saved or current results">Compare</button>
+        </div>
+        <div id="anomaly-results" style="display:none;"></div>
+          </div>
+        </div>
+        <div id="panel-import" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-import" hidden>
+          <div id="import-collapsible" class="tool-panel-body">
+        <p class="meta import-warning">Warning: This modifies the database. Debug use only.</p>
+        <div class="sql-runner">
+          <div class="sql-toolbar">
+            <label>Table:</label>
+            <select id="import-table"></select>
+            <label>Format:</label>
+            <select id="import-format">
+              <option value="json">JSON</option>
+              <option value="csv">CSV</option>
+              <option value="sql">SQL</option>
+            </select>
+          </div>
+          <div class="sql-toolbar" style="margin-top:0.25rem;">
+            <input type="file" id="import-file" accept=".json,.csv,.sql" />
+            <button type="button" id="import-run" disabled class="btn-primary" title="Run import with selected file and options">Import</button>
+          </div>
+        </div>
+        <div id="import-column-mapping" class="meta" style="display:none;margin-top:0.5rem;">
+          <p class="meta" style="font-weight:bold;">Map CSV columns to table columns</p>
+          <table id="import-mapping-table" style="border-collapse:collapse;font-size:12px;width:100%;max-width:500px;">
+            <thead><tr><th style="border:1px solid var(--border);padding:4px;">CSV column</th><th style="border:1px solid var(--border);padding:4px;">→ Table column</th></tr></thead>
+            <tbody id="import-mapping-tbody"></tbody>
+          </table>
+        </div>
+        <pre id="import-preview" class="meta" style="display:none;max-height:15vh;overflow:auto;font-size:11px;"></pre>
+        <p id="import-status" class="meta"></p>
+          </div>
+        </div>
+        <div id="panel-schema" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-schema" hidden>
+          <div id="schema-collapsible" class="tool-panel-body"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
+        </div>
+        <div id="panel-diagram" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-diagram" hidden>
+          <div id="diagram-collapsible" class="tool-panel-body">
+        <p class="meta">Tables and relationships. Click or press Enter on a table to view its data. Use arrow keys to navigate between tables.</p>
+        <div id="diagram-container"></div>
+        <div id="diagram-text-alt" class="sr-only"></div>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
   <div id="column-context-menu" role="menu" aria-hidden="true">
     <button type="button" data-action="hide" role="menuitem" title="Hide this column from the table">Hide column</button>
     <button type="button" data-action="pin" role="menuitem" title="Pin column to the left">Pin column</button>
@@ -306,6 +316,17 @@ abstract final class HtmlContent {
     </div>
   </div>
   <div id="copy-toast" class="copy-toast">Copied!</div>
+  <!-- Cell value popup: double-tap a table cell to view full text; Copy button copies to clipboard. -->
+  <div id="cell-value-popup" role="dialog" aria-modal="true" aria-labelledby="cell-value-popup-title" aria-hidden="true">
+    <div class="cell-value-popup-box">
+      <div id="cell-value-popup-title" class="cell-value-popup-title">Cell value</div>
+      <div class="cell-value-popup-content"><pre id="cell-value-popup-text"></pre></div>
+      <div class="cell-value-popup-actions">
+        <button type="button" id="cell-value-popup-copy" class="btn-primary" title="Copy full value to clipboard">Copy</button>
+        <button type="button" id="cell-value-popup-close" title="Close">Close</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js"></script>
 </body></html>
