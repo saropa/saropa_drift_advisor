@@ -81,6 +81,11 @@ Works in Dart files with Drift table definitions:
 | `driftViewer.linter.enabled` | `true` | Schema linter diagnostics |
 | `driftViewer.timeline.autoCapture` | `true` | Auto-capture snapshots on data change |
 | `driftViewer.watch.notifications` | `false` | Desktop notifications for watch changes |
+| `driftViewer.database.loadOnConnect` | `true` | When false, Database tree loads on first view focus instead of on connect |
+| `driftViewer.schemaCache.ttlMs` | `30000` | Schema cache TTL (ms); 0 disables in-memory cache |
+| `driftViewer.schemaSearch.timeoutMs` | `15000` | Max schema search time before timeout (ms) |
+| `driftViewer.schemaSearch.crossRefMatchCap` | `80` | Skip cross-ref building when matches exceed this (faster search) |
+| `driftViewer.lightweight` | `false` | When true, skips badges/timeline/tree refresh on generation change |
 | `driftViewer.performance.slowThresholdMs` | `500` | Slow query threshold (ms) |
 
 ## Design: extension enablement

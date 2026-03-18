@@ -21,6 +21,8 @@ import { registerAllCommands } from './extension-commands';
 import { bootstrapExtension } from './extension-bootstrap';
 import { SchemaTracker } from './schema-timeline/schema-tracker';
 import { PackageStatusMonitor } from './workspace-setup/package-status-monitor';
+import { SchemaCache } from './schema-cache/schema-cache';
+import { createCachedDriftClient } from './schema-cache/cached-drift-client';
 
 export function activate(context: vscode.ExtensionContext): void {
   const {
@@ -34,6 +36,16 @@ export function activate(context: vscode.ExtensionContext): void {
     cfg,
   } = bootstrapExtension(context);
 
+  const schemaCache = new SchemaCache(client, context.workspaceState, {
+    ttlMs: cfg.get<number>('schemaCache.ttlMs', 30_000) ?? 30_000,
+    persistKey: cfg.get<string>('schemaCache.persistKey', 'driftViewer.lastKnownSchema') || undefined,
+  });
+  const cachedClient = createCachedDriftClient(client, schemaCache);
+  const loadOnConnect = cfg.get<boolean>('database.loadOnConnect', true) !== false;
+  let treeLoadedLazy = false;
+  const getLightweight = (): boolean =>
+    vscode.workspace.getConfiguration('driftViewer').get<boolean>('lightweight', false) === true;
+
   // Session flag: only show the "Open Dashboard" prompt once per activation
   let dashboardPromptShown = false;
 
@@ -45,7 +57,12 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(packageMonitor);
 
   const annotationStore = new AnnotationStore(context.workspaceState);
-  const providers = setupProviders(context, client, annotationStore);
+  const providers = setupProviders(context, cachedClient, annotationStore);
+
+  // Stale-while-revalidate: when cache updates (e.g. after background revalidate), refresh tree.
+  context.subscriptions.push(schemaCache.onDidUpdate(() => {
+    providers.treeProvider.refresh();
+  }));
 
   // Sync package-installed state to the Drift Tools sidebar so the
   // "Add Package" tree item hides when the package is already in pubspec.
@@ -56,17 +73,17 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // Schema intelligence engines for diagnostics and code actions.
-  const schemaIntel = new SchemaIntelligence(client);
-  const queryIntel = new QueryIntelligence(client);
+  const schemaIntel = new SchemaIntelligence(cachedClient);
+  const queryIntel = new QueryIntelligence(cachedClient);
   context.subscriptions.push(schemaIntel, queryIntel);
 
   // Schema timeline tracker: captures schema snapshots on each generation
   // change for use by the rollback generator and timeline panel.
-  const schemaTracker = new SchemaTracker(client, context.workspaceState, watcher);
+  const schemaTracker = new SchemaTracker(cachedClient, context.workspaceState, watcher);
   context.subscriptions.push(schemaTracker);
-  const { diagnosticManager } = setupDiagnostics(context, client, schemaIntel, queryIntel);
+  const { diagnosticManager } = setupDiagnostics(context, cachedClient, schemaIntel, queryIntel);
 
-  const editing = setupEditing(context, client);
+  const editing = setupEditing(context, cachedClient);
   editing.changeTracker.onDidChange(() => {
     vscode.commands.executeCommand('setContext', 'driftViewer.hasEdits', editing.changeTracker.changeCount > 0);
     vscode.commands.executeCommand('setContext', 'driftViewer.editingActive', editing.changeTracker.changeCount > 0);
@@ -75,7 +92,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   const refreshStatusBar = (): void =>
-    updateStatusBar(statusItem, discovery, serverManager, discoveryEnabled, client);
+    updateStatusBar(statusItem, discovery, serverManager, discoveryEnabled, cachedClient);
   refreshStatusBar();
   context.subscriptions.push(statusItem);
 
@@ -95,17 +112,18 @@ export function activate(context: vscode.ExtensionContext): void {
       discovery.stop();
       watcher.stop();
       serverManager.clearActive();
+      schemaCache.invalidate();
       providers.toolsProvider.setConnected(false);
       healthStatusBar.hide();
       toolsQuickPick.setConnected(false);
     } else {
       if (discoveryEnabled) discovery.start();
       watcher.start();
-      providers.treeProvider.refresh();
+      if (loadOnConnect) void providers.treeProvider.refresh();
       providers.codeLensProvider.refreshRowCounts();
       providers.linter.refresh();
       diagnosticManager.refresh().catch(() => {});
-      providers.refreshBadges().catch(() => {});
+      if (!getLightweight()) providers.refreshBadges().catch(() => {});
     }
     refreshStatusBar();
   };
@@ -121,22 +139,24 @@ export function activate(context: vscode.ExtensionContext): void {
 
   serverManager.onDidChangeActive((server) => {
     refreshStatusBar();
+    schemaCache.invalidate();
     void vscode.commands.executeCommand('setContext', 'driftViewer.serverConnected', server !== undefined);
-    // Keep the Drift Tools sidebar and status bar in sync with connection state
     providers.toolsProvider.setConnected(server !== undefined);
     toolsQuickPick.setConnected(server !== undefined);
     if (!server) {
       healthStatusBar.hide();
+      treeLoadedLazy = false;
     }
     if (server) {
       watcher.stop();
       watcher.reset();
       watcher.start();
-      providers.treeProvider.refresh();
+      schemaCache.prewarm();
+      if (loadOnConnect) void providers.treeProvider.refresh();
       providers.codeLensProvider.refreshRowCounts();
       providers.linter.refresh();
       diagnosticManager.refresh().catch(() => {});
-      providers.refreshBadges().catch(() => {});
+      if (!getLightweight()) providers.refreshBadges().catch(() => {});
       providers.watchManager.refresh().catch(() => {});
 
       // On first server connection per session, offer to open the Dashboard
@@ -182,36 +202,56 @@ export function activate(context: vscode.ExtensionContext): void {
 
   discovery.onDidChangeServers(refreshStatusBar);
 
-  // On generation change: refresh tree, codelens, linter, diagnostics, badges, timeline, watch, dashboard. Fire-and-forget async to avoid blocking.
+  // Lazy tree: when loadOnConnect is false, load Database tree on first view visibility.
+  if (typeof providers.treeView.onDidChangeVisibility === 'function') {
+    context.subscriptions.push(
+      providers.treeView.onDidChangeVisibility((e: { visible: boolean }) => {
+        if (e.visible && !loadOnConnect && !treeLoadedLazy && serverManager.activeServer) {
+          treeLoadedLazy = true;
+          void providers.treeProvider.refresh();
+        }
+      }),
+    );
+  }
+
+  // On generation change: invalidate schema cache; refresh tree/codelens/linter etc. unless lightweight.
   watcher.onDidChange(async () => {
-    providers.treeProvider.refresh();
-    providers.definitionProvider.clearCache();
-    providers.hoverCache.clear();
-    await providers.codeLensProvider.refreshRowCounts();
-    providers.codeLensProvider.notifyChange();
-    providers.linter.refresh();
-    diagnosticManager.refresh().catch(() => {});
-    providers.refreshBadges().catch(() => {});
-    if (cfg.get<boolean>('timeline.autoCapture', true)) {
-      providers.snapshotStore.capture(client).catch(() => {});
+    schemaCache.invalidate();
+    if (!getLightweight()) {
+      void providers.treeProvider.refresh();
+      providers.definitionProvider.clearCache();
+      providers.hoverCache.clear();
+      await providers.codeLensProvider.refreshRowCounts();
+      providers.codeLensProvider.notifyChange();
+      providers.linter.refresh();
+      diagnosticManager.refresh().catch(() => {});
+      providers.refreshBadges().catch(() => {});
+      if (vscode.workspace.getConfiguration('driftViewer').get<boolean>('timeline.autoCapture', true)) {
+        providers.snapshotStore.capture(cachedClient).catch(() => {});
+      }
+      providers.watchManager.refresh().catch(() => {});
+      if (DashboardPanel.currentPanel) {
+        DashboardPanel.currentPanel.refreshAll().catch(() => {});
+      }
     }
-    providers.watchManager.refresh().catch(() => {});
     providers.dbpProvider.onGenerationChange().catch(() => {});
-    if (DashboardPanel.currentPanel) {
-      DashboardPanel.currentPanel.refreshAll().catch(() => {});
-    }
   });
   if (extensionEnabled) {
     watcher.start();
-    providers.treeProvider.refresh();
+    if (loadOnConnect) {
+      void providers.treeProvider.refresh();
+    }
+    if (serverManager.activeServer) {
+      schemaCache.prewarm();
+    }
     providers.codeLensProvider.refreshRowCounts();
     providers.linter.refresh();
     diagnosticManager.refresh().catch(() => {});
-    providers.refreshBadges().catch(() => {});
+    if (!getLightweight()) providers.refreshBadges().catch(() => {});
   }
   context.subscriptions.push({ dispose: () => watcher.stop() });
 
-  registerAllCommands(context, client, {
+  registerAllCommands(context, cachedClient, {
     ...providers,
     ...editing,
     annotationStore,

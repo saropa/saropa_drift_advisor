@@ -17,7 +17,17 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
+## [Unreleased]
+
+### Added
+
+• **Extension: schema cache and performance options** — Shared in-memory schema cache with configurable TTL (`driftViewer.schemaCache.ttlMs`) so tree, Schema Search, ER diagram, and other features reuse one fetch. Optional last-known schema persist (`driftViewer.schemaCache.persistKey`) for stale-while-revalidate on startup. Pre-warm runs a background schema fetch when a server connects so the Database view is ready when opened. Lazy Database tree: `driftViewer.database.loadOnConnect` (default true) loads tree on connect; when false, tree loads on first time the Database view is shown. Lightweight mode: `driftViewer.lightweight` (default false) skips file badges, timeline auto-capture, and tree/badges refresh on generation change. Schema Search: configurable timeout (`driftViewer.schemaSearch.timeoutMs`) and cross-ref cap (`driftViewer.schemaSearch.crossRefMatchCap`); "Browse all tables" link returns table list only (one fetch, no cross-refs). Tree providers never throw from `getChildren` so the sidebar no longer shows "no data provider" errors.
+
+---
+
 ## [2.4.0]
+
+Web UI: leave confirmation, auto-analyze on Index/Size/Health tabs, refreshed toolbar and Export tab, SQL syntax highlighting, and version→changelog link. Extension: Refresh and Dashboard commands fixed, Search/Tables toolbar, quieter polling, and Schema Search timeout plus portable report fixes.
 
 ### Added
 
@@ -92,6 +102,8 @@ Web UI: PII masking, richer charts and exports, query-builder AND/OR, page-based
 ---
 
 ## [2.3.0]
+
+Extension: About and Save Filter commands fixed; share dialogs and welcome view show proper feedback. Web UI: Search tab and toolbar, tabbed tools, cell popup and status bar, tooltips, and Live/Paused/Offline connection status.
 
 ### Fixed
 

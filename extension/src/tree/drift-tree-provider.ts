@@ -75,6 +75,15 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   }
 
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
+    try {
+      return await this._getChildrenInner(element);
+    } catch {
+      // Never throw: return empty so the view never shows "no data provider" errors.
+      return [];
+    }
+  }
+
+  private async _getChildrenInner(element?: TreeNode): Promise<TreeNode[]> {
     // Root level: return empty when disconnected to show viewsWelcome content
     if (!element) {
       if (!this._connected) {

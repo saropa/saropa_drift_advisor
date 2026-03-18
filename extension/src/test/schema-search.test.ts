@@ -90,7 +90,8 @@ describe('SchemaSearchEngine', () => {
 
   it('should scope to tables only', async () => {
     const engine = new SchemaSearchEngine(fakeClient([USERS, ORDERS]));
-    const result = await engine.search('table_', 'tables');
+    // Query 'r' matches users and orders so we get both tables when scope is tables-only
+    const result = await engine.search('r', 'tables');
     assert.ok(result.matches.every((m) => m.type === 'table'));
     assert.strictEqual(result.matches.length, 2);
   });
@@ -237,7 +238,8 @@ describe('SchemaSearchEngine', () => {
       }
       const client = fakeClient(manyTables);
       const engine = new SchemaSearchEngine(client);
-      const result = await engine.search('', 'all');
+      // 'o' matches all table_10, table_11 and every col_0..col_8 → 2 + 99 = 101 matches (> 80 cap)
+      const result = await engine.search('o', 'all');
       assert.ok(result.matches.length > 80, 'expect many matches to trigger cap');
       assert.strictEqual(result.crossReferences.length, 0, 'cross-refs skipped for large result');
       assert.strictEqual((client.tableFkMeta as sinon.SinonStub).callCount, 0, 'tableFkMeta not called');

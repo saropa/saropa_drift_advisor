@@ -879,6 +879,39 @@
           "default": 8649,
           "description": "End of port range to scan for Drift debug servers (inclusive)."
         },
+        "driftViewer.database.loadOnConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, load the Database tree as soon as a server connects. When false, load on first time the Database view is shown."
+        },
+        "driftViewer.schemaCache.ttlMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 0,
+          "description": "Schema cache TTL in ms. Cached schema is reused for this long before refetch. 0 disables in-memory cache."
+        },
+        "driftViewer.schemaCache.persistKey": {
+          "type": "string",
+          "default": "driftViewer.lastKnownSchema",
+          "description": "Workspace state key for last-known schema (stale-while-revalidate on startup). Empty disables persist."
+        },
+        "driftViewer.schemaSearch.timeoutMs": {
+          "type": "number",
+          "default": 15000,
+          "minimum": 1000,
+          "description": "Max time to wait for a schema search before showing timeout (ms)."
+        },
+        "driftViewer.schemaSearch.crossRefMatchCap": {
+          "type": "number",
+          "default": 80,
+          "minimum": 0,
+          "description": "When match count exceeds this, cross-reference building is skipped so search resolves quickly."
+        },
+        "driftViewer.lightweight": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, disables file badges, timeline auto-capture, and tree refresh on generation change to reduce load."
+        },
         "driftViewer.tasks.blockOnWarnings": {
           "type": "boolean",
           "default": false,

@@ -9,8 +9,8 @@ import { SchemaSearchEngine } from './schema-search-engine';
 import { getSchemaSearchHtml } from './schema-search-html';
 import type { SchemaSearchMessage } from './schema-search-types';
 
-/** Max time to wait for a search before showing a timeout error (ms). */
-const SEARCH_TIMEOUT_MS = 15_000;
+/** Default search timeout (ms) when config is unset. */
+const DEFAULT_SEARCH_TIMEOUT_MS = 15_000;
 
 /** Callback to reveal a table in the Database Explorer tree view. */
 export type RevealTableFn = (name: string) => Promise<void>;
@@ -26,7 +26,9 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     client: DriftApiClient,
     private readonly _revealTable: RevealTableFn,
   ) {
-    this._engine = new SchemaSearchEngine(client);
+    const cfg = vscode.workspace.getConfiguration('driftViewer');
+    const crossRefMatchCap = cfg.get<number>('schemaSearch.crossRefMatchCap', 80) ?? 80;
+    this._engine = new SchemaSearchEngine(client, { crossRefMatchCap });
   }
 
   resolveWebviewView(
@@ -50,6 +52,9 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
       case 'search':
         await this._doSearch(msg.query, msg.scope, msg.typeFilter);
         break;
+      case 'searchAll':
+        await this._doBrowseAll();
+        break;
       case 'navigate':
         await this._revealTable(msg.table);
         break;
@@ -57,7 +62,7 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Runs a search with a timeout so the UI never hangs.
+   * Runs a search with a configurable timeout so the UI never hangs.
    * Stale results (from a superseded search) are discarded via gen check.
    */
   private async _doSearch(
@@ -73,11 +78,12 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
       this._view?.webview.postMessage({ command: 'error', message });
     };
 
+    const timeoutMs = vscode.workspace.getConfiguration('driftViewer').get<number>('schemaSearch.timeoutMs', DEFAULT_SEARCH_TIMEOUT_MS) ?? DEFAULT_SEARCH_TIMEOUT_MS;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(
         () => reject(new Error('Search timed out')),
-        SEARCH_TIMEOUT_MS,
+        timeoutMs,
       );
     });
 
@@ -103,6 +109,25 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
           ? 'Search timed out. Try a more specific query or check the server.'
           : `Search failed: ${message}`,
       );
+    }
+  }
+
+  /** Fast "Browse all tables" (one schemaMetadata call, no cross-refs). */
+  private async _doBrowseAll(): Promise<void> {
+    const gen = ++this._searchGen;
+    this._view?.webview.postMessage({ command: 'loading' });
+    try {
+      const result = await this._engine.browseAllTables();
+      if (gen !== this._searchGen) return;
+      this._view?.webview.postMessage({
+        command: 'results',
+        result,
+        crossRefs: result.crossReferences,
+      });
+    } catch (err) {
+      if (gen !== this._searchGen) return;
+      const message = err instanceof Error ? err.message : String(err);
+      this._view?.webview.postMessage({ command: 'error', message: `Browse failed: ${message}` });
     }
   }
 }

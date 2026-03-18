@@ -37,6 +37,9 @@ export function getSchemaSearchHtml(nonce: string): string {
   .cross-ref .warn { color: var(--vscode-editorWarning-foreground, #cca700); }
   .empty { opacity: 0.6; font-style: italic; padding: 8px 0; }
   .idle { opacity: 0.6; font-size: 12px; padding: 12px 0; }
+  .browse-link { font-size: 11px; opacity: 0.8; margin-bottom: 6px; }
+  .browse-link a { color: var(--vscode-textLink-foreground); cursor: pointer; }
+  .browse-link a:hover { text-decoration: underline; }
   .error { color: var(--vscode-errorForeground); font-size: 12px; padding: 8px 0; }
   .status { font-size: 11px; opacity: 0.6; margin-bottom: 4px; }
   .loading { opacity: 0.6; font-style: italic; padding: 8px 0; animation: pulse 1.2s ease-in-out infinite; }
@@ -58,6 +61,7 @@ export function getSchemaSearchHtml(nonce: string): string {
   <button class="type-btn" data-type="REAL">REAL</button>
   <button class="type-btn" data-type="BLOB">BLOB</button>
 </div>
+<div class="browse-link"><a id="browseAll" href="#">Browse all tables</a></div>
 <div id="status" class="status"></div>
 <div id="error" class="error" style="display: none;"></div>
 <ul id="results" class="results"></ul>
@@ -93,6 +97,11 @@ export function getSchemaSearchHtml(nonce: string): string {
   queryEl.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(doSearch, 200);
+  });
+
+  document.getElementById('browseAll').addEventListener('click', (e) => {
+    e.preventDefault();
+    vscode.postMessage({ command: 'searchAll' });
   });
 
   function doSearch() {

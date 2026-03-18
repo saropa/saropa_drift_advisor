@@ -10,16 +10,42 @@ import type {
   SchemaSearchScope,
 } from './schema-search-types';
 
-/** When match count exceeds this, we skip cross-ref building so the search resolves quickly. */
-const CROSS_REF_MATCH_CAP = 80;
+const DEFAULT_CROSS_REF_MATCH_CAP = 80;
+
+export interface SchemaSearchEngineOptions {
+  /** When match count exceeds this, cross-ref building is skipped. Default 80. */
+  crossRefMatchCap?: number;
+}
 
 export class SchemaSearchEngine {
-  constructor(private readonly _client: DriftApiClient) {}
+  private readonly _crossRefCap: number;
+
+  constructor(
+    private readonly _client: DriftApiClient,
+    options: SchemaSearchEngineOptions = {},
+  ) {
+    this._crossRefCap = options.crossRefMatchCap ?? DEFAULT_CROSS_REF_MATCH_CAP;
+  }
 
   /** Fetch all table metadata (filtered to exclude sqlite_ internals). */
   async getAllMetadata(): Promise<TableMetadata[]> {
     const meta = await this._client.schemaMetadata();
     return meta.filter((t) => !t.name.startsWith('sqlite_'));
+  }
+
+  /**
+   * Returns all tables as matches (one schemaMetadata call, no cross-refs).
+   * Use for a fast "Browse all tables" in the Schema Search panel.
+   */
+  async browseAllTables(): Promise<ISchemaSearchResult> {
+    const meta = await this.getAllMetadata();
+    const matches: ISchemaMatch[] = meta.map((t) => ({
+      type: 'table' as const,
+      table: t.name,
+      rowCount: t.rowCount,
+      columnCount: t.columns.length,
+    }));
+    return { query: '', matches, crossReferences: [] };
   }
 
   /**
@@ -71,7 +97,7 @@ export class SchemaSearchEngine {
     }
 
     const crossRefs =
-      matches.length <= CROSS_REF_MATCH_CAP
+      matches.length <= this._crossRefCap
         ? await this._buildCrossReferences(meta, matches)
         : [];
     this._annotateCrossRefs(matches, crossRefs);

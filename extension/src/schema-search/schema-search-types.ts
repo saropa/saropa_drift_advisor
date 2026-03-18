@@ -31,6 +31,7 @@ export interface ISchemaSearchResult {
 /** Messages sent from the webview to the extension host. */
 export type SchemaSearchMessage =
   | { command: 'search'; query: string; scope: SchemaSearchScope; typeFilter?: string }
+  | { command: 'searchAll' }
   | { command: 'navigate'; table: string };
 
 /** Messages sent from the extension host to the webview. */

@@ -123,13 +123,18 @@ export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode>
   }
 
   getChildren(element?: ToolsTreeNode): ToolsTreeNode[] {
-    if (!element) {
-      return buildCategories(this._version, this._packageInstalled);
+    try {
+      if (!element) {
+        return buildCategories(this._version, this._packageInstalled);
+      }
+      if (element instanceof ToolCategoryItem) {
+        return element.tools;
+      }
+      return [];
+    } catch {
+      // Never throw so the view never shows "no data provider" errors.
+      return [];
     }
-    if (element instanceof ToolCategoryItem) {
-      return element.tools;
-    }
-    return [];
   }
 }
 
