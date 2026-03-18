@@ -16,12 +16,19 @@ export function registerTroubleshootingCommands(
       connectionChannel.appendLine(
         `[${new Date().toISOString()}] Troubleshooting: opened panel (user triggered)`,
       );
-      void vscode.window.showInformationMessage(
-        'Opening Troubleshooting panel.',
-      );
-      const cfg = vscode.workspace.getConfiguration('driftViewer');
-      const port = cfg.get<number>('port', 8642) ?? 8642;
-      TroubleshootingPanel.createOrShow(port);
+      try {
+        const cfg = vscode.workspace.getConfiguration('driftViewer');
+        const port = cfg.get<number>('port', 8642) ?? 8642;
+        TroubleshootingPanel.createOrShow(port);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        connectionChannel.appendLine(
+          `[${new Date().toISOString()}] Troubleshooting: failed — ${msg}`,
+        );
+        void vscode.window.showErrorMessage(
+          `Failed to open Troubleshooting panel: ${msg}`,
+        );
+      }
     }),
   );
 }

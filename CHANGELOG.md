@@ -21,6 +21,12 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 Web UI: table tabs, self-contained Search tab, and collapsible sidebar for faster multi-table workflows.
 
+### Fixed
+
+- **Extension: command error handling** — Every sidebar and welcome-view button (Open in Browser, Troubleshooting, Add Package, Open in Panel, Run Linter, Copy SQL, Open Walkthrough) now catches errors, logs timestamped diagnostics to the Output channel, and shows a user-facing error or warning toast. Previously many commands swallowed failures silently with no feedback.
+- **Extension: server discovery error logging** — Port scan failures during server discovery are now logged to the Output channel instead of being silently discarded.
+- **Extension: troubleshooting panel message routing** — Webview button actions now catch and surface rejected command promises instead of discarding them.
+
 ### Changed
 
 - **SDK constraint raised to `>=3.9.0 <4.0.0`** — Enables Dart 3.6 digit separators, Dart 3.7 wildcard variables and tall formatter style, and Dart 3.8 null-aware collection elements. Formatter page width explicitly set to 80 in `analysis_options.yaml`.
@@ -55,6 +61,7 @@ Web UI: table tabs, self-contained Search tab, and collapsible sidebar for faste
 
 - **Web UI: accessibility** — Sidebar "Tables" heading uses a nested `<button>` inside `<h2>` to preserve both heading landmark navigation and button semantics for screen readers. Browse cards use semantic `<button>` elements instead of `<a href="#">`. Added `:focus-visible` styles to the sidebar toggle and search toolbar buttons (WCAG 2.4.7).
 - **Web UI: tab creation** — Extracted a shared `createClosableTab()` helper used by both tool tabs and table tabs, eliminating ~35 lines of duplicated DOM construction code.
+- **Query spam reduction (~97%)** — Drastically reduced the number of SQL queries the extension fires through the user's Drift database, eliminating massive "Drift: Sent" console spam when `logStatements` is enabled. Row counts from the existing change-detection UNION ALL query are now cached in `ServerContext` and included inline in the `/api/tables` response. The web UI uses these inline counts instead of firing N individual `/api/table/<name>/count` requests. Table name validation (`requireKnownTable`) and schema metadata now use cached data. For a 40-table database, a refresh cycle drops from ~160 queries to ~2.
 - **Web UI: search input debounce** — Search and filter inputs in the Search tab are now debounced (150ms/200ms) to reduce DOM thrashing and prevent floods of abandoned HTTP requests on large tables.
 
 ### Fixed

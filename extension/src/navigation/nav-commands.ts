@@ -28,15 +28,31 @@ export function registerNavCommands(
 
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInBrowser', async () => {
+      log('Open in Browser: triggered by user');
       if (client.usingVmService && !serverManager.activeServer) {
+        log('Open in Browser: blocked — VM Service mode with no active server');
         await vscode.window.showInformationMessage(
           'Open in browser is only available when the app is reachable over HTTP. Use the Database tree while connected via VM Service.',
         );
         return;
       }
-      await vscode.env.openExternal(
-        vscode.Uri.parse(`http://${client.host}:${client.port}`),
-      );
+      const url = `http://${client.host}:${client.port}`;
+      try {
+        log(`Open in Browser: opening ${url}`);
+        const opened = await vscode.env.openExternal(vscode.Uri.parse(url));
+        if (!opened) {
+          log('Open in Browser: openExternal returned false');
+          void vscode.window.showWarningMessage(
+            `Could not open ${url} in browser. Check your default browser settings.`,
+          );
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log(`Open in Browser: failed — ${msg}`);
+        void vscode.window.showErrorMessage(
+          `Failed to open browser: ${msg}`,
+        );
+      }
     }),
   );
 
@@ -49,10 +65,17 @@ export function registerNavCommands(
 
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInPanel', () => {
-      DriftViewerPanel.createOrShow(
-        client.host, client.port, editingBridge, fkNavigator, filterBridge,
-        openInPanelOptions(),
-      );
+      log('Open in Panel: triggered by user');
+      try {
+        DriftViewerPanel.createOrShow(
+          client.host, client.port, editingBridge, fkNavigator, filterBridge,
+          openInPanelOptions(),
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log(`Open in Panel: failed — ${msg}`);
+        void vscode.window.showErrorMessage(`Failed to open panel: ${msg}`);
+      }
     }),
   );
 
@@ -60,10 +83,17 @@ export function registerNavCommands(
     vscode.commands.registerCommand(
       'driftViewer.viewTableInPanel',
       (_tableName: string) => {
-        DriftViewerPanel.createOrShow(
-          client.host, client.port, editingBridge, fkNavigator, filterBridge,
-          openInPanelOptions(),
-        );
+        log('View Table in Panel: triggered by user');
+        try {
+          DriftViewerPanel.createOrShow(
+            client.host, client.port, editingBridge, fkNavigator, filterBridge,
+            openInPanelOptions(),
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          log(`View Table in Panel: failed — ${msg}`);
+          void vscode.window.showErrorMessage(`Failed to open panel: ${msg}`);
+        }
       },
     ),
   );
@@ -94,15 +124,29 @@ export function registerNavCommands(
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('driftViewer.runLinter', () =>
-      linter.refresh(),
-    ),
+    vscode.commands.registerCommand('driftViewer.runLinter', () => {
+      log('Run Linter: triggered by user');
+      try {
+        linter.refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log(`Run Linter: failed — ${msg}`);
+        void vscode.window.showErrorMessage(`Linter failed: ${msg}`);
+      }
+    }),
   );
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.copySuggestedSql',
-      (sql: string) => {
-        vscode.env.clipboard.writeText(sql);
+      async (sql: string) => {
+        try {
+          await vscode.env.clipboard.writeText(sql);
+          void vscode.window.showInformationMessage('SQL copied to clipboard.');
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          log(`Copy SQL: failed — ${msg}`);
+          void vscode.window.showErrorMessage(`Failed to copy SQL: ${msg}`);
+        }
       },
     ),
   );
@@ -174,12 +218,21 @@ export function registerNavCommands(
 
   // Open the Getting Started walkthrough so users can discover features step by step.
   context.subscriptions.push(
-    vscode.commands.registerCommand('driftViewer.openWalkthrough', () => {
-      vscode.commands.executeCommand(
-        'workbench.action.openWalkthrough',
-        'saropa.drift-viewer#driftViewer.gettingStarted',
-        false,
-      );
+    vscode.commands.registerCommand('driftViewer.openWalkthrough', async () => {
+      log('Open Walkthrough: triggered by user');
+      try {
+        await vscode.commands.executeCommand(
+          'workbench.action.openWalkthrough',
+          'saropa.drift-viewer#driftViewer.gettingStarted',
+          false,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log(`Open Walkthrough: failed — ${msg}`);
+        void vscode.window.showErrorMessage(
+          `Failed to open walkthrough: ${msg}`,
+        );
+      }
     }),
   );
 

@@ -20,25 +20,35 @@ export function registerWorkspaceSetupCommands(
       void vscode.window.showInformationMessage(
         'Adding Saropa Drift Advisor to project… See Output → Saropa Drift Advisor.',
       );
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: 'Adding Saropa Drift Advisor to project',
-          cancellable: false,
-        },
-        async (progress) => {
-          const result = await addPackageToProject(progress);
-          connectionChannel.appendLine(
-            `[${new Date().toISOString()}] Add Saropa Drift Advisor: ${result.message}`,
-          );
-          if (result.pubGetOk) {
-            void vscode.window.showInformationMessage(result.message);
-          } else {
-            void vscode.window.showErrorMessage(result.message);
-          }
-          return result;
-        },
-      );
+      try {
+        await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: 'Adding Saropa Drift Advisor to project',
+            cancellable: false,
+          },
+          async (progress) => {
+            const result = await addPackageToProject(progress);
+            connectionChannel.appendLine(
+              `[${new Date().toISOString()}] Add Saropa Drift Advisor: ${result.message}`,
+            );
+            if (result.pubGetOk) {
+              void vscode.window.showInformationMessage(result.message);
+            } else {
+              void vscode.window.showErrorMessage(result.message);
+            }
+            return result;
+          },
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        connectionChannel.appendLine(
+          `[${new Date().toISOString()}] Add Saropa Drift Advisor: unexpected error — ${msg}`,
+        );
+        void vscode.window.showErrorMessage(
+          `Add Saropa Drift Advisor failed: ${msg}`,
+        );
+      }
     }),
   );
 }

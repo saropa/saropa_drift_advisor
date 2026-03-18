@@ -53,30 +53,41 @@ export class TroubleshootingPanel {
     this._panel.webview.html = buildTroubleshootingHtml(this._port);
   }
 
-  /** Route button actions from the webview back to VS Code commands. */
+  /** Route button actions from the webview back to VS Code commands, with error handling. */
   private _handleMessage(msg: { command: string }): void {
+    // Helper that executes a VS Code command and shows an error toast if it rejects
+    const safeExec = (cmdId: string, ...args: unknown[]): void => {
+      vscode.commands.executeCommand(cmdId, ...args).then(
+        undefined,
+        (err: unknown) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(
+            `Command "${cmdId}" failed: ${errMsg}`,
+          );
+        },
+      );
+    };
+
     switch (msg.command) {
       case 'retryConnection':
-        void vscode.commands.executeCommand('driftViewer.retryDiscovery');
+        safeExec('driftViewer.retryDiscovery');
         break;
       case 'forwardPort':
-        void vscode.commands.executeCommand('driftViewer.forwardPortAndroid');
+        safeExec('driftViewer.forwardPortAndroid');
         break;
       case 'selectServer':
-        void vscode.commands.executeCommand('driftViewer.selectServer');
+        safeExec('driftViewer.selectServer');
         break;
       case 'openOutput':
         // Show the Saropa Drift Advisor output channel
-        void vscode.commands.executeCommand(
-          'workbench.action.output.show',
-          'Saropa Drift Advisor',
-        );
+        safeExec('workbench.action.output.show', 'Saropa Drift Advisor');
         break;
       case 'openSettings':
-        void vscode.commands.executeCommand(
-          'workbench.action.openSettings',
-          'driftViewer',
-        );
+        safeExec('workbench.action.openSettings', 'driftViewer');
+        break;
+      default:
+        // Unknown command from webview — log it so it's not silently ignored
+        console.warn(`Troubleshooting panel: unknown command "${msg.command}"`);
         break;
     }
   }

@@ -115,7 +115,10 @@ export class ServerDiscovery {
       const alivePorts = await scanPorts(this._config, (msg) => this._logLine(msg));
       if (!this._running || id !== this._pollId) return;
       this._updateServers(alivePorts);
-    } catch {
+    } catch (err) {
+      // Log the scan failure so it shows in the Output channel instead of silently vanishing
+      const msg = err instanceof Error ? err.message : String(err);
+      this._logLine(`Port scan failed: ${msg}`);
       if (!this._running || id !== this._pollId) return;
       this._updateServers([]);
     }
