@@ -36,6 +36,7 @@ export function getSchemaSearchHtml(nonce: string): string {
   .cross-ref { padding-left: 24px; font-size: 11px; opacity: 0.7; }
   .cross-ref .warn { color: var(--vscode-editorWarning-foreground, #cca700); }
   .empty { opacity: 0.6; font-style: italic; padding: 8px 0; }
+  .idle { opacity: 0.6; font-size: 12px; padding: 12px 0; }
   .error { color: var(--vscode-errorForeground); font-size: 12px; padding: 8px 0; }
   .status { font-size: 11px; opacity: 0.6; margin-bottom: 4px; }
   .loading { opacity: 0.6; font-style: italic; padding: 8px 0; animation: pulse 1.2s ease-in-out infinite; }
@@ -95,7 +96,15 @@ export function getSchemaSearchHtml(nonce: string): string {
   });
 
   function doSearch() {
-    const msg = { command: 'search', query: queryEl.value, scope, typeFilter: typeFilter || undefined };
+    const q = queryEl.value.trim();
+    if (!q) {
+      statusEl.textContent = '';
+      errorEl.style.display = 'none';
+      errorEl.textContent = '';
+      resultsEl.innerHTML = '<li class="idle">Type to search tables and columns.</li>';
+      return;
+    }
+    const msg = { command: 'search', query: q, scope, typeFilter: typeFilter || undefined };
     vscode.postMessage(msg);
   }
 
@@ -181,7 +190,7 @@ export function getSchemaSearchHtml(nonce: string): string {
     return d.innerHTML;
   }
 
-  // Initial search (empty query = browse all)
+  // Show idle state immediately; search only when user types (avoids slow "browse all" on open).
   doSearch();
 })();
 </script>

@@ -82,7 +82,7 @@ describe('SchemaSearchEngine', () => {
 
   it('should filter by type when typeFilter is set', async () => {
     const engine = new SchemaSearchEngine(fakeClient([USERS, ORDERS]));
-    const result = await engine.search('', 'columns', 'INTEGER');
+    const result = await engine.search('id', 'columns', 'INTEGER');
     const cols = result.matches.filter((m) => m.type === 'column');
     assert.ok(cols.every((m) => m.columnType === 'INTEGER'));
     assert.ok(cols.length >= 2); // users.id + orders.id
@@ -90,7 +90,7 @@ describe('SchemaSearchEngine', () => {
 
   it('should scope to tables only', async () => {
     const engine = new SchemaSearchEngine(fakeClient([USERS, ORDERS]));
-    const result = await engine.search('', 'tables');
+    const result = await engine.search('table_', 'tables');
     assert.ok(result.matches.every((m) => m.type === 'table'));
     assert.strictEqual(result.matches.length, 2);
   });
@@ -105,16 +105,17 @@ describe('SchemaSearchEngine', () => {
     const engine = new SchemaSearchEngine(
       fakeClient([USERS, SQLITE_INTERNAL]),
     );
-    const result = await engine.search('', 'all');
+    const result = await engine.search('users', 'all');
     assert.ok(result.matches.every((m) => !m.table.startsWith('sqlite_')));
   });
 
-  it('should return all items for empty query (browse mode)', async () => {
-    const engine = new SchemaSearchEngine(fakeClient([USERS, ORDERS]));
-    const result = await engine.search('', 'all');
-    assert.ok(result.matches.length > 0);
-    const tableMatches = result.matches.filter((m) => m.type === 'table');
-    assert.strictEqual(tableMatches.length, 2);
+  it('should short-circuit empty queries with no matches', async () => {
+    const client = fakeClient([USERS, ORDERS]);
+    const engine = new SchemaSearchEngine(client);
+    const result = await engine.search('   ', 'all');
+    assert.strictEqual(result.query, '');
+    assert.strictEqual(result.matches.length, 0);
+    assert.strictEqual(result.crossReferences.length, 0);
   });
 
   it('should match case-insensitively', async () => {

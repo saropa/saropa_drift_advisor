@@ -22,14 +22,21 @@ export class SchemaSearchEngine {
     return meta.filter((t) => !t.name.startsWith('sqlite_'));
   }
 
-  /** Search schema by table/column name or type. */
+  /**
+   * Search schema by table/column name or type.
+   * Empty query returns immediately with no matches (avoids slow full-schema + cross-ref load).
+   */
   async search(
     query: string,
     scope: SchemaSearchScope,
     typeFilter?: string,
   ): Promise<ISchemaSearchResult> {
+    const trimmed = query.trim();
+    if (trimmed === '') {
+      return { query: '', matches: [], crossReferences: [] };
+    }
     const meta = await this.getAllMetadata();
-    const lower = query.toLowerCase();
+    const lower = trimmed.toLowerCase();
     const matches: ISchemaMatch[] = [];
 
     for (const table of meta) {
@@ -68,7 +75,7 @@ export class SchemaSearchEngine {
         ? await this._buildCrossReferences(meta, matches)
         : [];
     this._annotateCrossRefs(matches, crossRefs);
-    return { query, matches, crossReferences: crossRefs };
+    return { query: trimmed, matches, crossReferences: crossRefs };
   }
 
   /** Populate `alsoIn` on each column match from cross-reference data. */
