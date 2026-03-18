@@ -192,26 +192,90 @@
 
     /**
      * Switches the main content area to the given tab.
-     * @param {string} tabId - One of: tables, sql, snapshot, compare, index, size, perf, anomaly, import, schema, diagram
+     * Table-specific tabs use the 'tbl:' prefix (e.g. 'tbl:users') and share
+     * the #panel-tables panel. The "tables" tab shows a browse-all list;
+     * 'tbl:{name}' tabs show that table's data in the shared content area.
+     * @param {string} tabId - One of: tables, tbl:{name}, sql, search, snapshot, compare, index, size, perf, anomaly, import, schema, diagram
      */
     function switchTab(tabId) {
       var tabBar = document.getElementById('tab-bar');
       var panels = document.getElementById('tab-panels');
       if (!tabBar || !panels) return;
+
+      // Save state for the previously active table tab before switching away
+      var prevIsTable = activeTabId.indexOf('tbl:') === 0;
+      if (prevIsTable && currentTableName) {
+        saveTableState(currentTableName);
+      }
+
       activeTabId = tabId;
+
+      // Determine whether this tab should show the shared #panel-tables
+      var isTableTab = tabId.indexOf('tbl:') === 0;
+      var showTablesPanel = tabId === 'tables' || isTableTab;
+
+      // Update tab button active states
       tabBar.querySelectorAll('.tab-btn').forEach(function(btn) {
         var id = btn.getAttribute('data-tab');
         var isActive = id === tabId;
         btn.classList.toggle('active', isActive);
         btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
       });
+
+      // Update panel visibility: table tabs (tbl:*) share the #panel-tables panel
       panels.querySelectorAll('.tab-panel').forEach(function(panel) {
         var id = panel.id && panel.id.replace(/^panel-/, '');
-        var isActive = id === tabId;
+        var isActive = (id === tabId) || (showTablesPanel && id === 'tables');
         panel.classList.toggle('active', isActive);
         panel.hidden = !isActive;
       });
+
+      // Toggle between browse-all list and table data content within #panel-tables
+      var browseEl = document.getElementById('tables-browse');
+      var contentEl = document.getElementById('content');
+      var paginationEl = document.getElementById('pagination-bar');
+      var formatEl = document.getElementById('display-format-bar');
+      if (tabId === 'tables') {
+        // Browse mode: show table list, hide data content
+        if (browseEl) browseEl.style.display = '';
+        if (contentEl) contentEl.style.display = 'none';
+        if (paginationEl) paginationEl.style.display = 'none';
+        if (formatEl) formatEl.style.display = 'none';
+      } else if (isTableTab) {
+        // Table data mode: hide browse list, show data content
+        if (browseEl) browseEl.style.display = 'none';
+        if (contentEl) contentEl.style.display = '';
+        // Pagination and format bar visibility are managed by renderTableView
+
+        // Always load the table when switching to its tab. This handles:
+        // 1. First open: fetches data for the new table
+        // 2. Rapid switching (A->B->A): ensures fresh data even if
+        //    a previous fetch was still in-flight (loadTable's internal
+        //    guard `if (currentTableName !== name) return` prevents
+        //    stale responses from rendering)
+        // 3. Returning to an already-open tab: re-fetches for freshness
+        var tableName = tabId.slice(4); // strip 'tbl:' prefix
+        loadTable(tableName);
+      }
+
       if (typeof window.onTabSwitch === 'function') window.onTabSwitch(tabId);
+    }
+
+    /**
+     * Finds a tab button by its data-tab value, safe for table names that
+     * contain special characters (quotes, brackets, backslashes) which
+     * would break querySelector attribute selectors.
+     * @param {string} tabId - The data-tab value to match
+     * @returns {Element|null}
+     */
+    function findTabBtn(tabId) {
+      var tabBar = document.getElementById('tab-bar');
+      if (!tabBar) return null;
+      var btns = tabBar.querySelectorAll('.tab-btn');
+      for (var i = 0; i < btns.length; i++) {
+        if (btns[i].getAttribute('data-tab') === tabId) return btns[i];
+      }
+      return null;
     }
 
     /**
@@ -220,7 +284,8 @@
      */
     function openTool(toolId) {
       var tabBar = document.getElementById('tab-bar');
-      var existing = tabBar && tabBar.querySelector('.tab-btn[data-tab="' + toolId + '"]');
+      if (!tabBar) return;
+      var existing = findTabBtn(toolId);
       if (!existing) {
         var label = TOOL_LABELS[toolId] || toolId;
         var btn = document.createElement('button');
@@ -250,15 +315,26 @@
       switchTab(toolId);
     }
 
-    /** Closes a tool tab and switches to Tables if that was the active tab. */
+    /**
+     * Closes a tool or table tab and switches to the Tables browse tab
+     * if the closed tab was the active one. For table tabs (tbl:*),
+     * also removes from the openTableTabs tracking array.
+     */
     function closeToolTab(toolId) {
-      var tabBar = document.getElementById('tab-bar');
-      var btn = tabBar && tabBar.querySelector('.tab-btn[data-tab="' + toolId + '"]');
+      var btn = findTabBtn(toolId);
       if (!btn) return;
       btn.remove();
+
+      // Remove from openTableTabs if it's a table tab
+      if (toolId.indexOf('tbl:') === 0) {
+        var tableName = toolId.slice(4);
+        var idx = openTableTabs.indexOf(tableName);
+        if (idx >= 0) openTableTabs.splice(idx, 1);
+      }
+
       if (activeTabId === toolId) {
-        var first = tabBar && tabBar.querySelector('.tab-btn');
-        switchTab(first ? first.getAttribute('data-tab') : 'tables');
+        // Prefer switching to the Tables browse tab when closing the active tab
+        switchTab('tables');
       }
     }
 
@@ -273,6 +349,97 @@
         if (tabId && !btn.querySelector('.tab-btn-close')) {
           btn.addEventListener('click', function() { switchTab(tabId); });
         }
+      });
+    }
+
+    // --- Table tabs: each table opens in its own closeable tab. ---
+    // Tracks which table names currently have open tabs in the tab bar.
+    var openTableTabs = [];
+
+    /**
+     * Opens a table in its own closeable tab. If a tab for this table
+     * already exists, switches to it instead of creating a duplicate.
+     * Both sidebar links and browse-panel cards call this function.
+     * @param {string} name - The table name to open
+     */
+    function openTableTab(name) {
+      var tabId = 'tbl:' + name;
+      var tabBar = document.getElementById('tab-bar');
+      if (!tabBar) return;
+      var existing = findTabBtn(tabId);
+
+      if (!existing) {
+        // Create a new closeable tab button for this table
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tab-btn';
+        btn.setAttribute('data-tab', tabId);
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-controls', 'panel-tables');
+        btn.id = 'tab-' + tabId.replace(/:/g, '-');
+        // Wrap name in a span for CSS truncation of long table names
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'tab-btn-label';
+        nameSpan.textContent = name;
+        nameSpan.title = name; // full name on hover
+        btn.appendChild(nameSpan);
+
+        // Close button to remove the tab
+        var closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'tab-btn-close';
+        closeBtn.title = 'Close tab';
+        closeBtn.setAttribute('aria-label', 'Close ' + name);
+        closeBtn.textContent = '\u00d7';
+        closeBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          closeToolTab(tabId);
+        });
+        btn.appendChild(closeBtn);
+        btn.addEventListener('click', function(e) {
+          if (e.target !== closeBtn && !closeBtn.contains(e.target)) switchTab(tabId);
+        });
+        tabBar.appendChild(btn);
+        openTableTabs.push(name);
+      }
+
+      // Switch to this table's tab (loads data if needed)
+      switchTab(tabId);
+    }
+
+    /**
+     * Renders the browse-all table list inside the Tables tab panel.
+     * Shows clickable cards with table names and row counts. Each card
+     * calls openTableTab() to open the table in its own tab.
+     * @param {string[]} tables - Array of table names
+     */
+    function renderTablesBrowse(tables) {
+      var browseEl = document.getElementById('tables-browse');
+      if (!browseEl) return;
+
+      if (!tables || tables.length === 0) {
+        browseEl.innerHTML = '<p class="meta">No tables found.</p>';
+        return;
+      }
+
+      var html = '<div class="tables-browse-grid">';
+      tables.forEach(function(t) {
+        var countText = (tableCounts[t] != null) ? (tableCounts[t] + ' rows') : '';
+        html += '<a href="#" class="tables-browse-card" data-table="' + esc(t) + '" title="Open ' + esc(t) + ' in a tab">';
+        html += '<span class="browse-card-name">' + esc(t) + '</span>';
+        if (countText) html += '<span class="browse-card-count">' + esc(countText) + '</span>';
+        html += '</a>';
+      });
+      html += '</div>';
+      browseEl.innerHTML = html;
+
+      // Bind click handlers on each card to open table tabs
+      browseEl.querySelectorAll('.tables-browse-card').forEach(function(card) {
+        card.addEventListener('click', function(e) {
+          e.preventDefault();
+          var tableName = card.getAttribute('data-table');
+          if (tableName) openTableTab(tableName);
+        });
       });
     }
 
@@ -1631,24 +1798,12 @@
     }
 
     /**
-     * Copies current Tables content into the Search results panel and remaps ids so
-     * applySearch can target the search panel. Call when switching to Search tab.
-     * If Tables content is empty (no schema/table yet), shows a short hint instead.
+     * Activates the Search tab's self-contained UI.  The Search tab now has
+     * its own inline controls (table picker, search input, scope, filter)
+     * and loads data independently — no longer copies from the Tables tab.
      */
     function refreshSearchResultsPanel() {
-      var content = document.getElementById('content');
-      var searchPanel = document.getElementById('search-results-content');
-      if (!content || !searchPanel) return;
-      var hasSearchable = content.querySelector('#schema-pre, #content-pre, #data-table');
-      if (!hasSearchable) {
-        searchPanel.innerHTML = '<p class="meta">Open Search (toolbar), choose scope and a table in the Tables tab, then return here to see search results.</p>';
-        return;
-      }
-      searchPanel.innerHTML = content.innerHTML;
-      searchPanel.querySelectorAll('[id="schema-pre"]').forEach(function(el) { el.id = 'search-panel-schema-pre'; });
-      searchPanel.querySelectorAll('[id="content-pre"]').forEach(function(el) { el.id = 'search-panel-content-pre'; });
-      searchPanel.querySelectorAll('[id="data-table"]').forEach(function(el) { el.id = 'search-panel-data-table'; });
-      applySearch();
+      if (typeof window._stOnActivate === 'function') window._stOnActivate();
     }
 
     /**
@@ -1676,15 +1831,48 @@
 
     initTabsAndToolbar();
 
-    // Search options: hidden by default; toolbar magnifying glass toggles visibility
+    // --- Sidebar tables collapsible toggle ---
+    // Clicking the "Tables" heading collapses/expands the sidebar table list.
+    // Collapsed state is persisted to localStorage so it survives page reloads.
+    var SIDEBAR_COLLAPSED_KEY = 'saropa_sidebar_tables_collapsed';
+    (function initSidebarCollapsible() {
+      var toggle = document.getElementById('tables-heading-toggle');
+      var wrap = document.getElementById('sidebar-tables-wrap');
+      if (!toggle || !wrap) return;
+
+      // Restore collapsed state from localStorage
+      var wasCollapsed = false;
+      try { wasCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'; } catch (e) {}
+      if (wasCollapsed) {
+        wrap.classList.add('collapsed');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+
+      // Toggle on click or Enter/Space keypress
+      function toggleCollapse() {
+        var isCollapsed = wrap.classList.toggle('collapsed');
+        toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+        try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, isCollapsed ? '1' : '0'); } catch (e) {}
+      }
+      toggle.addEventListener('click', toggleCollapse);
+      toggle.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleCollapse();
+        }
+      });
+    })();
+
+    // Search toolbar button: opens Search tab and focuses its inline search input.
+    // The sidebar search panel is toggled separately via Ctrl+F when on the Tables tab.
     (function initSearchToggle() {
       var btn = document.getElementById('search-toggle-btn');
-      var wrap = document.getElementById('sidebar-search-wrap');
-      if (!btn || !wrap) return;
+      if (!btn) return;
       btn.addEventListener('click', function() {
-        wrap.classList.toggle('collapsed');
-        wrap.setAttribute('aria-hidden', wrap.classList.contains('collapsed'));
-        if (!wrap.classList.contains('collapsed')) document.getElementById('search-input').focus();
+        // Focus the search tab's inline input after the tab switch
+        setTimeout(function() {
+          if (typeof window._stFocusInput === 'function') window._stFocusInput();
+        }, 0);
       });
     })();
 
@@ -1788,14 +1976,14 @@
         tableEls.forEach(function(g, i) {
           g.addEventListener('click', function() {
             const name = this.getAttribute('data-table');
-            if (name) loadTable(name);
+            if (name) openTableTab(name);
           });
           g.addEventListener('keydown', function(e) {
             // Enter or Space activates the table (loads its data view).
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               const name = this.getAttribute('data-table');
-              if (name) loadTable(name);
+              if (name) openTableTab(name);
               return;
             }
             // Arrow keys navigate between table boxes in grid layout.
@@ -2187,7 +2375,7 @@
         html += '</div>';
         html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
         html += '<tr><th style="border:1px solid var(--border);padding:4px;">Table</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
+        html += '<th style="border:1px solid var(--border);padding:4px;min-width:8rem;">Rows</th>';
         html += '<th style="border:1px solid var(--border);padding:4px;">Columns</th>';
         html += '<th style="border:1px solid var(--border);padding:4px;">Indexes</th></tr>';
         var tables = data.tables || [];
@@ -2196,7 +2384,7 @@
           var barWidth = Math.max(1, (t.rowCount / maxRows) * 100);
           html += '<tr>';
           html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(t.table) + '</td>';
-          html += '<td style="border:1px solid var(--border);padding:4px;">';
+          html += '<td style="border:1px solid var(--border);padding:4px;white-space:nowrap;">';
           html += '<div style="background:var(--link);height:12px;width:' + barWidth + '%;opacity:0.3;display:inline-block;vertical-align:middle;margin-right:4px;"></div>';
           html += t.rowCount.toLocaleString() + '</td>';
           html += '<td style="border:1px solid var(--border);padding:4px;">' + t.columnCount + '</td>';
@@ -2775,8 +2963,19 @@
       }
       if (e.ctrlKey && e.key === 'f') {
         e.preventDefault();
-        document.getElementById('search-input').focus();
-        document.getElementById('search-input').select();
+        if (activeTabId === 'search' && typeof window._stFocusInput === 'function') {
+          // On Search tab: focus the inline search input
+          window._stFocusInput();
+        } else {
+          // On other tabs: open sidebar search panel and focus it
+          var wrap = document.getElementById('sidebar-search-wrap');
+          if (wrap && wrap.classList.contains('collapsed')) {
+            wrap.classList.remove('collapsed');
+            wrap.setAttribute('aria-hidden', 'false');
+          }
+          document.getElementById('search-input').focus();
+          document.getElementById('search-input').select();
+        }
       }
     });
 
@@ -2816,8 +3015,344 @@
         paginationBar.style.display = 'none';
       }
       applySearch();
-      if (activeTabId === 'search') refreshSearchResultsPanel();
     });
+
+    // =========================================================================
+    // Search Tab: self-contained search with inline table picker, scope,
+    // filter, and match navigation.  Completely independent of the sidebar
+    // search controls (which continue to serve the Tables tab).
+    // =========================================================================
+    (function initSearchTab() {
+      // --- Search-tab DOM handles ---
+      var stTableSel  = document.getElementById('st-table');
+      var stInput     = document.getElementById('st-input');
+      var stScopeSel  = document.getElementById('st-scope');
+      var stFilterEl  = document.getElementById('st-filter');
+      var stNavEl     = document.getElementById('st-nav');
+      var stCountEl   = document.getElementById('st-count');
+      var stPrevBtn   = document.getElementById('st-prev');
+      var stNextBtn   = document.getElementById('st-next');
+      var stRowToggle = document.getElementById('st-row-toggle-wrap');
+      var stRowAll    = document.getElementById('st-row-all');
+      var stRowMatch  = document.getElementById('st-row-matching');
+      var stPanel     = document.getElementById('search-results-content');
+      if (!stTableSel || !stInput || !stPanel) return;
+
+      // --- Search-tab–specific state (independent of Tables tab) ---
+      var stTableName = null;      // currently selected table
+      var stTableJson = null;      // fetched row data for that table
+      var stSchemaText = null;     // rendered schema text (for highlighting)
+      var stMatches = [];          // highlighted spans
+      var stMatchIdx = -1;         // active match index
+      var stOnlyMatching = true;   // row-display toggle
+
+      // --- Accessors for search-tab controls ---
+      function stScope()  { return stScopeSel.value || ''; }
+      function stTerm()   { return String(stInput.value || '').trim(); }
+      function stFilter() { return String(stFilterEl.value || '').trim(); }
+
+      // --- Populate table dropdown from master table list ---
+      // Called by renderTableList (patched below) whenever the table list updates.
+      window._stPopulateTables = function(tables) {
+        var prev = stTableSel.value;
+        stTableSel.innerHTML = '<option value="">-- select --</option>';
+        (tables || []).forEach(function(t) {
+          var opt = document.createElement('option');
+          opt.value = t;
+          opt.textContent = (tableCounts[t] != null) ? (t + ' (' + tableCounts[t] + ' rows)') : t;
+          stTableSel.appendChild(opt);
+        });
+        // Preserve previous selection if still valid
+        if (prev) stTableSel.value = prev;
+      };
+
+      // --- Sync: when sidebar table changes, update dropdown selection ---
+      window._stSyncTable = function(name) {
+        if (name && stTableSel.querySelector('option[value="' + CSS.escape(name) + '"]')) {
+          stTableSel.value = name;
+        }
+      };
+
+      // --- Row filtering (mirrors main filterRows but uses search-tab filter) ---
+      function stFilterRows(data) {
+        var term = stFilter();
+        if (!term || !data || data.length === 0) return data || [];
+        var lower = term.toLowerCase();
+        return data.filter(function(row) {
+          return Object.values(row).some(function(v) {
+            return v != null && String(v).toLowerCase().includes(lower);
+          });
+        });
+      }
+      function stDisplayData(data) {
+        if (!data || data.length === 0) return data || [];
+        if (stOnlyMatching && stFilter()) return stFilterRows(data);
+        return data;
+      }
+
+      // --- Render content into #search-results-content ---
+      function stRender() {
+        if (!stPanel) return;
+        var scope = stScope();
+        var tableName = stTableName;
+
+        // Nothing selected yet → show prompt
+        if (!tableName && scope !== 'schema') {
+          stPanel.innerHTML = '<p class="meta">Select a table and type a search term.</p>';
+          return;
+        }
+
+        // Schema-only view
+        if (scope === 'schema') {
+          stPanel.innerHTML = '<p class="meta">Loading schema\u2026</p>';
+          var schemaPromise = cachedSchema !== null
+            ? Promise.resolve(cachedSchema)
+            : fetch('/api/schema', authOpts()).then(function(r) { return r.text(); });
+          schemaPromise.then(function(schema) {
+            if (cachedSchema === null) cachedSchema = schema;
+            stSchemaText = schema;
+            stDataJson = null;
+            stPanel.innerHTML = '<p class="meta">Schema</p><pre id="st-schema-pre">' + highlightSqlSafe(schema) + '</pre>';
+            stHighlight();
+          }).catch(function(e) {
+            stPanel.innerHTML = '<p class="meta">Error</p><pre>' + esc(String(e)) + '</pre>';
+          });
+          return;
+        }
+
+        // Data or Both: need table data
+        if (!tableName) {
+          stPanel.innerHTML = '<p class="meta">Select a table above.</p>';
+          return;
+        }
+
+        stPanel.innerHTML = '<p class="meta">Loading ' + esc(tableName) + '\u2026</p>';
+
+        // Fetch table data (and schema if both)
+        var dataFetch = fetch('/api/table/' + encodeURIComponent(tableName) + '?limit=' + limit + '&offset=' + offset, authOpts())
+          .then(function(r) { return r.json(); });
+        var schemaFetch = (scope === 'both')
+          ? (cachedSchema !== null ? Promise.resolve(cachedSchema) : fetch('/api/schema', authOpts()).then(function(r) { return r.text(); }))
+          : Promise.resolve(null);
+
+        Promise.all([dataFetch, schemaFetch, loadFkMeta(tableName), loadColumnTypes(tableName).catch(function() { return {}; })])
+          .then(function(results) {
+            var data = results[0];
+            var schema = results[1];
+            var fks = results[2];
+            var colTypes = results[3];
+            if (stTableName !== tableName) return; // user switched tables
+
+            stTableJson = data;
+            if (schema && cachedSchema === null) cachedSchema = schema;
+
+            var filtered = stFilterRows(data);
+            var display = stDisplayData(data);
+            var fkMap = {};
+            (fks || []).forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
+
+            // Build meta text
+            var total = tableCounts[tableName];
+            var len = data.length;
+            var metaText = esc(tableName);
+            if (total != null) {
+              var rangeText = len > 0 ? ('showing ' + (offset + 1) + '\u2013' + (offset + len)) : 'no rows in this range';
+              metaText = esc(tableName) + ' (' + total + ' row' + (total !== 1 ? 's' : '') + '; ' + rangeText + ')';
+            } else {
+              metaText = esc(tableName) + ' (up to ' + limit + ' rows)';
+            }
+            var filterSuffix = '';
+            if (stFilter()) {
+              filterSuffix = stOnlyMatching
+                ? ' (filtered: ' + filtered.length + ' of ' + data.length + ')'
+                : ' (showing all rows; filter: ' + filtered.length + ' match)';
+            }
+            metaText += filterSuffix;
+
+            var tableHtml = wrapDataTableInScroll(buildDataTableHtml(display, fkMap, colTypes, getColumnConfig(tableName)))
+              + buildTableStatusBar(total, offset, limit, display.length,
+                  getVisibleColumnCount(Object.keys(display[0] || {}), getColumnConfig(tableName)));
+
+            if (scope === 'both' && schema) {
+              stSchemaText = schema;
+              stPanel.innerHTML =
+                '<div class="search-section-collapsible expanded">' +
+                  '<div class="collapsible-header" data-collapsible>Schema</div>' +
+                  '<div class="collapsible-body"><pre id="st-schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
+                '</div>' +
+                '<div class="search-section-collapsible expanded">' +
+                  '<div class="collapsible-header" data-collapsible>Table data: ' + esc(tableName) + '</div>' +
+                  '<div class="collapsible-body"><p class="meta">' + metaText + '</p>' + tableHtml + '</div>' +
+                '</div>';
+            } else {
+              stSchemaText = null;
+              stPanel.innerHTML = '<p class="meta">' + metaText + '</p>' + tableHtml;
+            }
+
+            // Show/hide row display toggle
+            if (stRowToggle) {
+              stRowToggle.style.display = (scope === 'data' || scope === 'both') ? 'flex' : 'none';
+            }
+
+            stHighlight();
+
+            // Also fetch total count if not cached
+            if (total == null) {
+              fetch('/api/table/' + encodeURIComponent(tableName) + '/count', authOpts())
+                .then(function(r) { return r.json(); })
+                .then(function(o) {
+                  tableCounts[tableName] = o.count;
+                  // Re-render to show accurate count
+                  if (stTableName === tableName) stRender();
+                }).catch(function() {});
+            }
+          })
+          .catch(function(e) {
+            stPanel.innerHTML = '<p class="meta">Error</p><pre>' + esc(String(e)) + '</pre>';
+          });
+      }
+
+      // --- Apply search highlighting within the search tab panel ---
+      function stHighlight() {
+        var term = stTerm();
+        var scope = stScope();
+
+        // Highlight schema text
+        var schemaPre = stPanel.querySelector('#st-schema-pre');
+        if (schemaPre && stSchemaText && (scope === 'schema' || scope === 'both')) {
+          schemaPre.innerHTML = term ? highlightText(stSchemaText, term) : highlightSqlSafe(stSchemaText);
+        }
+
+        // Highlight data table cells
+        var dataTable = stPanel.querySelector('#data-table');
+        if (dataTable && (scope === 'data' || scope === 'both')) {
+          dataTable.querySelectorAll('td').forEach(function(td) {
+            if (!td.querySelector('.fk-link')) {
+              var copyBtn = td.querySelector('.cell-copy-btn');
+              var textNodes = [];
+              td.childNodes.forEach(function(n) { if (n !== copyBtn) textNodes.push(n.textContent || ''); });
+              var text = textNodes.join('');
+              var highlighted = term ? highlightText(text, term) : esc(text);
+              if (copyBtn) {
+                td.innerHTML = highlighted + copyBtn.outerHTML;
+              } else {
+                td.innerHTML = highlighted;
+              }
+            }
+          });
+        }
+
+        // Build match list from highlight spans
+        stMatches = term ? Array.from(stPanel.querySelectorAll('.highlight')) : [];
+        stMatchIdx = -1;
+
+        if (stMatches.length > 0) {
+          stNavEl.style.display = 'flex';
+          stNavigate(0);
+        } else {
+          stNavEl.style.display = term ? 'flex' : 'none';
+          stCountEl.textContent = term ? 'No matches' : '';
+          stPrevBtn.disabled = true;
+          stNextBtn.disabled = true;
+        }
+      }
+
+      // --- Navigate matches ---
+      function stNavigate(index) {
+        if (stMatches.length === 0) return;
+        if (index < 0) index = stMatches.length - 1;
+        if (index >= stMatches.length) index = 0;
+        if (stMatchIdx >= 0 && stMatchIdx < stMatches.length) {
+          stMatches[stMatchIdx].classList.remove('highlight-active');
+        }
+        stMatchIdx = index;
+        var el = stMatches[stMatchIdx];
+        el.classList.add('highlight-active');
+        expandSectionContaining(el);
+        el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+        stCountEl.textContent = (stMatchIdx + 1) + ' of ' + stMatches.length;
+        stPrevBtn.disabled = false;
+        stNextBtn.disabled = false;
+      }
+      function stNext() { if (stMatches.length) stNavigate(stMatchIdx + 1); }
+      function stPrev() { if (stMatches.length) stNavigate(stMatchIdx - 1); }
+
+      // --- Event listeners for search-tab controls ---
+      // Table selection change → load data and render
+      stTableSel.addEventListener('change', function() {
+        stTableName = stTableSel.value || null;
+        stTableJson = null;
+        stRender();
+      });
+
+      // Live search highlighting on every keystroke
+      stInput.addEventListener('input', function() {
+        // If we already have content rendered, just re-highlight (no re-fetch)
+        if (stPanel.querySelector('#data-table, #st-schema-pre')) {
+          stHighlight();
+        } else {
+          // No content yet — trigger full render if table selected
+          if (stTableName || stScope() === 'schema') stRender();
+        }
+      });
+
+      // Keyboard navigation: Enter = next, Shift+Enter = prev, Escape = clear
+      stInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (e.shiftKey) { stPrev(); } else { stNext(); }
+        }
+        if (e.key === 'Escape') {
+          stInput.value = '';
+          stHighlight();
+          stInput.blur();
+        }
+      });
+
+      // Scope change → re-render
+      stScopeSel.addEventListener('change', function() { stRender(); });
+
+      // Row filter → re-render
+      stFilterEl.addEventListener('input', function() {
+        if (stTableName && stTableJson) stRender();
+      });
+
+      // Match navigation buttons
+      stPrevBtn.addEventListener('click', stPrev);
+      stNextBtn.addEventListener('click', stNext);
+
+      // Row display toggle (All / Matching)
+      if (stRowAll) stRowAll.addEventListener('click', function() {
+        stOnlyMatching = false;
+        stRowAll.classList.add('active');
+        if (stRowMatch) stRowMatch.classList.remove('active');
+        if (stTableName && stTableJson) stRender();
+      });
+      if (stRowMatch) stRowMatch.addEventListener('click', function() {
+        stOnlyMatching = true;
+        stRowMatch.classList.add('active');
+        if (stRowAll) stRowAll.classList.remove('active');
+        if (stTableName && stTableJson) stRender();
+      });
+
+      // --- Public: called from onTabSwitch when Search tab becomes active ---
+      window._stOnActivate = function() {
+        // If no content yet and we have a current table, pre-select it
+        if (!stTableName && currentTableName) {
+          stTableSel.value = currentTableName;
+          stTableName = currentTableName;
+          stRender();
+        }
+        // Focus search input for immediate typing
+        stInput.focus();
+      };
+
+      // --- Public: focus search input (for Ctrl+F) ---
+      window._stFocusInput = function() {
+        stInput.focus();
+        stInput.select();
+      };
+    })();
 
     document.getElementById('export-dump').addEventListener('click', function(e) {
       e.preventDefault();
@@ -3755,6 +4290,8 @@
       var isNewTable = (currentTableName !== name);
       currentTableName = name;
       updateTableListActive();
+      // Keep Search tab dropdown in sync with the sidebar table selection
+      if (typeof window._stSyncTable === 'function') window._stSyncTable(name);
       if (isNewTable) restoreTableState(name);
       const content = document.getElementById('content');
       const scope = getScope();
@@ -3797,7 +4334,8 @@
         a.className = 'table-link' + (t === currentTableName ? ' active' : '');
         a.setAttribute('data-table', t);
         a.textContent = (tableCounts[t] != null) ? (t + ' (' + tableCounts[t] + ' rows)') : t;
-        a.onclick = e => { e.preventDefault(); loadTable(t); };
+        // Open the table in its own closeable tab (or switch to it if already open)
+        a.onclick = e => { e.preventDefault(); openTableTab(t); };
         li.appendChild(a);
         ul.appendChild(li);
       });
@@ -3809,6 +4347,11 @@
       if (importTableSel) {
         importTableSel.innerHTML = tables.map(t => '<option value="' + esc(t) + '">' + esc(t) + (tableCounts[t] != null ? ' (' + tableCounts[t] + ' rows)' : '') + '</option>').join('');
       }
+      // Populate the Search tab's table dropdown
+      if (typeof window._stPopulateTables === 'function') window._stPopulateTables(tables);
+
+      // Update the browse-all grid in the Tables tab panel
+      renderTablesBrowse(tables);
     }
 
     // --- Chart rendering (pure SVG, no dependencies). BUG-008: responsive, axis labels, export, title. ---
@@ -4561,11 +5104,33 @@
           .then(function(r) { return r.json(); })
           .then(function(o) {
             tableCounts[t] = o.count;
+
+            // Update sidebar table links with row count
             var ul = document.getElementById('tables');
-            if (!ul) return;
-            ul.querySelectorAll('a.table-link').forEach(function(a) {
-              if (a.getAttribute('data-table') === t) a.textContent = t + ' (' + o.count + ' rows)';
-            });
+            if (ul) {
+              ul.querySelectorAll('a.table-link').forEach(function(a) {
+                if (a.getAttribute('data-table') === t) a.textContent = t + ' (' + o.count + ' rows)';
+              });
+            }
+
+            // Update browse-panel cards with row count
+            var browseEl = document.getElementById('tables-browse');
+            if (browseEl) {
+              browseEl.querySelectorAll('.tables-browse-card').forEach(function(card) {
+                if (card.getAttribute('data-table') === t) {
+                  var countSpan = card.querySelector('.browse-card-count');
+                  if (countSpan) {
+                    countSpan.textContent = o.count + ' rows';
+                  } else {
+                    // Add count span if it wasn't rendered initially
+                    var span = document.createElement('span');
+                    span.className = 'browse-card-count';
+                    span.textContent = o.count + ' rows';
+                    card.appendChild(span);
+                  }
+                }
+              });
+            }
           })
           .catch(function() {});
       });
@@ -4581,7 +5146,17 @@
         .then(function(r) { return r.json(); })
         .then(function(tables) {
           applyTableListAndCounts(tables);
-          if (currentTableName) loadTable(currentTableName);
+
+          // Close tabs for tables that no longer exist (e.g. dropped/renamed).
+          // Iterate a copy since closeToolTab mutates the openTableTabs array.
+          openTableTabs.slice().forEach(function(name) {
+            if (tables.indexOf(name) < 0) closeToolTab('tbl:' + name);
+          });
+
+          // Reload the current table only if it still exists and we're on a table tab
+          if (currentTableName && tables.indexOf(currentTableName) >= 0) {
+            loadTable(currentTableName);
+          }
         })
         .catch(function() {})
         .finally(function() {
@@ -4763,11 +5338,12 @@
         }
         if (hash && tables.indexOf(hash) >= 0) {
           // Hash deep-link takes priority over the restored breadcrumb.
-          loadTable(hash);
+          // Open in its own tab so it appears in the tab bar.
+          openTableTab(hash);
         } else if (restoredTable && tables.indexOf(restoredTable) >= 0 && navHistory.length > 0) {
           // No hash deep-link, but we have a restored breadcrumb trail --
           // load the table the user was viewing when they last refreshed.
-          loadTable(restoredTable);
+          openTableTab(restoredTable);
         }
 
         // Render the breadcrumb bar if the trail is non-empty, so the
@@ -4878,7 +5454,8 @@
 
     function applySessionState(state) {
       if (state.currentTable) {
-        setTimeout(function () { loadTable(state.currentTable); }, 500);
+        // Open the shared table in its own tab
+        setTimeout(function () { openTableTab(state.currentTable); }, 500);
       }
 
       if (state.sqlInput) {

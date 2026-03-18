@@ -85,8 +85,8 @@ abstract final class HtmlContent {
         <p class="meta" style="margin:0 0 0.5rem 0;">Export schema, dumps, and table data from the <strong>Export</strong> tab (toolbar button above).</p>
       </div>
       <p id="tables-loading" class="meta">Loading tables…</p>
-      <div class="sidebar-section">
-      <h2 class="tables-heading">Tables</h2>
+      <div id="sidebar-tables-wrap" class="sidebar-section sidebar-tables-wrap">
+      <h2 class="tables-heading" id="tables-heading-toggle" role="button" tabindex="0" aria-expanded="true" title="Click to collapse/expand table list">Tables</h2>
       <ul id="tables" class="table-list"></ul>
       </div>
     </aside>
@@ -113,6 +113,9 @@ abstract final class HtmlContent {
       </div>
       <div id="tab-panels" class="tab-panels">
         <div id="panel-tables" class="tab-panel active" role="tabpanel" aria-labelledby="tab-tables">
+      <!-- Browse-all table list: shown when the "Tables" tab is active (no specific table selected).
+           Populated dynamically by renderTablesBrowse() in app.js with clickable table cards. -->
+      <div id="tables-browse" class="tables-browse"></div>
       <div id="pagination-bar" class="toolbar pagination-toolbar" style="display: none;" role="navigation" aria-label="Table pagination">
         <label for="pagination-limit">Rows per page</label>
         <select id="pagination-limit" aria-label="Rows per page"></select>
@@ -143,6 +146,31 @@ abstract final class HtmlContent {
       <div id="content" class="content-wrap"></div>
         </div>
         <div id="panel-search" class="tab-panel" role="tabpanel" aria-labelledby="tab-search" hidden>
+          <!-- Self-contained search controls: table picker, search input, scope, filter, navigation -->
+          <div class="search-tab-toolbar">
+            <label for="st-table">Table:</label>
+            <select id="st-table" aria-label="Select table to search"><option value="">-- select --</option></select>
+            <label for="st-input">Search:</label>
+            <input type="text" id="st-input" placeholder="Search…" />
+            <label for="st-scope">in</label>
+            <select id="st-scope" aria-label="Search scope">
+              <option value="schema">Schema only</option>
+              <option value="data">DB data only</option>
+              <option value="both">Both</option>
+            </select>
+            <span id="st-nav" class="search-nav" style="display:none;">
+              <button type="button" id="st-prev" title="Previous match (Shift+Enter)">&#9650; Prev</button>
+              <span id="st-count"></span>
+              <button type="button" id="st-next" title="Next match (Enter)">Next &#9660;</button>
+            </span>
+            <label for="st-filter">Filter rows:</label>
+            <input type="text" id="st-filter" placeholder="Column value…" title="Client-side filter on current table" />
+            <div id="st-row-toggle-wrap" class="row-display-toggle" style="display:none;">
+              <span class="row-display-label">Show:</span>
+              <button type="button" id="st-row-all" class="row-display-btn" title="Show all rows">All rows</button>
+              <button type="button" id="st-row-matching" class="row-display-btn active" title="Show only rows matching filter">Matching</button>
+            </div>
+          </div>
           <div id="search-results-content" class="content-wrap search-results-content"></div>
         </div>
         <div id="panel-sql" class="tab-panel" role="tabpanel" aria-labelledby="tab-sql" hidden>

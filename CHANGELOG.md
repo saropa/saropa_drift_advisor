@@ -17,6 +17,22 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
+## [Unreleased]
+
+Web UI: table tabs and collapsible sidebar for faster multi-table workflows.
+
+### Added
+
+- **Web UI: table tabs** — Clicking a table name (sidebar or browse panel) opens it in its own closeable tab. Multiple table tabs can be open simultaneously; clicking an already-open table switches to its tab. The Tables tab now shows a browse-all grid of clickable table cards with row counts.
+- **Web UI: collapsible sidebar table list** — The "Tables" heading in the sidebar is now a toggle that collapses/expands the table list. State persists across page reloads via localStorage. Supports keyboard activation (Enter/Space) and ARIA attributes.
+
+### Fixed
+
+- **Web UI: special-character table names** — Tab lookup now uses iteration instead of `querySelector` attribute selectors, preventing `DOMException` crashes on table names containing quotes, brackets, or backslashes.
+- **Web UI: stale tabs on live refresh** — When the database changes and a table is dropped or renamed, its tab is automatically closed instead of remaining as an orphan with an error state.
+
+---
+
 ## [2.5.0]
 
 Extension: shared schema cache, configurable performance/lightweight modes, and safer schema search. Web UI: connection banner improvements and zero runtime dependencies for the Dart package.
@@ -312,18 +328,20 @@ Smart package lifecycle management: the extension now detects whether the Dart p
 ### Added
 
 • **Open in Browser button** — quickly open the Drift debug server UI from the Database sidebar:
-  - Globe icon in the header toolbar (visible when connected)
-  - Clickable "Connected" status item opens the server URL
-  - "Open in Browser" button in the welcome view (visible when not connected)
+
+- Globe icon in the header toolbar (visible when connected)
+- Clickable "Connected" status item opens the server URL
+- "Open in Browser" button in the welcome view (visible when not connected)
 
 • **Build safeguards (defense-in-depth)** — Seven independent layers now prevent shipping an extension that silently fails to activate:
-  - `npm install` auto-compiles TypeScript via `postprepare` hook — fresh clones and `git clean` are self-healing
-  - Pre-commit hook verifies `out/extension.js` exists alongside the existing type check
-  - F5 launch config (`launch.json`) with `preLaunchTask` ensures compilation before every debug run
-  - Background `watch` task available for continuous recompilation during development
-  - Publish pipeline verifies `out/extension.js` on disk after `tsc` exits
-  - Publish pipeline inspects VSIX archive contents before allowing publish
-  - Post-install verification confirms the extension directory exists on disk after `code --install-extension`
+
+- `npm install` auto-compiles TypeScript via `postprepare` hook — fresh clones and `git clean` are self-healing
+- Pre-commit hook verifies `out/extension.js` exists alongside the existing type check
+- F5 launch config (`launch.json`) with `preLaunchTask` ensures compilation before every debug run
+- Background `watch` task available for continuous recompilation during development
+- Publish pipeline verifies `out/extension.js` on disk after `tsc` exits
+- Publish pipeline inspects VSIX archive contents before allowing publish
+- Post-install verification confirms the extension directory exists on disk after `code --install-extension`
 
 • **Package upgrade detection** — On activation the extension checks pub.dev for newer versions of `saropa_drift_advisor`. If the workspace pubspec.yaml has an older constraint, an upgrade notification offers a one-click update (rewrites the constraint and runs `pub get`). Checks are throttled to once per hour; network errors are silently ignored.
 
