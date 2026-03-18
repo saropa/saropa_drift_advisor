@@ -522,12 +522,13 @@ body.theme-light .feature-card.expanded {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-/* Allow the table name to wrap naturally inside the flex link */
+/* Truncate long table names with ellipsis inside the flex link */
 .table-link-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .table-list a:hover {
@@ -559,7 +560,7 @@ body.theme-light .feature-card.expanded {
   cursor: pointer;
   padding: 0.25rem;
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  color: var(--muted);
   opacity: 0;
   transition: opacity 0.15s ease, color 0.15s ease;
   line-height: 1;
@@ -587,6 +588,20 @@ body.theme-light .feature-card.expanded {
 }
 .table-pin-btn.pinned:hover {
   opacity: 1;
+}
+
+/* Keyboard focus ring for the pin toggle (WCAG 2.4.7) */
+.table-pin-btn:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+/* Touch devices can't hover, so always show the pin icon at low opacity */
+@media (pointer: coarse) {
+  .table-pin-btn {
+    opacity: 0.4;
+  }
 }
 
 /* Tables browse panel: grid of clickable table cards inside the Tables tab */

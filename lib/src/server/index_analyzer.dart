@@ -67,9 +67,11 @@ abstract final class IndexAnalyzer {
           suggestions.add(<String, dynamic>{
             'table': tableName,
             'column': fromCol,
-            'reason': 'Foreign key without index '
+            'reason':
+                'Foreign key without index '
                 '(references ${fk['table']}.${fk['to']})',
-            'sql': 'CREATE INDEX idx_${tableName}_$fromCol '
+            'sql':
+                'CREATE INDEX idx_${tableName}_$fromCol '
                 'ON "$tableName"("$fromCol");',
             'priority': 'high',
           });
@@ -99,9 +101,11 @@ abstract final class IndexAnalyzer {
             suggestions.add(<String, dynamic>{
               'table': tableName,
               'column': colName,
-              'reason': 'Column ending in _id \u2014 likely used in '
+              'reason':
+                  'Column ending in _id \u2014 likely used in '
                   'JOINs/WHERE',
-              'sql': 'CREATE INDEX idx_${tableName}_$colName '
+              'sql':
+                  'CREATE INDEX idx_${tableName}_$colName '
                   'ON "$tableName"("$colName");',
               'priority': 'medium',
             });
@@ -114,9 +118,11 @@ abstract final class IndexAnalyzer {
             suggestions.add(<String, dynamic>{
               'table': tableName,
               'column': colName,
-              'reason': 'Date/time column \u2014 often used in '
+              'reason':
+                  'Date/time column \u2014 often used in '
                   'ORDER BY or range queries',
-              'sql': 'CREATE INDEX idx_${tableName}_$colName '
+              'sql':
+                  'CREATE INDEX idx_${tableName}_$colName '
                   'ON "$tableName"("$colName");',
               'priority': 'low',
             });
@@ -126,15 +132,12 @@ abstract final class IndexAnalyzer {
     }
 
     // Sort suggestions by priority: high → medium → low.
-    const priorityOrder = <String, int>{
-      'high': 0,
-      'medium': 1,
-      'low': 2,
-    };
+    const priorityOrder = <String, int>{'high': 0, 'medium': 1, 'low': 2};
 
     suggestions.sort(
-      (a, b) => (priorityOrder[a['priority']] ?? 3)
-          .compareTo(priorityOrder[b['priority']] ?? 3),
+      (a, b) => (priorityOrder[a['priority']] ?? 3).compareTo(
+        priorityOrder[b['priority']] ?? 3,
+      ),
     );
 
     return <String, dynamic>{

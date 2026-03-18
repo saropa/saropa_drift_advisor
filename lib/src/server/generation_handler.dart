@@ -20,11 +20,13 @@ final class GenerationHandler {
     final res = response;
 
     _ctx.setJsonHeaders(res);
-    res.write(jsonEncode(<String, dynamic>{
-      ServerConstants.jsonKeyOk: true,
-      ServerConstants.jsonKeyExtensionConnected: _ctx.isExtensionConnected,
-      ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
-    }));
+    res.write(
+      jsonEncode(<String, dynamic>{
+        ServerConstants.jsonKeyOk: true,
+        ServerConstants.jsonKeyExtensionConnected: _ctx.isExtensionConnected,
+        ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
+      }),
+    );
     await res.close();
   }
 
@@ -46,8 +48,9 @@ final class GenerationHandler {
     final int? since = sinceRaw != null ? int.tryParse(sinceRaw) : null;
 
     if (since != null && since >= 0) {
-      final deadline =
-          DateTime.now().toUtc().add(ServerConstants.longPollTimeout);
+      final deadline = DateTime.now().toUtc().add(
+        ServerConstants.longPollTimeout,
+      );
 
       while (DateTime.now().toUtc().isBefore(deadline) &&
           _ctx.generation <= since) {
@@ -56,8 +59,11 @@ final class GenerationHandler {
       }
     }
     _ctx.setJsonHeaders(res);
-    res.write(jsonEncode(
-        <String, int>{ServerConstants.jsonKeyGeneration: _ctx.generation}));
+    res.write(
+      jsonEncode(<String, int>{
+        ServerConstants.jsonKeyGeneration: _ctx.generation,
+      }),
+    );
     await res.close();
   }
 

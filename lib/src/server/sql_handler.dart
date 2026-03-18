@@ -41,9 +41,7 @@ final class SqlHandler {
       return <String, dynamic>{ServerConstants.jsonKeyRows: rows};
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
-      return <String, String>{
-        ServerConstants.jsonKeyError: error.toString(),
-      };
+      return <String, String>{ServerConstants.jsonKeyError: error.toString()};
     }
   }
 
@@ -90,16 +88,16 @@ final class SqlHandler {
       };
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
-      return <String, String>{
-        ServerConstants.jsonKeyError: error.toString(),
-      };
+      return <String, String>{ServerConstants.jsonKeyError: error.toString()};
     }
   }
 
   /// Handles POST /api/sql/explain: body {"sql": "SELECT ..."}.
   /// Prepends EXPLAIN QUERY PLAN; returns {"rows": [...], "sql": "..."}.
   Future<void> handleExplainSql(
-      HttpRequest request, DriftDebugQuery query) async {
+    HttpRequest request,
+    DriftDebugQuery query,
+  ) async {
     final sql = await _readAndValidateSqlBody(request);
     if (sql == null) {
       return;
@@ -117,7 +115,9 @@ final class SqlHandler {
   /// Validated POST /api/sql request body. Checks Content-Type then
   /// decodes and validates.
   ({SqlRequestBody? body, String? error}) parseSqlBody(
-      HttpRequest request, String body) {
+    HttpRequest request,
+    String body,
+  ) {
     final contentType = request.headers.contentType?.mimeType;
     if (contentType != 'application/json') {
       return (body: null, error: 'Content-Type must be application/json');
@@ -160,9 +160,11 @@ final class SqlHandler {
       _ctx.logError(error, stack);
       res.statusCode = HttpStatus.badRequest;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: ServerConstants.errorInvalidRequestBody,
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: ServerConstants.errorInvalidRequestBody,
+        }),
+      );
       await res.close();
       return null;
     }
@@ -171,10 +173,12 @@ final class SqlHandler {
     if (bodyObj == null) {
       res.statusCode = HttpStatus.badRequest;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError:
-            result.error ?? ServerConstants.errorInvalidJson,
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError:
+              result.error ?? ServerConstants.errorInvalidJson,
+        }),
+      );
       await res.close();
       return null;
     }
@@ -182,9 +186,11 @@ final class SqlHandler {
     if (!SqlValidator.isReadOnlySql(sql)) {
       res.statusCode = HttpStatus.badRequest;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: ServerConstants.errorReadOnlyOnly,
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: ServerConstants.errorReadOnlyOnly,
+        }),
+      );
       await res.close();
       return null;
     }

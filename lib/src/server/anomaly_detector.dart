@@ -54,48 +54,53 @@ abstract final class AnomalyDetector {
           // 1. Detect NULL values in nullable columns.
           if (isNullable) {
             await _detectNullValues(
-                query: query,
-                tableName: tableName,
-                colName: colName,
-                tableRowCount: tableRowCount,
-                anomalies: anomalies);
+              query: query,
+              tableName: tableName,
+              colName: colName,
+              tableRowCount: tableRowCount,
+              anomalies: anomalies,
+            );
           }
 
           // 2. Detect empty strings in text columns.
           if (ServerUtils.isTextType(colType)) {
             await _detectEmptyStrings(
-                query: query,
-                tableName: tableName,
-                colName: colName,
-                anomalies: anomalies);
+              query: query,
+              tableName: tableName,
+              colName: colName,
+              anomalies: anomalies,
+            );
           }
 
           // 3. Detect numeric outliers (values > 10×
           //    average) in numeric columns.
           if (ServerUtils.isNumericType(colType)) {
             await _detectNumericOutliers(
-                query: query,
-                tableName: tableName,
-                colName: colName,
-                anomalies: anomalies);
+              query: query,
+              tableName: tableName,
+              colName: colName,
+              anomalies: anomalies,
+            );
           }
         }
       }
 
       // 4. Detect orphaned foreign key references.
       await _detectOrphanedForeignKeys(
-          query: query,
-          tableName: tableName,
-          tableNames: tableNames,
-          anomalies: anomalies);
+        query: query,
+        tableName: tableName,
+        tableNames: tableNames,
+        anomalies: anomalies,
+      );
 
       // 5. Detect duplicate rows (DISTINCT count vs
       //    total count).
       await _detectDuplicateRows(
-          query: query,
-          tableName: tableName,
-          tableRowCount: tableRowCount,
-          anomalies: anomalies);
+        query: query,
+        tableName: tableName,
+        tableRowCount: tableRowCount,
+        anomalies: anomalies,
+      );
     }
 
     // Sort anomalies by severity: error → warning → info.
@@ -137,7 +142,8 @@ abstract final class AnomalyDetector {
       'type': 'null_values',
       'severity': pct > 50 ? 'warning' : 'info',
       'count': nullCount,
-      'message': '$nullCount NULL value(s) in $tableName.$colName '
+      'message':
+          '$nullCount NULL value(s) in $tableName.$colName '
           '(${pct.toStringAsFixed(1)}%)',
     });
   }
@@ -181,12 +187,14 @@ abstract final class AnomalyDetector {
     required String colName,
     required List<Map<String, dynamic>> anomalies,
   }) async {
-    final statsRows = ServerUtils.normalizeRows(await query(
-      'SELECT AVG("$colName") AS avg_val, '
-      'MIN("$colName") AS min_val, '
-      'MAX("$colName") AS max_val '
-      'FROM "$tableName" WHERE "$colName" IS NOT NULL',
-    ));
+    final statsRows = ServerUtils.normalizeRows(
+      await query(
+        'SELECT AVG("$colName") AS avg_val, '
+        'MIN("$colName") AS min_val, '
+        'MAX("$colName") AS max_val '
+        'FROM "$tableName" WHERE "$colName" IS NOT NULL',
+      ),
+    );
     if (statsRows.isEmpty) {
       return;
     }
@@ -206,7 +214,8 @@ abstract final class AnomalyDetector {
         'column': colName,
         'type': 'potential_outlier',
         'severity': 'info',
-        'message': 'Potential outlier in $tableName.$colName: '
+        'message':
+            'Potential outlier in $tableName.$colName: '
             'range [$min, $max], avg '
             '${avg.toStringAsFixed(2)}',
       });
@@ -255,7 +264,8 @@ abstract final class AnomalyDetector {
             'type': 'orphaned_fk',
             'severity': 'error',
             'count': orphanCount,
-            'message': '$orphanCount orphaned FK(s): '
+            'message':
+                '$orphanCount orphaned FK(s): '
                 '$tableName.$fromCol -> $toTable.$toCol',
           });
         }
@@ -287,7 +297,8 @@ abstract final class AnomalyDetector {
         'type': 'duplicate_rows',
         'severity': 'warning',
         'count': tableRowCount - distinctCount,
-        'message': '${tableRowCount - distinctCount} duplicate '
+        'message':
+            '${tableRowCount - distinctCount} duplicate '
             'row(s) in $tableName',
       });
     }

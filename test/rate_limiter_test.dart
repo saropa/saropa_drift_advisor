@@ -12,9 +12,7 @@ void main() {
   /// Creates a [RateLimiter] with the given limit and a minimal
   /// [ServerContext] (no DB query needed for rate-limit tests).
   RateLimiter createLimiter(int maxPerSecond) {
-    final ctx = ServerContext(
-      query: (_) async => <Map<String, dynamic>>[],
-    );
+    final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
 
     return RateLimiter(maxPerSecond, ctx);
   }
@@ -25,8 +23,11 @@ void main() {
 
       // First 5 requests should all be allowed.
       for (int i = 0; i < 5; i++) {
-        expect(limiter.shouldThrottleKey('192.168.1.1'), isFalse,
-            reason: 'request ${i + 1} of 5 should be allowed');
+        expect(
+          limiter.shouldThrottleKey('192.168.1.1'),
+          isFalse,
+          reason: 'request ${i + 1} of 5 should be allowed',
+        );
       }
     });
 
@@ -69,8 +70,11 @@ void main() {
 
       // All 1000 should be allowed.
       for (int i = 0; i < 1000; i++) {
-        expect(limiter.shouldThrottleKey('bulk'), isFalse,
-            reason: 'request ${i + 1} of 1000 should be allowed');
+        expect(
+          limiter.shouldThrottleKey('bulk'),
+          isFalse,
+          reason: 'request ${i + 1} of 1000 should be allowed',
+        );
       }
 
       // 1001st should be throttled.

@@ -89,11 +89,13 @@ void main() {
             writeQuery: (sql) async {},
             sqlLiteral: testSqlLiteral,
           ),
-          throwsA(isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains('array'),
-          )),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains('array'),
+            ),
+          ),
         );
       });
 
@@ -166,11 +168,13 @@ void main() {
             writeQuery: (sql) async {},
             sqlLiteral: testSqlLiteral,
           ),
-          throwsA(isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains('header row'),
-          )),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains('header row'),
+            ),
+          ),
         );
       });
 
@@ -246,24 +250,26 @@ void main() {
         expect(executedSql[0], isNot(contains('extra')));
       });
 
-      test('CSV columnMapping duplicate table column: last mapping wins',
-          () async {
-        final executedSql = <String>[];
+      test(
+        'CSV columnMapping duplicate table column: last mapping wins',
+        () async {
+          final executedSql = <String>[];
 
-        final result = await processor.processImport(
-          format: 'csv',
-          data: 'a,b\n1,2',
-          table: 't',
-          writeQuery: (sql) async => executedSql.add(sql),
-          sqlLiteral: testSqlLiteral,
-          csvColumnMapping: {'a': 'id', 'b': 'id'},
-        );
+          final result = await processor.processImport(
+            format: 'csv',
+            data: 'a,b\n1,2',
+            table: 't',
+            writeQuery: (sql) async => executedSql.add(sql),
+            sqlLiteral: testSqlLiteral,
+            csvColumnMapping: {'a': 'id', 'b': 'id'},
+          );
 
-        expect(result.imported, 1);
-        expect(result.errors, isEmpty);
-        expect(executedSql[0], contains('"id"'));
-        expect(executedSql[0], contains("'2'")); // b wins
-      });
+          expect(result.imported, 1);
+          expect(result.errors, isEmpty);
+          expect(executedSql[0], contains('"id"'));
+          expect(executedSql[0], contains("'2'")); // b wins
+        },
+      );
     });
 
     group('SQL import', () {
@@ -330,11 +336,13 @@ void main() {
             writeQuery: (sql) async {},
             sqlLiteral: testSqlLiteral,
           ),
-          throwsA(isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains('Unsupported format'),
-          )),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains('Unsupported format'),
+            ),
+          ),
         );
       });
     });
@@ -353,24 +361,27 @@ void main() {
     });
 
     test('handles quoted fields with embedded commas', () {
-      final rows =
-          DriftDebugImportProcessor.parseCsvLines('name,value\n"a,b",c');
+      final rows = DriftDebugImportProcessor.parseCsvLines(
+        'name,value\n"a,b",c',
+      );
       expect(rows, hasLength(2));
       expect(rows[1][0], 'a,b');
       expect(rows[1][1], 'c');
     });
 
     test('handles escaped double quotes inside quoted fields', () {
-      final rows =
-          DriftDebugImportProcessor.parseCsvLines('name\n"he said ""hi"""');
+      final rows = DriftDebugImportProcessor.parseCsvLines(
+        'name\n"he said ""hi"""',
+      );
       expect(rows, hasLength(2));
       expect(rows[1][0], 'he said "hi"');
     });
 
     test('strips UTF-8 BOM', () {
       final bom = String.fromCharCode(0xFEFF);
-      final rows =
-          DriftDebugImportProcessor.parseCsvLines('${bom}id,name\n1,test');
+      final rows = DriftDebugImportProcessor.parseCsvLines(
+        '${bom}id,name\n1,test',
+      );
       expect(rows, hasLength(2));
       expect(rows[0][0], 'id');
     });
@@ -386,8 +397,9 @@ void main() {
     });
 
     test('skips empty lines', () {
-      final rows =
-          DriftDebugImportProcessor.parseCsvLines('a,b\n\n1,2\n\n3,4\n\n');
+      final rows = DriftDebugImportProcessor.parseCsvLines(
+        'a,b\n\n1,2\n\n3,4\n\n',
+      );
       expect(rows, hasLength(3));
     });
 

@@ -21,10 +21,7 @@ final class VmServiceBridge {
 
   /// Registers all ext.saropa.drift.* methods. Call once when server starts.
   void register() {
-    developer.registerExtension(
-      '${_kExtPrefix}getHealth',
-      _handleGetHealth,
-    );
+    developer.registerExtension('${_kExtPrefix}getHealth', _handleGetHealth);
     developer.registerExtension(
       '${_kExtPrefix}getSchemaMetadata',
       _handleGetSchemaMetadata,
@@ -33,10 +30,7 @@ final class VmServiceBridge {
       '${_kExtPrefix}getTableFkMeta',
       _handleGetTableFkMeta,
     );
-    developer.registerExtension(
-      '${_kExtPrefix}runSql',
-      _handleRunSql,
-    );
+    developer.registerExtension('${_kExtPrefix}runSql', _handleRunSql);
     developer.registerExtension(
       '${_kExtPrefix}getGeneration',
       _handleGetGeneration,
@@ -53,10 +47,7 @@ final class VmServiceBridge {
       '${_kExtPrefix}getAnomalies',
       _handleGetAnomalies,
     );
-    developer.registerExtension(
-      '${_kExtPrefix}explainSql',
-      _handleExplainSql,
-    );
+    developer.registerExtension('${_kExtPrefix}explainSql', _handleExplainSql);
     developer.registerExtension(
       '${_kExtPrefix}getIndexSuggestions',
       _handleGetIndexSuggestions,
@@ -117,16 +108,12 @@ final class VmServiceBridge {
         ServerConstants.jsonKeyChangeDetection: false,
       };
 
-      return developer.ServiceExtensionResponse.result(
-        jsonEncode(body),
-      );
+      return developer.ServiceExtensionResponse.result(jsonEncode(body));
     }
 
     try {
       final tables = await router.getSchemaMetadataList();
-      final body = <String, dynamic>{
-        ServerConstants.jsonKeyTables: tables,
-      };
+      final body = <String, dynamic>{ServerConstants.jsonKeyTables: tables};
       return developer.ServiceExtensionResponse.result(jsonEncode(body));
     } on Object catch (e) {
       return developer.ServiceExtensionResponse.error(
@@ -216,9 +203,7 @@ final class VmServiceBridge {
         ServerConstants.jsonKeyChangeDetection: false,
       };
 
-      return developer.ServiceExtensionResponse.result(
-        jsonEncode(body),
-      );
+      return developer.ServiceExtensionResponse.result(jsonEncode(body));
     }
 
     try {

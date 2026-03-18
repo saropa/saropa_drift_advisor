@@ -75,16 +75,18 @@ void main() {
 
   group('SqlRequestBody', () {
     test('fromJson parses valid map with sql key', () {
-      final body =
-          SqlRequestBody.fromJson(<String, dynamic>{'sql': 'SELECT 1'});
+      final body = SqlRequestBody.fromJson(<String, dynamic>{
+        'sql': 'SELECT 1',
+      });
 
       expect(body, isNotNull);
       expect(body!.sql, 'SELECT 1');
     });
 
     test('fromJson trims whitespace from sql', () {
-      final body =
-          SqlRequestBody.fromJson(<String, dynamic>{'sql': '  SELECT 1  '});
+      final body = SqlRequestBody.fromJson(<String, dynamic>{
+        'sql': '  SELECT 1  ',
+      });
 
       expect(body, isNotNull);
       expect(body!.sql, 'SELECT 1');

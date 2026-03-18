@@ -32,10 +32,12 @@ final class ImportHandler {
     if (writeQuery == null) {
       res.statusCode = HttpStatus.notImplemented;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError:
-            'Import not configured. Pass writeQuery to DriftDebugServer.start().',
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError:
+              'Import not configured. Pass writeQuery to DriftDebugServer.start().',
+        }),
+      );
       await res.close();
 
       return;
@@ -54,9 +56,11 @@ final class ImportHandler {
       if (decoded == null) {
         res.statusCode = HttpStatus.badRequest;
         _ctx.setJsonHeaders(res);
-        res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError: 'Invalid JSON body',
-        }));
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError: 'Invalid JSON body',
+          }),
+        );
         await res.close();
 
         return;
@@ -69,10 +73,12 @@ final class ImportHandler {
       if (format == null || data == null || table == null) {
         res.statusCode = HttpStatus.badRequest;
         _ctx.setJsonHeaders(res);
-        res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError:
-              'Missing required fields: format, data, table',
-        }));
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError:
+                'Missing required fields: format, data, table',
+          }),
+        );
         await res.close();
 
         return;
@@ -93,15 +99,18 @@ final class ImportHandler {
       }
 
       // Validate table exists
-      final tableNames =
-          await ServerUtils.getTableNames(_ctx.instrumentedQuery);
+      final tableNames = await ServerUtils.getTableNames(
+        _ctx.instrumentedQuery,
+      );
 
       if (!tableNames.contains(table)) {
         res.statusCode = HttpStatus.badRequest;
         _ctx.setJsonHeaders(res);
-        res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError: 'Table "$table" not found.',
-        }));
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError: 'Table "$table" not found.',
+          }),
+        );
         await res.close();
 
         return;
@@ -131,9 +140,11 @@ final class ImportHandler {
       _ctx.logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: error.toString(),
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
     } finally {
       await res.close();
     }

@@ -56,23 +56,20 @@ void main() {
       test('extracts integer count from column c', () {
         expect(
           ServerUtils.extractCountFromRows([
-            <String, dynamic>{'c': 42}
+            <String, dynamic>{'c': 42},
           ]),
           42,
         );
       });
 
       test('returns 0 for empty rows', () {
-        expect(
-          ServerUtils.extractCountFromRows(<Map<String, dynamic>>[]),
-          0,
-        );
+        expect(ServerUtils.extractCountFromRows(<Map<String, dynamic>>[]), 0);
       });
 
       test('returns 0 when c column is null', () {
         expect(
           ServerUtils.extractCountFromRows([
-            <String, dynamic>{'c': null}
+            <String, dynamic>{'c': null},
           ]),
           0,
         );
@@ -81,7 +78,7 @@ void main() {
       test('converts num to int', () {
         expect(
           ServerUtils.extractCountFromRows([
-            <String, dynamic>{'c': 3.14}
+            <String, dynamic>{'c': 3.14},
           ]),
           3,
         );
@@ -90,7 +87,7 @@ void main() {
       test('returns 0 for non-numeric c value', () {
         expect(
           ServerUtils.extractCountFromRows([
-            <String, dynamic>{'c': 'not a number'}
+            <String, dynamic>{'c': 'not a number'},
           ]),
           0,
         );
@@ -198,10 +195,7 @@ void main() {
 
     group('safeSubstring', () {
       test('returns substring for valid range', () {
-        expect(
-          ServerUtils.safeSubstring('hello', start: 1, end: 4),
-          'ell',
-        );
+        expect(ServerUtils.safeSubstring('hello', start: 1, end: 4), 'ell');
       });
 
       test('returns from start to end of string when end is null', () {
@@ -218,21 +212,12 @@ void main() {
       });
 
       test('returns empty when end <= start', () {
-        expect(
-          ServerUtils.safeSubstring('hello', start: 3, end: 2),
-          '',
-        );
-        expect(
-          ServerUtils.safeSubstring('hello', start: 3, end: 3),
-          '',
-        );
+        expect(ServerUtils.safeSubstring('hello', start: 3, end: 2), '');
+        expect(ServerUtils.safeSubstring('hello', start: 3, end: 3), '');
       });
 
       test('clamps end to string length', () {
-        expect(
-          ServerUtils.safeSubstring('hello', start: 3, end: 100),
-          'lo',
-        );
+        expect(ServerUtils.safeSubstring('hello', start: 3, end: 100), 'lo');
       });
 
       test('returns empty for empty string', () {
@@ -242,10 +227,14 @@ void main() {
 
     group('rowSignature', () {
       test('produces deterministic JSON with sorted keys', () {
-        final sig1 =
-            ServerUtils.rowSignature(<String, dynamic>{'b': 2, 'a': 1});
-        final sig2 =
-            ServerUtils.rowSignature(<String, dynamic>{'a': 1, 'b': 2});
+        final sig1 = ServerUtils.rowSignature(<String, dynamic>{
+          'b': 2,
+          'a': 1,
+        });
+        final sig2 = ServerUtils.rowSignature(<String, dynamic>{
+          'a': 1,
+          'b': 2,
+        });
 
         expect(sig1, sig2);
         expect(sig1, '{"a":1,"b":2}');
@@ -260,10 +249,7 @@ void main() {
       test('joins PK column values with pipe', () {
         final row = <String, dynamic>{'id': 1, 'type': 'a', 'name': 'x'};
 
-        expect(
-          ServerUtils.compositePkKey(['id', 'type'], row),
-          '1|a',
-        );
+        expect(ServerUtils.compositePkKey(['id', 'type'], row), '1|a');
       });
 
       test('handles single PK column', () {
@@ -276,7 +262,9 @@ void main() {
       test('includes null as string for missing columns', () {
         expect(
           ServerUtils.compositePkKey(
-              ['id', 'missing'], <String, dynamic>{'id': 1}),
+            ['id', 'missing'],
+            <String, dynamic>{'id': 1},
+          ),
           '1|null',
         );
       });
@@ -456,7 +444,7 @@ void main() {
         final sql = await ServerUtils.getSchemaSql((sql) async {
           return [
             <String, dynamic>{
-              'sql': 'CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)'
+              'sql': 'CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)',
             },
           ];
         });
@@ -476,8 +464,10 @@ void main() {
 
         expect(sql, contains('CREATE TABLE x'));
         // Should not contain garbage from null/empty entries.
-        expect(sql.trim().split('\n').where((l) => l.trim().isNotEmpty).length,
-            greaterThanOrEqualTo(1));
+        expect(
+          sql.trim().split('\n').where((l) => l.trim().isNotEmpty).length,
+          greaterThanOrEqualTo(1),
+        );
       });
     });
 
@@ -494,9 +484,7 @@ void main() {
       });
 
       test('log is no-op when onLog is null', () {
-        final ctx = ServerContext(
-          query: (_) async => <Map<String, dynamic>>[],
-        );
+        final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
 
         // Should not throw.
         ctx.log('hello');
@@ -514,9 +502,7 @@ void main() {
       });
 
       test('recordTiming adds entry to queryTimings', () {
-        final ctx = ServerContext(
-          query: (_) async => <Map<String, dynamic>>[],
-        );
+        final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
 
         ctx.recordTiming(sql: 'SELECT 1', durationMs: 5, rowCount: 1);
 
@@ -527,9 +513,7 @@ void main() {
       });
 
       test('recordTiming evicts oldest when buffer is full', () {
-        final ctx = ServerContext(
-          query: (_) async => <Map<String, dynamic>>[],
-        );
+        final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
 
         // Fill buffer beyond max (500).
         for (int i = 0; i < 510; i++) {
@@ -542,9 +526,7 @@ void main() {
       });
 
       test('markExtensionSeen and isExtensionConnected', () {
-        final ctx = ServerContext(
-          query: (_) async => <Map<String, dynamic>>[],
-        );
+        final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
 
         // Initially not connected.
         expect(ctx.isExtensionConnected, isFalse);
@@ -555,13 +537,11 @@ void main() {
       });
 
       test('timedQuery records timing on success', () async {
-        final ctx = ServerContext(
-          query: (_) async => <Map<String, dynamic>>[],
-        );
+        final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
 
         final result = await ctx.timedQuery(
           (_) async => [
-            <String, dynamic>{'id': 1}
+            <String, dynamic>{'id': 1},
           ],
           'SELECT 1',
         );
@@ -572,15 +552,10 @@ void main() {
       });
 
       test('timedQuery records timing on error and rethrows', () async {
-        final ctx = ServerContext(
-          query: (_) async => <Map<String, dynamic>>[],
-        );
+        final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
 
         expect(
-          () => ctx.timedQuery(
-            (_) async => throw Exception('fail'),
-            'BAD SQL',
-          ),
+          () => ctx.timedQuery((_) async => throw Exception('fail'), 'BAD SQL'),
           throwsA(isA<Exception>()),
         );
 
@@ -596,16 +571,11 @@ void main() {
         }
 
         expect(ctx.queryTimings.isNotEmpty, isTrue);
-        expect(
-          ctx.queryTimings.any((t) => t.error != null),
-          isTrue,
-        );
+        expect(ctx.queryTimings.any((t) => t.error != null), isTrue);
       });
 
       test('toString includes generation', () {
-        final ctx = ServerContext(
-          query: (_) async => <Map<String, dynamic>>[],
-        );
+        final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
         expect(ctx.toString(), contains('generation'));
       });
     });
@@ -756,11 +726,11 @@ void main() {
             executedSql.add(sql);
             if (sql.contains("type='table'")) {
               return [
-                <String, dynamic>{'name': 't1'}
+                <String, dynamic>{'name': 't1'},
               ];
             }
             return [
-              <String, dynamic>{'t': 't1', 'c': 1}
+              <String, dynamic>{'t': 't1', 'c': 1},
             ];
           },
         );

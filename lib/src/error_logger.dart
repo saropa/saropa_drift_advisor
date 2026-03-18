@@ -70,7 +70,7 @@ abstract final class DriftDebugErrorLogger {
   }
 
   /// Log level for error entries (SEVERE) so dev tools can treat them as errors.
-  static const int _severityLevel = 1000;
+  static const int _severityLevel = 1_000;
 
   /// Creates a [DriftDebugOnError]-compatible callback that logs errors and
   /// optionally stack traces.

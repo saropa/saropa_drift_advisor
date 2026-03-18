@@ -4444,17 +4444,22 @@
       if (!ul) return;
       ul.innerHTML = '';
 
+      // Prune stale pinned entries for tables that no longer exist in the
+      // database (e.g. after a table is dropped or renamed).
+      var pinnedArr = getPinnedTables();
+      var tableSet = new Set(tables);
+      var cleaned = pinnedArr.filter(function(t) { return tableSet.has(t); });
+      if (cleaned.length !== pinnedArr.length) setPinnedTables(cleaned);
+
       // Sort pinned tables to the top, preserving original order within
-      // each group (pinned vs unpinned).
-      var pinned = getPinnedTables();
+      // each group (pinned vs unpinned). Uses a Set for O(1) lookups.
+      var pinnedSet = new Set(cleaned);
       var sorted = tables.slice().sort(function(a, b) {
-        var aPin = pinned.indexOf(a) >= 0 ? 0 : 1;
-        var bPin = pinned.indexOf(b) >= 0 ? 0 : 1;
-        return aPin - bPin;
+        return (pinnedSet.has(a) ? 0 : 1) - (pinnedSet.has(b) ? 0 : 1);
       });
 
       sorted.forEach(function(t) {
-        var isPinned = pinned.indexOf(t) >= 0;
+        var isPinned = pinnedSet.has(t);
         var li = document.createElement('li');
         var a = document.createElement('a');
         a.href = '#' + encodeURIComponent(t);
@@ -4488,7 +4493,7 @@
         a.appendChild(pinBtn);
 
         // Open the table in its own closeable tab (or switch to it if already open)
-        a.onclick = function(e) { e.preventDefault(); openTableTab(t); };
+        a.addEventListener('click', function(e) { e.preventDefault(); openTableTab(t); });
         li.appendChild(a);
         ul.appendChild(li);
       });

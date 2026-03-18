@@ -22,7 +22,7 @@ mixin DriftDebugServer {
   static Future<void> start({
     required Future<List<Map<String, dynamic>>> Function(String sql) query,
     bool enabled = true,
-    int port = 8642,
+    int port = 8_642,
     bool loopbackOnly = false,
     String? corsOrigin = '*',
     String? authToken,

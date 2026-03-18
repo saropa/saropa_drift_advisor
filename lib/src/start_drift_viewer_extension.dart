@@ -24,15 +24,17 @@ Future<List<Map<String, dynamic>>> _runDriftQuery(Object db, String sql) async {
       );
     }
 
-    return rows.map<Map<String, dynamic>>((dynamic row) {
-      final dynamic data = row.data;
-      if (data is! Map) {
-        throw StateError(
-          'startDriftViewer expected each row to have a Map-like data field, but got ${data.runtimeType}.$_kCallbackApiHint',
-        );
-      }
-      return Map<String, dynamic>.from(data);
-    }).toList(growable: false);
+    return rows
+        .map<Map<String, dynamic>>((dynamic row) {
+          final dynamic data = row.data;
+          if (data is! Map) {
+            throw StateError(
+              'startDriftViewer expected each row to have a Map-like data field, but got ${data.runtimeType}.$_kCallbackApiHint',
+            );
+          }
+          return Map<String, dynamic>.from(data);
+        })
+        .toList(growable: false);
   } on NoSuchMethodError catch (e, st) {
     // Only build log message in debug so we avoid expensive string construction in release.
     if (!bool.fromEnvironment('dart.vm.product', defaultValue: false)) {
@@ -76,7 +78,7 @@ extension StartDriftViewerExtension on Object {
   /// Throws [NoSuchMethodError] (converted to [StateError] with stack) when customSelect or get() is missing.
   Future<void> startDriftViewer({
     bool enabled = true,
-    int port = 8642,
+    int port = 8_642,
     bool loopbackOnly = false,
     String? corsOrigin = '*',
     String? authToken,

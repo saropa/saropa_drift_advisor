@@ -97,9 +97,9 @@ void main() {
         );
 
         final anomalies = result['anomalies'] as List;
-        final nullAnomaly = anomalies.firstWhere(
-          (a) => (a as Map)['type'] == 'null_values',
-        ) as Map;
+        final nullAnomaly =
+            anomalies.firstWhere((a) => (a as Map)['type'] == 'null_values')
+                as Map;
         expect(nullAnomaly['severity'], 'warning');
       });
 
@@ -119,9 +119,9 @@ void main() {
         );
 
         final anomalies = result['anomalies'] as List;
-        final nullAnomaly = anomalies.firstWhere(
-          (a) => (a as Map)['type'] == 'null_values',
-        ) as Map;
+        final nullAnomaly =
+            anomalies.firstWhere((a) => (a as Map)['type'] == 'null_values')
+                as Map;
         expect(nullAnomaly['severity'], 'info');
       });
 
@@ -176,20 +176,18 @@ void main() {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('title', 'TEXT'),
-              ],
+              'items': [_col('id', 'INTEGER', pk: 1), _col('title', 'TEXT')],
             },
             counts: {'items': 10},
             emptyCounts: {'items.title': 4},
           ),
         );
 
-        final anomalies =
-            (result['anomalies'] as List).cast<Map<String, dynamic>>();
-        final emptyAnomaly =
-            anomalies.where((a) => a['type'] == 'empty_strings').firstOrNull;
+        final anomalies = (result['anomalies'] as List)
+            .cast<Map<String, dynamic>>();
+        final emptyAnomaly = anomalies
+            .where((a) => a['type'] == 'empty_strings')
+            .firstOrNull;
         expect(emptyAnomaly, isNotNull);
         expect(emptyAnomaly!['severity'], 'warning');
         expect(emptyAnomaly['count'], 4);
@@ -199,10 +197,7 @@ void main() {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('price', 'REAL'),
-              ],
+              'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
             },
             counts: {'items': 5},
           ),
@@ -223,10 +218,7 @@ void main() {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('price', 'REAL'),
-              ],
+              'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
             },
             counts: {'items': 5},
             // avg=10, min=5, max=150 → max (150) > avg*10 (100).
@@ -240,8 +232,8 @@ void main() {
           ),
         );
 
-        final anomalies =
-            (result['anomalies'] as List).cast<Map<String, dynamic>>();
+        final anomalies = (result['anomalies'] as List)
+            .cast<Map<String, dynamic>>();
         final outlier = anomalies
             .where((a) => a['type'] == 'potential_outlier')
             .firstOrNull;
@@ -253,19 +245,12 @@ void main() {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('price', 'REAL'),
-              ],
+              'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
             },
             counts: {'items': 5},
             // avg=10, min=5, max=50 → max (50) < avg*10 (100).
             numericStats: {
-              'items.price': {
-                'avg_val': 10.0,
-                'min_val': 5.0,
-                'max_val': 50.0,
-              },
+              'items.price': {'avg_val': 10.0, 'min_val': 5.0, 'max_val': 50.0},
             },
           ),
         );
@@ -281,18 +266,11 @@ void main() {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('score', 'INTEGER'),
-              ],
+              'items': [_col('id', 'INTEGER', pk: 1), _col('score', 'INTEGER')],
             },
             counts: {'items': 5},
             numericStats: {
-              'items.score': {
-                'avg_val': 0.0,
-                'min_val': 0.0,
-                'max_val': 0.0,
-              },
+              'items.score': {'avg_val': 0.0, 'min_val': 0.0, 'max_val': 0.0},
             },
           ),
         );
@@ -308,10 +286,7 @@ void main() {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('name', 'TEXT'),
-              ],
+              'items': [_col('id', 'INTEGER', pk: 1), _col('name', 'TEXT')],
             },
             counts: {'items': 5},
           ),
@@ -336,9 +311,7 @@ void main() {
                 _col('id', 'INTEGER', pk: 1),
                 _col('user_id', 'INTEGER'),
               ],
-              'users': [
-                _col('id', 'INTEGER', pk: 1),
-              ],
+              'users': [_col('id', 'INTEGER', pk: 1)],
             },
             counts: {'orders': 5, 'users': 3},
             tableForeignKeys: {
@@ -350,10 +323,11 @@ void main() {
           ),
         );
 
-        final anomalies =
-            (result['anomalies'] as List).cast<Map<String, dynamic>>();
-        final orphan =
-            anomalies.where((a) => a['type'] == 'orphaned_fk').firstOrNull;
+        final anomalies = (result['anomalies'] as List)
+            .cast<Map<String, dynamic>>();
+        final orphan = anomalies
+            .where((a) => a['type'] == 'orphaned_fk')
+            .firstOrNull;
         expect(orphan, isNotNull);
         expect(orphan!['severity'], 'error');
         expect(orphan['count'], 2);
@@ -367,9 +341,7 @@ void main() {
                 _col('id', 'INTEGER', pk: 1),
                 _col('user_id', 'INTEGER'),
               ],
-              'users': [
-                _col('id', 'INTEGER', pk: 1),
-              ],
+              'users': [_col('id', 'INTEGER', pk: 1)],
             },
             counts: {'orders': 5, 'users': 3},
             tableForeignKeys: {
@@ -423,10 +395,7 @@ void main() {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('name', 'TEXT'),
-              ],
+              'items': [_col('id', 'INTEGER', pk: 1), _col('name', 'TEXT')],
             },
             // 10 total rows but only 8 distinct → 2 duplicates.
             counts: {'items': 10},
@@ -434,10 +403,11 @@ void main() {
           ),
         );
 
-        final anomalies =
-            (result['anomalies'] as List).cast<Map<String, dynamic>>();
-        final dupAnomaly =
-            anomalies.where((a) => a['type'] == 'duplicate_rows').firstOrNull;
+        final anomalies = (result['anomalies'] as List)
+            .cast<Map<String, dynamic>>();
+        final dupAnomaly = anomalies
+            .where((a) => a['type'] == 'duplicate_rows')
+            .firstOrNull;
         expect(dupAnomaly, isNotNull);
         expect(dupAnomaly!['severity'], 'warning');
         expect(dupAnomaly['count'], 2);
@@ -447,10 +417,7 @@ void main() {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('name', 'TEXT'),
-              ],
+              'items': [_col('id', 'INTEGER', pk: 1), _col('name', 'TEXT')],
             },
             counts: {'items': 5},
             distinctCounts: {'items': 5},
@@ -482,9 +449,7 @@ void main() {
                 _col('note', 'TEXT', notnull: 0),
                 _col('cat_id', 'INTEGER'),
               ],
-              'categories': [
-                _col('id', 'INTEGER', pk: 1),
-              ],
+              'categories': [_col('id', 'INTEGER', pk: 1)],
             },
             counts: {'items': 10, 'categories': 3},
             // info: 3 out of 10 = 30%.
@@ -505,20 +470,30 @@ void main() {
         expect(anomalies.length, greaterThanOrEqualTo(3));
 
         // Extract severity ordering.
-        final severities =
-            anomalies.map((a) => (a as Map)['severity']).toList();
+        final severities = anomalies
+            .map((a) => (a as Map)['severity'])
+            .toList();
 
         // Assert all three severities are present (no silent skip).
         final firstError = severities.indexOf('error');
         final firstWarning = severities.indexOf('warning');
         final firstInfo = severities.indexOf('info');
 
-        expect(firstError, greaterThanOrEqualTo(0),
-            reason: 'Expected at least one error anomaly');
-        expect(firstWarning, greaterThanOrEqualTo(0),
-            reason: 'Expected at least one warning anomaly');
-        expect(firstInfo, greaterThanOrEqualTo(0),
-            reason: 'Expected at least one info anomaly');
+        expect(
+          firstError,
+          greaterThanOrEqualTo(0),
+          reason: 'Expected at least one error anomaly',
+        );
+        expect(
+          firstWarning,
+          greaterThanOrEqualTo(0),
+          reason: 'Expected at least one warning anomaly',
+        );
+        expect(
+          firstInfo,
+          greaterThanOrEqualTo(0),
+          reason: 'Expected at least one info anomaly',
+        );
 
         // error must appear before warning, which must appear before info.
         expect(firstError, lessThan(firstWarning));
@@ -538,13 +513,7 @@ Map<String, dynamic> _col(
   String type, {
   int pk = 0,
   int notnull = 0,
-}) =>
-    {
-      'name': name,
-      'type': type,
-      'pk': pk,
-      'notnull': notnull,
-    };
+}) => {'name': name, 'type': type, 'pk': pk, 'notnull': notnull};
 
 /// Creates a query callback for [AnomalyDetector] tests.
 ///
@@ -585,13 +554,13 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
           if (sql.contains('"${fromParts[0]}"') &&
               sql.contains('"${toParts[0]}"')) {
             return [
-              <String, dynamic>{'c': entry.value}
+              <String, dynamic>{'c': entry.value},
             ];
           }
         }
       }
       return [
-        <String, dynamic>{'c': 0}
+        <String, dynamic>{'c': 0},
       ];
     }
 
@@ -607,13 +576,13 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
           if (sql.contains('"${parts[0]}"') &&
               sql.contains('"${parts[1]}" IS NULL')) {
             return [
-              <String, dynamic>{'c': entry.value}
+              <String, dynamic>{'c': entry.value},
             ];
           }
         }
       }
       return [
-        <String, dynamic>{'c': 0}
+        <String, dynamic>{'c': 0},
       ];
     }
 
@@ -624,13 +593,13 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
           final parts = entry.key.split('.');
           if (sql.contains('"${parts[0]}"') && sql.contains('"${parts[1]}"')) {
             return [
-              <String, dynamic>{'c': entry.value}
+              <String, dynamic>{'c': entry.value},
             ];
           }
         }
       }
       return [
-        <String, dynamic>{'c': 0}
+        <String, dynamic>{'c': 0},
       ];
     }
 
@@ -640,7 +609,7 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
         for (final entry in distinctCounts.entries) {
           if (sql.contains('"${entry.key}"')) {
             return [
-              <String, dynamic>{'c': entry.value}
+              <String, dynamic>{'c': entry.value},
             ];
           }
         }
@@ -650,13 +619,13 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
         for (final entry in counts.entries) {
           if (sql.contains('"${entry.key}"')) {
             return [
-              <String, dynamic>{'c': entry.value}
+              <String, dynamic>{'c': entry.value},
             ];
           }
         }
       }
       return [
-        <String, dynamic>{'c': 0}
+        <String, dynamic>{'c': 0},
       ];
     }
 

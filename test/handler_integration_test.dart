@@ -21,11 +21,7 @@ void main() {
       'items': [
         <String, dynamic>{'name': 'id', 'type': 'INTEGER', 'pk': 1},
         <String, dynamic>{'name': 'title', 'type': 'TEXT', 'pk': 0},
-        <String, dynamic>{
-          'name': 'createdAt',
-          'type': 'TEXT',
-          'pk': 0,
-        },
+        <String, dynamic>{'name': 'createdAt', 'type': 'TEXT', 'pk': 0},
       ],
     },
     tableData: {
@@ -34,7 +30,7 @@ void main() {
         <String, dynamic>{
           'id': 2,
           'title': 'Second',
-          'createdAt': '2025-01-02'
+          'createdAt': '2025-01-02',
         },
         <String, dynamic>{'id': 3, 'title': 'Third', 'createdAt': '2025-01-03'},
       ],
@@ -135,33 +131,36 @@ void main() {
       });
 
       test('rejects request with wrong token', () async {
-        final r = await httpGet(port!, '/api/tables', headers: {
-          'Authorization': 'Bearer wrong-token',
-        });
+        final r = await httpGet(
+          port!,
+          '/api/tables',
+          headers: {'Authorization': 'Bearer wrong-token'},
+        );
         expect(r.status, HttpStatus.unauthorized);
       });
 
       test('accepts request with correct token', () async {
-        final r = await httpGet(port!, '/api/tables', headers: {
-          'Authorization': 'Bearer secret-token-123',
-        });
+        final r = await httpGet(
+          port!,
+          '/api/tables',
+          headers: {'Authorization': 'Bearer secret-token-123'},
+        );
         expect(r.status, HttpStatus.ok);
       });
 
       test('rejects empty Bearer token', () async {
-        final r = await httpGet(port!, '/api/tables', headers: {
-          'Authorization': 'Bearer ',
-        });
+        final r = await httpGet(
+          port!,
+          '/api/tables',
+          headers: {'Authorization': 'Bearer '},
+        );
         expect(r.status, HttpStatus.unauthorized);
       });
     });
 
     group('Basic auth', () {
       setUp(() async {
-        await startServer(
-          basicAuthUser: 'admin',
-          basicAuthPassword: 'pass123',
-        );
+        await startServer(basicAuthUser: 'admin', basicAuthPassword: 'pass123');
       });
 
       test('rejects request without auth', () async {
@@ -171,25 +170,31 @@ void main() {
 
       test('accepts valid Basic credentials', () async {
         final encoded = base64.encode(utf8.encode('admin:pass123'));
-        final r = await httpGet(port!, '/api/tables', headers: {
-          'Authorization': 'Basic $encoded',
-        });
+        final r = await httpGet(
+          port!,
+          '/api/tables',
+          headers: {'Authorization': 'Basic $encoded'},
+        );
         expect(r.status, HttpStatus.ok);
       });
 
       test('rejects wrong Basic credentials', () async {
         final encoded = base64.encode(utf8.encode('admin:wrongpass'));
-        final r = await httpGet(port!, '/api/tables', headers: {
-          'Authorization': 'Basic $encoded',
-        });
+        final r = await httpGet(
+          port!,
+          '/api/tables',
+          headers: {'Authorization': 'Basic $encoded'},
+        );
         expect(r.status, HttpStatus.unauthorized);
       });
 
       test('rejects malformed Basic auth (no colon)', () async {
         final encoded = base64.encode(utf8.encode('nocolon'));
-        final r = await httpGet(port!, '/api/tables', headers: {
-          'Authorization': 'Basic $encoded',
-        });
+        final r = await httpGet(
+          port!,
+          '/api/tables',
+          headers: {'Authorization': 'Basic $encoded'},
+        );
         expect(r.status, HttpStatus.unauthorized);
       });
     });
@@ -294,9 +299,7 @@ void main() {
       final r = await httpPost(
         port!,
         '/api/sql',
-        json: <String, dynamic>{
-          'sql': 'INSERT INTO items (id) VALUES (1)',
-        },
+        json: <String, dynamic>{'sql': 'INSERT INTO items (id) VALUES (1)'},
       );
       expect(r.status, HttpStatus.badRequest);
       expect(r.body['error'], contains('read-only'));
@@ -422,9 +425,7 @@ void main() {
 
   group('database download', () {
     setUp(() async {
-      await startServer(
-        getDatabaseBytes: () async => <int>[0x53, 0x51, 0x4C],
-      );
+      await startServer(getDatabaseBytes: () async => <int>[0x53, 0x51, 0x4C]);
     });
 
     test('GET /api/database returns bytes when configured', () async {
@@ -537,9 +538,7 @@ void main() {
     });
 
     test('GET /api/compare/report returns diff when configured', () async {
-      await startServer(
-        queryCompare: mockQuery,
-      );
+      await startServer(queryCompare: mockQuery);
       final r = await httpGet(port!, '/api/compare/report');
       expect(r.status, HttpStatus.ok);
       // Contract: full compare report shape (doc/API.md § Compare).
@@ -557,12 +556,14 @@ void main() {
       expect(body['generatedAt'], isA<String>());
     });
 
-    test('GET /api/migration/preview returns 501 without queryCompare',
-        () async {
-      await startServer();
-      final r = await httpGet(port!, '/api/migration/preview');
-      expect(r.status, HttpStatus.notImplemented);
-    });
+    test(
+      'GET /api/migration/preview returns 501 without queryCompare',
+      () async {
+        await startServer();
+        final r = await httpGet(port!, '/api/migration/preview');
+        expect(r.status, HttpStatus.notImplemented);
+      },
+    );
   });
 
   // =====================================================
@@ -704,19 +705,14 @@ void main() {
       final created = await httpPost(
         port!,
         '/api/session/share',
-        json: <String, dynamic>{
-          'state': <String, dynamic>{},
-        },
+        json: <String, dynamic>{'state': <String, dynamic>{}},
       );
       final id = created.body['id'] as String;
 
       final r = await httpPost(
         port!,
         '/api/session/$id/annotate',
-        json: <String, dynamic>{
-          'text': 'check this bug',
-          'author': 'tester',
-        },
+        json: <String, dynamic>{'text': 'check this bug', 'author': 'tester'},
       );
       expect(r.status, HttpStatus.ok);
       // Contract: {status: "added"} (doc/API.md § Sessions).
@@ -728,27 +724,27 @@ void main() {
   // Import endpoint
   // =====================================================
   group('import endpoint', () {
-    test('POST /api/import returns 501 when writeQuery not configured',
-        () async {
-      await startServer();
-      final r = await httpPost(
-        port!,
-        '/api/import',
-        json: <String, dynamic>{
-          'format': 'json',
-          'table': 'items',
-          'data': '[{"id": 1}]',
-        },
-      );
-      // Import requires writeQuery callback.
-      expect(r.status, HttpStatus.notImplemented);
-    });
+    test(
+      'POST /api/import returns 501 when writeQuery not configured',
+      () async {
+        await startServer();
+        final r = await httpPost(
+          port!,
+          '/api/import',
+          json: <String, dynamic>{
+            'format': 'json',
+            'table': 'items',
+            'data': '[{"id": 1}]',
+          },
+        );
+        // Import requires writeQuery callback.
+        expect(r.status, HttpStatus.notImplemented);
+      },
+    );
 
     test('POST /api/import succeeds with writeQuery configured', () async {
       final executedSql = <String>[];
-      await startServer(
-        writeQuery: (sql) async => executedSql.add(sql),
-      );
+      await startServer(writeQuery: (sql) async => executedSql.add(sql));
 
       final r = await httpPost(
         port!,
@@ -800,10 +796,7 @@ void main() {
       try {
         final req = await client.get('localhost', port!, '/api/health');
         final resp = await req.close();
-        expect(
-          resp.headers.value('Access-Control-Allow-Origin'),
-          isNull,
-        );
+        expect(resp.headers.value('Access-Control-Allow-Origin'), isNull);
       } finally {
         client.close();
       }
@@ -871,11 +864,7 @@ void main() {
 
     test('no rate limiting when maxRequestsPerSecond is null', () async {
       // Default (null) = no rate limiting.
-      await DriftDebugServer.start(
-        query: mockQuery,
-        enabled: true,
-        port: 0,
-      );
+      await DriftDebugServer.start(query: mockQuery, enabled: true, port: 0);
       port = DriftDebugServer.port;
 
       // Send many requests; all should succeed.

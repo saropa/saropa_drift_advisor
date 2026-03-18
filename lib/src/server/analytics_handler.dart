@@ -29,9 +29,7 @@ final class AnalyticsHandler {
   /// (for HTTP and VM service RPC).
   ///
   /// Delegates to [IndexAnalyzer.getIndexSuggestionsList].
-  Future<Map<String, dynamic>> getIndexSuggestionsList(
-    DriftDebugQuery query,
-  ) =>
+  Future<Map<String, dynamic>> getIndexSuggestionsList(DriftDebugQuery query) =>
       IndexAnalyzer.getIndexSuggestionsList(query);
 
   /// Handles GET /api/index-suggestions (writes JSON to [response]).
@@ -49,9 +47,11 @@ final class AnalyticsHandler {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _ctx.setCors(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: error.toString(),
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
     } finally {
       await res.close();
     }
@@ -67,9 +67,7 @@ final class AnalyticsHandler {
       return await AnomalyDetector.getAnomaliesResult(query);
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
-      return <String, String>{
-        ServerConstants.jsonKeyError: error.toString(),
-      };
+      return <String, String>{ServerConstants.jsonKeyError: error.toString()};
     }
   }
 
@@ -127,9 +125,9 @@ final class AnalyticsHandler {
       final journalModeRows = ServerUtils.normalizeRows(
         await query('PRAGMA journal_mode'),
       );
-      final journalMode = journalModeRows.isNotEmpty
-          ? (journalModeRows.first.values.firstOrNull?.toString() ?? 'unknown')
-          : 'unknown';
+      final journalMode =
+          journalModeRows.firstOrNull?.values.firstOrNull?.toString() ??
+          'unknown';
 
       // Compute aggregate sizes from page metrics.
       final totalSizeBytes = pageSize * pageCount;
@@ -142,9 +140,11 @@ final class AnalyticsHandler {
 
       for (final tableName in tableNames) {
         final countRows = ServerUtils.normalizeRows(
-          await query('SELECT COUNT(*) AS '
-              '${ServerConstants.jsonKeyCountColumn} '
-              'FROM "$tableName"'),
+          await query(
+            'SELECT COUNT(*) AS '
+            '${ServerConstants.jsonKeyCountColumn} '
+            'FROM "$tableName"',
+          ),
         );
         final rowCount = ServerUtils.extractCountFromRows(countRows);
 
@@ -171,30 +171,36 @@ final class AnalyticsHandler {
 
       // Sort tables by row count descending so the
       // largest tables appear first.
-      tableStats.sort((a, b) =>
-          ((b[ServerConstants.jsonKeyRowCount] as int?) ?? 0)
-              .compareTo((a[ServerConstants.jsonKeyRowCount] as int?) ?? 0));
+      tableStats.sort(
+        (a, b) => ((b[ServerConstants.jsonKeyRowCount] as int?) ?? 0).compareTo(
+          (a[ServerConstants.jsonKeyRowCount] as int?) ?? 0,
+        ),
+      );
 
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{
-        'pageSize': pageSize,
-        'pageCount': pageCount,
-        'freelistCount': freelistCount,
-        'totalSizeBytes': totalSizeBytes,
-        'freeSpaceBytes': freeSpaceBytes,
-        'usedSizeBytes': totalSizeBytes - freeSpaceBytes,
-        'journalMode': journalMode,
-        ServerConstants.jsonKeyTableCount: tableNames.length,
-        ServerConstants.jsonKeyTables: tableStats,
-      }));
+      res.write(
+        jsonEncode(<String, dynamic>{
+          'pageSize': pageSize,
+          'pageCount': pageCount,
+          'freelistCount': freelistCount,
+          'totalSizeBytes': totalSizeBytes,
+          'freeSpaceBytes': freeSpaceBytes,
+          'usedSizeBytes': totalSizeBytes - freeSpaceBytes,
+          'journalMode': journalMode,
+          ServerConstants.jsonKeyTableCount: tableNames.length,
+          ServerConstants.jsonKeyTables: tableStats,
+        }),
+      );
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _ctx.setCors(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: error.toString(),
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
     } finally {
       await res.close();
     }

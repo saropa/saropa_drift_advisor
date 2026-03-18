@@ -9,7 +9,7 @@ final class DriftDebugSessionStore {
   ///
   /// Defaults to [defaultSessionExpiry] (1 hour) if not provided.
   DriftDebugSessionStore({Duration? sessionExpiry})
-      : sessionExpiry = sessionExpiry ?? defaultSessionExpiry;
+    : sessionExpiry = sessionExpiry ?? defaultSessionExpiry;
 
   /// Default session expiry duration when no custom value is provided.
   static const Duration defaultSessionExpiry = Duration(hours: 1);
@@ -50,9 +50,7 @@ final class DriftDebugSessionStore {
     final now = DateTime.now().toUtc();
 
     _sessions.removeWhere((_, v) {
-      final expiresAt = DateTime.tryParse(
-        v[keyExpiresAt] as String? ?? '',
-      );
+      final expiresAt = DateTime.tryParse(v[keyExpiresAt] as String? ?? '');
 
       return expiresAt == null || now.isAfter(expiresAt);
     });
@@ -62,16 +60,15 @@ final class DriftDebugSessionStore {
   ///
   /// Returns `{id, url, expiresAt}` on success.
   Map<String, dynamic> create(Map<String, dynamic> state) {
-    final id = DateTime.now()
-        .toUtc()
-        .millisecondsSinceEpoch
-        .toRadixString(_radixBase36);
+    final id = DateTime.now().toUtc().millisecondsSinceEpoch.toRadixString(
+      _radixBase36,
+    );
 
     cleanExpired();
 
     // Evict oldest sessions when at capacity.
     while (_sessions.length >= maxSessions) {
-      final oldest = _sessions.keys.isEmpty ? null : _sessions.keys.first;
+      final oldest = _sessions.keys.firstOrNull;
       if (oldest == null) {
         break;
       }
@@ -117,8 +114,10 @@ final class DriftDebugSessionStore {
 
     // Extend from the current moment (not the old expiresAt) so the
     // user always receives a full-duration extension.
-    final newExpiresAt =
-        DateTime.now().toUtc().add(sessionExpiry).toIso8601String();
+    final newExpiresAt = DateTime.now()
+        .toUtc()
+        .add(sessionExpiry)
+        .toIso8601String();
     session[keyExpiresAt] = newExpiresAt;
 
     return newExpiresAt;
@@ -127,11 +126,7 @@ final class DriftDebugSessionStore {
   /// Appends an annotation to the session identified by [id].
   ///
   /// Returns `true` if the session was found and annotated, `false` otherwise.
-  bool annotate(
-    String id, {
-    required String text,
-    required String author,
-  }) {
+  bool annotate(String id, {required String text, required String author}) {
     final session = _sessions[id];
     if (session == null) {
       return false;

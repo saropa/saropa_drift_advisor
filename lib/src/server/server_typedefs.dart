@@ -7,19 +7,15 @@
 
 /// Callback that runs a single SQL query and returns
 /// rows as list of maps.
-typedef DriftDebugQuery = Future<List<Map<String, dynamic>>> Function(
-  String sql,
-);
+typedef DriftDebugQuery =
+    Future<List<Map<String, dynamic>>> Function(String sql);
 
 /// Optional callback for log messages.
 typedef DriftDebugOnLog = void Function(String message);
 
 /// Optional callback for errors (and optional stack
 /// trace).
-typedef DriftDebugOnError = void Function(
-  Object error,
-  StackTrace stack,
-);
+typedef DriftDebugOnError = void Function(Object error, StackTrace stack);
 
 /// Optional callback that returns the raw SQLite
 /// database file bytes.

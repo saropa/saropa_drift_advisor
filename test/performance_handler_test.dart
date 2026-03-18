@@ -81,8 +81,9 @@ void main() {
 
         expect(slowQueries, hasLength(2));
         // Should include 150ms and 300ms only.
-        final durations =
-            slowQueries.map((q) => (q as Map)['durationMs']).toList();
+        final durations = slowQueries
+            .map((q) => (q as Map)['durationMs'])
+            .toList();
         expect(durations, containsAll([150, 300]));
         expect(durations, isNot(contains(50)));
         expect(durations, isNot(contains(100)));
@@ -99,8 +100,9 @@ void main() {
 
         final data = await handler.getPerformanceData();
         final slowQueries = data['slowQueries'] as List;
-        final durations =
-            slowQueries.map((q) => (q as Map)['durationMs'] as int).toList();
+        final durations = slowQueries
+            .map((q) => (q as Map)['durationMs'] as int)
+            .toList();
 
         // Should be sorted descending: 300, 200, 150.
         expect(durations, [300, 200, 150]);
@@ -256,19 +258,15 @@ void main() {
 
 /// Creates a [QueryTiming] with the given SQL and duration.
 QueryTiming _timing(String sql, int durationMs) => QueryTiming(
-      sql: sql,
-      durationMs: durationMs,
-      rowCount: 0,
-      at: DateTime.now().toUtc(),
-    );
+  sql: sql,
+  durationMs: durationMs,
+  rowCount: 0,
+  at: DateTime.now().toUtc(),
+);
 
 /// Creates a [QueryTiming] with a specific timestamp.
-QueryTiming _timingAt(String sql, int durationMs, DateTime at) => QueryTiming(
-      sql: sql,
-      durationMs: durationMs,
-      rowCount: 0,
-      at: at,
-    );
+QueryTiming _timingAt(String sql, int durationMs, DateTime at) =>
+    QueryTiming(sql: sql, durationMs: durationMs, rowCount: 0, at: at);
 
 /// Adds [count] identical timings to the list.
 void _addTimings(

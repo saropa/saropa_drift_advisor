@@ -21,7 +21,7 @@ class _FakeDriftDb {
     // /api/tables uses sqlite_master for table listing.
     if (sql.contains('sqlite_master') && sql.contains("type='table'")) {
       return _FakeSelectable([
-        _FakeRow({'name': 'items'})
+        _FakeRow({'name': 'items'}),
       ]);
     }
     return _FakeSelectable(const <_FakeRow>[]);
@@ -36,10 +36,7 @@ void main() {
   test('startDriftViewer wires customSelect into /api/tables', () async {
     final db = _FakeDriftDb();
 
-    await db.startDriftViewer(
-      enabled: true,
-      port: 0,
-    );
+    await db.startDriftViewer(enabled: true, port: 0);
 
     final port = DriftDebugServer.port;
     expect(port, isNotNull);
@@ -60,49 +57,52 @@ void main() {
   });
 
   test(
-      'startDriftViewer when customSelect().get() returns non-List returns 500 for /api/tables',
-      () async {
-    final db = _FakeDriftDbNonList();
-    await db.startDriftViewer(enabled: true, port: 0);
-    final port = DriftDebugServer.port;
-    expect(port, isNotNull);
+    'startDriftViewer when customSelect().get() returns non-List returns 500 for /api/tables',
+    () async {
+      final db = _FakeDriftDbNonList();
+      await db.startDriftViewer(enabled: true, port: 0);
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
 
-    final client = HttpClient();
-    try {
-      final req = await client.get('localhost', port!, '/api/tables');
-      final resp = await req.close();
-      expect(resp.statusCode, HttpStatus.internalServerError);
-      final body = await resp.transform(utf8.decoder).join();
-      final decoded = jsonDecode(body) as Map<String, dynamic>;
-      expect(decoded['error'], isNotNull);
-      // Regression: error message should guide users to DriftDebugServer.start (e.g. drift_sqlite_async).
-      expect(decoded['error'].toString(), contains('DriftDebugServer.start'));
-    } finally {
-      client.close();
-    }
-  });
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/tables');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.internalServerError);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], isNotNull);
+        // Regression: error message should guide users to DriftDebugServer.start (e.g. drift_sqlite_async).
+        expect(decoded['error'].toString(), contains('DriftDebugServer.start'));
+      } finally {
+        client.close();
+      }
+    },
+  );
 
-  test('startDriftViewer when row.data is not Map returns 500 for /api/tables',
-      () async {
-    final db = _FakeDriftDbBadRowData();
-    await db.startDriftViewer(enabled: true, port: 0);
-    final port = DriftDebugServer.port;
-    expect(port, isNotNull);
+  test(
+    'startDriftViewer when row.data is not Map returns 500 for /api/tables',
+    () async {
+      final db = _FakeDriftDbBadRowData();
+      await db.startDriftViewer(enabled: true, port: 0);
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
 
-    final client = HttpClient();
-    try {
-      final req = await client.get('localhost', port!, '/api/tables');
-      final resp = await req.close();
-      expect(resp.statusCode, HttpStatus.internalServerError);
-      final body = await resp.transform(utf8.decoder).join();
-      final decoded = jsonDecode(body) as Map<String, dynamic>;
-      expect(decoded['error'], isNotNull);
-      // Regression: error message should guide users to DriftDebugServer.start (e.g. drift_sqlite_async).
-      expect(decoded['error'].toString(), contains('DriftDebugServer.start'));
-    } finally {
-      client.close();
-    }
-  });
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/tables');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.internalServerError);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], isNotNull);
+        // Regression: error message should guide users to DriftDebugServer.start (e.g. drift_sqlite_async).
+        expect(decoded['error'].toString(), contains('DriftDebugServer.start'));
+      } finally {
+        client.close();
+      }
+    },
+  );
 }
 
 class _FakeDriftDbNonList {

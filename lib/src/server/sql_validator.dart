@@ -33,10 +33,7 @@ abstract final class SqlValidator {
     }
 
     // 1. Strip line comments (-- to end of line).
-    final noLineComments = trimmed.replaceAll(
-      RegExp(r'--[^\n]*'),
-      ' ',
-    );
+    final noLineComments = trimmed.replaceAll(RegExp(r'--[^\n]*'), ' ');
 
     // 2. Strip block comments (/* ... */).
     final noBlockComments = noLineComments.replaceAll(

@@ -18,10 +18,9 @@ void main() {
     // and compare to simulate DB modifications.
     List<Map<String, dynamic>> itemRows = [];
 
-    Future<void> startServer({
-      List<Map<String, dynamic>>? initialRows,
-    }) async {
-      itemRows = initialRows ??
+    Future<void> startServer({List<Map<String, dynamic>>? initialRows}) async {
+      itemRows =
+          initialRows ??
           [
             {'id': 1, 'title': 'Alpha'},
             {'id': 2, 'title': 'Beta'},
@@ -32,7 +31,7 @@ void main() {
           // Table names.
           if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
             return [
-              {'name': 'items'}
+              {'name': 'items'},
             ];
           }
           // Schema master (CREATE TABLE).
@@ -42,9 +41,10 @@ void main() {
               {
                 'type': 'table',
                 'name': 'items',
-                'sql': 'CREATE TABLE items (id INTEGER PRIMARY KEY, '
+                'sql':
+                    'CREATE TABLE items (id INTEGER PRIMARY KEY, '
                     'title TEXT)',
-              }
+              },
             ];
           }
           // PRAGMA table_info — only return columns for the 'items' table.
@@ -79,7 +79,7 @@ void main() {
           // COUNT(*).
           if (sql.contains('COUNT(*)')) {
             return [
-              {'c': itemRows.length}
+              {'c': itemRows.length},
             ];
           }
           // SELECT * FROM items.
@@ -91,7 +91,7 @@ void main() {
           if (sql.contains('UNION ALL') ||
               (sql.contains("AS t") && sql.contains('COUNT(*)'))) {
             return [
-              {'t': 'items', 'c': itemRows.length}
+              {'t': 'items', 'c': itemRows.length},
             ];
           }
           return <Map<String, dynamic>>[];
@@ -209,49 +209,49 @@ void main() {
       expect(tableDiff['removed'], greaterThan(0));
     });
 
-    test('detail=rows triggers row-level diff with PK-based comparison',
-        () async {
-      await startServer();
-      // Capture snapshot.
-      await httpPost(serverPort!, '/api/snapshot');
+    test(
+      'detail=rows triggers row-level diff with PK-based comparison',
+      () async {
+        await startServer();
+        // Capture snapshot.
+        await httpPost(serverPort!, '/api/snapshot');
 
-      // Modify one row's title (same PK, different value).
-      itemRows = [
-        {'id': 1, 'title': 'Alpha Updated'},
-        {'id': 2, 'title': 'Beta'},
-        {'id': 3, 'title': 'New Row'},
-      ];
+        // Modify one row's title (same PK, different value).
+        itemRows = [
+          {'id': 1, 'title': 'Alpha Updated'},
+          {'id': 2, 'title': 'Beta'},
+          {'id': 3, 'title': 'New Row'},
+        ];
 
-      final resp = await httpGet(
-        serverPort!,
-        '/api/snapshot/compare?detail=rows',
-      );
-      expect(resp.status, 200);
-      final tableDiff = ((resp.body as Map)['tables'] as List).first as Map;
+        final resp = await httpGet(
+          serverPort!,
+          '/api/snapshot/compare?detail=rows',
+        );
+        expect(resp.status, 200);
+        final tableDiff = ((resp.body as Map)['tables'] as List).first as Map;
 
-      // Should have PK-based diff info.
-      expect(tableDiff['hasPk'], true);
-      expect(tableDiff['addedRows'], isA<List<dynamic>>());
-      expect(tableDiff['removedRows'], isA<List<dynamic>>());
-      expect(tableDiff['changedRows'], isA<List<dynamic>>());
+        // Should have PK-based diff info.
+        expect(tableDiff['hasPk'], true);
+        expect(tableDiff['addedRows'], isA<List<dynamic>>());
+        expect(tableDiff['removedRows'], isA<List<dynamic>>());
+        expect(tableDiff['changedRows'], isA<List<dynamic>>());
 
-      // id=3 is new (added).
-      final addedRows = tableDiff['addedRows'] as List;
-      expect(
-        addedRows.any((r) => (r as Map)['id'] == 3),
-        isTrue,
-      );
+        // id=3 is new (added).
+        final addedRows = tableDiff['addedRows'] as List;
+        expect(addedRows.any((r) => (r as Map)['id'] == 3), isTrue);
 
-      // id=1 changed title.
-      final changedRows = tableDiff['changedRows'] as List;
-      expect(
-        changedRows.any(
-          (r) =>
-              ((r as Map)['changedColumns'] as List<dynamic>).contains('title'),
-        ),
-        isTrue,
-      );
-    });
+        // id=1 changed title.
+        final changedRows = tableDiff['changedRows'] as List;
+        expect(
+          changedRows.any(
+            (r) => ((r as Map)['changedColumns'] as List<dynamic>).contains(
+              'title',
+            ),
+          ),
+          isTrue,
+        );
+      },
+    );
 
     test('compare includes snapshotId and timestamps', () async {
       await startServer();

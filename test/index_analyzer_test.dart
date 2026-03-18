@@ -23,62 +23,63 @@ void main() {
         expect(result['tablesAnalyzed'], 0);
       });
 
-      test('table with no FKs and no heuristic columns returns empty',
-          () async {
-        // Table "items" has columns that don't match any heuristic.
-        final result = await IndexAnalyzer.getIndexSuggestionsList(
-          mockQueryWithTables(
-            tableColumns: {
-              'items': [
-                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
-                {'name': 'title', 'type': 'TEXT', 'pk': 0},
-                {'name': 'price', 'type': 'REAL', 'pk': 0},
-              ],
-            },
-          ),
-        );
+      test(
+        'table with no FKs and no heuristic columns returns empty',
+        () async {
+          // Table "items" has columns that don't match any heuristic.
+          final result = await IndexAnalyzer.getIndexSuggestionsList(
+            mockQueryWithTables(
+              tableColumns: {
+                'items': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                  {'name': 'title', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'price', 'type': 'REAL', 'pk': 0},
+                ],
+              },
+            ),
+          );
 
-        final suggestions = result['suggestions'] as List;
-        expect(suggestions, isEmpty);
-        expect(result['tablesAnalyzed'], 1);
-      });
+          final suggestions = result['suggestions'] as List;
+          expect(suggestions, isEmpty);
+          expect(result['tablesAnalyzed'], 1);
+        },
+      );
 
-      test('FK column without index produces high priority suggestion',
-          () async {
-        final result = await IndexAnalyzer.getIndexSuggestionsList(
-          mockQueryWithTables(
-            tableColumns: {
-              'orders': [
-                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
-                {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
-              ],
-            },
-            tableForeignKeys: {
-              'orders': [
-                {'from': 'user_id', 'table': 'users', 'to': 'id'},
-              ],
-            },
-          ),
-        );
+      test(
+        'FK column without index produces high priority suggestion',
+        () async {
+          final result = await IndexAnalyzer.getIndexSuggestionsList(
+            mockQueryWithTables(
+              tableColumns: {
+                'orders': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                  {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
+                ],
+              },
+              tableForeignKeys: {
+                'orders': [
+                  {'from': 'user_id', 'table': 'users', 'to': 'id'},
+                ],
+              },
+            ),
+          );
 
-        final suggestions = result['suggestions'] as List<dynamic>;
-        // Should have FK suggestion (high) and _id suffix suggestion
-        // (medium) — FK column also ends in _id.
-        final fkSuggestion = suggestions.firstWhere(
-          (s) => (s as Map)['priority'] == 'high',
-        ) as Map;
-        expect(fkSuggestion['table'], 'orders');
-        expect(fkSuggestion['column'], 'user_id');
-        expect(fkSuggestion['priority'], 'high');
-        expect(
-          (fkSuggestion['reason'] as String),
-          contains('Foreign key without index'),
-        );
-        expect(
-          (fkSuggestion['sql'] as String),
-          contains('CREATE INDEX'),
-        );
-      });
+          final suggestions = result['suggestions'] as List<dynamic>;
+          // Should have FK suggestion (high) and _id suffix suggestion
+          // (medium) — FK column also ends in _id.
+          final fkSuggestion =
+              suggestions.firstWhere((s) => (s as Map)['priority'] == 'high')
+                  as Map;
+          expect(fkSuggestion['table'], 'orders');
+          expect(fkSuggestion['column'], 'user_id');
+          expect(fkSuggestion['priority'], 'high');
+          expect(
+            (fkSuggestion['reason'] as String),
+            contains('Foreign key without index'),
+          );
+          expect((fkSuggestion['sql'] as String), contains('CREATE INDEX'));
+        },
+      );
 
       test('FK column with existing index produces no suggestion', () async {
         final result = await IndexAnalyzer.getIndexSuggestionsList(
@@ -111,27 +112,29 @@ void main() {
         expect(suggestions, isEmpty);
       });
 
-      test('_id column not PK and not indexed produces medium suggestion',
-          () async {
-        final result = await IndexAnalyzer.getIndexSuggestionsList(
-          mockQueryWithTables(
-            tableColumns: {
-              'orders': [
-                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
-                {'name': 'category_id', 'type': 'INTEGER', 'pk': 0},
-              ],
-            },
-            // No FK on category_id, so only _id heuristic fires.
-          ),
-        );
+      test(
+        '_id column not PK and not indexed produces medium suggestion',
+        () async {
+          final result = await IndexAnalyzer.getIndexSuggestionsList(
+            mockQueryWithTables(
+              tableColumns: {
+                'orders': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                  {'name': 'category_id', 'type': 'INTEGER', 'pk': 0},
+                ],
+              },
+              // No FK on category_id, so only _id heuristic fires.
+            ),
+          );
 
-        final suggestions = result['suggestions'] as List<dynamic>;
-        expect(suggestions, hasLength(1));
-        final s = suggestions.first as Map;
-        expect(s['column'], 'category_id');
-        expect(s['priority'], 'medium');
-        expect((s['reason'] as String), contains('_id'));
-      });
+          final suggestions = result['suggestions'] as List<dynamic>;
+          expect(suggestions, hasLength(1));
+          final s = suggestions.first as Map;
+          expect(s['column'], 'category_id');
+          expect(s['priority'], 'medium');
+          expect((s['reason'] as String), contains('_id'));
+        },
+      );
 
       test('_id column that is a PK produces no suggestion', () async {
         // The "item_id" column is PK — should be skipped even though
@@ -176,65 +179,70 @@ void main() {
         expect(suggestions, isEmpty);
       });
 
-      test('FK column ending in _id does not produce duplicate suggestion',
-          () async {
-        // user_id has FK (high) — should NOT also get _id (medium).
-        final result = await IndexAnalyzer.getIndexSuggestionsList(
-          mockQueryWithTables(
-            tableColumns: {
-              'orders': [
-                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
-                {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
-              ],
-            },
-            tableForeignKeys: {
-              'orders': [
-                {'from': 'user_id', 'table': 'users', 'to': 'id'},
-              ],
-            },
-          ),
-        );
+      test(
+        'FK column ending in _id does not produce duplicate suggestion',
+        () async {
+          // user_id has FK (high) — should NOT also get _id (medium).
+          final result = await IndexAnalyzer.getIndexSuggestionsList(
+            mockQueryWithTables(
+              tableColumns: {
+                'orders': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                  {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
+                ],
+              },
+              tableForeignKeys: {
+                'orders': [
+                  {'from': 'user_id', 'table': 'users', 'to': 'id'},
+                ],
+              },
+            ),
+          );
 
-        final suggestions = result['suggestions'] as List<dynamic>;
-        // Only one suggestion for user_id — the FK one (high).
-        final userIdSuggestions =
-            suggestions.where((s) => (s as Map)['column'] == 'user_id');
-        expect(userIdSuggestions, hasLength(1));
-        expect(
-          (userIdSuggestions.first as Map)['priority'],
-          'high',
-        );
-      });
+          final suggestions = result['suggestions'] as List<dynamic>;
+          // Only one suggestion for user_id — the FK one (high).
+          final userIdSuggestions = suggestions.where(
+            (s) => (s as Map)['column'] == 'user_id',
+          );
+          expect(userIdSuggestions, hasLength(1));
+          expect((userIdSuggestions.first as Map)['priority'], 'high');
+        },
+      );
 
-      test('datetime-pattern columns produce low priority suggestions',
-          () async {
-        final result = await IndexAnalyzer.getIndexSuggestionsList(
-          mockQueryWithTables(
-            tableColumns: {
-              'events': [
-                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
-                {'name': 'created_at', 'type': 'TEXT', 'pk': 0},
-                {'name': 'event_date', 'type': 'TEXT', 'pk': 0},
-                {'name': 'start_time', 'type': 'TEXT', 'pk': 0},
-                {'name': 'created', 'type': 'TEXT', 'pk': 0},
-                {'name': 'updated', 'type': 'TEXT', 'pk': 0},
-                {'name': 'deleted', 'type': 'TEXT', 'pk': 0},
-              ],
-            },
-          ),
-        );
+      test(
+        'datetime-pattern columns produce low priority suggestions',
+        () async {
+          final result = await IndexAnalyzer.getIndexSuggestionsList(
+            mockQueryWithTables(
+              tableColumns: {
+                'events': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                  {'name': 'created_at', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'event_date', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'start_time', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'created', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'updated', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'deleted', 'type': 'TEXT', 'pk': 0},
+                ],
+              },
+            ),
+          );
 
-        final suggestions = result['suggestions'] as List<dynamic>;
-        // All datetime columns should have low priority.
-        for (final s in suggestions) {
-          final map = s as Map;
-          expect(map['priority'], 'low',
-              reason: '${map['column']} should be low priority');
-        }
-        // Verify specific columns are present.
-        final suggestedCols =
-            suggestions.map((s) => (s as Map)['column']).toSet();
-        expect(
+          final suggestions = result['suggestions'] as List<dynamic>;
+          // All datetime columns should have low priority.
+          for (final s in suggestions) {
+            final map = s as Map;
+            expect(
+              map['priority'],
+              'low',
+              reason: '${map['column']} should be low priority',
+            );
+          }
+          // Verify specific columns are present.
+          final suggestedCols = suggestions
+              .map((s) => (s as Map)['column'])
+              .toSet();
+          expect(
             suggestedCols,
             containsAll([
               'created_at',
@@ -243,8 +251,10 @@ void main() {
               'created',
               'updated',
               'deleted',
-            ]));
-      });
+            ]),
+          );
+        },
+      );
 
       test('suggestions sorted by priority: high, medium, low', () async {
         // Table with FK (high), _id column (medium), and
@@ -271,8 +281,9 @@ void main() {
         expect(suggestions.length, greaterThanOrEqualTo(3));
 
         // Verify ordering: high first, then medium, then low.
-        final priorities =
-            suggestions.map((s) => (s as Map)['priority']).toList();
+        final priorities = suggestions
+            .map((s) => (s as Map)['priority'])
+            .toList();
         final highIdx = priorities.indexOf('high');
         final mediumIdx = priorities.indexOf('medium');
         final lowIdx = priorities.indexOf('low');
@@ -361,25 +372,27 @@ void main() {
         );
       });
 
-      test('plain id column (not ending in _id) produces no suggestion',
-          () async {
-        // Column named "id" should NOT match the _id suffix heuristic
-        // because _id requires an underscore prefix.
-        final result = await IndexAnalyzer.getIndexSuggestionsList(
-          mockQueryWithTables(
-            tableColumns: {
-              'items': [
-                {'name': 'id', 'type': 'INTEGER', 'pk': 0},
-                {'name': 'name', 'type': 'TEXT', 'pk': 0},
-              ],
-            },
-          ),
-        );
+      test(
+        'plain id column (not ending in _id) produces no suggestion',
+        () async {
+          // Column named "id" should NOT match the _id suffix heuristic
+          // because _id requires an underscore prefix.
+          final result = await IndexAnalyzer.getIndexSuggestionsList(
+            mockQueryWithTables(
+              tableColumns: {
+                'items': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 0},
+                  {'name': 'name', 'type': 'TEXT', 'pk': 0},
+                ],
+              },
+            ),
+          );
 
-        final suggestions = result['suggestions'] as List;
-        // "id" without underscore prefix should not trigger _id heuristic.
-        expect(suggestions, isEmpty);
-      });
+          final suggestions = result['suggestions'] as List;
+          // "id" without underscore prefix should not trigger _id heuristic.
+          expect(suggestions, isEmpty);
+        },
+      );
     });
   });
 }

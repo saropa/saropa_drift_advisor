@@ -158,8 +158,9 @@ class _DriftDebugServerImpl {
     );
 
     try {
-      final address =
-          loopbackOnly ? InternetAddress.loopbackIPv4 : InternetAddress.anyIPv4;
+      final address = loopbackOnly
+          ? InternetAddress.loopbackIPv4
+          : InternetAddress.anyIPv4;
 
       _server = await HttpServer.bind(address, port);
       final server = _server;
@@ -240,7 +241,8 @@ class _DriftDebugServerImpl {
   }
 
   @override
-  String toString() => '_DriftDebugServerImpl(port: ${_server?.port}, '
+  String toString() =>
+      '_DriftDebugServerImpl(port: ${_server?.port}, '
       'running: ${_server != null})';
 }
 
@@ -303,24 +305,23 @@ mixin DriftDebugServer {
     /// requests exceeding this limit receive HTTP 429. The long-poll
     /// `/api/generation` and `/api/health` endpoints are exempt.
     int? maxRequestsPerSecond,
-  }) =>
-      _instance.start(
-        query: query,
-        enabled: enabled,
-        port: port,
-        loopbackOnly: loopbackOnly,
-        corsOrigin: corsOrigin,
-        authToken: authToken,
-        basicAuthUser: basicAuthUser,
-        basicAuthPassword: basicAuthPassword,
-        getDatabaseBytes: getDatabaseBytes,
-        queryCompare: queryCompare,
-        writeQuery: writeQuery,
-        onLog: onLog,
-        onError: onError,
-        sessionDuration: sessionDuration,
-        maxRequestsPerSecond: maxRequestsPerSecond,
-      );
+  }) => _instance.start(
+    query: query,
+    enabled: enabled,
+    port: port,
+    loopbackOnly: loopbackOnly,
+    corsOrigin: corsOrigin,
+    authToken: authToken,
+    basicAuthUser: basicAuthUser,
+    basicAuthPassword: basicAuthPassword,
+    getDatabaseBytes: getDatabaseBytes,
+    queryCompare: queryCompare,
+    writeQuery: writeQuery,
+    onLog: onLog,
+    onError: onError,
+    sessionDuration: sessionDuration,
+    maxRequestsPerSecond: maxRequestsPerSecond,
+  );
 
   /// The port the server is bound to, or null if not running.
   static int? get port => _instance.port;

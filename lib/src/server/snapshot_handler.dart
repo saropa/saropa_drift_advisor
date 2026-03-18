@@ -27,8 +27,9 @@ final class SnapshotHandler {
       final tables = await ServerUtils.getTableNames(query);
       final Map<String, List<Map<String, dynamic>>> data = {};
       for (final table in tables) {
-        final List<Map<String, dynamic>> rows =
-            await query('SELECT * FROM "$table"');
+        final List<Map<String, dynamic>> rows = await query(
+          'SELECT * FROM "$table"',
+        );
         data[table] = rows.map((r) => Map<String, dynamic>.from(r)).toList();
       }
 
@@ -37,20 +38,26 @@ final class SnapshotHandler {
       final created = Snapshot(id: id, createdAt: createdAt, tables: data);
       _ctx.snapshot = created;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{
-        ServerConstants.jsonKeyId: created.id,
-        ServerConstants.jsonKeyCreatedAt:
-            created.createdAt.toUtc().toIso8601String(),
-        ServerConstants.jsonKeyTableCount: created.tables.length,
-        ServerConstants.jsonKeyTables: created.tables.keys.toList(),
-      }));
+      res.write(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyId: created.id,
+          ServerConstants.jsonKeyCreatedAt: created.createdAt
+              .toUtc()
+              .toIso8601String(),
+          ServerConstants.jsonKeyTableCount: created.tables.length,
+          ServerConstants.jsonKeyTables: created.tables.keys.toList(),
+        }),
+      );
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _ctx.setCors(res);
-      res.write(jsonEncode(
-          <String, String>{ServerConstants.jsonKeyError: error.toString()}));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
     } finally {
       await res.close();
     }
@@ -64,7 +71,8 @@ final class SnapshotHandler {
       res.statusCode = HttpStatus.ok;
       _ctx.setJsonHeaders(res);
       res.write(
-          jsonEncode(<String, dynamic>{ServerConstants.jsonKeySnapshot: null}));
+        jsonEncode(<String, dynamic>{ServerConstants.jsonKeySnapshot: null}),
+      );
       await res.close();
 
       return;
@@ -75,15 +83,18 @@ final class SnapshotHandler {
     }
 
     _ctx.setJsonHeaders(res);
-    res.write(jsonEncode(<String, dynamic>{
-      ServerConstants.jsonKeySnapshot: <String, dynamic>{
-        ServerConstants.jsonKeyId: snap.id,
-        ServerConstants.jsonKeyCreatedAt:
-            snap.createdAt.toUtc().toIso8601String(),
-        ServerConstants.jsonKeyTables: snap.tables.keys.toList(),
-        ServerConstants.jsonKeyCounts: tableCounts,
-      },
-    }));
+    res.write(
+      jsonEncode(<String, dynamic>{
+        ServerConstants.jsonKeySnapshot: <String, dynamic>{
+          ServerConstants.jsonKeyId: snap.id,
+          ServerConstants.jsonKeyCreatedAt: snap.createdAt
+              .toUtc()
+              .toIso8601String(),
+          ServerConstants.jsonKeyTables: snap.tables.keys.toList(),
+          ServerConstants.jsonKeyCounts: tableCounts,
+        },
+      }),
+    );
     await res.close();
   }
 
@@ -99,9 +110,11 @@ final class SnapshotHandler {
     if (snap == null) {
       res.statusCode = HttpStatus.badRequest;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: ServerConstants.errorNoSnapshot,
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: ServerConstants.errorNoSnapshot,
+        }),
+      );
       await res.close();
 
       return;
@@ -111,7 +124,7 @@ final class SnapshotHandler {
       final allTables = <String>{...snap.tables.keys, ...tablesNow};
       final detailed =
           req.uri.queryParameters[ServerConstants.queryParamDetail] ==
-              ServerConstants.detailRows;
+          ServerConstants.detailRows;
       final List<Map<String, dynamic>> tableDiffs = [];
       for (final table in allTables.toList()..sort()) {
         final rowsThen = snap.tables[table] ?? [];
@@ -145,10 +158,12 @@ final class SnapshotHandler {
 
       final body = <String, dynamic>{
         ServerConstants.jsonKeySnapshotId: snap.id,
-        ServerConstants.jsonKeySnapshotCreatedAt:
-            snap.createdAt.toUtc().toIso8601String(),
-        ServerConstants.jsonKeyComparedAt:
-            DateTime.now().toUtc().toIso8601String(),
+        ServerConstants.jsonKeySnapshotCreatedAt: snap.createdAt
+            .toUtc()
+            .toIso8601String(),
+        ServerConstants.jsonKeyComparedAt: DateTime.now()
+            .toUtc()
+            .toIso8601String(),
         ServerConstants.jsonKeyTables: tableDiffs,
       };
 
@@ -156,8 +171,10 @@ final class SnapshotHandler {
           ServerConstants.formatDownload) {
         res.statusCode = HttpStatus.ok;
         res.headers.contentType = ContentType.json;
-        res.headers.set(ServerConstants.headerContentDisposition,
-            ServerConstants.attachmentSnapshotDiff);
+        res.headers.set(
+          ServerConstants.headerContentDisposition,
+          ServerConstants.attachmentSnapshotDiff,
+        );
         _ctx.setCors(res);
         res.write(const JsonEncoder.withIndent('  ').convert(body));
       } else {
@@ -169,8 +186,11 @@ final class SnapshotHandler {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _ctx.setCors(res);
-      res.write(jsonEncode(
-          <String, String>{ServerConstants.jsonKeyError: error.toString()}));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
     } finally {
       await res.close();
     }
@@ -276,9 +296,11 @@ final class SnapshotHandler {
     final res = response;
     _ctx.snapshot = null;
     _ctx.setJsonHeaders(res);
-    res.write(jsonEncode(<String, String>{
-      ServerConstants.jsonKeyOk: ServerConstants.messageSnapshotCleared,
-    }));
+    res.write(
+      jsonEncode(<String, String>{
+        ServerConstants.jsonKeyOk: ServerConstants.messageSnapshotCleared,
+      }),
+    );
     await res.close();
   }
 }

@@ -40,21 +40,21 @@ final class Router {
     ServerContext ctx,
     DriftDebugSessionStore sessionStore, {
     int? maxRequestsPerSecond,
-  })  : _ctx = ctx,
-        _rateLimiter = maxRequestsPerSecond != null
-            ? RateLimiter(maxRequestsPerSecond, ctx)
-            : null,
-        _auth = AuthHandler(ctx),
-        _generation = GenerationHandler(ctx),
-        _table = TableHandler(ctx),
-        _sql = SqlHandler(ctx),
-        _schema = SchemaHandler(ctx),
-        _snapshot = SnapshotHandler(ctx),
-        _compare = CompareHandler(ctx),
-        _analytics = AnalyticsHandler(ctx),
-        _performance = PerformanceHandler(ctx),
-        _session = SessionHandler(ctx, sessionStore),
-        _import = ImportHandler(ctx);
+  }) : _ctx = ctx,
+       _rateLimiter = maxRequestsPerSecond != null
+           ? RateLimiter(maxRequestsPerSecond, ctx)
+           : null,
+       _auth = AuthHandler(ctx),
+       _generation = GenerationHandler(ctx),
+       _table = TableHandler(ctx),
+       _sql = SqlHandler(ctx),
+       _schema = SchemaHandler(ctx),
+       _snapshot = SnapshotHandler(ctx),
+       _compare = CompareHandler(ctx),
+       _analytics = AnalyticsHandler(ctx),
+       _performance = PerformanceHandler(ctx),
+       _session = SessionHandler(ctx, sessionStore),
+       _import = ImportHandler(ctx);
 
   final ServerContext _ctx;
 
@@ -99,7 +99,8 @@ final class Router {
     // the lightweight health probe so monitoring tools are never blocked.
     final limiter = _rateLimiter;
     if (limiter != null) {
-      final bool isExempt = path == ServerConstants.pathApiGeneration ||
+      final bool isExempt =
+          path == ServerConstants.pathApiGeneration ||
           path == ServerConstants.pathApiGenerationAlt ||
           path == ServerConstants.pathApiHealth ||
           path == ServerConstants.pathApiHealthAlt;
@@ -246,7 +247,10 @@ final class Router {
         final String tableName = suffix.replaceFirst(RegExp(r'/count$'), '');
 
         await _table.sendTableCount(
-            response: response, query: query, tableName: tableName);
+          response: response,
+          query: query,
+          tableName: tableName,
+        );
 
         return true;
       }
@@ -254,7 +258,10 @@ final class Router {
         final String tableName = suffix.replaceFirst(RegExp(r'/columns$'), '');
 
         await _table.sendTableColumns(
-            response: response, query: query, tableName: tableName);
+          response: response,
+          query: query,
+          tableName: tableName,
+        );
 
         return true;
       }
@@ -262,7 +269,10 @@ final class Router {
         final String tableName = suffix.replaceFirst(RegExp(r'/fk-meta$'), '');
 
         await _table.sendTableFkMeta(
-            response: response, query: query, tableName: tableName);
+          response: response,
+          query: query,
+          tableName: tableName,
+        );
 
         return true;
       }
@@ -270,16 +280,19 @@ final class Router {
       // Default: fetch table rows with limit/offset.
       final String tableName = suffix;
       final int limit = ServerUtils.parseLimit(
-          request.uri.queryParameters[ServerConstants.queryParamLimit]);
+        request.uri.queryParameters[ServerConstants.queryParamLimit],
+      );
       final int offset = ServerUtils.parseOffset(
-          request.uri.queryParameters[ServerConstants.queryParamOffset]);
+        request.uri.queryParameters[ServerConstants.queryParamOffset],
+      );
 
       await _table.sendTableData(
-          response: response,
-          query: query,
-          tableName: tableName,
-          limit: limit,
-          offset: offset);
+        response: response,
+        query: query,
+        tableName: tableName,
+        limit: limit,
+        offset: offset,
+      );
 
       return true;
     }
@@ -436,7 +449,10 @@ final class Router {
         (path == ServerConstants.pathApiSnapshotCompare ||
             path == ServerConstants.pathApiSnapshotCompareAlt)) {
       await _snapshot.handleSnapshotCompare(
-          response: response, request: request, query: query);
+        response: response,
+        request: request,
+        query: query,
+      );
 
       return true;
     }
@@ -678,8 +694,9 @@ final class Router {
 
   /// Returns index suggestions list for VM service RPC getIndexSuggestions.
   Future<List<Map<String, dynamic>>> getIndexSuggestionsList() async {
-    final result =
-        await _analytics.getIndexSuggestionsList(_ctx.instrumentedQuery);
+    final result = await _analytics.getIndexSuggestionsList(
+      _ctx.instrumentedQuery,
+    );
     final list = result['suggestions'];
     return list is List<Map<String, dynamic>> ? list : <Map<String, dynamic>>[];
   }
@@ -703,24 +720,22 @@ final class Router {
 
   /// Handles GET /api/change-detection.
   /// Returns {"changeDetection": true|false}.
-  Future<void> _handleGetChangeDetection(
-    HttpResponse response,
-  ) async {
+  Future<void> _handleGetChangeDetection(HttpResponse response) async {
     final res = response;
 
     _ctx.setJsonHeaders(res);
-    res.write(jsonEncode(<String, dynamic>{
-      ServerConstants.jsonKeyChangeDetection: _ctx.changeDetectionEnabled,
-    }));
+    res.write(
+      jsonEncode(<String, dynamic>{
+        ServerConstants.jsonKeyChangeDetection: _ctx.changeDetectionEnabled,
+      }),
+    );
     await res.close();
   }
 
   /// Handles POST /api/change-detection.
   /// Expects JSON body: {"enabled": true|false}.
   /// Returns {"changeDetection": true|false}.
-  Future<void> _handleSetChangeDetection(
-    HttpRequest request,
-  ) async {
+  Future<void> _handleSetChangeDetection(HttpRequest request) async {
     final res = request.response;
 
     try {
@@ -736,11 +751,14 @@ final class Router {
       if (decoded == null || decoded[ServerConstants.jsonKeyEnabled] is! bool) {
         res.statusCode = HttpStatus.badRequest;
         _ctx.setJsonHeaders(res);
-        res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError: 'Expected JSON body with '
-              '"${ServerConstants.jsonKeyEnabled}": '
-              'true|false',
-        }));
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError:
+                'Expected JSON body with '
+                '"${ServerConstants.jsonKeyEnabled}": '
+                'true|false',
+          }),
+        );
         await res.close();
 
         return;
@@ -750,9 +768,11 @@ final class Router {
       _ctx.changeDetectionEnabled = enabled;
 
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{
-        ServerConstants.jsonKeyChangeDetection: enabled,
-      }));
+      res.write(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyChangeDetection: enabled,
+        }),
+      );
       await res.close();
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);

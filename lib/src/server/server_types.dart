@@ -8,8 +8,11 @@ import 'server_constants.dart';
 /// In-memory snapshot of table state (for time-travel compare). Captured by POST /api/snapshot;
 /// GET /api/snapshot/compare diffs current DB vs this snapshot (per-table added/removed/unchanged).
 class Snapshot {
-  const Snapshot(
-      {required this.id, required this.createdAt, required this.tables});
+  const Snapshot({
+    required this.id,
+    required this.createdAt,
+    required this.tables,
+  });
 
   final String id;
   final DateTime createdAt;
@@ -37,12 +40,12 @@ class QueryTiming {
   final String? error;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'sql': sql,
-        'durationMs': durationMs,
-        'rowCount': rowCount,
-        if (error != null) 'error': error,
-        'at': at.toIso8601String(),
-      };
+    'sql': sql,
+    'durationMs': durationMs,
+    'rowCount': rowCount,
+    'error': ?error,
+    'at': at.toIso8601String(),
+  };
 }
 
 /// Validated POST /api/sql request body (prefer_extension_type_for_wrapper, require_api_response_validation).

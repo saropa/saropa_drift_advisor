@@ -19,9 +19,7 @@ abstract final class ServerUtils {
   ///
   /// Returns an empty list when [raw] is null or not a
   /// [List]. Non-Map items are silently skipped.
-  static List<Map<String, dynamic>> normalizeRows(
-    dynamic raw,
-  ) {
+  static List<Map<String, dynamic>> normalizeRows(dynamic raw) {
     if (raw == null) {
       return [];
     }
@@ -45,10 +43,8 @@ abstract final class ServerUtils {
   ///
   /// Returns 0 if [rows] is empty or the count column
   /// is null.
-  static int extractCountFromRows(
-    List<Map<String, dynamic>> rows,
-  ) {
-    final firstRow = rows.isEmpty ? null : rows.first;
+  static int extractCountFromRows(List<Map<String, dynamic>> rows) {
+    final firstRow = rows.firstOrNull;
 
     if (firstRow == null ||
         firstRow[ServerConstants.jsonKeyCountColumn] == null) {
@@ -67,17 +63,13 @@ abstract final class ServerUtils {
   ///
   /// Returns a sorted list of non-empty table name
   /// strings.
-  static Future<List<String>> getTableNames(
-    DriftDebugQuery queryFn,
-  ) async {
+  static Future<List<String>> getTableNames(DriftDebugQuery queryFn) async {
     final dynamic raw = await queryFn(ServerConstants.sqlTableNames);
 
     final List<Map<String, dynamic>> rows = normalizeRows(raw);
 
     return rows
-        .map(
-          (row) => row[ServerConstants.jsonKeyName] as String? ?? '',
-        )
+        .map((row) => row[ServerConstants.jsonKeyName] as String? ?? '')
         .where((nameStr) => nameStr.isNotEmpty)
         .toList();
   }
@@ -97,10 +89,7 @@ abstract final class ServerUtils {
       return ServerConstants.defaultLimit;
     }
 
-    return n.clamp(
-      ServerConstants.minLimit,
-      ServerConstants.maxLimit,
-    );
+    return n.clamp(ServerConstants.minLimit, ServerConstants.maxLimit);
   }
 
   /// Parses offset query param.
@@ -147,18 +136,19 @@ abstract final class ServerUtils {
     if (value is List<int>) {
       final hex = value
           .map(
-            (b) => b.toRadixString(ServerConstants.hexRadix).padLeft(
-                  ServerConstants.hexBytePadding,
-                  '0',
-                ),
+            (b) => b
+                .toRadixString(ServerConstants.hexRadix)
+                .padLeft(ServerConstants.hexBytePadding, '0'),
           )
           .join();
 
       return "X'$hex'";
     }
 
-    final escaped =
-        value.toString().replaceAll(r'\', r'\\').replaceAll("'", "''");
+    final escaped = value
+        .toString()
+        .replaceAll(r'\', r'\\')
+        .replaceAll("'", "''");
 
     return "'$escaped'";
   }
@@ -167,11 +157,7 @@ abstract final class ServerUtils {
   ///
   /// Avoids RangeError by clamping indices. Returns
   /// empty string when bounds are invalid.
-  static String safeSubstring(
-    String s, {
-    required int start,
-    int? end,
-  }) {
+  static String safeSubstring(String s, {required int start, int? end}) {
     if (start < 0 || start >= s.length) {
       return '';
     }
@@ -216,8 +202,7 @@ abstract final class ServerUtils {
   static String compositePkKey(
     List<String> pkColumns,
     Map<String, dynamic> row,
-  ) =>
-      pkColumns.map((c) => '${row[c]}').join('|');
+  ) => pkColumns.map((c) => '${row[c]}').join('|');
 
   /// Fetches schema (CREATE statements) from
   /// sqlite_master, no data.
@@ -225,9 +210,7 @@ abstract final class ServerUtils {
   /// Returns the schema DDL as a single string with
   /// each statement on its own line, terminated by a
   /// semicolon.
-  static Future<String> getSchemaSql(
-    DriftDebugQuery queryFn,
-  ) async {
+  static Future<String> getSchemaSql(DriftDebugQuery queryFn) async {
     final dynamic raw = await queryFn(ServerConstants.sqlSchemaMaster);
 
     final List<Map<String, dynamic>> rows = normalizeRows(raw);
@@ -256,10 +239,7 @@ abstract final class ServerUtils {
     try {
       decoded = jsonDecode(body);
     } on FormatException catch (e) {
-      developer.log(
-        'parseJsonMap: $e',
-        name: 'DriftDebugServer',
-      );
+      developer.log('parseJsonMap: $e', name: 'DriftDebugServer');
       return null;
     }
 
@@ -349,20 +329,12 @@ abstract final class ServerUtils {
 
   /// Sorts anomalies in-place: errors first, then
   /// warnings, then info.
-  static void sortAnomaliesBySeverity(
-    List<Map<String, dynamic>> anomalies,
-  ) {
-    const severityOrder = <String, int>{
-      'error': 0,
-      'warning': 1,
-      'info': 2,
-    };
+  static void sortAnomaliesBySeverity(List<Map<String, dynamic>> anomalies) {
+    const severityOrder = <String, int>{'error': 0, 'warning': 1, 'info': 2};
 
     anomalies.sort(
-      (a, b) =>
-          (severityOrder[a['severity']] ?? _unknownSeverityOrder).compareTo(
-        severityOrder[b['severity']] ?? _unknownSeverityOrder,
-      ),
+      (a, b) => (severityOrder[a['severity']] ?? _unknownSeverityOrder)
+          .compareTo(severityOrder[b['severity']] ?? _unknownSeverityOrder),
     );
   }
 }

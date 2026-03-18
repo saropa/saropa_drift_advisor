@@ -27,23 +27,27 @@ final class SchemaHandler {
     List<Map<String, dynamic>> infoRows,
   ) {
     return infoRows
-        .map((r) => <String, dynamic>{
-              ServerConstants.jsonKeyName:
-                  r[ServerConstants.jsonKeyName]?.toString() ??
-                      r['NAME']?.toString() ??
-                      '',
-              ServerConstants.jsonKeyType:
-                  r[ServerConstants.jsonKeyType]?.toString() ??
-                      r['TYPE']?.toString() ??
-                      '',
-              ServerConstants.jsonKeyPk: _pragmaPkBool(r),
-            })
+        .map(
+          (r) => <String, dynamic>{
+            ServerConstants.jsonKeyName:
+                r[ServerConstants.jsonKeyName]?.toString() ??
+                r['NAME']?.toString() ??
+                '',
+            ServerConstants.jsonKeyType:
+                r[ServerConstants.jsonKeyType]?.toString() ??
+                r['TYPE']?.toString() ??
+                '',
+            ServerConstants.jsonKeyPk: _pragmaPkBool(r),
+          },
+        )
         .toList();
   }
 
   /// Sends schema-only SQL dump (CREATE statements, no data).
   Future<void> sendSchemaDump(
-      HttpResponse response, DriftDebugQuery query) async {
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
     final res = response;
     final String schema = await ServerUtils.getSchemaSql(query);
 
@@ -63,8 +67,9 @@ final class SchemaHandler {
       final List<Map<String, dynamic>> infoRows = ServerUtils.normalizeRows(
         await query('PRAGMA table_info("$tableName")'),
       );
-      final List<Map<String, dynamic>> columns =
-          _pragmaTableInfoToColumns(infoRows);
+      final List<Map<String, dynamic>> columns = _pragmaTableInfoToColumns(
+        infoRows,
+      );
 
       tables.add(<String, dynamic>{
         ServerConstants.jsonKeyName: tableName,
@@ -72,10 +77,12 @@ final class SchemaHandler {
       });
 
       try {
-        final dynamic rawFk =
-            await query('PRAGMA foreign_key_list("$tableName")');
-        final List<Map<String, dynamic>> fkRows =
-            ServerUtils.normalizeRows(rawFk);
+        final dynamic rawFk = await query(
+          'PRAGMA foreign_key_list("$tableName")',
+        );
+        final List<Map<String, dynamic>> fkRows = ServerUtils.normalizeRows(
+          rawFk,
+        );
 
         for (final r in fkRows) {
           final toTable = r[ServerConstants.jsonKeyTable] as String?;
@@ -107,7 +114,9 @@ final class SchemaHandler {
 
   /// Sends JSON diagram data for GET /api/schema/diagram.
   Future<void> sendSchemaDiagram(
-      HttpResponse response, DriftDebugQuery query) async {
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
     final res = response;
 
     try {
@@ -120,8 +129,11 @@ final class SchemaHandler {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _ctx.setCors(res);
-      res.write(jsonEncode(
-          <String, String>{ServerConstants.jsonKeyError: error.toString()}));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
     } finally {
       await res.close();
     }
@@ -169,7 +181,8 @@ final class SchemaHandler {
       final tables = await getSchemaMetadataList(query);
       _ctx.setJsonHeaders(res);
       res.write(
-          jsonEncode(<String, dynamic>{ServerConstants.jsonKeyTables: tables}));
+        jsonEncode(<String, dynamic>{ServerConstants.jsonKeyTables: tables}),
+      );
       await res.close();
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
@@ -201,9 +214,7 @@ final class SchemaHandler {
 
             for (final row in rows) {
               final values = keys
-                  .map(
-                    (k) => ServerUtils.sqlLiteral(row[k]),
-                  )
+                  .map((k) => ServerUtils.sqlLiteral(row[k]))
                   .join(', ');
 
               buffer.writeln(
@@ -221,7 +232,9 @@ final class SchemaHandler {
 
   /// Sends full dump (schema + data) as downloadable SQL file.
   Future<void> sendFullDump(
-      HttpResponse response, DriftDebugQuery query) async {
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
     final res = response;
     final String dump = await getFullDumpSql(query);
 
@@ -240,10 +253,12 @@ final class SchemaHandler {
     if (getBytes == null) {
       res.statusCode = HttpStatus.notImplemented;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError:
-            ServerConstants.errorDatabaseDownloadNotConfigured,
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError:
+              ServerConstants.errorDatabaseDownloadNotConfigured,
+        }),
+      );
       await res.close();
 
       return;
@@ -253,10 +268,13 @@ final class SchemaHandler {
 
       res.statusCode = HttpStatus.ok;
       res.headers.contentType = ContentType(
-          ServerConstants.contentTypeApplicationOctetStream,
-          ServerConstants.contentTypeOctetStream);
-      res.headers.set(ServerConstants.headerContentDisposition,
-          ServerConstants.attachmentDatabaseSqlite);
+        ServerConstants.contentTypeApplicationOctetStream,
+        ServerConstants.contentTypeOctetStream,
+      );
+      res.headers.set(
+        ServerConstants.headerContentDisposition,
+        ServerConstants.attachmentDatabaseSqlite,
+      );
       _ctx.setCors(res);
       res.add(bytes);
     } on Object catch (error, stack) {
@@ -264,8 +282,11 @@ final class SchemaHandler {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _ctx.setCors(res);
-      res.write(jsonEncode(
-          <String, String>{ServerConstants.jsonKeyError: error.toString()}));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
     } finally {
       await res.close();
     }

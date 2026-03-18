@@ -18,12 +18,10 @@ final class PerformanceHandler {
   Future<Map<String, dynamic>> getPerformanceData() async {
     final timings = List<QueryTiming>.of(_ctx.queryTimings);
     final totalQueries = timings.length;
-    final totalDuration = timings.fold<int>(
-      0,
-      (sum, t) => sum + t.durationMs,
-    );
-    final avgDuration =
-        totalQueries > 0 ? (totalDuration / totalQueries).round() : 0;
+    final totalDuration = timings.fold<int>(0, (sum, t) => sum + t.durationMs);
+    final avgDuration = totalQueries > 0
+        ? (totalDuration / totalQueries).round()
+        : 0;
 
     final slowQueries = timings.where((t) => t.durationMs > 100).toList()
       ..sort((a, b) => b.durationMs.compareTo(a.durationMs));
@@ -36,21 +34,24 @@ final class PerformanceHandler {
       queryGroups.putIfAbsent(key, () => []).add(t);
     }
 
-    final patterns = queryGroups.entries.map((e) {
-      final durations = e.value.map((t) => t.durationMs).toList();
-      final total = durations.fold<int>(0, (a, b) => a + b);
-      final avg = total / durations.length;
-      final max = durations.fold<int>(0, (a, b) => a > b ? a : b);
-      return <String, dynamic>{
-        'pattern': e.key,
-        'count': durations.length,
-        'avgMs': avg.round(),
-        'maxMs': max,
-        'totalMs': total,
-      };
-    }).toList()
-      ..sort((a, b) =>
-          ((b['totalMs'] as int?) ?? 0).compareTo((a['totalMs'] as int?) ?? 0));
+    final patterns =
+        queryGroups.entries.map((e) {
+          final durations = e.value.map((t) => t.durationMs).toList();
+          final total = durations.fold<int>(0, (a, b) => a + b);
+          final avg = total / durations.length;
+          final max = durations.fold<int>(0, (a, b) => a > b ? a : b);
+          return <String, dynamic>{
+            'pattern': e.key,
+            'count': durations.length,
+            'avgMs': avg.round(),
+            'maxMs': max,
+            'totalMs': total,
+          };
+        }).toList()..sort(
+          (a, b) => ((b['totalMs'] as int?) ?? 0).compareTo(
+            (a['totalMs'] as int?) ?? 0,
+          ),
+        );
 
     return <String, dynamic>{
       'totalQueries': totalQueries,
@@ -58,8 +59,10 @@ final class PerformanceHandler {
       'avgDurationMs': avgDuration,
       'slowQueries': slowQueries.take(20).map((t) => t.toJson()).toList(),
       'queryPatterns': patterns.take(20).toList(),
-      'recentQueries':
-          timings.reversed.take(50).map((t) => t.toJson()).toList(),
+      'recentQueries': timings.reversed
+          .take(50)
+          .map((t) => t.toJson())
+          .toList(),
     };
   }
 

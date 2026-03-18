@@ -105,9 +105,7 @@ final class DriftDebugImportProcessor {
     }
 
     if (decoded is! List) {
-      throw const FormatException(
-        'JSON data must be an array of objects.',
-      );
+      throw const FormatException('JSON data must be an array of objects.');
     }
     int imported = 0;
     final errors = <String>[];
@@ -120,9 +118,7 @@ final class DriftDebugImportProcessor {
           final cols = keys.map(_escapeIdentifier).join(', ');
           final vals = keys.map((k) => sqlLiteral(row[k])).join(', ');
 
-          await writeQuery(
-            'INSERT INTO "$table" ($cols) VALUES ($vals)',
-          );
+          await writeQuery('INSERT INTO "$table" ($cols) VALUES ($vals)');
           imported++;
         } on Object catch (e) {
           errors.add('Row $i: $e');
@@ -197,9 +193,7 @@ final class DriftDebugImportProcessor {
               .map((v) => sqlLiteral(v))
               .join(', ');
 
-          await writeQuery(
-            'INSERT INTO "$table" ($cols) VALUES ($vals)',
-          );
+          await writeQuery('INSERT INTO "$table" ($cols) VALUES ($vals)');
           imported++;
         } else {
           final colCount = rowValues.length;
@@ -227,8 +221,10 @@ final class DriftDebugImportProcessor {
     required String table,
     required Future<void> Function(String sql) writeQuery,
   }) async {
-    final statements =
-        data.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty);
+    final statements = data
+        .split(';')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty);
     int imported = 0;
     final errors = <String>[];
 

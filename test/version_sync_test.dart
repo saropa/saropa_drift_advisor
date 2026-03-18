@@ -19,9 +19,10 @@ void main() {
     final content = pubspecFile.readAsStringSync();
 
     // Extract the top-level "version: x.y.z" line from pubspec.yaml.
-    final match = RegExp(r'^version:\s*(\S+)', multiLine: true).firstMatch(
-      content,
-    );
+    final match = RegExp(
+      r'^version:\s*(\S+)',
+      multiLine: true,
+    ).firstMatch(content);
     expect(
       match,
       isNotNull,

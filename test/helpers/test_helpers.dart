@@ -126,14 +126,16 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
           return cols
               .asMap()
               .entries
-              .map((e) => <String, dynamic>{
-                    'cid': e.key,
-                    'name': e.value['name'],
-                    'type': e.value['type'] ?? 'TEXT',
-                    'notnull': e.value['notnull'] ?? 0,
-                    'dflt_value': e.value['dflt_value'],
-                    'pk': e.value['pk'] ?? 0,
-                  })
+              .map(
+                (e) => <String, dynamic>{
+                  'cid': e.key,
+                  'name': e.value['name'],
+                  'type': e.value['type'] ?? 'TEXT',
+                  'notnull': e.value['notnull'] ?? 0,
+                  'dflt_value': e.value['dflt_value'],
+                  'pk': e.value['pk'] ?? 0,
+                },
+              )
               .toList();
         }
       }
@@ -143,8 +145,9 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
     // PRAGMA foreign_key_list for specific table.
     if (sql.contains('PRAGMA foreign_key_list')) {
       if (tableForeignKeys != null) {
-        final match =
-            RegExp(r'PRAGMA foreign_key_list\("?(\w+)"?\)').firstMatch(sql);
+        final match = RegExp(
+          r'PRAGMA foreign_key_list\("?(\w+)"?\)',
+        ).firstMatch(sql);
         if (match != null) {
           final tableName = match.group(1)!;
           return tableForeignKeys[tableName] ?? <Map<String, dynamic>>[];
@@ -176,11 +179,13 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
           return cols
               .asMap()
               .entries
-              .map((e) => <String, dynamic>{
-                    'seqno': e.key,
-                    'cid': e.key,
-                    'name': e.value,
-                  })
+              .map(
+                (e) => <String, dynamic>{
+                  'seqno': e.key,
+                  'cid': e.key,
+                  'name': e.value,
+                },
+              )
               .toList();
         }
       }
@@ -193,13 +198,13 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
         for (final entry in tableCounts.entries) {
           if (sql.contains('"${entry.key}"')) {
             return [
-              <String, dynamic>{'c': entry.value}
+              <String, dynamic>{'c': entry.value},
             ];
           }
         }
       }
       return [
-        <String, dynamic>{'c': 0}
+        <String, dynamic>{'c': 0},
       ];
     }
 
@@ -220,7 +225,7 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
           'parent': 0,
           'notused': 0,
           'detail': 'SCAN TABLE items',
-        }
+        },
       ];
     }
 

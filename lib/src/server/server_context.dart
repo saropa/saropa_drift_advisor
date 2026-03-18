@@ -55,9 +55,7 @@ final class ServerContext {
   ///
   /// Returns the query result rows from [queryRaw]
   /// after recording timing information.
-  Future<List<Map<String, dynamic>>> instrumentedQuery(
-    String sql,
-  ) =>
+  Future<List<Map<String, dynamic>>> instrumentedQuery(String sql) =>
       timedQuery(queryRaw, sql);
 
   /// Value for Access-Control-Allow-Origin header; null
@@ -122,6 +120,13 @@ final class ServerContext {
   /// [invalidateTableNameCache].
   List<String>? _cachedTableNames;
 
+  /// Cached row counts per table from the last
+  /// [checkDataChange] run. Populated by
+  /// [_buildDataSignature]; null before the first
+  /// change-detection cycle completes. Cleared by
+  /// [invalidateTableNameCache].
+  Map<String, int>? _cachedTableCounts;
+
   /// Minimum interval between running the actual DB check (UNION ALL).
   /// When null, no throttling (every [checkDataChange] call runs the query).
   /// When set (e.g. [ServerConstants.changeDetectionMinInterval]), skips
@@ -133,12 +138,27 @@ final class ServerContext {
   /// is non-null.
   DateTime? _lastChangeCheck;
 
-  /// Clears the cached table name list so the next
-  /// [checkDataChange] call re-queries sqlite_master.
-  /// Call after operations that may change the schema
-  /// (e.g., data import).
+  /// Returns the cached table names list, or null if
+  /// not yet populated by [checkDataChange]. Allows
+  /// handlers to validate table names without
+  /// re-querying sqlite_master on every request.
+  List<String>? get cachedTableNames => _cachedTableNames;
+
+  /// Returns the most recent row counts from
+  /// [checkDataChange], or null if no change-detection
+  /// cycle has completed yet. Keyed by table name,
+  /// values are row counts. Callers should fall back
+  /// to a fresh query when this returns null.
+  Map<String, int>? get cachedTableCounts =>
+      _cachedTableCounts;
+
+  /// Clears the cached table name list and row counts
+  /// so the next [checkDataChange] call re-queries
+  /// sqlite_master. Call after operations that may
+  /// change the schema (e.g., data import).
   void invalidateTableNameCache() {
     _cachedTableNames = null;
+    _cachedTableCounts = null;
   }
 
   /// UTC timestamp of the last request bearing a
@@ -233,13 +253,15 @@ final class ServerContext {
     required int rowCount,
     String? error,
   }) {
-    queryTimings.add(QueryTiming(
-      sql: sql,
-      durationMs: durationMs,
-      rowCount: rowCount,
-      error: error,
-      at: DateTime.now().toUtc(),
-    ));
+    queryTimings.add(
+      QueryTiming(
+        sql: sql,
+        durationMs: durationMs,
+        rowCount: rowCount,
+        error: error,
+        at: DateTime.now().toUtc(),
+      ),
+    );
 
     if (queryTimings.length > ServerConstants.maxQueryTimings) {
       queryTimings.removeAt(0);
@@ -265,25 +287,21 @@ final class ServerContext {
 
   /// Sends a 500 JSON error response and closes the
   /// response.
-  Future<void> sendErrorResponse(
-    HttpResponse response,
-    Object error,
-  ) async {
+  Future<void> sendErrorResponse(HttpResponse response, Object error) async {
     response.statusCode = HttpStatus.internalServerError;
     response.headers.contentType = ContentType.json;
     setCors(response);
-    response.write(jsonEncode(<String, String>{
-      ServerConstants.jsonKeyError: error.toString(),
-    }));
+    response.write(
+      jsonEncode(<String, String>{
+        ServerConstants.jsonKeyError: error.toString(),
+      }),
+    );
     await response.close();
   }
 
   /// Sets Content-Disposition (attachment) and
   /// Content-Type headers for file downloads.
-  void setAttachmentHeaders(
-    HttpResponse response,
-    String filename,
-  ) {
+  void setAttachmentHeaders(HttpResponse response, String filename) {
     response.headers.contentType = ContentType(
       ServerConstants.contentTypeTextPlain,
       'plain',
@@ -335,7 +353,8 @@ final class ServerContext {
     try {
       // Use cached table names if available; otherwise
       // query sqlite_master and cache the result.
-      final tables = _cachedTableNames ??
+      final tables =
+          _cachedTableNames ??
           await ServerUtils.getTableNames(instrumentedQuery);
 
       // Cache for subsequent calls. Cleared by
@@ -374,9 +393,7 @@ final class ServerContext {
   /// literal and its COUNT(*). Single quotes in table
   /// names are escaped for the string literal; double
   /// quotes are escaped in the identifier context.
-  Future<String> _buildDataSignature(
-    List<String> tables,
-  ) async {
+  Future<String> _buildDataSignature(List<String> tables) async {
     // Build UNION ALL: each arm returns the table name
     // as a literal string and its row count.
     // Example output:
@@ -407,6 +424,12 @@ final class ServerContext {
       counts[name] = count is int ? count : (count is num ? count.toInt() : 0);
     }
 
+    // Store the parsed counts so handlers can reuse
+    // them (e.g., in the /api/tables response) without
+    // re-running the UNION ALL query. Refreshed every
+    // checkDataChange cycle.
+    _cachedTableCounts = counts;
+
     // Build signature in sorted table order (tables
     // list is already sorted from getTableNames).
     return tables.map((t) => '$t:${counts[t] ?? 0}').join(',');
@@ -416,24 +439,31 @@ final class ServerContext {
   /// allow-list (from sqlite_master). Sends 400 and
   /// returns false if unknown; otherwise returns true.
   ///
-  /// Intentionally does NOT use [_cachedTableNames]
-  /// because callers may pass a different [queryFn]
-  /// (e.g., queryCompare) and validation must always
-  /// reflect the actual current schema.
+  /// Uses [_cachedTableNames] when available to avoid
+  /// a redundant sqlite_master round-trip on every
+  /// single-table endpoint call. Falls back to a fresh
+  /// query when the cache is not yet populated.
   Future<bool> requireKnownTable({
     required HttpResponse response,
     required DriftDebugQuery queryFn,
     required String tableName,
   }) async {
-    final List<String> allowed = await ServerUtils.getTableNames(queryFn);
+    // Use cached table names (populated by
+    // checkDataChange) to avoid an extra sqlite_master
+    // query on every single-table endpoint call.
+    final List<String> allowed =
+        _cachedTableNames ??
+        await ServerUtils.getTableNames(queryFn);
 
     if (!allowed.contains(tableName)) {
       response.statusCode = HttpStatus.badRequest;
       setJsonHeaders(response);
-      response.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError:
-            '${ServerConstants.errorUnknownTablePrefix}$tableName',
-      }));
+      response.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError:
+              '${ServerConstants.errorUnknownTablePrefix}$tableName',
+        }),
+      );
       await response.close();
 
       return false;

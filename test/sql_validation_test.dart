@@ -42,7 +42,8 @@ void main() {
       test('WITH ... SELECT (CTE)', () {
         expect(
           SqlValidator.isReadOnlySql(
-              'WITH cte AS (SELECT 1) SELECT * FROM cte'),
+            'WITH cte AS (SELECT 1) SELECT * FROM cte',
+          ),
           isTrue,
         );
       });
@@ -50,7 +51,8 @@ void main() {
       test('SELECT with subquery', () {
         expect(
           SqlValidator.isReadOnlySql(
-              'SELECT * FROM (SELECT id FROM users) AS sub'),
+            'SELECT * FROM (SELECT id FROM users) AS sub',
+          ),
           isTrue,
         );
       });
@@ -58,7 +60,8 @@ void main() {
       test('SELECT with JOIN', () {
         expect(
           SqlValidator.isReadOnlySql(
-              'SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id'),
+            'SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id',
+          ),
           isTrue,
         );
       });
@@ -66,7 +69,8 @@ void main() {
       test('SELECT with GROUP BY and HAVING', () {
         expect(
           SqlValidator.isReadOnlySql(
-              'SELECT type, COUNT(*) FROM items GROUP BY type HAVING COUNT(*) > 1'),
+            'SELECT type, COUNT(*) FROM items GROUP BY type HAVING COUNT(*) > 1',
+          ),
           isTrue,
         );
       });
@@ -76,7 +80,8 @@ void main() {
       test('INSERT keyword inside single-quoted string', () {
         expect(
           SqlValidator.isReadOnlySql(
-              "SELECT * FROM logs WHERE msg = 'INSERT failed'"),
+            "SELECT * FROM logs WHERE msg = 'INSERT failed'",
+          ),
           isTrue,
         );
       });
@@ -84,7 +89,8 @@ void main() {
       test('DELETE keyword inside single-quoted string', () {
         expect(
           SqlValidator.isReadOnlySql(
-              "SELECT * FROM logs WHERE msg = 'DELETE ok'"),
+            "SELECT * FROM logs WHERE msg = 'DELETE ok'",
+          ),
           isTrue,
         );
       });
@@ -124,7 +130,8 @@ void main() {
       test('UPDATE statement', () {
         expect(
           SqlValidator.isReadOnlySql(
-              'UPDATE users SET name = "y" WHERE id = 1'),
+            'UPDATE users SET name = "y" WHERE id = 1',
+          ),
           isFalse,
         );
       });
@@ -137,10 +144,7 @@ void main() {
       });
 
       test('CREATE TABLE', () {
-        expect(
-          SqlValidator.isReadOnlySql('CREATE TABLE x (id INT)'),
-          isFalse,
-        );
+        expect(SqlValidator.isReadOnlySql('CREATE TABLE x (id INT)'), isFalse);
       });
 
       test('DROP TABLE', () {
@@ -155,10 +159,7 @@ void main() {
       });
 
       test('PRAGMA', () {
-        expect(
-          SqlValidator.isReadOnlySql('PRAGMA table_info(users)'),
-          isFalse,
-        );
+        expect(SqlValidator.isReadOnlySql('PRAGMA table_info(users)'), isFalse);
       });
 
       test('VACUUM', () {
@@ -180,10 +181,7 @@ void main() {
       });
 
       test('DETACH DATABASE', () {
-        expect(
-          SqlValidator.isReadOnlySql('DETACH DATABASE test'),
-          isFalse,
-        );
+        expect(SqlValidator.isReadOnlySql('DETACH DATABASE test'), isFalse);
       });
 
       test('ANALYZE', () {
@@ -195,19 +193,13 @@ void main() {
       });
 
       test('TRUNCATE', () {
-        expect(
-          SqlValidator.isReadOnlySql('TRUNCATE TABLE users'),
-          isFalse,
-        );
+        expect(SqlValidator.isReadOnlySql('TRUNCATE TABLE users'), isFalse);
       });
     });
 
     group('multi-statement rejection', () {
       test('two SELECT statements separated by semicolon', () {
-        expect(
-          SqlValidator.isReadOnlySql('SELECT 1; SELECT 2'),
-          isFalse,
-        );
+        expect(SqlValidator.isReadOnlySql('SELECT 1; SELECT 2'), isFalse);
       });
 
       test('SELECT followed by INSERT', () {
@@ -220,7 +212,8 @@ void main() {
       test('WITH ... INSERT is rejected', () {
         expect(
           SqlValidator.isReadOnlySql(
-              'WITH cte AS (SELECT 1) INSERT INTO x SELECT * FROM cte'),
+            'WITH cte AS (SELECT 1) INSERT INTO x SELECT * FROM cte',
+          ),
           isFalse,
         );
       });
@@ -247,9 +240,9 @@ void main() {
     setUp(() {
       // SqlHandler needs a ServerContext for logging and
       // response helpers used by runSqlResult / explainSqlResult.
-      handler = SqlHandler(ServerContext(
-        query: (_) async => <Map<String, dynamic>>[],
-      ));
+      handler = SqlHandler(
+        ServerContext(query: (_) async => <Map<String, dynamic>>[]),
+      );
     });
 
     group('runSqlResult', () {
@@ -272,7 +265,7 @@ void main() {
       test('returns rows for valid SELECT', () async {
         final result = await handler.runSqlResult(
           (_) async => [
-            <String, dynamic>{'id': 1}
+            <String, dynamic>{'id': 1},
           ],
           'SELECT * FROM users',
         );
@@ -307,15 +300,12 @@ void main() {
 
       test('prepends EXPLAIN QUERY PLAN to valid SQL', () async {
         String? executedSql;
-        final result = await handler.explainSqlResult(
-          (sql) async {
-            executedSql = sql;
-            return [
-              <String, dynamic>{'detail': 'SCAN TABLE users'}
-            ];
-          },
-          'SELECT * FROM users',
-        );
+        final result = await handler.explainSqlResult((sql) async {
+          executedSql = sql;
+          return [
+            <String, dynamic>{'detail': 'SCAN TABLE users'},
+          ];
+        }, 'SELECT * FROM users');
 
         expect(executedSql, startsWith('EXPLAIN QUERY PLAN'));
         expect(result, containsPair('rows', hasLength(1)));

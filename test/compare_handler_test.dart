@@ -286,9 +286,7 @@ void main() {
               sql.contains("type='index'") &&
               sql.contains("name='idx_orders_user_id'")) {
             return [
-              {
-                'sql': 'CREATE INDEX idx_orders_user_id ON "orders"("user_id")',
-              }
+              {'sql': 'CREATE INDEX idx_orders_user_id ON "orders"("user_id")'},
             ];
           }
           return baseB(sql);

@@ -24,13 +24,16 @@ final class AuthHandler {
   bool isAuthenticated(HttpRequest request) {
     final expectedToken = _ctx.authToken;
     if (expectedToken != null && expectedToken.isNotEmpty) {
-      final authHeader =
-          request.headers.value(ServerConstants.headerAuthorization);
+      final authHeader = request.headers.value(
+        ServerConstants.headerAuthorization,
+      );
       if (authHeader != null &&
           authHeader.length > ServerConstants.authSchemeBearer.length &&
           authHeader.startsWith(ServerConstants.authSchemeBearer)) {
-        final token = ServerUtils.safeSubstring(authHeader,
-            start: ServerConstants.authSchemeBearer.length);
+        final token = ServerUtils.safeSubstring(
+          authHeader,
+          start: ServerConstants.authSchemeBearer.length,
+        );
         if (token.isEmpty) {
           return false;
         }
@@ -42,24 +45,32 @@ final class AuthHandler {
     final user = _ctx.basicAuthUser;
     final password = _ctx.basicAuthPassword;
     if (user != null && user.isNotEmpty && password != null) {
-      final authHeader =
-          request.headers.value(ServerConstants.headerAuthorization);
+      final authHeader = request.headers.value(
+        ServerConstants.headerAuthorization,
+      );
       if (authHeader != null &&
           authHeader.length >= ServerConstants.authSchemeBasic.length &&
           authHeader.startsWith(ServerConstants.authSchemeBasic)) {
         try {
-          final basicPayload = ServerUtils.safeSubstring(authHeader,
-              start: ServerConstants.authSchemeBasic.length);
+          final basicPayload = ServerUtils.safeSubstring(
+            authHeader,
+            start: ServerConstants.authSchemeBasic.length,
+          );
           if (basicPayload.isEmpty) {
             return false;
           }
           final decoded = utf8.decode(base64.decode(basicPayload));
           final colon = decoded.indexOf(':');
           if (colon >= 0 && colon < decoded.length) {
-            final userPart =
-                ServerUtils.safeSubstring(decoded, start: 0, end: colon);
-            final passwordPart =
-                ServerUtils.safeSubstring(decoded, start: colon + 1);
+            final userPart = ServerUtils.safeSubstring(
+              decoded,
+              start: 0,
+              end: colon,
+            );
+            final passwordPart = ServerUtils.safeSubstring(
+              decoded,
+              start: colon + 1,
+            );
             if (_secureCompare(userPart, user) &&
                 _secureCompare(passwordPart, password)) {
               return true;
@@ -79,13 +90,17 @@ final class AuthHandler {
     final res = response;
     res.statusCode = HttpStatus.unauthorized;
     if (_ctx.basicAuthUser != null && _ctx.basicAuthPassword != null) {
-      res.headers.set(ServerConstants.headerWwwAuthenticate,
-          'Basic realm="${ServerConstants.realmDriftDebug}"');
+      res.headers.set(
+        ServerConstants.headerWwwAuthenticate,
+        'Basic realm="${ServerConstants.realmDriftDebug}"',
+      );
     }
     _ctx.setJsonHeaders(res);
-    res.write(jsonEncode(<String, String>{
-      ServerConstants.jsonKeyError: ServerConstants.authRequiredMessage,
-    }));
+    res.write(
+      jsonEncode(<String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.authRequiredMessage,
+      }),
+    );
     await res.close();
   }
 

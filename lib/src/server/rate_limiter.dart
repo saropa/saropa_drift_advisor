@@ -34,8 +34,7 @@ final class RateLimiter {
   ///
   /// [maxRequestsPerSecond] must be positive.
   RateLimiter(this.maxRequestsPerSecond, this._ctx)
-      : assert(
-            maxRequestsPerSecond > 0, 'maxRequestsPerSecond must be positive');
+    : assert(maxRequestsPerSecond > 0, 'maxRequestsPerSecond must be positive');
 
   /// Maximum number of requests each IP may send per second.
   final int maxRequestsPerSecond;
@@ -93,9 +92,11 @@ final class RateLimiter {
     response.statusCode = HttpStatus.tooManyRequests;
     response.headers.set(ServerConstants.headerRetryAfter, '1');
     _ctx.setJsonHeaders(response);
-    response.write(jsonEncode(<String, String>{
-      ServerConstants.jsonKeyError: ServerConstants.errorRateLimited,
-    }));
+    response.write(
+      jsonEncode(<String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.errorRateLimited,
+      }),
+    );
     await response.close();
   }
 
@@ -104,9 +105,7 @@ final class RateLimiter {
   /// Called when the map exceeds [ServerConstants.rateLimitPruneThreshold]
   /// to reclaim memory from IPs that are no longer sending requests.
   void _pruneStaleEntries(int currentSecond) {
-    _windows.removeWhere(
-      (_, entry) => entry.windowSecond != currentSecond,
-    );
+    _windows.removeWhere((_, entry) => entry.windowSecond != currentSecond);
   }
 
   /// Extracts the client IP address from the request for use as

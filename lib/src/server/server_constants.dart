@@ -9,14 +9,13 @@
 abstract final class ServerConstants {
   /// Ring buffer of recent query timings for the performance monitor (max [maxQueryTimings] entries).
   static const int maxQueryTimings = 500;
-  static const int defaultPort = 8642;
+  static const int defaultPort = 8_642;
   static const int minPort = 0;
-  static const int maxPort = 65535;
-  static const int maxLimit = 1000;
+  static const int maxPort = 65_535;
+  static const int maxLimit = 1_000;
   static const int defaultLimit = 200;
 
-  /// Digit separators (2_000_000) require SDK 3.6+; package supports SDK 3.0+. Rule disabled in analysis_options_custom.yaml.
-  static const int maxOffset = 2000000;
+  static const int maxOffset = 2_000_000;
   static const Duration longPollTimeout = Duration(seconds: 30);
 
   /// Poll interval during long-poll wait.

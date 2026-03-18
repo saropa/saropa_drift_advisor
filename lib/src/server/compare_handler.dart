@@ -29,9 +29,12 @@ final class CompareHandler {
     if (queryB == null) {
       res.statusCode = HttpStatus.notImplemented;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: ServerConstants.errorCompareNotConfigured,
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError:
+              ServerConstants.errorCompareNotConfigured,
+        }),
+      );
       await res.close();
 
       return;
@@ -99,13 +102,16 @@ final class CompareHandler {
                 ServerConstants.jsonKeyA: schemaA,
                 ServerConstants.jsonKeyB: schemaB,
               },
-        ServerConstants.jsonKeyTablesOnlyInA:
-            tablesA.where((t) => !tablesB.contains(t)).toList(),
-        ServerConstants.jsonKeyTablesOnlyInB:
-            tablesB.where((t) => !tablesA.contains(t)).toList(),
+        ServerConstants.jsonKeyTablesOnlyInA: tablesA
+            .where((t) => !tablesB.contains(t))
+            .toList(),
+        ServerConstants.jsonKeyTablesOnlyInB: tablesB
+            .where((t) => !tablesA.contains(t))
+            .toList(),
         ServerConstants.jsonKeyTableCounts: countDiffs,
-        ServerConstants.jsonKeyGeneratedAt:
-            DateTime.now().toUtc().toIso8601String(),
+        ServerConstants.jsonKeyGeneratedAt: DateTime.now()
+            .toUtc()
+            .toIso8601String(),
       };
 
       final format = req.uri.queryParameters[ServerConstants.queryParamFormat];
@@ -113,8 +119,10 @@ final class CompareHandler {
       if (format == ServerConstants.formatDownload) {
         res.statusCode = HttpStatus.ok;
         res.headers.contentType = ContentType.json;
-        res.headers.set(ServerConstants.headerContentDisposition,
-            ServerConstants.attachmentDiffReport);
+        res.headers.set(
+          ServerConstants.headerContentDisposition,
+          ServerConstants.attachmentDiffReport,
+        );
         _ctx.setCors(res);
         res.write(const JsonEncoder.withIndent('  ').convert(report));
       } else {
@@ -126,9 +134,11 @@ final class CompareHandler {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _ctx.setCors(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: error.toString(),
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
     } finally {
       await res.close();
     }
@@ -146,10 +156,12 @@ final class CompareHandler {
     if (queryB == null) {
       res.statusCode = HttpStatus.notImplemented;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError:
-            ServerConstants.errorMigrationRequiresCompare,
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError:
+              ServerConstants.errorMigrationRequiresCompare,
+        }),
+      );
       await res.close();
 
       return;
@@ -182,15 +194,18 @@ final class CompareHandler {
       final migrationSql = migrations.join('\n');
 
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{
-        'migrationSql': migrationSql,
-        'changeCount': migrations
-            .where((l) => !l.startsWith('--') && l.trim().isNotEmpty)
-            .length,
-        'hasWarnings': migrations.any((l) => l.contains('WARNING')),
-        ServerConstants.jsonKeyGeneratedAt:
-            DateTime.now().toUtc().toIso8601String(),
-      }));
+      res.write(
+        jsonEncode(<String, dynamic>{
+          'migrationSql': migrationSql,
+          'changeCount': migrations
+              .where((l) => !l.startsWith('--') && l.trim().isNotEmpty)
+              .length,
+          'hasWarnings': migrations.any((l) => l.contains('WARNING')),
+          ServerConstants.jsonKeyGeneratedAt: DateTime.now()
+              .toUtc()
+              .toIso8601String(),
+        }),
+      );
       await res.close();
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
@@ -212,8 +227,7 @@ final class CompareHandler {
             'WHERE type=\'table\' AND name=\'$table\'',
           ),
         );
-        final createStmt =
-            schemaRows.isNotEmpty ? schemaRows.first['sql'] as String? : null;
+        final createStmt = schemaRows.firstOrNull?['sql'] as String?;
 
         if (createStmt != null) {
           migrations.add('-- NEW TABLE: $table');
@@ -333,17 +347,13 @@ final class CompareHandler {
   }) {
     for (final colName in colMapA.keys) {
       if (!colMapB.containsKey(colName)) {
-        changes.add(
-          '-- WARNING: Column "$colName" removed from "$table".',
-        );
+        changes.add('-- WARNING: Column "$colName" removed from "$table".');
         changes.add(
           '-- SQLite < 3.35.0: Use table recreation '
           '(CREATE new, INSERT...SELECT, DROP old, ALTER...RENAME).',
         );
         changes.add('-- SQLite >= 3.35.0:');
-        changes.add(
-          'ALTER TABLE "$table" DROP COLUMN "$colName";',
-        );
+        changes.add('ALTER TABLE "$table" DROP COLUMN "$colName";');
       }
     }
   }
@@ -364,9 +374,7 @@ final class CompareHandler {
         final isNnB = b['notnull'] == 1;
 
         if (typeA != typeB || isNnA != isNnB) {
-          changes.add(
-            '-- WARNING: Column "$colName" in "$table" changed:',
-          );
+          changes.add('-- WARNING: Column "$colName" in "$table" changed:');
           if (typeA != typeB) {
             changes.add('--   Type: $typeA -> $typeB');
           }
@@ -414,8 +422,7 @@ final class CompareHandler {
             'WHERE type=\'index\' AND name=\'$idxName\'',
           ),
         );
-        final idxSql =
-            idxSqlRows.isNotEmpty ? idxSqlRows.first['sql'] as String? : null;
+        final idxSql = idxSqlRows.firstOrNull?['sql'] as String?;
 
         if (idxSql != null) {
           changes.add('$idxSql;');

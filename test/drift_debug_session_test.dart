@@ -111,8 +111,11 @@ void main() {
       });
 
       test('returns false for unknown session id', () {
-        final result =
-            store.annotate('nonexistent', text: 'note', author: 'tester');
+        final result = store.annotate(
+          'nonexistent',
+          text: 'note',
+          author: 'tester',
+        );
         expect(result, isFalse);
       });
     });
@@ -168,10 +171,7 @@ void main() {
       });
 
       test('errorNotFound message is descriptive', () {
-        expect(
-          DriftDebugSessionStore.errorNotFound,
-          contains('not found'),
-        );
+        expect(DriftDebugSessionStore.errorNotFound, contains('not found'));
       });
     });
 

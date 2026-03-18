@@ -29,7 +29,7 @@ void main() {
             // Table names query.
             if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
               return [
-                {'name': 'items'}
+                {'name': 'items'},
               ];
             }
             // UNION ALL signature query — return different counts
@@ -37,7 +37,7 @@ void main() {
             if (sql.contains('UNION ALL') || sql.contains("AS t")) {
               callCount++;
               return [
-                {'t': 'items', 'c': callCount}
+                {'t': 'items', 'c': callCount},
               ];
             }
             return <Map<String, dynamic>>[];

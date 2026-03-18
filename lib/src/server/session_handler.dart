@@ -37,9 +37,11 @@ final class SessionHandler {
       if (decoded == null) {
         res.statusCode = HttpStatus.badRequest;
         _ctx.setJsonHeaders(res);
-        res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError: 'Invalid JSON body',
-        }));
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError: 'Invalid JSON body',
+          }),
+        );
         await res.close();
 
         return;
@@ -57,19 +59,18 @@ final class SessionHandler {
   }
 
   /// GET /api/session/{id} — retrieve a shared session by ID.
-  Future<void> handleSessionGet(
-    HttpResponse response,
-    String sessionId,
-  ) async {
+  Future<void> handleSessionGet(HttpResponse response, String sessionId) async {
     final res = response;
     final session = _sessionStore.get(sessionId);
 
     if (session == null) {
       res.statusCode = HttpStatus.notFound;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
+        }),
+      );
       await res.close();
 
       return;
@@ -104,18 +105,22 @@ final class SessionHandler {
       if (newExpiresAt == null) {
         res.statusCode = HttpStatus.notFound;
         _ctx.setJsonHeaders(res);
-        res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
-        }));
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
+          }),
+        );
         await res.close();
 
         return;
       }
 
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        DriftDebugSessionStore.keyExpiresAt: newExpiresAt,
-      }));
+      res.write(
+        jsonEncode(<String, String>{
+          DriftDebugSessionStore.keyExpiresAt: newExpiresAt,
+        }),
+      );
       await res.close();
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
@@ -137,7 +142,8 @@ final class SessionHandler {
         builder.add(chunk);
       }
 
-      final body = ServerUtils.parseJsonMap(utf8.decode(builder.toBytes())) ??
+      final body =
+          ServerUtils.parseJsonMap(utf8.decode(builder.toBytes())) ??
           <String, dynamic>{};
 
       final added = _sessionStore.annotate(
@@ -150,18 +156,20 @@ final class SessionHandler {
       if (!added) {
         res.statusCode = HttpStatus.notFound;
         _ctx.setJsonHeaders(res);
-        res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
-        }));
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
+          }),
+        );
         await res.close();
 
         return;
       }
 
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        DriftDebugSessionStore.keyStatus: 'added',
-      }));
+      res.write(
+        jsonEncode(<String, String>{DriftDebugSessionStore.keyStatus: 'added'}),
+      );
       await res.close();
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);

@@ -35,20 +35,22 @@ void main() {
       expect(json['errors'], isEmpty);
     });
 
-    test('toString includes format, table, imported count, and error count',
-        () {
-      final result = DriftDebugImportResult(
-        imported: 3,
-        errors: <String>['err1', 'err2'],
-        format: 'sql',
-        table: 'data',
-      );
+    test(
+      'toString includes format, table, imported count, and error count',
+      () {
+        final result = DriftDebugImportResult(
+          imported: 3,
+          errors: <String>['err1', 'err2'],
+          format: 'sql',
+          table: 'data',
+        );
 
-      final str = result.toString();
-      expect(str, contains('sql'));
-      expect(str, contains('data'));
-      expect(str, contains('3'));
-      expect(str, contains('2'));
-    });
+        final str = result.toString();
+        expect(str, contains('sql'));
+        expect(str, contains('data'));
+        expect(str, contains('3'));
+        expect(str, contains('2'));
+      },
+    );
   });
 }

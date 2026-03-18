@@ -24,11 +24,11 @@ final class DriftDebugImportResult {
 
   /// Returns a JSON-compatible map with keys: imported, errors, format, table.
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'imported': imported,
-        'errors': errors,
-        'format': format,
-        'table': table,
-      };
+    'imported': imported,
+    'errors': errors,
+    'format': format,
+    'table': table,
+  };
 
   @override
   String toString() =>

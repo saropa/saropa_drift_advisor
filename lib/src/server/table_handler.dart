@@ -15,14 +15,46 @@ final class TableHandler {
 
   final ServerContext _ctx;
 
-  /// GET /api/tables — returns JSON array of table names.
+  /// GET /api/tables — returns JSON object with table
+  /// names and their row counts (when available from
+  /// the last change-detection cycle).
+  ///
+  /// Response shape:
+  ///   {"tables": [...], "counts": {"t1": 10, ...}}
+  ///
+  /// Including counts inline eliminates the need for
+  /// the web UI to fire individual /api/table/<name>/count
+  /// requests for every table, dramatically reducing
+  /// "Drift: Sent" console spam when logStatements is
+  /// enabled on the user's database.
   Future<void> sendTableList(
-      HttpResponse response, DriftDebugQuery query) async {
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
     final res = response;
     await _ctx.checkDataChange();
-    final List<String> names = await ServerUtils.getTableNames(query);
+
+    // Prefer cached table names (populated by
+    // checkDataChange) to avoid a redundant
+    // sqlite_master query.
+    final List<String> names =
+        _ctx.cachedTableNames ??
+        await ServerUtils.getTableNames(query);
+
+    // Include cached row counts so the web UI does
+    // not need to fire individual count requests.
+    // Empty map when counts are not yet available
+    // (before the first checkDataChange cycle).
+    final Map<String, int> counts =
+        _ctx.cachedTableCounts ?? <String, int>{};
+
     _ctx.setJsonHeaders(res);
-    res.write(jsonEncode(names));
+    res.write(
+      jsonEncode(<String, dynamic>{
+        ServerConstants.jsonKeyTables: names,
+        ServerConstants.jsonKeyCounts: counts,
+      }),
+    );
     await res.close();
   }
 
@@ -35,7 +67,11 @@ final class TableHandler {
   }) async {
     final res = response;
     if (!await _ctx.requireKnownTable(
-        response: res, queryFn: query, tableName: tableName)) return;
+      response: res,
+      queryFn: query,
+      tableName: tableName,
+    ))
+      return;
     final dynamic rawInfo = await query('PRAGMA table_info("$tableName")');
     final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(rawInfo);
     final List<String> columns = rows
@@ -82,7 +118,11 @@ final class TableHandler {
   }) async {
     final res = response;
     if (!await _ctx.requireKnownTable(
-        response: res, queryFn: query, tableName: tableName)) return;
+      response: res,
+      queryFn: query,
+      tableName: tableName,
+    ))
+      return;
     try {
       final fks = await getTableFkMetaList(query: query, tableName: tableName);
       _ctx.setJsonHeaders(res);
@@ -102,9 +142,14 @@ final class TableHandler {
   }) async {
     final res = response;
     if (!await _ctx.requireKnownTable(
-        response: res, queryFn: query, tableName: tableName)) return;
-    final dynamic rawCount =
-        await query('SELECT COUNT(*) AS c FROM "$tableName"');
+      response: res,
+      queryFn: query,
+      tableName: tableName,
+    ))
+      return;
+    final dynamic rawCount = await query(
+      'SELECT COUNT(*) AS c FROM "$tableName"',
+    );
     final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(rawCount);
     final int count = ServerUtils.extractCountFromRows(rows);
     _ctx.setJsonHeaders(res);
@@ -122,9 +167,14 @@ final class TableHandler {
   }) async {
     final res = response;
     if (!await _ctx.requireKnownTable(
-        response: res, queryFn: query, tableName: tableName)) return;
-    final dynamic raw =
-        await query('SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset');
+      response: res,
+      queryFn: query,
+      tableName: tableName,
+    ))
+      return;
+    final dynamic raw = await query(
+      'SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset',
+    );
     final List<Map<String, dynamic>> data = ServerUtils.normalizeRows(raw);
     _ctx.setJsonHeaders(res);
     res.write(const JsonEncoder.withIndent('  ').convert(data));

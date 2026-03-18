@@ -37,15 +37,13 @@ void main() {
         expect(columns, hasLength(2));
 
         // id column should have pk: true.
-        final idCol = columns.firstWhere(
-          (c) => (c as Map)['name'] == 'id',
-        ) as Map;
+        final idCol =
+            columns.firstWhere((c) => (c as Map)['name'] == 'id') as Map;
         expect(idCol['pk'], true);
 
         // name column should have pk: false.
-        final nameCol = columns.firstWhere(
-          (c) => (c as Map)['name'] == 'name',
-        ) as Map;
+        final nameCol =
+            columns.firstWhere((c) => (c as Map)['name'] == 'name') as Map;
         expect(nameCol['pk'], false);
       });
 
@@ -110,52 +108,54 @@ void main() {
         expect(data['foreignKeys'] as List, isEmpty);
       });
 
-      test('parses PRAGMA table_info with uppercase NAME/TYPE/PK keys',
-          () async {
-        // Some drivers return PRAGMA table_info with uppercase column names.
-        final ctx = createTestContext();
-        final handler = SchemaHandler(ctx);
-        final query = (String sql) async {
-          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-            return [
-              <String, dynamic>{'name': 'items'}
-            ];
-          }
-          if (sql.contains('PRAGMA table_info')) {
-            return [
-              <String, dynamic>{
-                'cid': 0,
-                'NAME': 'id',
-                'TYPE': 'INTEGER',
-                'PK': 1
-              },
-              <String, dynamic>{
-                'cid': 1,
-                'NAME': 'label',
-                'TYPE': 'TEXT',
-                'PK': 0
-              },
-            ];
-          }
-          if (sql.contains('PRAGMA foreign_key_list')) {
+      test(
+        'parses PRAGMA table_info with uppercase NAME/TYPE/PK keys',
+        () async {
+          // Some drivers return PRAGMA table_info with uppercase column names.
+          final ctx = createTestContext();
+          final handler = SchemaHandler(ctx);
+          final query = (String sql) async {
+            if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+              return [
+                <String, dynamic>{'name': 'items'},
+              ];
+            }
+            if (sql.contains('PRAGMA table_info')) {
+              return [
+                <String, dynamic>{
+                  'cid': 0,
+                  'NAME': 'id',
+                  'TYPE': 'INTEGER',
+                  'PK': 1,
+                },
+                <String, dynamic>{
+                  'cid': 1,
+                  'NAME': 'label',
+                  'TYPE': 'TEXT',
+                  'PK': 0,
+                },
+              ];
+            }
+            if (sql.contains('PRAGMA foreign_key_list')) {
+              return <Map<String, dynamic>>[];
+            }
             return <Map<String, dynamic>>[];
-          }
-          return <Map<String, dynamic>>[];
-        };
+          };
 
-        final data = await handler.getDiagramData(query);
+          final data = await handler.getDiagramData(query);
 
-        final tables = data['tables'] as List;
-        expect(tables, hasLength(1));
-        final columns = (tables.first as Map)['columns'] as List;
-        expect(columns, hasLength(2));
-        expect((columns[0] as Map)['name'], 'id');
-        expect((columns[0] as Map)['type'], 'INTEGER');
-        expect((columns[0] as Map)['pk'], true);
-        expect((columns[1] as Map)['name'], 'label');
-        expect((columns[1] as Map)['type'], 'TEXT');
-        expect((columns[1] as Map)['pk'], false);
-      });
+          final tables = data['tables'] as List;
+          expect(tables, hasLength(1));
+          final columns = (tables.first as Map)['columns'] as List;
+          expect(columns, hasLength(2));
+          expect((columns[0] as Map)['name'], 'id');
+          expect((columns[0] as Map)['type'], 'INTEGER');
+          expect((columns[0] as Map)['pk'], true);
+          expect((columns[1] as Map)['name'], 'label');
+          expect((columns[1] as Map)['type'], 'TEXT');
+          expect((columns[1] as Map)['pk'], false);
+        },
+      );
 
       test('FK query error is swallowed and tables still returned', () async {
         final ctx = createTestContext();
@@ -166,7 +166,7 @@ void main() {
         final query = (String sql) async {
           if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
             return [
-              <String, dynamic>{'name': 'items'}
+              <String, dynamic>{'name': 'items'},
             ];
           }
           if (sql.contains('PRAGMA table_info')) {
@@ -178,7 +178,7 @@ void main() {
                 'notnull': 0,
                 'dflt_value': null,
                 'pk': 1,
-              }
+              },
             ];
           }
           if (sql.contains('PRAGMA foreign_key_list')) {
@@ -226,9 +226,8 @@ void main() {
         expect(columns, hasLength(2));
 
         // Verify PK is boolean.
-        final idCol = columns.firstWhere(
-          (c) => (c as Map)['name'] == 'id',
-        ) as Map;
+        final idCol =
+            columns.firstWhere((c) => (c as Map)['name'] == 'id') as Map;
         expect(idCol['pk'], true);
       });
 
@@ -326,7 +325,8 @@ void main() {
         expect(
           sql,
           matches(
-              RegExp(r'INSERT INTO "items"\s+\("id",\s*"title"\)\s*VALUES')),
+            RegExp(r'INSERT INTO "items"\s+\("id",\s*"title"\)\s*VALUES'),
+          ),
         );
       });
 
