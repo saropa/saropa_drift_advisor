@@ -96,7 +96,7 @@ abstract final class ServerConstants {
   /// Package version displayed in the web UI and health endpoint.
   /// Automatically synced with pubspec.yaml by the publish scripts
   /// (see sync_server_constants_version in target_config.py).
-  static const String packageVersion = '2.4.1';
+  static const String packageVersion = '2.5.0';
   static const String jsonKeyVersion = 'version';
   static const String queryParamLimit = 'limit';
   static const String queryParamOffset = 'offset';
