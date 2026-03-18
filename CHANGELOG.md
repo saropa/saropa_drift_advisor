@@ -21,6 +21,17 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 Web UI: table tabs, self-contained Search tab, and collapsible sidebar for faster multi-table workflows.
 
+### Changed
+
+- **SDK constraint raised to `>=3.9.0 <4.0.0`** — Enables Dart 3.6 digit separators, Dart 3.7 wildcard variables and tall formatter style, and Dart 3.8 null-aware collection elements. Formatter page width explicitly set to 80 in `analysis_options.yaml`.
+- **Dart 3.8 null-aware map elements** — `QueryTiming.toJson()` uses `'error': ?error` syntax instead of `if (error != null) 'error': error`.
+- **`.firstOrNull` simplifications** — Replaced manual `.isEmpty ? null : .first` and `.isNotEmpty ? .first[...] : null` patterns with `.firstOrNull` / `.firstOrNull?[...]` chaining in `compare_handler.dart`, `drift_debug_session.dart`, `server_utils.dart`, and `analytics_handler.dart`.
+- **Digit separators** — Applied to numeric literals: `2_000_000`, `65_535`, `8_642`, `1_000` for readability.
+- **Dart 3.7 tall formatter** — All 47 Dart files reformatted with the new tall style (vertical argument lists, automatic trailing commas, chain alignment).
+- **New lints enabled** — `unnecessary_underscores` (catches `__`/`___` that should be wildcard `_`), `prefer_digit_separators` (enforces separators on large literals).
+- **Dev dependencies** — `saropa_lints` ^9.5.2 → ^9.8.1, `test` ^1.25.0 → ^1.30.0.
+- **Web UI: null cell indicator** — Table cells with `NULL` database values now display a dimmed, italic "NULL" label instead of blank space, matching DBeaver/DataGrip/pgAdmin convention. Applied automatically in both the Tables and Search tabs.
+
 ### Added
 
 - **Web UI: table tabs** — Clicking a table name (sidebar or browse panel) opens it in its own closeable tab. Multiple table tabs can be open simultaneously; clicking an already-open table switches to its tab. The Tables tab now shows a browse-all grid of clickable table cards with row counts.

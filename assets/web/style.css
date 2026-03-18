@@ -504,18 +504,30 @@ body.theme-light .feature-card.expanded {
 
 .table-list li {
   margin: 0.2rem 0;
+  position: relative;
 }
 
 .table-list a {
-  display: block;
+  display: flex;
+  align-items: center;
   min-height: var(--tap-min);
   padding: 0.5rem 0.85rem;
+  /* Extra right padding so text doesn't overlap the pin button */
+  padding-right: 2rem;
   border-radius: var(--radius-sm);
   color: var(--link);
   text-decoration: none;
   font-size: var(--text-sm);
   line-height: 1.4;
   transition: background 0.15s ease, color 0.15s ease;
+}
+
+/* Allow the table name to wrap naturally inside the flex link */
+.table-link-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .table-list a:hover {
@@ -533,6 +545,48 @@ body.theme-light .feature-card.expanded {
 .table-list a:focus-visible {
   outline: 2px solid var(--link);
   outline-offset: 2px;
+}
+
+/* Pin button: absolutely positioned so it overlays the right side of each
+   table link. Hidden by default; appears on hover or when pinned. */
+.table-pin-btn {
+  position: absolute;
+  right: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+.table-pin-btn .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+/* Show faded pin icon on row hover */
+.table-list li:hover .table-pin-btn {
+  opacity: 0.5;
+}
+/* Full opacity when hovering the button itself */
+.table-list li:hover .table-pin-btn:hover {
+  opacity: 1;
+  color: var(--link);
+}
+
+/* Always visible when the table is pinned */
+.table-pin-btn.pinned {
+  opacity: 0.8;
+  color: var(--link);
+}
+.table-pin-btn.pinned:hover {
+  opacity: 1;
 }
 
 /* Tables browse panel: grid of clickable table cards inside the Tables tab */
@@ -1470,6 +1524,14 @@ body.theme-light #live-indicator.connection-status {
 .chart-legend {
   font-size: var(--text-min-readable);
   fill: var(--fg);
+}
+
+/* Dimmed italic NULL indicator for database null values (matches DBeaver/DataGrip/pgAdmin convention) */
+.cell-null {
+  color: var(--muted);
+  font-style: italic;
+  opacity: 0.6;
+  user-select: none;
 }
 
 .cell-raw {
