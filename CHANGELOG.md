@@ -17,7 +17,9 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
-## [Unreleased]
+## [2.4.1]
+
+Extension: shared schema cache, configurable performance/lightweight modes, and safer schema search so the Database view and Schema Search feel faster and more resilient.
 
 ### Added
 
@@ -25,7 +27,7 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
-## [2.4.0]
+## [2.4.1]
 
 Web UI: leave confirmation, auto-analyze on Index/Size/Health tabs, refreshed toolbar and Export tab, SQL syntax highlighting, and version→changelog link. Extension: Refresh and Dashboard commands fixed, Search/Tables toolbar, quieter polling, and Schema Search timeout plus portable report fixes.
 
