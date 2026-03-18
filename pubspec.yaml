@@ -18,9 +18,9 @@ screenshots:
   - description: Saropa Drift Advisor banner
     path: assets/banner_v2.png
 
-# Keeping >=3.3.0 keeps the audience as wide as possible. Raising it would limit who can use the package.
+# SDK >=3.9.0 balances modern language features with broad audience reach.
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: ">=3.9.0 <4.0.0"
 
 dependencies:
   # !! KEEP THIS LIST MINIMAL !!
@@ -37,8 +37,8 @@ dependencies:
 dev_dependencies:
   # Saropa custom lints; use custom_lint CLI.
   # https://pub.dev/packages/saropa_lints/changelog
-  saropa_lints: ^9.5.2
+  saropa_lints: ^9.8.1
 
   # Unit test framework.
   # https://pub.dev/packages/test/changelog
-  test: ^1.25.0
+  test: ^1.30.0

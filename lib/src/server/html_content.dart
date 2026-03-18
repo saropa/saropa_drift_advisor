@@ -7,7 +7,8 @@
 import 'server_constants.dart';
 
 abstract final class HtmlContent {
-  static String get indexHtml => '''
+  static String get indexHtml =>
+      '''
 <!DOCTYPE html>
 <html>
 <head>
@@ -86,7 +87,7 @@ abstract final class HtmlContent {
       </div>
       <p id="tables-loading" class="meta">Loading tables…</p>
       <div id="sidebar-tables-wrap" class="sidebar-section sidebar-tables-wrap">
-      <h2 class="tables-heading" id="tables-heading-toggle" role="button" tabindex="0" aria-expanded="true" title="Click to collapse/expand table list">Tables</h2>
+      <h2 class="tables-heading"><button type="button" id="tables-heading-toggle" aria-expanded="true" title="Click to collapse/expand table list">Tables</button></h2>
       <ul id="tables" class="table-list"></ul>
       </div>
     </aside>

@@ -279,38 +279,70 @@
     }
 
     /**
+     * Creates a closeable tab button and appends it to the tab bar.
+     * Shared by openTool (tool tabs) and openTableTab (table tabs)
+     * to avoid duplicating the tab button DOM construction logic.
+     * @param {string} tabId - The data-tab identifier
+     * @param {string} label - Display label for the tab
+     * @param {string} ariaControls - The panel id this tab controls
+     * @param {Object} [opts] - Optional settings
+     * @param {boolean} [opts.truncateLabel] - Wrap label in a span for CSS text truncation
+     * @returns {Element} The created tab button
+     */
+    function createClosableTab(tabId, label, ariaControls, opts) {
+      var tabBar = document.getElementById('tab-bar');
+      if (!tabBar) return null;
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tab-btn';
+      btn.setAttribute('data-tab', tabId);
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-controls', ariaControls);
+      // Colons in tabId (e.g. 'tbl:users') would be invalid in HTML id attributes
+      btn.id = 'tab-' + tabId.replace(/:/g, '-');
+
+      // Label: optionally wrap in a span for CSS truncation of long names
+      if (opts && opts.truncateLabel) {
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'tab-btn-label';
+        nameSpan.textContent = label;
+        nameSpan.title = label; // full name on hover
+        btn.appendChild(nameSpan);
+      } else {
+        btn.textContent = label;
+      }
+
+      // Close button (×) to remove the tab
+      var closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'tab-btn-close';
+      closeBtn.title = 'Close tab';
+      closeBtn.setAttribute('aria-label', 'Close ' + label);
+      closeBtn.textContent = '\u00d7';
+      closeBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        closeToolTab(tabId);
+      });
+      btn.appendChild(closeBtn);
+
+      // Click anywhere on the tab (except close button) switches to it
+      btn.addEventListener('click', function(e) {
+        if (e.target !== closeBtn && !closeBtn.contains(e.target)) switchTab(tabId);
+      });
+
+      tabBar.appendChild(btn);
+      return btn;
+    }
+
+    /**
      * Opens a tool in a tab: adds the tab if missing, then switches to it.
      * Reusable for most tools; calling again for the same tool just focuses that tab.
      */
     function openTool(toolId) {
-      var tabBar = document.getElementById('tab-bar');
-      if (!tabBar) return;
       var existing = findTabBtn(toolId);
       if (!existing) {
-        var label = TOOL_LABELS[toolId] || toolId;
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'tab-btn';
-        btn.setAttribute('data-tab', toolId);
-        btn.setAttribute('role', 'tab');
-        btn.setAttribute('aria-controls', 'panel-' + toolId);
-        btn.id = 'tab-' + toolId;
-        btn.textContent = label;
-        var closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.className = 'tab-btn-close';
-        closeBtn.title = 'Close tab';
-        closeBtn.setAttribute('aria-label', 'Close ' + label);
-        closeBtn.textContent = '\u00d7';
-        closeBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          closeToolTab(toolId);
-        });
-        btn.appendChild(closeBtn);
-        btn.addEventListener('click', function(e) {
-          if (e.target !== closeBtn && !closeBtn.contains(e.target)) switchTab(toolId);
-        });
-        tabBar.appendChild(btn);
+        createClosableTab(toolId, TOOL_LABELS[toolId] || toolId, 'panel-' + toolId);
       }
       switchTab(toolId);
     }
@@ -364,42 +396,11 @@
      */
     function openTableTab(name) {
       var tabId = 'tbl:' + name;
-      var tabBar = document.getElementById('tab-bar');
-      if (!tabBar) return;
       var existing = findTabBtn(tabId);
 
       if (!existing) {
-        // Create a new closeable tab button for this table
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'tab-btn';
-        btn.setAttribute('data-tab', tabId);
-        btn.setAttribute('role', 'tab');
-        btn.setAttribute('aria-controls', 'panel-tables');
-        btn.id = 'tab-' + tabId.replace(/:/g, '-');
-        // Wrap name in a span for CSS truncation of long table names
-        var nameSpan = document.createElement('span');
-        nameSpan.className = 'tab-btn-label';
-        nameSpan.textContent = name;
-        nameSpan.title = name; // full name on hover
-        btn.appendChild(nameSpan);
-
-        // Close button to remove the tab
-        var closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.className = 'tab-btn-close';
-        closeBtn.title = 'Close tab';
-        closeBtn.setAttribute('aria-label', 'Close ' + name);
-        closeBtn.textContent = '\u00d7';
-        closeBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          closeToolTab(tabId);
-        });
-        btn.appendChild(closeBtn);
-        btn.addEventListener('click', function(e) {
-          if (e.target !== closeBtn && !closeBtn.contains(e.target)) switchTab(tabId);
-        });
-        tabBar.appendChild(btn);
+        // Create a closeable tab for this table (shares #panel-tables)
+        createClosableTab(tabId, name, 'panel-tables', { truncateLabel: true });
         openTableTabs.push(name);
       }
 
@@ -425,18 +426,17 @@
       var html = '<div class="tables-browse-grid">';
       tables.forEach(function(t) {
         var countText = (tableCounts[t] != null) ? (tableCounts[t] + ' rows') : '';
-        html += '<a href="#" class="tables-browse-card" data-table="' + esc(t) + '" title="Open ' + esc(t) + ' in a tab">';
+        html += '<button type="button" class="tables-browse-card" data-table="' + esc(t) + '" title="Open ' + esc(t) + ' in a tab">';
         html += '<span class="browse-card-name">' + esc(t) + '</span>';
         if (countText) html += '<span class="browse-card-count">' + esc(countText) + '</span>';
-        html += '</a>';
+        html += '</button>';
       });
       html += '</div>';
       browseEl.innerHTML = html;
 
       // Bind click handlers on each card to open table tabs
       browseEl.querySelectorAll('.tables-browse-card').forEach(function(card) {
-        card.addEventListener('click', function(e) {
-          e.preventDefault();
+        card.addEventListener('click', function() {
           var tableName = card.getAttribute('data-table');
           if (tableName) openTableTab(tableName);
         });
@@ -1848,19 +1848,14 @@
         toggle.setAttribute('aria-expanded', 'false');
       }
 
-      // Toggle on click or Enter/Space keypress
+      // Toggle on click. Since the toggle is now a native <button>, Enter/Space
+      // keypress is handled automatically by the browser — no keydown listener needed.
       function toggleCollapse() {
         var isCollapsed = wrap.classList.toggle('collapsed');
         toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
         try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, isCollapsed ? '1' : '0'); } catch (e) {}
       }
       toggle.addEventListener('click', toggleCollapse);
-      toggle.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          toggleCollapse();
-        }
-      });
     })();
 
     // Search toolbar button: opens Search tab and focuses its inline search input.
@@ -1869,7 +1864,8 @@
       var btn = document.getElementById('search-toggle-btn');
       if (!btn) return;
       btn.addEventListener('click', function() {
-        // Focus the search tab's inline input after the tab switch
+        // Switch to the Search tab, then focus its inline input
+        openTool('search');
         setTimeout(function() {
           if (typeof window._stFocusInput === 'function') window._stFocusInput();
         }, 0);
@@ -2973,8 +2969,8 @@
             wrap.classList.remove('collapsed');
             wrap.setAttribute('aria-hidden', 'false');
           }
-          document.getElementById('search-input').focus();
-          document.getElementById('search-input').select();
+          var searchInput = document.getElementById('search-input');
+          if (searchInput) { searchInput.focus(); searchInput.select(); }
         }
       }
     });
@@ -3042,9 +3038,14 @@
       var stTableName = null;      // currently selected table
       var stTableJson = null;      // fetched row data for that table
       var stSchemaText = null;     // rendered schema text (for highlighting)
+      var stCachedFks = null;      // cached FK metadata for current table
+      var stCachedColTypes = null; // cached column types for current table
       var stMatches = [];          // highlighted spans
       var stMatchIdx = -1;         // active match index
       var stOnlyMatching = true;   // row-display toggle
+      // FIX #2: Independent pagination so Tables tab pagination doesn't bleed
+      var stLimit = 500;
+      var stOffset = 0;
 
       // --- Accessors for search-tab controls ---
       function stScope()  { return stScopeSel.value || ''; }
@@ -3052,7 +3053,7 @@
       function stFilter() { return String(stFilterEl.value || '').trim(); }
 
       // --- Populate table dropdown from master table list ---
-      // Called by renderTableList (patched below) whenever the table list updates.
+      // Called by renderTableList whenever the table list updates.
       window._stPopulateTables = function(tables) {
         var prev = stTableSel.value;
         stTableSel.innerHTML = '<option value="">-- select --</option>';
@@ -3073,6 +3074,17 @@
         }
       };
 
+      // FIX #13: Update a single dropdown option label when async count arrives
+      window._stUpdateCount = function(table, count) {
+        var opts = stTableSel.options;
+        for (var i = 0; i < opts.length; i++) {
+          if (opts[i].value === table) {
+            opts[i].textContent = table + ' (' + count + ' rows)';
+            break;
+          }
+        }
+      };
+
       // --- Row filtering (mirrors main filterRows but uses search-tab filter) ---
       function stFilterRows(data) {
         var term = stFilter();
@@ -3084,10 +3096,76 @@
           });
         });
       }
-      function stDisplayData(data) {
-        if (!data || data.length === 0) return data || [];
-        if (stOnlyMatching && stFilter()) return stFilterRows(data);
-        return data;
+
+      /**
+       * Builds the search-tab content DOM from data/schema already in memory.
+       * Extracted from the fetch .then() callback so it can be reused when
+       * re-rendering from cache (e.g. filter or row-toggle changes).
+       * FIX #1: Avoids the old recursive stRender() call after count fetch.
+       * FIX #5: Uses id="st-data-table" to avoid duplicate id with Tables panel.
+       * FIX #11: Filters data once and reuses the result (no double stFilterRows).
+       */
+      function stBuildContent(data, schema, fks, colTypes, tableName) {
+        stTableJson = data;
+        stCachedFks = fks;
+        stCachedColTypes = colTypes;
+        if (schema && cachedSchema === null) cachedSchema = schema;
+
+        var scope = stScope();
+        // FIX #11: Compute filtered rows once and reuse for display
+        var filtered = stFilterRows(data);
+        var display = (stOnlyMatching && stFilter()) ? filtered : data;
+        if (!display || display.length === 0) display = data;
+        var fkMap = {};
+        (fks || []).forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
+
+        // Build meta text using search-tab-local pagination (FIX #2)
+        var total = tableCounts[tableName];
+        var len = data.length;
+        var metaText = esc(tableName);
+        if (total != null) {
+          var rangeText = len > 0 ? ('showing ' + (stOffset + 1) + '\u2013' + (stOffset + len)) : 'no rows in this range';
+          metaText = esc(tableName) + ' (' + total + ' row' + (total !== 1 ? 's' : '') + '; ' + rangeText + ')';
+        } else {
+          metaText = esc(tableName) + ' (up to ' + stLimit + ' rows)';
+        }
+        var filterSuffix = '';
+        if (stFilter()) {
+          filterSuffix = stOnlyMatching
+            ? ' (filtered: ' + filtered.length + ' of ' + data.length + ')'
+            : ' (showing all rows; filter: ' + filtered.length + ' match)';
+        }
+        metaText += filterSuffix;
+
+        // FIX #5: Replace id="data-table" with id="st-data-table" to avoid
+        // duplicate ids when both Tables and Search panels are in the DOM.
+        var rawTableHtml = buildDataTableHtml(display, fkMap, colTypes, getColumnConfig(tableName));
+        var tableHtml = wrapDataTableInScroll(rawTableHtml.replace('id="data-table"', 'id="st-data-table"'))
+          + buildTableStatusBar(total, stOffset, stLimit, display.length,
+              getVisibleColumnCount(Object.keys(display[0] || {}), getColumnConfig(tableName)));
+
+        if (scope === 'both' && schema) {
+          stSchemaText = schema;
+          stPanel.innerHTML =
+            '<div class="search-section-collapsible expanded">' +
+              '<div class="collapsible-header" data-collapsible>Schema</div>' +
+              '<div class="collapsible-body"><pre id="st-schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
+            '</div>' +
+            '<div class="search-section-collapsible expanded">' +
+              '<div class="collapsible-header" data-collapsible>Table data: ' + esc(tableName) + '</div>' +
+              '<div class="collapsible-body"><p class="meta st-meta">' + metaText + '</p>' + tableHtml + '</div>' +
+            '</div>';
+        } else {
+          stSchemaText = null;
+          stPanel.innerHTML = '<p class="meta st-meta">' + metaText + '</p>' + tableHtml;
+        }
+
+        // Show/hide row display toggle
+        if (stRowToggle) {
+          stRowToggle.style.display = (scope === 'data' || scope === 'both') ? 'flex' : 'none';
+        }
+
+        stHighlight();
       }
 
       // --- Render content into #search-results-content ---
@@ -3111,7 +3189,7 @@
           schemaPromise.then(function(schema) {
             if (cachedSchema === null) cachedSchema = schema;
             stSchemaText = schema;
-            stDataJson = null;
+            stTableJson = null; // FIX #3: was stDataJson (undeclared → implicit global)
             stPanel.innerHTML = '<p class="meta">Schema</p><pre id="st-schema-pre">' + highlightSqlSafe(schema) + '</pre>';
             stHighlight();
           }).catch(function(e) {
@@ -3126,10 +3204,29 @@
           return;
         }
 
+        // FIX #12: Use cached data when available (filter/toggle changes skip the network)
+        if (stTableJson && stCachedFks !== null && stCachedColTypes !== null) {
+          // Schema might still be needed for 'both' scope
+          if (scope === 'both' && !cachedSchema) {
+            // Fetch schema only, then render with cached table data
+            stPanel.innerHTML = '<p class="meta">Loading schema\u2026</p>';
+            fetch('/api/schema', authOpts()).then(function(r) { return r.text(); }).then(function(schema) {
+              cachedSchema = schema;
+              if (stTableName === tableName) stBuildContent(stTableJson, schema, stCachedFks, stCachedColTypes, tableName);
+            }).catch(function(e) {
+              stPanel.innerHTML = '<p class="meta">Error loading schema</p><pre>' + esc(String(e)) + '</pre>';
+            });
+            return;
+          }
+          stBuildContent(stTableJson, (scope === 'both') ? cachedSchema : null, stCachedFks, stCachedColTypes, tableName);
+          return;
+        }
+
+        // Fresh fetch: show loading indicator
         stPanel.innerHTML = '<p class="meta">Loading ' + esc(tableName) + '\u2026</p>';
 
-        // Fetch table data (and schema if both)
-        var dataFetch = fetch('/api/table/' + encodeURIComponent(tableName) + '?limit=' + limit + '&offset=' + offset, authOpts())
+        // FIX #2: Use search-tab-local limit/offset (not global)
+        var dataFetch = fetch('/api/table/' + encodeURIComponent(tableName) + '?limit=' + stLimit + '&offset=' + stOffset, authOpts())
           .then(function(r) { return r.json(); });
         var schemaFetch = (scope === 'both')
           ? (cachedSchema !== null ? Promise.resolve(cachedSchema) : fetch('/api/schema', authOpts()).then(function(r) { return r.text(); }))
@@ -3143,67 +3240,25 @@
             var colTypes = results[3];
             if (stTableName !== tableName) return; // user switched tables
 
-            stTableJson = data;
-            if (schema && cachedSchema === null) cachedSchema = schema;
+            stBuildContent(data, schema, fks, colTypes, tableName);
 
-            var filtered = stFilterRows(data);
-            var display = stDisplayData(data);
-            var fkMap = {};
-            (fks || []).forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
-
-            // Build meta text
+            // FIX #1: Fetch total count and update meta text only (no recursive stRender).
+            // The old code called stRender() again which fired 4 duplicate fetches.
             var total = tableCounts[tableName];
-            var len = data.length;
-            var metaText = esc(tableName);
-            if (total != null) {
-              var rangeText = len > 0 ? ('showing ' + (offset + 1) + '\u2013' + (offset + len)) : 'no rows in this range';
-              metaText = esc(tableName) + ' (' + total + ' row' + (total !== 1 ? 's' : '') + '; ' + rangeText + ')';
-            } else {
-              metaText = esc(tableName) + ' (up to ' + limit + ' rows)';
-            }
-            var filterSuffix = '';
-            if (stFilter()) {
-              filterSuffix = stOnlyMatching
-                ? ' (filtered: ' + filtered.length + ' of ' + data.length + ')'
-                : ' (showing all rows; filter: ' + filtered.length + ' match)';
-            }
-            metaText += filterSuffix;
-
-            var tableHtml = wrapDataTableInScroll(buildDataTableHtml(display, fkMap, colTypes, getColumnConfig(tableName)))
-              + buildTableStatusBar(total, offset, limit, display.length,
-                  getVisibleColumnCount(Object.keys(display[0] || {}), getColumnConfig(tableName)));
-
-            if (scope === 'both' && schema) {
-              stSchemaText = schema;
-              stPanel.innerHTML =
-                '<div class="search-section-collapsible expanded">' +
-                  '<div class="collapsible-header" data-collapsible>Schema</div>' +
-                  '<div class="collapsible-body"><pre id="st-schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
-                '</div>' +
-                '<div class="search-section-collapsible expanded">' +
-                  '<div class="collapsible-header" data-collapsible>Table data: ' + esc(tableName) + '</div>' +
-                  '<div class="collapsible-body"><p class="meta">' + metaText + '</p>' + tableHtml + '</div>' +
-                '</div>';
-            } else {
-              stSchemaText = null;
-              stPanel.innerHTML = '<p class="meta">' + metaText + '</p>' + tableHtml;
-            }
-
-            // Show/hide row display toggle
-            if (stRowToggle) {
-              stRowToggle.style.display = (scope === 'data' || scope === 'both') ? 'flex' : 'none';
-            }
-
-            stHighlight();
-
-            // Also fetch total count if not cached
             if (total == null) {
               fetch('/api/table/' + encodeURIComponent(tableName) + '/count', authOpts())
                 .then(function(r) { return r.json(); })
                 .then(function(o) {
                   tableCounts[tableName] = o.count;
-                  // Re-render to show accurate count
-                  if (stTableName === tableName) stRender();
+                  // Surgically update only the meta text element
+                  if (stTableName === tableName) {
+                    var metaEl = stPanel.querySelector('.st-meta');
+                    if (metaEl) {
+                      var len = stTableJson ? stTableJson.length : 0;
+                      var rangeText = len > 0 ? ('showing ' + (stOffset + 1) + '\u2013' + (stOffset + len)) : 'no rows in this range';
+                      metaEl.textContent = tableName + ' (' + o.count + ' row' + (o.count !== 1 ? 's' : '') + '; ' + rangeText + ')';
+                    }
+                  }
                 }).catch(function() {});
             }
           })
@@ -3223,8 +3278,8 @@
           schemaPre.innerHTML = term ? highlightText(stSchemaText, term) : highlightSqlSafe(stSchemaText);
         }
 
-        // Highlight data table cells
-        var dataTable = stPanel.querySelector('#data-table');
+        // FIX #5: Use st-data-table (not data-table) to target Search panel only
+        var dataTable = stPanel.querySelector('#st-data-table');
         if (dataTable && (scope === 'data' || scope === 'both')) {
           dataTable.querySelectorAll('td').forEach(function(td) {
             if (!td.querySelector('.fk-link')) {
@@ -3278,22 +3333,31 @@
       function stPrev() { if (stMatches.length) stNavigate(stMatchIdx - 1); }
 
       // --- Event listeners for search-tab controls ---
-      // Table selection change → load data and render
+      // Table selection change → clear cache and fetch fresh data
       stTableSel.addEventListener('change', function() {
         stTableName = stTableSel.value || null;
         stTableJson = null;
+        stCachedFks = null;
+        stCachedColTypes = null;
         stRender();
       });
 
-      // Live search highlighting on every keystroke
+      // FIX #14: Debounce timers for keystroke-driven handlers
+      var stInputTimer = null;
+      var stFilterTimer = null;
+
+      // Live search highlighting with short debounce to avoid jank on large tables
       stInput.addEventListener('input', function() {
-        // If we already have content rendered, just re-highlight (no re-fetch)
-        if (stPanel.querySelector('#data-table, #st-schema-pre')) {
-          stHighlight();
-        } else {
-          // No content yet — trigger full render if table selected
-          if (stTableName || stScope() === 'schema') stRender();
-        }
+        clearTimeout(stInputTimer);
+        stInputTimer = setTimeout(function() {
+          // If content is already rendered, just re-highlight (no re-fetch)
+          if (stPanel.querySelector('#st-data-table, #st-schema-pre')) {
+            stHighlight();
+          } else {
+            // No content yet — trigger full render if table selected
+            if (stTableName || stScope() === 'schema') stRender();
+          }
+        }, 150);
       });
 
       // Keyboard navigation: Enter = next, Shift+Enter = prev, Escape = clear
@@ -3304,35 +3368,39 @@
         }
         if (e.key === 'Escape') {
           stInput.value = '';
+          clearTimeout(stInputTimer);
           stHighlight();
           stInput.blur();
         }
       });
 
-      // Scope change → re-render
+      // Scope change → may need different data; clear cache and re-render
       stScopeSel.addEventListener('change', function() { stRender(); });
 
-      // Row filter → re-render
+      // FIX #12: Row filter re-renders from cached data (no network), debounced
       stFilterEl.addEventListener('input', function() {
-        if (stTableName && stTableJson) stRender();
+        clearTimeout(stFilterTimer);
+        stFilterTimer = setTimeout(function() {
+          if (stTableName && stTableJson) stRender(); // uses cache path
+        }, 200);
       });
 
       // Match navigation buttons
       stPrevBtn.addEventListener('click', stPrev);
       stNextBtn.addEventListener('click', stNext);
 
-      // Row display toggle (All / Matching)
+      // Row display toggle (All / Matching) — re-renders from cache
       if (stRowAll) stRowAll.addEventListener('click', function() {
         stOnlyMatching = false;
         stRowAll.classList.add('active');
         if (stRowMatch) stRowMatch.classList.remove('active');
-        if (stTableName && stTableJson) stRender();
+        if (stTableName && stTableJson) stRender(); // uses cache path
       });
       if (stRowMatch) stRowMatch.addEventListener('click', function() {
         stOnlyMatching = true;
         stRowMatch.classList.add('active');
         if (stRowAll) stRowAll.classList.remove('active');
-        if (stTableName && stTableJson) stRender();
+        if (stTableName && stTableJson) stRender(); // uses cache path
       });
 
       // --- Public: called from onTabSwitch when Search tab becomes active ---
@@ -5131,6 +5199,9 @@
                 }
               });
             }
+
+            // Update Search tab dropdown label with count
+            if (typeof window._stUpdateCount === 'function') window._stUpdateCount(t, o.count);
           })
           .catch(function() {});
       });
