@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
+import type { ServerManager } from '../server-manager';
 import { SchemaSearchViewProvider } from '../schema-search/schema-search-view';
 import { collectSchemaDocsData } from '../schema-docs/schema-docs-command';
 import { DocsHtmlRenderer } from '../schema-docs/docs-html-renderer';
@@ -12,16 +13,30 @@ import { GlobalSearchPanel } from '../global-search/global-search-panel';
 
 /**
  * Register schema search view, generateSchemaDocs, and globalSearch.
+ * Wires server connection state to the Schema Search panel so it shows
+ * a disconnected banner when the server goes away.
  */
 export function registerDebugCommandsPanels(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
   revealTable: (name: string) => Promise<void>,
+  serverManager: ServerManager,
 ): void {
+  const searchProvider = new SchemaSearchViewProvider(client, revealTable);
+
+  // Keep Schema Search webview informed about server connectivity so it
+  // can disable controls and show a "not connected" banner when offline.
+  searchProvider.setConnected(serverManager.activeServer !== undefined);
+  context.subscriptions.push(
+    serverManager.onDidChangeActive((server) => {
+      searchProvider.setConnected(server !== undefined);
+    }),
+  );
+
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       SchemaSearchViewProvider.viewType,
-      new SchemaSearchViewProvider(client, revealTable),
+      searchProvider,
     ),
   );
 

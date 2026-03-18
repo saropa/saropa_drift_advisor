@@ -28,6 +28,8 @@ Web UI: table tabs and collapsible sidebar for faster multi-table workflows.
 
 ### Fixed
 
+• **Extension: Schema Search always searching, never connecting** — The Schema Search sidebar could hang on "Searching\u2026" indefinitely in two scenarios: (1) "Browse all tables" had no timeout protection, so a slow or unreachable server left the panel loading forever; (2) the schema cache `_fetchPromise` could hang permanently when the underlying HTTP transport failed to resolve or reject, blocking all subsequent cache consumers. Both paths now have bounded timeouts. The panel also shows a "Server not connected" banner with disabled controls when the server goes away, and a **Retry** button appears after timeout/error so the user can retry without retyping their query.
+
 - **Web UI: special-character table names** — Tab lookup now uses iteration instead of `querySelector` attribute selectors, preventing `DOMException` crashes on table names containing quotes, brackets, or backslashes.
 - **Web UI: stale tabs on live refresh** — When the database changes and a table is dropped or renamed, its tab is automatically closed instead of remaining as an orphan with an error state.
 

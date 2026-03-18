@@ -23,7 +23,7 @@ export function registerDebugCommands(
   };
 
   const { perfProvider, revealTable } = registerDebugCommandsPerf(context, deps);
-  registerDebugCommandsPanels(context, deps.client, revealTable);
+  registerDebugCommandsPanels(context, deps.client, revealTable, deps.serverManager);
 
   const baselineStore = new PerfBaselineStore(context.workspaceState);
 

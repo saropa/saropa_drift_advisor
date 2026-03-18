@@ -89,7 +89,7 @@ describe('Extension activation', () => {
     // Snippet library: openSnippetLibrary, saveAsSnippet (2)
     // FK navigation: fkNavigator (1)
     // Saved filters: filterBridge (1)
-    // Schema search: schemaSearchViewProvider (1)
+    // Schema search: schemaSearchViewProvider, onDidChangeActive connection listener (2)
     // Pin store: pinTable, unpinTable, onDidChange, dispose (4)
     // Health score: healthScore (1)
     // Impact analysis: analyzeRowImpact (1)
@@ -105,7 +105,7 @@ describe('Extension activation', () => {
     // Package status monitor: packageMonitor, onDidChangeInstalled listener (2)
     // Snapshot/explain: onDidChangeActiveTextEditor, onDidChangeTextEditorSelection, debounce dispose (3)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 179, `expected 179 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 180, `expected 180 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

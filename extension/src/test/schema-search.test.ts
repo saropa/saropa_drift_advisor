@@ -219,6 +219,41 @@ describe('SchemaSearchEngine', () => {
     });
   });
 
+  describe('browseAllTables', () => {
+    it('should return all non-internal tables as table-type matches', async () => {
+      const engine = new SchemaSearchEngine(
+        fakeClient([USERS, ORDERS, SQLITE_INTERNAL]),
+      );
+      const result = await engine.browseAllTables();
+      // sqlite_sequence should be filtered out
+      assert.strictEqual(result.matches.length, 2);
+      assert.ok(result.matches.every((m) => m.type === 'table'));
+      assert.ok(result.matches.some((m) => m.table === 'users'));
+      assert.ok(result.matches.some((m) => m.table === 'orders'));
+    });
+
+    it('should include rowCount and columnCount on each match', async () => {
+      const engine = new SchemaSearchEngine(fakeClient([USERS]));
+      const result = await engine.browseAllTables();
+      assert.strictEqual(result.matches.length, 1);
+      assert.strictEqual(result.matches[0].rowCount, 150);
+      assert.strictEqual(result.matches[0].columnCount, 3);
+    });
+
+    it('should return empty query and no cross-references', async () => {
+      const engine = new SchemaSearchEngine(fakeClient([USERS, ORDERS]));
+      const result = await engine.browseAllTables();
+      assert.strictEqual(result.query, '');
+      assert.strictEqual(result.crossReferences.length, 0);
+    });
+
+    it('should return empty matches when no tables exist', async () => {
+      const engine = new SchemaSearchEngine(fakeClient([]));
+      const result = await engine.browseAllTables();
+      assert.strictEqual(result.matches.length, 0);
+    });
+  });
+
   describe('large result set (cross-ref cap)', () => {
     it('should skip cross-ref building when match count exceeds cap so search resolves quickly', async () => {
       const manyTables: TableMetadata[] = [];

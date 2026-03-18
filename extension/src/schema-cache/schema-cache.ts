@@ -18,6 +18,14 @@ export interface SchemaCacheOptions {
 const DEFAULT_TTL_MS = 30_000;
 
 /**
+ * Safety timeout for individual fetch/revalidate operations (ms).
+ * Prevents _fetchPromise from hanging indefinitely if the HTTP/VM transport
+ * fails to resolve or reject (e.g. AbortController not firing on Windows).
+ * Generous enough to not interfere with normal fetch + retry (~16s).
+ */
+const FETCH_SAFETY_TIMEOUT_MS = 30_000;
+
+/**
  * Shared cache for schemaMetadata(). Reduces duplicate fetches and supports
  * showing last-known schema immediately while revalidating in background.
  */
@@ -87,9 +95,17 @@ export class SchemaCache {
     void this.getSchemaMetadata(true);
   }
 
-  private async _fetch(): Promise<TableMetadata[]> {
-    const p = this._client
-      .schemaMetadata()
+  private _fetch(): Promise<TableMetadata[]> {
+    // Safety timeout: if the underlying transport hangs (never resolves/rejects),
+    // reject after FETCH_SAFETY_TIMEOUT_MS so _fetchPromise is cleared and
+    // subsequent callers can retry instead of blocking forever.
+    const safety = new Promise<never>((_, reject) => {
+      setTimeout(
+        () => reject(new Error('Schema metadata fetch timed out')),
+        FETCH_SAFETY_TIMEOUT_MS,
+      );
+    });
+    const p = Promise.race([this._client.schemaMetadata(), safety])
       .then((data) => {
         this._memory = { data, timestamp: Date.now() };
         this._fetchPromise = null;
@@ -111,7 +127,16 @@ export class SchemaCache {
     if (this._revalidating) return;
     this._revalidating = true;
     try {
-      const data = await this._client.schemaMetadata();
+      // Safety timeout mirrors _fetch: prevents _revalidating from staying
+      // true forever if the transport hangs, which would block all future
+      // background revalidations.
+      const safety = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error('Revalidation timed out')),
+          FETCH_SAFETY_TIMEOUT_MS,
+        );
+      });
+      const data = await Promise.race([this._client.schemaMetadata(), safety]);
       this._memory = { data, timestamp: Date.now() };
       if (this._persistKey) {
         void this._workspaceState.update(this._persistKey, data);
