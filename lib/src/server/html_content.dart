@@ -24,10 +24,17 @@ abstract final class HtmlContent {
 </head>
 <body>
   <!-- Connection-lost banner. Shown by JS when the server becomes unreachable.
-       role="alert" ensures screen readers announce it immediately. -->
+       role="alert" ensures screen readers announce it immediately.
+       Message, diagnostics (interval/next retry), Retry now, and Dismiss. -->
   <div id="connection-banner" role="alert" aria-live="polite">
-    <span id="banner-message">Connection lost — reconnecting…</span>
-    <button type="button" class="banner-dismiss" id="banner-dismiss" title="Dismiss banner">Dismiss</button>
+    <div class="banner-text">
+      <span id="banner-message">Connection lost — reconnecting…</span>
+      <span id="banner-diagnostics" class="banner-diagnostics" aria-live="polite"></span>
+    </div>
+    <div class="banner-actions">
+      <button type="button" class="banner-btn banner-retry" id="banner-retry" title="Try to reconnect now">Retry now</button>
+      <button type="button" class="banner-dismiss banner-btn" id="banner-dismiss" title="Dismiss banner">Dismiss</button>
+    </div>
   </div>
   <header class="app-header">
     <div class="app-header-brand">

@@ -17,13 +17,21 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
-## [2.4.1]
+## [Unreleased]
 
-Extension: shared schema cache, configurable performance/lightweight modes, and safer schema search so the Database view and Schema Search feel faster and more resilient.
+Extension: shared schema cache, configurable performance/lightweight modes, and safer schema search. Web UI: connection banner improvements and zero runtime dependencies for the Dart package.
 
 ### Added
 
 • **Extension: schema cache and performance options** — Shared in-memory schema cache with configurable TTL (`driftViewer.schemaCache.ttlMs`) so tree, Schema Search, ER diagram, and other features reuse one fetch. Optional last-known schema persist (`driftViewer.schemaCache.persistKey`) for stale-while-revalidate on startup. Pre-warm runs a background schema fetch when a server connects so the Database view is ready when opened. Lazy Database tree: `driftViewer.database.loadOnConnect` (default true) loads tree on connect; when false, tree loads on first time the Database view is shown. Lightweight mode: `driftViewer.lightweight` (default false) skips file badges, timeline auto-capture, and tree/badges refresh on generation change. Schema Search: configurable timeout (`driftViewer.schemaSearch.timeoutMs`) and cross-ref cap (`driftViewer.schemaSearch.crossRefMatchCap`); "Browse all tables" link returns table list only (one fetch, no cross-refs). Tree providers never throw from `getChildren` so the sidebar no longer shows "no data provider" errors.
+
+• **Web UI: connection banner improvements** — When the server is unreachable, the banner now shows a live countdown ("Next retry in Xs"), the current retry interval (e.g. "Retrying every 5s"), attempt count, and "(max interval)" at 30s. A **Retry now** button triggers an immediate health check and resets backoff; a 1s ticker keeps the countdown accurate. Duplicate in-flight health checks are avoided so Retry does not race with the automatic heartbeat.
+
+### Changed
+
+• **Dart package: zero runtime dependencies** — Removed the `crypto` dependency. Optional Bearer auth now stores the token in memory and compares with a constant-time string comparison; behavior is unchanged. Apps that do not use auth (and those that do) no longer pull in any third-party packages, reducing install size and attack surface.
+
+• **README: Impact on app size** — Documented that the package has no runtime dependencies and clarified tree-shaking and CDN-loaded assets.
 
 ---
 

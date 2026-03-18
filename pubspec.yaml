@@ -30,10 +30,9 @@ dependencies:
   # extension (extension/) instead of adding packages
   # here. Before adding a dependency, exhaust
   # dart:* standard library alternatives first.
-
-  # Cryptographic hashes and codes.
-  # https://pub.dev/packages/crypto/changelog
-  crypto: ^3.0.3
+  # (No runtime dependencies: Bearer auth uses plain
+  # in-memory token comparison; Basic auth uses
+  # dart:convert base64 only.)
 
 dev_dependencies:
   # Saropa custom lints; use custom_lint CLI.

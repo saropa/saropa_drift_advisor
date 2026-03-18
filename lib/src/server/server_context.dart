@@ -36,7 +36,7 @@ final class ServerContext {
     this.corsOrigin,
     this.onLog,
     this.onError,
-    this.authTokenHash,
+    this.authToken,
     this.basicAuthUser,
     this.basicAuthPassword,
     this.getDatabaseBytes,
@@ -71,9 +71,9 @@ final class ServerContext {
   /// Optional error callback.
   final DriftDebugOnError? onError;
 
-  /// SHA256 hash of auth token (stored instead of plain
-  /// token for require_data_encryption).
-  final List<int>? authTokenHash;
+  /// Optional Bearer token for auth; stored in memory and
+  /// compared constant-time. Null = Bearer auth disabled.
+  final String? authToken;
 
   /// HTTP Basic auth user (dev-tunnel use only).
   final String? basicAuthUser;

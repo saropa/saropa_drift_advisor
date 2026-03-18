@@ -6,10 +6,8 @@
 // on start; the router dispatches to handler classes in lib/src/server/.
 // All DB access goes through [DriftDebugQuery] callbacks only.
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
 
 import 'server/router.dart';
@@ -139,17 +137,12 @@ class _DriftDebugServerImpl {
       );
     }
 
-    // Store SHA256 hash of token only (require_data_encryption).
-    final List<int>? tokenHash = (authToken != null && authToken.isNotEmpty)
-        ? sha256.convert(utf8.encode(authToken)).bytes
-        : null;
-
     final ctx = ServerContext(
       query: query,
       corsOrigin: corsOrigin,
       onLog: onLog,
       onError: onError,
-      authTokenHash: tokenHash,
+      authToken: (authToken != null && authToken.isNotEmpty) ? authToken : null,
       basicAuthUser: basicAuthUser,
       basicAuthPassword: basicAuthPassword,
       getDatabaseBytes: getDatabaseBytes,

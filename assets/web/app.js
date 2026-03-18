@@ -591,6 +591,14 @@
     // Whether the user dismissed the connection banner. If dismissed, we
     // won't re-show until the state cycles through connected -> disconnected.
     var bannerDismissed = false;
+    // When the next heartbeat is scheduled (timestamp). Used for "Next retry in Xs" countdown.
+    var nextHeartbeatAt = null;
+    // True while a health check request is in flight (show "Checking…").
+    var heartbeatInFlight = false;
+    // Number of reconnection attempts since last connected; shown in diagnostics.
+    var heartbeatAttemptCount = 0;
+    // Interval ID for updating banner countdown every second; cleared when banner hides.
+    var bannerUpdateIntervalId = null;
 
     // --- Connection state transitions ---
 
@@ -600,7 +608,8 @@
       if (connectionState === 'disconnected') return;
       connectionState = 'disconnected';
       bannerDismissed = false;
-      showConnectionBanner('Connection lost \u2014 reconnecting\u2026');
+      showConnectionBanner();
+      updateConnectionBannerText();
       updateLiveIndicatorForConnection();
       setOfflineControlsDisabled(true);
     }
@@ -611,7 +620,9 @@
     function setReconnecting() {
       if (connectionState === 'reconnecting') return;
       connectionState = 'reconnecting';
-      showConnectionBanner('Reconnecting\u2026');
+      nextHeartbeatAt = null;
+      showConnectionBanner();
+      updateConnectionBannerText();
       updateLiveIndicatorForConnection();
     }
 
@@ -622,6 +633,9 @@
       connectionState = 'connected';
       consecutivePollFailures = 0;
       currentBackoffMs = BACKOFF_INITIAL_MS;
+      nextHeartbeatAt = null;
+      heartbeatInFlight = false;
+      heartbeatAttemptCount = 0;
       hideConnectionBanner();
       updateLiveIndicatorForConnection();
       setOfflineControlsDisabled(false);
@@ -630,20 +644,54 @@
 
     // --- Banner show / hide ---
 
-    // Show the connection banner. Respects bannerDismissed flag.
-    function showConnectionBanner(message) {
+    // Updates banner message and diagnostics from current state (next retry, interval, attempt count).
+    // Called on show and every 1s while banner is visible so countdown stays accurate.
+    function updateConnectionBannerText() {
+      if (connectionState === 'connected' || bannerDismissed) return;
+      var msgEl = document.getElementById('banner-message');
+      var diagEl = document.getElementById('banner-diagnostics');
+      if (!msgEl || !diagEl) return;
+      var parts = [];
+      if (connectionState === 'reconnecting') {
+        msgEl.textContent = 'Reconnecting\u2026';
+        diagEl.textContent = 'Restoring connection\u2026';
+        return;
+      }
+      if (heartbeatInFlight) {
+        msgEl.textContent = 'Connection lost \u2014 checking\u2026';
+        parts.push('Attempt ' + heartbeatAttemptCount);
+      } else if (nextHeartbeatAt != null) {
+        var secs = Math.max(0, Math.ceil((nextHeartbeatAt - Date.now()) / 1000));
+        msgEl.textContent = 'Connection lost \u2014 next retry in ' + secs + 's';
+        var intervalSec = currentBackoffMs / 1000;
+        parts.push('Retrying every ' + intervalSec + 's');
+        if (currentBackoffMs >= BACKOFF_MAX_MS) parts.push('(max interval)');
+        parts.push('Attempt ' + heartbeatAttemptCount);
+      } else {
+        msgEl.textContent = 'Connection lost \u2014 reconnecting\u2026';
+        parts.push('Attempt ' + heartbeatAttemptCount);
+      }
+      diagEl.textContent = parts.join(' \u2022 ');
+    }
+
+    // Show the connection banner and start 1s ticker for countdown/diagnostics. Respects bannerDismissed.
+    function showConnectionBanner() {
       if (bannerDismissed) return;
       var banner = document.getElementById('connection-banner');
-      var msgEl = document.getElementById('banner-message');
-      if (banner && msgEl) {
-        msgEl.textContent = message;
-        banner.classList.add('show');
-        document.body.classList.add('has-connection-banner');
+      if (!banner) return;
+      banner.classList.add('show');
+      document.body.classList.add('has-connection-banner');
+      if (!bannerUpdateIntervalId) {
+        bannerUpdateIntervalId = setInterval(updateConnectionBannerText, 1000);
       }
     }
 
-    // Hide the connection banner and remove body padding offset.
+    // Hide the connection banner, stop countdown ticker, remove body padding offset.
     function hideConnectionBanner() {
+      if (bannerUpdateIntervalId) {
+        clearInterval(bannerUpdateIntervalId);
+        bannerUpdateIntervalId = null;
+      }
       var banner = document.getElementById('connection-banner');
       if (banner) {
         banner.classList.remove('show');
@@ -659,6 +707,22 @@
         dismissBtn.addEventListener('click', function() {
           bannerDismissed = true;
           hideConnectionBanner();
+        });
+      }
+    })();
+
+    // Retry now: trigger an immediate health check and reset backoff for next failure.
+    // No-op if already connected or if a check is in flight (avoids duplicate requests).
+    (function() {
+      var retryBtn = document.getElementById('banner-retry');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', function() {
+          if (connectionState !== 'disconnected' && connectionState !== 'reconnecting') return;
+          if (heartbeatInFlight) return;
+          stopHeartbeat();
+          nextHeartbeatAt = null;
+          currentBackoffMs = BACKOFF_INITIAL_MS;
+          doHeartbeat();
         });
       }
     })();
@@ -726,21 +790,35 @@
 
     // Ping /api/health. On success restart normal polling.
     // On failure schedule another heartbeat with backoff.
+    // Skip if a check is already in flight to avoid duplicate requests and timer races.
     function doHeartbeat() {
+      if (heartbeatInFlight) return;
+      if (connectionState === 'disconnected' || connectionState === 'reconnecting') {
+        heartbeatAttemptCount++;
+      }
+      heartbeatInFlight = true;
+      updateConnectionBannerText();
       fetch('/api/health', authOpts())
         .then(function(r) { return r.json(); })
         .then(function(data) {
+          heartbeatInFlight = false;
           if (data && data.ok) {
             setReconnecting();
             consecutivePollFailures = 0;
             currentBackoffMs = BACKOFF_INITIAL_MS;
+            nextHeartbeatAt = null;
             heartbeatTimerId = null;
             pollGeneration();
             return;
           }
+          updateConnectionBannerText();
           scheduleHeartbeat();
         })
-        .catch(function() { scheduleHeartbeat(); });
+        .catch(function() {
+          heartbeatInFlight = false;
+          updateConnectionBannerText();
+          scheduleHeartbeat();
+        });
     }
 
     // Schedule next heartbeat with exponential backoff (1s,2s,4s,...,30s).
@@ -748,6 +826,7 @@
       currentBackoffMs = Math.min(
         currentBackoffMs * BACKOFF_MULTIPLIER, BACKOFF_MAX_MS
       );
+      nextHeartbeatAt = Date.now() + currentBackoffMs;
       heartbeatTimerId = setTimeout(doHeartbeat, currentBackoffMs);
     }
 
@@ -757,6 +836,7 @@
         clearTimeout(heartbeatTimerId);
         heartbeatTimerId = null;
       }
+      nextHeartbeatAt = null;
     }
 
     // --- Keep-alive: periodic health check when polling is OFF ---

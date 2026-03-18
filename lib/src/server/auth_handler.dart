@@ -4,15 +4,13 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
-
 import 'server_constants.dart';
 import 'server_context.dart';
 import 'server_utils.dart';
 
 /// Handles authentication for the Drift Debug Server.
 ///
-/// Supports Bearer token (SHA256 hash comparison) and HTTP Basic auth.
+/// Supports Bearer token (plain in-memory comparison) and HTTP Basic auth.
 /// All comparisons are constant-time to mitigate timing side channels.
 final class AuthHandler {
   /// Creates an [AuthHandler] with the given [ServerContext].
@@ -24,8 +22,8 @@ final class AuthHandler {
   /// HTTP Basic credentials. Token in URL is not supported
   /// (avoid_token_in_url).
   bool isAuthenticated(HttpRequest request) {
-    final tokenHash = _ctx.authTokenHash;
-    if (tokenHash != null) {
+    final expectedToken = _ctx.authToken;
+    if (expectedToken != null && expectedToken.isNotEmpty) {
       final authHeader =
           request.headers.value(ServerConstants.headerAuthorization);
       if (authHeader != null &&
@@ -36,8 +34,7 @@ final class AuthHandler {
         if (token.isEmpty) {
           return false;
         }
-        final incomingHash = sha256.convert(utf8.encode(token)).bytes;
-        if (_secureCompareBytes(incomingHash, tokenHash)) {
+        if (_secureCompare(token, expectedToken)) {
           return true;
         }
       }
@@ -100,19 +97,6 @@ final class AuthHandler {
     int result = 0;
     for (int i = 0; i < a.length; i++) {
       result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
-    }
-
-    return result == 0;
-  }
-
-  /// Constant-time comparison of two byte lists (for token hash comparison).
-  bool _secureCompareBytes(List<int> a, List<int> b) {
-    if (a.length != b.length) {
-      return false;
-    }
-    int result = 0;
-    for (int i = 0; i < a.length; i++) {
-      result |= a[i] ^ b[i];
     }
 
     return result == 0;

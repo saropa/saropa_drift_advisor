@@ -85,7 +85,7 @@ final class Router {
     final String path = req.uri.path;
 
     // When auth is configured, require it on every request.
-    if (_ctx.authTokenHash != null ||
+    if (_ctx.authToken != null ||
         (_ctx.basicAuthUser != null && _ctx.basicAuthPassword != null)) {
       if (!_auth.isAuthenticated(req)) {
         await _auth.sendUnauthorized(res);

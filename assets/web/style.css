@@ -1890,7 +1890,8 @@ body.theme-dark .data-table-scroll-wrap {
 
 /* --- Connection health banner --- */
 /* Fixed banner slides down from top with a smooth CSS transition.
-   Warm amber/orange is visible in both light and dark themes. */
+   Warm amber/orange is visible in both light and dark themes.
+   Layout: message + diagnostics on the left; Retry now + Dismiss on the right. */
 #connection-banner {
   display: none;
   position: fixed;
@@ -1912,11 +1913,29 @@ body.theme-dark .data-table-scroll-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
   transform: translateY(0);
 }
 
-#connection-banner .banner-dismiss {
+#connection-banner .banner-text {
+  text-align: center;
+}
+
+#connection-banner .banner-diagnostics {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.9;
+  margin-top: 0.15rem;
+}
+
+#connection-banner .banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#connection-banner .banner-btn {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.5);
   color: #fff;
@@ -1926,7 +1945,7 @@ body.theme-dark .data-table-scroll-wrap {
   font-size: 0.75rem;
 }
 
-#connection-banner .banner-dismiss:hover {
+#connection-banner .banner-btn:hover {
   border-color: #fff;
 }
 
