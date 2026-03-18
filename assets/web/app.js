@@ -720,6 +720,9 @@
     let limit = 200;
     let offset = 0;
     let tableCounts = {};
+    // Cache of the last table list received from the server, used when
+    // re-rendering after pin/unpin without a fresh API call.
+    let lastKnownTables = [];
     let rowFilter = '';
     let lastGeneration = 0;
     let refreshInFlight = false;
@@ -1044,6 +1047,42 @@
     // user followed via FK links so a page refresh doesn't lose the
     // exploration context.
     const NAV_HISTORY_KEY = 'drift-viewer-nav-history';
+
+    // Pinned sidebar tables: tables the user has pinned float to the top
+    // of the sidebar list. Stored as a JSON array of table name strings.
+    const PINNED_TABLES_KEY = 'drift-viewer-pinned-tables';
+
+    /** Returns the array of pinned table names from localStorage. */
+    function getPinnedTables() {
+      try {
+        var raw = localStorage.getItem(PINNED_TABLES_KEY);
+        if (!raw) return [];
+        var arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      } catch (e) { return []; }
+    }
+
+    /** Saves the pinned table names array to localStorage. */
+    function setPinnedTables(arr) {
+      try { localStorage.setItem(PINNED_TABLES_KEY, JSON.stringify(arr)); }
+      catch (e) { /* localStorage full or disabled */ }
+    }
+
+    /** Toggles a table's pinned state and re-renders the sidebar list. */
+    function togglePinTable(name) {
+      var pinned = getPinnedTables();
+      var idx = pinned.indexOf(name);
+      if (idx >= 0) {
+        // Unpin: remove from the array
+        pinned.splice(idx, 1);
+      } else {
+        // Pin: add to the end of the pinned set
+        pinned.push(name);
+      }
+      setPinnedTables(pinned);
+      // Re-render the sidebar list with updated pin order
+      renderTableList(lastKnownTables || []);
+    }
 
     // Per-table column config: order, hidden, pinned. Persisted in saveTableState.
     var tableColumnConfig = {};
@@ -1952,9 +1991,11 @@
             + (pkCols.length ? ', primary key: ' + pkCols.join(', ') : '');
           let body = cols.map(function(c) {
             const pk = c.pk ? ' <tspan class="diagram-pk">PK</tspan>' : '';
-            return '<tspan class="diagram-col" x="' + (p.x + 8) + '" dy="16">' + esc(c.name) + (c.type ? ' ' + esc(c.type) : '') + pk + '</tspan>';
+            // Use local x coordinate (relative to the parent <g> transform),
+            // not absolute – the group's translate already positions the box.
+            return '<tspan class="diagram-col" x="8" dy="16">' + esc(c.name) + (c.type ? ' ' + esc(c.type) : '') + pk + '</tspan>';
           }).join('');
-          if (allCols.length > 6) body += '<tspan class="diagram-col" x="' + (p.x + 8) + '" dy="16">…</tspan>';
+          if (allCols.length > 6) body += '<tspan class="diagram-col" x="8" dy="16">…</tspan>';
           // tabindex="0" makes the box keyboard-focusable; role="button" tells
           // screen readers it is activatable (clicking loads the table view).
           svg += '<g class="diagram-table" data-table="' + name + '" tabindex="0" role="button" aria-label="' + esc(ariaLabel) + '" transform="translate(' + p.x + ',' + p.y + ')">';
@@ -4113,10 +4154,14 @@
         visible.forEach(function(k) {
           var val = row[k];
           var fk = fkMap[k];
-          var rawStr = val != null ? String(val) : '';
+          var isNull = val == null;
+          var rawStr = isNull ? '' : String(val);
           var displayStr = getDisplayValue(k, val, maskOn, piiCols[k]);
           var cellContent;
-          if (displayFormat === 'formatted' && colTypes && !(maskOn && piiCols[k])) {
+          /* Null values render as a dimmed italic "NULL" indicator (industry-standard DB tool convention) */
+          if (isNull) {
+            cellContent = '<span class="cell-null">NULL</span>';
+          } else if (displayFormat === 'formatted' && colTypes && !(maskOn && piiCols[k])) {
             var fmt = formatCellValue(val, k, colTypes[k]);
             if (fmt.wasFormatted) {
               cellContent = '<span title="Raw: ' + esc(fmt.raw) + '">' + esc(fmt.formatted) + '</span>'
@@ -4132,7 +4177,7 @@
           var tdAttrs = ' data-column-key="' + esc(k) + '"' + tdClass;
           /* cell-text wrapper allows CSS truncation with ellipsis while copy button stays visible on hover */
           /* FK link keeps data-value as rawStr so navigation filter uses real key; displayed text is displayStr (masked when on). */
-          if (fk && val != null) {
+          if (fk && !isNull) {
             html += '<td' + tdAttrs + '><span class="cell-text"><a href="#" class="fk-link" style="color:var(--link);text-decoration:underline;" ';
             html += 'data-table="' + esc(fk.toTable) + '" ';
             html += 'data-column="' + esc(fk.toColumn) + '" ';
@@ -4392,18 +4437,58 @@
     }
 
     function renderTableList(tables) {
+      // Cache for re-renders triggered by pin/unpin toggle
+      lastKnownTables = tables;
+
       const ul = document.getElementById('tables');
       if (!ul) return;
       ul.innerHTML = '';
-      tables.forEach(t => {
-        const li = document.createElement('li');
-        const a = document.createElement('a');
+
+      // Sort pinned tables to the top, preserving original order within
+      // each group (pinned vs unpinned).
+      var pinned = getPinnedTables();
+      var sorted = tables.slice().sort(function(a, b) {
+        var aPin = pinned.indexOf(a) >= 0 ? 0 : 1;
+        var bPin = pinned.indexOf(b) >= 0 ? 0 : 1;
+        return aPin - bPin;
+      });
+
+      sorted.forEach(function(t) {
+        var isPinned = pinned.indexOf(t) >= 0;
+        var li = document.createElement('li');
+        var a = document.createElement('a');
         a.href = '#' + encodeURIComponent(t);
         a.className = 'table-link' + (t === currentTableName ? ' active' : '');
         a.setAttribute('data-table', t);
-        a.textContent = (tableCounts[t] != null) ? (t + ' (' + tableCounts[t] + ' rows)') : t;
+
+        // Use a span for the text so the pin button doesn't get destroyed
+        // when row counts update the label text.
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'table-link-name';
+        nameSpan.textContent = (tableCounts[t] != null) ? (t + ' (' + tableCounts[t] + ' rows)') : t;
+        a.appendChild(nameSpan);
+
+        // Pin/unpin button with Material Symbols push_pin icon
+        var pinBtn = document.createElement('button');
+        pinBtn.type = 'button';
+        pinBtn.className = 'table-pin-btn' + (isPinned ? ' pinned' : '');
+        pinBtn.title = isPinned ? 'Unpin' : 'Pin to top';
+        pinBtn.setAttribute('aria-pressed', isPinned ? 'true' : 'false');
+        var pinIcon = document.createElement('span');
+        pinIcon.className = 'material-symbols-outlined';
+        pinIcon.setAttribute('aria-hidden', 'true');
+        pinIcon.textContent = 'push_pin';
+        pinBtn.appendChild(pinIcon);
+        // Stop click from propagating to the <a> link
+        pinBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          togglePinTable(t);
+        });
+        a.appendChild(pinBtn);
+
         // Open the table in its own closeable tab (or switch to it if already open)
-        a.onclick = e => { e.preventDefault(); openTableTab(t); };
+        a.onclick = function(e) { e.preventDefault(); openTableTab(t); };
         li.appendChild(a);
         ul.appendChild(li);
       });
@@ -5173,11 +5258,15 @@
           .then(function(o) {
             tableCounts[t] = o.count;
 
-            // Update sidebar table links with row count
+            // Update sidebar table links with row count. Target the
+            // .table-link-name span so we don't destroy the pin button.
             var ul = document.getElementById('tables');
             if (ul) {
               ul.querySelectorAll('a.table-link').forEach(function(a) {
-                if (a.getAttribute('data-table') === t) a.textContent = t + ' (' + o.count + ' rows)';
+                if (a.getAttribute('data-table') === t) {
+                  var nameSpan = a.querySelector('.table-link-name');
+                  if (nameSpan) nameSpan.textContent = t + ' (' + o.count + ' rows)';
+                }
               });
             }
 
