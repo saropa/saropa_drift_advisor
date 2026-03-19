@@ -17,6 +17,19 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
+## [Unreleased]
+
+Single issues API and capability discovery for Saropa Lints and other consumers.
+
+### Added
+
+- **GET /api/issues** — Merged endpoint returning index suggestions and data-quality anomalies in one stable JSON shape. Optional `sources` query param (`index-suggestions`, `anomalies`) to filter. Enables IDE integrations (e.g. Saropa Lints) to use one request instead of separate index-suggestions and anomalies calls.
+- **Health capabilities** — `GET /api/health` and VM `getHealth` now include a `capabilities` array (e.g. `["issues"]`) so clients can detect support for `GET /api/issues` and fall back on older servers.
+- **VM Service getIssues RPC** — `ext.saropa.drift.getIssues` returns the same merged issues list as the HTTP endpoint; optional `sources` param.
+- **doc/API.md** — Documented Issues endpoint, issue object fields, and health `capabilities`. README note on Saropa Lints integration.
+
+---
+
 ## [2.6.0]
 
 Web UI: table tabs, self-contained Search tab, and collapsible sidebar for faster multi-table workflows.

@@ -528,6 +528,15 @@ final class Router {
       return true;
     }
 
+    // GET /api/issues — merged index suggestions and anomalies
+    // in a stable issue shape (for Saropa Lints and other consumers).
+    if (path == ServerConstants.pathApiIssues ||
+        path == ServerConstants.pathApiIssuesAlt) {
+      await _analytics.handleIssues(request, response, query);
+
+      return true;
+    }
+
     // GET /api/analytics/anomalies — data quality scan.
     if (path == ServerConstants.pathApiAnalyticsAnomalies ||
         path == ServerConstants.pathApiAnalyticsAnomaliesAlt) {
@@ -700,6 +709,12 @@ final class Router {
     final list = result['suggestions'];
     return list is List<Map<String, dynamic>> ? list : <Map<String, dynamic>>[];
   }
+
+  /// Returns merged issues list (index suggestions + anomalies) for VM
+  /// service RPC getIssues. Same shape as GET /api/issues.
+  /// On error, the returned map contains [ServerConstants.jsonKeyError].
+  Future<Map<String, dynamic>> getIssuesResult({String? sources}) =>
+      _analytics.getIssuesList(_ctx.instrumentedQuery, sources: sources);
 
   /// The current generation counter value, without
   /// triggering a change check. Used by VM service

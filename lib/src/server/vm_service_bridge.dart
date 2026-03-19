@@ -53,6 +53,10 @@ final class VmServiceBridge {
       _handleGetIndexSuggestions,
     );
     developer.registerExtension(
+      '${_kExtPrefix}getIssues',
+      _handleGetIssues,
+    );
+    developer.registerExtension(
       '${_kExtPrefix}getChangeDetection',
       _handleGetChangeDetection,
     );
@@ -81,6 +85,9 @@ final class VmServiceBridge {
     final body = <String, dynamic>{
       ServerConstants.jsonKeyOk: true,
       ServerConstants.jsonKeyExtensionConnected: true,
+      ServerConstants.jsonKeyCapabilities: <String>[
+        ServerConstants.capabilityIssues,
+      ],
     };
     return developer.ServiceExtensionResponse.result(jsonEncode(body));
   }
@@ -329,6 +336,38 @@ final class VmServiceBridge {
     try {
       final list = await router.getIndexSuggestionsList();
       return developer.ServiceExtensionResponse.result(jsonEncode(list));
+    } on Object catch (e) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        e.toString(),
+      );
+    }
+  }
+
+  /// Handles ext.saropa.drift.getIssues.
+  /// Returns the same merged issues list as GET /api/issues.
+  /// Optional param "sources": comma-separated "index-suggestions", "anomalies".
+  Future<developer.ServiceExtensionResponse> _handleGetIssues(
+    String method,
+    Map<String, String> params,
+  ) async {
+    final router = _router;
+    if (router == null) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        'Drift server not running',
+      );
+    }
+    try {
+      final sources = params['sources'];
+      final result = await router.getIssuesResult(sources: sources);
+      if (result.containsKey(ServerConstants.jsonKeyError)) {
+        return developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          result[ServerConstants.jsonKeyError] as String,
+        );
+      }
+      return developer.ServiceExtensionResponse.result(jsonEncode(result));
     } on Object catch (e) {
       return developer.ServiceExtensionResponse.error(
         developer.ServiceExtensionResponse.extensionErrorMin,

@@ -25,6 +25,9 @@ final class GenerationHandler {
         ServerConstants.jsonKeyOk: true,
         ServerConstants.jsonKeyExtensionConnected: _ctx.isExtensionConnected,
         ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
+        ServerConstants.jsonKeyCapabilities: <String>[
+          ServerConstants.capabilityIssues,
+        ],
       }),
     );
     await res.close();

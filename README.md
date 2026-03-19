@@ -184,6 +184,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 #### Integrations
 
 - **Saropa Log Capture bridge** — unified timeline, session headers/summaries, three verbosity modes (off / slow-only / all)
+- **Saropa Lints** — the Saropa Lints VS Code extension can optionally show Drift Advisor issues (index suggestions and anomalies) when the debug server is running; it uses `GET /api/issues` when the server reports that capability in `GET /api/health`.
 
 #### Configuration
 

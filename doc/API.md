@@ -20,6 +20,7 @@
   - [Snapshots](#snapshots)
   - [Compare](#compare)
   - [Analytics](#analytics)
+  - [Issues](#issues)
   - [Performance](#performance)
   - [Sessions](#sessions)
   - [Import](#import)
@@ -117,7 +118,8 @@ Health check. Always succeeds when the server is running.
 {
   "ok": true,
   "extensionConnected": false,
-  "version": "1.6.1"
+  "version": "2.6.0",
+  "capabilities": ["issues"]
 }
 ```
 
@@ -126,6 +128,7 @@ Health check. Always succeeds when the server is running.
 | `ok` | boolean | Always `true` |
 | `extensionConnected` | boolean | Whether a VS Code extension client has connected recently (detected via `X-Drift-Client: vscode` header) |
 | `version` | string | Package version from `pubspec.yaml` |
+| `capabilities` | array of strings | Server feature flags. Contains `"issues"` when `GET /api/issues` is supported; clients can use this to prefer the merged issues endpoint over separate index-suggestions and anomalies calls. |
 
 ---
 
@@ -798,6 +801,63 @@ Returns database-level and per-table storage metrics.
 | `journalMode` | string | SQLite journal mode (e.g., `"wal"`, `"delete"`) |
 | `tableCount` | int | Number of user tables |
 | `tables` | array | Per-table stats, sorted by `rowCount` descending |
+
+---
+
+## Issues
+
+### `GET /api/issues`
+
+Returns a single merged list of index suggestions and data-quality anomalies in a stable issue shape. Intended for IDE integrations (e.g. Saropa Lints) and scripts that want one request instead of calling `GET /api/index-suggestions` and `GET /api/analytics/anomalies` separately.
+
+**Query Parameters**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sources` | string (optional) | both | Comma-separated: `index-suggestions`, `anomalies`. When present, only issues from the listed sources are included. Example: `?sources=anomalies` returns only anomaly issues. |
+
+**Response** `200 OK`
+
+```json
+{
+  "issues": [
+    {
+      "source": "index-suggestion",
+      "severity": "warning",
+      "table": "orders",
+      "column": "user_id",
+      "message": "orders.user_id: Foreign key without index (references users.id)",
+      "suggestedSql": "CREATE INDEX idx_orders_user_id ON \"orders\"(\"user_id\");",
+      "priority": "high"
+    },
+    {
+      "source": "anomaly",
+      "severity": "error",
+      "table": "orders",
+      "column": "user_id",
+      "message": "3 orphaned FK(s): orders.user_id -> users.id",
+      "type": "orphaned_fk",
+      "count": 3
+    }
+  ]
+}
+```
+
+**Issue object fields**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source` | string | yes | `"index-suggestion"` or `"anomaly"` |
+| `severity` | string | yes | `"error"`, `"warning"`, or `"info"` |
+| `table` | string | yes | SQL table name |
+| `column` | string | no | Column name when applicable; omitted for table-level issues (e.g. `duplicate_rows`) |
+| `message` | string | yes | Human-readable description |
+| `suggestedSql` | string | no | Index suggestions only: ready-to-run `CREATE INDEX` SQL |
+| `type` | string | no | Anomalies only: `null_values`, `empty_strings`, `orphaned_fk`, `duplicate_rows`, `potential_outlier` |
+| `count` | int | no | Anomalies only: number of affected rows (not present for `potential_outlier`) |
+| `priority` | string | no | Index suggestions only: `"high"`, `"medium"`, or `"low"` |
+
+**Errors**: Same as other API routes: 401 when auth is required, 429 when rate limited, 500 on server error.
 
 ---
 

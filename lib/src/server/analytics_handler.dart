@@ -89,6 +89,170 @@ final class AnalyticsHandler {
     await res.close();
   }
 
+  /// Returns a merged list of index suggestions and anomalies in the
+  /// stable issue shape for GET /api/issues. [sources] is optional:
+  /// comma-separated "index-suggestions" and/or "anomalies"; when null
+  /// or empty (or invalid), both sources are included.
+  ///
+  /// On error from either analysis, returns a map containing
+  /// [ServerConstants.jsonKeyError]; callers should respond with 500.
+  Future<Map<String, dynamic>> getIssuesList(
+    DriftDebugQuery query, {
+    String? sources,
+  }) async {
+    final filter = _parseSourcesFilter(sources);
+    final issues = <Map<String, dynamic>>[];
+
+    if (filter.includeIndexSuggestions) {
+      try {
+        final result = await IndexAnalyzer.getIndexSuggestionsList(query);
+        if (result.containsKey(ServerConstants.jsonKeyError)) {
+          return result;
+        }
+        final suggestions =
+            result['suggestions'] as List<Map<String, dynamic>>? ?? [];
+        for (final s in suggestions) {
+          final table = s[ServerConstants.jsonKeyTable] as String? ?? '';
+          final column = s[ServerConstants.jsonKeyColumn] as String?;
+          final reason = s['reason'] as String? ?? '';
+          final sql = s[ServerConstants.jsonKeySql] as String?;
+          final priority = s[ServerConstants.jsonKeyPriority] as String? ?? '';
+          final severity = priority == 'high' ? 'warning' : 'info';
+          final message =
+              column != null && column.isNotEmpty
+                  ? '$table.$column: $reason'
+                  : reason;
+          final issueMap = <String, dynamic>{
+            ServerConstants.jsonKeySource: 'index-suggestion',
+            ServerConstants.jsonKeySeverity: severity,
+            ServerConstants.jsonKeyTable: table,
+            ServerConstants.jsonKeyMessage: message,
+            ServerConstants.jsonKeySuggestedSql: sql,
+            ServerConstants.jsonKeyPriority: priority,
+          };
+          if (column != null && column.isNotEmpty) {
+            issueMap[ServerConstants.jsonKeyColumn] = column;
+          }
+          issues.add(issueMap);
+        }
+      } on Object catch (error, stack) {
+        _ctx.logError(error, stack);
+        return <String, dynamic>{
+          ServerConstants.jsonKeyError: error.toString(),
+        };
+      }
+    }
+
+    if (filter.includeAnomalies) {
+      try {
+        final result = await AnomalyDetector.getAnomaliesResult(query);
+        if (result.containsKey(ServerConstants.jsonKeyError)) {
+          return result;
+        }
+        final anomalies =
+            result['anomalies'] as List<Map<String, dynamic>>? ?? [];
+        for (final a in anomalies) {
+          final table = a[ServerConstants.jsonKeyTable] as String? ?? '';
+          final column = a[ServerConstants.jsonKeyColumn] as String?;
+          final message =
+              a[ServerConstants.jsonKeyMessage] as String? ?? '';
+          final severity =
+              a[ServerConstants.jsonKeySeverity] as String? ?? 'info';
+          final type = a[ServerConstants.jsonKeyType] as String?;
+          final count = a[ServerConstants.jsonKeyCount] as int?;
+          final issue = <String, dynamic>{
+            ServerConstants.jsonKeySource: 'anomaly',
+            ServerConstants.jsonKeySeverity: severity,
+            ServerConstants.jsonKeyTable: table,
+            ServerConstants.jsonKeyMessage: message,
+          };
+          if (column != null && column.isNotEmpty) {
+            issue[ServerConstants.jsonKeyColumn] = column;
+          }
+          if (type != null) issue[ServerConstants.jsonKeyType] = type;
+          if (count != null) issue[ServerConstants.jsonKeyCount] = count;
+          issues.add(issue);
+        }
+      } on Object catch (error, stack) {
+        _ctx.logError(error, stack);
+        return <String, dynamic>{
+          ServerConstants.jsonKeyError: error.toString(),
+        };
+      }
+    }
+
+    return <String, dynamic>{ServerConstants.jsonKeyIssues: issues};
+  }
+
+  /// Parses [sources] query param (comma-separated "index-suggestions",
+  /// "anomalies"). Returns which sources to include. When null/empty or
+  /// invalid, both are included; when only one token is present, only
+  /// that source is included.
+  ({bool includeIndexSuggestions, bool includeAnomalies}) _parseSourcesFilter(
+    String? sources,
+  ) {
+    if (sources == null || sources.trim().isEmpty) {
+      return (includeIndexSuggestions: true, includeAnomalies: true);
+    }
+    final parts =
+        sources.split(',').map((e) => e.trim().toLowerCase()).toList();
+    if (parts.isEmpty) {
+      return (includeIndexSuggestions: true, includeAnomalies: true);
+    }
+    final hasIndex = parts.any((p) => p == 'index-suggestions');
+    final hasAnomalies = parts.any((p) => p == 'anomalies');
+    if (hasIndex && hasAnomalies) {
+      return (includeIndexSuggestions: true, includeAnomalies: true);
+    }
+    if (hasIndex) {
+      return (includeIndexSuggestions: true, includeAnomalies: false);
+    }
+    if (hasAnomalies) {
+      return (includeIndexSuggestions: false, includeAnomalies: true);
+    }
+    return (includeIndexSuggestions: true, includeAnomalies: true);
+  }
+
+  /// Handles GET /api/issues: merged index suggestions and anomalies
+  /// in a stable issue shape. Writes JSON to [response].
+  Future<void> handleIssues(
+    HttpRequest request,
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
+    final res = response;
+    final sources = request.uri.queryParameters['sources'];
+    try {
+      final result = await getIssuesList(query, sources: sources);
+      if (result.containsKey(ServerConstants.jsonKeyError)) {
+        res.statusCode = HttpStatus.internalServerError;
+        res.headers.contentType = ContentType.json;
+        _ctx.setCors(res);
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError: result[ServerConstants.jsonKeyError]
+                as String,
+          }),
+        );
+      } else {
+        _ctx.setJsonHeaders(res);
+        res.write(jsonEncode(result));
+      }
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      res.statusCode = HttpStatus.internalServerError;
+      res.headers.contentType = ContentType.json;
+      _ctx.setCors(res);
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
+    } finally {
+      await res.close();
+    }
+  }
+
   /// Handles GET /api/analytics/size: database-level and per-table
   /// storage metrics.
   Future<void> handleSizeAnalytics(

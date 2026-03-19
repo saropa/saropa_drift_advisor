@@ -77,13 +77,19 @@ void main() {
       await startServer();
     });
 
-    test('GET /api/health returns ok and version', () async {
+    test('GET /api/health returns ok, version, and capabilities', () async {
       final r = await httpGet(port!, '/api/health');
       expect(r.status, HttpStatus.ok);
       expect(r.body['ok'], isTrue);
       expect(r.body['version'], isA<String>());
       // Contract: shape matches doc/API.md § Health & Generation.
       expect(r.body['extensionConnected'], isA<bool>());
+      expect(r.body['capabilities'], isA<List<dynamic>>());
+      expect(
+        (r.body['capabilities'] as List<dynamic>),
+        contains('issues'),
+        reason: 'Health must advertise GET /api/issues support',
+      );
     });
 
     test('GET /api/generation returns generation number', () async {
@@ -628,6 +634,49 @@ void main() {
       expect(body['tablesScanned'], isA<int>());
       expect(body, contains('analyzedAt'));
       expect(body['analyzedAt'], isA<String>());
+    });
+
+    test('GET /api/issues returns merged issues list', () async {
+      final r = await httpGet(port!, '/api/issues');
+      expect(r.status, HttpStatus.ok);
+      final body = r.body as Map<String, dynamic>;
+      expect(body, contains('issues'));
+      expect(body['issues'], isA<List<dynamic>>());
+      final issues = body['issues'] as List<dynamic>;
+      for (final raw in issues) {
+        final issue = raw as Map<String, dynamic>;
+        expect(issue, contains('source'));
+        expect(issue, contains('severity'));
+        expect(issue, contains('table'));
+        expect(issue, contains('message'));
+        expect(
+          issue['source'],
+          anyOf('index-suggestion', 'anomaly'),
+          reason: 'Stable issue shape (doc/API.md § Issues)',
+        );
+      }
+    });
+
+    test('GET /api/issues?sources=anomalies returns only anomalies', () async {
+      final r = await httpGet(port!, '/api/issues?sources=anomalies');
+      expect(r.status, HttpStatus.ok);
+      final body = r.body as Map<String, dynamic>;
+      expect(body['issues'], isA<List<dynamic>>());
+      final issues = body['issues'] as List<dynamic>;
+      for (final raw in issues) {
+        expect((raw as Map<String, dynamic>)['source'], 'anomaly');
+      }
+    });
+
+    test('GET /api/issues?sources=index-suggestions returns only index suggestions', () async {
+      final r = await httpGet(port!, '/api/issues?sources=index-suggestions');
+      expect(r.status, HttpStatus.ok);
+      final body = r.body as Map<String, dynamic>;
+      expect(body['issues'], isA<List<dynamic>>());
+      final issues = body['issues'] as List<dynamic>;
+      for (final raw in issues) {
+        expect((raw as Map<String, dynamic>)['source'], 'index-suggestion');
+      }
     });
 
     test('GET /api/analytics/size returns size analytics', () async {

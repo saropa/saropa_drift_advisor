@@ -67,6 +67,8 @@ abstract final class ServerConstants {
   static const String pathApiCompareReportAlt = 'api/compare/report';
   static const String pathApiIndexSuggestions = '/api/index-suggestions';
   static const String pathApiIndexSuggestionsAlt = 'api/index-suggestions';
+  static const String pathApiIssues = '/api/issues';
+  static const String pathApiIssuesAlt = 'api/issues';
   static const String pathApiMigrationPreview = '/api/migration/preview';
   static const String pathApiMigrationPreviewAlt = 'api/migration/preview';
   static const String pathApiAnalyticsPerformance =
@@ -133,6 +135,15 @@ abstract final class ServerConstants {
   static const String headerDriftClient = 'x-drift-client';
   static const String clientVscode = 'vscode';
   static const String jsonKeyExtensionConnected = 'extensionConnected';
+  static const String jsonKeyCapabilities = 'capabilities';
+  static const String capabilityIssues = 'issues';
+  static const String jsonKeyIssues = 'issues';
+  static const String jsonKeySource = 'source';
+  static const String jsonKeySuggestedSql = 'suggestedSql';
+  static const String jsonKeyMessage = 'message';
+  static const String jsonKeySeverity = 'severity';
+  static const String jsonKeyColumn = 'column';
+  static const String jsonKeyPriority = 'priority';
   static const String headerAuthorization = 'authorization';
   static const String authSchemeBearer = 'Bearer ';
   static const String authSchemeBasic = 'Basic ';
