@@ -37,14 +37,14 @@ final class MutationEvent {
   final List<Map<String, dynamic>>? afterRows;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'type': type.name,
-        'table': table,
-        'before': beforeRows,
-        'after': afterRows,
-        'sql': sql,
-        'timestamp': timestamp.toUtc().toIso8601String(),
-      };
+    'id': id,
+    'type': type.name,
+    'table': table,
+    'before': beforeRows,
+    'after': afterRows,
+    'sql': sql,
+    'timestamp': timestamp.toUtc().toIso8601String(),
+  };
 }
 
 class MutationTracker {
@@ -292,4 +292,3 @@ final class _ParsedMutation {
   final String table;
   final String? whereClause;
 }
-

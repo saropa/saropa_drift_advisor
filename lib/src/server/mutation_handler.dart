@@ -9,7 +9,6 @@ import 'dart:convert';
 
 import 'server_constants.dart';
 import 'server_context.dart';
-import 'mutation_tracker.dart';
 
 final class MutationHandler {
   MutationHandler(this._ctx);
@@ -33,8 +32,8 @@ final class MutationHandler {
       return;
     }
 
-    final sinceStr = request.uri.queryParameters[ServerConstants.queryParamSince] ??
-        '0';
+    final sinceStr =
+        request.uri.queryParameters[ServerConstants.queryParamSince] ?? '0';
     final since = int.tryParse(sinceStr) ?? 0;
 
     var events = tracker.eventsSince(since);
@@ -46,12 +45,12 @@ final class MutationHandler {
     _ctx.setJsonHeaders(res);
     res.write(
       jsonEncode(<String, Object?>{
-        ServerConstants.jsonKeyEvents:
-            events.map((e) => e.toJson()).toList(growable: false),
+        ServerConstants.jsonKeyEvents: events
+            .map((e) => e.toJson())
+            .toList(growable: false),
         ServerConstants.jsonKeyCursor: tracker.latestId,
       }),
     );
     await res.close();
   }
 }
-

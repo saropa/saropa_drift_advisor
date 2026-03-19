@@ -16,93 +16,110 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
 
 ---
-## [Unreleased]
-### Added
-- **Mutation Stream (VS Code)** — Added a semantic event feed openable from the **Drift Tools** status menu / **Database → Quick Actions**, with **column-value filtering** (schema column dropdown + match value).
-
-### Improved
-- **Mutation Stream UX** — Debounced filter inputs, added a schema-loading placeholder, and made pause/resume feel immediate.
 
 ## [2.7.0]
 
-Single issues API and capability discovery for Saropa Lints and other consumers.
+Mutation Stream (VS Code) with column-value filtering, Pipeline: saropa_lints report colocation, alongside Single issues API and capability discovery for Saropa Lints and other consumers.
 
 ### Added
 
-- **Pipeline: saropa_lints report colocation** — When the extension pipeline runs the Lint (saropa_lints) step, the generated scan report is copied into the same `reports/YYYYMMDD/` folder as the run's summary report and referenced in the summary (e.g. `Lint report: reports/YYYYMMDD/<timestamp>_saropa_lints_scan_report.log`). Enables one place to find both the drift_advisor run report and the lint report. Optional `--skip-lint` unchanged.
+• **Mutation Stream (VS Code)** — Added a semantic event feed openable from the **Drift Tools** status menu / **Database → Quick Actions**, with **column-value filtering** (schema column dropdown + match value).
+
+• **Pipeline: saropa_lints report colocation** — When the extension pipeline runs the Lint (saropa_lints) step, the generated scan report is copied into the same `reports/YYYYMMDD/` folder as the run's summary report and referenced in the summary (e.g. `Lint report: reports/YYYYMMDD/<timestamp>_saropa_lints_scan_report.log`). Enables one place to find both the drift_advisor run report and the lint report. Optional `--skip-lint` unchanged.
+
+• **GET /api/issues** — Merged endpoint returning index suggestions and data-quality anomalies in one stable JSON shape. Optional `sources` query param (`index-suggestions`, `anomalies`) to filter. Enables IDE integrations (e.g. Saropa Lints) to use one request instead of separate index-suggestions and anomalies calls.
+
+• **Health capabilities** — `GET /api/health` and VM `getHealth` now include a `capabilities` array (e.g. `["issues"]`) so clients can detect support for `GET /api/issues` and fall back on older servers.
+
+• **VM Service getIssues RPC** — `ext.saropa.drift.getIssues` returns the same merged issues list as the HTTP endpoint; optional `sources` param.
+
+• **doc/API.md** — Documented Issues endpoint, issue object fields, and health `capabilities`. README note on Saropa Lints integration.
 
 ### Improved
 
-- **Log Capture integration (extension)** — Session-end flow now uses a single parallel fetch for full mode (no duplicate `performance()` call). Header-only mode still fetches only performance. Shared helpers (`severityToString`, `toWorkspaceRelativePath`, `LOG_CAPTURE_SESSION_TIMEOUT_MS`) exported from the bridge and reused by the public API to remove duplication. Extension test disposable count updated to 181 with a brief comment for the Log Capture subscription.
+• **Mutation Stream UX** — Debounced filter inputs, added a schema-loading placeholder, and made pause/resume feel immediate.
 
-### Added
-
-- **GET /api/issues** — Merged endpoint returning index suggestions and data-quality anomalies in one stable JSON shape. Optional `sources` query param (`index-suggestions`, `anomalies`) to filter. Enables IDE integrations (e.g. Saropa Lints) to use one request instead of separate index-suggestions and anomalies calls.
-- **Health capabilities** — `GET /api/health` and VM `getHealth` now include a `capabilities` array (e.g. `["issues"]`) so clients can detect support for `GET /api/issues` and fall back on older servers.
-- **VM Service getIssues RPC** — `ext.saropa.drift.getIssues` returns the same merged issues list as the HTTP endpoint; optional `sources` param.
-- **doc/API.md** — Documented Issues endpoint, issue object fields, and health `capabilities`. README note on Saropa Lints integration.
+• **Log Capture integration (extension)** — Session-end flow now uses a single parallel fetch for full mode (no duplicate `performance()` call). Header-only mode still fetches only performance. Shared helpers (`severityToString`, `toWorkspaceRelativePath`, `LOG_CAPTURE_SESSION_TIMEOUT_MS`) exported from the bridge and reused by the public API to remove duplication. Extension test disposable count updated to 181 with a brief comment for the Log Capture subscription.
 
 ---
 
-## [2.6.0]
+## [2.7.0]
 
-Web UI: table tabs, self-contained Search tab, and collapsible sidebar for faster multi-table workflows.
+Web UI: table tabs, self-contained Search tab, and collapsible sidebar; plus ~97% query spam reduction and Dart SDK constraint bump to >=3.9.0 syntax, with shared schema cache and zero runtime dependencies.
 
 ### Fixed
 
-- **Extension: command error handling** — Every sidebar and welcome-view button (Open in Browser, Troubleshooting, Add Package, Open in Panel, Run Linter, Copy SQL, Open Walkthrough) now catches errors, logs timestamped diagnostics to the Output channel, and shows a user-facing error or warning toast. Previously many commands swallowed failures silently with no feedback.
-- **Extension: server discovery error logging** — Port scan failures during server discovery are now logged to the Output channel instead of being silently discarded.
-- **Extension: troubleshooting panel message routing** — Webview button actions now catch and surface rejected command promises instead of discarding them.
+• **Extension: command error handling** — Every sidebar and welcome-view button (Open in Browser, Troubleshooting, Add Package, Open in Panel, Run Linter, Copy SQL, Open Walkthrough) now catches errors, logs timestamped diagnostics to the Output channel, and shows a user-facing error or warning toast. Previously many commands swallowed failures silently with no feedback.
+
+• **Extension: server discovery error logging** — Port scan failures during server discovery are now logged to the Output channel instead of being silently discarded.
+
+• **Extension: troubleshooting panel message routing** — Webview button actions now catch and surface rejected command promises instead of discarding them.
 
 ### Changed
 
-- **SDK constraint raised to `>=3.9.0 <4.0.0`** — Enables Dart 3.6 digit separators, Dart 3.7 wildcard variables and tall formatter style, and Dart 3.8 null-aware collection elements. Formatter page width explicitly set to 80 in `analysis_options.yaml`.
-- **Dart 3.8 null-aware map elements** — `QueryTiming.toJson()` uses `'error': ?error` syntax instead of `if (error != null) 'error': error`.
-- **`.firstOrNull` simplifications** — Replaced manual `.isEmpty ? null : .first` and `.isNotEmpty ? .first[...] : null` patterns with `.firstOrNull` / `.firstOrNull?[...]` chaining in `compare_handler.dart`, `drift_debug_session.dart`, `server_utils.dart`, and `analytics_handler.dart`.
-- **Digit separators** — Applied to numeric literals: `2_000_000`, `65_535`, `8_642`, `1_000` for readability.
-- **Dart 3.7 tall formatter** — All 47 Dart files reformatted with the new tall style (vertical argument lists, automatic trailing commas, chain alignment).
-- **New lints enabled** — `unnecessary_underscores` (catches `__`/`___` that should be wildcard `_`), `prefer_digit_separators` (enforces separators on large literals).
-- **Dev dependencies** — `saropa_lints` ^9.5.2 → ^9.8.1, `test` ^1.25.0 → ^1.30.0.
-- **Web UI: null cell indicator** — Table cells with `NULL` database values now display a dimmed, italic "NULL" label instead of blank space, matching DBeaver/DataGrip/pgAdmin convention. Applied automatically in both the Tables and Search tabs.
+• **SDK constraint raised to `>=3.9.0 <4.0.0`** — Enables Dart 3.6 digit separators, Dart 3.7 wildcard variables and tall formatter style, and Dart 3.8 null-aware collection elements. Formatter page width explicitly set to 80 in `analysis_options.yaml`.
+
+• **Dart 3.8 null-aware map elements** — `QueryTiming.toJson()` uses `'error': ?error` syntax instead of `if (error != null) 'error': error`.
+
+• **`.firstOrNull` simplifications** — Replaced manual `.isEmpty ? null : .first` and `.isNotEmpty ? .first[...] : null` patterns with `.firstOrNull` / `.firstOrNull?[...]` chaining in `compare_handler.dart`, `drift_debug_session.dart`, `server_utils.dart`, and `analytics_handler.dart`.
+
+• **Digit separators** — Applied to numeric literals: `2_000_000`, `65_535`, `8_642`, `1_000` for readability.
+
+• **Dart 3.7 tall formatter** — All 47 Dart files reformatted with the new tall style (vertical argument lists, automatic trailing commas, chain alignment).
+
+• **New lints enabled** — `unnecessary_underscores` (catches `__`/`___` that should be wildcard `_`), `prefer_digit_separators` (enforces separators on large literals).
+
+• **Dev dependencies** — `saropa_lints` ^9.5.2 → ^9.8.1, `test` ^1.25.0 → ^1.30.0.
+
+• **Web UI: null cell indicator** — Table cells with `NULL` database values now display a dimmed, italic "NULL" label instead of blank space, matching DBeaver/DataGrip/pgAdmin convention. Applied automatically in both the Tables and Search tabs.
 
 ### Added
 
-- **Web UI: pin tables to top of sidebar** — Hovering a table in the sidebar reveals a push-pin icon. Clicking it pins the table to the top of the list; clicking again unpins it. Pinned state persists via localStorage and auto-prunes stale entries when tables are dropped. Accessible: keyboard focus ring, `aria-pressed` toggle, visible on touch devices.
-- **Web UI: table tabs** — Clicking a table name (sidebar or browse panel) opens it in its own closeable tab. Multiple table tabs can be open simultaneously; clicking an already-open table switches to its tab. The Tables tab now shows a browse-all grid of clickable table cards with row counts.
-- **Web UI: collapsible sidebar table list** — The "Tables" heading in the sidebar is now a toggle that collapses/expands the table list. State persists across page reloads via localStorage. Supports keyboard activation (Enter/Space) and ARIA attributes.
-- **Web UI: self-contained Search tab** — The Search tab now has its own inline controls (table picker, search input, scope selector, row filter) and loads data independently from the Tables tab. Includes debounced input handling and match navigation.
-- **Web UI: Size tab Rows column** — The Rows column in the Size analytics table now has a minimum width and `nowrap` to prevent the bar chart from squeezing the row count number.
+• **Web UI: pin tables to top of sidebar** — Hovering a table in the sidebar reveals a push-pin icon. Clicking it pins the table to the top of the list; clicking again unpins it. Pinned state persists via localStorage and auto-prunes stale entries when tables are dropped. Accessible: keyboard focus ring, `aria-pressed` toggle, visible on touch devices.
+
+• **Web UI: table tabs** — Clicking a table name (sidebar or browse panel) opens it in its own closeable tab. Multiple table tabs can be open simultaneously; clicking an already-open table switches to its tab. The Tables tab now shows a browse-all grid of clickable table cards with row counts.
+
+• **Web UI: collapsible sidebar table list** — The "Tables" heading in the sidebar is now a toggle that collapses/expands the table list. State persists across page reloads via localStorage. Supports keyboard activation (Enter/Space) and ARIA attributes.
+
+• **Web UI: self-contained Search tab** — The Search tab now has its own inline controls (table picker, search input, scope selector, row filter) and loads data independently from the Tables tab. Includes debounced input handling and match navigation.
+
+• **Web UI: Size tab Rows column** — The Rows column in the Size analytics table now has a minimum width and `nowrap` to prevent the bar chart from squeezing the row count number.
 
 ### Fixed
 
-- **Web UI: Search tab recursive fetch loop** — The Search tab's count fetch no longer triggers a full re-render (which fired 4 duplicate network requests). Count updates are now applied surgically to the meta text element only.
-- **Web UI: Search tab shared pagination state** — The Search tab now uses its own independent `limit`/`offset` variables instead of sharing them with the Tables tab, preventing cross-tab pagination bleed.
-- **Web UI: undeclared `stDataJson` variable** — Fixed an implicit global variable (`stDataJson` instead of the declared `stTableJson`) in the schema-only branch of the Search tab.
-- **Web UI: Search toolbar button** — The toolbar Search button now correctly opens the Search tab before focusing its input. Previously it only attempted to focus an invisible input.
-- **Web UI: duplicate `id="data-table"`** — The Search tab's data table now uses `id="st-data-table"` to avoid conflicting with the Tables panel's `id="data-table"` when both exist in the DOM.
-- **Web UI: filter re-fetch on every keystroke** — Row filter changes in the Search tab now re-render from cached data instead of firing fresh network requests for every character typed.
-- **Web UI: async count updates for Search dropdown** — When table row counts arrive asynchronously, the Search tab's table dropdown labels are now updated to include the count.
-- **Web UI: Diagram tab columns only visible in first column** — SVG `<tspan>` elements for table columns used absolute x-coordinates inside an already-translated `<g>` group, doubling the offset and pushing column text outside the visible box for every table card except the first. Changed to local coordinates.
+• **Web UI: Search tab recursive fetch loop** — The Search tab's count fetch no longer triggers a full re-render (which fired 4 duplicate network requests). Count updates are now applied surgically to the meta text element only.
+
+• **Web UI: Search tab shared pagination state** — The Search tab now uses its own independent `limit`/`offset` variables instead of sharing them with the Tables tab, preventing cross-tab pagination bleed.
+
+• **Web UI: undeclared `stDataJson` variable** — Fixed an implicit global variable (`stDataJson` instead of the declared `stTableJson`) in the schema-only branch of the Search tab.
+
+• **Web UI: Search toolbar button** — The toolbar Search button now correctly opens the Search tab before focusing its input. Previously it only attempted to focus an invisible input.
+
+• **Web UI: duplicate `id="data-table"`** — The Search tab's data table now uses `id="st-data-table"` to avoid conflicting with the Tables panel's `id="data-table"` when both exist in the DOM.
+
+• **Web UI: filter re-fetch on every keystroke** — Row filter changes in the Search tab now re-render from cached data instead of firing fresh network requests for every character typed.
+
+• **Web UI: async count updates for Search dropdown** — When table row counts arrive asynchronously, the Search tab's table dropdown labels are now updated to include the count.
+
+• **Web UI: Diagram tab columns only visible in first column** — SVG `<tspan>` elements for table columns used absolute x-coordinates inside an already-translated `<g>` group, doubling the offset and pushing column text outside the visible box for every table card except the first. Changed to local coordinates.
 
 ### Improved
 
-- **Web UI: accessibility** — Sidebar "Tables" heading uses a nested `<button>` inside `<h2>` to preserve both heading landmark navigation and button semantics for screen readers. Browse cards use semantic `<button>` elements instead of `<a href="#">`. Added `:focus-visible` styles to the sidebar toggle and search toolbar buttons (WCAG 2.4.7).
-- **Web UI: tab creation** — Extracted a shared `createClosableTab()` helper used by both tool tabs and table tabs, eliminating ~35 lines of duplicated DOM construction code.
-- **Query spam reduction (~97%)** — Drastically reduced the number of SQL queries the extension fires through the user's Drift database, eliminating massive "Drift: Sent" console spam when `logStatements` is enabled. Row counts from the existing change-detection UNION ALL query are now cached in `ServerContext` and included inline in the `/api/tables` response. The web UI uses these inline counts instead of firing N individual `/api/table/<name>/count` requests. Table name validation (`requireKnownTable`) and schema metadata now use cached data. For a 40-table database, a refresh cycle drops from ~160 queries to ~2.
-- **Web UI: search input debounce** — Search and filter inputs in the Search tab are now debounced (150ms/200ms) to reduce DOM thrashing and prevent floods of abandoned HTTP requests on large tables.
+• **Web UI: accessibility** — Sidebar "Tables" heading uses a nested `<button>` inside `<h2>` to preserve both heading landmark navigation and button semantics for screen readers. Browse cards use semantic `<button>` elements instead of `<a href="#">`. Added `:focus-visible` styles to the sidebar toggle and search toolbar buttons (WCAG 2.4.7).
+
+• **Web UI: tab creation** — Extracted a shared `createClosableTab()` helper used by both tool tabs and table tabs, eliminating ~35 lines of duplicated DOM construction code.
+
+• **Query spam reduction (~97%)** — Drastically reduced the number of SQL queries the extension fires through the user's Drift database, eliminating massive "Drift: Sent" console spam when `logStatements` is enabled. Row counts from the existing change-detection UNION ALL query are now cached in `ServerContext` and included inline in the `/api/tables` response. The web UI uses these inline counts instead of firing N individual `/api/table/<name>/count` requests. Table name validation (`requireKnownTable`) and schema metadata now use cached data. For a 40-table database, a refresh cycle drops from ~160 queries to ~2.
+
+• **Web UI: search input debounce** — Search and filter inputs in the Search tab are now debounced (150ms/200ms) to reduce DOM thrashing and prevent floods of abandoned HTTP requests on large tables.
 
 ### Fixed
 
 • **Extension: Schema Search always searching, never connecting** — The Schema Search sidebar could hang on "Searching\u2026" indefinitely in two scenarios: (1) "Browse all tables" had no timeout protection, so a slow or unreachable server left the panel loading forever; (2) the schema cache `_fetchPromise` could hang permanently when the underlying HTTP transport failed to resolve or reject, blocking all subsequent cache consumers. Both paths now have bounded timeouts. The panel also shows a "Server not connected" banner with disabled controls when the server goes away, and a **Retry** button appears after timeout/error so the user can retry without retyping their query.
 
-- **Web UI: special-character table names** — Tab lookup now uses iteration instead of `querySelector` attribute selectors, preventing `DOMException` crashes on table names containing quotes, brackets, or backslashes.
-- **Web UI: stale tabs on live refresh** — When the database changes and a table is dropped or renamed, its tab is automatically closed instead of remaining as an orphan with an error state.
+• **Web UI: special-character table names** — Tab lookup now uses iteration instead of `querySelector` attribute selectors, preventing `DOMException` crashes on table names containing quotes, brackets, or backslashes.
 
----
-
-## [2.6.0]
-
-Extension: shared schema cache, configurable performance/lightweight modes, and safer schema search. Web UI: connection banner improvements and zero runtime dependencies for the Dart package.
+• **Web UI: stale tabs on live refresh** — When the database changes and a table is dropped or renamed, its tab is automatically closed instead of remaining as an orphan with an error state.
 
 ### Added
 
@@ -168,7 +185,7 @@ Web UI: leave confirmation, auto-analyze on Index/Size/Health tabs, refreshed to
 
 ## [2.3.0]
 
-Web UI: PII masking, richer charts and exports, query-builder AND/OR, page-based pagination, and larger touch targets for accessibility.
+PII masking, richer charts/exports, query-builder AND/OR, and page-based pagination; plus improved Search tab, tabbed tools UI, cell popups/status/tooltips, and better About/Save Filter/share feedback.
 
 ### Added
 
@@ -189,16 +206,6 @@ Web UI: PII masking, richer charts and exports, query-builder AND/OR, page-based
 ### Fixed
 
 • **Web UI: Diagram tab table cards empty** — Schema diagram now normalizes PRAGMA table_info results and supports both lowercase and uppercase column keys (name/type/pk and NAME/TYPE/PK), so all table cards show column names and types instead of appearing empty on some drivers.
-
-• **CHANGELOG version labeling** — The fix for "command driftViewer.refreshTree not found" [GitHub issue #7], drift_sqlite_async compatibility, Web UI redesign, Web viewer performance, and HTTP schema/diagram when polling off were previously under a duplicate [2.2.0] section. They are now correctly listed under [2.1.1]. Duplicate [2.2.0] block removed; [2.2.0] now contains only 2.2.0 changes.
-
----
-
-## [2.3.0]
-
-Extension: About and Save Filter commands fixed; share dialogs and welcome view show proper feedback. Web UI: Search tab and toolbar, tabbed tools, cell popup and status bar, tooltips, and Live/Paused/Offline connection status.
-
-### Fixed
 
 • **Extension: (i) icon and About/Save Filter commands** — Clicking the info icon on the Database section header could show "command driftViewer.aboutSaropa not found" if the extension had not yet finished activating. About and Save Current Filter are now wired so they always work: activation events for both about commands ensure the extension activates when the command is invoked; about commands are registered first (before other feature modules) so the (i) icon works even if a later module fails; and the previously contributed-but-unregistered `driftViewer.saveFilter` command now has a handler that opens the Data Viewer and directs users to the in-panel Save Filter control.
 
@@ -426,6 +433,20 @@ Smart package lifecycle management: the extension now detects whether the Dart p
 
 ---
 
+## [1.6.1]
+The extension couldn't connect to running servers and now has an About button for easy access to release notes.
+
+### Added
+• **About Saropa Drift Advisor** — "About Saropa Drift Advisor vX.Y.Z" item at the top of the Drift Tools sidebar. Opens the bundled CHANGELOG.md in VS Code's markdown preview; falls back to the GitHub changelog if the local file is missing. Also available via Command Palette (`Saropa Drift Advisor: About`).
+• **Existing debug session detection** — When the extension activates after a debug session is already running (late activation), it now detects the active Dart/Flutter session and immediately attempts VM Service connection. Previously only `onDidStartDebugSession` was used, which never fires for sessions that started before the extension loaded.
+
+### Fixed
+• **Server discovery rejected valid servers** — The secondary validation in `ServerDiscovery._validateServer` checked `Array.isArray(data)` on the `/api/schema/metadata` response, but the server returns `{ tables: [...] }` (an object wrapping the array). Health checks passed but every server was then silently rejected, preventing the extension from ever connecting. Now accepts both raw array and wrapped `{ tables: [...] }` formats.
+• **VM Service connection too impatient for emulator debugging** — The original `tryConnectVm` made only 2 quick attempts with 500ms delay, but on Android emulators the Drift debug server typically needs 5–15 seconds after VM Service is available before its extension methods are registered. Rewrote as a two-phase approach: Phase 1 connects the WebSocket (2 quick attempts — the VM port is auto-forwarded by Flutter); Phase 2 patiently polls health with increasing delays (500ms → 1s → 2s → 3s → 5s, ~30s total) while the app initializes. Includes a concurrency guard to prevent concurrent connection attempts.
+• **Core debug commands silently failed to register** — `registerDebugCommands` (which wires VM Service lifecycle, debug session listeners, and server connectivity) was the last call in `registerAllCommands`. If any preceding feature module threw during registration, the entire function aborted and the core connection logic never ran — silently. Discovery kept scanning ports, but no VM Service handlers were registered, producing the symptom of 17+ minutes of only port-scan output with zero VM connection attempts. Fixed by calling `registerDebugCommands` first and wrapping each of the 27 feature modules in individual try/catch blocks so one failing module cannot take down the rest.
+
+---
+
 ## [1.6.0]
 
 VM Service connection now works — Android emulator connects without port forwarding. Web UI gets a visual polish layer loaded from CDN, and the published package is leaner.
@@ -475,26 +496,6 @@ Web UI now shows the server version and has a proper favicon.
 ### Internal
 
 • **Publish script syncs PACKAGE_VERSION** — `write_version(DART, ...)` now automatically updates the `PACKAGE_VERSION` constant in `add-package.ts` so the "Add Saropa Drift Advisor" button always installs the correct version after a release.
-
----
-
-## [1.6.1]
-
-The extension couldn't connect to running servers and now has an About button for easy access to release notes.
-
-### Added
-
-• **About Saropa Drift Advisor** — "About Saropa Drift Advisor vX.Y.Z" item at the top of the Drift Tools sidebar. Opens the bundled CHANGELOG.md in VS Code's markdown preview; falls back to the GitHub changelog if the local file is missing. Also available via Command Palette (`Saropa Drift Advisor: About`).
-
-• **Existing debug session detection** — When the extension activates after a debug session is already running (late activation), it now detects the active Dart/Flutter session and immediately attempts VM Service connection. Previously only `onDidStartDebugSession` was used, which never fires for sessions that started before the extension loaded.
-
-### Fixed
-
-• **Server discovery rejected valid servers** — The secondary validation in `ServerDiscovery._validateServer` checked `Array.isArray(data)` on the `/api/schema/metadata` response, but the server returns `{ tables: [...] }` (an object wrapping the array). Health checks passed but every server was then silently rejected, preventing the extension from ever connecting. Now accepts both raw array and wrapped `{ tables: [...] }` formats.
-
-• **VM Service connection too impatient for emulator debugging** — The original `tryConnectVm` made only 2 quick attempts with 500ms delay, but on Android emulators the Drift debug server typically needs 5–15 seconds after VM Service is available before its extension methods are registered. Rewrote as a two-phase approach: Phase 1 connects the WebSocket (2 quick attempts — the VM port is auto-forwarded by Flutter); Phase 2 patiently polls health with increasing delays (500ms → 1s → 2s → 3s → 5s, ~30s total) while the app initializes. Includes a concurrency guard to prevent concurrent connection attempts.
-
-• **Core debug commands silently failed to register** — `registerDebugCommands` (which wires VM Service lifecycle, debug session listeners, and server connectivity) was the last call in `registerAllCommands`. If any preceding feature module threw during registration, the entire function aborted and the core connection logic never ran — silently. Discovery kept scanning ports, but no VM Service handlers were registered, producing the symptom of 17+ minutes of only port-scan output with zero VM connection attempts. Fixed by calling `registerDebugCommands` first and wrapping each of the 27 feature modules in individual try/catch blocks so one failing module cannot take down the rest.
 
 ---
 

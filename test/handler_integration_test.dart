@@ -668,16 +668,19 @@ void main() {
       }
     });
 
-    test('GET /api/issues?sources=index-suggestions returns only index suggestions', () async {
-      final r = await httpGet(port!, '/api/issues?sources=index-suggestions');
-      expect(r.status, HttpStatus.ok);
-      final body = r.body as Map<String, dynamic>;
-      expect(body['issues'], isA<List<dynamic>>());
-      final issues = body['issues'] as List<dynamic>;
-      for (final raw in issues) {
-        expect((raw as Map<String, dynamic>)['source'], 'index-suggestion');
-      }
-    });
+    test(
+      'GET /api/issues?sources=index-suggestions returns only index suggestions',
+      () async {
+        final r = await httpGet(port!, '/api/issues?sources=index-suggestions');
+        expect(r.status, HttpStatus.ok);
+        final body = r.body as Map<String, dynamic>;
+        expect(body['issues'], isA<List<dynamic>>());
+        final issues = body['issues'] as List<dynamic>;
+        for (final raw in issues) {
+          expect((raw as Map<String, dynamic>)['source'], 'index-suggestion');
+        }
+      },
+    );
 
     test('GET /api/analytics/size returns size analytics', () async {
       final r = await httpGet(port!, '/api/analytics/size');

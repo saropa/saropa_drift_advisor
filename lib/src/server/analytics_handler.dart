@@ -118,10 +118,9 @@ final class AnalyticsHandler {
           final sql = s[ServerConstants.jsonKeySql] as String?;
           final priority = s[ServerConstants.jsonKeyPriority] as String? ?? '';
           final severity = priority == 'high' ? 'warning' : 'info';
-          final message =
-              column != null && column.isNotEmpty
-                  ? '$table.$column: $reason'
-                  : reason;
+          final message = column != null && column.isNotEmpty
+              ? '$table.$column: $reason'
+              : reason;
           final issueMap = <String, dynamic>{
             ServerConstants.jsonKeySource: 'index-suggestion',
             ServerConstants.jsonKeySeverity: severity,
@@ -154,8 +153,7 @@ final class AnalyticsHandler {
         for (final a in anomalies) {
           final table = a[ServerConstants.jsonKeyTable] as String? ?? '';
           final column = a[ServerConstants.jsonKeyColumn] as String?;
-          final message =
-              a[ServerConstants.jsonKeyMessage] as String? ?? '';
+          final message = a[ServerConstants.jsonKeyMessage] as String? ?? '';
           final severity =
               a[ServerConstants.jsonKeySeverity] as String? ?? 'info';
           final type = a[ServerConstants.jsonKeyType] as String?;
@@ -194,8 +192,10 @@ final class AnalyticsHandler {
     if (sources == null || sources.trim().isEmpty) {
       return (includeIndexSuggestions: true, includeAnomalies: true);
     }
-    final parts =
-        sources.split(',').map((e) => e.trim().toLowerCase()).toList();
+    final parts = sources
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .toList();
     if (parts.isEmpty) {
       return (includeIndexSuggestions: true, includeAnomalies: true);
     }
@@ -230,8 +230,8 @@ final class AnalyticsHandler {
         _ctx.setCors(res);
         res.write(
           jsonEncode(<String, String>{
-            ServerConstants.jsonKeyError: result[ServerConstants.jsonKeyError]
-                as String,
+            ServerConstants.jsonKeyError:
+                result[ServerConstants.jsonKeyError] as String,
           }),
         );
       } else {

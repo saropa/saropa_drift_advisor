@@ -52,10 +52,7 @@ final class VmServiceBridge {
       '${_kExtPrefix}getIndexSuggestions',
       _handleGetIndexSuggestions,
     );
-    developer.registerExtension(
-      '${_kExtPrefix}getIssues',
-      _handleGetIssues,
-    );
+    developer.registerExtension('${_kExtPrefix}getIssues', _handleGetIssues);
     developer.registerExtension(
       '${_kExtPrefix}getChangeDetection',
       _handleGetChangeDetection,

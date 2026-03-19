@@ -98,7 +98,11 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
         sql.contains("type='table'") &&
         sql.contains("name='")) {
       for (final entry in schemaEntries) {
-        final tableName = entry['name'] as String;
+        final tableNameValue = entry['name'];
+        if (tableNameValue is! String) {
+          continue;
+        }
+        final tableName = tableNameValue;
         if (sql.contains("name='$tableName'")) {
           return [entry];
         }
