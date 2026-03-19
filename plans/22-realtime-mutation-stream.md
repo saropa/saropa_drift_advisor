@@ -6,7 +6,7 @@ A live scrolling feed of every INSERT, UPDATE, and DELETE happening in the datab
 
 ## User Experience
 
-1. Command palette → "Saropa Drift Advisor: Open Mutation Stream" or click the stream icon in the tree view toolbar
+1. Open Mutation Stream via command palette (`Saropa Drift Advisor: Open Mutation Stream`), the **Drift Tools** status bar menu, or **Database → Quick Actions → Mutation Stream**
 2. A webview panel opens showing a real-time feed:
 
 ```
@@ -37,7 +37,7 @@ A live scrolling feed of every INSERT, UPDATE, and DELETE happening in the datab
 
 3. Color coding: green for INSERT, yellow for UPDATE, red for DELETE
 4. Click any event → opens the affected row in the table data viewer
-5. Filter bar: select tables, operation types, or search column values
+5. Filter bar: choose filter mode (**Free-text Search** or **Column value**), then select table/operation and (in column-value mode) pick a schema column and type a match value
 6. Pause/Resume button to freeze the stream while inspecting
 7. "Export" button to save captured events as JSON
 
@@ -57,19 +57,20 @@ lib/src/
 ```
 extension/src/
   mutation-stream/
-    mutation-stream-panel.ts  # Webview panel lifecycle
-    mutation-stream-html.ts   # HTML/CSS/JS template
-    mutation-client.ts        # Consumes mutation events from server
-    mutation-types.ts         # Shared event interfaces
+    mutation-stream-commands.ts  # Registers driftViewer.openMutationStream
+    mutation-stream-panel.ts     # Webview panel lifecycle
+    mutation-stream-html.ts      # HTML/CSS/JS template
+    mutation-stream-types.ts     # Webview filter/type messages
+    mutation-stream-filtering.ts # Pure matching helpers (unit-tested)
 extension/src/test/
-  mutation-client.test.ts
+  mutation-stream-filtering.test.ts
 ```
 
 ## Dependencies
 
 - Server: `server_context.dart` — needs `writeQuery` callback wrapping
 - Extension: `api-client.ts` — new `mutations()` endpoint
-- Extension: `generation-watcher.ts` — fallback polling trigger
+- Extension: Mutation Stream panel long-polls `GET /api/mutations` for new events
 
 ## Architecture
 

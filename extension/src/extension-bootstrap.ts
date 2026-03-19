@@ -10,6 +10,7 @@ import { GenerationWatcher } from './generation-watcher';
 import { ServerDiscovery } from './server-discovery';
 import { ServerManager } from './server-manager';
 import { hasFlutterOrDartDebugSession, tryAdbForwardAndRetry } from './android-forward';
+import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 
 /** Delay before trying adb forward after a Flutter/Dart debug session starts (ms). */
 const ADB_FORWARD_DELAY_MS = 5000;
@@ -37,6 +38,7 @@ export function bootstrapExtension(
   const cfg = vscode.workspace.getConfiguration('driftViewer');
   const extensionEnabled = cfg.get<boolean>('enabled', true) !== false;
   void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', extensionEnabled);
+  let logVerbosity = getLogVerbosity(cfg);
 
   const host = cfg.get<string>('host', '127.0.0.1') ?? '127.0.0.1';
   const port = cfg.get<number>('port', 8642) ?? 8642;
@@ -52,6 +54,9 @@ export function bootstrapExtension(
           .get<string>('authToken', '') ?? '';
         client.setAuthToken(token || undefined);
       }
+      if (e.affectsConfiguration('driftViewer.logVerbosity')) {
+        logVerbosity = getLogVerbosity(cfg);
+      }
     }),
   );
 
@@ -65,14 +70,24 @@ export function bootstrapExtension(
   });
   const connectionChannel = vscode.window.createOutputChannel('Saropa Drift Advisor');
   context.subscriptions.push(connectionChannel);
-  discovery.setLog(connectionChannel);
-  watcher.setLog(connectionChannel);
+  const gatedConnectionLog = {
+    appendLine: (msg: string): void => {
+      if (shouldLogConnectionLine(msg, logVerbosity)) {
+        connectionChannel.appendLine(msg);
+      }
+    },
+  };
+  discovery.setLog(gatedConnectionLog);
+  watcher.setLog(gatedConnectionLog);
 
   const serverManager = new ServerManager(discovery, client, context.workspaceState);
   serverManager.setShowLog(() => connectionChannel.show());
-  serverManager.setLog((msg) =>
-    connectionChannel.appendLine(`[${new Date().toISOString()}] ${msg}`),
-  );
+  serverManager.setLog((msg) => {
+    const line = `[${new Date().toISOString()}] ${msg}`;
+    if (shouldLogConnectionLine(line, logVerbosity)) {
+      connectionChannel.appendLine(line);
+    }
+  });
   const discoveryEnabled = cfg.get<boolean>('discovery.enabled', true) !== false;
 
   if (!extensionEnabled) {

@@ -16,6 +16,7 @@ import 'auth_handler.dart';
 import 'compare_handler.dart';
 import 'generation_handler.dart';
 import 'import_handler.dart';
+import 'mutation_handler.dart';
 import 'performance_handler.dart';
 import 'rate_limiter.dart';
 import 'schema_handler.dart';
@@ -54,7 +55,8 @@ final class Router {
        _analytics = AnalyticsHandler(ctx),
        _performance = PerformanceHandler(ctx),
        _session = SessionHandler(ctx, sessionStore),
-       _import = ImportHandler(ctx);
+       _import = ImportHandler(ctx),
+       _mutations = MutationHandler(ctx);
 
   final ServerContext _ctx;
 
@@ -72,6 +74,7 @@ final class Router {
   final PerformanceHandler _performance;
   final SessionHandler _session;
   final ImportHandler _import;
+  final MutationHandler _mutations;
 
   /// Main request handler: auth -> rate limit -> route by
   /// method and path.
@@ -102,6 +105,8 @@ final class Router {
       final bool isExempt =
           path == ServerConstants.pathApiGeneration ||
           path == ServerConstants.pathApiGenerationAlt ||
+          path == ServerConstants.pathApiMutations ||
+          path == ServerConstants.pathApiMutationsAlt ||
           path == ServerConstants.pathApiHealth ||
           path == ServerConstants.pathApiHealthAlt;
 
@@ -195,6 +200,14 @@ final class Router {
             path == ServerConstants.pathApiGenerationAlt)) {
       await _generation.handleGeneration(request);
 
+      return true;
+    }
+
+    // GET /api/mutations — long-poll for semantic mutation events.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiMutations ||
+            path == ServerConstants.pathApiMutationsAlt)) {
+      await _mutations.handleMutations(request);
       return true;
     }
 

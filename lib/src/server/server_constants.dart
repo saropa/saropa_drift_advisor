@@ -91,6 +91,8 @@ abstract final class ServerConstants {
   static const String pathApiImportAlt = 'api/import';
   static const String pathApiChangeDetection = '/api/change-detection';
   static const String pathApiChangeDetectionAlt = 'api/change-detection';
+  static const String pathApiMutations = '/api/mutations';
+  static const String pathApiMutationsAlt = 'api/mutations';
   static const String pathFavicon = '/favicon.ico';
   static const String pathFaviconAlt = 'favicon.ico';
 
@@ -119,6 +121,8 @@ abstract final class ServerConstants {
   static const String jsonKeyCreatedAt = 'createdAt';
   static const String jsonKeyTableCount = 'tableCount';
   static const String jsonKeyTables = 'tables';
+  static const String jsonKeyEvents = 'events';
+  static const String jsonKeyCursor = 'cursor';
   static const String jsonKeyName = 'name';
   static const String jsonKeyColumns = 'columns';
   static const String jsonKeyTable = 'table';

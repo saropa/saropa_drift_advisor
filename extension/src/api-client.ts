@@ -16,6 +16,7 @@ import type {
   ISessionData,
   ISessionShareResult,
   ISizeAnalytics,
+  IMutationStreamResponse,
   PerformanceData,
   TableMetadata,
 } from './api-types';
@@ -53,7 +54,7 @@ export class DriftApiClient {
 
   /** True when using VM Service transport for core methods. */
   get usingVmService(): boolean {
-    return this._vmClient !== null && this._vmClient.connected;
+    return this._vmClient?.connected === true;
   }
 
   /** Set or clear the Bearer auth token sent with every request. */
@@ -66,7 +67,7 @@ export class DriftApiClient {
   }
 
   get port(): number {
-    return parseInt(new URL(this._baseUrl).port, 10);
+    return Number.parseInt(new URL(this._baseUrl).port, 10);
   }
 
   get baseUrl(): string {
@@ -104,6 +105,14 @@ export class DriftApiClient {
   async generation(since: number): Promise<number> {
     if (this._vmClient?.connected) return this._vmClient.getGeneration();
     return http.httpGeneration(this._baseUrl, this._headers(), since);
+  }
+
+  async mutations(since: number): Promise<IMutationStreamResponse> {
+    // VM Service transport doesn't currently expose mutation events.
+    if (this._vmClient?.connected) {
+      throw new Error('Mutation stream requires HTTP (writeQuery wrapper on server).');
+    }
+    return http.httpMutations(this._baseUrl, this._headers(), since);
   }
 
   async sql(query: string): Promise<{ columns: string[]; rows: unknown[][] }> {

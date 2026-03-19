@@ -13,6 +13,7 @@ import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
 import 'server/router.dart';
 import 'server/server_constants.dart';
 import 'server/server_context.dart';
+import 'server/mutation_tracker.dart';
 import 'server/vm_service_bridge.dart';
 
 // Public API typedefs are defined in server/server_typedefs.dart
@@ -137,6 +138,24 @@ class _DriftDebugServerImpl {
       );
     }
 
+    MutationTracker? mutationTracker;
+    late DriftDebugQuery readQueryForMutation;
+    DriftDebugWriteQuery? wrappedWriteQuery = writeQuery;
+
+    if (writeQuery != null) {
+      mutationTracker = MutationTracker();
+      final originalWrite = writeQuery;
+      wrappedWriteQuery = (String sql) async {
+        // Capture semantic mutation events around the existing writeQuery
+        // behavior (best-effort row capture + ring-buffer storage).
+        await mutationTracker!.captureFromWriteQuery(
+          originalWrite: originalWrite,
+          readQuery: readQueryForMutation,
+          sql: sql,
+        );
+      };
+    }
+
     final ctx = ServerContext(
       query: query,
       corsOrigin: corsOrigin,
@@ -147,9 +166,14 @@ class _DriftDebugServerImpl {
       basicAuthPassword: basicAuthPassword,
       getDatabaseBytes: getDatabaseBytes,
       queryCompare: queryCompare,
-      writeQuery: writeQuery,
+      writeQuery: wrappedWriteQuery,
+      mutationTracker: mutationTracker,
       changeDetectionMinInterval: ServerConstants.changeDetectionMinInterval,
     );
+
+    if (writeQuery != null) {
+      readQueryForMutation = ctx.instrumentedQuery;
+    }
 
     _router = Router(
       ctx,

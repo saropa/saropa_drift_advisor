@@ -10,6 +10,7 @@ import { PendingChangesProvider } from './editing/pending-changes-provider';
 import { FilterBridge } from './filters/filter-bridge';
 import { FilterStore } from './filters/filter-store';
 import { FkNavigator } from './navigation/fk-navigator';
+import { getLogVerbosity, shouldLogEditLine } from './log-verbosity';
 
 export interface EditingSetupResult {
   changeTracker: ChangeTracker;
@@ -29,11 +30,26 @@ export function setupEditing(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
 ): EditingSetupResult {
+  let verbosity = getLogVerbosity();
   const editOutputChannel = vscode.window.createOutputChannel(
     'Saropa Drift Advisor: Data Edits',
   );
   context.subscriptions.push(editOutputChannel);
-  const changeTracker = new ChangeTracker(editOutputChannel);
+  const filteredEditsSink = {
+    appendLine: (msg: string): void => {
+      if (shouldLogEditLine(msg, verbosity)) {
+        editOutputChannel.appendLine(msg);
+      }
+    },
+  };
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('driftViewer.logVerbosity')) {
+        verbosity = getLogVerbosity();
+      }
+    }),
+  );
+  const changeTracker = new ChangeTracker(filteredEditsSink);
   context.subscriptions.push(changeTracker);
   const editingBridge = new EditingBridge(changeTracker);
   context.subscriptions.push(editingBridge);

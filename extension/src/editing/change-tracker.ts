@@ -47,7 +47,27 @@ function timestamp(): string {
 function formatValue(v: unknown): string {
   if (v === null || v === undefined) return 'NULL';
   if (typeof v === 'string') return `"${v}"`;
-  return String(v);
+  if (typeof v === 'object') {
+    try {
+      return JSON.stringify(v);
+    } catch {
+      // Best-effort logging: never break the edit flow.
+      return '"[unserializable object]"';
+    }
+  }
+
+  // Remaining supported primitives.
+  if (
+    typeof v === 'number' ||
+    typeof v === 'boolean' ||
+    typeof v === 'bigint' ||
+    typeof v === 'symbol'
+  ) {
+    return String(v);
+  }
+
+  // Unknown types (e.g. function) should not degrade to `[object Object]`.
+  return '"[unhandled value]"';
 }
 
 /** Describes a single change for logging. */
@@ -91,14 +111,14 @@ export function groupByTable(
 
 export class ChangeTracker implements vscode.Disposable {
   private _changes: PendingChange[] = [];
-  private _undoStack: PendingChange[][] = [];
-  private _redoStack: PendingChange[][] = [];
+  private readonly _undoStack: PendingChange[][] = [];
+  private readonly _redoStack: PendingChange[][] = [];
   private _lastLogMessage = '';
 
   private readonly _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
 
-  constructor(private readonly _out: vscode.OutputChannel) {}
+  constructor(private readonly _out: { appendLine(msg: string): void }) {}
 
   private _log(msg: string): void {
     this._lastLogMessage = msg;

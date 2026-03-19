@@ -133,7 +133,7 @@ export function activate(context: vscode.ExtensionContext): void {
       schemaCache.invalidate();
       providers.toolsProvider.setConnected(false);
       healthStatusBar.hide();
-      toolsQuickPick.setConnected(false);
+      toolsQuickPick.hide();
     }
     refreshStatusBar();
   };
@@ -152,7 +152,11 @@ export function activate(context: vscode.ExtensionContext): void {
     schemaCache.invalidate();
     void vscode.commands.executeCommand('setContext', 'driftViewer.serverConnected', server !== undefined);
     providers.toolsProvider.setConnected(server !== undefined);
-    toolsQuickPick.setConnected(server !== undefined);
+    if (server) {
+      toolsQuickPick.show();
+    } else {
+      toolsQuickPick.hide();
+    }
     if (!server) {
       healthStatusBar.hide();
       treeLoadedLazy = false;

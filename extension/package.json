@@ -559,6 +559,16 @@
         "command": "driftViewer.togglePolling",
         "title": "Saropa Drift Advisor: Toggle Database Polling",
         "icon": "$(radio-tower)"
+      },
+      {
+        "command": "driftViewer.setLogVerbosity",
+        "title": "Saropa Drift Advisor: Log Verbosity",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "driftViewer.openMutationStream",
+        "title": "Saropa Drift Advisor: Open Mutation Stream",
+        "icon": "$(pulse)"
       }
     ],
     "menus": {
@@ -866,6 +876,16 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically scan for running Drift debug servers."
+        },
+        "driftViewer.logVerbosity": {
+          "type": "string",
+          "enum": [
+            "quiet",
+            "normal",
+            "verbose"
+          ],
+          "default": "verbose",
+          "description": "Controls how much runtime information the extension writes to Output → Saropa Drift Advisor channels."
         },
         "driftViewer.discovery.portRangeStart": {
           "type": "number",

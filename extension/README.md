@@ -17,6 +17,7 @@ A **database icon** in the activity bar opens a tree view:
 - Foreign key relationships
 - Right-click: **View Data**, **Copy Name**, **Export CSV**, **Watch Table**
 - Auto-refreshes when the app writes to the database
+- Mutation Stream panel — real-time semantic INSERT/UPDATE/DELETE feed with schema column filtering and row navigation
 
 ### Code Intelligence
 
@@ -125,6 +126,7 @@ All commands are available via the command palette (`Ctrl+Shift+P`):
 | Share Debug Session | Create shareable session URL |
 | Run Schema Linter | Manual linter scan |
 | Show All Tables | QuickPick table selector |
+| Open Mutation Stream | Open the real-time mutation feed panel |
 
 ## Development
 

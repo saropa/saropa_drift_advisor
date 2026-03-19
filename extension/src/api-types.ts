@@ -130,6 +130,24 @@ export interface IImportResult {
   table: string;
 }
 
+// ---- Real-time mutation stream (GET /api/mutations) ----
+export type MutationType = 'insert' | 'update' | 'delete';
+
+export interface MutationEvent {
+  id: number;
+  type: MutationType;
+  table: string;
+  before: Record<string, unknown>[] | null;
+  after: Record<string, unknown>[] | null;
+  sql: string;
+  timestamp: string;
+}
+
+export interface IMutationStreamResponse {
+  events: MutationEvent[];
+  cursor: number;
+}
+
 // ---- Sessions (POST /api/session/*) ----
 
 export interface IAnnotation {

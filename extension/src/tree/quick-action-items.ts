@@ -100,6 +100,8 @@ export function getQuickActionCategories(): ActionCategoryItem[] {
         'Saved SQL snippets'),
       new ActionItem('Global Search', 'driftViewer.globalSearch', 'search',
         'Search across all tables'),
+      new ActionItem('Mutation Stream', 'driftViewer.openMutationStream', 'pulse',
+        'Open real-time INSERT/UPDATE/DELETE mutation feed'),
       new ActionItem('Isar Converter', 'driftViewer.isarToDrift', 'arrow-swap',
         'Convert Isar schema to Drift'),
     ]),

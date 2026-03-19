@@ -9,6 +9,8 @@ import type {
   HealthResponse,
   ICompareReport,
   IDiagramData,
+  IMutationStreamResponse,
+  MutationEvent,
   IMigrationPreview,
   IndexSuggestion,
   PerformanceData,
@@ -68,6 +70,45 @@ export async function httpGeneration(
   if (!resp.ok) throw new Error(`Generation poll failed: ${resp.status}`);
   const data = (await resp.json()) as { generation: number };
   return data.generation;
+}
+
+/** Mutation stream (long-poll). */
+export async function httpMutations(
+  baseUrl: string,
+  headers: ApiHeaders,
+  since: number,
+): Promise<IMutationStreamResponse> {
+  const resp = await fetchWithTimeout(
+    `${baseUrl}/api/mutations?since=${since}`,
+    {
+      headers,
+      timeoutMs: 31000, // match server long-poll timeout behavior
+    },
+  );
+
+  if (!resp.ok) throw new Error(`Mutation poll failed: ${resp.status}`);
+
+  const data = (await resp.json()) as Partial<IMutationStreamResponse> & {
+    events?: unknown;
+  };
+  const events: IMutationStreamResponse['events'] = Array.isArray(
+    data.events,
+  )
+    ? (data.events as unknown[]).filter((e): e is MutationEvent => {
+      return (
+        typeof e === 'object' &&
+        e !== null &&
+        'id' in e &&
+        'type' in e &&
+        'table' in e &&
+        'sql' in e &&
+        'timestamp' in e
+      );
+    })
+    : [];
+  const cursor = typeof data.cursor === 'number' ? data.cursor : since;
+
+  return { events, cursor };
 }
 
 /** Run SQL. */

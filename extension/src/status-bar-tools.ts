@@ -29,6 +29,7 @@ const TOOL_ITEMS: ToolQuickPickItem[] = [
   { label: '$(shield) Invariants', description: 'Manage data invariants', commandId: 'driftViewer.manageInvariants' },
   { label: '$(notebook) Snippet Library', description: 'Saved SQL snippets', commandId: 'driftViewer.openSnippetLibrary' },
   { label: '$(pulse) Query Cost', description: 'Analyze query performance', commandId: 'driftViewer.analyzeQueryCost' },
+  { label: '$(pulse) Mutation Stream', description: 'Open real-time mutation feed', commandId: 'driftViewer.openMutationStream' },
 ];
 
 export class ToolsQuickPickStatusBar implements vscode.Disposable {
@@ -46,13 +47,12 @@ export class ToolsQuickPickStatusBar implements vscode.Disposable {
     // Hidden by default; shown when a server is connected
   }
 
-  /** Show or hide based on server connection state. */
-  setConnected(connected: boolean): void {
-    if (connected) {
-      this._item.show();
-    } else {
-      this._item.hide();
-    }
+  show(): void {
+    this._item.show();
+  }
+
+  hide(): void {
+    this._item.hide();
   }
 
   dispose(): void {

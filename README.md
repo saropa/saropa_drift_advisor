@@ -115,6 +115,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 - **Right-click menus** — view data, copy name, export CSV, watch, compare rows, profile column, seed, clear, pin, annotate
 - **Status bar** — connection state, multi-server selector, auto-discovery (ports 8642–8649)
 - **Polling toggle** — enable/disable change detection from the Drift Tools sidebar (VM service or HTTP)
+- **Mutation Stream** — real-time semantic INSERT/UPDATE/DELETE feed with column-value filtering and row navigation
 - **File decoration badges** — row counts on Drift table files in the Explorer
 
 #### Code Intelligence

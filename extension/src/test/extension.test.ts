@@ -106,7 +106,7 @@ describe('Extension activation', () => {
     // Snapshot/explain: onDidChangeActiveTextEditor, onDidChangeTextEditorSelection, debounce dispose (3)
     // Log Capture integration: session-end export + optional API (1)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 181, `expected 181 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 186, `expected 186 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

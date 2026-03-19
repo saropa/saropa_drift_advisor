@@ -16,6 +16,12 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
 
 ---
+## [Unreleased]
+### Added
+- **Mutation Stream (VS Code)** — Added a semantic event feed openable from the **Drift Tools** status menu / **Database → Quick Actions**, with **column-value filtering** (schema column dropdown + match value).
+
+### Improved
+- **Mutation Stream UX** — Debounced filter inputs, added a schema-loading placeholder, and made pause/resume feel immediate.
 
 ## [2.7.0]
 

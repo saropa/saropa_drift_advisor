@@ -10,6 +10,7 @@ import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'server_constants.dart';
+import 'mutation_tracker.dart';
 import 'server_typedefs.dart';
 import 'server_types.dart';
 import 'server_utils.dart';
@@ -42,6 +43,7 @@ final class ServerContext {
     this.getDatabaseBytes,
     this.queryCompare,
     this.writeQuery,
+    this.mutationTracker,
     this.changeDetectionMinInterval,
   }) : queryRaw = query;
 
@@ -90,6 +92,10 @@ final class ServerContext {
   /// Optional write-query callback for import endpoint;
   /// null = import disabled (501).
   final DriftDebugWriteQuery? writeQuery;
+
+  /// Optional mutation tracker that captures semantic mutation events
+  /// triggered via the configured [writeQuery] callback.
+  final MutationTracker? mutationTracker;
 
   /// In-memory snapshot: id, createdAt, and full table
   /// data per table.

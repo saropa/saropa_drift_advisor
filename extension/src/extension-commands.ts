@@ -42,10 +42,11 @@ import { registerRollbackCommands } from './rollback/rollback-commands';
 import { registerAboutCommands } from './about/about-commands';
 import { registerPollingCommands } from './polling/polling-commands';
 import { registerSaropaLintsCommands } from './saropa-lints-commands';
+import { registerMutationStreamCommands } from './mutation-stream/mutation-stream-commands';
 import { HealthScorer } from './health/health-scorer';
-import { updateStatusBar } from './status-bar';
 import type { HealthStatusBar } from './status-bar-health';
 import type { SchemaTracker } from './schema-timeline/schema-tracker';
+import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 
 export interface CommandRegistrationDeps extends ProviderSetupResult, EditingSetupResult {
   annotationStore: AnnotationStore;
@@ -70,6 +71,16 @@ export function registerAllCommands(
   client: DriftApiClient,
   deps: CommandRegistrationDeps,
 ): void {
+  let logVerbosity = getLogVerbosity(
+    vscode.workspace.getConfiguration('driftViewer'),
+  );
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('driftViewer.logVerbosity')) {
+        logVerbosity = getLogVerbosity(vscode.workspace.getConfiguration('driftViewer'));
+      }
+    }),
+  );
   const {
     treeProvider,
     treeView,
@@ -86,10 +97,8 @@ export function registerAllCommands(
     filterBridge,
     changeTracker,
     annotationStore,
-    statusItem,
     discovery,
     serverManager,
-    discoveryEnabled,
     watcher,
     updateStatusBar,
     connectionChannel,
@@ -100,6 +109,48 @@ export function registerAllCommands(
   // About commands (no deps) are registered first so the Database view (i) icon
   // works even if a later feature module fails to register.
   registerAboutCommands(context);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.setLogVerbosity',
+      async () => {
+        const cfg = vscode.workspace.getConfiguration('driftViewer');
+        const current = cfg.get<string>('logVerbosity', 'verbose') ?? 'verbose';
+
+        const items: Array<vscode.QuickPickItem & { value: string }> = [
+          {
+            label: 'quiet',
+            description: 'Only errors + important connection events',
+            value: 'quiet',
+          },
+          {
+            label: 'normal',
+            description: 'Reduce noise; keep important lines',
+            value: 'normal',
+          },
+          {
+            label: 'verbose',
+            description: 'Most runtime information (default)',
+            value: 'verbose',
+          },
+        ];
+
+        const pick = await vscode.window.showQuickPick(items, {
+          placeHolder: `Select log verbosity (current: ${current})`,
+        });
+        if (!pick) return;
+
+        await cfg.update(
+          'logVerbosity',
+          pick.value,
+          vscode.ConfigurationTarget.Workspace,
+        );
+        void vscode.window.showInformationMessage(
+          `Saropa Drift Advisor log verbosity set to: ${pick.value}`,
+        );
+      },
+    ),
+  );
 
   // Debug commands (VM Service connection, debug session lifecycle) are
   // registered next because they are critical for server connectivity.
@@ -120,7 +171,13 @@ export function registerAllCommands(
     watchManager,
     refreshBadges,
     refreshStatusBar: updateStatusBar,
-    connectionLog: { appendLine: (msg) => connectionChannel.appendLine(msg) },
+    connectionLog: {
+      appendLine: (msg) => {
+        if (shouldLogConnectionLine(msg, logVerbosity)) {
+          connectionChannel.appendLine(msg);
+        }
+      },
+    },
   });
 
   // Feature command modules — each is isolated so one failing module does not
@@ -128,6 +185,7 @@ export function registerAllCommands(
   const featureModules: Array<[string, () => void]> = [
     ['tree', () => registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager)],
     ['nav', () => registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge, connectionChannel)],
+    ['mutationStream', () => registerMutationStreamCommands(context, client, editingBridge, fkNavigator, filterBridge)],
     ['snapshot', () => registerSnapshotCommands(context, client, snapshotStore)],
     ['schemaDiff', () => registerSchemaDiffCommands(context, client)],
     ['editing', () => registerEditingCommands(context, client, changeTracker, watchManager)],

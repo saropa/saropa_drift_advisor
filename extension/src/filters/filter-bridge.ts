@@ -80,6 +80,44 @@ export class FilterBridge implements vscode.Disposable {
     this._webview = undefined;
   }
 
+  /**
+   * Programmatically apply an ad-hoc WHERE clause to the currently
+   * attached Data Viewer webview.
+   *
+   * This powers features like "Mutation Stream → View Row" without
+   * creating a persisted saved filter.
+   */
+  async applyWhereFilter(args: {
+    table: string;
+    name: string;
+    where: string;
+  }): Promise<void> {
+    if (!this._webview) return;
+
+    const filter: ISavedFilter = {
+      id: `ad-hoc-${Date.now()}`,
+      name: args.name,
+      table: args.table,
+      where: args.where,
+      createdAt: 0,
+      updatedAt: 0,
+    };
+
+    try {
+      const sql = `SELECT * FROM ${q(args.table)} WHERE ${args.where}`;
+      const result = await this._client.sql(sql);
+      this._post({
+        command: 'filterApplied',
+        filter,
+        rows: result.rows,
+        columns: result.columns,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this._post({ command: 'filterError', error: message });
+    }
+  }
+
   // --- Private handlers ---
 
   private _handleGetFilters(table: string): void {

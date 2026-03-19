@@ -8,6 +8,7 @@ import type { FkNavigator } from '../navigation/fk-navigator';
 import type { ServerManager } from '../server-manager';
 import type { ServerDiscovery } from '../server-discovery';
 import { DriftViewerPanel } from '../panel';
+import { getLogVerbosity, shouldLogConnectionLine } from '../log-verbosity';
 
 /** Register navigation, linter, and discovery commands. */
 export function registerNavCommands(
@@ -22,9 +23,23 @@ export function registerNavCommands(
   connectionChannel: vscode.OutputChannel,
 ): void {
   // Timestamped log to connection output channel for welcome-view and status-bar commands.
+  let verbosity = getLogVerbosity(
+    vscode.workspace.getConfiguration('driftViewer'),
+  );
   const log = (msg: string): void => {
-    connectionChannel.appendLine(`[${new Date().toISOString()}] ${msg}`);
+    const line = `[${new Date().toISOString()}] ${msg}`;
+    if (shouldLogConnectionLine(line, verbosity)) {
+      connectionChannel.appendLine(line);
+    }
   };
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('driftViewer.logVerbosity')) {
+        verbosity = getLogVerbosity(vscode.workspace.getConfiguration('driftViewer'));
+      }
+    }),
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInBrowser', async () => {
