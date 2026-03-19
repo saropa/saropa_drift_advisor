@@ -21,6 +21,10 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 Single issues API and capability discovery for Saropa Lints and other consumers.
 
+### Improved
+
+- **Log Capture integration (extension)** — Session-end flow now uses a single parallel fetch for full mode (no duplicate `performance()` call). Header-only mode still fetches only performance. Shared helpers (`severityToString`, `toWorkspaceRelativePath`, `LOG_CAPTURE_SESSION_TIMEOUT_MS`) exported from the bridge and reused by the public API to remove duplication. Extension test disposable count updated to 181 with a brief comment for the Log Capture subscription.
+
 ### Added
 
 - **GET /api/issues** — Merged endpoint returning index suggestions and data-quality anomalies in one stable JSON shape. Optional `sources` query param (`index-suggestions`, `anomalies`) to filter. Enables IDE integrations (e.g. Saropa Lints) to use one request instead of separate index-suggestions and anomalies calls.

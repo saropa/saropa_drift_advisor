@@ -104,8 +104,9 @@ describe('Extension activation', () => {
     // Troubleshooting: showTroubleshooting (1)
     // Package status monitor: packageMonitor, onDidChangeInstalled listener (2)
     // Snapshot/explain: onDidChangeActiveTextEditor, onDidChangeTextEditorSelection, debounce dispose (3)
+    // Log Capture integration: session-end export + optional API (1)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 180, `expected 180 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 181, `expected 181 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
