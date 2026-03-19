@@ -1,8 +1,19 @@
-# Feature 47: Bulk Edit Grid
+# Feature 47: Bulk Edit Grid (Extension + Web UI)
+
+**Supersedes:** BUG-013 (13-no-web-ui-write-operations.md)
 
 ## What It Does
 
-A spreadsheet-like inline editor for table data. Click any cell to edit its value, add new rows, delete rows, and batch-commit all changes as a single transaction. Preview the generated SQL before executing. Undo/redo support within the editing session.
+A spreadsheet-like inline editor for table data across both the **VS Code extension** and the **web UI**. Click any cell to edit its value, add new rows, delete rows, and commit changes (batch in the extension; single-row or small batch in the web UI). Preview the generated SQL before executing. Undo/redo support in the extension; explicit Save/Cancel in the web UI.
+
+## Scope: Two Surfaces
+
+| Surface | Capability |
+|--------|-------------|
+| **Extension** | Full bulk-edit grid: multi-cell edits, add/delete rows, batch commit, undo/redo, SQL preview. |
+| **Web UI** | Inline cell editing when `writeQuery` is configured: single-cell or single-row edit at a time, explicit Save/Cancel, delete with confirmation. Edit/delete only shown when server reports write capability. |
+
+The web UI is currently read-only; this plan includes parity so browser-only users get write capability (see [Web UI parity](#web-ui-parity-bug-013)).
 
 ## User Experience
 
@@ -55,6 +66,59 @@ Commit 3 Changes?
   [Preview SQL]  [Cancel]  [Commit]
 ```
 
+---
+
+## Web UI parity (BUG-013)
+
+**Component:** Web UI · **File:** `lib/src/server/html_content.dart` · **Severity:** Significant
+
+### Problem
+
+The web UI is entirely read-only for data browsing. Even when the server is started with a `writeQuery` callback (which enables the import endpoint), there is no inline cell editing, row insertion, or row deletion in the web UI. Browser-only users have no write capability beyond the import feature.
+
+### Impact
+
+- Users debugging data issues cannot quickly fix a value without writing SQL.
+- Inline editing would be far more convenient than import for single-row fixes.
+- Browser-only users have a significantly reduced feature set compared to extension users.
+
+### Expected behavior (web UI)
+
+- When `writeQuery` is configured, allow inline cell editing in the data table.
+- Double-click a cell to enter edit mode.
+- Show a save/cancel button pair on the edited row.
+- Track pending changes visually (highlight modified cells).
+- Require explicit "Save" action (no auto-save to prevent accidents).
+- Confirmation dialog for destructive changes (DELETE), including row identity (e.g. "Delete row where id = 42?").
+- Escape cancels the current cell edit and reverts to the original value.
+- When leaving the table/tab or refreshing with unsaved changes: "You have unsaved changes. Leave anyway?"
+
+Edit and delete controls must only be shown when the server reports write capability (see Safeguards).
+
+### Safeguards (both extension and web UI)
+
+1. **Capability check** — Expose write capability in `/api/health` (e.g. `writeEnabled: true` when `writeQuery` is set). UI shows edit/delete only when writes are allowed; avoids dead buttons and 501 when not configured.
+
+2. **Single edit at a time (web UI v1)** — In the web UI, allow only one cell (or one row) in edit mode; user must Save or Cancel before starting another edit.
+
+3. **Primary key required** — Only allow updates/deletes when the table has a clear primary key. Disable or hide edit/delete for tables without safe row identity.
+
+4. **Read-only columns** — Do not allow editing of computed/generated or server-marked read-only columns.
+
+5. **Validation before Save** — Validate types and constraints in the UI before sending; show inline errors. Optionally surface server validation errors instead of a generic "Save failed."
+
+6. **Unsaved-changes prompt** — On table change, tab switch, or refresh: if there are unsaved changes, confirm before leaving.
+
+7. **Esc to cancel** — Escape cancels the current cell edit and reverts to the original value.
+
+8. **DELETE confirmation copy** — In the DELETE dialog, include the row's primary key or a short summary (e.g. "Delete row where id = 42?").
+
+9. **No bulk delete in web UI v1** — Only single-row delete (e.g. row action or context menu). Defer multi-select bulk delete to a later iteration.
+
+10. **Parameterized writes on server** — Any write endpoint must build SQL from parameters (table, primary key, column names from schema), not raw user SQL. Preserves the read-only-SQL + writeQuery model and avoids injection.
+
+---
+
 ## New Files
 
 ```
@@ -68,6 +132,11 @@ extension/src/
 extension/src/test/
   change-tracker.test.ts
   sql-generator.test.ts
+
+# Web UI parity (BUG-013)
+lib/src/server/
+  html_content.dart            # Add inline edit UI when writeEnabled; save/cancel, delete with confirmation
+# Server: expose writeEnabled in /api/health when writeQuery is set
 ```
 
 ## Dependencies

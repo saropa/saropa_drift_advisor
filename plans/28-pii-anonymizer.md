@@ -1,10 +1,60 @@
-# Feature 28: Data Masking / PII Anonymizer
+# Plan 15/28: PII Masking & Data Anonymizer
 
-## What It Does
+This document merges **BUG-015** (no PII masking in web UI/exports) and **Feature 28** (PII anonymizer for export). Together they cover: (1) safe viewing—mask PII in the UI and exports; (2) safe sharing—anonymize the dataset and export fake data.
+
+---
+
+## Problem (from BUG-015)
+
+There is no mechanism to detect or redact personally identifiable information (PII) in the web UI or exports. When debugging with production-like data, sensitive columns (emails, passwords, tokens, phone numbers, addresses) are displayed in plain text and included in exports.
+
+**Requirement:** PII masking must be controlled by a **user toggle** (e.g. in the UI header). Without a toggle, users cannot choose when to see real data for debugging vs. when to mask for safety—always-on or always-off masking would be very confusing.
+
+### Impact
+
+- Teams debugging with production-mirror data risk exposing PII on shared screens or in exported files
+- No compliance support for GDPR, CCPA, or similar data protection regulations
+- Screenshots of the debug UI may inadvertently contain sensitive data
+- Exported CSV/SQL dumps include all data unmasked
+
+### Steps to Reproduce
+
+1. Start the debug server with a database containing user PII (email, phone, password hashes)
+2. Open the web UI and browse the users table
+3. Observe: all PII columns displayed in plain text
+4. Export as CSV — all PII included unmasked
+
+---
+
+## Implementation Status
+
+### Web UI / Server (BUG-015) — Partial
+
+**Done:** User toggle "Mask data" in the UI header; auto-detect PII columns by name (email, password, phone, ssn, token, secret, api_key, address); mask values in table display and in Table CSV export when toggle is on; copy button and cell popup show masked value when on; re-render on toggle.
+
+**Not done:** Server-side configuration of columns to always mask; `.drift-mask.json` config file.
+
+**Component:** Web UI / Server  
+**Files:** `lib/src/server/html_content.dart`, `lib/src/server/table_handler.dart`
+
+### Expected Behavior (Web UI)
+
+- **Toggle required:** A clear "Mask sensitive data" (or similar) toggle in the UI header so users can turn masking on or off.
+- Auto-detect common PII column patterns (email, password, phone, ssn, token, secret, api_key) via column name heuristics
+- When the toggle is *on*, mask values with partial redaction (e.g., "j***@example.com", "***-***-1234")
+- Allow server-side configuration of columns to always mask
+- Apply masking to exports as well as the UI display
+- Consider a `.drift-mask.json` config file for persistent masking rules
+
+---
+
+## Feature 28: Data Anonymizer (Extension)
+
+### What It Does
 
 One-click anonymize sensitive data in the debug database. Auto-detect PII columns (email, name, phone, SSN, address) via column name patterns and replace with realistic fakes while preserving referential integrity and data distribution shape. Export the anonymized data as SQL, JSON, or a portable report.
 
-## User Experience
+### User Experience
 
 1. Command palette → "Saropa Drift Advisor: Anonymize Database" or right-click snapshot → "Export Anonymized"
 2. A configuration panel opens showing detected PII columns:
@@ -49,7 +99,7 @@ One-click anonymize sensitive data in the debug database. Auto-detect PII column
 5. Click "Anonymize All" → generates output in chosen format
 6. SQL output opens in editor tab; JSON saves to file; Portable Report opens in browser
 
-## New Files
+### New Files
 
 ```
 extension/src/
@@ -65,7 +115,7 @@ extension/src/test/
   anonymizer-formatter.test.ts
 ```
 
-## Dependencies
+### Dependencies
 
 - `api-client.ts` — `schemaMetadata()`, `tableFkMeta()`, `sql()` for data reading
 - `data-management/dependency-sorter.ts` (from Feature 20a) — FK-ordered export to maintain referential integrity
@@ -341,7 +391,9 @@ Output in editor tab or file
 
 ## Server-Side Changes
 
-None. Uses existing `schemaMetadata()`, `tableFkMeta()`, and `sql()` endpoints. All anonymization runs extension-side.
+None for the anonymizer. It uses existing `schemaMetadata()`, `tableFkMeta()`, and `sql()` endpoints. All anonymization runs extension-side.
+
+For **web UI masking** (BUG-015), server/UI changes are in `lib/src/server/html_content.dart` and `lib/src/server/table_handler.dart`; remaining work: server-side configuration of columns to always mask and `.drift-mask.json` config file.
 
 ## package.json Contributions
 
@@ -506,6 +558,13 @@ PII Anonymizer runs
     ▼
 Report generated with masked data
 ```
+
+---
+
+## Remaining from BUG-015 (Web UI / Server)
+
+- **Server-side configuration** of columns to always mask (independent of toggle).
+- **`.drift-mask.json`** config file for persistent masking rules (shared or separate from extension anonymizer config as needed).
 
 ---
 
