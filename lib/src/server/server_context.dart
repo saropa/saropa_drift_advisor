@@ -149,8 +149,7 @@ final class ServerContext {
   /// cycle has completed yet. Keyed by table name,
   /// values are row counts. Callers should fall back
   /// to a fresh query when this returns null.
-  Map<String, int>? get cachedTableCounts =>
-      _cachedTableCounts;
+  Map<String, int>? get cachedTableCounts => _cachedTableCounts;
 
   /// Clears the cached table name list and row counts
   /// so the next [checkDataChange] call re-queries
@@ -452,8 +451,7 @@ final class ServerContext {
     // checkDataChange) to avoid an extra sqlite_master
     // query on every single-table endpoint call.
     final List<String> allowed =
-        _cachedTableNames ??
-        await ServerUtils.getTableNames(queryFn);
+        _cachedTableNames ?? await ServerUtils.getTableNames(queryFn);
 
     if (!allowed.contains(tableName)) {
       response.statusCode = HttpStatus.badRequest;

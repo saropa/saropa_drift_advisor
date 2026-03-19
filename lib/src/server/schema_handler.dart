@@ -152,8 +152,7 @@ final class SchemaHandler {
     // Prefer cached table names to avoid a redundant
     // sqlite_master query.
     final tableNames =
-        _ctx.cachedTableNames ??
-        await ServerUtils.getTableNames(query);
+        _ctx.cachedTableNames ?? await ServerUtils.getTableNames(query);
 
     // Use cached counts from the last checkDataChange
     // cycle to avoid N individual COUNT(*) queries.
@@ -170,8 +169,7 @@ final class SchemaHandler {
       // Use cached count if available; otherwise fall
       // back to a per-table COUNT(*) query.
       final int count;
-      if (cachedCounts != null &&
-          cachedCounts.containsKey(tableName)) {
+      if (cachedCounts != null && cachedCounts.containsKey(tableName)) {
         count = cachedCounts[tableName]!;
       } else {
         final countRows = ServerUtils.normalizeRows(

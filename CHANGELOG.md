@@ -17,7 +17,7 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
-## [Unreleased]
+## [2.6.0]
 
 Web UI: table tabs, self-contained Search tab, and collapsible sidebar for faster multi-table workflows.
 
@@ -73,7 +73,7 @@ Web UI: table tabs, self-contained Search tab, and collapsible sidebar for faste
 
 ---
 
-## [2.5.0]
+## [2.6.0]
 
 Extension: shared schema cache, configurable performance/lightweight modes, and safer schema search. Web UI: connection banner improvements and zero runtime dependencies for the Dart package.
 

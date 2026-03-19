@@ -567,6 +567,7 @@ body.theme-light .feature-card.expanded {
   display: flex;
   align-items: center;
 }
+
 .table-pin-btn .material-symbols-outlined {
   font-size: 1rem;
 }
@@ -575,6 +576,7 @@ body.theme-light .feature-card.expanded {
 .table-list li:hover .table-pin-btn {
   opacity: 0.5;
 }
+
 /* Full opacity when hovering the button itself */
 .table-list li:hover .table-pin-btn:hover {
   opacity: 1;
@@ -586,6 +588,7 @@ body.theme-light .feature-card.expanded {
   opacity: 0.8;
   color: var(--link);
 }
+
 .table-pin-btn.pinned:hover {
   opacity: 1;
 }
@@ -603,7 +606,6 @@ body.theme-light .feature-card.expanded {
     opacity: 0.4;
   }
 }
-
 /* Tables browse panel: grid of clickable table cards inside the Tables tab */
 .tables-browse {
   padding: 1rem;
@@ -626,8 +628,8 @@ body.theme-light .feature-card.expanded {
   background: var(--surface);
   color: var(--link);
   text-decoration: none;
-  text-align: left;        /* button reset */
-  font-family: inherit;    /* button reset */
+  text-align: left; /* button reset */
+  font-family: inherit; /* button reset */
   font-size: var(--text-sm);
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -1539,14 +1541,6 @@ body.theme-light #live-indicator.connection-status {
 .chart-legend {
   font-size: var(--text-min-readable);
   fill: var(--fg);
-}
-
-/* Dimmed italic NULL indicator for database null values (matches DBeaver/DataGrip/pgAdmin convention) */
-.cell-null {
-  color: var(--muted);
-  font-style: italic;
-  opacity: 0.6;
-  user-select: none;
 }
 
 .cell-raw {

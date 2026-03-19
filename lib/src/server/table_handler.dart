@@ -38,15 +38,13 @@ final class TableHandler {
     // checkDataChange) to avoid a redundant
     // sqlite_master query.
     final List<String> names =
-        _ctx.cachedTableNames ??
-        await ServerUtils.getTableNames(query);
+        _ctx.cachedTableNames ?? await ServerUtils.getTableNames(query);
 
     // Include cached row counts so the web UI does
     // not need to fire individual count requests.
     // Empty map when counts are not yet available
     // (before the first checkDataChange cycle).
-    final Map<String, int> counts =
-        _ctx.cachedTableCounts ?? <String, int>{};
+    final Map<String, int> counts = _ctx.cachedTableCounts ?? <String, int>{};
 
     _ctx.setJsonHeaders(res);
     res.write(
