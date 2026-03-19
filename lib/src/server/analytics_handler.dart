@@ -225,13 +225,13 @@ final class AnalyticsHandler {
     try {
       final result = await getIssuesList(query, sources: sources);
       if (result.containsKey(ServerConstants.jsonKeyError)) {
+        final rawError = result[ServerConstants.jsonKeyError];
         res.statusCode = HttpStatus.internalServerError;
         res.headers.contentType = ContentType.json;
         _ctx.setCors(res);
         res.write(
           jsonEncode(<String, String>{
-            ServerConstants.jsonKeyError:
-                result[ServerConstants.jsonKeyError] as String,
+            ServerConstants.jsonKeyError: rawError?.toString() ?? 'Unknown error',
           }),
         );
       } else {

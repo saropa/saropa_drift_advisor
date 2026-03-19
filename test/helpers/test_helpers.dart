@@ -4,9 +4,13 @@
 // and factory functions to reduce duplication across test files.
 
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:saropa_drift_advisor/src/server/server_context.dart';
+
+/// Network timeout used by test HTTP helpers so hanging sockets fail fast.
+const Duration _kHttpRequestTimeout = Duration(seconds: 30);
 
 /// Creates a minimal [ServerContext] for handler unit tests.
 ///
@@ -124,7 +128,10 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
     if (sql.contains('PRAGMA table_info')) {
       final match = RegExp(r'PRAGMA table_info\("?(\w+)"?\)').firstMatch(sql);
       if (match != null) {
-        final tableName = match.group(1)!;
+        final tableName = match.group(1);
+        if (tableName == null || tableName.isEmpty) {
+          return <Map<String, dynamic>>[];
+        }
         final cols = tableColumns[tableName];
         if (cols != null) {
           return cols
@@ -153,7 +160,10 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
           r'PRAGMA foreign_key_list\("?(\w+)"?\)',
         ).firstMatch(sql);
         if (match != null) {
-          final tableName = match.group(1)!;
+          final tableName = match.group(1);
+          if (tableName == null || tableName.isEmpty) {
+            return <Map<String, dynamic>>[];
+          }
           return tableForeignKeys[tableName] ?? <Map<String, dynamic>>[];
         }
       }
@@ -165,7 +175,10 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
       if (tableIndexes != null) {
         final match = RegExp(r'PRAGMA index_list\("?(\w+)"?\)').firstMatch(sql);
         if (match != null) {
-          final tableName = match.group(1)!;
+          final tableName = match.group(1);
+          if (tableName == null || tableName.isEmpty) {
+            return <Map<String, dynamic>>[];
+          }
           return tableIndexes[tableName] ?? <Map<String, dynamic>>[];
         }
       }
@@ -178,7 +191,10 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
       if (indexInfoColumns != null) {
         final match = RegExp(r'PRAGMA index_info\("([^"]+)"\)').firstMatch(sql);
         if (match != null) {
-          final idxName = match.group(1)!;
+          final idxName = match.group(1);
+          if (idxName == null || idxName.isEmpty) {
+            return <Map<String, dynamic>>[];
+          }
           final cols = indexInfoColumns[idxName] ?? [];
           return cols
               .asMap()
@@ -248,18 +264,27 @@ Future<({int status, dynamic body})> httpGet(
 }) async {
   final client = HttpClient();
   try {
-    final req = await client.get('localhost', port, path);
+    final req = await client
+        .get('localhost', port, path)
+        .timeout(_kHttpRequestTimeout);
     if (headers != null) {
       for (final entry in headers.entries) {
         req.headers.set(entry.key, entry.value);
       }
     }
-    final resp = await req.close();
+    final resp = await req.close().timeout(_kHttpRequestTimeout);
     final bodyStr = await resp.transform(utf8.decoder).join();
     dynamic decoded;
     try {
       decoded = jsonDecode(bodyStr);
-    } on FormatException {
+    } on FormatException catch (error, stack) {
+      // Tests also validate non-JSON responses, so keep raw payload fallback.
+      developer.log(
+        'GET helper received non-JSON response body.',
+        name: 'saropa_drift_advisor.test_helpers',
+        error: error,
+        stackTrace: stack,
+      );
       // Non-JSON response (e.g. HTML, plain text).
       decoded = bodyStr;
     }
@@ -280,7 +305,9 @@ Future<({int status, dynamic body})> httpPost(
 }) async {
   final client = HttpClient();
   try {
-    final req = await client.post('localhost', port, path);
+    final req = await client
+        .post('localhost', port, path)
+        .timeout(_kHttpRequestTimeout);
     req.headers.contentType = contentType ?? ContentType.json;
     if (headers != null) {
       for (final entry in headers.entries) {
@@ -292,12 +319,18 @@ Future<({int status, dynamic body})> httpPost(
     } else if (rawBody != null) {
       req.write(rawBody);
     }
-    final resp = await req.close();
+    final resp = await req.close().timeout(_kHttpRequestTimeout);
     final bodyStr = await resp.transform(utf8.decoder).join();
     dynamic decoded;
     try {
       decoded = jsonDecode(bodyStr);
-    } on FormatException {
+    } on FormatException catch (error, stack) {
+      developer.log(
+        'POST helper received non-JSON response body.',
+        name: 'saropa_drift_advisor.test_helpers',
+        error: error,
+        stackTrace: stack,
+      );
       decoded = bodyStr;
     }
     return (status: resp.statusCode, body: decoded);
@@ -314,18 +347,26 @@ Future<({int status, dynamic body})> httpDelete(
 }) async {
   final client = HttpClient();
   try {
-    final req = await client.delete('localhost', port, path);
+    final req = await client
+        .delete('localhost', port, path)
+        .timeout(_kHttpRequestTimeout);
     if (headers != null) {
       for (final entry in headers.entries) {
         req.headers.set(entry.key, entry.value);
       }
     }
-    final resp = await req.close();
+    final resp = await req.close().timeout(_kHttpRequestTimeout);
     final bodyStr = await resp.transform(utf8.decoder).join();
     dynamic decoded;
     try {
       decoded = jsonDecode(bodyStr);
-    } on FormatException {
+    } on FormatException catch (error, stack) {
+      developer.log(
+        'DELETE helper received non-JSON response body.',
+        name: 'saropa_drift_advisor.test_helpers',
+        error: error,
+        stackTrace: stack,
+      );
       decoded = bodyStr;
     }
     return (status: resp.statusCode, body: decoded);

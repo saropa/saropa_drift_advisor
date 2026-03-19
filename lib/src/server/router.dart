@@ -776,7 +776,8 @@ final class Router {
       final body = utf8.decode(builder.toBytes());
       final decoded = ServerUtils.parseJsonMap(body);
 
-      if (decoded == null || decoded[ServerConstants.jsonKeyEnabled] is! bool) {
+      final enabledValue = decoded?[ServerConstants.jsonKeyEnabled];
+      if (enabledValue is! bool) {
         res.statusCode = HttpStatus.badRequest;
         _ctx.setJsonHeaders(res);
         res.write(
@@ -792,7 +793,7 @@ final class Router {
         return;
       }
 
-      final enabled = decoded[ServerConstants.jsonKeyEnabled] as bool;
+      final enabled = enabledValue;
       _ctx.changeDetectionEnabled = enabled;
 
       _ctx.setJsonHeaders(res);

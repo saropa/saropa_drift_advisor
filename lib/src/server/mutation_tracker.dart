@@ -12,6 +12,7 @@
  */
 
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'server_typedefs.dart';
 
@@ -69,7 +70,14 @@ class MutationTracker {
 
     try {
       await completer.future.timeout(timeout);
-    } on TimeoutException {
+    } on TimeoutException catch (error, stack) {
+      // Timeout is expected for long-poll clients; log at trace level context.
+      developer.log(
+        'No mutation event arrived before timeout.',
+        name: 'saropa_drift_advisor.mutation_tracker',
+        error: error,
+        stackTrace: stack,
+      );
       if (!completer.isCompleted) completer.complete();
     } finally {
       _waiters.remove(completer);
@@ -128,7 +136,14 @@ class MutationTracker {
           );
         }
       }
-    } catch (_) {
+    } on Object catch (error, stack) {
+      // Log best-effort capture failures so silent mutation losses are visible.
+      developer.log(
+        'Mutation capture failed for table "$table".',
+        name: 'saropa_drift_advisor.mutation_tracker',
+        error: error,
+        stackTrace: stack,
+      );
       // Don't prevent the caller from seeing writeQuery errors.
       // Still record the mutation so the UI can show what failed.
       _recordEvent(
@@ -187,8 +202,15 @@ class MutationTracker {
   }) async {
     try {
       final sql = 'SELECT * FROM "$table" WHERE $whereClause';
-      return readQuery(sql);
-    } on Object {
+      return await readQuery(sql);
+    } on Object catch (error, stack) {
+      // Capture is optional; log and continue when snapshot reads fail.
+      developer.log(
+        'Failed to capture rows by WHERE clause for table "$table".',
+        name: 'saropa_drift_advisor.mutation_tracker',
+        error: error,
+        stackTrace: stack,
+      );
       return null;
     }
   }
@@ -201,8 +223,15 @@ class MutationTracker {
       // Capture a single row (best-effort). For multi-row inserts, this will
       // only reflect the last inserted row.
       final sql = 'SELECT * FROM "$table" WHERE rowid = last_insert_rowid()';
-      return readQuery(sql);
-    } on Object {
+      return await readQuery(sql);
+    } on Object catch (error, stack) {
+      // Capture is optional; log and continue when post-insert lookup fails.
+      developer.log(
+        'Failed to capture inserted row for table "$table".',
+        name: 'saropa_drift_advisor.mutation_tracker',
+        error: error,
+        stackTrace: stack,
+      );
       return null;
     }
   }

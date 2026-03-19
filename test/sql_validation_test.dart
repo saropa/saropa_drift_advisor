@@ -15,7 +15,7 @@ import 'package:saropa_drift_advisor/src/server/sql_validator.dart';
 void main() {
   group('SqlValidator.isReadOnlySql', () {
     group('valid read-only queries', () {
-      test('simple SELECT', () {
+      test('accepts simple SELECT as read-only', () {
         expect(SqlValidator.isReadOnlySql('SELECT * FROM users'), isTrue);
       });
 
@@ -143,30 +143,30 @@ void main() {
         );
       });
 
-      test('CREATE TABLE', () {
+      test('rejects CREATE TABLE as non-read-only', () {
         expect(SqlValidator.isReadOnlySql('CREATE TABLE x (id INT)'), isFalse);
       });
 
-      test('DROP TABLE', () {
+      test('rejects DROP TABLE as non-read-only', () {
         expect(SqlValidator.isReadOnlySql('DROP TABLE users'), isFalse);
       });
 
-      test('ALTER TABLE', () {
+      test('rejects ALTER TABLE as non-read-only', () {
         expect(
           SqlValidator.isReadOnlySql('ALTER TABLE users ADD COLUMN age INT'),
           isFalse,
         );
       });
 
-      test('PRAGMA', () {
+      test('rejects PRAGMA as non-read-only', () {
         expect(SqlValidator.isReadOnlySql('PRAGMA table_info(users)'), isFalse);
       });
 
-      test('VACUUM', () {
+      test('rejects VACUUM as non-read-only', () {
         expect(SqlValidator.isReadOnlySql('VACUUM'), isFalse);
       });
 
-      test('REPLACE INTO', () {
+      test('rejects REPLACE INTO as non-read-only', () {
         expect(
           SqlValidator.isReadOnlySql('REPLACE INTO users (id) VALUES (1)'),
           isFalse,
@@ -184,15 +184,15 @@ void main() {
         expect(SqlValidator.isReadOnlySql('DETACH DATABASE test'), isFalse);
       });
 
-      test('ANALYZE', () {
+      test('rejects ANALYZE as non-read-only', () {
         expect(SqlValidator.isReadOnlySql('ANALYZE users'), isFalse);
       });
 
-      test('REINDEX', () {
+      test('rejects REINDEX as non-read-only', () {
         expect(SqlValidator.isReadOnlySql('REINDEX users'), isFalse);
       });
 
-      test('TRUNCATE', () {
+      test('rejects TRUNCATE TABLE as non-read-only', () {
         expect(SqlValidator.isReadOnlySql('TRUNCATE TABLE users'), isFalse);
       });
     });

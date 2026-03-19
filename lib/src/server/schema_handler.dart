@@ -169,8 +169,9 @@ final class SchemaHandler {
       // Use cached count if available; otherwise fall
       // back to a per-table COUNT(*) query.
       final int count;
-      if (cachedCounts != null && cachedCounts.containsKey(tableName)) {
-        count = cachedCounts[tableName]!;
+      final cachedCount = cachedCounts?[tableName];
+      if (cachedCount != null) {
+        count = cachedCount;
       } else {
         final countRows = ServerUtils.normalizeRows(
           await query(

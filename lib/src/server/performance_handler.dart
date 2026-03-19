@@ -15,7 +15,7 @@ final class PerformanceHandler {
   final ServerContext _ctx;
 
   /// Returns performance data map for VM service RPC (Plan 68).
-  Future<Map<String, dynamic>> getPerformanceData() async {
+  Future<Map<String, dynamic>> getPerformanceData() {
     final timings = List<QueryTiming>.of(_ctx.queryTimings);
     final totalQueries = timings.length;
     final totalDuration = timings.fold<int>(0, (sum, t) => sum + t.durationMs);
@@ -53,7 +53,7 @@ final class PerformanceHandler {
           ),
         );
 
-    return <String, dynamic>{
+    final data = <String, dynamic>{
       'totalQueries': totalQueries,
       'totalDurationMs': totalDuration,
       'avgDurationMs': avgDuration,
@@ -64,6 +64,7 @@ final class PerformanceHandler {
           .map((t) => t.toJson())
           .toList(),
     };
+    return Future<Map<String, dynamic>>.value(data);
   }
 
   /// GET /api/analytics/performance — returns query timing stats,

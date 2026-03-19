@@ -71,12 +71,14 @@ final class VmServiceBridge {
   Future<developer.ServiceExtensionResponse> _handleGetHealth(
     String method,
     Map<String, String> params,
-  ) async {
+  ) {
     final router = _router;
     if (router == null) {
-      return developer.ServiceExtensionResponse.error(
-        developer.ServiceExtensionResponse.extensionErrorMin,
-        'Drift server not running',
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'Drift server not running',
+        ),
       );
     }
     final body = <String, dynamic>{
@@ -86,7 +88,9 @@ final class VmServiceBridge {
         ServerConstants.capabilityIssues,
       ],
     };
-    return developer.ServiceExtensionResponse.result(jsonEncode(body));
+    return Future<developer.ServiceExtensionResponse>.value(
+      developer.ServiceExtensionResponse.result(jsonEncode(body)),
+    );
   }
 
   Future<developer.ServiceExtensionResponse> _handleGetSchemaMetadata(
@@ -95,9 +99,11 @@ final class VmServiceBridge {
   ) async {
     final router = _router;
     if (router == null) {
-      return developer.ServiceExtensionResponse.error(
-        developer.ServiceExtensionResponse.extensionErrorMin,
-        'Drift server not running',
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'Drift server not running',
+        ),
       );
     }
 
@@ -120,9 +126,11 @@ final class VmServiceBridge {
       final body = <String, dynamic>{ServerConstants.jsonKeyTables: tables};
       return developer.ServiceExtensionResponse.result(jsonEncode(body));
     } on Object catch (e) {
-      return developer.ServiceExtensionResponse.error(
-        developer.ServiceExtensionResponse.extensionErrorMin,
-        e.toString(),
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          e.toString(),
+        ),
       );
     }
   }
@@ -247,23 +255,29 @@ final class VmServiceBridge {
   Future<developer.ServiceExtensionResponse> _handleClearPerformance(
     String method,
     Map<String, String> params,
-  ) async {
+  ) {
     final router = _router;
     if (router == null) {
-      return developer.ServiceExtensionResponse.error(
-        developer.ServiceExtensionResponse.extensionErrorMin,
-        'Drift server not running',
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'Drift server not running',
+        ),
       );
     }
     try {
       router.clearPerformance();
-      return developer.ServiceExtensionResponse.result(
-        jsonEncode(<String, String>{'status': 'cleared'}),
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.result(
+          jsonEncode(<String, String>{'status': 'cleared'}),
+        ),
       );
     } on Object catch (e) {
-      return developer.ServiceExtensionResponse.error(
-        developer.ServiceExtensionResponse.extensionErrorMin,
-        e.toString(),
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          e.toString(),
+        ),
       );
     }
   }
@@ -359,9 +373,10 @@ final class VmServiceBridge {
       final sources = params['sources'];
       final result = await router.getIssuesResult(sources: sources);
       if (result.containsKey(ServerConstants.jsonKeyError)) {
+        final rawError = result[ServerConstants.jsonKeyError];
         return developer.ServiceExtensionResponse.error(
           developer.ServiceExtensionResponse.extensionErrorMin,
-          result[ServerConstants.jsonKeyError] as String,
+          rawError?.toString() ?? 'Unknown error',
         );
       }
       return developer.ServiceExtensionResponse.result(jsonEncode(result));
@@ -378,18 +393,22 @@ final class VmServiceBridge {
   Future<developer.ServiceExtensionResponse> _handleGetChangeDetection(
     String method,
     Map<String, String> params,
-  ) async {
+  ) {
     final router = _router;
     if (router == null) {
-      return developer.ServiceExtensionResponse.error(
-        developer.ServiceExtensionResponse.extensionErrorMin,
-        'Drift server not running',
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'Drift server not running',
+        ),
       );
     }
-    return developer.ServiceExtensionResponse.result(
-      jsonEncode(<String, dynamic>{
-        ServerConstants.jsonKeyChangeDetection: router.isChangeDetectionEnabled,
-      }),
+    return Future<developer.ServiceExtensionResponse>.value(
+      developer.ServiceExtensionResponse.result(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyChangeDetection: router.isChangeDetectionEnabled,
+        }),
+      ),
     );
   }
 
@@ -399,12 +418,14 @@ final class VmServiceBridge {
   Future<developer.ServiceExtensionResponse> _handleSetChangeDetection(
     String method,
     Map<String, String> params,
-  ) async {
+  ) {
     final router = _router;
     if (router == null) {
-      return developer.ServiceExtensionResponse.error(
-        developer.ServiceExtensionResponse.extensionErrorMin,
-        'Drift server not running',
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'Drift server not running',
+        ),
       );
     }
 
@@ -413,20 +434,24 @@ final class VmServiceBridge {
     final enabledStr = params[ServerConstants.jsonKeyEnabled];
 
     if (enabledStr == null || (enabledStr != 'true' && enabledStr != 'false')) {
-      return developer.ServiceExtensionResponse.error(
-        developer.ServiceExtensionResponse.extensionErrorMin,
-        'Missing or invalid "${ServerConstants.jsonKeyEnabled}" '
-        'parameter (expected "true" or "false")',
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'Missing or invalid "${ServerConstants.jsonKeyEnabled}" '
+          'parameter (expected "true" or "false")',
+        ),
       );
     }
 
     final enabled = enabledStr == 'true';
     router.setChangeDetectionEnabled(enabled);
 
-    return developer.ServiceExtensionResponse.result(
-      jsonEncode(<String, dynamic>{
-        ServerConstants.jsonKeyChangeDetection: enabled,
-      }),
+    return Future<developer.ServiceExtensionResponse>.value(
+      developer.ServiceExtensionResponse.result(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyChangeDetection: enabled,
+        }),
+      ),
     );
   }
 }

@@ -146,9 +146,15 @@ class _DriftDebugServerImpl {
       mutationTracker = MutationTracker();
       final originalWrite = writeQuery;
       wrappedWriteQuery = (String sql) async {
+        final tracker = mutationTracker;
+        if (tracker == null) {
+          throw StateError(
+            'Mutation tracker must be initialized when writeQuery is provided.',
+          );
+        }
         // Capture semantic mutation events around the existing writeQuery
         // behavior (best-effort row capture + ring-buffer storage).
-        await mutationTracker!.captureFromWriteQuery(
+        await tracker.captureFromWriteQuery(
           originalWrite: originalWrite,
           readQuery: readQueryForMutation,
           sql: sql,
@@ -192,24 +198,22 @@ class _DriftDebugServerImpl {
         return;
       }
 
-      final router = _router!;
+      final router = _router;
+      if (router == null) {
+        return;
+      }
       _serverSubscription = server.listen(router.onRequest);
 
       _vmBridge = VmServiceBridge(router);
       _vmBridge?.register();
 
-      // Single print() call so the banner appears as clean I/flutter lines
-      // in the debug console (like Isar Inspector). stdout.writeln() does
-      // NOT appear on Android because Flutter only intercepts print/Zone
-      // output. ctx.log() (dart:developer.log) works but attaches expandable
-      // stack traces to every line. print() is the correct choice here.
+      // Emit one compact startup banner line as a structured log message.
       final title = _bannerCentered(
         'DRIFT DEBUG SERVER   v${ServerConstants.packageVersion}',
       );
       final desc = _bannerCentered(ServerConstants.bannerDescription);
       final url = _bannerCentered('http://127.0.0.1:$port');
-      // ignore: avoid_print
-      print(
+      ctx.log(
         '${ServerConstants.bannerTop}\n'
         '$title\n'
         '${ServerConstants.bannerDivider}\n'
