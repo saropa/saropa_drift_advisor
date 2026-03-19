@@ -219,11 +219,15 @@ void main() {
       await startServer();
     });
 
-    test('GET /api/tables returns table list', () async {
+    test('GET /api/tables returns table list with counts', () async {
       final r = await httpGet(port!, '/api/tables');
       expect(r.status, HttpStatus.ok);
-      expect(r.body, isA<List<dynamic>>());
-      expect((r.body as List<dynamic>), contains('items'));
+      // Response shape: {"tables": [...], "counts": {...}}
+      expect(r.body, isA<Map<String, dynamic>>());
+      final body = r.body as Map<String, dynamic>;
+      expect(body['tables'], isA<List<dynamic>>());
+      expect(body['tables'] as List<dynamic>, contains('items'));
+      expect(body['counts'], isA<Map<String, dynamic>>());
     });
 
     test('GET /api/table/items returns row data', () async {

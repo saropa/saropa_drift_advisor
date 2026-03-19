@@ -5253,52 +5253,40 @@
       }
     })();
 
-    // Shared: render table list and kick off count fetches (used by initial load and live refresh).
-    // When each count arrives we update only that table's link text to avoid N full re-renders and preserve active state.
-    function applyTableListAndCounts(tables) {
-      renderTableList(tables);
-      tables.forEach(function(t) {
-        fetch('/api/table/' + encodeURIComponent(t) + '/count', authOpts())
-          .then(function(r) { return r.json(); })
-          .then(function(o) {
-            tableCounts[t] = o.count;
+    // Shared: render table list using counts from the /api/tables response.
+    // The server includes all counts inline (via the change-detection UNION
+    // ALL query), eliminating N individual /api/table/<name>/count fetches
+    // that previously caused massive "Drift: Sent" console spam.
+    //
+    // Returns the extracted tables array so callers can use it directly
+    // (e.g., for tab-closing or nav history validation) without
+    // re-extracting from the response object.
+    //
+    // @param {Object|Array} data — { tables: [...], counts: {...} } from the
+    //   server, or a plain array for backward compatibility.
+    // @returns {Array<string>} the table names array.
+    function applyTableListAndCounts(data) {
+      // Extract tables array and counts map from the
+      // response object. Graceful fallback for plain
+      // array format (should not occur in practice).
+      var tables = Array.isArray(data) ? data : ((data && data.tables) || []);
+      var counts = (data && data.counts) ? data.counts : {};
 
-            // Update sidebar table links with row count. Target the
-            // .table-link-name span so we don't destroy the pin button.
-            var ul = document.getElementById('tables');
-            if (ul) {
-              ul.querySelectorAll('a.table-link').forEach(function(a) {
-                if (a.getAttribute('data-table') === t) {
-                  var nameSpan = a.querySelector('.table-link-name');
-                  if (nameSpan) nameSpan.textContent = t + ' (' + o.count + ' rows)';
-                }
-              });
-            }
+      // Merge server-provided counts into the local
+      // tableCounts cache so renderTableList can display
+      // them immediately without additional fetches.
+      Object.keys(counts).forEach(function(t) {
+        tableCounts[t] = counts[t];
 
-            // Update browse-panel cards with row count
-            var browseEl = document.getElementById('tables-browse');
-            if (browseEl) {
-              browseEl.querySelectorAll('.tables-browse-card').forEach(function(card) {
-                if (card.getAttribute('data-table') === t) {
-                  var countSpan = card.querySelector('.browse-card-count');
-                  if (countSpan) {
-                    countSpan.textContent = o.count + ' rows';
-                  } else {
-                    // Add count span if it wasn't rendered initially
-                    var span = document.createElement('span');
-                    span.className = 'browse-card-count';
-                    span.textContent = o.count + ' rows';
-                    card.appendChild(span);
-                  }
-                }
-              });
-            }
-
-            // Update Search tab dropdown label with count
-            if (typeof window._stUpdateCount === 'function') window._stUpdateCount(t, o.count);
-          })
-          .catch(function() {});
+        // Update Search tab dropdown label with count
+        if (typeof window._stUpdateCount === 'function') window._stUpdateCount(t, counts[t]);
       });
+
+      // Render the sidebar list, browse cards, and
+      // dropdowns. renderTableList reads from tableCounts
+      // to display "tableName (N rows)" labels.
+      renderTableList(tables);
+      return tables;
     }
     function refreshOnGenerationChange() {
       if (refreshInFlight) return;
@@ -5309,8 +5297,11 @@
       if (liveEl && connectionState === 'connected') liveEl.textContent = 'Updating…';
       fetch('/api/tables', authOpts())
         .then(function(r) { return r.json(); })
-        .then(function(tables) {
-          applyTableListAndCounts(tables);
+        .then(function(data) {
+          // applyTableListAndCounts returns the extracted
+          // tables array so we can reuse it for tab cleanup
+          // and current-table reload below.
+          var tables = applyTableListAndCounts(data);
 
           // Close tabs for tables that no longer exist (e.g. dropped/renamed).
           // Iterate a copy since closeToolTab mutates the openTableTabs array.
@@ -5468,10 +5459,13 @@
 
     fetch('/api/tables', authOpts())
       .then(r => r.json())
-      .then(tables => {
+      .then(data => {
         const loadingEl = document.getElementById('tables-loading');
         loadingEl.style.display = 'none';
-        applyTableListAndCounts(tables);
+
+        // applyTableListAndCounts returns the extracted
+        // tables array for nav history and deep-link use.
+        var tables = applyTableListAndCounts(data);
         pollGeneration();
 
         // Restore FK breadcrumb trail from localStorage.  We do this

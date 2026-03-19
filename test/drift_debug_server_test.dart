@@ -195,9 +195,10 @@ void main() {
       },
     );
 
-    // Server normalizes null/non-List via _normalizeRows; empty list yields 200 + [].
+    // Server normalizes null/non-List via _normalizeRows;
+    // empty list yields 200 + {"tables":[],"counts":{}}.
     test(
-      'when query returns empty list, GET /api/tables returns 200 with empty list',
+      'when query returns empty list, GET /api/tables returns 200 with empty tables',
       () async {
         await DriftDebugServer.start(
           query: (_) async => <Map<String, dynamic>>[],
@@ -213,8 +214,10 @@ void main() {
           final resp = await req.close();
           expect(resp.statusCode, HttpStatus.ok);
           final body = await resp.transform(utf8.decoder).join();
-          final decoded = jsonDecode(body) as List<dynamic>;
-          expect(decoded, isEmpty);
+          final decoded = jsonDecode(body) as Map<String, dynamic>;
+          expect(decoded['tables'], isA<List<dynamic>>());
+          expect(decoded['tables'] as List<dynamic>, isEmpty);
+          expect(decoded['counts'], isA<Map<String, dynamic>>());
         } finally {
           client.close();
         }

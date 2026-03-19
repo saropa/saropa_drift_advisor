@@ -48,9 +48,11 @@ void main() {
       expect(resp.statusCode, HttpStatus.ok);
 
       final body = await resp.transform(utf8.decoder).join();
-      final decoded = jsonDecode(body);
-      expect(decoded, isA<List<dynamic>>());
-      expect(decoded, contains('items'));
+      final decoded = jsonDecode(body) as Map<String, dynamic>;
+      // Response shape: {"tables": [...], "counts": {...}}
+      expect(decoded['tables'], isA<List<dynamic>>());
+      expect(decoded['tables'] as List<dynamic>, contains('items'));
+      expect(decoded['counts'], isA<Map<String, dynamic>>());
     } finally {
       client.close();
     }

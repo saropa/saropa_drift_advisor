@@ -141,10 +141,24 @@ final class SchemaHandler {
 
   /// Returns schema metadata as a list of table maps (for VM service RPC).
   /// Same shape as GET /api/schema/metadata response body.
+  ///
+  /// Uses cached row counts from [ServerContext.cachedTableCounts]
+  /// when available, eliminating N individual COUNT(*) queries.
+  /// Falls back to per-table COUNT(*) when no cached counts
+  /// exist (before the first checkDataChange cycle).
   Future<List<Map<String, dynamic>>> getSchemaMetadataList(
     DriftDebugQuery query,
   ) async {
-    final tableNames = await ServerUtils.getTableNames(query);
+    // Prefer cached table names to avoid a redundant
+    // sqlite_master query.
+    final tableNames =
+        _ctx.cachedTableNames ??
+        await ServerUtils.getTableNames(query);
+
+    // Use cached counts from the last checkDataChange
+    // cycle to avoid N individual COUNT(*) queries.
+    final cachedCounts = _ctx.cachedTableCounts;
+
     final tables = <Map<String, dynamic>>[];
 
     for (final tableName in tableNames) {
@@ -152,14 +166,23 @@ final class SchemaHandler {
         await query('PRAGMA table_info("$tableName")'),
       );
       final columns = _pragmaTableInfoToColumns(infoRows);
-      final countRows = ServerUtils.normalizeRows(
-        await query(
-          'SELECT COUNT(*) AS '
-          '${ServerConstants.jsonKeyCountColumn} '
-          'FROM "$tableName"',
-        ),
-      );
-      final count = ServerUtils.extractCountFromRows(countRows);
+
+      // Use cached count if available; otherwise fall
+      // back to a per-table COUNT(*) query.
+      final int count;
+      if (cachedCounts != null &&
+          cachedCounts.containsKey(tableName)) {
+        count = cachedCounts[tableName]!;
+      } else {
+        final countRows = ServerUtils.normalizeRows(
+          await query(
+            'SELECT COUNT(*) AS '
+            '${ServerConstants.jsonKeyCountColumn} '
+            'FROM "$tableName"',
+          ),
+        );
+        count = ServerUtils.extractCountFromRows(countRows);
+      }
 
       tables.add(<String, dynamic>{
         ServerConstants.jsonKeyName: tableName,
