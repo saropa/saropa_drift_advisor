@@ -100,6 +100,12 @@ describe('DiagnosticManager', () => {
       const allDiags = [...collection.entries().values()].flat();
 
       assert.strictEqual(allDiags.length, 2);
+
+      // getLastCollectedIssues returns the same set that was applied (for Log Capture integration)
+      const lastIssues = manager.getLastCollectedIssues();
+      assert.strictEqual(lastIssues.length, 2);
+      assert.strictEqual(lastIssues[0].code, 'missing-fk-index');
+      assert.strictEqual(lastIssues[1].code, 'full-table-scan');
     });
 
     it('should apply [drift_advisor] prefix to all messages', async () => {

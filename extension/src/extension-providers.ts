@@ -10,6 +10,7 @@ import { DriftFileDecorationProvider, buildTableFileMap } from './decorations/fi
 import { DriftCodeActionProvider, SchemaDiagnostics } from './linter/schema-diagnostics';
 import { DriftCodeLensProvider } from './codelens/drift-codelens-provider';
 import { TableNameMapper } from './codelens/table-name-mapper';
+import type { IDiagnosticIssue } from './diagnostics/diagnostic-types';
 import { LogCaptureBridge } from './debug/log-capture-bridge';
 import { DriftDefinitionProvider } from './definition/drift-definition-provider';
 import { DriftHoverProvider, HoverCache } from './hover/drift-hover-provider';
@@ -42,13 +43,22 @@ export interface ProviderSetupResult {
 }
 
 /**
+ * Ref type for optional issues getter (set after DiagnosticManager is created in extension.ts).
+ */
+export interface LogCaptureIssuesRef {
+  get(): IDiagnosticIssue[];
+}
+
+/**
  * Register tree view, language providers (definition, codelens, hover), legacy linter,
  * file decorations, timeline, watch manager, data breakpoint provider, task/terminal, log bridge.
+ * When issuesRef is provided, the log bridge will include diagnostic issues in session-end meta/sidecar.
  */
 export function setupProviders(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
   annotationStore: AnnotationStore,
+  issuesRef?: LogCaptureIssuesRef,
 ): ProviderSetupResult {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
 
@@ -150,7 +160,10 @@ export function setupProviders(
   );
 
   const logBridge = new LogCaptureBridge();
-  logBridge.init(context, client).catch(() => { /* extension not installed */ });
+  const bridgeOptions = issuesRef
+    ? { getLastCollectedIssues: () => issuesRef.get() }
+    : undefined;
+  logBridge.init(context, client, bridgeOptions).catch(() => { /* extension not installed */ });
   context.subscriptions.push({ dispose: () => logBridge.dispose() });
 
   // Standalone "Drift Tools" sidebar view: always visible, lists all major

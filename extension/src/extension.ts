@@ -14,7 +14,7 @@ import { QueryIntelligence } from './engines/query-intelligence';
 import { updateStatusBar } from './status-bar';
 import { HealthStatusBar } from './status-bar-health';
 import { ToolsQuickPickStatusBar, registerToolsQuickPickCommand } from './status-bar-tools';
-import { setupProviders } from './extension-providers';
+import { setupProviders, type LogCaptureIssuesRef } from './extension-providers';
 import { setupDiagnostics } from './extension-diagnostics';
 import { setupEditing } from './extension-editing';
 import { registerAllCommands } from './extension-commands';
@@ -23,6 +23,8 @@ import { SchemaTracker } from './schema-timeline/schema-tracker';
 import { PackageStatusMonitor } from './workspace-setup/package-status-monitor';
 import { SchemaCache } from './schema-cache/schema-cache';
 import { createCachedDriftClient } from './schema-cache/cached-drift-client';
+import type { DriftAdvisorApi } from './log-capture-api';
+import { createDriftAdvisorApi } from './log-capture-api';
 
 export function activate(context: vscode.ExtensionContext): void {
   const {
@@ -57,16 +59,17 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(packageMonitor);
 
   const annotationStore = new AnnotationStore(context.workspaceState);
-  const providers = setupProviders(context, cachedClient, annotationStore);
+  // Ref populated after setupDiagnostics so the log bridge can include diagnostic issues in session export.
+  const issuesRef: LogCaptureIssuesRef = { get: () => [] };
+  const providers = setupProviders(context, cachedClient, annotationStore, issuesRef);
 
   // Stale-while-revalidate: when cache updates (e.g. after background revalidate), refresh tree.
-  context.subscriptions.push(schemaCache.onDidUpdate(() => {
-    providers.treeProvider.refresh();
-  }));
-
   // Sync package-installed state to the Drift Tools sidebar so the
   // "Add Package" tree item hides when the package is already in pubspec.
   context.subscriptions.push(
+    schemaCache.onDidUpdate(() => {
+      providers.treeProvider.refresh();
+    }),
     packageMonitor.onDidChangeInstalled((installed) => {
       providers.toolsProvider.setPackageInstalled(installed);
     }),
@@ -82,6 +85,13 @@ export function activate(context: vscode.ExtensionContext): void {
   const schemaTracker = new SchemaTracker(cachedClient, context.workspaceState, watcher);
   context.subscriptions.push(schemaTracker);
   const { diagnosticManager } = setupDiagnostics(context, cachedClient, schemaIntel, queryIntel);
+  issuesRef.get = () => diagnosticManager.getLastCollectedIssues();
+
+  // Public API for other extensions (e.g. Saropa Log Capture): getSessionSnapshot()
+  (context as vscode.ExtensionContext & { exports: DriftAdvisorApi }).exports = createDriftAdvisorApi(
+    () => (serverManager.activeServer ? cachedClient : null),
+    () => issuesRef.get(),
+  );
 
   const editing = setupEditing(context, cachedClient);
   editing.changeTracker.onDidChange(() => {
@@ -108,15 +118,7 @@ export function activate(context: vscode.ExtensionContext): void {
   /** Apply master switch: start/stop discovery and watcher, clear or refresh UI. */
   const applyEnabledState = (enabled: boolean): void => {
     void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', enabled);
-    if (!enabled) {
-      discovery.stop();
-      watcher.stop();
-      serverManager.clearActive();
-      schemaCache.invalidate();
-      providers.toolsProvider.setConnected(false);
-      healthStatusBar.hide();
-      toolsQuickPick.setConnected(false);
-    } else {
+    if (enabled) {
       if (discoveryEnabled) discovery.start();
       watcher.start();
       if (loadOnConnect) void providers.treeProvider.refresh();
@@ -124,6 +126,14 @@ export function activate(context: vscode.ExtensionContext): void {
       providers.linter.refresh();
       diagnosticManager.refresh().catch(() => {});
       if (!getLightweight()) providers.refreshBadges().catch(() => {});
+    } else {
+      discovery.stop();
+      watcher.stop();
+      serverManager.clearActive();
+      schemaCache.invalidate();
+      providers.toolsProvider.setConnected(false);
+      healthStatusBar.hide();
+      toolsQuickPick.setConnected(false);
     }
     refreshStatusBar();
   };
@@ -267,4 +277,10 @@ export function activate(context: vscode.ExtensionContext): void {
   });
 }
 
-export function deactivate(): void {}
+/**
+ * Called when the extension is deactivated. Cleanup is handled by
+ * context.subscriptions (each Disposable is disposed by VS Code).
+ */
+export function deactivate(): void {
+  return;
+}

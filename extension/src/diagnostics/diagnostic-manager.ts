@@ -28,6 +28,8 @@ export class DiagnosticManager implements vscode.Disposable {
   private _refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private _isRefreshing = false;
   private _lastRefresh = 0;
+  /** Last collected issues (for Log Capture integration). */
+  private _lastIssues: IDiagnosticIssue[] = [];
 
   constructor(
     private readonly _client: DriftApiClient,
@@ -101,6 +103,7 @@ export class DiagnosticManager implements vscode.Disposable {
       const config = loadDiagnosticConfig();
       if (!config.enabled) {
         this._collection.clear();
+        this._lastIssues = [];
         return;
       }
 
@@ -121,6 +124,7 @@ export class DiagnosticManager implements vscode.Disposable {
         }
       }
 
+      this._lastIssues = [...allIssues];
       this._applyDiagnostics(allIssues, config);
     } finally {
       this._isRefreshing = false;
@@ -130,6 +134,14 @@ export class DiagnosticManager implements vscode.Disposable {
   /** Clear all diagnostics. */
   clear(): void {
     this._collection.clear();
+  }
+
+  /**
+   * Returns a copy of the last collected issues (for Log Capture session export).
+   * Returns empty array when diagnostics are disabled or never run.
+   */
+  getLastCollectedIssues(): IDiagnosticIssue[] {
+    return [...this._lastIssues];
   }
 
   /**
