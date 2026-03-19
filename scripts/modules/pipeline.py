@@ -9,7 +9,7 @@ import shutil
 import time
 from typing import TYPE_CHECKING
 
-from modules.constants import ABOUT_SAROPA_PATH, C, CHANGELOG_PATH, EXTENSION_DIR
+from modules.constants import ABOUT_SAROPA_PATH, C, CHANGELOG_PATH, EXTENSION_DIR, REPO_ROOT
 from modules.display import heading, info, ok
 from modules.utils import run_step
 
@@ -180,27 +180,43 @@ def _run_ext_dev_checks(
 def _run_ext_build_and_validate(
     args: argparse.Namespace,
     results: list[tuple[str, bool, float]],
-) -> tuple[str, bool]:
-    """Extension compile, test, quality, and version steps."""
+) -> tuple[str, bool, str | None]:
+    """Extension compile, test, quality, and version steps.
+
+    Returns (version, all_passed, lint_report_path). lint_report_path is set when
+    the saropa_lints step runs and produces a report file.
+    """
     from modules.ext_build import step_compile, step_test, check_file_line_limits
     from modules.target_config import EXTENSION
 
     heading("Step 7 \u00b7 Compile")
     if not run_step("Compile", step_compile, results):
-        return "", False
+        return "", False, None
 
     if getattr(args, "skip_tests", False):
         heading("Step 8 \u00b7 Tests (skipped)")
     else:
         heading("Step 8 \u00b7 Tests")
         if not run_step("Tests", step_test, results):
-            return "", False
+            return "", False, None
 
     heading("Step 9 \u00b7 Quality Checks")
     if not run_step("File line limits", check_file_line_limits, results):
-        return "", False
+        return "", False, None
 
-    return _validate_version_step(args, results, EXTENSION, "Step 10 \u00b7 Version & CHANGELOG")
+    lint_report_path: str | None = None
+    if getattr(args, "skip_lint", False):
+        heading("Step 10 \u00b7 Lint (saropa_lints) (skipped)")
+        results.append(("Lint (saropa_lints)", True, 0.0))
+    else:
+        heading("Step 10 \u00b7 Lint (saropa_lints)")
+        from modules.saropa_lints_run import step_saropa_lints
+        passed, lint_report_path = step_saropa_lints(results, cwd=REPO_ROOT)
+        if not passed:
+            return "", False, None
+
+    version, ok = _validate_version_step(args, results, EXTENSION, "Step 11 \u00b7 Version & CHANGELOG")
+    return version, ok, lint_report_path
 
 
 # ── Dart Analysis ────────────────────────────────────────
@@ -295,12 +311,12 @@ def run_dart_analysis(
 def run_ext_analysis(
     args: argparse.Namespace,
     results: list[tuple[str, bool, float]],
-) -> tuple[str, bool]:
-    """Run all extension analysis steps. Returns (version, all_passed)."""
+) -> tuple[str, bool, str | None]:
+    """Run all extension analysis steps. Returns (version, all_passed, lint_report_path)."""
     if not _run_ext_prerequisites(results):
-        return "", False
+        return "", False, None
     if not _run_ext_dev_checks(args, results):
-        return "", False
+        return "", False, None
     return _run_ext_build_and_validate(args, results)
 
 

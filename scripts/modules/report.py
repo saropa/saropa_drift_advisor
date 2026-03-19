@@ -8,6 +8,7 @@ The timing chart gives a visual breakdown of where time was spent.
 
 import datetime
 import os
+import shutil
 import sys
 import webbrowser
 
@@ -73,21 +74,41 @@ def save_report(
     vsix_path: str | None = None,
     is_publish: bool = False,
     config=None,
+    lint_report_path: str | None = None,
 ) -> str | None:
-    """Save a summary report to reports/<yyyymmdd>/. Returns the report path."""
+    """Save a summary report to reports/<yyyymmdd>/. Returns the report path.
+
+    When lint_report_path is provided and points to an existing saropa_lints scan
+    report, it is copied into the same reports/YYYYMMDD/ folder and referenced
+    in the summary (so both reports are colocated and linked).
+    """
     target_label = config.display_name if config else "Extension"
     target_slug = config.name if config else "extension"
 
     now = datetime.datetime.now()
-    reports_dir = os.path.join(REPO_ROOT, "reports", now.strftime("%Y%m%d"))
+    date_str = now.strftime("%Y%m%d")
+    time_str = now.strftime("%Y%m%d_%H%M%S")
+    reports_dir = os.path.join(REPO_ROOT, "reports", date_str)
     os.makedirs(reports_dir, exist_ok=True)
 
     kind = "publish" if is_publish else "analyze"
-    report_name = f"{now:%Y%m%d_%H%M%S}_drift_advisor_{target_slug}_{kind}_report.log"
+    report_name = f"{time_str}_drift_advisor_{target_slug}_{kind}_report.log"
     report_path = os.path.join(reports_dir, report_name)
 
     lines = _build_report_lines(results, version, is_publish, target_label)
     _append_report_details(lines, results, version, vsix_path, is_publish, config)
+
+    # Copy saropa_lints scan report into this run's report folder and reference it
+    if lint_report_path and os.path.isfile(lint_report_path):
+        lint_dest_name = f"{time_str}_saropa_lints_scan_report.log"
+        lint_dest_path = os.path.join(reports_dir, lint_dest_name)
+        try:
+            shutil.copy2(lint_report_path, lint_dest_path)
+            rel_lint = os.path.join("reports", date_str, lint_dest_name)
+            lines.append("")
+            lines.append(f"Lint report: {rel_lint}")
+        except OSError:
+            pass  # Summary still saved; lint report copy is best-effort
 
     try:
         with open(report_path, "w", encoding="utf-8") as f:

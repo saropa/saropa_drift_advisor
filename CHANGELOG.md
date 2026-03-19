@@ -21,6 +21,10 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 Single issues API and capability discovery for Saropa Lints and other consumers.
 
+### Added
+
+- **Pipeline: saropa_lints report colocation** — When the extension pipeline runs the Lint (saropa_lints) step, the generated scan report is copied into the same `reports/YYYYMMDD/` folder as the run's summary report and referenced in the summary (e.g. `Lint report: reports/YYYYMMDD/<timestamp>_saropa_lints_scan_report.log`). Enables one place to find both the drift_advisor run report and the lint report. Optional `--skip-lint` unchanged.
+
 ### Improved
 
 - **Log Capture integration (extension)** — Session-end flow now uses a single parallel fetch for full mode (no duplicate `performance()` call). Header-only mode still fetches only performance. Shared helpers (`severityToString`, `toWorkspaceRelativePath`, `LOG_CAPTURE_SESSION_TIMEOUT_MS`) exported from the bridge and reused by the public API to remove duplication. Extension test disposable count updated to 181 with a brief comment for the Log Capture subscription.

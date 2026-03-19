@@ -48,6 +48,7 @@ _CLI_FLAGS = [
     ("--analyze-only", "Run analysis + build + package only. No publish."),
     ("--yes", "Accept version without prompting (CI mode)."),
     ("--skip-tests", "Skip test steps."),
+    ("--skip-lint", "Skip saropa_lints scan step (extension pipeline)."),
     ("--skip-extensions", "Skip VS Code extension checks."),
     ("--skip-global-npm", "Skip global npm package checks."),
     ("--auto-install", "Auto-install .vsix without prompting (CI)."),
@@ -146,11 +147,18 @@ def _print_results(
     results: list[tuple[str, bool, float]],
     version: str,
     vsix_path: str | None = None,
+    lint_report_path: str | None = None,
 ) -> str | None:
-    """Save report, print timing chart, return report path."""
+    """Save report, print timing chart, return report path.
+
+    When lint_report_path is set (extension pipeline ran saropa_lints), the
+    scan report is copied into reports/YYYYMMDD/ and referenced in the summary.
+    """
     from modules.report import save_report, print_timing, print_report_path
 
-    report = save_report(results, version or "unknown", vsix_path)
+    report = save_report(
+        results, version or "unknown", vsix_path, lint_report_path=lint_report_path
+    )
     print_timing(results)
     print_report_path(report)
     return report
@@ -189,6 +197,7 @@ _STEP_EXIT_CODES = {
     "Compile": ExitCode.COMPILE_FAILED,
     "Tests": ExitCode.TEST_FAILED,
     "File line limits": ExitCode.QUALITY_FAILED,
+    "Lint (saropa_lints)": ExitCode.QUALITY_FAILED,
     "Version validation": ExitCode.VERSION_INVALID,
     "Package": ExitCode.PACKAGE_FAILED,
     "Marketplace publish": ExitCode.PUBLISH_FAILED,
@@ -210,27 +219,32 @@ def _exit_code_from_results(
 
 
 def _run_analysis(args, target, results):
-    """Run per-target analysis. Returns (dart_version, ext_version, vsix_path, ok)."""
+    """Run per-target analysis. Returns (dart_version, ext_version, vsix_path, ok, ext_lint_report).
+
+    ext_lint_report is only set when target is 'extension' or 'all' and the lint step ran
+    (used to copy saropa_lints scan report into the summary report folder).
+    """
     dart_version = ""
     ext_version = ""
     vsix_path = None
+    ext_lint_report = None
 
     if target in ("dart", "all"):
         from modules.pipeline import run_dart_analysis
         dart_version, dart_ok = run_dart_analysis(args, results)
         if not dart_ok:
-            return dart_version, ext_version, vsix_path, False
+            return dart_version, ext_version, vsix_path, False, None
 
     if target in ("extension", "all"):
         from modules.pipeline import run_ext_analysis, package_and_install
-        ext_version, ext_ok = run_ext_analysis(args, results)
+        ext_version, ext_ok, ext_lint_report = run_ext_analysis(args, results)
         if not ext_ok:
-            return dart_version, ext_version, vsix_path, False
+            return dart_version, ext_version, vsix_path, False, None
         vsix_path = package_and_install(args, results, ext_version)
         if not vsix_path:
-            return dart_version, ext_version, vsix_path, False
+            return dart_version, ext_version, vsix_path, False, None
 
-    return dart_version, ext_version, vsix_path, True
+    return dart_version, ext_version, vsix_path, True, ext_lint_report
 
 
 def _confirm_dart_publish(version: str) -> bool:
@@ -273,7 +287,7 @@ def _confirm_full_publish(dart_version: str, ext_version: str) -> bool:
     return ask_yn("Proceed with publish?", default=False)
 
 
-def _run_publish(args, target, dart_version, ext_version, vsix_path, results):
+def _run_publish(args, target, dart_version, ext_version, vsix_path, results, ext_lint_report=None):
     """Run per-target publish steps. Returns exit code or None on success."""
     heading("Publish Confirmation")
 
@@ -300,7 +314,7 @@ def _run_publish(args, target, dart_version, ext_version, vsix_path, results):
     if target in ("extension", "all"):
         from modules.ext_publish import run_ext_publish
         if not run_ext_publish(ext_version, vsix_path, results):
-            _print_results(results, ext_version, vsix_path)
+            _print_results(results, ext_version, vsix_path, lint_report_path=ext_lint_report)
             return _exit_code_from_results(results)
 
     return None
@@ -374,19 +388,21 @@ def _main_inner() -> int:
         args.analyze_only = True
         target = "all"
 
-    dart_ver, ext_ver, vsix_path, ok = _run_analysis(args, target, results)
+    dart_ver, ext_ver, vsix_path, ok, ext_lint_report = _run_analysis(args, target, results)
     if not ok:
-        _print_results(results, ext_ver or dart_ver, vsix_path)
+        _print_results(results, ext_ver or dart_ver, vsix_path, lint_report_path=ext_lint_report)
         return _exit_code_from_results(results)
 
     if args.analyze_only:
-        report = _print_results(results, ext_ver or dart_ver, vsix_path)
+        report = _print_results(
+            results, ext_ver or dart_ver, vsix_path, lint_report_path=ext_lint_report
+        )
         if report and target in ("extension", "all"):
             from modules.ext_install import prompt_open_report
             prompt_open_report(report)
         return ExitCode.SUCCESS
 
-    err = _run_publish(args, target, dart_ver, ext_ver, vsix_path, results)
+    err = _run_publish(args, target, dart_ver, ext_ver, vsix_path, results, ext_lint_report)
     return err if err is not None else ExitCode.SUCCESS
 
 
