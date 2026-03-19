@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import re
+import tempfile
 
 from modules.constants import C, CHANGELOG_PATH, REPO_ROOT
 from modules.display import fail, info, ok, warn
@@ -71,12 +72,40 @@ def create_github_release(
     notes = extract_changelog_section(version)
     info(f"Creating GitHub release {tag}...")
 
-    cmd = ["gh", "release", "create", tag]
-    if asset_path:
-        cmd.append(os.path.abspath(asset_path))
-    cmd += ["--title", tag, "--notes", notes]
+    # Keep release notes out of CLI arguments to avoid Windows command-line
+    # length limits when changelog entries are long.
+    notes_file_path = ""
+    result = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".md",
+            encoding="utf-8",
+            delete=False,
+        ) as notes_file:
+            notes_file.write(notes)
+            notes_file_path = notes_file.name
 
-    result = run(cmd, cwd=REPO_ROOT)
+        cmd = ["gh", "release", "create", tag]
+        if asset_path:
+            cmd.append(os.path.abspath(asset_path))
+        cmd += ["--title", tag, "--notes-file", notes_file_path]
+
+        result = run(cmd, cwd=REPO_ROOT)
+    finally:
+        if notes_file_path and os.path.exists(notes_file_path):
+            try:
+                os.remove(notes_file_path)
+            except OSError:
+                # Best-effort cleanup only; release creation result is unaffected.
+                pass
+
+    if result is None:
+        fail("GitHub release failed:")
+        info("Could not build release notes payload for GitHub CLI.")
+        _print_gh_troubleshooting()
+        return False
+
     if result.returncode != 0:
         fail("GitHub release failed:")
         if result.stderr.strip():
@@ -92,6 +121,6 @@ def _print_gh_troubleshooting() -> None:
     """Print troubleshooting hints for GitHub release failures."""
     info("Troubleshooting:")
     info(f"  1. Check auth: {C.YELLOW}gh auth status{C.RESET}")
-    info(f"  2. If GITHUB_TOKEN is set, clear it:")
+    info("  2. If GITHUB_TOKEN is set, clear it:")
     info(f"     PowerShell: {C.YELLOW}$env:GITHUB_TOKEN = \"\"{C.RESET}")
     info(f"     Bash: {C.YELLOW}unset GITHUB_TOKEN{C.RESET}")
