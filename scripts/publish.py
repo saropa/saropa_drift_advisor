@@ -41,6 +41,8 @@ from modules.display import (
     ask_yn, close_publish_log, dim, heading, info, open_publish_log, show_logo,
 )
 
+MSG_PUBLISH_CANCELLED = "Publish cancelled by user."
+
 
 # ── CLI ──────────────────────────────────────────────────────
 
@@ -254,10 +256,10 @@ def _confirm_dart_publish(version: str) -> bool:
     print(f"  Version: {C.WHITE}v{version}{C.RESET}")
     print(f"  Tag:     {C.WHITE}v{version}{C.RESET}")
     print(f"\n  {C.YELLOW}This will:{C.RESET}")
-    print(f"    1. Commit and push to origin")
+    print("    1. Commit and push to origin")
     print(f"    2. Create git tag v{version}")
-    print(f"    3. Trigger GitHub Actions publish to pub.dev")
-    print(f"    4. Create GitHub release")
+    print("    3. Trigger GitHub Actions publish to pub.dev")
+    print("    4. Create GitHub release")
     print(f"\n  {C.RED}These actions are irreversible.{C.RESET}")
     return ask_yn("Proceed with publish?", default=False)
 
@@ -278,31 +280,31 @@ def _confirm_full_publish(dart_version: str, ext_version: str) -> bool:
     print(f"    ID:      {C.WHITE}{MARKETPLACE_EXTENSION_ID}{C.RESET}")
 
     print(f"\n  {C.YELLOW}This will:{C.RESET}")
-    print(f"    1. Commit and push to origin")
+    print("    1. Commit and push to origin")
     print(f"    2. Create git tags v{dart_version} + {ext_tag}")
-    print(f"    3. Publish Dart package to pub.dev (via GitHub Actions)")
-    print(f"    4. Publish extension to VS Code Marketplace + Open VSX")
-    print(f"    5. Create GitHub releases for both")
+    print("    3. Publish Dart package to pub.dev (via GitHub Actions)")
+    print("    4. Publish extension to VS Code Marketplace + Open VSX")
+    print("    5. Create GitHub releases for both")
     print(f"\n  {C.RED}These actions are irreversible.{C.RESET}")
     return ask_yn("Proceed with publish?", default=False)
 
 
-def _run_publish(args, target, dart_version, ext_version, vsix_path, results, ext_lint_report=None):
+def _run_publish(target, dart_version, ext_version, vsix_path, results, ext_lint_report=None):
     """Run per-target publish steps. Returns exit code or None on success."""
     heading("Publish Confirmation")
 
     if target == "all":
         if not _confirm_full_publish(dart_version, ext_version):
-            info("Publish cancelled by user.")
+            info(MSG_PUBLISH_CANCELLED)
             return ExitCode.USER_CANCELLED
     elif target == "dart":
         if not _confirm_dart_publish(dart_version):
-            info("Publish cancelled by user.")
+            info(MSG_PUBLISH_CANCELLED)
             return ExitCode.USER_CANCELLED
     elif target == "extension":
         from modules.ext_publish import confirm_publish
         if not confirm_publish(ext_version):
-            info("Publish cancelled by user.")
+            info(MSG_PUBLISH_CANCELLED)
             return ExitCode.USER_CANCELLED
 
     if target in ("dart", "all"):
@@ -402,7 +404,7 @@ def _main_inner() -> int:
             prompt_open_report(report)
         return ExitCode.SUCCESS
 
-    err = _run_publish(args, target, dart_ver, ext_ver, vsix_path, results, ext_lint_report)
+    err = _run_publish(target, dart_ver, ext_ver, vsix_path, results, ext_lint_report)
     return err if err is not None else ExitCode.SUCCESS
 
 

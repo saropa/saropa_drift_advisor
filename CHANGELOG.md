@@ -17,7 +17,7 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
-## [Unreleased]
+## [2.7.0]
 
 Single issues API and capability discovery for Saropa Lints and other consumers.
 
