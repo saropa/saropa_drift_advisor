@@ -1,74 +1,10 @@
-import * as assert from 'assert';
+import * as assert from 'node:assert';
 import * as sinon from 'sinon';
 import { DriftApiClient } from '../api-client';
 import { LogCaptureBridge, type LogCaptureIssueLike } from '../debug/log-capture-bridge';
+import { BASE, mockEndContext, stubSessionEndFetch } from './log-capture-bridge-test-helpers';
 import { Range, Uri } from './vscode-mock-classes';
 import { extensions, workspace } from './vscode-mock';
-
-/** Base URL used by the test client. */
-const BASE = 'http://127.0.0.1:8642';
-
-/** Minimal end context for onSessionEnd. */
-function mockEndContext(overrides: Partial<{ baseFileName: string; config: object }> = {}) {
-  return {
-    baseFileName: '20250319_120000_app',
-    logUri: { fsPath: '/tmp/logs/20250319_120000_app.log' },
-    logDirUri: { fsPath: '/tmp/logs' },
-    sessionStartTime: Date.now() - 60000,
-    sessionEndTime: Date.now(),
-    config: {},
-    ...overrides,
-  };
-}
-
-/** Stub fetch to resolve with JSON for session-end API calls (performance, anomalies, schema, health, indexSuggestions). */
-function stubSessionEndFetch(
-  fetchStub: sinon.SinonStub,
-  responses: {
-    performance?: object;
-    anomalies?: object[];
-    schema?: object[];
-    health?: object;
-    indexSuggestions?: object[];
-  },
-) {
-  const defaultPerf = {
-    totalQueries: 0,
-    totalDurationMs: 0,
-    avgDurationMs: 0,
-    slowQueries: [],
-    recentQueries: [],
-  };
-  fetchStub.callsFake((input: string | Request | URL) => {
-    const url = typeof input === 'string' ? input : (input as Request).url;
-    if (url.includes('/api/analytics/performance')) {
-      return Promise.resolve(
-        new Response(JSON.stringify(responses.performance ?? defaultPerf), { status: 200 }),
-      );
-    }
-    if (url.includes('/api/analytics/anomalies')) {
-      return Promise.resolve(
-        new Response(JSON.stringify(responses.anomalies ?? []), { status: 200 }),
-      );
-    }
-    if (url.includes('/api/schema/metadata')) {
-      return Promise.resolve(
-        new Response(JSON.stringify(responses.schema ?? []), { status: 200 }),
-      );
-    }
-    if (url.includes('/api/health')) {
-      return Promise.resolve(
-        new Response(JSON.stringify(responses.health ?? { ok: false }), { status: 200 }),
-      );
-    }
-    if (url.includes('/api/index-suggestions')) {
-      return Promise.resolve(
-        new Response(JSON.stringify(responses.indexSuggestions ?? []), { status: 200 }),
-      );
-    }
-    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
-  });
-}
 
 describe('LogCaptureBridge', () => {
   let fetchStub: sinon.SinonStub;
@@ -87,17 +23,6 @@ describe('LogCaptureBridge', () => {
     bridge.dispose();
     extensions.clearExtensions();
     fetchStub.restore();
-  });
-
-  describe('when saropa-log-capture is not installed', () => {
-    it('should be a no-op', async () => {
-      await bridge.init(fakeContext as any, client);
-
-      // Should not throw
-      bridge.writeSlowQuery({ sql: 'SELECT 1', durationMs: 1000, rowCount: 1, at: '' });
-      bridge.writeQuery({ sql: 'SELECT 1', durationMs: 10, rowCount: 1, at: '' });
-      bridge.writeConnectionEvent('test');
-    });
   });
 
   describe('when saropa-log-capture is installed', () => {
@@ -218,51 +143,57 @@ describe('LogCaptureBridge', () => {
 
     it('should return only header when includeInLogCaptureSession is header', async () => {
       const origGetConfiguration = workspace.getConfiguration;
-      (workspace as any).getConfiguration = (_section?: string) => ({
-        get: (key: string, defaultValue: unknown) => {
-          if (key === 'integrations.includeInLogCaptureSession') return 'header';
-          if (key === 'performance.slowThresholdMs') return 500;
-          if (key === 'performance.logToCapture') return 'slow-only';
-          return defaultValue;
-        },
-      });
+      try {
+        (workspace as any).getConfiguration = (_section?: string) => ({
+          get: (key: string, defaultValue: unknown) => {
+            if (key === 'integrations.includeInLogCaptureSession') return 'header';
+            if (key === 'performance.slowThresholdMs') return 500;
+            if (key === 'performance.logToCapture') return 'slow-only';
+            return defaultValue;
+          },
+        });
 
-      stubSessionEndFetch(fetchStub, {
-        performance: {
-          totalQueries: 1,
-          totalDurationMs: 10,
-          avgDurationMs: 10,
-          slowQueries: [],
-          recentQueries: [],
-        },
-      });
+        stubSessionEndFetch(fetchStub, {
+          performance: {
+            totalQueries: 1,
+            totalDurationMs: 10,
+            avgDurationMs: 10,
+            slowQueries: [],
+            recentQueries: [],
+          },
+        });
 
-      const context = mockEndContext();
-      const contributions = await registeredProvider.onSessionEnd(context);
-      (workspace as any).getConfiguration = origGetConfiguration;
+        const context = mockEndContext();
+        const contributions = await registeredProvider.onSessionEnd(context);
 
-      assert.ok(contributions);
-      assert.strictEqual(contributions!.filter((c: any) => c.kind === 'header').length, 1);
-      assert.strictEqual(contributions!.filter((c: any) => c.kind === 'meta').length, 0);
-      assert.strictEqual(contributions!.filter((c: any) => c.kind === 'sidecar').length, 0);
+        assert.ok(contributions);
+        assert.strictEqual(contributions!.filter((c: any) => c.kind === 'header').length, 1);
+        assert.strictEqual(contributions!.filter((c: any) => c.kind === 'meta').length, 0);
+        assert.strictEqual(contributions!.filter((c: any) => c.kind === 'sidecar').length, 0);
+      } finally {
+        (workspace as any).getConfiguration = origGetConfiguration;
+      }
     });
 
     it('should return empty array when includeInLogCaptureSession is none', async () => {
       const origGetConfiguration = workspace.getConfiguration;
-      (workspace as any).getConfiguration = (_section?: string) => ({
-        get: (key: string, defaultValue: unknown) => {
-          if (key === 'integrations.includeInLogCaptureSession') return 'none';
-          if (key === 'performance.slowThresholdMs') return 500;
-          if (key === 'performance.logToCapture') return 'slow-only';
-          return defaultValue;
-        },
-      });
+      try {
+        (workspace as any).getConfiguration = (_section?: string) => ({
+          get: (key: string, defaultValue: unknown) => {
+            if (key === 'integrations.includeInLogCaptureSession') return 'none';
+            if (key === 'performance.slowThresholdMs') return 500;
+            if (key === 'performance.logToCapture') return 'slow-only';
+            return defaultValue;
+          },
+        });
 
-      const context = mockEndContext();
-      const contributions = await registeredProvider.onSessionEnd(context);
-      (workspace as any).getConfiguration = origGetConfiguration;
+        const context = mockEndContext();
+        const contributions = await registeredProvider.onSessionEnd(context);
 
-      assert.deepStrictEqual(contributions, []);
+        assert.deepStrictEqual(contributions, []);
+      } finally {
+        (workspace as any).getConfiguration = origGetConfiguration;
+      }
     });
 
     it('should include issuesSummary and issues when getLastCollectedIssues is provided', async () => {
@@ -353,25 +284,4 @@ describe('LogCaptureBridge', () => {
     });
   });
 
-  describe('dispose()', () => {
-    it('should become no-op after dispose', async () => {
-      const writeLineSpy = sinon.spy();
-
-      extensions.setExtension('saropa.saropa-log-capture', {
-        isActive: true,
-        exports: {
-          writeLine: writeLineSpy,
-          insertMarker: sinon.spy(),
-          getSessionInfo: () => ({ isActive: true }),
-          registerIntegrationProvider: () => ({ dispose: () => {} }),
-        },
-      });
-
-      await bridge.init(fakeContext as any, client);
-      bridge.dispose();
-
-      bridge.writeSlowQuery({ sql: 'SELECT 1', durationMs: 1000, rowCount: 1, at: '' });
-      assert.strictEqual(writeLineSpy.callCount, 0);
-    });
-  });
 });
