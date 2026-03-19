@@ -231,7 +231,8 @@ final class AnalyticsHandler {
         _ctx.setCors(res);
         res.write(
           jsonEncode(<String, String>{
-            ServerConstants.jsonKeyError: rawError?.toString() ?? 'Unknown error',
+            ServerConstants.jsonKeyError:
+                rawError?.toString() ?? 'Unknown error',
           }),
         );
       } else {

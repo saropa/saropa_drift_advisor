@@ -239,7 +239,15 @@ def _run_analysis(args, target, results):
 
     if target in ("extension", "all"):
         from modules.pipeline import run_ext_analysis, package_and_install
-        ext_version, ext_ok, ext_lint_report = run_ext_analysis(args, results)
+        ext_args = args
+        if target == "all":
+            # Full pipeline already confirms version in the Dart leg. Reuse that
+            # choice to avoid prompting twice for the same release version.
+            import argparse as _argparse
+            ext_args = _argparse.Namespace(**vars(args))
+            ext_args.yes = True
+
+        ext_version, ext_ok, ext_lint_report = run_ext_analysis(ext_args, results)
         if not ext_ok:
             return dart_version, ext_version, vsix_path, False, None
         vsix_path = package_and_install(args, results, ext_version)

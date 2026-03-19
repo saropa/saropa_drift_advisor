@@ -406,7 +406,8 @@ final class VmServiceBridge {
     return Future<developer.ServiceExtensionResponse>.value(
       developer.ServiceExtensionResponse.result(
         jsonEncode(<String, dynamic>{
-          ServerConstants.jsonKeyChangeDetection: router.isChangeDetectionEnabled,
+          ServerConstants.jsonKeyChangeDetection:
+              router.isChangeDetectionEnabled,
         }),
       ),
     );
