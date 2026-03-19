@@ -180,6 +180,10 @@
         "title": "Saropa Drift Advisor: Run Schema Linter"
       },
       {
+        "command": "driftViewer.runSaropaLints",
+        "title": "Saropa Drift Advisor: Run Saropa Lints on Workspace"
+      },
+      {
         "command": "driftViewer.copySuggestedSql",
         "title": "Saropa Drift Advisor: Copy Suggested SQL"
       },
@@ -930,6 +934,16 @@
           ],
           "default": "slow-only",
           "description": "Log queries to Saropa Log Capture: off, slow queries only, or all queries."
+        },
+        "driftViewer.integrations.includeInLogCaptureSession": {
+          "type": "string",
+          "enum": [
+            "none",
+            "header",
+            "full"
+          ],
+          "default": "full",
+          "description": "How much to send to Saropa Log Capture at session end: none, header only, or full (header + meta + sidecar)."
         },
         "driftViewer.perfRegression.enabled": {
           "type": "boolean",

@@ -41,6 +41,7 @@ import { registerTroubleshootingCommands } from './troubleshooting/troubleshooti
 import { registerRollbackCommands } from './rollback/rollback-commands';
 import { registerAboutCommands } from './about/about-commands';
 import { registerPollingCommands } from './polling/polling-commands';
+import { registerSaropaLintsCommands } from './saropa-lints-commands';
 import { HealthScorer } from './health/health-scorer';
 import { updateStatusBar } from './status-bar';
 import type { HealthStatusBar } from './status-bar-health';
@@ -154,6 +155,7 @@ export function registerAllCommands(
     ['troubleshooting', () => registerTroubleshootingCommands(context, connectionChannel)],
     ['rollback', () => registerRollbackCommands(context, schemaTracker)],
     ['polling', () => registerPollingCommands(context, client, deps.toolsProvider)],
+    ['saropaLints', () => registerSaropaLintsCommands(context)],
   ];
   for (const [name, register] of featureModules) {
     try {
