@@ -8,12 +8,15 @@ import type { DriftApiClient } from '../api-client';
 import type { MutationEvent } from '../api-types';
 import type { EditingBridge } from '../editing/editing-bridge';
 import type { FilterBridge } from '../filters/filter-bridge';
-import { sqlLiteral } from '../lineage/lineage-tracer';
 import type { FkNavigator } from '../navigation/fk-navigator';
-import { DriftViewerPanel } from '../panel';
 import { buildMutationStreamHtml, buildMutationStreamLoadingHtml } from './mutation-stream-html';
 import { matchesColumnValue, matchesSearch } from './mutation-stream-filtering';
+import {
+  buildVmServiceUnavailableHtml,
+  resolveMutationFilterTables,
+} from './mutation-stream-panel-helpers';
 import type { MutationStreamFilters, MutationStreamWebviewMessage } from './mutation-stream-types';
+import { viewMutationEventRow } from './mutation-stream-view-row';
 
 export class MutationStreamPanel {
   private static _currentPanel: MutationStreamPanel | undefined;
@@ -41,6 +44,7 @@ export class MutationStreamPanel {
   private _initStarted = false;
   private _initPromise: Promise<void> | undefined;
   private _didWarnPollFailure = false;
+  private _disposed = false;
 
   constructor(
     panel: vscode.WebviewPanel,
@@ -102,13 +106,7 @@ export class MutationStreamPanel {
     });
 
     if (this._client.usingVmService) {
-      this._panel.webview.html = `
-        <html><body style="padding:14px;font-family:var(--vscode-font-family,sans-serif);color:var(--vscode-editor-foreground,#ccc);background:var(--vscode-editor-background,#1e1e1e);">
-          <h3 style="margin-top:0;">Mutation Stream unavailable</h3>
-          <p style="opacity:0.8;">
-            This feature requires the HTTP Drift debug server because mutation events are captured via the <code>writeQuery</code> wrapper.
-          </p>
-        </body></html>`;
+      this._panel.webview.html = buildVmServiceUnavailableHtml();
       return;
     }
 
@@ -170,9 +168,7 @@ export class MutationStreamPanel {
   private _render(): void {
     const filtered = this._filteredEvents();
     const f = this._normalizeFilters(this._filters);
-    const tables = this._tables.length
-      ? this._tables
-      : Array.from(new Set(this._events.map((e) => e.table)));
+    const tables = resolveMutationFilterTables(this._tables, this._events);
     const columns = this._availableColumns(f.table);
 
     this._panel.webview.html = buildMutationStreamHtml({
@@ -211,53 +207,21 @@ export class MutationStreamPanel {
         );
         break;
       case 'viewRow':
-        void this._viewRow(msg.eventId);
+        void viewMutationEventRow({
+          eventId: msg.eventId,
+          events: this._events,
+          pkColumns: this._pkColumns,
+          client: this._client,
+          editingBridge: this._editingBridge,
+          fkNavigator: this._fkNavigator,
+          filterBridge: this._filterBridge,
+          isDisposed: () => this._disposed,
+        });
         break;
       case 'ready':
         // Webview handshake; render already reflects state.
         break;
     }
-  }
-
-  private async _viewRow(eventId: number): Promise<void> {
-    const event = this._events.find((e) => e.id === eventId);
-    if (!event) return;
-
-    const row = event.after?.[0] ?? event.before?.[0] ?? undefined;
-
-    if (!row) {
-      vscode.window.showWarningMessage(
-        `No row snapshot available for event ${eventId}.`,
-      );
-      return;
-    }
-
-    const pkColumn = this._pkColumns.get(event.table) ?? 'rowid';
-    const pkValue = row[pkColumn];
-    if (pkValue === undefined) {
-      vscode.window.showWarningMessage(
-        `Could not find primary key value for ${event.table}.${pkColumn}.`,
-      );
-      return;
-    }
-
-    DriftViewerPanel.createOrShow(
-      this._client.host,
-      this._client.port,
-      this._editingBridge,
-      this._fkNavigator,
-      this._filterBridge,
-    );
-
-    // Wait a moment for the DriftViewerPanel to load and inject filter scripts.
-    setTimeout(() => {
-      const where = `"${pkColumn}" = ${sqlLiteral(pkValue)}`;
-      void this._filterBridge.applyWhereFilter({
-        table: event.table,
-        name: `Mutation ${event.type.toUpperCase()} #${event.id}`,
-        where,
-      });
-    }, 600);
   }
 
   private _startPolling(): void {
@@ -324,6 +288,7 @@ export class MutationStreamPanel {
   }
 
   private _dispose(): void {
+    this._disposed = true;
     MutationStreamPanel._currentPanel = undefined;
     this._polling = false;
     this._events = [];
