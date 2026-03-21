@@ -43,12 +43,12 @@ linter:
 
 plugins:
   saropa_lints:
-    version: "9.8.1"
+    version: "9.10.0"
     # ═══════════════════════════════════════════════════════════════════
     # SAROPA LINTS CONFIGURATION
     # ═══════════════════════════════════════════════════════════════════
     # Regenerate with: dart run saropa_lints:init --tier recommended
-    # Tier: recommended (694 of 2048 rules enabled)
+    # Tier: recommended (709 of 2077 rules enabled)
     # Lint rules are disabled by default. Set to true to enable.
     # User customizations are preserved unless --reset is used
     #
@@ -125,7 +125,7 @@ plugins:
       prefer_const_constructor_declarations: false  # [INFO] Constructor could be const. Class has only final fields; add const to the constructor declaration.
       prefer_correct_throws: false  # [INFO] Document thrown exceptions with @Throws annotation. Methods that throw should declare @Throws so callers know what to catch.
       prefer_declaring_const_constructor: false  # [INFO] Class could have a const constructor. A class could have a const constructor but doesn't. This class design reduces clarity and can lead to incorrect object initialization. {v5}
-      prefer_digit_separators: false  # [INFO] Large number should use digit separators. Digit separators improve readability of large numbers. This numeric literal usage can cause precision errors or make the intended value unclear. {v4}
+      prefer_digit_separators: true  # [INFO] Large number should use digit separators. Digit separators improve readability of large numbers. This numeric literal usage can cause precision errors or make the intended value unclear. {v4}
       prefer_extension_over_utility_class: false  # [INFO] Class with only static methods that share the same first parameter type could be an extension on that type.
       prefer_final_locals: false  # [INFO] Local variable that is never reassigned should be declared final.
       prefer_ios_safe_area: false  # [INFO] Scaffold body without SafeArea may have content hidden by iOS notch or Dynamic Island. {v2}
@@ -175,7 +175,7 @@ plugins:
       #
 
       #
-      # --- TIER 1: ESSENTIAL (217 rules) ---
+      # --- TIER 1: ESSENTIAL (219 rules) ---
       #
       always_remove_listener: true  # [WARNING] Listener added via addListener() but no matching removeListener() call found in dispose(). Orphaned listeners retain references to the widget, preventing garbage collection and causing memory leaks that accumulate as users navigate between screens. {v3}
       avoid_android_cleartext_traffic: true  # [WARNING] HTTP URL detected. Android 9+ blocks cleartext traffic by default. This request will fail silently. {v2}
@@ -289,6 +289,7 @@ plugins:
       avoid_weak_cryptographic_algorithms: true  # [WARNING] Weak or deprecated cryptographic algorithm detected (e.g. MD5, SHA-1). These algorithms have known collision vulnerabilities that allow attackers to forge hashes, compromising data integrity verification, password storage, and digital signature validation. {v5}
       check_is_not_closed_after_async_gap: true  # [ERROR] Emitting to closed Bloc throws StateError, crashing the app when widget is disposed during async. {v2}
       check_mounted_after_async: true  # [ERROR] setState() after await without mounted check. State may be disposed during async gap, causing "setState() called after dispose()" crash. {v5}
+      depend_on_referenced_packages: true  # [WARNING] Imported package is not listed in pubspec.yaml dependencies. Using a package without declaring the dependency means builds rely on transitive resolution, which can break unexpectedly when other packages update their own dependencies. Every package import must have a corresponding entry in pubspec.yaml. {v1}
       dispose_class_fields: true  # [WARNING] Class has disposable fields but no dispose/close method. This may cause memory leaks. {v2}
       missing_test_assertion: true  # [WARNING] Test without assertions always passes, giving false confidence. Bugs slip through undetected. {v5}
       pass_existing_future_to_future_builder: true  # [WARNING] Creating new Future in FutureBuilder restarts the async operation on every widget rebuild. This causes duplicate network calls, database queries, and slow UI with visible loading states. {v8}
@@ -394,9 +395,10 @@ plugins:
       require_websocket_close: true  # [WARNING] Unclosed WebSocket leaks connections and continues receiving data after widget disposal, causing errors. {v5}
       require_websocket_message_validation: true  # [WARNING] Unvalidated WebSocket messages crash when malformed data arrives, or enable injection attacks. {v3}
       require_websocket_reconnection: true  # [WARNING] WebSocket connection without reconnection logic will stay permanently disconnected after network interruptions, server restarts, or mobile network handoffs. Users will see stale data, miss real-time updates, and have no indication that the live connection has dropped until they manually refresh or restart the app. {v4}
+      uri_does_not_exist: true  # [ERROR] Import, export, or part directive URI refers to a file that does not exist. Broken URIs prevent the Dart compiler from resolving dependencies, causing build failures. This can happen when files are renamed, moved, or deleted without updating the referencing directives. Note: the Dart analyzer also reports this natively. {v1}
 
       #
-      # --- TIER 2: RECOMMENDED (447 rules) ---
+      # --- TIER 2: RECOMMENDED (460 rules) ---
       #
       avoid_accessing_collections_by_constant_index: true  # [WARNING] Collection accessed by a constant index inside a loop body. This retrieves the same element on every iteration, which is wasteful and usually indicates a logic error where the loop variable was intended as the index instead. {v5}
       avoid_analytics_in_build: true  # [WARNING] Analytics calls inside build() are triggered on every rebuild, resulting in duplicate events, inaccurate tracking data, degraded app performance, and inflated backend costs. This can skew business metrics, produce misleading dashboards, and make it difficult to analyze real user behavior. Persistent analytics spam may also trigger rate limits or data quality flags in analytics platforms. {v3}
@@ -603,7 +605,9 @@ plugins:
       no_equal_conditions: true  # [WARNING] Same condition appears more than once in an if/else-if chain. The duplicate branch is unreachable because the first occurrence already handles all cases where the condition is true, making the repeated check dead code. {v5}
       no_equal_nested_conditions: true  # [WARNING] Inner condition is identical to an enclosing outer condition. The nested check is always true at that point because the outer condition already guarantees it, making the inner branch redundant dead logic that adds nesting depth without any behavioral effect. {v4}
       no_equal_then_else: true  # [WARNING] If and else branches contain identical code, so the condition has no effect on behavior. The branch structure misleads readers into thinking different paths produce different results, when in fact the outcome is the same regardless of the condition. {v4}
+      no_runtimetype_tostring: true  # [WARNING] Avoid calling toString() on runtimeType. This adds unnecessary string conversion and is often slower than direct type checks.
       nullify_after_dispose: true  # [INFO] Nullable disposable field must be set to null after disposal. When a nullable disposable field (Timer?, StreamSubscription?, etc.) is disposed/canceled, it's good practice to also set it to null. This: - Helps garbage collection - Prevents accidental reuse of disposed resources - Makes it clear the resource has been cleaned up. {v7}
+      package_names: true  # [WARNING] Package name in pubspec.yaml does not follow the lowercase_with_underscores convention. Non-conforming names cause issues with pub.dev publishing, make imports harder to read, and violate the Dart ecosystem naming standard that all published packages follow. {v1}
       pass_correct_accepted_type: true  # [WARNING] Argument type does not match the parameter type declared by the @Accept annotation. Passing an incompatible type circumvents the annotation contract, which may cause runtime cast failures or incorrect behavior in the called function. {v4}
       prefer_action_button_tooltip: true  # [INFO] IconButton without a tooltip is inaccessible to screen reader users who cannot see the icon and have no text description of the button action. Tooltips also appear on long-press (mobile) and hover (desktop), providing discoverability for all users, not just those using assistive technology. {v2}
       prefer_actions_and_shortcuts: true  # [INFO] RawKeyboardListener requires manual key code matching and does not integrate with the Flutter intent system, making keyboard shortcuts invisible to accessibility tools and impossible to discover via keyboard shortcut overlays. The Actions/Shortcuts system provides composable, discoverable, and testable keyboard handling. {v6}
@@ -617,6 +621,7 @@ plugins:
       prefer_async_init_state: true  # [INFO] Using .then().setState() pattern in initState. Store the Future in a field and use FutureBuilder to manage loading states declaratively. {v2}
       prefer_avatar_loading_placeholder: true  # [INFO] CircleAvatar uses a network-loaded backgroundImage without providing onBackgroundImageError or a child widget as fallback. When the network image fails to load due to connectivity issues, invalid URLs, server errors, or slow connections, the avatar displays an empty or broken state with no visual feedback to the user. This creates a confusing UI where the user sees a blank circle instead of meaningful placeholder content like initials or a default icon. {v2}
       prefer_broadcast_stream: true  # [WARNING] Stream from StreamController is single-subscription. Multiple listeners will cause an error. {v2}
+      prefer_button_style_icon_alignment: true  # [WARNING] The 'iconAlignment' parameter on ButtonStyleButton subclass constructors (ElevatedButton.icon, FilledButton.icon, OutlinedButton.icon, TextButton.icon) was deprecated in Flutter 3.28 (PR #160023). The property was moved into ButtonStyle so it can be customized through themes and styleFrom methods. Use ButtonStyle.iconAlignment via the 'style' parameter instead of passing it directly to the constructor. {v1}
       prefer_cached_image_cache_manager: true  # [INFO] CachedNetworkImage without CacheManager. Cache may grow unbounded. Without a custom CacheManager, cached images can grow unbounded and consume excessive storage. Configure limits for production apps. {v2}
       prefer_clip_behavior: true  # [INFO] Widget does not specify clipBehavior explicitly. Default clipping wastes rendering performance when no overflow occurs, and obscures whether overflow is intentionally allowed or prevented. {v4}
       prefer_clipboard_feedback: true  # [INFO] Clipboard.setData should provide user feedback. Clipboard operations should provide user feedback (SnackBar, Toast, etc.) to confirm the action was successful. Without feedback, users won't know if the copy succeeded. {v2}
@@ -624,12 +629,13 @@ plugins:
       prefer_const_literals_to_create_immutables: true  # [INFO] Non-const collection literal passed to an immutable class. Add const to avoid allocating on every rebuild.
       prefer_const_widgets_in_lists: true  # [INFO] Widget list recreated on every rebuild. If elements are constant, the entire list can be const. This layout configuration can trigger RenderFlex overflow errors or unexpected visual behavior at runtime. {v4}
       prefer_constrained_box_over_container: true  # [INFO] Container with only constraints should use ConstrainedBox instead. Use ConstrainedBox widget when Container is only used for constraints. This makes the intent clearer and is more efficient. {v3}
+      prefer_context_menu_builder: true  # [WARNING] The 'previewBuilder' parameter on CupertinoContextMenu was deprecated in Flutter 3.4 and removed after Flutter 3.19 (PR #143990). The old previewBuilder only handled the second half of the opening animation (after animationOpensAt). The replacement builder parameter covers the full animation lifecycle from 0 to 1. Note: the callback signature changed from (context, animation, child) to (context, animation) — manual migration is required. {v1}
       prefer_correct_for_loop_increment: true  # [INFO] Non-standard for loop increment (e.g., i += 2, i = i + 3) reduces readability and can hide off-by-one errors. Standard i++ makes the iteration pattern immediately recognizable to all developers. {v2}
       prefer_correct_package_name: true  # [ERROR] Library directive name does not follow Dart naming conventions. Library and package names must use lowercase_with_underscores format: start with a lowercase letter, use only lowercase letters, digits, and underscores. Names with hyphens, dots, uppercase letters, or starting with digits break pub publish, import resolution, and IDE tooling. {v2}
       prefer_correct_type_name: true  # [WARNING] Type name is not UpperCamelCase. Nonstandard type names reduce code readability and break Dart conventions. Quick fix available: Adds a comment to flag for manual review. {v4}
       prefer_cursor_for_buttons: true  # [INFO] Interactive widget on web/desktop without a pointer cursor leaves the default arrow cursor, giving users no visual indication that the element is clickable. This violates web platform conventions and reduces discoverability of interactive elements, especially for GestureDetector-based custom buttons. {v6}
       prefer_data_masking: true  # [INFO] Unmasked sensitive data visible in UI and screenshots. Sensitive data (SSN, credit cards, passwords) must be partially masked when displayed to prevent shoulder surfing. {v4}
-      prefer_debugprint: true  # [INFO] print() should use debugPrint() for throttled console output. {v1}
+      prefer_debug_print: true  # [INFO] print() should use debugPrint() for throttled console output. {v1}
       prefer_define_hero_tag: true  # [WARNING] Hero widget without an explicit tag defaults to the widget itself, causing conflicts when multiple Hero widgets exist on the same screen. Duplicate tags trigger runtime assertion errors that crash the app during navigation transitions. {v4}
       prefer_delayed_permission_prompt: true  # [WARNING] Permission request detected in main() or initState(). Asking too early reduces acceptance rates. {v2}
       prefer_dispose_before_new_instance: true  # [WARNING] Reassigning without dispose leaks the old instance. Listeners and resources remain active forever. {v4}
@@ -639,6 +645,7 @@ plugins:
       prefer_foundation_platform_check: true  # [INFO] Use defaultTargetPlatform in widget code. In widget code, defaultTargetPlatform from foundation is safer and allows for testing overrides. Platform requires dart:io which doesn't exist on web. {v2}
       prefer_fractional_sizing: true  # [INFO] Use FractionallySizedBox for percentage-based sizing. FractionallySizedBox is cleaner for percentage-based layouts. Percentage-based sizing uses hardcoded calculations. {v5}
       prefer_go_router_extra_typed: true  # [INFO] go_router extra parameter passes a Map or dynamic value instead of a typed class. Untyped extras require unsafe casts at the destination route, causing runtime ClassCastException crashes when the map structure changes or keys are misspelled. {v2}
+      prefer_hack_format: true  # [WARNING] HACK comment detected. Consider converting to a TODO(author): description or removing the hack. {v3}
       prefer_hive_web_aware: true  # [INFO] Hive usage without web consideration. Hive on web has different behavior; consider kIsWeb or path handling.
       prefer_if_elements_to_conditional_expressions: true  # [INFO] Use if element instead of ternary with null in collection literals.
       prefer_ignore_pointer: true  # [INFO] AbsorbPointer blocks underlying widgets - is IgnorePointer better? - AbsorbPointer: Absorbs events and prevents them from reaching widgets behind it. Use when you need to block underlying interactions. - IgnorePointer: Lets events pass through completely. Use when you just want to disable this widget's interaction. {v4}
@@ -650,12 +657,15 @@ plugins:
       prefer_intrinsic_dimensions: true  # [INFO] Use IntrinsicWidth/Height for content-based sizing. IntrinsicWidth/Height can help with sizing widgets to their content. IntrinsicWidth/Height could improve layout. {v5}
       prefer_json_serializable: true  # [INFO] Data class with manual JSON serialization. Manual parsing is error-prone and hard to maintain. {v2}
       prefer_keep_alive: true  # [INFO] Use AutomaticKeepAliveClientMixin to preserve state. Without AutomaticKeepAliveClientMixin, tab content is rebuilt when switching tabs, losing scroll position and state. {v5}
+      prefer_keepalive_dispose: true  # [WARNING] The 'release()' method on KeepAliveHandle was deprecated in Flutter 3.3 and removed after Flutter 3.19 (PR #143961). Calling release() without dispose() caused memory leaks because the handle was never cleaned up. The functionality was consolidated into dispose(), which both releases the keep-alive and cleans up the handle in a single call. {v1}
+      prefer_key_event: true  # [WARNING] The RawKeyEvent/RawKeyboard key event system was deprecated in Flutter 3.18 (PR #136677) in favor of KeyEvent/HardwareKeyboard. The old system will be removed in a future release. Migrate: RawKeyEvent → KeyEvent, RawKeyDownEvent → KeyDownEvent, RawKeyUpEvent → KeyUpEvent, RawKeyboard → HardwareKeyboard, RawKeyboardListener → KeyboardListener. Also replace onKey callbacks with onKeyEvent on Focus/FocusNode/FocusScope. {v1}
       prefer_large_touch_targets: true  # [WARNING] Touch target is smaller than 48px. This makes it difficult for users with motor impairments. {v2}
       prefer_late_final: true  # [INFO] Late variable is never reassigned after its initial assignment, so it can be declared as late final for stronger immutability guarantees. {v3}
       prefer_layout_builder_for_constraints: true  # [INFO] Use LayoutBuilder for constraint-aware layout instead of MediaQuery for widget sizing. MediaQuery-based sizing rebuilds on any MediaQuery change.
       prefer_listview_builder: true  # [WARNING] Use ListView.builder to improve performance. This layout configuration can trigger RenderFlex overflow errors or unexpected visual behavior at runtime. {v3}
       prefer_local_notification_for_immediate: true  # [INFO] FCM is for server-triggered messages. Use flutter_local_notifications for app-generated (timer, reminder) notifications.
       prefer_lowercase_constants: true  # [INFO] Use lowerCamelCase for constants per Dart style guide.
+      prefer_m3_text_theme: true  # [WARNING] This TextTheme member uses the deprecated 2018-era naming scheme that was removed in Flutter 3.22 (PR #139255). The 13 deprecated names (headline1-6, subtitle1-2, bodyText1-2, caption, button, overline) were replaced by the Material 3 naming scheme (displayLarge/Medium/Small, headlineMedium/Small, titleLarge/Medium/Small, bodyLarge/Medium/Small, labelLarge/Small). Code using the old names will fail to compile on Flutter 3.22 and later. {v1}
       prefer_matcher_over_equals: true  # [INFO] Use matchers instead of direct equality to improve messages. Matchers provide better error messages and more expressive tests. Expect uses equality instead of matchers. {v7}
       prefer_merge_semantics: true  # [INFO] Row or Column containing Icon and Text detected without MergeSemantics wrapper. Screen readers will announce each element separately instead of as a single cohesive label, forcing users to piece together fragmented information. {v3}
       prefer_mock_http: true  # [WARNING] Use mock HTTP client in tests instead of real network calls. Real network calls make tests slow and flaky. This weakens test quality, making failures harder to diagnose and reducing confidence in the test suite. {v5}
@@ -666,6 +676,8 @@ plugins:
       prefer_overriding_parent_equality: true  # [WARNING] Subclass overrides == without incorporating the parent class equality check. If the parent class compares fields that the subclass ignores, two objects may be considered equal even though their parent fields differ, breaking the transitivity contract of ==. {v4}
       prefer_padding_over_container: true  # [INFO] Container with only padding creates unnecessary intermediate widgets (DecoratedBox, ConstrainedBox). Padding is a single-purpose widget with fewer allocations and faster layout. {v4}
       prefer_page_storage_key: true  # [INFO] Use PageStorageKey to preserve scroll position. This layout configuration can trigger RenderFlex overflow errors or unexpected visual behavior at runtime. {v5}
+      prefer_pan_axis: true  # [WARNING] The 'alignPanAxis' parameter on InteractiveViewer was deprecated in Flutter 3.7 and removed after Flutter 3.19 (PR #142500). The boolean parameter only supported two modes (free or aligned). The replacement panAxis parameter uses a PanAxis enum that adds horizontal-only and vertical-only panning options. Use PanAxis.aligned instead of alignPanAxis: true, or PanAxis.free (the default) instead of alignPanAxis: false. {v1}
+      prefer_platform_menu_bar_child: true  # [WARNING] The 'body' parameter on PlatformMenuBar was deprecated in Flutter 3.1 and removed after Flutter 3.16 (PR #138509). The parameter was renamed to follow the standard Flutter widget convention where the single child widget is named 'child'. Code using the old 'body' parameter will fail to compile on Flutter 3.19 and later. {v1}
       prefer_platform_widget_adaptive: true  # [INFO] Consider platform-adaptive widgets. Material-only UI on iOS (or Cupertino-only on Android) may feel inconsistent.
       prefer_positioned_directional: true  # [INFO] Use PositionedDirectional for RTL support. PositionedDirectional respects text direction for RTL languages. Positioned is used instead of PositionedDirectional. {v3}
       prefer_regex_validation: true  # [INFO] Form field with basic empty check but label suggests structured data (email/phone/url). Use regex validation. {v2}
@@ -687,6 +699,7 @@ plugins:
       prefer_sqflite_column_constants: true  # [INFO] String literal column name may contain typos. String literals for column names are error-prone. Use constants for compile-time checking. This file handling can cause data corruption, resource leaks, or permission errors. {v2}
       prefer_stream_distinct: true  # [INFO] Stream.listen() without .distinct() may process duplicate values unnecessarily. {v3}
       prefer_system_theme_default: true  # [INFO] Hardcoded ThemeMode ignores user's OS dark mode preference. Using ThemeMode.light or ThemeMode.dark ignores user's OS preference. Default to ThemeMode.system to respect user settings, with option to override. {v3}
+      prefer_tabbar_theme_indicator_color: true  # [WARNING] The 'indicatorColor' property on ThemeData was deprecated in Flutter 3.32.0 (PR #160024) as part of the Material Theme System Updates. Using ThemeData.indicatorColor directly bypasses the component-level theme system and will be removed in a future Flutter release. Migrate to TabBarThemeData.indicatorColor to keep tab indicator colors consistent with the Material Theme System. {v1}
       prefer_test_find_by_key: true  # [INFO] find.byType() is fragile. Use find.byKey() for reliable widget testing. Using find.byType can be fragile when widget structure changes. Using find.byKey with ValueKey or Key is more reliable and explicit. {v3}
       prefer_test_wrapper: true  # [INFO] Widget test should wrap with MaterialApp/CupertinoApp. Most widgets need MaterialApp ancestor for theming and localization. Note: This rule ignores teardown patterns where simple widgets like SizedBox, Container, or Placeholder are pumped to unmount the widget tree before disposal. {v4}
       prefer_text_input_action: true  # [INFO] TextField without textInputAction. Keyboard action button unclear. Setting textInputAction helps users navigate forms efficiently with the keyboard action button (Done, Next, Search, etc.). {v2}
@@ -844,6 +857,8 @@ plugins:
       require_widgets_binding_callback: true  # [WARNING] showDialog/showModalBottomSheet in initState without addPostFrameCallback may fail. {v2}
       require_workmanager_for_background: true  # [WARNING] Periodic task detected without workmanager. Dart isolates die when app backgrounds. Use workmanager for reliable background tasks. {v2}
       require_wss_over_ws: true  # [ERROR] ws:// transmits data unencrypted. Attackers can intercept, read, and modify WebSocket messages in transit. {v1}
+      secure_pubspec_urls: true  # [WARNING] Insecure URL (http:// or git://) found in pubspec.yaml dependency source. Plain HTTP and unencrypted git:// URLs are vulnerable to man-in-the-middle attacks that could inject malicious code into your dependencies. Always use https:// for dependency URLs to ensure integrity and authenticity. {v1}
       use_setstate_synchronously: true  # [WARNING] setState called after async gap without mounted check. Quick fix available: Wraps the setState call in if (mounted) { .. }. This violates the widget lifecycle, risking setState-after-dispose errors or silent state corruption. {v9}
+      use_truncating_division: true  # [WARNING] Prefer truncating division (`~/`) instead of `/` followed by `.toInt()`.
 
 

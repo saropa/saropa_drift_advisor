@@ -17,13 +17,13 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
-## [Unreleased]
+## [2.7.1]
 
 ### Fixed
 
 • **VS Code: About / About Saropa / Save Filter "command not found"** — Added `onCommand` activation in `extension/package.json` for `driftViewer.about`, `driftViewer.aboutSaropa`, and `driftViewer.saveFilter` so the extension activates when those commands run before a Dart file has been opened (Command Palette or Database view controls).
 
-## [2.7.0]
+## [2.7.1]
 
 Mutation Stream (VS Code) with column-value filtering, Pipeline: saropa_lints report colocation, alongside Single issues API and capability discovery for Saropa Lints and other consumers.
 
