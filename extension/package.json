@@ -42,7 +42,10 @@
     "theme": "dark"
   },
   "activationEvents": [
-    "onLanguage:dart"
+    "onLanguage:dart",
+    "onCommand:driftViewer.about",
+    "onCommand:driftViewer.aboutSaropa",
+    "onCommand:driftViewer.saveFilter"
   ],
   "icon": "icon.png",
   "main": "./out/extension.js",

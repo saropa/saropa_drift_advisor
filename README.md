@@ -261,7 +261,7 @@ await DriftDebugServer.start(
 );
 ```
 
-If you see **"command 'driftViewer.refreshTree' not found"** (or **"command 'driftViewer.aboutSaropa' not found"** when clicking the (i) icon on the Database header) in VS Code, open a Dart file or the Drift Advisor sidebar first so the extension activates, then try again or reload the window.
+If you see **"command 'driftViewer.refreshTree' not found"** in VS Code, open a Dart file first so the extension activates (`onLanguage:dart`), then try again or reload the window. **About Saropa** and **Save Current Filter** activate the extension when run from the Command Palette or the Database header even before a Dart file is open.
 
 ### 3. Connect a client
 

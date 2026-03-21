@@ -91,7 +91,7 @@ Works in Dart files with Drift table definitions:
 
 ## Design: extension enablement
 
-**Drift Advisor** has a master switch: `driftViewer.enabled` (default true). When false, the extension does not discover or connect to servers and all Drift Advisor features are off; the Database view shows “Saropa Drift Advisor is disabled” and the status bar shows “Drift: Disabled”. When true, activation is as before (`onLanguage:dart`); individual features can still be turned off via other settings. Use **Add package to project** to add the Dart package to your app so the extension and package stay in sync.
+**Drift Advisor** has a master switch: `driftViewer.enabled` (default true). When false, the extension does not discover or connect to servers and all Drift Advisor features are off; the Database view shows “Saropa Drift Advisor is disabled” and the status bar shows “Drift: Disabled”. When true, activation is as before (`onLanguage:dart`). About, About Saropa, and Save Current Filter use `onCommand` activation so they work from the Database view or Command Palette even before a Dart file is opened; individual features can still be turned off via other settings. Use **Add package to project** to add the Dart package to your app so the extension and package stay in sync.
 
 ## Server Discovery
 

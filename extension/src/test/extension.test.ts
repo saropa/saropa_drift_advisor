@@ -1,4 +1,6 @@
-import * as assert from 'assert';
+import * as assert from 'node:assert';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as sinon from 'sinon';
 import {
   commands,
@@ -137,6 +139,26 @@ describe('Extension activation', () => {
     activate(fakeContext());
     const registered = commands.getRegistered();
     assert.ok('driftViewer.saveFilter' in registered, 'saveFilter should be registered');
+  });
+
+  /**
+   * Ensures package.json declares onCommand activation for About/Save Filter so
+   * VS Code activates the extension when those commands run before any Dart file
+   * is opened (avoids "command not found" for Database header (i) and Save Filter).
+   */
+  it('package.json should include onCommand activation for about and saveFilter', () => {
+    const packagePath = path.join(__dirname, '..', '..', 'package.json');
+    const raw = fs.readFileSync(packagePath, 'utf-8');
+    const pkg = JSON.parse(raw) as { activationEvents?: string[] };
+    const events = pkg.activationEvents ?? [];
+    const required = [
+      'onCommand:driftViewer.about',
+      'onCommand:driftViewer.aboutSaropa',
+      'onCommand:driftViewer.saveFilter',
+    ];
+    for (const ev of required) {
+      assert.ok(events.includes(ev), `activationEvents should include "${ev}" (fixes "command not found" before Dart activation)`);
+    }
   });
 
   it('should register a CodeLens provider for Dart files', () => {
