@@ -119,6 +119,77 @@ void main() {
         client.close();
       }
     });
+
+    test('GET /assets/web/style.css returns CSS with correct content-type',
+        () async {
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/assets/web/style.css');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final ct = resp.headers.contentType;
+        expect(ct, isNotNull);
+        expect(ct!.mimeType, contains('css'));
+        final body = await resp.transform(utf8.decoder).join();
+        expect(body, contains(':root'));
+        // Must be real CSS, not an HTML shell or JSON error accidentally routed here.
+        expect(body.toLowerCase(), isNot(startsWith('<!doctype')));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET assets/web/style.css (no leading slash) returns same stylesheet',
+        () async {
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, 'assets/web/style.css');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.transform(utf8.decoder).join();
+        expect(body, contains(':root'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET /assets/web/app.js returns JavaScript with correct content-type',
+        () async {
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/assets/web/app.js');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final ct = resp.headers.contentType;
+        expect(ct, isNotNull);
+        expect(ct!.mimeType, contains('javascript'));
+        final body = await resp.transform(utf8.decoder).join();
+        expect(body, contains('DRIFT_VIEWER_AUTH_TOKEN'));
+        // app.js embeds CDN URLs for dynamic injection elsewhere; ensure this is the script file, not HTML.
+        expect(body.toLowerCase(), isNot(startsWith('<!doctype')));
+        expect(body, contains('function authOpts'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET /assets/web/not-a-real-asset.css returns 404 (no false match)',
+        () async {
+      final r = await httpGet(port!, '/assets/web/not-a-real-asset.css');
+      expect(r.status, HttpStatus.notFound);
+    });
+
+    test('POST /assets/web/style.css returns 404 (GET-only asset routes)',
+        () async {
+      final client = HttpClient();
+      try {
+        final req = await client.post('localhost', port!, '/assets/web/style.css');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.notFound);
+      } finally {
+        client.close();
+      }
+    });
   });
 
   // =====================================================

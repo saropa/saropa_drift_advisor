@@ -15,4 +15,6 @@ Web UI CSS and JavaScript were extracted from the inline Dart string in `html_co
 
 **Benefits:** Consuming app binaries no longer embed ~143KB of static UI; CSS/JS are cacheable by CDN and browser; IDE tooling for .css/.js; version-pinned immutable URLs.
 
+**Follow-up (2026-03):** The debug server now serves the same files at `/assets/web/*` with correct MIME types; the HTML shell uses local URLs first and CDN `onerror` fallback. See `plans/history/20260323/002-web-ui-local-static-assets.md`.
+
 **Related:** Modularization plan issue #2 (`bugs/026-modularization-plan.md`) — COMPLETE.

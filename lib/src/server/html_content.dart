@@ -1,8 +1,20 @@
 /// Inline HTML shell for the single-page viewer UI.
 ///
-/// CSS and JS are loaded from jsDelivr CDN (assets/web/style.css and app.js).
-/// CDN URLs use [ServerConstants.packageVersion]; a matching git tag (e.g. v1.6.1)
-/// must exist on the repo for the CDN to serve the assets.
+/// ## Static assets (CSS / JS)
+///
+/// The shell references same-origin paths `/assets/web/style.css` and
+/// `/assets/web/app.js`, which the debug server streams from the package
+/// (`generation_handler.dart`: `sendWebStyle` / `sendWebApp`). Each tag uses
+/// `onerror` to switch to a version-pinned jsDelivr URL if the local file
+/// is missing (e.g. unusual packaging) so the UI can still load when CDN
+/// serves correct MIME types.
+///
+/// ## UX notes
+///
+/// The script tag uses `defer` so parsing is not blocked by large `app.js`;
+/// this reduces "layout forced before load" warnings when combined with
+/// stylesheets that load before body content.
+///
 /// Buttons and collapsible headers include [title] attributes for hover tooltips.
 import 'server_constants.dart';
 
@@ -21,7 +33,7 @@ abstract final class HtmlContent {
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0">
   <!-- Favicon: inline SVG database cylinder matching extension store icon (purple-pink to cyan gradient). -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='cyl' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23cd87cd'/%3E%3Cstop offset='50%25' stop-color='%239e8eda'/%3E%3Cstop offset='100%25' stop-color='%235ac6e4'/%3E%3C/linearGradient%3E%3CradialGradient id='cap' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23e8c6e8'/%3E%3Cstop offset='100%25' stop-color='%23cd87cd'/%3E%3C/radialGradient%3E%3ClinearGradient id='bot' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%235ac6e4'/%3E%3Cstop offset='100%25' stop-color='%234dbdd8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='7' y='6' width='18' height='16' fill='url(%23cyl)'/%3E%3Cellipse cx='16' cy='6' rx='9' ry='2' fill='url(%23cap)' stroke='%235f3773' stroke-width='0.6'/%3E%3Cpath d='M7 6v16' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cpath d='M25 6v16' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cellipse cx='16' cy='14' rx='9' ry='1.2' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cellipse cx='16' cy='22' rx='9' ry='2' fill='url(%23bot)' stroke='%235f3773' stroke-width='0.6'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css">
+  <link rel="stylesheet" href="/assets/web/style.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css';">
 </head>
 <body>
   <!-- Connection-lost banner. Shown by JS when the server becomes unreachable.
@@ -416,7 +428,7 @@ abstract final class HtmlContent {
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js"></script>
+  <script defer src="/assets/web/app.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js';"></script>
 </body></html>
 ''';
 }

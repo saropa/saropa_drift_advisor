@@ -96,6 +96,14 @@ abstract final class ServerConstants {
   static const String pathFavicon = '/favicon.ico';
   static const String pathFaviconAlt = 'favicon.ico';
 
+  /// Local web UI stylesheet (served from package `assets/web/style.css`).
+  static const String pathWebStyle = '/assets/web/style.css';
+  static const String pathWebStyleAlt = 'assets/web/style.css';
+
+  /// Local web UI script (served from package `assets/web/app.js`).
+  static const String pathWebApp = '/assets/web/app.js';
+  static const String pathWebAppAlt = 'assets/web/app.js';
+
   /// Package version displayed in the web UI and health endpoint.
   /// Automatically synced with pubspec.yaml by the publish scripts
   /// (see sync_server_constants_version in target_config.py).

@@ -21,6 +21,8 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ### Fixed
 
+• **Web UI: local CSS/JS + CDN fallback** — The viewer HTML now loads `/assets/web/style.css` and `/assets/web/app.js` from the debug server (correct `Content-Type`, works offline). If those requests fail, `onerror` falls back to version-pinned jsDelivr URLs. Fixes browsers blocking CDN responses with `text/plain` + `X-Content-Type-Options: nosniff`.
+
 • **VS Code: About / About Saropa / Save Filter "command not found"** — Added `onCommand` activation in `extension/package.json` for `driftViewer.about`, `driftViewer.aboutSaropa`, and `driftViewer.saveFilter` so the extension activates when those commands run before a Dart file has been opened (Command Palette or Database view controls).
 
 ## [2.7.1]

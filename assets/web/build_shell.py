@@ -1,5 +1,8 @@
 # One-time script: rebuild html_content.dart HTML shell from a monolithic source.
 #
+# Emits local-first /assets/web/*.css|*.js tags with jsDelivr onerror fallback
+# (must match hand-edited html_content.dart when not regenerating from monolith).
+#
 # Intended for when the Dart file is restored to a full inline HTML/CSS/JS blob
 # (e.g. from git history). Line ranges (head 4-10, body 143-348) must match the
 # monolithic file structure; update them if the source layout changes.
@@ -10,8 +13,8 @@ with open(p, encoding='utf-8') as f:
     lines = f.readlines()
 head = ''.join(lines[3:10])
 body = ''.join(lines[142:348])
-link = '  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css">'
-script = '  <script src="https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js"></script>'
+link = '  <link rel="stylesheet" href="/assets/web/style.css" onerror="this.onerror=null;this.href=\'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css\';">'
+script = '  <script defer src="/assets/web/app.js" onerror="this.onerror=null;this.src=\'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js\';"></script>'
 html_inner = head + link + '\n</head>\n' + body + '\n' + script + '\n</body></html>'
 out_txt = os.path.join(os.path.dirname(__file__), 'html_shell.txt')
 with open(out_txt, 'w', encoding='utf-8') as f:
@@ -19,7 +22,7 @@ with open(out_txt, 'w', encoding='utf-8') as f:
 # Write new html_content.dart
 dart_header_lines = [
     "/// Inline HTML shell for the single-page viewer UI.",
-    "/// CSS and JS are loaded from jsDelivr CDN (assets/web/style.css and app.js).",
+    "/// CSS and JS are loaded from local server routes first, then CDN fallback.",
     "import 'server_constants.dart';",
     "",
     "abstract final class HtmlContent {",

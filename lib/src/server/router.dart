@@ -211,6 +211,22 @@ final class Router {
       return true;
     }
 
+    // GET /assets/web/style.css and /assets/web/app.js — local web UI assets.
+    // These are served from the package to avoid hard dependency on CDN MIME
+    // handling (and to support offline/local development).
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathWebStyle ||
+            path == ServerConstants.pathWebStyleAlt)) {
+      await _generation.sendWebStyle(response);
+      return true;
+    }
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathWebApp ||
+            path == ServerConstants.pathWebAppAlt)) {
+      await _generation.sendWebApp(response);
+      return true;
+    }
+
     // GET/POST /api/change-detection — toggle or query
     // the change-detection flag.
     if (path == ServerConstants.pathApiChangeDetection ||

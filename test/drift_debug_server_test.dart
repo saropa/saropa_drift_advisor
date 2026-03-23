@@ -775,8 +775,9 @@ void main() {
         expect(resp.headers.value('content-type'), contains('text/html'));
         final body = await resp.transform(utf8.decoder).join();
         expect(body, contains('id="sql-history"'));
-        // SQL history UI is implemented in app.js (CDN); ensure script is loaded
+        // SQL history UI is implemented in app.js; shell loads local /assets/web/app.js first
         expect(body, contains('assets/web/app.js'));
+        expect(body, contains('src="/assets/web/app.js"'));
       } finally {
         client.close();
       }
