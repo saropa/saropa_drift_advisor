@@ -85,7 +85,9 @@ Works in Dart files with Drift table definitions:
 | `driftViewer.database.loadOnConnect` | `true` | When false, Database tree loads on first view focus instead of on connect |
 | `driftViewer.schemaCache.ttlMs` | `30000` | Schema cache TTL (ms); 0 disables in-memory cache |
 | `driftViewer.schemaSearch.timeoutMs` | `15000` | Max schema search time before timeout (ms) |
+| `driftViewer.schemaSearch.autoRetryOnError` | `true` | Retry schema search/browse once after a short delay on transient network/timeout errors |
 | `driftViewer.schemaSearch.crossRefMatchCap` | `80` | Skip cross-ref building when matches exceed this (faster search) |
+| `driftViewer.connection.logEveryUiRefresh` | `false` | Log every connection UI refresh even when state is unchanged (verbose troubleshooting) |
 | `driftViewer.lightweight` | `false` | When true, skips badges/timeline/tree refresh on generation change |
 | `driftViewer.performance.slowThresholdMs` | `500` | Slow query threshold (ms) |
 
@@ -95,7 +97,11 @@ Works in Dart files with Drift table definitions:
 
 ## Server Discovery
 
-The extension automatically scans ports 8642-8649 for running debug servers. When no server is found and a Flutter/Dart debug session is active (e.g. app on Android emulator), it tries to forward the port with `adb forward` and retries discovery so the host can connect. You can also run **Saropa Drift Advisor: Forward Port (Android Emulator)** manually. When multiple servers are found, use **Saropa Drift Advisor: Select Server** from the command palette. The status bar shows connection state:
+The extension automatically scans ports 8642-8649 for running debug servers. When no server is found and a Flutter/Dart debug session is active (e.g. app on Android emulator), it tries to forward the port with `adb forward` and retries discovery so the host can connect. You can also run **Saropa Drift Advisor: Forward Port (Android Emulator)** manually. When multiple servers are found, use **Saropa Drift Advisor: Select Server** from the command palette.
+
+**Troubleshooting:** Use **Show Connection Log** (Output → Saropa Drift Advisor), **Diagnose Connection** (writes a snapshot and optional clipboard copy), or **Refresh Connection UI** if the sidebar looks wrong while the app is running. The **Schema Search** panel includes the same actions when disconnected.
+
+The status bar shows connection state:
 
 - **Drift: :8642** — connected to a single server
 - **Drift: 3 servers** — multiple servers found (click to select)
@@ -127,6 +133,12 @@ All commands are available via the command palette (`Ctrl+Shift+P`):
 | Run Schema Linter | Manual linter scan |
 | Show All Tables | QuickPick table selector |
 | Open Mutation Stream | Open the real-time mutation feed panel |
+| Retry Server Discovery | Re-scan ports and adb-forward path; opens Output |
+| Select Server | Pick among multiple discovered servers |
+| Forward Port (Android Emulator) | Run adb forward for the configured port |
+| Show Connection Log | Focus Output → Saropa Drift Advisor |
+| Refresh Connection UI | Re-sync `driftViewer.serverConnected` and sidebar views |
+| Diagnose Connection | Log settings, discovery state, and `health()` to Output; copy summary |
 
 ## Development
 

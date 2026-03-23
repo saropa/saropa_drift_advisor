@@ -29,11 +29,18 @@ import {
 } from './api-client-sessions';
 import * as http from './api-client-http';
 
+/** Returned by [DriftApiClient.onVmTransportChanged] so callers can unsubscribe. */
+export interface IVmTransportSubscription {
+  dispose(): void;
+}
+
 export class DriftApiClient {
   private _baseUrl: string;
   private _authToken: string | undefined;
   /** When set and connected, VM used for health, schema, sql, generation, performance, anomalies, explain, clear (Plan 68). */
   private _vmClient: VmServiceClient | null = null;
+  /** Listeners notified whenever [setVmClient] runs (connect, swap, or clear). */
+  private readonly _vmTransportListeners = new Set<() => void>();
 
   constructor(host: string, port: number) {
     this._baseUrl = `http://${host}:${port}`;
@@ -50,6 +57,30 @@ export class DriftApiClient {
       this._vmClient.close();
     }
     this._vmClient = client;
+    this._notifyVmTransportChanged();
+  }
+
+  /**
+   * Subscribe to VM transport changes (after [setVmClient]).
+   * Used to refresh sidebar "connected" state when HTTP discovery and VM path diverge.
+   */
+  onVmTransportChanged(listener: () => void): IVmTransportSubscription {
+    this._vmTransportListeners.add(listener);
+    return {
+      dispose: () => {
+        this._vmTransportListeners.delete(listener);
+      },
+    };
+  }
+
+  private _notifyVmTransportChanged(): void {
+    for (const fn of this._vmTransportListeners) {
+      try {
+        fn();
+      } catch {
+        /* Ignore listener failures so one bad subscriber cannot break transport setup. */
+      }
+    }
   }
 
   /** True when using VM Service transport for core methods. */

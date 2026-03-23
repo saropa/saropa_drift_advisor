@@ -278,4 +278,16 @@ describe('DriftApiClient', () => {
       );
     });
   });
+
+  describe('onVmTransportChanged', () => {
+    it('fires when setVmClient runs and stops after dispose', () => {
+      const listener = sinon.stub();
+      const sub = client.onVmTransportChanged(listener);
+      client.setVmClient(null);
+      assert.strictEqual(listener.callCount, 1);
+      sub.dispose();
+      client.setVmClient(null);
+      assert.strictEqual(listener.callCount, 1);
+    });
+  });
 });

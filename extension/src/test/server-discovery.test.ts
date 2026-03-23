@@ -90,7 +90,7 @@ describe('ServerDiscovery', () => {
     assert.deepStrictEqual(ports, [8642, 8643]);
   });
 
-  it('should require 2 consecutive misses before removing a server', async () => {
+  it('should require 3 consecutive misses before removing a server', async () => {
     stubPortAlive(8642);
     discovery = new ServerDiscovery(defaultConfig());
 
@@ -98,15 +98,18 @@ describe('ServerDiscovery', () => {
     await clock.tickAsync(1);
     assert.strictEqual(discovery.servers.length, 1);
 
-    // Server goes down — first miss
+    // Server goes down — first two misses
     fetchStub.reset();
     fetchStub.rejects(new Error('connection refused'));
     await clock.tickAsync(15001);
     assert.strictEqual(discovery.servers.length, 1, 'should survive 1 miss');
 
-    // Second miss — removed
     await clock.tickAsync(15001);
-    assert.strictEqual(discovery.servers.length, 0, 'should be removed after 2 misses');
+    assert.strictEqual(discovery.servers.length, 1, 'should survive 2 misses');
+
+    // Third miss — removed
+    await clock.tickAsync(15001);
+    assert.strictEqual(discovery.servers.length, 0, 'should be removed after 3 misses');
   });
 
   it('should transition to backoff after 5 empty scans', async () => {

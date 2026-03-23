@@ -72,11 +72,7 @@ export function registerDebugCommandsVm(
         (healthConfirmed) => {
           clearReported(session.id);
           if (healthConfirmed) {
-            vscode.commands.executeCommand(
-              'setContext',
-              'driftViewer.serverConnected',
-              false,
-            );
+            deps.refreshDriftConnectionUi?.();
             hoverCache.clear();
             perfProvider.stopAutoRefresh();
             linter.clear();
@@ -100,11 +96,8 @@ export function registerDebugCommandsVm(
         return false;
       }
 
-      vscode.commands.executeCommand(
-        'setContext',
-        'driftViewer.serverConnected',
-        true,
-      );
+      deps.serverManager.adoptClientEndpointIfNone(client);
+      deps.refreshDriftConnectionUi?.();
       await treeProvider.refresh();
       perfProvider.startAutoRefresh(client, refreshInterval);
       refreshStatusBar?.();
@@ -166,11 +159,8 @@ export function registerDebugCommandsVm(
       if (!serverManager.activeServer) discovery.retry();
       try {
         await client.health();
-        vscode.commands.executeCommand(
-          'setContext',
-          'driftViewer.serverConnected',
-          true,
-        );
+        serverManager.adoptClientEndpointIfNone(client);
+        deps.refreshDriftConnectionUi?.();
         perfProvider.startAutoRefresh(client, refreshInterval);
         logConnection(`Connected via HTTP at ${client.baseUrl}`);
         logBridge.writeConnectionEvent(
@@ -188,11 +178,7 @@ export function registerDebugCommandsVm(
       if (session.type !== 'dart' && session.type !== 'flutter') return;
       logConnection('Debug session ended. Drift disconnected.');
       client.setVmClient(null);
-      vscode.commands.executeCommand(
-        'setContext',
-        'driftViewer.serverConnected',
-        false,
-      );
+      deps.refreshDriftConnectionUi?.();
       hoverCache.clear();
       perfProvider.stopAutoRefresh();
 

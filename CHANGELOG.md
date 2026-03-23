@@ -23,6 +23,8 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 • **Publish script: working-tree prompt** — Replaced vague “dirty working tree” wording with explicit copy: uncommitted changes are called out as not-yet-committed, publish runs describe per-target `git add` scope (Dart: repo root; extension: `extension/` + `scripts/`), and **analyze** / `--analyze-only` runs use analysis-only messaging so users are not told a commit/push will happen in that invocation.
 
+• **VS Code: connection UI, Schema Search resilience** — Sidebar “connected” state now follows **HTTP discovery and/or VM Service** (`isDriftUiConnected`), with `refreshDriftConnectionUi` updating context, Drift Tools, and Schema Search together; VM transport changes and HTTP verify paths adopt the client endpoint when no server was selected. Schema Search gains connection **label/hint**, action links (Output log, Retry discovery, Diagnose, Refresh UI), **auto-retry** on transient failures (`schemaSearch.autoRetryOnError`), defensive error handling and logging, and optional **`connection.logEveryUiRefresh`**. New commands: **Show Connection Log**, **Refresh Connection UI**, **Diagnose Connection**; discovery polling uses a longer health probe and an extra miss before dropping a server. Welcome view links expanded. Unit tests cover presentation (**VM-only must not imply HTTP**) and log deduplication.
+
 ---
 
 ## [2.7.1]

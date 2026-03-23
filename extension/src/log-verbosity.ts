@@ -35,7 +35,10 @@ function isImportantConnectionLine(stripped: string): boolean {
     lower.includes('state:') ||
     lower.includes('connected to :') ||
     lower.includes('retry') ||
-    lower.includes('found servers on ports')
+    lower.includes('found servers on ports') ||
+    lower.includes('connection ui:') ||
+    lower.includes('schema search:') ||
+    lower.includes('diagnose connection')
   );
 }
 

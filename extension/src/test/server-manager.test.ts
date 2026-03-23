@@ -153,4 +153,21 @@ describe('ServerManager', () => {
     manager.clearActive();
     assert.ok(changed.notCalled);
   });
+
+  it('adoptClientEndpointIfNone sets active from client when unset', () => {
+    const changed = sinon.stub();
+    manager.onDidChangeActive(changed);
+    manager.adoptClientEndpointIfNone(client);
+    assert.ok(changed.calledOnce);
+    assert.strictEqual(manager.activeServer?.port, 8642);
+  });
+
+  it('adoptClientEndpointIfNone is no-op when already active', () => {
+    (discovery as any)._onDidChangeServers.fire([makeServer(8642)]);
+    const changed = sinon.stub();
+    manager.onDidChangeActive(changed);
+    manager.adoptClientEndpointIfNone(client);
+    assert.ok(changed.notCalled);
+    assert.strictEqual(manager.activeServer?.port, 8642);
+  });
 });

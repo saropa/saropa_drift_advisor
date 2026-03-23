@@ -1,11 +1,16 @@
 /**
  * WebviewViewProvider for the schema search sidebar panel.
  * Renders a search input + filter buttons; results list with cross-references.
- * Includes timeout protection, retry support, and connection-state awareness.
+ * Includes timeout protection, automatic retry on transient failures, connection
+ * presentation (HTTP vs VM), diagnostics logging, and host-command fallbacks.
  */
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
+import type { DriftConnectionPresentation } from '../connection-ui-state';
+import type { IConnectionLog } from '../debug/debug-commands-types';
+import { isTransientError } from '../transport/fetch-utils';
+import { getLogVerbosity, shouldLogConnectionLine } from '../log-verbosity';
 import { SchemaSearchEngine } from './schema-search-engine';
 import { getSchemaSearchHtml } from './schema-search-html';
 import type { SchemaSearchMessage } from './schema-search-types';
@@ -16,13 +21,19 @@ const DEFAULT_SEARCH_TIMEOUT_MS = 15_000;
 /** Callback to reveal a table in the Database Explorer tree view. */
 export type RevealTableFn = (name: string) => Promise<void>;
 
+export interface SchemaSearchViewOptions {
+  /** Writes schema-search diagnostics (errors, retries) to the connection log. */
+  connectionLog?: IConnectionLog;
+}
+
 export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'driftViewer.schemaSearch';
 
   private readonly _engine: SchemaSearchEngine;
+  private readonly _connectionLog?: IConnectionLog;
   private _view?: vscode.WebviewView;
   private _searchGen = 0;
-  private _connected = false;
+  private _presentation: DriftConnectionPresentation;
 
   /** Stores the last search/browse request so "Retry" can replay it. */
   private _lastRequest:
@@ -33,10 +44,28 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
   constructor(
     client: DriftApiClient,
     private readonly _revealTable: RevealTableFn,
+    options?: SchemaSearchViewOptions,
   ) {
     const cfg = vscode.workspace.getConfiguration('driftViewer');
     const crossRefMatchCap = cfg.get<number>('schemaSearch.crossRefMatchCap', 80) ?? 80;
     this._engine = new SchemaSearchEngine(client, { crossRefMatchCap });
+    this._connectionLog = options?.connectionLog;
+    // Host calls setConnectionPresentation once wiring is ready.
+    this._presentation = {
+      connected: false,
+      label: 'Not connected',
+      hint: 'Waiting for connection state from the extension…',
+      viaHttp: false,
+      viaVm: false,
+    };
+  }
+
+  private _log(line: string): void {
+    if (!this._connectionLog) return;
+    const full = `[${new Date().toISOString()}] Schema Search: ${line}`;
+    if (shouldLogConnectionLine(full, getLogVerbosity())) {
+      this._connectionLog.appendLine(full);
+    }
   }
 
   resolveWebviewView(
@@ -48,54 +77,139 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.options = { enableScripts: true };
 
     const nonce = getNonce();
-    webviewView.webview.html = getSchemaSearchHtml(nonce);
+    try {
+      webviewView.webview.html = getSchemaSearchHtml(nonce);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this._log(`failed to build webview HTML — ${msg}`);
+      webviewView.webview.html = `<body style="color:var(--vscode-errorForeground)">Schema Search failed to load UI: ${msg}</body>`;
+      return;
+    }
 
     webviewView.webview.onDidReceiveMessage(
-      (msg: SchemaSearchMessage) => this._handleMessage(msg),
+      (msg: SchemaSearchMessage) => {
+        void this._handleMessage(msg);
+      },
     );
 
-    // Immediately inform the webview of the current connection state so it
-    // renders the correct UI (idle vs disconnected) without waiting for a
-    // server event.
     this._postConnectionState();
   }
 
-  /** Notify the webview when the server connection state changes. */
+  /**
+   * Full connection snapshot for the webview (label, hint, HTTP/VM flags).
+   */
+  setConnectionPresentation(pres: DriftConnectionPresentation): void {
+    this._presentation = pres;
+    this._postConnectionState();
+  }
+
+  /** @deprecated Prefer setConnectionPresentation; kept for narrow tests. */
   setConnected(connected: boolean): void {
-    this._connected = connected;
-    this._postConnectionState();
-  }
-
-  /** Send the current connection state to the webview. */
-  private _postConnectionState(): void {
-    this._view?.webview.postMessage({
-      command: 'connectionState',
-      connected: this._connected,
+    this.setConnectionPresentation({
+      connected,
+      label: connected ? 'Connected' : 'Not connected',
+      hint: connected
+        ? ''
+        : 'Use Retry discovery or Diagnose in the panel, or check Output.',
+      viaHttp: connected,
+      viaVm: false,
     });
   }
 
+  private _postConnectionState(): void {
+    try {
+      this._view?.webview.postMessage({
+        command: 'connectionState',
+        connected: this._presentation.connected,
+        label: this._presentation.label,
+        hint: this._presentation.hint,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this._log(`postMessage connectionState failed — ${msg}`);
+    }
+  }
+
   private async _handleMessage(msg: SchemaSearchMessage): Promise<void> {
-    switch (msg.command) {
-      case 'search':
-        await this._doSearch(msg.query, msg.scope, msg.typeFilter);
-        break;
-      case 'searchAll':
-        await this._doBrowseAll();
-        break;
-      case 'retry':
-        await this._doRetry();
-        break;
-      case 'navigate':
-        await this._revealTable(msg.table);
-        break;
+    try {
+      switch (msg.command) {
+        case 'search':
+          await this._doSearch(msg.query, msg.scope, msg.typeFilter);
+          break;
+        case 'searchAll':
+          await this._doBrowseAll();
+          break;
+        case 'retry':
+          await this._doRetry();
+          break;
+        case 'navigate':
+          await this._revealTableWithLogging(msg.table);
+          break;
+        case 'openConnectionLog':
+          await vscode.commands.executeCommand('driftViewer.showConnectionLog');
+          break;
+        case 'retryDiscovery':
+          await vscode.commands.executeCommand('driftViewer.retryDiscovery');
+          break;
+        case 'diagnoseConnection':
+          await vscode.commands.executeCommand('driftViewer.diagnoseConnection');
+          break;
+        case 'refreshConnectionUi':
+          await vscode.commands.executeCommand('driftViewer.refreshConnectionUi');
+          break;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this._log(`message handler error (${msg.command}) — ${message}`);
+      this._view?.webview.postMessage({
+        command: 'error',
+        message: `Panel error: ${message}`,
+      });
+    }
+  }
+
+  private async _revealTableWithLogging(name: string): Promise<void> {
+    try {
+      await this._revealTable(name);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this._log(`revealTable(${name}) failed — ${message}`);
+      void vscode.window.showWarningMessage(`Could not reveal table "${name}": ${message}`);
     }
   }
 
   /**
-   * Races a promise against the configured search timeout.
-   * Always cleans up the internal timer to avoid leaks.
-   * Shared by _doSearch and _doBrowseAll for consistent timeout behavior.
+   * Runs [fn] once; on failure, optionally waits and retries once for transient errors.
    */
+  private async _withOptionalRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+    const autoRetry =
+      vscode.workspace
+        .getConfiguration('driftViewer')
+        .get<boolean>('schemaSearch.autoRetryOnError', true) !== false;
+    try {
+      return await fn();
+    } catch (first) {
+      const msg = first instanceof Error ? first.message : String(first);
+      this._log(`${label} first attempt failed — ${msg}`);
+      if (!autoRetry) throw first;
+      const retryOk =
+        isTransientError(first)
+        || msg.toLowerCase().includes('timed out')
+        || msg.toLowerCase().includes('aborted');
+      if (!retryOk) throw first;
+      await new Promise((r) => setTimeout(r, 400));
+      try {
+        const second = await fn();
+        this._log(`${label} succeeded on retry`);
+        return second;
+      } catch (secondErr) {
+        const m2 = secondErr instanceof Error ? secondErr.message : String(secondErr);
+        this._log(`${label} retry failed — ${m2}`);
+        throw secondErr;
+      }
+    }
+  }
+
   private _withTimeout<T>(promise: Promise<T>): Promise<T> {
     const timeoutMs = vscode.workspace.getConfiguration('driftViewer')
       .get<number>('schemaSearch.timeoutMs', DEFAULT_SEARCH_TIMEOUT_MS)
@@ -112,25 +226,21 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  /**
-   * Runs a search with timeout protection.
-   * Stale results (from a superseded search) are discarded via gen check.
-   */
   private async _doSearch(
     query: string,
     scope: 'all' | 'tables' | 'columns',
     typeFilter?: string,
   ): Promise<void> {
-    // Remember the request so "Retry" can replay it after timeout/error.
     this._lastRequest = { type: 'search', query, scope, typeFilter };
     const gen = ++this._searchGen;
     this._view?.webview.postMessage({ command: 'loading' });
 
     try {
       const result = await this._withTimeout(
-        this._engine.search(query, scope, typeFilter),
+        this._withOptionalRetry('search', () =>
+          this._engine.search(query, scope, typeFilter)),
       );
-      if (gen !== this._searchGen) return; // Stale result; discard
+      if (gen !== this._searchGen) return;
       this._view?.webview.postMessage({
         command: 'results',
         result,
@@ -139,26 +249,23 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     } catch (err) {
       if (gen !== this._searchGen) return;
       const message = err instanceof Error ? err.message : String(err);
+      this._log(`search final error — ${message}`);
       this._view?.webview.postMessage({
         command: 'error',
         message: message.includes('timed out')
-          ? 'Search timed out. Try a more specific query or check the server.'
+          ? 'Search timed out. Try a narrower query, increase schemaSearch.timeoutMs, or check the server.'
           : `Search failed: ${message}`,
       });
     }
   }
 
-  /**
-   * Fast "Browse all tables" with the same timeout protection as search.
-   * One schemaMetadata call, no cross-refs.
-   */
   private async _doBrowseAll(): Promise<void> {
     this._lastRequest = { type: 'browseAll' };
     const gen = ++this._searchGen;
     this._view?.webview.postMessage({ command: 'loading' });
     try {
       const result = await this._withTimeout(
-        this._engine.browseAllTables(),
+        this._withOptionalRetry('browseAll', () => this._engine.browseAllTables()),
       );
       if (gen !== this._searchGen) return;
       this._view?.webview.postMessage({
@@ -169,16 +276,16 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     } catch (err) {
       if (gen !== this._searchGen) return;
       const message = err instanceof Error ? err.message : String(err);
+      this._log(`browseAll final error — ${message}`);
       this._view?.webview.postMessage({
         command: 'error',
         message: message.includes('timed out')
-          ? 'Browse timed out. Check that the server is running.'
+          ? 'Browse timed out. Check the server or increase schemaSearch.timeoutMs.'
           : `Browse failed: ${message}`,
       });
     }
   }
 
-  /** Replays the last search or browse request (used by the "Retry" button). */
   private async _doRetry(): Promise<void> {
     if (!this._lastRequest) return;
     if (this._lastRequest.type === 'search') {

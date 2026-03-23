@@ -108,7 +108,7 @@ describe('Extension activation', () => {
     // Snapshot/explain: onDidChangeActiveTextEditor, onDidChangeTextEditorSelection, debounce dispose (3)
     // Log Capture integration: session-end export + optional API (1)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 186, `expected 186 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 189, `expected 189 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -198,6 +198,9 @@ describe('Extension activation', () => {
     assert.ok('driftViewer.selectServer' in registered);
     assert.ok('driftViewer.retryDiscovery' in registered);
     assert.ok('driftViewer.forwardPortAndroid' in registered);
+    assert.ok('driftViewer.showConnectionLog' in registered);
+    assert.ok('driftViewer.refreshConnectionUi' in registered);
+    assert.ok('driftViewer.diagnoseConnection' in registered);
   });
 
   it('should register addPackageToProject command', () => {

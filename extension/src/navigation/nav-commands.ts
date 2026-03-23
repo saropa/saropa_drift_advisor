@@ -21,6 +21,7 @@ export function registerNavCommands(
   discovery: ServerDiscovery,
   filterBridge: FilterBridge,
   connectionChannel: vscode.OutputChannel,
+  refreshConnectionUi?: () => void,
 ): void {
   // Timestamped log to connection output channel for welcome-view and status-bar commands.
   let verbosity = getLogVerbosity(
@@ -227,6 +228,71 @@ export function registerNavCommands(
         const msg = err instanceof Error ? err.message : String(err);
         log(`Retry Connection: failed — ${msg}`);
         void vscode.window.showErrorMessage(`Retry discovery failed: ${msg}`);
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.showConnectionLog', () => {
+      log('Show Connection Log: triggered by user');
+      connectionChannel.show(true);
+      void vscode.window.showInformationMessage(
+        'Opened Output → Saropa Drift Advisor. Enable verbose logging in settings for more detail.',
+      );
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.refreshConnectionUi', () => {
+      log('Refresh Connection UI: triggered by user');
+      try {
+        refreshConnectionUi?.();
+        void vscode.window.showInformationMessage(
+          'Sidebar connection state refreshed. Check Output if issues persist.',
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log(`Refresh Connection UI: failed — ${msg}`);
+        void vscode.window.showErrorMessage(`Refresh connection UI failed: ${msg}`);
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.diagnoseConnection', async () => {
+      log('Diagnose Connection: started');
+      connectionChannel.show(true);
+      const stamp = new Date().toISOString();
+      const lines: string[] = [
+        `--- Diagnose Connection (${stamp}) ---`,
+        `extension driftViewer.enabled=${vscode.workspace.getConfiguration('driftViewer').get('enabled')}`,
+        `discovery.enabled=${vscode.workspace.getConfiguration('driftViewer').get('discovery.enabled')}`,
+        `activeServer=${serverManager.activeServer ? `${serverManager.activeServer.host}:${serverManager.activeServer.port}` : 'none'}`,
+        `discovery.state=${discovery.state} ports=[${discovery.servers.map((s) => s.port).join(', ') || 'none'}]`,
+        `client.usingVmService=${client.usingVmService}`,
+        `client.baseUrl=${client.baseUrl}`,
+      ];
+      try {
+        const health = await client.health();
+        lines.push(`health() → ${JSON.stringify(health)}`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        lines.push(`health() FAILED → ${msg}`);
+      }
+      lines.push('--- end diagnose ---');
+      for (const line of lines) {
+        connectionChannel.appendLine(line);
+      }
+      log('Diagnose Connection: complete (see Output)');
+      const pick = await vscode.window.showInformationMessage(
+        'Connection diagnosis written to Output → Saropa Drift Advisor.',
+        'Copy summary',
+        'Close',
+      );
+      if (pick === 'Copy summary') {
+        const summary = lines.filter((l) => !l.startsWith('---')).join('\n');
+        await vscode.env.clipboard.writeText(summary);
+        void vscode.window.showInformationMessage('Diagnosis summary copied to clipboard.');
       }
     }),
   );

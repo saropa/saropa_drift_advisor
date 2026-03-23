@@ -1,3 +1,7 @@
+/**
+ * Active server selection, client host/port updates, and workspace port memory.
+ */
+
 import * as vscode from 'vscode';
 import { DriftApiClient } from './api-client';
 import { IServerInfo, ServerDiscovery } from './server-discovery';
@@ -54,6 +58,22 @@ export class ServerManager {
     if (this._activeServer !== undefined) {
       this._setActive(undefined);
     }
+  }
+
+  /**
+   * When HTTP to [client] is verified (e.g. debug fallback) but discovery has not
+   * set [activeServer] yet, adopt the client's endpoint so status bar and UI match.
+   */
+  adoptClientEndpointIfNone(client: DriftApiClient): void {
+    if (this._activeServer !== undefined) return;
+    const now = Date.now();
+    this._setActive({
+      host: client.host,
+      port: client.port,
+      firstSeen: now,
+      lastSeen: now,
+      missedPolls: 0,
+    });
   }
 
   /**

@@ -68,11 +68,28 @@ export function getSchemaSearchHtml(nonce: string): string {
     color: var(--vscode-inputValidation-warningForeground, #cca700);
     transition: max-height 0.25s ease, opacity 0.25s ease,
                 padding 0.25s ease, margin-bottom 0.25s ease; }
-  .disconnected.show { max-height: 40px; opacity: 1; padding: 6px 8px; margin-bottom: 6px; }
+  .disconnected.show { max-height: 220px; opacity: 1; padding: 8px; margin-bottom: 6px; }
+  .disc-title { font-weight: 600; }
+  .disc-hint { font-size: 10px; opacity: 0.95; margin-top: 4px; line-height: 1.35; }
+  .disc-actions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .linkish { background: transparent; border: none; color: var(--vscode-textLink-foreground);
+    cursor: pointer; font-size: 10px; padding: 2px 0; text-decoration: underline; }
+  .linkish:hover { opacity: 0.9; }
+  .conn-status { font-size: 10px; opacity: 0.72; margin-bottom: 4px; line-height: 1.3; }
 </style>
 </head>
 <body>
-<div id="disconnected" class="disconnected" aria-live="polite">Server not connected</div>
+<div id="connStatus" class="conn-status" style="display: none;" aria-live="polite"></div>
+<div id="disconnected" class="disconnected" aria-live="polite">
+  <div id="discTitle" class="disc-title">Not connected</div>
+  <div id="discHint" class="disc-hint"></div>
+  <div class="disc-actions">
+    <button type="button" class="linkish" id="btnOpenLog" title="Open Saropa Drift Advisor output">Output log</button>
+    <button type="button" class="linkish" id="btnRetry" title="Re-scan for Drift debug servers">Retry discovery</button>
+    <button type="button" class="linkish" id="btnDiagnose" title="Run health check and log details">Diagnose</button>
+    <button type="button" class="linkish" id="btnRefreshUi" title="Re-sync sidebar connection state">Refresh UI</button>
+  </div>
+</div>
 <div class="search-box">
   <input id="query" type="text" placeholder="Search schema..." />
 </div>
@@ -101,6 +118,9 @@ export function getSchemaSearchHtml(nonce: string): string {
   const statusEl = document.getElementById('status');
   const errorEl = document.getElementById('error');
   const disconnectedEl = document.getElementById('disconnected');
+  const discTitleEl = document.getElementById('discTitle');
+  const discHintEl = document.getElementById('discHint');
+  const connStatusEl = document.getElementById('connStatus');
   let scope = 'all';
   let typeFilter = '';
   let debounceTimer;
@@ -134,6 +154,19 @@ export function getSchemaSearchHtml(nonce: string): string {
     vscode.postMessage({ command: 'searchAll' });
   });
 
+  document.getElementById('btnOpenLog').addEventListener('click', () => {
+    vscode.postMessage({ command: 'openConnectionLog' });
+  });
+  document.getElementById('btnRetry').addEventListener('click', () => {
+    vscode.postMessage({ command: 'retryDiscovery' });
+  });
+  document.getElementById('btnDiagnose').addEventListener('click', () => {
+    vscode.postMessage({ command: 'diagnoseConnection' });
+  });
+  document.getElementById('btnRefreshUi').addEventListener('click', () => {
+    vscode.postMessage({ command: 'refreshConnectionUi' });
+  });
+
   function doSearch() {
     const q = queryEl.value.trim();
     if (!q) {
@@ -149,16 +182,24 @@ export function getSchemaSearchHtml(nonce: string): string {
     vscode.postMessage(msg);
   }
 
-  /** Updates the UI to reflect server connection state. */
-  function applyConnectionState(isConnected) {
-    connected = isConnected;
-    // Show/hide disconnected banner with CSS transition
+  /** Updates the UI to reflect server connection state and troubleshooting hints. */
+  function applyConnectionState(msg) {
+    connected = msg.connected;
     disconnectedEl.classList.toggle('show', !connected);
-    // Disable/enable interactive controls when disconnected
+    if (!connected) {
+      discTitleEl.textContent = msg.label || 'Not connected';
+      discHintEl.textContent = msg.hint || '';
+      connStatusEl.style.display = 'none';
+      connStatusEl.textContent = '';
+    } else {
+      connStatusEl.style.display = 'block';
+      connStatusEl.textContent = msg.label ? ('Connected: ' + msg.label) : 'Connected';
+      discTitleEl.textContent = '';
+      discHintEl.textContent = '';
+    }
     queryEl.disabled = !connected;
     filtersEl.classList.toggle('disabled', !connected);
     browseWrap.classList.toggle('disabled', !connected);
-    // Refresh the idle message to match the new state
     if (!queryEl.value.trim()) doSearch();
   }
 
@@ -173,7 +214,8 @@ export function getSchemaSearchHtml(nonce: string): string {
       statusEl.textContent = '';
       resultsEl.innerHTML = '';
       if (errorEl) {
-        errorEl.textContent = msg.message || 'Search failed';
+        errorEl.innerHTML = esc(msg.message || 'Search failed')
+          + '<div style="font-size:10px;opacity:0.8;margin-top:6px">Tip: open <b>Output \u2192 Saropa Drift Advisor</b> or use <b>Diagnose</b> in the disconnected banner.</div>';
         errorEl.style.display = 'block';
       }
       // Append a Retry button below the error so the user can try again
@@ -190,7 +232,7 @@ export function getSchemaSearchHtml(nonce: string): string {
       if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
       renderResults(msg.result, msg.crossRefs);
     } else if (msg.command === 'connectionState') {
-      applyConnectionState(msg.connected);
+      applyConnectionState(msg);
     }
   });
 

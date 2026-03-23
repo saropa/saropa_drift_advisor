@@ -33,11 +33,20 @@ export type SchemaSearchMessage =
   | { command: 'search'; query: string; scope: SchemaSearchScope; typeFilter?: string }
   | { command: 'searchAll' }
   | { command: 'navigate'; table: string }
-  | { command: 'retry' };
+  | { command: 'retry' }
+  | { command: 'openConnectionLog' }
+  | { command: 'retryDiscovery' }
+  | { command: 'diagnoseConnection' }
+  | { command: 'refreshConnectionUi' };
 
 /** Messages sent from the extension host to the webview. */
 export type SchemaSearchHostMessage =
   | { command: 'loading' }
   | { command: 'results'; result: ISchemaSearchResult; crossRefs: ICrossReference[] }
   | { command: 'error'; message: string }
-  | { command: 'connectionState'; connected: boolean };
+  | {
+      command: 'connectionState';
+      connected: boolean;
+      label: string;
+      hint: string;
+    };

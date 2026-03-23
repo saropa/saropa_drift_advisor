@@ -10,6 +10,7 @@ import { GenerationWatcher } from './generation-watcher';
 import { ServerDiscovery } from './server-discovery';
 import { ServerManager } from './server-manager';
 import { hasFlutterOrDartDebugSession, tryAdbForwardAndRetry } from './android-forward';
+import { isDriftUiConnected } from './connection-ui-state';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 
 /** Delay before trying adb forward after a Flutter/Dart debug session starts (ms). */
@@ -104,11 +105,10 @@ export function bootstrapExtension(
         // Backup sync: ensure sidebar context reflects active server (ServerManager listener
         // runs first, so activeServer is set by the time we run). Handles races where
         // the view evaluated before onDidChangeActive or the context update was missed.
-        const active = serverManager.activeServer;
         void vscode.commands.executeCommand(
           'setContext',
           'driftViewer.serverConnected',
-          active !== undefined,
+          isDriftUiConnected(serverManager, client),
         );
         return;
       }

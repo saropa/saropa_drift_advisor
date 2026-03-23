@@ -8,6 +8,7 @@ import { PerfBaselineStore } from './perf-baseline-store';
 import { registerDebugCommandsPanels } from './debug-commands-panels';
 import { registerDebugCommandsPerf } from './debug-commands-perf';
 import { registerDebugCommandsVm } from './debug-commands-vm';
+import type { SchemaSearchViewProvider } from '../schema-search/schema-search-view';
 
 export type { IConnectionLog, IDebugCommandDeps } from './debug-commands-types';
 
@@ -15,7 +16,7 @@ export type { IConnectionLog, IDebugCommandDeps } from './debug-commands-types';
 export function registerDebugCommands(
   context: vscode.ExtensionContext,
   deps: IDebugCommandDeps,
-): void {
+): SchemaSearchViewProvider {
   const { connectionLog } = deps;
 
   const logConnection = (msg: string): void => {
@@ -23,7 +24,12 @@ export function registerDebugCommands(
   };
 
   const { perfProvider, revealTable } = registerDebugCommandsPerf(context, deps);
-  registerDebugCommandsPanels(context, deps.client, revealTable, deps.serverManager);
+  const schemaSearchProvider = registerDebugCommandsPanels(
+    context,
+    deps.client,
+    revealTable,
+    deps,
+  );
 
   const baselineStore = new PerfBaselineStore(context.workspaceState);
 
@@ -80,4 +86,6 @@ export function registerDebugCommands(
       },
     ),
   );
+
+  return schemaSearchProvider;
 }

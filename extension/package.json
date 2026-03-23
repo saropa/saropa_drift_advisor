@@ -45,7 +45,10 @@
     "onLanguage:dart",
     "onCommand:driftViewer.about",
     "onCommand:driftViewer.aboutSaropa",
-    "onCommand:driftViewer.saveFilter"
+    "onCommand:driftViewer.saveFilter",
+    "onCommand:driftViewer.showConnectionLog",
+    "onCommand:driftViewer.refreshConnectionUi",
+    "onCommand:driftViewer.diagnoseConnection"
   ],
   "icon": "icon.png",
   "main": "./out/extension.js",
@@ -107,12 +110,12 @@
       },
       {
         "view": "driftViewer.databaseExplorer",
-        "contents": "No Drift debug server connected.\n\nGET STARTED — Add the Drift Advisor package to your project, then run your app with the debug server.\n\n[Add Saropa Drift Advisor](command:driftViewer.addPackageToProject)\n\n[Open in Browser](command:driftViewer.openInBrowser)\n[Troubleshooting](command:driftViewer.showTroubleshooting)\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\nRESOURCES\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
+        "contents": "No Drift debug server connected.\n\nGET STARTED — Add the Drift Advisor package to your project, then run your app with the debug server.\n\n[Add Saropa Drift Advisor](command:driftViewer.addPackageToProject)\n\n[Open in Browser](command:driftViewer.openInBrowser)\n[Troubleshooting](command:driftViewer.showTroubleshooting)\n[Connection log](command:driftViewer.showConnectionLog)\n[Diagnose connection](command:driftViewer.diagnoseConnection)\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Refresh sidebar UI](command:driftViewer.refreshConnectionUi)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\nRESOURCES\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
         "when": "driftViewer.enabled && !driftViewer.serverConnected && !driftViewer.packageInstalled"
       },
       {
         "view": "driftViewer.databaseExplorer",
-        "contents": "No Drift debug server connected.\n\nRun your app with the Drift debug server to connect.\n\n[Open in Browser](command:driftViewer.openInBrowser)\n[Troubleshooting](command:driftViewer.showTroubleshooting)\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\nRESOURCES\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
+        "contents": "No Drift debug server connected.\n\nRun your app with the Drift debug server to connect.\n\n[Open in Browser](command:driftViewer.openInBrowser)\n[Troubleshooting](command:driftViewer.showTroubleshooting)\n[Connection log](command:driftViewer.showConnectionLog)\n[Diagnose connection](command:driftViewer.diagnoseConnection)\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Refresh sidebar UI](command:driftViewer.refreshConnectionUi)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\nRESOURCES\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
         "when": "driftViewer.enabled && !driftViewer.serverConnected && driftViewer.packageInstalled"
       }
     ],
@@ -197,6 +200,18 @@
       {
         "command": "driftViewer.retryDiscovery",
         "title": "Saropa Drift Advisor: Retry Server Discovery"
+      },
+      {
+        "command": "driftViewer.showConnectionLog",
+        "title": "Saropa Drift Advisor: Show Connection Log"
+      },
+      {
+        "command": "driftViewer.refreshConnectionUi",
+        "title": "Saropa Drift Advisor: Refresh Connection UI"
+      },
+      {
+        "command": "driftViewer.diagnoseConnection",
+        "title": "Saropa Drift Advisor: Diagnose Connection"
       },
       {
         "command": "driftViewer.forwardPortAndroid",
@@ -875,6 +890,11 @@
           "default": "127.0.0.1",
           "description": "Host of the Drift debug server."
         },
+        "driftViewer.connection.logEveryUiRefresh": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log every connection UI refresh even when state is unchanged (verbose; for deep troubleshooting)."
+        },
         "driftViewer.discovery.enabled": {
           "type": "boolean",
           "default": true,
@@ -921,6 +941,11 @@
           "default": 15000,
           "minimum": 1000,
           "description": "Max time to wait for a schema search before showing timeout (ms)."
+        },
+        "driftViewer.schemaSearch.autoRetryOnError": {
+          "type": "boolean",
+          "default": true,
+          "description": "When a schema search or browse fails with a transient network/timeout error, automatically retry once after a short delay."
         },
         "driftViewer.schemaSearch.crossRefMatchCap": {
           "type": "number",

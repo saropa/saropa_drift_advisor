@@ -35,4 +35,6 @@ export interface IDebugCommandDeps {
   refreshBadges: () => Promise<void>;
   refreshStatusBar?: () => void;
   connectionLog?: IConnectionLog;
+  /** Refreshes Schema Search, Drift Tools, and driftViewer.serverConnected together. */
+  refreshDriftConnectionUi?: () => void;
 }

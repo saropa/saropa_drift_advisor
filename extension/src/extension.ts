@@ -18,6 +18,10 @@ import { setupProviders, type LogCaptureIssuesRef } from './extension-providers'
 import { setupDiagnostics } from './extension-diagnostics';
 import { setupEditing } from './extension-editing';
 import { registerAllCommands } from './extension-commands';
+import {
+  isDriftUiConnected,
+  refreshDriftConnectionUi as syncDriftConnectionUi,
+} from './connection-ui-state';
 import { bootstrapExtension } from './extension-bootstrap';
 import { SchemaTracker } from './schema-timeline/schema-tracker';
 import { PackageStatusMonitor } from './workspace-setup/package-status-monitor';
@@ -25,6 +29,7 @@ import { SchemaCache } from './schema-cache/schema-cache';
 import { createCachedDriftClient } from './schema-cache/cached-drift-client';
 import type { DriftAdvisorApi } from './log-capture-api';
 import { createDriftAdvisorApi } from './log-capture-api';
+import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 
 export function activate(context: vscode.ExtensionContext): void {
   const {
@@ -89,7 +94,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Public API for other extensions (e.g. Saropa Log Capture): getSessionSnapshot()
   (context as vscode.ExtensionContext & { exports: DriftAdvisorApi }).exports = createDriftAdvisorApi(
-    () => (serverManager.activeServer ? cachedClient : null),
+    () => (isDriftUiConnected(serverManager, cachedClient) ? cachedClient : null),
     () => issuesRef.get(),
   );
 
@@ -115,6 +120,40 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(toolsQuickPick);
   registerToolsQuickPickCommand(context);
 
+  /** Filled after registerAllCommands; syncs Schema Search, Tools tree, and context. */
+  const connectionUiRefresh: { fn?: () => void } = {};
+
+  const { schemaSearch } = registerAllCommands(context, cachedClient, {
+    ...providers,
+    ...editing,
+    annotationStore,
+    statusItem,
+    discovery,
+    serverManager,
+    discoveryEnabled,
+    watcher,
+    schemaTracker,
+    updateStatusBar: refreshStatusBar,
+    connectionChannel,
+    healthStatusBar,
+    refreshDriftConnectionUi: () => connectionUiRefresh.fn?.(),
+  });
+  connectionUiRefresh.fn = () =>
+    syncDriftConnectionUi(serverManager, cachedClient, {
+      toolsProvider: providers.toolsProvider,
+      schemaSearchProvider: schemaSearch,
+    }, {
+      appendLine: (msg: string) => {
+        if (shouldLogConnectionLine(msg, getLogVerbosity())) {
+          connectionChannel.appendLine(msg);
+        }
+      },
+    });
+  connectionUiRefresh.fn();
+  context.subscriptions.push(
+    cachedClient.onVmTransportChanged(() => connectionUiRefresh.fn?.()),
+  );
+
   /** Apply master switch: start/stop discovery and watcher, clear or refresh UI. */
   const applyEnabledState = (enabled: boolean): void => {
     void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', enabled);
@@ -126,14 +165,15 @@ export function activate(context: vscode.ExtensionContext): void {
       providers.linter.refresh();
       diagnosticManager.refresh().catch(() => {});
       if (!getLightweight()) providers.refreshBadges().catch(() => {});
+      connectionUiRefresh.fn?.();
     } else {
       discovery.stop();
       watcher.stop();
       serverManager.clearActive();
       schemaCache.invalidate();
-      providers.toolsProvider.setConnected(false);
       healthStatusBar.hide();
       toolsQuickPick.hide();
+      connectionUiRefresh.fn?.();
     }
     refreshStatusBar();
   };
@@ -150,9 +190,8 @@ export function activate(context: vscode.ExtensionContext): void {
   serverManager.onDidChangeActive((server) => {
     refreshStatusBar();
     schemaCache.invalidate();
-    void vscode.commands.executeCommand('setContext', 'driftViewer.serverConnected', server !== undefined);
-    providers.toolsProvider.setConnected(server !== undefined);
-    if (server) {
+    connectionUiRefresh.fn?.();
+    if (isDriftUiConnected(serverManager, cachedClient)) {
       toolsQuickPick.show();
     } else {
       toolsQuickPick.hide();
@@ -203,12 +242,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Delayed sync so sidebar "connected" state catches up if discovery found a server
   // before the view evaluated (avoids "Found servers on ports: X" but sidebar still "No server").
   const syncContextTimeout = setTimeout(() => {
-    const active = serverManager.activeServer;
-    void vscode.commands.executeCommand(
-      'setContext',
-      'driftViewer.serverConnected',
-      active !== undefined,
-    );
+    connectionUiRefresh.fn?.();
   }, 1500);
   context.subscriptions.push({
     dispose: () => clearTimeout(syncContextTimeout),
@@ -220,7 +254,7 @@ export function activate(context: vscode.ExtensionContext): void {
   if (typeof providers.treeView.onDidChangeVisibility === 'function') {
     context.subscriptions.push(
       providers.treeView.onDidChangeVisibility((e: { visible: boolean }) => {
-        if (e.visible && !loadOnConnect && !treeLoadedLazy && serverManager.activeServer) {
+        if (e.visible && !loadOnConnect && !treeLoadedLazy && isDriftUiConnected(serverManager, cachedClient)) {
           treeLoadedLazy = true;
           void providers.treeProvider.refresh();
         }
@@ -255,7 +289,7 @@ export function activate(context: vscode.ExtensionContext): void {
     if (loadOnConnect) {
       void providers.treeProvider.refresh();
     }
-    if (serverManager.activeServer) {
+    if (isDriftUiConnected(serverManager, cachedClient)) {
       schemaCache.prewarm();
     }
     providers.codeLensProvider.refreshRowCounts();
@@ -264,21 +298,6 @@ export function activate(context: vscode.ExtensionContext): void {
     if (!getLightweight()) providers.refreshBadges().catch(() => {});
   }
   context.subscriptions.push({ dispose: () => watcher.stop() });
-
-  registerAllCommands(context, cachedClient, {
-    ...providers,
-    ...editing,
-    annotationStore,
-    statusItem,
-    discovery,
-    serverManager,
-    discoveryEnabled,
-    watcher,
-    schemaTracker,
-    updateStatusBar: refreshStatusBar,
-    connectionChannel,
-    healthStatusBar,
-  });
 }
 
 /**
