@@ -163,7 +163,13 @@ def _run_ext_dev_checks(
             return False
 
     heading("Step 4 \u00b7 Working Tree")
-    if not run_step("Working tree", check_working_tree, results):
+    # analyze / --analyze-only must not show "publish will push" copy in checks_git.
+    will_publish = not getattr(args, "analyze_only", False)
+    if not run_step(
+        "Working tree",
+        lambda: check_working_tree(will_publish=will_publish),
+        results,
+    ):
         return False
 
     heading("Step 5 \u00b7 Remote Sync")
@@ -291,7 +297,13 @@ def run_dart_analysis(
             return "", False
 
     heading("Dart \u00b7 Working Tree")
-    if not run_step("Working tree", check_working_tree, results):
+    # analyze / --analyze-only must not show "publish will push" copy in checks_git.
+    will_publish = not getattr(args, "analyze_only", False)
+    if not run_step(
+        "Working tree",
+        lambda: check_working_tree(will_publish=will_publish),
+        results,
+    ):
         return "", False
 
     heading("Dart \u00b7 Remote Sync")

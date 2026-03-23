@@ -17,6 +17,14 @@ For older versions (pre-1.6.1), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.m
 
 ---
 
+## [Unreleased]
+
+### Improved
+
+• **Publish script: working-tree prompt** — Replaced vague “dirty working tree” wording with explicit copy: uncommitted changes are called out as not-yet-committed, publish runs describe per-target `git add` scope (Dart: repo root; extension: `extension/` + `scripts/`), and **analyze** / `--analyze-only` runs use analysis-only messaging so users are not told a commit/push will happen in that invocation.
+
+---
+
 ## [2.7.1]
 
 ### Fixed
