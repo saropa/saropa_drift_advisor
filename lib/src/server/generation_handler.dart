@@ -8,9 +8,11 @@
 //
 // Package root is resolved once via [Isolate.resolvePackageUri] against
 // `package:saropa_drift_advisor/saropa_drift_advisor.dart`, then stepping from
-// `lib/` to the package directory. The result is cached in a static field so
-// repeated asset requests do not re-resolve. This is process-global (tests
-// share the same isolate); resolution always points at the loaded package.
+// `lib/` to the package directory. The Flutter test embedder does not support
+// [Isolate.resolvePackageUri] (it throws); in that case we walk up from
+// [Directory.current] looking for `lib/saropa_drift_advisor.dart` and
+// `assets/web/style.css`. The result is cached so repeated asset requests do
+// not re-resolve. This is process-global (tests share the same isolate).
 
 import 'dart:convert';
 import 'dart:io';
@@ -27,6 +29,7 @@ final class GenerationHandler {
 
   final ServerContext _ctx;
   static String? _resolvedPackageRootPath;
+  static bool _packageRootLookupComplete = false;
 
   /// GET /api/health — returns {"ok": true}.
   Future<void> sendHealth(HttpResponse response) async {
@@ -156,22 +159,50 @@ final class GenerationHandler {
 
   /// Resolves the local package root once and reuses it for asset serving.
   ///
-  /// We resolve the URI for this package's public library entrypoint and then
-  /// move from `lib/` up to the package root.
+  /// Prefer [Isolate.resolvePackageUri] for the public library entrypoint, then
+  /// step from `lib/` to the package root. When that API is unavailable (for
+  /// example under `flutter test`), discover the root by walking ancestors of
+  /// [Directory.current] until both expected paths exist.
   Future<String?> _resolvePackageRootPath() async {
-    final cached = _resolvedPackageRootPath;
-    if (cached != null) return cached;
+    if (_packageRootLookupComplete) return _resolvedPackageRootPath;
 
-    final packageLibUri = await Isolate.resolvePackageUri(
-      Uri.parse('package:saropa_drift_advisor/saropa_drift_advisor.dart'),
-    );
-    if (packageLibUri == null || packageLibUri.scheme != 'file') {
-      return null;
+    String? root;
+    try {
+      final packageLibUri = await Isolate.resolvePackageUri(
+        Uri.parse('package:saropa_drift_advisor/saropa_drift_advisor.dart'),
+      );
+      if (packageLibUri != null && packageLibUri.scheme == 'file') {
+        final libFile = File.fromUri(packageLibUri);
+        root = libFile.parent.parent.path;
+      }
+    } on Object {
+      // Flutter's test VM does not implement package URI resolution; use the
+      // directory walk below instead of failing every asset request.
     }
 
-    final libFile = File.fromUri(packageLibUri);
-    final packageRoot = libFile.parent.parent.path;
-    _resolvedPackageRootPath = packageRoot;
-    return packageRoot;
+    root ??= await _discoverPackageRootPathFromAncestorWalk();
+
+    _resolvedPackageRootPath = root;
+    _packageRootLookupComplete = true;
+    return root;
+  }
+
+  /// Finds this package's root when [Isolate.resolvePackageUri] cannot run.
+  ///
+  /// Used by `flutter test`, which throws from that API. Walking from the
+  /// process working directory matches publish/CI runs from the repo root.
+  static Future<String?> _discoverPackageRootPathFromAncestorWalk() async {
+    Directory dir = Directory.current.absolute;
+    while (true) {
+      final libEntry = File('${dir.path}/lib/saropa_drift_advisor.dart');
+      final styleAsset = File('${dir.path}/assets/web/style.css');
+      if (await libEntry.exists() && await styleAsset.exists()) {
+        return dir.path;
+      }
+      final parent = dir.parent;
+      if (parent.path == dir.path) break;
+      dir = parent;
+    }
+    return null;
   }
 }
