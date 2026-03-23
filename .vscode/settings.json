@@ -7,9 +7,10 @@
     "code-runner.executorMap": {
         "python": "python -u"
     },
-    
     // TypeScript project-wide error reporting for the extension subfolder
     // Shows ALL errors in Problems panel, not just open files
     "typescript.tsserver.experimental.enableProjectDiagnostics": true,
-    "saropaLints.enabled": true
+    "saropaLints.enabled": true,
+    "saropaLints.sidebar.showPackageVibrancy": false,
+    "saropaLints.sidebar.showSummary": false
 }
