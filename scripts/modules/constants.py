@@ -25,8 +25,8 @@ ADD_PACKAGE_TS_PATH = os.path.join(
 )
 
 # Dart server constants file that embeds the package version for the
-# web UI health endpoint and CDN CSS URL. Updated automatically during
-# publish so the displayed version stays in sync with pubspec.yaml.
+# web UI health endpoint and CDN CSS URL. Updated on version writes and
+# reconciled against pubspec during Dart analysis (see target_config.py).
 SERVER_CONSTANTS_PATH = os.path.join(
     LIB_DIR, "src", "server", "server_constants.dart",
 )

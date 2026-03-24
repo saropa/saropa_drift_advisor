@@ -1,5 +1,26 @@
 # -*- coding: utf-8 -*-
-"""Publish target configuration and version read/write helpers."""
+"""Publish target configuration and version read/write helpers.
+
+This module is the single place for:
+
+* **Target metadata** — ``TargetConfig`` rows for the Dart package (pub.dev) and
+  the VS Code extension (Marketplace / Open VSX), including tag prefixes and paths
+  staged for release commits.
+* **Version I/O** — ``read_version`` / ``write_version`` for ``pubspec.yaml`` and
+  ``package.json``, plus changelog-driven helpers such as ``read_max_version``.
+* **Derived constant sync** — When the Dart package version changes,
+  ``write_version(DART, ...)`` updates ``extension/.../add-package.ts`` and
+  ``lib/.../server_constants.dart`` so embedded semver strings stay consistent.
+
+**Server constants vs pubspec:** Developers sometimes bump ``pubspec.yaml`` without
+going through ``write_version``. ``ensure_server_constants_version_sync`` (called from
+the Dart analysis pipeline in ``modules.pipeline``) compares ``read_version(DART)``
+to ``packageVersion`` in ``server_constants.dart`` and, if needed, reuses
+``sync_server_constants_version`` to rewrite that constant before ``dart test``. That
+keeps ``test/version_sync_test.dart`` green without manual edits and avoids duplicating
+regex logic beyond the paired read (``read_server_constants_package_version``) and
+write (``sync_server_constants_version``) patterns.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +38,7 @@ from modules.constants import (
     REPO_ROOT,
     SERVER_CONSTANTS_PATH,
 )
-from modules.display import fail
+from modules.display import fail, info, ok
 
 
 @dataclass(frozen=True)
@@ -63,6 +84,11 @@ EXTENSION = TargetConfig(
 
 
 _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+
+# packageVersion in server_constants.dart (must match pubspec for version_sync_test).
+_SERVER_CONSTANTS_PACKAGE_VERSION_RE = re.compile(
+    r"static const String packageVersion = '(\d+\.\d+\.\d+)'",
+)
 
 
 def _parse_semver_tuple(version: str) -> tuple[int, int, int]:
@@ -197,6 +223,47 @@ def sync_add_package_version(version: str) -> bool:
     except OSError:
         fail(f"Could not write {os.path.basename(ADD_PACKAGE_TS_PATH)}")
         return False
+    return True
+
+
+def read_server_constants_package_version() -> str | None:
+    """Return the semver in packageVersion from server_constants.dart, or None."""
+    try:
+        with open(SERVER_CONSTANTS_PATH, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        return None
+    m = _SERVER_CONSTANTS_PACKAGE_VERSION_RE.search(content)
+    return m.group(1) if m else None
+
+
+def ensure_server_constants_version_sync() -> bool:
+    """Ensure server_constants packageVersion matches pubspec.yaml.
+
+    Manual pubspec bumps bypass write_version(), which would normally call
+    sync_server_constants_version(). The analyze pipeline runs this before
+    Dart tests so version_sync_test passes without a manual edit.
+    """
+    pub_ver = read_version(DART)
+    if not _SEMVER_RE.match(pub_ver):
+        fail(f"Invalid or unreadable pubspec version: {pub_ver!r}")
+        return False
+
+    current = read_server_constants_package_version()
+    if current is None:
+        fail("Could not parse packageVersion from server_constants.dart")
+        return False
+
+    if current == pub_ver:
+        ok(f"Server constants packageVersion matches pubspec ({pub_ver})")
+        return True
+
+    info(
+        f"server_constants.dart ({current}) out of sync with pubspec ({pub_ver}); updating."
+    )
+    if not sync_server_constants_version(pub_ver):
+        return False
+    ok(f"Updated server_constants.dart packageVersion to {pub_ver}")
     return True
 
 

@@ -181,6 +181,8 @@ _STEP_EXIT_CODES = {
     "Dart SDK": ExitCode.PREREQUISITE_FAILED,
     "Flutter SDK": ExitCode.PREREQUISITE_FAILED,
     "Publish workflow": ExitCode.PREREQUISITE_FAILED,
+    "Web assets sync": ExitCode.QUALITY_FAILED,
+    "Server constants version": ExitCode.QUALITY_FAILED,
     "Dart format": ExitCode.QUALITY_FAILED,
     "Dart tests": ExitCode.TEST_FAILED,
     "Dart analysis": ExitCode.QUALITY_FAILED,

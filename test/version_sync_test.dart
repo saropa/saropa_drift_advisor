@@ -38,7 +38,7 @@ void main() {
       reason:
           'ServerConstants.packageVersion (${ServerConstants.packageVersion}) '
           'does not match pubspec.yaml version ($pubspecVersion). '
-          'Run the publish script or update server_constants.dart manually.',
+          'Run publish analysis (dart/analyze) to auto-sync, or update server_constants.dart.',
     );
   });
 }

@@ -284,7 +284,7 @@ def run_dart_analysis(
     """Run all Dart analysis steps. Returns (version, all_passed)."""
     from modules.dart_prereqs import check_dart, check_flutter, check_publish_workflow
     from modules.checks_git import check_git, check_working_tree, check_remote_sync
-    from modules.target_config import DART
+    from modules.target_config import DART, ensure_server_constants_version_sync
 
     heading("Dart \u00b7 Prerequisites")
     for name, fn in [
@@ -313,6 +313,10 @@ def run_dart_analysis(
     from modules.web_assets import ensure_web_assets_sync
     heading("Dart \u00b7 Web assets sync")
     if not run_step("Web assets sync", ensure_web_assets_sync, results):
+        return "", False
+
+    heading("Dart \u00b7 Server constants version")
+    if not run_step("Server constants version", ensure_server_constants_version_sync, results):
         return "", False
 
     if not _run_dart_build_steps(args, results):
