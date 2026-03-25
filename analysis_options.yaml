@@ -43,12 +43,12 @@ linter:
 
 plugins:
   saropa_lints:
-    version: "9.10.0"
+    version: "10.1.1"
     # ═══════════════════════════════════════════════════════════════════
     # SAROPA LINTS CONFIGURATION
     # ═══════════════════════════════════════════════════════════════════
     # Regenerate with: dart run saropa_lints:init --tier recommended
-    # Tier: recommended (709 of 2077 rules enabled)
+    # Tier: recommended (747 of 2119 rules enabled)
     # Lint rules are disabled by default. Set to true to enable.
     # User customizations are preserved unless --reset is used
     #
@@ -175,9 +175,12 @@ plugins:
       #
 
       #
-      # --- TIER 1: ESSENTIAL (219 rules) ---
+      # --- TIER 1: ESSENTIAL (239 rules) ---
       #
+      abi_specific_integer_invalid: true  # [WARNING] A class extending AbiSpecificInteger must be final, have no type parameters, declare exactly one const constructor, no other members, and an AbiSpecificIntegerMapping annotation. {v1}
+      abstract_field_initializer: true  # [WARNING] Abstract fields cannot have initializers. Remove the initializer or drop the abstract modifier so the declaration matches valid Dart semantics. {v1}
       always_remove_listener: true  # [WARNING] Listener added via addListener() but no matching removeListener() call found in dispose(). Orphaned listeners retain references to the widget, preventing garbage collection and causing memory leaks that accumulate as users navigate between screens. {v3}
+      annotate_redeclares: true  # [INFO] This member hides an inherited instance member with the same name. Add @override if it is an override, or document why the name is reused intentionally. {v1}
       avoid_android_cleartext_traffic: true  # [WARNING] HTTP URL detected. Android 9+ blocks cleartext traffic by default. This request will fail silently. {v2}
       avoid_api_key_in_code: true  # [ERROR] Hardcoded keys are extractable from app binaries, enabling unauthorized API access and billing abuse. {v3}
       avoid_app_links_sensitive_params: true  # [ERROR] Deep link params are logged by OS and analytics, exposing tokens in crash reports and logs. {v2}
@@ -289,9 +292,22 @@ plugins:
       avoid_weak_cryptographic_algorithms: true  # [WARNING] Weak or deprecated cryptographic algorithm detected (e.g. MD5, SHA-1). These algorithms have known collision vulnerabilities that allow attackers to forge hashes, compromising data integrity verification, password storage, and digital signature validation. {v5}
       check_is_not_closed_after_async_gap: true  # [ERROR] Emitting to closed Bloc throws StateError, crashing the app when widget is disposed during async. {v2}
       check_mounted_after_async: true  # [ERROR] setState() after await without mounted check. State may be disposed during async gap, causing "setState() called after dispose()" crash. {v5}
+      conflicting_constructor_and_static_member: true  # [ERROR] A named constructor uses the same name as a static field, getter, setter, or method. Dart does not allow a named constructor and a static member to share an identifier. {v1}
       depend_on_referenced_packages: true  # [WARNING] Imported package is not listed in pubspec.yaml dependencies. Using a package without declaring the dependency means builds rely on transitive resolution, which can break unexpectedly when other packages update their own dependencies. Every package import must have a corresponding entry in pubspec.yaml. {v1}
+      deprecated_new_in_comment_reference: true  # [INFO] Documentation references should not use the deprecated `new` keyword inside `[...]` links. Use `[ClassName]` or `[prefix.ClassName]` instead. {v1}
       dispose_class_fields: true  # [WARNING] Class has disposable fields but no dispose/close method. This may cause memory leaks. {v2}
+      document_ignores: true  # [INFO] Ignore directive lists only rule names with no explanation. Add a short rationale on the same line (for example after `--`) so future readers know why the ignore exists. {v1}
+      duplicate_constructor: true  # [ERROR] Class or enum declares more than one constructor with the same name (including more than one unnamed constructor). Duplicate constructors are invalid Dart and prevent compilation. {v1}
+      duplicate_field_name: true  # [ERROR] Record literal or record type declares the same field name more than once. Duplicate record fields are invalid Dart. {v1}
+      field_initializer_redirecting_constructor: true  # [ERROR] A redirecting constructor cannot initialize instance fields or invoke a super constructor; it may only forward to another constructor of the same class. {v1}
+      illegal_concrete_enum_member: true  # [ERROR] A concrete instance member named index, hashCode, or operator == cannot be declared where Enum semantics apply (enum declaration, class implementing Enum, or mixin on Enum). {v1}
+      invalid_extension_argument_count: true  # [ERROR] An extension override must supply exactly one argument: the receiver value for the extension. The Dart analyzer reports the same issue natively; this rule aligns messaging within saropa_lints. {v1}
+      invalid_field_name: true  # [ERROR] Record field name is not a valid Dart identifier (for example a reserved keyword). {v1}
+      invalid_literal_annotation: true  # [WARNING] The package:meta `literal` annotation is only meaningful on const constructors. Applying it elsewhere is invalid. {v1}
+      invalid_non_virtual_annotation: true  # [WARNING] package:meta `nonVirtual` applies only to concrete instance members in a class or mixin. It is invalid on static, abstract, or non-instance declarations (including extensions and extension types). {v1}
+      invalid_super_formal_parameter_location: true  # [ERROR] Super parameters (super.x) are only allowed on non-redirecting generative constructors. They cannot be used on factory constructors or constructors that redirect. {v1}
       missing_test_assertion: true  # [WARNING] Test without assertions always passes, giving false confidence. Bugs slip through undetected. {v5}
+      non_constant_map_element: true  # [WARNING] A const map literal contains an if-element or spread whose sub-expressions are not compile-time constants. Remove const from the literal or make the elements constant. {v1}
       pass_existing_future_to_future_builder: true  # [WARNING] Creating new Future in FutureBuilder restarts the async operation on every widget rebuild. This causes duplicate network calls, database queries, and slow UI with visible loading states. {v8}
       pass_existing_stream_to_stream_builder: true  # [WARNING] New Stream created inline in the StreamBuilder constructor. Every build() call creates a fresh stream, discarding the previous subscription and triggering an infinite rebuild loop as each new stream emits its initial value. {v7}
       prefer_expanded_at_call_site: true  # [ERROR] Expanded/Flexible/Spacer returned from build() forces flex layout on all callers, breaking reuse in non-flex contexts. If this widget is placed inside a Stack, SingleChildScrollView, or any non-flex parent, the Expanded wrapper triggers a runtime ParentDataWidget error and crashes the app. {v4}
@@ -395,10 +411,14 @@ plugins:
       require_websocket_close: true  # [WARNING] Unclosed WebSocket leaks connections and continues receiving data after widget disposal, causing errors. {v5}
       require_websocket_message_validation: true  # [WARNING] Unvalidated WebSocket messages crash when malformed data arrives, or enable injection attacks. {v3}
       require_websocket_reconnection: true  # [WARNING] WebSocket connection without reconnection logic will stay permanently disconnected after network interruptions, server restarts, or mobile network handoffs. Users will see stale data, miss real-time updates, and have no indication that the live connection has dropped until they manually refresh or restart the app. {v4}
+      return_in_generator: true  # [WARNING] Cannot return a value from a generator function (async* or sync*). Use yield or yield* instead. {v1}
+      subtype_of_disallowed_type: true  # [WARNING] This type cannot be extended, implemented, or used as a mixin constraint (e.g. bool, int, String, Null). Use a valid superclass or interface. {v1}
+      undefined_enum_constructor: true  # [WARNING] This enum constructor call does not resolve to a declared enum constructor. Fix the name or add the constructor to the enum. {v1}
       uri_does_not_exist: true  # [ERROR] Import, export, or part directive URI refers to a file that does not exist. Broken URIs prevent the Dart compiler from resolving dependencies, causing build failures. This can happen when files are renamed, moved, or deleted without updating the referencing directives. Note: the Dart analyzer also reports this natively. {v1}
+      yield_in_non_generator: true  # [WARNING] Yield is only valid inside a generator function (marked with async* or sync*). {v1}
 
       #
-      # --- TIER 2: RECOMMENDED (460 rules) ---
+      # --- TIER 2: RECOMMENDED (478 rules) ---
       #
       avoid_accessing_collections_by_constant_index: true  # [WARNING] Collection accessed by a constant index inside a loop body. This retrieves the same element on every iteration, which is wasteful and usually indicates a logic error where the loop variable was intended as the index instead. {v5}
       avoid_analytics_in_build: true  # [WARNING] Analytics calls inside build() are triggered on every rebuild, resulting in duplicate events, inaccurate tracking data, degraded app performance, and inflated backend costs. This can skew business metrics, produce misleading dashboards, and make it difficult to analyze real user behavior. Persistent analytics spam may also trigger rate limits or data quality flags in analytics platforms. {v3}
@@ -434,6 +454,11 @@ plugins:
       avoid_debug_print: true  # [WARNING] debugPrint bypasses structured logging, making it impossible to filter, search, or disable output per environment. Debug statements left in production code expose internal state to device logs, degrade performance through I/O overhead, and create noise that obscures real issues during troubleshooting. {v4}
       avoid_deep_widget_nesting: true  # [INFO] Widget tree exceeds 15 levels of nesting. Deeply nested widget trees are hard to read, maintain, and debug. They often indicate a need to extract widgets into separate components. {v5}
       avoid_deeply_nested_widgets: true  # [INFO] Widget tree is too deeply nested, exceeding the recommended nesting depth. Deep nesting reduces build method readability and increases the risk of layout overflow errors at runtime. {v6}
+      avoid_deprecated_expires_getter: true  # [WARNING] Deprecated.expires was removed in Dart 3.0.0. Use Deprecated.message instead. {v1}
+      avoid_deprecated_flutter_test_window: true  # [WARNING] TestWindow and TestWidgetsFlutterBinding.window were deprecated in Flutter 3.10 (PR #122824) for upcoming multi-window support. Use WidgetTester.platformDispatcher (or TestPlatformDispatcher) for platform-specific test values and WidgetTester.view / WidgetTester.viewOf for view-specific values instead of the combined TestWindow API. {v1}
+      avoid_deprecated_has_next_iterator: true  # [WARNING] HasNextIterator is deprecated (Dart 3.0, dart:collection). Use Iterator.moveNext/current instead of this legacy adapter. {v1}
+      avoid_deprecated_list_constructor: true  # [WARNING] The unnamed List() constructor was removed in Dart 3.0.0 (it was not null-safe). Use a list literal ([] or <T>[]) for an empty list, or List.filled / List.generate when you need a length. {v1}
+      avoid_deprecated_network_interface_list_supported: true  # [WARNING] NetworkInterface.listSupported is deprecated (dart:io). It has always been true since Dart 2.3; remove the check or use true. {v1}
       avoid_deprecated_usage: true  # [WARNING] Using a deprecated API from another package. Migrate to the replacement API. No migration guidance provided.
       avoid_double_slash_imports: true  # [WARNING] Import path contains double slashes. Double slashes in import paths cause resolution failures on some platforms and may silently import the wrong file, leading to runtime errors or missing symbols. {v5}
       avoid_double_tap_submit: true  # [WARNING] Submit button without double-tap protection can fire the onPressed callback multiple times before the first submission completes. This causes duplicate API requests, duplicate database entries, double charges in payment flows, and race conditions that corrupt application state. {v4}
@@ -495,7 +520,7 @@ plugins:
       avoid_late_for_nullable: true  # [ERROR] Nullable type declared with late keyword. Since the type already accepts null, the late keyword adds no initialization safety and instead introduces a hidden crash path: accessing the variable before assignment throws LateInitializationError rather than returning null. {v4}
       avoid_layout_builder_in_scrollable: true  # [WARNING] LayoutBuilder inside scrollable causes performance issues. This layout configuration can trigger RenderFlex overflow errors or unexpected visual behavior at runtime. {v6}
       avoid_listview_children_for_large_lists: true  # [WARNING] ListView with many children loads all items. Use ListView.builder. ListView(children: [..]) builds all children immediately. For lists with more than 20 items, use ListView.builder to improve performance through virtualization. {v2}
-      avoid_listview_without_item_extent: true  # [INFO] ListView.builder should specify itemExtent to improve scroll performance. This layout configuration can trigger RenderFlex overflow errors or unexpected visual behavior at runtime. {v5}
+      avoid_listview_without_item_extent: true  # [INFO] ListView.builder should specify itemExtent, prototypeItem, or itemExtentBuilder for predictable scroll layout. Omitting all three forces per-child layout measurement, which hurts jump/scrollbar accuracy and large-list performance (Flutter 3.16+ adds itemExtentBuilder for varying per-index heights). {v6}
       avoid_manual_date_formatting: true  # [WARNING] Manual date formatting is error-prone, ignores locale, and can produce incorrect or confusing output for international users. This can break compliance, cause user confusion, and lead to support issues in global apps. {v3}
       avoid_map_keys_contains: true  # [INFO] Calling .keys.contains() allocates an iterable of all keys and performs a linear search, while .containsKey() uses the map hash table for O(1) lookup. This wastes memory and CPU cycles on every call. {v5}
       avoid_material2_fallback: true  # [INFO] Explicitly setting useMaterial3: false forces the app back to the deprecated Material 2 design system, which will receive no new component updates or accessibility improvements. Material 2 components may also be removed in future Flutter releases, creating a migration burden. {v3}
@@ -536,6 +561,17 @@ plugins:
       avoid_referencing_discarded_variables: true  # [WARNING] Variable prefixed with underscore is referenced after declaration. The underscore prefix signals that the value is intentionally discarded, so reading it later contradicts the naming convention and confuses developers who expect underscore-prefixed variables to be unused. {v5}
       avoid_refresh_without_await: true  # [WARNING] RefreshIndicator onRefresh callback must return a Future that completes when data loading finishes. Without awaiting async operations, the refresh spinner dismisses immediately while data is still loading, leaving users confused about whether the refresh succeeded or failed and showing stale content. {v4}
       avoid_regex_in_loop: true  # [WARNING] RegExp object constructed inside a loop body is re-compiled on every iteration, wasting CPU cycles on repeated pattern parsing. Regex compilation is expensive relative to matching, and this overhead multiplies with large data sets, causing noticeable jank in UI-driven code. {v6}
+      avoid_removed_abstract_class_instantiation_error: true  # [WARNING] AbstractClassInstantiationError was removed in Dart 3.0.0; instantiating an abstract class is a compile-time error. Remove dead references. {v1}
+      avoid_removed_bidirectional_iterator: true  # [WARNING] BidirectionalIterator was removed in Dart 3.0.0. Use Iterator and explicit movePrevious where needed, or track indices manually. {v1}
+      avoid_removed_cast_error: true  # [WARNING] CastError was removed in Dart 3.0.0. Use TypeError instead (cast failures are TypeErrors). {v1}
+      avoid_removed_cyclic_initialization_error: true  # [WARNING] CyclicInitializationError was removed in Dart 3.0.0; cyclic top-level initialization is not detected this way in null-safe code. Remove dead references. {v1}
+      avoid_removed_dart_developer_metrics: true  # [WARNING] Metrics, Metric, Counter, and Gauge were removed from dart:developer in Dart 3.0.0 (broken since Dart 2.0). Remove usage or migrate to another metrics approach. {v1}
+      avoid_removed_deferred_library: true  # [WARNING] DeferredLibrary was removed in Dart 3.0.0. Use deferred imports: import "lib.dart" deferred as p; then await p.loadLibrary(). {v1}
+      avoid_removed_fall_through_error: true  # [WARNING] FallThroughError was removed in Dart 3.0.0; invalid switch fall-through is a compile-time error. Remove dead references to this type. {v1}
+      avoid_removed_max_user_tags_constant: true  # [WARNING] UserTag.MAX_USER_TAGS was removed in Dart 3.0.0. Use UserTag.maxUserTags instead. {v1}
+      avoid_removed_nosuchmethoderror_default_constructor: true  # [WARNING] The default NoSuchMethodError() constructor was removed in Dart 3.0.0. Use NoSuchMethodError.withInvocation instead. {v1}
+      avoid_removed_provisional_annotation: true  # [WARNING] The @Provisional annotation was removed in Dart 3.0.0. Remove it. {v1}
+      avoid_removed_proxy_annotation: true  # [WARNING] The @proxy annotation was removed in Dart 3.0.0; it had no effect in Dart 2. Remove it. {v1}
       avoid_returning_null_for_future: true  # [INFO] Returning null from a synchronous function declared to return Future<T> where T is non-nullable causes a runtime null error when the future is awaited. Use Future.value() to wrap the default, or make the function async to let Dart handle the future wrapping automatically. {v1}
       avoid_returning_null_for_void: true  # [INFO] Returning null from a void function is redundant and misleading. Void functions should either use a bare return statement or simply let execution fall through. An explicit return null suggests the caller expects a value, which contradicts the void return type and confuses readers. {v1}
       avoid_scaffold_messenger_after_await: true  # [WARNING] Using ScaffoldMessenger.of(context) after await may use an invalid context. This violates the widget lifecycle, risking setState-after-dispose errors or silent state corruption. {v8}
@@ -640,6 +676,7 @@ plugins:
       prefer_delayed_permission_prompt: true  # [WARNING] Permission request detected in main() or initState(). Asking too early reduces acceptance rates. {v2}
       prefer_dispose_before_new_instance: true  # [WARNING] Reassigning without dispose leaks the old instance. Listeners and resources remain active forever. {v4}
       prefer_dropdown_initial_value: true  # [WARNING] The 'value' parameter on DropdownButtonFormField was deprecated in Flutter 3.35.0 (PR #170805) in favor of 'initialValue'. The old 'value' parameter conflicted with FormField.value and caused confusing behavior when set to null — for example, the selected value was not properly reset. The renamed 'initialValue' parameter has identical behavior but clearer semantics that it only sets the initial selection, not a controlled value. {v1}
+      prefer_dropdown_menu_item_button_opacity_animation: true  # [INFO] DropdownMenuItemButton state always assigns a non-null opacity animation (Flutter 3.32+, PR #164795). A nullable CurvedAnimation? field or a null assertion on opacityAnimation is a legacy pattern from older Flutter typings — it adds noise, risks runtime throws from !, and hides the guarantee that the animation exists once the state is initialized. Prefer late CurvedAnimation opacityAnimation and use it without !. {v1}
       prefer_explicit_json_keys: true  # [INFO] Use @JsonKey for field name mapping. Manual key mapping in fromJson is error-prone and verbose. Use @JsonKey annotation with json_serializable for clarity. {v2}
       prefer_fit_cover_for_background: true  # [INFO] Background DecorationImage without BoxFit.cover may show letterboxing, stretching, or empty space around the image on different screen aspect ratios. BoxFit.cover ensures the image fills the entire container while maintaining its aspect ratio, which is the standard behavior for background images. {v3}
       prefer_foundation_platform_check: true  # [INFO] Use defaultTargetPlatform in widget code. In widget code, defaultTargetPlatform from foundation is safer and allows for testing overrides. Platform requires dart:io which doesn't exist on web. {v2}
@@ -673,6 +710,7 @@ plugins:
       prefer_number_format: true  # [INFO] Number displayed without locale formatting. Different locales use different decimal/grouping separators. {v2}
       prefer_on_field_submitted: true  # [INFO] Form field must have onFieldSubmitted to handle keyboard action. This callback fires when the user presses the keyboard action button (e.g., Done, Next). Add it to move focus to the next field or submit the form for a smooth keyboard-driven workflow. {v3}
       prefer_on_pop_with_result: true  # [WARNING] The 'onPop' callback on Route and PopNavigatorRouterDelegateMixin was deprecated in Flutter 3.35.0 (PR #169700) in favor of 'onPopWithResult'. The deprecated 'onPop' callback does not receive the pop result value, which means callers cannot inspect or react to data returned by the popped route. The replacement 'onPopWithResult' provides the result as a parameter, enabling proper data flow between routes. {v1}
+      prefer_overflow_bar_over_button_bar: true  # [INFO] Prefer OverflowBar instead of ButtonBar for Material action button rows. OverflowBar is the supported pattern for horizontal actions that reflow on overflow (Flutter 3.13.0, PR #128437). ButtonBar, ButtonBarThemeData, and ThemeData.buttonBarTheme were deprecated in Flutter 3.24.0 (PR #145523). Remove buttonBarTheme from ThemeData and migrate widgets to OverflowBar; theme ButtonBarThemeData has no direct replacement — apply spacing and alignment on OverflowBar or surrounding layout. {v2}
       prefer_overriding_parent_equality: true  # [WARNING] Subclass overrides == without incorporating the parent class equality check. If the parent class compares fields that the subclass ignores, two objects may be considered equal even though their parent fields differ, breaking the transitivity contract of ==. {v4}
       prefer_padding_over_container: true  # [INFO] Container with only padding creates unnecessary intermediate widgets (DecoratedBox, ConstrainedBox). Padding is a single-purpose widget with fewer allocations and faster layout. {v4}
       prefer_page_storage_key: true  # [INFO] Use PageStorageKey to preserve scroll position. This layout configuration can trigger RenderFlex overflow errors or unexpected visual behavior at runtime. {v5}

@@ -17,7 +17,7 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
-## [Unreleased]
+## [2.8.1]
 
 ### Fixed
 
@@ -37,7 +37,7 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
-## [2.8.0]
+## [2.8.1]
 
 ### Fixed
 
@@ -478,13 +478,16 @@ Smart package lifecycle management: the extension now detects whether the Dart p
 ---
 
 ## [1.6.1]
+
 The extension couldn't connect to running servers and now has an About button for easy access to release notes.
 
 ### Added
+
 • **About Saropa Drift Advisor** — "About Saropa Drift Advisor vX.Y.Z" item at the top of the Drift Tools sidebar. Opens the bundled CHANGELOG.md in VS Code's markdown preview; falls back to the GitHub changelog if the local file is missing. Also available via Command Palette (`Saropa Drift Advisor: About`).
 • **Existing debug session detection** — When the extension activates after a debug session is already running (late activation), it now detects the active Dart/Flutter session and immediately attempts VM Service connection. Previously only `onDidStartDebugSession` was used, which never fires for sessions that started before the extension loaded.
 
 ### Fixed
+
 • **Server discovery rejected valid servers** — The secondary validation in `ServerDiscovery._validateServer` checked `Array.isArray(data)` on the `/api/schema/metadata` response, but the server returns `{ tables: [...] }` (an object wrapping the array). Health checks passed but every server was then silently rejected, preventing the extension from ever connecting. Now accepts both raw array and wrapped `{ tables: [...] }` formats.
 • **VM Service connection too impatient for emulator debugging** — The original `tryConnectVm` made only 2 quick attempts with 500ms delay, but on Android emulators the Drift debug server typically needs 5–15 seconds after VM Service is available before its extension methods are registered. Rewrote as a two-phase approach: Phase 1 connects the WebSocket (2 quick attempts — the VM port is auto-forwarded by Flutter); Phase 2 patiently polls health with increasing delays (500ms → 1s → 2s → 3s → 5s, ~30s total) while the app initializes. Includes a concurrency guard to prevent concurrent connection attempts.
 • **Core debug commands silently failed to register** — `registerDebugCommands` (which wires VM Service lifecycle, debug session listeners, and server connectivity) was the last call in `registerAllCommands`. If any preceding feature module threw during registration, the entire function aborted and the core connection logic never ran — silently. Discovery kept scanning ports, but no VM Service handlers were registered, producing the symptom of 17+ minutes of only port-scan output with zero VM connection attempts. Fixed by calling `registerDebugCommands` first and wrapping each of the 27 feature modules in individual try/catch blocks so one failing module cannot take down the rest.

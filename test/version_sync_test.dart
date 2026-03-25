@@ -19,48 +19,50 @@ void main() {
   // (root-anchored) so only the top-level SCSS source directory is
   // excluded. This test catches the regression.
   // ------------------------------------------------------------------
-  test('.pubignore does not exclude assets/web/ from the published package',
-      () {
-    final pubignoreFile = File('.pubignore');
-    expect(
-      pubignoreFile.existsSync(),
-      isTrue,
-      reason: '.pubignore must exist at the project root',
-    );
+  test(
+    '.pubignore does not exclude assets/web/ from the published package',
+    () {
+      final pubignoreFile = File('.pubignore');
+      expect(
+        pubignoreFile.existsSync(),
+        isTrue,
+        reason: '.pubignore must exist at the project root',
+      );
 
-    final lines = pubignoreFile
-        .readAsLinesSync()
-        .where((l) => l.trim().isNotEmpty && !l.trimLeft().startsWith('#'))
-        .toList();
+      final lines = pubignoreFile
+          .readAsLinesSync()
+          .where((l) => l.trim().isNotEmpty && !l.trimLeft().startsWith('#'))
+          .toList();
 
-    // Look for any unanchored "web/" pattern that would match assets/web/.
-    // Anchored patterns start with "/" and only match at the package root.
-    for (final line in lines) {
-      final trimmed = line.trim();
+      // Look for any unanchored "web/" pattern that would match assets/web/.
+      // Anchored patterns start with "/" and only match at the package root.
+      for (final line in lines) {
+        final trimmed = line.trim();
 
-      // Patterns that contain "web/" but are NOT root-anchored would
-      // exclude assets/web/ from the published package.
-      if (trimmed == 'web/' || trimmed == 'web') {
-        fail(
-          '.pubignore contains unanchored pattern "$trimmed" which '
-          'excludes assets/web/ (gitignore matches at any depth). '
-          'Use "/web/" to anchor to the package root.',
-        );
+        // Patterns that contain "web/" but are NOT root-anchored would
+        // exclude assets/web/ from the published package.
+        if (trimmed == 'web/' || trimmed == 'web') {
+          fail(
+            '.pubignore contains unanchored pattern "$trimmed" which '
+            'excludes assets/web/ (gitignore matches at any depth). '
+            'Use "/web/" to anchor to the package root.',
+          );
+        }
       }
-    }
 
-    // Also verify the required asset files actually exist on disk.
-    expect(
-      File('assets/web/style.css').existsSync(),
-      isTrue,
-      reason: 'assets/web/style.css must exist for the debug server',
-    );
-    expect(
-      File('assets/web/app.js').existsSync(),
-      isTrue,
-      reason: 'assets/web/app.js must exist for the debug server',
-    );
-  });
+      // Also verify the required asset files actually exist on disk.
+      expect(
+        File('assets/web/style.css').existsSync(),
+        isTrue,
+        reason: 'assets/web/style.css must exist for the debug server',
+      );
+      expect(
+        File('assets/web/app.js').existsSync(),
+        isTrue,
+        reason: 'assets/web/app.js must exist for the debug server',
+      );
+    },
+  );
 
   // ------------------------------------------------------------------
   // Embedded asset sync guard: web_assets_embedded.dart must match
@@ -84,10 +86,8 @@ void main() {
     // Normalize CRLF → LF so the comparison is
     // line-ending-agnostic (Windows disk files use CRLF;
     // the Dart source constant may use LF).
-    final diskContent =
-        file.readAsStringSync().replaceAll('\r\n', '\n');
-    final embedded =
-        WebAssetsEmbedded.appJs.replaceAll('\r\n', '\n');
+    final diskContent = file.readAsStringSync().replaceAll('\r\n', '\n');
+    final embedded = WebAssetsEmbedded.appJs.replaceAll('\r\n', '\n');
     expect(
       embedded,
       equals(diskContent),
@@ -106,10 +106,8 @@ void main() {
     );
 
     // Normalize CRLF → LF (see appJs test above).
-    final diskContent =
-        file.readAsStringSync().replaceAll('\r\n', '\n');
-    final embedded =
-        WebAssetsEmbedded.styleCss.replaceAll('\r\n', '\n');
+    final diskContent = file.readAsStringSync().replaceAll('\r\n', '\n');
+    final embedded = WebAssetsEmbedded.styleCss.replaceAll('\r\n', '\n');
     expect(
       embedded,
       equals(diskContent),

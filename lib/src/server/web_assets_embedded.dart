@@ -15,7 +15,8 @@
 /// unavailable (e.g. Flutter on Android emulator).
 abstract final class WebAssetsEmbedded {
   /// Contents of assets/web/app.js.
-  static const String appJs = r'''    /* Web viewer script. Type-checked with tsconfig.web.json (npm run typecheck:web). Do not edit compiled outputs when a TS source exists. */
+  static const String appJs =
+      r'''    /* Web viewer script. Type-checked with tsconfig.web.json (npm run typecheck:web). Do not edit compiled outputs when a TS source exists. */
     var DRIFT_VIEWER_AUTH_TOKEN = "";
     function authOpts(o) {
       o = o || {}; o.headers = o.headers || {};
