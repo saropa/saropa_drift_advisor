@@ -25,7 +25,10 @@ export async function checkHealth(
     return validateServer(host, port, logLine);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (!msg.includes('ECONNREFUSED')) {
+    // Both 'ECONNREFUSED' (direct) and 'fetch failed' (Node undici wrapper
+    // for connection-refused) are expected for ports with no server running.
+    // Only log genuinely unexpected errors to avoid log noise.
+    if (!msg.includes('ECONNREFUSED') && !msg.includes('fetch failed')) {
       logLine?.(`Port ${port}: ${msg}`);
     }
     return false;
@@ -84,10 +87,6 @@ export async function scanPorts(
     for (const p of additionalPorts) portSet.add(p);
   }
   const ports = [...portSet];
-  const extra = ports.length - (portRangeEnd - portRangeStart + 1);
-  logLine?.(
-    `Scanning ${ports.length} port${ports.length === 1 ? '' : 's'} on ${host} (${portRangeStart}-${portRangeEnd}${extra > 0 ? ` +${extra} remembered` : ''})`,
-  );
 
   const results = await Promise.allSettled(
     ports.map((port) => checkHealth(host, port, logLine)),

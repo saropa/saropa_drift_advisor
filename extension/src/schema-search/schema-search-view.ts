@@ -172,7 +172,12 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     // Guard: skip if the view doesn't exist or the webview script hasn't
     // finished initialising. The current _presentation is always stored,
     // so the next 'ready' handshake or visibility change will deliver it.
-    if (!this._view || !this._webviewReady) return;
+    if (!this._view || !this._webviewReady) {
+      this._log(
+        `postConnectionState skipped — view=${!!this._view} ready=${this._webviewReady} connected=${this._presentation.connected}`,
+      );
+      return;
+    }
     try {
       this._view.webview.postMessage({
         command: 'connectionState',

@@ -90,7 +90,7 @@ describe('ServerDiscovery', () => {
     assert.deepStrictEqual(ports, [8642, 8643]);
   });
 
-  it('should require 3 consecutive misses before removing a server', async () => {
+  it('should require 2 consecutive misses before removing a server', async () => {
     stubPortAlive(8642);
     discovery = new ServerDiscovery(defaultConfig());
 
@@ -98,18 +98,15 @@ describe('ServerDiscovery', () => {
     await clock.tickAsync(1);
     assert.strictEqual(discovery.servers.length, 1);
 
-    // Server goes down — first two misses
+    // Server goes down — first miss
     fetchStub.reset();
     fetchStub.rejects(new Error('connection refused'));
-    await clock.tickAsync(15001);
+    await clock.tickAsync(10001);
     assert.strictEqual(discovery.servers.length, 1, 'should survive 1 miss');
 
-    await clock.tickAsync(15001);
-    assert.strictEqual(discovery.servers.length, 1, 'should survive 2 misses');
-
-    // Third miss — removed
-    await clock.tickAsync(15001);
-    assert.strictEqual(discovery.servers.length, 0, 'should be removed after 3 misses');
+    // Second miss — removed
+    await clock.tickAsync(10001);
+    assert.strictEqual(discovery.servers.length, 0, 'should be removed after 2 misses');
   });
 
   it('should transition to backoff after 5 empty scans', async () => {
@@ -139,7 +136,7 @@ describe('ServerDiscovery', () => {
     await clock.tickAsync(3001);
     assert.strictEqual(discovery.state, 'connected');
 
-    // Connected state — 15s interval
+    // Connected state — 10s interval
     const callsConnected = fetchStub.callCount;
     await clock.tickAsync(3001);
     assert.strictEqual(
@@ -147,10 +144,10 @@ describe('ServerDiscovery', () => {
       callsConnected,
       'should NOT poll at 3s in connected',
     );
-    await clock.tickAsync(12001);
+    await clock.tickAsync(7001);
     assert.ok(
       fetchStub.callCount > callsConnected,
-      'should poll at 15s in connected',
+      'should poll at 10s in connected',
     );
   });
 
@@ -241,11 +238,11 @@ describe('ServerDiscovery', () => {
     await clock.tickAsync(1);
     assert.strictEqual(messageMock.infos.length, 1);
 
-    // Server goes down (2 misses) then comes back
+    // Server goes down (2 misses → removed) then comes back
     fetchStub.reset();
     fetchStub.rejects(new Error('connection refused'));
-    await clock.tickAsync(15001);
-    await clock.tickAsync(15001);
+    await clock.tickAsync(10001);
+    await clock.tickAsync(10001);
 
     // Server back up within 60s of first notification
     stubPortAlive(8642);

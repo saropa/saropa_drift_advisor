@@ -17,6 +17,22 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
+## [Unreleased]
+
+Faster disconnect detection, quieter logs, and a banner that actually shows up.
+
+### Fixed
+
+• **Schema Search disconnected banner never appeared** — The webview defaulted to `connected = true` and hid the banner, relying on the extension to send `connected: false`. If the message was lost or delayed the banner stayed hidden indefinitely. The webview now defaults to disconnected (banner visible, controls disabled) and the extension confirms connection via the ready handshake within milliseconds.
+
+### Changed
+
+• **Faster disconnect detection** — Reduced `CONNECTED_INTERVAL` from 15 s to 10 s and `MISS_THRESHOLD` from 3 to 2, cutting the time to detect a lost server from ~45 s to ~20 s.
+
+• **Quieter discovery log** — Suppressed the per-cycle "Scanning N ports…" line and the "Port XXXX: fetch failed" noise for ports with no server (Node undici wraps ECONNREFUSED in a generic `TypeError('fetch failed')` whose message never matched the old filter).
+
+---
+
 ## [2.8.1]
 
 ### Fixed

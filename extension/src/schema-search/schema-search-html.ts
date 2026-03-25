@@ -80,7 +80,7 @@ export function getSchemaSearchHtml(nonce: string): string {
 </head>
 <body>
 <div id="connStatus" class="conn-status" style="display: none;" aria-live="polite"></div>
-<div id="disconnected" class="disconnected" aria-live="polite">
+<div id="disconnected" class="disconnected show" aria-live="polite">
   <div id="discTitle" class="disc-title">Not connected</div>
   <div id="discHint" class="disc-hint"></div>
   <div class="disc-actions">
@@ -91,9 +91,9 @@ export function getSchemaSearchHtml(nonce: string): string {
   </div>
 </div>
 <div class="search-box">
-  <input id="query" type="text" placeholder="Search schema..." />
+  <input id="query" type="text" placeholder="Search schema..." disabled />
 </div>
-<div id="filters" class="filters">
+<div id="filters" class="filters disabled">
   <button class="scope-btn active" data-scope="all">All</button>
   <button class="scope-btn" data-scope="tables">Tables</button>
   <button class="scope-btn" data-scope="columns">Columns</button>
@@ -104,7 +104,7 @@ export function getSchemaSearchHtml(nonce: string): string {
   <button class="type-btn" data-type="REAL">REAL</button>
   <button class="type-btn" data-type="BLOB">BLOB</button>
 </div>
-<div id="browseWrap" class="browse-link"><a id="browseAll" href="#">Browse all tables</a></div>
+<div id="browseWrap" class="browse-link disabled"><a id="browseAll" href="#">Browse all tables</a></div>
 <div id="status" class="status"></div>
 <div id="error" class="error" style="display: none;"></div>
 <ul id="results" class="results"></ul>
@@ -124,7 +124,10 @@ export function getSchemaSearchHtml(nonce: string): string {
   let scope = 'all';
   let typeFilter = '';
   let debounceTimer;
-  let connected = true; // Assume connected until told otherwise
+  // Default to disconnected so the banner shows immediately when the panel
+  // opens. The extension confirms connection via the 'ready' handshake
+  // within milliseconds, hiding the banner if a server is available.
+  let connected = false;
 
   document.querySelectorAll('.scope-btn').forEach(btn => {
     btn.addEventListener('click', () => {
