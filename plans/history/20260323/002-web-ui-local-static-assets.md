@@ -18,3 +18,11 @@ Browsers rejected jsDelivr responses for `style.css` / `app.js` when the CDN ret
 - **`README.md`**, **`CHANGELOG.md`** — Document behavior.
 
 **Related:** `plans/history/20260317/001-monolithic-html-payload.md` (CDN-only era); this extends that design with same-origin serving.
+
+## Follow-up: `.pubignore` gap (2026-03-25)
+
+The original implementation worked from the package source directory (tests pass) but
+failed for consumer apps installing from pub.dev. Root cause: `.pubignore` contained an
+unanchored `web/` pattern which — per gitignore spec — matches at any depth, silently
+excluding `assets/web/` from the published archive. Fixed by anchoring to `/web/`
+(root-only). Regression test added in `test/version_sync_test.dart`.

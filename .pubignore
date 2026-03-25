@@ -1,10 +1,12 @@
 # Files excluded from the pub.dev package.
 # These are development/build resources that consumers do not need at runtime.
-# The Dart package only needs lib/, pubspec.yaml, README, CHANGELOG, LICENSE,
-# and assets/ (referenced by pubspec screenshots).
+# The Dart package needs lib/, pubspec.yaml, README, CHANGELOG, LICENSE,
+# and assets/ (pubspec screenshots + web UI files served by the debug server).
 
-# Enhanced CSS served via jsDelivr CDN — not needed in the published package
-web/
+# SCSS source and build tooling (top-level web/ directory only).
+# The anchored /web/ pattern ensures assets/web/ (compiled CSS/JS served by
+# the debug server) is still included in the published package.
+/web/
 
 # VS Code extension source (published separately to VS Code Marketplace)
 extension/
