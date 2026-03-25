@@ -91,7 +91,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Session duration** — optional `sessionDuration` (e.g. 1 hour) for shared session URLs
 - **Rate limiting** — optional `maxRequestsPerSecond`; 429 with `Retry-After` when exceeded; long-poll and health endpoints exempt
 - **Health** — `GET /api/health` → `{"ok": true}`
-- **Web UI assets** — CSS and JS are served from the debug server at `/assets/web/style.css` and `/assets/web/app.js` (package files, correct MIME types). The HTML shell falls back to jsDelivr if local files are unavailable; a matching git tag is still needed for that CDN path to work
+- **Web UI assets** — CSS and JS are served from the debug server at `/assets/web/style.css` and `/assets/web/app.js` (package files, correct MIME types). When the package root is unreachable (e.g. Flutter on Android/iOS emulators), the server serves compiled-in embedded copies. The HTML shell also falls back to jsDelivr as a last resort; a matching git tag is still needed for that CDN path to work
 
 #### API Reference
 
@@ -219,7 +219,7 @@ Run `flutter pub get` or `dart pub get`.
 
 - **Runtime dependencies:** None. The package has zero third-party dependencies; optional Bearer auth uses in-memory token comparison; Basic auth uses `dart:convert` only.
 - **Your app’s binary:** Only the code that is actually used is included (tree-shaking). The package’s `lib/` is ~32 Dart files (~245 KB source); the compiled footprint is the server and handlers you use.
-- **Assets:** The published package includes `assets/web/style.css` and `assets/web/app.js`; the debug server streams them over HTTP when you open the viewer (CDN is optional fallback in the HTML shell).
+- **Assets:** The published package includes `assets/web/style.css` and `assets/web/app.js`; the debug server streams them over HTTP when you open the viewer. On platforms where the package root is unreachable (emulators), compiled-in copies are served from memory (CDN is a last-resort fallback in the HTML shell).
 
 To measure the exact delta for your app, build with and without the package and compare sizes (e.g. `flutter build apk --analyze-size` and inspect the size report, or compare total APK/IPA size).
 

@@ -26,3 +26,16 @@ failed for consumer apps installing from pub.dev. Root cause: `.pubignore` conta
 unanchored `web/` pattern which — per gitignore spec — matches at any depth, silently
 excluding `assets/web/` from the published archive. Fixed by anchoring to `/web/`
 (root-only). Regression test added in `test/version_sync_test.dart`.
+
+## Follow-up: emulator 404s (2026-03-25)
+
+On Android/iOS emulators the host filesystem is unreachable — `Isolate.resolvePackageUri`
+throws in Flutter runtimes and `Directory.current` points to the device, so the ancestor
+walk never finds the package root. Both `app.js` and `style.css` returned HTTP 404;
+the CDN `onerror` fallback also failed silently.
+
+**Fix:** `lib/src/server/web_assets_embedded.dart` — new generated file containing
+`app.js` and `style.css` as Dart `r'''...'''` string constants.
+`generation_handler.dart` `_sendWebAsset()` now serves from the embedded constant
+when file-based resolution fails, instead of returning 404.
+Sync tests in `version_sync_test.dart` verify the constants match the on-disk files.

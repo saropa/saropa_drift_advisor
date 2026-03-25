@@ -6,13 +6,15 @@
 // locally avoids third-party MIME / `X-Content-Type-Options: nosniff`
 // mismatches and works offline during development.
 //
-// Package root is resolved once via [Isolate.resolvePackageUri] against
-// `package:saropa_drift_advisor/saropa_drift_advisor.dart`, then stepping from
-// `lib/` to the package directory. The Flutter test embedder does not support
-// [Isolate.resolvePackageUri] (it throws); in that case we walk up from
-// [Directory.current] looking for `lib/saropa_drift_advisor.dart` and
-// `assets/web/style.css`. The result is cached so repeated asset requests do
-// not re-resolve. This is process-global (tests share the same isolate).
+// Asset resolution order:
+//   1. [Isolate.resolvePackageUri] → `lib/` parent → package root (Dart VM).
+//   2. Ancestor walk from [Directory.current] (flutter test / CI).
+//   3. Embedded string constants ([WebAssetsEmbedded]) — used when the
+//      package root is unreachable (e.g. Flutter on Android/iOS emulator
+//      where host files are not on the device filesystem).
+//
+// The resolved path is cached so repeated asset requests do not re-resolve.
+// This is process-global (tests share the same isolate).
 
 import 'dart:convert';
 import 'dart:io';
@@ -21,6 +23,7 @@ import 'dart:isolate';
 import 'html_content.dart';
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'web_assets_embedded.dart';
 
 /// Handles health check, generation long-poll, and HTML serving.
 final class GenerationHandler {
@@ -97,64 +100,73 @@ final class GenerationHandler {
 
   /// Serves the local CSS asset used by the web UI shell.
   ///
-  /// If the file cannot be read (for example, in unusual packaging layouts),
-  /// returns 404 so the page-level CDN fallback can take over.
+  /// Prefers reading from the package root on disk; falls
+  /// back to the embedded constant when the file system is
+  /// unreachable (e.g. Flutter on an Android emulator).
   Future<void> sendWebStyle(HttpResponse response) async {
     await _sendWebAsset(
       response: response,
       relativePath: 'assets/web/style.css',
       contentType: ContentType('text', 'css', charset: 'utf-8'),
+      embeddedFallback: WebAssetsEmbedded.styleCss,
     );
   }
 
   /// Serves the local JS asset used by the web UI shell.
   ///
-  /// If the file cannot be read (for example, in unusual packaging layouts),
-  /// returns 404 so the page-level CDN fallback can take over.
+  /// Prefers reading from the package root on disk; falls
+  /// back to the embedded constant when the file system is
+  /// unreachable (e.g. Flutter on an Android emulator).
   Future<void> sendWebApp(HttpResponse response) async {
     await _sendWebAsset(
       response: response,
       relativePath: 'assets/web/app.js',
       contentType: ContentType('application', 'javascript', charset: 'utf-8'),
+      embeddedFallback: WebAssetsEmbedded.appJs,
     );
   }
 
-  /// Reads and writes a web UI static asset from the installed package root.
+  /// Serves a web UI asset, preferring the on-disk file
+  /// from the resolved package root.
   ///
-  /// This avoids hard dependency on CDN availability/type-mapping and keeps the
-  /// viewer functional in local/offline development.
+  /// When the package root cannot be located or the file
+  /// does not exist, serves [embeddedFallback] — a Dart
+  /// string constant compiled into the binary — so the
+  /// web UI works on platforms where host files are not
+  /// accessible (e.g. Android/iOS emulators).
   Future<void> _sendWebAsset({
     required HttpResponse response,
     required String relativePath,
     required ContentType contentType,
+    required String embeddedFallback,
   }) async {
+    // ── Try file-based serving first ──
     final packageRoot = await _resolvePackageRootPath();
-    if (packageRoot == null) {
-      response.statusCode = HttpStatus.notFound;
-      await response.close();
-      return;
+    if (packageRoot != null) {
+      final file = File('$packageRoot/$relativePath');
+      if (await file.exists()) {
+        try {
+          response.headers.contentType = contentType;
+          await response.addStream(file.openRead());
+        } on Object catch (error, stack) {
+          // Mid-stream read or socket failures can occur
+          // after headers start sending; log and close so
+          // the client does not hang.
+          _ctx.logError(error, stack);
+        }
+        try {
+          await response.close();
+        } on Object {
+          // Ignore double-close or already-terminated response.
+        }
+        return;
+      }
     }
 
-    final file = File('$packageRoot/$relativePath');
-    if (!await file.exists()) {
-      response.statusCode = HttpStatus.notFound;
-      await response.close();
-      return;
-    }
-
-    try {
-      response.headers.contentType = contentType;
-      await response.addStream(file.openRead());
-    } on Object catch (error, stack) {
-      // Mid-stream read or socket failures can occur after headers start
-      // sending; log and close so the client does not hang.
-      _ctx.logError(error, stack);
-    }
-    try {
-      await response.close();
-    } on Object {
-      // Ignore double-close or already-terminated response.
-    }
+    // ── Fall back to embedded constant ──
+    response.headers.contentType = contentType;
+    response.write(embeddedFallback);
+    await response.close();
   }
 
   /// Resolves the local package root once and reuses it for asset serving.

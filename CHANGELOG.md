@@ -23,6 +23,8 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 • **Published package missing web UI assets** — `.pubignore` contained an unanchored `web/` pattern that excluded `assets/web/` (CSS/JS served by the debug server) from the published package. Consumer apps fell back to CDN, producing `X-Content-Type-Options: nosniff` MIME-mismatch console errors. Fixed by anchoring the pattern to `/web/` (root only).
 
+• **Web UI assets 404 on Flutter emulators** — On Android/iOS emulators the host filesystem is unreachable, so file-based package-root resolution always failed and both `app.js` and `style.css` returned HTTP 404. The server now embeds both assets as compiled-in Dart string constants and serves them from memory when the on-disk path cannot be resolved.
+
 ---
 
 ## [2.8.0]
