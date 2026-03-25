@@ -17,7 +17,7 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
-## [Unreleased]
+## [2.8.2]
 
 Faster disconnect detection, quieter logs, and a banner that actually shows up.
 
@@ -33,7 +33,7 @@ Faster disconnect detection, quieter logs, and a banner that actually shows up.
 
 ---
 
-## [2.8.1]
+## [2.8.2]
 
 ### Fixed
 
