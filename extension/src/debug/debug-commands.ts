@@ -8,15 +8,13 @@ import { PerfBaselineStore } from './perf-baseline-store';
 import { registerDebugCommandsPanels } from './debug-commands-panels';
 import { registerDebugCommandsPerf } from './debug-commands-perf';
 import { registerDebugCommandsVm } from './debug-commands-vm';
-import type { SchemaSearchViewProvider } from '../schema-search/schema-search-view';
-
 export type { IConnectionLog, IDebugCommandDeps } from './debug-commands-types';
 
 /** Register debug panel, profiler, docs, global search, and VM Service lifecycle. */
 export function registerDebugCommands(
   context: vscode.ExtensionContext,
   deps: IDebugCommandDeps,
-): SchemaSearchViewProvider {
+): void {
   const { connectionLog } = deps;
 
   const logConnection = (msg: string): void => {
@@ -24,11 +22,14 @@ export function registerDebugCommands(
   };
 
   const { perfProvider, revealTable } = registerDebugCommandsPerf(context, deps);
-  const schemaSearchProvider = registerDebugCommandsPanels(
-    context,
-    deps.client,
-    revealTable,
-    deps,
+
+  // The Schema Search webview provider is created and registered in
+  // setupProviders so it's available before registerAllCommands runs.
+  // Here we wire the revealTable callback and register remaining panel
+  // commands (docs, global search).
+  registerDebugCommandsPanels(
+    context, deps.client, revealTable, deps,
+    deps.schemaSearchProvider!, deps.schemaSearchRevealRef!,
   );
 
   const baselineStore = new PerfBaselineStore(context.workspaceState);
@@ -87,5 +88,4 @@ export function registerDebugCommands(
     ),
   );
 
-  return schemaSearchProvider;
 }

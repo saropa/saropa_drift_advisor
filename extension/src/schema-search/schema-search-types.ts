@@ -37,7 +37,8 @@ export type SchemaSearchMessage =
   | { command: 'openConnectionLog' }
   | { command: 'retryDiscovery' }
   | { command: 'diagnoseConnection' }
-  | { command: 'refreshConnectionUi' };
+  | { command: 'refreshConnectionUi' }
+  | { command: 'ready' };
 
 /** Messages sent from the extension host to the webview. */
 export type SchemaSearchHostMessage =

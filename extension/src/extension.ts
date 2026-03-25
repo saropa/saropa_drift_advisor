@@ -120,10 +120,26 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(toolsQuickPick);
   registerToolsQuickPickCommand(context);
 
-  /** Filled after registerAllCommands; syncs Schema Search, Tools tree, and context. */
+  // The Schema Search provider is created in setupProviders (alongside the
+  // tree views) so it's registered before any potentially-failing setup code
+  // runs.  The connectionUiRefresh callback can reference it directly.
   const connectionUiRefresh: { fn?: () => void } = {};
 
-  const { schemaSearch } = registerAllCommands(context, cachedClient, {
+  // Wire the connection UI refresh BEFORE registerAllCommands so even if
+  // command registration throws, the sidebar can still show connection state.
+  connectionUiRefresh.fn = () =>
+    syncDriftConnectionUi(serverManager, cachedClient, {
+      toolsProvider: providers.toolsProvider,
+      schemaSearchProvider: providers.schemaSearchProvider,
+    }, {
+      appendLine: (msg: string) => {
+        if (shouldLogConnectionLine(msg, getLogVerbosity())) {
+          connectionChannel.appendLine(msg);
+        }
+      },
+    });
+
+  registerAllCommands(context, cachedClient, {
     ...providers,
     ...editing,
     annotationStore,
@@ -138,17 +154,6 @@ export function activate(context: vscode.ExtensionContext): void {
     healthStatusBar,
     refreshDriftConnectionUi: () => connectionUiRefresh.fn?.(),
   });
-  connectionUiRefresh.fn = () =>
-    syncDriftConnectionUi(serverManager, cachedClient, {
-      toolsProvider: providers.toolsProvider,
-      schemaSearchProvider: schemaSearch,
-    }, {
-      appendLine: (msg: string) => {
-        if (shouldLogConnectionLine(msg, getLogVerbosity())) {
-          connectionChannel.appendLine(msg);
-        }
-      },
-    });
   connectionUiRefresh.fn();
   context.subscriptions.push(
     cachedClient.onVmTransportChanged(() => connectionUiRefresh.fn?.()),

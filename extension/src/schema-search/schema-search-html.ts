@@ -303,6 +303,12 @@ export function getSchemaSearchHtml(nonce: string): string {
 
   // Show idle state immediately; search only when user types (avoids slow "browse all" on open).
   doSearch();
+
+  // Signal the extension host that the webview script is ready to receive
+  // messages. Without this handshake, postMessage calls from
+  // resolveWebviewView arrive before addEventListener('message', ...)
+  // is wired up and the connectionState message is silently dropped.
+  vscode.postMessage({ command: 'ready' });
 })();
 </script>
 </body>

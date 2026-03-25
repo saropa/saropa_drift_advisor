@@ -22,6 +22,7 @@ import { DriftTreeProvider } from './tree/drift-tree-provider';
 import { ToolsTreeProvider } from './tree/tools-tree-provider';
 import { WatchManager } from './watch/watch-manager';
 import { DataBreakpointProvider } from './data-breakpoint/data-breakpoint-provider';
+import { SchemaSearchViewProvider } from './schema-search/schema-search-view';
 
 export interface ProviderSetupResult {
   treeProvider: DriftTreeProvider;
@@ -40,6 +41,17 @@ export interface ProviderSetupResult {
   dbpProvider: DataBreakpointProvider;
   logBridge: LogCaptureBridge;
   toolsProvider: ToolsTreeProvider;
+  /**
+   * Schema Search webview provider, registered early so VS Code can resolve
+   * the webview as soon as `driftViewer.serverConnected` is set. The
+   * revealTable callback is wired up later by registerDebugCommandsPanels.
+   */
+  schemaSearchProvider: SchemaSearchViewProvider;
+  /**
+   * Mutable ref for the "reveal table in Database tree" callback.
+   * Starts as a no-op; registerDebugCommandsPanels wires the real function.
+   */
+  schemaSearchRevealRef: { fn: (name: string) => Promise<void> };
 }
 
 /**
@@ -75,6 +87,17 @@ export function setupProviders(
   // connected and disconnected states).
   treeView.description = `v${extensionVersion}`;
   context.subscriptions.push(treeView);
+
+  // Register the Drift Tools tree view immediately after the Database view.
+  // Both are always-visible sidebar sections declared in package.json.
+  // Creating them first ensures VS Code never shows "no data provider" even
+  // if a later provider registration throws.
+  const toolsProvider = new ToolsTreeProvider(extensionVersion);
+  const toolsView = vscode.window.createTreeView('driftViewer.toolbox', {
+    treeDataProvider: toolsProvider,
+    showCollapseAll: true,
+  });
+  context.subscriptions.push(toolsView);
 
   const definitionProvider = new DriftDefinitionProvider(client);
   context.subscriptions.push(
@@ -166,15 +189,26 @@ export function setupProviders(
   logBridge.init(context, client, bridgeOptions).catch(() => { /* extension not installed */ });
   context.subscriptions.push({ dispose: () => logBridge.dispose() });
 
-  // Standalone "Drift Tools" sidebar view: always visible, lists all major
-  // commands grouped by category. Greyed-out items when not connected.
-  // Version is passed for the "About Saropa Drift Advisor vX.Y.Z" tree item.
-  const toolsProvider = new ToolsTreeProvider(extensionVersion);
-  const toolsView = vscode.window.createTreeView('driftViewer.toolbox', {
-    treeDataProvider: toolsProvider,
-    showCollapseAll: true,
-  });
-  context.subscriptions.push(toolsView);
+  // Register the Schema Search webview provider early — alongside the tree
+  // views — so VS Code can resolve the webview as soon as the
+  // `driftViewer.serverConnected` context is set. If this were deferred to
+  // registerAllCommands and something threw in between, the view would show
+  // VS Code's native "loading" indicator forever.
+  // The revealTable callback is a mutable ref: starts as a no-op and is
+  // wired to the real tree-reveal function by registerDebugCommandsPanels.
+  const schemaSearchRevealRef: { fn: (name: string) => Promise<void> } = {
+    fn: () => Promise.resolve(),
+  };
+  const schemaSearchProvider = new SchemaSearchViewProvider(
+    client,
+    (name) => schemaSearchRevealRef.fn(name),
+  );
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      SchemaSearchViewProvider.viewType,
+      schemaSearchProvider,
+    ),
+  );
 
   return {
     treeProvider,
@@ -193,5 +227,7 @@ export function setupProviders(
     dbpProvider,
     logBridge,
     toolsProvider,
+    schemaSearchProvider,
+    schemaSearchRevealRef,
   };
 }

@@ -25,6 +25,16 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 • **Web UI assets 404 on Flutter emulators** — On Android/iOS emulators the host filesystem is unreachable, so file-based package-root resolution always failed and both `app.js` and `style.css` returned HTTP 404. The server now embeds both assets as compiled-in Dart string constants and serves them from memory when the on-disk path cannot be resolved.
 
+• **Schema Search panel stuck on loading indicator** — `resolveWebviewView` posted `connectionState` before the webview script had wired `addEventListener('message', …)`, so the message was silently dropped and the panel never left its loading state. Fixed with a ready-handshake: the webview sends `{ command: 'ready' }` once its script initializes, and the host defers `connectionState` delivery until the handshake arrives. Visibility changes also re-deliver state.
+
+• **Drift Tools "no data provider" on activation** — `ToolsTreeProvider` was created late in `setupProviders`; if any intermediate registration threw, the tree view was never registered. Moved creation immediately after the Database tree so both sidebar sections are always available.
+
+### Improved
+
+• **Schema Search registered before command wiring** — The Schema Search `WebviewViewProvider` is now created and registered in `setupProviders` (alongside tree views) instead of inside `registerAllCommands`. If command registration fails, the webview still resolves instead of showing VS Code's permanent loading indicator.
+
+• **Troubleshooting: Schema Search diagnostics** — "Diagnose Connection" output now includes `schemaSearch.viewResolved`, `webviewReady`, and `presentationConnected` with actionable warnings. The Troubleshooting panel has a new collapsible section for "Schema Search panel stuck on loading indicator."
+
 ---
 
 ## [2.8.0]

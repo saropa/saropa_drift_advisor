@@ -1,37 +1,50 @@
 /**
- * Schema search, schema docs, and global search panel commands.
+ * Schema docs and global search panel commands.
+ *
+ * The Schema Search webview provider is created and registered in
+ * setupProviders (extension-providers.ts) so that VS Code can resolve
+ * the webview as soon as the `driftViewer.serverConnected` context is set,
+ * even if later activation steps fail.
+ *
+ * This module wires the revealTable callback and registers the remaining
+ * panel-related commands (generateSchemaDocs, globalSearch).
  */
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { IDebugCommandDeps } from './debug-commands-types';
-import { SchemaSearchViewProvider } from '../schema-search/schema-search-view';
+import type { SchemaSearchViewProvider } from '../schema-search/schema-search-view';
 import { collectSchemaDocsData } from '../schema-docs/schema-docs-command';
 import { DocsHtmlRenderer } from '../schema-docs/docs-html-renderer';
 import { DocsMdRenderer } from '../schema-docs/docs-md-renderer';
 import { GlobalSearchPanel } from '../global-search/global-search-panel';
 
 /**
- * Register schema search view, generateSchemaDocs, and globalSearch.
- * Connection state for the Schema Search webview is applied via
- * [refreshDriftConnectionUi] in extension.ts (HTTP + VM transport).
+ * Wire the Schema Search revealTable callback and register
+ * generateSchemaDocs + globalSearch commands. Connection state for the
+ * Schema Search webview is applied via [refreshDriftConnectionUi] in
+ * extension.ts (HTTP + VM transport).
+ *
+ * The [searchProvider] and [revealTableRef] are created in setupProviders
+ * and passed here for wiring. The ref's `.fn` is replaced with the real
+ * revealTable callback so the closure the provider captured at construction
+ * time now delegates to the real tree-reveal function.
  */
 export function registerDebugCommandsPanels(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
   revealTable: (name: string) => Promise<void>,
   debugDeps: Pick<IDebugCommandDeps, 'connectionLog'>,
-): SchemaSearchViewProvider {
-  const searchProvider = new SchemaSearchViewProvider(client, revealTable, {
-    connectionLog: debugDeps.connectionLog,
-  });
+  searchProvider: SchemaSearchViewProvider,
+  revealTableRef: { fn: (name: string) => Promise<void> },
+): void {
+  // Wire the real revealTable callback into the ref that the
+  // SchemaSearchViewProvider's constructor captured via closure.
+  revealTableRef.fn = revealTable;
 
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      SchemaSearchViewProvider.viewType,
-      searchProvider,
-    ),
-  );
+  // Inject the connection log now that debug deps are available.
+  // (The provider was created without it in setupProviders.)
+  searchProvider.setConnectionLog(debugDeps.connectionLog);
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
@@ -79,5 +92,4 @@ export function registerDebugCommandsPanels(
     ),
   );
 
-  return searchProvider;
 }

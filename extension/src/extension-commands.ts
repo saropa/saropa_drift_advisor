@@ -28,7 +28,6 @@ import { registerSnapshotCommands } from './timeline/snapshot-commands';
 import { registerEditingCommands } from './editing/editing-commands';
 import { registerDataBreakpointCommands } from './data-breakpoint/data-breakpoint-commands';
 import { registerDebugCommands } from './debug/debug-commands';
-import type { SchemaSearchViewProvider } from './schema-search/schema-search-view';
 import { registerHealthCommands } from './health/health-commands';
 import { registerQueryCostCommands } from './query-cost/query-cost-commands';
 import { registerDashboardCommands } from './dashboard/dashboard-commands';
@@ -66,19 +65,16 @@ export interface CommandRegistrationDeps extends ProviderSetupResult, EditingSet
   refreshDriftConnectionUi?: () => void;
 }
 
-/** Result of command registration when debug panels expose the schema search provider. */
-export interface CommandRegistrationResult {
-  schemaSearch: SchemaSearchViewProvider;
-}
-
 /**
  * Register all extension commands. Call after setupProviders, setupDiagnostics, setupEditing.
+ * The Schema Search provider is already created and registered in setupProviders;
+ * this function wires its revealTable callback and connection log via registerDebugCommands.
  */
 export function registerAllCommands(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
   deps: CommandRegistrationDeps,
-): CommandRegistrationResult {
+): void {
   let logVerbosity = getLogVerbosity(
     vscode.workspace.getConfiguration('driftViewer'),
   );
@@ -112,6 +108,8 @@ export function registerAllCommands(
     connectionChannel,
     schemaTracker,
     healthStatusBar,
+    schemaSearchProvider,
+    schemaSearchRevealRef,
   } = deps;
 
   // About commands (no deps) are registered first so the Database view (i) icon
@@ -165,7 +163,7 @@ export function registerAllCommands(
   // Feature command modules are registered afterwards inside a try/catch so
   // that a failure in any single module cannot prevent the core connection
   // logic from running.
-  const schemaSearch = registerDebugCommands(context, {
+  registerDebugCommands(context, {
     client,
     treeProvider,
     treeView,
@@ -187,13 +185,15 @@ export function registerAllCommands(
       },
     },
     refreshDriftConnectionUi: deps.refreshDriftConnectionUi,
+    schemaSearchProvider,
+    schemaSearchRevealRef,
   });
 
   // Feature command modules — each is isolated so one failing module does not
   // block the others or the core debug/connection logic above.
   const featureModules: Array<[string, () => void]> = [
     ['tree', () => registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager)],
-    ['nav', () => registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge, connectionChannel, deps.refreshDriftConnectionUi)],
+    ['nav', () => registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge, connectionChannel, deps.refreshDriftConnectionUi, schemaSearchProvider)],
     ['mutationStream', () => registerMutationStreamCommands(context, client, editingBridge, fkNavigator, filterBridge)],
     ['snapshot', () => registerSnapshotCommands(context, client, snapshotStore)],
     ['schemaDiff', () => registerSchemaDiffCommands(context, client)],
@@ -235,5 +235,4 @@ export function registerAllCommands(
     }
   }
 
-  return { schemaSearch };
 }

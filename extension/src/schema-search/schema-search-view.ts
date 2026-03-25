@@ -30,10 +30,18 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'driftViewer.schemaSearch';
 
   private readonly _engine: SchemaSearchEngine;
-  private readonly _connectionLog?: IConnectionLog;
+  private _connectionLog?: IConnectionLog;
   private _view?: vscode.WebviewView;
   private _searchGen = 0;
   private _presentation: DriftConnectionPresentation;
+
+  /**
+   * True once the webview script has sent its 'ready' message.
+   * Until then, postMessage calls are silently dropped by VS Code because
+   * the script's addEventListener('message', ...) hasn't been wired yet.
+   * We defer _postConnectionState until the handshake arrives.
+   */
+  private _webviewReady = false;
 
   /** Stores the last search/browse request so "Retry" can replay it. */
   private _lastRequest:
@@ -60,6 +68,34 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     };
   }
 
+  /**
+   * Inject or replace the connection log after construction. Called by
+   * registerDebugCommandsPanels once debug deps are available (the provider
+   * is created early in setupProviders before the log sink exists).
+   */
+  setConnectionLog(log: IConnectionLog | undefined): void {
+    this._connectionLog = log;
+  }
+
+  /**
+   * Returns diagnostic state for the "Diagnose Connection" output.
+   * Helps developers and support spot why the Schema Search panel
+   * might appear stuck loading or disconnected.
+   */
+  getDiagnosticState(): {
+    viewResolved: boolean;
+    webviewReady: boolean;
+    presentationConnected: boolean;
+    presentationLabel: string;
+  } {
+    return {
+      viewResolved: this._view !== undefined,
+      webviewReady: this._webviewReady,
+      presentationConnected: this._presentation.connected,
+      presentationLabel: this._presentation.label,
+    };
+  }
+
   private _log(line: string): void {
     if (!this._connectionLog) return;
     const full = `[${new Date().toISOString()}] Schema Search: ${line}`;
@@ -74,6 +110,9 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken,
   ): void {
     this._view = webviewView;
+    // Reset the ready flag — webview content is being (re-)created so the
+    // script's message listener doesn't exist yet.
+    this._webviewReady = false;
     webviewView.webview.options = { enableScripts: true };
 
     const nonce = getNonce();
@@ -92,7 +131,20 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
       },
     );
 
-    this._postConnectionState();
+    // Re-post connection state whenever the webview becomes visible again
+    // (e.g. the user switches back to the Drift sidebar). VS Code destroys
+    // the webview DOM when the panel is hidden and re-resolves on show, but
+    // if the webview is retained the DOM stays — yet the script loses state.
+    webviewView.onDidChangeVisibility(() => {
+      if (webviewView.visible) {
+        this._postConnectionState();
+      }
+    });
+
+    // Do NOT call _postConnectionState here — the webview script hasn't
+    // executed yet so the message listener isn't wired. The webview will
+    // send a 'ready' message once its script loads, and _handleMessage
+    // will deliver the queued connection state at that point.
   }
 
   /**
@@ -117,8 +169,12 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
   }
 
   private _postConnectionState(): void {
+    // Guard: skip if the view doesn't exist or the webview script hasn't
+    // finished initialising. The current _presentation is always stored,
+    // so the next 'ready' handshake or visibility change will deliver it.
+    if (!this._view || !this._webviewReady) return;
     try {
-      this._view?.webview.postMessage({
+      this._view.webview.postMessage({
         command: 'connectionState',
         connected: this._presentation.connected,
         label: this._presentation.label,
@@ -131,6 +187,15 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async _handleMessage(msg: SchemaSearchMessage): Promise<void> {
+    // The 'ready' handshake is handled outside the try/catch so it always
+    // succeeds — even if something else in the handler throws.
+    if (msg.command === 'ready') {
+      this._webviewReady = true;
+      this._log('webview ready — delivering queued connection state');
+      this._postConnectionState();
+      return;
+    }
+
     try {
       switch (msg.command) {
         case 'search':

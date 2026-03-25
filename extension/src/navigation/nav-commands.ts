@@ -9,6 +9,7 @@ import type { ServerManager } from '../server-manager';
 import type { ServerDiscovery } from '../server-discovery';
 import { DriftViewerPanel } from '../panel';
 import { getLogVerbosity, shouldLogConnectionLine } from '../log-verbosity';
+import type { SchemaSearchViewProvider } from '../schema-search/schema-search-view';
 
 /** Register navigation, linter, and discovery commands. */
 export function registerNavCommands(
@@ -22,6 +23,8 @@ export function registerNavCommands(
   filterBridge: FilterBridge,
   connectionChannel: vscode.OutputChannel,
   refreshConnectionUi?: () => void,
+  /** Optional Schema Search provider for including webview state in diagnostics. */
+  schemaSearchProvider?: SchemaSearchViewProvider,
 ): void {
   // Timestamped log to connection output channel for welcome-view and status-bar commands.
   let verbosity = getLogVerbosity(
@@ -272,6 +275,35 @@ export function registerNavCommands(
         `client.usingVmService=${client.usingVmService}`,
         `client.baseUrl=${client.baseUrl}`,
       ];
+
+      // Schema Search webview diagnostics — helps spot stuck-loading or
+      // missed-handshake issues where the sidebar never finishes initialising.
+      if (schemaSearchProvider) {
+        const ss = schemaSearchProvider.getDiagnosticState();
+        lines.push(
+          `schemaSearch.viewResolved=${ss.viewResolved}`,
+          `schemaSearch.webviewReady=${ss.webviewReady}`,
+          `schemaSearch.presentationConnected=${ss.presentationConnected}`,
+          `schemaSearch.presentationLabel=${ss.presentationLabel}`,
+        );
+        // Flag common failure patterns so developers can self-diagnose.
+        if (!ss.viewResolved) {
+          lines.push(
+            '  ⚠ Webview not resolved — VS Code has not called resolveWebviewView yet.',
+            '    Check: is the Drift sidebar visible? Is driftViewer.serverConnected set?',
+          );
+        } else if (!ss.webviewReady) {
+          lines.push(
+            '  ⚠ Webview resolved but script not ready — the ready handshake was not received.',
+            '    Check: Content Security Policy errors in Developer Tools (Help → Toggle Developer Tools).',
+          );
+        } else if (!ss.presentationConnected) {
+          lines.push(
+            '  ⚠ Webview ready but presentation says "not connected".',
+            '    Check: server is running, discovery found it, refreshDriftConnectionUi was called.',
+          );
+        }
+      }
       try {
         const health = await client.health();
         lines.push(`health() → ${JSON.stringify(health)}`);
