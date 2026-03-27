@@ -286,28 +286,4 @@ describe('SchemaSearchViewProvider', () => {
     });
   });
 
-  // ─── setConnected (deprecated) ──────────────────────────────────
-
-  describe('setConnected (deprecated)', () => {
-    it('converts boolean to a DriftConnectionPresentation', () => {
-      provider.setConnected(true);
-      const state = provider.getDiagnosticState();
-      assert.strictEqual(state.presentationConnected, true);
-      assert.strictEqual(state.presentationLabel, 'Connected');
-    });
-
-    it('delivers connectionState when webview is ready', () => {
-      provider.resolveWebviewView(view as any, {} as any, cancelToken as any);
-      view.webview.simulateMessage({ command: 'ready' });
-      view.webview.postedMessages.length = 0;
-
-      provider.setConnected(false);
-
-      const stateMessages = view.webview.postedMessages.filter(
-        (m: any) => m.command === 'connectionState',
-      );
-      assert.strictEqual(stateMessages.length, 1);
-      assert.strictEqual((stateMessages[0] as any).connected, false);
-    });
-  });
 });
