@@ -6,7 +6,7 @@
 /** Default timeout for API requests (ms). */
 export const DEFAULT_FETCH_TIMEOUT_MS = 8000;
 
-/** Short timeout for discovery health probes (ms); schema/metadata can lag on busy isolates. */
+/** Short timeout for discovery health probes (ms). */
 export const HEALTH_PROBE_TIMEOUT_MS = 4500;
 
 /** Init options extended with an optional timeout. */

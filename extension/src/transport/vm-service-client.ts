@@ -180,8 +180,10 @@ export class VmServiceClient {
     return apiGetHealth(this._callExtension);
   }
 
-  async getSchemaMetadata(): Promise<TableMetadata[]> {
-    return apiGetSchemaMetadata(this._callExtension);
+  async getSchemaMetadata(options?: {
+    includeForeignKeys?: boolean;
+  }): Promise<TableMetadata[]> {
+    return apiGetSchemaMetadata(this._callExtension, options);
   }
 
   async getTableFkMeta(tableName: string): Promise<ForeignKey[]> {

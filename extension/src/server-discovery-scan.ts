@@ -1,28 +1,71 @@
 /**
  * Port scanning and health validation for server discovery.
+ *
+ * Probes must send the same [Authorization] header as [DriftApiClient] when the
+ * debug server is configured with Bearer auth; otherwise every request returns
+ * 401 and discovery stays empty while the browser UI still works.
+ *
+ * Validation uses GET `/api/health` only. A second `/api/schema/metadata` probe
+ * used to run PRAGMA/COUNT work per open port and saturated SQLite; Saropa
+ * servers always expose `version` on the health payload for identification.
  */
 
 import { fetchWithTimeout, HEALTH_PROBE_TIMEOUT_MS } from './transport/fetch-utils';
 
+/** Optional fetch init shared by discovery probes (e.g. Bearer token). */
+function probeInit(authHeaders?: Record<string, string>): {
+  timeoutMs: number;
+  headers?: Record<string, string>;
+} {
+  return {
+    timeoutMs: HEALTH_PROBE_TIMEOUT_MS,
+    ...(authHeaders ? { headers: authHeaders } : {}),
+  };
+}
+
 /**
- * Check /api/health and validate schema metadata for a single host:port.
+ * Confirms JSON from `/api/health` is a Saropa Drift debug server response.
+ * Requires `ok: true` and a non-empty `version` string (package semver).
+ */
+export function isValidDriftHealthPayload(body: unknown): boolean {
+  if (body === null || typeof body !== 'object') {
+    return false;
+  }
+  const b = body as Record<string, unknown>;
+  if (b.ok !== true) {
+    return false;
+  }
+  return typeof b.version === 'string' && b.version.length > 0;
+}
+
+/**
+ * Check /api/health for a single host:port.
  * Returns true if the server is a valid Drift debug server.
  */
 export async function checkHealth(
   host: string,
   port: number,
   logLine?: (msg: string) => void,
+  authHeaders?: Record<string, string>,
 ): Promise<boolean> {
   try {
-    const resp = await fetchWithTimeout(`http://${host}:${port}/api/health`, {
-      timeoutMs: HEALTH_PROBE_TIMEOUT_MS,
-    });
-    const body = (await resp.json()) as { ok?: boolean };
-    if (body?.ok !== true) {
-      logLine?.(`Port ${port}: health responded but ok=${body?.ok}`);
+    const resp = await fetchWithTimeout(
+      `http://${host}:${port}/api/health`,
+      probeInit(authHeaders),
+    );
+    if (!resp.ok) {
+      logLine?.(`Port ${port}: health HTTP ${resp.status}`);
       return false;
     }
-    return validateServer(host, port, logLine);
+    const body: unknown = await resp.json();
+    if (!isValidDriftHealthPayload(body)) {
+      const b = body as Record<string, unknown> | null;
+      logLine?.(
+        `Port ${port}: health response not a Saropa Drift server (ok=${b?.ok}, version=${typeof b?.version})`,
+      );
+      return false;
+    }
+    return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // Both 'ECONNREFUSED' (direct) and 'fetch failed' (Node undici wrapper
@@ -35,40 +78,13 @@ export async function checkHealth(
   }
 }
 
-/**
- * Secondary validation: confirm /api/schema/metadata returns expected shape.
- */
-export async function validateServer(
-  host: string,
-  port: number,
-  logLine?: (msg: string) => void,
-): Promise<boolean> {
-  try {
-    const resp = await fetchWithTimeout(
-      `http://${host}:${port}/api/schema/metadata`,
-      { timeoutMs: HEALTH_PROBE_TIMEOUT_MS },
-    );
-    const data: unknown = await resp.json();
-    const tables = Array.isArray(data)
-      ? data
-      : (data as Record<string, unknown>)?.tables;
-    if (!Array.isArray(tables)) {
-      logLine?.(`Port ${port}: schema/metadata returned unexpected shape (${typeof data})`);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logLine?.(`Port ${port}: schema/metadata validation failed: ${msg}`);
-    return false;
-  }
-}
-
 export interface ScanPortsConfig {
   host: string;
   portRangeStart: number;
   portRangeEnd: number;
   additionalPorts?: number[];
+  /** Same headers as [DriftApiClient] when the server requires Bearer auth. */
+  authHeaders?: Record<string, string>;
 }
 
 /**
@@ -78,7 +94,8 @@ export async function scanPorts(
   config: ScanPortsConfig,
   logLine?: (msg: string) => void,
 ): Promise<number[]> {
-  const { host, portRangeStart, portRangeEnd, additionalPorts } = config;
+  const { host, portRangeStart, portRangeEnd, additionalPorts, authHeaders } =
+    config;
   const portSet = new Set<number>();
   for (let p = portRangeStart; p <= portRangeEnd; p++) {
     portSet.add(p);
@@ -89,7 +106,7 @@ export async function scanPorts(
   const ports = [...portSet];
 
   const results = await Promise.allSettled(
-    ports.map((port) => checkHealth(host, port, logLine)),
+    ports.map((port) => checkHealth(host, port, logLine, authHeaders)),
   );
 
   const alive: number[] = [];

@@ -269,6 +269,44 @@ void main() {
         final names = tables.map((t) => t['name']).toSet();
         expect(names, containsAll(['alpha', 'beta']));
       });
+
+      test('includeForeignKeys embeds fk-meta maps per table', () async {
+        final ctx = createTestContext();
+        final handler = SchemaHandler(ctx);
+        final query = mockQueryWithTables(
+          tableColumns: {
+            'orders': [
+              {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
+            ],
+          },
+          tableCounts: {'orders': 3},
+          tableForeignKeys: {
+            'orders': [
+              {
+                'id': 0,
+                'seq': 0,
+                'table': 'users',
+                'from': 'user_id',
+                'to': 'id',
+              },
+            ],
+          },
+        );
+
+        final tables = await handler.getSchemaMetadataList(
+          query,
+          includeForeignKeys: true,
+        );
+
+        expect(tables, hasLength(1));
+        final fks = tables.first['foreignKeys'] as List<dynamic>;
+        expect(fks, hasLength(1));
+        final fk0 = fks.first as Map;
+        expect(fk0['fromColumn'], 'user_id');
+        expect(fk0['toTable'], 'users');
+        expect(fk0['toColumn'], 'id');
+      });
     });
 
     // -------------------------------------------------------

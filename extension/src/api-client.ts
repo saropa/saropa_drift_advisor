@@ -123,9 +123,13 @@ export class DriftApiClient {
     return http.httpHealth(this._baseUrl, this._headers());
   }
 
-  async schemaMetadata(): Promise<TableMetadata[]> {
-    if (this._vmClient?.connected) return this._vmClient.getSchemaMetadata();
-    return http.httpSchemaMetadata(this._baseUrl, this._headers());
+  async schemaMetadata(options?: {
+    includeForeignKeys?: boolean;
+  }): Promise<TableMetadata[]> {
+    if (this._vmClient?.connected) {
+      return this._vmClient.getSchemaMetadata(options);
+    }
+    return http.httpSchemaMetadata(this._baseUrl, this._headers(), options);
   }
 
   async tableFkMeta(tableName: string): Promise<ForeignKey[]> {

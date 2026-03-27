@@ -14,8 +14,8 @@ import type {
   Anomaly, ForeignKey, IndexSuggestion, TableMetadata,
 } from '../api-types';
 
-/** Cache TTL in milliseconds (30 seconds). */
-const CACHE_TTL_MS = 30_000;
+/** Cache TTL — schema + analytics pulls are heavy on SQLite; avoid thrashing. */
+const CACHE_TTL_MS = 90_000;
 
 export interface ISchemaIndex {
   table: string;
@@ -164,18 +164,23 @@ export class SchemaIntelligence implements vscode.Disposable {
   }
 
   private async _loadInsights(): Promise<ISchemaInsights> {
-    const [tables, suggestions, anomalies] = await Promise.all([
-      this._client.schemaMetadata(),
-      this._client.indexSuggestions(),
-      this._client.anomalies(),
-    ]);
+    // Fetch metadata with embedded FKs first, then run full-table analytics
+    // one at a time so SQLite isn't hit by three independent scans at once.
+    const tables = await this._client.schemaMetadata({ includeForeignKeys: true });
+    const suggestions = await this._client.indexSuggestions();
+    const anomalies = await this._client.anomalies();
 
     const userTables = tables.filter((t) => !t.name.startsWith('sqlite_'));
 
     const fkMap = new Map<string, ForeignKey[]>();
-    await Promise.all(userTables.map(async (t) => {
-      fkMap.set(t.name, await this._client.tableFkMeta(t.name));
-    }));
+    for (const t of userTables) {
+      const embedded = t.foreignKeys;
+      const fks =
+        embedded !== undefined
+          ? embedded
+          : await this._client.tableFkMeta(t.name);
+      fkMap.set(t.name, fks);
+    }
 
     const suggestionMap = new Map<string, IndexSuggestion>();
     for (const s of suggestions) {

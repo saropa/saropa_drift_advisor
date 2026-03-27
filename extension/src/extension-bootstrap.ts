@@ -16,6 +16,14 @@ import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 /** Delay before trying adb forward after a Flutter/Dart debug session starts (ms). */
 const ADB_FORWARD_DELAY_MS = 5000;
 
+/** Builds headers for discovery HTTP probes so they match [DriftApiClient] when Bearer auth is set. */
+function discoveryAuthHeadersFromToken(
+  token: string | undefined,
+): Record<string, string> | undefined {
+  if (!token || token.length === 0) return undefined;
+  return { Authorization: `Bearer ${token}` };
+}
+
 export interface ExtensionBootstrapResult {
   client: DriftApiClient;
   watcher: GenerationWatcher;
@@ -47,19 +55,6 @@ export function bootstrapExtension(
   const client = new DriftApiClient(host, port);
   const authToken = cfg.get<string>('authToken', '') ?? '';
   if (authToken) client.setAuthToken(authToken);
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('driftViewer.authToken')) {
-        const token = vscode.workspace
-          .getConfiguration('driftViewer')
-          .get<string>('authToken', '') ?? '';
-        client.setAuthToken(token || undefined);
-      }
-      if (e.affectsConfiguration('driftViewer.logVerbosity')) {
-        logVerbosity = getLogVerbosity(cfg);
-      }
-    }),
-  );
 
   const watcher = new GenerationWatcher(client);
   const lastKnownPorts = context.workspaceState.get<number[]>('driftViewer.lastKnownPorts', []);
@@ -68,7 +63,22 @@ export function bootstrapExtension(
     portRangeStart: cfg.get<number>('discovery.portRangeStart', 8642) ?? 8642,
     portRangeEnd: cfg.get<number>('discovery.portRangeEnd', 8649) ?? 8649,
     additionalPorts: lastKnownPorts,
+    authHeaders: discoveryAuthHeadersFromToken(authToken || undefined),
   });
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      const driftCfg = vscode.workspace.getConfiguration('driftViewer');
+      if (e.affectsConfiguration('driftViewer.authToken')) {
+        const token = driftCfg.get<string>('authToken', '') ?? '';
+        client.setAuthToken(token || undefined);
+        discovery.setAuthHeaders(discoveryAuthHeadersFromToken(token || undefined));
+      }
+      if (e.affectsConfiguration('driftViewer.logVerbosity')) {
+        logVerbosity = getLogVerbosity(driftCfg);
+      }
+    }),
+  );
   const connectionChannel = vscode.window.createOutputChannel('Saropa Drift Advisor');
   context.subscriptions.push(connectionChannel);
   const gatedConnectionLog = {

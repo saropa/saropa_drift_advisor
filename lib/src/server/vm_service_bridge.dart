@@ -122,7 +122,12 @@ final class VmServiceBridge {
     }
 
     try {
-      final tables = await router.getSchemaMetadataList();
+      final inc = params['includeForeignKeys']?.toLowerCase();
+      final includeForeignKeys =
+          inc == 'true' || inc == '1' || inc == 'yes';
+      final tables = await router.getSchemaMetadataList(
+        includeForeignKeys: includeForeignKeys,
+      );
       final body = <String, dynamic>{ServerConstants.jsonKeyTables: tables};
       return developer.ServiceExtensionResponse.result(jsonEncode(body));
     } on Object catch (e) {

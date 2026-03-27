@@ -8,11 +8,7 @@ function defaultConfig(): IDiscoveryConfig {
 }
 
 function healthJson(): string {
-  return JSON.stringify({ ok: true });
-}
-
-function metadataJson(): string {
-  return JSON.stringify([{ name: 'users', columns: [], rowCount: 5 }]);
+  return JSON.stringify({ ok: true, version: '2.8.2' });
 }
 
 function makeResponse(body: string): Response {
@@ -44,9 +40,6 @@ describe('ServerDiscovery', () => {
     fetchStub
       .withArgs(`http://127.0.0.1:${port}/api/health`, sinon.match.any)
       .resolves(makeResponse(healthJson()));
-    fetchStub
-      .withArgs(`http://127.0.0.1:${port}/api/schema/metadata`)
-      .resolves(makeResponse(metadataJson()));
   }
 
   it('should start in searching state', () => {
@@ -180,6 +173,30 @@ describe('ServerDiscovery', () => {
     assert.ok(fetchStub.callCount > 0);
   });
 
+  it('should not run further scans while paused', async () => {
+    stubPortAlive(8642);
+    discovery = new ServerDiscovery(defaultConfig());
+    discovery.start();
+    await clock.tickAsync(1);
+
+    discovery.pause();
+    const n = fetchStub.callCount;
+    await clock.tickAsync(120000);
+    assert.strictEqual(
+      fetchStub.callCount,
+      n,
+      'pause must stop scheduled polls',
+    );
+
+    stubPortAlive(8642);
+    discovery.resume();
+    await clock.tickAsync(1);
+    assert.ok(
+      fetchStub.callCount > n,
+      'resume should run at least one new scan',
+    );
+  });
+
   it('should auto-recover from backoff to searching after 3 backoff cycles', async () => {
     discovery = new ServerDiscovery(defaultConfig());
     discovery.start();
@@ -197,37 +214,44 @@ describe('ServerDiscovery', () => {
     assert.strictEqual(discovery.state, 'searching');
   });
 
-  it('should accept wrapped metadata format { tables: [...] }', async () => {
-    // Real servers return metadata wrapped in { tables: [...] } instead of a raw array
+  it('should reject health without package version', async () => {
     fetchStub
       .withArgs('http://127.0.0.1:8642/api/health', sinon.match.any)
-      .resolves(makeResponse(healthJson()));
-    fetchStub
-      .withArgs('http://127.0.0.1:8642/api/schema/metadata')
-      .resolves(makeResponse(JSON.stringify({ tables: [{ name: 'users', columns: [], rowCount: 5 }] })));
-
-    discovery = new ServerDiscovery(defaultConfig());
-    discovery.start();
-    await clock.tickAsync(1);
-
-    assert.strictEqual(discovery.servers.length, 1, 'should accept wrapped {tables:[...]} format');
-    assert.strictEqual(discovery.servers[0].port, 8642);
-  });
-
-  it('should reject servers failing secondary validation', async () => {
-    // Health passes but metadata fails — response has neither array nor tables key
-    fetchStub
-      .withArgs('http://127.0.0.1:8642/api/health', sinon.match.any)
-      .resolves(makeResponse(healthJson()));
-    fetchStub
-      .withArgs('http://127.0.0.1:8642/api/schema/metadata')
-      .resolves(makeResponse(JSON.stringify({ notAnArray: true })));
+      .resolves(makeResponse(JSON.stringify({ ok: true })));
 
     discovery = new ServerDiscovery(defaultConfig());
     discovery.start();
     await clock.tickAsync(1);
 
     assert.strictEqual(discovery.servers.length, 0);
+  });
+
+  it('should reject servers with ok !== true', async () => {
+    fetchStub
+      .withArgs('http://127.0.0.1:8642/api/health', sinon.match.any)
+      .resolves(
+        makeResponse(JSON.stringify({ ok: false, version: '2.8.2' })),
+      );
+
+    discovery = new ServerDiscovery(defaultConfig());
+    discovery.start();
+    await clock.tickAsync(1);
+
+    assert.strictEqual(discovery.servers.length, 0);
+  });
+
+  it('should pass auth headers on discovery probes when configured', async () => {
+    const authHeaders = { Authorization: 'Bearer test-token' };
+    fetchStub
+      .withArgs('http://127.0.0.1:8642/api/health', sinon.match.has('headers', authHeaders))
+      .resolves(makeResponse(healthJson()));
+
+    discovery = new ServerDiscovery({ ...defaultConfig(), authHeaders });
+    discovery.start();
+    await clock.tickAsync(1);
+
+    assert.strictEqual(discovery.servers.length, 1);
+    assert.strictEqual(discovery.servers[0].port, 8642);
   });
 
   it('should throttle notifications per port', async () => {

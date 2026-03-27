@@ -89,6 +89,12 @@ abstract final class ServerConstants {
   static const String pathSuffixExtend = '/extend';
   static const String pathApiImport = '/api/import';
   static const String pathApiImportAlt = 'api/import';
+  /// POST parameterized single-cell UPDATE (requires [writeQuery]).
+  static const String pathApiCellUpdate = '/api/cell/update';
+  static const String pathApiCellUpdateAlt = 'api/cell/update';
+  /// POST batch of validated UPDATE/INSERT/DELETE statements in one transaction.
+  static const String pathApiEditsApply = '/api/edits/apply';
+  static const String pathApiEditsApplyAlt = 'api/edits/apply';
   static const String pathApiChangeDetection = '/api/change-detection';
   static const String pathApiChangeDetectionAlt = 'api/change-detection';
   static const String pathApiMutations = '/api/mutations';
@@ -112,6 +118,9 @@ abstract final class ServerConstants {
   static const String queryParamLimit = 'limit';
   static const String queryParamOffset = 'offset';
   static const String queryParamSince = 'since';
+  /// When `1` or `true` on GET `/api/schema/metadata`, each table entry
+  /// includes [jsonKeyForeignKeys] so clients avoid N per-table fk-meta calls.
+  static const String queryParamIncludeForeignKeys = 'includeForeignKeys';
   static const String queryParamFormat = 'format';
   static const String queryParamDetail = 'detail';
   static const String formatDownload = 'download';
@@ -121,8 +130,12 @@ abstract final class ServerConstants {
   static const String jsonKeyError = 'error';
   static const String jsonKeyRows = 'rows';
   static const String jsonKeySql = 'sql';
+  /// JSON body field: list of single-statement SQL strings (POST /api/edits/apply).
+  static const String jsonKeyStatements = 'statements';
   static const String jsonKeyCount = 'count';
   static const String jsonKeyOk = 'ok';
+  /// True when HTTP clients may call write endpoints ([writeQuery] configured).
+  static const String jsonKeyWriteEnabled = 'writeEnabled';
   static const String jsonKeyGeneration = 'generation';
   static const String jsonKeySnapshot = 'snapshot';
   static const String jsonKeyId = 'id';
@@ -149,6 +162,10 @@ abstract final class ServerConstants {
   static const String jsonKeyExtensionConnected = 'extensionConnected';
   static const String jsonKeyCapabilities = 'capabilities';
   static const String capabilityIssues = 'issues';
+  /// Advertises POST /api/cell/update for browser inline edits.
+  static const String capabilityCellUpdate = 'cellUpdate';
+  /// Advertises POST /api/edits/apply for extension bulk data edits.
+  static const String capabilityEditsApply = 'editsApply';
   static const String jsonKeyIssues = 'issues';
   static const String jsonKeySource = 'source';
   static const String jsonKeySuggestedSql = 'suggestedSql';
@@ -209,6 +226,8 @@ abstract final class ServerConstants {
   static const String jsonKeyCounts = 'counts';
   static const String jsonKeyType = 'type';
   static const String jsonKeyPk = 'pk';
+  /// PRAGMA table_info `notnull` (1 = NOT NULL), exposed as JSON boolean.
+  static const String jsonKeyNotNull = 'notnull';
   static const String jsonKeyRowCount = 'rowCount';
   static const String pragmaFrom = 'from';
   static const String pragmaTo = 'to';

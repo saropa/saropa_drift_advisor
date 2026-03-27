@@ -81,15 +81,12 @@ final class TableHandler {
     await res.close();
   }
 
-  /// Returns FK metadata for a table (for VM service RPC).
-  /// Same shape as GET `/api/table/<name>/fk-meta` response body.
-  Future<List<Map<String, dynamic>>> getTableFkMetaList({
-    required DriftDebugQuery query,
-    required String tableName,
-  }) async {
-    final List<Map<String, dynamic>> fkRows = ServerUtils.normalizeRows(
-      await query('PRAGMA foreign_key_list("$tableName")'),
-    );
+  /// Converts normalized `PRAGMA foreign_key_list` rows into the JSON maps
+  /// returned by [getTableFkMetaList] and embedded in schema metadata when
+  /// `includeForeignKeys` is requested.
+  static List<Map<String, dynamic>> fkMetaMapsFromPragmaRows(
+    List<Map<String, dynamic>> fkRows,
+  ) {
     return fkRows
         .map((r) {
           final fromCol = r[ServerConstants.pragmaFrom] as String?;
@@ -106,6 +103,18 @@ final class TableHandler {
         })
         .whereType<Map<String, dynamic>>()
         .toList();
+  }
+
+  /// Returns FK metadata for a table (for VM service RPC).
+  /// Same shape as GET `/api/table/<name>/fk-meta` response body.
+  Future<List<Map<String, dynamic>>> getTableFkMetaList({
+    required DriftDebugQuery query,
+    required String tableName,
+  }) async {
+    final List<Map<String, dynamic>> fkRows = ServerUtils.normalizeRows(
+      await query('PRAGMA foreign_key_list("$tableName")'),
+    );
+    return fkMetaMapsFromPragmaRows(fkRows);
   }
 
   /// Returns FK metadata for GET `/api/table/<name>/fk-meta`.

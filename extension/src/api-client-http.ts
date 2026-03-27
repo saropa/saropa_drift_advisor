@@ -34,8 +34,11 @@ export async function httpHealth(
 export async function httpSchemaMetadata(
   baseUrl: string,
   headers: ApiHeaders,
+  options?: { includeForeignKeys?: boolean },
 ): Promise<TableMetadata[]> {
-  const resp = await fetchWithRetry(`${baseUrl}/api/schema/metadata`, {
+  const q =
+    options?.includeForeignKeys === true ? '?includeForeignKeys=1' : '';
+  const resp = await fetchWithRetry(`${baseUrl}/api/schema/metadata${q}`, {
     headers,
   });
   if (!resp.ok) throw new Error(`Schema metadata failed: ${resp.status}`);

@@ -7,6 +7,7 @@ import 'dart:io';
 import 'server_constants.dart';
 import 'server_context.dart';
 import 'server_utils.dart';
+import 'table_handler.dart';
 
 /// Handles schema-related API endpoints.
 final class SchemaHandler {
@@ -19,6 +20,18 @@ final class SchemaHandler {
   static bool _pragmaPkBool(Map<String, dynamic> r) {
     final v = r[ServerConstants.jsonKeyPk] ?? r['PK'];
     return v is int ? v != 0 : false;
+  }
+
+  /// Reads NOT NULL from PRAGMA table_info (`notnull` is 0 or 1).
+  static bool _pragmaNotNullBool(Map<String, dynamic> r) {
+    final v = r[ServerConstants.jsonKeyNotNull] ?? r['NOTNULL'];
+    if (v is int) {
+      return v != 0;
+    }
+    if (v is bool) {
+      return v;
+    }
+    return false;
   }
 
   /// Converts PRAGMA table_info rows to normalized column maps (name, type, pk).
@@ -38,6 +51,7 @@ final class SchemaHandler {
                 r['TYPE']?.toString() ??
                 '',
             ServerConstants.jsonKeyPk: _pragmaPkBool(r),
+            ServerConstants.jsonKeyNotNull: _pragmaNotNullBool(r),
           },
         )
         .toList();
@@ -146,9 +160,14 @@ final class SchemaHandler {
   /// when available, eliminating N individual COUNT(*) queries.
   /// Falls back to per-table COUNT(*) when no cached counts
   /// exist (before the first checkDataChange cycle).
+  ///
+  /// When [includeForeignKeys] is true, runs `PRAGMA foreign_key_list` once
+  /// per table in this loop so clients avoid N separate `/api/table/.../fk-meta`
+  /// HTTP round-trips.
   Future<List<Map<String, dynamic>>> getSchemaMetadataList(
-    DriftDebugQuery query,
-  ) async {
+    DriftDebugQuery query, {
+    bool includeForeignKeys = false,
+  }) async {
     // Prefer cached table names to avoid a redundant
     // sqlite_master query.
     final tableNames =
@@ -183,24 +202,49 @@ final class SchemaHandler {
         count = ServerUtils.extractCountFromRows(countRows);
       }
 
-      tables.add(<String, dynamic>{
+      final tableEntry = <String, dynamic>{
         ServerConstants.jsonKeyName: tableName,
         ServerConstants.jsonKeyColumns: columns,
         ServerConstants.jsonKeyRowCount: count,
-      });
+      };
+
+      if (includeForeignKeys) {
+        try {
+          final dynamic rawFk =
+              await query('PRAGMA foreign_key_list("$tableName")');
+          final fkRows = ServerUtils.normalizeRows(rawFk);
+          tableEntry[ServerConstants.jsonKeyForeignKeys] =
+              TableHandler.fkMetaMapsFromPragmaRows(fkRows);
+        } on Object catch (error, stack) {
+          _ctx.logError(error, stack);
+          tableEntry[ServerConstants.jsonKeyForeignKeys] =
+              <Map<String, dynamic>>[];
+        }
+      }
+
+      tables.add(tableEntry);
     }
     return tables;
   }
 
   /// Sends schema metadata for GET /api/schema/metadata.
   Future<void> sendSchemaMetadata(
+    HttpRequest request,
     HttpResponse response,
     DriftDebugQuery query,
   ) async {
     final res = response;
 
     try {
-      final tables = await getSchemaMetadataList(query);
+      final params = request.uri.queryParameters;
+      final rawInc =
+          params[ServerConstants.queryParamIncludeForeignKeys]?.toLowerCase();
+      final includeForeignKeys =
+          rawInc == '1' || rawInc == 'true' || rawInc == 'yes';
+      final tables = await getSchemaMetadataList(
+        query,
+        includeForeignKeys: includeForeignKeys,
+      );
       _ctx.setJsonHeaders(res);
       res.write(
         jsonEncode(<String, dynamic>{ServerConstants.jsonKeyTables: tables}),

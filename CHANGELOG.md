@@ -17,6 +17,16 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
+## [Unreleased]
+
+### Improved (Debug server & extension)
+
+• **Less SQLite contention from the extension** — Port discovery validates servers with **`GET /api/health` only** (requires `ok` and a non-empty **`version`**), avoiding a full **`/api/schema/metadata`** pass on every candidate port. **`GET /api/schema/metadata?includeForeignKeys=1`** (and VM **`getSchemaMetadata`** with `includeForeignKeys`) returns per-table **foreign keys in the same response**, so health scoring and schema insights no longer fire **N separate fk-meta requests**. **Index suggestions**, **anomaly scan**, and **size analytics** are prefetched **sequentially** instead of all at once, and schema insight cache TTL is **90s**, reducing overlapping full-database scans.
+
+• **Discovery + Bearer auth** — Port scans pass the same **`Authorization: Bearer …`** header as the API client (including after `driftViewer.authToken` changes), so health probes succeed when the debug server requires a token.
+
+---
+
 ## [2.8.2]
 
 Faster disconnect detection, quieter logs, and a banner that actually shows up.

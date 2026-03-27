@@ -33,8 +33,13 @@ export async function apiGetHealth(
 
 export async function apiGetSchemaMetadata(
   request: ExtensionRequest,
+  options?: { includeForeignKeys?: boolean },
 ): Promise<TableMetadata[]> {
-  const raw = await request(`${EXT_PREFIX}getSchemaMetadata`, {});
+  const params: Record<string, string> = {};
+  if (options?.includeForeignKeys === true) {
+    params.includeForeignKeys = 'true';
+  }
+  const raw = await request(`${EXT_PREFIX}getSchemaMetadata`, params);
   const obj = parseJson<{ tables?: TableMetadata[] }>(raw);
   if (!Array.isArray(obj.tables)) {
     throw new Error('Invalid getSchemaMetadata response');

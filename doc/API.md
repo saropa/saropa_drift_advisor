@@ -130,6 +130,8 @@ Health check. Always succeeds when the server is running.
 | `version` | string | Package version from `pubspec.yaml` |
 | `capabilities` | array of strings | Server feature flags. Contains `"issues"` when `GET /api/issues` is supported; clients can use this to prefer the merged issues endpoint over separate index-suggestions and anomalies calls. |
 
+**Note:** The VS Code extension’s **port discovery** treats a host as a Saropa Drift server only when **`ok` is true and `version` is a non-empty string**, so it does not need a follow-up schema request per port.
+
 ---
 
 ### `GET /api/generation`
@@ -425,6 +427,7 @@ Returns table metadata including column info and row counts. When change detecti
 | `tables[].name` | string | Table name |
 | `tables[].columns` | array | Column definitions (`name`, `type`, `pk`) |
 | `tables[].rowCount` | int | Current row count |
+| `tables[].foreignKeys` | array (optional) | Present when `includeForeignKeys` is set; list of `{ "fromColumn", "toTable", "toColumn" }` |
 
 ---
 

@@ -13,6 +13,8 @@ import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
 
 import 'analytics_handler.dart';
 import 'auth_handler.dart';
+import 'cell_update_handler.dart';
+import 'edits_batch_handler.dart';
 import 'compare_handler.dart';
 import 'generation_handler.dart';
 import 'import_handler.dart';
@@ -56,6 +58,8 @@ final class Router {
        _performance = PerformanceHandler(ctx),
        _session = SessionHandler(ctx, sessionStore),
        _import = ImportHandler(ctx),
+       _cellUpdate = CellUpdateHandler(ctx),
+       _editsBatch = EditsBatchHandler(ctx),
        _mutations = MutationHandler(ctx);
 
   final ServerContext _ctx;
@@ -74,6 +78,8 @@ final class Router {
   final PerformanceHandler _performance;
   final SessionHandler _session;
   final ImportHandler _import;
+  final CellUpdateHandler _cellUpdate;
+  final EditsBatchHandler _editsBatch;
   final MutationHandler _mutations;
 
   /// Main request handler: auth -> rate limit -> route by
@@ -163,7 +169,7 @@ final class Router {
       if (await _routeSnapshotApi(req, res, path, query)) return;
       if (await _routeCompareApi(req, res, path, query)) return;
       if (await _routeAnalyticsApi(req, res, path, query)) return;
-      if (await _routeImportApi(req, res, path, query)) return;
+      if (await _routeWriteApi(req, res, path, query)) return;
       if (await _routeSessionApi(req, res, path, query)) return;
       if (await _routePerformanceApi(req, res, path, query)) return;
 
@@ -421,7 +427,7 @@ final class Router {
         await _sendEmptySchemaResponse(response, includeDiagram: false);
         return true;
       }
-      await _schema.sendSchemaMetadata(response, query);
+      await _schema.sendSchemaMetadata(request, response, query);
 
       return true;
     }
@@ -585,16 +591,27 @@ final class Router {
     return false;
   }
 
-  // -------- Import route group --------
+  // -------- Import + cell write route group --------
 
-  /// Routes POST /api/import for CSV, JSON, and SQL
-  /// data import.
-  Future<bool> _routeImportApi(
+  /// Routes POST /api/import and POST /api/cell/update.
+  Future<bool> _routeWriteApi(
     HttpRequest request,
     HttpResponse response,
     String path,
     DriftDebugQuery query,
   ) async {
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiCellUpdate ||
+            path == ServerConstants.pathApiCellUpdateAlt)) {
+      await _cellUpdate.handleCellUpdate(request);
+      return true;
+    }
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiEditsApply ||
+            path == ServerConstants.pathApiEditsApplyAlt)) {
+      await _editsBatch.handleApplyBatch(request);
+      return true;
+    }
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiImport ||
             path == ServerConstants.pathApiImportAlt)) {
@@ -698,8 +715,15 @@ final class Router {
   // Used by VmServiceBridge to serve ext.saropa.drift.* RPCs without HTTP.
 
   /// Returns schema metadata for VM service RPC getSchemaMetadata.
-  Future<List<Map<String, dynamic>>> getSchemaMetadataList() =>
-      _schema.getSchemaMetadataList(_ctx.instrumentedQuery);
+  ///
+  /// [includeForeignKeys] mirrors GET `/api/schema/metadata?includeForeignKeys=1`.
+  Future<List<Map<String, dynamic>>> getSchemaMetadataList({
+    bool includeForeignKeys = false,
+  }) =>
+      _schema.getSchemaMetadataList(
+        _ctx.instrumentedQuery,
+        includeForeignKeys: includeForeignKeys,
+      );
 
   /// Returns FK metadata for a table for VM service RPC getTableFkMeta.
   Future<List<Map<String, dynamic>>> getTableFkMetaList(String tableName) =>

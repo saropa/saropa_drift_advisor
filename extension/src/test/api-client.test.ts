@@ -50,6 +50,19 @@ describe('DriftApiClient', () => {
       fetchStub.resolves(new Response('', { status: 404 }));
       await assert.rejects(() => client.schemaMetadata(), /Schema metadata failed/);
     });
+
+    it('should request includeForeignKeys when option set', async () => {
+      fetchStub.resolves(
+        new Response(JSON.stringify({ tables: [] }), { status: 200 }),
+      );
+      await client.schemaMetadata({ includeForeignKeys: true });
+      assert.ok(
+        fetchStub.calledOnceWith(
+          'http://127.0.0.1:8642/api/schema/metadata?includeForeignKeys=1',
+          sinon.match.any,
+        ),
+      );
+    });
   });
 
   describe('tableFkMeta()', () => {

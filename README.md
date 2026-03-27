@@ -90,7 +90,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Auth** — optional Bearer token or HTTP Basic for dev tunnels
 - **Session duration** — optional `sessionDuration` (e.g. 1 hour) for shared session URLs
 - **Rate limiting** — optional `maxRequestsPerSecond`; 429 with `Retry-After` when exceeded; long-poll and health endpoints exempt
-- **Health** — `GET /api/health` → `{"ok": true}`
+- **Health** — `GET /api/health` → `{"ok": true, "version": "…", …}`; extension port discovery requires **`ok`** and a non-empty **`version`**
 - **Web UI assets** — CSS and JS are served from the debug server at `/assets/web/style.css` and `/assets/web/app.js` (package files, correct MIME types). When the package root is unreachable (e.g. Flutter on Android/iOS emulators), the server serves compiled-in embedded copies. The HTML shell also falls back to jsDelivr as a last resort; a matching git tag is still needed for that CDN path to work
 
 #### API Reference
@@ -301,7 +301,7 @@ Use the **VS Code extension** (recommended) or open **http://127.0.0.1:8642** in
 | **`onLog`**, **`onError`**                    | Optional; for your logger or `debugPrint` / `print`.                         |
 
 - Only one server per process; calling `start` again when running is a no-op. Use **`DriftDebugServer.stop()`** to shut down and restart (e.g. tests or graceful shutdown).
-- **Health:** `GET /api/health` → `{"ok": true}`.
+- **Health:** `GET /api/health` → `{"ok": true, "version": "<package semver>", …}` (and optional `writeEnabled`, `capabilities`, etc.).
 - **Live refresh:** `GET /api/generation`; use `?since=N` to long-poll until generation changes (30s timeout).
 
 ---

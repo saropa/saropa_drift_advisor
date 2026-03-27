@@ -46,20 +46,29 @@ export class HealthScorer {
 
   /** Fetch all shared API data once, including FK metadata per table. */
   private async _prefetch(client: DriftApiClient): Promise<PrefetchedData> {
-    const [tables, suggestions, anomalies, performance, size] = await Promise.all([
-      client.schemaMetadata(),
-      client.indexSuggestions(),
-      client.anomalies(),
+    // Schema + performance can run together; index suggestions, anomaly scan,
+    // and size analytics each walk every table on SQLite — running them
+    // concurrently hogs the single-writer lock. Run those three sequentially.
+    const [tables, performance] = await Promise.all([
+      client.schemaMetadata({ includeForeignKeys: true }),
       client.performance(),
-      client.sizeAnalytics(),
     ]);
+
+    const suggestions = await client.indexSuggestions();
+    const anomalies = await client.anomalies();
+    const size = await client.sizeAnalytics();
 
     const userTables = tables.filter((t: TableMetadata) => !t.name.startsWith('sqlite_'));
 
     const fkMap = new Map<string, ForeignKey[]>();
-    await Promise.all(userTables.map(async (t: TableMetadata) => {
-      fkMap.set(t.name, await client.tableFkMeta(t.name));
-    }));
+    for (const t of userTables) {
+      const embedded = t.foreignKeys;
+      const fks =
+        embedded !== undefined
+          ? embedded
+          : await client.tableFkMeta(t.name);
+      fkMap.set(t.name, fks);
+    }
 
     return { tables, userTables, fkMap, suggestions, anomalies, performance, size };
   }

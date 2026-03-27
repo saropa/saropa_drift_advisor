@@ -4,6 +4,8 @@ export interface TableMetadata {
   name: string;
   columns: ColumnMetadata[];
   rowCount: number;
+  /** Present when requested via `includeForeignKeys` on schema metadata. */
+  foreignKeys?: ForeignKey[];
 }
 
 export interface ColumnMetadata {
@@ -22,6 +24,8 @@ export interface ForeignKey {
 export interface HealthResponse {
   ok: boolean;
   extensionConnected?: boolean;
+  /** Present when server supports browser writes (writeQuery configured). */
+  writeEnabled?: boolean;
 }
 
 export interface IndexSuggestion {
