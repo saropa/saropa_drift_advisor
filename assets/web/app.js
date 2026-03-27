@@ -1,11 +1,19 @@
     /**
      * Web viewer script for the Drift debug server UI (tables, SQL, tools).
-     * Type-checked with tsconfig.web.json (npm run typecheck:web).
+     * Type-checked tsconfig.web.json (`npm run typecheck:web`).
      * Do not edit compiled outputs when a TS source exists.
      *
      * Table list row counts: `formatTableRowCountDisplay` centralizes locale
-     * formatting (en-US grouping) for the sidebar, browse grid, and dropdowns;
-     * sync changes with `lib/src/server/web_assets_embedded.dart` after edits.
+     * formatting (en-US grouping) for the sidebar, browse grid, and dropdowns.
+     *
+     * Long-running actions (Analyze, Run SQL, Import, etc.) use `setButtonBusy` to
+     * swap the button label for a spinner + progress text (`btn-busy` in style.scss)
+     * until the request finishes; callers still rely on `disabled` and `.finally`
+     * to restore the idle label and avoid duplicate in-flight clicks.
+     *
+     * Table definition panel: `buildTableDefinitionHtml` shows PRAGMA-backed column
+     * names, types, and PK/NOT NULL flags (from cached `/api/schema/metadata`)
+     * above the grid on table tabs and wherever Search "both" mode shows row data.
      */
     var DRIFT_VIEWER_AUTH_TOKEN = "";
     /** True when server exposes POST /api/cell/update (writeQuery configured). */
@@ -4005,7 +4013,8 @@
           var dataBody = dataSection.querySelector('.collapsible-body');
           var headerEl = dataSection.querySelector('.collapsible-header');
           if (headerEl) headerEl.textContent = 'Table data: ' + currentTableName;
-          if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(currentTableName)));
+          /* Keep column-definition block in sync with renderTableView / table tabs. */
+          if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + '</p>' + buildTableDefinitionHtml(currentTableName) + wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(currentTableName)));
         }
       } else {
         container.innerHTML = '<p class="meta">Schema</p><pre id="content-pre">' + highlightSqlSafe(schema) + '</pre>';
@@ -4044,7 +4053,7 @@
           var cachedFks = fkMetaCache[currentTableName] || [];
           cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
           var colTypes = tableColumnTypes[currentTableName] || {};
-          dataHtml = '<p class="meta">' + metaText + '</p>' + wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(currentTableName)));
+          dataHtml = '<p class="meta">' + metaText + '</p>' + buildTableDefinitionHtml(currentTableName) + wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(currentTableName)));
         } else {
           lastRenderedData = null;
           dataHtml = '<p class="meta">Select a table above to load data.</p>';
