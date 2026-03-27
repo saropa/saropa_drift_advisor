@@ -93,6 +93,7 @@ describe('Extension activation', () => {
     // Saved filters: filterBridge (1)
     // Schema search: schemaSearchViewProvider, onDidChangeActive connection listener (2)
     // Pin store: pinTable, unpinTable, onDidChange, dispose (4)
+    // Source navigation: goToDriftTableDefinition, goToDriftColumnDefinition (2)
     // Health score: healthScore (1)
     // Impact analysis: analyzeRowImpact (1)
     // Query cost: analyzeQueryCost (1)
@@ -111,7 +112,7 @@ describe('Extension activation', () => {
     // Nav: pauseDiscovery, resumeDiscovery, openConnectionHelp (3)
     // Editing: pendingChangesPersistence debounce, pendingEditsStatusBar (2)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 197, `expected 197 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 199, `expected 199 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

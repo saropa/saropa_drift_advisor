@@ -2,7 +2,7 @@
   "name": "drift-viewer",
   "displayName": "Saropa Drift Advisor",
   "description": "Debug SQLite/Drift databases in VS Code with Saropa Drift Advisor.",
-  "version": "2.9.1",
+  "version": "2.9.2",
   "publisher": "saropa",
   "license": "MIT",
   "repository": {
@@ -42,7 +42,6 @@
     "theme": "dark"
   },
   "activationEvents": [
-    "*",
     "onStartupFinished",
     "onLanguage:dart",
     "workspaceContains:**/pubspec.yaml",
@@ -90,6 +89,8 @@
     "onCommand:driftViewer.generateRollback",
     "onCommand:driftViewer.generateSchemaDocs",
     "onCommand:driftViewer.generateSql",
+    "onCommand:driftViewer.goToDriftColumnDefinition",
+    "onCommand:driftViewer.goToDriftTableDefinition",
     "onCommand:driftViewer.globalSearch",
     "onCommand:driftViewer.healthScore",
     "onCommand:driftViewer.importAnnotations",
@@ -183,8 +184,7 @@
           "id": "driftViewer.schemaSearch",
           "name": "Schema Search",
           "icon": "$(search)",
-          "type": "webview",
-          "when": "driftViewer.enabled"
+          "type": "webview"
         },
         {
           "id": "driftViewer.pendingChanges",
@@ -229,9 +229,9 @@
         "when": "!driftViewer.serverConnected && driftViewer.packageInstalled"
       },
       {
-        "view": "driftViewer.schemaSearch",
-        "contents": "Schema Search is loading.\n\nIf this stays empty, run:\n\n[Refresh sidebar UI](command:driftViewer.refreshConnectionUi)\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Diagnose connection](command:driftViewer.diagnoseConnection)\n\n[Open troubleshooting](command:driftViewer.showTroubleshooting)\n[Open connection help (web)](command:driftViewer.openConnectionHelp)",
-        "when": "!driftViewer.serverConnected"
+        "view": "driftViewer.databaseExplorer",
+        "contents": "The sidebar reports a connection (HTTP and/or VM Service), but the **Database** tree could not load schema from the REST API. The embedded browser can still work if it bypasses the same path.\n\nCheck `driftViewer.authToken`, host/port, VPN/WSL, and that **Select Server** points at the live process.\n\n[Refresh tree](command:driftViewer.refreshTree)\n[Diagnose connection](command:driftViewer.diagnoseConnection)\n[Troubleshooting](command:driftViewer.showTroubleshooting)\n[Connection log](command:driftViewer.showConnectionLog)\n[Open in Browser](command:driftViewer.openInBrowser)\n[Select Server](command:driftViewer.selectServer)\n[Connection help (web)](command:driftViewer.openConnectionHelp)",
+        "when": "driftViewer.serverConnected && driftViewer.databaseTreeEmpty && driftViewer.enabled"
       }
     ],
     "commands": [
@@ -252,6 +252,14 @@
       {
         "command": "driftViewer.viewTableData",
         "title": "View Table Data"
+      },
+      {
+        "command": "driftViewer.goToDriftTableDefinition",
+        "title": "Go to Table Definition (Dart)"
+      },
+      {
+        "command": "driftViewer.goToDriftColumnDefinition",
+        "title": "Go to Column Definition (Dart)"
       },
       {
         "command": "driftViewer.copyTableName",
@@ -858,6 +866,16 @@
           "group": "1_view"
         },
         {
+          "command": "driftViewer.goToDriftTableDefinition",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
+          "group": "1_source"
+        },
+        {
+          "command": "driftViewer.goToDriftColumnDefinition",
+          "when": "viewItem == driftColumn || viewItem == driftColumnPk",
+          "group": "1_source"
+        },
+        {
           "command": "driftViewer.copyTableName",
           "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "2_copy"
@@ -1061,6 +1079,11 @@
           "type": "boolean",
           "default": true,
           "description": "When true, load the Database tree as soon as a server connects. When false, load on first time the Database view is shown."
+        },
+        "driftViewer.database.allowOfflineSchema": {
+          "type": "boolean",
+          "default": true,
+          "description": "When the debug server is unreachable, repopulate the Database tree (and Schema Search) from the last-known persisted schema for this workspace when available."
         },
         "driftViewer.schemaCache.ttlMs": {
           "type": "number",

@@ -19,7 +19,7 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ## [Unreleased]
 
-Clearer table row counts, inline table column definitions, and a more polished Size analytics panel in the browser debug viewer.
+Clearer table row counts, inline table column definitions, a more polished Size analytics panel, and a lighter Dart package (no embedded CSS/JS mirror for the web viewer). The VS Code extension improves Schema Search when disconnected, optional offline Database tree from persisted schema, and navigation from the sidebar to Dart definitions.
 
 ### Changed
 
@@ -34,6 +34,14 @@ Clearer table row counts, inline table column definitions, and a more polished S
 • **Size tab (debug web UI)** — Summary cards use comma-grouped numbers where appropriate; the Pages card shows total bytes with a dimmed `page_count × page_size` line; index names use smaller type; the Columns column is right-aligned. Table names in the breakdown link to open that table in a tab. Revisiting the Size tab in the same session reuses the last successful analyze (no automatic re-fetch); **Analyze** still refreshes on demand. Read-only metrics have hover tooltips (including journal mode / **wal** and PRAGMA-backed fields).
 
 • **Busy spinners on slow actions (debug web UI)** — Primary and toolbar buttons that wait on the server (e.g. Size/Index/Health analyze, Perf update, Run SQL / Explain, migration preview, NL convert, share, import, query builder run) show an inline spinner beside the progress label; existing error handling and disabled-state behavior are unchanged.
+
+### VS Code extension
+
+• **Schema Search panel (disconnected)** — Removed the native welcome overlay that could leave the webview area blank; added a static startup line, full troubleshooting actions aligned with the Database section (Open in Browser, Troubleshooting, Retry, Refresh sidebar UI, Forward Port, Select Server, etc.), resource links, and copy that distinguishes “no saved schema in this workspace” vs “saved schema available.” Connection state includes `persistedSchemaAvailable` from workspace cache.
+
+• **Offline Database tree** — New setting `driftViewer.database.allowOfflineSchema` (default on): when the server is unreachable, the tree can repopulate from last-known persisted schema; status shows “Offline — cached schema.” `refreshDriftConnectionUi` passes `schemaCache` and `treeProvider` so Schema Search can enable search against cache when the tree is offline-only.
+
+• **Go to Dart definitions from sidebar** — Context menu and Schema Search result clicks open the Drift table/column definition in the workspace when found (`drift-source-locator.ts` shared with F12 in SQL strings); otherwise Schema Search falls back to revealing the table in the Database tree.
 
 ---
 

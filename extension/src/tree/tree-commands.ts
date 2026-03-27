@@ -9,6 +9,26 @@ import { DriftViewerPanel } from '../panel';
 import { PinStore } from './pin-store';
 import { ColumnItem, TableItem } from './tree-items';
 import { exportTable } from '../export/format-export';
+import {
+  findDriftColumnGetterLocation,
+  findDriftTableClassLocation,
+  openLocationOrNotify,
+} from '../definition/drift-source-locator';
+
+/**
+ * Registers only the Database sidebar "Refresh" action as early as possible so the
+ * toolbar works even if a later activation step throws before full command registration.
+ */
+export function registerRefreshTreeCommand(
+  context: vscode.ExtensionContext,
+  treeProvider: DriftTreeProvider,
+): void {
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.refreshTree', () => {
+      void treeProvider.refresh();
+    }),
+  );
+}
 
 /** Register tree view commands including pin support. */
 export function registerTreeCommands(
@@ -37,9 +57,30 @@ export function registerTreeCommands(
     pinStore.onDidChange(() => treeProvider.refresh()),
     { dispose: () => pinStore.dispose() },
   );
+
   context.subscriptions.push(
-    vscode.commands.registerCommand('driftViewer.refreshTree', () =>
-      treeProvider.refresh(),
+    vscode.commands.registerCommand(
+      'driftViewer.goToDriftTableDefinition',
+      async (item: TableItem) => {
+        const loc = await findDriftTableClassLocation(item.table.name);
+        await openLocationOrNotify(loc, `table "${item.table.name}"`);
+      },
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.goToDriftColumnDefinition',
+      async (item: ColumnItem) => {
+        const loc = await findDriftColumnGetterLocation(
+          item.column.name,
+          item.tableName,
+        );
+        await openLocationOrNotify(
+          loc,
+          `column "${item.column.name}" on table "${item.tableName}"`,
+        );
+      },
     ),
   );
 

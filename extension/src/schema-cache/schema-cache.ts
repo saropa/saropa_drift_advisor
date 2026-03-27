@@ -84,6 +84,16 @@ export class SchemaCache {
     return this._fetch();
   }
 
+  /**
+   * True if workspace memento holds a non-empty snapshot under [persistKey].
+   * Used to show Schema Search / offline guidance when the server is down.
+   */
+  hasWorkspacePersistedSchema(): boolean {
+    if (!this._persistKey) return false;
+    const raw = this._workspaceState.get<TableMetadata[]>(this._persistKey);
+    return Array.isArray(raw) && raw.length > 0;
+  }
+
   /** Clears in-memory cache. Next getSchemaMetadata may still return persisted then revalidate. */
   invalidate(): void {
     this._memory = null;

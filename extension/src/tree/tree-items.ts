@@ -14,24 +14,34 @@ function columnIcon(col: ColumnMetadata): vscode.ThemeIcon {
 }
 
 export class ConnectionStatusItem extends vscode.TreeItem {
-  constructor(baseUrl: string, connected: boolean) {
-    super(
-      connected ? 'Connected' : 'Disconnected',
-      vscode.TreeItemCollapsibleState.None,
-    );
-    this.description = baseUrl;
-    this.iconPath = connected
-      ? new vscode.ThemeIcon('database', new vscode.ThemeColor('testing.iconPassed'))
-      : new vscode.ThemeIcon('error', new vscode.ThemeColor('testing.iconFailed'));
+  /**
+   * @param offlineSchema - When true, the tree shows last-known schema with no live server.
+   */
+  constructor(baseUrl: string, connected: boolean, offlineSchema = false) {
+    const label = offlineSchema
+      ? 'Offline — cached schema'
+      : connected
+        ? 'Connected'
+        : 'Disconnected';
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.description = offlineSchema ? `${baseUrl} · not live` : baseUrl;
+    this.iconPath = offlineSchema
+      ? new vscode.ThemeIcon('history')
+      : connected
+        ? new vscode.ThemeIcon('database', new vscode.ThemeColor('testing.iconPassed'))
+        : new vscode.ThemeIcon('error', new vscode.ThemeColor('testing.iconFailed'));
     this.contextValue = 'connectionStatus';
 
-    // When connected, clicking the status item opens the server in a browser.
-    if (connected) {
+    // When connected to a live server, clicking opens the HTTP UI in a browser.
+    if (connected && !offlineSchema) {
       this.command = {
         command: 'driftViewer.openInBrowser',
         title: 'Open in Browser',
       };
       this.tooltip = `${baseUrl} — click to open in browser`;
+    } else if (offlineSchema) {
+      this.tooltip =
+        `${baseUrl} — schema from workspace cache; connect to the app for live data.`;
     }
   }
 }

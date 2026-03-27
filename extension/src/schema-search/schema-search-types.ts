@@ -34,7 +34,7 @@ export interface ISchemaSearchResult {
 export type SchemaSearchMessage =
   | { command: 'search'; query: string; scope: SchemaSearchScope; typeFilter?: string }
   | { command: 'searchAll' }
-  | { command: 'navigate'; table: string }
+  | { command: 'navigate'; table: string; column?: string; openSource?: boolean }
   | { command: 'retry' }
   | { command: 'openConnectionLog' }
   | { command: 'retryDiscovery' }
@@ -43,6 +43,12 @@ export type SchemaSearchMessage =
   | { command: 'pauseDiscovery' }
   | { command: 'resumeDiscovery' }
   | { command: 'openConnectionHelp' }
+  | { command: 'openInBrowser' }
+  | { command: 'showTroubleshooting' }
+  | { command: 'forwardPortAndroid' }
+  | { command: 'selectServer' }
+  | { command: 'openGettingStarted' }
+  | { command: 'openReportIssue' }
   | { command: 'ready' };
 
 /** Messages sent from the extension host to the webview. */
@@ -53,6 +59,8 @@ export type SchemaSearchHostMessage =
   | {
       command: 'connectionState';
       connected: boolean;
+      schemaOperationsEnabled: boolean;
+      persistedSchemaAvailable: boolean;
       label: string;
       hint: string;
       /** Live discovery status; omitted when not yet wired. */

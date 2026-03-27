@@ -202,6 +202,7 @@ export function setupProviders(
   const schemaSearchProvider = new SchemaSearchViewProvider(
     client,
     (name) => schemaSearchRevealRef.fn(name),
+    { extensionContext: context },
   );
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(

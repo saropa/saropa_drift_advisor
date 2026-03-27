@@ -129,14 +129,16 @@ export class DriftViewerPanel {
       // Inject <base> so relative fetch('/api/...') calls resolve to server
       html = html.replace('<head>', `<head><base href="${baseUrl}/">`);
 
-      // Set CSP to allow connections to the debug server
+      // Allow the debug server plus jsDelivr / Google Fonts so the same HTML
+      // shell works when /assets/web/* returns 404 (package root unavailable)
+      // and onerror falls back to CDN; drift-enhanced.css is injected the same way.
       const csp = [
         `default-src 'none'`,
         `connect-src ${baseUrl}`,
-        `style-src 'unsafe-inline'`,
-        `script-src 'unsafe-inline'`,
+        `style-src 'unsafe-inline' ${baseUrl} https://cdn.jsdelivr.net https://fonts.googleapis.com`,
+        `script-src 'unsafe-inline' ${baseUrl} https://cdn.jsdelivr.net`,
         `img-src ${baseUrl} data:`,
-        `font-src ${baseUrl} data:`,
+        `font-src ${baseUrl} data: https://fonts.gstatic.com`,
       ].join('; ');
       html = html.replace(
         '<head>',

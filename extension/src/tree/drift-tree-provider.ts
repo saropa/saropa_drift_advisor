@@ -33,7 +33,11 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private _tableItems: TableItem[] = [];
   private _pinStore?: PinStore;
   private _connected = false;
+  /** True when [refresh] could not reach the server but loaded schema from persist/cache. */
+  private _offlineSchema = false;
   private _refreshing = false;
+  /** Fires after [refresh] fully completes (for syncing Schema Search / connection UI). */
+  postRefreshHook?: () => void;
 
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<
     TreeNode | undefined | void
@@ -43,6 +47,21 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   constructor(client: DriftApiClient, annotationStore?: AnnotationStore) {
     this._client = client;
     this._annotationStore = annotationStore;
+    // Drives viewsWelcome "when": `serverConnected && databaseTreeEmpty` so a stale
+    // `driftViewer.serverConnected` (VM/HTTP) cannot hide all guidance while the tree stays empty.
+    this._syncDatabaseTreeEmptyContext();
+  }
+
+  /**
+   * Drives the "connected but tree empty" welcome. When showing offline cached schema,
+   * we are not "live connected" but the tree is not empty — avoid that overlay.
+   */
+  private _syncDatabaseTreeEmptyContext(): void {
+    void vscode.commands.executeCommand(
+      'setContext',
+      'driftViewer.databaseTreeEmpty',
+      !this._connected && !this._offlineSchema,
+    );
   }
 
   setPinStore(store: PinStore): void {
@@ -53,6 +72,7 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   async refresh(): Promise<void> {
     if (this._refreshing) return;
     this._refreshing = true;
+    this._offlineSchema = false;
     try {
       await this._client.health();
       this._tables = await this._client.schemaMetadata();
@@ -61,13 +81,35 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       );
       this._connected = true;
     } catch {
+      this._connected = false;
       this._tables = [];
       this._tableItems = [];
-      this._connected = false;
+      const allowOffline =
+        vscode.workspace.getConfiguration('driftViewer').get<boolean>(
+          'database.allowOfflineSchema',
+          true,
+        ) !== false;
+      if (allowOffline) {
+        try {
+          // Cached client may return workspace-persisted last-known schema without a live server.
+          this._tables = await this._client.schemaMetadata();
+          if (this._tables.length > 0) {
+            this._offlineSchema = true;
+            this._tableItems = this._tables.map(
+              (t) => new TableItem(t, this._pinStore?.isPinned(t.name)),
+            );
+          }
+        } catch {
+          this._tables = [];
+          this._tableItems = [];
+        }
+      }
     } finally {
       this._refreshing = false;
     }
+    this._syncDatabaseTreeEmptyContext();
     this._onDidChangeTreeData.fire();
+    this.postRefreshHook?.();
   }
 
   getTreeItem(element: TreeNode): vscode.TreeItem {
@@ -84,14 +126,15 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   }
 
   private async _getChildrenInner(element?: TreeNode): Promise<TreeNode[]> {
-    // Root level: return empty when disconnected to show viewsWelcome content
+    // Root level: empty only when we have nothing to show (disconnected and no cached schema).
     if (!element) {
-      if (!this._connected) {
+      if (!this._connected && !this._offlineSchema) {
         return [];
       }
       const status = new ConnectionStatusItem(
         this._client.connectionDisplayName,
         this._connected,
+        this._offlineSchema,
       );
       this._decorateTableItems();
 
@@ -174,5 +217,10 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
   get connected(): boolean {
     return this._connected;
+  }
+
+  /** True when the tree lists tables from cache only (no live health check). */
+  get offlineSchema(): boolean {
+    return this._offlineSchema;
   }
 }

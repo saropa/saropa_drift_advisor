@@ -47,5 +47,7 @@ describe('SchemaSearchViewProvider deprecated setConnected', () => {
     const stateMessages = view.webview.postedMessages.filter((m: any) => m.command === 'connectionState');
     assert.strictEqual(stateMessages.length, 1);
     assert.strictEqual((stateMessages[0] as any).connected, false);
+    assert.strictEqual((stateMessages[0] as any).schemaOperationsEnabled, false);
+    assert.strictEqual((stateMessages[0] as any).persistedSchemaAvailable, false);
   });
 });

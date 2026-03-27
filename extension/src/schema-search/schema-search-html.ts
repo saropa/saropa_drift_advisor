@@ -13,6 +13,16 @@ ${SCHEMA_SEARCH_STYLE}
 </style>
 </head>
 <body>
+<!-- Visible before any script runs so the panel is never a blank void at startup. -->
+<div id="schemaHardFallback" class="schema-hard-fallback" aria-live="polite">
+  <div class="schema-hard-fallback-title">Schema Search</div>
+  <p class="schema-hard-fallback-lead">Waiting for the extension. If this never updates, run <strong>Developer: Reload Window</strong> or open the <strong>Database</strong> section above for connection help.</p>
+</div>
+<!-- Immediate handshake so the host posts connection state even if the main script fails to parse. -->
+<script nonce="${nonce}">
+(function(){try{var v=acquireVsCodeApi();v.postMessage({command:'ready'});}catch(_){}})();
+</script>
+<noscript>Schema Search needs JavaScript enabled in the webview.</noscript>
 <div id="connStatus" class="conn-status" style="display: none;" aria-live="polite"></div>
 <div id="discLive" class="disc-live" style="display: none;" aria-live="polite">
   <div class="disc-live-title">Server discovery</div>
@@ -30,11 +40,21 @@ ${SCHEMA_SEARCH_STYLE}
   <div id="discTitle" class="disc-title">Not connected</div>
   <div id="discHint" class="disc-hint"></div>
   <div class="disc-actions">
+    <button type="button" class="linkish" id="btnOpenBrowser" title="Open Drift UI in browser">Open in Browser</button>
+    <button type="button" class="linkish" id="btnTroubleshoot" title="Open troubleshooting">Troubleshooting</button>
     <button type="button" class="linkish" id="btnOpenLog" title="Open Saropa Drift Advisor output">Output log</button>
-    <button type="button" class="linkish" id="btnRetry" title="Re-scan for Drift debug servers">Retry discovery</button>
-    <button type="button" class="linkish" id="btnDiagnose" title="Run health check and log details">Diagnose</button>
-    <button type="button" class="linkish" id="btnRefreshUi" title="Re-sync sidebar connection state">Refresh UI</button>
+    <button type="button" class="linkish" id="btnDiagnose" title="Run health check and log details">Diagnose connection</button>
+    <button type="button" class="linkish" id="btnRetry" title="Re-scan for Drift debug servers">Retry Connection</button>
+    <button type="button" class="linkish" id="btnRefreshUi" title="Re-sync sidebar connection state">Refresh sidebar UI</button>
+    <button type="button" class="linkish" id="btnForwardPort" title="Forward debug port on Android emulator">Forward Port (Android)</button>
+    <button type="button" class="linkish" id="btnSelectServer" title="Pick Drift HTTP server">Select Server</button>
     <button type="button" class="linkish" id="btnConnHelp" title="Open connection troubleshooting in your browser">Connection help (web)</button>
+  </div>
+  <div class="disc-resources" id="discResources">
+    <span class="disc-resources-label">Resources</span>
+    <button type="button" class="linkish" id="btnGettingStarted">Getting started</button>
+    <span class="disc-resources-sep">·</span>
+    <button type="button" class="linkish" id="btnReportIssue">Report issue</button>
   </div>
 </div>
 <div class="search-box">

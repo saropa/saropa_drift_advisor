@@ -26,11 +26,18 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from './api-client';
 import type { ServerManager } from './server-manager';
 import type { ToolsTreeProvider } from './tree/tools-tree-provider';
+import type { DriftTreeProvider } from './tree/drift-tree-provider';
 import type { SchemaSearchViewProvider } from './schema-search/schema-search-view';
+import type { SchemaCache } from './schema-cache/schema-cache';
 
 /** User-visible summary of how the extension reaches Drift. */
 export interface DriftConnectionPresentation {
   connected: boolean;
+  /**
+   * When true, Schema Search may query persisted/cached schema without a live session.
+   * Mirrors [connected] unless the Database tree is showing offline cached schema.
+   */
+  schemaOperationsEnabled: boolean;
   /** Short status line for the Schema Search panel. */
   label: string;
   /** Longer troubleshooting hint when disconnected or in mixed VM/HTTP mode. */
@@ -39,6 +46,10 @@ export interface DriftConnectionPresentation {
   viaVm: boolean;
   host?: string;
   port?: number;
+  /**
+   * Workspace has a non-empty persisted schema list (may not be loaded into the tree yet).
+   */
+  persistedSchemaAvailable: boolean;
 }
 
 /** True when the API client can reach Drift via HTTP selection or VM Service. */
@@ -64,6 +75,8 @@ export function buildConnectionPresentation(
   if (!connected) {
     return {
       connected: false,
+      schemaOperationsEnabled: false,
+      persistedSchemaAvailable: false,
       label: 'Not connected',
       hint:
         'Run the app with DriftDebugServer.start(), start a Dart/Flutter debug session, '
@@ -92,6 +105,8 @@ export function buildConnectionPresentation(
 
   return {
     connected: true,
+    schemaOperationsEnabled: true,
+    persistedSchemaAvailable: false,
     label,
     hint,
     viaHttp,
@@ -104,6 +119,10 @@ export function buildConnectionPresentation(
 export interface IConnectionUiTargets {
   toolsProvider: ToolsTreeProvider;
   schemaSearchProvider: SchemaSearchViewProvider;
+  /** Used to enable Schema Search against persisted metadata when the tree is offline-only. */
+  treeProvider?: DriftTreeProvider;
+  /** Detects workspace-persisted schema for empty-state copy in Schema Search. */
+  schemaCache?: SchemaCache;
 }
 
 /** Optional logging and behaviour for [refreshDriftConnectionUi]. */
@@ -120,7 +139,7 @@ export function resetConnectionUiPresentationCacheForTests(): void {
 }
 
 function presentationSignature(pres: DriftConnectionPresentation): string {
-  return `${pres.connected}|${pres.viaHttp}|${pres.viaVm}|${pres.port ?? ''}|${pres.label}`;
+  return `${pres.connected}|${pres.schemaOperationsEnabled}|${pres.viaHttp}|${pres.viaVm}|${pres.port ?? ''}|${pres.label}`;
 }
 
 /**
@@ -134,7 +153,19 @@ export function refreshDriftConnectionUi(
   options?: IRefreshConnectionUiOptions,
 ): void {
   const append = options?.appendLine;
-  const pres = buildConnectionPresentation(serverManager, client);
+  const base = buildConnectionPresentation(serverManager, client);
+  const offlineTree = targets.treeProvider?.offlineSchema === true;
+  const persistedSchemaAvailable =
+    targets.schemaCache?.hasWorkspacePersistedSchema() === true;
+  const pres: DriftConnectionPresentation = {
+    ...base,
+    persistedSchemaAvailable,
+    schemaOperationsEnabled: base.connected || offlineTree,
+    hint:
+      offlineTree && !base.connected
+        ? `${base.hint} Schema Search can use last-known schema from this workspace.`
+        : base.hint,
+  };
   const sig = presentationSignature(pres);
   const now = new Date().toISOString();
 

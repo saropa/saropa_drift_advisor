@@ -39,7 +39,6 @@ import { registerReportCommands } from './report/report-commands';
 import { registerWorkspaceSetupCommands } from './workspace-setup/workspace-setup-commands';
 import { registerTroubleshootingCommands } from './troubleshooting/troubleshooting-commands';
 import { registerRollbackCommands } from './rollback/rollback-commands';
-import { registerAboutCommands } from './about/about-commands';
 import { registerPollingCommands } from './polling/polling-commands';
 import { registerSaropaLintsCommands } from './saropa-lints-commands';
 import { registerMutationStreamCommands } from './mutation-stream/mutation-stream-commands';
@@ -112,9 +111,8 @@ export function registerAllCommands(
     schemaSearchRevealRef,
   } = deps;
 
-  // About commands (no deps) are registered first so the Database view (i) icon
-  // works even if a later feature module fails to register.
-  registerAboutCommands(context);
+  // About commands are registered at the start of activate() (extension-main)
+  // so the Database view (i) icon works even if registration here fails.
 
   context.subscriptions.push(
     vscode.commands.registerCommand(

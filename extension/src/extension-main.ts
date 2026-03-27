@@ -18,6 +18,8 @@ import { setupProviders, type LogCaptureIssuesRef } from './extension-providers'
 import { setupDiagnostics } from './extension-diagnostics';
 import { setupEditing } from './extension-editing';
 import { registerAllCommands } from './extension-commands';
+import { registerAboutCommands } from './about/about-commands';
+import { registerRefreshTreeCommand } from './tree/tree-commands';
 import {
   isDriftUiConnected,
   refreshDriftConnectionUi as syncDriftConnectionUi,
@@ -43,6 +45,10 @@ export function activate(context: vscode.ExtensionContext): void {
     cfg,
   } = bootstrapExtension(context);
 
+  // Register zero-dependency commands immediately so sidebar title actions work even if
+  // a later synchronous setup step throws before registerAllCommands completes.
+  registerAboutCommands(context);
+
   const schemaCache = new SchemaCache(client, context.workspaceState, {
     ttlMs: cfg.get<number>('schemaCache.ttlMs', 30_000) ?? 30_000,
     persistKey: cfg.get<string>('schemaCache.persistKey', 'driftViewer.lastKnownSchema') || undefined,
@@ -61,11 +67,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const annotationStore = new AnnotationStore(context.workspaceState);
   const issuesRef: LogCaptureIssuesRef = { get: () => [] };
   const providers = setupProviders(context, cachedClient, annotationStore, issuesRef);
+  registerRefreshTreeCommand(context, providers.treeProvider);
 
   context.subscriptions.push(
-    schemaCache.onDidUpdate(() => {
-      providers.treeProvider.refresh();
-    }),
     packageMonitor.onDidChangeInstalled((installed) => {
       providers.toolsProvider.setPackageInstalled(installed);
     }),
@@ -110,6 +114,8 @@ export function activate(context: vscode.ExtensionContext): void {
     syncDriftConnectionUi(serverManager, cachedClient, {
       toolsProvider: providers.toolsProvider,
       schemaSearchProvider: providers.schemaSearchProvider,
+      treeProvider: providers.treeProvider,
+      schemaCache,
     }, {
       appendLine: (msg: string) => {
         if (shouldLogConnectionLine(msg, getLogVerbosity())) {
@@ -117,6 +123,12 @@ export function activate(context: vscode.ExtensionContext): void {
         }
       },
     });
+  providers.treeProvider.postRefreshHook = () => connectionUiRefresh.fn?.();
+  context.subscriptions.push(
+    schemaCache.onDidUpdate(() => {
+      void providers.treeProvider.refresh();
+    }),
+  );
 
   registerAllCommands(context, cachedClient, {
     ...providers,

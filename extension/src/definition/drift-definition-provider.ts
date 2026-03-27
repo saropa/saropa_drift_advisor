@@ -1,12 +1,15 @@
 import * as vscode from 'vscode';
 import { DriftApiClient, TableMetadata } from '../api-client';
-import { escapeRegex, snakeToCamel, snakeToPascal } from '../dart-names';
 import {
   classifyIdentifier,
   extractEnclosingString,
   getWordAt,
   isInsideSqlString,
 } from './sql-string-detector';
+import {
+  findDriftColumnGetterLocation,
+  findDriftTableClassLocation,
+} from './drift-source-locator';
 
 /**
  * VS Code DefinitionProvider that resolves SQL table/column names
@@ -60,11 +63,11 @@ export class DriftDefinitionProvider implements vscode.DefinitionProvider {
     if (!classification) return null;
 
     if (classification.type === 'table') {
-      return this._findTableDefinition(wordInfo.word);
+      return findDriftTableClassLocation(wordInfo.word);
     }
 
     if (classification.type === 'column' && classification.tableName) {
-      return this._findColumnDefinition(
+      return findDriftColumnGetterLocation(
         wordInfo.word,
         classification.tableName,
       );
@@ -88,68 +91,5 @@ export class DriftDefinitionProvider implements vscode.DefinitionProvider {
     } catch {
       return this._schemaCache; // return stale cache on error
     }
-  }
-
-  private async _findTableDefinition(
-    sqlTableName: string,
-  ): Promise<vscode.Location | null> {
-    const className = escapeRegex(snakeToPascal(sqlTableName));
-    const pattern = new RegExp(
-      `class\\s+${className}\\s+extends\\s+\\w*Table\\b`,
-    );
-
-    const dartFiles = await vscode.workspace.findFiles(
-      '**/*.dart',
-      '**/build/**',
-    );
-
-    for (const fileUri of dartFiles) {
-      const doc = await vscode.workspace.openTextDocument(fileUri);
-      const text = doc.getText();
-      const match = pattern.exec(text);
-      if (match) {
-        const pos = doc.positionAt(match.index);
-        return new vscode.Location(fileUri, pos);
-      }
-    }
-    return null;
-  }
-
-  private async _findColumnDefinition(
-    columnName: string,
-    sqlTableName: string,
-  ): Promise<vscode.Location | null> {
-    const className = escapeRegex(snakeToPascal(sqlTableName));
-    const classPattern = new RegExp(
-      `class\\s+${className}\\s+extends\\s+\\w*Table\\b`,
-    );
-
-    const dartFiles = await vscode.workspace.findFiles(
-      '**/*.dart',
-      '**/build/**',
-    );
-
-    for (const fileUri of dartFiles) {
-      const doc = await vscode.workspace.openTextDocument(fileUri);
-      const text = doc.getText();
-
-      if (!classPattern.test(text)) continue;
-
-      // Search for column getter — try both original and camelCase names
-      const camelName = snakeToCamel(columnName);
-      const escapedOriginal = escapeRegex(columnName);
-      const escapedCamel = escapeRegex(camelName);
-      const names =
-        camelName !== columnName
-          ? `${escapedOriginal}|${escapedCamel}`
-          : escapedOriginal;
-      const colPattern = new RegExp(`get\\s+(${names})\\s*=>`);
-      const colMatch = colPattern.exec(text);
-      if (colMatch) {
-        const pos = doc.positionAt(colMatch.index);
-        return new vscode.Location(fileUri, pos);
-      }
-    }
-    return null;
   }
 }

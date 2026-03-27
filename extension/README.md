@@ -23,7 +23,7 @@ A **database icon** in the activity bar opens a tree view:
 
 Works in Dart files with Drift table definitions:
 
-- **Go to Definition** (F12) — jump from SQL table/column names to their definitions
+- **Go to Definition** (F12) — jump from SQL table/column names to their definitions; the same lookup is available from the Database tree and Schema Search (context menu **Go to … Definition (Dart)** / result clicks open the table or column getter when found)
 - **CodeLens** — row counts and quick actions on Drift table classes
 - **Hover Preview** — see recent rows when hovering over table class names
 - **Schema Linter** — diagnostics with quick-fix code actions for missing indexes and anomalies
@@ -83,6 +83,7 @@ Works in Dart files with Drift table definitions:
 | `driftViewer.timeline.autoCapture` | `true` | Auto-capture snapshots on data change |
 | `driftViewer.watch.notifications` | `false` | Desktop notifications for watch changes |
 | `driftViewer.database.loadOnConnect` | `true` | When false, Database tree loads on first view focus instead of on connect |
+| `driftViewer.database.allowOfflineSchema` | `true` | When the server is unreachable, try to fill the Database tree from last-known persisted schema for this workspace |
 | `driftViewer.schemaCache.ttlMs` | `30000` | Schema cache TTL (ms); 0 disables in-memory cache |
 | `driftViewer.schemaSearch.timeoutMs` | `15000` | Max schema search time before timeout (ms) |
 | `driftViewer.schemaSearch.autoRetryOnError` | `true` | Retry schema search/browse once after a short delay on transient network/timeout errors |

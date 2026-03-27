@@ -54,6 +54,8 @@ function stubReveal(): { fn: (name: string) => Promise<void>; calls: string[] } 
 function connectedPresentation(): DriftConnectionPresentation {
   return {
     connected: true,
+    schemaOperationsEnabled: true,
+    persistedSchemaAvailable: false,
     label: 'Connected via HTTP 127.0.0.1:8642',
     hint: 'HTTP discovery on port 8642',
     viaHttp: true,
@@ -65,6 +67,8 @@ function connectedPresentation(): DriftConnectionPresentation {
 function disconnectedPresentation(): DriftConnectionPresentation {
   return {
     connected: false,
+    schemaOperationsEnabled: false,
+    persistedSchemaAvailable: false,
     label: 'Not connected',
     hint: 'Waiting for server…',
     viaHttp: false,
@@ -134,6 +138,8 @@ describe('SchemaSearchViewProvider', () => {
       );
       assert.strictEqual(stateMessages.length, 1, 'connectionState delivered on ready');
       assert.strictEqual((stateMessages[0] as any).connected, true);
+      assert.strictEqual((stateMessages[0] as any).schemaOperationsEnabled, true);
+      assert.strictEqual((stateMessages[0] as any).persistedSchemaAvailable, false);
       assert.strictEqual((stateMessages[0] as any).label, 'Connected via HTTP 127.0.0.1:8642');
     });
 

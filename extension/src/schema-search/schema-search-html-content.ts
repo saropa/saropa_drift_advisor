@@ -5,7 +5,19 @@
 export const SCHEMA_SEARCH_STYLE = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size);
-    color: var(--vscode-foreground); padding: 8px; }
+    color: var(--vscode-foreground); padding: 8px; min-height: 160px; }
+  .schema-hard-fallback {
+    display: block;
+    padding: 8px 6px 10px 6px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    border-radius: 3px;
+    border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.35));
+    background: var(--vscode-editor-inactiveSelectionBackground, rgba(128,128,128,0.12));
+  }
+  .schema-hard-fallback-title { font-weight: 600; margin-bottom: 6px; }
+  .schema-hard-fallback-lead { opacity: 0.92; font-size: 11px; }
   .search-box { display: flex; gap: 4px; margin-bottom: 6px; }
   .search-box input { flex: 1; padding: 4px 6px;
     background: var(--vscode-input-background); color: var(--vscode-input-foreground);
@@ -59,10 +71,21 @@ export const SCHEMA_SEARCH_STYLE = `
     color: var(--vscode-inputValidation-warningForeground, #cca700);
     transition: max-height 0.25s ease, opacity 0.25s ease,
                 padding 0.25s ease, margin-bottom 0.25s ease; }
-  .disconnected.show { max-height: 220px; opacity: 1; padding: 8px; margin-bottom: 6px; }
+  .disconnected.show { max-height: 620px; opacity: 1; padding: 8px; margin-bottom: 6px;
+    overflow-y: auto; }
   .disc-title { font-weight: 600; }
-  .disc-hint { font-size: 10px; opacity: 0.95; margin-top: 4px; line-height: 1.35; }
-  .disc-actions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .disc-hint { font-size: 10px; opacity: 0.95; margin-top: 4px; line-height: 1.35;
+    white-space: pre-wrap; }
+  .disc-actions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+  .disc-resources {
+    margin-top: 10px; padding-top: 8px;
+    border-top: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.25));
+    font-size: 10px;
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    opacity: 0.9;
+  }
+  .disc-resources-label { font-weight: 600; margin-right: 4px; }
+  .disc-resources-sep { opacity: 0.6; user-select: none; }
   .linkish { background: transparent; border: none; color: var(--vscode-textLink-foreground);
     cursor: pointer; font-size: 10px; padding: 2px 0; text-decoration: underline; }
   .linkish:hover { opacity: 0.9; }
@@ -88,6 +111,7 @@ export const SCHEMA_SEARCH_STYLE = `
 export const SCHEMA_SEARCH_SCRIPT = `
 (function() {
   const vscode = acquireVsCodeApi();
+  try {
   const queryEl = document.getElementById('query');
   const filtersEl = document.getElementById('filters');
   const browseWrap = document.getElementById('browseWrap');
@@ -106,10 +130,13 @@ export const SCHEMA_SEARCH_SCRIPT = `
   const btnPauseDisc = document.getElementById('btnPauseDisc');
   const btnResumeDisc = document.getElementById('btnResumeDisc');
   const btnScanNow = document.getElementById('btnScanNow');
+  const schemaHardFallbackEl = document.getElementById('schemaHardFallback');
   let scope = 'all';
   let typeFilter = '';
   let debounceTimer;
   let connected = false;
+  /** True when search/browse is allowed (live session or offline cached schema). */
+  let schemaOps = false;
   document.querySelectorAll('.scope-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.scope-btn').forEach(b => b.classList.remove('active'));
@@ -134,11 +161,17 @@ export const SCHEMA_SEARCH_SCRIPT = `
     e.preventDefault();
     vscode.postMessage({ command: 'searchAll' });
   });
+  document.getElementById('btnOpenBrowser').addEventListener('click', () => vscode.postMessage({ command: 'openInBrowser' }));
+  document.getElementById('btnTroubleshoot').addEventListener('click', () => vscode.postMessage({ command: 'showTroubleshooting' }));
   document.getElementById('btnOpenLog').addEventListener('click', () => vscode.postMessage({ command: 'openConnectionLog' }));
   document.getElementById('btnRetry').addEventListener('click', () => vscode.postMessage({ command: 'retryDiscovery' }));
   document.getElementById('btnDiagnose').addEventListener('click', () => vscode.postMessage({ command: 'diagnoseConnection' }));
   document.getElementById('btnRefreshUi').addEventListener('click', () => vscode.postMessage({ command: 'refreshConnectionUi' }));
+  document.getElementById('btnForwardPort').addEventListener('click', () => vscode.postMessage({ command: 'forwardPortAndroid' }));
+  document.getElementById('btnSelectServer').addEventListener('click', () => vscode.postMessage({ command: 'selectServer' }));
   document.getElementById('btnConnHelp').addEventListener('click', () => vscode.postMessage({ command: 'openConnectionHelp' }));
+  document.getElementById('btnGettingStarted').addEventListener('click', () => vscode.postMessage({ command: 'openGettingStarted' }));
+  document.getElementById('btnReportIssue').addEventListener('click', () => vscode.postMessage({ command: 'openReportIssue' }));
   btnPauseDisc.addEventListener('click', () => vscode.postMessage({ command: 'pauseDiscovery' }));
   btnResumeDisc.addEventListener('click', () => vscode.postMessage({ command: 'resumeDiscovery' }));
   btnScanNow.addEventListener('click', () => vscode.postMessage({ command: 'retryDiscovery' }));
@@ -163,30 +196,45 @@ export const SCHEMA_SEARCH_SCRIPT = `
       statusEl.textContent = '';
       errorEl.style.display = 'none';
       errorEl.textContent = '';
-      resultsEl.innerHTML = connected ? '<li class="idle">Type to search tables and columns.</li>' : '<li class="idle">Waiting for server connection…</li>';
+      resultsEl.innerHTML = schemaOps ? '<li class="idle">Type to search tables and columns.</li>' : '<li class="idle">Waiting for connection or cached schema…</li>';
       return;
     }
     vscode.postMessage({ command: 'search', query: q, scope, typeFilter: typeFilter || undefined });
   }
   function applyConnectionState(msg) {
+    if (schemaHardFallbackEl) schemaHardFallbackEl.style.display = 'none';
     connected = msg.connected;
+    schemaOps = !!msg.schemaOperationsEnabled;
+    var persisted = msg.persistedSchemaAvailable === true;
     disconnectedEl.classList.toggle('show', !connected);
     if (!connected) {
-      discTitleEl.textContent = msg.label || 'Not connected';
-      discHintEl.textContent = msg.hint || '';
-      connStatusEl.style.display = 'none';
-      connStatusEl.textContent = '';
+      if (schemaOps) {
+        discTitleEl.textContent = msg.label || 'Not connected';
+        discHintEl.textContent = msg.hint || '';
+        connStatusEl.style.display = 'block';
+        connStatusEl.textContent = 'Offline — Schema Search uses last-known schema.';
+      } else {
+        discTitleEl.textContent = persisted
+          ? 'Not connected — saved schema in this workspace'
+          : 'No Drift debug server connected';
+        var p1 = persisted
+          ? 'This workspace has a schema snapshot from an earlier session. Use Refresh sidebar UI or the Database tree Refresh button to load it and search offline (when enabled in settings).'
+          : 'Run your app with the Drift debug server. There is no saved schema in this workspace yet — connect once so Schema Search and the offline cache can work.';
+        discHintEl.textContent = p1 + (msg.hint ? '\\n\\n' + msg.hint : '');
+        connStatusEl.style.display = 'none';
+        connStatusEl.textContent = '';
+      }
     } else {
       connStatusEl.style.display = 'block';
       connStatusEl.textContent = msg.label ? ('Connected: ' + msg.label) : 'Connected';
       discTitleEl.textContent = '';
       discHintEl.textContent = '';
     }
-    queryEl.disabled = !connected;
-    filtersEl.classList.toggle('disabled', !connected);
-    browseWrap.classList.toggle('disabled', !connected);
+    queryEl.disabled = !schemaOps;
+    filtersEl.classList.toggle('disabled', !schemaOps);
+    browseWrap.classList.toggle('disabled', !schemaOps);
     if (Object.prototype.hasOwnProperty.call(msg, 'discovery')) applyDiscoveryBlock(msg.discovery);
-    discFaqEl.textContent = connected ? '' : FAQ_TROUBLE;
+    discFaqEl.textContent = schemaOps ? '' : FAQ_TROUBLE;
     if (!queryEl.value.trim()) doSearch();
   }
   window.addEventListener('message', e => {
@@ -229,7 +277,7 @@ export const SCHEMA_SEARCH_SCRIPT = `
         const li = document.createElement('li');
         li.className = 'result-item result-table';
         li.innerHTML = esc(m.table) + ' <span class="result-meta">' + m.columnCount + ' cols, ' + m.rowCount + ' rows</span>';
-        li.addEventListener('click', () => vscode.postMessage({ command: 'navigate', table: m.table }));
+        li.addEventListener('click', () => vscode.postMessage({ command: 'navigate', table: m.table, openSource: true }));
         resultsEl.appendChild(li);
       } else {
         if (m.table !== lastTable) {
@@ -237,13 +285,14 @@ export const SCHEMA_SEARCH_SCRIPT = `
           const hdr = document.createElement('li');
           hdr.className = 'result-item result-table';
           hdr.textContent = m.table;
-          hdr.addEventListener('click', () => vscode.postMessage({ command: 'navigate', table: m.table }));
+          hdr.addEventListener('click', () => vscode.postMessage({ command: 'navigate', table: m.table, openSource: true }));
           resultsEl.appendChild(hdr);
         }
         const li = document.createElement('li');
         li.className = 'result-item result-col';
         li.innerHTML = (m.isPk ? '&#x1f511; ' : '') + esc(m.column) + '<span class="result-type">' + esc(m.columnType) + '</span>';
-        li.addEventListener('click', () => vscode.postMessage({ command: 'navigate', table: m.table }));
+        const colName = m.column || '';
+        li.addEventListener('click', () => vscode.postMessage({ command: 'navigate', table: m.table, column: colName, openSource: true }));
         resultsEl.appendChild(li);
         if (m.alsoIn && m.alsoIn.length > 0) {
           const ref = refMap[m.column];
@@ -266,6 +315,18 @@ export const SCHEMA_SEARCH_SCRIPT = `
     return d.innerHTML;
   }
   doSearch();
-  vscode.postMessage({ command: 'ready' });
+  } catch (e) {
+    try {
+      const st = document.getElementById('status');
+      if (st) st.textContent = 'Schema Search UI failed to initialize. Check Output / Diagnose.';
+      const er = document.getElementById('error');
+      if (er) {
+        er.style.display = 'block';
+        er.textContent = (e && e.message) ? e.message : String(e);
+      }
+    } catch (_) { /* ignore secondary failures */ }
+  } finally {
+    try { vscode.postMessage({ command: 'ready' }); } catch (_) { /* host still enables delivery */ }
+  }
 })();
 `;
