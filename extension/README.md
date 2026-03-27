@@ -37,6 +37,7 @@ Works in Dart files with Drift table definitions:
 
 ### Schema & Migration
 
+- **Scan Dart schema definitions** — Command Palette: lists tables, columns, indexes, and `uniqueKeys` from Dart sources only; **no connected server** required (Output → Drift Dart schema)
 - **Schema Diff** — compare code-defined tables vs runtime schema
 - **Schema Diagram** — ER-style visualization of tables and FK relationships
 - **Generate Dart** — scaffold Drift table classes from the runtime schema
@@ -84,6 +85,7 @@ Works in Dart files with Drift table definitions:
 | `driftViewer.watch.notifications` | `false` | Desktop notifications for watch changes |
 | `driftViewer.database.loadOnConnect` | `true` | When false, Database tree loads on first view focus instead of on connect |
 | `driftViewer.database.allowOfflineSchema` | `true` | When the server is unreachable, try to fill the Database tree from last-known persisted schema for this workspace |
+| `driftViewer.dartSchemaScan.openOutput` | `true` | When running **Scan Dart schema definitions**, open the Drift Dart schema output channel automatically |
 | `driftViewer.schemaCache.ttlMs` | `30000` | Schema cache TTL (ms); 0 disables in-memory cache |
 | `driftViewer.schemaSearch.timeoutMs` | `15000` | Max schema search time before timeout (ms) |
 | `driftViewer.schemaSearch.autoRetryOnError` | `true` | Retry schema search/browse once after a short delay on transient network/timeout errors |
@@ -118,6 +120,7 @@ All commands are available via the command palette (`Ctrl+Shift+P`):
 | Add package to project | Add saropa_drift_advisor to pubspec (dependencies) and run pub get |
 | Open in Browser | Open web UI in default browser |
 | Open in Editor Panel | Open web UI in VS Code tab |
+| Scan Dart Schema Definitions | List tables/columns/indexes from `.dart` files without a server |
 | Schema Diff | Compare code vs runtime schema |
 | Schema Diagram | ER-style table visualization |
 | Open SQL Notebook | Multi-statement SQL editor |

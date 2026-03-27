@@ -1,3 +1,13 @@
+/** Parsed `Index()` / `UniqueIndex()` entry from a Drift table class. */
+export interface IDartIndexDef {
+  /** First string argument (SQLite index name). */
+  name: string;
+  /** Column getter names from `columns: [...]`. */
+  columns: string[];
+  /** True when declared with `UniqueIndex`. */
+  unique: boolean;
+}
+
 /** A column parsed from a Drift table class. */
 export interface IDartColumn {
   /** Dart getter name (camelCase). */
@@ -24,6 +34,10 @@ export interface IDartTable {
   sqlTableName: string;
   /** Parsed columns. */
   columns: IDartColumn[];
+  /** Non-unique and unique indexes from `List<Index> get indexes`. */
+  indexes: IDartIndexDef[];
+  /** Composite unique constraints from `List<Set<Column>> get uniqueKeys`. */
+  uniqueKeys: string[][];
   /** Source file URI string. */
   fileUri: string;
   /** Line number of the class declaration (0-based). */

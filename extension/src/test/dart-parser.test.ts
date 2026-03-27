@@ -3,6 +3,8 @@ import {
   extractClassBody,
   parseColumn,
   parseDartTables,
+  parseDriftIndexCalls,
+  parseDriftUniqueKeySets,
 } from '../schema-diff/dart-parser';
 
 describe('extractClassBody', () => {
@@ -289,5 +291,68 @@ class Users extends Table {
     assert.strictEqual(first.length, 1);
     assert.strictEqual(second.length, 1);
     assert.strictEqual(second[0].fileUri, 'file:///b.dart');
+  });
+
+  it('should parse uniqueKeys and Index/UniqueIndex', () => {
+    const source = `
+class Users extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get email => text()();
+  TextColumn get name => text()();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+    {email},
+    {name, email},
+  ];
+
+  @override
+  List<Index> get indexes => [
+    Index('users_name_idx', columns: [name]),
+    UniqueIndex('users_email_uidx', columns: [email]),
+  ];
+}
+`;
+    const tables = parseDartTables(source, 'file:///test.dart');
+    assert.strictEqual(tables.length, 1);
+    assert.strictEqual(tables[0].uniqueKeys.length, 2);
+    assert.deepStrictEqual(tables[0].uniqueKeys[0], ['email']);
+    assert.deepStrictEqual(tables[0].uniqueKeys[1], ['name', 'email']);
+    assert.strictEqual(tables[0].indexes.length, 2);
+    assert.strictEqual(tables[0].indexes[0].name, 'users_name_idx');
+    assert.deepStrictEqual(tables[0].indexes[0].columns, ['name']);
+    assert.strictEqual(tables[0].indexes[0].unique, false);
+    assert.strictEqual(tables[0].indexes[1].unique, true);
+  });
+
+  it('should default indexes and uniqueKeys to empty', () => {
+    const source = `
+class Users extends Table {
+  IntColumn get id => integer()();
+}
+`;
+    const tables = parseDartTables(source, 'file:///test.dart');
+    assert.deepStrictEqual(tables[0].indexes, []);
+    assert.deepStrictEqual(tables[0].uniqueKeys, []);
+  });
+});
+
+describe('parseDriftIndexCalls / parseDriftUniqueKeySets', () => {
+  it('should parse index list inner', () => {
+    const inner = `
+    Index('a', columns: [x, y]),
+    UniqueIndex('b', columns: [z]),
+    `;
+    const idx = parseDriftIndexCalls(inner);
+    assert.strictEqual(idx.length, 2);
+    assert.strictEqual(idx[0].name, 'a');
+    assert.deepStrictEqual(idx[0].columns, ['x', 'y']);
+    assert.strictEqual(idx[1].unique, true);
+  });
+
+  it('should parse unique key sets', () => {
+    const inner = '{foo}, {bar, baz}';
+    const sets = parseDriftUniqueKeySets(inner);
+    assert.deepStrictEqual(sets, [['foo'], ['bar', 'baz']]);
   });
 });

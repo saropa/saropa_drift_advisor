@@ -18,6 +18,7 @@ import { collectSchemaDocsData } from '../schema-docs/schema-docs-command';
 import { DocsHtmlRenderer } from '../schema-docs/docs-html-renderer';
 import { DocsMdRenderer } from '../schema-docs/docs-md-renderer';
 import { GlobalSearchPanel } from '../global-search/global-search-panel';
+import { runDartSchemaScanCommand } from '../dart-schema-scan-command';
 
 /**
  * Wire the Schema Search revealTable callback and register
@@ -89,6 +90,13 @@ export function registerDebugCommandsPanels(
     vscode.commands.registerCommand(
       'driftViewer.globalSearch',
       () => GlobalSearchPanel.createOrShow(client),
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.scanDartSchemaDefinitions',
+      () => runDartSchemaScanCommand(),
     ),
   );
 

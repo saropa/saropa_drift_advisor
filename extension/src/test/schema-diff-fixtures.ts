@@ -23,6 +23,8 @@ export function dartTable(overrides: Partial<IDartTable> = {}): IDartTable {
     dartClassName: 'Users',
     sqlTableName: 'users',
     columns: [dartCol()],
+    indexes: [],
+    uniqueKeys: [],
     fileUri: 'file:///test.dart',
     line: 0,
     ...overrides,

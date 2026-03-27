@@ -17,9 +17,9 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
-## [Unreleased]
+## [2.10.0]
 
-Clearer table row counts, inline table column definitions, a more polished Size analytics panel, and a lighter Dart package (no embedded CSS/JS mirror for the web viewer). The VS Code extension improves Schema Search when disconnected, optional offline Database tree from persisted schema, and navigation from the sidebar to Dart definitions.
+Clearer table row counts, inline table column definitions, a more polished Size analytics panel, and a lighter Dart package (no embedded CSS/JS mirror for the web viewer). The VS Code extension improves Schema Search when disconnected, optional offline Database tree from persisted schema, navigation from the sidebar to Dart definitions, and a command to scan Drift table definitions from Dart sources without a connected server.
 
 ### Changed
 
@@ -44,6 +44,8 @@ Clearer table row counts, inline table column definitions, a more polished Size 
 • **Offline Database tree** — New setting `driftViewer.database.allowOfflineSchema` (default on): when the server is unreachable, the tree can repopulate from last-known persisted schema; status shows “Offline — cached schema.” `refreshDriftConnectionUi` passes `schemaCache` and `treeProvider` so Schema Search can enable search against cache when the tree is offline-only.
 
 • **Go to Dart definitions from sidebar** — Context menu and Schema Search result clicks open the Drift table/column definition in the workspace when found (`drift-source-locator.ts` shared with F12 in SQL strings); otherwise Schema Search falls back to revealing the table in the Database tree.
+
+• **Scan Dart schema definitions (offline)** — Command **Saropa Drift Advisor: Scan Dart Schema Definitions** lists Drift `Table` classes, columns, `uniqueKeys`, and `Index` / `UniqueIndex` entries from workspace `.dart` files (excludes `build/`). No debug server or prior session required. Output → **Drift Dart schema**; setting `driftViewer.dartSchemaScan.openOutput` controls auto-opening the channel. The shared parser also records `indexes` / `uniqueKeys` on `IDartTable` for Schema Diff and diagnostics.
 
 ---
 

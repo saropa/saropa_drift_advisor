@@ -45,6 +45,8 @@ export function makeDartTable(
       autoIncrement: false,
       line: 10 + i,
     })),
+    indexes: [],
+    uniqueKeys: [],
     fileUri: `file:///lib/${sqlTableName}.dart`,
     line: 5,
   };

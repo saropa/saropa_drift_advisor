@@ -126,6 +126,7 @@
     "onCommand:driftViewer.resetPerfBaseline",
     "onCommand:driftViewer.resumeDiscovery",
     "onCommand:driftViewer.retryDiscovery",
+    "onCommand:driftViewer.scanDartSchemaDefinitions",
     "onCommand:driftViewer.runAllInvariants",
     "onCommand:driftViewer.runLinter",
     "onCommand:driftViewer.runSaropaLints",
@@ -421,6 +422,11 @@
       {
         "command": "driftViewer.schemaDiff",
         "title": "Saropa Drift Advisor: Schema Diff (Code vs Runtime)"
+      },
+      {
+        "command": "driftViewer.scanDartSchemaDefinitions",
+        "title": "Saropa Drift Advisor: Scan Dart Schema Definitions (Tables, Columns, Indexes)",
+        "icon": "$(file-code)"
       },
       {
         "command": "driftViewer.generateDart",
@@ -1084,6 +1090,11 @@
           "type": "boolean",
           "default": true,
           "description": "When the debug server is unreachable, repopulate the Database tree (and Schema Search) from the last-known persisted schema for this workspace when available."
+        },
+        "driftViewer.dartSchemaScan.openOutput": {
+          "type": "boolean",
+          "default": true,
+          "description": "When running **Scan Dart schema definitions**, open the Drift Dart schema output channel automatically."
         },
         "driftViewer.schemaCache.ttlMs": {
           "type": "number",

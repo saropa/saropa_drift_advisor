@@ -282,6 +282,8 @@ function createDartFile(
     dartClassName: tableName.charAt(0).toUpperCase() + tableName.slice(1),
     sqlTableName: tableName,
     columns: dartColumns,
+    indexes: [],
+    uniqueKeys: [],
     fileUri: `file:///lib/database/${tableName}.dart`,
     line: 5,
   };
