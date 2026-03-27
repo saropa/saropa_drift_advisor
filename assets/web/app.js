@@ -95,6 +95,26 @@
       return d.innerHTML;
     }
 
+    /**
+     * Shows a small spinning indicator plus label inside a button while a slow request runs.
+     * When loading is false, restores plain text (drops spinner markup).
+     * @param {HTMLElement|null|undefined} btn
+     * @param {boolean} loading
+     * @param {string} label - Progress caption while loading, or idle caption when loading is false
+     */
+    function setButtonBusy(btn, loading, label) {
+      if (!btn) return;
+      if (loading) {
+        btn.classList.add('btn-busy');
+        btn.innerHTML =
+          '<span class="btn-busy-spinner" aria-hidden="true"></span>' +
+          '<span class="btn-busy-label">' + esc(label) + '</span>';
+      } else {
+        btn.classList.remove('btn-busy');
+        btn.textContent = label;
+      }
+    }
+
     /** SQL syntax highlighting for schema and SQL blocks; uses sql-highlight.js when loaded. */
     function highlightSqlSafe(sql) {
       if (sql == null) return '';
@@ -1491,7 +1511,7 @@
       var sql = buildQueryFromBuilder(currentTableName);
       if (!sql) return;
       var runBtn = document.getElementById('qb-run');
-      if (runBtn) { runBtn.disabled = true; runBtn.textContent = 'Running\u2026'; }
+      if (runBtn) { runBtn.disabled = true; setButtonBusy(runBtn, true, 'Running\u2026'); }
       var savedState = captureQueryBuilderState();
       fetch('/api/sql', authOpts({
         method: 'POST',
@@ -1530,7 +1550,7 @@
         })
         .catch(function(e) { alert('Error: ' + e.message); })
         .finally(function() {
-          if (runBtn) { runBtn.disabled = false; runBtn.textContent = 'Run query'; }
+          if (runBtn) { runBtn.disabled = false; setButtonBusy(runBtn, false, 'Run query'); }
         });
     }
 
@@ -1886,13 +1906,20 @@
       btn.click();
     }
 
+    /**
+     * Last successful Size analytics JSON (same payload as save/export). When non-null,
+     * revisiting the Size tab skips auto-analyze so switching tabs does not re-fetch.
+     */
+    var lastSizeAnalyticsData = null;
+
     window.onTabSwitch = function(tabId) {
       if (tabId === 'schema' && cachedSchema === null) loadSchemaIntoPre();
       if (tabId === 'diagram' && typeof window.ensureDiagramInited === 'function') window.ensureDiagramInited();
       if (tabId === 'search') refreshSearchResultsPanel();
       // Auto-run when tool tab opens (no manual button click). checkDisabled avoids duplicate runs if analysis already in progress.
       if (tabId === 'index') triggerToolButtonIfReady('index-analyze', { checkDisabled: true });
-      if (tabId === 'size') triggerToolButtonIfReady('size-analyze', { checkDisabled: true });
+      // Size: only auto-run once per page session until the user explicitly clicks Analyze again (success updates cache).
+      if (tabId === 'size' && lastSizeAnalyticsData == null) triggerToolButtonIfReady('size-analyze', { checkDisabled: true });
       if (tabId === 'perf') triggerToolButtonIfReady('perf-refresh', { checkDisabled: true });
       if (tabId === 'anomaly') triggerToolButtonIfReady('anomaly-analyze', { checkDisabled: true });
     };
@@ -2257,7 +2284,7 @@
       if (!btn) return;
       btn.addEventListener('click', function() {
         btn.disabled = true;
-        btn.textContent = 'Generating…';
+        setButtonBusy(btn, true, 'Generating…');
         resultPre.style.display = 'none';
         statusEl.textContent = '';
         fetch('/api/migration/preview', authOpts())
@@ -2291,9 +2318,9 @@
           .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
           .finally(function() {
             btn.disabled = false;
-            btn.textContent = 'Migration Preview';
+            setButtonBusy(btn, false, 'Migration Preview');
           });
-      });
+    });
     })();
 
     (function initIndexSuggestions() {
@@ -2360,7 +2387,7 @@
 
       if (btn) btn.addEventListener('click', function() {
         btn.disabled = true;
-        btn.textContent = 'Analyzing…';
+        setButtonBusy(btn, true, 'Analyzing…');
         container.style.display = 'none';
         fetch('/api/index-suggestions', authOpts())
           .then(function(r) {
@@ -2377,7 +2404,7 @@
           })
           .finally(function() {
             btn.disabled = false;
-            btn.textContent = 'Analyze';
+            setButtonBusy(btn, false, 'Analyze');
           });
       });
 
@@ -2411,7 +2438,6 @@
       const exportBtn = document.getElementById('size-export');
       const historySel = document.getElementById('size-history');
       const compareBtn = document.getElementById('size-compare');
-      var lastSizeData = null;
 
       function formatBytes(bytes) {
         if (bytes < 1024) return bytes + ' B';
@@ -2419,47 +2445,83 @@
         return (bytes / 1048576).toFixed(2) + ' MB';
       }
 
+      /**
+       * Native `title` tooltips for Size analytics (matches PRAGMA semantics in analytics_handler).
+       * Shown on hover for read-only labels, values, headers, and cells.
+       */
+      var SIZE_TT = {
+        totalCard: 'Total size of the SQLite database file: PRAGMA page_count × PRAGMA page_size. Matches the main .db file size on disk.',
+        usedCard: 'Bytes in pages that store data: total file size minus bytes in freelist pages (see Free). Same as totalSizeBytes − freeSpaceBytes from the server.',
+        freeCard: 'Bytes in pages on SQLite’s freelist (PRAGMA freelist_count × page_size). Unused pages inside the file that SQLite can reuse for new data without growing the file.',
+        journalCard: 'SQLite PRAGMA journal_mode. wal means WAL (write-ahead logging): new writes go to a separate .wal file and are merged into the main database at checkpoint; readers can run at the same time as one writer. Other modes include delete, truncate, persist, memory, and off.',
+        pagesTotal: 'Total bytes in all pages: page_count × page_size. Same number as Total Size.',
+        pagesFormula: 'PRAGMA page_count (number of pages) × PRAGMA page_size (bytes per page, often 4096).',
+        thTable: 'Name of this table in SQLite.',
+        thRows: 'Row count for each table (SELECT COUNT(*) FROM table). Bar length is relative to the largest table in this list.',
+        thColumns: 'Number of columns defined on the table (rows from PRAGMA table_info).',
+        thIndexes: 'Number of indexes on the table (PRAGMA index_list), plus each index name.',
+        tdTableLink: 'SQLite table name. Click to open this table in its own tab.',
+        tdRows: 'Approximate number of rows in this table.',
+        tdColumns: 'How many columns this table has.',
+        tdIndexes: 'Index count and names from PRAGMA index_list for this table.'
+      };
+
       function renderSizeData(data) {
         if (!data) return '<p class="meta">No data.</p>';
         var html = '<div style="margin:0.5rem 0;">';
         html += '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">';
-        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
+        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc(SIZE_TT.totalCard) + '">';
         html += '<div class="meta">Total Size</div>';
         html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.totalSizeBytes) + '</div></div>';
-        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
+        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc(SIZE_TT.usedCard) + '">';
         html += '<div class="meta">Used</div>';
         html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.usedSizeBytes) + '</div></div>';
-        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
+        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc(SIZE_TT.freeCard) + '">';
         html += '<div class="meta">Free</div>';
         html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.freeSpaceBytes) + '</div></div>';
-        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
+        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc(SIZE_TT.journalCard) + '">';
         html += '<div class="meta">Journal</div>';
         html += '<div style="font-size:1.2rem;font-weight:bold;">' + esc(data.journalMode || '') + '</div></div>';
-        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;">';
+        html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc(SIZE_TT.pagesTotal) + '">';
         html += '<div class="meta">Pages</div>';
-        html += '<div style="font-size:1.2rem;font-weight:bold;">' + (data.pageCount || 0) + ' × ' + (data.pageSize || 0) + '</div></div>';
+        var pc = data.pageCount || 0;
+        var ps = data.pageSize || 0;
+        var pageBytes = pc * ps;
+        html += '<div style="font-size:1.2rem;font-weight:bold;line-height:1.2;" title="' + esc(SIZE_TT.pagesTotal) + '">' + pageBytes.toLocaleString() + '</div>';
+        html += '<div class="meta size-pages-formula" title="' + esc(SIZE_TT.pagesFormula) + '">(' + pc.toLocaleString() + ' × ' + ps.toLocaleString() + ')</div></div>';
         html += '</div>';
         html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-        html += '<tr><th style="border:1px solid var(--border);padding:4px;">Table</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;min-width:8rem;">Rows</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">Columns</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">Indexes</th></tr>';
+        html += '<tr><th style="border:1px solid var(--border);padding:4px;" title="' + esc(SIZE_TT.thTable) + '">Table</th>';
+        html += '<th style="border:1px solid var(--border);padding:4px;min-width:8rem;" title="' + esc(SIZE_TT.thRows) + '">Rows</th>';
+        html += '<th style="border:1px solid var(--border);padding:4px;text-align:right;" title="' + esc(SIZE_TT.thColumns) + '">Columns</th>';
+        html += '<th style="border:1px solid var(--border);padding:4px;" title="' + esc(SIZE_TT.thIndexes) + '">Indexes</th></tr>';
         var tables = data.tables || [];
         var maxRows = Math.max.apply(null, tables.map(function(t) { return t.rowCount; }).concat([1]));
         tables.forEach(function(t) {
           var barWidth = Math.max(1, (t.rowCount / maxRows) * 100);
           html += '<tr>';
-          html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(t.table) + '</td>';
-          html += '<td style="border:1px solid var(--border);padding:4px;white-space:nowrap;">';
+          html += '<td style="border:1px solid var(--border);padding:4px;"><a href="#" class="table-link size-table-link" data-table="' + esc(t.table) + '" title="' + esc(SIZE_TT.tdTableLink) + '">' + esc(t.table) + '</a></td>';
+          html += '<td style="border:1px solid var(--border);padding:4px;white-space:nowrap;" title="' + esc(SIZE_TT.tdRows) + '">';
           html += '<div style="background:var(--link);height:12px;width:' + barWidth + '%;opacity:0.3;display:inline-block;vertical-align:middle;margin-right:4px;"></div>';
           html += t.rowCount.toLocaleString() + '</td>';
-          html += '<td style="border:1px solid var(--border);padding:4px;">' + t.columnCount + '</td>';
-          html += '<td style="border:1px solid var(--border);padding:4px;">' + t.indexCount;
-          if (t.indexes && t.indexes.length > 0) html += ' <span class="meta">(' + t.indexes.map(esc).join(', ') + ')</span>';
+          html += '<td style="border:1px solid var(--border);padding:4px;text-align:right;font-variant-numeric:tabular-nums;" title="' + esc(SIZE_TT.tdColumns) + '">' + t.columnCount + '</td>';
+          html += '<td style="border:1px solid var(--border);padding:4px;" title="' + esc(SIZE_TT.tdIndexes) + '">' + t.indexCount;
+          if (t.indexes && t.indexes.length > 0) html += ' <span class="size-index-names">(' + t.indexes.map(esc).join(', ') + ')</span>';
           html += '</td></tr>';
         });
         html += '</table></div>';
         return html;
+      }
+
+      // Table names link to openTableTab (same as sidebar); delegated because rows are innerHTML.
+      if (container) {
+        container.addEventListener('click', function(e) {
+          var a = e.target.closest('a.size-table-link');
+          if (!a || !container.contains(a)) return;
+          e.preventDefault();
+          var name = a.getAttribute('data-table');
+          if (name) openTableTab(name);
+        });
       }
 
       if (toggle && collapsible) {
@@ -2477,7 +2539,7 @@
           if (!id) return;
           var saved = getSavedAnalysisById('size', id);
           if (saved && saved.data) {
-            lastSizeData = saved.data;
+            lastSizeAnalyticsData = saved.data;
             container.innerHTML = renderSizeData(saved.data);
             container.style.display = 'block';
           }
@@ -2486,7 +2548,7 @@
 
       if (btn) btn.addEventListener('click', function() {
         btn.disabled = true;
-        btn.textContent = 'Analyzing…';
+        setButtonBusy(btn, true, 'Analyzing…');
         container.style.display = 'none';
         fetch('/api/analytics/size', authOpts())
           .then(function(r) {
@@ -2494,7 +2556,7 @@
             return r.json();
           })
           .then(function(data) {
-            lastSizeData = data;
+            lastSizeAnalyticsData = data;
             container.innerHTML = renderSizeData(data);
             container.style.display = 'block';
             populateHistorySelect(historySel, 'size');
@@ -2505,24 +2567,24 @@
           })
           .finally(function() {
             btn.disabled = false;
-            btn.textContent = 'Analyze';
+            setButtonBusy(btn, false, 'Analyze');
           });
       });
 
       if (saveBtn) saveBtn.addEventListener('click', function() {
-        if (!lastSizeData) return;
-        var id = saveAnalysis('size', lastSizeData);
+        if (!lastSizeAnalyticsData) return;
+        var id = saveAnalysis('size', lastSizeAnalyticsData);
         showCopyToast(id != null ? 'Saved' : 'Save failed (storage may be full)');
         populateHistorySelect(historySel, 'size');
       });
 
       if (exportBtn) exportBtn.addEventListener('click', function() {
-        if (!lastSizeData) return;
-        downloadJSON(lastSizeData, 'size-analytics-' + (new Date().toISOString().slice(0, 10)) + '.json');
+        if (!lastSizeAnalyticsData) return;
+        downloadJSON(lastSizeAnalyticsData, 'size-analytics-' + (new Date().toISOString().slice(0, 10)) + '.json');
       });
 
       if (compareBtn) compareBtn.addEventListener('click', function() {
-        showAnalysisCompare('size', 'Database size analytics', getSavedAnalyses('size'), lastSizeData, renderSizeData, function(a, b) {
+        showAnalysisCompare('size', 'Database size analytics', getSavedAnalyses('size'), lastSizeAnalyticsData, renderSizeData, function(a, b) {
           var ta = (a && a.totalSizeBytes) != null ? formatBytes(a.totalSizeBytes) : '—';
           var tb = (b && b.totalSizeBytes) != null ? formatBytes(b.totalSizeBytes) : '—';
           return 'Before: ' + ta + ' total · After: ' + tb + ' total';
@@ -2586,7 +2648,7 @@
 
       if (btn) btn.addEventListener('click', function() {
         btn.disabled = true;
-        btn.textContent = 'Scanning\u2026';
+        setButtonBusy(btn, true, 'Scanning\u2026');
         container.style.display = 'none';
         fetch('/api/analytics/anomalies', authOpts())
           .then(function(r) {
@@ -2605,7 +2667,7 @@
           })
           .finally(function() {
             btn.disabled = false;
-            btn.textContent = 'Scan for anomalies';
+            setButtonBusy(btn, false, 'Scan for anomalies');
           });
       });
 
@@ -2756,7 +2818,7 @@
           if (!confirm('Import data into table "' + esc(table) + '"? This cannot be undone.')) return;
           runBtn.disabled = true;
           var runBtnOrigText = runBtn.textContent;
-          runBtn.textContent = 'Importing…';
+          setButtonBusy(runBtn, true, 'Importing…');
           statusEl.textContent = 'Importing…';
           var body = { format: format, data: importFileData, table: table };
           if (format === 'csv' && mappingContainer && mappingContainer.style.display !== 'none') {
@@ -2793,7 +2855,7 @@
             })
             .finally(function() {
               runBtn.disabled = !importFileData || !tableSel || !tableSel.value;
-              runBtn.textContent = runBtnOrigText || 'Import';
+              setButtonBusy(runBtn, false, runBtnOrigText || 'Import');
             });
         });
       }
@@ -3952,15 +4014,17 @@
 
     /**
      * Builds HTML for the "both" (schema + table data) view with collapsible sections.
+     * @param {string} defHtml - Table definition block from buildTableDefinitionHtml (may be empty).
      */
-    function buildBothViewSectionsHtml(tableName, metaText, qbHtml, tableHtml, schema) {
+    function buildBothViewSectionsHtml(tableName, metaText, qbHtml, tableHtml, schema, defHtml) {
+      defHtml = defHtml || '';
       return '<div class="search-section-collapsible expanded">' +
         '<div class="collapsible-header" data-collapsible>Schema</div>' +
         '<div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
         '</div>' +
         '<div class="search-section-collapsible expanded" id="both-data-section">' +
         '<div class="collapsible-header" data-collapsible>Table data: ' + esc(tableName) + '</div>' +
-        '<div class="collapsible-body"><p class="meta">' + metaText + '</p>' + qbHtml + tableHtml + '</div>' +
+        '<div class="collapsible-body"><p class="meta">' + metaText + '</p>' + defHtml + qbHtml + tableHtml + '</div>' +
         '</div>';
     }
 
@@ -4268,6 +4332,31 @@
       return '<div class="table-status-bar" role="status">' + parts.join(' \u2022 ') + '</div>';
     }
 
+    /**
+     * Renders a compact column list (name, SQLite type, PK / NOT NULL) from
+     * /api/schema/metadata via schemaTableByName. Empty string when metadata
+     * is missing so table tabs still work offline partial failures.
+     */
+    function buildTableDefinitionHtml(tableName) {
+      var t = schemaTableByName(tableName);
+      if (!t || !t.columns || t.columns.length === 0) return '';
+      var rows = t.columns.map(function(c) {
+        var flags = [];
+        if (c.pk) flags.push('PK');
+        if (c.notnull) flags.push('NOT NULL');
+        var flagStr = flags.length ? flags.join(', ') : '\u2014';
+        var rawType = c.type != null ? String(c.type).trim() : '';
+        var typCell = rawType ? esc(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
+        return '<tr><td class="table-def-name">' + esc(c.name) + '</td><td class="table-def-type">' + typCell + '</td><td class="table-def-flags">' + esc(flagStr) + '</td></tr>';
+      }).join('');
+      return '<div class="table-definition-wrap" role="region" aria-label="Table definition">' +
+        '<div class="table-definition-heading">Table definition</div>' +
+        '<div class="table-definition-scroll">' +
+        '<table class="table-definition">' +
+        '<thead><tr><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table></div></div>';
+    }
+
     function renderTableView(name, data) {
       const content = document.getElementById('content');
       const scope = getScope();
@@ -4293,6 +4382,7 @@
         content.innerHTML = '<p class="meta">' + metaText + '</p><p class="meta">Loading\u2026</p>';
       }
       function renderDataHtml(fkMap, colTypes) {
+        var defHtml = buildTableDefinitionHtml(name);
         var tableHtml = wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(name))) + buildTableStatusBar(tableCounts[name], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(name)));
         var qbHtml = buildQueryBuilderHtml(name, colTypes);
         if (scope === 'both') {
@@ -4301,7 +4391,7 @@
             fetch('/api/schema', authOpts()).then(function(r) { return r.text(); }).then(function(schema) {
               cachedSchema = schema;
               lastRenderedSchema = schema;
-              content.innerHTML = buildBothViewSectionsHtml(name, metaText, qbHtml, tableHtml, schema);
+              content.innerHTML = buildBothViewSectionsHtml(name, metaText, qbHtml, tableHtml, schema, defHtml);
               bindQueryBuilderEvents(colTypes);
               if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);
               applySearch();
@@ -4313,7 +4403,7 @@
             if (dataSection) {
               var dataBody = dataSection.querySelector('.collapsible-body');
               var headerEl = dataSection.querySelector('.collapsible-header');
-              if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + '</p>' + qbHtml + tableHtml;
+              if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + '</p>' + defHtml + qbHtml + tableHtml;
               if (headerEl) headerEl.textContent = 'Table data: ' + name;
               bindColumnTableEvents();
               bindQueryBuilderEvents(colTypes);
@@ -4324,7 +4414,7 @@
           }
         } else {
           lastRenderedSchema = null;
-          content.innerHTML = '<p class="meta">' + metaText + '</p>' + qbHtml + tableHtml;
+          content.innerHTML = '<p class="meta">' + metaText + '</p>' + defHtml + qbHtml + tableHtml;
           bindQueryBuilderEvents(colTypes);
           if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);
           applySearch();
@@ -5347,7 +5437,7 @@
    return;
           }
           const runBtnOrigText = runBtn.textContent;
-          runBtn.textContent = 'Running\u2026';
+          setButtonBusy(runBtn, true, 'Running\u2026');
           setSqlButtonsDisabled(true);
           fetch('/api/sql', authOpts({
             method: 'POST',
@@ -5395,7 +5485,7 @@
             })
             .finally(() => {
               setSqlButtonsDisabled(false);
-              runBtn.textContent = runBtnOrigText;
+              setButtonBusy(runBtn, false, runBtnOrigText);
             });
         });
       }
@@ -5411,7 +5501,7 @@
    return;
           }
           const explainOrigText = explainBtn.textContent;
-          explainBtn.textContent = 'Explaining\u2026';
+          setButtonBusy(explainBtn, true, 'Explaining\u2026');
           setSqlButtonsDisabled(true);
           fetch('/api/sql/explain', authOpts({
             method: 'POST',
@@ -5460,7 +5550,7 @@
             })
             .finally(() => {
               setSqlButtonsDisabled(false);
-              explainBtn.textContent = explainOrigText;
+              setButtonBusy(explainBtn, false, explainOrigText);
             });
         });
       }
@@ -5647,7 +5737,7 @@
       if (!question) return;
       var btn = this;
       btn.disabled = true;
-      btn.textContent = 'Converting...';
+      setButtonBusy(btn, true, 'Converting...');
       try {
         var meta = await loadSchemaMeta();
         var result = nlToSql(question, meta);
@@ -5663,7 +5753,7 @@
         document.getElementById('sql-error').style.display = 'block';
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Convert to SQL';
+        setButtonBusy(btn, false, 'Convert to SQL');
       }
     });
     document.getElementById('nl-input').addEventListener('keydown', function (e) {
@@ -5798,7 +5888,7 @@
       if (note === null) return;
       var btn = document.getElementById('share-btn');
       btn.disabled = true;
-      btn.textContent = 'Sharing\u2026';
+      setButtonBusy(btn, true, 'Sharing\u2026');
       var state = captureViewerState();
       if (note) state.note = note;
 
@@ -5819,7 +5909,7 @@
         })
         .finally(function () {
           btn.disabled = false;
-          btn.textContent = 'Share';
+          setButtonBusy(btn, false, 'Share');
         });
     }
 
@@ -6096,7 +6186,7 @@
       function fetchPerformance() {
         if (!refreshBtn || !container) return;
         refreshBtn.disabled = true;
-        refreshBtn.textContent = 'Loading\u2026';
+        setButtonBusy(refreshBtn, true, 'Loading\u2026');
         container.style.display = 'none';
         fetch('/api/analytics/performance', authOpts())
           .then(function(r) {
@@ -6122,7 +6212,7 @@
             // Restore Update button state so user can run again
             if (refreshBtn) {
               refreshBtn.disabled = false;
-              refreshBtn.textContent = 'Update';
+              setButtonBusy(refreshBtn, false, 'Update');
             }
           });
       }

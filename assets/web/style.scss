@@ -900,6 +900,30 @@ a:hover { color: var(--link-hover); text-decoration: underline; }
 @keyframes tables-loading-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Inline spinner inside tool/action buttons during slow requests (Analyze, Update, Run SQL, etc.). */
+button.btn-busy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
+  vertical-align: middle;
+}
+.btn-busy-spinner {
+  box-sizing: border-box;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.92;
+  animation: btn-busy-spin 0.65s linear infinite;
+}
+@keyframes btn-busy-spin {
+  to { transform: rotate(360deg); }
+}
+
 .content-wrap { max-width: 100%; min-width: 0; }
 pre { background: var(--bg-pre); padding: 1rem; overflow: auto; font-size: 12px; border-radius: 6px; max-height: 70vh; white-space: pre-wrap; word-break: break-word; margin: 0; color: var(--fg); border: 1px solid var(--border); }
 .meta { color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem; }
@@ -1614,6 +1638,59 @@ body.theme-dark .data-table-scroll-wrap {
   border-color: var(--btn-primary-hover-bg);
   color: var(--btn-primary-fg);
 }
+/* Column list (PRAGMA table_info) shown above query builder on table tabs */
+.table-definition-wrap {
+  margin: 0 0 0.75rem;
+}
+.table-definition-heading {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+  color: var(--fg);
+}
+.table-definition-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-pre);
+}
+.table-definition {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.table-definition th,
+.table-definition td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+.table-definition th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.table-definition tbody tr:last-child td {
+  border-bottom: none;
+}
+.table-def-name {
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+  font-size: var(--text-xs);
+}
+.table-def-type {
+  color: var(--muted);
+}
+.table-def-type .table-def-type-empty {
+  font-style: italic;
+  opacity: 0.85;
+}
+.table-def-flags {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
 .qb-section { margin-bottom: 0.5rem; }
 .qb-section .qb-header { cursor: pointer; user-select: none; color: var(--link); font-size: 0.875rem; padding: 0.25rem 0; }
 .qb-section .qb-header:hover { text-decoration: underline; }
@@ -1646,6 +1723,30 @@ body.theme-dark .data-table-scroll-wrap {
   }
 }
 .qb-preview { font-family: ui-monospace, monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.4rem; margin-top: 0.35rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 4rem; overflow: auto; }
+
+/* Size analytics: table column uses same link affordance as sidebar (not under .table-list). */
+#size-results a.size-table-link {
+  color: var(--link);
+  text-decoration: none;
+  font-weight: 500;
+}
+#size-results a.size-table-link:hover {
+  text-decoration: underline;
+}
+
+/* Size analytics: long index name lists stay secondary to the numeric count. */
+#size-results .size-index-names {
+  font-size: 0.72em;
+  line-height: 1.35;
+}
+/* Dimmed page_count × page_size line under total byte count. */
+#size-results .size-pages-formula {
+  margin-top: 0.2rem;
+  opacity: 0.55;
+  font-weight: normal;
+  font-size: 0.8rem;
+}
+
 /* --- Connection health banner --- */
 /* Fixed banner slides down from top with a smooth CSS transition.
    Warm amber/orange is visible in both light and dark themes.

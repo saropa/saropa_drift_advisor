@@ -938,6 +938,32 @@ a:hover {
     transform: rotate(360deg);
   }
 }
+/* Inline spinner inside tool/action buttons during slow requests (Analyze, Update, Run SQL, etc.). */
+button.btn-busy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
+  vertical-align: middle;
+}
+
+.btn-busy-spinner {
+  box-sizing: border-box;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.92;
+  animation: btn-busy-spin 0.65s linear infinite;
+}
+
+@keyframes btn-busy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .content-wrap {
   max-width: 100%;
   min-width: 0;
@@ -2136,6 +2162,31 @@ body.theme-dark .data-table-scroll-wrap {
   word-break: break-word;
   max-height: 4rem;
   overflow: auto;
+}
+
+/* Size analytics: table column uses same link affordance as sidebar (not under .table-list). */
+#size-results a.size-table-link {
+  color: var(--link);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+#size-results a.size-table-link:hover {
+  text-decoration: underline;
+}
+
+/* Size analytics: long index name lists stay secondary to the numeric count. */
+#size-results .size-index-names {
+  font-size: 0.72em;
+  line-height: 1.35;
+}
+
+/* Dimmed page_count × page_size line under total byte count. */
+#size-results .size-pages-formula {
+  margin-top: 0.2rem;
+  opacity: 0.55;
+  font-weight: normal;
+  font-size: 0.8rem;
 }
 
 /* --- Connection health banner --- */
