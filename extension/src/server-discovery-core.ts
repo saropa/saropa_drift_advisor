@@ -29,6 +29,9 @@ export interface IDiscoveryConfig {
   additionalPorts?: number[];
   authHeaders?: Record<string, string>;
 }
+
+/** Optional hook when the user picks **Open URL** on the “server detected” toast (set via [setOnAfterOpenUrlFromNotification]). */
+export type DiscoveryOpenUrlHook = (host: string, port: number) => void;
 export type DiscoveryState = 'searching' | 'connected' | 'backoff';
 export interface DiscoveryUiState {
   paused: boolean;
@@ -64,9 +67,18 @@ export class ServerDiscovery {
   private _log: IDiscoveryLog | undefined;
   private _lastOutcomeLine =
     'Discovery starting — watch this panel for scan progress.';
+  /** Passed to [maybeNotifyServerEvent] so “Open URL” selects this server in the extension. */
+  private _onAfterOpenUrlFromNotification: DiscoveryOpenUrlHook | undefined;
   constructor(config: IDiscoveryConfig) {
     this._config = config;
     this._authHeaders = config.authHeaders;
+  }
+  /**
+   * Call after [ServerManager] exists so the discovery toast’s **Open URL** adopts that host:port
+   * as the active server (aligns sidebar/API with the browser the user just opened).
+   */
+  setOnAfterOpenUrlFromNotification(fn: DiscoveryOpenUrlHook | undefined): void {
+    this._onAfterOpenUrlFromNotification = fn;
   }
   setAuthHeaders(headers: Record<string, string> | undefined): void {
     this._authHeaders = headers;
@@ -261,6 +273,7 @@ export class ServerDiscovery {
           'found',
           this._notifiedAt,
           NOTIFY_THROTTLE_MS,
+          this._onAfterOpenUrlFromNotification,
         );
         changed = true;
       }

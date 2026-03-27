@@ -25,6 +25,8 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ### Fixed
 
+• **VS Code: “Open URL” on server-detected toast** — Choosing **Open URL** when discovery finds a Drift debug server now also selects that host:port as the active server in the extension (same endpoint as the browser). Previously the toast only opened the browser; with multiple servers or a dismissed QuickPick the sidebar could stay on the wrong port or none.
+
 • **`/api/mutations` long-poll and VM logging** — When no mutation arrived before the long-poll deadline, the server treated the normal timeout as a loggable event (`developer.log` with error/stack). That could flood the VM service and stall the app with multiple clients. Idle timeouts no longer emit those logs.
 
 • **Mutation SQL classification regex** — INSERT/UPDATE/DELETE patterns in the mutation tracker used `\\s` / `\\b` in raw Dart strings (literal backslashes), so they never matched real SQL whitespace/word boundaries. Semantic mutation capture and `/api/mutations` wakeups now classify typical statements correctly.

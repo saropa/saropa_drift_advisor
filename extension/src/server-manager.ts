@@ -61,6 +61,21 @@ export class ServerManager {
   }
 
   /**
+   * Select the server matching [host] and [port] from the current discovery list.
+   * Used when the user chooses **Open URL** on the “server detected” notification so the
+   * extension uses the same endpoint as the browser (especially after dismissing multi-server QuickPick).
+   */
+  ensureActiveForDiscoveredPort(host: string, port: number): void {
+    const servers = this.servers;
+    const match =
+      servers.find((s) => s.host === host && s.port === port)
+      ?? servers.find((s) => s.port === port);
+    if (match) {
+      this._setActive(match);
+    }
+  }
+
+  /**
    * When HTTP to [client] is verified (e.g. debug fallback) but discovery has not
    * set [activeServer] yet, adopt the client's endpoint so status bar and UI match.
    */

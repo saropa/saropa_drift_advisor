@@ -167,4 +167,17 @@ describe('ServerManager', () => {
     assert.ok(changed.notCalled);
     assert.strictEqual(manager.activeServer?.port, 8642);
   });
+
+  it('ensureActiveForDiscoveredPort selects matching server when several exist', () => {
+    const stub = sinon.stub(discovery, 'servers').get(() => [
+      makeServer(8642),
+      makeServer(8643),
+    ]);
+    try {
+      manager.ensureActiveForDiscoveredPort('127.0.0.1', 8643);
+      assert.strictEqual(manager.activeServer?.port, 8643);
+    } finally {
+      stub.restore();
+    }
+  });
 });

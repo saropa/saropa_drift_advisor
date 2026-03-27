@@ -92,6 +92,9 @@ export function bootstrapExtension(
   watcher.setLog(gatedConnectionLog);
 
   const serverManager = new ServerManager(discovery, client, context.workspaceState);
+  discovery.setOnAfterOpenUrlFromNotification((h, p) => {
+    serverManager.ensureActiveForDiscoveredPort(h, p);
+  });
   serverManager.setShowLog(() => connectionChannel.show());
   serverManager.setLog((msg) => {
     const line = `[${new Date().toISOString()}] ${msg}`;
