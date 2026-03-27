@@ -73,7 +73,7 @@ The subsections below are the **full feature inventory** (browser UI, REST API, 
 
 | Job to be done | What you use |
 | --- | --- |
-| **Browse & search** | Multi-table tabs, collapsible sidebar, pinned tables, row filters, match navigation, FK breadcrumbs, human-readable types, NULL display, cell copy / full-value popup, optional **PII masking**. |
+| **Browse & search** | Multi-table tabs, collapsible sidebar (header **Sidebar** can hide the whole left column for full-width content), pinned tables, row filters, match navigation, FK breadcrumbs, human-readable types, NULL display, cell copy / full-value popup, optional **PII masking**. |
 | **Query** | Read-only SQL with autocomplete, templates, history, saved queries; **visual query builder**; **Ask in English → SQL** (browser); **SQL Notebook**, snippets, global search, EXPLAIN tree (extension). |
 | **Visualize & sanity-check** | Inline **charts** from results; **anomaly** scan; **Index / Size / Perf / Health** tooling in the browser; **column profiler**, **sampling**, **row comparator**, **query regression** detector (extension). |
 | **Schema & migrations** | Live **schema SQL**, **ER diagram** (browser + extension); **schema diff**, **generate Dart from runtime**, **Isar → Drift**, **migration preview & codegen**, **rollback generator**, **constraint wizard**, **schema docs** (extension); **offline Dart schema scan** and **Schema Search** (including cached/offline tree). |

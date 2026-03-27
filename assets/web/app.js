@@ -1950,7 +1950,6 @@
       var aside = document.getElementById('app-sidebar');
       var btn = document.getElementById('app-sidebar-toggle');
       var icon = document.getElementById('app-sidebar-toggle-icon');
-      var label = document.getElementById('app-sidebar-toggle-label');
       if (!layout || !aside || !btn) return;
 
       /**
@@ -1967,7 +1966,6 @@
         );
         if (icon) icon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
         btn.title = collapsed ? 'Show tables sidebar' : 'Hide tables sidebar';
-        if (label) label.textContent = 'Sidebar';
       }
 
       var storedCollapsed = false;

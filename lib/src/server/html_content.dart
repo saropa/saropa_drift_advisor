@@ -16,6 +16,9 @@
 /// stylesheets that load before body content.
 ///
 /// Buttons and collapsible headers include [title] attributes for hover tooltips.
+///
+/// Layout shell uses [id="app-layout"], [id="app-sidebar"], and [id="app-sidebar-toggle"]
+/// so the client script can collapse the whole left column (see `initAppSidebarPanelToggle` in `app.js`).
 import 'server_constants.dart';
 
 abstract final class HtmlContent {

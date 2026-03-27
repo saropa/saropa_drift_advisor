@@ -1,5 +1,5 @@
-// Contract tests for the debug web viewer "Ask in English" NL→SQL flow.
-// Guards modal markup (html_content) and script wiring (app.js) after refactors.
+// Contract tests for the debug web viewer shell: NL→SQL modal markup and
+// layout toggles (html_content.dart, app.js, style.scss). Catches accidental ID renames.
 
 import 'dart:io';
 
@@ -11,6 +11,8 @@ void main() {
   final String htmlDart = File('lib/src/server/html_content.dart')
       .readAsStringSync()
       .replaceAll('\r\n', '\n');
+  final String styleScss =
+      File('assets/web/style.scss').readAsStringSync().replaceAll('\r\n', '\n');
 
   test('NL modal shell: compact trigger and preview field, no legacy inline row', () {
     expect(htmlDart, contains('id="nl-open"'));
@@ -30,22 +32,27 @@ void main() {
     expect(appJs, isNot(contains("getElementById('nl-convert')")));
   });
 
-  test('App sidebar toggle: shell IDs and JS wire label element before use', () {
+  test('App sidebar panel toggle: HTML ids, SCSS hook, JS key and toggle', () {
     expect(htmlDart, contains('id="app-layout"'));
     expect(htmlDart, contains('id="app-sidebar"'));
     expect(htmlDart, contains('id="app-sidebar-toggle"'));
+    expect(htmlDart, contains('id="app-sidebar-toggle-icon"'));
     expect(htmlDart, contains('id="app-sidebar-toggle-label"'));
     expect(
       htmlDart,
       isNot(contains('toolbar button above')),
       reason: 'sidebar no longer duplicates Export-tab directions',
     );
-    final labelDecl = "var label = document.getElementById('app-sidebar-toggle-label')";
-    final labelUse = 'if (label) label.textContent';
+    expect(styleScss, contains('app-sidebar-panel-collapsed'));
+    expect(appJs, contains('APP_SIDEBAR_PANEL_KEY'));
+    expect(appJs, contains('saropa_app_sidebar_collapsed'));
+    expect(appJs, contains("classList.toggle('app-sidebar-panel-collapsed'"));
+    final initFn = 'function initAppSidebarPanelToggle';
+    final toggleLine = "classList.toggle('app-sidebar-panel-collapsed'";
     expect(
-      appJs.indexOf(labelDecl),
-      lessThan(appJs.indexOf(labelUse)),
-      reason: 'label must be declared before applyAppSidebarCollapsed uses it',
+      appJs.indexOf(initFn),
+      lessThan(appJs.indexOf(toggleLine)),
+      reason: 'initializer must define applyAppSidebarCollapsed before toggle() runs',
     );
   });
 }
