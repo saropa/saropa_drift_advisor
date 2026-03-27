@@ -266,4 +266,13 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   get offlineSchema(): boolean {
     return this._offlineSchema;
   }
+
+  /**
+   * True when the tree has a non-empty table list from REST or offline cache.
+   * Used by Schema Search so we do not enable search while the UI is "connected"
+   * but table metadata never loaded (REST failure banner state).
+   */
+  isSchemaSearchAvailable(): boolean {
+    return this._tables.length > 0;
+  }
 }

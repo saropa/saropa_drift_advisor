@@ -230,6 +230,9 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
             vscode.Uri.parse('https://github.com/saropa/saropa_drift_advisor/issues'),
           );
           break;
+        case 'scanDartSchema':
+          await vscode.commands.executeCommand('driftViewer.scanDartSchemaDefinitions');
+          break;
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

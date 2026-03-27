@@ -45,6 +45,7 @@ ${SCHEMA_SEARCH_STYLE}
     <button type="button" class="linkish" id="btnOpenLog" title="Open Saropa Drift Advisor output">Output log</button>
     <button type="button" class="linkish" id="btnDiagnose" title="Run health check and log details">Diagnose connection</button>
     <button type="button" class="linkish" id="btnRetry" title="Re-scan for Drift debug servers">Retry Connection</button>
+    <button type="button" class="linkish" id="btnScanDartSchema" title="List Drift tables from Dart sources (no server)">Scan Dart sources</button>
     <button type="button" class="linkish" id="btnRefreshUi" title="Re-sync sidebar connection state">Refresh sidebar UI</button>
     <button type="button" class="linkish" id="btnForwardPort" title="Forward debug port on Android emulator">Forward Port (Android)</button>
     <button type="button" class="linkish" id="btnSelectServer" title="Pick Drift HTTP server">Select Server</button>

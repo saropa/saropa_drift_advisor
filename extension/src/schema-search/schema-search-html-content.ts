@@ -165,6 +165,7 @@ export const SCHEMA_SEARCH_SCRIPT = `
   document.getElementById('btnTroubleshoot').addEventListener('click', () => vscode.postMessage({ command: 'showTroubleshooting' }));
   document.getElementById('btnOpenLog').addEventListener('click', () => vscode.postMessage({ command: 'openConnectionLog' }));
   document.getElementById('btnRetry').addEventListener('click', () => vscode.postMessage({ command: 'retryDiscovery' }));
+  document.getElementById('btnScanDartSchema').addEventListener('click', () => vscode.postMessage({ command: 'scanDartSchema' }));
   document.getElementById('btnDiagnose').addEventListener('click', () => vscode.postMessage({ command: 'diagnoseConnection' }));
   document.getElementById('btnRefreshUi').addEventListener('click', () => vscode.postMessage({ command: 'refreshConnectionUi' }));
   document.getElementById('btnForwardPort').addEventListener('click', () => vscode.postMessage({ command: 'forwardPortAndroid' }));
@@ -206,24 +207,31 @@ export const SCHEMA_SEARCH_SCRIPT = `
     connected = msg.connected;
     schemaOps = !!msg.schemaOperationsEnabled;
     var persisted = msg.persistedSchemaAvailable === true;
-    disconnectedEl.classList.toggle('show', !connected);
-    if (!connected) {
-      if (schemaOps) {
-        discTitleEl.textContent = msg.label || 'Not connected';
-        discHintEl.textContent = msg.hint || '';
-        connStatusEl.style.display = 'block';
-        connStatusEl.textContent = 'Offline — Schema Search uses last-known schema.';
-      } else {
-        discTitleEl.textContent = persisted
-          ? 'Not connected — saved schema in this workspace'
-          : 'No Drift debug server connected';
-        var p1 = persisted
-          ? 'This workspace has a schema snapshot from an earlier session. Use Refresh sidebar UI or the Database tree Refresh button to load it and search offline (when enabled in settings).'
-          : 'Run your app with the Drift debug server. There is no saved schema in this workspace yet — connect once so Schema Search and the offline cache can work.';
-        discHintEl.textContent = p1 + (msg.hint ? '\\n\\n' + msg.hint : '');
-        connStatusEl.style.display = 'none';
-        connStatusEl.textContent = '';
-      }
+    var showHelpBanner = !connected || !schemaOps;
+    disconnectedEl.classList.toggle('show', showHelpBanner);
+    if (!connected && schemaOps) {
+      discTitleEl.textContent = msg.label || 'Not connected';
+      discHintEl.textContent = msg.hint || '';
+      connStatusEl.style.display = 'block';
+      connStatusEl.textContent = 'Offline — Schema Search uses last-known schema.';
+    } else if (connected && !schemaOps) {
+      discTitleEl.textContent = 'Connected — schema not loaded';
+      discHintEl.textContent =
+        'HTTP/VM reports a connection but table metadata is not available yet (REST may have failed). '
+        + 'Use Refresh tree or Diagnose in the Database section, or Scan Dart sources below (works offline).'
+        + (msg.hint ? '\\n\\n' + msg.hint : '');
+      connStatusEl.style.display = 'none';
+      connStatusEl.textContent = '';
+    } else if (!connected && !schemaOps) {
+      discTitleEl.textContent = persisted
+        ? 'Not connected — saved schema in this workspace'
+        : 'No Drift debug server connected';
+      var p1 = persisted
+        ? 'This workspace has a schema snapshot from an earlier session. Use Refresh sidebar UI or the Database tree Refresh button to load it and search offline (when enabled in settings).'
+        : 'Run your app with the Drift debug server. There is no saved schema in this workspace yet — connect once so Schema Search and the offline cache can work.';
+      discHintEl.textContent = p1 + (msg.hint ? '\\n\\n' + msg.hint : '');
+      connStatusEl.style.display = 'none';
+      connStatusEl.textContent = '';
     } else {
       connStatusEl.style.display = 'block';
       connStatusEl.textContent = msg.label ? ('Connected: ' + msg.label) : 'Connected';

@@ -49,6 +49,7 @@ export type SchemaSearchMessage =
   | { command: 'selectServer' }
   | { command: 'openGettingStarted' }
   | { command: 'openReportIssue' }
+  | { command: 'scanDartSchema' }
   | { command: 'ready' };
 
 /** Messages sent from the extension host to the webview. */

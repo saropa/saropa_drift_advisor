@@ -202,5 +202,27 @@ describe('connection-ui-state', () => {
       assert.strictEqual(pres.persistedSchemaAvailable, true);
       assert.strictEqual(pres.schemaOperationsEnabled, false);
     });
+
+    it('disables Schema Search when connected but Database tree has no table list (REST not ready)', () => {
+      sandbox.replaceGetter(client, 'usingVmService', () => false);
+      (discovery as any)._onDidChangeServers.fire([makeServer(8642)]);
+      const schema = { setConnectionPresentation: sinon.stub() };
+      const tree = {
+        offlineSchema: false,
+        isSchemaSearchAvailable: () => false,
+      };
+      refreshDriftConnectionUi(manager, client, {
+        toolsProvider: { setConnected: sinon.stub() } as any,
+        schemaSearchProvider: schema as any,
+        treeProvider: tree as any,
+      });
+      const pres = schema.setConnectionPresentation.firstCall.args[0];
+      assert.strictEqual(pres.connected, true);
+      assert.strictEqual(
+        pres.schemaOperationsEnabled,
+        false,
+        'search/browse should stay off until the tree has loaded schema rows',
+      );
+    });
   });
 });

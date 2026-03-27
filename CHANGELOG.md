@@ -27,6 +27,10 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 • **VS Code: Database sidebar when REST schema fails** — If the UI shows a connection but the Database tree cannot load schema from the REST API, the explorer now lists a warning row and the same troubleshooting commands as **clickable tree items** (Refresh, Diagnose, Troubleshooting, log, browser, Select Server, web help). Some editors do not run `viewsWelcome` markdown `command:` links, which made those controls appear to do nothing. **Refresh tree** also shows a result notification after each attempt; **Connection help (web)** shows a short toast before opening the docs.
 
+### Documentation
+
+• **`doc/API.md` — Run SQL from links** — Documents the web viewer `GET /?sql=` deep link (prefill Run SQL, `replaceState`, privacy and URL-length caveats) alongside `POST /api/sql`, and lists `sql` in the query-parameter reference table. Plan `plans/48-log-capture-sql-deeplink-and-api.md` updated to match (cross-refs, Log Capture as external contract, security notes).
+
 ---
 
 ## [2.10.0]
@@ -62,6 +66,8 @@ Clearer table row counts, inline table column definitions, a more polished Size 
 • **Go to Dart definitions from sidebar** — Context menu and Schema Search result clicks open the Drift table/column definition in the workspace when found (`drift-source-locator.ts` shared with F12 in SQL strings); otherwise Schema Search falls back to revealing the table in the Database tree.
 
 • **Scan Dart schema definitions (offline)** — Command **Saropa Drift Advisor: Scan Dart Schema Definitions** lists Drift `Table` classes, columns, `uniqueKeys`, and `Index` / `UniqueIndex` entries from workspace `.dart` files (excludes `build/`). No debug server or prior session required. Output → **Drift Dart schema**; setting `driftViewer.dartSchemaScan.openOutput` controls auto-opening the channel. The shared parser also records `indexes` / `uniqueKeys` on `IDartTable` for Schema Diff and diagnostics.
+
+• **Schema Search when “connected” but schema missing** — If HTTP/VM reports connected before REST table metadata loads (or it fails), Schema Search keeps the yellow help banner visible (Retry, Diagnose, **Scan Dart sources**, etc.) until the Database tree has loaded a table list. Search/browse stay off until then (`DriftTreeProvider.isSchemaSearchAvailable()`).
 
 ---
 

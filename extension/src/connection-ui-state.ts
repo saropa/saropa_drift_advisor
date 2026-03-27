@@ -157,10 +157,14 @@ export function refreshDriftConnectionUi(
   const offlineTree = targets.treeProvider?.offlineSchema === true;
   const persistedSchemaAvailable =
     targets.schemaCache?.hasWorkspacePersistedSchema() === true;
+  /** When the Database tree has no tables yet, disable search even if HTTP/VM says connected. */
+  const treeSearchOk =
+    targets.treeProvider?.isSchemaSearchAvailable?.() ?? true;
   const pres: DriftConnectionPresentation = {
     ...base,
     persistedSchemaAvailable,
-    schemaOperationsEnabled: base.connected || offlineTree,
+    schemaOperationsEnabled:
+      offlineTree || (base.connected && treeSearchOk),
     hint:
       offlineTree && !base.connected
         ? `${base.hint} Schema Search can use last-known schema from this workspace.`
