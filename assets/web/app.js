@@ -973,13 +973,13 @@
         li.classList.add('disconnected');
         li.classList.remove('paused', 'reconnecting');
         li.disabled = true;
-        li.title = 'Connection lost. Reconnect to toggle Live/Paused.';
+        li.title = 'Offline — connection lost. Reconnect to resume live updates.';
       } else {
         li.textContent = '\u25cf Reconnecting\u2026';
         li.classList.add('disconnected', 'reconnecting');
         li.classList.remove('paused');
         li.disabled = true;
-        li.title = 'Reconnecting…';
+        li.title = 'Offline — reconnecting…';
       }
     }
 
@@ -1806,6 +1806,9 @@
       // Update only the label span so the Material icon is preserved (Phase 4.1).
       var themeLabel = document.getElementById('theme-toggle-label');
       if (themeLabel) themeLabel.textContent = dark ? 'Dark' : 'Light';
+      // Tooltip names the next mode so "dark" / "light" stay discoverable on hover.
+      var themeBtn = document.getElementById('theme-toggle');
+      if (themeBtn) themeBtn.title = dark ? 'Light theme — click to switch from dark' : 'Dark theme — click to switch from light';
     }
 
     // Detect whether we are running inside a VS Code webview by checking
@@ -1939,6 +1942,48 @@
     };
 
     initTabsAndToolbar();
+
+    // --- Whole left sidebar (table list + search): header toggle + localStorage ---
+    var APP_SIDEBAR_PANEL_KEY = 'saropa_app_sidebar_collapsed';
+    (function initAppSidebarPanelToggle() {
+      var layout = document.getElementById('app-layout');
+      var aside = document.getElementById('app-sidebar');
+      var btn = document.getElementById('app-sidebar-toggle');
+      var icon = document.getElementById('app-sidebar-toggle-icon');
+      var label = document.getElementById('app-sidebar-toggle-label');
+      if (!layout || !aside || !btn) return;
+
+      /**
+       * Applies collapsed state to layout, aside visibility for assistive tech, and button chrome.
+       * @param {boolean} collapsed - When true, sidebar track has zero width and main content is full width.
+       */
+      function applyAppSidebarCollapsed(collapsed) {
+        layout.classList.toggle('app-sidebar-panel-collapsed', collapsed);
+        aside.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
+        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        btn.setAttribute(
+          'aria-label',
+          collapsed ? 'Show tables sidebar' : 'Hide tables sidebar'
+        );
+        if (icon) icon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
+        btn.title = collapsed ? 'Show tables sidebar' : 'Hide tables sidebar';
+        if (label) label.textContent = 'Sidebar';
+      }
+
+      var storedCollapsed = false;
+      try {
+        storedCollapsed = localStorage.getItem(APP_SIDEBAR_PANEL_KEY) === '1';
+      } catch (e) { /* localStorage unavailable */ }
+      applyAppSidebarCollapsed(storedCollapsed);
+
+      btn.addEventListener('click', function() {
+        var collapsed = !layout.classList.contains('app-sidebar-panel-collapsed');
+        applyAppSidebarCollapsed(collapsed);
+        try {
+          localStorage.setItem(APP_SIDEBAR_PANEL_KEY, collapsed ? '1' : '0');
+        } catch (e) { /* ignore */ }
+      });
+    })();
 
     // --- Sidebar tables collapsible toggle ---
     // Clicking the "Tables" heading collapses/expands the sidebar table list.
@@ -5709,8 +5754,8 @@
         liveIndicator.classList.toggle('paused', !pollingEnabled);
         liveIndicator.disabled = false;
         liveIndicator.title = pollingEnabled
-          ? 'Live. Click to pause change detection.'
-          : 'Paused. Click to resume live updates.';
+          ? 'Live — click to pause change detection.'
+          : 'Paused — click to resume live updates.';
       }
       // When disconnected, updateLiveIndicatorForConnection() sets text and disabled state.
     }

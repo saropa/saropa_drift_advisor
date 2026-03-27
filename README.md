@@ -1,18 +1,59 @@
 ![Saropa Drift Advisor - SQLite/Drift](https://raw.githubusercontent.com/saropa/saropa_drift_advisor/main/assets/banner_v2.png)
 
-<!-- # Saropa Drift Advisor -->
+# Saropa Drift Advisor
 
 [![pub package](https://img.shields.io/pub/v/saropa_drift_advisor.svg)](https://pub.dev/packages/saropa_drift_advisor)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/saropa.drift-viewer.svg?label=VS%20Code)](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer)
+[![Open VSX](https://img.shields.io/open-vsx/v/saropa/drift-viewer?label=Open%20VSX)](https://open-vsx.org/extension/saropa/drift-viewer)
 [![CI](https://github.com/saropa/saropa_drift_advisor/actions/workflows/main.yaml/badge.svg)](https://github.com/saropa/saropa_drift_advisor/actions/workflows/main.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Debug-only HTTP server + VS Code extension for inspecting SQLite/Drift databases in Flutter and Dart apps. Two ways to access your data — a browser-based web UI and a full-featured VS Code extension with IDE integration.
+**Saropa Drift Advisor** is a **debug-only** toolkit for SQLite and [Drift](https://drift.simonbinder.eu/) in Flutter and Dart. Your app hosts a small **HTTP debug server**; you inspect the same database through a **full browser UI** or the **VS Code / Cursor extension**—same REST API, same live data. Beyond browsing: SQL notebooks and EXPLAIN trees, ER diagrams and schema diff, migration preview and rollback codegen, anomaly and index tooling, optional imports/edits with **batch apply**, **VM Service** integration while debugging, merged **`/api/issues`** for linters, pre-launch health tasks, portable HTML reports, and shareable **session URLs**. None of it ships in release builds if you gate on `kDebugMode`. For a **single table** that maps every major capability, see **[Scope at a glance](#scope-at-a-glance)** under [Features](#features).
+
+| | |
+| --- | --- |
+| **One dependency in the app** | Start the server behind `kDebugMode`; the Dart package has **zero third-party runtime dependencies**. |
+| **Two clients** | Open **`http://127.0.0.1:8642`** from any browser, or use the extension for tree views, SQL notebooks, and navigation into your Drift source. |
+| **Built for real workflows** | Optional **Bearer / Basic auth** for tunnels, **rate limits**, **import/export**, **portable HTML reports**, and IDE features that understand your `Table` classes—including **offline** schema scan from `.dart` files. |
+
+### Install at a glance
+
+| What | Where |
+| --- | --- |
+| **Dart / Flutter package** | [`saropa_drift_advisor` on pub.dev](https://pub.dev/packages/saropa_drift_advisor) — add to `pubspec.yaml`, call `startDriftViewer` or `DriftDebugServer.start` (see [Quick start](#quick-start)). |
+| **VS Code / Cursor** | [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer) · [Open VSX](https://open-vsx.org/extension/saropa/drift-viewer) — Marketplace id `saropa.drift-viewer` ([why that id?](#vs-code-extension-separate-install)). |
+| **REST API** | [doc/API.md](doc/API.md) — endpoints, schemas, errors, examples (for custom tools or automation). |
+
+### Why teams use it
+
+- **See the DB your app actually has** — Emulator, device, or desktop: one URL or one sidebar instead of juggling `sqlite3` and file paths.
+- **Keep code and schema honest** — Schema diff, linter-style hints, migration preview/rollback helpers, **scan Drift definitions from Dart** with no running app, and a merged **`GET /api/issues`** surface for tools like Saropa Lints.
+- **Debug without drowning in logs** — Mutation stream, snapshots, compare-to-current, row-level navigation along foreign keys.
+- **Share safely** — Mask PII in the viewer, optional auth on the wire, and time-boxed collaborative sessions for QA or reviews.
+
+### Contents
+
+- [How it works](#how-it-works)
+- [Features](#features)
+  - [Scope at a glance](#scope-at-a-glance)
+  - [HTTP debug server (core)](#http-debug-server-core)
+  - [VS Code extension](#vs-code-extension-separate-install)
+- [Quick start](#quick-start)
+- [API summary](#api-summary)
+- [Security](#security)
+- [Documentation and resources](#documentation-and-resources)
+- [Development](#development)
+- [Publishing](#publishing)
+
+> **README ↔ changelog:** This file was last revised to match **[CHANGELOG.md](CHANGELOG.md) version 2.10.0**. For the full version history and older releases, see the changelog and [CHANGELOG_ARCHIVE.md](CHANGELOG_ARCHIVE.md).
 
 ---
 
 ## How it works
 
-Your app runs a lightweight debug server that exposes database tables over HTTP. You inspect the data using either a **browser** or the **VS Code extension** — both connect to the same server.
+Your app runs a lightweight debug server that exposes database tables over HTTP. **`DriftDebugServer`** (or **`startDriftViewer`**) binds to a port (default **8642**), runs **only when you enable it** (typically `kDebugMode`), and serves JSON plus the bundled **web viewer** assets. Any client that can reach that host/port—**a browser tab**, the **VS Code extension**, or your own scripts using **[doc/API.md](doc/API.md)**—talks to the **same** live database through the same API.
+
+You usually inspect data in either a **browser** or the **extension**; both are first-class.
 
 | | Browser | VS Code Extension |
 |---|---|---|
@@ -24,6 +65,25 @@ Your app runs a lightweight debug server that exposes database tables over HTTP.
 
 ## Features
 
+The subsections below are the **full feature inventory** (browser UI, REST API, and extension). If you only read one part of this README, read this: the project is not “a table viewer”—it is a **debug platform** for Drift/SQLite.
+
+<a id="scope-at-a-glance"></a>
+
+### Scope at a glance
+
+| Job to be done | What you use |
+| --- | --- |
+| **Browse & search** | Multi-table tabs, collapsible sidebar, pinned tables, row filters, match navigation, FK breadcrumbs, human-readable types, NULL display, cell copy / full-value popup, optional **PII masking**. |
+| **Query** | Read-only SQL with autocomplete, templates, history, saved queries; **visual query builder**; **Ask in English → SQL** (browser); **SQL Notebook**, snippets, global search, EXPLAIN tree (extension). |
+| **Visualize & sanity-check** | Inline **charts** from results; **anomaly** scan; **Index / Size / Perf / Health** tooling in the browser; **column profiler**, **sampling**, **row comparator**, **query regression** detector (extension). |
+| **Schema & migrations** | Live **schema SQL**, **ER diagram** (browser + extension); **schema diff**, **generate Dart from runtime**, **Isar → Drift**, **migration preview & codegen**, **rollback generator**, **constraint wizard**, **schema docs** (extension); **offline Dart schema scan** and **Schema Search** (including cached/offline tree). |
+| **Time travel & compare** | **Snapshots** vs current; **database vs database** diff and migration DDL; timeline snapshots and changelog (extension). |
+| **Collaborate & hand off** | **Share session** URLs (annotations, expiry, extend); **portable HTML reports**; dumps, CSV, raw `.db` download. |
+| **Optional writes** | **Import** (CSV/JSON/SQL) with column mapping; **data editing** with undo, SQL preview, **FK-aware batch apply** (`writeQuery`, **`POST /api/edits/apply`**); **seeding** and **clear** helpers (extension). |
+| **Connect & automate** | Same data over **HTTP** ([doc/API.md](doc/API.md)) and, while debugging, **VM Service** RPCs (lighter discovery, batch apply, health parity). **`GET /api/health`** exposes **version**, **capabilities** (e.g. merged issues), and write flags; **`GET /api/issues`** feeds IDE integrations (**Saropa Lints**). |
+| **Harden debug access** | **Bearer / Basic** auth, **CORS**, **rate limits**, **loopback-only** bind, session TTL—see [Security](#security). |
+| **CI / launch hygiene** | Extension **pre-launch tasks**: health, anomaly scan, index coverage; **Log Capture** bridge for session timelines. |
+
 ### HTTP Debug Server (core)
 
 The Dart package starts a lightweight HTTP server that exposes your database over a REST API.
@@ -31,12 +91,13 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 #### Data Browsing
 
 - **Tools toolbar and tabs** — Tables, Search, Snapshot, DB diff, Index, Size, Perf, Health, Import, Schema, Diagram, and Export: each toolbar button opens the corresponding tab (Tables and Search are fixed tabs; others are closeable). Toolbar and tab bar use clear visual styling (tabs show a border to content).
-- **Table list** with row counts
+- **Sidebar** — Header **Sidebar** control hides or shows the whole left column (search + table list) for a full-width main area; preference is persisted in the browser.
+- **Table list** with row counts (comma-grouped numbers in parentheses beside each name in sidebar, grids, and pickers)
 - **View rows** as JSON with pagination (limit/offset)
 - **Client-side row filter** search with **result navigation** — Search options live behind the toolbar **Search** icon; a **Search** tab shows results in a dedicated panel. Auto-scroll to match, "X of Y" counter, Prev/Next buttons; keyboard shortcuts (Enter/Shift+Enter, Ctrl+G, Ctrl+F, Escape); active match highlight; collapsed sections expand when navigating to a match. **All rows / Matching** toggle when a row filter is set; **Schema** and **Table data** sections are collapsible in the Both view.
 - **Foreign key navigation** — click FK values to jump to the referenced row; **clickable breadcrumb steps** (jump to any table in the trail); breadcrumb persistence in localStorage; "Clear path" button
 - **Data type display toggle** — raw SQLite values or human-readable (epoch → ISO 8601, 0/1 → true/false)
-- **PII masking toggle** — header "Mask data" checkbox masks sensitive columns (email, phone, password, token, SSN, address) in table view and Table CSV export (e.g. `j***@example.com`, `***-***-1234`); copy and export respect the toggle
+- **PII masking toggle** — header **Mask** checkbox masks sensitive columns (email, phone, password, token, SSN, address) in table view and Table CSV export (e.g. `j***@example.com`, `***-***-1234`); copy and export respect the toggle
 - **One-click cell copy** on hover with toast notification; long values truncate with ellipsis; **double-click a cell** to view full value in a popup with Copy button (Escape or backdrop to close)
 
 #### Query Tools
@@ -44,7 +105,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Read-only SQL runner** with table/column autocomplete, templates, and query history
 - **Saved queries** — save, name, export/import as JSON
 - **Visual query builder** — SELECT checkboxes, type-aware WHERE clauses with AND/OR between conditions, ORDER BY, LIMIT, live SQL preview
-- **Natural language → SQL** — English questions (count, average, latest, group-by) converted via pattern matching
+- **Natural language → SQL** — **Ask in English…** opens a modal with live SQL preview (debounced); English questions (count, average, latest, group-by) map via pattern matching; **Use** copies into the main editor without replacing run-error UI
 - **Explain plan** — plain-English summary (full table scan vs index lookup)
 
 #### Data Visualization
@@ -80,7 +141,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 #### Performance & Analytics
 
 - **Query performance stats** — total queries, slow queries (>100 ms), patterns, recent queries
-- **Storage size analytics** — table sizes, indexes, journal mode; opening the Size tab runs analysis automatically
+- **Storage size analytics** — table sizes, indexes, journal mode; opening the Size tab runs analysis automatically; summary cards use grouped numbers, tooltips on metrics, and table names link into table tabs; **Analyze** refreshes on demand while revisiting the tab reuses the last result in-session
 
 #### Server Configuration
 
@@ -121,7 +182,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 
 #### Code Intelligence
 
-- **Go to Definition** (F12) / **Peek** (Alt+F12) — jump from SQL table/column names in Dart to Drift class definitions
+- **Go to Definition** (F12) / **Peek** (Alt+F12) — jump from SQL table/column names in Dart to Drift class definitions; Database tree and Schema Search use the same locator (context menu / result clicks open the `.dart` file when the symbol is found)
 - **CodeLens** — live row counts and quick actions ("View in Saropa Drift Advisor", "Run Query") on `class ... extends Table`
 - **Hover preview** — see recent rows when hovering over table class names during debug
 - **Schema linter** — real-time diagnostics for missing indexes, anomalies, constraint violations; quick-fix code actions
@@ -137,7 +198,10 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 
 #### Schema & Migration
 
+- **Scan Dart schema (offline)** — Command Palette: **Saropa Drift Advisor: Scan Dart Schema Definitions** parses workspace `.dart` files for Drift `Table` classes (columns, `uniqueKeys`, `Index` / `UniqueIndex`); output in **Drift Dart schema**; no debug server required (`driftViewer.dartSchemaScan.openOutput` controls auto-open)
 - **Schema diff** — compare Drift table definitions in code vs runtime schema
+- **Schema Search (disconnected)** — Startup and troubleshooting copy when the server is down; optional search against **persisted schema** when the offline tree is enabled
+- **Offline Database tree** — `driftViewer.database.allowOfflineSchema` (default on): repopulate the tree from last-known workspace schema when the server is unreachable ("Offline — cached schema")
 - **Schema diagram** — ER-style visualization with FK relationship lines; keyboard-navigable with screen reader support
 - **Generate Dart from schema** — scaffold Drift table classes from runtime schema
 - **Isar-to-Drift generator** — convert `@collection` classes to Drift tables (Dart source or JSON schema, configurable embedded/enum strategies)
@@ -203,7 +267,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 ```yaml
 # pubspec.yaml
 dependencies:
-  saropa_drift_advisor: ^0.1.0
+  saropa_drift_advisor: ^2.9.0   # use the latest compatible release from pub.dev
 ```
 
 **Path dependency (local or monorepo):**
@@ -296,6 +360,7 @@ Use the **VS Code extension** (recommended) or open **http://127.0.0.1:8642** in
 | **`authToken`**                               | Optional; requests require Bearer token or `?token=`. Use for tunnels.       |
 | **`basicAuthUser`** / **`basicAuthPassword`** | Optional; HTTP Basic auth when both set.                                     |
 | **`getDatabaseBytes`**                        | Optional; when set, `GET /api/database` serves raw SQLite file for download. |
+| **`writeQuery`**                              | Optional; enables **import**, cell edits, **`POST /api/edits/apply`**, and related write paths (validated SQL only). |
 | **`queryCompare`**                            | Optional; enables database diff vs another DB (e.g. staging).                |
 | **`sessionDuration`**                         | Optional; expiry for shared session URLs (default 1 hour).                   |
 | **`maxRequestsPerSecond`**                     | Optional; per-IP rate limiting; 429 when exceeded.                         |
@@ -312,7 +377,7 @@ Use the **VS Code extension** (recommended) or open **http://127.0.0.1:8642** in
 **Debug only.** Do not enable in production.
 
 - Default bind: `0.0.0.0`; use **`loopbackOnly: true`** to bind to `127.0.0.1` only.
-- Read-only: table listing and table data; SQL runner and EXPLAIN accept **read-only** SQL (`SELECT` / `WITH ... SELECT` only); writes and DDL are rejected. Table/column endpoints use allow-lists; table names and limit/offset are validated.
+- **Default read-only posture:** table listing and reads; SQL runner and EXPLAIN accept **read-only** SQL (`SELECT` / `WITH ... SELECT` only); ad-hoc writes and DDL are rejected. If you supply **`writeQuery`**, only **explicit** import/edit/batch-apply flows run validated write statements—never arbitrary client SQL. Table/column endpoints use allow-lists; table names and limit/offset are validated.
 
 **Secure dev tunnel (ngrok, port forwarding):** use **`authToken`** or **`basicAuthUser`** / **`basicAuthPassword`**:
 
@@ -326,6 +391,19 @@ await DriftDebugServer.start(
 ```
 
 With token auth, open `https://your-tunnel.example/?token=your-secret-token`; the page uses the token for all API calls. You can also send `Authorization: Bearer your-secret-token`.
+
+---
+
+## Documentation and resources
+
+| Resource | Description |
+| --- | --- |
+| **[doc/API.md](doc/API.md)** | REST endpoints, request/response shapes, and error codes for the debug server. |
+| **[extension/README.md](extension/README.md)** | Extension commands, **25+** `driftViewer.*` settings, keyboard shortcuts, and troubleshooting. |
+| **[example/README.md](example/README.md)** | Runnable sample app (multi-table schema, FKs, optional auth). |
+| **[pub.dev documentation](https://pub.dev/documentation/saropa_drift_advisor/latest/)** | Generated Dart API docs for the package. |
+| **[CHANGELOG.md](CHANGELOG.md)** | Release notes (this README is aligned with **2.10.0**; older entries in [CHANGELOG_ARCHIVE.md](CHANGELOG_ARCHIVE.md)). |
+| **[Issues](https://github.com/saropa/saropa_drift_advisor/issues)** | Bug reports and feature requests. |
 
 ---
 
@@ -351,6 +429,6 @@ The Dart pipeline runs pub.dev score checks (downgrade + analyze, dependency up-
 
 - **Stale override check:** `python scripts/check_stale_overrides.py [--pubspec PATH] [--flutter]` — classifies `dependency_overrides` as required vs safe-to-remove by running a version solve with each override removed.
 
-**Manual:** Bump version in `pubspec.yaml`, then `git tag v0.1.0` and `git push origin v0.1.0`. GitHub Actions publishes to pub.dev.
+**Manual:** Bump version in `pubspec.yaml`, then `git tag v2.x.x` and `git push origin v2.x.x`. GitHub Actions publishes to pub.dev.
 
 - [Package on pub.dev](https://pub.dev/packages/saropa_drift_advisor)

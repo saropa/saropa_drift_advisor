@@ -56,18 +56,20 @@ abstract final class HtmlContent {
       <a id="version-badge" class="app-version meta" style="opacity:0;" href="https://marketplace.visualstudio.com/items/Saropa.drift-viewer/changelog" target="_blank" rel="noopener noreferrer" title="View changelog"> </a>
     </div>
     <div class="app-header-actions">
-      <button type="button" id="theme-toggle" class="header-btn" title="Toggle light/dark"><span class="material-symbols-outlined header-icon" aria-hidden="true">dark_mode</span><span id="theme-toggle-label">Theme</span></button>
+      <!-- Whole left sidebar (search + table list): toggle width to 0 so main content can use full width. -->
+      <button type="button" id="app-sidebar-toggle" class="header-btn" title="Hide tables sidebar" aria-label="Hide tables sidebar" aria-expanded="true" aria-controls="app-sidebar"><span class="material-symbols-outlined header-icon" id="app-sidebar-toggle-icon" aria-hidden="true">chevron_left</span><span id="app-sidebar-toggle-label">Sidebar</span></button>
+      <button type="button" id="theme-toggle" class="header-btn" title="Dark or light theme"><span class="material-symbols-outlined header-icon" aria-hidden="true">dark_mode</span><span id="theme-toggle-label">Theme</span></button>
       <button type="button" id="share-btn" class="header-btn" title="Share current view with your team"><span class="material-symbols-outlined header-icon" aria-hidden="true">share</span>Share</button>
-      <label class="header-mask-toggle" title="When on, PII columns (e.g. email, phone) are masked in table view and exports">
+      <label class="header-mask-toggle" title="Mask sensitive columns in table view and exports">
         <input type="checkbox" id="pii-mask-toggle" aria-label="Mask sensitive data" />
         <span class="material-symbols-outlined header-icon" aria-hidden="true">visibility_off</span>
-        <span id="pii-mask-label">Mask data</span>
+        <span id="pii-mask-label">Mask</span>
       </label>
-      <button type="button" id="live-indicator" class="header-pill connection-status" title="Connection status. When live, click to pause; when paused, click to resume." aria-live="polite">● Live</button>
+      <button type="button" id="live-indicator" class="header-pill connection-status" title="Live, paused, or offline — connection status" aria-live="polite">● Live</button>
     </div>
   </header>
-  <div class="app-layout">
-    <aside class="app-sidebar">
+  <div class="app-layout" id="app-layout">
+    <aside class="app-sidebar" id="app-sidebar">
       <!-- Search options: collapsed by default; toolbar Search button toggles visibility. -->
       <div id="sidebar-search-wrap" class="sidebar-section search-options-wrap collapsed" aria-hidden="true">
         <h2 class="sidebar-section-title">Search</h2>
@@ -93,9 +95,6 @@ abstract final class HtmlContent {
           <button type="button" id="row-display-matching" class="row-display-btn active" title="Show only rows matching filter">Matching</button>
         </div>
       </div>
-      </div>
-      <div class="sidebar-section">
-        <p class="meta" style="margin:0 0 0.5rem 0;">Export schema, dumps, and table data from the <strong>Export</strong> tab (toolbar button above).</p>
       </div>
       <p id="tables-loading" class="meta">Loading tables…</p>
       <div id="sidebar-tables-wrap" class="sidebar-section sidebar-tables-wrap">

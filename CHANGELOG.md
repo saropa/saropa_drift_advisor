@@ -37,6 +37,10 @@ Clearer table row counts, inline table column definitions, a more polished Size 
 
 • **Ask in English (debug web UI)** — Replaces the full-width bright text row with an **Ask in English…** control that opens a modal: multiline question, dark-themed **Generated SQL (preview)** that updates as you type (debounced), and **Use** to copy into the main SQL editor. Cancel, Escape, or the backdrop close without changing the main editor. NL conversion errors stay in the modal so they do not replace SQL run errors below the editor.
 
+• **Sidebar panel toggle (debug web UI)** — Header **Sidebar** control collapses the full left column (search + table list) so the main panel can use the full width; collapsed state is stored in `localStorage`. Removed the redundant sidebar line that only pointed users to the **Export** tab (export downloads are unchanged on that tab).
+
+• **Header chrome (debug web UI)** — Shorter mask and live-status labeling where it reduces clutter; theme button tooltip names the mode you switch to on click.
+
 ### VS Code extension
 
 • **Schema Search panel (disconnected)** — Removed the native welcome overlay that could leave the webview area blank; added a static startup line, full troubleshooting actions aligned with the Database section (Open in Browser, Troubleshooting, Retry, Refresh sidebar UI, Forward Port, Select Server, etc.), resource links, and copy that distinguishes “no saved schema in this workspace” vs “saved schema available.” Connection state includes `persistedSchemaAvailable` from workspace cache.

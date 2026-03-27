@@ -214,23 +214,22 @@ body.theme-light .header-pill.live {
   outline-offset: 2px;
 }
 
-/* --- Two-column layout --- */
+/* --- Two-column layout (flex so sidebar width can animate when collapsing) --- */
 .app-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 300px) 1fr;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
   gap: 0;
   padding: 0;
   max-width: 100%;
   min-height: calc(100vh - 60px);
 }
 
-@media (max-width: 900px) {
-  .app-layout {
-    grid-template-columns: 1fr;
-    min-height: 0;
-  }
-}
 .app-sidebar {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: clamp(280px, 100%, 300px);
+  max-width: min(300px, 100%);
   min-width: 0;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
@@ -241,18 +240,49 @@ body.theme-light .header-pill.live {
   /* Match app-header height so sidebar sticks below it (header ~57px with padding). */
   top: 57px;
   max-height: calc(100vh - 57px);
+  transition: width 0.2s ease, max-width 0.2s ease, padding 0.2s ease, border-width 0.2s ease, opacity 0.15s ease;
 }
 
+/* Collapsed via header toggle: sidebar shrinks to zero; main column grows. */
+.app-layout.app-sidebar-panel-collapsed .app-sidebar {
+  width: 0;
+  max-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-right-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar {
+    transition: none;
+  }
+}
 @media (max-width: 900px) {
+  .app-layout {
+    flex-direction: column;
+    min-height: 0;
+  }
   .app-sidebar {
     position: static;
     max-height: none;
+    width: 100%;
+    max-width: none;
     border-right: none;
     border-bottom: 1px solid var(--border);
     padding-bottom: 1rem;
+    transition: none;
+  }
+  .app-layout.app-sidebar-panel-collapsed .app-sidebar {
+    display: none;
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 .app-main-content {
+  flex: 1 1 0;
   min-width: 0;
   min-height: 0;
   padding: 1.25rem var(--panel-padding-x) 2rem;

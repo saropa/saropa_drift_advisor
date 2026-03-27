@@ -29,4 +29,23 @@ void main() {
     expect(appJs, isNot(contains("getElementById('nl-input')")));
     expect(appJs, isNot(contains("getElementById('nl-convert')")));
   });
+
+  test('App sidebar toggle: shell IDs and JS wire label element before use', () {
+    expect(htmlDart, contains('id="app-layout"'));
+    expect(htmlDart, contains('id="app-sidebar"'));
+    expect(htmlDart, contains('id="app-sidebar-toggle"'));
+    expect(htmlDart, contains('id="app-sidebar-toggle-label"'));
+    expect(
+      htmlDart,
+      isNot(contains('toolbar button above')),
+      reason: 'sidebar no longer duplicates Export-tab directions',
+    );
+    final labelDecl = "var label = document.getElementById('app-sidebar-toggle-label')";
+    final labelUse = 'if (label) label.textContent';
+    expect(
+      appJs.indexOf(labelDecl),
+      lessThan(appJs.indexOf(labelUse)),
+      reason: 'label must be declared before applyAppSidebarCollapsed uses it',
+    );
+  });
 }
