@@ -17,7 +17,9 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
-## [Unreleased]
+## [2.9.0]
+
+Lighter extension load on SQLite, authenticated discovery, and a path from pending cell edits to the database—batch apply, bulk-edit UI, and foreign-key–aware ordering.
 
 ### Improved (Debug server & extension)
 
@@ -35,7 +37,7 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
-## [2.8.2]
+## [2.9.0]
 
 Faster disconnect detection, quieter logs, and a banner that actually shows up.
 
