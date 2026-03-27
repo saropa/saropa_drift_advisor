@@ -6,7 +6,7 @@ Versions 1.4.3 and prior. For current changes see [CHANGELOG.md](./CHANGELOG.md)
 
 ## [1.4.3]
 
-Most of the extension's ~105 commands were only accessible via the Command Palette. Five new discovery surfaces ensure every major feature has a visible entry point.
+Most of the extension's ~105 commands were only accessible via the Command Palette. Five new discovery surfaces ensure every major feature has a visible entry point. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.4.3/CHANGELOG.md)
 
 ### Added
 
@@ -28,7 +28,7 @@ Most of the extension's ~105 commands were only accessible via the Command Palet
 
 ## [1.4.1]
 
-Select any schema change from the timeline and instantly generate the reverse migration — both the rollback SQL and the Dart code.
+Select any schema change from the timeline and instantly generate the reverse migration — both the rollback SQL and the Dart code. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.4.1/CHANGELOG.md)
 
 ### Added
 
@@ -50,7 +50,7 @@ Select any schema change from the timeline and instantly generate the reverse mi
 
 ## [1.4.2]
 
-Fixes a critical bug that prevented VM Service auto-detection during Flutter/Dart debugging, hardens the entire connection/discovery subsystem with timeouts, retries, and exponential backoff, and adds comprehensive connection diagnostics.
+Fixes a critical bug that prevented VM Service auto-detection during Flutter/Dart debugging, hardens the entire connection/discovery subsystem with timeouts, retries, and exponential backoff, and adds comprehensive connection diagnostics. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.4.2/CHANGELOG.md)
 
 ### Fixed
 
@@ -76,7 +76,7 @@ Fixes a critical bug that prevented VM Service auto-detection during Flutter/Dar
 
 ## [1.4.0]
 
-Export your database as a shareable, self-contained HTML report — open it in any browser with zero dependencies. Detects when queries slow down across debug sessions and alerts you before regressions become production issues.
+Export your database as a shareable, self-contained HTML report — open it in any browser with zero dependencies. Detects when queries slow down across debug sessions and alerts you before regressions become production issues. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.4.0/CHANGELOG.md)
 
 ### Added
 
@@ -94,7 +94,7 @@ Export your database as a shareable, self-contained HTML report — open it in a
 
 ## [1.3.4]
 
-Implemented a master switch to turn the extension off, and an “Add package to project” flow.
+Implemented a master switch to turn the extension off, and an “Add package to project” flow. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.3.4/CHANGELOG.md)
 
 ### Added
 
@@ -112,7 +112,7 @@ Implemented a master switch to turn the extension off, and an “Add package to 
 
 ## [1.3.2]
 
-Health Score, schema linter, and timeline now work over the VM Service—so you can use them on an emulator without HTTP.
+Health Score, schema linter, and timeline now work over the VM Service—so you can use them on an emulator without HTTP. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.3.2/CHANGELOG.md)
 
 ### Added
 
@@ -130,7 +130,7 @@ Health Score, schema linter, and timeline now work over the VM Service—so you 
 
 ## [1.2.0]
 
-Debug sessions can connect over the Dart VM Service instead of HTTP—no port forwarding or discovery needed when you’re already debugging.
+Debug sessions can connect over the Dart VM Service instead of HTTP—no port forwarding or discovery needed when you’re already debugging. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.2.0/CHANGELOG.md)
 
 ### Added
 
@@ -148,7 +148,7 @@ Debug sessions can connect over the Dart VM Service instead of HTTP—no port fo
 
 ## [1.3.0]
 
-Android emulator users get automatic port forwarding when debugging, so the extension can reach the Drift server inside the emulator.
+Android emulator users get automatic port forwarding when debugging, so the extension can reach the Drift server inside the emulator. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.3.0/CHANGELOG.md)
 
 ### Added
 
@@ -168,7 +168,7 @@ Android emulator users get automatic port forwarding when debugging, so the exte
 
 ## [1.1.0]
 
-A welcome screen when disconnected and richer VS Code Marketplace metadata—smoother first run and easier to find the extension.
+A welcome screen when disconnected and richer VS Code Marketplace metadata—smoother first run and easier to find the extension. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.1.0/CHANGELOG.md)
 
 ### Added
 
@@ -184,7 +184,7 @@ A welcome screen when disconnected and richer VS Code Marketplace metadata—smo
 
 ## [1.0.1]
 
-Clipboard import, interactive ER diagrams, data stories, custom dashboards, and invariant checking—a big feature drop.
+Clipboard import, interactive ER diagrams, data stories, custom dashboards, and invariant checking—a big feature drop. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.0.1/CHANGELOG.md)
 
 ### Fixed
 
@@ -212,7 +212,7 @@ Clipboard import, interactive ER diagrams, data stories, custom dashboards, and 
 
 ## [0.4.1]
 
-Database health score, query cost analysis with index suggestions, saved filters, and row impact analysis—analytics and insights land here.
+Database health score, query cost analysis with index suggestions, saved filters, and row impact analysis—analytics and insights land here. [log](https://github.com/saropa/saropa_drift_advisor/blob/v0.4.1/CHANGELOG.md)
 
 ### Added
 
@@ -226,7 +226,7 @@ Database health score, query cost analysis with index suggestions, saved filters
 
 ## [0.4.0]
 
-Smaller bundle for apps that ship the package: in-app Flutter overlay removed; use the VS Code extension or browser instead.
+Smaller bundle for apps that ship the package: in-app Flutter overlay removed; use the VS Code extension or browser instead. [log](https://github.com/saropa/saropa_drift_advisor/blob/v0.4.0/CHANGELOG.md)
 
 ### Removed
 
@@ -250,7 +250,7 @@ Smaller bundle for apps that ship the package: in-app Flutter overlay removed; u
 
 ## [0.3.0]
 
-Package renamed to `saropa_drift_advisor`—update `pubspec.yaml` and imports; APIs are unchanged. Also: visual query builder, smarter data formatting, per-table state, and one-click cell copy.
+Package renamed to `saropa_drift_advisor`—update `pubspec.yaml` and imports; APIs are unchanged. Also: visual query builder, smarter data formatting, per-table state, and one-click cell copy. [log](https://github.com/saropa/saropa_drift_advisor/blob/v0.3.0/CHANGELOG.md)
 
 ### Added
 
@@ -278,7 +278,7 @@ Package renamed to `saropa_drift_advisor`—update `pubspec.yaml` and imports; A
 
 ## [0.2.4]
 
-Charts, natural-language queries, anomaly detection, session sharing, and a query performance monitor—the web UI gets a serious upgrade.
+Charts, natural-language queries, anomaly detection, session sharing, and a query performance monitor—the web UI gets a serious upgrade. [log](https://github.com/saropa/saropa_drift_advisor/blob/v0.2.4/CHANGELOG.md)
 
 ### Added
 
@@ -306,7 +306,7 @@ Charts, natural-language queries, anomaly detection, session sharing, and a quer
 
 ## [0.2.3]
 
-No user-facing changes; tooling and documentation updates.
+No user-facing changes; tooling and documentation updates. [log](https://github.com/saropa/saropa_drift_advisor/blob/v0.2.3/CHANGELOG.md)
 
 ### Fixed
 
@@ -332,7 +332,7 @@ No user-facing changes; tooling and documentation updates.
 
 ## [0.2.2]
 
-No user-facing changes; package metadata corrected.
+No user-facing changes; package metadata corrected. [log](https://github.com/saropa/saropa_drift_advisor/blob/v0.2.2/CHANGELOG.md)
 
 ### Changed
 
@@ -340,7 +340,7 @@ No user-facing changes; package metadata corrected.
 
 ## [0.2.1]
 
-No user-facing changes; CHANGELOG link updated for the repo.
+No user-facing changes; CHANGELOG link updated for the repo. [log](https://github.com/saropa/saropa_drift_advisor/blob/v0.2.1/CHANGELOG.md)
 
 ### Changed
 
@@ -348,7 +348,7 @@ No user-facing changes; CHANGELOG link updated for the repo.
 
 ## [0.2.0]
 
-Viewer gets more useful day to day: live table refresh, read-only SQL from the browser, and optional token or Basic auth for dev tunnels. Plus schema diagram, CSV export, snapshot/time travel, and a Flutter overlay to open the viewer from your app.
+Viewer gets more useful day to day: live table refresh, read-only SQL from the browser, and optional token or Basic auth for dev tunnels. Plus schema diagram, CSV export, snapshot/time travel, and a Flutter overlay to open the viewer from your app. [log](https://github.com/saropa/saropa_drift_advisor/blob/v0.2.0/CHANGELOG.md)
 
 ### Fixed
 
@@ -422,7 +422,7 @@ Viewer gets more useful day to day: live table refresh, read-only SQL from the b
 
 ## [0.1.0]
 
-First release: a debug-only HTTP server that exposes your SQLite or Drift tables as JSON and a small web UI. Works with any SQLite executor—no Drift dependency required.
+First release: a debug-only HTTP server that exposes your SQLite or Drift tables as JSON and a small web UI. Works with any SQLite executor—no Drift dependency required. [log](https://github.com/saropa/saropa_drift_advisor/blob/v0.1.0/CHANGELOG.md)
 
 ### Fixed
 
