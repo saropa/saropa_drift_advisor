@@ -17,21 +17,20 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
-## [Unreleased]
+## [2.9.0]
 
-Hardening numeric validation and transaction error observability in write endpoints.
+Faster disconnect detection, quieter logs, and a banner that actually shows up.
+ Lighter extension load on SQLite, authenticated discovery, and a path from pending cell edits to the database—batch apply, bulk-edit UI, and foreign-key–aware ordering.
 
 ### Fixed
+
+• **Schema Search disconnected banner never appeared** — The webview defaulted to `connected = true` and hid the banner, relying on the extension to send `connected: false`. If the message was lost or delayed the banner stayed hidden indefinitely. The webview now defaults to disconnected (banner visible, controls disabled) and the extension confirms connection via the ready handshake within milliseconds.
 
 • **Cell update numeric parsing now fails safely** — integer/real coercion uses guarded parsing and rejects non-finite numeric values, returning 400 validation errors for invalid user input instead of risking parse exceptions.
 
 • **Batch transaction failure paths now log cleanup issues** — rollback and primary transaction exceptions are both logged, improving diagnostics when `/api/edits/apply` fails.
 
-## [2.9.0]
-
-Lighter extension load on SQLite, authenticated discovery, and a path from pending cell edits to the database—batch apply, bulk-edit UI, and foreign-key–aware ordering.
-
-### Improved (Debug server & extension)
+### Improved
 
 • **Less SQLite contention from the extension** — Port discovery validates servers with **`GET /api/health` only** (requires `ok` and a non-empty **`version`**), avoiding a full **`/api/schema/metadata`** pass on every candidate port. **`GET /api/schema/metadata?includeForeignKeys=1`** (and VM **`getSchemaMetadata`** with `includeForeignKeys`) returns per-table **foreign keys in the same response**, so health scoring and schema insights no longer fire **N separate fk-meta requests**. **Index suggestions**, **anomaly scan**, and **size analytics** are prefetched **sequentially** instead of all at once, and schema insight cache TTL is **90s**, reducing overlapping full-database scans.
 
@@ -44,16 +43,6 @@ Lighter extension load on SQLite, authenticated discovery, and a path from pendi
 • **FK-aware apply order** — Pending edits are ordered for commit as **deletes (child tables first)**, then **cell updates**, then **inserts (parents first)** when schema metadata includes foreign keys; if metadata fails to load, the original queue order is used.
 
 • **VM Service batch apply + health** — **`ext.saropa.drift.applyEditsBatch`** runs the same transactional batch as **`POST /api/edits/apply`**. **`ext.saropa.drift.getHealth`** now includes **`writeEnabled`** and **`editsApply`** (and related capability strings) like the HTTP health endpoint.
-
----
-
-## [2.9.0]
-
-Faster disconnect detection, quieter logs, and a banner that actually shows up.
-
-### Fixed
-
-• **Schema Search disconnected banner never appeared** — The webview defaulted to `connected = true` and hid the banner, relying on the extension to send `connected: false`. If the message was lost or delayed the banner stayed hidden indefinitely. The webview now defaults to disconnected (banner visible, controls disabled) and the extension confirms connection via the ready handshake within milliseconds.
 
 ### Changed
 

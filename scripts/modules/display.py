@@ -72,6 +72,43 @@ def ask_yn(question: str, default: bool = True) -> bool:
     return answer in ("y", "yes")
 
 
+def ask_choice(
+    question: str,
+    choices: tuple[str, ...],
+    default: str,
+) -> str:
+    """Prompt the user to pick one choice from a fixed list.
+
+    Args:
+        question: Prompt text shown before the available options.
+        choices: Allowed lowercase values (for example: ("retry", "skip", "abort")).
+        default: Value returned when the user presses Enter, EOF, or Ctrl+C.
+
+    Returns:
+        The selected normalized choice value.
+    """
+    normalized = tuple(choice.strip().lower() for choice in choices if choice.strip())
+    if not normalized:
+        raise ValueError("choices must include at least one non-empty option")
+    if default.lower() not in normalized:
+        raise ValueError("default must be one of choices")
+
+    hint = "/".join(normalized)
+    while True:
+        try:
+            raw = input(
+                f"  {C.YELLOW}{question} [{hint}] (default: {default}): {C.RESET}",
+            ).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return default.lower()
+        if not raw:
+            return default.lower()
+        if raw in normalized:
+            return raw
+        warn(f"Invalid choice '{raw}'. Please choose one of: {', '.join(normalized)}.")
+
+
 # ── Publish Log (tee stdout to file) ────────────────────────
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")

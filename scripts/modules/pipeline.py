@@ -10,7 +10,7 @@ import time
 from typing import TYPE_CHECKING
 
 from modules.constants import ABOUT_SAROPA_PATH, C, CHANGELOG_PATH, EXTENSION_DIR, REPO_ROOT
-from modules.display import heading, info, ok
+from modules.display import ask_choice, heading, info, ok, warn
 from modules.utils import run_step
 
 if TYPE_CHECKING:
@@ -199,16 +199,37 @@ def _run_ext_build_and_validate(
     if not run_step("File line limits", check_file_line_limits, results):
         return "", False, None
 
+    lint_step_name = "Lint (saropa_lints)"
     lint_report_path: str | None = None
     if getattr(args, "skip_lint", False):
         heading("Step 8 \u00b7 Lint (saropa_lints) (skipped)")
-        results.append(("Lint (saropa_lints)", True, 0.0))
+        results.append((lint_step_name, True, 0.0))
     else:
         # Run lint before compile/tests so warnings surface earlier in long runs.
         heading("Step 8 \u00b7 Lint (saropa_lints)")
         from modules.saropa_lints_run import step_saropa_lints
-        passed, lint_report_path = step_saropa_lints(results, cwd=REPO_ROOT)
-        if not passed:
+        while True:
+            passed, lint_report_path = step_saropa_lints(results, cwd=REPO_ROOT)
+            if passed:
+                break
+
+            # Preserve only the final lint disposition so reports and exit code
+            # reflect the user's final choice (retry/skip/abort).
+            if results and results[-1][0] == lint_step_name:
+                results.pop()
+
+            choice = ask_choice(
+                "Lint step failed. Choose what to do next",
+                choices=("retry", "skip", "abort"),
+                default="abort",
+            )
+            if choice == "retry":
+                warn("Retrying saropa_lints scan...")
+                continue
+            if choice == "skip":
+                warn("Skipping saropa_lints after failure by user choice.")
+                results.append((lint_step_name, True, 0.0))
+                break
             return "", False, None
 
     heading("Step 9 \u00b7 Compile")
