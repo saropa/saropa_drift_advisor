@@ -13,6 +13,11 @@ ${SCHEMA_SEARCH_STYLE}
 </style>
 </head>
 <body>
+<!-- Never hidden by script — guarantees visible pixels even if connection UI fails. -->
+<div class="panel-chrome" id="schemaPanelChrome">
+  <div class="panel-chrome-title">Schema Search</div>
+  <p class="panel-chrome-lead">Search runtime schema when connected, or use actions below / Command Palette.</p>
+</div>
 <!-- Visible before any script runs so the panel is never a blank void at startup. -->
 <div id="schemaHardFallback" class="schema-hard-fallback" aria-live="polite">
   <div class="schema-hard-fallback-title">Schema Search</div>

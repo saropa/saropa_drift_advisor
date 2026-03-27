@@ -71,6 +71,8 @@ Clearer table row counts, inline table column definitions, a more polished Size 
 
 • **Schema Search when “connected” but schema missing** — If HTTP/VM reports connected before REST table metadata loads (or it fails), Schema Search keeps the yellow help banner visible (Retry, Diagnose, **Scan Dart sources**, etc.) until the Database tree has loaded a table list. Search/browse stay off until then (`DriftTreeProvider.isSchemaSearchAvailable()`).
 
+• **Schema Search webview readability** — Always-visible header chrome, sidebar background + `min-height`, fallback colors when theme variables are missing in the webview, visible search field borders, and defer hiding the bootstrap block until after connection state is applied (avoids a transient empty panel).
+
 ---
 
 ## [2.9.2]

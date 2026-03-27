@@ -4,8 +4,33 @@
  */
 export const SCHEMA_SEARCH_STYLE = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size);
-    color: var(--vscode-foreground); padding: 8px; min-height: 160px; }
+  /* Fallback colors: some hosts/themes omit CSS variables in webviews → invisible text without these. */
+  body {
+    font-family: var(--vscode-font-family, system-ui, sans-serif);
+    font-size: var(--vscode-font-size, 13px);
+    color: var(--vscode-foreground, #cccccc);
+    background: var(--vscode-sideBar-background, var(--vscode-editor-background, #252526));
+    padding: 8px;
+    min-height: 280px;
+  }
+  .panel-chrome {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.45));
+    min-height: 52px;
+  }
+  .panel-chrome-title {
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--vscode-foreground, #e0e0e0);
+  }
+  .panel-chrome-lead {
+    font-size: 10px;
+    line-height: 1.4;
+    margin-top: 4px;
+    opacity: 0.92;
+    color: var(--vscode-descriptionForeground, var(--vscode-foreground, #bbbbbb));
+  }
   .schema-hard-fallback {
     display: block;
     padding: 8px 6px 10px 6px;
@@ -20,8 +45,10 @@ export const SCHEMA_SEARCH_STYLE = `
   .schema-hard-fallback-lead { opacity: 0.92; font-size: 11px; }
   .search-box { display: flex; gap: 4px; margin-bottom: 6px; }
   .search-box input { flex: 1; padding: 4px 6px;
-    background: var(--vscode-input-background); color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border, transparent); border-radius: 2px;
+    background: var(--vscode-input-background, rgba(80, 80, 80, 0.35));
+    color: var(--vscode-input-foreground, var(--vscode-foreground, #cccccc));
+    border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.55));
+    border-radius: 2px;
     outline: none; font-size: var(--vscode-font-size);
     transition: opacity 0.2s ease; }
   .search-box input:focus { border-color: var(--vscode-focusBorder); }
@@ -35,7 +62,7 @@ export const SCHEMA_SEARCH_STYLE = `
   .filters button.active { background: var(--vscode-button-background);
     color: var(--vscode-button-foreground); }
   .filters button:hover { opacity: 0.9; }
-  .filters.disabled { opacity: 0.5; pointer-events: none; }
+  .filters.disabled { opacity: 0.72; pointer-events: none; }
   .sep { width: 1px; background: var(--vscode-widget-border, #555); margin: 0 2px; }
   .results { list-style: none; }
   .result-item { padding: 3px 4px; cursor: pointer; border-radius: 2px; }
@@ -71,8 +98,14 @@ export const SCHEMA_SEARCH_STYLE = `
     color: var(--vscode-inputValidation-warningForeground, #cca700);
     transition: max-height 0.25s ease, opacity 0.25s ease,
                 padding 0.25s ease, margin-bottom 0.25s ease; }
-  .disconnected.show { max-height: 620px; opacity: 1; padding: 8px; margin-bottom: 6px;
-    overflow-y: auto; }
+  .disconnected.show {
+    max-height: 620px;
+    opacity: 1;
+    padding: 8px;
+    margin-bottom: 6px;
+    overflow-y: auto;
+    color: var(--vscode-inputValidation-warningForeground, #f0e0a8);
+  }
   .disc-title { font-weight: 600; }
   .disc-hint { font-size: 10px; opacity: 0.95; margin-top: 4px; line-height: 1.35;
     white-space: pre-wrap; }
@@ -89,7 +122,14 @@ export const SCHEMA_SEARCH_STYLE = `
   .linkish { background: transparent; border: none; color: var(--vscode-textLink-foreground);
     cursor: pointer; font-size: 10px; padding: 2px 0; text-decoration: underline; }
   .linkish:hover { opacity: 0.9; }
-  .conn-status { font-size: 10px; opacity: 0.72; margin-bottom: 4px; line-height: 1.3; }
+  .conn-status {
+    font-size: 10px;
+    opacity: 0.95;
+    margin-bottom: 6px;
+    line-height: 1.35;
+    color: var(--vscode-foreground, #cccccc);
+    min-height: 1.2em;
+  }
   .disc-live {
     font-size: 10px; line-height: 1.35; margin-bottom: 8px; padding: 6px 8px;
     border-radius: 3px;
@@ -203,7 +243,6 @@ export const SCHEMA_SEARCH_SCRIPT = `
     vscode.postMessage({ command: 'search', query: q, scope, typeFilter: typeFilter || undefined });
   }
   function applyConnectionState(msg) {
-    if (schemaHardFallbackEl) schemaHardFallbackEl.style.display = 'none';
     connected = msg.connected;
     schemaOps = !!msg.schemaOperationsEnabled;
     var persisted = msg.persistedSchemaAvailable === true;
@@ -244,6 +283,9 @@ export const SCHEMA_SEARCH_SCRIPT = `
     if (Object.prototype.hasOwnProperty.call(msg, 'discovery')) applyDiscoveryBlock(msg.discovery);
     discFaqEl.textContent = schemaOps ? '' : FAQ_TROUBLE;
     if (!queryEl.value.trim()) doSearch();
+    if (schemaHardFallbackEl) {
+      schemaHardFallbackEl.style.display = 'none';
+    }
   }
   window.addEventListener('message', e => {
     const msg = e.data;
