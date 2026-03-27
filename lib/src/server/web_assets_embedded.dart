@@ -6264,8 +6264,7 @@ abstract final class WebAssetsEmbedded {
 ''';
 
   /// Contents of assets/web/style.css.
-  static const String styleCss =
-      r'''@charset "UTF-8";
+  static const String styleCss = r'''@charset "UTF-8";
 /**
  * Web viewer styles. SOURCE FILE — edit this, not style.css.
  * Compiled to style.css by `npm run build:style`. Do not edit style.css by hand.

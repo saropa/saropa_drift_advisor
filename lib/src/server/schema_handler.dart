@@ -210,8 +210,9 @@ final class SchemaHandler {
 
       if (includeForeignKeys) {
         try {
-          final dynamic rawFk =
-              await query('PRAGMA foreign_key_list("$tableName")');
+          final dynamic rawFk = await query(
+            'PRAGMA foreign_key_list("$tableName")',
+          );
           final fkRows = ServerUtils.normalizeRows(rawFk);
           tableEntry[ServerConstants.jsonKeyForeignKeys] =
               TableHandler.fkMetaMapsFromPragmaRows(fkRows);
@@ -237,8 +238,8 @@ final class SchemaHandler {
 
     try {
       final params = request.uri.queryParameters;
-      final rawInc =
-          params[ServerConstants.queryParamIncludeForeignKeys]?.toLowerCase();
+      final rawInc = params[ServerConstants.queryParamIncludeForeignKeys]
+          ?.toLowerCase();
       final includeForeignKeys =
           rawInc == '1' || rawInc == 'true' || rawInc == 'yes';
       final tables = await getSchemaMetadataList(

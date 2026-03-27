@@ -90,10 +90,7 @@ final class CellUpdateHandler {
         table.isEmpty ||
         pkColumn.isEmpty ||
         column.isEmpty) {
-      await _badRequest(
-        res,
-        'Missing or invalid table, pkColumn, or column.',
-      );
+      await _badRequest(res, 'Missing or invalid table, pkColumn, or column.');
       return;
     }
 
@@ -152,10 +149,7 @@ final class CellUpdateHandler {
       return;
     }
     if (!pkMeta.pk) {
-      await _badRequest(
-        res,
-        'pkColumn must identify the primary key column.',
-      );
+      await _badRequest(res, 'pkColumn must identify the primary key column.');
       return;
     }
     if (colMeta == null) {
@@ -213,10 +207,7 @@ final class CellUpdateHandler {
 }
 
 /// Validates [raw] from JSON and returns a value suitable for [sqlLiteral].
-_CoerceResult _validateAndCoerceColumnValue(
-  _PragmaColumn col,
-  Object? raw,
-) {
+_CoerceResult _validateAndCoerceColumnValue(_PragmaColumn col, Object? raw) {
   final typeUpper = col.type.toUpperCase();
 
   if (typeUpper.contains('BLOB') && raw != null) {
@@ -238,8 +229,8 @@ _CoerceResult _validateAndCoerceColumnValue(
   }
 
   if (raw is bool) {
-    final numericBoolTarget = _isIntegerAffinity(typeUpper) ||
-        _isRealAffinity(typeUpper);
+    final numericBoolTarget =
+        _isIntegerAffinity(typeUpper) || _isRealAffinity(typeUpper);
     if (!_isBooleanAffinity(typeUpper) && !numericBoolTarget) {
       return _CoerceResult.err(
         'Column "${col.name}" does not accept a boolean here.',
@@ -259,9 +250,7 @@ _CoerceResult _validateAndCoerceColumnValue(
       if (raw.roundToDouble() == raw) {
         return _CoerceResult.ok(raw.toInt());
       }
-      return _CoerceResult.err(
-        'Column "${col.name}" expects an integer.',
-      );
+      return _CoerceResult.err('Column "${col.name}" expects an integer.');
     }
     if (_isRealAffinity(typeUpper)) {
       return _CoerceResult.ok(raw.toDouble());
@@ -320,13 +309,9 @@ _CoerceResult _validateAndCoerceColumnValue(
   if (_isBooleanAffinity(typeUpper)) {
     final lower = trimmed.toLowerCase();
     if (!<String>{'0', '1', 'true', 'false', 'yes', 'no'}.contains(lower)) {
-      return _CoerceResult.err(
-        'Column "${col.name}" expects a boolean value.',
-      );
+      return _CoerceResult.err('Column "${col.name}" expects a boolean value.');
     }
-    return _CoerceResult.ok(
-      lower == '1' || lower == 'true' || lower == 'yes',
-    );
+    return _CoerceResult.ok(lower == '1' || lower == 'true' || lower == 'yes');
   }
 
   return _CoerceResult.ok(raw);

@@ -719,11 +719,10 @@ final class Router {
   /// [includeForeignKeys] mirrors GET `/api/schema/metadata?includeForeignKeys=1`.
   Future<List<Map<String, dynamic>>> getSchemaMetadataList({
     bool includeForeignKeys = false,
-  }) =>
-      _schema.getSchemaMetadataList(
-        _ctx.instrumentedQuery,
-        includeForeignKeys: includeForeignKeys,
-      );
+  }) => _schema.getSchemaMetadataList(
+    _ctx.instrumentedQuery,
+    includeForeignKeys: includeForeignKeys,
+  );
 
   /// Returns FK metadata for a table for VM service RPC getTableFkMeta.
   Future<List<Map<String, dynamic>>> getTableFkMetaList(String tableName) =>
@@ -752,9 +751,7 @@ final class Router {
             ServerConstants.capabilityCellUpdate,
             ServerConstants.capabilityEditsApply,
           ]
-        : <String>[
-            ServerConstants.capabilityIssues,
-          ],
+        : <String>[ServerConstants.capabilityIssues],
   };
 
   /// Returns current generation for VM service RPC getGeneration.

@@ -35,9 +35,7 @@ final class EditsBatchHandler {
       throw ArgumentError.value(statements, 'statements', 'must be non-empty');
     }
     if (statements.length > maxStatements) {
-      throw ArgumentError(
-        'Too many statements (max $maxStatements).',
-      );
+      throw ArgumentError('Too many statements (max $maxStatements).');
     }
     for (var i = 0; i < statements.length; i++) {
       final rawStmt = statements[i];
@@ -128,20 +126,14 @@ final class EditsBatchHandler {
       return;
     }
     if (rawList.length > maxStatements) {
-      await _badRequest(
-        res,
-        'Too many statements (max $maxStatements).',
-      );
+      await _badRequest(res, 'Too many statements (max $maxStatements).');
       return;
     }
 
     final statements = <String>[];
     for (final item in rawList) {
       if (item is! String || item.trim().isEmpty) {
-        await _badRequest(
-          res,
-          'Each statement must be a non-empty string.',
-        );
+        await _badRequest(res, 'Each statement must be a non-empty string.');
         return;
       }
       statements.add(item);

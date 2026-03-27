@@ -51,9 +51,7 @@ final class GenerationHandler {
                 ServerConstants.capabilityCellUpdate,
                 ServerConstants.capabilityEditsApply,
               ]
-            : <String>[
-                ServerConstants.capabilityIssues,
-              ],
+            : <String>[ServerConstants.capabilityIssues],
       }),
     );
     await res.close();

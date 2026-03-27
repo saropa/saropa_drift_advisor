@@ -99,14 +99,8 @@ void main() {
       final r = await httpGet(port!, '/api/health');
       expect(r.status, HttpStatus.ok);
       expect(r.body['writeEnabled'], isTrue);
-      expect(
-        (r.body['capabilities'] as List<dynamic>),
-        contains('cellUpdate'),
-      );
-      expect(
-        (r.body['capabilities'] as List<dynamic>),
-        contains('editsApply'),
-      );
+      expect((r.body['capabilities'] as List<dynamic>), contains('cellUpdate'));
+      expect((r.body['capabilities'] as List<dynamic>), contains('editsApply'));
     });
 
     test('GET /api/generation returns generation number', () async {
@@ -1025,24 +1019,27 @@ void main() {
       expect(executedSql.where((s) => s.contains('DELETE')), isNotEmpty);
     });
 
-    test('POST /api/edits/apply rejects invalid statement before transaction', () async {
-      final executedSql = <String>[];
-      await DriftDebugServer.stop();
-      await startServer(writeQuery: (sql) async => executedSql.add(sql));
+    test(
+      'POST /api/edits/apply rejects invalid statement before transaction',
+      () async {
+        final executedSql = <String>[];
+        await DriftDebugServer.stop();
+        await startServer(writeQuery: (sql) async => executedSql.add(sql));
 
-      final r = await httpPost(
-        port!,
-        '/api/edits/apply',
-        json: <String, dynamic>{
-          'statements': <String>['SELECT * FROM "items"'],
-        },
-      );
-      expect(r.status, HttpStatus.internalServerError);
-      final err = (r.body as Map<String, dynamic>)['error'] as String?;
-      expect(err, isNotNull);
-      // All statements validated before BEGIN — no writes or rollback needed.
-      expect(executedSql, isEmpty);
-    });
+        final r = await httpPost(
+          port!,
+          '/api/edits/apply',
+          json: <String, dynamic>{
+            'statements': <String>['SELECT * FROM "items"'],
+          },
+        );
+        expect(r.status, HttpStatus.internalServerError);
+        final err = (r.body as Map<String, dynamic>)['error'] as String?;
+        expect(err, isNotNull);
+        // All statements validated before BEGIN — no writes or rollback needed.
+        expect(executedSql, isEmpty);
+      },
+    );
   });
 
   // =====================================================

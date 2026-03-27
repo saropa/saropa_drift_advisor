@@ -122,8 +122,7 @@ final class VmServiceBridge {
 
     try {
       final inc = params['includeForeignKeys']?.toLowerCase();
-      final includeForeignKeys =
-          inc == 'true' || inc == '1' || inc == 'yes';
+      final includeForeignKeys = inc == 'true' || inc == '1' || inc == 'yes';
       final tables = await router.getSchemaMetadataList(
         includeForeignKeys: includeForeignKeys,
       );
