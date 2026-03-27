@@ -6,12 +6,15 @@
 // locally avoids third-party MIME / `X-Content-Type-Options: nosniff`
 // mismatches and works offline during development.
 //
+// When the package root cannot be resolved or the files are missing,
+// these routes respond with HTTP 404 so the browser `onerror` handlers
+// can switch to version-pinned jsDelivr URLs. We intentionally do **not**
+// embed CSS/JS as Dart string constants: that duplicated hundreds of KB in
+// every app binary that references this library.
+//
 // Asset resolution order:
 //   1. [Isolate.resolvePackageUri] → `lib/` parent → package root (Dart VM).
 //   2. Ancestor walk from [Directory.current] (flutter test / CI).
-//   3. Embedded string constants ([WebAssetsEmbedded]) — used when the
-//      package root is unreachable (e.g. Flutter on Android/iOS emulator
-//      where host files are not on the device filesystem).
 //
 // The resolved path is cached so repeated asset requests do not re-resolve.
 // This is process-global (tests share the same isolate).
@@ -23,7 +26,6 @@ import 'dart:isolate';
 import 'html_content.dart';
 import 'server_constants.dart';
 import 'server_context.dart';
-import 'web_assets_embedded.dart';
 
 /// Handles health check, generation long-poll, and HTML serving.
 final class GenerationHandler {
@@ -105,45 +107,37 @@ final class GenerationHandler {
 
   /// Serves the local CSS asset used by the web UI shell.
   ///
-  /// Prefers reading from the package root on disk; falls
-  /// back to the embedded constant when the file system is
-  /// unreachable (e.g. Flutter on an Android emulator).
+  /// Reads from the package root on disk. Responds with 404 if unavailable
+  /// so [HtmlContent.indexHtml] can fall back to the CDN `onerror` handler.
   Future<void> sendWebStyle(HttpResponse response) async {
     await _sendWebAsset(
       response: response,
       relativePath: 'assets/web/style.css',
       contentType: ContentType('text', 'css', charset: 'utf-8'),
-      embeddedFallback: WebAssetsEmbedded.styleCss,
     );
   }
 
   /// Serves the local JS asset used by the web UI shell.
   ///
-  /// Prefers reading from the package root on disk; falls
-  /// back to the embedded constant when the file system is
-  /// unreachable (e.g. Flutter on an Android emulator).
+  /// Reads from the package root on disk. Responds with 404 if unavailable
+  /// so [HtmlContent.indexHtml] can fall back to the CDN `onerror` handler.
   Future<void> sendWebApp(HttpResponse response) async {
     await _sendWebAsset(
       response: response,
       relativePath: 'assets/web/app.js',
       contentType: ContentType('application', 'javascript', charset: 'utf-8'),
-      embeddedFallback: WebAssetsEmbedded.appJs,
     );
   }
 
-  /// Serves a web UI asset, preferring the on-disk file
-  /// from the resolved package root.
+  /// Serves a web UI asset from the resolved package root.
   ///
-  /// When the package root cannot be located or the file
-  /// does not exist, serves [embeddedFallback] — a Dart
-  /// string constant compiled into the binary — so the
-  /// web UI works on platforms where host files are not
-  /// accessible (e.g. Android/iOS emulators).
+  /// On failure (no package root or missing file), sends 404 so the browser
+  /// can load version-pinned assets from jsDelivr instead of shipping
+  /// duplicate content inside consumer app binaries.
   Future<void> _sendWebAsset({
     required HttpResponse response,
     required String relativePath,
     required ContentType contentType,
-    required String embeddedFallback,
   }) async {
     // ── Try file-based serving first ──
     final packageRoot = await _resolvePackageRootPath();
@@ -171,9 +165,10 @@ final class GenerationHandler {
       }
     }
 
-    // ── Fall back to embedded constant ──
-    response.headers.contentType = contentType;
-    response.write(embeddedFallback);
+    // ── No on-disk asset: let the HTML shell's onerror switch to jsDelivr ──
+    response.statusCode = HttpStatus.notFound;
+    response.headers.contentType = ContentType.text;
+    response.write('Not found: $relativePath');
     await response.close();
   }
 

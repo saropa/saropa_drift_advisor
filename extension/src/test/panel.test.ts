@@ -83,6 +83,38 @@ describe('DriftViewerPanel', () => {
 
     const html = latestPanel().webview.html;
     assert.ok(html.includes('font-src'), 'CSP should include font-src');
+    assert.ok(
+      html.includes('https://fonts.gstatic.com'),
+      'CSP font-src must allow Google Fonts files (was font-src only baseUrl+data before drift-enhanced/CDN work)',
+    );
+  });
+
+  it('should allow jsDelivr and font stylesheets in CSP when local /assets/web/* may 404', async () => {
+    // When the Dart server cannot serve package files, the HTML shell falls
+    // back to jsDelivr; the webview must not block those loads. Before: only
+    // 'unsafe-inline' for style-src/script-src — CDN fallbacks were blocked.
+    const serverHtml = '<html><head></head><body></body></html>';
+    fetchStub.resolves(new Response(serverHtml, { status: 200 }));
+
+    DriftViewerPanel.createOrShow('127.0.0.1', 8642);
+    await new Promise((r) => setTimeout(r, 10));
+
+    const html = latestPanel().webview.html;
+    const cspMatch = html.match(/Content-Security-Policy" content="([^"]+)"/);
+    assert.ok(cspMatch, 'CSP meta content should be present');
+    const csp = cspMatch[1];
+    assert.ok(
+      csp.includes('https://cdn.jsdelivr.net'),
+      'style-src and script-src must allow jsDelivr for GitHub-served fallback assets',
+    );
+    assert.ok(
+      csp.includes('https://fonts.googleapis.com'),
+      'style-src must allow Google Fonts CSS links from the HTML shell',
+    );
+    assert.ok(
+      csp.includes('style-src') && csp.includes('http://127.0.0.1:8642'),
+      'style-src must allow same-origin debug server stylesheets',
+    );
   });
 
   it('should not set HTML after panel is disposed', async () => {

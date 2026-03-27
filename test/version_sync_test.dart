@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:saropa_drift_advisor/src/server/server_constants.dart';
-import 'package:saropa_drift_advisor/src/server/web_assets_embedded.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -63,59 +62,6 @@ void main() {
       );
     },
   );
-
-  // ------------------------------------------------------------------
-  // Embedded asset sync guard: web_assets_embedded.dart must match
-  // the on-disk assets/web/ files.
-  //
-  // The embedded constants are the fallback when the server cannot
-  // locate the package root on the file system (e.g. Flutter on an
-  // Android/iOS emulator). If someone updates assets/web/app.js or
-  // style.css but forgets to regenerate web_assets_embedded.dart,
-  // emulator users get stale JS/CSS while host users see the new
-  // version — a subtle and hard-to-diagnose inconsistency.
-  // ------------------------------------------------------------------
-  test('WebAssetsEmbedded.appJs matches assets/web/app.js on disk', () {
-    final file = File('assets/web/app.js');
-    expect(
-      file.existsSync(),
-      isTrue,
-      reason: 'assets/web/app.js must exist for comparison',
-    );
-
-    // Normalize CRLF → LF so the comparison is
-    // line-ending-agnostic (Windows disk files use CRLF;
-    // the Dart source constant may use LF).
-    final diskContent = file.readAsStringSync().replaceAll('\r\n', '\n');
-    final embedded = WebAssetsEmbedded.appJs.replaceAll('\r\n', '\n');
-    expect(
-      embedded,
-      equals(diskContent),
-      reason:
-          'WebAssetsEmbedded.appJs is out of sync with assets/web/app.js. '
-          'Regenerate web_assets_embedded.dart from the asset files.',
-    );
-  });
-
-  test('WebAssetsEmbedded.styleCss matches assets/web/style.css on disk', () {
-    final file = File('assets/web/style.css');
-    expect(
-      file.existsSync(),
-      isTrue,
-      reason: 'assets/web/style.css must exist for comparison',
-    );
-
-    // Normalize CRLF → LF (see appJs test above).
-    final diskContent = file.readAsStringSync().replaceAll('\r\n', '\n');
-    final embedded = WebAssetsEmbedded.styleCss.replaceAll('\r\n', '\n');
-    expect(
-      embedded,
-      equals(diskContent),
-      reason:
-          'WebAssetsEmbedded.styleCss is out of sync with assets/web/style.css. '
-          'Regenerate web_assets_embedded.dart from the asset files.',
-    );
-  });
 
   test('ServerConstants.packageVersion matches pubspec.yaml version', () {
     // Read the pubspec.yaml file from the project root to extract the

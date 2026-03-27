@@ -4,10 +4,10 @@
 ///
 /// The shell references same-origin paths `/assets/web/style.css` and
 /// `/assets/web/app.js`, which the debug server streams from the package
-/// (`generation_handler.dart`: `sendWebStyle` / `sendWebApp`). Each tag uses
-/// `onerror` to switch to a version-pinned jsDelivr URL if the local file
-/// is missing (e.g. unusual packaging) so the UI can still load when CDN
-/// serves correct MIME types.
+/// (`generation_handler.dart`: `sendWebStyle` / `sendWebApp`). If those
+/// requests fail (404 or network error), each tag uses `onerror` to switch
+/// to a version-pinned jsDelivr URL so the UI still loads without embedding
+/// CSS/JS duplicates in consumer binaries.
 ///
 /// ## UX notes
 ///
