@@ -23,6 +23,12 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ## [Unreleased]
 
+### Fixed
+
+• **`/api/mutations` long-poll and VM logging** — When no mutation arrived before the long-poll deadline, the server treated the normal timeout as a loggable event (`developer.log` with error/stack). That could flood the VM service and stall the app with multiple clients. Idle timeouts no longer emit those logs.
+
+• **Mutation SQL classification regex** — INSERT/UPDATE/DELETE patterns in the mutation tracker used `\\s` / `\\b` in raw Dart strings (literal backslashes), so they never matched real SQL whitespace/word boundaries. Semantic mutation capture and `/api/mutations` wakeups now classify typical statements correctly.
+
 ### Improved
 
 • **Web viewer: Tables sidebar loading** — While the table list loads, placeholders (shimmer skeleton rows) appear **under** the **Tables** heading instead of above it; the old text-and-spinner line is removed. Failed `GET /api/tables` shows an error message in the same block.

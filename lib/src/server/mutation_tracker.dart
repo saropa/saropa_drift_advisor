@@ -5,6 +5,11 @@
  * The server currently exposes mutations only via the optional
  * `/api/mutations` endpoint, which is enabled when `writeQuery` is configured.
  *
+ * **Long-poll idle path:** [MutationTracker.waitForAnyEvent] backs `GET /api/mutations`
+ * when no events are queued yet. Elapsing the wait timeout without a mutation is
+ * expected; do not emit high-volume [developer.log] on that path or the VM
+ * service can be flooded when multiple clients long-poll.
+ *
  * Note: this implementation is best-effort. It infers the affected table/type
  * and, for INSERT, captures the inserted row using `last_insert_rowid()`.
  * For UPDATE/DELETE it only captures before/after rows when a simple WHERE
@@ -64,20 +69,20 @@ class MutationTracker {
     return _events.where((e) => e.id > since).toList(growable: false);
   }
 
+  /// Waits until [timeout] elapses or a mutation is recorded (whichever comes first).
+  ///
+  /// A timeout is the normal outcome when `/api/mutations` long-polls and nothing
+  /// changes; callers must not treat it as a failure. Completes normally in both cases.
   Future<void> waitForAnyEvent(Duration timeout) async {
     final completer = Completer<void>();
     _waiters.add(completer);
 
     try {
       await completer.future.timeout(timeout);
-    } on TimeoutException catch (error, stack) {
-      // Timeout is expected for long-poll clients; log at trace level context.
-      developer.log(
-        'No mutation event arrived before timeout.',
-        name: 'saropa_drift_advisor.mutation_tracker',
-        error: error,
-        stackTrace: stack,
-      );
+    } on TimeoutException {
+      // Idle long-poll completion: no mutation arrived before [timeout]. Do not
+      // call developer.log here — logging every expected timeout (e.g. every
+      // 30s per /api/mutations client) floods the VM service and can stall the app.
       if (!completer.isCompleted) completer.complete();
     } finally {
       _waiters.remove(completer);
@@ -237,10 +242,12 @@ class MutationTracker {
   }
 
   _ParsedMutation? _parseSqlForMutation(String rawSql) {
-    final sql = rawSql.trim().replaceAll(RegExp(r';\\s*$'), '');
+    // Use real regex escapes (\s, \w, \b): in a raw Dart string, `\\s` is
+    // backslash + "s" (two literals), not whitespace — that broke matching.
+    final sql = rawSql.trim().replaceAll(RegExp(r';\s*$'), '');
 
     final insertMatch = RegExp(
-      r'insert\\s+into\\s+(?:(?:"([^"]+)")|(?:([A-Za-z_][\\w$]*)))',
+      r'insert\s+into\s+(?:(?:"([^"]+)")|(?:([A-Za-z_][\w$]*)))',
       caseSensitive: false,
       dotAll: true,
     ).firstMatch(sql);
@@ -254,7 +261,7 @@ class MutationTracker {
     }
 
     final updateMatch = RegExp(
-      r'update\\s+(?:(?:"([^"]+)")|(?:([A-Za-z_][\\w$]*)))',
+      r'update\s+(?:(?:"([^"]+)")|(?:([A-Za-z_][\w$]*)))',
       caseSensitive: false,
       dotAll: true,
     ).firstMatch(sql);
@@ -272,7 +279,7 @@ class MutationTracker {
     }
 
     final deleteMatch = RegExp(
-      r'delete\\s+from\\s+(?:(?:"([^"]+)")|(?:([A-Za-z_][\\w$]*)))',
+      r'delete\s+from\s+(?:(?:"([^"]+)")|(?:([A-Za-z_][\w$]*)))',
       caseSensitive: false,
       dotAll: true,
     ).firstMatch(sql);
@@ -294,7 +301,7 @@ class MutationTracker {
 
   String? _extractWhereClause(String sql) {
     final match = RegExp(
-      r'\\bWHERE\\b\\s+(.+?)\\s*(?:\\bRETURNING\\b|$|;)',
+      r'\bWHERE\b\s+(.+?)\s*(?:\bRETURNING\b|$|;)',
       caseSensitive: false,
       dotAll: true,
     ).firstMatch(sql);
