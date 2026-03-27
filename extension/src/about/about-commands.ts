@@ -10,15 +10,30 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 
 /**
+ * Resolve the extension install path from VS Code activation context.
+ * Uses extensionUri when available and falls back to extensionPath for
+ * compatibility with older APIs and lightweight test contexts.
+ */
+function resolveExtensionPath(context: vscode.ExtensionContext): string | undefined {
+  return context.extensionUri?.fsPath ?? context.extensionPath;
+}
+
+/**
  * Open a bundled markdown file in VS Code's built-in markdown preview.
  * Falls back to an external URL if the local file cannot be found
  * (e.g. the file was excluded from the VSIX by accident).
  */
 async function openBundledMarkdown(
-  extensionPath: string,
+  extensionPath: string | undefined,
   filename: string,
   fallbackUrl: string,
 ): Promise<void> {
+  if (!extensionPath) {
+    // If activation context does not expose an install path, route directly
+    // to the canonical online document instead of throwing.
+    void vscode.env.openExternal(vscode.Uri.parse(fallbackUrl));
+    return;
+  }
   const filePath = path.join(extensionPath, filename);
   const fileUri = vscode.Uri.file(filePath);
 
@@ -41,7 +56,7 @@ export function registerAboutCommands(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.about', () =>
       openBundledMarkdown(
-        context.extensionPath,
+        resolveExtensionPath(context),
         'CHANGELOG.md',
         'https://github.com/saropa/saropa_drift_advisor/blob/main/extension/CHANGELOG.md',
       ),
@@ -53,7 +68,7 @@ export function registerAboutCommands(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.aboutSaropa', () =>
       openBundledMarkdown(
-        context.extensionPath,
+        resolveExtensionPath(context),
         'ABOUT_SAROPA.md',
         'https://github.com/saropa/saropa_drift_advisor/blob/main/ABOUT_SAROPA.md',
       ),

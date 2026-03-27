@@ -145,6 +145,72 @@ describe('Extension activation', () => {
   });
 
   /**
+   * Guards sidebar header icon wiring by requiring every view/title menu command
+   * declared in package.json to be present in the runtime command registry.
+   */
+  it('should register every view/title menu command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    const packagePath = path.join(__dirname, '..', '..', 'package.json');
+    const raw = fs.readFileSync(packagePath, 'utf-8');
+    const pkg = JSON.parse(raw) as {
+      contributes?: { menus?: Record<string, Array<{ command?: string }>> };
+    };
+    const viewTitleCommands = (pkg.contributes?.menus?.['view/title'] ?? [])
+      .map((item) => item.command)
+      .filter((c): c is string => typeof c === 'string' && c.length > 0);
+    for (const commandId of new Set(viewTitleCommands)) {
+      assert.ok(
+        commandId in registered,
+        `view/title command "${commandId}" is contributed but not registered at activation`,
+      );
+    }
+  });
+
+  /**
+   * Ensures clicking any Database header icon does not throw due missing wiring.
+   * Commands may no-op in mocks, but they should still execute safely.
+   */
+  it('should execute every view/title menu command without throwing', async () => {
+    activate(fakeContext());
+    const packagePath = path.join(__dirname, '..', '..', 'package.json');
+    const raw = fs.readFileSync(packagePath, 'utf-8');
+    const pkg = JSON.parse(raw) as {
+      contributes?: { menus?: Record<string, Array<{ command?: string }>> };
+    };
+    const viewTitleCommands = (pkg.contributes?.menus?.['view/title'] ?? [])
+      .map((item) => item.command)
+      .filter((c): c is string => typeof c === 'string' && c.length > 0);
+    for (const commandId of new Set(viewTitleCommands)) {
+      await assert.doesNotReject(
+        async () => commands.executeCommand(commandId),
+        `view/title command "${commandId}" throws when executed`,
+      );
+    }
+  });
+
+  /**
+   * Guards Drift Tools quick menu entries by requiring every commandId in
+   * status-bar-tools.ts to be registered at activation time.
+   */
+  it('should register every Drift Tools quick-menu command target', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    const toolsPath = path.join(__dirname, '..', '..', 'src', 'status-bar-tools.ts');
+    const source = fs.readFileSync(toolsPath, 'utf-8');
+    const commandIds = Array.from(
+      source.matchAll(/commandId:\s*'([^']+)'/g),
+      (match) => match[1],
+    );
+    for (const commandId of new Set(commandIds)) {
+      assert.ok(
+        commandId in registered,
+        `Drift Tools item targets "${commandId}" but it is not registered`,
+      );
+    }
+  });
+
+  /**
    * Ensures package.json declares onCommand activation for every command entry
    * and every menu-referenced command so VS Code always activates before
    * command execution, including toolbar/status-bar icon paths.
