@@ -25,11 +25,13 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ### Improved
 
+• **Web viewer: Tables sidebar loading** — While the table list loads, placeholders (shimmer skeleton rows) appear **under** the **Tables** heading instead of above it; the old text-and-spinner line is removed. Failed `GET /api/tables` shows an error message in the same block.
+
 • **VS Code: Database sidebar when REST schema fails** — If the UI shows a connection but the Database tree cannot load schema from the REST API, the explorer now lists a warning row and the same troubleshooting commands as **clickable tree items** (Refresh, Diagnose, Troubleshooting, log, browser, Select Server, web help). Some editors do not run `viewsWelcome` markdown `command:` links, which made those controls appear to do nothing. **Refresh tree** also shows a result notification after each attempt; **Connection help (web)** shows a short toast before opening the docs.
 
 ### Documentation
 
-• **`doc/API.md` — Run SQL from links** — Documents the web viewer `GET /?sql=` deep link (prefill Run SQL, `replaceState`, privacy and URL-length caveats) alongside `POST /api/sql`, and lists `sql` in the query-parameter reference table. Plan `plans/48-log-capture-sql-deeplink-and-api.md` updated to match (cross-refs, Log Capture as external contract, security notes).
+• **`doc/API.md` — Run SQL from links** — Documents the web viewer `GET /?sql=` deep link (prefill Run SQL, `replaceState`, privacy and URL-length caveats) alongside `POST /api/sql`, lists `sql` in the query-parameter reference, nests those endpoints under **SQL** in the table of contents with stable anchor IDs, and links **`GET /`** (Special Routes) to the same web-viewer section. Plan `plans/48-log-capture-sql-deeplink-and-api.md` updated to match (cross-refs, Log Capture as external contract, security notes).
 
 ---
 

@@ -5612,6 +5612,28 @@
             });
         });
       }
+
+      // Deep link: ?sql=... (e.g. from Saropa Log Capture SQL history) opens Run SQL tab and pre-fills the editor.
+      (function applySqlFromQueryString() {
+        try {
+          var params = new URLSearchParams(location.search);
+          var sqlParam = params.get('sql');
+          if (!sqlParam || !inputEl) return;
+          var decoded = sqlParam;
+          try { decoded = decodeURIComponent(sqlParam); } catch (e2) { /* use raw */ }
+          inputEl.value = decoded;
+          switchTab('sql');
+          if (collapsible) {
+            collapsible.classList.remove('collapsed');
+            syncFeatureCardExpanded(collapsible);
+          }
+          try {
+            var u = new URL(location.href);
+            u.searchParams.delete('sql');
+            history.replaceState(null, '', u.pathname + u.search + u.hash);
+          } catch (e3) { /* ignore */ }
+        } catch (e) { /* ignore */ }
+      })();
     })();
 
     // Shared: render table list using counts from the /api/tables response.
@@ -5914,7 +5936,10 @@
       .then(r => r.json())
       .then(data => {
         const loadingEl = document.getElementById('tables-loading');
-        loadingEl.style.display = 'none';
+        if (loadingEl) {
+          loadingEl.style.display = 'none';
+          loadingEl.setAttribute('aria-busy', 'false');
+        }
 
         // applyTableListAndCounts returns the extracted
         // tables array for nav history and deep-link use.
@@ -5964,7 +5989,19 @@
           renderBreadcrumb();
         }
       })
-      .catch(e => { document.getElementById('tables-loading').textContent = 'Failed to load tables: ' + e; });
+      .catch(e => {
+        // Keep the sidebar block visible: hide skeleton rows and show role=alert text.
+        var wrap = document.getElementById('tables-loading');
+        if (!wrap) return;
+        var sk = wrap.querySelector('.tables-skeleton');
+        var errEl = document.getElementById('tables-loading-error');
+        if (sk) sk.style.display = 'none';
+        wrap.setAttribute('aria-busy', 'false');
+        if (errEl) {
+          errEl.hidden = false;
+          errEl.textContent = 'Failed to load tables: ' + e;
+        }
+      });
 
     // Fetch server version from health endpoint and display in header badge.
     // Also loads enhanced CSS from jsDelivr CDN, version-pinned to this

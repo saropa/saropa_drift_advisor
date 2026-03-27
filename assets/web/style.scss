@@ -917,25 +917,54 @@ li { margin: 0.25rem 0; }
 a { color: var(--link); text-decoration: none; transition: color 0.15s ease; }
 a:hover { color: var(--link-hover); text-decoration: underline; }
 
-/* Loading tables indicator */
-#tables-loading {
-  display: inline-block;
-  margin-bottom: 0.5rem;
+/* Tables list loading: skeleton rows under the "Tables" heading (no spinner). */
+.tables-loading {
+  margin: 0 0 0.5rem;
 }
-#tables-loading::after {
-  content: '';
-  display: inline-block;
-  width: 0.4em;
-  height: 0.4em;
-  margin-left: 0.35em;
-  vertical-align: 0.15em;
-  border: 2px solid var(--muted);
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: tables-loading-spin 0.7s linear infinite;
+.tables-skeleton {
+  pointer-events: none;
 }
-@keyframes tables-loading-spin {
-  to { transform: rotate(360deg); }
+.tables-skeleton li {
+  margin: 0.2rem 0;
+}
+/* Bar mimics a table row; shimmer sweeps across for perceived progress without a spinner. */
+.tables-skeleton-bar {
+  display: block;
+  height: var(--tap-min);
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--border-subtle) 0%,
+    color-mix(in srgb, var(--muted) 28%, var(--surface)) 45%,
+    color-mix(in srgb, var(--muted) 40%, var(--surface)) 55%,
+    var(--border-subtle) 100%
+  );
+  background-size: 220% 100%;
+  animation: tables-skeleton-shimmer 1.15s ease-in-out infinite;
+}
+/* Fallback when color-mix is unavailable: still animates a subtle sweep. */
+@supports not (background: color-mix(in srgb, red, blue)) {
+  .tables-skeleton-bar {
+    background: linear-gradient(
+      90deg,
+      var(--border-subtle) 0%,
+      rgba(128, 128, 128, 0.22) 50%,
+      var(--border-subtle) 100%
+    );
+    background-size: 220% 100%;
+  }
+}
+@keyframes tables-skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+.tables-loading-error {
+  margin: 0.25rem 0 0.5rem;
+  color: #e57373;
+}
+body.theme-light .tables-loading-error {
+  color: #c62828;
 }
 
 /* Inline spinner inside tool/action buttons during slow requests (Analyze, Update, Run SQL, etc.). */

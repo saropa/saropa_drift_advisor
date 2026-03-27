@@ -1,5 +1,6 @@
-// Contract tests for the debug web viewer shell: NL→SQL modal markup and
-// layout toggles (html_content.dart, app.js, style.scss). Catches accidental ID renames.
+// Contract tests for the debug web viewer shell: NL→SQL modal markup,
+// layout toggles, and tables-list loading shell (html_content.dart, app.js,
+// style.scss). Catches accidental ID renames and markup regressions.
 
 import 'dart:io';
 
@@ -64,4 +65,36 @@ void main() {
           'initializer must define applyAppSidebarCollapsed before toggle() runs',
     );
   });
+
+  test(
+    'Tables sidebar: heading before loading skeleton; ids wired in app.js',
+    () {
+      final tablesHeadingIdx = htmlDart.indexOf('id="tables-heading-toggle"');
+      final loadingIdx = htmlDart.indexOf('id="tables-loading"');
+      // Must not use bare id="tables" — that matches id="tables-loading" first.
+      final tablesListIdx = htmlDart.indexOf('<ul id="tables"');
+      expect(tablesHeadingIdx, greaterThan(-1));
+      expect(loadingIdx, greaterThan(-1));
+      expect(tablesListIdx, greaterThan(-1));
+      expect(
+        tablesHeadingIdx,
+        lessThan(loadingIdx),
+        reason: 'Tables heading must precede loading state',
+      );
+      expect(
+        loadingIdx,
+        lessThan(tablesListIdx),
+        reason: 'Loading skeleton must precede populated table list',
+      );
+      expect(htmlDart, contains('table-list tables-skeleton'));
+      expect(htmlDart, contains('id="tables-loading-error"'));
+      // Replaced old <p id="tables-loading">…</p> spinner line with skeleton under heading.
+      expect(htmlDart, isNot(contains('<p id="tables-loading"')));
+      expect(styleScss, contains('tables-skeleton-bar'));
+      expect(styleScss, contains('tables-skeleton-shimmer'));
+      expect(appJs, contains("getElementById('tables-loading')"));
+      expect(appJs, contains("getElementById('tables-loading-error')"));
+      expect(appJs, contains("wrap.querySelector('.tables-skeleton')"));
+    },
+  );
 }

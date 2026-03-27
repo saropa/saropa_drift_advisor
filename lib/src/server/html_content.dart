@@ -19,6 +19,9 @@
 ///
 /// Layout shell uses [id="app-layout"], [id="app-sidebar"], and [id="app-sidebar-toggle"]
 /// so the client script can collapse the whole left column (see `initAppSidebarPanelToggle` in `app.js`).
+///
+/// The **Tables** sidebar shows skeleton rows under the Tables heading until `app.js` completes
+/// `GET /api/tables`; failures surface in the same block (see `indexHtml` markup).
 import 'server_constants.dart';
 
 abstract final class HtmlContent {
@@ -99,9 +102,20 @@ abstract final class HtmlContent {
         </div>
       </div>
       </div>
-      <p id="tables-loading" class="meta">Loading tables…</p>
       <div id="sidebar-tables-wrap" class="sidebar-section sidebar-tables-wrap">
       <h2 class="tables-heading"><button type="button" id="tables-heading-toggle" aria-expanded="true" title="Click to collapse/expand table list">Tables</button></h2>
+      <!-- Shimmer placeholders sit under the heading (not above) until /api/tables returns. -->
+      <div id="tables-loading" class="tables-loading" aria-busy="true" aria-label="Loading tables">
+        <ul class="table-list tables-skeleton" role="presentation">
+          <li><span class="tables-skeleton-bar"></span></li>
+          <li><span class="tables-skeleton-bar"></span></li>
+          <li><span class="tables-skeleton-bar"></span></li>
+          <li><span class="tables-skeleton-bar"></span></li>
+          <li><span class="tables-skeleton-bar"></span></li>
+          <li><span class="tables-skeleton-bar"></span></li>
+        </ul>
+        <p id="tables-loading-error" class="tables-loading-error meta" hidden role="alert"></p>
+      </div>
       <ul id="tables" class="table-list"></ul>
       </div>
     </aside>
