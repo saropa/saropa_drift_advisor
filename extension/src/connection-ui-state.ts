@@ -12,7 +12,9 @@
  *
  * **Refresh:** `refreshDriftConnectionUi` updates (1) VS Code context, (2) Drift Tools tree,
  * (3) Schema Search presentation. Each step is try/catch-isolated so one failure does not
- * block the others. Logging is optional and may be verbosity-filtered by the caller.
+ * block the others. `schemaOperationsEnabled` also requires `DriftTreeProvider.isSchemaSearchAvailable()`
+ * so transport-level “connected” does not enable search before table metadata exists. Logging is
+ * optional and may be verbosity-filtered by the caller.
  *
  * **Logging dedup:** When a log sink is provided, we emit a full line when the presentation
  * signature changes, or on every refresh if `driftViewer.connection.logEveryUiRefresh` is
