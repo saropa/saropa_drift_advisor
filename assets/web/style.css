@@ -1342,6 +1342,116 @@ body.theme-dark .search-tab-toolbar button:focus-visible {
   transition: opacity 0.15s ease;
 }
 
+/* Natural-language helper: opens from a single toolbar control; modal textarea matches SQL editor styling. */
+.nl-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.nl-modal[hidden] {
+  display: none !important;
+}
+
+.nl-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  cursor: pointer;
+}
+
+.nl-modal-panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: min(90vw, 36rem);
+  max-height: min(92vh, 38rem);
+  overflow: auto;
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.nl-modal-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.nl-modal-hint {
+  margin: 0 0 0.65rem;
+}
+
+.nl-modal-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.nl-modal-input {
+  width: 100%;
+  min-height: 7rem;
+  box-sizing: border-box;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  padding: 0.65rem 0.75rem;
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: var(--radius-md);
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nl-modal-input:focus {
+  outline: none;
+  border-color: var(--link);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+
+.nl-modal-sql-preview {
+  width: 100%;
+  min-height: 5rem;
+  box-sizing: border-box;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 0.65rem 0.75rem;
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius-md);
+  resize: vertical;
+  cursor: default;
+}
+
+.nl-modal-sql-preview:focus {
+  outline: none;
+  border-color: var(--border);
+}
+
+.nl-modal-error {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
+
+.nl-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
+}
+
 .diff-result {
   transition: opacity 0.2s ease;
 }

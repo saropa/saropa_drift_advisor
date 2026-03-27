@@ -219,10 +219,25 @@ abstract final class HtmlContent {
       <label for="sql-result-format">Show as:</label>
       <select id="sql-result-format"><option value="table">Table</option><option value="json">JSON</option></select>
     </div>
-    <div class="sql-toolbar" style="margin-bottom:0.35rem;">
-      <label for="nl-input">Ask in English:</label>
-      <input type="text" id="nl-input" placeholder="e.g. how many users were created today?" style="flex:1;min-width:20rem;" />
-      <button type="button" id="nl-convert" title="Generate SQL from natural language">Convert to SQL</button>
+    <div class="sql-toolbar nl-ask-toolbar" style="margin-bottom:0.35rem;">
+      <button type="button" id="nl-open" title="Describe your question in plain English; preview SQL updates in the dialog as you type">Ask in English…</button>
+    </div>
+    <!-- NL question in a modal: live NL→SQL preview stays inside the dialog; Use copies into #sql-input. -->
+    <div id="nl-modal" class="nl-modal" hidden aria-hidden="true">
+      <div class="nl-modal-backdrop" id="nl-modal-backdrop" tabindex="-1"></div>
+      <div class="nl-modal-panel" role="dialog" aria-modal="true" aria-labelledby="nl-modal-title" tabindex="-1">
+        <h3 id="nl-modal-title" class="nl-modal-title">Ask in English</h3>
+        <p class="meta nl-modal-hint">Preview updates as you type. Use copies the preview into the main SQL editor; Cancel or Escape closes without changing it.</p>
+        <label for="nl-modal-input" class="nl-modal-label">Your question</label>
+        <textarea id="nl-modal-input" class="nl-modal-input" rows="6" placeholder="e.g. how many users were created today?"></textarea>
+        <label for="nl-modal-sql-preview" class="nl-modal-label">Generated SQL (preview)</label>
+        <textarea id="nl-modal-sql-preview" class="nl-modal-sql-preview" readonly rows="5" aria-readonly="true" title="Live preview; not applied to the runner until you click Use"></textarea>
+        <p id="nl-modal-error" class="sql-error nl-modal-error" style="display:none;" role="status"></p>
+        <div class="nl-modal-actions">
+          <button type="button" id="nl-use" class="btn-primary" title="Copy preview SQL into the main editor and close">Use</button>
+          <button type="button" id="nl-cancel" title="Close without changing the main SQL editor">Cancel</button>
+        </div>
+      </div>
     </div>
     <textarea id="sql-input" placeholder="SELECT * FROM my_table LIMIT 10"></textarea>
     <div id="sql-error" class="sql-error" style="display: none;"></div>

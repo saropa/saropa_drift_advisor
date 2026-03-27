@@ -14,6 +14,12 @@
      * Table definition panel: `buildTableDefinitionHtml` shows PRAGMA-backed column
      * names, types, and PK/NOT NULL flags (from cached `/api/schema/metadata`)
      * above the grid on table tabs and wherever Search "both" mode shows row data.
+     *
+     * Natural language → SQL (`nlToSql`): **Ask in English…** opens a modal. Typing
+     * debounces into `applyNlLivePreview`, which fills `#nl-modal-sql-preview` only;
+     * the main `#sql-input` is updated when the user clicks **Use** (`useNlModal`).
+     * Conversion errors use `setNlModalError` so run/query errors under the main
+     * editor are not cleared by NL failures.
      */
     var DRIFT_VIEWER_AUTH_TOKEN = "";
     /** True when server exposes POST /api/cell/update (writeQuery configured). */
@@ -980,7 +986,7 @@
     // --- Disable / enable server-dependent controls ---
     // IDs of buttons that call server endpoints.
     var OFFLINE_DISABLE_IDS = [
-      'sql-run', 'sql-explain', 'nl-convert',
+      'sql-run', 'sql-explain', 'nl-open',
       'snapshot-take', 'snapshot-compare',
       'compare-view', 'migration-preview',
       'index-analyze', 'size-analyze', 'anomaly-analyze',
@@ -5740,34 +5746,126 @@
           });
       });
     }
-    // --- NL-to-SQL event handlers ---
-    document.getElementById('nl-convert').addEventListener('click', async function () {
-      var question = String(document.getElementById('nl-input').value || '').trim();
-      if (!question) return;
-      var btn = this;
-      btn.disabled = true;
-      setButtonBusy(btn, true, 'Converting...');
+    // --- NL-to-SQL: modal shows a live preview only; Use copies into #sql-input (debounced preview). ---
+    var nlLiveDebounce = null;
+    var nlModalEscapeListenerActive = false;
+    function nlModalOnEscape(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeNlModal();
+      }
+    }
+    /** NL conversion messages stay in the modal so they do not clear or replace run/query errors under the main editor. */
+    function setNlModalError(msg, visible) {
+      var modalErr = document.getElementById('nl-modal-error');
+      if (visible && msg) {
+        if (modalErr) {
+          modalErr.textContent = msg;
+          modalErr.style.display = 'block';
+        }
+      } else if (modalErr) {
+        modalErr.style.display = 'none';
+      }
+    }
+    async function applyNlLivePreview() {
+      var ta = document.getElementById('nl-modal-input');
+      var preview = document.getElementById('nl-modal-sql-preview');
+      if (!ta || !preview) return;
+      var question = String(ta.value || '').trim();
+      if (!question) {
+        preview.value = '';
+        setNlModalError('', false);
+        return;
+      }
       try {
         var meta = await loadSchemaMeta();
         var result = nlToSql(question, meta);
         if (result.sql) {
-          document.getElementById('sql-input').value = result.sql;
-          document.getElementById('sql-error').style.display = 'none';
+          preview.value = result.sql;
+          setNlModalError('', false);
         } else {
-          document.getElementById('sql-error').textContent = result.error || 'Could not convert to SQL.';
-          document.getElementById('sql-error').style.display = 'block';
+          preview.value = '';
+          setNlModalError(result.error || 'Could not convert to SQL.', true);
         }
       } catch (err) {
-        document.getElementById('sql-error').textContent = 'Error: ' + (err.message || err);
-        document.getElementById('sql-error').style.display = 'block';
-      } finally {
-        btn.disabled = false;
-        setButtonBusy(btn, false, 'Convert to SQL');
+        preview.value = '';
+        setNlModalError('Error: ' + (err.message || err), true);
       }
-    });
-    document.getElementById('nl-input').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') document.getElementById('nl-convert').click();
-    });
+    }
+    function scheduleNlLivePreview() {
+      if (nlLiveDebounce) clearTimeout(nlLiveDebounce);
+      nlLiveDebounce = setTimeout(function () {
+        nlLiveDebounce = null;
+        applyNlLivePreview();
+      }, 120);
+    }
+    function openNlModal() {
+      var modal = document.getElementById('nl-modal');
+      var ta = document.getElementById('nl-modal-input');
+      if (!modal || !ta) return;
+      modal.hidden = false;
+      modal.setAttribute('aria-hidden', 'false');
+      ta.focus();
+      if (!nlModalEscapeListenerActive) {
+        document.addEventListener('keydown', nlModalOnEscape);
+        nlModalEscapeListenerActive = true;
+      }
+      scheduleNlLivePreview();
+    }
+    function closeNlModal() {
+      var modal = document.getElementById('nl-modal');
+      if (!modal) return;
+      modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+      if (nlModalEscapeListenerActive) {
+        document.removeEventListener('keydown', nlModalOnEscape);
+        nlModalEscapeListenerActive = false;
+      }
+      var openBtn = document.getElementById('nl-open');
+      if (openBtn) openBtn.focus();
+    }
+    async function useNlModal() {
+      var ta = document.getElementById('nl-modal-input');
+      var sqlEl = document.getElementById('sql-input');
+      if (!ta || !sqlEl) return;
+      var question = String(ta.value || '').trim();
+      if (!question) {
+        setNlModalError('Enter a question first.', true);
+        return;
+      }
+      try {
+        var meta = await loadSchemaMeta();
+        var result = nlToSql(question, meta);
+        if (result.sql) {
+          sqlEl.value = result.sql;
+          var mainErr = document.getElementById('sql-error');
+          if (mainErr) {
+            mainErr.textContent = '';
+            mainErr.style.display = 'none';
+          }
+          closeNlModal();
+        } else {
+          setNlModalError(result.error || 'Could not convert to SQL.', true);
+        }
+      } catch (err) {
+        setNlModalError('Error: ' + (err.message || err), true);
+      }
+    }
+    var nlOpenEl = document.getElementById('nl-open');
+    if (nlOpenEl) nlOpenEl.addEventListener('click', openNlModal);
+    var nlBackdrop = document.getElementById('nl-modal-backdrop');
+    if (nlBackdrop) nlBackdrop.addEventListener('click', closeNlModal);
+    var nlCancel = document.getElementById('nl-cancel');
+    if (nlCancel) nlCancel.addEventListener('click', closeNlModal);
+    var nlUse = document.getElementById('nl-use');
+    if (nlUse) nlUse.addEventListener('click', function () { useNlModal(); });
+    var nlModalInput = document.getElementById('nl-modal-input');
+    if (nlModalInput) {
+      nlModalInput.addEventListener('input', scheduleNlLivePreview);
+      nlModalInput.addEventListener('paste', function () {
+        setTimeout(scheduleNlLivePreview, 0);
+      });
+    }
 
     fetch('/api/tables', authOpts())
       .then(r => r.json())

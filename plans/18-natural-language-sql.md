@@ -6,6 +6,8 @@ Type a plain-English question ("users who signed up this week with no orders") a
 
 ## User Experience
 
+**Package debug web UI (read-only SQL runner):** **Ask in English…** opens a modal with a multiline question and a read-only **Generated SQL (preview)** updated as you type; **Use** copies into the main SQL editor. This path uses client-side pattern matching against `/api/schema/metadata` (`nlToSql` in `assets/web/app.js`), not an LLM.
+
 1. Open the SQL Notebook (`Ctrl+Shift+Q`) or click "Ask in English" in the notebook toolbar
 2. A text input appears with placeholder: "Describe what you want to query…"
 3. Type: "show me users who have no orders"
