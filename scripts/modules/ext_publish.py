@@ -4,6 +4,7 @@
 import glob
 import json
 import os
+import subprocess
 
 from modules.constants import (
     C,
@@ -131,13 +132,25 @@ def get_marketplace_published_version() -> str | None:
     return None
 
 
+## Maximum seconds to wait for a marketplace publish command before giving up.
+_PUBLISH_TIMEOUT_SECS = 300
+
+
 def publish_marketplace(vsix_path: str) -> bool:
     """Publish the pre-built .vsix to VS Code Marketplace."""
     info(f"Publishing {os.path.basename(vsix_path)} to marketplace...")
-    result = run(
-        ["npx", "@vscode/vsce", "publish", "--packagePath", vsix_path],
-        cwd=EXTENSION_DIR,
-    )
+    try:
+        result = run(
+            ["npx", "@vscode/vsce", "publish", "--packagePath", vsix_path],
+            cwd=EXTENSION_DIR,
+            timeout=_PUBLISH_TIMEOUT_SECS,
+        )
+    except subprocess.TimeoutExpired:
+        fail(
+            f"Marketplace publish timed out after {_PUBLISH_TIMEOUT_SECS}s. "
+            "The server may be unresponsive — try again later."
+        )
+        return False
     if result.returncode != 0:
         fail("Marketplace publish failed:")
         print_cmd_output(result)
@@ -153,10 +166,18 @@ def publish_openvsx(vsix_path: str) -> bool:
         fail("OVSX_PAT is not set.")
         return False
     info(f"Publishing {os.path.basename(vsix_path)} to Open VSX...")
-    result = run(
-        ["npx", "ovsx", "publish", vsix_path, "-p", pat],
-        cwd=EXTENSION_DIR,
-    )
+    try:
+        result = run(
+            ["npx", "ovsx", "publish", vsix_path, "-p", pat],
+            cwd=EXTENSION_DIR,
+            timeout=_PUBLISH_TIMEOUT_SECS,
+        )
+    except subprocess.TimeoutExpired:
+        fail(
+            f"Open VSX publish timed out after {_PUBLISH_TIMEOUT_SECS}s. "
+            "The server may be unresponsive — try again later."
+        )
+        return False
     if result.returncode != 0:
         fail("Open VSX publish failed:")
         print_cmd_output(result)
