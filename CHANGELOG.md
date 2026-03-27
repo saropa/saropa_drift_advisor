@@ -17,6 +17,16 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
+## [Unreleased]
+
+Hardening numeric validation and transaction error observability in write endpoints.
+
+### Fixed
+
+• **Cell update numeric parsing now fails safely** — integer/real coercion uses guarded parsing and rejects non-finite numeric values, returning 400 validation errors for invalid user input instead of risking parse exceptions.
+
+• **Batch transaction failure paths now log cleanup issues** — rollback and primary transaction exceptions are both logged, improving diagnostics when `/api/edits/apply` fails.
+
 ## [2.9.0]
 
 Lighter extension load on SQLite, authenticated discovery, and a path from pending cell edits to the database—batch apply, bulk-edit UI, and foreign-key–aware ordering.

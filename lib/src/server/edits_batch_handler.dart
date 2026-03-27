@@ -60,12 +60,16 @@ final class EditsBatchHandler {
         await writeQuery(s);
       }
       await writeQuery('COMMIT;');
-    } on Object catch (_) {
+    } on Object catch (error, stack) {
       try {
         await writeQuery('ROLLBACK;');
-      } on Object catch (_) {
-        /* Best-effort rollback. */
+      } on Object catch (rollbackError, rollbackStack) {
+        // Rollback failures are non-fatal to caller semantics, but must be
+        // logged to preserve observability of transaction cleanup issues.
+        _ctx.logError(rollbackError, rollbackStack);
       }
+      // Surface and log the original transactional failure.
+      _ctx.logError(error, stack);
       rethrow;
     }
 

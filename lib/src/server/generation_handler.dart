@@ -151,8 +151,10 @@ final class GenerationHandler {
       final file = File('$packageRoot/$relativePath');
       if (await file.exists()) {
         try {
+          // Read full text to avoid leaked file handles on stream interruption.
+          final contents = await file.readAsString();
           response.headers.contentType = contentType;
-          await response.addStream(file.openRead());
+          response.write(contents);
         } on Object catch (error, stack) {
           // Mid-stream read or socket failures can occur
           // after headers start sending; log and close so
@@ -161,8 +163,9 @@ final class GenerationHandler {
         }
         try {
           await response.close();
-        } on Object {
-          // Ignore double-close or already-terminated response.
+        } on Object catch (error, stack) {
+          // Ignore close races, but keep telemetry for diagnostics.
+          _ctx.logError(error, stack);
         }
         return;
       }
@@ -181,7 +184,9 @@ final class GenerationHandler {
   /// example under `flutter test`), discover the root by walking ancestors of
   /// [Directory.current] until both expected paths exist.
   Future<String?> _resolvePackageRootPath() async {
-    if (_packageRootLookupComplete) return _resolvedPackageRootPath;
+    if (_packageRootLookupComplete) {
+      return _resolvedPackageRootPath;
+    }
 
     String? root;
     try {
@@ -192,13 +197,21 @@ final class GenerationHandler {
         final libFile = File.fromUri(packageLibUri);
         root = libFile.parent.parent.path;
       }
-    } on Object {
+    } on Object catch (error, stack) {
       // Flutter's test VM does not implement package URI resolution; use the
       // directory walk below instead of failing every asset request.
+      _ctx.logError(error, stack);
     }
 
     root ??= await _discoverPackageRootPathFromAncestorWalk();
+    return _cacheResolvedPackageRootPath(root);
+  }
 
+  /// Caches package root lookup result once per process.
+  ///
+  /// Kept static so cache writes are not performed from instance methods,
+  /// which prevents accidental coupling of instance behavior to global state.
+  static String? _cacheResolvedPackageRootPath(String? root) {
     _resolvedPackageRootPath = root;
     _packageRootLookupComplete = true;
     return root;

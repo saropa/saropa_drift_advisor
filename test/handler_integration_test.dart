@@ -975,6 +975,99 @@ void main() {
       expect(executedSql[0], contains('"title"'));
       expect(executedSql[0], contains('WHERE "id"'));
     });
+
+    test(
+      'POST /api/cell/update rejects overflow integer string with 400',
+      () async {
+        final executedSql = <String>[];
+        final integerAwareQuery = mockQueryWithTables(
+          tableColumns: {
+            'inventory': [
+              <String, dynamic>{'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              <String, dynamic>{'name': 'qty', 'type': 'INTEGER', 'pk': 0},
+            ],
+          },
+          tableData: {
+            'inventory': [
+              <String, dynamic>{'id': 1, 'qty': 3},
+            ],
+          },
+          tableCounts: {'inventory': 1},
+          tableForeignKeys: {'inventory': <Map<String, dynamic>>[]},
+        );
+        await DriftDebugServer.stop();
+        await DriftDebugServer.start(
+          query: integerAwareQuery,
+          enabled: true,
+          port: 0,
+          writeQuery: (sql) async => executedSql.add(sql),
+        );
+        port = DriftDebugServer.port;
+
+        final r = await httpPost(
+          port!,
+          '/api/cell/update',
+          json: <String, dynamic>{
+            'table': 'inventory',
+            'pkColumn': 'id',
+            'pkValue': 1,
+            'column': 'qty',
+            // Regex-valid integer that cannot be represented as Dart int.
+            'value': '9999999999999999999999999999999999999999999',
+          },
+        );
+        expect(r.status, HttpStatus.badRequest);
+        expect((r.body as Map<String, dynamic>)['error'], isA<String>());
+        // Validation failures must short-circuit before issuing SQL writes.
+        expect(executedSql, isEmpty);
+      },
+    );
+
+    test(
+      'POST /api/cell/update rejects overflow real string with 400',
+      () async {
+        final executedSql = <String>[];
+        final realAwareQuery = mockQueryWithTables(
+          tableColumns: {
+            'metrics': [
+              <String, dynamic>{'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              <String, dynamic>{'name': 'value', 'type': 'REAL', 'pk': 0},
+            ],
+          },
+          tableData: {
+            'metrics': [
+              <String, dynamic>{'id': 1, 'value': 1.0},
+            ],
+          },
+          tableCounts: {'metrics': 1},
+          tableForeignKeys: {'metrics': <Map<String, dynamic>>[]},
+        );
+        await DriftDebugServer.stop();
+        await DriftDebugServer.start(
+          query: realAwareQuery,
+          enabled: true,
+          port: 0,
+          writeQuery: (sql) async => executedSql.add(sql),
+        );
+        port = DriftDebugServer.port;
+
+        final r = await httpPost(
+          port!,
+          '/api/cell/update',
+          json: <String, dynamic>{
+            'table': 'metrics',
+            'pkColumn': 'id',
+            'pkValue': 1,
+            'column': 'value',
+            // Not a finite double; must be rejected by numeric coercion.
+            'value': '1e1000000',
+          },
+        );
+        expect(r.status, HttpStatus.badRequest);
+        expect((r.body as Map<String, dynamic>)['error'], isA<String>());
+        expect(executedSql, isEmpty);
+      },
+    );
   });
 
   group('edits batch endpoint', () {

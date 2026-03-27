@@ -294,7 +294,13 @@ _CoerceResult _validateAndCoerceColumnValue(_PragmaColumn col, Object? raw) {
         'Column "${col.name}" expects an integer; got "$trimmed".',
       );
     }
-    return _CoerceResult.ok(int.parse(trimmed));
+    final parsed = int.tryParse(trimmed);
+    if (parsed == null) {
+      return _CoerceResult.err(
+        'Column "${col.name}" expects an integer; got "$trimmed".',
+      );
+    }
+    return _CoerceResult.ok(parsed);
   }
 
   if (_isRealAffinity(typeUpper)) {
@@ -303,7 +309,18 @@ _CoerceResult _validateAndCoerceColumnValue(_PragmaColumn col, Object? raw) {
         'Column "${col.name}" expects a number; got "$trimmed".',
       );
     }
-    return _CoerceResult.ok(double.parse(trimmed));
+    final parsed = double.tryParse(trimmed);
+    if (parsed == null) {
+      return _CoerceResult.err(
+        'Column "${col.name}" expects a number; got "$trimmed".',
+      );
+    }
+    if (!parsed.isFinite) {
+      return _CoerceResult.err(
+        'Column "${col.name}" expects a finite number; got "$trimmed".',
+      );
+    }
+    return _CoerceResult.ok(parsed);
   }
 
   if (_isBooleanAffinity(typeUpper)) {
