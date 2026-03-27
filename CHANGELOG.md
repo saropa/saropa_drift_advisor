@@ -36,6 +36,8 @@ Faster disconnect detection, quieter logs, and a banner that actually shows up.
 
 • **Discovery + Bearer auth** — Port scans pass the same **`Authorization: Bearer …`** header as the API client (including after `driftViewer.authToken` changes), so health probes succeed when the debug server requires a token.
 
+• **No-blank sidebar startup fallback** — Activation now includes startup/view/workspace hooks so connection commands register before users click them, and disconnected welcome text no longer depends on pre-set context keys. Schema Search also has a fallback welcome block with direct actions (Refresh UI, Retry, Diagnose, Troubleshooting, web help), preventing empty panes during activation races.
+
 • **Batch apply pending data edits** — With `writeQuery` configured, the server exposes **`POST /api/edits/apply`** (validated UPDATE / INSERT INTO / DELETE FROM only, one SQLite transaction). The VS Code command **Apply Pending Edits to Database** runs that batch and clears the pending queue on success.
 
 • **Bulk edit panel** — **Edit Table Data** opens a small dashboard (open table viewer, preview SQL, apply, undo, discard). It appears on the Database table context menu when the server is connected.
