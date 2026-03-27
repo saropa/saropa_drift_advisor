@@ -1120,6 +1120,44 @@ Imports data into a table. Requires `writeQuery` to be configured.
 | Missing fields | `"Missing required fields: format, data, table"` |
 | Unknown table | `"Table \"users\" not found."` |
 
+### `POST /api/edits/apply`
+
+Applies a batch of **validated** data-mutation statements in a **single SQLite transaction** (`BEGIN IMMEDIATE` / `COMMIT`). Intended for the VS Code extension when applying the pending-edit queue. Requires `writeQuery` to be configured (same as import and cell update).
+
+**Request** `Content-Type: application/json`
+
+```json
+{
+  "statements": [
+    "UPDATE \"users\" SET \"name\" = 'Ada' WHERE \"id\" = 1",
+    "INSERT INTO \"posts\" (\"title\") VALUES ('Hello')"
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `statements` | array of string | Yes | Non-empty. Each element must be a **single** SQL statement and pass server-side validation: must begin as `UPDATE …`, `INSERT INTO …`, or `DELETE FROM …` only (no `SELECT`, DDL, `PRAGMA`, multi-statement strings, etc.). |
+
+**Response** `200 OK`
+
+```json
+{
+  "ok": true,
+  "count": 2
+}
+```
+
+| Status | Meaning |
+|--------|---------|
+| `501 Not Implemented` | `writeQuery` not configured |
+| `400 Bad Request` | Invalid JSON, missing `statements`, empty array, non-string entry, or more than 500 statements |
+| `500 Internal Server Error` | Validation failed for a statement, or `writeQuery` raised (body includes `{ "error": "…" }`) |
+
+Validation runs **before** any transaction begins, so invalid input does not leave an open transaction.
+
+The same batch semantics are available over the Dart VM Service as **`ext.saropa.drift.applyEditsBatch`** with parameter **`statements`** set to a **JSON-encoded array** of strings (same content as the HTTP body field).
+
 ---
 
 ## Change Detection

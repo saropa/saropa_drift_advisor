@@ -736,6 +736,27 @@ final class Router {
   Future<Map<String, dynamic>> runSqlResult(String sql) =>
       _sql.runSqlResult(_ctx.instrumentedQuery, sql);
 
+  /// Applies validated pending-edit statements (same rules as POST /api/edits/apply).
+  Future<void> applyEditsBatchStatements(List<String> statements) =>
+      _editsBatch.runValidatedBatchStatements(statements);
+
+  /// Health JSON for VM [ext.saropa.drift.getHealth] — aligns with GET /api/health shape.
+  Map<String, dynamic> healthJsonForVmExtension() => <String, dynamic>{
+    ServerConstants.jsonKeyOk: true,
+    ServerConstants.jsonKeyExtensionConnected: true,
+    ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
+    ServerConstants.jsonKeyWriteEnabled: _ctx.writeQuery != null,
+    ServerConstants.jsonKeyCapabilities: _ctx.writeQuery != null
+        ? <String>[
+            ServerConstants.capabilityIssues,
+            ServerConstants.capabilityCellUpdate,
+            ServerConstants.capabilityEditsApply,
+          ]
+        : <String>[
+            ServerConstants.capabilityIssues,
+          ],
+  };
+
   /// Returns current generation for VM service RPC getGeneration.
   Future<int> getGeneration() => _generation.getCurrentGeneration();
 

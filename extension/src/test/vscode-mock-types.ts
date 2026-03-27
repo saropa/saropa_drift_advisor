@@ -93,6 +93,14 @@ export enum StatusBarAlignment {
   Right = 2,
 }
 
+/** Matches vscode.Disposable for code paths that use `new vscode.Disposable(fn)`. */
+export class Disposable {
+  constructor(private readonly _callOnDispose: () => void) {}
+  dispose(): void {
+    this._callOnDispose();
+  }
+}
+
 // --- Task support ---
 
 export enum TaskScope {

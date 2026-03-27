@@ -43,12 +43,27 @@
   },
   "activationEvents": [
     "onLanguage:dart",
+    "workspaceContains:**/pubspec.yaml",
+    "onView:driftViewer.schemaSearch",
+    "onView:driftViewer.databaseExplorer",
+    "onView:driftViewer.toolbox",
     "onCommand:driftViewer.about",
     "onCommand:driftViewer.aboutSaropa",
     "onCommand:driftViewer.saveFilter",
     "onCommand:driftViewer.showConnectionLog",
     "onCommand:driftViewer.refreshConnectionUi",
-    "onCommand:driftViewer.diagnoseConnection"
+    "onCommand:driftViewer.diagnoseConnection",
+    "onCommand:driftViewer.pauseDiscovery",
+    "onCommand:driftViewer.resumeDiscovery",
+    "onCommand:driftViewer.openConnectionHelp",
+    "onCommand:driftViewer.retryDiscovery",
+    "onCommand:driftViewer.openInBrowser",
+    "onCommand:driftViewer.showTroubleshooting",
+    "onCommand:driftViewer.addPackageToProject",
+    "onCommand:driftViewer.selectServer",
+    "onCommand:driftViewer.forwardPortAndroid",
+    "onCommand:driftViewer.editTableData",
+    "onCommand:driftViewer.commitPendingEdits"
   ],
   "icon": "icon.png",
   "main": "./out/extension.js",
@@ -65,16 +80,16 @@
     "views": {
       "driftViewer": [
         {
+          "id": "driftViewer.databaseExplorer",
+          "name": "Database",
+          "icon": "media/icon-activitybar.svg"
+        },
+        {
           "id": "driftViewer.schemaSearch",
           "name": "Schema Search",
           "icon": "$(search)",
           "type": "webview",
-          "when": "driftViewer.serverConnected"
-        },
-        {
-          "id": "driftViewer.databaseExplorer",
-          "name": "Database",
-          "icon": "media/icon-activitybar.svg"
+          "when": "driftViewer.enabled"
         },
         {
           "id": "driftViewer.pendingChanges",
@@ -202,6 +217,18 @@
         "title": "Saropa Drift Advisor: Retry Server Discovery"
       },
       {
+        "command": "driftViewer.pauseDiscovery",
+        "title": "Saropa Drift Advisor: Pause Server Discovery"
+      },
+      {
+        "command": "driftViewer.resumeDiscovery",
+        "title": "Saropa Drift Advisor: Resume Server Discovery"
+      },
+      {
+        "command": "driftViewer.openConnectionHelp",
+        "title": "Saropa Drift Advisor: Open Connection Help in Browser"
+      },
+      {
         "command": "driftViewer.showConnectionLog",
         "title": "Saropa Drift Advisor: Show Connection Log"
       },
@@ -253,7 +280,7 @@
       },
       {
         "command": "driftViewer.generateSql",
-        "title": "Saropa Drift Advisor: Generate SQL from Edits",
+        "title": "Saropa Drift Advisor: Preview SQL from Pending Edits",
         "icon": "$(file-code)"
       },
       {
@@ -627,6 +654,11 @@
           "group": "navigation"
         },
         {
+          "command": "driftViewer.commitPendingEdits",
+          "when": "view == driftViewer.pendingChanges && driftViewer.hasEdits",
+          "group": "navigation"
+        },
+        {
           "command": "driftViewer.discardAllEdits",
           "when": "view == driftViewer.pendingChanges",
           "group": "navigation"
@@ -705,6 +737,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "driftViewer.editTableData",
+          "when": "(viewItem == driftTable || viewItem == driftTablePinned) && driftViewer.serverConnected",
+          "group": "4_edit"
+        },
         {
           "command": "driftViewer.pinTable",
           "when": "viewItem == driftTable",

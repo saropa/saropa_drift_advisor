@@ -2,9 +2,17 @@
 
 **Supersedes:** BUG-013 (13-no-web-ui-write-operations.md)
 
+## Implementation status (2026-03)
+
+**Shipped (extension + server):** Transactional batch apply via **`POST /api/edits/apply`** and VM **`ext.saropa.drift.applyEditsBatch`** (validated `UPDATE` / `INSERT INTO` / `DELETE FROM` only; all statements validated before any `BEGIN`). **Bulk Edit** panel (command + table context menu), **Apply Pending Edits to Database**, FK-aware commit ordering when schema metadata includes foreign keys, and matching health/capability fields (`editsApply`, `writeEnabled`, etc.).
+
+**Still open:** Full browser spreadsheet parity (BUG-013), optional anomaly→bulk-edit shortcuts, and other items under [Known Limitations](#known-limitations).
+
 ## What It Does
 
-A spreadsheet-like inline editor for table data across both the **VS Code extension** and the **web UI**. Click any cell to edit its value, add new rows, delete rows, and commit changes (batch in the extension; single-row or small batch in the web UI). Preview the generated SQL before executing. Undo/redo support in the extension; explicit Save/Cancel in the web UI.
+A spreadsheet-like inline editor for table data across both the **VS Code extension** and the **web UI**. Users edit **many cells and rows** in a **single pending batch** (not separate files—edits are recorded as a list of operations). When ready, they **commit** that batch (one transaction on the server in the ideal design). Preview the generated SQL before executing. The extension records **previous values** (`oldValue`) on each cell change so edits can be merged, described in SQL, and reversed within the session via **undo/redo**; explicit Save/Cancel in the web UI.
+
+**Implementation note:** Much of the extension-side plumbing already lives under `extension/src/editing/` (e.g. `change-tracker.ts`, `editing-bridge.ts`, `sql-generator.ts`, `sqlite-cell-value.ts`, pending changes tree view). A dedicated full-screen “bulk edit panel” and web UI parity remain **planned**; the table viewer webview currently supports inline edit where wired.
 
 ## Scope: Two Surfaces
 
@@ -105,7 +113,7 @@ Edit and delete controls must only be shown when the server reports write capabi
 
 4. **Read-only columns** — Do not allow editing of computed/generated or server-marked read-only columns.
 
-5. **Validation before Save** — Validate types and constraints in the UI before sending; show inline errors. Optionally surface server validation errors instead of a generic "Save failed."
+5. **Validation before Save** — Validate types and constraints **before** applying an edit to the pending list (extension: schema from `/api/schema/metadata` including `notnull`, shared rules with clipboard import). Rejected edits revert in the webview; server/FK errors may still appear at commit time. Optionally surface server validation errors instead of a generic "Save failed."
 
 6. **Unsaved-changes prompt** — On table change, tab switch, or refresh: if there are unsaved changes, confirm before leaving.
 
@@ -119,324 +127,124 @@ Edit and delete controls must only be shown when the server reports write capabi
 
 ---
 
-## New Files
+## Files (as implemented vs planned)
+
+**Implemented (extension — editing session):**
 
 ```
-extension/src/
-  bulk-edit/
-    bulk-edit-panel.ts         # Webview panel lifecycle + message handling
-    bulk-edit-html.ts          # HTML/CSS/JS with inline edit grid
-    change-tracker.ts          # Tracks cell edits, inserts, deletes
-    sql-generator.ts           # Generates SQL from tracked changes
-    bulk-edit-types.ts         # Shared interfaces
+extension/src/editing/
+  change-tracker.ts           # PendingChange list, undo/redo snapshots, oldValue/newValue on cell edits
+  editing-bridge.ts           # Webview message bridge + injected script (dblclick cell edit, etc.)
+  sql-generator.ts            # SQL from pending changes
+  sqlite-cell-value.ts        # Type / NOT NULL validation before pending apply
+  pending-changes-provider.ts # Tree view of pending edits
 extension/src/test/
   change-tracker.test.ts
+  editing-bridge.test.ts
+  sqlite-cell-value.test.ts
   sql-generator.test.ts
+```
 
-# Web UI parity (BUG-013)
-lib/src/server/
-  html_content.dart            # Add inline edit UI when writeEnabled; save/cancel, delete with confirmation
-# Server: expose writeEnabled in /api/health when writeQuery is set
+**Planned (full “bulk grid” productization):**
+
+```
+extension/src/bulk-edit/      # Dedicated panel (initial dashboard shipped in bulk-edit-panel.ts)
+  bulk-edit-panel.ts         # Toolbar webview: open viewer, preview SQL, apply batch, undo/discard
+```
+
+**Shipped (commit + panel):**
+
+- **HTTP** `POST /api/edits/apply` — JSON `{ "statements": [ "UPDATE …", … ] }`; each string validated as a single `UPDATE` / `INSERT INTO` / `DELETE FROM`; runs `BEGIN IMMEDIATE` → statements → `COMMIT` (or `ROLLBACK` on failure). Requires `writeQuery`. Advertised as capability `editsApply` when writes are enabled.
+- **VS Code** — `driftViewer.commitPendingEdits` applies pending operations in **FK-aware order** (deletes → cell updates → inserts; table order from `DependencySorter` when `schemaMetadata({ includeForeignKeys: true })` succeeds). **`ext.saropa.drift.applyEditsBatch`** supports the same batch when the extension uses VM Service. `driftViewer.editTableData` opens the bulk-edit panel; context menu on tables when connected.
+
+**Web UI parity (BUG-013):**
+
+```
+lib/src/server/html_content.dart   # Inline edit when writeEnabled; assets/web/app.js patterns
+# Server: notnull in GET /api/schema/metadata (done); writeQuery for commits; writeEnabled in /api/health when set
 ```
 
 ## Dependencies
 
-- `api-client.ts` — `schemaMetadata()`, `sql()`
+- `api-client.ts` — `schemaMetadata()` (tables with columns: `name`, `type`, `pk`, **`notnull`** for validation), `sql()`
 - `data-management/dependency-sorter.ts` (from Feature 20a) — FK-ordered transaction execution for multi-table commits
 - `data-management/dataset-types.ts` (from Feature 20a) — `IFkContext` shared interface for FK constraint validation
 - Server: `writeQuery` callback required for executing changes
 
 ## Architecture
 
-### Change Tracker
+### Change tracker (as implemented)
 
-Tracks all pending changes in the editing session:
+`ChangeTracker` holds an ordered list of `PendingChange` items: **cell** (update), **insert**, **delete**.
+
+- **Cell edits** store `table`, `pkColumn`, `pkValue`, `column`, **`oldValue`**, **`newValue`**. If the user edits the same cell again before commit, **`newValue` is updated** but **`oldValue` stays the value from before the first pending edit**—so the batch still knows how to revert that cell to the original DB value in SQL.
+- **Undo / redo** operate on **snapshots of the entire pending list** (not a single SQL transaction): each mutating operation pushes the previous list onto an undo stack; **Undo** restores the prior snapshot. This gives stepwise reversal of the editing session.
+- State is **in memory only** (see [Session history and persistence](#session-history-and-persistence)).
+
+Pseudocode shape (simplified; see `extension/src/editing/change-tracker.ts`):
 
 ```typescript
-type ChangeType = 'update' | 'insert' | 'delete';
+type PendingChange = CellChange | RowInsert | RowDelete;
 
-interface ICellEdit {
-  rowPk: unknown;
+interface CellChange {
+  kind: 'cell';
+  id: string;
+  table: string;
+  pkColumn: string;
+  pkValue: unknown;
   column: string;
   oldValue: unknown;
   newValue: unknown;
+  timestamp: number;
 }
-
-interface IRowInsert {
-  tempId: string;              // Temporary ID for the new row in the UI
-  values: Record<string, unknown>;
-}
-
-interface IRowDelete {
-  rowPk: unknown;
-  originalValues: Record<string, unknown>;
-}
-
-interface IChangeSet {
-  edits: ICellEdit[];
-  inserts: IRowInsert[];
-  deletes: IRowDelete[];
-}
-
-class ChangeTracker {
-  private _edits = new Map<string, ICellEdit>();   // key: "pk:column"
-  private _inserts: IRowInsert[] = [];
-  private _deletes = new Map<unknown, IRowDelete>();
-  private _history: IChangeAction[] = [];
-
-  editCell(rowPk: unknown, column: string, oldValue: unknown, newValue: unknown): void {
-    const key = `${rowPk}:${column}`;
-
-    // If editing back to original value, remove the edit
-    const existing = this._edits.get(key);
-    if (existing && newValue === existing.oldValue) {
-      this._edits.delete(key);
-      this._history.push({ type: 'undo_edit', key });
-      return;
-    }
-
-    const edit: ICellEdit = {
-      rowPk,
-      column,
-      oldValue: existing?.oldValue ?? oldValue,
-      newValue,
-    };
-    this._edits.set(key, edit);
-    this._history.push({ type: 'edit', key, edit });
-  }
-
-  insertRow(values: Record<string, unknown>): string {
-    const tempId = `new_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const insert: IRowInsert = { tempId, values };
-    this._inserts.push(insert);
-    this._history.push({ type: 'insert', tempId });
-    return tempId;
-  }
-
-  deleteRow(rowPk: unknown, originalValues: Record<string, unknown>): void {
-    // If deleting a newly inserted row, just remove the insert
-    const insertIdx = this._inserts.findIndex(i => i.tempId === rowPk);
-    if (insertIdx >= 0) {
-      this._inserts.splice(insertIdx, 1);
-      this._history.push({ type: 'undo_insert', tempId: String(rowPk) });
-      return;
-    }
-
-    this._deletes.set(rowPk, { rowPk, originalValues });
-
-    // Remove any edits for this row
-    for (const [key, edit] of this._edits) {
-      if (edit.rowPk === rowPk) this._edits.delete(key);
-    }
-
-    this._history.push({ type: 'delete', rowPk });
-  }
-
-  undo(): boolean {
-    const last = this._history.pop();
-    if (!last) return false;
-
-    switch (last.type) {
-      case 'edit':
-        this._edits.delete(last.key!);
-        break;
-      case 'insert':
-        this._inserts = this._inserts.filter(i => i.tempId !== last.tempId);
-        break;
-      case 'delete':
-        this._deletes.delete(last.rowPk);
-        break;
-    }
-    return true;
-  }
-
-  getChangeSet(): IChangeSet {
-    return {
-      edits: [...this._edits.values()],
-      inserts: [...this._inserts],
-      deletes: [...this._deletes.values()],
-    };
-  }
-
-  get changeCount(): number {
-    // Group edits by row to count unique rows modified
-    const editedRows = new Set([...this._edits.values()].map(e => e.rowPk));
-    return editedRows.size + this._inserts.length + this._deletes.size;
-  }
-
-  clear(): void {
-    this._edits.clear();
-    this._inserts = [];
-    this._deletes.clear();
-    this._history = [];
-  }
-}
-
-interface IChangeAction {
-  type: 'edit' | 'insert' | 'delete' | 'undo_edit' | 'undo_insert';
-  key?: string;
-  edit?: ICellEdit;
-  tempId?: string;
-  rowPk?: unknown;
-}
+// + RowInsert, RowDelete with table / pk / values as in source
 ```
 
-### SQL Generator
+### SQL generator
+
+`generateSql(changes: readonly PendingChange[])` in `extension/src/editing/sql-generator.ts` walks pending changes, groups by table, and emits `UPDATE` / `INSERT` / `DELETE` with `sqlLiteral()` escaping. **`generateSqlStatements`** (used for commit) respects **FK-aware phase ordering** via `apply-order.ts` + `data-management/dependency-sorter.ts` before sending the batch to the server.
+
+### Webview message protocol (current extension bridge)
+
+Implemented in `editing-bridge.ts` (injected script + `handleMessage`).
+
+**Webview → extension:**
 
 ```typescript
-class BulkEditSqlGenerator {
-  generate(
-    table: string,
-    pkColumn: string,
-    changes: IChangeSet,
-  ): string[] {
-    const statements: string[] = [];
-
-    // Deletes first (in case of FK constraints)
-    for (const del of changes.deletes) {
-      statements.push(
-        `DELETE FROM "${table}" WHERE "${pkColumn}" = ${sqlLiteral(del.rowPk)};`
-      );
-    }
-
-    // Updates
-    const editsByRow = new Map<unknown, ICellEdit[]>();
-    for (const edit of changes.edits) {
-      const group = editsByRow.get(edit.rowPk) ?? [];
-      group.push(edit);
-      editsByRow.set(edit.rowPk, group);
-    }
-
-    for (const [rowPk, edits] of editsByRow) {
-      const sets = edits
-        .map(e => `"${e.column}" = ${sqlLiteral(e.newValue)}`)
-        .join(', ');
-      statements.push(
-        `UPDATE "${table}" SET ${sets} WHERE "${pkColumn}" = ${sqlLiteral(rowPk)};`
-      );
-    }
-
-    // Inserts last
-    for (const insert of changes.inserts) {
-      const cols = Object.keys(insert.values)
-        .filter(k => insert.values[k] !== undefined);
-      const vals = cols.map(c => sqlLiteral(insert.values[c]));
-      statements.push(
-        `INSERT INTO "${table}" (${cols.map(c => `"${c}"`).join(', ')}) VALUES (${vals.join(', ')});`
-      );
-    }
-
-    return statements;
-  }
-
-  /** Wrap all statements in a transaction. */
-  toTransaction(statements: string[]): string {
-    return ['BEGIN TRANSACTION;', ...statements, 'COMMIT;'].join('\n');
-  }
-}
-
-function sqlLiteral(value: unknown): string {
-  if (value === null || value === undefined) return 'NULL';
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return value ? '1' : '0';
-  return `'${String(value).replace(/'/g, "''")}'`;
-}
-```
-
-### Grid Keyboard Navigation (webview JS)
-
-```typescript
-function getGridJs(): string {
-  return `
-    let editingCell = null;
-
-    document.addEventListener('keydown', (e) => {
-      if (!editingCell) return;
-
-      switch (e.key) {
-        case 'Tab':
-          e.preventDefault();
-          commitEdit();
-          moveToNextCell(e.shiftKey ? 'left' : 'right');
-          break;
-        case 'Enter':
-          commitEdit();
-          moveToNextCell('down');
-          break;
-        case 'Escape':
-          cancelEdit();
-          break;
-        case 'Delete':
-          if (!editingCell && selectedRow) {
-            markRowForDeletion(selectedRow);
-          }
-          break;
-        case 'z':
-          if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-            vscode.postMessage({ command: 'undo' });
-          }
-          break;
-      }
-    });
-
-    function startEdit(cell) {
-      const input = document.createElement('input');
-      input.value = cell.dataset.value ?? '';
-      input.className = 'cell-editor';
-      cell.textContent = '';
-      cell.appendChild(input);
-      input.focus();
-      input.select();
-      editingCell = { cell, input, original: cell.dataset.value };
-    }
-
-    function commitEdit() {
-      if (!editingCell) return;
-      const { cell, input, original } = editingCell;
-      const newValue = input.value;
-      cell.textContent = newValue;
-      cell.dataset.value = newValue;
-
-      if (newValue !== original) {
-        cell.classList.add('modified');
-        vscode.postMessage({
-          command: 'cellEdited',
-          rowPk: cell.dataset.rowPk,
-          column: cell.dataset.column,
-          oldValue: original,
-          newValue: newValue,
-        });
-      }
-      editingCell = null;
-    }
-  `;
-}
-```
-
-### Webview Message Protocol
-
-Webview → Extension:
-```typescript
-{ command: 'cellEdited', rowPk: unknown, column: string, oldValue: unknown, newValue: unknown }
-{ command: 'addRow', values: Record<string, unknown> }
-{ command: 'deleteRow', rowPk: unknown }
+{ command: 'cellEdit', table: string, pkColumn: string, pkValue: unknown, column: string, oldValue: unknown, newValue: unknown }
+{ command: 'rowDelete', table: string, pkColumn: string, pkValue: unknown }
+{ command: 'rowInsert', table: string, values: Record<string, unknown> }
 { command: 'undo' }
+{ command: 'redo' }
 { command: 'discardAll' }
-{ command: 'previewSql' }
-{ command: 'commit' }
-{ command: 'loadPage', offset: number, limit: number }
 ```
 
-Extension → Webview:
+**Extension → webview:**
+
 ```typescript
-{ command: 'init', table: string, columns: ColumnMetadata[], rows: object[], totalRows: number, pkColumn: string }
-{ command: 'pageLoaded', rows: object[], offset: number }
-{ command: 'changeCount', count: number }
-{ command: 'previewSql', sql: string }
-{ command: 'committed', success: boolean, message: string }
-{ command: 'undone', changeCount: number }
+{ command: 'pendingChanges', changes: PendingChange[] }
+{ command: 'cellEditRejected', table, pkColumn, pkValue, column, oldValue, reason }  // validation failed; revert cell
+{ command: 'editingEnabled', enabled: boolean }
 ```
+
+**Planned** for a dedicated bulk panel: `previewSql`, `commit`, `loadPage`, `committed`, `init`, etc.
+
+### Grid keyboard navigation (target UX)
+
+Full Tab/Enter/Escape navigation across the whole grid is **planned** for the dedicated bulk panel. The **current** injected script (table viewer webview) now includes **quick wins**: double-click cell edit with `Escape` cancelling without committing, **Tab** / **Enter** committing by blurring the input (Tab prevents focus trap), **Ctrl/Cmd+Z** undoing the last pending operation when the inline editor is **not** focused (so undo does not fight the browser’s own text undo).
+
+### Quick wins shipped (extension table viewer)
+
+| Item | Status |
+|------|--------|
+| Cell editor class + Escape removes blur listener (no accidental commit after cancel) | Done (`cell-inline-editor`, guarded blur in injected script) |
+| Tab commits cell edit (blur) | Done |
+| Ctrl/Cmd+Z → pending undo (when not in cell input) | Done |
+| Row insert validation aligned with `parseCellEditForColumn` / cell rules | Done (`validateRowInsert`) |
+| Rejected row insert removes provisional DOM row | Done (`data-drift-pending-insert`, `rowInsertRejected`) |
+| Validation copy + nullable NULL hint | Done (`CELL_EDIT_HINT` on cell + insert warnings) |
+| Pending edits status bar + discoverable SQL preview command title | Done (`pending-edits-status-bar.ts`, command title **Preview SQL from Pending Edits**) |
+| Persistent draft of pending changes (workspace) + restore prompt | Done (`pending-changes-persistence.ts`, debounced save, restore on activate) |
 
 ## Server-Side Changes
 
@@ -467,50 +275,40 @@ None directly, but requires the existing `sql()` endpoint to support write opera
 
 ## Wiring in extension.ts
 
+`setupEditing()` in `extension-editing.ts` constructs `ChangeTracker`, `EditingBridge` (with `() => client.schemaMetadata()` for validation), the pending-changes tree view, **debounced draft persistence** to `workspaceState`, a **status bar** item when `changeCount > 0`, and (after microtask delay) **`offerRestoreDraft`** if a non-empty serialized draft exists and the tracker is empty. The main table **webview** attaches the editing bridge so inline edits flow to the tracker.
+
+A dedicated **`driftViewer.editTableData`** command that opens a **BulkEditPanel** (as sketched below) is **planned**; today, editing is tied to the shared dashboard/table viewer webview.
+
 ```typescript
-context.subscriptions.push(
-  vscode.commands.registerCommand('driftViewer.editTableData', async (item?: TableItem) => {
-    const table = item?.tableMetadata.name ?? await pickTable(client);
-    if (!table) return;
-
-    const meta = await client.schemaMetadata();
-    const tableMeta = meta.tables.find(t => t.name === table);
-    if (!tableMeta) return;
-
-    const pkCol = tableMeta.columns.find(c => c.pk)?.name;
-    if (!pkCol) {
-      vscode.window.showWarningMessage(
-        `Table "${table}" has no primary key — editing requires a PK column.`
-      );
-      return;
-    }
-
-    BulkEditPanel.createOrShow(context.extensionUri, client, tableMeta, pkCol);
-  })
-);
+// Planned wiring shape (PK check before opening a dedicated editor)
+const tables = await client.schemaMetadata();
+const tableMeta = tables.find((t) => t.name === table);
+const pkCol = tableMeta?.columns.find((c) => c.pk)?.name;
+if (!pkCol) {
+  vscode.window.showWarningMessage(
+    `Table "${table}" has no primary key — editing requires a PK column.`,
+  );
+  return;
+}
+// BulkEditPanel.createOrShow(context.extensionUri, client, tableMeta, pkCol);
 ```
+
+## Session history and persistence
+
+| Concern | Behavior |
+|--------|----------|
+| **Previous value** | Each `CellChange` stores **`oldValue`** and **`newValue`**. Re-editing the same cell updates **`newValue` only**; **`oldValue` remains** the first-seen value so generated `UPDATE` still reflects “from original row state → latest edit.” |
+| **Undo / redo** | **In-memory** stacks of full pending-change snapshots (`ChangeTracker.undo` / `redo`). Reverses editing **session** steps until **Discard** or reload. |
+| **After SQL commit** | Reverting data is **not** automatic; that would require DB transactions, reverse SQL from stored `oldValue`s, or a snapshot/branch feature—**out of scope** for pending-queue undo. |
+| **Persistent draft** | **Implemented (workspace).** `PendingChange[]` is saved to `workspaceState` under `driftViewer.pendingEditsDraft.v1` (debounced). Empty queue clears storage. On activate, an **empty** tracker + non-empty draft prompts **Restore** / **Discard saved draft**. **Future:** conflict detection if the DB changed; tie clear semantics to server **commit** when that flow exists. |
 
 ## Testing
 
-- `change-tracker.test.ts`:
-  - Edit cell tracks old and new values
-  - Edit back to original removes the edit
-  - Insert row assigns temp ID
-  - Delete row removes associated edits
-  - Delete inserted row removes the insert
-  - Undo reverses last action
-  - Multiple undos in sequence
-  - `changeCount` counts unique modified rows
-  - `clear` resets all state
-  - `getChangeSet` returns current state
-- `sql-generator.test.ts`:
-  - DELETE generates correct WHERE clause
-  - UPDATE groups multiple column changes per row
-  - INSERT includes all non-undefined values
-  - SQL literal escaping: strings, numbers, NULL, booleans
-  - Transaction wrapping adds BEGIN/COMMIT
-  - Empty changeset → no statements
-  - Order: DELETEs first, then UPDATEs, then INSERTs
+- `change-tracker.test.ts`: cell edits preserve `oldValue` when `newValue` is updated; undo/redo; discard; `replacePendingChanges` clears undo/redo and applies restored list.
+- `editing-bridge.test.ts`: message handling; invalid values rejected when schema is supplied.
+- `sqlite-cell-value.test.ts`: type and NOT NULL rules; `validateRowInsert` parity with cell validation.
+- `sql-generator.test.ts` (where present): literals, UPDATE/INSERT/DELETE shape, empty changeset.
+- `changeCount` is the **number of pending operations** (cell/insert/delete entries), not “unique rows only.”
 
 ## Integration Points
 
@@ -601,14 +399,14 @@ vscode.commands.registerCommand('driftViewer.fixAnomalyRows', (anomaly) => {
 
 ## Known Limitations
 
-- Requires a primary key column — tables without PK cannot be edited
-- No support for BLOB columns — displayed as "[BLOB]" and not editable
-- No type validation on input — entering "abc" in an INTEGER column will error at commit time
-- No auto-increment for inserted rows — user must leave PK empty for auto-assignment
-- No concurrent edit detection — if another process modifies the same row, changes overwrite
-- Pagination loads 50 rows at a time — cannot edit rows outside the current page
-- No multi-cell selection or paste from clipboard
-- Undo is per-cell, not per-transaction
-- No "save draft" — closing the panel discards uncommitted changes
-- FK constraint violations detected only at commit time, not during editing
-- No support for computed columns or triggers that modify values on insert
+- Requires a **primary key** column for stable row identity — tables without a PK cannot be edited safely
+- **BLOB** columns: not supported for inline grid edits (binary not edited as text)
+- **Extension:** type / NOT NULL validation runs **before** an edit enters the pending list (invalid edits are rejected and the cell reverts). **Commit-time** errors (FK, uniqueness, server) are still possible when SQL runs
+- **Web UI:** validation parity when inline editing ships there
+- **Persistent draft** is workspace-local and best-effort — storage quota errors are ignored; restored edits may not match live DB state until a **commit** path validates it
+- Undo applies to the **pending edit session** (snapshot undo), not to **already-committed** SQL
+- No **optimistic concurrency** (row versions) — another writer can change the same row; last commit wins unless the DB rejects the update
+- Pagination may limit which rows are visible in the viewer — editing rows off the current page depends on product behavior
+- No multi-cell selection / Excel-style paste in the current injected script
+- **FK** and other DB constraint failures often surface at **commit** (or server execution), not only during cell edit
+- Computed/generated columns and trigger side effects are not modeled in the grid

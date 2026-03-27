@@ -84,11 +84,28 @@ void main() {
       expect(r.body['version'], isA<String>());
       // Contract: shape matches doc/API.md § Health & Generation.
       expect(r.body['extensionConnected'], isA<bool>());
+      expect(r.body['writeEnabled'], isFalse);
       expect(r.body['capabilities'], isA<List<dynamic>>());
       expect(
         (r.body['capabilities'] as List<dynamic>),
         contains('issues'),
         reason: 'Health must advertise GET /api/issues support',
+      );
+    });
+
+    test('GET /api/health writeEnabled when writeQuery configured', () async {
+      await DriftDebugServer.stop();
+      await startServer(writeQuery: (sql) async {});
+      final r = await httpGet(port!, '/api/health');
+      expect(r.status, HttpStatus.ok);
+      expect(r.body['writeEnabled'], isTrue);
+      expect(
+        (r.body['capabilities'] as List<dynamic>),
+        contains('cellUpdate'),
+      );
+      expect(
+        (r.body['capabilities'] as List<dynamic>),
+        contains('editsApply'),
       );
     });
 
@@ -919,6 +936,112 @@ void main() {
       expect(body['format'], isA<String>());
       expect(body, contains('table'));
       expect(body['table'], isA<String>());
+    });
+
+    test(
+      'POST /api/cell/update returns 501 when writeQuery not configured',
+      () async {
+        await DriftDebugServer.stop();
+        await startServer();
+        final r = await httpPost(
+          port!,
+          '/api/cell/update',
+          json: <String, dynamic>{
+            'table': 'items',
+            'pkColumn': 'id',
+            'pkValue': 1,
+            'column': 'title',
+            'value': 'x',
+          },
+        );
+        expect(r.status, HttpStatus.notImplemented);
+      },
+    );
+
+    test('POST /api/cell/update succeeds with writeQuery configured', () async {
+      final executedSql = <String>[];
+      await DriftDebugServer.stop();
+      await startServer(writeQuery: (sql) async => executedSql.add(sql));
+
+      final r = await httpPost(
+        port!,
+        '/api/cell/update',
+        json: <String, dynamic>{
+          'table': 'items',
+          'pkColumn': 'id',
+          'pkValue': 1,
+          'column': 'title',
+          'value': 'Updated',
+        },
+      );
+      expect(r.status, HttpStatus.ok);
+      expect(r.body['ok'], isTrue);
+      expect(executedSql, hasLength(1));
+      expect(executedSql[0], contains('UPDATE "items"'));
+      expect(executedSql[0], contains('"title"'));
+      expect(executedSql[0], contains('WHERE "id"'));
+    });
+  });
+
+  group('edits batch endpoint', () {
+    test('POST /api/edits/apply returns 501 without writeQuery', () async {
+      await DriftDebugServer.stop();
+      await startServer();
+      final r = await httpPost(
+        port!,
+        '/api/edits/apply',
+        json: <String, dynamic>{
+          'statements': <String>[
+            'UPDATE "items" SET "title" = \'x\' WHERE "id" = 1',
+          ],
+        },
+      );
+      expect(r.status, HttpStatus.notImplemented);
+    });
+
+    test('POST /api/edits/apply runs transaction with writeQuery', () async {
+      final executedSql = <String>[];
+      await DriftDebugServer.stop();
+      await startServer(writeQuery: (sql) async => executedSql.add(sql));
+
+      final r = await httpPost(
+        port!,
+        '/api/edits/apply',
+        json: <String, dynamic>{
+          'statements': <String>[
+            'UPDATE "items" SET "title" = \'A\' WHERE "id" = 1',
+            'DELETE FROM "items" WHERE "id" = 2',
+          ],
+        },
+      );
+      expect(r.status, HttpStatus.ok);
+      final body = r.body as Map<String, dynamic>;
+      expect(body['ok'], isTrue);
+      expect(body['count'], 2);
+      expect(executedSql.length, greaterThanOrEqualTo(4));
+      expect(executedSql.first, contains('BEGIN'));
+      expect(executedSql.last, contains('COMMIT'));
+      expect(executedSql.where((s) => s.contains('UPDATE')), isNotEmpty);
+      expect(executedSql.where((s) => s.contains('DELETE')), isNotEmpty);
+    });
+
+    test('POST /api/edits/apply rejects invalid statement before transaction', () async {
+      final executedSql = <String>[];
+      await DriftDebugServer.stop();
+      await startServer(writeQuery: (sql) async => executedSql.add(sql));
+
+      final r = await httpPost(
+        port!,
+        '/api/edits/apply',
+        json: <String, dynamic>{
+          'statements': <String>['SELECT * FROM "items"'],
+        },
+      );
+      expect(r.status, HttpStatus.internalServerError);
+      final err = (r.body as Map<String, dynamic>)['error'] as String?;
+      expect(err, isNotNull);
+      // All statements validated before BEGIN — no writes or rollback needed.
+      expect(executedSql, isEmpty);
     });
   });
 

@@ -155,6 +155,18 @@ export class DriftApiClient {
     return http.httpSql(this._baseUrl, this._headers(), query);
   }
 
+  /**
+   * Runs pending-edit statements in one transaction: HTTP `POST /api/edits/apply`,
+   * or `ext.saropa.drift.applyEditsBatch` when using VM Service. Requires `writeQuery`.
+   */
+  async applyEditsBatch(statements: string[]): Promise<void> {
+    if (this._vmClient?.connected) {
+      await this._vmClient.applyEditsBatch(statements);
+      return;
+    }
+    return http.httpApplyEditsBatch(this._baseUrl, this._headers(), statements);
+  }
+
   async indexSuggestions(): Promise<IndexSuggestion[]> {
     if (this._vmClient?.connected) return this._vmClient.getIndexSuggestions();
     return http.httpIndexSuggestions(this._baseUrl, this._headers());

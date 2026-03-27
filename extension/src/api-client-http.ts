@@ -129,6 +129,33 @@ export async function httpSql(
   return resp.json() as Promise<{ columns: string[]; rows: unknown[][] }>;
 }
 
+/** Apply validated UPDATE/INSERT/DELETE batch in one server transaction (requires writeQuery). */
+export async function httpApplyEditsBatch(
+  baseUrl: string,
+  headers: ApiHeaders,
+  statements: string[],
+): Promise<void> {
+  // Use [fetchWithTimeout] (not [fetchWithRetry]) so 5xx responses still reach
+  // callers and we can include JSON `{ error }` from the server body.
+  const resp = await fetchWithTimeout(`${baseUrl}/api/edits/apply`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ statements }),
+  });
+  if (!resp.ok) {
+    let detail = `Apply edits failed: ${resp.status}`;
+    try {
+      const j = (await resp.json()) as { error?: string };
+      if (typeof j?.error === 'string' && j.error.length > 0) {
+        detail = `${detail} — ${j.error}`;
+      }
+    } catch {
+      /* Response may be non-JSON. */
+    }
+    throw new Error(detail);
+  }
+}
+
 /** Index suggestions. */
 export async function httpIndexSuggestions(
   baseUrl: string,

@@ -10,6 +10,7 @@ import type { ServerDiscovery } from '../server-discovery';
 import { DriftViewerPanel } from '../panel';
 import { getLogVerbosity, shouldLogConnectionLine } from '../log-verbosity';
 import type { SchemaSearchViewProvider } from '../schema-search/schema-search-view';
+import { SAROPA_DRIFT_CONNECTION_DOC_URL } from '../help-urls';
 
 /** Register navigation, linter, and discovery commands. */
 export function registerNavCommands(
@@ -236,6 +237,50 @@ export function registerNavCommands(
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.pauseDiscovery', () => {
+      log('Pause Discovery: triggered by user');
+      try {
+        const discOn =
+          vscode.workspace.getConfiguration('driftViewer').get<boolean>('discovery.enabled', true) !== false;
+        if (!discOn) {
+          void vscode.window.showWarningMessage(
+            'Discovery is disabled in settings (driftViewer.discovery.enabled).',
+          );
+          return;
+        }
+        discovery.pause();
+        void vscode.window.showInformationMessage(
+          'Discovery paused. Use Resume or Scan now in Schema Search when you want scans again.',
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log(`Pause Discovery: failed — ${msg}`);
+        void vscode.window.showErrorMessage(`Pause discovery failed: ${msg}`);
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.resumeDiscovery', () => {
+      log('Resume Discovery: triggered by user');
+      try {
+        discovery.resume();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log(`Resume Discovery: failed — ${msg}`);
+        void vscode.window.showErrorMessage(`Resume discovery failed: ${msg}`);
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.openConnectionHelp', () => {
+      log('Open Connection Help: triggered by user');
+      void vscode.env.openExternal(vscode.Uri.parse(SAROPA_DRIFT_CONNECTION_DOC_URL));
+    }),
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.showConnectionLog', () => {
       log('Show Connection Log: triggered by user');
       connectionChannel.show(true);
@@ -266,10 +311,13 @@ export function registerNavCommands(
       log('Diagnose Connection: started');
       connectionChannel.show(true);
       const stamp = new Date().toISOString();
+      const driftCfg = vscode.workspace.getConfiguration('driftViewer');
+      const authTok = driftCfg.get<string>('authToken', '') ?? '';
       const lines: string[] = [
         `--- Diagnose Connection (${stamp}) ---`,
-        `extension driftViewer.enabled=${vscode.workspace.getConfiguration('driftViewer').get('enabled')}`,
-        `discovery.enabled=${vscode.workspace.getConfiguration('driftViewer').get('discovery.enabled')}`,
+        `extension driftViewer.enabled=${driftCfg.get('enabled')}`,
+        `driftViewer.authToken configured=${authTok.length > 0 ? 'yes' : 'no'} (value not logged)`,
+        `discovery.enabled=${driftCfg.get('discovery.enabled')}`,
         `activeServer=${serverManager.activeServer ? `${serverManager.activeServer.host}:${serverManager.activeServer.port}` : 'none'}`,
         `discovery.state=${discovery.state} ports=[${discovery.servers.map((s) => s.port).join(', ') || 'none'}]`,
         `client.usingVmService=${client.usingVmService}`,
@@ -285,6 +333,7 @@ export function registerNavCommands(
           `schemaSearch.webviewReady=${ss.webviewReady}`,
           `schemaSearch.presentationConnected=${ss.presentationConnected}`,
           `schemaSearch.presentationLabel=${ss.presentationLabel}`,
+          `schemaSearch.discoveryActivity=${ss.discoveryActivity}`,
         );
         // Flag common failure patterns so developers can self-diagnose.
         if (!ss.viewResolved) {

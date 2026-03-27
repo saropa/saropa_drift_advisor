@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { DriftConnectionPresentation } from '../connection-ui-state';
 import type { IConnectionLog } from '../debug/debug-commands-types';
+import type { DiscoveryUiState, ServerDiscovery } from '../server-discovery';
 import { isTransientError } from '../transport/fetch-utils';
 import { getLogVerbosity, shouldLogConnectionLine } from '../log-verbosity';
 import { SchemaSearchEngine } from './schema-search-engine';
@@ -34,6 +35,9 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private _searchGen = 0;
   private _presentation: DriftConnectionPresentation;
+  /** Latest discovery snapshot for Schema Search status lines (driven by [ServerDiscovery]). */
+  private _discoveryUi: DiscoveryUiState | undefined;
+  private _discoveryDisposable: vscode.Disposable | undefined;
 
   /**
    * True once the webview script has sent its 'ready' message.
@@ -87,13 +91,33 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     webviewReady: boolean;
     presentationConnected: boolean;
     presentationLabel: string;
+    discoveryActivity: string;
   } {
     return {
       viewResolved: this._view !== undefined,
       webviewReady: this._webviewReady,
       presentationConnected: this._presentation.connected,
       presentationLabel: this._presentation.label,
+      discoveryActivity: this._discoveryUi?.activity ?? '(discovery not wired)',
     };
+  }
+
+  /**
+   * Subscribes to live discovery progress for this panel. Call once from
+   * extension activation after [ServerDiscovery] is constructed.
+   */
+  attachDiscoveryMonitor(discovery: ServerDiscovery): void {
+    this._discoveryDisposable?.dispose();
+    this._discoveryUi = discovery.getDiscoverySnapshot();
+    this._discoveryDisposable = discovery.onDidChangeDiscoveryUi((s) => {
+      this._discoveryUi = s;
+      this._postConnectionState();
+    });
+  }
+
+  disposeDiscoveryMonitor(): void {
+    this._discoveryDisposable?.dispose();
+    this._discoveryDisposable = undefined;
   }
 
   private _log(line: string): void {
@@ -184,6 +208,7 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
         connected: this._presentation.connected,
         label: this._presentation.label,
         hint: this._presentation.hint,
+        discovery: this._discoveryUi ?? null,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -226,6 +251,15 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
           break;
         case 'refreshConnectionUi':
           await vscode.commands.executeCommand('driftViewer.refreshConnectionUi');
+          break;
+        case 'pauseDiscovery':
+          await vscode.commands.executeCommand('driftViewer.pauseDiscovery');
+          break;
+        case 'resumeDiscovery':
+          await vscode.commands.executeCommand('driftViewer.resumeDiscovery');
+          break;
+        case 'openConnectionHelp':
+          await vscode.commands.executeCommand('driftViewer.openConnectionHelp');
           break;
       }
     } catch (err) {

@@ -233,6 +233,23 @@ export class ChangeTracker implements vscode.Disposable {
     this._onDidChange.fire();
   }
 
+  /**
+   * Replaces the pending list (e.g. restored from workspace draft). Clears
+   * undo/redo stacks so history does not reference pre-restore snapshots.
+   */
+  replacePendingChanges(changes: readonly PendingChange[]): void {
+    this._undoStack.length = 0;
+    this._redoStack.length = 0;
+    this._changes = changes.map((c) => {
+      if (c.kind === 'insert') {
+        return { ...c, values: { ...c.values } };
+      }
+      return { ...c };
+    });
+    this._log(`RESTORE DRAFT (${this._changes.length} change(s))`);
+    this._onDidChange.fire();
+  }
+
   logGenerateSql(): void {
     this._log(`GENERATE SQL (${this._changes.length} changes)`);
   }

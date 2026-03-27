@@ -104,13 +104,10 @@ describe('ServerManager', () => {
     assert.deepStrictEqual(stored.sort(), [8642, 8643]);
   });
 
-  it('should guard against concurrent QuickPick calls', async () => {
-    // Single server first — auto-selected
+  it('should guard against concurrent QuickPick when several servers appear', async () => {
     (discovery as any)._onDidChangeServers.fire([makeServer(8642)]);
-
-    // Two servers appear — triggers selectServer
     (discovery as any)._onDidChangeServers.fire([makeServer(8642), makeServer(8643)]);
-    // Second fire while QuickPick is open — should be skipped (no crash)
+    // Second fire while QuickPick may be open — must not crash (_picking guard in selectServer).
     (discovery as any)._onDidChangeServers.fire([makeServer(8642), makeServer(8643)]);
   });
 

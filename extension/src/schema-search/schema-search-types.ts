@@ -1,5 +1,7 @@
 /** Shared types for the schema search + cross-reference feature. */
 
+import type { DiscoveryUiState } from '../server-discovery';
+
 export type SchemaSearchScope = 'all' | 'tables' | 'columns';
 
 export interface ISchemaMatch {
@@ -38,6 +40,9 @@ export type SchemaSearchMessage =
   | { command: 'retryDiscovery' }
   | { command: 'diagnoseConnection' }
   | { command: 'refreshConnectionUi' }
+  | { command: 'pauseDiscovery' }
+  | { command: 'resumeDiscovery' }
+  | { command: 'openConnectionHelp' }
   | { command: 'ready' };
 
 /** Messages sent from the extension host to the webview. */
@@ -50,4 +55,6 @@ export type SchemaSearchHostMessage =
       connected: boolean;
       label: string;
       hint: string;
+      /** Live discovery status; omitted when not yet wired. */
+      discovery?: DiscoveryUiState | null;
     };

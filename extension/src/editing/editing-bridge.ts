@@ -1,5 +1,10 @@
 import * as vscode from 'vscode';
+import type { TableMetadata } from '../api-types';
 import { ChangeTracker, PendingChange } from './change-tracker';
+import { validateCellEdit, validateRowInsert } from './sqlite-cell-value';
+
+const CELL_EDIT_HINT =
+  ' Tip: for nullable columns, an empty cell is saved as NULL.';
 
 /** Messages sent from the webview to the extension. */
 interface CellEditMsg {
@@ -47,7 +52,14 @@ export class EditingBridge implements vscode.Disposable {
   private _webview: vscode.Webview | undefined;
   private readonly _disposables: vscode.Disposable[] = [];
 
-  constructor(private readonly _tracker: ChangeTracker) {
+  /**
+   * @param _getSchema - Loads live table/column metadata (including NOT NULL) so
+   *   cell edits are validated before they enter the pending-change list.
+   */
+  constructor(
+    private readonly _tracker: ChangeTracker,
+    private readonly _getSchema?: () => Promise<TableMetadata[]>,
+  ) {
     this._disposables.push(
       this._tracker.onDidChange(() => this._syncToWebview()),
     );
@@ -68,20 +80,13 @@ export class EditingBridge implements vscode.Disposable {
 
     switch (msg.command) {
       case 'cellEdit':
-        this._tracker.addCellChange({
-          table: msg.table,
-          pkColumn: msg.pkColumn,
-          pkValue: msg.pkValue,
-          column: msg.column,
-          oldValue: msg.oldValue,
-          newValue: msg.newValue,
-        });
+        void this._handleCellEdit(msg);
         break;
       case 'rowDelete':
         this._tracker.addRowDelete(msg.table, msg.pkColumn, msg.pkValue);
         break;
       case 'rowInsert':
-        this._tracker.addRowInsert(msg.table, msg.values);
+        void this._handleRowInsert(msg);
         break;
       case 'undo':
         this._tracker.undo();
@@ -100,6 +105,111 @@ export class EditingBridge implements vscode.Disposable {
     if (!this._webview) return;
     const payload: PendingChange[] = [...this._tracker.changes];
     this._webview.postMessage({ command: 'pendingChanges', changes: payload });
+  }
+
+  /**
+   * Validates against schema metadata, then records the change or tells the
+   * webview to revert the cell and shows a warning.
+   */
+  private async _handleCellEdit(msg: CellEditMsg): Promise<void> {
+    if (!this._getSchema) {
+      this._tracker.addCellChange({
+        table: msg.table,
+        pkColumn: msg.pkColumn,
+        pkValue: msg.pkValue,
+        column: msg.column,
+        oldValue: msg.oldValue,
+        newValue: msg.newValue,
+      });
+      return;
+    }
+
+    try {
+      const tables = await this._getSchema();
+      const result = validateCellEdit(
+        tables,
+        msg.table,
+        msg.column,
+        msg.newValue,
+      );
+      if (!result.ok) {
+        void vscode.window.showWarningMessage(
+          `Saropa Drift Advisor: ${result.message}${CELL_EDIT_HINT}`,
+        );
+        this._postCellEditRejected(
+          msg,
+          `${result.message}${CELL_EDIT_HINT}`,
+        );
+        return;
+      }
+      this._tracker.addCellChange({
+        table: msg.table,
+        pkColumn: msg.pkColumn,
+        pkValue: msg.pkValue,
+        column: msg.column,
+        oldValue: msg.oldValue,
+        newValue: result.value,
+      });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      void vscode.window.showErrorMessage(
+        `Saropa Drift Advisor: could not validate edit (${detail}).`,
+      );
+      this._postCellEditRejected(
+        msg,
+        `Schema could not be loaded; change was not applied.${CELL_EDIT_HINT}`,
+      );
+    }
+  }
+
+  /**
+   * Validates insert values (NOT NULL / types) before tracking; notifies the
+   * webview to remove a provisional row on failure.
+   */
+  private async _handleRowInsert(msg: RowInsertMsg): Promise<void> {
+    if (!this._getSchema) {
+      this._tracker.addRowInsert(msg.table, msg.values);
+      return;
+    }
+    try {
+      const tables = await this._getSchema();
+      const result = validateRowInsert(tables, msg.table, msg.values);
+      if (!result.ok) {
+        void vscode.window.showWarningMessage(
+          `Saropa Drift Advisor: ${result.message}${CELL_EDIT_HINT}`,
+        );
+        this._postRowInsertRejected(msg.table);
+        return;
+      }
+      this._tracker.addRowInsert(msg.table, result.values);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      void vscode.window.showErrorMessage(
+        `Saropa Drift Advisor: could not validate new row (${detail}).`,
+      );
+      this._postRowInsertRejected(msg.table);
+    }
+  }
+
+  private _postRowInsertRejected(table: string): void {
+    if (!this._webview) return;
+    void this._webview.postMessage({
+      command: 'rowInsertRejected',
+      table,
+    });
+  }
+
+  private _postCellEditRejected(msg: CellEditMsg, reason: string): void {
+    if (!this._webview) return;
+    void this._webview.postMessage({
+      command: 'cellEditRejected',
+      table: msg.table,
+      pkColumn: msg.pkColumn,
+      pkValue: msg.pkValue,
+      column: msg.column,
+      oldValue: msg.oldValue,
+      reason,
+    });
   }
 
   /** Returns inline JS to inject into the webview HTML for cell editing. */
@@ -167,6 +277,7 @@ const EDITING_SCRIPT = `
     const oldValue = getCellValue(td);
     const input = document.createElement('input');
     input.type = 'text';
+    input.className = 'cell-inline-editor';
     input.value = oldValue === null ? '' : String(oldValue);
     input.style.cssText = 'width:100%;box-sizing:border-box;font:inherit;padding:2px 4px;';
 
@@ -176,14 +287,18 @@ const EDITING_SCRIPT = `
     input.focus();
     input.select();
 
-    function commit() {
-      const newValue = input.value === '' ? null : input.value;
+    var committedOrCancelled = false;
+    function onBlurCommit() {
+      if (committedOrCancelled) return;
+      committedOrCancelled = true;
+      input.removeEventListener('blur', onBlurCommit);
+      var newValue = input.value === '' ? null : input.value;
       td.innerHTML = originalContent;
       if (newValue !== oldValue) {
         td.textContent = newValue === null ? 'NULL' : String(newValue);
         td.style.backgroundColor = 'rgba(255, 200, 0, 0.25)';
         td.title = 'Pending change';
-        const pkTd = tr.children[meta.pkIdx];
+        var pkTd = tr.children[meta.pkIdx];
         vscodeApi.postMessage({
           command: 'cellEdit',
           table: meta.name,
@@ -196,10 +311,16 @@ const EDITING_SCRIPT = `
       }
     }
 
-    input.addEventListener('blur', commit);
+    input.addEventListener('blur', onBlurCommit);
     input.addEventListener('keydown', function(ev) {
       if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
-      if (ev.key === 'Escape') { td.innerHTML = originalContent; }
+      if (ev.key === 'Tab') { ev.preventDefault(); input.blur(); }
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        committedOrCancelled = true;
+        input.removeEventListener('blur', onBlurCommit);
+        td.innerHTML = originalContent;
+      }
     });
   });
 
@@ -260,6 +381,7 @@ const EDITING_SCRIPT = `
         // Add a visual row
         const tbody = table.querySelector('tbody') || table;
         const newRow = document.createElement('tr');
+        newRow.setAttribute('data-drift-pending-insert', '1');
         newRow.style.backgroundColor = 'rgba(46, 125, 50, 0.15)';
         meta.headers.forEach(function(h, i) {
           const td = document.createElement('td');
@@ -273,6 +395,34 @@ const EDITING_SCRIPT = `
     });
   }
 
+  // --- Revert cell when extension rejects (validation / schema error) ---
+  function revertCellEdit(msg) {
+    document.querySelectorAll('table').forEach(function(table) {
+      var meta = getTableMeta(table);
+      if (meta.name !== msg.table) return;
+      var colIdx = meta.headers.indexOf(msg.column);
+      if (colIdx < 0) return;
+      var pkIdx = meta.pkIdx;
+      var rows = table.querySelectorAll('tbody tr');
+      for (var i = 0; i < rows.length; i++) {
+        var tr = rows[i];
+        var pkTd = tr.children[pkIdx];
+        if (!pkTd) continue;
+        if (String(getCellValue(pkTd)) !== String(msg.pkValue)) continue;
+        var td = tr.children[colIdx];
+        if (!td) continue;
+        td.style.backgroundColor = '';
+        td.title = '';
+        if (msg.oldValue === null || msg.oldValue === undefined) {
+          td.innerHTML = '<span class="cell-null">NULL</span>';
+        } else {
+          td.textContent = String(msg.oldValue);
+        }
+        break;
+      }
+    });
+  }
+
   // --- Receive state from extension ---
   window.addEventListener('message', function(event) {
     const msg = event.data;
@@ -282,7 +432,28 @@ const EDITING_SCRIPT = `
     if (msg.command === 'editingEnabled') {
       editingEnabled = msg.enabled;
     }
+    if (msg.command === 'cellEditRejected') {
+      revertCellEdit(msg);
+    }
+    if (msg.command === 'rowInsertRejected') {
+      document.querySelectorAll('table').forEach(function(table) {
+        var meta = getTableMeta(table);
+        if (meta.name !== msg.table) return;
+        var pending = table.querySelector('tbody tr[data-drift-pending-insert="1"]');
+        if (pending) pending.remove();
+      });
+    }
   });
+
+  // Undo last pending-operation when the cell editor is not focused (Ctrl/Cmd+Z).
+  document.addEventListener('keydown', function(e) {
+    if (!editingEnabled) return;
+    if (!(e.ctrlKey || e.metaKey) || e.key !== 'z' || e.shiftKey) return;
+    var ae = document.activeElement;
+    if (ae && ae.classList && ae.classList.contains('cell-inline-editor')) return;
+    e.preventDefault();
+    vscodeApi.postMessage({ command: 'undo' });
+  }, true);
 
   // Run once DOM is ready
   if (document.readyState === 'loading') {

@@ -44,9 +44,16 @@ final class GenerationHandler {
         ServerConstants.jsonKeyOk: true,
         ServerConstants.jsonKeyExtensionConnected: _ctx.isExtensionConnected,
         ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
-        ServerConstants.jsonKeyCapabilities: <String>[
-          ServerConstants.capabilityIssues,
-        ],
+        ServerConstants.jsonKeyWriteEnabled: _ctx.writeQuery != null,
+        ServerConstants.jsonKeyCapabilities: _ctx.writeQuery != null
+            ? <String>[
+                ServerConstants.capabilityIssues,
+                ServerConstants.capabilityCellUpdate,
+                ServerConstants.capabilityEditsApply,
+              ]
+            : <String>[
+                ServerConstants.capabilityIssues,
+              ],
       }),
     );
     await res.close();

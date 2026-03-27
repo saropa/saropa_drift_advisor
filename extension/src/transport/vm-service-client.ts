@@ -15,6 +15,7 @@ import type {
 import {
   apiClearPerformance,
   apiExplainSql,
+  apiApplyEditsBatch,
   apiGetAnomalies,
   apiGetChangeDetection,
   apiGetGeneration,
@@ -192,6 +193,10 @@ export class VmServiceClient {
 
   async runSql(sql: string): Promise<{ columns: string[]; rows: unknown[][] }> {
     return apiRunSql(this._callExtension, sql);
+  }
+
+  async applyEditsBatch(statements: string[]): Promise<void> {
+    await apiApplyEditsBatch(this._callExtension, statements);
   }
 
   async getGeneration(): Promise<number> {

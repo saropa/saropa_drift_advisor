@@ -1,7 +1,31 @@
 import * as assert from 'assert';
+import type { TableMetadata } from '../api-types';
 import { ChangeTracker } from '../editing/change-tracker';
 import { EditingBridge } from '../editing/editing-bridge';
 import { MockOutputChannel } from './vscode-mock';
+
+/** Minimal schema so cell edits are validated like in production. */
+function mockSchema(): Promise<TableMetadata[]> {
+  return Promise.resolve([
+    {
+      name: 'users',
+      rowCount: 0,
+      columns: [
+        { name: 'id', type: 'INTEGER', pk: true, notnull: true },
+        { name: 'name', type: 'TEXT', pk: false, notnull: false },
+        { name: 'age', type: 'INTEGER', pk: false, notnull: false },
+      ],
+    },
+    {
+      name: 'posts',
+      rowCount: 0,
+      columns: [
+        { name: 'id', type: 'INTEGER', pk: true, notnull: true },
+        { name: 'title', type: 'TEXT', pk: false, notnull: false },
+      ],
+    },
+  ]);
+}
 
 describe('EditingBridge', () => {
   let tracker: ChangeTracker;
@@ -9,7 +33,7 @@ describe('EditingBridge', () => {
 
   beforeEach(() => {
     tracker = new ChangeTracker(new MockOutputChannel() as never);
-    bridge = new EditingBridge(tracker);
+    bridge = new EditingBridge(tracker, mockSchema);
   });
 
   afterEach(() => {
@@ -17,7 +41,7 @@ describe('EditingBridge', () => {
     tracker.dispose();
   });
 
-  it('should handle cellEdit messages', () => {
+  it('should handle cellEdit messages', async () => {
     const handled = bridge.handleMessage({
       command: 'cellEdit',
       table: 'users',
@@ -28,8 +52,24 @@ describe('EditingBridge', () => {
       newValue: 'Bob',
     });
     assert.ok(handled);
+    await new Promise<void>((resolve) => setImmediate(resolve));
     assert.strictEqual(tracker.changeCount, 1);
     assert.strictEqual(tracker.changes[0].kind, 'cell');
+  });
+
+  it('should not record invalid cell values when schema is available', async () => {
+    const handled = bridge.handleMessage({
+      command: 'cellEdit',
+      table: 'users',
+      pkColumn: 'id',
+      pkValue: 1,
+      column: 'age',
+      oldValue: 20,
+      newValue: 'not-a-number',
+    });
+    assert.ok(handled);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.strictEqual(tracker.changeCount, 0);
   });
 
   it('should handle rowDelete messages', () => {
@@ -44,13 +84,14 @@ describe('EditingBridge', () => {
     assert.strictEqual(tracker.changes[0].kind, 'delete');
   });
 
-  it('should handle rowInsert messages', () => {
+  it('should handle rowInsert messages', async () => {
     const handled = bridge.handleMessage({
       command: 'rowInsert',
       table: 'posts',
       values: { title: 'Hello' },
     });
     assert.ok(handled);
+    await new Promise<void>((resolve) => setImmediate(resolve));
     assert.strictEqual(tracker.changeCount, 1);
     assert.strictEqual(tracker.changes[0].kind, 'insert');
   });

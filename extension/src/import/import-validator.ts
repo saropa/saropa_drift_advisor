@@ -17,6 +17,7 @@
 
 import type { DriftApiClient } from '../api-client';
 import type { ColumnMetadata, TableMetadata } from '../api-types';
+import { sqliteTypeCompatibilityError } from '../editing/sqlite-cell-value';
 import type {
   IColumnMapping,
   IImportOptions,
@@ -102,7 +103,10 @@ export class ImportValidator {
           continue;
         }
 
-        const typeError = this._checkTypeCompatibility(String(value), colSchema.type);
+        const typeError = sqliteTypeCompatibilityError(
+          String(value),
+          colSchema.type,
+        );
         if (typeError) {
           errors.push({
             column: col,
@@ -139,41 +143,6 @@ export class ImportValidator {
     }
 
     return results;
-  }
-
-  /**
-   * Check if a string value is compatible with a SQLite column type.
-   *
-   * Validates that string values from clipboard can be safely converted
-   * to the target column type:
-   * - INTEGER: Must be a valid integer (optional negative sign, digits only)
-   * - REAL/FLOAT/DOUBLE: Must be a valid number (decimals and scientific notation)
-   * - BOOLEAN: Must be 0, 1, true, false, yes, or no
-   * - TEXT/BLOB: Always compatible (no validation needed)
-   *
-   * @param value - String value to check
-   * @param type - SQLite column type
-   * @returns Error message if incompatible, null if valid
-   */
-  private _checkTypeCompatibility(value: string, type: string): string | null {
-    const upperType = type.toUpperCase();
-
-    if (upperType === 'INTEGER' || upperType === 'INT') {
-      if (!/^-?\d+$/.test(value)) {
-        return `Expected integer, got "${value}"`;
-      }
-    } else if (upperType === 'REAL' || upperType === 'FLOAT' || upperType === 'DOUBLE') {
-      if (!/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(value)) {
-        return `Expected number, got "${value}"`;
-      }
-    } else if (upperType === 'BOOLEAN' || upperType === 'BOOL') {
-      const lower = value.toLowerCase();
-      if (!['0', '1', 'true', 'false', 'yes', 'no'].includes(lower)) {
-        return `Expected boolean, got "${value}"`;
-      }
-    }
-
-    return null;
   }
 
   /**

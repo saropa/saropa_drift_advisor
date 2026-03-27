@@ -6,6 +6,11 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from './api-client';
 import { ChangeTracker } from './editing/change-tracker';
 import { EditingBridge } from './editing/editing-bridge';
+import {
+  createPendingChangesPersistence,
+  offerRestoreDraft,
+} from './editing/pending-changes-persistence';
+import { createPendingEditsStatusBar } from './editing/pending-edits-status-bar';
 import { PendingChangesProvider } from './editing/pending-changes-provider';
 import { FilterBridge } from './filters/filter-bridge';
 import { FilterStore } from './filters/filter-store';
@@ -51,7 +56,9 @@ export function setupEditing(
   );
   const changeTracker = new ChangeTracker(filteredEditsSink);
   context.subscriptions.push(changeTracker);
-  const editingBridge = new EditingBridge(changeTracker);
+  const editingBridge = new EditingBridge(changeTracker, () =>
+    client.schemaMetadata(),
+  );
   context.subscriptions.push(editingBridge);
   const fkNavigator = new FkNavigator(client);
   context.subscriptions.push(fkNavigator);
@@ -63,7 +70,16 @@ export function setupEditing(
     'driftViewer.pendingChanges',
     { treeDataProvider: pendingProvider },
   );
-  context.subscriptions.push(pendingView);
+  context.subscriptions.push(
+    pendingView,
+    createPendingChangesPersistence(context.workspaceState, changeTracker),
+    createPendingEditsStatusBar(changeTracker),
+  );
+
+  // Defer restore prompt so activation and command registration stay responsive.
+  setTimeout(() => {
+    void offerRestoreDraft(context.workspaceState, changeTracker);
+  }, 0);
 
   return {
     changeTracker,

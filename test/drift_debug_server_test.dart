@@ -1481,6 +1481,8 @@ void main() {
         expect(emailCol['name'], 'email');
         expect(emailCol['type'], 'TEXT');
         expect(emailCol['pk'], false);
+        expect(emailCol['notnull'], false);
+        expect((userCols[0] as Map)['notnull'], true);
       } finally {
         client.close();
       }

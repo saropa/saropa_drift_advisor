@@ -1,11 +1,28 @@
 import * as assert from 'assert';
 import { PendingChange } from '../editing/change-tracker';
-import { generateSql } from '../editing/sql-generator';
+import { generateSql, generateSqlStatements } from '../editing/sql-generator';
 
 describe('generateSql', () => {
   it('should return a comment for empty changes', () => {
     const sql = generateSql([]);
     assert.ok(sql.includes('No pending changes'));
+  });
+
+  it('generateSqlStatements preserves pending order across tables', () => {
+    const changes: PendingChange[] = [
+      {
+        kind: 'cell', id: '1', table: 'b', pkColumn: 'id', pkValue: 1, column: 'x',
+        oldValue: 0, newValue: 1, timestamp: 0,
+      },
+      {
+        kind: 'cell', id: '2', table: 'a', pkColumn: 'id', pkValue: 1, column: 'y',
+        oldValue: 0, newValue: 2, timestamp: 0,
+      },
+    ];
+    const stmts = generateSqlStatements(changes);
+    assert.strictEqual(stmts.length, 2);
+    assert.ok(stmts[0].includes('"b"'));
+    assert.ok(stmts[1].includes('"a"'));
   });
 
   it('should generate UPDATE for cell changes', () => {

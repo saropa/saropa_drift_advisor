@@ -207,6 +207,33 @@ describe('ChangeTracker', () => {
     tracker.undo();
     assert.ok(!fired);
   });
+
+  it('replacePendingChanges restores list and clears undo/redo', () => {
+    tracker.addCellChange({
+      table: 'users', pkColumn: 'id', pkValue: 1,
+      column: 'name', oldValue: 'A', newValue: 'B',
+    });
+    tracker.undo();
+    assert.strictEqual(tracker.changeCount, 0);
+
+    tracker.replacePendingChanges([
+      {
+        kind: 'cell',
+        id: 'restored-1',
+        table: 't',
+        pkColumn: 'id',
+        pkValue: 9,
+        column: 'c',
+        oldValue: 'x',
+        newValue: 'y',
+        timestamp: 1,
+      },
+    ]);
+    assert.strictEqual(tracker.changeCount, 1);
+    assert.strictEqual(tracker.changes[0].kind, 'cell');
+    assert.ok(!tracker.canUndo);
+    assert.ok(!tracker.canRedo);
+  });
 });
 
 describe('describeChange', () => {

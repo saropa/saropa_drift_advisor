@@ -76,10 +76,38 @@ export function getSchemaSearchHtml(nonce: string): string {
     cursor: pointer; font-size: 10px; padding: 2px 0; text-decoration: underline; }
   .linkish:hover { opacity: 0.9; }
   .conn-status { font-size: 10px; opacity: 0.72; margin-bottom: 4px; line-height: 1.3; }
+  .disc-live {
+    font-size: 10px; line-height: 1.35; margin-bottom: 8px; padding: 6px 8px;
+    border-radius: 3px;
+    background: var(--vscode-editor-inactiveSelectionBackground, rgba(128,128,128,0.15));
+    border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.28));
+  }
+  .disc-live-title { font-weight: 600; font-size: 10px; margin-bottom: 4px; opacity: 0.88; }
+  .disc-live-line { margin-bottom: 4px; }
+  .disc-live-outcome { opacity: 0.85; margin-bottom: 4px; }
+  .disc-live-meta { opacity: 0.68; font-size: 10px; margin-bottom: 6px; }
+  .disc-live-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .disc-faq {
+    margin-top: 8px; padding-top: 6px;
+    border-top: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+    font-size: 10px; opacity: 0.82;
+  }
 </style>
 </head>
 <body>
 <div id="connStatus" class="conn-status" style="display: none;" aria-live="polite"></div>
+<div id="discLive" class="disc-live" style="display: none;" aria-live="polite">
+  <div class="disc-live-title">Server discovery</div>
+  <div id="discActivity" class="disc-live-line"></div>
+  <div id="discOutcome" class="disc-live-outcome"></div>
+  <div id="discSchedule" class="disc-live-meta"></div>
+  <div class="disc-live-actions">
+    <button type="button" class="linkish" id="btnPauseDisc">Pause scanning</button>
+    <button type="button" class="linkish" id="btnResumeDisc">Resume scanning</button>
+    <button type="button" class="linkish" id="btnScanNow">Scan now</button>
+  </div>
+  <div id="discFaq" class="disc-faq"></div>
+</div>
 <div id="disconnected" class="disconnected show" aria-live="polite">
   <div id="discTitle" class="disc-title">Not connected</div>
   <div id="discHint" class="disc-hint"></div>
@@ -88,6 +116,7 @@ export function getSchemaSearchHtml(nonce: string): string {
     <button type="button" class="linkish" id="btnRetry" title="Re-scan for Drift debug servers">Retry discovery</button>
     <button type="button" class="linkish" id="btnDiagnose" title="Run health check and log details">Diagnose</button>
     <button type="button" class="linkish" id="btnRefreshUi" title="Re-sync sidebar connection state">Refresh UI</button>
+    <button type="button" class="linkish" id="btnConnHelp" title="Open connection troubleshooting in your browser">Connection help (web)</button>
   </div>
 </div>
 <div class="search-box">
@@ -121,6 +150,14 @@ export function getSchemaSearchHtml(nonce: string): string {
   const discTitleEl = document.getElementById('discTitle');
   const discHintEl = document.getElementById('discHint');
   const connStatusEl = document.getElementById('connStatus');
+  const discLiveEl = document.getElementById('discLive');
+  const discActivityEl = document.getElementById('discActivity');
+  const discOutcomeEl = document.getElementById('discOutcome');
+  const discScheduleEl = document.getElementById('discSchedule');
+  const discFaqEl = document.getElementById('discFaq');
+  const btnPauseDisc = document.getElementById('btnPauseDisc');
+  const btnResumeDisc = document.getElementById('btnResumeDisc');
+  const btnScanNow = document.getElementById('btnScanNow');
   let scope = 'all';
   let typeFilter = '';
   let debounceTimer;
@@ -169,6 +206,44 @@ export function getSchemaSearchHtml(nonce: string): string {
   document.getElementById('btnRefreshUi').addEventListener('click', () => {
     vscode.postMessage({ command: 'refreshConnectionUi' });
   });
+  document.getElementById('btnConnHelp').addEventListener('click', () => {
+    vscode.postMessage({ command: 'openConnectionHelp' });
+  });
+  btnPauseDisc.addEventListener('click', () => {
+    vscode.postMessage({ command: 'pauseDiscovery' });
+  });
+  btnResumeDisc.addEventListener('click', () => {
+    vscode.postMessage({ command: 'resumeDiscovery' });
+  });
+  btnScanNow.addEventListener('click', () => {
+    vscode.postMessage({ command: 'retryDiscovery' });
+  });
+
+  /** Disconnected help: symptom checks without guessing a single root cause. */
+  var FAQ_TROUBLE =
+    'HTTP features need a selected server (status bar / Select Server) or an active Dart debug session (VM). '
+    + 'Bearer auth: set driftViewer.authToken to match the app. Remote/WSL: set driftViewer.host to the machine '
+    + 'where the debug server runs. Use Server discovery above for live scan status.';
+
+  function applyDiscoveryBlock(d) {
+    if (!d) {
+      discLiveEl.style.display = 'none';
+      return;
+    }
+    discLiveEl.style.display = 'block';
+    discActivityEl.textContent = d.activity || '';
+    discOutcomeEl.textContent = d.lastOutcome || '';
+    if (d.scanInFlight) {
+      discScheduleEl.textContent = 'Scan in progress\u2026';
+    } else if (d.paused) {
+      discScheduleEl.textContent = 'Automatic scans paused.';
+    } else {
+      discScheduleEl.textContent =
+        'Next automatic scan in ' + d.nextScanInSec + 's (discovery: ' + d.state + ').';
+    }
+    btnPauseDisc.style.display = d.paused ? 'none' : 'inline';
+    btnResumeDisc.style.display = d.paused ? 'inline' : 'none';
+  }
 
   function doSearch() {
     const q = queryEl.value.trim();
@@ -203,6 +278,10 @@ export function getSchemaSearchHtml(nonce: string): string {
     queryEl.disabled = !connected;
     filtersEl.classList.toggle('disabled', !connected);
     browseWrap.classList.toggle('disabled', !connected);
+    if (Object.prototype.hasOwnProperty.call(msg, 'discovery')) {
+      applyDiscoveryBlock(msg.discovery);
+    }
+    discFaqEl.textContent = connected ? '' : FAQ_TROUBLE;
     if (!queryEl.value.trim()) doSearch();
   }
 

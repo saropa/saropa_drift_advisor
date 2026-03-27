@@ -25,6 +25,14 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 • **Discovery + Bearer auth** — Port scans pass the same **`Authorization: Bearer …`** header as the API client (including after `driftViewer.authToken` changes), so health probes succeed when the debug server requires a token.
 
+• **Batch apply pending data edits** — With `writeQuery` configured, the server exposes **`POST /api/edits/apply`** (validated UPDATE / INSERT INTO / DELETE FROM only, one SQLite transaction). The VS Code command **Apply Pending Edits to Database** runs that batch and clears the pending queue on success.
+
+• **Bulk edit panel** — **Edit Table Data** opens a small dashboard (open table viewer, preview SQL, apply, undo, discard). It appears on the Database table context menu when the server is connected.
+
+• **FK-aware apply order** — Pending edits are ordered for commit as **deletes (child tables first)**, then **cell updates**, then **inserts (parents first)** when schema metadata includes foreign keys; if metadata fails to load, the original queue order is used.
+
+• **VM Service batch apply + health** — **`ext.saropa.drift.applyEditsBatch`** runs the same transactional batch as **`POST /api/edits/apply`**. **`ext.saropa.drift.getHealth`** now includes **`writeEnabled`** and **`editsApply`** (and related capability strings) like the HTTP health endpoint.
+
 ---
 
 ## [2.8.2]

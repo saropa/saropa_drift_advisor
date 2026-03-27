@@ -61,6 +61,10 @@ final class VmServiceBridge {
       '${_kExtPrefix}setChangeDetection',
       _handleSetChangeDetection,
     );
+    developer.registerExtension(
+      '${_kExtPrefix}applyEditsBatch',
+      _handleApplyEditsBatch,
+    );
   }
 
   /// Clears the router reference so handlers no longer run after server stop.
@@ -81,15 +85,10 @@ final class VmServiceBridge {
         ),
       );
     }
-    final body = <String, dynamic>{
-      ServerConstants.jsonKeyOk: true,
-      ServerConstants.jsonKeyExtensionConnected: true,
-      ServerConstants.jsonKeyCapabilities: <String>[
-        ServerConstants.capabilityIssues,
-      ],
-    };
     return Future<developer.ServiceExtensionResponse>.value(
-      developer.ServiceExtensionResponse.result(jsonEncode(body)),
+      developer.ServiceExtensionResponse.result(
+        jsonEncode(router.healthJsonForVmExtension()),
+      ),
     );
   }
 
@@ -190,6 +189,79 @@ final class VmServiceBridge {
     try {
       final result = await router.runSqlResult(sql);
       return developer.ServiceExtensionResponse.result(jsonEncode(result));
+    } on Object catch (e) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        e.toString(),
+      );
+    }
+  }
+
+  /// Handles ext.saropa.drift.applyEditsBatch — params { statements: JSON array }.
+  Future<developer.ServiceExtensionResponse> _handleApplyEditsBatch(
+    String method,
+    Map<String, String> params,
+  ) async {
+    final router = _router;
+    if (router == null) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        'Drift server not running',
+      );
+    }
+    final encoded = params['statements'];
+    if (encoded == null || encoded.isEmpty) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        'Missing statements parameter (JSON array of strings)',
+      );
+    }
+    late List<String> statements;
+    try {
+      final decoded = jsonDecode(encoded);
+      if (decoded is! List<dynamic>) {
+        return developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'statements must be a JSON array',
+        );
+      }
+      statements = <String>[];
+      for (final item in decoded) {
+        if (item is! String) {
+          return developer.ServiceExtensionResponse.error(
+            developer.ServiceExtensionResponse.extensionErrorMin,
+            'Each statement must be a JSON string',
+          );
+        }
+        if (item.trim().isEmpty) {
+          return developer.ServiceExtensionResponse.error(
+            developer.ServiceExtensionResponse.extensionErrorMin,
+            'Statements must be non-empty strings',
+          );
+        }
+        statements.add(item);
+      }
+      if (statements.isEmpty) {
+        return developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'statements must be non-empty',
+        );
+      }
+    } on Object catch (e) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        'Invalid statements JSON: $e',
+      );
+    }
+
+    try {
+      await router.applyEditsBatchStatements(statements);
+      return developer.ServiceExtensionResponse.result(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyOk: true,
+          ServerConstants.jsonKeyCount: statements.length,
+        }),
+      );
     } on Object catch (e) {
       return developer.ServiceExtensionResponse.error(
         developer.ServiceExtensionResponse.extensionErrorMin,

@@ -104,6 +104,29 @@ describe('DriftApiClient', () => {
     });
   });
 
+  describe('applyEditsBatch()', () => {
+    it('should POST statements to /api/edits/apply', async () => {
+      fetchStub.resolves(new Response(JSON.stringify({ ok: true, count: 1 }), { status: 200 }));
+      await client.applyEditsBatch(['UPDATE "t" SET "c" = 1 WHERE "id" = 2']);
+      const [url, opts] = fetchStub.firstCall.args;
+      assert.strictEqual(url, 'http://127.0.0.1:8642/api/edits/apply');
+      assert.strictEqual(opts.method, 'POST');
+      assert.deepStrictEqual(JSON.parse(opts.body as string), {
+        statements: ['UPDATE "t" SET "c" = 1 WHERE "id" = 2'],
+      });
+    });
+
+    it('should include server error body in thrown message', async () => {
+      fetchStub.resolves(
+        new Response(JSON.stringify({ error: 'bad sql' }), { status: 500 }),
+      );
+      await assert.rejects(
+        () => client.applyEditsBatch(['SELECT 1']),
+        /500.*bad sql/,
+      );
+    });
+  });
+
   describe('baseUrl', () => {
     it('should expose the base URL', () => {
       assert.strictEqual(client.baseUrl, 'http://127.0.0.1:8642');

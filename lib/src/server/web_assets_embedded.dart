@@ -18,6 +18,11 @@ abstract final class WebAssetsEmbedded {
   static const String appJs =
       r'''    /* Web viewer script. Type-checked with tsconfig.web.json (npm run typecheck:web). Do not edit compiled outputs when a TS source exists. */
     var DRIFT_VIEWER_AUTH_TOKEN = "";
+    /** True when server exposes POST /api/cell/update (writeQuery configured). */
+    var driftWriteEnabled = false;
+    function applyHealthWriteFlag(data) {
+      if (data && typeof data.writeEnabled === 'boolean') driftWriteEnabled = data.writeEnabled;
+    }
     function authOpts(o) {
       o = o || {}; o.headers = o.headers || {};
       if (DRIFT_VIEWER_AUTH_TOKEN) o.headers['Authorization'] = 'Bearer ' + DRIFT_VIEWER_AUTH_TOKEN;
@@ -991,6 +996,7 @@ abstract final class WebAssetsEmbedded {
         .then(function(data) {
           heartbeatInFlight = false;
           if (data && data.ok) {
+            applyHealthWriteFlag(data);
             setReconnecting();
             consecutivePollFailures = 0;
             currentBackoffMs = BACKOFF_INITIAL_MS;
@@ -1037,6 +1043,7 @@ abstract final class WebAssetsEmbedded {
           .then(function(r) { return r.json(); })
           .then(function(data) {
             if (data && data.ok) {
+              applyHealthWriteFlag(data);
               if (connectionState !== 'connected') setConnected();
             } else {
               setDisconnected();
@@ -4346,9 +4353,179 @@ abstract final class WebAssetsEmbedded {
       navigateToFk(link.dataset.table, link.dataset.column, link.dataset.value);
     });
 
+    function getVisibleDataColumnKeys() {
+      var ths = document.querySelectorAll('#data-table thead th[data-column-key]');
+      return Array.prototype.slice.call(ths).map(function(th) {
+        return th.getAttribute('data-column-key') || '';
+      });
+    }
+
+    function schemaTableByName(name) {
+      var meta = schemaMeta;
+      if (!meta || !meta.tables || !name) return null;
+      for (var i = 0; i < meta.tables.length; i++) {
+        if (meta.tables[i].name === name) return meta.tables[i];
+      }
+      return null;
+    }
+
+    function getPkColumnNameForDataTable() {
+      var t = schemaTableByName(currentTableName);
+      if (!t || !t.columns) return null;
+      for (var i = 0; i < t.columns.length; i++) {
+        if (t.columns[i].pk) return t.columns[i].name;
+      }
+      return null;
+    }
+
+    function readCellRawFromTd(td) {
+      if (!td) return '';
+      var btn = td.querySelector('.cell-copy-btn');
+      if (btn && btn.hasAttribute('data-raw')) return btn.getAttribute('data-raw') || '';
+      if (td.querySelector('.cell-null')) return '';
+      return (td.textContent || '').trim();
+    }
+
+    function jsonPkValueForCellUpdate(rawStr, pkColName) {
+      var t = schemaTableByName(currentTableName);
+      var col = null;
+      if (t && t.columns) {
+        for (var i = 0; i < t.columns.length; i++) {
+          if (t.columns[i].name === pkColName) { col = t.columns[i]; break; }
+        }
+      }
+      var typ = (col && col.type || '').toUpperCase();
+      if ((typ === 'INTEGER' || typ === 'INT') && /^-?\d+$/.test(String(rawStr))) {
+        return parseInt(String(rawStr), 10);
+      }
+      if ((typ === 'REAL' || typ === 'FLOAT' || typ === 'DOUBLE') && /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(String(rawStr))) {
+        return parseFloat(String(rawStr));
+      }
+      return rawStr === '' ? null : rawStr;
+    }
+
+    /** Builds JSON [value] for /api/cell/update; returns '__INVALID__' when client should block empty NOT NULL non-text. */
+    function cellUpdateValueJson(inputValue, colMeta) {
+      var typ = (colMeta.type || '').toUpperCase();
+      var notNull = !!colMeta.notnull;
+      var trimmed = (inputValue || '').trim();
+      var textLike = typ === '' || typ.indexOf('CHAR') >= 0 || typ.indexOf('CLOB') >= 0 || typ.indexOf('TEXT') >= 0;
+      if (trimmed === '') {
+        if (!notNull) return null;
+        if (textLike) return '';
+        return '__INVALID__';
+      }
+      return inputValue;
+    }
+
+    /**
+     * Inline cell edit for the browser when driftWriteEnabled (POST /api/cell/update).
+     * Requires a primary key and schema metadata.
+     */
+    function tryStartBrowserCellEdit(td) {
+      if (!currentTableName) return;
+      loadSchemaMeta().then(function() {
+        var pkName = getPkColumnNameForDataTable();
+        if (!pkName) {
+          window.alert('This table has no primary key column; inline edit is disabled.');
+          return;
+        }
+        var columnKey = td.getAttribute('data-column-key') || '';
+        if (!columnKey || columnKey === pkName) {
+          window.alert('Primary key columns cannot be edited inline.');
+          return;
+        }
+        var t = schemaTableByName(currentTableName);
+        var colMeta = null;
+        if (t && t.columns) {
+          for (var j = 0; j < t.columns.length; j++) {
+            if (t.columns[j].name === columnKey) { colMeta = t.columns[j]; break; }
+          }
+        }
+        if (!colMeta) return;
+
+        var keys = getVisibleDataColumnKeys();
+        var colIdx = keys.indexOf(columnKey);
+        var pkIdx = keys.indexOf(pkName);
+        if (colIdx < 0 || pkIdx < 0) return;
+        var tr = td.closest('tr');
+        if (!tr || !tr.children[pkIdx]) return;
+        var pkRaw = readCellRawFromTd(tr.children[pkIdx]);
+        var pkJson = jsonPkValueForCellUpdate(pkRaw, pkName);
+
+        var originalHtml = td.innerHTML;
+        var startVal = readCellRawFromTd(td);
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'cell-inline-editor';
+        input.setAttribute('aria-label', 'Edit ' + columnKey);
+        input.value = startVal;
+        input.style.cssText = 'width:100%;box-sizing:border-box;font:inherit;padding:2px 4px;';
+        td.innerHTML = '';
+        td.appendChild(input);
+        input.focus();
+        input.select();
+
+        function restore() {
+          td.innerHTML = originalHtml;
+        }
+        function commit() {
+          input.removeEventListener('blur', onBlur);
+          var valJson = cellUpdateValueJson(input.value, colMeta);
+          if (valJson === '__INVALID__') {
+            window.alert('This column is NOT NULL; enter a value or clear only if the column is nullable.');
+            restore();
+            return;
+          }
+          fetch('/api/cell/update', authOpts({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              table: currentTableName,
+              pkColumn: pkName,
+              pkValue: pkJson,
+              column: columnKey,
+              value: valJson,
+            }),
+          }))
+            .then(function(r) {
+              return r.json().then(function(data) { return { ok: r.ok, data: data }; });
+            })
+            .then(function(res) {
+              if (!res.ok || !res.data || res.data.error) {
+                var msg = (res.data && res.data.error) ? res.data.error : 'Request failed';
+                window.alert('Save failed: ' + msg);
+                restore();
+                return;
+              }
+              loadTable(currentTableName);
+            })
+            .catch(function(err) {
+              window.alert('Save failed: ' + (err && err.message ? err.message : String(err)));
+              restore();
+            });
+        }
+        function onBlur() {
+          commit();
+        }
+        input.addEventListener('keydown', function(ev) {
+          if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+          if (ev.key === 'Escape') {
+            ev.preventDefault();
+            input.removeEventListener('blur', onBlur);
+            restore();
+          }
+        });
+        input.addEventListener('blur', onBlur);
+      }).catch(function(err) {
+        window.alert('Could not load schema: ' + (err && err.message ? err.message : String(err)));
+      });
+    }
+
     /**
      * Opens the cell-value popup with full (untruncated) value and column name.
-     * Used on double-click of a data-table cell; popup has Copy and Close, Escape to close.
+     * When writes are enabled: Shift+double-click opens this popup; plain double-click edits inline.
+     * When writes are disabled: double-click always opens this popup.
      */
     function showCellValuePopup(rawValue, columnKey) {
       var popup = document.getElementById('cell-value-popup');
@@ -4371,6 +4548,12 @@ abstract final class WebAssetsEmbedded {
     document.addEventListener('dblclick', function(e) {
       var td = e.target.closest('#data-table td');
       if (!td) return;
+      if (driftWriteEnabled && !e.shiftKey && !td.querySelector('input.cell-inline-editor')) {
+        e.preventDefault();
+        e.stopPropagation();
+        tryStartBrowserCellEdit(td);
+        return;
+      }
       var copyBtn = td.querySelector('.cell-copy-btn');
       var rawValue = copyBtn ? (copyBtn.getAttribute('data-raw') || '') : (td.textContent || '').trim();
       var columnKey = td.getAttribute('data-column-key') || '';
@@ -5538,6 +5721,7 @@ abstract final class WebAssetsEmbedded {
     fetch('/api/health', authOpts())
       .then(function(r) { return r.json(); })
       .then(function(d) {
+        applyHealthWriteFlag(d);
         if (d.version) {
           // Show version badge in the page header (links to Marketplace changelog).
           var badge = document.getElementById('version-badge');
@@ -6080,7 +6264,8 @@ abstract final class WebAssetsEmbedded {
 ''';
 
   /// Contents of assets/web/style.css.
-  static const String styleCss = r'''@charset "UTF-8";
+  static const String styleCss =
+      r'''@charset "UTF-8";
 /**
  * Web viewer styles. SOURCE FILE — edit this, not style.css.
  * Compiled to style.css by `npm run build:style`. Do not edit style.css by hand.

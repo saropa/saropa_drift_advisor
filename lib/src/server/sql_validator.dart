@@ -11,6 +11,61 @@ import 'server_utils.dart';
 /// Extracted from [SqlHandler] so validation can be
 /// tested without constructing a full handler context.
 abstract final class SqlValidator {
+  /// Steps 1–5 of the read-only pipeline: strip comments and
+  /// literal/identifier markers, require a single statement,
+  /// return the core text with no trailing semicolon; or null
+  /// when empty / invalid multi-statement.
+  static String? _singleStatementCoreForAnalysis(String sql) {
+    final trimmed = sql.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    final noLineComments = trimmed.replaceAll(RegExp(r'--[^\n]*'), ' ');
+    final noBlockComments = noLineComments.replaceAll(
+      RegExp(r'/\*[\s\S]*?\*/'),
+      ' ',
+    );
+    final noSingleQuotes = noBlockComments.replaceAllMapped(
+      RegExp(r"'(?:[^']|'')*'"),
+      (_) => '?',
+    );
+    final noStrings = noSingleQuotes.replaceAllMapped(
+      RegExp(r'"(?:[^"]|"")*"'),
+      (_) => '?',
+    );
+
+    final sqlNoStrings = noStrings.trim();
+
+    final firstSemicolon = sqlNoStrings.indexOf(';');
+    if (firstSemicolon >= 0 &&
+        firstSemicolon + ServerConstants.indexAfterSemicolon <=
+            sqlNoStrings.length &&
+        firstSemicolon <
+            sqlNoStrings.length - ServerConstants.indexAfterSemicolon) {
+      final after = ServerUtils.safeSubstring(
+        sqlNoStrings,
+        start: firstSemicolon + ServerConstants.indexAfterSemicolon,
+      ).trim();
+      if (after.isNotEmpty) {
+        return null;
+      }
+    }
+
+    final withoutTrailingSemicolon = sqlNoStrings.endsWith(';')
+        ? ServerUtils.safeSubstring(
+            sqlNoStrings,
+            start: 0,
+            end: sqlNoStrings.length - ServerConstants.indexAfterSemicolon,
+          ).trim()
+        : sqlNoStrings;
+
+    if (withoutTrailingSemicolon.trim().isEmpty) {
+      return null;
+    }
+    return withoutTrailingSemicolon.trim();
+  }
+
   /// Validates that [sql] is read-only: single statement,
   /// SELECT or WITH...SELECT only. Rejects
   /// INSERT/UPDATE/DELETE and DDL.
@@ -27,66 +82,10 @@ abstract final class SqlValidator {
   ///
   /// Returns true if [sql] is a valid read-only query.
   static bool isReadOnlySql(String sql) {
-    final trimmed = sql.trim();
-    if (trimmed.isEmpty) {
+    final withoutTrailingSemicolon = _singleStatementCoreForAnalysis(sql);
+    if (withoutTrailingSemicolon == null) {
       return false;
     }
-
-    // 1. Strip line comments (-- to end of line).
-    final noLineComments = trimmed.replaceAll(RegExp(r'--[^\n]*'), ' ');
-
-    // 2. Strip block comments (/* ... */).
-    final noBlockComments = noLineComments.replaceAll(
-      RegExp(r'/\*[\s\S]*?\*/'),
-      ' ',
-    );
-
-    // 3. Replace single-quoted string literals with
-    //    placeholder '?' so quoted content (e.g.,
-    //    'INSERT failed') doesn't trigger false
-    //    positives on forbidden keyword scan.
-    final noSingleQuotes = noBlockComments.replaceAllMapped(
-      RegExp(r"'(?:[^']|'')*'"),
-      (_) => '?',
-    );
-
-    // 4. Replace double-quoted identifiers with '?'
-    //    so column/table names like "UPDATE_LOG" don't
-    //    trigger false positives.
-    final noStrings = noSingleQuotes.replaceAllMapped(
-      RegExp(r'"(?:[^"]|"")*"'),
-      (_) => '?',
-    );
-
-    final sqlNoStrings = noStrings.trim();
-
-    // 5. Reject multi-statement SQL: if there's a
-    //    semicolon with non-whitespace after it,
-    //    it's multiple statements.
-    final firstSemicolon = sqlNoStrings.indexOf(';');
-    if (firstSemicolon >= 0 &&
-        firstSemicolon + ServerConstants.indexAfterSemicolon <=
-            sqlNoStrings.length &&
-        firstSemicolon <
-            sqlNoStrings.length - ServerConstants.indexAfterSemicolon) {
-      final after = ServerUtils.safeSubstring(
-        sqlNoStrings,
-        start: firstSemicolon + ServerConstants.indexAfterSemicolon,
-      ).trim();
-      if (after.isNotEmpty) {
-        return false;
-      }
-    }
-
-    // Strip optional trailing semicolon before prefix
-    // and keyword checks.
-    final withoutTrailingSemicolon = sqlNoStrings.endsWith(';')
-        ? ServerUtils.safeSubstring(
-            sqlNoStrings,
-            start: 0,
-            end: sqlNoStrings.length - ServerConstants.indexAfterSemicolon,
-          ).trim()
-        : sqlNoStrings;
 
     // 6. Require SELECT or WITH prefix (case-insensitive).
     final upper = withoutTrailingSemicolon.toUpperCase();
@@ -124,6 +123,45 @@ abstract final class SqlValidator {
       }
     }
 
+    return true;
+  }
+
+  /// True when [sql] is a single UPDATE / INSERT INTO / DELETE FROM
+  /// statement (no DDL / PRAGMA / multi-statement). Used to validate
+  /// VS Code extension batch applies before [DriftDebugWriteQuery].
+  static bool isSingleDataMutationSql(String sql) {
+    final core = _singleStatementCoreForAnalysis(sql);
+    if (core == null) {
+      return false;
+    }
+    final upper = core.toUpperCase();
+
+    final isUpdate = RegExp(r'^UPDATE\b').hasMatch(upper);
+    final isDelete = RegExp(r'^DELETE\s+FROM\b').hasMatch(upper);
+    final isInsert = RegExp(r'^INSERT\s+INTO\b').hasMatch(upper);
+    if (!isUpdate && !isDelete && !isInsert) {
+      return false;
+    }
+
+    const forbidden = <String>{
+      'CREATE',
+      'DROP',
+      'ALTER',
+      'ATTACH',
+      'DETACH',
+      'PRAGMA',
+      'VACUUM',
+      'ANALYZE',
+      'REINDEX',
+      'TRUNCATE',
+      'REPLACE',
+    };
+    for (final match in RegExp(r'\b\w+\b').allMatches(upper)) {
+      final word = match.group(0);
+      if (word != null && forbidden.contains(word)) {
+        return false;
+      }
+    }
     return true;
   }
 }

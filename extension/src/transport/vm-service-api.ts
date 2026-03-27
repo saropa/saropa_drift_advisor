@@ -77,6 +77,26 @@ export async function apiRunSql(
   return { columns, rows };
 }
 
+/**
+ * Runs POST /api/edits/apply–equivalent batch via VM extension RPC.
+ */
+export async function apiApplyEditsBatch(
+  request: ExtensionRequest,
+  statements: string[],
+): Promise<{ ok: boolean; count: number }> {
+  const raw = await request(`${EXT_PREFIX}applyEditsBatch`, {
+    statements: JSON.stringify(statements),
+  });
+  const obj = parseJson<{ error?: string; ok?: boolean; count?: number }>(raw);
+  if (obj?.error) {
+    throw new Error(String(obj.error));
+  }
+  if (obj?.ok !== true || typeof obj.count !== 'number') {
+    throw new Error('Invalid applyEditsBatch response');
+  }
+  return { ok: true, count: obj.count };
+}
+
 export async function apiGetGeneration(
   request: ExtensionRequest,
 ): Promise<number> {

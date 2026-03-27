@@ -154,6 +154,12 @@ export function activate(context: vscode.ExtensionContext): void {
     healthStatusBar,
     refreshDriftConnectionUi: () => connectionUiRefresh.fn?.(),
   });
+  providers.schemaSearchProvider.attachDiscoveryMonitor(discovery);
+  context.subscriptions.push({
+    dispose: () => {
+      providers.schemaSearchProvider.disposeDiscoveryMonitor();
+    },
+  });
   connectionUiRefresh.fn();
   context.subscriptions.push(
     cachedClient.onVmTransportChanged(() => connectionUiRefresh.fn?.()),
@@ -253,7 +259,10 @@ export function activate(context: vscode.ExtensionContext): void {
     dispose: () => clearTimeout(syncContextTimeout),
   });
 
-  discovery.onDidChangeServers(refreshStatusBar);
+  discovery.onDidChangeServers(() => {
+    refreshStatusBar();
+    connectionUiRefresh.fn?.();
+  });
 
   // Lazy tree: when loadOnConnect is false, load Database tree on first view visibility.
   if (typeof providers.treeView.onDidChangeVisibility === 'function') {

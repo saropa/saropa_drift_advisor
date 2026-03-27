@@ -107,8 +107,11 @@ describe('Extension activation', () => {
     // Package status monitor: packageMonitor, onDidChangeInstalled listener (2)
     // Snapshot/explain: onDidChangeActiveTextEditor, onDidChangeTextEditorSelection, debounce dispose (3)
     // Log Capture integration: session-end export + optional API (1)
+    // Schema Search: attachDiscoveryMonitor dispose (1)
+    // Nav: pauseDiscovery, resumeDiscovery, openConnectionHelp (3)
+    // Editing: pendingChangesPersistence debounce, pendingEditsStatusBar (2)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 189, `expected 189 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 197, `expected 197 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -197,6 +200,9 @@ describe('Extension activation', () => {
     const registered = commands.getRegistered();
     assert.ok('driftViewer.selectServer' in registered);
     assert.ok('driftViewer.retryDiscovery' in registered);
+    assert.ok('driftViewer.pauseDiscovery' in registered);
+    assert.ok('driftViewer.resumeDiscovery' in registered);
+    assert.ok('driftViewer.openConnectionHelp' in registered);
     assert.ok('driftViewer.forwardPortAndroid' in registered);
     assert.ok('driftViewer.showConnectionLog' in registered);
     assert.ok('driftViewer.refreshConnectionUi' in registered);
@@ -228,6 +234,18 @@ describe('Extension activation', () => {
     activate(fakeContext());
     const registered = commands.getRegistered();
     assert.ok('driftViewer.openSqlNotebook' in registered);
+  });
+
+  it('should register driftViewer.commitPendingEdits command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.commitPendingEdits' in registered);
+  });
+
+  it('should register driftViewer.editTableData command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.editTableData' in registered);
   });
 
   it('should register driftViewer.globalSearch command', () => {

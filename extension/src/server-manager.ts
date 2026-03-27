@@ -146,22 +146,23 @@ export class ServerManager {
     }
 
     if (this._activeServer && !activeStillAlive) {
-      // Active server died
+      // Active server died — same rules as initial: one survivor auto-picks,
+      // several → QuickPick so the user explicitly chooses the replacement.
       if (servers.length === 1) {
         this._setActive(servers[0]);
       } else if (servers.length > 1) {
-        this.selectServer();
+        void this.selectServer();
       } else {
         this._setActive(undefined);
       }
       return;
     }
 
-    // No active server yet
+    // No active server yet — single server is unambiguous; multiple → QuickPick.
     if (servers.length === 1) {
       this._setActive(servers[0]);
     } else if (servers.length > 1) {
-      this.selectServer();
+      void this.selectServer();
     }
   }
 
