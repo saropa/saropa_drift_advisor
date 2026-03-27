@@ -145,22 +145,35 @@ describe('Extension activation', () => {
   });
 
   /**
-   * Ensures package.json declares onCommand activation for About/Save Filter so
-   * VS Code activates the extension when those commands run before any Dart file
-   * is opened (avoids "command not found" for Database header (i) and Save Filter).
+   * Ensures package.json declares onCommand activation for every command entry
+   * and every menu-referenced command so VS Code always activates before
+   * command execution, including toolbar/status-bar icon paths.
    */
-  it('package.json should include onCommand activation for about and saveFilter', () => {
+  it('package.json should include onCommand activation for all contributed and menu commands', () => {
     const packagePath = path.join(__dirname, '..', '..', 'package.json');
     const raw = fs.readFileSync(packagePath, 'utf-8');
-    const pkg = JSON.parse(raw) as { activationEvents?: string[] };
-    const events = pkg.activationEvents ?? [];
-    const required = [
-      'onCommand:driftViewer.about',
-      'onCommand:driftViewer.aboutSaropa',
-      'onCommand:driftViewer.saveFilter',
-    ];
-    for (const ev of required) {
-      assert.ok(events.includes(ev), `activationEvents should include "${ev}" (fixes "command not found" before Dart activation)`);
+    const pkg = JSON.parse(raw) as {
+      activationEvents?: string[];
+      contributes?: {
+        commands?: Array<{ command?: string }>;
+        menus?: Record<string, Array<{ command?: string }>>;
+      };
+    };
+    const events = new Set(pkg.activationEvents ?? []);
+    const contributedCommands = (pkg.contributes?.commands ?? [])
+      .map((c) => c.command)
+      .filter((c): c is string => typeof c === 'string' && c.length > 0);
+    const menuCommands = Object.values(pkg.contributes?.menus ?? {})
+      .flat()
+      .map((item) => item.command)
+      .filter((c): c is string => typeof c === 'string' && c.length > 0);
+    const allCommandIds = new Set([...contributedCommands, ...menuCommands]);
+    for (const commandId of allCommandIds) {
+      const activationEvent = `onCommand:${commandId}`;
+      assert.ok(
+        events.has(activationEvent),
+        `activationEvents should include "${activationEvent}" to avoid command-not-found before non-command activation triggers`,
+      );
     }
   });
 
