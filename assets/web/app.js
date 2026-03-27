@@ -1,4 +1,12 @@
-    /* Web viewer script. Type-checked with tsconfig.web.json (npm run typecheck:web). Do not edit compiled outputs when a TS source exists. */
+    /**
+     * Web viewer script for the Drift debug server UI (tables, SQL, tools).
+     * Type-checked with tsconfig.web.json (npm run typecheck:web).
+     * Do not edit compiled outputs when a TS source exists.
+     *
+     * Table list row counts: `formatTableRowCountDisplay` centralizes locale
+     * formatting (en-US grouping) for the sidebar, browse grid, and dropdowns;
+     * sync changes with `lib/src/server/web_assets_embedded.dart` after edits.
+     */
     var DRIFT_VIEWER_AUTH_TOKEN = "";
     /** True when server exposes POST /api/cell/update (writeQuery configured). */
     var driftWriteEnabled = false;
@@ -430,10 +438,13 @@
 
       var html = '<div class="tables-browse-grid">';
       tables.forEach(function(t) {
-        var countText = (tableCounts[t] != null) ? (tableCounts[t] + ' rows') : '';
+        var countHtml = '';
+        if (tableCounts[t] != null) {
+          countHtml = '<span class="browse-card-count">(' + esc(formatTableRowCountDisplay(tableCounts[t])) + ')</span>';
+        }
         html += '<button type="button" class="tables-browse-card" data-table="' + esc(t) + '" title="Open ' + esc(t) + ' in a tab">';
         html += '<span class="browse-card-name">' + esc(t) + '</span>';
-        if (countText) html += '<span class="browse-card-count">' + esc(countText) + '</span>';
+        html += countHtml;
         html += '</button>';
       });
       html += '</div>';
@@ -725,6 +736,17 @@
     let limit = 200;
     let offset = 0;
     let tableCounts = {};
+    /**
+     * Formats a row count for sidebar, browse cards, and dropdowns: thousands
+     * separators, no "rows" suffix (callers add parentheses where needed).
+     * @param {number|string} n - Raw count from the server
+     * @returns {string}
+     */
+    function formatTableRowCountDisplay(n) {
+      var num = Number(n);
+      if (!isFinite(num)) return String(n);
+      return num.toLocaleString('en-US');
+    }
     // Cache of the last table list received from the server, used when
     // re-rendering after pin/unpin without a fresh API call.
     let lastKnownTables = [];
@@ -3108,7 +3130,9 @@
         (tables || []).forEach(function(t) {
           var opt = document.createElement('option');
           opt.value = t;
-          opt.textContent = (tableCounts[t] != null) ? (t + ' (' + tableCounts[t] + ' rows)') : t;
+          opt.textContent = (tableCounts[t] != null)
+            ? (t + ' (' + formatTableRowCountDisplay(tableCounts[t]) + ')')
+            : t;
           stTableSel.appendChild(opt);
         });
         // Preserve previous selection if still valid
@@ -3127,7 +3151,7 @@
         var opts = stTableSel.options;
         for (var i = 0; i < opts.length; i++) {
           if (opts[i].value === table) {
-            opts[i].textContent = table + ' (' + count + ' rows)';
+            opts[i].textContent = table + ' (' + formatTableRowCountDisplay(count) + ')';
             break;
           }
         }
@@ -4649,12 +4673,18 @@
         a.className = 'table-link' + (t === currentTableName ? ' active' : '');
         a.setAttribute('data-table', t);
 
-        // Use a span for the text so the pin button doesn't get destroyed
-        // when row counts update the label text.
+        // Table name + optional count in a separate span (grey, right-aligned)
+        // so the pin button and ellipsis on long names stay correct.
         var nameSpan = document.createElement('span');
         nameSpan.className = 'table-link-name';
-        nameSpan.textContent = (tableCounts[t] != null) ? (t + ' (' + tableCounts[t] + ' rows)') : t;
+        nameSpan.textContent = t;
         a.appendChild(nameSpan);
+        if (tableCounts[t] != null) {
+          var countSpan = document.createElement('span');
+          countSpan.className = 'table-link-count';
+          countSpan.textContent = '(' + formatTableRowCountDisplay(tableCounts[t]) + ')';
+          a.appendChild(countSpan);
+        }
 
         // Pin/unpin button with Material Symbols push_pin icon
         var pinBtn = document.createElement('button');
@@ -4686,7 +4716,7 @@
       }
       const importTableSel = document.getElementById('import-table');
       if (importTableSel) {
-        importTableSel.innerHTML = tables.map(t => '<option value="' + esc(t) + '">' + esc(t) + (tableCounts[t] != null ? ' (' + tableCounts[t] + ' rows)' : '') + '</option>').join('');
+        importTableSel.innerHTML = tables.map(t => '<option value="' + esc(t) + '">' + esc(t) + (tableCounts[t] != null ? ' (' + esc(formatTableRowCountDisplay(tableCounts[t])) + ')' : '') + '</option>').join('');
       }
       // Populate the Search tab's table dropdown
       if (typeof window._stPopulateTables === 'function') window._stPopulateTables(tables);
@@ -5467,7 +5497,7 @@
 
       // Render the sidebar list, browse cards, and
       // dropdowns. renderTableList reads from tableCounts
-      // to display "tableName (N rows)" labels.
+      // to display comma-separated counts (no "rows" suffix).
       renderTableList(tables);
       return tables;
     }

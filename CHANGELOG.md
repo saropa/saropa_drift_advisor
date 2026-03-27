@@ -17,6 +17,16 @@ For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARC
 
 ---
 
+## [2.9.2]
+
+Clearer table row counts in the browser debug viewer.
+
+### Improved
+
+• **Web UI table row counts** — In the sidebar, Tables browse grid, Search table picker, and Import dropdown, counts appear as comma-separated numbers in parentheses (e.g. `(1,643)`), without the word “rows”; numbers use muted color and align to the right beside the table name.
+
+---
+
 ## [2.9.1]
 
 No-blank sidebar startup fallback and safer command availability during activation.
@@ -29,7 +39,7 @@ No-blank sidebar startup fallback and safer command availability during activati
 
 ---
 
-## [2.9.1]
+## [2.9.0]
 
 Faster disconnect detection, quieter logs, and a banner that actually shows up.
  Lighter extension load on SQLite, authenticated discovery, and a path from pending cell edits to the database—batch apply, bulk-edit UI, and foreign-key–aware ordering.

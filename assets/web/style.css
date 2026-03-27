@@ -531,6 +531,15 @@ body.theme-light .feature-card.expanded {
   white-space: nowrap;
 }
 
+/* Row count: grey, right-aligned, tabular digits (not link-colored) */
+.table-link-count {
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
 .table-list a:hover {
   background: rgba(128, 128, 128, 0.1);
   color: var(--link-hover);
@@ -655,6 +664,13 @@ body.theme-light .feature-card.expanded {
   font-size: var(--text-xs);
   margin-left: auto;
   white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Card hover sets link color on the button; keep the count grey */
+.tables-browse-card:hover .browse-card-count {
+  color: var(--muted);
 }
 
 /* Primary / secondary buttons */
