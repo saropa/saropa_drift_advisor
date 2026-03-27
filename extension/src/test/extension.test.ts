@@ -112,7 +112,7 @@ describe('Extension activation', () => {
     // Nav: pauseDiscovery, resumeDiscovery, openConnectionHelp (3)
     // Editing: pendingChangesPersistence debounce, pendingEditsStatusBar (2)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 199, `expected 199 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 200, `expected 200 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -242,6 +242,21 @@ describe('Extension activation', () => {
         `activationEvents should include "${activationEvent}" to avoid command-not-found before non-command activation triggers`,
       );
     }
+  });
+
+  /**
+   * Legacy `"*"` activation was removed (2.9.2): some hosts reject or mishandle it;
+   * `onStartupFinished` plus explicit `onCommand` / view hooks cover activation.
+   */
+  it('package.json activationEvents should not use legacy "*" wildcard', () => {
+    const packagePath = path.join(__dirname, '..', '..', 'package.json');
+    const raw = fs.readFileSync(packagePath, 'utf-8');
+    const pkg = JSON.parse(raw) as { activationEvents?: string[] };
+    const events = pkg.activationEvents ?? [];
+    assert.ok(
+      !events.includes('*'),
+      'Remove "*" from activationEvents; rely on onStartupFinished and onCommand hooks',
+    );
   });
 
   it('should register a CodeLens provider for Dart files', () => {

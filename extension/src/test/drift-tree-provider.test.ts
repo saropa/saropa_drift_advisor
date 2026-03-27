@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { DriftApiClient } from '../api-client';
 import { DriftTreeProvider } from '../tree/drift-tree-provider';
+import { commands as vscodeCommands, resetMocks } from './vscode-mock';
 import {
   ColumnItem,
   ConnectionStatusItem,
@@ -37,6 +38,7 @@ describe('DriftTreeProvider', () => {
   ];
 
   beforeEach(() => {
+    resetMocks();
     fetchStub = sinon.stub(globalThis, 'fetch');
     client = new DriftApiClient('127.0.0.1', 8642);
     provider = new DriftTreeProvider(client);
@@ -65,6 +67,31 @@ describe('DriftTreeProvider', () => {
       fetchStub.rejects(new Error('connection refused'));
       await provider.refresh();
       assert.strictEqual(provider.connected, false);
+    });
+
+    it('should set VS Code context driftViewer.databaseTreeEmpty true when schema load fails', async () => {
+      fetchStub.rejects(new Error('connection refused'));
+      await provider.refresh();
+      assert.strictEqual(
+        vscodeCommands.getContext('driftViewer.databaseTreeEmpty'),
+        true,
+        'before fix: serverConnected could stay true while tree stayed empty — welcome needs this key',
+      );
+    });
+
+    it('should set VS Code context driftViewer.databaseTreeEmpty false when schema load succeeds', async () => {
+      fetchStub.onFirstCall().resolves(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+      fetchStub.onSecondCall().resolves(
+        new Response(JSON.stringify(sampleMetadata), { status: 200 }),
+      );
+      await provider.refresh();
+      assert.strictEqual(vscodeCommands.getContext('driftViewer.databaseTreeEmpty'), false);
+    });
+
+    it('should set driftViewer.databaseTreeEmpty true on construction (not yet loaded)', () => {
+      assert.strictEqual(vscodeCommands.getContext('driftViewer.databaseTreeEmpty'), true);
     });
 
     it('should fire onDidChangeTreeData', async () => {
