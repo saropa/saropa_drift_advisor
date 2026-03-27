@@ -29,7 +29,7 @@ No-blank sidebar startup fallback and safer command availability during activati
 
 ---
 
-## [2.9.0]
+## [2.9.1]
 
 Faster disconnect detection, quieter logs, and a banner that actually shows up.
  Lighter extension load on SQLite, authenticated discovery, and a path from pending cell edits to the database—batch apply, bulk-edit UI, and foreign-key–aware ordering.
