@@ -1,6 +1,6 @@
 name: saropa_drift_advisor
 description: Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer. Use from any Drift (or raw SQLite) app via an injectable query callback.
-version: 2.9.1
+version: 2.10.0
 
 homepage: https://saropa.com
 repository: https://github.com/saropa/saropa_drift_advisor
@@ -37,7 +37,7 @@ dependencies:
 dev_dependencies:
   # Saropa custom lints; use custom_lint CLI.
   # https://pub.dev/packages/saropa_lints/changelog
-  saropa_lints: ^10.1.1
+  saropa_lints: ^10.2.0
 
   # Unit test framework.
   # https://pub.dev/packages/test/changelog

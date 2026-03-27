@@ -6,8 +6,9 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 void main() {
-  final String appJs =
-      File('assets/web/app.js').readAsStringSync().replaceAll('\r\n', '\n');
+  final String appJs = File(
+    'assets/web/app.js',
+  ).readAsStringSync().replaceAll('\r\n', '\n');
 
   test('buildTableDefinitionHtml and markup hooks exist in app.js', () {
     expect(

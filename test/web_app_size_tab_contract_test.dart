@@ -29,10 +29,7 @@ void main() {
         ),
         isTrue,
       );
-      expect(
-        src.contains("var lastSizeAnalyticsData = null"),
-        isTrue,
-      );
+      expect(src.contains("var lastSizeAnalyticsData = null"), isTrue);
     });
 
     test('exposes SIZE_TT tooltips for summary and table headers', () {

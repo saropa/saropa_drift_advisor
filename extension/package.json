@@ -2,7 +2,7 @@
   "name": "drift-viewer",
   "displayName": "Saropa Drift Advisor",
   "description": "Debug SQLite/Drift databases in VS Code with Saropa Drift Advisor.",
-  "version": "2.9.2",
+  "version": "2.10.0",
   "publisher": "saropa",
   "license": "MIT",
   "repository": {

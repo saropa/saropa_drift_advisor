@@ -1,25 +1,29 @@
 # Changelog
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+<!--
+  Maintainer notes: visible in source control and editors; omitted on typical rendered pages.
+  Format follows Keep a Changelog; versions use SemVer. Omit dates in `## [x.y.z]` headers
+  (pub.dev shows publish dates). Project links and archive location are in the intro below.
 
-Dates are not included in version headers — [pub.dev](https://pub.dev/packages/saropa_lints/changelog) displays publish dates separately.
+  Each release (and [Unreleased]) opens with one plain-language line for humans—user-facing
+  only, varied wording—then end it with:
+  `[log](https://github.com/saropa/saropa_drift_advisor/blob/vX.Y.Z/CHANGELOG.md)` substituting X.Y.Z.
+  
+  **pub.dev** — [pub.dev / packages / saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
 
-**pub.dev** — [pub.dev / packages / saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
+  **VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
 
-**VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
+  **Open VSX Registry** - [open-vsx.org / extension / saropa / drift-viewer](https://open-vsx.org/extension/saropa/drift-viewer)
 
-**Open VSX Registry** - [open-vsx.org / extension / saropa / drift-viewer](https://open-vsx.org/extension/saropa/drift-viewer)
+-->
 
-Each version (and [Unreleased]) has a short commentary line in plain language—what this release is about for humans. Only discuss user-facing features; vary the phrasing.
-
-For older versions (1.4.3 and older), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
+This changelog is for **Saropa Drift Advisor**: the Dart package that wires up Drift’s debug server and web viewer, plus the **Drift Viewer** extensions for [VS Code](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer) and [Open VSX](https://open-vsx.org/extension/saropa/drift-viewer). Releases are listed newest first. Each version’s opening paragraph sums up what changed for users and ends with a **log** link to this file at that release’s tag on GitHub. Install the library from [pub.dev](https://pub.dev/packages/saropa_drift_advisor); report issues and browse source on [GitHub](https://github.com/saropa/saropa_drift_advisor). History before **1.4.4** lives in [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
 
 ---
 
 ## [2.10.0]
 
-Clearer table row counts, inline table column definitions, a more polished Size analytics panel, and a lighter Dart package (no embedded CSS/JS mirror for the web viewer). The VS Code extension improves Schema Search when disconnected, optional offline Database tree from persisted schema, navigation from the sidebar to Dart definitions, and a command to scan Drift table definitions from Dart sources without a connected server.
+Clearer table row counts, inline table column definitions, a more polished Size analytics panel, and a lighter Dart package (no embedded CSS/JS mirror for the web viewer). The VS Code extension improves Schema Search when disconnected, optional offline Database tree from persisted schema, navigation from the sidebar to Dart definitions, and a command to scan Drift table definitions from Dart sources without a connected server. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.10.0/CHANGELOG.md)
 
 ### Changed
 
@@ -55,7 +59,7 @@ Clearer table row counts, inline table column definitions, a more polished Size 
 
 ## [2.9.2]
 
-Sidebar stays actionable when HTTP/VM says “connected” but the schema tree cannot load, and Schema Search recovers if the webview script never reaches the ready handshake.
+Sidebar stays actionable when HTTP/VM says “connected” but the schema tree cannot load, and Schema Search recovers if the webview script never reaches the ready handshake. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.9.2/CHANGELOG.md)
 
 ### Fixed
 
@@ -69,9 +73,9 @@ Sidebar stays actionable when HTTP/VM says “connected” but the schema tree c
 
 ---
 
-## [2.9.1]
+## [2.10.0]
 
-No-blank sidebar startup fallback and safer command availability during activation.
+No-blank sidebar startup fallback and safer command availability during activation. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.9.1/CHANGELOG.md)
 
 ### Fixed
 
@@ -83,8 +87,7 @@ No-blank sidebar startup fallback and safer command availability during activati
 
 ## [2.9.0]
 
-Faster disconnect detection, quieter logs, and a banner that actually shows up.
- Lighter extension load on SQLite, authenticated discovery, and a path from pending cell edits to the database—batch apply, bulk-edit UI, and foreign-key–aware ordering.
+Faster disconnect detection, quieter logs, and a banner that actually shows up. Lighter extension load on SQLite, authenticated discovery, and a path from pending cell edits to the database—batch apply, bulk-edit UI, and foreign-key–aware ordering. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.9.0/CHANGELOG.md)
 
 ### Fixed
 
@@ -118,6 +121,8 @@ Faster disconnect detection, quieter logs, and a banner that actually shows up.
 
 ## [2.8.2]
 
+Packaging, web assets, Schema Search loading handshake, and Drift Tools registration fixes. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.8.2/CHANGELOG.md)
+
 ### Fixed
 
 • **Published package missing web UI assets** — `.pubignore` contained an unanchored `web/` pattern that excluded `assets/web/` (CSS/JS served by the debug server) from the published package. Consumer apps fell back to CDN, producing `X-Content-Type-Options: nosniff` MIME-mismatch console errors. Fixed by anchoring the pattern to `/web/` (root only).
@@ -138,6 +143,8 @@ Faster disconnect detection, quieter logs, and a banner that actually shows up.
 
 ## [2.8.1]
 
+Web UI asset serving under tests, publish script improvements, and VS Code connection / Schema Search resilience. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.8.1/CHANGELOG.md)
+
 ### Fixed
 
 • **Web UI assets under `flutter test`** — Local `/assets/web/style.css` and `app.js` no longer return HTTP 500 when the test VM cannot resolve `package:` URIs; the server falls back to discovering the package root from the working directory.
@@ -154,15 +161,7 @@ Faster disconnect detection, quieter logs, and a banner that actually shows up.
 
 ## [2.7.1]
 
-### Fixed
-
-• **Web UI: local CSS/JS + CDN fallback** — The viewer HTML now loads `/assets/web/style.css` and `/assets/web/app.js` from the debug server (correct `Content-Type`, works offline). If those requests fail, `onerror` falls back to version-pinned jsDelivr URLs. Fixes browsers blocking CDN responses with `text/plain` + `X-Content-Type-Options: nosniff`.
-
-• **VS Code: About / About Saropa / Save Filter "command not found"** — Added `onCommand` activation in `extension/package.json` for `driftViewer.about`, `driftViewer.aboutSaropa`, and `driftViewer.saveFilter` so the extension activates when those commands run before a Dart file has been opened (Command Palette or Database view controls).
-
-## [2.7.1]
-
-Mutation Stream (VS Code) with column-value filtering, Pipeline: saropa_lints report colocation, alongside Single issues API and capability discovery for Saropa Lints and other consumers.
+Mutation Stream (VS Code) with column-value filtering, Pipeline saropa_lints report colocation, merged **GET /api/issues** and health **capabilities** for Saropa Lints; plus web UI local assets with CDN fallback and VS Code **onCommand** activation for About / Save Filter. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.7.1/CHANGELOG.md)
 
 ### Added
 
@@ -184,11 +183,17 @@ Mutation Stream (VS Code) with column-value filtering, Pipeline: saropa_lints re
 
 • **Log Capture integration (extension)** — Session-end flow now uses a single parallel fetch for full mode (no duplicate `performance()` call). Header-only mode still fetches only performance. Shared helpers (`severityToString`, `toWorkspaceRelativePath`, `LOG_CAPTURE_SESSION_TIMEOUT_MS`) exported from the bridge and reused by the public API to remove duplication. Extension test disposable count updated to 181 with a brief comment for the Log Capture subscription.
 
+### Fixed
+
+• **Web UI: local CSS/JS + CDN fallback** — The viewer HTML now loads `/assets/web/style.css` and `/assets/web/app.js` from the debug server (correct `Content-Type`, works offline). If those requests fail, `onerror` falls back to version-pinned jsDelivr URLs. Fixes browsers blocking CDN responses with `text/plain` + `X-Content-Type-Options: nosniff`.
+
+• **VS Code: About / About Saropa / Save Filter "command not found"** — Added `onCommand` activation in `extension/package.json` for `driftViewer.about`, `driftViewer.aboutSaropa`, and `driftViewer.saveFilter` so the extension activates when those commands run before a Dart file has been opened (Command Palette or Database view controls).
+
 ---
 
 ## [2.7.0]
 
-Web UI: table tabs, self-contained Search tab, and collapsible sidebar; plus ~97% query spam reduction and Dart SDK constraint bump to >=3.9.0 syntax, with shared schema cache and zero runtime dependencies.
+Web UI: table tabs, self-contained Search tab, and collapsible sidebar; plus ~97% query spam reduction and Dart SDK constraint bump to >=3.9.0 syntax, with shared schema cache and zero runtime dependencies. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.7.0/CHANGELOG.md)
 
 ### Fixed
 
@@ -280,7 +285,7 @@ Web UI: table tabs, self-contained Search tab, and collapsible sidebar; plus ~97
 
 ## [2.5.0]
 
-Web UI: leave confirmation, auto-analyze on Index/Size/Health tabs, refreshed toolbar and Export tab, SQL syntax highlighting, and version→changelog link. Extension: Refresh and Dashboard commands fixed, Search/Tables toolbar, quieter polling, and Schema Search timeout plus portable report fixes.
+Web UI: leave confirmation, auto-analyze on Index/Size/Health tabs, refreshed toolbar and Export tab, SQL syntax highlighting, and version→changelog link. Extension: Refresh and Dashboard commands fixed, Search/Tables toolbar, quieter polling, and Schema Search timeout plus portable report fixes. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.5.0/CHANGELOG.md)
 
 ### Added
 
@@ -328,7 +333,7 @@ Web UI: leave confirmation, auto-analyze on Index/Size/Health tabs, refreshed to
 
 ## [2.3.0]
 
-PII masking, richer charts/exports, query-builder AND/OR, and page-based pagination; plus improved Search tab, tabbed tools UI, cell popups/status/tooltips, and better About/Save Filter/share feedback.
+PII masking, richer charts/exports, query-builder AND/OR, and page-based pagination; plus improved Search tab, tabbed tools UI, cell popups/status/tooltips, and better About/Save Filter/share feedback. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.3.0/CHANGELOG.md)
 
 ### Added
 
@@ -390,7 +395,7 @@ PII masking, richer charts/exports, query-builder AND/OR, and page-based paginat
 
 ## [2.1.1]
 
-Web UI gets a clearer layout and sidebar; the extension activates when you open the Drift views; drift_sqlite_async users get clearer guidance; and turning polling off no longer spams the console.
+Web UI gets a clearer layout and sidebar; the extension activates when you open the Drift views; drift_sqlite_async users get clearer guidance; and turning polling off no longer spams the console. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.1.1/CHANGELOG.md)
 
 ### Added
 
@@ -412,7 +417,7 @@ Web UI gets a clearer layout and sidebar; the extension activates when you open 
 
 ## [2.1.0]
 
-Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable. Search now scrolls to matches and lets you step through them with Next/Previous.
+Connection health, session expiry countdown, clickable FK breadcrumbs, and OS dark-mode sync make the debug experience more resilient and navigable. Search now scrolls to matches and lets you step through them with Next/Previous. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.1.0/CHANGELOG.md)
 
 ### Added
 
@@ -492,7 +497,7 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 
 ## [2.0.0]
 
-Internal modularization: split the 793-line server_context.dart god object into three focused modules for maintainability.
+Internal modularization: split the 793-line server_context.dart god object into three focused modules for maintainability. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.0.0/CHANGELOG.md)
 
 ### Changed
 
@@ -506,7 +511,7 @@ Internal modularization: split the 793-line server_context.dart god object into 
 
 ## [1.8.0]
 
-Silence the log spam: batched change detection, runtime polling toggle, and UI buttons in both the web viewer and VSCode extension.
+Silence the log spam: batched change detection, runtime polling toggle, and UI buttons in both the web viewer and VSCode extension. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.8.0/CHANGELOG.md)
 
 ### Added
 
@@ -540,7 +545,7 @@ Silence the log spam: batched change detection, runtime polling toggle, and UI b
 
 ## [1.7.0]
 
-Smart package lifecycle management: the extension now detects whether the Dart package is already in your project and hides redundant setup prompts.
+Smart package lifecycle management: the extension now detects whether the Dart package is already in your project and hides redundant setup prompts. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.7.0/CHANGELOG.md)
 
 ### Added
 
@@ -578,7 +583,7 @@ Smart package lifecycle management: the extension now detects whether the Dart p
 
 ## [1.6.1]
 
-The extension couldn't connect to running servers and now has an About button for easy access to release notes.
+The extension couldn't connect to running servers and now has an About button for easy access to release notes. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.6.1/CHANGELOG.md)
 
 ### Added
 
@@ -595,7 +600,7 @@ The extension couldn't connect to running servers and now has an About button fo
 
 ## [1.6.0]
 
-VM Service connection now works — Android emulator connects without port forwarding. Web UI gets a visual polish layer loaded from CDN, and the published package is leaner.
+VM Service connection now works — Android emulator connects without port forwarding. Web UI gets a visual polish layer loaded from CDN, and the published package is leaner. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.6.0/CHANGELOG.md)
 
 ### Added
 
@@ -611,7 +616,7 @@ VM Service connection now works — Android emulator connects without port forwa
 
 ## [1.5.1]
 
-Web UI now shows the server version and has a proper favicon.
+Web UI now shows the server version and has a proper favicon. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.5.1/CHANGELOG.md)
 
 ### Added
 
