@@ -87,3 +87,25 @@ export class ForeignKeyItem extends vscode.TreeItem {
     this.contextValue = 'driftForeignKey';
   }
 }
+
+/**
+ * Non-clickable banner when the UI reports a Drift connection but the Database tree
+ * could not load schema via REST. Real commands are listed as [ActionItem] siblings
+ * so they work in hosts where `viewsWelcome` markdown `command:` links do not fire.
+ */
+export class SchemaRestFailureBannerItem extends vscode.TreeItem {
+  constructor() {
+    super('Could not load schema (REST API)', vscode.TreeItemCollapsibleState.None);
+    this.description = 'Use the actions below';
+    this.iconPath = new vscode.ThemeIcon('warning');
+    this.contextValue = 'schemaRestFailureBanner';
+    const md = new vscode.MarkdownString(
+      'The sidebar reports a connection (HTTP and/or VM Service), but the **Database** '
+        + 'tree could not load schema from the REST API. The embedded browser may still work.\n\n'
+        + 'Check `driftViewer.authToken`, host/port, VPN/WSL, and that **Select Server** '
+        + 'points at the live process.',
+      true,
+    );
+    this.tooltip = md;
+  }
+}

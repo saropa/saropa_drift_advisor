@@ -21,6 +21,14 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ---
 
+## [Unreleased]
+
+### Improved
+
+• **VS Code: Database sidebar when REST schema fails** — If the UI shows a connection but the Database tree cannot load schema from the REST API, the explorer now lists a warning row and the same troubleshooting commands as **clickable tree items** (Refresh, Diagnose, Troubleshooting, log, browser, Select Server, web help). Some editors do not run `viewsWelcome` markdown `command:` links, which made those controls appear to do nothing. **Refresh tree** also shows a result notification after each attempt; **Connection help (web)** shows a short toast before opening the docs.
+
+---
+
 ## [2.10.0]
 
 Clearer table row counts, inline table column definitions, a more polished Size analytics panel, and a lighter Dart package (no embedded CSS/JS mirror for the web viewer). The VS Code extension improves Schema Search when disconnected, optional offline Database tree from persisted schema, navigation from the sidebar to Dart definitions, and a command to scan Drift table definitions from Dart sources without a connected server. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.10.0/CHANGELOG.md)

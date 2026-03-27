@@ -102,7 +102,7 @@ Works in Dart files with Drift table definitions:
 
 The extension automatically scans ports 8642-8649 for running debug servers. When no server is found and a Flutter/Dart debug session is active (e.g. app on Android emulator), it tries to forward the port with `adb forward` and retries discovery so the host can connect. You can also run **Saropa Drift Advisor: Forward Port (Android Emulator)** manually. When multiple servers are found, use **Saropa Drift Advisor: Select Server** from the command palette.
 
-**Troubleshooting:** Use **Show Connection Log** (Output → Saropa Drift Advisor), **Diagnose Connection** (writes a snapshot and optional clipboard copy), or **Refresh Connection UI** if the sidebar looks wrong while the app is running. The **Schema Search** panel includes the same actions when disconnected.
+**Troubleshooting:** Use **Show Connection Log** (Output → Saropa Drift Advisor), **Diagnose Connection** (writes a snapshot and optional clipboard copy), or **Refresh Connection UI** if the sidebar looks wrong while the app is running. The **Schema Search** panel includes the same actions when disconnected. If you see a connection but the Database tree stays empty (REST schema error), use the **named action rows** under DATABASE — they run the same commands as the welcome text but via native tree clicks, which is more reliable than welcome links in some editors.
 
 The status bar shows connection state:
 

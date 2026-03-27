@@ -24,8 +24,22 @@ export function registerRefreshTreeCommand(
   treeProvider: DriftTreeProvider,
 ): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand('driftViewer.refreshTree', () => {
-      void treeProvider.refresh();
+    vscode.commands.registerCommand('driftViewer.refreshTree', async () => {
+      await treeProvider.refresh();
+      if (treeProvider.connected) {
+        void vscode.window.showInformationMessage(
+          'Database tree refreshed — schema loaded.',
+        );
+      } else if (treeProvider.offlineSchema) {
+        void vscode.window.showWarningMessage(
+          'Database tree shows cached schema only; live REST API was not reachable.',
+        );
+      } else {
+        void vscode.window.showWarningMessage(
+          'Could not load schema from the REST API. Check driftViewer.authToken, host/port, '
+            + 'VPN/WSL, and that Select Server points at the running app.',
+        );
+      }
     }),
   );
 }

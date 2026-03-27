@@ -1,7 +1,7 @@
 /**
- * Tree items for the "Quick Actions" collapsible group in the Database Explorer.
- * Provides clickable shortcuts to the most important commands when connected,
- * so users don't have to hunt through the Command Palette.
+ * Tree items for the "Quick Actions" collapsible group in the Database Explorer, plus
+ * [getSchemaRestFailureActions] for the connected-but-REST-failed empty state (same
+ * commands as the Database `viewsWelcome` overlay, exposed as real tree rows).
  */
 
 import * as vscode from 'vscode';
@@ -105,5 +105,29 @@ export function getQuickActionCategories(): ActionCategoryItem[] {
       new ActionItem('Isar Converter', 'driftViewer.isarToDrift', 'arrow-swap',
         'Convert Isar schema to Drift'),
     ]),
+  ];
+}
+
+/**
+ * Clickable tree rows for the "connected but REST schema failed" state.
+ * Mirrors package.json `viewsWelcome` for that scenario so actions work when markdown
+ * `command:` links in the welcome overlay do not (some VS Code forks).
+ */
+export function getSchemaRestFailureActions(): ActionItem[] {
+  return [
+    new ActionItem('Refresh tree', 'driftViewer.refreshTree', 'refresh',
+      'Retry loading schema from the Drift REST API'),
+    new ActionItem('Diagnose connection', 'driftViewer.diagnoseConnection', 'pulse',
+      'Write connection details to Output and optionally copy a summary'),
+    new ActionItem('Troubleshooting', 'driftViewer.showTroubleshooting', 'tools',
+      'Open the troubleshooting panel'),
+    new ActionItem('Connection log', 'driftViewer.showConnectionLog', 'output',
+      'Show Saropa Drift Advisor output'),
+    new ActionItem('Open in Browser', 'driftViewer.openInBrowser', 'globe',
+      'Open the Drift viewer in an external browser'),
+    new ActionItem('Select Server', 'driftViewer.selectServer', 'plug',
+      'Pick the Drift debug server to use'),
+    new ActionItem('Connection help (web)', 'driftViewer.openConnectionHelp', 'book',
+      'Open connection documentation in the browser'),
   ];
 }

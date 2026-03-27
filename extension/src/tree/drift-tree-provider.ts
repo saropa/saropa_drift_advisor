@@ -1,3 +1,9 @@
+/**
+ * Database Explorer tree: tables, columns, quick actions, and a fallback row list when the
+ * extension reports a Drift connection but REST schema load failed. That fallback uses
+ * [TreeItem.command] (reliable across hosts) instead of relying on `viewsWelcome` markdown
+ * `command:` links, which may not execute in some VS Code forks.
+ */
 import * as vscode from 'vscode';
 import { DriftApiClient, TableMetadata } from '../api-client';
 import type { AnnotationStore } from '../annotations/annotation-store';
@@ -7,17 +13,20 @@ import {
   ConnectionStatusItem,
   ForeignKeyItem,
   PinnedGroupItem,
+  SchemaRestFailureBannerItem,
   TableItem,
 } from './tree-items';
 import {
   ActionCategoryItem,
   ActionItem,
   getQuickActionCategories,
+  getSchemaRestFailureActions,
   QuickActionsGroupItem,
 } from './quick-action-items';
 
 type TreeNode =
   | ConnectionStatusItem
+  | SchemaRestFailureBannerItem
   | PinnedGroupItem
   | QuickActionsGroupItem
   | ActionCategoryItem
@@ -29,6 +38,12 @@ type TreeNode =
 export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly _client: DriftApiClient;
   private readonly _annotationStore?: AnnotationStore;
+  /**
+   * When true, the extension reports a Drift UI connection (HTTP and/or VM Service) while
+   * this tree has no live schema — used to hide the broken welcome overlay and show real
+   * [TreeItem] commands instead.
+   */
+  private readonly _isDriftUiConnected: () => boolean;
   private _tables: TableMetadata[] = [];
   private _tableItems: TableItem[] = [];
   private _pinStore?: PinStore;
@@ -44,9 +59,14 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(client: DriftApiClient, annotationStore?: AnnotationStore) {
+  constructor(
+    client: DriftApiClient,
+    annotationStore?: AnnotationStore,
+    isDriftUiConnected?: () => boolean,
+  ) {
     this._client = client;
     this._annotationStore = annotationStore;
+    this._isDriftUiConnected = isDriftUiConnected ?? (() => false);
     // Drives viewsWelcome "when": `serverConnected && databaseTreeEmpty` so a stale
     // `driftViewer.serverConnected` (VM/HTTP) cannot hide all guidance while the tree stays empty.
     this._syncDatabaseTreeEmptyContext();
@@ -55,17 +75,32 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   /**
    * Drives the "connected but tree empty" welcome. When showing offline cached schema,
    * we are not "live connected" but the tree is not empty — avoid that overlay.
+   *
+   * When the UI is connected but REST schema load failed, we show real tree rows with
+   * `command` fields and set [databaseTreeEmpty] false so the markdown `viewsWelcome`
+   * overlay (unreliable in some hosts) is hidden.
    */
   private _syncDatabaseTreeEmptyContext(): void {
+    const noSchemaRows = !this._connected && !this._offlineSchema;
+    const hideWelcomeForRestFailure = noSchemaRows && this._isDriftUiConnected();
     void vscode.commands.executeCommand(
       'setContext',
       'driftViewer.databaseTreeEmpty',
-      !this._connected && !this._offlineSchema,
+      noSchemaRows && !hideWelcomeForRestFailure,
     );
   }
 
   setPinStore(store: PinStore): void {
     this._pinStore = store;
+  }
+
+  /**
+   * When discovery/VM connection state changes without a completed [refresh], the REST-failure
+   * action rows and `driftViewer.databaseTreeEmpty` must update. Called after connection UI sync.
+   */
+  notifyConnectionPresentationChanged(): void {
+    this._syncDatabaseTreeEmptyContext();
+    this._onDidChangeTreeData.fire();
   }
 
   /** Fetch schema from server and re-render the tree. Serialised to prevent overlapping calls. */
@@ -129,6 +164,14 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     // Root level: empty only when we have nothing to show (disconnected and no cached schema).
     if (!element) {
       if (!this._connected && !this._offlineSchema) {
+        // Hosts where welcome-view markdown `command:` links do nothing still execute
+        // TreeItem.command, so surface the same actions as rows.
+        if (this._isDriftUiConnected()) {
+          return [
+            new SchemaRestFailureBannerItem(),
+            ...getSchemaRestFailureActions(),
+          ];
+        }
         return [];
       }
       const status = new ConnectionStatusItem(

@@ -65,12 +65,15 @@ export interface LogCaptureIssuesRef {
  * Register tree view, language providers (definition, codelens, hover), legacy linter,
  * file decorations, timeline, watch manager, data breakpoint provider, task/terminal, log bridge.
  * When issuesRef is provided, the log bridge will include diagnostic issues in session-end meta/sidecar.
+ * [isDriftUiConnected] mirrors connection UI state so the Database tree can show real command rows
+ * when REST schema fails while HTTP/VM still reports connected (see DriftTreeProvider).
  */
 export function setupProviders(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
   annotationStore: AnnotationStore,
   issuesRef?: LogCaptureIssuesRef,
+  isDriftUiConnected?: () => boolean,
 ): ProviderSetupResult {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
 
@@ -78,7 +81,7 @@ export function setupProviders(
   // and the "About Saropa Drift Advisor vX.Y.Z" item in the Drift Tools tree.
   const extensionVersion = (context.extension?.packageJSON as { version?: string } | undefined)?.version ?? '0.0.0';
 
-  const treeProvider = new DriftTreeProvider(client, annotationStore);
+  const treeProvider = new DriftTreeProvider(client, annotationStore, isDriftUiConnected);
   const treeView = vscode.window.createTreeView(
     'driftViewer.databaseExplorer',
     { treeDataProvider: treeProvider, showCollapseAll: true },

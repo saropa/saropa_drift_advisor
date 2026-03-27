@@ -241,6 +241,7 @@ export function registerNavCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openConnectionHelp', () => {
       log('Open Connection Help: triggered by user');
+      void vscode.window.showInformationMessage('Opening connection help in your browser…');
       void vscode.env.openExternal(vscode.Uri.parse(SAROPA_DRIFT_CONNECTION_DOC_URL));
     }),
   );

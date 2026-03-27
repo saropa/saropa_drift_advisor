@@ -66,7 +66,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const annotationStore = new AnnotationStore(context.workspaceState);
   const issuesRef: LogCaptureIssuesRef = { get: () => [] };
-  const providers = setupProviders(context, cachedClient, annotationStore, issuesRef);
+  const providers = setupProviders(
+    context,
+    cachedClient,
+    annotationStore,
+    issuesRef,
+    () => isDriftUiConnected(serverManager, cachedClient),
+  );
   registerRefreshTreeCommand(context, providers.treeProvider);
 
   context.subscriptions.push(
@@ -110,7 +116,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerToolsQuickPickCommand(context);
 
   const connectionUiRefresh: { fn?: () => void } = {};
-  connectionUiRefresh.fn = () =>
+  connectionUiRefresh.fn = () => {
     syncDriftConnectionUi(serverManager, cachedClient, {
       toolsProvider: providers.toolsProvider,
       schemaSearchProvider: providers.schemaSearchProvider,
@@ -123,6 +129,8 @@ export function activate(context: vscode.ExtensionContext): void {
         }
       },
     });
+    providers.treeProvider.notifyConnectionPresentationChanged();
+  };
   providers.treeProvider.postRefreshHook = () => connectionUiRefresh.fn?.();
   context.subscriptions.push(
     schemaCache.onDidUpdate(() => {

@@ -7,9 +7,14 @@ import {
   ColumnItem,
   ConnectionStatusItem,
   ForeignKeyItem,
+  SchemaRestFailureBannerItem,
   TableItem,
 } from '../tree/tree-items';
-import { QuickActionsGroupItem } from '../tree/quick-action-items';
+import {
+  ActionItem,
+  getSchemaRestFailureActions,
+  QuickActionsGroupItem,
+} from '../tree/quick-action-items';
 
 describe('DriftTreeProvider', () => {
   let fetchStub: sinon.SinonStub;
@@ -75,7 +80,18 @@ describe('DriftTreeProvider', () => {
       assert.strictEqual(
         vscodeCommands.getContext('driftViewer.databaseTreeEmpty'),
         true,
-        'before fix: serverConnected could stay true while tree stayed empty — welcome needs this key',
+        'disconnected UI: empty tree keeps welcome guidance visible',
+      );
+    });
+
+    it('should set driftViewer.databaseTreeEmpty false when schema load fails but UI reports connected', async () => {
+      const connected = new DriftTreeProvider(client, undefined, () => true);
+      fetchStub.rejects(new Error('connection refused'));
+      await connected.refresh();
+      assert.strictEqual(
+        vscodeCommands.getContext('driftViewer.databaseTreeEmpty'),
+        false,
+        'REST failure with live VM/HTTP: show tree actions instead of welcome markdown',
       );
     });
 
@@ -131,6 +147,33 @@ describe('DriftTreeProvider', () => {
 
       assert.strictEqual(children.length, 0);
       assert.strictEqual(provider.connected, false);
+    });
+
+    it('should return banner and command rows when UI connected but REST schema failed', async () => {
+      const connected = new DriftTreeProvider(client, undefined, () => true);
+      fetchStub.rejects(new Error('connection refused'));
+      await connected.refresh();
+      const children = await connected.getChildren();
+      assert.ok(children[0] instanceof SchemaRestFailureBannerItem);
+      assert.ok(children[1] instanceof ActionItem);
+      assert.strictEqual(children.length, 8); // banner + 7 actions
+    });
+
+    /**
+     * Before: root stayed empty (`[]`) whenever schema fetch failed — users relied on
+     * `viewsWelcome` markdown links. After: when `isDriftUiConnected` is true, root rows
+     * must match [getSchemaRestFailureActions] command IDs (single source for overlay parity).
+     */
+    it('should expose getSchemaRestFailureActions command IDs at tree root (before vs after parity)', async () => {
+      const connected = new DriftTreeProvider(client, undefined, () => true);
+      fetchStub.rejects(new Error('connection refused'));
+      await connected.refresh();
+      const children = await connected.getChildren();
+      const fromTree = children
+        .slice(1)
+        .map((c) => (c as ActionItem).command?.command);
+      const fromFactory = getSchemaRestFailureActions().map((a) => a.command?.command);
+      assert.deepStrictEqual(fromTree, fromFactory);
     });
   });
 
