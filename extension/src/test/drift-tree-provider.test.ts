@@ -275,25 +275,70 @@ describe('DriftTreeProvider', () => {
   });
 
   describe('refresh() concurrency guard', () => {
-    it('should skip overlapping refresh calls', async () => {
-      // Make health hang until we resolve it
+    it('should queue a pending refresh instead of dropping it', async () => {
+      // Make the first health call hang until we resolve it manually.
       let resolveHealth!: (v: Response) => void;
-      fetchStub.onFirstCall().returns(
+      fetchStub.onCall(0).returns(
         new Promise<Response>((r) => { resolveHealth = r; }),
       );
-      fetchStub.onSecondCall().resolves(
+      // First refresh: schemaMetadata (call index 1)
+      fetchStub.onCall(1).resolves(
+        new Response(JSON.stringify([]), { status: 200 }),
+      );
+      // Queued refresh: health (call index 2)
+      fetchStub.onCall(2).resolves(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+      // Queued refresh: schemaMetadata (call index 3)
+      fetchStub.onCall(3).resolves(
         new Response(JSON.stringify([]), { status: 200 }),
       );
 
       const first = provider.refresh();
-      const second = provider.refresh(); // should be skipped
+      provider.refresh(); // queued as pending, not dropped
+
+      // Unblock the first refresh so it completes and runs the pending one.
+      resolveHealth(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      await first;
+
+      // Allow the microtask queue to drain so the queued refresh runs.
+      await new Promise<void>((r) => setTimeout(r, 0));
+
+      // 4 calls: first refresh (health + schema) + queued refresh (health + schema)
+      assert.strictEqual(fetchStub.callCount, 4);
+    });
+
+    it('should coalesce multiple pending refreshes into one', async () => {
+      // Make the first health call hang until we resolve it manually.
+      let resolveHealth!: (v: Response) => void;
+      fetchStub.onCall(0).returns(
+        new Promise<Response>((r) => { resolveHealth = r; }),
+      );
+      // First refresh: schemaMetadata (call index 1)
+      fetchStub.onCall(1).resolves(
+        new Response(JSON.stringify([]), { status: 200 }),
+      );
+      // Single coalesced queued refresh: health (call index 2)
+      fetchStub.onCall(2).resolves(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+      // Single coalesced queued refresh: schemaMetadata (call index 3)
+      fetchStub.onCall(3).resolves(
+        new Response(JSON.stringify([]), { status: 200 }),
+      );
+
+      const first = provider.refresh();
+      provider.refresh(); // sets _pendingRefresh = true
+      provider.refresh(); // still just _pendingRefresh = true (coalesced)
+      provider.refresh(); // still just _pendingRefresh = true (coalesced)
 
       resolveHealth(new Response(JSON.stringify({ ok: true }), { status: 200 }));
       await first;
-      await second;
+      await new Promise<void>((r) => setTimeout(r, 0));
 
-      // health + schemaMetadata = 2 calls; second refresh was skipped
-      assert.strictEqual(fetchStub.callCount, 2);
+      // Only 4 calls total: first refresh + ONE coalesced queued refresh,
+      // not 4 separate refreshes.
+      assert.strictEqual(fetchStub.callCount, 4);
     });
   });
 

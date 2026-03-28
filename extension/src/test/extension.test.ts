@@ -212,41 +212,57 @@ describe('Extension activation', () => {
   });
 
   /**
-   * Ensures package.json declares onCommand activation for every command entry
-   * and every menu-referenced command so VS Code always activates before
-   * command execution, including toolbar/status-bar icon paths.
+   * Ensures every command referenced in contributes.menus and viewsWelcome is
+   * declared in contributes.commands. VS Code auto-generates onCommand activation
+   * events from contributes.commands, so explicit activationEvents entries are not
+   * needed — but the command MUST be declared for the auto-generation to work.
    */
-  it('package.json should include onCommand activation for all contributed and menu commands', () => {
+  it('package.json menu and viewsWelcome commands should be declared in contributes.commands', () => {
     const packagePath = path.join(__dirname, '..', '..', 'package.json');
     const raw = fs.readFileSync(packagePath, 'utf-8');
     const pkg = JSON.parse(raw) as {
-      activationEvents?: string[];
       contributes?: {
         commands?: Array<{ command?: string }>;
         menus?: Record<string, Array<{ command?: string }>>;
+        viewsWelcome?: Array<{ contents?: string }>;
       };
     };
-    const events = new Set(pkg.activationEvents ?? []);
-    const contributedCommands = (pkg.contributes?.commands ?? [])
-      .map((c) => c.command)
-      .filter((c): c is string => typeof c === 'string' && c.length > 0);
+    // Build set of all declared commands in contributes.commands
+    const declaredCommands = new Set(
+      (pkg.contributes?.commands ?? [])
+        .map((c) => c.command)
+        .filter((c): c is string => typeof c === 'string' && c.length > 0),
+    );
+    // Collect all commands referenced in menus
     const menuCommands = Object.values(pkg.contributes?.menus ?? {})
       .flat()
       .map((item) => item.command)
       .filter((c): c is string => typeof c === 'string' && c.length > 0);
-    const allCommandIds = new Set([...contributedCommands, ...menuCommands]);
-    for (const commandId of allCommandIds) {
-      const activationEvent = `onCommand:${commandId}`;
+    // Collect all command: references in viewsWelcome contents
+    const welcomeCommands: string[] = [];
+    for (const w of pkg.contributes?.viewsWelcome ?? []) {
+      const matches = (w.contents ?? '').match(/command:[^\s)]+/g) ?? [];
+      for (const m of matches) {
+        welcomeCommands.push(m.replace('command:', ''));
+      }
+    }
+    // Only check extension-owned commands; built-in VS Code commands like
+    // workbench.action.openSettings are provided by the host, not our extension.
+    const allReferencedCommands = new Set(
+      [...menuCommands, ...welcomeCommands].filter((c) => c.startsWith('driftViewer.')),
+    );
+    for (const commandId of allReferencedCommands) {
       assert.ok(
-        events.has(activationEvent),
-        `activationEvents should include "${activationEvent}" to avoid command-not-found before non-command activation triggers`,
+        declaredCommands.has(commandId),
+        `"${commandId}" is referenced in menus/viewsWelcome but missing from contributes.commands — VS Code cannot auto-generate onCommand activation for undeclared commands`,
       );
     }
   });
 
   /**
    * Legacy `"*"` activation was removed (2.9.2): some hosts reject or mishandle it;
-   * `onStartupFinished` plus explicit `onCommand` / view hooks cover activation.
+   * `onStartupFinished` plus `workspaceContains` cover activation, and VS Code
+   * auto-generates `onCommand` hooks from `contributes.commands` declarations.
    */
   it('package.json activationEvents should not use legacy "*" wildcard', () => {
     const packagePath = path.join(__dirname, '..', '..', 'package.json');

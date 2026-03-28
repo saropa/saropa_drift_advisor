@@ -51,6 +51,8 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   /** True when [refresh] could not reach the server but loaded schema from persist/cache. */
   private _offlineSchema = false;
   private _refreshing = false;
+  /** When true, another refresh will run after the current one completes (coalesced). */
+  private _pendingRefresh = false;
   /** Fires after [refresh] fully completes (for syncing Schema Search / connection UI). */
   postRefreshHook?: () => void;
 
@@ -103,10 +105,21 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     this._onDidChangeTreeData.fire();
   }
 
-  /** Fetch schema from server and re-render the tree. Serialised to prevent overlapping calls. */
+  /**
+   * Fetch schema from server and re-render the tree.
+   * Serialised: concurrent calls are coalesced into a single queued refresh
+   * that runs after the in-flight one completes (prevents the discovery-triggered
+   * refresh from being silently dropped while the initial loadOnConnect refresh
+   * is still in flight).
+   */
   async refresh(): Promise<void> {
-    if (this._refreshing) return;
+    if (this._refreshing) {
+      // Queue a follow-up refresh instead of silently dropping the call.
+      this._pendingRefresh = true;
+      return;
+    }
     this._refreshing = true;
+    this._pendingRefresh = false;
     this._offlineSchema = false;
     try {
       await this._client.health();
@@ -145,6 +158,13 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     this._syncDatabaseTreeEmptyContext();
     this._onDidChangeTreeData.fire();
     this.postRefreshHook?.();
+
+    // Run the coalesced pending refresh (e.g. discovery found the server while
+    // the initial loadOnConnect refresh was still in flight and failed).
+    if (this._pendingRefresh) {
+      this._pendingRefresh = false;
+      void this.refresh();
+    }
   }
 
   getTreeItem(element: TreeNode): vscode.TreeItem {

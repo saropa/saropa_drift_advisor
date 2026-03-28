@@ -21,6 +21,16 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+• **VS Code: Database tree stuck on "Could not load schema" after discovery** — The tree `refresh()` silently dropped concurrent calls via a `_refreshing` guard, so when `loadOnConnect` raced with discovery-triggered refresh, the second call was lost. Added coalescing: calls during an in-flight refresh are queued and run once the current refresh completes, ensuring the tree always loads when a server is found.
+
+• **VS Code: missing command declarations for Edit Table Data / Commit Edits** — `commitPendingEdits` and `editTableData` were registered in source and referenced in menus but not declared in `contributes.commands`, so VS Code could not auto-generate `onCommand` activation events for them.
+
+---
+
 ## [2.10.1]
 
 ### Fixed
