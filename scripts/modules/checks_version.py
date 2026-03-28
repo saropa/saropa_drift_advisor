@@ -453,16 +453,17 @@ def _ensure_untagged_version(
 def _resolve_tagged_stale(
     pkg_version: str,
     next_ver: str,
-    max_cl: str,
+    _max_cl: str,
     config: TargetConfig | None,
-) -> tuple[str, bool | None]:
-    """Handle stale version when tag already exists. Returns (version, result).
+) -> tuple[str, bool | None, bool]:
+    """Handle stale version when tag already exists.
 
-    When the version is already released we never re-publish it; we only offer
-    to bump to the next version so the user can release forward.
+    Returns (version, result, user_already_chose_version).
+
+    *user_already_chose_version* is True when the bump prompt succeeded, so the
+    caller should not ask again with "Publish as vX?" (duplicate and error-prone).
     """
     prefix = _tag_prefix_for(config)
-    label = _version_file_label(config)
     warn(f"{prefix}{pkg_version} is already released (tag exists).")
 
     if _changelog_has_unpublished_heading(config):
@@ -471,7 +472,7 @@ def _resolve_tagged_stale(
             "Version already tagged; bump to release changelog.",
             config=config,
         )
-        return pkg_version, (None if bump_ok else False)
+        return pkg_version, (None if bump_ok else False), bump_ok
 
     # Already released: only sensible action is to bump to next version.
     pkg_version, bump_ok = _offer_bump_and_apply(
@@ -479,18 +480,20 @@ def _resolve_tagged_stale(
         f"Version already released. Bump to v{next_ver} to release next, or add changelog and re-run.",
         config=config,
     )
-    return pkg_version, (None if bump_ok else False)
+    return pkg_version, (None if bump_ok else False), bump_ok
 
 
 def _resolve_stale_version(
     pkg_version: str,
     max_cl: str,
     config: TargetConfig | None,
-) -> tuple[str, bool | None]:
-    """Handle version < CHANGELOG max. Returns (version, result).
+) -> tuple[str, bool | None, bool]:
+    """Handle version < CHANGELOG max.
 
-    Auto-syncs the version file to match the CHANGELOG — the CHANGELOG
-    is the source of truth for the intended next version.
+    Returns (version, result, user_already_chose_version).
+
+    Auto-syncs the version file to match the CHANGELOG when the tag is not taken;
+    the CHANGELOG is the source of truth for the intended next version.
 
     *result* is True/False for early return, or None to continue.
     """
@@ -500,9 +503,9 @@ def _resolve_stale_version(
     # Auto-sync: version file is behind the CHANGELOG
     label = _version_file_label(config)
     if not _write_version(max_cl, config):
-        return pkg_version, False
+        return pkg_version, False, False
     fix(f"{label}: {pkg_version} -> {C.WHITE}{max_cl}{C.RESET} (synced to CHANGELOG)")
-    return max_cl, None
+    return max_cl, None, False
 
 
 def _confirm_version(
@@ -560,8 +563,12 @@ def validate_version_changelog(
             return pkg_version, False
 
     max_cl = _get_changelog_max_version(config)
+    # After a successful "Bump to vX?" we skip the redundant "Publish as vX?" prompt.
+    bump_prompt_confirmed_version = False
     if max_cl and _parse_semver(pkg_version) < _parse_semver(max_cl):
-        pkg_version, result = _resolve_stale_version(pkg_version, max_cl, config)
+        pkg_version, result, bump_prompt_confirmed_version = _resolve_stale_version(
+            pkg_version, max_cl, config
+        )
         if result is not None:
             return pkg_version, result
 
@@ -599,7 +606,8 @@ def validate_version_changelog(
         return version, False
 
     # Skip confirmation if user already confirmed during tag conflict resolution
-    if not already_confirmed:
+    # or during bump-from-released-tag (single prompt for that version decision).
+    if not (already_confirmed or bump_prompt_confirmed_version):
         version, confirmed = _confirm_version(version, config)
         if not confirmed:
             return version, False
