@@ -13,8 +13,10 @@
 // every app binary that references this library.
 //
 // Asset resolution order:
-//   1. [Isolate.resolvePackageUri] → `lib/` parent → package root (Dart VM).
-//   2. Ancestor walk from [Directory.current] (flutter test / CI).
+//   1. [Isolate.resolvePackageUri] → `lib/` parent → package root (Dart VM /
+//      desktop). Unimplemented on Flutter iOS/Android (throws [UnsupportedError]
+//      from underlying package URI sync resolution).
+//   2. Ancestor walk from [Directory.current] (flutter test / CI / device cwd).
 //
 // The resolved path is cached so repeated asset requests do not re-resolve.
 // This is process-global (tests share the same isolate).
@@ -176,7 +178,8 @@ final class GenerationHandler {
   ///
   /// Prefer [Isolate.resolvePackageUri] for the public library entrypoint, then
   /// step from `lib/` to the package root. When that API is unavailable (for
-  /// example under `flutter test`), discover the root by walking ancestors of
+  /// example under `flutter test` or Flutter mobile, where package URI
+  /// resolution is unsupported), discover the root by walking ancestors of
   /// [Directory.current] until both expected paths exist.
   Future<String?> _resolvePackageRootPath() async {
     if (_packageRootLookupComplete) {
@@ -192,9 +195,12 @@ final class GenerationHandler {
         final libFile = File.fromUri(packageLibUri);
         root = libFile.parent.parent.path;
       }
+    } on UnsupportedError {
+      // Expected on Flutter iOS/Android: embedders do not resolve package: URIs
+      // to host paths. Fall through to the ancestor walk (often null on device).
     } on Object catch (error, stack) {
-      // Flutter's test VM does not implement package URI resolution; use the
-      // directory walk below instead of failing every asset request.
+      // Unexpected failures during resolution; keep telemetry without treating
+      // UnsupportedError as an application bug (handled above).
       _ctx.logError(error, stack);
     }
 

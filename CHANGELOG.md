@@ -25,6 +25,8 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ### Fixed
 
+• **Flutter iOS/Android: web UI asset requests and `Isolate.resolvePackageUri`** — Serving `/assets/web/style.css` and `app.js` called `Isolate.resolvePackageUri`, which is unsupported on Flutter mobile embedders (`UnsupportedError` / `resolvePackageUriSync`). That path is now treated as expected: no `DriftDebugServer` error log or `onError` callback for that case; the handler still falls back to ancestor discovery and 404 + CDN as before.
+
 • **VS Code: “Open URL” on server-detected toast** — Choosing **Open URL** when discovery finds a Drift debug server now also selects that host:port as the active server in the extension (same endpoint as the browser). Previously the toast only opened the browser; with multiple servers or a dismissed QuickPick the sidebar could stay on the wrong port or none.
 
 • **`/api/mutations` long-poll and VM logging** — When no mutation arrived before the long-poll deadline, the server treated the normal timeout as a loggable event (`developer.log` with error/stack). That could flood the VM service and stall the app with multiple clients. Idle timeouts no longer emit those logs.

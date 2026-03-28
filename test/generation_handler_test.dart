@@ -1,6 +1,11 @@
-// Unit tests for GenerationHandler — getCurrentGeneration semantics.
+// Unit tests for GenerationHandler — generation polling and web asset paths.
 //
-// Tests the data-returning method directly with a minimal ServerContext.
+// Covers getCurrentGeneration with a minimal ServerContext, and a smoke test
+// for sendWebStyle: on Flutter mobile, UnsupportedError from package URI
+// resolution must not surface through onError (regression guard when run on
+// device); on the Dart VM, behavior is unchanged (serve or 404 without errors).
+
+import 'dart:io';
 
 import 'package:saropa_drift_advisor/src/server/generation_handler.dart';
 import 'package:test/test.dart';
@@ -67,6 +72,40 @@ void main() {
 
         final gen = await handler.getCurrentGeneration();
         expect(gen, 0);
+      });
+    });
+
+    group('sendWebStyle', () {
+      test('completes with 200 or 404 and does not invoke onError', () async {
+        final errors = <Object>[];
+        final ctx = createTestContext(
+          onError: (e, st) => errors.add(e),
+        );
+        final handler = GenerationHandler(ctx);
+
+        final server = await HttpServer.bind('127.0.0.1', 0);
+        server.listen((HttpRequest request) async {
+          await handler.sendWebStyle(request.response);
+        });
+
+        final client = HttpClient();
+        try {
+          final request = await client.getUrl(
+            Uri.parse('http://127.0.0.1:${server.port}/assets/web/style.css'),
+          );
+          final response = await request.close().timeout(
+            const Duration(seconds: 10),
+          );
+
+          // VM/desktop often serves the real file; Flutter mobile returns 404
+          // and loads CDN — both are valid; neither should report resolution
+          // as an application error (see UnsupportedError handling).
+          expect(response.statusCode, anyOf(200, 404));
+          expect(errors, isEmpty);
+        } finally {
+          client.close(force: true);
+          await server.close(force: true);
+        }
       });
     });
   });
