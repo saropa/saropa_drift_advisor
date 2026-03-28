@@ -16,6 +16,9 @@
   - [Health & Generation](#health--generation)
   - [Tables](#tables)
   - [SQL](#sql)
+    - [Web viewer (`GET /?sql=`)](#api-sql-web-viewer)
+    - [`POST /api/sql`](#api-post-sql)
+    - [`POST /api/sql/explain`](#api-post-sql-explain)
   - [Schema & Export](#schema--export)
   - [Snapshots](#snapshots)
   - [Compare](#compare)
@@ -103,6 +106,7 @@ The `error` field is always a string. The HTTP status code indicates the error c
 | `since` | `GET /api/generation` | int | — | ≥ 0 | Long-poll: block until generation > since |
 | `format` | `GET /api/snapshot/compare`, `GET /api/compare/report` | string | — | `download` | Return as downloadable JSON attachment |
 | `detail` | `GET /api/snapshot/compare` | string | — | `rows` | Include row-level diffs |
+| `sql` | `GET /` (HTML viewer) | string | — | — | URL-encoded read-only SQL to prefill **Run SQL**; does not auto-execute. See [Web viewer (`GET /?sql=`)](#api-sql-web-viewer). |
 
 ---
 
@@ -274,6 +278,28 @@ Returns an empty array `[]` if the table has no foreign keys.
 
 ## SQL
 
+The debug **web viewer** can prefill the Run SQL editor from the landing URL; **REST** clients execute read-only SQL via `POST` (below).
+
+<a id="api-sql-web-viewer"></a>
+
+### Web viewer deep link
+
+Loading the viewer in a browser with a **`sql`** query parameter opens the **Run SQL** tab and fills the textarea:
+
+`http://127.0.0.1:{port}/?sql=<url-encoded-sql>`
+
+| Behavior | Detail |
+|----------|--------|
+| Execution | Does **not** run the query; the user clicks **Run** (same as manual entry). |
+| After load | The client removes `sql` from the URL with `history.replaceState` so refresh does not re-apply the same text. |
+| Validation on run | When executed, the statement must pass the same read-only rules as `POST /api/sql` (`SqlValidator.isReadOnlySql`). |
+
+**Privacy / limits:** The query string may appear in the address bar and browser history until stripped; avoid secrets in `?sql=`. Very long SQL may exceed browser or proxy URL limits—use **`POST /api/sql`** for programmatic execution instead.
+
+**Implementation:** `assets/web/app.js` (`applySqlFromQueryString` inside `initSqlRunner`).
+
+<a id="api-post-sql"></a>
+
 ### `POST /api/sql`
 
 Executes a read-only SQL query against the database.
@@ -318,6 +344,8 @@ Executes a read-only SQL query against the database.
 ```
 
 ---
+
+<a id="api-post-sql-explain"></a>
 
 ### `POST /api/sql/explain`
 
@@ -1214,7 +1242,7 @@ Enables or disables automatic change detection.
 
 ### `GET /`
 
-Returns the single-page web UI (HTML).
+Returns the single-page web UI (HTML). The viewer supports an optional **`sql`** query parameter on this URL to prefill the Run SQL editor; see [Web viewer (`GET /?sql=`)](#api-sql-web-viewer).
 
 **Response** `200 OK` — `Content-Type: text/html`
 
