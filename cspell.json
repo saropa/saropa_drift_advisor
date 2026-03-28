@@ -8,10 +8,12 @@
     "CLOB",
     "codegen",
     "collapsibles",
+    "deeplink",
     "dflt",
     "dragover",
     "dragstart",
     "ECONNREFUSED",
+    "embedders",
     "Flexbox",
     "freelist",
     "Gamified",
@@ -19,6 +21,7 @@
     "Insertable",
     "keyup",
     "Kykto",
+    "loggable",
     "ngrok",
     "nosniff",
     "notnull",
@@ -41,6 +44,7 @@
     "undertested",
     "VARCHAR",
     "viewports",
+    "wakeups",
     "WCAG",
     "writeln"
   ]

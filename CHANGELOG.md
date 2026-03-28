@@ -8,7 +8,7 @@
   Each release (and [Unreleased]) opens with one plain-language line for humans—user-facing
   only, varied wording—then end it with:
   `[log](https://github.com/saropa/saropa_drift_advisor/blob/vX.Y.Z/CHANGELOG.md)` substituting X.Y.Z.
-  
+
   **pub.dev** — [pub.dev / packages / saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
 
   **VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
@@ -21,7 +21,7 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ---
 
-## [Unreleased]
+## [2.10.2]
 
 ### Fixed
 
@@ -31,7 +31,7 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ---
 
-## [2.10.1]
+## [2.10.2]
 
 ### Fixed
 
