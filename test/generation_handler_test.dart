@@ -78,9 +78,7 @@ void main() {
     group('sendWebStyle', () {
       test('completes with 200 or 404 and does not invoke onError', () async {
         final errors = <Object>[];
-        final ctx = createTestContext(
-          onError: (e, st) => errors.add(e),
-        );
+        final ctx = createTestContext(onError: (e, st) => errors.add(e));
         final handler = GenerationHandler(ctx);
 
         final server = await HttpServer.bind('127.0.0.1', 0);

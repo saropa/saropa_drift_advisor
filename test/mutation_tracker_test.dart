@@ -21,20 +21,23 @@ void main() {
       },
     );
 
-    test('completes before deadline when a mutation is recorded first', () async {
-      final tracker = MutationTracker();
-      final longWait = tracker.waitForAnyEvent(const Duration(seconds: 30));
+    test(
+      'completes before deadline when a mutation is recorded first',
+      () async {
+        final tracker = MutationTracker();
+        final longWait = tracker.waitForAnyEvent(const Duration(seconds: 30));
 
-      await tracker.captureFromWriteQuery(
-        originalWrite: (_) async {},
-        readQuery: (_) async => <Map<String, dynamic>>[
-          <String, dynamic>{'id': 1},
-        ],
-        sql: 'INSERT INTO t (id) VALUES (1)',
-      );
+        await tracker.captureFromWriteQuery(
+          originalWrite: (_) async {},
+          readQuery: (_) async => <Map<String, dynamic>>[
+            <String, dynamic>{'id': 1},
+          ],
+          sql: 'INSERT INTO t (id) VALUES (1)',
+        );
 
-      await expectLater(longWait, completes);
-      expect(tracker.latestId, greaterThan(0));
-    });
+        await expectLater(longWait, completes);
+        expect(tracker.latestId, greaterThan(0));
+      },
+    );
   });
 }
