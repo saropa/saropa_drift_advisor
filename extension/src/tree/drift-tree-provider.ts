@@ -35,6 +35,19 @@ type TreeNode =
   | ColumnItem
   | ForeignKeyItem;
 
+/**
+ * Maximum wall-clock time (ms) a single [refresh] cycle may take before being
+ * force-aborted. This is a last-resort safety net: if both the
+ * `fetchWithTimeout` AbortController AND the per-call timeout somehow hang
+ * (observed on some Windows/undici builds), this ensures `_refreshing` is
+ * cleared so coalesced pending refreshes are not blocked forever.
+ *
+ * Set generously — well above the worst-case for
+ * `health()` (8s + retry 8s) + `schemaMetadata()` (30s cache safety)
+ * so it never interferes with legitimate slow responses.
+ */
+const REFRESH_SAFETY_TIMEOUT_MS = 55_000;
+
 export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly _client: DriftApiClient;
   private readonly _annotationStore?: AnnotationStore;
@@ -107,10 +120,19 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
   /**
    * Fetch schema from server and re-render the tree.
-   * Serialised: concurrent calls are coalesced into a single queued refresh
+   *
+   * **Coalescing:** concurrent calls are merged into a single queued refresh
    * that runs after the in-flight one completes (prevents the discovery-triggered
-   * refresh from being silently dropped while the initial loadOnConnect refresh
+   * refresh from being silently dropped while the initial `loadOnConnect` refresh
    * is still in flight).
+   *
+   * **Safety timeout:** the entire refresh cycle is wrapped in a `Promise.race`
+   * with [REFRESH_SAFETY_TIMEOUT_MS] so that `_refreshing` is always cleared
+   * even if `health()` or `schemaMetadata()` hang due to the Windows/undici
+   * AbortController bug (same root cause as `SchemaCache.FETCH_SAFETY_TIMEOUT_MS`).
+   * Without this, a single hanging `health()` call permanently deadlocks
+   * every future refresh — including the coalesced discovery-triggered one
+   * that would have succeeded.
    */
   async refresh(): Promise<void> {
     if (this._refreshing) {
@@ -121,6 +143,43 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     this._refreshing = true;
     this._pendingRefresh = false;
     this._offlineSchema = false;
+
+    // Last-resort safety: reject if the inner work hangs beyond all per-call
+    // timeouts (AbortController + schema cache safety). Uses setTimeout +
+    // Promise.race — does not depend on AbortController, so it always fires.
+    let safetyTimer: ReturnType<typeof setTimeout> | undefined;
+    const safety = new Promise<never>((_, reject) => {
+      safetyTimer = setTimeout(
+        () => reject(new Error('Tree refresh safety timeout')),
+        REFRESH_SAFETY_TIMEOUT_MS,
+      );
+    });
+
+    try {
+      await Promise.race([this._refreshInner(), safety]);
+    } catch {
+      // _refreshInner handles its own error state; safety timeout also lands here.
+    } finally {
+      if (safetyTimer !== undefined) clearTimeout(safetyTimer);
+      this._refreshing = false;
+    }
+    this._syncDatabaseTreeEmptyContext();
+    this._onDidChangeTreeData.fire();
+    this.postRefreshHook?.();
+
+    // Run the coalesced pending refresh (e.g. discovery found the server while
+    // the initial loadOnConnect refresh was still in flight and failed).
+    if (this._pendingRefresh) {
+      this._pendingRefresh = false;
+      void this.refresh();
+    }
+  }
+
+  /**
+   * Inner refresh logic extracted so [refresh] can wrap it in a safety
+   * `Promise.race` without duplicating the try/catch/finally structure.
+   */
+  private async _refreshInner(): Promise<void> {
     try {
       await this._client.health();
       this._tables = await this._client.schemaMetadata();
@@ -152,18 +211,6 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
           this._tableItems = [];
         }
       }
-    } finally {
-      this._refreshing = false;
-    }
-    this._syncDatabaseTreeEmptyContext();
-    this._onDidChangeTreeData.fire();
-    this.postRefreshHook?.();
-
-    // Run the coalesced pending refresh (e.g. discovery found the server while
-    // the initial loadOnConnect refresh was still in flight and failed).
-    if (this._pendingRefresh) {
-      this._pendingRefresh = false;
-      void this.refresh();
     }
   }
 

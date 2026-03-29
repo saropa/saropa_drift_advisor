@@ -63,6 +63,45 @@ describe('fetchWithTimeout', () => {
   });
 });
 
+describe('fetchWithTimeout — safety layer (Windows/undici)', () => {
+  let fetchStub: sinon.SinonStub;
+  let clock: sinon.SinonFakeTimers;
+
+  beforeEach(() => {
+    fetchStub = sinon.stub(globalThis, 'fetch');
+    clock = sinon.useFakeTimers();
+  });
+
+  afterEach(() => {
+    fetchStub.restore();
+    clock.restore();
+  });
+
+  it('should reject via safety timer when fetch ignores AbortController abort', async () => {
+    // Before: fetch() hung forever when AbortController.abort() was silently
+    // ignored on Windows (undici bug), permanently deadlocking the tree.
+    // After: Promise.race safety layer guarantees fetchWithTimeout always settles.
+    fetchStub.returns(new Promise<Response>(() => { /* never settles */ }));
+
+    const promise = fetchWithTimeout('http://localhost:8642', { timeoutMs: 1000 });
+
+    // Advance past the abort timer (1000ms) AND safety timer (1000 + 2000 = 3000ms).
+    await clock.tickAsync(3001);
+
+    await assert.rejects(promise, /Fetch timed out \(safety\)/);
+  });
+
+  it('should not leak safety timer on successful fetch', async () => {
+    fetchStub.resolves(new Response('ok', { status: 200 }));
+
+    await fetchWithTimeout('http://localhost:8642', { timeoutMs: 1000 });
+
+    // All timers (abort + safety) should be cleared in the finally block.
+    // A leaked timer would cause an unhandled rejection when the clock advances.
+    assert.strictEqual(clock.countTimers(), 0, 'all timers should be cleared after success');
+  });
+});
+
 describe('isTransientError', () => {
   it('should return true for ECONNRESET', () => {
     assert.ok(isTransientError(new Error('read ECONNRESET')));
@@ -87,6 +126,15 @@ describe('isTransientError', () => {
   it('should return false for non-Error values', () => {
     assert.strictEqual(isTransientError('string'), false);
     assert.strictEqual(isTransientError(null), false);
+  });
+
+  it('should return false for safety timeout (not retryable)', () => {
+    // The safety-layer timeout fires when AbortController is silently ignored
+    // on Windows. Retrying would just hang again, so it must NOT be transient.
+    assert.strictEqual(
+      isTransientError(new Error('Fetch timed out (safety)')),
+      false,
+    );
   });
 });
 

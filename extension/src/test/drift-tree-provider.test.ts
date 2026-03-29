@@ -340,6 +340,64 @@ describe('DriftTreeProvider', () => {
       // not 4 separate refreshes.
       assert.strictEqual(fetchStub.callCount, 4);
     });
+
+    it('should complete refresh even when all fetches hang (safety timeout)', async () => {
+      // Before: fetch() hung forever on Windows when AbortController.abort()
+      // was ignored — _refreshing stayed true permanently, deadlocking the tree.
+      // After: Promise.race safety layers in fetchWithTimeout and refresh()
+      // guarantee the refresh always settles and _refreshing is cleared.
+      const clock = sinon.useFakeTimers();
+      try {
+        // Every fetch() call returns a promise that never settles — simulates
+        // the Windows/undici bug where AbortController.abort() is ignored.
+        fetchStub.returns(new Promise<Response>(() => {}));
+
+        const refreshPromise = provider.refresh();
+
+        // Advance past both fetchWithTimeout safety layers:
+        // health() safety ~10s + offline schemaMetadata() safety ~20s.
+        await clock.tickAsync(25_000);
+
+        await refreshPromise;
+
+        // refresh() completed without hanging — _refreshing was cleared.
+        assert.strictEqual(provider.connected, false);
+      } finally {
+        clock.restore();
+      }
+    });
+
+    it('should run pending refresh after safety timeout clears _refreshing', async () => {
+      // Before: a hanging first refresh kept _refreshing=true forever, so the
+      // coalesced pending refresh (from discovery) never ran — permanent
+      // "Could not load schema" state. After: safety timeout clears _refreshing
+      // and the queued refresh executes.
+      const clock = sinon.useFakeTimers();
+      try {
+        fetchStub.returns(new Promise<Response>(() => {}));
+
+        const first = provider.refresh();
+        provider.refresh(); // queued as pending
+
+        // Process first refresh's safety timeouts (~20s for health + offline schema).
+        await clock.tickAsync(25_000);
+        await first;
+
+        // The pending refresh has started (via void this.refresh()). Advance
+        // past its safety timeouts so it also completes.
+        await clock.tickAsync(25_000);
+
+        // Both refreshes ran: first (safety-aborted) + one coalesced pending.
+        // Each refresh invokes health + offline-schema = 2 fetch calls.
+        assert.strictEqual(
+          fetchStub.callCount,
+          4,
+          'expected 4 fetch calls: 2 per refresh cycle',
+        );
+      } finally {
+        clock.restore();
+      }
+    });
   });
 
   describe('row count pluralisation', () => {

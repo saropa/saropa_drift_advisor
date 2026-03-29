@@ -21,6 +21,14 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+• **VS Code: fetch hangs forever on Windows (AbortController/undici bug)** — On some Windows Node.js builds, `AbortController.abort()` does not reliably cancel an in-flight `fetch()` (known undici bug). `fetchWithTimeout` now wraps the native fetch in a `Promise.race` safety layer that fires shortly after the abort timer, guaranteeing the promise always settles. A second safety timeout in `DriftTreeProvider.refresh()` ensures `_refreshing` is always cleared even if both the abort and per-call safety somehow hang. Together these prevent the permanent "Could not load schema (REST API)" deadlock where the initial refresh hung forever, `_refreshing` stayed `true`, and the coalesced discovery-triggered refresh never ran.
+
+---
+
 ## [2.10.2]
 
 ### Fixed
