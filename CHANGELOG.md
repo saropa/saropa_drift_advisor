@@ -21,7 +21,7 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ---
 
-## [Unreleased]
+## [2.11.0]
 
 ### Fixed
 
@@ -29,7 +29,7 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ---
 
-## [2.10.2]
+## [2.11.0]
 
 ### Fixed
 
