@@ -65,6 +65,7 @@ export class ServerDiscovery {
   private _pollTimeout: ReturnType<typeof setTimeout> | undefined;
   private _notifiedAt = new Map<number, number>();
   private _log: IDiscoveryLog | undefined;
+  private _scanCount = 0;
   private _lastOutcomeLine =
     'Discovery starting — watch this panel for scan progress.';
   /** Passed to [maybeNotifyServerEvent] so “Open URL” selects this server in the extension. */
@@ -104,6 +105,11 @@ export class ServerDiscovery {
   start(): void {
     if (this._running) return;
     this._running = true;
+    this._scanCount = 0;
+    this._logLine(
+      `Starting — scanning ${this._config.host} ports ${this._portsProbeLabel()} `
+      + `every ${SEARCH_INTERVAL / 1000}s (backoff after ${BACKOFF_THRESHOLD} empty scans to ${BACKOFF_INTERVAL / 1000}s)`,
+    );
     this._emitDiscoveryUi(false);
     void this._poll(this._pollId);
   }
@@ -219,6 +225,12 @@ export class ServerDiscovery {
       this._emitDiscoveryUi(false);
       return;
     }
+    this._scanCount++;
+    const scanNum = this._scanCount;
+    const portsLabel = this._portsProbeLabel();
+    this._logLine(
+      `Scan #${scanNum} starting — ${this._config.host} ports ${portsLabel} [state=${this._state}]`,
+    );
     this._emitDiscoveryUi(true);
     try {
       const alivePorts = await scanPorts(
@@ -232,11 +244,22 @@ export class ServerDiscovery {
         (msg) => this._logLine(msg),
       );
       if (!this._running || id !== this._pollId) return;
+      // Log every scan result — not just found servers — so the user can see
+      // progress during long periods of no server.
+      if (alivePorts.length > 0) {
+        this._logLine(
+          `Scan #${scanNum} complete — server(s) on port(s): ${alivePorts.join(', ')}`,
+        );
+      } else {
+        this._logLine(
+          `Scan #${scanNum} complete — no server found (empty scans so far: ${this._emptyScans + 1})`,
+        );
+      }
       this._recordScanOutcome(alivePorts);
       this._updateServers(alivePorts);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this._logLine(`Port scan failed: ${msg}`);
+      this._logLine(`Scan #${scanNum} failed: ${msg}`);
       if (!this._running || id !== this._pollId) return;
       this._lastOutcomeLine = `Last scan failed: ${msg}`;
       this._updateServers([]);
@@ -244,9 +267,13 @@ export class ServerDiscovery {
     this._emitDiscoveryUi(false);
     if (this._running && id === this._pollId) {
       if (this._paused) return;
+      const interval = this._getInterval();
+      this._logLine(
+        `Next scan in ${interval / 1000}s [state=${this._state}, empty=${this._emptyScans}]`,
+      );
       this._pollTimeout = setTimeout(
         () => this._poll(id),
-        this._getInterval(),
+        interval,
       );
     }
   }

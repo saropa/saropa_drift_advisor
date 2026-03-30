@@ -109,6 +109,33 @@ export function getQuickActionCategories(): ActionCategoryItem[] {
 }
 
 /**
+ * Clickable tree rows for the "not connected" state.
+ * Mirrors package.json `viewsWelcome` for the disconnected scenario so actions work when
+ * markdown `command:` links in the welcome overlay do not fire (observed in some VS Code
+ * forks/versions). Includes discovery retry, diagnostics, and server selection.
+ */
+export function getDisconnectedActions(): ActionItem[] {
+  return [
+    new ActionItem('Retry Discovery', 'driftViewer.retryDiscovery', 'refresh',
+      'Reset discovery and scan for Drift debug servers again'),
+    new ActionItem('Diagnose connection', 'driftViewer.diagnoseConnection', 'pulse',
+      'Write connection details to Output and optionally copy a summary'),
+    new ActionItem('Troubleshooting', 'driftViewer.showTroubleshooting', 'tools',
+      'Open the troubleshooting panel'),
+    new ActionItem('Connection log', 'driftViewer.showConnectionLog', 'output',
+      'Show Saropa Drift Advisor output'),
+    new ActionItem('Select Server', 'driftViewer.selectServer', 'plug',
+      'Pick the Drift debug server to use'),
+    new ActionItem('Forward Port (Android)', 'driftViewer.forwardPortAndroid', 'device-mobile',
+      'Forward port from Android emulator'),
+    new ActionItem('Open in Browser', 'driftViewer.openInBrowser', 'globe',
+      'Open the Drift viewer in an external browser'),
+    new ActionItem('Refresh sidebar UI', 'driftViewer.refreshConnectionUi', 'layout',
+      'Refresh the connection status display'),
+  ];
+}
+
+/**
  * Clickable tree rows for the "connected but REST schema failed" state.
  * Mirrors package.json `viewsWelcome` for that scenario so actions work when markdown
  * `command:` links in the welcome overlay do not (some VS Code forks).

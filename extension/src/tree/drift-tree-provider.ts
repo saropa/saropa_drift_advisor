@@ -11,6 +11,7 @@ import type { PinStore } from './pin-store';
 import {
   ColumnItem,
   ConnectionStatusItem,
+  DisconnectedBannerItem,
   ForeignKeyItem,
   PinnedGroupItem,
   SchemaRestFailureBannerItem,
@@ -19,6 +20,7 @@ import {
 import {
   ActionCategoryItem,
   ActionItem,
+  getDisconnectedActions,
   getQuickActionCategories,
   getSchemaRestFailureActions,
   QuickActionsGroupItem,
@@ -26,6 +28,7 @@ import {
 
 type TreeNode =
   | ConnectionStatusItem
+  | DisconnectedBannerItem
   | SchemaRestFailureBannerItem
   | PinnedGroupItem
   | QuickActionsGroupItem
@@ -88,20 +91,18 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   }
 
   /**
-   * Drives the "connected but tree empty" welcome. When showing offline cached schema,
-   * we are not "live connected" but the tree is not empty — avoid that overlay.
+   * Sets `driftViewer.databaseTreeEmpty` context for viewsWelcome overlays.
    *
-   * When the UI is connected but REST schema load failed, we show real tree rows with
-   * `command` fields and set [databaseTreeEmpty] false so the markdown `viewsWelcome`
-   * overlay (unreliable in some hosts) is hidden.
+   * The tree now always returns items (disconnected actions, REST failure actions,
+   * or schema rows), so `databaseTreeEmpty` is always false. viewsWelcome markdown
+   * `command:` links are unreliable in some VS Code forks; real TreeItem rows with
+   * `.command` properties are used instead for all states.
    */
   private _syncDatabaseTreeEmptyContext(): void {
-    const noSchemaRows = !this._connected && !this._offlineSchema;
-    const hideWelcomeForRestFailure = noSchemaRows && this._isDriftUiConnected();
     void vscode.commands.executeCommand(
       'setContext',
       'driftViewer.databaseTreeEmpty',
-      noSchemaRows && !hideWelcomeForRestFailure,
+      false,
     );
   }
 
@@ -233,13 +234,21 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       if (!this._connected && !this._offlineSchema) {
         // Hosts where welcome-view markdown `command:` links do nothing still execute
         // TreeItem.command, so surface the same actions as rows.
+        // Hosts where welcome-view markdown `command:` links do nothing still execute
+        // TreeItem.command, so surface the same actions as real clickable tree rows.
         if (this._isDriftUiConnected()) {
           return [
             new SchemaRestFailureBannerItem(),
             ...getSchemaRestFailureActions(),
           ];
         }
-        return [];
+        // Fully disconnected: show banner + discovery/diagnostic actions instead of
+        // an empty tree (which would display viewsWelcome markdown links that silently
+        // fail in some VS Code forks/versions).
+        return [
+          new DisconnectedBannerItem(),
+          ...getDisconnectedActions(),
+        ];
       }
       const status = new ConnectionStatusItem(
         this._client.connectionDisplayName,

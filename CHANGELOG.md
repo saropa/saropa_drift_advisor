@@ -21,6 +21,18 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+• **VS Code: buttons do nothing when disconnected** — The Database tree returned an empty array when no server was connected, forcing VS Code to show a `viewsWelcome` overlay with markdown `command:` links. These links silently fail in some VS Code forks/versions — no output, no toast, no error. The tree now always returns real `TreeItem` rows with `.command` properties (Retry Discovery, Diagnose, Troubleshooting, Connection log, Select Server, etc.) so every action is a clickable tree item that works reliably in all hosts.
+
+### Changed
+
+• **Discovery output log is much more verbose** — Every scan cycle now logs its start, result (ports found or empty scan count), and when the next scan is scheduled. Previously only state transitions were logged, leaving long silent gaps during the 3s→30s search/backoff cycle.
+
+---
+
 ## [2.11.0]
 
 ### Fixed

@@ -89,10 +89,26 @@ export class ForeignKeyItem extends vscode.TreeItem {
 }
 
 /**
- * Non-clickable banner when the UI reports a Drift connection but the Database tree
- * could not load schema via REST. Real commands are listed as [ActionItem] siblings
- * so they work in hosts where `viewsWelcome` markdown `command:` links do not fire.
+ * Non-clickable banner when no Drift server is connected. Real commands are listed as
+ * [ActionItem] siblings so they work in hosts where `viewsWelcome` markdown `command:`
+ * links do not fire (observed in some VS Code forks/versions).
  */
+export class DisconnectedBannerItem extends vscode.TreeItem {
+  constructor() {
+    super('No Drift server connected', vscode.TreeItemCollapsibleState.None);
+    this.description = 'Use the actions below';
+    this.iconPath = new vscode.ThemeIcon('plug', new vscode.ThemeColor('testing.iconSkipped'));
+    this.contextValue = 'disconnectedBanner';
+    const md = new vscode.MarkdownString(
+      'Run your Flutter/Dart app with `DriftDebugServer.start()`, '
+        + 'then start a debug session or wait for auto-discovery.\n\n'
+        + 'Check **Output → Saropa Drift Advisor** for connection progress.',
+      true,
+    );
+    this.tooltip = md;
+  }
+}
+
 export class SchemaRestFailureBannerItem extends vscode.TreeItem {
   constructor() {
     super('Could not load schema (REST API)', vscode.TreeItemCollapsibleState.None);

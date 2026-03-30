@@ -6,12 +6,14 @@ import { commands as vscodeCommands, resetMocks } from './vscode-mock';
 import {
   ColumnItem,
   ConnectionStatusItem,
+  DisconnectedBannerItem,
   ForeignKeyItem,
   SchemaRestFailureBannerItem,
   TableItem,
 } from '../tree/tree-items';
 import {
   ActionItem,
+  getDisconnectedActions,
   getSchemaRestFailureActions,
   QuickActionsGroupItem,
 } from '../tree/quick-action-items';
@@ -74,13 +76,15 @@ describe('DriftTreeProvider', () => {
       assert.strictEqual(provider.connected, false);
     });
 
-    it('should set VS Code context driftViewer.databaseTreeEmpty true when schema load fails', async () => {
+    it('should set driftViewer.databaseTreeEmpty false even when schema load fails (tree always has items)', async () => {
+      // The tree now always returns items (disconnected banner + actions), so
+      // databaseTreeEmpty is always false — viewsWelcome is never shown.
       fetchStub.rejects(new Error('connection refused'));
       await provider.refresh();
       assert.strictEqual(
         vscodeCommands.getContext('driftViewer.databaseTreeEmpty'),
-        true,
-        'disconnected UI: empty tree keeps welcome guidance visible',
+        false,
+        'disconnected tree shows banner + actions, not empty welcome overlay',
       );
     });
 
@@ -106,8 +110,10 @@ describe('DriftTreeProvider', () => {
       assert.strictEqual(vscodeCommands.getContext('driftViewer.databaseTreeEmpty'), false);
     });
 
-    it('should set driftViewer.databaseTreeEmpty true on construction (not yet loaded)', () => {
-      assert.strictEqual(vscodeCommands.getContext('driftViewer.databaseTreeEmpty'), true);
+    it('should set driftViewer.databaseTreeEmpty false on construction (tree always has items)', () => {
+      // Even before first refresh, the tree returns disconnected banner + actions,
+      // so databaseTreeEmpty is always false.
+      assert.strictEqual(vscodeCommands.getContext('driftViewer.databaseTreeEmpty'), false);
     });
 
     it('should fire onDidChangeTreeData', async () => {
@@ -139,14 +145,29 @@ describe('DriftTreeProvider', () => {
       assert.ok(children[3] instanceof TableItem);
     });
 
-    it('should return empty array when server is down (for viewsWelcome)', async () => {
+    it('should return disconnected banner + actions when server is down', async () => {
       fetchStub.rejects(new Error('connection refused'));
 
       await provider.refresh();
       const children = await provider.getChildren();
 
-      assert.strictEqual(children.length, 0);
+      // Banner + 8 disconnected actions (retry, diagnose, troubleshoot, log, etc.)
+      assert.strictEqual(children.length, 9);
+      assert.ok(children[0] instanceof DisconnectedBannerItem);
+      assert.ok(children[1] instanceof ActionItem);
       assert.strictEqual(provider.connected, false);
+    });
+
+    it('should expose getDisconnectedActions command IDs at tree root when fully disconnected', async () => {
+      fetchStub.rejects(new Error('connection refused'));
+      await provider.refresh();
+      const children = await provider.getChildren();
+      // Skip the banner (index 0), check action command IDs match the factory
+      const fromTree = children
+        .slice(1)
+        .map((c) => (c as ActionItem).command?.command);
+      const fromFactory = getDisconnectedActions().map((a) => a.command?.command);
+      assert.deepStrictEqual(fromTree, fromFactory);
     });
 
     it('should return banner and command rows when UI connected but REST schema failed', async () => {
