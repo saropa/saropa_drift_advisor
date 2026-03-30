@@ -23,6 +23,10 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ## [Unreleased]
 
+### Changed
+
+• **Removed duplicate Quick Actions from Database tree** — The "Quick Actions" collapsible group in the Database Explorer duplicated every command already in the "Drift Tools" panel. Removed the redundant group so tool commands appear only in Drift Tools.
+
 ### Fixed
 
 • **11 commands declared but missing from Command Palette** — `disableDiagnosticRule`, `clearRuntimeAlerts`, `copySuggestedName`, `runIndexSql`, `seedWithProfiles`, `showIndexSuggestions`, `createAllIndexes`, `generateAnomalyFixes`, `sampleTable`, `toggleInvariant`, and `viewInvariantViolations` were registered in code but absent from `contributes.commands`, preventing VS Code from auto-generating activation events for them.

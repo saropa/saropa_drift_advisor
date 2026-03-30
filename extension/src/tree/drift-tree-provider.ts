@@ -1,8 +1,11 @@
 /**
- * Database Explorer tree: tables, columns, quick actions, and a fallback row list when the
+ * Database Explorer tree: tables, columns, and a fallback row list when the
  * extension reports a Drift connection but REST schema load failed. That fallback uses
  * [TreeItem.command] (reliable across hosts) instead of relying on `viewsWelcome` markdown
  * `command:` links, which may not execute in some VS Code forks.
+ *
+ * Tool/feature commands (Schema Diff, Health Score, etc.) live exclusively in
+ * the "Drift Tools" panel ([ToolsTreeProvider]) — not duplicated here.
  */
 import * as vscode from 'vscode';
 import { DriftApiClient, TableMetadata } from '../api-client';
@@ -18,12 +21,9 @@ import {
   TableItem,
 } from './tree-items';
 import {
-  ActionCategoryItem,
   ActionItem,
   getDisconnectedActions,
-  getQuickActionCategories,
   getSchemaRestFailureActions,
-  QuickActionsGroupItem,
 } from './quick-action-items';
 
 type TreeNode =
@@ -31,8 +31,6 @@ type TreeNode =
   | DisconnectedBannerItem
   | SchemaRestFailureBannerItem
   | PinnedGroupItem
-  | QuickActionsGroupItem
-  | ActionCategoryItem
   | ActionItem
   | TableItem
   | ColumnItem
@@ -51,6 +49,11 @@ type TreeNode =
  */
 const REFRESH_SAFETY_TIMEOUT_MS = 55_000;
 
+/** Minimal log sink — matches vscode.OutputChannel.appendLine signature. */
+interface LogSink {
+  appendLine(msg: string): void;
+}
+
 export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly _client: DriftApiClient;
   private readonly _annotationStore?: AnnotationStore;
@@ -60,6 +63,8 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
    * [TreeItem] commands instead.
    */
   private readonly _isDriftUiConnected: () => boolean;
+  /** Optional log sink for refresh errors. Prevents silent failure in the tree. */
+  private readonly _log?: LogSink;
   private _tables: TableMetadata[] = [];
   private _tableItems: TableItem[] = [];
   private _pinStore?: PinStore;
@@ -81,10 +86,12 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     client: DriftApiClient,
     annotationStore?: AnnotationStore,
     isDriftUiConnected?: () => boolean,
+    log?: LogSink,
   ) {
     this._client = client;
     this._annotationStore = annotationStore;
     this._isDriftUiConnected = isDriftUiConnected ?? (() => false);
+    this._log = log;
     // Drives viewsWelcome "when": `serverConnected && databaseTreeEmpty` so a stale
     // `driftViewer.serverConnected` (VM/HTTP) cannot hide all guidance while the tree stays empty.
     this._syncDatabaseTreeEmptyContext();
@@ -158,8 +165,10 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
     try {
       await Promise.race([this._refreshInner(), safety]);
-    } catch {
-      // _refreshInner handles its own error state; safety timeout also lands here.
+    } catch (err: unknown) {
+      // Safety timeout or unhandled _refreshInner error.
+      const msg = err instanceof Error ? err.message : String(err);
+      this._log?.appendLine(`[${new Date().toISOString()}] Tree refresh aborted: ${msg}`);
     } finally {
       if (safetyTimer !== undefined) clearTimeout(safetyTimer);
       this._refreshing = false;
@@ -188,7 +197,15 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
         (t) => new TableItem(t, this._pinStore?.isPinned(t.name)),
       );
       this._connected = true;
-    } catch {
+      this._log?.appendLine(
+        `[${new Date().toISOString()}] Tree refresh: loaded ${this._tables.length} table(s) from live server.`,
+      );
+    } catch (err: unknown) {
+      // Log the ACTUAL error so "Could not load schema" is never a mystery.
+      const msg = err instanceof Error ? err.message : String(err);
+      this._log?.appendLine(
+        `[${new Date().toISOString()}] Tree refresh FAILED (health or schema): ${msg}`,
+      );
       this._connected = false;
       this._tables = [];
       this._tableItems = [];
@@ -206,8 +223,15 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
             this._tableItems = this._tables.map(
               (t) => new TableItem(t, this._pinStore?.isPinned(t.name)),
             );
+            this._log?.appendLine(
+              `[${new Date().toISOString()}] Tree refresh: fell back to offline schema (${this._tables.length} table(s)).`,
+            );
           }
-        } catch {
+        } catch (offlineErr: unknown) {
+          const offlineMsg = offlineErr instanceof Error ? offlineErr.message : String(offlineErr);
+          this._log?.appendLine(
+            `[${new Date().toISOString()}] Tree refresh: offline schema fallback also failed: ${offlineMsg}`,
+          );
           this._tables = [];
           this._tableItems = [];
         }
@@ -260,21 +284,11 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       const pinned = this._tableItems.filter((t) => t.pinned);
       const unpinned = this._tableItems.filter((t) => !t.pinned);
       const items: TreeNode[] = [status];
-      // Quick Actions shortcut group — lets users discover key commands
-      items.push(new QuickActionsGroupItem());
       if (pinned.length > 0) {
         items.push(new PinnedGroupItem(pinned.length));
       }
       items.push(...pinned, ...unpinned);
       return items;
-    }
-
-    // Quick Actions group → return categorised action lists
-    if (element instanceof QuickActionsGroupItem) {
-      return getQuickActionCategories();
-    }
-    if (element instanceof ActionCategoryItem) {
-      return element.actions;
     }
 
     // Table level: columns + foreign keys (lazy-loaded)

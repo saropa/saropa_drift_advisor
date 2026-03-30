@@ -16,9 +16,7 @@ import {
 import {
   ActionItem,
   getDisconnectedActions,
-  getQuickActionCategories,
   getSchemaRestFailureActions,
-  QuickActionsGroupItem,
 } from '../tree/quick-action-items';
 
 describe('DriftTreeProvider', () => {
@@ -141,11 +139,32 @@ describe('DriftTreeProvider', () => {
       await provider.refresh();
       const children = await provider.getChildren();
 
-      assert.strictEqual(children.length, 4); // status + quickActions + 2 tables
+      assert.strictEqual(children.length, 3); // status + 2 tables
       assert.ok(children[0] instanceof ConnectionStatusItem);
-      assert.ok(children[1] instanceof QuickActionsGroupItem);
+      assert.ok(children[1] instanceof TableItem);
       assert.ok(children[2] instanceof TableItem);
-      assert.ok(children[3] instanceof TableItem);
+    });
+
+    it('should not include a Quick Actions group (tool commands live in Drift Tools panel)', async () => {
+      fetchStub.onFirstCall().resolves(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+      fetchStub.onSecondCall().resolves(
+        new Response(JSON.stringify(sampleMetadata), { status: 200 }),
+      );
+
+      await provider.refresh();
+      const children = await provider.getChildren();
+
+      // Every root item must be ConnectionStatusItem or TableItem — no
+      // Quick Actions group node should appear (those commands are in the
+      // separate Drift Tools panel to avoid duplication).
+      for (const child of children) {
+        assert.ok(
+          child instanceof ConnectionStatusItem || child instanceof TableItem,
+          `Unexpected root item type: ${child.constructor.name} ("${child.label}")`,
+        );
+      }
     });
 
     it('should return disconnected banner + actions when server is down', async () => {
@@ -212,7 +231,7 @@ describe('DriftTreeProvider', () => {
 
       await provider.refresh();
       const root = await provider.getChildren();
-      const usersTable = root[2] as TableItem;
+      const usersTable = root[1] as TableItem;
 
       // FK metadata fetch
       const fks = [{ fromColumn: 'manager_id', toTable: 'users', toColumn: 'id' }];
@@ -241,7 +260,7 @@ describe('DriftTreeProvider', () => {
 
       await provider.refresh();
       const root = await provider.getChildren();
-      const usersTable = root[2] as TableItem;
+      const usersTable = root[1] as TableItem;
 
       // FK metadata fetch fails
       fetchStub.rejects(new Error('fk fetch failed'));
@@ -264,7 +283,7 @@ describe('DriftTreeProvider', () => {
 
       await provider.refresh();
       const root = await provider.getChildren();
-      const usersTable = root[2] as TableItem;
+      const usersTable = root[1] as TableItem;
       const children = await provider.getChildren(usersTable) as ColumnItem[];
 
       // id: INTEGER PK → key
@@ -291,7 +310,7 @@ describe('DriftTreeProvider', () => {
 
       await provider.refresh();
       const root = await provider.getChildren();
-      const usersTable = root[2] as TableItem;
+      const usersTable = root[1] as TableItem;
 
       assert.strictEqual(usersTable.description, '42 rows');
       assert.strictEqual((usersTable.iconPath as any).id, 'table');
@@ -555,10 +574,10 @@ describe('DriftTreeProvider', () => {
       );
       await provider.refresh();
       const children = await provider.getChildren();
-      // At minimum: ConnectionStatusItem + QuickActionsGroupItem
+      // At minimum: ConnectionStatusItem
       assert.ok(
-        children.length >= 2,
-        `Connected-empty root must have at least status + quick actions — got ${children.length}`,
+        children.length >= 1,
+        `Connected-empty root must have at least status — got ${children.length}`,
       );
     });
 
@@ -591,23 +610,6 @@ describe('DriftTreeProvider', () => {
           typeof action.command!.command === 'string' && action.command!.command.length > 0,
           `REST-failure action "${action.label}" has empty command ID`,
         );
-      }
-    });
-
-    it('every quick-action category item must have a .command with a non-empty ID', () => {
-      const categories = getQuickActionCategories();
-      for (const cat of categories) {
-        assert.ok(cat.actions.length > 0, `Category "${cat.label}" has no actions`);
-        for (const action of cat.actions) {
-          assert.ok(
-            action.command,
-            `Quick action "${action.label}" in "${cat.label}" is missing .command`,
-          );
-          assert.ok(
-            typeof action.command!.command === 'string' && action.command!.command.length > 0,
-            `Quick action "${action.label}" in "${cat.label}" has empty command ID`,
-          );
-        }
       }
     });
 
@@ -654,20 +656,6 @@ describe('DriftTreeProvider', () => {
           `REST-failure action "${action.label}" uses command "${id}" which is NOT declared in `
           + 'package.json contributes.commands — VS Code will silently ignore it',
         );
-      }
-    });
-
-    it('every quick-action command ID must be declared in package.json', () => {
-      const declared = loadDeclaredCommandIds();
-      for (const cat of getQuickActionCategories()) {
-        for (const action of cat.actions) {
-          const id = action.command!.command;
-          assert.ok(
-            declared.has(id),
-            `Quick action "${action.label}" in "${cat.label}" uses command "${id}" which is `
-            + 'NOT declared in package.json — VS Code will silently ignore it',
-          );
-        }
       }
     });
 
