@@ -14,6 +14,6 @@
   "devDependencies": {
     "husky": "^9.1.7",
     "sass": "^1.81",
-    "typescript": "^5.7"
+    "typescript": "^6.0"
   }
 }
