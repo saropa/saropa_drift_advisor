@@ -25,7 +25,19 @@ export function registerRefreshTreeCommand(
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.refreshTree', async () => {
-      await treeProvider.refresh();
+      // Show a progress notification immediately so the user knows the button
+      // worked. On Windows the fetch safety timeout can take up to ~10s per
+      // request, so without this the UI appears frozen after clicking Refresh.
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: 'Drift: Refreshing database tree…',
+          cancellable: false,
+        },
+        async () => {
+          await treeProvider.refresh();
+        },
+      );
       if (treeProvider.connected) {
         void vscode.window.showInformationMessage(
           'Database tree refreshed — schema loaded.',

@@ -229,6 +229,38 @@ def _ensure_unreleased_section(
     return True
 
 
+def _check_no_duplicate_headings(
+    config: TargetConfig | None = None,
+) -> bool:
+    """Fail if CHANGELOG has duplicate ## [x.y.z] headings.
+
+    A previous automated edit may have created two sections with the same
+    version (e.g. two ``## [2.10.2]``). The publish pipeline's
+    ``_update_changelog_version`` replaces only the first occurrence, silently
+    promoting the wrong section to the new version and shipping a mangled
+    CHANGELOG to pub.dev / marketplace.
+    """
+    changelog_path = _changelog_for(config)
+    seen: dict[str, int] = {}
+    try:
+        with open(changelog_path, encoding="utf-8") as f:
+            for line_no, line in enumerate(f, 1):
+                m = re.match(r'^## \[(\d+\.\d+\.\d+)\]', line)
+                if m:
+                    ver = m.group(1)
+                    if ver in seen:
+                        fail(
+                            f"CHANGELOG has duplicate heading '## [{ver}]' "
+                            f"(lines {seen[ver]} and {line_no}). "
+                            "Merge or remove the duplicate before publishing."
+                        )
+                        return False
+                    seen[ver] = line_no
+    except OSError:
+        pass
+    return True
+
+
 _LIST_ITEM_RE = re.compile(r'^[-*]|\d+\.')
 
 
@@ -542,6 +574,12 @@ def validate_version_changelog(
 
     cfg = config if config is not None else EXTENSION
     label = _version_file_label(cfg)
+
+    # Fail fast if a previous edit left duplicate version headings in the
+    # CHANGELOG — _update_changelog_version would silently promote the wrong
+    # section and ship a mangled file to pub.dev / marketplace.
+    if not _check_no_duplicate_headings(cfg):
+        return "unknown", False
 
     # Extension: use max of pubspec, package.json, and CHANGELOG so a stale
     # package.json cannot override the canonical version; then sync both files.
