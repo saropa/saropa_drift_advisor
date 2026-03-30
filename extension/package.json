@@ -193,6 +193,11 @@
         "title": "Saropa Drift Advisor: Run Schema Linter"
       },
       {
+        "command": "driftViewer.showAnomalies",
+        "title": "Saropa Drift Advisor: Anomaly Detection",
+        "icon": "$(bug)"
+      },
+      {
         "command": "driftViewer.runSaropaLints",
         "title": "Saropa Drift Advisor: Run Saropa Lints on Workspace"
       },
