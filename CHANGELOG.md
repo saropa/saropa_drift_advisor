@@ -23,6 +23,14 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ## [Unreleased]
 
+### Changed
+
+• **Example app shows a database dashboard instead of a static notice** — The example's landing screen now displays a compact status header with server state and URL, a table overview with row counts for every table, and a recent-posts list showing title, author, draft/published status, and comment count. Error and disabled states still fall back to the original centered layout.
+
+---
+
+## [2.11.1]
+
 ### Fixed
 
 • **Server startup banner invisible on Android (third regression)** — Commit `086152f` replaced `print()` with `ctx.log()` to satisfy `avoid_print`, routing the banner through `developer.log()` which does not produce `I/flutter` lines on Android. The server was starting but the user saw no output. Restored `print()` with lint ignores and an anchored comment explaining why `print()` is the only correct choice. Server startup errors (e.g. port in use) are now also printed visibly instead of only going through `developer.log()`.

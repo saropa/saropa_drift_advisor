@@ -143,11 +143,52 @@ class _HomePageState extends State<HomePage> {
     final runningPort = DriftDebugServer.port;
     final isRunning = kDebugMode && runningPort != null;
 
+    // Build a summary snapshot of the database for the dashboard UI.
+    final dbSummary = await _queryDatabaseSummary(db);
+
     return ViewerInitResult(
       enabled: kDebugMode,
       running: isRunning,
       url: isRunning ? Uri.parse('http://127.0.0.1:$runningPort') : null,
+      dbSummary: dbSummary,
     );
+  }
+
+  /// Queries table row counts and recent posts for the dashboard display.
+  static Future<DatabaseSummary> _queryDatabaseSummary(
+    AppDatabase db,
+  ) async {
+    // Table names to show in the overview.
+    const tableNames = ['users', 'posts', 'comments', 'tags', 'post_tags'];
+
+    // Query row counts for each table.
+    final tables = <TableSummary>[];
+    for (final name in tableNames) {
+      final result =
+          await db.customSelect('SELECT COUNT(*) AS cnt FROM $name').get();
+      final count = result.firstOrNull?.data['cnt'] as int? ?? 0;
+      tables.add(TableSummary(name: name, rowCount: count));
+    }
+
+    // Query recent posts joined with author name and comment count.
+    final postRows = await db.customSelect(
+      'SELECT p.title, u.display_name, p.published_at, '
+      '(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count '
+      'FROM posts p '
+      'JOIN users u ON p.user_id = u.id '
+      'ORDER BY p.created_at DESC',
+    ).get();
+
+    final recentPosts = postRows.map((row) {
+      return PostPreview(
+        title: row.data['title'] as String,
+        authorName: row.data['display_name'] as String,
+        published: row.data['published_at'] != null,
+        commentCount: (row.data['comment_count'] as int?) ?? 0,
+      );
+    }).toList();
+
+    return DatabaseSummary(tables: tables, recentPosts: recentPosts);
   }
 
   /// Seeds users, posts, comments, and tags with realistic data when the DB is empty.

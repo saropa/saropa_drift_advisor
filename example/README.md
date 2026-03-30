@@ -27,7 +27,7 @@ flutter run
 1. Creates a Drift database with a **multi-table schema**: `users`, `posts`, `comments`, `tags`, and `post_tags` (with foreign keys) so you can try **ER diagrams**, **FK navigation**, schema diff, and migration tooling.
 2. Seeds realistic data when empty (multiple users, posts including a draft with null `publishedAt`, comments, tags, and post–tag links) to demonstrate date formatting, null handling, and varied types.
 3. Starts Saropa Drift Advisor in debug builds (`kDebugMode`).
-4. Opens a simple Flutter UI that shows the viewer URL (**http://127.0.0.1:8642**). Open that URL in a browser (or use the overlay button in debug) to list tables, browse rows, run SQL, **navigate FKs**, use the **Import** feature, export schema/data, or download the `.sqlite` file.
+4. Opens a Flutter dashboard that shows the server status, a table overview with row counts, and a preview of recent posts from the database. The viewer URL (**http://127.0.0.1:8642**) is displayed with a copy button. Open that URL in a browser (or use the overlay button in debug) to list tables, browse rows, run SQL, **navigate FKs**, use the **Import** feature, export schema/data, or download the `.sqlite` file.
 
 Note: This example uses Drift's native (dart:io) database, so it is intended for mobile/desktop targets (not web).
 
