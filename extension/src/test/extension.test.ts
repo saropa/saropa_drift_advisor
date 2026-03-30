@@ -389,6 +389,82 @@ describe('Extension activation', () => {
     assert.ok('driftViewer.generateRollback' in registered, 'generateRollback should be registered');
   });
 
+  /**
+   * Exhaustive command-wiring check: every command declared in
+   * contributes.commands in package.json MUST be registered at activation.
+   *
+   * If a feature module silently throws during registerAllCommands, the
+   * command becomes "command 'X' not found" at runtime. This test catches
+   * that class of bug by reading the authoritative list from package.json
+   * and asserting every entry is present in the mock command registry.
+   */
+  it('should register every command declared in contributes.commands', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    const packagePath = path.join(__dirname, '..', '..', 'package.json');
+    const raw = fs.readFileSync(packagePath, 'utf-8');
+    const pkg = JSON.parse(raw) as {
+      contributes?: { commands?: Array<{ command?: string }> };
+    };
+    const declaredCommands = (pkg.contributes?.commands ?? [])
+      .map((c) => c.command)
+      .filter((c): c is string => typeof c === 'string' && c.length > 0);
+
+    // Sanity check: package.json should declare a meaningful number of
+    // commands. If this drops to zero something is wrong with the path.
+    assert.ok(
+      declaredCommands.length > 50,
+      `Expected 50+ declared commands but found ${declaredCommands.length} — is the package.json path correct?`,
+    );
+
+    const missing: string[] = [];
+    for (const commandId of declaredCommands) {
+      if (!(commandId in registered)) {
+        missing.push(commandId);
+      }
+    }
+    assert.strictEqual(
+      missing.length,
+      0,
+      `${missing.length} command(s) declared in contributes.commands but NOT registered at activation:\n  ${missing.join('\n  ')}`,
+    );
+  });
+
+  /**
+   * Reverse check: every driftViewer.* command registered at activation
+   * must be declared in contributes.commands. Undeclared commands cannot
+   * receive onCommand activation events from VS Code, meaning the
+   * extension might not activate when the command is invoked from a
+   * keybinding, URI handler, or other extension.
+   */
+  it('should not register driftViewer commands missing from contributes.commands', () => {
+    activate(fakeContext());
+    const registered = Object.keys(commands.getRegistered())
+      .filter((c) => c.startsWith('driftViewer.'));
+    const packagePath = path.join(__dirname, '..', '..', 'package.json');
+    const raw = fs.readFileSync(packagePath, 'utf-8');
+    const pkg = JSON.parse(raw) as {
+      contributes?: { commands?: Array<{ command?: string }> };
+    };
+    const declaredCommands = new Set(
+      (pkg.contributes?.commands ?? [])
+        .map((c) => c.command)
+        .filter((c): c is string => typeof c === 'string' && c.length > 0),
+    );
+
+    const undeclared: string[] = [];
+    for (const commandId of registered) {
+      if (!declaredCommands.has(commandId)) {
+        undeclared.push(commandId);
+      }
+    }
+    assert.strictEqual(
+      undeclared.length,
+      0,
+      `${undeclared.length} command(s) registered at activation but NOT declared in contributes.commands (VS Code cannot auto-generate onCommand activation):\n  ${undeclared.join('\n  ')}`,
+    );
+  });
+
   it('deactivate should not throw', () => {
     assert.doesNotThrow(() => deactivate());
   });

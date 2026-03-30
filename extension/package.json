@@ -626,6 +626,61 @@
         "command": "driftViewer.openMutationStream",
         "title": "Saropa Drift Advisor: Open Mutation Stream",
         "icon": "$(pulse)"
+      },
+      {
+        "command": "driftViewer.disableDiagnosticRule",
+        "title": "Saropa Drift Advisor: Disable Diagnostic Rule",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "driftViewer.clearRuntimeAlerts",
+        "title": "Saropa Drift Advisor: Clear Runtime Alerts",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "driftViewer.copySuggestedName",
+        "title": "Saropa Drift Advisor: Copy Suggested Name",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "driftViewer.runIndexSql",
+        "title": "Saropa Drift Advisor: Create Index",
+        "icon": "$(run)"
+      },
+      {
+        "command": "driftViewer.seedWithProfiles",
+        "title": "Saropa Drift Advisor: Seed Table with Profiles",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "driftViewer.showIndexSuggestions",
+        "title": "Saropa Drift Advisor: Show Index Suggestions",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "driftViewer.createAllIndexes",
+        "title": "Saropa Drift Advisor: Create All Missing Indexes",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "driftViewer.generateAnomalyFixes",
+        "title": "Saropa Drift Advisor: Generate Anomaly Fixes",
+        "icon": "$(wrench)"
+      },
+      {
+        "command": "driftViewer.sampleTable",
+        "title": "Saropa Drift Advisor: Sample Table Data",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "driftViewer.toggleInvariant",
+        "title": "Saropa Drift Advisor: Toggle Invariant",
+        "icon": "$(check)"
+      },
+      {
+        "command": "driftViewer.viewInvariantViolations",
+        "title": "Saropa Drift Advisor: View Invariant Violations",
+        "icon": "$(warning)"
       }
     ],
     "menus": {
