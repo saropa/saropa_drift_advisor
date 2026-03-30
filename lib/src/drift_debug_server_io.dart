@@ -207,13 +207,21 @@ class _DriftDebugServerImpl {
       _vmBridge = VmServiceBridge(router);
       _vmBridge?.register();
 
-      // Emit one compact startup banner line as a structured log message.
+      // IMPORTANT: print() is the ONLY output method that appears as
+      // I/flutter lines on Android. Do NOT replace with ctx.log(),
+      // developer.log(), or stdout.writeln() — all three are invisible
+      // on Android emulators/devices. This was fixed in v1.4.1, broken
+      // again in v1.7.0, and regressed a third time in 086152f when a
+      // lint tool replaced print() to satisfy avoid_print. The banner
+      // is the user's only confirmation that the server started.
+      // See plans/connection-reliability-ongoing.md for full history.
       final title = _bannerCentered(
         'DRIFT DEBUG SERVER   v${ServerConstants.packageVersion}',
       );
       final desc = _bannerCentered(ServerConstants.bannerDescription);
       final url = _bannerCentered('http://127.0.0.1:$port');
-      ctx.log(
+      // ignore: avoid_print, avoid_print_in_release
+      print(
         '${ServerConstants.bannerTop}\n'
         '$title\n'
         '${ServerConstants.bannerDivider}\n'
@@ -224,6 +232,10 @@ class _DriftDebugServerImpl {
         '${ServerConstants.bannerBottom}',
       );
     } on Object catch (error, stack) {
+      // Print server startup failure visibly — same reasoning as the
+      // banner above: developer.log is invisible on Android.
+      // ignore: avoid_print, avoid_print_error, avoid_print_in_release
+      print('[DriftDebugServer] FAILED TO START: $error');
       ctx.logError(error, stack);
     }
   }
