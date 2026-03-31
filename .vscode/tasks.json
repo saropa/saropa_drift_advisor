@@ -2,6 +2,19 @@
   "version": "2.0.0",
   "tasks": [
     {
+      // Compile the VS Code extension TypeScript before launching the
+      // Extension Development Host. Runs `npm run compile` (which is
+      // `tsc -p ./`) inside the extension/ subfolder.
+      "label": "compile-extension",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "compile"],
+      "options": { "cwd": "${workspaceFolder}/extension" },
+      "group": "build",
+      "problemMatcher": "$tsc",
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
       "label": "Open Saropa Drift Advisor",
       "type": "shell",
       "command": "start",

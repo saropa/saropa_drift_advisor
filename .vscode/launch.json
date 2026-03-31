@@ -1,0 +1,46 @@
+{
+  // Launch the Extension Development Host from the REPO ROOT.
+  // This compiles the TypeScript in extension/ first, then opens a new
+  // VS Code window with the LOCAL (unpublished) extension loaded.
+  //
+  // The marketplace-installed version is automatically disabled in the
+  // Extension Development Host — only the local build runs.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension (Dev)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        // Point at the extension subfolder — VS Code loads the extension
+        // from its package.json + out/ directory.
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        // Enable proposed APIs (e.g. Timeline) that are stable at runtime
+        // but not yet in @types/vscode. Only needed in dev mode — the
+        // marketplace does not enforce this check.
+        "--enable-proposed-api", "saropa.drift-viewer"
+      ],
+      // Compile TypeScript before launching so extension/out/ is fresh.
+      "preLaunchTask": "compile-extension",
+      "outFiles": [
+        "${workspaceFolder}/extension/out/**/*.js"
+      ],
+      "sourceMaps": true
+    },
+    {
+      "name": "Run Extension Tests (Dev)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        "--extensionTestsPath=${workspaceFolder}/extension/out/test",
+        "--enable-proposed-api", "saropa.drift-viewer"
+      ],
+      "preLaunchTask": "compile-extension",
+      "outFiles": [
+        "${workspaceFolder}/extension/out/**/*.js"
+      ],
+      "sourceMaps": true
+    }
+  ]
+}

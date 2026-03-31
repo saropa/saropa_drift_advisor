@@ -9,7 +9,10 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}"
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        // Enable proposed APIs (e.g. Timeline) that are stable at runtime
+        // but not yet in @types/vscode. Only needed in dev mode.
+        "--enable-proposed-api", "saropa.drift-viewer"
       ],
       // Compile TypeScript before launching so out/extension.js is fresh.
       "preLaunchTask": "npm: compile",
@@ -24,7 +27,8 @@
       "request": "launch",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}",
-        "--extensionTestsPath=${workspaceFolder}/out/test"
+        "--extensionTestsPath=${workspaceFolder}/out/test",
+        "--enable-proposed-api", "saropa.drift-viewer"
       ],
       "preLaunchTask": "npm: compile",
       "outFiles": [
