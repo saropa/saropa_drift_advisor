@@ -15,8 +15,8 @@ topics:
   - flutter
 
 screenshots:
-  - description: Saropa Drift Advisor icon
-    path: extension/icon_1024.png
+  - description: Saropa Drift Advisor banner
+    path: assets/banner_v3.png
 
 # SDK >=3.9.0 balances modern language features with broad audience reach.
 environment:

@@ -36,6 +36,8 @@ browse source on
 
 ### Fixed
 
+• **pub.dev publish failed for v2.14.0** — The pubspec `screenshots` path was changed from `assets/banner_v2.png` to `extension/icon_1024.png`, but `.pubignore` excludes the entire `extension/` directory. pub.dev rejected the upload with "Screenshot `extension/icon_1024.png` is missing from archive." Restored the screenshot path to `assets/banner_v3.png`, which lives in the non-excluded `assets/` directory.
+
 • **Query Cost command failed to register** — `driftViewer.analyzeQueryCost` was registered in both `health-commands` and `query-cost-commands`, causing a "command already exists" error on every activation. Removed the duplicate proxy registration.
 
 • **Warning toasts had no actionable buttons** — 11 `showWarningMessage` calls told users to check settings, docs, or output channels but gave no way to get there. Every warning that references a destination now includes a one-click button (Retry, Open Settings, View Docs, Open Output, etc.).
