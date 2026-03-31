@@ -135,7 +135,7 @@ export class EditingBridge implements vscode.Disposable {
       );
       if (!result.ok) {
         void vscode.window.showWarningMessage(
-          `Saropa Drift Advisor: ${result.message}${CELL_EDIT_HINT}`,
+          `${result.message}${CELL_EDIT_HINT}`,
         );
         this._postCellEditRejected(
           msg,
@@ -154,7 +154,7 @@ export class EditingBridge implements vscode.Disposable {
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       void vscode.window.showErrorMessage(
-        `Saropa Drift Advisor: could not validate edit (${detail}).`,
+        `Could not validate edit (${detail}).`,
       );
       this._postCellEditRejected(
         msg,
@@ -177,7 +177,7 @@ export class EditingBridge implements vscode.Disposable {
       const result = validateRowInsert(tables, msg.table, msg.values);
       if (!result.ok) {
         void vscode.window.showWarningMessage(
-          `Saropa Drift Advisor: ${result.message}${CELL_EDIT_HINT}`,
+          `${result.message}${CELL_EDIT_HINT}`,
         );
         this._postRowInsertRejected(msg.table);
         return;
@@ -186,7 +186,7 @@ export class EditingBridge implements vscode.Disposable {
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       void vscode.window.showErrorMessage(
-        `Saropa Drift Advisor: could not validate new row (${detail}).`,
+        `Could not validate new row (${detail}).`,
       );
       this._postRowInsertRejected(msg.table);
     }

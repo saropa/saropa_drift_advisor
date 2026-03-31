@@ -43,6 +43,8 @@ Stops internal analytics queries from showing up as false-positive slow-query wa
 
 • **Connection-error diagnostic firing on non-Drift workspaces** — The extension activates on any Dart project (`workspaceContains:**/pubspec.yaml`) and the runtime connection-health check unconditionally tried `client.generation(0)` against `127.0.0.1:8642`. For workspaces that don't use Drift (e.g. `contacts`, a vanilla Dart project), this always failed and surfaced a red Error diagnostic with no clear resolution path. The check now reads `pubspec.yaml` and skips entirely when the project doesn't list `drift` as a dependency.
 
+• **Notification messages drop redundant "Saropa Drift Advisor:" prefix** — Warning and error toasts from inline cell editing and row-insert validation no longer start with the extension name; VS Code already shows the source extension when a notification is expanded.
+
 ### Changed
 
 • **Connection-error diagnostic downgraded to Warning with actionable quick fixes** — Connection errors are now Warning severity (was Error), reflecting that a missing server is an operational state, not a code defect. The diagnostic message tells users to run `DriftDebugServer.start()`. Quick fix actions replaced: "Retry Connection" (preferred), "Don't Show Connection Warnings" (permanently disables the check), and "Open Connection Settings" replace the previous generic "Disable rule" / "Refresh Connection" / "Open Extension Settings" actions.

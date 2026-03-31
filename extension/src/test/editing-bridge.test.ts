@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import type { TableMetadata } from '../api-types';
 import { ChangeTracker } from '../editing/change-tracker';
 import { EditingBridge } from '../editing/editing-bridge';
-import { MockOutputChannel } from './vscode-mock';
+import { messageMock, MockOutputChannel, resetMocks } from './vscode-mock';
 
 /** Minimal schema so cell edits are validated like in production. */
 function mockSchema(): Promise<TableMetadata[]> {
@@ -32,6 +32,7 @@ describe('EditingBridge', () => {
   let bridge: EditingBridge;
 
   beforeEach(() => {
+    resetMocks();
     tracker = new ChangeTracker(new MockOutputChannel() as never);
     bridge = new EditingBridge(tracker, mockSchema);
   });
@@ -162,5 +163,118 @@ describe('EditingBridge', () => {
     assert.ok(script.length > 100);
     assert.ok(script.includes('acquireVsCodeApi'));
     assert.ok(script.includes('cellEdit'));
+  });
+
+  // --- Notification message content ---
+
+  it('rejected cell edit warning should not include extension name prefix', async () => {
+    // Trigger a validation failure: 'age' column expects a number
+    bridge.handleMessage({
+      command: 'cellEdit',
+      table: 'users',
+      pkColumn: 'id',
+      pkValue: 1,
+      column: 'age',
+      oldValue: 20,
+      newValue: 'not-a-number',
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    // A warning should have been shown, without the product name prefix
+    assert.strictEqual(messageMock.warnings.length, 1);
+    assert.ok(
+      !messageMock.warnings[0].startsWith('Saropa'),
+      `Warning should not start with product name, got: "${messageMock.warnings[0]}"`,
+    );
+  });
+
+  it('rejected row insert warning should not include extension name prefix', async () => {
+    // Build a schema with a NOT NULL INTEGER column to trigger validation
+    // failure (TEXT NOT NULL accepts empty string, so INTEGER is needed)
+    const strictSchema: TableMetadata[] = [
+      {
+        name: 'items',
+        rowCount: 0,
+        columns: [
+          { name: 'id', type: 'INTEGER', pk: true, notnull: true },
+          { name: 'quantity', type: 'INTEGER', pk: false, notnull: true },
+        ],
+      },
+    ];
+    const strictBridge = new EditingBridge(
+      tracker,
+      () => Promise.resolve(strictSchema),
+    );
+
+    // Insert a row missing the required 'quantity' column (null → fails NOT NULL)
+    strictBridge.handleMessage({
+      command: 'rowInsert',
+      table: 'items',
+      values: {},
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    assert.strictEqual(messageMock.warnings.length, 1);
+    assert.ok(
+      !messageMock.warnings[0].startsWith('Saropa'),
+      `Warning should not start with product name, got: "${messageMock.warnings[0]}"`,
+    );
+    strictBridge.dispose();
+  });
+
+  it('schema-load error should produce error message without extension name prefix', async () => {
+    // Bridge with a schema loader that always throws
+    const failBridge = new EditingBridge(
+      tracker,
+      () => Promise.reject(new Error('db locked')),
+    );
+
+    failBridge.handleMessage({
+      command: 'cellEdit',
+      table: 'users',
+      pkColumn: 'id',
+      pkValue: 1,
+      column: 'name',
+      oldValue: 'A',
+      newValue: 'B',
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    assert.strictEqual(messageMock.errors.length, 1);
+    assert.ok(
+      !messageMock.errors[0].startsWith('Saropa'),
+      `Error should not start with product name, got: "${messageMock.errors[0]}"`,
+    );
+    // Verify the underlying error detail is still present
+    assert.ok(
+      messageMock.errors[0].includes('db locked'),
+      'Error message should contain the original error detail',
+    );
+    failBridge.dispose();
+  });
+
+  it('row insert schema-load error should not include extension name prefix', async () => {
+    const failBridge = new EditingBridge(
+      tracker,
+      () => Promise.reject(new Error('connection reset')),
+    );
+
+    failBridge.handleMessage({
+      command: 'rowInsert',
+      table: 'users',
+      values: { name: 'Test' },
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    assert.strictEqual(messageMock.errors.length, 1);
+    assert.ok(
+      !messageMock.errors[0].startsWith('Saropa'),
+      `Error should not start with product name, got: "${messageMock.errors[0]}"`,
+    );
+    assert.ok(
+      messageMock.errors[0].includes('connection reset'),
+      'Error message should contain the original error detail',
+    );
+    failBridge.dispose();
   });
 });
