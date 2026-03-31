@@ -1,12 +1,10 @@
 # Changelog
 
-<!--
-  Maintainer notes: visible in source control and editors; omitted on typical rendered pages.
-  Format follows Keep a Changelog; versions use SemVer. Omit dates in `## [x.y.z]` headers
-  (pub.dev shows publish dates). Project links and archive location are in the intro below.
+<!-- MAINTENANCE NOTES -- IMPORTANT --
 
-  Each release (and [Unreleased]) opens with one plain-language line for humans—user-facing
-  only, varied wording—then end it with:
+  Format follows Keep a Changelog; versions use SemVer. Omit dates in `## [x.y.z]` headers (pub.dev shows publish dates). Project links and archive location are in the intro below.
+
+  Each release (and [Unreleased]) opens with one plain-language line for humans—user-facing only, casual wording—then end it with:
   `[log](https://github.com/saropa/saropa_drift_advisor/blob/vX.Y.Z/CHANGELOG.md)` substituting X.Y.Z.
 
   **pub.dev** — [pub.dev / packages / saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
@@ -17,11 +15,26 @@
 
 -->
 
-This changelog is for **Saropa Drift Advisor**: the Dart package that wires up Drift’s debug server and web viewer, plus the **Drift Viewer** extensions for [VS Code](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer) and [Open VSX](https://open-vsx.org/extension/saropa/drift-viewer). Releases are listed newest first. Each version’s opening paragraph sums up what changed for users and ends with a **log** link to this file at that release’s tag on GitHub. Install the library from [pub.dev](https://pub.dev/packages/saropa_drift_advisor); report issues and browse source on [GitHub](https://github.com/saropa/saropa_drift_advisor). History before **1.4.4** lives in [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
+This changelog is for **Saropa Drift Advisor**: the Dart package that wires up
+Drift’s debug server and web viewer, plus the **Drift Viewer** extensions for
+[VS Code](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
+and [Open VSX](https://open-vsx.org/extension/saropa/drift-viewer).
+
+Releases are listed newest first. Each version’s opening paragraph sums up what
+changed for users and ends with a **log** link to this file at that release’s
+tag on GitHub.
+
+Install the library from
+[pub.dev](https://pub.dev/packages/saropa_drift_advisor); report issues and
+browse source on
+[GitHub](https://github.com/saropa/saropa_drift_advisor). History before
+**2.1.0** lives in [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
 
 ---
 
-## [Unreleased]
+## [2.12.0]
+
+Fixes several broken commands and stuck webviews, removes duplicate Quick Actions from the Database tree, and upgrades the example app to a live database dashboard. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.12.0/CHANGELOG.md)
 
 ### Changed
 
@@ -49,6 +62,8 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ## [2.11.1]
 
+Fixes the invisible server-startup banner on Android (third regression) and makes disconnected sidebar buttons actually clickable. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.11.1/CHANGELOG.md)
+
 ### Fixed
 
 • **Server startup banner invisible on Android (third regression)** — Commit `086152f` replaced `print()` with `ctx.log()` to satisfy `avoid_print`, routing the banner through `developer.log()` which does not produce `I/flutter` lines on Android. The server was starting but the user saw no output. Restored `print()` with lint ignores and an anchored comment explaining why `print()` is the only correct choice. Server startup errors (e.g. port in use) are now also printed visibly instead of only going through `developer.log()`.
@@ -63,6 +78,8 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ## [2.11.0]
 
+Fixes a Windows-only hang where fetch never completes, permanently locking the Database tree. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.11.0/CHANGELOG.md)
+
 ### Fixed
 
 • **VS Code: fetch hangs forever on Windows (AbortController/undici bug)** — On some Windows Node.js builds, `AbortController.abort()` does not reliably cancel an in-flight `fetch()` (known undici bug). `fetchWithTimeout` now wraps the native fetch in a `Promise.race` safety layer that fires shortly after the abort timer, guaranteeing the promise always settles. A second safety timeout in `DriftTreeProvider.refresh()` ensures `_refreshing` is always cleared even if both the abort and per-call safety somehow hang. Together these prevent the permanent "Could not load schema (REST API)" deadlock where the initial refresh hung forever, `_refreshing` stayed `true`, and the coalesced discovery-triggered refresh never ran.
@@ -70,6 +87,8 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 ---
 
 ## [2.10.2]
+
+Fixes a batch of reliability issues — stuck Database tree, broken mutation tracking, missing command declarations — and polishes sidebar loading states. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.10.2/CHANGELOG.md)
 
 ### Fixed
 
@@ -153,7 +172,7 @@ Sidebar stays actionable when HTTP/VM says “connected” but the schema tree c
 
 ---
 
-## [2.10.0]
+## [2.9.1]
 
 No-blank sidebar startup fallback and safer command availability during activation. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.9.1/CHANGELOG.md)
 
@@ -575,159 +594,4 @@ Connection health, session expiry countdown, clickable FK breadcrumbs, and OS da
 
 ---
 
-## [2.0.0]
-
-Internal modularization: split the 793-line server_context.dart god object into three focused modules for maintainability. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.0.0/CHANGELOG.md)
-
-### Changed
-
-• **Extracted `ServerUtils`** — 16 static utility methods (normalizeRows, getTableNames, sqlLiteral, etc.) moved from `ServerContext` to a dedicated `abstract final class ServerUtils` in `server_utils.dart`.
-
-• **Extracted `server_typedefs.dart`** — 5 callback typedefs (`DriftDebugQuery`, `DriftDebugOnLog`, etc.) consolidated into a single source of truth, eliminating duplication between `server_context.dart` and the web stub.
-
-• **Slimmed `ServerContext`** — reduced from 793 to 423 lines; now contains only instance state and instance methods (auth, CORS, logging, timing, change detection).
-
----
-
-## [1.8.0]
-
-Silence the log spam: batched change detection, runtime polling toggle, and UI buttons in both the web viewer and VSCode extension. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.8.0/CHANGELOG.md)
-
-### Added
-
-• **Polling toggle button (web UI)** — "Polling: ON/OFF" button in the browser header toggles change detection on/off via `POST /api/change-detection`. The live indicator updates to show "Paused" when polling is disabled.
-
-• **Polling toggle button (VSCode)** — "Toggle Polling" item in the Drift Tools sidebar tree (`driftViewer.togglePolling` command) toggles change detection via VM service or HTTP fallback. Shows an info message confirming the new state.
-
-• **Change detection HTTP endpoint** — `GET/POST /api/change-detection` reads and sets the polling toggle state at runtime.
-
-• **Change detection VM service extensions** — `ext.saropa.drift.getChangeDetection` and `ext.saropa.drift.setChangeDetection` allow the VSCode extension to toggle polling without HTTP.
-
-• **Static Dart API** — `DriftDebugServer.changeDetectionEnabled` getter and `DriftDebugServer.setChangeDetection(bool)` for programmatic control from app code.
-
-### Changed
-
-• **Web UI branding** — Browser tab and page heading now show "Saropa Drift Adviser" instead of "Drift tables" / "Drift DB".
-
-• **Batched row-count queries** — `checkDataChange()` now uses a single `UNION ALL` query instead of N individual `SELECT COUNT(*)` queries, reducing per-check queries from N+1 to 2 (first call) or 1 (cached table names).
-
-• **Table name caching** — sqlite_master table names are cached across change detection cycles and invalidated only on schema-altering operations (e.g., import).
-
-• **VM service handler gating** — `getSchemaMetadata` and `getGeneration` VM service handlers return lightweight cached/empty responses when change detection is disabled, eliminating `PRAGMA table_info` and `SELECT COUNT(*)` spam from the debug console.
-
-### Fixed
-
-• **Web UI version drift** — `packageVersion` in `server_constants.dart` was hardcoded at `1.5.0` while pubspec was at `1.6.1`, causing the health endpoint to report the wrong version and the CDN enhanced CSS URL to 404. The publish scripts now auto-sync `server_constants.dart` alongside `add-package.ts` whenever the Dart version changes.
-
-• **SQL identifier escaping** — `_buildDataSignature()` now escapes double-quote characters in table names for the SQL identifier context, preventing malformed SQL if a table name contains a literal `"`.
-
-• **Polling toggle button UX** — The web UI polling toggle now disables itself and shows "Polling..." during the request, preventing double-clicks and providing clear visual feedback.
-
-## [1.7.0]
-
-Smart package lifecycle management: the extension now detects whether the Dart package is already in your project and hides redundant setup prompts. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.7.0/CHANGELOG.md)
-
-### Added
-
-• **Open in Browser button** — quickly open the Drift debug server UI from the Database sidebar:
-
-- Globe icon in the header toolbar (visible when connected)
-- Clickable "Connected" status item opens the server URL
-- "Open in Browser" button in the welcome view (visible when not connected)
-
-• **Build safeguards (defense-in-depth)** — Seven independent layers now prevent shipping an extension that silently fails to activate:
-
-- `npm install` auto-compiles TypeScript via `postprepare` hook — fresh clones and `git clean` are self-healing
-- Pre-commit hook verifies `out/extension.js` exists alongside the existing type check
-- F5 launch config (`launch.json`) with `preLaunchTask` ensures compilation before every debug run
-- Background `watch` task available for continuous recompilation during development
-- Publish pipeline verifies `out/extension.js` on disk after `tsc` exits
-- Publish pipeline inspects VSIX archive contents before allowing publish
-- Post-install verification confirms the extension directory exists on disk after `code --install-extension`
-
-• **Package upgrade detection** — On activation the extension checks pub.dev for newer versions of `saropa_drift_advisor`. If the workspace pubspec.yaml has an older constraint, an upgrade notification offers a one-click update (rewrites the constraint and runs `pub get`). Checks are throttled to once per hour; network errors are silently ignored.
-
-• **Conditional "Add Package" button** — The "Add Saropa Drift Advisor" button, welcome view link, and tools tree item are now hidden when the package is already present in pubspec.yaml. A new context key `driftViewer.packageInstalled` drives all three locations.
-
-• **Pubspec file watcher** — A `PackageStatusMonitor` watches `pubspec.yaml` for changes and keeps the installed-state UI in sync automatically.
-
-• **Version display in Database header** — The Database section header shows the extension version (e.g. "v1.6.1") at all times, whether connected or disconnected.
-
-• **About Saropa icon** — An `$(info)` icon in the Database section title bar opens `ABOUT_SAROPA.md` in VS Code's markdown preview, giving users quick access to the Saropa product overview. Also available via Command Palette.
-
-### Fixed
-
-• **Server banner invisible on Android emulator** — The startup banner used `stdout.writeln()`, which writes to the native process stdout — invisible on Android because Flutter only intercepts `print()`/Zone output. Switched to `print()` (with `// ignore: avoid_print`) so the banner appears as clean `I/flutter` lines, matching Isar Inspector's banner style.
-
----
-
-## [1.6.1]
-
-The extension couldn't connect to running servers and now has an About button for easy access to release notes. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.6.1/CHANGELOG.md)
-
-### Added
-
-• **About Saropa Drift Advisor** — "About Saropa Drift Advisor vX.Y.Z" item at the top of the Drift Tools sidebar. Opens the bundled CHANGELOG.md in VS Code's markdown preview; falls back to the GitHub changelog if the local file is missing. Also available via Command Palette (`Saropa Drift Advisor: About`).
-• **Existing debug session detection** — When the extension activates after a debug session is already running (late activation), it now detects the active Dart/Flutter session and immediately attempts VM Service connection. Previously only `onDidStartDebugSession` was used, which never fires for sessions that started before the extension loaded.
-
-### Fixed
-
-• **Server discovery rejected valid servers** — The secondary validation in `ServerDiscovery._validateServer` checked `Array.isArray(data)` on the `/api/schema/metadata` response, but the server returns `{ tables: [...] }` (an object wrapping the array). Health checks passed but every server was then silently rejected, preventing the extension from ever connecting. Now accepts both raw array and wrapped `{ tables: [...] }` formats.
-• **VM Service connection too impatient for emulator debugging** — The original `tryConnectVm` made only 2 quick attempts with 500ms delay, but on Android emulators the Drift debug server typically needs 5–15 seconds after VM Service is available before its extension methods are registered. Rewrote as a two-phase approach: Phase 1 connects the WebSocket (2 quick attempts — the VM port is auto-forwarded by Flutter); Phase 2 patiently polls health with increasing delays (500ms → 1s → 2s → 3s → 5s, ~30s total) while the app initializes. Includes a concurrency guard to prevent concurrent connection attempts.
-• **Core debug commands silently failed to register** — `registerDebugCommands` (which wires VM Service lifecycle, debug session listeners, and server connectivity) was the last call in `registerAllCommands`. If any preceding feature module threw during registration, the entire function aborted and the core connection logic never ran — silently. Discovery kept scanning ports, but no VM Service handlers were registered, producing the symptom of 17+ minutes of only port-scan output with zero VM connection attempts. Fixed by calling `registerDebugCommands` first and wrapping each of the 27 feature modules in individual try/catch blocks so one failing module cannot take down the rest.
-
----
-
-## [1.6.0]
-
-VM Service connection now works — Android emulator connects without port forwarding. Web UI gets a visual polish layer loaded from CDN, and the published package is leaner. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.6.0/CHANGELOG.md)
-
-### Added
-
-• **Enhanced CSS loaded from jsDelivr CDN** — The web UI dynamically loads a `drift-enhanced.css` stylesheet from jsDelivr, version-pinned to the exact release tag. Adds polished button hover/active states, focus rings for accessibility, zebra-striped tables with hover highlighting, sticky table headers, a pulsing live indicator, accented collapsible section headers, card-style expanded sections, smooth theme transitions, custom scrollbars, and chart/toast polish. Falls back gracefully to inline styles when offline or CDN-blocked (3-second timeout).
-
-• **`.pubignore`** — Excludes `web/`, `extension/`, `.github/`, and Node tooling from the pub.dev package, reducing download size for consumers.
-
-### Fixed
-
-• **VM Service connection never worked** — The extension called `getIsolates` (not a valid Dart VM Service method) instead of `getVM` when resolving isolates, causing every VM Service connection to silently fail and fall back to HTTP. This made Android emulator connections fragile since HTTP requires `adb forward`. With the fix, the extension connects via VM Service (like Isar Inspector), which Flutter auto-forwards — no manual port forwarding needed.
-
-• **Isolate selection** — When multiple isolates exist (e.g. main + vm-service), the extension now prefers non-system isolates to reliably find the one where `DriftDebugServer` registers its extensions.
-
-## [1.5.1]
-
-Web UI now shows the server version and has a proper favicon. [log](https://github.com/saropa/saropa_drift_advisor/blob/v1.5.1/CHANGELOG.md)
-
-### Added
-
-• **Version badge in web UI header** — The page header now displays the Drift Advisor version (e.g. "v1.5.0") fetched from the `/api/health` endpoint, so users can verify which server version is running. The health endpoint now includes a `version` field.
-
-• **Favicon** — Added an inline SVG database-cylinder favicon via `<link rel="icon">` data URI in the HTML head, and a lightweight 204 No Content route for `/favicon.ico` requests to silence browser console 404s.
-
-• **Troubleshooting webview panel** — The sidebar "Troubleshooting" button now opens a rich webview with a quick checklist, connection architecture diagram, collapsible FAQ sections for common issues, and action buttons (Retry Connection, Forward Port, Select Server, Open Output Log, Open Settings).
-
-### Changed
-
-• **Renamed "Add package to project" to "Add Saropa Drift Advisor"** — The sidebar button, command palette entry, and walkthrough step now use the clearer name.
-
-• **Sidebar welcome panel formatting** — Replaced `**` markdown bold (which rendered as literal asterisks in VS Code panels) with CAPS headers (GET STARTED, RESOURCES). Moved troubleshooting tips out of inline text into the new webview panel.
-
-• **Walkthrough dependency type corrected** — Changed "dev dependencies" to "dependencies" since the package must be a regular dependency (users import it in `lib/` code).
-
-• **Package version constraint** — Updated the "Add Saropa Drift Advisor" button to install `^0.3.0`.
-
-### Fixed
-
-• **"Add Saropa Drift Advisor" silent failure on missing dependencies section** — When a pubspec.yaml had no `dependencies:` section, the error was thrown but not caught, causing the command to fail silently with no user notification. Now properly caught and shown as an error message.
-
-• **"Already present" feedback** — When the package was already in pubspec.yaml, the success message now explicitly says so instead of only showing "Run your app with the Drift debug server to connect."
-
-• **Query builder LIKE operators caused JS syntax error** — The Dart `'''` string escape `"\"` was consumed by Dart as an escaped double-quote, producing `""` in the served JavaScript. This broke `LIKE`, `NOT LIKE`, and `LIKE_START` operator conditions in the query builder with `Uncaught SyntaxError: missing ) after argument list`. Fixed by using `"\\"` so Dart emits `\"` (a valid JS string escape).
-
-### Internal
-
-• **Publish script syncs PACKAGE_VERSION** — `write_version(DART, ...)` now automatically updates the `PACKAGE_VERSION` constant in `add-package.ts` so the "Add Saropa Drift Advisor" button always installs the correct version after a release.
-
----
-
-For older versions (1.4.3 and prior), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
+For older versions (2.0.0 and prior), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
