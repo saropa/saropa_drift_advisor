@@ -43,12 +43,12 @@ linter:
 
 plugins:
   saropa_lints:
-    version: "10.1.1"
+    version: "10.4.0"
     # ═══════════════════════════════════════════════════════════════════
     # SAROPA LINTS CONFIGURATION
     # ═══════════════════════════════════════════════════════════════════
     # Regenerate with: dart run saropa_lints:init --tier recommended
-    # Tier: recommended (747 of 2119 rules enabled)
+    # Tier: recommended (753 of 2125 rules enabled)
     # Lint rules are disabled by default. Set to true to enable.
     # User customizations are preserved unless --reset is used
     #
@@ -418,7 +418,7 @@ plugins:
       yield_in_non_generator: true  # [WARNING] Yield is only valid inside a generator function (marked with async* or sync*). {v1}
 
       #
-      # --- TIER 2: RECOMMENDED (478 rules) ---
+      # --- TIER 2: RECOMMENDED (484 rules) ---
       #
       avoid_accessing_collections_by_constant_index: true  # [WARNING] Collection accessed by a constant index inside a loop body. This retrieves the same element on every iteration, which is wasteful and usually indicates a logic error where the loop variable was intended as the index instead. {v5}
       avoid_analytics_in_build: true  # [WARNING] Analytics calls inside build() are triggered on every rebuild, resulting in duplicate events, inaccurate tracking data, degraded app performance, and inflated backend costs. This can skew business metrics, produce misleading dashboards, and make it difficult to analyze real user behavior. Persistent analytics spam may also trigger rate limits or data quality flags in analytics platforms. {v3}
@@ -454,12 +454,16 @@ plugins:
       avoid_debug_print: true  # [WARNING] debugPrint bypasses structured logging, making it impossible to filter, search, or disable output per environment. Debug statements left in production code expose internal state to device logs, degrade performance through I/O overhead, and create noise that obscures real issues during troubleshooting. {v4}
       avoid_deep_widget_nesting: true  # [INFO] Widget tree exceeds 15 levels of nesting. Deeply nested widget trees are hard to read, maintain, and debug. They often indicate a need to extract widgets into separate components. {v5}
       avoid_deeply_nested_widgets: true  # [INFO] Widget tree is too deeply nested, exceeding the recommended nesting depth. Deep nesting reduces build method readability and increases the risk of layout overflow errors at runtime. {v6}
+      avoid_deprecated_animated_list_typedefs: true  # [WARNING] AnimatedListItemBuilder and AnimatedListRemovedItemBuilder were deprecated in Flutter 3.7 (PR #113131). Use AnimatedItemBuilder and AnimatedRemovedItemBuilder instead — the signatures are identical, only the names changed for broader applicability. {v1}
       avoid_deprecated_expires_getter: true  # [WARNING] Deprecated.expires was removed in Dart 3.0.0. Use Deprecated.message instead. {v1}
+      avoid_deprecated_file_system_delete_event_is_directory: true  # [WARNING] FileSystemDeleteEvent.isDirectory was deprecated in Dart 3.4 because it always returns false. The underlying OS event does not reliably report whether the deleted path was a directory. Remove the check or verify the path type before deletion. {v1}
       avoid_deprecated_flutter_test_window: true  # [WARNING] TestWindow and TestWidgetsFlutterBinding.window were deprecated in Flutter 3.10 (PR #122824) for upcoming multi-window support. Use WidgetTester.platformDispatcher (or TestPlatformDispatcher) for platform-specific test values and WidgetTester.view / WidgetTester.viewOf for view-specific values instead of the combined TestWindow API. {v1}
       avoid_deprecated_has_next_iterator: true  # [WARNING] HasNextIterator is deprecated (Dart 3.0, dart:collection). Use Iterator.moveNext/current instead of this legacy adapter. {v1}
       avoid_deprecated_list_constructor: true  # [WARNING] The unnamed List() constructor was removed in Dart 3.0.0 (it was not null-safe). Use a list literal ([] or <T>[]) for an empty list, or List.filled / List.generate when you need a length. {v1}
       avoid_deprecated_network_interface_list_supported: true  # [WARNING] NetworkInterface.listSupported is deprecated (dart:io). It has always been true since Dart 2.3; remove the check or use true. {v1}
+      avoid_deprecated_on_surface_destroyed: true  # [WARNING] SurfaceProducer.onSurfaceDestroyed was deprecated in Flutter 3.29 (PR #160937). Use onSurfaceCleanup instead — the new name better reflects the callback semantics (cleanup before teardown, not notification after destruction). {v1}
       avoid_deprecated_usage: true  # [WARNING] Using a deprecated API from another package. Migrate to the replacement API. No migration guidance provided.
+      avoid_deprecated_use_material3_copy_with: true  # [WARNING] The useMaterial3 parameter in ThemeData.copyWith() was deprecated in Flutter 3.16 (PR #131455). Setting useMaterial3 in copyWith() does not force Material 2 — it must be set in the ThemeData() constructor directly. Remove the parameter from copyWith() to avoid misleading behavior. {v1}
       avoid_double_slash_imports: true  # [WARNING] Import path contains double slashes. Double slashes in import paths cause resolution failures on some platforms and may silently import the wrong file, leading to runtime errors or missing symbols. {v5}
       avoid_double_tap_submit: true  # [WARNING] Submit button without double-tap protection can fire the onPressed callback multiple times before the first submission completes. This causes duplicate API requests, duplicate database entries, double charges in payment flows, and race conditions that corrupt application state. {v4}
       avoid_duplicate_exports: true  # [WARNING] File is exported multiple times. Duplicate exports increase compilation time, confuse IDE auto-imports, and may cause unexpected symbol visibility when show/hide combinators differ between duplicates. {v5}
@@ -570,8 +574,10 @@ plugins:
       avoid_removed_fall_through_error: true  # [WARNING] FallThroughError was removed in Dart 3.0.0; invalid switch fall-through is a compile-time error. Remove dead references to this type. {v1}
       avoid_removed_max_user_tags_constant: true  # [WARNING] UserTag.MAX_USER_TAGS was removed in Dart 3.0.0. Use UserTag.maxUserTags instead. {v1}
       avoid_removed_nosuchmethoderror_default_constructor: true  # [WARNING] The default NoSuchMethodError() constructor was removed in Dart 3.0.0. Use NoSuchMethodError.withInvocation instead. {v1}
+      avoid_removed_null_thrown_error: true  # [WARNING] NullThrownError was removed in Dart 3.0.0. In null-safe Dart, throw-null produces a TypeError instead (null cannot be cast from dynamic to Object). Use TypeError for catch clauses and type checks. {v1}
       avoid_removed_provisional_annotation: true  # [WARNING] The @Provisional annotation was removed in Dart 3.0.0. Remove it. {v1}
       avoid_removed_proxy_annotation: true  # [WARNING] The @proxy annotation was removed in Dart 3.0.0; it had no effect in Dart 2. Remove it. {v1}
+      avoid_removed_render_object_element_methods: true  # [WARNING] insertChildRenderObject, moveChildRenderObject, and removeChildRenderObject were removed from RenderObjectElement in Flutter 3.0 (PR #98616, deprecated since Flutter 1.21). Use insertRenderObjectChild, moveRenderObjectChild, and removeRenderObjectChild instead. Migration is supported by `dart fix`. {v1}
       avoid_returning_null_for_future: true  # [INFO] Returning null from a synchronous function declared to return Future<T> where T is non-nullable causes a runtime null error when the future is awaited. Use Future.value() to wrap the default, or make the function async to let Dart handle the future wrapping automatically. {v1}
       avoid_returning_null_for_void: true  # [INFO] Returning null from a void function is redundant and misleading. Void functions should either use a bare return statement or simply let execution fall through. An explicit return null suggests the caller expects a value, which contradicts the void return type and confuses readers. {v1}
       avoid_scaffold_messenger_after_await: true  # [WARNING] Using ScaffoldMessenger.of(context) after await may use an invalid context. This violates the widget lifecycle, risking setState-after-dispose errors or silent state corruption. {v8}
@@ -592,7 +598,7 @@ plugins:
       avoid_state_constructors: true  # [WARNING] State class must not have a constructor body. Constructor logic runs before the framework initializes the State object, risking errors that bypass the widget lifecycle contract. {v4}
       avoid_stateful_test_setup: true  # [WARNING] setUp must not mutate shared state. Shared mutable state can cause test pollution. This weakens test quality, making failures harder to diagnose and reducing confidence in the test suite. {v4}
       avoid_stateless_widget_initialized_fields: true  # [WARNING] StatelessWidget must not have initialized fields. This violates the widget lifecycle, risking setState-after-dispose errors or silent state corruption. {v4}
-      avoid_stream_subscription_in_field: true  # [WARNING] If a StreamSubscription is stored as a field in a State class but not properly canceled in dispose(), the subscription will continue to receive events even after the widget is removed from the widget tree. This can cause memory leaks, unexpected UI updates, and subtle bugs, especially in dynamic lists or navigation flows where widgets are frequently created and destroyed. Always cancel subscriptions in the correct State object’s dispose() method. See https://docs.flutter.dev/perf/memory#dispose-resources. {v4}
+      avoid_stream_subscription_in_field: true  # [WARNING] Calling .listen() on a Stream without capturing the returned StreamSubscription makes it impossible to cancel the subscription later. This leads to memory leaks, unexpected callbacks after disposal, and subtle bugs in widgets that are frequently created and destroyed. The uncaptured subscription will continue receiving events indefinitely, even after the widget is removed from the tree. Always assign the StreamSubscription to a variable so it can be canceled in dispose(). See https://docs.flutter.dev/perf/memory#dispose-resources. {v4}
       avoid_stream_tostring: true  # [WARNING] Calling toString() on a Stream returns only the type name (e.g., 'Instance of Stream'), not the actual stream data. This leads to data loss and can mislead developers or users expecting meaningful output. {v5}
       avoid_string_concatenation_for_l10n: true  # [WARNING] String concatenation may break word order in other languages. HEURISTIC: String concatenation breaks word order in RTL languages and languages with different grammatical structures. {v2}
       avoid_string_concatenation_l10n: true  # [WARNING] String concatenation in UI breaks word order for translations. {v2}
