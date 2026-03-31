@@ -63,6 +63,7 @@ Every connection between these components has broken, repeatedly, in different w
 | **VS Code: removed duplicate Quick Actions from Database tree** — The "Quick Actions" collapsible group in the Database Explorer duplicated every command already shown in the separate "Drift Tools" panel (Schema Diff, Health Score, Seed Data, ER Diagram, SQL Notebook, etc.). Removed `QuickActionsGroupItem`, `ActionCategoryItem`, and `getQuickActionCategories()` from the tree provider. Tool commands now appear exclusively in the Drift Tools panel — one canonical location instead of two. | Extension |
 | **VS Code: Query Cost Analysis command failed to register** — `explain-panel.ts` and `explain-html.ts` used `import { IndexSuggestion }` (value import) for a type-only re-export from `api-client.ts` (`export type * from './api-types'`). At runtime the CommonJS `require()` could not resolve the erased symbol, crashing the entire import chain for the queryCost command module. The activation warning toast "failed to register command modules: queryCost..." was the only symptom. Fixed: changed to `import type { IndexSuggestion }` (and `import type { IExplainNode }` in `explain-html.ts`), which is erased at compile time. | Extension |
 | **Dart server: web UI CSS/JS blocked by browser MIME mismatch** — The ancestor-walk fallback in `_discoverPackageRootPathFromAncestorWalk()` required both `lib/saropa_drift_advisor.dart` AND `assets/web/style.css` to exist in the same candidate directory. When the example app ran from `example/` via path dependency, the walk from `Directory.current` never reached the package root, so the server served 404 with `Content-Type: text/plain` for every asset request. Browsers with `X-Content-Type-Options: nosniff` blocked the response. Fixed: relaxed the sentinel to only require the barrel file `lib/saropa_drift_advisor.dart`, which is always present in the package root. | Dart server |
+| **Dart server: _sendWebAsset sent 200+text/plain on file-read failure** — When `readAsString()` threw inside `_sendWebAsset`, the catch block swallowed the error but the response was already committed as HTTP 200 with default `text/plain` content type. Browsers blocked the response due to MIME mismatch, and the `onerror` CDN fallback never fired (browsers ignore onerror on 200 responses). Fixed: file content is read into a local variable before committing any response headers; any failure produces a clean 404. Also, `_resolvePackageRootPath` now probes for `assets/web/style.css` at the `Isolate.resolvePackageUri` candidate before accepting it — if assets are absent (pub cache), the ancestor walk runs instead. | Dart server |
 
 ### [2.11.0]
 
@@ -333,6 +334,7 @@ The connection system now has:
 - Offline schema cache fallback
 - CDN fallback for missing assets
 - Single-sentinel ancestor walk for package-root resolution (barrel file only, relaxed from dual-sentinel after 2.10.0 removed embedded asset strings)
+- Asset probe on `Isolate.resolvePackageUri` candidate — rejects pub-cache paths missing `assets/web/`, falls through to ancestor walk
 
 Each layer was added to fix a specific failure. Together they form a complex, fragile stack where it is hard to reason about what happens when two or more things go wrong simultaneously.
 
@@ -391,5 +393,5 @@ None of them cover the full picture. This document is the first attempt to do so
 - **9 entries** for race conditions / timeouts / webview lifecycle
 - **6 entries** for health checks / status bar indicators
 - **5 entries** for polling / long-poll / change detection
-- **2 entries** for MIME type / asset resolution
+- **3 entries** for MIME type / asset resolution
 - Connection fixes appear in **every single minor release** from 1.1.0 onward

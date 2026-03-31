@@ -1,10 +1,19 @@
 // Unit tests for GenerationHandler — generation polling and web asset paths.
 //
-// Covers getCurrentGeneration with a minimal ServerContext, and a smoke test
-// for sendWebStyle: on Flutter mobile, UnsupportedError from package URI
-// resolution must not surface through onError (regression guard when run on
-// device); on the Dart VM, behavior is unchanged (serve or 404 without errors).
+// Covers getCurrentGeneration with a minimal ServerContext, and smoke tests
+// for sendWebStyle / sendWebApp: on Flutter mobile, UnsupportedError from
+// package URI resolution must not surface through onError (regression guard
+// when run on device); on the Dart VM, behavior is unchanged (serve or 404
+// without errors).
+//
+// The MIME-type contract tests enforce that a 200 always carries the correct
+// Content-Type (text/css or application/javascript) — never the default
+// text/plain that browsers block via X-Content-Type-Options: nosniff. A 404
+// is also acceptable (triggers CDN onerror fallback). Before the fix in
+// _sendWebAsset, a file-read failure would produce 200 + text/plain, which
+// silently broke the web UI with no onerror fallback.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:saropa_drift_advisor/src/server/generation_handler.dart';
@@ -100,6 +109,93 @@ void main() {
           // as an application error (see UnsupportedError handling).
           expect(response.statusCode, anyOf(200, 404));
           expect(errors, isEmpty);
+        } finally {
+          client.close(force: true);
+          await server.close(force: true);
+        }
+      });
+
+      test('200 response has text/css content-type, never text/plain',
+          () async {
+        // Regression: before the _sendWebAsset fix, a file-read failure
+        // produced HTTP 200 with default text/plain (no content-type set),
+        // which browsers blocked via X-Content-Type-Options: nosniff.
+        // The CDN onerror fallback never fired because onerror ignores 200s.
+        final ctx = createTestContext();
+        final handler = GenerationHandler(ctx);
+
+        final server = await HttpServer.bind('127.0.0.1', 0);
+        server.listen((HttpRequest request) async {
+          await handler.sendWebStyle(request.response);
+        });
+
+        final client = HttpClient();
+        try {
+          final request = await client.getUrl(
+            Uri.parse('http://127.0.0.1:${server.port}/assets/web/style.css'),
+          );
+          final response = await request.close().timeout(
+            const Duration(seconds: 10),
+          );
+
+          if (response.statusCode == 200) {
+            // On VM/desktop where the file is found: MIME must be text/css.
+            final ct = response.headers.contentType;
+            expect(ct, isNotNull, reason: 'Content-Type header must be set');
+            expect(
+              ct!.mimeType,
+              'text/css',
+              reason: 'CSS must be served as text/css, not text/plain',
+            );
+            // Body must contain actual CSS, not an error string.
+            final body = await response.transform(utf8.decoder).join();
+            expect(body, isNotEmpty, reason: 'CSS body must not be empty');
+          } else {
+            // 404 is acceptable (CDN fallback fires via onerror).
+            expect(response.statusCode, 404);
+          }
+        } finally {
+          client.close(force: true);
+          await server.close(force: true);
+        }
+      });
+    });
+
+    group('sendWebApp', () {
+      test('200 response has application/javascript content-type', () async {
+        // Same MIME-type contract as sendWebStyle: a 200 must carry the
+        // correct Content-Type so browsers do not block the script.
+        final ctx = createTestContext();
+        final handler = GenerationHandler(ctx);
+
+        final server = await HttpServer.bind('127.0.0.1', 0);
+        server.listen((HttpRequest request) async {
+          await handler.sendWebApp(request.response);
+        });
+
+        final client = HttpClient();
+        try {
+          final request = await client.getUrl(
+            Uri.parse('http://127.0.0.1:${server.port}/assets/web/app.js'),
+          );
+          final response = await request.close().timeout(
+            const Duration(seconds: 10),
+          );
+
+          if (response.statusCode == 200) {
+            final ct = response.headers.contentType;
+            expect(ct, isNotNull, reason: 'Content-Type header must be set');
+            expect(
+              ct!.mimeType,
+              'application/javascript',
+              reason: 'JS must be served as application/javascript, '
+                  'not text/plain',
+            );
+            final body = await response.transform(utf8.decoder).join();
+            expect(body, isNotEmpty, reason: 'JS body must not be empty');
+          } else {
+            expect(response.statusCode, 404);
+          }
         } finally {
           client.close(force: true);
           await server.close(force: true);

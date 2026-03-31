@@ -15,7 +15,9 @@
 // Asset resolution order:
 //   1. [Isolate.resolvePackageUri] → `lib/` parent → package root (Dart VM /
 //      desktop). Unimplemented on Flutter iOS/Android (throws [UnsupportedError]
-//      from underlying package URI sync resolution).
+//      from underlying package URI sync resolution). The resolved root is
+//      validated by probing for `assets/web/style.css` — if absent (e.g. pub
+//      cache contains only `lib/`), this candidate is skipped.
 //   2. Ancestor walk from [Directory.current] (flutter test / CI / device cwd).
 //
 // The resolved path is cached so repeated asset requests do not re-resolve.
@@ -133,38 +135,51 @@ final class GenerationHandler {
 
   /// Serves a web UI asset from the resolved package root.
   ///
-  /// On failure (no package root or missing file), sends 404 so the browser
-  /// can load version-pinned assets from jsDelivr instead of shipping
-  /// duplicate content inside consumer app binaries.
+  /// On failure (no package root, missing file, or read error), sends 404
+  /// so the browser `onerror` handler can load version-pinned assets from
+  /// jsDelivr instead of shipping duplicate content inside consumer app
+  /// binaries.
+  ///
+  /// The file is read into memory **before** any response headers are
+  /// committed. This guarantees that a read failure produces a clean 404
+  /// (not a 200 with default `text/plain`), which is required for the CDN
+  /// fallback `onerror` to fire — browsers do not trigger `onerror` on
+  /// HTTP 200 responses, even with an empty body or wrong MIME type.
   Future<void> _sendWebAsset({
     required HttpResponse response,
     required String relativePath,
     required ContentType contentType,
   }) async {
     // ── Try file-based serving first ──
+    // Read the file content before committing any response headers.
+    // If the read fails for any reason (permissions, encoding, missing
+    // package root), we fall through to the 404 path cleanly.
     final packageRoot = await _resolvePackageRootPath();
+    String? contents;
     if (packageRoot != null) {
       final file = File('$packageRoot/$relativePath');
-      if (await file.exists()) {
-        try {
-          // Read full text to avoid leaked file handles on stream interruption.
-          final contents = await file.readAsString();
-          response.headers.contentType = contentType;
-          response.write(contents);
-        } on Object catch (error, stack) {
-          // Mid-stream read or socket failures can occur
-          // after headers start sending; log and close so
-          // the client does not hang.
-          _ctx.logError(error, stack);
+      try {
+        if (await file.exists()) {
+          contents = await file.readAsString();
         }
-        try {
-          await response.close();
-        } on Object catch (error, stack) {
-          // Ignore close races, but keep telemetry for diagnostics.
-          _ctx.logError(error, stack);
-        }
-        return;
+      } on Object catch (error, stack) {
+        // File exists but could not be read (permissions, encoding, I/O).
+        // Log and fall through to 404 so the CDN onerror fallback fires.
+        _ctx.logError(error, stack);
       }
+    }
+
+    // ── Successfully read: serve with the correct MIME type ──
+    if (contents != null) {
+      response.headers.contentType = contentType;
+      response.write(contents);
+      try {
+        await response.close();
+      } on Object catch (error, stack) {
+        // Socket / close races after headers sent; log but nothing to do.
+        _ctx.logError(error, stack);
+      }
+      return;
     }
 
     // ── No on-disk asset: let the HTML shell's onerror switch to jsDelivr ──
@@ -176,11 +191,15 @@ final class GenerationHandler {
 
   /// Resolves the local package root once and reuses it for asset serving.
   ///
-  /// Prefer [Isolate.resolvePackageUri] for the public library entrypoint, then
-  /// step from `lib/` to the package root. When that API is unavailable (for
-  /// example under `flutter test` or Flutter mobile, where package URI
-  /// resolution is unsupported), discover the root by walking ancestors of
-  /// [Directory.current] until both expected paths exist.
+  /// Resolution order:
+  ///   1. [Isolate.resolvePackageUri] → `lib/` parent → package root. This
+  ///      works on the Dart VM / Flutter desktop in debug mode. Throws
+  ///      [UnsupportedError] on Flutter iOS/Android embedders.
+  ///   2. If the resolved root does not contain `assets/web/style.css`, the
+  ///      path may point at the pub cache (which strips non-`lib` assets).
+  ///      Fall through to the ancestor walk instead.
+  ///   3. Ancestor walk from [Directory.current] (flutter test / CI / example
+  ///      apps running via path dependency).
   Future<String?> _resolvePackageRootPath() async {
     if (_packageRootLookupComplete) {
       return _resolvedPackageRootPath;
@@ -192,8 +211,17 @@ final class GenerationHandler {
         Uri.parse('package:saropa_drift_advisor/saropa_drift_advisor.dart'),
       );
       if (packageLibUri != null && packageLibUri.scheme == 'file') {
-        final libFile = File.fromUri(packageLibUri);
-        root = libFile.parent.parent.path;
+        final candidate = File.fromUri(packageLibUri).parent.parent.path;
+
+        // Verify the resolved root actually contains the web assets.
+        // Isolate.resolvePackageUri can resolve to the pub cache where
+        // only lib/ is guaranteed to exist — assets/ may be absent.
+        // When that happens, skip this candidate so the ancestor walk
+        // can find the local source tree (which does have the assets).
+        final assetProbe = File('$candidate/assets/web/style.css');
+        if (await assetProbe.exists()) {
+          root = candidate;
+        }
       }
     } on UnsupportedError {
       // Expected on Flutter iOS/Android: embedders do not resolve package: URIs
