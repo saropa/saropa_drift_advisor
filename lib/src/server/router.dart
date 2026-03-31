@@ -792,9 +792,7 @@ final class Router {
   /// Uses [ServerContext.queryRaw] so introspection
   /// queries are not recorded in [queryTimings].
   Future<List<Map<String, dynamic>>> getIndexSuggestionsList() async {
-    final result = await _analytics.getIndexSuggestionsList(
-      _ctx.queryRaw,
-    );
+    final result = await _analytics.getIndexSuggestionsList(_ctx.queryRaw);
     final list = result['suggestions'];
     return list is List<Map<String, dynamic>> ? list : <Map<String, dynamic>>[];
   }

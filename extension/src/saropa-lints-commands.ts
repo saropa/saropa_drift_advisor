@@ -16,7 +16,7 @@ async function runSaropaLintsScan(): Promise<void> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
     void vscode.window.showWarningMessage(
-      'Run Saropa Lints: Open a workspace folder first.',
+      'To run Saropa Lints you must open a valid workspace folder first.',
     );
     return;
   }

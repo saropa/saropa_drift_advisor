@@ -162,19 +162,27 @@ def _run_ext_dev_checks(
         if not run_step("VS Code extensions", check_vscode_extensions, results):
             return False
 
-    heading("Step 4 \u00b7 Working Tree")
-    # analyze / --analyze-only must not show "publish will push" copy in checks_git.
-    will_publish = not getattr(args, "analyze_only", False)
-    if not run_step(
-        "Working tree",
-        lambda: check_working_tree(will_publish=will_publish),
-        results,
-    ):
-        return False
+    # When running the "all" target the Dart leg already checked the working
+    # tree and remote sync, so skip these to avoid a duplicate prompt.
+    if getattr(args, "_skip_git_state", False):
+        heading("Step 4 \u00b7 Working Tree (already checked)")
+        ok("Checked during Dart analysis")
+        heading("Step 5 \u00b7 Remote Sync (already checked)")
+        ok("Checked during Dart analysis")
+    else:
+        heading("Step 4 \u00b7 Working Tree")
+        # analyze / --analyze-only must not show "publish will push" copy.
+        will_publish = not getattr(args, "analyze_only", False)
+        if not run_step(
+            "Working tree",
+            lambda: check_working_tree(will_publish=will_publish),
+            results,
+        ):
+            return False
 
-    heading("Step 5 \u00b7 Remote Sync")
-    if not run_step("Remote sync", check_remote_sync, results):
-        return False
+        heading("Step 5 \u00b7 Remote Sync")
+        if not run_step("Remote sync", check_remote_sync, results):
+            return False
 
     heading("Step 6 \u00b7 Dependencies")
     if not run_step("Dependencies", ensure_dependencies, results):

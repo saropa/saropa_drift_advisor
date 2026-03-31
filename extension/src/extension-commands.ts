@@ -240,7 +240,7 @@ export function registerAllCommands(
   // working command to open.
   if (failedModules.length > 0) {
     void vscode.window.showWarningMessage(
-      `Saropa Drift Advisor: failed to register command modules: ${failedModules.join(', ')}. `
+      `Failed to register command modules: ${failedModules.join(', ')}. `
         + 'Check Output → Saropa Drift Advisor for details.',
     );
   }

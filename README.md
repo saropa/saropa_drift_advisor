@@ -1,4 +1,4 @@
-![Saropa Drift Advisor - SQLite/Drift](https://raw.githubusercontent.com/saropa/saropa_drift_advisor/main/assets/banner_v2.png)
+![Saropa Drift Advisor - SQLite/Drift](https://raw.githubusercontent.com/saropa/saropa_drift_advisor/main/assets/banner_v3.png)
 
 # Saropa Drift Advisor
 
@@ -10,19 +10,19 @@
 
 **Saropa Drift Advisor** is a **debug-only** toolkit for SQLite and [Drift](https://drift.simonbinder.eu/) in Flutter and Dart. Your app hosts a small **HTTP debug server**; you inspect the same database through a **full browser UI** or the **VS Code / Cursor extension**—same REST API, same live data. Beyond browsing: SQL notebooks and EXPLAIN trees, ER diagrams and schema diff, migration preview and rollback codegen, anomaly and index tooling, optional imports/edits with **batch apply**, **VM Service** integration while debugging, merged **`/api/issues`** for linters, pre-launch health tasks, portable HTML reports, and shareable **session URLs**. None of it ships in release builds if you gate on `kDebugMode`. For a **single table** that maps every major capability, see **[Scope at a glance](#scope-at-a-glance)** under [Features](#features).
 
-| | |
-| --- | --- |
-| **One dependency in the app** | Start the server behind `kDebugMode`; the Dart package has **zero third-party runtime dependencies**. |
-| **Two clients** | Open **`http://127.0.0.1:8642`** from any browser, or use the extension for tree views, SQL notebooks, and navigation into your Drift source. |
-| **Built for real workflows** | Optional **Bearer / Basic auth** for tunnels, **rate limits**, **import/export**, **portable HTML reports**, and IDE features that understand your `Table` classes—including **offline** schema scan from `.dart` files. |
+|                               |                                                                                                                                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **One dependency in the app** | Start the server behind `kDebugMode`; the Dart package has **zero third-party runtime dependencies**.                                                                                                                    |
+| **Two clients**               | Open **`http://127.0.0.1:8642`** from any browser, or use the extension for tree views, SQL notebooks, and navigation into your Drift source.                                                                            |
+| **Built for real workflows**  | Optional **Bearer / Basic auth** for tunnels, **rate limits**, **import/export**, **portable HTML reports**, and IDE features that understand your `Table` classes—including **offline** schema scan from `.dart` files. |
 
 ### Install at a glance
 
-| What | Where |
-| --- | --- |
-| **Dart / Flutter package** | [`saropa_drift_advisor` on pub.dev](https://pub.dev/packages/saropa_drift_advisor) — add to `pubspec.yaml`, call `startDriftViewer` or `DriftDebugServer.start` (see [Quick start](#quick-start)). |
-| **VS Code / Cursor** | [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer) · [Open VSX](https://open-vsx.org/extension/saropa/drift-viewer) — Marketplace id `saropa.drift-viewer` ([why that id?](#vs-code-extension-separate-install)). |
-| **REST API** | [doc/API.md](doc/API.md) — endpoints, schemas, errors, examples (for custom tools or automation). |
+| What                       | Where                                                                                                                                                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dart / Flutter package** | [`saropa_drift_advisor` on pub.dev](https://pub.dev/packages/saropa_drift_advisor) — add to `pubspec.yaml`, call `startDriftViewer` or `DriftDebugServer.start` (see [Quick start](#quick-start)).                                                                  |
+| **VS Code / Cursor**       | [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer) · [Open VSX](https://open-vsx.org/extension/saropa/drift-viewer) — Marketplace id `saropa.drift-viewer` ([why that id?](#vs-code-extension-separate-install)). |
+| **REST API**               | [doc/API.md](doc/API.md) — endpoints, schemas, errors, examples (for custom tools or automation).                                                                                                                                                                   |
 
 ### Why teams use it
 
@@ -55,11 +55,11 @@ Your app runs a lightweight debug server that exposes database tables over HTTP.
 
 You usually inspect data in either a **browser** or the **extension**; both are first-class.
 
-| | Browser | VS Code Extension |
-|---|---|---|
-| **Install** | None — open `localhost:8642` | Install from Marketplace |
-| **Works with** | Any editor, CI, QA, mobile | VS Code / Cursor |
-| **Best for** | Quick look, sharing URLs | Daily development workflow |
+|                | Browser                      | VS Code Extension          |
+| -------------- | ---------------------------- | -------------------------- |
+| **Install**    | None — open `localhost:8642` | Install from Marketplace   |
+| **Works with** | Any editor, CI, QA, mobile   | VS Code / Cursor           |
+| **Best for**   | Quick look, sharing URLs     | Daily development workflow |
 
 ---
 
@@ -71,18 +71,18 @@ The subsections below are the **full feature inventory** (browser UI, REST API, 
 
 ### Scope at a glance
 
-| Job to be done | What you use |
-| --- | --- |
-| **Browse & search** | Multi-table tabs, collapsible sidebar (header **Sidebar** can hide the whole left column for full-width content), pinned tables, row filters, match navigation, FK breadcrumbs, human-readable types, NULL display, cell copy / full-value popup, optional **PII masking**. |
-| **Query** | Read-only SQL with autocomplete, templates, history, saved queries; **visual query builder**; **Ask in English → SQL** (browser); **SQL Notebook**, snippets, global search, EXPLAIN tree (extension). |
-| **Visualize & sanity-check** | Inline **charts** from results; **anomaly** scan; **Index / Size / Perf / Health** tooling in the browser; **column profiler**, **sampling**, **row comparator**, **query regression** detector (extension). |
-| **Schema & migrations** | Live **schema SQL**, **ER diagram** (browser + extension); **schema diff**, **generate Dart from runtime**, **Isar → Drift**, **migration preview & codegen**, **rollback generator**, **constraint wizard**, **schema docs** (extension); **offline Dart schema scan** and **Schema Search** (including cached/offline tree). |
-| **Time travel & compare** | **Snapshots** vs current; **database vs database** diff and migration DDL; timeline snapshots and changelog (extension). |
-| **Collaborate & hand off** | **Share session** URLs (annotations, expiry, extend); **portable HTML reports**; dumps, CSV, raw `.db` download. |
-| **Optional writes** | **Import** (CSV/JSON/SQL) with column mapping; **data editing** with undo, SQL preview, **FK-aware batch apply** (`writeQuery`, **`POST /api/edits/apply`**); **seeding** and **clear** helpers (extension). |
-| **Connect & automate** | Same data over **HTTP** ([doc/API.md](doc/API.md)) and, while debugging, **VM Service** RPCs (lighter discovery, batch apply, health parity). **`GET /api/health`** exposes **version**, **capabilities** (e.g. merged issues), and write flags; **`GET /api/issues`** feeds IDE integrations (**Saropa Lints**). |
-| **Harden debug access** | **Bearer / Basic** auth, **CORS**, **rate limits**, **loopback-only** bind, session TTL—see [Security](#security). |
-| **CI / launch hygiene** | Extension **pre-launch tasks**: health, anomaly scan, index coverage; **Log Capture** bridge for session timelines. |
+| Job to be done               | What you use                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Browse & search**          | Multi-table tabs, collapsible sidebar (header **Sidebar** can hide the whole left column for full-width content), pinned tables, row filters, match navigation, FK breadcrumbs, human-readable types, NULL display, cell copy / full-value popup, optional **PII masking**.                                                    |
+| **Query**                    | Read-only SQL with autocomplete, templates, history, saved queries; **visual query builder**; **Ask in English → SQL** (browser); **SQL Notebook**, snippets, global search, EXPLAIN tree (extension).                                                                                                                         |
+| **Visualize & sanity-check** | Inline **charts** from results; **anomaly** scan; **Index / Size / Perf / Health** tooling in the browser; **column profiler**, **sampling**, **row comparator**, **query regression** detector (extension).                                                                                                                   |
+| **Schema & migrations**      | Live **schema SQL**, **ER diagram** (browser + extension); **schema diff**, **generate Dart from runtime**, **Isar → Drift**, **migration preview & codegen**, **rollback generator**, **constraint wizard**, **schema docs** (extension); **offline Dart schema scan** and **Schema Search** (including cached/offline tree). |
+| **Time travel & compare**    | **Snapshots** vs current; **database vs database** diff and migration DDL; timeline snapshots and changelog (extension).                                                                                                                                                                                                       |
+| **Collaborate & hand off**   | **Share session** URLs (annotations, expiry, extend); **portable HTML reports**; dumps, CSV, raw `.db` download.                                                                                                                                                                                                               |
+| **Optional writes**          | **Import** (CSV/JSON/SQL) with column mapping; **data editing** with undo, SQL preview, **FK-aware batch apply** (`writeQuery`, **`POST /api/edits/apply`**); **seeding** and **clear** helpers (extension).                                                                                                                   |
+| **Connect & automate**       | Same data over **HTTP** ([doc/API.md](doc/API.md)) and, while debugging, **VM Service** RPCs (lighter discovery, batch apply, health parity). **`GET /api/health`** exposes **version**, **capabilities** (e.g. merged issues), and write flags; **`GET /api/issues`** feeds IDE integrations (**Saropa Lints**).              |
+| **Harden debug access**      | **Bearer / Basic** auth, **CORS**, **rate limits**, **loopback-only** bind, session TTL—see [Security](#security).                                                                                                                                                                                                             |
+| **CI / launch hygiene**      | Extension **pre-launch tasks**: health, anomaly scan, index coverage; **Log Capture** bridge for session timelines.                                                                                                                                                                                                            |
 
 ### HTTP Debug Server (core)
 
@@ -267,7 +267,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 ```yaml
 # pubspec.yaml
 dependencies:
-  saropa_drift_advisor: ^2.9.0   # use the latest compatible release from pub.dev
+  saropa_drift_advisor: ^2.9.0 # use the latest compatible release from pub.dev
 ```
 
 **Path dependency (local or monorepo):**
@@ -351,20 +351,20 @@ Use the **VS Code extension** (recommended) or open **http://127.0.0.1:8642** in
 
 ### Common parameters
 
-| Parameter                                     | Description                                                                  |
-| --------------------------------------------- | ---------------------------------------------------------------------------- |
-| **`enabled`**                                 | Typically `kDebugMode`. If `false`, server is not started.                   |
-| **`port`**                                    | Default `8642`.                                                              |
-| **`loopbackOnly`**                            | Bind to loopback only (default `false`).                                     |
-| **`corsOrigin`**                              | CORS header: `'*'`, specific origin, or `null` to disable.                   |
-| **`authToken`**                               | Optional; requests require Bearer token or `?token=`. Use for tunnels.       |
-| **`basicAuthUser`** / **`basicAuthPassword`** | Optional; HTTP Basic auth when both set.                                     |
-| **`getDatabaseBytes`**                        | Optional; when set, `GET /api/database` serves raw SQLite file for download. |
+| Parameter                                     | Description                                                                                                          |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **`enabled`**                                 | Typically `kDebugMode`. If `false`, server is not started.                                                           |
+| **`port`**                                    | Default `8642`.                                                                                                      |
+| **`loopbackOnly`**                            | Bind to loopback only (default `false`).                                                                             |
+| **`corsOrigin`**                              | CORS header: `'*'`, specific origin, or `null` to disable.                                                           |
+| **`authToken`**                               | Optional; requests require Bearer token or `?token=`. Use for tunnels.                                               |
+| **`basicAuthUser`** / **`basicAuthPassword`** | Optional; HTTP Basic auth when both set.                                                                             |
+| **`getDatabaseBytes`**                        | Optional; when set, `GET /api/database` serves raw SQLite file for download.                                         |
 | **`writeQuery`**                              | Optional; enables **import**, cell edits, **`POST /api/edits/apply`**, and related write paths (validated SQL only). |
-| **`queryCompare`**                            | Optional; enables database diff vs another DB (e.g. staging).                |
-| **`sessionDuration`**                         | Optional; expiry for shared session URLs (default 1 hour).                   |
-| **`maxRequestsPerSecond`**                     | Optional; per-IP rate limiting; 429 when exceeded.                         |
-| **`onLog`**, **`onError`**                    | Optional; for your logger or `debugPrint` / `print`.                         |
+| **`queryCompare`**                            | Optional; enables database diff vs another DB (e.g. staging).                                                        |
+| **`sessionDuration`**                         | Optional; expiry for shared session URLs (default 1 hour).                                                           |
+| **`maxRequestsPerSecond`**                    | Optional; per-IP rate limiting; 429 when exceeded.                                                                   |
+| **`onLog`**, **`onError`**                    | Optional; for your logger or `debugPrint` / `print`.                                                                 |
 
 - Only one server per process; calling `start` again when running is a no-op. Use **`DriftDebugServer.stop()`** to shut down and restart (e.g. tests or graceful shutdown).
 - **Health:** `GET /api/health` → `{"ok": true, "version": "<package semver>", …}` (and optional `writeEnabled`, `capabilities`, etc.).
@@ -396,14 +396,14 @@ With token auth, open `https://your-tunnel.example/?token=your-secret-token`; th
 
 ## Documentation and resources
 
-| Resource | Description |
-| --- | --- |
-| **[doc/API.md](doc/API.md)** | REST endpoints, request/response shapes, and error codes for the debug server. |
-| **[extension/README.md](extension/README.md)** | Extension commands, **25+** `driftViewer.*` settings, keyboard shortcuts, and troubleshooting. |
-| **[example/README.md](example/README.md)** | Runnable sample app (multi-table schema, FKs, optional auth). |
-| **[pub.dev documentation](https://pub.dev/documentation/saropa_drift_advisor/latest/)** | Generated Dart API docs for the package. |
-| **[CHANGELOG.md](CHANGELOG.md)** | Release notes (this README is aligned with **2.10.0**; older entries in [CHANGELOG_ARCHIVE.md](CHANGELOG_ARCHIVE.md)). |
-| **[Issues](https://github.com/saropa/saropa_drift_advisor/issues)** | Bug reports and feature requests. |
+| Resource                                                                                | Description                                                                                                            |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **[doc/API.md](doc/API.md)**                                                            | REST endpoints, request/response shapes, and error codes for the debug server.                                         |
+| **[extension/README.md](extension/README.md)**                                          | Extension commands, **25+** `driftViewer.*` settings, keyboard shortcuts, and troubleshooting.                         |
+| **[example/README.md](example/README.md)**                                              | Runnable sample app (multi-table schema, FKs, optional auth).                                                          |
+| **[pub.dev documentation](https://pub.dev/documentation/saropa_drift_advisor/latest/)** | Generated Dart API docs for the package.                                                                               |
+| **[CHANGELOG.md](CHANGELOG.md)**                                                        | Release notes (this README is aligned with **2.10.0**; older entries in [CHANGELOG_ARCHIVE.md](CHANGELOG_ARCHIVE.md)). |
+| **[Issues](https://github.com/saropa/saropa_drift_advisor/issues)**                     | Bug reports and feature requests.                                                                                      |
 
 ---
 

@@ -32,8 +32,7 @@ browse source on
 
 ---
 
-## [2.13.0]
-
+## [2.14.0]
 
 Stops internal analytics queries from showing up as false-positive slow-query warnings, and hardens web UI asset loading with in-memory caching, multi-CDN fallback, and proper error handling when the package root can't find assets. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.13.0/CHANGELOG.md)
 
@@ -52,9 +51,10 @@ Stops internal analytics queries from showing up as false-positive slow-query wa
 ### Added
 
 • **Resilient web UI asset loading** — Three layers of defense prevent the web UI from silently failing when CSS/JS cannot be loaded:
-  1. **In-memory asset cache** — `style.css` and `app.js` are read into memory once during package root resolution and served from cache on subsequent requests, eliminating per-request disk I/O.
-  2. **Multi-CDN fallback chain** — CSS and JS `onerror` handlers now try version-pinned jsDelivr (`@v{version}`), then `@main` (covers the window between publishing and git tag creation). All sources exhausted dispatches a `sda-asset-failed` custom event.
-  3. **Loading overlay with error state** — A self-contained overlay (inline styles, no CSS dependency) shows "Loading Drift Advisor..." until `app.js` hides it. If JS never loads, the overlay updates to a clear error message with instructions to check network and refresh.
+
+1. **In-memory asset cache** — `style.css` and `app.js` are read into memory once during package root resolution and served from cache on subsequent requests, eliminating per-request disk I/O.
+2. **Multi-CDN fallback chain** — CSS and JS `onerror` handlers now try version-pinned jsDelivr (`@v{version}`), then `@main` (covers the window between publishing and git tag creation). All sources exhausted dispatches a `sda-asset-failed` custom event.
+3. **Loading overlay with error state** — A self-contained overlay (inline styles, no CSS dependency) shows "Loading Drift Advisor..." until `app.js` hides it. If JS never loads, the overlay updates to a clear error message with instructions to check network and refresh.
 
 • **Web UI assets blocked by browser MIME mismatch** — When the debug server's file-read failed (e.g. package root resolved to pub cache without `assets/`), `_sendWebAsset` sent HTTP 200 with default `text/plain` content type instead of 404. Browsers with `X-Content-Type-Options: nosniff` blocked the CSS/JS, and because the response was 200, the `onerror` CDN fallback never fired — leaving the web viewer completely broken. Fixed: file content is now read before committing any response headers; any failure falls through to a clean 404. Additionally, `_resolvePackageRootPath` now validates that the resolved root actually contains web assets before accepting it — if `Isolate.resolvePackageUri` points to the pub cache (where `assets/` may be absent), the ancestor walk runs instead.
 

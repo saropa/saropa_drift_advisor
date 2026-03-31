@@ -102,52 +102,74 @@ def apply_bump(
 # ── User Prompts ──────────────────────────────────────────
 
 
-def _ask_version(current: str) -> str | None:
-    """Prompt user to confirm or override the version. Returns version or None."""
+def _ask_version(current: str, verb: str = "Publish as") -> str | None:
+    """Prompt user to confirm or override the version. Returns version or None.
+
+    The user can press Enter or type Y to accept the suggested version,
+    type N to decline, or type a custom x.y.z version to override.
+    Invalid input (bad format, unrecognised text) re-prompts instead of
+    aborting, so a typo doesn't force the user to restart the pipeline.
+    """
     if not sys.stdin.isatty():
         # Non-interactive (e.g. IDE terminal with no stdin): accept default
         return current
-    try:
-        answer = input(
-            f"  {C.YELLOW}Publish as v{current}? "
-            f"[Y/n/version]: {C.RESET}",
-        ).strip()
-    except (EOFError, KeyboardInterrupt):
-        print()
-        return None
-    if not answer or answer.lower() in ("y", "yes"):
-        return current
-    if answer.lower() in ("n", "no"):
-        return None
-    # Treat as a version string -- validate basic semver shape
-    if re.match(r'^\d+\.\d+\.\d+$', answer):
-        return answer
-    fail(f"Invalid version format: {answer} (expected x.y.z)")
-    return None
+
+    prompt = (
+        f"  {C.YELLOW}{verb} v{current}? "
+        f"[Enter/n/x.y.z]: {C.RESET}"
+    )
+    while True:
+        try:
+            answer = input(prompt).strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return None
+
+        # Enter or explicit yes → accept the suggested version
+        if not answer or answer.lower() in ("y", "yes"):
+            return current
+
+        # Explicit decline
+        if answer.lower() in ("n", "no"):
+            return None
+
+        # Treat as a version string — validate x.y.z shape
+        if re.match(r'^\d+\.\d+\.\d+$', answer):
+            return answer
+
+        # Anything else is invalid — warn and loop
+        warn(f"Invalid input: {answer}  (enter a version like x.y.z, or n to cancel)")
+
 
 
 def _offer_bump_and_apply(
     current: str,
     next_ver: str,
     fail_msg: str,
-    default_yes: bool = True,
     config: TargetConfig | None = None,
 ) -> tuple[str, bool]:
-    """Ask to bump; if yes, write version file and CHANGELOG, then report.
+    """Ask to update version; if accepted, write version file and CHANGELOG.
+
+    The user can press Enter to accept the suggested version, type 'n' to
+    decline, or type a custom x.y.z version to override.
+
+    Uses "Use" wording because the suggested version comes from the CHANGELOG
+    (written by the user), not from an auto-computed bump.
 
     Returns (version, ok).
     """
-    if not ask_yn(f"Bump to v{next_ver}?", default=default_yes):
+    confirmed = _ask_version(next_ver, verb="Use")
+    if confirmed is None:
         fail(fail_msg)
         return current, False
-    if not _write_version(next_ver, config):
+    if not _write_version(confirmed, config):
         return current, False
     label = _version_file_label(config)
-    fix(f"{label}: {current} -> {C.WHITE}{next_ver}{C.RESET}")
+    fix(f"{label}: {current} -> {C.WHITE}{confirmed}{C.RESET}")
     # Also update CHANGELOG heading if it has the old version
-    if not _update_changelog_version(current, next_ver, config):
+    if not _update_changelog_version(current, confirmed, config):
         return current, False
-    return next_ver, True
+    return confirmed, True
 
 
 # ── Version File Write ────────────────────────────────────
@@ -461,8 +483,10 @@ def _ensure_untagged_version(
         next_ver = _bump_version(version)
         warn(f"Tag '{prefix}{version}' already exists.")
 
-        # Combined prompt: resolve conflict + confirm in one question
-        confirmed = _ask_version(next_ver)
+        # Combined prompt: resolve conflict + confirm in one question.
+        # "Bump to" is correct here because next_ver is auto-computed
+        # (patch increment), not a version the user wrote in CHANGELOG.
+        confirmed = _ask_version(next_ver, verb="Bump to")
         if confirmed is None:
             fail("Version not confirmed.")
             return version, False, False
@@ -501,7 +525,7 @@ def _resolve_tagged_stale(
     if _changelog_has_unpublished_heading(config):
         pkg_version, bump_ok = _offer_bump_and_apply(
             pkg_version, next_ver,
-            "Version already tagged; bump to release changelog.",
+            "Version not confirmed.",
             config=config,
         )
         return pkg_version, (None if bump_ok else False), bump_ok
@@ -509,7 +533,7 @@ def _resolve_tagged_stale(
     # Already released: only sensible action is to bump to next version.
     pkg_version, bump_ok = _offer_bump_and_apply(
         pkg_version, next_ver,
-        f"Version already released. Bump to v{next_ver} to release next, or add changelog and re-run.",
+        "Version not confirmed. Add changelog entries and re-run.",
         config=config,
     )
     return pkg_version, (None if bump_ok else False), bump_ok
@@ -601,7 +625,7 @@ def validate_version_changelog(
             return pkg_version, False
 
     max_cl = _get_changelog_max_version(config)
-    # After a successful "Bump to vX?" we skip the redundant "Publish as vX?" prompt.
+    # After a successful "Use vX?" we skip the redundant "Publish as vX?" prompt.
     bump_prompt_confirmed_version = False
     if max_cl and _parse_semver(pkg_version) < _parse_semver(max_cl):
         pkg_version, result, bump_prompt_confirmed_version = _resolve_stale_version(

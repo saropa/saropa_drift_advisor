@@ -817,87 +817,99 @@ void main() {
     // causing phantom slow-query-pattern diagnostics.
     // -------------------------------------------------------
 
-    test('anomaly scan does not record queries in performance timings',
-        () async {
-      // 1. Clear any timings from earlier requests.
-      await httpDelete(port!, '/api/analytics/performance');
+    test(
+      'anomaly scan does not record queries in performance timings',
+      () async {
+        // 1. Clear any timings from earlier requests.
+        await httpDelete(port!, '/api/analytics/performance');
 
-      // 2. Run an anomaly scan — this issues many internal
-      //    queries (PRAGMA table_info, COUNT(*), SELECT
-      //    DISTINCT, etc.) via the anomaly detector.
-      final anomalyResp = await httpGet(port!, '/api/analytics/anomalies');
-      expect(anomalyResp.status, HttpStatus.ok);
-      expect(anomalyResp.body, contains('anomalies'));
+        // 2. Run an anomaly scan — this issues many internal
+        //    queries (PRAGMA table_info, COUNT(*), SELECT
+        //    DISTINCT, etc.) via the anomaly detector.
+        final anomalyResp = await httpGet(port!, '/api/analytics/anomalies');
+        expect(anomalyResp.status, HttpStatus.ok);
+        expect(anomalyResp.body, contains('anomalies'));
 
-      // 3. Fetch performance data — introspection queries
-      //    from the anomaly scan must not appear here.
-      final perfResp = await httpGet(port!, '/api/analytics/performance');
-      expect(perfResp.status, HttpStatus.ok);
-      final perfBody = perfResp.body as Map<String, dynamic>;
+        // 3. Fetch performance data — introspection queries
+        //    from the anomaly scan must not appear here.
+        final perfResp = await httpGet(port!, '/api/analytics/performance');
+        expect(perfResp.status, HttpStatus.ok);
+        final perfBody = perfResp.body as Map<String, dynamic>;
 
-      // The performance endpoint itself is GET-only and uses
-      // no SQL, so totalQueries should be 0 after clearing.
-      expect(
-        perfBody['totalQueries'],
-        0,
-        reason: 'Anomaly scan introspection queries must not '
-            'appear in performance timings (Bug 044)',
-      );
-    });
+        // The performance endpoint itself is GET-only and uses
+        // no SQL, so totalQueries should be 0 after clearing.
+        expect(
+          perfBody['totalQueries'],
+          0,
+          reason:
+              'Anomaly scan introspection queries must not '
+              'appear in performance timings (Bug 044)',
+        );
+      },
+    );
 
-    test('index suggestions do not record queries in performance timings',
-        () async {
-      // Clear timings, run index suggestions, check timings.
-      await httpDelete(port!, '/api/analytics/performance');
-      final r = await httpGet(port!, '/api/index-suggestions');
-      expect(r.status, HttpStatus.ok);
+    test(
+      'index suggestions do not record queries in performance timings',
+      () async {
+        // Clear timings, run index suggestions, check timings.
+        await httpDelete(port!, '/api/analytics/performance');
+        final r = await httpGet(port!, '/api/index-suggestions');
+        expect(r.status, HttpStatus.ok);
 
-      final perfResp = await httpGet(port!, '/api/analytics/performance');
-      final perfBody = perfResp.body as Map<String, dynamic>;
+        final perfResp = await httpGet(port!, '/api/analytics/performance');
+        final perfBody = perfResp.body as Map<String, dynamic>;
 
-      expect(
-        perfBody['totalQueries'],
-        0,
-        reason: 'Index suggestion queries must not '
-            'appear in performance timings (Bug 044)',
-      );
-    });
+        expect(
+          perfBody['totalQueries'],
+          0,
+          reason:
+              'Index suggestion queries must not '
+              'appear in performance timings (Bug 044)',
+        );
+      },
+    );
 
-    test('size analytics does not record queries in performance timings',
-        () async {
-      // Clear timings, run size analytics, check timings.
-      await httpDelete(port!, '/api/analytics/performance');
-      final r = await httpGet(port!, '/api/analytics/size');
-      expect(r.status, HttpStatus.ok);
+    test(
+      'size analytics does not record queries in performance timings',
+      () async {
+        // Clear timings, run size analytics, check timings.
+        await httpDelete(port!, '/api/analytics/performance');
+        final r = await httpGet(port!, '/api/analytics/size');
+        expect(r.status, HttpStatus.ok);
 
-      final perfResp = await httpGet(port!, '/api/analytics/performance');
-      final perfBody = perfResp.body as Map<String, dynamic>;
+        final perfResp = await httpGet(port!, '/api/analytics/performance');
+        final perfBody = perfResp.body as Map<String, dynamic>;
 
-      expect(
-        perfBody['totalQueries'],
-        0,
-        reason: 'Size analytics queries must not '
-            'appear in performance timings (Bug 044)',
-      );
-    });
+        expect(
+          perfBody['totalQueries'],
+          0,
+          reason:
+              'Size analytics queries must not '
+              'appear in performance timings (Bug 044)',
+        );
+      },
+    );
 
-    test('issues endpoint does not record queries in performance timings',
-        () async {
-      // Clear timings, run merged issues, check timings.
-      await httpDelete(port!, '/api/analytics/performance');
-      final r = await httpGet(port!, '/api/issues');
-      expect(r.status, HttpStatus.ok);
+    test(
+      'issues endpoint does not record queries in performance timings',
+      () async {
+        // Clear timings, run merged issues, check timings.
+        await httpDelete(port!, '/api/analytics/performance');
+        final r = await httpGet(port!, '/api/issues');
+        expect(r.status, HttpStatus.ok);
 
-      final perfResp = await httpGet(port!, '/api/analytics/performance');
-      final perfBody = perfResp.body as Map<String, dynamic>;
+        final perfResp = await httpGet(port!, '/api/analytics/performance');
+        final perfBody = perfResp.body as Map<String, dynamic>;
 
-      expect(
-        perfBody['totalQueries'],
-        0,
-        reason: 'Issues endpoint queries must not '
-            'appear in performance timings (Bug 044)',
-      );
-    });
+        expect(
+          perfBody['totalQueries'],
+          0,
+          reason:
+              'Issues endpoint queries must not '
+              'appear in performance timings (Bug 044)',
+        );
+      },
+    );
   });
 
   // =====================================================

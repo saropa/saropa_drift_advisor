@@ -78,12 +78,16 @@ class MutationTracker {
     _waiters.add(completer);
 
     try {
-      await completer.future.timeout(timeout);
-    } on TimeoutException {
-      // Idle long-poll completion: no mutation arrived before [timeout]. Do not
-      // call developer.log here — logging every expected timeout (e.g. every
-      // 30s per /api/mutations client) floods the VM service and can stall the app.
-      if (!completer.isCompleted) completer.complete();
+      // Use onTimeout instead of catching TimeoutException — idle long-poll
+      // completion is the normal path, not an error. Logging every expected
+      // timeout (e.g. every 30s per /api/mutations client) would flood the
+      // VM service and stall the app.
+      await completer.future.timeout(
+        timeout,
+        onTimeout: () {
+          if (!completer.isCompleted) completer.complete();
+        },
+      );
     } finally {
       _waiters.remove(completer);
     }

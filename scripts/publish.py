@@ -249,7 +249,7 @@ def _print_results(
 # ── Exit Codes ───────────────────────────────────────────────
 
 # Maps each pipeline step name to the most appropriate ExitCode when that
-# step fails.  This keeps exit-code logic centralised rather than scattered
+# step fails.  This keeps exit-code logic centralized rather than scattered
 # across individual step functions.  When a step fails, `_exit_code_from_results`
 # looks up the failing step name here to determine the process exit code.
 _STEP_EXIT_CODES = {
@@ -354,12 +354,14 @@ def _run_analysis(args, target, results):
         ext_args = args
         if target == "all":
             # When running the full "all" pipeline the Dart leg has already
-            # prompted the user to confirm the release version.  Duplicate
-            # prompts are confusing, so we clone the args namespace and force
-            # --yes for the extension leg to skip its own version prompt.
+            # prompted the user to confirm the release version and checked
+            # the working tree / remote sync.  Duplicate prompts are confusing,
+            # so we clone the args namespace and set flags to skip them in the
+            # extension leg.
             import argparse as _argparse
             ext_args = _argparse.Namespace(**vars(args))
             ext_args.yes = True
+            ext_args._skip_git_state = True
 
         # Run extension-specific analysis (compile, tests, lint, etc.).
         ext_version, ext_ok, ext_lint_report = run_ext_analysis(ext_args, results)

@@ -115,50 +115,52 @@ void main() {
         }
       });
 
-      test('200 response has text/css content-type, never text/plain',
-          () async {
-        // Regression: before the _sendWebAsset fix, a file-read failure
-        // produced HTTP 200 with default text/plain (no content-type set),
-        // which browsers blocked via X-Content-Type-Options: nosniff.
-        // The CDN onerror fallback never fired because onerror ignores 200s.
-        final ctx = createTestContext();
-        final handler = GenerationHandler(ctx);
+      test(
+        '200 response has text/css content-type, never text/plain',
+        () async {
+          // Regression: before the _sendWebAsset fix, a file-read failure
+          // produced HTTP 200 with default text/plain (no content-type set),
+          // which browsers blocked via X-Content-Type-Options: nosniff.
+          // The CDN onerror fallback never fired because onerror ignores 200s.
+          final ctx = createTestContext();
+          final handler = GenerationHandler(ctx);
 
-        final server = await HttpServer.bind('127.0.0.1', 0);
-        server.listen((HttpRequest request) async {
-          await handler.sendWebStyle(request.response);
-        });
+          final server = await HttpServer.bind('127.0.0.1', 0);
+          server.listen((HttpRequest request) async {
+            await handler.sendWebStyle(request.response);
+          });
 
-        final client = HttpClient();
-        try {
-          final request = await client.getUrl(
-            Uri.parse('http://127.0.0.1:${server.port}/assets/web/style.css'),
-          );
-          final response = await request.close().timeout(
-            const Duration(seconds: 10),
-          );
-
-          if (response.statusCode == 200) {
-            // On VM/desktop where the file is found: MIME must be text/css.
-            final ct = response.headers.contentType;
-            expect(ct, isNotNull, reason: 'Content-Type header must be set');
-            expect(
-              ct!.mimeType,
-              'text/css',
-              reason: 'CSS must be served as text/css, not text/plain',
+          final client = HttpClient();
+          try {
+            final request = await client.getUrl(
+              Uri.parse('http://127.0.0.1:${server.port}/assets/web/style.css'),
             );
-            // Body must contain actual CSS, not an error string.
-            final body = await response.transform(utf8.decoder).join();
-            expect(body, isNotEmpty, reason: 'CSS body must not be empty');
-          } else {
-            // 404 is acceptable (CDN fallback fires via onerror).
-            expect(response.statusCode, 404);
+            final response = await request.close().timeout(
+              const Duration(seconds: 10),
+            );
+
+            if (response.statusCode == 200) {
+              // On VM/desktop where the file is found: MIME must be text/css.
+              final ct = response.headers.contentType;
+              expect(ct, isNotNull, reason: 'Content-Type header must be set');
+              expect(
+                ct!.mimeType,
+                'text/css',
+                reason: 'CSS must be served as text/css, not text/plain',
+              );
+              // Body must contain actual CSS, not an error string.
+              final body = await response.transform(utf8.decoder).join();
+              expect(body, isNotEmpty, reason: 'CSS body must not be empty');
+            } else {
+              // 404 is acceptable (CDN fallback fires via onerror).
+              expect(response.statusCode, 404);
+            }
+          } finally {
+            client.close(force: true);
+            await server.close(force: true);
           }
-        } finally {
-          client.close(force: true);
-          await server.close(force: true);
-        }
-      });
+        },
+      );
     });
 
     group('sendWebApp', () {
@@ -188,7 +190,8 @@ void main() {
             expect(
               ct!.mimeType,
               'application/javascript',
-              reason: 'JS must be served as application/javascript, '
+              reason:
+                  'JS must be served as application/javascript, '
                   'not text/plain',
             );
             final body = await response.transform(utf8.decoder).join();

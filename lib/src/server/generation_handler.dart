@@ -26,6 +26,7 @@
 // subsequent HTTP requests serve from static fields — no per-request I/O.
 
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:isolate';
 
@@ -254,9 +255,13 @@ final class GenerationHandler {
           root = candidate;
         }
       }
-    } on UnsupportedError {
+    } on UnsupportedError catch (e) {
       // Expected on Flutter iOS/Android: embedders do not resolve package: URIs
       // to host paths. Fall through to the ancestor walk (often null on device).
+      developer.log(
+        'Package URI resolution unsupported (expected on mobile): $e',
+        name: 'SDA',
+      );
     } on Object catch (error, stack) {
       // Unexpected failures during resolution; keep telemetry without treating
       // UnsupportedError as an application bug (handled above).
@@ -296,16 +301,18 @@ final class GenerationHandler {
       if (await cssFile.exists()) {
         _cachedStyleCss = await cssFile.readAsString();
       }
-    } on Object {
+    } on Object catch (e) {
       // Non-fatal: per-request disk read is the fallback.
+      developer.log('CSS asset cache failed: $e', name: 'SDA');
     }
     try {
       final jsFile = File('$packageRoot/assets/web/app.js');
       if (await jsFile.exists()) {
         _cachedAppJs = await jsFile.readAsString();
       }
-    } on Object {
+    } on Object catch (e) {
       // Non-fatal: per-request disk read is the fallback.
+      developer.log('JS asset cache failed: $e', name: 'SDA');
     }
   }
 

@@ -76,7 +76,8 @@ void main() {
       expect(
         html,
         contains(",'style.css')"),
-        reason: 'CSS fallback must pass "style.css" as display name, '
+        reason:
+            'CSS fallback must pass "style.css" as display name, '
             'not the HTML attribute "href"',
       );
     });
@@ -85,7 +86,8 @@ void main() {
       expect(
         html,
         contains(",'app.js')"),
-        reason: 'JS fallback must pass "app.js" as display name, '
+        reason:
+            'JS fallback must pass "app.js" as display name, '
             'not the HTML attribute "src"',
       );
     });
@@ -114,7 +116,8 @@ void main() {
       expect(
         html,
         contains('id="sda-loading-msg"'),
-        reason: 'Error state listener needs this element to show failure details',
+        reason:
+            'Error state listener needs this element to show failure details',
       );
     });
 
