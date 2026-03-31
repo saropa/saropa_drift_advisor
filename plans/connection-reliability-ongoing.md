@@ -332,7 +332,7 @@ The connection system now has:
 - `driftViewer.serverConnected` context flag with delayed sync backup
 - Offline schema cache fallback
 - CDN fallback for missing assets
-- Embedded asset strings for emulators
+- Single-sentinel ancestor walk for package-root resolution (barrel file only, relaxed from dual-sentinel after 2.10.0 removed embedded asset strings)
 
 Each layer was added to fix a specific failure. Together they form a complex, fragile stack where it is hard to reason about what happens when two or more things go wrong simultaneously.
 
@@ -344,7 +344,7 @@ Despite all the patches above, these issues remain or recur:
 
 1. **No end-to-end connection health contract** — There is no single source of truth for "are we connected and working." `driftViewer.serverConnected`, `driftViewer.databaseTreeEmpty`, `isDriftUiConnected`, the health endpoint, the tree provider state, the Schema Search state, and the browser's connection state machine are all separate booleans that can disagree.
 
-2. **No connection integration tests** — *(Partially addressed)* The extension now has 21 integration tests verifying every Database tree button produces visible output (toast, output channel line, or webview panel), 8 activation-resilience tests verifying that any activation phase can crash without killing commands from surviving phases, and 2 exhaustive command-wiring tests verifying bidirectional consistency between `contributes.commands` declarations and runtime command registration (catches silent feature-module throws before publication). However, there are still no tests that simulate the full connection lifecycle: extension activates → discovery scans → server found → tree loads → user clicks button → data appears. That end-to-end flow is only covered by manual testing.
+2. **No connection integration tests** — *(Partially addressed)* The extension now has 21 integration tests verifying every Database tree button produces visible output (toast, output channel line, or webview panel), 8 activation-resilience tests verifying that any activation phase can crash without killing commands from surviving phases, 2 exhaustive command-wiring tests verifying bidirectional consistency between `contributes.commands` declarations and runtime command registration (catches silent feature-module throws before publication), 3 import-integrity tests verifying that explain-panel and explain-html modules load without throwing (guards against `import type` regressions that silently kill queryCost), and 3 `acquireVsCodeApi` contract tests verifying the single-call invariant (early script stores globally, main script reuses, at most 2 call sites). However, there are still no tests that simulate the full connection lifecycle: extension activates → discovery scans → server found → tree loads → user clicks button → data appears. That end-to-end flow is only covered by manual testing.
 
 3. **No retry budget or circuit breaker** — Each subsystem retries independently. When the server is genuinely down, the extension hammers it with health probes, schema fetches, discovery scans, and VM connection attempts simultaneously. There is no global circuit breaker that says "the server is down, stop everything and show a clear message."
 
@@ -381,14 +381,15 @@ None of them cover the full picture. This document is the first attempt to do so
 
 ## Statistics
 
-- **78 distinct connection-related changelog entries** across 25 versions
+- **81 distinct connection-related changelog entries** across 25 versions
 - **14 entries** for discovery / server detection
 - **10 entries** for VM Service connection
 - **13 entries** for disconnection / reconnection / offline resilience
 - **5 entries** for ADB / emulator port forwarding
 - **9 entries** for welcome view / disconnected state UI
 - **8 entries** for connection diagnostics / logging
-- **8 entries** for race conditions / timeouts
+- **9 entries** for race conditions / timeouts / webview lifecycle
 - **6 entries** for health checks / status bar indicators
 - **5 entries** for polling / long-poll / change detection
+- **2 entries** for MIME type / asset resolution
 - Connection fixes appear in **every single minor release** from 1.1.0 onward
