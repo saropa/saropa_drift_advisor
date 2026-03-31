@@ -74,6 +74,7 @@ export function setupProviders(
   annotationStore: AnnotationStore,
   issuesRef?: LogCaptureIssuesRef,
   isDriftUiConnected?: () => boolean,
+  log?: { appendLine(msg: string): void },
 ): ProviderSetupResult {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
 
@@ -81,7 +82,7 @@ export function setupProviders(
   // and the "About Saropa Drift Advisor vX.Y.Z" item in the Drift Tools tree.
   const extensionVersion = (context.extension?.packageJSON as { version?: string } | undefined)?.version ?? '0.0.0';
 
-  const treeProvider = new DriftTreeProvider(client, annotationStore, isDriftUiConnected);
+  const treeProvider = new DriftTreeProvider(client, annotationStore, isDriftUiConnected, log);
   const treeView = vscode.window.createTreeView(
     'driftViewer.databaseExplorer',
     { treeDataProvider: treeProvider, showCollapseAll: true },
@@ -150,9 +151,21 @@ export function setupProviders(
     cfg.get<number>('timeline.minIntervalMs', 10000) ?? 10000,
   );
   const timelineProvider = new DriftTimelineProvider(snapshotStore);
-  context.subscriptions.push(
-    vscode.workspace.registerTimelineProvider('file', timelineProvider),
-  );
+  // registerTimelineProvider is a proposed API in @types/vscode but stable
+  // at runtime since VS Code 1.45. In Extension Development Host mode,
+  // VS Code blocks it unless --enable-proposed-api is passed. Isolate the
+  // call so a failure here does not take down the entire providers phase.
+  try {
+    context.subscriptions.push(
+      vscode.workspace.registerTimelineProvider('file', timelineProvider),
+    );
+  } catch {
+    // Timeline unavailable — dev host without --enable-proposed-api flag.
+    // Non-critical: all other providers (tree, codeLens, hover, etc.) still work.
+    log?.appendLine(
+      `[${new Date().toISOString()}] Timeline provider skipped (proposed API not enabled in dev mode)`,
+    );
+  }
   context.subscriptions.push({ dispose: () => snapshotStore.dispose() });
 
   const watchManager = new WatchManager(client, context.workspaceState);

@@ -29,7 +29,6 @@ export interface ExtensionBootstrapResult {
   watcher: GenerationWatcher;
   discovery: ServerDiscovery;
   serverManager: ServerManager;
-  connectionChannel: vscode.OutputChannel;
   discoveryEnabled: boolean;
   extensionEnabled: boolean;
   cfg: vscode.WorkspaceConfiguration;
@@ -43,6 +42,7 @@ export interface ExtensionBootstrapResult {
  */
 export function bootstrapExtension(
   context: vscode.ExtensionContext,
+  connectionChannel: vscode.OutputChannel,
 ): ExtensionBootstrapResult {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
   const extensionEnabled = cfg.get<boolean>('enabled', true) !== false;
@@ -79,8 +79,8 @@ export function bootstrapExtension(
       }
     }),
   );
-  const connectionChannel = vscode.window.createOutputChannel('Saropa Drift Advisor');
-  context.subscriptions.push(connectionChannel);
+  // connectionChannel is created by activate() and passed in so it's available
+  // for phase logging before bootstrap runs.
   const gatedConnectionLog = {
     appendLine: (msg: string): void => {
       if (shouldLogConnectionLine(msg, logVerbosity)) {
@@ -163,7 +163,6 @@ export function bootstrapExtension(
     watcher,
     discovery,
     serverManager,
-    connectionChannel,
     discoveryEnabled,
     extensionEnabled,
     cfg,

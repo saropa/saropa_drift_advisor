@@ -7,11 +7,18 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { TableMetadata } from '../api-types';
 
+/** Minimal log sink — matches vscode.OutputChannel.appendLine signature. */
+interface LogSink {
+  appendLine(msg: string): void;
+}
+
 export interface SchemaCacheOptions {
   /** Max age of in-memory cache before refetch (ms). Default 30_000. */
   ttlMs?: number;
   /** Workspace state key for last-known schema (stale-while-revalidate). Omit to disable persist. */
   persistKey?: string;
+  /** Optional log sink for fetch/revalidation diagnostics. */
+  log?: LogSink;
 }
 
 /** Default TTL when not configured (30s). */
@@ -34,6 +41,7 @@ export class SchemaCache {
   private readonly _workspaceState: vscode.Memento;
   private readonly _ttlMs: number;
   private readonly _persistKey: string | undefined;
+  private readonly _log?: LogSink;
 
   private _memory: { data: TableMetadata[]; timestamp: number } | null = null;
   private _fetchPromise: Promise<TableMetadata[]> | null = null;
@@ -52,6 +60,7 @@ export class SchemaCache {
     this._workspaceState = workspaceState;
     this._ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
     this._persistKey = options.persistKey;
+    this._log = options.log;
   }
 
   /**
@@ -127,6 +136,10 @@ export class SchemaCache {
       })
       .catch((err) => {
         this._fetchPromise = null;
+        const msg = err instanceof Error ? err.message : String(err);
+        this._log?.appendLine(
+          `[${new Date().toISOString()}] SchemaCache fetch failed: ${msg}`,
+        );
         throw err;
       });
     this._fetchPromise = p;
@@ -152,8 +165,12 @@ export class SchemaCache {
         void this._workspaceState.update(this._persistKey, data);
       }
       this._onDidUpdate.fire();
-    } catch {
-      // Keep previous cache; next explicit get will retry
+    } catch (err: unknown) {
+      // Keep previous cache; next explicit get will retry.
+      const msg = err instanceof Error ? err.message : String(err);
+      this._log?.appendLine(
+        `[${new Date().toISOString()}] SchemaCache revalidation failed: ${msg}`,
+      );
     } finally {
       this._revalidating = false;
     }

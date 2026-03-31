@@ -222,15 +222,27 @@ export function registerAllCommands(
     ['polling', () => registerPollingCommands(context, client, deps.toolsProvider)],
     ['saropaLints', () => registerSaropaLintsCommands(context)],
   ];
+  const failedModules: string[] = [];
   for (const [name, register] of featureModules) {
     try {
       register();
     } catch (err) {
+      failedModules.push(name);
       const msg = err instanceof Error ? err.message : String(err);
       connectionChannel.appendLine(
         `[${new Date().toISOString()}] Failed to register ${name} commands: ${msg}`,
       );
     }
+  }
+  // Surface registration failures as a visible warning so the user knows
+  // why tree-button commands show "command not found". Previously these
+  // errors were only logged to the Output channel — which requires a
+  // working command to open.
+  if (failedModules.length > 0) {
+    void vscode.window.showWarningMessage(
+      `Saropa Drift Advisor: failed to register command modules: ${failedModules.join(', ')}. `
+        + 'Check Output → Saropa Drift Advisor for details.',
+    );
   }
 
 }
