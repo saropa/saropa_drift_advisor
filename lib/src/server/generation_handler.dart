@@ -220,14 +220,22 @@ final class GenerationHandler {
 
   /// Finds this package's root when [Isolate.resolvePackageUri] cannot run.
   ///
-  /// Used by `flutter test`, which throws from that API. Walking from the
-  /// process working directory matches publish/CI runs from the repo root.
+  /// Used by `flutter test` (which throws from that API) and as a fallback
+  /// for Flutter desktop apps where `Isolate.resolvePackageUri` may resolve
+  /// to the pub cache instead of the local path dependency.
+  ///
+  /// Walks ancestors of [Directory.current] looking for the barrel file
+  /// `lib/saropa_drift_advisor.dart`. Only that sentinel is checked —
+  /// requiring `assets/web/style.css` too would fail for published packages
+  /// where assets live inside the pub cache, and was overly restrictive
+  /// for Flutter Windows desktop apps running from `example/` via path
+  /// dependency (the working directory is the example folder, not the
+  /// package root).
   static Future<String?> _discoverPackageRootPathFromAncestorWalk() async {
     Directory dir = Directory.current.absolute;
     while (true) {
       final libEntry = File('${dir.path}/lib/saropa_drift_advisor.dart');
-      final styleAsset = File('${dir.path}/assets/web/style.css');
-      if (await libEntry.exists() && await styleAsset.exists()) {
+      if (await libEntry.exists()) {
         return dir.path;
       }
       final parent = dir.parent;

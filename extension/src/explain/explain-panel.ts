@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { IndexSuggestion } from '../api-client';
+import type { IndexSuggestion } from '../api-client';
 import { buildExplainHtml, buildPlanText } from './explain-html';
 
 export interface IExplainNode {

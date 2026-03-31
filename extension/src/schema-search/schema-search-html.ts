@@ -23,9 +23,10 @@ ${SCHEMA_SEARCH_STYLE}
   <div class="schema-hard-fallback-title">Schema Search</div>
   <p class="schema-hard-fallback-lead">Waiting for the extension. If this never updates, run <strong>Developer: Reload Window</strong> or open the <strong>Database</strong> section above for connection help.</p>
 </div>
-<!-- Immediate handshake so the host posts connection state even if the main script fails to parse. -->
+<!-- Immediate handshake so the host posts connection state even if the main script fails to parse.
+     acquireVsCodeApi() can only be called ONCE per webview — store it globally so the main script reuses it. -->
 <script nonce="${nonce}">
-(function(){try{var v=acquireVsCodeApi();v.postMessage({command:'ready'});}catch(_){}})();
+(function(){try{window.__vscodeApi=acquireVsCodeApi();window.__vscodeApi.postMessage({command:'ready'});}catch(_){}})();
 </script>
 <noscript>Schema Search needs JavaScript enabled in the webview.</noscript>
 <div id="connStatus" class="conn-status" style="display: none;" aria-live="polite"></div>

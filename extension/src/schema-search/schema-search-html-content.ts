@@ -150,7 +150,9 @@ export const SCHEMA_SEARCH_STYLE = `
 
 export const SCHEMA_SEARCH_SCRIPT = `
 (function() {
-  const vscode = acquireVsCodeApi();
+  // Reuse the API instance from the early handshake script — acquireVsCodeApi()
+  // can only be called ONCE per webview. Calling it a second time throws.
+  const vscode = window.__vscodeApi || acquireVsCodeApi();
   try {
   const queryEl = document.getElementById('query');
   const filtersEl = document.getElementById('filters');
@@ -175,6 +177,9 @@ export const SCHEMA_SEARCH_SCRIPT = `
   let typeFilter = '';
   let debounceTimer;
   let connected = false;
+  /** True while a browse-all request is in-flight or its results are displayed.
+   *  Prevents connectionState updates from wiping the results via doSearch(). */
+  let browseActive = false;
   /** True when search/browse is allowed (live session or offline cached schema). */
   let schemaOps = false;
   document.querySelectorAll('.scope-btn').forEach(btn => {
@@ -182,6 +187,8 @@ export const SCHEMA_SEARCH_SCRIPT = `
       document.querySelectorAll('.scope-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       scope = btn.dataset.scope;
+      // Switching scope exits browse-all mode — the filters apply to typed searches
+      browseActive = false;
       doSearch();
     });
   });
@@ -190,15 +197,20 @@ export const SCHEMA_SEARCH_SCRIPT = `
       document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       typeFilter = btn.dataset.type;
+      // Switching type filter exits browse-all mode — the filters apply to typed searches
+      browseActive = false;
       doSearch();
     });
   });
   queryEl.addEventListener('input', () => {
+    // User started typing — exit browse-all mode so doSearch() resumes normally
+    browseActive = false;
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(doSearch, 200);
   });
   document.getElementById('browseAll').addEventListener('click', (e) => {
     e.preventDefault();
+    browseActive = true;
     vscode.postMessage({ command: 'searchAll' });
   });
   document.getElementById('btnOpenBrowser').addEventListener('click', () => vscode.postMessage({ command: 'openInBrowser' }));
@@ -245,6 +257,8 @@ export const SCHEMA_SEARCH_SCRIPT = `
   function applyConnectionState(msg) {
     connected = msg.connected;
     schemaOps = !!msg.schemaOperationsEnabled;
+    // If schema operations are no longer available, browse results are stale
+    if (!schemaOps) browseActive = false;
     var persisted = msg.persistedSchemaAvailable === true;
     var showHelpBanner = !connected || !schemaOps;
     disconnectedEl.classList.toggle('show', showHelpBanner);
@@ -282,7 +296,9 @@ export const SCHEMA_SEARCH_SCRIPT = `
     browseWrap.classList.toggle('disabled', !schemaOps);
     if (Object.prototype.hasOwnProperty.call(msg, 'discovery')) applyDiscoveryBlock(msg.discovery);
     discFaqEl.textContent = schemaOps ? '' : FAQ_TROUBLE;
-    if (!queryEl.value.trim()) doSearch();
+    // Only reset the idle placeholder when the user hasn't triggered browse-all;
+    // otherwise a periodic connectionState update would wipe the browse results.
+    if (!queryEl.value.trim() && !browseActive) doSearch();
     if (schemaHardFallbackEl) {
       schemaHardFallbackEl.style.display = 'none';
     }
@@ -294,6 +310,9 @@ export const SCHEMA_SEARCH_SCRIPT = `
       statusEl.textContent = '';
       resultsEl.innerHTML = '<li class="loading">Searching…</li>';
     } else if (msg.command === 'error') {
+      // A failed browse should allow the idle placeholder to return on the next
+      // connectionState update, so clear the browse-active flag.
+      browseActive = false;
       statusEl.textContent = '';
       resultsEl.innerHTML = '';
       if (errorEl) {

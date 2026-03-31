@@ -29,9 +29,17 @@ This changelog is for **Saropa Drift Advisor**: the Dart package that wires up D
 
 ### Fixed
 
+• **"Browse all tables" link in Schema Search did nothing** — Periodic server-discovery updates fired `connectionState` messages to the webview, which called `doSearch()` with an empty query, overwriting browse results with the idle placeholder. Added a `browseActive` guard so browse-all results persist until the user types, changes filters, disconnects, or encounters an error.
+
 • **11 commands declared but missing from Command Palette** — `disableDiagnosticRule`, `clearRuntimeAlerts`, `copySuggestedName`, `runIndexSql`, `seedWithProfiles`, `showIndexSuggestions`, `createAllIndexes`, `generateAnomalyFixes`, `sampleTable`, `toggleInvariant`, and `viewInvariantViolations` were registered in code but absent from `contributes.commands`, preventing VS Code from auto-generating activation events for them.
 
 • **Exhaustive command-wiring tests** — Two new tests verify that every command declared in `package.json` is registered at activation (forward check) and that every registered command is declared (reverse check). Any future wiring breakage now fails the test suite before publication.
+
+• **Schema Search stuck on "Waiting for the extension" forever** — The early handshake script and the main script both called `acquireVsCodeApi()`, which can only be called once per webview. The second call threw silently, preventing the message listener from registering. Connection state messages were dropped and Schema Search never updated.
+
+• **Query Cost Analysis command failed to register** — The explain-panel module used value imports for type-only re-exports, causing a runtime `require()` failure that silently prevented the queryCost command from registering. A warning toast was the only symptom.
+
+• **Web UI CSS/JS blocked by MIME type mismatch** — The Dart server's fallback package-root resolution required both the barrel file and an asset file to coexist in each candidate directory. When running from the example app, the walk never found the package root, so assets were served as 404 with `text/plain` — blocked by browsers enforcing `X-Content-Type-Options: nosniff`.
 
 ### Changed
 

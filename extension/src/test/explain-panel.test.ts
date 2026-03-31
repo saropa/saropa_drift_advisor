@@ -5,7 +5,7 @@ import {
   ExplainPanel,
   findScannedTables,
 } from '../explain/explain-panel';
-import { buildPlanText } from '../explain/explain-html';
+import { buildExplainHtml, buildPlanText } from '../explain/explain-html';
 import { resetMocks, createdPanels, clipboardMock } from './vscode-mock';
 
 function latestPanel() {
@@ -226,6 +226,62 @@ describe('ExplainPanel', () => {
     assert.strictEqual(
       clipboardMock.text,
       'CREATE INDEX idx ON items(category)',
+    );
+  });
+});
+
+// ── Module import integrity (regression: import type vs import) ──
+//
+// Before the fix, `explain-panel.ts` and `explain-html.ts` used value imports
+// (`import { IndexSuggestion }`) for a type-only re-export from api-client.ts.
+// At runtime the CommonJS `require()` could not resolve the type-erased symbol,
+// crashing the entire module load and preventing queryCost registration.
+// After the fix, both use `import type`, which is erased at compile time.
+
+describe('explain module import integrity', () => {
+  it('explain-panel module loads without throwing', () => {
+    // If the import were a value import of a type-only export, requiring
+    // the module would throw at parse time. This test catches that regression.
+    const mod = require('../explain/explain-panel');
+    assert.ok(mod.buildExplainTree, 'buildExplainTree should be exported');
+    assert.ok(mod.ExplainPanel, 'ExplainPanel should be exported');
+  });
+
+  it('explain-html module loads without throwing', () => {
+    // Same regression guard: buildExplainHtml must be reachable at runtime.
+    const mod = require('../explain/explain-html');
+    assert.ok(mod.buildExplainHtml, 'buildExplainHtml should be exported');
+    assert.ok(mod.buildPlanText, 'buildPlanText should be exported');
+  });
+
+  it('buildExplainHtml renders IndexSuggestion objects correctly', () => {
+    // Ensures the IndexSuggestion type shape works at runtime — the HTML
+    // renderer accesses `.reason`, `.sql`, and iterates the array. Before the
+    // fix, this code path was unreachable because the module itself failed to load.
+    const nodes = buildExplainTree([
+      { id: 2, parent: 0, notused: 0, detail: 'SCAN TABLE orders' },
+    ]);
+    const suggestions = [
+      {
+        table: 'orders',
+        column: 'user_id',
+        reason: 'Full scan on large table',
+        sql: 'CREATE INDEX idx_orders_user ON orders(user_id)',
+        priority: 'high' as const,
+      },
+    ];
+    const html = buildExplainHtml('SELECT * FROM orders', nodes, suggestions);
+    assert.ok(
+      html.includes('Index Suggestions'),
+      'suggestion heading should appear',
+    );
+    assert.ok(
+      html.includes('idx_orders_user'),
+      'suggestion SQL should appear in HTML',
+    );
+    assert.ok(
+      html.includes('Full scan on large table'),
+      'suggestion reason should appear in HTML',
     );
   });
 });

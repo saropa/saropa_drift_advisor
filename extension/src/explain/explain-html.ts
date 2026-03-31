@@ -3,8 +3,8 @@
  * Uses VS Code theme CSS variables for light/dark support.
  */
 
-import { IExplainNode } from './explain-panel';
-import { IndexSuggestion } from '../api-client';
+import type { IExplainNode } from './explain-panel';
+import type { IndexSuggestion } from '../api-client';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
