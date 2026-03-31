@@ -38,6 +38,13 @@ browse source on
 
 • **Phantom slow-query diagnostics from analytics introspection (Bug 044)** — The anomaly detector, index-suggestion scanner, size-analytics handler, and merged `/api/issues` endpoint all ran their introspection queries (PRAGMA, COUNT, SELECT DISTINCT, etc.) through the instrumented query callback, recording them in the performance timing buffer. The VS Code extension's performance provider then reported these as slow user queries (e.g. `SELECT COUNT(*) AS c FROM (SELECT DISTINCT * FROM "user_p...")`) — a false positive. Analytics endpoints now use the raw (uninstrumented) query callback so internal queries never appear in performance data.
 
+### Added
+
+• **Resilient web UI asset loading** — Three layers of defense prevent the web UI from silently failing when CSS/JS cannot be loaded:
+  1. **In-memory asset cache** — `style.css` and `app.js` are read into memory once during package root resolution and served from cache on subsequent requests, eliminating per-request disk I/O.
+  2. **Multi-CDN fallback chain** — CSS and JS `onerror` handlers now try version-pinned jsDelivr (`@v{version}`), then `@main` (covers the window between publishing and git tag creation). All sources exhausted dispatches a `sda-asset-failed` custom event.
+  3. **Loading overlay with error state** — A self-contained overlay (inline styles, no CSS dependency) shows "Loading Drift Advisor..." until `app.js` hides it. If JS never loads, the overlay updates to a clear error message with instructions to check network and refresh.
+
 • **Web UI assets blocked by browser MIME mismatch** — When the debug server's file-read failed (e.g. package root resolved to pub cache without `assets/`), `_sendWebAsset` sent HTTP 200 with default `text/plain` content type instead of 404. Browsers with `X-Content-Type-Options: nosniff` blocked the CSS/JS, and because the response was 200, the `onerror` CDN fallback never fired — leaving the web viewer completely broken. Fixed: file content is now read before committing any response headers; any failure falls through to a clean 404. Additionally, `_resolvePackageRootPath` now validates that the resolved root actually contains web assets before accepting it — if `Isolate.resolvePackageUri` points to the pub cache (where `assets/` may be absent), the ancestor walk runs instead.
 
 ---

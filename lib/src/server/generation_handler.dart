@@ -40,6 +40,16 @@ final class GenerationHandler {
   static String? _resolvedPackageRootPath;
   static bool _packageRootLookupComplete = false;
 
+  /// Cached CSS content, populated once during package root resolution.
+  /// Eliminates per-request disk I/O for the most common asset path.
+  /// ~51 KB for style.css — acceptable for a debug-only tool.
+  static String? _cachedStyleCss;
+
+  /// Cached JS content, populated once during package root resolution.
+  /// Eliminates per-request disk I/O for the most common asset path.
+  /// ~313 KB for app.js — acceptable for a debug-only tool.
+  static String? _cachedAppJs;
+
   /// GET /api/health — returns {"ok": true}.
   Future<void> sendHealth(HttpResponse response) async {
     final res = response;
@@ -150,6 +160,25 @@ final class GenerationHandler {
     required String relativePath,
     required ContentType contentType,
   }) async {
+    // ── Check in-memory cache first (populated once during root resolution) ──
+    // This avoids per-request disk I/O for the two known web UI assets.
+    final String? cached = switch (relativePath) {
+      'assets/web/style.css' => _cachedStyleCss,
+      'assets/web/app.js' => _cachedAppJs,
+      _ => null,
+    };
+    if (cached != null) {
+      response.headers.contentType = contentType;
+      response.write(cached);
+      try {
+        await response.close();
+      } on Object catch (error, stack) {
+        // Socket / close races after headers sent; log but nothing to do.
+        _ctx.logError(error, stack);
+      }
+      return;
+    }
+
     // ── Try file-based serving first ──
     // Read the file content before committing any response headers.
     // If the read fails for any reason (permissions, encoding, missing
@@ -233,6 +262,14 @@ final class GenerationHandler {
     }
 
     root ??= await _discoverPackageRootPathFromAncestorWalk();
+
+    // Eagerly cache both web assets into memory so subsequent requests
+    // skip disk I/O entirely. Non-fatal: if either read fails, that
+    // asset falls through to the per-request disk read → 404 → CDN path.
+    if (root != null) {
+      await _cacheWebAssets(root);
+    }
+
     return _cacheResolvedPackageRootPath(root);
   }
 
@@ -244,6 +281,30 @@ final class GenerationHandler {
     _resolvedPackageRootPath = root;
     _packageRootLookupComplete = true;
     return root;
+  }
+
+  /// Reads web UI assets into static fields for fast in-memory serving.
+  ///
+  /// Called once during package root resolution. Failures are non-fatal:
+  /// a missed cache entry simply falls through to the per-request disk
+  /// read in [_sendWebAsset], which itself falls through to 404 → CDN.
+  static Future<void> _cacheWebAssets(String packageRoot) async {
+    try {
+      final cssFile = File('$packageRoot/assets/web/style.css');
+      if (await cssFile.exists()) {
+        _cachedStyleCss = await cssFile.readAsString();
+      }
+    } on Object {
+      // Non-fatal: per-request disk read is the fallback.
+    }
+    try {
+      final jsFile = File('$packageRoot/assets/web/app.js');
+      if (await jsFile.exists()) {
+        _cachedAppJs = await jsFile.readAsString();
+      }
+    } on Object {
+      // Non-fatal: per-request disk read is the fallback.
+    }
   }
 
   /// Finds this package's root when [Isolate.resolvePackageUri] cannot run.

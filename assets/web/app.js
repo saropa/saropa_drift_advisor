@@ -21,6 +21,10 @@
      * Conversion errors use `setNlModalError` so run/query errors under the main
      * editor are not cleared by NL failures.
      */
+    // Hide the loading overlay injected by html_content.dart.
+    // If app.js never loads (all sources fail), the overlay stays visible
+    // as a natural error indicator — no JS needed for the error state.
+    (function(){var el=document.getElementById('sda-loading');if(el)el.style.display='none'})();
     var DRIFT_VIEWER_AUTH_TOKEN = "";
     /** True when server exposes POST /api/cell/update (writeQuery configured). */
     var driftWriteEnabled = false;
