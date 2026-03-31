@@ -15,9 +15,16 @@ const OUTPUT_CHANNEL_NAME = 'Saropa Lints';
 async function runSaropaLintsScan(): Promise<void> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
-    void vscode.window.showWarningMessage(
-      'To run Saropa Lints you must open a valid workspace folder first.',
-    );
+    void vscode.window
+      .showWarningMessage(
+        'To run Saropa Lints you must open a valid workspace folder first.',
+        'Open Folder',
+      )
+      .then((choice) => {
+        if (choice === 'Open Folder') {
+          void vscode.commands.executeCommand('vscode.openFolder');
+        }
+      });
     return;
   }
 

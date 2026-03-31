@@ -169,20 +169,6 @@ export function registerHealthCommands(
     ),
   );
 
-  // Query performance action: analyze a specific query
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      'driftViewer.analyzeQueryCost',
-      async (args?: { sql?: string }) => {
-        if (args?.sql) {
-          vscode.commands.executeCommand('driftViewer.queryCost', args.sql);
-        } else {
-          vscode.commands.executeCommand('driftViewer.queryCost');
-        }
-      },
-    ),
-  );
-
   // Table sampling action
   context.subscriptions.push(
     vscode.commands.registerCommand(

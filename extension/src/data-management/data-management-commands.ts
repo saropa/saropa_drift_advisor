@@ -110,9 +110,32 @@ export function registerDataManagementCommands(
           if (!ws) return;
           const config = await datasetConfig.load(ws);
           if (!config || Object.keys(config.groups).length === 0) {
-            vscode.window.showWarningMessage(
-              'No table groups defined. Create a .drift-datasets.json in your workspace root.',
-            );
+            void vscode.window
+              .showWarningMessage(
+                'No table groups defined. Create a .drift-datasets.json in your workspace root.',
+                'Create File',
+              )
+              .then(async (choice) => {
+                if (choice !== 'Create File') return;
+                try {
+                  const filePath = vscode.Uri.joinPath(
+                    vscode.Uri.file(ws),
+                    '.drift-datasets.json',
+                  );
+                  // Scaffold an empty config so the user has a starting point
+                  await vscode.workspace.fs.writeFile(
+                    filePath,
+                    Buffer.from(JSON.stringify({ groups: {}, datasets: {} }, null, 2), 'utf-8'),
+                  );
+                  const doc = await vscode.workspace.openTextDocument(filePath);
+                  await vscode.window.showTextDocument(doc);
+                } catch (err: unknown) {
+                  const detail = err instanceof Error ? err.message : String(err);
+                  void vscode.window.showErrorMessage(
+                    `Failed to create .drift-datasets.json: ${detail}`,
+                  );
+                }
+              });
             return;
           }
 

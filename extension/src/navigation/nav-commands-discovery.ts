@@ -60,7 +60,19 @@ export function registerDiscoveryCommands(
         const discOn =
           vscode.workspace.getConfiguration('driftViewer').get<boolean>('discovery.enabled', true) !== false;
         if (!discOn) {
-          void vscode.window.showWarningMessage('Discovery is disabled in settings (driftViewer.discovery.enabled).');
+          void vscode.window
+            .showWarningMessage(
+              'Discovery is disabled in settings (driftViewer.discovery.enabled).',
+              'Open Settings',
+            )
+            .then((choice) => {
+              if (choice === 'Open Settings') {
+                void vscode.commands.executeCommand(
+                  'workbench.action.openSettings',
+                  'driftViewer.discovery.enabled',
+                );
+              }
+            });
           return;
         }
         discovery.pause();

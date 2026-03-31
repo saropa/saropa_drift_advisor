@@ -46,9 +46,16 @@ async function generateChangelog(
 ): Promise<void> {
   const snapshots = snapshotStore.snapshots;
   if (snapshots.length < 2) {
-    vscode.window.showWarningMessage(
-      'Need at least 2 snapshots to generate a changelog.',
-    );
+    void vscode.window
+      .showWarningMessage(
+        'Need at least 2 snapshots to generate a changelog.',
+        'Take Snapshot',
+      )
+      .then((choice) => {
+        if (choice === 'Take Snapshot') {
+          void vscode.commands.executeCommand('driftViewer.captureSnapshot');
+        }
+      });
     return;
   }
 

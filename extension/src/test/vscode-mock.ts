@@ -33,17 +33,21 @@ export const clipboardMock = {
 // --- Dialog mock ---
 let _saveDialogResult: any = undefined;
 let _infoMessageResult: string | undefined = undefined;
+let _warningMessageResult: string | undefined = undefined;
 let _quickPickResult: string | undefined = undefined;
 let _inputBoxResult: string | undefined = undefined;
 
 export const dialogMock = {
   set saveResult(uri: any) { _saveDialogResult = uri; },
   set infoMessageResult(v: string | undefined) { _infoMessageResult = v; },
+  /** Simulate the user clicking a button on a showWarningMessage toast. */
+  set warningMessageResult(v: string | undefined) { _warningMessageResult = v; },
   set quickPickResult(v: string | undefined) { _quickPickResult = v; },
   set inputBoxResult(v: string | undefined) { _inputBoxResult = v; },
   reset() {
     _saveDialogResult = undefined;
     _infoMessageResult = undefined;
+    _warningMessageResult = undefined;
     _quickPickResult = undefined;
     _inputBoxResult = undefined;
   },
@@ -100,8 +104,9 @@ export const window = {
     messageMock.infos.push(msg);
     return _infoMessageResult;
   },
-  showWarningMessage: async (msg: string) => {
+  showWarningMessage: async (msg: string, ..._items: string[]) => {
     messageMock.warnings.push(msg);
+    return _warningMessageResult;
   },
   showErrorMessage: async (msg: string) => {
     messageMock.errors.push(msg);

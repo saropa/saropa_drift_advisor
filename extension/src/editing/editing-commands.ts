@@ -92,9 +92,18 @@ export function registerEditingCommands(
         return;
       }
       if (!writeEnabled) {
-        void vscode.window.showWarningMessage(
-          'Writes are not enabled on this server. Configure writeQuery on DriftDebugServer.start, then retry.',
-        );
+        void vscode.window
+          .showWarningMessage(
+            'Writes are not enabled on this server. Configure writeQuery on DriftDebugServer.start(), then retry.',
+            'View Docs',
+          )
+          .then((choice) => {
+            if (choice === 'View Docs') {
+              void vscode.env.openExternal(
+                vscode.Uri.parse('https://drift.simonbinder.eu/docs/platforms/remote/'),
+              );
+            }
+          });
         return;
       }
       let ordered = [...changeTracker.changes];

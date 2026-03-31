@@ -267,9 +267,16 @@ export class MutationStreamPanel {
 
     // Avoid spamming VS Code toasts every poll interval.
     if (!this._didWarnPollFailure) {
-      vscode.window.showWarningMessage(
-        `Mutation stream poll failed: ${msg}`,
-      );
+      void vscode.window
+        .showWarningMessage(
+          `Mutation stream poll failed: ${msg}`,
+          'Retry Discovery',
+        )
+        .then((choice) => {
+          if (choice === 'Retry Discovery') {
+            void vscode.commands.executeCommand('driftViewer.retryDiscovery');
+          }
+        });
       this._didWarnPollFailure = true;
     }
 

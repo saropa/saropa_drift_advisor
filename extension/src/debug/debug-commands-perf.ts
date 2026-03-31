@@ -70,9 +70,16 @@ export function registerDebugCommandsPerf(
           });
           if (picked) await revealTable(picked);
         } catch {
-          vscode.window.showWarningMessage(
-            'Drift debug server not reachable.',
-          );
+          void vscode.window
+            .showWarningMessage(
+              'Drift debug server not reachable.',
+              'Retry Discovery',
+            )
+            .then((choice) => {
+              if (choice === 'Retry Discovery') {
+                void vscode.commands.executeCommand('driftViewer.retryDiscovery');
+              }
+            });
         }
       },
     ),

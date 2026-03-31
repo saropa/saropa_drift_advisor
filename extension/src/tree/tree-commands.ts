@@ -9,10 +9,12 @@ import { DriftViewerPanel } from '../panel';
 import { PinStore } from './pin-store';
 import { ColumnItem, TableItem } from './tree-items';
 import { exportTable } from '../export/format-export';
+import { snakeToPascal } from '../dart-names';
 import {
   findDriftColumnGetterLocation,
   findDriftTableClassLocation,
   openLocationOrNotify,
+  type ColumnSearchResult,
 } from '../definition/drift-source-locator';
 
 /**
@@ -25,31 +27,55 @@ export function registerRefreshTreeCommand(
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.refreshTree', async () => {
-      // Show a progress notification immediately so the user knows the button
-      // worked. On Windows the fetch safety timeout can take up to ~10s per
-      // request, so without this the UI appears frozen after clicking Refresh.
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: 'Drift: Refreshing database tree…',
-          cancellable: false,
-        },
-        async () => {
-          await treeProvider.refresh();
-        },
-      );
-      if (treeProvider.connected) {
-        void vscode.window.showInformationMessage(
-          'Database tree refreshed — schema loaded.',
+      try {
+        // Show a progress notification immediately so the user knows the button
+        // worked. On Windows the fetch safety timeout can take up to ~10s per
+        // request, so without this the UI appears frozen after clicking Refresh.
+        await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: 'Drift: Refreshing database tree…',
+            cancellable: false,
+          },
+          async () => {
+            await treeProvider.refresh();
+          },
         );
-      } else if (treeProvider.offlineSchema) {
-        void vscode.window.showWarningMessage(
-          'Database tree shows cached schema only; live REST API was not reachable.',
-        );
-      } else {
-        void vscode.window.showWarningMessage(
-          'Could not load schema from the REST API. Check driftViewer.authToken, host/port, '
-            + 'VPN/WSL, and that Select Server points at the running app.',
+        if (treeProvider.connected) {
+          void vscode.window.showInformationMessage(
+            'Database tree refreshed — schema loaded.',
+          );
+        } else if (treeProvider.offlineSchema) {
+          void vscode.window
+            .showWarningMessage(
+              'Database tree shows cached schema only; live REST API was not reachable.',
+              'Retry',
+            )
+            .then((choice) => {
+              if (choice === 'Retry') {
+                void vscode.commands.executeCommand('driftViewer.refreshTree');
+              }
+            });
+        } else {
+          void vscode.window
+            .showWarningMessage(
+              'Could not load schema from the REST API. Check driftViewer.authToken, host/port, '
+                + 'VPN/WSL, and that Select Server points at the running app.',
+              'Open Settings',
+            )
+            .then((choice) => {
+              if (choice === 'Open Settings') {
+                void vscode.commands.executeCommand(
+                  'workbench.action.openSettings',
+                  'driftViewer',
+                );
+              }
+            });
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(
+          `Refresh tree failed: ${msg}`,
         );
       }
     }),
@@ -74,11 +100,25 @@ export function registerTreeCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.pinTable',
-      (item: TableItem) => pinStore.pin(item.table.name),
+      (item: TableItem) => {
+        try {
+          pinStore.pin(item.table.name);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(`Pin table failed: ${msg}`);
+        }
+      },
     ),
     vscode.commands.registerCommand(
       'driftViewer.unpinTable',
-      (item: TableItem) => pinStore.unpin(item.table.name),
+      (item: TableItem) => {
+        try {
+          pinStore.unpin(item.table.name);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(`Unpin table failed: ${msg}`);
+        }
+      },
     ),
     pinStore.onDidChange(() => treeProvider.refresh()),
     { dispose: () => pinStore.dispose() },
@@ -88,8 +128,30 @@ export function registerTreeCommands(
     vscode.commands.registerCommand(
       'driftViewer.goToDriftTableDefinition',
       async (item: TableItem) => {
-        const loc = await findDriftTableClassLocation(item.table.name);
-        await openLocationOrNotify(loc, `table "${item.table.name}"`);
+        try {
+          const result = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: `Searching for table "${item.table.name}" in Dart sources…`,
+              cancellable: false,
+            },
+            () => findDriftTableClassLocation(item.table.name),
+          );
+          if (result.location) {
+            await openLocationOrNotify(result.location, `table "${item.table.name}"`);
+          } else {
+            void vscode.window.showWarningMessage(
+              `Could not find "class ${snakeToPascal(item.table.name)} extends …Table" `
+                + `in ${result.filesSearched} .dart source files. `
+                + `Is the Dart project open in this workspace?`,
+            );
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(
+            `Go to Table Definition failed: ${msg}`,
+          );
+        }
       },
     ),
   );
@@ -98,14 +160,46 @@ export function registerTreeCommands(
     vscode.commands.registerCommand(
       'driftViewer.goToDriftColumnDefinition',
       async (item: ColumnItem) => {
-        const loc = await findDriftColumnGetterLocation(
-          item.column.name,
-          item.tableName,
-        );
-        await openLocationOrNotify(
-          loc,
-          `column "${item.column.name}" on table "${item.tableName}"`,
-        );
+        try {
+          const result: ColumnSearchResult = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: `Searching for column "${item.column.name}" in Dart sources…`,
+              cancellable: false,
+            },
+            () => findDriftColumnGetterLocation(item.column.name, item.tableName),
+          );
+
+          if (result.location) {
+            // Exact getter found — open it.
+            await openLocationOrNotify(
+              result.location,
+              `column "${item.column.name}" on table "${item.tableName}"`,
+            );
+          } else if (result.tableClassFallback) {
+            // Getter not matched but the table class was found — open the
+            // class so the user can navigate manually from there.
+            void vscode.window.showWarningMessage(
+              `Could not find a "get ${item.column.name} =>" getter — `
+                + `opening the table class instead.`,
+            );
+            await openLocationOrNotify(
+              result.tableClassFallback,
+              `table "${item.tableName}"`,
+            );
+          } else {
+            // Neither table class nor getter found anywhere.
+            void vscode.window.showWarningMessage(
+              `Could not find table "${item.tableName}" in ${result.filesSearched} .dart source files. `
+                + `Is the Dart project open in this workspace?`,
+            );
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(
+            `Go to Column Definition failed: ${msg}`,
+          );
+        }
       },
     ),
   );
@@ -114,10 +208,15 @@ export function registerTreeCommands(
     vscode.commands.registerCommand(
       'driftViewer.viewTableData',
       (_item: TableItem) => {
-        DriftViewerPanel.createOrShow(
-          client.host, client.port, editingBridge, fkNavigator, filterBridge,
-          panelOptions(),
-        );
+        try {
+          DriftViewerPanel.createOrShow(
+            client.host, client.port, editingBridge, fkNavigator, filterBridge,
+            panelOptions(),
+          );
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(`View Table Data failed: ${msg}`);
+        }
       },
     ),
   );
@@ -126,7 +225,12 @@ export function registerTreeCommands(
     vscode.commands.registerCommand(
       'driftViewer.copyTableName',
       (item: TableItem) => {
-        vscode.env.clipboard.writeText(item.table.name);
+        try {
+          vscode.env.clipboard.writeText(item.table.name);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(`Copy Table Name failed: ${msg}`);
+        }
       },
     ),
   );
@@ -149,7 +253,12 @@ export function registerTreeCommands(
     vscode.commands.registerCommand(
       'driftViewer.copyColumnName',
       (item: ColumnItem) => {
-        vscode.env.clipboard.writeText(item.column.name);
+        try {
+          vscode.env.clipboard.writeText(item.column.name);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(`Copy Column Name failed: ${msg}`);
+        }
       },
     ),
   );
@@ -158,10 +267,15 @@ export function registerTreeCommands(
     vscode.commands.registerCommand(
       'driftViewer.filterByColumn',
       (_item: ColumnItem) => {
-        DriftViewerPanel.createOrShow(
-          client.host, client.port, editingBridge, fkNavigator, filterBridge,
-          panelOptions(),
-        );
+        try {
+          DriftViewerPanel.createOrShow(
+            client.host, client.port, editingBridge, fkNavigator, filterBridge,
+            panelOptions(),
+          );
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(`Filter by Column failed: ${msg}`);
+        }
       },
     ),
   );
@@ -171,13 +285,18 @@ export function registerTreeCommands(
   // triggered from the panel UI via FilterBridge messages.
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.saveFilter', () => {
-      DriftViewerPanel.createOrShow(
-        client.host, client.port, editingBridge, fkNavigator, filterBridge,
-        panelOptions(),
-      );
-      void vscode.window.showInformationMessage(
-        'Use the Save Filter control in the Data Viewer panel to save the current filter.',
-      );
+      try {
+        DriftViewerPanel.createOrShow(
+          client.host, client.port, editingBridge, fkNavigator, filterBridge,
+          panelOptions(),
+        );
+        void vscode.window.showInformationMessage(
+          'Use the Save Filter control in the Data Viewer panel to save the current filter.',
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(`Save Filter failed: ${msg}`);
+      }
     }),
   );
 }

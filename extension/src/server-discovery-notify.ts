@@ -46,8 +46,15 @@ export function maybeNotifyServerEvent(
         }
       });
   } else {
-    vscode.window.showWarningMessage(
-      `Drift debug server on port ${port} is no longer responding`,
-    );
+    void vscode.window
+      .showWarningMessage(
+        `Drift debug server on port ${port} is no longer responding`,
+        'Retry Discovery',
+      )
+      .then((choice) => {
+        if (choice === 'Retry Discovery') {
+          void vscode.commands.executeCommand('driftViewer.retryDiscovery');
+        }
+      });
   }
 }

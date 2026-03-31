@@ -170,9 +170,16 @@ export class DriftTerminalLinkProvider
       const meta = await this._client.schemaMetadata();
       return meta.map((t) => t.name);
     } catch {
-      vscode.window.showWarningMessage(
-        'Drift debug server not reachable — cannot look up tables.',
-      );
+      void vscode.window
+        .showWarningMessage(
+          'Drift debug server not reachable — cannot look up tables.',
+          'Retry Discovery',
+        )
+        .then((choice) => {
+          if (choice === 'Retry Discovery') {
+            void vscode.commands.executeCommand('driftViewer.retryDiscovery');
+          }
+        });
       return undefined;
     }
   }
