@@ -6,7 +6,6 @@ import type { DriftApiClient } from '../api-client';
 import type { DriftConnectionPresentation } from '../connection-ui-state';
 import type { IConnectionLog } from '../debug/debug-commands-types';
 import type { DiscoveryUiState, ServerDiscovery } from '../server-discovery';
-import { isTransientError } from '../transport/fetch-utils';
 import { getLogVerbosity, shouldLogConnectionLine } from '../log-verbosity';
 import {
   findDriftColumnGetterLocation,
@@ -16,8 +15,7 @@ import {
 import { SchemaSearchEngine } from './schema-search-engine';
 import { getSchemaSearchHtml } from './schema-search-html';
 import type { SchemaSearchMessage } from './schema-search-types';
-
-const DEFAULT_SEARCH_TIMEOUT_MS = 15_000;
+import { SchemaSearchOps, getNonce } from './schema-search-view-search-ops';
 export type RevealTableFn = (name: string) => Promise<void>;
 export interface SchemaSearchViewOptions {
   connectionLog?: IConnectionLog;
@@ -26,20 +24,15 @@ export interface SchemaSearchViewOptions {
 }
 export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'driftViewer.schemaSearch';
-  private readonly _engine: SchemaSearchEngine;
+  private readonly _ops: SchemaSearchOps;
   private _connectionLog?: IConnectionLog;
   private _view?: vscode.WebviewView;
-  private _searchGen = 0;
   private _presentation: DriftConnectionPresentation;
   private _discoveryUi: DiscoveryUiState | undefined;
   private _discoveryDisposable: vscode.Disposable | undefined;
   private _webviewReady = false;
   private _readyFallbackTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly _extensionContext?: vscode.ExtensionContext;
-  private _lastRequest:
-    | { type: 'search'; query: string; scope: 'all' | 'tables' | 'columns'; typeFilter?: string }
-    | { type: 'browseAll' }
-    | null = null;
   constructor(
     client: DriftApiClient,
     private readonly _revealTable: RevealTableFn,
@@ -47,7 +40,8 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
   ) {
     const cfg = vscode.workspace.getConfiguration('driftViewer');
     const crossRefMatchCap = cfg.get<number>('schemaSearch.crossRefMatchCap', 80) ?? 80;
-    this._engine = new SchemaSearchEngine(client, { crossRefMatchCap });
+    const engine = new SchemaSearchEngine(client, { crossRefMatchCap });
+    this._ops = new SchemaSearchOps(engine, () => this._view, (line) => this._log(line));
     this._connectionLog = options?.connectionLog;
     this._extensionContext = options?.extensionContext;
     this._presentation = {
@@ -199,9 +193,9 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
     }
     try {
       switch (msg.command) {
-        case 'search': await this._doSearch(msg.query, msg.scope, msg.typeFilter); break;
-        case 'searchAll': await this._doBrowseAll(); break;
-        case 'retry': await this._doRetry(); break;
+        case 'search': await this._ops.doSearch(msg.query, msg.scope, msg.typeFilter); break;
+        case 'searchAll': await this._ops.doBrowseAll(); break;
+        case 'retry': await this._ops.doRetry(); break;
         case 'navigate':
           if (msg.openSource === false) {
             await this._revealTableWithLogging(msg.table);
@@ -268,101 +262,4 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
       await this._revealTableWithLogging(table);
     }
   }
-  private async _withOptionalRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
-    const autoRetry =
-      vscode.workspace.getConfiguration('driftViewer').get<boolean>('schemaSearch.autoRetryOnError', true) !== false;
-    try {
-      return await fn();
-    } catch (first) {
-      const msg = first instanceof Error ? first.message : String(first);
-      this._log(`${label} first attempt failed — ${msg}`);
-      if (!autoRetry) throw first;
-      const retryOk =
-        isTransientError(first)
-        || msg.toLowerCase().includes('timed out')
-        || msg.toLowerCase().includes('aborted');
-      if (!retryOk) throw first;
-      await new Promise((r) => setTimeout(r, 400));
-      try {
-        const second = await fn();
-        this._log(`${label} succeeded on retry`);
-        return second;
-      } catch (secondErr) {
-        const m2 = secondErr instanceof Error ? secondErr.message : String(secondErr);
-        this._log(`${label} retry failed — ${m2}`);
-        throw secondErr;
-      }
-    }
-  }
-  private _withTimeout<T>(promise: Promise<T>): Promise<T> {
-    const timeoutMs = vscode.workspace.getConfiguration('driftViewer')
-      .get<number>('schemaSearch.timeoutMs', DEFAULT_SEARCH_TIMEOUT_MS)
-      ?? DEFAULT_SEARCH_TIMEOUT_MS;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('timed out')), timeoutMs);
-    });
-    return Promise.race([promise, timeoutPromise]).finally(() => {
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
-    });
-  }
-  private async _doSearch(
-    query: string,
-    scope: 'all' | 'tables' | 'columns',
-    typeFilter?: string,
-  ): Promise<void> {
-    this._lastRequest = { type: 'search', query, scope, typeFilter };
-    const gen = ++this._searchGen;
-    this._view?.webview.postMessage({ command: 'loading' });
-    try {
-      const result = await this._withTimeout(this._withOptionalRetry('search', () => this._engine.search(query, scope, typeFilter)));
-      if (gen !== this._searchGen) return;
-      this._view?.webview.postMessage({ command: 'results', result, crossRefs: result.crossReferences });
-    } catch (err) {
-      if (gen !== this._searchGen) return;
-      const message = err instanceof Error ? err.message : String(err);
-      this._log(`search final error — ${message}`);
-      this._view?.webview.postMessage({
-        command: 'error',
-        message: message.includes('timed out')
-          ? 'Search timed out. Try a narrower query, increase schemaSearch.timeoutMs, or check the server.'
-          : `Search failed: ${message}`,
-      });
-    }
-  }
-  private async _doBrowseAll(): Promise<void> {
-    this._lastRequest = { type: 'browseAll' };
-    const gen = ++this._searchGen;
-    this._view?.webview.postMessage({ command: 'loading' });
-    try {
-      const result = await this._withTimeout(this._withOptionalRetry('browseAll', () => this._engine.browseAllTables()));
-      if (gen !== this._searchGen) return;
-      this._view?.webview.postMessage({ command: 'results', result, crossRefs: result.crossReferences });
-    } catch (err) {
-      if (gen !== this._searchGen) return;
-      const message = err instanceof Error ? err.message : String(err);
-      this._log(`browseAll final error — ${message}`);
-      this._view?.webview.postMessage({
-        command: 'error',
-        message: message.includes('timed out')
-          ? 'Browse timed out. Check the server or increase schemaSearch.timeoutMs.'
-          : `Browse failed: ${message}`,
-      });
-    }
-  }
-  private async _doRetry(): Promise<void> {
-    if (!this._lastRequest) return;
-    if (this._lastRequest.type === 'search') {
-      const { query, scope, typeFilter } = this._lastRequest;
-      await this._doSearch(query, scope, typeFilter);
-    } else {
-      await this._doBrowseAll();
-    }
-  }
-}
-function getNonce(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let nonce = '';
-  for (let i = 0; i < 32; i++) nonce += chars.charAt(Math.floor(Math.random() * chars.length));
-  return nonce;
 }

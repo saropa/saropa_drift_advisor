@@ -4,4 +4,5 @@
  */
 
 export type ApiHeaders = Record<string, string>;
+export * from './api-client-http-schema';
 export * from './api-client-http-impl';

@@ -5,10 +5,8 @@
 
 import * as assert from 'assert';
 import { getSchemaSearchHtml } from '../schema-search/schema-search-html';
-import {
-  SCHEMA_SEARCH_SCRIPT,
-  SCHEMA_SEARCH_STYLE,
-} from '../schema-search/schema-search-html-content';
+import { SCHEMA_SEARCH_SCRIPT } from '../schema-search/schema-search-html-content';
+import { SCHEMA_SEARCH_STYLE } from '../schema-search/schema-search-html-styles';
 
 describe('getSchemaSearchHtml', () => {
   it('includes permanent panel chrome not removed by connection script', () => {

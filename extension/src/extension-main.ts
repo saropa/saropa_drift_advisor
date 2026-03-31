@@ -24,22 +24,14 @@
 
 import * as vscode from 'vscode';
 import { AnnotationStore } from './annotations/annotation-store';
-import { DashboardPanel } from './dashboard/dashboard-panel';
 import { SchemaIntelligence } from './engines/schema-intelligence';
 import { QueryIntelligence } from './engines/query-intelligence';
-import { updateStatusBar } from './status-bar';
-import { HealthStatusBar } from './status-bar-health';
-import { ToolsQuickPickStatusBar, registerToolsQuickPickCommand } from './status-bar-tools';
 import { setupProviders, type LogCaptureIssuesRef } from './extension-providers';
 import { setupDiagnostics } from './extension-diagnostics';
 import { setupEditing } from './extension-editing';
-import { registerAllCommands } from './extension-commands';
 import { registerAboutCommands } from './about/about-commands';
 import { registerRefreshTreeCommand } from './tree/tree-commands';
-import {
-  isDriftUiConnected,
-  refreshDriftConnectionUi as syncDriftConnectionUi,
-} from './connection-ui-state';
+import { isDriftUiConnected } from './connection-ui-state';
 import { bootstrapExtension } from './extension-bootstrap';
 import { SchemaTracker } from './schema-timeline/schema-tracker';
 import { PackageStatusMonitor } from './workspace-setup/package-status-monitor';
@@ -47,48 +39,8 @@ import { SchemaCache } from './schema-cache/schema-cache';
 import { createCachedDriftClient } from './schema-cache/cached-drift-client';
 import type { DriftAdvisorApi } from './log-capture-api';
 import { createDriftAdvisorApi } from './log-capture-api';
-import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
-
-// ---------------------------------------------------------------------------
-// Timestamp helper for activation log lines.
-// ---------------------------------------------------------------------------
-/** Returns an ISO timestamp string for log lines. */
-function ts(): string {
-  return new Date().toISOString();
-}
-
-// ---------------------------------------------------------------------------
-// Phase runner — isolates each activation step so one failure does not
-// cascade to later phases.
-// ---------------------------------------------------------------------------
-/**
- * Runs a single activation phase inside a try/catch.
- *
- * On success: logs completion and returns the phase result.
- * On failure: logs the error + stack trace to the output channel,
- * shows a user-visible error toast, and returns `undefined` so later
- * phases can check whether their dependency is available.
- */
-function runPhase<T>(
-  name: string,
-  channel: vscode.OutputChannel,
-  fn: () => T,
-): T | undefined {
-  channel.appendLine(`[${ts()}] Phase "${name}" starting...`);
-  try {
-    const result = fn();
-    channel.appendLine(`[${ts()}] Phase "${name}" completed.`);
-    return result;
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack ?? '' : '';
-    channel.appendLine(`[${ts()}] Phase "${name}" FAILED: ${msg}\n${stack}`);
-    void vscode.window.showErrorMessage(
-      `Saropa Drift Advisor: "${name}" failed — ${msg}. Some features may be unavailable.`,
-    );
-    return undefined;
-  }
-}
+import { ts, runPhase } from './extension-phase-utils';
+import { setupFinalPhases } from './extension-activation-final';
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -208,7 +160,6 @@ function _activateInner(
 
   // Config values used by multiple later phases.
   const loadOnConnect = cfg.get<boolean>('database.loadOnConnect', true) !== false;
-  let treeLoadedLazy = false;
   const getLightweight = (): boolean =>
     vscode.workspace.getConfiguration('driftViewer').get<boolean>('lightweight', false) === true;
 
@@ -303,260 +254,27 @@ function _activateInner(
   }
 
   // -----------------------------------------------------------------------
-  // Phase 8: Status bars + UI wiring.
+  // Phases 8–10: Status bars, command registration, event wiring.
+  // Extracted to extension-activation-final.ts to keep this file compact.
   // -----------------------------------------------------------------------
-  let dashboardPromptShown = false;
-  const statusBars = track(runPhase('status-bars', channel, () => {
-    const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    const refreshStatusBar = (): void =>
-      updateStatusBar(statusItem, discovery, serverManager, discoveryEnabled, cachedClient);
-    refreshStatusBar();
-    context.subscriptions.push(statusItem);
-
-    const healthStatusBar = new HealthStatusBar();
-    context.subscriptions.push(healthStatusBar);
-
-    const toolsQuickPick = new ToolsQuickPickStatusBar();
-    context.subscriptions.push(toolsQuickPick);
-    registerToolsQuickPickCommand(context);
-
-    return { statusItem, healthStatusBar, toolsQuickPick, refreshStatusBar };
-  }));
-
-  // Connection UI refresh callback — needs providers and schemaCache.
-  // Wrapped in a mutable ref so commands can call it after wiring.
-  const connectionUiRefresh: { fn?: () => void } = {};
-  if (providers) {
-    connectionUiRefresh.fn = () => {
-      syncDriftConnectionUi(serverManager, cachedClient, {
-        toolsProvider: providers.toolsProvider,
-        schemaSearchProvider: providers.schemaSearchProvider,
-        treeProvider: providers.treeProvider,
-        schemaCache,
-      }, {
-        appendLine: (msg: string) => {
-          if (shouldLogConnectionLine(msg, getLogVerbosity())) {
-            channel.appendLine(msg);
-          }
-        },
-      });
-      providers.treeProvider.notifyConnectionPresentationChanged();
-    };
-    providers.treeProvider.postRefreshHook = () => connectionUiRefresh.fn?.();
-    context.subscriptions.push(
-      schemaCache.onDidUpdate(() => {
-        void providers.treeProvider.refresh();
-      }),
-    );
-  }
-
-  // -----------------------------------------------------------------------
-  // Phase 9: Command registration.
-  // -----------------------------------------------------------------------
-  track(runPhase('commands', channel, () => {
-    if (providers && editing) {
-      registerAllCommands(context, cachedClient, {
-        ...providers,
-        ...editing,
-        annotationStore,
-        statusItem: statusBars?.statusItem ?? vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100),
-        discovery,
-        serverManager,
-        discoveryEnabled,
-        watcher,
-        schemaTracker: schemaTracker ?? new SchemaTracker(cachedClient, context.workspaceState, watcher),
-        updateStatusBar: statusBars?.refreshStatusBar ?? (() => {}),
-        connectionChannel: channel,
-        healthStatusBar: statusBars?.healthStatusBar ?? new HealthStatusBar(),
-        refreshDriftConnectionUi: () => connectionUiRefresh.fn?.(),
-      });
-    } else if (providers) {
-      // Editing failed but providers are available — register commands
-      // without editing dependencies. Some commands will be unavailable
-      // but tree/nav/tools commands will work.
-      channel.appendLine(`[${ts()}] Registering commands without editing (editing phase failed).`);
-    } else {
-      // Providers failed — cannot register commands at all.
-      channel.appendLine(`[${ts()}] Skipping command registration: providers phase failed.`);
-    }
-  }));
-
-  // Wire schema search to discovery (only if providers exist).
-  if (providers) {
-    providers.schemaSearchProvider.attachDiscoveryMonitor(discovery);
-    context.subscriptions.push({
-      dispose: () => {
-        providers.schemaSearchProvider.disposeDiscoveryMonitor();
-      },
-    });
-  }
-
-  // Initial connection UI sync + VM transport listener.
-  connectionUiRefresh.fn?.();
-  context.subscriptions.push(
-    cachedClient.onVmTransportChanged(() => connectionUiRefresh.fn?.()),
-  );
-
-  // -----------------------------------------------------------------------
-  // Phase 10: Event listeners + initial state.
-  // -----------------------------------------------------------------------
-  track(runPhase('event-wiring', channel, () => {
-    // Master enable/disable switch.
-    const applyEnabledState = (enabled: boolean): void => {
-      void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', enabled);
-      if (enabled) {
-        if (discoveryEnabled) discovery.start();
-        watcher.start();
-        if (providers) {
-          if (loadOnConnect) void providers.treeProvider.refresh();
-          providers.codeLensProvider.refreshRowCounts();
-          providers.linter.refresh();
-        }
-        diagnostics?.diagnosticManager.refresh().catch(() => {});
-        if (providers && !getLightweight()) providers.refreshBadges().catch(() => {});
-        connectionUiRefresh.fn?.();
-      } else {
-        discovery.stop();
-        watcher.stop();
-        serverManager.clearActive();
-        schemaCache.invalidate();
-        statusBars?.healthStatusBar.hide();
-        statusBars?.toolsQuickPick.hide();
-        connectionUiRefresh.fn?.();
-      }
-      statusBars?.refreshStatusBar();
-    };
-
-    context.subscriptions.push(
-      vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('driftViewer.enabled')) {
-          const enabled = vscode.workspace.getConfiguration('driftViewer').get<boolean>('enabled', true) !== false;
-          applyEnabledState(enabled);
-        }
-      }),
-    );
-
-    // Server connection lifecycle.
-    serverManager.onDidChangeActive((server) => {
-      statusBars?.refreshStatusBar();
-      schemaCache.invalidate();
-      connectionUiRefresh.fn?.();
-      if (isDriftUiConnected(serverManager, cachedClient)) {
-        statusBars?.toolsQuickPick.show();
-      } else {
-        statusBars?.toolsQuickPick.hide();
-      }
-      if (!server) {
-        statusBars?.healthStatusBar.hide();
-        treeLoadedLazy = false;
-      }
-      if (server) {
-        watcher.stop();
-        watcher.reset();
-        watcher.start();
-        schemaCache.prewarm();
-        if (providers) {
-          if (loadOnConnect) void providers.treeProvider.refresh();
-          providers.codeLensProvider.refreshRowCounts();
-          providers.linter.refresh();
-        }
-        diagnostics?.diagnosticManager.refresh().catch(() => {});
-        if (providers && !getLightweight()) providers.refreshBadges().catch(() => {});
-        if (providers) providers.watchManager.refresh().catch(() => {});
-        if (!dashboardPromptShown) {
-          dashboardPromptShown = true;
-          const showOnConnect = vscode.workspace
-            .getConfiguration('driftViewer')
-            .get<boolean>('dashboard.showOnConnect', true);
-          const suppressKey = 'driftViewer.suppressDashboardPrompt';
-          const suppressed = context.workspaceState.get<boolean>(suppressKey, false);
-          if (showOnConnect && !suppressed) {
-            void vscode.window.showInformationMessage(
-              'Drift server connected! Open the Dashboard to explore all features.',
-              'Open Dashboard',
-              "Don't Show Again",
-            ).then((choice) => {
-              if (choice === 'Open Dashboard') {
-                vscode.commands.executeCommand('driftViewer.openDashboard');
-              } else if (choice === "Don't Show Again") {
-                context.workspaceState.update(suppressKey, true);
-              }
-            });
-          }
-        }
-      }
-    });
-
-    // Delayed context sync to handle races where the sidebar evaluates
-    // before the extension finishes wiring.
-    const syncContextTimeout = setTimeout(() => {
-      connectionUiRefresh.fn?.();
-    }, 1500);
-    context.subscriptions.push({
-      dispose: () => clearTimeout(syncContextTimeout),
-    });
-
-    // Discovery server list changes.
-    discovery.onDidChangeServers(() => {
-      statusBars?.refreshStatusBar();
-      connectionUiRefresh.fn?.();
-    });
-
-    // Lazy tree loading when the tree view becomes visible.
-    if (providers && typeof providers.treeView.onDidChangeVisibility === 'function') {
-      context.subscriptions.push(
-        providers.treeView.onDidChangeVisibility((e: { visible: boolean }) => {
-          if (e.visible && !loadOnConnect && !treeLoadedLazy && isDriftUiConnected(serverManager, cachedClient)) {
-            treeLoadedLazy = true;
-            void providers.treeProvider.refresh();
-          }
-        }),
-      );
-    }
-
-    // Schema generation watcher — refreshes tree, caches, linters, etc.
-    watcher.onDidChange(async () => {
-      schemaCache.invalidate();
-      if (!getLightweight() && providers) {
-        void providers.treeProvider.refresh();
-        providers.definitionProvider.clearCache();
-        providers.hoverCache.clear();
-        await providers.codeLensProvider.refreshRowCounts();
-        providers.codeLensProvider.notifyChange();
-        providers.linter.refresh();
-        diagnostics?.diagnosticManager.refresh().catch(() => {});
-        providers.refreshBadges().catch(() => {});
-        if (vscode.workspace.getConfiguration('driftViewer').get<boolean>('timeline.autoCapture', true)) {
-          providers.snapshotStore.capture(cachedClient).catch(() => {});
-        }
-        providers.watchManager.refresh().catch(() => {});
-        if (DashboardPanel.currentPanel) {
-          DashboardPanel.currentPanel.refreshAll().catch(() => {});
-        }
-      }
-      if (providers) {
-        providers.dbpProvider.onGenerationChange().catch(() => {});
-      }
-    });
-
-    // Start watcher + initial refresh if extension is enabled.
-    if (extensionEnabled) {
-      watcher.start();
-      if (providers) {
-        if (loadOnConnect) {
-          void providers.treeProvider.refresh();
-        }
-        providers.codeLensProvider.refreshRowCounts();
-        providers.linter.refresh();
-      }
-      if (isDriftUiConnected(serverManager, cachedClient)) {
-        schemaCache.prewarm();
-      }
-      diagnostics?.diagnosticManager.refresh().catch(() => {});
-      if (providers && !getLightweight()) providers.refreshBadges().catch(() => {});
-    }
-    context.subscriptions.push({ dispose: () => watcher.stop() });
-  }));
+  setupFinalPhases({
+    context,
+    channel,
+    cachedClient,
+    schemaCache,
+    discovery,
+    serverManager,
+    discoveryEnabled,
+    extensionEnabled,
+    watcher,
+    providers,
+    editing,
+    diagnostics,
+    annotationStore,
+    schemaTracker,
+    loadOnConnect,
+    getLightweight,
+  }, track);
 
   // -----------------------------------------------------------------------
   // Activation summary.

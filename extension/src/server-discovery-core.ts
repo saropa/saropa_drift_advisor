@@ -14,40 +14,9 @@ import {
 } from './server-discovery-constants';
 import { maybeNotifyServerEvent } from './server-discovery-notify';
 import { scanPorts } from './server-discovery-scan';
-
-export interface IServerInfo {
-  host: string;
-  port: number;
-  firstSeen: number;
-  lastSeen: number;
-  missedPolls: number;
-}
-export interface IDiscoveryConfig {
-  host: string;
-  portRangeStart: number;
-  portRangeEnd: number;
-  additionalPorts?: number[];
-  authHeaders?: Record<string, string>;
-}
-
-/** Optional hook when the user picks **Open URL** on the “server detected” toast (set via [setOnAfterOpenUrlFromNotification]). */
-export type DiscoveryOpenUrlHook = (host: string, port: number) => void;
-export type DiscoveryState = 'searching' | 'connected' | 'backoff';
-export interface DiscoveryUiState {
-  paused: boolean;
-  state: DiscoveryState;
-  host: string;
-  portsLabel: string;
-  activity: string;
-  lastOutcome: string;
-  nextScanInSec: number;
-  scanInFlight: boolean;
-  emptyScans: number;
-  discoveredPorts: number[];
-}
-export interface IDiscoveryLog {
-  appendLine(msg: string): void;
-}
+import type { IServerInfo, IDiscoveryConfig, DiscoveryOpenUrlHook, DiscoveryState, DiscoveryUiState, IDiscoveryLog } from './server-discovery-ui-state';
+import { portsProbeLabel, scanOutcomeLine, buildDiscoveryUiState } from './server-discovery-ui-state';
+export type { IServerInfo, IDiscoveryConfig, DiscoveryOpenUrlHook, DiscoveryState, DiscoveryUiState, IDiscoveryLog } from './server-discovery-ui-state';
 export class ServerDiscovery {
   private readonly _onDidChangeServers = new vscode.EventEmitter<IServerInfo[]>();
   readonly onDidChangeServers = this._onDidChangeServers.event;
@@ -100,14 +69,14 @@ export class ServerDiscovery {
     return this._paused;
   }
   getDiscoverySnapshot(): DiscoveryUiState {
-    return this._buildDiscoveryUiState(false);
+    return buildDiscoveryUiState(this._snapshot(false));
   }
   start(): void {
     if (this._running) return;
     this._running = true;
     this._scanCount = 0;
     this._logLine(
-      `Starting — scanning ${this._config.host} ports ${this._portsProbeLabel()} `
+      `Starting — scanning ${this._config.host} ports ${portsProbeLabel(this._config)} `
       + `every ${SEARCH_INTERVAL / 1000}s (backoff after ${BACKOFF_THRESHOLD} empty scans to ${BACKOFF_INTERVAL / 1000}s)`,
     );
     this._emitDiscoveryUi(false);
@@ -152,72 +121,23 @@ export class ServerDiscovery {
     this._onDidChangeServers.dispose();
     this._onDidChangeDiscoveryUi.dispose();
   }
-  private _portsProbeLabel(): string {
-    const { portRangeStart, portRangeEnd, additionalPorts } = this._config;
-    let label = `${portRangeStart}–${portRangeEnd}`;
-    if (additionalPorts?.length) {
-      const extra = [...new Set(additionalPorts)].filter(
-        (p) => p < portRangeStart || p > portRangeEnd,
-      );
-      if (extra.length) {
-        extra.sort((a, b) => a - b);
-        label += `, also ${extra.join(', ')}`;
-      }
-    }
-    return label;
-  }
-  private _recordScanOutcome(alivePorts: number[]): void {
-    if (alivePorts.length > 0) {
-      const ports = [...alivePorts].sort((a, b) => a - b);
-      this._lastOutcomeLine =
-        `Last scan: Drift server validated on port(s) ${ports.join(', ')}.`;
-    } else {
-      this._lastOutcomeLine =
-        `Last scan: no server on ${this._config.host} ports ${this._portsProbeLabel()}. `
-        + 'Each candidate must return ok=true and a non-empty version from /api/health. '
-        + 'If the app uses Bearer auth, set driftViewer.authToken to match.';
-    }
-  }
-  private _buildDiscoveryUiState(scanInFlight: boolean): DiscoveryUiState {
-    const portsLabel = this._portsProbeLabel();
-    const discoveredPorts = [...this._servers.keys()].sort((a, b) => a - b);
-    let activity: string;
-    if (!this._running) {
-      activity = 'Discovery stopped (extension disabled or not started).';
-    } else if (this._paused) {
-      activity = 'Paused — click Resume to scan again';
-    } else if (scanInFlight) {
-      activity =
-        `Scanning ${this._config.host} ports ${portsLabel} for a Drift debug server…`;
-    } else {
-      const sec = Math.max(1, Math.round(this._getInterval() / 1000));
-      if (this._state === 'backoff') {
-        activity =
-          `Backoff after empty scans — next try in ${sec}s (then resumes faster scans).`;
-      } else if (this._state === 'connected') {
-        activity =
-          `Watching ${discoveredPorts.length} port(s) — next check in ${sec}s.`;
-      } else {
-        activity = `Searching — next port scan in ${sec}s.`;
-      }
-    }
+  /** Build a [DiscoverySnapshot] for the pure [buildDiscoveryUiState] helper. */
+  private _snapshot(scanInFlight: boolean) {
     return {
+      running: this._running,
       paused: this._paused,
       state: this._state,
       host: this._config.host,
-      portsLabel,
-      activity,
-      lastOutcome: this._lastOutcomeLine,
-      nextScanInSec: !this._running || this._paused || scanInFlight
-        ? 0
-        : Math.max(1, Math.round(this._getInterval() / 1000)),
-      scanInFlight,
+      portsLabel: portsProbeLabel(this._config),
       emptyScans: this._emptyScans,
-      discoveredPorts,
+      servers: this._servers,
+      lastOutcomeLine: this._lastOutcomeLine,
+      intervalMs: this._getInterval(),
+      scanInFlight,
     };
   }
   private _emitDiscoveryUi(scanInFlight: boolean): void {
-    this._onDidChangeDiscoveryUi.fire(this._buildDiscoveryUiState(scanInFlight));
+    this._onDidChangeDiscoveryUi.fire(buildDiscoveryUiState(this._snapshot(scanInFlight)));
   }
   private async _poll(id: number): Promise<void> {
     if (!this._running || id !== this._pollId) return;
@@ -227,7 +147,7 @@ export class ServerDiscovery {
     }
     this._scanCount++;
     const scanNum = this._scanCount;
-    const portsLabel = this._portsProbeLabel();
+    const portsLabel = portsProbeLabel(this._config);
     this._logLine(
       `Scan #${scanNum} starting — ${this._config.host} ports ${portsLabel} [state=${this._state}]`,
     );
@@ -255,7 +175,9 @@ export class ServerDiscovery {
           `Scan #${scanNum} complete — no server found (empty scans so far: ${this._emptyScans + 1})`,
         );
       }
-      this._recordScanOutcome(alivePorts);
+      this._lastOutcomeLine = scanOutcomeLine(
+        alivePorts, this._config.host, portsProbeLabel(this._config),
+      );
       this._updateServers(alivePorts);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

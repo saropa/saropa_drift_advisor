@@ -1,5 +1,6 @@
 /** Builds the HTML/CSS/JS for the schema search sidebar webview. */
-import { SCHEMA_SEARCH_SCRIPT, SCHEMA_SEARCH_STYLE } from './schema-search-html-content';
+import { SCHEMA_SEARCH_SCRIPT } from './schema-search-html-content';
+import { SCHEMA_SEARCH_STYLE } from './schema-search-html-styles';
 
 export function getSchemaSearchHtml(nonce: string): string {
   return /* html */ `<!DOCTYPE html>

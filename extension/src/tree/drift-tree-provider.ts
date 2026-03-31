@@ -11,30 +11,8 @@ import * as vscode from 'vscode';
 import { DriftApiClient, TableMetadata } from '../api-client';
 import type { AnnotationStore } from '../annotations/annotation-store';
 import type { PinStore } from './pin-store';
-import {
-  ColumnItem,
-  ConnectionStatusItem,
-  DisconnectedBannerItem,
-  ForeignKeyItem,
-  PinnedGroupItem,
-  SchemaRestFailureBannerItem,
-  TableItem,
-} from './tree-items';
-import {
-  ActionItem,
-  getDisconnectedActions,
-  getSchemaRestFailureActions,
-} from './quick-action-items';
-
-type TreeNode =
-  | ConnectionStatusItem
-  | DisconnectedBannerItem
-  | SchemaRestFailureBannerItem
-  | PinnedGroupItem
-  | ActionItem
-  | TableItem
-  | ColumnItem
-  | ForeignKeyItem;
+import { TableItem } from './tree-items';
+import { type TreeNode, resolveChildren } from './drift-tree-children';
 
 /**
  * Maximum wall-clock time (ms) a single [refresh] cycle may take before being
@@ -252,95 +230,20 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     }
   }
 
+  /**
+   * Delegates to [resolveChildren] from drift-tree-children.ts, passing a
+   * snapshot of the current tree state so the resolution logic stays
+   * in a separate module (keeps this file under the line cap).
+   */
   private async _getChildrenInner(element?: TreeNode): Promise<TreeNode[]> {
-    // Root level: empty only when we have nothing to show (disconnected and no cached schema).
-    if (!element) {
-      if (!this._connected && !this._offlineSchema) {
-        // Hosts where welcome-view markdown `command:` links do nothing still execute
-        // TreeItem.command, so surface the same actions as rows.
-        // Hosts where welcome-view markdown `command:` links do nothing still execute
-        // TreeItem.command, so surface the same actions as real clickable tree rows.
-        if (this._isDriftUiConnected()) {
-          return [
-            new SchemaRestFailureBannerItem(),
-            ...getSchemaRestFailureActions(),
-          ];
-        }
-        // Fully disconnected: show banner + discovery/diagnostic actions instead of
-        // an empty tree (which would display viewsWelcome markdown links that silently
-        // fail in some VS Code forks/versions).
-        return [
-          new DisconnectedBannerItem(),
-          ...getDisconnectedActions(),
-        ];
-      }
-      const status = new ConnectionStatusItem(
-        this._client.connectionDisplayName,
-        this._connected,
-        this._offlineSchema,
-      );
-      this._decorateTableItems();
-
-      const pinned = this._tableItems.filter((t) => t.pinned);
-      const unpinned = this._tableItems.filter((t) => !t.pinned);
-      const items: TreeNode[] = [status];
-      if (pinned.length > 0) {
-        items.push(new PinnedGroupItem(pinned.length));
-      }
-      items.push(...pinned, ...unpinned);
-      return items;
-    }
-
-    // Table level: columns + foreign keys (lazy-loaded)
-    if (element instanceof TableItem) {
-      const columns = element.table.columns.map(
-        (c) => new ColumnItem(c, element.table.name),
-      );
-      this._decorateColumnItems(columns, element.table.name);
-      let fks: ForeignKeyItem[] = [];
-      try {
-        const fkData = await this._client.tableFkMeta(element.table.name);
-        fks = fkData.map((fk) => new ForeignKeyItem(fk));
-      } catch {
-        // FK fetch failed — show columns only
-      }
-      return [...columns, ...fks];
-    }
-
-    return [];
-  }
-
-  /** Append annotation count to table item descriptions. */
-  private _decorateTableItems(): void {
-    if (!this._annotationStore) return;
-    for (const item of this._tableItems) {
-      // Reset to base description to avoid accumulation on repeated calls
-      const rc = item.table.rowCount;
-      const base = `${rc} ${rc === 1 ? 'row' : 'rows'}`;
-      const count = this._annotationStore.countForTable(
-        item.table.name,
-      );
-      item.description = count > 0
-        ? `${base} \u00B7 ${count === 1 ? '1 note' : `${count} notes`}`
-        : base;
-    }
-  }
-
-  /** Append annotation indicator to column item descriptions. */
-  private _decorateColumnItems(
-    columns: ColumnItem[],
-    tableName: string,
-  ): void {
-    if (!this._annotationStore) return;
-    for (const col of columns) {
-      const has = this._annotationStore.hasAnnotations(
-        tableName,
-        col.column.name,
-      );
-      if (has) {
-        col.description = `${col.description} \u00B7 \u{1F4CC}`;
-      }
-    }
+    return resolveChildren(element, {
+      client: this._client,
+      connected: this._connected,
+      offlineSchema: this._offlineSchema,
+      isDriftUiConnected: this._isDriftUiConnected,
+      tableItems: this._tableItems,
+      annotationStore: this._annotationStore,
+    });
   }
 
   /** Find a cached TableItem by name (for tree view reveal). */
