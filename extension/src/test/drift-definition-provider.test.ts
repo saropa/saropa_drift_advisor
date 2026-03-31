@@ -217,6 +217,43 @@ describe('DriftDefinitionProvider', () => {
       assert.strictEqual(result, null);
     });
 
+    it('should fall back to table class when column getter is not found', async () => {
+      stubSchemaMetadata();
+      // Table class exists but uses a non-standard getter name for the column.
+      const noGetterContent = [
+        'import \'package:drift/drift.dart\';',
+        '',
+        'class Orders extends Table {',
+        '  IntColumn get id => integer().autoIncrement()();',
+        '  // user_id getter is missing or uses a non-standard pattern',
+        '}',
+      ].join('\n');
+      const fileUri = vscodeMock.Uri.file('/project/lib/tables/orders.dart');
+      findFilesStub.resolves([fileUri]);
+      openTextDocumentStub.resolves(makeDartFileDocument(noGetterContent));
+
+      const doc = makeDocument("  'SELECT user_id FROM orders',");
+      // cursor on 'user_id' — position 10
+      const pos = new vscodeMock.Position(0, 10);
+      const result = await provider.provideDefinition(doc, pos, cancelToken);
+
+      // Should fall back to the table class location instead of returning null.
+      assert.ok(result, 'Expected fallback to table class Location');
+      assert.strictEqual(result.uri, fileUri);
+      // Should point to the 'class Orders extends Table' line.
+      assert.strictEqual(result.range.start.line, 2);
+    });
+
+    it('should return null for column when no dart files exist', async () => {
+      stubSchemaMetadata();
+      findFilesStub.resolves([]);
+
+      const doc = makeDocument("  'SELECT total FROM orders',");
+      const pos = new vscodeMock.Position(0, 10); // on 'total'
+      const result = await provider.provideDefinition(doc, pos, cancelToken);
+      assert.strictEqual(result, null);
+    });
+
     it('should return null when schema fetch fails and no cache', async () => {
       fetchStub.rejects(new Error('connection refused'));
 

@@ -243,7 +243,7 @@ export function registerTreeCommands(
           await exportTable(client, item.table.name);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage(`Export failed: ${msg}`);
+          void vscode.window.showErrorMessage(`Export failed: ${msg}`);
         }
       },
     ),

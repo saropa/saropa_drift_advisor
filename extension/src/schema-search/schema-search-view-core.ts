@@ -248,9 +248,15 @@ export class SchemaSearchViewProvider implements vscode.WebviewViewProvider {
    */
   private async _openSchemaInSource(table: string, column?: string): Promise<void> {
     try {
-      const loc = column
-        ? await findDriftColumnGetterLocation(column, table)
-        : await findDriftTableClassLocation(table);
+      let loc: import('vscode').Location | null;
+      if (column) {
+        const result = await findDriftColumnGetterLocation(column, table);
+        // Use exact getter location, or fall back to the table class.
+        loc = result.location ?? result.tableClassFallback;
+      } else {
+        const tableResult = await findDriftTableClassLocation(table);
+        loc = tableResult.location;
+      }
       const detail = column
         ? `column "${column}" on table "${table}"`
         : `table "${table}"`;

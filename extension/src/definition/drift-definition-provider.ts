@@ -63,14 +63,19 @@ export class DriftDefinitionProvider implements vscode.DefinitionProvider {
     if (!classification) return null;
 
     if (classification.type === 'table') {
-      return findDriftTableClassLocation(wordInfo.word);
+      const tableResult = await findDriftTableClassLocation(wordInfo.word);
+      return tableResult.location;
     }
 
     if (classification.type === 'column' && classification.tableName) {
-      return findDriftColumnGetterLocation(
+      const result = await findDriftColumnGetterLocation(
         wordInfo.word,
         classification.tableName,
       );
+      // Return exact getter location, or fall back to the table class so
+      // F12 still navigates somewhere useful even when the getter pattern
+      // doesn't match.
+      return result.location ?? result.tableClassFallback;
     }
 
     return null;
