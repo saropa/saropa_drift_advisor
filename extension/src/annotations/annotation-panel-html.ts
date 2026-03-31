@@ -3,7 +3,7 @@
  * Self-contained with inline CSS/JS. Uses VS Code theme variables.
  */
 
-import type { AnnotationIcon, IAnnotation } from './annotation-types';
+import { ANNOTATION_ICON_EMOJI, type IAnnotation } from './annotation-types';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -14,15 +14,8 @@ function esc(value: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
-const ICON_MAP: Record<AnnotationIcon, string> = {
-  note: '\u{1F4A1}',
-  warning: '\u26A0\uFE0F',
-  bug: '\u{1F41B}',
-  star: '\u2B50',
-  pin: '\u{1F4CC}',
-  todo: '\u{1F4CB}',
-  bookmark: '\u{1F516}',
-};
+/** Alias kept for readability in the HTML template functions. */
+const ICON_MAP = ANNOTATION_ICON_EMOJI;
 
 function targetLabel(ann: IAnnotation): string {
   const t = ann.target;

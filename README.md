@@ -238,7 +238,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 #### Sessions & Collaboration
 
 - **Share session** — snapshot viewer state as a URL with annotations; live countdown timer, 10-minute warning, extend button, configurable duration
-- **Annotations panel** — notes on tables and columns; import/export as JSON
+- **Annotations panel** — notes on tables and columns; import/export as JSON; remove per-item or clear all; previews in tree descriptions
 
 #### Pre-launch Health Checks
 

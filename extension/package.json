@@ -443,6 +443,19 @@
         "icon": "$(bookmark)"
       },
       {
+        "command": "driftViewer.clearAnnotations",
+        "title": "Clear All Annotations",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "driftViewer.removeTableAnnotations",
+        "title": "Remove Annotations"
+      },
+      {
+        "command": "driftViewer.removeColumnAnnotations",
+        "title": "Remove Annotations"
+      },
+      {
         "command": "driftViewer.exportAnnotations",
         "title": "Saropa Drift Advisor: Export Annotations"
       },
@@ -743,6 +756,11 @@
         {
           "command": "driftViewer.openBookmarks",
           "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.clearAnnotations",
+          "when": "view == driftViewer.databaseExplorer",
           "group": "1_more"
         },
         {
@@ -915,7 +933,17 @@
           "group": "8_annotate"
         },
         {
+          "command": "driftViewer.removeTableAnnotations",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
+          "group": "8_annotate"
+        },
+        {
           "command": "driftViewer.annotateColumn",
+          "when": "viewItem == driftColumn || viewItem == driftColumnPk",
+          "group": "8_annotate"
+        },
+        {
+          "command": "driftViewer.removeColumnAnnotations",
           "when": "viewItem == driftColumn || viewItem == driftColumnPk",
           "group": "8_annotate"
         },

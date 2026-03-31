@@ -32,6 +32,26 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+• **Annotation creation gave no user feedback** — After completing the annotation quick-pick and text input, the command silently returned with no toast, no tree change visible if disconnected, and no indication the annotation was saved. All annotation commands now show a confirmation info message (e.g. "Annotation added to column 'users.email'.").
+
+### Changed
+
+• **Annotation preview in Database Explorer tree** — Tree items now show the actual annotation emoji and note text (truncated at 40 chars) instead of the old generic "· 1 note" / "· 📌" placeholders. Multiple annotations show "+N more" suffix.
+
+• **Bookmarks button moved to tree toolbar** — The "Open Bookmarks" command is now a visible `$(bookmark)` icon in the Database Explorer title bar instead of buried in the `...` overflow menu.
+
+### Added
+
+• **Remove annotations from tree context menu** — Right-click a table or column → "Remove Annotations" with a modal confirmation. Table removal clears all annotation kinds (table, column, row) in a single pass.
+
+• **Clear All Annotations command** — Available in the Database Explorer `...` menu. Confirms before wiping all annotations.
+
+---
+
 ## [2.14.0]
 
 Stops internal analytics queries from showing up as false-positive slow-query warnings, and hardens web UI asset loading with in-memory caching, multi-CDN fallback, and proper error handling when the package root can't find assets. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.13.0/CHANGELOG.md)

@@ -78,6 +78,57 @@ export class AnnotationStore {
     return true;
   }
 
+  /** Remove all annotations. Returns the number removed. */
+  clearAll(): number {
+    const count = this._annotations.length;
+    if (count === 0) return 0;
+    this._annotations = [];
+    this._persist();
+    return count;
+  }
+
+  /** Remove all table-level annotations for a given table. Returns count removed. */
+  removeForTable(tableName: string): number {
+    const before = this._annotations.length;
+    this._annotations = this._annotations.filter(
+      (a) => !(a.target.kind === 'table' && a.target.table === tableName),
+    );
+    const removed = before - this._annotations.length;
+    if (removed > 0) this._persist();
+    return removed;
+  }
+
+  /**
+   * Remove ALL annotations (table, column, and row) for a given table in a
+   * single pass. Returns count removed. Avoids N+1 persist/refresh cascade
+   * that would occur if removing each annotation individually.
+   */
+  removeAllForTable(tableName: string): number {
+    const before = this._annotations.length;
+    this._annotations = this._annotations.filter(
+      (a) => a.target.table !== tableName,
+    );
+    const removed = before - this._annotations.length;
+    if (removed > 0) this._persist();
+    return removed;
+  }
+
+  /** Remove all column-level annotations for a given column. Returns count removed. */
+  removeForColumn(tableName: string, columnName: string): number {
+    const before = this._annotations.length;
+    this._annotations = this._annotations.filter(
+      (a) =>
+        !(
+          a.target.kind === 'column' &&
+          a.target.table === tableName &&
+          a.target.column === columnName
+        ),
+    );
+    const removed = before - this._annotations.length;
+    if (removed > 0) this._persist();
+    return removed;
+  }
+
   /** All annotations targeting the given table (any kind). */
   forTable(tableName: string): IAnnotation[] {
     return this._annotations.filter(

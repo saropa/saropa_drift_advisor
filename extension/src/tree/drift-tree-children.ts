@@ -4,6 +4,7 @@
  */
 import type { DriftApiClient, TableMetadata } from '../api-client';
 import type { AnnotationStore } from '../annotations/annotation-store';
+import { ANNOTATION_ICON_EMOJI } from '../annotations/annotation-types';
 import {
   ColumnItem,
   ConnectionStatusItem,
@@ -106,7 +107,18 @@ export async function resolveChildren(
   return [];
 }
 
-/** Append annotation count to table item descriptions. */
+/** Max characters for an annotation preview in tree item descriptions. */
+const NOTE_PREVIEW_MAX = 40;
+
+/** Truncate text to a max length, appending ellipsis if trimmed. */
+function truncate(text: string, max: number): string {
+  return text.length <= max ? text : text.slice(0, max - 1) + '\u2026';
+}
+
+/**
+ * Append annotation icon + note preview to table item descriptions.
+ * Shows the first annotation's emoji and note text so it's obvious at a glance.
+ */
 export function decorateTableItems(
   items: TableItem[],
   annotationStore?: AnnotationStore,
@@ -116,14 +128,24 @@ export function decorateTableItems(
     // Reset to base description to avoid accumulation on repeated calls
     const rc = item.table.rowCount;
     const base = `${rc} ${rc === 1 ? 'row' : 'rows'}`;
-    const count = annotationStore.countForTable(item.table.name);
-    item.description = count > 0
-      ? `${base} \u00B7 ${count === 1 ? '1 note' : `${count} notes`}`
-      : base;
+    const anns = annotationStore.forTable(item.table.name);
+    if (anns.length === 0) {
+      item.description = base;
+      continue;
+    }
+    // Show first annotation icon + note, and count if more than one
+    const first = anns[0];
+    const emoji = ANNOTATION_ICON_EMOJI[first.icon] ?? '\u{1F4A1}';
+    const preview = truncate(first.note, NOTE_PREVIEW_MAX);
+    const suffix = anns.length > 1 ? ` +${anns.length - 1} more` : '';
+    item.description = `${base} \u00B7 ${emoji} ${preview}${suffix}`;
   }
 }
 
-/** Append annotation indicator to column item descriptions. */
+/**
+ * Append annotation icon + note preview to column item descriptions.
+ * Shows the actual annotation content instead of a generic pin icon.
+ */
 export function decorateColumnItems(
   columns: ColumnItem[],
   tableName: string,
@@ -131,9 +153,13 @@ export function decorateColumnItems(
 ): void {
   if (!annotationStore) return;
   for (const col of columns) {
-    const has = annotationStore.hasAnnotations(tableName, col.column.name);
-    if (has) {
-      col.description = `${col.description} \u00B7 \u{1F4CC}`;
-    }
+    const anns = annotationStore.forColumn(tableName, col.column.name);
+    if (anns.length === 0) continue;
+    // Show first annotation icon + note preview
+    const first = anns[0];
+    const emoji = ANNOTATION_ICON_EMOJI[first.icon] ?? '\u{1F4A1}';
+    const preview = truncate(first.note, NOTE_PREVIEW_MAX);
+    const suffix = anns.length > 1 ? ` +${anns.length - 1} more` : '';
+    col.description = `${col.description} \u00B7 ${emoji} ${preview}${suffix}`;
   }
 }

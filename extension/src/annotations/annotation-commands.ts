@@ -52,6 +52,10 @@ export function registerAnnotationCommands(
           note,
           icon,
         );
+        // Confirm so the user knows it saved
+        vscode.window.showInformationMessage(
+          `Annotation added to table '${item.table.name}'.`,
+        );
       },
     ),
   );
@@ -73,6 +77,89 @@ export function registerAnnotationCommands(
           },
           note,
           icon,
+        );
+        // Confirm so the user knows it saved
+        vscode.window.showInformationMessage(
+          `Annotation added to column '${item.tableName}.${item.column.name}'.`,
+        );
+      },
+    ),
+  );
+
+  // Remove all annotations for a table (right-click context menu)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.removeTableAnnotations',
+      async (item: TableItem) => {
+        const count = store.countForTable(item.table.name);
+        if (count === 0) {
+          vscode.window.showInformationMessage(
+            `No annotations on table '${item.table.name}'.`,
+          );
+          return;
+        }
+        const confirm = await vscode.window.showWarningMessage(
+          `Remove all ${count} annotation(s) from table '${item.table.name}'?`,
+          { modal: true },
+          'Remove',
+        );
+        if (confirm !== 'Remove') return;
+        // Single-pass removal of all kinds (table + column + row) avoids
+        // N+1 persist/refresh cascade and ensures row annotations aren't missed.
+        const removed = store.removeAllForTable(item.table.name);
+        vscode.window.showInformationMessage(
+          `Removed ${removed} annotation(s) from '${item.table.name}'.`,
+        );
+      },
+    ),
+  );
+
+  // Remove annotations for a specific column (right-click context menu)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.removeColumnAnnotations',
+      async (item: ColumnItem) => {
+        const anns = store.forColumn(item.tableName, item.column.name);
+        if (anns.length === 0) {
+          vscode.window.showInformationMessage(
+            `No annotations on column '${item.tableName}.${item.column.name}'.`,
+          );
+          return;
+        }
+        const label = `${item.tableName}.${item.column.name}`;
+        const confirm = await vscode.window.showWarningMessage(
+          `Remove ${anns.length} annotation(s) from column '${label}'?`,
+          { modal: true },
+          'Remove',
+        );
+        if (confirm !== 'Remove') return;
+        store.removeForColumn(item.tableName, item.column.name);
+        vscode.window.showInformationMessage(
+          `Removed ${anns.length} annotation(s) from '${label}'.`,
+        );
+      },
+    ),
+  );
+
+  // Clear ALL annotations (toolbar button)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.clearAnnotations',
+      async () => {
+        const total = store.annotations.length;
+        if (total === 0) {
+          vscode.window.showInformationMessage('No annotations to clear.');
+          return;
+        }
+        const confirm = await vscode.window.showWarningMessage(
+          `Clear all ${total} annotation(s)? This cannot be undone.`,
+          { modal: true },
+          'Clear All',
+        );
+        if (confirm !== 'Clear All') return;
+        store.clearAll();
+        vscode.window.showInformationMessage(
+          `Cleared ${total} annotation(s).`,
         );
       },
     ),
