@@ -171,13 +171,15 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Query recent posts joined with author name and comment count.
-    final postRows = await db.customSelect(
-      'SELECT p.title, u.display_name, p.published_at, '
-      '(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count '
-      'FROM posts p '
-      'JOIN users u ON p.user_id = u.id '
-      'ORDER BY p.created_at DESC',
-    ).get();
+    final postRows = await db
+        .customSelect(
+          'SELECT p.title, u.display_name, p.published_at, '
+          '(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count '
+          'FROM posts p '
+          'JOIN users u ON p.user_id = u.id '
+          'ORDER BY p.created_at DESC',
+        )
+        .get();
 
     final recentPosts = postRows.map((row) {
       return PostPreview(

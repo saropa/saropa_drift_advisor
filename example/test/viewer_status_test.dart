@@ -31,8 +31,7 @@ void main() {
     );
 
     // Without dbSummary, falls back to status-only layout.
-    expect(
-        find.text('Saropa Drift Advisor is running'), findsOneWidget);
+    expect(find.text('Saropa Drift Advisor is running'), findsOneWidget);
     expect(find.text('Copy URL'), findsOneWidget);
   });
 
@@ -93,8 +92,7 @@ void main() {
       ),
     );
 
-    expect(
-        find.text('Saropa Drift Advisor is running'), findsOneWidget);
+    expect(find.text('Saropa Drift Advisor is running'), findsOneWidget);
     final copyButton = find.byType(FilledButton);
     expect(copyButton, findsOneWidget);
     final widget = tester.widget<FilledButton>(copyButton);
@@ -180,8 +178,7 @@ void main() {
     expect(find.textContaining('1 comment'), findsOneWidget);
   });
 
-  testWidgets(
-      'ReadyView dashboard still shows copy button in status header',
+  testWidgets('ReadyView dashboard still shows copy button in status header',
       (tester) async {
     await tester.pumpWidget(
       MaterialApp(

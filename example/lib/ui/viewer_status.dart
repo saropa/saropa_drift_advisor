@@ -260,8 +260,7 @@ class _StatusHeader extends StatelessWidget {
                       height: 12,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color:
-                            init.running ? Colors.green : colorScheme.error,
+                        color: init.running ? Colors.green : colorScheme.error,
                         border: Border.all(
                           color: colorScheme.surface,
                           width: 2,
