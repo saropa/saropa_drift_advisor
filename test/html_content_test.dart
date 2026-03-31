@@ -69,6 +69,26 @@ void main() {
         reason: 'JS must load from local server before CDN fallback',
       );
     });
+
+    test('_sda_fb receives human-readable asset name for CSS', () {
+      // The 4th argument to _sda_fb is the display name shown in the
+      // error overlay. Must be a file name, not the HTML attribute.
+      expect(
+        html,
+        contains(",'style.css')"),
+        reason: 'CSS fallback must pass "style.css" as display name, '
+            'not the HTML attribute "href"',
+      );
+    });
+
+    test('_sda_fb receives human-readable asset name for JS', () {
+      expect(
+        html,
+        contains(",'app.js')"),
+        reason: 'JS fallback must pass "app.js" as display name, '
+            'not the HTML attribute "src"',
+      );
+    });
   });
 
   group('HtmlContent loading overlay', () {

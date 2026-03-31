@@ -21,7 +21,9 @@
 //   2. Ancestor walk from [Directory.current] (flutter test / CI / device cwd).
 //
 // The resolved path is cached so repeated asset requests do not re-resolve.
-// This is process-global (tests share the same isolate).
+// This is process-global (tests share the same isolate). Asset file contents
+// (style.css, app.js) are also cached in memory during resolution, so
+// subsequent HTTP requests serve from static fields — no per-request I/O.
 
 import 'dart:convert';
 import 'dart:io';

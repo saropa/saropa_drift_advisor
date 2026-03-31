@@ -5,8 +5,11 @@
 /// The shell references same-origin paths `/assets/web/style.css` and
 /// `/assets/web/app.js`, which the debug server streams from the package
 /// (`generation_handler.dart`: `sendWebStyle` / `sendWebApp`). If those
-/// requests fail (404 or network error), each tag uses `onerror` to switch
-/// to a version-pinned jsDelivr URL so the UI still loads without embedding
+/// requests fail (404 or network error), each tag's `onerror` triggers
+/// [_sda_fb] — a multi-CDN fallback chain that tries version-pinned jsDelivr
+/// (`@v{version}`), then `@main` (covers the publish-to-tag window). When
+/// all sources are exhausted, a `sda-asset-failed` CustomEvent fires so the
+/// loading overlay can display a clear error message. This avoids embedding
 /// CSS/JS duplicates in consumer binaries.
 ///
 /// ## UX notes
@@ -42,8 +45,8 @@ abstract final class HtmlContent {
   <!-- Multi-CDN fallback helper: shifts through URL array on each onerror.
        When all URLs are exhausted, dispatches 'sda-asset-failed' so the
        loading overlay can show a clear error message to the user. -->
-  <script>function _sda_fb(el,attr,urls){if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:attr}));return}el.onerror=function(){_sda_fb(el,attr,urls)};el[attr]=urls.shift()}</script>
-  <link rel="stylesheet" href="/assets/web/style.css" onerror="_sda_fb(this,'href',['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/style.css'])">
+  <script>function _sda_fb(el,attr,urls,name){if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:name}));return}el.onerror=function(){_sda_fb(el,attr,urls,name)};el[attr]=urls.shift()}</script>
+  <link rel="stylesheet" href="/assets/web/style.css" onerror="_sda_fb(this,'href',['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/style.css'],'style.css')">
 </head>
 <body>
   <!-- Loading overlay: visible until app.js hides it. If JS never loads
@@ -472,7 +475,7 @@ abstract final class HtmlContent {
     </div>
   </div>
 
-  <script defer src="/assets/web/app.js" onerror="_sda_fb(this,'src',['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/app.js'])"></script>
+  <script defer src="/assets/web/app.js" onerror="_sda_fb(this,'src',['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/app.js'],'app.js')"></script>
 </body></html>
 ''';
 }
