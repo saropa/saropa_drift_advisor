@@ -547,6 +547,13 @@ final class Router {
   /// GET /api/analytics/anomalies, and
   /// GET /api/analytics/size endpoints for database
   /// analysis.
+  ///
+  /// Uses [ServerContext.queryRaw] instead of the
+  /// instrumented callback so that analytics
+  /// introspection queries (PRAGMA, COUNT, DISTINCT,
+  /// etc.) are NOT recorded in [queryTimings] and do
+  /// not appear as phantom slow queries in the
+  /// performance panel.
   Future<bool> _routeAnalyticsApi(
     HttpRequest request,
     HttpResponse response,
@@ -555,10 +562,15 @@ final class Router {
   ) async {
     if (request.method != ServerConstants.methodGet) return false;
 
+    // Use the raw (uninstrumented) query callback for
+    // all analytics endpoints so their internal queries
+    // do not pollute the performance timing buffer.
+    final rawQuery = _ctx.queryRaw;
+
     // GET /api/index-suggestions — index optimization hints.
     if (path == ServerConstants.pathApiIndexSuggestions ||
         path == ServerConstants.pathApiIndexSuggestionsAlt) {
-      await _analytics.handleIndexSuggestions(response, query);
+      await _analytics.handleIndexSuggestions(response, rawQuery);
 
       return true;
     }
@@ -567,7 +579,7 @@ final class Router {
     // in a stable issue shape (for Saropa Lints and other consumers).
     if (path == ServerConstants.pathApiIssues ||
         path == ServerConstants.pathApiIssuesAlt) {
-      await _analytics.handleIssues(request, response, query);
+      await _analytics.handleIssues(request, response, rawQuery);
 
       return true;
     }
@@ -575,7 +587,7 @@ final class Router {
     // GET /api/analytics/anomalies — data quality scan.
     if (path == ServerConstants.pathApiAnalyticsAnomalies ||
         path == ServerConstants.pathApiAnalyticsAnomaliesAlt) {
-      await _analytics.handleAnomalyDetection(response, query);
+      await _analytics.handleAnomalyDetection(response, rawQuery);
 
       return true;
     }
@@ -583,7 +595,7 @@ final class Router {
     // GET /api/analytics/size — storage metrics.
     if (path == ServerConstants.pathApiAnalyticsSize ||
         path == ServerConstants.pathApiAnalyticsSizeAlt) {
-      await _analytics.handleSizeAnalytics(response, query);
+      await _analytics.handleSizeAnalytics(response, rawQuery);
 
       return true;
     }
@@ -765,17 +777,23 @@ final class Router {
   void clearPerformance() => _performance.clearPerformance();
 
   /// Returns anomaly scan result for VM service RPC getAnomalies.
+  ///
+  /// Uses [ServerContext.queryRaw] so introspection
+  /// queries are not recorded in [queryTimings].
   Future<Map<String, dynamic>> getAnomaliesResult() =>
-      _analytics.getAnomaliesResult(_ctx.instrumentedQuery);
+      _analytics.getAnomaliesResult(_ctx.queryRaw);
 
   /// Returns explain plan for VM service RPC explainSql.
   Future<Map<String, dynamic>> explainSqlResult(String sql) =>
       _sql.explainSqlResult(_ctx.instrumentedQuery, sql);
 
   /// Returns index suggestions list for VM service RPC getIndexSuggestions.
+  ///
+  /// Uses [ServerContext.queryRaw] so introspection
+  /// queries are not recorded in [queryTimings].
   Future<List<Map<String, dynamic>>> getIndexSuggestionsList() async {
     final result = await _analytics.getIndexSuggestionsList(
-      _ctx.instrumentedQuery,
+      _ctx.queryRaw,
     );
     final list = result['suggestions'];
     return list is List<Map<String, dynamic>> ? list : <Map<String, dynamic>>[];
@@ -784,8 +802,11 @@ final class Router {
   /// Returns merged issues list (index suggestions + anomalies) for VM
   /// service RPC getIssues. Same shape as GET /api/issues.
   /// On error, the returned map contains [ServerConstants.jsonKeyError].
+  ///
+  /// Uses [ServerContext.queryRaw] so introspection
+  /// queries are not recorded in [queryTimings].
   Future<Map<String, dynamic>> getIssuesResult({String? sources}) =>
-      _analytics.getIssuesList(_ctx.instrumentedQuery, sources: sources);
+      _analytics.getIssuesList(_ctx.queryRaw, sources: sources);
 
   /// The current generation counter value, without
   /// triggering a change check. Used by VM service

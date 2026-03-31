@@ -32,6 +32,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+• **Phantom slow-query diagnostics from analytics introspection (Bug 044)** — The anomaly detector, index-suggestion scanner, size-analytics handler, and merged `/api/issues` endpoint all ran their introspection queries (PRAGMA, COUNT, SELECT DISTINCT, etc.) through the instrumented query callback, recording them in the performance timing buffer. The VS Code extension's performance provider then reported these as slow user queries (e.g. `SELECT COUNT(*) AS c FROM (SELECT DISTINCT * FROM "user_p...")`) — a false positive. Analytics endpoints now use the raw (uninstrumented) query callback so internal queries never appear in performance data.
+
+---
+
 ## [2.12.0]
 
 Fixes several broken commands and stuck webviews, removes duplicate Quick Actions from the Database tree, and upgrades the example app to a live database dashboard. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.12.0/CHANGELOG.md)
