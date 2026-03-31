@@ -52,7 +52,7 @@ export function eventToIssue(
         message: event.message,
         fileUri: workspaceUri,
         range: baseRange,
-        severity: vscode.DiagnosticSeverity.Error,
+        severity: vscode.DiagnosticSeverity.Warning,
       };
 
     default:

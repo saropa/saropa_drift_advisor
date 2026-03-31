@@ -30,8 +30,8 @@ export const RUNTIME_CODES: Record<string, IDiagnosticCode> = {
   'connection-error': {
     code: 'connection-error',
     category: 'runtime',
-    defaultSeverity: vscode.DiagnosticSeverity.Error,
-    messageTemplate: 'Failed to connect to Drift server: {message}',
+    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    messageTemplate: 'Drift server not reachable — {message}',
     hasFix: true,
   },
 };

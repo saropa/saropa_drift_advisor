@@ -223,6 +223,12 @@ export class Uri {
     return new Uri('file', '', value, '', '');
   }
 
+  /** Join a base URI with one or more path segments (mirrors vscode.Uri.joinPath). */
+  static joinPath(base: Uri, ...pathSegments: string[]): Uri {
+    const joined = [base.path, ...pathSegments].join('/');
+    return new Uri(base.scheme, base.authority, joined, base.query, base.fragment);
+  }
+
   toString(): string {
     return `${this.scheme}://${this.path}`;
   }

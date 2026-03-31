@@ -32,11 +32,20 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [2.13.0]
+
+
+Stops internal analytics queries from showing up as false-positive slow-query warnings, and hardens web UI asset loading with in-memory caching, multi-CDN fallback, and proper error handling when the package root can't find assets. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.13.0/CHANGELOG.md)
 
 ### Fixed
 
 • **Phantom slow-query diagnostics from analytics introspection (Bug 044)** — The anomaly detector, index-suggestion scanner, size-analytics handler, and merged `/api/issues` endpoint all ran their introspection queries (PRAGMA, COUNT, SELECT DISTINCT, etc.) through the instrumented query callback, recording them in the performance timing buffer. The VS Code extension's performance provider then reported these as slow user queries (e.g. `SELECT COUNT(*) AS c FROM (SELECT DISTINCT * FROM "user_p...")`) — a false positive. Analytics endpoints now use the raw (uninstrumented) query callback so internal queries never appear in performance data.
+
+• **Connection-error diagnostic firing on non-Drift workspaces** — The extension activates on any Dart project (`workspaceContains:**/pubspec.yaml`) and the runtime connection-health check unconditionally tried `client.generation(0)` against `127.0.0.1:8642`. For workspaces that don't use Drift (e.g. `contacts`, a vanilla Dart project), this always failed and surfaced a red Error diagnostic with no clear resolution path. The check now reads `pubspec.yaml` and skips entirely when the project doesn't list `drift` as a dependency.
+
+### Changed
+
+• **Connection-error diagnostic downgraded to Warning with actionable quick fixes** — Connection errors are now Warning severity (was Error), reflecting that a missing server is an operational state, not a code defect. The diagnostic message tells users to run `DriftDebugServer.start()`. Quick fix actions replaced: "Retry Connection" (preferred), "Don't Show Connection Warnings" (permanently disables the check), and "Open Connection Settings" replace the previous generic "Disable rule" / "Refresh Connection" / "Open Extension Settings" actions.
 
 ### Added
 
@@ -49,7 +58,7 @@ browse source on
 
 ---
 
-## [2.12.0]
+## [2.13.0]
 
 Fixes several broken commands and stuck webviews, removes duplicate Quick Actions from the Database tree, and upgrades the example app to a live database dashboard. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.12.0/CHANGELOG.md)
 

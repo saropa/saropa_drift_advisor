@@ -108,8 +108,15 @@ export class RuntimeProvider implements IDiagnosticProvider {
     diag: vscode.Diagnostic,
     _doc: vscode.TextDocument,
   ): vscode.CodeAction[] {
-    const actions: vscode.CodeAction[] = [];
     const code = diag.code as string;
+
+    // Connection errors get their own tailored actions — the generic
+    // "Disable rule" label is confusing for an operational state issue.
+    if (code === 'connection-error') {
+      return this._connectionErrorActions();
+    }
+
+    const actions: vscode.CodeAction[] = [];
 
     const disableAction = new vscode.CodeAction(
       `Disable "${code}" rule`,
@@ -161,31 +168,48 @@ export class RuntimeProvider implements IDiagnosticProvider {
       actions.push(clearAction);
     }
 
-    if (code === 'connection-error') {
-      const refreshAction = new vscode.CodeAction(
-        'Refresh Connection',
-        vscode.CodeActionKind.QuickFix,
-      );
-      refreshAction.command = {
-        command: 'driftViewer.refreshTree',
-        title: 'Refresh',
-      };
-      refreshAction.isPreferred = true;
-      actions.push(refreshAction);
-
-      const settingsAction = new vscode.CodeAction(
-        'Open Extension Settings',
-        vscode.CodeActionKind.QuickFix,
-      );
-      settingsAction.command = {
-        command: 'workbench.action.openSettings',
-        title: 'Settings',
-        arguments: ['driftViewer'],
-      };
-      actions.push(settingsAction);
-    }
-
     return actions;
+  }
+
+  /**
+   * Quick fix actions for connection-error diagnostics.
+   * Prioritises actionable choices: retry, permanently dismiss, or open settings.
+   */
+  private _connectionErrorActions(): vscode.CodeAction[] {
+    // Retry: re-runs discovery + health check
+    const retryAction = new vscode.CodeAction(
+      'Retry Connection',
+      vscode.CodeActionKind.QuickFix,
+    );
+    retryAction.command = {
+      command: 'driftViewer.refreshTree',
+      title: 'Retry',
+    };
+    retryAction.isPreferred = true;
+
+    // Dismiss: disables this diagnostic rule so it never fires again
+    const dismissAction = new vscode.CodeAction(
+      "Don't Show Connection Warnings",
+      vscode.CodeActionKind.QuickFix,
+    );
+    dismissAction.command = {
+      command: 'driftViewer.disableDiagnosticRule',
+      title: 'Dismiss',
+      arguments: ['connection-error'],
+    };
+
+    // Settings: lets the user change host/port/auth if the server is elsewhere
+    const settingsAction = new vscode.CodeAction(
+      'Open Connection Settings',
+      vscode.CodeActionKind.QuickFix,
+    );
+    settingsAction.command = {
+      command: 'workbench.action.openSettings',
+      title: 'Settings',
+      arguments: ['driftViewer'],
+    };
+
+    return [retryAction, dismissAction, settingsAction];
   }
 
   dispose(): void {

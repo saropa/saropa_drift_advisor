@@ -9,9 +9,29 @@ import { resetMocks, Uri, workspace } from './vscode-mock';
 import { RuntimeProvider } from '../diagnostics/providers/runtime-provider';
 import type { IDiagnosticContext } from '../diagnostics/diagnostic-types';
 
+/** Minimal pubspec.yaml content that declares `drift` as a dependency. */
+const PUBSPEC_WITH_DRIFT = `
+name: my_app
+dependencies:
+  drift: ^2.0.0
+  flutter:
+    sdk: flutter
+`;
+
+/** Pubspec that does NOT list drift (only drift_dev in dev_dependencies). */
+const PUBSPEC_WITHOUT_DRIFT = `
+name: my_app
+dependencies:
+  flutter:
+    sdk: flutter
+dev_dependencies:
+  drift_dev: ^2.0.0
+`;
+
 describe('RuntimeProvider', () => {
   let provider: RuntimeProvider;
   let fetchStub: sinon.SinonStub;
+  let fsReadStub: sinon.SinonStub;
 
   beforeEach(() => {
     fetchStub = sinon.stub(global, 'fetch');
@@ -24,6 +44,11 @@ describe('RuntimeProvider', () => {
 
     provider = new RuntimeProvider();
     resetMocks();
+
+    // Default: workspace has drift in pubspec (tests that need no-drift override this)
+    fsReadStub = sinon.stub(workspace.fs, 'readFile').resolves(
+      new TextEncoder().encode(PUBSPEC_WITH_DRIFT),
+    );
   });
 
   afterEach(() => {
@@ -108,7 +133,7 @@ describe('RuntimeProvider', () => {
       assert.ok(issue.message.includes('10 row(s) deleted'));
     });
 
-    it('should report connection error when API fails', async () => {
+    it('should report connection warning when API fails in a Drift project', async () => {
       const ctx = createContext({
         generation: () => Promise.reject(new Error('ECONNREFUSED')),
       });
@@ -116,7 +141,37 @@ describe('RuntimeProvider', () => {
 
       const issue = issues.find((i) => i.code === 'connection-error');
       assert.ok(issue, 'Should report connection-error');
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Error);
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Warning);
+      assert.ok(
+        issue.message.includes('DriftDebugServer.start()'),
+        'Message should tell user how to start the server',
+      );
+    });
+
+    it('should NOT report connection error for non-Drift workspaces', async () => {
+      // Override: pubspec without drift dependency
+      fsReadStub.resolves(new TextEncoder().encode(PUBSPEC_WITHOUT_DRIFT));
+
+      const ctx = createContext({
+        generation: () => Promise.reject(new Error('ECONNREFUSED')),
+      });
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const connectionErrors = issues.filter((i) => i.code === 'connection-error');
+      assert.strictEqual(connectionErrors.length, 0, 'Should not warn for non-Drift workspace');
+    });
+
+    it('should NOT report connection error when pubspec is missing', async () => {
+      // Override: simulate missing pubspec.yaml
+      fsReadStub.rejects(new Error('File not found'));
+
+      const ctx = createContext({
+        generation: () => Promise.reject(new Error('ECONNREFUSED')),
+      });
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const connectionErrors = issues.filter((i) => i.code === 'connection-error');
+      assert.strictEqual(connectionErrors.length, 0, 'Should not warn when pubspec is missing');
     });
 
     it('should not duplicate connection errors within 30 seconds', async () => {
@@ -179,27 +234,49 @@ describe('RuntimeProvider', () => {
       assert.ok(clearAction, 'Should have clear alerts action');
     });
 
-    it('should provide refresh and settings actions for connection errors', () => {
+    it('should provide retry, dismiss, and settings actions for connection errors', () => {
       const diag = new Diagnostic(
         new Range(0, 0, 0, 0),
-        '[drift_advisor] Failed to connect',
-        DiagnosticSeverity.Error,
+        '[drift_advisor] Drift server not reachable',
+        DiagnosticSeverity.Warning,
       );
       diag.code = 'connection-error';
 
       const actions = provider.provideCodeActions(diag as any, {} as any);
 
-      const refreshAction = actions.find((a) => a.title.includes('Refresh'));
-      assert.ok(refreshAction, 'Should have refresh action');
-      assert.ok(refreshAction.isPreferred, 'Refresh should be preferred');
-      assert.strictEqual(refreshAction.command?.command, 'driftViewer.refreshTree');
+      // Retry Connection (preferred)
+      const retryAction = actions.find((a) => a.title === 'Retry Connection');
+      assert.ok(retryAction, 'Should have retry action');
+      assert.ok(retryAction.isPreferred, 'Retry should be preferred');
+      assert.strictEqual(retryAction.command?.command, 'driftViewer.refreshTree');
 
+      // Don't Show Connection Warnings
+      const dismissAction = actions.find((a) => a.title.includes("Don't Show"));
+      assert.ok(dismissAction, 'Should have dismiss action');
+      assert.strictEqual(dismissAction.command?.command, 'driftViewer.disableDiagnosticRule');
+      assert.deepStrictEqual(dismissAction.command?.arguments, ['connection-error']);
+
+      // Open Connection Settings
       const settingsAction = actions.find((a) => a.title.includes('Settings'));
       assert.ok(settingsAction, 'Should have settings action');
       assert.strictEqual(settingsAction.command?.command, 'workbench.action.openSettings');
     });
 
-    it('should always provide disable rule action', () => {
+    it('should NOT include generic disable-rule action for connection errors', () => {
+      const diag = new Diagnostic(
+        new Range(0, 0, 0, 0),
+        '[drift_advisor] Drift server not reachable',
+        DiagnosticSeverity.Warning,
+      );
+      diag.code = 'connection-error';
+
+      const actions = provider.provideCodeActions(diag as any, {} as any);
+
+      const genericDisable = actions.find((a) => a.title.includes('Disable "connection-error"'));
+      assert.ok(!genericDisable, 'Should NOT have generic disable-rule action');
+    });
+
+    it('should always provide disable rule action for non-connection codes', () => {
       const diag = new Diagnostic(
         new Range(0, 0, 0, 0),
         '[drift_advisor] Test alert',
