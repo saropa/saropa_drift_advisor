@@ -28,7 +28,11 @@ describe('DataQualityProvider', () => {
   });
 
   describe('collectDiagnostics', () => {
-    it('should report empty-table for tables with 0 rows', async () => {
+    it('should not report empty-table (diagnostic removed)', async () => {
+      // Empty tables are a valid database state, not a data quality issue.
+      // Tables start empty and are populated through application logic —
+      // user-data tables, cache tables, and static-data tables are all
+      // legitimately empty until their respective features are triggered.
       const ctx = createContext({
         dartFiles: [createDartFile('users', ['id', 'name'])],
         tables: [
@@ -39,24 +43,7 @@ describe('DataQualityProvider', () => {
       const issues = await provider.collectDiagnostics(ctx);
 
       const issue = issues.find((i) => i.code === 'empty-table');
-      assert.ok(issue, 'Should report empty-table');
-      assert.ok(issue.message.includes('users'));
-      assert.ok(issue.message.includes('0 rows'));
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
-    });
-
-    it('should not report empty-table for tables with rows', async () => {
-      const ctx = createContext({
-        dartFiles: [createDartFile('users', ['id', 'name'])],
-        tables: [
-          { name: 'users', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 100 },
-        ],
-      });
-
-      const issues = await provider.collectDiagnostics(ctx);
-
-      const issue = issues.find((i) => i.code === 'empty-table');
-      assert.ok(!issue, 'Should not report non-empty table');
+      assert.ok(!issue, 'Should not report empty-table diagnostic');
     });
 
     it('should report data-skew when table has >50% of rows', async () => {
@@ -202,21 +189,6 @@ describe('DataQualityProvider', () => {
       const actions = provider.provideCodeActions(diag as any, {} as any);
 
       assert.ok(actions.some((a) => a.title.includes('Profile')));
-    });
-
-    it('should provide Seed Data and Import actions for empty-table', () => {
-      const diag = new Diagnostic(
-        new Range(10, 0, 10, 100),
-        '[drift_advisor] Empty table',
-        DiagnosticSeverity.Information,
-      );
-      diag.code = 'empty-table';
-      (diag as any).data = { table: 'users' };
-
-      const actions = provider.provideCodeActions(diag as any, {} as any);
-
-      assert.ok(actions.some((a) => a.title.includes('Seed')));
-      assert.ok(actions.some((a) => a.title.includes('Import')));
     });
 
     it('should provide Size Analytics action for data-skew', () => {

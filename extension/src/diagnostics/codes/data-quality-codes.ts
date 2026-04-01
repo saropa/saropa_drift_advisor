@@ -45,13 +45,6 @@ export const DATA_QUALITY_CODES: Record<string, IDiagnosticCode> = {
       'Column "{table}.{column}" has {count} statistical outliers',
     hasFix: false,
   },
-  'empty-table': {
-    code: 'empty-table',
-    category: 'dataQuality',
-    defaultSeverity: vscode.DiagnosticSeverity.Information,
-    messageTemplate: 'Table "{table}" is empty (0 rows)',
-    hasFix: false,
-  },
   'data-skew': {
     code: 'data-skew',
     category: 'dataQuality',

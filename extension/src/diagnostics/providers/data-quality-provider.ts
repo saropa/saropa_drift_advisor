@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { ISizeAnalytics, ITableSizeInfo, TableMetadata } from '../../api-types';
+import type { ISizeAnalytics, TableMetadata } from '../../api-types';
 import type {
   DiagnosticCategory,
   IDartFileInfo,
@@ -22,7 +22,6 @@ const MIN_ROWS_FOR_ANALYSIS = 10;
  * Data quality diagnostic provider.
  * Reports data quality issues including:
  * - High null rates in columns
- * - Empty tables
  * - Data skew (one table dominates row count)
  * - Statistical outliers
  */
@@ -41,7 +40,6 @@ export class DataQualityProvider implements IDiagnosticProvider {
 
       const userTables = tables.filter((t) => !t.name.startsWith('sqlite_'));
 
-      this._checkEmptyTables(issues, userTables, ctx.dartFiles);
       this._checkDataSkew(issues, sizeAnalytics, ctx.dartFiles);
       await this._checkHighNullRates(issues, userTables, ctx);
     } catch {
@@ -74,32 +72,6 @@ export class DataQualityProvider implements IDiagnosticProvider {
       }
     }
 
-    if (code === 'empty-table') {
-      const data = (diag as any).data;
-      if (data?.table) {
-        const seedAction = new vscode.CodeAction(
-          'Generate Seed Data',
-          vscode.CodeActionKind.QuickFix,
-        );
-        seedAction.command = {
-          command: 'driftViewer.openSeeder',
-          title: 'Seed Data',
-          arguments: [{ table: data.table }],
-        };
-        actions.push(seedAction);
-
-        const importAction = new vscode.CodeAction(
-          'Import Data',
-          vscode.CodeActionKind.QuickFix,
-        );
-        importAction.command = {
-          command: 'driftViewer.importData',
-          title: 'Import',
-        };
-        actions.push(importAction);
-      }
-    }
-
     if (code === 'data-skew') {
       const sizeAction = new vscode.CodeAction(
         'View Size Analytics',
@@ -116,33 +88,6 @@ export class DataQualityProvider implements IDiagnosticProvider {
   }
 
   dispose(): void {}
-
-  private _checkEmptyTables(
-    issues: IDiagnosticIssue[],
-    tables: TableMetadata[],
-    dartFiles: IDartFileInfo[],
-  ): void {
-    for (const table of tables) {
-      if (table.rowCount === 0) {
-        const dartFile = findDartFileForTable(dartFiles, table.name);
-        if (!dartFile) continue;
-
-        const dartTable = dartFile.tables.find(
-          (t) => t.sqlTableName === table.name,
-        );
-        const line = dartTable?.line ?? 0;
-
-        issues.push({
-          code: 'empty-table',
-          message: `Table "${table.name}" is empty (0 rows)`,
-          fileUri: dartFile.uri,
-          range: new vscode.Range(line, 0, line, 999),
-          severity: vscode.DiagnosticSeverity.Information,
-          data: { table: table.name },
-        });
-      }
-    }
-  }
 
   private _checkDataSkew(
     issues: IDiagnosticIssue[],
