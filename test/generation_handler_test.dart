@@ -6,12 +6,13 @@
 // when run on device); on the Dart VM, behavior is unchanged (serve or 404
 // without errors).
 //
-// The MIME-type contract tests enforce that a 200 always carries the correct
-// Content-Type (text/css or application/javascript) — never the default
-// text/plain that browsers block via X-Content-Type-Options: nosniff. A 404
-// is also acceptable (triggers CDN onerror fallback). Before the fix in
-// _sendWebAsset, a file-read failure would produce 200 + text/plain, which
-// silently broke the web UI with no onerror fallback.
+// The MIME-type contract tests enforce that **both** 200 and 404 responses
+// carry the correct Content-Type (text/css or application/javascript) —
+// never the default text/plain that browsers block via
+// X-Content-Type-Options: nosniff. On 404, a MIME-blocked response
+// suppresses the <link>/<script> onerror callback, silently killing the
+// CDN fallback chain. On 200, the original _sendWebAsset bug produced
+// 200 + text/plain on file-read failure, also killing the onerror path.
 
 import 'dart:convert';
 import 'dart:io';
@@ -116,7 +117,7 @@ void main() {
       });
 
       test(
-        '200 response has text/css content-type, never text/plain',
+        'response has text/css content-type on both 200 and 404',
         () async {
           // Regression: before the _sendWebAsset fix, a file-read failure
           // produced HTTP 200 with default text/plain (no content-type set),
@@ -139,16 +140,19 @@ void main() {
               const Duration(seconds: 10),
             );
 
+            // Both 200 and 404 must use text/css — never text/plain.
+            // On 404, text/plain triggers MIME-blocking with nosniff,
+            // which suppresses the onerror callback and kills the CDN
+            // fallback chain.
+            final ct = response.headers.contentType;
+            expect(ct, isNotNull, reason: 'Content-Type header must be set');
+            expect(
+              ct!.mimeType,
+              'text/css',
+              reason: 'CSS must be served as text/css, not text/plain',
+            );
             if (response.statusCode == 200) {
-              // On VM/desktop where the file is found: MIME must be text/css.
-              final ct = response.headers.contentType;
-              expect(ct, isNotNull, reason: 'Content-Type header must be set');
-              expect(
-                ct!.mimeType,
-                'text/css',
-                reason: 'CSS must be served as text/css, not text/plain',
-              );
-              // Body must contain actual CSS, not an error string.
+              // On VM/desktop where the file is found: body must be CSS.
               final body = await response.transform(utf8.decoder).join();
               expect(body, isNotEmpty, reason: 'CSS body must not be empty');
             } else {
@@ -164,7 +168,7 @@ void main() {
     });
 
     group('sendWebApp', () {
-      test('200 response has application/javascript content-type', () async {
+      test('response has application/javascript content-type on both 200 and 404', () async {
         // Same MIME-type contract as sendWebStyle: a 200 must carry the
         // correct Content-Type so browsers do not block the script.
         final ctx = createTestContext();
@@ -184,16 +188,18 @@ void main() {
             const Duration(seconds: 10),
           );
 
+          // Both 200 and 404 must use application/javascript — never
+          // text/plain (same MIME-blocking rationale as sendWebStyle).
+          final ct = response.headers.contentType;
+          expect(ct, isNotNull, reason: 'Content-Type header must be set');
+          expect(
+            ct!.mimeType,
+            'application/javascript',
+            reason:
+                'JS must be served as application/javascript, '
+                'not text/plain',
+          );
           if (response.statusCode == 200) {
-            final ct = response.headers.contentType;
-            expect(ct, isNotNull, reason: 'Content-Type header must be set');
-            expect(
-              ct!.mimeType,
-              'application/javascript',
-              reason:
-                  'JS must be served as application/javascript, '
-                  'not text/plain',
-            );
             final body = await response.transform(utf8.decoder).join();
             expect(body, isNotEmpty, reason: 'JS body must not be empty');
           } else {

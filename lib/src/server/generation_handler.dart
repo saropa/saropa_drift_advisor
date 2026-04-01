@@ -149,15 +149,22 @@ final class GenerationHandler {
   /// Serves a web UI asset from the resolved package root.
   ///
   /// On failure (no package root, missing file, or read error), sends 404
-  /// so the browser `onerror` handler can load version-pinned assets from
-  /// jsDelivr instead of shipping duplicate content inside consumer app
-  /// binaries.
+  /// **with the expected [contentType]** so the browser `onerror` handler
+  /// can load version-pinned assets from jsDelivr instead of shipping
+  /// duplicate content inside consumer app binaries.
   ///
   /// The file is read into memory **before** any response headers are
   /// committed. This guarantees that a read failure produces a clean 404
   /// (not a 200 with default `text/plain`), which is required for the CDN
   /// fallback `onerror` to fire — browsers do not trigger `onerror` on
   /// HTTP 200 responses, even with an empty body or wrong MIME type.
+  ///
+  /// The 404 response uses the expected [contentType] (e.g. `text/css`)
+  /// rather than `text/plain` because browsers with
+  /// `X-Content-Type-Options: nosniff` (Dart's default) MIME-block
+  /// responses whose type does not match the requesting element. A
+  /// MIME-blocked response may suppress the `onerror` callback entirely,
+  /// silently killing the CDN fallback chain.
   Future<void> _sendWebAsset({
     required HttpResponse response,
     required String relativePath,
@@ -215,9 +222,14 @@ final class GenerationHandler {
     }
 
     // ── No on-disk asset: let the HTML shell's onerror switch to jsDelivr ──
+    // Use the expected content type (not text/plain) so browsers with
+    // X-Content-Type-Options: nosniff do not MIME-block the 404 response.
+    // A MIME-blocked response prevents the <link>/<script> onerror handler
+    // from firing, which silently kills the CDN fallback chain. With the
+    // correct MIME type, the 404 status alone triggers onerror reliably
+    // across Firefox and Chrome.
     response.statusCode = HttpStatus.notFound;
-    response.headers.contentType = ContentType.text;
-    response.write('Not found: $relativePath');
+    response.headers.contentType = contentType;
     await response.close();
   }
 
