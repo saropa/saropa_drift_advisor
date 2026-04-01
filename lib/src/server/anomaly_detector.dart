@@ -17,7 +17,7 @@ abstract final class AnomalyDetector {
   /// `tablesScanned` (count), and `analyzedAt` (ISO 8601).
   ///
   /// Detection pipeline per table:
-  /// 1. Nullable columns → [_detectNullValues]
+  /// 1. NOT NULL columns → [_detectNullValues]
   /// 2. Text columns → [_detectEmptyStrings]
   /// 3. Numeric columns → [_detectNumericOutliers]
   /// 4. Foreign keys → [_detectOrphanedForeignKeys]
@@ -51,8 +51,12 @@ abstract final class AnomalyDetector {
         final colType = (col['type'] as String?) ?? '';
         final isNullable = col['notnull'] == 0;
         if (colName != null) {
-          // 1. Detect NULL values in nullable columns.
-          if (isNullable) {
+          // 1. Detect NULL values in NOT NULL columns —
+          //    NULLs here indicate constraint violations or
+          //    data corruption (e.g. direct SQL inserts,
+          //    schema migrations). Nullable columns are
+          //    skipped because NULLs are expected by design.
+          if (!isNullable) {
             await _detectNullValues(
               query: query,
               tableName: tableName,
@@ -112,9 +116,15 @@ abstract final class AnomalyDetector {
     };
   }
 
-  /// Counts NULL values in [colName] and appends an
-  /// anomaly if the count is non-zero. Severity is
-  /// 'warning' when >50% of rows are NULL, else 'info'.
+  /// Counts NULL values in a NOT NULL [colName] and
+  /// appends an anomaly if the count is non-zero.
+  ///
+  /// This method is only called for columns declared as
+  /// NOT NULL — any NULLs found indicate a constraint
+  /// violation (data corruption, direct SQL inserts
+  /// bypassing constraints, or failed migrations).
+  /// Severity is always 'error' because the schema
+  /// explicitly forbids NULLs in these columns.
   static Future<void> _detectNullValues({
     required DriftDebugQuery query,
     required String tableName,
@@ -136,15 +146,17 @@ abstract final class AnomalyDetector {
 
     final pct = tableRowCount > 0 ? (nullCount / tableRowCount * 100) : 0;
 
+    // Always 'error' — NULLs in NOT NULL columns are
+    // constraint violations, not warnings.
     anomalies.add(<String, dynamic>{
       'table': tableName,
       'column': colName,
       'type': 'null_values',
-      'severity': pct > 50 ? 'warning' : 'info',
+      'severity': 'error',
       'count': nullCount,
       'message':
-          '$nullCount NULL value(s) in $tableName.$colName '
-          '(${pct.toStringAsFixed(1)}%)',
+          '$nullCount NULL value(s) in NOT NULL column '
+          '$tableName.$colName (${pct.toStringAsFixed(1)}%)',
     });
   }
 

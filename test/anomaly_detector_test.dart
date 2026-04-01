@@ -56,19 +56,24 @@ void main() {
 
       // -------------------------------------------------------
       // Null value detection
+      //
+      // Only NOT NULL columns should be scanned for NULLs.
+      // NULLs in nullable columns are expected by design and
+      // must NOT produce anomalies (false positives).
       // -------------------------------------------------------
 
-      test('detects NULL values in nullable column', () async {
+      test('detects NULLs in NOT NULL column (constraint violation)', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
               'items': [
                 _col('id', 'INTEGER', pk: 1),
-                _col('description', 'TEXT', notnull: 0),
+                // notnull: 1 — NULLs here are a real problem.
+                _col('name', 'TEXT', notnull: 1),
               ],
             },
             counts: {'items': 10},
-            nullCounts: {'items.description': 3},
+            nullCounts: {'items.name': 3},
           ),
         );
 
@@ -77,22 +82,26 @@ void main() {
           (a) => (a as Map)['type'] == 'null_values',
         );
         expect(nullAnomaly, isNotNull);
-        expect(nullAnomaly['column'], 'description');
+        expect(nullAnomaly['column'], 'name');
         expect(nullAnomaly['count'], 3);
+        // NULLs in NOT NULL columns are always errors.
+        expect(nullAnomaly['severity'], 'error');
       });
 
-      test('null anomaly severity is warning when >50% of rows', () async {
+      test('null anomaly severity is always error for NOT NULL columns',
+          () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
               'items': [
                 _col('id', 'INTEGER', pk: 1),
-                _col('note', 'TEXT', notnull: 0),
+                _col('note', 'TEXT', notnull: 1),
               ],
             },
             counts: {'items': 10},
-            // 6 out of 10 = 60% → warning.
-            nullCounts: {'items.note': 6},
+            // Even a small percentage is still an error —
+            // the column forbids NULLs entirely.
+            nullCounts: {'items.note': 1},
           ),
         );
 
@@ -100,42 +109,24 @@ void main() {
         final nullAnomaly =
             anomalies.firstWhere((a) => (a as Map)['type'] == 'null_values')
                 as Map;
-        expect(nullAnomaly['severity'], 'warning');
+        expect(nullAnomaly['severity'], 'error');
       });
 
-      test('null anomaly severity is info when <=50% of rows', () async {
+      test('skips null detection for nullable columns (no false positives)',
+          () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
               'items': [
                 _col('id', 'INTEGER', pk: 1),
-                _col('note', 'TEXT', notnull: 0),
+                // notnull: 0 — NULLs are expected here.
+                _col('description', 'TEXT', notnull: 0),
               ],
             },
             counts: {'items': 10},
-            // 5 out of 10 = 50% → info (not strictly >50%).
-            nullCounts: {'items.note': 5},
-          ),
-        );
-
-        final anomalies = result['anomalies'] as List;
-        final nullAnomaly =
-            anomalies.firstWhere((a) => (a as Map)['type'] == 'null_values')
-                as Map;
-        expect(nullAnomaly['severity'], 'info');
-      });
-
-      test('skips null detection for NOT NULL columns', () async {
-        final result = await AnomalyDetector.getAnomaliesResult(
-          _anomalyQuery(
-            tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                // notnull: 1 means NOT NULL constraint.
-                _col('name', 'TEXT', notnull: 1),
-              ],
-            },
-            counts: {'items': 5},
+            // Even 100% NULLs should not be flagged — the
+            // developer declared this column as nullable.
+            nullCounts: {'items.description': 10},
           ),
         );
 
@@ -146,18 +137,18 @@ void main() {
         expect(nullAnomalies, isEmpty);
       });
 
-      test('no anomaly when null count is zero', () async {
+      test('no anomaly when NOT NULL column has zero NULLs', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
               'items': [
                 _col('id', 'INTEGER', pk: 1),
-                _col('note', 'TEXT', notnull: 0),
+                _col('name', 'TEXT', notnull: 1),
               ],
             },
             counts: {'items': 5},
-            // Explicitly zero nulls.
-            nullCounts: {'items.note': 0},
+            // Explicitly zero nulls — constraint is intact.
+            nullCounts: {'items.name': 0},
           ),
         );
 
@@ -439,23 +430,29 @@ void main() {
         // Produce anomalies of all three severities:
         // - orphaned FK (error)
         // - empty strings (warning)
-        // - null values <=50% (info)
+        // - numeric outlier (info)
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
               'items': [
                 _col('id', 'INTEGER', pk: 1),
                 _col('title', 'TEXT'),
-                _col('note', 'TEXT', notnull: 0),
+                _col('price', 'REAL'),
                 _col('cat_id', 'INTEGER'),
               ],
               'categories': [_col('id', 'INTEGER', pk: 1)],
             },
             counts: {'items': 10, 'categories': 3},
-            // info: 3 out of 10 = 30%.
-            nullCounts: {'items.note': 3},
             // warning: 2 empty strings.
             emptyCounts: {'items.title': 2},
+            // info: numeric outlier (max > 10× avg).
+            numericStats: {
+              'items.price': {
+                'avg_val': 10.0,
+                'min_val': 5.0,
+                'max_val': 150.0,
+              },
+            },
             tableForeignKeys: {
               'items': [
                 {'from': 'cat_id', 'table': 'categories', 'to': 'id'},
