@@ -1,6 +1,6 @@
 # 044 — Drift Advisor: False Positive Diagnostics
 
-## Status: Open (Bug 3 confirmed as code defect; Bugs 1–2 reclassified as enhancements)
+## Status: Open (Bug 1 fixed; Bug 2 fixed; Bug 3 fixed in v2.14.0)
 
 ## Problem
 
@@ -8,7 +8,7 @@ The Drift Advisor reports several diagnostic categories that produce false posit
 
 ---
 
-## Bug 1: `no-foreign-keys` — per-table suppression not available
+## Bug 1: `no-foreign-keys` — false positive on intentionally isolated tables ✅ FIXED
 
 **Actual severity:** Information (not hint)
 **Category:** bestPractices
@@ -20,20 +20,7 @@ The advisor flags every table that has no `FOREIGN KEY` constraints. This is noi
 2. Store static/read-only data imported from bundled JSON (character sets, country data, vocabulary) where FK enforcement adds cost with zero benefit
 3. Deliberately avoid FK constraints for performance (cascading deletes, insert ordering)
 
-**Expected behavior:** `no-foreign-keys` should be suppressible per-table or per-directory, not just globally.
-
-**Workaround:** The rule CAN be suppressed globally:
-- Right-click the diagnostic → "Disable `no-foreign-keys` rule" (quick fix)
-- Or add to `.vscode/settings.json`:
-  ```json
-  { "driftViewer.diagnostics.disabledRules": ["no-foreign-keys"] }
-  ```
-- Or disable the entire category:
-  ```json
-  { "driftViewer.diagnostics.categories.bestPractices": false }
-  ```
-
-**Enhancement request:** Add per-table or per-directory suppression (e.g. via inline `// drift_advisor:ignore` comments or a config file).
+**Fix applied:** The check now only flags tables that have `_id` columns matching a known table name (e.g. `user_id` when a `users` table exists) but lack FK constraints. Tables referenced by other tables via inbound FKs are also skipped. This eliminates false positives on intentionally isolated tables (import caches, config stores, static data, audit logs) while still catching genuine missing `references()` calls. Plural matching handles `users`/`user`, `categories`/`category` (ies→y), etc.
 
 ---
 

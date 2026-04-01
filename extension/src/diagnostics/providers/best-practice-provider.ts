@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { ForeignKey, TableMetadata } from '../../api-types';
-import type { IDartColumn, IDartTable } from '../../schema-diff/dart-schema';
+import type { IDartTable } from '../../schema-diff/dart-schema';
 import type {
   DiagnosticCategory,
   IDartFileInfo,
@@ -14,7 +14,9 @@ import { findDartFileForTable } from '../utils/dart-file-utils';
  * Best practice diagnostic provider.
  * Reports Drift/SQLite best practice issues including:
  * - autoIncrement on non-PK columns
- * - Tables without foreign key relationships
+ * - Suspected missing FK constraints (columns ending in `_id` that match known
+ *   table names but have no declared foreign key — skips intentionally isolated
+ *   tables and tables already participating in the FK graph via inbound refs)
  * - Circular FK relationships
  * - BLOB columns that may cause memory issues
  */
@@ -37,6 +39,16 @@ export class BestPracticeProvider implements IDiagnosticProvider {
         }),
       );
 
+      // Pre-compute sets used by _checkNoForeignKeys to avoid redundant
+      // Map spreads and Set constructions on every per-table call
+      const allTableNames = new Set(fkMap.keys());
+      const referencedTables = new Set<string>();
+      for (const tableFks of fkMap.values()) {
+        for (const fk of tableFks) {
+          referencedTables.add(fk.toTable);
+        }
+      }
+
       for (const file of ctx.dartFiles) {
         for (const dartTable of file.tables) {
           const dbTable = userTables.find(
@@ -45,7 +57,9 @@ export class BestPracticeProvider implements IDiagnosticProvider {
           const fks = fkMap.get(dartTable.sqlTableName) ?? [];
 
           this._checkAutoIncrementNotPk(issues, file, dartTable, dbTable);
-          this._checkNoForeignKeys(issues, file, dartTable, fks);
+          this._checkNoForeignKeys(
+            issues, file, dartTable, fks, allTableNames, referencedTables,
+          );
           this._checkBlobColumns(issues, file, dartTable);
         }
       }
@@ -146,29 +160,83 @@ export class BestPracticeProvider implements IDiagnosticProvider {
     }
   }
 
+  /**
+   * Flags tables that have columns appearing to reference other tables
+   * (e.g. `user_id` when a `users` table exists) but lack FK constraints.
+   *
+   * Skips tables that:
+   * - Already have outbound FKs
+   * - Are referenced by other tables (inbound FKs — they participate in the FK graph)
+   * - Have no columns whose names match known table names (intentionally isolated)
+   *
+   * @param allTableNames - Pre-computed set of all DB table names (from fkMap keys)
+   * @param referencedTables - Pre-computed set of table names that appear as FK targets
+   */
   private _checkNoForeignKeys(
     issues: IDiagnosticIssue[],
     file: IDartFileInfo,
     dartTable: IDartTable,
     fks: ForeignKey[],
+    allTableNames: Set<string>,
+    referencedTables: Set<string>,
   ): void {
-    if (fks.length === 0 && dartTable.columns.length > 1) {
-      const hasIdColumn = dartTable.columns.some(
-        (c) => c.sqlName === 'id' || c.autoIncrement,
-      );
-      const hasOtherColumns = dartTable.columns.some(
-        (c) => c.sqlName !== 'id' && !c.autoIncrement,
-      );
+    // Table already has outbound FKs — nothing to report
+    if (fks.length > 0) return;
 
-      if (hasIdColumn && hasOtherColumns) {
-        issues.push({
-          code: 'no-foreign-keys',
-          message: `Table "${dartTable.sqlTableName}" has no foreign key relationships`,
-          fileUri: file.uri,
-          range: new vscode.Range(dartTable.line, 0, dartTable.line, 999),
-          severity: vscode.DiagnosticSeverity.Information,
-        });
+    // Table is referenced by other tables (inbound FKs) — it participates
+    // in the relational graph even though it declares no outbound FKs
+    if (referencedTables.has(dartTable.sqlTableName)) return;
+
+    // Find columns that look like FK references: end in `_id`, and the prefix
+    // matches a known table name (exact match, simple plural, or reverse singular)
+    const suspectedFkColumns = dartTable.columns.filter((c) => {
+      // Skip the table's own id / autoIncrement column
+      if (c.sqlName === 'id' || c.autoIncrement) return false;
+      if (!c.sqlName.endsWith('_id')) return false;
+
+      // Strip the `_id` suffix and check against known tables
+      const prefix = c.sqlName.slice(0, -3);
+      if (prefix.length === 0) return false;
+
+      // Match column prefix against known table names:
+      // - Exact: "user_id" → table "user"
+      // - Append 's': "user_id" → table "users"
+      // - Reverse singular: "category_id" → table "categories" (strip trailing 's')
+      if (allTableNames.has(prefix)) return true;
+      if (allTableNames.has(prefix + 's')) return true;
+
+      // Check if any table name becomes the prefix when de-pluralized:
+      // handles "categories" → "categorie" won't match, but "users" → "user" will,
+      // and also handles tables like "companies" via the ies→y transform
+      for (const tableName of allTableNames) {
+        // Simple 's' suffix: "users" → "user"
+        if (tableName.endsWith('s') && tableName.slice(0, -1) === prefix) {
+          return true;
+        }
+        // "ies" suffix: "categories" → "category", "companies" → "company"
+        if (
+          tableName.endsWith('ies') &&
+          tableName.slice(0, -3) + 'y' === prefix
+        ) {
+          return true;
+        }
       }
+
+      return false;
+    });
+
+    // Only flag when there are columns that look like they should be FK references
+    // but no constraints exist — this catches genuine "forgot to add references()"
+    // while ignoring intentionally isolated tables (import caches, config, logs, etc.)
+    if (suspectedFkColumns.length > 0) {
+      const colNames = suspectedFkColumns.map((c) => c.sqlName).join(', ');
+      issues.push({
+        code: 'no-foreign-keys',
+        message: `Table "${dartTable.sqlTableName}" has columns that appear to reference other tables but no foreign key constraints: ${colNames}`,
+        fileUri: file.uri,
+        range: new vscode.Range(dartTable.line, 0, dartTable.line, 999),
+        severity: vscode.DiagnosticSeverity.Information,
+      });
     }
   }
 

@@ -4,14 +4,23 @@ import { TableNameMapper } from '../codelens/table-name-mapper';
 describe('TableNameMapper', () => {
   describe('dartClassToSnakeCase()', () => {
     const cases: [string, string][] = [
+      // Simple PascalCase — no consecutive uppercase
       ['Users', 'users'],
       ['TodoCategories', 'todo_categories'],
       ['UserProfileSettings', 'user_profile_settings'],
-      ['HTTPClient', 'http_client'],
-      ['IOStream', 'io_stream'],
+
+      // Consecutive uppercase — Drift splits each letter individually
+      ['HTTPClient', 'h_t_t_p_client'],
+      ['IOStream', 'i_o_stream'],
+      ['ABCDef', 'a_b_c_def'],
+      ['SuperheroDCCharacters', 'superhero_d_c_characters'],
+
+      // Digit-to-uppercase boundary
+      ['Table123Foo', 'table123_foo'],
+
+      // Edge cases
       ['A', 'a'],
-      ['AB', 'ab'],
-      ['ABCDef', 'abc_def'],
+      ['AB', 'a_b'],
     ];
 
     for (const [input, expected] of cases) {
@@ -63,6 +72,15 @@ describe('TableNameMapper', () => {
       assert.strictEqual(mapper.resolve('Users'), null);
       // Second call should hit cache and still return null
       assert.strictEqual(mapper.resolve('Users'), null);
+    });
+
+    it('should resolve acronym class names using Drift per-letter splitting', () => {
+      // Drift produces 'superhero_d_c_characters', not 'superhero_dc_characters'
+      mapper.updateTableList(['superhero_d_c_characters', 'orders']);
+      assert.strictEqual(
+        mapper.resolve('SuperheroDCCharacters'),
+        'superhero_d_c_characters',
+      );
     });
   });
 });

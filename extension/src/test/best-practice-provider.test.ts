@@ -73,7 +73,9 @@ describe('BestPracticeProvider', () => {
       assert.ok(!issue, 'Should not report when autoIncrement is on PK');
     });
 
-    it('should report no-foreign-keys for isolated tables', async () => {
+    it('should not report no-foreign-keys for intentionally isolated tables', async () => {
+      // Tables like settings/config have no _id columns referencing other tables,
+      // so they should NOT be flagged — the absence of FKs is intentional
       const ctx = createContext({
         dartFiles: [createDartFile('settings', ['id', 'key', 'value'])],
         tables: [{
@@ -91,23 +93,62 @@ describe('BestPracticeProvider', () => {
       const issues = await provider.collectDiagnostics(ctx);
 
       const issue = issues.find((i) => i.code === 'no-foreign-keys');
-      assert.ok(issue, 'Should report no-foreign-keys');
-      assert.ok(issue.message.includes('settings'));
+      assert.ok(!issue, 'Should not report for intentionally isolated tables');
+    });
+
+    it('should report no-foreign-keys when _id columns match known tables but lack FK constraints', async () => {
+      // orders.user_id looks like it should reference the users table,
+      // but no FK constraint exists — this is likely a missing references() call
+      const ctx = createContext({
+        dartFiles: [createDartFile('orders', ['id', 'user_id'])],
+        tables: [
+          { name: 'orders', columns: [{ name: 'id', type: 'INTEGER', pk: true }, { name: 'user_id', type: 'INTEGER', pk: false }], rowCount: 100 },
+          { name: 'users', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 50 },
+        ],
+        fkMap: { orders: [], users: [] },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'no-foreign-keys');
+      assert.ok(issue, 'Should report when _id columns match known tables');
+      assert.ok(issue.message.includes('user_id'), 'Message should name the suspected column');
       assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
     });
 
-    it('should not report no-foreign-keys for tables with FKs', async () => {
+    it('should not report no-foreign-keys for tables with outbound FKs', async () => {
       const ctx = createContext({
         dartFiles: [createDartFile('orders', ['id', 'user_id'])],
-        tables: [{
-          name: 'orders',
-          columns: [
-            { name: 'id', type: 'INTEGER', pk: true },
-            { name: 'user_id', type: 'INTEGER', pk: false },
-          ],
-          rowCount: 100,
-        }],
+        tables: [
+          { name: 'orders', columns: [{ name: 'id', type: 'INTEGER', pk: true }, { name: 'user_id', type: 'INTEGER', pk: false }], rowCount: 100 },
+          { name: 'users', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 50 },
+        ],
         fkMap: {
+          orders: [{ fromColumn: 'user_id', toTable: 'users', toColumn: 'id' }],
+          users: [],
+        },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'no-foreign-keys');
+      assert.ok(!issue, 'Should not report when outbound FKs exist');
+    });
+
+    it('should not report no-foreign-keys for tables referenced by other tables (inbound FKs)', async () => {
+      // Parent/lookup tables are referenced by others — they participate in the
+      // FK graph even though they declare no outbound FKs themselves
+      const ctx = createContext({
+        dartFiles: [
+          createDartFile('users', ['id', 'name']),
+          createDartFile('orders', ['id', 'user_id']),
+        ],
+        tables: [
+          { name: 'users', columns: [{ name: 'id', type: 'INTEGER', pk: true }, { name: 'name', type: 'TEXT', pk: false }], rowCount: 50 },
+          { name: 'orders', columns: [{ name: 'id', type: 'INTEGER', pk: true }, { name: 'user_id', type: 'INTEGER', pk: false }], rowCount: 100 },
+        ],
+        fkMap: {
+          users: [],
           orders: [{ fromColumn: 'user_id', toTable: 'users', toColumn: 'id' }],
         },
       });
@@ -115,7 +156,66 @@ describe('BestPracticeProvider', () => {
       const issues = await provider.collectDiagnostics(ctx);
 
       const issue = issues.find((i) => i.code === 'no-foreign-keys');
-      assert.ok(!issue, 'Should not report when FKs exist');
+      assert.ok(!issue, 'Should not report for tables with inbound FK references');
+    });
+
+    it('should not report no-foreign-keys when _id columns reference external systems', async () => {
+      // facebook_id is an external identifier, not a reference to a "facebook" table.
+      // No table named "facebook" or "facebooks" exists, so this should be skipped.
+      const ctx = createContext({
+        dartFiles: [createDartFile('facebook_friends', ['id', 'facebook_id', 'given_name'])],
+        tables: [{
+          name: 'facebook_friends',
+          columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            { name: 'facebook_id', type: 'TEXT', pk: false },
+            { name: 'given_name', type: 'TEXT', pk: false },
+          ],
+          rowCount: 200,
+        }],
+        fkMap: { facebook_friends: [] },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'no-foreign-keys');
+      assert.ok(!issue, 'Should not report when _id columns do not match any known table');
+    });
+
+    it('should match _id columns against singular table names', async () => {
+      // "user_id" should match a table literally named "user" (no plural 's')
+      const ctx = createContext({
+        dartFiles: [createDartFile('posts', ['id', 'user_id', 'title'])],
+        tables: [
+          { name: 'posts', columns: [{ name: 'id', type: 'INTEGER', pk: true }, { name: 'user_id', type: 'INTEGER', pk: false }, { name: 'title', type: 'TEXT', pk: false }], rowCount: 50 },
+          { name: 'user', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 10 },
+        ],
+        fkMap: { posts: [], user: [] },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'no-foreign-keys');
+      assert.ok(issue, 'Should match user_id against singular table "user"');
+      assert.ok(issue.message.includes('user_id'));
+    });
+
+    it('should match _id columns against irregular plural table names (ies)', async () => {
+      // "category_id" should match a table named "categories" via ies→y transform
+      const ctx = createContext({
+        dartFiles: [createDartFile('products', ['id', 'category_id'])],
+        tables: [
+          { name: 'products', columns: [{ name: 'id', type: 'INTEGER', pk: true }, { name: 'category_id', type: 'INTEGER', pk: false }], rowCount: 100 },
+          { name: 'categories', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 20 },
+        ],
+        fkMap: { products: [], categories: [] },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'no-foreign-keys');
+      assert.ok(issue, 'Should match category_id against "categories" table');
+      assert.ok(issue.message.includes('category_id'));
     });
 
     it('should report blob-column-large for BLOB columns', async () => {

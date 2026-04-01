@@ -7,12 +7,17 @@ export class TableNameMapper {
   private _cache = new Map<string, string | null>();
 
   /**
-   * Convert a PascalCase Dart class name to snake_case.
+   * Convert a PascalCase Dart class name to snake_case, matching Drift's
+   * naming algorithm. Drift treats every uppercase letter as a new word
+   * boundary, so consecutive capitals like "DC" become "d_c", not "dc".
+   *
+   * Uses zero-width lookahead/lookbehind to insert underscores at every
+   * boundary between any letter and an uppercase letter, avoiding the
+   * overlapping-match issues that plague capture-group-based regexes.
    */
   static dartClassToSnakeCase(className: string): string {
     return className
-      .replace(/([a-z\d])([A-Z])/g, '$1_$2')
-      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+      .replace(/(?<=[a-zA-Z\d])(?=[A-Z])/g, '_')
       .toLowerCase();
   }
 

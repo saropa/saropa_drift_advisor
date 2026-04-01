@@ -41,7 +41,8 @@ export const BEST_PRACTICE_CODES: Record<string, IDiagnosticCode> = {
     code: 'no-foreign-keys',
     category: 'bestPractices',
     defaultSeverity: vscode.DiagnosticSeverity.Information,
-    messageTemplate: 'Table "{table}" has no foreign key relationships',
+    messageTemplate:
+      'Table "{table}" has columns that appear to reference other tables but no foreign key constraints: {columns}',
     hasFix: false,
   },
   'circular-fk': {
