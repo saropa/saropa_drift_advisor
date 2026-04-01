@@ -114,6 +114,8 @@ export function registerAnnotationCommands(
     ),
   );
 
+  // cspell:ignore anns
+
   // Remove annotations for a specific column (right-click context menu)
   context.subscriptions.push(
     vscode.commands.registerCommand(

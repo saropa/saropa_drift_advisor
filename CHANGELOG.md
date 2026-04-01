@@ -32,7 +32,7 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [2.14.1]
 
 ### Fixed
 
@@ -57,10 +57,6 @@ browse source on
 • **Remove annotations from tree context menu** — Right-click a table or column → "Remove Annotations" with a modal confirmation. Table removal clears all annotation kinds (table, column, row) in a single pass.
 
 • **Clear All Annotations command** — Available in the Database Explorer `...` menu. Confirms before wiping all annotations.
-
----
-
-## [2.14.0]
 
 Stops internal analytics queries from showing up as false-positive slow-query warnings, and hardens web UI asset loading with in-memory caching, multi-CDN fallback, and proper error handling when the package root can't find assets. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.13.0/CHANGELOG.md)
 

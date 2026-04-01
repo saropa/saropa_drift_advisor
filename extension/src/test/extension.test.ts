@@ -110,7 +110,7 @@ describe('Extension activation', () => {
     // Nav: pauseDiscovery, resumeDiscovery, openConnectionHelp (3)
     // Editing: pendingChangesPersistence debounce, pendingEditsStatusBar (2)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 200, `expected 200 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 202, `expected 202 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
