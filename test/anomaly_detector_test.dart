@@ -273,6 +273,79 @@ void main() {
         expect(outliers, isEmpty);
       });
 
+      test('skips outlier detection for BOOLEAN columns (type-based guard)',
+          () async {
+        // Boolean columns with skewed distributions (e.g., 9% true)
+        // should not trigger the 10× heuristic — the distribution
+        // is a valid data pattern, not an anomaly.
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'public_figures': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('is_nickname_only', 'BOOLEAN'),
+              ],
+            },
+            counts: {'public_figures': 100},
+            // avg=0.09, min=0, max=1 → would fire without the guard.
+            numericStats: {
+              'public_figures.is_nickname_only': {
+                'avg_val': 0.09,
+                'min_val': 0.0,
+                'max_val': 1.0,
+              },
+            },
+          ),
+        );
+
+        final anomalies = result['anomalies'] as List;
+        final outliers = anomalies
+            .where((a) => (a as Map)['type'] == 'potential_outlier')
+            .toList();
+        expect(
+          outliers,
+          isEmpty,
+          reason: 'BOOLEAN columns should be excluded from outlier detection',
+        );
+      });
+
+      test('skips outlier detection for INTEGER columns with binary domain',
+          () async {
+        // Drift compiles BoolColumn to INTEGER in SQLite, so
+        // boolean flags may have type INTEGER. The binary-domain
+        // guard (min == 0 && max == 1) catches these.
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'public_figures': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('is_nickname_only', 'INTEGER'),
+              ],
+            },
+            counts: {'public_figures': 100},
+            numericStats: {
+              'public_figures.is_nickname_only': {
+                'avg_val': 0.09,
+                'min_val': 0.0,
+                'max_val': 1.0,
+              },
+            },
+          ),
+        );
+
+        final anomalies = result['anomalies'] as List;
+        final outliers = anomalies
+            .where((a) => (a as Map)['type'] == 'potential_outlier')
+            .toList();
+        expect(
+          outliers,
+          isEmpty,
+          reason:
+              'INTEGER columns with binary domain (0–1) should be excluded '
+              'from outlier detection',
+        );
+      });
+
       test('skips outlier detection for non-numeric columns', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(

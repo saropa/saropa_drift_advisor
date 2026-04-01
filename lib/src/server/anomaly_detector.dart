@@ -77,8 +77,12 @@ abstract final class AnomalyDetector {
           }
 
           // 3. Detect numeric outliers (values > 10×
-          //    average) in numeric columns.
-          if (ServerUtils.isNumericType(colType)) {
+          //    average) in numeric columns. Boolean
+          //    columns are excluded — skewed distributions
+          //    (e.g., 9% true) are valid data patterns,
+          //    not anomalies.
+          if (ServerUtils.isNumericType(colType) &&
+              !ServerUtils.isBooleanType(colType)) {
             await _detectNumericOutliers(
               query: query,
               tableName: tableName,
@@ -215,6 +219,14 @@ abstract final class AnomalyDetector {
     final min = ServerUtils.toDouble(statsRows.first['min_val']);
     final max = ServerUtils.toDouble(statsRows.first['max_val']);
     if (avg == null || min == null || max == null || avg == 0) {
+      return;
+    }
+
+    // Skip binary-domain columns (range exactly 0–1) —
+    // these are typically boolean flags stored as INTEGER.
+    // A skewed distribution (e.g., 9% true → avg 0.09) is
+    // a valid data pattern, not an outlier.
+    if (min == 0 && max == 1) {
       return;
     }
 

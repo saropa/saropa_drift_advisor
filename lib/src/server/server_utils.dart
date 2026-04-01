@@ -262,6 +262,20 @@ abstract final class ServerUtils {
   /// Returns true if [type] is a SQLite numeric type.
   static bool isNumericType(String type) => _reNumericType.hasMatch(type);
 
+  /// Returns true if [type] represents a boolean column.
+  ///
+  /// Matches `BOOLEAN`, `BOOL`, and `BIT` — column types
+  /// that store true/false values as integers. Note that
+  /// Drift compiles [BoolColumn] to `INTEGER` in SQLite
+  /// (no native boolean type), so this check only catches
+  /// columns whose declared type explicitly uses a boolean
+  /// keyword. For `INTEGER`-typed boolean columns, the
+  /// caller should also check the value domain (min/max).
+  static bool isBooleanType(String type) {
+    final upper = type.toUpperCase().trim();
+    return upper == 'BOOLEAN' || upper == 'BOOL' || upper == 'BIT';
+  }
+
   /// Safe double conversion from dynamic [value].
   ///
   /// Returns null when [value] is not a number or
