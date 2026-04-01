@@ -32,7 +32,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [2.14.2]
+
+Eliminates false-positive diagnostics across index, FK, empty-table, and anomaly checks, and fixes blank Web UI caused by MIME-blocked CDN fallback. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.14.2/CHANGELOG.md)
 
 ### Fixed
 
@@ -50,7 +52,11 @@ browse source on
 
 • **Web UI blank for pub.dev consumers — CDN fallback silently killed by MIME mismatch** — When the debug server could not find web assets on disk (typical for separate projects using the package from pub.dev), it returned 404 with `Content-Type: text/plain`. Combined with Dart's default `X-Content-Type-Options: nosniff` header, both Firefox and Chrome MIME-blocked the response, which suppressed the `<link>`/`<script>` `onerror` callback. The multi-CDN fallback chain never fired — the page loaded blank with no CSS or JS. The 404 path now uses the expected content type (`text/css` or `application/javascript`) so browsers do not MIME-block it; the 404 status alone triggers `onerror` reliably.
 
+---
+
 ## [2.14.1]
+
+Fixes silent command failures and missing user feedback, adds annotation previews and removal commands, and moves bookmarks to the tree toolbar. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.14.1/CHANGELOG.md)
 
 ### Fixed
 
@@ -76,7 +82,11 @@ browse source on
 
 • **Clear All Annotations command** — Available in the Database Explorer `...` menu. Confirms before wiping all annotations.
 
-Stops internal analytics queries from showing up as false-positive slow-query warnings, and hardens web UI asset loading with in-memory caching, multi-CDN fallback, and proper error handling when the package root can't find assets. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.13.0/CHANGELOG.md)
+---
+
+## [2.14.0]
+
+Stops internal analytics queries from showing up as false-positive slow-query warnings, and hardens web UI asset loading with in-memory caching, multi-CDN fallback, and proper error handling when the package root can't find assets. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.14.0/CHANGELOG.md)
 
 ### Fixed
 
@@ -104,11 +114,13 @@ Stops internal analytics queries from showing up as false-positive slow-query wa
 
 ## [2.13.0]
 
-Fixes several broken commands and stuck webviews, removes duplicate Quick Actions from the Database tree, and upgrades the example app to a live database dashboard. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.12.0/CHANGELOG.md)
+Fixes several broken commands and stuck webviews, removes duplicate Quick Actions from the Database tree, and upgrades the example app to a live database dashboard. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.13.0/CHANGELOG.md)
 
 ### Changed
 
 • **Removed duplicate Quick Actions from Database tree** — The "Quick Actions" collapsible group in the Database Explorer duplicated every command already in the "Drift Tools" panel. Removed the redundant group so tool commands appear only in Drift Tools.
+
+• **Example app shows a database dashboard instead of a static notice** — The example's landing screen now displays a compact status header with server state and URL, a table overview with row counts for every table, and a recent-posts list showing title, author, draft/published status, and comment count. Error and disabled states still fall back to the original centered layout.
 
 ### Fixed
 
@@ -123,10 +135,6 @@ Fixes several broken commands and stuck webviews, removes duplicate Quick Action
 • **Query Cost Analysis command failed to register** — The explain-panel module used value imports for type-only re-exports, causing a runtime `require()` failure that silently prevented the queryCost command from registering. A warning toast was the only symptom.
 
 • **Web UI CSS/JS blocked by MIME type mismatch** — The Dart server's fallback package-root resolution required both the barrel file and an asset file to coexist in each candidate directory. When running from the example app, the walk never found the package root, so assets were served as 404 with `text/plain` — blocked by browsers enforcing `X-Content-Type-Options: nosniff`.
-
-### Changed
-
-• **Example app shows a database dashboard instead of a static notice** — The example's landing screen now displays a compact status header with server state and URL, a table overview with row counts for every table, and a recent-posts list showing title, author, draft/published status, and comment count. Error and disabled states still fall back to the original centered layout.
 
 ---
 
@@ -372,6 +380,28 @@ Web UI: table tabs, self-contained Search tab, and collapsible sidebar; plus ~97
 
 • **Extension: troubleshooting panel message routing** — Webview button actions now catch and surface rejected command promises instead of discarding them.
 
+• **Web UI: Search tab recursive fetch loop** — The Search tab's count fetch no longer triggers a full re-render (which fired 4 duplicate network requests). Count updates are now applied surgically to the meta text element only.
+
+• **Web UI: Search tab shared pagination state** — The Search tab now uses its own independent `limit`/`offset` variables instead of sharing them with the Tables tab, preventing cross-tab pagination bleed.
+
+• **Web UI: undeclared `stDataJson` variable** — Fixed an implicit global variable (`stDataJson` instead of the declared `stTableJson`) in the schema-only branch of the Search tab.
+
+• **Web UI: Search toolbar button** — The toolbar Search button now correctly opens the Search tab before focusing its input. Previously it only attempted to focus an invisible input.
+
+• **Web UI: duplicate `id="data-table"`** — The Search tab's data table now uses `id="st-data-table"` to avoid conflicting with the Tables panel's `id="data-table"` when both exist in the DOM.
+
+• **Web UI: filter re-fetch on every keystroke** — Row filter changes in the Search tab now re-render from cached data instead of firing fresh network requests for every character typed.
+
+• **Web UI: async count updates for Search dropdown** — When table row counts arrive asynchronously, the Search tab's table dropdown labels are now updated to include the count.
+
+• **Web UI: Diagram tab columns only visible in first column** — SVG `<tspan>` elements for table columns used absolute x-coordinates inside an already-translated `<g>` group, doubling the offset and pushing column text outside the visible box for every table card except the first. Changed to local coordinates.
+
+• **Extension: Schema Search always searching, never connecting** — The Schema Search sidebar could hang on "Searching…" indefinitely in two scenarios: (1) "Browse all tables" had no timeout protection, so a slow or unreachable server left the panel loading forever; (2) the schema cache `_fetchPromise` could hang permanently when the underlying HTTP transport failed to resolve or reject, blocking all subsequent cache consumers. Both paths now have bounded timeouts. The panel also shows a "Server not connected" banner with disabled controls when the server goes away, and a **Retry** button appears after timeout/error so the user can retry without retyping their query.
+
+• **Web UI: special-character table names** — Tab lookup now uses iteration instead of `querySelector` attribute selectors, preventing `DOMException` crashes on table names containing quotes, brackets, or backslashes.
+
+• **Web UI: stale tabs on live refresh** — When the database changes and a table is dropped or renamed, its tab is automatically closed instead of remaining as an orphan with an error state.
+
 ### Changed
 
 • **SDK constraint raised to `>=3.9.0 <4.0.0`** — Enables Dart 3.6 digit separators, Dart 3.7 wildcard variables and tall formatter style, and Dart 3.8 null-aware collection elements. Formatter page width explicitly set to 80 in `analysis_options.yaml`.
@@ -390,6 +420,10 @@ Web UI: table tabs, self-contained Search tab, and collapsible sidebar; plus ~97
 
 • **Web UI: null cell indicator** — Table cells with `NULL` database values now display a dimmed, italic "NULL" label instead of blank space, matching DBeaver/DataGrip/pgAdmin convention. Applied automatically in both the Tables and Search tabs.
 
+• **Dart package: zero runtime dependencies** — Removed the `crypto` dependency. Optional Bearer auth now stores the token in memory and compares with a constant-time string comparison; behavior is unchanged. Apps that do not use auth (and those that do) no longer pull in any third-party packages, reducing install size and attack surface.
+
+• **README: Impact on app size** — Documented that the package has no runtime dependencies and clarified tree-shaking and CDN-loaded assets.
+
 ### Added
 
 • **Web UI: pin tables to top of sidebar** — Hovering a table in the sidebar reveals a push-pin icon. Clicking it pins the table to the top of the list; clicking again unpins it. Pinned state persists via localStorage and auto-prunes stale entries when tables are dropped. Accessible: keyboard focus ring, `aria-pressed` toggle, visible on touch devices.
@@ -402,23 +436,9 @@ Web UI: table tabs, self-contained Search tab, and collapsible sidebar; plus ~97
 
 • **Web UI: Size tab Rows column** — The Rows column in the Size analytics table now has a minimum width and `nowrap` to prevent the bar chart from squeezing the row count number.
 
-### Fixed
+• **Extension: schema cache and performance options** — Shared in-memory schema cache with configurable TTL (`driftViewer.schemaCache.ttlMs`) so tree, Schema Search, ER diagram, and other features reuse one fetch. Optional last-known schema persist (`driftViewer.schemaCache.persistKey`) for stale-while-revalidate on startup. Pre-warm runs a background schema fetch when a server connects so the Database view is ready when opened. Lazy Database tree: `driftViewer.database.loadOnConnect` (default true) loads tree on connect; when false, tree loads on first time the Database view is shown. Lightweight mode: `driftViewer.lightweight` (default false) skips file badges, timeline auto-capture, and tree/badges refresh on generation change. Schema Search: configurable timeout (`driftViewer.schemaSearch.timeoutMs`) and cross-ref cap (`driftViewer.schemaSearch.crossRefMatchCap`); "Browse all tables" link returns table list only (one fetch, no cross-refs). Tree providers never throw from `getChildren` so the sidebar no longer shows "no data provider" errors.
 
-• **Web UI: Search tab recursive fetch loop** — The Search tab's count fetch no longer triggers a full re-render (which fired 4 duplicate network requests). Count updates are now applied surgically to the meta text element only.
-
-• **Web UI: Search tab shared pagination state** — The Search tab now uses its own independent `limit`/`offset` variables instead of sharing them with the Tables tab, preventing cross-tab pagination bleed.
-
-• **Web UI: undeclared `stDataJson` variable** — Fixed an implicit global variable (`stDataJson` instead of the declared `stTableJson`) in the schema-only branch of the Search tab.
-
-• **Web UI: Search toolbar button** — The toolbar Search button now correctly opens the Search tab before focusing its input. Previously it only attempted to focus an invisible input.
-
-• **Web UI: duplicate `id="data-table"`** — The Search tab's data table now uses `id="st-data-table"` to avoid conflicting with the Tables panel's `id="data-table"` when both exist in the DOM.
-
-• **Web UI: filter re-fetch on every keystroke** — Row filter changes in the Search tab now re-render from cached data instead of firing fresh network requests for every character typed.
-
-• **Web UI: async count updates for Search dropdown** — When table row counts arrive asynchronously, the Search tab's table dropdown labels are now updated to include the count.
-
-• **Web UI: Diagram tab columns only visible in first column** — SVG `<tspan>` elements for table columns used absolute x-coordinates inside an already-translated `<g>` group, doubling the offset and pushing column text outside the visible box for every table card except the first. Changed to local coordinates.
+• **Web UI: connection banner improvements** — When the server is unreachable, the banner now shows a live countdown ("Next retry in Xs"), the current retry interval (e.g. "Retrying every 5s"), attempt count, and "(max interval)" at 30s. A **Retry now** button triggers an immediate health check and resets backoff; a 1s ticker keeps the countdown accurate. Duplicate in-flight health checks are avoided so Retry does not race with the automatic heartbeat.
 
 ### Improved
 
@@ -429,26 +449,6 @@ Web UI: table tabs, self-contained Search tab, and collapsible sidebar; plus ~97
 • **Query spam reduction (~97%)** — Drastically reduced the number of SQL queries the extension fires through the user's Drift database, eliminating massive "Drift: Sent" console spam when `logStatements` is enabled. Row counts from the existing change-detection UNION ALL query are now cached in `ServerContext` and included inline in the `/api/tables` response. The web UI uses these inline counts instead of firing N individual `/api/table/<name>/count` requests. Table name validation (`requireKnownTable`) and schema metadata now use cached data. For a 40-table database, a refresh cycle drops from ~160 queries to ~2.
 
 • **Web UI: search input debounce** — Search and filter inputs in the Search tab are now debounced (150ms/200ms) to reduce DOM thrashing and prevent floods of abandoned HTTP requests on large tables.
-
-### Fixed
-
-• **Extension: Schema Search always searching, never connecting** — The Schema Search sidebar could hang on "Searching\u2026" indefinitely in two scenarios: (1) "Browse all tables" had no timeout protection, so a slow or unreachable server left the panel loading forever; (2) the schema cache `_fetchPromise` could hang permanently when the underlying HTTP transport failed to resolve or reject, blocking all subsequent cache consumers. Both paths now have bounded timeouts. The panel also shows a "Server not connected" banner with disabled controls when the server goes away, and a **Retry** button appears after timeout/error so the user can retry without retyping their query.
-
-• **Web UI: special-character table names** — Tab lookup now uses iteration instead of `querySelector` attribute selectors, preventing `DOMException` crashes on table names containing quotes, brackets, or backslashes.
-
-• **Web UI: stale tabs on live refresh** — When the database changes and a table is dropped or renamed, its tab is automatically closed instead of remaining as an orphan with an error state.
-
-### Added
-
-• **Extension: schema cache and performance options** — Shared in-memory schema cache with configurable TTL (`driftViewer.schemaCache.ttlMs`) so tree, Schema Search, ER diagram, and other features reuse one fetch. Optional last-known schema persist (`driftViewer.schemaCache.persistKey`) for stale-while-revalidate on startup. Pre-warm runs a background schema fetch when a server connects so the Database view is ready when opened. Lazy Database tree: `driftViewer.database.loadOnConnect` (default true) loads tree on connect; when false, tree loads on first time the Database view is shown. Lightweight mode: `driftViewer.lightweight` (default false) skips file badges, timeline auto-capture, and tree/badges refresh on generation change. Schema Search: configurable timeout (`driftViewer.schemaSearch.timeoutMs`) and cross-ref cap (`driftViewer.schemaSearch.crossRefMatchCap`); "Browse all tables" link returns table list only (one fetch, no cross-refs). Tree providers never throw from `getChildren` so the sidebar no longer shows "no data provider" errors.
-
-• **Web UI: connection banner improvements** — When the server is unreachable, the banner now shows a live countdown ("Next retry in Xs"), the current retry interval (e.g. "Retrying every 5s"), attempt count, and "(max interval)" at 30s. A **Retry now** button triggers an immediate health check and resets backoff; a 1s ticker keeps the countdown accurate. Duplicate in-flight health checks are avoided so Retry does not race with the automatic heartbeat.
-
-### Changed
-
-• **Dart package: zero runtime dependencies** — Removed the `crypto` dependency. Optional Bearer auth now stores the token in memory and compares with a constant-time string comparison; behavior is unchanged. Apps that do not use auth (and those that do) no longer pull in any third-party packages, reducing install size and attack surface.
-
-• **README: Impact on app size** — Documented that the package has no runtime dependencies and clarified tree-shaking and CDN-loaded assets.
 
 ---
 
