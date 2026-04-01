@@ -169,6 +169,83 @@ describe('SchemaProvider', () => {
       assert.ok(issue.relatedInfo?.[0].message.includes('CREATE INDEX'));
     });
 
+    it('should report missing-id-index for medium-priority _id suggestions', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('orders', ['id', 'customer_id'])],
+        dbTables: [{ name: 'orders', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'customer_id', type: 'INTEGER', pk: false },
+        ], rowCount: 50 }],
+        indexSuggestions: [{
+          table: 'orders',
+          column: 'customer_id',
+          reason: 'Column ending in _id — likely a join column',
+          sql: 'CREATE INDEX idx_orders_customer_id ON orders(customer_id)',
+          priority: 'medium',
+        }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'missing-id-index');
+      assert.ok(issue, 'Should report missing-id-index');
+      assert.ok(issue.message.includes('customer_id'));
+      assert.ok(issue.message.includes('_id'));
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
+      // Must NOT use the FK label
+      assert.ok(!issue.message.includes('FK column'));
+    });
+
+    it('should report missing-datetime-index for low-priority datetime suggestions', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'created_at'])],
+        dbTables: [{ name: 'users', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'created_at', type: 'INTEGER', pk: false },
+        ], rowCount: 100 }],
+        indexSuggestions: [{
+          table: 'users',
+          column: 'created_at',
+          reason: 'Date/time column — often used in ORDER BY or range queries',
+          sql: 'CREATE INDEX idx_users_created_at ON users(created_at)',
+          priority: 'low',
+        }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'missing-datetime-index');
+      assert.ok(issue, 'Should report missing-datetime-index');
+      assert.ok(issue.message.includes('created_at'));
+      assert.ok(issue.message.includes('Date/time'));
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
+      // Must NOT use the FK label
+      assert.ok(!issue.message.includes('FK column'));
+    });
+
+    it('should NOT label datetime columns as FK columns', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('keys', ['id', 'updated_at'])],
+        dbTables: [{ name: 'keys', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'updated_at', type: 'INTEGER', pk: false },
+        ], rowCount: 1 }],
+        indexSuggestions: [{
+          table: 'keys',
+          column: 'updated_at',
+          reason: 'Date/time column — often used in ORDER BY or range queries',
+          sql: 'CREATE INDEX idx_keys_updated_at ON keys(updated_at)',
+          priority: 'low',
+        }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      // No issue should use the missing-fk-index code
+      const fkIssues = issues.filter((i) => i.code === 'missing-fk-index');
+      assert.strictEqual(fkIssues.length, 0, 'Datetime columns must not produce missing-fk-index');
+    });
+
     it('should report orphaned-fk from anomalies', async () => {
       const ctx = createContext({
         dartFiles: [createDartFile('orders', ['id', 'user_id'])],
@@ -214,6 +291,54 @@ describe('SchemaProvider', () => {
             new Range(10, 0, 10, 100),
           ),
           'Suggested: CREATE INDEX idx_test ON test(col)',
+        ),
+      ];
+
+      const actions = provider.provideCodeActions(diag as any, {} as any);
+
+      assert.strictEqual(actions.length, 2);
+      assert.ok(actions.some((a) => a.title.includes('Copy')));
+      assert.ok(actions.some((a) => a.title.includes('Run')));
+    });
+
+    it('should provide Copy and Run actions for missing-id-index', () => {
+      const diag = new Diagnostic(
+        new Range(10, 0, 10, 100),
+        '[drift_advisor] Column ends in _id',
+        DiagnosticSeverity.Information,
+      );
+      diag.code = 'missing-id-index';
+      diag.relatedInformation = [
+        new DiagnosticRelatedInformation(
+          new Location(
+            Uri.parse('file:///test.dart'),
+            new Range(10, 0, 10, 100),
+          ),
+          'Suggested: CREATE INDEX idx_orders_customer_id ON orders(customer_id)',
+        ),
+      ];
+
+      const actions = provider.provideCodeActions(diag as any, {} as any);
+
+      assert.strictEqual(actions.length, 2);
+      assert.ok(actions.some((a) => a.title.includes('Copy')));
+      assert.ok(actions.some((a) => a.title.includes('Run')));
+    });
+
+    it('should provide Copy and Run actions for missing-datetime-index', () => {
+      const diag = new Diagnostic(
+        new Range(10, 0, 10, 100),
+        '[drift_advisor] Date/time column may benefit from index',
+        DiagnosticSeverity.Information,
+      );
+      diag.code = 'missing-datetime-index';
+      diag.relatedInformation = [
+        new DiagnosticRelatedInformation(
+          new Location(
+            Uri.parse('file:///test.dart'),
+            new Range(10, 0, 10, 100),
+          ),
+          'Suggested: CREATE INDEX idx_users_created_at ON users(created_at)',
         ),
       ];
 

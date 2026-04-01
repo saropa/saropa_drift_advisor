@@ -16,7 +16,7 @@ export interface CreateContextOptions {
     column: string;
     reason: string;
     sql: string;
-    priority: 'high' | 'low';
+    priority: 'high' | 'medium' | 'low';
   }>;
   anomalies?: Array<{ message: string; severity: 'error' | 'warning' | 'info' }>;
 }

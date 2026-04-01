@@ -20,6 +20,22 @@ export const SCHEMA_CODES: Record<string, IDiagnosticCode> = {
     messageTemplate: 'FK column "{table}.{column}" lacks an index',
     hasFix: true,
   },
+  'missing-id-index': {
+    code: 'missing-id-index',
+    category: 'schema',
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
+    messageTemplate:
+      'Column "{table}.{column}" ends in _id and may benefit from an index',
+    hasFix: true,
+  },
+  'missing-datetime-index': {
+    code: 'missing-datetime-index',
+    category: 'schema',
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
+    messageTemplate:
+      'Date/time column "{table}.{column}" may benefit from an index if used in ORDER BY or WHERE',
+    hasFix: true,
+  },
   'orphaned-fk': {
     code: 'orphaned-fk',
     category: 'schema',

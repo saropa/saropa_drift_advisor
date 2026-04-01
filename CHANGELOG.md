@@ -36,6 +36,8 @@ browse source on
 
 ### Fixed
 
+• **`missing-fk-index` false positive on audit timestamp and `_id` columns** — The `missing-fk-index` diagnostic fired on `created_at`, `updated_at`, and `_id`-suffixed columns that have no foreign key relationship, labeling them "FK column" in the Problems panel. Index suggestions from the server's three heuristics (true FK, `_id` suffix, date/time suffix) now produce distinct diagnostic codes: `missing-fk-index` (Warning) for actual FK columns, `missing-id-index` (Information) for `_id` columns, and `missing-datetime-index` (Information) for date/time columns. Each code has an accurate message and all three retain Copy/Run SQL quick-fix actions.
+
 • **`empty-table` false positive on legitimately empty tables** — The `empty-table` data-quality diagnostic fired on every table with 0 rows, flooding the Problems panel with false positives in fresh or development databases. Empty tables are a valid state (user-data, cache, static-data tables all start empty), so the diagnostic has been removed entirely. The `empty-table` code, its code-action quick fixes (Generate Seed Data / Import Data), and its entry in the diagnostic code registry have all been deleted.
 
 • **Anomaly scanner false positive on boolean columns with skewed distributions** — The `potential_outlier` numeric heuristic fired on boolean columns stored as `INTEGER 0/1` when the true-percentage was low (e.g., 9% → `max(1) > avg(0.09) × 10`). Boolean-typed columns (`BOOLEAN`, `BOOL`, `BIT`) are now excluded from numeric outlier detection, and a binary-domain guard (`min == 0 && max == 1`) catches Drift `BoolColumn` values stored as `INTEGER`.

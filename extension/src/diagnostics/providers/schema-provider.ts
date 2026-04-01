@@ -15,7 +15,7 @@ import type {
 } from '../diagnostic-types';
 import { checkAnomalies } from '../checkers/anomaly-checker';
 import { checkColumnDrift } from '../checkers/column-checker';
-import { checkMissingFkIndexes } from '../checkers/fk-checker';
+import { checkMissingIndexes } from '../checkers/index-checker';
 import { checkMissingPrimaryKey, checkTextPrimaryKey } from '../checkers/pk-checker';
 import { checkExtraTablesInDb, checkMissingTableInDb } from '../checkers/table-checker';
 
@@ -50,7 +50,7 @@ export class SchemaProvider implements IDiagnosticProvider {
         }
       }
 
-      checkMissingFkIndexes(issues, insights.missingIndexes, ctx.dartFiles);
+      checkMissingIndexes(issues, insights.missingIndexes, ctx.dartFiles);
       checkAnomalies(issues, insights.anomalies, ctx.dartFiles);
       checkExtraTablesInDb(issues, dbTableMap, ctx.dartFiles);
     } catch {
@@ -67,7 +67,13 @@ export class SchemaProvider implements IDiagnosticProvider {
     const actions: vscode.CodeAction[] = [];
     const code = diag.code as string;
 
-    if (code === 'missing-fk-index' && diag.relatedInformation?.[0]) {
+    // All three index-suggestion codes share the same Copy / Run quick-fix actions
+    if (
+      (code === 'missing-fk-index' ||
+        code === 'missing-id-index' ||
+        code === 'missing-datetime-index') &&
+      diag.relatedInformation?.[0]
+    ) {
       const sql = diag.relatedInformation[0].message.replace(/^Suggested: /, '');
 
       const copyAction = new vscode.CodeAction(
