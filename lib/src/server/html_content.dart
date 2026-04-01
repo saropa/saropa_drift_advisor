@@ -53,7 +53,7 @@ abstract final class HtmlContent {
        (all sources fail), this stays visible as the error indicator.
        Uses inline styles so it renders even when style.css fails. -->
   <div id="sda-loading" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#1e1e2e;color:#cdd6f4;font-family:system-ui,sans-serif;font-size:1.1rem">
-    <div style="text-align:center"><div id="sda-loading-msg">Loading Drift Advisor\u2026</div></div>
+    <div style="text-align:center"><div id="sda-loading-msg">Loading Saropa Drift Advisor\u2026</div></div>
   </div>
   <!-- Error state listener: updates the loading overlay when all asset
        sources (local server + CDN chain) have been exhausted. -->

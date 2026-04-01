@@ -116,47 +116,92 @@ void main() {
         }
       });
 
+      test('response has text/css content-type on both 200 and 404', () async {
+        // Regression: before the _sendWebAsset fix, a file-read failure
+        // produced HTTP 200 with default text/plain (no content-type set),
+        // which browsers blocked via X-Content-Type-Options: nosniff.
+        // The CDN onerror fallback never fired because onerror ignores 200s.
+        final ctx = createTestContext();
+        final handler = GenerationHandler(ctx);
+
+        final server = await HttpServer.bind('127.0.0.1', 0);
+        server.listen((HttpRequest request) async {
+          await handler.sendWebStyle(request.response);
+        });
+
+        final client = HttpClient();
+        try {
+          final request = await client.getUrl(
+            Uri.parse('http://127.0.0.1:${server.port}/assets/web/style.css'),
+          );
+          final response = await request.close().timeout(
+            const Duration(seconds: 10),
+          );
+
+          // Both 200 and 404 must use text/css — never text/plain.
+          // On 404, text/plain triggers MIME-blocking with nosniff,
+          // which suppresses the onerror callback and kills the CDN
+          // fallback chain.
+          final ct = response.headers.contentType;
+          expect(ct, isNotNull, reason: 'Content-Type header must be set');
+          expect(
+            ct!.mimeType,
+            'text/css',
+            reason: 'CSS must be served as text/css, not text/plain',
+          );
+          if (response.statusCode == 200) {
+            // On VM/desktop where the file is found: body must be CSS.
+            final body = await response.transform(utf8.decoder).join();
+            expect(body, isNotEmpty, reason: 'CSS body must not be empty');
+          } else {
+            // 404 is acceptable (CDN fallback fires via onerror).
+            expect(response.statusCode, 404);
+          }
+        } finally {
+          client.close(force: true);
+          await server.close(force: true);
+        }
+      });
+    });
+
+    group('sendWebApp', () {
       test(
-        'response has text/css content-type on both 200 and 404',
+        'response has application/javascript content-type on both 200 and 404',
         () async {
-          // Regression: before the _sendWebAsset fix, a file-read failure
-          // produced HTTP 200 with default text/plain (no content-type set),
-          // which browsers blocked via X-Content-Type-Options: nosniff.
-          // The CDN onerror fallback never fired because onerror ignores 200s.
+          // Same MIME-type contract as sendWebStyle: a 200 must carry the
+          // correct Content-Type so browsers do not block the script.
           final ctx = createTestContext();
           final handler = GenerationHandler(ctx);
 
           final server = await HttpServer.bind('127.0.0.1', 0);
           server.listen((HttpRequest request) async {
-            await handler.sendWebStyle(request.response);
+            await handler.sendWebApp(request.response);
           });
 
           final client = HttpClient();
           try {
             final request = await client.getUrl(
-              Uri.parse('http://127.0.0.1:${server.port}/assets/web/style.css'),
+              Uri.parse('http://127.0.0.1:${server.port}/assets/web/app.js'),
             );
             final response = await request.close().timeout(
               const Duration(seconds: 10),
             );
 
-            // Both 200 and 404 must use text/css — never text/plain.
-            // On 404, text/plain triggers MIME-blocking with nosniff,
-            // which suppresses the onerror callback and kills the CDN
-            // fallback chain.
+            // Both 200 and 404 must use application/javascript — never
+            // text/plain (same MIME-blocking rationale as sendWebStyle).
             final ct = response.headers.contentType;
             expect(ct, isNotNull, reason: 'Content-Type header must be set');
             expect(
               ct!.mimeType,
-              'text/css',
-              reason: 'CSS must be served as text/css, not text/plain',
+              'application/javascript',
+              reason:
+                  'JS must be served as application/javascript, '
+                  'not text/plain',
             );
             if (response.statusCode == 200) {
-              // On VM/desktop where the file is found: body must be CSS.
               final body = await response.transform(utf8.decoder).join();
-              expect(body, isNotEmpty, reason: 'CSS body must not be empty');
+              expect(body, isNotEmpty, reason: 'JS body must not be empty');
             } else {
-              // 404 is acceptable (CDN fallback fires via onerror).
               expect(response.statusCode, 404);
             }
           } finally {
@@ -165,51 +210,6 @@ void main() {
           }
         },
       );
-    });
-
-    group('sendWebApp', () {
-      test('response has application/javascript content-type on both 200 and 404', () async {
-        // Same MIME-type contract as sendWebStyle: a 200 must carry the
-        // correct Content-Type so browsers do not block the script.
-        final ctx = createTestContext();
-        final handler = GenerationHandler(ctx);
-
-        final server = await HttpServer.bind('127.0.0.1', 0);
-        server.listen((HttpRequest request) async {
-          await handler.sendWebApp(request.response);
-        });
-
-        final client = HttpClient();
-        try {
-          final request = await client.getUrl(
-            Uri.parse('http://127.0.0.1:${server.port}/assets/web/app.js'),
-          );
-          final response = await request.close().timeout(
-            const Duration(seconds: 10),
-          );
-
-          // Both 200 and 404 must use application/javascript — never
-          // text/plain (same MIME-blocking rationale as sendWebStyle).
-          final ct = response.headers.contentType;
-          expect(ct, isNotNull, reason: 'Content-Type header must be set');
-          expect(
-            ct!.mimeType,
-            'application/javascript',
-            reason:
-                'JS must be served as application/javascript, '
-                'not text/plain',
-          );
-          if (response.statusCode == 200) {
-            final body = await response.transform(utf8.decoder).join();
-            expect(body, isNotEmpty, reason: 'JS body must not be empty');
-          } else {
-            expect(response.statusCode, 404);
-          }
-        } finally {
-          client.close(force: true);
-          await server.close(force: true);
-        }
-      });
     });
   });
 }

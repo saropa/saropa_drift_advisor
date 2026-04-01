@@ -88,54 +88,58 @@ void main() {
         expect(nullAnomaly['severity'], 'error');
       });
 
-      test('null anomaly severity is always error for NOT NULL columns',
-          () async {
-        final result = await AnomalyDetector.getAnomaliesResult(
-          _anomalyQuery(
-            tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('note', 'TEXT', notnull: 1),
-              ],
-            },
-            counts: {'items': 10},
-            // Even a small percentage is still an error —
-            // the column forbids NULLs entirely.
-            nullCounts: {'items.note': 1},
-          ),
-        );
+      test(
+        'null anomaly severity is always error for NOT NULL columns',
+        () async {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'items': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col('note', 'TEXT', notnull: 1),
+                ],
+              },
+              counts: {'items': 10},
+              // Even a small percentage is still an error —
+              // the column forbids NULLs entirely.
+              nullCounts: {'items.note': 1},
+            ),
+          );
 
-        final anomalies = result['anomalies'] as List;
-        final nullAnomaly =
-            anomalies.firstWhere((a) => (a as Map)['type'] == 'null_values')
-                as Map;
-        expect(nullAnomaly['severity'], 'error');
-      });
+          final anomalies = result['anomalies'] as List;
+          final nullAnomaly =
+              anomalies.firstWhere((a) => (a as Map)['type'] == 'null_values')
+                  as Map;
+          expect(nullAnomaly['severity'], 'error');
+        },
+      );
 
-      test('skips null detection for nullable columns (no false positives)',
-          () async {
-        final result = await AnomalyDetector.getAnomaliesResult(
-          _anomalyQuery(
-            tableColumns: {
-              'items': [
-                _col('id', 'INTEGER', pk: 1),
-                // notnull: 0 — NULLs are expected here.
-                _col('description', 'TEXT', notnull: 0),
-              ],
-            },
-            counts: {'items': 10},
-            // Even 100% NULLs should not be flagged — the
-            // developer declared this column as nullable.
-            nullCounts: {'items.description': 10},
-          ),
-        );
+      test(
+        'skips null detection for nullable columns (no false positives)',
+        () async {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'items': [
+                  _col('id', 'INTEGER', pk: 1),
+                  // notnull: 0 — NULLs are expected here.
+                  _col('description', 'TEXT', notnull: 0),
+                ],
+              },
+              counts: {'items': 10},
+              // Even 100% NULLs should not be flagged — the
+              // developer declared this column as nullable.
+              nullCounts: {'items.description': 10},
+            ),
+          );
 
-        final anomalies = result['anomalies'] as List;
-        final nullAnomalies = anomalies
-            .where((a) => (a as Map)['type'] == 'null_values')
-            .toList();
-        expect(nullAnomalies, isEmpty);
-      });
+          final anomalies = result['anomalies'] as List;
+          final nullAnomalies = anomalies
+              .where((a) => (a as Map)['type'] == 'null_values')
+              .toList();
+          expect(nullAnomalies, isEmpty);
+        },
+      );
 
       test('no anomaly when NOT NULL column has zero NULLs', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
@@ -273,78 +277,82 @@ void main() {
         expect(outliers, isEmpty);
       });
 
-      test('skips outlier detection for BOOLEAN columns (type-based guard)',
-          () async {
-        // Boolean columns with skewed distributions (e.g., 9% true)
-        // should not trigger the 10× heuristic — the distribution
-        // is a valid data pattern, not an anomaly.
-        final result = await AnomalyDetector.getAnomaliesResult(
-          _anomalyQuery(
-            tableColumns: {
-              'public_figures': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('is_nickname_only', 'BOOLEAN'),
-              ],
-            },
-            counts: {'public_figures': 100},
-            // avg=0.09, min=0, max=1 → would fire without the guard.
-            numericStats: {
-              'public_figures.is_nickname_only': {
-                'avg_val': 0.09,
-                'min_val': 0.0,
-                'max_val': 1.0,
+      test(
+        'skips outlier detection for BOOLEAN columns (type-based guard)',
+        () async {
+          // Boolean columns with skewed distributions (e.g., 9% true)
+          // should not trigger the 10× heuristic — the distribution
+          // is a valid data pattern, not an anomaly.
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'public_figures': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col('is_nickname_only', 'BOOLEAN'),
+                ],
               },
-            },
-          ),
-        );
-
-        final anomalies = result['anomalies'] as List;
-        final outliers = anomalies
-            .where((a) => (a as Map)['type'] == 'potential_outlier')
-            .toList();
-        expect(
-          outliers,
-          isEmpty,
-          reason: 'BOOLEAN columns should be excluded from outlier detection',
-        );
-      });
-
-      test('skips outlier detection for INTEGER columns with binary domain',
-          () async {
-        // Drift compiles BoolColumn to INTEGER in SQLite, so
-        // boolean flags may have type INTEGER. The binary-domain
-        // guard (min == 0 && max == 1) catches these.
-        final result = await AnomalyDetector.getAnomaliesResult(
-          _anomalyQuery(
-            tableColumns: {
-              'public_figures': [
-                _col('id', 'INTEGER', pk: 1),
-                _col('is_nickname_only', 'INTEGER'),
-              ],
-            },
-            counts: {'public_figures': 100},
-            numericStats: {
-              'public_figures.is_nickname_only': {
-                'avg_val': 0.09,
-                'min_val': 0.0,
-                'max_val': 1.0,
+              counts: {'public_figures': 100},
+              // avg=0.09, min=0, max=1 → would fire without the guard.
+              numericStats: {
+                'public_figures.is_nickname_only': {
+                  'avg_val': 0.09,
+                  'min_val': 0.0,
+                  'max_val': 1.0,
+                },
               },
-            },
-          ),
-        );
+            ),
+          );
 
-        final anomalies = result['anomalies'] as List;
-        final outliers = anomalies
-            .where((a) => (a as Map)['type'] == 'potential_outlier')
-            .toList();
-        expect(
-          outliers,
-          isEmpty,
-          reason:
-              'INTEGER columns with binary domain (0–1) should be excluded '
-              'from outlier detection',
-        );
-      });
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason: 'BOOLEAN columns should be excluded from outlier detection',
+          );
+        },
+      );
+
+      test(
+        'skips outlier detection for INTEGER columns with binary domain',
+        () async {
+          // Drift compiles BoolColumn to INTEGER in SQLite, so
+          // boolean flags may have type INTEGER. The binary-domain
+          // guard (min == 0 && max == 1) catches these.
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'public_figures': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col('is_nickname_only', 'INTEGER'),
+                ],
+              },
+              counts: {'public_figures': 100},
+              numericStats: {
+                'public_figures.is_nickname_only': {
+                  'avg_val': 0.09,
+                  'min_val': 0.0,
+                  'max_val': 1.0,
+                },
+              },
+            ),
+          );
+
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason:
+                'INTEGER columns with binary domain (0–1) should be excluded '
+                'from outlier detection',
+          );
+        },
+      );
 
       test('skips outlier detection for non-numeric columns', () async {
         final result = await AnomalyDetector.getAnomaliesResult(

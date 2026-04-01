@@ -32,7 +32,7 @@ browse source on
 
 ---
 
-## [2.14.2]
+## [2.14.3]
 
 Eliminates false-positive diagnostics across index, FK, empty-table, and anomaly checks, and fixes blank Web UI caused by MIME-blocked CDN fallback. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.14.2/CHANGELOG.md)
 
@@ -54,7 +54,7 @@ Eliminates false-positive diagnostics across index, FK, empty-table, and anomaly
 
 ---
 
-## [2.14.1]
+## [2.14.2]
 
 Fixes silent command failures and missing user feedback, adds annotation previews and removal commands, and moves bookmarks to the tree toolbar. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.14.1/CHANGELOG.md)
 
