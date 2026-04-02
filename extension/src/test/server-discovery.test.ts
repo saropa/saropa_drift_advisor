@@ -106,9 +106,9 @@ describe('ServerDiscovery', () => {
     discovery = new ServerDiscovery(defaultConfig());
     discovery.start();
 
-    // 5 empty scans at 3s intervals
+    // 5 empty scans at 30s intervals
     for (let i = 0; i < 5; i++) {
-      await clock.tickAsync(3001);
+      await clock.tickAsync(30001);
     }
 
     assert.strictEqual(discovery.state, 'backoff');
@@ -119,14 +119,14 @@ describe('ServerDiscovery', () => {
     discovery.start();
     await clock.tickAsync(1);
 
-    // Searching state — 3s interval
+    // Searching state — 30s interval
     const callsBefore = fetchStub.callCount;
-    await clock.tickAsync(3001);
-    assert.ok(fetchStub.callCount > callsBefore, 'should poll at 3s in searching');
+    await clock.tickAsync(30001);
+    assert.ok(fetchStub.callCount > callsBefore, 'should poll at 30s in searching');
 
     // Transition to connected
     stubPortAlive(8642);
-    await clock.tickAsync(3001);
+    await clock.tickAsync(30001);
     assert.strictEqual(discovery.state, 'connected');
 
     // Connected state — 10s interval
@@ -161,7 +161,7 @@ describe('ServerDiscovery', () => {
 
     // Go to backoff
     for (let i = 0; i < 5; i++) {
-      await clock.tickAsync(3001);
+      await clock.tickAsync(30001);
     }
     assert.strictEqual(discovery.state, 'backoff');
 
@@ -201,15 +201,15 @@ describe('ServerDiscovery', () => {
     discovery = new ServerDiscovery(defaultConfig());
     discovery.start();
 
-    // 5 empty scans → backoff (initial scan + 4 at 3s)
+    // 5 empty scans → backoff (initial scan + 4 at 30s)
     for (let i = 0; i < 5; i++) {
-      await clock.tickAsync(3001);
+      await clock.tickAsync(30001);
     }
     assert.strictEqual(discovery.state, 'backoff');
 
-    // 3 backoff polls at 30s → auto-recovery to searching
+    // 3 backoff polls at 60s → auto-recovery to searching
     for (let i = 0; i < 3; i++) {
-      await clock.tickAsync(30001);
+      await clock.tickAsync(60001);
     }
     assert.strictEqual(discovery.state, 'searching');
   });
@@ -268,9 +268,9 @@ describe('ServerDiscovery', () => {
     await clock.tickAsync(10001);
     await clock.tickAsync(10001);
 
-    // Server back up within 60s of first notification
+    // Server back up within 60s of first notification — poll fires at 30s interval
     stubPortAlive(8642);
-    await clock.tickAsync(3001);
+    await clock.tickAsync(30001);
     // Notification should be throttled
     assert.strictEqual(messageMock.infos.length, 1, 'should throttle notification');
   });

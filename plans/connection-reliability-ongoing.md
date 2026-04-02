@@ -354,7 +354,7 @@ Despite all the patches above, these issues remain or recur:
 
 4. **Webview communication is fire-and-forget** — The ready-handshake pattern was added for Schema Search but the extension has multiple webview panels (Troubleshooting, Dashboard, ER Diagram, etc.) and not all of them use the same protocol. A message lost during initialization means a permanently broken panel.
 
-5. **Discovery is polling-based** — The extension scans ports every 3-30 seconds. There is no push notification from the server to the extension. This means connection is always delayed and there is always a window where the server is running but the extension doesn't know about it.
+5. **Discovery is polling-based** — The extension scans ports every 30-60 seconds. There is no push notification from the server to the extension. This means connection is always delayed and there is always a window where the server is running but the extension doesn't know about it.
 
 ---
 
