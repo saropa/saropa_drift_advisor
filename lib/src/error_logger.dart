@@ -56,7 +56,17 @@ abstract final class DriftDebugErrorLogger {
       try {
         final String line = prefix.isEmpty ? message : '[$prefix] $message';
         final String name = prefix.isEmpty ? defaultPrefix : prefix;
+
+        // Write to developer.log for DevTools structured logging.
         developer.log(line, name: name);
+
+        // Also write to the console so messages are visible in the
+        // terminal / IDE debug console without requiring DevTools.
+        // developer.log alone is invisible in standard Flutter console
+        // output, which makes diagnosing asset resolution failures
+        // impossible without DevTools.
+        // ignore: avoid_print
+        print(line);
       } on Object catch (e, st) {
         // Defensive: if the logging call fails (e.g. encoding), report it without rethrowing.
         developer.log(
@@ -91,6 +101,8 @@ abstract final class DriftDebugErrorLogger {
       try {
         final String name = prefix.isEmpty ? defaultPrefix : prefix;
         final bool includeTrace = includeStack && _isDebugEnvironment();
+
+        // Structured log for DevTools.
         developer.log(
           error.toString(),
           name: name,
@@ -98,6 +110,15 @@ abstract final class DriftDebugErrorLogger {
           error: error,
           stackTrace: includeTrace ? stack : null,
         );
+
+        // Console output so errors are visible without DevTools.
+        final String line = '[$name] $error';
+        // ignore: avoid_print
+        print(line);
+        if (includeTrace) {
+          // ignore: avoid_print
+          print(stack);
+        }
       } on Object catch (e, st) {
         // Defensive: error callback must not throw so server catch blocks stay safe.
         developer.log(

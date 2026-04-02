@@ -6,9 +6,7 @@ import 'package:example/ui/viewer_status.dart';
 void main() {
   testWidgets('LoadingView renders progress UI', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: LoadingView()),
-      ),
+      const MaterialApp(home: Scaffold(body: LoadingView())),
     );
 
     expect(find.text('Starting database + viewer…'), findsOneWidget);
@@ -40,11 +38,7 @@ void main() {
       const MaterialApp(
         home: Scaffold(
           body: ReadyView(
-            init: ViewerInitResult(
-              enabled: true,
-              running: false,
-              url: null,
-            ),
+            init: ViewerInitResult(enabled: true, running: false, url: null),
           ),
         ),
       ),
@@ -54,8 +48,9 @@ void main() {
     expect(find.textContaining('port 8642'), findsOneWidget);
   });
 
-  testWidgets('ReadyView with errorMessage shows error text and error style',
-      (tester) async {
+  testWidgets('ReadyView with errorMessage shows error text and error style', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -72,37 +67,37 @@ void main() {
     );
 
     expect(
-        find.text('Database init failed: permission denied'), findsOneWidget);
+      find.text('Database init failed: permission denied'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
-      'ReadyView with running true and url null disables copy and does not crash',
-      (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: ReadyView(
-            init: ViewerInitResult(
-              enabled: true,
-              running: true,
-              url: null,
+    'ReadyView with running true and url null disables copy and does not crash',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: ReadyView(
+              init: ViewerInitResult(enabled: true, running: true, url: null),
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    expect(find.text('Saropa Drift Advisor is running'), findsOneWidget);
-    final copyButton = find.byType(FilledButton);
-    expect(copyButton, findsOneWidget);
-    final widget = tester.widget<FilledButton>(copyButton);
-    expect(widget.onPressed, isNull);
-  });
+      expect(find.text('Saropa Drift Advisor is running'), findsOneWidget);
+      final copyButton = find.byType(FilledButton);
+      expect(copyButton, findsOneWidget);
+      final widget = tester.widget<FilledButton>(copyButton);
+      expect(widget.onPressed, isNull);
+    },
+  );
 
   // ── Dashboard tests ──────────────────────────────────────────────────
 
-  testWidgets('ReadyView with dbSummary shows table overview and posts',
-      (tester) async {
+  testWidgets('ReadyView with dbSummary shows table overview and posts', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -178,8 +173,9 @@ void main() {
     expect(find.textContaining('1 comment'), findsOneWidget);
   });
 
-  testWidgets('ReadyView dashboard still shows copy button in status header',
-      (tester) async {
+  testWidgets('ReadyView dashboard still shows copy button in status header', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

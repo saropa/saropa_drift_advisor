@@ -45,16 +45,18 @@ class HomePage extends StatefulWidget {
 const Duration _kInitTimeout = Duration(seconds: 30);
 
 class _HomePageState extends State<HomePage> {
-  late final Future<ViewerInitResult> _initFuture =
-      _initialize().timeout(_kInitTimeout, onTimeout: () {
-    return ViewerInitResult(
-      enabled: kDebugMode,
-      running: false,
-      url: null,
-      errorMessage:
-          'Initialization timed out after ${_kInitTimeout.inSeconds} seconds.',
-    );
-  });
+  late final Future<ViewerInitResult> _initFuture = _initialize().timeout(
+    _kInitTimeout,
+    onTimeout: () {
+      return ViewerInitResult(
+        enabled: kDebugMode,
+        running: false,
+        url: null,
+        errorMessage:
+            'Initialization timed out after ${_kInitTimeout.inSeconds} seconds.',
+      );
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -95,11 +97,16 @@ class _HomePageState extends State<HomePage> {
                 switchInCurve: Curves.easeOut,
                 switchOutCurve: Curves.easeIn,
                 transitionBuilder: (child, animation) {
-                  final slide = Tween<Offset>(
-                    begin: const Offset(0, 0.04),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(
-                      parent: animation, curve: Curves.easeOutCubic));
+                  final slide =
+                      Tween<Offset>(
+                        begin: const Offset(0, 0.04),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      );
                   return FadeTransition(
                     opacity: animation,
                     child: SlideTransition(position: slide, child: child),
@@ -155,17 +162,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// Queries table row counts and recent posts for the dashboard display.
-  static Future<DatabaseSummary> _queryDatabaseSummary(
-    AppDatabase db,
-  ) async {
+  static Future<DatabaseSummary> _queryDatabaseSummary(AppDatabase db) async {
     // Table names to show in the overview.
     const tableNames = ['users', 'posts', 'comments', 'tags', 'post_tags'];
 
     // Query row counts for each table.
     final tables = <TableSummary>[];
     for (final name in tableNames) {
-      final result =
-          await db.customSelect('SELECT COUNT(*) AS cnt FROM $name').get();
+      final result = await db
+          .customSelect('SELECT COUNT(*) AS cnt FROM $name')
+          .get();
       final count = result.firstOrNull?.data['cnt'] as int? ?? 0;
       tables.add(TableSummary(name: name, rowCount: count));
     }
@@ -320,7 +326,8 @@ class _HomePageState extends State<HomePage> {
         .firstWhere(
           (p) => p.title.contains(substring),
           orElse: () => throw StateError(
-              'Seed post with title containing "$substring" not found'),
+            'Seed post with title containing "$substring" not found',
+          ),
         )
         .id;
   }

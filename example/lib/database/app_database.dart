@@ -81,9 +81,7 @@ class AppDatabase extends _$AppDatabase {
       return AppDatabase._(executor, dbPath: path);
     } on Object catch (e, st) {
       Error.throwWithStackTrace(
-        StateError(
-          'Failed to create app database: $e',
-        ),
+        StateError('Failed to create app database: $e'),
         st,
       );
     }
@@ -94,18 +92,18 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (Migrator m) async {
-          await m.createAll();
-        },
-        onUpgrade: (Migrator m, int from, int to) async {
-          if (from == 1 && to == 2) {
-            // Add multi-table schema (legacy "items" table may still exist).
-            await m.createTable(users);
-            await m.createTable(posts);
-            await m.createTable(comments);
-            await m.createTable(tags);
-            await m.createTable(postTags);
-          }
-        },
-      );
+    onCreate: (Migrator m) async {
+      await m.createAll();
+    },
+    onUpgrade: (Migrator m, int from, int to) async {
+      if (from == 1 && to == 2) {
+        // Add multi-table schema (legacy "items" table may still exist).
+        await m.createTable(users);
+        await m.createTable(posts);
+        await m.createTable(comments);
+        await m.createTable(tags);
+        await m.createTable(postTags);
+      }
+    },
+  );
 }

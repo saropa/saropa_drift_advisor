@@ -35,10 +35,7 @@ class PostPreview {
 
 /// Summary snapshot of the database returned alongside viewer init state.
 class DatabaseSummary {
-  const DatabaseSummary({
-    required this.tables,
-    required this.recentPosts,
-  });
+  const DatabaseSummary({required this.tables, required this.recentPosts});
 
   final List<TableSummary> tables;
   final List<PostPreview> recentPosts;
@@ -97,16 +94,13 @@ class LoadingView extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
-        const SizedBox(
-          width: 220,
-          child: LinearProgressIndicator(),
-        ),
+        const SizedBox(width: 220, child: LinearProgressIndicator()),
         const SizedBox(height: 12),
         Text(
           'This should only take a moment.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
@@ -188,16 +182,16 @@ class ReadyView extends StatelessWidget {
           SelectableText(
             init.errorMessage!,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
-                ),
+              color: Theme.of(context).colorScheme.error,
+            ),
             textAlign: TextAlign.center,
           )
         else if (init.url != null)
           SelectableText(
             urlText,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontFamily: 'monospace',
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(fontFamily: 'monospace'),
             textAlign: TextAlign.center,
           )
         else
@@ -206,8 +200,8 @@ class ReadyView extends StatelessWidget {
                 ? 'Another process may already be using port 8642.'
                 : 'Build in debug mode to enable the viewer.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             textAlign: TextAlign.center,
           ),
         const SizedBox(height: 12),
@@ -219,8 +213,8 @@ class ReadyView extends StatelessWidget {
   String get _statusText => init.running
       ? 'Saropa Drift Advisor is running'
       : (init.enabled
-          ? 'Advisor failed to start'
-          : 'Advisor disabled (release build)');
+            ? 'Advisor failed to start'
+            : 'Advisor disabled (release build)');
 }
 
 // ---------------------------------------------------------------------------
@@ -282,8 +276,8 @@ class _StatusHeader extends StatelessWidget {
                     init.running
                         ? 'Drift Advisor is running'
                         : (init.enabled
-                            ? 'Advisor failed to start'
-                            : 'Advisor disabled'),
+                              ? 'Advisor failed to start'
+                              : 'Advisor disabled'),
                     style: theme.textTheme.titleSmall,
                   ),
                   if (init.url != null)
@@ -335,9 +329,9 @@ class _CopyUrlButton extends StatelessWidget {
         ? () async {
             await Clipboard.setData(ClipboardData(text: urlText));
             if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Copied viewer URL')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Copied viewer URL')));
           }
         : null;
 
@@ -369,9 +363,9 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
     );
   }
 }
@@ -396,16 +390,17 @@ class _TableOverview extends StatelessWidget {
         return Card(
           elevation: 0,
           color: colorScheme.surfaceContainerHighest,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.table_chart_outlined,
-                    size: 16, color: colorScheme.primary),
+                Icon(
+                  Icons.table_chart_outlined,
+                  size: 16,
+                  color: colorScheme.primary,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   t.name,
@@ -416,8 +411,10 @@ class _TableOverview extends StatelessWidget {
                 const SizedBox(width: 8),
                 // Row count badge.
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: colorScheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
@@ -457,9 +454,7 @@ class _RecentPostsList extends StatelessWidget {
         return Card(
           elevation: 0,
           color: colorScheme.surfaceContainerLow,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           child: ListTile(
             leading: Icon(
               post.published ? Icons.article : Icons.edit_note,

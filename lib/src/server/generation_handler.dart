@@ -18,7 +18,16 @@
 //      from underlying package URI sync resolution). The resolved root is
 //      validated by probing for `assets/web/style.css` — if absent (e.g. pub
 //      cache contains only `lib/`), this candidate is skipped.
-//   2. Ancestor walk from [Directory.current] (flutter test / CI / device cwd).
+//   2. `.dart_tool/package_config.json` parsing — walks ancestors of
+//      [Directory.current] for the nearest package config, extracts the
+//      `rootUri` for this package, and verifies assets exist. Works on all
+//      platforms (Flutter desktop, mobile, test, CI) as long as the project
+//      has run `pub get`.
+//   3. Ancestor walk from [Directory.current] (flutter test / CI / device cwd).
+//   4. Ancestor walk from [Platform.resolvedExecutable] directory — catches
+//      Flutter Windows desktop where the executable lives in the build output
+//      tree (e.g. build/windows/x64/runner/Debug/) whose ancestors include
+//      the package root, but [Directory.current] may be unrelated.
 //
 // The resolved path is cached so repeated asset requests do not re-resolve.
 // This is process-global (tests share the same isolate). Asset file contents
@@ -26,7 +35,6 @@
 // subsequent HTTP requests serve from static fields — no per-request I/O.
 
 import 'dart:convert';
-import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:isolate';
 
@@ -197,15 +205,28 @@ final class GenerationHandler {
     String? contents;
     if (packageRoot != null) {
       final file = File('$packageRoot/$relativePath');
+      final filePath = file.path;
+      _ctx.log('[SDA] Asset probe: $filePath');
       try {
         if (await file.exists()) {
+          _ctx.log('[SDA] Reading asset: $filePath');
           contents = await file.readAsString();
+          _ctx.log(
+            '[SDA] Asset read OK: ${contents.length} chars ($relativePath)',
+          );
+        } else {
+          _ctx.log('[SDA] Asset not found on disk: $filePath');
         }
       } on Object catch (error, stack) {
         // File exists but could not be read (permissions, encoding, I/O).
         // Log and fall through to 404 so the CDN onerror fallback fires.
+        _ctx.log('[SDA] Asset read failed: $filePath — $error');
         _ctx.logError(error, stack);
       }
+    } else {
+      _ctx.log(
+        '[SDA] No package root resolved — serving 404 for $relativePath',
+      );
     }
 
     // ── Successfully read: serve with the correct MIME type ──
@@ -239,16 +260,23 @@ final class GenerationHandler {
   ///   1. [Isolate.resolvePackageUri] → `lib/` parent → package root. This
   ///      works on the Dart VM / Flutter desktop in debug mode. Throws
   ///      [UnsupportedError] on Flutter iOS/Android embedders.
-  ///   2. If the resolved root does not contain `assets/web/style.css`, the
-  ///      path may point at the pub cache (which strips non-`lib` assets).
-  ///      Fall through to the ancestor walk instead.
+  ///   The resolved root from strategy 1 is validated against
+  ///   `assets/web/style.css`. If absent (pub cache path), falls through.
+  ///   2. `.dart_tool/package_config.json` parsing — finds the `rootUri`
+  ///      for this package and verifies assets exist.
   ///   3. Ancestor walk from [Directory.current] (flutter test / CI / example
   ///      apps running via path dependency).
+  ///   4. Ancestor walk from [Platform.resolvedExecutable] — Flutter Windows
+  ///      desktop where the executable is inside the build tree.
   Future<String?> _resolvePackageRootPath() async {
     if (_packageRootLookupComplete) {
       return _resolvedPackageRootPath;
     }
 
+    final cwd = Directory.current.absolute.path;
+    _ctx.log('[SDA] Resolving package root (cwd: $cwd)');
+
+    // ── Strategy 1: Isolate.resolvePackageUri ──
     String? root;
     try {
       final packageLibUri = await Isolate.resolvePackageUri(
@@ -260,33 +288,73 @@ final class GenerationHandler {
         // Verify the resolved root actually contains the web assets.
         // Isolate.resolvePackageUri can resolve to the pub cache where
         // only lib/ is guaranteed to exist — assets/ may be absent.
-        // When that happens, skip this candidate so the ancestor walk
+        // When that happens, skip this candidate so the next strategy
         // can find the local source tree (which does have the assets).
         final assetProbe = File('$candidate/assets/web/style.css');
         if (await assetProbe.exists()) {
           root = candidate;
+          _ctx.log('[SDA] Package root via Isolate.resolvePackageUri: $root');
+        } else {
+          _ctx.log(
+            '[SDA] Isolate.resolvePackageUri resolved to $candidate '
+            'but assets/web/style.css not found there',
+          );
         }
+      } else {
+        _ctx.log('[SDA] Isolate.resolvePackageUri returned: $packageLibUri');
       }
     } on UnsupportedError catch (e) {
       // Expected on Flutter iOS/Android: embedders do not resolve package: URIs
-      // to host paths. Fall through to the ancestor walk (often null on device).
-      developer.log(
-        'Package URI resolution unsupported (expected on mobile): $e',
-        name: 'SDA',
+      // to host paths. Fall through to the next strategy.
+      _ctx.log(
+        '[SDA] Package URI resolution unsupported (expected on mobile): $e',
       );
     } on Object catch (error, stack) {
       // Unexpected failures during resolution; keep telemetry without treating
       // UnsupportedError as an application bug (handled above).
+      _ctx.log('[SDA] Isolate.resolvePackageUri failed: $error');
       _ctx.logError(error, stack);
     }
 
-    root ??= await _discoverPackageRootPathFromAncestorWalk();
+    // ── Strategy 2: .dart_tool/package_config.json ──
+    if (root == null) {
+      root = await _discoverPackageRootFromPackageConfig(_ctx.log);
+      if (root != null) {
+        _ctx.log('[SDA] Package root via package_config.json: $root');
+      }
+    }
+
+    // ── Strategy 3: ancestor walk from Directory.current ──
+    if (root == null) {
+      root = await _discoverPackageRootPathFromAncestorWalk();
+      if (root != null) {
+        _ctx.log('[SDA] Package root via ancestor walk: $root');
+      }
+    }
+
+    // ── Strategy 4: ancestor walk from Platform.resolvedExecutable ──
+    // Handles Flutter Windows desktop where Directory.current may be
+    // the system/IDE directory but the executable lives inside the
+    // project's build tree, whose ancestors include the package root.
+    if (root == null) {
+      root = await _discoverPackageRootFromExecutablePath(_ctx.log);
+      if (root != null) {
+        _ctx.log('[SDA] Package root via executable path: $root');
+      }
+    }
+
+    if (root == null) {
+      _ctx.log(
+        '[SDA] All package root resolution strategies failed (cwd: $cwd). '
+        'Web assets will be served from CDN.',
+      );
+    }
 
     // Eagerly cache both web assets into memory so subsequent requests
     // skip disk I/O entirely. Non-fatal: if either read fails, that
     // asset falls through to the per-request disk read → 404 → CDN path.
     if (root != null) {
-      await _cacheWebAssets(root);
+      await _cacheWebAssets(root, _ctx.log);
     }
 
     return _cacheResolvedPackageRootPath(root);
@@ -307,7 +375,10 @@ final class GenerationHandler {
   /// Called once during package root resolution. Failures are non-fatal:
   /// a missed cache entry simply falls through to the per-request disk
   /// read in [_sendWebAsset], which itself falls through to 404 → CDN.
-  static Future<void> _cacheWebAssets(String packageRoot) async {
+  static Future<void> _cacheWebAssets(
+    String packageRoot,
+    void Function(String) log,
+  ) async {
     try {
       final cssFile = File('$packageRoot/assets/web/style.css');
       if (await cssFile.exists()) {
@@ -315,7 +386,7 @@ final class GenerationHandler {
       }
     } on Object catch (e) {
       // Non-fatal: per-request disk read is the fallback.
-      developer.log('CSS asset cache failed: $e', name: 'SDA');
+      log('[SDA] CSS asset cache failed: $e');
     }
     try {
       final jsFile = File('$packageRoot/assets/web/app.js');
@@ -324,8 +395,76 @@ final class GenerationHandler {
       }
     } on Object catch (e) {
       // Non-fatal: per-request disk read is the fallback.
-      developer.log('JS asset cache failed: $e', name: 'SDA');
+      log('[SDA] JS asset cache failed: $e');
     }
+  }
+
+  /// Finds this package's root by parsing `.dart_tool/package_config.json`.
+  ///
+  /// Walks ancestors of [Directory.current] looking for the nearest
+  /// `.dart_tool/package_config.json`, reads the `rootUri` for
+  /// `saropa_drift_advisor`, resolves it to an absolute path, and
+  /// verifies `assets/web/style.css` exists there.
+  ///
+  /// This strategy works on all platforms (Flutter desktop, mobile, test,
+  /// CI) as long as the project has run `pub get`. It does not depend on
+  /// [Isolate.resolvePackageUri] (which throws on mobile embedders) or
+  /// on the barrel file sentinel (which requires CWD to be inside the
+  /// package tree).
+  static Future<String?> _discoverPackageRootFromPackageConfig(
+    void Function(String) log,
+  ) async {
+    Directory dir = Directory.current.absolute;
+    while (true) {
+      final configFile = File('${dir.path}/.dart_tool/package_config.json');
+      try {
+        if (await configFile.exists()) {
+          final contents = await configFile.readAsString();
+          final config = jsonDecode(contents);
+          if (config is Map<String, dynamic>) {
+            final packages = config['packages'];
+            if (packages is List<dynamic>) {
+              for (final pkg in packages) {
+                if (pkg is Map<String, dynamic> &&
+                    pkg['name'] == 'saropa_drift_advisor') {
+                  final rootUri = pkg['rootUri'];
+                  if (rootUri is String) {
+                    // rootUri is relative to the .dart_tool/ directory,
+                    // or an absolute file: URI for pub cache packages.
+                    final dartToolUri = configFile.parent.uri;
+                    final resolvedUri = dartToolUri.resolve(rootUri);
+                    final resolvedRoot = Directory.fromUri(
+                      resolvedUri,
+                    ).absolute.path;
+
+                    // Verify the resolved root contains the web assets.
+                    final assetProbe = File(
+                      '$resolvedRoot/assets/web/style.css',
+                    );
+                    if (await assetProbe.exists()) {
+                      return resolvedRoot;
+                    }
+                    log(
+                      '[SDA] package_config.json rootUri resolved to '
+                      '$resolvedRoot but assets/web/style.css not found',
+                    );
+                  }
+                  break; // Found our package entry, stop searching packages.
+                }
+              }
+            }
+          }
+        }
+      } on Object catch (e) {
+        // Malformed config, I/O error, or missing file — skip this
+        // ancestor and keep walking up.
+        log('[SDA] package_config.json parse failed at ${dir.path}: $e');
+      }
+      final parent = dir.parent;
+      if (parent.path == dir.path) break;
+      dir = parent;
+    }
+    return null;
   }
 
   /// Finds this package's root when [Isolate.resolvePackageUri] cannot run.
@@ -351,6 +490,42 @@ final class GenerationHandler {
       final parent = dir.parent;
       if (parent.path == dir.path) break;
       dir = parent;
+    }
+    return null;
+  }
+
+  /// Finds this package's root by walking ancestors of the current executable.
+  ///
+  /// Flutter Windows desktop sets the working directory to the executable
+  /// location (`build/windows/x64/runner/Debug/`) rather than the project
+  /// root. [Directory.current] is therefore inside the build tree, whose
+  /// ancestors include the package root. This covers scenarios where
+  /// [Directory.current] is an IDE or system directory with no relation to
+  /// the project.
+  ///
+  /// On Dart CLI, [Platform.resolvedExecutable] is the Dart VM itself
+  /// (`dart.exe`), which lives in the SDK — not the project tree. Ancestor
+  /// walking from there will never find the package sentinel and this method
+  /// simply returns null, leaving the earlier strategies (which do work
+  /// on CLI) as the definitive answer.
+  static Future<String?> _discoverPackageRootFromExecutablePath(
+    void Function(String) log,
+  ) async {
+    try {
+      final execPath = Platform.resolvedExecutable;
+      log('[SDA] Executable path: $execPath');
+      Directory dir = File(execPath).parent.absolute;
+      while (true) {
+        final libEntry = File('${dir.path}/lib/saropa_drift_advisor.dart');
+        if (await libEntry.exists()) {
+          return dir.path;
+        }
+        final parent = dir.parent;
+        if (parent.path == dir.path) break;
+        dir = parent;
+      }
+    } on Object catch (e) {
+      log('[SDA] Executable path strategy failed: $e');
     }
     return null;
   }

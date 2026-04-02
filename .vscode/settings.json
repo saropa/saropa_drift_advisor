@@ -11,6 +11,6 @@
     // Shows ALL errors in Problems panel, not just open files
     "typescript.tsserver.experimental.enableProjectDiagnostics": true,
     "saropaLints.enabled": true,
-    "saropaLints.sidebar.showPackageVibrancy": false,
+    "saropaLints.sidebar.showPackageVibrancy": true,
     "saropaLints.sidebar.showSummary": false
 }

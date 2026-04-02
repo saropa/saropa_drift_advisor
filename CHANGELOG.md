@@ -32,9 +32,19 @@ browse source on
 
 ---
 
-## [2.14.3]
+## [2.14.5]
 
-Eliminates false-positive diagnostics across index, FK, empty-table, and anomaly checks, and fixes blank Web UI caused by MIME-blocked CDN fallback. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.14.2/CHANGELOG.md)
+### Fixed
+
+• **Web UI assets (CSS/JS) returned 404 in Flutter Windows desktop** — After the embedded-string fallback was removed, the debug server relied entirely on disk-based asset resolution, which silently failed in Flutter desktop where `Directory.current` and `Isolate.resolvePackageUri` do not reliably point to the package source tree. Four resolution strategies now run in sequence: (1) `Isolate.resolvePackageUri` with an asset-existence probe to reject pub-cache paths, (2) `.dart_tool/package_config.json` ancestor walk to locate the declared `rootUri`, (3) ancestor walk from `Directory.current`, and (4) ancestor walk from `Platform.resolvedExecutable` — which catches Flutter Windows where the running executable lives in `build/windows/x64/runner/Debug/` but `Directory.current` is unrelated. Assets are cached in memory on first resolution so subsequent requests skip disk I/O.
+
+• **Asset resolution failures were invisible in the Flutter debug console** — The `DriftDebugErrorLogger` log and error callbacks routed all output exclusively through `developer.log`, which is only visible in Dart DevTools and is invisible in the standard Flutter run console or IDE debug terminal. Both callbacks now also call `print()` so `[SDA]` diagnostic messages appear without needing DevTools open. The server also logs the exact file path it probes, whether the file exists, and byte counts on success, making it straightforward to diagnose any future resolution failure.
+
+---
+
+## [2.14.4]
+
+Eliminates false-positive diagnostics across index, FK, empty-table, and anomaly checks, and fixes blank Web UI caused by MIME-blocked CDN fallback. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.14.3/CHANGELOG.md)
 
 ### Fixed
 
@@ -54,7 +64,7 @@ Eliminates false-positive diagnostics across index, FK, empty-table, and anomaly
 
 ---
 
-## [2.14.2]
+## [2.14.1]
 
 Fixes silent command failures and missing user feedback, adds annotation previews and removal commands, and moves bookmarks to the tree toolbar. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.14.1/CHANGELOG.md)
 
