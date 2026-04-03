@@ -277,7 +277,7 @@ describe('SchemaProvider', () => {
   });
 
   describe('provideCodeActions', () => {
-    it('should provide Copy and Run actions for missing-fk-index', () => {
+    it('should provide Copy action for missing-fk-index', () => {
       const diag = new Diagnostic(
         new Range(10, 0, 10, 100),
         '[drift_advisor] FK column lacks index',
@@ -296,12 +296,14 @@ describe('SchemaProvider', () => {
 
       const actions = provider.provideCodeActions(diag as any, {} as any);
 
-      assert.strictEqual(actions.length, 2);
+      assert.strictEqual(actions.length, 1);
       assert.ok(actions.some((a) => a.title.includes('Copy')));
-      assert.ok(actions.some((a) => a.title.includes('Run')));
+      // "Run CREATE INDEX Now" was removed — server is read-only
+      assert.ok(!actions.some((a) => a.title.includes('Run')));
+      assert.ok(actions[0].isPreferred, 'Copy action should be preferred');
     });
 
-    it('should provide Copy and Run actions for missing-id-index', () => {
+    it('should provide Copy action for missing-id-index', () => {
       const diag = new Diagnostic(
         new Range(10, 0, 10, 100),
         '[drift_advisor] Column ends in _id',
@@ -320,12 +322,11 @@ describe('SchemaProvider', () => {
 
       const actions = provider.provideCodeActions(diag as any, {} as any);
 
-      assert.strictEqual(actions.length, 2);
+      assert.strictEqual(actions.length, 1);
       assert.ok(actions.some((a) => a.title.includes('Copy')));
-      assert.ok(actions.some((a) => a.title.includes('Run')));
     });
 
-    it('should provide Copy and Run actions for missing-datetime-index', () => {
+    it('should provide Copy action for missing-datetime-index', () => {
       const diag = new Diagnostic(
         new Range(10, 0, 10, 100),
         '[drift_advisor] Date/time column may benefit from index',
@@ -344,9 +345,8 @@ describe('SchemaProvider', () => {
 
       const actions = provider.provideCodeActions(diag as any, {} as any);
 
-      assert.strictEqual(actions.length, 2);
+      assert.strictEqual(actions.length, 1);
       assert.ok(actions.some((a) => a.title.includes('Copy')));
-      assert.ok(actions.some((a) => a.title.includes('Run')));
     });
 
     it('should provide migration actions for missing-column-in-db', () => {

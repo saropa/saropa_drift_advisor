@@ -183,7 +183,7 @@ describe('PerformanceProvider', () => {
       assert.ok(actions.some((a) => a.title.includes('Performance')));
     });
 
-    it('should provide Copy and Run actions for unindexed-where-clause', () => {
+    it('should provide Copy action for unindexed-where-clause', () => {
       const diag = new Diagnostic(
         new Range(10, 0, 10, 100),
         '[drift_advisor] Unindexed WHERE',
@@ -195,7 +195,6 @@ describe('PerformanceProvider', () => {
       const actions = provider.provideCodeActions(diag as any, {} as any);
 
       assert.ok(actions.some((a) => a.title.includes('Copy')));
-      assert.ok(actions.some((a) => a.title.includes('Run')));
     });
 
     it('should provide Learn action for n-plus-one', () => {

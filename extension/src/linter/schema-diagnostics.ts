@@ -96,7 +96,6 @@ export class SchemaDiagnostics {
  * Provides quick-fix code actions for Drift diagnostics:
  * - "Copy CREATE INDEX SQL" for index suggestions
  * - "Generate Migration" for schema issues
- * - "Run CREATE INDEX" to execute index creation immediately
  */
 export class DriftCodeActionProvider implements vscode.CodeActionProvider {
   provideCodeActions(
@@ -126,20 +125,8 @@ export class DriftCodeActionProvider implements vscode.CodeActionProvider {
           arguments: [sql],
         };
         copyAction.diagnostics = [diag];
+        copyAction.isPreferred = true;
         actions.push(copyAction);
-
-        const runAction = new vscode.CodeAction(
-          'Run CREATE INDEX Now',
-          vscode.CodeActionKind.QuickFix,
-        );
-        runAction.command = {
-          command: 'driftViewer.runIndexSql',
-          title: 'Run Index SQL',
-          arguments: [sql],
-        };
-        runAction.diagnostics = [diag];
-        runAction.isPreferred = true;
-        actions.push(runAction);
       }
 
       if (diag.code === 'anomaly') {

@@ -162,16 +162,15 @@ describe('DriftCodeActionProvider', () => {
       { diagnostics: [diag] } as any,
     );
 
-    assert.strictEqual(actions.length, 4);
+    assert.strictEqual(actions.length, 3);
     assert.strictEqual(actions[0].title, 'Copy CREATE INDEX SQL');
     assert.strictEqual(actions[0].command!.command, 'driftViewer.copySuggestedSql');
     assert.deepStrictEqual(
       actions[0].command!.arguments,
       ['CREATE INDEX idx ON users(email)'],
     );
-    assert.strictEqual(actions[1].title, 'Run CREATE INDEX Now');
-    assert.strictEqual(actions[2].title, 'Generate Migration Code');
-    assert.strictEqual(actions[3].title, 'View Schema Diff');
+    assert.strictEqual(actions[1].title, 'Generate Migration Code');
+    assert.strictEqual(actions[2].title, 'View Schema Diff');
   });
 
   it('should skip index-suggestion without relatedInformation', () => {

@@ -67,7 +67,7 @@ export class SchemaProvider implements IDiagnosticProvider {
     const actions: vscode.CodeAction[] = [];
     const code = diag.code as string;
 
-    // All three index-suggestion codes share the same Copy / Run quick-fix actions
+    // All three index-suggestion codes share a Copy quick-fix action
     if (
       (code === 'missing-fk-index' ||
         code === 'missing-id-index' ||
@@ -85,19 +85,8 @@ export class SchemaProvider implements IDiagnosticProvider {
         title: 'Copy SQL',
         arguments: [sql],
       };
+      copyAction.isPreferred = true;
       actions.push(copyAction);
-
-      const runAction = new vscode.CodeAction(
-        'Run CREATE INDEX Now',
-        vscode.CodeActionKind.QuickFix,
-      );
-      runAction.command = {
-        command: 'driftViewer.runIndexSql',
-        title: 'Run SQL',
-        arguments: [sql],
-      };
-      runAction.isPreferred = true;
-      actions.push(runAction);
     }
 
     if (

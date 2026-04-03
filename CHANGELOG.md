@@ -40,6 +40,7 @@ browse source on
 
 ### Changed
 
+- **All command output now uses webview panels** — Ten commands that previously used the VS Code top bar (quick picks, input boxes, info messages) for displaying results or collecting multi-step input now open dedicated webview panels instead. Index suggestions, anomaly detection, and performance baselines render in rich sortable/filterable tables. Annotation, compare rows, data breakpoint, snapshot changelog, import dataset, and export dataset commands now collect all inputs in a single form view with Ctrl+Enter support, replacing sequential top-bar prompts
 - **Tables heading now collapses sidebar horizontally** — Clicking the "Tables" heading in the sidebar collapses the entire sidebar panel to the left (same as the header chevron button) instead of vertically collapsing the table list upward
 
 ### Fixed
