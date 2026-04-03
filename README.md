@@ -76,7 +76,7 @@ The subsections below are the **full feature inventory** (browser UI, REST API, 
 | **Browse & search**          | Multi-table tabs, collapsible sidebar (header **Sidebar** can hide the whole left column for full-width content), pinned tables, row filters, match navigation, FK breadcrumbs, human-readable types, NULL display, cell copy / full-value popup, optional **PII masking**.                                                    |
 | **Query**                    | Read-only SQL with autocomplete, templates, history, saved queries; **visual query builder**; **Ask in English → SQL** (browser); **SQL Notebook**, snippets, global search, EXPLAIN tree (extension).                                                                                                                         |
 | **Visualize & sanity-check** | Inline **charts** from results; **anomaly** scan; **Index / Size / Perf / Health** tooling in the browser; **column profiler**, **sampling**, **row comparator**, **query regression** detector (extension).                                                                                                                   |
-| **Schema & migrations**      | Live **schema SQL**, **ER diagram** (browser + extension); **schema diff**, **generate Dart from runtime**, **Isar → Drift**, **migration preview & codegen**, **rollback generator**, **constraint wizard**, **schema docs** (extension); **offline Dart schema scan** and **Schema Search** (including cached/offline tree). |
+| **Schema & migrations**      | Live **schema SQL**, **ER diagram** (browser + extension); **schema diff**, **generate Dart from runtime**, **Isar → Drift**, **migration preview & codegen**, **rollback generator**, **constraint wizard**, **schema docs** (extension); **offline Dart schema scan** (including cached/offline tree). |
 | **Time travel & compare**    | **Snapshots** vs current; **database vs database** diff and migration DDL; timeline snapshots and changelog (extension).                                                                                                                                                                                                       |
 | **Collaborate & hand off**   | **Share session** URLs (annotations, expiry, extend); **portable HTML reports**; dumps, CSV, raw `.db` download.                                                                                                                                                                                                               |
 | **Optional writes**          | **Import** (CSV/JSON/SQL) with column mapping; **data editing** with undo, SQL preview, **FK-aware batch apply** (`writeQuery`, **`POST /api/edits/apply`**); **seeding** and **clear** helpers (extension).                                                                                                                   |
@@ -183,7 +183,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 
 #### Code Intelligence
 
-- **Go to Definition** (F12) / **Peek** (Alt+F12) — jump from SQL table/column names in Dart to Drift class definitions; Database tree and Schema Search use the same locator (context menu / result clicks open the `.dart` file when the symbol is found)
+- **Go to Definition** (F12) / **Peek** (Alt+F12) — jump from SQL table/column names in Dart to Drift class definitions; the Database tree uses the same locator (context menu **Go to … Definition (Dart)** opens the `.dart` file when the symbol is found)
 - **CodeLens** — live row counts and quick actions ("View in Saropa Drift Advisor", "Run Query") on `class ... extends Table`
 - **Hover preview** — see recent rows when hovering over table class names during debug
 - **Schema linter** — real-time diagnostics for missing indexes, anomalies, constraint violations; quick-fix code actions
@@ -201,7 +201,6 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 
 - **Scan Dart schema (offline)** — Command Palette: **Saropa Drift Advisor: Scan Dart Schema Definitions** parses workspace `.dart` files for Drift `Table` classes (columns, `uniqueKeys`, `Index` / `UniqueIndex`); output in **Drift Dart schema**; no debug server required (`driftViewer.dartSchemaScan.openOutput` controls auto-open)
 - **Schema diff** — compare Drift table definitions in code vs runtime schema
-- **Schema Search (disconnected)** — Startup and troubleshooting copy when the server is down; optional search against **persisted schema** when the offline tree is enabled
 - **Offline Database tree** — `driftViewer.database.allowOfflineSchema` (default on): repopulate the tree from last-known workspace schema when the server is unreachable ("Offline — cached schema")
 - **Schema diagram** — ER-style visualization with FK relationship lines; keyboard-navigable with screen reader support
 - **Generate Dart from schema** — scaffold Drift table classes from runtime schema

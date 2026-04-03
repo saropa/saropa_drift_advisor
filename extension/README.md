@@ -23,7 +23,7 @@ A **database icon** in the activity bar opens a tree view:
 
 Works in Dart files with Drift table definitions:
 
-- **Go to Definition** (F12) — jump from SQL table/column names to their definitions; the same lookup is available from the Database tree and Schema Search (context menu **Go to … Definition (Dart)** / result clicks open the table or column getter when found)
+- **Go to Definition** (F12) — jump from SQL table/column names to their definitions; the same lookup is available from the Database tree (context menu **Go to … Definition (Dart)** opens the table or column getter when found)
 - **CodeLens** — row counts and quick actions on Drift table classes
 - **Hover Preview** — see recent rows when hovering over table class names
 - **Schema Linter** — diagnostics with quick-fix code actions for missing indexes and anomalies
@@ -87,9 +87,6 @@ Works in Dart files with Drift table definitions:
 | `driftViewer.database.allowOfflineSchema` | `true` | When the server is unreachable, try to fill the Database tree from last-known persisted schema for this workspace |
 | `driftViewer.dartSchemaScan.openOutput` | `true` | When running **Scan Dart schema definitions**, open the Drift Dart schema output channel automatically |
 | `driftViewer.schemaCache.ttlMs` | `30000` | Schema cache TTL (ms); 0 disables in-memory cache |
-| `driftViewer.schemaSearch.timeoutMs` | `15000` | Max schema search time before timeout (ms) |
-| `driftViewer.schemaSearch.autoRetryOnError` | `true` | Retry schema search/browse once after a short delay on transient network/timeout errors |
-| `driftViewer.schemaSearch.crossRefMatchCap` | `80` | Skip cross-ref building when matches exceed this (faster search) |
 | `driftViewer.connection.logEveryUiRefresh` | `false` | Log every connection UI refresh even when state is unchanged (verbose troubleshooting) |
 | `driftViewer.lightweight` | `false` | When true, skips badges/timeline/tree refresh on generation change |
 | `driftViewer.performance.slowThresholdMs` | `500` | Slow query threshold (ms) |
@@ -102,7 +99,7 @@ Works in Dart files with Drift table definitions:
 
 The extension automatically scans ports 8642-8649 for running debug servers. When no server is found and a Flutter/Dart debug session is active (e.g. app on Android emulator), it tries to forward the port with `adb forward` and retries discovery so the host can connect. You can also run **Saropa Drift Advisor: Forward Port (Android Emulator)** manually. When multiple servers are found, use **Saropa Drift Advisor: Select Server** from the command palette.
 
-**Troubleshooting:** Use **Show Connection Log** (Output → Saropa Drift Advisor), **Diagnose Connection** (writes a snapshot and optional clipboard copy), or **Refresh Connection UI** if the sidebar looks wrong while the app is running. The **Schema Search** panel includes the same actions when disconnected. If you see a connection but the Database tree stays empty (REST schema error), use the **named action rows** under DATABASE — they run the same commands as the welcome text but via native tree clicks, which is more reliable than welcome links in some editors.
+**Troubleshooting:** Use **Show Connection Log** (Output → Saropa Drift Advisor), **Diagnose Connection** (writes a snapshot and optional clipboard copy), or **Refresh Connection UI** if the sidebar looks wrong while the app is running. If you see a connection but the Database tree stays empty (REST schema error), use the **named action rows** under DATABASE — they run the same commands as the welcome text but via native tree clicks, which is more reliable than welcome links in some editors.
 
 The status bar shows connection state:
 

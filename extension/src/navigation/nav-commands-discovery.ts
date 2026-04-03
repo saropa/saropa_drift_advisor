@@ -76,7 +76,7 @@ export function registerDiscoveryCommands(
           return;
         }
         discovery.pause();
-        void vscode.window.showInformationMessage('Discovery paused. Use Resume or Scan now in Schema Search when you want scans again.');
+        void vscode.window.showInformationMessage('Discovery paused. Use Resume Discovery when you want scans again.');
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log(`Pause Discovery: failed — ${msg}`);

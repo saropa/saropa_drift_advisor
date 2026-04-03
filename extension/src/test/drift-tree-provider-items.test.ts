@@ -139,7 +139,7 @@ describe('DriftTreeProvider', () => {
       const root = await provider.getChildren();
       const usersTable = root[1] as TableItem;
 
-      assert.strictEqual(usersTable.description, '42 rows');
+      assert.strictEqual(usersTable.description, '4 cols, 42 rows');
       assert.strictEqual((usersTable.iconPath as any).id, 'table');
     });
   });
@@ -151,7 +151,7 @@ describe('DriftTreeProvider', () => {
         columns: [{ name: 'id', type: 'INTEGER', pk: true }],
         rowCount: 1,
       });
-      assert.strictEqual(item.description, '1 row');
+      assert.strictEqual(item.description, '1 col, 1 row');
     });
 
     it('should show "0 rows" for empty table', () => {
@@ -160,7 +160,7 @@ describe('DriftTreeProvider', () => {
         columns: [],
         rowCount: 0,
       });
-      assert.strictEqual(item.description, '0 rows');
+      assert.strictEqual(item.description, '0 cols, 0 rows');
     });
   });
 

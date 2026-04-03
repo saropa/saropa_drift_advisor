@@ -104,7 +104,7 @@ export interface DiscoverySnapshot {
 }
 
 /**
- * Build the [DiscoveryUiState] sent to the Schema Search webview.
+ * Build the [DiscoveryUiState] for connection-aware UI.
  * Pure function — no side effects.
  */
 export function buildDiscoveryUiState(snap: DiscoverySnapshot): DiscoveryUiState {

@@ -141,23 +141,6 @@ export function buildTroubleshootingHtml(port: number): string {
     </ul>
   </details>
 
-  <details>
-    <summary>Schema Search panel stuck on loading indicator</summary>
-    <ul>
-      <li>Run <strong>Diagnose Connection</strong> (Command Palette) and check the
-        <code>schemaSearch.*</code> lines in Output</li>
-      <li><code>viewResolved=false</code> &mdash; VS Code has not rendered the webview yet.
-        Ensure the Drift sidebar is visible and <code>driftViewer.serverConnected</code>
-        is <code>true</code></li>
-      <li><code>webviewReady=false</code> &mdash; the webview HTML loaded but the script did
-        not execute. Open <strong>Help &rarr; Toggle Developer Tools</strong> and look for
-        Content Security Policy or script errors in the Console tab</li>
-      <li><code>presentationConnected=false</code> &mdash; the webview is alive but the
-        extension reports "not connected". Check server discovery and the Output log</li>
-      <li>Try <strong>Refresh UI</strong> in the disconnected banner, or
-        <strong>Retry Connection</strong> below</li>
-    </ul>
-  </details>
 </div>
 
 <!-- Quick Actions -->

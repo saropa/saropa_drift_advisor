@@ -82,19 +82,6 @@ export function mockFilterBridge(): any {
   return {};
 }
 
-/** SchemaSearchViewProvider stub — getDiagnosticState() for diagnoseConnection. */
-export function mockSchemaSearchProvider(): any {
-  return {
-    getDiagnosticState: sinon.stub().returns({
-      viewResolved: true,
-      webviewReady: true,
-      presentationConnected: true,
-      presentationLabel: 'Connected',
-      discoveryActivity: 'idle',
-    }),
-  };
-}
-
 /**
  * DriftTreeProvider stub for registerRefreshTreeCommand.
  * Set connected/offlineSchema to the post-refresh state the test expects.

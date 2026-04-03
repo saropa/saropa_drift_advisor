@@ -29,13 +29,13 @@ describe('decorateTableItems', () => {
   it('should show base row count when no annotations', () => {
     const items = [new TableItem(makeTable('users', 3))];
     decorateTableItems(items, store);
-    assert.strictEqual(items[0].description, '3 rows');
+    assert.strictEqual(items[0].description, '0 cols, 3 rows');
   });
 
   it('should use singular "row" for rowCount === 1', () => {
     const items = [new TableItem(makeTable('meta', 1))];
     decorateTableItems(items, store);
-    assert.strictEqual(items[0].description, '1 row');
+    assert.strictEqual(items[0].description, '0 cols, 1 row');
   });
 
   it('should show annotation icon + note preview for single annotation', () => {
@@ -44,7 +44,7 @@ describe('decorateTableItems', () => {
     decorateTableItems(items, store);
     const desc = items[0].description as string;
     // Should contain row count, warning emoji, and note text
-    assert.ok(desc.startsWith('5 rows'));
+    assert.ok(desc.startsWith('0 cols, 5 rows'));
     assert.ok(desc.includes(ANNOTATION_ICON_EMOJI.warning));
     assert.ok(desc.includes('Check indexes'));
     // Should NOT include "+N more" suffix for a single annotation

@@ -89,7 +89,6 @@ describe('Extension activation', () => {
     // Snippet library: openSnippetLibrary, saveAsSnippet (2)
     // FK navigation: fkNavigator (1)
     // Saved filters: filterBridge (1)
-    // Schema search: schemaSearchViewProvider, onDidChangeActive connection listener (2)
     // Pin store: pinTable, unpinTable, onDidChange, dispose (4)
     // Source navigation: goToDriftTableDefinition, goToDriftColumnDefinition (2)
     // Health score: healthScore (1)
@@ -106,11 +105,10 @@ describe('Extension activation', () => {
     // Package status monitor: packageMonitor, onDidChangeInstalled listener (2)
     // Snapshot/explain: onDidChangeActiveTextEditor, onDidChangeTextEditorSelection, debounce dispose (3)
     // Log Capture integration: session-end export + optional API (1)
-    // Schema Search: attachDiscoveryMonitor dispose (1)
     // Nav: pauseDiscovery, resumeDiscovery, openConnectionHelp (3)
     // Editing: pendingChangesPersistence debounce, pendingEditsStatusBar (2)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 202, `expected 202 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 199, `expected 199 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

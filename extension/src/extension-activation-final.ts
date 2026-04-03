@@ -80,7 +80,6 @@ export function setupFinalPhases(
     connectionUiRefresh.fn = () => {
       syncDriftConnectionUi(d.serverManager, d.cachedClient, {
         toolsProvider: providers.toolsProvider,
-        schemaSearchProvider: providers.schemaSearchProvider,
         treeProvider: providers.treeProvider,
         schemaCache: d.schemaCache,
       }, {
@@ -124,12 +123,6 @@ export function setupFinalPhases(
       d.channel.appendLine(`[${ts()}] Skipping command registration: providers phase failed.`);
     }
   }));
-
-  // Wire schema search to discovery (only if providers exist).
-  if (d.providers) {
-    d.providers.schemaSearchProvider.attachDiscoveryMonitor(d.discovery);
-    d.context.subscriptions.push({ dispose: () => d.providers!.schemaSearchProvider.disposeDiscoveryMonitor() });
-  }
 
   // Initial connection UI sync + VM transport listener.
   connectionUiRefresh.fn?.();

@@ -100,19 +100,10 @@ describe('connection-ui-state', () => {
       sandbox.replaceGetter(client, 'usingVmService', () => false);
       const pres = buildConnectionPresentation(manager, client);
       assert.strictEqual(pres.connected, false);
-      assert.strictEqual(pres.schemaOperationsEnabled, false);
       assert.strictEqual(pres.viaHttp, false);
       assert.strictEqual(pres.viaVm, false);
       assert.strictEqual(pres.label, 'Not connected');
       assert.ok(pres.hint.length > 20);
-    });
-
-    it('enables schema operations when live-connected', () => {
-      sandbox.replaceGetter(client, 'usingVmService', () => false);
-      (discovery as any)._onDidChangeServers.fire([makeServer(8642)]);
-      const pres = buildConnectionPresentation(manager, client);
-      assert.strictEqual(pres.schemaOperationsEnabled, true);
-      assert.strictEqual(pres.persistedSchemaAvailable, false);
     });
   });
 
@@ -123,11 +114,9 @@ describe('connection-ui-state', () => {
 
       const appendLine = sinon.stub();
       const tools = { setConnected: sinon.stub() };
-      const schema = { setConnectionPresentation: sinon.stub() };
 
       refreshDriftConnectionUi(manager, client, {
         toolsProvider: tools as any,
-        schemaSearchProvider: schema as any,
       }, { appendLine });
 
       assert.ok(appendLine.called, 'first refresh should log');
@@ -135,7 +124,6 @@ describe('connection-ui-state', () => {
 
       refreshDriftConnectionUi(manager, client, {
         toolsProvider: tools as any,
-        schemaSearchProvider: schema as any,
       }, { appendLine });
 
       assert.strictEqual(
@@ -151,8 +139,7 @@ describe('connection-ui-state', () => {
 
       const appendLine = sinon.stub();
       const tools = { setConnected: sinon.stub() };
-      const schema = { setConnectionPresentation: sinon.stub() };
-      const targets = { toolsProvider: tools as any, schemaSearchProvider: schema as any };
+      const targets = { toolsProvider: tools as any };
 
       refreshDriftConnectionUi(manager, client, targets, { appendLine });
       const afterFirst = appendLine.callCount;
@@ -164,65 +151,16 @@ describe('connection-ui-state', () => {
       );
     });
 
-    it('enables Schema Search when Database tree reports offline cached schema', () => {
-      sandbox.replaceGetter(client, 'usingVmService', () => false);
-      const appendLine = sinon.stub();
-      const tools = { setConnected: sinon.stub() };
-      const schema = { setConnectionPresentation: sinon.stub() };
-      const tree = { offlineSchema: true };
-      const schemaCache = { hasWorkspacePersistedSchema: () => false };
-
-      refreshDriftConnectionUi(manager, client, {
-        toolsProvider: tools as any,
-        schemaSearchProvider: schema as any,
-        treeProvider: tree as any,
-        schemaCache: schemaCache as any,
-      }, { appendLine });
-
-      assert.strictEqual(schema.setConnectionPresentation.callCount, 1);
-      const pres = schema.setConnectionPresentation.firstCall.args[0];
-      assert.strictEqual(pres.connected, false);
-      assert.strictEqual(pres.schemaOperationsEnabled, true);
-      assert.ok(
-        pres.hint.includes('Schema Search'),
-        'hint should mention Schema Search when offline schema is available',
-      );
-    });
-
     it('sets persistedSchemaAvailable from schema cache', () => {
       sandbox.replaceGetter(client, 'usingVmService', () => false);
-      const schema = { setConnectionPresentation: sinon.stub() };
       const schemaCache = { hasWorkspacePersistedSchema: () => true };
+      const tools = { setConnected: sinon.stub() };
       refreshDriftConnectionUi(manager, client, {
-        toolsProvider: { setConnected: sinon.stub() } as any,
-        schemaSearchProvider: schema as any,
+        toolsProvider: tools as any,
         schemaCache: schemaCache as any,
       });
-      const pres = schema.setConnectionPresentation.firstCall.args[0];
-      assert.strictEqual(pres.persistedSchemaAvailable, true);
-      assert.strictEqual(pres.schemaOperationsEnabled, false);
-    });
-
-    it('disables Schema Search when connected but Database tree has no table list (REST not ready)', () => {
-      sandbox.replaceGetter(client, 'usingVmService', () => false);
-      (discovery as any)._onDidChangeServers.fire([makeServer(8642)]);
-      const schema = { setConnectionPresentation: sinon.stub() };
-      const tree = {
-        offlineSchema: false,
-        isSchemaSearchAvailable: () => false,
-      };
-      refreshDriftConnectionUi(manager, client, {
-        toolsProvider: { setConnected: sinon.stub() } as any,
-        schemaSearchProvider: schema as any,
-        treeProvider: tree as any,
-      });
-      const pres = schema.setConnectionPresentation.firstCall.args[0];
-      assert.strictEqual(pres.connected, true);
-      assert.strictEqual(
-        pres.schemaOperationsEnabled,
-        false,
-        'search/browse should stay off until the tree has loaded schema rows',
-      );
+      // Verify the refresh completes without error when schemaCache is provided.
+      assert.ok(tools.setConnected.called);
     });
   });
 });

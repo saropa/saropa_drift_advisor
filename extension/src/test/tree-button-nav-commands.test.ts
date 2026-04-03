@@ -21,7 +21,6 @@ import {
   mockServerManager,
   mockDiscovery,
   mockConnectionChannel,
-  mockSchemaSearchProvider,
 } from './tree-button-fixtures';
 import type { MockOutputChannel } from './vscode-mock-classes';
 
@@ -54,7 +53,6 @@ describe('Tree-button nav commands — visible output', () => {
    */
   function registerAll(opts?: {
     refreshConnectionUi?: () => void;
-    schemaSearchProvider?: any;
   }): void {
     const ctx = fakeContext() as any;
     registerNavCommands(
@@ -68,7 +66,6 @@ describe('Tree-button nav commands — visible output', () => {
       mockFilterBridge(),
       channel as any,
       opts?.refreshConnectionUi,
-      opts?.schemaSearchProvider,
     );
   }
 
@@ -103,7 +100,7 @@ describe('Tree-button nav commands — visible output', () => {
 
   describe('driftViewer.diagnoseConnection', () => {
     it('writes diagnostic lines to output channel and shows toast', async () => {
-      registerAll({ schemaSearchProvider: mockSchemaSearchProvider() });
+      registerAll();
       await commands.executeRegistered('driftViewer.diagnoseConnection');
       // Output channel should have diagnostic header
       assert.ok(
@@ -124,15 +121,6 @@ describe('Tree-button nav commands — visible output', () => {
       assert.ok(
         channel.lines.some((l) => l.includes('health() FAILED')),
         'should log health failure to channel',
-      );
-    });
-
-    it('includes schemaSearch diagnostic state when provider is set', async () => {
-      registerAll({ schemaSearchProvider: mockSchemaSearchProvider() });
-      await commands.executeRegistered('driftViewer.diagnoseConnection');
-      assert.ok(
-        channel.lines.some((l) => l.includes('schemaSearch.viewResolved')),
-        'should include schema search state',
       );
     });
   });

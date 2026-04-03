@@ -8,7 +8,6 @@ import type { ServerManager } from '../server-manager';
 import type { ServerDiscovery } from '../server-discovery';
 import { DriftViewerPanel } from '../panel';
 import { getLogVerbosity, shouldLogConnectionLine } from '../log-verbosity';
-import type { SchemaSearchViewProvider } from '../schema-search/schema-search-view';
 import { registerDiscoveryCommands } from './nav-commands-discovery';
 import { registerDiagnosticsCommands } from './nav-commands-diagnostics';
 
@@ -24,7 +23,6 @@ export function registerNavCommands(
   filterBridge: FilterBridge,
   connectionChannel: vscode.OutputChannel,
   refreshConnectionUi?: () => void,
-  schemaSearchProvider?: SchemaSearchViewProvider,
 ): void {
   let verbosity = getLogVerbosity(
     vscode.workspace.getConfiguration('driftViewer'),
@@ -157,21 +155,6 @@ export function registerNavCommands(
     }),
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('driftViewer.runIndexSql', async (sql: string) => {
-      try {
-        await vscode.window.withProgress(
-          { location: vscode.ProgressLocation.Notification, title: 'Creating index…' },
-          () => client.sql(sql),
-        );
-        vscode.window.showInformationMessage('Index created successfully.');
-        linter.refresh();
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        vscode.window.showErrorMessage(`Failed to create index: ${msg}`);
-      }
-    }),
-  );
-  context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.refreshConnectionUi', () => {
       log('Refresh Connection UI: triggered by user');
       try {
@@ -190,6 +173,6 @@ export function registerNavCommands(
     context, client.port, serverManager, discovery, connectionChannel, log,
   );
   registerDiagnosticsCommands(
-    context, client, serverManager, discovery, connectionChannel, log, schemaSearchProvider,
+    context, client, serverManager, discovery, connectionChannel, log,
   );
 }

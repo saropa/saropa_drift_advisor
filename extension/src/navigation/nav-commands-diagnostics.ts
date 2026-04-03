@@ -6,7 +6,6 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { ServerManager } from '../server-manager';
 import type { ServerDiscovery } from '../server-discovery';
-import type { SchemaSearchViewProvider } from '../schema-search/schema-search-view';
 
 /** Register diagnostic and walkthrough commands. */
 export function registerDiagnosticsCommands(
@@ -16,7 +15,6 @@ export function registerDiagnosticsCommands(
   discovery: ServerDiscovery,
   connectionChannel: vscode.OutputChannel,
   log: (msg: string) => void,
-  schemaSearchProvider?: SchemaSearchViewProvider,
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.diagnoseConnection', async () => {
@@ -35,32 +33,6 @@ export function registerDiagnosticsCommands(
         `client.usingVmService=${client.usingVmService}`,
         `client.baseUrl=${client.baseUrl}`,
       ];
-      if (schemaSearchProvider) {
-        const ss = schemaSearchProvider.getDiagnosticState();
-        lines.push(
-          `schemaSearch.viewResolved=${ss.viewResolved}`,
-          `schemaSearch.webviewReady=${ss.webviewReady}`,
-          `schemaSearch.presentationConnected=${ss.presentationConnected}`,
-          `schemaSearch.presentationLabel=${ss.presentationLabel}`,
-          `schemaSearch.discoveryActivity=${ss.discoveryActivity}`,
-        );
-        if (!ss.viewResolved) {
-          lines.push(
-            '  ⚠ Webview not resolved — VS Code has not called resolveWebviewView yet.',
-            '    Check: is the Drift sidebar visible? Is driftViewer.serverConnected set?',
-          );
-        } else if (!ss.webviewReady) {
-          lines.push(
-            '  ⚠ Webview resolved but script not ready — the ready handshake was not received.',
-            '    Check: Content Security Policy errors in Developer Tools (Help → Toggle Developer Tools).',
-          );
-        } else if (!ss.presentationConnected) {
-          lines.push(
-            '  ⚠ Webview ready but presentation says "not connected".',
-            '    Check: server is running, discovery found it, refreshDriftConnectionUi was called.',
-          );
-        }
-      }
       try {
         const health = await client.health();
         lines.push(`health() → ${JSON.stringify(health)}`);

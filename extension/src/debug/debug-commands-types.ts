@@ -14,7 +14,6 @@ import type { ServerManager } from '../server-manager';
 import type { GenerationWatcher } from '../generation-watcher';
 import type { DriftCodeLensProvider } from '../codelens/drift-codelens-provider';
 import type { WatchManager } from '../watch/watch-manager';
-import type { SchemaSearchViewProvider } from '../schema-search/schema-search-view';
 
 /** Optional connection log for troubleshooting (e.g. Output > Saropa Drift Advisor). */
 export interface IConnectionLog {
@@ -36,13 +35,6 @@ export interface IDebugCommandDeps {
   refreshBadges: () => Promise<void>;
   refreshStatusBar?: () => void;
   connectionLog?: IConnectionLog;
-  /** Refreshes Schema Search, Drift Tools, and driftViewer.serverConnected together. */
+  /** Refreshes Drift Tools and driftViewer.serverConnected together. */
   refreshDriftConnectionUi?: () => void;
-  /**
-   * Pre-created Schema Search provider from setupProviders. Registered
-   * early so VS Code can resolve the webview before registerAllCommands runs.
-   */
-  schemaSearchProvider?: SchemaSearchViewProvider;
-  /** Mutable ref wired to the real revealTable once perf commands are set up. */
-  schemaSearchRevealRef?: { fn: (name: string) => Promise<void> };
 }

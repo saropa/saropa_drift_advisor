@@ -1,6 +1,6 @@
 /**
  * Locates Drift `Table` subclasses and column getters in the workspace by SQL names.
- * Shared by Go-to-Definition in Dart strings and sidebar/schema-search navigation.
+ * Shared by Go-to-Definition in Dart strings and sidebar navigation.
  */
 
 import * as vscode from 'vscode';

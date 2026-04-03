@@ -66,8 +66,6 @@ export interface CommandRegistrationDeps extends ProviderSetupResult, EditingSet
 
 /**
  * Register all extension commands. Call after setupProviders, setupDiagnostics, setupEditing.
- * The Schema Search provider is already created and registered in setupProviders;
- * this function wires its revealTable callback and connection log via registerDebugCommands.
  */
 export function registerAllCommands(
   context: vscode.ExtensionContext,
@@ -107,8 +105,6 @@ export function registerAllCommands(
     connectionChannel,
     schemaTracker,
     healthStatusBar,
-    schemaSearchProvider,
-    schemaSearchRevealRef,
   } = deps;
 
   // About commands are registered at the start of activate() (extension-main)
@@ -183,15 +179,13 @@ export function registerAllCommands(
       },
     },
     refreshDriftConnectionUi: deps.refreshDriftConnectionUi,
-    schemaSearchProvider,
-    schemaSearchRevealRef,
   });
 
   // Feature command modules — each is isolated so one failing module does not
   // block the others or the core debug/connection logic above.
   const featureModules: Array<[string, () => void]> = [
     ['tree', () => registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager)],
-    ['nav', () => registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge, connectionChannel, deps.refreshDriftConnectionUi, schemaSearchProvider)],
+    ['nav', () => registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge, connectionChannel, deps.refreshDriftConnectionUi)],
     ['mutationStream', () => registerMutationStreamCommands(context, client, editingBridge, fkNavigator, filterBridge)],
     ['snapshot', () => registerSnapshotCommands(context, client, snapshotStore)],
     ['schemaDiff', () => registerSchemaDiffCommands(context, client)],

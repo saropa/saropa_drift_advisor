@@ -61,7 +61,9 @@ export class TableItem extends vscode.TreeItem {
     public readonly pinned = false,
   ) {
     super(table.name, vscode.TreeItemCollapsibleState.Collapsed);
-    this.description = `${table.rowCount} ${table.rowCount === 1 ? 'row' : 'rows'}`;
+    // Show column count and row count so users can gauge table shape at a glance.
+    const cols = table.columns.length;
+    this.description = `${cols} ${cols === 1 ? 'col' : 'cols'}, ${table.rowCount} ${table.rowCount === 1 ? 'row' : 'rows'}`;
     this.iconPath = new vscode.ThemeIcon('table');
     this.contextValue = pinned ? 'driftTablePinned' : 'driftTable';
   }

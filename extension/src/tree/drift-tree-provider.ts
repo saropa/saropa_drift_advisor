@@ -52,7 +52,7 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private _refreshing = false;
   /** When true, another refresh will run after the current one completes (coalesced). */
   private _pendingRefresh = false;
-  /** Fires after [refresh] fully completes (for syncing Schema Search / connection UI). */
+  /** Fires after [refresh] fully completes (for syncing connection UI). */
   postRefreshHook?: () => void;
 
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<
@@ -260,12 +260,4 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     return this._offlineSchema;
   }
 
-  /**
-   * True when the tree has a non-empty table list from REST or offline cache.
-   * Used by Schema Search so we do not enable search while the UI is "connected"
-   * but table metadata never loaded (REST failure banner state).
-   */
-  isSchemaSearchAvailable(): boolean {
-    return this._tables.length > 0;
-  }
 }

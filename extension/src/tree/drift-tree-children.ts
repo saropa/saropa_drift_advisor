@@ -125,9 +125,11 @@ export function decorateTableItems(
 ): void {
   if (!annotationStore) return;
   for (const item of items) {
-    // Reset to base description to avoid accumulation on repeated calls
+    // Reset to base description to avoid accumulation on repeated calls.
+    // Must stay in sync with the TableItem constructor in tree-items.ts.
+    const cols = item.table.columns.length;
     const rc = item.table.rowCount;
-    const base = `${rc} ${rc === 1 ? 'row' : 'rows'}`;
+    const base = `${cols} ${cols === 1 ? 'col' : 'cols'}, ${rc} ${rc === 1 ? 'row' : 'rows'}`;
     const anns = annotationStore.forTable(item.table.name);
     if (anns.length === 0) {
       item.description = base;

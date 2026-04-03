@@ -3,17 +3,15 @@
  *
  * **Problem:** Discovery reports an HTTP endpoint and/or the Dart debugger attaches a VM
  * Service transport. Sidebar features used to key off `ServerManager.activeServer` only,
- * so Schema Search and `driftViewer.serverConnected` could disagree with a working
- * Database tree (VM-only) or with a verified HTTP fallback before discovery adopted the port.
+ * so `driftViewer.serverConnected` could disagree with a working Database tree (VM-only)
+ * or with a verified HTTP fallback before discovery adopted the port.
  *
  * **Model:** `isDriftUiConnected` is true if either HTTP has an active server **or**
  * `DriftApiClient.usingVmService` is true. `buildConnectionPresentation` turns that into
- * user-facing `label` / `hint` strings for the Schema Search webview and logs.
+ * user-facing `label` / `hint` strings for logs and connection-aware UI.
  *
- * **Refresh:** `refreshDriftConnectionUi` updates (1) VS Code context, (2) Drift Tools tree,
- * (3) Schema Search presentation. Each step is try/catch-isolated so one failure does not
- * block the others. `schemaOperationsEnabled` also requires `DriftTreeProvider.isSchemaSearchAvailable()`
- * so transport-level “connected” does not enable search before table metadata exists. Logging is
+ * **Refresh:** `refreshDriftConnectionUi` updates (1) VS Code context, (2) Drift Tools tree.
+ * Each step is try/catch-isolated so one failure does not block the others. Logging is
  * optional and may be verbosity-filtered by the caller.
  *
  * **Logging dedup:** When a log sink is provided, we emit a full line when the presentation
@@ -29,18 +27,12 @@ import type { DriftApiClient } from './api-client';
 import type { ServerManager } from './server-manager';
 import type { ToolsTreeProvider } from './tree/tools-tree-provider';
 import type { DriftTreeProvider } from './tree/drift-tree-provider';
-import type { SchemaSearchViewProvider } from './schema-search/schema-search-view';
 import type { SchemaCache } from './schema-cache/schema-cache';
 
 /** User-visible summary of how the extension reaches Drift. */
 export interface DriftConnectionPresentation {
   connected: boolean;
-  /**
-   * When true, Schema Search may query persisted/cached schema without a live session.
-   * Mirrors [connected] unless the Database tree is showing offline cached schema.
-   */
-  schemaOperationsEnabled: boolean;
-  /** Short status line for the Schema Search panel. */
+  /** Short status line shown in connection-aware UI. */
   label: string;
   /** Longer troubleshooting hint when disconnected or in mixed VM/HTTP mode. */
   hint: string;
@@ -63,7 +55,7 @@ export function isDriftUiConnected(
 }
 
 /**
- * Builds a stable label + hint for logs and the Schema Search webview.
+ * Builds a stable label + hint for logs and connection-aware UI.
  */
 export function buildConnectionPresentation(
   serverManager: ServerManager,
@@ -77,7 +69,6 @@ export function buildConnectionPresentation(
   if (!connected) {
     return {
       connected: false,
-      schemaOperationsEnabled: false,
       persistedSchemaAvailable: false,
       label: 'Not connected',
       hint:
@@ -103,11 +94,10 @@ export function buildConnectionPresentation(
   const hint = viaVm && !viaHttp
     ? 'API calls go through the VM Service; HTTP discovery has not selected a port yet. '
       + 'If the Database tree works but something else fails, use Diagnose Connection.'
-    : 'Schema Search and Database views use the connection above.';
+    : 'The Database tree uses the connection above.';
 
   return {
     connected: true,
-    schemaOperationsEnabled: true,
     persistedSchemaAvailable: false,
     label,
     hint,
@@ -120,10 +110,8 @@ export function buildConnectionPresentation(
 
 export interface IConnectionUiTargets {
   toolsProvider: ToolsTreeProvider;
-  schemaSearchProvider: SchemaSearchViewProvider;
-  /** Used to enable Schema Search against persisted metadata when the tree is offline-only. */
   treeProvider?: DriftTreeProvider;
-  /** Detects workspace-persisted schema for empty-state copy in Schema Search. */
+  /** Detects workspace-persisted schema for offline-aware connection hints. */
   schemaCache?: SchemaCache;
 }
 
@@ -141,11 +129,11 @@ export function resetConnectionUiPresentationCacheForTests(): void {
 }
 
 function presentationSignature(pres: DriftConnectionPresentation): string {
-  return `${pres.connected}|${pres.schemaOperationsEnabled}|${pres.viaHttp}|${pres.viaVm}|${pres.port ?? ''}|${pres.label}`;
+  return `${pres.connected}|${pres.viaHttp}|${pres.viaVm}|${pres.port ?? ''}|${pres.label}`;
 }
 
 /**
- * Updates VS Code context, Drift Tools tree, and Schema Search webview together.
+ * Updates VS Code context and Drift Tools tree together.
  * Each step is isolated so one failure cannot block the others.
  */
 export function refreshDriftConnectionUi(
@@ -159,17 +147,12 @@ export function refreshDriftConnectionUi(
   const offlineTree = targets.treeProvider?.offlineSchema === true;
   const persistedSchemaAvailable =
     targets.schemaCache?.hasWorkspacePersistedSchema() === true;
-  /** When the Database tree has no tables yet, disable search even if HTTP/VM says connected. */
-  const treeSearchOk =
-    targets.treeProvider?.isSchemaSearchAvailable?.() ?? true;
   const pres: DriftConnectionPresentation = {
     ...base,
     persistedSchemaAvailable,
-    schemaOperationsEnabled:
-      offlineTree || (base.connected && treeSearchOk),
     hint:
       offlineTree && !base.connected
-        ? `${base.hint} Schema Search can use last-known schema from this workspace.`
+        ? `${base.hint} Offline schema from this workspace is available.`
         : base.hint,
   };
   const sig = presentationSignature(pres);
@@ -210,10 +193,4 @@ export function refreshDriftConnectionUi(
     append?.(`[${now}] Connection UI: Drift Tools tree update failed — ${msg}`);
   }
 
-  try {
-    targets.schemaSearchProvider.setConnectionPresentation(pres);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    append?.(`[${now}] Connection UI: Schema Search update failed — ${msg}`);
-  }
 }

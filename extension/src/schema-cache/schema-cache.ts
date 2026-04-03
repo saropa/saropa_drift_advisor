@@ -95,7 +95,7 @@ export class SchemaCache {
 
   /**
    * True if workspace memento holds a non-empty snapshot under [persistKey].
-   * Used to show Schema Search / offline guidance when the server is down.
+   * Used to show offline guidance when the server is down.
    */
   hasWorkspacePersistedSchema(): boolean {
     if (!this._persistKey) return false;
