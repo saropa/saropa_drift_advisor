@@ -15,6 +15,8 @@
 
 -->
 
+## Introduction
+
 This changelog is for **Saropa Drift Advisor**: the Dart package that wires up
 Drift’s debug server and web viewer, plus the **Drift Viewer** extensions for
 [VS Code](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
@@ -32,7 +34,7 @@ browse source on
 
 ---
 
-## [2.16.0]
+## [2.17.0]
 
 ### Added
 
@@ -56,7 +58,7 @@ browse source on
 
 ---
 
-## [2.15.0]
+## [2.16.0]
 
 ### Changed
 
