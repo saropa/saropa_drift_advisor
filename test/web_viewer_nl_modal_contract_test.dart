@@ -56,7 +56,8 @@ void main() {
     expect(appJs, contains('APP_SIDEBAR_PANEL_KEY'));
     expect(appJs, contains('saropa_app_sidebar_collapsed'));
     expect(appJs, contains("classList.toggle('app-sidebar-panel-collapsed'"));
-    final initFn = 'function initAppSidebarPanelToggle';
+    // Unified IIFE drives both the header button and the tables heading toggle.
+    final initFn = 'function initSidebarPanelCollapse';
     final toggleLine = "classList.toggle('app-sidebar-panel-collapsed'";
     expect(
       appJs.indexOf(initFn),
@@ -65,6 +66,53 @@ void main() {
           'initializer must define applyAppSidebarCollapsed before toggle() runs',
     );
   });
+
+  test(
+    'Tables heading toggle collapses sidebar horizontally, not vertically',
+    () {
+      // The tables heading button delegates to the same panel-level collapse
+      // used by the header chevron — no separate vertical max-height mechanism.
+      expect(
+        htmlDart,
+        contains('id="tables-heading-toggle"'),
+        reason: 'tables heading toggle button must exist in HTML shell',
+      );
+      expect(
+        htmlDart,
+        contains('title="Click to collapse/expand sidebar"'),
+        reason: 'title must describe sidebar collapse, not table list collapse',
+      );
+      // app.js wires both buttons inside a single IIFE
+      expect(
+        appJs,
+        contains("getElementById('tables-heading-toggle')"),
+        reason: 'JS must look up the tables heading toggle',
+      );
+      // The old vertical-collapse mechanism is gone: no getItem/setItem usage
+      // of the old key (removeItem cleanup is fine).
+      expect(
+        appJs,
+        isNot(contains("getItem('saropa_sidebar_tables_collapsed')")),
+        reason: 'old vertical-collapse localStorage key must not be read',
+      );
+      expect(
+        appJs,
+        isNot(contains("setItem('saropa_sidebar_tables_collapsed'")),
+        reason: 'old vertical-collapse localStorage key must not be written',
+      );
+      expect(
+        appJs,
+        isNot(contains("wrap.classList.toggle('collapsed')")),
+        reason: 'no per-section .collapsed class toggle on the tables wrap',
+      );
+      // Old vertical-collapse CSS (max-height → 0) must be gone from SCSS
+      expect(
+        styleScss,
+        isNot(contains('sidebar-tables-wrap.collapsed .table-list')),
+        reason: 'old max-height vertical-collapse rule must be removed',
+      );
+    },
+  );
 
   test(
     'Tables sidebar: heading before loading skeleton; ids wired in app.js',

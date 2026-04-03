@@ -163,7 +163,7 @@ abstract final class HtmlContent {
       </div>
       </div>
       <div id="sidebar-tables-wrap" class="sidebar-section sidebar-tables-wrap">
-      <h2 class="tables-heading"><button type="button" id="tables-heading-toggle" aria-expanded="true" title="Click to collapse/expand table list">Tables</button></h2>
+      <h2 class="tables-heading"><button type="button" id="tables-heading-toggle" aria-expanded="true" title="Click to collapse/expand sidebar">Tables</button></h2>
       <!-- Shimmer placeholders sit under the heading (not above) until /api/tables returns. -->
       <div id="tables-loading" class="tables-loading" aria-busy="true" aria-label="Loading tables">
         <ul class="table-list tables-skeleton" role="presentation">
