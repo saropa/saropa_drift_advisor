@@ -1,16 +1,16 @@
 // Generation, health, HTML shell, and static web UI asset serving.
 //
-// The viewer HTML ([HtmlContent.indexHtml]) loads `/assets/web/style.css` and
-// `/assets/web/app.js` from this server first, with a CDN fallback in the
-// markup if those requests fail (see `html_content.dart`). Serving assets
-// locally avoids third-party MIME / `X-Content-Type-Options: nosniff`
-// mismatches and works offline during development.
+// The viewer HTML inlines CSS/JS directly when the package root is
+// resolved and asset files are found on disk. This eliminates the
+// fragile `onerror` fallback chain that Firefox ignored (HTTP 404
+// with correct MIME type does not reliably trigger `onerror` on
+// `<link>` / `<script>` elements). When local assets are unavailable,
+// the HTML references jsDelivr CDN URLs directly via a fetch-based
+// loader.
 //
-// When the package root cannot be resolved or the files are missing,
-// these routes respond with HTTP 404 so the browser `onerror` handlers
-// can switch to version-pinned jsDelivr URLs. We intentionally do **not**
-// embed CSS/JS as Dart string constants: that duplicated hundreds of KB in
-// every app binary that references this library.
+// The `/assets/web/style.css` and `/assets/web/app.js` routes are
+// retained for backward compatibility (VS Code extension, direct
+// access) but are no longer required for the HTML viewer to work.
 //
 // Asset resolution order:
 //   1. [Isolate.resolvePackageUri] → `lib/` parent → package root (Dart VM /
@@ -122,18 +122,34 @@ final class GenerationHandler {
   }
 
   /// Serves the single-page viewer UI.
+  ///
+  /// Resolves the package root (if not already cached) and inlines CSS/JS
+  /// directly into the HTML when the asset files are found on disk. This
+  /// avoids separate asset requests and the unreliable `onerror` fallback
+  /// chain that Firefox ignores for 404 responses with correct MIME types.
+  /// When local assets are unavailable, the HTML references CDN URLs
+  /// directly via a fetch-based loader.
   Future<void> sendHtml(HttpResponse response, HttpRequest _) async {
     final res = response;
 
+    // Eagerly resolve the package root so cached CSS/JS are available.
+    await _resolvePackageRootPath();
+
     res.headers.contentType = ContentType.html;
-    res.write(HtmlContent.indexHtml);
+    res.write(
+      HtmlContent.buildIndexHtml(
+        inlineCss: _cachedStyleCss,
+        inlineJs: _cachedAppJs,
+      ),
+    );
     await res.close();
   }
 
-  /// Serves the local CSS asset used by the web UI shell.
+  /// Serves the local CSS asset for backward-compatible direct access.
   ///
-  /// Reads from the package root on disk. Responds with 404 if unavailable
-  /// so [HtmlContent.indexHtml] can fall back to the CDN `onerror` handler.
+  /// The HTML viewer now inlines CSS, so this route is only needed by
+  /// external consumers (e.g. VS Code extension). Responds with 404 if
+  /// the package root cannot be resolved.
   Future<void> sendWebStyle(HttpResponse response) async {
     await _sendWebAsset(
       response: response,
@@ -142,10 +158,11 @@ final class GenerationHandler {
     );
   }
 
-  /// Serves the local JS asset used by the web UI shell.
+  /// Serves the local JS asset for backward-compatible direct access.
   ///
-  /// Reads from the package root on disk. Responds with 404 if unavailable
-  /// so [HtmlContent.indexHtml] can fall back to the CDN `onerror` handler.
+  /// The HTML viewer now inlines JS, so this route is only needed by
+  /// external consumers (e.g. VS Code extension). Responds with 404 if
+  /// the package root cannot be resolved.
   Future<void> sendWebApp(HttpResponse response) async {
     await _sendWebAsset(
       response: response,

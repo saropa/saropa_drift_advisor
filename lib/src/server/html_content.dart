@@ -2,21 +2,17 @@
 ///
 /// ## Static assets (CSS / JS)
 ///
-/// The shell references same-origin paths `/assets/web/style.css` and
-/// `/assets/web/app.js`, which the debug server streams from the package
-/// (`generation_handler.dart`: `sendWebStyle` / `sendWebApp`). If those
-/// requests fail (404 or network error), each tag's `onerror` triggers
-/// [_sda_fb] — a multi-CDN fallback chain that tries version-pinned jsDelivr
-/// (`@v{version}`), then `@main` (covers the publish-to-tag window). When
-/// all sources are exhausted, a `sda-asset-failed` CustomEvent fires so the
-/// loading overlay can display a clear error message. This avoids embedding
-/// CSS/JS duplicates in consumer binaries.
+/// When the debug server can resolve the package root on disk, CSS and JS
+/// are inlined directly into the HTML response via `<style>` / `<script>`
+/// tags — no extra requests needed. This avoids the fragile `onerror`
+/// fallback chain that broke in Firefox (404 + correct MIME type does not
+/// reliably trigger `onerror` on `<link>`/`<script>` elements).
+///
+/// When local asset files cannot be found (e.g., Flutter mobile, pub cache
+/// without assets), the HTML references jsDelivr CDN URLs directly. A
+/// fetch-based loader tries the version-pinned URL first, then `@main`.
 ///
 /// ## UX notes
-///
-/// The script tag uses `defer` so parsing is not blocked by large `app.js`;
-/// this reduces "layout forced before load" warnings when combined with
-/// stylesheets that load before body content.
 ///
 /// Buttons and collapsible headers include [title] attributes for hover tooltips.
 ///
@@ -24,12 +20,57 @@
 /// so the client script can collapse the whole left column (see `initAppSidebarPanelToggle` in `app.js`).
 ///
 /// The **Tables** sidebar shows skeleton rows under the Tables heading until `app.js` completes
-/// `GET /api/tables`; failures surface in the same block (see `indexHtml` markup).
+/// `GET /api/tables`; failures surface in the same block (see `buildIndexHtml` markup).
 import 'server_constants.dart';
 
 abstract final class HtmlContent {
-  static String get indexHtml =>
-      '''
+  /// Builds the HTML shell with assets either inlined or loaded from CDN.
+  ///
+  /// When [inlineCss] and [inlineJs] are provided (non-null), they are
+  /// embedded directly in `<style>` / `<script>` tags — zero extra
+  /// requests, works offline, and avoids the unreliable `onerror`
+  /// fallback chain. When null, a small fetch-based loader tries
+  /// version-pinned jsDelivr, then `@main`.
+  static String buildIndexHtml({String? inlineCss, String? inlineJs}) {
+    // CSS: inline <style> when available, otherwise CDN <link>.
+    // No escaping needed for CSS — </style> is not valid CSS syntax
+    // and will never appear in the stylesheet.
+    final cssTag = inlineCss != null
+        ? '<style>$inlineCss</style>'
+        : '<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css" onerror="this.onerror=null;this.href=\'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/style.css\'">';
+
+    // JS: inline <script> when available, otherwise fetch-based loader
+    // that tries CDN URLs sequentially. Using fetch() instead of
+    // <script onerror> because Firefox does not reliably fire onerror
+    // on <script> elements that receive 404 with correct MIME type.
+    //
+    // When inlining, escape </script> sequences that could appear
+    // inside JS string literals (e.g. innerHTML assignments). The
+    // HTML parser sees </script> as a closing tag regardless of JS
+    // context, so we replace </ with <\/ which is equivalent in JS.
+    final jsTag = inlineJs != null
+        ? '<script>${inlineJs.replaceAll('</script>', r'<\/script>')}</script>'
+        : '''<script>
+(function(){
+  var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/app.js'];
+  function tryNext(){
+    if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'app.js'}));return}
+    var u=urls.shift(),s=document.createElement('script');
+    s.src=u;s.onerror=tryNext;document.body.appendChild(s);
+  }
+  tryNext();
+})();
+</script>''';
+
+    // Startup diagnostic lines shown in the loading overlay.
+    // Per-asset source and status so a mixed state (e.g. CSS inlined
+    // but JS from CDN) is accurately reported to the user.
+    final cssSource = inlineCss != null ? 'local' : 'CDN';
+    final jsSource = inlineJs != null ? 'local' : 'CDN';
+    final cssStatus = inlineCss != null ? '\u2713' : '\u22EF';
+    final jsStatus = inlineJs != null ? '\u2713' : '\u22EF';
+
+    return '''
 <!DOCTYPE html>
 <html>
 <head>
@@ -42,22 +83,25 @@ abstract final class HtmlContent {
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0">
   <!-- Favicon: inline SVG database cylinder matching extension store icon (purple-pink to cyan gradient). -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='cyl' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23cd87cd'/%3E%3Cstop offset='50%25' stop-color='%239e8eda'/%3E%3Cstop offset='100%25' stop-color='%235ac6e4'/%3E%3C/linearGradient%3E%3CradialGradient id='cap' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23e8c6e8'/%3E%3Cstop offset='100%25' stop-color='%23cd87cd'/%3E%3C/radialGradient%3E%3ClinearGradient id='bot' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%235ac6e4'/%3E%3Cstop offset='100%25' stop-color='%234dbdd8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='7' y='6' width='18' height='16' fill='url(%23cyl)'/%3E%3Cellipse cx='16' cy='6' rx='9' ry='2' fill='url(%23cap)' stroke='%235f3773' stroke-width='0.6'/%3E%3Cpath d='M7 6v16' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cpath d='M25 6v16' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cellipse cx='16' cy='14' rx='9' ry='1.2' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cellipse cx='16' cy='22' rx='9' ry='2' fill='url(%23bot)' stroke='%235f3773' stroke-width='0.6'/%3E%3C/svg%3E">
-  <!-- Multi-CDN fallback helper: shifts through URL array on each onerror.
-       When all URLs are exhausted, dispatches 'sda-asset-failed' so the
-       loading overlay can show a clear error message to the user. -->
-  <script>function _sda_fb(el,attr,urls,name){if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:name}));return}el.onerror=function(){_sda_fb(el,attr,urls,name)};el[attr]=urls.shift()}</script>
-  <link rel="stylesheet" href="/assets/web/style.css" onerror="_sda_fb(this,'href',['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/style.css'],'style.css')">
+  $cssTag
 </head>
 <body>
   <!-- Loading overlay: visible until app.js hides it. If JS never loads
        (all sources fail), this stays visible as the error indicator.
-       Uses inline styles so it renders even when style.css fails. -->
-  <div id="sda-loading" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#1e1e2e;color:#cdd6f4;font-family:system-ui,sans-serif;font-size:1.1rem">
-    <div style="text-align:center"><div id="sda-loading-msg">Loading Saropa Drift Advisor\u2026</div></div>
+       Uses inline styles so it renders even when style.css fails.
+       Shows a startup diagnostic sequence with version and asset source. -->
+  <div id="sda-loading" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#1e1e2e;color:#cdd6f4;font-family:'Courier New',Consolas,monospace;font-size:0.85rem;line-height:1.6">
+    <div style="text-align:left;min-width:320px">
+      <div style="color:#89b4fa;font-weight:bold;margin-bottom:0.5em">Saropa Drift Advisor v${ServerConstants.packageVersion}</div>
+      <div style="border-top:1px solid #45475a;margin-bottom:0.5em"></div>
+      <div>$cssStatus stylesheet ($cssSource)</div>
+      <div>$jsStatus app.js ($jsSource)</div>
+      <div id="sda-loading-msg" style="margin-top:0.5em;color:#a6adc8">\u22EF initializing\u2026</div>
+    </div>
   </div>
-  <!-- Error state listener: updates the loading overlay when all asset
-       sources (local server + CDN chain) have been exhausted. -->
-  <script>document.addEventListener('sda-asset-failed',function(e){var m=document.getElementById('sda-loading-msg');if(m)m.textContent='Could not load '+e.detail+' from server or CDN. Check network and refresh.';var d=document.getElementById('sda-loading');if(d)d.style.display='flex'})</script>
+  <!-- Error state listener: updates the loading overlay when all CDN
+       sources have been exhausted. -->
+  <script>document.addEventListener('sda-asset-failed',function(e){var m=document.getElementById('sda-loading-msg');if(m){m.style.color='#f38ba8';m.textContent='\u2717 Could not load '+e.detail+' — check network and refresh.';}var d=document.getElementById('sda-loading');if(d)d.style.display='flex'})</script>
   <!-- Connection-lost banner. Shown by JS when the server becomes unreachable.
        role="alert" ensures screen readers announce it immediately.
        Message, diagnostics (interval/next retry), Retry now, and Dismiss. -->
@@ -475,7 +519,8 @@ abstract final class HtmlContent {
     </div>
   </div>
 
-  <script defer src="/assets/web/app.js" onerror="_sda_fb(this,'src',['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/app.js'],'app.js')"></script>
+  $jsTag
 </body></html>
 ''';
+  }
 }

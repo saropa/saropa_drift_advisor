@@ -39,3 +39,18 @@ the CDN `onerror` fallback also failed silently.
 `generation_handler.dart` `_sendWebAsset()` now serves from the embedded constant
 when file-based resolution fails, instead of returning 404.
 Sync tests in `version_sync_test.dart` verify the constants match the on-disk files.
+
+## Follow-up: Firefox onerror never fires on 404 with correct MIME (2026-04-03)
+
+The `onerror` attribute on `<link>` and `<script>` elements does not reliably
+fire in Firefox when the server returns HTTP 404 with the correct MIME type.
+The multi-CDN fallback chain (`_sda_fb`) was dead code in practice.
+
+**Fix:** CSS and JS are now inlined directly into the HTML response via
+`<style>` / `<script>` tags when the package root is resolved on disk.
+`HtmlContent.indexHtml` replaced with `HtmlContent.buildIndexHtml()` which
+accepts optional `inlineCss` / `inlineJs` parameters. When local files are
+unavailable, the HTML references jsDelivr CDN URLs directly — CSS via
+`<link onerror>` (CDN→CDN only), JS via a fetch-based loader that creates
+`<script>` elements dynamically. The loading overlay now shows version and
+per-asset diagnostic status instead of a blank "Loading…" message.

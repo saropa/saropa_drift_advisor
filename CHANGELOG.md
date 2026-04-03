@@ -64,6 +64,18 @@ Eliminates false-positive diagnostics across index, FK, empty-table, and anomaly
 
 ---
 
+## [2.15.0]
+
+### Fixed
+
+• **Web UI blank in Firefox — CDN fallback never fired after local 404** — The `onerror` attribute on `<link>` and `<script>` elements does not reliably fire in Firefox when the server returns HTTP 404 with the correct MIME type (`text/css`, `application/javascript`). The multi-CDN fallback chain (`_sda_fb`) was dead code in practice. CSS and JS are now inlined directly into the HTML response when the package root is resolved on disk (zero extra requests, works offline). When local files are unavailable, the HTML references jsDelivr CDN URLs directly via a fetch-based JS loader instead of the broken `onerror` mechanism.
+
+### Changed
+
+• **Loading overlay shows startup diagnostics** — The loading screen now displays the package version, asset source (local/CDN), and per-asset load status instead of an uninformative "Loading…" message. Errors use distinct red styling.
+
+---
+
 ## [2.14.1]
 
 Fixes silent command failures and missing user feedback, adds annotation previews and removal commands, and moves bookmarks to the tree toolbar. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.14.1/CHANGELOG.md)

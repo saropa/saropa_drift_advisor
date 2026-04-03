@@ -1,99 +1,127 @@
 // Contract tests for the HTML shell served by the debug server.
 //
-// Verifies that the multi-CDN fallback chain, loading overlay, and
-// error state listener are present in the generated HTML. These are
-// critical for the web UI to load when local asset serving fails.
+// Verifies that inlined assets, CDN fallback, loading overlay, and
+// error state listener are present in the generated HTML. The HTML
+// inlines CSS/JS directly when available, and falls back to CDN
+// URLs when local asset files cannot be found.
 
 import 'package:saropa_drift_advisor/src/server/html_content.dart';
 import 'package:test/test.dart';
 
 void main() {
-  // Grab the HTML once; it is a static getter with string interpolation.
-  late String html;
+  group('HtmlContent with inlined assets', () {
+    late String html;
 
-  setUp(() {
-    html = HtmlContent.indexHtml;
-  });
-
-  group('HtmlContent asset loading', () {
-    test('contains _sda_fb fallback helper function', () {
-      // The helper is the backbone of the multi-CDN chain. Without it,
-      // onerror handlers on <link> and <script> have no fallback logic.
-      expect(html, contains('function _sda_fb('));
+    setUp(() {
+      // Simulate local assets being available.
+      html = HtmlContent.buildIndexHtml(
+        inlineCss: '/* test-css-marker */',
+        inlineJs: '/* test-js-marker */',
+      );
     });
 
-    test('CSS link uses multi-CDN fallback chain via _sda_fb', () {
-      // Must call _sda_fb, not inline a single onerror URL swap.
-      expect(html, contains("_sda_fb(this,'href',["));
-      // Chain must include version-pinned jsDelivr URL.
+    test('inlines CSS in a <style> tag', () {
+      expect(html, contains('<style>/* test-css-marker */</style>'));
+    });
+
+    test('inlines JS in a <script> tag', () {
+      expect(html, contains('<script>/* test-js-marker */</script>'));
+    });
+
+    test('does not reference local asset URLs', () {
+      expect(html, isNot(contains('/assets/web/style.css')));
+      expect(html, isNot(contains('/assets/web/app.js')));
+    });
+
+    test('does not reference CDN URLs when assets are inlined', () {
+      expect(html, isNot(contains('cdn.jsdelivr.net')));
+    });
+  });
+
+  group('HtmlContent with CDN fallback', () {
+    late String html;
+
+    setUp(() {
+      // Simulate local assets unavailable — triggers CDN references.
+      html = HtmlContent.buildIndexHtml();
+    });
+
+    test('CSS link points to version-pinned CDN', () {
       expect(
         html,
         contains('cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v'),
-        reason: 'CSS fallback chain must include version-pinned jsDelivr',
+        reason: 'CSS must use version-pinned jsDelivr',
       );
-      // Chain must include @main fallback for the window between
-      // publishing and tag creation.
+      expect(
+        html,
+        contains('assets/web/style.css'),
+        reason: 'CSS link must reference style.css',
+      );
+    });
+
+    test('CSS link has onerror fallback to @main', () {
       expect(
         html,
         contains(
           'cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/style.css',
         ),
-        reason: 'CSS fallback chain must include @main jsDelivr',
+        reason: 'CSS must fall back to @main for publish-to-tag window',
       );
     });
 
-    test('JS script uses multi-CDN fallback chain via _sda_fb', () {
-      // Same chain structure as CSS but for the script tag.
-      expect(html, contains("_sda_fb(this,'src',["));
+    test('JS fetch-based loader includes version-pinned CDN URL', () {
+      expect(
+        html,
+        contains(
+          'cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v',
+        ),
+        reason: 'JS loader must include version-pinned jsDelivr',
+      );
+    });
+
+    test('JS fetch-based loader includes @main fallback', () {
       expect(
         html,
         contains(
           'cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/app.js',
         ),
-        reason: 'JS fallback chain must include @main jsDelivr',
+        reason: 'JS loader must include @main jsDelivr fallback',
       );
     });
 
-    test('CSS link loads from local server first', () {
+    test('JS loader dispatches sda-asset-failed when all sources fail', () {
       expect(
         html,
-        contains('href="/assets/web/style.css"'),
-        reason: 'CSS must load from local server before CDN fallback',
-      );
-    });
-
-    test('JS script loads from local server first', () {
-      expect(
-        html,
-        contains('src="/assets/web/app.js"'),
-        reason: 'JS must load from local server before CDN fallback',
-      );
-    });
-
-    test('_sda_fb receives human-readable asset name for CSS', () {
-      // The 4th argument to _sda_fb is the display name shown in the
-      // error overlay. Must be a file name, not the HTML attribute.
-      expect(
-        html,
-        contains(",'style.css')"),
+        contains("sda-asset-failed"),
         reason:
-            'CSS fallback must pass "style.css" as display name, '
-            'not the HTML attribute "href"',
+            'Must dispatch sda-asset-failed event when CDN chain is exhausted',
       );
     });
 
-    test('_sda_fb receives human-readable asset name for JS', () {
+    test('does not reference local server asset URLs', () {
+      // In CDN mode, the HTML should not try local URLs first —
+      // the whole point is that local serving is unavailable.
       expect(
         html,
-        contains(",'app.js')"),
-        reason:
-            'JS fallback must pass "app.js" as display name, '
-            'not the HTML attribute "src"',
+        isNot(contains('href="/assets/web/')),
+        reason: 'CDN mode must not attempt local asset URLs',
+      );
+      expect(
+        html,
+        isNot(contains('src="/assets/web/')),
+        reason: 'CDN mode must not attempt local asset URLs',
       );
     });
   });
 
   group('HtmlContent loading overlay', () {
+    // Loading overlay behavior is the same regardless of asset mode.
+    late String html;
+
+    setUp(() {
+      html = HtmlContent.buildIndexHtml();
+    });
+
     test('contains sda-loading overlay element', () {
       expect(
         html,
@@ -127,7 +155,7 @@ void main() {
       expect(
         html,
         contains("'sda-asset-failed'"),
-        reason: 'Must listen for the event dispatched by _sda_fb',
+        reason: 'Must listen for the event dispatched by CDN loader',
       );
     });
 
