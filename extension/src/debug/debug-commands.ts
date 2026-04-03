@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import type { IDebugCommandDeps } from './debug-commands-types';
 import { PerfBaselineStore } from './perf-baseline-store';
+import { PerfBaselinePanel } from './perf-baseline-panel';
 import { registerDebugCommandsPanels } from './debug-commands-panels';
 import { registerDebugCommandsPerf } from './debug-commands-perf';
 import { registerDebugCommandsVm } from './debug-commands-vm';
@@ -21,16 +22,10 @@ export function registerDebugCommands(
     connectionLog?.appendLine(`[${new Date().toISOString()}] ${msg}`);
   };
 
-  const { perfProvider, revealTable } = registerDebugCommandsPerf(context, deps);
+  const { perfProvider } = registerDebugCommandsPerf(context, deps);
 
-  // The Schema Search webview provider is created and registered in
-  // setupProviders so it's available before registerAllCommands runs.
-  // Here we wire the revealTable callback and register remaining panel
-  // commands (docs, global search).
-  registerDebugCommandsPanels(
-    context, deps.client, revealTable, deps,
-    deps.schemaSearchProvider!, deps.schemaSearchRevealRef!,
-  );
+  // Register docs, global search, and Dart schema scan commands.
+  registerDebugCommandsPanels(context, deps.client);
 
   const baselineStore = new PerfBaselineStore(context.workspaceState);
 
@@ -44,25 +39,16 @@ export function registerDebugCommands(
     logConnection,
   });
 
+  // Open the performance baselines webview panel for viewing and resetting
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.resetPerfBaseline',
-      async () => {
-        const items = Array.from(baselineStore.baselines.values()).map((b) => ({
-          label: b.normalizedSql,
-          description: `avg ${Math.round(b.avgDurationMs)}ms (${b.sampleCount} samples)`,
-        }));
-        if (items.length === 0) {
+      () => {
+        if (baselineStore.size === 0) {
           vscode.window.showInformationMessage('No performance baselines stored.');
           return;
         }
-        const pick = await vscode.window.showQuickPick(items, {
-          placeHolder: 'Select a query baseline to reset',
-        });
-        if (pick) {
-          baselineStore.resetOne(pick.label);
-          vscode.window.showInformationMessage(`Baseline reset for: ${pick.label}`);
-        }
+        PerfBaselinePanel.createOrShow(baselineStore);
       },
     ),
   );

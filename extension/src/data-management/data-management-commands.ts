@@ -1,13 +1,11 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import type { DriftApiClient } from '../api-client';
 import type { TableItem } from '../tree/tree-items';
 import { DependencySorter } from './dependency-sorter';
 import { DataReset } from './data-reset';
 import { DatasetConfig } from './dataset-config';
-import { DatasetImport } from './dataset-import';
-import { DatasetExport } from './dataset-export';
-import type { IDriftDataset } from './dataset-types';
+import { ImportFormPanel } from './import-form-panel';
+import { ExportFormPanel } from './export-form-panel';
 
 const PROGRESS = { location: vscode.ProgressLocation.Notification };
 
@@ -32,8 +30,6 @@ export function registerDataManagementCommands(
   const sorter = new DependencySorter();
   const dataReset = new DataReset(client, sorter);
   const datasetConfig = new DatasetConfig();
-  const datasetImport = new DatasetImport(client, sorter, dataReset);
-  const datasetExport = new DatasetExport(client);
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
@@ -175,77 +171,12 @@ export function registerDataManagementCommands(
       },
     ),
 
+    // Import dataset — opens webview form with source + mode selection
     vscode.commands.registerCommand(
       'driftViewer.importDataset',
       async () => {
         try {
-          const ws =
-            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-          const config = ws ? await datasetConfig.load(ws) : null;
-          const datasetPaths = config?.datasets ?? {};
-
-          const options = [
-            ...Object.entries(datasetPaths).map(([name, p]) => ({
-              label: name, description: p,
-              filePath: path.resolve(ws ?? '', p),
-            })),
-            { label: 'Browse for file\u2026', description: '', filePath: '' },
-          ];
-          const pick = await vscode.window.showQuickPick(options);
-          if (!pick) return;
-
-          let filePath = pick.filePath;
-          if (!filePath) {
-            const uris = await vscode.window.showOpenDialog({
-              filters: { 'Drift Dataset': ['json'] },
-            });
-            if (!uris?.[0]) return;
-            filePath = uris[0].fsPath;
-          }
-
-          const raw = await vscode.workspace.fs.readFile(
-            vscode.Uri.file(filePath),
-          );
-          const dataset = JSON.parse(
-            Buffer.from(raw).toString(),
-          ) as IDriftDataset;
-
-          const validation = await datasetImport.validate(dataset);
-          if (!validation.valid) {
-            vscode.window.showErrorMessage(
-              `Invalid: ${validation.errors.join('; ')}`,
-            );
-            return;
-          }
-          if (validation.warnings.length > 0) {
-            vscode.window.showWarningMessage(
-              `Warnings: ${validation.warnings.join('; ')}`,
-            );
-          }
-
-          const mode = await vscode.window.showQuickPick([
-            { label: 'Append', description: 'Add rows to existing data', value: 'append' as const },
-            { label: 'Replace', description: 'Clear target tables first', value: 'replace' as const },
-            { label: 'SQL only', description: 'Generate SQL without executing', value: 'sql' as const },
-          ]);
-          if (!mode) return;
-
-          if (mode.value === 'sql') {
-            const sql = datasetImport.toSql(dataset);
-            const doc = await vscode.workspace.openTextDocument({
-              content: sql, language: 'sql',
-            });
-            await vscode.window.showTextDocument(doc);
-            return;
-          }
-
-          const result = await vscode.window.withProgress(
-            { ...PROGRESS, title: 'Importing dataset\u2026' },
-            () => datasetImport.import(dataset, mode.value),
-          );
-          vscode.window.showInformationMessage(
-            `Imported ${result.totalInserted} rows across ${result.tables.length} tables.`,
-          );
+          await ImportFormPanel.open(client);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Import failed: ${msg}`);
@@ -253,52 +184,12 @@ export function registerDataManagementCommands(
       },
     ),
 
+    // Export dataset — opens webview form with table checkboxes + name input
     vscode.commands.registerCommand(
       'driftViewer.exportDataset',
       async () => {
         try {
-          const meta = await client.schemaMetadata();
-          const tables = meta.filter(
-            (t) => !t.name.startsWith('sqlite_'),
-          );
-
-          const selected = await vscode.window.showQuickPick(
-            tables.map((t) => ({
-              label: t.name,
-              description: `${t.rowCount} rows`,
-              picked: true,
-            })),
-            { canPickMany: true, placeHolder: 'Select tables' },
-          );
-          if (!selected?.length) return;
-
-          const name = await vscode.window.showInputBox({
-            prompt: 'Dataset name',
-          });
-          if (!name) return;
-
-          const dataset = await vscode.window.withProgress(
-            { ...PROGRESS, title: 'Exporting dataset\u2026' },
-            () => datasetExport.export(
-              selected.map((s) => s.label), name,
-            ),
-          );
-          const json = JSON.stringify(dataset, null, 2);
-
-          const uri = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.file(
-              `${name}.drift-dataset.json`,
-            ),
-            filters: { 'Drift Dataset': ['json'] },
-          });
-          if (uri) {
-            await vscode.workspace.fs.writeFile(
-              uri, Buffer.from(json, 'utf-8'),
-            );
-            vscode.window.showInformationMessage(
-              `Dataset exported: ${uri.fsPath}`,
-            );
-          }
+          await ExportFormPanel.open(client);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Export failed: ${msg}`);

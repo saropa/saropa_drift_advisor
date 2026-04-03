@@ -4,6 +4,8 @@ import type { IndexSuggestion, Anomaly } from '../api-types';
 import type { HealthStatusBar } from '../status-bar-health';
 import { HealthScorer } from './health-scorer';
 import { HealthPanel } from './health-panel';
+import { IndexSuggestionsPanel } from './index-suggestions-panel';
+import { AnomaliesPanel } from './anomalies-panel';
 
 /** Register the health score command and action commands. */
 export function registerHealthCommands(
@@ -35,7 +37,7 @@ export function registerHealthCommands(
     ),
   );
 
-  // Index action: show suggestions in a quick pick
+  // Index action: show suggestions in a webview panel
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.showIndexSuggestions',
@@ -46,22 +48,7 @@ export function registerHealthCommands(
             vscode.window.showInformationMessage('No missing indexes detected.');
             return;
           }
-          const items = suggestions.map((s) => ({
-            label: `${s.table}.${s.column}`,
-            description: s.sql,
-            suggestion: s,
-          }));
-          const picked = await vscode.window.showQuickPick(items, {
-            placeHolder: 'Select an index to copy CREATE INDEX SQL',
-            canPickMany: true,
-          });
-          if (picked && picked.length > 0) {
-            const sql = picked.map((p) => p.suggestion.sql).join('\n');
-            await vscode.env.clipboard.writeText(sql);
-            vscode.window.showInformationMessage(
-              `Copied ${picked.length} CREATE INDEX statement(s) to clipboard.`,
-            );
-          }
+          IndexSuggestionsPanel.createOrShow(suggestions, client);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Failed to fetch index suggestions: ${msg}`);
@@ -104,7 +91,7 @@ export function registerHealthCommands(
     ),
   );
 
-  // Anomaly action: show anomalies filtered by severity
+  // Anomaly action: show anomalies in a webview panel with severity filters
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.showAnomalies',
@@ -118,14 +105,7 @@ export function registerHealthCommands(
             vscode.window.showInformationMessage('No anomalies found.');
             return;
           }
-          const items = anomalies.map((a) => ({
-            label: severityIcon(a.severity) + ' ' + a.message,
-            description: a.severity,
-            anomaly: a,
-          }));
-          await vscode.window.showQuickPick(items, {
-            placeHolder: `${anomalies.length} anomaly(s) found`,
-          });
+          AnomaliesPanel.createOrShow(anomalies, client);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Failed to fetch anomalies: ${msg}`);
@@ -185,14 +165,6 @@ export function registerHealthCommands(
       },
     ),
   );
-}
-
-function severityIcon(severity: string): string {
-  switch (severity) {
-    case 'error': return '\u2716';
-    case 'warning': return '\u26A0';
-    default: return '\u2139';
-  }
 }
 
 function generateAnomalyFixSql(anomaly: Anomaly): string | undefined {

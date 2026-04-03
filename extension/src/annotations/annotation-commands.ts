@@ -4,33 +4,11 @@
  */
 
 import * as vscode from 'vscode';
-import type { AnnotationIcon } from './annotation-types';
 import type { AnnotationStore } from './annotation-store';
 import type { DriftTreeProvider } from '../tree/drift-tree-provider';
 import type { ColumnItem, TableItem } from '../tree/tree-items';
 import { AnnotationPanel } from './annotation-panel';
-
-const ICON_PICKS: Array<{ label: string; value: AnnotationIcon }> = [
-  { label: '\u{1F4A1} Note', value: 'note' },
-  { label: '\u26A0\uFE0F Warning', value: 'warning' },
-  { label: '\u{1F41B} Bug', value: 'bug' },
-  { label: '\u2B50 Star', value: 'star' },
-  { label: '\u{1F4CC} Pin', value: 'pin' },
-];
-
-async function pickIcon(): Promise<AnnotationIcon | undefined> {
-  const pick = await vscode.window.showQuickPick(ICON_PICKS, {
-    placeHolder: 'Annotation type',
-  });
-  return pick?.value;
-}
-
-async function inputNote(): Promise<string | undefined> {
-  return vscode.window.showInputBox({
-    prompt: 'Annotation text',
-    placeHolder: 'e.g. "Unused column — candidate for removal"',
-  });
-}
+import { AnnotateFormPanel } from './annotate-form-panel';
 
 /** Register annotation commands and wire up store change events. */
 export function registerAnnotationCommands(
@@ -38,49 +16,27 @@ export function registerAnnotationCommands(
   store: AnnotationStore,
   treeProvider: DriftTreeProvider,
 ): void {
-  // Annotate table (right-click context menu)
+  // Annotate table (right-click context menu) — opens webview form
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.annotateTable',
-      async (item: TableItem) => {
-        const icon = await pickIcon();
-        if (!icon) return;
-        const note = await inputNote();
-        if (!note) return;
-        store.add(
+      (item: TableItem) => {
+        AnnotateFormPanel.open(
           { kind: 'table', table: item.table.name },
-          note,
-          icon,
-        );
-        // Confirm so the user knows it saved
-        vscode.window.showInformationMessage(
-          `Annotation added to table '${item.table.name}'.`,
+          store,
         );
       },
     ),
   );
 
-  // Annotate column (right-click context menu)
+  // Annotate column (right-click context menu) — opens webview form
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.annotateColumn',
-      async (item: ColumnItem) => {
-        const icon = await pickIcon();
-        if (!icon) return;
-        const note = await inputNote();
-        if (!note) return;
-        store.add(
-          {
-            kind: 'column',
-            table: item.tableName,
-            column: item.column.name,
-          },
-          note,
-          icon,
-        );
-        // Confirm so the user knows it saved
-        vscode.window.showInformationMessage(
-          `Annotation added to column '${item.tableName}.${item.column.name}'.`,
+      (item: ColumnItem) => {
+        AnnotateFormPanel.open(
+          { kind: 'column', table: item.tableName, column: item.column.name },
+          store,
         );
       },
     ),
