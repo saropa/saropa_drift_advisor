@@ -72,9 +72,7 @@ void main() {
     test('JS fetch-based loader includes version-pinned CDN URL', () {
       expect(
         html,
-        contains(
-          'cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v',
-        ),
+        contains('cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v'),
         reason: 'JS loader must include version-pinned jsDelivr',
       );
     });

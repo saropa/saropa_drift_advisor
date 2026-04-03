@@ -46,7 +46,7 @@ export class DashboardPanel {
 
     const panel = vscode.window.createWebviewPanel(
       'driftDashboard',
-      'Dashboard',
+      'Saropa Drift Dashboard',
       column,
       {
         enableScripts: true,

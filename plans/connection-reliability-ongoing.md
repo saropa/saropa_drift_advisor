@@ -66,6 +66,7 @@ Every connection between these components has broken, repeatedly, in different w
 | **Dart server: _sendWebAsset sent 200+text/plain on file-read failure** — When `readAsString()` threw inside `_sendWebAsset`, the catch block swallowed the error but the response was already committed as HTTP 200 with default `text/plain` content type. Browsers blocked the response due to MIME mismatch, and the `onerror` CDN fallback never fired (browsers ignore onerror on 200 responses). Fixed: file content is read into a local variable before committing any response headers; any failure produces a clean 404. Also, `_resolvePackageRootPath` now probes for `assets/web/style.css` at the `Isolate.resolvePackageUri` candidate before accepting it — if assets are absent (pub cache), the ancestor walk runs instead. | Dart server |
 | **Dart server + Browser: resilient asset loading (3 layers)** — Even with the MIME fix above, a single-CDN onerror with no visible error state left the web UI brittle. Added: (1) in-memory asset cache populated once during package root resolution — eliminates per-request disk I/O and survives transient file-system errors on subsequent requests; (2) multi-CDN fallback chain — CSS/JS onerror handlers try version-pinned jsDelivr then `@main` (covers publish-to-tag window), with a `sda-asset-failed` custom event when all sources are exhausted; (3) loading overlay with inline styles (no CSS dependency) — visible until `app.js` hides it, shows a clear error message if JS never loads from any source. | Dart server / Browser |
 | **Dart server: 404 MIME type killed CDN fallback for pub.dev consumers** — When the package root could not be resolved (typical for separate projects using pub.dev), `_sendWebAsset` returned 404 with `Content-Type: text/plain`. Dart's `HttpServer` adds `X-Content-Type-Options: nosniff` by default, so both Firefox and Chrome MIME-blocked the response. A MIME-blocked response suppresses the `<link>`/`<script>` `onerror` callback, silently killing the multi-CDN fallback chain — the web UI loaded blank with no CSS or JS and no recovery path. Fixed: the 404 path now uses the expected content type (`text/css` or `application/javascript`) so browsers do not MIME-block it; the 404 status alone triggers `onerror` reliably. | Dart server |
+| **Dart server + Browser: Firefox onerror never fires on 404 with correct MIME** — Even after the MIME fix above, Firefox still did not fire `onerror` on `<link>` and `<script>` elements that received HTTP 404 with the *correct* MIME type (`text/css`, `application/javascript`). The entire multi-CDN fallback chain (`_sda_fb`) was dead code in Firefox — the web UI loaded blank with no CSS, no JS, and no recovery. The `onerror` mechanism was replaced entirely: CSS and JS are now inlined directly into the HTML response via `<style>` / `<script>` tags when the package root is resolved on disk (zero extra requests, works offline). When local files are unavailable, the HTML references jsDelivr CDN URLs directly — CSS via `<link onerror>` (CDN→CDN only, no local URL), JS via a fetch-based IIFE loader that creates `<script>` elements dynamically. The loading overlay now shows version, per-asset source (local/CDN), and load status instead of a blank "Loading…" message. | Dart server / Browser |
 
 ### [2.11.0]
 
@@ -334,9 +335,11 @@ The connection system now has:
 - `driftViewer.databaseTreeEmpty` context flag
 - `driftViewer.serverConnected` context flag with delayed sync backup
 - Offline schema cache fallback
-- CDN fallback for missing assets
-- Single-sentinel ancestor walk for package-root resolution (barrel file only, relaxed from dual-sentinel after 2.10.0 removed embedded asset strings)
-- Asset probe on `Isolate.resolvePackageUri` candidate — rejects pub-cache paths missing `assets/web/`, falls through to ancestor walk
+- CSS/JS inlined directly into the HTML response when the package root is resolved (eliminates separate asset requests and the broken `onerror` fallback chain)
+- Fetch-based CDN loader when local files unavailable (replaced the `_sda_fb` onerror chain that Firefox ignored)
+- Loading overlay with version, per-asset source/status diagnostics (replaced the uninformative "Loading…" message)
+- `/assets/web/*` routes retained for backward compat (VS Code extension, direct access) but no longer required by the HTML viewer
+- 4-strategy package root resolution: `Isolate.resolvePackageUri` with asset probe, `package_config.json` parsing, ancestor walk from cwd, ancestor walk from executable path
 
 Each layer was added to fix a specific failure. Together they form a complex, fragile stack where it is hard to reason about what happens when two or more things go wrong simultaneously.
 
@@ -385,7 +388,7 @@ None of them cover the full picture. This document is the first attempt to do so
 
 ## Statistics
 
-- **81 distinct connection-related changelog entries** across 25 versions
+- **82 distinct connection-related changelog entries** across 25 versions
 - **14 entries** for discovery / server detection
 - **10 entries** for VM Service connection
 - **13 entries** for disconnection / reconnection / offline resilience
@@ -395,5 +398,5 @@ None of them cover the full picture. This document is the first attempt to do so
 - **9 entries** for race conditions / timeouts / webview lifecycle
 - **6 entries** for health checks / status bar indicators
 - **5 entries** for polling / long-poll / change detection
-- **3 entries** for MIME type / asset resolution
+- **4 entries** for MIME type / asset resolution
 - Connection fixes appear in **every single minor release** from 1.1.0 onward

@@ -32,7 +32,11 @@ browse source on
 
 ---
 
-## [2.14.5]
+## [2.15.0]
+
+### Changed
+
+• **Dashboard tab renamed to "Saropa Drift Dashboard"** — The VS Code webview tab previously showed the generic title "Dashboard"; it now displays "Saropa Drift Dashboard" for clarity when multiple editor tabs are open.
 
 ### Fixed
 
@@ -64,7 +68,9 @@ Eliminates false-positive diagnostics across index, FK, empty-table, and anomaly
 
 ---
 
-## [2.15.0]
+## [2.14.2]
+
+**NOTE:** This changelog version was corrupted - it may not have been deployed
 
 ### Fixed
 
