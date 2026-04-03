@@ -66,4 +66,4 @@ If the team still wants visibility into nullable column usage patterns, raise th
 
 ## Related context
 
-The other four anomaly types (empty strings, numeric outliers, orphaned FKs, duplicate rows) do not have this problem — they all detect genuinely unexpected states rather than schema-declared valid states.
+The empty string detector had the same problem — it flagged nullable text columns where empty strings are a valid design choice. Fixed: `_detectEmptyStrings` is now only called for NOT NULL text columns, matching the null detection guard. The remaining three anomaly types (numeric outliers, orphaned FKs, duplicate rows) detect genuinely unexpected states rather than schema-declared valid states.

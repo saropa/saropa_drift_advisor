@@ -167,11 +167,16 @@ void main() {
       // Empty string detection
       // -------------------------------------------------------
 
-      test('detects empty strings in TEXT columns', () async {
+      test('detects empty strings in NOT NULL TEXT columns', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [_col('id', 'INTEGER', pk: 1), _col('title', 'TEXT')],
+              'items': [
+                _col('id', 'INTEGER', pk: 1),
+                // notnull: 1 — empty strings here suggest
+                // placeholder data instead of real values.
+                _col('title', 'TEXT', notnull: 1),
+              ],
             },
             counts: {'items': 10},
             emptyCounts: {'items.title': 4},
@@ -187,6 +192,38 @@ void main() {
         expect(emptyAnomaly!['severity'], 'warning');
         expect(emptyAnomaly['count'], 4);
       });
+
+      test(
+        'skips empty string check for nullable TEXT columns (no false positives)',
+        () async {
+          // Nullable text columns accept missing/absent data by
+          // design — empty strings are a valid choice, not anomalies.
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'contacts': [
+                  _col('id', 'INTEGER', pk: 1),
+                  // notnull: 0 (default) — column is nullable.
+                  _col('given_name_phonetic', 'TEXT'),
+                ],
+              },
+              counts: {'contacts': 400},
+              emptyCounts: {'contacts.given_name_phonetic': 345},
+            ),
+          );
+
+          final anomalies = result['anomalies'] as List;
+          final emptyAnomalies = anomalies
+              .where((a) => (a as Map)['type'] == 'empty_strings')
+              .toList();
+          expect(
+            emptyAnomalies,
+            isEmpty,
+            reason:
+                'Nullable text columns should not trigger empty string warnings',
+          );
+        },
+      );
 
       test('skips empty string check for non-text columns', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
@@ -517,7 +554,8 @@ void main() {
             tableColumns: {
               'items': [
                 _col('id', 'INTEGER', pk: 1),
-                _col('title', 'TEXT'),
+                // notnull: 1 so empty strings trigger a warning.
+                _col('title', 'TEXT', notnull: 1),
                 _col('price', 'REAL'),
                 _col('cat_id', 'INTEGER'),
               ],

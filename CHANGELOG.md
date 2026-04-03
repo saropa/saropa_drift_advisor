@@ -32,6 +32,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- Anomaly scanner no longer flags empty strings in nullable text columns — if the schema says the field is optional, empty strings are a valid design choice, not a data quality warning
+
+---
+
 ## [2.15.0]
 
 ### Changed

@@ -66,8 +66,12 @@ abstract final class AnomalyDetector {
             );
           }
 
-          // 2. Detect empty strings in text columns.
-          if (ServerUtils.isTextType(colType)) {
+          // 2. Detect empty strings in NOT NULL text columns.
+          //    Nullable text columns are skipped because the
+          //    schema already signals that missing/absent data
+          //    is acceptable — empty strings there are a valid
+          //    design choice, not anomalies.
+          if (ServerUtils.isTextType(colType) && !isNullable) {
             await _detectEmptyStrings(
               query: query,
               tableName: tableName,
