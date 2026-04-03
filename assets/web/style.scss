@@ -79,6 +79,62 @@ body {
   --row-alt: rgba(255, 255, 255, 0.03);
 }
 
+/* Showcase theme: a beautiful light-mode variant with glassmorphism,
+   rainbow accents, and animations. The CSS variables below provide the
+   baseline layout colours. The visual effects (gradients, blur,
+   rainbow borders, drop shadows, keyframe animations) live in
+   drift-enhanced.css which is loaded only from CDN — never bundled
+   into user APKs. When enhanced CSS is unavailable, showcase degrades
+   gracefully to a clean light theme. */
+body.theme-showcase {
+  --bg: #f4f2f7;
+  --fg: #1c1e21;
+  --bg-pre: rgba(255, 255, 255, 0.72);
+  --surface: rgba(255, 255, 255, 0.6);
+  --header-bg: rgba(255, 255, 255, 0.7);
+  --border: rgba(180, 170, 200, 0.35);
+  --border-subtle: rgba(200, 195, 215, 0.25);
+  --muted: #65676b;
+  --link: #7c3aed;
+  --link-hover: #6d28d9;
+  --btn-primary-bg: #7c3aed;
+  --btn-primary-fg: #fff;
+  --btn-primary-hover-bg: #6d28d9;
+  --highlight-bg: #ede9fe;
+  --highlight-fg: #5b21b6;
+  --highlight-active-bg: #7c3aed;
+  --highlight-active-fg: #fff;
+  --sidebar-bg: rgba(255, 255, 255, 0.5);
+  --row-alt: rgba(124, 58, 237, 0.03);
+}
+
+/* Showcase overrides: the purple accent colour replaces the blue/green
+   used by light/dark. The gradient effect on primary buttons is applied
+   by drift-enhanced.css (CDN-only) via background-image overrides. */
+body.theme-showcase .header-btn:hover {
+  color: var(--link);
+}
+
+body.theme-showcase .feature-card {
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.08);
+}
+
+body.theme-showcase .feature-card.expanded {
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.12);
+}
+
+body.theme-showcase .header-pill.live {
+  color: #558b2f;
+}
+
+body.theme-showcase .tables-loading-error {
+  color: #c62828;
+}
+
+body.theme-showcase #live-indicator.connection-status {
+  color: #558b2f;
+}
+
 /* --- App header (sticky) --- */
 .app-header {
   position: sticky;
@@ -500,9 +556,8 @@ body.theme-light .feature-card.expanded {
   margin-left: 0.4em;
   transition: transform 0.2s ease;
 }
-.sidebar-tables-wrap.collapsed .tables-heading button::after {
-  transform: rotate(-90deg);
-}
+/* No collapsed-state chevron rule needed here: when the sidebar panel
+   collapses (width → 0, opacity → 0) the heading is not visible. */
 
 .tables-heading button:hover { color: var(--link); }
 
@@ -512,17 +567,8 @@ body.theme-light .feature-card.expanded {
   outline-offset: 2px;
 }
 
-/* Smooth collapse with max-height transition */
 .sidebar-tables-wrap .table-list {
   overflow: hidden;
-  max-height: 5000px; /* large enough for 100+ tables without clipping */
-  transition: max-height 0.25s ease, opacity 0.25s ease; /* aligned durations */
-  opacity: 1;
-}
-.sidebar-tables-wrap.collapsed .table-list {
-  max-height: 0;
-  opacity: 0;
-  margin: 0;
 }
 
 .table-list {

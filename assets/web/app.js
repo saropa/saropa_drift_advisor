@@ -1802,17 +1802,57 @@
       input.click();
     }
 
-    // Apply the given theme ('dark' or 'light') to the document body and
-    // update the toggle button label so users see the current mode.
-    function applyTheme(dark) {
-      document.body.classList.toggle('theme-light', !dark);
-      document.body.classList.toggle('theme-dark', dark);
+    // Apply a named theme to the document body and update the toggle
+    // button label. Accepts 'dark', 'light', or 'showcase'. For
+    // backwards compatibility, boolean true maps to 'dark' and false
+    // maps to 'light'.
+    function applyTheme(theme) {
+      // Normalise legacy boolean calls: true → 'dark', false → 'light'.
+      if (theme === true) theme = 'dark';
+      if (theme === false) theme = 'light';
+
+      // Remove all theme classes first, then add the active one.
+      document.body.classList.remove('theme-dark', 'theme-light', 'theme-showcase');
+      document.body.classList.add('theme-' + theme);
+
+      // Human-readable labels and Material icon names for each theme.
+      var labels = { dark: 'Dark', light: 'Light', showcase: 'Showcase' };
+      var icons  = { dark: 'dark_mode', light: 'light_mode', showcase: 'auto_awesome' };
+
       // Update only the label span so the Material icon is preserved (Phase 4.1).
       var themeLabel = document.getElementById('theme-toggle-label');
-      if (themeLabel) themeLabel.textContent = dark ? 'Dark' : 'Light';
-      // Tooltip names the next mode so "dark" / "light" stay discoverable on hover.
+      if (themeLabel) themeLabel.textContent = labels[theme] || theme;
+
+      // Swap the Material Symbols icon to match the active theme.
       var themeBtn = document.getElementById('theme-toggle');
-      if (themeBtn) themeBtn.title = dark ? 'Light theme — click to switch from dark' : 'Dark theme — click to switch from light';
+      if (themeBtn) {
+        var icon = themeBtn.querySelector('.material-symbols-outlined');
+        if (icon) icon.textContent = icons[theme] || 'dark_mode';
+        // Tooltip names the next theme in the cycle.
+        var next = nextTheme(theme);
+        themeBtn.title = labels[next] + ' theme — click to switch from ' + labels[theme];
+      }
+    }
+
+    // Return the next theme in the cycle. When the enhanced CDN
+    // stylesheet is loaded, the cycle includes showcase; otherwise
+    // it toggles between dark and light only.
+    function nextTheme(current) {
+      if (window._driftEnhancedLoaded) {
+        // Three-way cycle: showcase → dark → light → showcase
+        var cycle = ['showcase', 'dark', 'light'];
+        var idx = cycle.indexOf(current);
+        return cycle[(idx + 1) % cycle.length];
+      }
+      // Fallback two-way toggle when enhanced CSS is unavailable.
+      return current === 'dark' ? 'light' : 'dark';
+    }
+
+    // Return the current theme name by inspecting body classes.
+    function currentTheme() {
+      if (document.body.classList.contains('theme-showcase')) return 'showcase';
+      if (document.body.classList.contains('theme-light')) return 'light';
+      return 'dark';
     }
 
     // Detect whether we are running inside a VS Code webview by checking
@@ -1832,15 +1872,22 @@
     function initTheme() {
       var saved = localStorage.getItem(THEME_KEY);
       if (saved) {
-        // User has an explicit override — honour it.
-        applyTheme(saved === 'dark');
+        // User has an explicit override — honour it. Saved values may
+        // be 'dark', 'light', or 'showcase'. If showcase is saved but
+        // enhanced CSS hasn't loaded yet, fall back to light — the
+        // enhanced-CSS onload handler will upgrade to showcase later.
+        if (saved === 'showcase' && !window._driftEnhancedLoaded) {
+          applyTheme('light');
+        } else {
+          applyTheme(saved);
+        }
         return;
       }
       // No saved preference: try VS Code webview context first, then
       // fall back to the OS-level prefers-color-scheme media query.
       var vscodeTheme = detectVscodeTheme();
       if (vscodeTheme) {
-        applyTheme(vscodeTheme === 'dark');
+        applyTheme(vscodeTheme);
         return;
       }
       // Respect operating-system dark-mode preference (defaults to dark
@@ -1848,16 +1895,16 @@
       var prefersDark = window.matchMedia
         ? window.matchMedia('(prefers-color-scheme: dark)').matches
         : true;
-      applyTheme(prefersDark);
+      applyTheme(prefersDark ? 'dark' : 'light');
     }
 
-    // Toggle button: explicitly saves the user's choice so it takes
-    // priority over OS / VS Code detection on future visits.
+    // Toggle button: cycle through themes. When the enhanced CDN
+    // stylesheet is loaded the cycle is showcase → dark → light;
+    // otherwise it toggles between dark and light only.
     document.getElementById('theme-toggle').addEventListener('click', function() {
-      var isCurrentlyLight = document.body.classList.contains('theme-light');
-      var nowDark = isCurrentlyLight;
-      localStorage.setItem(THEME_KEY, nowDark ? 'dark' : 'light');
-      applyTheme(nowDark);
+      var next = nextTheme(currentTheme());
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
     });
 
     initTheme();
@@ -1877,7 +1924,7 @@
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
         if (!localStorage.getItem(THEME_KEY)) {
-          applyTheme(e.matches);
+          applyTheme(e.matches ? 'dark' : 'light');
         }
       });
     }
@@ -1947,71 +1994,64 @@
 
     initTabsAndToolbar();
 
-    // --- Whole left sidebar (table list + search): header toggle + localStorage ---
+    // --- Sidebar panel collapse: shared logic + two entry points ---
+    // Both the header chevron button and the "Tables" heading inside the
+    // sidebar collapse/expand the entire sidebar horizontally.  A single
+    // applyAppSidebarCollapsed() drives all DOM + aria + localStorage
+    // updates so the two buttons can never drift out of sync.
     var APP_SIDEBAR_PANEL_KEY = 'saropa_app_sidebar_collapsed';
-    (function initAppSidebarPanelToggle() {
+    (function initSidebarPanelCollapse() {
       var layout = document.getElementById('app-layout');
       var aside = document.getElementById('app-sidebar');
-      var btn = document.getElementById('app-sidebar-toggle');
-      var icon = document.getElementById('app-sidebar-toggle-icon');
-      if (!layout || !aside || !btn) return;
+      var headerBtn = document.getElementById('app-sidebar-toggle');
+      var headerIcon = document.getElementById('app-sidebar-toggle-icon');
+      var tablesToggle = document.getElementById('tables-heading-toggle');
+      if (!layout || !aside) return;
 
       /**
-       * Applies collapsed state to layout, aside visibility for assistive tech, and button chrome.
-       * @param {boolean} collapsed - When true, sidebar track has zero width and main content is full width.
+       * Single source of truth for sidebar collapsed state.
+       * Updates layout class, aria attributes on both toggle buttons,
+       * header icon, and persists to localStorage.
+       * @param {boolean} collapsed - true → sidebar hidden (width 0).
        */
       function applyAppSidebarCollapsed(collapsed) {
         layout.classList.toggle('app-sidebar-panel-collapsed', collapsed);
         aside.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
-        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        btn.setAttribute(
-          'aria-label',
-          collapsed ? 'Show tables sidebar' : 'Hide tables sidebar'
-        );
-        if (icon) icon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
-        btn.title = collapsed ? 'Show tables sidebar' : 'Hide tables sidebar';
+        var label = collapsed ? 'Show tables sidebar' : 'Hide tables sidebar';
+        // Header chevron button
+        if (headerBtn) {
+          headerBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+          headerBtn.setAttribute('aria-label', label);
+          headerBtn.title = label;
+        }
+        if (headerIcon) headerIcon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
+        // Tables heading button inside the sidebar
+        if (tablesToggle) {
+          tablesToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        }
       }
 
-      var storedCollapsed = false;
-      try {
-        storedCollapsed = localStorage.getItem(APP_SIDEBAR_PANEL_KEY) === '1';
-      } catch (e) { /* localStorage unavailable */ }
-      applyAppSidebarCollapsed(storedCollapsed);
-
-      btn.addEventListener('click', function() {
+      /** Toggle collapsed state and persist to localStorage. */
+      function toggleSidebarCollapsed() {
         var collapsed = !layout.classList.contains('app-sidebar-panel-collapsed');
         applyAppSidebarCollapsed(collapsed);
-        try {
-          localStorage.setItem(APP_SIDEBAR_PANEL_KEY, collapsed ? '1' : '0');
-        } catch (e) { /* ignore */ }
-      });
-    })();
-
-    // --- Sidebar tables collapsible toggle ---
-    // Clicking the "Tables" heading collapses/expands the sidebar table list.
-    // Collapsed state is persisted to localStorage so it survives page reloads.
-    var SIDEBAR_COLLAPSED_KEY = 'saropa_sidebar_tables_collapsed';
-    (function initSidebarCollapsible() {
-      var toggle = document.getElementById('tables-heading-toggle');
-      var wrap = document.getElementById('sidebar-tables-wrap');
-      if (!toggle || !wrap) return;
-
-      // Restore collapsed state from localStorage
-      var wasCollapsed = false;
-      try { wasCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'; } catch (e) {}
-      if (wasCollapsed) {
-        wrap.classList.add('collapsed');
-        toggle.setAttribute('aria-expanded', 'false');
+        try { localStorage.setItem(APP_SIDEBAR_PANEL_KEY, collapsed ? '1' : '0'); }
+        catch (e) { /* localStorage unavailable */ }
       }
 
-      // Toggle on click. Since the toggle is now a native <button>, Enter/Space
-      // keypress is handled automatically by the browser — no keydown listener needed.
-      function toggleCollapse() {
-        var isCollapsed = wrap.classList.toggle('collapsed');
-        toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
-        try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, isCollapsed ? '1' : '0'); } catch (e) {}
-      }
-      toggle.addEventListener('click', toggleCollapse);
+      // Restore persisted state on page load
+      var storedCollapsed = false;
+      try { storedCollapsed = localStorage.getItem(APP_SIDEBAR_PANEL_KEY) === '1'; }
+      catch (e) { /* localStorage unavailable */ }
+      applyAppSidebarCollapsed(storedCollapsed);
+
+      // Clean up orphaned key from the old vertical-collapse mechanism
+      try { localStorage.removeItem('saropa_sidebar_tables_collapsed'); }
+      catch (e) { /* ignore */ }
+
+      // Both entry points share the same toggle function
+      if (headerBtn) headerBtn.addEventListener('click', toggleSidebarCollapsed);
+      if (tablesToggle) tablesToggle.addEventListener('click', toggleSidebarCollapsed);
     })();
 
     // Search toolbar button: opens Search tab and focuses its inline search input.
@@ -6036,7 +6076,19 @@
             link.onerror = null;
             link.onload = null;
           }, 3000);
-          link.onload = function() { clearTimeout(cssTimer); };
+          link.onload = function() {
+            clearTimeout(cssTimer);
+            // Flag that the enhanced CDN stylesheet loaded successfully.
+            // The theme system uses this to unlock the showcase theme —
+            // a glassmorphism light variant that relies on effects
+            // defined only in drift-enhanced.css.
+            window._driftEnhancedLoaded = true;
+            // If no explicit user preference is saved, switch to showcase
+            // now that its visual effects are available.
+            if (!localStorage.getItem(THEME_KEY)) {
+              applyTheme('showcase');
+            }
+          };
           link.onerror = function() { clearTimeout(cssTimer); };
           document.head.appendChild(link);
         }

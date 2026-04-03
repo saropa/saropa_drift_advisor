@@ -34,9 +34,18 @@ browse source on
 
 ## [Unreleased]
 
+### Added
+
+- **Showcase theme (CDN-only)** — A third theme option for the web viewer with glassmorphism frosted-glass panels, animated pastel gradient backgrounds, rainbow side border accents, drop shadows, staggered entrance animations, and purple accent colours. The theme is the default when the enhanced CDN stylesheet loads and cycles between Showcase → Dark → Light via the header toggle. When the CDN is unavailable, the viewer falls back to the existing dark/light two-way toggle with no visual regression
+
+### Changed
+
+- **Tables heading now collapses sidebar horizontally** — Clicking the "Tables" heading in the sidebar collapses the entire sidebar panel to the left (same as the header chevron button) instead of vertically collapsing the table list upward
+
 ### Fixed
 
 - Anomaly scanner no longer flags empty strings in nullable text columns — if the schema says the field is optional, empty strings are a valid design choice, not a data quality warning
+- **"Run CREATE INDEX Now" quick fix removed** — the action always failed because the debug server only allows read-only SQL; the "Copy CREATE INDEX SQL" action remains and is now the preferred quick fix for all index suggestions
 
 ---
 

@@ -225,3 +225,403 @@ pre {
 body.theme-dark .highlight {
   box-shadow: 0 0 0 1px rgba(240, 224, 192, 0.15);
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Showcase theme — glassmorphism, rainbow accents, animated gradients
+   ═══════════════════════════════════════════════════════════════════
+   This entire section is CDN-only and never bundled into user APKs.
+   It relies on --bg, --fg, --surface, etc. set by body.theme-showcase
+   in style.scss. If the enhanced CSS fails to load, showcase degrades
+   to a clean light theme using only those variables.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Animated gradient background ────────────────────────────────── */
+/* A slow-moving pastel gradient behind the entire page. The
+   animation is GPU-accelerated via background-position only. */
+
+@keyframes showcase-bg-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+body.theme-showcase {
+  background:
+    linear-gradient(
+      135deg,
+      #f4f2f7 0%,
+      #ede9fe 15%,
+      #e0f2fe 30%,
+      #fce7f3 50%,
+      #fef3c7 65%,
+      #d1fae5 80%,
+      #f4f2f7 100%
+    );
+  background-size: 400% 400%;
+  animation: showcase-bg-shift 20s ease infinite;
+}
+
+/* ── Glassmorphism mixin — frosted glass panels ─────────────────── */
+/* backdrop-filter: blur creates the frosted-glass illusion. We
+   layer a subtle white overlay to keep text readable against the
+   shifting gradient background. */
+
+body.theme-showcase .app-header {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 24px rgba(124, 58, 237, 0.06);
+}
+
+body.theme-showcase #app-sidebar {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border-right: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+body.theme-showcase .collapsible-body:not(.collapsed) {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow:
+    0 0 0 1px rgba(180, 170, 200, 0.2),
+    0 4px 16px rgba(124, 58, 237, 0.05);
+}
+
+/* ── Rainbow side border accents ─────────────────────────────────── */
+/* A 3px animated rainbow gradient on the left edge of expanded
+   sections and feature cards, using a pseudo-element to avoid
+   layout conflicts with existing borders. */
+
+@keyframes rainbow-slide {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 0% 200%; }
+}
+
+body.theme-showcase .feature-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.06);
+  overflow: hidden;
+}
+
+body.theme-showcase .feature-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    #f43f5e, #f97316, #eab308, #22c55e,
+    #06b6d4, #3b82f6, #8b5cf6, #f43f5e
+  );
+  background-size: 100% 200%;
+  animation: rainbow-slide 4s linear infinite;
+  border-radius: 3px 0 0 3px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+body.theme-showcase .feature-card:hover::before,
+body.theme-showcase .feature-card.expanded::before {
+  opacity: 1;
+}
+
+body.theme-showcase .feature-card.expanded {
+  border-color: rgba(124, 58, 237, 0.2);
+  box-shadow:
+    0 4px 20px rgba(124, 58, 237, 0.1),
+    0 1px 3px rgba(124, 58, 237, 0.08);
+}
+
+/* ── Sidebar rainbow left accent ─────────────────────────────────── */
+
+body.theme-showcase #app-sidebar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    #8b5cf6, #3b82f6, #06b6d4, #22c55e,
+    #eab308, #f97316, #f43f5e, #8b5cf6
+  );
+  background-size: 100% 200%;
+  animation: rainbow-slide 6s linear infinite;
+  opacity: 0.5;
+}
+
+/* ── Glassmorphism buttons ───────────────────────────────────────── */
+
+body.theme-showcase .header-btn {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.06);
+  transition: all 0.2s ease;
+}
+
+body.theme-showcase .header-btn:hover {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(124, 58, 237, 0.3);
+  box-shadow:
+    0 2px 8px rgba(124, 58, 237, 0.12),
+    0 0 0 1px rgba(124, 58, 237, 0.08);
+  transform: translateY(-1px);
+}
+
+body.theme-showcase .header-btn:active {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 3px rgba(124, 58, 237, 0.1);
+}
+
+/* ── Primary action buttons: gradient fill ───────────────────────── */
+/* Buttons with .btn-primary get the purple-blue gradient. We use
+   background-image because --btn-primary-bg contains a gradient. */
+
+body.theme-showcase button[class*="primary"],
+body.theme-showcase .btn-primary {
+  background-image: linear-gradient(135deg, #7c3aed, #2563eb);
+  background-color: transparent;
+  border: none;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.25);
+  transition: all 0.2s ease;
+}
+
+body.theme-showcase button[class*="primary"]:hover,
+body.theme-showcase .btn-primary:hover {
+  background-image: linear-gradient(135deg, #6d28d9, #1d4ed8);
+  box-shadow:
+    0 4px 16px rgba(124, 58, 237, 0.35),
+    0 0 0 2px rgba(124, 58, 237, 0.1);
+  transform: translateY(-1px);
+}
+
+/* ── Input fields — frosted glass ────────────────────────────────── */
+
+body.theme-showcase input,
+body.theme-showcase select,
+body.theme-showcase textarea {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(180, 170, 200, 0.3);
+  transition: all 0.2s ease;
+}
+
+body.theme-showcase input:focus,
+body.theme-showcase select:focus,
+body.theme-showcase textarea:focus {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(124, 58, 237, 0.4);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+/* ── Table styling ───────────────────────────────────────────────── */
+
+body.theme-showcase #data-table th,
+body.theme-showcase .sql-result table th {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+body.theme-showcase #data-table tbody tr:hover,
+body.theme-showcase .sql-result table tbody tr:hover {
+  background: rgba(124, 58, 237, 0.05);
+}
+
+body.theme-showcase #data-table th.col-pinned,
+body.theme-showcase #data-table td.col-pinned {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── Pre / code blocks — frosted ─────────────────────────────────── */
+
+body.theme-showcase pre {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(180, 170, 200, 0.2);
+  box-shadow: 0 1px 6px rgba(124, 58, 237, 0.04);
+}
+
+/* ── Search highlight — purple glow ──────────────────────────────── */
+
+body.theme-showcase .highlight {
+  background: rgba(124, 58, 237, 0.12);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.15);
+  border-radius: 3px;
+}
+
+/* ── Collapsible headers — glass hover ───────────────────────────── */
+
+body.theme-showcase .collapsible-header:hover {
+  background: rgba(124, 58, 237, 0.04);
+}
+
+/* ── Copy toast ──────────────────────────────────────────────────── */
+
+body.theme-showcase .copy-toast {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* ── Scrollbar — purple tinted ───────────────────────────────────── */
+
+body.theme-showcase ::-webkit-scrollbar-track {
+  background: rgba(244, 242, 247, 0.5);
+}
+
+body.theme-showcase ::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.2);
+  border-radius: 4px;
+}
+
+body.theme-showcase ::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.35);
+}
+
+/* ── Version badge pill — frosted ────────────────────────────────── */
+
+body.theme-showcase #version-badge {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* ── Header pill (live indicator) — glass ────────────────────────── */
+
+body.theme-showcase .header-pill {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* ── Mask toggle — glass ─────────────────────────────────────────── */
+
+body.theme-showcase .header-mask-toggle {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+body.theme-showcase .header-mask-toggle:hover {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(124, 58, 237, 0.3);
+}
+
+/* ── Diagram tables — frosted ────────────────────────────────────── */
+
+body.theme-showcase .diagram-table rect {
+  fill: rgba(255, 255, 255, 0.55);
+  stroke: rgba(180, 170, 200, 0.3);
+}
+
+body.theme-showcase .diagram-table:hover rect {
+  stroke: #7c3aed;
+}
+
+/* ── Subtle entrance animation for main content ──────────────────── */
+/* Cards and sections fade in with a slight upward drift when the
+   showcase theme is active. Uses a one-shot animation. */
+
+@keyframes showcase-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+body.theme-showcase .feature-card,
+body.theme-showcase .collapsible-header,
+body.theme-showcase #data-table {
+  animation: showcase-fade-in 0.4s ease both;
+}
+
+/* Stagger the entrance so cards cascade in sequence. Each
+   successive card starts its animation slightly later. */
+body.theme-showcase .feature-card:nth-child(1) { animation-delay: 0s; }
+body.theme-showcase .feature-card:nth-child(2) { animation-delay: 0.05s; }
+body.theme-showcase .feature-card:nth-child(3) { animation-delay: 0.1s; }
+body.theme-showcase .feature-card:nth-child(4) { animation-delay: 0.15s; }
+body.theme-showcase .feature-card:nth-child(5) { animation-delay: 0.2s; }
+body.theme-showcase .feature-card:nth-child(6) { animation-delay: 0.25s; }
+body.theme-showcase .feature-card:nth-child(7) { animation-delay: 0.3s; }
+body.theme-showcase .feature-card:nth-child(8) { animation-delay: 0.35s; }
+
+/* ── Diff result — glass card ────────────────────────────────────── */
+
+body.theme-showcase .diff-result {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.06);
+}
+
+/* ── Query builder — glass sections ──────────────────────────────── */
+
+body.theme-showcase .qb-section .qb-body {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(180, 170, 200, 0.2);
+}
+
+/* ── Chart enhancements — purple accent ──────────────────────────── */
+
+body.theme-showcase .chart-bar {
+  filter: drop-shadow(0 1px 2px rgba(124, 58, 237, 0.15));
+}
+
+body.theme-showcase .chart-dot {
+  filter: drop-shadow(0 1px 3px rgba(124, 58, 237, 0.2));
+}
+
+/* ── Loading overlay — frosted ───────────────────────────────────── */
+
+body.theme-showcase #loading-overlay {
+  background: rgba(244, 242, 247, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ── Showcase indicator — a small, tasteful label in the footer
+   area so users know they're seeing the enhanced experience. ─────── */
+
+body.theme-showcase::after {
+  content: '\2728';  /* sparkles emoji */
+  position: fixed;
+  bottom: 8px;
+  right: 12px;
+  font-size: 14px;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 9999;
+}
