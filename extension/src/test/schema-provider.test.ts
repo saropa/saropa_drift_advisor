@@ -194,6 +194,9 @@ describe('SchemaProvider', () => {
       assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
       // Must NOT use the FK label
       assert.ok(!issue.message.includes('FK column'));
+      // Must NOT produce missing-fk-index for _id heuristic columns
+      const fkIssues = issues.filter((i) => i.code === 'missing-fk-index');
+      assert.strictEqual(fkIssues.length, 0, '_id columns must not produce missing-fk-index');
     });
 
     it('should report missing-datetime-index for low-priority datetime suggestions', async () => {
