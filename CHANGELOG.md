@@ -34,6 +34,15 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Showcase theme now activates reliably** — The enhanced CSS load detection used a 3-second timeout that nulled the `onload` callback, permanently locking out the showcase theme if the CDN was slightly slow or the browser never fired `onload` for `<link>` elements (VS Code webview, some WebKit builds). Replaced with an idempotent `markEnhancedReady()` function called by both `onload` and a polling fallback that checks `link.sheet` every 250ms for up to 10 seconds
+- Debug server now survives Flutter hot restart without a `SocketException` — previously required a full cold restart to reconnect the VS Code extension
+
+---
+
 ## [2.17.0]
 
 ### Added

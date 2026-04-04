@@ -192,7 +192,10 @@ class _DriftDebugServerImpl {
           ? InternetAddress.loopbackIPv4
           : InternetAddress.anyIPv4;
 
-      _server = await HttpServer.bind(address, port);
+      // shared: true enables SO_REUSEADDR/SO_REUSEPORT so the new
+      // isolate can bind the same port during a Flutter hot restart,
+      // before the old isolate has released its socket.
+      _server = await HttpServer.bind(address, port, shared: true);
       final server = _server;
       if (server == null) {
         return;

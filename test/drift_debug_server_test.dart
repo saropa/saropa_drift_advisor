@@ -158,6 +158,71 @@ void main() {
     );
   });
 
+  group('hot restart resilience', () {
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    test(
+      'shared:true allows re-binding the same port after stop+start '
+      '(simulates hot restart)',
+      () async {
+        // First start — bind an ephemeral port.
+        await DriftDebugServer.start(
+          query: (_) async => <Map<String, dynamic>>[],
+          enabled: true,
+          port: 0,
+        );
+        final firstPort = DriftDebugServer.port;
+        expect(firstPort, isNotNull);
+        expect(firstPort, greaterThan(0));
+
+        // Stop releases the server socket.
+        await DriftDebugServer.stop();
+        expect(DriftDebugServer.port, isNull);
+
+        // Second start on the SAME port — this is the path that failed
+        // before shared:true was added, because the OS had not yet
+        // released the socket from the previous bind.
+        await DriftDebugServer.start(
+          query: (_) async => <Map<String, dynamic>>[],
+          enabled: true,
+          port: firstPort!,
+        );
+        expect(DriftDebugServer.port, equals(firstPort));
+      },
+    );
+
+    test(
+      'HttpServer.bind with shared:true succeeds when port is already '
+      'bound by another shared listener',
+      () async {
+        // Bind a port with shared:true (mimics the old isolate's socket
+        // lingering during hot restart).
+        final first = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+          shared: true,
+        );
+        final port = first.port;
+
+        try {
+          // Second bind on the same port with shared:true must succeed —
+          // this is the kernel behavior that shared:true enables.
+          final second = await HttpServer.bind(
+            InternetAddress.loopbackIPv4,
+            port,
+            shared: true,
+          );
+          expect(second.port, equals(port));
+          await second.close();
+        } finally {
+          await first.close();
+        }
+      },
+    );
+  });
+
   group('defensive behavior: query and edge cases', () {
     tearDown(() async {
       await DriftDebugServer.stop();
