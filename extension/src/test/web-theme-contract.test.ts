@@ -243,4 +243,34 @@ describe('Web theme contract — app.js', () => {
       'initTheme must fall back from showcase to light when enhanced CSS is unavailable',
     );
   });
+
+  it('does NOT null link.onload in a timeout (regression: destroyed showcase detection)', () => {
+    // Before this fix, a 3-second setTimeout nulled link.onload and
+    // link.onload, so if the CDN was slightly slow or the browser
+    // never fired onload (VS Code webview), _driftEnhancedLoaded was
+    // never set and the showcase theme was permanently locked out.
+    assert.ok(
+      !js.includes('link.onload = null'),
+      'app.js must NOT null link.onload — this destroyed showcase detection in v2.17.0',
+    );
+  });
+
+  it('uses polling fallback to detect enhanced CSS load', () => {
+    // Some browsers/webviews never fire onload for <link> stylesheet
+    // elements. The polling fallback checks link.sheet to detect when
+    // the CSS is parsed, regardless of whether onload fires.
+    assert.ok(
+      js.includes('link.sheet'),
+      'app.js must poll link.sheet as fallback for onload-less environments',
+    );
+  });
+
+  it('markEnhancedReady is idempotent', () => {
+    // The guard prevents double-applying the showcase theme if both
+    // onload and the poll fire.
+    assert.ok(
+      js.includes('if (window._driftEnhancedLoaded) return'),
+      'markEnhancedReady must guard against double invocation',
+    );
+  });
 });

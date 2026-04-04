@@ -6065,31 +6065,54 @@
           // Load enhanced CSS from jsDelivr CDN. The URL is pinned to the
           // exact git tag matching this package version, so the styles are
           // immutably cached per release. If the CDN is down, blocked by a
-          // firewall, or the tag hasn't been pushed yet, the onerror handler
-          // fires silently and the inline CSS provides the full baseline.
-          // A 3-second timeout prevents indefinite hanging on slow networks.
+          // firewall, or the tag hasn't been pushed yet, the page degrades
+          // gracefully to inline CSS. Detection uses onload + a polling
+          // fallback (some webviews never fire onload for <link> elements).
           var link = document.createElement('link');
           link.rel = 'stylesheet';
           link.href = 'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v'
             + d.version + '/web/drift-enhanced.css';
-          var cssTimer = setTimeout(function() {
-            link.onerror = null;
-            link.onload = null;
-          }, 3000);
-          link.onload = function() {
-            clearTimeout(cssTimer);
-            // Flag that the enhanced CDN stylesheet loaded successfully.
-            // The theme system uses this to unlock the showcase theme —
-            // a glassmorphism light variant that relies on effects
-            // defined only in drift-enhanced.css.
+          // Unlock the showcase theme once the enhanced stylesheet is
+          // usable. Called by onload *or* by the timeout poller (some
+          // browsers/webviews never fire onload for <link> elements).
+          function markEnhancedReady() {
+            if (window._driftEnhancedLoaded) return; // already done
             window._driftEnhancedLoaded = true;
-            // If no explicit user preference is saved, switch to showcase
-            // now that its visual effects are available.
             if (!localStorage.getItem(THEME_KEY)) {
               applyTheme('showcase');
             }
-          };
-          link.onerror = function() { clearTimeout(cssTimer); };
+          }
+
+          link.onload = function() { markEnhancedReady(); };
+          link.onerror = function() { /* CDN down — degrade gracefully */ };
+
+          // Fallback: some browsers/webviews (VS Code, older WebKit)
+          // never fire onload on <link> stylesheet elements. Poll the
+          // sheet's cssRules to detect when it's actually parsed and
+          // applied. Stops after 10 seconds to avoid infinite polling.
+          var pollCount = 0;
+          var pollInterval = setInterval(function() {
+            pollCount++;
+            try {
+              // cssRules is accessible once the stylesheet is parsed.
+              // Cross-origin sheets throw SecurityError — catch that.
+              if (link.sheet && link.sheet.cssRules && link.sheet.cssRules.length > 0) {
+                clearInterval(pollInterval);
+                markEnhancedReady();
+              }
+            } catch (e) {
+              // Cross-origin SecurityError: the sheet loaded (it has a
+              // .sheet object) but we can't read its rules. That's fine
+              // — it means the CSS is applied.
+              if (link.sheet) {
+                clearInterval(pollInterval);
+                markEnhancedReady();
+              }
+            }
+            if (pollCount >= 40) { // 40 × 250ms = 10s max
+              clearInterval(pollInterval);
+            }
+          }, 250);
           document.head.appendChild(link);
         }
       })
