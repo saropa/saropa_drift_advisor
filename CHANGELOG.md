@@ -34,11 +34,19 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [2.17.4]
+
+Fixed the changelog — 2.17.2 had accidentally overwritten the 2.17.1 entry. Both versions are now listed correctly below. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.17.3/CHANGELOG.md)
+
+### Changed
+
+- **Publish pipeline: store propagation polling** — After publishing, the pipeline now polls pub.dev, VS Code Marketplace, and/or Open VSX APIs until the new version is visible (30 s interval, 10 min max). Catches CDN propagation delays so you don't close the terminal thinking the release is done when users still see the old version. Timeout is non-fatal
 
 ---
 
-## [2.17.2]
+## [2.17.3]
+
+Midnight theme, draft conflict detection, masked CSV export, clipboard paste import, and a wave of false-positive fixes across diagnostics. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.17.2/CHANGELOG.md)
 
 ### Added
 
@@ -71,6 +79,12 @@ browse source on
 - **N+1 false positive on activity/log tables** — The N+1 query detector now only counts SELECT operations. Write operations (INSERT, UPDATE, DELETE) are inherently per-record and were incorrectly inflating the hit count, causing false warnings on tables like `activities` that receive frequent independent writes from user actions
 - **Index suggestion false positives (`missing-id-index`, `missing-datetime-index`)** — Three fixes: (1) the `_id` heuristic now only fires when a matching table exists in the database (e.g. `user_id` fires if `users` table exists, but `api_id`, `swapi_id`, `wikidata_id` are suppressed); (2) the datetime heuristic now checks the Dart column type and skips non-datetime types like `BoolColumn` (fixes `is_free_time` being flagged as a datetime column); (3) both heuristic codes downgraded from Information to Hint severity so they appear as faded text rather than cluttering the Problems panel
 
+---
+
+## [2.17.1]
+
+Showcase theme, webview panels for all command output, sidebar column counts, and reliable theme activation. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.17.1/CHANGELOG.md)
+
 ### Added
 
 - **Showcase theme (CDN-only)** — A third theme option for the web viewer with glassmorphism frosted-glass panels, animated pastel gradient backgrounds, rainbow side border accents, drop shadows, staggered entrance animations, and purple accent colors. The theme is the default when the enhanced CDN stylesheet loads and cycles between Showcase → Dark → Light via the header toggle. When the CDN is unavailable, the viewer falls back to the existing dark/light two-way toggle with no visual regression
@@ -96,6 +110,8 @@ browse source on
 ---
 
 ## [2.16.0]
+
+Dashboard tab renamed for clarity, and web UI assets now load reliably on Flutter Windows desktop. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.16.0/CHANGELOG.md)
 
 ### Changed
 

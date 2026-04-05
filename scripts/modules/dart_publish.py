@@ -71,6 +71,22 @@ def run_dart_publish(
         warn("GitHub release failed. Create manually: "
              f"gh release create v{version}")
 
+    # Poll pub.dev until the new version is visible.  The Dart package is
+    # published via GitHub Actions (triggered by the tag push above), so
+    # propagation can take a few minutes while CI runs + CDN catches up.
+    heading("Dart \u00b7 Verify pub.dev propagation")
+    from modules.store_propagation import run_store_propagation_wait
+    propagation_ok = run_step(
+        "Store propagation",
+        lambda: run_store_propagation_wait(version, stores="both", target="dart") == 0,
+        results,
+    )
+    if not propagation_ok:
+        # Propagation timeout is non-fatal — the publish workflow was
+        # triggered successfully; pub.dev may just be slow to index.
+        warn("pub.dev propagation check timed out; publish workflow likely still running.")
+        info("Monitor progress at the GitHub Actions page above.")
+
     report = save_report(results, version, is_publish=True, config=DART)
     print_timing(results)
     print_success_banner(version, config=DART)

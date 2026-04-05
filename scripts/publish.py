@@ -292,6 +292,7 @@ _STEP_EXIT_CODES = {
     "Package": ExitCode.PACKAGE_FAILED,
     "Marketplace publish": ExitCode.PUBLISH_FAILED,
     "Open VSX publish": ExitCode.OPENVSX_FAILED,
+    "Store propagation": ExitCode.STORE_VERSION_MISMATCH,
 }
 
 

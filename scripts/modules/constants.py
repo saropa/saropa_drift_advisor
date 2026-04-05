@@ -75,6 +75,7 @@ class ExitCode:
     RELEASE_FAILED = 13
     USER_CANCELLED = 14
     OPENVSX_FAILED = 15
+    STORE_VERSION_MISMATCH = 16
 
 
 # ── Color Setup ──────────────────────────────────────────────

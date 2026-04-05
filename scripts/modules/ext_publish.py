@@ -333,7 +333,7 @@ def run_ext_publish(
     vsix_path: str,
     results: list[tuple[str, bool, float]],
 ) -> bool:
-    """Run extension publish steps (11-15). Returns True on success."""
+    """Run extension publish steps (11-16). Returns True on success."""
     from modules.report import (
         save_report, print_timing, print_success_banner, print_report_path,
     )
@@ -344,6 +344,22 @@ def run_ext_publish(
         return False
     if not _run_publish_steps(version, vsix_path, results, stores=stores):
         return False
+
+    # Step 16: poll registry APIs until the new version is live.  This
+    # catches CDN propagation delays so we don't close the terminal
+    # thinking the release is done when users still see the old version.
+    heading("Step 16 · Verify store propagation")
+    from modules.store_propagation import run_store_propagation_wait
+    from modules.utils import run_step
+    propagation_ok = run_step(
+        "Store propagation",
+        lambda: run_store_propagation_wait(version, stores, target="extension") == 0,
+        results,
+    )
+    if not propagation_ok:
+        # Propagation timeout is non-fatal — the publish itself succeeded.
+        # Warn but don't abort.
+        warn("Store propagation check timed out; publish likely succeeded.")
 
     report = save_report(results, version, vsix_path, is_publish=True, config=EXTENSION)
     print_timing(results)
