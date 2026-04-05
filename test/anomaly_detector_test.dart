@@ -302,32 +302,37 @@ void main() {
         expect(outliers, isEmpty);
       });
 
-      test('skips outlier detection when all values identical (zero stddev)',
-          () async {
-        final result = await AnomalyDetector.getAnomaliesResult(
-          _anomalyQuery(
-            tableColumns: {
-              'items': [_col('id', 'INTEGER', pk: 1), _col('score', 'INTEGER')],
-            },
-            counts: {'items': 5},
-            // All values are 0 → variance=0, stddev=0 → skip.
-            numericStats: {
-              'items.score': {
-                'avg_val': 0.0,
-                'min_val': 0.0,
-                'max_val': 0.0,
-                'variance': 0.0,
+      test(
+        'skips outlier detection when all values identical (zero stddev)',
+        () async {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'items': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col('score', 'INTEGER'),
+                ],
               },
-            },
-          ),
-        );
+              counts: {'items': 5},
+              // All values are 0 → variance=0, stddev=0 → skip.
+              numericStats: {
+                'items.score': {
+                  'avg_val': 0.0,
+                  'min_val': 0.0,
+                  'max_val': 0.0,
+                  'variance': 0.0,
+                },
+              },
+            ),
+          );
 
-        final anomalies = result['anomalies'] as List;
-        final outliers = anomalies
-            .where((a) => (a as Map)['type'] == 'potential_outlier')
-            .toList();
-        expect(outliers, isEmpty);
-      });
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(outliers, isEmpty);
+        },
+      );
 
       test(
         'skips outlier detection for BOOLEAN columns (type-based guard)',
@@ -414,26 +419,55 @@ void main() {
       // range is expected and correct.
       // -------------------------------------------------------
 
-      test(
-        'no outlier for longitude columns (coordinate skip)',
-        () async {
-          // Longitude spans -180..180 for global cities —
-          // the wide range is geographic reality, not an anomaly.
+      test('no outlier for longitude columns (coordinate skip)', () async {
+        // Longitude spans -180..180 for global cities —
+        // the wide range is geographic reality, not an anomaly.
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'country_cities': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('longitude', 'REAL'),
+              ],
+            },
+            counts: {'country_cities': 1000},
+            numericStats: {
+              'country_cities.longitude': {
+                'avg_val': 13.20,
+                'min_val': -175.2,
+                'max_val': 179.216667,
+                'variance': 10443.0,
+              },
+            },
+          ),
+        );
+
+        final anomalies = result['anomalies'] as List;
+        final outliers = anomalies
+            .where((a) => (a as Map)['type'] == 'potential_outlier')
+            .toList();
+        expect(
+          outliers,
+          isEmpty,
+          reason: 'Coordinate columns should be skipped by name pattern',
+        );
+      });
+
+      test('no outlier for lat/lng/lon column name variants', () async {
+        // All coordinate name variants should be skipped.
+        for (final colName in ['lat', 'lng', 'lon', 'latitude', 'longitude']) {
           final result = await AnomalyDetector.getAnomaliesResult(
             _anomalyQuery(
               tableColumns: {
-                'country_cities': [
-                  _col('id', 'INTEGER', pk: 1),
-                  _col('longitude', 'REAL'),
-                ],
+                'places': [_col('id', 'INTEGER', pk: 1), _col(colName, 'REAL')],
               },
-              counts: {'country_cities': 1000},
+              counts: {'places': 500},
               numericStats: {
-                'country_cities.longitude': {
-                  'avg_val': 13.20,
-                  'min_val': -175.2,
-                  'max_val': 179.216667,
-                  'variance': 10443.0,
+                'places.$colName': {
+                  'avg_val': 10.0,
+                  'min_val': -170.0,
+                  'max_val': 175.0,
+                  'variance': 10000.0,
                 },
               },
             ),
@@ -446,85 +480,44 @@ void main() {
           expect(
             outliers,
             isEmpty,
-            reason: 'Coordinate columns should be skipped by name pattern',
+            reason: 'Column "$colName" should be skipped as coordinate',
           );
-        },
-      );
+        }
+      });
 
-      test(
-        'no outlier for lat/lng/lon column name variants',
-        () async {
-          // All coordinate name variants should be skipped.
-          for (final colName in ['lat', 'lng', 'lon', 'latitude', 'longitude']) {
-            final result = await AnomalyDetector.getAnomaliesResult(
-              _anomalyQuery(
-                tableColumns: {
-                  'places': [
-                    _col('id', 'INTEGER', pk: 1),
-                    _col(colName, 'REAL'),
-                  ],
-                },
-                counts: {'places': 500},
-                numericStats: {
-                  'places.$colName': {
-                    'avg_val': 10.0,
-                    'min_val': -170.0,
-                    'max_val': 175.0,
-                    'variance': 10000.0,
-                  },
-                },
-              ),
-            );
-
-            final anomalies = result['anomalies'] as List;
-            final outliers = anomalies
-                .where((a) => (a as Map)['type'] == 'potential_outlier')
-                .toList();
-            expect(
-              outliers,
-              isEmpty,
-              reason: 'Column "$colName" should be skipped as coordinate',
-            );
-          }
-        },
-      );
-
-      test(
-        'no outlier for version columns (version skip)',
-        () async {
-          // Date-encoded version integers (YYYYMMDD format)
-          // create legitimately large values.
-          final result = await AnomalyDetector.getAnomaliesResult(
-            _anomalyQuery(
-              tableColumns: {
-                'contacts': [
-                  _col('id', 'INTEGER', pk: 1),
-                  _col('version', 'INTEGER'),
-                ],
+      test('no outlier for version columns (version skip)', () async {
+        // Date-encoded version integers (YYYYMMDD format)
+        // create legitimately large values.
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'contacts': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('version', 'INTEGER'),
+              ],
+            },
+            counts: {'contacts': 1000},
+            numericStats: {
+              'contacts.version': {
+                'avg_val': 74744.97,
+                'min_val': 1.0,
+                'max_val': 26010901.0,
+                'variance': 6710000000000.0,
               },
-              counts: {'contacts': 1000},
-              numericStats: {
-                'contacts.version': {
-                  'avg_val': 74744.97,
-                  'min_val': 1.0,
-                  'max_val': 26010901.0,
-                  'variance': 6710000000000.0,
-                },
-              },
-            ),
-          );
+            },
+          ),
+        );
 
-          final anomalies = result['anomalies'] as List;
-          final outliers = anomalies
-              .where((a) => (a as Map)['type'] == 'potential_outlier')
-              .toList();
-          expect(
-            outliers,
-            isEmpty,
-            reason: 'Version columns should be skipped by name pattern',
-          );
-        },
-      );
+        final anomalies = result['anomalies'] as List;
+        final outliers = anomalies
+            .where((a) => (a as Map)['type'] == 'potential_outlier')
+            .toList();
+        expect(
+          outliers,
+          isEmpty,
+          reason: 'Version columns should be skipped by name pattern',
+        );
+      });
 
       test(
         'no outlier for exchange rates with high natural variance',

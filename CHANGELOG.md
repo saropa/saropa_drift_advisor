@@ -36,6 +36,10 @@ browse source on
 
 ## [Unreleased]
 
+---
+
+## [2.17.2]
+
 ### Added
 
 - **Midnight theme (CDN-only)** — A fourth theme option: deep navy dark mode with periwinkle accents, glassmorphic panels, animated gradient background, and rainbow side borders. Uses the saropa.com dark palette (#1a1d2b / #2c3350 / #8fa8ff). Degrades gracefully to the base dark theme when the CDN is unavailable
@@ -66,10 +70,6 @@ browse source on
 - **Table cells carry raw values for editing** — Report table `<td>` elements now include `data-raw-value` attributes so the inline editing script correctly distinguishes `NULL` from the text "NULL"
 - **N+1 false positive on activity/log tables** — The N+1 query detector now only counts SELECT operations. Write operations (INSERT, UPDATE, DELETE) are inherently per-record and were incorrectly inflating the hit count, causing false warnings on tables like `activities` that receive frequent independent writes from user actions
 - **Index suggestion false positives (`missing-id-index`, `missing-datetime-index`)** — Three fixes: (1) the `_id` heuristic now only fires when a matching table exists in the database (e.g. `user_id` fires if `users` table exists, but `api_id`, `swapi_id`, `wikidata_id` are suppressed); (2) the datetime heuristic now checks the Dart column type and skips non-datetime types like `BoolColumn` (fixes `is_free_time` being flagged as a datetime column); (3) both heuristic codes downgraded from Information to Hint severity so they appear as faded text rather than cluttering the Problems panel
-
----
-
-## [2.17.1]
 
 ### Added
 

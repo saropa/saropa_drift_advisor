@@ -164,15 +164,10 @@ abstract final class IndexAnalyzer {
   /// exists. `api_id` returns `false` when no `api`/`apis`
   /// table is present — it is likely an external reference ID,
   /// not a foreign key.
-  static bool _hasMatchingTable(
-    String colName,
-    Set<String> tableNamesLower,
-  ) {
+  static bool _hasMatchingTable(String colName, Set<String> tableNamesLower) {
     // Strip the trailing _id to get the prefix
     // (e.g. "category_id" → "category").
-    final prefix = colName
-        .substring(0, colName.length - 3)
-        .toLowerCase();
+    final prefix = colName.substring(0, colName.length - 3).toLowerCase();
 
     if (prefix.isEmpty) return false;
 

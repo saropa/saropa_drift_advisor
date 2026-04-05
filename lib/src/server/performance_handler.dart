@@ -18,9 +18,7 @@ final class PerformanceHandler {
   ///
   /// [slowThresholdMs] controls the minimum duration (in ms) for a query
   /// to be classified as "slow". Defaults to 100 ms when omitted.
-  Future<Map<String, dynamic>> getPerformanceData({
-    int slowThresholdMs = 100,
-  }) {
+  Future<Map<String, dynamic>> getPerformanceData({int slowThresholdMs = 100}) {
     final timings = List<QueryTiming>.of(_ctx.queryTimings);
     final totalQueries = timings.length;
     final totalDuration = timings.fold<int>(0, (sum, t) => sum + t.durationMs);
@@ -87,8 +85,9 @@ final class PerformanceHandler {
     try {
       // Parse optional slow-threshold override from query string
       final thresholdParam = requestUri?.queryParameters['slowThresholdMs'];
-      final threshold =
-          thresholdParam != null ? (int.tryParse(thresholdParam) ?? 100) : 100;
+      final threshold = thresholdParam != null
+          ? (int.tryParse(thresholdParam) ?? 100)
+          : 100;
       final data = await getPerformanceData(slowThresholdMs: threshold);
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(data));

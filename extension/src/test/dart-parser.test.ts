@@ -199,6 +199,14 @@ describe('isInsideComment', () => {
     const idx = src.indexOf('class');
     assert.strictEqual(isInsideComment(src, idx), false);
   });
+
+  it('should detect class at column 0 inside multiline block comment', () => {
+    // No `*` prefix on the continuation line — the backward scan for `/*`
+    // must still detect that we're inside a block comment
+    const src = '/*\nclass Foo extends Table {\n}\n*/';
+    const idx = src.indexOf('class');
+    assert.strictEqual(isInsideComment(src, idx), true);
+  });
 });
 
 describe('parseDartTables – comment filtering', () => {
@@ -225,6 +233,19 @@ describe('parseDartTables – comment filtering', () => {
     const src = '/* class Hidden extends Table { } */';
     const tables = parseDartTables(src, 'file:///test.dart');
     assert.strictEqual(tables.length, 0);
+  });
+
+  it('should skip table classes inside multiline block comments without * prefix', () => {
+    // Regression: class at column 0 inside /* ... */ must still be skipped
+    const src = [
+      '/*',
+      'class Hidden extends Table {',
+      '  IntColumn get id => integer()();',
+      '}',
+      '*/',
+    ].join('\n');
+    const tables = parseDartTables(src, 'file:///test.dart');
+    assert.strictEqual(tables.length, 0, 'should skip table inside multiline block comment');
   });
 
   it('should still parse real table classes', () => {

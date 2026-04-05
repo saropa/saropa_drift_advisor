@@ -204,14 +204,18 @@ abstract final class AnomalyDetector {
   /// Column name patterns for geographic coordinate
   /// columns — these naturally span wide ranges
   /// (lat: -90..90, lon: -180..180) by definition.
-  static final _coordinatePattern =
-      RegExp(r'^(lat|lng|lon|latitude|longitude)$', caseSensitive: false);
+  static final _coordinatePattern = RegExp(
+    r'^(lat|lng|lon|latitude|longitude)$',
+    caseSensitive: false,
+  );
 
   /// Column name patterns for version/revision columns —
   /// these often use date-encoded integers (e.g. YYYYMMDD)
   /// that create legitimately large values.
-  static final _versionPattern =
-      RegExp(r'^(version|revision|rev)$', caseSensitive: false);
+  static final _versionPattern = RegExp(
+    r'^(version|revision|rev)$',
+    caseSensitive: false,
+  );
 
   /// Computes statistical distribution metrics for
   /// [colName] and flags an outlier anomaly when min or
@@ -277,8 +281,7 @@ abstract final class AnomalyDetector {
     // SQL-computed variance. Clamp to zero to guard
     // against floating-point rounding producing tiny
     // negative values.
-    final rawVariance =
-        ServerUtils.toDouble(statsRows.first['variance']) ?? 0;
+    final rawVariance = ServerUtils.toDouble(statsRows.first['variance']) ?? 0;
     final stddev = sqrt(rawVariance < 0 ? 0 : rawVariance);
 
     // Zero stddev means all values are identical — no
