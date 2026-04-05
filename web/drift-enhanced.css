@@ -246,19 +246,20 @@ body.theme-dark .highlight {
 }
 
 body.theme-showcase {
+  /* Subtle pastel gradient — cool and airy, not warm/beige */
   background:
     linear-gradient(
       135deg,
-      #f4f2f7 0%,
-      #ede9fe 15%,
-      #e0f2fe 30%,
-      #fce7f3 50%,
-      #fef3c7 65%,
-      #d1fae5 80%,
-      #f4f2f7 100%
+      #fafbfe 0%,
+      #eef2ff 18%,
+      #e0f2fe 36%,
+      #f5f3ff 54%,
+      #ecfdf5 72%,
+      #eef2ff 90%,
+      #fafbfe 100%
     );
   background-size: 400% 400%;
-  animation: showcase-bg-shift 20s ease infinite;
+  animation: showcase-bg-shift 25s ease infinite;
 }
 
 /* ── Glassmorphism mixin — frosted glass panels ─────────────────── */
@@ -267,29 +268,32 @@ body.theme-showcase {
    shifting gradient background. */
 
 body.theme-showcase .app-header {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border-bottom: 1px solid rgba(143, 168, 255, 0.12);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.4),
-    0 4px 24px rgba(124, 58, 237, 0.06);
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(67, 83, 137, 0.06),
+    0 8px 24px rgba(67, 83, 137, 0.04);
 }
 
 body.theme-showcase #app-sidebar {
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(14px) saturate(1.3);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3);
-  border-right: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px) saturate(1.8);
+  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+  border-right: 1px solid rgba(143, 168, 255, 0.1);
 }
 
 body.theme-showcase .collapsible-body:not(.collapsed) {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
   box-shadow:
-    0 0 0 1px rgba(180, 170, 200, 0.2),
-    0 4px 16px rgba(124, 58, 237, 0.05);
+    0 0 0 1px rgba(143, 168, 255, 0.1),
+    0 4px 8px rgba(67, 83, 137, 0.04),
+    0 8px 16px rgba(67, 83, 137, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 /* ── Rainbow side border accents ─────────────────────────────────── */
@@ -304,11 +308,15 @@ body.theme-showcase .collapsible-body:not(.collapsed) {
 
 body.theme-showcase .feature-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(10px) saturate(1.2);
-  -webkit-backdrop-filter: blur(10px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.06);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  box-shadow:
+    0 2px 4px rgba(67, 83, 137, 0.03),
+    0 4px 8px rgba(67, 83, 137, 0.04),
+    0 8px 16px rgba(99, 102, 241, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
   overflow: hidden;
 }
 
@@ -337,10 +345,12 @@ body.theme-showcase .feature-card.expanded::before {
 }
 
 body.theme-showcase .feature-card.expanded {
-  border-color: rgba(124, 58, 237, 0.2);
+  border-color: rgba(99, 102, 241, 0.2);
   box-shadow:
-    0 4px 20px rgba(124, 58, 237, 0.1),
-    0 1px 3px rgba(124, 58, 237, 0.08);
+    0 4px 8px rgba(31, 38, 135, 0.06),
+    0 8px 16px rgba(31, 38, 135, 0.08),
+    0 16px 32px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* ── Sidebar rainbow left accent ─────────────────────────────────── */
@@ -365,26 +375,31 @@ body.theme-showcase #app-sidebar::after {
 /* ── Glassmorphism buttons ───────────────────────────────────────── */
 
 body.theme-showcase .header-btn {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.06);
-  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.15);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 2px 4px rgba(67, 83, 137, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: all 0.23s ease;
 }
 
 body.theme-showcase .header-btn:hover {
-  background: rgba(255, 255, 255, 0.75);
-  border-color: rgba(124, 58, 237, 0.3);
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(67, 83, 137, 0.25);
   box-shadow:
-    0 2px 8px rgba(124, 58, 237, 0.12),
-    0 0 0 1px rgba(124, 58, 237, 0.08);
+    0 2px 4px rgba(67, 83, 137, 0.06),
+    0 4px 8px rgba(67, 83, 137, 0.08),
+    0 8px 16px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
   transform: translateY(-1px);
 }
 
 body.theme-showcase .header-btn:active {
   transform: translateY(0);
-  box-shadow: inset 0 1px 3px rgba(124, 58, 237, 0.1);
+  box-shadow: inset 0 1px 3px rgba(67, 83, 137, 0.1);
 }
 
 /* ── Primary action buttons: gradient fill ───────────────────────── */
@@ -393,11 +408,11 @@ body.theme-showcase .header-btn:active {
 
 body.theme-showcase button[class*="primary"],
 body.theme-showcase .btn-primary {
-  background-image: linear-gradient(135deg, #7c3aed, #2563eb);
+  background-image: linear-gradient(135deg, #6d28d9, #2563eb);
   background-color: transparent;
   border: none;
   color: #fff;
-  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25);
   transition: all 0.2s ease;
 }
 
@@ -405,8 +420,8 @@ body.theme-showcase button[class*="primary"]:hover,
 body.theme-showcase .btn-primary:hover {
   background-image: linear-gradient(135deg, #6d28d9, #1d4ed8);
   box-shadow:
-    0 4px 16px rgba(124, 58, 237, 0.35),
-    0 0 0 2px rgba(124, 58, 237, 0.1);
+    0 4px 16px rgba(99, 102, 241, 0.35),
+    0 0 0 2px rgba(99, 102, 241, 0.1);
   transform: translateY(-1px);
 }
 
@@ -415,132 +430,138 @@ body.theme-showcase .btn-primary:hover {
 body.theme-showcase input,
 body.theme-showcase select,
 body.theme-showcase textarea {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(180, 170, 200, 0.3);
-  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.15);
+  transition: all 0.23s ease;
 }
 
 body.theme-showcase input:focus,
 body.theme-showcase select:focus,
 body.theme-showcase textarea:focus {
-  background: rgba(255, 255, 255, 0.8);
-  border-color: rgba(124, 58, 237, 0.4);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
 }
 
 /* ── Table styling ───────────────────────────────────────────────── */
 
 body.theme-showcase #data-table th,
 body.theme-showcase .sql-result table th {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
 }
 
 body.theme-showcase #data-table tbody tr:hover,
 body.theme-showcase .sql-result table tbody tr:hover {
-  background: rgba(124, 58, 237, 0.05);
+  background: rgba(99, 102, 241, 0.05);
 }
 
 body.theme-showcase #data-table th.col-pinned,
 body.theme-showcase #data-table td.col-pinned {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
 }
 
 /* ── Pre / code blocks — frosted ─────────────────────────────────── */
 
 body.theme-showcase pre {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(180, 170, 200, 0.2);
-  box-shadow: 0 1px 6px rgba(124, 58, 237, 0.04);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  box-shadow:
+    0 2px 4px rgba(67, 83, 137, 0.03),
+    0 4px 8px rgba(67, 83, 137, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* ── Search highlight — purple glow ──────────────────────────────── */
 
 body.theme-showcase .highlight {
-  background: rgba(124, 58, 237, 0.12);
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.15);
+  background: rgba(99, 102, 241, 0.12);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
   border-radius: 3px;
 }
 
 /* ── Collapsible headers — glass hover ───────────────────────────── */
 
 body.theme-showcase .collapsible-header:hover {
-  background: rgba(124, 58, 237, 0.04);
+  background: rgba(99, 102, 241, 0.04);
 }
 
 /* ── Copy toast ──────────────────────────────────────────────────── */
 
 body.theme-showcase .copy-toast {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(124, 58, 237, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  box-shadow:
+    0 4px 8px rgba(67, 83, 137, 0.06),
+    0 8px 16px rgba(67, 83, 137, 0.08),
+    0 16px 32px rgba(67, 83, 137, 0.1);
+  border: 1px solid rgba(143, 168, 255, 0.12);
 }
 
 /* ── Scrollbar — purple tinted ───────────────────────────────────── */
 
 body.theme-showcase ::-webkit-scrollbar-track {
-  background: rgba(244, 242, 247, 0.5);
+  background: rgba(250, 251, 254, 0.5);
 }
 
 body.theme-showcase ::-webkit-scrollbar-thumb {
-  background: rgba(124, 58, 237, 0.2);
+  background: rgba(99, 102, 241, 0.2);
   border-radius: 4px;
 }
 
 body.theme-showcase ::-webkit-scrollbar-thumb:hover {
-  background: rgba(124, 58, 237, 0.35);
+  background: rgba(99, 102, 241, 0.35);
 }
 
 /* ── Version badge pill — frosted ────────────────────────────────── */
 
 body.theme-showcase #version-badge {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.12);
 }
 
 /* ── Header pill (live indicator) — glass ────────────────────────── */
 
 body.theme-showcase .header-pill {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.12);
 }
 
 /* ── Mask toggle — glass ─────────────────────────────────────────── */
 
 body.theme-showcase .header-mask-toggle {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.12);
 }
 
 body.theme-showcase .header-mask-toggle:hover {
-  background: rgba(255, 255, 255, 0.7);
-  border-color: rgba(124, 58, 237, 0.3);
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(67, 83, 137, 0.25);
 }
 
 /* ── Diagram tables — frosted ────────────────────────────────────── */
 
 body.theme-showcase .diagram-table rect {
-  fill: rgba(255, 255, 255, 0.55);
-  stroke: rgba(180, 170, 200, 0.3);
+  fill: rgba(255, 255, 255, 0.75);
+  stroke: rgba(143, 168, 255, 0.15);
 }
 
 body.theme-showcase .diagram-table:hover rect {
-  stroke: #7c3aed;
+  stroke: rgba(67, 83, 137, 0.4);
 }
 
 /* ── Subtle entrance animation for main content ──────────────────── */
@@ -578,36 +599,41 @@ body.theme-showcase .feature-card:nth-child(8) { animation-delay: 0.35s; }
 /* ── Diff result — glass card ────────────────────────────────────── */
 
 body.theme-showcase .diff-result {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.06);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(1.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  box-shadow:
+    0 2px 4px rgba(67, 83, 137, 0.03),
+    0 4px 8px rgba(67, 83, 137, 0.04),
+    0 8px 16px rgba(67, 83, 137, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* ── Query builder — glass sections ──────────────────────────────── */
 
 body.theme-showcase .qb-section .qb-body {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(180, 170, 200, 0.2);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* ── Chart enhancements — purple accent ──────────────────────────── */
 
 body.theme-showcase .chart-bar {
-  filter: drop-shadow(0 1px 2px rgba(124, 58, 237, 0.15));
+  filter: drop-shadow(0 1px 2px rgba(99, 102, 241, 0.15));
 }
 
 body.theme-showcase .chart-dot {
-  filter: drop-shadow(0 1px 3px rgba(124, 58, 237, 0.2));
+  filter: drop-shadow(0 1px 3px rgba(99, 102, 241, 0.2));
 }
 
 /* ── Loading overlay — frosted ───────────────────────────────────── */
 
 body.theme-showcase #loading-overlay {
-  background: rgba(244, 242, 247, 0.85);
+  background: rgba(250, 251, 254, 0.88);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
@@ -622,6 +648,407 @@ body.theme-showcase::after {
   right: 12px;
   font-size: 14px;
   opacity: 0.35;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Midnight theme — deep navy glassmorphism, periwinkle accents,
+   animated gradient, ambient glow
+   ═══════════════════════════════════════════════════════════════════
+   The premium dark counterpart to showcase. Uses the saropa.com dark
+   palette. CDN-only — never bundled into user APKs. When enhanced CSS
+   is unavailable, midnight degrades to a clean dark-blue theme using
+   only the variables in style.scss.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Animated dark gradient background ──────────────────────────────── */
+/* Slow-moving deep gradient behind the entire page. Radial glows add
+   depth and visual interest without competing with content. */
+
+@keyframes midnight-bg-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+body.theme-midnight {
+  background:
+    radial-gradient(ellipse 600px 600px at 10% 20%, rgba(143, 168, 255, 0.08), transparent),
+    radial-gradient(ellipse 400px 400px at 85% 60%, rgba(118, 32, 112, 0.06), transparent),
+    radial-gradient(ellipse 300px 300px at 50% 80%, rgba(29, 78, 216, 0.06), transparent),
+    linear-gradient(
+      135deg,
+      #1a1d2b 0%,
+      #1e2540 20%,
+      #1a2040 40%,
+      #201e38 60%,
+      #1a2535 80%,
+      #1a1d2b 100%
+    );
+  background-size: 400% 400%;
+  animation: midnight-bg-shift 30s ease infinite;
+}
+
+/* ── Glassmorphic header ────────────────────────────────────────────── */
+
+body.theme-midnight .app-header {
+  background: rgba(30, 34, 54, 0.8);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-bottom: 1px solid rgba(143, 168, 255, 0.1);
+  box-shadow:
+    inset 0 -1px 0 rgba(143, 168, 255, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Glassmorphic sidebar ───────────────────────────────────────────── */
+
+body.theme-midnight #app-sidebar {
+  background: rgba(30, 34, 54, 0.65);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border-right: 1px solid rgba(143, 168, 255, 0.08);
+}
+
+/* ── Glassmorphic feature cards ─────────────────────────────────────── */
+
+body.theme-midnight .feature-card {
+  position: relative;
+  background: rgba(44, 51, 80, 0.6);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.1);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.15),
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 8px 16px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(143, 168, 255, 0.08);
+  overflow: hidden;
+}
+
+/* Rainbow side accent — same as showcase but cooler hue bias */
+body.theme-midnight .feature-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    #8b5cf6, #3b82f6, #06b6d4, #22c55e,
+    #eab308, #f97316, #8b5cf6
+  );
+  background-size: 100% 200%;
+  animation: rainbow-slide 5s linear infinite;
+  border-radius: 3px 0 0 3px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+body.theme-midnight .feature-card:hover::before,
+body.theme-midnight .feature-card.expanded::before {
+  opacity: 0.8;
+}
+
+body.theme-midnight .feature-card.expanded {
+  border-color: rgba(143, 168, 255, 0.2);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.18),
+    0 8px 16px rgba(0, 0, 0, 0.14),
+    0 16px 32px rgba(143, 168, 255, 0.06),
+    inset 0 1px 0 rgba(143, 168, 255, 0.1);
+}
+
+/* ── Sidebar periwinkle accent ──────────────────────────────────────── */
+
+body.theme-midnight #app-sidebar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    #8fa8ff, #3b82f6, #06b6d4, #8b5cf6,
+    #3b82f6, #8fa8ff
+  );
+  background-size: 100% 200%;
+  animation: rainbow-slide 8s linear infinite;
+  opacity: 0.35;
+}
+
+/* ── Glassmorphic buttons ───────────────────────────────────────────── */
+
+body.theme-midnight .header-btn {
+  background: rgba(44, 51, 80, 0.5);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  border: 1px solid rgba(143, 168, 255, 0.1);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(143, 168, 255, 0.06);
+  transition: all 0.23s ease;
+}
+
+body.theme-midnight .header-btn:hover {
+  background: rgba(44, 51, 80, 0.7);
+  border-color: rgba(143, 168, 255, 0.25);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.15),
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 8px 16px rgba(143, 168, 255, 0.06),
+    inset 0 1px 0 rgba(143, 168, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+body.theme-midnight .header-btn:active {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Primary buttons: periwinkle gradient ───────────────────────────── */
+
+body.theme-midnight button[class*="primary"],
+body.theme-midnight .btn-primary {
+  background-image: linear-gradient(135deg, #435389, #3b82f6);
+  background-color: transparent;
+  border: none;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(143, 168, 255, 0.2);
+  transition: all 0.23s ease;
+}
+
+body.theme-midnight button[class*="primary"]:hover,
+body.theme-midnight .btn-primary:hover {
+  background-image: linear-gradient(135deg, #526299, #2563eb);
+  box-shadow:
+    0 4px 16px rgba(143, 168, 255, 0.3),
+    0 0 0 2px rgba(143, 168, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+/* ── Input fields — dark glass ──────────────────────────────────────── */
+
+body.theme-midnight input,
+body.theme-midnight select,
+body.theme-midnight textarea {
+  background: rgba(44, 51, 80, 0.5);
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  transition: all 0.23s ease;
+}
+
+body.theme-midnight input:focus,
+body.theme-midnight select:focus,
+body.theme-midnight textarea:focus {
+  background: rgba(44, 51, 80, 0.7);
+  border-color: rgba(143, 168, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(143, 168, 255, 0.08);
+}
+
+/* ── Table styling ──────────────────────────────────────────────────── */
+
+body.theme-midnight #data-table th,
+body.theme-midnight .sql-result table th {
+  background: rgba(30, 34, 54, 0.85);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+}
+
+body.theme-midnight #data-table tbody tr:hover,
+body.theme-midnight .sql-result table tbody tr:hover {
+  background: rgba(143, 168, 255, 0.06);
+}
+
+body.theme-midnight #data-table th.col-pinned,
+body.theme-midnight #data-table td.col-pinned {
+  background: rgba(30, 34, 54, 0.9);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+}
+
+/* ── Pre / code blocks — dark glass ─────────────────────────────────── */
+
+body.theme-midnight pre {
+  background: rgba(35, 40, 64, 0.7);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  border: 1px solid rgba(143, 168, 255, 0.1);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.12),
+    0 4px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(143, 168, 255, 0.06);
+}
+
+/* ── Search highlight — periwinkle glow ─────────────────────────────── */
+
+body.theme-midnight .highlight {
+  background: rgba(143, 168, 255, 0.15);
+  box-shadow: 0 0 0 2px rgba(143, 168, 255, 0.12);
+  border-radius: 3px;
+}
+
+/* ── Collapsible sections — dark glass ──────────────────────────────── */
+
+body.theme-midnight .collapsible-header:hover {
+  background: rgba(143, 168, 255, 0.06);
+}
+
+body.theme-midnight .collapsible-body:not(.collapsed) {
+  background: rgba(44, 51, 80, 0.5);
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  box-shadow:
+    0 0 0 1px rgba(143, 168, 255, 0.08),
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 8px 16px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(143, 168, 255, 0.06);
+}
+
+/* ── Copy toast ─────────────────────────────────────────────────────── */
+
+body.theme-midnight .copy-toast {
+  background: rgba(44, 51, 80, 0.9);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.18),
+    0 8px 16px rgba(0, 0, 0, 0.14),
+    0 16px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+}
+
+/* ── Scrollbar — blue-tinted ────────────────────────────────────────── */
+
+body.theme-midnight ::-webkit-scrollbar-track {
+  background: rgba(26, 29, 43, 0.5);
+}
+
+body.theme-midnight ::-webkit-scrollbar-thumb {
+  background: rgba(143, 168, 255, 0.15);
+  border-radius: 4px;
+}
+
+body.theme-midnight ::-webkit-scrollbar-thumb:hover {
+  background: rgba(143, 168, 255, 0.25);
+}
+
+/* ── Version badge — dark glass ─────────────────────────────────────── */
+
+body.theme-midnight #version-badge {
+  background: rgba(44, 51, 80, 0.5);
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+  border: 1px solid rgba(143, 168, 255, 0.1);
+}
+
+/* ── Header pill — dark glass ───────────────────────────────────────── */
+
+body.theme-midnight .header-pill {
+  background: rgba(44, 51, 80, 0.5);
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+  border: 1px solid rgba(143, 168, 255, 0.1);
+}
+
+/* ── Mask toggle — dark glass ───────────────────────────────────────── */
+
+body.theme-midnight .header-mask-toggle {
+  background: rgba(44, 51, 80, 0.5);
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+  border: 1px solid rgba(143, 168, 255, 0.1);
+}
+
+body.theme-midnight .header-mask-toggle:hover {
+  background: rgba(44, 51, 80, 0.7);
+  border-color: rgba(143, 168, 255, 0.25);
+}
+
+/* ── Diagram tables — dark glass ────────────────────────────────────── */
+
+body.theme-midnight .diagram-table rect {
+  fill: rgba(44, 51, 80, 0.6);
+  stroke: rgba(143, 168, 255, 0.12);
+}
+
+body.theme-midnight .diagram-table:hover rect {
+  stroke: rgba(143, 168, 255, 0.35);
+}
+
+/* ── Diff result — dark glass ───────────────────────────────────────── */
+
+body.theme-midnight .diff-result {
+  background: rgba(44, 51, 80, 0.55);
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid rgba(143, 168, 255, 0.1);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.12),
+    0 4px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(143, 168, 255, 0.06);
+}
+
+/* ── Query builder — dark glass ─────────────────────────────────────── */
+
+body.theme-midnight .qb-section .qb-body {
+  background: rgba(44, 51, 80, 0.45);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  border: 1px solid rgba(143, 168, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(143, 168, 255, 0.06);
+}
+
+/* ── Chart enhancements — periwinkle accent ─────────────────────────── */
+
+body.theme-midnight .chart-bar {
+  filter: drop-shadow(0 1px 2px rgba(143, 168, 255, 0.12));
+}
+
+body.theme-midnight .chart-dot {
+  filter: drop-shadow(0 1px 3px rgba(143, 168, 255, 0.15));
+}
+
+/* ── Loading overlay — dark frosted ─────────────────────────────────── */
+
+body.theme-midnight #loading-overlay {
+  background: rgba(26, 29, 43, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ── Entrance animation ─────────────────────────────────────────────── */
+
+body.theme-midnight .feature-card,
+body.theme-midnight .collapsible-header,
+body.theme-midnight #data-table {
+  animation: showcase-fade-in 0.4s ease both;
+}
+
+body.theme-midnight .feature-card:nth-child(1) { animation-delay: 0s; }
+body.theme-midnight .feature-card:nth-child(2) { animation-delay: 0.05s; }
+body.theme-midnight .feature-card:nth-child(3) { animation-delay: 0.1s; }
+body.theme-midnight .feature-card:nth-child(4) { animation-delay: 0.15s; }
+body.theme-midnight .feature-card:nth-child(5) { animation-delay: 0.2s; }
+body.theme-midnight .feature-card:nth-child(6) { animation-delay: 0.25s; }
+body.theme-midnight .feature-card:nth-child(7) { animation-delay: 0.3s; }
+body.theme-midnight .feature-card:nth-child(8) { animation-delay: 0.35s; }
+
+/* ── Midnight indicator ─────────────────────────────────────────────── */
+
+body.theme-midnight::after {
+  content: '\1F319';  /* crescent moon emoji */
+  position: fixed;
+  bottom: 8px;
+  right: 12px;
+  font-size: 14px;
+  opacity: 0.3;
   pointer-events: none;
   z-index: 9999;
 }

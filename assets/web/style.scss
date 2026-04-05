@@ -14,9 +14,9 @@
   /** Minimum readable font size (WCAG / BUG-010); use for labels and secondary UI text. */
   --text-min-readable: 12px;
   --tap-min: 44px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   /* Horizontal padding for panels so content is not squashed against edges */
   --panel-padding-x: 1.5rem;
 }
@@ -34,30 +34,34 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-body.theme-light {
-  --bg: #f0f2f5;
-  --fg: #1c1e21;
-  --bg-pre: #fff;
-  --surface: #fff;
-  --header-bg: #fff;
-  --border: #d8dade;
-  --border-subtle: #e4e6eb;
-  --muted: #65676b;
-  --link: #0d6efd;
-  --link-hover: #0a58ca;
-  --btn-primary-bg: #0d6efd;
+/* Light is the default theme — applied to bare body and body.theme-light */
+body.theme-light,
+body {
+  /* Slate-blue palette — mirrors saropa.com design system */
+  --bg: #f8faff;
+  --fg: #242b4a;
+  --bg-pre: #ffffff;
+  --surface: #ffffff;
+  --header-bg: #ffffff;
+  /* Blue-tinted borders for cohesion with slate accent */
+  --border: rgba(143, 168, 255, 0.18);
+  --border-subtle: rgba(143, 168, 255, 0.09);
+  --muted: #6b7a9e;
+  /* Deep slate-blue accent — authoritative, not generic */
+  --link: #435389;
+  --link-hover: #2d3a66;
+  --btn-primary-bg: #435389;
   --btn-primary-fg: #fff;
-  --btn-primary-hover-bg: #0a58ca;
-  --highlight-bg: #fff3cd;
-  --highlight-fg: #856404;
-  --highlight-active-bg: #ff9800;
+  --btn-primary-hover-bg: #374773;
+  --highlight-bg: #eff3ff;
+  --highlight-fg: #2d3a66;
+  --highlight-active-bg: #435389;
   --highlight-active-fg: #fff;
-  --sidebar-bg: #fff;
-  --row-alt: #f7f8fa;
+  --sidebar-bg: #ffffff;
+  --row-alt: rgba(143, 168, 255, 0.04);
 }
 
-body.theme-dark,
-body {
+body.theme-dark {
   --bg: #141619;
   --fg: #e4e6eb;
   --bg-pre: #1c1e21;
@@ -79,6 +83,80 @@ body {
   --row-alt: rgba(255, 255, 255, 0.03);
 }
 
+/* Midnight theme: deep navy dark mode with periwinkle accents —
+   the premium dark counterpart to showcase. Uses the saropa.com dark
+   palette (#1a1d2b / #2c3350 / #8fa8ff). Visual effects (gradients,
+   glassmorphism) live in drift-enhanced.css (CDN-only). When enhanced
+   CSS is unavailable, midnight degrades to a clean dark-blue theme. */
+body.theme-midnight {
+  /* Deep navy base — rich and saturated, not flat grey */
+  --bg: #1a1d2b;
+  --fg: #e3e3ff;
+  --bg-pre: #232840;
+  --surface: #2c3350;
+  --header-bg: #1e2236;
+  /* Blue-tinted borders — cohesive with the navy palette */
+  --border: rgba(143, 168, 255, 0.15);
+  --border-subtle: rgba(143, 168, 255, 0.08);
+  --muted: #a0a8d0;
+  /* Periwinkle accent — bright and distinctive */
+  --link: #8fa8ff;
+  --link-hover: #b0c4ff;
+  --btn-primary-bg: #435389;
+  --btn-primary-fg: #fff;
+  --btn-primary-hover-bg: #526299;
+  --highlight-bg: rgba(143, 168, 255, 0.15);
+  --highlight-fg: #b0c4ff;
+  --highlight-active-bg: #8fa8ff;
+  --highlight-active-fg: #1a1d2b;
+  --sidebar-bg: #1e2236;
+  --row-alt: rgba(143, 168, 255, 0.04);
+}
+
+/* Midnight overrides: blue-tinted surfaces, periwinkle accents */
+body.theme-midnight .header-pill.live {
+  color: #7cb342;
+}
+
+body.theme-midnight .feature-card {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.15),
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 8px 16px rgba(0, 0, 0, 0.08);
+}
+
+body.theme-midnight .feature-card.expanded {
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.18),
+    0 8px 16px rgba(0, 0, 0, 0.14),
+    0 16px 32px rgba(143, 168, 255, 0.06);
+}
+
+body.theme-midnight .tables-browse-card {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.12),
+    0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+body.theme-midnight .tables-browse-card:hover {
+  border-color: rgba(143, 168, 255, 0.3);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.16),
+    0 8px 16px rgba(0, 0, 0, 0.12),
+    0 16px 32px rgba(143, 168, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+body.theme-midnight .app-header {
+  box-shadow:
+    0 1px 0 rgba(143, 168, 255, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+body.theme-midnight .tables-loading-error {
+  color: #ef9a9a;
+}
+
 /* Showcase theme: a beautiful light-mode variant with glassmorphism,
    rainbow accents, and animations. The CSS variables below provide the
    baseline layout colours. The visual effects (gradients, blur,
@@ -87,25 +165,28 @@ body {
    into user APKs. When enhanced CSS is unavailable, showcase degrades
    gracefully to a clean light theme. */
 body.theme-showcase {
-  --bg: #f4f2f7;
-  --fg: #1c1e21;
-  --bg-pre: rgba(255, 255, 255, 0.72);
-  --surface: rgba(255, 255, 255, 0.6);
-  --header-bg: rgba(255, 255, 255, 0.7);
-  --border: rgba(180, 170, 200, 0.35);
-  --border-subtle: rgba(200, 195, 215, 0.25);
-  --muted: #65676b;
-  --link: #7c3aed;
-  --link-hover: #6d28d9;
-  --btn-primary-bg: #7c3aed;
+  /* Glassmorphic violet — clean base, frosted surfaces */
+  --bg: #fafbfe;
+  --fg: #242b4a;
+  --bg-pre: rgba(255, 255, 255, 0.88);
+  --surface: rgba(255, 255, 255, 0.85);
+  --header-bg: rgba(255, 255, 255, 0.78);
+  /* Blue-tinted borders for glass consistency */
+  --border: rgba(143, 168, 255, 0.18);
+  --border-subtle: rgba(143, 168, 255, 0.09);
+  --muted: #6b7a9e;
+  /* Rich violet accent — the showcase differentiator */
+  --link: #6d28d9;
+  --link-hover: #5b21b6;
+  --btn-primary-bg: #6d28d9;
   --btn-primary-fg: #fff;
-  --btn-primary-hover-bg: #6d28d9;
+  --btn-primary-hover-bg: #5b21b6;
   --highlight-bg: #ede9fe;
   --highlight-fg: #5b21b6;
   --highlight-active-bg: #7c3aed;
   --highlight-active-fg: #fff;
-  --sidebar-bg: rgba(255, 255, 255, 0.5);
-  --row-alt: rgba(124, 58, 237, 0.03);
+  --sidebar-bg: rgba(255, 255, 255, 0.6);
+  --row-alt: rgba(99, 102, 241, 0.03);
 }
 
 /* Showcase overrides: the purple accent colour replaces the blue/green
@@ -116,11 +197,19 @@ body.theme-showcase .header-btn:hover {
 }
 
 body.theme-showcase .feature-card {
-  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.08);
+  box-shadow:
+    0 2px 4px rgba(67, 83, 137, 0.03),
+    0 4px 8px rgba(67, 83, 137, 0.04),
+    0 8px 16px rgba(99, 102, 241, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 body.theme-showcase .feature-card.expanded {
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.12);
+  box-shadow:
+    0 4px 8px rgba(31, 38, 135, 0.06),
+    0 8px 16px rgba(31, 38, 135, 0.08),
+    0 16px 32px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 body.theme-showcase .header-pill.live {
@@ -149,6 +238,14 @@ body.theme-showcase #live-indicator.connection-status {
   background: var(--header-bg);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 1px 0 var(--border-subtle);
+}
+
+/* Light mode: deeper header shadow for authority */
+body.theme-light .app-header {
+  border-bottom: 1px solid rgba(143, 168, 255, 0.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6),
+    0 4px 12px rgba(67, 83, 137, 0.06);
 }
 
 .app-header-brand {
@@ -209,6 +306,23 @@ body.theme-showcase #live-indicator.connection-status {
 .header-btn:focus-visible {
   outline: 2px solid var(--link);
   outline-offset: 2px;
+}
+
+/* Light mode: blue-tinted button borders with composited shadow */
+body.theme-light .header-btn {
+  border: 1px solid rgba(143, 168, 255, 0.15);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 2px 4px rgba(67, 83, 137, 0.04);
+  transition: all 0.23s ease;
+}
+
+body.theme-light .header-btn:hover {
+  border-color: rgba(67, 83, 137, 0.3);
+  box-shadow:
+    0 2px 4px rgba(67, 83, 137, 0.06),
+    0 4px 8px rgba(67, 83, 137, 0.08);
+  transform: translateY(-1px);
 }
 
 .header-pill {
@@ -425,7 +539,12 @@ body.theme-light .header-pill.live {
 }
 
 body.theme-light .feature-card {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  /* Multi-layer composited shadow — saropa.com depth system */
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.02),
+    0 4px 8px rgba(0, 0, 0, 0.03),
+    0 8px 16px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(143, 168, 255, 0.12);
 }
 
 .feature-card.expanded {
@@ -433,7 +552,10 @@ body.theme-light .feature-card {
 }
 
 body.theme-light .feature-card.expanded {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 8px rgba(67, 83, 137, 0.06),
+    0 8px 16px rgba(67, 83, 137, 0.08),
+    0 16px 32px rgba(67, 83, 137, 0.06);
 }
 
 /* Material Symbols (Phase 4.1): icon font from Google Fonts CDN. */
@@ -712,7 +834,7 @@ body.theme-light .feature-card.expanded {
   font-family: inherit;    /* button reset */
   font-size: var(--text-sm);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.23s ease, border-color 0.23s ease, box-shadow 0.23s ease, transform 0.23s ease;
 }
 .tables-browse-card:hover {
   background: rgba(128, 128, 128, 0.1);
@@ -738,6 +860,45 @@ body.theme-light .feature-card.expanded {
 /* Card hover sets link color on the button; keep the count grey */
 .tables-browse-card:hover .browse-card-count {
   color: var(--muted);
+}
+
+/* Light / showcase: elevated browse cards with composited shadows */
+body.theme-light .tables-browse-card {
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.02),
+    0 4px 8px rgba(0, 0, 0, 0.03),
+    0 8px 16px rgba(0, 0, 0, 0.03);
+}
+
+body.theme-light .tables-browse-card:hover {
+  border-color: rgba(67, 83, 137, 0.25);
+  box-shadow:
+    0 4px 8px rgba(67, 83, 137, 0.06),
+    0 8px 16px rgba(67, 83, 137, 0.08),
+    0 16px 32px rgba(67, 83, 137, 0.06);
+  transform: translateY(-2px);
+}
+
+body.theme-showcase .tables-browse-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  box-shadow:
+    0 2px 4px rgba(67, 83, 137, 0.03),
+    0 4px 8px rgba(67, 83, 137, 0.04),
+    0 8px 16px rgba(99, 102, 241, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+body.theme-showcase .tables-browse-card:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(99, 102, 241, 0.2);
+  box-shadow:
+    0 4px 8px rgba(31, 38, 135, 0.06),
+    0 8px 16px rgba(31, 38, 135, 0.08),
+    0 16px 32px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(-2px);
 }
 
 /* Primary / secondary buttons */
@@ -768,6 +929,26 @@ body.theme-light .feature-card.expanded {
 }
 
 .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: #b91c1c;
+  color: #fff;
+  border: 1px solid #991b1b;
+  border-radius: 4px;
+  padding: 0 0.85rem;
+  min-height: 36px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.btn-danger:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

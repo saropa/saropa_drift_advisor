@@ -34,6 +34,30 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Midnight theme (CDN-only)** — A fourth theme option: deep navy dark mode with periwinkle accents, glassmorphic panels, animated gradient background, and rainbow side borders. Uses the saropa.com dark palette (#1a1d2b / #2c3350 / #8fa8ff). Degrades gracefully to the base dark theme when the CDN is unavailable
+- **Draft conflict detection** — When restoring saved pending edits from a previous session, the extension now checks each edit's original value against the live database. Warns if rows were changed or deleted since the draft was saved, with the option to restore anyway or discard
+- **BLOB columns blocked at the DOM level** — BLOB columns are now visually non-editable (double-click is silently ignored) rather than requiring a server round-trip rejection. Table headers carry `data-col-type` attributes for client-side detection
+
+### Changed
+
+- **Light theme is now the default** — The web viewer defaults to light mode when no saved preference or OS/VS Code hint is detected. Previously defaulted to dark
+- **Light and showcase palettes overhauled** — Both light themes now use the saropa.com design system: slate-blue text (#242b4a), blue-tinted borders (rgba(143, 168, 255, ...)), multi-layer composited shadows, larger border radii (8/12/16px), and hover lift effects
+- **Theme cycle expanded to four** — With enhanced CSS loaded, the toggle cycles Light → Showcase → Dark → Midnight. Without CDN, it toggles Light ↔ Dark
+- **Smart premium upgrade** — When enhanced CSS loads with no saved preference, OS dark-mode users get Midnight automatically; light-mode users get Showcase
+
+### Fixed
+
+- **Saved premium theme restored after CDN loads** — If a user saved Showcase or Midnight but the CDN hadn't loaded yet, initTheme degraded them (Showcase→Light, Midnight→Dark). When the enhanced CSS finally loaded, markEnhancedReady did not restore the saved premium theme. Now it does
+- **No-PK table gate uses error, not warning** — Opening the bulk edit panel on a table without a primary key now shows `showErrorMessage` (blocking, unmissable) instead of `showWarningMessage` (dismissible)
+- **Commit failure message includes rollback context** — Error now states the statement count and confirms the transaction was rolled back, making it clear pending edits are preserved for retry
+- **Table cells carry raw values for editing** — Report table `<td>` elements now include `data-raw-value` attributes so the inline editing script correctly distinguishes `NULL` from the text "NULL"
+
+---
+
 ## [2.17.1]
 
 ### Added

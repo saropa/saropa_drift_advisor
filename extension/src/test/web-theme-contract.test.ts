@@ -1,5 +1,5 @@
 /**
- * Contract tests for the three-theme system in the web viewer.
+ * Contract tests for the four-theme system in the web viewer.
  *
  * Verifies that the compiled CSS (style.css), the CDN-only enhanced
  * stylesheet (drift-enhanced.css), and the client JavaScript (app.js)
@@ -7,9 +7,10 @@
  * tests catch regressions where one artefact is updated but another
  * is not — e.g. renaming a theme class in CSS without updating JS.
  *
- * The showcase theme is CDN-only (drift-enhanced.css) and never
- * bundled in user APKs. Its CSS variables live in style.css (fallback)
- * while the glassmorphism visual effects live in drift-enhanced.css.
+ * Base themes: light (default), dark.
+ * Premium themes (CDN-only): showcase (light variant), midnight (dark
+ * variant). CSS variables live in style.css; glassmorphism effects
+ * live in drift-enhanced.css.
  */
 import * as assert from 'assert';
 import * as fs from 'fs';
@@ -56,12 +57,13 @@ describe('Web theme contract — style.css', () => {
     css = readAsset('assets/web/style.css');
   });
 
-  // All three theme selectors must be present in the compiled CSS so
+  // All four theme selectors must be present in the compiled CSS so
   // the body class applied by app.js produces the correct variables.
   const requiredSelectors = [
     'body.theme-dark',
     'body.theme-light',
     'body.theme-showcase',
+    'body.theme-midnight',
   ];
   for (const selector of requiredSelectors) {
     it(`contains ${selector} selector`, () => {
@@ -100,8 +102,8 @@ describe('Web theme contract — style.css', () => {
   });
 
   it('theme-dark defines all core CSS variables', () => {
-    // Dark variables are on both "body.theme-dark, body" — we look
-    // for the combined selector.
+    // Dark variables are on "body.theme-dark" only (light is the
+    // bare body default).
     const darkBlock = extractBlock(css, 'body.theme-dark');
     for (const v of coreVariables) {
       assert.ok(
@@ -117,6 +119,16 @@ describe('Web theme contract — style.css', () => {
       assert.ok(
         showcaseBlock.includes(v),
         `body.theme-showcase is missing ${v}`,
+      );
+    }
+  });
+
+  it('theme-midnight defines all core CSS variables', () => {
+    const midnightBlock = extractBlock(css, 'body.theme-midnight');
+    for (const v of coreVariables) {
+      assert.ok(
+        midnightBlock.includes(v),
+        `body.theme-midnight is missing ${v}`,
       );
     }
   });
@@ -183,7 +195,7 @@ describe('Web theme contract — drift-enhanced.css (CDN-only)', () => {
 
   it('showcase section does not contain theme-light or theme-dark selectors', () => {
     // The dark-specific highlight rule is an exception pre-dating this
-    // change, but new showcase effects must not bleed into other themes.
+    // change, but showcase/midnight effects must not bleed into base themes.
     const lines = css.split('\n');
     const showcaseStartIdx = lines.findIndex((l) => l.includes('Showcase theme'));
     assert.ok(showcaseStartIdx !== -1, 'drift-enhanced.css must contain a Showcase theme section');
@@ -191,9 +203,24 @@ describe('Web theme contract — drift-enhanced.css (CDN-only)', () => {
     for (const line of showcaseSection) {
       assert.ok(
         !line.includes('body.theme-dark') && !line.includes('body.theme-light'),
-        `Showcase section in drift-enhanced.css must not target theme-dark or theme-light: "${line.trim()}"`,
+        `Premium section in drift-enhanced.css must not target theme-dark or theme-light: "${line.trim()}"`,
       );
     }
+  });
+
+  it('contains midnight theme section with glassmorphism', () => {
+    assert.ok(
+      css.includes('Midnight theme'),
+      'drift-enhanced.css must contain a Midnight theme section',
+    );
+    assert.ok(
+      css.includes('body.theme-midnight .app-header'),
+      'drift-enhanced.css must style the midnight header',
+    );
+    assert.ok(
+      css.includes('@keyframes midnight-bg-shift'),
+      'drift-enhanced.css must contain the midnight background animation',
+    );
   });
 });
 
@@ -204,17 +231,18 @@ describe('Web theme contract — app.js', () => {
     js = readAsset('assets/web/app.js');
   });
 
-  it('applyTheme supports all three theme names', () => {
+  it('applyTheme supports all four theme names', () => {
     // The function must add the correct class to <body>.
     assert.ok(js.includes("'theme-dark'"), 'app.js must reference theme-dark class');
     assert.ok(js.includes("'theme-light'"), 'app.js must reference theme-light class');
     assert.ok(js.includes("'theme-showcase'"), 'app.js must reference theme-showcase class');
+    assert.ok(js.includes("'theme-midnight'"), 'app.js must reference theme-midnight class');
   });
 
   it('theme toggle cycles through themes', () => {
     assert.ok(
       js.includes('nextTheme'),
-      'app.js must contain nextTheme function for three-way cycling',
+      'app.js must contain nextTheme function for four-way cycling',
     );
   });
 
@@ -225,12 +253,12 @@ describe('Web theme contract — app.js', () => {
     );
   });
 
-  it('showcase becomes default when enhanced CSS loads and no saved preference', () => {
+  it('premium theme applied when enhanced CSS loads and no saved preference', () => {
     // After enhanced CSS loads, if no explicit theme is saved, the
-    // onload handler should apply showcase as the default.
+    // onload handler should apply a premium theme (showcase or midnight).
     assert.ok(
-      js.includes("applyTheme('showcase')"),
-      'app.js must apply showcase theme in enhanced CSS onload when no saved preference',
+      js.includes("applyTheme(cur === 'dark' ? 'midnight' : 'showcase')"),
+      'app.js must apply premium theme in enhanced CSS onload when no saved preference',
     );
   });
 
@@ -241,6 +269,26 @@ describe('Web theme contract — app.js', () => {
     assert.ok(
       js.includes("saved === 'showcase' && !window._driftEnhancedLoaded"),
       'initTheme must fall back from showcase to light when enhanced CSS is unavailable',
+    );
+  });
+
+  it('saved midnight preference degrades to dark when enhanced CSS not loaded', () => {
+    // If the user saved 'midnight' but enhanced CSS hasn't loaded yet
+    // (e.g. CDN blocked), initTheme must fall back to 'dark'.
+    assert.ok(
+      js.includes("saved === 'midnight' && !window._driftEnhancedLoaded"),
+      'initTheme must fall back from midnight to dark when enhanced CSS is unavailable',
+    );
+  });
+
+  it('markEnhancedReady restores degraded premium theme after CDN loads', () => {
+    // When initTheme degrades showcase→light or midnight→dark, the
+    // saved localStorage value is still the premium name. When enhanced
+    // CSS finally loads, markEnhancedReady must re-apply the saved
+    // premium theme instead of leaving the user on the base theme.
+    assert.ok(
+      js.includes("saved === 'showcase' || saved === 'midnight'"),
+      'markEnhancedReady must restore saved premium theme after degradation',
     );
   });
 

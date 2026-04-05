@@ -30,6 +30,12 @@
     var driftWriteEnabled = false;
     function applyHealthWriteFlag(data) {
       if (data && typeof data.writeEnabled === 'boolean') driftWriteEnabled = data.writeEnabled;
+      // Show/hide destructive data buttons based on write capability
+      var clearTableBtn = document.getElementById('clear-table-data');
+      var clearAllBtn = document.getElementById('clear-all-data');
+      var show = driftWriteEnabled ? '' : 'none';
+      if (clearTableBtn) clearTableBtn.style.display = show;
+      if (clearAllBtn) clearAllBtn.style.display = show;
     }
     function authOpts(o) {
       o = o || {}; o.headers = o.headers || {};
@@ -1803,8 +1809,8 @@
     }
 
     // Apply a named theme to the document body and update the toggle
-    // button label. Accepts 'dark', 'light', or 'showcase'. For
-    // backwards compatibility, boolean true maps to 'dark' and false
+    // button label. Accepts 'dark', 'light', 'showcase', or 'midnight'.
+    // For backwards compatibility, boolean true maps to 'dark' and false
     // maps to 'light'.
     function applyTheme(theme) {
       // Normalise legacy boolean calls: true → 'dark', false → 'light'.
@@ -1812,12 +1818,12 @@
       if (theme === false) theme = 'light';
 
       // Remove all theme classes first, then add the active one.
-      document.body.classList.remove('theme-dark', 'theme-light', 'theme-showcase');
+      document.body.classList.remove('theme-dark', 'theme-light', 'theme-showcase', 'theme-midnight');
       document.body.classList.add('theme-' + theme);
 
       // Human-readable labels and Material icon names for each theme.
-      var labels = { dark: 'Dark', light: 'Light', showcase: 'Showcase' };
-      var icons  = { dark: 'dark_mode', light: 'light_mode', showcase: 'auto_awesome' };
+      var labels = { dark: 'Dark', light: 'Light', showcase: 'Showcase', midnight: 'Midnight' };
+      var icons  = { dark: 'dark_mode', light: 'light_mode', showcase: 'auto_awesome', midnight: 'bedtime' };
 
       // Update only the label span so the Material icon is preserved (Phase 4.1).
       var themeLabel = document.getElementById('theme-toggle-label');
@@ -1835,12 +1841,12 @@
     }
 
     // Return the next theme in the cycle. When the enhanced CDN
-    // stylesheet is loaded, the cycle includes showcase; otherwise
-    // it toggles between dark and light only.
+    // stylesheet is loaded, the cycle includes all four themes;
+    // otherwise it toggles between dark and light only.
     function nextTheme(current) {
       if (window._driftEnhancedLoaded) {
-        // Three-way cycle: showcase → dark → light → showcase
-        var cycle = ['showcase', 'dark', 'light'];
+        // Four-way cycle: light → showcase → dark → midnight → light
+        var cycle = ['light', 'showcase', 'dark', 'midnight'];
         var idx = cycle.indexOf(current);
         return cycle[(idx + 1) % cycle.length];
       }
@@ -1851,6 +1857,7 @@
     // Return the current theme name by inspecting body classes.
     function currentTheme() {
       if (document.body.classList.contains('theme-showcase')) return 'showcase';
+      if (document.body.classList.contains('theme-midnight')) return 'midnight';
       if (document.body.classList.contains('theme-light')) return 'light';
       return 'dark';
     }
@@ -1873,11 +1880,13 @@
       var saved = localStorage.getItem(THEME_KEY);
       if (saved) {
         // User has an explicit override — honour it. Saved values may
-        // be 'dark', 'light', or 'showcase'. If showcase is saved but
-        // enhanced CSS hasn't loaded yet, fall back to light — the
-        // enhanced-CSS onload handler will upgrade to showcase later.
+        // be 'dark', 'light', 'showcase', or 'midnight'. Premium themes
+        // (showcase/midnight) need enhanced CSS; degrade gracefully if
+        // the CDN hasn't loaded yet — the onload handler will upgrade.
         if (saved === 'showcase' && !window._driftEnhancedLoaded) {
           applyTheme('light');
+        } else if (saved === 'midnight' && !window._driftEnhancedLoaded) {
+          applyTheme('dark');
         } else {
           applyTheme(saved);
         }
@@ -1890,17 +1899,17 @@
         applyTheme(vscodeTheme);
         return;
       }
-      // Respect operating-system dark-mode preference (defaults to dark
+      // Respect operating-system dark-mode preference (defaults to light
       // when the browser doesn't support matchMedia).
       var prefersDark = window.matchMedia
         ? window.matchMedia('(prefers-color-scheme: dark)').matches
-        : true;
+        : false;
       applyTheme(prefersDark ? 'dark' : 'light');
     }
 
     // Toggle button: cycle through themes. When the enhanced CDN
-    // stylesheet is loaded the cycle is showcase → dark → light;
-    // otherwise it toggles between dark and light only.
+    // stylesheet is loaded the cycle is light → showcase → dark →
+    // midnight; otherwise it toggles between dark and light only.
     document.getElementById('theme-toggle').addEventListener('click', function() {
       var next = nextTheme(currentTheme());
       localStorage.setItem(THEME_KEY, next);
@@ -2901,6 +2910,50 @@
         });
       }
 
+      // Paste from clipboard: auto-detect format (TSV, CSV, JSON) and populate import data.
+      var pasteBtn = document.getElementById('import-paste');
+      if (pasteBtn) {
+        pasteBtn.addEventListener('click', function() {
+          if (!navigator.clipboard || !navigator.clipboard.readText) {
+            alert('Clipboard API not available (requires HTTPS or localhost).');
+            return;
+          }
+          navigator.clipboard.readText().then(function(text) {
+            if (!text || !text.trim()) { alert('Clipboard is empty.'); return; }
+            importFileData = text;
+            // Auto-detect format: JSON starts with [ or {, TSV has tabs, else CSV.
+            var trimmed = text.trim();
+            var detectedFormat = 'csv';
+            if (trimmed.charAt(0) === '[' || trimmed.charAt(0) === '{') {
+              detectedFormat = 'json';
+            } else if (trimmed.indexOf('\t') >= 0) {
+              // TSV: convert each line to CSV by splitting on tabs and
+              // quoting any field that contains commas or quotes.
+              detectedFormat = 'csv';
+              importFileData = text.split(/\r?\n/).map(function(line) {
+                return line.split('\t').map(function(field) {
+                  if (field.indexOf(',') >= 0 || field.indexOf('"') >= 0) {
+                    return '"' + field.replace(/"/g, '""') + '"';
+                  }
+                  return field;
+                }).join(',');
+              }).join('\n');
+            }
+            if (formatSel) formatSel.value = detectedFormat;
+            importCsvHeaders = [];
+            if (detectedFormat === 'csv') {
+              var firstLine = importFileData.split(/\r?\n/)[0] || '';
+              importCsvHeaders = parseCsvHeaderLine(firstLine);
+            }
+            // Clear file input so there's no confusion about the data source
+            if (fileInput) fileInput.value = '';
+            updateImportState();
+          }).catch(function(e) {
+            alert('Failed to read clipboard: ' + (e.message || 'Permission denied'));
+          });
+        });
+      }
+
       if (formatSel) formatSel.addEventListener('change', function() {
         if (this.value === 'csv' && importFileData) {
           var firstLine = importFileData.split(/\r?\n/)[0] || '';
@@ -3845,6 +3898,50 @@
       queryBuilderState = null;
       if (currentTableName) loadTable(currentTableName);
     });
+    // Clear rows: delete all data from the current table (write-enabled only).
+    document.getElementById('clear-table-data').addEventListener('click', function() {
+      if (!driftWriteEnabled || !currentTableName) return;
+      if (!confirm('Delete ALL rows from "' + currentTableName + '"? This cannot be undone.')) return;
+      var btn = this;
+      btn.disabled = true;
+      fetch('/api/edits/apply', authOpts({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statements: ['DELETE FROM "' + currentTableName.replace(/"/g, '""') + '"'] })
+      }))
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(o) {
+          if (!o.ok) { alert('Clear failed: ' + (o.data.error || 'Unknown error')); return; }
+          loadTable(currentTableName);
+        })
+        .catch(function(e) { alert('Clear failed: ' + (e.message || 'Network error')); })
+        .finally(function() { btn.disabled = false; });
+    });
+
+    // Clear all tables: delete all rows from every known table (write-enabled only).
+    document.getElementById('clear-all-data').addEventListener('click', function() {
+      if (!driftWriteEnabled) return;
+      var tables = lastKnownTables || [];
+      if (tables.length === 0) { alert('No tables loaded.'); return; }
+      if (!confirm('Delete ALL rows from ALL ' + tables.length + ' table(s)? This cannot be undone.')) return;
+      var btn = this;
+      btn.disabled = true;
+      // Build one DELETE statement per table; the server runs them in a single transaction.
+      var stmts = tables.map(function(t) { return 'DELETE FROM "' + t.replace(/"/g, '""') + '"'; });
+      fetch('/api/edits/apply', authOpts({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statements: stmts })
+      }))
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(o) {
+          if (!o.ok) { alert('Clear all failed: ' + (o.data.error || 'Unknown error')); return; }
+          if (currentTableName) loadTable(currentTableName);
+        })
+        .catch(function(e) { alert('Clear all failed: ' + (e.message || 'Network error')); })
+        .finally(function() { btn.disabled = false; });
+    });
+
     document.getElementById('display-format-toggle').addEventListener('change', function() {
       displayFormat = String(this.value || 'raw');
       if (currentTableName) {
@@ -6072,14 +6169,23 @@
           link.rel = 'stylesheet';
           link.href = 'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v'
             + d.version + '/web/drift-enhanced.css';
-          // Unlock the showcase theme once the enhanced stylesheet is
-          // usable. Called by onload *or* by the timeout poller (some
-          // browsers/webviews never fire onload for <link> elements).
+          // Unlock premium themes (showcase/midnight) once the enhanced
+          // stylesheet is usable. Called by onload *or* by the timeout
+          // poller (some webviews never fire onload for <link> elements).
           function markEnhancedReady() {
             if (window._driftEnhancedLoaded) return; // already done
             window._driftEnhancedLoaded = true;
-            if (!localStorage.getItem(THEME_KEY)) {
-              applyTheme('showcase');
+            var saved = localStorage.getItem(THEME_KEY);
+            if (!saved) {
+              // No explicit preference — pick the premium variant
+              // matching the user's current colour scheme.
+              var cur = currentTheme();
+              applyTheme(cur === 'dark' ? 'midnight' : 'showcase');
+            } else if (saved === 'showcase' || saved === 'midnight') {
+              // User saved a premium theme but initTheme degraded it
+              // (showcase→light, midnight→dark) because enhanced CSS
+              // wasn't loaded yet. Now that it is, restore their choice.
+              applyTheme(saved);
             }
           }
 
@@ -6446,15 +6552,24 @@
       const exportBtn = document.getElementById('perf-export');
       const historySel = document.getElementById('perf-history');
       const compareBtn = document.getElementById('perf-compare');
+      const slowThresholdInput = document.getElementById('perf-slow-threshold');
       let perfLoaded = false;
       var lastPerfData = null;
+
+      /** Read the slow-query threshold from the input (default 100 ms). */
+      function getSlowThreshold() {
+        if (!slowThresholdInput) return 100;
+        var v = parseInt(slowThresholdInput.value, 10);
+        return (v > 0) ? v : 100;
+      }
 
       function fetchPerformance() {
         if (!refreshBtn || !container) return;
         refreshBtn.disabled = true;
         setButtonBusy(refreshBtn, true, 'Loading\u2026');
         container.style.display = 'none';
-        fetch('/api/analytics/performance', authOpts())
+        var threshold = getSlowThreshold();
+        fetch('/api/analytics/performance?slowThresholdMs=' + threshold, authOpts())
           .then(function(r) {
             if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
             return r.json();
@@ -6492,7 +6607,8 @@
         html += '</div>';
 
         if (data.slowQueries && data.slowQueries.length > 0) {
-          html += '<p class="meta" style="color:#e57373;font-weight:bold;">Slow queries (&gt;100ms):</p>';
+          var thresh = data.slowThresholdMs || 100;
+          html += '<p class="meta" style="color:#e57373;font-weight:bold;">Slow queries (&gt;' + esc(String(thresh)) + 'ms):</p>';
           html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
           html += '<tr><th style="border:1px solid var(--border);padding:4px;">Duration</th>';
           html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
@@ -6538,12 +6654,14 @@
           html += '<tr><th style="border:1px solid var(--border);padding:4px;">ms</th>';
           html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
           html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+          var recentThresh = data.slowThresholdMs || 100;
+          var warnThresh = Math.round(recentThresh / 2);
           data.recentQueries.forEach(function(q) {
             var sql = q.sql || '';
             // Use icon + color so speed is distinguishable without color alone
             // (WCAG 2.1 1.4.1 — Use of Color)
-            var color = q.durationMs > 100 ? '#e57373' : (q.durationMs > 50 ? '#ffb74d' : 'var(--fg)');
-            var speedIcon = q.durationMs > 100 ? '[!!] ' : (q.durationMs > 50 ? '[!] ' : '');
+            var color = q.durationMs > recentThresh ? '#e57373' : (q.durationMs > warnThresh ? '#ffb74d' : 'var(--fg)');
+            var speedIcon = q.durationMs > recentThresh ? '[!!] ' : (q.durationMs > warnThresh ? '[!] ' : '');
             // Bold slow/warning durations to match the slow queries table style
             var speedWeight = speedIcon ? 'font-weight:bold;' : '';
             html += '<tr>';
