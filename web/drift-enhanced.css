@@ -226,140 +226,186 @@ body.theme-dark .highlight {
   box-shadow: 0 0 0 1px rgba(240, 224, 192, 0.15);
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   Showcase theme — glassmorphism, rainbow accents, animated gradients
-   ═══════════════════════════════════════════════════════════════════
-   This entire section is CDN-only and never bundled into user APKs.
-   It relies on --bg, --fg, --surface, etc. set by body.theme-showcase
-   in style.scss. If the enhanced CSS fails to load, showcase degrades
-   to a clean light theme using only those variables.
-   ═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════
+   SHOWCASE + MIDNIGHT — Premium visual themes (CDN-only)
+   ═══════════════════════════════════════════════════════════════════════
+   Never bundled into user APKs. These themes use glassmorphism,
+   animated gradients, shimmer effects, rainbow borders, dramatic
+   shadows, and entrance animations to create a visually striking
+   experience. They rely on CSS custom properties from style.scss
+   and degrade to clean flat themes when this file is unavailable.
+   ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── Animated gradient background ────────────────────────────────── */
-/* A slow-moving pastel gradient behind the entire page. The
-   animation is GPU-accelerated via background-position only. */
+/* ┌─────────────────────────────────────────────────────────────────────┐
+   │  SHARED KEYFRAMES — used by both showcase and midnight             │
+   └─────────────────────────────────────────────────────────────────────┘ */
 
-@keyframes showcase-bg-shift {
+/* Background gradient position shift */
+@keyframes premium-bg-shift {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
 
-body.theme-showcase {
-  /* Vivid pastel gradient — the shifting colours must be clearly
-     visible so users can tell the background is animated and so
-     frosted-glass panels have something colourful to blur through. */
-  background:
-    linear-gradient(
-      135deg,
-      #e0e7ff 0%,
-      #c7d2fe 14%,
-      #bae6fd 28%,
-      #ddd6fe 42%,
-      #a7f3d0 56%,
-      #fde68a 70%,
-      #fecaca 84%,
-      #e0e7ff 100%
-    );
-  background-size: 400% 400%;
-  animation: showcase-bg-shift 18s ease infinite;
-}
-
-/* ── Glassmorphism mixin — frosted glass panels ─────────────────── */
-/* backdrop-filter: blur creates the frosted-glass illusion. We
-   layer a subtle white overlay to keep text readable against the
-   shifting gradient background. */
-
-body.theme-showcase .app-header {
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(24px) saturate(1.8);
-  -webkit-backdrop-filter: blur(24px) saturate(1.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow:
-    inset 0 -1px 0 rgba(255, 255, 255, 0.3),
-    0 4px 16px rgba(99, 102, 241, 0.1),
-    0 8px 32px rgba(99, 102, 241, 0.06);
-}
-
-body.theme-showcase #app-sidebar {
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  border-right: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-body.theme-showcase .collapsible-body:not(.collapsed) {
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(18px) saturate(1.6);
-  -webkit-backdrop-filter: blur(18px) saturate(1.6);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.4),
-    0 4px 12px rgba(99, 102, 241, 0.08),
-    0 8px 24px rgba(99, 102, 241, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-
-/* ── Rainbow side border accents ─────────────────────────────────── */
-/* A 3px animated rainbow gradient on the left edge of expanded
-   sections and feature cards, using a pseudo-element to avoid
-   layout conflicts with existing borders. */
-
+/* Rainbow strip scrolling vertically through hue spectrum */
 @keyframes rainbow-slide {
   0%   { background-position: 0% 0%; }
   100% { background-position: 0% 200%; }
 }
 
-body.theme-showcase .feature-card {
-  position: relative;
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(18px) saturate(1.6);
-  -webkit-backdrop-filter: blur(18px) saturate(1.6);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow:
-    0 4px 16px rgba(99, 102, 241, 0.08),
-    0 8px 32px rgba(99, 102, 241, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  overflow: hidden;
+/* Light-sweep shimmer that glides across glass panels. Creates
+   a moving highlight band (like sunlight on glass) using a
+   pseudo-element with a diagonal gradient. */
+@keyframes glass-shimmer {
+  0%   { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(350%) skewX(-15deg); }
 }
 
-/* Rainbow left-edge accent — always visible at low opacity,
-   intensifies on hover/expand for a lively interactive feel. */
-body.theme-showcase .feature-card::before {
+/* Soft pulsing glow on borders and accents — makes elements
+   feel alive even when the user isn't interacting. */
+@keyframes border-glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.9; }
+}
+
+/* Entrance: cards slide up from below with a blur-to-clear effect */
+@keyframes card-entrance {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Floating ambient orbs that drift slowly for visual depth */
+@keyframes float-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%      { transform: translate(30px, -20px) scale(1.05); }
+  50%      { transform: translate(-10px, -40px) scale(0.95); }
+  75%      { transform: translate(-30px, -15px) scale(1.02); }
+}
+
+/* ┌─────────────────────────────────────────────────────────────────────┐
+   │  SHOWCASE THEME — Light glassmorphism, rainbow accents             │
+   └─────────────────────────────────────────────────────────────────────┘ */
+
+/* ── Vivid animated background ───────────────────────────────────────── */
+/* Rich pastel gradient that visibly shifts so frosted panels have
+   colourful content to blur through. Floating orbs add depth. */
+
+body.theme-showcase {
+  background:
+    linear-gradient(
+      135deg,
+      #c7d2fe 0%,     /* indigo-200 */
+      #a5f3fc 16%,    /* cyan-200 */
+      #c4b5fd 32%,    /* violet-300 */
+      #86efac 48%,    /* green-300 */
+      #fde68a 64%,    /* amber-200 */
+      #fca5a5 80%,    /* red-300 */
+      #c7d2fe 100%
+    );
+  background-size: 400% 400%;
+  animation: premium-bg-shift 15s ease infinite;
+}
+
+/* Floating ambient orbs — large blurred circles that drift slowly
+   behind the glass panels, giving the background a living feel.
+   Two pseudo-elements create distinct colour blobs. */
+body.theme-showcase::before {
+  content: '';
+  position: fixed;
+  top: 10%;
+  left: 15%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.35), transparent 70%);
+  border-radius: 50%;
+  filter: blur(60px);
+  animation: float-drift 12s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.theme-showcase::after {
+  content: '';
+  position: fixed;
+  bottom: 15%;
+  right: 10%;
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.3), transparent 70%);
+  border-radius: 50%;
+  filter: blur(50px);
+  animation: float-drift 16s ease-in-out infinite reverse;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Ensure all content sits above the floating orbs */
+body.theme-showcase .app-header,
+body.theme-showcase .app-layout,
+body.theme-showcase #loading-overlay {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Frosted glass header ────────────────────────────────────────────── */
+
+body.theme-showcase .app-header {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 4px 30px rgba(99, 102, 241, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.4) inset;
+}
+
+/* Shimmer sweep across the header — a diagonal light band that
+   glides left to right every 6 seconds, like sunlight on glass. */
+body.theme-showcase .app-header::after {
   content: '';
   position: absolute;
-  left: 0;
   top: 0;
+  left: 0;
+  right: 0;
   bottom: 0;
-  width: 4px;
   background: linear-gradient(
-    180deg,
-    #f43f5e, #f97316, #eab308, #22c55e,
-    #06b6d4, #3b82f6, #8b5cf6, #f43f5e
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.4) 45%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.4) 55%,
+    transparent 60%
   );
-  background-size: 100% 200%;
-  animation: rainbow-slide 4s linear infinite;
-  border-radius: 4px 0 0 4px;
-  opacity: 0.5;
-  transition: opacity 0.3s ease, width 0.3s ease;
+  animation: glass-shimmer 6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
 }
 
-body.theme-showcase .feature-card:hover::before,
-body.theme-showcase .feature-card.expanded::before {
-  opacity: 1;
-  width: 5px;
+/* Keep header content above the shimmer */
+body.theme-showcase .app-header > * {
+  position: relative;
+  z-index: 1;
 }
 
-body.theme-showcase .feature-card.expanded {
-  border-color: rgba(99, 102, 241, 0.25);
-  box-shadow:
-    0 4px 12px rgba(99, 102, 241, 0.12),
-    0 8px 24px rgba(99, 102, 241, 0.1),
-    0 16px 48px rgba(99, 102, 241, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+/* ── Frosted glass sidebar ───────────────────────────────────────────── */
+
+body.theme-showcase #app-sidebar {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border-right: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 4px 0 30px rgba(99, 102, 241, 0.06);
 }
 
-/* ── Sidebar rainbow left accent ─────────────────────────────────── */
-
+/* Animated rainbow strip on the sidebar right edge */
 body.theme-showcase #app-sidebar::after {
   content: '';
   position: absolute;
@@ -373,370 +419,28 @@ body.theme-showcase #app-sidebar::after {
     #06b6d4, #3b82f6, #8b5cf6, #f43f5e
   );
   background-size: 100% 200%;
-  animation: rainbow-slide 5s linear infinite;
+  animation: rainbow-slide 4s linear infinite;
   opacity: 0.8;
 }
 
-/* ── Glassmorphism buttons ───────────────────────────────────────── */
+/* ── Glass feature cards with rainbow borders ────────────────────────── */
 
-body.theme-showcase .header-btn {
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow:
-    0 2px 8px rgba(99, 102, 241, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  transition: all 0.23s ease;
-}
-
-body.theme-showcase .header-btn:hover {
-  background: rgba(255, 255, 255, 0.55);
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow:
-    0 4px 16px rgba(99, 102, 241, 0.15),
-    0 8px 32px rgba(99, 102, 241, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  transform: translateY(-2px);
-}
-
-body.theme-showcase .header-btn:active {
-  transform: translateY(0);
-  box-shadow: inset 0 1px 3px rgba(67, 83, 137, 0.1);
-}
-
-/* ── Primary action buttons: gradient fill ───────────────────────── */
-/* Buttons with .btn-primary get the purple-blue gradient. We use
-   background-image because --btn-primary-bg contains a gradient. */
-
-body.theme-showcase button[class*="primary"],
-body.theme-showcase .btn-primary {
-  background-image: linear-gradient(135deg, #6d28d9, #2563eb);
-  background-color: transparent;
-  border: none;
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25);
-  transition: all 0.2s ease;
-}
-
-body.theme-showcase button[class*="primary"]:hover,
-body.theme-showcase .btn-primary:hover {
-  background-image: linear-gradient(135deg, #6d28d9, #1d4ed8);
-  box-shadow:
-    0 4px 16px rgba(99, 102, 241, 0.35),
-    0 0 0 2px rgba(99, 102, 241, 0.1);
-  transform: translateY(-1px);
-}
-
-/* ── Input fields — frosted glass ────────────────────────────────── */
-
-body.theme-showcase input,
-body.theme-showcase select,
-body.theme-showcase textarea {
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  transition: all 0.23s ease;
-}
-
-body.theme-showcase input:focus,
-body.theme-showcase select:focus,
-body.theme-showcase textarea:focus {
-  background: rgba(255, 255, 255, 0.55);
-  border-color: rgba(99, 102, 241, 0.4);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
-}
-
-/* ── Table styling ───────────────────────────────────────────────── */
-
-body.theme-showcase #data-table th,
-body.theme-showcase .sql-result table th {
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
-}
-
-body.theme-showcase #data-table tbody tr:hover,
-body.theme-showcase .sql-result table tbody tr:hover {
-  background: rgba(99, 102, 241, 0.05);
-}
-
-body.theme-showcase #data-table th.col-pinned,
-body.theme-showcase #data-table td.col-pinned {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
-}
-
-/* ── Pre / code blocks — frosted ─────────────────────────────────── */
-
-body.theme-showcase pre {
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow:
-    0 4px 16px rgba(99, 102, 241, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-
-/* ── Search highlight — purple glow ──────────────────────────────── */
-
-body.theme-showcase .highlight {
-  background: rgba(99, 102, 241, 0.12);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
-  border-radius: 3px;
-}
-
-/* ── Collapsible headers — glass hover ───────────────────────────── */
-
-body.theme-showcase .collapsible-header:hover {
-  background: rgba(99, 102, 241, 0.04);
-}
-
-/* ── Copy toast ──────────────────────────────────────────────────── */
-
-body.theme-showcase .copy-toast {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(16px) saturate(1.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  box-shadow:
-    0 4px 8px rgba(67, 83, 137, 0.06),
-    0 8px 16px rgba(67, 83, 137, 0.08),
-    0 16px 32px rgba(67, 83, 137, 0.1);
-  border: 1px solid rgba(143, 168, 255, 0.12);
-}
-
-/* ── Scrollbar — purple tinted ───────────────────────────────────── */
-
-body.theme-showcase ::-webkit-scrollbar-track {
-  background: rgba(250, 251, 254, 0.5);
-}
-
-body.theme-showcase ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.2);
-  border-radius: 4px;
-}
-
-body.theme-showcase ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.35);
-}
-
-/* ── Version badge pill — frosted ────────────────────────────────── */
-
-body.theme-showcase #version-badge {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px) saturate(1.4);
-  -webkit-backdrop-filter: blur(10px) saturate(1.4);
-  border: 1px solid rgba(143, 168, 255, 0.12);
-}
-
-/* ── Header pill (live indicator) — glass ────────────────────────── */
-
-body.theme-showcase .header-pill {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px) saturate(1.4);
-  -webkit-backdrop-filter: blur(10px) saturate(1.4);
-  border: 1px solid rgba(143, 168, 255, 0.12);
-}
-
-/* ── Mask toggle — glass ─────────────────────────────────────────── */
-
-body.theme-showcase .header-mask-toggle {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px) saturate(1.4);
-  -webkit-backdrop-filter: blur(10px) saturate(1.4);
-  border: 1px solid rgba(143, 168, 255, 0.12);
-}
-
-body.theme-showcase .header-mask-toggle:hover {
-  background: rgba(255, 255, 255, 0.82);
-  border-color: rgba(67, 83, 137, 0.25);
-}
-
-/* ── Diagram tables — frosted ────────────────────────────────────── */
-
-body.theme-showcase .diagram-table rect {
-  fill: rgba(255, 255, 255, 0.75);
-  stroke: rgba(143, 168, 255, 0.15);
-}
-
-body.theme-showcase .diagram-table:hover rect {
-  stroke: rgba(67, 83, 137, 0.4);
-}
-
-/* ── Subtle entrance animation for main content ──────────────────── */
-/* Cards and sections fade in with a slight upward drift when the
-   showcase theme is active. Uses a one-shot animation. */
-
-@keyframes showcase-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-body.theme-showcase .feature-card,
-body.theme-showcase .collapsible-header,
-body.theme-showcase #data-table {
-  animation: showcase-fade-in 0.4s ease both;
-}
-
-/* Stagger the entrance so cards cascade in sequence. Each
-   successive card starts its animation slightly later. */
-body.theme-showcase .feature-card:nth-child(1) { animation-delay: 0s; }
-body.theme-showcase .feature-card:nth-child(2) { animation-delay: 0.05s; }
-body.theme-showcase .feature-card:nth-child(3) { animation-delay: 0.1s; }
-body.theme-showcase .feature-card:nth-child(4) { animation-delay: 0.15s; }
-body.theme-showcase .feature-card:nth-child(5) { animation-delay: 0.2s; }
-body.theme-showcase .feature-card:nth-child(6) { animation-delay: 0.25s; }
-body.theme-showcase .feature-card:nth-child(7) { animation-delay: 0.3s; }
-body.theme-showcase .feature-card:nth-child(8) { animation-delay: 0.35s; }
-
-/* ── Diff result — glass card ────────────────────────────────────── */
-
-body.theme-showcase .diff-result {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(14px) saturate(1.5);
-  -webkit-backdrop-filter: blur(14px) saturate(1.5);
-  border: 1px solid rgba(143, 168, 255, 0.12);
-  box-shadow:
-    0 2px 4px rgba(67, 83, 137, 0.03),
-    0 4px 8px rgba(67, 83, 137, 0.04),
-    0 8px 16px rgba(67, 83, 137, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-
-/* ── Query builder — glass sections ──────────────────────────────── */
-
-body.theme-showcase .qb-section .qb-body {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  border: 1px solid rgba(143, 168, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-
-/* ── Chart enhancements — purple accent ──────────────────────────── */
-
-body.theme-showcase .chart-bar {
-  filter: drop-shadow(0 1px 2px rgba(99, 102, 241, 0.15));
-}
-
-body.theme-showcase .chart-dot {
-  filter: drop-shadow(0 1px 3px rgba(99, 102, 241, 0.2));
-}
-
-/* ── Loading overlay — frosted ───────────────────────────────────── */
-
-body.theme-showcase #loading-overlay {
-  background: rgba(250, 251, 254, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-
-/* ── Showcase indicator — a small, tasteful label in the footer
-   area so users know they're seeing the enhanced experience. ─────── */
-
-body.theme-showcase::after {
-  content: '\2728';  /* sparkles emoji */
-  position: fixed;
-  bottom: 8px;
-  right: 12px;
-  font-size: 14px;
-  opacity: 0.35;
-  pointer-events: none;
-  z-index: 9999;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   Midnight theme — deep navy glassmorphism, periwinkle accents,
-   animated gradient, ambient glow
-   ═══════════════════════════════════════════════════════════════════
-   The premium dark counterpart to showcase. Uses the saropa.com dark
-   palette. CDN-only — never bundled into user APKs. When enhanced CSS
-   is unavailable, midnight degrades to a clean dark-blue theme using
-   only the variables in style.scss.
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* ── Animated dark gradient background ──────────────────────────────── */
-/* Slow-moving deep gradient behind the entire page. Radial glows add
-   depth and visual interest without competing with content. */
-
-@keyframes midnight-bg-shift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-body.theme-midnight {
-  /* Deep navy with visible coloured radial glows that shift slowly.
-     The colour differences must be obvious enough that the user can
-     clearly see the background animating behind frosted panels. */
-  background:
-    radial-gradient(ellipse 700px 700px at 10% 20%, rgba(99, 102, 241, 0.2), transparent),
-    radial-gradient(ellipse 500px 500px at 85% 60%, rgba(168, 85, 247, 0.15), transparent),
-    radial-gradient(ellipse 500px 400px at 50% 85%, rgba(59, 130, 246, 0.15), transparent),
-    radial-gradient(ellipse 400px 400px at 30% 50%, rgba(6, 182, 212, 0.1), transparent),
-    linear-gradient(
-      135deg,
-      #0f1219 0%,
-      #1a1e3a 18%,
-      #15204a 36%,
-      #261a42 54%,
-      #0f2040 72%,
-      #1a153a 90%,
-      #0f1219 100%
-    );
-  background-size: 400% 400%;
-  animation: midnight-bg-shift 22s ease infinite;
-}
-
-/* ── Glassmorphic header ────────────────────────────────────────────── */
-
-body.theme-midnight .app-header {
-  background: rgba(20, 24, 48, 0.45);
-  backdrop-filter: blur(24px) saturate(1.8);
-  -webkit-backdrop-filter: blur(24px) saturate(1.8);
-  border-bottom: 1px solid rgba(143, 168, 255, 0.15);
-  box-shadow:
-    inset 0 -1px 0 rgba(143, 168, 255, 0.1),
-    0 4px 16px rgba(99, 102, 241, 0.1),
-    0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-/* ── Glassmorphic sidebar ───────────────────────────────────────────── */
-
-body.theme-midnight #app-sidebar {
-  background: rgba(20, 24, 48, 0.35);
+body.theme-showcase .feature-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.3);
   backdrop-filter: blur(20px) saturate(1.6);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  border-right: 1px solid rgba(143, 168, 255, 0.12);
-}
-
-/* ── Glassmorphic feature cards ─────────────────────────────────────── */
-
-body.theme-midnight .feature-card {
-  position: relative;
-  background: rgba(30, 36, 66, 0.4);
-  backdrop-filter: blur(18px) saturate(1.5);
-  -webkit-backdrop-filter: blur(18px) saturate(1.5);
-  border: 1px solid rgba(143, 168, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.2),
-    0 8px 32px rgba(99, 102, 241, 0.06),
-    inset 0 1px 0 rgba(143, 168, 255, 0.1);
+    0 8px 32px rgba(99, 102, 241, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
   overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Rainbow side accent — always visible at low opacity so the
-   glassmorphism feel is immediately obvious, not hidden until hover. */
-body.theme-midnight .feature-card::before {
+/* Rainbow left edge — always visible, intensifies on hover */
+body.theme-showcase .feature-card::before {
   content: '';
   position: absolute;
   left: 0;
@@ -745,33 +449,426 @@ body.theme-midnight .feature-card::before {
   width: 4px;
   background: linear-gradient(
     180deg,
-    #8b5cf6, #3b82f6, #06b6d4, #22c55e,
-    #eab308, #f97316, #8b5cf6
+    #f43f5e, #f97316, #eab308, #22c55e,
+    #06b6d4, #3b82f6, #8b5cf6, #f43f5e
   );
   background-size: 100% 200%;
-  animation: rainbow-slide 5s linear infinite;
+  animation: rainbow-slide 3s linear infinite;
   border-radius: 4px 0 0 4px;
-  opacity: 0.4;
+  opacity: 0.6;
   transition: opacity 0.3s ease, width 0.3s ease;
 }
 
-body.theme-midnight .feature-card:hover::before,
-body.theme-midnight .feature-card.expanded::before {
+/* Shimmer sweep across cards */
+body.theme-showcase .feature-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.3) 45%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.3) 55%,
+    transparent 60%
+  );
+  animation: glass-shimmer 8s ease-in-out infinite;
+  animation-delay: inherit;
+  pointer-events: none;
+}
+
+body.theme-showcase .feature-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow:
+    0 12px 48px rgba(99, 102, 241, 0.18),
+    0 4px 16px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+body.theme-showcase .feature-card:hover::before {
+  opacity: 1;
+  width: 6px;
+}
+
+body.theme-showcase .feature-card.expanded {
+  box-shadow:
+    0 16px 64px rgba(99, 102, 241, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+body.theme-showcase .feature-card.expanded::before {
   opacity: 1;
   width: 5px;
 }
 
-body.theme-midnight .feature-card.expanded {
-  border-color: rgba(143, 168, 255, 0.2);
+/* ── Glass buttons with hover lift ───────────────────────────────────── */
+
+body.theme-showcase .header-btn {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.18),
-    0 8px 16px rgba(0, 0, 0, 0.14),
-    0 16px 32px rgba(143, 168, 255, 0.06),
-    inset 0 1px 0 rgba(143, 168, 255, 0.1);
+    0 2px 12px rgba(99, 102, 241, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: all 0.25s ease;
 }
 
-/* ── Sidebar periwinkle accent ──────────────────────────────────────── */
+body.theme-showcase .header-btn:hover {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow:
+    0 8px 32px rgba(99, 102, 241, 0.2),
+    0 0 16px rgba(139, 92, 246, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(-3px);
+}
 
+body.theme-showcase .header-btn:active {
+  transform: translateY(0);
+  box-shadow: inset 0 2px 6px rgba(99, 102, 241, 0.15);
+}
+
+/* ── Gradient primary buttons ────────────────────────────────────────── */
+
+body.theme-showcase button[class*="primary"],
+body.theme-showcase .btn-primary {
+  background-image: linear-gradient(135deg, #8b5cf6, #3b82f6, #06b6d4);
+  background-size: 200% 200%;
+  animation: premium-bg-shift 4s ease infinite;
+  background-color: transparent;
+  border: none;
+  color: #fff;
+  box-shadow:
+    0 4px 20px rgba(99, 102, 241, 0.35),
+    0 0 10px rgba(139, 92, 246, 0.2);
+  transition: all 0.25s ease;
+}
+
+body.theme-showcase button[class*="primary"]:hover,
+body.theme-showcase .btn-primary:hover {
+  box-shadow:
+    0 8px 36px rgba(99, 102, 241, 0.45),
+    0 0 20px rgba(139, 92, 246, 0.3);
+  transform: translateY(-3px) scale(1.02);
+}
+
+/* ── Frosted glass inputs ────────────────────────────────────────────── */
+
+body.theme-showcase input,
+body.theme-showcase select,
+body.theme-showcase textarea {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transition: all 0.25s ease;
+}
+
+body.theme-showcase input:focus,
+body.theme-showcase select:focus,
+body.theme-showcase textarea:focus {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow:
+    0 0 0 4px rgba(139, 92, 246, 0.15),
+    0 0 20px rgba(139, 92, 246, 0.1);
+}
+
+/* ── Glass collapsible sections ──────────────────────────────────────── */
+
+body.theme-showcase .collapsible-body:not(.collapsed) {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 8px 32px rgba(99, 102, 241, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+body.theme-showcase .collapsible-header:hover {
+  background: rgba(139, 92, 246, 0.06);
+}
+
+/* ── Glass table headers ─────────────────────────────────────────────── */
+
+body.theme-showcase #data-table th,
+body.theme-showcase .sql-result table th {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+body.theme-showcase #data-table tbody tr:hover,
+body.theme-showcase .sql-result table tbody tr:hover {
+  background: rgba(139, 92, 246, 0.08);
+}
+
+body.theme-showcase #data-table th.col-pinned,
+body.theme-showcase #data-table td.col-pinned {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* ── Glass pre/code blocks ───────────────────────────────────────────── */
+
+body.theme-showcase pre {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 4px 24px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* ── Glowing search highlight ────────────────────────────────────────── */
+
+body.theme-showcase .highlight {
+  background: rgba(139, 92, 246, 0.15);
+  box-shadow:
+    0 0 0 2px rgba(139, 92, 246, 0.2),
+    0 0 12px rgba(139, 92, 246, 0.15);
+  border-radius: 3px;
+}
+
+/* ── Glass copy toast ────────────────────────────────────────────────── */
+
+body.theme-showcase .copy-toast {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow:
+    0 8px 32px rgba(99, 102, 241, 0.15),
+    0 16px 48px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* ── Tinted scrollbar ────────────────────────────────────────────────── */
+
+body.theme-showcase ::-webkit-scrollbar-track {
+  background: rgba(250, 251, 254, 0.3);
+}
+
+body.theme-showcase ::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.25);
+  border-radius: 4px;
+}
+
+body.theme-showcase ::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.45);
+}
+
+/* ── Glass pills and toggles ────────────────────────────────────────── */
+
+body.theme-showcase #version-badge,
+body.theme-showcase .header-pill,
+body.theme-showcase .header-mask-toggle {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+body.theme-showcase .header-mask-toggle:hover {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+/* ── Glass diagrams ──────────────────────────────────────────────────── */
+
+body.theme-showcase .diagram-table rect {
+  fill: rgba(255, 255, 255, 0.35);
+  stroke: rgba(139, 92, 246, 0.2);
+}
+
+body.theme-showcase .diagram-table:hover rect {
+  stroke: rgba(139, 92, 246, 0.5);
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.2));
+}
+
+/* ── Glass diff result ───────────────────────────────────────────────── */
+
+body.theme-showcase .diff-result {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.06);
+}
+
+/* ── Glass query builder ─────────────────────────────────────────────── */
+
+body.theme-showcase .qb-section .qb-body {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* ── Chart glow effects ──────────────────────────────────────────────── */
+
+body.theme-showcase .chart-bar {
+  filter: drop-shadow(0 2px 6px rgba(139, 92, 246, 0.2));
+}
+
+body.theme-showcase .chart-dot {
+  filter: drop-shadow(0 2px 8px rgba(139, 92, 246, 0.3));
+}
+
+/* ── Glass loading overlay ───────────────────────────────────────────── */
+
+body.theme-showcase #loading-overlay {
+  background: rgba(250, 251, 254, 0.6);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+}
+
+/* ── Entrance animations — staggered cascade ─────────────────────────── */
+
+body.theme-showcase .feature-card,
+body.theme-showcase .collapsible-header,
+body.theme-showcase #data-table {
+  animation: card-entrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+body.theme-showcase .feature-card:nth-child(1)  { animation-delay: 0s; }
+body.theme-showcase .feature-card:nth-child(2)  { animation-delay: 0.08s; }
+body.theme-showcase .feature-card:nth-child(3)  { animation-delay: 0.16s; }
+body.theme-showcase .feature-card:nth-child(4)  { animation-delay: 0.24s; }
+body.theme-showcase .feature-card:nth-child(5)  { animation-delay: 0.32s; }
+body.theme-showcase .feature-card:nth-child(6)  { animation-delay: 0.40s; }
+body.theme-showcase .feature-card:nth-child(7)  { animation-delay: 0.48s; }
+body.theme-showcase .feature-card:nth-child(8)  { animation-delay: 0.56s; }
+body.theme-showcase .feature-card:nth-child(9)  { animation-delay: 0.64s; }
+body.theme-showcase .feature-card:nth-child(10) { animation-delay: 0.72s; }
+body.theme-showcase .feature-card:nth-child(11) { animation-delay: 0.80s; }
+body.theme-showcase .feature-card:nth-child(12) { animation-delay: 0.88s; }
+
+
+/* ┌─────────────────────────────────────────────────────────────────────┐
+   │  MIDNIGHT THEME — Deep navy glassmorphism, periwinkle accents      │
+   └─────────────────────────────────────────────────────────────────────┘ */
+
+/* ── Animated deep gradient with coloured orbs ───────────────────────── */
+
+@keyframes midnight-bg-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+body.theme-midnight {
+  background:
+    linear-gradient(
+      135deg,
+      #0a0d1a 0%,
+      #141838 16%,
+      #0d1a40 32%,
+      #1a1040 48%,
+      #0a1a38 64%,
+      #180d38 80%,
+      #0a0d1a 100%
+    );
+  background-size: 400% 400%;
+  animation: midnight-bg-shift 20s ease infinite;
+}
+
+/* Floating ambient orbs — vivid blurred colour blobs that drift
+   behind the frosted glass, giving the dark theme a living galaxy feel. */
+body.theme-midnight::before {
+  content: '';
+  position: fixed;
+  top: 5%;
+  left: 10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.3), transparent 70%);
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: float-drift 14s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.theme-midnight::after {
+  content: '';
+  position: fixed;
+  bottom: 10%;
+  right: 5%;
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.25), transparent 70%);
+  border-radius: 50%;
+  filter: blur(70px);
+  animation: float-drift 18s ease-in-out infinite reverse;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Content above orbs */
+body.theme-midnight .app-header,
+body.theme-midnight .app-layout,
+body.theme-midnight #loading-overlay {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Frosted glass header ────────────────────────────────────────────── */
+
+body.theme-midnight .app-header {
+  background: rgba(10, 13, 30, 0.35);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  border-bottom: 1px solid rgba(143, 168, 255, 0.15);
+  box-shadow:
+    0 4px 30px rgba(0, 0, 0, 0.3),
+    0 1px 0 rgba(143, 168, 255, 0.08) inset;
+}
+
+/* Shimmer sweep — blue-tinted light sweep across the header */
+body.theme-midnight .app-header::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(143, 168, 255, 0.08) 45%,
+    rgba(143, 168, 255, 0.15) 50%,
+    rgba(143, 168, 255, 0.08) 55%,
+    transparent 60%
+  );
+  animation: glass-shimmer 8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.theme-midnight .app-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Frosted glass sidebar ───────────────────────────────────────────── */
+
+body.theme-midnight #app-sidebar {
+  background: rgba(10, 13, 30, 0.3);
+  backdrop-filter: blur(24px) saturate(1.7);
+  -webkit-backdrop-filter: blur(24px) saturate(1.7);
+  border-right: 1px solid rgba(143, 168, 255, 0.1);
+  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.2);
+}
+
+/* Animated rainbow strip on sidebar right edge */
 body.theme-midnight #app-sidebar::after {
   content: '';
   position: absolute;
@@ -785,275 +882,335 @@ body.theme-midnight #app-sidebar::after {
     #eab308, #f97316, #8b5cf6
   );
   background-size: 100% 200%;
-  animation: rainbow-slide 6s linear infinite;
+  animation: rainbow-slide 5s linear infinite;
   opacity: 0.7;
 }
 
-/* ── Glassmorphic buttons ───────────────────────────────────────────── */
+/* ── Glass feature cards with rainbow + shimmer ──────────────────────── */
+
+body.theme-midnight .feature-card {
+  position: relative;
+  background: rgba(15, 20, 45, 0.35);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.25),
+    0 0 1px rgba(143, 168, 255, 0.1),
+    inset 0 1px 0 rgba(143, 168, 255, 0.08);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Rainbow left edge — always visible */
+body.theme-midnight .feature-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(
+    180deg,
+    #8b5cf6, #3b82f6, #06b6d4, #22c55e,
+    #eab308, #f97316, #8b5cf6
+  );
+  background-size: 100% 200%;
+  animation: rainbow-slide 4s linear infinite;
+  border-radius: 4px 0 0 4px;
+  opacity: 0.5;
+  transition: opacity 0.3s ease, width 0.3s ease;
+}
+
+/* Shimmer sweep across cards */
+body.theme-midnight .feature-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(143, 168, 255, 0.06) 45%,
+    rgba(143, 168, 255, 0.12) 50%,
+    rgba(143, 168, 255, 0.06) 55%,
+    transparent 60%
+  );
+  animation: glass-shimmer 10s ease-in-out infinite;
+  animation-delay: inherit;
+  pointer-events: none;
+}
+
+body.theme-midnight .feature-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow:
+    0 12px 48px rgba(99, 102, 241, 0.15),
+    0 16px 64px rgba(0, 0, 0, 0.2),
+    0 0 30px rgba(143, 168, 255, 0.08),
+    inset 0 1px 0 rgba(143, 168, 255, 0.12);
+}
+
+body.theme-midnight .feature-card:hover::before {
+  opacity: 1;
+  width: 6px;
+}
+
+body.theme-midnight .feature-card.expanded {
+  box-shadow:
+    0 16px 64px rgba(99, 102, 241, 0.12),
+    0 0 40px rgba(143, 168, 255, 0.06),
+    inset 0 1px 0 rgba(143, 168, 255, 0.1);
+}
+
+body.theme-midnight .feature-card.expanded::before {
+  opacity: 1;
+  width: 5px;
+}
+
+/* ── Glass buttons ───────────────────────────────────────────────────── */
 
 body.theme-midnight .header-btn {
-  background: rgba(30, 36, 66, 0.35);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid rgba(143, 168, 255, 0.15);
+  background: rgba(15, 20, 45, 0.3);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.12);
   box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(143, 168, 255, 0.08);
-  transition: all 0.23s ease;
+    0 2px 12px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(143, 168, 255, 0.06);
+  transition: all 0.25s ease;
 }
 
 body.theme-midnight .header-btn:hover {
-  background: rgba(30, 36, 66, 0.5);
+  background: rgba(15, 20, 45, 0.45);
   border-color: rgba(143, 168, 255, 0.3);
   box-shadow:
-    0 4px 16px rgba(99, 102, 241, 0.15),
-    0 8px 32px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(143, 168, 255, 0.12);
-  transform: translateY(-2px);
+    0 8px 32px rgba(99, 102, 241, 0.12),
+    0 0 16px rgba(143, 168, 255, 0.08),
+    inset 0 1px 0 rgba(143, 168, 255, 0.1);
+  transform: translateY(-3px);
 }
 
 body.theme-midnight .header-btn:active {
   transform: translateY(0);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* ── Primary buttons: periwinkle gradient ───────────────────────────── */
+/* ── Gradient primary buttons ────────────────────────────────────────── */
 
 body.theme-midnight button[class*="primary"],
 body.theme-midnight .btn-primary {
-  background-image: linear-gradient(135deg, #435389, #3b82f6);
+  background-image: linear-gradient(135deg, #4338ca, #3b82f6, #8b5cf6);
+  background-size: 200% 200%;
+  animation: premium-bg-shift 5s ease infinite;
   background-color: transparent;
   border: none;
   color: #fff;
-  box-shadow: 0 2px 10px rgba(143, 168, 255, 0.2);
-  transition: all 0.23s ease;
+  box-shadow:
+    0 4px 20px rgba(99, 102, 241, 0.3),
+    0 0 12px rgba(143, 168, 255, 0.15);
+  transition: all 0.25s ease;
 }
 
 body.theme-midnight button[class*="primary"]:hover,
 body.theme-midnight .btn-primary:hover {
-  background-image: linear-gradient(135deg, #526299, #2563eb);
   box-shadow:
-    0 4px 16px rgba(143, 168, 255, 0.3),
-    0 0 0 2px rgba(143, 168, 255, 0.08);
-  transform: translateY(-1px);
+    0 8px 36px rgba(99, 102, 241, 0.4),
+    0 0 24px rgba(143, 168, 255, 0.2);
+  transform: translateY(-3px) scale(1.02);
 }
 
-/* ── Input fields — dark glass ──────────────────────────────────────── */
+/* ── Glass inputs ────────────────────────────────────────────────────── */
 
 body.theme-midnight input,
 body.theme-midnight select,
 body.theme-midnight textarea {
-  background: rgba(30, 36, 66, 0.35);
-  backdrop-filter: blur(10px) saturate(1.3);
-  -webkit-backdrop-filter: blur(10px) saturate(1.3);
-  border: 1px solid rgba(143, 168, 255, 0.15);
-  transition: all 0.23s ease;
+  background: rgba(15, 20, 45, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  transition: all 0.25s ease;
 }
 
 body.theme-midnight input:focus,
 body.theme-midnight select:focus,
 body.theme-midnight textarea:focus {
-  background: rgba(30, 36, 66, 0.5);
+  background: rgba(15, 20, 45, 0.45);
   border-color: rgba(143, 168, 255, 0.35);
-  box-shadow: 0 0 0 3px rgba(143, 168, 255, 0.12);
+  box-shadow:
+    0 0 0 4px rgba(143, 168, 255, 0.1),
+    0 0 20px rgba(143, 168, 255, 0.08);
 }
 
-/* ── Table styling ──────────────────────────────────────────────────── */
+/* ── Glass table headers ─────────────────────────────────────────────── */
 
 body.theme-midnight #data-table th,
 body.theme-midnight .sql-result table th {
-  background: rgba(20, 24, 48, 0.5);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  background: rgba(10, 13, 30, 0.4);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 body.theme-midnight #data-table tbody tr:hover,
 body.theme-midnight .sql-result table tbody tr:hover {
-  background: rgba(143, 168, 255, 0.06);
+  background: rgba(143, 168, 255, 0.08);
 }
 
 body.theme-midnight #data-table th.col-pinned,
 body.theme-midnight #data-table td.col-pinned {
-  background: rgba(20, 24, 48, 0.55);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  background: rgba(10, 13, 30, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-/* ── Pre / code blocks — dark glass ─────────────────────────────────── */
+/* ── Glass pre/code ──────────────────────────────────────────────────── */
 
 body.theme-midnight pre {
-  background: rgba(25, 30, 56, 0.4);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid rgba(143, 168, 255, 0.12);
+  background: rgba(15, 20, 45, 0.3);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.1);
   box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(143, 168, 255, 0.08);
+    0 4px 24px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(143, 168, 255, 0.06);
 }
 
-/* ── Search highlight — periwinkle glow ─────────────────────────────── */
+/* ── Glowing search highlight ────────────────────────────────────────── */
 
 body.theme-midnight .highlight {
-  background: rgba(143, 168, 255, 0.15);
-  box-shadow: 0 0 0 2px rgba(143, 168, 255, 0.12);
+  background: rgba(143, 168, 255, 0.18);
+  box-shadow:
+    0 0 0 2px rgba(143, 168, 255, 0.15),
+    0 0 12px rgba(143, 168, 255, 0.12);
   border-radius: 3px;
 }
 
-/* ── Collapsible sections — dark glass ──────────────────────────────── */
+/* ── Glass collapsible sections ──────────────────────────────────────── */
 
 body.theme-midnight .collapsible-header:hover {
   background: rgba(143, 168, 255, 0.06);
 }
 
 body.theme-midnight .collapsible-body:not(.collapsed) {
-  background: rgba(30, 36, 66, 0.35);
-  backdrop-filter: blur(18px) saturate(1.4);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  background: rgba(15, 20, 45, 0.3);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
   box-shadow:
-    0 0 0 1px rgba(143, 168, 255, 0.1),
-    0 4px 12px rgba(0, 0, 0, 0.15),
-    0 8px 24px rgba(99, 102, 241, 0.06),
-    inset 0 1px 0 rgba(143, 168, 255, 0.08);
+    0 0 0 1px rgba(143, 168, 255, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(143, 168, 255, 0.06);
 }
 
-/* ── Copy toast ─────────────────────────────────────────────────────── */
+/* ── Glass copy toast ────────────────────────────────────────────────── */
 
 body.theme-midnight .copy-toast {
-  background: rgba(44, 51, 80, 0.9);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  background: rgba(15, 20, 45, 0.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
   box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.18),
-    0 8px 16px rgba(0, 0, 0, 0.14),
-    0 16px 32px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(143, 168, 255, 0.12);
+    0 8px 32px rgba(0, 0, 0, 0.25),
+    0 16px 48px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(143, 168, 255, 0.1);
 }
 
-/* ── Scrollbar — blue-tinted ────────────────────────────────────────── */
+/* ── Blue-tinted scrollbar ───────────────────────────────────────────── */
 
 body.theme-midnight ::-webkit-scrollbar-track {
-  background: rgba(26, 29, 43, 0.5);
+  background: rgba(10, 13, 26, 0.3);
 }
 
 body.theme-midnight ::-webkit-scrollbar-thumb {
-  background: rgba(143, 168, 255, 0.15);
+  background: rgba(143, 168, 255, 0.2);
   border-radius: 4px;
 }
 
 body.theme-midnight ::-webkit-scrollbar-thumb:hover {
-  background: rgba(143, 168, 255, 0.25);
+  background: rgba(143, 168, 255, 0.4);
 }
 
-/* ── Version badge — dark glass ─────────────────────────────────────── */
+/* ── Glass pills and toggles ────────────────────────────────────────── */
 
-body.theme-midnight #version-badge {
-  background: rgba(44, 51, 80, 0.5);
-  backdrop-filter: blur(8px) saturate(1.3);
-  -webkit-backdrop-filter: blur(8px) saturate(1.3);
-  border: 1px solid rgba(143, 168, 255, 0.1);
-}
-
-/* ── Header pill — dark glass ───────────────────────────────────────── */
-
-body.theme-midnight .header-pill {
-  background: rgba(44, 51, 80, 0.5);
-  backdrop-filter: blur(8px) saturate(1.3);
-  -webkit-backdrop-filter: blur(8px) saturate(1.3);
-  border: 1px solid rgba(143, 168, 255, 0.1);
-}
-
-/* ── Mask toggle — dark glass ───────────────────────────────────────── */
-
+body.theme-midnight #version-badge,
+body.theme-midnight .header-pill,
 body.theme-midnight .header-mask-toggle {
-  background: rgba(44, 51, 80, 0.5);
-  backdrop-filter: blur(8px) saturate(1.3);
-  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+  background: rgba(15, 20, 45, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(143, 168, 255, 0.1);
 }
 
 body.theme-midnight .header-mask-toggle:hover {
-  background: rgba(44, 51, 80, 0.7);
+  background: rgba(15, 20, 45, 0.5);
   border-color: rgba(143, 168, 255, 0.25);
 }
 
-/* ── Diagram tables — dark glass ────────────────────────────────────── */
+/* ── Glass diagrams ──────────────────────────────────────────────────── */
 
 body.theme-midnight .diagram-table rect {
-  fill: rgba(44, 51, 80, 0.6);
+  fill: rgba(15, 20, 45, 0.4);
   stroke: rgba(143, 168, 255, 0.12);
 }
 
 body.theme-midnight .diagram-table:hover rect {
-  stroke: rgba(143, 168, 255, 0.35);
+  stroke: rgba(143, 168, 255, 0.4);
+  filter: drop-shadow(0 0 10px rgba(143, 168, 255, 0.15));
 }
 
-/* ── Diff result — dark glass ───────────────────────────────────────── */
+/* ── Glass diff result ───────────────────────────────────────────────── */
 
 body.theme-midnight .diff-result {
-  background: rgba(44, 51, 80, 0.55);
-  backdrop-filter: blur(12px) saturate(1.3);
-  -webkit-backdrop-filter: blur(12px) saturate(1.3);
-  border: 1px solid rgba(143, 168, 255, 0.1);
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.12),
-    0 4px 8px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(143, 168, 255, 0.06);
+  background: rgba(15, 20, 45, 0.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(143, 168, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
 
-/* ── Query builder — dark glass ─────────────────────────────────────── */
+/* ── Glass query builder ─────────────────────────────────────────────── */
 
 body.theme-midnight .qb-section .qb-body {
-  background: rgba(44, 51, 80, 0.45);
-  backdrop-filter: blur(10px) saturate(1.3);
-  -webkit-backdrop-filter: blur(10px) saturate(1.3);
-  border: 1px solid rgba(143, 168, 255, 0.1);
-  box-shadow: inset 0 1px 0 rgba(143, 168, 255, 0.06);
+  background: rgba(15, 20, 45, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(143, 168, 255, 0.08);
 }
 
-/* ── Chart enhancements — periwinkle accent ─────────────────────────── */
+/* ── Chart glow effects ──────────────────────────────────────────────── */
 
 body.theme-midnight .chart-bar {
-  filter: drop-shadow(0 1px 2px rgba(143, 168, 255, 0.12));
+  filter: drop-shadow(0 2px 6px rgba(143, 168, 255, 0.15));
 }
 
 body.theme-midnight .chart-dot {
-  filter: drop-shadow(0 1px 3px rgba(143, 168, 255, 0.15));
+  filter: drop-shadow(0 2px 8px rgba(143, 168, 255, 0.2));
 }
 
-/* ── Loading overlay — dark frosted ─────────────────────────────────── */
+/* ── Frosted loading overlay ─────────────────────────────────────────── */
 
 body.theme-midnight #loading-overlay {
-  background: rgba(26, 29, 43, 0.9);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(10, 13, 26, 0.6);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
 }
 
-/* ── Entrance animation ─────────────────────────────────────────────── */
+/* ── Entrance animations — staggered cascade ─────────────────────────── */
 
 body.theme-midnight .feature-card,
 body.theme-midnight .collapsible-header,
 body.theme-midnight #data-table {
-  animation: showcase-fade-in 0.4s ease both;
+  animation: card-entrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-body.theme-midnight .feature-card:nth-child(1) { animation-delay: 0s; }
-body.theme-midnight .feature-card:nth-child(2) { animation-delay: 0.05s; }
-body.theme-midnight .feature-card:nth-child(3) { animation-delay: 0.1s; }
-body.theme-midnight .feature-card:nth-child(4) { animation-delay: 0.15s; }
-body.theme-midnight .feature-card:nth-child(5) { animation-delay: 0.2s; }
-body.theme-midnight .feature-card:nth-child(6) { animation-delay: 0.25s; }
-body.theme-midnight .feature-card:nth-child(7) { animation-delay: 0.3s; }
-body.theme-midnight .feature-card:nth-child(8) { animation-delay: 0.35s; }
-
-/* ── Midnight indicator ─────────────────────────────────────────────── */
-
-body.theme-midnight::after {
-  content: '\1F319';  /* crescent moon emoji */
-  position: fixed;
-  bottom: 8px;
-  right: 12px;
-  font-size: 14px;
-  opacity: 0.3;
-  pointer-events: none;
-  z-index: 9999;
-}
+body.theme-midnight .feature-card:nth-child(1)  { animation-delay: 0s; }
+body.theme-midnight .feature-card:nth-child(2)  { animation-delay: 0.08s; }
+body.theme-midnight .feature-card:nth-child(3)  { animation-delay: 0.16s; }
+body.theme-midnight .feature-card:nth-child(4)  { animation-delay: 0.24s; }
+body.theme-midnight .feature-card:nth-child(5)  { animation-delay: 0.32s; }
+body.theme-midnight .feature-card:nth-child(6)  { animation-delay: 0.40s; }
+body.theme-midnight .feature-card:nth-child(7)  { animation-delay: 0.48s; }
+body.theme-midnight .feature-card:nth-child(8)  { animation-delay: 0.56s; }
+body.theme-midnight .feature-card:nth-child(9)  { animation-delay: 0.64s; }
+body.theme-midnight .feature-card:nth-child(10) { animation-delay: 0.72s; }
+body.theme-midnight .feature-card:nth-child(11) { animation-delay: 0.80s; }
+body.theme-midnight .feature-card:nth-child(12) { animation-delay: 0.88s; }

@@ -163,10 +163,10 @@ describe('Web theme contract — drift-enhanced.css (CDN-only)', () => {
     );
   });
 
-  it('contains showcase animated background keyframes', () => {
+  it('contains animated background keyframes', () => {
     assert.ok(
-      css.includes('@keyframes showcase-bg-shift'),
-      'drift-enhanced.css must contain the showcase background animation',
+      css.includes('@keyframes premium-bg-shift'),
+      'drift-enhanced.css must contain the background gradient animation',
     );
   });
 
@@ -177,10 +177,24 @@ describe('Web theme contract — drift-enhanced.css (CDN-only)', () => {
     );
   });
 
-  it('contains showcase entrance animation', () => {
+  it('contains card entrance animation', () => {
     assert.ok(
-      css.includes('@keyframes showcase-fade-in'),
-      'drift-enhanced.css must contain the entrance fade-in animation',
+      css.includes('@keyframes card-entrance'),
+      'drift-enhanced.css must contain the card entrance animation',
+    );
+  });
+
+  it('contains glass shimmer animation', () => {
+    assert.ok(
+      css.includes('@keyframes glass-shimmer'),
+      'drift-enhanced.css must contain the glass shimmer sweep animation',
+    );
+  });
+
+  it('contains floating orb animation', () => {
+    assert.ok(
+      css.includes('@keyframes float-drift'),
+      'drift-enhanced.css must contain the floating ambient orb animation',
     );
   });
 
@@ -193,14 +207,14 @@ describe('Web theme contract — drift-enhanced.css (CDN-only)', () => {
     );
   });
 
-  it('showcase section does not contain theme-light or theme-dark selectors', () => {
+  it('premium section does not contain theme-light or theme-dark selectors', () => {
     // The dark-specific highlight rule is an exception pre-dating this
     // change, but showcase/midnight effects must not bleed into base themes.
     const lines = css.split('\n');
-    const showcaseStartIdx = lines.findIndex((l) => l.includes('Showcase theme'));
-    assert.ok(showcaseStartIdx !== -1, 'drift-enhanced.css must contain a Showcase theme section');
-    const showcaseSection = lines.slice(showcaseStartIdx);
-    for (const line of showcaseSection) {
+    const premiumStartIdx = lines.findIndex((l) => l.includes('SHOWCASE + MIDNIGHT'));
+    assert.ok(premiumStartIdx !== -1, 'drift-enhanced.css must contain a SHOWCASE + MIDNIGHT section');
+    const premiumSection = lines.slice(premiumStartIdx);
+    for (const line of premiumSection) {
       assert.ok(
         !line.includes('body.theme-dark') && !line.includes('body.theme-light'),
         `Premium section in drift-enhanced.css must not target theme-dark or theme-light: "${line.trim()}"`,
@@ -210,7 +224,7 @@ describe('Web theme contract — drift-enhanced.css (CDN-only)', () => {
 
   it('contains midnight theme section with glassmorphism', () => {
     assert.ok(
-      css.includes('Midnight theme'),
+      css.includes('MIDNIGHT THEME'),
       'drift-enhanced.css must contain a Midnight theme section',
     );
     assert.ok(

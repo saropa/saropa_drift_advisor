@@ -999,6 +999,17 @@ body.theme-dark .toolbar-tool-btn:hover {
   white-space: nowrap;
 }
 
+/* App logo sits at the left end of the tab bar, vertically centred. */
+.tab-bar-logo {
+  height: 28px;
+  width: auto;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 4px);
+  /* Keeps the logo sharp at small sizes. */
+  image-rendering: auto;
+}
+
 /* --- Tab bar: looks like real tabs with wider header and border to content --- */
 #tab-bar.tab-bar {
   display: flex;
