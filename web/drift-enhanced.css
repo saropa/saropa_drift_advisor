@@ -347,10 +347,11 @@ body.theme-showcase::after {
   z-index: 0;
 }
 
-/* Ensure all content sits above the floating orbs */
-body.theme-showcase .app-header,
-body.theme-showcase .app-layout,
-body.theme-showcase #loading-overlay {
+/* Ensure main layout sits above the floating orbs. Do NOT set
+   position on .app-header — it needs position:sticky from the
+   base CSS. The header already has z-index:100 which is above
+   the orbs (z-index:0), so no override needed there. */
+body.theme-showcase .app-layout {
   position: relative;
   z-index: 1;
 }
@@ -365,6 +366,8 @@ body.theme-showcase .app-header {
   box-shadow:
     0 4px 30px rgba(99, 102, 241, 0.12),
     0 1px 0 rgba(255, 255, 255, 0.4) inset;
+  /* Clip the shimmer pseudo-element during its translateX sweep */
+  overflow: hidden;
 }
 
 /* Shimmer sweep across the header — a diagonal light band that
@@ -813,9 +816,9 @@ body.theme-midnight::after {
 }
 
 /* Content above orbs */
-body.theme-midnight .app-header,
-body.theme-midnight .app-layout,
-body.theme-midnight #loading-overlay {
+/* Do NOT set position on .app-header — it needs position:sticky
+   from the base CSS. Header z-index:100 already beats orbs (z:0). */
+body.theme-midnight .app-layout {
   position: relative;
   z-index: 1;
 }
@@ -830,6 +833,8 @@ body.theme-midnight .app-header {
   box-shadow:
     0 4px 30px rgba(0, 0, 0, 0.3),
     0 1px 0 rgba(143, 168, 255, 0.08) inset;
+  /* Clip the shimmer pseudo-element during its translateX sweep */
+  overflow: hidden;
 }
 
 /* Shimmer sweep — blue-tinted light sweep across the header */

@@ -222,6 +222,67 @@ describe('Web theme contract — drift-enhanced.css (CDN-only)', () => {
     }
   });
 
+  it('does NOT override position on .app-header (breaks sticky header)', () => {
+    // The base CSS sets .app-header { position: sticky; z-index: 100; }.
+    // If drift-enhanced.css sets position: relative or position: absolute
+    // on a theme-qualified .app-header selector, it will override sticky
+    // because the theme selector has higher specificity. The header will
+    // scroll away instead of staying fixed at the top.
+    const lines = css.split('\n');
+    for (const line of lines) {
+      if (line.includes('.app-header') && line.includes('{') && !line.includes('::') && !line.includes('>')) {
+        // Found a rule targeting .app-header directly (not ::after or > *)
+        // Read ahead to check for position override inside the block
+        const blockStart = lines.indexOf(line);
+        for (let i = blockStart + 1; i < lines.length && i < blockStart + 15; i++) {
+          if (lines[i].includes('}')) break;
+          assert.ok(
+            !lines[i].match(/^\s*position\s*:\s*(relative|absolute|fixed)/),
+            `drift-enhanced.css must not set position on .app-header (found at line ${i + 1}: "${lines[i].trim()}" — this breaks sticky header)`,
+          );
+        }
+      }
+    }
+  });
+
+  it('clips shimmer on .app-header with overflow:hidden', () => {
+    // The shimmer ::after pseudo-element uses translateX(350%) which
+    // extends far beyond the header. Without overflow:hidden the
+    // shimmer would cause horizontal scrollbar flicker.
+    const showcaseHeader = css.indexOf('body.theme-showcase .app-header {');
+    const midnightHeader = css.indexOf('body.theme-midnight .app-header {');
+    assert.ok(showcaseHeader !== -1, 'showcase header rule must exist');
+    assert.ok(midnightHeader !== -1, 'midnight header rule must exist');
+
+    // Check both blocks contain overflow: hidden
+    const showcaseBlock = extractBlock(css, 'body.theme-showcase .app-header {');
+    const midnightBlock = extractBlock(css, 'body.theme-midnight .app-header {');
+    assert.ok(
+      showcaseBlock.includes('overflow: hidden') || showcaseBlock.includes('overflow:hidden'),
+      'showcase .app-header must have overflow:hidden to clip shimmer',
+    );
+    assert.ok(
+      midnightBlock.includes('overflow: hidden') || midnightBlock.includes('overflow:hidden'),
+      'midnight .app-header must have overflow:hidden to clip shimmer',
+    );
+  });
+
+  it('floating orbs have pointer-events:none', () => {
+    // The ::before and ::after on body create floating blurred orbs.
+    // They must not intercept clicks or the entire page becomes
+    // unresponsive behind the orbs.
+    const bodyBefore = extractBlock(css, 'body.theme-showcase::before');
+    const bodyAfter = extractBlock(css, 'body.theme-showcase::after');
+    assert.ok(
+      bodyBefore.includes('pointer-events: none'),
+      'showcase ::before orb must have pointer-events:none',
+    );
+    assert.ok(
+      bodyAfter.includes('pointer-events: none'),
+      'showcase ::after orb must have pointer-events:none',
+    );
+  });
+
   it('contains midnight theme section with glassmorphism', () => {
     assert.ok(
       css.includes('MIDNIGHT THEME'),
