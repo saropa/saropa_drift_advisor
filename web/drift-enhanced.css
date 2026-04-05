@@ -246,20 +246,23 @@ body.theme-dark .highlight {
 }
 
 body.theme-showcase {
-  /* Subtle pastel gradient — cool and airy, not warm/beige */
+  /* Vivid pastel gradient — the shifting colours must be clearly
+     visible so users can tell the background is animated and so
+     frosted-glass panels have something colourful to blur through. */
   background:
     linear-gradient(
       135deg,
-      #fafbfe 0%,
-      #eef2ff 18%,
-      #e0f2fe 36%,
-      #f5f3ff 54%,
-      #ecfdf5 72%,
-      #eef2ff 90%,
-      #fafbfe 100%
+      #e0e7ff 0%,
+      #c7d2fe 14%,
+      #bae6fd 28%,
+      #ddd6fe 42%,
+      #a7f3d0 56%,
+      #fde68a 70%,
+      #fecaca 84%,
+      #e0e7ff 100%
     );
   background-size: 400% 400%;
-  animation: showcase-bg-shift 25s ease infinite;
+  animation: showcase-bg-shift 18s ease infinite;
 }
 
 /* ── Glassmorphism mixin — frosted glass panels ─────────────────── */
@@ -268,32 +271,32 @@ body.theme-showcase {
    shifting gradient background. */
 
 body.theme-showcase .app-header {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  border-bottom: 1px solid rgba(143, 168, 255, 0.12);
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow:
-    inset 0 -1px 0 rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(67, 83, 137, 0.06),
-    0 8px 24px rgba(67, 83, 137, 0.04);
+    inset 0 -1px 0 rgba(255, 255, 255, 0.3),
+    0 4px 16px rgba(99, 102, 241, 0.1),
+    0 8px 32px rgba(99, 102, 241, 0.06);
 }
 
 body.theme-showcase #app-sidebar {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(16px) saturate(1.8);
-  -webkit-backdrop-filter: blur(16px) saturate(1.8);
-  border-right: 1px solid rgba(143, 168, 255, 0.1);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border-right: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 body.theme-showcase .collapsible-body:not(.collapsed) {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(16px) saturate(1.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
   box-shadow:
-    0 0 0 1px rgba(143, 168, 255, 0.1),
-    0 4px 8px rgba(67, 83, 137, 0.04),
-    0 8px 16px rgba(67, 83, 137, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 4px 12px rgba(99, 102, 241, 0.08),
+    0 8px 24px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* ── Rainbow side border accents ─────────────────────────────────── */
@@ -308,25 +311,26 @@ body.theme-showcase .collapsible-body:not(.collapsed) {
 
 body.theme-showcase .feature-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px) saturate(1.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  border: 1px solid rgba(143, 168, 255, 0.12);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow:
-    0 2px 4px rgba(67, 83, 137, 0.03),
-    0 4px 8px rgba(67, 83, 137, 0.04),
-    0 8px 16px rgba(99, 102, 241, 0.04),
+    0 4px 16px rgba(99, 102, 241, 0.08),
+    0 8px 32px rgba(99, 102, 241, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.6);
   overflow: hidden;
 }
 
+/* Rainbow left-edge accent — always visible at low opacity,
+   intensifies on hover/expand for a lively interactive feel. */
 body.theme-showcase .feature-card::before {
   content: '';
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
+  width: 4px;
   background: linear-gradient(
     180deg,
     #f43f5e, #f97316, #eab308, #22c55e,
@@ -334,22 +338,23 @@ body.theme-showcase .feature-card::before {
   );
   background-size: 100% 200%;
   animation: rainbow-slide 4s linear infinite;
-  border-radius: 3px 0 0 3px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  border-radius: 4px 0 0 4px;
+  opacity: 0.5;
+  transition: opacity 0.3s ease, width 0.3s ease;
 }
 
 body.theme-showcase .feature-card:hover::before,
 body.theme-showcase .feature-card.expanded::before {
   opacity: 1;
+  width: 5px;
 }
 
 body.theme-showcase .feature-card.expanded {
-  border-color: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.25);
   box-shadow:
-    0 4px 8px rgba(31, 38, 135, 0.06),
-    0 8px 16px rgba(31, 38, 135, 0.08),
-    0 16px 32px rgba(99, 102, 241, 0.06),
+    0 4px 12px rgba(99, 102, 241, 0.12),
+    0 8px 24px rgba(99, 102, 241, 0.1),
+    0 16px 48px rgba(99, 102, 241, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
@@ -361,40 +366,38 @@ body.theme-showcase #app-sidebar::after {
   right: 0;
   top: 0;
   bottom: 0;
-  width: 2px;
+  width: 3px;
   background: linear-gradient(
     180deg,
-    #8b5cf6, #3b82f6, #06b6d4, #22c55e,
-    #eab308, #f97316, #f43f5e, #8b5cf6
+    #f43f5e, #f97316, #eab308, #22c55e,
+    #06b6d4, #3b82f6, #8b5cf6, #f43f5e
   );
   background-size: 100% 200%;
-  animation: rainbow-slide 6s linear infinite;
-  opacity: 0.5;
+  animation: rainbow-slide 5s linear infinite;
+  opacity: 0.8;
 }
 
 /* ── Glassmorphism buttons ───────────────────────────────────────── */
 
 body.theme-showcase .header-btn {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  border: 1px solid rgba(143, 168, 255, 0.15);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.02),
-    0 2px 4px rgba(67, 83, 137, 0.04),
+    0 2px 8px rgba(99, 102, 241, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
   transition: all 0.23s ease;
 }
 
 body.theme-showcase .header-btn:hover {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(67, 83, 137, 0.25);
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(99, 102, 241, 0.3);
   box-shadow:
-    0 2px 4px rgba(67, 83, 137, 0.06),
-    0 4px 8px rgba(67, 83, 137, 0.08),
-    0 8px 16px rgba(99, 102, 241, 0.06),
+    0 4px 16px rgba(99, 102, 241, 0.15),
+    0 8px 32px rgba(99, 102, 241, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 body.theme-showcase .header-btn:active {
@@ -430,28 +433,28 @@ body.theme-showcase .btn-primary:hover {
 body.theme-showcase input,
 body.theme-showcase select,
 body.theme-showcase textarea {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px) saturate(1.4);
-  -webkit-backdrop-filter: blur(10px) saturate(1.4);
-  border: 1px solid rgba(143, 168, 255, 0.15);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   transition: all 0.23s ease;
 }
 
 body.theme-showcase input:focus,
 body.theme-showcase select:focus,
 body.theme-showcase textarea:focus {
-  background: rgba(255, 255, 255, 0.88);
-  border-color: rgba(99, 102, 241, 0.35);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 /* ── Table styling ───────────────────────────────────────────────── */
 
 body.theme-showcase #data-table th,
 body.theme-showcase .sql-result table th {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
 }
 
 body.theme-showcase #data-table tbody tr:hover,
@@ -461,21 +464,20 @@ body.theme-showcase .sql-result table tbody tr:hover {
 
 body.theme-showcase #data-table th.col-pinned,
 body.theme-showcase #data-table td.col-pinned {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
 }
 
 /* ── Pre / code blocks — frosted ─────────────────────────────────── */
 
 body.theme-showcase pre {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  border: 1px solid rgba(143, 168, 255, 0.12);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow:
-    0 2px 4px rgba(67, 83, 137, 0.03),
-    0 4px 8px rgba(67, 83, 137, 0.04),
+    0 4px 16px rgba(99, 102, 241, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
@@ -673,69 +675,74 @@ body.theme-showcase::after {
 }
 
 body.theme-midnight {
+  /* Deep navy with visible coloured radial glows that shift slowly.
+     The colour differences must be obvious enough that the user can
+     clearly see the background animating behind frosted panels. */
   background:
-    radial-gradient(ellipse 600px 600px at 10% 20%, rgba(143, 168, 255, 0.08), transparent),
-    radial-gradient(ellipse 400px 400px at 85% 60%, rgba(118, 32, 112, 0.06), transparent),
-    radial-gradient(ellipse 300px 300px at 50% 80%, rgba(29, 78, 216, 0.06), transparent),
+    radial-gradient(ellipse 700px 700px at 10% 20%, rgba(99, 102, 241, 0.2), transparent),
+    radial-gradient(ellipse 500px 500px at 85% 60%, rgba(168, 85, 247, 0.15), transparent),
+    radial-gradient(ellipse 500px 400px at 50% 85%, rgba(59, 130, 246, 0.15), transparent),
+    radial-gradient(ellipse 400px 400px at 30% 50%, rgba(6, 182, 212, 0.1), transparent),
     linear-gradient(
       135deg,
-      #1a1d2b 0%,
-      #1e2540 20%,
-      #1a2040 40%,
-      #201e38 60%,
-      #1a2535 80%,
-      #1a1d2b 100%
+      #0f1219 0%,
+      #1a1e3a 18%,
+      #15204a 36%,
+      #261a42 54%,
+      #0f2040 72%,
+      #1a153a 90%,
+      #0f1219 100%
     );
   background-size: 400% 400%;
-  animation: midnight-bg-shift 30s ease infinite;
+  animation: midnight-bg-shift 22s ease infinite;
 }
 
 /* ── Glassmorphic header ────────────────────────────────────────────── */
 
 body.theme-midnight .app-header {
-  background: rgba(30, 34, 54, 0.8);
-  backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  border-bottom: 1px solid rgba(143, 168, 255, 0.1);
+  background: rgba(20, 24, 48, 0.45);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border-bottom: 1px solid rgba(143, 168, 255, 0.15);
   box-shadow:
-    inset 0 -1px 0 rgba(143, 168, 255, 0.06),
-    0 4px 12px rgba(0, 0, 0, 0.25),
-    0 8px 24px rgba(0, 0, 0, 0.15);
+    inset 0 -1px 0 rgba(143, 168, 255, 0.1),
+    0 4px 16px rgba(99, 102, 241, 0.1),
+    0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 /* ── Glassmorphic sidebar ───────────────────────────────────────────── */
 
 body.theme-midnight #app-sidebar {
-  background: rgba(30, 34, 54, 0.65);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
-  border-right: 1px solid rgba(143, 168, 255, 0.08);
+  background: rgba(20, 24, 48, 0.35);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-right: 1px solid rgba(143, 168, 255, 0.12);
 }
 
 /* ── Glassmorphic feature cards ─────────────────────────────────────── */
 
 body.theme-midnight .feature-card {
   position: relative;
-  background: rgba(44, 51, 80, 0.6);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid rgba(143, 168, 255, 0.1);
+  background: rgba(30, 36, 66, 0.4);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid rgba(143, 168, 255, 0.12);
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.15),
-    0 4px 8px rgba(0, 0, 0, 0.12),
-    0 8px 16px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(143, 168, 255, 0.08);
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 8px 32px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(143, 168, 255, 0.1);
   overflow: hidden;
 }
 
-/* Rainbow side accent — same as showcase but cooler hue bias */
+/* Rainbow side accent — always visible at low opacity so the
+   glassmorphism feel is immediately obvious, not hidden until hover. */
 body.theme-midnight .feature-card::before {
   content: '';
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
+  width: 4px;
   background: linear-gradient(
     180deg,
     #8b5cf6, #3b82f6, #06b6d4, #22c55e,
@@ -743,14 +750,15 @@ body.theme-midnight .feature-card::before {
   );
   background-size: 100% 200%;
   animation: rainbow-slide 5s linear infinite;
-  border-radius: 3px 0 0 3px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  border-radius: 4px 0 0 4px;
+  opacity: 0.4;
+  transition: opacity 0.3s ease, width 0.3s ease;
 }
 
 body.theme-midnight .feature-card:hover::before,
 body.theme-midnight .feature-card.expanded::before {
-  opacity: 0.8;
+  opacity: 1;
+  width: 5px;
 }
 
 body.theme-midnight .feature-card.expanded {
@@ -770,40 +778,38 @@ body.theme-midnight #app-sidebar::after {
   right: 0;
   top: 0;
   bottom: 0;
-  width: 2px;
+  width: 3px;
   background: linear-gradient(
     180deg,
-    #8fa8ff, #3b82f6, #06b6d4, #8b5cf6,
-    #3b82f6, #8fa8ff
+    #8b5cf6, #3b82f6, #06b6d4, #22c55e,
+    #eab308, #f97316, #8b5cf6
   );
   background-size: 100% 200%;
-  animation: rainbow-slide 8s linear infinite;
-  opacity: 0.35;
+  animation: rainbow-slide 6s linear infinite;
+  opacity: 0.7;
 }
 
 /* ── Glassmorphic buttons ───────────────────────────────────────────── */
 
 body.theme-midnight .header-btn {
-  background: rgba(44, 51, 80, 0.5);
-  backdrop-filter: blur(10px) saturate(1.3);
-  -webkit-backdrop-filter: blur(10px) saturate(1.3);
-  border: 1px solid rgba(143, 168, 255, 0.1);
+  background: rgba(30, 36, 66, 0.35);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.15);
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.12),
-    0 2px 4px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(143, 168, 255, 0.06);
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(143, 168, 255, 0.08);
   transition: all 0.23s ease;
 }
 
 body.theme-midnight .header-btn:hover {
-  background: rgba(44, 51, 80, 0.7);
-  border-color: rgba(143, 168, 255, 0.25);
+  background: rgba(30, 36, 66, 0.5);
+  border-color: rgba(143, 168, 255, 0.3);
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.15),
-    0 4px 8px rgba(0, 0, 0, 0.12),
-    0 8px 16px rgba(143, 168, 255, 0.06),
-    inset 0 1px 0 rgba(143, 168, 255, 0.08);
-  transform: translateY(-1px);
+    0 4px 16px rgba(99, 102, 241, 0.15),
+    0 8px 32px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(143, 168, 255, 0.12);
+  transform: translateY(-2px);
 }
 
 body.theme-midnight .header-btn:active {
@@ -837,28 +843,28 @@ body.theme-midnight .btn-primary:hover {
 body.theme-midnight input,
 body.theme-midnight select,
 body.theme-midnight textarea {
-  background: rgba(44, 51, 80, 0.5);
-  backdrop-filter: blur(8px) saturate(1.3);
-  -webkit-backdrop-filter: blur(8px) saturate(1.3);
-  border: 1px solid rgba(143, 168, 255, 0.12);
+  background: rgba(30, 36, 66, 0.35);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  border: 1px solid rgba(143, 168, 255, 0.15);
   transition: all 0.23s ease;
 }
 
 body.theme-midnight input:focus,
 body.theme-midnight select:focus,
 body.theme-midnight textarea:focus {
-  background: rgba(44, 51, 80, 0.7);
-  border-color: rgba(143, 168, 255, 0.3);
-  box-shadow: 0 0 0 3px rgba(143, 168, 255, 0.08);
+  background: rgba(30, 36, 66, 0.5);
+  border-color: rgba(143, 168, 255, 0.35);
+  box-shadow: 0 0 0 3px rgba(143, 168, 255, 0.12);
 }
 
 /* ── Table styling ──────────────────────────────────────────────────── */
 
 body.theme-midnight #data-table th,
 body.theme-midnight .sql-result table th {
-  background: rgba(30, 34, 54, 0.85);
-  backdrop-filter: blur(10px) saturate(1.3);
-  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  background: rgba(20, 24, 48, 0.5);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
 }
 
 body.theme-midnight #data-table tbody tr:hover,
@@ -868,22 +874,21 @@ body.theme-midnight .sql-result table tbody tr:hover {
 
 body.theme-midnight #data-table th.col-pinned,
 body.theme-midnight #data-table td.col-pinned {
-  background: rgba(30, 34, 54, 0.9);
-  backdrop-filter: blur(10px) saturate(1.3);
-  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  background: rgba(20, 24, 48, 0.55);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
 }
 
 /* ── Pre / code blocks — dark glass ─────────────────────────────────── */
 
 body.theme-midnight pre {
-  background: rgba(35, 40, 64, 0.7);
-  backdrop-filter: blur(10px) saturate(1.3);
-  -webkit-backdrop-filter: blur(10px) saturate(1.3);
-  border: 1px solid rgba(143, 168, 255, 0.1);
+  background: rgba(25, 30, 56, 0.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(143, 168, 255, 0.12);
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.12),
-    0 4px 8px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(143, 168, 255, 0.06);
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(143, 168, 255, 0.08);
 }
 
 /* ── Search highlight — periwinkle glow ─────────────────────────────── */
@@ -901,14 +906,14 @@ body.theme-midnight .collapsible-header:hover {
 }
 
 body.theme-midnight .collapsible-body:not(.collapsed) {
-  background: rgba(44, 51, 80, 0.5);
-  backdrop-filter: blur(12px) saturate(1.3);
-  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  background: rgba(30, 36, 66, 0.35);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
   box-shadow:
-    0 0 0 1px rgba(143, 168, 255, 0.08),
-    0 4px 8px rgba(0, 0, 0, 0.12),
-    0 8px 16px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(143, 168, 255, 0.06);
+    0 0 0 1px rgba(143, 168, 255, 0.1),
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 8px 24px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(143, 168, 255, 0.08);
 }
 
 /* ── Copy toast ─────────────────────────────────────────────────────── */
