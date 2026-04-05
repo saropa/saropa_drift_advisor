@@ -706,7 +706,10 @@ final class Router {
     if (request.method == ServerConstants.methodGet &&
         (path == ServerConstants.pathApiAnalyticsPerformance ||
             path == ServerConstants.pathApiAnalyticsPerformanceAlt)) {
-      await _performance.handlePerformanceAnalytics(response);
+      await _performance.handlePerformanceAnalytics(
+        response,
+        requestUri: request.uri,
+      );
 
       return true;
     }

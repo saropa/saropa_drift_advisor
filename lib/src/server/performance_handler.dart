@@ -15,7 +15,12 @@ final class PerformanceHandler {
   final ServerContext _ctx;
 
   /// Returns performance data map for VM service RPC (Plan 68).
-  Future<Map<String, dynamic>> getPerformanceData() {
+  ///
+  /// [slowThresholdMs] controls the minimum duration (in ms) for a query
+  /// to be classified as "slow". Defaults to 100 ms when omitted.
+  Future<Map<String, dynamic>> getPerformanceData({
+    int slowThresholdMs = 100,
+  }) {
     final timings = List<QueryTiming>.of(_ctx.queryTimings);
     final totalQueries = timings.length;
     final totalDuration = timings.fold<int>(0, (sum, t) => sum + t.durationMs);
@@ -23,8 +28,9 @@ final class PerformanceHandler {
         ? (totalDuration / totalQueries).round()
         : 0;
 
-    final slowQueries = timings.where((t) => t.durationMs > 100).toList()
-      ..sort((a, b) => b.durationMs.compareTo(a.durationMs));
+    final slowQueries =
+        timings.where((t) => t.durationMs > slowThresholdMs).toList()
+          ..sort((a, b) => b.durationMs.compareTo(a.durationMs));
 
     final queryGroups = <String, List<QueryTiming>>{};
     for (final t in timings) {
@@ -57,6 +63,7 @@ final class PerformanceHandler {
       'totalQueries': totalQueries,
       'totalDurationMs': totalDuration,
       'avgDurationMs': avgDuration,
+      'slowThresholdMs': slowThresholdMs,
       'slowQueries': slowQueries.take(20).map((t) => t.toJson()).toList(),
       'queryPatterns': patterns.take(20).toList(),
       'recentQueries': timings.reversed
@@ -69,10 +76,20 @@ final class PerformanceHandler {
 
   /// GET /api/analytics/performance — returns query timing stats,
   /// slow queries, and patterns.
-  Future<void> handlePerformanceAnalytics(HttpResponse response) async {
+  ///
+  /// Accepts optional `?slowThresholdMs=<int>` query parameter to
+  /// override the default 100 ms slow-query threshold.
+  Future<void> handlePerformanceAnalytics(
+    HttpResponse response, {
+    Uri? requestUri,
+  }) async {
     final res = response;
     try {
-      final data = await getPerformanceData();
+      // Parse optional slow-threshold override from query string
+      final thresholdParam = requestUri?.queryParameters['slowThresholdMs'];
+      final threshold =
+          thresholdParam != null ? (int.tryParse(thresholdParam) ?? 100) : 100;
+      final data = await getPerformanceData(slowThresholdMs: threshold);
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(data));
     } on Object catch (error, stack) {

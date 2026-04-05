@@ -15,6 +15,7 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
   let isPanning = false;
   let panStart = { x: 0, y: 0 };
   let selectedTable = null;
+  let didDrag = false;
 
   const svg = document.getElementById('er-svg');
   const container = document.getElementById('canvasContainer');
@@ -143,6 +144,7 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
   // Event handlers
   svg.addEventListener('mousedown', (e) => {
     hideContextMenu();
+    didDrag = false;
     const nodeGroup = e.target.closest('.er-node');
     if (nodeGroup) {
       const table = nodeGroup.dataset.table;
@@ -165,6 +167,9 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
   });
 
   window.addEventListener('mousemove', (e) => {
+    if (dragTarget || isPanning) {
+      didDrag = true;
+    }
     if (dragTarget) {
       const pt = svg.createSVGPoint();
       pt.x = e.clientX;
@@ -194,6 +199,15 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     zoom = Math.max(0.2, Math.min(3, zoom * delta));
     renderDiagram();
+  });
+
+  // Double-click a table node to open its data view
+  svg.addEventListener('dblclick', (e) => {
+    if (didDrag) return;
+    const nodeGroup = e.target.closest('.er-node');
+    if (nodeGroup && nodeGroup.dataset.table) {
+      vscode.postMessage({ command: 'tableAction', table: nodeGroup.dataset.table, action: 'viewData' });
+    }
   });
 
   // Context menu for table actions

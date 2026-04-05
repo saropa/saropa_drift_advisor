@@ -124,6 +124,87 @@ describe('PerformanceProvider', () => {
       assert.ok(issue.message.includes('15 times'));
     });
 
+    it('should not report n-plus-one for write operations (INSERT/UPDATE/DELETE)', async () => {
+      // Activity log tables generate many independent INSERTs from separate user
+      // actions — this is expected behavior, not an N+1 pattern.
+      const ctx = createContext({
+        dartFiles: [createDartFile('activities', ['id', 'action', 'user_id'])],
+        recentQueries: Array(15).fill(null).map((_, i) => ({
+          sql: `INSERT INTO activities (action, user_id) VALUES ('view_contact', ${i})`,
+          durationMs: 5,
+          rowCount: 1,
+          at: '2024-01-01',
+        })),
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'n-plus-one');
+      assert.ok(!issue, 'Should not flag write-heavy tables as N+1');
+    });
+
+    it('should not report n-plus-one for UPDATE operations', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'name'])],
+        recentQueries: Array(15).fill(null).map((_, i) => ({
+          sql: `UPDATE users SET name = 'user_${i}' WHERE id = ${i}`,
+          durationMs: 5,
+          rowCount: 1,
+          at: '2024-01-01',
+        })),
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'n-plus-one');
+      assert.ok(!issue, 'Should not flag UPDATE operations as N+1');
+    });
+
+    it('should not report n-plus-one for DELETE operations', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('sessions', ['id', 'user_id'])],
+        recentQueries: Array(15).fill(null).map((_, i) => ({
+          sql: `DELETE FROM sessions WHERE id = ${i}`,
+          durationMs: 5,
+          rowCount: 1,
+          at: '2024-01-01',
+        })),
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'n-plus-one');
+      assert.ok(!issue, 'Should not flag DELETE operations as N+1');
+    });
+
+    it('should still detect n-plus-one SELECTs when mixed with writes', async () => {
+      // A stream with enough SELECTs to trigger the threshold should still
+      // fire, even if writes to the same table are also present.
+      const selects = Array(12).fill(null).map((_, i) => ({
+        sql: `SELECT * FROM users WHERE id = ${i}`,
+        durationMs: 10,
+        rowCount: 1,
+        at: '2024-01-01',
+      }));
+      const inserts = Array(5).fill(null).map((_, i) => ({
+        sql: `INSERT INTO users (name) VALUES ('user_${i}')`,
+        durationMs: 5,
+        rowCount: 1,
+        at: '2024-01-01',
+      }));
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'name'])],
+        recentQueries: [...selects, ...inserts],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'n-plus-one');
+      assert.ok(issue, 'Should still detect N+1 SELECTs even when writes are present');
+      // The count should reflect only SELECTs (12), not total queries (17)
+      assert.ok(issue.message.includes('12 times'), 'Count should reflect only SELECT queries');
+    });
+
     it('should limit slow query diagnostics to max count', async () => {
       const ctx = createContext({
         dartFiles: [createDartFile('orders', ['id'])],

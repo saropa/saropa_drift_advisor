@@ -7,21 +7,18 @@
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../../api-client';
 import type { IDiagnosticIssue } from '../diagnostic-types';
+import { isDriftProject } from '../dart-file-parser';
 
 /**
- * Returns true if the workspace pubspec.yaml lists `drift` as a dependency.
- * Returns false when pubspec doesn't exist, can't be read, or only uses
- * drift-related packages (drift_dev, drift_sqflite, etc.) without `drift` itself.
+ * Returns true if the workspace pubspec.yaml lists `drift` (or
+ * `saropa_drift_advisor`) as a dependency. Returns false when pubspec
+ * doesn't exist or can't be read.
  */
 async function hasDriftDependency(workspaceUri: vscode.Uri): Promise<boolean> {
   try {
     const pubspecUri = vscode.Uri.joinPath(workspaceUri, 'pubspec.yaml');
     const bytes = await vscode.workspace.fs.readFile(pubspecUri);
-    const content = new TextDecoder().decode(bytes);
-    // Match `drift:` as an indented dependency key.
-    // Requires leading whitespace (under dependencies:/dev_dependencies:)
-    // and a trailing colon so we don't match drift_dev, drift_sqflite, etc.
-    return /^\s+drift\s*:/m.test(content);
+    return isDriftProject(Buffer.from(bytes).toString('utf-8'));
   } catch {
     // pubspec.yaml doesn't exist or can't be read — not a Drift project
     return false;

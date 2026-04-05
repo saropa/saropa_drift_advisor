@@ -11,4 +11,6 @@ export interface IExportOptions {
   rows: Record<string, unknown>[];
   /** Target format. */
   format: ExportFormat;
+  /** When true, PII columns are masked using heuristic detection. */
+  maskPii?: boolean;
 }

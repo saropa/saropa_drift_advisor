@@ -210,6 +210,50 @@ export function parseColumn(
 }
 
 /**
+ * Returns true when the character at `index` falls inside a comment:
+ * doc comments (`///`), line comments (`//`), or block comments (`/* … *​/`).
+ *
+ * Checks the line prefix first (fast path for `///`, `//`, and `*`-prefixed
+ * block comment body lines), then scans backwards for an unmatched `/*` opener.
+ *
+ * Note: does NOT detect matches inside string literals — that would require
+ * full lexer state tracking. In practice this is fine because real Drift table
+ * classes are never defined inside strings.
+ */
+export function isInsideComment(source: string, index: number): boolean {
+  // Find the start of the line containing the match
+  const lineStart = source.lastIndexOf('\n', index - 1) + 1;
+  const prefix = source.substring(lineStart, index).trimStart();
+
+  // Doc comments (///), regular line comments (//)
+  if (prefix.startsWith('///') || prefix.startsWith('//')) {
+    return true;
+  }
+
+  // Check if inside a block comment by scanning backwards for an unmatched /*
+  // Start from just before the match and look for /* without a closing */
+  let i = index - 1;
+  while (i >= 0) {
+    if (i > 0 && source[i - 1] === '*' && source[i] === '/') {
+      // Found a */ closer before us — we're not in a block comment
+      break;
+    }
+    if (i > 0 && source[i - 1] === '/' && source[i] === '*') {
+      // Found a /* opener before us with no closer — we're in a block comment
+      return true;
+    }
+    i--;
+  }
+
+  // Also check for lines that start with `*` (common in block comment bodies)
+  if (prefix.startsWith('*')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Parse all Drift table classes from a Dart source string.
  * `fileUri` is attached to each result for source navigation.
  */
@@ -223,6 +267,12 @@ export function parseDartTables(
   const tableRe = new RegExp(TABLE_CLASS_PATTERN.source, TABLE_CLASS_PATTERN.flags);
 
   while ((match = tableRe.exec(source)) !== null) {
+    // Skip matches inside comments (doc comments, line comments, block comments)
+    // to avoid false positives from DartDoc code examples
+    if (isInsideComment(source, match.index)) {
+      continue;
+    }
+
     const className = match[1];
     const openBrace = match.index + match[0].length - 1;
     const body = extractClassBody(source, openBrace);

@@ -83,7 +83,10 @@ export function buildCompareHtml(report: ICompareReport): string {
   <h3>Row Counts</h3>
   ${countTable}
   <div class="footer">Generated ${esc(report.generatedAt)}</div>
-  <button onclick="post('copyReport')">Copy as JSON</button>
+  <div style="display:flex;gap:8px;margin-top:8px;">
+    <button onclick="post('copyReport')">Copy as JSON</button>
+    <button onclick="post('copyMigrationSql')">Copy Migration SQL</button>
+  </div>
   <script>
     const vscode = acquireVsCodeApi();
     function post(cmd) { vscode.postMessage({ command: cmd }); }

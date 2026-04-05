@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import type { PerformanceData, QueryEntry } from '../../api-types';
 import type { IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
-import { areSimilarQueries, extractTableFromSql } from '../utils/sql-utils';
+import { areSimilarQueries, extractTableFromSql, isReadQuery } from '../utils/sql-utils';
 
 const MIN_RECENT_QUERIES = 5;
 const N_PLUS_ONE_QUERY_THRESHOLD = 10;
@@ -25,6 +25,11 @@ export function checkNPlusOnePatterns(
   const tableQueryCounts = new Map<string, { count: number; queries: QueryEntry[] }>();
 
   for (const query of recentQueries) {
+    // N+1 is a read-path concern: repeated SELECTs that could be a single
+    // JOIN or IN query. Write operations (INSERT/UPDATE/DELETE) are inherently
+    // per-record and should not be counted (e.g. activity log inserts).
+    if (!isReadQuery(query.sql)) continue;
+
     const table = extractTableFromSql(query.sql);
     if (!table) continue;
 

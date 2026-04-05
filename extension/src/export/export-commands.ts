@@ -108,7 +108,7 @@ export function registerExportCommands(
             },
             () => client.compareReport(),
           );
-          ComparePanel.createOrShow(report);
+          ComparePanel.createOrShow(report, client);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Compare failed: ${msg}`);

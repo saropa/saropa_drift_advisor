@@ -223,6 +223,8 @@ abstract final class HtmlContent {
           <button type="button" id="pagination-apply" title="Apply offset and reload">Apply</button>
         </div>
         <button type="button" id="clear-table-state" title="Reset cached filter/pagination state for this table">Clear state</button>
+        <button type="button" id="clear-table-data" class="btn-danger" style="display:none;" title="Delete all rows from this table (requires write access)">Clear rows</button>
+        <button type="button" id="clear-all-data" class="btn-danger" style="display:none;" title="Delete all rows from every table (requires write access)">Clear all tables</button>
       </div>
       <div id="display-format-bar" class="toolbar" style="display:none;">
         <label>Display:</label>
@@ -415,6 +417,9 @@ abstract final class HtmlContent {
         <div class="toolbar">
           <button type="button" id="perf-refresh" title="Update performance data">Update</button>
           <button type="button" id="perf-clear" title="Clear performance history">Clear</button>
+          <label for="perf-slow-threshold">Slow &gt;</label>
+          <input type="number" id="perf-slow-threshold" min="1" step="10" value="100" title="Slow query threshold in milliseconds" style="width:5rem;" />
+          <span class="meta">ms</span>
           <button type="button" id="perf-save" title="Save this result for later">Save result</button>
           <button type="button" id="perf-export" title="Download result as JSON">Export as JSON</button>
           <label for="perf-history">History:</label>
@@ -454,6 +459,7 @@ abstract final class HtmlContent {
           </div>
           <div class="sql-toolbar" style="margin-top:0.25rem;">
             <input type="file" id="import-file" accept=".json,.csv,.sql" />
+            <button type="button" id="import-paste" title="Paste data from clipboard (CSV, TSV, or JSON)">Paste</button>
             <button type="button" id="import-run" disabled class="btn-primary" title="Run import with selected file and options">Import</button>
           </div>
         </div>

@@ -6,6 +6,16 @@
 import type { QueryEntry } from '../../api-types';
 
 /**
+ * Returns true if the SQL statement is a read (SELECT) query.
+ * Write operations (INSERT, UPDATE, DELETE) are not N+1 candidates
+ * because they are inherently per-record and cannot be batched
+ * into a single query the way SELECTs can with JOINs or IN clauses.
+ */
+export function isReadQuery(sql: string): boolean {
+  return /^\s*SELECT\b/i.test(sql);
+}
+
+/**
  * Extracts the primary table name from a SQL statement.
  * Supports FROM, INSERT INTO, UPDATE, DELETE FROM.
  * @returns Table name or null if not matched

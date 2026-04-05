@@ -282,6 +282,59 @@ describe('fileExtension', () => {
   });
 });
 
+describe('formatCsv with PII masking', () => {
+  it('should mask PII columns when maskPii is true', () => {
+    const result = formatCsv({
+      table: 'users',
+      columns: ['id', 'email', 'name'],
+      rows: [
+        { id: 1, email: 'alice@example.com', name: 'Alice' },
+        { id: 2, email: 'bob@example.com', name: 'Bob' },
+      ],
+      format: 'csv',
+      maskPii: true,
+    });
+    const lines = result.split('\n');
+    // Header is unmasked
+    assert.strictEqual(lines[0], 'id,email,name');
+    // Email column is masked, name is not
+    assert.ok(lines[1].includes('a***@example.com'), 'email should be masked');
+    assert.ok(lines[1].includes('Alice'), 'name should not be masked');
+    assert.ok(lines[2].includes('b***@example.com'), 'second email masked');
+  });
+
+  it('should not mask when maskPii is false', () => {
+    const result = formatCsv({
+      table: 'users',
+      columns: ['id', 'email'],
+      rows: [{ id: 1, email: 'alice@example.com' }],
+      format: 'csv',
+      maskPii: false,
+    });
+    assert.ok(result.includes('alice@example.com'), 'email should not be masked');
+  });
+
+  it('should not mask when maskPii is undefined', () => {
+    const result = formatCsv(opts({
+      columns: ['id', 'email'],
+      rows: [{ id: 1, email: 'alice@example.com' }],
+    }));
+    assert.ok(result.includes('alice@example.com'), 'email should not be masked');
+  });
+
+  it('should mask password columns as ****', () => {
+    const result = formatCsv({
+      table: 'users',
+      columns: ['id', 'password'],
+      rows: [{ id: 1, password: 'secret123' }],
+      format: 'csv',
+      maskPii: true,
+    });
+    assert.ok(result.includes('****'), 'password should be fully masked');
+    assert.ok(!result.includes('secret123'), 'raw password should not appear');
+  });
+});
+
 describe('unicode support', () => {
   it('should preserve unicode in all formats', () => {
     const o = opts({ rows: [{ id: 1, name: '\u{1F600} caf\u00E9' }] });

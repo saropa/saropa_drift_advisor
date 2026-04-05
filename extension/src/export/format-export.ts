@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import { escapeCsvCell, q, zipRow } from '../shared-utils';
 import type { ExportFormat, IExportOptions } from './format-export-types';
+import { getDisplayValue } from './pii-masking';
 
 /** Convert a value to a SQL literal. */
 export function sqlLiteral(value: unknown): string {
@@ -47,11 +48,14 @@ export function formatJson(o: IExportOptions): string {
   return JSON.stringify(o.rows, null, 2);
 }
 
-/** Format rows as RFC 4180 CSV. */
+/** Format rows as RFC 4180 CSV, optionally masking PII columns. */
 export function formatCsv(o: IExportOptions): string {
+  const mask = o.maskPii === true;
   const header = o.columns.map(escapeCsvCell).join(',');
   const rows = o.rows.map((row) =>
-    o.columns.map((c) => escapeCsvCell(row[c])).join(','),
+    o.columns
+      .map((c) => escapeCsvCell(mask ? getDisplayValue(c, row[c], true) : row[c]))
+      .join(','),
   );
   return [header, ...rows].join('\n');
 }
@@ -92,9 +96,10 @@ export function formatMarkdown(o: IExportOptions): string {
   return [header, sep, ...rows].join('\n');
 }
 
-const FORMAT_LABELS: { label: string; key: ExportFormat }[] = [
+const FORMAT_LABELS: { label: string; key: ExportFormat; maskPii?: boolean }[] = [
   { label: 'JSON', key: 'json' },
   { label: 'CSV', key: 'csv' },
+  { label: 'CSV (PII masked)', key: 'csv', maskPii: true },
   { label: 'SQL INSERT', key: 'sql' },
   { label: 'Dart', key: 'dart' },
   { label: 'Markdown', key: 'markdown' },
@@ -130,6 +135,8 @@ export async function exportTable(
   );
   if (!format) return;
 
+  const picked = FORMAT_LABELS.find((f) => f.label === format);
+
   const dest = await vscode.window.showQuickPick(
     ['Copy to clipboard', 'Save to file'],
     { placeHolder: 'Destination' },
@@ -148,7 +155,8 @@ export async function exportTable(
         table: tableName,
         columns: result.columns,
         rows,
-        format: formatKey(format),
+        format: picked?.key ?? 'json',
+        maskPii: picked?.maskPii,
       });
     },
   );
@@ -159,7 +167,7 @@ export async function exportTable(
       `Copied ${tableName} as ${format} to clipboard.`,
     );
   } else {
-    const ext = fileExtension(formatKey(format));
+    const ext = fileExtension(picked?.key ?? 'json');
     const uri = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.file(`${tableName}.${ext}`),
       filters: { [format]: [ext] },
