@@ -1,6 +1,7 @@
 import { PendingChange, groupByTable } from './change-tracker';
 
-function sqlLiteral(value: unknown): string {
+/** Escape a JS value as a SQL literal (NULL, number, or single-quoted string). */
+export function sqlLiteral(value: unknown): string {
   if (value === null || value === undefined) return 'NULL';
   if (typeof value === 'number') return String(value);
   if (typeof value === 'boolean') return value ? '1' : '0';

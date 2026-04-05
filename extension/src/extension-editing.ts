@@ -77,8 +77,13 @@ export function setupEditing(
   );
 
   // Defer restore prompt so activation and command registration stay responsive.
+  // Pass client.sql() for draft conflict detection against the live DB.
   setTimeout(() => {
-    void offerRestoreDraft(context.workspaceState, changeTracker);
+    void offerRestoreDraft(
+      context.workspaceState,
+      changeTracker,
+      (query) => client.sql(query),
+    );
   }, 0);
 
   return {

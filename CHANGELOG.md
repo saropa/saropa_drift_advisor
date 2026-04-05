@@ -41,12 +41,6 @@ browse source on
 - **Midnight theme (CDN-only)** — A fourth theme option: deep navy dark mode with periwinkle accents, glassmorphic panels, animated gradient background, and rainbow side borders. Uses the saropa.com dark palette (#1a1d2b / #2c3350 / #8fa8ff). Degrades gracefully to the base dark theme when the CDN is unavailable
 - **Draft conflict detection** — When restoring saved pending edits from a previous session, the extension now checks each edit's original value against the live database. Warns if rows were changed or deleted since the draft was saved, with the option to restore anyway or discard
 - **BLOB columns blocked at the DOM level** — BLOB columns are now visually non-editable (double-click is silently ignored) rather than requiring a server round-trip rejection. Table headers carry `data-col-type` attributes for client-side detection
-- **Copy migration SQL** — Database comparison panel now has a "Copy Migration SQL" button that fetches the DDL migration preview and copies it to the clipboard
-- **Clickable ER diagram tables** — Double-click a table node in the ER diagram to open its data view. Drag detection prevents accidental navigation while repositioning
-- **Masked CSV export** — New "CSV (PII masked)" option in the extension export picker. Heuristic column-name detection masks emails, phones, SSNs, passwords, tokens, secrets, API keys, and addresses
-- **Clear table / clear all** — Web viewer now shows "Clear rows" and "Clear all tables" buttons when write access is enabled. Executes via the batch edits endpoint in a single transaction with double-confirmation
-- **Clipboard paste import** — Web viewer import panel has a "Paste" button that reads from the clipboard and auto-detects CSV, TSV, or JSON format
-- **Configurable slow-query threshold** — Performance panel now has a threshold input (default 100 ms) that is passed as a query parameter to the server. Recent queries color-coding adapts dynamically
 
 ### Changed
 
@@ -55,17 +49,17 @@ browse source on
 - **Theme cycle expanded to four** — With enhanced CSS loaded, the toggle cycles Light → Showcase → Dark → Midnight. Without CDN, it toggles Light ↔ Dark
 - **Smart premium upgrade** — When enhanced CSS loads with no saved preference, OS dark-mode users get Midnight automatically; light-mode users get Showcase
 
+### Improved
+
+- **Column type drift messages are now actionable** — The `column-type-drift` diagnostic now tells developers which side to fix ("Either update the database column or change the Dart definition") instead of the ambiguous "Dart=X, DB=Y". For `DateTimeColumn` mismatches, it also surfaces the `store_date_time_values_as_text` build.yaml setting as the likely root cause
+
 ### Fixed
 
-- **Removed `blob-column-large` diagnostic** — The unconditional "may cause memory issues" warning on every BLOB column has been removed. Developers choose BLOB storage deliberately; the type-only check was unactionable noise. The "Profile Column" command remains available from other diagnostic providers for on-demand column analysis
-- **Anomaly false positives on valid wide-range columns** — The numeric outlier detector no longer flags coordinate columns (lat/lng/lon/latitude/longitude), version/revision columns, or any column whose data naturally spans a wide range. Replaced the naive 10× average heuristic with 3-sigma (standard deviation) statistical analysis, plus name-based skips for known domain patterns
 - **False positive diagnostics in non-Drift projects** — The extension no longer fires `missing-table-in-db` and `extra-table-in-db` diagnostics in workspaces that don't use Drift. Three fixes: (1) diagnostics now skip scanning when pubspec.yaml lacks `drift` or `saropa_drift_advisor`; (2) the Dart parser ignores `class … extends Table` patterns inside `///` doc comments, `//` line comments, and `/* */` block comments; (3) `extra-table-in-db` reports against the primary schema file instead of an arbitrary first match
 - **Saved premium theme restored after CDN loads** — If a user saved Showcase or Midnight but the CDN hadn't loaded yet, initTheme degraded them (Showcase→Light, Midnight→Dark). When the enhanced CSS finally loaded, markEnhancedReady did not restore the saved premium theme. Now it does
 - **No-PK table gate uses error, not warning** — Opening the bulk edit panel on a table without a primary key now shows `showErrorMessage` (blocking, unmissable) instead of `showWarningMessage` (dismissible)
 - **Commit failure message includes rollback context** — Error now states the statement count and confirms the transaction was rolled back, making it clear pending edits are preserved for retry
 - **Table cells carry raw values for editing** — Report table `<td>` elements now include `data-raw-value` attributes so the inline editing script correctly distinguishes `NULL` from the text "NULL"
-- **N+1 false positive on activity/log tables** — The N+1 query detector now only counts SELECT operations. Write operations (INSERT, UPDATE, DELETE) are inherently per-record and were incorrectly inflating the hit count, causing false warnings on tables like `activities` that receive frequent independent writes from user actions
-- **Index suggestion false positives (`missing-id-index`, `missing-datetime-index`)** — Three fixes: (1) the `_id` heuristic now only fires when a matching table exists in the database (e.g. `user_id` fires if `users` table exists, but `api_id`, `swapi_id`, `wikidata_id` are suppressed); (2) the datetime heuristic now checks the Dart column type and skips non-datetime types like `BoolColumn` (fixes `is_free_time` being flagged as a datetime column); (3) both heuristic codes downgraded from Information to Hint severity so they appear as faded text rather than cluttering the Problems panel
 
 ---
 
