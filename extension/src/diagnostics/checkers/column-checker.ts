@@ -41,9 +41,23 @@ export function checkColumnDrift(
 
     const expectedType = DART_TO_SQL_TYPE[dartCol.dartType];
     if (expectedType && dbCol.type !== expectedType) {
+      // When a DateTimeColumn mismatches on INTEGER vs TEXT, the most
+      // common cause is the build.yaml `store_date_time_values_as_text`
+      // setting not matching the actual database schema.
+      const dateTimeHint =
+        dartCol.dartType === 'DateTimeColumn' &&
+        ((expectedType === 'INTEGER' && dbCol.type === 'TEXT') ||
+          (expectedType === 'TEXT' && dbCol.type === 'INTEGER'))
+          ? '. Check store_date_time_values_as_text in build.yaml'
+          : '';
+
       issues.push({
         code: 'column-type-drift',
-        message: `Column "${dartTable.sqlTableName}.${dartCol.sqlName}" type mismatch: Dart=${expectedType}, DB=${dbCol.type}`,
+        message:
+          `Column "${dartTable.sqlTableName}.${dartCol.sqlName}" type mismatch: ` +
+          `Dart schema expects ${expectedType} but database has ${dbCol.type}. ` +
+          `Either update the database column or change the Dart definition` +
+          dateTimeHint,
         fileUri: file.uri,
         range: new vscode.Range(line, 0, line, 999),
         severity: vscode.DiagnosticSeverity.Warning,

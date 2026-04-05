@@ -37,16 +37,16 @@ function resolveCodeAndMessage(suggestion: IndexSuggestion): {
       // Heuristic 2: column name ends in _id (likely join column)
       return {
         code: 'missing-id-index',
-        message: `Column "${suggestion.table}.${suggestion.column}" ends in _id and may benefit from an index`,
-        severity: vscode.DiagnosticSeverity.Information,
+        message: `Column "${suggestion.table}.${suggestion.column}" ends in _id — consider an index if used in JOINs or WHERE`,
+        severity: vscode.DiagnosticSeverity.Hint,
       };
 
     case 'low':
       // Heuristic 3: date/time column suffix
       return {
         code: 'missing-datetime-index',
-        message: `Date/time column "${suggestion.table}.${suggestion.column}" may benefit from an index if used in ORDER BY or WHERE`,
-        severity: vscode.DiagnosticSeverity.Information,
+        message: `Date/time column "${suggestion.table}.${suggestion.column}" — consider an index if used in ORDER BY or WHERE`,
+        severity: vscode.DiagnosticSeverity.Hint,
       };
   }
 }
@@ -70,6 +70,18 @@ export function checkMissingIndexes(
     const dartCol = dartTable?.columns.find(
       (c) => c.sqlName.toLowerCase() === suggestion.column.toLowerCase(),
     );
+
+    // Skip datetime suggestions for non-datetime Dart types.
+    // The server uses column-name heuristics which can misfire
+    // on columns like "is_free_time" (BoolColumn ending in "time").
+    if (
+      suggestion.priority === 'low' &&
+      dartCol?.dartType != null &&
+      dartCol.dartType !== 'DateTimeColumn'
+    ) {
+      continue;
+    }
+
     const line = dartCol?.line ?? dartTable?.line ?? 0;
 
     const { code, message, severity } = resolveCodeAndMessage(suggestion);

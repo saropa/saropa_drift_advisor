@@ -55,6 +55,10 @@ void main() {
                   {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                   {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
                 ],
+                // Target table must exist for _id dedup test.
+                'users': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                ],
               },
               tableForeignKeys: {
                 'orders': [
@@ -89,6 +93,10 @@ void main() {
                 {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                 {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
               ],
+              // Target table for _id heuristic.
+              'users': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              ],
             },
             tableForeignKeys: {
               'orders': [
@@ -121,6 +129,10 @@ void main() {
                 'orders': [
                   {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                   {'name': 'category_id', 'type': 'INTEGER', 'pk': 0},
+                ],
+                // Target table must exist for _id heuristic to fire.
+                'categories': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                 ],
               },
               // No FK on category_id, so only _id heuristic fires.
@@ -163,6 +175,10 @@ void main() {
                 {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                 {'name': 'category_id', 'type': 'INTEGER', 'pk': 0},
               ],
+              // Target table for _id heuristic.
+              'categories': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              ],
             },
             tableIndexes: {
               'orders': [
@@ -189,6 +205,10 @@ void main() {
                 'orders': [
                   {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                   {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
+                ],
+                // Target table for _id heuristic dedup.
+                'users': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                 ],
               },
               tableForeignKeys: {
@@ -268,6 +288,13 @@ void main() {
                 {'name': 'category_id', 'type': 'INTEGER', 'pk': 0},
                 {'name': 'created_at', 'type': 'TEXT', 'pk': 0},
               ],
+              // Target tables for _id heuristic.
+              'users': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              ],
+              'categories': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              ],
             },
             tableForeignKeys: {
               'orders': [
@@ -303,6 +330,13 @@ void main() {
                 {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                 {'name': 'author_id', 'type': 'INTEGER', 'pk': 0},
               ],
+              // Target tables for _id heuristic.
+              'products': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              ],
+              'authors': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              ],
             },
           ),
         );
@@ -310,7 +344,8 @@ void main() {
         final suggestions = result['suggestions'] as List<dynamic>;
         final tables = suggestions.map((s) => (s as Map)['table']).toSet();
         expect(tables, containsAll(['orders', 'reviews']));
-        expect(result['tablesAnalyzed'], 2);
+        // 4 tables total: orders, reviews, products, authors.
+        expect(result['tablesAnalyzed'], 4);
       });
 
       test('tablesAnalyzed count matches number of tables', () async {
@@ -341,6 +376,10 @@ void main() {
                 {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                 {'name': 'Parent_ID', 'type': 'INTEGER', 'pk': 0},
               ],
+              // Target table for _id heuristic (Parent_ID → "parent").
+              'parents': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              ],
             },
           ),
         );
@@ -359,6 +398,10 @@ void main() {
                 {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                 {'name': 'category_id', 'type': 'INTEGER', 'pk': 0},
               ],
+              // Target table for _id heuristic.
+              'categories': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              ],
             },
           ),
         );
@@ -371,6 +414,85 @@ void main() {
           'ON "orders"("category_id");',
         );
       });
+
+      test(
+        '_id column with no matching table produces no suggestion',
+        () async {
+          // api_id, swapi_id, wikidata_id etc. should NOT trigger
+          // the _id heuristic because no "api", "swapi", or
+          // "wikidata" table exists.
+          final result = await IndexAnalyzer.getIndexSuggestionsList(
+            mockQueryWithTables(
+              tableColumns: {
+                'characters': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                  {'name': 'api_id', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'swapi_id', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'wikidata_id', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'google_event_id', 'type': 'TEXT', 'pk': 0},
+                ],
+              },
+              // No target tables for any of these _id columns.
+            ),
+          );
+
+          final suggestions = result['suggestions'] as List;
+          // None of these external reference IDs should fire.
+          expect(suggestions, isEmpty);
+        },
+      );
+
+      test(
+        '_id column with matching plural table produces suggestion',
+        () async {
+          // user_id should fire because table "users" exists
+          // (plural form of "user").
+          final result = await IndexAnalyzer.getIndexSuggestionsList(
+            mockQueryWithTables(
+              tableColumns: {
+                'orders': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                  {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
+                ],
+                'users': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                ],
+              },
+            ),
+          );
+
+          final suggestions = result['suggestions'] as List<dynamic>;
+          expect(suggestions, hasLength(1));
+          final s = suggestions.first as Map;
+          expect(s['column'], 'user_id');
+          expect(s['priority'], 'medium');
+        },
+      );
+
+      test(
+        '_id column with matching singular table produces suggestion',
+        () async {
+          // category_id should fire because table "category" exists
+          // (exact match).
+          final result = await IndexAnalyzer.getIndexSuggestionsList(
+            mockQueryWithTables(
+              tableColumns: {
+                'orders': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                  {'name': 'category_id', 'type': 'INTEGER', 'pk': 0},
+                ],
+                'category': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                ],
+              },
+            ),
+          );
+
+          final suggestions = result['suggestions'] as List<dynamic>;
+          expect(suggestions, hasLength(1));
+          expect((suggestions.first as Map)['column'], 'category_id');
+        },
+      );
 
       test(
         'plain id column (not ending in _id) produces no suggestion',

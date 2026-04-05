@@ -32,6 +32,11 @@ abstract final class IndexAnalyzer {
     final tableNames = await ServerUtils.getTableNames(query);
     final suggestions = <Map<String, dynamic>>[];
 
+    // Build a lowercase set of all table names so the _id
+    // heuristic can check whether a matching target table
+    // actually exists (e.g. user_id → "users" or "user").
+    final tableNamesLower = tableNames.map((t) => t.toLowerCase()).toSet();
+
     for (final tableName in tableNames) {
       // Collect existing indexed columns for this table
       // so we can skip columns that already have coverage.
@@ -94,10 +99,16 @@ abstract final class IndexAnalyzer {
             (s) => s['table'] == tableName && s['column'] == colName,
           );
 
-          // 2. Columns ending in _id — likely used in
-          //    JOINs and WHERE clauses.
+          // 2. Columns ending in _id — only suggest when
+          //    the prefix matches an existing table name,
+          //    which strongly implies a foreign-key-like
+          //    relationship (e.g. user_id → table "users").
+          //    External reference IDs like api_id, swapi_id,
+          //    wikidata_id are skipped because no matching
+          //    table exists.
           if (!alreadySuggested &&
-              ServerConstants.reIdSuffix.hasMatch(colName)) {
+              ServerConstants.reIdSuffix.hasMatch(colName) &&
+              _hasMatchingTable(colName, tableNamesLower)) {
             suggestions.add(<String, dynamic>{
               'table': tableName,
               'column': colName,
@@ -144,5 +155,43 @@ abstract final class IndexAnalyzer {
       'suggestions': suggestions,
       'tablesAnalyzed': tableNames.length,
     };
+  }
+
+  /// Returns `true` when the prefix before `_id` in [colName]
+  /// matches an existing table name (singular or plural).
+  ///
+  /// For example, `user_id` matches if table `user` or `users`
+  /// exists. `api_id` returns `false` when no `api`/`apis`
+  /// table is present — it is likely an external reference ID,
+  /// not a foreign key.
+  static bool _hasMatchingTable(
+    String colName,
+    Set<String> tableNamesLower,
+  ) {
+    // Strip the trailing _id to get the prefix
+    // (e.g. "category_id" → "category").
+    final prefix = colName
+        .substring(0, colName.length - 3)
+        .toLowerCase();
+
+    if (prefix.isEmpty) return false;
+
+    // Check exact match and common English plural forms:
+    //   +s        (user   → users)
+    //   +es       (address → addresses)
+    //   y → ies   (category → categories)
+    if (tableNamesLower.contains(prefix) ||
+        tableNamesLower.contains('${prefix}s') ||
+        tableNamesLower.contains('${prefix}es')) {
+      return true;
+    }
+
+    // Handle y → ies (e.g. category_id → "categories").
+    if (prefix.endsWith('y')) {
+      final iesForm = '${prefix.substring(0, prefix.length - 1)}ies';
+      if (tableNamesLower.contains(iesForm)) return true;
+    }
+
+    return false;
   }
 }

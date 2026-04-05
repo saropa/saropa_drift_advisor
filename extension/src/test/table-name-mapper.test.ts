@@ -83,4 +83,27 @@ describe('TableNameMapper', () => {
       );
     });
   });
+
+  describe('normalizeForComparison()', () => {
+    const cases: [string, string][] = [
+      // Strips underscores and lowercases so acronym variants match
+      ['superhero_d_c_characters', 'superherodccharacters'],
+      ['superhero_dc_characters', 'superherodccharacters'],
+      ['h_t_t_p_client', 'httpclient'],
+      ['http_client', 'httpclient'],
+      // Already lowercase, no underscores — unchanged
+      ['users', 'users'],
+      // Mixed case gets lowered
+      ['My_Table', 'mytable'],
+    ];
+
+    for (const [input, expected] of cases) {
+      it(`should normalize "${input}" -> "${expected}"`, () => {
+        assert.strictEqual(
+          TableNameMapper.normalizeForComparison(input),
+          expected,
+        );
+      });
+    }
+  });
 });

@@ -21,6 +21,18 @@ export class TableNameMapper {
       .toLowerCase();
   }
 
+  /**
+   * Normalize a table name for fuzzy comparison by stripping all underscores
+   * and lowercasing. This handles the mismatch between Drift's per-letter
+   * splitting of acronyms (e.g. "superhero_d_c_characters") and manually
+   * created DB tables that keep acronyms together (e.g. "superhero_dc_characters").
+   *
+   * Both normalize to "superherodccharacters", allowing a match.
+   */
+  static normalizeForComparison(tableName: string): string {
+    return tableName.toLowerCase().replace(/_/g, '');
+  }
+
   /** Update the known server table list. Clears the mapping cache. */
   updateTableList(tables: string[]): void {
     this._serverTables = tables;

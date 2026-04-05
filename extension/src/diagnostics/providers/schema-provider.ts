@@ -18,6 +18,7 @@ import { checkColumnDrift } from '../checkers/column-checker';
 import { checkMissingIndexes } from '../checkers/index-checker';
 import { checkMissingPrimaryKey, checkTextPrimaryKey } from '../checkers/pk-checker';
 import { checkExtraTablesInDb, checkMissingTableInDb } from '../checkers/table-checker';
+import { TableNameMapper } from '../../codelens/table-name-mapper';
 
 export class SchemaProvider implements IDiagnosticProvider {
   readonly id = 'schema';
@@ -33,15 +34,29 @@ export class SchemaProvider implements IDiagnosticProvider {
       ]);
 
       const dbTableMap = new Map<string, TableMetadata>();
+      // Secondary map keyed by normalized name (underscores stripped, lowered)
+      // to handle Drift's per-letter acronym splitting vs manually-created DB tables
+      // e.g. "superhero_d_c_characters" vs "superhero_dc_characters"
+      const dbNormalizedMap = new Map<string, TableMetadata>();
       for (const t of dbSchema) {
         if (!t.name.startsWith('sqlite_')) {
           dbTableMap.set(t.name, t);
+          dbNormalizedMap.set(
+            TableNameMapper.normalizeForComparison(t.name),
+            t,
+          );
         }
       }
 
       for (const file of ctx.dartFiles) {
         for (const dartTable of file.tables) {
-          const dbTable = dbTableMap.get(dartTable.sqlTableName);
+          // Try exact match first, then fall back to normalized comparison
+          // to handle acronym underscore differences (e.g. d_c vs dc)
+          const dbTable =
+            dbTableMap.get(dartTable.sqlTableName) ??
+            dbNormalizedMap.get(
+              TableNameMapper.normalizeForComparison(dartTable.sqlTableName),
+            );
 
           checkMissingTableInDb(issues, file, dartTable, dbTable);
           checkMissingPrimaryKey(issues, file, dartTable, dbTable);

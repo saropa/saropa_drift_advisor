@@ -23,17 +23,17 @@ export const SCHEMA_CODES: Record<string, IDiagnosticCode> = {
   'missing-id-index': {
     code: 'missing-id-index',
     category: 'schema',
-    defaultSeverity: vscode.DiagnosticSeverity.Information,
+    defaultSeverity: vscode.DiagnosticSeverity.Hint,
     messageTemplate:
-      'Column "{table}.{column}" ends in _id and may benefit from an index',
+      'Column "{table}.{column}" ends in _id — consider an index if used in JOINs or WHERE',
     hasFix: true,
   },
   'missing-datetime-index': {
     code: 'missing-datetime-index',
     category: 'schema',
-    defaultSeverity: vscode.DiagnosticSeverity.Information,
+    defaultSeverity: vscode.DiagnosticSeverity.Hint,
     messageTemplate:
-      'Date/time column "{table}.{column}" may benefit from an index if used in ORDER BY or WHERE',
+      'Date/time column "{table}.{column}" — consider an index if used in ORDER BY or WHERE',
     hasFix: true,
   },
   'orphaned-fk': {

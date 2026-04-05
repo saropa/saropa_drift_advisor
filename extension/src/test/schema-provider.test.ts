@@ -93,7 +93,7 @@ describe('SchemaProvider', () => {
       assert.ok(issue.message.includes('logs'));
     });
 
-    it('should report column-type-drift when types mismatch', async () => {
+    it('should report column-type-drift with actionable message', async () => {
       const ctx = createContext({
         dartFiles: [createDartFile('users', ['id', 'user_id'])],
         dbTables: [{ name: 'users', columns: [
@@ -109,6 +109,46 @@ describe('SchemaProvider', () => {
       assert.ok(issue.message.includes('user_id'));
       assert.ok(issue.message.includes('INTEGER'));
       assert.ok(issue.message.includes('TEXT'));
+      // Verify the new actionable guidance is present
+      assert.ok(
+        issue!.message.includes('Either update the database column or change the Dart definition'),
+        'Should include actionable fix guidance',
+      );
+      // Non-DateTime column should NOT include the build.yaml hint
+      assert.ok(
+        !issue!.message.includes('store_date_time_values_as_text'),
+        'Non-DateTime mismatch should not mention store_date_time_values_as_text',
+      );
+    });
+
+    it('should include build.yaml hint for DateTimeColumn INTEGER/TEXT mismatch', async () => {
+      // Simulate a DateTimeColumn that Drift maps to INTEGER (default),
+      // but the pre-built database has TEXT.
+      const dartFile = createDartFile('events', ['id', 'created_at']);
+      // Override the auto-assigned TextColumn to DateTimeColumn
+      dartFile.tables[0].columns[1].dartType = 'DateTimeColumn';
+      dartFile.tables[0].columns[1].sqlType = 'INTEGER';
+
+      const ctx = createContext({
+        dartFiles: [dartFile],
+        dbTables: [{ name: 'events', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'created_at', type: 'TEXT', pk: false }, // DB has TEXT, Dart expects INTEGER
+        ], rowCount: 50 }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'column-type-drift');
+      assert.ok(issue, 'Should report column-type-drift for DateTime mismatch');
+      assert.ok(
+        issue!.message.includes('store_date_time_values_as_text'),
+        'DateTime INTEGER/TEXT mismatch should mention store_date_time_values_as_text',
+      );
+      assert.ok(
+        issue!.message.includes('build.yaml'),
+        'Should reference build.yaml',
+      );
     });
 
     it('should report extra-column-in-db for DB-only columns', async () => {
@@ -191,7 +231,7 @@ describe('SchemaProvider', () => {
       assert.ok(issue, 'Should report missing-id-index');
       assert.ok(issue.message.includes('customer_id'));
       assert.ok(issue.message.includes('_id'));
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Hint);
       // Must NOT use the FK label
       assert.ok(!issue.message.includes('FK column'));
       // Must NOT produce missing-fk-index for _id heuristic columns
@@ -221,7 +261,7 @@ describe('SchemaProvider', () => {
       assert.ok(issue, 'Should report missing-datetime-index');
       assert.ok(issue.message.includes('created_at'));
       assert.ok(issue.message.includes('Date/time'));
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Hint);
       // Must NOT use the FK label
       assert.ok(!issue.message.includes('FK column'));
     });
@@ -249,6 +289,46 @@ describe('SchemaProvider', () => {
       assert.strictEqual(fkIssues.length, 0, 'Datetime columns must not produce missing-fk-index');
     });
 
+    it('should skip datetime suggestion for BoolColumn (is_free_time)', async () => {
+      // is_free_time ends in "time" and triggers the server's datetime
+      // heuristic, but it is actually a BoolColumn. The extension-side
+      // filter should suppress it.
+      const dartFile = createDartFile('calendar_events', ['id', 'title']);
+      // Manually add a BoolColumn named is_free_time to the dart file.
+      dartFile.tables[0].columns.push({
+        dartName: 'isFreeTime',
+        sqlName: 'is_free_time',
+        dartType: 'BoolColumn',
+        sqlType: 'INTEGER',
+        nullable: true,
+        autoIncrement: false,
+        line: 15,
+      });
+
+      const ctx = createContext({
+        dartFiles: [dartFile],
+        dbTables: [{ name: 'calendar_events', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'title', type: 'TEXT', pk: false },
+          { name: 'is_free_time', type: 'INTEGER', pk: false },
+        ], rowCount: 100 }],
+        indexSuggestions: [{
+          table: 'calendar_events',
+          column: 'is_free_time',
+          reason: 'Date/time column — often used in ORDER BY or range queries',
+          sql: 'CREATE INDEX idx_calendar_events_is_free_time ON calendar_events(is_free_time)',
+          priority: 'low',
+        }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      // BoolColumn should NOT produce a datetime index suggestion.
+      const dtIssue = issues.find((i) => i.code === 'missing-datetime-index');
+      assert.strictEqual(dtIssue, undefined,
+        'BoolColumn is_free_time must not trigger missing-datetime-index');
+    });
+
     it('should report orphaned-fk from anomalies', async () => {
       const ctx = createContext({
         dartFiles: [createDartFile('orders', ['id', 'user_id'])],
@@ -267,6 +347,55 @@ describe('SchemaProvider', () => {
       const issue = issues.find((i) => i.code === 'orphaned-fk');
       assert.ok(issue, 'Should report orphaned-fk');
       assert.strictEqual(issue.severity, DiagnosticSeverity.Error);
+    });
+
+    it('should report extra-table-in-db for genuinely orphaned DB tables', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'name'])],
+        dbTables: [
+          { name: 'users', columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            { name: 'name', type: 'TEXT', pk: false },
+          ], rowCount: 10 },
+          { name: 'legacy_archive', columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+          ], rowCount: 0 },
+        ],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const extraIssue = issues.find((i) => i.code === 'extra-table-in-db');
+      assert.ok(extraIssue, 'Should report extra-table-in-db for genuinely orphaned table');
+      assert.ok(extraIssue!.message.includes('legacy_archive'));
+    });
+
+    it('should NOT report extra-table-in-db when DB name differs only by acronym underscores', async () => {
+      // Dart class "SuperheroDCCharacters" produces sqlTableName "superhero_d_c_characters"
+      // but the pre-built DB has "superhero_dc_characters" (no underscore between D and C).
+      // The checker should recognize these as the same table.
+      const dartFile = createDartFile('superhero_d_c_characters', ['id', 'name']);
+      const ctx = createContext({
+        dartFiles: [dartFile],
+        dbTables: [{
+          name: 'superhero_dc_characters',
+          columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            { name: 'name', type: 'TEXT', pk: false },
+          ],
+          rowCount: 50,
+        }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      // Should NOT fire extra-table-in-db for the DB table
+      const extraIssue = issues.find((i) => i.code === 'extra-table-in-db');
+      assert.strictEqual(extraIssue, undefined, 'Should not report extra-table-in-db for acronym underscore difference');
+
+      // Should NOT fire missing-table-in-db for the Dart table either
+      const missingIssue = issues.find((i) => i.code === 'missing-table-in-db');
+      assert.strictEqual(missingIssue, undefined, 'Should not report missing-table-in-db for acronym underscore difference');
     });
 
     it('should return empty array when server is unreachable', async () => {
@@ -310,7 +439,7 @@ describe('SchemaProvider', () => {
       const diag = new Diagnostic(
         new Range(10, 0, 10, 100),
         '[drift_advisor] Column ends in _id',
-        DiagnosticSeverity.Information,
+        DiagnosticSeverity.Hint,
       );
       diag.code = 'missing-id-index';
       diag.relatedInformation = [
@@ -333,7 +462,7 @@ describe('SchemaProvider', () => {
       const diag = new Diagnostic(
         new Range(10, 0, 10, 100),
         '[drift_advisor] Date/time column may benefit from index',
-        DiagnosticSeverity.Information,
+        DiagnosticSeverity.Hint,
       );
       diag.code = 'missing-datetime-index';
       diag.relatedInformation = [
