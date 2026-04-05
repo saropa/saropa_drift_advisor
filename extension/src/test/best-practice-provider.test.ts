@@ -218,7 +218,9 @@ describe('BestPracticeProvider', () => {
       assert.ok(issue.message.includes('category_id'));
     });
 
-    it('should report blob-column-large for BLOB columns', async () => {
+    it('should not report blob-column-large for BLOB columns (removed — too noisy)', async () => {
+      // BLOB columns are intentional developer choices; flagging them by type
+      // alone adds no actionable information and clutters the Problems panel
       const dartFile = createDartFile('documents', ['id', 'content']);
       dartFile.tables[0].columns[1].dartType = 'BlobColumn';
 
@@ -237,10 +239,7 @@ describe('BestPracticeProvider', () => {
       const issues = await provider.collectDiagnostics(ctx);
 
       const issue = issues.find((i) => i.code === 'blob-column-large');
-      assert.ok(issue, 'Should report blob-column-large');
-      assert.ok(issue.message.includes('content'));
-      assert.ok(issue.message.includes('memory'));
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
+      assert.ok(!issue, 'Should not report blob-column-large');
     });
 
     it('should report circular-fk for circular relationships', async () => {
@@ -319,7 +318,8 @@ describe('BestPracticeProvider', () => {
       assert.ok(actions.some((a) => a.title.includes('Impact')));
     });
 
-    it('should provide Profile action for blob-column-large', () => {
+    it('should not provide Profile action for blob-column-large (diagnostic removed)', () => {
+      // blob-column-large was removed — verify no Profile action is offered
       const diag = new Diagnostic(
         new Range(10, 0, 10, 100),
         '[drift_advisor] BLOB warning',
@@ -330,7 +330,8 @@ describe('BestPracticeProvider', () => {
 
       const actions = provider.provideCodeActions(diag as any, {} as any);
 
-      assert.ok(actions.some((a) => a.title.includes('Profile')));
+      assert.ok(!actions.some((a) => a.title.includes('Profile')),
+        'Should not offer Profile action for removed diagnostic');
     });
   });
 });

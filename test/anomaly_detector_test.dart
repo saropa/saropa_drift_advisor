@@ -246,19 +246,21 @@ void main() {
       // Numeric outlier detection
       // -------------------------------------------------------
 
-      test('detects outlier when max > 10x average', () async {
+      test('detects outlier when max > 3 sigma from mean', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
               'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
             },
             counts: {'items': 5},
-            // avg=10, min=5, max=150 → max (150) > avg*10 (100).
+            // avg=10, min=5, max=150, variance=100 (stddev=10).
+            // max deviation: |150 - 10| = 140 > 3×10 = 30 → flagged.
             numericStats: {
               'items.price': {
                 'avg_val': 10.0,
                 'min_val': 5.0,
                 'max_val': 150.0,
+                'variance': 100.0,
               },
             },
           ),
@@ -273,16 +275,22 @@ void main() {
         expect(outlier!['severity'], 'info');
       });
 
-      test('no outlier when range is within 10x average', () async {
+      test('no outlier when range is within 3 sigma', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
               'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
             },
             counts: {'items': 5},
-            // avg=10, min=5, max=50 → max (50) < avg*10 (100).
+            // avg=10, min=5, max=50, variance=200 (stddev≈14.1).
+            // max deviation: |50 - 10| = 40 < 3×14.1 = 42.4 → not flagged.
             numericStats: {
-              'items.price': {'avg_val': 10.0, 'min_val': 5.0, 'max_val': 50.0},
+              'items.price': {
+                'avg_val': 10.0,
+                'min_val': 5.0,
+                'max_val': 50.0,
+                'variance': 200.0,
+              },
             },
           ),
         );
@@ -294,15 +302,22 @@ void main() {
         expect(outliers, isEmpty);
       });
 
-      test('skips outlier detection when avg is 0', () async {
+      test('skips outlier detection when all values identical (zero stddev)',
+          () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
               'items': [_col('id', 'INTEGER', pk: 1), _col('score', 'INTEGER')],
             },
             counts: {'items': 5},
+            // All values are 0 → variance=0, stddev=0 → skip.
             numericStats: {
-              'items.score': {'avg_val': 0.0, 'min_val': 0.0, 'max_val': 0.0},
+              'items.score': {
+                'avg_val': 0.0,
+                'min_val': 0.0,
+                'max_val': 0.0,
+                'variance': 0.0,
+              },
             },
           ),
         );
@@ -318,7 +333,7 @@ void main() {
         'skips outlier detection for BOOLEAN columns (type-based guard)',
         () async {
           // Boolean columns with skewed distributions (e.g., 9% true)
-          // should not trigger the 10× heuristic — the distribution
+          // should not trigger outlier detection — the distribution
           // is a valid data pattern, not an anomaly.
           final result = await AnomalyDetector.getAnomaliesResult(
             _anomalyQuery(
@@ -387,6 +402,180 @@ void main() {
             reason:
                 'INTEGER columns with binary domain (0–1) should be excluded '
                 'from outlier detection',
+          );
+        },
+      );
+
+      // -------------------------------------------------------
+      // False positive regression tests
+      //
+      // These tests verify that domain-aware heuristics
+      // prevent anomaly warnings on columns where a wide
+      // range is expected and correct.
+      // -------------------------------------------------------
+
+      test(
+        'no outlier for longitude columns (coordinate skip)',
+        () async {
+          // Longitude spans -180..180 for global cities —
+          // the wide range is geographic reality, not an anomaly.
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'country_cities': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col('longitude', 'REAL'),
+                ],
+              },
+              counts: {'country_cities': 1000},
+              numericStats: {
+                'country_cities.longitude': {
+                  'avg_val': 13.20,
+                  'min_val': -175.2,
+                  'max_val': 179.216667,
+                  'variance': 10443.0,
+                },
+              },
+            ),
+          );
+
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason: 'Coordinate columns should be skipped by name pattern',
+          );
+        },
+      );
+
+      test(
+        'no outlier for lat/lng/lon column name variants',
+        () async {
+          // All coordinate name variants should be skipped.
+          for (final colName in ['lat', 'lng', 'lon', 'latitude', 'longitude']) {
+            final result = await AnomalyDetector.getAnomaliesResult(
+              _anomalyQuery(
+                tableColumns: {
+                  'places': [
+                    _col('id', 'INTEGER', pk: 1),
+                    _col(colName, 'REAL'),
+                  ],
+                },
+                counts: {'places': 500},
+                numericStats: {
+                  'places.$colName': {
+                    'avg_val': 10.0,
+                    'min_val': -170.0,
+                    'max_val': 175.0,
+                    'variance': 10000.0,
+                  },
+                },
+              ),
+            );
+
+            final anomalies = result['anomalies'] as List;
+            final outliers = anomalies
+                .where((a) => (a as Map)['type'] == 'potential_outlier')
+                .toList();
+            expect(
+              outliers,
+              isEmpty,
+              reason: 'Column "$colName" should be skipped as coordinate',
+            );
+          }
+        },
+      );
+
+      test(
+        'no outlier for version columns (version skip)',
+        () async {
+          // Date-encoded version integers (YYYYMMDD format)
+          // create legitimately large values.
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'contacts': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col('version', 'INTEGER'),
+                ],
+              },
+              counts: {'contacts': 1000},
+              numericStats: {
+                'contacts.version': {
+                  'avg_val': 74744.97,
+                  'min_val': 1.0,
+                  'max_val': 26010901.0,
+                  'variance': 6710000000000.0,
+                },
+              },
+            ),
+          );
+
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason: 'Version columns should be skipped by name pattern',
+          );
+        },
+      );
+
+      test(
+        'no outlier for exchange rates with high natural variance',
+        () async {
+          // Multi-currency exchange rates legitimately span
+          // several orders of magnitude (e.g., USD/EUR ~0.7
+          // to USD/VND ~16000). The 3σ rule correctly sees
+          // this as a wide distribution, not isolated outliers.
+          //
+          // Approximate uniform distribution over [0.7, 16801]:
+          //   variance ≈ (16800)² / 12 ≈ 23,520,000
+          //   stddev ≈ 4852
+          //   avg ≈ 8400 (midpoint)
+          //   max deviation: |16801 - 8400| = 8401 < 3×4852 = 14556
+          //
+          // Using the bug report's actual values:
+          //   avg = 581.3 (skewed toward smaller currencies)
+          //   but variance from the real distribution is still high.
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'currency_rates': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col('exchange_rate', 'REAL'),
+                ],
+              },
+              counts: {'currency_rates': 200},
+              numericStats: {
+                'currency_rates.exchange_rate': {
+                  'avg_val': 581.30,
+                  'min_val': 0.70581,
+                  'max_val': 16801.0,
+                  // Variance from a wide multi-currency distribution.
+                  // stddev ≈ 5480, so max deviation |16801-581| = 16220
+                  // vs threshold 3×5480 = 16440 → not flagged.
+                  'variance': 30000000.0,
+                },
+              },
+            ),
+          );
+
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason:
+                'Exchange rates with high natural variance '
+                'should not be flagged as outliers',
           );
         },
       );
@@ -564,12 +753,13 @@ void main() {
             counts: {'items': 10, 'categories': 3},
             // warning: 2 empty strings.
             emptyCounts: {'items.title': 2},
-            // info: numeric outlier (max > 10× avg).
+            // info: numeric outlier (max > 3σ from mean).
             numericStats: {
               'items.price': {
                 'avg_val': 10.0,
                 'min_val': 5.0,
                 'max_val': 150.0,
+                'variance': 100.0,
               },
             },
             tableForeignKeys: {

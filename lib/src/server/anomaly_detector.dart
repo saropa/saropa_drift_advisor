@@ -1,6 +1,8 @@
 // Anomaly detection extracted from AnalyticsHandler.
 // Pure static logic with no instance state dependencies.
 
+import 'dart:math' show sqrt;
+
 import 'server_typedefs.dart';
 import 'server_utils.dart';
 
@@ -80,11 +82,12 @@ abstract final class AnomalyDetector {
             );
           }
 
-          // 3. Detect numeric outliers (values > 10×
-          //    average) in numeric columns. Boolean
+          // 3. Detect numeric outliers (values > 3σ from
+          //    the mean) in numeric columns. Boolean
           //    columns are excluded — skewed distributions
           //    (e.g., 9% true) are valid data patterns,
-          //    not anomalies.
+          //    not anomalies. Coordinate and version
+          //    columns are also skipped by name pattern.
           if (ServerUtils.isNumericType(colType) &&
               !ServerUtils.isBooleanType(colType)) {
             await _detectNumericOutliers(
@@ -198,20 +201,56 @@ abstract final class AnomalyDetector {
     });
   }
 
-  /// Computes AVG/MIN/MAX for [colName] and flags an
-  /// outlier anomaly when the min or max exceeds 10×
-  /// the average magnitude.
+  /// Column name patterns for geographic coordinate
+  /// columns — these naturally span wide ranges
+  /// (lat: -90..90, lon: -180..180) by definition.
+  static final _coordinatePattern =
+      RegExp(r'^(lat|lng|lon|latitude|longitude)$', caseSensitive: false);
+
+  /// Column name patterns for version/revision columns —
+  /// these often use date-encoded integers (e.g. YYYYMMDD)
+  /// that create legitimately large values.
+  static final _versionPattern =
+      RegExp(r'^(version|revision|rev)$', caseSensitive: false);
+
+  /// Computes statistical distribution metrics for
+  /// [colName] and flags an outlier anomaly when min or
+  /// max lies more than 3 standard deviations from the
+  /// mean (the classic 3-sigma rule).
+  ///
+  /// Domain-aware: skips columns whose names indicate
+  /// geographic coordinates or version numbers, where
+  /// wide ranges are expected and correct.
   static Future<void> _detectNumericOutliers({
     required DriftDebugQuery query,
     required String tableName,
     required String colName,
     required List<Map<String, dynamic>> anomalies,
   }) async {
+    // Skip coordinate columns — wide ranges are expected
+    // for geographic data (e.g., longitude spans -180..180
+    // for a table of world cities).
+    if (_coordinatePattern.hasMatch(colName)) {
+      return;
+    }
+
+    // Skip version/revision columns — date-encoded
+    // integers (e.g., YYYYMMDD = 26010901) create large
+    // values by design, not by error.
+    if (_versionPattern.hasMatch(colName)) {
+      return;
+    }
+
+    // Fetch mean, min, max, and population variance in a
+    // single query. Variance is computed as E[X²] - E[X]²
+    // which SQLite can evaluate without extensions.
     final statsRows = ServerUtils.normalizeRows(
       await query(
         'SELECT AVG("$colName") AS avg_val, '
         'MIN("$colName") AS min_val, '
-        'MAX("$colName") AS max_val '
+        'MAX("$colName") AS max_val, '
+        'AVG("$colName" * "$colName") - '
+        'AVG("$colName") * AVG("$colName") AS variance '
         'FROM "$tableName" WHERE "$colName" IS NOT NULL',
       ),
     );
@@ -222,7 +261,7 @@ abstract final class AnomalyDetector {
     final avg = ServerUtils.toDouble(statsRows.first['avg_val']);
     final min = ServerUtils.toDouble(statsRows.first['min_val']);
     final max = ServerUtils.toDouble(statsRows.first['max_val']);
-    if (avg == null || min == null || max == null || avg == 0) {
+    if (avg == null || min == null || max == null) {
       return;
     }
 
@@ -234,9 +273,31 @@ abstract final class AnomalyDetector {
       return;
     }
 
-    // Flag when any extreme is more than 10× the average
-    // magnitude — a simple but effective heuristic.
-    if (max.abs() > avg.abs() * 10 || min.abs() > avg.abs() * 10) {
+    // Compute population standard deviation from the
+    // SQL-computed variance. Clamp to zero to guard
+    // against floating-point rounding producing tiny
+    // negative values.
+    final rawVariance =
+        ServerUtils.toDouble(statsRows.first['variance']) ?? 0;
+    final stddev = sqrt(rawVariance < 0 ? 0 : rawVariance);
+
+    // Zero stddev means all values are identical — no
+    // outliers possible.
+    if (stddev == 0) {
+      return;
+    }
+
+    // Flag when either extreme lies more than 3 standard
+    // deviations from the mean (3-sigma rule). This
+    // correctly handles high-variance distributions
+    // (e.g., multi-currency exchange rates) where a wide
+    // range is natural, while still catching isolated
+    // extreme values in otherwise tight distributions.
+    final minDeviation = (min - avg).abs();
+    final maxDeviation = (max - avg).abs();
+    final threshold = stddev * 3;
+
+    if (maxDeviation > threshold || minDeviation > threshold) {
       anomalies.add(<String, dynamic>{
         'table': tableName,
         'column': colName,

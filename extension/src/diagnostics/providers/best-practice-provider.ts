@@ -18,7 +18,6 @@ import { findDartFileForTable } from '../utils/dart-file-utils';
  *   table names but have no declared foreign key — skips intentionally isolated
  *   tables and tables already participating in the FK graph via inbound refs)
  * - Circular FK relationships
- * - BLOB columns that may cause memory issues
  */
 export class BestPracticeProvider implements IDiagnosticProvider {
   readonly id = 'bestPractices';
@@ -60,7 +59,6 @@ export class BestPracticeProvider implements IDiagnosticProvider {
           this._checkNoForeignKeys(
             issues, file, dartTable, fks, allTableNames, referencedTables,
           );
-          this._checkBlobColumns(issues, file, dartTable);
         }
       }
 
@@ -113,22 +111,6 @@ export class BestPracticeProvider implements IDiagnosticProvider {
         title: 'Impact Analysis',
       };
       actions.push(impactAction);
-    }
-
-    if (code === 'blob-column-large') {
-      const profileAction = new vscode.CodeAction(
-        'Profile Column',
-        vscode.CodeActionKind.QuickFix,
-      );
-      const data = (diag as any).data;
-      if (data?.table && data?.column) {
-        profileAction.command = {
-          command: 'driftViewer.profileColumn',
-          title: 'Profile',
-          arguments: [{ table: data.table, column: data.column }],
-        };
-        actions.push(profileAction);
-      }
     }
 
     return actions;
@@ -237,25 +219,6 @@ export class BestPracticeProvider implements IDiagnosticProvider {
         range: new vscode.Range(dartTable.line, 0, dartTable.line, 999),
         severity: vscode.DiagnosticSeverity.Information,
       });
-    }
-  }
-
-  private _checkBlobColumns(
-    issues: IDiagnosticIssue[],
-    file: IDartFileInfo,
-    dartTable: IDartTable,
-  ): void {
-    for (const dartCol of dartTable.columns) {
-      if (dartCol.dartType === 'BlobColumn') {
-        issues.push({
-          code: 'blob-column-large',
-          message: `BLOB column "${dartTable.sqlTableName}.${dartCol.sqlName}" may cause memory issues with large data`,
-          fileUri: file.uri,
-          range: new vscode.Range(dartCol.line, 0, dartCol.line, 999),
-          severity: vscode.DiagnosticSeverity.Information,
-          data: { table: dartTable.sqlTableName, column: dartCol.sqlName },
-        });
-      }
     }
   }
 

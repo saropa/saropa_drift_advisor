@@ -29,14 +29,6 @@ export const BEST_PRACTICE_CODES: Record<string, IDiagnosticCode> = {
       'Table "{table}" uses TEXT primary key (INTEGER recommended)',
     hasFix: false,
   },
-  'blob-column-large': {
-    code: 'blob-column-large',
-    category: 'bestPractices',
-    defaultSeverity: vscode.DiagnosticSeverity.Information,
-    messageTemplate:
-      'BLOB column "{table}.{column}" may cause memory issues with large data',
-    hasFix: false,
-  },
   'no-foreign-keys': {
     code: 'no-foreign-keys',
     category: 'bestPractices',
