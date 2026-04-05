@@ -252,19 +252,6 @@ body.theme-light .app-header {
     0 4px 12px rgba(67, 83, 137, 0.06);
 }
 
-.app-header-brand {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-}
-
-.app-title {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--fg);
-}
 
 .app-version {
   font-size: var(--text-xs);
@@ -348,41 +335,6 @@ body.theme-light .header-btn:hover {
 
 body.theme-light .header-pill.live {
   color: #558b2f;
-}
-
-/* PII mask toggle: checkbox + label in header (BUG-015). */
-.header-mask-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: var(--tap-min);
-  padding: 0 0.75rem;
-  font-size: var(--text-sm);
-  color: var(--fg);
-  cursor: pointer;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-pre);
-  user-select: none;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-
-.header-mask-toggle:hover {
-  border-color: var(--link);
-  color: var(--link);
-  background: var(--surface);
-}
-
-.header-mask-toggle input[type="checkbox"] {
-  margin: 0;
-  width: 1rem;
-  height: 1rem;
-  cursor: pointer;
-}
-
-.header-mask-toggle:focus-within {
-  outline: 2px solid var(--link);
-  outline-offset: 2px;
 }
 
 /* --- Two-column layout (flex so sidebar width can animate when collapsing) --- */

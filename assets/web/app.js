@@ -146,9 +146,9 @@
     }
 
     // --- PII masking (BUG-015): user toggle; column heuristics; mask in table view and exports. ---
-    /** Whether the "Mask sensitive data" header toggle is checked. */
+    /** Whether the "Mask sensitive data" FAB toggle is checked. */
     function isPiiMaskEnabled() {
-      var cb = document.getElementById('pii-mask-toggle');
+      var cb = document.getElementById('fab-pii-mask-toggle');
       return cb ? cb.checked : false;
     }
 
@@ -1825,12 +1825,12 @@
       var labels = { dark: 'Dark', light: 'Light', showcase: 'Showcase', midnight: 'Midnight' };
       var icons  = { dark: 'dark_mode', light: 'light_mode', showcase: 'auto_awesome', midnight: 'bedtime' };
 
-      // Update only the label span so the Material icon is preserved (Phase 4.1).
-      var themeLabel = document.getElementById('theme-toggle-label');
+      // Update FAB theme label and icon to reflect the active theme.
+      var themeLabel = document.getElementById('fab-theme-label');
       if (themeLabel) themeLabel.textContent = labels[theme] || theme;
 
       // Swap the Material Symbols icon to match the active theme.
-      var themeBtn = document.getElementById('theme-toggle');
+      var themeBtn = document.getElementById('fab-theme-toggle');
       if (themeBtn) {
         var icon = themeBtn.querySelector('.material-symbols-outlined');
         if (icon) icon.textContent = icons[theme] || 'dark_mode';
@@ -1910,17 +1910,22 @@
     // Toggle button: cycle through themes. When the enhanced CDN
     // stylesheet is loaded the cycle is light → showcase → dark →
     // midnight; otherwise it toggles between dark and light only.
-    document.getElementById('theme-toggle').addEventListener('click', function() {
-      var next = nextTheme(currentTheme());
-      localStorage.setItem(THEME_KEY, next);
-      applyTheme(next);
-    });
+    // Theme cycle button lives in the super FAB menu.
+    var fabThemeBtn = document.getElementById('fab-theme-toggle');
+    if (fabThemeBtn) {
+      fabThemeBtn.addEventListener('click', function() {
+        var next = nextTheme(currentTheme());
+        localStorage.setItem(THEME_KEY, next);
+        applyTheme(next);
+      });
+    }
 
     initTheme();
 
-    // PII mask toggle (BUG-015): re-render table and search results when toggled so display matches.
+    // PII mask toggle (BUG-015): re-render table and search results when
+    // toggled so display matches.  Now lives in the super FAB menu.
     (function initPiiMaskToggle() {
-      var cb = document.getElementById('pii-mask-toggle');
+      var cb = document.getElementById('fab-pii-mask-toggle');
       if (!cb) return;
       cb.addEventListener('change', function() {
         if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson);
@@ -2012,28 +2017,30 @@
     (function initSidebarPanelCollapse() {
       var layout = document.getElementById('app-layout');
       var aside = document.getElementById('app-sidebar');
-      var headerBtn = document.getElementById('app-sidebar-toggle');
-      var headerIcon = document.getElementById('app-sidebar-toggle-icon');
+      var fabBtn = document.getElementById('fab-sidebar-toggle');
+      var fabIcon = document.getElementById('fab-sidebar-icon');
+      var fabLabel = document.getElementById('fab-sidebar-label');
       var tablesToggle = document.getElementById('tables-heading-toggle');
       if (!layout || !aside) return;
 
       /**
        * Single source of truth for sidebar collapsed state.
-       * Updates layout class, aria attributes on both toggle buttons,
-       * header icon, and persists to localStorage.
+       * Updates layout class, aria attributes on toggle buttons,
+       * FAB icon, and persists to localStorage.
        * @param {boolean} collapsed - true → sidebar hidden (width 0).
        */
       function applyAppSidebarCollapsed(collapsed) {
         layout.classList.toggle('app-sidebar-panel-collapsed', collapsed);
         aside.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
         var label = collapsed ? 'Show tables sidebar' : 'Hide tables sidebar';
-        // Header chevron button
-        if (headerBtn) {
-          headerBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-          headerBtn.setAttribute('aria-label', label);
-          headerBtn.title = label;
+        // FAB sidebar button
+        if (fabBtn) {
+          fabBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+          fabBtn.setAttribute('aria-label', label);
+          fabBtn.title = label;
         }
-        if (headerIcon) headerIcon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
+        if (fabIcon) fabIcon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
+        if (fabLabel) fabLabel.textContent = collapsed ? 'Show Sidebar' : 'Hide Sidebar';
         // Tables heading button inside the sidebar
         if (tablesToggle) {
           tablesToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
@@ -2059,7 +2066,7 @@
       catch (e) { /* ignore */ }
 
       // Both entry points share the same toggle function
-      if (headerBtn) headerBtn.addEventListener('click', toggleSidebarCollapsed);
+      if (fabBtn) fabBtn.addEventListener('click', toggleSidebarCollapsed);
       if (tablesToggle) tablesToggle.addEventListener('click', toggleSidebarCollapsed);
     })();
 
@@ -6744,6 +6751,45 @@
             clearBtn.disabled = false;
             clearBtn.textContent = 'Clear';
           });
+      });
+    })();
+
+    // --- Super FAB: expand/collapse the floating action menu. ---
+    (function initSuperFab() {
+      var fab = document.getElementById('super-fab');
+      var trigger = document.getElementById('super-fab-trigger');
+      var menu = document.getElementById('super-fab-menu');
+      var icon = document.getElementById('super-fab-icon');
+      if (!fab || !trigger || !menu) return;
+
+      /** Toggle the FAB open/closed state. */
+      function toggleFab() {
+        var opening = !fab.classList.contains('open');
+        fab.classList.toggle('open', opening);
+        trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
+        menu.setAttribute('aria-hidden', opening ? 'false' : 'true');
+        // Swap between "tune" (settings gear) and "close" icons.
+        if (icon) icon.textContent = opening ? 'close' : 'tune';
+      }
+
+      trigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleFab();
+      });
+
+      // Close the FAB when clicking outside of it.
+      document.addEventListener('click', function(e) {
+        if (fab.classList.contains('open') && !fab.contains(/** @type {Node} */ (e.target))) {
+          toggleFab();
+        }
+      });
+
+      // Close the FAB on Escape key.
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && fab.classList.contains('open')) {
+          toggleFab();
+          trigger.focus();
+        }
       });
     })();
 
