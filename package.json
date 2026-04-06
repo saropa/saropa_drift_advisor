@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "husky": "^9.1.7",
-    "sass": "^1.81",
+    "sass": "^1.99",
     "typescript": "^5.7"
   }
 }
