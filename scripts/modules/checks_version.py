@@ -444,6 +444,13 @@ def _stamp_changelog(
     # Clean up triple+ blank lines
     updated = re.sub(r'\n{3,}', '\n\n', updated)
 
+    # Skip write when content is unchanged — avoids dirtying the working
+    # tree on a second call with the same version (e.g. extension target
+    # after Dart already committed the stamped changelog).
+    if updated == content:
+        ok(f"CHANGELOG already up-to-date for [{version}]")
+        return True
+
     try:
         with open(changelog_path, "w", encoding="utf-8") as f:
             f.write(updated)

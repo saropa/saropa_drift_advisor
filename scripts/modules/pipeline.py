@@ -95,15 +95,20 @@ def _commit_and_tag(
     results: list[tuple[str, bool, float]],
     label: str,
 ) -> bool:
-    """Commit, push, and tag for a target. Skips if tag exists."""
+    """Commit, push, and tag for a target. Skips if tag exists.
+
+    Logs which paths will be staged so the operator can verify scope,
+    and provides clear skip/proceed messages for each sub-step.
+    """
     from modules.git_ops import is_version_tagged, git_commit_and_push, create_git_tag
 
+    tag = f"{config.tag_prefix}{version}"
     tagged = is_version_tagged(version, config.tag_prefix)
     if tagged:
         heading(f"{label} Git Commit & Push")
-        info(f"Tag {config.tag_prefix}{version} already exists; skipping.")
+        info(f"Tag {tag} already exists — skipping commit and tag.")
         heading(f"{label} Git Tag")
-        info("Skipped (tag exists).")
+        info(f"Skipped (tag {tag} exists).")
         return True
 
     heading(f"{label} Git Commit & Push")

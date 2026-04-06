@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from modules.constants import REPO_ROOT
-from modules.display import fail, fix, info, ok
+from modules.display import fail, fix, info, ok, warn
 from modules.utils import run
 
 from typing import TYPE_CHECKING
@@ -78,24 +78,71 @@ def git_commit_and_push(config: "TargetConfig", version: str) -> bool:
 
     Uses ``config.git_stage_paths`` to decide what to stage and
     ``config.commit_msg_fmt`` for the commit message.
+
+    Only files under ``config.git_stage_paths`` are staged.  The function
+    checks the *index* (staged changes) — not the whole working tree — so
+    unstaged modifications elsewhere do not cause a spurious commit attempt.
+    After committing, any remaining dirty files are reported as a warning so
+    the operator knows the working tree is not fully clean.
     """
     tag = f"{config.tag_prefix}{version}"
-    info(f"Staging changes for {config.display_name}...")
-    run(["git", "add", *config.git_stage_paths], cwd=REPO_ROOT)
+    paths_display = ", ".join(config.git_stage_paths)
+    info(f"Staging changes for {config.display_name} ({paths_display})...")
+    add_result = run(["git", "add", *config.git_stage_paths], cwd=REPO_ROOT)
+    if add_result.returncode != 0:
+        fail(f"git add failed: {(add_result.stderr or add_result.stdout).strip()}")
+        return False
 
-    status = run(["git", "status", "--porcelain"], cwd=REPO_ROOT)
-    if not status.stdout.strip():
-        ok("No changes to commit")
+    # Check only the staging area (index) — unstaged changes in files
+    # outside git_stage_paths must not trick us into attempting a commit
+    # that has nothing staged.
+    staged = run(["git", "diff", "--cached", "--name-only"], cwd=REPO_ROOT)
+    staged_files = staged.stdout.strip()
+    if not staged_files:
+        ok("No staged changes to commit")
+        _warn_dirty_working_tree(config)
         return True
+
+    # Log what we are about to commit for auditability.
+    for path in staged_files.splitlines():
+        info(f"  staged: {path}")
 
     msg = config.commit_msg_fmt.format(version=version)
     info(f"Committing {tag}...")
     commit = run(["git", "commit", "-m", msg], cwd=REPO_ROOT)
     if commit.returncode != 0:
-        fail(f"git commit failed: {commit.stderr.strip()}")
+        # Git sends pre-commit hook output to stderr; show both streams so
+        # the operator sees exactly what happened.
+        detail = (commit.stderr or "").strip()
+        stdout_detail = (commit.stdout or "").strip()
+        if stdout_detail:
+            detail = f"{detail}\n{stdout_detail}" if detail else stdout_detail
+        fail(f"git commit failed:\n{detail}")
         return False
 
+    ok(f"Committed: {msg}")
+    _warn_dirty_working_tree(config)
     return _push_to_origin()
+
+
+def _warn_dirty_working_tree(config: "TargetConfig") -> None:
+    """Warn if files outside the target's stage paths are still dirty.
+
+    This is purely informational — a dirty tree is not a failure, but it
+    helps the operator notice when a pipeline step left behind unstaged
+    modifications (e.g. a changelog stamp that no target owns).
+    """
+    status = run(["git", "status", "--porcelain"], cwd=REPO_ROOT)
+    dirty = status.stdout.strip()
+    if not dirty:
+        return
+    paths_display = ", ".join(config.git_stage_paths)
+    warn(f"Working tree still has uncommitted changes (not in {paths_display}):")
+    for line in dirty.splitlines()[:10]:
+        warn(f"  {line}")
+    remaining = len(dirty.splitlines()) - 10
+    if remaining > 0:
+        warn(f"  ... and {remaining} more")
 
 
 def create_git_tag(config: "TargetConfig", version: str) -> bool:
