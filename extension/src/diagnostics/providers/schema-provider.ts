@@ -104,6 +104,19 @@ export class SchemaProvider implements IDiagnosticProvider {
       actions.push(copyAction);
     }
 
+    if (code === 'column-name-acronym-mismatch') {
+      const diffAction = new vscode.CodeAction(
+        'View Schema Diff',
+        vscode.CodeActionKind.QuickFix,
+      );
+      diffAction.command = {
+        command: 'driftViewer.schemaDiff',
+        title: 'Schema Diff',
+      };
+      diffAction.isPreferred = true;
+      actions.push(diffAction);
+    }
+
     if (
       code === 'missing-table-in-db' ||
       code === 'missing-column-in-db' ||

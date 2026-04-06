@@ -74,6 +74,15 @@ export const SCHEMA_CODES: Record<string, IDiagnosticCode> = {
       'Column "{table}.{column}" defined in Dart but missing from database',
     hasFix: true,
   },
+  'column-name-acronym-mismatch': {
+    code: 'column-name-acronym-mismatch',
+    category: 'schema',
+    defaultSeverity: vscode.DiagnosticSeverity.Error,
+    messageTemplate:
+      'Column "{table}.{dartColumn}" name mismatch: Drift generates "{dartColumn}" but database has "{dbColumn}". ' +
+      'Rename the Dart getter so Drift produces "{dbColumn}", or add .named(\'{dbColumn}\') to override',
+    hasFix: true,
+  },
   'extra-column-in-db': {
     code: 'extra-column-in-db',
     category: 'schema',

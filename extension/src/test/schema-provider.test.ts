@@ -398,6 +398,119 @@ describe('SchemaProvider', () => {
       assert.strictEqual(missingIssue, undefined, 'Should not report missing-table-in-db for acronym underscore difference');
     });
 
+    it('should report column-name-acronym-mismatch when column names differ only by acronym underscores', async () => {
+      // Dart getter "contactSaropaUUID" produces sqlName "contact_saropa_u_u_i_d"
+      // but the DB has "contact_saropa_uuid". Normalized comparison should detect this.
+      const dartFile = createDartFile('reactions', ['id']);
+      dartFile.tables[0].columns.push({
+        dartName: 'contactSaropaUuid',
+        sqlName: 'contact_saropa_u_u_i_d',
+        dartType: 'TextColumn',
+        sqlType: 'TEXT',
+        nullable: false,
+        autoIncrement: false,
+        line: 15,
+      });
+
+      const ctx = createContext({
+        dartFiles: [dartFile],
+        dbTables: [{
+          name: 'reactions',
+          columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            { name: 'contact_saropa_uuid', type: 'TEXT', pk: false },
+          ],
+          rowCount: 10,
+        }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      // Should report acronym mismatch, NOT missing-column + extra-column
+      const mismatch = issues.find((i) => i.code === 'column-name-acronym-mismatch');
+      assert.ok(mismatch, 'Should report column-name-acronym-mismatch');
+      assert.ok(mismatch.message.includes('contact_saropa_u_u_i_d'));
+      assert.ok(mismatch.message.includes('contact_saropa_uuid'));
+      assert.ok(mismatch.message.includes('.named('));
+      assert.strictEqual(mismatch.severity, DiagnosticSeverity.Error);
+
+      // Must NOT produce the split diagnostics
+      const missing = issues.find(
+        (i) => i.code === 'missing-column-in-db' && i.message.includes('contact_saropa'),
+      );
+      assert.strictEqual(missing, undefined, 'Should not report missing-column-in-db for acronym mismatch');
+
+      const extra = issues.find(
+        (i) => i.code === 'extra-column-in-db' && i.message.includes('contact_saropa'),
+      );
+      assert.strictEqual(extra, undefined, 'Should not report extra-column-in-db for acronym mismatch');
+    });
+
+    it('should NOT report acronym mismatch when column names match exactly', async () => {
+      // Regression guard: exact matches must take priority over normalized matching.
+      // "contact_saropa_uuid" in Dart + "contact_saropa_uuid" in DB = perfect match.
+      const dartFile = createDartFile('reactions', ['id']);
+      dartFile.tables[0].columns.push({
+        dartName: 'contactSaropaUuid',
+        sqlName: 'contact_saropa_uuid',
+        dartType: 'TextColumn',
+        sqlType: 'TEXT',
+        nullable: false,
+        autoIncrement: false,
+        line: 15,
+      });
+
+      const ctx = createContext({
+        dartFiles: [dartFile],
+        dbTables: [{
+          name: 'reactions',
+          columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            { name: 'contact_saropa_uuid', type: 'TEXT', pk: false },
+          ],
+          rowCount: 10,
+        }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      // No column drift diagnostics of any kind — everything matches
+      const mismatch = issues.find((i) => i.code === 'column-name-acronym-mismatch');
+      assert.strictEqual(mismatch, undefined, 'Exact match must not trigger acronym mismatch');
+
+      const missing = issues.find((i) => i.code === 'missing-column-in-db');
+      assert.strictEqual(missing, undefined, 'Exact match must not trigger missing-column');
+
+      const extra = issues.find((i) => i.code === 'extra-column-in-db');
+      assert.strictEqual(extra, undefined, 'Exact match must not trigger extra-column');
+    });
+
+    it('should still report missing + extra when columns are genuinely different', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'email'])],
+        dbTables: [{
+          name: 'users',
+          columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            { name: 'phone', type: 'TEXT', pk: false },
+          ],
+          rowCount: 10,
+        }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      // These are genuinely different columns — no acronym mismatch
+      const mismatch = issues.find((i) => i.code === 'column-name-acronym-mismatch');
+      assert.strictEqual(mismatch, undefined, 'Should not report acronym mismatch for genuinely different columns');
+
+      const missing = issues.find((i) => i.code === 'missing-column-in-db');
+      assert.ok(missing, 'Should report missing-column-in-db for email');
+
+      const extra = issues.find((i) => i.code === 'extra-column-in-db');
+      assert.ok(extra, 'Should report extra-column-in-db for phone');
+    });
+
     it('should return empty array when server is unreachable', async () => {
       sinon.stub(schemaIntel, 'getInsights').rejects(new Error('Server down'));
 
@@ -479,6 +592,20 @@ describe('SchemaProvider', () => {
 
       assert.strictEqual(actions.length, 1);
       assert.ok(actions.some((a) => a.title.includes('Copy')));
+    });
+
+    it('should provide Schema Diff action for column-name-acronym-mismatch', () => {
+      const diag = new Diagnostic(
+        new Range(15, 0, 15, 100),
+        '[drift_advisor] Column name mismatch due to acronym splitting',
+        DiagnosticSeverity.Error,
+      );
+      diag.code = 'column-name-acronym-mismatch';
+
+      const actions = provider.provideCodeActions(diag as any, {} as any);
+
+      assert.ok(actions.some((a) => a.title.includes('Schema Diff')));
+      assert.ok(actions[0].isPreferred, 'Schema Diff action should be preferred');
     });
 
     it('should provide migration actions for missing-column-in-db', () => {
