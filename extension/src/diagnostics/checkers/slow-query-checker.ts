@@ -62,12 +62,21 @@ export function checkSlowQueries(
     // rows is expected, but on 500 rows it's a real problem.
     const rowInfo = query.rowCount > 0 ? `, ${query.rowCount} rows` : '';
 
+    // When caller location is known, this is a user-code query →
+    // full Warning. Without caller location the query was issued by
+    // the server itself and pinned to the table definition as a
+    // fallback → downgrade to Information to avoid false-positive
+    // noise on schema files.
+    const severity = callerLoc
+      ? vscode.DiagnosticSeverity.Warning
+      : vscode.DiagnosticSeverity.Information;
+
     issues.push({
       code: 'slow-query-pattern',
       message: `Slow query (${query.durationMs.toFixed(0)}ms${rowInfo}): ${truncatedSql}`,
       fileUri,
       range: new vscode.Range(line, 0, line, 999),
-      severity: vscode.DiagnosticSeverity.Warning,
+      severity,
       data: { sql: query.sql, durationMs: query.durationMs },
     });
 

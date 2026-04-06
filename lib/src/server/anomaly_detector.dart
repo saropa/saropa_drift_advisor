@@ -371,12 +371,9 @@ abstract final class AnomalyDetector {
     // values to investigate.
     final minSigma = minDeviation / stddev;
     final maxSigma = maxDeviation / stddev;
-    final outlierEnd =
-        maxDeviation > minDeviation ? 'max' : 'min';
-    final outlierValue =
-        maxDeviation > minDeviation ? max : min;
-    final outlierSigma =
-        maxDeviation > minDeviation ? maxSigma : minSigma;
+    final outlierEnd = maxDeviation > minDeviation ? 'max' : 'min';
+    final outlierValue = maxDeviation > minDeviation ? max : min;
+    final outlierSigma = maxDeviation > minDeviation ? maxSigma : minSigma;
 
     anomalies.add(<String, dynamic>{
       'table': tableName,

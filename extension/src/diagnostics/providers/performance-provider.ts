@@ -28,9 +28,15 @@ export class PerformanceProvider implements IDiagnosticProvider {
         ctx.queryIntel.getSuggestedIndexes(),
       ]);
 
-      checkSlowQueries(issues, perfData, ctx.dartFiles);
+      // Slow-query and N+1 are runtime diagnostics (category 'runtime'),
+      // not schema diagnostics. Only emit them when the runtime category
+      // is enabled, so users can disable runtime noise independently.
+      if (ctx.config.categories.runtime) {
+        checkSlowQueries(issues, perfData, ctx.dartFiles);
+        checkNPlusOnePatterns(issues, perfData, ctx.dartFiles);
+      }
+
       checkQueryPatterns(issues, patternSuggestions, ctx.dartFiles);
-      checkNPlusOnePatterns(issues, perfData, ctx.dartFiles);
     } catch {
       // Server unreachable or other error - return empty
     }

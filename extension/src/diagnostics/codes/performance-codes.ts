@@ -22,14 +22,19 @@ export const PERFORMANCE_CODES: Record<string, IDiagnosticCode> = {
   },
   'slow-query-pattern': {
     code: 'slow-query-pattern',
-    category: 'performance',
+    // Category is 'runtime', not 'performance': these diagnostics
+    // describe runtime query behavior, not schema problems. Keeping
+    // them under 'runtime' lets users disable runtime noise without
+    // losing schema-level performance checks (full-table-scan, etc.).
+    category: 'runtime',
     defaultSeverity: vscode.DiagnosticSeverity.Warning,
     messageTemplate: 'Slow query pattern detected (avg {avgMs}ms)',
     hasFix: false,
   },
   'n-plus-one': {
     code: 'n-plus-one',
-    category: 'performance',
+    // See slow-query-pattern above — same rationale.
+    category: 'runtime',
     defaultSeverity: vscode.DiagnosticSeverity.Warning,
     messageTemplate:
       'Potential N+1 query pattern: {table} queried {count} times',

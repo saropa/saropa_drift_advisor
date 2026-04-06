@@ -80,12 +80,18 @@ export function checkNPlusOnePatterns(
         ? ' — likely a loop; consider batching with JOIN or IN clause'
         : '';
 
+      // Warning when pinned to a known call site; Information when
+      // falling back to the table definition (server-internal query).
+      const severity = callerLoc
+        ? vscode.DiagnosticSeverity.Warning
+        : vscode.DiagnosticSeverity.Information;
+
       issues.push({
         code: 'n-plus-one',
         message: `Potential N+1 query pattern: "${tableName}" queried ${data.count} times in recent window${patternHint}`,
         fileUri,
         range: new vscode.Range(line, 0, line, 999),
-        severity: vscode.DiagnosticSeverity.Warning,
+        severity,
       });
     }
   });

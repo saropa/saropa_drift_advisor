@@ -618,7 +618,12 @@ void main() {
       test('no outlier for year/founded columns (year skip)', () async {
         // Historical datasets span centuries — banks
         // founded 1472–2019 is legitimate, not an outlier.
-        for (final colName in ['year', 'founded_year', 'founded', 'birth_year']) {
+        for (final colName in [
+          'year',
+          'founded_year',
+          'founded',
+          'birth_year',
+        ]) {
           final result = await AnomalyDetector.getAnomaliesResult(
             _anomalyQuery(
               tableColumns: {
