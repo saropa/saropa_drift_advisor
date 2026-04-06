@@ -30,7 +30,7 @@ import { setupProviders, type LogCaptureIssuesRef } from './extension-providers'
 import { setupDiagnostics } from './extension-diagnostics';
 import { setupEditing } from './extension-editing';
 import { registerAboutCommands } from './about/about-commands';
-import { registerRefreshTreeCommand } from './tree/tree-commands';
+import { registerRefreshTreeCommand } from './tree/tree-refresh-command';
 import { isDriftUiConnected } from './connection-ui-state';
 import { bootstrapExtension } from './extension-bootstrap';
 import { SchemaTracker } from './schema-timeline/schema-tracker';

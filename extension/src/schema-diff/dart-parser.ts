@@ -3,8 +3,9 @@
  * Pure functions — no VS Code dependency.
  *
  * Covers: column getters, optional `tableName` override, `List<Index> get indexes`,
- * and `List<Set<Column>> get uniqueKeys`. Balanced `[`/`]` and `{`/`}` scanning
- * skips strings and comments so nested `columns: [ … ]` parses reliably.
+ * and `List<Set<Column>> get uniqueKeys`. Domain-specific parsing logic lives here,
+ * while low-level text utilities (balanced bracket extraction, token splitting, etc.)
+ * are in `dart-parser-utils.ts`.
  */
 
 import {
@@ -14,6 +15,22 @@ import {
   IDartTable,
 } from './dart-schema';
 import { TableNameMapper } from '../codelens/table-name-mapper';
+import {
+  extractBalanced,
+  extractClassBody,
+  extractListLiteralAfterGetter,
+  lineAt,
+  parseColumnRefList,
+} from './dart-parser-utils';
+
+// Re-export utilities that external consumers import from this module,
+// so existing `import { extractClassBody } from './dart-parser'` statements
+// continue to work without changes.
+export { extractClassBody } from './dart-parser-utils';
+
+// ── Domain-specific regex patterns ──────────────────────────────────────────
+// These patterns encode knowledge of Drift/Dart table class syntax and stay
+// in this file (not in the generic utils module).
 
 const TABLE_CLASS_PATTERN = /class\s+(\w+)\s+extends\s+Table\s*\{/g;
 const COLUMN_PATTERN = /(\w+Column)\s+get\s+(\w+)\s*=>\s*([^;]+);/g;
@@ -27,117 +44,6 @@ const INDEX_GETTER_RE = /List<Index>\s+get\s+indexes\s*=>/;
 const UNIQUE_KEYS_GETTER_RE = /List<Set<Column>>\s+get\s+uniqueKeys\s*=>/;
 const INDEX_CALL_RE =
   /(UniqueIndex|Index)\s*\(\s*['"]([^'"]+)['"]\s*,\s*columns:\s*\[/g;
-
-/**
- * Extract balanced `[...]` or `{...}` from `openIndex`, which must point at `openChar`.
- * Skips brackets inside strings and comments (same rules as class body extraction).
- */
-function extractBalanced(
-  source: string,
-  openIndex: number,
-  openChar: '{' | '[',
-  closeChar: '}' | ']',
-): { inner: string; endIndex: number } | null {
-  if (source[openIndex] !== openChar) return null;
-  let depth = 1;
-  let i = openIndex + 1;
-  const len = source.length;
-  const innerStart = i;
-
-  while (i < len) {
-    const ch = source[i];
-
-    if (ch === '/' && source[i + 1] === '/') {
-      i = source.indexOf('\n', i);
-      if (i === -1) break;
-      i++;
-      continue;
-    }
-
-    if (ch === '/' && source[i + 1] === '*') {
-      i = source.indexOf('*/', i + 2);
-      if (i === -1) break;
-      i += 2;
-      continue;
-    }
-
-    if (
-      (ch === "'" && source.substring(i, i + 3) === "'''")
-      || (ch === '"' && source.substring(i, i + 3) === '"""')
-    ) {
-      const closer = source.substring(i, i + 3);
-      i = source.indexOf(closer, i + 3);
-      if (i === -1) break;
-      i += 3;
-      continue;
-    }
-
-    if (ch === "'" || ch === '"') {
-      i++;
-      while (i < len && source[i] !== ch) {
-        if (source[i] === '\\') i++;
-        i++;
-      }
-      i++;
-      continue;
-    }
-
-    if (ch === openChar) {
-      depth++;
-    } else if (ch === closeChar) {
-      depth--;
-      if (depth === 0) {
-        return { inner: source.substring(innerStart, i), endIndex: i + 1 };
-      }
-    }
-    i++;
-  }
-  return null;
-}
-
-/**
- * Extract the body of a class by counting brace depth.
- * Skips braces inside strings and comments.
- */
-export function extractClassBody(
-  source: string,
-  openBraceIndex: number,
-): string {
-  const balanced = extractBalanced(source, openBraceIndex, '{', '}');
-  if (balanced) return balanced.inner;
-  return source.substring(openBraceIndex + 1);
-}
-
-/**
- * Locates `List<Index> get indexes =>` / `List<Set<Column>> get uniqueKeys =>` and returns
- * the inner contents of the following `[ ... ]` (not including brackets).
- */
-function extractListLiteralAfterGetter(
-  body: string,
-  getterRe: RegExp,
-): string | null {
-  const m = body.match(getterRe);
-  if (!m || m.index === undefined) return null;
-  let i = m.index + m[0].length;
-  while (i < body.length && /\s/.test(body[i])) i++;
-  if (body.startsWith('const', i)) {
-    i += 5;
-    while (i < body.length && /\s/.test(body[i])) i++;
-  }
-  const balanced = extractBalanced(body, i, '[', ']');
-  return balanced ? balanced.inner : null;
-}
-
-/** Split `columns: [ ... ]` contents into Dart identifier tokens. */
-function parseColumnRefList(inner: string): string[] {
-  const parts = inner.split(',');
-  const out: string[] = [];
-  for (const p of parts) {
-    const t = p.trim();
-    if (t && /^[a-zA-Z_]\w*$/.test(t)) out.push(t);
-  }
-  return out;
-}
 
 /**
  * Parses `Index(...)` / `UniqueIndex(...)` entries from the body of `indexes => [ ... ]`.
@@ -172,15 +78,6 @@ export function parseDriftUniqueKeySets(listInner: string): string[][] {
     if (cols.length > 0) sets.push(cols);
   }
   return sets;
-}
-
-/** Count newlines before `index` in `source` to get a 0-based line number. */
-function lineAt(source: string, index: number): number {
-  let count = 0;
-  for (let i = 0; i < index; i++) {
-    if (source[i] === '\n') count++;
-  }
-  return count;
 }
 
 /** Parse a single column getter from its builder chain. */

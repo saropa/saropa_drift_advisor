@@ -1,14 +1,20 @@
+/**
+ * Diagnostic-collection tests for `BestPracticeProvider`.
+ *
+ * Code-action tests live in `best-practice-provider-actions.test.ts`.
+ * The shared `createContext` helper lives in
+ * `best-practice-provider-test-helpers.ts`.
+ */
+
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import {
-  Diagnostic,
   DiagnosticSeverity,
-  Range,
 } from './vscode-mock-classes';
 import { resetMocks } from './vscode-mock';
 import { BestPracticeProvider } from '../diagnostics/providers/best-practice-provider';
-import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-types';
 import { createDartFile } from './diagnostic-test-helpers';
+import { createContext } from './best-practice-provider-test-helpers';
 
 describe('BestPracticeProvider', () => {
   let provider: BestPracticeProvider;
@@ -275,105 +281,4 @@ describe('BestPracticeProvider', () => {
       assert.strictEqual(issues.length, 0);
     });
   });
-
-  describe('provideCodeActions', () => {
-    it('should provide Disable Rule action for all diagnostics', () => {
-      const diag = new Diagnostic(
-        new Range(10, 0, 10, 100),
-        '[drift_advisor] Some issue',
-        DiagnosticSeverity.Warning,
-      );
-      diag.code = 'no-foreign-keys';
-
-      const actions = provider.provideCodeActions(diag as any, {} as any);
-
-      const disableAction = actions.find((a) => a.title.includes('Disable'));
-      assert.ok(disableAction, 'Should have Disable action');
-      assert.ok(disableAction.title.includes('no-foreign-keys'));
-    });
-
-    it('should provide ER Diagram action for no-foreign-keys', () => {
-      const diag = new Diagnostic(
-        new Range(10, 0, 10, 100),
-        '[drift_advisor] No FKs',
-        DiagnosticSeverity.Information,
-      );
-      diag.code = 'no-foreign-keys';
-
-      const actions = provider.provideCodeActions(diag as any, {} as any);
-
-      assert.ok(actions.some((a) => a.title.includes('ER Diagram')));
-    });
-
-    it('should provide Impact action for circular-fk', () => {
-      const diag = new Diagnostic(
-        new Range(10, 0, 10, 100),
-        '[drift_advisor] Circular FK',
-        DiagnosticSeverity.Warning,
-      );
-      diag.code = 'circular-fk';
-
-      const actions = provider.provideCodeActions(diag as any, {} as any);
-
-      assert.ok(actions.some((a) => a.title.includes('Impact')));
-    });
-
-    it('should not provide Profile action for blob-column-large (diagnostic removed)', () => {
-      // blob-column-large was removed — verify no Profile action is offered
-      const diag = new Diagnostic(
-        new Range(10, 0, 10, 100),
-        '[drift_advisor] BLOB warning',
-        DiagnosticSeverity.Information,
-      );
-      diag.code = 'blob-column-large';
-      (diag as any).data = { table: 'docs', column: 'content' };
-
-      const actions = provider.provideCodeActions(diag as any, {} as any);
-
-      assert.ok(!actions.some((a) => a.title.includes('Profile')),
-        'Should not offer Profile action for removed diagnostic');
-    });
-  });
 });
-
-function createContext(options: {
-  dartFiles: IDartFileInfo[];
-  tables?: Array<{
-    name: string;
-    columns: Array<{ name: string; type: string; pk: boolean }>;
-    rowCount: number;
-  }>;
-  fkMap?: Record<string, Array<{ fromColumn: string; toTable: string; toColumn: string }>>;
-}): IDiagnosticContext {
-  const tables = options.tables ?? [];
-  const fkMap = options.fkMap ?? {};
-
-  const client = {
-    schemaMetadata: () => Promise.resolve(tables),
-    tableFkMeta: (tableName: string) => Promise.resolve(fkMap[tableName] ?? []),
-  } as any;
-
-  return {
-    client,
-    schemaIntel: {} as any,
-    queryIntel: {} as any,
-    dartFiles: options.dartFiles,
-    config: {
-      enabled: true,
-      refreshOnSave: true,
-      refreshIntervalMs: 30000,
-      categories: {
-        schema: true,
-        performance: true,
-        dataQuality: true,
-        bestPractices: true,
-        naming: false,
-        runtime: true,
-        compliance: true,
-      },
-      severityOverrides: {},
-      disabledRules: new Set(),
-    },
-  };
-}
-

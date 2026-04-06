@@ -15,6 +15,7 @@ import {
   buildVmServiceUnavailableHtml,
   resolveMutationFilterTables,
 } from './mutation-stream-panel-helpers';
+import { MAX_MUTATION_BUFFER_SIZE, MutationStreamPoller } from './mutation-stream-polling';
 import type { MutationStreamFilters, MutationStreamWebviewMessage } from './mutation-stream-types';
 import { viewMutationEventRow } from './mutation-stream-view-row';
 
@@ -39,11 +40,11 @@ export class MutationStreamPanel {
   private _columnsByTable: Map<string, string[]> = new Map();
   private _pkColumns: Map<string, string> = new Map();
 
-  private _polling = false;
-  private _pollToken = 0;
+  /** Delegates the long-running poll loop to a separate module. */
+  private readonly _poller: MutationStreamPoller;
+
   private _initStarted = false;
   private _initPromise: Promise<void> | undefined;
-  private _didWarnPollFailure = false;
   private _disposed = false;
 
   constructor(
@@ -54,6 +55,7 @@ export class MutationStreamPanel {
     private readonly _filterBridge: FilterBridge,
   ) {
     this._panel = panel;
+    this._poller = new MutationStreamPoller(_client);
 
     this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
 
@@ -130,7 +132,20 @@ export class MutationStreamPanel {
 
     await this._initPromise;
     this._render();
-    this._startPolling();
+
+    // Kick off the long-running poll loop, delegating to the poller.
+    // Callbacks let the poller read panel state without a direct reference.
+    this._poller.start({
+      isPaused: () => this._paused,
+      getSince: () => this._since,
+      onNewEvents: (events, cursor) => {
+        this._since = cursor;
+        this._events.push(...events);
+        // Trim the buffer to the maximum size to keep memory bounded.
+        this._events = this._events.slice(-MAX_MUTATION_BUFFER_SIZE);
+        this._render();
+      },
+    });
   }
 
   private _filteredEvents(): readonly MutationEvent[] {
@@ -224,80 +239,11 @@ export class MutationStreamPanel {
     }
   }
 
-  private _startPolling(): void {
-    if (this._polling) return;
-    this._polling = true;
-    const token = ++this._pollToken;
-
-    void (async () => {
-      while (this._polling && token === this._pollToken) {
-        if (await this._pollPausedIteration()) continue;
-        await this._pollOnceIteration(token);
-      }
-    })();
-  }
-
-  /** If currently paused, delay briefly and indicate the loop should continue. */
-  private async _pollPausedIteration(): Promise<boolean> {
-    if (!this._paused) return false;
-    await new Promise((r) => setTimeout(r, 250));
-    return true;
-  }
-
-  /** Perform a single poll cycle and handle success/error paths. */
-  private async _pollOnceIteration(token: number): Promise<void> {
-    try {
-      const resp = await this._client.mutations(this._since);
-      if (!this._polling || token !== this._pollToken) return;
-
-      if (resp.events.length > 0) {
-        this._since = resp.cursor;
-        this._events.push(...resp.events);
-        this._events = this._events.slice(-MutationStreamPanel._maxBufferSize());
-        this._render();
-      }
-    } catch (err: unknown) {
-      await this._handlePollError(err);
-    }
-  }
-
-  /** Display (once) the poll error and optionally stop polling. */
-  private async _handlePollError(err: unknown): Promise<void> {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-
-    // Avoid spamming VS Code toasts every poll interval.
-    if (!this._didWarnPollFailure) {
-      void vscode.window
-        .showWarningMessage(
-          `Mutation stream poll failed: ${msg}`,
-          'Retry Discovery',
-        )
-        .then((choice) => {
-          if (choice === 'Retry Discovery') {
-            void vscode.commands.executeCommand('driftViewer.retryDiscovery');
-          }
-        });
-      this._didWarnPollFailure = true;
-    }
-
-    // If the server doesn't support mutations, stop polling entirely.
-    if (msg.includes('501')) {
-      this._polling = false;
-      return;
-    }
-
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-
-  private static _maxBufferSize(): number {
-    // Keep UI bounded even if server ring buffer changes.
-    return 500;
-  }
-
   private _dispose(): void {
     this._disposed = true;
     MutationStreamPanel._currentPanel = undefined;
-    this._polling = false;
+    // Stop the poll loop so no more network requests fire.
+    this._poller.stop();
     this._events = [];
     for (const d of this._disposables) d.dispose();
     this._disposables.length = 0;

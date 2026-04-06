@@ -17,7 +17,7 @@ import {
   resetMocks,
 } from './vscode-mock';
 import { maybeNotifyServerEvent } from '../server-discovery-notify';
-import { registerRefreshTreeCommand } from '../tree/tree-commands';
+import { registerRefreshTreeCommand } from '../tree/tree-refresh-command';
 import {
   fakeContext,
   mockTreeProvider,

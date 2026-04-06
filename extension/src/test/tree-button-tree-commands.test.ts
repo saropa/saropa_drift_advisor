@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 import { commands, messageMock, resetMocks } from './vscode-mock';
-import { registerRefreshTreeCommand } from '../tree/tree-commands';
+import { registerRefreshTreeCommand } from '../tree/tree-refresh-command';
 import { fakeContext, mockTreeProvider } from './tree-button-fixtures';
 
 describe('Tree-button refresh command — visible output', () => {

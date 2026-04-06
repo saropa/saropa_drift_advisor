@@ -1,3 +1,11 @@
+/**
+ * Tests for table-level Dart parsing: parseDartTables (including comment
+ * filtering), parseDriftIndexCalls, and parseDriftUniqueKeySets.
+ *
+ * Low-level utility tests (extractClassBody, parseColumn, isInsideComment)
+ * live in the sibling file dart-parser.test.ts.
+ * isDriftProject tests live in dart-file-parser.test.ts (different module).
+ */
 import * as assert from 'assert';
 import {
   parseDartTables,
@@ -210,3 +218,78 @@ describe('parseDriftIndexCalls / parseDriftUniqueKeySets', () => {
     assert.deepStrictEqual(sets, [['foo'], ['bar', 'baz']]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests below were moved from dart-parser.test.ts to keep that file under
+// the 300-line limit. They cover comment-filtering behaviour in
+// parseDartTables and Drift project detection via isDriftProject.
+// ---------------------------------------------------------------------------
+
+describe('parseDartTables – comment filtering', () => {
+  it('should skip table classes inside /// doc comments', () => {
+    const src = [
+      '/// Example:',
+      '/// ```dart',
+      '/// class TodoItems extends Table {',
+      '///   IntColumn get id => integer().autoIncrement()();',
+      '/// }',
+      '/// ```',
+    ].join('\n');
+    const tables = parseDartTables(src, 'file:///test.dart');
+    assert.strictEqual(tables.length, 0, 'should find no tables in doc comments');
+  });
+
+  it('should skip table classes inside // line comments', () => {
+    const src = '// class Hidden extends Table { }';
+    const tables = parseDartTables(src, 'file:///test.dart');
+    assert.strictEqual(tables.length, 0);
+  });
+
+  it('should skip table classes inside block comments', () => {
+    const src = '/* class Hidden extends Table { } */';
+    const tables = parseDartTables(src, 'file:///test.dart');
+    assert.strictEqual(tables.length, 0);
+  });
+
+  it('should skip table classes inside multiline block comments without * prefix', () => {
+    // Regression: class at column 0 inside /* ... */ must still be skipped
+    const src = [
+      '/*',
+      'class Hidden extends Table {',
+      '  IntColumn get id => integer()();',
+      '}',
+      '*/',
+    ].join('\n');
+    const tables = parseDartTables(src, 'file:///test.dart');
+    assert.strictEqual(tables.length, 0, 'should skip table inside multiline block comment');
+  });
+
+  it('should still parse real table classes', () => {
+    const src = [
+      '/// This is a doc comment about the table',
+      'class RealTable extends Table {',
+      '  IntColumn get id => integer().autoIncrement()();',
+      '}',
+    ].join('\n');
+    const tables = parseDartTables(src, 'file:///test.dart');
+    assert.strictEqual(tables.length, 1);
+    assert.strictEqual(tables[0].dartClassName, 'RealTable');
+  });
+
+  it('should parse real tables and skip commented ones in the same file', () => {
+    const src = [
+      '/// Example of a bad table:',
+      '/// class BadExample extends Table {',
+      '///   IntColumn get id => integer()();',
+      '/// }',
+      '',
+      'class GoodTable extends Table {',
+      '  IntColumn get id => integer().autoIncrement()();',
+      '}',
+    ].join('\n');
+    const tables = parseDartTables(src, 'file:///test.dart');
+    assert.strictEqual(tables.length, 1);
+    assert.strictEqual(tables[0].dartClassName, 'GoodTable');
+  });
+});
+
