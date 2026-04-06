@@ -1,6 +1,12 @@
 /**
  * Inline JS for rendering query results as a sortable, filterable HTML
- * table in the SQL Notebook webview.  Also handles Copy JSON / Copy CSV.
+ * table in the SQL Notebook webview.
+ *
+ * Features:
+ * - Column sorting (click header) with ascending/descending toggle
+ * - Row filtering with text search and matching-vs-all toggle
+ * - Column visibility chooser (hide/show individual columns)
+ * - Copy JSON / Copy CSV of the full result set
  *
  * Injected into the HTML scaffold by {@link getNotebookHtml}.
  */
@@ -20,6 +26,7 @@ export function getResultsJs(): string {
       sortColumn = -1;
       sortAsc = true;
       filterText = '';
+      hiddenColumns = new Set();
       renderResults(tab);
       setStatus(msg.rows.length + ' rows (' + msg.elapsed + 'ms)');
       enableExportButtons(true);
@@ -46,23 +53,59 @@ export function getResultsJs(): string {
   var sortColumn = -1;
   var sortAsc = true;
   var filterText = '';
+  /** Set of column indexes currently hidden by the user. */
+  var hiddenColumns = new Set();
+  /** True when the filter shows only matching rows; false shows all rows. */
+  var showOnlyFilterMatches = true;
 
   function renderResults(tab) {
     var area = resultArea();
     if (!tab.results || !tab.columns) { area.innerHTML = ''; return; }
 
-    var html = '<input type="text" id="result-filter" class="result-filter" '
-      + 'placeholder="Filter rows..." value="' + esc(filterText) + '">';
+    // --- Filter bar: text input + toggle button + column visibility button ---
+    var toggleLabel = showOnlyFilterMatches ? 'Matching' : 'All';
+    var toggleTitle = showOnlyFilterMatches
+      ? 'Showing only matching rows. Click to show all rows.'
+      : 'Showing all rows. Click to show only matching rows.';
+    var hiddenCount = hiddenColumns.size;
+    var colBtnLabel = hiddenCount > 0 ? 'Columns (' + hiddenCount + ' hidden)' : 'Columns';
+    var html = '<div class="filter-bar">'
+      + '<input type="text" id="result-filter" class="result-filter" '
+      + 'placeholder="Filter rows..." value="' + esc(filterText) + '">'
+      + '<button id="filter-toggle" class="filter-toggle-btn" title="' + toggleTitle + '">' + toggleLabel + '</button>'
+      + '<button id="col-visibility-btn" class="col-visibility-btn" title="Toggle column visibility">' + colBtnLabel + '</button>'
+      + '</div>';
+
+    // --- Column chooser dropdown (hidden until toggled) ---
+    html += '<div id="col-chooser" class="col-chooser" style="display:none;">';
+    for (var ci = 0; ci < tab.columns.length; ci++) {
+      var checked = hiddenColumns.has(ci) ? '' : ' checked';
+      html += '<label class="col-chooser-item">'
+        + '<input type="checkbox" data-col-idx="' + ci + '"' + checked + '> '
+        + esc(tab.columns[ci]) + '</label>';
+    }
+    html += '<div class="col-chooser-actions">'
+      + '<button id="col-show-all" class="col-chooser-action">Show All</button>'
+      + '<button id="col-chooser-close" class="col-chooser-action">Close</button>'
+      + '</div></div>';
+
+    // --- Determine visible column indexes ---
+    var visibleCols = [];
+    for (var vi = 0; vi < tab.columns.length; vi++) {
+      if (!hiddenColumns.has(vi)) visibleCols.push(vi);
+    }
 
     html += '<div class="table-wrap"><table class="result-table"><thead><tr>';
-    for (var i = 0; i < tab.columns.length; i++) {
-      var arrow = sortColumn === i ? (sortAsc ? ' \\u25B2' : ' \\u25BC') : '';
-      html += '<th data-col="' + i + '">' + esc(tab.columns[i]) + arrow + '</th>';
+    for (var hi = 0; hi < visibleCols.length; hi++) {
+      var colIdx = visibleCols[hi];
+      var arrow = sortColumn === colIdx ? (sortAsc ? ' \\u25B2' : ' \\u25BC') : '';
+      html += '<th data-col="' + colIdx + '">' + esc(tab.columns[colIdx]) + arrow + '</th>';
     }
     html += '</tr></thead><tbody>';
 
     var rows = tab.results.slice();
-    if (filterText) {
+    if (filterText && showOnlyFilterMatches) {
+      // Only filter when toggle is set to "Matching" to avoid unnecessary allocation
       var lower = filterText.toLowerCase();
       rows = rows.filter(function (row) {
         for (var c = 0; c < row.length; c++) {
@@ -87,7 +130,8 @@ export function getResultsJs(): string {
 
     for (var r = 0; r < rows.length; r++) {
       html += '<tr>';
-      for (var c = 0; c < rows[r].length; c++) {
+      for (var vc = 0; vc < visibleCols.length; vc++) {
+        var c = visibleCols[vc];
         var cell = rows[r][c];
         var s = cell === null ? 'NULL' : String(cell);
         var display = s.length > 100 ? s.substring(0, 100) + '\\u2026' : s;
@@ -99,6 +143,7 @@ export function getResultsJs(): string {
     html += '</tbody></table></div>';
     area.innerHTML = html;
 
+    // --- Sort on header click ---
     area.querySelectorAll('th[data-col]').forEach(function (th) {
       th.addEventListener('click', function () {
         var c = Number(th.dataset.col);
@@ -108,6 +153,7 @@ export function getResultsJs(): string {
       });
     });
 
+    // --- Filter input ---
     var filterInput = document.getElementById('result-filter');
     if (filterInput) {
       filterInput.addEventListener('input', function (e) {
@@ -115,6 +161,51 @@ export function getResultsJs(): string {
         renderResults(tab);
       });
       filterInput.focus();
+    }
+
+    // --- Row filter toggle (matching vs all) ---
+    var filterToggle = document.getElementById('filter-toggle');
+    if (filterToggle) {
+      filterToggle.addEventListener('click', function () {
+        showOnlyFilterMatches = !showOnlyFilterMatches;
+        renderResults(tab);
+      });
+    }
+
+    // --- Column chooser toggle ---
+    var colBtn = document.getElementById('col-visibility-btn');
+    var colChooser = document.getElementById('col-chooser');
+    if (colBtn && colChooser) {
+      colBtn.addEventListener('click', function () {
+        colChooser.style.display = colChooser.style.display === 'none' ? 'block' : 'none';
+      });
+    }
+
+    // --- Column checkbox changes ---
+    area.querySelectorAll('#col-chooser input[data-col-idx]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        var idx = Number(cb.dataset.colIdx);
+        if (cb.checked) { hiddenColumns.delete(idx); }
+        else { hiddenColumns.add(idx); }
+        renderResults(tab);
+      });
+    });
+
+    // --- Show All columns ---
+    var showAllBtn = document.getElementById('col-show-all');
+    if (showAllBtn) {
+      showAllBtn.addEventListener('click', function () {
+        hiddenColumns.clear();
+        renderResults(tab);
+      });
+    }
+
+    // --- Close column chooser ---
+    var closeChooserBtn = document.getElementById('col-chooser-close');
+    if (closeChooserBtn) {
+      closeChooserBtn.addEventListener('click', function () {
+        if (colChooser) colChooser.style.display = 'none';
+      });
     }
   }
 

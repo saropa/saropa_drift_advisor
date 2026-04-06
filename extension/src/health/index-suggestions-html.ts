@@ -130,6 +130,7 @@ export function buildIndexSuggestionsHtml(
   <div class="btn-group">
     <button class="btn btn-secondary" data-action="copySelected">Copy Selected SQL</button>
     <button class="btn btn-secondary" data-action="copyAll">Copy All SQL</button>
+    <button class="btn btn-secondary" data-action="exportAnalysis">Export Analysis</button>
     <button class="btn" data-action="createAll">Create All Indexes</button>
   </div>
 </div>

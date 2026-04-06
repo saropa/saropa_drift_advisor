@@ -100,6 +100,10 @@ export class IndexSuggestionsPanel {
         );
         break;
       }
+      case 'exportAnalysis': {
+        await this._exportAnalysis();
+        break;
+      }
       case 'createAll': {
         // Delegate to the existing createAllIndexes command
         vscode.commands.executeCommand(
@@ -107,6 +111,72 @@ export class IndexSuggestionsPanel {
           { indexes: this._suggestions },
         );
         break;
+      }
+    }
+  }
+
+  /** Export the full analysis as JSON, CSV, or Markdown via quick-pick. */
+  private async _exportAnalysis(): Promise<void> {
+    const format = await vscode.window.showQuickPick(
+      ['JSON', 'CSV', 'Markdown'],
+      { placeHolder: 'Export format for index suggestions' },
+    );
+    if (!format) {
+      return;
+    }
+
+    let text: string;
+    if (format === 'JSON') {
+      text = JSON.stringify(this._suggestions, null, 2);
+    } else if (format === 'CSV') {
+      // CSV header + rows
+      const header = 'table,column,priority,reason,sql';
+      const rows = this._suggestions.map((s) => {
+        const csvEsc = (v: string) => {
+          if (v.includes(',') || v.includes('"') || v.includes('\n')) {
+            return '"' + v.replace(/"/g, '""') + '"';
+          }
+          return v;
+        };
+        return [s.table, s.column, s.priority, s.reason, s.sql]
+          .map(csvEsc).join(',');
+      });
+      text = header + '\n' + rows.join('\n');
+    } else {
+      // Markdown table — escape pipe characters to avoid breaking columns
+      const mdEsc = (v: string) => v.replace(/\|/g, '\\|');
+      const lines = [
+        '| Table | Column | Priority | Reason | SQL |',
+        '|-------|--------|----------|--------|-----|',
+        ...this._suggestions.map((s) =>
+          `| ${mdEsc(s.table)} | ${mdEsc(s.column)} | ${s.priority} | ${mdEsc(s.reason)} | \`${mdEsc(s.sql)}\` |`,
+        ),
+      ];
+      text = lines.join('\n');
+    }
+
+    const dest = await vscode.window.showQuickPick(
+      ['Copy to clipboard', 'Save to file'],
+      { placeHolder: 'Where to export?' },
+    );
+    if (!dest) {
+      return;
+    }
+
+    if (dest === 'Copy to clipboard') {
+      await vscode.env.clipboard.writeText(text);
+      vscode.window.showInformationMessage(
+        `Copied ${this._suggestions.length} index suggestion(s) as ${format}.`,
+      );
+    } else {
+      const extMap: Record<string, string> = { JSON: 'json', CSV: 'csv', Markdown: 'md' };
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(`index-suggestions.${extMap[format]}`),
+        filters: { [format]: [extMap[format]] },
+      });
+      if (uri) {
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(text, 'utf-8'));
+        vscode.window.showInformationMessage(`Saved index suggestions to ${uri.fsPath}`);
       }
     }
   }

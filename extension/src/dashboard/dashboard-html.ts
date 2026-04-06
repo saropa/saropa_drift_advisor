@@ -17,7 +17,7 @@ export function buildDashboardHtml(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src blob:;">
 <style>
 ${getDashboardCss()}
 </style>
@@ -94,6 +94,7 @@ function buildWidgetHtml(widget: IWidgetConfig, bodyHtml?: string): string {
     <div class="widget-header">
       <span class="widget-title">${esc(widget.title)}</span>
       <div class="widget-actions">
+        ${widget.type === 'chart' ? '<button class="widget-btn widget-copy-chart" title="Copy chart to clipboard">\u{1F4CB}</button>' : ''}
         <button class="widget-btn widget-edit" title="Edit">\u270F</button>
         <button class="widget-btn widget-refresh" title="Refresh">\u{1F504}</button>
         <button class="widget-btn widget-remove" title="Remove">\u00D7</button>

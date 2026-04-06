@@ -291,6 +291,14 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
     }
   });
 
+  // --- Responsive redraw: re-fit diagram when the panel is resized ---
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    // Debounce to avoid excessive redraws during continuous resize
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(fitToView, 150);
+  });
+
   // Initial render
   renderDiagram();
   setTimeout(fitToView, 100);

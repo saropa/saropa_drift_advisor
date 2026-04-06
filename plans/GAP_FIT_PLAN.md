@@ -219,6 +219,11 @@
 - ~~SQL templates (Low / Med)~~ — DONE (full snippet system in extension/src/snippets/)
 - ~~Clickable ER diagram tables (Low / Med)~~ — DONE (double-click navigates to table view)
 - ~~Masked CSV export (Low / Med)~~ — DONE ("CSV (PII masked)" option in export picker)
+- ~~Column visibility toggle (Low / Med)~~ — DONE (Columns button + dropdown chooser in SQL Notebook)
+- ~~Row filter toggle (Low / Med)~~ — DONE (Matching/All toggle in SQL Notebook filter bar)
+- ~~Responsive ER diagram redraw (Low / Low)~~ — DONE (debounced resize → fitToView)
+- ~~Export index analysis (Low / Low)~~ — DONE (Export Analysis button: JSON/CSV/Markdown)
+- ~~Copy chart to clipboard (Low / Med)~~ — DONE (clipboard button on dashboard chart widgets)
 
 ### For the Website
 
@@ -226,6 +231,8 @@
 - ~~Clear table/all commands (Low / Med)~~ — DONE (Clear rows + Clear all tables buttons, write-enabled only)
 - ~~Clipboard paste import (Low / Med)~~ — DONE (Paste button auto-detects CSV/TSV/JSON)
 - ~~Configurable slow threshold (Low / Med)~~ — DONE (threshold input in perf panel, passed to server)
+- ~~JSON export (Low / Med)~~ — DONE (Table JSON link in export panel)
+- ~~Import history log (Low / Low)~~ — DONE (collapsible session history below import form)
 
 ## Highest-Impact Gaps (any effort)
 

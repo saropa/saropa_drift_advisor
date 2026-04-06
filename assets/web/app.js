@@ -1005,7 +1005,7 @@
       'anomaly-save', 'anomaly-export', 'anomaly-compare',
       'perf-refresh', 'perf-clear', 'perf-save', 'perf-export', 'perf-compare',
       'import-run', 'share-btn',
-      'export-schema', 'export-dump', 'export-database', 'export-csv'
+      'export-schema', 'export-dump', 'export-database', 'export-csv', 'export-json'
     ];
 
     // Toggle 'offline-disabled' class (opacity:0.4, pointer-events:none)
@@ -2825,6 +2825,39 @@
       let importFileData = null;
       let importCsvHeaders = [];
 
+      // --- Import history: track all import operations in this session ---
+      var importHistory = [];
+      var historyDetailsEl = document.getElementById('import-history-details');
+      var historyListEl = document.getElementById('import-history-list');
+
+      /** Record an import attempt and update the history UI. */
+      function addImportHistory(table, format, imported, errors) {
+        var now = new Date();
+        var timeStr = now.toLocaleTimeString();
+        var entry = { time: timeStr, table: table, format: format, imported: imported, errors: errors || [] };
+        importHistory.unshift(entry);
+        renderImportHistory();
+      }
+
+      /** Render the import history list. */
+      function renderImportHistory() {
+        if (!historyListEl || !historyDetailsEl) return;
+        if (importHistory.length === 0) { historyDetailsEl.style.display = 'none'; return; }
+        historyDetailsEl.style.display = 'block';
+        var html = '';
+        for (var i = 0; i < importHistory.length; i++) {
+          var h = importHistory[i];
+          var errText = h.errors.length > 0 ? ' <span style="color:#e57373;">(' + h.errors.length + ' error(s))</span>' : '';
+          html += '<div style="padding:2px 0;border-bottom:1px solid var(--border,#333);">'
+            + '<span style="opacity:0.6;">' + esc(h.time) + '</span> '
+            + '<strong>' + esc(h.table) + '</strong> '
+            + '(' + esc(h.format) + ') &mdash; '
+            + h.imported + ' row(s)' + errText
+            + '</div>';
+        }
+        historyListEl.innerHTML = html;
+      }
+
       function parseCsvHeaderLine(line) {
         var fields = [];
         var cur = '';
@@ -3001,6 +3034,7 @@
               if (!o.ok) {
                 statusEl.textContent = 'Error: ' + (o.data.error || 'Request failed');
                 statusEl.style.color = '#e57373';
+                addImportHistory(table, format, 0, [o.data.error || 'Request failed']);
                 return;
               }
               var d = o.data;
@@ -3008,11 +3042,13 @@
               if (d.errors && d.errors.length > 0) msg += ' ' + d.errors.length + ' error(s): ' + d.errors.slice(0, 3).join('; ');
               statusEl.textContent = msg;
               statusEl.style.color = '';
+              addImportHistory(table, format, d.imported, d.errors || []);
               if (d.imported > 0 && currentTableName === table) loadTable(table);
             })
             .catch(function(e) {
               statusEl.textContent = 'Error: ' + (e.message || 'Import failed');
               statusEl.style.color = '#e57373';
+              addImportHistory(table, format, 0, [e.message || 'Import failed']);
             })
             .finally(function() {
               runBtn.disabled = !importFileData || !tableSel || !tableSel.value;
@@ -3051,6 +3087,31 @@
         statusEl.textContent = ' Failed: ' + err.message;
      
    return;
+      }
+      statusEl.textContent = '';
+    });
+
+    // --- JSON export: download current table data as a JSON file ---
+    document.getElementById('export-json').addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!currentTableName || !currentTableJson || currentTableJson.length === 0) {
+        document.getElementById('export-json-status').textContent = ' Select a table with data first.';
+        return;
+      }
+      var statusEl = document.getElementById('export-json-status');
+      statusEl.textContent = ' Preparing…';
+      try {
+        var json = JSON.stringify(currentTableJson, null, 2);
+        var blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = currentTableName + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        statusEl.textContent = ' Failed: ' + err.message;
+        return;
       }
       statusEl.textContent = '';
     });

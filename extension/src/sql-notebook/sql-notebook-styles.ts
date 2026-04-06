@@ -109,14 +109,52 @@ export function getNotebookCss(): string {
 
   /* --- Result Table --- */
   #result-area { flex: 1; overflow: auto; padding: 8px; }
+  .filter-bar {
+    display: flex; gap: 6px; align-items: center; margin-bottom: 8px;
+  }
   .result-filter {
-    width: 100%; padding: 4px 8px; margin-bottom: 8px;
+    flex: 1; padding: 4px 8px;
     background: var(--vscode-input-background);
     color: var(--vscode-input-foreground);
     border: 1px solid var(--vscode-input-border, transparent);
     border-radius: 3px; outline: none;
   }
   .result-filter:focus { border-color: var(--vscode-focusBorder); }
+  .filter-toggle-btn, .col-visibility-btn {
+    padding: 4px 10px; cursor: pointer; border: none; border-radius: 3px;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    font-size: var(--vscode-font-size); white-space: nowrap;
+  }
+  .filter-toggle-btn:hover, .col-visibility-btn:hover {
+    background: var(--vscode-button-secondaryHoverBackground);
+  }
+
+  /* --- Column Chooser --- */
+  .col-chooser {
+    position: relative; z-index: 50; padding: 8px; margin-bottom: 8px;
+    background: var(--vscode-editorSuggestWidget-background, var(--vscode-editor-background));
+    border: 1px solid var(--vscode-widget-border, #444);
+    border-radius: 4px; max-height: 200px; overflow-y: auto;
+    box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0,0,0,.3));
+  }
+  .col-chooser-item {
+    display: block; padding: 2px 4px; cursor: pointer;
+    font-size: 0.9em; white-space: nowrap;
+  }
+  .col-chooser-item:hover { background: var(--vscode-list-hoverBackground); }
+  .col-chooser-actions {
+    display: flex; gap: 6px; margin-top: 6px; padding-top: 6px;
+    border-top: 1px solid var(--vscode-widget-border, #444);
+  }
+  .col-chooser-action {
+    padding: 2px 8px; cursor: pointer; border: none; border-radius: 3px;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground); font-size: 0.85em;
+  }
+  .col-chooser-action:hover {
+    background: var(--vscode-button-secondaryHoverBackground);
+  }
   .table-wrap { overflow: auto; }
   .result-table {
     width: 100%; border-collapse: collapse;

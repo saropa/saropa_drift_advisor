@@ -654,6 +654,10 @@ abstract final class HtmlContent {
         </div>
         <pre id="import-preview" class="meta" style="display:none;max-height:15vh;overflow:auto;font-size:11px;"></pre>
         <p id="import-status" class="meta"></p>
+        <details id="import-history-details" class="import-history" style="margin-top:0.5rem;display:none;">
+          <summary style="cursor:pointer;font-size:12px;opacity:0.7;">Import history</summary>
+          <div id="import-history-list" style="max-height:150px;overflow-y:auto;font-size:11px;margin-top:4px;"></div>
+        </details>
           </div>
         </div>
         <div id="panel-schema" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-schema" hidden>
@@ -676,6 +680,7 @@ abstract final class HtmlContent {
           <a href="#" id="export-dump" class="export-link" title="Download full database dump"><span class="material-symbols-outlined export-icon" aria-hidden="true">download</span>Full dump</a><span id="export-dump-status" class="meta"></span>
           <a href="#" id="export-database" class="export-link" title="Download database file"><span class="material-symbols-outlined export-icon" aria-hidden="true">storage</span>Database</a><span id="export-database-status" class="meta"></span>
           <a href="#" id="export-csv" class="export-link" title="Export current table as CSV"><span class="material-symbols-outlined export-icon" aria-hidden="true">table_chart</span>Table CSV</a><span id="export-csv-status" class="meta"></span>
+          <a href="#" id="export-json" class="export-link" title="Export current table as JSON"><span class="material-symbols-outlined export-icon" aria-hidden="true">data_object</span>Table JSON</a><span id="export-json-status" class="meta"></span>
         </div>
           </div>
         </div>
