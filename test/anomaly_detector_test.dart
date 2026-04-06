@@ -255,6 +255,9 @@ void main() {
             counts: {'items': 5},
             // avg=10, min=5, max=150, variance=100 (stddev=10).
             // max deviation: |150 - 10| = 140 > 3×10 = 30 → flagged.
+            // Log-scale check: all positive, log(5)=1.61, log(150)=5.01,
+            // log(10)=2.30, logRange=3.40, logStddev=0.85,
+            // logMaxDev=|5.01-2.30|=2.71 > 3×0.85=2.55 → still flagged.
             numericStats: {
               'items.price': {
                 'avg_val': 10.0,
@@ -273,6 +276,10 @@ void main() {
             .firstOrNull;
         expect(outlier, isNotNull);
         expect(outlier!['severity'], 'info');
+        // Message should identify which end is the outlier
+        // and how many σ from the mean.
+        expect(outlier['message'], contains('max value'));
+        expect(outlier['message'], contains('σ from mean'));
       });
 
       test('no outlier when range is within 3 sigma', () async {
@@ -518,6 +525,174 @@ void main() {
           reason: 'Version columns should be skipped by name pattern',
         );
       });
+
+      test('no outlier for timestamp columns (created_at skip)', () async {
+        // Unix timestamps spanning a year look like huge
+        // ranges (~31M) but are normal time windows.
+        for (final colName in [
+          'created_at',
+          'updated_at',
+          'deleted_at',
+          'modified_at',
+          'creation_date',
+          'update_time',
+          'event_timestamp',
+          'timestamp',
+        ]) {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'events': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col(colName, 'INTEGER'),
+                ],
+              },
+              counts: {'events': 500},
+              numericStats: {
+                'events.$colName': {
+                  'avg_val': 1738480941.76,
+                  'min_val': 1735691375.0,
+                  'max_val': 1767237956.0,
+                  'variance': 8000000000000.0,
+                },
+              },
+            ),
+          );
+
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason: 'Timestamp column "$colName" should be skipped',
+          );
+        }
+      });
+
+      test('no outlier for sort order columns (sort_order skip)', () async {
+        // Sort order columns use intentional large gaps
+        // (e.g., 0–1251) for future insertion.
+        for (final colName in [
+          'sort_order',
+          'display_order',
+          'position',
+          'rank',
+          'ordering',
+          'list_position',
+          'tab_order',
+        ]) {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'items': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col(colName, 'INTEGER'),
+                ],
+              },
+              counts: {'items': 200},
+              numericStats: {
+                'items.$colName': {
+                  'avg_val': 14.12,
+                  'min_val': 0.0,
+                  'max_val': 1251.0,
+                  'variance': 25000.0,
+                },
+              },
+            ),
+          );
+
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason: 'Sort order column "$colName" should be skipped',
+          );
+        }
+      });
+
+      test('no outlier for year/founded columns (year skip)', () async {
+        // Historical datasets span centuries — banks
+        // founded 1472–2019 is legitimate, not an outlier.
+        for (final colName in ['year', 'founded_year', 'founded', 'birth_year']) {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'records': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col(colName, 'INTEGER'),
+                ],
+              },
+              counts: {'records': 300},
+              numericStats: {
+                'records.$colName': {
+                  'avg_val': 1956.01,
+                  'min_val': 1472.0,
+                  'max_val': 2019.0,
+                  'variance': 2500.0,
+                },
+              },
+            ),
+          );
+
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason: 'Year column "$colName" should be skipped',
+          );
+        }
+      });
+
+      test(
+        'no outlier for log-normal distributions (log-scale fallback)',
+        () async {
+          // Engagement points [4, 337] with avg 80.61 fail
+          // on a linear scale but pass on log scale:
+          //   log(4)=1.39, log(337)=5.82, log(80.61)=4.39
+          //   logRange=4.43, logStddev=1.11
+          //   logMaxDev=|5.82-4.39|=1.43 < 3×1.11=3.33 → OK
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'contacts': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col('points', 'INTEGER'),
+                ],
+              },
+              counts: {'contacts': 100},
+              numericStats: {
+                'contacts.points': {
+                  'avg_val': 80.61,
+                  'min_val': 4.0,
+                  'max_val': 337.0,
+                  // stddev ≈ 50, so maxDev = |337-80.61| = 256
+                  // > 3×50 = 150 → fails linear check.
+                  'variance': 2500.0,
+                },
+              },
+            ),
+          );
+
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason:
+                'Log-normal distributions should pass the log-scale fallback',
+          );
+        },
+      );
 
       test(
         'no outlier for exchange rates with high natural variance',

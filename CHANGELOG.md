@@ -34,6 +34,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Anomaly detector: reduced false positives** — Numeric outlier detection now skips timestamp columns (`created_at`, `*_date`, etc.), sort/ordering columns (`sort_order`, `position`, `rank`, etc.), and year/founded columns. Added a log-scale fallback so distributions spanning orders of magnitude (e.g., currency exchange rates, engagement scores) are no longer flagged. Outlier messages now identify which end (min/max) is the problem and by how many σ
+
+---
+
 ## [2.17.5]
 
 ### Added

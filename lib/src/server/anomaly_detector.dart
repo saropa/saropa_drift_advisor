@@ -1,7 +1,7 @@
 // Anomaly detection extracted from AnalyticsHandler.
 // Pure static logic with no instance state dependencies.
 
-import 'dart:math' show sqrt;
+import 'dart:math' show log, sqrt;
 
 import 'server_typedefs.dart';
 import 'server_utils.dart';
@@ -86,8 +86,9 @@ abstract final class AnomalyDetector {
           //    the mean) in numeric columns. Boolean
           //    columns are excluded — skewed distributions
           //    (e.g., 9% true) are valid data patterns,
-          //    not anomalies. Coordinate and version
-          //    columns are also skipped by name pattern.
+          //    not anomalies. Domain-specific columns
+          //    (coordinates, timestamps, sort order,
+          //    year/founded, versions) are also skipped.
           if (ServerUtils.isNumericType(colType) &&
               !ServerUtils.isBooleanType(colType)) {
             await _detectNumericOutliers(
@@ -217,31 +218,60 @@ abstract final class AnomalyDetector {
     caseSensitive: false,
   );
 
+  /// Column name patterns for timestamp columns — Unix
+  /// epoch integers or ISO date values that span narrow
+  /// real-world time windows but look like huge numeric
+  /// ranges (e.g., 1735691375–1767237956 ≈ one year).
+  static final _timestampPattern = RegExp(
+    r'(^created|^updated|^deleted|^modified|_at$|_date$|_time$|_timestamp$|^timestamp$)',
+    caseSensitive: false,
+  );
+
+  /// Column name patterns for sort/display ordering —
+  /// these routinely use large gaps (e.g., 0–1251) to
+  /// allow future insertion without renumbering.
+  static final _sortOrderPattern = RegExp(
+    r'^(sort_order|display_order|position|rank|ordering)$|_order$|_position$|_rank$',
+    caseSensitive: false,
+  );
+
+  /// Column name patterns for year columns — historical
+  /// datasets legitimately span centuries (e.g., banks
+  /// founded 1472–2019).
+  static final _yearPattern = RegExp(
+    r'(^year$|_year$|^founded)',
+    caseSensitive: false,
+  );
+
   /// Computes statistical distribution metrics for
   /// [colName] and flags an outlier anomaly when min or
   /// max lies more than 3 standard deviations from the
   /// mean (the classic 3-sigma rule).
   ///
-  /// Domain-aware: skips columns whose names indicate
-  /// geographic coordinates or version numbers, where
-  /// wide ranges are expected and correct.
+  /// Domain-aware skip list (by column name pattern):
+  /// coordinates, versions, timestamps, sort/ordering,
+  /// and year/founded columns are all excluded because
+  /// wide ranges are expected and correct in those domains.
+  ///
+  /// Log-scale fallback: for all-positive columns that
+  /// fail the linear 3σ check, a log-transformed check
+  /// is applied to catch log-normal distributions
+  /// (e.g., currency exchange rates, engagement scores).
   static Future<void> _detectNumericOutliers({
     required DriftDebugQuery query,
     required String tableName,
     required String colName,
     required List<Map<String, dynamic>> anomalies,
   }) async {
-    // Skip coordinate columns — wide ranges are expected
-    // for geographic data (e.g., longitude spans -180..180
-    // for a table of world cities).
-    if (_coordinatePattern.hasMatch(colName)) {
-      return;
-    }
-
-    // Skip version/revision columns — date-encoded
-    // integers (e.g., YYYYMMDD = 26010901) create large
-    // values by design, not by error.
-    if (_versionPattern.hasMatch(colName)) {
+    // Skip columns whose names indicate a domain where
+    // wide numeric ranges are expected and correct.
+    // Each pattern targets a specific false-positive
+    // category documented in bugs/false_positive_anomaly_detections.md.
+    if (_coordinatePattern.hasMatch(colName) ||
+        _versionPattern.hasMatch(colName) ||
+        _timestampPattern.hasMatch(colName) ||
+        _sortOrderPattern.hasMatch(colName) ||
+        _yearPattern.hasMatch(colName)) {
       return;
     }
 
@@ -300,18 +330,66 @@ abstract final class AnomalyDetector {
     final maxDeviation = (max - avg).abs();
     final threshold = stddev * 3;
 
-    if (maxDeviation > threshold || minDeviation > threshold) {
-      anomalies.add(<String, dynamic>{
-        'table': tableName,
-        'column': colName,
-        'type': 'potential_outlier',
-        'severity': 'info',
-        'message':
-            'Potential outlier in $tableName.$colName: '
-            'range [$min, $max], avg '
-            '${avg.toStringAsFixed(2)}',
-      });
+    if (maxDeviation <= threshold && minDeviation <= threshold) {
+      // Neither extreme exceeds 3σ — no outlier.
+      return;
     }
+
+    // Log-scale fallback for all-positive columns.
+    // Distributions like currency exchange rates and
+    // engagement scores span orders of magnitude but
+    // look reasonable on a log scale. If the log-
+    // transformed data passes the 3σ check, suppress
+    // the anomaly.
+    if (min > 0) {
+      final logMin = log(min);
+      final logMax = log(max);
+      final logAvg = log(avg);
+
+      // Approximate log-space stddev from the range.
+      // For a distribution spanning [logMin, logMax],
+      // using (range / 4) as a conservative stddev
+      // estimate (covers ~95% of a normal distribution).
+      final logRange = logMax - logMin;
+      final logStddev = logRange / 4;
+
+      if (logStddev > 0) {
+        final logMinDev = (logMin - logAvg).abs();
+        final logMaxDev = (logMax - logAvg).abs();
+        final logThreshold = logStddev * 3;
+
+        if (logMinDev <= logThreshold && logMaxDev <= logThreshold) {
+          // Passes on log scale — this is a wide but
+          // log-normal distribution, not an outlier.
+          return;
+        }
+      }
+    }
+
+    // Identify which end is the outlier and by how many
+    // standard deviations, so developers know which
+    // values to investigate.
+    final minSigma = minDeviation / stddev;
+    final maxSigma = maxDeviation / stddev;
+    final outlierEnd =
+        maxDeviation > minDeviation ? 'max' : 'min';
+    final outlierValue =
+        maxDeviation > minDeviation ? max : min;
+    final outlierSigma =
+        maxDeviation > minDeviation ? maxSigma : minSigma;
+
+    anomalies.add(<String, dynamic>{
+      'table': tableName,
+      'column': colName,
+      'type': 'potential_outlier',
+      'severity': 'info',
+      'message':
+          'Potential outlier in $tableName.$colName: '
+          '$outlierEnd value $outlierValue is '
+          '${outlierSigma.toStringAsFixed(1)}σ from mean '
+          '${avg.toStringAsFixed(2)} '
+          '(range [$min, $max])',
+    });
   }
 
   /// Checks foreign keys on [tableName] and flags any
