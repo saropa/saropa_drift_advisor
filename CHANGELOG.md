@@ -34,7 +34,7 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [2.18.0]
 
 ### Added
 
@@ -45,10 +45,6 @@ browse source on
 - **Copy chart to clipboard** (Extension) — Dashboard chart widgets now have a clipboard button in the header that copies the chart as a PNG image
 - **JSON export** (Website) — Export panel now offers "Table JSON" alongside the existing CSV download
 - **Import history log** (Website) — Import panel tracks all import operations during the session in a collapsible history list showing time, table, format, row count, and errors
-
----
-
-## [2.17.6]
 
 ### Fixed
 
