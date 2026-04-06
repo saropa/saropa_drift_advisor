@@ -46,6 +46,10 @@ export interface QueryEntry {
   durationMs: number;
   rowCount: number;
   at: string;
+  /** Source file that issued this query (resolved from Dart stack trace). */
+  callerFile?: string;
+  /** Source line number that issued this query. */
+  callerLine?: number;
 }
 
 export interface PerformanceData {

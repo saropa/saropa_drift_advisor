@@ -31,6 +31,8 @@ class QueryTiming {
     required this.rowCount,
     required this.at,
     this.error,
+    this.callerFile,
+    this.callerLine,
   });
 
   final String sql;
@@ -39,12 +41,23 @@ class QueryTiming {
   final DateTime at;
   final String? error;
 
+  /// Source file of the code that issued this query, parsed from the
+  /// call stack at recording time. Null when the stack frame could not
+  /// be resolved (e.g. in release builds or obfuscated code).
+  final String? callerFile;
+
+  /// Source line number that issued this query. Null when the stack
+  /// frame could not be resolved.
+  final int? callerLine;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
     'sql': sql,
     'durationMs': durationMs,
     'rowCount': rowCount,
     'error': ?error,
     'at': at.toIso8601String(),
+    'callerFile': ?callerFile,
+    'callerLine': ?callerLine,
   };
 }
 

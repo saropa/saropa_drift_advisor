@@ -219,12 +219,20 @@ final class ServerContext {
 
   /// Wraps a query call with timing instrumentation.
   ///
+  /// Captures the caller's source location from the stack
+  /// trace so runtime diagnostics can be pinned to the
+  /// call site instead of the table definition file.
+  ///
   /// Returns the query result rows after recording
   /// duration, row count, and any errors.
   Future<List<Map<String, dynamic>>> timedQuery(
     DriftDebugQuery fn,
     String sql,
   ) async {
+    // Capture the stack before awaiting so we get the
+    // actual call site, not the async continuation.
+    final caller = _parseCallerFrame(StackTrace.current);
+
     final stopwatch = Stopwatch()..start();
 
     try {
@@ -235,6 +243,8 @@ final class ServerContext {
         sql: sql,
         durationMs: stopwatch.elapsedMilliseconds,
         rowCount: result.length,
+        callerFile: caller?.$1,
+        callerLine: caller?.$2,
       );
 
       return result;
@@ -245,9 +255,53 @@ final class ServerContext {
         durationMs: stopwatch.elapsedMilliseconds,
         rowCount: 0,
         error: error.toString(),
+        callerFile: caller?.$1,
+        callerLine: caller?.$2,
       );
       rethrow;
     }
+  }
+
+  /// Parses the first _user-code_ frame from a [StackTrace],
+  /// skipping frames inside this package's server directory
+  /// and Dart/Flutter framework internals.
+  ///
+  /// Returns `(filePath, lineNumber)` or null when no
+  /// usable frame is found. This is expected when all
+  /// queries originate from the server's own handlers
+  /// (router, cell-update, import, etc.) — in that case
+  /// the diagnostic falls back to the table definition.
+  ///
+  /// The infrastructure is in place so that when user code
+  /// queries flow through [recordTiming] (e.g. via a custom
+  /// executor wrapper), the correct call site is captured.
+  static (String, int)? _parseCallerFrame(StackTrace stack) {
+    // Dart VM format: "#N  FunctionName (package:foo/bar.dart:42:10)"
+    // or:             "#N  FunctionName (file:///path/bar.dart:42:10)"
+    final framePattern = RegExp(r'#\d+\s+\S+\s+\((.+?):(\d+):\d+\)');
+
+    for (final match in framePattern.allMatches(stack.toString())) {
+      final file = match.group(1)!;
+
+      // Skip this package's own server files — these are
+      // internal handler frames (router, cell-update, etc.)
+      // that the end user did not write and cannot edit.
+      if (file.contains('saropa_drift_advisor/src/server/')) {
+        continue;
+      }
+
+      // Skip Dart SDK and Flutter framework internals.
+      if (file.startsWith('dart:') || file.startsWith('package:flutter/')) {
+        continue;
+      }
+
+      final line = int.tryParse(match.group(2)!);
+      if (line == null) continue;
+
+      return (file, line);
+    }
+
+    return null;
   }
 
   /// Appends a timing entry; evicts oldest when buffer
@@ -257,6 +311,8 @@ final class ServerContext {
     required int durationMs,
     required int rowCount,
     String? error,
+    String? callerFile,
+    int? callerLine,
   }) {
     queryTimings.add(
       QueryTiming(
@@ -264,6 +320,8 @@ final class ServerContext {
         durationMs: durationMs,
         rowCount: rowCount,
         error: error,
+        callerFile: callerFile,
+        callerLine: callerLine,
         at: DateTime.now().toUtc(),
       ),
     );

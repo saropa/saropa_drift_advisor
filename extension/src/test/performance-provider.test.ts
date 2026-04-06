@@ -50,6 +50,52 @@ describe('PerformanceProvider', () => {
       assert.strictEqual(issue.severity, DiagnosticSeverity.Warning);
     });
 
+    it('should include row count in slow-query-pattern message', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('orders', ['id'])],
+        slowQueries: [
+          { sql: 'SELECT * FROM orders', durationMs: 200, rowCount: 500, at: '2024-01-01' },
+        ],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'slow-query-pattern');
+      assert.ok(issue, 'Should report slow-query-pattern');
+      assert.ok(
+        issue.message.includes('500 rows'),
+        `Expected row count in message but got: ${issue.message}`,
+      );
+    });
+
+    it('should pin slow-query-pattern to caller location when available', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('orders', ['id', 'user_id', 'total'])],
+        slowQueries: [
+          {
+            sql: 'SELECT * FROM orders WHERE user_id = 42',
+            durationMs: 150,
+            rowCount: 100,
+            at: '2024-01-01',
+            callerFile: 'package:myapp/src/order_io.dart',
+            callerLine: 42,
+          },
+        ],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'slow-query-pattern');
+      assert.ok(issue, 'Should report slow-query-pattern');
+      // Should point to the caller file, not the table definition.
+      assert.ok(
+        issue.fileUri.toString().includes('order_io.dart'),
+        `Expected caller file URI but got ${issue.fileUri.toString()}`,
+      );
+      // callerLine 42 is 1-based → Range line should be 41 (0-based).
+      assert.strictEqual(issue.range.start.line, 41);
+    });
+
     it('should not report queries under threshold', async () => {
       const ctx = createContext({
         dartFiles: [createDartFile('orders', ['id', 'user_id'])],
@@ -103,6 +149,53 @@ describe('PerformanceProvider', () => {
 
       const issue = issues.find((i) => i.code === 'unindexed-where-clause');
       assert.ok(!issue, 'Should not report infrequent patterns');
+    });
+
+    it('should include batching hint in n-plus-one message for high counts', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'name'])],
+        recentQueries: Array(25).fill(null).map((_, i) => ({
+          sql: `SELECT * FROM users WHERE id = ${i}`,
+          durationMs: 10,
+          rowCount: 1,
+          at: '2024-01-01',
+        })),
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'n-plus-one');
+      assert.ok(issue, 'Should report n-plus-one pattern');
+      assert.ok(
+        issue.message.includes('JOIN or IN clause'),
+        `Expected batching hint in message but got: ${issue.message}`,
+      );
+    });
+
+    it('should pin n-plus-one to caller location when available', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'name'])],
+        recentQueries: Array(15).fill(null).map((_, i) => ({
+          sql: `SELECT * FROM users WHERE id = ${i}`,
+          durationMs: 10,
+          rowCount: 1,
+          at: '2024-01-01',
+          callerFile: 'package:myapp/src/user_repository.dart',
+          callerLine: 88,
+        })),
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'n-plus-one');
+      assert.ok(issue, 'Should report n-plus-one pattern');
+      // Should point to the caller file, not the table definition.
+      assert.ok(
+        issue.fileUri.toString().includes('user_repository.dart'),
+        `Expected caller file URI but got ${issue.fileUri.toString()}`,
+      );
+      // callerLine 88 is 1-based → Range line should be 87 (0-based).
+      assert.strictEqual(issue.range.start.line, 87);
     });
 
     it('should report n-plus-one pattern for repeated similar queries', async () => {
@@ -295,8 +388,8 @@ describe('PerformanceProvider', () => {
 
 function createContext(options: {
   dartFiles: IDartFileInfo[];
-  slowQueries?: Array<{ sql: string; durationMs: number; rowCount: number; at: string }>;
-  recentQueries?: Array<{ sql: string; durationMs: number; rowCount: number; at: string }>;
+  slowQueries?: Array<{ sql: string; durationMs: number; rowCount: number; at: string; callerFile?: string; callerLine?: number }>;
+  recentQueries?: Array<{ sql: string; durationMs: number; rowCount: number; at: string; callerFile?: string; callerLine?: number }>;
   patternSuggestions?: Array<{
     table: string;
     column: string;

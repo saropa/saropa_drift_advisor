@@ -71,6 +71,36 @@ void main() {
       final json = timing.toJson();
       expect(json['error'], 'syntax error');
     });
+
+    test('toJson omits callerFile and callerLine when null', () {
+      final timing = QueryTiming(
+        sql: 'SELECT 1',
+        durationMs: 1,
+        rowCount: 1,
+        at: DateTime.now().toUtc(),
+      );
+
+      final json = timing.toJson();
+      // Null-aware element syntax (?callerFile) should omit the
+      // key entirely, matching the pattern used for ?error.
+      expect(json.containsKey('callerFile'), isFalse);
+      expect(json.containsKey('callerLine'), isFalse);
+    });
+
+    test('toJson includes callerFile and callerLine when present', () {
+      final timing = QueryTiming(
+        sql: 'SELECT * FROM users',
+        durationMs: 10,
+        rowCount: 5,
+        at: DateTime.now().toUtc(),
+        callerFile: 'package:myapp/src/user_repo.dart',
+        callerLine: 42,
+      );
+
+      final json = timing.toJson();
+      expect(json['callerFile'], 'package:myapp/src/user_repo.dart');
+      expect(json['callerLine'], 42);
+    });
   });
 
   group('SqlRequestBody', () {

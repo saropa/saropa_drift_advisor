@@ -34,11 +34,13 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [2.17.6]
 
 ### Fixed
 
+- **Acronym column name mismatch detection** — When Drift's camelCase-to-snake_case splits acronyms like `UUID` into `u_u_i_d`, but the database uses `uuid`, the advisor now reports a single `column-name-acronym-mismatch` diagnostic instead of a confusing `missing-column-in-db` / `extra-column-in-db` pair. The message explains the root cause and suggests both fix options (rename getter or `.named()` override)
 - **Anomaly detector: reduced false positives** — Numeric outlier detection now skips timestamp columns (`created_at`, `*_date`, etc.), sort/ordering columns (`sort_order`, `position`, `rank`, etc.), and year/founded columns. Added a log-scale fallback so distributions spanning orders of magnitude (e.g., currency exchange rates, engagement scores) are no longer flagged. Outlier messages now identify which end (min/max) is the problem and by how many σ
+- **Slow-query and N+1 diagnostics: call-site pinning and richer messages** — Runtime performance diagnostics (`slow-query-pattern`, `n-plus-one`) now resolve to the Dart call site that issued the query when available, instead of always pointing at the table definition file. Slow-query messages include row count for context; N+1 messages hint at batching via JOIN/IN when the repeat count is high
 
 ---
 
