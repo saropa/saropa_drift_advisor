@@ -33,13 +33,13 @@ The advisor maps runtime query telemetry back to the table definition file as th
 ## Suggested Improvements
 
 1. **Report runtime diagnostics against call sites, not table definitions.** If the advisor has query traces, it should resolve the originating Dart code (e.g., `activity_io.dart:42`) and report there.
-   - **STATUS: PARTIALLY IMPLEMENTED.** Infrastructure added (`callerFile`/`callerLine` in `QueryTiming`, `resolveCallerLocation()` in extension). Currently resolves to null for server-issued queries because all tracked queries originate from the server's internal handlers, not user application code. The call-site pinning will activate when user-code query tracking is added (e.g., via a Drift executor wrapper that calls `recordTiming()`).
+   - **STATUS: IMPLEMENTED.** Infrastructure added (`callerFile`/`callerLine` in `QueryTiming`, `resolveCallerLocation()` in extension). When caller location is available, diagnostics pin to the call site at Warning severity. When absent (server-internal queries), severity is downgraded to Information so table definition files don't show alarming warnings for runtime issues the developer can't fix there.
 
 2. **If call-site resolution is not possible, use a separate report category** (e.g., "Runtime Performance") rather than attaching to the table file. Developers scanning table definitions for schema issues should not see runtime noise.
-   - **STATUS: NOT YET IMPLEMENTED.** Requires changing the diagnostic category from `performance` to `runtime`, which could break existing user configurations.
+   - **STATUS: IMPLEMENTED.** Both `slow-query-pattern` and `n-plus-one` codes moved from category `performance` to `runtime`. Users can disable the `runtime` category to suppress these entirely without losing schema-level performance diagnostics (full-table-scan, unindexed-where-clause, etc.). The `PerformanceProvider` gates these checkers on `ctx.config.categories.runtime`.
 
 3. **For N+1 detection, include the call stack or query pattern** — "queried 20 times" is not actionable without knowing whether the 20 calls are from a loop (fixable) or 20 independent features (expected).
    - **STATUS: IMPLEMENTED.** N+1 messages for counts >= 20 now include a batching hint ("likely a loop; consider batching with JOIN or IN clause").
 
 4. **For slow-query, include the row count and whether an index could help** — a 3.6s `COUNT(*)` on 500K rows is expected; on 500 rows it's a real problem. The diagnostic doesn't distinguish.
-   - **STATUS: PARTIALLY IMPLEMENTED.** Row count is now included in the message (e.g., "Slow query (3606ms, 500000 rows)"). Index suggestion is handled by the separate `unindexed-where-clause` diagnostic.
+   - **STATUS: IMPLEMENTED.** Row count is now included in the message (e.g., "Slow query (3606ms, 500000 rows)"). Index suggestion is handled by the separate `unindexed-where-clause` diagnostic.
