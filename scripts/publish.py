@@ -13,11 +13,14 @@ Usage:
     python scripts/publish.py analyze             # Full analysis without publishing
     python scripts/publish.py openvsx             # Republish existing .vsix to Open VSX
     python scripts/publish.py dart --bump minor   # Bump version before validation
+    python scripts/publish.py --resume            # Retry publish from last checkpoint
 
 Exit codes match the ExitCode enum in modules/constants.py.
 """
 
 import argparse
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -46,13 +49,83 @@ except ImportError:
 # C provides colour/style constants (BOLD, CYAN, etc.), ExitCode is the
 # canonical set of integer exit codes, and the two path constants point
 # to the repository root and the VS Code extension sub-directory.
-from modules.constants import C, ExitCode, REPO_ROOT, EXTENSION_DIR
+from modules.constants import C, CHECKPOINT_PATH, ExitCode, REPO_ROOT, EXTENSION_DIR
 from modules.display import (
     ask_yn, close_publish_log, dim, heading, info, open_publish_log, show_logo,
+    warn,
 )
 
 # Reusable cancellation message shown whenever the user aborts a publish.
 MSG_PUBLISH_CANCELLED = "Publish cancelled by user."
+
+
+# ── Checkpoint ──────────────────────────────────────────────
+# After a successful analysis phase the pipeline writes a small JSON
+# checkpoint so that a failed publish can be retried with ``--resume``
+# without re-running every analysis step.
+
+
+def _save_checkpoint(
+    target: str,
+    dart_version: str,
+    ext_version: str,
+    vsix_path: str | None,
+    results: list[tuple[str, bool, float]],
+    ext_lint_report: str | None,
+) -> None:
+    """Persist pipeline state to disk after a successful analysis phase.
+
+    The checkpoint stores everything ``_run_publish`` needs so the user can
+    retry with ``--resume`` if the publish leg fails (network timeout,
+    expired token, etc.).
+    """
+    data = {
+        "target": target,
+        "dart_version": dart_version,
+        "ext_version": ext_version,
+        "vsix_path": vsix_path,
+        "ext_lint_report": ext_lint_report,
+        # results is a list of (name, passed, elapsed) tuples — store as-is.
+        "results": results,
+    }
+    with open(CHECKPOINT_PATH, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=2)
+    info(f"Checkpoint saved → {os.path.basename(CHECKPOINT_PATH)}")
+
+
+def _load_checkpoint() -> dict | None:
+    """Load a previously saved checkpoint, or return None if missing/corrupt.
+
+    Validates that the checkpoint file exists and contains the required
+    keys.  Returns a dict with the same structure written by
+    ``_save_checkpoint``, or None on any error.
+    """
+    if not os.path.isfile(CHECKPOINT_PATH):
+        return None
+    try:
+        with open(CHECKPOINT_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+
+        # Sanity-check: all required keys must be present.
+        required = {"target", "dart_version", "ext_version", "results"}
+        if not required.issubset(data.keys()):
+            warn("Checkpoint file is missing required fields — ignoring.")
+            return None
+
+        # Restore results tuples (JSON deserializes them as lists).
+        data["results"] = [tuple(r) for r in data["results"]]
+        return data
+    except (json.JSONDecodeError, OSError) as exc:
+        warn(f"Could not read checkpoint: {exc}")
+        return None
+
+
+def _delete_checkpoint() -> None:
+    """Remove the checkpoint file after a successful publish."""
+    try:
+        os.remove(CHECKPOINT_PATH)
+    except FileNotFoundError:
+        pass
 
 
 # ── CLI ──────────────────────────────────────────────────────
@@ -69,6 +142,7 @@ _CLI_FLAGS = [
     ("--skip-global-npm", "Skip global npm package checks."),
     ("--auto-install", "Auto-install .vsix without prompting (CI)."),
     ("--no-logo", "Suppress the Saropa ASCII art logo."),
+    ("--resume", "Skip analysis and retry publish from the last checkpoint."),
 ]
 
 # Map of target names to human-readable descriptions.
@@ -157,7 +231,8 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
 
     # Fall back to interactive prompt when no target was given.
-    if args.target is None:
+    # --resume reads the target from the checkpoint file, so skip the prompt.
+    if args.target is None and not args.resume:
         args.target = _prompt_target()
 
     return args
@@ -582,6 +657,65 @@ def _run_openvsx_only() -> int:
     return ExitCode.OPENVSX_FAILED
 
 
+def _resume_from_checkpoint() -> int:
+    """Load a checkpoint from a previous analysis run and jump to publish.
+
+    Called when the user passes ``--resume``.  Prints a summary of the
+    saved state so the user can confirm before proceeding.
+
+    Returns an integer exit code.
+    """
+    from modules.display import fail
+
+    checkpoint = _load_checkpoint()
+    if checkpoint is None:
+        fail("No valid checkpoint found. Run a full pipeline first.")
+        return ExitCode.PREREQUISITE_FAILED
+
+    target = checkpoint["target"]
+    dart_ver = checkpoint["dart_version"]
+    ext_ver = checkpoint["ext_version"]
+    vsix_path = checkpoint.get("vsix_path")
+    ext_lint_report = checkpoint.get("ext_lint_report")
+    results = checkpoint["results"]
+
+    # If the checkpoint references a .vsix that no longer exists on disk,
+    # warn early rather than failing mid-publish.
+    if vsix_path and not os.path.isfile(vsix_path):
+        fail(f"Checkpoint references missing .vsix: {vsix_path}")
+        _delete_checkpoint()
+        return ExitCode.PACKAGE_FAILED
+
+    # Show what we're resuming so the user can sanity-check.
+    version = ext_ver or dart_ver
+    print(f"\n  {C.BOLD}{C.CYAN}Resuming from checkpoint{C.RESET}")
+    print(f"  Target:  {C.WHITE}{target}{C.RESET}")
+    if dart_ver:
+        print(f"  Dart:    {C.WHITE}v{dart_ver}{C.RESET}")
+    if ext_ver:
+        print(f"  Ext:     {C.WHITE}v{ext_ver}{C.RESET}")
+    if vsix_path:
+        print(f"  VSIX:    {dim(os.path.basename(vsix_path))}")
+
+    # Count how many analysis steps passed previously.
+    passed = sum(1 for _, ok, _ in results if ok)
+    print(f"  Prior:   {C.GREEN}{passed} step(s) passed{C.RESET}")
+    print()
+
+    # Proceed directly to publish — skip the entire analysis phase.
+    err = _run_publish(target, dart_ver, ext_ver, vsix_path, results, ext_lint_report)
+
+    if err is None:
+        # Publish succeeded — clean up the checkpoint file.
+        _delete_checkpoint()
+        return ExitCode.SUCCESS
+
+    # Publish failed again — leave the checkpoint in place so the user
+    # can fix the issue and retry with --resume once more.
+    info("Checkpoint preserved — fix the issue and run --resume again.")
+    return err
+
+
 def _main_inner() -> int:
     """Core pipeline logic: parse args → analyse → package → publish.
 
@@ -591,6 +725,15 @@ def _main_inner() -> int:
     Returns an integer exit code.
     """
     args = parse_args()
+
+    # ── Resume from checkpoint ──
+    # When --resume is passed, skip the entire analysis phase and jump
+    # straight to publish using state saved from the last successful
+    # analysis run.  This lets you retry a failed publish (network
+    # timeout, expired token, etc.) without re-running every check.
+    if args.resume:
+        return _resume_from_checkpoint()
+
     target = args.target
 
     # Read the version for the banner.  For "openvsx" and "analyze" targets
@@ -639,12 +782,23 @@ def _main_inner() -> int:
             prompt_open_report(report)
         return ExitCode.SUCCESS
 
+    # ── Save checkpoint ──
+    # Analysis passed — persist the pipeline state so the user can retry
+    # the publish phase with ``--resume`` if it fails.
+    _save_checkpoint(target, dart_ver, ext_ver, vsix_path, results, ext_lint_report)
+
     # ── Publish phase ──
     # Analysis passed and we're not in analyze-only mode, so proceed to
     # the actual publish.  _run_publish handles confirmation prompts and
     # returns None on success or an ExitCode on failure.
     err = _run_publish(target, dart_ver, ext_ver, vsix_path, results, ext_lint_report)
-    return err if err is not None else ExitCode.SUCCESS
+
+    if err is None:
+        # Publish succeeded — remove the checkpoint so a stale checkpoint
+        # doesn't confuse a future run.
+        _delete_checkpoint()
+        return ExitCode.SUCCESS
+    return err
 
 
 # ── Script entry point ───────────────────────────────────────

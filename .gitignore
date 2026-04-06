@@ -29,6 +29,7 @@ reports/
 __pycache__/
 *.py[cod]
 *.pyo
+scripts/.publish_checkpoint.json
 
 # Root workspace node_modules (husky)
 node_modules/

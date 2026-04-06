@@ -13,6 +13,11 @@ EXTENSION_DIR = os.path.join(REPO_ROOT, "extension")
 PUBSPEC_PATH = os.path.join(REPO_ROOT, "pubspec.yaml")
 PACKAGE_JSON_PATH = os.path.join(EXTENSION_DIR, "package.json")
 CHANGELOG_PATH = os.path.join(REPO_ROOT, "CHANGELOG.md")
+
+# Checkpoint file written after a successful analysis phase so that a
+# failed publish can be retried with ``--resume`` without re-running every
+# analysis step.  Lives in the scripts/ directory (git-ignored).
+CHECKPOINT_PATH = os.path.join(SCRIPT_DIR, ".publish_checkpoint.json")
 ABOUT_SAROPA_PATH = os.path.join(REPO_ROOT, "ABOUT_SAROPA.md")
 TEST_DIR = os.path.join(REPO_ROOT, "test")
 LIB_DIR = os.path.join(REPO_ROOT, "lib")
