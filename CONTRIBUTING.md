@@ -154,6 +154,26 @@ This is a hybrid Dart/TypeScript project:
 - **Read-only by default**: SQL execution validates read-only queries
 - **Modular handlers**: Each API feature is a separate handler class
 
+## CDN URLs (Online Themes & Assets)
+
+Web UI assets are served via **jsDelivr** from the GitHub repo. Each URL has a
+version-pinned variant (tried first) and a `@main` fallback.
+
+| Asset | URL |
+|-------|-----|
+| Base CSS (versioned) | `https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v{version}/assets/web/style.css` |
+| Base CSS (fallback) | `https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/style.css` |
+| Base JS (versioned) | `https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v{version}/assets/web/app.js` |
+| Base JS (fallback) | `https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/app.js` |
+| Enhanced CSS (versioned) | `https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v{version}/web/drift-enhanced.css` |
+
+- `{version}` is replaced at build time by `ServerConstants.packageVersion`
+- The **enhanced CSS** unlocks the **Showcase** and **Midnight** themes; without
+  it only **Dark** and **Light** are available
+- The enhanced stylesheet is loaded dynamically by `app.js` at runtime
+- CDN URLs require a matching git tag (e.g. `v2.17.5`) for the versioned
+  variant to resolve
+
 ## Questions?
 
 Open an issue or discussion. We're happy to help!
