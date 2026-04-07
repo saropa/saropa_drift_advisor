@@ -45,7 +45,6 @@ browse source on
 - **Collapsible table definition** (Website) — table definition panel above the data grid is now collapsible (collapsed by default), matching the query builder pattern; self-contained in `table-def-toggle.js`
 - **Masthead pill** (Website) — combined the version badge and connection status into a single header pill showing logo · version · Online/Offline; styles extracted to `_masthead.scss` partial, HTML extracted to `_buildMastheadPill()` method
 - **Connection status terminology** (Website) — renamed "Live" to "Online" throughout the web viewer for clarity
-- **Collapsible table definition** (Website) — table definition panel above the data grid is now collapsible (▼/▲ toggle, collapsed by default), matching the query builder pattern
 - **Sidebar toggle arrow** (Website) — arrow is now larger, right-aligned, and points left instead of down for clearer collapse affordance
 - **FAB opens upward** (Website) — floating action button menu now fans upward from the trigger, with items right-aligned against the trigger edge
 - **Share moved to FAB** (Website) — Share button relocated from the header bar into the FAB menu as the first action item
