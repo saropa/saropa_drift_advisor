@@ -969,28 +969,12 @@
     })();
 
     // --- Connection status integration ---
-    // Single source for connection-state display: when connected, defers to updatePollingUI()
-    // (Live/Paused); when disconnected or reconnecting, shows Offline/Reconnecting and disables the toggle.
+    // Delegates all pill DOM updates to masthead.js via window.mastheadStatus.
+    // This function is the single call-site in app.js — all connection-state
+    // changes (WebSocket open/close/error, polling toggle) route through here.
     function updateLiveIndicatorForConnection() {
-      var li = document.getElementById('live-indicator');
-      if (!li) return;
-      if (connectionState === 'connected') {
-        li.classList.remove('disconnected', 'reconnecting');
-        li.disabled = false;
-        updatePollingUI();
-      } else if (connectionState === 'disconnected') {
-        li.textContent = '\u25cf Offline';
-        li.classList.add('disconnected');
-        li.classList.remove('paused', 'reconnecting');
-        li.disabled = true;
-        li.title = 'Offline — connection lost. Reconnect to resume live updates.';
-      } else {
-        li.textContent = '\u25cf Reconnecting\u2026';
-        li.classList.add('disconnected', 'reconnecting');
-        li.classList.remove('paused');
-        li.disabled = true;
-        li.title = 'Offline — reconnecting…';
-      }
+      if (!window.mastheadStatus) return;
+      window.mastheadStatus.setConnection(connectionState, pollingEnabled);
     }
 
     // --- Disable / enable server-dependent controls ---
@@ -5872,10 +5856,9 @@
     function refreshOnGenerationChange() {
       if (refreshInFlight) return;
       refreshInFlight = true;
-      var liveEl = document.getElementById('live-indicator');
-      // Only show "Updating..." if we're actually connected — avoids
-      // overwriting the "Disconnected" indicator during a stale refresh.
-      if (liveEl && connectionState === 'connected') liveEl.textContent = 'Updating…';
+      // Show transient busy state while refreshing — only when connected,
+      // to avoid overwriting the Offline indicator during a stale refresh.
+      if (window.mastheadStatus && connectionState === 'connected') window.mastheadStatus.setBusy();
       fetch('/api/tables', authOpts())
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -5953,36 +5936,27 @@
           setTimeout(pollGeneration, currentBackoffMs);
         });
     }
-    // --- Connection status: Live / Paused / Offline (single control, tap toggles Live ↔ Paused when connected) ---
+    // --- Connection status: Online / Paused / Offline ---
+    // DOM updates and labels are owned by masthead.js (window.mastheadStatus).
+    // app.js owns the polling state and toggle POST; masthead.js owns display.
     var pollingEnabled = true;
-    var liveIndicator = document.getElementById('live-indicator');
+
     // Read initial state from server on page load.
     fetch('/api/change-detection', authOpts())
       .then(function(r) { return r.json(); })
       .then(function(data) {
         pollingEnabled = data.changeDetection !== false;
-        updatePollingUI();
+        updateLiveIndicatorForConnection();
       })
       .catch(function() { /* keep default ON */ });
-    /** Updates the single connection-status pill: Live, Paused, or Offline/Reconnecting when not connected. */
-    function updatePollingUI() {
-      if (!liveIndicator) return;
-      if (connectionState === 'connected') {
-        liveIndicator.textContent = pollingEnabled ? '\u25cf Live' : '\u25cf Paused';
-        liveIndicator.classList.toggle('paused', !pollingEnabled);
-        liveIndicator.disabled = false;
-        liveIndicator.title = pollingEnabled
-          ? 'Live — click to pause change detection.'
-          : 'Paused — click to resume live updates.';
-      }
-      // When disconnected, updateLiveIndicatorForConnection() sets text and disabled state.
-    }
-    if (liveIndicator) {
-      liveIndicator.addEventListener('click', function() {
-        // Only toggle when connected and not already in-flight (avoids double POST).
-        if (connectionState !== 'connected' || liveIndicator.disabled) return;
-        liveIndicator.disabled = true;
-        liveIndicator.textContent = '\u2026';
+
+    // Wire the masthead pill click to toggle change-detection polling.
+    // masthead.js calls this when the user clicks the status pill.
+    if (window.mastheadStatus) {
+      window.mastheadStatus.onToggle = function() {
+        // Only toggle when connected (masthead.js disables the button when offline).
+        if (connectionState !== 'connected') return;
+        window.mastheadStatus.setBusy();
         var newState = !pollingEnabled;
         fetch('/api/change-detection', Object.assign({}, authOpts(), {
           method: 'POST',
@@ -5998,8 +5972,6 @@
             console.error('Failed to toggle polling:', e);
           })
           .finally(function() {
-            liveIndicator.disabled = false;
-            // Restore label and keep-alive; updateLiveIndicatorForConnection calls updatePollingUI when connected.
             updateLiveIndicatorForConnection();
             if (!pollingEnabled && connectionState === 'connected') {
               startKeepAlive();
@@ -6007,7 +5979,7 @@
               stopKeepAlive();
             }
           });
-      });
+      };
     }
     // --- NL-to-SQL: modal shows a live preview only; Use copies into #sql-input (debounced preview). ---
     var nlLiveDebounce = null;

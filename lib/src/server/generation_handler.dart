@@ -65,6 +65,10 @@ final class GenerationHandler {
   /// Small self-contained module (~2 KB) for the floating action button.
   static String? _cachedFabJs;
 
+  /// Cached masthead module JS, populated alongside app.js.
+  /// Self-contained connection-status pill UI controller (~3 KB).
+  static String? _cachedMastheadJs;
+
   /// Cached table-def-toggle module JS, populated alongside app.js.
   /// Self-contained collapsible toggle for the table definition panel.
   static String? _cachedTableDefToggleJs;
@@ -149,6 +153,7 @@ final class GenerationHandler {
         inlineCss: _cachedStyleCss,
         inlineJs: _cachedAppJs,
         inlineFabJs: _cachedFabJs,
+        inlineMastheadJs: _cachedMastheadJs,
         inlineTableDefToggleJs: _cachedTableDefToggleJs,
       ),
     );
@@ -211,6 +216,7 @@ final class GenerationHandler {
       'assets/web/style.css' => _cachedStyleCss,
       'assets/web/app.js' => _cachedAppJs,
       'assets/web/fab.js' => _cachedFabJs,
+      'assets/web/masthead.js' => _cachedMastheadJs,
       'assets/web/table-def-toggle.js' => _cachedTableDefToggleJs,
       _ => null,
     };
@@ -434,6 +440,15 @@ final class GenerationHandler {
     } on Object catch (e) {
       // Non-fatal: FAB init falls back to CDN loader.
       log('[SDA] FAB JS asset cache failed: $e');
+    }
+    try {
+      final mastheadJsFile = File('$packageRoot/assets/web/masthead.js');
+      if (await mastheadJsFile.exists()) {
+        _cachedMastheadJs = await mastheadJsFile.readAsString();
+      }
+    } on Object catch (e) {
+      // Non-fatal: masthead init falls back to CDN loader.
+      log('[SDA] masthead JS asset cache failed: $e');
     }
     try {
       final tdFile = File('$packageRoot/assets/web/table-def-toggle.js');

@@ -33,6 +33,12 @@ declare global {
   }
   interface Window {
     _chartRows?: unknown[];
+    /** Masthead pill API — set by masthead.js, consumed by app.js. */
+    mastheadStatus?: {
+      setConnection(state: 'connected' | 'disconnected' | 'reconnecting', pollingEnabled: boolean): void;
+      setBusy(): void;
+      onToggle: (() => void) | null;
+    };
   }
 }
 

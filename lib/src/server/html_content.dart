@@ -60,8 +60,8 @@ abstract final class HtmlContent {
 
   /// Builds the HTML shell with assets either inlined or loaded from CDN.
   ///
-  /// When [inlineCss], [inlineJs], [inlineFabJs], and
-  /// [inlineTableDefToggleJs] are provided (non-null), they are
+  /// When [inlineCss], [inlineJs], [inlineFabJs], [inlineMastheadJs],
+  /// and [inlineTableDefToggleJs] are provided (non-null), they are
   /// embedded directly in `<style>` / `<script>` tags — zero extra
   /// requests, works offline, and avoids the unreliable `onerror`
   /// fallback chain. When null, a small fetch-based loader tries
@@ -70,6 +70,7 @@ abstract final class HtmlContent {
     String? inlineCss,
     String? inlineJs,
     String? inlineFabJs,
+    String? inlineMastheadJs,
     String? inlineTableDefToggleJs,
   }) {
     // CSS: inline <style> when available, otherwise CDN <link>.
@@ -111,6 +112,22 @@ abstract final class HtmlContent {
   var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/fab.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/fab.js'];
   function tryNext(){
     if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'fab.js'}));return}
+    var u=urls.shift(),s=document.createElement('script');
+    s.src=u;s.onerror=tryNext;document.body.appendChild(s);
+  }
+  tryNext();
+})();
+</script>''';
+
+    // Masthead module: connection-status pill UI controller.
+    // Loaded after app.js so the DOM elements and connection state exist.
+    final mastheadJsTag = inlineMastheadJs != null
+        ? '<script>${inlineMastheadJs.replaceAll('</script>', r'<\/script>')}</script>'
+        : '''<script>
+(function(){
+  var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/masthead.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/masthead.js'];
+  function tryNext(){
+    if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'masthead.js'}));return}
     var u=urls.shift(),s=document.createElement('script');
     s.src=u;s.onerror=tryNext;document.body.appendChild(s);
   }
@@ -618,6 +635,7 @@ abstract final class HtmlContent {
 
   $jsTag
   $fabJsTag
+  $mastheadJsTag
   $tableDefToggleJsTag
 </body></html>
 ''';
