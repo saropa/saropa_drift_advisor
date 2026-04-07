@@ -1004,7 +1004,7 @@
       'size-save', 'size-export', 'size-compare',
       'anomaly-save', 'anomaly-export', 'anomaly-compare',
       'perf-refresh', 'perf-clear', 'perf-save', 'perf-export', 'perf-compare',
-      'import-run', 'share-btn',
+      'import-run', 'fab-share-btn',
       'export-schema', 'export-dump', 'export-database', 'export-csv', 'export-json'
     ];
 
@@ -1343,7 +1343,7 @@
       if (cols.length === 0) return '';
       _qbColTypes = colTypes;
       var html = '<div class="qb-section">';
-      html += '<div class="qb-header" id="qb-toggle">\u25BC Query builder</div>';
+      html += '<div class="qb-header" id="qb-toggle">\25BC Query builder</div>';
       html += '<div id="qb-body" class="qb-body collapsed">';
       html += '<div class="qb-row"><label>SELECT</label><div class="qb-columns" id="qb-columns">';
       cols.forEach(function(c) {
@@ -1569,7 +1569,7 @@
           var body = document.getElementById('qb-body');
           var toggle = document.getElementById('qb-toggle');
           if (body) body.classList.remove('collapsed');
-          if (toggle) toggle.textContent = '\u25B2 Query builder';
+          if (toggle) toggle.textContent = '\25B2 Query builder';
           saveTableState(currentTableName);
         })
         .catch(function(e) { alert('Error: ' + e.message); })
@@ -1594,7 +1594,7 @@
         toggle.addEventListener('click', function() {
           var collapsed = body.classList.contains('collapsed');
           body.classList.toggle('collapsed', !collapsed);
-          toggle.textContent = collapsed ? '\u25B2 Query builder' : '\u25BC Query builder';
+          toggle.textContent = collapsed ? '\25B2 Query builder' : '\25BC Query builder';
         });
       }
       var addBtn = document.getElementById('qb-add-where');
@@ -1840,18 +1840,12 @@
       }
     }
 
-    // Return the next theme in the cycle. When the enhanced CDN
-    // stylesheet is loaded, the cycle includes all four themes;
-    // otherwise it toggles between dark and light only.
+    // All four themes are fully supported via inline CSS.
+    // Four-way cycle: light -> showcase -> dark -> midnight -> light
     function nextTheme(current) {
-      if (window._driftEnhancedLoaded) {
-        // Four-way cycle: light → showcase → dark → midnight → light
-        var cycle = ['light', 'showcase', 'dark', 'midnight'];
-        var idx = cycle.indexOf(current);
-        return cycle[(idx + 1) % cycle.length];
-      }
-      // Fallback two-way toggle when enhanced CSS is unavailable.
-      return current === 'dark' ? 'light' : 'dark';
+      var cycle = ['light', 'showcase', 'dark', 'midnight'];
+      var idx = cycle.indexOf(current);
+      return cycle[(idx + 1) % cycle.length];
     }
 
     // Return the current theme name by inspecting body classes.
@@ -1879,17 +1873,9 @@
     function initTheme() {
       var saved = localStorage.getItem(THEME_KEY);
       if (saved) {
-        // User has an explicit override — honour it. Saved values may
-        // be 'dark', 'light', 'showcase', or 'midnight'. Premium themes
-        // (showcase/midnight) need enhanced CSS; degrade gracefully if
-        // the CDN hasn't loaded yet — the onload handler will upgrade.
-        if (saved === 'showcase' && !window._driftEnhancedLoaded) {
-          applyTheme('light');
-        } else if (saved === 'midnight' && !window._driftEnhancedLoaded) {
-          applyTheme('dark');
-        } else {
-          applyTheme(saved);
-        }
+        // User has an explicit override. All four themes
+        // (dark, light, showcase, midnight) are fully supported inline.
+        applyTheme(saved);
         return;
       }
       // No saved preference: try VS Code webview context first, then
@@ -1907,9 +1893,7 @@
       applyTheme(prefersDark ? 'dark' : 'light');
     }
 
-    // Toggle button: cycle through themes. When the enhanced CDN
-    // stylesheet is loaded the cycle is light → showcase → dark →
-    // midnight; otherwise it toggles between dark and light only.
+    // Toggle button: cycle through all four themes.
     // Theme cycle button lives in the super FAB menu.
     var fabThemeBtn = document.getElementById('fab-theme-toggle');
     if (fabThemeBtn) {
@@ -4600,12 +4584,17 @@
     }
 
     /**
-     * Renders a compact column list (name, SQLite type, PK / NOT NULL) from
-     * /api/schema/metadata via schemaTableByName. Empty string when metadata
-     * is missing so table tabs still work offline partial failures.
-     */
-    function buildTableDefinitionHtml(tableName) {
-      var t = schemaTableByName(tableName);
+      // Self-contained collapsible: inline onclick toggles the sibling body
+      // and swaps the arrow. Mirrors the query builder toggle pattern but
+      // needs no external bind function or render-site wiring.
+      var toggleJs = "var b=this.nextElementSibling;var c=b.classList.toggle('collapsed');this.textContent=c?'▼ Table definition':'▲ Table definition'";
+      return '<div class="table-definition-wrap" role="region" aria-label="Table definition">' +
+        '<div class="table-definition-heading" onclick="' + toggleJs + '">▼ Table definition</div>' +
+        '<div class="table-definition-body collapsed">' +
+        '<div class="table-definition-scroll">' +
+        '<table class="table-definition">' +
+        '<thead><tr><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table></div></div></div>';
       if (!t || !t.columns || t.columns.length === 0) return '';
       var rows = t.columns.map(function(c) {
         var flags = [];
@@ -6227,67 +6216,8 @@
           badge.title = 'v' + d.version + ' — View changelog';
           badge.style.opacity = '1';
 
-          // Load enhanced CSS from jsDelivr CDN. The URL is pinned to the
-          // exact git tag matching this package version, so the styles are
-          // immutably cached per release. If the CDN is down, blocked by a
-          // firewall, or the tag hasn't been pushed yet, the page degrades
-          // gracefully to inline CSS. Detection uses onload + a polling
-          // fallback (some webviews never fire onload for <link> elements).
-          var link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v'
-            + d.version + '/web/drift-enhanced.css';
-          // Unlock premium themes (showcase/midnight) once the enhanced
-          // stylesheet is usable. Called by onload *or* by the timeout
-          // poller (some webviews never fire onload for <link> elements).
-          function markEnhancedReady() {
-            if (window._driftEnhancedLoaded) return; // already done
-            window._driftEnhancedLoaded = true;
-            var saved = localStorage.getItem(THEME_KEY);
-            if (!saved) {
-              // No explicit preference — pick the premium variant
-              // matching the user's current colour scheme.
-              var cur = currentTheme();
-              applyTheme(cur === 'dark' ? 'midnight' : 'showcase');
-            } else if (saved === 'showcase' || saved === 'midnight') {
-              // User saved a premium theme but initTheme degraded it
-              // (showcase→light, midnight→dark) because enhanced CSS
-              // wasn't loaded yet. Now that it is, restore their choice.
-              applyTheme(saved);
-            }
-          }
-
-          link.onload = function() { markEnhancedReady(); };
-          link.onerror = function() { /* CDN down — degrade gracefully */ };
-
-          // Fallback: some browsers/webviews (VS Code, older WebKit)
-          // never fire onload on <link> stylesheet elements. Poll the
-          // sheet's cssRules to detect when it's actually parsed and
-          // applied. Stops after 10 seconds to avoid infinite polling.
-          var pollCount = 0;
-          var pollInterval = setInterval(function() {
-            pollCount++;
-            try {
-              // cssRules is accessible once the stylesheet is parsed.
-              // Cross-origin sheets throw SecurityError — catch that.
-              if (link.sheet && link.sheet.cssRules && link.sheet.cssRules.length > 0) {
-                clearInterval(pollInterval);
-                markEnhancedReady();
-              }
-            } catch (e) {
-              // Cross-origin SecurityError: the sheet loaded (it has a
-              // .sheet object) but we can't read its rules. That's fine
-              // — it means the CSS is applied.
-              if (link.sheet) {
-                clearInterval(pollInterval);
-                markEnhancedReady();
-              }
-            }
-            if (pollCount >= 40) { // 40 × 250ms = 10s max
-              clearInterval(pollInterval);
-            }
-          }, 250);
-          document.head.appendChild(link);
+          // Premium theme effects (glassmorphism, aurora gradients, animations)
+          // are built into style.css -- no external CDN stylesheet needed.
         }
       })
       .catch(function() { /* version badge stays hidden on failure */ });
@@ -6326,7 +6256,7 @@
       // Use literal newlines so the native prompt() shows line breaks in the message.
       var note = prompt('Add a note for your team (optional):\n\nSession will expire in 1 hour.');
       if (note === null) return;
-      var btn = document.getElementById('share-btn');
+      var btn = document.getElementById('fab-share-btn');
       btn.disabled = true;
       setButtonBusy(btn, true, 'Sharing\u2026');
       var state = captureViewerState();
@@ -6349,11 +6279,16 @@
         })
         .finally(function () {
           btn.disabled = false;
-          setButtonBusy(btn, false, 'Share');
+          // Restore the FAB action's icon + label structure after busy state.
+          btn.classList.remove('btn-busy');
+          btn.innerHTML =
+            '<span class="material-symbols-outlined" aria-hidden="true">share</span>' +
+            '<span class="fab-action-label">Share</span>';
         });
     }
 
-    document.getElementById('share-btn').addEventListener('click', createShareSession);
+    // Share button now lives in the FAB menu.
+    document.getElementById('fab-share-btn').addEventListener('click', createShareSession);
 
     function applySessionState(state) {
       if (state.currentTable) {
@@ -6815,42 +6750,5 @@
       });
     })();
 
-    // --- Super FAB: expand/collapse the floating action menu. ---
-    (function initSuperFab() {
-      var fab = document.getElementById('super-fab');
-      var trigger = document.getElementById('super-fab-trigger');
-      var menu = document.getElementById('super-fab-menu');
-      var icon = document.getElementById('super-fab-icon');
-      if (!fab || !trigger || !menu) return;
-
-      /** Toggle the FAB open/closed state. */
-      function toggleFab() {
-        var opening = !fab.classList.contains('open');
-        fab.classList.toggle('open', opening);
-        trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
-        menu.setAttribute('aria-hidden', opening ? 'false' : 'true');
-        // Swap between "tune" (settings gear) and "close" icons.
-        if (icon) icon.textContent = opening ? 'close' : 'tune';
-      }
-
-      trigger.addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleFab();
-      });
-
-      // Close the FAB when clicking outside of it.
-      document.addEventListener('click', function(e) {
-        if (fab.classList.contains('open') && !fab.contains(/** @type {Node} */ (e.target))) {
-          toggleFab();
-        }
-      });
-
-      // Close the FAB on Escape key.
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && fab.classList.contains('open')) {
-          toggleFab();
-          trigger.focus();
-        }
-      });
-    })();
+    // --- Super FAB UI controller moved to fab.js (loaded as separate script). ---
 

@@ -140,79 +140,38 @@ describe('Web theme contract — app.js', () => {
     );
   });
 
-  it('enhanced CSS onload sets _driftEnhancedLoaded flag', () => {
+  it('does NOT reference _driftEnhancedLoaded (all themes inline)', () => {
+    // Premium theme effects are now built into style.css. There is no
+    // external CDN stylesheet, so the _driftEnhancedLoaded gate and
+    // markEnhancedReady logic are removed entirely.
     assert.ok(
-      js.includes('_driftEnhancedLoaded'),
-      'app.js must set window._driftEnhancedLoaded when enhanced CSS loads',
+      !js.includes('_driftEnhancedLoaded'),
+      'app.js must not reference _driftEnhancedLoaded (all themes are always available)',
     );
   });
 
-  it('premium theme applied when enhanced CSS loads and no saved preference', () => {
-    // After enhanced CSS loads, if no explicit theme is saved, the
-    // onload handler should apply a premium theme (showcase or midnight).
+  it('does NOT reference drift-enhanced.css (no CDN dependency)', () => {
     assert.ok(
-      js.includes("applyTheme(cur === 'dark' ? 'midnight' : 'showcase')"),
-      'app.js must apply premium theme in enhanced CSS onload when no saved preference',
+      !js.includes('drift-enhanced'),
+      'app.js must not load drift-enhanced.css (effects are inline in style.css)',
     );
   });
 
-  it('saved showcase preference degrades to light when enhanced CSS not loaded', () => {
-    // If the user saved 'showcase' but enhanced CSS hasn't loaded yet
-    // (e.g. CDN blocked), initTheme must fall back to 'light' to avoid
-    // a broken experience.
+  it('initTheme applies saved theme directly without degradation', () => {
+    // Previously, initTheme degraded showcase->light and midnight->dark
+    // when CDN CSS was not loaded. Now all themes are always available,
+    // so initTheme must apply the saved value directly via applyTheme(saved).
     assert.ok(
-      js.includes("saved === 'showcase' && !window._driftEnhancedLoaded"),
-      'initTheme must fall back from showcase to light when enhanced CSS is unavailable',
+      js.includes('applyTheme(saved)'),
+      'initTheme must apply saved theme directly without CDN checks',
     );
-  });
-
-  it('saved midnight preference degrades to dark when enhanced CSS not loaded', () => {
-    // If the user saved 'midnight' but enhanced CSS hasn't loaded yet
-    // (e.g. CDN blocked), initTheme must fall back to 'dark'.
     assert.ok(
-      js.includes("saved === 'midnight' && !window._driftEnhancedLoaded"),
-      'initTheme must fall back from midnight to dark when enhanced CSS is unavailable',
+      !js.includes("saved === 'showcase' && !window"),
+      'initTheme must not degrade showcase to light',
     );
-  });
-
-  it('markEnhancedReady restores degraded premium theme after CDN loads', () => {
-    // When initTheme degrades showcase→light or midnight→dark, the
-    // saved localStorage value is still the premium name. When enhanced
-    // CSS finally loads, markEnhancedReady must re-apply the saved
-    // premium theme instead of leaving the user on the base theme.
     assert.ok(
-      js.includes("saved === 'showcase' || saved === 'midnight'"),
-      'markEnhancedReady must restore saved premium theme after degradation',
-    );
-  });
-
-  it('does NOT null link.onload in a timeout (regression: destroyed showcase detection)', () => {
-    // Before this fix, a 3-second setTimeout nulled link.onload and
-    // link.onload, so if the CDN was slightly slow or the browser
-    // never fired onload (VS Code webview), _driftEnhancedLoaded was
-    // never set and the showcase theme was permanently locked out.
-    assert.ok(
-      !js.includes('link.onload = null'),
-      'app.js must NOT null link.onload — this destroyed showcase detection in v2.17.0',
-    );
-  });
-
-  it('uses polling fallback to detect enhanced CSS load', () => {
-    // Some browsers/webviews never fire onload for <link> stylesheet
-    // elements. The polling fallback checks link.sheet to detect when
-    // the CSS is parsed, regardless of whether onload fires.
-    assert.ok(
-      js.includes('link.sheet'),
-      'app.js must poll link.sheet as fallback for onload-less environments',
-    );
-  });
-
-  it('markEnhancedReady is idempotent', () => {
-    // The guard prevents double-applying the showcase theme if both
-    // onload and the poll fire.
-    assert.ok(
-      js.includes('if (window._driftEnhancedLoaded) return'),
-      'markEnhancedReady must guard against double invocation',
+      !js.includes("saved === 'midnight' && !window"),
+      'initTheme must not degrade midnight to dark',
     );
   });
 });

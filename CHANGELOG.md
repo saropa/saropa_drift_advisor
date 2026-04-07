@@ -46,6 +46,7 @@ browse source on
 - **Connection status terminology** (Website) — renamed "Live" to "Online" throughout the web viewer for clarity
 - **Collapsible table definition** (Website) — table definition panel above the data grid is now collapsible (▼/▲ toggle, collapsed by default), matching the query builder pattern
 - **Sidebar toggle arrow** (Website) — arrow is now larger, right-aligned, and points left instead of down for clearer collapse affordance
+- **Premium theme effects** (Website) — Showcase and Midnight themes now have real glassmorphism (backdrop-filter blur on header, sidebar, cards), animated gradient backgrounds, rainbow shimmer borders on expanded cards, floating glow orb (Midnight), entrance animations, and gradient buttons; removed broken CDN dependency on nonexistent drift-enhanced.css; all four themes are always available without external network requests
 - **Monospace font upgrade** (Website) — switched to JetBrains Mono via Google Fonts CDN; centralized font stack into a single `--font-mono` CSS custom property for easy future changes
 
 ---

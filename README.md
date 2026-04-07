@@ -161,7 +161,7 @@ Full REST endpoint documentation with request/response schemas, error codes, and
 
 #### Theme
 
-- **Four themes** — Light (default), Showcase (glassmorphism with animated gradients, frosted-glass panels, and rainbow accents), Dark, and Midnight (deep navy with periwinkle accents and glassmorphism); toggle cycles through all four when the enhanced CDN stylesheet loads, or falls back to Light/Dark when offline
+- **Four themes** — Light (default), Showcase (glassmorphism with animated gradients, frosted-glass panels, and rainbow accents), Dark, and Midnight (deep navy with aurora glow, periwinkle accents, and glassmorphism); toggle always cycles through all four
 - Theme choice saved in localStorage; **OS dark-mode sync** on first visit (`prefers-color-scheme`); VS Code webview theme auto-detected when running in the extension
 
 ---

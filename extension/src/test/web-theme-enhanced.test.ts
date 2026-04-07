@@ -1,164 +1,205 @@
 /**
- * Contract tests for drift-enhanced.css (CDN-only premium stylesheet).
+ * Contract tests for premium theme effects (showcase + midnight) in style.css.
  *
- * Verifies that the enhanced stylesheet contains the expected
- * glassmorphism effects, animations, and safety constraints for the
- * showcase and midnight premium themes. These tests ensure the
- * enhanced CSS adds visual flair without breaking the base layout
- * defined in style.css.
- *
- * Split from web-theme-contract.test.ts to keep each file under the
- * 300-line threshold. Shared helpers live in web-theme-test-helpers.ts.
+ * Verifies that the compiled stylesheet contains the expected glassmorphism
+ * effects, animations, and safety constraints. All effects are inline in
+ * style.css (no external CDN stylesheet). Split from
+ * web-theme-contract.test.ts for modularity. Shared helpers live in
+ * web-theme-test-helpers.ts.
  */
 import * as assert from 'assert';
 import { readAsset, extractBlock } from './web-theme-test-helpers';
 
-describe('Web theme contract — drift-enhanced.css (CDN-only)', () => {
+describe('Web theme contract — premium theme effects in style.css', () => {
   let css: string;
 
   before(() => {
-    css = readAsset('web/drift-enhanced.css');
+    css = readAsset('assets/web/style.css');
   });
 
-  it('contains showcase glassmorphism effects', () => {
+  // --- Showcase theme: glassmorphism + rainbow accents ---
+
+  it('contains showcase glassmorphism backdrop-filter', () => {
     assert.ok(
       css.includes('backdrop-filter'),
-      'drift-enhanced.css must contain backdrop-filter for glassmorphism',
+      'style.css must contain backdrop-filter for glassmorphism',
     );
   });
 
-  it('contains animated background keyframes', () => {
+  it('contains showcase animated background keyframes', () => {
     assert.ok(
-      css.includes('@keyframes premium-bg-shift'),
-      'drift-enhanced.css must contain the background gradient animation',
+      css.includes('@keyframes showcase-bg-shift'),
+      'style.css must contain the showcase background gradient animation',
     );
   });
 
-  it('contains rainbow border animation', () => {
+  it('contains showcase rainbow border animation', () => {
     assert.ok(
-      css.includes('@keyframes rainbow-slide'),
-      'drift-enhanced.css must contain the rainbow border animation',
+      css.includes('@keyframes showcase-rainbow-border'),
+      'style.css must contain the rainbow border animation for expanded cards',
     );
   });
 
   it('contains card entrance animation', () => {
     assert.ok(
-      css.includes('@keyframes card-entrance'),
-      'drift-enhanced.css must contain the card entrance animation',
+      css.includes('@keyframes fancy-card-enter'),
+      'style.css must contain the card entrance animation',
     );
   });
 
-  it('contains glass shimmer animation', () => {
+  it('contains header entrance animation', () => {
     assert.ok(
-      css.includes('@keyframes glass-shimmer'),
-      'drift-enhanced.css must contain the glass shimmer sweep animation',
+      css.includes('@keyframes fancy-header-enter'),
+      'style.css must contain the header entrance animation',
     );
   });
 
-  it('contains floating orb animation', () => {
+  it('contains sidebar title slide animation', () => {
     assert.ok(
-      css.includes('@keyframes float-drift'),
-      'drift-enhanced.css must contain the floating ambient orb animation',
+      css.includes('@keyframes fancy-slide-right'),
+      'style.css must contain the sidebar title slide-in animation',
     );
   });
 
-  it('does NOT redefine core CSS variables (those live in style.css)', () => {
-    // The enhanced CSS should only add visual effects — never redefine
-    // layout-critical variables, which would cause a flash when it loads.
+  // --- Midnight theme: aurora + glow ---
+
+  it('contains midnight aurora background animation', () => {
     assert.ok(
-      !css.includes('--bg:') && !css.includes('--fg:'),
-      'drift-enhanced.css must not redefine --bg or --fg (layout source of truth is style.css)',
+      css.includes('@keyframes midnight-aurora'),
+      'style.css must contain the midnight aurora background animation',
     );
   });
 
-  it('premium section does not contain theme-light or theme-dark selectors', () => {
-    // The dark-specific highlight rule is an exception pre-dating this
-    // change, but showcase/midnight effects must not bleed into base themes.
+  it('contains midnight floating orb animation', () => {
+    assert.ok(
+      css.includes('@keyframes midnight-orb-drift'),
+      'style.css must contain the midnight floating orb animation',
+    );
+  });
+
+  it('contains midnight glow border animation', () => {
+    assert.ok(
+      css.includes('@keyframes midnight-glow-border'),
+      'style.css must contain the midnight glow border animation',
+    );
+  });
+
+  it('midnight header has glassmorphism', () => {
+    // Use the MIDNIGHT THEME section marker to find the right header rule.
+    // The base .app-header does not have backdrop-filter.
+    const midnightIdx = css.indexOf('MIDNIGHT THEME');
+    assert.ok(midnightIdx !== -1, 'style.css must contain a MIDNIGHT THEME section');
+    const midnightSection = css.substring(midnightIdx);
+    const block = extractBlock(midnightSection, 'body.theme-midnight .app-header');
+    assert.ok(block.length > 0, 'midnight .app-header rule must exist in theme section');
+    assert.ok(
+      block.includes('backdrop-filter'),
+      'midnight header must use backdrop-filter for glass effect',
+    );
+  });
+
+  // --- Safety constraints ---
+
+  it('premium effects section does not target base themes', () => {
     const lines = css.split('\n');
-    const premiumStartIdx = lines.findIndex((l) => l.includes('SHOWCASE + MIDNIGHT'));
-    assert.ok(premiumStartIdx !== -1, 'drift-enhanced.css must contain a SHOWCASE + MIDNIGHT section');
-    const premiumSection = lines.slice(premiumStartIdx);
+    const showcaseIdx = lines.findIndex((l) => l.includes('SHOWCASE THEME'));
+    assert.ok(showcaseIdx !== -1, 'style.css must contain a SHOWCASE THEME section');
+    const reducedIdx = lines.findIndex(
+      (l, i) => i > showcaseIdx && l.includes('prefers-reduced-motion'),
+    );
+    const premiumSection = lines.slice(
+      showcaseIdx,
+      reducedIdx === -1 ? undefined : reducedIdx,
+    );
     for (const line of premiumSection) {
       assert.ok(
-        !line.includes('body.theme-dark') && !line.includes('body.theme-light'),
-        `Premium section in drift-enhanced.css must not target theme-dark or theme-light: "${line.trim()}"`,
+        !line.includes('body.theme-dark ') && !line.includes('body.theme-light '),
+        `Premium effects section must not target base themes: "${line.trim()}"`,
       );
     }
   });
 
-  it('does NOT override position on .app-header (breaks sticky header)', () => {
-    // The base CSS sets .app-header { position: sticky; z-index: 100; }.
-    // If drift-enhanced.css sets position: relative or position: absolute
-    // on a theme-qualified .app-header selector, it will override sticky
-    // because the theme selector has higher specificity. The header will
-    // scroll away instead of staying fixed at the top.
+  it('midnight ::before orb has pointer-events: none', () => {
+    const block = extractBlock(css, 'body.theme-midnight::before');
+    assert.ok(block.length > 0, 'body.theme-midnight::before must exist');
+    assert.ok(
+      block.includes('pointer-events: none'),
+      'midnight ::before orb must have pointer-events: none',
+    );
+  });
+
+  it('expanded card ::before has pointer-events: none', () => {
+    const showcaseBlock = extractBlock(
+      css,
+      'body.theme-showcase .feature-card.expanded::before',
+    );
+    const midnightBlock = extractBlock(
+      css,
+      'body.theme-midnight .feature-card.expanded::before',
+    );
+    assert.ok(showcaseBlock.length > 0, 'showcase expanded ::before must exist');
+    assert.ok(midnightBlock.length > 0, 'midnight expanded ::before must exist');
+    assert.ok(
+      showcaseBlock.includes('pointer-events: none'),
+      'showcase expanded ::before must have pointer-events: none',
+    );
+    assert.ok(
+      midnightBlock.includes('pointer-events: none'),
+      'midnight expanded ::before must have pointer-events: none',
+    );
+  });
+
+  it('reduced motion disables all theme animations', () => {
     const lines = css.split('\n');
-    for (const line of lines) {
-      if (line.includes('.app-header') && line.includes('{') && !line.includes('::') && !line.includes('>')) {
-        // Found a rule targeting .app-header directly (not ::after or > *)
-        // Read ahead to check for position override inside the block
-        const blockStart = lines.indexOf(line);
-        for (let i = blockStart + 1; i < lines.length && i < blockStart + 15; i++) {
-          if (lines[i].includes('}')) break;
-          assert.ok(
-            !lines[i].match(/^\s*position\s*:\s*(relative|absolute|fixed)/),
-            `drift-enhanced.css must not set position on .app-header (found at line ${i + 1}: "${lines[i].trim()}" — this breaks sticky header)`,
-          );
-        }
-      }
+    // Find the LAST reduced-motion block (the theme one, not the FAB one)
+    let lastReducedIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes('prefers-reduced-motion')) lastReducedIdx = i;
     }
-  });
-
-  it('clips shimmer on .app-header with overflow:hidden', () => {
-    // The shimmer ::after pseudo-element uses translateX(350%) which
-    // extends far beyond the header. Without overflow:hidden the
-    // shimmer would cause horizontal scrollbar flicker.
-    const showcaseHeader = css.indexOf('body.theme-showcase .app-header {');
-    const midnightHeader = css.indexOf('body.theme-midnight .app-header {');
-    assert.ok(showcaseHeader !== -1, 'showcase header rule must exist');
-    assert.ok(midnightHeader !== -1, 'midnight header rule must exist');
-
-    // Check both blocks contain overflow: hidden
-    const showcaseBlock = extractBlock(css, 'body.theme-showcase .app-header {');
-    const midnightBlock = extractBlock(css, 'body.theme-midnight .app-header {');
+    assert.ok(lastReducedIdx > 0, 'reduced-motion media query must exist');
+    const block = lines.slice(lastReducedIdx, lastReducedIdx + 30).join('\n');
     assert.ok(
-      showcaseBlock.includes('overflow: hidden') || showcaseBlock.includes('overflow:hidden'),
-      'showcase .app-header must have overflow:hidden to clip shimmer',
+      block.includes('body.theme-showcase'),
+      'reduced-motion must target showcase theme',
     );
     assert.ok(
-      midnightBlock.includes('overflow: hidden') || midnightBlock.includes('overflow:hidden'),
-      'midnight .app-header must have overflow:hidden to clip shimmer',
+      block.includes('body.theme-midnight'),
+      'reduced-motion must target midnight theme',
+    );
+    assert.ok(
+      block.includes('animation: none'),
+      'reduced-motion must set animation: none',
     );
   });
 
-  it('floating orbs have pointer-events:none', () => {
-    // The ::before and ::after on body create floating blurred orbs.
-    // They must not intercept clicks or the entire page becomes
-    // unresponsive behind the orbs.
-    const bodyBefore = extractBlock(css, 'body.theme-showcase::before');
-    const bodyAfter = extractBlock(css, 'body.theme-showcase::after');
+  // --- JS integration: no CDN dependency ---
+
+  it('app.js does not reference drift-enhanced.css', () => {
+    const js = readAsset('assets/web/app.js');
     assert.ok(
-      bodyBefore.includes('pointer-events: none'),
-      'showcase ::before orb must have pointer-events:none',
-    );
-    assert.ok(
-      bodyAfter.includes('pointer-events: none'),
-      'showcase ::after orb must have pointer-events:none',
+      !js.includes('drift-enhanced'),
+      'app.js must not reference drift-enhanced.css (effects are inline)',
     );
   });
 
-  it('contains midnight theme section with glassmorphism', () => {
+  it('app.js does not gate themes behind _driftEnhancedLoaded', () => {
+    const js = readAsset('assets/web/app.js');
     assert.ok(
-      css.includes('MIDNIGHT THEME'),
-      'drift-enhanced.css must contain a Midnight theme section',
+      !js.includes('_driftEnhancedLoaded'),
+      'app.js must not use _driftEnhancedLoaded flag',
     );
-    assert.ok(
-      css.includes('body.theme-midnight .app-header'),
-      'drift-enhanced.css must style the midnight header',
+  });
+
+  it('app.js nextTheme always cycles through all four themes', () => {
+    const js = readAsset('assets/web/app.js');
+    const nextThemeMatch = js.match(
+      /function nextTheme[\s\S]*?var cycle = \[(.*?)\]/,
     );
-    assert.ok(
-      css.includes('@keyframes midnight-bg-shift'),
-      'drift-enhanced.css must contain the midnight background animation',
-    );
+    assert.ok(nextThemeMatch, 'nextTheme function must define a cycle array');
+    const cycle = nextThemeMatch![1];
+    assert.ok(cycle.includes('light'), 'cycle must include light');
+    assert.ok(cycle.includes('showcase'), 'cycle must include showcase');
+    assert.ok(cycle.includes('dark'), 'cycle must include dark');
+    assert.ok(cycle.includes('midnight'), 'cycle must include midnight');
   });
 });
