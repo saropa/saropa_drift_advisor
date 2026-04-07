@@ -297,6 +297,7 @@ abstract final class HtmlContent {
           <input type="number" id="pagination-offset" min="0" step="1" aria-label="Row offset (advanced)" style="width: 5rem;" />
           <button type="button" id="pagination-apply" title="Apply offset and reload">Apply</button>
         </div>
+        <button type="button" id="sample-rows-btn" title="Load a random sample of rows from this table"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">shuffle</span>Sample</button>
         <button type="button" id="clear-table-state" title="Reset cached filter/pagination state for this table">Clear state</button>
         <button type="button" id="clear-table-data" class="btn-danger" style="display:none;" title="Delete all rows from this table (requires write access)">Clear rows</button>
         <button type="button" id="clear-all-data" class="btn-danger" style="display:none;" title="Delete all rows from every table (requires write access)">Clear all tables</button>

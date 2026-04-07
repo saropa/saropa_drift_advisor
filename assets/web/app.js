@@ -770,7 +770,7 @@
     // SQL runner query history: persist the last N successful SQL statements (not results)
     // so repeat checks are quick while keeping localStorage small.
     const SQL_HISTORY_KEY = 'drift-viewer-sql-history';
-    const SQL_HISTORY_MAX = 20;
+    const SQL_HISTORY_MAX = 200;
     const LIMIT_OPTIONS = [50, 200, 500, 1000];
     let cachedSchema = null;
     let currentTableName = null;
@@ -2688,15 +2688,59 @@
       const compareBtn = document.getElementById('anomaly-compare');
       var lastAnomalyData = null;
 
+      /**
+       * Computes a health score (0-100) and letter grade (A-F) from anomaly results.
+       * Errors deduct 15pts each, warnings 5pts, info 1pt.  Score floors at 0.
+       */
+      function computeHealthScore(anomalies) {
+        var score = 100;
+        (anomalies || []).forEach(function(a) {
+          if (a.severity === 'error') score -= 15;
+          else if (a.severity === 'warning') score -= 5;
+          else score -= 1;
+        });
+        if (score < 0) score = 0;
+        var grade;
+        if (score >= 90) grade = 'A';
+        else if (score >= 80) grade = 'B';
+        else if (score >= 70) grade = 'C';
+        else if (score >= 60) grade = 'D';
+        else grade = 'F';
+        var color;
+        if (score >= 80) color = '#81c784';
+        else if (score >= 60) color = '#ffb74d';
+        else color = '#e57373';
+        return { score: score, grade: grade, color: color };
+      }
+
       function renderAnomalyData(data) {
         if (!data) return '<p class="meta">No current result. Run Scan first.</p>';
         var anomalies = data.anomalies || [];
+        var health = computeHealthScore(anomalies);
+        // Health score pill: always shown after a scan (even when clean)
+        var html = '<div class="health-score-pill" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;margin:0.4rem 0;border-radius:6px;background:rgba(0,0,0,0.15);font-size:14px;">';
+        html += '<span style="font-size:1.6em;font-weight:700;color:' + health.color + ';">' + health.grade + '</span>';
+        html += '<span style="color:' + health.color + ';font-weight:600;">' + health.score + '/100</span>';
+        html += '<span class="meta" style="margin-left:0.3rem;">across ' + (data.tablesScanned || 0) + ' tables</span>';
+        html += '</div>';
         if (anomalies.length === 0) {
-          return '<p class="meta" style="color:#7cb342;">No anomalies detected across ' + (data.tablesScanned || 0) + ' tables. Data looks clean!</p>';
+          html += '<p class="meta" style="color:#7cb342;">No anomalies detected. Data looks clean!</p>';
+          return html;
         }
+        // Breakdown: count by severity
+        var errCount = 0, warnCount = 0, infoCount = 0;
+        anomalies.forEach(function(a) {
+          if (a.severity === 'error') errCount++;
+          else if (a.severity === 'warning') warnCount++;
+          else infoCount++;
+        });
+        var breakdown = [];
+        if (errCount) breakdown.push('<span style="color:#e57373;">' + errCount + ' error' + (errCount > 1 ? 's' : '') + '</span>');
+        if (warnCount) breakdown.push('<span style="color:#ffb74d;">' + warnCount + ' warning' + (warnCount > 1 ? 's' : '') + '</span>');
+        if (infoCount) breakdown.push('<span style="color:#7cb342;">' + infoCount + ' info</span>');
+        html += '<p class="meta">' + anomalies.length + ' finding(s): ' + breakdown.join(', ') + '</p>';
         var icons = { error: '!!', warning: '!', info: 'i' };
         var colors = { error: '#e57373', warning: '#ffb74d', info: '#7cb342' };
-        var html = '<p class="meta">' + anomalies.length + ' finding(s) across ' + (data.tablesScanned || 0) + ' tables:</p>';
         anomalies.forEach(function(a) {
           var color = colors[a.severity] || 'var(--fg)';
           var icon = icons[a.severity] || '';
@@ -3922,6 +3966,34 @@
         advanced.style.display = 'none';
       }
     })();
+    // Sample button: fetch a random sample of rows from the current table via
+    // SELECT * FROM "table" ORDER BY RANDOM() LIMIT N and display in the data view.
+    document.getElementById('sample-rows-btn').addEventListener('click', function() {
+      if (!currentTableName) return;
+      var btn = this;
+      var origHtml = btn.innerHTML;
+      var sampleSize = limit || 50;
+      var sql = 'SELECT * FROM "' + currentTableName.replace(/"/g, '""') + '" ORDER BY RANDOM() LIMIT ' + sampleSize;
+      btn.disabled = true;
+      btn.textContent = 'Sampling\u2026';
+      fetch('/api/sql', authOpts({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql: sql })
+      }))
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(o) {
+          if (!o.ok) throw new Error(o.data.error || 'Sample query failed');
+          var rows = o.data.rows || [];
+          currentTableJson = rows;
+          renderTableView(currentTableName, rows);
+        })
+        .catch(function(err) {
+          document.getElementById('content').innerHTML = '<p class="meta">Sample failed: ' + esc(String(err.message || err)) + '</p>';
+        })
+        .finally(function() { btn.disabled = false; btn.innerHTML = origHtml; });
+    });
+
     document.getElementById('clear-table-state').addEventListener('click', function() {
       clearTableState(currentTableName);
       document.getElementById('row-filter').value = '';
@@ -4472,8 +4544,11 @@
       visible.forEach(function(k) {
         var fk = fkMap[k];
         var fkLabel = fk ? ' <span class="table-header-fk" title="FK to ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '">&#8599;</span>' : '';
+        /* Column type badge: show abbreviated SQLite type next to the column name */
+        var colType = colTypes ? (colTypes[k] || '') : '';
+        var typeBadge = colType ? ' <span class="col-type-badge" title="' + esc(colType) + '">' + esc(colType.substring(0, 4)) + '</span>' : '';
         var thClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
-        html += '<th data-column-key="' + esc(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc(k) + fkLabel + '</th>';
+        html += '<th data-column-key="' + esc(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc(k) + typeBadge + fkLabel + '</th>';
       });
       html += '</tr></thead><tbody>';
       var maskOn = isPiiMaskEnabled();
@@ -4568,33 +4643,73 @@
     }
 
     /**
+     * Returns an icon character representing the SQL column type for quick
+     * visual scanning in the table definition panel.
+     */
+    function columnTypeIcon(rawType) {
+      if (!rawType) return '\u25CB'; // ○ — unknown/unspecified
+      var t = rawType.toUpperCase();
+      if (/INT/.test(t))                              return '#';
+      if (/CHAR|TEXT|CLOB|STRING/.test(t))            return 'T';
+      if (/REAL|FLOAT|DOUBLE|NUMERIC|DECIMAL/.test(t)) return '.#';
+      if (/BLOB|BINARY/.test(t))                      return '\u2B21'; // ⬡
+      if (/BOOL/.test(t))                             return '\u2713'; // ✓
+      if (/DATE|TIME|TIMESTAMP/.test(t))              return '\u25F7'; // ◷
+      return '\u25CB'; // ○ — fallback
+    }
+
+    /**
+     * Builds the collapsible table-definition panel showing column metadata
+     * (type icon, name, SQL type, PK/FK/constraint badges).
+     */
+    function buildTableDefinitionHtml(tableName) {
+      var t = schemaTableByName(tableName);
+      if (!t || !t.columns || t.columns.length === 0) return '';
+
+      // Build FK lookup from cached foreign-key metadata
+      var fkSet = {};
+      var cachedFks = fkMetaCache[tableName] || [];
+      cachedFks.forEach(function(fk) { fkSet[fk.fromColumn] = fk; });
+
+      var rows = t.columns.map(function(c) {
+        var rawType = c.type != null ? String(c.type).trim() : '';
+        // Type icon cell
+        var icon = columnTypeIcon(rawType);
+        var iconHtml = '<span class="table-def-icon" title="' + esc(rawType || 'unspecified') + '">' + esc(icon) + '</span>';
+        // PK / FK badge icons (separate from the type icon)
+        var badges = '';
+        if (c.pk)            badges += '<span class="table-def-badge table-def-badge-pk" title="Primary key">\uD83D\uDD11</span>';
+        if (fkSet[c.name])   badges += '<span class="table-def-badge table-def-badge-fk" title="FK \u2192 ' + esc(fkSet[c.name].toTable) + '.' + esc(fkSet[c.name].toColumn) + '">\uD83D\uDD17</span>';
+
+        // Constraints text (NOT NULL only — PK/FK are shown as badges)
+        var flags = [];
+        if (c.notnull) flags.push('NOT NULL');
+        var flagStr = flags.length ? flags.join(', ') : '\u2014';
+
+        var typCell = rawType ? esc(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
+        return '<tr>' +
+          '<td class="table-def-icons">' + iconHtml + badges + '</td>' +
+          '<td class="table-def-name">' + esc(c.name) + '</td>' +
+          '<td class="table-def-type">' + typCell + '</td>' +
+          '<td class="table-def-flags">' + esc(flagStr) + '</td>' +
+          '</tr>';
+      }).join('');
+
       // Self-contained collapsible: inline onclick toggles the sibling body
-      // and swaps the arrow. Mirrors the query builder toggle pattern but
-      // needs no external bind function or render-site wiring.
-      var toggleJs = "var b=this.nextElementSibling;var c=b.classList.toggle('collapsed');this.textContent=c?'▼ Table definition':'▲ Table definition'";
+      // and swaps the arrow. Mirrors the query builder toggle pattern.
+      var toggleJs = "var b=this.nextElementSibling;var c=b.classList.toggle('collapsed');this.textContent=c?'\\u25BC Table definition':'\\u25B2 Table definition'";
       return '<div class="table-definition-wrap" role="region" aria-label="Table definition">' +
-        '<div class="table-definition-heading" onclick="' + toggleJs + '">▼ Table definition</div>' +
+        '<div class="table-definition-heading" onclick="' + toggleJs + '">\u25BC Table definition</div>' +
         '<div class="table-definition-body collapsed">' +
         '<div class="table-definition-scroll">' +
         '<table class="table-definition">' +
-        '<thead><tr><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th></tr></thead>' +
+        '<thead><tr>' +
+          '<th class="table-def-icons" scope="col"></th>' +
+          '<th scope="col">Column</th>' +
+          '<th scope="col">Type</th>' +
+          '<th scope="col">Constraints</th>' +
+        '</tr></thead>' +
         '<tbody>' + rows + '</tbody></table></div></div></div>';
-      if (!t || !t.columns || t.columns.length === 0) return '';
-      var rows = t.columns.map(function(c) {
-        var flags = [];
-        if (c.pk) flags.push('PK');
-        if (c.notnull) flags.push('NOT NULL');
-        var flagStr = flags.length ? flags.join(', ') : '\u2014';
-        var rawType = c.type != null ? String(c.type).trim() : '';
-        var typCell = rawType ? esc(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
-        return '<tr><td class="table-def-name">' + esc(c.name) + '</td><td class="table-def-type">' + typCell + '</td><td class="table-def-flags">' + esc(flagStr) + '</td></tr>';
-      }).join('');
-      return '<div class="table-definition-wrap" role="region" aria-label="Table definition">' +
-        '<div class="table-definition-heading">Table definition</div>' +
-        '<div class="table-definition-scroll">' +
-        '<table class="table-definition">' +
-        '<thead><tr><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th></tr></thead>' +
-        '<tbody>' + rows + '</tbody></table></div></div>';
     }
 
     function renderTableView(name, data) {
@@ -5760,17 +5875,38 @@
               var hasScan = false;
               var scanTable = null;
               var hasIndex = false;
-              // Single plain-English message: interpret SQLite EXPLAIN detail (SCAN = full table scan, SEARCH/USING INDEX = index lookup).
+              // Cost-analysis counters (populated in the same pass as scan/index detection)
+              var scanCount = 0;
+              var searchCount = 0;
+              var subqueryCount = 0;
+              var sortPresent = false;
+              var tempPresent = false;
+              // Single pass: interpret SQLite EXPLAIN detail for both plain-English
+              // message and cost analysis (SCAN = full table scan, SEARCH/USING INDEX = index lookup).
               rows.forEach(function(r) {
                 var d = String(r.detail || '').trim();
                 if (/\bSCAN\s+(?:TABLE\s+)?([^\s\n]+)/i.test(d)) {
                   hasScan = true;
+                  scanCount++;
                   if (scanTable == null) {
                     var m = d.match(/\bSCAN\s+(?:TABLE\s+)?([^\s\n]+)/i);
                     if (m) scanTable = m[1];
                   }
-                } else if (/\bSEARCH\b.*\bINDEX\b/.test(d) || /\bUSING\b.*\bINDEX\b/.test(d)) hasIndex = true;
+                } else if (/\bSEARCH\b.*\bINDEX\b/.test(d) || /\bUSING\b.*\bINDEX\b/.test(d)) {
+                  hasIndex = true;
+                  searchCount++;
+                }
+                if (/\bSUBQUERY\b/i.test(d) || /\bCORRELATED\b/i.test(d)) subqueryCount++;
+                if (/USE TEMP B-TREE.*ORDER/i.test(d)) sortPresent = true;
+                if (/TEMP B-TREE|TEMP TABLE/i.test(d)) tempPresent = true;
               });
+              // Cost rating: Low (index only), Medium (some scans or sorts), High (multiple scans/subqueries)
+              var costScore = scanCount * 3 + subqueryCount * 2 + (sortPresent ? 1 : 0) + (tempPresent ? 1 : 0);
+              var costLabel, costColor;
+              if (costScore === 0) { costLabel = 'Low'; costColor = '#81c784'; }
+              else if (costScore <= 3) { costLabel = 'Medium'; costColor = '#ffb74d'; }
+              else { costLabel = 'High'; costColor = '#e57373'; }
+
               var msg;
               if (hasScan) {
                 msg = 'This query reads every row of ' + (scanTable ? '<strong>' + esc(scanTable) + '</strong>' : 'the table') + '. ';
@@ -5780,7 +5916,29 @@
               } else {
                 msg = rows.length ? 'Plan: ' + esc(String(rows[0].detail || '').trim() || '—') : 'No plan.';
               }
+
+              // Build cost analysis summary below the main message
+              var costHtml = '<div class="explain-cost-bar" style="margin-top:0.4rem;font-size:12px;line-height:1.6;">';
+              costHtml += '<strong>Estimated cost:</strong> <span style="color:' + costColor + ';font-weight:600;">' + costLabel + '</span>';
+              var parts = [];
+              if (scanCount > 0) parts.push(scanCount + ' full scan' + (scanCount > 1 ? 's' : ''));
+              if (searchCount > 0) parts.push(searchCount + ' index lookup' + (searchCount > 1 ? 's' : ''));
+              if (subqueryCount > 0) parts.push(subqueryCount + ' subquer' + (subqueryCount > 1 ? 'ies' : 'y'));
+              if (sortPresent) parts.push('sort');
+              if (tempPresent) parts.push('temp storage');
+              if (parts.length > 0) costHtml += ' &mdash; ' + esc(parts.join(', '));
+              costHtml += '</div>';
+
+              // Show the full EXPLAIN QUERY PLAN detail rows for transparency
+              var detailHtml = '';
+              if (rows.length > 0) {
+                detailHtml = '<details style="margin-top:0.3rem;font-size:12px;"><summary style="cursor:pointer;color:var(--muted);">Query plan detail (' + rows.length + ' step' + (rows.length > 1 ? 's' : '') + ')</summary><pre style="margin:0.2rem 0;white-space:pre-wrap;">';
+                rows.forEach(function(r) { detailHtml += esc(String(r.detail || '').trim()) + '\n'; });
+                detailHtml += '</pre></details>';
+              }
+
               let html = '<p class="meta" style="line-height:1.5;">' + (hasScan ? '<span style="color:#e57373;">' + msg + '</span>' : (hasIndex ? '<span style="color:#81c784;">' + msg + '</span>' : msg)) + '</p>';
+              html += costHtml + detailHtml;
               resultEl.innerHTML = html;
               resultEl.style.display = 'block';
             })
