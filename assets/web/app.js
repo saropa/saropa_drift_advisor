@@ -4695,12 +4695,10 @@
           '</tr>';
       }).join('');
 
-      // Self-contained collapsible: inline onclick toggles the sibling body
-      // and swaps the arrow. Mirrors the query builder toggle pattern.
-      var toggleJs = "var b=this.nextElementSibling;var c=b.classList.toggle('collapsed');this.textContent=c?'\\u25BC Table definition':'\\u25B2 Table definition'";
+      // Collapsible behavior handled by table-def-toggle.js (event delegation
+      // + .td-collapsed class). DOM contract: wrap > heading + scroll.
       return '<div class="table-definition-wrap" role="region" aria-label="Table definition">' +
-        '<div class="table-definition-heading" onclick="' + toggleJs + '">\u25BC Table definition</div>' +
-        '<div class="table-definition-body collapsed">' +
+        '<div class="table-definition-heading">\u25BC Table definition</div>' +
         '<div class="table-definition-scroll">' +
         '<table class="table-definition">' +
         '<thead><tr>' +
@@ -4709,7 +4707,7 @@
           '<th scope="col">Type</th>' +
           '<th scope="col">Constraints</th>' +
         '</tr></thead>' +
-        '<tbody>' + rows + '</tbody></table></div></div></div>';
+        '<tbody>' + rows + '</tbody></table></div></div>';
     }
 
     function renderTableView(name, data) {

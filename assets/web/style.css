@@ -2392,11 +2392,7 @@ body.theme-dark .data-table-scroll-wrap {
   text-decoration: underline;
 }
 
-/* Collapsible body wrapping the scroll container */
-.table-definition-body.collapsed {
-  display: none;
-}
-
+/* Collapse handled by table-def-toggle.js (.td-collapsed .table-definition-scroll) */
 .table-definition-scroll {
   overflow-x: auto;
   border: 1px solid var(--border);
