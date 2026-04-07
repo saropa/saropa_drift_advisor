@@ -95,6 +95,9 @@ body.theme-showcase .feature-card.expanded::before {
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
@@ -309,6 +312,9 @@ body.theme-midnight .feature-card.expanded::before {
   animation: midnight-glow-border 5s linear infinite;
   /* Mask trick: only the 1px border ring is visible */
   -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;

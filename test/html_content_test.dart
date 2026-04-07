@@ -290,7 +290,8 @@ void main() {
       expect(
         html,
         contains('class="masthead-status connection-status"'),
-        reason: 'Status must use both masthead-status and connection-status classes',
+        reason:
+            'Status must use both masthead-status and connection-status classes',
       );
     });
 

@@ -1327,7 +1327,7 @@
       if (cols.length === 0) return '';
       _qbColTypes = colTypes;
       var html = '<div class="qb-section">';
-      html += '<div class="qb-header" id="qb-toggle">\25BC Query builder</div>';
+      html += '<div class="qb-header" id="qb-toggle">\u25BC Query builder</div>';
       html += '<div id="qb-body" class="qb-body collapsed">';
       html += '<div class="qb-row"><label>SELECT</label><div class="qb-columns" id="qb-columns">';
       cols.forEach(function(c) {
@@ -1553,7 +1553,7 @@
           var body = document.getElementById('qb-body');
           var toggle = document.getElementById('qb-toggle');
           if (body) body.classList.remove('collapsed');
-          if (toggle) toggle.textContent = '\25B2 Query builder';
+          if (toggle) toggle.textContent = '\u25B2 Query builder';
           saveTableState(currentTableName);
         })
         .catch(function(e) { alert('Error: ' + e.message); })
@@ -1578,7 +1578,7 @@
         toggle.addEventListener('click', function() {
           var collapsed = body.classList.contains('collapsed');
           body.classList.toggle('collapsed', !collapsed);
-          toggle.textContent = collapsed ? '\25B2 Query builder' : '\25BC Query builder';
+          toggle.textContent = collapsed ? '\u25B2 Query builder' : '\u25BC Query builder';
         });
       }
       var addBtn = document.getElementById('qb-add-where');
