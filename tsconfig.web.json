@@ -11,6 +11,6 @@
     "skipLibCheck": true,
     "noImplicitAny": false
   },
-  "include": ["assets/web/app.js", "assets/web/fab.js", "assets/web/masthead.js", "assets/web/dom-globals.d.ts"],
+  "include": ["assets/web/app.js", "assets/web/fab.js", "assets/web/masthead.js", "assets/web/sql-highlight.js", "assets/web/table-def-toggle.js", "assets/web/dom-globals.d.ts"],
   "exclude": ["node_modules"]
 }

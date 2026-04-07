@@ -8,8 +8,10 @@ declare global {
   interface HTMLElement {
     value?: string;
     disabled?: boolean;
+    hidden?: boolean;
     href?: string;
     files?: FileList | null;
+    options?: HTMLCollectionOf<HTMLOptionElement>;
     selectedOptions?: HTMLCollectionOf<HTMLOptionElement>;
     select?: () => void;
     _hideTimer?: number | null;
@@ -17,6 +19,7 @@ declare global {
   interface Element {
     value?: string;
     checked?: boolean;
+    hidden?: boolean;
     style?: CSSStyleDeclaration;
     focus?: () => void;
     closest?(selectors: string): Element | null;
@@ -28,17 +31,31 @@ declare global {
     id?: string;
     style?: CSSStyleDeclaration;
   }
+  interface Node {
+    contains(other: EventTarget | Node | null): boolean;
+  }
   interface Event {
     key?: string;
   }
   interface Window {
     _chartRows?: unknown[];
+    /** SQL syntax highlighter — set by sql-highlight.js, consumed by app.js. */
+    sqlHighlight?: (sql: string) => string;
     /** Masthead pill API — set by masthead.js, consumed by app.js. */
     mastheadStatus?: {
-      setConnection(state: 'connected' | 'disconnected' | 'reconnecting', pollingEnabled: boolean): void;
+      setConnection(state: string, pollingEnabled: boolean): void;
       setBusy(): void;
-      onToggle: (() => void) | null;
+      onToggle: Function | null;
     };
+    /** Tab switching — set in app.js diagram/tab logic. */
+    onTabSwitch?: (tabId: string) => void;
+    ensureDiagramInited?: () => void;
+    /** Search tab hooks — stubs defined in app.js, consumed by external Search UI extension. */
+    _stOnActivate?: () => void;
+    _stFocusInput?: () => void;
+    _stPopulateTables?: (tables: string[]) => void;
+    _stSyncTable?: (name: string) => void;
+    _stUpdateCount?: (table: string, count: number) => void;
   }
 }
 
