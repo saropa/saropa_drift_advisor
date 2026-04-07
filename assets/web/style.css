@@ -22,6 +22,8 @@
   --radius-lg: 16px;
   /* Horizontal padding for panels so content is not squashed against edges */
   --panel-padding-x: 1.5rem;
+  /* Monospace font stack loaded from Google Fonts (see <head> link in html_content.dart) */
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 body {
@@ -120,31 +122,10 @@ body.theme-midnight {
   --row-alt: rgba(143, 168, 255, 0.04);
 }
 
-/* Midnight overrides: blue-tinted surfaces, periwinkle accents */
+/* Midnight colour overrides -- card/header glass effects are in the
+   theme effects section at the end of this file. */
 body.theme-midnight .header-pill.live {
   color: #7cb342;
-}
-
-body.theme-midnight .feature-card {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
-}
-
-body.theme-midnight .feature-card.expanded {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.18), 0 8px 16px rgba(0, 0, 0, 0.14), 0 16px 32px rgba(143, 168, 255, 0.06);
-}
-
-body.theme-midnight .tables-browse-card {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-body.theme-midnight .tables-browse-card:hover {
-  border-color: rgba(143, 168, 255, 0.3);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.16), 0 8px 16px rgba(0, 0, 0, 0.12), 0 16px 32px rgba(143, 168, 255, 0.08);
-  transform: translateY(-2px);
-}
-
-body.theme-midnight .app-header {
-  box-shadow: 0 1px 0 rgba(143, 168, 255, 0.06), 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 body.theme-midnight .tables-loading-error {
@@ -186,17 +167,6 @@ body.theme-showcase {
 /* Showcase overrides: the purple accent colour replaces the blue/green
    used by light/dark. The gradient effect on primary buttons is applied
    by drift-enhanced.css (CDN-only) via background-image overrides. */
-body.theme-showcase .header-btn:hover {
-  color: var(--link);
-}
-
-body.theme-showcase .feature-card {
-  box-shadow: 0 2px 4px rgba(67, 83, 137, 0.03), 0 4px 8px rgba(67, 83, 137, 0.04), 0 8px 16px rgba(99, 102, 241, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-
-body.theme-showcase .feature-card.expanded {
-  box-shadow: 0 4px 8px rgba(31, 38, 135, 0.06), 0 8px 16px rgba(31, 38, 135, 0.08), 0 16px 32px rgba(99, 102, 241, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
 
 body.theme-showcase .header-pill.live {
   color: #558b2f;
@@ -577,10 +547,13 @@ body.theme-light .feature-card.expanded {
   padding: 0;
 }
 
-/* Button reset: inherit heading styles, no default browser button chrome */
+/* Button reset: inherit heading styles, no default browser button chrome.
+   Flex layout pushes the chevron to the far right of the sidebar heading. */
 .tables-heading button {
   all: unset;
-  display: inline;
+  display: flex;
+  align-items: center;
+  width: 100%;
   font: inherit;
   color: inherit;
   letter-spacing: inherit;
@@ -590,16 +563,16 @@ body.theme-light .feature-card.expanded {
   padding: 0.25rem 0;
 }
 
-/* Chevron indicator rotates when collapsed */
+/* Left-pointing chevron, right-aligned via margin-left: auto.
+   No collapsed-state rotation needed: when the sidebar collapses
+   (width → 0, opacity → 0) this heading is invisible anyway. */
 .tables-heading button::after {
-  content: "▾"; /* ▾ downward triangle */
+  content: "◀"; /* left-pointing triangle */
   display: inline-block;
-  margin-left: 0.4em;
-  transition: transform 0.2s ease;
+  margin-left: auto;
+  font-size: 1.1em;
 }
 
-/* No collapsed-state chevron rule needed here: when the sidebar panel
-   collapses (width → 0, opacity → 0) the heading is not visible. */
 .tables-heading button:hover {
   color: var(--link);
 }
@@ -893,9 +866,10 @@ body.theme-showcase .tables-browse-card:hover {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-bottom: 0;
   padding: 0.5rem 0;
+  overflow-x: auto;
 }
 
 .toolbar-tool-btn {
@@ -1465,7 +1439,7 @@ body.theme-dark .search-tab-toolbar button:focus-visible {
 .sql-runner textarea {
   width: 100%;
   min-height: 5rem;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   padding: 0.75rem;
   background: var(--bg-pre);
@@ -1620,7 +1594,7 @@ body.theme-dark .search-tab-toolbar button:focus-visible {
   width: 100%;
   min-height: 5rem;
   box-sizing: border-box;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.4;
   padding: 0.65rem 0.75rem;
@@ -1688,7 +1662,7 @@ body.theme-dark .search-tab-toolbar button:focus-visible {
   background: var(--row-alt);
 }
 
-/* Single connection-status pill: Live | Paused | Offline; tap toggles Live ↔ Paused when connected. */
+/* Connection-status inside masthead pill: Online | Paused | Offline; tap toggles Online ↔ Paused when connected. */
 #live-indicator.connection-status {
   font-size: 0.75rem;
   margin-left: 0.5rem;
@@ -2356,11 +2330,24 @@ body.theme-dark .data-table-scroll-wrap {
   margin: 0 0 0.75rem;
 }
 
+/* Clickable toggle — mirrors qb-header (▼/▲ collapse) */
 .table-definition-heading {
-  font-size: var(--text-sm);
+  font-size: 0.875rem;
   font-weight: 600;
-  margin: 0 0 0.35rem;
-  color: var(--fg);
+  margin: 0;
+  padding: 0.25rem 0;
+  color: var(--link);
+  cursor: pointer;
+  user-select: none;
+}
+
+.table-definition-heading:hover {
+  text-decoration: underline;
+}
+
+/* Collapsible body wrapping the scroll container */
+.table-definition-body.collapsed {
+  display: none;
 }
 
 .table-definition-scroll {
@@ -2395,7 +2382,7 @@ body.theme-dark .data-table-scroll-wrap {
 }
 
 .table-def-name {
-  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
 }
 
@@ -2521,7 +2508,7 @@ body.theme-dark .data-table-scroll-wrap {
   }
 }
 .qb-preview {
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -2633,7 +2620,7 @@ body.has-connection-banner {
   pointer-events: none;
 }
 
-/* Live indicator styles for disconnected/reconnecting states. */
+/* Masthead status styles for disconnected/reconnecting states. */
 #live-indicator.disconnected {
   color: #e57373 !important;
   opacity: 1;

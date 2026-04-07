@@ -25,196 +25,37 @@
 import 'server_constants.dart';
 
 abstract final class HtmlContent {
-  /// Base64-encoded app logo PNG (from example/assets/logo.png).
+  /// CDN URL for the app logo PNG.
   ///
-  /// Inlined as a data URI to avoid an extra server route and to work
-  /// in offline / CDN-fallback scenarios.
-  static const _appLogoBase64 =
-      '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'
-      'HMyb5reC/w8pUgASyWXBVgAAAABJRU5ErkJggg==';
+  /// Uses the same jsDelivr CDN + version-pinned pattern as CSS/JS assets.
+  /// Falls back to `@main` if the versioned tag hasn't propagated yet.
+  static const _appLogoUrl =
+      'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor'
+      '@v${ServerConstants.packageVersion}/extension/icon.png';
+
+  /// Fallback logo URL on the `@main` branch, used when the versioned
+  /// tag hasn't propagated to the CDN yet (same pattern as CSS/JS).
+  static const _appLogoUrlFallback =
+      'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor'
+      '@main/extension/icon.png';
+
+  /// Returns the masthead pill HTML fragment for the app header.
+  ///
+  /// Renders: `[logo] vX.Y.Z – ● Online`
+  ///
+  /// The version badge text is populated at runtime by `app.js` from
+  /// `/api/health`; the connection status is managed by
+  /// `updatePollingUI` / `updateLiveIndicatorForConnection` in `app.js`.
+  ///
+  /// Styles live in `assets/web/_masthead.scss`.
+  static String _buildMastheadPill() => '''
+    <!-- Combined masthead pill: logo · version · connection status. -->
+    <div class="masthead-pill" id="masthead-pill">
+      <img src="$_appLogoUrl" onerror="this.onerror=null;this.src='$_appLogoUrlFallback'" alt="" class="masthead-logo" role="presentation" />
+      <a id="version-badge" class="masthead-version" href="https://marketplace.visualstudio.com/items/Saropa.drift-viewer/changelog" target="_blank" rel="noopener noreferrer" title="View changelog" style="opacity:0;"> </a>
+      <span class="masthead-sep" aria-hidden="true">\u2013</span>
+      <button type="button" id="live-indicator" class="masthead-status connection-status" title="Online, paused, or offline \u2014 connection status" aria-live="polite">\u25cf Online</button>
+    </div>''';
 
   /// Builds the HTML shell with assets either inlined or loaded from CDN.
   ///
@@ -271,7 +112,7 @@ abstract final class HtmlContent {
   <title>Saropa Drift Adviser</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0">
   <!-- Favicon: inline SVG database cylinder matching extension store icon (purple-pink to cyan gradient). -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='cyl' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23cd87cd'/%3E%3Cstop offset='50%25' stop-color='%239e8eda'/%3E%3Cstop offset='100%25' stop-color='%235ac6e4'/%3E%3C/linearGradient%3E%3CradialGradient id='cap' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23e8c6e8'/%3E%3Cstop offset='100%25' stop-color='%23cd87cd'/%3E%3C/radialGradient%3E%3ClinearGradient id='bot' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%235ac6e4'/%3E%3Cstop offset='100%25' stop-color='%234dbdd8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='7' y='6' width='18' height='16' fill='url(%23cyl)'/%3E%3Cellipse cx='16' cy='6' rx='9' ry='2' fill='url(%23cap)' stroke='%235f3773' stroke-width='0.6'/%3E%3Cpath d='M7 6v16' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cpath d='M25 6v16' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cellipse cx='16' cy='14' rx='9' ry='1.2' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cellipse cx='16' cy='22' rx='9' ry='2' fill='url(%23bot)' stroke='%235f3773' stroke-width='0.6'/%3E%3C/svg%3E">
@@ -282,7 +123,7 @@ abstract final class HtmlContent {
        (all sources fail), this stays visible as the error indicator.
        Uses inline styles so it renders even when style.css fails.
        Shows a startup diagnostic sequence with version and asset source. -->
-  <div id="sda-loading" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#1e1e2e;color:#cdd6f4;font-family:'Courier New',Consolas,monospace;font-size:0.85rem;line-height:1.6">
+  <div id="sda-loading" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#1e1e2e;color:#cdd6f4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.85rem;line-height:1.6">
     <div style="text-align:left;min-width:320px">
       <div style="color:#89b4fa;font-weight:bold;margin-bottom:0.5em">Saropa Drift Advisor v${ServerConstants.packageVersion}</div>
       <div style="border-top:1px solid #45475a;margin-bottom:0.5em"></div>
@@ -308,11 +149,9 @@ abstract final class HtmlContent {
     </div>
   </div>
   <header class="app-header">
-    <!-- Version badge links to VS Code Marketplace changelog; text filled by JS from /api/health. -->
-    <a id="version-badge" class="app-version meta" style="opacity:0;" href="https://marketplace.visualstudio.com/items/Saropa.drift-viewer/changelog" target="_blank" rel="noopener noreferrer" title="View changelog"> </a>
+    ${_buildMastheadPill()}
     <div class="app-header-actions">
       <button type="button" id="share-btn" class="header-btn" title="Share current view with your team"><span class="material-symbols-outlined header-icon" aria-hidden="true">share</span>Share</button>
-      <button type="button" id="live-indicator" class="header-pill connection-status" title="Live, paused, or offline — connection status" aria-live="polite">● Live</button>
     </div>
   </header>
   <div class="app-layout" id="app-layout">
@@ -377,7 +216,7 @@ abstract final class HtmlContent {
         <button type="button" class="toolbar-tool-btn" data-tool="export" title="Export schema, data, or database"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">download</span><span class="toolbar-tool-label">Export</span></button>
       </div>
       <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Views">
-        <img src="data:image/png;base64,$_appLogoBase64" alt="Saropa Drift Adviser" class="tab-bar-logo" title="Saropa Drift Adviser" role="presentation" />
+        <img src="$_appLogoUrl" onerror="this.onerror=null;this.src='$_appLogoUrlFallback'" alt="Saropa Drift Adviser" class="tab-bar-logo" title="Saropa Drift Adviser" role="presentation" />
         <button type="button" class="tab-btn active" data-tab="tables" role="tab" aria-selected="true" aria-controls="panel-tables" id="tab-tables">Tables</button>
         <button type="button" class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="panel-search" id="tab-search">Search</button>
         <button type="button" class="tab-btn" data-tab="sql" role="tab" aria-selected="false" aria-controls="panel-sql" id="tab-sql">Run SQL</button>

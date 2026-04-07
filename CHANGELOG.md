@@ -34,6 +34,20 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **App logo not appearing** (Website) — replaced corrupted inlined base64 PNG (~185 lines) with a CDN-hosted URL using the same jsDelivr + `@main` fallback pattern as CSS/JS assets
+
+### Changed
+
+- **Collapsible table definition** (Website) — table definition panel above the data grid is now collapsible (▼/▲ toggle, collapsed by default), matching the query builder pattern
+- **Sidebar toggle arrow** (Website) — arrow is now larger, right-aligned, and points left instead of down for clearer collapse affordance
+- **Monospace font upgrade** (Website) — switched to JetBrains Mono via Google Fonts CDN; centralized font stack into a single `--font-mono` CSS custom property for easy future changes
+
+---
+
 ## [2.18.0]
 
 ### Added

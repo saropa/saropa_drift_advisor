@@ -33,8 +33,18 @@ void main() {
       expect(html, isNot(contains('/assets/web/app.js')));
     });
 
-    test('does not reference CDN URLs when assets are inlined', () {
-      expect(html, isNot(contains('cdn.jsdelivr.net')));
+    test('does not load CSS/JS from CDN when assets are inlined', () {
+      // The logo image still uses CDN, but CSS and JS must be inlined.
+      expect(
+        html,
+        isNot(contains('assets/web/style.css')),
+        reason: 'CSS must be inlined, not loaded from CDN',
+      );
+      expect(
+        html,
+        isNot(contains('assets/web/app.js')),
+        reason: 'JS must be inlined, not loaded from CDN',
+      );
     });
   });
 
@@ -166,6 +176,55 @@ void main() {
         loadingIdx,
         lessThan(bannerIdx),
         reason: 'Loading overlay must appear before connection banner',
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Logo: verifies the CDN-hosted logo img tag is well-formed, has an
+  // onerror fallback, and uses the correct accessibility attributes.
+  // -------------------------------------------------------------------------
+  group('HtmlContent app logo', () {
+    late String html;
+
+    setUp(() {
+      html = HtmlContent.buildIndexHtml();
+    });
+
+    test('logo img uses a CDN URL, not a data URI', () {
+      expect(
+        html,
+        contains('cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor'),
+        reason: 'Logo must load from jsDelivr CDN',
+      );
+      expect(
+        html,
+        isNot(contains('data:image/png;base64,')),
+        reason: 'Logo must no longer be inlined as a data URI',
+      );
+    });
+
+    test('logo img has onerror fallback to @main', () {
+      expect(
+        html,
+        contains("onerror=\"this.onerror=null;this.src='"),
+        reason: 'Must fall back to @main URL on CDN miss',
+      );
+      expect(
+        html,
+        contains(
+          'cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/extension/icon.png',
+        ),
+        reason: 'Fallback must point to @main branch',
+      );
+    });
+
+    test('logo img tag has alt text and presentation role', () {
+      expect(html, contains('class="tab-bar-logo"'));
+      expect(
+        html,
+        contains('role="presentation"'),
+        reason: 'Decorative logo needs role="presentation" for a11y',
       );
     });
   });

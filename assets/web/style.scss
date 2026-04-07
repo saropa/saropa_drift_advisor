@@ -19,6 +19,8 @@
   --radius-lg: 16px;
   /* Horizontal padding for panels so content is not squashed against edges */
   --panel-padding-x: 1.5rem;
+  /* Monospace font stack loaded from Google Fonts (see <head> link in html_content.dart) */
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 body {
@@ -614,10 +616,13 @@ body.theme-light .feature-card.expanded {
   padding: 0;
 }
 
-/* Button reset: inherit heading styles, no default browser button chrome */
+/* Button reset: inherit heading styles, no default browser button chrome.
+   Flex layout pushes the chevron to the far right of the sidebar heading. */
 .tables-heading button {
   all: unset;
-  display: inline;
+  display: flex;
+  align-items: center;
+  width: 100%;
   font: inherit;
   color: inherit;
   letter-spacing: inherit;
@@ -627,15 +632,15 @@ body.theme-light .feature-card.expanded {
   padding: 0.25rem 0;
 }
 
-/* Chevron indicator rotates when collapsed */
+/* Left-pointing chevron, right-aligned via margin-left: auto.
+   No collapsed-state rotation needed: when the sidebar collapses
+   (width → 0, opacity → 0) this heading is invisible anyway. */
 .tables-heading button::after {
-  content: '\25BE'; /* ▾ downward triangle */
+  content: '\25C0'; /* ◀ left-pointing triangle */
   display: inline-block;
-  margin-left: 0.4em;
-  transition: transform 0.2s ease;
+  margin-left: auto;
+  font-size: 1.1em;
 }
-/* No collapsed-state chevron rule needed here: when the sidebar panel
-   collapses (width → 0, opacity → 0) the heading is not visible. */
 
 .tables-heading button:hover { color: var(--link); }
 
@@ -1380,7 +1385,7 @@ body.theme-dark .search-tab-toolbar button:focus-visible {
 .sql-runner textarea {
   width: 100%;
   min-height: 5rem;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   padding: 0.75rem;
   background: var(--bg-pre);
@@ -1507,7 +1512,7 @@ body.theme-dark .search-tab-toolbar button:focus-visible {
   width: 100%;
   min-height: 5rem;
   box-sizing: border-box;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.4;
   padding: 0.65rem 0.75rem;
@@ -1564,7 +1569,7 @@ body.theme-dark .search-tab-toolbar button:focus-visible {
   }
   tbody tr:hover { background: var(--row-alt); }
 }
-/* Single connection-status pill: Live | Paused | Offline; tap toggles Live ↔ Paused when connected. */
+/* Connection-status inside masthead pill: Online | Paused | Offline; tap toggles Online ↔ Paused when connected. */
 #live-indicator.connection-status {
   font-size: 0.75rem;
   margin-left: 0.5rem;
@@ -2000,12 +2005,19 @@ body.theme-dark .data-table-scroll-wrap {
 .table-definition-wrap {
   margin: 0 0 0.75rem;
 }
+/* Clickable toggle — mirrors qb-header (▼/▲ collapse) */
 .table-definition-heading {
-  font-size: var(--text-sm);
+  font-size: 0.875rem;
   font-weight: 600;
-  margin: 0 0 0.35rem;
-  color: var(--fg);
+  margin: 0;
+  padding: 0.25rem 0;
+  color: var(--link);
+  cursor: pointer;
+  user-select: none;
 }
+.table-definition-heading:hover { text-decoration: underline; }
+/* Collapsible body wrapping the scroll container */
+.table-definition-body.collapsed { display: none; }
 .table-definition-scroll {
   overflow-x: auto;
   border: 1px solid var(--border);
@@ -2033,7 +2045,7 @@ body.theme-dark .data-table-scroll-wrap {
   border-bottom: none;
 }
 .table-def-name {
-  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
 }
 .table-def-type {
@@ -2080,7 +2092,7 @@ body.theme-dark .data-table-scroll-wrap {
     padding: 0.5rem 0.65rem;
   }
 }
-.qb-preview { font-family: ui-monospace, monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.4rem; margin-top: 0.35rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 4rem; overflow: auto; }
+.qb-preview { font-family: var(--font-mono); font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.4rem; margin-top: 0.35rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 4rem; overflow: auto; }
 
 /* Size analytics: table column uses same link affordance as sidebar (not under .table-list). */
 #size-results a.size-table-link {
@@ -2120,7 +2132,7 @@ body.theme-dark .data-table-scroll-wrap {
 body.has-connection-banner { padding-top: 2.5rem; transition: padding-top 0.3s ease-out; }
 /* Visual dimming for controls disabled during disconnection. */
 .offline-disabled { opacity: 0.4; pointer-events: none; }
-/* Live indicator styles for disconnected/reconnecting states. */
+/* Masthead status styles for disconnected/reconnecting states. */
 #live-indicator.disconnected { color: #e57373 !important; opacity: 1; }
 /* Subtle pulse animation during reconnection to convey retry activity. */
 @keyframes reconnect-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
