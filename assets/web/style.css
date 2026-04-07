@@ -2670,15 +2670,19 @@ body.has-connection-banner {
   animation: reconnect-pulse 1.5s ease-in-out infinite;
 }
 
-/* --- Super FAB: floating action menu for sidebar, theme, and mask --- */
+/* Super FAB styles extracted to _fab.scss partial for modularity. */
+/* --- Container: fixed bottom-right, menu fans upward --- */
 .super-fab {
   position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
   z-index: 9000;
   display: flex;
+  /* Trigger is first in DOM; column-reverse places it at the
+     bottom so the menu naturally fans upward above it. */
   flex-direction: column-reverse;
-  align-items: center;
+  /* Right-align menu items against the FAB trigger edge. */
+  align-items: flex-end;
   gap: 0.5rem;
 }
 
@@ -2708,7 +2712,7 @@ body.has-connection-banner {
   outline-offset: 3px;
 }
 
-/* Rotate the icon when expanded to indicate close. */
+/* Muted background when expanded to indicate close. */
 .super-fab.open .super-fab-trigger {
   background: var(--muted);
 }
@@ -2722,11 +2726,12 @@ body.has-connection-banner {
   transform: rotate(45deg);
 }
 
-/* Sub-action menu: hidden by default, fans out upward. */
+/* Sub-action menu: hidden by default, fans out upward from the trigger. */
 .super-fab-menu {
   display: flex;
   flex-direction: column-reverse;
-  align-items: center;
+  /* Right-align items so they sit flush with the trigger's right edge. */
+  align-items: flex-end;
   gap: 0.4rem;
   /* Animate each action in via opacity + translate. */
   opacity: 0;
@@ -3253,5 +3258,59 @@ body.theme-midnight .app-header {
   body.theme-showcase .app-header,
   body.theme-midnight .app-header {
     animation: none !important;
+  }
+}
+/**
+ * Responsive toolbar: progressively hide labels to prevent wrapping.
+ *
+ * The tools toolbar has 12 buttons, each with an icon and a text label.
+ * At wide viewports every label is visible. As the viewport narrows,
+ * three media-query breakpoints hide labels in tiers — longest /
+ * least-recognisable first — until only icon-only buttons remain.
+ * Title-attribute tooltips stay available at every size.
+ *
+ * Imported after the base toolbar rules in style.scss so the override
+ * of flex-wrap and the addition of overflow-x take effect via cascade.
+ */
+/* Override the base toolbar layout to prevent wrapping.
+   Labels collapse via the media queries below instead. */
+#tools-toolbar.tools-toolbar {
+  flex-wrap: nowrap;
+  /* Safety net: if all 12 icon-only buttons still overflow at an
+     extremely narrow width, horizontal scroll is available. */
+  overflow-x: auto;
+}
+
+/* <=1100px: hide the longest labels first
+   (Snapshot, Diagram, Export, Import, Health) */
+@media (max-width: 1100px) {
+  .toolbar-tool-btn[data-tool=snapshot] .toolbar-tool-label,
+  .toolbar-tool-btn[data-tool=diagram] .toolbar-tool-label,
+  .toolbar-tool-btn[data-tool=export] .toolbar-tool-label,
+  .toolbar-tool-btn[data-tool=import] .toolbar-tool-label,
+  .toolbar-tool-btn[data-tool=anomaly] .toolbar-tool-label {
+    display: none;
+  }
+}
+/* <=900px: also hide medium labels (DB diff, Schema, Tables, Index) */
+@media (max-width: 900px) {
+  .toolbar-tool-btn[data-tool=compare] .toolbar-tool-label,
+  .toolbar-tool-btn[data-tool=schema] .toolbar-tool-label,
+  .toolbar-tool-btn[data-tool=tables] .toolbar-tool-label,
+  .toolbar-tool-btn[data-tool=index] .toolbar-tool-label {
+    display: none;
+  }
+}
+/* <=700px: hide all remaining labels — toolbar is fully icon-only */
+@media (max-width: 700px) {
+  .toolbar-tool-btn .toolbar-tool-label {
+    display: none;
+  }
+  /* Tighten padding when icon-only */
+  .toolbar-tool-btn {
+    padding: 0 0.6rem;
+  }
+  #tools-toolbar.tools-toolbar {
+    gap: 0.35rem;
   }
 }

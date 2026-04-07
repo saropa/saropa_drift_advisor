@@ -1,0 +1,159 @@
+/// Super FAB — floating action menu (sidebar, theme, share, mask).
+///
+/// Self-contained partial: all FAB layout, animation, theme overrides,
+/// and reduced-motion rules live here. Imported by style.scss.
+///
+/// DOM contract (see html_content.dart):
+///   .super-fab            — fixed wrapper, bottom-right corner
+///     .super-fab-trigger  — circular toggle button (first child)
+///     .super-fab-menu     — action list (second child, fans upward)
+///       .fab-action       — individual menu items
+///
+/// The trigger is first in DOM; `flex-direction: column-reverse`
+/// renders it at the bottom so the menu fans upward when opened.
+
+/* --- Container: fixed bottom-right, menu fans upward --- */
+.super-fab {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9000;
+  display: flex;
+  /* Trigger is first in DOM; column-reverse places it at the
+     bottom so the menu naturally fans upward above it. */
+  flex-direction: column-reverse;
+  /* Right-align menu items against the FAB trigger edge. */
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+/* Main trigger button — prominent circular FAB. */
+.super-fab-trigger {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--link);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.super-fab-trigger:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  transform: scale(1.08);
+}
+
+.super-fab-trigger:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 3px;
+}
+
+/* Muted background when expanded to indicate close. */
+.super-fab.open .super-fab-trigger {
+  background: var(--muted);
+}
+
+.super-fab-icon {
+  font-size: 28px;
+  transition: transform 0.25s ease;
+}
+
+.super-fab.open .super-fab-icon {
+  transform: rotate(45deg);
+}
+
+/* Sub-action menu: hidden by default, fans out upward from the trigger. */
+.super-fab-menu {
+  display: flex;
+  flex-direction: column-reverse;
+  /* Right-align items so they sit flush with the trigger's right edge. */
+  align-items: flex-end;
+  gap: 0.4rem;
+  /* Animate each action in via opacity + translate. */
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.super-fab.open .super-fab-menu {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Individual action buttons in the menu. */
+.fab-action {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  min-height: var(--tap-min);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fab-action:hover {
+  border-color: var(--link);
+  color: var(--link);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.fab-action:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+/* Mask toggle within the FAB reuses the checkbox pattern. */
+.fab-mask-toggle {
+  user-select: none;
+}
+
+.fab-mask-toggle input[type="checkbox"] {
+  margin: 0;
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+/* Light mode: softer shadow for FAB items. */
+body.theme-light .fab-action {
+  border: 1px solid rgba(143, 168, 255, 0.15);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 2px 4px rgba(67, 83, 137, 0.04);
+}
+
+body.theme-light .fab-action:hover {
+  border-color: rgba(67, 83, 137, 0.3);
+  box-shadow:
+    0 2px 4px rgba(67, 83, 137, 0.06),
+    0 4px 8px rgba(67, 83, 137, 0.08);
+}
+
+body.theme-light .super-fab-trigger {
+  box-shadow: 0 4px 12px rgba(67, 83, 137, 0.2);
+}
+
+/* Reduced motion: disable FAB transitions. */
+@media (prefers-reduced-motion: reduce) {
+  .super-fab-trigger,
+  .super-fab-icon,
+  .super-fab-menu,
+  .fab-action {
+    transition: none;
+  }
+}

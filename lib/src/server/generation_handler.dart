@@ -61,6 +61,14 @@ final class GenerationHandler {
   /// ~313 KB for app.js — acceptable for a debug-only tool.
   static String? _cachedAppJs;
 
+  /// Cached FAB module JS, populated alongside app.js.
+  /// Small self-contained module (~2 KB) for the floating action button.
+  static String? _cachedFabJs;
+
+  /// Cached table-def-toggle module JS, populated alongside app.js.
+  /// Self-contained collapsible toggle for the table definition panel.
+  static String? _cachedTableDefToggleJs;
+
   /// GET /api/health — returns {"ok": true}.
   Future<void> sendHealth(HttpResponse response) async {
     final res = response;
@@ -140,6 +148,8 @@ final class GenerationHandler {
       HtmlContent.buildIndexHtml(
         inlineCss: _cachedStyleCss,
         inlineJs: _cachedAppJs,
+        inlineFabJs: _cachedFabJs,
+        inlineTableDefToggleJs: _cachedTableDefToggleJs,
       ),
     );
     await res.close();
@@ -200,6 +210,8 @@ final class GenerationHandler {
     final String? cached = switch (relativePath) {
       'assets/web/style.css' => _cachedStyleCss,
       'assets/web/app.js' => _cachedAppJs,
+      'assets/web/fab.js' => _cachedFabJs,
+      'assets/web/table-def-toggle.js' => _cachedTableDefToggleJs,
       _ => null,
     };
     if (cached != null) {
@@ -413,6 +425,24 @@ final class GenerationHandler {
     } on Object catch (e) {
       // Non-fatal: per-request disk read is the fallback.
       log('[SDA] JS asset cache failed: $e');
+    }
+    try {
+      final fabJsFile = File('$packageRoot/assets/web/fab.js');
+      if (await fabJsFile.exists()) {
+        _cachedFabJs = await fabJsFile.readAsString();
+      }
+    } on Object catch (e) {
+      // Non-fatal: FAB init falls back to CDN loader.
+      log('[SDA] FAB JS asset cache failed: $e');
+    }
+    try {
+      final tdFile = File('$packageRoot/assets/web/table-def-toggle.js');
+      if (await tdFile.exists()) {
+        _cachedTableDefToggleJs = await tdFile.readAsString();
+      }
+    } on Object catch (e) {
+      // Non-fatal: table-def toggle falls back to CDN loader.
+      log('[SDA] table-def-toggle JS asset cache failed: $e');
     }
   }
 

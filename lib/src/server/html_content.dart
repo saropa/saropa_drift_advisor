@@ -48,7 +48,8 @@ abstract final class HtmlContent {
   /// `updatePollingUI` / `updateLiveIndicatorForConnection` in `app.js`.
   ///
   /// Styles live in `assets/web/_masthead.scss`.
-  static String _buildMastheadPill() => '''
+  static String _buildMastheadPill() =>
+      '''
     <!-- Combined masthead pill: logo · version · connection status. -->
     <div class="masthead-pill" id="masthead-pill">
       <img src="$_appLogoUrl" onerror="this.onerror=null;this.src='$_appLogoUrlFallback'" alt="" class="masthead-logo" role="presentation" />
@@ -59,12 +60,18 @@ abstract final class HtmlContent {
 
   /// Builds the HTML shell with assets either inlined or loaded from CDN.
   ///
-  /// When [inlineCss] and [inlineJs] are provided (non-null), they are
+  /// When [inlineCss], [inlineJs], [inlineFabJs], and
+  /// [inlineTableDefToggleJs] are provided (non-null), they are
   /// embedded directly in `<style>` / `<script>` tags — zero extra
   /// requests, works offline, and avoids the unreliable `onerror`
   /// fallback chain. When null, a small fetch-based loader tries
   /// version-pinned jsDelivr, then `@main`.
-  static String buildIndexHtml({String? inlineCss, String? inlineJs}) {
+  static String buildIndexHtml({
+    String? inlineCss,
+    String? inlineJs,
+    String? inlineFabJs,
+    String? inlineTableDefToggleJs,
+  }) {
     // CSS: inline <style> when available, otherwise CDN <link>.
     // No escaping needed for CSS — </style> is not valid CSS syntax
     // and will never appear in the stylesheet.
@@ -88,6 +95,38 @@ abstract final class HtmlContent {
   var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/app.js'];
   function tryNext(){
     if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'app.js'}));return}
+    var u=urls.shift(),s=document.createElement('script');
+    s.src=u;s.onerror=tryNext;document.body.appendChild(s);
+  }
+  tryNext();
+})();
+</script>''';
+
+    // FAB module: self-contained floating action button UI controller.
+    // Loaded after app.js so the DOM elements are available.
+    final fabJsTag = inlineFabJs != null
+        ? '<script>${inlineFabJs.replaceAll('</script>', r'<\/script>')}</script>'
+        : '''<script>
+(function(){
+  var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/fab.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/fab.js'];
+  function tryNext(){
+    if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'fab.js'}));return}
+    var u=urls.shift(),s=document.createElement('script');
+    s.src=u;s.onerror=tryNext;document.body.appendChild(s);
+  }
+  tryNext();
+})();
+</script>''';
+
+    // Table-def-toggle module: self-contained collapsible toggle for the
+    // table definition panel. Loaded after app.js so DOM elements exist.
+    final tableDefToggleJsTag = inlineTableDefToggleJs != null
+        ? '<script>${inlineTableDefToggleJs.replaceAll('</script>', r'<\/script>')}</script>'
+        : '''<script>
+(function(){
+  var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/table-def-toggle.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/table-def-toggle.js'];
+  function tryNext(){
+    if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'table-def-toggle.js'}));return}
     var u=urls.shift(),s=document.createElement('script');
     s.src=u;s.onerror=tryNext;document.body.appendChild(s);
   }
@@ -150,9 +189,7 @@ abstract final class HtmlContent {
   </div>
   <header class="app-header">
     ${_buildMastheadPill()}
-    <div class="app-header-actions">
-      <button type="button" id="share-btn" class="header-btn" title="Share current view with your team"><span class="material-symbols-outlined header-icon" aria-hidden="true">share</span>Share</button>
-    </div>
+    <!-- Share button moved to the Super FAB menu (fab-share-btn). -->
   </header>
   <div class="app-layout" id="app-layout">
     <aside class="app-sidebar" id="app-sidebar">
@@ -551,9 +588,18 @@ abstract final class HtmlContent {
     </div>
   </div>
 
-  <!-- Super FAB: floating action menu for sidebar, theme, and mask toggles. -->
+  <!-- Super FAB: floating action menu — trigger at bottom, menu fans upward.
+       Trigger is first in DOM; column-reverse CSS places it at the bottom
+       so the menu items fan upward when opened. -->
   <div class="super-fab" id="super-fab">
+    <button type="button" class="super-fab-trigger" id="super-fab-trigger" aria-label="Toggle quick actions" aria-expanded="false" aria-controls="super-fab-menu">
+      <span class="material-symbols-outlined super-fab-icon" id="super-fab-icon" aria-hidden="true">tune</span>
+    </button>
     <div class="super-fab-menu" id="super-fab-menu" aria-hidden="true">
+      <button type="button" id="fab-share-btn" class="fab-action" title="Share current view with your team" aria-label="Share session">
+        <span class="material-symbols-outlined" aria-hidden="true">share</span>
+        <span class="fab-action-label">Share</span>
+      </button>
       <button type="button" id="fab-sidebar-toggle" class="fab-action" title="Toggle sidebar" aria-label="Toggle tables sidebar">
         <span class="material-symbols-outlined" id="fab-sidebar-icon" aria-hidden="true">chevron_left</span>
         <span class="fab-action-label" id="fab-sidebar-label">Sidebar</span>
@@ -568,12 +614,11 @@ abstract final class HtmlContent {
         <span class="fab-action-label" id="fab-pii-mask-label">Mask</span>
       </label>
     </div>
-    <button type="button" class="super-fab-trigger" id="super-fab-trigger" aria-label="Toggle quick actions" aria-expanded="false" aria-controls="super-fab-menu">
-      <span class="material-symbols-outlined super-fab-icon" id="super-fab-icon" aria-hidden="true">tune</span>
-    </button>
   </div>
 
   $jsTag
+  $fabJsTag
+  $tableDefToggleJsTag
 </body></html>
 ''';
   }
