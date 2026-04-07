@@ -228,4 +228,86 @@ void main() {
       );
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Masthead pill: the combined logo · version · status pill in the header.
+  // -------------------------------------------------------------------------
+  group('HtmlContent masthead pill', () {
+    late String html;
+
+    setUp(() {
+      html = HtmlContent.buildIndexHtml();
+    });
+
+    test('contains masthead pill container', () {
+      expect(
+        html,
+        contains('id="masthead-pill"'),
+        reason: 'Masthead pill must be present in the header',
+      );
+      expect(
+        html,
+        contains('class="masthead-pill"'),
+        reason: 'Masthead pill must have its CSS class',
+      );
+    });
+
+    test('masthead pill contains logo with CDN URL and fallback', () {
+      expect(
+        html,
+        contains('class="masthead-logo"'),
+        reason: 'Masthead must include the app logo',
+      );
+    });
+
+    test('masthead pill contains version badge link', () {
+      expect(
+        html,
+        contains('id="version-badge"'),
+        reason: 'Version badge must be inside the masthead pill',
+      );
+      expect(
+        html,
+        contains('class="masthead-version"'),
+        reason: 'Version badge must use masthead-version class',
+      );
+    });
+
+    test('masthead pill contains separator', () {
+      expect(
+        html,
+        contains('class="masthead-sep"'),
+        reason: 'En-dash separator must be present between version and status',
+      );
+    });
+
+    test('masthead pill contains connection status button', () {
+      expect(
+        html,
+        contains('id="live-indicator"'),
+        reason: 'Connection status indicator must be in the masthead pill',
+      );
+      expect(
+        html,
+        contains('class="masthead-status connection-status"'),
+        reason: 'Status must use both masthead-status and connection-status classes',
+      );
+    });
+
+    test('connection status shows Online as default text', () {
+      expect(
+        html,
+        contains('Online'),
+        reason: 'Default status text must be Online, not Live',
+      );
+    });
+
+    test('masthead pill has accessible live region', () {
+      expect(
+        html,
+        contains('aria-live="polite"'),
+        reason: 'Status changes must be announced to screen readers',
+      );
+    });
+  });
 }
