@@ -1,3 +1,17 @@
+/**
+ * DriftViewerPanel — singleton webview that displays the Drift Advisor
+ * web UI inside VS Code.
+ *
+ * **Server-switch handling**: when `createOrShow` is called with a
+ * different host/port than the current panel, the webview content is
+ * fully reloaded from the new server. A monotonic `_loadSeq` counter
+ * guards against race conditions when two switches happen in quick
+ * succession (only the most recent fetch writes its HTML).
+ *
+ * **Retry**: the webview "Retry" button posts a `{ command: 'retry' }`
+ * message. The handler always uses the panel's current `_host`/`_port`
+ * so that retry targets the correct server even after a switch.
+ */
 import * as vscode from 'vscode';
 import { EditingBridge } from './editing/editing-bridge';
 import { FilterBridge } from './filters/filter-bridge';
@@ -10,8 +24,14 @@ export class DriftViewerPanel {
   private _disposables: vscode.Disposable[] = [];
 
   /**
-   * @param options.vmOnly - When true, connected via VM Service only (no HTTP);
-   *   show fallback message instead of loading the web app.
+   * Creates a new webview panel or reveals the existing one.
+   *
+   * If a panel already exists and the host/port changed (different
+   * project), the content is reloaded from the new server rather
+   * than showing stale data from the previous project.
+   *
+   * @param options.vmOnly - When true, connected via VM Service only
+   *   (no HTTP); show fallback message instead of loading the web app.
    */
   static createOrShow(
     host: string,
@@ -23,7 +43,19 @@ export class DriftViewerPanel {
   ): void {
     const column = vscode.ViewColumn.Beside;
     if (DriftViewerPanel.currentPanel) {
-      DriftViewerPanel.currentPanel._panel.reveal(column);
+      // If the server changed (different project), reload content
+      // instead of just revealing the stale panel.
+      const cur = DriftViewerPanel.currentPanel;
+      if (cur._host !== host || cur._port !== port) {
+        cur._host = host;
+        cur._port = port;
+        if (cur._vmOnly) {
+          cur._showVmOnlyFallback();
+        } else {
+          cur._loadContent(host, port);
+        }
+      }
+      cur._panel.reveal(column);
       return;
     }
     const panel = vscode.window.createWebviewPanel(
@@ -42,6 +74,16 @@ export class DriftViewerPanel {
   }
 
   private readonly _vmOnly: boolean;
+  private _host: string;
+  private _port: number;
+
+  /**
+   * Monotonic load sequence counter. Incremented at the start of each
+   * `_loadContent` call; the async continuation only writes HTML when
+   * its captured sequence matches the current value. This prevents a
+   * slow response from an earlier server overwriting a later one.
+   */
+  private _loadSeq = 0;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -54,6 +96,8 @@ export class DriftViewerPanel {
   ) {
     this._panel = panel;
     this._vmOnly = vmOnly;
+    this._host = host;
+    this._port = port;
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
     if (this._editingBridge) {
@@ -70,7 +114,9 @@ export class DriftViewerPanel {
     this._panel.webview.onDidReceiveMessage(
       (msg) => {
         if (msg.command === 'retry') {
-          if (!this._vmOnly) this._loadContent(host, port);
+          // Always use the panel's current host/port so retry targets
+          // the correct server even after a server switch.
+          if (!this._vmOnly) this._loadContent(this._host, this._port);
           return;
         }
         // Forward to FK navigator
@@ -111,6 +157,9 @@ export class DriftViewerPanel {
   }
 
   private async _loadContent(host: string, port: number): Promise<void> {
+    // Bump the load sequence so any in-flight fetch from a previous
+    // server is silently discarded when it finally resolves.
+    const seq = ++this._loadSeq;
     const baseUrl = `http://${host}:${port}`;
 
     // Show loading state immediately
@@ -122,7 +171,7 @@ export class DriftViewerPanel {
 
     try {
       const resp = await fetch(baseUrl);
-      if (this._disposed) return;
+      if (this._disposed || seq !== this._loadSeq) return;
 
       let html = await resp.text();
 
@@ -165,7 +214,7 @@ export class DriftViewerPanel {
 
       this._panel.webview.html = html;
     } catch {
-      if (this._disposed) return;
+      if (this._disposed || seq !== this._loadSeq) return;
       this._panel.webview.html = `
         <html><body style="padding:2rem;font-family:system-ui;">
           <h2>Cannot connect to Drift debug server</h2>

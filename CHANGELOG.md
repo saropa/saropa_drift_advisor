@@ -7,6 +7,8 @@
   Each release (and [Unreleased]) opens with one plain-language line for humans—user-facing only, casual wording—then end it with:
   `[log](https://github.com/saropa/saropa_drift_advisor/blob/vX.Y.Z/CHANGELOG.md)` substituting X.Y.Z.
 
+  **Audience separation** — User-facing sections (Added, Fixed, Changed, Improved) describe impact, not implementation. Infrastructure, build tooling, code refactoring, publish pipeline, SDK/linter/formatter changes, and internal test additions go inside a collapsed `<details><summary>Maintenance</summary>` block at the bottom of each release. Users skip it; contributors expand it.
+
   **pub.dev** — [pub.dev / packages / saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
 
   **VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
@@ -36,25 +38,30 @@ browse source on
 
 ## [3.0.0] - Unreleased
 
-Bundled all web assets with esbuild, broke the monolith JS and SCSS into modules, and wired up Log Capture session export. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.0/CHANGELOG.md)
-
-### Changed
-
-- **esbuild bundling** (Infra) — all web JS/TS assets bundled into a single `bundle.js` via esbuild; Dart server plumbing collapsed from 4 cached fields / 4 script tags to 1
-- **Full JS modularization** (Infra) — `app.js` decomposed from 6882-line monolith to 915-line init glue; 23 TypeScript modules extracted (`state`, `utils`, `pii`, `nl-to-sql`, `sql-highlight`, `masthead`, `fab`, `table-def-toggle`, `connection`, `theme`, `persistence`, `search`, `tabs`, `table-view`, `table-list`, `charts`, `analysis`, `query-builder`, `sql-history`, `fk-nav`, `cell-edit`, `nl-modal`, `session`, `pagination`, `schema`, `sidebar`, `diagram`, `tools`, `search-tab`, `sql-runner`, `performance`); shared state centralized in `state.ts` with typed exports
-- **SCSS modularization** (Infra) — `style.scss` decomposed from 2184 lines to 28-line import hub with 17 feature partials; migrated from deprecated `@import` to `@use`
+Fixed stale data after switching servers, restored broken heartbeat and polling controls, and added Log Capture session export so Drift Advisor diagnostics flow into your capture sessions automatically. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.0/CHANGELOG.md)
 
 ### Fixed
 
-- **Heartbeat reconnection no-op** (Web) — `initConnectionDeps()` was never called after modularization, so heartbeat reconnection silently dropped back to no-op stubs instead of resuming polling; now wired at startup
-- **Polling toggle missing** (Web) — the masthead pill click handler, `/api/change-detection` fetch on page load, and `startKeepAlive`/`stopKeepAlive` toggle were lost during modularization; restored with deferred wiring to handle esbuild execution order
+- **Wrong project tables after server switch** — webview panel showed stale tables from the previous project when the debug server changed; now detects host/port changes and fully reloads content from the new server
+- **Retry targeted wrong server** — the Retry button in the webview used the original server endpoint instead of the current one after a server switch; now always uses the panel's current host/port
+- **Heartbeat reconnection stopped working** — heartbeat reconnection silently dropped back to no-op stubs instead of resuming polling; now wired correctly at startup
+- **Polling toggle missing** — the masthead pill click handler and keep-alive toggle stopped responding; restored
 
-### Improved
+### Added
 
-- **Connection diagnostic logging** (Web) — all connection state transitions, poll cycles, heartbeat, and keep-alive events now emit `[SDA]` prefixed console.log entries for browser dev tools tracing
-- **Log Capture session export** (Extension) — when both extensions are installed and `driftViewer.integrations.includeInLogCaptureSession` is `full` (the default), session end now writes structured metadata (query stats, anomalies, schema summary, health, diagnostic issues) into the Log Capture session and a `{session}.drift-advisor.json` sidecar file; set to `header` for lightweight headers only, or `none` to opt out entirely
-- **Log Capture extension API** (Extension) — `getSessionSnapshot()` is now available on `context.exports` so Log Capture's built-in provider can request a snapshot directly without the file fallback
-- **Session file fallback** (Extension) — `.saropa/drift-advisor-session.json` is written at session end for tools and scenarios where the extension API is unavailable
+- **Log Capture session export** — when both extensions are installed and `driftViewer.integrations.includeInLogCaptureSession` is `full` (the default), session end now writes structured metadata (query stats, anomalies, schema summary, health, diagnostic issues) into the Log Capture session and a `{session}.drift-advisor.json` sidecar file; set to `header` for lightweight headers only, or `none` to opt out entirely
+- **Log Capture extension API** — `getSessionSnapshot()` is now available on `context.exports` so Log Capture's built-in provider can request a snapshot directly without the file fallback
+- **Session file fallback** — `.saropa/drift-advisor-session.json` is written at session end for tools and scenarios where the extension API is unavailable
+
+<details>
+<summary>Maintenance</summary>
+
+- **esbuild bundling** — all web JS/TS assets bundled into a single `bundle.js` via esbuild; Dart server plumbing collapsed from 4 cached fields / 4 script tags to 1
+- **Full JS modularization** — `app.js` decomposed from 6882-line monolith to 915-line init glue; 23 TypeScript modules extracted; shared state centralized in `state.ts` with typed exports
+- **SCSS modularization** — `style.scss` decomposed from 2184 lines to 28-line import hub with 17 feature partials; migrated from deprecated `@import` to `@use`
+- **Connection diagnostic logging** — all connection state transitions, poll cycles, heartbeat, and keep-alive events now emit `[SDA]` prefixed console.log entries for browser dev tools tracing
+
+</details>
 
 ---
 
@@ -127,9 +134,12 @@ Super FAB menu, app logo in the tab bar, and premium theme effects that actually
 
 Fixed the changelog — 2.17.2 had accidentally overwritten the 2.17.1 entry. Both versions are now listed correctly below. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.17.4/CHANGELOG.md)
 
-### Changed
+<details>
+<summary>Maintenance</summary>
 
-- **Publish pipeline: store propagation polling** — After publishing, the pipeline now polls pub.dev, VS Code Marketplace, and/or Open VSX APIs until the new version is visible (30 s interval, 10 min max). Catches CDN propagation delays so you don't close the terminal thinking the release is done when users still see the old version. Timeout is non-fatal
+- **Publish pipeline: store propagation polling** — After publishing, the pipeline now polls pub.dev, VS Code Marketplace, and/or Open VSX APIs until the new version is visible (30 s interval, 10 min max). Timeout is non-fatal
+
+</details>
 
 ---
 
@@ -208,9 +218,18 @@ Dashboard tab renamed for clarity, and web UI assets now load reliably on Flutte
 
 ### Fixed
 
-• **Web UI assets (CSS/JS) returned 404 in Flutter Windows desktop** — After the embedded-string fallback was removed, the debug server relied entirely on disk-based asset resolution, which silently failed in Flutter desktop where `Directory.current` and `Isolate.resolvePackageUri` do not reliably point to the package source tree. Four resolution strategies now run in sequence: (1) `Isolate.resolvePackageUri` with an asset-existence probe to reject pub-cache paths, (2) `.dart_tool/package_config.json` ancestor walk to locate the declared `rootUri`, (3) ancestor walk from `Directory.current`, and (4) ancestor walk from `Platform.resolvedExecutable` — which catches Flutter Windows where the running executable lives in `build/windows/x64/runner/Debug/` but `Directory.current` is unrelated. Assets are cached in memory on first resolution so subsequent requests skip disk I/O.
+• **Web UI blank on Flutter Windows desktop** — The web viewer's CSS and JS failed to load on Flutter desktop apps because the asset resolver couldn't locate the package directory. Now uses multiple resolution strategies with in-memory caching, so the web UI loads reliably on all Flutter platforms.
 
-• **Asset resolution failures were invisible in the Flutter debug console** — The `DriftDebugErrorLogger` log and error callbacks routed all output exclusively through `developer.log`, which is only visible in Dart DevTools and is invisible in the standard Flutter run console or IDE debug terminal. Both callbacks now also call `print()` so `[SDA]` diagnostic messages appear without needing DevTools open. The server also logs the exact file path it probes, whether the file exists, and byte counts on success, making it straightforward to diagnose any future resolution failure.
+• **Server diagnostic messages invisible in Flutter console** — `[SDA]` diagnostic messages now appear in the standard Flutter run console and IDE debug terminal, not just Dart DevTools.
+
+<details>
+<summary>Maintenance</summary>
+
+• **Asset resolution internals** — Four resolution strategies now run in sequence: (1) `Isolate.resolvePackageUri` with an asset-existence probe to reject pub-cache paths, (2) `.dart_tool/package_config.json` ancestor walk to locate the declared `rootUri`, (3) ancestor walk from `Directory.current`, and (4) ancestor walk from `Platform.resolvedExecutable`. Assets are cached in memory on first resolution so subsequent requests skip disk I/O.
+
+• **Error logger dual output** — `DriftDebugErrorLogger` log and error callbacks now call both `developer.log()` and `print()`, and log exact file paths probed with existence and byte counts.
+
+</details>
 
 ---
 
@@ -310,27 +329,32 @@ Stops internal analytics queries from showing up as false-positive slow-query wa
 
 ## [2.13.0]
 
-Fixes several broken commands and stuck webviews, removes duplicate Quick Actions from the Database tree, and upgrades the example app to a live database dashboard. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.13.0/CHANGELOG.md)
+Fixes several broken commands and stuck webviews, and removes duplicate Quick Actions from the Database tree. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.13.0/CHANGELOG.md)
 
 ### Changed
 
 • **Removed duplicate Quick Actions from Database tree** — The "Quick Actions" collapsible group in the Database Explorer duplicated every command already in the "Drift Tools" panel. Removed the redundant group so tool commands appear only in Drift Tools.
 
-• **Example app shows a database dashboard instead of a static notice** — The example's landing screen now displays a compact status header with server state and URL, a table overview with row counts for every table, and a recent-posts list showing title, author, draft/published status, and comment count. Error and disabled states still fall back to the original centered layout.
-
 ### Fixed
 
-• **"Browse all tables" link in Schema Search did nothing** — Periodic server-discovery updates fired `connectionState` messages to the webview, which called `doSearch()` with an empty query, overwriting browse results with the idle placeholder. Added a `browseActive` guard so browse-all results persist until the user types, changes filters, disconnects, or encounters an error.
+• **"Browse all tables" link in Schema Search did nothing** — Browse results were being overwritten by server-discovery updates. Now browse-all results persist until the user types, changes filters, disconnects, or encounters an error.
 
-• **11 commands declared but missing from Command Palette** — `disableDiagnosticRule`, `clearRuntimeAlerts`, `copySuggestedName`, `runIndexSql`, `seedWithProfiles`, `showIndexSuggestions`, `createAllIndexes`, `generateAnomalyFixes`, `sampleTable`, `toggleInvariant`, and `viewInvariantViolations` were registered in code but absent from `contributes.commands`, preventing VS Code from auto-generating activation events for them.
+• **11 commands missing from Command Palette** — `disableDiagnosticRule`, `clearRuntimeAlerts`, `copySuggestedName`, and 8 other commands now appear in the Command Palette as expected.
+
+• **Schema Search stuck on "Waiting for the extension" forever** — The Schema Search panel now initializes reliably instead of silently dropping the first connection message.
+
+• **Query Cost Analysis command failed to register** — The command silently failed with only a warning toast; now registers correctly.
+
+• **Web UI blank when running from the example app** — Asset resolution failed in the example app context, serving 404s that browsers blocked silently. Now resolves assets correctly.
+
+<details>
+<summary>Maintenance</summary>
 
 • **Exhaustive command-wiring tests** — Two new tests verify that every command declared in `package.json` is registered at activation (forward check) and that every registered command is declared (reverse check). Any future wiring breakage now fails the test suite before publication.
 
-• **Schema Search stuck on "Waiting for the extension" forever** — The early handshake script and the main script both called `acquireVsCodeApi()`, which can only be called once per webview. The second call threw silently, preventing the message listener from registering. Connection state messages were dropped and Schema Search never updated.
+• **Example app upgraded** — The example's landing screen now displays a compact status header with server state and URL, a table overview with row counts, and a recent-posts list.
 
-• **Query Cost Analysis command failed to register** — The explain-panel module used value imports for type-only re-exports, causing a runtime `require()` failure that silently prevented the queryCost command from registering. A warning toast was the only symptom.
-
-• **Web UI CSS/JS blocked by MIME type mismatch** — The Dart server's fallback package-root resolution required both the barrel file and an asset file to coexist in each candidate directory. When running from the example app, the walk never found the package root, so assets were served as 404 with `text/plain` — blocked by browsers enforcing `X-Content-Type-Options: nosniff`.
+</details>
 
 ---
 
