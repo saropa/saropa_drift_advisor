@@ -24,9 +24,9 @@ jobs:
 
       # Web viewer assets: style.css must be built from style.scss (edit only .scss, then npm run build:style).
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
       - name: Build web assets (SCSS → CSS)
         run: npm ci && npm run build:style
