@@ -30,13 +30,13 @@ abstract final class HtmlContent {
   /// Uses the same jsDelivr CDN + version-pinned pattern as CSS/JS assets.
   /// Falls back to `@main` if the versioned tag hasn't propagated yet.
   static const _appLogoUrl =
-      'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor'
+      '${ServerConstants.cdnBaseUrl}'
       '@v${ServerConstants.packageVersion}/extension/icon.png';
 
   /// Fallback logo URL on the `@main` branch, used when the versioned
   /// tag hasn't propagated to the CDN yet (same pattern as CSS/JS).
   static const _appLogoUrlFallback =
-      'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor'
+      '${ServerConstants.cdnBaseUrl}'
       '@main/extension/icon.png';
 
   /// Returns the masthead pill HTML fragment for the app header.
@@ -71,7 +71,7 @@ abstract final class HtmlContent {
     // and will never appear in the stylesheet.
     final cssTag = inlineCss != null
         ? '<style>$inlineCss</style>'
-        : '<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css" onerror="this.onerror=null;this.href=\'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/style.css\'">';
+        : '<link rel="stylesheet" href="${ServerConstants.cdnBaseUrl}@v${ServerConstants.packageVersion}/assets/web/style.css" onerror="this.onerror=null;this.href=\'${ServerConstants.cdnBaseUrl}@main/assets/web/style.css\'">';
 
     // JS bundle: single esbuild output containing app + fab + masthead +
     // table-def-toggle. Inline <script> when available, otherwise
@@ -85,7 +85,7 @@ abstract final class HtmlContent {
         ? '<script>${inlineBundleJs.replaceAll('</script>', r'<\/script>')}</script>'
         : '''<script>
 (function(){
-  var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/bundle.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/bundle.js'];
+  var urls=['${ServerConstants.cdnBaseUrl}@v${ServerConstants.packageVersion}/assets/web/bundle.js','${ServerConstants.cdnBaseUrl}@main/assets/web/bundle.js'];
   function tryNext(){
     if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'bundle.js'}));return}
     var u=urls.shift(),s=document.createElement('script');

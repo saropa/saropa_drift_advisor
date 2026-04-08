@@ -13,20 +13,24 @@ const String _kExtPrefix = 'ext.saropa.drift.';
 
 /// Registers VM Service extension RPCs and delegates to [Router].
 ///
-/// Extensions are registered once per isolate (Dart provides no unregister
-/// API). Subsequent calls to [register] update the static router reference
-/// so the already-registered callbacks delegate to the new server instance.
-/// Call [clear] on stop so handlers return "not running" until the next
-/// [register].
-final class VmServiceBridge {
-  VmServiceBridge(Router router) {
-    _router = router;
-  }
-
+/// All state is static because `developer.registerExtension` callbacks are
+/// bound once per isolate (Dart provides no unregister API). Call
+/// [setRouter] + [register] on start, and [clear] on stop so handlers
+/// return "not running" until the next cycle.
+abstract final class VmServiceBridge {
   /// The active router. Static because `developer.registerExtension`
   /// callbacks are bound once per isolate — they must reach whichever
   /// router is current, even after stop/start cycles.
   static Router? _router;
+
+  /// Sets the active router for all VM Service extension handlers.
+  ///
+  /// Must be called before [register] on each server start so the
+  /// already-registered (or about-to-be-registered) callbacks delegate
+  /// to the correct [Router] instance.
+  static void setRouter(Router router) {
+    _router = router;
+  }
 
   /// Whether extensions have already been registered in this isolate.
   /// `developer.registerExtension` throws if called twice for the same
@@ -36,7 +40,7 @@ final class VmServiceBridge {
 
   /// Registers all ext.saropa.drift.* methods, or updates the router
   /// reference if extensions were already registered in this isolate.
-  void register() {
+  static void register() {
     if (_registered) {
       // Extensions survive stop/start — only the router needs updating.
       return;
@@ -91,11 +95,11 @@ final class VmServiceBridge {
 
   /// Clears the router reference so handlers return "not running" after
   /// server stop.
-  void clear() {
+  static void clear() {
     _router = null;
   }
 
-  Future<developer.ServiceExtensionResponse> _handleGetHealth(
+  static Future<developer.ServiceExtensionResponse> _handleGetHealth(
     String method,
     Map<String, String> params,
   ) {
@@ -115,7 +119,7 @@ final class VmServiceBridge {
     );
   }
 
-  Future<developer.ServiceExtensionResponse> _handleGetSchemaMetadata(
+  static Future<developer.ServiceExtensionResponse> _handleGetSchemaMetadata(
     String method,
     Map<String, String> params,
   ) async {
@@ -161,7 +165,7 @@ final class VmServiceBridge {
     }
   }
 
-  Future<developer.ServiceExtensionResponse> _handleGetTableFkMeta(
+  static Future<developer.ServiceExtensionResponse> _handleGetTableFkMeta(
     String method,
     Map<String, String> params,
   ) async {
@@ -190,7 +194,7 @@ final class VmServiceBridge {
     }
   }
 
-  Future<developer.ServiceExtensionResponse> _handleRunSql(
+  static Future<developer.ServiceExtensionResponse> _handleRunSql(
     String method,
     Map<String, String> params,
   ) async {
@@ -220,7 +224,7 @@ final class VmServiceBridge {
   }
 
   /// Handles ext.saropa.drift.applyEditsBatch — params { statements: JSON array }.
-  Future<developer.ServiceExtensionResponse> _handleApplyEditsBatch(
+  static Future<developer.ServiceExtensionResponse> _handleApplyEditsBatch(
     String method,
     Map<String, String> params,
   ) async {
@@ -292,7 +296,7 @@ final class VmServiceBridge {
     }
   }
 
-  Future<developer.ServiceExtensionResponse> _handleGetGeneration(
+  static Future<developer.ServiceExtensionResponse> _handleGetGeneration(
     String method,
     Map<String, String> params,
   ) async {
@@ -329,7 +333,7 @@ final class VmServiceBridge {
     }
   }
 
-  Future<developer.ServiceExtensionResponse> _handleGetPerformance(
+  static Future<developer.ServiceExtensionResponse> _handleGetPerformance(
     String method,
     Map<String, String> params,
   ) async {
@@ -351,7 +355,7 @@ final class VmServiceBridge {
     }
   }
 
-  Future<developer.ServiceExtensionResponse> _handleClearPerformance(
+  static Future<developer.ServiceExtensionResponse> _handleClearPerformance(
     String method,
     Map<String, String> params,
   ) {
@@ -381,7 +385,7 @@ final class VmServiceBridge {
     }
   }
 
-  Future<developer.ServiceExtensionResponse> _handleGetAnomalies(
+  static Future<developer.ServiceExtensionResponse> _handleGetAnomalies(
     String method,
     Map<String, String> params,
   ) async {
@@ -403,7 +407,7 @@ final class VmServiceBridge {
     }
   }
 
-  Future<developer.ServiceExtensionResponse> _handleExplainSql(
+  static Future<developer.ServiceExtensionResponse> _handleExplainSql(
     String method,
     Map<String, String> params,
   ) async {
@@ -432,7 +436,7 @@ final class VmServiceBridge {
     }
   }
 
-  Future<developer.ServiceExtensionResponse> _handleGetIndexSuggestions(
+  static Future<developer.ServiceExtensionResponse> _handleGetIndexSuggestions(
     String method,
     Map<String, String> params,
   ) async {
@@ -457,7 +461,7 @@ final class VmServiceBridge {
   /// Handles ext.saropa.drift.getIssues.
   /// Returns the same merged issues list as GET /api/issues.
   /// Optional param "sources": comma-separated "index-suggestions", "anomalies".
-  Future<developer.ServiceExtensionResponse> _handleGetIssues(
+  static Future<developer.ServiceExtensionResponse> _handleGetIssues(
     String method,
     Map<String, String> params,
   ) async {
@@ -489,7 +493,7 @@ final class VmServiceBridge {
 
   /// Handles ext.saropa.drift.getChangeDetection.
   /// Returns {"changeDetection": true|false}.
-  Future<developer.ServiceExtensionResponse> _handleGetChangeDetection(
+  static Future<developer.ServiceExtensionResponse> _handleGetChangeDetection(
     String method,
     Map<String, String> params,
   ) {
@@ -515,7 +519,7 @@ final class VmServiceBridge {
   /// Handles ext.saropa.drift.setChangeDetection.
   /// Expects param "enabled" = "true" or "false".
   /// Returns {"changeDetection": true|false}.
-  Future<developer.ServiceExtensionResponse> _handleSetChangeDetection(
+  static Future<developer.ServiceExtensionResponse> _handleSetChangeDetection(
     String method,
     Map<String, String> params,
   ) {

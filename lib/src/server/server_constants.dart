@@ -116,6 +116,12 @@ abstract final class ServerConstants {
   /// Must match pubspec.yaml: updated on publish version writes, and the Dart
   /// analysis leg of scripts/publish.py reconciles this constant if it drifted.
   static const String packageVersion = '3.0.1';
+
+  /// jsDelivr CDN base URL for serving web assets and images when
+  /// local files are unavailable. Append `@v$packageVersion/…` for
+  /// version-pinned resources or `@main/…` for the fallback branch.
+  static const String cdnBaseUrl =
+      'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor';
   static const String jsonKeyVersion = 'version';
   static const String queryParamLimit = 'limit';
   static const String queryParamOffset = 'offset';

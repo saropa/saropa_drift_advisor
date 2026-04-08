@@ -31,8 +31,6 @@ class _DriftDebugServerImpl {
   /// Router for dispatching requests; null when server is not running.
   Router? _router;
 
-  /// VM Service extension bridge (Plan 68). Cleared on stop.
-  VmServiceBridge? _vmBridge;
 
   /// In-memory shared sessions for collaborative debug.
   ///
@@ -207,8 +205,8 @@ class _DriftDebugServerImpl {
       }
       _serverSubscription = server.listen(router.onRequest);
 
-      _vmBridge = VmServiceBridge(router);
-      _vmBridge?.register();
+      VmServiceBridge.setRouter(router);
+      VmServiceBridge.register();
 
       // IMPORTANT: print() is the ONLY output method that appears as
       // I/flutter lines on Android. Do NOT replace with ctx.log(),
@@ -265,8 +263,7 @@ class _DriftDebugServerImpl {
 
     await _serverSubscription?.cancel();
     _serverSubscription = null;
-    _vmBridge?.clear();
-    _vmBridge = null;
+    VmServiceBridge.clear();
     _router = null;
     _server = null;
     await server.close();
