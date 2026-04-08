@@ -103,6 +103,11 @@ export const THEME_KEY = 'drift-viewer-theme';
 export const TABLE_STATE_KEY_PREFIX = 'drift-viewer-table-state-';
 export const NAV_HISTORY_KEY = 'drift-viewer-nav-history';
 export const PINNED_TABLES_KEY = 'drift-viewer-pinned-tables';
+// Tracks which server (host:port) owns the current localStorage data.
+// When the user switches projects the origin changes and we must clear
+// stale table state, pinned tables, nav history, etc. so the webview
+// does not show data from the previous project.
+export const SERVER_ORIGIN_KEY = 'drift-viewer-server-origin';
 export const LIMIT_OPTIONS = [50, 200, 500, 1000];
 
 // --- Display & UI state ---

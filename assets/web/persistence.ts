@@ -3,10 +3,67 @@
  * table state (filter, limit, offset), and FK navigation history.
  * All backed by localStorage. Extracted from app.js.
  *
+ * Also owns **server-origin change detection**: when the debug server
+ * host/port changes (user switched Flutter projects), all project-
+ * specific keys are purged so stale data from the previous project
+ * does not bleed into the new one. See {@link clearStaleProjectStorage}.
  */
 import { renderTableList } from './table-list.ts';
 import { captureQueryBuilderState } from './query-builder.ts';
 import * as S from './state.ts';
+
+/**
+ * Detects whether the debug server origin (scheme + host + port) has
+ * changed since the last page load.  When it has, all project-specific
+ * localStorage keys are removed so stale table state, pinned tables,
+ * nav history, SQL history, bookmarks, and analysis results from the
+ * previous project do not bleed into the new one.
+ *
+ * UI-preference keys (theme, sidebar collapsed state) are kept because
+ * they are user choices that should survive across projects.
+ *
+ * Call this once, early in app.js, before any other localStorage reads.
+ */
+export function clearStaleProjectStorage(): void {
+  try {
+    // The <base href> tag is injected by the extension with the
+    // current server URL (e.g. "http://127.0.0.1:8080/").  Falling
+    // back to location.origin covers the standalone-browser case.
+    var baseEl = document.querySelector('base');
+    var origin = baseEl ? baseEl.href.replace(/\/+$/, '') : location.origin;
+    var prev = localStorage.getItem(S.SERVER_ORIGIN_KEY);
+
+    if (prev === origin) return; // same server — nothing to clear
+
+    console.log('[SDA] server origin changed: ' + prev + ' → ' + origin + ' — clearing stale project storage');
+
+    // Remove every key that is project-specific.  We iterate all keys
+    // because TABLE_STATE_KEY_PREFIX and ANALYSIS_STORAGE_PREFIX
+    // generate dynamic suffixes we cannot enumerate from state.ts.
+    var keysToRemove: string[] = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (!key) continue;
+      if (
+        key === S.PINNED_TABLES_KEY ||
+        key === S.NAV_HISTORY_KEY ||
+        key === S.SQL_HISTORY_KEY ||
+        key === S.BOOKMARKS_KEY ||
+        key.startsWith(S.TABLE_STATE_KEY_PREFIX) ||
+        key.startsWith(S.ANALYSIS_STORAGE_PREFIX)
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(function(k) { localStorage.removeItem(k); });
+
+    // Record the new origin so subsequent reloads within the same
+    // project skip the clear path.
+    localStorage.setItem(S.SERVER_ORIGIN_KEY, origin);
+  } catch (e) {
+    // localStorage unavailable — degrade silently.
+  }
+}
 
 export function getPinnedTables() {
       try {
