@@ -16,7 +16,7 @@ void main() {
       // Simulate local assets being available.
       html = HtmlContent.buildIndexHtml(
         inlineCss: '/* test-css-marker */',
-        inlineJs: '/* test-js-marker */',
+        inlineBundleJs: '/* test-js-marker */',
       );
     });
 
@@ -30,7 +30,7 @@ void main() {
 
     test('does not reference local asset URLs', () {
       expect(html, isNot(contains('/assets/web/style.css')));
-      expect(html, isNot(contains('/assets/web/app.js')));
+      expect(html, isNot(contains('/assets/web/bundle.js')));
     });
 
     test('does not load CSS/JS from CDN when assets are inlined', () {
@@ -42,7 +42,7 @@ void main() {
       );
       expect(
         html,
-        isNot(contains('assets/web/app.js')),
+        isNot(contains('assets/web/bundle.js')),
         reason: 'JS must be inlined, not loaded from CDN',
       );
     });
@@ -91,7 +91,7 @@ void main() {
       expect(
         html,
         contains(
-          'cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/app.js',
+          'cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/bundle.js',
         ),
         reason: 'JS loader must include @main jsDelivr fallback',
       );

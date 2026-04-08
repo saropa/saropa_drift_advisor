@@ -14,15 +14,15 @@
 import * as assert from 'assert';
 import { readAsset } from './web-theme-test-helpers';
 
-describe('table-def-toggle.js — self-contained collapsible module', () => {
+describe('table-def-toggle.ts — self-contained collapsible module', () => {
   let js: string;
 
   before(() => {
-    js = readAsset('assets/web/table-def-toggle.js');
+    js = readAsset('assets/web/table-def-toggle.ts');
   });
 
   it('file exists and is non-empty', () => {
-    assert.ok(js.length > 0, 'table-def-toggle.js should not be empty');
+    assert.ok(js.length > 0, 'table-def-toggle.ts should not be empty');
   });
 
   // The module injects its own <style> so no edits to style.scss are needed.
@@ -91,7 +91,7 @@ describe('table-def-toggle.js — self-contained collapsible module', () => {
   });
 });
 
-describe('table-def-toggle.js — Dart loader integration', () => {
+describe('table-def-toggle.ts — Dart loader integration', () => {
   let htmlContent: string;
   let genHandler: string;
 
@@ -100,69 +100,70 @@ describe('table-def-toggle.js — Dart loader integration', () => {
     genHandler = readAsset('lib/src/server/generation_handler.dart');
   });
 
-  it('html_content.dart accepts inlineTableDefToggleJs parameter', () => {
+  it('html_content.dart accepts inlineBundleJs parameter', () => {
     assert.ok(
-      htmlContent.includes('inlineTableDefToggleJs'),
-      'buildIndexHtml should accept inlineTableDefToggleJs parameter',
+      htmlContent.includes('inlineBundleJs'),
+      'buildIndexHtml should accept inlineBundleJs parameter',
     );
   });
 
-  it('html_content.dart emits the table-def-toggle script tag', () => {
+  it('html_content.dart emits the bundle script tag', () => {
     assert.ok(
-      htmlContent.includes('tableDefToggleJsTag'),
-      'should reference tableDefToggleJsTag in the HTML template',
+      htmlContent.includes('bundleJsTag'),
+      'should reference bundleJsTag in the HTML template',
     );
     assert.ok(
-      htmlContent.includes('table-def-toggle.js'),
-      'CDN fallback should reference table-def-toggle.js',
+      htmlContent.includes('bundle.js'),
+      'CDN fallback should reference bundle.js',
     );
   });
 
-  it('generation_handler.dart caches table-def-toggle.js', () => {
+  it('generation_handler.dart caches bundle.js', () => {
     assert.ok(
-      genHandler.includes('_cachedTableDefToggleJs'),
-      'should have a cache field for table-def-toggle.js',
+      genHandler.includes('_cachedBundleJs'),
+      'should have a cache field for bundle.js',
     );
     assert.ok(
-      genHandler.includes("'assets/web/table-def-toggle.js'"),
-      'should read table-def-toggle.js from disk',
+      genHandler.includes("'assets/web/bundle.js'"),
+      'should read bundle.js from disk',
     );
   });
 
   it('generation_handler.dart passes cached JS to buildIndexHtml', () => {
     assert.ok(
-      genHandler.includes('inlineTableDefToggleJs: _cachedTableDefToggleJs'),
+      genHandler.includes('inlineBundleJs: _cachedBundleJs'),
       'should pass cached JS to buildIndexHtml',
     );
   });
 });
 
-describe('table-def-toggle.js — app.js DOM contract', () => {
-  let appJs: string;
+describe('table-def-toggle.ts — table-view.ts DOM contract', () => {
+  let tableViewTs: string;
 
   before(() => {
-    appJs = readAsset('assets/web/app.js');
+    // buildTableDefinitionHtml moved from app.js to table-view.ts
+    tableViewTs = readAsset('assets/web/table-view.ts');
   });
 
   // The toggle module targets .table-definition-heading and
-  // .table-definition-wrap — these classes must exist in app.js output.
-  it('app.js emits .table-definition-wrap', () => {
+  // .table-definition-wrap — these classes must exist in table-view.ts output.
+  it('table-view.ts emits .table-definition-wrap', () => {
     assert.ok(
-      appJs.includes('table-definition-wrap'),
+      tableViewTs.includes('table-definition-wrap'),
       'buildTableDefinitionHtml should emit table-definition-wrap class',
     );
   });
 
-  it('app.js emits .table-definition-heading', () => {
+  it('table-view.ts emits .table-definition-heading', () => {
     assert.ok(
-      appJs.includes('table-definition-heading'),
+      tableViewTs.includes('table-definition-heading'),
       'buildTableDefinitionHtml should emit table-definition-heading class',
     );
   });
 
-  it('app.js emits .table-definition-scroll', () => {
+  it('table-view.ts emits .table-definition-scroll', () => {
     assert.ok(
-      appJs.includes('table-definition-scroll'),
+      tableViewTs.includes('table-definition-scroll'),
       'buildTableDefinitionHtml should emit table-definition-scroll class',
     );
   });

@@ -190,8 +190,9 @@ describe('Web theme contract — premium theme effects in style.css', () => {
     );
   });
 
-  it('app.js nextTheme always cycles through all four themes', () => {
-    const js = readAsset('assets/web/app.js');
+  it('theme.ts nextTheme always cycles through all four themes', () => {
+    // nextTheme moved from app.js to theme.ts
+    const js = readAsset('assets/web/theme.ts');
     const nextThemeMatch = js.match(
       /function nextTheme[\s\S]*?var cycle = \[(.*?)\]/,
     );

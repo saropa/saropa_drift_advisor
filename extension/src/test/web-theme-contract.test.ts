@@ -118,25 +118,26 @@ describe('Web theme contract — style.css', () => {
   });
 });
 
-describe('Web theme contract — app.js', () => {
+describe('Web theme contract — theme.ts', () => {
   let js: string;
 
   before(() => {
-    js = readAsset('assets/web/app.js');
+    // Theme functions (applyTheme, nextTheme, initTheme) moved to theme.ts
+    js = readAsset('assets/web/theme.ts');
   });
 
   it('applyTheme supports all four theme names', () => {
     // The function must add the correct class to <body>.
-    assert.ok(js.includes("'theme-dark'"), 'app.js must reference theme-dark class');
-    assert.ok(js.includes("'theme-light'"), 'app.js must reference theme-light class');
-    assert.ok(js.includes("'theme-showcase'"), 'app.js must reference theme-showcase class');
-    assert.ok(js.includes("'theme-midnight'"), 'app.js must reference theme-midnight class');
+    assert.ok(js.includes("'theme-dark'"), 'theme.ts must reference theme-dark class');
+    assert.ok(js.includes("'theme-light'"), 'theme.ts must reference theme-light class');
+    assert.ok(js.includes("'theme-showcase'"), 'theme.ts must reference theme-showcase class');
+    assert.ok(js.includes("'theme-midnight'"), 'theme.ts must reference theme-midnight class');
   });
 
   it('theme toggle cycles through themes', () => {
     assert.ok(
       js.includes('nextTheme'),
-      'app.js must contain nextTheme function for four-way cycling',
+      'theme.ts must contain nextTheme function for four-way cycling',
     );
   });
 
@@ -146,14 +147,14 @@ describe('Web theme contract — app.js', () => {
     // markEnhancedReady logic are removed entirely.
     assert.ok(
       !js.includes('_driftEnhancedLoaded'),
-      'app.js must not reference _driftEnhancedLoaded (all themes are always available)',
+      'theme.ts must not reference _driftEnhancedLoaded (all themes are always available)',
     );
   });
 
   it('does NOT reference drift-enhanced.css (no CDN dependency)', () => {
     assert.ok(
       !js.includes('drift-enhanced'),
-      'app.js must not load drift-enhanced.css (effects are inline in style.css)',
+      'theme.ts must not load drift-enhanced.css (effects are inline in style.css)',
     );
   });
 

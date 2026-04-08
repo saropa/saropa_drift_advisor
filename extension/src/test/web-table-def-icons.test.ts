@@ -14,11 +14,12 @@
 import * as assert from 'assert';
 import { readAsset, extractBlock } from './web-theme-test-helpers';
 
-describe('table-def icons — app.js columnTypeIcon function', () => {
+describe('table-def icons — table-view.ts columnTypeIcon function', () => {
   let appJs: string;
 
   before(() => {
-    appJs = readAsset('assets/web/app.js');
+    // columnTypeIcon and table-definition HTML moved to table-view.ts
+    appJs = readAsset('assets/web/table-view.ts');
   });
 
   it('defines columnTypeIcon function', () => {
@@ -81,11 +82,12 @@ describe('table-def icons — app.js columnTypeIcon function', () => {
   });
 });
 
-describe('table-def icons — app.js HTML output', () => {
+describe('table-def icons — table-view.ts HTML output', () => {
   let appJs: string;
 
   before(() => {
-    appJs = readAsset('assets/web/app.js');
+    // buildTableDefinitionHtml and related HTML output moved to table-view.ts
+    appJs = readAsset('assets/web/table-view.ts');
   });
 
   it('emits .table-def-icons in header row', () => {

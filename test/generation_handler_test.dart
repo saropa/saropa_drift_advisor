@@ -181,7 +181,7 @@ void main() {
           final client = HttpClient();
           try {
             final request = await client.getUrl(
-              Uri.parse('http://127.0.0.1:${server.port}/assets/web/app.js'),
+              Uri.parse('http://127.0.0.1:${server.port}/assets/web/bundle.js'),
             );
             final response = await request.close().timeout(
               const Duration(seconds: 10),

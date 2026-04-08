@@ -77,56 +77,56 @@ describe('Super FAB module — style.css', () => {
   });
 });
 
-describe('Super FAB module — fab.js', () => {
+describe('Super FAB module — fab.ts', () => {
   let fabJs: string;
 
   before(() => {
-    fabJs = readAsset('assets/web/fab.js');
+    fabJs = readAsset('assets/web/fab.ts');
   });
 
-  it('fab.js exists and is self-contained', () => {
+  it('fab.ts exists and is self-contained', () => {
     assert.ok(
       fabJs.length > 0,
-      'fab.js must exist and have content',
+      'fab.ts must exist and have content',
     );
   });
 
-  it('fab.js initializes via IIFE', () => {
+  it('fab.ts initializes via IIFE', () => {
     assert.ok(
       fabJs.includes('initSuperFab'),
-      'fab.js must contain initSuperFab function',
+      'fab.ts must contain initSuperFab function',
     );
   });
 
-  it('fab.js toggles open/close via .open class', () => {
+  it('fab.ts toggles open/close via .open class', () => {
     assert.ok(
       fabJs.includes("classList.toggle('open'") || fabJs.includes('classList.contains(\'open\')'),
-      'fab.js must toggle the .open class on the FAB container',
+      'fab.ts must toggle the .open class on the FAB container',
     );
   });
 
-  it('fab.js handles Escape key to close', () => {
+  it('fab.ts handles Escape key to close', () => {
     assert.ok(
       fabJs.includes("e.key === 'Escape'"),
-      'fab.js must close the FAB on Escape key',
+      'fab.ts must close the FAB on Escape key',
     );
   });
 
-  it('fab.js handles outside clicks to close', () => {
+  it('fab.ts handles outside clicks to close', () => {
     assert.ok(
       fabJs.includes('fab.contains'),
-      'fab.js must close the FAB when clicking outside',
+      'fab.ts must close the FAB when clicking outside',
     );
   });
 
-  it('fab.js updates aria-expanded and aria-hidden', () => {
+  it('fab.ts updates aria-expanded and aria-hidden', () => {
     assert.ok(
       fabJs.includes('aria-expanded'),
-      'fab.js must toggle aria-expanded on the trigger',
+      'fab.ts must toggle aria-expanded on the trigger',
     );
     assert.ok(
       fabJs.includes('aria-hidden'),
-      'fab.js must toggle aria-hidden on the menu',
+      'fab.ts must toggle aria-hidden on the menu',
     );
   });
 });
@@ -166,8 +166,10 @@ describe('Super FAB module — app.js integration', () => {
     // After a share session completes, the button must restore its
     // icon+label innerHTML, not use plain textContent (which would
     // strip the Material icon span).
+    // The share reset logic now lives in session.ts (moved from app.js).
+    const sessionTs = readAsset('assets/web/session.ts');
     assert.ok(
-      appJs.includes('fab-action-label">Share</span>'),
+      sessionTs.includes('fab-action-label">Share</span>'),
       'Share button reset must restore the fab-action-label structure',
     );
   });
