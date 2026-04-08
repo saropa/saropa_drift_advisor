@@ -48,4 +48,35 @@ describe('getErDiagramScript', () => {
     assert.ok(script.includes("getElementById('refreshBtn')"));
     assert.ok(script.includes("getElementById('layoutMode')"));
   });
+
+  it('should include SVG rendering helpers from the extracted module', () => {
+    assert.ok(
+      script.includes('function renderTableNode(node)'),
+      'Expected renderTableNode function in composed output',
+    );
+    assert.ok(
+      script.includes('function getColumnY(node, columnName)'),
+      'Expected getColumnY function in composed output',
+    );
+    assert.ok(
+      script.includes('function bezierPath(x1, y1, x2, y2)'),
+      'Expected bezierPath function in composed output',
+    );
+  });
+
+  it('should use extracted helpers from the main renderDiagram function', () => {
+    // Verify renderDiagram calls the extracted helpers
+    assert.ok(
+      script.includes('getColumnY(fromNode,'),
+      'Expected renderDiagram to call getColumnY',
+    );
+    assert.ok(
+      script.includes('bezierPath('),
+      'Expected renderDiagram to call bezierPath',
+    );
+    assert.ok(
+      script.includes('renderTableNode(node)'),
+      'Expected renderDiagram to call renderTableNode',
+    );
+  });
 });
