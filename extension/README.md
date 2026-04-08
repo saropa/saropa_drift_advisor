@@ -90,6 +90,7 @@ Works in Dart files with Drift table definitions:
 | `driftViewer.connection.logEveryUiRefresh` | `false` | Log every connection UI refresh even when state is unchanged (verbose troubleshooting) |
 | `driftViewer.lightweight` | `false` | When true, skips badges/timeline/tree refresh on generation change |
 | `driftViewer.performance.slowThresholdMs` | `500` | Slow query threshold (ms) |
+| `driftViewer.integrations.includeInLogCaptureSession` | `full` | Controls what Drift Advisor contributes to Log Capture sessions: `none` (opt out), `header` (lightweight headers only), `full` (structured metadata + sidecar file) |
 
 ## Design: extension enablement
 

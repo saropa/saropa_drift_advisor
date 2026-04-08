@@ -17,20 +17,17 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from modules.checks_version import _stamp_changelog
+from modules.checks_version import _stamp_changelog, _update_changelog_version
 
 
 def _make_config(changelog_path: str = "CHANGELOG.md") -> SimpleNamespace:
     return SimpleNamespace(changelog_path=changelog_path)
 
 
-# A changelog that has already been stamped: [Unreleased] above [2.17.6].
+# A changelog that has already been stamped: no [Unreleased], just [2.17.6].
+# This is what the file looks like after the first target stamps it.
 _ALREADY_STAMPED = """\
 # Changelog
-
----
-
-## [Unreleased]
 
 ---
 
@@ -95,6 +92,85 @@ class TestStampChangelogNoop(unittest.TestCase):
 
         self.assertTrue(result)
         # open() should be called twice: once for read, once for write.
+        write_calls = [
+            c for c in m.call_args_list
+            if (len(c[0]) > 1 and "w" in c[0][1])
+            or ("mode" in (c[1] or {}) and "w" in c[1]["mode"])
+        ]
+        self.assertEqual(len(write_calls), 1, "File should be written exactly once")
+
+
+class TestUpdateChangelogVersion(unittest.TestCase):
+    """_update_changelog_version must not create duplicate headings."""
+
+    # Reproduces the bug: CHANGELOG has ## [3.0.0] - Unreleased and ## [2.19.0].
+    # Renaming [2.19.0] → [3.0.0] would create a duplicate.
+    _CHANGELOG_WITH_VERSIONED_UNRELEASED = """\
+# Changelog
+
+---
+
+## [3.0.0] - Unreleased
+
+### Fixed
+- Stale data after server switch
+
+---
+
+## [2.19.0]
+
+### Added
+- Type badges on columns
+"""
+
+    @patch("modules.checks_version.ok")
+    def test_skip_rename_when_new_version_already_exists(self, mock_ok: MagicMock) -> None:
+        """Renaming [2.19.0] → [3.0.0] must be skipped when [3.0.0] already exists."""
+        config = _make_config("/fake/CHANGELOG.md")
+
+        m = mock_open(read_data=self._CHANGELOG_WITH_VERSIONED_UNRELEASED)
+        with patch("builtins.open", m):
+            result = _update_changelog_version("2.19.0", "3.0.0", config)
+
+        self.assertTrue(result)
+
+        # Must NOT have written the file — no "w" mode calls.
+        for c in m.call_args_list:
+            args = c[0] if c[0] else ()
+            kwargs = c[1] if c[1] else {}
+            mode = args[1] if len(args) > 1 else kwargs.get("mode", "r")
+            self.assertNotIn("w", mode, "File should not have been written (would create duplicate)")
+
+        # Should log that the version is already present.
+        ok_calls = [c[0][0] for c in mock_ok.call_args_list]
+        self.assertTrue(
+            any("already present" in msg for msg in ok_calls),
+            f"Expected 'already present' message, got: {ok_calls}",
+        )
+
+    @patch("modules.checks_version.fix")
+    def test_rename_proceeds_when_no_conflict(self, mock_fix: MagicMock) -> None:
+        """Renaming [2.19.0] → [2.20.0] should proceed when [2.20.0] does not exist."""
+        config = _make_config("/fake/CHANGELOG.md")
+
+        # Only has [2.19.0], no [2.20.0] anywhere.
+        changelog = """\
+# Changelog
+
+---
+
+## [2.19.0]
+
+### Added
+- Type badges on columns
+"""
+        m = mock_open(read_data=changelog)
+        with patch("builtins.open", m):
+            result = _update_changelog_version("2.19.0", "2.20.0", config)
+
+        self.assertTrue(result)
+
+        # Should have written the file.
         write_calls = [
             c for c in m.call_args_list
             if (len(c[0]) > 1 and "w" in c[0][1])

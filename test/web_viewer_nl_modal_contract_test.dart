@@ -1,21 +1,33 @@
 // Contract tests for the debug web viewer shell: NL→SQL modal markup,
-// layout toggles, and tables-list loading shell (html_content.dart, app.js,
-// style.scss). Catches accidental ID renames and markup regressions.
+// layout toggles, and tables-list loading shell (html_content.dart, bundle.js,
+// SCSS partials). Catches accidental ID renames and markup regressions.
 
 import 'dart:io';
 
 import 'package:test/test.dart';
 
+/// Read and normalize line endings in [path].
+String _read(String path) =>
+    File(path).readAsStringSync().replaceAll('\r\n', '\n');
+
+/// Concatenate all SCSS sources (root + partials) so contract checks can find
+/// rules that moved from style.scss into `_*.scss` partials.
+String _readAllScss() {
+  final dir = Directory('assets/web');
+  final buf = StringBuffer();
+  for (final f in dir.listSync().whereType<File>()) {
+    if (f.path.endsWith('.scss')) {
+      buf.writeln(_read(f.path));
+    }
+  }
+  return buf.toString();
+}
+
 void main() {
-  final String appJs = File(
-    'assets/web/app.js',
-  ).readAsStringSync().replaceAll('\r\n', '\n');
-  final String htmlDart = File(
-    'lib/src/server/html_content.dart',
-  ).readAsStringSync().replaceAll('\r\n', '\n');
-  final String styleScss = File(
-    'assets/web/style.scss',
-  ).readAsStringSync().replaceAll('\r\n', '\n');
+  // bundle.js is the esbuild output that merges app.js + all TS modules.
+  final String appJs = _read('assets/web/bundle.js');
+  final String htmlDart = _read('lib/src/server/html_content.dart');
+  final String styleScss = _readAllScss();
 
   test(
     'NL modal shell: compact trigger and preview field, no legacy inline row',
@@ -33,11 +45,11 @@ void main() {
     () {
       expect(appJs, contains('function applyNlLivePreview'));
       expect(appJs, contains('function scheduleNlLivePreview'));
-      expect(appJs, contains("getElementById('nl-modal-sql-preview')"));
+      expect(appJs, contains('getElementById("nl-modal-sql-preview")'));
       expect(appJs, contains('async function useNlModal'));
       expect(appJs, contains('function setNlModalError'));
-      expect(appJs, isNot(contains("getElementById('nl-input')")));
-      expect(appJs, isNot(contains("getElementById('nl-convert')")));
+      expect(appJs, isNot(contains('getElementById("nl-input")')));
+      expect(appJs, isNot(contains('getElementById("nl-convert")')));
     },
   );
 
@@ -56,15 +68,14 @@ void main() {
     expect(styleScss, contains('app-sidebar-panel-collapsed'));
     expect(appJs, contains('APP_SIDEBAR_PANEL_KEY'));
     expect(appJs, contains('saropa_app_sidebar_collapsed'));
-    expect(appJs, contains("classList.toggle('app-sidebar-panel-collapsed'"));
-    // Unified IIFE drives both the header button and the tables heading toggle.
-    final initFn = 'function initSidebarPanelCollapse';
-    final toggleLine = "classList.toggle('app-sidebar-panel-collapsed'";
+    expect(appJs, contains('classList.toggle("app-sidebar-panel-collapsed"'));
+    // Unified function drives both the header button and the tables heading toggle.
+    final initFn = 'function initSidebarCollapse';
+    final toggleLine = 'classList.toggle("app-sidebar-panel-collapsed"';
     expect(
       appJs.indexOf(initFn),
       lessThan(appJs.indexOf(toggleLine)),
-      reason:
-          'initializer must define applyAppSidebarCollapsed before toggle() runs',
+      reason: 'initSidebarCollapse must be defined before toggle() runs',
     );
   });
 
@@ -86,24 +97,24 @@ void main() {
       // app.js wires both buttons inside a single IIFE
       expect(
         appJs,
-        contains("getElementById('tables-heading-toggle')"),
+        contains('getElementById("tables-heading-toggle")'),
         reason: 'JS must look up the tables heading toggle',
       );
       // The old vertical-collapse mechanism is gone: no getItem/setItem usage
       // of the old key (removeItem cleanup is fine).
       expect(
         appJs,
-        isNot(contains("getItem('saropa_sidebar_tables_collapsed')")),
+        isNot(contains('getItem("saropa_sidebar_tables_collapsed")')),
         reason: 'old vertical-collapse localStorage key must not be read',
       );
       expect(
         appJs,
-        isNot(contains("setItem('saropa_sidebar_tables_collapsed'")),
+        isNot(contains('setItem("saropa_sidebar_tables_collapsed"')),
         reason: 'old vertical-collapse localStorage key must not be written',
       );
       expect(
         appJs,
-        isNot(contains("wrap.classList.toggle('collapsed')")),
+        isNot(contains('wrap.classList.toggle("collapsed")')),
         reason: 'no per-section .collapsed class toggle on the tables wrap',
       );
       // Old vertical-collapse CSS (max-height → 0) must be gone from SCSS
@@ -141,9 +152,9 @@ void main() {
       expect(htmlDart, isNot(contains('<p id="tables-loading"')));
       expect(styleScss, contains('tables-skeleton-bar'));
       expect(styleScss, contains('tables-skeleton-shimmer'));
-      expect(appJs, contains("getElementById('tables-loading')"));
-      expect(appJs, contains("getElementById('tables-loading-error')"));
-      expect(appJs, contains("wrap.querySelector('.tables-skeleton')"));
+      expect(appJs, contains('getElementById("tables-loading")'));
+      expect(appJs, contains('getElementById("tables-loading-error")'));
+      expect(appJs, contains('wrap.querySelector(".tables-skeleton")'));
     },
   );
 }

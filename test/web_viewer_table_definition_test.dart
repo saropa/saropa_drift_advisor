@@ -1,4 +1,4 @@
-// Contract tests for debug web viewer behavior (assets/web/app.js).
+// Contract tests for debug web viewer behavior (assets/web/bundle.js).
 // Ensures the table-definition feature remains wired after refactors.
 
 import 'dart:io';
@@ -6,11 +6,13 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 void main() {
+  // Read the esbuild bundle (app.js is now just the entry point with imports;
+  // the compiled output that ships to users is bundle.js).
   final String appJs = File(
-    'assets/web/app.js',
+    'assets/web/bundle.js',
   ).readAsStringSync().replaceAll('\r\n', '\n');
 
-  test('buildTableDefinitionHtml and markup hooks exist in app.js', () {
+  test('buildTableDefinitionHtml and markup hooks exist in bundle.js', () {
     expect(
       appJs,
       contains('function buildTableDefinitionHtml'),

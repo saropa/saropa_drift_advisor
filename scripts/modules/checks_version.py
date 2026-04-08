@@ -334,6 +334,12 @@ def _update_changelog_version(
         # No heading to update — might be [Unreleased] which will be stamped later
         return True
 
+    if new_heading in content:
+        # New version heading already exists (possibly as "## [x.y.z] - Unreleased").
+        # Renaming old_heading would create a duplicate — skip.
+        ok(f"CHANGELOG: [{new_version}] already present, keeping [{old_version}] as-is")
+        return True
+
     updated = content.replace(old_heading, new_heading, 1)
     try:
         with open(changelog_path, "w", encoding="utf-8") as f:
@@ -425,21 +431,6 @@ def _stamp_changelog(
             fail("Could not find '## [Unreleased]' (or [Unpublished]/[Undefined]) in CHANGELOG.md")
             return False
         ok(f"CHANGELOG: [Unreleased] -> [{version}]")
-
-    # Re-add a fresh empty [Unreleased] section above the stamped heading
-    # so the CHANGELOG is ready for future changes.
-    if not _UNPUBLISHED_HEADING_RE.search(updated):
-        ver_re = re.compile(
-            rf'^##\s*\[{re.escape(version)}\]',
-            re.MULTILINE,
-        )
-        ver_match = ver_re.search(updated)
-        if ver_match:
-            updated = (
-                updated[:ver_match.start()].rstrip('\n')
-                + '\n\n## [Unreleased]\n\n---\n\n'
-                + updated[ver_match.start():]
-            )
 
     # Clean up triple+ blank lines
     updated = re.sub(r'\n{3,}', '\n\n', updated)

@@ -65,10 +65,7 @@ abstract final class HtmlContent {
   /// requests, works offline, and avoids the unreliable `onerror`
   /// fallback chain. When null, a small fetch-based loader tries
   /// version-pinned jsDelivr, then `@main`.
-  static String buildIndexHtml({
-    String? inlineCss,
-    String? inlineBundleJs,
-  }) {
+  static String buildIndexHtml({String? inlineCss, String? inlineBundleJs}) {
     // CSS: inline <style> when available, otherwise CDN <link>.
     // No escaping needed for CSS — </style> is not valid CSS syntax
     // and will never appear in the stylesheet.

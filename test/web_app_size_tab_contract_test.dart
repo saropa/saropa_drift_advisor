@@ -1,31 +1,33 @@
-// Contract checks for the browser Size analytics panel in assets/web/app.js.
+// Contract checks for the browser Size analytics panel in the bundled JS.
 //
-// The debug viewer script is plain JS (not compiled from TS here); these tests
-// lock in user-facing behaviors so refactors do not drop session caching,
-// table links, or tooltip copy without an intentional change.
+// The debug viewer is built from TypeScript modules and bundled by esbuild
+// into bundle.js. These tests lock in user-facing behaviors so refactors
+// do not drop session caching, table links, or tooltip copy without an
+// intentional change.
 import 'dart:io';
 
 import 'package:test/test.dart';
 
 void main() {
-  final appJs = File('assets/web/app.js');
+  final bundleJs = File('assets/web/bundle.js');
 
-  test('assets/web/app.js exists', () {
-    expect(appJs.existsSync(), isTrue);
+  test('assets/web/bundle.js exists', () {
+    expect(bundleJs.existsSync(), isTrue);
   });
 
-  group('Size tab contract (app.js)', () {
+  group('Size tab contract (bundle.js)', () {
     late String src;
 
     setUp(() {
-      src = appJs.readAsStringSync().replaceAll('\r\n', '\n');
+      src = bundleJs.readAsStringSync().replaceAll('\r\n', '\n');
     });
 
     test('skips auto size analyze when lastSizeAnalyticsData is already set', () {
       // Before: onTabSwitch always triggered size-analyze. After: only when null.
+      // esbuild normalizes quotes to double-quotes.
       expect(
         src.contains(
-          "if (tabId === 'size' && lastSizeAnalyticsData == null) triggerToolButtonIfReady('size-analyze'",
+          'if (tabId === "size" && lastSizeAnalyticsData == null) triggerToolButtonIfReady("size-analyze"',
         ),
         isTrue,
       );

@@ -12,15 +12,37 @@ import 'server_constants.dart';
 const String _kExtPrefix = 'ext.saropa.drift.';
 
 /// Registers VM Service extension RPCs and delegates to [Router].
-/// Call [register] after the server starts; call [clear] before stop so
-/// handlers do not use a stale router.
+///
+/// Extensions are registered once per isolate (Dart provides no unregister
+/// API). Subsequent calls to [register] update the static router reference
+/// so the already-registered callbacks delegate to the new server instance.
+/// Call [clear] on stop so handlers return "not running" until the next
+/// [register].
 final class VmServiceBridge {
-  VmServiceBridge(this._router);
+  VmServiceBridge(Router router) {
+    _router = router;
+  }
 
-  Router? _router;
+  /// The active router. Static because `developer.registerExtension`
+  /// callbacks are bound once per isolate — they must reach whichever
+  /// router is current, even after stop/start cycles.
+  static Router? _router;
 
-  /// Registers all ext.saropa.drift.* methods. Call once when server starts.
+  /// Whether extensions have already been registered in this isolate.
+  /// `developer.registerExtension` throws if called twice for the same
+  /// method name, so we gate on this flag and just swap the router on
+  /// subsequent server starts.
+  static bool _registered = false;
+
+  /// Registers all ext.saropa.drift.* methods, or updates the router
+  /// reference if extensions were already registered in this isolate.
   void register() {
+    if (_registered) {
+      // Extensions survive stop/start — only the router needs updating.
+      return;
+    }
+    _registered = true;
+
     developer.registerExtension('${_kExtPrefix}getHealth', _handleGetHealth);
     developer.registerExtension(
       '${_kExtPrefix}getSchemaMetadata',
@@ -67,7 +89,8 @@ final class VmServiceBridge {
     );
   }
 
-  /// Clears the router reference so handlers no longer run after server stop.
+  /// Clears the router reference so handlers return "not running" after
+  /// server stop.
   void clear() {
     _router = null;
   }

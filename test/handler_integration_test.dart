@@ -177,14 +177,14 @@ void main() {
     );
 
     test(
-      'GET /assets/web/app.js returns JavaScript with correct content-type',
+      'GET /assets/web/bundle.js returns JavaScript with correct content-type',
       () async {
         final client = HttpClient();
         try {
           final req = await client.get(
             'localhost',
             port!,
-            '/assets/web/app.js',
+            '/assets/web/bundle.js',
           );
           final resp = await req.close();
           expect(resp.statusCode, HttpStatus.ok);
@@ -193,7 +193,8 @@ void main() {
           expect(ct!.mimeType, contains('javascript'));
           final body = await resp.transform(utf8.decoder).join();
           expect(body, contains('DRIFT_VIEWER_AUTH_TOKEN'));
-          // app.js embeds CDN URLs for dynamic injection elsewhere; ensure this is the script file, not HTML.
+          // bundle.js embeds CDN URLs for dynamic injection elsewhere;
+          // ensure this is the script file, not HTML.
           expect(body.toLowerCase(), isNot(startsWith('<!doctype')));
           expect(body, contains('function authOpts'));
         } finally {

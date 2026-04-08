@@ -12,5 +12,7 @@
     "typescript.tsserver.experimental.enableProjectDiagnostics": true,
     "saropaLints.enabled": true,
     "saropaLints.sidebar.showPackageVibrancy": true,
-    "saropaLints.sidebar.showSummary": false
+    "saropaLints.sidebar.showSummary": false,
+    "saropaLints.sidebar.showSuggestions": true,
+    "saropaLints.sidebar.showDriftAdvisor": true
 }
