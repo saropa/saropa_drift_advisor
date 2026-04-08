@@ -30,6 +30,9 @@ if TYPE_CHECKING:
 _POLL_INTERVAL_SECS = 30
 # 10 minutes is enough for typical CDN propagation on all three stores.
 _POLL_TIMEOUT_MINS = 10
+# How often to print a progress dot during the polling sleep so the
+# console doesn't look frozen.
+_DOT_INTERVAL_SECS = 5
 
 # ── Dart package name (matches pubspec.yaml) ────────────────
 _DART_PACKAGE_NAME = "saropa_drift_advisor"
@@ -153,8 +156,19 @@ def _poll_stores(
 
         # Wait before the next attempt (skip sleep on the final iteration
         # so we don't waste time after the last check).
+        # Print a dot every _DOT_INTERVAL_SECS so the user knows we
+        # haven't hung during the (potentially long) polling gap.
         if attempt < max_attempts:
-            time.sleep(interval_secs)
+            elapsed = 0
+            # Print leading padding to align dots with the log prefix.
+            print("          ", end="", flush=True)
+            while elapsed < interval_secs:
+                chunk = min(_DOT_INTERVAL_SECS, interval_secs - elapsed)
+                time.sleep(chunk)
+                elapsed += chunk
+                print(".", end="", flush=True)
+            # End the dot line so the next log message starts on a fresh line.
+            print()
 
     return False
 

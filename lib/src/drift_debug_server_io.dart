@@ -31,7 +31,6 @@ class _DriftDebugServerImpl {
   /// Router for dispatching requests; null when server is not running.
   Router? _router;
 
-
   /// In-memory shared sessions for collaborative debug.
   ///
   /// Constructed in [start] with the configured session duration
