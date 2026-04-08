@@ -42,6 +42,7 @@ browse source on
 <summary>Maintenance</summary>
 
 - **File modularization** — split 3 files exceeding 300-line limit: dashboard chart-clipboard logic, ER diagram SVG helpers, and panel test fixtures each extracted into dedicated modules
+- **Final IIFE extraction** — moved last 4 inline init blocks (`initPiiMaskToggle`, `initSearchToggle`, `setupCellValuePopupButtons`, `setupChartResize`) into their feature modules; removed 70 unused imports; `app.js` reduced to 926-line init-only glue
 - **Test coverage** — added tests verifying extracted helpers compose correctly into webview script output
 
 </details>
