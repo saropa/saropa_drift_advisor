@@ -8,7 +8,6 @@ declare global {
   interface HTMLElement {
     value?: string;
     disabled?: boolean;
-    hidden?: boolean;
     href?: string;
     files?: FileList | null;
     options?: HTMLCollectionOf<HTMLOptionElement>;
@@ -19,10 +18,10 @@ declare global {
   interface Element {
     value?: string;
     checked?: boolean;
-    hidden?: boolean;
+    hidden?: boolean | "until-found";
     style?: CSSStyleDeclaration;
     focus?: () => void;
-    closest?(selectors: string): Element | null;
+    closest(selectors: string): Element | null;
     onclick?: ((this: GlobalEventHandlers, ev: MouseEvent) => void) | null;
     dataset?: DOMStringMap;
   }
@@ -39,9 +38,9 @@ declare global {
   }
   interface Window {
     _chartRows?: unknown[];
-    /** SQL syntax highlighter — set by sql-highlight.js, consumed by app.js. */
+    /** SQL syntax highlighter — set by sql-highlight.ts, consumed by app.ts. */
     sqlHighlight?: (sql: string) => string;
-    /** Masthead pill API — set by masthead.js, consumed by app.js. */
+    /** Masthead pill API — set by masthead.ts, consumed by app.ts. */
     mastheadStatus?: {
       setConnection(state: string, pollingEnabled: boolean): void;
       setBusy(): void;
