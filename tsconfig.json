@@ -18,5 +18,5 @@
     "assets/web/dom-globals.d.ts",
     "assets/web/**/*.ts"
   ],
-  "exclude": ["node_modules", "assets/web/bundle.js"]
+  "exclude": ["node_modules", "assets/web/bundle.js", "extension/**"]
 }

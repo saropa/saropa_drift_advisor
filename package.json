@@ -8,10 +8,14 @@
     "compile:extension": "cd extension && npm run compile",
     "test:extension": "cd extension && npm run test",
     "typecheck:web": "tsc -p tsconfig.web.json --noEmit",
+    "build:js": "node esbuild.config.mjs",
+    "build:js:watch": "node esbuild.config.mjs --watch",
     "build:style": "sass assets/web/style.scss assets/web/style.css --no-source-map",
-    "build:style:watch": "sass assets/web/style.scss assets/web/style.css --watch --no-source-map"
+    "build:style:watch": "sass assets/web/style.scss assets/web/style.css --watch --no-source-map",
+    "build": "npm run build:js && npm run build:style"
   },
   "devDependencies": {
+    "esbuild": "^0.25",
     "husky": "^9.1.7",
     "sass": "^1.81",
     "typescript": "^5.7"

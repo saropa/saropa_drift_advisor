@@ -60,18 +60,14 @@ abstract final class HtmlContent {
 
   /// Builds the HTML shell with assets either inlined or loaded from CDN.
   ///
-  /// When [inlineCss], [inlineJs], [inlineFabJs], [inlineMastheadJs],
-  /// and [inlineTableDefToggleJs] are provided (non-null), they are
-  /// embedded directly in `<style>` / `<script>` tags — zero extra
+  /// When [inlineCss] and [inlineBundleJs] are provided (non-null), they
+  /// are embedded directly in `<style>` / `<script>` tags — zero extra
   /// requests, works offline, and avoids the unreliable `onerror`
   /// fallback chain. When null, a small fetch-based loader tries
   /// version-pinned jsDelivr, then `@main`.
   static String buildIndexHtml({
     String? inlineCss,
-    String? inlineJs,
-    String? inlineFabJs,
-    String? inlineMastheadJs,
-    String? inlineTableDefToggleJs,
+    String? inlineBundleJs,
   }) {
     // CSS: inline <style> when available, otherwise CDN <link>.
     // No escaping needed for CSS — </style> is not valid CSS syntax
@@ -80,70 +76,21 @@ abstract final class HtmlContent {
         ? '<style>$inlineCss</style>'
         : '<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/style.css" onerror="this.onerror=null;this.href=\'https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/style.css\'">';
 
-    // JS: inline <script> when available, otherwise fetch-based loader
-    // that tries CDN URLs sequentially. Using fetch() instead of
-    // <script onerror> because Firefox does not reliably fire onerror
-    // on <script> elements that receive 404 with correct MIME type.
+    // JS bundle: single esbuild output containing app + fab + masthead +
+    // table-def-toggle. Inline <script> when available, otherwise
+    // fetch-based loader that tries CDN URLs sequentially.
     //
     // When inlining, escape </script> sequences that could appear
     // inside JS string literals (e.g. innerHTML assignments). The
     // HTML parser sees </script> as a closing tag regardless of JS
     // context, so we replace </ with <\/ which is equivalent in JS.
-    final jsTag = inlineJs != null
-        ? '<script>${inlineJs.replaceAll('</script>', r'<\/script>')}</script>'
+    final bundleJsTag = inlineBundleJs != null
+        ? '<script>${inlineBundleJs.replaceAll('</script>', r'<\/script>')}</script>'
         : '''<script>
 (function(){
-  var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/app.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/app.js'];
+  var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/bundle.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/bundle.js'];
   function tryNext(){
-    if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'app.js'}));return}
-    var u=urls.shift(),s=document.createElement('script');
-    s.src=u;s.onerror=tryNext;document.body.appendChild(s);
-  }
-  tryNext();
-})();
-</script>''';
-
-    // FAB module: self-contained floating action button UI controller.
-    // Loaded after app.js so the DOM elements are available.
-    final fabJsTag = inlineFabJs != null
-        ? '<script>${inlineFabJs.replaceAll('</script>', r'<\/script>')}</script>'
-        : '''<script>
-(function(){
-  var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/fab.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/fab.js'];
-  function tryNext(){
-    if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'fab.js'}));return}
-    var u=urls.shift(),s=document.createElement('script');
-    s.src=u;s.onerror=tryNext;document.body.appendChild(s);
-  }
-  tryNext();
-})();
-</script>''';
-
-    // Masthead module: connection-status pill UI controller.
-    // Loaded after app.js so the DOM elements and connection state exist.
-    final mastheadJsTag = inlineMastheadJs != null
-        ? '<script>${inlineMastheadJs.replaceAll('</script>', r'<\/script>')}</script>'
-        : '''<script>
-(function(){
-  var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/masthead.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/masthead.js'];
-  function tryNext(){
-    if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'masthead.js'}));return}
-    var u=urls.shift(),s=document.createElement('script');
-    s.src=u;s.onerror=tryNext;document.body.appendChild(s);
-  }
-  tryNext();
-})();
-</script>''';
-
-    // Table-def-toggle module: self-contained collapsible toggle for the
-    // table definition panel. Loaded after app.js so DOM elements exist.
-    final tableDefToggleJsTag = inlineTableDefToggleJs != null
-        ? '<script>${inlineTableDefToggleJs.replaceAll('</script>', r'<\/script>')}</script>'
-        : '''<script>
-(function(){
-  var urls=['https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v${ServerConstants.packageVersion}/assets/web/table-def-toggle.js','https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@main/assets/web/table-def-toggle.js'];
-  function tryNext(){
-    if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'table-def-toggle.js'}));return}
+    if(!urls.length){document.dispatchEvent(new CustomEvent('sda-asset-failed',{detail:'bundle.js'}));return}
     var u=urls.shift(),s=document.createElement('script');
     s.src=u;s.onerror=tryNext;document.body.appendChild(s);
   }
@@ -155,9 +102,9 @@ abstract final class HtmlContent {
     // Per-asset source and status so a mixed state (e.g. CSS inlined
     // but JS from CDN) is accurately reported to the user.
     final cssSource = inlineCss != null ? 'local' : 'CDN';
-    final jsSource = inlineJs != null ? 'local' : 'CDN';
+    final jsSource = inlineBundleJs != null ? 'local' : 'CDN';
     final cssStatus = inlineCss != null ? '\u2713' : '\u22EF';
-    final jsStatus = inlineJs != null ? '\u2713' : '\u22EF';
+    final jsStatus = inlineBundleJs != null ? '\u2713' : '\u22EF';
 
     return '''
 <!DOCTYPE html>
@@ -184,7 +131,7 @@ abstract final class HtmlContent {
       <div style="color:#89b4fa;font-weight:bold;margin-bottom:0.5em">Saropa Drift Advisor v${ServerConstants.packageVersion}</div>
       <div style="border-top:1px solid #45475a;margin-bottom:0.5em"></div>
       <div>$cssStatus stylesheet ($cssSource)</div>
-      <div>$jsStatus app.js ($jsSource)</div>
+      <div>$jsStatus bundle.js ($jsSource)</div>
       <div id="sda-loading-msg" style="margin-top:0.5em;color:#a6adc8">\u22EF initializing\u2026</div>
     </div>
   </div>
@@ -634,10 +581,7 @@ abstract final class HtmlContent {
     </div>
   </div>
 
-  $jsTag
-  $fabJsTag
-  $mastheadJsTag
-  $tableDefToggleJsTag
+  $bundleJsTag
 </body></html>
 ''';
   }

@@ -108,9 +108,9 @@ abstract final class ServerConstants {
   static const String pathWebStyle = '/assets/web/style.css';
   static const String pathWebStyleAlt = 'assets/web/style.css';
 
-  /// Local web UI script (served from package `assets/web/app.js`).
-  static const String pathWebApp = '/assets/web/app.js';
-  static const String pathWebAppAlt = 'assets/web/app.js';
+  /// Local web UI script (served from package `assets/web/bundle.js`).
+  static const String pathWebApp = '/assets/web/bundle.js';
+  static const String pathWebAppAlt = 'assets/web/bundle.js';
 
   /// Package version displayed in the web UI and health endpoint.
   /// Must match pubspec.yaml: updated on publish version writes, and the Dart

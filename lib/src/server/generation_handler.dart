@@ -8,7 +8,7 @@
 // the HTML references jsDelivr CDN URLs directly via a fetch-based
 // loader.
 //
-// The `/assets/web/style.css` and `/assets/web/app.js` routes are
+// The `/assets/web/style.css` and `/assets/web/bundle.js` routes are
 // retained for backward compatibility (VS Code extension, direct
 // access) but are no longer required for the HTML viewer to work.
 //
@@ -31,7 +31,7 @@
 //
 // The resolved path is cached so repeated asset requests do not re-resolve.
 // This is process-global (tests share the same isolate). Asset file contents
-// (style.css, app.js) are also cached in memory during resolution, so
+// (style.css, bundle.js) are also cached in memory during resolution, so
 // subsequent HTTP requests serve from static fields — no per-request I/O.
 
 import 'dart:convert';
@@ -56,22 +56,10 @@ final class GenerationHandler {
   /// ~51 KB for style.css — acceptable for a debug-only tool.
   static String? _cachedStyleCss;
 
-  /// Cached JS content, populated once during package root resolution.
+  /// Cached JS bundle content, populated once during package root resolution.
   /// Eliminates per-request disk I/O for the most common asset path.
-  /// ~313 KB for app.js — acceptable for a debug-only tool.
-  static String? _cachedAppJs;
-
-  /// Cached FAB module JS, populated alongside app.js.
-  /// Small self-contained module (~2 KB) for the floating action button.
-  static String? _cachedFabJs;
-
-  /// Cached masthead module JS, populated alongside app.js.
-  /// Self-contained connection-status pill UI controller (~3 KB).
-  static String? _cachedMastheadJs;
-
-  /// Cached table-def-toggle module JS, populated alongside app.js.
-  /// Self-contained collapsible toggle for the table definition panel.
-  static String? _cachedTableDefToggleJs;
+  /// Single esbuild bundle containing app + fab + masthead + table-def-toggle.
+  static String? _cachedBundleJs;
 
   /// GET /api/health — returns {"ok": true}.
   Future<void> sendHealth(HttpResponse response) async {
@@ -151,10 +139,7 @@ final class GenerationHandler {
     res.write(
       HtmlContent.buildIndexHtml(
         inlineCss: _cachedStyleCss,
-        inlineJs: _cachedAppJs,
-        inlineFabJs: _cachedFabJs,
-        inlineMastheadJs: _cachedMastheadJs,
-        inlineTableDefToggleJs: _cachedTableDefToggleJs,
+        inlineBundleJs: _cachedBundleJs,
       ),
     );
     await res.close();
@@ -181,7 +166,7 @@ final class GenerationHandler {
   Future<void> sendWebApp(HttpResponse response) async {
     await _sendWebAsset(
       response: response,
-      relativePath: 'assets/web/app.js',
+      relativePath: 'assets/web/bundle.js',
       contentType: ContentType('application', 'javascript', charset: 'utf-8'),
     );
   }
@@ -214,10 +199,7 @@ final class GenerationHandler {
     // This avoids per-request disk I/O for the two known web UI assets.
     final String? cached = switch (relativePath) {
       'assets/web/style.css' => _cachedStyleCss,
-      'assets/web/app.js' => _cachedAppJs,
-      'assets/web/fab.js' => _cachedFabJs,
-      'assets/web/masthead.js' => _cachedMastheadJs,
-      'assets/web/table-def-toggle.js' => _cachedTableDefToggleJs,
+      'assets/web/bundle.js' => _cachedBundleJs,
       _ => null,
     };
     if (cached != null) {
@@ -424,40 +406,13 @@ final class GenerationHandler {
       log('[SDA] CSS asset cache failed: $e');
     }
     try {
-      final jsFile = File('$packageRoot/assets/web/app.js');
+      final jsFile = File('$packageRoot/assets/web/bundle.js');
       if (await jsFile.exists()) {
-        _cachedAppJs = await jsFile.readAsString();
+        _cachedBundleJs = await jsFile.readAsString();
       }
     } on Object catch (e) {
       // Non-fatal: per-request disk read is the fallback.
-      log('[SDA] JS asset cache failed: $e');
-    }
-    try {
-      final fabJsFile = File('$packageRoot/assets/web/fab.js');
-      if (await fabJsFile.exists()) {
-        _cachedFabJs = await fabJsFile.readAsString();
-      }
-    } on Object catch (e) {
-      // Non-fatal: FAB init falls back to CDN loader.
-      log('[SDA] FAB JS asset cache failed: $e');
-    }
-    try {
-      final mastheadJsFile = File('$packageRoot/assets/web/masthead.js');
-      if (await mastheadJsFile.exists()) {
-        _cachedMastheadJs = await mastheadJsFile.readAsString();
-      }
-    } on Object catch (e) {
-      // Non-fatal: masthead init falls back to CDN loader.
-      log('[SDA] masthead JS asset cache failed: $e');
-    }
-    try {
-      final tdFile = File('$packageRoot/assets/web/table-def-toggle.js');
-      if (await tdFile.exists()) {
-        _cachedTableDefToggleJs = await tdFile.readAsString();
-      }
-    } on Object catch (e) {
-      // Non-fatal: table-def toggle falls back to CDN loader.
-      log('[SDA] table-def-toggle JS asset cache failed: $e');
+      log('[SDA] JS bundle asset cache failed: $e');
     }
   }
 
