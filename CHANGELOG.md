@@ -36,6 +36,18 @@ browse source on
 
 ---
 
+## [3.0.2]
+
+<details>
+<summary>Maintenance</summary>
+
+- **File modularization** — split 3 files exceeding 300-line limit: dashboard chart-clipboard logic, ER diagram SVG helpers, and panel test fixtures each extracted into dedicated modules
+- **Test coverage** — added tests verifying extracted helpers compose correctly into webview script output
+
+</details>
+
+---
+
 ## [3.0.1]
 
 Version bump for publication.
