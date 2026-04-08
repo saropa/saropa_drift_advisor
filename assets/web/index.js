@@ -12,8 +12,11 @@ import { highlightSql } from './sql-highlight.ts';
 import { initMasthead } from './masthead.ts';
 
 // Bridge: app.js reads window.sqlHighlight and window.mastheadStatus.
+console.log('[SDA] index.js bridge: setting window.sqlHighlight');
 window.sqlHighlight = highlightSql;
+console.log('[SDA] index.js bridge: calling initMasthead()');
 const api = initMasthead();
+console.log('[SDA] index.js bridge: initMasthead returned ' + (api ? 'API object' : 'null'));
 if (api) window.mastheadStatus = api;
 
 // app.js — the main monolith (still plain JS, reads window.* globals).
@@ -23,5 +26,8 @@ import './app.js';
 import { initSuperFab } from './fab.ts';
 import { initTableDefToggle } from './table-def-toggle.ts';
 
+console.log('[SDA] index.js bridge: calling initSuperFab()');
 initSuperFab();
+console.log('[SDA] index.js bridge: calling initTableDefToggle()');
 initTableDefToggle();
+console.log('[SDA] index.js bridge: init complete');

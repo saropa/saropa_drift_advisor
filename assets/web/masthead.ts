@@ -40,7 +40,8 @@ const STATUS = {
  */
 export function initMasthead(): MastheadStatus | null {
   const indicator = document.getElementById('live-indicator') as HTMLButtonElement | null;
-  if (!indicator) return null;
+  if (!indicator) { console.log('[SDA] initMasthead: #live-indicator NOT found'); return null; }
+  console.log('[SDA] initMasthead: #live-indicator found, creating API');
 
   const api: MastheadStatus = {
     /**
@@ -50,6 +51,7 @@ export function initMasthead(): MastheadStatus | null {
      * @param pollingEnabled - only meaningful when state === 'connected'
      */
     setConnection(state: string, pollingEnabled: boolean): void {
+      console.log('[SDA] masthead.setConnection: state=' + state + ', polling=' + pollingEnabled);
       if (state === 'connected') {
         indicator.classList.remove('disconnected', 'reconnecting');
         indicator.disabled = false;
@@ -88,6 +90,7 @@ export function initMasthead(): MastheadStatus | null {
   // which handles the /api/change-detection POST and calls setConnection
   // with the result. Guard: only fire when enabled (connected state).
   indicator.addEventListener('click', () => {
+    console.log('[SDA] masthead click: disabled=' + indicator.disabled + ', hasOnToggle=' + (typeof api.onToggle === 'function'));
     if (indicator.disabled) return;
     if (typeof api.onToggle === 'function') {
       api.onToggle();

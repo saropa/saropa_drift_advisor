@@ -44,8 +44,14 @@ Bundled all web assets with esbuild, broke the monolith JS and SCSS into modules
 - **Full JS modularization** (Infra) — `app.js` decomposed from 6882-line monolith to 915-line init glue; 23 TypeScript modules extracted (`state`, `utils`, `pii`, `nl-to-sql`, `sql-highlight`, `masthead`, `fab`, `table-def-toggle`, `connection`, `theme`, `persistence`, `search`, `tabs`, `table-view`, `table-list`, `charts`, `analysis`, `query-builder`, `sql-history`, `fk-nav`, `cell-edit`, `nl-modal`, `session`, `pagination`, `schema`, `sidebar`, `diagram`, `tools`, `search-tab`, `sql-runner`, `performance`); shared state centralized in `state.ts` with typed exports
 - **SCSS modularization** (Infra) — `style.scss` decomposed from 2184 lines to 28-line import hub with 17 feature partials; migrated from deprecated `@import` to `@use`
 
+### Fixed
+
+- **Heartbeat reconnection no-op** (Web) — `initConnectionDeps()` was never called after modularization, so heartbeat reconnection silently dropped back to no-op stubs instead of resuming polling; now wired at startup
+- **Polling toggle missing** (Web) — the masthead pill click handler, `/api/change-detection` fetch on page load, and `startKeepAlive`/`stopKeepAlive` toggle were lost during modularization; restored with deferred wiring to handle esbuild execution order
+
 ### Improved
 
+- **Connection diagnostic logging** (Web) — all connection state transitions, poll cycles, heartbeat, and keep-alive events now emit `[SDA]` prefixed console.log entries for browser dev tools tracing
 - **Log Capture session export** (Extension) — when both extensions are installed and `driftViewer.integrations.includeInLogCaptureSession` is `full` (the default), session end now writes structured metadata (query stats, anomalies, schema summary, health, diagnostic issues) into the Log Capture session and a `{session}.drift-advisor.json` sidecar file; set to `header` for lightweight headers only, or `none` to opt out entirely
 - **Log Capture extension API** (Extension) — `getSessionSnapshot()` is now available on `context.exports` so Log Capture's built-in provider can request a snapshot directly without the file fallback
 - **Session file fallback** (Extension) — `.saropa/drift-advisor-session.json` is written at session end for tools and scenarios where the extension API is unavailable

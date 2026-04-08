@@ -1,6 +1,12 @@
 /**
  * Connection management: state transitions, banner UI, heartbeat,
  * and keep-alive logic extracted from app.js.
+ *
+ * **Dependency injection**: `initConnectionDeps()` must be called once
+ * during startup (from app.js) to supply the `applyHealthWriteFlag`
+ * and `pollGeneration` callbacks. Without this call, heartbeat
+ * reconnection silently no-ops because the default callbacks are
+ * empty stubs.
  */
 import * as S from './state.ts';
 
@@ -31,6 +37,7 @@ export function initConnectionDeps(deps: {
 // server-dependent controls, updates the live indicator to red.
 export function setDisconnected(): void {
   if (S.connectionState === 'disconnected') return;
+  console.log('[SDA] setDisconnected (was: ' + S.connectionState + ')');
   S.setConnectionState('disconnected');
   S.setBannerDismissed(false);
   showConnectionBanner();
@@ -44,6 +51,7 @@ export function setDisconnected(): void {
 // endpoint not yet confirmed.
 export function setReconnecting(): void {
   if (S.connectionState === 'reconnecting') return;
+  console.log('[SDA] setReconnecting (was: ' + S.connectionState + ')');
   S.setConnectionState('reconnecting');
   S.setNextHeartbeatAt(null);
   showConnectionBanner();
@@ -55,6 +63,7 @@ export function setReconnecting(): void {
 // resets backoff, stops heartbeat/keep-alive timers.
 export function setConnected(): void {
   if (S.connectionState === 'connected') return;
+  console.log('[SDA] setConnected (was: ' + S.connectionState + ')');
   S.setConnectionState('connected');
   S.setConsecutivePollFailures(0);
   S.setCurrentBackoffMs(S.BACKOFF_INITIAL_MS);
@@ -125,9 +134,9 @@ export function hideConnectionBanner(): void {
 }
 
 // --- Connection status integration ---
-// Delegates all pill DOM updates to masthead.js via window.mastheadStatus.
-// This function is the single call-site in app.js — all connection-state
-// changes (WebSocket open/close/error, polling toggle) route through here.
+// Delegates all pill DOM updates to masthead.ts via window.mastheadStatus.
+// All connection-state changes (polling success/failure, heartbeat,
+// keep-alive, polling toggle) route through here.
 export function updateLiveIndicatorForConnection(): void {
   if (!window.mastheadStatus) return;
   window.mastheadStatus.setConnection(S.connectionState, S.pollingEnabled);
@@ -153,7 +162,8 @@ export function setOfflineControlsDisabled(disabled: boolean): void {
 // Health endpoint is fast (no DB query).
 
 export function startHeartbeat(): void {
-  if (S.heartbeatTimerId) return;
+  if (S.heartbeatTimerId) { console.log('[SDA] startHeartbeat: skipped (timer already active)'); return; }
+  console.log('[SDA] startHeartbeat: initiating heartbeat cycle');
   doHeartbeat();
 }
 
@@ -161,10 +171,11 @@ export function startHeartbeat(): void {
 // On failure schedule another heartbeat with backoff.
 // Skip if a check is already in flight to avoid duplicate requests and timer races.
 export function doHeartbeat(): void {
-  if (S.heartbeatInFlight) return;
+  if (S.heartbeatInFlight) { console.log('[SDA] doHeartbeat: skipped (already in flight)'); return; }
   if (S.connectionState === 'disconnected' || S.connectionState === 'reconnecting') {
     S.setHeartbeatAttemptCount(S.heartbeatAttemptCount + 1);
   }
+  console.log('[SDA] doHeartbeat: attempt #' + S.heartbeatAttemptCount + ', state=' + S.connectionState);
   S.setHeartbeatInFlight(true);
   updateConnectionBannerText();
   fetch('/api/health', S.authOpts())
@@ -172,6 +183,7 @@ export function doHeartbeat(): void {
     .then(function(data) {
       S.setHeartbeatInFlight(false);
       if (data && data.ok) {
+        console.log('[SDA] doHeartbeat: health OK — resuming poll');
         _applyHealthWriteFlag(data);
         setReconnecting();
         S.setConsecutivePollFailures(0);
@@ -181,10 +193,12 @@ export function doHeartbeat(): void {
         _pollGeneration();
         return;
       }
+      console.log('[SDA] doHeartbeat: health response not ok', data);
       updateConnectionBannerText();
       scheduleHeartbeat();
     })
-    .catch(function() {
+    .catch(function(err) {
+      console.log('[SDA] doHeartbeat: fetch failed', err);
       S.setHeartbeatInFlight(false);
       updateConnectionBannerText();
       scheduleHeartbeat();
@@ -196,6 +210,7 @@ export function scheduleHeartbeat(): void {
   S.setCurrentBackoffMs(Math.min(
     S.currentBackoffMs * S.BACKOFF_MULTIPLIER, S.BACKOFF_MAX_MS
   ));
+  console.log('[SDA] scheduleHeartbeat: next in ' + S.currentBackoffMs + 'ms');
   S.setNextHeartbeatAt(Date.now() + S.currentBackoffMs);
   S.setHeartbeatTimerId(setTimeout(doHeartbeat, S.currentBackoffMs));
 }
@@ -203,6 +218,7 @@ export function scheduleHeartbeat(): void {
 // Cancel any pending heartbeat timer.
 export function stopHeartbeat(): void {
   if (S.heartbeatTimerId) {
+    console.log('[SDA] stopHeartbeat: clearing timer');
     clearTimeout(S.heartbeatTimerId);
     S.setHeartbeatTimerId(null);
   }
@@ -213,19 +229,26 @@ export function stopHeartbeat(): void {
 // When polling is disabled the long-poll stops, so this slow
 // keep-alive (every 15s) detects disconnection instead.
 export function startKeepAlive(): void {
+  console.log('[SDA] startKeepAlive: interval=' + S.KEEP_ALIVE_INTERVAL_MS + 'ms');
   stopKeepAlive();
   S.setKeepAliveTimerId(setInterval(function() {
+    console.log('[SDA] keepAlive tick: fetching /api/health');
     fetch('/api/health', S.authOpts())
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data && data.ok) {
           _applyHealthWriteFlag(data);
-          if (S.connectionState !== 'connected') setConnected();
+          if (S.connectionState !== 'connected') {
+            console.log('[SDA] keepAlive: health OK, restoring connected');
+            setConnected();
+          }
         } else {
+          console.log('[SDA] keepAlive: health response not ok', data);
           setDisconnected();
         }
       })
-      .catch(function() {
+      .catch(function(err) {
+        console.log('[SDA] keepAlive: fetch failed, switching to heartbeat', err);
         setDisconnected();
         stopKeepAlive();
         startHeartbeat();
@@ -235,6 +258,7 @@ export function startKeepAlive(): void {
 
 export function stopKeepAlive(): void {
   if (S.keepAliveTimerId) {
+    console.log('[SDA] stopKeepAlive: clearing interval');
     clearInterval(S.keepAliveTimerId);
     S.setKeepAliveTimerId(null);
   }

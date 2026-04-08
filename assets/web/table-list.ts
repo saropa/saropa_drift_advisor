@@ -219,7 +219,8 @@ export function applyTableListAndCounts(data) {
   return tables;
 }
 export function refreshOnGenerationChange() {
-  if (S.refreshInFlight) return;
+  if (S.refreshInFlight) { console.log('[SDA] refreshOnGenerationChange: skipped (already in flight)'); return; }
+  console.log('[SDA] refreshOnGenerationChange: refreshing tables + current table');
   S.setRefreshInFlight(true);
   // Show transient busy state while refreshing — only when connected,
   // to avoid overwriting the Offline indicator during a stale refresh.
@@ -254,18 +255,21 @@ export function refreshOnGenerationChange() {
 // refresh table list and current table. Enhanced with exponential
 // backoff and connection state tracking for offline resilience.
 export function pollGeneration() {
+  console.log('[SDA] pollGeneration: since=' + S.lastGeneration);
   fetch('/api/generation?since=' + S.lastGeneration, S.authOpts())
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var g = data.generation;
+      var changed = (typeof g === 'number' && g !== S.lastGeneration);
+      console.log('[SDA] pollGeneration: received generation=' + g + ', changed=' + changed);
       // Successful response: mark connected, reset backoff.
       setConnected();
 
-      if (typeof g === 'number' && g !== S.lastGeneration) {
+      if (changed) {
         // Server restart detection: if generation went backwards
         // the server restarted and data may have changed.
         if (g < S.lastGeneration) {
-          console.log('Server generation reset detected ('
+          console.log('[SDA] pollGeneration: generation went backwards ('
             + S.lastGeneration + ' -> ' + g
             + '). Server may have restarted.');
         }
@@ -275,9 +279,11 @@ export function pollGeneration() {
       // Continue polling immediately on success.
       pollGeneration();
     })
-    .catch(function() {
+    .catch(function(err) {
       // Poll failed. Increment failure count and apply backoff.
       S.setConsecutivePollFailures(S.consecutivePollFailures + 1);
+      console.log('[SDA] pollGeneration: FAILED, failures=' + S.consecutivePollFailures
+        + ', backoff=' + S.currentBackoffMs + 'ms', err);
 
       // After first failure, mark disconnected to show banner.
       if (S.consecutivePollFailures >= 1 && S.connectionState === 'connected') {
@@ -289,6 +295,7 @@ export function pollGeneration() {
       // endpoint has a 30 s server-side timeout, making it slow to
       // detect recovery).
       if (S.consecutivePollFailures >= S.HEALTH_CHECK_THRESHOLD) {
+        console.log('[SDA] pollGeneration: switching to heartbeat after ' + S.consecutivePollFailures + ' failures');
         startHeartbeat();
         return;
       }

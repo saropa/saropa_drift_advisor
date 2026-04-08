@@ -47,6 +47,7 @@
     // Hide the loading overlay injected by html_content.dart.
     // If app.js never loads (all sources fail), the overlay stays visible
     // as a natural error indicator — no JS needed for the error state.
+    console.log('[SDA] app.js: executing, window.mastheadStatus=' + (window.mastheadStatus ? 'set' : 'NOT SET'));
     (function(){var el=document.getElementById('sda-loading');if(el)el.style.display='none'})();
     /** True when server exposes POST /api/cell/update (writeQuery configured). */
     function applyHealthWriteFlag(data) {
@@ -816,6 +817,70 @@
     })();
 
 
+    // --- Wire connection.ts dependencies ---
+    // connection.ts needs callbacks that live in app.js / table-list.ts.
+    // Without this call, heartbeat reconnection silently no-ops.
+    initConnectionDeps({
+      applyHealthWriteFlag: applyHealthWriteFlag,
+      pollGeneration: pollGeneration,
+    });
+    console.log('[SDA] app.js: initConnectionDeps wired');
+
+    // --- Polling toggle: read initial state + wire masthead pill click ---
+    // Read server-side change-detection state on page load.
+    console.log('[SDA] app.js: fetching /api/change-detection');
+    fetch('/api/change-detection', S.authOpts())
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        S.setPollingEnabled(data.changeDetection !== false);
+        console.log('[SDA] app.js: change-detection initial state: polling=' + S.pollingEnabled);
+        updateLiveIndicatorForConnection();
+      })
+      .catch(function() { /* keep default ON */ });
+
+    // Wire the masthead pill click to toggle change-detection polling.
+    // mastheadStatus is set by index.js bridge AFTER app.js runs
+    // synchronously, but this setTimeout(0) defers until the bridge
+    // has executed.
+    setTimeout(function() {
+      if (window.mastheadStatus) {
+        window.mastheadStatus.onToggle = function() {
+          // Only toggle when connected (masthead.ts disables the button when offline).
+          if (S.connectionState !== 'connected') return;
+          window.mastheadStatus.setBusy();
+          var newState = !S.pollingEnabled;
+          console.log('[SDA] onToggle: requesting polling=' + newState);
+          var opts = S.authOpts();
+          fetch('/api/change-detection', Object.assign({}, opts, {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' },
+              (opts.headers || {})),
+            body: JSON.stringify({ enabled: newState })
+          }))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              S.setPollingEnabled(data.changeDetection !== false);
+              console.log('[SDA] onToggle: server confirmed polling=' + S.pollingEnabled);
+            })
+            .catch(function(e) {
+              console.error('[SDA] onToggle: failed to toggle polling:', e);
+            })
+            .finally(function() {
+              updateLiveIndicatorForConnection();
+              if (!S.pollingEnabled && S.connectionState === 'connected') {
+                startKeepAlive();
+              } else {
+                stopKeepAlive();
+              }
+            });
+        };
+        console.log('[SDA] app.js: onToggle wired to mastheadStatus');
+      } else {
+        console.warn('[SDA] app.js: window.mastheadStatus not available for onToggle wiring');
+      }
+    }, 0);
+
+    console.log('[SDA] app.js: fetching /api/tables');
     fetch('/api/tables', S.authOpts())
       .then(r => r.json())
       .then(data => {
@@ -828,6 +893,7 @@
         // applyTableListAndCounts returns the extracted
         // tables array for nav history and deep-link use.
         var tables = applyTableListAndCounts(data);
+        console.log('[SDA] app.js: /api/tables OK, ' + tables.length + ' tables — starting pollGeneration');
         pollGeneration();
 
         // Restore FK breadcrumb trail from localStorage.  We do this
@@ -874,6 +940,7 @@
         }
       })
       .catch(e => {
+        console.log('[SDA] app.js: /api/tables FAILED', e);
         // Keep the sidebar block visible: hide skeleton rows and show role=alert text.
         var wrap = document.getElementById('tables-loading');
         if (!wrap) return;
@@ -891,9 +958,11 @@
     // Also loads enhanced CSS from jsDelivr CDN, version-pinned to this
     // release tag. Falls back gracefully to inline styles if the CDN is
     // unreachable, the tag doesn't exist yet, or the user is offline.
+    console.log('[SDA] app.js: fetching /api/health for version');
     fetch('/api/health', S.authOpts())
       .then(function(r) { return r.json(); })
       .then(function(d) {
+        console.log('[SDA] app.js: /api/health OK, version=' + (d.version || '?'));
         applyHealthWriteFlag(d);
         if (d.version) {
           // Show version badge in the page header (links to Marketplace changelog).

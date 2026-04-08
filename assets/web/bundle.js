@@ -172,7 +172,11 @@
   };
   function initMasthead() {
     const indicator = document.getElementById("live-indicator");
-    if (!indicator) return null;
+    if (!indicator) {
+      console.log("[SDA] initMasthead: #live-indicator NOT found");
+      return null;
+    }
+    console.log("[SDA] initMasthead: #live-indicator found, creating API");
     const api2 = {
       /**
        * Update the pill to reflect the current connection state.
@@ -181,6 +185,7 @@
        * @param pollingEnabled - only meaningful when state === 'connected'
        */
       setConnection(state, pollingEnabled2) {
+        console.log("[SDA] masthead.setConnection: state=" + state + ", polling=" + pollingEnabled2);
         if (state === "connected") {
           indicator.classList.remove("disconnected", "reconnecting");
           indicator.disabled = false;
@@ -213,6 +218,7 @@
       onToggle: null
     };
     indicator.addEventListener("click", () => {
+      console.log("[SDA] masthead click: disabled=" + indicator.disabled + ", hasOnToggle=" + (typeof api2.onToggle === "function"));
       if (indicator.disabled) return;
       if (typeof api2.onToggle === "function") {
         api2.onToggle();
@@ -447,6 +453,7 @@
   var consecutivePollFailures = 0;
   var currentBackoffMs = 1e3;
   var heartbeatTimerId = null;
+  var keepAliveTimerId = null;
   var bannerDismissed = false;
   var nextHeartbeatAt = null;
   var heartbeatInFlight = false;
@@ -463,6 +470,9 @@
   }
   function setHeartbeatTimerId(id) {
     heartbeatTimerId = id;
+  }
+  function setKeepAliveTimerId(id) {
+    keepAliveTimerId = id;
   }
   function setBannerDismissed(d) {
     bannerDismissed = d;
@@ -483,6 +493,7 @@
   var BACKOFF_MAX_MS = 3e4;
   var BACKOFF_MULTIPLIER = 2;
   var HEALTH_CHECK_THRESHOLD = 3;
+  var KEEP_ALIVE_INTERVAL_MS = 15e3;
   var SQL_HISTORY_KEY = "drift-viewer-sql-history";
   var SQL_HISTORY_MAX = 200;
   var BOOKMARKS_KEY = "drift-viewer-sql-bookmarks";
@@ -552,6 +563,9 @@
     chartResizeObserver = o;
   }
   var pollingEnabled = true;
+  function setPollingEnabled(p) {
+    pollingEnabled = p;
+  }
   var nlLiveDebounce = null;
   var nlModalEscapeListenerActive = false;
   function setNlLiveDebounce(d) {
@@ -1409,8 +1423,13 @@
   };
   var _pollGeneration = () => {
   };
+  function initConnectionDeps(deps) {
+    _applyHealthWriteFlag = deps.applyHealthWriteFlag;
+    _pollGeneration = deps.pollGeneration;
+  }
   function setDisconnected() {
     if (connectionState === "disconnected") return;
+    console.log("[SDA] setDisconnected (was: " + connectionState + ")");
     setConnectionState("disconnected");
     setBannerDismissed(false);
     showConnectionBanner();
@@ -1420,6 +1439,7 @@
   }
   function setReconnecting() {
     if (connectionState === "reconnecting") return;
+    console.log("[SDA] setReconnecting (was: " + connectionState + ")");
     setConnectionState("reconnecting");
     setNextHeartbeatAt(null);
     showConnectionBanner();
@@ -1428,6 +1448,7 @@
   }
   function setConnected() {
     if (connectionState === "connected") return;
+    console.log("[SDA] setConnected (was: " + connectionState + ")");
     setConnectionState("connected");
     setConsecutivePollFailures(0);
     setCurrentBackoffMs(BACKOFF_INITIAL_MS);
@@ -1501,14 +1522,22 @@
     });
   }
   function startHeartbeat() {
-    if (heartbeatTimerId) return;
+    if (heartbeatTimerId) {
+      console.log("[SDA] startHeartbeat: skipped (timer already active)");
+      return;
+    }
+    console.log("[SDA] startHeartbeat: initiating heartbeat cycle");
     doHeartbeat();
   }
   function doHeartbeat() {
-    if (heartbeatInFlight) return;
+    if (heartbeatInFlight) {
+      console.log("[SDA] doHeartbeat: skipped (already in flight)");
+      return;
+    }
     if (connectionState === "disconnected" || connectionState === "reconnecting") {
       setHeartbeatAttemptCount(heartbeatAttemptCount + 1);
     }
+    console.log("[SDA] doHeartbeat: attempt #" + heartbeatAttemptCount + ", state=" + connectionState);
     setHeartbeatInFlight(true);
     updateConnectionBannerText();
     fetch("/api/health", authOpts()).then(function(r) {
@@ -1516,6 +1545,7 @@
     }).then(function(data) {
       setHeartbeatInFlight(false);
       if (data && data.ok) {
+        console.log("[SDA] doHeartbeat: health OK \u2014 resuming poll");
         _applyHealthWriteFlag(data);
         setReconnecting();
         setConsecutivePollFailures(0);
@@ -1525,9 +1555,11 @@
         _pollGeneration();
         return;
       }
+      console.log("[SDA] doHeartbeat: health response not ok", data);
       updateConnectionBannerText();
       scheduleHeartbeat();
-    }).catch(function() {
+    }).catch(function(err) {
+      console.log("[SDA] doHeartbeat: fetch failed", err);
       setHeartbeatInFlight(false);
       updateConnectionBannerText();
       scheduleHeartbeat();
@@ -1538,15 +1570,50 @@
       currentBackoffMs * BACKOFF_MULTIPLIER,
       BACKOFF_MAX_MS
     ));
+    console.log("[SDA] scheduleHeartbeat: next in " + currentBackoffMs + "ms");
     setNextHeartbeatAt(Date.now() + currentBackoffMs);
     setHeartbeatTimerId(setTimeout(doHeartbeat, currentBackoffMs));
   }
   function stopHeartbeat() {
     if (heartbeatTimerId) {
+      console.log("[SDA] stopHeartbeat: clearing timer");
       clearTimeout(heartbeatTimerId);
       setHeartbeatTimerId(null);
     }
     setNextHeartbeatAt(null);
+  }
+  function startKeepAlive() {
+    console.log("[SDA] startKeepAlive: interval=" + KEEP_ALIVE_INTERVAL_MS + "ms");
+    stopKeepAlive();
+    setKeepAliveTimerId(setInterval(function() {
+      console.log("[SDA] keepAlive tick: fetching /api/health");
+      fetch("/api/health", authOpts()).then(function(r) {
+        return r.json();
+      }).then(function(data) {
+        if (data && data.ok) {
+          _applyHealthWriteFlag(data);
+          if (connectionState !== "connected") {
+            console.log("[SDA] keepAlive: health OK, restoring connected");
+            setConnected();
+          }
+        } else {
+          console.log("[SDA] keepAlive: health response not ok", data);
+          setDisconnected();
+        }
+      }).catch(function(err) {
+        console.log("[SDA] keepAlive: fetch failed, switching to heartbeat", err);
+        setDisconnected();
+        stopKeepAlive();
+        startHeartbeat();
+      });
+    }, KEEP_ALIVE_INTERVAL_MS));
+  }
+  function stopKeepAlive() {
+    if (keepAliveTimerId) {
+      console.log("[SDA] stopKeepAlive: clearing interval");
+      clearInterval(keepAliveTimerId);
+      setKeepAliveTimerId(null);
+    }
   }
 
   // assets/web/tabs.ts
@@ -1835,7 +1902,11 @@
     return tables;
   }
   function refreshOnGenerationChange() {
-    if (refreshInFlight) return;
+    if (refreshInFlight) {
+      console.log("[SDA] refreshOnGenerationChange: skipped (already in flight)");
+      return;
+    }
+    console.log("[SDA] refreshOnGenerationChange: refreshing tables + current table");
     setRefreshInFlight(true);
     if (window.mastheadStatus && connectionState === "connected") window.mastheadStatus.setBusy();
     fetch("/api/tables", authOpts()).then(function(r) {
@@ -1855,25 +1926,30 @@
     });
   }
   function pollGeneration() {
+    console.log("[SDA] pollGeneration: since=" + lastGeneration);
     fetch("/api/generation?since=" + lastGeneration, authOpts()).then(function(r) {
       return r.json();
     }).then(function(data) {
       var g = data.generation;
+      var changed = typeof g === "number" && g !== lastGeneration;
+      console.log("[SDA] pollGeneration: received generation=" + g + ", changed=" + changed);
       setConnected();
-      if (typeof g === "number" && g !== lastGeneration) {
+      if (changed) {
         if (g < lastGeneration) {
-          console.log("Server generation reset detected (" + lastGeneration + " -> " + g + "). Server may have restarted.");
+          console.log("[SDA] pollGeneration: generation went backwards (" + lastGeneration + " -> " + g + "). Server may have restarted.");
         }
         setLastGeneration(g);
         refreshOnGenerationChange();
       }
       pollGeneration();
-    }).catch(function() {
+    }).catch(function(err) {
       setConsecutivePollFailures(consecutivePollFailures + 1);
+      console.log("[SDA] pollGeneration: FAILED, failures=" + consecutivePollFailures + ", backoff=" + currentBackoffMs + "ms", err);
       if (consecutivePollFailures >= 1 && connectionState === "connected") {
         setDisconnected();
       }
       if (consecutivePollFailures >= HEALTH_CHECK_THRESHOLD) {
+        console.log("[SDA] pollGeneration: switching to heartbeat after " + consecutivePollFailures + " failures");
         startHeartbeat();
         return;
       }
@@ -5566,6 +5642,7 @@
   }
 
   // assets/web/app.js
+  console.log("[SDA] app.js: executing, window.mastheadStatus=" + (window.mastheadStatus ? "set" : "NOT SET"));
   (function() {
     var el = document.getElementById("sda-loading");
     if (el) el.style.display = "none";
@@ -6263,6 +6340,57 @@
     }));
     chartResizeObserver.observe(wrap);
   })();
+  initConnectionDeps({
+    applyHealthWriteFlag,
+    pollGeneration
+  });
+  console.log("[SDA] app.js: initConnectionDeps wired");
+  console.log("[SDA] app.js: fetching /api/change-detection");
+  fetch("/api/change-detection", authOpts()).then(function(r) {
+    return r.json();
+  }).then(function(data) {
+    setPollingEnabled(data.changeDetection !== false);
+    console.log("[SDA] app.js: change-detection initial state: polling=" + pollingEnabled);
+    updateLiveIndicatorForConnection();
+  }).catch(function() {
+  });
+  setTimeout(function() {
+    if (window.mastheadStatus) {
+      window.mastheadStatus.onToggle = function() {
+        if (connectionState !== "connected") return;
+        window.mastheadStatus.setBusy();
+        var newState = !pollingEnabled;
+        console.log("[SDA] onToggle: requesting polling=" + newState);
+        var opts = authOpts();
+        fetch("/api/change-detection", Object.assign({}, opts, {
+          method: "POST",
+          headers: Object.assign(
+            { "Content-Type": "application/json" },
+            opts.headers || {}
+          ),
+          body: JSON.stringify({ enabled: newState })
+        })).then(function(r) {
+          return r.json();
+        }).then(function(data) {
+          setPollingEnabled(data.changeDetection !== false);
+          console.log("[SDA] onToggle: server confirmed polling=" + pollingEnabled);
+        }).catch(function(e) {
+          console.error("[SDA] onToggle: failed to toggle polling:", e);
+        }).finally(function() {
+          updateLiveIndicatorForConnection();
+          if (!pollingEnabled && connectionState === "connected") {
+            startKeepAlive();
+          } else {
+            stopKeepAlive();
+          }
+        });
+      };
+      console.log("[SDA] app.js: onToggle wired to mastheadStatus");
+    } else {
+      console.warn("[SDA] app.js: window.mastheadStatus not available for onToggle wiring");
+    }
+  }, 0);
+  console.log("[SDA] app.js: fetching /api/tables");
   fetch("/api/tables", authOpts()).then((r) => r.json()).then((data) => {
     const loadingEl = document.getElementById("tables-loading");
     if (loadingEl) {
@@ -6270,6 +6398,7 @@
       loadingEl.setAttribute("aria-busy", "false");
     }
     var tables = applyTableListAndCounts(data);
+    console.log("[SDA] app.js: /api/tables OK, " + tables.length + " tables \u2014 starting pollGeneration");
     pollGeneration();
     var restoredTable = loadNavHistory();
     if (navHistory.length > 0) {
@@ -6300,6 +6429,7 @@
       renderBreadcrumb();
     }
   }).catch((e) => {
+    console.log("[SDA] app.js: /api/tables FAILED", e);
     var wrap = document.getElementById("tables-loading");
     if (!wrap) return;
     var sk = wrap.querySelector(".tables-skeleton");
@@ -6311,9 +6441,11 @@
       errEl.textContent = "Failed to load tables: " + e;
     }
   });
+  console.log("[SDA] app.js: fetching /api/health for version");
   fetch("/api/health", authOpts()).then(function(r) {
     return r.json();
   }).then(function(d) {
+    console.log("[SDA] app.js: /api/health OK, version=" + (d.version || "?"));
     applyHealthWriteFlag(d);
     if (d.version) {
       var badge = document.getElementById("version-badge");
@@ -6380,9 +6512,15 @@
   }
 
   // assets/web/index.js
+  console.log("[SDA] index.js bridge: setting window.sqlHighlight");
   window.sqlHighlight = highlightSql;
+  console.log("[SDA] index.js bridge: calling initMasthead()");
   var api = initMasthead();
+  console.log("[SDA] index.js bridge: initMasthead returned " + (api ? "API object" : "null"));
   if (api) window.mastheadStatus = api;
+  console.log("[SDA] index.js bridge: calling initSuperFab()");
   initSuperFab();
+  console.log("[SDA] index.js bridge: calling initTableDefToggle()");
   initTableDefToggle();
+  console.log("[SDA] index.js bridge: init complete");
 })();
