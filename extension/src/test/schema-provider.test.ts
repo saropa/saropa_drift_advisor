@@ -44,7 +44,10 @@ describe('SchemaProvider', () => {
   });
 
   describe('collectDiagnostics', () => {
-    it('should report missing-table-in-db when Dart table not in database', async () => {
+    it('should NOT report missing-table-in-db when database is completely empty', async () => {
+      // When the DB has zero non-system tables, every Dart table would be
+      // "missing" — this indicates an un-migrated/empty DB, not per-table
+      // drift. The provider should suppress individual missing-table errors.
       const ctx = createContext({
         dartFiles: [createDartFile('users', ['id', 'name'])],
         dbTables: [], // Empty database
@@ -52,9 +55,55 @@ describe('SchemaProvider', () => {
 
       const issues = await provider.collectDiagnostics(ctx);
 
+      const missingTableIssues = issues.filter((i) => i.code === 'missing-table-in-db');
+      assert.strictEqual(
+        missingTableIssues.length,
+        0,
+        'Empty DB should not produce missing-table-in-db diagnostics',
+      );
+    });
+
+    it('should NOT report missing-table-in-db for multiple tables when DB is empty', async () => {
+      // Reproduces the original bug: 11 Dart tables + empty DB = 11 false
+      // positives. After the fix, this should produce zero missing-table errors.
+      const ctx = createContext({
+        dartFiles: [
+          createDartFile('tv_listings', ['id', 'title']),
+          createDartFile('episode_ratings', ['id', 'score']),
+          createDartFile('creators', ['id', 'name']),
+        ],
+        dbTables: [],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const missingTableIssues = issues.filter((i) => i.code === 'missing-table-in-db');
+      assert.strictEqual(
+        missingTableIssues.length,
+        0,
+        'Empty DB with multiple Dart tables should not produce false positives',
+      );
+    });
+
+    it('should report missing-table-in-db when DB is partially populated', async () => {
+      // When the DB has SOME tables but not all, missing ones are genuinely
+      // missing (partial migration) and should still be flagged.
+      const ctx = createContext({
+        dartFiles: [
+          createDartFile('users', ['id', 'name']),
+          createDartFile('orders', ['id', 'total']),
+        ],
+        dbTables: [{ name: 'users', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'name', type: 'TEXT', pk: false },
+        ], rowCount: 10 }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
       const issue = issues.find((i) => i.code === 'missing-table-in-db');
-      assert.ok(issue, 'Should report missing-table-in-db');
-      assert.ok(issue.message.includes('users'));
+      assert.ok(issue, 'Should report missing-table-in-db for partially populated DB');
+      assert.ok(issue.message.includes('orders'));
       assert.strictEqual(issue.severity, DiagnosticSeverity.Error);
     });
 

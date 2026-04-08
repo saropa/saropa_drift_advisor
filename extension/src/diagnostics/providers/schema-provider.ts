@@ -48,6 +48,12 @@ export class SchemaProvider implements IDiagnosticProvider {
         }
       }
 
+      // When the database has zero non-system tables the schema hasn't been
+      // created yet (app never run, or server pointed at an empty DB).
+      // Skip per-table checks to avoid N false-positive "missing-table-in-db"
+      // errors — one for every Dart table class in the workspace.
+      const dbIsEmpty = dbTableMap.size === 0;
+
       for (const file of ctx.dartFiles) {
         for (const dartTable of file.tables) {
           // Try exact match first, then fall back to normalized comparison
@@ -58,7 +64,12 @@ export class SchemaProvider implements IDiagnosticProvider {
               TableNameMapper.normalizeForComparison(dartTable.sqlTableName),
             );
 
-          checkMissingTableInDb(issues, file, dartTable, dbTable);
+          // Only flag individually missing tables when the DB is partially
+          // populated — if it's completely empty this is a setup issue, not
+          // per-table schema drift.
+          if (!dbIsEmpty) {
+            checkMissingTableInDb(issues, file, dartTable, dbTable);
+          }
           checkMissingPrimaryKey(issues, file, dartTable, dbTable);
           checkColumnDrift(issues, file, dartTable, dbTable);
           checkTextPrimaryKey(issues, file, dartTable, dbTable);
