@@ -17,25 +17,21 @@
      * editor are not cleared by NL failures.
      */
     // --- Module imports (bundled by esbuild) ---
-    import { esc, setButtonBusy, highlightSqlSafe, formatTableRowCountDisplay, syncFeatureCardExpanded } from './utils.ts';
-    import { isPiiMaskEnabled, isPiiColumn, maskPiiValue, getDisplayValue } from './pii.ts';
-    import { nlToSql } from './nl-to-sql.ts';
+    import { esc, syncFeatureCardExpanded } from './utils.ts';
+    import { getDisplayValue } from './pii.ts';
     import * as S from './state.ts';
     import { createShareSession, restoreSession } from './session.ts';
     import { initNlModalListeners } from './nl-modal.ts';
-    import { loadFkMeta, buildFkSqlValue, navigateToFk, renderBreadcrumb } from './fk-nav.ts';
-    import { tryStartBrowserCellEdit, showCellValuePopup, hideCellValuePopup } from './cell-edit.ts';
-    import { getChartSize, applyChartUI, renderBarChart, renderStackedBarChart, renderPieChart, renderLineChart, renderAreaChart, renderScatterChart, renderHistogram, exportChartPng, exportChartSvg, exportChartCopy } from './charts.ts';
-    import { initConnectionDeps, setDisconnected, setConnected, hideConnectionBanner, updateLiveIndicatorForConnection, startHeartbeat, doHeartbeat, stopHeartbeat, startKeepAlive, stopKeepAlive } from './connection.ts';
+    import { navigateToFk, renderBreadcrumb } from './fk-nav.ts';
+    import { tryStartBrowserCellEdit, showCellValuePopup, setupCellValuePopupButtons } from './cell-edit.ts';
+    import { renderBarChart, renderStackedBarChart, renderPieChart, renderLineChart, renderAreaChart, renderScatterChart, renderHistogram, exportChartPng, exportChartSvg, exportChartCopy, setupChartResize } from './charts.ts';
+    import { initConnectionDeps, hideConnectionBanner, updateLiveIndicatorForConnection, doHeartbeat, stopHeartbeat, startKeepAlive, stopKeepAlive } from './connection.ts';
     import { initTheme, initThemeListeners } from './theme.ts';
-    import { getPinnedTables, setPinnedTables, togglePinTable, getColumnConfig, setColumnConfig, saveTableState, restoreTableState, clearTableState, saveNavHistory, loadNavHistory, clearNavHistory } from './persistence.ts';
-    import { highlightText, getScope, expandSectionContaining, applySearch, nextMatch, prevMatch } from './search.ts';
-    import { loadColumnTypes, isEpochTimestamp, isBooleanColumn, isDateColumn, formatCellValue, showCopyToast, copyCellValue, buildDataTableHtml, wrapDataTableInScroll, getVisibleColumnCount, buildTableStatusBar, columnTypeIcon, renderTableView } from './table-view.ts';
+    import { clearStaleProjectStorage, getColumnConfig, setColumnConfig, saveTableState, clearTableState, saveNavHistory, loadNavHistory } from './persistence.ts';
+    import { getScope, applySearch, nextMatch, prevMatch, initSearchToggle } from './search.ts';
+    import { copyCellValue, renderTableView, initPiiMaskToggle } from './table-view.ts';
     import { loadTable, applyTableListAndCounts, pollGeneration } from './table-list.ts';
-    import { switchTab, findTabBtn, createClosableTab, openTool, closeToolTab, initTabsAndToolbar, openTableTab } from './tabs.ts';
-    import { loadSqlHistory, saveSqlHistory, refreshHistoryDropdown, pushSqlHistory, bindDropdownToInput, loadBookmarks, saveBookmarks, refreshBookmarksDropdown, addBookmark, deleteBookmark, exportBookmarks, importBookmarks } from './sql-history.ts';
-    import { buildQueryBuilderHtml, getWhereOps, addWhereClause, buildQueryFromBuilder, updateQbPreview, runQueryBuilder, resetQueryBuilder, bindQueryBuilderEvents, captureQueryBuilderState, restoreQueryBuilderUIState, _qbColTypes } from './query-builder.ts';
-    import { analysisStorageKey, getSavedAnalyses, saveAnalysis, getSavedAnalysisById, downloadJSON, populateHistorySelect, showAnalysisCompare, renderDiffRows, renderRowDiff } from './analysis.ts';
+    import { initTabsAndToolbar, openTableTab } from './tabs.ts';
     import { goToOffset, ensureColumnConfig, applyColumnConfigAndRender, populateColumnChooserList } from './pagination.ts';
     import { loadSchemaIntoPre, loadSchemaView, loadBothView } from './schema.ts';
     import { initSidebarCollapse } from './sidebar.ts';
@@ -49,6 +45,10 @@
     // as a natural error indicator — no JS needed for the error state.
     console.log('[SDA] app.js: executing, window.mastheadStatus=' + (window.mastheadStatus ? 'set' : 'NOT SET'));
     (function(){var el=document.getElementById('sda-loading');if(el)el.style.display='none'})();
+    // Purge stale localStorage when the debug server origin changes
+    // (i.e. the user switched to a different Flutter project). Must run
+    // before any other code reads localStorage.
+    clearStaleProjectStorage();
     /** True when server exposes POST /api/cell/update (writeQuery configured). */
     function applyHealthWriteFlag(data) {
       if (data && typeof data.writeEnabled === 'boolean') S.setDriftWriteEnabled(data.writeEnabled);
@@ -141,13 +141,7 @@
 
     // PII mask toggle (BUG-015): re-render table and search results when
     // toggled so display matches.  Now lives in the super FAB menu.
-    (function initPiiMaskToggle() {
-      var cb = document.getElementById('fab-pii-mask-toggle');
-      if (!cb) return;
-      cb.addEventListener('change', function() {
-        if (S.currentTableName && S.currentTableJson) renderTableView(S.currentTableName, S.currentTableJson);
-      });
-    })();
+    initPiiMaskToggle();
 
     if (S.DRIFT_VIEWER_AUTH_TOKEN) {
       var schemaLink = document.getElementById('export-schema');
@@ -218,17 +212,7 @@
 
     // Search toolbar button: opens Search tab and focuses its inline search input.
     // The sidebar search panel is toggled separately via Ctrl+F when on the Tables tab.
-    (function initSearchToggle() {
-      var btn = document.getElementById('search-toggle-btn');
-      if (!btn) return;
-      btn.addEventListener('click', function() {
-        // Switch to the Search tab, then focus its inline input
-        openTool('search');
-        setTimeout(function() {
-          if (typeof window._stFocusInput === 'function') window._stFocusInput();
-        }, 0);
-      });
-    })();
+    initSearchToggle();
 
     // Collapsible sections in search/both view: click header to toggle body
     document.addEventListener('click', function(e) {
@@ -730,23 +714,7 @@
       showCellValuePopup(rawValue, columnKey);
     });
 
-    (function setupCellValuePopupButtons() {
-      var popup = document.getElementById('cell-value-popup');
-      var copyBtn = document.getElementById('cell-value-popup-copy');
-      var closeBtn = document.getElementById('cell-value-popup-close');
-      var textEl = document.getElementById('cell-value-popup-text');
-      if (!popup || !copyBtn || !closeBtn || !textEl) return;
-      copyBtn.addEventListener('click', function() {
-        copyCellValue(textEl.textContent || '');
-      });
-      closeBtn.addEventListener('click', hideCellValuePopup);
-      popup.addEventListener('click', function(e) {
-        if (e.target === popup) hideCellValuePopup();
-      });
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && popup.classList.contains('show')) hideCellValuePopup();
-      });
-    })();
+    setupCellValuePopupButtons();
 
 
     // --- Chart rendering (pure SVG, no dependencies). BUG-008: responsive, axis labels, export, title. ---
@@ -788,33 +756,7 @@
     document.getElementById('chart-export-copy').addEventListener('click', exportChartCopy);
 
     /** Responsive: re-render chart when wrapper is resized. Throttled to avoid excessive redraws. */
-    (function setupChartResize() {
-      var wrap = document.getElementById('chart-wrapper');
-      if (!wrap) return;
-      var resizeTimer = null;
-      var THROTTLE_MS = 150;
-      function redrawChart() {
-        if (!S.lastChartState) return;
-        var container = document.getElementById('chart-svg-wrap');
-        if (!container || !container.querySelector('svg')) return;
-        var s = S.lastChartState;
-        if (s.type === 'bar') renderBarChart(container, s.data, s.xKey, s.yKey, s.opts);
-        else if (s.type === 'stacked-bar') renderStackedBarChart(container, s.data, s.xKey, s.yKey, s.opts);
-        else if (s.type === 'pie') renderPieChart(container, s.data, s.xKey, s.yKey, s.opts);
-        else if (s.type === 'line') renderLineChart(container, s.data, s.xKey, s.yKey, s.opts);
-        else if (s.type === 'area') renderAreaChart(container, s.data, s.xKey, s.yKey, s.opts);
-        else if (s.type === 'scatter') renderScatterChart(container, s.data, s.xKey, s.yKey, s.opts);
-        else if (s.type === 'histogram') renderHistogram(container, s.data, s.yKey, 10, s.opts);
-      }
-      S.setChartResizeObserver(new ResizeObserver(function() {
-        if (resizeTimer) clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(function() {
-          resizeTimer = null;
-          redrawChart();
-        }, THROTTLE_MS);
-      }));
-      S.chartResizeObserver.observe(wrap);
-    })();
+    setupChartResize();
 
 
     // --- Wire connection.ts dependencies ---

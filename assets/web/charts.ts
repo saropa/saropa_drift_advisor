@@ -403,3 +403,32 @@
       img.onerror = function() { URL.revokeObjectURL(url); done(); };
       img.src = url;
     }
+
+/** Responsive: re-render chart when wrapper is resized. Throttled. */
+export function setupChartResize(): void {
+  var wrap = document.getElementById('chart-wrapper');
+  if (!wrap) return;
+  var resizeTimer: number | null = null;
+  var THROTTLE_MS = 150;
+  function redrawChart() {
+    if (!S.lastChartState) return;
+    var container = document.getElementById('chart-svg-wrap');
+    if (!container || !container.querySelector('svg')) return;
+    var s = S.lastChartState;
+    if (s.type === 'bar') renderBarChart(container, s.data, s.xKey, s.yKey, s.opts);
+    else if (s.type === 'stacked-bar') renderStackedBarChart(container, s.data, s.xKey, s.yKey, s.opts);
+    else if (s.type === 'pie') renderPieChart(container, s.data, s.xKey, s.yKey, s.opts);
+    else if (s.type === 'line') renderLineChart(container, s.data, s.xKey, s.yKey, s.opts);
+    else if (s.type === 'area') renderAreaChart(container, s.data, s.xKey, s.yKey, s.opts);
+    else if (s.type === 'scatter') renderScatterChart(container, s.data, s.xKey, s.yKey, s.opts);
+    else if (s.type === 'histogram') renderHistogram(container, s.data, s.yKey, 10, s.opts);
+  }
+  S.setChartResizeObserver(new ResizeObserver(function() {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      resizeTimer = null;
+      redrawChart();
+    }, THROTTLE_MS) as unknown as number;
+  }));
+  S.chartResizeObserver!.observe(wrap);
+}

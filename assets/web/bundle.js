@@ -308,86 +308,6 @@
     return maskPiiValue(colName, rawValue);
   }
 
-  // assets/web/nl-to-sql.ts
-  function nlToSql(question, meta) {
-    const q = question.toLowerCase().trim();
-    const tables = meta.tables || [];
-    let target = null;
-    for (let i = 0; i < tables.length; i++) {
-      const t = tables[i];
-      const name = t.name.toLowerCase();
-      const singular = name.endsWith("s") ? name.slice(0, -1) : name;
-      if (q.includes(name) || q.includes(singular)) {
-        target = t;
-        break;
-      }
-    }
-    if (!target && tables.length === 1) target = tables[0];
-    if (!target) return { sql: null, error: "Could not identify a table from your question." };
-    const mentioned = target.columns.filter(function(c) {
-      return q.includes(c.name.toLowerCase().replace(/_/g, " ")) || q.includes(c.name.toLowerCase());
-    });
-    const selectCols = mentioned.length > 0 ? mentioned.map(function(c) {
-      return '"' + c.name + '"';
-    }).join(", ") : "*";
-    let sql = "";
-    const tn = '"' + target.name + '"';
-    if (/how many|count|total number/i.test(q)) {
-      sql = "SELECT COUNT(*) FROM " + tn;
-    } else if (/average|avg|mean/i.test(q)) {
-      const numCol = mentioned.find(function(c) {
-        return /int|real|num|float/i.test(c.type);
-      }) || target.columns.find(function(c) {
-        return /int|real|num|float/i.test(c.type);
-      });
-      sql = numCol ? 'SELECT AVG("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " LIMIT 50";
-    } else if (/sum|total\b/i.test(q) && !/total number/i.test(q)) {
-      const numCol = mentioned.find(function(c) {
-        return /int|real|num|float/i.test(c.type);
-      }) || target.columns.find(function(c) {
-        return /int|real|num|float/i.test(c.type);
-      });
-      sql = numCol ? 'SELECT SUM("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " LIMIT 50";
-    } else if (/max|maximum|highest|largest|biggest/i.test(q)) {
-      const numCol = mentioned.find(function(c) {
-        return /int|real|num|float/i.test(c.type);
-      }) || target.columns.find(function(c) {
-        return /int|real|num|float/i.test(c.type);
-      });
-      sql = numCol ? 'SELECT MAX("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " ORDER BY 1 DESC LIMIT 1";
-    } else if (/min|minimum|lowest|smallest/i.test(q)) {
-      const numCol = mentioned.find(function(c) {
-        return /int|real|num|float/i.test(c.type);
-      }) || target.columns.find(function(c) {
-        return /int|real|num|float/i.test(c.type);
-      });
-      sql = numCol ? 'SELECT MIN("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " ORDER BY 1 ASC LIMIT 1";
-    } else if (/distinct|unique/i.test(q)) {
-      const col = mentioned[0] || target.columns[1] || target.columns[0];
-      sql = 'SELECT DISTINCT "' + col.name + '" FROM ' + tn;
-    } else if (/latest|newest|most recent|last (\d+)/i.test(q)) {
-      const dateCol = target.columns.find(function(c) {
-        return /date|time|created|updated/i.test(c.name);
-      });
-      const match = q.match(/last (\d+)/i);
-      const lim = match ? parseInt(match[1]) : 10;
-      sql = "SELECT " + selectCols + " FROM " + tn + (dateCol ? ' ORDER BY "' + dateCol.name + '" DESC' : "") + " LIMIT " + lim;
-    } else if (/oldest|earliest|first (\d+)/i.test(q)) {
-      const dateCol = target.columns.find(function(c) {
-        return /date|time|created|updated/i.test(c.name);
-      });
-      const match2 = q.match(/first (\d+)/i);
-      const lim = match2 ? parseInt(match2[1]) : 10;
-      sql = "SELECT " + selectCols + " FROM " + tn + (dateCol ? ' ORDER BY "' + dateCol.name + '" ASC' : "") + " LIMIT " + lim;
-    } else if (/group by|per\s+\w+|by\s+\w+/i.test(q)) {
-      const groupCol = mentioned[0] || target.columns[1] || target.columns[0];
-      sql = 'SELECT "' + groupCol.name + '", COUNT(*) AS count FROM ' + tn + ' GROUP BY "' + groupCol.name + '" ORDER BY count DESC';
-    } else {
-      sql = "SELECT " + selectCols + " FROM " + tn + " LIMIT 50";
-    }
-    return { sql, table: target.name };
-  }
-
   // assets/web/state.ts
   var DRIFT_VIEWER_AUTH_TOKEN = "";
   var driftWriteEnabled = false;
@@ -509,6 +429,7 @@
   var TABLE_STATE_KEY_PREFIX = "drift-viewer-table-state-";
   var NAV_HISTORY_KEY = "drift-viewer-nav-history";
   var PINNED_TABLES_KEY = "drift-viewer-pinned-tables";
+  var SERVER_ORIGIN_KEY = "drift-viewer-server-origin";
   var LIMIT_OPTIONS = [50, 200, 500, 1e3];
   var displayFormat = "raw";
   var tableColumnTypes = {};
@@ -633,144 +554,202 @@
     return o;
   }
 
-  // assets/web/search.ts
-  function escapeRe(s) {
-    return s.replace(/[\\\\^\$*+?.()|[\]{}]/g, "\\\\$&");
+  // assets/web/connection.ts
+  var _applyHealthWriteFlag = () => {
+  };
+  var _pollGeneration = () => {
+  };
+  function initConnectionDeps(deps) {
+    _applyHealthWriteFlag = deps.applyHealthWriteFlag;
+    _pollGeneration = deps.pollGeneration;
   }
-  function highlightText(text, term) {
-    if (!term || term.length === 0) return esc2(text);
-    const re = new RegExp("(" + escapeRe(term) + ")", "gi");
-    var result = "";
-    var lastEnd = 0;
-    var match;
-    while ((match = re.exec(text)) !== null) {
-      result += esc2(text.slice(lastEnd, match.index)) + '<span class="highlight">' + esc2(match[1]) + "</span>";
-      lastEnd = re.lastIndex;
+  function setDisconnected() {
+    if (connectionState === "disconnected") return;
+    console.log("[SDA] setDisconnected (was: " + connectionState + ")");
+    setConnectionState("disconnected");
+    setBannerDismissed(false);
+    showConnectionBanner();
+    updateConnectionBannerText();
+    updateLiveIndicatorForConnection();
+    setOfflineControlsDisabled(true);
+  }
+  function setReconnecting() {
+    if (connectionState === "reconnecting") return;
+    console.log("[SDA] setReconnecting (was: " + connectionState + ")");
+    setConnectionState("reconnecting");
+    setNextHeartbeatAt(null);
+    showConnectionBanner();
+    updateConnectionBannerText();
+    updateLiveIndicatorForConnection();
+  }
+  function setConnected() {
+    if (connectionState === "connected") return;
+    console.log("[SDA] setConnected (was: " + connectionState + ")");
+    setConnectionState("connected");
+    setConsecutivePollFailures(0);
+    setCurrentBackoffMs(BACKOFF_INITIAL_MS);
+    setNextHeartbeatAt(null);
+    setHeartbeatInFlight(false);
+    setHeartbeatAttemptCount(0);
+    hideConnectionBanner();
+    updateLiveIndicatorForConnection();
+    setOfflineControlsDisabled(false);
+    stopHeartbeat();
+  }
+  function updateConnectionBannerText() {
+    if (connectionState === "connected" || bannerDismissed) return;
+    const msgEl = document.getElementById("banner-message");
+    const diagEl = document.getElementById("banner-diagnostics");
+    if (!msgEl || !diagEl) return;
+    const parts = [];
+    if (connectionState === "reconnecting") {
+      msgEl.textContent = "Reconnecting\u2026";
+      diagEl.textContent = "Restoring connection\u2026";
+      return;
     }
-    result += esc2(text.slice(lastEnd));
-    return result;
-  }
-  function getScope() {
-    return document.getElementById("search-scope").value || "";
-  }
-  function getSearchTerm() {
-    return String(document.getElementById("search-input").value || "").trim();
-  }
-  function getRowFilter() {
-    return String(document.getElementById("row-filter").value || "").trim();
-  }
-  function filterRows(data) {
-    const term = getRowFilter();
-    if (!term || !data || data.length === 0) return data || [];
-    const lower = term.toLowerCase();
-    return data.filter((row) => Object.values(row).some((v) => v != null && String(v).toLowerCase().includes(lower)));
-  }
-  function getTableDisplayData(data) {
-    if (!data || data.length === 0) return data || [];
-    if (showOnlyMatchingRows && getRowFilter()) return filterRows(data);
-    return data;
-  }
-  function buildTableFilterMetaSuffix(filteredLen, totalLen) {
-    if (!getRowFilter()) return "";
-    if (showOnlyMatchingRows) return " (filtered: " + filteredLen + " of " + totalLen + ")";
-    return " (showing all rows; filter: " + filteredLen + " match)";
-  }
-  function expandSectionContaining(el) {
-    var node = el;
-    while (node && node !== document.body) {
-      if (node.classList && node.classList.contains("collapsible-body") && node.classList.contains("collapsed")) {
-        var prev = node.previousElementSibling;
-        if (prev && prev.classList.contains("collapsible-header")) {
-          prev.click();
-        }
-      }
-      node = node.parentElement;
-    }
-  }
-  function applySearch() {
-    const term = getSearchTerm();
-    const scope = getScope();
-    const navEl = document.getElementById("search-nav");
-    const countEl = document.getElementById("search-count");
-    const isSearchPanel = activeTabId === "search";
-    const root = isSearchPanel ? document.getElementById("search-results-content") : null;
-    function getEl(mainId, panelId) {
-      if (isSearchPanel && root) {
-        var el = root.querySelector("#" + panelId);
-        return el || null;
-      }
-      return document.getElementById(mainId);
-    }
-    const schemaPre = getEl("schema-pre", "search-panel-schema-pre");
-    const contentPre = getEl("content-pre", "search-panel-content-pre");
-    var dataTable = getEl("data-table", "search-panel-data-table");
-    if (schemaPre && lastRenderedSchema !== null && (scope === "schema" || scope === "both")) {
-      schemaPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc2(lastRenderedSchema);
-    }
-    if (contentPre && lastRenderedSchema !== null && scope === "schema") {
-      contentPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc2(lastRenderedSchema);
-    }
-    if (dataTable && (scope === "data" || scope === "both")) {
-      dataTable.querySelectorAll("td").forEach(function(td) {
-        if (!td.querySelector(".fk-link")) {
-          var copyBtn = td.querySelector(".cell-copy-btn");
-          var textNodes = [];
-          td.childNodes.forEach(function(n) {
-            if (n !== copyBtn) textNodes.push(n.textContent || "");
-          });
-          var text = textNodes.join("");
-          var highlighted = term ? highlightText(text, term) : esc2(text);
-          if (copyBtn) {
-            var btnHtml = copyBtn.outerHTML;
-            td.innerHTML = highlighted + btnHtml;
-          } else {
-            td.innerHTML = highlighted;
-          }
-        }
-      });
-    }
-    setSearchMatches([]);
-    setSearchCurrentIndex(-1);
-    if (term) {
-      var searchRoot = isSearchPanel && root ? root : document;
-      setSearchMatches(Array.from(searchRoot.querySelectorAll ? searchRoot.querySelectorAll(".highlight") : []));
-    }
-    if (searchMatches.length > 0) {
-      navEl.style.display = "flex";
-      navigateToMatch(0);
+    if (heartbeatInFlight) {
+      msgEl.textContent = "Connection lost \u2014 checking\u2026";
+      parts.push("Attempt " + heartbeatAttemptCount);
+    } else if (nextHeartbeatAt != null) {
+      const secs = Math.max(0, Math.ceil((nextHeartbeatAt - Date.now()) / 1e3));
+      msgEl.textContent = "Connection lost \u2014 next retry in " + secs + "s";
+      const intervalSec = currentBackoffMs / 1e3;
+      parts.push("Retrying every " + intervalSec + "s");
+      if (currentBackoffMs >= BACKOFF_MAX_MS) parts.push("(max interval)");
+      parts.push("Attempt " + heartbeatAttemptCount);
     } else {
-      navEl.style.display = term ? "flex" : "none";
-      countEl.textContent = term ? "No matches" : "";
-      document.getElementById("search-prev").disabled = true;
-      document.getElementById("search-next").disabled = true;
+      msgEl.textContent = "Connection lost \u2014 reconnecting\u2026";
+      parts.push("Attempt " + heartbeatAttemptCount);
+    }
+    diagEl.textContent = parts.join(" \u2022 ");
+  }
+  function showConnectionBanner() {
+    if (bannerDismissed) return;
+    const banner = document.getElementById("connection-banner");
+    if (!banner) return;
+    banner.classList.add("show");
+    document.body.classList.add("has-connection-banner");
+    if (!bannerUpdateIntervalId) {
+      setBannerUpdateIntervalId(setInterval(updateConnectionBannerText, 1e3));
     }
   }
-  function navigateToMatch(index) {
-    var countEl = document.getElementById("search-count");
-    var prevBtn = document.getElementById("search-prev");
-    var nextBtn = document.getElementById("search-next");
-    if (searchMatches.length === 0) return;
-    if (index < 0) index = searchMatches.length - 1;
-    if (index >= searchMatches.length) index = 0;
-    if (searchCurrentIndex >= 0 && searchCurrentIndex < searchMatches.length) {
-      searchMatches[searchCurrentIndex].classList.remove("highlight-active");
+  function hideConnectionBanner() {
+    if (bannerUpdateIntervalId) {
+      clearInterval(bannerUpdateIntervalId);
+      setBannerUpdateIntervalId(null);
     }
-    setSearchCurrentIndex(index);
-    var current = searchMatches[searchCurrentIndex];
-    current.classList.add("highlight-active");
-    expandSectionContaining(current);
-    current.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
-    countEl.textContent = searchCurrentIndex + 1 + " of " + searchMatches.length;
-    prevBtn.disabled = false;
-    nextBtn.disabled = false;
+    const banner = document.getElementById("connection-banner");
+    if (banner) {
+      banner.classList.remove("show");
+      document.body.classList.remove("has-connection-banner");
+    }
   }
-  function nextMatch() {
-    if (searchMatches.length === 0) return;
-    navigateToMatch(searchCurrentIndex + 1);
+  function updateLiveIndicatorForConnection() {
+    if (!window.mastheadStatus) return;
+    window.mastheadStatus.setConnection(connectionState, pollingEnabled);
   }
-  function prevMatch() {
-    if (searchMatches.length === 0) return;
-    navigateToMatch(searchCurrentIndex - 1);
+  function setOfflineControlsDisabled(disabled) {
+    OFFLINE_DISABLE_IDS.forEach(function(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        if (disabled) el.classList.add("offline-disabled");
+        else el.classList.remove("offline-disabled");
+      }
+    });
+  }
+  function startHeartbeat() {
+    if (heartbeatTimerId) {
+      console.log("[SDA] startHeartbeat: skipped (timer already active)");
+      return;
+    }
+    console.log("[SDA] startHeartbeat: initiating heartbeat cycle");
+    doHeartbeat();
+  }
+  function doHeartbeat() {
+    if (heartbeatInFlight) {
+      console.log("[SDA] doHeartbeat: skipped (already in flight)");
+      return;
+    }
+    if (connectionState === "disconnected" || connectionState === "reconnecting") {
+      setHeartbeatAttemptCount(heartbeatAttemptCount + 1);
+    }
+    console.log("[SDA] doHeartbeat: attempt #" + heartbeatAttemptCount + ", state=" + connectionState);
+    setHeartbeatInFlight(true);
+    updateConnectionBannerText();
+    fetch("/api/health", authOpts()).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      setHeartbeatInFlight(false);
+      if (data && data.ok) {
+        console.log("[SDA] doHeartbeat: health OK \u2014 resuming poll");
+        _applyHealthWriteFlag(data);
+        setReconnecting();
+        setConsecutivePollFailures(0);
+        setCurrentBackoffMs(BACKOFF_INITIAL_MS);
+        setNextHeartbeatAt(null);
+        setHeartbeatTimerId(null);
+        _pollGeneration();
+        return;
+      }
+      console.log("[SDA] doHeartbeat: health response not ok", data);
+      updateConnectionBannerText();
+      scheduleHeartbeat();
+    }).catch(function(err) {
+      console.log("[SDA] doHeartbeat: fetch failed", err);
+      setHeartbeatInFlight(false);
+      updateConnectionBannerText();
+      scheduleHeartbeat();
+    });
+  }
+  function scheduleHeartbeat() {
+    setCurrentBackoffMs(Math.min(
+      currentBackoffMs * BACKOFF_MULTIPLIER,
+      BACKOFF_MAX_MS
+    ));
+    console.log("[SDA] scheduleHeartbeat: next in " + currentBackoffMs + "ms");
+    setNextHeartbeatAt(Date.now() + currentBackoffMs);
+    setHeartbeatTimerId(setTimeout(doHeartbeat, currentBackoffMs));
+  }
+  function stopHeartbeat() {
+    if (heartbeatTimerId) {
+      console.log("[SDA] stopHeartbeat: clearing timer");
+      clearTimeout(heartbeatTimerId);
+      setHeartbeatTimerId(null);
+    }
+    setNextHeartbeatAt(null);
+  }
+  function startKeepAlive() {
+    console.log("[SDA] startKeepAlive: interval=" + KEEP_ALIVE_INTERVAL_MS + "ms");
+    stopKeepAlive();
+    setKeepAliveTimerId(setInterval(function() {
+      console.log("[SDA] keepAlive tick: fetching /api/health");
+      fetch("/api/health", authOpts()).then(function(r) {
+        return r.json();
+      }).then(function(data) {
+        if (data && data.ok) {
+          _applyHealthWriteFlag(data);
+          if (connectionState !== "connected") {
+            console.log("[SDA] keepAlive: health OK, restoring connected");
+            setConnected();
+          }
+        } else {
+          console.log("[SDA] keepAlive: health response not ok", data);
+          setDisconnected();
+        }
+      }).catch(function(err) {
+        console.log("[SDA] keepAlive: fetch failed, switching to heartbeat", err);
+        setDisconnected();
+        stopKeepAlive();
+        startHeartbeat();
+      });
+    }, KEEP_ALIVE_INTERVAL_MS));
+  }
+  function stopKeepAlive() {
+    if (keepAliveTimerId) {
+      console.log("[SDA] stopKeepAlive: clearing interval");
+      clearInterval(keepAliveTimerId);
+      setKeepAliveTimerId(null);
+    }
   }
 
   // assets/web/pagination.ts
@@ -941,6 +920,219 @@
       li.appendChild(label);
       li.appendChild(pinBtn);
       listEl.appendChild(li);
+    });
+  }
+
+  // assets/web/table-list.ts
+  function rowCountText(name) {
+    const total = tableCounts[name];
+    const len = currentTableJson && currentTableJson.length || 0;
+    if (total == null) return esc2(name) + " (up to " + limit + " rows)";
+    const rangeText = len > 0 ? "showing " + (offset + 1) + "\u2013" + (offset + len) : "no rows in this range";
+    return esc2(name) + " (" + total + " row" + (total !== 1 ? "s" : "") + "; " + rangeText + ")";
+  }
+  function updateTableListActive() {
+    var name = currentTableName;
+    var ul = document.getElementById("tables");
+    if (!ul) return;
+    var targetHash = name ? "#" + encodeURIComponent(name) : "";
+    ul.querySelectorAll("a.table-link").forEach(function(a) {
+      a.classList.toggle("active", a.getAttribute("href") === targetHash);
+    });
+  }
+  function loadTable(name) {
+    if (currentTableName && currentTableName !== name) {
+      saveTableState(currentTableName);
+    }
+    var isNewTable = currentTableName !== name;
+    setCurrentTableName(name);
+    updateTableListActive();
+    if (typeof window._stSyncTable === "function") window._stSyncTable(name);
+    if (isNewTable) restoreTableState(name);
+    const content = document.getElementById("content");
+    const scope = getScope();
+    if (scope === "both" && cachedSchema !== null) {
+      content.innerHTML = '<p class="meta">Loading ' + esc2(name) + "\u2026</p>";
+    } else if (scope !== "both") {
+      content.innerHTML = '<p class="meta">' + esc2(name) + '</p><p class="meta">Loading\u2026</p>';
+    }
+    fetch("/api/table/" + encodeURIComponent(name) + "?S.limit=" + limit + "&S.offset=" + offset, authOpts()).then((r) => r.json()).then((data) => {
+      if (currentTableName !== name) return;
+      setCurrentTableJson(data);
+      setupPagination();
+      renderTableView(name, data);
+      fetch("/api/table/" + encodeURIComponent(name) + "/count", authOpts()).then((r) => r.json()).then((o) => {
+        if (currentTableName !== name) return;
+        tableCounts[name] = o.count;
+        updatePaginationBar(o.count);
+        renderTableView(name, data);
+      }).catch(() => {
+      });
+    }).catch((e) => {
+      if (currentTableName !== name) return;
+      content.innerHTML = '<p class="meta">Error</p><pre>' + esc2(String(e)) + "</pre>";
+    });
+  }
+  function renderTableList(tables) {
+    setLastKnownTables(tables);
+    const ul = document.getElementById("tables");
+    if (!ul) return;
+    ul.innerHTML = "";
+    var pinnedArr = getPinnedTables();
+    var tableSet = new Set(tables);
+    var cleaned = pinnedArr.filter(function(t) {
+      return tableSet.has(t);
+    });
+    if (cleaned.length !== pinnedArr.length) setPinnedTables(cleaned);
+    var pinnedSet = new Set(cleaned);
+    var sorted = tables.slice().sort(function(a, b) {
+      return (pinnedSet.has(a) ? 0 : 1) - (pinnedSet.has(b) ? 0 : 1);
+    });
+    sorted.forEach(function(t) {
+      var isPinned = pinnedSet.has(t);
+      var li = document.createElement("li");
+      var a = document.createElement("a");
+      a.href = "#" + encodeURIComponent(t);
+      a.className = "table-link" + (t === currentTableName ? " active" : "");
+      a.setAttribute("data-table", t);
+      var nameSpan = document.createElement("span");
+      nameSpan.className = "table-link-name";
+      nameSpan.textContent = t;
+      a.appendChild(nameSpan);
+      if (tableCounts[t] != null) {
+        var countSpan = document.createElement("span");
+        countSpan.className = "table-link-count";
+        countSpan.textContent = "(" + formatTableRowCountDisplay(tableCounts[t]) + ")";
+        a.appendChild(countSpan);
+      }
+      var pinBtn = document.createElement("button");
+      pinBtn.type = "button";
+      pinBtn.className = "table-pin-btn" + (isPinned ? " pinned" : "");
+      pinBtn.title = isPinned ? "Unpin" : "Pin to top";
+      pinBtn.setAttribute("aria-pressed", isPinned ? "true" : "false");
+      var pinIcon = document.createElement("span");
+      pinIcon.className = "material-symbols-outlined";
+      pinIcon.setAttribute("aria-hidden", "true");
+      pinIcon.textContent = "push_pin";
+      pinBtn.appendChild(pinIcon);
+      pinBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        togglePinTable(t);
+      });
+      a.appendChild(pinBtn);
+      a.addEventListener("click", function(e) {
+        e.preventDefault();
+        openTableTab(t);
+      });
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    const sqlTableSel = document.getElementById("sql-table");
+    if (sqlTableSel) {
+      sqlTableSel.innerHTML = '<option value="">\u2014</option>' + tables.map((t) => '<option value="' + esc2(t) + '">' + esc2(t) + "</option>").join("");
+    }
+    const importTableSel = document.getElementById("import-table");
+    if (importTableSel) {
+      importTableSel.innerHTML = tables.map((t) => '<option value="' + esc2(t) + '">' + esc2(t) + (tableCounts[t] != null ? " (" + esc2(formatTableRowCountDisplay(tableCounts[t])) + ")" : "") + "</option>").join("");
+    }
+    if (typeof window._stPopulateTables === "function") window._stPopulateTables(tables);
+    renderTablesBrowse(tables);
+  }
+  function renderTablesBrowse(tables) {
+    var browseEl = document.getElementById("tables-browse");
+    if (!browseEl) return;
+    if (!tables || tables.length === 0) {
+      browseEl.innerHTML = '<p class="meta">No tables found.</p>';
+      return;
+    }
+    var html = '<div class="tables-browse-grid">';
+    tables.forEach(function(t) {
+      var countHtml = "";
+      if (tableCounts[t] != null) {
+        countHtml = '<span class="browse-card-count">(' + esc2(formatTableRowCountDisplay(tableCounts[t])) + ")</span>";
+      }
+      html += '<button type="button" class="tables-browse-card" data-table="' + esc2(t) + '" title="Open ' + esc2(t) + ' in a tab">';
+      html += '<span class="browse-card-name">' + esc2(t) + "</span>";
+      html += countHtml;
+      html += "</button>";
+    });
+    html += "</div>";
+    browseEl.innerHTML = html;
+    browseEl.querySelectorAll(".tables-browse-card").forEach(function(card) {
+      card.addEventListener("click", function() {
+        var tableName = card.getAttribute("data-table");
+        if (tableName) openTableTab(tableName);
+      });
+    });
+  }
+  function applyTableListAndCounts(data) {
+    var tables = Array.isArray(data) ? data : data && data.tables || [];
+    var counts = data && data.counts ? data.counts : {};
+    Object.keys(counts).forEach(function(t) {
+      tableCounts[t] = counts[t];
+      if (typeof window._stUpdateCount === "function") window._stUpdateCount(t, counts[t]);
+    });
+    renderTableList(tables);
+    return tables;
+  }
+  function refreshOnGenerationChange() {
+    if (refreshInFlight) {
+      console.log("[SDA] refreshOnGenerationChange: skipped (already in flight)");
+      return;
+    }
+    console.log("[SDA] refreshOnGenerationChange: refreshing tables + current table");
+    setRefreshInFlight(true);
+    if (window.mastheadStatus && connectionState === "connected") window.mastheadStatus.setBusy();
+    fetch("/api/tables", authOpts()).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var tables = applyTableListAndCounts(data);
+      openTableTabs.slice().forEach(function(name) {
+        if (tables.indexOf(name) < 0) closeToolTab("tbl:" + name);
+      });
+      if (currentTableName && tables.indexOf(currentTableName) >= 0) {
+        loadTable(currentTableName);
+      }
+    }).catch(function() {
+    }).finally(function() {
+      setRefreshInFlight(false);
+      updateLiveIndicatorForConnection();
+    });
+  }
+  function pollGeneration() {
+    console.log("[SDA] pollGeneration: since=" + lastGeneration);
+    fetch("/api/generation?since=" + lastGeneration, authOpts()).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var g = data.generation;
+      var changed = typeof g === "number" && g !== lastGeneration;
+      console.log("[SDA] pollGeneration: received generation=" + g + ", changed=" + changed);
+      setConnected();
+      if (changed) {
+        if (g < lastGeneration) {
+          console.log("[SDA] pollGeneration: generation went backwards (" + lastGeneration + " -> " + g + "). Server may have restarted.");
+        }
+        setLastGeneration(g);
+        refreshOnGenerationChange();
+      }
+      pollGeneration();
+    }).catch(function(err) {
+      setConsecutivePollFailures(consecutivePollFailures + 1);
+      console.log("[SDA] pollGeneration: FAILED, failures=" + consecutivePollFailures + ", backoff=" + currentBackoffMs + "ms", err);
+      if (consecutivePollFailures >= 1 && connectionState === "connected") {
+        setDisconnected();
+      }
+      if (consecutivePollFailures >= HEALTH_CHECK_THRESHOLD) {
+        console.log("[SDA] pollGeneration: switching to heartbeat after " + consecutivePollFailures + " failures");
+        startHeartbeat();
+        return;
+      }
+      setCurrentBackoffMs(Math.min(
+        currentBackoffMs * BACKOFF_MULTIPLIER,
+        BACKOFF_MAX_MS
+      ));
+      setTimeout(pollGeneration, currentBackoffMs);
     });
   }
 
@@ -1303,6 +1495,28 @@
   }
 
   // assets/web/persistence.ts
+  function clearStaleProjectStorage() {
+    try {
+      var baseEl = document.querySelector("base");
+      var origin = baseEl ? baseEl.href.replace(/\/+$/, "") : location.origin;
+      var prev = localStorage.getItem(SERVER_ORIGIN_KEY);
+      if (prev === origin) return;
+      console.log("[SDA] server origin changed: " + prev + " \u2192 " + origin + " \u2014 clearing stale project storage");
+      var keysToRemove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (!key) continue;
+        if (key === PINNED_TABLES_KEY || key === NAV_HISTORY_KEY || key === SQL_HISTORY_KEY || key === BOOKMARKS_KEY || key.startsWith(TABLE_STATE_KEY_PREFIX) || key.startsWith(ANALYSIS_STORAGE_PREFIX)) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(function(k) {
+        localStorage.removeItem(k);
+      });
+      localStorage.setItem(SERVER_ORIGIN_KEY, origin);
+    } catch (e) {
+    }
+  }
   function getPinnedTables() {
     try {
       var raw = localStorage.getItem(PINNED_TABLES_KEY);
@@ -1415,204 +1629,6 @@
     try {
       localStorage.removeItem(NAV_HISTORY_KEY);
     } catch (e) {
-    }
-  }
-
-  // assets/web/connection.ts
-  var _applyHealthWriteFlag = () => {
-  };
-  var _pollGeneration = () => {
-  };
-  function initConnectionDeps(deps) {
-    _applyHealthWriteFlag = deps.applyHealthWriteFlag;
-    _pollGeneration = deps.pollGeneration;
-  }
-  function setDisconnected() {
-    if (connectionState === "disconnected") return;
-    console.log("[SDA] setDisconnected (was: " + connectionState + ")");
-    setConnectionState("disconnected");
-    setBannerDismissed(false);
-    showConnectionBanner();
-    updateConnectionBannerText();
-    updateLiveIndicatorForConnection();
-    setOfflineControlsDisabled(true);
-  }
-  function setReconnecting() {
-    if (connectionState === "reconnecting") return;
-    console.log("[SDA] setReconnecting (was: " + connectionState + ")");
-    setConnectionState("reconnecting");
-    setNextHeartbeatAt(null);
-    showConnectionBanner();
-    updateConnectionBannerText();
-    updateLiveIndicatorForConnection();
-  }
-  function setConnected() {
-    if (connectionState === "connected") return;
-    console.log("[SDA] setConnected (was: " + connectionState + ")");
-    setConnectionState("connected");
-    setConsecutivePollFailures(0);
-    setCurrentBackoffMs(BACKOFF_INITIAL_MS);
-    setNextHeartbeatAt(null);
-    setHeartbeatInFlight(false);
-    setHeartbeatAttemptCount(0);
-    hideConnectionBanner();
-    updateLiveIndicatorForConnection();
-    setOfflineControlsDisabled(false);
-    stopHeartbeat();
-  }
-  function updateConnectionBannerText() {
-    if (connectionState === "connected" || bannerDismissed) return;
-    const msgEl = document.getElementById("banner-message");
-    const diagEl = document.getElementById("banner-diagnostics");
-    if (!msgEl || !diagEl) return;
-    const parts = [];
-    if (connectionState === "reconnecting") {
-      msgEl.textContent = "Reconnecting\u2026";
-      diagEl.textContent = "Restoring connection\u2026";
-      return;
-    }
-    if (heartbeatInFlight) {
-      msgEl.textContent = "Connection lost \u2014 checking\u2026";
-      parts.push("Attempt " + heartbeatAttemptCount);
-    } else if (nextHeartbeatAt != null) {
-      const secs = Math.max(0, Math.ceil((nextHeartbeatAt - Date.now()) / 1e3));
-      msgEl.textContent = "Connection lost \u2014 next retry in " + secs + "s";
-      const intervalSec = currentBackoffMs / 1e3;
-      parts.push("Retrying every " + intervalSec + "s");
-      if (currentBackoffMs >= BACKOFF_MAX_MS) parts.push("(max interval)");
-      parts.push("Attempt " + heartbeatAttemptCount);
-    } else {
-      msgEl.textContent = "Connection lost \u2014 reconnecting\u2026";
-      parts.push("Attempt " + heartbeatAttemptCount);
-    }
-    diagEl.textContent = parts.join(" \u2022 ");
-  }
-  function showConnectionBanner() {
-    if (bannerDismissed) return;
-    const banner = document.getElementById("connection-banner");
-    if (!banner) return;
-    banner.classList.add("show");
-    document.body.classList.add("has-connection-banner");
-    if (!bannerUpdateIntervalId) {
-      setBannerUpdateIntervalId(setInterval(updateConnectionBannerText, 1e3));
-    }
-  }
-  function hideConnectionBanner() {
-    if (bannerUpdateIntervalId) {
-      clearInterval(bannerUpdateIntervalId);
-      setBannerUpdateIntervalId(null);
-    }
-    const banner = document.getElementById("connection-banner");
-    if (banner) {
-      banner.classList.remove("show");
-      document.body.classList.remove("has-connection-banner");
-    }
-  }
-  function updateLiveIndicatorForConnection() {
-    if (!window.mastheadStatus) return;
-    window.mastheadStatus.setConnection(connectionState, pollingEnabled);
-  }
-  function setOfflineControlsDisabled(disabled) {
-    OFFLINE_DISABLE_IDS.forEach(function(id) {
-      const el = document.getElementById(id);
-      if (el) {
-        if (disabled) el.classList.add("offline-disabled");
-        else el.classList.remove("offline-disabled");
-      }
-    });
-  }
-  function startHeartbeat() {
-    if (heartbeatTimerId) {
-      console.log("[SDA] startHeartbeat: skipped (timer already active)");
-      return;
-    }
-    console.log("[SDA] startHeartbeat: initiating heartbeat cycle");
-    doHeartbeat();
-  }
-  function doHeartbeat() {
-    if (heartbeatInFlight) {
-      console.log("[SDA] doHeartbeat: skipped (already in flight)");
-      return;
-    }
-    if (connectionState === "disconnected" || connectionState === "reconnecting") {
-      setHeartbeatAttemptCount(heartbeatAttemptCount + 1);
-    }
-    console.log("[SDA] doHeartbeat: attempt #" + heartbeatAttemptCount + ", state=" + connectionState);
-    setHeartbeatInFlight(true);
-    updateConnectionBannerText();
-    fetch("/api/health", authOpts()).then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      setHeartbeatInFlight(false);
-      if (data && data.ok) {
-        console.log("[SDA] doHeartbeat: health OK \u2014 resuming poll");
-        _applyHealthWriteFlag(data);
-        setReconnecting();
-        setConsecutivePollFailures(0);
-        setCurrentBackoffMs(BACKOFF_INITIAL_MS);
-        setNextHeartbeatAt(null);
-        setHeartbeatTimerId(null);
-        _pollGeneration();
-        return;
-      }
-      console.log("[SDA] doHeartbeat: health response not ok", data);
-      updateConnectionBannerText();
-      scheduleHeartbeat();
-    }).catch(function(err) {
-      console.log("[SDA] doHeartbeat: fetch failed", err);
-      setHeartbeatInFlight(false);
-      updateConnectionBannerText();
-      scheduleHeartbeat();
-    });
-  }
-  function scheduleHeartbeat() {
-    setCurrentBackoffMs(Math.min(
-      currentBackoffMs * BACKOFF_MULTIPLIER,
-      BACKOFF_MAX_MS
-    ));
-    console.log("[SDA] scheduleHeartbeat: next in " + currentBackoffMs + "ms");
-    setNextHeartbeatAt(Date.now() + currentBackoffMs);
-    setHeartbeatTimerId(setTimeout(doHeartbeat, currentBackoffMs));
-  }
-  function stopHeartbeat() {
-    if (heartbeatTimerId) {
-      console.log("[SDA] stopHeartbeat: clearing timer");
-      clearTimeout(heartbeatTimerId);
-      setHeartbeatTimerId(null);
-    }
-    setNextHeartbeatAt(null);
-  }
-  function startKeepAlive() {
-    console.log("[SDA] startKeepAlive: interval=" + KEEP_ALIVE_INTERVAL_MS + "ms");
-    stopKeepAlive();
-    setKeepAliveTimerId(setInterval(function() {
-      console.log("[SDA] keepAlive tick: fetching /api/health");
-      fetch("/api/health", authOpts()).then(function(r) {
-        return r.json();
-      }).then(function(data) {
-        if (data && data.ok) {
-          _applyHealthWriteFlag(data);
-          if (connectionState !== "connected") {
-            console.log("[SDA] keepAlive: health OK, restoring connected");
-            setConnected();
-          }
-        } else {
-          console.log("[SDA] keepAlive: health response not ok", data);
-          setDisconnected();
-        }
-      }).catch(function(err) {
-        console.log("[SDA] keepAlive: fetch failed, switching to heartbeat", err);
-        setDisconnected();
-        stopKeepAlive();
-        startHeartbeat();
-      });
-    }, KEEP_ALIVE_INTERVAL_MS));
-  }
-  function stopKeepAlive() {
-    if (keepAliveTimerId) {
-      console.log("[SDA] stopKeepAlive: clearing interval");
-      clearInterval(keepAliveTimerId);
-      setKeepAliveTimerId(null);
     }
   }
 
@@ -1748,216 +1764,153 @@
     switchTab(tabId);
   }
 
-  // assets/web/table-list.ts
-  function rowCountText(name) {
-    const total = tableCounts[name];
-    const len = currentTableJson && currentTableJson.length || 0;
-    if (total == null) return esc2(name) + " (up to " + limit + " rows)";
-    const rangeText = len > 0 ? "showing " + (offset + 1) + "\u2013" + (offset + len) : "no rows in this range";
-    return esc2(name) + " (" + total + " row" + (total !== 1 ? "s" : "") + "; " + rangeText + ")";
+  // assets/web/search.ts
+  function escapeRe(s) {
+    return s.replace(/[\\\\^\$*+?.()|[\]{}]/g, "\\\\$&");
   }
-  function updateTableListActive() {
-    var name = currentTableName;
-    var ul = document.getElementById("tables");
-    if (!ul) return;
-    var targetHash = name ? "#" + encodeURIComponent(name) : "";
-    ul.querySelectorAll("a.table-link").forEach(function(a) {
-      a.classList.toggle("active", a.getAttribute("href") === targetHash);
-    });
-  }
-  function loadTable(name) {
-    if (currentTableName && currentTableName !== name) {
-      saveTableState(currentTableName);
+  function highlightText(text, term) {
+    if (!term || term.length === 0) return esc2(text);
+    const re = new RegExp("(" + escapeRe(term) + ")", "gi");
+    var result = "";
+    var lastEnd = 0;
+    var match;
+    while ((match = re.exec(text)) !== null) {
+      result += esc2(text.slice(lastEnd, match.index)) + '<span class="highlight">' + esc2(match[1]) + "</span>";
+      lastEnd = re.lastIndex;
     }
-    var isNewTable = currentTableName !== name;
-    setCurrentTableName(name);
-    updateTableListActive();
-    if (typeof window._stSyncTable === "function") window._stSyncTable(name);
-    if (isNewTable) restoreTableState(name);
-    const content = document.getElementById("content");
-    const scope = getScope();
-    if (scope === "both" && cachedSchema !== null) {
-      content.innerHTML = '<p class="meta">Loading ' + esc2(name) + "\u2026</p>";
-    } else if (scope !== "both") {
-      content.innerHTML = '<p class="meta">' + esc2(name) + '</p><p class="meta">Loading\u2026</p>';
-    }
-    fetch("/api/table/" + encodeURIComponent(name) + "?S.limit=" + limit + "&S.offset=" + offset, authOpts()).then((r) => r.json()).then((data) => {
-      if (currentTableName !== name) return;
-      setCurrentTableJson(data);
-      setupPagination();
-      renderTableView(name, data);
-      fetch("/api/table/" + encodeURIComponent(name) + "/count", authOpts()).then((r) => r.json()).then((o) => {
-        if (currentTableName !== name) return;
-        tableCounts[name] = o.count;
-        updatePaginationBar(o.count);
-        renderTableView(name, data);
-      }).catch(() => {
-      });
-    }).catch((e) => {
-      if (currentTableName !== name) return;
-      content.innerHTML = '<p class="meta">Error</p><pre>' + esc2(String(e)) + "</pre>";
-    });
+    result += esc2(text.slice(lastEnd));
+    return result;
   }
-  function renderTableList(tables) {
-    setLastKnownTables(tables);
-    const ul = document.getElementById("tables");
-    if (!ul) return;
-    ul.innerHTML = "";
-    var pinnedArr = getPinnedTables();
-    var tableSet = new Set(tables);
-    var cleaned = pinnedArr.filter(function(t) {
-      return tableSet.has(t);
-    });
-    if (cleaned.length !== pinnedArr.length) setPinnedTables(cleaned);
-    var pinnedSet = new Set(cleaned);
-    var sorted = tables.slice().sort(function(a, b) {
-      return (pinnedSet.has(a) ? 0 : 1) - (pinnedSet.has(b) ? 0 : 1);
-    });
-    sorted.forEach(function(t) {
-      var isPinned = pinnedSet.has(t);
-      var li = document.createElement("li");
-      var a = document.createElement("a");
-      a.href = "#" + encodeURIComponent(t);
-      a.className = "table-link" + (t === currentTableName ? " active" : "");
-      a.setAttribute("data-table", t);
-      var nameSpan = document.createElement("span");
-      nameSpan.className = "table-link-name";
-      nameSpan.textContent = t;
-      a.appendChild(nameSpan);
-      if (tableCounts[t] != null) {
-        var countSpan = document.createElement("span");
-        countSpan.className = "table-link-count";
-        countSpan.textContent = "(" + formatTableRowCountDisplay(tableCounts[t]) + ")";
-        a.appendChild(countSpan);
-      }
-      var pinBtn = document.createElement("button");
-      pinBtn.type = "button";
-      pinBtn.className = "table-pin-btn" + (isPinned ? " pinned" : "");
-      pinBtn.title = isPinned ? "Unpin" : "Pin to top";
-      pinBtn.setAttribute("aria-pressed", isPinned ? "true" : "false");
-      var pinIcon = document.createElement("span");
-      pinIcon.className = "material-symbols-outlined";
-      pinIcon.setAttribute("aria-hidden", "true");
-      pinIcon.textContent = "push_pin";
-      pinBtn.appendChild(pinIcon);
-      pinBtn.addEventListener("click", function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        togglePinTable(t);
-      });
-      a.appendChild(pinBtn);
-      a.addEventListener("click", function(e) {
-        e.preventDefault();
-        openTableTab(t);
-      });
-      li.appendChild(a);
-      ul.appendChild(li);
-    });
-    const sqlTableSel = document.getElementById("sql-table");
-    if (sqlTableSel) {
-      sqlTableSel.innerHTML = '<option value="">\u2014</option>' + tables.map((t) => '<option value="' + esc2(t) + '">' + esc2(t) + "</option>").join("");
-    }
-    const importTableSel = document.getElementById("import-table");
-    if (importTableSel) {
-      importTableSel.innerHTML = tables.map((t) => '<option value="' + esc2(t) + '">' + esc2(t) + (tableCounts[t] != null ? " (" + esc2(formatTableRowCountDisplay(tableCounts[t])) + ")" : "") + "</option>").join("");
-    }
-    if (typeof window._stPopulateTables === "function") window._stPopulateTables(tables);
-    renderTablesBrowse(tables);
+  function getScope() {
+    return document.getElementById("search-scope").value || "";
   }
-  function renderTablesBrowse(tables) {
-    var browseEl = document.getElementById("tables-browse");
-    if (!browseEl) return;
-    if (!tables || tables.length === 0) {
-      browseEl.innerHTML = '<p class="meta">No tables found.</p>';
-      return;
-    }
-    var html = '<div class="tables-browse-grid">';
-    tables.forEach(function(t) {
-      var countHtml = "";
-      if (tableCounts[t] != null) {
-        countHtml = '<span class="browse-card-count">(' + esc2(formatTableRowCountDisplay(tableCounts[t])) + ")</span>";
-      }
-      html += '<button type="button" class="tables-browse-card" data-table="' + esc2(t) + '" title="Open ' + esc2(t) + ' in a tab">';
-      html += '<span class="browse-card-name">' + esc2(t) + "</span>";
-      html += countHtml;
-      html += "</button>";
-    });
-    html += "</div>";
-    browseEl.innerHTML = html;
-    browseEl.querySelectorAll(".tables-browse-card").forEach(function(card) {
-      card.addEventListener("click", function() {
-        var tableName = card.getAttribute("data-table");
-        if (tableName) openTableTab(tableName);
-      });
-    });
+  function getSearchTerm() {
+    return String(document.getElementById("search-input").value || "").trim();
   }
-  function applyTableListAndCounts(data) {
-    var tables = Array.isArray(data) ? data : data && data.tables || [];
-    var counts = data && data.counts ? data.counts : {};
-    Object.keys(counts).forEach(function(t) {
-      tableCounts[t] = counts[t];
-      if (typeof window._stUpdateCount === "function") window._stUpdateCount(t, counts[t]);
-    });
-    renderTableList(tables);
-    return tables;
+  function getRowFilter() {
+    return String(document.getElementById("row-filter").value || "").trim();
   }
-  function refreshOnGenerationChange() {
-    if (refreshInFlight) {
-      console.log("[SDA] refreshOnGenerationChange: skipped (already in flight)");
-      return;
-    }
-    console.log("[SDA] refreshOnGenerationChange: refreshing tables + current table");
-    setRefreshInFlight(true);
-    if (window.mastheadStatus && connectionState === "connected") window.mastheadStatus.setBusy();
-    fetch("/api/tables", authOpts()).then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      var tables = applyTableListAndCounts(data);
-      openTableTabs.slice().forEach(function(name) {
-        if (tables.indexOf(name) < 0) closeToolTab("tbl:" + name);
-      });
-      if (currentTableName && tables.indexOf(currentTableName) >= 0) {
-        loadTable(currentTableName);
-      }
-    }).catch(function() {
-    }).finally(function() {
-      setRefreshInFlight(false);
-      updateLiveIndicatorForConnection();
-    });
+  function filterRows(data) {
+    const term = getRowFilter();
+    if (!term || !data || data.length === 0) return data || [];
+    const lower = term.toLowerCase();
+    return data.filter((row) => Object.values(row).some((v) => v != null && String(v).toLowerCase().includes(lower)));
   }
-  function pollGeneration() {
-    console.log("[SDA] pollGeneration: since=" + lastGeneration);
-    fetch("/api/generation?since=" + lastGeneration, authOpts()).then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      var g = data.generation;
-      var changed = typeof g === "number" && g !== lastGeneration;
-      console.log("[SDA] pollGeneration: received generation=" + g + ", changed=" + changed);
-      setConnected();
-      if (changed) {
-        if (g < lastGeneration) {
-          console.log("[SDA] pollGeneration: generation went backwards (" + lastGeneration + " -> " + g + "). Server may have restarted.");
+  function getTableDisplayData(data) {
+    if (!data || data.length === 0) return data || [];
+    if (showOnlyMatchingRows && getRowFilter()) return filterRows(data);
+    return data;
+  }
+  function buildTableFilterMetaSuffix(filteredLen, totalLen) {
+    if (!getRowFilter()) return "";
+    if (showOnlyMatchingRows) return " (filtered: " + filteredLen + " of " + totalLen + ")";
+    return " (showing all rows; filter: " + filteredLen + " match)";
+  }
+  function expandSectionContaining(el) {
+    var node = el;
+    while (node && node !== document.body) {
+      if (node.classList && node.classList.contains("collapsible-body") && node.classList.contains("collapsed")) {
+        var prev = node.previousElementSibling;
+        if (prev && prev.classList.contains("collapsible-header")) {
+          prev.click();
         }
-        setLastGeneration(g);
-        refreshOnGenerationChange();
       }
-      pollGeneration();
-    }).catch(function(err) {
-      setConsecutivePollFailures(consecutivePollFailures + 1);
-      console.log("[SDA] pollGeneration: FAILED, failures=" + consecutivePollFailures + ", backoff=" + currentBackoffMs + "ms", err);
-      if (consecutivePollFailures >= 1 && connectionState === "connected") {
-        setDisconnected();
+      node = node.parentElement;
+    }
+  }
+  function applySearch() {
+    const term = getSearchTerm();
+    const scope = getScope();
+    const navEl = document.getElementById("search-nav");
+    const countEl = document.getElementById("search-count");
+    const isSearchPanel = activeTabId === "search";
+    const root = isSearchPanel ? document.getElementById("search-results-content") : null;
+    function getEl(mainId, panelId) {
+      if (isSearchPanel && root) {
+        var el = root.querySelector("#" + panelId);
+        return el || null;
       }
-      if (consecutivePollFailures >= HEALTH_CHECK_THRESHOLD) {
-        console.log("[SDA] pollGeneration: switching to heartbeat after " + consecutivePollFailures + " failures");
-        startHeartbeat();
-        return;
-      }
-      setCurrentBackoffMs(Math.min(
-        currentBackoffMs * BACKOFF_MULTIPLIER,
-        BACKOFF_MAX_MS
-      ));
-      setTimeout(pollGeneration, currentBackoffMs);
+      return document.getElementById(mainId);
+    }
+    const schemaPre = getEl("schema-pre", "search-panel-schema-pre");
+    const contentPre = getEl("content-pre", "search-panel-content-pre");
+    var dataTable = getEl("data-table", "search-panel-data-table");
+    if (schemaPre && lastRenderedSchema !== null && (scope === "schema" || scope === "both")) {
+      schemaPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc2(lastRenderedSchema);
+    }
+    if (contentPre && lastRenderedSchema !== null && scope === "schema") {
+      contentPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc2(lastRenderedSchema);
+    }
+    if (dataTable && (scope === "data" || scope === "both")) {
+      dataTable.querySelectorAll("td").forEach(function(td) {
+        if (!td.querySelector(".fk-link")) {
+          var copyBtn = td.querySelector(".cell-copy-btn");
+          var textNodes = [];
+          td.childNodes.forEach(function(n) {
+            if (n !== copyBtn) textNodes.push(n.textContent || "");
+          });
+          var text = textNodes.join("");
+          var highlighted = term ? highlightText(text, term) : esc2(text);
+          if (copyBtn) {
+            var btnHtml = copyBtn.outerHTML;
+            td.innerHTML = highlighted + btnHtml;
+          } else {
+            td.innerHTML = highlighted;
+          }
+        }
+      });
+    }
+    setSearchMatches([]);
+    setSearchCurrentIndex(-1);
+    if (term) {
+      var searchRoot = isSearchPanel && root ? root : document;
+      setSearchMatches(Array.from(searchRoot.querySelectorAll ? searchRoot.querySelectorAll(".highlight") : []));
+    }
+    if (searchMatches.length > 0) {
+      navEl.style.display = "flex";
+      navigateToMatch(0);
+    } else {
+      navEl.style.display = term ? "flex" : "none";
+      countEl.textContent = term ? "No matches" : "";
+      document.getElementById("search-prev").disabled = true;
+      document.getElementById("search-next").disabled = true;
+    }
+  }
+  function navigateToMatch(index) {
+    var countEl = document.getElementById("search-count");
+    var prevBtn = document.getElementById("search-prev");
+    var nextBtn = document.getElementById("search-next");
+    if (searchMatches.length === 0) return;
+    if (index < 0) index = searchMatches.length - 1;
+    if (index >= searchMatches.length) index = 0;
+    if (searchCurrentIndex >= 0 && searchCurrentIndex < searchMatches.length) {
+      searchMatches[searchCurrentIndex].classList.remove("highlight-active");
+    }
+    setSearchCurrentIndex(index);
+    var current = searchMatches[searchCurrentIndex];
+    current.classList.add("highlight-active");
+    expandSectionContaining(current);
+    current.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
+    countEl.textContent = searchCurrentIndex + 1 + " of " + searchMatches.length;
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
+  }
+  function nextMatch() {
+    if (searchMatches.length === 0) return;
+    navigateToMatch(searchCurrentIndex + 1);
+  }
+  function prevMatch() {
+    if (searchMatches.length === 0) return;
+    navigateToMatch(searchCurrentIndex - 1);
+  }
+  function initSearchToggle() {
+    var btn = document.getElementById("search-toggle-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function() {
+      openTool("search");
+      setTimeout(function() {
+        if (typeof window._stFocusInput === "function") window._stFocusInput();
+      }, 0);
     });
   }
 
@@ -2447,6 +2400,13 @@
     }
     return null;
   }
+  function initPiiMaskToggle() {
+    var cb = document.getElementById("fab-pii-mask-toggle");
+    if (!cb) return;
+    cb.addEventListener("change", function() {
+      if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson);
+    });
+  }
 
   // assets/web/session.ts
   function captureViewerState() {
@@ -2667,6 +2627,86 @@
     }).catch(function(e) {
       console.warn("Session restore failed:", e.message);
     });
+  }
+
+  // assets/web/nl-to-sql.ts
+  function nlToSql(question, meta) {
+    const q = question.toLowerCase().trim();
+    const tables = meta.tables || [];
+    let target = null;
+    for (let i = 0; i < tables.length; i++) {
+      const t = tables[i];
+      const name = t.name.toLowerCase();
+      const singular = name.endsWith("s") ? name.slice(0, -1) : name;
+      if (q.includes(name) || q.includes(singular)) {
+        target = t;
+        break;
+      }
+    }
+    if (!target && tables.length === 1) target = tables[0];
+    if (!target) return { sql: null, error: "Could not identify a table from your question." };
+    const mentioned = target.columns.filter(function(c) {
+      return q.includes(c.name.toLowerCase().replace(/_/g, " ")) || q.includes(c.name.toLowerCase());
+    });
+    const selectCols = mentioned.length > 0 ? mentioned.map(function(c) {
+      return '"' + c.name + '"';
+    }).join(", ") : "*";
+    let sql = "";
+    const tn = '"' + target.name + '"';
+    if (/how many|count|total number/i.test(q)) {
+      sql = "SELECT COUNT(*) FROM " + tn;
+    } else if (/average|avg|mean/i.test(q)) {
+      const numCol = mentioned.find(function(c) {
+        return /int|real|num|float/i.test(c.type);
+      }) || target.columns.find(function(c) {
+        return /int|real|num|float/i.test(c.type);
+      });
+      sql = numCol ? 'SELECT AVG("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " LIMIT 50";
+    } else if (/sum|total\b/i.test(q) && !/total number/i.test(q)) {
+      const numCol = mentioned.find(function(c) {
+        return /int|real|num|float/i.test(c.type);
+      }) || target.columns.find(function(c) {
+        return /int|real|num|float/i.test(c.type);
+      });
+      sql = numCol ? 'SELECT SUM("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " LIMIT 50";
+    } else if (/max|maximum|highest|largest|biggest/i.test(q)) {
+      const numCol = mentioned.find(function(c) {
+        return /int|real|num|float/i.test(c.type);
+      }) || target.columns.find(function(c) {
+        return /int|real|num|float/i.test(c.type);
+      });
+      sql = numCol ? 'SELECT MAX("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " ORDER BY 1 DESC LIMIT 1";
+    } else if (/min|minimum|lowest|smallest/i.test(q)) {
+      const numCol = mentioned.find(function(c) {
+        return /int|real|num|float/i.test(c.type);
+      }) || target.columns.find(function(c) {
+        return /int|real|num|float/i.test(c.type);
+      });
+      sql = numCol ? 'SELECT MIN("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " ORDER BY 1 ASC LIMIT 1";
+    } else if (/distinct|unique/i.test(q)) {
+      const col = mentioned[0] || target.columns[1] || target.columns[0];
+      sql = 'SELECT DISTINCT "' + col.name + '" FROM ' + tn;
+    } else if (/latest|newest|most recent|last (\d+)/i.test(q)) {
+      const dateCol = target.columns.find(function(c) {
+        return /date|time|created|updated/i.test(c.name);
+      });
+      const match = q.match(/last (\d+)/i);
+      const lim = match ? parseInt(match[1]) : 10;
+      sql = "SELECT " + selectCols + " FROM " + tn + (dateCol ? ' ORDER BY "' + dateCol.name + '" DESC' : "") + " LIMIT " + lim;
+    } else if (/oldest|earliest|first (\d+)/i.test(q)) {
+      const dateCol = target.columns.find(function(c) {
+        return /date|time|created|updated/i.test(c.name);
+      });
+      const match2 = q.match(/first (\d+)/i);
+      const lim = match2 ? parseInt(match2[1]) : 10;
+      sql = "SELECT " + selectCols + " FROM " + tn + (dateCol ? ' ORDER BY "' + dateCol.name + '" ASC' : "") + " LIMIT " + lim;
+    } else if (/group by|per\s+\w+|by\s+\w+/i.test(q)) {
+      const groupCol = mentioned[0] || target.columns[1] || target.columns[0];
+      sql = 'SELECT "' + groupCol.name + '", COUNT(*) AS count FROM ' + tn + ' GROUP BY "' + groupCol.name + '" ORDER BY count DESC';
+    } else {
+      sql = "SELECT " + selectCols + " FROM " + tn + " LIMIT 50";
+    }
+    return { sql, table: target.name };
   }
 
   // assets/web/nl-modal.ts
@@ -2947,6 +2987,23 @@
     if (!popup) return;
     popup.classList.remove("show");
     popup.setAttribute("aria-hidden", "true");
+  }
+  function setupCellValuePopupButtons() {
+    var popup = document.getElementById("cell-value-popup");
+    var copyBtn = document.getElementById("cell-value-popup-copy");
+    var closeBtn = document.getElementById("cell-value-popup-close");
+    var textEl = document.getElementById("cell-value-popup-text");
+    if (!popup || !copyBtn || !closeBtn || !textEl) return;
+    copyBtn.addEventListener("click", function() {
+      copyCellValue(textEl.textContent || "");
+    });
+    closeBtn.addEventListener("click", hideCellValuePopup);
+    popup.addEventListener("click", function(e) {
+      if (e.target === popup) hideCellValuePopup();
+    });
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape" && popup.classList.contains("show")) hideCellValuePopup();
+    });
   }
 
   // assets/web/charts.ts
@@ -3372,6 +3429,33 @@
     };
     img.src = url;
   }
+  function setupChartResize() {
+    var wrap = document.getElementById("chart-wrapper");
+    if (!wrap) return;
+    var resizeTimer = null;
+    var THROTTLE_MS = 150;
+    function redrawChart() {
+      if (!lastChartState) return;
+      var container = document.getElementById("chart-svg-wrap");
+      if (!container || !container.querySelector("svg")) return;
+      var s = lastChartState;
+      if (s.type === "bar") renderBarChart(container, s.data, s.xKey, s.yKey, s.opts);
+      else if (s.type === "stacked-bar") renderStackedBarChart(container, s.data, s.xKey, s.yKey, s.opts);
+      else if (s.type === "pie") renderPieChart(container, s.data, s.xKey, s.yKey, s.opts);
+      else if (s.type === "line") renderLineChart(container, s.data, s.xKey, s.yKey, s.opts);
+      else if (s.type === "area") renderAreaChart(container, s.data, s.xKey, s.yKey, s.opts);
+      else if (s.type === "scatter") renderScatterChart(container, s.data, s.xKey, s.yKey, s.opts);
+      else if (s.type === "histogram") renderHistogram(container, s.data, s.yKey, 10, s.opts);
+    }
+    setChartResizeObserver(new ResizeObserver(function() {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        resizeTimer = null;
+        redrawChart();
+      }, THROTTLE_MS);
+    }));
+    chartResizeObserver.observe(wrap);
+  }
 
   // assets/web/theme.ts
   function applyTheme(theme) {
@@ -3442,150 +3526,194 @@
     }
   }
 
-  // assets/web/sql-history.ts
-  function loadSqlHistory() {
-    setSqlHistory([]);
-    try {
-      const raw = localStorage.getItem(SQL_HISTORY_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(parsed)) return;
-      setSqlHistory(parsed.map((h) => {
-        const sql = h && typeof h.sql === "string" ? h.sql.trim() : "";
-        if (!sql) return null;
-        const rowCount = h && typeof h.rowCount === "number" ? h.rowCount : null;
-        const at = h && typeof h.at === "string" ? h.at : null;
-        return { sql, rowCount, at };
-      }).filter(Boolean).slice(0, SQL_HISTORY_MAX));
-    } catch (e) {
-      setSqlHistory([]);
+  // assets/web/sidebar.ts
+  function initSidebarCollapse() {
+    var layout = document.getElementById("app-layout");
+    var aside = document.getElementById("app-sidebar");
+    var fabBtn = document.getElementById("fab-sidebar-toggle");
+    var fabIcon = document.getElementById("fab-sidebar-icon");
+    var fabLabel = document.getElementById("fab-sidebar-label");
+    var tablesToggle = document.getElementById("tables-heading-toggle");
+    if (!layout || !aside) return;
+    function applyAppSidebarCollapsed(collapsed) {
+      layout.classList.toggle("app-sidebar-panel-collapsed", collapsed);
+      aside.setAttribute("aria-hidden", collapsed ? "true" : "false");
+      var label = collapsed ? "Show tables sidebar" : "Hide tables sidebar";
+      if (fabBtn) {
+        fabBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        fabBtn.setAttribute("aria-label", label);
+        fabBtn.title = label;
+      }
+      if (fabIcon) fabIcon.textContent = collapsed ? "chevron_right" : "chevron_left";
+      if (fabLabel) fabLabel.textContent = collapsed ? "Show Sidebar" : "Hide Sidebar";
+      if (tablesToggle) {
+        tablesToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      }
     }
-  }
-  function saveSqlHistory() {
-    try {
-      localStorage.setItem(SQL_HISTORY_KEY, JSON.stringify(sqlHistory));
-    } catch (e) {
+    function toggleSidebarCollapsed() {
+      var collapsed = !layout.classList.contains("app-sidebar-panel-collapsed");
+      applyAppSidebarCollapsed(collapsed);
+      try {
+        localStorage.setItem(APP_SIDEBAR_PANEL_KEY, collapsed ? "1" : "0");
+      } catch (e) {
+      }
     }
-  }
-  function refreshHistoryDropdown(sel) {
-    if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">\u2014 Recent \u2014</option>' + sqlHistory.map((h, i) => {
-      const preview = h.sql.length > 50 ? h.sql.slice(0, 47) + "\u2026" : h.sql;
-      const rows = h.rowCount != null ? h.rowCount + " row(s)" : "";
-      const at = h.at ? new Date(h.at).toLocaleString() : "";
-      const label = [rows, at, preview].filter(Boolean).join(" \xB7 ");
-      return '<option value="' + i + '" title="' + esc2(h.sql) + '">' + esc2(label) + "</option>";
-    }).join("");
-    if (cur !== "" && parseInt(cur, 10) < sqlHistory.length) sel.value = cur;
-  }
-  function pushSqlHistory(sql, rowCount) {
-    sql = (sql || "").trim();
-    if (!sql) return;
-    const at = (/* @__PURE__ */ new Date()).toISOString();
-    setSqlHistory([{ sql, rowCount, at }].concat(sqlHistory.filter((h) => h.sql !== sql)));
-    setSqlHistory(sqlHistory.slice(0, SQL_HISTORY_MAX));
-    saveSqlHistory();
-  }
-  function bindDropdownToInput(sel, items, inputEl) {
-    if (!sel || !inputEl) return;
-    sel.addEventListener("change", function() {
-      const idx = parseInt(this.value, 10);
-      if (!isNaN(idx) && items[idx]) inputEl.value = items[idx].sql;
-    });
-  }
-  function loadBookmarks() {
-    setSqlBookmarks([]);
+    var storedCollapsed = false;
     try {
-      const raw = localStorage.getItem(BOOKMARKS_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(parsed)) return;
-      setSqlBookmarks(parsed.map(function(b) {
-        const name = b && typeof b.name === "string" ? b.name.trim() : "";
-        const sql = b && typeof b.sql === "string" ? b.sql.trim() : "";
-        if (!name || !sql) return null;
-        const createdAt = b && typeof b.createdAt === "string" ? b.createdAt : null;
-        return { name, sql, createdAt };
-      }).filter(Boolean));
-    } catch (e) {
-      setSqlBookmarks([]);
-    }
-  }
-  function saveBookmarks() {
-    try {
-      localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(sqlBookmarks));
+      storedCollapsed = localStorage.getItem(APP_SIDEBAR_PANEL_KEY) === "1";
     } catch (e) {
     }
-  }
-  function refreshBookmarksDropdown(sel) {
-    if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">\u2014 Saved queries (' + sqlBookmarks.length + ") \u2014</option>" + sqlBookmarks.map(function(b, i) {
-      return '<option value="' + i + '" title="' + esc2(b.sql) + '">' + esc2(b.name) + "</option>";
-    }).join("");
-    if (cur !== "" && parseInt(cur, 10) < sqlBookmarks.length) sel.value = cur;
-  }
-  function addBookmark(inputEl, bookmarksSel) {
-    const sql = inputEl.value.trim();
-    if (!sql) return;
-    const name = prompt("Name for this query:", sql.slice(0, 40));
-    if (name == null || String(name).trim() === "") return;
-    sqlBookmarks.unshift({ name, sql, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
-    saveBookmarks();
-    refreshBookmarksDropdown(bookmarksSel);
-  }
-  function deleteBookmark(bookmarksSel) {
-    const idx = parseInt(bookmarksSel.value, 10);
-    if (isNaN(idx) || !sqlBookmarks[idx]) return;
-    if (!confirm('Delete saved query "' + sqlBookmarks[idx].name + '"?')) return;
-    sqlBookmarks.splice(idx, 1);
-    saveBookmarks();
-    refreshBookmarksDropdown(bookmarksSel);
-  }
-  function exportBookmarks() {
-    if (sqlBookmarks.length === 0) {
-      alert("No saved queries to export.");
-      return;
+    applyAppSidebarCollapsed(storedCollapsed);
+    try {
+      localStorage.removeItem("saropa_sidebar_tables_collapsed");
+    } catch (e) {
     }
-    const blob = new Blob([JSON.stringify(sqlBookmarks, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "drift-viewer-saved-queries.json";
-    a.click();
-    URL.revokeObjectURL(url);
+    if (fabBtn) fabBtn.addEventListener("click", toggleSidebarCollapsed);
+    if (tablesToggle) tablesToggle.addEventListener("click", toggleSidebarCollapsed);
   }
-  function importBookmarks(bookmarksSel) {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json";
-    input.onchange = function() {
-      const file = input.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function() {
-        try {
-          const raw = typeof reader.result === "string" ? reader.result : "";
-          const imported = JSON.parse(raw);
-          if (!Array.isArray(imported)) throw new Error("Expected JSON array");
-          let newCount = 0;
-          imported.forEach(function(b) {
-            if (b.name && b.sql && !sqlBookmarks.some(function(e) {
-              return e.sql === b.sql;
-            })) {
-              sqlBookmarks.push({ name: b.name, sql: b.sql, createdAt: b.createdAt || (/* @__PURE__ */ new Date()).toISOString() });
-              newCount++;
-            }
-          });
-          saveBookmarks();
-          refreshBookmarksDropdown(bookmarksSel);
-          alert("Imported " + newCount + " new saved query(s). " + (imported.length - newCount) + " duplicate(s) skipped.");
-        } catch (e) {
-          alert("Invalid file: " + e.message);
-        }
+
+  // assets/web/diagram.ts
+  function initDiagram() {
+    const container = document.getElementById("diagram-container");
+    if (!container) return;
+    const toggle = document.getElementById("diagram-toggle");
+    const collapsible = document.getElementById("diagram-collapsible");
+    const BOX_W = 200;
+    const BOX_H = 160;
+    const PAD = 12;
+    const COLS = 4;
+    let diagramData = null;
+    function tablePos(index) {
+      const row = Math.floor(index / COLS);
+      const col = index % COLS;
+      return { x: col * (BOX_W + PAD) + PAD, y: row * (BOX_H + PAD) + PAD };
+    }
+    function renderDiagram(data) {
+      const tables = data.tables || [];
+      const fks = data.foreignKeys || [];
+      if (tables.length === 0) {
+        container.innerHTML = '<p class="meta">No tables.</p>';
+        return;
+      }
+      const rows = Math.ceil(tables.length / COLS);
+      const width = COLS * (BOX_W + PAD) + PAD;
+      const height = rows * (BOX_H + PAD) + PAD;
+      const nameToIndex = {};
+      tables.forEach((t, i) => {
+        nameToIndex[t.name] = i;
+      });
+      const getCenter = (index, side) => {
+        const p = tablePos(index);
+        const cx = p.x + BOX_W / 2;
+        const cy = p.y + BOX_H / 2;
+        if (side === "right") return { x: p.x + BOX_W, y: cy };
+        if (side === "left") return { x: p.x, y: cy };
+        return { x: cx, y: cy };
       };
-      reader.readAsText(file);
-    };
-    input.click();
+      let svg = '<svg role="group" aria-label="Schema diagram showing ' + tables.length + " table" + (tables.length !== 1 ? "s" : "") + " and " + fks.length + " foreign key relationship" + (fks.length !== 1 ? "s" : "") + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
+      svg += '<g class="diagram-links">';
+      fks.forEach(function(fk) {
+        const iFrom = nameToIndex[fk.fromTable];
+        const iTo = nameToIndex[fk.toTable];
+        if (iFrom == null || iTo == null) return;
+        const from = getCenter(iFrom, "right");
+        const to = getCenter(iTo, "left");
+        const mid = (from.x + to.x) / 2;
+        svg += '<path class="diagram-link" d="M' + from.x + "," + from.y + " C" + mid + "," + from.y + " " + mid + "," + to.y + " " + to.x + "," + to.y + '"><title>' + esc2(fk.fromTable) + "." + esc2(fk.fromColumn) + " \u2192 " + esc2(fk.toTable) + "." + esc2(fk.toColumn) + "</title></path>";
+      });
+      svg += '</g><g class="diagram-tables">';
+      tables.forEach(function(t, i) {
+        const p = tablePos(i);
+        const allCols = t.columns || [];
+        const cols = allCols.slice(0, 6);
+        const name = esc2(t.name);
+        const pkCols = allCols.filter(function(c) {
+          return c.pk;
+        }).map(function(c) {
+          return c.name;
+        });
+        const ariaLabel = t.name + " table, " + allCols.length + " column" + (allCols.length !== 1 ? "s" : "") + (pkCols.length ? ", primary key: " + pkCols.join(", ") : "");
+        let body = cols.map(function(c) {
+          const pk = c.pk ? ' <tspan class="diagram-pk">PK</tspan>' : "";
+          return '<tspan class="diagram-col" x="8" dy="16">' + esc2(c.name) + (c.type ? " " + esc2(c.type) : "") + pk + "</tspan>";
+        }).join("");
+        if (allCols.length > 6) body += '<tspan class="diagram-col" x="8" dy="16">\u2026</tspan>';
+        svg += '<g class="diagram-table" data-table="' + name + '" tabindex="0" role="button" aria-label="' + esc2(ariaLabel) + '" transform="translate(' + p.x + "," + p.y + ')">';
+        svg += '<rect width="' + BOX_W + '" height="' + BOX_H + '" rx="4"/>';
+        svg += '<text class="diagram-name" x="8" y="22" style="fill: var(--link);">' + name + "</text>";
+        svg += '<text x="8" y="38">' + body + "</text>";
+        svg += "</g>";
+      });
+      svg += "</g></svg>";
+      container.innerHTML = svg;
+      const tableEls = container.querySelectorAll(".diagram-table");
+      tableEls.forEach(function(g, i) {
+        g.addEventListener("click", function() {
+          const name = this.getAttribute("data-table");
+          if (name) openTableTab(name);
+        });
+        g.addEventListener("keydown", function(e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            const name = this.getAttribute("data-table");
+            if (name) openTableTab(name);
+            return;
+          }
+          var target = -1;
+          if (e.key === "ArrowRight") target = i + 1;
+          else if (e.key === "ArrowLeft") target = i - 1;
+          else if (e.key === "ArrowDown") target = i + COLS;
+          else if (e.key === "ArrowUp") target = i - COLS;
+          if (target >= 0 && target < tableEls.length) {
+            e.preventDefault();
+            tableEls[target].focus();
+          }
+        });
+      });
+      var altEl = document.getElementById("diagram-text-alt");
+      if (altEl) {
+        var altHtml = "<h4>Schema table list</h4><ul>";
+        tables.forEach(function(t) {
+          var cols = t.columns || [];
+          altHtml += "<li><strong>" + esc2(t.name) + "</strong> (" + cols.length + " column" + (cols.length !== 1 ? "s" : "") + "): ";
+          altHtml += cols.map(function(c) {
+            return esc2(c.name) + (c.pk ? " (PK)" : "");
+          }).join(", ");
+          altHtml += "</li>";
+        });
+        altHtml += "</ul>";
+        if (fks.length > 0) {
+          altHtml += "<h4>Foreign key relationships</h4><ul>";
+          fks.forEach(function(fk) {
+            altHtml += "<li>" + esc2(fk.fromTable) + "." + esc2(fk.fromColumn) + " \u2192 " + esc2(fk.toTable) + "." + esc2(fk.toColumn) + "</li>";
+          });
+          altHtml += "</ul>";
+        }
+        altEl.innerHTML = altHtml;
+      }
+    }
+    function loadAndRenderDiagram() {
+      if (diagramData === null) {
+        container.innerHTML = '<p class="meta">Loading\u2026</p>';
+        fetch("/api/schema/diagram", authOpts()).then((r) => r.json()).then(function(data) {
+          diagramData = data;
+          renderDiagram(data);
+        }).catch(function(e) {
+          container.innerHTML = '<p class="meta">Failed to load diagram: ' + esc2(String(e)) + "</p>";
+        });
+      } else {
+        renderDiagram(diagramData);
+      }
+    }
+    window.ensureDiagramInited = loadAndRenderDiagram;
+    if (toggle && collapsible) {
+      toggle.addEventListener("click", function() {
+        const isCollapsed = collapsible.classList.contains("collapsed");
+        collapsible.classList.toggle("collapsed", !isCollapsed);
+        syncFeatureCardExpanded(collapsible);
+        if (isCollapsed) loadAndRenderDiagram();
+      });
+    }
   }
 
   // assets/web/analysis.ts
@@ -3826,196 +3954,6 @@
       }
     });
     container.innerHTML = html;
-  }
-
-  // assets/web/sidebar.ts
-  function initSidebarCollapse() {
-    var layout = document.getElementById("app-layout");
-    var aside = document.getElementById("app-sidebar");
-    var fabBtn = document.getElementById("fab-sidebar-toggle");
-    var fabIcon = document.getElementById("fab-sidebar-icon");
-    var fabLabel = document.getElementById("fab-sidebar-label");
-    var tablesToggle = document.getElementById("tables-heading-toggle");
-    if (!layout || !aside) return;
-    function applyAppSidebarCollapsed(collapsed) {
-      layout.classList.toggle("app-sidebar-panel-collapsed", collapsed);
-      aside.setAttribute("aria-hidden", collapsed ? "true" : "false");
-      var label = collapsed ? "Show tables sidebar" : "Hide tables sidebar";
-      if (fabBtn) {
-        fabBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-        fabBtn.setAttribute("aria-label", label);
-        fabBtn.title = label;
-      }
-      if (fabIcon) fabIcon.textContent = collapsed ? "chevron_right" : "chevron_left";
-      if (fabLabel) fabLabel.textContent = collapsed ? "Show Sidebar" : "Hide Sidebar";
-      if (tablesToggle) {
-        tablesToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
-      }
-    }
-    function toggleSidebarCollapsed() {
-      var collapsed = !layout.classList.contains("app-sidebar-panel-collapsed");
-      applyAppSidebarCollapsed(collapsed);
-      try {
-        localStorage.setItem(APP_SIDEBAR_PANEL_KEY, collapsed ? "1" : "0");
-      } catch (e) {
-      }
-    }
-    var storedCollapsed = false;
-    try {
-      storedCollapsed = localStorage.getItem(APP_SIDEBAR_PANEL_KEY) === "1";
-    } catch (e) {
-    }
-    applyAppSidebarCollapsed(storedCollapsed);
-    try {
-      localStorage.removeItem("saropa_sidebar_tables_collapsed");
-    } catch (e) {
-    }
-    if (fabBtn) fabBtn.addEventListener("click", toggleSidebarCollapsed);
-    if (tablesToggle) tablesToggle.addEventListener("click", toggleSidebarCollapsed);
-  }
-
-  // assets/web/diagram.ts
-  function initDiagram() {
-    const container = document.getElementById("diagram-container");
-    if (!container) return;
-    const toggle = document.getElementById("diagram-toggle");
-    const collapsible = document.getElementById("diagram-collapsible");
-    const BOX_W = 200;
-    const BOX_H = 160;
-    const PAD = 12;
-    const COLS = 4;
-    let diagramData = null;
-    function tablePos(index) {
-      const row = Math.floor(index / COLS);
-      const col = index % COLS;
-      return { x: col * (BOX_W + PAD) + PAD, y: row * (BOX_H + PAD) + PAD };
-    }
-    function renderDiagram(data) {
-      const tables = data.tables || [];
-      const fks = data.foreignKeys || [];
-      if (tables.length === 0) {
-        container.innerHTML = '<p class="meta">No tables.</p>';
-        return;
-      }
-      const rows = Math.ceil(tables.length / COLS);
-      const width = COLS * (BOX_W + PAD) + PAD;
-      const height = rows * (BOX_H + PAD) + PAD;
-      const nameToIndex = {};
-      tables.forEach((t, i) => {
-        nameToIndex[t.name] = i;
-      });
-      const getCenter = (index, side) => {
-        const p = tablePos(index);
-        const cx = p.x + BOX_W / 2;
-        const cy = p.y + BOX_H / 2;
-        if (side === "right") return { x: p.x + BOX_W, y: cy };
-        if (side === "left") return { x: p.x, y: cy };
-        return { x: cx, y: cy };
-      };
-      let svg = '<svg role="group" aria-label="Schema diagram showing ' + tables.length + " table" + (tables.length !== 1 ? "s" : "") + " and " + fks.length + " foreign key relationship" + (fks.length !== 1 ? "s" : "") + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
-      svg += '<g class="diagram-links">';
-      fks.forEach(function(fk) {
-        const iFrom = nameToIndex[fk.fromTable];
-        const iTo = nameToIndex[fk.toTable];
-        if (iFrom == null || iTo == null) return;
-        const from = getCenter(iFrom, "right");
-        const to = getCenter(iTo, "left");
-        const mid = (from.x + to.x) / 2;
-        svg += '<path class="diagram-link" d="M' + from.x + "," + from.y + " C" + mid + "," + from.y + " " + mid + "," + to.y + " " + to.x + "," + to.y + '"><title>' + esc2(fk.fromTable) + "." + esc2(fk.fromColumn) + " \u2192 " + esc2(fk.toTable) + "." + esc2(fk.toColumn) + "</title></path>";
-      });
-      svg += '</g><g class="diagram-tables">';
-      tables.forEach(function(t, i) {
-        const p = tablePos(i);
-        const allCols = t.columns || [];
-        const cols = allCols.slice(0, 6);
-        const name = esc2(t.name);
-        const pkCols = allCols.filter(function(c) {
-          return c.pk;
-        }).map(function(c) {
-          return c.name;
-        });
-        const ariaLabel = t.name + " table, " + allCols.length + " column" + (allCols.length !== 1 ? "s" : "") + (pkCols.length ? ", primary key: " + pkCols.join(", ") : "");
-        let body = cols.map(function(c) {
-          const pk = c.pk ? ' <tspan class="diagram-pk">PK</tspan>' : "";
-          return '<tspan class="diagram-col" x="8" dy="16">' + esc2(c.name) + (c.type ? " " + esc2(c.type) : "") + pk + "</tspan>";
-        }).join("");
-        if (allCols.length > 6) body += '<tspan class="diagram-col" x="8" dy="16">\u2026</tspan>';
-        svg += '<g class="diagram-table" data-table="' + name + '" tabindex="0" role="button" aria-label="' + esc2(ariaLabel) + '" transform="translate(' + p.x + "," + p.y + ')">';
-        svg += '<rect width="' + BOX_W + '" height="' + BOX_H + '" rx="4"/>';
-        svg += '<text class="diagram-name" x="8" y="22" style="fill: var(--link);">' + name + "</text>";
-        svg += '<text x="8" y="38">' + body + "</text>";
-        svg += "</g>";
-      });
-      svg += "</g></svg>";
-      container.innerHTML = svg;
-      const tableEls = container.querySelectorAll(".diagram-table");
-      tableEls.forEach(function(g, i) {
-        g.addEventListener("click", function() {
-          const name = this.getAttribute("data-table");
-          if (name) openTableTab(name);
-        });
-        g.addEventListener("keydown", function(e) {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            const name = this.getAttribute("data-table");
-            if (name) openTableTab(name);
-            return;
-          }
-          var target = -1;
-          if (e.key === "ArrowRight") target = i + 1;
-          else if (e.key === "ArrowLeft") target = i - 1;
-          else if (e.key === "ArrowDown") target = i + COLS;
-          else if (e.key === "ArrowUp") target = i - COLS;
-          if (target >= 0 && target < tableEls.length) {
-            e.preventDefault();
-            tableEls[target].focus();
-          }
-        });
-      });
-      var altEl = document.getElementById("diagram-text-alt");
-      if (altEl) {
-        var altHtml = "<h4>Schema table list</h4><ul>";
-        tables.forEach(function(t) {
-          var cols = t.columns || [];
-          altHtml += "<li><strong>" + esc2(t.name) + "</strong> (" + cols.length + " column" + (cols.length !== 1 ? "s" : "") + "): ";
-          altHtml += cols.map(function(c) {
-            return esc2(c.name) + (c.pk ? " (PK)" : "");
-          }).join(", ");
-          altHtml += "</li>";
-        });
-        altHtml += "</ul>";
-        if (fks.length > 0) {
-          altHtml += "<h4>Foreign key relationships</h4><ul>";
-          fks.forEach(function(fk) {
-            altHtml += "<li>" + esc2(fk.fromTable) + "." + esc2(fk.fromColumn) + " \u2192 " + esc2(fk.toTable) + "." + esc2(fk.toColumn) + "</li>";
-          });
-          altHtml += "</ul>";
-        }
-        altEl.innerHTML = altHtml;
-      }
-    }
-    function loadAndRenderDiagram() {
-      if (diagramData === null) {
-        container.innerHTML = '<p class="meta">Loading\u2026</p>';
-        fetch("/api/schema/diagram", authOpts()).then((r) => r.json()).then(function(data) {
-          diagramData = data;
-          renderDiagram(data);
-        }).catch(function(e) {
-          container.innerHTML = '<p class="meta">Failed to load diagram: ' + esc2(String(e)) + "</p>";
-        });
-      } else {
-        renderDiagram(diagramData);
-      }
-    }
-    window.ensureDiagramInited = loadAndRenderDiagram;
-    if (toggle && collapsible) {
-      toggle.addEventListener("click", function() {
-        const isCollapsed = collapsible.classList.contains("collapsed");
-        collapsible.classList.toggle("collapsed", !isCollapsed);
-        syncFeatureCardExpanded(collapsible);
-        if (isCollapsed) loadAndRenderDiagram();
-      });
-    }
   }
 
   // assets/web/tools.ts
@@ -5132,6 +5070,152 @@
     };
   }
 
+  // assets/web/sql-history.ts
+  function loadSqlHistory() {
+    setSqlHistory([]);
+    try {
+      const raw = localStorage.getItem(SQL_HISTORY_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return;
+      setSqlHistory(parsed.map((h) => {
+        const sql = h && typeof h.sql === "string" ? h.sql.trim() : "";
+        if (!sql) return null;
+        const rowCount = h && typeof h.rowCount === "number" ? h.rowCount : null;
+        const at = h && typeof h.at === "string" ? h.at : null;
+        return { sql, rowCount, at };
+      }).filter(Boolean).slice(0, SQL_HISTORY_MAX));
+    } catch (e) {
+      setSqlHistory([]);
+    }
+  }
+  function saveSqlHistory() {
+    try {
+      localStorage.setItem(SQL_HISTORY_KEY, JSON.stringify(sqlHistory));
+    } catch (e) {
+    }
+  }
+  function refreshHistoryDropdown(sel) {
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">\u2014 Recent \u2014</option>' + sqlHistory.map((h, i) => {
+      const preview = h.sql.length > 50 ? h.sql.slice(0, 47) + "\u2026" : h.sql;
+      const rows = h.rowCount != null ? h.rowCount + " row(s)" : "";
+      const at = h.at ? new Date(h.at).toLocaleString() : "";
+      const label = [rows, at, preview].filter(Boolean).join(" \xB7 ");
+      return '<option value="' + i + '" title="' + esc2(h.sql) + '">' + esc2(label) + "</option>";
+    }).join("");
+    if (cur !== "" && parseInt(cur, 10) < sqlHistory.length) sel.value = cur;
+  }
+  function pushSqlHistory(sql, rowCount) {
+    sql = (sql || "").trim();
+    if (!sql) return;
+    const at = (/* @__PURE__ */ new Date()).toISOString();
+    setSqlHistory([{ sql, rowCount, at }].concat(sqlHistory.filter((h) => h.sql !== sql)));
+    setSqlHistory(sqlHistory.slice(0, SQL_HISTORY_MAX));
+    saveSqlHistory();
+  }
+  function bindDropdownToInput(sel, items, inputEl) {
+    if (!sel || !inputEl) return;
+    sel.addEventListener("change", function() {
+      const idx = parseInt(this.value, 10);
+      if (!isNaN(idx) && items[idx]) inputEl.value = items[idx].sql;
+    });
+  }
+  function loadBookmarks() {
+    setSqlBookmarks([]);
+    try {
+      const raw = localStorage.getItem(BOOKMARKS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return;
+      setSqlBookmarks(parsed.map(function(b) {
+        const name = b && typeof b.name === "string" ? b.name.trim() : "";
+        const sql = b && typeof b.sql === "string" ? b.sql.trim() : "";
+        if (!name || !sql) return null;
+        const createdAt = b && typeof b.createdAt === "string" ? b.createdAt : null;
+        return { name, sql, createdAt };
+      }).filter(Boolean));
+    } catch (e) {
+      setSqlBookmarks([]);
+    }
+  }
+  function saveBookmarks() {
+    try {
+      localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(sqlBookmarks));
+    } catch (e) {
+    }
+  }
+  function refreshBookmarksDropdown(sel) {
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">\u2014 Saved queries (' + sqlBookmarks.length + ") \u2014</option>" + sqlBookmarks.map(function(b, i) {
+      return '<option value="' + i + '" title="' + esc2(b.sql) + '">' + esc2(b.name) + "</option>";
+    }).join("");
+    if (cur !== "" && parseInt(cur, 10) < sqlBookmarks.length) sel.value = cur;
+  }
+  function addBookmark(inputEl, bookmarksSel) {
+    const sql = inputEl.value.trim();
+    if (!sql) return;
+    const name = prompt("Name for this query:", sql.slice(0, 40));
+    if (name == null || String(name).trim() === "") return;
+    sqlBookmarks.unshift({ name, sql, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
+    saveBookmarks();
+    refreshBookmarksDropdown(bookmarksSel);
+  }
+  function deleteBookmark(bookmarksSel) {
+    const idx = parseInt(bookmarksSel.value, 10);
+    if (isNaN(idx) || !sqlBookmarks[idx]) return;
+    if (!confirm('Delete saved query "' + sqlBookmarks[idx].name + '"?')) return;
+    sqlBookmarks.splice(idx, 1);
+    saveBookmarks();
+    refreshBookmarksDropdown(bookmarksSel);
+  }
+  function exportBookmarks() {
+    if (sqlBookmarks.length === 0) {
+      alert("No saved queries to export.");
+      return;
+    }
+    const blob = new Blob([JSON.stringify(sqlBookmarks, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "drift-viewer-saved-queries.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function importBookmarks(bookmarksSel) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = function() {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function() {
+        try {
+          const raw = typeof reader.result === "string" ? reader.result : "";
+          const imported = JSON.parse(raw);
+          if (!Array.isArray(imported)) throw new Error("Expected JSON array");
+          let newCount = 0;
+          imported.forEach(function(b) {
+            if (b.name && b.sql && !sqlBookmarks.some(function(e) {
+              return e.sql === b.sql;
+            })) {
+              sqlBookmarks.push({ name: b.name, sql: b.sql, createdAt: b.createdAt || (/* @__PURE__ */ new Date()).toISOString() });
+              newCount++;
+            }
+          });
+          saveBookmarks();
+          refreshBookmarksDropdown(bookmarksSel);
+          alert("Imported " + newCount + " new saved query(s). " + (imported.length - newCount) + " duplicate(s) skipped.");
+        } catch (e) {
+          alert("Invalid file: " + e.message);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
   // assets/web/sql-runner.ts
   function initSqlRunner() {
     const toggle = document.getElementById("sql-runner-toggle");
@@ -5647,6 +5731,7 @@
     var el = document.getElementById("sda-loading");
     if (el) el.style.display = "none";
   })();
+  clearStaleProjectStorage();
   function applyHealthWriteFlag(data) {
     if (data && typeof data.writeEnabled === "boolean") setDriftWriteEnabled(data.writeEnabled);
     var clearTableBtn = document.getElementById("clear-table-data");
@@ -5688,13 +5773,7 @@
   })();
   initTheme();
   initThemeListeners();
-  (function initPiiMaskToggle() {
-    var cb = document.getElementById("fab-pii-mask-toggle");
-    if (!cb) return;
-    cb.addEventListener("change", function() {
-      if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson);
-    });
-  })();
+  initPiiMaskToggle();
   if (DRIFT_VIEWER_AUTH_TOKEN) {
     schemaLink = document.getElementById("export-schema");
     if (schemaLink) schemaLink.href = "/api/schema";
@@ -5741,16 +5820,7 @@
   initSearchTab();
   initSqlRunner();
   initPerformance();
-  (function initSearchToggle() {
-    var btn = document.getElementById("search-toggle-btn");
-    if (!btn) return;
-    btn.addEventListener("click", function() {
-      openTool("search");
-      setTimeout(function() {
-        if (typeof window._stFocusInput === "function") window._stFocusInput();
-      }, 0);
-    });
-  })();
+  initSearchToggle();
   document.addEventListener("click", function(e) {
     var header = e.target.closest(".collapsible-header[data-collapsible]");
     if (!header) return;
@@ -6263,23 +6333,7 @@
     var columnKey = td.getAttribute("data-column-key") || "";
     showCellValuePopup(rawValue, columnKey);
   });
-  (function setupCellValuePopupButtons() {
-    var popup = document.getElementById("cell-value-popup");
-    var copyBtn = document.getElementById("cell-value-popup-copy");
-    var closeBtn = document.getElementById("cell-value-popup-close");
-    var textEl = document.getElementById("cell-value-popup-text");
-    if (!popup || !copyBtn || !closeBtn || !textEl) return;
-    copyBtn.addEventListener("click", function() {
-      copyCellValue(textEl.textContent || "");
-    });
-    closeBtn.addEventListener("click", hideCellValuePopup);
-    popup.addEventListener("click", function(e) {
-      if (e.target === popup) hideCellValuePopup();
-    });
-    document.addEventListener("keydown", function(e) {
-      if (e.key === "Escape" && popup.classList.contains("show")) hideCellValuePopup();
-    });
-  })();
+  setupCellValuePopupButtons();
   document.getElementById("chart-render").addEventListener("click", function() {
     var type = document.getElementById("chart-type").value;
     var xKey = document.getElementById("chart-x").value;
@@ -6313,33 +6367,7 @@
   document.getElementById("chart-export-png").addEventListener("click", exportChartPng);
   document.getElementById("chart-export-svg").addEventListener("click", exportChartSvg);
   document.getElementById("chart-export-copy").addEventListener("click", exportChartCopy);
-  (function setupChartResize() {
-    var wrap = document.getElementById("chart-wrapper");
-    if (!wrap) return;
-    var resizeTimer = null;
-    var THROTTLE_MS = 150;
-    function redrawChart() {
-      if (!lastChartState) return;
-      var container = document.getElementById("chart-svg-wrap");
-      if (!container || !container.querySelector("svg")) return;
-      var s = lastChartState;
-      if (s.type === "bar") renderBarChart(container, s.data, s.xKey, s.yKey, s.opts);
-      else if (s.type === "stacked-bar") renderStackedBarChart(container, s.data, s.xKey, s.yKey, s.opts);
-      else if (s.type === "pie") renderPieChart(container, s.data, s.xKey, s.yKey, s.opts);
-      else if (s.type === "line") renderLineChart(container, s.data, s.xKey, s.yKey, s.opts);
-      else if (s.type === "area") renderAreaChart(container, s.data, s.xKey, s.yKey, s.opts);
-      else if (s.type === "scatter") renderScatterChart(container, s.data, s.xKey, s.yKey, s.opts);
-      else if (s.type === "histogram") renderHistogram(container, s.data, s.yKey, 10, s.opts);
-    }
-    setChartResizeObserver(new ResizeObserver(function() {
-      if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function() {
-        resizeTimer = null;
-        redrawChart();
-      }, THROTTLE_MS);
-    }));
-    chartResizeObserver.observe(wrap);
-  })();
+  setupChartResize();
   initConnectionDeps({
     applyHealthWriteFlag,
     pollGeneration

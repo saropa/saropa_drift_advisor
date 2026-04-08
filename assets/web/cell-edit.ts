@@ -5,7 +5,7 @@
  * raw cell values from table cells, and the cell-value detail popup.
  */
 import * as S from './state.ts';
-import { schemaTableByName, getPkColumnNameForDataTable, getVisibleDataColumnKeys } from './table-view.ts';
+import { schemaTableByName, getPkColumnNameForDataTable, getVisibleDataColumnKeys, copyCellValue } from './table-view.ts';
 import { loadTable } from './table-list.ts';
 
 // TODO: loadSchemaMeta is still in app.js — will need to be imported
@@ -178,3 +178,22 @@ declare function loadSchemaMeta(): Promise<any>;
       popup.classList.remove('show');
       popup.setAttribute('aria-hidden', 'true');
     }
+
+/** Wire up cell value popup buttons (copy, close, backdrop, escape). */
+export function setupCellValuePopupButtons(): void {
+  var popup = document.getElementById('cell-value-popup');
+  var copyBtn = document.getElementById('cell-value-popup-copy');
+  var closeBtn = document.getElementById('cell-value-popup-close');
+  var textEl = document.getElementById('cell-value-popup-text');
+  if (!popup || !copyBtn || !closeBtn || !textEl) return;
+  copyBtn.addEventListener('click', function() {
+    copyCellValue(textEl.textContent || '');
+  });
+  closeBtn.addEventListener('click', hideCellValuePopup);
+  popup.addEventListener('click', function(e) {
+    if (e.target === popup) hideCellValuePopup();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && popup.classList.contains('show')) hideCellValuePopup();
+  });
+}

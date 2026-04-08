@@ -387,3 +387,12 @@ export function getPkColumnNameForDataTable() {
   }
   return null;
 }
+
+/** PII mask toggle: re-render table when toggled. */
+export function initPiiMaskToggle(): void {
+  var cb = document.getElementById('fab-pii-mask-toggle');
+  if (!cb) return;
+  cb.addEventListener('change', function() {
+    if (S.currentTableName && S.currentTableJson) renderTableView(S.currentTableName, S.currentTableJson);
+  });
+}
