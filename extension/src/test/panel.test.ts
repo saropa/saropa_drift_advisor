@@ -1,25 +1,18 @@
 import * as assert from 'assert';
-import * as sinon from 'sinon';
-import { createdPanels, MockWebviewPanel, resetMocks } from './vscode-mock';
+import { createdPanels } from './vscode-mock';
 import { DriftViewerPanel } from '../panel';
+import { latestPanel, setupPanelTest, settle, minimalHtml, titledHtml, htmlResponse, bodyHtml } from './panel.test-helpers';
 
 describe('DriftViewerPanel', () => {
-  let fetchStub: sinon.SinonStub;
+  let fetchStub: ReturnType<typeof setupPanelTest>;
 
   beforeEach(() => {
-    resetMocks();
-    // Reset singleton between tests
-    (DriftViewerPanel as any).currentPanel = undefined;
-    fetchStub = sinon.stub(globalThis, 'fetch');
+    fetchStub = setupPanelTest();
   });
 
   afterEach(() => {
     fetchStub.restore();
   });
-
-  function latestPanel(): MockWebviewPanel {
-    return createdPanels[createdPanels.length - 1];
-  }
 
   it('should create a new panel when none exists', () => {
     fetchStub.rejects(new Error('connection refused'));
@@ -52,8 +45,7 @@ describe('DriftViewerPanel', () => {
     fetchStub.rejects(new Error('connection refused'));
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
 
-    // Let the async _loadContent settle
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     const html = latestPanel().webview.html;
     assert.ok(html.includes('Cannot connect'), 'should show error message');
@@ -62,11 +54,10 @@ describe('DriftViewerPanel', () => {
   });
 
   it('should inject <base> and CSP into fetched HTML', async () => {
-    const serverHtml = '<html><head><title>Drift DB</title></head><body>OK</body></html>';
-    fetchStub.resolves(new Response(serverHtml, { status: 200 }));
+    fetchStub.resolves(htmlResponse(titledHtml));
 
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     const html = latestPanel().webview.html;
     assert.ok(html.includes('<base href="http://127.0.0.1:8642/"'), 'should inject base tag');
@@ -75,11 +66,10 @@ describe('DriftViewerPanel', () => {
   });
 
   it('should include font-src in CSP', async () => {
-    const serverHtml = '<html><head></head><body></body></html>';
-    fetchStub.resolves(new Response(serverHtml, { status: 200 }));
+    fetchStub.resolves(htmlResponse(minimalHtml));
 
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     const html = latestPanel().webview.html;
     assert.ok(html.includes('font-src'), 'CSP should include font-src');
@@ -90,14 +80,11 @@ describe('DriftViewerPanel', () => {
   });
 
   it('should allow jsDelivr and font stylesheets in CSP when local /assets/web/* may 404', async () => {
-    // When the Dart server cannot serve package files, the HTML shell falls
-    // back to jsDelivr; the webview must not block those loads. Before: only
-    // 'unsafe-inline' for style-src/script-src — CDN fallbacks were blocked.
-    const serverHtml = '<html><head></head><body></body></html>';
-    fetchStub.resolves(new Response(serverHtml, { status: 200 }));
+    // Webview must not block jsDelivr CDN fallbacks when local assets 404
+    fetchStub.resolves(htmlResponse(minimalHtml));
 
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     const html = latestPanel().webview.html;
     const cspMatch = html.match(/Content-Security-Policy" content="([^"]+)"/);
@@ -132,8 +119,8 @@ describe('DriftViewerPanel', () => {
     panel.simulateClose();
 
     // Now resolve the fetch
-    resolveFetch(new Response('<html><head></head><body>Server HTML</body></html>'));
-    await new Promise((r) => setTimeout(r, 10));
+    resolveFetch(htmlResponse(bodyHtml('Server HTML')));
+    await settle();
 
     // HTML should still be the loading state (not overwritten after dispose)
     assert.strictEqual(panel.webview.html, loadingHtml, 'should not update HTML after dispose');
@@ -152,17 +139,16 @@ describe('DriftViewerPanel', () => {
     // First call: fail
     fetchStub.onFirstCall().rejects(new Error('connection refused'));
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     assert.ok(latestPanel().webview.html.includes('Cannot connect'));
 
     // Second call: succeed
-    const serverHtml = '<html><head></head><body>OK</body></html>';
-    fetchStub.onSecondCall().resolves(new Response(serverHtml, { status: 200 }));
+    fetchStub.onSecondCall().resolves(htmlResponse(bodyHtml('OK')));
 
     // Simulate the webview sending a retry message
     latestPanel().webview.simulateMessage({ command: 'retry' });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     assert.ok(latestPanel().webview.html.includes('OK'), 'should show server content after retry');
   });
@@ -170,56 +156,47 @@ describe('DriftViewerPanel', () => {
   // --- Server-switch tests (new behavior) ---
 
   it('should reload content when createOrShow is called with a different port', async () => {
-    // Before fix: createOrShow with a different port just revealed
-    // the stale panel without reloading. Tables from the old project
-    // remained visible.
-    const htmlA = '<html><head></head><body>Project A</body></html>';
-    const htmlB = '<html><head></head><body>Project B</body></html>';
-    fetchStub.onFirstCall().resolves(new Response(htmlA, { status: 200 }));
+    const htmlA = bodyHtml('Project A');
+    const htmlB = bodyHtml('Project B');
+    fetchStub.onFirstCall().resolves(htmlResponse(htmlA));
 
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
-    await new Promise((r) => setTimeout(r, 10));
-
-    // Verify panel shows Project A content
+    await settle();
     assert.ok(latestPanel().webview.html.includes('Project A'), 'should show Project A initially');
 
     // Switch to a different server (different project)
-    fetchStub.onSecondCall().resolves(new Response(htmlB, { status: 200 }));
+    fetchStub.onSecondCall().resolves(htmlResponse(htmlB));
     DriftViewerPanel.createOrShow('127.0.0.1', 9000);
-    await new Promise((r) => setTimeout(r, 10));
-
-    // Should NOT create a second panel
+    await settle();
     assert.strictEqual(createdPanels.length, 1, 'should reuse existing panel');
-    // Should show Project B content, not stale Project A
     assert.ok(latestPanel().webview.html.includes('Project B'), 'should reload with new server content');
     assert.ok(!latestPanel().webview.html.includes('Project A'), 'should not show stale content');
   });
 
   it('should reload content when createOrShow is called with a different host', async () => {
-    const htmlLocal = '<html><head></head><body>Local DB</body></html>';
-    const htmlRemote = '<html><head></head><body>Remote DB</body></html>';
-    fetchStub.onFirstCall().resolves(new Response(htmlLocal, { status: 200 }));
+    const htmlLocal = bodyHtml('Local DB');
+    const htmlRemote = bodyHtml('Remote DB');
+    fetchStub.onFirstCall().resolves(htmlResponse(htmlLocal));
 
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     assert.ok(latestPanel().webview.html.includes('Local DB'));
 
     // Switch to a different host (same port)
-    fetchStub.onSecondCall().resolves(new Response(htmlRemote, { status: 200 }));
+    fetchStub.onSecondCall().resolves(htmlResponse(htmlRemote));
     DriftViewerPanel.createOrShow('192.168.1.50', 8642);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     assert.strictEqual(createdPanels.length, 1, 'should reuse existing panel');
     assert.ok(latestPanel().webview.html.includes('Remote DB'), 'should reload for new host');
   });
 
   it('should not reload when createOrShow is called with same host and port', async () => {
-    const serverHtml = '<html><head></head><body>Same Server</body></html>';
-    fetchStub.resolves(new Response(serverHtml, { status: 200 }));
+    fetchStub.resolves(htmlResponse(bodyHtml('Same Server')));
 
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     // Second call with same host/port should NOT trigger another fetch
     const callCountBefore = fetchStub.callCount;
@@ -244,32 +221,28 @@ describe('DriftViewerPanel', () => {
   });
 
   it('should discard stale fetch when server switches rapidly (race condition guard)', async () => {
-    // Scenario: switch to server A (slow), then immediately switch to
-    // server B (fast). Server B responds first. When server A finally
-    // responds, its HTML must NOT overwrite server B's.
     let resolveA!: (value: Response) => void;
-    const htmlA = '<html><head></head><body>Stale Server A</body></html>';
-    const htmlB = '<html><head></head><body>Current Server B</body></html>';
-
-    fetchStub.onFirstCall().resolves(new Response('<html><head></head><body>Init</body></html>', { status: 200 }));
+    const htmlA = bodyHtml('Stale Server A');
+    const htmlB = bodyHtml('Current Server B');
+    fetchStub.onFirstCall().resolves(htmlResponse(bodyHtml('Init')));
     DriftViewerPanel.createOrShow('127.0.0.1', 8000);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     // Switch to server A (slow — hangs)
     fetchStub.onSecondCall().returns(new Promise<Response>((r) => { resolveA = r; }));
     DriftViewerPanel.createOrShow('127.0.0.1', 9001);
 
     // Immediately switch to server B (fast — resolves instantly)
-    fetchStub.onThirdCall().resolves(new Response(htmlB, { status: 200 }));
+    fetchStub.onThirdCall().resolves(htmlResponse(htmlB));
     DriftViewerPanel.createOrShow('127.0.0.1', 9002);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     // Server B should be showing
     assert.ok(latestPanel().webview.html.includes('Current Server B'), 'should show server B');
 
     // Now server A's slow response arrives — must be discarded
-    resolveA(new Response(htmlA, { status: 200 }));
-    await new Promise((r) => setTimeout(r, 10));
+    resolveA(htmlResponse(htmlA));
+    await settle();
 
     assert.ok(latestPanel().webview.html.includes('Current Server B'),
       'stale server A response must not overwrite server B');
@@ -278,26 +251,22 @@ describe('DriftViewerPanel', () => {
   });
 
   it('should use current host/port for retry after server switch', async () => {
-    // Before fix: retry used closure-captured host/port from the
-    // constructor, which pointed to the original server after a switch.
-    fetchStub.onFirstCall().resolves(
-      new Response('<html><head></head><body>Project A</body></html>', { status: 200 }),
-    );
+    fetchStub.onFirstCall().resolves(htmlResponse(bodyHtml('Project A')));
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     // Switch to new server — fails
     fetchStub.onSecondCall().rejects(new Error('connection refused'));
     DriftViewerPanel.createOrShow('127.0.0.1', 9000);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     assert.ok(latestPanel().webview.html.includes('Cannot connect'));
 
     // Retry should target port 9000, not the original 8642
-    const retryHtml = '<html><head></head><body>Project B Retry</body></html>';
-    fetchStub.onThirdCall().resolves(new Response(retryHtml, { status: 200 }));
+    const retryHtml = bodyHtml('Project B Retry');
+    fetchStub.onThirdCall().resolves(htmlResponse(retryHtml));
     latestPanel().webview.simulateMessage({ command: 'retry' });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     // Verify the retry fetched from the new server (9000), not old (8642)
     const thirdCallUrl = fetchStub.thirdCall.args[0];
@@ -310,18 +279,14 @@ describe('DriftViewerPanel', () => {
   });
 
   it('should inject correct CSP base URL after server switch', async () => {
-    fetchStub.onFirstCall().resolves(
-      new Response('<html><head></head><body></body></html>', { status: 200 }),
-    );
+    fetchStub.onFirstCall().resolves(htmlResponse(minimalHtml));
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     // Switch to different port
-    fetchStub.onSecondCall().resolves(
-      new Response('<html><head></head><body></body></html>', { status: 200 }),
-    );
+    fetchStub.onSecondCall().resolves(htmlResponse(minimalHtml));
     DriftViewerPanel.createOrShow('127.0.0.1', 9000);
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     const html = latestPanel().webview.html;
     assert.ok(html.includes('<base href="http://127.0.0.1:9000/"'),
