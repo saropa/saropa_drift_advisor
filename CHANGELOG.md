@@ -36,6 +36,12 @@ browse source on
 
 ---
 
+## [3.0.1]
+
+Version bump for publication.
+
+---
+
 ## [3.0.0]
 
 Fixed stale data after switching servers, restored broken heartbeat and polling controls, and added Log Capture session export so Drift Advisor diagnostics flow into your capture sessions automatically. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.0/CHANGELOG.md)
