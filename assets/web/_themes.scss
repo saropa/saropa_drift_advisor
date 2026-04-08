@@ -1,0 +1,193 @@
+/* Light is the default theme — applied to bare body and body.theme-light */
+body.theme-light,
+body {
+  /* Slate-blue palette — mirrors saropa.com design system */
+  --bg: #f8faff;
+  --fg: #242b4a;
+  --bg-pre: #ffffff;
+  --surface: #ffffff;
+  --header-bg: #ffffff;
+  /* Blue-tinted borders for cohesion with slate accent */
+  --border: rgba(143, 168, 255, 0.18);
+  --border-subtle: rgba(143, 168, 255, 0.09);
+  --muted: #6b7a9e;
+  /* Deep slate-blue accent — authoritative, not generic */
+  --link: #435389;
+  --link-hover: #2d3a66;
+  --btn-primary-bg: #435389;
+  --btn-primary-fg: #fff;
+  --btn-primary-hover-bg: #374773;
+  --highlight-bg: #eff3ff;
+  --highlight-fg: #2d3a66;
+  --highlight-active-bg: #435389;
+  --highlight-active-fg: #fff;
+  --sidebar-bg: #ffffff;
+  --row-alt: rgba(143, 168, 255, 0.04);
+}
+
+body.theme-dark {
+  --bg: #141619;
+  --fg: #e4e6eb;
+  --bg-pre: #1c1e21;
+  --surface: #1c1e21;
+  --header-bg: #18191c;
+  --border: #3e4043;
+  --border-subtle: #2d2f33;
+  --muted: #b0b3b8;
+  --link: #58a6ff;
+  --link-hover: #79b8ff;
+  --btn-primary-bg: #238636;
+  --btn-primary-fg: #fff;
+  --btn-primary-hover-bg: #2ea043;
+  --highlight-bg: #3d2e1f;
+  --highlight-fg: #f0e0c0;
+  --highlight-active-bg: #e65100;
+  --highlight-active-fg: #fff;
+  --sidebar-bg: #18191c;
+  --row-alt: rgba(255, 255, 255, 0.03);
+}
+
+/* Midnight theme: deep navy dark mode with periwinkle accents —
+   the premium dark counterpart to showcase. Uses the saropa.com dark
+   palette (#1a1d2b / #2c3350 / #8fa8ff). Visual effects (gradients,
+   glassmorphism) live in drift-enhanced.css (CDN-only). When enhanced
+   CSS is unavailable, midnight degrades to a clean dark-blue theme. */
+body.theme-midnight {
+  /* Deep navy base — rich and saturated, not flat grey. These
+     opaque values provide the fallback when drift-enhanced.css
+     (CDN-only) is unavailable. The enhanced CSS overrides
+     background properties with semi-transparent rgba values
+     paired with backdrop-filter for the glassmorphism effect. */
+  --bg: #0f1219;
+  --fg: #e3e3ff;
+  --bg-pre: #1d2240;
+  --surface: #232848;
+  --header-bg: #171c36;
+  /* Blue-tinted borders — cohesive with the navy palette */
+  --border: rgba(143, 168, 255, 0.15);
+  --border-subtle: rgba(143, 168, 255, 0.08);
+  --muted: #a0a8d0;
+  /* Periwinkle accent — bright and distinctive */
+  --link: #8fa8ff;
+  --link-hover: #b0c4ff;
+  --btn-primary-bg: #435389;
+  --btn-primary-fg: #fff;
+  --btn-primary-hover-bg: #526299;
+  --highlight-bg: rgba(143, 168, 255, 0.15);
+  --highlight-fg: #b0c4ff;
+  --highlight-active-bg: #8fa8ff;
+  --highlight-active-fg: #1a1d2b;
+  --sidebar-bg: #1e2236;
+  --row-alt: rgba(143, 168, 255, 0.04);
+}
+
+/* Midnight overrides: blue-tinted surfaces, periwinkle accents */
+body.theme-midnight .header-pill.live {
+  color: #7cb342;
+}
+
+body.theme-midnight .feature-card {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.15),
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 8px 16px rgba(0, 0, 0, 0.08);
+}
+
+body.theme-midnight .feature-card.expanded {
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.18),
+    0 8px 16px rgba(0, 0, 0, 0.14),
+    0 16px 32px rgba(143, 168, 255, 0.06);
+}
+
+body.theme-midnight .tables-browse-card {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.12),
+    0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+body.theme-midnight .tables-browse-card:hover {
+  border-color: rgba(143, 168, 255, 0.3);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.16),
+    0 8px 16px rgba(0, 0, 0, 0.12),
+    0 16px 32px rgba(143, 168, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+body.theme-midnight .app-header {
+  box-shadow:
+    0 1px 0 rgba(143, 168, 255, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+body.theme-midnight .tables-loading-error {
+  color: #ef9a9a;
+}
+
+/* Showcase theme: a beautiful light-mode variant with glassmorphism,
+   rainbow accents, and animations. The CSS variables below provide the
+   baseline layout colours. The visual effects (gradients, blur,
+   rainbow borders, drop shadows, keyframe animations) live in
+   drift-enhanced.css which is loaded only from CDN — never bundled
+   into user APKs. When enhanced CSS is unavailable, showcase degrades
+   gracefully to a clean light theme. */
+body.theme-showcase {
+  /* Glassmorphic violet — clean base, frosted surfaces */
+  --bg: #fafbfe;
+  --fg: #242b4a;
+  --bg-pre: rgba(255, 255, 255, 0.88);
+  --surface: rgba(255, 255, 255, 0.85);
+  --header-bg: rgba(255, 255, 255, 0.78);
+  /* Blue-tinted borders for glass consistency */
+  --border: rgba(143, 168, 255, 0.18);
+  --border-subtle: rgba(143, 168, 255, 0.09);
+  --muted: #6b7a9e;
+  /* Rich violet accent — the showcase differentiator */
+  --link: #6d28d9;
+  --link-hover: #5b21b6;
+  --btn-primary-bg: #6d28d9;
+  --btn-primary-fg: #fff;
+  --btn-primary-hover-bg: #5b21b6;
+  --highlight-bg: #ede9fe;
+  --highlight-fg: #5b21b6;
+  --highlight-active-bg: #7c3aed;
+  --highlight-active-fg: #fff;
+  --sidebar-bg: rgba(255, 255, 255, 0.6);
+  --row-alt: rgba(99, 102, 241, 0.03);
+}
+
+/* Showcase overrides: the purple accent colour replaces the blue/green
+   used by light/dark. The gradient effect on primary buttons is applied
+   by drift-enhanced.css (CDN-only) via background-image overrides. */
+body.theme-showcase .header-btn:hover {
+  color: var(--link);
+}
+
+body.theme-showcase .feature-card {
+  box-shadow:
+    0 2px 4px rgba(67, 83, 137, 0.03),
+    0 4px 8px rgba(67, 83, 137, 0.04),
+    0 8px 16px rgba(99, 102, 241, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+body.theme-showcase .feature-card.expanded {
+  box-shadow:
+    0 4px 8px rgba(31, 38, 135, 0.06),
+    0 8px 16px rgba(31, 38, 135, 0.08),
+    0 16px 32px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+body.theme-showcase .header-pill.live {
+  color: #558b2f;
+}
+
+body.theme-showcase .tables-loading-error {
+  color: #c62828;
+}
+
+body.theme-showcase #live-indicator.connection-status {
+  color: #558b2f;
+}

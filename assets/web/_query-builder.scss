@@ -1,0 +1,139 @@
+/* Column list (PRAGMA table_info) shown above query builder on table tabs */
+.table-definition-wrap {
+  margin: 0 0 0.75rem;
+}
+/* Clickable toggle — mirrors qb-header (▼/▲ collapse) */
+.table-definition-heading {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0;
+  padding: 0.25rem 0;
+  color: var(--link);
+  cursor: pointer;
+  user-select: none;
+}
+.table-definition-heading:hover { text-decoration: underline; }
+/* Collapse handled by table-def-toggle.js (.td-collapsed .table-definition-scroll) */
+.table-definition-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-pre);
+}
+.table-definition {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.table-definition th,
+.table-definition td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+.table-definition th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.table-definition tbody tr:last-child td {
+  border-bottom: none;
+}
+.table-def-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.table-def-type {
+  color: var(--muted);
+}
+.table-def-type .table-def-type-empty {
+  font-style: italic;
+  opacity: 0.85;
+}
+.table-def-flags {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+/* Fixed-width icon column: type icon + optional PK/FK badges */
+.table-def-icons {
+  width: 3.2rem;
+  min-width: 3.2rem;
+  max-width: 3.2rem;
+  white-space: nowrap;
+  text-align: center;
+  padding-right: 0;
+}
+.table-def-icon {
+  display: inline-block;
+  width: 1.2em;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  vertical-align: middle;
+}
+.table-def-badge {
+  font-size: 0.7rem;
+  vertical-align: middle;
+  margin-left: 1px;
+}
+.table-def-badge-pk { opacity: 0.85; }
+.table-def-badge-fk { opacity: 0.75; }
+
+.qb-section { margin-bottom: 0.5rem; }
+.qb-section .qb-header { cursor: pointer; user-select: none; color: var(--link); font-size: 0.875rem; padding: 0.25rem 0; }
+.qb-section .qb-header:hover { text-decoration: underline; }
+.qb-section .qb-body { padding: 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 4px; }
+.qb-section .qb-body.collapsed { display: none; }
+.qb-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap; }
+.qb-row label { color: var(--muted); font-size: 0.8rem; min-width: 5rem; }
+.qb-row select, .qb-row input[type="text"], .qb-row input[type="number"], .qb-row button { padding: 0.3rem 0.4rem; background: var(--bg); border: 1px solid var(--border); color: var(--fg); border-radius: 3px; font-size: 12px; }
+.qb-columns { display: flex; flex-wrap: wrap; gap: 0.25rem; max-height: 6rem; overflow-y: auto; }
+.qb-columns label { font-size: 11px; color: var(--fg); display: inline-flex; align-items: center; gap: 2px; min-width: auto; }
+.qb-where-item { display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.2rem; flex-wrap: wrap; }
+.qb-where-item select, .qb-where-item input { font-size: 11px; padding: 0.2rem 0.3rem; }
+/* Connector (AND/OR) between conditions: compact width, same touch target as other controls (BUG-010) */
+.qb-where-connector { min-width: 3.5rem; font-weight: 600; }
+@media (pointer: coarse) {
+  .qb-where-connector { min-height: 44px; }
+}
+/* Query builder where-clause buttons: --text-min-readable, 24×24px target (BUG-010) */
+.qb-where-item button {
+  font-size: var(--text-min-readable);
+  padding: 0.35rem 0.5rem;
+  min-height: 24px;
+  min-width: 24px;
+}
+@media (pointer: coarse) {
+  .qb-where-item button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.5rem 0.65rem;
+  }
+}
+.qb-preview { font-family: var(--font-mono); font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.4rem; margin-top: 0.35rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 4rem; overflow: auto; }
+
+/* Size analytics: table column uses same link affordance as sidebar (not under .table-list). */
+#size-results a.size-table-link {
+  color: var(--link);
+  text-decoration: none;
+  font-weight: 500;
+}
+#size-results a.size-table-link:hover {
+  text-decoration: underline;
+}
+
+/* Size analytics: long index name lists stay secondary to the numeric count. */
+#size-results .size-index-names {
+  font-size: 0.72em;
+  line-height: 1.35;
+}
+/* Dimmed page_count × page_size line under total byte count. */
+#size-results .size-pages-formula {
+  margin-top: 0.2rem;
+  opacity: 0.55;
+  font-weight: normal;
+  font-size: 0.8rem;
+}

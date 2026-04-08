@@ -1,0 +1,90 @@
+/* Tables browse panel: grid of clickable table cards inside the Tables tab */
+.tables-browse {
+  padding: 1rem;
+}
+.tables-browse-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.5rem;
+}
+.tables-browse-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--tap-min);
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--link);
+  text-decoration: none;
+  text-align: left;        /* button reset */
+  font-family: inherit;    /* button reset */
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background 0.23s ease, border-color 0.23s ease, box-shadow 0.23s ease, transform 0.23s ease;
+}
+.tables-browse-card:hover {
+  background: rgba(128, 128, 128, 0.1);
+  border-color: var(--link);
+  color: var(--link-hover);
+}
+.tables-browse-card:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+.tables-browse-card .browse-card-name {
+  font-weight: 500;
+}
+.tables-browse-card .browse-card-count {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  margin-left: auto;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Card hover sets link color on the button; keep the count grey */
+.tables-browse-card:hover .browse-card-count {
+  color: var(--muted);
+}
+
+/* Light / showcase: elevated browse cards with composited shadows */
+body.theme-light .tables-browse-card {
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.02),
+    0 4px 8px rgba(0, 0, 0, 0.03),
+    0 8px 16px rgba(0, 0, 0, 0.03);
+}
+
+body.theme-light .tables-browse-card:hover {
+  border-color: rgba(67, 83, 137, 0.25);
+  box-shadow:
+    0 4px 8px rgba(67, 83, 137, 0.06),
+    0 8px 16px rgba(67, 83, 137, 0.08),
+    0 16px 32px rgba(67, 83, 137, 0.06);
+  transform: translateY(-2px);
+}
+
+body.theme-showcase .tables-browse-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+  box-shadow:
+    0 2px 4px rgba(67, 83, 137, 0.03),
+    0 4px 8px rgba(67, 83, 137, 0.04),
+    0 8px 16px rgba(99, 102, 241, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+body.theme-showcase .tables-browse-card:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(99, 102, 241, 0.2);
+  box-shadow:
+    0 4px 8px rgba(31, 38, 135, 0.06),
+    0 8px 16px rgba(31, 38, 135, 0.08),
+    0 16px 32px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(-2px);
+}

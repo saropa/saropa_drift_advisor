@@ -1,0 +1,192 @@
+/* App logo sits at the left end of the tab bar, vertically centred. */
+.tab-bar-logo {
+  height: 28px;
+  width: auto;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 4px);
+  /* Keeps the logo sharp at small sizes. */
+  image-rendering: auto;
+}
+
+/* --- Tab bar: looks like real tabs with wider header and border to content --- */
+#tab-bar.tab-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
+  padding: 0 0.5rem 0 0;
+  min-height: 2.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--header-bg);
+  flex-wrap: wrap;
+}
+
+.tab-bar .tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  position: relative;
+}
+
+.tab-bar .tab-btn:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+
+.tab-bar .tab-btn.active {
+  color: var(--link);
+  background: var(--bg);
+  border-color: var(--border);
+  border-bottom-color: var(--bg);
+  z-index: 1;
+}
+
+/* Truncate long table names in tab buttons so they don't overflow the tab bar */
+.tab-bar .tab-btn-label {
+  display: inline-block;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.tab-bar .tab-btn-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  margin-left: 0.25rem;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.tab-bar .tab-btn-close:hover {
+  color: var(--fg);
+  background: rgba(128, 128, 128, 0.2);
+}
+
+#tab-panels.tab-panels {
+  margin: 0;
+  padding: 1rem var(--panel-padding-x) 0;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: var(--bg);
+  min-height: 12rem;
+}
+
+.tab-panels .tab-panel {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.tab-panels .tab-panel.active {
+  opacity: 1;
+}
+
+.import-warning {
+  color: #e57373;
+  font-weight: 600;
+}
+
+h1 { font-size: var(--text-xl); }
+ul { list-style: none; padding: 0; }
+li { margin: 0.25rem 0; }
+a { color: var(--link); text-decoration: none; transition: color 0.15s ease; }
+a:hover { color: var(--link-hover); text-decoration: underline; }
+
+/* Tables list loading: skeleton rows under the "Tables" heading (no spinner). */
+.tables-loading {
+  margin: 0 0 0.5rem;
+}
+.tables-skeleton {
+  pointer-events: none;
+}
+.tables-skeleton li {
+  margin: 0.2rem 0;
+}
+/* Bar mimics a table row; shimmer sweeps across for perceived progress without a spinner. */
+.tables-skeleton-bar {
+  display: block;
+  height: var(--tap-min);
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--border-subtle) 0%,
+    color-mix(in srgb, var(--muted) 28%, var(--surface)) 45%,
+    color-mix(in srgb, var(--muted) 40%, var(--surface)) 55%,
+    var(--border-subtle) 100%
+  );
+  background-size: 220% 100%;
+  animation: tables-skeleton-shimmer 1.15s ease-in-out infinite;
+}
+/* Fallback when color-mix is unavailable: still animates a subtle sweep. */
+@supports not (background: color-mix(in srgb, red, blue)) {
+  .tables-skeleton-bar {
+    background: linear-gradient(
+      90deg,
+      var(--border-subtle) 0%,
+      rgba(128, 128, 128, 0.22) 50%,
+      var(--border-subtle) 100%
+    );
+    background-size: 220% 100%;
+  }
+}
+@keyframes tables-skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+.tables-loading-error {
+  margin: 0.25rem 0 0.5rem;
+  color: #e57373;
+}
+body.theme-light .tables-loading-error {
+  color: #c62828;
+}
+
+/* Inline spinner inside tool/action buttons during slow requests (Analyze, Update, Run SQL, etc.). */
+button.btn-busy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
+  vertical-align: middle;
+}
+.btn-busy-spinner {
+  box-sizing: border-box;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.92;
+  animation: btn-busy-spin 0.65s linear infinite;
+}
+@keyframes btn-busy-spin {
+  to { transform: rotate(360deg); }
+}

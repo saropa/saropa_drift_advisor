@@ -1,0 +1,113 @@
+.diff-result { transition: opacity 0.2s ease; }
+/* Snapshot compare result container: scrollable region for summary table + detail */
+.snapshot-compare-result-container {
+  max-height: 60vh;
+  overflow: auto;
+  transition: opacity 0.2s ease;
+}
+/* Snapshot compare summary: table of Table | Then | Now | Status */
+.snapshot-summary-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1rem;
+  font-size: var(--text-sm);
+  th, td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    font-weight: 600;
+    color: var(--muted);
+    text-align: left;
+    &:nth-child(2), &:nth-child(3) { text-align: right; }
+  }
+  td {
+    &:nth-child(2), &:nth-child(3) {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+  tbody tr:hover { background: var(--row-alt); }
+}
+/* Connection-status inside masthead pill: Online | Paused | Offline; tap toggles Online ↔ Paused when connected. */
+#live-indicator.connection-status {
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+#live-indicator.connection-status:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+body.theme-dark #live-indicator.connection-status { color: #7cb342; }
+body.theme-light #live-indicator.connection-status { color: #558b2f; }
+#live-indicator.connection-status.paused { opacity: 0.6; }
+#diagram-container { min-height: 200px; }
+.diagram-table rect { fill: var(--bg-pre); stroke: var(--border); stroke-width: 1.5; }
+.diagram-table:hover rect { stroke: var(--link); }
+.diagram-table { cursor: pointer; }
+.diagram-table .diagram-name { font-weight: 600; font-size: 13px; }
+.diagram-table .diagram-col { font-size: 11px; fill: var(--muted); }
+.diagram-link { stroke: var(--muted); stroke-width: 1; fill: none; }
+/* Focus ring for keyboard navigation of diagram table boxes */
+.diagram-table:focus rect { stroke: var(--link); stroke-width: 2.5; }
+.diagram-table:focus { outline: none; }
+/* Screen-reader-only text (visually hidden, announced by assistive tech) */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+/* Chart container: responsive width, minimum height for resize/export (BUG-008). */
+.chart-container { width: 100%; }
+.chart-wrapper {
+  width: 100%;
+  min-height: 320px;
+}
+.chart-svg-wrap {
+  width: 100%;
+  min-height: 320px;
+  position: relative;
+}
+.chart-svg {
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  display: block;
+}
+.chart-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+}
+.chart-description {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  margin: 0 0 0.5rem 0;
+}
+.chart-export-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.chart-export-label { font-size: var(--text-sm); color: var(--muted); }
+.chart-export-toolbar button {
+  font-size: var(--text-min-readable);
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+.chart-bar { fill: var(--link); }
+.chart-bar:hover { fill: var(--fg); }
+/* Chart text: use --text-min-readable for accessibility (WCAG / BUG-010) */
+.chart-label { font-size: var(--text-min-readable); fill: var(--muted); }
+.chart-axis { stroke: var(--border); stroke-width: 1; }
+.chart-axis-label { font-size: var(--text-min-readable); fill: var(--muted); }
+.chart-axis-title { font-size: var(--text-min-readable); fill: var(--muted); }
+.chart-line { stroke: var(--link); stroke-width: 2; fill: none; }
+.chart-area { fill: var(--link); opacity: 0.25; }
+.chart-dot { fill: var(--link); }
+.chart-dot:hover { fill: var(--fg); r: 5; }
+.chart-scatter-dot { stroke: var(--bg); stroke-width: 1; }
+.chart-slice { stroke: var(--bg); stroke-width: 2; cursor: pointer; }
+.chart-slice:hover { opacity: 0.8; }
+.chart-legend { font-size: var(--text-min-readable); fill: var(--fg); }
+.cell-raw { color: var(--muted); font-size: var(--text-min-readable); display: block; }

@@ -1,0 +1,164 @@
+/* --- Export toolbar --- */
+.export-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0;
+  font-size: var(--text-sm);
+}
+
+.export-toolbar-label {
+  color: var(--muted);
+  margin-right: 0;
+  font-weight: 500;
+}
+
+.export-link {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-pre);
+  font-size: var(--text-sm);
+  display: inline-block;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.export-link:hover {
+  color: var(--link);
+  border-color: var(--link);
+  background: var(--surface);
+  text-decoration: none;
+}
+
+.export-link:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+/* Narrative block in Export tab: readable width and spacing */
+.export-narrative {
+  max-width: 52rem;
+  line-height: 1.6;
+  color: var(--fg);
+  margin: 0;
+}
+
+/* --- Feature cards --- */
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 0.65rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.theme-light .feature-card {
+  /* Multi-layer composited shadow — saropa.com depth system */
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.02),
+    0 4px 8px rgba(0, 0, 0, 0.03),
+    0 8px 16px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(143, 168, 255, 0.12);
+}
+
+.feature-card.expanded {
+  border-color: var(--link);
+}
+
+body.theme-light .feature-card.expanded {
+  box-shadow:
+    0 4px 8px rgba(67, 83, 137, 0.06),
+    0 8px 16px rgba(67, 83, 137, 0.08),
+    0 16px 32px rgba(67, 83, 137, 0.06);
+}
+
+/* Material Symbols (Phase 4.1): icon font from Google Fonts CDN. */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: 400;
+  font-style: normal;
+  font-size: 1.25rem;
+  line-height: 1;
+  letter-spacing: normal;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.feature-icon {
+  font-size: 1.15rem;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+  color: inherit;
+}
+
+.header-icon {
+  font-size: 1.1rem;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.export-icon {
+  font-size: 1rem;
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+
+.feature-card .collapsible-header {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  padding: 0.2rem 0;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+
+/* Expand/collapse arrow: right-aligned, dimmed until hover */
+.feature-card .collapsible-header::after {
+  content: "▼";
+  margin-left: auto;
+  font-size: 0.65em;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+
+.feature-card.expanded .collapsible-header::after {
+  content: "▲";
+}
+
+.feature-card .collapsible-header:hover::after {
+  opacity: 0.9;
+}
+
+.feature-card .collapsible-title {
+  flex: 1;
+}
+
+.feature-card .collapsible-header:hover {
+  background: rgba(128, 128, 128, 0.06);
+  text-decoration: none;
+}
+
+.feature-card .collapsible-body {
+  margin-top: 0.6rem;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.feature-card .collapsible-body:not(.collapsed) {
+  animation: expand-in 0.2s ease;
+}
+
+@keyframes expand-in {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+.feature-card.sql-runner-card {
+  margin-bottom: 1.25rem;
+}

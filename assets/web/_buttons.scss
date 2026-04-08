@@ -1,0 +1,133 @@
+/* Primary / secondary buttons */
+.btn-primary {
+  min-height: var(--tap-min);
+  padding: 0 1.25rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--btn-primary-hover-bg);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: #b91c1c;
+  color: #fff;
+  border: 1px solid #991b1b;
+  border-radius: 4px;
+  padding: 0 0.85rem;
+  min-height: 36px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.toolbar button:not(.btn-primary),
+.sql-runner .sql-toolbar button:not(.btn-primary) {
+  min-height: 36px;
+  padding: 0 0.85rem;
+  font-size: var(--text-sm);
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.toolbar button:not(.btn-primary):hover,
+.sql-runner .sql-toolbar button:not(.btn-primary):hover {
+  border-color: var(--link);
+  color: var(--link);
+  background: var(--surface);
+}
+
+/* --- Tools toolbar: primary action buttons (Search, Snapshot, DB diff, etc.) --- */
+#tools-toolbar.tools-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0;
+  padding: 0.5rem 0;
+}
+
+.toolbar-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: var(--tap-min);
+  padding: 0 1rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+body.theme-dark .toolbar-tool-btn {
+  background: var(--bg-pre);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.toolbar-tool-btn:hover {
+  border-color: var(--link);
+  color: var(--link);
+  background: var(--surface);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+body.theme-dark .toolbar-tool-btn:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.toolbar-tool-btn:active {
+  transform: scale(0.98);
+}
+
+.toolbar-tool-btn:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+.toolbar-tool-btn .toolbar-icon {
+  font-size: 1.15rem;
+  opacity: 0.9;
+}
+
+.toolbar-tool-btn .toolbar-tool-label {
+  white-space: nowrap;
+}
