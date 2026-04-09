@@ -212,8 +212,7 @@ final class SqlHandler {
   ) {
     final message = error.toString();
 
-    if (message.contains('no such table') ||
-        message.contains('no such view')) {
+    if (message.contains('no such table') || message.contains('no such view')) {
       _ctx.log('Query skipped (table/view not found): $sql');
     } else {
       _ctx.logError(error, stack);

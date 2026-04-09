@@ -104,14 +104,18 @@ void main() {
       expect((r.body['capabilities'] as List<dynamic>), contains('editsApply'));
     });
 
-    test('GET /api/health compareEnabled when queryCompare configured',
-        () async {
-      await DriftDebugServer.stop();
-      await startServer(queryCompare: (sql) async => <Map<String, dynamic>>[]);
-      final r = await httpGet(port!, '/api/health');
-      expect(r.status, HttpStatus.ok);
-      expect(r.body['compareEnabled'], isTrue);
-    });
+    test(
+      'GET /api/health compareEnabled when queryCompare configured',
+      () async {
+        await DriftDebugServer.stop();
+        await startServer(
+          queryCompare: (sql) async => <Map<String, dynamic>>[],
+        );
+        final r = await httpGet(port!, '/api/health');
+        expect(r.status, HttpStatus.ok);
+        expect(r.body['compareEnabled'], isTrue);
+      },
+    );
 
     test('GET /api/generation returns generation number', () async {
       final r = await httpGet(port!, '/api/generation');

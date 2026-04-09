@@ -11,10 +11,15 @@ import { rowCountText } from './table-list.ts';
 import { getColumnConfig } from './persistence.ts';
 import { buildDataTableHtml, wrapDataTableInScroll, buildTableStatusBar, getVisibleColumnCount, buildTableDefinitionHtml } from './table-view.ts';
 
-/** Fetches the schema DDL and renders it into the inline <pre> element. */
+/** Renders the schema DDL into the inline <pre> element, using cache when available. */
 export function loadSchemaIntoPre() {
       var pre = document.getElementById('schema-inline-pre');
       if (!pre) return;
+      // Use cached schema if already fetched by another view (both scope, search tab, etc.)
+      if (S.cachedSchema !== null) {
+        pre.innerHTML = highlightSqlSafe(S.cachedSchema);
+        return;
+      }
       fetch('/api/schema', S.authOpts()).then(r => r.text()).then(function(schema) {
         S.setCachedSchema(schema);
         pre.innerHTML = highlightSqlSafe(schema);

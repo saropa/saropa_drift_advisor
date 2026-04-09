@@ -377,8 +377,7 @@ void main() {
         final h = SqlHandler(ctx);
 
         final result = await h.explainSqlResult(
-          (_) async =>
-              throw Exception('no such table: activities'),
+          (_) async => throw Exception('no such table: activities'),
           'SELECT * FROM "activities"',
         );
 

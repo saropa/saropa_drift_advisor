@@ -36,7 +36,7 @@ browse source on
 
 ---
 
-## [3.0.3] - Unreleased
+## [3.0.3]
 
 ### Fixed
 
