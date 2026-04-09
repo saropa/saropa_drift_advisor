@@ -85,6 +85,7 @@ void main() {
       // Contract: shape matches doc/API.md § Health & Generation.
       expect(r.body['extensionConnected'], isA<bool>());
       expect(r.body['writeEnabled'], isFalse);
+      expect(r.body['compareEnabled'], isFalse);
       expect(r.body['capabilities'], isA<List<dynamic>>());
       expect(
         (r.body['capabilities'] as List<dynamic>),
@@ -101,6 +102,15 @@ void main() {
       expect(r.body['writeEnabled'], isTrue);
       expect((r.body['capabilities'] as List<dynamic>), contains('cellUpdate'));
       expect((r.body['capabilities'] as List<dynamic>), contains('editsApply'));
+    });
+
+    test('GET /api/health compareEnabled when queryCompare configured',
+        () async {
+      await DriftDebugServer.stop();
+      await startServer(queryCompare: (sql) async => <Map<String, dynamic>>[]);
+      final r = await httpGet(port!, '/api/health');
+      expect(r.status, HttpStatus.ok);
+      expect(r.body['compareEnabled'], isTrue);
     });
 
     test('GET /api/generation returns generation number', () async {

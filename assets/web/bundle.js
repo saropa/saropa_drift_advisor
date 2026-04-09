@@ -311,8 +311,12 @@
   // assets/web/state.ts
   var DRIFT_VIEWER_AUTH_TOKEN = "";
   var driftWriteEnabled = false;
+  var driftCompareEnabled = false;
   function setDriftWriteEnabled(v) {
     driftWriteEnabled = v;
+  }
+  function setDriftCompareEnabled(v) {
+    driftCompareEnabled = v;
   }
   var schemaMeta = null;
   function setSchemaMeta(m) {
@@ -4091,7 +4095,7 @@
         return { status: r.status, data: d };
       })).then(function(o) {
         if (o.status === 501) {
-          statusEl.textContent = "Database compare not configured. Pass queryCompare to DriftDebugServer.start to compare with another DB (e.g. staging).";
+          statusEl.textContent = "Not configured. A comparison database is needed \u2014 see the setup guide above.";
         } else if (o.status >= 400) {
           statusEl.textContent = o.data.error || "Request failed";
         } else {
@@ -4122,7 +4126,7 @@
         });
       }).then(function(o) {
         if (o.status === 501) {
-          statusEl.textContent = "Migration preview requires queryCompare. Pass queryCompare to DriftDebugServer.start().";
+          statusEl.textContent = "Not configured. A comparison database is needed \u2014 see the setup guide above.";
           return;
         }
         if (o.status >= 400) {
@@ -5755,6 +5759,11 @@
     var show = driftWriteEnabled ? "" : "none";
     if (clearTableBtn) clearTableBtn.style.display = show;
     if (clearAllBtn) clearAllBtn.style.display = show;
+    if (data && typeof data.compareEnabled === "boolean") setDriftCompareEnabled(data.compareEnabled);
+    var setupGuide = document.getElementById("compare-setup-guide");
+    var activePanel = document.getElementById("compare-active");
+    if (setupGuide) setupGuide.style.display = driftCompareEnabled ? "none" : "";
+    if (activePanel) activePanel.style.display = driftCompareEnabled ? "" : "none";
   }
   initNlModalListeners();
   function setupNavigateAwayConfirmation() {

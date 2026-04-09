@@ -10,8 +10,10 @@
 // --- Authentication & permissions ---
 export let DRIFT_VIEWER_AUTH_TOKEN = '';
 export let driftWriteEnabled = false;
+export let driftCompareEnabled = false;
 
 export function setDriftWriteEnabled(v: boolean): void { driftWriteEnabled = v; }
+export function setDriftCompareEnabled(v: boolean): void { driftCompareEnabled = v; }
 export function setAuthToken(t: string): void { DRIFT_VIEWER_AUTH_TOKEN = t; }
 
 // --- Schema metadata ---

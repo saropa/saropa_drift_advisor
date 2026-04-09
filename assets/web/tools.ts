@@ -128,7 +128,7 @@ export function initCompare(): void {
       .then(r => r.json().then(function(d) { return { status: r.status, data: d }; }))
       .then(function(o) {
         if (o.status === 501) {
-          statusEl.textContent = 'Database compare not configured. Pass queryCompare to DriftDebugServer.start to compare with another DB (e.g. staging).';
+          statusEl.textContent = 'Not configured. A comparison database is needed \u2014 see the setup guide above.';
         } else if (o.status >= 400) {
           statusEl.textContent = o.data.error || 'Request failed';
         } else {
@@ -156,7 +156,7 @@ export function initMigrationPreview(): void {
       .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
       .then(function(o) {
         if (o.status === 501) {
-          statusEl.textContent = 'Migration preview requires queryCompare. Pass queryCompare to DriftDebugServer.start().';
+          statusEl.textContent = 'Not configured. A comparison database is needed \u2014 see the setup guide above.';
        
    return;
         }

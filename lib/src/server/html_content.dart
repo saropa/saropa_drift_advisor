@@ -392,12 +392,28 @@ abstract final class HtmlContent {
         </div>
         <div id="panel-compare" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-compare" hidden>
           <div id="compare-collapsible" class="tool-panel-body">
-        <p class="meta">Compare this DB with another (e.g. staging). Requires queryCompare at startup.</p>
-        <div class="toolbar">
-          <button type="button" id="compare-view" title="Open full diff report in a new view">View diff report</button>
-          <!-- Export opens in new tab so the current DB diff view stays open; rel=noopener noreferrer for security -->
-          <a href="/api/compare/report?format=download" id="compare-export" target="_blank" rel="noopener noreferrer" title="Download diff report in a new tab">Export diff report</a>
-          <button type="button" id="migration-preview" title="Generate SQL migration from diff">Migration Preview</button>
+        <!-- Shown when queryCompare is NOT configured -->
+        <div id="compare-setup-guide">
+          <p class="meta">Compare two databases side-by-side &mdash; for example, your local DB against a staging or production copy. See schema differences, row count changes, and generate migration SQL.</p>
+          <details>
+            <summary>How to enable</summary>
+            <p class="meta">Pass a second query callback when starting the debug server:</p>
+            <pre class="meta" style="font-size:11px;background:var(--bg-pre);padding:0.5rem;border-radius:4px;overflow-x:auto;">DriftDebugServer.start(
+  query: myDb.customSelect,       // primary DB
+  queryCompare: stagingDb.customSelect, // comparison DB
+);</pre>
+            <p class="meta">The comparison callback should connect to the other database you want to diff against. Both callbacks use the same <code>DriftDebugQuery</code> signature.</p>
+          </details>
+        </div>
+        <!-- Shown when queryCompare IS configured -->
+        <div id="compare-active" style="display: none;">
+          <p class="meta">Schema and row-count diff between your primary and comparison databases.</p>
+          <div class="toolbar">
+            <button type="button" id="compare-view" title="Open full diff report in a new view">View diff report</button>
+            <!-- Export opens in new tab so the current DB diff view stays open; rel=noopener noreferrer for security -->
+            <a href="/api/compare/report?format=download" id="compare-export" target="_blank" rel="noopener noreferrer" title="Download diff report in a new tab">Export diff report</a>
+            <button type="button" id="migration-preview" title="Generate SQL migration from schema differences">Migration Preview</button>
+          </div>
         </div>
         <p id="compare-status" class="meta"></p>
         <pre id="compare-result" class="meta diff-result" style="display: none; max-height: 60vh;"></pre>

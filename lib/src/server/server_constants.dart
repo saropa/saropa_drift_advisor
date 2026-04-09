@@ -172,6 +172,7 @@ abstract final class ServerConstants {
   static const String clientVscode = 'vscode';
   static const String jsonKeyExtensionConnected = 'extensionConnected';
   static const String jsonKeyCapabilities = 'capabilities';
+  static const String jsonKeyCompareEnabled = 'compareEnabled';
   static const String capabilityIssues = 'issues';
 
   /// Advertises POST /api/cell/update for browser inline edits.
@@ -207,10 +208,11 @@ abstract final class ServerConstants {
   static const String errorDatabaseDownloadNotConfigured =
       'Database download not configured. Pass getDatabaseBytes to DriftDebugServer.start (e.g. () => File(dbPath).readAsBytes()).';
   static const String errorCompareNotConfigured =
-      'Database compare not configured. Pass queryCompare to DriftDebugServer.start.';
+      'Database comparison is not configured. '
+      'To enable this feature, pass a queryCompare callback to DriftDebugServer.start().';
   static const String errorMigrationRequiresCompare =
-      'Migration preview requires queryCompare. '
-      'Pass queryCompare to DriftDebugServer.start().';
+      'Migration preview requires a comparison database. '
+      'To enable this feature, pass a queryCompare callback to DriftDebugServer.start().';
   static const String jsonKeyCountColumn = 'c';
   static const String attachmentDatabaseSqlite =
       'attachment; filename="database.sqlite"';

@@ -760,6 +760,7 @@ final class Router {
     ServerConstants.jsonKeyExtensionConnected: true,
     ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
     ServerConstants.jsonKeyWriteEnabled: _ctx.writeQuery != null,
+    ServerConstants.jsonKeyCompareEnabled: _ctx.queryCompare != null,
     ServerConstants.jsonKeyCapabilities: _ctx.writeQuery != null
         ? <String>[
             ServerConstants.capabilityIssues,

@@ -49,7 +49,7 @@
     // (i.e. the user switched to a different Flutter project). Must run
     // before any other code reads localStorage.
     clearStaleProjectStorage();
-    /** True when server exposes POST /api/cell/update (writeQuery configured). */
+    /** Applies capability flags from /api/health: write-enabled, compare-enabled. */
     function applyHealthWriteFlag(data) {
       if (data && typeof data.writeEnabled === 'boolean') S.setDriftWriteEnabled(data.writeEnabled);
       // Show/hide destructive data buttons based on write capability
@@ -58,6 +58,13 @@
       var show = S.driftWriteEnabled ? '' : 'none';
       if (clearTableBtn) clearTableBtn.style.display = show;
       if (clearAllBtn) clearAllBtn.style.display = show;
+
+      // Toggle compare panel between setup guide and active toolbar
+      if (data && typeof data.compareEnabled === 'boolean') S.setDriftCompareEnabled(data.compareEnabled);
+      var setupGuide = document.getElementById('compare-setup-guide');
+      var activePanel = document.getElementById('compare-active');
+      if (setupGuide) setupGuide.style.display = S.driftCompareEnabled ? 'none' : '';
+      if (activePanel) activePanel.style.display = S.driftCompareEnabled ? '' : 'none';
     }
     // NL modal event listeners — moved to nl-modal.ts (initNlModalListeners)
     initNlModalListeners();
