@@ -18,9 +18,7 @@ import { rowCountText } from './table-list.ts';
 import { buildQueryBuilderHtml, bindQueryBuilderEvents, restoreQueryBuilderUIState } from './query-builder.ts';
 import { bindColumnTableEvents } from './pagination.ts';
 import { buildBothViewSectionsHtml } from './schema.ts';
-
-// loadSchemaMeta remains in app.js — it is init glue that depends on the full app context.
-declare function loadSchemaMeta(): Promise<any>;
+import { loadSchemaMeta } from './schema-meta.ts';
 
 export async function loadColumnTypes(tableName) {
   if (S.tableColumnTypes[tableName]) return S.tableColumnTypes[tableName];
@@ -273,17 +271,6 @@ export function buildTableDefinitionHtml(tableName) {
     '</tr></thead>' +
     '<tbody>' + rows + '</tbody></table></div></div>';
 }
-
-// TODO: renderTableView calls several functions that remain in app.js:
-//   - getScope, filterRows, getTableDisplayData, buildTableFilterMetaSuffix, applySearch (search.ts)
-//   - loadFkMeta, renderBreadcrumb (fk-nav.ts)
-//   - getColumnConfig (persistence.ts)
-//   - buildQueryBuilderHtml, bindQueryBuilderEvents, restoreQueryBuilderUIState,
-//     bindColumnTableEvents, buildBothViewSectionsHtml (still in app.js)
-//   - loadSchemaMeta (still in app.js)
-// These are imported at the app.js call-site level; renderTableView is called
-// from app.js which has access to all of them. The function is exported here
-// but app.js passes the needed helpers via its own scope.
 
 export function renderTableView(name, data) {
   const content = document.getElementById('content');

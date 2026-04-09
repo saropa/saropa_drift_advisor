@@ -7,10 +7,7 @@
 import * as S from './state.ts';
 import { schemaTableByName, getPkColumnNameForDataTable, getVisibleDataColumnKeys, copyCellValue } from './table-view.ts';
 import { loadTable } from './table-list.ts';
-
-// TODO: loadSchemaMeta is still in app.js — will need to be imported
-//       once it moves to a shared module.
-declare function loadSchemaMeta(): Promise<any>;
+import { loadSchemaMeta } from './schema-meta.ts';
 
     export function readCellRawFromTd(td) {
       if (!td) return '';

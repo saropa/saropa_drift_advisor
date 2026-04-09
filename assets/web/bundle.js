@@ -315,6 +315,9 @@
     driftWriteEnabled = v;
   }
   var schemaMeta = null;
+  function setSchemaMeta(m) {
+    schemaMeta = m;
+  }
   var activeTabId = "tables";
   var openTableTabs = [];
   function setActiveTabId(id) {
@@ -2013,6 +2016,10 @@
   function loadSchemaIntoPre() {
     var pre = document.getElementById("schema-inline-pre");
     if (!pre) return;
+    if (cachedSchema !== null) {
+      pre.innerHTML = highlightSqlSafe(cachedSchema);
+      return;
+    }
     fetch("/api/schema", authOpts()).then((r) => r.text()).then(function(schema) {
       setCachedSchema(schema);
       pre.innerHTML = highlightSqlSafe(schema);
@@ -2093,6 +2100,15 @@
     }).catch((e) => {
       content.innerHTML = '<p class="meta">Error</p><pre>' + esc2(String(e)) + "</pre>";
     });
+  }
+
+  // assets/web/schema-meta.ts
+  async function loadSchemaMeta() {
+    if (schemaMeta) return schemaMeta;
+    var r = await fetch("/api/schema/metadata", authOpts());
+    if (!r.ok) throw new Error("Failed to load schema metadata (HTTP " + r.status + ")");
+    setSchemaMeta(await r.json());
+    return schemaMeta;
   }
 
   // assets/web/table-view.ts
@@ -5786,7 +5802,7 @@
       const isCollapsed = el && el.classList.contains("collapsed");
       if (el) el.classList.toggle("collapsed", !isCollapsed);
       syncFeatureCardExpanded(el);
-      if (isCollapsed && cachedSchema === null) loadSchemaIntoPre();
+      if (isCollapsed) loadSchemaIntoPre();
     });
   }
   function refreshSearchResultsPanel() {
@@ -5799,7 +5815,7 @@
     btn.click();
   }
   window.onTabSwitch = function(tabId) {
-    if (tabId === "schema" && cachedSchema === null) loadSchemaIntoPre();
+    if (tabId === "schema") loadSchemaIntoPre();
     if (tabId === "diagram" && typeof window.ensureDiagramInited === "function") window.ensureDiagramInited();
     if (tabId === "search") refreshSearchResultsPanel();
     if (tabId === "index") triggerToolButtonIfReady("index-analyze", { checkDisabled: true });

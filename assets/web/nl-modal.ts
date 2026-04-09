@@ -7,10 +7,7 @@
  */
 import * as S from './state.ts';
 import { nlToSql } from './nl-to-sql.ts';
-
-// TODO: loadSchemaMeta is still in app.js — will need to be imported
-//       once it moves to a shared module.
-declare function loadSchemaMeta(): Promise<any>;
+import { loadSchemaMeta } from './schema-meta.ts';
 
     function nlModalOnEscape(e) {
       if (e.key === 'Escape') {

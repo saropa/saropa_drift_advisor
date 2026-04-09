@@ -59,14 +59,6 @@
       if (clearTableBtn) clearTableBtn.style.display = show;
       if (clearAllBtn) clearAllBtn.style.display = show;
     }
-    // --- Natural language to SQL ---
-    async function loadSchemaMeta() {
-      if (S.schemaMeta) return S.schemaMeta;
-      var r = await fetch('/api/schema/metadata', S.authOpts());
-      if (!r.ok) throw new Error('Failed to load schema metadata (HTTP ' + r.status + ')');
-      S.setSchemaMeta(await r.json());
-      return S.schemaMeta;
-    }
     // NL modal event listeners — moved to nl-modal.ts (initNlModalListeners)
     initNlModalListeners();
 
@@ -155,7 +147,7 @@
         const isCollapsed = el && el.classList.contains('collapsed');
         if (el) el.classList.toggle('collapsed', !isCollapsed);
         syncFeatureCardExpanded(el);
-        if (isCollapsed && S.cachedSchema === null) loadSchemaIntoPre();
+        if (isCollapsed) loadSchemaIntoPre();
       });
     }
     /**
@@ -185,7 +177,7 @@
      */
 
     window.onTabSwitch = function(tabId) {
-      if (tabId === 'schema' && S.cachedSchema === null) loadSchemaIntoPre();
+      if (tabId === 'schema') loadSchemaIntoPre();
       if (tabId === 'diagram' && typeof window.ensureDiagramInited === 'function') window.ensureDiagramInited();
       if (tabId === 'search') refreshSearchResultsPanel();
       // Auto-run when tool tab opens (no manual button click). checkDisabled avoids duplicate runs if analysis already in progress.
