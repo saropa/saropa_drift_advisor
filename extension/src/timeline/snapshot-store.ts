@@ -225,18 +225,23 @@ export class SnapshotStore {
       const tables = new Map<string, ISnapshotTable>();
 
       for (const table of metadata) {
-        const pkCols = table.columns
-          .filter((c) => c.pk)
-          .map((c) => c.name);
-        const result = await client.sql(
-          `SELECT * FROM "${table.name}" ORDER BY rowid LIMIT ${ROW_LIMIT}`,
-        );
-        tables.set(table.name, {
-          rowCount: table.rowCount,
-          columns: result.columns,
-          pkColumns: pkCols,
-          rows: rowsToObjects(result.columns, result.rows),
-        });
+        try {
+          const pkCols = table.columns
+            .filter((c) => c.pk)
+            .map((c) => c.name);
+          const result = await client.sql(
+            `SELECT * FROM "${table.name}" ORDER BY rowid LIMIT ${ROW_LIMIT}`,
+          );
+          tables.set(table.name, {
+            rowCount: table.rowCount,
+            columns: result.columns,
+            pkColumns: pkCols,
+            rows: rowsToObjects(result.columns, result.rows),
+          });
+        } catch {
+          // Table may have been dropped since metadata was fetched —
+          // skip it and continue capturing the remaining tables.
+        }
       }
 
       const snapshot: ISnapshot = {

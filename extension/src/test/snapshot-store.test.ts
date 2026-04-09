@@ -103,6 +103,42 @@ describe('SnapshotStore', () => {
       const snap = await promise;
       assert.strictEqual(snap, null);
     });
+
+    it('should skip tables that fail to query and capture the rest', async () => {
+      // Two tables: "good" succeeds, "bad" throws (e.g. dropped since metadata fetch).
+      fetchStub.withArgs(sinon.match(/schema\/metadata/)).callsFake(async () =>
+        makeResponse(metadataJson([
+          { name: 'good', rowCount: 1, columns: [{ name: 'id', type: 'INTEGER', pk: true }] },
+          { name: 'bad', rowCount: 0, columns: [{ name: 'id', type: 'INTEGER', pk: true }] },
+        ])),
+      );
+
+      let callCount = 0;
+      fetchStub.withArgs(sinon.match(/api\/sql/)).callsFake(async () => {
+        callCount++;
+        // First call is for "good", second for "bad".
+        if (callCount === 1) {
+          return makeResponse(sqlJson(['id'], [[1]]));
+        }
+        // Simulate server returning a 500 with an error body.
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({ error: 'no such table: bad' }),
+        } as unknown as Response;
+      });
+
+      const store = new SnapshotStore(20, 0);
+      const promise = store.capture(client);
+      await clock.tickAsync(300); // advance past any retry delays
+      const snap = await promise;
+
+      assert.ok(snap, 'snapshot should not be null');
+      // The "good" table should be captured; "bad" should be skipped.
+      assert.ok(snap.tables.has('good'), 'good table should be present');
+      assert.strictEqual(snap.tables.has('bad'), false, 'bad table should be skipped');
+      assert.strictEqual(snap.tables.get('good')!.rows.length, 1);
+    });
   });
 
   describe('getById()', () => {

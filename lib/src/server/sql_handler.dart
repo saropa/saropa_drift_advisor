@@ -40,8 +40,7 @@ final class SqlHandler {
       final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(raw);
       return <String, dynamic>{ServerConstants.jsonKeyRows: rows};
     } on Object catch (error, stack) {
-      _ctx.logError(error, stack);
-      return <String, String>{ServerConstants.jsonKeyError: error.toString()};
+      return _handleQueryError(error, stack, sql);
     }
   }
 
@@ -87,8 +86,7 @@ final class SqlHandler {
         ServerConstants.jsonKeySql: explainSql,
       };
     } on Object catch (error, stack) {
-      _ctx.logError(error, stack);
-      return <String, String>{ServerConstants.jsonKeyError: error.toString()};
+      return _handleQueryError(error, stack, sql);
     }
   }
 
@@ -195,5 +193,32 @@ final class SqlHandler {
       return null;
     }
     return sql;
+  }
+
+  /// Handles query execution errors with reduced noise for
+  /// expected "no such table/view" SQLite errors.
+  ///
+  /// These errors are common when the schema has changed since
+  /// the last metadata fetch (e.g. a table was dropped or the
+  /// connected app restarted with a different schema). A short
+  /// warning is logged instead of the full stack trace.
+  ///
+  /// All other errors are logged with the full stack trace via
+  /// [ServerContext.logError].
+  Map<String, String> _handleQueryError(
+    Object error,
+    StackTrace stack,
+    String sql,
+  ) {
+    final message = error.toString();
+
+    if (message.contains('no such table') ||
+        message.contains('no such view')) {
+      _ctx.log('Query skipped (table/view not found): $sql');
+    } else {
+      _ctx.logError(error, stack);
+    }
+
+    return <String, String>{ServerConstants.jsonKeyError: message};
   }
 }

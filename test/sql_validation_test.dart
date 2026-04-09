@@ -279,6 +279,52 @@ void main() {
         );
         expect(result, containsPair('error', contains('db error')));
       });
+
+      test('logs warning instead of full error for missing table', () async {
+        // Track which logging path was used.
+        final logMessages = <String>[];
+        final errors = <Object>[];
+        final ctx = ServerContext(
+          query: (_) async => <Map<String, dynamic>>[],
+          onLog: logMessages.add,
+          onError: (e, _) => errors.add(e),
+        );
+        final h = SqlHandler(ctx);
+
+        final result = await h.runSqlResult(
+          (_) async =>
+              throw Exception('no such table: activities, SQL logic error'),
+          'SELECT * FROM "activities"',
+        );
+
+        // Error is still returned to the caller.
+        expect(result, containsPair('error', contains('no such table')));
+        // Logged as a short warning, not a full error.
+        expect(logMessages, hasLength(1));
+        expect(logMessages.first, contains('table/view not found'));
+        expect(errors, isEmpty);
+      });
+
+      test('logs full error for non-table SQLite errors', () async {
+        final logMessages = <String>[];
+        final errors = <Object>[];
+        final ctx = ServerContext(
+          query: (_) async => <Map<String, dynamic>>[],
+          onLog: logMessages.add,
+          onError: (e, _) => errors.add(e),
+        );
+        final h = SqlHandler(ctx);
+
+        final result = await h.runSqlResult(
+          (_) async => throw Exception('disk I/O error'),
+          'SELECT 1',
+        );
+
+        expect(result, containsPair('error', contains('disk I/O error')));
+        // Full error logging path, not the short warning.
+        expect(logMessages, isEmpty);
+        expect(errors, hasLength(1));
+      });
     });
 
     group('explainSqlResult', () {
@@ -318,6 +364,28 @@ void main() {
           'SELECT 1',
         );
         expect(result, containsPair('error', contains('explain failed')));
+      });
+
+      test('logs warning instead of full error for missing table', () async {
+        final logMessages = <String>[];
+        final errors = <Object>[];
+        final ctx = ServerContext(
+          query: (_) async => <Map<String, dynamic>>[],
+          onLog: logMessages.add,
+          onError: (e, _) => errors.add(e),
+        );
+        final h = SqlHandler(ctx);
+
+        final result = await h.explainSqlResult(
+          (_) async =>
+              throw Exception('no such table: activities'),
+          'SELECT * FROM "activities"',
+        );
+
+        expect(result, containsPair('error', contains('no such table')));
+        expect(logMessages, hasLength(1));
+        expect(logMessages.first, contains('table/view not found'));
+        expect(errors, isEmpty);
       });
     });
   });
