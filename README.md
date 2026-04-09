@@ -31,8 +31,64 @@
 - **Debug without drowning in logs** — Mutation stream, snapshots, compare-to-current, row-level navigation along foreign keys.
 - **Share safely** — Mask PII in the viewer, optional auth on the wire, and time-boxed collaborative sessions for QA or reviews.
 
+### Screenshots
+
+<table>
+<tr>
+<td width="50%">
+<strong>Tables</strong> — grid overview of all tables with row counts<br>
+<img src="assets/screenshots/tables.png" alt="Tables" width="100%">
+</td>
+<td width="50%">
+<strong>Table Data</strong> — browse rows with pagination, FK navigation, and cell copy<br>
+<img src="assets/screenshots/table_data.png" alt="Table Data" width="100%">
+</td>
+</tr>
+<tr>
+<td>
+<strong>Schema</strong> — CREATE statements with SQL syntax highlighting<br>
+<img src="assets/screenshots/schema.png" alt="Schema" width="100%">
+</td>
+<td>
+<strong>Index</strong> — missing-index suggestions with priority and ready-to-use SQL<br>
+<img src="assets/screenshots/index.png" alt="Index" width="100%">
+</td>
+</tr>
+<tr>
+<td>
+<strong>Size</strong> — storage breakdown by table, indexes, and journal mode<br>
+<img src="assets/screenshots/size.png" alt="Size" width="100%">
+</td>
+<td>
+<strong>Perf</strong> — query execution times, slow-query detection, and patterns<br>
+<img src="assets/screenshots/perf.png" alt="Perf" width="100%">
+</td>
+</tr>
+<tr>
+<td>
+<strong>Health</strong> — anomaly scan for NULLs, orphaned FKs, outliers<br>
+<img src="assets/screenshots/health.png" alt="Health" width="100%">
+</td>
+<td>
+<strong>Import</strong> — CSV/JSON/SQL import with column mapping<br>
+<img src="assets/screenshots/import.png" alt="Import" width="100%">
+</td>
+</tr>
+<tr>
+<td>
+<strong>Ask in English</strong> — natural language to SQL with live preview<br>
+<img src="assets/screenshots/ask_in_english.png" alt="Ask in English" width="100%">
+</td>
+<td>
+<strong>Light Mode</strong> — one of four themes (Light, Showcase, Dark, Midnight)<br>
+<img src="assets/screenshots/light_mode.png" alt="Light Mode" width="100%">
+</td>
+</tr>
+</table>
+
 ### Contents
 
+- [Screenshots](#screenshots)
 - [How it works](#how-it-works)
 - [Features](#features)
   - [Scope at a glance](#scope-at-a-glance)
