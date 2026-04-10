@@ -28,14 +28,6 @@ export const SCHEMA_CODES: Record<string, IDiagnosticCode> = {
       'Column "{table}.{column}" ends in _id — consider an index if used in JOINs or WHERE',
     hasFix: true,
   },
-  'missing-datetime-index': {
-    code: 'missing-datetime-index',
-    category: 'schema',
-    defaultSeverity: vscode.DiagnosticSeverity.Hint,
-    messageTemplate:
-      'Date/time column "{table}.{column}" — consider an index if used in ORDER BY or WHERE',
-    hasFix: true,
-  },
   'orphaned-fk': {
     code: 'orphaned-fk',
     category: 'schema',

@@ -4,7 +4,6 @@
  * Covers provideCodeActions for all diagnostic codes that offer actions:
  *   - missing-fk-index       -> Copy CREATE INDEX
  *   - missing-id-index       -> Copy CREATE INDEX
- *   - missing-datetime-index -> Copy CREATE INDEX
  *   - column-name-acronym-mismatch -> Schema Diff
  *   - missing-column-in-db   -> Generate Migration + Schema Diff
  *   - orphaned-fk            -> View Anomaly Panel
@@ -86,29 +85,6 @@ describe('SchemaProvider', () => {
             new Range(10, 0, 10, 100),
           ),
           'Suggested: CREATE INDEX idx_orders_customer_id ON orders(customer_id)',
-        ),
-      ];
-
-      const actions = provider.provideCodeActions(diag as any, {} as any);
-
-      assert.strictEqual(actions.length, 1);
-      assert.ok(actions.some((a) => a.title.includes('Copy')));
-    });
-
-    it('should provide Copy action for missing-datetime-index', () => {
-      const diag = new Diagnostic(
-        new Range(10, 0, 10, 100),
-        '[drift_advisor] Date/time column may benefit from index',
-        DiagnosticSeverity.Hint,
-      );
-      diag.code = 'missing-datetime-index';
-      diag.relatedInformation = [
-        new DiagnosticRelatedInformation(
-          new Location(
-            Uri.parse('file:///test.dart'),
-            new Range(10, 0, 10, 100),
-          ),
-          'Suggested: CREATE INDEX idx_users_created_at ON users(created_at)',
         ),
       ];
 

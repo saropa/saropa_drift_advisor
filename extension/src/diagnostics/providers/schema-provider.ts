@@ -93,11 +93,10 @@ export class SchemaProvider implements IDiagnosticProvider {
     const actions: vscode.CodeAction[] = [];
     const code = diag.code as string;
 
-    // All three index-suggestion codes share a Copy quick-fix action
+    // Both index-suggestion codes share a Copy quick-fix action
     if (
       (code === 'missing-fk-index' ||
-        code === 'missing-id-index' ||
-        code === 'missing-datetime-index') &&
+        code === 'missing-id-index') &&
       diag.relatedInformation?.[0]
     ) {
       const sql = diag.relatedInformation[0].message.replace(/^Suggested: /, '');

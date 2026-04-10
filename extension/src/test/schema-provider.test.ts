@@ -8,7 +8,7 @@
  *   - column-type-drift (including DateTime build.yaml hint)
  *   - extra-column-in-db
  *   - text-pk
- *   - missing-fk-index / missing-id-index / missing-datetime-index
+ *   - missing-fk-index / missing-id-index
  *
  * Matching/acronym tests live in schema-provider-matching.test.ts.
  * Code-action tests live in schema-provider-actions.test.ts.
@@ -289,7 +289,7 @@ describe('SchemaProvider', () => {
       assert.strictEqual(fkIssues.length, 0, '_id columns must not produce missing-fk-index');
     });
 
-    it('should report missing-datetime-index for low-priority datetime suggestions', async () => {
+    it('should suppress low-priority datetime suggestions (bug 002)', async () => {
       const ctx = createContext({
         dartFiles: [createDartFile('users', ['id', 'created_at'])],
         dbTables: [{ name: 'users', columns: [
@@ -307,13 +307,52 @@ describe('SchemaProvider', () => {
 
       const issues = await provider.collectDiagnostics(ctx);
 
+      // Low-priority datetime suggestions are suppressed to avoid mass
+      // false positives. Legitimate cases are caught by unindexed-where-clause.
       const issue = issues.find((i) => i.code === 'missing-datetime-index');
-      assert.ok(issue, 'Should report missing-datetime-index');
-      assert.ok(issue.message.includes('created_at'));
-      assert.ok(issue.message.includes('Date/time'));
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Hint);
-      // Must NOT use the FK label
-      assert.ok(!issue.message.includes('FK column'));
+      assert.strictEqual(issue, undefined,
+        'Low-priority datetime suggestions must be suppressed (bug 002)');
+    });
+
+    it('should emit high/medium but suppress low when mixed priorities present (bug 002)', async () => {
+      // Verifies that suppressing low-priority suggestions does not
+      // interfere with high and medium suggestions on the same table.
+      const ctx = createContext({
+        dartFiles: [createDartFile('orders', ['id', 'customer_id', 'created_at'])],
+        dbTables: [{ name: 'orders', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'customer_id', type: 'INTEGER', pk: false },
+          { name: 'created_at', type: 'INTEGER', pk: false },
+        ], rowCount: 200 }],
+        indexSuggestions: [
+          {
+            table: 'orders',
+            column: 'customer_id',
+            reason: 'Foreign key without index',
+            sql: 'CREATE INDEX idx_orders_customer_id ON orders(customer_id)',
+            priority: 'high',
+          },
+          {
+            table: 'orders',
+            column: 'created_at',
+            reason: 'Date/time column — often used in ORDER BY or range queries',
+            sql: 'CREATE INDEX idx_orders_created_at ON orders(created_at)',
+            priority: 'low',
+          },
+        ],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      // High-priority FK suggestion must still be emitted
+      const fkIssue = issues.find((i) => i.code === 'missing-fk-index');
+      assert.ok(fkIssue, 'High-priority FK suggestion must still be reported');
+      assert.ok(fkIssue.message.includes('customer_id'));
+
+      // Low-priority datetime suggestion must be suppressed
+      const dtIssue = issues.find((i) => i.code === 'missing-datetime-index');
+      assert.strictEqual(dtIssue, undefined,
+        'Low-priority datetime suggestion must be suppressed even alongside high-priority');
     });
   });
 });

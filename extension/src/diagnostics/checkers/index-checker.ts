@@ -1,13 +1,15 @@
 /**
- * Index suggestion checks: missing indexes on FK, _id, and date/time columns.
+ * Index suggestion checks: missing indexes on FK and _id columns.
  *
  * The server generates three tiers of index suggestions:
  *   - high priority: true FK columns (from PRAGMA foreign_key_list)
  *   - medium priority: columns ending in _id (likely join columns)
- *   - low priority: date/time columns (often used in ORDER BY / WHERE)
+ *   - low priority: date/time columns — suppressed here (see bug 002),
+ *     legitimate cases are caught by query-pattern-checker's
+ *     'unindexed-where-clause' diagnostic instead.
  *
- * Each tier gets its own diagnostic code so the Problems panel message
- * accurately describes why the index was suggested.
+ * High and medium tiers get their own diagnostic code so the Problems
+ * panel message accurately describes why the index was suggested.
  */
 
 import * as vscode from 'vscode';
@@ -18,12 +20,17 @@ import { findDartFileForTable } from '../utils/dart-file-utils';
 /**
  * Resolve the diagnostic code and message for an index suggestion
  * based on its priority tier.
+ *
+ * Returns undefined for 'low' priority (datetime) suggestions — those
+ * are blanket heuristics that produce mass false positives (see bug 002).
+ * Datetime columns that are actually queried are caught by the
+ * 'unindexed-where-clause' diagnostic from query-pattern-checker instead.
  */
 function resolveCodeAndMessage(suggestion: IndexSuggestion): {
   code: string;
   message: string;
   severity: vscode.DiagnosticSeverity;
-} {
+} | undefined {
   switch (suggestion.priority) {
     case 'high':
       // Heuristic 1: true FK from PRAGMA foreign_key_list
@@ -42,12 +49,9 @@ function resolveCodeAndMessage(suggestion: IndexSuggestion): {
       };
 
     case 'low':
-      // Heuristic 3: date/time column suffix
-      return {
-        code: 'missing-datetime-index',
-        message: `Date/time column "${suggestion.table}.${suggestion.column}" — consider an index if used in ORDER BY or WHERE`,
-        severity: vscode.DiagnosticSeverity.Hint,
-      };
+      // Suppressed: blanket datetime heuristic produces 40+ false positives.
+      // Legitimate cases are covered by 'unindexed-where-clause' instead.
+      return undefined;
   }
 }
 
@@ -71,20 +75,12 @@ export function checkMissingIndexes(
       (c) => c.sqlName.toLowerCase() === suggestion.column.toLowerCase(),
     );
 
-    // Skip datetime suggestions for non-datetime Dart types.
-    // The server uses column-name heuristics which can misfire
-    // on columns like "is_free_time" (BoolColumn ending in "time").
-    if (
-      suggestion.priority === 'low' &&
-      dartCol?.dartType != null &&
-      dartCol.dartType !== 'DateTimeColumn'
-    ) {
-      continue;
-    }
+    const resolved = resolveCodeAndMessage(suggestion);
+    if (!resolved) continue;
 
     const line = dartCol?.line ?? dartTable?.line ?? 0;
 
-    const { code, message, severity } = resolveCodeAndMessage(suggestion);
+    const { code, message, severity } = resolved;
 
     issues.push({
       code,

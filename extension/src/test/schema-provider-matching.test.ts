@@ -43,7 +43,10 @@ describe('SchemaProvider', () => {
   });
 
   describe('collectDiagnostics — matching and anomalies', () => {
-    it('should NOT label datetime columns as FK columns', async () => {
+    it('should suppress all low-priority datetime suggestions (bug 002)', async () => {
+      // Low-priority suggestions are blanket datetime heuristics that
+      // produce mass false positives. They are fully suppressed; legitimate
+      // cases are caught by the unindexed-where-clause diagnostic instead.
       const ctx = createContext({
         dartFiles: [createDartFile('keys', ['id', 'updated_at'])],
         dbTables: [{ name: 'keys', columns: [
@@ -61,49 +64,11 @@ describe('SchemaProvider', () => {
 
       const issues = await provider.collectDiagnostics(ctx);
 
-      // No issue should use the missing-fk-index code
-      const fkIssues = issues.filter((i) => i.code === 'missing-fk-index');
-      assert.strictEqual(fkIssues.length, 0, 'Datetime columns must not produce missing-fk-index');
-    });
-
-    it('should skip datetime suggestion for BoolColumn (is_free_time)', async () => {
-      // is_free_time ends in "time" and triggers the server's datetime
-      // heuristic, but it is actually a BoolColumn. The extension-side
-      // filter should suppress it.
-      const dartFile = createDartFile('calendar_events', ['id', 'title']);
-      // Manually add a BoolColumn named is_free_time to the dart file.
-      dartFile.tables[0].columns.push({
-        dartName: 'isFreeTime',
-        sqlName: 'is_free_time',
-        dartType: 'BoolColumn',
-        sqlType: 'INTEGER',
-        nullable: true,
-        autoIncrement: false,
-        line: 15,
-      });
-
-      const ctx = createContext({
-        dartFiles: [dartFile],
-        dbTables: [{ name: 'calendar_events', columns: [
-          { name: 'id', type: 'INTEGER', pk: true },
-          { name: 'title', type: 'TEXT', pk: false },
-          { name: 'is_free_time', type: 'INTEGER', pk: false },
-        ], rowCount: 100 }],
-        indexSuggestions: [{
-          table: 'calendar_events',
-          column: 'is_free_time',
-          reason: 'Date/time column — often used in ORDER BY or range queries',
-          sql: 'CREATE INDEX idx_calendar_events_is_free_time ON calendar_events(is_free_time)',
-          priority: 'low',
-        }],
-      });
-
-      const issues = await provider.collectDiagnostics(ctx);
-
-      // BoolColumn should NOT produce a datetime index suggestion.
+      // No datetime or FK issue should be produced for low-priority suggestions
       const dtIssue = issues.find((i) => i.code === 'missing-datetime-index');
-      assert.strictEqual(dtIssue, undefined,
-        'BoolColumn is_free_time must not trigger missing-datetime-index');
+      assert.strictEqual(dtIssue, undefined, 'Low-priority suggestions must be suppressed');
+      const fkIssues = issues.filter((i) => i.code === 'missing-fk-index');
+      assert.strictEqual(fkIssues.length, 0, 'Low-priority suggestions must not produce FK issues');
     });
 
     it('should report orphaned-fk from anomalies', async () => {

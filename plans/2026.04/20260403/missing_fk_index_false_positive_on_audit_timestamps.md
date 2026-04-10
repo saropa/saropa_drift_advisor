@@ -208,6 +208,10 @@ Key-value settings table with a unique index on `settingKey`. All queries use `s
 
 5. **`extension/src/test/schema-provider-test-helpers.ts`** — Fixed `priority` union type to include `'medium'`.
 
+### Follow-up (2026-04-10): Low-priority tier fully suppressed (bug 002)
+
+Even with the correct `missing-datetime-index` label and Hint severity, the blanket datetime heuristic still produced 40+ false positives. The `missing-datetime-index` diagnostic code has been removed entirely — `resolveCodeAndMessage()` now returns `undefined` for `low` priority suggestions. Datetime columns that actually appear in WHERE/ORDER BY are caught by the evidence-based `unindexed-where-clause` diagnostic from `query-pattern-checker` instead.
+
 ## Related
 
 - Bug report `no_foreign_keys_false_positive_on_intentionally_isolated_tables.md` — same pattern: a heuristic that lacks schema-context awareness produces false positives that erode trust
