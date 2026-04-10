@@ -4,7 +4,7 @@ import type { Anomaly } from '../api-types';
  * Build HTML for the Anomalies webview panel.
  * Shows a filterable list of detected anomalies with severity icons.
  */
-export function buildAnomaliesHtml(anomalies: Anomaly[]): string {
+export function buildAnomaliesHtml(anomalies: Anomaly[], historyCount: number = 0): string {
   if (anomalies.length === 0) {
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
@@ -134,6 +134,8 @@ export function buildAnomaliesHtml(anomalies: Anomaly[]): string {
   <h1>Anomalies</h1>
   <div class="btn-group">
     <button class="btn btn-secondary" data-action="refresh">Refresh</button>
+    <button class="btn btn-secondary" data-action="saveSnapshot">Save Snapshot</button>
+    <button class="btn btn-secondary" data-action="compareHistory">Compare${historyCount > 0 ? ` (${historyCount})` : ''}</button>
     <button class="btn" data-action="generateFixes">Generate Fix SQL</button>
   </div>
 </div>

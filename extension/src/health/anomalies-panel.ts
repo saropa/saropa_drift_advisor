@@ -1,11 +1,18 @@
 /**
  * Singleton webview panel for Anomaly Detection results.
  * Replaces the old showQuickPick-based display with a filterable table.
+ * Supports saving snapshots and comparing analysis history.
  */
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { Anomaly } from '../api-types';
+import type { AnalysisHistoryStore } from '../analysis-history/analysis-history-store';
+import { AnalysisComparePanel } from '../analysis-history/analysis-compare-panel';
+import {
+  renderAnomalies,
+  summarizeAnomalyDiff,
+} from '../analysis-history/analysis-renderers';
 import { buildAnomaliesHtml } from './anomalies-html';
 
 /** Singleton panel showing anomaly detection results. */
@@ -15,10 +22,12 @@ export class AnomaliesPanel {
   private readonly _disposables: vscode.Disposable[] = [];
   private _anomalies: Anomaly[];
   private readonly _client: DriftApiClient;
+  private readonly _historyStore: AnalysisHistoryStore<Anomaly[]>;
 
   static createOrShow(
     anomalies: Anomaly[],
     client: DriftApiClient,
+    historyStore: AnalysisHistoryStore<Anomaly[]>,
   ): void {
     const column = vscode.ViewColumn.Active;
 
@@ -35,17 +44,19 @@ export class AnomaliesPanel {
       { enableScripts: true },
     );
     AnomaliesPanel._currentPanel =
-      new AnomaliesPanel(panel, anomalies, client);
+      new AnomaliesPanel(panel, anomalies, client, historyStore);
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     anomalies: Anomaly[],
     client: DriftApiClient,
+    historyStore: AnalysisHistoryStore<Anomaly[]>,
   ) {
     this._panel = panel;
     this._anomalies = anomalies;
     this._client = client;
+    this._historyStore = historyStore;
 
     this._panel.onDidDispose(
       () => this._dispose(), null, this._disposables,
@@ -64,7 +75,10 @@ export class AnomaliesPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildAnomaliesHtml(this._anomalies);
+    this._panel.webview.html = buildAnomaliesHtml(
+      this._anomalies,
+      this._historyStore.size,
+    );
   }
 
   private async _handleMessage(
@@ -86,6 +100,24 @@ export class AnomaliesPanel {
         vscode.commands.executeCommand(
           'driftViewer.generateAnomalyFixes',
           { anomalies: this._anomalies.filter((a) => a.severity === 'error') },
+        );
+        break;
+      }
+      case 'saveSnapshot': {
+        const entry = this._historyStore.save(this._anomalies);
+        vscode.window.showInformationMessage(
+          `Saved anomaly detection snapshot (${entry.label}).`,
+        );
+        this._render();
+        break;
+      }
+      case 'compareHistory': {
+        AnalysisComparePanel.show(
+          'Anomaly Detection',
+          this._historyStore.getAll(),
+          this._anomalies,
+          renderAnomalies,
+          summarizeAnomalyDiff,
         );
         break;
       }

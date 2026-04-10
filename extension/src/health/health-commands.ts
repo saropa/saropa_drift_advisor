@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { IndexSuggestion, Anomaly } from '../api-types';
 import type { HealthStatusBar } from '../status-bar-health';
+import type { IHealthScore } from './health-types';
+import { AnalysisHistoryStore } from '../analysis-history/analysis-history-store';
 import { HealthScorer } from './health-scorer';
 import { HealthPanel } from './health-panel';
 import { IndexSuggestionsPanel } from './index-suggestions-panel';
@@ -13,6 +15,20 @@ export function registerHealthCommands(
   client: DriftApiClient,
   healthStatusBar?: HealthStatusBar,
 ): void {
+  // Create history stores backed by workspace state
+  const indexHistoryStore = new AnalysisHistoryStore<IndexSuggestion[]>(
+    context.workspaceState,
+    'driftViewer.analysisHistory.indexSuggestions',
+  );
+  const anomalyHistoryStore = new AnalysisHistoryStore<Anomaly[]>(
+    context.workspaceState,
+    'driftViewer.analysisHistory.anomalies',
+  );
+  const healthHistoryStore = new AnalysisHistoryStore<IHealthScore>(
+    context.workspaceState,
+    'driftViewer.analysisHistory.healthScore',
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.healthScore',
@@ -26,7 +42,7 @@ export function registerHealthCommands(
             },
             () => scorer.compute(client),
           );
-          HealthPanel.createOrShow(score, client);
+          HealthPanel.createOrShow(score, client, healthHistoryStore);
           // Update the status bar so the score is always visible
           healthStatusBar?.update(score.overall, score.grade);
         } catch (err: unknown) {
@@ -48,7 +64,7 @@ export function registerHealthCommands(
             vscode.window.showInformationMessage('No missing indexes detected.');
             return;
           }
-          IndexSuggestionsPanel.createOrShow(suggestions, client);
+          IndexSuggestionsPanel.createOrShow(suggestions, client, indexHistoryStore);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Failed to fetch index suggestions: ${msg}`);
@@ -105,7 +121,7 @@ export function registerHealthCommands(
             vscode.window.showInformationMessage('No anomalies found.');
             return;
           }
-          AnomaliesPanel.createOrShow(anomalies, client);
+          AnomaliesPanel.createOrShow(anomalies, client, anomalyHistoryStore);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Failed to fetch anomalies: ${msg}`);

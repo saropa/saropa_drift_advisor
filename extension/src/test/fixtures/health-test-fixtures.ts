@@ -4,6 +4,20 @@
 
 import * as sinon from 'sinon';
 import { DriftApiClient } from '../../api-client';
+import { AnalysisHistoryStore } from '../../analysis-history/analysis-history-store';
+
+/**
+ * Create a no-op AnalysisHistoryStore for tests.
+ * Uses a fake Memento that stores nothing.
+ */
+export function makeHistoryStore<T>(): AnalysisHistoryStore<T> {
+  const fakeMemento = {
+    get: (_key: string, defaultValue: unknown) => defaultValue,
+    update: () => Promise.resolve(),
+    keys: () => [],
+  };
+  return new AnalysisHistoryStore<T>(fakeMemento as any, 'test.history');
+}
 
 /** Create a DriftApiClient instance for tests (host/port are irrelevant when stubbed). */
 export function makeClient(): DriftApiClient {

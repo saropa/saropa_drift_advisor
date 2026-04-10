@@ -6,6 +6,7 @@ import type { IndexSuggestion } from '../api-types';
  */
 export function buildIndexSuggestionsHtml(
   suggestions: IndexSuggestion[],
+  historyCount: number = 0,
 ): string {
   if (suggestions.length === 0) {
     return `<!DOCTYPE html>
@@ -131,6 +132,8 @@ export function buildIndexSuggestionsHtml(
     <button class="btn btn-secondary" data-action="copySelected">Copy Selected SQL</button>
     <button class="btn btn-secondary" data-action="copyAll">Copy All SQL</button>
     <button class="btn btn-secondary" data-action="exportAnalysis">Export Analysis</button>
+    <button class="btn btn-secondary" data-action="saveSnapshot">Save Snapshot</button>
+    <button class="btn btn-secondary" data-action="compareHistory">Compare${historyCount > 0 ? ` (${historyCount})` : ''}</button>
     <button class="btn" data-action="createAll">Create All Indexes</button>
   </div>
 </div>

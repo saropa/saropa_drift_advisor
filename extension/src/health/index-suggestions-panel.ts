@@ -1,11 +1,18 @@
 /**
  * Singleton webview panel for Index Suggestions.
  * Replaces the old showQuickPick-based display with a full rich table.
+ * Supports saving snapshots and comparing analysis history.
  */
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { IndexSuggestion } from '../api-types';
+import type { AnalysisHistoryStore } from '../analysis-history/analysis-history-store';
+import { AnalysisComparePanel } from '../analysis-history/analysis-compare-panel';
+import {
+  renderIndexSuggestions,
+  summarizeIndexDiff,
+} from '../analysis-history/analysis-renderers';
 import { buildIndexSuggestionsHtml } from './index-suggestions-html';
 
 /** Singleton panel showing index suggestions in a rich table. */
@@ -15,10 +22,12 @@ export class IndexSuggestionsPanel {
   private readonly _disposables: vscode.Disposable[] = [];
   private _suggestions: IndexSuggestion[];
   private readonly _client: DriftApiClient;
+  private readonly _historyStore: AnalysisHistoryStore<IndexSuggestion[]>;
 
   static createOrShow(
     suggestions: IndexSuggestion[],
     client: DriftApiClient,
+    historyStore: AnalysisHistoryStore<IndexSuggestion[]>,
   ): void {
     const column = vscode.ViewColumn.Active;
 
@@ -35,17 +44,19 @@ export class IndexSuggestionsPanel {
       { enableScripts: true },
     );
     IndexSuggestionsPanel._currentPanel =
-      new IndexSuggestionsPanel(panel, suggestions, client);
+      new IndexSuggestionsPanel(panel, suggestions, client, historyStore);
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     suggestions: IndexSuggestion[],
     client: DriftApiClient,
+    historyStore: AnalysisHistoryStore<IndexSuggestion[]>,
   ) {
     this._panel = panel;
     this._suggestions = suggestions;
     this._client = client;
+    this._historyStore = historyStore;
 
     this._panel.onDidDispose(
       () => this._dispose(), null, this._disposables,
@@ -64,7 +75,10 @@ export class IndexSuggestionsPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildIndexSuggestionsHtml(this._suggestions);
+    this._panel.webview.html = buildIndexSuggestionsHtml(
+      this._suggestions,
+      this._historyStore.size,
+    );
   }
 
   private async _handleMessage(
@@ -109,6 +123,25 @@ export class IndexSuggestionsPanel {
         vscode.commands.executeCommand(
           'driftViewer.createAllIndexes',
           { indexes: this._suggestions },
+        );
+        break;
+      }
+      case 'saveSnapshot': {
+        const entry = this._historyStore.save(this._suggestions);
+        vscode.window.showInformationMessage(
+          `Saved index suggestions snapshot (${entry.label}).`,
+        );
+        // Re-render to update the history count badge
+        this._render();
+        break;
+      }
+      case 'compareHistory': {
+        AnalysisComparePanel.show(
+          'Index Suggestions',
+          this._historyStore.getAll(),
+          this._suggestions,
+          renderIndexSuggestions,
+          summarizeIndexDiff,
         );
         break;
       }

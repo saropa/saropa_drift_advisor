@@ -3,6 +3,8 @@ import type { DriftApiClient } from '../api-client';
 import { DiagramPanel } from '../diagram/diagram-panel';
 import { ComparePanel } from '../compare/compare-panel';
 import { SizePanel } from '../analytics/size-panel';
+import { AnalysisHistoryStore } from '../analysis-history/analysis-history-store';
+import type { ISizeAnalytics } from '../api-types';
 import { runImportWizard } from '../import/import-command';
 import { annotateSession, openSession, shareSession } from '../session/session-commands';
 
@@ -11,6 +13,12 @@ export function registerExportCommands(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
 ): void {
+  // History store for size analytics snapshots
+  const sizeHistoryStore = new AnalysisHistoryStore<ISizeAnalytics>(
+    context.workspaceState,
+    'driftViewer.analysisHistory.sizeAnalytics',
+  );
+
   // Export full SQL dump
   context.subscriptions.push(
     vscode.commands.registerCommand(
@@ -166,7 +174,7 @@ export function registerExportCommands(
             },
             () => client.sizeAnalytics(),
           );
-          SizePanel.createOrShow(data);
+          SizePanel.createOrShow(data, sizeHistoryStore);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Size analytics failed: ${msg}`);

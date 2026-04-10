@@ -3,7 +3,7 @@ import type {
 } from './health-types';
 
 /** Build HTML for the health score dashboard webview panel. */
-export function buildHealthHtml(score: IHealthScore): string {
+export function buildHealthHtml(score: IHealthScore, historyCount: number = 0): string {
   if (score.metrics.length === 0) {
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
@@ -182,6 +182,8 @@ export function buildHealthHtml(score: IHealthScore): string {
   <div class="btn-group">
     <button class="btn" data-action="refresh">Refresh</button>
     <button class="btn" data-action="copyReport">Copy Report</button>
+    <button class="btn" data-action="saveSnapshot">Save Snapshot</button>
+    <button class="btn" data-action="compareHistory">Compare${historyCount > 0 ? ` (${historyCount})` : ''}</button>
   </div>
 </div>
 

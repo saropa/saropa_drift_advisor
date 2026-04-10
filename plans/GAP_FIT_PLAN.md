@@ -112,8 +112,8 @@
 
 | Feature                    | Gap           | Effort | Usefulness | Done |
 | -------------------------- | ------------- | ------ | ---------- | ---- |
-| Save analysis history      | **E missing** | Med    | Med        | [ ]  |
-| Compare analyses over time | **E missing** | Med    | Med        | [ ]  |
+| Save analysis history      | **E missing** | Med    | Med        | [x]  |
+| Compare analyses over time | **E missing** | Med    | Med        | [x]  |
 | Export analysis            | **E missing** | Low    | Low        | [x]  |
 | Bulk index creation        | **W missing** | Med    | Med        | [ ]  |
 
@@ -122,13 +122,13 @@
 | Feature              | Gap           | Effort | Usefulness | Done |
 | -------------------- | ------------- | ------ | ---------- | ---- |
 | Stacked bar chart    | **E missing** | Med    | Med        | [x]  |
-| Save/compare history | **E missing** | Med    | Med        | [ ]  |
+| Save/compare history | **E missing** | Med    | Med        | [x]  |
 
 ## 13. Health / Anomaly Detection
 
 | Feature                   | Gap           | Effort | Usefulness | Done |
 | ------------------------- | ------------- | ------ | ---------- | ---- |
-| Save/compare history      | **E missing** | Med    | Med        | [ ]  |
+| Save/compare history      | **E missing** | Med    | Med        | [x]  |
 | Health score (0-100, A-F) | **W missing** | Med    | High       | [x]  |
 | Health panel breakdown    | **W missing** | Med    | High       | [x]  |
 | Generate anomaly fixes    | **W missing** | Med    | Med        | [x]  |
@@ -201,7 +201,7 @@
 | Chart builder (7 types)       | High               | High            | [x]  |
 | PII masking                   | Med                | High            | [x]  |
 | Showcase theme                | Low                | Low             | [x]  |
-| Analysis save/compare history | Med                | Med             | [ ]  |
+| Analysis save/compare history | Med                | Med             | [x]  |
 | Column reorder/visibility     | Med                | Med             | [x]  |
 | Search scope + match nav      | Med                | Med             | [x]  |
 | FK breadcrumb trail           | Med                | High            | [x]  |

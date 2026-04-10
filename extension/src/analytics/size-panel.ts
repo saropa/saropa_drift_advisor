@@ -1,10 +1,16 @@
 /**
  * Singleton webview panel for Database Size Analytics.
- * Follows the SchemaDiffPanel pattern.
+ * Supports saving snapshots and comparing analysis history.
  */
 
 import * as vscode from 'vscode';
 import type { ISizeAnalytics } from '../api-types';
+import type { AnalysisHistoryStore } from '../analysis-history/analysis-history-store';
+import { AnalysisComparePanel } from '../analysis-history/analysis-compare-panel';
+import {
+  renderSizeAnalytics,
+  summarizeSizeDiff,
+} from '../analysis-history/analysis-renderers';
 import { buildSizeHtml } from './size-html';
 
 /** Singleton panel showing database size breakdown. */
@@ -13,8 +19,12 @@ export class SizePanel {
   private readonly _panel: vscode.WebviewPanel;
   private readonly _disposables: vscode.Disposable[] = [];
   private _data: ISizeAnalytics;
+  private readonly _historyStore: AnalysisHistoryStore<ISizeAnalytics>;
 
-  static createOrShow(data: ISizeAnalytics): void {
+  static createOrShow(
+    data: ISizeAnalytics,
+    historyStore: AnalysisHistoryStore<ISizeAnalytics>,
+  ): void {
     const column = vscode.ViewColumn.Beside;
 
     if (SizePanel._currentPanel) {
@@ -29,15 +39,17 @@ export class SizePanel {
       column,
       { enableScripts: true },
     );
-    SizePanel._currentPanel = new SizePanel(panel, data);
+    SizePanel._currentPanel = new SizePanel(panel, data, historyStore);
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     data: ISizeAnalytics,
+    historyStore: AnalysisHistoryStore<ISizeAnalytics>,
   ) {
     this._panel = panel;
     this._data = data;
+    this._historyStore = historyStore;
 
     this._panel.onDidDispose(
       () => this._dispose(), null, this._disposables,
@@ -57,7 +69,10 @@ export class SizePanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildSizeHtml(this._data);
+    this._panel.webview.html = buildSizeHtml(
+      this._data,
+      this._historyStore.size,
+    );
   }
 
   private _handleMessage(msg: { command: string }): void {
@@ -67,6 +82,24 @@ export class SizePanel {
           JSON.stringify(this._data, null, 2),
         );
         break;
+      case 'saveSnapshot': {
+        const entry = this._historyStore.save(this._data);
+        vscode.window.showInformationMessage(
+          `Saved size analytics snapshot (${entry.label}).`,
+        );
+        this._render();
+        break;
+      }
+      case 'compareHistory': {
+        AnalysisComparePanel.show(
+          'Size Analytics',
+          this._historyStore.getAll(),
+          this._data,
+          renderSizeAnalytics,
+          summarizeSizeDiff,
+        );
+        break;
+      }
     }
   }
 

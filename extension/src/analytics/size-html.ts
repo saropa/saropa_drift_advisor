@@ -1,7 +1,7 @@
 import type { ISizeAnalytics } from '../api-types';
 
 /** Build the HTML for the size analytics webview panel. */
-export function buildSizeHtml(data: ISizeAnalytics): string {
+export function buildSizeHtml(data: ISizeAnalytics, historyCount: number = 0): string {
   const used = formatBytes(data.usedSizeBytes);
   const free = formatBytes(data.freeSpaceBytes);
   const total = formatBytes(data.totalSizeBytes);
@@ -94,7 +94,11 @@ export function buildSizeHtml(data: ISizeAnalytics): string {
     <tbody>${tableRows}</tbody>
   </table>
 
-  <button onclick="post('copyReport')">Copy as JSON</button>
+  <div style="display:flex;gap:6px;margin-top:12px;">
+    <button onclick="post('copyReport')">Copy as JSON</button>
+    <button onclick="post('saveSnapshot')">Save Snapshot</button>
+    <button onclick="post('compareHistory')">Compare${historyCount > 0 ? ` (${historyCount})` : ''}</button>
+  </div>
   <script>
     const vscode = acquireVsCodeApi();
     function post(cmd) { vscode.postMessage({ command: cmd }); }

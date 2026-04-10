@@ -1,11 +1,17 @@
 /**
  * Singleton webview panel for Database Health Score dashboard.
- * Follows the DiagramPanel / SizePanel pattern.
+ * Supports saving snapshots and comparing analysis history.
  */
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { IHealthScore } from './health-types';
+import type { AnalysisHistoryStore } from '../analysis-history/analysis-history-store';
+import { AnalysisComparePanel } from '../analysis-history/analysis-compare-panel';
+import {
+  renderHealthScore,
+  summarizeHealthDiff,
+} from '../analysis-history/analysis-renderers';
 import { buildHealthHtml } from './health-html';
 import { HealthScorer } from './health-scorer';
 
@@ -16,8 +22,13 @@ export class HealthPanel {
   private readonly _disposables: vscode.Disposable[] = [];
   private _score: IHealthScore;
   private readonly _client: DriftApiClient;
+  private readonly _historyStore: AnalysisHistoryStore<IHealthScore>;
 
-  static createOrShow(score: IHealthScore, client: DriftApiClient): void {
+  static createOrShow(
+    score: IHealthScore,
+    client: DriftApiClient,
+    historyStore: AnalysisHistoryStore<IHealthScore>,
+  ): void {
     const column = vscode.ViewColumn.Beside;
 
     if (HealthPanel._currentPanel) {
@@ -32,17 +43,19 @@ export class HealthPanel {
       column,
       { enableScripts: true },
     );
-    HealthPanel._currentPanel = new HealthPanel(panel, score, client);
+    HealthPanel._currentPanel = new HealthPanel(panel, score, client, historyStore);
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     score: IHealthScore,
     client: DriftApiClient,
+    historyStore: AnalysisHistoryStore<IHealthScore>,
   ) {
     this._panel = panel;
     this._score = score;
     this._client = client;
+    this._historyStore = historyStore;
 
     this._panel.onDidDispose(
       () => this._dispose(), null, this._disposables,
@@ -62,7 +75,10 @@ export class HealthPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildHealthHtml(this._score);
+    this._panel.webview.html = buildHealthHtml(
+      this._score,
+      this._historyStore.size,
+    );
   }
 
   private _handleMessage(
@@ -87,6 +103,24 @@ export class HealthPanel {
           vscode.commands.executeCommand(msg.actionCommand, msg.args);
         }
         break;
+      case 'saveSnapshot': {
+        const entry = this._historyStore.save(this._score);
+        vscode.window.showInformationMessage(
+          `Saved health score snapshot (${entry.label}).`,
+        );
+        this._render();
+        break;
+      }
+      case 'compareHistory': {
+        AnalysisComparePanel.show(
+          'Health Score',
+          this._historyStore.getAll(),
+          this._score,
+          renderHealthScore,
+          summarizeHealthDiff,
+        );
+        break;
+      }
     }
   }
 

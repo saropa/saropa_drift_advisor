@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { AnomaliesPanel } from '../health/anomalies-panel';
 import { resetMocks, createdPanels } from './vscode-mock';
-import { makeClient } from './fixtures/health-test-fixtures';
+import { makeClient, makeHistoryStore } from './fixtures/health-test-fixtures';
 import type { Anomaly } from '../api-types';
 
 function makeAnomalies(): Anomaly[] {
@@ -30,7 +30,7 @@ describe('AnomaliesPanel', () => {
 
   it('should create a webview panel with anomaly list', () => {
     const client = makeClient();
-    AnomaliesPanel.createOrShow(makeAnomalies(), client);
+    AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
 
     assert.strictEqual(createdPanels.length, 1);
     const html = createdPanels[0].webview.html;
@@ -43,7 +43,7 @@ describe('AnomaliesPanel', () => {
 
   it('should show empty state when no anomalies', () => {
     const client = makeClient();
-    AnomaliesPanel.createOrShow([], client);
+    AnomaliesPanel.createOrShow([], client, makeHistoryStore());
 
     const html = createdPanels[0].webview.html;
     assert.ok(html.includes('No anomalies found'));
@@ -51,15 +51,15 @@ describe('AnomaliesPanel', () => {
 
   it('should reuse existing panel on second call', () => {
     const client = makeClient();
-    AnomaliesPanel.createOrShow(makeAnomalies(), client);
-    AnomaliesPanel.createOrShow(makeAnomalies(), client);
+    AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
+    AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
 
     assert.strictEqual(createdPanels.length, 1, 'singleton should reuse panel');
   });
 
   it('should show severity filter buttons with counts', () => {
     const client = makeClient();
-    AnomaliesPanel.createOrShow(makeAnomalies(), client);
+    AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
 
     const html = createdPanels[0].webview.html;
     // Verify filter buttons include counts
@@ -76,7 +76,7 @@ describe('AnomaliesPanel', () => {
     ];
     sinon.stub(client, 'anomalies').resolves(refreshed);
 
-    AnomaliesPanel.createOrShow(makeAnomalies(), client);
+    AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
     createdPanels[0].webview.simulateMessage({ command: 'refresh' });
 
     // Wait for async refresh to complete
