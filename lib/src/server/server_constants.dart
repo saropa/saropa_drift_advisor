@@ -115,7 +115,7 @@ abstract final class ServerConstants {
   /// Package version displayed in the web UI and health endpoint.
   /// Must match pubspec.yaml: updated on publish version writes, and the Dart
   /// analysis leg of scripts/publish.py reconciles this constant if it drifted.
-  static const String packageVersion = '3.0.3';
+  static const String packageVersion = '3.1.0';
 
   /// jsDelivr CDN base URL for serving web assets and images when
   /// local files are unavailable. Append `@v$packageVersion/…` for
@@ -287,6 +287,7 @@ abstract final class ServerConstants {
 
   /// Patterns for index suggestion heuristics (hoisted to avoid per-column allocation).
   static final RegExp reIdSuffix = RegExp(r'_id$', caseSensitive: false);
+
   /// Matches common datetime column-name suffixes.
   ///
   /// Intentionally excludes bare `time` — it false-positives on boolean
