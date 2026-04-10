@@ -36,6 +36,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Consistent `[drift_advisor]` prefix on all diagnostics** — index-suggestion and invariant-violation diagnostics from the legacy linter paths were missing the `[drift_advisor]` message prefix; all diagnostic messages now include it for consistent filtering in the Problems panel
+
+---
+
 ## [3.0.3]
 
 ### Fixed

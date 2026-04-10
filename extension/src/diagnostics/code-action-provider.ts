@@ -4,6 +4,7 @@
  */
 
 import * as vscode from 'vscode';
+import { DIAGNOSTIC_SOURCE } from './diagnostic-types';
 
 /** Minimal interface for code action delegation (avoids circular dependency). */
 export interface ICodeActionDelegate {
@@ -27,7 +28,7 @@ export class DiagnosticCodeActionProvider implements vscode.CodeActionProvider {
     const actions: vscode.CodeAction[] = [];
 
     for (const diag of context.diagnostics) {
-      if (diag.source !== 'Drift Advisor') {
+      if (diag.source !== DIAGNOSTIC_SOURCE) {
         continue;
       }
       const providerActions = this._manager.provideCodeActions(diag, document);

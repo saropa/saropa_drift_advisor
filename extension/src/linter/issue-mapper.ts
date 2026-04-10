@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { Anomaly, IndexSuggestion } from '../api-client';
 import { escapeRegex, snakeToCamel, snakeToPascal } from '../dart-names';
+import { DIAGNOSTIC_PREFIX, DIAGNOSTIC_SOURCE } from '../diagnostics/diagnostic-types';
 
 /** Unified issue type merging index suggestions and anomalies. */
 export interface ServerIssue {
@@ -141,8 +142,9 @@ export function mapIssuesToDiagnostics(
       const overrideSev =
         issue.source === 'anomaly' ? anomalySeverity : undefined;
       const severity = mapSeverity(issue.severity, overrideSev);
-      const diag = new vscode.Diagnostic(range, issue.message, severity);
-      diag.source = 'Saropa Drift Advisor';
+      const prefixedMessage = `${DIAGNOSTIC_PREFIX} ${issue.message}`;
+      const diag = new vscode.Diagnostic(range, prefixedMessage, severity);
+      diag.source = DIAGNOSTIC_SOURCE;
       diag.code = issue.source;
 
       if (issue.suggestedSql) {

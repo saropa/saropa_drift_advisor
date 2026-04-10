@@ -15,6 +15,7 @@ export {
   DEFAULT_DIAGNOSTIC_CONFIG,
   DIAGNOSTIC_COLLECTION_NAME,
   DIAGNOSTIC_PREFIX,
+  DIAGNOSTIC_SOURCE,
   type DiagnosticCategory,
   type IDartFileInfo,
   type IDiagnosticCode,

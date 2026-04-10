@@ -3,6 +3,7 @@
  */
 
 import * as vscode from 'vscode';
+import { DIAGNOSTIC_PREFIX, DIAGNOSTIC_SOURCE } from '../diagnostics/diagnostic-types';
 import type { InvariantManager } from './invariant-manager';
 import type { IInvariant } from './invariant-types';
 
@@ -94,9 +95,10 @@ export class InvariantDiagnostics implements vscode.Disposable {
     }
 
     const severity = this._mapSeverity(inv.severity);
-    const diag = new vscode.Diagnostic(range, message, severity);
+    const prefixedMessage = `${DIAGNOSTIC_PREFIX} ${message}`;
+    const diag = new vscode.Diagnostic(range, prefixedMessage, severity);
 
-    diag.source = 'Saropa Drift Advisor';
+    diag.source = DIAGNOSTIC_SOURCE;
     diag.code = {
       value: 'invariant-violation',
       target: vscode.Uri.parse(
@@ -227,7 +229,7 @@ export class InvariantCodeActionProvider implements vscode.CodeActionProvider {
     const actions: vscode.CodeAction[] = [];
 
     for (const diag of context.diagnostics) {
-      if (diag.source !== 'Saropa Drift Advisor') continue;
+      if (diag.source !== DIAGNOSTIC_SOURCE) continue;
       if (
         typeof diag.code === 'object' &&
         'value' in diag.code &&

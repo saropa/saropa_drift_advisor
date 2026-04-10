@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
+import { DIAGNOSTIC_SOURCE } from '../diagnostics/diagnostic-types';
 import {
   type DartFileInfo,
   mapIssuesToDiagnostics,
@@ -107,7 +108,7 @@ export class DriftCodeActionProvider implements vscode.CodeActionProvider {
     let hasSchemaIssue = false;
 
     for (const diag of context.diagnostics) {
-      if (diag.source !== 'Saropa Drift Advisor') continue;
+      if (diag.source !== DIAGNOSTIC_SOURCE) continue;
 
       if (diag.code === 'index-suggestion' && diag.relatedInformation?.[0]) {
         const sql = diag.relatedInformation[0].message.replace(

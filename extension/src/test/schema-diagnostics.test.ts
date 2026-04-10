@@ -147,7 +147,7 @@ describe('DriftCodeActionProvider', () => {
       'users.email: FK target',
       vscode.DiagnosticSeverity.Warning,
     );
-    diag.source = 'Saropa Drift Advisor';
+    diag.source = 'Drift Advisor';
     diag.code = 'index-suggestion';
     diag.relatedInformation = [
       new vscode.DiagnosticRelatedInformation(
@@ -179,7 +179,7 @@ describe('DriftCodeActionProvider', () => {
       'test',
       vscode.DiagnosticSeverity.Warning,
     );
-    diag.source = 'Saropa Drift Advisor';
+    diag.source = 'Drift Advisor';
     diag.code = 'index-suggestion';
 
     const actions = provider.provideCodeActions(
@@ -196,7 +196,7 @@ describe('DriftCodeActionProvider', () => {
       'NULL values detected',
       vscode.DiagnosticSeverity.Warning,
     );
-    diag.source = 'Saropa Drift Advisor';
+    diag.source = 'Drift Advisor';
     diag.code = 'anomaly';
 
     const actions = provider.provideCodeActions(

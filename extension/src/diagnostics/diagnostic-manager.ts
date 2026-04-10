@@ -6,6 +6,7 @@ import { DIAGNOSTIC_CODES } from './diagnostic-codes';
 import {
   DIAGNOSTIC_COLLECTION_NAME,
   DIAGNOSTIC_PREFIX,
+  DIAGNOSTIC_SOURCE,
   type IDiagnosticConfig,
   type IDiagnosticContext,
   type IDiagnosticIssue,
@@ -197,7 +198,7 @@ export class DiagnosticManager implements vscode.Disposable {
       const prefixedMessage = `${DIAGNOSTIC_PREFIX} ${issue.message}`;
 
       const diag = new vscode.Diagnostic(issue.range, prefixedMessage, severity);
-      diag.source = 'Drift Advisor';
+      diag.source = DIAGNOSTIC_SOURCE;
       diag.code = issue.code;
 
       if (issue.relatedInfo) {

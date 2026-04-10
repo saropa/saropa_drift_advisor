@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import type { Anomaly, IndexSuggestion } from '../api-client';
+import { DIAGNOSTIC_PREFIX } from '../diagnostics/diagnostic-types';
 import {
   type DartFileInfo,
   type ServerIssue,
@@ -136,10 +137,41 @@ describe('mapIssuesToDiagnostics', () => {
     assert.ok(diags, 'should have diagnostics for the file');
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].range.start.line, 4); // line of `get email =>`
-    assert.strictEqual(diags[0].source, 'Saropa Drift Advisor');
+    assert.strictEqual(diags[0].source, 'Drift Advisor');
     assert.strictEqual(diags[0].code, 'index-suggestion');
     assert.ok(diags[0].relatedInformation);
     assert.strictEqual(diags[0].relatedInformation!.length, 1);
+  });
+
+  it('should prefix every diagnostic message with [drift_advisor]', () => {
+    const issues: ServerIssue[] = [
+      {
+        source: 'index-suggestion',
+        severity: 'warning',
+        table: 'users',
+        column: 'email',
+        message: 'users.email: FK target',
+        suggestedSql: 'CREATE INDEX idx ON users(email)',
+      },
+      {
+        source: 'anomaly',
+        severity: 'warning',
+        table: 'users',
+        column: 'deleted_at',
+        message: 'NULL values in users.deleted_at',
+      },
+    ];
+
+    const result = mapIssuesToDiagnostics(issues, [tableClassFile]);
+    const diags = result.get(tableClassFile.uri.toString())!;
+
+    assert.strictEqual(diags.length, 2);
+    for (const diag of diags) {
+      assert.ok(
+        diag.message.startsWith(DIAGNOSTIC_PREFIX),
+        `Expected message to start with "${DIAGNOSTIC_PREFIX}", got: "${diag.message}"`,
+      );
+    }
   });
 
   it('should fall back to table line when column not found', () => {

@@ -114,7 +114,7 @@ describe('InvariantCodeActionProvider', () => {
     const provider = new InvariantCodeActionProvider(manager);
 
     const mockDiagnostic = {
-      source: 'Saropa Drift Advisor',
+      source: 'Drift Advisor',
       code: { value: 'invariant-violation', target: { toString: () => '' } },
       range: { start: { line: 0 }, end: { line: 0 } },
       message: 'Test violation',
@@ -163,7 +163,7 @@ describe('InvariantCodeActionProvider', () => {
     const provider = new InvariantCodeActionProvider(manager);
 
     const mockDiagnostic = {
-      source: 'Saropa Drift Advisor',
+      source: 'Drift Advisor',
       code: 'index-suggestion',
       range: { start: { line: 0 }, end: { line: 0 } },
       message: 'Index suggestion',

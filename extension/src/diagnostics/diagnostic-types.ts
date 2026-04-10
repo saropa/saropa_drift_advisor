@@ -135,5 +135,8 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: IDiagnosticConfig = {
 /** Prefix added to all diagnostic messages for filtering. */
 export const DIAGNOSTIC_PREFIX = '[drift_advisor]';
 
+/** Value used for `diag.source` on every diagnostic we emit. */
+export const DIAGNOSTIC_SOURCE = 'Drift Advisor';
+
 /** Name of the diagnostic collection in VS Code. */
 export const DIAGNOSTIC_COLLECTION_NAME = 'drift-advisor';
