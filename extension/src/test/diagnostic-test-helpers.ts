@@ -12,9 +12,10 @@ import type { IDartTable } from '../schema-diff/dart-schema';
 /**
  * Regex matching column names that would be `DateTimeColumn` in Drift.
  * Mirrors the server-side `reDateTimeSuffix` pattern from
- * `server_constants.dart`.
+ * `server_constants.dart`. Bare `time` is intentionally excluded —
+ * it false-positives on boolean columns like `is_free_time` (bug 001).
  */
-const DATETIME_NAME_RE = /(created|updated|deleted|date|time|_at)$/i;
+const DATETIME_NAME_RE = /(created|updated|deleted|date|timestamp|_at)$/i;
 
 /** Infer the Drift Dart column type from a column name. */
 function inferDartType(name: string): { dartType: string; sqlType: string } {

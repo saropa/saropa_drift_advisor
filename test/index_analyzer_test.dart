@@ -239,7 +239,7 @@ void main() {
                   {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                   {'name': 'created_at', 'type': 'TEXT', 'pk': 0},
                   {'name': 'event_date', 'type': 'TEXT', 'pk': 0},
-                  {'name': 'start_time', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'event_timestamp', 'type': 'TEXT', 'pk': 0},
                   {'name': 'created', 'type': 'TEXT', 'pk': 0},
                   {'name': 'updated', 'type': 'TEXT', 'pk': 0},
                   {'name': 'deleted', 'type': 'TEXT', 'pk': 0},
@@ -267,12 +267,38 @@ void main() {
             containsAll([
               'created_at',
               'event_date',
-              'start_time',
+              'event_timestamp',
               'created',
               'updated',
               'deleted',
             ]),
           );
+        },
+      );
+
+      test(
+        'columns ending in bare "time" do not trigger datetime heuristic',
+        () async {
+          // Bug 001: is_free_time (BoolColumn) was misclassified as
+          // a datetime column because the regex matched the "time"
+          // suffix. The regex now requires "timestamp" instead.
+          final result = await IndexAnalyzer.getIndexSuggestionsList(
+            mockQueryWithTables(
+              tableColumns: {
+                'calendar_events': [
+                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                  {'name': 'is_free_time', 'type': 'INTEGER', 'pk': 0},
+                  {'name': 'start_time', 'type': 'TEXT', 'pk': 0},
+                  {'name': 'nap_time', 'type': 'INTEGER', 'pk': 0},
+                ],
+              },
+            ),
+          );
+
+          final suggestions = result['suggestions'] as List;
+          // None of these "time"-ending columns should produce
+          // a datetime index suggestion.
+          expect(suggestions, isEmpty);
         },
       );
 

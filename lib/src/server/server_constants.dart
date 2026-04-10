@@ -287,8 +287,14 @@ abstract final class ServerConstants {
 
   /// Patterns for index suggestion heuristics (hoisted to avoid per-column allocation).
   static final RegExp reIdSuffix = RegExp(r'_id$', caseSensitive: false);
+  /// Matches common datetime column-name suffixes.
+  ///
+  /// Intentionally excludes bare `time` — it false-positives on boolean
+  /// columns like `is_free_time` (see bug 001). The `_at` and `date`
+  /// patterns already cover the vast majority of datetime columns;
+  /// `timestamp` covers the remaining edge case.
   static final RegExp reDateTimeSuffix = RegExp(
-    r'(created|updated|deleted|date|time|_at)$',
+    r'(created|updated|deleted|date|timestamp|_at)$',
     caseSensitive: false,
   );
 
