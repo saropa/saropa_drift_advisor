@@ -12,6 +12,7 @@ import {
   refreshDriftConnectionUi as syncDriftConnectionUi,
 } from './connection-ui-state';
 import { DashboardPanel } from './dashboard/dashboard-panel';
+import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 import type { SchemaCache } from './schema-cache/schema-cache';
 import type { ServerDiscovery } from './server-discovery';
@@ -136,7 +137,11 @@ export function setupFinalPhases(
     const applyEnabledState = (enabled: boolean): void => {
       void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', enabled);
       if (enabled) {
-        if (d.discoveryEnabled) d.discovery.start();
+        if (d.discoveryEnabled) {
+          void workspaceUsesDrift().then((isDrift) => {
+            if (isDrift) d.discovery.start();
+          });
+        }
         d.watcher.start();
         if (d.providers) {
           if (d.loadOnConnect) void d.providers.treeProvider.refresh();

@@ -6,7 +6,9 @@
  * in the diagnostics layer (dart-file-parser), not the schema-diff layer.
  */
 import * as assert from 'assert';
-import { isDriftProject } from '../diagnostics/dart-file-parser';
+import * as sinon from 'sinon';
+import { Uri, workspace } from './vscode-mock';
+import { isDriftProject, workspaceUsesDrift } from '../diagnostics/dart-file-parser';
 
 describe('isDriftProject', () => {
   it('should detect drift dependency', () => {
@@ -34,5 +36,57 @@ describe('isDriftProject', () => {
 
   it('should return false for empty pubspec', () => {
     assert.strictEqual(isDriftProject(''), false);
+  });
+});
+
+describe('workspaceUsesDrift', () => {
+  let fsReadStub: sinon.SinonStub;
+
+  beforeEach(() => {
+    fsReadStub = sinon.stub(workspace.fs, 'readFile');
+  });
+
+  afterEach(() => {
+    fsReadStub.restore();
+    (workspace as any).workspaceFolders = undefined;
+  });
+
+  it('should return true when pubspec declares drift dependency', async () => {
+    (workspace as any).workspaceFolders = [
+      { uri: Uri.parse('file:///project'), name: 'project', index: 0 },
+    ];
+    fsReadStub.resolves(
+      new TextEncoder().encode('dependencies:\n  drift: ^2.14.0\n'),
+    );
+
+    assert.strictEqual(await workspaceUsesDrift(), true);
+  });
+
+  it('should return false when pubspec has no drift dependency', async () => {
+    (workspace as any).workspaceFolders = [
+      { uri: Uri.parse('file:///project'), name: 'project', index: 0 },
+    ];
+    fsReadStub.resolves(
+      new TextEncoder().encode('dependencies:\n  provider: ^6.0.0\n'),
+    );
+
+    assert.strictEqual(await workspaceUsesDrift(), false);
+  });
+
+  it('should return false when pubspec.yaml is missing', async () => {
+    (workspace as any).workspaceFolders = [
+      { uri: Uri.parse('file:///project'), name: 'project', index: 0 },
+    ];
+    fsReadStub.rejects(new Error('file not found'));
+
+    assert.strictEqual(await workspaceUsesDrift(), false);
+  });
+
+  it('should return false when no workspace folders exist', async () => {
+    (workspace as any).workspaceFolders = undefined;
+
+    // fs.readFile should never be called — no workspace to read from
+    assert.strictEqual(await workspaceUsesDrift(), false);
+    assert.strictEqual(fsReadStub.callCount, 0);
   });
 });

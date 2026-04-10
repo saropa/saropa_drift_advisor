@@ -11,6 +11,7 @@ import { ServerDiscovery } from './server-discovery';
 import { ServerManager } from './server-manager';
 import { hasFlutterOrDartDebugSession, tryAdbForwardAndRetry } from './android-forward';
 import { isDriftUiConnected } from './connection-ui-state';
+import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 
 /** Delay before trying adb forward after a Flutter/Dart debug session starts (ms). */
@@ -106,8 +107,13 @@ export function bootstrapExtension(
 
   if (!extensionEnabled) {
     serverManager.clearActive();
-  } else {
-    if (discoveryEnabled) discovery.start();
+  } else if (discoveryEnabled) {
+    // Only scan for Drift debug servers in workspaces that actually use Drift.
+    // Without this gate, every VS Code workspace triggers port scanning and
+    // stale "no longer responding" toasts even for non-Drift projects.
+    void workspaceUsesDrift().then((isDrift) => {
+      if (isDrift) discovery.start();
+    });
   }
   context.subscriptions.push({ dispose: () => discovery.dispose() });
   context.subscriptions.push({ dispose: () => serverManager.dispose() });

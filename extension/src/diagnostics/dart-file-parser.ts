@@ -24,7 +24,7 @@ export function isDriftProject(pubspecContent: string): boolean {
  * Read the root pubspec.yaml and check whether this workspace uses Drift.
  * Returns false when the file is missing or unreadable.
  */
-async function workspaceUsesDrift(): Promise<boolean> {
+export async function workspaceUsesDrift(): Promise<boolean> {
   const folders = vscode.workspace.workspaceFolders;
   if (!folders?.length) return false;
 
