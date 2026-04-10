@@ -10,22 +10,6 @@ import type { IDiagnosticIssue } from '../diagnostic-types';
 import { isDriftProject } from '../dart-file-parser';
 
 /**
- * Returns true if the workspace pubspec.yaml lists `drift` (or
- * `saropa_drift_advisor`) as a dependency. Returns false when pubspec
- * doesn't exist or can't be read.
- */
-async function hasDriftDependency(workspaceUri: vscode.Uri): Promise<boolean> {
-  try {
-    const pubspecUri = vscode.Uri.joinPath(workspaceUri, 'pubspec.yaml');
-    const bytes = await vscode.workspace.fs.readFile(pubspecUri);
-    return isDriftProject(Buffer.from(bytes).toString('utf-8'));
-  } catch {
-    // pubspec.yaml doesn't exist or can't be read — not a Drift project
-    return false;
-  }
-}
-
-/**
  * If the client fails to reach the server and hasRecentConnectionError is false,
  * push a connection-error issue. Caller should pass true if connection errors
  * were already recorded recently (e.g. via RuntimeEventStore).
@@ -40,8 +24,12 @@ export async function checkConnection(
   hasRecentConnectionError: boolean,
 ): Promise<void> {
   // Don't warn about a missing Drift server in projects that don't use Drift
-  const isDrift = await hasDriftDependency(workspaceUri);
-  if (!isDrift) {
+  try {
+    const pubspecUri = vscode.Uri.joinPath(workspaceUri, 'pubspec.yaml');
+    const bytes = await vscode.workspace.fs.readFile(pubspecUri);
+    if (!isDriftProject(Buffer.from(bytes).toString('utf-8'))) return;
+  } catch {
+    // pubspec.yaml missing or unreadable — not a Drift project
     return;
   }
 
@@ -58,7 +46,7 @@ export async function checkConnection(
           + `(${detail})`,
         fileUri: workspaceUri,
         range: new vscode.Range(0, 0, 0, 0),
-        severity: vscode.DiagnosticSeverity.Warning,
+        severity: vscode.DiagnosticSeverity.Information,
       });
     }
   }

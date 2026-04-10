@@ -12,6 +12,7 @@ import type {
   IDiagnosticIssue,
   IDiagnosticProvider,
 } from '../diagnostic-types';
+import { isDriftProject } from '../dart-file-parser';
 import { checkConnection } from '../runtime/connection-checker';
 import { eventToIssue } from '../runtime/event-converter';
 import type { IRuntimeEvent } from '../runtime/runtime-event-store';
@@ -78,8 +79,21 @@ export class RuntimeProvider implements IDiagnosticProvider {
 
     if (!this._workspaceUri) {
       const folders = vscode.workspace.workspaceFolders;
-      if (folders && folders.length > 0) {
-        this._workspaceUri = folders[0].uri;
+      if (folders) {
+        // Pick the first workspace folder that actually uses Drift,
+        // so we don't attach diagnostics to unrelated projects.
+        for (const folder of folders) {
+          try {
+            const pubspecUri = vscode.Uri.joinPath(folder.uri, 'pubspec.yaml');
+            const bytes = await vscode.workspace.fs.readFile(pubspecUri);
+            if (isDriftProject(Buffer.from(bytes).toString('utf-8'))) {
+              this._workspaceUri = folder.uri;
+              break;
+            }
+          } catch {
+            // pubspec.yaml missing or unreadable — skip this folder
+          }
+        }
       }
     }
 

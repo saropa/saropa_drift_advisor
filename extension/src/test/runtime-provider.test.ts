@@ -140,7 +140,7 @@ describe('RuntimeProvider', () => {
 
       const issue = issues.find((i) => i.code === 'connection-error');
       assert.ok(issue, 'Should report connection-error');
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Warning);
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
       assert.ok(
         issue.message.includes('DriftDebugServer.start()'),
         'Message should tell user how to start the server',
@@ -182,6 +182,72 @@ describe('RuntimeProvider', () => {
 
       const connectionErrors = issues.filter((i) => i.code === 'connection-error');
       assert.strictEqual(connectionErrors.length, 1, 'Should not duplicate');
+    });
+
+    it('should skip non-Drift folders and target the first Drift folder in multi-root workspace', async () => {
+      // Simulate multi-root workspace: first folder is non-Drift, second is Drift
+      const nonDriftUri = Uri.parse('file:///projects/contacts');
+      const driftUri = Uri.parse('file:///projects/my-drift-app');
+      (workspace as any).workspaceFolders = [
+        { uri: nonDriftUri, name: 'contacts', index: 0 },
+        { uri: driftUri, name: 'my-drift-app', index: 1 },
+      ];
+
+      // Fresh provider so _workspaceUri is not yet cached
+      provider.dispose();
+      provider = new RuntimeProvider();
+
+      // Return non-Drift pubspec for contacts, Drift pubspec for my-drift-app
+      fsReadStub.restore();
+      fsReadStub = sinon.stub(workspace.fs, 'readFile').callsFake(async (uri: any) => {
+        const path = uri.toString();
+        if (path.includes('my-drift-app')) {
+          return new TextEncoder().encode(PUBSPEC_WITH_DRIFT);
+        }
+        return new TextEncoder().encode(PUBSPEC_WITHOUT_DRIFT);
+      });
+
+      const ctx = createContext({
+        generation: () => Promise.reject(new Error('ECONNREFUSED')),
+      });
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const connIssue = issues.find((i) => i.code === 'connection-error');
+      assert.ok(connIssue, 'Should report connection-error');
+      // Diagnostic must target the Drift folder, NOT the first folder
+      assert.strictEqual(
+        connIssue.fileUri.toString(),
+        driftUri.toString(),
+        'Diagnostic should target the Drift project folder, not contacts',
+      );
+    });
+
+    it('should return no diagnostics when no workspace folder is a Drift project', async () => {
+      // Simulate multi-root workspace with zero Drift projects
+      (workspace as any).workspaceFolders = [
+        { uri: Uri.parse('file:///projects/contacts'), name: 'contacts', index: 0 },
+        { uri: Uri.parse('file:///projects/web-app'), name: 'web-app', index: 1 },
+      ];
+
+      // Fresh provider
+      provider.dispose();
+      provider = new RuntimeProvider();
+
+      // All folders return non-Drift pubspecs
+      fsReadStub.restore();
+      fsReadStub = sinon.stub(workspace.fs, 'readFile').resolves(
+        new TextEncoder().encode(PUBSPEC_WITHOUT_DRIFT),
+      );
+
+      // Record an event to verify it's NOT emitted without a workspace URI
+      provider.recordBreakpointHit('users', 'Should be suppressed');
+
+      const ctx = createContext({
+        generation: () => Promise.reject(new Error('ECONNREFUSED')),
+      });
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.strictEqual(issues.length, 0, 'Should emit no diagnostics when no Drift folder exists');
     });
   });
 });

@@ -30,7 +30,7 @@ export const RUNTIME_CODES: Record<string, IDiagnosticCode> = {
   'connection-error': {
     code: 'connection-error',
     category: 'runtime',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate: 'Drift server not reachable — {message}',
     hasFix: true,
   },
