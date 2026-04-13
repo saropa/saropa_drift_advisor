@@ -101,8 +101,9 @@ class TestGitCommitAndPush(unittest.TestCase):
         self.assertIn("commit", commit_call[0][0])
         mock_push.assert_called_once()
 
-    # ── git add fails → return False ───────────────────────────
+    # ── git add fails → prompts skip/abort ──────────────────────
 
+    @patch("modules.git_ops._prompt_skip_or_abort", return_value=False)
     @patch("modules.git_ops.fail")
     @patch("modules.git_ops.info")
     @patch("modules.git_ops.run")
@@ -111,6 +112,7 @@ class TestGitCommitAndPush(unittest.TestCase):
         mock_run: MagicMock,
         mock_info: MagicMock,
         mock_fail: MagicMock,
+        mock_prompt: MagicMock,
     ) -> None:
         config = _make_config()
 
@@ -118,12 +120,52 @@ class TestGitCommitAndPush(unittest.TestCase):
 
         result = git_commit_and_push(config, "2.17.6")
 
+        # Developer chose abort.
         self.assertFalse(result)
         mock_fail.assert_called_once()
         self.assertIn("git add failed", mock_fail.call_args[0][0])
+        # Must prompt instead of hard-aborting.
+        mock_prompt.assert_called_once()
 
-    # ── git commit fails → shows both stderr and stdout ────────
+    # ── "nothing to commit" from git → treat as success ─────────
 
+    @patch("modules.git_ops._warn_dirty_working_tree")
+    @patch("modules.git_ops._push_to_origin", return_value=True)
+    @patch("modules.git_ops.ok")
+    @patch("modules.git_ops.info")
+    @patch("modules.git_ops.run")
+    def test_nothing_to_commit_is_success(
+        self,
+        mock_run: MagicMock,
+        mock_info: MagicMock,
+        mock_ok: MagicMock,
+        mock_push: MagicMock,
+        mock_warn_dirty: MagicMock,
+    ) -> None:
+        """When files are staged but already committed, proceed to push."""
+        config = _make_config()
+
+        # git add → ok, git diff --cached → files (stale index), git commit
+        # → returncode 1 with "nothing to commit" message.
+        mock_run.side_effect = [
+            _run_result(),                                   # git add
+            _run_result(stdout="extension/package.json\n"),  # git diff --cached
+            _run_result(
+                returncode=1,
+                stdout="nothing to commit, working tree clean",
+            ),  # git commit
+        ]
+
+        result = git_commit_and_push(config, "2.17.6")
+
+        # Should succeed and proceed to push, not fail.
+        self.assertTrue(result)
+        mock_ok.assert_any_call("Already committed (nothing new to commit)")
+        mock_push.assert_called_once()
+
+    # ── git commit fails → prompts, shows both stderr and stdout ─
+
+    @patch("modules.git_ops._prompt_skip_or_abort", return_value=False)
     @patch("modules.git_ops.fail")
     @patch("modules.git_ops.info")
     @patch("modules.git_ops.run")
@@ -132,6 +174,7 @@ class TestGitCommitAndPush(unittest.TestCase):
         mock_run: MagicMock,
         mock_info: MagicMock,
         mock_fail: MagicMock,
+        mock_prompt: MagicMock,
     ) -> None:
         """On commit failure, both stderr (hook output) and stdout should appear."""
         config = _make_config()
@@ -148,10 +191,13 @@ class TestGitCommitAndPush(unittest.TestCase):
 
         result = git_commit_and_push(config, "2.17.6")
 
+        # Developer chose abort, so result is False.
         self.assertFalse(result)
         fail_msg = mock_fail.call_args[0][0]
         self.assertIn("hook output here", fail_msg)
         self.assertIn("more details here", fail_msg)
+        # Must prompt instead of hard-aborting.
+        mock_prompt.assert_called_once()
 
     # ── staged files are logged ────────────────────────────────
 

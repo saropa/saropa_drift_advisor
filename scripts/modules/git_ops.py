@@ -4,13 +4,31 @@
 from __future__ import annotations
 
 from modules.constants import REPO_ROOT
-from modules.display import fail, fix, info, ok, warn
+from modules.display import ask_choice, fail, fix, info, ok, warn
 from modules.utils import run
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from modules.target_config import TargetConfig
+
+
+def _prompt_skip_or_abort(label: str) -> bool:
+    """Show a skip/abort prompt after a git failure.
+
+    Returns True if the developer chose to skip (continue), False to abort.
+    Every git failure in the publish pipeline must go through this so the
+    script never hard-aborts without asking.
+    """
+    choice = ask_choice(
+        f"{label}. Choose what to do next",
+        choices=("skip", "abort"),
+        default="abort",
+    )
+    if choice == "skip":
+        warn(f"Skipping: {label} (by user choice).")
+        return True
+    return False
 
 
 def is_version_tagged(version: str, tag_prefix: str) -> bool:
@@ -41,7 +59,8 @@ def _push_to_origin() -> bool:
     """Push current branch to origin.
 
     If push is rejected (non-fast-forward), pulls with merge and
-    retries once.
+    retries once.  All failure paths prompt the developer instead of
+    hard-aborting.
     """
     branch_name = get_current_branch()
 
@@ -60,17 +79,17 @@ def _push_to_origin() -> bool:
         )
         if pull.returncode != 0:
             fail(f"git pull failed: {pull.stderr.strip()}")
-            return False
+            return _prompt_skip_or_abort("git pull failed")
         ok("Merged remote changes")
         push2 = run(["git", "push", "origin", branch_name], cwd=REPO_ROOT)
         if push2.returncode != 0:
             fail(f"git push failed after merge: {push2.stderr.strip()}")
-            return False
+            return _prompt_skip_or_abort("git push failed after merge")
         ok(f"Pushed to origin/{branch_name}")
         return True
 
     fail(f"git push failed: {stderr.strip()}")
-    return False
+    return _prompt_skip_or_abort("git push failed")
 
 
 def git_commit_and_push(config: "TargetConfig", version: str) -> bool:
@@ -91,7 +110,7 @@ def git_commit_and_push(config: "TargetConfig", version: str) -> bool:
     add_result = run(["git", "add", *config.git_stage_paths], cwd=REPO_ROOT)
     if add_result.returncode != 0:
         fail(f"git add failed: {(add_result.stderr or add_result.stdout).strip()}")
-        return False
+        return _prompt_skip_or_abort("git add failed")
 
     # Check only the staging area (index) — unstaged changes in files
     # outside git_stage_paths must not trick us into attempting a commit
@@ -111,6 +130,15 @@ def git_commit_and_push(config: "TargetConfig", version: str) -> bool:
     info(f"Committing {tag}...")
     commit = run(["git", "commit", "-m", msg], cwd=REPO_ROOT)
     if commit.returncode != 0:
+        # "nothing to commit" means an earlier manual commit (or a
+        # previous pipeline run) already captured all staged changes.
+        # Skip straight to push instead of prompting.
+        combined = f"{commit.stdout or ''}\n{commit.stderr or ''}".lower()
+        if "nothing to commit" in combined:
+            ok("Already committed (nothing new to commit)")
+            _warn_dirty_working_tree(config)
+            return _push_to_origin()
+
         # Git sends pre-commit hook output to stderr; show both streams so
         # the operator sees exactly what happened.
         detail = (commit.stderr or "").strip()
@@ -118,7 +146,7 @@ def git_commit_and_push(config: "TargetConfig", version: str) -> bool:
         if stdout_detail:
             detail = f"{detail}\n{stdout_detail}" if detail else stdout_detail
         fail(f"git commit failed:\n{detail}")
-        return False
+        return _prompt_skip_or_abort("git commit failed")
 
     ok(f"Committed: {msg}")
     _warn_dirty_working_tree(config)
@@ -155,13 +183,13 @@ def create_git_tag(config: "TargetConfig", version: str) -> bool:
     )
     if result.returncode != 0:
         fail(f"git tag failed: {result.stderr.strip()}")
-        return False
+        return _prompt_skip_or_abort(f"git tag {tag} failed")
 
     info(f"Pushing tag {tag}...")
     push = run(["git", "push", "origin", tag], cwd=REPO_ROOT)
     if push.returncode != 0:
         fail(f"git push tag failed: {push.stderr.strip()}")
-        return False
+        return _prompt_skip_or_abort(f"git push tag {tag} failed")
 
     ok(f"Tag {tag} created and pushed")
     return True
