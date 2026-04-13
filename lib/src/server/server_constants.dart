@@ -119,7 +119,7 @@ abstract final class ServerConstants {
   /// Package version displayed in the web UI and health endpoint.
   /// Must match pubspec.yaml: updated on publish version writes, and the Dart
   /// analysis leg of scripts/publish.py reconciles this constant if it drifted.
-  static const String packageVersion = '3.1.1';
+  static const String packageVersion = '3.2.0';
 
   /// jsDelivr CDN base URL for serving web assets and images when
   /// local files are unavailable. Append `@v$packageVersion/…` for
@@ -196,6 +196,7 @@ abstract final class ServerConstants {
   static const String authSchemeBasic = 'Basic ';
   static const String headerContentDisposition = 'Content-Disposition';
   static const String headerWwwAuthenticate = 'WWW-Authenticate';
+
   /// HTTP Basic auth realm — reuses [appDisplayName] so the browser prompt
   /// matches the product branding.
   static const String realmDriftDebug = appDisplayName;

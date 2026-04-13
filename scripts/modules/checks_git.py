@@ -90,7 +90,7 @@ def check_working_tree(will_publish: bool = True) -> bool:
             "When you publish later, release staging is Dart: entire repo; extension: "
             "extension/ and scripts/ only."
         )
-    return ask_yn("Continue with uncommitted changes?", default=False)
+    return ask_yn("Continue with uncommitted changes?", default=True)
 
 
 def _check_if_behind() -> bool:

@@ -178,11 +178,15 @@ def _prompt_target() -> str:
     # Prompt in a loop until we get a valid answer.
     while True:
         try:
-            choice = input(f"  {C.YELLOW}Enter choice (1-{len(_TARGETS)}): {C.RESET}").strip()
+            choice = input(f"  {C.YELLOW}Enter choice (1-{len(_TARGETS)}) [1]: {C.RESET}").strip()
         except (EOFError, KeyboardInterrupt):
             # User pressed Ctrl-C or stdin closed — exit gracefully.
             print()
             sys.exit(ExitCode.USER_CANCELLED)
+
+        # Default to first target when the user just presses Enter.
+        if not choice:
+            return _TARGET_KEYS[0]
 
         # Accept a numeric index (1-based).
         if choice in {str(i) for i in range(1, len(_TARGETS) + 1)}:

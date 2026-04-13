@@ -114,7 +114,8 @@ void main() {
               'id': 1,
               'parent': 0,
               'notused': 0,
-              'detail': 'SEARCH TABLE orders USING INDEX idx_orders_user_id (user_id=?)',
+              'detail':
+                  'SEARCH TABLE orders USING INDEX idx_orders_user_id (user_id=?)',
             },
           ];
         }
@@ -151,10 +152,7 @@ void main() {
 
     test('returns error for empty SQL', () async {
       final handler = makeHandler();
-      final result = await handler.explainSqlResult(
-        (_) async => [],
-        '   ',
-      );
+      final result = await handler.explainSqlResult((_) async => [], '   ');
       expect(result, contains('error'));
     });
 

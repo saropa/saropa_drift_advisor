@@ -82,8 +82,7 @@ abstract final class AnomalyDetector {
             // expression as-is, so an empty-string default
             // appears as the two-character string ''.
             final dfltValue = col['dflt_value'];
-            final hasEmptyDefault =
-                dfltValue == "''" || dfltValue == '""';
+            final hasEmptyDefault = dfltValue == "''" || dfltValue == '""';
             if (!hasEmptyDefault) {
               await _detectEmptyStrings(
                 query: query,
@@ -356,8 +355,8 @@ abstract final class AnomalyDetector {
     // mean and standard deviation are poor estimators at
     // small n, and a single extreme value can dominate the
     // statistics. Skip to avoid false positives.
-    final sampleCount =
-        (ServerUtils.toDouble(statsRows.first['cnt']) ?? 0).toInt();
+    final sampleCount = (ServerUtils.toDouble(statsRows.first['cnt']) ?? 0)
+        .toInt();
     if (sampleCount < _minSampleSizeForOutliers) {
       return;
     }

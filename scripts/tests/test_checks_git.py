@@ -64,7 +64,7 @@ class TestCheckWorkingTree(unittest.TestCase):
         mock_run.return_value = _make_run_result(stdout=" M pubspec.yaml\n")
         mock_ask_yn.return_value = True
         self.assertTrue(check_working_tree(will_publish=True))
-        mock_ask_yn.assert_called_once_with("Continue with uncommitted changes?", default=False)
+        mock_ask_yn.assert_called_once_with("Continue with uncommitted changes?", default=True)
         info_arg = mock_info.call_args[0][0]
         self.assertIn("commit, and push", info_arg)
         self.assertIn("entire repo", info_arg)
@@ -84,7 +84,7 @@ class TestCheckWorkingTree(unittest.TestCase):
         mock_run.return_value = _make_run_result(stdout=" M foo.dart\n")
         mock_ask_yn.return_value = True
         self.assertTrue(check_working_tree(will_publish=False))
-        mock_ask_yn.assert_called_once_with("Continue with uncommitted changes?", default=False)
+        mock_ask_yn.assert_called_once_with("Continue with uncommitted changes?", default=True)
         info_arg = mock_info.call_args[0][0]
         self.assertIn("analysis-only", info_arg.lower())
         self.assertIn("nothing will be committed", info_arg.lower())

@@ -254,7 +254,19 @@ def _run_ext_build_and_validate(
     else:
         heading("Step 10 \u00b7 Tests")
         if not run_step("Tests", step_test, results):
-            return "", False, None
+            choice = ask_choice(
+                "Extension tests failed. Choose what to do next",
+                choices=("skip", "abort"),
+                default="abort",
+            )
+            if choice == "skip":
+                warn("Continuing despite test failures by user choice.")
+                # Replace the failed result so the report reflects the override.
+                if results and results[-1][0] == "Tests":
+                    results.pop()
+                results.append(("Tests (skipped)", True, 0.0))
+            else:
+                return "", False, None
 
     version, ok = _validate_version_step(args, results, EXTENSION, "Step 11 \u00b7 Version & CHANGELOG")
     return version, ok, lint_report_path
@@ -287,7 +299,18 @@ def _run_dart_build_steps(
     else:
         heading("Dart \u00b7 Tests")
         if not run_step("Dart tests", run_tests, results):
-            return False
+            choice = ask_choice(
+                "Dart tests failed. Choose what to do next",
+                choices=("skip", "abort"),
+                default="abort",
+            )
+            if choice == "skip":
+                warn("Continuing despite Dart test failures by user choice.")
+                if results and results[-1][0] == "Dart tests":
+                    results.pop()
+                results.append(("Dart tests (skipped)", True, 0.0))
+            else:
+                return False
 
     heading("Dart \u00b7 Analysis")
     if not run_step("Dart analysis", run_analysis, results):
