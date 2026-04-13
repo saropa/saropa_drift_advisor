@@ -67,8 +67,8 @@ Order: producers (`sqlHighlight`, `mastheadStatus`) before consumer (`app.js`), 
 - Remove IIFE, export `initMasthead()` returning the status API object
 - Export `MastheadStatus` interface
 
-### 3c. `fab.js` -> `fab.ts`
-- Remove IIFE, export `initSuperFab(): void`
+### 3c. ~~`fab.js` -> `fab.ts`~~ — DONE and removed
+- FAB replaced by hamburger menu (`hamburger-menu.ts`). Files deleted.
 
 ### 3d. `table-def-toggle.js` -> `table-def-toggle.ts`
 - Remove IIFE, export `initTableDefToggle(): void`
@@ -78,7 +78,7 @@ Order: producers (`sqlHighlight`, `mastheadStatus`) before consumer (`app.js`), 
 import { highlightSql } from './sql-highlight.ts';
 import { initMasthead } from './masthead.ts';
 import './app.js';
-import { initSuperFab } from './fab.ts';
+import { initHamburgerMenu } from './hamburger-menu.ts';
 import { initTableDefToggle } from './table-def-toggle.ts';
 
 // Bridge for app.js (still reads window.*)
@@ -86,7 +86,7 @@ window.sqlHighlight = highlightSql;
 const api = initMasthead();
 if (api) window.mastheadStatus = api;
 
-initSuperFab();
+initHamburgerMenu();
 initTableDefToggle();
 ```
 
@@ -149,5 +149,5 @@ initTableDefToggle();
    - Loading overlay appears then clears
    - Connection status pill works (Online/Offline/Reconnecting)
    - SQL highlighting works
-   - FAB menu opens/closes
+   - Hamburger menu opens/closes
    - Table definition toggle works
