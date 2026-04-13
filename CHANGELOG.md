@@ -36,6 +36,19 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Project name in masthead pill** — "Saropa Drift Advisor" now appears between the logo and version badge, making the product identifiable at a glance
+
+### Changed
+
+- **Removed project logo from tab bar** — the small icon next to the Tables tab has been removed; the logo remains in the masthead pill
+- **Dimmed version number in masthead** — the version badge is now muted grey, keeping it readable but visually secondary to the project name
+
+---
+
 ## [3.1.1]
 
 ### Fixed

@@ -6,6 +6,7 @@
 // URLs when local asset files cannot be found.
 
 import 'package:saropa_drift_advisor/src/server/html_content.dart';
+import 'package:saropa_drift_advisor/src/server/server_constants.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -181,8 +182,8 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // Logo: verifies the CDN-hosted logo img tag is well-formed, has an
-  // onerror fallback, and uses the correct accessibility attributes.
+  // Logo: the CDN-hosted logo is used only in the masthead pill now.
+  // The tab-bar logo was removed — these tests verify the masthead usage.
   // -------------------------------------------------------------------------
   group('HtmlContent app logo', () {
     late String html;
@@ -219,12 +220,11 @@ void main() {
       );
     });
 
-    test('logo img tag has alt text and presentation role', () {
-      expect(html, contains('class="tab-bar-logo"'));
+    test('tab-bar does not contain a logo image', () {
       expect(
         html,
-        contains('role="presentation"'),
-        reason: 'Decorative logo needs role="presentation" for a11y',
+        isNot(contains('class="tab-bar-logo"')),
+        reason: 'Tab-bar logo was removed; logo lives only in masthead',
       );
     });
   });
@@ -308,6 +308,32 @@ void main() {
         html,
         contains('aria-live="polite"'),
         reason: 'Status changes must be announced to screen readers',
+      );
+    });
+
+    test('masthead pill contains project name from constant', () {
+      expect(
+        html,
+        contains('class="masthead-name"'),
+        reason: 'Project name span must be present in the masthead pill',
+      );
+      expect(
+        html,
+        contains(ServerConstants.appDisplayName),
+        reason:
+            'Masthead must display the canonical app name from ServerConstants',
+      );
+    });
+
+    test('loading overlay uses appDisplayName constant', () {
+      // The loading overlay should reference the same display name constant
+      // as the masthead, so both stay in sync if the name ever changes.
+      expect(
+        html,
+        contains(
+          '${ServerConstants.appDisplayName} v${ServerConstants.packageVersion}',
+        ),
+        reason: 'Loading overlay must combine appDisplayName + packageVersion',
       );
     });
   });

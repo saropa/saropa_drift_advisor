@@ -53,6 +53,7 @@ abstract final class HtmlContent {
     <!-- Combined masthead pill: logo · version · connection status. -->
     <div class="masthead-pill" id="masthead-pill">
       <img src="$_appLogoUrl" onerror="this.onerror=null;this.src='$_appLogoUrlFallback'" alt="" class="masthead-logo" role="presentation" />
+      <span class="masthead-name">${ServerConstants.appDisplayName}</span>
       <a id="version-badge" class="masthead-version" href="https://marketplace.visualstudio.com/items/Saropa.drift-viewer/changelog" target="_blank" rel="noopener noreferrer" title="View changelog" style="opacity:0;"> </a>
       <span class="masthead-sep" aria-hidden="true">\u2013</span>
       <button type="button" id="live-indicator" class="masthead-status connection-status" title="Online, paused, or offline \u2014 connection status" aria-live="polite">\u25cf Online</button>
@@ -125,7 +126,7 @@ abstract final class HtmlContent {
        Shows a startup diagnostic sequence with version and asset source. -->
   <div id="sda-loading" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#1e1e2e;color:#cdd6f4;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.85rem;line-height:1.6">
     <div style="text-align:left;min-width:320px">
-      <div style="color:#89b4fa;font-weight:bold;margin-bottom:0.5em">Saropa Drift Advisor v${ServerConstants.packageVersion}</div>
+      <div style="color:#89b4fa;font-weight:bold;margin-bottom:0.5em">${ServerConstants.appDisplayName} v${ServerConstants.packageVersion}</div>
       <div style="border-top:1px solid #45475a;margin-bottom:0.5em"></div>
       <div>$cssStatus stylesheet ($cssSource)</div>
       <div>$jsStatus bundle.js ($jsSource)</div>
@@ -214,7 +215,6 @@ abstract final class HtmlContent {
         <button type="button" class="toolbar-tool-btn" data-tool="export" title="Export schema, data, or database"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">download</span><span class="toolbar-tool-label">Export</span></button>
       </div>
       <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Views">
-        <img src="$_appLogoUrl" onerror="this.onerror=null;this.src='$_appLogoUrlFallback'" alt="Saropa Drift Adviser" class="tab-bar-logo" title="Saropa Drift Adviser" role="presentation" />
         <button type="button" class="tab-btn active" data-tab="tables" role="tab" aria-selected="true" aria-controls="panel-tables" id="tab-tables">Tables</button>
         <button type="button" class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="panel-search" id="tab-search">Search</button>
         <button type="button" class="tab-btn" data-tab="sql" role="tab" aria-selected="false" aria-controls="panel-sql" id="tab-sql">Run SQL</button>
