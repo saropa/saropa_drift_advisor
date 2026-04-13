@@ -15,9 +15,9 @@
     "build": "npm run build:js && npm run build:style"
   },
   "devDependencies": {
-    "esbuild": "^0.25",
+    "esbuild": "^0.28",
     "husky": "^9.1.7",
-    "sass": "^1.81",
+    "sass": "^1.99",
     "typescript": "^5.7"
   }
 }
