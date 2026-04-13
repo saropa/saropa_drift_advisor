@@ -1,10 +1,12 @@
-/* --- Masthead pill: logo · version · connection status ---
+/* --- Masthead pill: logo · name · version · connection status ---
  *
  * Self-contained styles for the combined status pill in the app header.
  * The pill is rendered by `HtmlContent._buildMastheadPill()` in
  * `lib/src/server/html_content.dart` and updated at runtime by
  * `updatePollingUI` / `updateLiveIndicatorForConnection` in `app.js`.
  *
+ * Classes: .masthead-pill, .masthead-logo, .masthead-name,
+ *          .masthead-version, .masthead-sep, .masthead-status.
  * IDs referenced: #masthead-pill, #version-badge, #live-indicator.
  */
 
@@ -31,15 +33,22 @@
   image-rendering: auto;
 }
 
-/* Version link inside the pill — links to VS Code Marketplace changelog. */
+/* Project name inside the pill. */
+.masthead-name {
+  font-weight: 600;
+}
+
+/* Version link inside the pill — links to VS Code Marketplace changelog.
+ * Dimmed grey so it's readable but secondary to the project name. */
 .masthead-version {
-  color: var(--fg);
+  color: var(--muted);
   text-decoration: none;
-  opacity: 0.8;
+  opacity: 0.7;
   transition: opacity 0.15s ease;
   &:hover {
     text-decoration: underline;
     opacity: 1;
+    color: var(--fg);
   }
 }
 

@@ -112,6 +112,10 @@ abstract final class ServerConstants {
   static const String pathWebApp = '/assets/web/bundle.js';
   static const String pathWebAppAlt = 'assets/web/bundle.js';
 
+  /// Human-readable product name shown in the web-UI masthead and loading
+  /// overlay. Centralised here so every display site stays in sync.
+  static const String appDisplayName = 'Saropa Drift Advisor';
+
   /// Package version displayed in the web UI and health endpoint.
   /// Must match pubspec.yaml: updated on publish version writes, and the Dart
   /// analysis leg of scripts/publish.py reconciles this constant if it drifted.
@@ -192,7 +196,9 @@ abstract final class ServerConstants {
   static const String authSchemeBasic = 'Basic ';
   static const String headerContentDisposition = 'Content-Disposition';
   static const String headerWwwAuthenticate = 'WWW-Authenticate';
-  static const String realmDriftDebug = 'Saropa Drift Advisor';
+  /// HTTP Basic auth realm — reuses [appDisplayName] so the browser prompt
+  /// matches the product branding.
+  static const String realmDriftDebug = appDisplayName;
   static const String sqlSchemaMaster =
       "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type, name";
   static const String authRequiredMessage =
