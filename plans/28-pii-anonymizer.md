@@ -30,7 +30,7 @@ There is no mechanism to detect or redact personally identifiable information (P
 
 ### Web UI / Server (BUG-015) — Partial
 
-**Done:** User toggle "Mask data" in the UI header; auto-detect PII columns by name (email, password, phone, ssn, token, secret, api_key, address); mask values in table display and in Table CSV export when toggle is on; copy button and cell popup show masked value when on; re-render on toggle.
+**Done:** User toggle "Mask data" in the FAB menu; auto-detect PII columns by two-tier heuristic — substring patterns (email, password, phone, ssn, token, secret, api\_key, address, salary, credit\_card, passport, license, dob, biometric, etc.) and word-boundary patterns (name, first, last, username, tel, ip, city, zip, lat/lng, routing, etc.); format-aware masking (email preserves domain, names show initial, numeric PII fully redacted, locations show 2-char prefix); MASKED badge in masthead pill when active; mask values in table display, search results, and CSV export when toggle is on; copy button and cell popup show masked value when on; re-render on toggle without page refresh.
 
 **Not done:** Server-side configuration of columns to always mask; `.drift-mask.json` config file.
 

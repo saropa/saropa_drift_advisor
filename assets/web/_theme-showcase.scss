@@ -1,0 +1,178 @@
+/* ==========================================================================
+   SHOWCASE THEME -- Glassmorphism, rainbow accents, animations
+   ==========================================================================
+   Glassmorphism requires three ingredients working together:
+   1. A colorful, moving background behind frosted surfaces.
+   2. Semi-transparent surfaces (rgba) so the background bleeds through.
+   3. backdrop-filter: blur() to frost what bleeds through.
+
+   The key fix (TH1): gradient stops are now saturated pastels instead of
+   near-white values, so the frost effect is actually visible. Surface
+   opacities lowered (TH2) and blur strengthened for the characteristic
+   frosted-glass diffusion.
+   ========================================================================== */
+
+/* Animated gradient background — saturated pastel aurora (TH1).
+ * Old stops were near-white (#e0e7ff etc.) — invisible when frosted.
+ * New stops have 40-60% saturation so frosted surfaces visibly tint. */
+body.theme-showcase {
+  background:
+    linear-gradient(135deg,
+      #c7d2fe 0%, #fbc7d4 20%, #fed7aa 40%,
+      #bae6fd 60%, #ddd6fe 80%, #c7d2fe 100%);
+  background-size: 400% 400%;
+  animation: showcase-bg-shift 20s ease infinite;
+}
+
+@keyframes showcase-bg-shift {
+  0%, 100% { background-position: 0% 50%; }
+  25%      { background-position: 100% 25%; }
+  50%      { background-position: 50% 100%; }
+  75%      { background-position: 25% 0%; }
+}
+
+/* Frosted glass header — lower opacity so gradient bleeds through (TH2).
+ * Stronger blur + saturate for the characteristic frosted-glass look. */
+body.theme-showcase .app-header {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7),
+    0 4px 16px rgba(99, 102, 241, 0.1);
+}
+
+/* Frosted glass sidebar — lower opacity than header for variety. */
+body.theme-showcase .app-sidebar {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  border-right-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Main content area — subtle frost so cards pop on top. */
+body.theme-showcase .app-main-content {
+  background: rgba(250, 251, 254, 0.5);
+}
+
+/* Frosted feature cards with violet glow on hover.
+ * Lowered opacity (0.50) lets gradient peek through card body (TH2). */
+body.theme-showcase .feature-card {
+  background: rgba(255, 255, 255, 0.50);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 2px 8px rgba(99, 102, 241, 0.08),
+    0 8px 24px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: border-color 0.3s ease, box-shadow 0.4s ease, transform 0.3s ease;
+}
+
+body.theme-showcase .feature-card:hover {
+  border-color: rgba(109, 40, 217, 0.3);
+  box-shadow:
+    0 4px 12px rgba(99, 102, 241, 0.12),
+    0 12px 32px rgba(99, 102, 241, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transform: translateY(-1px);
+}
+
+/* Expanded card — rainbow shimmer border via animated gradient mask.
+ * position: relative needed for the ::before pseudo-element border. */
+body.theme-showcase .feature-card.expanded {
+  position: relative;
+  border-color: transparent;
+  background-clip: padding-box;
+  box-shadow:
+    0 0 0 1px rgba(109, 40, 217, 0.25),
+    0 4px 16px rgba(99, 102, 241, 0.14),
+    0 12px 32px rgba(99, 102, 241, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Rainbow shimmer border on expanded cards — animated gradient mask. */
+body.theme-showcase .feature-card.expanded::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    #6d28d9, #ec4899, #f59e0b, #10b981, #3b82f6, #6d28d9
+  );
+  background-size: 300% 300%;
+  animation: showcase-rainbow-border 4s linear infinite;
+  /* Mask trick: only the 1px border ring is visible, centre is transparent */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes showcase-rainbow-border {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Frosted browse cards — lower opacity to match new design (TH2). */
+body.theme-showcase .tables-browse-card {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 2px 8px rgba(99, 102, 241, 0.06),
+    0 8px 24px rgba(99, 102, 241, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: background 0.3s ease, border-color 0.3s ease,
+              box-shadow 0.4s ease, transform 0.3s ease;
+}
+
+body.theme-showcase .tables-browse-card:hover {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(109, 40, 217, 0.25);
+  box-shadow:
+    0 4px 12px rgba(99, 102, 241, 0.12),
+    0 12px 28px rgba(99, 102, 241, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transform: translateY(-2px);
+}
+
+/* Gradient primary button with violet glow. */
+body.theme-showcase .btn-primary {
+  background: linear-gradient(135deg, #6d28d9, #7c3aed, #8b5cf6);
+  background-size: 200% 200%;
+  box-shadow: 0 2px 8px rgba(109, 40, 217, 0.3);
+  transition: background-position 0.4s ease, box-shadow 0.3s ease, transform 0.15s ease;
+}
+
+body.theme-showcase .btn-primary:hover:not(:disabled) {
+  background-position: 100% 0;
+  box-shadow: 0 4px 16px rgba(109, 40, 217, 0.4);
+}
+
+/* Header buttons — glass style with white frost border. */
+body.theme-showcase .header-btn {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(255, 255, 255, 0.5);
+  transition: background 0.2s ease, border-color 0.25s ease, box-shadow 0.3s ease;
+}
+
+body.theme-showcase .header-btn:hover {
+  background: rgba(255, 255, 255, 0.65);
+  border-color: rgba(109, 40, 217, 0.25);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
+  color: var(--link);
+}

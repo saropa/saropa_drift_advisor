@@ -113,10 +113,12 @@ describe('formatCsv with PII masking', () => {
     const lines = result.split('\n');
     // Header is unmasked
     assert.strictEqual(lines[0], 'id,email,name');
-    // Email column is masked, name is not
+    // Email column is masked; "name" is now PII (word-boundary match)
+    // so it shows first initial + ***.
     assert.ok(lines[1].includes('a***@example.com'), 'email should be masked');
-    assert.ok(lines[1].includes('Alice'), 'name should not be masked');
+    assert.ok(lines[1].includes('A***'), 'name should be masked to first initial');
     assert.ok(lines[2].includes('b***@example.com'), 'second email masked');
+    assert.ok(lines[2].includes('B***'), 'second name should be masked');
   });
 
   it('should not mask when maskPii is false', () => {

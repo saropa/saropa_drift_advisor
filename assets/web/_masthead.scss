@@ -59,14 +59,35 @@
 }
 
 /* Connection status portion of the pill (Online / Paused / Offline).
- * Styled as a borderless button so it remains tappable for toggling
- * change-detection polling without looking like a separate control. */
+ * Tappable for toggling change-detection polling. Now has a subtle
+ * background and rounded shape so it reads as interactive (H1).
+ * Old style was borderless/backgroundless — invisible as a button. */
 .masthead-status {
-  background: none;
+  background: rgba(128, 128, 128, 0.08);
   border: none;
-  padding: 0;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
   font: inherit;
   cursor: pointer;
   color: inherit;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.masthead-status:hover {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+/* MASKED badge — shown inside the pill when PII masking is active.
+ * Bright warning-orange background so it's impossible to miss. Hidden
+ * by default (display:none in HTML); toggled by initPiiMaskToggle(). */
+.masthead-mask-badge {
+  background: var(--warning, #e67e22);
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  user-select: none;
+  line-height: 1;
 }

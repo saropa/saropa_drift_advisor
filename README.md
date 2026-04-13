@@ -153,7 +153,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Client-side row filter** search with **result navigation** — Search options live behind the toolbar **Search** icon; a **Search** tab shows results in a dedicated panel. Auto-scroll to match, "X of Y" counter, Prev/Next buttons; keyboard shortcuts (Enter/Shift+Enter, Ctrl+G, Ctrl+F, Escape); active match highlight; collapsed sections expand when navigating to a match. **All rows / Matching** toggle when a row filter is set; **Schema** and **Table data** sections are collapsible in the Both view.
 - **Foreign key navigation** — click FK values to jump to the referenced row; **clickable breadcrumb steps** (jump to any table in the trail); breadcrumb persistence in localStorage; "Clear path" button
 - **Data type display toggle** — raw SQLite values or human-readable (epoch → ISO 8601, 0/1 → true/false)
-- **PII masking toggle** — header **Mask** checkbox masks sensitive columns (email, phone, password, token, SSN, address) in table view and Table CSV export (e.g. `j***@example.com`, `***-***-1234`); copy and export respect the toggle
+- **PII masking toggle** — hamburger menu **Mask** checkbox masks sensitive columns (email, phone, name, address, salary, SSN, passport, license, credit card, IP, location, and many more) in table view, search results, and CSV export (e.g. `j***@example.com`, `A***`, `***-***-1234`); a **MASKED** badge appears in the masthead pill when active; copy and export respect the toggle
 - **One-click cell copy** on hover with toast notification; long values truncate with ellipsis; **double-click a cell** to view full value in a popup with Copy button (Escape or backdrop to close)
 
 #### Query Tools

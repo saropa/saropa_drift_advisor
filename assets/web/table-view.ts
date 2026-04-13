@@ -384,11 +384,41 @@ export function getPkColumnNameForDataTable() {
   return null;
 }
 
-/** PII mask toggle: re-render table when toggled. */
+/**
+ * Toggles the masthead MASKED badge visibility to match the checkbox state.
+ * Called on init (to restore state) and on every change event.
+ */
+function syncMastheadMaskBadge(checked: boolean): void {
+  var badge = document.getElementById('masthead-mask-badge');
+  if (badge) badge.style.display = checked ? '' : 'none';
+}
+
+/**
+ * PII mask toggle: update masthead badge and re-render current view
+ * when toggled so the user sees immediate feedback without a page refresh.
+ */
 export function initPiiMaskToggle(): void {
-  var cb = document.getElementById('fab-pii-mask-toggle');
+  var cb = document.getElementById('hamburger-pii-mask-toggle') as HTMLInputElement | null;
   if (!cb) return;
+
+  // Sync badge on page load in case browser restores checkbox state.
+  syncMastheadMaskBadge(cb.checked);
+
   cb.addEventListener('change', function() {
-    if (S.currentTableName && S.currentTableJson) renderTableView(S.currentTableName, S.currentTableJson);
+    // Update masthead badge immediately so the user sees feedback
+    // even if no PII columns exist in the current table.
+    syncMastheadMaskBadge(cb!.checked);
+
+    // Re-render current table view so masked/unmasked values update.
+    if (S.currentTableName && S.currentTableJson) {
+      renderTableView(S.currentTableName, S.currentTableJson);
+    }
+
+    // Re-render search results if the search tab has content, so
+    // masked values stay consistent across all visible panels.
+    var searchResults = document.getElementById('search-results');
+    if (searchResults && searchResults.innerHTML.indexOf('<table') >= 0) {
+      applySearch();
+    }
   });
 }
