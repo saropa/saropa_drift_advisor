@@ -40,11 +40,6 @@ export function mergeServerIssues(
   const issues: ServerIssue[] = [];
 
   for (const s of suggestions) {
-    // Skip low-priority (datetime) suggestions — blanket heuristic produces
-    // mass false positives (bug 002). Legitimate cases are caught by the
-    // evidence-based 'unindexed-where-clause' diagnostic instead.
-    if (s.priority === 'low') continue;
-
     issues.push({
       source: 'index-suggestion',
       severity: s.priority === 'high' ? 'warning' : 'info',

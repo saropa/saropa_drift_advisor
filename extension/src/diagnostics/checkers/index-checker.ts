@@ -1,15 +1,14 @@
 /**
  * Index suggestion checks: missing indexes on FK and _id columns.
  *
- * The server generates three tiers of index suggestions:
+ * The server generates two tiers of index suggestions:
  *   - high priority: true FK columns (from PRAGMA foreign_key_list)
  *   - medium priority: columns ending in _id (likely join columns)
- *   - low priority: date/time columns — suppressed here (see bug 002),
- *     legitimate cases are caught by query-pattern-checker's
- *     'unindexed-where-clause' diagnostic instead.
  *
- * High and medium tiers get their own diagnostic code so the Problems
- * panel message accurately describes why the index was suggested.
+ * Each tier gets its own diagnostic code so the Problems panel message
+ * accurately describes why the index was suggested. Datetime index
+ * suggestions are handled separately by the evidence-based
+ * 'unindexed-where-clause' diagnostic from query-pattern-checker.
  */
 
 import * as vscode from 'vscode';
@@ -20,11 +19,6 @@ import { findDartFileForTable } from '../utils/dart-file-utils';
 /**
  * Resolve the diagnostic code and message for an index suggestion
  * based on its priority tier.
- *
- * Returns undefined for 'low' priority (datetime) suggestions — those
- * are blanket heuristics that produce mass false positives (see bug 002).
- * Datetime columns that are actually queried are caught by the
- * 'unindexed-where-clause' diagnostic from query-pattern-checker instead.
  */
 function resolveCodeAndMessage(suggestion: IndexSuggestion): {
   code: string;
@@ -48,9 +42,9 @@ function resolveCodeAndMessage(suggestion: IndexSuggestion): {
         severity: vscode.DiagnosticSeverity.Hint,
       };
 
-    case 'low':
-      // Suppressed: blanket datetime heuristic produces 40+ false positives.
-      // Legitimate cases are covered by 'unindexed-where-clause' instead.
+    default:
+      // Unknown priority tier — skip rather than emit a
+      // confusing diagnostic.
       return undefined;
   }
 }

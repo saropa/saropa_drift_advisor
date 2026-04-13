@@ -36,6 +36,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Eliminated 40+ false-positive datetime index suggestions** — the blanket heuristic that flagged every `created_at`, `updated_at`, and `_at` column as needing an index has been removed (96% false-positive rate in real projects); legitimate datetime index suggestions are still caught by the evidence-based `unindexed-where-clause` diagnostic
+
+---
+
 ## [3.1.0]
 
 ### Fixed

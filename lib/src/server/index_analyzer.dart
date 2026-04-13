@@ -83,8 +83,7 @@ abstract final class IndexAnalyzer {
         }
       }
 
-      // 2–3. Check column naming patterns for _id suffix
-      //      and date/time suffix heuristics.
+      // 2. Check column naming patterns for _id suffix.
       final colInfoRows = ServerUtils.normalizeRows(
         await query('PRAGMA table_info("$tableName")'),
       );
@@ -122,28 +121,17 @@ abstract final class IndexAnalyzer {
             });
           }
 
-          // 3. Date/time columns — often used in ORDER BY
-          //    or range queries.
-          if (!alreadySuggested &&
-              ServerConstants.reDateTimeSuffix.hasMatch(colName)) {
-            suggestions.add(<String, dynamic>{
-              'table': tableName,
-              'column': colName,
-              'reason':
-                  'Date/time column \u2014 often used in '
-                  'ORDER BY or range queries',
-              'sql':
-                  'CREATE INDEX idx_${tableName}_$colName '
-                  'ON "$tableName"("$colName");',
-              'priority': 'low',
-            });
-          }
+          // Note: a former heuristic 3 (blanket datetime-suffix
+          // suggestions) was removed — it had a 96% false-positive
+          // rate. Legitimate datetime index suggestions are now
+          // handled by the evidence-based 'unindexed-where-clause'
+          // diagnostic (see bug 002).
         }
       }
     }
 
-    // Sort suggestions by priority: high → medium → low.
-    const priorityOrder = <String, int>{'high': 0, 'medium': 1, 'low': 2};
+    // Sort suggestions by priority: high → medium.
+    const priorityOrder = <String, int>{'high': 0, 'medium': 1};
 
     suggestions.sort(
       (a, b) => (priorityOrder[a['priority']] ?? 3).compareTo(

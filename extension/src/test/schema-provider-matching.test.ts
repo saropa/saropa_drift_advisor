@@ -1,6 +1,6 @@
 /**
  * Schema provider tests — Part 2: Name matching, anomalies, and edge cases.
- * Covers datetime/BoolColumn suppression, orphaned-fk, extra-table-in-db,
+ * Covers orphaned-fk, extra-table-in-db,
  * acronym mismatch, exact-match guard, and server-unreachable empty results.
  * See also: schema-provider.test.ts (basic checks), schema-provider-actions.test.ts
  */
@@ -43,34 +43,6 @@ describe('SchemaProvider', () => {
   });
 
   describe('collectDiagnostics — matching and anomalies', () => {
-    it('should suppress all low-priority datetime suggestions (bug 002)', async () => {
-      // Low-priority suggestions are blanket datetime heuristics that
-      // produce mass false positives. They are fully suppressed; legitimate
-      // cases are caught by the unindexed-where-clause diagnostic instead.
-      const ctx = createContext({
-        dartFiles: [createDartFile('keys', ['id', 'updated_at'])],
-        dbTables: [{ name: 'keys', columns: [
-          { name: 'id', type: 'INTEGER', pk: true },
-          { name: 'updated_at', type: 'INTEGER', pk: false },
-        ], rowCount: 1 }],
-        indexSuggestions: [{
-          table: 'keys',
-          column: 'updated_at',
-          reason: 'Date/time column — often used in ORDER BY or range queries',
-          sql: 'CREATE INDEX idx_keys_updated_at ON keys(updated_at)',
-          priority: 'low',
-        }],
-      });
-
-      const issues = await provider.collectDiagnostics(ctx);
-
-      // No datetime or FK issue should be produced for low-priority suggestions
-      const dtIssue = issues.find((i) => i.code === 'missing-datetime-index');
-      assert.strictEqual(dtIssue, undefined, 'Low-priority suggestions must be suppressed');
-      const fkIssues = issues.filter((i) => i.code === 'missing-fk-index');
-      assert.strictEqual(fkIssues.length, 0, 'Low-priority suggestions must not produce FK issues');
-    });
-
     it('should report orphaned-fk from anomalies', async () => {
       const ctx = createContext({
         dartFiles: [createDartFile('orders', ['id', 'user_id'])],

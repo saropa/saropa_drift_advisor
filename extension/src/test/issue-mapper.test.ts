@@ -51,14 +51,6 @@ describe('mergeServerIssues', () => {
     assert.strictEqual(result[0].suggestedSql, 'CREATE INDEX idx ON users(email)');
   });
 
-  it('should suppress low-priority datetime suggestions (bug 002)', () => {
-    const suggestions: IndexSuggestion[] = [
-      { table: 'items', column: 'created_at', reason: 'date pattern', sql: 'CREATE INDEX ...', priority: 'low' },
-    ];
-    const result = mergeServerIssues(suggestions, []);
-    assert.strictEqual(result.length, 0, 'Low-priority suggestions must be suppressed');
-  });
-
   it('should convert anomalies with parseable messages', () => {
     const anomalies: Anomaly[] = [
       { message: '45 NULL values in users.deleted_at (10.5%)', severity: 'warning' },

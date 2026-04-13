@@ -230,8 +230,12 @@ void main() {
       );
 
       test(
-        'datetime-pattern columns produce low priority suggestions',
+        'datetime-pattern columns no longer produce suggestions (bug 002)',
         () async {
+          // The blanket datetime heuristic was removed due to a 96%
+          // false-positive rate. Datetime index suggestions are now
+          // handled by the evidence-based 'unindexed-where-clause'
+          // diagnostic instead.
           final result = await IndexAnalyzer.getIndexSuggestionsList(
             mockQueryWithTables(
               tableColumns: {
@@ -249,62 +253,13 @@ void main() {
           );
 
           final suggestions = result['suggestions'] as List<dynamic>;
-          // All datetime columns should have low priority.
-          for (final s in suggestions) {
-            final map = s as Map;
-            expect(
-              map['priority'],
-              'low',
-              reason: '${map['column']} should be low priority',
-            );
-          }
-          // Verify specific columns are present.
-          final suggestedCols = suggestions
-              .map((s) => (s as Map)['column'])
-              .toSet();
-          expect(
-            suggestedCols,
-            containsAll([
-              'created_at',
-              'event_date',
-              'event_timestamp',
-              'created',
-              'updated',
-              'deleted',
-            ]),
-          );
-        },
-      );
-
-      test(
-        'columns ending in bare "time" do not trigger datetime heuristic',
-        () async {
-          // Bug 001: is_free_time (BoolColumn) was misclassified as
-          // a datetime column because the regex matched the "time"
-          // suffix. The regex now requires "timestamp" instead.
-          final result = await IndexAnalyzer.getIndexSuggestionsList(
-            mockQueryWithTables(
-              tableColumns: {
-                'calendar_events': [
-                  {'name': 'id', 'type': 'INTEGER', 'pk': 1},
-                  {'name': 'is_free_time', 'type': 'INTEGER', 'pk': 0},
-                  {'name': 'start_time', 'type': 'TEXT', 'pk': 0},
-                  {'name': 'nap_time', 'type': 'INTEGER', 'pk': 0},
-                ],
-              },
-            ),
-          );
-
-          final suggestions = result['suggestions'] as List;
-          // None of these "time"-ending columns should produce
-          // a datetime index suggestion.
+          // No suggestions should be produced for datetime-only columns.
           expect(suggestions, isEmpty);
         },
       );
 
-      test('suggestions sorted by priority: high, medium, low', () async {
-        // Table with FK (high), _id column (medium), and
-        // datetime column (low).
+      test('suggestions sorted by priority: high, medium', () async {
+        // Table with FK (high) and _id column (medium).
         final result = await IndexAnalyzer.getIndexSuggestionsList(
           mockQueryWithTables(
             tableColumns: {
@@ -312,7 +267,6 @@ void main() {
                 {'name': 'id', 'type': 'INTEGER', 'pk': 1},
                 {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
                 {'name': 'category_id', 'type': 'INTEGER', 'pk': 0},
-                {'name': 'created_at', 'type': 'TEXT', 'pk': 0},
               ],
               // Target tables for _id heuristic.
               'users': [
@@ -331,17 +285,15 @@ void main() {
         );
 
         final suggestions = result['suggestions'] as List<dynamic>;
-        expect(suggestions.length, greaterThanOrEqualTo(3));
+        expect(suggestions.length, greaterThanOrEqualTo(2));
 
-        // Verify ordering: high first, then medium, then low.
+        // Verify ordering: high first, then medium.
         final priorities = suggestions
             .map((s) => (s as Map)['priority'])
             .toList();
         final highIdx = priorities.indexOf('high');
         final mediumIdx = priorities.indexOf('medium');
-        final lowIdx = priorities.indexOf('low');
         expect(highIdx, lessThan(mediumIdx));
-        expect(mediumIdx, lessThan(lowIdx));
       });
 
       test('multiple tables each contribute suggestions', () async {
