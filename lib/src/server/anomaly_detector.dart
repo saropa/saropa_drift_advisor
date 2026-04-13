@@ -73,13 +73,25 @@ abstract final class AnomalyDetector {
           //    schema already signals that missing/absent data
           //    is acceptable — empty strings there are a valid
           //    design choice, not anomalies.
+          //    Columns whose declared default is '' are also
+          //    skipped — empty strings are the designed "no
+          //    value" sentinel and flagging them is a false
+          //    positive (see bugs/empty_string_default_false_positive.md).
           if (ServerUtils.isTextType(colType) && !isNullable) {
-            await _detectEmptyStrings(
-              query: query,
-              tableName: tableName,
-              colName: colName,
-              anomalies: anomalies,
-            );
+            // SQLite PRAGMA table_info returns the default
+            // expression as-is, so an empty-string default
+            // appears as the two-character string ''.
+            final dfltValue = col['dflt_value'];
+            final hasEmptyDefault =
+                dfltValue == "''" || dfltValue == '""';
+            if (!hasEmptyDefault) {
+              await _detectEmptyStrings(
+                query: query,
+                tableName: tableName,
+                colName: colName,
+                anomalies: anomalies,
+              );
+            }
           }
 
           // 3. Detect numeric outliers (values > 3σ from
@@ -88,13 +100,16 @@ abstract final class AnomalyDetector {
           //    (e.g., 9% true) are valid data patterns,
           //    not anomalies. Domain-specific columns
           //    (coordinates, timestamps, sort order,
-          //    year/founded, versions) are also skipped.
+          //    year/founded, versions, identifiers) and
+          //    primary key columns are also skipped.
           if (ServerUtils.isNumericType(colType) &&
               !ServerUtils.isBooleanType(colType)) {
+            final isPrimaryKey = col['pk'] != null && col['pk'] != 0;
             await _detectNumericOutliers(
               query: query,
               tableName: tableName,
               colName: colName,
+              isPrimaryKey: isPrimaryKey,
               anomalies: anomalies,
             );
           }
@@ -202,6 +217,26 @@ abstract final class AnomalyDetector {
     });
   }
 
+  /// Column name patterns for identifier/key columns —
+  /// external IDs (API identifiers, foreign system keys)
+  /// are opaque identifiers, not measurements. Statistical
+  /// outlier detection is meaningless because IDs are not
+  /// drawn from a normal distribution and the local dataset
+  /// is a sparse, non-random sample of the external ID space.
+  /// See bugs/outlier_on_external_id_false_positive.md.
+  static final _identifierPattern = RegExp(
+    r'(^id$|_id$|Id$|_key$|Key$|_code$|Code$)',
+    caseSensitive: true,
+  );
+
+  /// Minimum number of non-null values required before
+  /// running sigma-based outlier detection. With fewer than
+  /// 30 data points, the sample mean and standard deviation
+  /// are unreliable estimators — the central limit theorem
+  /// does not hold, and a single extreme value can dominate
+  /// the statistics, producing false positives.
+  static const _minSampleSizeForOutliers = 30;
+
   /// Column name patterns for geographic coordinate
   /// columns — these naturally span wide ranges
   /// (lat: -90..90, lon: -180..180) by definition.
@@ -248,10 +283,14 @@ abstract final class AnomalyDetector {
   /// max lies more than 3 standard deviations from the
   /// mean (the classic 3-sigma rule).
   ///
-  /// Domain-aware skip list (by column name pattern):
-  /// coordinates, versions, timestamps, sort/ordering,
-  /// and year/founded columns are all excluded because
-  /// wide ranges are expected and correct in those domains.
+  /// Skip guards (checked in order):
+  /// 1. Primary key columns (auto-increment, not data).
+  /// 2. Identifier columns (`*_id`, `*_key`, `*_code`) —
+  ///    opaque external IDs, not measurements.
+  /// 3. Domain-specific columns: coordinates, versions,
+  ///    timestamps, sort/ordering, year/founded.
+  /// 4. Small samples (n < 30) — sigma estimates are
+  ///    unreliable and a single value can dominate.
   ///
   /// Log-scale fallback: for all-positive columns that
   /// fail the linear 3σ check, a log-transformed check
@@ -261,8 +300,25 @@ abstract final class AnomalyDetector {
     required DriftDebugQuery query,
     required String tableName,
     required String colName,
+    required bool isPrimaryKey,
     required List<Map<String, dynamic>> anomalies,
   }) async {
+    // Skip primary key columns — auto-increment IDs are
+    // sequential by definition, not measurements.
+    if (isPrimaryKey) {
+      return;
+    }
+
+    // Skip columns whose names indicate identifiers or
+    // foreign keys. External IDs (API identifiers, foreign
+    // system keys) are opaque — not drawn from a normal
+    // distribution — so sigma-based outlier detection
+    // produces false positives.
+    // See bugs/outlier_on_external_id_false_positive.md.
+    if (_identifierPattern.hasMatch(colName)) {
+      return;
+    }
+
     // Skip columns whose names indicate a domain where
     // wide numeric ranges are expected and correct.
     // Each pattern targets a specific false-positive
@@ -275,20 +331,34 @@ abstract final class AnomalyDetector {
       return;
     }
 
-    // Fetch mean, min, max, and population variance in a
-    // single query. Variance is computed as E[X²] - E[X]²
-    // which SQLite can evaluate without extensions.
+    // Fetch mean, min, max, population variance, and
+    // non-null count in a single query. Variance is
+    // computed as E[X²] - E[X]² which SQLite can evaluate
+    // without extensions. The count is used to enforce
+    // the minimum sample size guard below.
     final statsRows = ServerUtils.normalizeRows(
       await query(
         'SELECT AVG("$colName") AS avg_val, '
         'MIN("$colName") AS min_val, '
         'MAX("$colName") AS max_val, '
         'AVG("$colName" * "$colName") - '
-        'AVG("$colName") * AVG("$colName") AS variance '
+        'AVG("$colName") * AVG("$colName") AS variance, '
+        'COUNT("$colName") AS cnt '
         'FROM "$tableName" WHERE "$colName" IS NOT NULL',
       ),
     );
     if (statsRows.isEmpty) {
+      return;
+    }
+
+    // Small sample guard: sigma-based outlier detection is
+    // unreliable with fewer than 30 data points. The sample
+    // mean and standard deviation are poor estimators at
+    // small n, and a single extreme value can dominate the
+    // statistics. Skip to avoid false positives.
+    final sampleCount =
+        (ServerUtils.toDouble(statsRows.first['cnt']) ?? 0).toInt();
+    if (sampleCount < _minSampleSizeForOutliers) {
       return;
     }
 

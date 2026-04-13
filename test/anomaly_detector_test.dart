@@ -225,6 +225,81 @@ void main() {
         },
       );
 
+      test(
+        'skips empty string check when column default is empty string',
+        () async {
+          // Columns with withDefault(const Constant('')) produce
+          // empty strings by design — flagging them is a false
+          // positive (bugs/empty_string_default_false_positive.md).
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'tv_listings': [
+                  _col('id', 'INTEGER', pk: 1),
+                  // NOT NULL text column whose default is ''.
+                  // SQLite PRAGMA table_info returns "''" for
+                  // DEFAULT '' columns.
+                  _col('genres', 'TEXT', notnull: 1, dfltValue: "''"),
+                ],
+              },
+              counts: {'tv_listings': 100},
+              emptyCounts: {'tv_listings.genres': 84},
+            ),
+          );
+
+          final anomalies = result['anomalies'] as List;
+          final emptyAnomalies = anomalies
+              .where((a) => (a as Map)['type'] == 'empty_strings')
+              .toList();
+          expect(
+            emptyAnomalies,
+            isEmpty,
+            reason:
+                'Empty strings matching the column default should not '
+                'trigger anomaly warnings',
+          );
+        },
+      );
+
+      test(
+        'still flags empty strings when column default is non-empty',
+        () async {
+          // A column with DEFAULT 'unknown' should still flag
+          // empty strings — the default is not empty, so empties
+          // are not the designed sentinel.
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'items': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col(
+                    'category',
+                    'TEXT',
+                    notnull: 1,
+                    dfltValue: "'unknown'",
+                  ),
+                ],
+              },
+              counts: {'items': 50},
+              emptyCounts: {'items.category': 7},
+            ),
+          );
+
+          final anomalies = (result['anomalies'] as List)
+              .cast<Map<String, dynamic>>();
+          final emptyAnomaly = anomalies
+              .where((a) => a['type'] == 'empty_strings')
+              .firstOrNull;
+          expect(
+            emptyAnomaly,
+            isNotNull,
+            reason:
+                'Non-empty default columns should still flag empty strings',
+          );
+          expect(emptyAnomaly!['count'], 7);
+        },
+      );
+
       test('skips empty string check for non-text columns', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
@@ -252,7 +327,9 @@ void main() {
             tableColumns: {
               'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
             },
-            counts: {'items': 5},
+            // n=50 satisfies the minimum sample size guard
+            // (_minSampleSizeForOutliers = 30).
+            counts: {'items': 50},
             // avg=10, min=5, max=150, variance=100 (stddev=10).
             // max deviation: |150 - 10| = 140 > 3×10 = 30 → flagged.
             // Log-scale check: all positive, log(5)=1.61, log(150)=5.01,
@@ -264,6 +341,7 @@ void main() {
                 'min_val': 5.0,
                 'max_val': 150.0,
                 'variance': 100.0,
+                'cnt': 50,
               },
             },
           ),
@@ -753,6 +831,144 @@ void main() {
         },
       );
 
+      test(
+        'no outlier for identifier columns (external ID skip)',
+        () async {
+          // External IDs (API identifiers, foreign system keys)
+          // are opaque — not drawn from a normal distribution.
+          // Sigma-based outlier detection is meaningless for them.
+          // See bugs/outlier_on_external_id_false_positive.md.
+          for (final colName in [
+            'tvmaze_id',
+            'externalApiId',
+            'stripe_key',
+            'countryCode',
+            'user_id',
+            'tmdb_id',
+          ]) {
+            final result = await AnomalyDetector.getAnomaliesResult(
+              _anomalyQuery(
+                tableColumns: {
+                  'items': [
+                    _col('id', 'INTEGER', pk: 1),
+                    _col(colName, 'INTEGER'),
+                  ],
+                },
+                counts: {'items': 50},
+                numericStats: {
+                  'items.$colName': {
+                    'avg_val': 3576818.33,
+                    'min_val': 3387744.0,
+                    'max_val': 3595125.0,
+                    'variance': 100000000000.0,
+                    'cnt': 50,
+                  },
+                },
+              ),
+            );
+
+            final outliers = (result['anomalies'] as List)
+                .where((a) => (a as Map)['type'] == 'potential_outlier')
+                .toList();
+            expect(
+              outliers,
+              isEmpty,
+              reason:
+                  'Identifier column "$colName" should be excluded '
+                  'from outlier detection',
+            );
+          }
+        },
+      );
+
+      test(
+        'no outlier for primary key columns',
+        () async {
+          // Primary key columns (auto-increment) are sequential
+          // by definition, not measurements — skip them.
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'items': [
+                  // pk: 1 marks this as a primary key column.
+                  _col('item_num', 'INTEGER', pk: 1),
+                  _col('price', 'REAL'),
+                ],
+              },
+              counts: {'items': 50},
+              numericStats: {
+                // Would trigger outlier if not skipped as PK.
+                'items.item_num': {
+                  'avg_val': 25.0,
+                  'min_val': 1.0,
+                  'max_val': 999.0,
+                  'variance': 100.0,
+                  'cnt': 50,
+                },
+                'items.price': {
+                  'avg_val': 10.0,
+                  'min_val': 8.0,
+                  'max_val': 12.0,
+                  'variance': 2.0,
+                  'cnt': 50,
+                },
+              },
+            ),
+          );
+
+          final outliers = (result['anomalies'] as List)
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason: 'Primary key columns should be excluded from '
+                'outlier detection',
+          );
+        },
+      );
+
+      test(
+        'no outlier when sample size is below minimum (n < 30)',
+        () async {
+          // With fewer than 30 data points, the sample mean and
+          // standard deviation are unreliable. A single extreme
+          // value dominates the statistics, producing false
+          // positives. The detector should skip small samples.
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'items': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col('price', 'REAL'),
+                ],
+              },
+              counts: {'items': 5},
+              numericStats: {
+                'items.price': {
+                  'avg_val': 10.0,
+                  'min_val': 5.0,
+                  'max_val': 150.0,
+                  'variance': 100.0,
+                  // Only 5 non-null values — below the 30 threshold.
+                  'cnt': 5,
+                },
+              },
+            ),
+          );
+
+          final outliers = (result['anomalies'] as List)
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason: 'Outlier detection should be skipped when '
+                'sample size is below the minimum threshold',
+          );
+        },
+      );
+
       test('skips outlier detection for non-numeric columns', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
@@ -923,7 +1139,8 @@ void main() {
               ],
               'categories': [_col('id', 'INTEGER', pk: 1)],
             },
-            counts: {'items': 10, 'categories': 3},
+            // n=50 satisfies the minimum sample size guard.
+            counts: {'items': 50, 'categories': 3},
             // warning: 2 empty strings.
             emptyCounts: {'items.title': 2},
             // info: numeric outlier (max > 3σ from mean).
@@ -933,6 +1150,7 @@ void main() {
                 'min_val': 5.0,
                 'max_val': 150.0,
                 'variance': 100.0,
+                'cnt': 50,
               },
             },
             tableForeignKeys: {
@@ -992,7 +1210,16 @@ Map<String, dynamic> _col(
   String type, {
   int pk = 0,
   int notnull = 0,
-}) => {'name': name, 'type': type, 'pk': pk, 'notnull': notnull};
+  // SQLite PRAGMA table_info dflt_value — pass the raw
+  // default expression (e.g., "''" for an empty string).
+  Object? dfltValue,
+}) => {
+      'name': name,
+      'type': type,
+      'pk': pk,
+      'notnull': notnull,
+      'dflt_value': dfltValue,
+    };
 
 /// Creates a query callback for [AnomalyDetector] tests.
 ///
@@ -1114,7 +1341,13 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
         for (final entry in numericStats.entries) {
           final parts = entry.key.split('.');
           if (sql.contains('"${parts[0]}"') && sql.contains('"${parts[1]}"')) {
-            return [entry.value];
+            // Default cnt to 50 (above the minimum sample size
+            // threshold) so existing tests pass without needing
+            // to specify cnt explicitly. Tests that want to
+            // exercise the small-sample guard set cnt directly.
+            final stats = Map<String, dynamic>.of(entry.value);
+            stats.putIfAbsent('cnt', () => 50);
+            return [stats];
           }
         }
       }
