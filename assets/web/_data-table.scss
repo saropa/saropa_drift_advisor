@@ -140,7 +140,10 @@ body.theme-dark .data-table-scroll-wrap {
   letter-spacing: 0.02em;
 }
 
-#data-table {
+/* Shared table styles for all data-grid panels (Tables, Search, Query Builder).
+   Every table rendered by buildDataTableHtml() carries the .drift-table class;
+   individual panels keep unique ids (#data-table, #st-data-table) for DOM scoping. */
+.drift-table {
   border-collapse: collapse;
   width: max-content;
   min-width: 100%;
@@ -148,8 +151,8 @@ body.theme-dark .data-table-scroll-wrap {
   background: var(--surface);
 }
 
-#data-table th,
-#data-table td {
+.drift-table th,
+.drift-table td {
   border-bottom: 1px solid var(--border-subtle);
   padding: 0.6rem 0.75rem;
   text-align: left;
@@ -161,7 +164,7 @@ body.theme-dark .data-table-scroll-wrap {
 }
 
 /* Wrapper for cell text so ellipsis applies to content while copy button stays visible on hover */
-#data-table td .cell-text {
+.drift-table td .cell-text {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -169,7 +172,7 @@ body.theme-dark .data-table-scroll-wrap {
   min-width: 0;
 }
 
-#data-table th {
+.drift-table th {
   font-weight: 600;
   font-size: var(--text-sm);
   background: var(--bg-pre);
@@ -179,16 +182,16 @@ body.theme-dark .data-table-scroll-wrap {
   color: var(--muted);
 }
 
-#data-table tbody tr:nth-child(even) {
+.drift-table tbody tr:nth-child(even) {
   background: var(--row-alt);
 }
 
-#data-table tbody tr:hover {
+.drift-table tbody tr:hover {
   background: rgba(128, 128, 128, 0.06);
 }
 
-#data-table th.col-pinned,
-#data-table td.col-pinned {
+.drift-table th.col-pinned,
+.drift-table td.col-pinned {
   position: sticky;
   left: 0;
   z-index: 1;
@@ -196,15 +199,15 @@ body.theme-dark .data-table-scroll-wrap {
   border-right: 1px solid var(--border-subtle);
 }
 
-#data-table tbody tr:nth-child(even) td.col-pinned { background: var(--row-alt); }
-#data-table tbody tr:hover td.col-pinned { background: rgba(128, 128, 128, 0.08); }
-#data-table th[draggable="true"] { cursor: grab; }
-#data-table th[draggable="true"]:active { cursor: grabbing; }
-#data-table th.drag-over { outline: 2px dashed var(--link); outline-offset: -2px; }
-#data-table td { position: relative; }
+.drift-table tbody tr:nth-child(even) td.col-pinned { background: var(--row-alt); }
+.drift-table tbody tr:hover td.col-pinned { background: rgba(128, 128, 128, 0.08); }
+.drift-table th[draggable="true"] { cursor: grab; }
+.drift-table th[draggable="true"]:active { cursor: grabbing; }
+.drift-table th.drag-over { outline: 2px dashed var(--link); outline-offset: -2px; }
+.drift-table td { position: relative; }
 /* Cell copy button: --text-min-readable font, 24×24px pointer target (WCAG 2.5.8 / BUG-010).
    Touch devices get 44×44px via media; hover scale(1.08) for discoverability. */
-#data-table td .cell-copy-btn {
+.drift-table td .cell-copy-btn {
   display: none;
   position: absolute;
   top: 2px;
@@ -225,14 +228,14 @@ body.theme-dark .data-table-scroll-wrap {
   transition: transform 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 @media (pointer: coarse) {
-  #data-table td .cell-copy-btn {
+  .drift-table td .cell-copy-btn {
     min-width: 44px;
     min-height: 44px;
     padding: 8px 12px;
   }
 }
-#data-table td:hover .cell-copy-btn { display: inline-flex; }
-#data-table td .cell-copy-btn:hover {
+.drift-table td:hover .cell-copy-btn { display: inline-flex; }
+.drift-table td .cell-copy-btn:hover {
   color: var(--fg);
   border-color: var(--link);
   transform: scale(1.08);

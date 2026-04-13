@@ -542,7 +542,6 @@
   };
   var OFFLINE_DISABLE_IDS = [
     "sql-run",
-    "sql-explain",
     "sql-apply-template",
     "pagination-first",
     "pagination-prev",
@@ -1946,11 +1945,6 @@
     var sqlInput = document.getElementById("sql-input");
     sqlInput.value = 'SELECT * FROM "' + table + '" WHERE "' + column + '" = ' + buildFkSqlValue(value);
     switchTab("sql");
-    var collapsible = document.getElementById("sql-runner-collapsible");
-    if (collapsible && collapsible.classList.contains("collapsed")) {
-      collapsible.classList.remove("collapsed");
-      syncFeatureCardExpanded(collapsible);
-    }
     document.getElementById("sql-run").click();
     setCurrentTableName(table);
     updateTableListActive();
@@ -2199,7 +2193,7 @@
     var visible = order.filter(function(k) {
       return hidden.indexOf(k) < 0;
     });
-    var html = '<table id="data-table"><thead><tr>';
+    var html = '<table id="data-table" class="drift-table"><thead><tr>';
     visible.forEach(function(k) {
       var fk = fkMap[k];
       var fkLabel = fk ? ' <span class="table-header-fk" title="FK to ' + esc2(fk.toTable) + "." + esc2(fk.toColumn) + '">&#8599;</span>' : "";
@@ -2398,8 +2392,11 @@
       renderDataHtml(fkMap, colTypes);
     });
   }
-  function getVisibleDataColumnKeys() {
-    var ths = document.querySelectorAll("#data-table thead th[data-column-key]");
+  function getVisibleDataColumnKeys(childElement) {
+    var root = childElement ? childElement.closest(".drift-table") : null;
+    if (!root) root = document.querySelector(".drift-table");
+    if (!root) return [];
+    var ths = root.querySelectorAll("thead th[data-column-key]");
     return Array.prototype.slice.call(ths).map(function(th) {
       return th.getAttribute("data-column-key") || "";
     });
@@ -2915,7 +2912,7 @@
         }
       }
       if (!colMeta) return;
-      var keys = getVisibleDataColumnKeys();
+      var keys = getVisibleDataColumnKeys(td);
       var colIdx = keys.indexOf(columnKey);
       var pkIdx = keys.indexOf(pkName);
       if (colIdx < 0 || pkIdx < 0) return;
@@ -5238,19 +5235,18 @@
 
   // assets/web/sql-runner.ts
   function initSqlRunner() {
-    const toggle = document.getElementById("sql-runner-toggle");
-    const collapsible = document.getElementById("sql-runner-collapsible");
     const templateSel = document.getElementById("sql-template");
     const tableSel = document.getElementById("sql-table");
     const fieldsSel = document.getElementById("sql-fields");
+    const lockBtn = document.getElementById("sql-template-lock");
     const applyBtn = document.getElementById("sql-apply-template");
     const runBtn = document.getElementById("sql-run");
-    const explainBtn = document.getElementById("sql-explain");
     const historySel = document.getElementById("sql-history");
     const formatSel = document.getElementById("sql-result-format");
     const inputEl = document.getElementById("sql-input");
     const errorEl = document.getElementById("sql-error");
     const resultEl = document.getElementById("sql-result");
+    const explainEl = document.getElementById("sql-explain-info");
     const bookmarksSel = document.getElementById("sql-bookmarks");
     let sqlResultAllRows = [];
     let sqlResultPage = 0;
@@ -5275,20 +5271,16 @@
     if (bookmarkImportBtn) bookmarkImportBtn.addEventListener("click", function() {
       importBookmarks(bookmarksSel);
     });
-    if (!toggle || !collapsible) return;
-    toggle.addEventListener("click", function() {
-      const isCollapsed = collapsible.classList.contains("collapsed");
-      collapsible.classList.toggle("collapsed", !isCollapsed);
-      syncFeatureCardExpanded(collapsible);
-    });
     const TEMPLATES = {
       "select-star-limit": function(t, cols) {
-        return 'SELECT * FROM "' + t + '" LIMIT 10';
+        const list = cols && cols.length ? cols.map((c) => '"' + c + '"').join(", ") : "*";
+        return "SELECT " + list + ' FROM "' + t + '" LIMIT 10';
       },
       "select-star": function(t, cols) {
-        return 'SELECT * FROM "' + t + '"';
+        const list = cols && cols.length ? cols.map((c) => '"' + c + '"').join(", ") : "*";
+        return "SELECT " + list + ' FROM "' + t + '"';
       },
-      "count": function(t, cols) {
+      "count": function(t, _cols) {
         return 'SELECT COUNT(*) FROM "' + t + '"';
       },
       "select-fields": function(t, cols) {
@@ -5308,31 +5300,51 @@
       if (!fn) return;
       const cols = getSelectedFields();
       const sql = table ? fn(table, cols) : 'SELECT * FROM "' + (table || "table_name") + '" LIMIT 10';
-      if (inputEl) inputEl.value = sql;
+      if (inputEl) {
+        inputEl.value = sql;
+        scheduleAutoExplain();
+      }
+    }
+    let templateLocked = true;
+    if (lockBtn) {
+      lockBtn.addEventListener("click", function() {
+        templateLocked = !templateLocked;
+        lockBtn.classList.toggle("locked", templateLocked);
+        const icon = lockBtn.querySelector(".material-symbols-outlined");
+        if (icon) icon.textContent = templateLocked ? "lock" : "lock_open";
+        lockBtn.title = templateLocked ? "Lock: auto-apply template when table or fields change" : "Unlocked: table/field changes won\u2019t auto-apply template";
+      });
     }
     if (applyBtn) applyBtn.addEventListener("click", applyTemplate);
     if (templateSel) templateSel.addEventListener("change", applyTemplate);
     if (tableSel) {
       tableSel.addEventListener("change", function() {
         const name = this.value;
-        fieldsSel.innerHTML = '<option value="">\u2014</option>';
+        if (fieldsSel) fieldsSel.innerHTML = '<option value="">\u2014</option>';
         if (!name) return;
-        fieldsSel.innerHTML = '<option value="">Loading\u2026</option>';
+        if (fieldsSel) fieldsSel.innerHTML = '<option value="">Loading\u2026</option>';
         const requestedTable = name;
         fetch("/api/table/" + encodeURIComponent(name) + "/columns", authOpts()).then((r) => r.json()).then((cols) => {
           if (tableSel.value !== requestedTable) return;
-          if (Array.isArray(cols)) {
+          if (Array.isArray(cols) && fieldsSel) {
             fieldsSel.innerHTML = '<option value="">\u2014</option>' + cols.map((c) => '<option value="' + esc2(c) + '">' + esc2(c) + "</option>").join("");
-          } else {
+          } else if (fieldsSel) {
             fieldsSel.innerHTML = '<option value="">\u2014</option>';
           }
+          if (templateLocked) applyTemplate();
         }).catch(() => {
           if (tableSel.value !== requestedTable) return;
-          fieldsSel.innerHTML = '<option value="">\u2014</option>';
+          if (fieldsSel) fieldsSel.innerHTML = '<option value="">\u2014</option>';
         });
       });
     }
+    if (fieldsSel) {
+      fieldsSel.addEventListener("change", function() {
+        if (templateLocked) applyTemplate();
+      });
+    }
     function renderSqlResultPage() {
+      if (!resultEl) return;
       const rows = sqlResultAllRows;
       const pageSize = SQL_RESULT_PAGE_SIZE;
       const start = sqlResultPage * pageSize;
@@ -5365,17 +5377,155 @@
       });
     }
     function clearSqlResults() {
-      errorEl.style.display = "none";
-      resultEl.style.display = "none";
-      resultEl.innerHTML = "";
+      if (errorEl) {
+        errorEl.style.display = "none";
+      }
+      if (resultEl) {
+        resultEl.style.display = "none";
+        resultEl.innerHTML = "";
+      }
       sqlResultAllRows = [];
       sqlResultPage = 0;
-      document.getElementById("chart-controls").style.display = "none";
-      document.getElementById("chart-container").style.display = "none";
+      const chartControls = document.getElementById("chart-controls");
+      const chartContainer = document.getElementById("chart-container");
+      if (chartControls) chartControls.style.display = "none";
+      if (chartContainer) chartContainer.style.display = "none";
     }
-    function setSqlButtonsDisabled(disabled) {
-      if (runBtn) runBtn.disabled = disabled;
-      if (explainBtn) explainBtn.disabled = disabled;
+    let explainTimer = null;
+    let lastExplainedSql = "";
+    let explainAbort = null;
+    const EXPLAIN_DEBOUNCE_MS = 1200;
+    function scheduleAutoExplain() {
+      if (explainTimer) clearTimeout(explainTimer);
+      explainTimer = setTimeout(runAutoExplain, EXPLAIN_DEBOUNCE_MS);
+    }
+    function runAutoExplain() {
+      if (!inputEl || !explainEl) return;
+      const sql = String(inputEl.value || "").trim();
+      if (!sql) {
+        explainEl.style.display = "none";
+        lastExplainedSql = "";
+        return;
+      }
+      if (sql === lastExplainedSql) return;
+      lastExplainedSql = sql;
+      if (explainAbort) explainAbort.abort();
+      explainAbort = new AbortController();
+      explainEl.style.display = "block";
+      explainEl.innerHTML = '<p class="meta explain-loading">Analyzing query\u2026</p>';
+      fetch("/api/sql/explain", Object.assign({}, authOpts({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sql })
+      }), { signal: explainAbort.signal })).then((r) => r.json().then((d) => ({ ok: r.ok, data: d }))).then(({ ok, data }) => {
+        if (!ok) {
+          explainEl.innerHTML = '<p class="meta" style="color:#e57373;">' + esc2(data.error || "Explain failed") + "</p>";
+          return;
+        }
+        renderExplainInfo(data);
+      }).catch((e) => {
+        if (e.name === "AbortError") return;
+        explainEl.innerHTML = '<p class="meta" style="color:#e57373;">' + esc2(e.message || String(e)) + "</p>";
+      });
+    }
+    function renderExplainInfo(data) {
+      if (!explainEl) return;
+      const rows = data.rows || [];
+      const indexes = data.indexes || {};
+      let scanCount = 0;
+      let searchCount = 0;
+      let subqueryCount = 0;
+      let sortPresent = false;
+      let tempPresent = false;
+      const usedIndexNames = /* @__PURE__ */ new Set();
+      const tableAccess = {};
+      rows.forEach(function(r) {
+        const d = String(r.detail || "").trim();
+        const scanMatch = d.match(/\bSCAN\s+(?:TABLE\s+)?(\S+)/i);
+        if (scanMatch) {
+          scanCount++;
+          if (scanMatch[1]) tableAccess[scanMatch[1]] = "scan";
+        }
+        const searchMatch = d.match(/\bSEARCH\s+(?:TABLE\s+)?(\S+)\s+USING\s+(?:COVERING\s+)?INDEX\s+(\S+)/i);
+        if (searchMatch) {
+          searchCount++;
+          if (searchMatch[1] && tableAccess[searchMatch[1]] !== "scan") tableAccess[searchMatch[1]] = "index";
+          if (searchMatch[2]) usedIndexNames.add(searchMatch[2]);
+        } else if (/\bSEARCH\b/i.test(d) && /\bINDEX\b/i.test(d)) {
+          searchCount++;
+          const tblMatch = d.match(/\bSEARCH\s+(?:TABLE\s+)?(\S+)/i);
+          if (tblMatch && tblMatch[1] && tableAccess[tblMatch[1]] !== "scan") tableAccess[tblMatch[1]] = "index";
+          const idxMatch = d.match(/INDEX\s+(\S+)/i);
+          if (idxMatch && idxMatch[1]) usedIndexNames.add(idxMatch[1]);
+        } else if (/\bSEARCH\b/i.test(d)) {
+          searchCount++;
+          const tblMatch = d.match(/\bSEARCH\s+(?:TABLE\s+)?(\S+)/i);
+          if (tblMatch && tblMatch[1] && tableAccess[tblMatch[1]] !== "scan") tableAccess[tblMatch[1]] = "index";
+        }
+        if (/\bSUBQUERY\b/i.test(d) || /\bCORRELATED\b/i.test(d)) subqueryCount++;
+        if (/USE TEMP B-TREE.*ORDER/i.test(d)) sortPresent = true;
+        if (/TEMP B-TREE|TEMP TABLE/i.test(d)) tempPresent = true;
+      });
+      const costScore = scanCount * 3 + subqueryCount * 2 + (sortPresent ? 1 : 0) + (tempPresent ? 1 : 0);
+      let costLabel, costColor;
+      if (costScore === 0) {
+        costLabel = "Low";
+        costColor = "#81c784";
+      } else if (costScore <= 3) {
+        costLabel = "Medium";
+        costColor = "#ffb74d";
+      } else {
+        costLabel = "High";
+        costColor = "#e57373";
+      }
+      let html = '<div class="explain-cost-bar">';
+      html += '<strong>Estimated cost:</strong> <span style="color:' + costColor + ';font-weight:600;">' + costLabel + "</span>";
+      const parts = [];
+      if (scanCount > 0) parts.push(scanCount + " full scan" + (scanCount > 1 ? "s" : ""));
+      if (searchCount > 0) parts.push(searchCount + " index lookup" + (searchCount > 1 ? "s" : ""));
+      if (subqueryCount > 0) parts.push(subqueryCount + " subquer" + (subqueryCount > 1 ? "ies" : "y"));
+      if (sortPresent) parts.push("sort");
+      if (tempPresent) parts.push("temp storage");
+      if (parts.length > 0) html += " &mdash; " + esc2(parts.join(", "));
+      html += "</div>";
+      const tableNames = Object.keys(tableAccess);
+      if (tableNames.length > 0) {
+        html += '<div class="explain-index-report">';
+        for (const tbl of tableNames) {
+          const access = tableAccess[tbl];
+          const tblIndexes = indexes[tbl] || [];
+          html += '<div class="explain-table-row">';
+          html += '<span class="explain-table-name">' + esc2(tbl) + "</span>";
+          if (access === "scan") {
+            html += ' <span class="explain-badge badge-scan">full scan</span>';
+          }
+          if (tblIndexes.length === 0) {
+            html += ' <span class="explain-badge badge-missing">no indexes</span>';
+          } else {
+            for (const idx of tblIndexes) {
+              const isUsed = usedIndexNames.has(idx.name);
+              const badge = isUsed ? "badge-used" : "badge-unused";
+              const label = isUsed ? "used" : "available";
+              html += ' <span class="explain-badge ' + badge + '" title="' + esc2(idx.name) + " (" + esc2(idx.columns.join(", ")) + ")" + (idx.unique ? " UNIQUE" : "") + '">';
+              html += esc2(idx.name) + " <small>(" + label + ")</small></span>";
+            }
+          }
+          html += "</div>";
+        }
+        html += "</div>";
+      }
+      if (rows.length > 0) {
+        html += '<details class="explain-details"><summary>Query plan detail (' + rows.length + " step" + (rows.length > 1 ? "s" : "") + ")</summary><pre>";
+        rows.forEach(function(r) {
+          html += esc2(String(r.detail || "").trim()) + "\n";
+        });
+        html += "</pre></details>";
+      }
+      explainEl.innerHTML = html;
+      explainEl.style.display = "block";
+    }
+    if (inputEl) {
+      inputEl.addEventListener("input", scheduleAutoExplain);
     }
     if (runBtn && inputEl && errorEl && resultEl) {
       runBtn.addEventListener("click", function() {
@@ -5388,7 +5538,7 @@
         }
         const runBtnOrigText = runBtn.textContent;
         setButtonBusy(runBtn, true, "Running\u2026");
-        setSqlButtonsDisabled(true);
+        runBtn.disabled = true;
         fetch("/api/sql", authOpts({
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -5414,17 +5564,18 @@
             var keys2 = Object.keys(rows[0]);
             var xSel = document.getElementById("chart-x");
             var ySel = document.getElementById("chart-y");
-            xSel.innerHTML = keys2.map(function(k) {
+            if (xSel) xSel.innerHTML = keys2.map(function(k) {
               return "<option>" + esc2(k) + "</option>";
             }).join("");
-            ySel.innerHTML = keys2.map(function(k) {
+            if (ySel) ySel.innerHTML = keys2.map(function(k) {
               return "<option>" + esc2(k) + "</option>";
             }).join("");
-            chartControls.style.display = "flex";
+            if (chartControls) chartControls.style.display = "flex";
             window._chartRows = rows;
           } else {
-            chartControls.style.display = "none";
-            document.getElementById("chart-container").style.display = "none";
+            if (chartControls) chartControls.style.display = "none";
+            var cc = document.getElementById("chart-container");
+            if (cc) cc.style.display = "none";
           }
           pushSqlHistory(sql, rows.length);
           refreshHistoryDropdown(historySel);
@@ -5432,108 +5583,8 @@
           errorEl.textContent = e.message || String(e);
           errorEl.style.display = "block";
         }).finally(() => {
-          setSqlButtonsDisabled(false);
+          runBtn.disabled = false;
           setButtonBusy(runBtn, false, runBtnOrigText);
-        });
-      });
-    }
-    if (explainBtn && inputEl && errorEl && resultEl) {
-      explainBtn.addEventListener("click", function() {
-        const sql = String(inputEl.value || "").trim();
-        clearSqlResults();
-        if (!sql) {
-          errorEl.textContent = "Enter a SELECT query.";
-          errorEl.style.display = "block";
-          return;
-        }
-        const explainOrigText = explainBtn.textContent;
-        setButtonBusy(explainBtn, true, "Explaining\u2026");
-        setSqlButtonsDisabled(true);
-        fetch("/api/sql/explain", authOpts({
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sql })
-        })).then((r) => r.json().then((d) => ({ ok: r.ok, data: d }))).then(({ ok, data }) => {
-          if (!ok) {
-            errorEl.textContent = data.error || "Request failed";
-            errorEl.style.display = "block";
-            return;
-          }
-          const rows = data.rows || [];
-          var hasScan = false;
-          var scanTable = null;
-          var hasIndex = false;
-          var scanCount = 0;
-          var searchCount = 0;
-          var subqueryCount = 0;
-          var sortPresent = false;
-          var tempPresent = false;
-          rows.forEach(function(r) {
-            var d = String(r.detail || "").trim();
-            if (/\bSCAN\s+(?:TABLE\s+)?([^\s\n]+)/i.test(d)) {
-              hasScan = true;
-              scanCount++;
-              if (scanTable == null) {
-                var m = d.match(/\bSCAN\s+(?:TABLE\s+)?([^\s\n]+)/i);
-                if (m) scanTable = m[1];
-              }
-            } else if (/\bSEARCH\b.*\bINDEX\b/.test(d) || /\bUSING\b.*\bINDEX\b/.test(d)) {
-              hasIndex = true;
-              searchCount++;
-            }
-            if (/\bSUBQUERY\b/i.test(d) || /\bCORRELATED\b/i.test(d)) subqueryCount++;
-            if (/USE TEMP B-TREE.*ORDER/i.test(d)) sortPresent = true;
-            if (/TEMP B-TREE|TEMP TABLE/i.test(d)) tempPresent = true;
-          });
-          var costScore = scanCount * 3 + subqueryCount * 2 + (sortPresent ? 1 : 0) + (tempPresent ? 1 : 0);
-          var costLabel, costColor;
-          if (costScore === 0) {
-            costLabel = "Low";
-            costColor = "#81c784";
-          } else if (costScore <= 3) {
-            costLabel = "Medium";
-            costColor = "#ffb74d";
-          } else {
-            costLabel = "High";
-            costColor = "#e57373";
-          }
-          var msg;
-          if (hasScan) {
-            msg = "This query reads every row of " + (scanTable ? "<strong>" + esc2(scanTable) + "</strong>" : "the table") + ". ";
-            msg += "For large tables, add a WHERE on an indexed column or create an index.";
-          } else if (hasIndex) {
-            msg = "This query uses an index for efficient lookup.";
-          } else {
-            msg = rows.length ? "Plan: " + esc2(String(rows[0].detail || "").trim() || "\u2014") : "No plan.";
-          }
-          var costHtml = '<div class="explain-cost-bar" style="margin-top:0.4rem;font-size:12px;line-height:1.6;">';
-          costHtml += '<strong>Estimated cost:</strong> <span style="color:' + costColor + ';font-weight:600;">' + costLabel + "</span>";
-          var parts = [];
-          if (scanCount > 0) parts.push(scanCount + " full scan" + (scanCount > 1 ? "s" : ""));
-          if (searchCount > 0) parts.push(searchCount + " index lookup" + (searchCount > 1 ? "s" : ""));
-          if (subqueryCount > 0) parts.push(subqueryCount + " subquer" + (subqueryCount > 1 ? "ies" : "y"));
-          if (sortPresent) parts.push("sort");
-          if (tempPresent) parts.push("temp storage");
-          if (parts.length > 0) costHtml += " &mdash; " + esc2(parts.join(", "));
-          costHtml += "</div>";
-          var detailHtml = "";
-          if (rows.length > 0) {
-            detailHtml = '<details style="margin-top:0.3rem;font-size:12px;"><summary style="cursor:pointer;color:var(--muted);">Query plan detail (' + rows.length + " step" + (rows.length > 1 ? "s" : "") + ')</summary><pre style="margin:0.2rem 0;white-space:pre-wrap;">';
-            rows.forEach(function(r) {
-              detailHtml += esc2(String(r.detail || "").trim()) + "\n";
-            });
-            detailHtml += "</pre></details>";
-          }
-          let html = '<p class="meta" style="line-height:1.5;">' + (hasScan ? '<span style="color:#e57373;">' + msg + "</span>" : hasIndex ? '<span style="color:#81c784;">' + msg + "</span>" : msg) + "</p>";
-          html += costHtml + detailHtml;
-          resultEl.innerHTML = html;
-          resultEl.style.display = "block";
-        }).catch((e) => {
-          errorEl.textContent = e.message || String(e);
-          errorEl.style.display = "block";
-        }).finally(() => {
-          setSqlButtonsDisabled(false);
-          setButtonBusy(explainBtn, false, explainOrigText);
         });
       });
     }
@@ -5549,10 +5600,7 @@
         }
         inputEl.value = decoded;
         switchTab("sql");
-        if (collapsible) {
-          collapsible.classList.remove("collapsed");
-          syncFeatureCardExpanded(collapsible);
-        }
+        scheduleAutoExplain();
         try {
           var u = new URL(location.href);
           u.searchParams.delete("sql");
@@ -6245,7 +6293,7 @@
     });
   });
   document.addEventListener("contextmenu", function(e) {
-    var th = e.target.closest("#data-table th");
+    var th = e.target.closest(".drift-table th");
     if (!th) {
       document.getElementById("column-context-menu").style.display = "none";
       return;
@@ -6276,7 +6324,7 @@
     }
   });
   document.addEventListener("dragstart", function(e) {
-    var th = e.target.closest("#data-table th");
+    var th = e.target.closest(".drift-table th");
     if (!th) return;
     setColumnDragKey(th.getAttribute("data-column-key"));
     if (!columnDragKey) return;
@@ -6285,23 +6333,23 @@
     e.dataTransfer.setData("application/x-column-key", columnDragKey);
   });
   document.addEventListener("dragover", function(e) {
-    var th = e.target.closest("#data-table th");
+    var th = e.target.closest(".drift-table th");
     if (!th) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    document.querySelectorAll("#data-table th.drag-over").forEach(function(el) {
+    document.querySelectorAll(".drift-table th.drag-over").forEach(function(el) {
       el.classList.remove("drag-over");
     });
     th.classList.add("drag-over");
   });
   document.addEventListener("dragleave", function(e) {
-    if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest("#data-table")) return;
-    document.querySelectorAll("#data-table th.drag-over").forEach(function(el) {
+    if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest(".drift-table")) return;
+    document.querySelectorAll(".drift-table th.drag-over").forEach(function(el) {
       el.classList.remove("drag-over");
     });
   });
   document.addEventListener("drop", function(e) {
-    var th = e.target.closest("#data-table th");
+    var th = e.target.closest(".drift-table th");
     if (!th) return;
     e.preventDefault();
     th.classList.remove("drag-over");
@@ -6325,8 +6373,8 @@
     applyColumnConfigAndRender();
   });
   document.addEventListener("dragend", function(e) {
-    if (e.target.closest("#data-table th")) {
-      document.querySelectorAll("#data-table th.drag-over").forEach(function(el) {
+    if (e.target.closest(".drift-table th")) {
+      document.querySelectorAll(".drift-table th.drag-over").forEach(function(el) {
         el.classList.remove("drag-over");
       });
     }
@@ -6345,7 +6393,7 @@
     navigateToFk(link.dataset.table, link.dataset.column, link.dataset.value);
   });
   document.addEventListener("dblclick", function(e) {
-    var td = e.target.closest("#data-table td");
+    var td = e.target.closest(".drift-table td");
     if (!td) return;
     if (driftWriteEnabled && !e.shiftKey && !td.querySelector("input.cell-inline-editor")) {
       e.preventDefault();

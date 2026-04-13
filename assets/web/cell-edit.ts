@@ -75,7 +75,7 @@ import { loadSchemaMeta } from './schema-meta.ts';
         }
         if (!colMeta) return;
 
-        var keys = getVisibleDataColumnKeys();
+        var keys = getVisibleDataColumnKeys(td);
         var colIdx = keys.indexOf(columnKey);
         var pkIdx = keys.indexOf(pkName);
         if (colIdx < 0 || pkIdx < 0) return;

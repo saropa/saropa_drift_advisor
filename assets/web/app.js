@@ -603,7 +603,7 @@
     });
 
     document.addEventListener('contextmenu', function(e) {
-      var th = e.target.closest('#data-table th');
+      var th = e.target.closest('.drift-table th');
       if (!th) {
         document.getElementById('column-context-menu').style.display = 'none';
         return;
@@ -634,7 +634,7 @@
 
     // Drag-and-drop column reordering
     document.addEventListener('dragstart', function(e) {
-      var th = e.target.closest('#data-table th');
+      var th = e.target.closest('.drift-table th');
       if (!th) return;
       S.setColumnDragKey(th.getAttribute('data-column-key'));
       if (!S.columnDragKey) return;
@@ -644,21 +644,21 @@
     });
 
     document.addEventListener('dragover', function(e) {
-      var th = e.target.closest('#data-table th');
+      var th = e.target.closest('.drift-table th');
       if (!th) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      document.querySelectorAll('#data-table th.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
+      document.querySelectorAll('.drift-table th.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
       th.classList.add('drag-over');
     });
 
     document.addEventListener('dragleave', function(e) {
-      if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('#data-table')) return;
-      document.querySelectorAll('#data-table th.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
+      if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.drift-table')) return;
+      document.querySelectorAll('.drift-table th.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
     });
 
     document.addEventListener('drop', function(e) {
-      var th = e.target.closest('#data-table th');
+      var th = e.target.closest('.drift-table th');
       if (!th) return;
       e.preventDefault();
       th.classList.remove('drag-over');
@@ -679,8 +679,8 @@
     });
 
     document.addEventListener('dragend', function(e) {
-      if (e.target.closest('#data-table th')) {
-        document.querySelectorAll('#data-table th.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
+      if (e.target.closest('.drift-table th')) {
+        document.querySelectorAll('.drift-table th.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
       }
     });
 
@@ -699,7 +699,7 @@
       navigateToFk(link.dataset.table, link.dataset.column, link.dataset.value);
     });
     document.addEventListener('dblclick', function(e) {
-      var td = e.target.closest('#data-table td');
+      var td = e.target.closest('.drift-table td');
       if (!td) return;
       if (S.driftWriteEnabled && !e.shiftKey && !td.querySelector('input.cell-inline-editor')) {
         e.preventDefault();

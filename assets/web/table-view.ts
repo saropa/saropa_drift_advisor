@@ -102,7 +102,7 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
   if (columnConfig && columnConfig.pinned) pinned = columnConfig.pinned;
   var visible = order.filter(function(k) { return hidden.indexOf(k) < 0; });
 
-  var html = '<table id="data-table"><thead><tr>';
+  var html = '<table id="data-table" class="drift-table"><thead><tr>';
   visible.forEach(function(k) {
     var fk = fkMap[k];
     var fkLabel = fk ? ' <span class="table-header-fk" title="FK to ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '">&#8599;</span>' : '';
@@ -350,8 +350,17 @@ export function renderTableView(name, data) {
   });
 }
 
-export function getVisibleDataColumnKeys() {
-  var ths = document.querySelectorAll('#data-table thead th[data-column-key]');
+/**
+ * Returns an ordered array of visible column keys from a .drift-table header.
+ * When `childElement` is provided the query is scoped to the closest
+ * .drift-table ancestor — avoids cross-table collisions when multiple
+ * tables coexist in the DOM (Tables + Search + Query Builder panels).
+ */
+export function getVisibleDataColumnKeys(childElement?) {
+  var root = childElement ? childElement.closest('.drift-table') : null;
+  if (!root) root = document.querySelector('.drift-table');
+  if (!root) return [];
+  var ths = root.querySelectorAll('thead th[data-column-key]');
   return Array.prototype.slice.call(ths).map(function(th) {
     return th.getAttribute('data-column-key') || '';
   });

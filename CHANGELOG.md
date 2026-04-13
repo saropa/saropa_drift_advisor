@@ -44,6 +44,10 @@ browse source on
 - **Template lock toggle** — lock icon in the Run SQL toolbar; when locked (default), changing table or field selections auto-applies the current template
 - **Auto-explain with index report** — the SQL editor now automatically analyzes query plans as you type (1.2 s debounce), showing estimated cost, which indexes are used vs available, and flagging full-scan tables with no indexes
 
+### Improved
+
+- **Unified table grid styling across all panels** — Search, Run SQL, and Query Builder now share the same table formatting as the Tables panel (borders, alternating rows, hover highlight, copy-on-hover, column context menu, drag-to-reorder, double-click cell popup)
+
 ### Changed
 
 - **Removed project logo from tab bar** — the small icon next to the Tables tab has been removed; the logo remains in the masthead pill
