@@ -285,9 +285,7 @@ abstract final class HtmlContent {
           <div id="search-results-content" class="content-wrap search-results-content"></div>
         </div>
         <div id="panel-sql" class="tab-panel" role="tabpanel" aria-labelledby="tab-sql" hidden>
-      <div class="feature-card sql-runner-card">
-  <div class="collapsible-header sql-runner" id="sql-runner-toggle" title="Expand or collapse Run SQL"><span class="material-symbols-outlined feature-icon" aria-hidden="true">play_arrow</span><span class="collapsible-title">Run SQL (read-only)</span></div>
-  <div id="sql-runner-collapsible" class="collapsible-body sql-runner">
+      <div class="sql-runner">
     <div class="sql-toolbar">
       <label for="sql-template">Template:</label>
       <select id="sql-template">
@@ -301,9 +299,9 @@ abstract final class HtmlContent {
       <select id="sql-table"><option value="">—</option></select>
       <label for="sql-fields">Fields:</label>
       <select id="sql-fields" multiple title="Hold Ctrl/Cmd to pick multiple"><option value="">—</option></select>
+      <button type="button" id="sql-template-lock" class="sql-lock-btn locked" title="Lock: auto-apply template when table or fields change"><span class="material-symbols-outlined" aria-hidden="true">lock</span></button>
       <button type="button" id="sql-apply-template" title="Insert template query into editor">Apply template</button>
       <button type="button" id="sql-run" class="btn-primary" title="Execute the SQL query">Run</button>
-      <button type="button" id="sql-explain" title="Show query execution plan">Explain</button>
       <label for="sql-history">History:</label>
       <select id="sql-history" title="Recent queries — select to reuse"><option value="">— Recent —</option></select>
     </div>
@@ -338,6 +336,7 @@ abstract final class HtmlContent {
       </div>
     </div>
     <textarea id="sql-input" placeholder="SELECT * FROM my_table LIMIT 10"></textarea>
+    <div id="sql-explain-info" class="sql-explain-info" style="display: none;"></div>
     <div id="sql-error" class="sql-error" style="display: none;"></div>
     <div id="sql-result" class="sql-result" style="display: none;"></div>
     <div id="chart-controls" class="sql-toolbar" style="display:none;margin-top:0.5rem;">
@@ -373,7 +372,6 @@ abstract final class HtmlContent {
         </div>
       </div>
     </div>
-  </div>
   </div>
         </div>
         <!-- Tool panels: opened from toolbar; IDs preserved for JS. -->

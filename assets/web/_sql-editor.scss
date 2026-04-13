@@ -103,6 +103,107 @@
 .sql-runner .sql-error { color: #e57373; margin-top: 0.35rem; font-size: 0.875rem; }
 .sql-runner .sql-result, .sql-runner .sql-error { transition: opacity 0.15s ease; }
 
+/* Lock toggle: controls whether template auto-applies on table/field change. */
+.sql-lock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  width: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-pre);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  .material-symbols-outlined { font-size: 18px; }
+}
+.sql-lock-btn.locked {
+  color: var(--link);
+  border-color: var(--link);
+}
+.sql-lock-btn:hover { color: var(--fg); }
+
+/* Auto-explain info area: shows cost, index usage, and plan detail. */
+.sql-explain-info {
+  margin-top: 0.4rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.explain-cost-bar {
+  margin-bottom: 0.3rem;
+}
+.explain-loading {
+  color: var(--muted);
+  font-style: italic;
+}
+.explain-index-report {
+  margin-top: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.explain-table-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.explain-table-name {
+  font-weight: 600;
+  color: var(--fg);
+  margin-right: 0.15rem;
+}
+.explain-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  small { opacity: 0.7; font-size: 10px; }
+}
+.badge-used {
+  background: rgba(129, 199, 132, 0.18);
+  color: #81c784;
+  border: 1px solid rgba(129, 199, 132, 0.3);
+}
+.badge-unused {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.badge-scan {
+  background: rgba(229, 115, 115, 0.15);
+  color: #e57373;
+  border: 1px solid rgba(229, 115, 115, 0.3);
+}
+.badge-missing {
+  background: rgba(255, 183, 77, 0.15);
+  color: #ffb74d;
+  border: 1px solid rgba(255, 183, 77, 0.3);
+}
+.explain-details {
+  margin-top: 0.3rem;
+  summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  pre {
+    margin: 0.2rem 0;
+    white-space: pre-wrap;
+    font-size: 12px;
+  }
+}
+
 /* Natural-language helper: opens from a single toolbar control; modal textarea matches SQL editor styling. */
 .nl-modal {
   position: fixed;

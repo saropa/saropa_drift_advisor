@@ -477,7 +477,7 @@ void main() {
       expect(r.status, HttpStatus.badRequest);
     });
 
-    test('POST /api/sql/explain returns explain plan', () async {
+    test('POST /api/sql/explain returns explain plan with indexes', () async {
       final r = await httpPost(
         port!,
         '/api/sql/explain',
@@ -486,6 +486,12 @@ void main() {
       expect(r.status, HttpStatus.ok);
       expect(r.body['rows'], isA<List<dynamic>>());
       expect(r.body['sql'], contains('EXPLAIN'));
+      // The enhanced explain endpoint now also returns
+      // index info for tables referenced in the query plan.
+      expect(r.body['indexes'], isA<Map<String, dynamic>>());
+      // The mock EXPLAIN returns "SCAN TABLE items", so the
+      // items table should appear in the indexes map.
+      expect(r.body['indexes'], contains('items'));
     });
   });
 

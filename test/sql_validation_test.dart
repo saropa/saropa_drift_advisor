@@ -345,17 +345,25 @@ void main() {
       });
 
       test('prepends EXPLAIN QUERY PLAN to valid SQL', () async {
-        String? executedSql;
+        final executedSqls = <String>[];
         final result = await handler.explainSqlResult((sql) async {
-          executedSql = sql;
-          return [
-            <String, dynamic>{'detail': 'SCAN TABLE users'},
-          ];
+          executedSqls.add(sql);
+          // Return EXPLAIN rows for the first call; empty for
+          // subsequent PRAGMA calls (index enrichment).
+          if (sql.startsWith('EXPLAIN QUERY PLAN')) {
+            return [
+              <String, dynamic>{'detail': 'SCAN TABLE users'},
+            ];
+          }
+          return [];
         }, 'SELECT * FROM users');
 
-        expect(executedSql, startsWith('EXPLAIN QUERY PLAN'));
+        expect(executedSqls.first, startsWith('EXPLAIN QUERY PLAN'));
         expect(result, containsPair('rows', hasLength(1)));
         expect(result, containsPair('sql', contains('EXPLAIN')));
+        // Index enrichment should have queried PRAGMA for the
+        // "users" table found in the EXPLAIN detail.
+        expect(result, contains('indexes'));
       });
 
       test('returns error when explain query throws', () async {

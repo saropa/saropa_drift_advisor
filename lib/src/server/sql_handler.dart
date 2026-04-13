@@ -62,7 +62,11 @@ final class SqlHandler {
   }
 
   /// Returns explain result for VM service RPC (Plan 68).
-  /// [sql] must be read-only. Returns {rows, sql} or {error}.
+  /// [sql] must be read-only. Returns {rows, sql, indexes} or {error}.
+  ///
+  /// The `indexes` key maps each table referenced in the query plan
+  /// to its list of indexes (name, columns, unique). This lets the
+  /// frontend report which indexes are applied vs potentially missing.
   Future<Map<String, dynamic>> explainSqlResult(
     DriftDebugQuery query,
     String sql,
@@ -81,9 +85,54 @@ final class SqlHandler {
       final explainSql = 'EXPLAIN QUERY PLAN $sql';
       final dynamic raw = await query(explainSql);
       final rows = ServerUtils.normalizeRows(raw);
+
+      // Extract table names from EXPLAIN detail rows
+      // (e.g. "SCAN TABLE foo", "SEARCH TABLE bar USING INDEX ...").
+      final tableNames = <String>{};
+      final tablePattern = RegExp(
+        r'\b(?:SCAN|SEARCH)\s+TABLE\s+(\S+)',
+        caseSensitive: false,
+      );
+      for (final row in rows) {
+        final detail = row['detail']?.toString() ?? '';
+        for (final match in tablePattern.allMatches(detail)) {
+          final name = match.group(1);
+          if (name != null) tableNames.add(name);
+        }
+      }
+
+      // Fetch index info for each referenced table so
+      // the frontend can show applied vs missing indexes.
+      final indexes = <String, List<Map<String, dynamic>>>{};
+      for (final tableName in tableNames) {
+        final idxRows = ServerUtils.normalizeRows(
+          await query('PRAGMA index_list("$tableName")'),
+        );
+        final tableIndexes = <Map<String, dynamic>>[];
+        for (final idx in idxRows) {
+          final idxName = idx['name']?.toString();
+          final unique = idx['unique'];
+          if (idxName == null) continue;
+          final infoRows = ServerUtils.normalizeRows(
+            await query('PRAGMA index_info("$idxName")'),
+          );
+          final columns = infoRows
+              .map((r) => r['name']?.toString() ?? '')
+              .where((c) => c.isNotEmpty)
+              .toList();
+          tableIndexes.add(<String, dynamic>{
+            'name': idxName,
+            'columns': columns,
+            'unique': unique is int && unique > 0,
+          });
+        }
+        indexes[tableName] = tableIndexes;
+      }
+
       return <String, dynamic>{
         ServerConstants.jsonKeyRows: rows,
         ServerConstants.jsonKeySql: explainSql,
+        'indexes': indexes,
       };
     } on Object catch (error, stack) {
       return _handleQueryError(error, stack, sql);
@@ -91,7 +140,8 @@ final class SqlHandler {
   }
 
   /// Handles POST /api/sql/explain: body {"sql": "SELECT ..."}.
-  /// Prepends EXPLAIN QUERY PLAN; returns {"rows": [...], "sql": "..."}.
+  /// Prepends EXPLAIN QUERY PLAN; returns {"rows": [...], "sql": "...",
+  /// "indexes": {tableName: [{name, columns, unique}]}}.
   Future<void> handleExplainSql(
     HttpRequest request,
     DriftDebugQuery query,

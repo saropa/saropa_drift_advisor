@@ -6,7 +6,7 @@
  * breadcrumb trail that tracks the FK navigation path.
  */
 import * as S from './state.ts';
-import { esc, syncFeatureCardExpanded } from './utils.ts';
+import { esc } from './utils.ts';
 import { loadTable, updateTableListActive } from './table-list.ts';
 import { switchTab } from './tabs.ts';
 import { saveNavHistory, clearNavHistory } from './persistence.ts';
@@ -37,11 +37,6 @@ import { saveNavHistory, clearNavHistory } from './persistence.ts';
       var sqlInput = document.getElementById('sql-input');
       sqlInput.value = 'SELECT * FROM "' + table + '" WHERE "' + column + '" = ' + buildFkSqlValue(value);
       switchTab('sql');
-      var collapsible = document.getElementById('sql-runner-collapsible');
-      if (collapsible && collapsible.classList.contains('collapsed')) {
-        collapsible.classList.remove('collapsed');
-        syncFeatureCardExpanded(collapsible);
-      }
       document.getElementById('sql-run').click();
       S.setCurrentTableName(table);
       updateTableListActive();

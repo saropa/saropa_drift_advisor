@@ -41,11 +41,16 @@ browse source on
 ### Added
 
 - **Project name in masthead pill** — "Saropa Drift Advisor" now appears between the logo and version badge, making the product identifiable at a glance
+- **Template lock toggle** — lock icon in the Run SQL toolbar; when locked (default), changing table or field selections auto-applies the current template
+- **Auto-explain with index report** — the SQL editor now automatically analyzes query plans as you type (1.2 s debounce), showing estimated cost, which indexes are used vs available, and flagging full-scan tables with no indexes
 
 ### Changed
 
 - **Removed project logo from tab bar** — the small icon next to the Tables tab has been removed; the logo remains in the masthead pill
 - **Dimmed version number in masthead** — the version badge is now muted grey, keeping it readable but visually secondary to the project name
+- **Run SQL panel always visible** — the collapsible header has been removed; the SQL runner is now always expanded inside its tab
+- **Smart field substitution in templates** — all templates (except COUNT) now substitute selected fields for `*`, not just the "SELECT columns" template
+- **Explain button removed** — replaced by automatic query plan analysis; the separate Explain button is no longer needed
 
 ---
 

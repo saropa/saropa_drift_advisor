@@ -197,7 +197,7 @@ export const TOOL_LABELS: Record<string, string> = {
 
 // --- Offline disable IDs ---
 export const OFFLINE_DISABLE_IDS = [
-  'sql-run', 'sql-explain', 'sql-apply-template',
+  'sql-run', 'sql-apply-template',
   'pagination-first', 'pagination-prev', 'pagination-next', 'pagination-last',
   'pagination-apply', 'sample-rows-btn', 'clear-table-state',
   'clear-table-data', 'clear-all-data',

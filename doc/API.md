@@ -360,7 +360,12 @@ Returns the EXPLAIN QUERY PLAN for a read-only SQL query.
   "rows": [
     { "id": 0, "parent": 0, "notused": 0, "detail": "SCAN TABLE items" }
   ],
-  "sql": "EXPLAIN QUERY PLAN SELECT * FROM items WHERE id > 10"
+  "sql": "EXPLAIN QUERY PLAN SELECT * FROM items WHERE id > 10",
+  "indexes": {
+    "items": [
+      { "name": "idx_items_category_id", "columns": ["category_id"], "unique": false }
+    ]
+  }
 }
 ```
 
@@ -368,6 +373,7 @@ Returns the EXPLAIN QUERY PLAN for a read-only SQL query.
 |-------|------|-------------|
 | `rows` | array | EXPLAIN QUERY PLAN result rows |
 | `sql` | string | The actual SQL executed (with `EXPLAIN QUERY PLAN` prepended) |
+| `indexes` | object | Map of table name → list of indexes. Each index has `name` (string), `columns` (string array), and `unique` (boolean). Only tables referenced in the query plan are included. |
 
 **Errors** same as `POST /api/sql`.
 
