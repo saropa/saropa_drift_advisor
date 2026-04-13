@@ -56,24 +56,26 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Light mode: visible border + strengthened shadow for depth (TH10).
+ * Border now inherits from --border token (was hardcoded rgba). */
 body.theme-light .feature-card {
-  /* Multi-layer composited shadow — saropa.com depth system */
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.02),
-    0 4px 8px rgba(0, 0, 0, 0.03),
-    0 8px 16px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(143, 168, 255, 0.12);
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 8px 16px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border);
 }
 
 .feature-card.expanded {
   border-color: var(--link);
 }
 
+/* Expanded card: deeper shadow for visible lift (TH10). */
 body.theme-light .feature-card.expanded {
   box-shadow:
-    0 4px 8px rgba(67, 83, 137, 0.06),
-    0 8px 16px rgba(67, 83, 137, 0.08),
-    0 16px 32px rgba(67, 83, 137, 0.06);
+    0 4px 8px rgba(67, 83, 137, 0.08),
+    0 8px 16px rgba(67, 83, 137, 0.1),
+    0 16px 32px rgba(67, 83, 137, 0.08);
 }
 
 /* Material Symbols (Phase 4.1): icon font from Google Fonts CDN. */

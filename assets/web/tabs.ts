@@ -194,12 +194,10 @@ export function closeToolTab(toolId) {
   }
 }
 
-/** Binds tools toolbar and tab bar. Call once when DOM is ready. */
+/** Binds tab bar click handlers. Call once when DOM is ready.
+ *  Tool launcher buttons are now in the hamburger menu and wired
+ *  by initHamburgerMenu() in hamburger-menu.ts. */
 export function initTabsAndToolbar() {
-  document.querySelectorAll('#tools-toolbar .toolbar-tool-btn').forEach(function(btn) {
-    var toolId = btn.getAttribute('data-tool');
-    if (toolId) btn.addEventListener('click', function() { openTool(toolId); });
-  });
   document.querySelectorAll('#tab-bar .tab-btn').forEach(function(btn) {
     var tabId = btn.getAttribute('data-tab');
     if (tabId && !btn.querySelector('.tab-btn-close')) {

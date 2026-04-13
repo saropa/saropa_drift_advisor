@@ -260,15 +260,89 @@
 
   // assets/web/pii.ts
   function isPiiMaskEnabled() {
-    const cb = document.getElementById("fab-pii-mask-toggle");
+    const cb = document.getElementById("hamburger-pii-mask-toggle");
     return cb ? cb.checked : false;
   }
   function isPiiColumn(colName) {
     if (!colName || typeof colName !== "string") return false;
     const lower = colName.toLowerCase();
-    const patterns = ["email", "password", "phone", "ssn", "token", "secret", "api_key", "apikey", "address"];
-    return patterns.some(function(p) {
+    const substringPatterns = [
+      "email",
+      "password",
+      "phone",
+      "ssn",
+      "token",
+      "secret",
+      "api_key",
+      "apikey",
+      "address",
+      "salary",
+      "wage",
+      "income",
+      "credit_card",
+      "creditcard",
+      "card_num",
+      "ip_addr",
+      "ipaddr",
+      "dob",
+      "birth",
+      "passport",
+      "license",
+      "licence",
+      "iban",
+      "account_num",
+      "acct_num",
+      "sort_code",
+      "national_id",
+      "tax_id",
+      "sin_num",
+      "medicare",
+      "beneficiary",
+      "ethnicity",
+      "religion",
+      "biometric",
+      "fingerprint",
+      "retina",
+      "face_id",
+      "social_sec"
+    ];
+    if (substringPatterns.some(function(p) {
       return lower.indexOf(p) >= 0;
+    })) {
+      return true;
+    }
+    const segments = lower.split(/[_\-.\s]+/);
+    const wordPatterns = /* @__PURE__ */ new Set([
+      "name",
+      "first",
+      "last",
+      "full",
+      "surname",
+      "username",
+      "login",
+      "nick",
+      "alias",
+      "avatar",
+      "photo",
+      "tel",
+      "ip",
+      "sin",
+      "tin",
+      "zip",
+      "postal",
+      "city",
+      "country",
+      "street",
+      "lat",
+      "lng",
+      "latitude",
+      "longitude",
+      "geo",
+      "coords",
+      "routing"
+    ]);
+    return segments.some(function(seg) {
+      return wordPatterns.has(seg);
     });
   }
   function maskPiiValue(colName, value) {
@@ -283,20 +357,90 @@
       const first = local.charAt(0);
       return (first ? first + "***" : "***") + domain;
     }
-    if (lower.indexOf("phone") >= 0 || lower.indexOf("tel") >= 0) {
+    const segments = lower.split(/[_\-.\s]+/);
+    if (lower.indexOf("phone") >= 0 || segments.indexOf("tel") >= 0) {
       const digits = s.replace(/\D/g, "");
       const last4 = digits.length >= 4 ? digits.slice(-4) : "****";
       return "***-***-" + last4;
     }
-    if (lower.indexOf("ssn") >= 0) {
+    if (lower.indexOf("ssn") >= 0 || lower.indexOf("social_sec") >= 0) {
       const d = s.replace(/\D/g, "");
       const l4 = d.length >= 4 ? d.slice(-4) : "****";
       return "***-**-" + l4;
     }
-    if (lower.indexOf("password") >= 0 || lower.indexOf("token") >= 0 || lower.indexOf("secret") >= 0 || lower.indexOf("api_key") >= 0 || lower.indexOf("apikey") >= 0) {
+    const secretPatterns = [
+      "password",
+      "token",
+      "secret",
+      "api_key",
+      "apikey",
+      "biometric",
+      "fingerprint",
+      "retina",
+      "face_id"
+    ];
+    if (secretPatterns.some(function(p) {
+      return lower.indexOf(p) >= 0;
+    })) {
       return "****";
     }
-    if (lower.indexOf("address") >= 0) {
+    const nameWords = /* @__PURE__ */ new Set([
+      "name",
+      "first",
+      "last",
+      "full",
+      "surname",
+      "username",
+      "login",
+      "nick",
+      "alias"
+    ]);
+    if (segments.some(function(seg) {
+      return nameWords.has(seg);
+    })) {
+      return s.charAt(0) + "***";
+    }
+    const numericSubstrings = [
+      "salary",
+      "wage",
+      "income",
+      "credit_card",
+      "creditcard",
+      "card_num",
+      "account_num",
+      "acct_num",
+      "sort_code",
+      "iban",
+      "sin_num",
+      "tax_id",
+      "national_id",
+      "medicare"
+    ];
+    const numericSegments = /* @__PURE__ */ new Set(["routing", "tin", "sin"]);
+    if (numericSubstrings.some(function(p) {
+      return lower.indexOf(p) >= 0;
+    }) || segments.some(function(seg) {
+      return numericSegments.has(seg);
+    })) {
+      return "***";
+    }
+    const locationWords = /* @__PURE__ */ new Set([
+      "address",
+      "street",
+      "city",
+      "country",
+      "zip",
+      "postal",
+      "lat",
+      "lng",
+      "latitude",
+      "longitude",
+      "geo",
+      "coords"
+    ]);
+    if (segments.some(function(seg) {
+      return locationWords.has(seg);
+    }) || lower.indexOf("ip_addr") >= 0 || lower.indexOf("ipaddr") >= 0) {
       return s.length <= 2 ? "***" : s.slice(0, 2) + "***";
     }
     return s.length <= 2 ? "***" : s.slice(0, 2) + "***";
@@ -560,202 +704,144 @@
     return o;
   }
 
-  // assets/web/connection.ts
-  var _applyHealthWriteFlag = () => {
-  };
-  var _pollGeneration = () => {
-  };
-  function initConnectionDeps(deps) {
-    _applyHealthWriteFlag = deps.applyHealthWriteFlag;
-    _pollGeneration = deps.pollGeneration;
+  // assets/web/search.ts
+  function escapeRe(s) {
+    return s.replace(/[\\\\^\$*+?.()|[\]{}]/g, "\\\\$&");
   }
-  function setDisconnected() {
-    if (connectionState === "disconnected") return;
-    console.log("[SDA] setDisconnected (was: " + connectionState + ")");
-    setConnectionState("disconnected");
-    setBannerDismissed(false);
-    showConnectionBanner();
-    updateConnectionBannerText();
-    updateLiveIndicatorForConnection();
-    setOfflineControlsDisabled(true);
-  }
-  function setReconnecting() {
-    if (connectionState === "reconnecting") return;
-    console.log("[SDA] setReconnecting (was: " + connectionState + ")");
-    setConnectionState("reconnecting");
-    setNextHeartbeatAt(null);
-    showConnectionBanner();
-    updateConnectionBannerText();
-    updateLiveIndicatorForConnection();
-  }
-  function setConnected() {
-    if (connectionState === "connected") return;
-    console.log("[SDA] setConnected (was: " + connectionState + ")");
-    setConnectionState("connected");
-    setConsecutivePollFailures(0);
-    setCurrentBackoffMs(BACKOFF_INITIAL_MS);
-    setNextHeartbeatAt(null);
-    setHeartbeatInFlight(false);
-    setHeartbeatAttemptCount(0);
-    hideConnectionBanner();
-    updateLiveIndicatorForConnection();
-    setOfflineControlsDisabled(false);
-    stopHeartbeat();
-  }
-  function updateConnectionBannerText() {
-    if (connectionState === "connected" || bannerDismissed) return;
-    const msgEl = document.getElementById("banner-message");
-    const diagEl = document.getElementById("banner-diagnostics");
-    if (!msgEl || !diagEl) return;
-    const parts = [];
-    if (connectionState === "reconnecting") {
-      msgEl.textContent = "Reconnecting\u2026";
-      diagEl.textContent = "Restoring connection\u2026";
-      return;
+  function highlightText(text, term) {
+    if (!term || term.length === 0) return esc2(text);
+    const re = new RegExp("(" + escapeRe(term) + ")", "gi");
+    var result = "";
+    var lastEnd = 0;
+    var match;
+    while ((match = re.exec(text)) !== null) {
+      result += esc2(text.slice(lastEnd, match.index)) + '<span class="highlight">' + esc2(match[1]) + "</span>";
+      lastEnd = re.lastIndex;
     }
-    if (heartbeatInFlight) {
-      msgEl.textContent = "Connection lost \u2014 checking\u2026";
-      parts.push("Attempt " + heartbeatAttemptCount);
-    } else if (nextHeartbeatAt != null) {
-      const secs = Math.max(0, Math.ceil((nextHeartbeatAt - Date.now()) / 1e3));
-      msgEl.textContent = "Connection lost \u2014 next retry in " + secs + "s";
-      const intervalSec = currentBackoffMs / 1e3;
-      parts.push("Retrying every " + intervalSec + "s");
-      if (currentBackoffMs >= BACKOFF_MAX_MS) parts.push("(max interval)");
-      parts.push("Attempt " + heartbeatAttemptCount);
-    } else {
-      msgEl.textContent = "Connection lost \u2014 reconnecting\u2026";
-      parts.push("Attempt " + heartbeatAttemptCount);
-    }
-    diagEl.textContent = parts.join(" \u2022 ");
+    result += esc2(text.slice(lastEnd));
+    return result;
   }
-  function showConnectionBanner() {
-    if (bannerDismissed) return;
-    const banner = document.getElementById("connection-banner");
-    if (!banner) return;
-    banner.classList.add("show");
-    document.body.classList.add("has-connection-banner");
-    if (!bannerUpdateIntervalId) {
-      setBannerUpdateIntervalId(setInterval(updateConnectionBannerText, 1e3));
-    }
+  function getScope() {
+    return document.getElementById("search-scope").value || "";
   }
-  function hideConnectionBanner() {
-    if (bannerUpdateIntervalId) {
-      clearInterval(bannerUpdateIntervalId);
-      setBannerUpdateIntervalId(null);
-    }
-    const banner = document.getElementById("connection-banner");
-    if (banner) {
-      banner.classList.remove("show");
-      document.body.classList.remove("has-connection-banner");
-    }
+  function getSearchTerm() {
+    return String(document.getElementById("search-input").value || "").trim();
   }
-  function updateLiveIndicatorForConnection() {
-    if (!window.mastheadStatus) return;
-    window.mastheadStatus.setConnection(connectionState, pollingEnabled);
+  function getRowFilter() {
+    return String(document.getElementById("row-filter").value || "").trim();
   }
-  function setOfflineControlsDisabled(disabled) {
-    OFFLINE_DISABLE_IDS.forEach(function(id) {
-      const el = document.getElementById(id);
-      if (el) {
-        if (disabled) el.classList.add("offline-disabled");
-        else el.classList.remove("offline-disabled");
-      }
-    });
+  function filterRows(data) {
+    const term = getRowFilter();
+    if (!term || !data || data.length === 0) return data || [];
+    const lower = term.toLowerCase();
+    return data.filter((row) => Object.values(row).some((v) => v != null && String(v).toLowerCase().includes(lower)));
   }
-  function startHeartbeat() {
-    if (heartbeatTimerId) {
-      console.log("[SDA] startHeartbeat: skipped (timer already active)");
-      return;
-    }
-    console.log("[SDA] startHeartbeat: initiating heartbeat cycle");
-    doHeartbeat();
+  function getTableDisplayData(data) {
+    if (!data || data.length === 0) return data || [];
+    if (showOnlyMatchingRows && getRowFilter()) return filterRows(data);
+    return data;
   }
-  function doHeartbeat() {
-    if (heartbeatInFlight) {
-      console.log("[SDA] doHeartbeat: skipped (already in flight)");
-      return;
-    }
-    if (connectionState === "disconnected" || connectionState === "reconnecting") {
-      setHeartbeatAttemptCount(heartbeatAttemptCount + 1);
-    }
-    console.log("[SDA] doHeartbeat: attempt #" + heartbeatAttemptCount + ", state=" + connectionState);
-    setHeartbeatInFlight(true);
-    updateConnectionBannerText();
-    fetch("/api/health", authOpts()).then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      setHeartbeatInFlight(false);
-      if (data && data.ok) {
-        console.log("[SDA] doHeartbeat: health OK \u2014 resuming poll");
-        _applyHealthWriteFlag(data);
-        setReconnecting();
-        setConsecutivePollFailures(0);
-        setCurrentBackoffMs(BACKOFF_INITIAL_MS);
-        setNextHeartbeatAt(null);
-        setHeartbeatTimerId(null);
-        _pollGeneration();
-        return;
-      }
-      console.log("[SDA] doHeartbeat: health response not ok", data);
-      updateConnectionBannerText();
-      scheduleHeartbeat();
-    }).catch(function(err) {
-      console.log("[SDA] doHeartbeat: fetch failed", err);
-      setHeartbeatInFlight(false);
-      updateConnectionBannerText();
-      scheduleHeartbeat();
-    });
+  function buildTableFilterMetaSuffix(filteredLen, totalLen) {
+    if (!getRowFilter()) return "";
+    if (showOnlyMatchingRows) return " (filtered: " + filteredLen + " of " + totalLen + ")";
+    return " (showing all rows; filter: " + filteredLen + " match)";
   }
-  function scheduleHeartbeat() {
-    setCurrentBackoffMs(Math.min(
-      currentBackoffMs * BACKOFF_MULTIPLIER,
-      BACKOFF_MAX_MS
-    ));
-    console.log("[SDA] scheduleHeartbeat: next in " + currentBackoffMs + "ms");
-    setNextHeartbeatAt(Date.now() + currentBackoffMs);
-    setHeartbeatTimerId(setTimeout(doHeartbeat, currentBackoffMs));
-  }
-  function stopHeartbeat() {
-    if (heartbeatTimerId) {
-      console.log("[SDA] stopHeartbeat: clearing timer");
-      clearTimeout(heartbeatTimerId);
-      setHeartbeatTimerId(null);
-    }
-    setNextHeartbeatAt(null);
-  }
-  function startKeepAlive() {
-    console.log("[SDA] startKeepAlive: interval=" + KEEP_ALIVE_INTERVAL_MS + "ms");
-    stopKeepAlive();
-    setKeepAliveTimerId(setInterval(function() {
-      console.log("[SDA] keepAlive tick: fetching /api/health");
-      fetch("/api/health", authOpts()).then(function(r) {
-        return r.json();
-      }).then(function(data) {
-        if (data && data.ok) {
-          _applyHealthWriteFlag(data);
-          if (connectionState !== "connected") {
-            console.log("[SDA] keepAlive: health OK, restoring connected");
-            setConnected();
-          }
-        } else {
-          console.log("[SDA] keepAlive: health response not ok", data);
-          setDisconnected();
+  function expandSectionContaining(el) {
+    var node = el;
+    while (node && node !== document.body) {
+      if (node.classList && node.classList.contains("collapsible-body") && node.classList.contains("collapsed")) {
+        var prev = node.previousElementSibling;
+        if (prev && prev.classList.contains("collapsible-header")) {
+          prev.click();
         }
-      }).catch(function(err) {
-        console.log("[SDA] keepAlive: fetch failed, switching to heartbeat", err);
-        setDisconnected();
-        stopKeepAlive();
-        startHeartbeat();
-      });
-    }, KEEP_ALIVE_INTERVAL_MS));
-  }
-  function stopKeepAlive() {
-    if (keepAliveTimerId) {
-      console.log("[SDA] stopKeepAlive: clearing interval");
-      clearInterval(keepAliveTimerId);
-      setKeepAliveTimerId(null);
+      }
+      node = node.parentElement;
     }
+  }
+  function applySearch() {
+    const term = getSearchTerm();
+    const scope = getScope();
+    const navEl = document.getElementById("search-nav");
+    const countEl = document.getElementById("search-count");
+    const isSearchPanel = activeTabId === "search";
+    const root = isSearchPanel ? document.getElementById("search-results-content") : null;
+    function getEl(mainId, panelId) {
+      if (isSearchPanel && root) {
+        var el = root.querySelector("#" + panelId);
+        return el || null;
+      }
+      return document.getElementById(mainId);
+    }
+    const schemaPre = getEl("schema-pre", "search-panel-schema-pre");
+    const contentPre = getEl("content-pre", "search-panel-content-pre");
+    var dataTable = getEl("data-table", "search-panel-data-table");
+    if (schemaPre && lastRenderedSchema !== null && (scope === "schema" || scope === "both")) {
+      schemaPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc2(lastRenderedSchema);
+    }
+    if (contentPre && lastRenderedSchema !== null && scope === "schema") {
+      contentPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc2(lastRenderedSchema);
+    }
+    if (dataTable && (scope === "data" || scope === "both")) {
+      dataTable.querySelectorAll("td").forEach(function(td) {
+        if (!td.querySelector(".fk-link")) {
+          var copyBtn = td.querySelector(".cell-copy-btn");
+          var textNodes = [];
+          td.childNodes.forEach(function(n) {
+            if (n !== copyBtn) textNodes.push(n.textContent || "");
+          });
+          var text = textNodes.join("");
+          var highlighted = term ? highlightText(text, term) : esc2(text);
+          if (copyBtn) {
+            var btnHtml = copyBtn.outerHTML;
+            td.innerHTML = highlighted + btnHtml;
+          } else {
+            td.innerHTML = highlighted;
+          }
+        }
+      });
+    }
+    setSearchMatches([]);
+    setSearchCurrentIndex(-1);
+    if (term) {
+      var searchRoot = isSearchPanel && root ? root : document;
+      setSearchMatches(Array.from(searchRoot.querySelectorAll ? searchRoot.querySelectorAll(".highlight") : []));
+    }
+    if (searchMatches.length > 0) {
+      navEl.style.display = "flex";
+      navigateToMatch(0);
+    } else {
+      navEl.style.display = term ? "flex" : "none";
+      countEl.textContent = term ? "No matches" : "";
+      document.getElementById("search-prev").disabled = true;
+      document.getElementById("search-next").disabled = true;
+    }
+  }
+  function navigateToMatch(index) {
+    var countEl = document.getElementById("search-count");
+    var prevBtn = document.getElementById("search-prev");
+    var nextBtn = document.getElementById("search-next");
+    if (searchMatches.length === 0) return;
+    if (index < 0) index = searchMatches.length - 1;
+    if (index >= searchMatches.length) index = 0;
+    if (searchCurrentIndex >= 0 && searchCurrentIndex < searchMatches.length) {
+      searchMatches[searchCurrentIndex].classList.remove("highlight-active");
+    }
+    setSearchCurrentIndex(index);
+    var current = searchMatches[searchCurrentIndex];
+    current.classList.add("highlight-active");
+    expandSectionContaining(current);
+    current.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
+    countEl.textContent = searchCurrentIndex + 1 + " of " + searchMatches.length;
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
+  }
+  function nextMatch() {
+    if (searchMatches.length === 0) return;
+    navigateToMatch(searchCurrentIndex + 1);
+  }
+  function prevMatch() {
+    if (searchMatches.length === 0) return;
+    navigateToMatch(searchCurrentIndex - 1);
   }
 
   // assets/web/pagination.ts
@@ -926,219 +1012,6 @@
       li.appendChild(label);
       li.appendChild(pinBtn);
       listEl.appendChild(li);
-    });
-  }
-
-  // assets/web/table-list.ts
-  function rowCountText(name) {
-    const total = tableCounts[name];
-    const len = currentTableJson && currentTableJson.length || 0;
-    if (total == null) return esc2(name) + " (up to " + limit + " rows)";
-    const rangeText = len > 0 ? "showing " + (offset + 1) + "\u2013" + (offset + len) : "no rows in this range";
-    return esc2(name) + " (" + total + " row" + (total !== 1 ? "s" : "") + "; " + rangeText + ")";
-  }
-  function updateTableListActive() {
-    var name = currentTableName;
-    var ul = document.getElementById("tables");
-    if (!ul) return;
-    var targetHash = name ? "#" + encodeURIComponent(name) : "";
-    ul.querySelectorAll("a.table-link").forEach(function(a) {
-      a.classList.toggle("active", a.getAttribute("href") === targetHash);
-    });
-  }
-  function loadTable(name) {
-    if (currentTableName && currentTableName !== name) {
-      saveTableState(currentTableName);
-    }
-    var isNewTable = currentTableName !== name;
-    setCurrentTableName(name);
-    updateTableListActive();
-    if (typeof window._stSyncTable === "function") window._stSyncTable(name);
-    if (isNewTable) restoreTableState(name);
-    const content = document.getElementById("content");
-    const scope = getScope();
-    if (scope === "both" && cachedSchema !== null) {
-      content.innerHTML = '<p class="meta">Loading ' + esc2(name) + "\u2026</p>";
-    } else if (scope !== "both") {
-      content.innerHTML = '<p class="meta">' + esc2(name) + '</p><p class="meta">Loading\u2026</p>';
-    }
-    fetch("/api/table/" + encodeURIComponent(name) + "?S.limit=" + limit + "&S.offset=" + offset, authOpts()).then((r) => r.json()).then((data) => {
-      if (currentTableName !== name) return;
-      setCurrentTableJson(data);
-      setupPagination();
-      renderTableView(name, data);
-      fetch("/api/table/" + encodeURIComponent(name) + "/count", authOpts()).then((r) => r.json()).then((o) => {
-        if (currentTableName !== name) return;
-        tableCounts[name] = o.count;
-        updatePaginationBar(o.count);
-        renderTableView(name, data);
-      }).catch(() => {
-      });
-    }).catch((e) => {
-      if (currentTableName !== name) return;
-      content.innerHTML = '<p class="meta">Error</p><pre>' + esc2(String(e)) + "</pre>";
-    });
-  }
-  function renderTableList(tables) {
-    setLastKnownTables(tables);
-    const ul = document.getElementById("tables");
-    if (!ul) return;
-    ul.innerHTML = "";
-    var pinnedArr = getPinnedTables();
-    var tableSet = new Set(tables);
-    var cleaned = pinnedArr.filter(function(t) {
-      return tableSet.has(t);
-    });
-    if (cleaned.length !== pinnedArr.length) setPinnedTables(cleaned);
-    var pinnedSet = new Set(cleaned);
-    var sorted = tables.slice().sort(function(a, b) {
-      return (pinnedSet.has(a) ? 0 : 1) - (pinnedSet.has(b) ? 0 : 1);
-    });
-    sorted.forEach(function(t) {
-      var isPinned = pinnedSet.has(t);
-      var li = document.createElement("li");
-      var a = document.createElement("a");
-      a.href = "#" + encodeURIComponent(t);
-      a.className = "table-link" + (t === currentTableName ? " active" : "");
-      a.setAttribute("data-table", t);
-      var nameSpan = document.createElement("span");
-      nameSpan.className = "table-link-name";
-      nameSpan.textContent = t;
-      a.appendChild(nameSpan);
-      if (tableCounts[t] != null) {
-        var countSpan = document.createElement("span");
-        countSpan.className = "table-link-count";
-        countSpan.textContent = "(" + formatTableRowCountDisplay(tableCounts[t]) + ")";
-        a.appendChild(countSpan);
-      }
-      var pinBtn = document.createElement("button");
-      pinBtn.type = "button";
-      pinBtn.className = "table-pin-btn" + (isPinned ? " pinned" : "");
-      pinBtn.title = isPinned ? "Unpin" : "Pin to top";
-      pinBtn.setAttribute("aria-pressed", isPinned ? "true" : "false");
-      var pinIcon = document.createElement("span");
-      pinIcon.className = "material-symbols-outlined";
-      pinIcon.setAttribute("aria-hidden", "true");
-      pinIcon.textContent = "push_pin";
-      pinBtn.appendChild(pinIcon);
-      pinBtn.addEventListener("click", function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        togglePinTable(t);
-      });
-      a.appendChild(pinBtn);
-      a.addEventListener("click", function(e) {
-        e.preventDefault();
-        openTableTab(t);
-      });
-      li.appendChild(a);
-      ul.appendChild(li);
-    });
-    const sqlTableSel = document.getElementById("sql-table");
-    if (sqlTableSel) {
-      sqlTableSel.innerHTML = '<option value="">\u2014</option>' + tables.map((t) => '<option value="' + esc2(t) + '">' + esc2(t) + "</option>").join("");
-    }
-    const importTableSel = document.getElementById("import-table");
-    if (importTableSel) {
-      importTableSel.innerHTML = tables.map((t) => '<option value="' + esc2(t) + '">' + esc2(t) + (tableCounts[t] != null ? " (" + esc2(formatTableRowCountDisplay(tableCounts[t])) + ")" : "") + "</option>").join("");
-    }
-    if (typeof window._stPopulateTables === "function") window._stPopulateTables(tables);
-    renderTablesBrowse(tables);
-  }
-  function renderTablesBrowse(tables) {
-    var browseEl = document.getElementById("tables-browse");
-    if (!browseEl) return;
-    if (!tables || tables.length === 0) {
-      browseEl.innerHTML = '<p class="meta">No tables found.</p>';
-      return;
-    }
-    var html = '<div class="tables-browse-grid">';
-    tables.forEach(function(t) {
-      var countHtml = "";
-      if (tableCounts[t] != null) {
-        countHtml = '<span class="browse-card-count">(' + esc2(formatTableRowCountDisplay(tableCounts[t])) + ")</span>";
-      }
-      html += '<button type="button" class="tables-browse-card" data-table="' + esc2(t) + '" title="Open ' + esc2(t) + ' in a tab">';
-      html += '<span class="browse-card-name">' + esc2(t) + "</span>";
-      html += countHtml;
-      html += "</button>";
-    });
-    html += "</div>";
-    browseEl.innerHTML = html;
-    browseEl.querySelectorAll(".tables-browse-card").forEach(function(card) {
-      card.addEventListener("click", function() {
-        var tableName = card.getAttribute("data-table");
-        if (tableName) openTableTab(tableName);
-      });
-    });
-  }
-  function applyTableListAndCounts(data) {
-    var tables = Array.isArray(data) ? data : data && data.tables || [];
-    var counts = data && data.counts ? data.counts : {};
-    Object.keys(counts).forEach(function(t) {
-      tableCounts[t] = counts[t];
-      if (typeof window._stUpdateCount === "function") window._stUpdateCount(t, counts[t]);
-    });
-    renderTableList(tables);
-    return tables;
-  }
-  function refreshOnGenerationChange() {
-    if (refreshInFlight) {
-      console.log("[SDA] refreshOnGenerationChange: skipped (already in flight)");
-      return;
-    }
-    console.log("[SDA] refreshOnGenerationChange: refreshing tables + current table");
-    setRefreshInFlight(true);
-    if (window.mastheadStatus && connectionState === "connected") window.mastheadStatus.setBusy();
-    fetch("/api/tables", authOpts()).then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      var tables = applyTableListAndCounts(data);
-      openTableTabs.slice().forEach(function(name) {
-        if (tables.indexOf(name) < 0) closeToolTab("tbl:" + name);
-      });
-      if (currentTableName && tables.indexOf(currentTableName) >= 0) {
-        loadTable(currentTableName);
-      }
-    }).catch(function() {
-    }).finally(function() {
-      setRefreshInFlight(false);
-      updateLiveIndicatorForConnection();
-    });
-  }
-  function pollGeneration() {
-    console.log("[SDA] pollGeneration: since=" + lastGeneration);
-    fetch("/api/generation?since=" + lastGeneration, authOpts()).then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      var g = data.generation;
-      var changed = typeof g === "number" && g !== lastGeneration;
-      console.log("[SDA] pollGeneration: received generation=" + g + ", changed=" + changed);
-      setConnected();
-      if (changed) {
-        if (g < lastGeneration) {
-          console.log("[SDA] pollGeneration: generation went backwards (" + lastGeneration + " -> " + g + "). Server may have restarted.");
-        }
-        setLastGeneration(g);
-        refreshOnGenerationChange();
-      }
-      pollGeneration();
-    }).catch(function(err) {
-      setConsecutivePollFailures(consecutivePollFailures + 1);
-      console.log("[SDA] pollGeneration: FAILED, failures=" + consecutivePollFailures + ", backoff=" + currentBackoffMs + "ms", err);
-      if (consecutivePollFailures >= 1 && connectionState === "connected") {
-        setDisconnected();
-      }
-      if (consecutivePollFailures >= HEALTH_CHECK_THRESHOLD) {
-        console.log("[SDA] pollGeneration: switching to heartbeat after " + consecutivePollFailures + " failures");
-        startHeartbeat();
-        return;
-      }
-      setCurrentBackoffMs(Math.min(
-        currentBackoffMs * BACKOFF_MULTIPLIER,
-        BACKOFF_MAX_MS
-      ));
-      setTimeout(pollGeneration, currentBackoffMs);
     });
   }
 
@@ -1638,6 +1511,204 @@
     }
   }
 
+  // assets/web/connection.ts
+  var _applyHealthWriteFlag = () => {
+  };
+  var _pollGeneration = () => {
+  };
+  function initConnectionDeps(deps) {
+    _applyHealthWriteFlag = deps.applyHealthWriteFlag;
+    _pollGeneration = deps.pollGeneration;
+  }
+  function setDisconnected() {
+    if (connectionState === "disconnected") return;
+    console.log("[SDA] setDisconnected (was: " + connectionState + ")");
+    setConnectionState("disconnected");
+    setBannerDismissed(false);
+    showConnectionBanner();
+    updateConnectionBannerText();
+    updateLiveIndicatorForConnection();
+    setOfflineControlsDisabled(true);
+  }
+  function setReconnecting() {
+    if (connectionState === "reconnecting") return;
+    console.log("[SDA] setReconnecting (was: " + connectionState + ")");
+    setConnectionState("reconnecting");
+    setNextHeartbeatAt(null);
+    showConnectionBanner();
+    updateConnectionBannerText();
+    updateLiveIndicatorForConnection();
+  }
+  function setConnected() {
+    if (connectionState === "connected") return;
+    console.log("[SDA] setConnected (was: " + connectionState + ")");
+    setConnectionState("connected");
+    setConsecutivePollFailures(0);
+    setCurrentBackoffMs(BACKOFF_INITIAL_MS);
+    setNextHeartbeatAt(null);
+    setHeartbeatInFlight(false);
+    setHeartbeatAttemptCount(0);
+    hideConnectionBanner();
+    updateLiveIndicatorForConnection();
+    setOfflineControlsDisabled(false);
+    stopHeartbeat();
+  }
+  function updateConnectionBannerText() {
+    if (connectionState === "connected" || bannerDismissed) return;
+    const msgEl = document.getElementById("banner-message");
+    const diagEl = document.getElementById("banner-diagnostics");
+    if (!msgEl || !diagEl) return;
+    const parts = [];
+    if (connectionState === "reconnecting") {
+      msgEl.textContent = "Reconnecting\u2026";
+      diagEl.textContent = "Restoring connection\u2026";
+      return;
+    }
+    if (heartbeatInFlight) {
+      msgEl.textContent = "Connection lost \u2014 checking\u2026";
+      parts.push("Attempt " + heartbeatAttemptCount);
+    } else if (nextHeartbeatAt != null) {
+      const secs = Math.max(0, Math.ceil((nextHeartbeatAt - Date.now()) / 1e3));
+      msgEl.textContent = "Connection lost \u2014 next retry in " + secs + "s";
+      const intervalSec = currentBackoffMs / 1e3;
+      parts.push("Retrying every " + intervalSec + "s");
+      if (currentBackoffMs >= BACKOFF_MAX_MS) parts.push("(max interval)");
+      parts.push("Attempt " + heartbeatAttemptCount);
+    } else {
+      msgEl.textContent = "Connection lost \u2014 reconnecting\u2026";
+      parts.push("Attempt " + heartbeatAttemptCount);
+    }
+    diagEl.textContent = parts.join(" \u2022 ");
+  }
+  function showConnectionBanner() {
+    if (bannerDismissed) return;
+    const banner = document.getElementById("connection-banner");
+    if (!banner) return;
+    banner.classList.add("show");
+    document.body.classList.add("has-connection-banner");
+    if (!bannerUpdateIntervalId) {
+      setBannerUpdateIntervalId(setInterval(updateConnectionBannerText, 1e3));
+    }
+  }
+  function hideConnectionBanner() {
+    if (bannerUpdateIntervalId) {
+      clearInterval(bannerUpdateIntervalId);
+      setBannerUpdateIntervalId(null);
+    }
+    const banner = document.getElementById("connection-banner");
+    if (banner) {
+      banner.classList.remove("show");
+      document.body.classList.remove("has-connection-banner");
+    }
+  }
+  function updateLiveIndicatorForConnection() {
+    if (!window.mastheadStatus) return;
+    window.mastheadStatus.setConnection(connectionState, pollingEnabled);
+  }
+  function setOfflineControlsDisabled(disabled) {
+    OFFLINE_DISABLE_IDS.forEach(function(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        if (disabled) el.classList.add("offline-disabled");
+        else el.classList.remove("offline-disabled");
+      }
+    });
+  }
+  function startHeartbeat() {
+    if (heartbeatTimerId) {
+      console.log("[SDA] startHeartbeat: skipped (timer already active)");
+      return;
+    }
+    console.log("[SDA] startHeartbeat: initiating heartbeat cycle");
+    doHeartbeat();
+  }
+  function doHeartbeat() {
+    if (heartbeatInFlight) {
+      console.log("[SDA] doHeartbeat: skipped (already in flight)");
+      return;
+    }
+    if (connectionState === "disconnected" || connectionState === "reconnecting") {
+      setHeartbeatAttemptCount(heartbeatAttemptCount + 1);
+    }
+    console.log("[SDA] doHeartbeat: attempt #" + heartbeatAttemptCount + ", state=" + connectionState);
+    setHeartbeatInFlight(true);
+    updateConnectionBannerText();
+    fetch("/api/health", authOpts()).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      setHeartbeatInFlight(false);
+      if (data && data.ok) {
+        console.log("[SDA] doHeartbeat: health OK \u2014 resuming poll");
+        _applyHealthWriteFlag(data);
+        setReconnecting();
+        setConsecutivePollFailures(0);
+        setCurrentBackoffMs(BACKOFF_INITIAL_MS);
+        setNextHeartbeatAt(null);
+        setHeartbeatTimerId(null);
+        _pollGeneration();
+        return;
+      }
+      console.log("[SDA] doHeartbeat: health response not ok", data);
+      updateConnectionBannerText();
+      scheduleHeartbeat();
+    }).catch(function(err) {
+      console.log("[SDA] doHeartbeat: fetch failed", err);
+      setHeartbeatInFlight(false);
+      updateConnectionBannerText();
+      scheduleHeartbeat();
+    });
+  }
+  function scheduleHeartbeat() {
+    setCurrentBackoffMs(Math.min(
+      currentBackoffMs * BACKOFF_MULTIPLIER,
+      BACKOFF_MAX_MS
+    ));
+    console.log("[SDA] scheduleHeartbeat: next in " + currentBackoffMs + "ms");
+    setNextHeartbeatAt(Date.now() + currentBackoffMs);
+    setHeartbeatTimerId(setTimeout(doHeartbeat, currentBackoffMs));
+  }
+  function stopHeartbeat() {
+    if (heartbeatTimerId) {
+      console.log("[SDA] stopHeartbeat: clearing timer");
+      clearTimeout(heartbeatTimerId);
+      setHeartbeatTimerId(null);
+    }
+    setNextHeartbeatAt(null);
+  }
+  function startKeepAlive() {
+    console.log("[SDA] startKeepAlive: interval=" + KEEP_ALIVE_INTERVAL_MS + "ms");
+    stopKeepAlive();
+    setKeepAliveTimerId(setInterval(function() {
+      console.log("[SDA] keepAlive tick: fetching /api/health");
+      fetch("/api/health", authOpts()).then(function(r) {
+        return r.json();
+      }).then(function(data) {
+        if (data && data.ok) {
+          _applyHealthWriteFlag(data);
+          if (connectionState !== "connected") {
+            console.log("[SDA] keepAlive: health OK, restoring connected");
+            setConnected();
+          }
+        } else {
+          console.log("[SDA] keepAlive: health response not ok", data);
+          setDisconnected();
+        }
+      }).catch(function(err) {
+        console.log("[SDA] keepAlive: fetch failed, switching to heartbeat", err);
+        setDisconnected();
+        stopKeepAlive();
+        startHeartbeat();
+      });
+    }, KEEP_ALIVE_INTERVAL_MS));
+  }
+  function stopKeepAlive() {
+    if (keepAliveTimerId) {
+      console.log("[SDA] stopKeepAlive: clearing interval");
+      clearInterval(keepAliveTimerId);
+      setKeepAliveTimerId(null);
+    }
+  }
+
   // assets/web/tabs.ts
   function switchTab(tabId) {
     var tabBar = document.getElementById("tab-bar");
@@ -1745,12 +1816,6 @@
     }
   }
   function initTabsAndToolbar() {
-    document.querySelectorAll("#tools-toolbar .toolbar-tool-btn").forEach(function(btn) {
-      var toolId = btn.getAttribute("data-tool");
-      if (toolId) btn.addEventListener("click", function() {
-        openTool(toolId);
-      });
-    });
     document.querySelectorAll("#tab-bar .tab-btn").forEach(function(btn) {
       var tabId = btn.getAttribute("data-tab");
       if (tabId && !btn.querySelector(".tab-btn-close")) {
@@ -1770,153 +1835,216 @@
     switchTab(tabId);
   }
 
-  // assets/web/search.ts
-  function escapeRe(s) {
-    return s.replace(/[\\\\^\$*+?.()|[\]{}]/g, "\\\\$&");
+  // assets/web/table-list.ts
+  function rowCountText(name) {
+    const total = tableCounts[name];
+    const len = currentTableJson && currentTableJson.length || 0;
+    if (total == null) return esc2(name) + " (up to " + limit + " rows)";
+    const rangeText = len > 0 ? "showing " + (offset + 1) + "\u2013" + (offset + len) : "no rows in this range";
+    return esc2(name) + " (" + total + " row" + (total !== 1 ? "s" : "") + "; " + rangeText + ")";
   }
-  function highlightText(text, term) {
-    if (!term || term.length === 0) return esc2(text);
-    const re = new RegExp("(" + escapeRe(term) + ")", "gi");
-    var result = "";
-    var lastEnd = 0;
-    var match;
-    while ((match = re.exec(text)) !== null) {
-      result += esc2(text.slice(lastEnd, match.index)) + '<span class="highlight">' + esc2(match[1]) + "</span>";
-      lastEnd = re.lastIndex;
+  function updateTableListActive() {
+    var name = currentTableName;
+    var ul = document.getElementById("tables");
+    if (!ul) return;
+    var targetHash = name ? "#" + encodeURIComponent(name) : "";
+    ul.querySelectorAll("a.table-link").forEach(function(a) {
+      a.classList.toggle("active", a.getAttribute("href") === targetHash);
+    });
+  }
+  function loadTable(name) {
+    if (currentTableName && currentTableName !== name) {
+      saveTableState(currentTableName);
     }
-    result += esc2(text.slice(lastEnd));
-    return result;
-  }
-  function getScope() {
-    return document.getElementById("search-scope").value || "";
-  }
-  function getSearchTerm() {
-    return String(document.getElementById("search-input").value || "").trim();
-  }
-  function getRowFilter() {
-    return String(document.getElementById("row-filter").value || "").trim();
-  }
-  function filterRows(data) {
-    const term = getRowFilter();
-    if (!term || !data || data.length === 0) return data || [];
-    const lower = term.toLowerCase();
-    return data.filter((row) => Object.values(row).some((v) => v != null && String(v).toLowerCase().includes(lower)));
-  }
-  function getTableDisplayData(data) {
-    if (!data || data.length === 0) return data || [];
-    if (showOnlyMatchingRows && getRowFilter()) return filterRows(data);
-    return data;
-  }
-  function buildTableFilterMetaSuffix(filteredLen, totalLen) {
-    if (!getRowFilter()) return "";
-    if (showOnlyMatchingRows) return " (filtered: " + filteredLen + " of " + totalLen + ")";
-    return " (showing all rows; filter: " + filteredLen + " match)";
-  }
-  function expandSectionContaining(el) {
-    var node = el;
-    while (node && node !== document.body) {
-      if (node.classList && node.classList.contains("collapsible-body") && node.classList.contains("collapsed")) {
-        var prev = node.previousElementSibling;
-        if (prev && prev.classList.contains("collapsible-header")) {
-          prev.click();
-        }
-      }
-      node = node.parentElement;
-    }
-  }
-  function applySearch() {
-    const term = getSearchTerm();
+    var isNewTable = currentTableName !== name;
+    setCurrentTableName(name);
+    updateTableListActive();
+    if (typeof window._stSyncTable === "function") window._stSyncTable(name);
+    if (isNewTable) restoreTableState(name);
+    const content = document.getElementById("content");
     const scope = getScope();
-    const navEl = document.getElementById("search-nav");
-    const countEl = document.getElementById("search-count");
-    const isSearchPanel = activeTabId === "search";
-    const root = isSearchPanel ? document.getElementById("search-results-content") : null;
-    function getEl(mainId, panelId) {
-      if (isSearchPanel && root) {
-        var el = root.querySelector("#" + panelId);
-        return el || null;
-      }
-      return document.getElementById(mainId);
+    if (scope === "both" && cachedSchema !== null) {
+      content.innerHTML = '<p class="meta">Loading ' + esc2(name) + "\u2026</p>";
+    } else if (scope !== "both") {
+      content.innerHTML = '<p class="meta">' + esc2(name) + '</p><p class="meta">Loading\u2026</p>';
     }
-    const schemaPre = getEl("schema-pre", "search-panel-schema-pre");
-    const contentPre = getEl("content-pre", "search-panel-content-pre");
-    var dataTable = getEl("data-table", "search-panel-data-table");
-    if (schemaPre && lastRenderedSchema !== null && (scope === "schema" || scope === "both")) {
-      schemaPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc2(lastRenderedSchema);
-    }
-    if (contentPre && lastRenderedSchema !== null && scope === "schema") {
-      contentPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc2(lastRenderedSchema);
-    }
-    if (dataTable && (scope === "data" || scope === "both")) {
-      dataTable.querySelectorAll("td").forEach(function(td) {
-        if (!td.querySelector(".fk-link")) {
-          var copyBtn = td.querySelector(".cell-copy-btn");
-          var textNodes = [];
-          td.childNodes.forEach(function(n) {
-            if (n !== copyBtn) textNodes.push(n.textContent || "");
-          });
-          var text = textNodes.join("");
-          var highlighted = term ? highlightText(text, term) : esc2(text);
-          if (copyBtn) {
-            var btnHtml = copyBtn.outerHTML;
-            td.innerHTML = highlighted + btnHtml;
-          } else {
-            td.innerHTML = highlighted;
-          }
-        }
+    fetch("/api/table/" + encodeURIComponent(name) + "?S.limit=" + limit + "&S.offset=" + offset, authOpts()).then((r) => r.json()).then((data) => {
+      if (currentTableName !== name) return;
+      setCurrentTableJson(data);
+      setupPagination();
+      renderTableView(name, data);
+      fetch("/api/table/" + encodeURIComponent(name) + "/count", authOpts()).then((r) => r.json()).then((o) => {
+        if (currentTableName !== name) return;
+        tableCounts[name] = o.count;
+        updatePaginationBar(o.count);
+        renderTableView(name, data);
+      }).catch(() => {
       });
-    }
-    setSearchMatches([]);
-    setSearchCurrentIndex(-1);
-    if (term) {
-      var searchRoot = isSearchPanel && root ? root : document;
-      setSearchMatches(Array.from(searchRoot.querySelectorAll ? searchRoot.querySelectorAll(".highlight") : []));
-    }
-    if (searchMatches.length > 0) {
-      navEl.style.display = "flex";
-      navigateToMatch(0);
-    } else {
-      navEl.style.display = term ? "flex" : "none";
-      countEl.textContent = term ? "No matches" : "";
-      document.getElementById("search-prev").disabled = true;
-      document.getElementById("search-next").disabled = true;
-    }
+    }).catch((e) => {
+      if (currentTableName !== name) return;
+      content.innerHTML = '<p class="meta">Error</p><pre>' + esc2(String(e)) + "</pre>";
+    });
   }
-  function navigateToMatch(index) {
-    var countEl = document.getElementById("search-count");
-    var prevBtn = document.getElementById("search-prev");
-    var nextBtn = document.getElementById("search-next");
-    if (searchMatches.length === 0) return;
-    if (index < 0) index = searchMatches.length - 1;
-    if (index >= searchMatches.length) index = 0;
-    if (searchCurrentIndex >= 0 && searchCurrentIndex < searchMatches.length) {
-      searchMatches[searchCurrentIndex].classList.remove("highlight-active");
+  function renderTableList(tables) {
+    setLastKnownTables(tables);
+    const ul = document.getElementById("tables");
+    if (!ul) return;
+    ul.innerHTML = "";
+    var pinnedArr = getPinnedTables();
+    var tableSet = new Set(tables);
+    var cleaned = pinnedArr.filter(function(t) {
+      return tableSet.has(t);
+    });
+    if (cleaned.length !== pinnedArr.length) setPinnedTables(cleaned);
+    var pinnedSet = new Set(cleaned);
+    var sorted = tables.slice().sort(function(a, b) {
+      return (pinnedSet.has(a) ? 0 : 1) - (pinnedSet.has(b) ? 0 : 1);
+    });
+    sorted.forEach(function(t) {
+      var isPinned = pinnedSet.has(t);
+      var li = document.createElement("li");
+      var a = document.createElement("a");
+      a.href = "#" + encodeURIComponent(t);
+      a.className = "table-link" + (t === currentTableName ? " active" : "");
+      a.setAttribute("data-table", t);
+      var nameSpan = document.createElement("span");
+      nameSpan.className = "table-link-name";
+      nameSpan.textContent = t;
+      a.appendChild(nameSpan);
+      if (tableCounts[t] != null) {
+        var countSpan = document.createElement("span");
+        countSpan.className = "table-link-count";
+        countSpan.textContent = "(" + formatTableRowCountDisplay(tableCounts[t]) + ")";
+        a.appendChild(countSpan);
+      }
+      var pinBtn = document.createElement("button");
+      pinBtn.type = "button";
+      pinBtn.className = "table-pin-btn" + (isPinned ? " pinned" : "");
+      pinBtn.title = isPinned ? "Unpin" : "Pin to top";
+      pinBtn.setAttribute("aria-pressed", isPinned ? "true" : "false");
+      var pinIcon = document.createElement("span");
+      pinIcon.className = "material-symbols-outlined";
+      pinIcon.setAttribute("aria-hidden", "true");
+      pinIcon.textContent = "push_pin";
+      pinBtn.appendChild(pinIcon);
+      pinBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        togglePinTable(t);
+      });
+      a.appendChild(pinBtn);
+      a.addEventListener("click", function(e) {
+        e.preventDefault();
+        openTableTab(t);
+      });
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    const sqlTableSel = document.getElementById("sql-table");
+    if (sqlTableSel) {
+      sqlTableSel.innerHTML = '<option value="">\u2014</option>' + tables.map((t) => '<option value="' + esc2(t) + '">' + esc2(t) + "</option>").join("");
     }
-    setSearchCurrentIndex(index);
-    var current = searchMatches[searchCurrentIndex];
-    current.classList.add("highlight-active");
-    expandSectionContaining(current);
-    current.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
-    countEl.textContent = searchCurrentIndex + 1 + " of " + searchMatches.length;
-    prevBtn.disabled = false;
-    nextBtn.disabled = false;
+    const importTableSel = document.getElementById("import-table");
+    if (importTableSel) {
+      importTableSel.innerHTML = tables.map((t) => '<option value="' + esc2(t) + '">' + esc2(t) + (tableCounts[t] != null ? " (" + esc2(formatTableRowCountDisplay(tableCounts[t])) + ")" : "") + "</option>").join("");
+    }
+    if (typeof window._stPopulateTables === "function") window._stPopulateTables(tables);
+    renderTablesBrowse(tables);
   }
-  function nextMatch() {
-    if (searchMatches.length === 0) return;
-    navigateToMatch(searchCurrentIndex + 1);
+  function renderTablesBrowse(tables) {
+    var browseEl = document.getElementById("tables-browse");
+    if (!browseEl) return;
+    if (!tables || tables.length === 0) {
+      browseEl.innerHTML = '<p class="meta">No tables found.</p>';
+      return;
+    }
+    var html = '<div class="tables-browse-grid">';
+    tables.forEach(function(t) {
+      var countHtml = "";
+      if (tableCounts[t] != null) {
+        countHtml = '<span class="browse-card-count">(' + esc2(formatTableRowCountDisplay(tableCounts[t])) + ")</span>";
+      }
+      html += '<button type="button" class="tables-browse-card" data-table="' + esc2(t) + '" title="Open ' + esc2(t) + ' in a tab">';
+      html += '<span class="browse-card-name">' + esc2(t) + "</span>";
+      html += countHtml;
+      html += "</button>";
+    });
+    html += "</div>";
+    browseEl.innerHTML = html;
+    browseEl.querySelectorAll(".tables-browse-card").forEach(function(card) {
+      card.addEventListener("click", function() {
+        var tableName = card.getAttribute("data-table");
+        if (tableName) openTableTab(tableName);
+      });
+    });
   }
-  function prevMatch() {
-    if (searchMatches.length === 0) return;
-    navigateToMatch(searchCurrentIndex - 1);
+  function applyTableListAndCounts(data) {
+    var tables = Array.isArray(data) ? data : data && data.tables || [];
+    var counts = data && data.counts ? data.counts : {};
+    Object.keys(counts).forEach(function(t) {
+      tableCounts[t] = counts[t];
+      if (typeof window._stUpdateCount === "function") window._stUpdateCount(t, counts[t]);
+    });
+    renderTableList(tables);
+    return tables;
   }
-  function initSearchToggle() {
-    var btn = document.getElementById("search-toggle-btn");
-    if (!btn) return;
-    btn.addEventListener("click", function() {
-      openTool("search");
-      setTimeout(function() {
-        if (typeof window._stFocusInput === "function") window._stFocusInput();
-      }, 0);
+  function refreshOnGenerationChange() {
+    if (refreshInFlight) {
+      console.log("[SDA] refreshOnGenerationChange: skipped (already in flight)");
+      return;
+    }
+    console.log("[SDA] refreshOnGenerationChange: refreshing tables + current table");
+    setRefreshInFlight(true);
+    if (window.mastheadStatus && connectionState === "connected") window.mastheadStatus.setBusy();
+    fetch("/api/tables", authOpts()).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var tables = applyTableListAndCounts(data);
+      openTableTabs.slice().forEach(function(name) {
+        if (tables.indexOf(name) < 0) closeToolTab("tbl:" + name);
+      });
+      if (currentTableName && tables.indexOf(currentTableName) >= 0) {
+        loadTable(currentTableName);
+      }
+    }).catch(function() {
+    }).finally(function() {
+      setRefreshInFlight(false);
+      updateLiveIndicatorForConnection();
+    });
+  }
+  function pollGeneration() {
+    console.log("[SDA] pollGeneration: since=" + lastGeneration);
+    fetch("/api/generation?since=" + lastGeneration, authOpts()).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var g = data.generation;
+      var changed = typeof g === "number" && g !== lastGeneration;
+      console.log("[SDA] pollGeneration: received generation=" + g + ", changed=" + changed);
+      setConnected();
+      if (changed) {
+        if (g < lastGeneration) {
+          console.log("[SDA] pollGeneration: generation went backwards (" + lastGeneration + " -> " + g + "). Server may have restarted.");
+        }
+        setLastGeneration(g);
+        refreshOnGenerationChange();
+      }
+      pollGeneration();
+    }).catch(function(err) {
+      setConsecutivePollFailures(consecutivePollFailures + 1);
+      console.log("[SDA] pollGeneration: FAILED, failures=" + consecutivePollFailures + ", backoff=" + currentBackoffMs + "ms", err);
+      if (consecutivePollFailures >= 1 && connectionState === "connected") {
+        setDisconnected();
+      }
+      if (consecutivePollFailures >= HEALTH_CHECK_THRESHOLD) {
+        console.log("[SDA] pollGeneration: switching to heartbeat after " + consecutivePollFailures + " failures");
+        startHeartbeat();
+        return;
+      }
+      setCurrentBackoffMs(Math.min(
+        currentBackoffMs * BACKOFF_MULTIPLIER,
+        BACKOFF_MAX_MS
+      ));
+      setTimeout(pollGeneration, currentBackoffMs);
     });
   }
 
@@ -2417,11 +2545,23 @@
     }
     return null;
   }
+  function syncMastheadMaskBadge(checked) {
+    var badge = document.getElementById("masthead-mask-badge");
+    if (badge) badge.style.display = checked ? "" : "none";
+  }
   function initPiiMaskToggle() {
-    var cb = document.getElementById("fab-pii-mask-toggle");
+    var cb = document.getElementById("hamburger-pii-mask-toggle");
     if (!cb) return;
+    syncMastheadMaskBadge(cb.checked);
     cb.addEventListener("change", function() {
-      if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson);
+      syncMastheadMaskBadge(cb.checked);
+      if (currentTableName && currentTableJson) {
+        renderTableView(currentTableName, currentTableJson);
+      }
+      var searchResults = document.getElementById("search-results");
+      if (searchResults && searchResults.innerHTML.indexOf("<table") >= 0) {
+        applySearch();
+      }
     });
   }
 
@@ -2452,7 +2592,7 @@
   function createShareSession() {
     var note = prompt("Add a note for your team (optional):\n\nSession will expire in 1 hour.");
     if (note === null) return;
-    var btn = document.getElementById("fab-share-btn");
+    var btn = document.getElementById("hamburger-share-btn");
     btn.disabled = true;
     setButtonBusy(btn, true, "Sharing\u2026");
     var state = captureViewerState();
@@ -2471,7 +2611,7 @@
     }).finally(function() {
       btn.disabled = false;
       btn.classList.remove("btn-busy");
-      btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">share</span><span class="fab-action-label">Share</span>';
+      btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">share</span>Share';
     });
   }
   function applySessionState(state) {
@@ -3482,9 +3622,9 @@
     document.body.classList.add("theme-" + theme);
     var labels = { dark: "Dark", light: "Light", showcase: "Showcase", midnight: "Midnight" };
     var icons = { dark: "dark_mode", light: "light_mode", showcase: "auto_awesome", midnight: "bedtime" };
-    var themeLabel = document.getElementById("fab-theme-label");
+    var themeLabel = document.getElementById("hamburger-theme-label");
     if (themeLabel) themeLabel.textContent = labels[theme] || theme;
-    var themeBtn = document.getElementById("fab-theme-toggle");
+    var themeBtn = document.getElementById("hamburger-theme-toggle");
     if (themeBtn) {
       var icon = themeBtn.querySelector(".material-symbols-outlined");
       if (icon) icon.textContent = icons[theme] || "dark_mode";
@@ -3526,9 +3666,9 @@
     applyTheme(prefersDark ? "dark" : "light");
   }
   function initThemeListeners() {
-    var fabThemeBtn = document.getElementById("fab-theme-toggle");
-    if (fabThemeBtn) {
-      fabThemeBtn.addEventListener("click", function() {
+    var themeToggleBtn = document.getElementById("hamburger-theme-toggle");
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener("click", function() {
         var next = nextTheme(currentTheme());
         localStorage.setItem(THEME_KEY, next);
         applyTheme(next);
@@ -3547,22 +3687,22 @@
   function initSidebarCollapse() {
     var layout = document.getElementById("app-layout");
     var aside = document.getElementById("app-sidebar");
-    var fabBtn = document.getElementById("fab-sidebar-toggle");
-    var fabIcon = document.getElementById("fab-sidebar-icon");
-    var fabLabel = document.getElementById("fab-sidebar-label");
+    var menuBtn = document.getElementById("hamburger-sidebar-toggle");
+    var menuIcon = document.getElementById("hamburger-sidebar-icon");
+    var menuLabel = document.getElementById("hamburger-sidebar-label");
     var tablesToggle = document.getElementById("tables-heading-toggle");
     if (!layout || !aside) return;
     function applyAppSidebarCollapsed(collapsed) {
       layout.classList.toggle("app-sidebar-panel-collapsed", collapsed);
       aside.setAttribute("aria-hidden", collapsed ? "true" : "false");
       var label = collapsed ? "Show tables sidebar" : "Hide tables sidebar";
-      if (fabBtn) {
-        fabBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-        fabBtn.setAttribute("aria-label", label);
-        fabBtn.title = label;
+      if (menuBtn) {
+        menuBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        menuBtn.setAttribute("aria-label", label);
+        menuBtn.title = label;
       }
-      if (fabIcon) fabIcon.textContent = collapsed ? "chevron_right" : "chevron_left";
-      if (fabLabel) fabLabel.textContent = collapsed ? "Show Sidebar" : "Hide Sidebar";
+      if (menuIcon) menuIcon.textContent = collapsed ? "chevron_right" : "chevron_left";
+      if (menuLabel) menuLabel.textContent = collapsed ? "Show Sidebar" : "Hide Sidebar";
       if (tablesToggle) {
         tablesToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
       }
@@ -3585,7 +3725,7 @@
       localStorage.removeItem("saropa_sidebar_tables_collapsed");
     } catch (e) {
     }
-    if (fabBtn) fabBtn.addEventListener("click", toggleSidebarCollapsed);
+    if (menuBtn) menuBtn.addEventListener("click", toggleSidebarCollapsed);
     if (tablesToggle) tablesToggle.addEventListener("click", toggleSidebarCollapsed);
   }
 
@@ -3973,7 +4113,7 @@
     container.innerHTML = html;
   }
 
-  // assets/web/tools.ts
+  // assets/web/tools-compare.ts
   function initSnapshot() {
     const toggle = document.getElementById("snapshot-toggle");
     const collapsible = document.getElementById("snapshot-collapsible");
@@ -4152,6 +4292,8 @@
       });
     });
   }
+
+  // assets/web/tools-analytics.ts
   function initIndexSuggestions() {
     const toggle = document.getElementById("index-toggle");
     const collapsible = document.getElementById("index-collapsible");
@@ -4521,6 +4663,8 @@
       });
     });
   }
+
+  // assets/web/tools-import.ts
   function initImport() {
     const toggle = document.getElementById("import-toggle");
     const collapsible = document.getElementById("import-collapsible");
@@ -5893,7 +6037,6 @@
   initSearchTab();
   initSqlRunner();
   initPerformance();
-  initSearchToggle();
   document.addEventListener("click", function(e) {
     var header = e.target.closest(".collapsible-header[data-collapsible]");
     if (!header) return;
@@ -6556,36 +6699,45 @@
     }
   }).catch(function() {
   });
-  document.getElementById("fab-share-btn").addEventListener("click", createShareSession);
+  var shareBtn = document.getElementById("hamburger-share-btn");
+  if (shareBtn) shareBtn.addEventListener("click", createShareSession);
   restoreSession();
 
-  // assets/web/fab.ts
-  function initSuperFab() {
-    const fab = document.getElementById("super-fab");
-    const trigger = document.getElementById("super-fab-trigger");
-    const menu = document.getElementById("super-fab-menu");
-    const icon = document.getElementById("super-fab-icon");
-    if (!fab || !trigger || !menu) return;
-    function toggleFab() {
-      const opening = !fab.classList.contains("open");
-      fab.classList.toggle("open", opening);
+  // assets/web/hamburger-menu.ts
+  function initHamburgerMenu() {
+    const trigger = document.getElementById("hamburger-trigger");
+    const menu = document.getElementById("hamburger-menu");
+    if (!trigger || !menu) return;
+    function toggleMenu(forceOpen) {
+      const opening = forceOpen !== void 0 ? forceOpen : trigger.getAttribute("aria-expanded") !== "true";
       trigger.setAttribute("aria-expanded", opening ? "true" : "false");
       menu.setAttribute("aria-hidden", opening ? "false" : "true");
-      if (icon) icon.textContent = opening ? "close" : "tune";
     }
     trigger.addEventListener("click", (e) => {
       e.stopPropagation();
-      toggleFab();
+      toggleMenu();
     });
     document.addEventListener("click", (e) => {
-      if (fab.classList.contains("open") && !fab.contains(e.target)) {
-        toggleFab();
+      if (trigger.getAttribute("aria-expanded") === "true") {
+        const wrapper = trigger.parentElement;
+        if (wrapper && !wrapper.contains(e.target)) {
+          toggleMenu(false);
+        }
       }
     });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && fab.classList.contains("open")) {
-        toggleFab();
+      if (e.key === "Escape" && trigger.getAttribute("aria-expanded") === "true") {
+        toggleMenu(false);
         trigger.focus();
+      }
+    });
+    menu.querySelectorAll(".hamburger-item[data-tool]").forEach((btn) => {
+      const toolId = btn.getAttribute("data-tool");
+      if (toolId) {
+        btn.addEventListener("click", () => {
+          openTool(toolId);
+          toggleMenu(false);
+        });
       }
     });
   }
@@ -6619,8 +6771,8 @@
   var api = initMasthead();
   console.log("[SDA] index.js bridge: initMasthead returned " + (api ? "API object" : "null"));
   if (api) window.mastheadStatus = api;
-  console.log("[SDA] index.js bridge: calling initSuperFab()");
-  initSuperFab();
+  console.log("[SDA] index.js bridge: calling initHamburgerMenu()");
+  initHamburgerMenu();
   console.log("[SDA] index.js bridge: calling initTableDefToggle()");
   initTableDefToggle();
   console.log("[SDA] index.js bridge: init complete");

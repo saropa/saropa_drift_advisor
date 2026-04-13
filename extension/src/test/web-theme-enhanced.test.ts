@@ -151,7 +151,7 @@ describe('Web theme contract — premium theme effects in style.css', () => {
 
   it('reduced motion disables all theme animations', () => {
     const lines = css.split('\n');
-    // Find the LAST reduced-motion block (the theme one, not the FAB one)
+    // Find the LAST reduced-motion block (the theme-effects one)
     let lastReducedIdx = -1;
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].includes('prefers-reduced-motion')) lastReducedIdx = i;

@@ -17,8 +17,8 @@
 /// Buttons and collapsible headers include [title] attributes for hover tooltips.
 ///
 /// Layout shell uses [id="app-layout"] and [id="app-sidebar"]; the sidebar
-/// toggle now lives in the floating action menu ([id="fab-sidebar-toggle"])
-/// — see `initSidebarPanelCollapse` and `initSuperFab` in `app.js`.
+/// toggle now lives in the hamburger menu ([id="hamburger-sidebar-toggle"])
+/// — see `initSidebarCollapse` in `sidebar.ts` and `initHamburgerMenu` in `hamburger-menu.ts`.
 ///
 /// The **Tables** sidebar shows skeleton rows under the Tables heading until `app.js` completes
 /// `GET /api/tables`; failures surface in the same block (see `buildIndexHtml` markup).
@@ -57,6 +57,7 @@ abstract final class HtmlContent {
       <a id="version-badge" class="masthead-version" href="https://marketplace.visualstudio.com/items/Saropa.drift-viewer/changelog" target="_blank" rel="noopener noreferrer" title="View changelog" style="opacity:0;"> </a>
       <span class="masthead-sep" aria-hidden="true">\u2013</span>
       <button type="button" id="live-indicator" class="masthead-status connection-status" title="Online, paused, or offline \u2014 connection status" aria-live="polite">\u25cf Online</button>
+      <span id="masthead-mask-badge" class="masthead-mask-badge" style="display:none;" title="PII masking is active \u2014 sensitive columns are redacted">MASKED</span>
     </div>''';
 
   /// Builds the HTML shell with assets either inlined or loaded from CDN.
@@ -74,7 +75,7 @@ abstract final class HtmlContent {
         ? '<style>$inlineCss</style>'
         : '<link rel="stylesheet" href="${ServerConstants.cdnBaseUrl}@v${ServerConstants.packageVersion}/assets/web/style.css" onerror="this.onerror=null;this.href=\'${ServerConstants.cdnBaseUrl}@main/assets/web/style.css\'">';
 
-    // JS bundle: single esbuild output containing app + fab + masthead +
+    // JS bundle: single esbuild output containing app + hamburger-menu + masthead +
     // table-def-toggle. Inline <script> when available, otherwise
     // fetch-based loader that tries CDN URLs sequentially.
     //
@@ -151,7 +152,7 @@ abstract final class HtmlContent {
   </div>
   <header class="app-header">
     ${_buildMastheadPill()}
-    <!-- Share button moved to the Super FAB menu (fab-share-btn). -->
+    <!-- Share button lives in the hamburger menu (hamburger-share-btn). -->
   </header>
   <div class="app-layout" id="app-layout">
     <aside class="app-sidebar" id="app-sidebar">
@@ -199,22 +200,38 @@ abstract final class HtmlContent {
       </div>
     </aside>
     <div class="app-main-content">
-      <!-- Tools toolbar: each button has data-tool so openTool() switches to that tab. Tables and Search use fixed tabs; others get dynamic tabs with close button. -->
-      <div id="tools-toolbar" class="tools-toolbar" role="toolbar" aria-label="Tools">
-        <button type="button" class="toolbar-tool-btn" data-tool="tables" title="Open Tables view"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">table_chart</span><span class="toolbar-tool-label">Tables</span></button>
-        <button type="button" id="search-toggle-btn" class="toolbar-tool-btn" data-tool="search" title="Open Search tab and show search options"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">search</span><span class="toolbar-tool-label">Search</span></button>
-        <button type="button" class="toolbar-tool-btn" data-tool="snapshot" title="Snapshot / time travel"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">photo_camera</span><span class="toolbar-tool-label">Snapshot</span></button>
-        <button type="button" class="toolbar-tool-btn" data-tool="compare" title="Database diff"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">compare_arrows</span><span class="toolbar-tool-label">DB diff</span></button>
-        <button type="button" class="toolbar-tool-btn" data-tool="index" title="Index suggestions"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">format_list_bulleted</span><span class="toolbar-tool-label">Index</span></button>
-        <button type="button" class="toolbar-tool-btn" data-tool="size" title="Database size analytics"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">bar_chart</span><span class="toolbar-tool-label">Size</span></button>
-        <button type="button" class="toolbar-tool-btn" data-tool="perf" title="Query performance"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">speed</span><span class="toolbar-tool-label">Perf</span></button>
-        <button type="button" class="toolbar-tool-btn" data-tool="anomaly" title="Data health"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">favorite</span><span class="toolbar-tool-label">Health</span></button>
-        <button type="button" class="toolbar-tool-btn" data-tool="import" title="Import data (debug only)"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">upload</span><span class="toolbar-tool-label">Import</span></button>
-        <button type="button" class="toolbar-tool-btn" data-tool="schema" title="Schema"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">grid_on</span><span class="toolbar-tool-label">Schema</span></button>
-        <button type="button" class="toolbar-tool-btn" data-tool="diagram" title="Schema diagram"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">account_tree</span><span class="toolbar-tool-label">Diagram</span></button>
-        <button type="button" class="toolbar-tool-btn" data-tool="export" title="Export schema, data, or database"><span class="material-symbols-outlined toolbar-icon" aria-hidden="true">download</span><span class="toolbar-tool-label">Export</span></button>
-      </div>
       <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Views">
+        <!-- Hamburger menu: consolidated tool launchers + app settings.
+             Replaces the old toolbar row and floating action button. -->
+        <div class="hamburger-wrapper">
+          <button type="button" id="hamburger-trigger" class="hamburger-trigger" aria-label="Tools and settings" aria-expanded="false" aria-controls="hamburger-menu" title="Tools and settings">
+            <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+          </button>
+          <div id="hamburger-menu" class="hamburger-menu" aria-hidden="true">
+            <div class="hamburger-group-label">Snapshots &amp; Comparison</div>
+            <button type="button" class="hamburger-item" data-tool="snapshot"><span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>Snapshot</button>
+            <button type="button" class="hamburger-item" data-tool="compare"><span class="material-symbols-outlined" aria-hidden="true">compare_arrows</span>DB diff</button>
+            <hr class="hamburger-divider" />
+            <div class="hamburger-group-label">Performance Analysis</div>
+            <button type="button" class="hamburger-item" data-tool="index"><span class="material-symbols-outlined" aria-hidden="true">format_list_bulleted</span>Index</button>
+            <button type="button" class="hamburger-item" data-tool="size"><span class="material-symbols-outlined" aria-hidden="true">bar_chart</span>Size</button>
+            <button type="button" class="hamburger-item" data-tool="perf"><span class="material-symbols-outlined" aria-hidden="true">speed</span>Perf</button>
+            <button type="button" class="hamburger-item" data-tool="anomaly"><span class="material-symbols-outlined" aria-hidden="true">favorite</span>Health</button>
+            <hr class="hamburger-divider" />
+            <div class="hamburger-group-label">Schema Tools</div>
+            <button type="button" class="hamburger-item" data-tool="schema"><span class="material-symbols-outlined" aria-hidden="true">grid_on</span>Schema</button>
+            <button type="button" class="hamburger-item" data-tool="diagram"><span class="material-symbols-outlined" aria-hidden="true">account_tree</span>Diagram</button>
+            <hr class="hamburger-divider" />
+            <div class="hamburger-group-label">Import / Export</div>
+            <button type="button" class="hamburger-item" data-tool="import"><span class="material-symbols-outlined" aria-hidden="true">upload</span>Import</button>
+            <button type="button" class="hamburger-item" data-tool="export"><span class="material-symbols-outlined" aria-hidden="true">download</span>Export</button>
+            <hr class="hamburger-divider hamburger-divider-heavy" />
+            <button type="button" id="hamburger-sidebar-toggle" class="hamburger-item"><span class="material-symbols-outlined" id="hamburger-sidebar-icon" aria-hidden="true">chevron_left</span><span id="hamburger-sidebar-label">Hide Sidebar</span></button>
+            <button type="button" id="hamburger-theme-toggle" class="hamburger-item"><span class="material-symbols-outlined" aria-hidden="true">dark_mode</span><span id="hamburger-theme-label">Theme</span></button>
+            <label class="hamburger-item hamburger-mask-toggle"><input type="checkbox" id="hamburger-pii-mask-toggle" aria-label="Mask sensitive data" /><span class="material-symbols-outlined" aria-hidden="true">visibility_off</span><span id="hamburger-pii-mask-label">Mask</span></label>
+            <button type="button" id="hamburger-share-btn" class="hamburger-item"><span class="material-symbols-outlined" aria-hidden="true">share</span>Share</button>
+          </div>
+        </div>
         <button type="button" class="tab-btn active" data-tab="tables" role="tab" aria-selected="true" aria-controls="panel-tables" id="tab-tables">Tables</button>
         <button type="button" class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="panel-search" id="tab-search">Search</button>
         <button type="button" class="tab-btn" data-tab="sql" role="tab" aria-selected="false" aria-controls="panel-sql" id="tab-sql">Run SQL</button>
@@ -564,33 +581,7 @@ abstract final class HtmlContent {
     </div>
   </div>
 
-  <!-- Super FAB: floating action menu — trigger at bottom, menu fans upward.
-       Trigger is first in DOM; column-reverse CSS places it at the bottom
-       so the menu items fan upward when opened. -->
-  <div class="super-fab" id="super-fab">
-    <button type="button" class="super-fab-trigger" id="super-fab-trigger" aria-label="Toggle quick actions" aria-expanded="false" aria-controls="super-fab-menu">
-      <span class="material-symbols-outlined super-fab-icon" id="super-fab-icon" aria-hidden="true">tune</span>
-    </button>
-    <div class="super-fab-menu" id="super-fab-menu" aria-hidden="true">
-      <button type="button" id="fab-share-btn" class="fab-action" title="Share current view with your team" aria-label="Share session">
-        <span class="material-symbols-outlined" aria-hidden="true">share</span>
-        <span class="fab-action-label">Share</span>
-      </button>
-      <button type="button" id="fab-sidebar-toggle" class="fab-action" title="Toggle sidebar" aria-label="Toggle tables sidebar">
-        <span class="material-symbols-outlined" id="fab-sidebar-icon" aria-hidden="true">chevron_left</span>
-        <span class="fab-action-label" id="fab-sidebar-label">Sidebar</span>
-      </button>
-      <button type="button" id="fab-theme-toggle" class="fab-action" title="Dark or light theme" aria-label="Cycle theme">
-        <span class="material-symbols-outlined" aria-hidden="true">dark_mode</span>
-        <span class="fab-action-label" id="fab-theme-label">Theme</span>
-      </button>
-      <label class="fab-action fab-mask-toggle" title="Mask sensitive columns in table view and exports">
-        <input type="checkbox" id="fab-pii-mask-toggle" aria-label="Mask sensitive data" />
-        <span class="material-symbols-outlined" aria-hidden="true">visibility_off</span>
-        <span class="fab-action-label" id="fab-pii-mask-label">Mask</span>
-      </label>
-    </div>
-  </div>
+  <!-- FAB removed: all actions consolidated into the hamburger menu in the tab bar. -->
 
   $bundleJsTag
 </body></html>

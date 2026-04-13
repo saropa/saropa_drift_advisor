@@ -58,7 +58,7 @@ final class GenerationHandler {
 
   /// Cached JS bundle content, populated once during package root resolution.
   /// Eliminates per-request disk I/O for the most common asset path.
-  /// Single esbuild bundle containing app + fab + masthead + table-def-toggle.
+  /// Single esbuild bundle containing app + hamburger-menu + masthead + table-def-toggle.
   static String? _cachedBundleJs;
 
   /// GET /api/health — returns {"ok": true}.

@@ -126,7 +126,8 @@
 }
 
 /* Pin button: absolutely positioned so it overlays the right side of each
-   table link. Hidden by default; appears on hover or when pinned. */
+   table link. Visible at low opacity at rest (SB2) so it's discoverable.
+   Old style was opacity: 0 — completely invisible until hover. */
 .table-pin-btn {
   position: absolute;
   right: 0.25rem;
@@ -138,7 +139,9 @@
   padding: 0.25rem;
   border-radius: var(--radius-sm);
   color: var(--muted);
-  opacity: 0;
+  /* Visible at rest (SB2): low opacity so it's discoverable without
+   * dominating the row visually. */
+  opacity: 0.3;
   transition: opacity 0.15s ease, color 0.15s ease;
   line-height: 1;
   display: flex;

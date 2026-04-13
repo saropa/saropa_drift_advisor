@@ -2,7 +2,7 @@
  * Entry point for esbuild bundling.
  *
  * Import order matters: producers (sqlHighlight, mastheadStatus) must
- * run before the consumer (app.js). Self-contained modules (fab,
+ * run before the consumer (app.js). Self-contained modules (hamburger-menu,
  * table-def-toggle) go last since they only need the DOM.
  *
  * The TS modules export clean APIs. The window.* bridge below keeps
@@ -23,11 +23,11 @@ if (api) window.mastheadStatus = api;
 import './app.js';
 
 // Self-contained modules that only need the DOM to be ready.
-import { initSuperFab } from './fab.ts';
+import { initHamburgerMenu } from './hamburger-menu.ts';
 import { initTableDefToggle } from './table-def-toggle.ts';
 
-console.log('[SDA] index.js bridge: calling initSuperFab()');
-initSuperFab();
+console.log('[SDA] index.js bridge: calling initHamburgerMenu()');
+initHamburgerMenu();
 console.log('[SDA] index.js bridge: calling initTableDefToggle()');
 initTableDefToggle();
 console.log('[SDA] index.js bridge: init complete');

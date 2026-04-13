@@ -1,10 +1,21 @@
 /**
- * Base reset, design tokens, and element defaults.
+ * Base reset, design tokens, element defaults, and global form polish.
+ *
+ * This file defines:
+ *   - Box model reset
+ *   - Type scale tokens (--text-*)
+ *   - Spacing scale tokens (--space-*) — 4px geometric scale (SP1)
+ *   - Radius, tap-target, and panel tokens
+ *   - Global body styles
+ *   - Global form control styles (inputs, selects, textareas)
+ *   - Custom scrollbar styles per theme
+ *   - Theme-aware text selection colors
  */
 * { box-sizing: border-box; }
 
 /* Type scale and design tokens */
 :root {
+  /* --- Type scale --- */
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -12,6 +23,17 @@
   --text-xl: 1.35rem;
   /** Minimum readable font size (WCAG / BUG-010); use for labels and secondary UI text. */
   --text-min-readable: 12px;
+
+  /* --- Spacing scale (SP1): 4px geometric base --- */
+  --space-1: 0.25rem;   /* 4px — inline icon gaps, tight badge padding */
+  --space-2: 0.5rem;    /* 8px — related controls within a group */
+  --space-3: 0.75rem;   /* 12px — between label and control; divider margin */
+  --space-4: 1rem;      /* 16px — between sibling groups in a section */
+  --space-6: 1.5rem;    /* 24px — between sections on the same surface */
+  --space-8: 2rem;      /* 32px — between major regions */
+  --space-12: 3rem;     /* 48px — page-level breathing room */
+
+  /* --- Component tokens --- */
   --tap-min: 44px;
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -20,6 +42,10 @@
   --panel-padding-x: 1.5rem;
   /* Monospace font stack loaded from Google Fonts (see <head> link in html_content.dart) */
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* --- Focus ring: theme-aware glow for all interactive elements ---
+   * Each theme overrides --focus-ring-color so the glow matches the accent. */
+  --focus-ring-color: rgba(67, 83, 137, 0.2);
 }
 
 body {
@@ -35,6 +61,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* --- Theme-aware text selection colors --- */
+::selection {
+  background: var(--link);
+  color: #fff;
+}
+
 /* Screen-reader-only text (visually hidden, announced by assistive tech) */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
@@ -44,3 +76,81 @@ ul { list-style: none; padding: 0; }
 li { margin: 0.25rem 0; }
 a { color: var(--link); text-decoration: none; transition: color 0.15s ease; }
 a:hover { color: var(--link-hover); text-decoration: underline; }
+
+/* ==========================================================================
+   Global form controls: inputs, selects, textareas
+   ==========================================================================
+   Centralised here so every partial gets consistent styling without
+   duplicating border-radius, font-size, transition, and focus-ring rules.
+   Partials can still add sizing overrides (min-width, min-height). */
+
+input[type="text"],
+input[type="number"],
+input[type="search"],
+select,
+textarea {
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--fg);
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Theme-aware focus ring — uses --focus-ring-color set per theme. */
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--link);
+  box-shadow: 0 0 0 3px var(--focus-ring-color);
+}
+
+/* Textarea monospace override: SQL editors and code areas set this explicitly;
+ * the global default keeps system font for search/text inputs. */
+textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+/* ==========================================================================
+   Custom scrollbars: thin, theme-tinted
+   ==========================================================================
+   Standard scrollbar-* properties for Firefox; ::-webkit-scrollbar for
+   Chromium-based browsers. Applied globally so every scrollable area
+   (data tables, sidebars, code blocks) matches the theme. */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* Chromium / WebKit */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+/* Dark themes: slightly more visible scrollbar thumb. */
+body.theme-dark ::-webkit-scrollbar-thumb,
+body.theme-midnight ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+body.theme-dark ::-webkit-scrollbar-thumb:hover,
+body.theme-midnight ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}

@@ -5,7 +5,7 @@
  * a minimal API on `window.mastheadStatus` for app.js to drive.
  *
  * Loaded as a separate <script> by html_content.dart, after app.js
- * so the DOM elements exist. Mirrors the fab.js extraction pattern.
+ * so the DOM elements exist.
  *
  * DOM contract:
  *   #live-indicator — button inside .masthead-pill that displays the

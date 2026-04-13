@@ -58,10 +58,12 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* Theme-aware focus ring — uses --focus-ring-color from _themes.scss.
+ * Old value was hardcoded rgba(13,110,253,0.12) — wrong in all themes. */
 .sql-runner textarea:focus {
   outline: none;
   border-color: var(--link);
-  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+  box-shadow: 0 0 0 3px var(--focus-ring-color);
 }
 .sql-runner .sql-result { margin-top: 0.5rem; }
 .sql-runner .sql-result pre { max-height: 50vh; }
@@ -266,10 +268,11 @@
   resize: vertical;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+/* Theme-aware focus ring (was hardcoded rgba). */
 .nl-modal-input:focus {
   outline: none;
   border-color: var(--link);
-  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+  box-shadow: 0 0 0 3px var(--focus-ring-color);
 }
 .nl-modal-sql-preview {
   width: 100%;

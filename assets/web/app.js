@@ -28,7 +28,7 @@
     import { initConnectionDeps, hideConnectionBanner, updateLiveIndicatorForConnection, doHeartbeat, stopHeartbeat, startKeepAlive, stopKeepAlive } from './connection.ts';
     import { initTheme, initThemeListeners } from './theme.ts';
     import { clearStaleProjectStorage, getColumnConfig, setColumnConfig, saveTableState, clearTableState, saveNavHistory, loadNavHistory } from './persistence.ts';
-    import { getScope, applySearch, nextMatch, prevMatch, initSearchToggle } from './search.ts';
+    import { getScope, applySearch, nextMatch, prevMatch } from './search.ts';
     import { copyCellValue, renderTableView, initPiiMaskToggle } from './table-view.ts';
     import { loadTable, applyTableListAndCounts, pollGeneration } from './table-list.ts';
     import { initTabsAndToolbar, openTableTab } from './tabs.ts';
@@ -36,7 +36,9 @@
     import { loadSchemaIntoPre, loadSchemaView, loadBothView } from './schema.ts';
     import { initSidebarCollapse } from './sidebar.ts';
     import { initDiagram } from './diagram.ts';
-    import { initSnapshot, initCompare, initMigrationPreview, initIndexSuggestions, initSizeAnalytics, initAnomalyDetection, initImport } from './tools.ts';
+    import { initSnapshot, initCompare, initMigrationPreview } from './tools-compare.ts';
+    import { initIndexSuggestions, initSizeAnalytics, initAnomalyDetection } from './tools-analytics.ts';
+    import { initImport } from './tools-import.ts';
     import { initSearchTab } from './search-tab.ts';
     import { initSqlRunner } from './sql-runner.ts';
     import { initPerformance } from './performance.ts';
@@ -139,7 +141,7 @@
     initThemeListeners();
 
     // PII mask toggle (BUG-015): re-render table and search results when
-    // toggled so display matches.  Now lives in the super FAB menu.
+    // toggled so display matches.  Lives in the hamburger menu.
     initPiiMaskToggle();
 
     if (S.DRIFT_VIEWER_AUTH_TOKEN) {
@@ -209,9 +211,8 @@
     initSqlRunner();
     initPerformance();
 
-    // Search toolbar button: opens Search tab and focuses its inline search input.
+    // Search is now a permanent tab — no toolbar toggle button needed.
     // The sidebar search panel is toggled separately via Ctrl+F when on the Tables tab.
-    initSearchToggle();
 
     // Collapsible sections in search/both view: click header to toggle body
     document.addEventListener('click', function(e) {
@@ -917,9 +918,7 @@
         }
       })
       .catch(function() { /* version badge stays hidden on failure */ });
-    document.getElementById('fab-share-btn').addEventListener('click', createShareSession);
+    var shareBtn = document.getElementById('hamburger-share-btn');
+    if (shareBtn) shareBtn.addEventListener('click', createShareSession);
     restoreSession();
-
-
-    // --- Super FAB UI controller moved to fab.js (loaded as separate script). ---
 

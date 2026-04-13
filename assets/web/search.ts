@@ -3,7 +3,6 @@
  * Extracted from app.js — all shared state accessed via S.*.
  */
 import * as S from './state.ts';
-import { openTool } from './tabs.ts';
 import { esc } from './utils.ts';
 
 export function escapeRe(s) {
@@ -187,14 +186,5 @@ export function prevMatch() {
       navigateToMatch(S.searchCurrentIndex - 1);
     }
 
-/** Search toolbar button: opens Search tab and focuses its inline input. */
-export function initSearchToggle(): void {
-  var btn = document.getElementById('search-toggle-btn');
-  if (!btn) return;
-  btn.addEventListener('click', function() {
-    openTool('search');
-    setTimeout(function() {
-      if (typeof window._stFocusInput === 'function') window._stFocusInput();
-    }, 0);
-  });
-}
+/* initSearchToggle removed: the search-toggle-btn toolbar button no longer
+ * exists. Search is a permanent tab in the tab bar. */

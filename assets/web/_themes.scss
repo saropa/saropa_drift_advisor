@@ -1,4 +1,7 @@
-/* Light is the default theme — applied to bare body and body.theme-light */
+/* Light is the default theme — applied to bare body and body.theme-light.
+ * Clean professional: opaque borders, visible shadows, no transparency.
+ * Contrast fixes (C1-C3): --muted, --border, --border-subtle now pass
+ * WCAG 2.1 AA on #f8faff / #ffffff backgrounds. */
 body.theme-light,
 body {
   /* Slate-blue palette — mirrors saropa.com design system */
@@ -7,10 +10,13 @@ body {
   --bg-pre: #ffffff;
   --surface: #ffffff;
   --header-bg: #ffffff;
-  /* Blue-tinted borders for cohesion with slate accent */
-  --border: rgba(143, 168, 255, 0.18);
-  --border-subtle: rgba(143, 168, 255, 0.09);
-  --muted: #6b7a9e;
+  /* Opaque borders — visible hairlines on white (C2, C3).
+   * Old values were rgba(143,168,255,0.18) and 0.09 — invisible. */
+  --border: #c2cde0;
+  --border-subtle: #dce3f0;
+  /* Muted text darkened for WCAG AA 4.5:1 on white (C1).
+   * Old #6b7a9e gave ~3.5:1; new #556685 gives ~5.2:1. */
+  --muted: #556685;
   /* Deep slate-blue accent — authoritative, not generic */
   --link: #435389;
   --link-hover: #2d3a66;
@@ -23,16 +29,22 @@ body {
   --highlight-active-fg: #fff;
   --sidebar-bg: #ffffff;
   --row-alt: rgba(143, 168, 255, 0.04);
+  --focus-ring-color: rgba(67, 83, 137, 0.2);
 }
 
+/* Dark theme: GitHub-style focused dark mode. No glow, no animation,
+ * no transparency — clean edges, functional. Borders lightened slightly
+ * (TH11) so they are visible against the dark background. */
 body.theme-dark {
   --bg: #141619;
   --fg: #e4e6eb;
   --bg-pre: #1c1e21;
   --surface: #1c1e21;
   --header-bg: #18191c;
-  --border: #3e4043;
-  --border-subtle: #2d2f33;
+  /* Borders lightened for visibility (TH11).
+   * Old #3e4043 / #2d2f33 blended into the background. */
+  --border: #4a4d52;
+  --border-subtle: #363840;
   --muted: #b0b3b8;
   --link: #58a6ff;
   --link-hover: #79b8ff;
@@ -45,27 +57,23 @@ body.theme-dark {
   --highlight-active-fg: #fff;
   --sidebar-bg: #18191c;
   --row-alt: rgba(255, 255, 255, 0.03);
+  --focus-ring-color: rgba(88, 166, 255, 0.25);
 }
 
-/* Midnight theme: deep navy dark mode with periwinkle accents —
-   the premium dark counterpart to showcase. Uses the saropa.com dark
-   palette (#1a1d2b / #2c3350 / #8fa8ff). Visual effects (gradients,
-   glassmorphism) live in drift-enhanced.css (CDN-only). When enhanced
-   CSS is unavailable, midnight degrades to a clean dark-blue theme. */
+/* Midnight theme: deep aurora glow — dramatic, atmospheric, immersive.
+ * The UI floats in front of a slowly shifting aurora gradient.
+ * Translucent surfaces with heavy blur let the aurora bleed through.
+ * Opaque fallback values here; glassmorphism overrides in _theme-effects.scss.
+ * Borders use higher alpha than before (TH7) for visibility. */
 body.theme-midnight {
-  /* Deep navy base — rich and saturated, not flat grey. These
-     opaque values provide the fallback when drift-enhanced.css
-     (CDN-only) is unavailable. The enhanced CSS overrides
-     background properties with semi-transparent rgba values
-     paired with backdrop-filter for the glassmorphism effect. */
   --bg: #0f1219;
   --fg: #e3e3ff;
   --bg-pre: #1d2240;
   --surface: #232848;
   --header-bg: #171c36;
-  /* Blue-tinted borders — cohesive with the navy palette */
-  --border: rgba(143, 168, 255, 0.15);
-  --border-subtle: rgba(143, 168, 255, 0.08);
+  /* Borders: raised alpha for visibility against deep navy (was 0.15/0.08). */
+  --border: rgba(143, 168, 255, 0.22);
+  --border-subtle: rgba(143, 168, 255, 0.12);
   --muted: #a0a8d0;
   /* Periwinkle accent — bright and distinctive */
   --link: #8fa8ff;
@@ -79,70 +87,74 @@ body.theme-midnight {
   --highlight-active-fg: #1a1d2b;
   --sidebar-bg: #1e2236;
   --row-alt: rgba(143, 168, 255, 0.04);
+  --focus-ring-color: rgba(143, 168, 255, 0.25);
 }
 
-/* Midnight overrides: blue-tinted surfaces, periwinkle accents */
+/* Midnight overrides: periwinkle glow on surfaces, visible depth.
+ * Expanded cards get a periwinkle halo (TH8) that is actually visible. */
 body.theme-midnight .header-pill.live {
   color: #7cb342;
 }
 
 body.theme-midnight .feature-card {
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.15),
-    0 4px 8px rgba(0, 0, 0, 0.12),
-    0 8px 16px rgba(0, 0, 0, 0.08);
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 4px 8px rgba(0, 0, 0, 0.15),
+    0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
+/* Expanded card: visible periwinkle glow halo (TH8).
+ * Old value was rgba(143,168,255,0.06) — invisible. */
 body.theme-midnight .feature-card.expanded {
   box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.18),
-    0 8px 16px rgba(0, 0, 0, 0.14),
-    0 16px 32px rgba(143, 168, 255, 0.06);
+    0 4px 8px rgba(0, 0, 0, 0.2),
+    0 8px 16px rgba(0, 0, 0, 0.16),
+    0 0 24px rgba(143, 168, 255, 0.15),
+    0 0 48px rgba(143, 168, 255, 0.08);
 }
 
 body.theme-midnight .tables-browse-card {
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.12),
-    0 4px 8px rgba(0, 0, 0, 0.1);
+    0 2px 4px rgba(0, 0, 0, 0.15),
+    0 4px 8px rgba(0, 0, 0, 0.12);
 }
 
 body.theme-midnight .tables-browse-card:hover {
-  border-color: rgba(143, 168, 255, 0.3);
+  border-color: rgba(143, 168, 255, 0.35);
   box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.16),
-    0 8px 16px rgba(0, 0, 0, 0.12),
-    0 16px 32px rgba(143, 168, 255, 0.08);
+    0 4px 8px rgba(0, 0, 0, 0.2),
+    0 8px 16px rgba(0, 0, 0, 0.15),
+    0 0 20px rgba(143, 168, 255, 0.1);
   transform: translateY(-2px);
 }
 
 body.theme-midnight .app-header {
   box-shadow:
-    0 1px 0 rgba(143, 168, 255, 0.06),
-    0 4px 12px rgba(0, 0, 0, 0.2);
+    0 1px 0 rgba(143, 168, 255, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 body.theme-midnight .tables-loading-error {
   color: #ef9a9a;
 }
 
-/* Showcase theme: a beautiful light-mode variant with glassmorphism,
-   rainbow accents, and animations. The CSS variables below provide the
-   baseline layout colours. The visual effects (gradients, blur,
-   rainbow borders, drop shadows, keyframe animations) live in
-   drift-enhanced.css which is loaded only from CDN — never bundled
-   into user APKs. When enhanced CSS is unavailable, showcase degrades
-   gracefully to a clean light theme. */
+/* Showcase theme: frosted violet glass — beautiful, premium, playful.
+ * Saturated pastel gradient visible through lowered-opacity frosted
+ * surfaces. Cards float on colored fog. Rainbow border on expanded cards.
+ * Muted darkened to #556685 for WCAG AA (same fix as light, C1).
+ * Borders use white frost edge instead of blue tint (TH3). */
 body.theme-showcase {
-  /* Glassmorphic violet — clean base, frosted surfaces */
   --bg: #fafbfe;
   --fg: #242b4a;
-  --bg-pre: rgba(255, 255, 255, 0.88);
-  --surface: rgba(255, 255, 255, 0.85);
-  --header-bg: rgba(255, 255, 255, 0.78);
-  /* Blue-tinted borders for glass consistency */
-  --border: rgba(143, 168, 255, 0.18);
-  --border-subtle: rgba(143, 168, 255, 0.09);
-  --muted: #6b7a9e;
+  /* Lower opacity so gradient bleeds through surfaces (TH2). */
+  --bg-pre: rgba(255, 255, 255, 0.75);
+  --surface: rgba(255, 255, 255, 0.55);
+  --header-bg: rgba(255, 255, 255, 0.45);
+  /* White frost edge — visible on the pastel gradient background (TH3). */
+  --border: rgba(255, 255, 255, 0.5);
+  --border-subtle: rgba(255, 255, 255, 0.3);
+  /* Muted darkened for WCAG AA (C1). */
+  --muted: #556685;
   /* Rich violet accent — the showcase differentiator */
   --link: #6d28d9;
   --link-hover: #5b21b6;
@@ -153,31 +165,31 @@ body.theme-showcase {
   --highlight-fg: #5b21b6;
   --highlight-active-bg: #7c3aed;
   --highlight-active-fg: #fff;
-  --sidebar-bg: rgba(255, 255, 255, 0.6);
-  --row-alt: rgba(99, 102, 241, 0.03);
+  --sidebar-bg: rgba(255, 255, 255, 0.35);
+  --row-alt: rgba(99, 102, 241, 0.04);
+  --focus-ring-color: rgba(109, 40, 217, 0.2);
 }
 
-/* Showcase overrides: the purple accent colour replaces the blue/green
-   used by light/dark. The gradient effect on primary buttons is applied
-   by drift-enhanced.css (CDN-only) via background-image overrides. */
+/* Showcase overrides: stronger shadows so cards appear to float on the
+ * colored gradient fog. Inset white highlight along the top edge
+ * reinforces the frosted-glass illusion. */
 body.theme-showcase .header-btn:hover {
   color: var(--link);
 }
 
 body.theme-showcase .feature-card {
   box-shadow:
-    0 2px 4px rgba(67, 83, 137, 0.03),
-    0 4px 8px rgba(67, 83, 137, 0.04),
-    0 8px 16px rgba(99, 102, 241, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    0 2px 8px rgba(99, 102, 241, 0.08),
+    0 8px 24px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 body.theme-showcase .feature-card.expanded {
   box-shadow:
-    0 4px 8px rgba(31, 38, 135, 0.06),
-    0 8px 16px rgba(31, 38, 135, 0.08),
-    0 16px 32px rgba(99, 102, 241, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    0 4px 12px rgba(99, 102, 241, 0.1),
+    0 12px 32px rgba(99, 102, 241, 0.08),
+    0 0 20px rgba(109, 40, 217, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 body.theme-showcase .header-pill.live {

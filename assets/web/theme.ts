@@ -17,18 +17,18 @@ export function applyTheme(theme) {
       var labels = { dark: 'Dark', light: 'Light', showcase: 'Showcase', midnight: 'Midnight' };
       var icons  = { dark: 'dark_mode', light: 'light_mode', showcase: 'auto_awesome', midnight: 'bedtime' };
 
-      // Update FAB theme label and icon to reflect the active theme.
-      var themeLabel = document.getElementById('fab-theme-label');
+      // Update hamburger menu theme label and icon to reflect the active theme.
+      var themeLabel = document.getElementById('hamburger-theme-label');
       if (themeLabel) themeLabel.textContent = labels[theme] || theme;
 
       // Swap the Material Symbols icon to match the active theme.
-      var themeBtn = document.getElementById('fab-theme-toggle');
+      var themeBtn = document.getElementById('hamburger-theme-toggle');
       if (themeBtn) {
         var icon = themeBtn.querySelector('.material-symbols-outlined');
         if (icon) icon.textContent = icons[theme] || 'dark_mode';
         // Tooltip names the next theme in the cycle.
         var next = nextTheme(theme);
-        themeBtn.title = labels[next] + ' theme — click to switch from ' + labels[theme];
+        themeBtn.title = labels[next] + ' theme \u2014 click to switch from ' + labels[theme];
       }
     }
 
@@ -86,15 +86,15 @@ export function initTheme() {
     }
 
 /**
- * Wires up the FAB theme-toggle click handler and the OS-level
+ * Wires up the hamburger-menu theme-toggle click handler and the OS-level
  * prefers-color-scheme change listener.  Call once at startup.
  */
 export function initThemeListeners() {
     // Toggle button: cycle through all four themes.
-    // Theme cycle button lives in the super FAB menu.
-    var fabThemeBtn = document.getElementById('fab-theme-toggle');
-    if (fabThemeBtn) {
-      fabThemeBtn.addEventListener('click', function() {
+    // Theme cycle button lives in the hamburger menu.
+    var themeToggleBtn = document.getElementById('hamburger-theme-toggle');
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', function() {
         var next = nextTheme(currentTheme());
         localStorage.setItem(S.THEME_KEY, next);
         applyTheme(next);

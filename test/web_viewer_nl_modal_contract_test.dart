@@ -56,10 +56,10 @@ void main() {
   test('App sidebar panel toggle: HTML ids, SCSS hook, JS key and toggle', () {
     expect(htmlDart, contains('id="app-layout"'));
     expect(htmlDart, contains('id="app-sidebar"'));
-    // Sidebar toggle moved into the super FAB menu.
-    expect(htmlDart, contains('id="fab-sidebar-toggle"'));
-    expect(htmlDart, contains('id="fab-sidebar-icon"'));
-    expect(htmlDart, contains('id="fab-sidebar-label"'));
+    // Sidebar toggle lives in the hamburger menu.
+    expect(htmlDart, contains('id="hamburger-sidebar-toggle"'));
+    expect(htmlDart, contains('id="hamburger-sidebar-icon"'));
+    expect(htmlDart, contains('id="hamburger-sidebar-label"'));
     expect(
       htmlDart,
       isNot(contains('toolbar button above')),

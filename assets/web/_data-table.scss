@@ -1,5 +1,6 @@
 /* Scroll container for data table: sticky headers, horizontal/vertical scroll.
-   Scrollbars always visible (overflow: scroll). */
+ * Scrollbars always visible (overflow: scroll). Strengthened shadow for
+ * visible depth. Custom scrollbars come from global styles in _base.scss. */
 .data-table-scroll-wrap {
   overflow: scroll;
   max-height: 70vh;
@@ -7,11 +8,35 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 4px 8px rgba(0, 0, 0, 0.03);
 }
 
 body.theme-dark .data-table-scroll-wrap {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.25),
+    0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Midnight: translucent scroll wrap so aurora bleeds through. */
+body.theme-midnight .data-table-scroll-wrap {
+  background: rgba(28, 33, 62, 0.50);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Showcase: frosted scroll wrap matching card treatment. */
+body.theme-showcase .data-table-scroll-wrap {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    0 2px 8px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .table-status-bar {
@@ -79,17 +104,22 @@ body.theme-dark .data-table-scroll-wrap {
   background: var(--bg-pre);
   color: var(--fg);
 }
+/* Advanced toggle: visible border/background at rest (P2).
+ * Old style was borderless text — invisible as a button. */
 .pagination-advanced-toggle {
-  margin-left: 0.5rem;
+  margin-left: var(--space-2);
   font-size: var(--text-xs);
   color: var(--link);
-  background: transparent;
-  border: none;
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   padding: 0.25rem 0.5rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 .pagination-advanced-toggle:hover {
-  text-decoration: underline;
+  border-color: var(--link);
+  background: var(--surface);
 }
 .pagination-advanced {
   display: none;
@@ -172,14 +202,19 @@ body.theme-dark .data-table-scroll-wrap {
   min-width: 0;
 }
 
+/* Table header: sticky, with bottom border for clear separation from body.
+ * Slightly stronger visual treatment than the old plain muted text. */
 .drift-table th {
   font-weight: 600;
   font-size: var(--text-sm);
+  text-transform: none;
+  letter-spacing: 0.01em;
   background: var(--bg-pre);
   position: sticky;
   top: 0;
   z-index: 2;
   color: var(--muted);
+  border-bottom: 2px solid var(--border);
 }
 
 .drift-table tbody tr:nth-child(even) {
