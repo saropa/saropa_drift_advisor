@@ -277,6 +277,41 @@ abstract final class AnomalyDetector {
     caseSensitive: false,
   );
 
+  /// Column name patterns for rating, score, and percentage
+  /// columns — these are bounded by definition (e.g., 0–10,
+  /// 0–100, 0–5) and naturally produce skewed distributions.
+  /// When data clusters at one end of a bounded scale (TV
+  /// ratings skew high because viewers self-select), a value
+  /// at the opposite boundary looks like a statistical outlier
+  /// but is completely valid.
+  ///
+  /// Anchored to start/end like all other skip patterns in
+  /// this class — matches `rating`, `user_rating`,
+  /// `avg_score`, `percent_complete`, `win_pct`, etc.
+  /// See bugs/anomaly_false_positive_valid_range.md.
+  static final _ratingPattern = RegExp(
+    r'(^rating|rating$|^score|score$|^percent|percent$|^pct|pct$)',
+    caseSensitive: false,
+  );
+
+  /// Known bounded numeric scales. If the observed data range
+  /// [min, max] fits entirely within one of these scales, the
+  /// column is treated as bounded and outlier detection is
+  /// suppressed — values at scale boundaries are legitimate,
+  /// not anomalies.
+  ///
+  /// Each entry is (lowerBound, upperBound). Order does not
+  /// matter; the first matching scale short-circuits.
+  /// See bugs/anomaly_false_positive_valid_range.md.
+  static const _boundedScales = <(double, double)>[
+    (0, 1), // probability, normalized score
+    (0, 5), // star rating (e.g., Amazon, Yelp)
+    (1, 5), // star rating (1-based)
+    (0, 10), // rating scale (e.g., IMDb, TVMaze)
+    (1, 10), // rating scale (1-based)
+    (0, 100), // percentage, percentile
+  ];
+
   /// Computes statistical distribution metrics for
   /// [colName] and flags an outlier anomaly when min or
   /// max lies more than 3 standard deviations from the
@@ -287,9 +322,13 @@ abstract final class AnomalyDetector {
   /// 2. Identifier columns (`*_id`, `*_key`, `*_code`) —
   ///    opaque external IDs, not measurements.
   /// 3. Domain-specific columns: coordinates, versions,
-  ///    timestamps, sort/ordering, year/founded.
+  ///    timestamps, sort/ordering, year/founded,
+  ///    rating/score/percent.
   /// 4. Small samples (n < 30) — sigma estimates are
   ///    unreliable and a single value can dominate.
+  /// 5. Binary domain (range exactly 0–1).
+  /// 6. Bounded scales — observed [min, max] fits within
+  ///    a known scale (0–5, 0–10, 1–10, 0–100, etc.).
   ///
   /// Log-scale fallback: for all-positive columns that
   /// fail the linear 3σ check, a log-transformed check
@@ -326,7 +365,8 @@ abstract final class AnomalyDetector {
         _versionPattern.hasMatch(colName) ||
         _timestampPattern.hasMatch(colName) ||
         _sortOrderPattern.hasMatch(colName) ||
-        _yearPattern.hasMatch(colName)) {
+        _yearPattern.hasMatch(colName) ||
+        _ratingPattern.hasMatch(colName)) {
       return;
     }
 
@@ -374,6 +414,20 @@ abstract final class AnomalyDetector {
     // a valid data pattern, not an outlier.
     if (min == 0 && max == 1) {
       return;
+    }
+
+    // Skip columns whose observed data range fits within a
+    // known bounded scale (e.g., 0–10 ratings, 0–100
+    // percentages). Bounded scales naturally produce skewed
+    // distributions — values at the scale boundary are
+    // legitimate, not anomalies. A TV rating of 1.0 on a
+    // 1–10 scale is rare but valid; sigma-based detection
+    // flags it incorrectly because the data is non-Gaussian.
+    // See bugs/anomaly_false_positive_valid_range.md.
+    for (final (lower, upper) in _boundedScales) {
+      if (min >= lower && max <= upper) {
+        return;
+      }
     }
 
     // Compute population standard deviation from the

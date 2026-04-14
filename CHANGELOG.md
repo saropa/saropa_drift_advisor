@@ -36,6 +36,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Slow-query false positives from extension-internal probes** — the extension's own change-detection `COUNT(*)` queries (used to fingerprint table row counts) were recorded in the performance timeline and reported as user-application slow-query warnings; these internal probes are now tagged with `isInternal` and excluded from slow-query diagnostics, aggregate stats, and query patterns so only genuine application queries trigger warnings
+- **False-positive anomaly on bounded ratings** — outlier detection no longer flags values at the boundary of known bounded scales (0–5, 0–10, 1–10, 0–100). A TV rating of 1.0 on a 1–10 scale is rare but valid, not a data anomaly
+- **Rating/score/percent column skip** — columns matching `rating`, `score`, `percent`, or `pct` are now excluded from sigma-based outlier detection, since bounded-scale data is inherently non-Gaussian
+
 ## [3.2.0]
 
 ### Added
