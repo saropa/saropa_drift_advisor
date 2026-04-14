@@ -50,6 +50,9 @@ export interface QueryEntry {
   callerFile?: string;
   /** Source line number that issued this query. */
   callerLine?: number;
+  /** True when the query was issued by the extension itself (e.g.
+   *  change-detection probes), not by the user's application code. */
+  isInternal?: boolean;
 }
 
 export interface PerformanceData {

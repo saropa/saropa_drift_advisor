@@ -33,6 +33,7 @@ class QueryTiming {
     this.error,
     this.callerFile,
     this.callerLine,
+    this.isInternal = false,
   });
 
   final String sql;
@@ -50,6 +51,13 @@ class QueryTiming {
   /// frame could not be resolved.
   final int? callerLine;
 
+  /// True when the query was issued by the extension itself (e.g.
+  /// change-detection COUNT(*) probes), not by the user's application
+  /// code. Internal queries are excluded from slow-query diagnostics
+  /// to avoid a confusing feedback loop where the extension's own
+  /// overhead is reported as an application performance problem.
+  final bool isInternal;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
     'sql': sql,
     'durationMs': durationMs,
@@ -58,6 +66,7 @@ class QueryTiming {
     'at': at.toIso8601String(),
     'callerFile': ?callerFile,
     'callerLine': ?callerLine,
+    if (isInternal) 'isInternal': true,
   };
 }
 

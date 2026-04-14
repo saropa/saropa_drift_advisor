@@ -32,6 +32,11 @@ export function checkSlowQueries(
     if (count >= MAX_SLOW_QUERY_DIAGNOSTICS) break;
     if (query.durationMs < SLOW_QUERY_THRESHOLD_MS) continue;
 
+    // Skip extension-internal queries (change-detection probes,
+    // sqlite_master lookups). The server already filters these
+    // from slowQueries, but guard here too as a safety net.
+    if (query.isInternal) continue;
+
     // Prefer caller location from the server when available.
     const callerLoc = resolveCallerLocation(query);
 

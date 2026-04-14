@@ -210,6 +210,62 @@ describe('PerformanceProvider', () => {
       assert.strictEqual(issues.length, 0);
     });
 
+    it('should not report slow-query-pattern for internal queries', async () => {
+      // Internal queries (change-detection probes) should be filtered
+      // out even if they exceed the slow-query threshold. This is the
+      // safety-net filter on the extension side — the server already
+      // excludes them from slowQueries, but the checker guards too.
+      const ctx = createContext({
+        dartFiles: [createDartFile('creators', ['tvmaze_person_id', 'name'])],
+        slowQueries: [
+          {
+            sql: "SELECT 'creators' AS t, COUNT(*) AS c FROM \"creators\"",
+            durationMs: 200,
+            rowCount: 1,
+            at: '2024-01-01',
+            isInternal: true,
+          },
+        ],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'slow-query-pattern');
+      assert.ok(!issue, 'Internal queries should not produce slow-query diagnostics');
+    });
+
+    it('should report slow queries alongside internal ones (only non-internal)', async () => {
+      // Mix of internal and user queries — only the user query should
+      // produce a diagnostic, verifying the filter is selective.
+      const ctx = createContext({
+        dartFiles: [
+          createDartFile('orders', ['id', 'user_id', 'total']),
+          createDartFile('creators', ['tvmaze_person_id', 'name']),
+        ],
+        slowQueries: [
+          {
+            sql: 'SELECT * FROM orders WHERE user_id = 42',
+            durationMs: 150,
+            rowCount: 100,
+            at: '2024-01-01',
+          },
+          {
+            sql: "SELECT 'creators' AS t, COUNT(*) AS c FROM \"creators\"",
+            durationMs: 300,
+            rowCount: 1,
+            at: '2024-01-01',
+            isInternal: true,
+          },
+        ],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const slowIssues = issues.filter((i) => i.code === 'slow-query-pattern');
+      assert.strictEqual(slowIssues.length, 1, 'Only the user query should produce a diagnostic');
+      assert.ok(slowIssues[0].message.includes('150ms'));
+    });
+
     it('should truncate long SQL in diagnostic message', async () => {
       const longSql = 'SELECT id, name, email, address, phone, created_at, updated_at FROM orders WHERE status = 1 AND user_id = 42 ORDER BY created_at DESC';
       const ctx = createContext({

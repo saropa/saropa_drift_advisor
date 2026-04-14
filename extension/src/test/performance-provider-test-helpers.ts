@@ -22,6 +22,9 @@ export interface ITestQuery {
   at: string;
   callerFile?: string;
   callerLine?: number;
+  /** True when the query was issued by the extension itself (e.g.
+   *  change-detection probes), not by the user's application code. */
+  isInternal?: boolean;
 }
 
 /** Shape of a pattern-based index suggestion used in tests. */

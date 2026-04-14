@@ -20,18 +20,28 @@ final class PerformanceHandler {
   /// to be classified as "slow". Defaults to 100 ms when omitted.
   Future<Map<String, dynamic>> getPerformanceData({int slowThresholdMs = 100}) {
     final timings = List<QueryTiming>.of(_ctx.queryTimings);
-    final totalQueries = timings.length;
-    final totalDuration = timings.fold<int>(0, (sum, t) => sum + t.durationMs);
+
+    // Exclude extension-internal queries (change-detection probes,
+    // sqlite_master lookups, etc.) so the extension's own overhead
+    // is not reported as a user-application performance problem.
+    // Aggregate stats, slow queries, and patterns all use this
+    // filtered list; recentQueries still includes internal queries
+    // (tagged via isInternal in JSON) for full visibility.
+    final userTimings = timings.where((t) => !t.isInternal).toList();
+
+    final totalQueries = userTimings.length;
+    final totalDuration =
+        userTimings.fold<int>(0, (sum, t) => sum + t.durationMs);
     final avgDuration = totalQueries > 0
         ? (totalDuration / totalQueries).round()
         : 0;
 
     final slowQueries =
-        timings.where((t) => t.durationMs > slowThresholdMs).toList()
+        userTimings.where((t) => t.durationMs > slowThresholdMs).toList()
           ..sort((a, b) => b.durationMs.compareTo(a.durationMs));
 
     final queryGroups = <String, List<QueryTiming>>{};
-    for (final t in timings) {
+    for (final t in userTimings) {
       final key = t.sql.trim().length > 60
           ? t.sql.trim().substring(0, 60)
           : t.sql.trim();

@@ -222,6 +222,83 @@ void main() {
         expect((recent[2] as Map)['sql'], 'first');
       });
 
+      test('internal queries excluded from totalQueries and slowQueries',
+          () async {
+        final ctx = createTestContext();
+        ctx.queryTimings.addAll([
+          _timing('SELECT * FROM users', 150), // user query, slow
+          _timing('SELECT * FROM orders', 50), // user query, fast
+          _internalTiming(
+            // internal probe, slow — should be excluded
+            "SELECT 'users' AS t, COUNT(*) AS c FROM \"users\"",
+            200,
+          ),
+          _internalTiming(
+            // internal probe, fast — should be excluded
+            "SELECT 'orders' AS t, COUNT(*) AS c FROM \"orders\"",
+            30,
+          ),
+        ]);
+        final handler = PerformanceHandler(ctx);
+
+        final data = await handler.getPerformanceData();
+
+        // Only the 2 user queries count toward aggregates.
+        expect(data['totalQueries'], 2);
+        expect(data['totalDurationMs'], 200); // 150 + 50
+        expect(data['avgDurationMs'], 100); // 200 / 2
+
+        // Only the user's 150ms query is slow; the 200ms
+        // internal probe must not appear.
+        final slowQueries = data['slowQueries'] as List;
+        expect(slowQueries, hasLength(1));
+        expect(
+          (slowQueries.first as Map)['sql'],
+          'SELECT * FROM users',
+        );
+      });
+
+      test('internal queries excluded from queryPatterns', () async {
+        final ctx = createTestContext();
+        ctx.queryTimings.addAll([
+          _timing('SELECT * FROM users', 10),
+          _internalTiming(
+            "SELECT 'users' AS t, COUNT(*) AS c FROM \"users\"",
+            20,
+          ),
+        ]);
+        final handler = PerformanceHandler(ctx);
+
+        final data = await handler.getPerformanceData();
+        final patterns = data['queryPatterns'] as List;
+
+        // Only 1 pattern — the internal probe is excluded.
+        expect(patterns, hasLength(1));
+        expect(
+          (patterns.first as Map)['pattern'],
+          'SELECT * FROM users',
+        );
+      });
+
+      test('internal queries still appear in recentQueries', () async {
+        final ctx = createTestContext();
+        ctx.queryTimings.addAll([
+          _timing('SELECT * FROM users', 10),
+          _internalTiming(
+            "SELECT 'users' AS t, COUNT(*) AS c FROM \"users\"",
+            20,
+          ),
+        ]);
+        final handler = PerformanceHandler(ctx);
+
+        final data = await handler.getPerformanceData();
+        final recent = data['recentQueries'] as List;
+
+        // Both queries appear in recentQueries (internal ones
+        // are tagged via isInternal in JSON, not hidden).
+        expect(recent, hasLength(2));
+      });
+
       test('recentQueries capped at 50 entries', () async {
         final ctx = createTestContext();
         // Add 60 timings.
@@ -261,6 +338,16 @@ QueryTiming _timing(String sql, int durationMs) => QueryTiming(
   sql: sql,
   durationMs: durationMs,
   rowCount: 0,
+  at: DateTime.now().toUtc(),
+);
+
+/// Creates an internal (extension-owned) [QueryTiming] that should
+/// be excluded from user-facing slow-query diagnostics.
+QueryTiming _internalTiming(String sql, int durationMs) => QueryTiming(
+  sql: sql,
+  durationMs: durationMs,
+  rowCount: 0,
+  isInternal: true,
   at: DateTime.now().toUtc(),
 );
 

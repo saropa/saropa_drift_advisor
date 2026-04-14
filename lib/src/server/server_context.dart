@@ -60,6 +60,13 @@ final class ServerContext {
   Future<List<Map<String, dynamic>>> instrumentedQuery(String sql) =>
       timedQuery(queryRaw, sql);
 
+  /// Like [instrumentedQuery] but tags the timing record as internal.
+  /// Used for extension-owned diagnostic probes (change-detection
+  /// COUNT(*) queries, sqlite_master lookups, etc.) so they are
+  /// excluded from user-facing slow-query diagnostics.
+  Future<List<Map<String, dynamic>>> internalQuery(String sql) =>
+      timedQuery(queryRaw, sql, isInternal: true);
+
   /// Value for Access-Control-Allow-Origin header; null
   /// omits the header.
   final String? corsOrigin;
@@ -227,8 +234,9 @@ final class ServerContext {
   /// duration, row count, and any errors.
   Future<List<Map<String, dynamic>>> timedQuery(
     DriftDebugQuery fn,
-    String sql,
-  ) async {
+    String sql, {
+    bool isInternal = false,
+  }) async {
     // Capture the stack before awaiting so we get the
     // actual call site, not the async continuation.
     final caller = _parseCallerFrame(StackTrace.current);
@@ -245,6 +253,7 @@ final class ServerContext {
         rowCount: result.length,
         callerFile: caller?.$1,
         callerLine: caller?.$2,
+        isInternal: isInternal,
       );
 
       return result;
@@ -257,6 +266,7 @@ final class ServerContext {
         error: error.toString(),
         callerFile: caller?.$1,
         callerLine: caller?.$2,
+        isInternal: isInternal,
       );
       rethrow;
     }
@@ -313,6 +323,7 @@ final class ServerContext {
     String? error,
     String? callerFile,
     int? callerLine,
+    bool isInternal = false,
   }) {
     queryTimings.add(
       QueryTiming(
@@ -322,6 +333,7 @@ final class ServerContext {
         error: error,
         callerFile: callerFile,
         callerLine: callerLine,
+        isInternal: isInternal,
         at: DateTime.now().toUtc(),
       ),
     );
@@ -418,7 +430,7 @@ final class ServerContext {
       // query sqlite_master and cache the result.
       final tables =
           _cachedTableNames ??
-          await ServerUtils.getTableNames(instrumentedQuery);
+          await ServerUtils.getTableNames(internalQuery);
 
       // Cache for subsequent calls. Cleared by
       // invalidateTableNameCache() (e.g., after import).
@@ -475,7 +487,7 @@ final class ServerContext {
     });
     final sql = parts.join(' UNION ALL ');
 
-    final rows = ServerUtils.normalizeRows(await instrumentedQuery(sql));
+    final rows = ServerUtils.normalizeRows(await internalQuery(sql));
 
     // Map the result rows into a lookup by table name.
     final counts = <String, int>{};
