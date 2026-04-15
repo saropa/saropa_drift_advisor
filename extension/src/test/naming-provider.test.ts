@@ -175,6 +175,7 @@ function createContext(options: {
       },
       severityOverrides: {},
       disabledRules: new Set(),
+      tableExclusions: new Map(),
     },
   };
 }

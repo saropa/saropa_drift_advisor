@@ -36,7 +36,11 @@ browse source on
 
 ---
 
-## [3.2.1]
+## [3.2.2]
+
+### Added
+
+- **Per-table diagnostic suppression** — new `driftViewer.diagnostics.tableExclusions` setting lets users suppress specific diagnostic rules on specific tables while keeping those rules active elsewhere; for example, suppress `no-foreign-keys` on tables that deliberately use UUID soft references without disabling the rule project-wide
 
 ### Fixed
 

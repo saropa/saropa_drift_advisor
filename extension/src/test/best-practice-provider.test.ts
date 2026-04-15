@@ -120,6 +120,8 @@ describe('BestPracticeProvider', () => {
       assert.ok(issue, 'Should report when _id columns match known tables');
       assert.ok(issue.message.includes('user_id'), 'Message should name the suspected column');
       assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
+      // data.tableName must be set so DiagnosticManager can apply per-table exclusions
+      assert.strictEqual(issue.data?.tableName, 'orders', 'Should include tableName in data for per-table exclusion filtering');
     });
 
     it('should not report no-foreign-keys for tables with outbound FKs', async () => {

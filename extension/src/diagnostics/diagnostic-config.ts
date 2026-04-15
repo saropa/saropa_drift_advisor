@@ -50,6 +50,16 @@ export function loadDiagnosticConfig(): IDiagnosticConfig {
   const disabledRulesArray = cfg.get<string[]>('disabledRules', []);
   const disabledRules = new Set(disabledRulesArray);
 
+  // Per-table exclusions: { "no-foreign-keys": ["users", "static_data"], ... }
+  // Lets users suppress a rule on specific tables while keeping it active elsewhere.
+  const exclusionsRaw = cfg.get<Record<string, string[]>>('tableExclusions', {});
+  const tableExclusions = new Map<string, Set<string>>();
+  for (const [code, tables] of Object.entries(exclusionsRaw)) {
+    if (Array.isArray(tables) && tables.length > 0) {
+      tableExclusions.set(code, new Set(tables));
+    }
+  }
+
   return {
     enabled: cfg.get('enabled', DEFAULT_DIAGNOSTIC_CONFIG.enabled),
     refreshOnSave: cfg.get('refreshOnSave', DEFAULT_DIAGNOSTIC_CONFIG.refreshOnSave),
@@ -57,5 +67,6 @@ export function loadDiagnosticConfig(): IDiagnosticConfig {
     categories,
     severityOverrides,
     disabledRules,
+    tableExclusions,
   };
 }

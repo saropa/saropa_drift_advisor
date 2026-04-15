@@ -82,11 +82,13 @@ export function createMockIssue(
   code: string,
   message: string,
   line: number,
+  data?: Record<string, unknown>,
 ): IDiagnosticIssue {
   return {
     code,
     message,
     fileUri: Uri.parse('file:///test/tables.dart') as any,
     range: new Range(line, 0, line, 100) as any,
+    data,
   };
 }

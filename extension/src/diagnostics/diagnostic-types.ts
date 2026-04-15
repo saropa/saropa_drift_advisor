@@ -69,6 +69,13 @@ export interface IDiagnosticConfig {
   severityOverrides: Record<string, vscode.DiagnosticSeverity>;
   /** Explicitly disabled diagnostic codes. */
   disabledRules: Set<string>;
+  /**
+   * Per-table rule exclusions. Keys are diagnostic codes, values are sets of
+   * SQL table names to skip. Lets users suppress a rule on specific tables
+   * while keeping it active elsewhere (e.g., suppress `no-foreign-keys` on
+   * tables that deliberately use UUID soft references).
+   */
+  tableExclusions: Map<string, Set<string>>;
 }
 
 /** Context passed to providers during diagnostic collection. */
@@ -130,6 +137,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: IDiagnosticConfig = {
   },
   severityOverrides: {},
   disabledRules: new Set(),
+  tableExclusions: new Map(),
 };
 
 /** Prefix added to all diagnostic messages for filtering. */

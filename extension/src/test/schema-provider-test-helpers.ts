@@ -60,6 +60,7 @@ export function createContext(options: CreateContextOptions): IDiagnosticContext
       },
       disabledRules: new Set(),
       severityOverrides: {},
+      tableExclusions: new Map(),
     },
   };
 }

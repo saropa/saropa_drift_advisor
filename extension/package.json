@@ -2,7 +2,7 @@
   "name": "drift-viewer",
   "displayName": "Saropa Drift Advisor",
   "description": "Debug SQLite/Drift databases in VS Code with Saropa Drift Advisor.",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "publisher": "saropa",
   "license": "MIT",
   "repository": {
@@ -1400,6 +1400,17 @@
           "type": "boolean",
           "default": true,
           "description": "Enable schema compliance checks from .drift-rules.json."
+        },
+        "driftViewer.diagnostics.tableExclusions": {
+          "type": "object",
+          "default": {},
+          "description": "Suppress specific diagnostic rules on specific tables. Keys are rule codes, values are arrays of SQL table names.",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         },
         "driftViewer.dashboard.showOnConnect": {
           "type": "boolean",

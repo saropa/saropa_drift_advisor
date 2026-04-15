@@ -218,6 +218,8 @@ export class BestPracticeProvider implements IDiagnosticProvider {
         fileUri: file.uri,
         range: new vscode.Range(dartTable.line, 0, dartTable.line, 999),
         severity: vscode.DiagnosticSeverity.Information,
+        // Expose table name for per-table exclusion filtering in DiagnosticManager
+        data: { tableName: dartTable.sqlTableName },
       });
     }
   }

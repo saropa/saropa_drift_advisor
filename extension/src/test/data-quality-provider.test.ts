@@ -242,7 +242,7 @@ function createContext(options: {
     config: {
       enabled: true, refreshOnSave: true, refreshIntervalMs: 30000,
       categories: { schema: true, performance: true, dataQuality: true, bestPractices: true, naming: false, runtime: true, compliance: true },
-      disabledRules: new Set(), severityOverrides: {},
+      disabledRules: new Set(), severityOverrides: {}, tableExclusions: new Map(),
     },
   };
 }
