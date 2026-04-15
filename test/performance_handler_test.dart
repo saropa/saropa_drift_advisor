@@ -222,41 +222,40 @@ void main() {
         expect((recent[2] as Map)['sql'], 'first');
       });
 
-      test('internal queries excluded from totalQueries and slowQueries',
-          () async {
-        final ctx = createTestContext();
-        ctx.queryTimings.addAll([
-          _timing('SELECT * FROM users', 150), // user query, slow
-          _timing('SELECT * FROM orders', 50), // user query, fast
-          _internalTiming(
-            // internal probe, slow — should be excluded
-            "SELECT 'users' AS t, COUNT(*) AS c FROM \"users\"",
-            200,
-          ),
-          _internalTiming(
-            // internal probe, fast — should be excluded
-            "SELECT 'orders' AS t, COUNT(*) AS c FROM \"orders\"",
-            30,
-          ),
-        ]);
-        final handler = PerformanceHandler(ctx);
+      test(
+        'internal queries excluded from totalQueries and slowQueries',
+        () async {
+          final ctx = createTestContext();
+          ctx.queryTimings.addAll([
+            _timing('SELECT * FROM users', 150), // user query, slow
+            _timing('SELECT * FROM orders', 50), // user query, fast
+            _internalTiming(
+              // internal probe, slow — should be excluded
+              "SELECT 'users' AS t, COUNT(*) AS c FROM \"users\"",
+              200,
+            ),
+            _internalTiming(
+              // internal probe, fast — should be excluded
+              "SELECT 'orders' AS t, COUNT(*) AS c FROM \"orders\"",
+              30,
+            ),
+          ]);
+          final handler = PerformanceHandler(ctx);
 
-        final data = await handler.getPerformanceData();
+          final data = await handler.getPerformanceData();
 
-        // Only the 2 user queries count toward aggregates.
-        expect(data['totalQueries'], 2);
-        expect(data['totalDurationMs'], 200); // 150 + 50
-        expect(data['avgDurationMs'], 100); // 200 / 2
+          // Only the 2 user queries count toward aggregates.
+          expect(data['totalQueries'], 2);
+          expect(data['totalDurationMs'], 200); // 150 + 50
+          expect(data['avgDurationMs'], 100); // 200 / 2
 
-        // Only the user's 150ms query is slow; the 200ms
-        // internal probe must not appear.
-        final slowQueries = data['slowQueries'] as List;
-        expect(slowQueries, hasLength(1));
-        expect(
-          (slowQueries.first as Map)['sql'],
-          'SELECT * FROM users',
-        );
-      });
+          // Only the user's 150ms query is slow; the 200ms
+          // internal probe must not appear.
+          final slowQueries = data['slowQueries'] as List;
+          expect(slowQueries, hasLength(1));
+          expect((slowQueries.first as Map)['sql'], 'SELECT * FROM users');
+        },
+      );
 
       test('internal queries excluded from queryPatterns', () async {
         final ctx = createTestContext();
@@ -274,10 +273,7 @@ void main() {
 
         // Only 1 pattern — the internal probe is excluded.
         expect(patterns, hasLength(1));
-        expect(
-          (patterns.first as Map)['pattern'],
-          'SELECT * FROM users',
-        );
+        expect((patterns.first as Map)['pattern'], 'SELECT * FROM users');
       });
 
       test('internal queries still appear in recentQueries', () async {

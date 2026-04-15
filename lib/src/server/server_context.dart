@@ -429,8 +429,7 @@ final class ServerContext {
       // Use cached table names if available; otherwise
       // query sqlite_master and cache the result.
       final tables =
-          _cachedTableNames ??
-          await ServerUtils.getTableNames(internalQuery);
+          _cachedTableNames ?? await ServerUtils.getTableNames(internalQuery);
 
       // Cache for subsequent calls. Cleared by
       // invalidateTableNameCache() (e.g., after import).

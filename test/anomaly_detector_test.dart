@@ -728,105 +728,104 @@ void main() {
         }
       });
 
-      test('no outlier for rating/score/percent columns (rating skip)',
-          () async {
-        // Rating and score columns are bounded by definition.
-        // Skewed distributions are expected (e.g., TV ratings
-        // cluster high), so values at the low end of the scale
-        // are legitimate, not anomalies.
-        // See bugs/anomaly_false_positive_valid_range.md.
-        for (final colName in [
-          'rating',
-          'user_rating',
-          'avg_score',
-          'score',
-          'percent_complete',
-          'pct',
-          'win_pct',
-        ]) {
-          final result = await AnomalyDetector.getAnomaliesResult(
-            _anomalyQuery(
-              tableColumns: {
-                'episodes': [
-                  _col('id', 'INTEGER', pk: 1),
-                  _col(colName, 'REAL'),
-                ],
-              },
-              counts: {'episodes': 200},
-              // Simulates the bug report scenario: TV ratings on
-              // a 1–10 scale with mean ~7.91, min 1.0. The 1.0
-              // value is 6.4σ from the mean but is a valid rating.
-              numericStats: {
-                'episodes.$colName': {
-                  'avg_val': 7.91,
-                  'min_val': 1.0,
-                  'max_val': 10.0,
-                  'variance': 1.51,
-                  'cnt': 200,
-                },
-              },
-            ),
-          );
-
-          final anomalies = result['anomalies'] as List;
-          final outliers = anomalies
-              .where((a) => (a as Map)['type'] == 'potential_outlier')
-              .toList();
-          expect(
-            outliers,
-            isEmpty,
-            reason:
-                'Rating/score column "$colName" should be skipped '
-                'from outlier detection',
-          );
-        }
-      });
-
       test(
-        'no outlier for bounded-scale data (0–10 rating range)',
+        'no outlier for rating/score/percent columns (rating skip)',
         () async {
-          // Even without a rating-like column name, data that
-          // fits within a known bounded scale (e.g., 0–10, 0–100)
-          // should not trigger outlier detection. The bounded-
-          // scale guard catches this regardless of column name.
+          // Rating and score columns are bounded by definition.
+          // Skewed distributions are expected (e.g., TV ratings
+          // cluster high), so values at the low end of the scale
+          // are legitimate, not anomalies.
           // See bugs/anomaly_false_positive_valid_range.md.
-          final result = await AnomalyDetector.getAnomaliesResult(
-            _anomalyQuery(
-              tableColumns: {
-                'reviews': [
-                  _col('id', 'INTEGER', pk: 1),
-                  _col('quality', 'REAL'),
-                ],
-              },
-              counts: {'reviews': 100},
-              // Range [1.0, 9.5] fits within the 0–10 scale.
-              // Min of 1.0 is 5.1σ from mean — would be flagged
-              // without the bounded-scale guard.
-              numericStats: {
-                'reviews.quality': {
-                  'avg_val': 7.5,
-                  'min_val': 1.0,
-                  'max_val': 9.5,
-                  'variance': 1.44,
-                  'cnt': 100,
+          for (final colName in [
+            'rating',
+            'user_rating',
+            'avg_score',
+            'score',
+            'percent_complete',
+            'pct',
+            'win_pct',
+          ]) {
+            final result = await AnomalyDetector.getAnomaliesResult(
+              _anomalyQuery(
+                tableColumns: {
+                  'episodes': [
+                    _col('id', 'INTEGER', pk: 1),
+                    _col(colName, 'REAL'),
+                  ],
                 },
-              },
-            ),
-          );
+                counts: {'episodes': 200},
+                // Simulates the bug report scenario: TV ratings on
+                // a 1–10 scale with mean ~7.91, min 1.0. The 1.0
+                // value is 6.4σ from the mean but is a valid rating.
+                numericStats: {
+                  'episodes.$colName': {
+                    'avg_val': 7.91,
+                    'min_val': 1.0,
+                    'max_val': 10.0,
+                    'variance': 1.51,
+                    'cnt': 200,
+                  },
+                },
+              ),
+            );
 
-          final anomalies = result['anomalies'] as List;
-          final outliers = anomalies
-              .where((a) => (a as Map)['type'] == 'potential_outlier')
-              .toList();
-          expect(
-            outliers,
-            isEmpty,
-            reason:
-                'Data within a 0–10 bounded scale should not trigger '
-                'outlier detection',
-          );
+            final anomalies = result['anomalies'] as List;
+            final outliers = anomalies
+                .where((a) => (a as Map)['type'] == 'potential_outlier')
+                .toList();
+            expect(
+              outliers,
+              isEmpty,
+              reason:
+                  'Rating/score column "$colName" should be skipped '
+                  'from outlier detection',
+            );
+          }
         },
       );
+
+      test('no outlier for bounded-scale data (0–10 rating range)', () async {
+        // Even without a rating-like column name, data that
+        // fits within a known bounded scale (e.g., 0–10, 0–100)
+        // should not trigger outlier detection. The bounded-
+        // scale guard catches this regardless of column name.
+        // See bugs/anomaly_false_positive_valid_range.md.
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'reviews': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('quality', 'REAL'),
+              ],
+            },
+            counts: {'reviews': 100},
+            // Range [1.0, 9.5] fits within the 0–10 scale.
+            // Min of 1.0 is 5.1σ from mean — would be flagged
+            // without the bounded-scale guard.
+            numericStats: {
+              'reviews.quality': {
+                'avg_val': 7.5,
+                'min_val': 1.0,
+                'max_val': 9.5,
+                'variance': 1.44,
+                'cnt': 100,
+              },
+            },
+          ),
+        );
+
+        final anomalies = result['anomalies'] as List;
+        final outliers = anomalies
+            .where((a) => (a as Map)['type'] == 'potential_outlier')
+            .toList();
+        expect(
+          outliers,
+          isEmpty,
+          reason:
+              'Data within a 0–10 bounded scale should not trigger '
+              'outlier detection',
+        );
+      });
 
       test(
         'no outlier for bounded-scale data (0–100 percentage range)',
@@ -868,51 +867,45 @@ void main() {
         },
       );
 
-      test(
-        'still detects outlier when data exceeds bounded scales',
-        () async {
-          // Data range [5.0, 500.0] does not fit any known
-          // bounded scale, so outlier detection should still fire.
-          final result = await AnomalyDetector.getAnomaliesResult(
-            _anomalyQuery(
-              tableColumns: {
-                'items': [
-                  _col('id', 'INTEGER', pk: 1),
-                  _col('amount', 'REAL'),
-                ],
+      test('still detects outlier when data exceeds bounded scales', () async {
+        // Data range [5.0, 500.0] does not fit any known
+        // bounded scale, so outlier detection should still fire.
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'items': [_col('id', 'INTEGER', pk: 1), _col('amount', 'REAL')],
+            },
+            counts: {'items': 100},
+            // max 500.0 is far beyond any bounded scale.
+            // stddev=10, max deviation |500-50|=450 > 3×10=30.
+            // Log check: log(5)=1.61, log(500)=6.21,
+            // log(50)=3.91, logRange=4.60, logStddev=1.15,
+            // logMaxDev=|6.21-3.91|=2.30 < 3×1.15=3.45 → passes log.
+            // So we need stats where log also fails.
+            numericStats: {
+              'items.amount': {
+                'avg_val': 10.0,
+                'min_val': 5.0,
+                'max_val': 150.0,
+                'variance': 100.0,
+                'cnt': 100,
               },
-              counts: {'items': 100},
-              // max 500.0 is far beyond any bounded scale.
-              // stddev=10, max deviation |500-50|=450 > 3×10=30.
-              // Log check: log(5)=1.61, log(500)=6.21,
-              // log(50)=3.91, logRange=4.60, logStddev=1.15,
-              // logMaxDev=|6.21-3.91|=2.30 < 3×1.15=3.45 → passes log.
-              // So we need stats where log also fails.
-              numericStats: {
-                'items.amount': {
-                  'avg_val': 10.0,
-                  'min_val': 5.0,
-                  'max_val': 150.0,
-                  'variance': 100.0,
-                  'cnt': 100,
-                },
-              },
-            ),
-          );
+            },
+          ),
+        );
 
-          final anomalies = result['anomalies'] as List;
-          final outliers = anomalies
-              .where((a) => (a as Map)['type'] == 'potential_outlier')
-              .toList();
-          expect(
-            outliers,
-            isNotEmpty,
-            reason:
-                'Data outside all bounded scales should still trigger '
-                'outlier detection',
-          );
-        },
-      );
+        final anomalies = result['anomalies'] as List;
+        final outliers = anomalies
+            .where((a) => (a as Map)['type'] == 'potential_outlier')
+            .toList();
+        expect(
+          outliers,
+          isNotEmpty,
+          reason:
+              'Data outside all bounded scales should still trigger '
+              'outlier detection',
+        );
+      });
 
       test(
         'no outlier for log-normal distributions (log-scale fallback)',

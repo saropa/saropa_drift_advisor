@@ -30,8 +30,10 @@ final class PerformanceHandler {
     final userTimings = timings.where((t) => !t.isInternal).toList();
 
     final totalQueries = userTimings.length;
-    final totalDuration =
-        userTimings.fold<int>(0, (sum, t) => sum + t.durationMs);
+    final totalDuration = userTimings.fold<int>(
+      0,
+      (sum, t) => sum + t.durationMs,
+    );
     final avgDuration = totalQueries > 0
         ? (totalDuration / totalQueries).round()
         : 0;
