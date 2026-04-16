@@ -172,6 +172,7 @@ final class Router {
       if (await _routeWriteApi(req, res, path, query)) return;
       if (await _routeSessionApi(req, res, path, query)) return;
       if (await _routePerformanceApi(req, res, path, query)) return;
+      if (await _routeHistoryApi(req, res, path)) return;
 
       // No route matched — 404.
       res.statusCode = HttpStatus.notFound;
@@ -719,6 +720,36 @@ final class Router {
         (path == ServerConstants.pathApiAnalyticsPerformance ||
             path == ServerConstants.pathApiAnalyticsPerformanceAlt)) {
       await _performance.clearPerformanceData(response);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  // -------- History route group --------
+
+  /// Routes GET/DELETE /api/history for the query execution
+  /// history sidebar.
+  Future<bool> _routeHistoryApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+  ) async {
+    // GET /api/history — retrieve full query history.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiHistory ||
+            path == ServerConstants.pathApiHistoryAlt)) {
+      await _performance.handleHistory(response);
+
+      return true;
+    }
+
+    // DELETE /api/history — clear query history.
+    if (request.method == ServerConstants.methodDelete &&
+        (path == ServerConstants.pathApiHistory ||
+            path == ServerConstants.pathApiHistoryAlt)) {
+      await _performance.handleClearHistory(response);
 
       return true;
     }

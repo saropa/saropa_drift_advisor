@@ -98,6 +98,106 @@ describe('Web theme contract — premium theme effects in style.css', () => {
     );
   });
 
+  // --- Tab bar glassmorphism ---
+
+  it('showcase tab bar has glassmorphism', () => {
+    const block = extractBlock(css, 'body.theme-showcase #tab-bar.tab-bar');
+    assert.ok(block.length > 0, 'showcase #tab-bar.tab-bar rule must exist');
+    assert.ok(
+      block.includes('backdrop-filter'),
+      'showcase tab bar must use backdrop-filter for frosted-glass effect',
+    );
+  });
+
+  it('midnight tab bar has glassmorphism', () => {
+    const block = extractBlock(css, 'body.theme-midnight #tab-bar.tab-bar');
+    assert.ok(block.length > 0, 'midnight #tab-bar.tab-bar rule must exist');
+    assert.ok(
+      block.includes('backdrop-filter'),
+      'midnight tab bar must use backdrop-filter for frosted-glass effect',
+    );
+  });
+
+  // --- Data table glassmorphism ---
+
+  it('showcase data table scroll wrap has glassmorphism', () => {
+    // Find the showcase-specific rule (after the SHOWCASE THEME marker)
+    const showcaseIdx = css.indexOf('SHOWCASE THEME');
+    assert.ok(showcaseIdx !== -1, 'style.css must contain a SHOWCASE THEME section');
+    const showcaseSection = css.substring(showcaseIdx);
+    const block = extractBlock(showcaseSection, 'body.theme-showcase .data-table-scroll-wrap');
+    assert.ok(block.length > 0, 'showcase .data-table-scroll-wrap rule must exist in theme section');
+    assert.ok(
+      block.includes('backdrop-filter'),
+      'showcase data table must use backdrop-filter for frosted-glass effect',
+    );
+  });
+
+  it('midnight data table scroll wrap has glassmorphism', () => {
+    const midnightIdx = css.indexOf('MIDNIGHT THEME');
+    assert.ok(midnightIdx !== -1, 'style.css must contain a MIDNIGHT THEME section');
+    const midnightSection = css.substring(midnightIdx);
+    const block = extractBlock(midnightSection, 'body.theme-midnight .data-table-scroll-wrap');
+    assert.ok(block.length > 0, 'midnight .data-table-scroll-wrap rule must exist in theme section');
+    assert.ok(
+      block.includes('backdrop-filter'),
+      'midnight data table must use backdrop-filter for frosted-glass effect',
+    );
+  });
+
+  // --- Sticky table headers are translucent (not opaque) ---
+
+  it('showcase sticky headers use translucent background', () => {
+    const block = extractBlock(css, 'body.theme-showcase .drift-table th');
+    assert.ok(block.length > 0, 'showcase .drift-table th rule must exist');
+    assert.ok(
+      block.includes('rgba'),
+      'showcase sticky headers must use rgba background for translucency',
+    );
+  });
+
+  it('midnight sticky headers use translucent background', () => {
+    const block = extractBlock(css, 'body.theme-midnight .drift-table th');
+    assert.ok(block.length > 0, 'midnight .drift-table th rule must exist');
+    assert.ok(
+      block.includes('rgba'),
+      'midnight sticky headers must use rgba background for translucency',
+    );
+  });
+
+  // --- Tab bar entrance animation ---
+
+  it('tab bar has entrance animation for both themes', () => {
+    assert.ok(
+      css.includes('body.theme-showcase #tab-bar.tab-bar') &&
+      css.includes('body.theme-midnight #tab-bar.tab-bar'),
+      'style.css must target tab bar for both premium themes',
+    );
+    /* The tab bar reuses fancy-header-enter (already tested above). */
+  });
+
+  // --- Midnight variables are translucent ---
+
+  it('midnight --bg is translucent (rgba, not hex)', () => {
+    const block = extractBlock(css, 'body.theme-midnight');
+    const bgMatch = block.match(/--bg:\s*([^;]+)/);
+    assert.ok(bgMatch, 'midnight must define --bg');
+    assert.ok(
+      bgMatch![1].includes('rgba'),
+      'midnight --bg must be rgba (translucent) so aurora bleeds through all surfaces',
+    );
+  });
+
+  it('midnight --surface is translucent (rgba, not hex)', () => {
+    const block = extractBlock(css, 'body.theme-midnight');
+    const surfaceMatch = block.match(/--surface:\s*([^;]+)/);
+    assert.ok(surfaceMatch, 'midnight must define --surface');
+    assert.ok(
+      surfaceMatch![1].includes('rgba'),
+      'midnight --surface must be rgba (translucent) so aurora bleeds through',
+    );
+  });
+
   // --- Safety constraints ---
 
   it('premium effects section does not target base themes', () => {
@@ -150,14 +250,19 @@ describe('Web theme contract — premium theme effects in style.css', () => {
   });
 
   it('reduced motion disables all theme animations', () => {
-    const lines = css.split('\n');
-    // Find the LAST reduced-motion block (the theme-effects one)
-    let lastReducedIdx = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes('prefers-reduced-motion')) lastReducedIdx = i;
+    // Extract the reduced-motion block that contains theme animation overrides.
+    // We match the @media rule whose body includes 'animation: none' —
+    // other reduced-motion blocks only disable transitions.
+    const rmRe = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\n\}/g;
+    let block = '';
+    let m: RegExpExecArray | null;
+    while ((m = rmRe.exec(css)) !== null) {
+      if (m[0].includes('animation: none')) {
+        block = m[0];
+        break;
+      }
     }
-    assert.ok(lastReducedIdx > 0, 'reduced-motion media query must exist');
-    const block = lines.slice(lastReducedIdx, lastReducedIdx + 30).join('\n');
+    assert.ok(block.length > 0, 'reduced-motion media query with animation:none must exist');
     assert.ok(
       block.includes('body.theme-showcase'),
       'reduced-motion must target showcase theme',

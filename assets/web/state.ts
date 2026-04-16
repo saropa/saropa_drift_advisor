@@ -177,8 +177,31 @@ export function setSessionFastMode(f: boolean): void { sessionFastMode = f; }
 
 // --- Sidebar ---
 export const APP_SIDEBAR_PANEL_KEY = 'saropa_app_sidebar_collapsed';
+export const HISTORY_SIDEBAR_KEY = 'saropa_history_sidebar_collapsed';
 
 // --- Tool labels ---
+/**
+ * Material Symbols icon name for each tab type.
+ * Used by both static tabs (html_content.dart) and dynamic tabs (createClosableTab).
+ * Keep in sync with the hamburger menu icons in html_content.dart.
+ */
+export const TOOL_ICONS: Record<string, string> = {
+  tables: 'table_chart',
+  sql: 'terminal',
+  search: 'search',
+  snapshot: 'photo_camera',
+  compare: 'compare_arrows',
+  index: 'format_list_bulleted',
+  size: 'bar_chart',
+  perf: 'speed',
+  anomaly: 'favorite',
+  import: 'upload',
+  schema: 'grid_on',
+  diagram: 'account_tree',
+  export: 'download',
+  settings: 'settings',
+};
+
 export const TOOL_LABELS: Record<string, string> = {
   tables: 'Tables',
   sql: 'Run SQL',
@@ -193,6 +216,7 @@ export const TOOL_LABELS: Record<string, string> = {
   schema: 'Schema',
   diagram: 'Diagram',
   export: 'Export',
+  settings: 'Settings',
 };
 
 // --- Offline disable IDs ---

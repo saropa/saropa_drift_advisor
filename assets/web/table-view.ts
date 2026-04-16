@@ -10,6 +10,7 @@ import { isPiiMaskEnabled, isPiiColumn, getDisplayValue } from './pii.ts';
 import { getScope, filterRows, getTableDisplayData, buildTableFilterMetaSuffix, applySearch } from './search.ts';
 import { loadFkMeta, renderBreadcrumb } from './fk-nav.ts';
 import { getColumnConfig } from './persistence.ts';
+import { getPref, PREF_EPOCH_DETECTION, DEFAULTS } from './settings.ts';
 
 // TODO: cross-module import — rowCountText is in table-list.ts
 // Circular dependency may need resolution later.
@@ -32,6 +33,8 @@ export async function loadColumnTypes(tableName) {
   return S.tableColumnTypes[tableName] || {};
 }
 export function isEpochTimestamp(value) {
+  // Skip epoch detection entirely when the user has disabled it in Settings
+  if (!getPref(PREF_EPOCH_DETECTION, DEFAULTS[PREF_EPOCH_DETECTION])) return false;
   var n = Number(value);
   if (!isFinite(n) || n <= 0) return false;
   if (n > 946684800000 && n < 32503680000000) return 'ms';
@@ -272,6 +275,33 @@ export function buildTableDefinitionHtml(tableName) {
     '<tbody>' + rows + '</tbody></table></div></div>';
 }
 
+/**
+ * Binds click-to-toggle on the results table expander heading.
+ * Uses event delegation so it works regardless of render timing.
+ * Toggles .results-collapsed on the wrapper and swaps the ▼/▲ arrow.
+ */
+export function bindResultsToggle(): void {
+  var headings = document.querySelectorAll('.results-table-heading');
+  for (var i = 0; i < headings.length; i++) {
+    var heading = headings[i];
+    // Guard against double-binding if renderTableView is called multiple times
+    if (heading.hasAttribute('data-toggle-bound')) continue;
+    heading.setAttribute('data-toggle-bound', '1');
+    heading.addEventListener('click', function() {
+      var wrap = this.closest('.results-table-wrap');
+      if (!wrap) return;
+      var isCollapsed = wrap.classList.toggle('results-collapsed');
+      // Swap only the leading arrow character, preserve the rest of the heading
+      var text = this.textContent || '';
+      if (isCollapsed) {
+        this.textContent = text.replace('\u25B2', '\u25BC');
+      } else {
+        this.textContent = text.replace('\u25BC', '\u25B2');
+      }
+    });
+  }
+}
+
 export function renderTableView(name, data) {
   const content = document.getElementById('content');
   const scope = getScope();
@@ -298,7 +328,17 @@ export function renderTableView(name, data) {
   }
   function renderDataHtml(fkMap, colTypes) {
     var defHtml = buildTableDefinitionHtml(name);
-    var tableHtml = wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(name))) + buildTableStatusBar(S.tableCounts[name], S.offset, S.limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(name)));
+    var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(name))) + buildTableStatusBar(S.tableCounts[name], S.offset, S.limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(name)));
+    // Wrap results table in a collapsible expander, expanded by default.
+    // Row count in the heading gives context when collapsed.
+    var rowCount = displayData.length;
+    var totalCount = S.tableCounts[name];
+    var resultsLabel = totalCount != null
+      ? rowCount + ' of ' + totalCount.toLocaleString() + ' rows'
+      : rowCount + ' row' + (rowCount !== 1 ? 's' : '');
+    var tableHtml = '<div class="results-table-wrap" role="region" aria-label="Results">' +
+      '<div class="results-table-heading">\u25B2 Results \u2014 ' + resultsLabel + '</div>' +
+      '<div class="results-table-body">' + rawTableHtml + '</div></div>';
     var qbHtml = buildQueryBuilderHtml(name, colTypes);
     if (scope === 'both') {
       S.setLastRenderedSchema(S.cachedSchema);
@@ -312,6 +352,7 @@ export function renderTableView(name, data) {
           applySearch();
           renderBreadcrumb();
           bindColumnTableEvents();
+          bindResultsToggle();
         });
       } else {
         var dataSection = document.getElementById('both-data-section');
@@ -326,6 +367,7 @@ export function renderTableView(name, data) {
         }
         applySearch();
         renderBreadcrumb();
+        bindResultsToggle();
       }
     } else {
       S.setLastRenderedSchema(null);
@@ -335,6 +377,7 @@ export function renderTableView(name, data) {
       applySearch();
       renderBreadcrumb();
       bindColumnTableEvents();
+      bindResultsToggle();
     }
   }
   // Load FK metadata and column types in parallel, then render
@@ -398,16 +441,24 @@ function syncMastheadMaskBadge(checked: boolean): void {
  * when toggled so the user sees immediate feedback without a page refresh.
  */
 export function initPiiMaskToggle(): void {
-  var cb = document.getElementById('hamburger-pii-mask-toggle') as HTMLInputElement | null;
+  var cb = document.getElementById('tb-mask-checkbox') as HTMLInputElement | null;
+  var sw = document.getElementById('tb-mask-toggle');
   if (!cb) return;
 
-  // Sync badge on page load in case browser restores checkbox state.
+  /** Keep the toolbar mask button in sync with the hidden checkbox. */
+  function syncSwitch() {
+    if (sw) sw.setAttribute('aria-pressed', cb!.checked ? 'true' : 'false');
+  }
+
+  // Sync badge and switch on page load in case browser restores checkbox state.
   syncMastheadMaskBadge(cb.checked);
+  syncSwitch();
 
   cb.addEventListener('change', function() {
     // Update masthead badge immediately so the user sees feedback
     // even if no PII columns exist in the current table.
     syncMastheadMaskBadge(cb!.checked);
+    syncSwitch();
 
     // Re-render current table view so masked/unmasked values update.
     if (S.currentTableName && S.currentTableJson) {

@@ -116,6 +116,46 @@ final class PerformanceHandler {
     _ctx.queryTimings.clear();
   }
 
+  // -------------------------------------------------------
+  // History sidebar endpoints
+  // -------------------------------------------------------
+
+  /// GET /api/history — returns the full query timing ring buffer
+  /// (most recent first, up to [ServerConstants.maxQueryTimings])
+  /// with a computed `source` field on each entry.
+  Future<void> handleHistory(HttpResponse response) async {
+    final res = response;
+    try {
+      final entries = _ctx.queryTimings.reversed
+          .map((t) => t.toJson())
+          .toList();
+      _ctx.setJsonHeaders(res);
+      res.write(jsonEncode(<String, dynamic>{'entries': entries}));
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      await _ctx.sendErrorResponse(res, error);
+      return;
+    }
+    await res.close();
+  }
+
+  /// DELETE /api/history — clears all recorded query timings
+  /// (shared with performance analytics since both read from the
+  /// same ring buffer).
+  Future<void> handleClearHistory(HttpResponse response) async {
+    final res = response;
+    try {
+      _ctx.queryTimings.clear();
+      _ctx.setJsonHeaders(res);
+      res.write(jsonEncode(<String, String>{'status': 'cleared'}));
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      await _ctx.sendErrorResponse(res, error);
+      return;
+    }
+    await res.close();
+  }
+
   /// DELETE /api/analytics/performance — clears all recorded query
   /// timings.
   Future<void> clearPerformanceData(HttpResponse response) async {

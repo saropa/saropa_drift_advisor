@@ -97,6 +97,8 @@ abstract final class ServerConstants {
   /// POST batch of validated UPDATE/INSERT/DELETE statements in one transaction.
   static const String pathApiEditsApply = '/api/edits/apply';
   static const String pathApiEditsApplyAlt = 'api/edits/apply';
+  static const String pathApiHistory = '/api/history';
+  static const String pathApiHistoryAlt = 'api/history';
   static const String pathApiChangeDetection = '/api/change-detection';
   static const String pathApiChangeDetectionAlt = 'api/change-detection';
   static const String pathApiMutations = '/api/mutations';
@@ -119,7 +121,7 @@ abstract final class ServerConstants {
   /// Package version displayed in the web UI and health endpoint.
   /// Must match pubspec.yaml: updated on publish version writes, and the Dart
   /// analysis leg of scripts/publish.py reconciles this constant if it drifted.
-  static const String packageVersion = '3.2.2';
+  static const String packageVersion = '3.3.0';
 
   /// jsDelivr CDN base URL for serving web assets and images when
   /// local files are unavailable. Append `@v$packageVersion/…` for

@@ -36,6 +36,38 @@ browse source on
 
 ---
 
+## [3.3.0]
+
+### Added
+
+- **Settings panel** — new Settings tool tab (accessible from the hamburger menu gear icon) lets users configure persistent preferences: SQL history max entries, max saved analyses, default page size, default display format, show-only-matching-rows toggle, slow query threshold, auto-refresh polling, epoch timestamp auto-detection, and navigate-away confirmation; all preferences persist to localStorage and take effect immediately without a page reload; includes "Clear all stored data" (removes project-specific data while keeping theme/sidebar preferences) and "Reset all to defaults" actions
+- **Binary size disclosure in README** — added a paragraph in "How it works" clarifying that this package adds zero bytes to release builds when gated on `kDebugMode`, has zero runtime dependencies, and never compiles web UI assets into the binary
+- **History sidebar** — new collapsible right-side sidebar shows all SQL query execution history from the server's ring buffer; each entry displays a source badge (Browser / App / Internal), truncated SQL preview, duration, row count, and relative timestamp; filter buttons let you toggle between All, Browser, App, and Internal queries; clicking an entry loads its SQL into the SQL runner input; dedicated `GET /api/history` and `DELETE /api/history` endpoints power the sidebar with the full timing buffer (up to 500 entries) and a computed `source` field derived from caller stack-frame analysis
+- **Inline toolbar replaces hamburger menu** — all tool launchers (Snapshot, DB diff, Index, Schema, Diagram, Size, Perf, Health, Import, Export, Settings) are now visible as icon buttons in the tab bar row instead of hidden behind a dropdown; sidebar toggles sit at the edges (left for Tables, right for History); Mask, Theme (flyout picker), and Share are right-aligned; active tool tabs are highlighted on their toolbar icon
+- **Collapsible results table** — the data table and status bar are now wrapped in a `▲ Results` expander (matching the existing Table definition and Query builder toggles) so users can collapse the grid and focus on the query builder or definition; heading shows the current row count for context when collapsed
+- **Visual / Raw SQL toggle in query builder** — a pill-style toggle above the query builder switches between the existing form controls (Visual) and a free-text SQL textarea (Raw SQL); switching to Raw pre-fills the textarea with the current visual builder query so the user can refine it; both modes share the same Run / Reset buttons and inline results
+- **Inline cell edit context and validation** — double-click cell editing now shows a context bar (PK identity, column name, type, nullable) and the original value above the input; client-side format validation checks number, integer, and boolean formats on each keystroke with a red-border + inline error message instead of `alert()` dialogs; validation errors keep the editor open so the user can fix and retry
+- **Double-click tab to close others** — double-clicking any tab in the tab bar prompts to close all other closeable tabs, making it quick to declutter when many tables or tools are open
+- **Tab icons and per-type accent colors** — every tab type now shows a unique Material Symbols icon (e.g. table_chart for Tables, search for Search, terminal for Run SQL, etc.); on the Midnight and Showcase themes, each tab type also gets a unique accent color for the top border and text when active, replacing the single link color so tabs are visually distinct at a glance
+
+### Improved
+
+- **Showcase and Midnight glassmorphism overhaul** — the tab bar, data table, SQL editor, and sticky table headers now use translucent frosted-glass surfaces with `backdrop-filter`, so the animated body gradient (pastel aurora for Showcase, deep aurora for Midnight) is visible through every major UI surface instead of being hidden behind opaque backgrounds; Midnight's CSS variables (`--surface`, `--header-bg`, `--sidebar-bg`, `--bg-pre`) changed from opaque hex to translucent rgba so all elements automatically participate in the aurora bleed-through; tab bar gets a slide-in entrance animation matching the header; pinned columns and sticky headers use heavier frost for readability; scattered data-table glassmorphism overrides consolidated into the per-theme SCSS partials
+
+### Changed
+
+- **Hamburger menu — Themes submenu** — replaced the single-click theme cycle button with a full submenu listing all four themes (Light, Showcase, Dark, Midnight) with a checkmark on the active selection
+- **Hamburger menu — sliding toggle switches** — Sidebar visibility and PII Mask now use sliding boolean switches instead of text-swapping buttons and checkboxes
+- **Hamburger menu — layout polish** — section headings use a smaller font with tighter bottom padding; a divider separates Mask from Share for clearer visual grouping
+
+<details><summary>Maintenance</summary>
+
+- **Upgraded `saropa_lints`** from `^11.1.0` to `^12.0.1`; `dart_style`, `analyzer`, and related packages remain pinned below their latest versions because `analyzer ^12.0.0` conflicts with the Flutter SDK's `meta` constraint
+
+</details>
+
+---
+
 ## [3.2.2]
 
 ### Added

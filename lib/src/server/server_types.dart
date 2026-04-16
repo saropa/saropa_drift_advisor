@@ -58,12 +58,23 @@ class QueryTiming {
   /// overhead is reported as an application performance problem.
   final bool isInternal;
 
+  /// Computed query source based on [isInternal] and [callerFile].
+  /// - `"internal"` — extension-owned diagnostic probe
+  /// - `"app"` — originated from the Flutter app (callerFile resolved)
+  /// - `"browser"` — manual SQL from the web UI (no callerFile)
+  String get source {
+    if (isInternal) return 'internal';
+    if (callerFile != null) return 'app';
+    return 'browser';
+  }
+
   Map<String, dynamic> toJson() => <String, dynamic>{
     'sql': sql,
     'durationMs': durationMs,
     'rowCount': rowCount,
     'error': ?error,
     'at': at.toIso8601String(),
+    'source': source,
     'callerFile': ?callerFile,
     'callerLine': ?callerLine,
     if (isInternal) 'isInternal': true,

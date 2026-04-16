@@ -1,0 +1,221 @@
+/// Settings panel — user-configurable preferences.
+///
+/// Layout: stacked groups with a header, rows of label + input pairs,
+/// and toggle switches that reuse the hamburger-menu switch pattern.
+///
+/// DOM contract (see settings.ts):
+///   .settings-panel         — outer wrapper
+///   .settings-group         — collapsible section
+///   .settings-group-title   — section heading with icon
+///   .settings-row           — single setting: label + control
+///   .settings-toggle-row    — row with a sliding switch
+///   .settings-switch        — pure-CSS sliding bool toggle
+
+/* --- Panel wrapper --- */
+.settings-panel {
+  max-width: 560px;
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+}
+
+/* --- Groups: visual sections separated by borders --- */
+.settings-group {
+  margin-bottom: var(--space-4, 1rem);
+  padding-bottom: var(--space-3, 0.75rem);
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-group:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.settings-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  margin: 0 0 var(--space-3, 0.75rem);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.settings-group-title .material-symbols-outlined {
+  font-size: 1.1rem;
+  opacity: 0.7;
+}
+
+/* --- Rows: each setting --- */
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-2, 0.5rem) 0;
+  cursor: default;
+}
+
+.settings-label {
+  flex: 1 1 auto;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg);
+}
+
+.settings-sublabel {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: calc(-1 * var(--space-1, 0.25rem));
+}
+
+/* --- Number & select inputs --- */
+.settings-input {
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+  padding: var(--space-1, 0.25rem) var(--space-2, 0.5rem);
+  transition: border-color 0.15s ease;
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: var(--link);
+  box-shadow: 0 0 0 2px rgba(var(--link-rgb, 66, 133, 244), 0.15);
+}
+
+.settings-input-number {
+  width: 6rem;
+  text-align: right;
+}
+
+.settings-input-select {
+  min-width: 6rem;
+}
+
+/* --- Toggle switch (mirrors hamburger-switch pattern) --- */
+.settings-toggle-row {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Hide the native checkbox — the visual switch replaces it */
+.settings-checkbox {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.settings-switch {
+  margin-left: auto;
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  background: var(--border);
+  border-radius: 10px;
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+.settings-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--bg, #fff);
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.settings-switch[aria-checked="true"] {
+  background: var(--link);
+}
+
+.settings-switch[aria-checked="true"]::after {
+  transform: translateX(16px);
+}
+
+/* --- Action rows (clear data, reset) --- */
+.settings-row-actions {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2, 0.5rem);
+  padding-top: var(--space-3, 0.75rem);
+}
+
+.settings-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* --- Buttons --- */
+.settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 0.25rem);
+  font-size: var(--text-sm);
+}
+
+/* Danger outline button for destructive actions */
+.btn-danger-outline {
+  color: var(--error, #e15759);
+  border: 1px solid var(--error, #e15759);
+  background: transparent;
+  border-radius: var(--radius-sm, 4px);
+  padding: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-danger-outline:hover {
+  background: var(--error, #e15759);
+  color: #fff;
+}
+
+/* Neutral outline button for reset */
+.btn-outline {
+  color: var(--fg);
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: var(--radius-sm, 4px);
+  padding: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-outline:hover {
+  background: var(--surface);
+  border-color: var(--fg);
+}
+
+/* --- Footer (reset button) --- */
+.settings-footer {
+  padding-top: var(--space-3, 0.75rem);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .settings-switch,
+  .settings-switch::after,
+  .settings-input,
+  .btn-danger-outline,
+  .btn-outline {
+    transition: none;
+  }
+}

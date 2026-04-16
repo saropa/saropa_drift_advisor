@@ -43,7 +43,7 @@ import { openTableTab } from './tabs.ts';
       // Use literal newlines so the native prompt() shows line breaks in the message.
       var note = prompt('Add a note for your team (optional):\n\nSession will expire in 1 hour.');
       if (note === null) return;
-      var btn = document.getElementById('hamburger-share-btn');
+      var btn = document.getElementById('tb-share-btn');
       btn.disabled = true;
       setButtonBusy(btn, true, 'Sharing\u2026');
       var state = captureViewerState();

@@ -111,6 +111,8 @@ Your app runs a lightweight debug server that exposes database tables over HTTP.
 
 You usually inspect data in either a **browser** or the **extension**; both are first-class.
 
+> **Binary size impact: zero.** When you pass `enabled: kDebugMode` (as shown in all examples), Dart's AOT tree-shaker removes the entire package from release builds — no code, no assets, no transitive dependencies. Even the web UI (CSS/JS) is never compiled into your binary; it is served from disk or CDN at debug time only. This package has **zero runtime dependencies**, so it pulls nothing extra into your dependency graph.
+
 |                | Browser                      | VS Code Extension          |
 | -------------- | ---------------------------- | -------------------------- |
 | **Install**    | None — open `localhost:8642` | Install from Marketplace   |

@@ -39,15 +39,28 @@
 }
 
 /* Active tab: colored top accent bar + elevated appearance.
- * The 2px top border provides a strong visual anchor. */
+ * The 2px top border provides a strong visual anchor.
+ * --tab-accent is set per-tab-type in midnight/showcase themes for
+ * unique coloring; defaults to --link for light/dark themes. */
 .tab-bar .tab-btn.active {
-  color: var(--link);
+  color: var(--tab-accent, var(--link));
   font-weight: 600;
   background: var(--bg);
   border-color: var(--border);
-  border-top: 2px solid var(--link);
+  border-top: 2px solid var(--tab-accent, var(--link));
   border-bottom-color: var(--bg);
   z-index: 1;
+}
+
+/* Tab icon: small Material Symbols icon before the label text.
+ * Inherits color from the tab button so it tracks muted/active/hover states. */
+.tab-bar .tab-icon {
+  font-size: 1.15em;
+  line-height: 1;
+  vertical-align: middle;
+  /* Prevent the icon from being selected or interfering with tab click/truncation */
+  pointer-events: none;
+  flex-shrink: 0;
 }
 
 /* Truncate long table names in tab buttons so they don't overflow the tab bar */

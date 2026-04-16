@@ -6,6 +6,7 @@ import * as S from './state.ts';
 import { esc, setButtonBusy } from './utils.ts';
 import { switchTab } from './tabs.ts';
 import { loadSqlHistory, pushSqlHistory, refreshHistoryDropdown, loadBookmarks, refreshBookmarksDropdown, addBookmark, deleteBookmark, exportBookmarks, importBookmarks, bindDropdownToInput } from './sql-history.ts';
+import { fetchHistory } from './history-sidebar.ts';
 import { buildTableStatusBar } from './table-view.ts';
 
 export function initSqlRunner(): void {
@@ -410,6 +411,8 @@ export function initSqlRunner(): void {
           }
           pushSqlHistory(sql, rows.length);
           refreshHistoryDropdown(historySel);
+          // Refresh the History sidebar so the new entry appears immediately.
+          fetchHistory();
         })
         .catch(e => {
           errorEl.textContent = e.message || String(e);

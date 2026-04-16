@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "gphone",
         "pubdev",
         "pubspec",
         "unindexed",
@@ -15,5 +16,8 @@
     "saropaLints.sidebar.showPackageVibrancy": true,
     "saropaLints.sidebar.showSummary": false,
     "saropaLints.sidebar.showSuggestions": true,
-    "saropaLints.sidebar.showDriftAdvisor": true
+    "saropaLints.sidebar.showDriftAdvisor": true,
+    "saropaLints.sidebar.showFileRisk": true,
+    "saropaLints.sidebar.showSecurityPosture": true,
+    "saropaLints.sidebar.showRulePacks": true
 }

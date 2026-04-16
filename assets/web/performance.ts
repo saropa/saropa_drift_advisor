@@ -3,6 +3,7 @@
  */
 import * as S from './state.ts';
 import { esc, setButtonBusy, syncFeatureCardExpanded } from './utils.ts';
+import { getPref, PREF_SLOW_QUERY_THRESHOLD, DEFAULTS } from './settings.ts';
 import { renderBarChart, renderLineChart, applyChartUI, getChartSize, exportChartPng, exportChartSvg, exportChartCopy } from './charts.ts';
 import { populateHistorySelect, getSavedAnalyses, getSavedAnalysisById, saveAnalysis, downloadJSON, showAnalysisCompare } from './analysis.ts';
 import { showCopyToast } from './table-view.ts';
@@ -21,11 +22,13 @@ export function initPerformance(): void {
   let perfLoaded = false;
   var lastPerfData = null;
 
-  /** Read the slow-query threshold from the input (default 100 ms). */
+  /** Read the slow-query threshold from the input, falling back to the
+   *  user's stored preference (default 100 ms). */
   function getSlowThreshold() {
-    if (!slowThresholdInput) return 100;
+    var fallback = getPref(PREF_SLOW_QUERY_THRESHOLD, DEFAULTS[PREF_SLOW_QUERY_THRESHOLD]);
+    if (!slowThresholdInput) return fallback;
     var v = parseInt(slowThresholdInput.value, 10);
-    return (v > 0) ? v : 100;
+    return (v > 0) ? v : fallback;
   }
 
   function fetchPerformance() {

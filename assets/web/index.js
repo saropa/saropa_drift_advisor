@@ -23,11 +23,14 @@ if (api) window.mastheadStatus = api;
 import './app.js';
 
 // Self-contained modules that only need the DOM to be ready.
-import { initHamburgerMenu } from './hamburger-menu.ts';
+import { initToolbar } from './toolbar.ts';
 import { initTableDefToggle } from './table-def-toggle.ts';
+import { initSettings } from './settings.ts';
 
-console.log('[SDA] index.js bridge: calling initHamburgerMenu()');
-initHamburgerMenu();
+console.log('[SDA] index.js bridge: calling initToolbar()');
+initToolbar();
 console.log('[SDA] index.js bridge: calling initTableDefToggle()');
 initTableDefToggle();
+console.log('[SDA] index.js bridge: calling initSettings()');
+initSettings();
 console.log('[SDA] index.js bridge: init complete');

@@ -6,6 +6,7 @@
  */
 import { esc } from './utils.ts';
 import * as S from './state.ts';
+import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
 
     export function analysisStorageKey(type) {
       return S.ANALYSIS_STORAGE_PREFIX + type;
@@ -28,7 +29,9 @@ import * as S from './state.ts';
       var id = 'id_' + Date.now();
       var label = new Date().toLocaleString();
       list.unshift({ id: id, savedAt: label, data: data });
-      if (list.length > S.ANALYSIS_MAX_SAVED) list.length = S.ANALYSIS_MAX_SAVED;
+      // Respect user-configurable max saved analyses preference
+      var maxSaved = getPref(PREF_ANALYSIS_MAX, DEFAULTS[PREF_ANALYSIS_MAX]);
+      if (list.length > maxSaved) list.length = maxSaved;
       try {
         localStorage.setItem(analysisStorageKey(type), JSON.stringify(list));
         return id;

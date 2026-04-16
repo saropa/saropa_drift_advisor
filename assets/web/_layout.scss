@@ -1,4 +1,5 @@
-/* --- Two-column layout (flex so sidebar width can animate when collapsing) --- */
+/* --- Three-column layout: [left sidebar] [main] [history sidebar]
+   Flex row so both sidebars can animate width when collapsing. --- */
 .app-layout {
   display: flex;
   flex-direction: row;
@@ -80,4 +81,64 @@
   min-height: 0;
   padding: 1.25rem var(--panel-padding-x) 2rem;
   background: var(--bg);
+}
+
+/* --- Right-side history sidebar --- */
+.history-sidebar {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: clamp(240px, 100%, 280px);
+  max-width: min(280px, 100%);
+  min-width: 0;
+  background: var(--sidebar-bg);
+  border-left: 1px solid var(--border);
+  padding: 1rem var(--panel-padding-x) 2rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: sticky;
+  top: 57px;
+  max-height: calc(100vh - 57px);
+  transition:
+    width 0.2s ease,
+    max-width 0.2s ease,
+    padding 0.2s ease,
+    border-width 0.2s ease,
+    opacity 0.15s ease;
+}
+
+/* Collapsed: history sidebar shrinks to zero. */
+.app-layout.history-sidebar-collapsed .history-sidebar {
+  width: 0;
+  max-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-left-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-sidebar {
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .history-sidebar {
+    position: static;
+    max-height: none;
+    width: 100%;
+    max-width: none;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+    transition: none;
+  }
+
+  .app-layout.history-sidebar-collapsed .history-sidebar {
+    display: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
 }

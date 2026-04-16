@@ -1,3 +1,82 @@
+/* ─── Results table collapsible expander ─────────────────────────────── */
+/* Wraps the data table + status bar in a toggle section matching the
+   table definition and query builder collapsible pattern. */
+.results-table-wrap {
+  margin: 0.5rem 0 0.75rem;
+}
+.results-table-heading {
+  cursor: pointer;
+  user-select: none;
+  color: var(--link);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.25rem 0;
+}
+.results-table-heading:hover { text-decoration: underline; }
+/* When collapsed, hide the table body (scroll wrap + status bar). */
+.results-collapsed .results-table-body { display: none; }
+
+/* ─── Inline cell edit widget ───────────────────────────────────────── */
+/* Container for the edit form shown when a cell is double-clicked.
+   Sits inside the <td> and holds context bar, input, and error. */
+.cell-edit-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 12rem;
+  /* Break out of the td's overflow:hidden/ellipsis so the context
+     bar and error message are visible below the cell. */
+  position: relative;
+}
+/* Context line: PK identity + column name/type */
+.cell-edit-context {
+  font-size: 0.65rem;
+  line-height: 1.3;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* "was:" original value line */
+.cell-edit-current {
+  font-size: 0.65rem;
+  line-height: 1.3;
+  color: var(--muted);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The text input for editing the cell value */
+.cell-inline-editor {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+}
+.cell-inline-editor:focus {
+  outline: none;
+  border-color: var(--link);
+  box-shadow: 0 0 0 1px var(--link);
+}
+/* Red border when the value fails format validation */
+.cell-edit-invalid {
+  border-color: #e57373 !important;
+  box-shadow: 0 0 0 1px #e57373 !important;
+}
+/* Inline error message below the input */
+.cell-edit-error {
+  display: none;
+  font-size: 0.65rem;
+  line-height: 1.3;
+  color: #e57373;
+  white-space: normal;
+}
+
 /* Scroll container for data table: sticky headers, horizontal/vertical scroll.
  * Scrollbars always visible (overflow: scroll). Strengthened shadow for
  * visible depth. Custom scrollbars come from global styles in _base.scss. */
@@ -19,25 +98,9 @@ body.theme-dark .data-table-scroll-wrap {
     0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Midnight: translucent scroll wrap so aurora bleeds through. */
-body.theme-midnight .data-table-scroll-wrap {
-  background: rgba(28, 33, 62, 0.50);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.3),
-    0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-/* Showcase: frosted scroll wrap matching card treatment. */
-body.theme-showcase .data-table-scroll-wrap {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:
-    0 2px 8px rgba(99, 102, 241, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
+/* Midnight + Showcase: glassmorphism overrides for the scroll wrap live
+ * in _theme-midnight.scss and _theme-showcase.scss respectively, alongside
+ * the rest of each theme's frosted-surface rules. */
 
 .table-status-bar {
   display: flex;

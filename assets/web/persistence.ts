@@ -13,6 +13,30 @@ import { captureQueryBuilderState } from './query-builder.ts';
 import * as S from './state.ts';
 
 /**
+ * Returns all project-specific localStorage keys. Used by both
+ * clearStaleProjectStorage (origin change) and the Settings panel's
+ * "Clear all stored data" action so the key list stays in sync.
+ */
+export function collectProjectStorageKeys(): string[] {
+  var keys: string[] = [];
+  for (var i = 0; i < localStorage.length; i++) {
+    var key = localStorage.key(i);
+    if (!key) continue;
+    if (
+      key === S.PINNED_TABLES_KEY ||
+      key === S.NAV_HISTORY_KEY ||
+      key === S.SQL_HISTORY_KEY ||
+      key === S.BOOKMARKS_KEY ||
+      key.startsWith(S.TABLE_STATE_KEY_PREFIX) ||
+      key.startsWith(S.ANALYSIS_STORAGE_PREFIX)
+    ) {
+      keys.push(key);
+    }
+  }
+  return keys;
+}
+
+/**
  * Detects whether the debug server origin (scheme + host + port) has
  * changed since the last page load.  When it has, all project-specific
  * localStorage keys are removed so stale table state, pinned tables,
@@ -37,25 +61,9 @@ export function clearStaleProjectStorage(): void {
 
     console.log('[SDA] server origin changed: ' + prev + ' → ' + origin + ' — clearing stale project storage');
 
-    // Remove every key that is project-specific.  We iterate all keys
-    // because TABLE_STATE_KEY_PREFIX and ANALYSIS_STORAGE_PREFIX
-    // generate dynamic suffixes we cannot enumerate from state.ts.
-    var keysToRemove: string[] = [];
-    for (var i = 0; i < localStorage.length; i++) {
-      var key = localStorage.key(i);
-      if (!key) continue;
-      if (
-        key === S.PINNED_TABLES_KEY ||
-        key === S.NAV_HISTORY_KEY ||
-        key === S.SQL_HISTORY_KEY ||
-        key === S.BOOKMARKS_KEY ||
-        key.startsWith(S.TABLE_STATE_KEY_PREFIX) ||
-        key.startsWith(S.ANALYSIS_STORAGE_PREFIX)
-      ) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach(function(k) { localStorage.removeItem(k); });
+    // Remove every project-specific key (pinned tables, table state,
+    // nav history, SQL history, bookmarks, analysis snapshots).
+    collectProjectStorageKeys().forEach(function(k) { localStorage.removeItem(k); });
 
     // Record the new origin so subsequent reloads within the same
     // project skip the clear path.

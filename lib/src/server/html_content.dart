@@ -16,9 +16,9 @@
 ///
 /// Buttons and collapsible headers include [title] attributes for hover tooltips.
 ///
-/// Layout shell uses [id="app-layout"] and [id="app-sidebar"]; the sidebar
-/// toggle now lives in the hamburger menu ([id="hamburger-sidebar-toggle"])
-/// — see `initSidebarCollapse` in `sidebar.ts` and `initHamburgerMenu` in `hamburger-menu.ts`.
+/// Layout shell uses [id="app-layout"] and [id="app-sidebar"]; sidebar
+/// toggles are toolbar icon buttons — see `initSidebarCollapse` in
+/// `sidebar.ts` and `initToolbar` in `toolbar.ts`.
 ///
 /// The **Tables** sidebar shows skeleton rows under the Tables heading until `app.js` completes
 /// `GET /api/tables`; failures surface in the same block (see `buildIndexHtml` markup).
@@ -75,7 +75,7 @@ abstract final class HtmlContent {
         ? '<style>$inlineCss</style>'
         : '<link rel="stylesheet" href="${ServerConstants.cdnBaseUrl}@v${ServerConstants.packageVersion}/assets/web/style.css" onerror="this.onerror=null;this.href=\'${ServerConstants.cdnBaseUrl}@main/assets/web/style.css\'">';
 
-    // JS bundle: single esbuild output containing app + hamburger-menu + masthead +
+    // JS bundle: single esbuild output containing app + toolbar + masthead +
     // table-def-toggle. Inline <script> when available, otherwise
     // fetch-based loader that tries CDN URLs sequentially.
     //
@@ -152,7 +152,7 @@ abstract final class HtmlContent {
   </div>
   <header class="app-header">
     ${_buildMastheadPill()}
-    <!-- Share button lives in the hamburger menu (hamburger-share-btn). -->
+    <!-- Share button lives in the toolbar (tb-share-btn). -->
   </header>
   <div class="app-layout" id="app-layout">
     <aside class="app-sidebar" id="app-sidebar">
@@ -201,40 +201,48 @@ abstract final class HtmlContent {
     </aside>
     <div class="app-main-content">
       <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Views">
-        <!-- Hamburger menu: consolidated tool launchers + app settings.
-             Replaces the old toolbar row and floating action button. -->
-        <div class="hamburger-wrapper">
-          <button type="button" id="hamburger-trigger" class="hamburger-trigger" aria-label="Tools and settings" aria-expanded="false" aria-controls="hamburger-menu" title="Tools and settings">
-            <span class="material-symbols-outlined" aria-hidden="true">menu</span>
-          </button>
-          <div id="hamburger-menu" class="hamburger-menu" aria-hidden="true">
-            <div class="hamburger-group-label">Snapshots &amp; Comparison</div>
-            <button type="button" class="hamburger-item" data-tool="snapshot"><span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>Snapshot</button>
-            <button type="button" class="hamburger-item" data-tool="compare"><span class="material-symbols-outlined" aria-hidden="true">compare_arrows</span>DB diff</button>
-            <hr class="hamburger-divider" />
-            <div class="hamburger-group-label">Performance Analysis</div>
-            <button type="button" class="hamburger-item" data-tool="index"><span class="material-symbols-outlined" aria-hidden="true">format_list_bulleted</span>Index</button>
-            <button type="button" class="hamburger-item" data-tool="size"><span class="material-symbols-outlined" aria-hidden="true">bar_chart</span>Size</button>
-            <button type="button" class="hamburger-item" data-tool="perf"><span class="material-symbols-outlined" aria-hidden="true">speed</span>Perf</button>
-            <button type="button" class="hamburger-item" data-tool="anomaly"><span class="material-symbols-outlined" aria-hidden="true">favorite</span>Health</button>
-            <hr class="hamburger-divider" />
-            <div class="hamburger-group-label">Schema Tools</div>
-            <button type="button" class="hamburger-item" data-tool="schema"><span class="material-symbols-outlined" aria-hidden="true">grid_on</span>Schema</button>
-            <button type="button" class="hamburger-item" data-tool="diagram"><span class="material-symbols-outlined" aria-hidden="true">account_tree</span>Diagram</button>
-            <hr class="hamburger-divider" />
-            <div class="hamburger-group-label">Import / Export</div>
-            <button type="button" class="hamburger-item" data-tool="import"><span class="material-symbols-outlined" aria-hidden="true">upload</span>Import</button>
-            <button type="button" class="hamburger-item" data-tool="export"><span class="material-symbols-outlined" aria-hidden="true">download</span>Export</button>
-            <hr class="hamburger-divider hamburger-divider-heavy" />
-            <button type="button" id="hamburger-sidebar-toggle" class="hamburger-item"><span class="material-symbols-outlined" id="hamburger-sidebar-icon" aria-hidden="true">chevron_left</span><span id="hamburger-sidebar-label">Hide Sidebar</span></button>
-            <button type="button" id="hamburger-theme-toggle" class="hamburger-item"><span class="material-symbols-outlined" aria-hidden="true">dark_mode</span><span id="hamburger-theme-label">Theme</span></button>
-            <label class="hamburger-item hamburger-mask-toggle"><input type="checkbox" id="hamburger-pii-mask-toggle" aria-label="Mask sensitive data" /><span class="material-symbols-outlined" aria-hidden="true">visibility_off</span><span id="hamburger-pii-mask-label">Mask</span></label>
-            <button type="button" id="hamburger-share-btn" class="hamburger-item"><span class="material-symbols-outlined" aria-hidden="true">share</span>Share</button>
+        <!-- Left sidebar toggle -->
+        <button type="button" class="tb-icon-btn" id="tb-sidebar-toggle" title="Toggle tables sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">left_panel_open</span></button>
+        <hr class="tb-divider" />
+        <!-- Tab buttons -->
+        <button type="button" class="tab-btn active" data-tab="tables" data-tab-type="tables" role="tab" aria-selected="true" aria-controls="panel-tables" id="tab-tables"><span class="material-symbols-outlined tab-icon" aria-hidden="true">table_chart</span>Tables</button>
+        <button type="button" class="tab-btn" data-tab="search" data-tab-type="search" role="tab" aria-selected="false" aria-controls="panel-search" id="tab-search"><span class="material-symbols-outlined tab-icon" aria-hidden="true">search</span>Search</button>
+        <button type="button" class="tab-btn" data-tab="sql" data-tab-type="sql" role="tab" aria-selected="false" aria-controls="panel-sql" id="tab-sql"><span class="material-symbols-outlined tab-icon" aria-hidden="true">terminal</span>Run SQL</button>
+        <hr class="tb-divider" />
+        <!-- Tool launcher icons -->
+        <button type="button" class="tb-icon-btn" data-tool="snapshot" title="Snapshot"><span class="material-symbols-outlined" aria-hidden="true">photo_camera</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="compare" title="DB diff"><span class="material-symbols-outlined" aria-hidden="true">compare_arrows</span></button>
+        <hr class="tb-divider" />
+        <button type="button" class="tb-icon-btn" data-tool="index" title="Index"><span class="material-symbols-outlined" aria-hidden="true">format_list_bulleted</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="schema" title="Schema"><span class="material-symbols-outlined" aria-hidden="true">grid_on</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="diagram" title="Diagram"><span class="material-symbols-outlined" aria-hidden="true">account_tree</span></button>
+        <hr class="tb-divider" />
+        <button type="button" class="tb-icon-btn" data-tool="size" title="Size"><span class="material-symbols-outlined" aria-hidden="true">bar_chart</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="perf" title="Perf"><span class="material-symbols-outlined" aria-hidden="true">speed</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="anomaly" title="Health"><span class="material-symbols-outlined" aria-hidden="true">favorite</span></button>
+        <hr class="tb-divider" />
+        <button type="button" class="tb-icon-btn" data-tool="import" title="Import"><span class="material-symbols-outlined" aria-hidden="true">upload</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="export" title="Export"><span class="material-symbols-outlined" aria-hidden="true">download</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="settings" title="Settings"><span class="material-symbols-outlined" aria-hidden="true">settings</span></button>
+        <!-- Spacer pushes right-side controls to far right -->
+        <span class="tb-spacer"></span>
+        <!-- Mask PII toggle — hidden checkbox + visible icon button -->
+        <input type="checkbox" id="tb-mask-checkbox" aria-label="Mask sensitive data" hidden />
+        <button type="button" class="tb-icon-btn" id="tb-mask-toggle" title="Mask PII" aria-pressed="false"><span class="material-symbols-outlined" aria-hidden="true">visibility_off</span></button>
+        <!-- Theme flyout -->
+        <div class="tb-flyout-wrap" id="tb-theme-wrap">
+          <button type="button" class="tb-icon-btn" id="tb-theme-trigger" title="Theme" aria-expanded="false"><span class="material-symbols-outlined" aria-hidden="true">palette</span></button>
+          <div class="tb-flyout" id="tb-theme-flyout">
+            <button type="button" class="tb-flyout-item tb-theme-option" data-theme="light"><span class="material-symbols-outlined" aria-hidden="true">light_mode</span>Light</button>
+            <button type="button" class="tb-flyout-item tb-theme-option" data-theme="showcase"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span>Showcase</button>
+            <button type="button" class="tb-flyout-item tb-theme-option" data-theme="dark"><span class="material-symbols-outlined" aria-hidden="true">dark_mode</span>Dark</button>
+            <button type="button" class="tb-flyout-item tb-theme-option" data-theme="midnight"><span class="material-symbols-outlined" aria-hidden="true">bedtime</span>Midnight</button>
           </div>
         </div>
-        <button type="button" class="tab-btn active" data-tab="tables" role="tab" aria-selected="true" aria-controls="panel-tables" id="tab-tables">Tables</button>
-        <button type="button" class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="panel-search" id="tab-search">Search</button>
-        <button type="button" class="tab-btn" data-tab="sql" role="tab" aria-selected="false" aria-controls="panel-sql" id="tab-sql">Run SQL</button>
+        <button type="button" class="tb-icon-btn" id="tb-share-btn" title="Share"><span class="material-symbols-outlined" aria-hidden="true">share</span></button>
+        <hr class="tb-divider" />
+        <!-- Right sidebar toggle -->
+        <button type="button" class="tb-icon-btn" id="tb-history-toggle" title="Toggle history sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">right_panel_open</span></button>
       </div>
       <div id="tab-panels" class="tab-panels">
         <div id="panel-tables" class="tab-panel active" role="tabpanel" aria-labelledby="tab-tables">
@@ -553,8 +561,26 @@ abstract final class HtmlContent {
         </div>
           </div>
         </div>
+        <div id="panel-settings" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-settings" hidden>
+          <div id="settings-body" class="tool-panel-body"></div>
+        </div>
       </div>
     </div>
+    <aside class="history-sidebar" id="history-sidebar" aria-label="Query history">
+      <h2 class="history-heading"><button type="button" id="history-heading-toggle" aria-expanded="true" title="Click to collapse/expand history">History <span id="history-count" class="history-count"></span></button></h2>
+      <div class="history-filter-bar" role="radiogroup" aria-label="Filter query history by source">
+        <button type="button" class="history-filter active" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" class="history-filter" data-filter="browser" aria-pressed="false">Browser</button>
+        <button type="button" class="history-filter" data-filter="app" aria-pressed="false">App</button>
+        <button type="button" class="history-filter" data-filter="internal" aria-pressed="false">Internal</button>
+      </div>
+      <ul id="query-history-list" class="query-history-list"></ul>
+      <div class="history-actions">
+        <button type="button" id="history-refresh" class="history-action-btn" title="Refresh history"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
+        <button type="button" id="history-clear" class="history-action-btn" title="Clear history"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
+      </div>
+    </aside>
+  </div>
   <div id="column-context-menu" role="menu" aria-hidden="true">
     <button type="button" data-action="hide" role="menuitem" title="Hide this column from the table">Hide column</button>
     <button type="button" data-action="pin" role="menuitem" title="Pin column to the left">Pin column</button>
@@ -581,7 +607,7 @@ abstract final class HtmlContent {
     </div>
   </div>
 
-  <!-- FAB removed: all actions consolidated into the hamburger menu in the tab bar. -->
+  <!-- FAB removed: all actions consolidated into the toolbar in the tab bar. -->
 
   $bundleJsTag
 </body></html>

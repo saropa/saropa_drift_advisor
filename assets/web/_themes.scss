@@ -63,14 +63,16 @@ body.theme-dark {
 /* Midnight theme: deep aurora glow — dramatic, atmospheric, immersive.
  * The UI floats in front of a slowly shifting aurora gradient.
  * Translucent surfaces with heavy blur let the aurora bleed through.
- * Opaque fallback values here; glassmorphism overrides in _theme-effects.scss.
- * Borders use higher alpha than before (TH7) for visibility. */
+ * Surface variables use rgba so ALL elements automatically let aurora
+ * bleed through — no per-element overrides needed for basic translucency.
+ * Elements that need frosted-glass depth add backdrop-filter in
+ * _theme-midnight.scss. */
 body.theme-midnight {
-  --bg: #0f1219;
+  --bg: rgba(15, 18, 25, 0.65);
   --fg: #e3e3ff;
-  --bg-pre: #1d2240;
-  --surface: #232848;
-  --header-bg: #171c36;
+  --bg-pre: rgba(29, 34, 64, 0.70);
+  --surface: rgba(35, 40, 72, 0.55);
+  --header-bg: rgba(23, 28, 54, 0.55);
   /* Borders: raised alpha for visibility against deep navy (was 0.15/0.08). */
   --border: rgba(143, 168, 255, 0.22);
   --border-subtle: rgba(143, 168, 255, 0.12);
@@ -85,7 +87,7 @@ body.theme-midnight {
   --highlight-fg: #b0c4ff;
   --highlight-active-bg: #8fa8ff;
   --highlight-active-fg: #1a1d2b;
-  --sidebar-bg: #1e2236;
+  --sidebar-bg: rgba(30, 34, 54, 0.45);
   --row-alt: rgba(143, 168, 255, 0.04);
   --focus-ring-color: rgba(143, 168, 255, 0.25);
 }

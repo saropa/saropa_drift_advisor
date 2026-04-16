@@ -1,0 +1,159 @@
+/* --- Inline toolbar: icon buttons integrated into the tab bar row --- */
+
+/* Icon buttons in the tab bar (tool launchers, sidebar toggles). */
+.tb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 1.15rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  flex-shrink: 0;
+}
+
+.tb-icon-btn .material-symbols-outlined {
+  font-size: 1.15rem;
+}
+
+.tb-icon-btn:hover {
+  color: var(--fg);
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.tb-icon-btn:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 1px;
+}
+
+/* Active state: tool's tab is currently open, or sidebar is visible. */
+.tb-icon-btn.active,
+.tb-icon-btn[aria-pressed="true"] {
+  color: var(--link);
+  background: var(--highlight-bg);
+  border-color: transparent;
+}
+
+.tb-icon-btn.active:hover,
+.tb-icon-btn[aria-pressed="true"]:hover {
+  background: var(--highlight-bg);
+  border-color: var(--border);
+}
+
+/* Vertical divider between groups in the tab bar. */
+.tb-divider {
+  display: inline-block;
+  width: 0;
+  height: 1.2rem;
+  border: none;
+  border-left: 1px solid var(--border);
+  margin: 0 0.25rem;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* Spacer pushes right-side items to the far right. */
+.tb-spacer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* --- Theme flyout --- */
+.tb-flyout-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tb-flyout {
+  display: none;
+  position: absolute;
+  /* Open downward from the button, right-aligned so it doesn't overflow. */
+  top: 100%;
+  right: 0;
+  z-index: 200;
+  min-width: 140px;
+  padding: 0.25rem 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  margin-top: 0.25rem;
+}
+
+/* Show flyout when trigger has aria-expanded="true". */
+.tb-flyout-wrap .tb-icon-btn[aria-expanded="true"] + .tb-flyout {
+  display: block;
+}
+
+.tb-flyout-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4rem 0.75rem;
+  font-size: var(--text-sm);
+  color: var(--fg);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  text-align: left;
+}
+
+.tb-flyout-item .material-symbols-outlined {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+.tb-flyout-item:hover {
+  background: var(--bg-pre);
+  color: var(--link);
+}
+
+.tb-flyout-item:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: -2px;
+}
+
+/* Active theme gets highlighted. */
+.tb-flyout-item.active {
+  color: var(--link);
+  font-weight: 600;
+}
+
+/* --- Theme overrides --- */
+body.theme-dark .tb-flyout {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+body.theme-showcase .tb-flyout,
+body.theme-midnight .tb-flyout {
+  backdrop-filter: blur(16px) saturate(1.4);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+body.theme-midnight .tb-flyout {
+  background: rgba(10, 10, 30, 0.7);
+}
+
+/* --- Responsive: hide dividers on very narrow viewports --- */
+@media (max-width: 600px) {
+  .tb-divider {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tb-icon-btn,
+  .tb-flyout-item {
+    transition: none;
+  }
+}

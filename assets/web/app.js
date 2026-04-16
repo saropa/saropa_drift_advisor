@@ -35,6 +35,7 @@
     import { goToOffset, ensureColumnConfig, applyColumnConfigAndRender, populateColumnChooserList } from './pagination.ts';
     import { loadSchemaIntoPre, loadSchemaView, loadBothView } from './schema.ts';
     import { initSidebarCollapse } from './sidebar.ts';
+    import { initHistorySidebar } from './history-sidebar.ts';
     import { initDiagram } from './diagram.ts';
     import { initSnapshot, initCompare, initMigrationPreview } from './tools-compare.ts';
     import { initIndexSuggestions, initSizeAnalytics, initAnomalyDetection } from './tools-analytics.ts';
@@ -42,6 +43,7 @@
     import { initSearchTab } from './search-tab.ts';
     import { initSqlRunner } from './sql-runner.ts';
     import { initPerformance } from './performance.ts';
+    import { applyStoredPrefs, getPref, PREF_CONFIRM_NAVIGATE_AWAY, DEFAULTS } from './settings.ts';
     // Hide the loading overlay injected by html_content.dart.
     // If app.js never loads (all sources fail), the overlay stays visible
     // as a natural error indicator — no JS needed for the error state.
@@ -51,6 +53,9 @@
     // (i.e. the user switched to a different Flutter project). Must run
     // before any other code reads localStorage.
     clearStaleProjectStorage();
+    // Apply user preferences from localStorage before first render so
+    // modules pick up custom page sizes, display formats, etc.
+    applyStoredPrefs();
     /** Applies capability flags from /api/health: write-enabled, compare-enabled. */
     function applyHealthWriteFlag(data) {
       if (data && typeof data.writeEnabled === 'boolean') S.setDriftWriteEnabled(data.writeEnabled);
@@ -78,6 +83,8 @@
      */
     function setupNavigateAwayConfirmation() {
       window.addEventListener('beforeunload', function (e) {
+        // Skip the confirmation dialog when the user has disabled it in Settings
+        if (!getPref(PREF_CONFIRM_NAVIGATE_AWAY, DEFAULTS[PREF_CONFIRM_NAVIGATE_AWAY])) return;
         e.preventDefault();
         e.returnValue = '';
         return '';
@@ -141,7 +148,7 @@
     initThemeListeners();
 
     // PII mask toggle (BUG-015): re-render table and search results when
-    // toggled so display matches.  Lives in the hamburger menu.
+    // toggled so display matches.  Lives in the toolbar.
     initPiiMaskToggle();
 
     if (S.DRIFT_VIEWER_AUTH_TOKEN) {
@@ -195,10 +202,13 @@
       if (tabId === 'size' && S.lastSizeAnalyticsData == null) triggerToolButtonIfReady('size-analyze', { checkDisabled: true });
       if (tabId === 'perf') triggerToolButtonIfReady('perf-refresh', { checkDisabled: true });
       if (tabId === 'anomaly') triggerToolButtonIfReady('anomaly-analyze', { checkDisabled: true });
+      // Sync toolbar icon active state with the current tab.
+      if (typeof window._toolbarSyncActiveTab === 'function') window._toolbarSyncActiveTab(tabId);
     };
 
     initTabsAndToolbar();
     initSidebarCollapse();
+    initHistorySidebar();
     initDiagram();
     initSnapshot();
     initCompare();
@@ -918,7 +928,7 @@
         }
       })
       .catch(function() { /* version badge stays hidden on failure */ });
-    var shareBtn = document.getElementById('hamburger-share-btn');
+    var shareBtn = document.getElementById('tb-share-btn');
     if (shareBtn) shareBtn.addEventListener('click', createShareSession);
     restoreSession();
 

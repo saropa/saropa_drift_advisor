@@ -56,10 +56,8 @@ void main() {
   test('App sidebar panel toggle: HTML ids, SCSS hook, JS key and toggle', () {
     expect(htmlDart, contains('id="app-layout"'));
     expect(htmlDart, contains('id="app-sidebar"'));
-    // Sidebar toggle lives in the hamburger menu.
-    expect(htmlDart, contains('id="hamburger-sidebar-toggle"'));
-    expect(htmlDart, contains('id="hamburger-sidebar-icon"'));
-    expect(htmlDart, contains('id="hamburger-sidebar-label"'));
+    // Sidebar toggle is a toolbar icon button (was hamburger menu toggle).
+    expect(htmlDart, contains('id="tb-sidebar-toggle"'));
     expect(
       htmlDart,
       isNot(contains('toolbar button above')),
@@ -69,13 +67,21 @@ void main() {
     expect(appJs, contains('APP_SIDEBAR_PANEL_KEY'));
     expect(appJs, contains('saropa_app_sidebar_collapsed'));
     expect(appJs, contains('classList.toggle("app-sidebar-panel-collapsed"'));
-    // Unified function drives both the header button and the tables heading toggle.
-    final initFn = 'function initSidebarCollapse';
-    final toggleLine = 'classList.toggle("app-sidebar-panel-collapsed"';
+    // Unified function drives both the toolbar button and the tables heading toggle.
+    // Check that initSidebarCollapse is defined before it is invoked (not before
+    // the classList.toggle helper it calls, which is hoisted inside the module).
+    final initFnDef = 'function initSidebarCollapse';
+    final initFnCall = RegExp(r'(?<!\w)initSidebarCollapse\(\)');
+    final defIndex = appJs.indexOf(initFnDef);
+    final callMatch = initFnCall.firstMatch(appJs);
+    expect(defIndex, greaterThanOrEqualTo(0),
+      reason: 'initSidebarCollapse must be defined in bundle.js');
+    expect(callMatch, isNotNull,
+      reason: 'initSidebarCollapse() must be called in bundle.js');
     expect(
-      appJs.indexOf(initFn),
-      lessThan(appJs.indexOf(toggleLine)),
-      reason: 'initSidebarCollapse must be defined before toggle() runs',
+      defIndex,
+      lessThan(callMatch!.start),
+      reason: 'initSidebarCollapse must be defined before it is called',
     );
   });
 

@@ -5,6 +5,7 @@
  */
 import { esc } from './utils.ts';
 import * as S from './state.ts';
+import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
 
     export function loadSqlHistory() {
       S.setSqlHistory([]);
@@ -21,7 +22,7 @@ import * as S from './state.ts';
             return { sql: sql, rowCount: rowCount, at: at };
           })
           .filter(Boolean)
-          .slice(0, S.SQL_HISTORY_MAX));
+          .slice(0, getPref(PREF_SQL_HISTORY_MAX, DEFAULTS[PREF_SQL_HISTORY_MAX])));
       } catch (e) { S.setSqlHistory([]); }
     }
     export function saveSqlHistory() {
@@ -46,7 +47,7 @@ import * as S from './state.ts';
       if (!sql) return;
       const at = new Date().toISOString();
       S.setSqlHistory([{ sql: sql, rowCount: rowCount, at: at }].concat(S.sqlHistory.filter(h => h.sql !== sql)));
-      S.setSqlHistory(S.sqlHistory.slice(0, S.SQL_HISTORY_MAX));
+      S.setSqlHistory(S.sqlHistory.slice(0, getPref(PREF_SQL_HISTORY_MAX, DEFAULTS[PREF_SQL_HISTORY_MAX])));
       saveSqlHistory();
     }
 

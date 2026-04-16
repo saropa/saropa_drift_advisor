@@ -126,6 +126,21 @@ export function createClosableTab(tabId: any, label: any, ariaControls: any, opt
   // Colons in tabId (e.g. 'tbl:users') would be invalid in HTML id attributes
   btn.id = 'tab-' + tabId.replace(/:/g, '-');
 
+  // Resolve tab type: 'tbl:*' tabs share the 'tables' type; others use their own id.
+  // data-tab-type drives per-type accent colors in midnight/showcase themes.
+  var tabType = tabId.indexOf('tbl:') === 0 ? 'tables' : tabId;
+  btn.setAttribute('data-tab-type', tabType);
+
+  // Icon: prepend a Material Symbols icon matching the tab type
+  var iconName = S.TOOL_ICONS[tabType];
+  if (iconName) {
+    var iconSpan = document.createElement('span');
+    iconSpan.className = 'material-symbols-outlined tab-icon';
+    iconSpan.setAttribute('aria-hidden', 'true');
+    iconSpan.textContent = iconName;
+    btn.appendChild(iconSpan);
+  }
+
   // Label: optionally wrap in a span for CSS truncation of long names
   if (opts && opts.truncateLabel) {
     var nameSpan = document.createElement('span');
@@ -134,7 +149,8 @@ export function createClosableTab(tabId: any, label: any, ariaControls: any, opt
     nameSpan.title = label; // full name on hover
     btn.appendChild(nameSpan);
   } else {
-    btn.textContent = label;
+    // Use a text node instead of textContent to avoid overwriting the icon span
+    btn.appendChild(document.createTextNode(label));
   }
 
   // Close button (×) to remove the tab
@@ -155,6 +171,9 @@ export function createClosableTab(tabId: any, label: any, ariaControls: any, opt
     if (e.target !== closeBtn && !closeBtn.contains(e.target)) switchTab(tabId);
   });
 
+  // Double-click to close all other closeable tabs
+  btn.addEventListener('dblclick', function() { closeOtherTabs(tabId); });
+
   tabBar.appendChild(btn);
   return btn;
 }
@@ -169,6 +188,36 @@ export function openTool(toolId) {
     createClosableTab(toolId, S.TOOL_LABELS[toolId] || toolId, 'panel-' + toolId);
   }
   switchTab(toolId);
+}
+
+/**
+ * Closes every closeable tab except the one identified by `keepTabId`.
+ * Prompts the user for confirmation before proceeding.
+ * If the active tab is among those closed, switches to `keepTabId`.
+ * @param {string} keepTabId - The tab to keep open (the one that was double-clicked)
+ */
+export function closeOtherTabs(keepTabId) {
+  var tabBar = document.getElementById('tab-bar');
+  if (!tabBar) return;
+
+  // Collect closeable tabs that are not the one being kept
+  var toClose: string[] = [];
+  tabBar.querySelectorAll('.tab-btn').forEach(function(btn) {
+    var id = btn.getAttribute('data-tab');
+    if (id && id !== keepTabId && btn.querySelector('.tab-btn-close')) {
+      toClose.push(id);
+    }
+  });
+
+  if (toClose.length === 0) return;
+
+  // Confirm before bulk-closing
+  if (!window.confirm('Close ' + toClose.length + ' other tab' + (toClose.length > 1 ? 's' : '') + '?')) return;
+
+  toClose.forEach(function(id) { closeToolTab(id); });
+
+  // If the kept tab isn't already active, switch to it
+  if (S.activeTabId !== keepTabId) switchTab(keepTabId);
 }
 
 /**
@@ -195,13 +244,17 @@ export function closeToolTab(toolId) {
 }
 
 /** Binds tab bar click handlers. Call once when DOM is ready.
- *  Tool launcher buttons are now in the hamburger menu and wired
- *  by initHamburgerMenu() in hamburger-menu.ts. */
+ *  Tool launcher buttons are in the toolbar and wired
+ *  by initToolbar() in toolbar.ts. */
 export function initTabsAndToolbar() {
   document.querySelectorAll('#tab-bar .tab-btn').forEach(function(btn) {
     var tabId = btn.getAttribute('data-tab');
     if (tabId && !btn.querySelector('.tab-btn-close')) {
       btn.addEventListener('click', function() { switchTab(tabId); });
+    }
+    // Double-click any tab (including permanent ones) to close all other closeable tabs
+    if (tabId) {
+      btn.addEventListener('dblclick', function() { closeOtherTabs(tabId); });
     }
   });
 }

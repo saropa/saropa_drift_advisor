@@ -11,6 +11,7 @@
 @use "header";
 @use "layout";
 @use "sidebar";
+@use "history-sidebar";
 @use "cards";
 @use "tables-browse";
 @use "buttons";
@@ -21,8 +22,9 @@
 @use "data-table";
 @use "query-builder";
 @use "connection-banner";
-@use "hamburger-menu";
+@use "toolbar";
 @use "theme-showcase";
 @use "theme-midnight";
 @use "theme-effects";
 @use "masthead";
+@use "settings";

@@ -231,6 +231,85 @@ body.theme-midnight .header-btn:hover {
   box-shadow: 0 2px 8px rgba(143, 168, 255, 0.1);
 }
 
+/* ── Tab bar: dark frosted glass strip below the header ─────────────── */
+body.theme-midnight #tab-bar.tab-bar {
+  background: rgba(20, 24, 48, 0.45);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom-color: rgba(143, 168, 255, 0.12);
+}
+
+/* Active tab: darker frost matching the frosted panel below.
+ * --tab-accent is set per data-tab-type below for unique per-tab colors. */
+body.theme-midnight .tab-bar .tab-btn.active {
+  background: rgba(15, 18, 30, 0.60);
+  border-color: rgba(143, 168, 255, 0.15);
+  border-top: 2px solid var(--tab-accent, var(--link));
+  border-bottom-color: rgba(15, 18, 30, 0.60);
+}
+
+/* ── Per-tab-type accent colors (midnight) ──────────────────────────
+ * Each tab type gets a unique color for the top border and text when active.
+ * Colors are chosen for contrast against the dark midnight background. */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="tables"]  { --tab-accent: #5ec4c8; }  /* teal */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="search"]  { --tab-accent: #f0b45e; }  /* amber */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="sql"]     { --tab-accent: #8fa8ff; }  /* periwinkle (default link) */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="snapshot"]{ --tab-accent: #c084fc; }  /* lavender */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="compare"] { --tab-accent: #f87171; }  /* coral red */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="index"]   { --tab-accent: #67e8f9; }  /* cyan */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="size"]    { --tab-accent: #86efac; }  /* mint green */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="perf"]    { --tab-accent: #fbbf24; }  /* gold */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="anomaly"] { --tab-accent: #fb7185; }  /* rose */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="import"]  { --tab-accent: #a78bfa; }  /* violet */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="schema"]  { --tab-accent: #34d399; }  /* emerald */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="diagram"] { --tab-accent: #38bdf8; }  /* sky blue */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="export"]  { --tab-accent: #d8b4fe; }  /* light purple */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="settings"]{ --tab-accent: #94a3b8; }  /* slate */
+
+/* Hovered tab: periwinkle-tinted frost lift. */
+body.theme-midnight .tab-bar .tab-btn:hover {
+  background: rgba(28, 33, 62, 0.50);
+}
+
+/* ── Data table: deep frosted glass so aurora shows through ──────────
+ * Overrides the base .data-table-scroll-wrap (opaque var(--surface)) with
+ * translucent background + blur for the frosted-glass effect. */
+body.theme-midnight .data-table-scroll-wrap {
+  background: rgba(28, 33, 62, 0.45);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border-color: rgba(143, 168, 255, 0.15);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.25),
+    0 6px 16px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(143, 168, 255, 0.06);
+}
+
+/* Sticky header cells: heavier dark frost for readability when rows
+ * scroll underneath, with periwinkle top-edge highlight. */
+body.theme-midnight .drift-table th {
+  background: rgba(20, 25, 50, 0.80);
+}
+
+/* Pinned columns: dark frost to match the table glass surface. */
+body.theme-midnight .drift-table td.col-pinned {
+  background: rgba(25, 30, 55, 0.75);
+}
+
+/* ── SQL editor: dark frosted textarea ────────────────────────────── */
+body.theme-midnight .sql-runner textarea {
+  background: rgba(24, 28, 55, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(143, 168, 255, 0.18);
+}
+
+body.theme-midnight .sql-runner .sql-result .data-table-scroll-wrap {
+  background: rgba(28, 33, 62, 0.45);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+}
+
 /* Midnight input focus glow is handled by the global --focus-ring-color token
  * (rgba(143, 168, 255, 0.25)) defined in _themes.scss. No override needed here
  * — the global rule in _base.scss applies it via `box-shadow: 0 0 0 3px

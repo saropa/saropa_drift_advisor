@@ -260,7 +260,7 @@
 
   // assets/web/pii.ts
   function isPiiMaskEnabled() {
-    const cb = document.getElementById("hamburger-pii-mask-toggle");
+    const cb = document.getElementById("tb-mask-checkbox");
     return cb ? cb.checked : false;
   }
   function isPiiColumn(colName) {
@@ -566,7 +566,6 @@
   var HEALTH_CHECK_THRESHOLD = 3;
   var KEEP_ALIVE_INTERVAL_MS = 15e3;
   var SQL_HISTORY_KEY = "drift-viewer-sql-history";
-  var SQL_HISTORY_MAX = 200;
   var BOOKMARKS_KEY = "drift-viewer-sql-bookmarks";
   var sqlHistory = [];
   var sqlBookmarks = [];
@@ -609,7 +608,6 @@
     columnDragKey = k;
   }
   var ANALYSIS_STORAGE_PREFIX = "saropa_analysis_";
-  var ANALYSIS_MAX_SAVED = 50;
   var lastSizeAnalyticsData = null;
   function setLastSizeAnalyticsData(d) {
     lastSizeAnalyticsData = d;
@@ -669,6 +667,23 @@
     sessionFastMode = f;
   }
   var APP_SIDEBAR_PANEL_KEY = "saropa_app_sidebar_collapsed";
+  var HISTORY_SIDEBAR_KEY = "saropa_history_sidebar_collapsed";
+  var TOOL_ICONS = {
+    tables: "table_chart",
+    sql: "terminal",
+    search: "search",
+    snapshot: "photo_camera",
+    compare: "compare_arrows",
+    index: "format_list_bulleted",
+    size: "bar_chart",
+    perf: "speed",
+    anomaly: "favorite",
+    import: "upload",
+    schema: "grid_on",
+    diagram: "account_tree",
+    export: "download",
+    settings: "settings"
+  };
   var TOOL_LABELS = {
     tables: "Tables",
     sql: "Run SQL",
@@ -682,7 +697,8 @@
     import: "Import",
     schema: "Schema",
     diagram: "Diagram",
-    export: "Export"
+    export: "Export",
+    settings: "Settings"
   };
   var OFFLINE_DISABLE_IDS = [
     "sql-run",
@@ -762,7 +778,7 @@
     const term = getSearchTerm();
     const scope = getScope();
     const navEl = document.getElementById("search-nav");
-    const countEl = document.getElementById("search-count");
+    const countEl2 = document.getElementById("search-count");
     const isSearchPanel = activeTabId === "search";
     const root = isSearchPanel ? document.getElementById("search-results-content") : null;
     function getEl(mainId, panelId) {
@@ -811,13 +827,13 @@
       navigateToMatch(0);
     } else {
       navEl.style.display = term ? "flex" : "none";
-      countEl.textContent = term ? "No matches" : "";
+      countEl2.textContent = term ? "No matches" : "";
       document.getElementById("search-prev").disabled = true;
       document.getElementById("search-next").disabled = true;
     }
   }
   function navigateToMatch(index) {
-    var countEl = document.getElementById("search-count");
+    var countEl2 = document.getElementById("search-count");
     var prevBtn = document.getElementById("search-prev");
     var nextBtn = document.getElementById("search-next");
     if (searchMatches.length === 0) return;
@@ -831,7 +847,7 @@
     current.classList.add("highlight-active");
     expandSectionContaining(current);
     current.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
-    countEl.textContent = searchCurrentIndex + 1 + " of " + searchMatches.length;
+    countEl2.textContent = searchCurrentIndex + 1 + " of " + searchMatches.length;
     prevBtn.disabled = false;
     nextBtn.disabled = false;
   }
@@ -969,8 +985,8 @@
     renderTableView(currentTableName, currentTableJson);
   }
   function populateColumnChooserList() {
-    var listEl = document.getElementById("column-chooser-list");
-    listEl.innerHTML = "";
+    var listEl2 = document.getElementById("column-chooser-list");
+    listEl2.innerHTML = "";
     if (!currentTableName || !currentTableJson || !currentTableJson.length) return;
     var dataKeys = Object.keys(currentTableJson[0]);
     var config = ensureColumnConfig(currentTableName, dataKeys);
@@ -1011,7 +1027,7 @@
       li.appendChild(cb);
       li.appendChild(label);
       li.appendChild(pinBtn);
-      listEl.appendChild(li);
+      listEl2.appendChild(li);
     });
   }
 
@@ -1024,6 +1040,11 @@
     var html = '<div class="qb-section">';
     html += '<div class="qb-header" id="qb-toggle">\u25BC Query builder</div>';
     html += '<div id="qb-body" class="qb-body collapsed">';
+    html += '<div class="qb-mode-toggle">';
+    html += '<button type="button" id="qb-mode-visual" class="qb-mode-btn active" title="Visual query builder">Visual</button>';
+    html += '<button type="button" id="qb-mode-raw" class="qb-mode-btn" title="Edit SQL directly">Raw SQL</button>';
+    html += "</div>";
+    html += '<div id="qb-visual-panel">';
     html += '<div class="qb-row"><label>SELECT</label><div class="qb-columns" id="qb-columns">';
     cols.forEach(function(c) {
       html += '<label><input type="checkbox" value="' + esc2(c) + '" checked> ' + esc2(c) + "</label>";
@@ -1045,6 +1066,10 @@
     html += '<input type="number" id="qb-limit" value="200" min="1" max="1000" style="width:5rem;">';
     html += "</div>";
     html += '<div class="qb-preview" id="qb-preview"></div>';
+    html += "</div>";
+    html += '<div id="qb-raw-panel" style="display:none;">';
+    html += '<textarea id="qb-raw-input" class="qb-raw-textarea" rows="4" spellcheck="false" placeholder="SELECT * FROM &quot;' + esc2(tableName) + '&quot; LIMIT 200"></textarea>';
+    html += "</div>";
     html += '<div class="qb-row" style="margin-top:0.35rem;">';
     html += '<button type="button" id="qb-run" title="Execute the built query">Run query</button>';
     html += '<button type="button" id="qb-reset" title="Return to table view">Reset to table view</button>';
@@ -1230,7 +1255,10 @@
     preview.textContent = buildQueryFromBuilder(currentTableName);
   }
   function runQueryBuilder() {
-    var sql = buildQueryFromBuilder(currentTableName);
+    var rawPanel = document.getElementById("qb-raw-panel");
+    var rawInput = document.getElementById("qb-raw-input");
+    var isRawMode = rawPanel && rawPanel.style.display !== "none";
+    var sql = isRawMode && rawInput ? rawInput.value.trim() : buildQueryFromBuilder(currentTableName);
     if (!sql) return;
     var runBtn = document.getElementById("qb-run");
     if (runBtn) {
@@ -1264,12 +1292,15 @@
       var html = '<p class="meta">Query builder result: ' + rows.length + " row(s)</p>";
       html += '<p class="meta" style="font-family:monospace;font-size:11px;color:var(--muted);">' + esc2(sql) + "</p>";
       html += buildQueryBuilderHtml(currentTableName, colTypes);
-      html += wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, getColumnConfig(currentTableName)));
-      html += buildTableStatusBar(tableCounts[currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(Object.keys(rows[0] || {}), getColumnConfig(currentTableName)));
+      var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, getColumnConfig(currentTableName)));
+      rawTableHtml += buildTableStatusBar(tableCounts[currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(Object.keys(rows[0] || {}), getColumnConfig(currentTableName)));
+      var resultsLabel = rows.length + " row" + (rows.length !== 1 ? "s" : "");
+      html += '<div class="results-table-wrap" role="region" aria-label="Results"><div class="results-table-heading">\u25B2 Results \u2014 ' + resultsLabel + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
       content.innerHTML = html;
       bindQueryBuilderEvents(colTypes);
       restoreQueryBuilderUIState(savedState);
       bindColumnTableEvents();
+      bindResultsToggle();
       var body = document.getElementById("qb-body");
       var toggle = document.getElementById("qb-toggle");
       if (body) body.classList.remove("collapsed");
@@ -1321,6 +1352,29 @@
     if (orderDir) orderDir.addEventListener("change", updateQbPreview);
     if (qbLimit) qbLimit.addEventListener("input", updateQbPreview);
     updateQbPreview();
+    var visualBtn = document.getElementById("qb-mode-visual");
+    var rawBtn = document.getElementById("qb-mode-raw");
+    var visualPanel = document.getElementById("qb-visual-panel");
+    var rawPanel = document.getElementById("qb-raw-panel");
+    var rawInput = document.getElementById("qb-raw-input");
+    if (visualBtn && rawBtn && visualPanel && rawPanel) {
+      visualBtn.addEventListener("click", function() {
+        visualBtn.classList.add("active");
+        rawBtn.classList.remove("active");
+        visualPanel.style.display = "";
+        rawPanel.style.display = "none";
+      });
+      rawBtn.addEventListener("click", function() {
+        rawBtn.classList.add("active");
+        visualBtn.classList.remove("active");
+        visualPanel.style.display = "none";
+        rawPanel.style.display = "";
+        if (rawInput && currentTableName) {
+          rawInput.value = buildQueryFromBuilder(currentTableName);
+          rawInput.focus();
+        }
+      });
+    }
   }
   function captureQueryBuilderState() {
     var state = { active: queryBuilderActive, selectedColumns: [], whereClauses: [], orderBy: "", orderDir: "ASC", limit: 200 };
@@ -1374,6 +1428,17 @@
   }
 
   // assets/web/persistence.ts
+  function collectProjectStorageKeys() {
+    var keys = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (!key) continue;
+      if (key === PINNED_TABLES_KEY || key === NAV_HISTORY_KEY || key === SQL_HISTORY_KEY || key === BOOKMARKS_KEY || key.startsWith(TABLE_STATE_KEY_PREFIX) || key.startsWith(ANALYSIS_STORAGE_PREFIX)) {
+        keys.push(key);
+      }
+    }
+    return keys;
+  }
   function clearStaleProjectStorage() {
     try {
       var baseEl = document.querySelector("base");
@@ -1381,15 +1446,7 @@
       var prev = localStorage.getItem(SERVER_ORIGIN_KEY);
       if (prev === origin) return;
       console.log("[SDA] server origin changed: " + prev + " \u2192 " + origin + " \u2014 clearing stale project storage");
-      var keysToRemove = [];
-      for (var i = 0; i < localStorage.length; i++) {
-        var key = localStorage.key(i);
-        if (!key) continue;
-        if (key === PINNED_TABLES_KEY || key === NAV_HISTORY_KEY || key === SQL_HISTORY_KEY || key === BOOKMARKS_KEY || key.startsWith(TABLE_STATE_KEY_PREFIX) || key.startsWith(ANALYSIS_STORAGE_PREFIX)) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(function(k) {
+      collectProjectStorageKeys().forEach(function(k) {
         localStorage.removeItem(k);
       });
       localStorage.setItem(SERVER_ORIGIN_KEY, origin);
@@ -1769,6 +1826,16 @@
     btn.setAttribute("role", "tab");
     btn.setAttribute("aria-controls", ariaControls);
     btn.id = "tab-" + tabId.replace(/:/g, "-");
+    var tabType = tabId.indexOf("tbl:") === 0 ? "tables" : tabId;
+    btn.setAttribute("data-tab-type", tabType);
+    var iconName = TOOL_ICONS[tabType];
+    if (iconName) {
+      var iconSpan = document.createElement("span");
+      iconSpan.className = "material-symbols-outlined tab-icon";
+      iconSpan.setAttribute("aria-hidden", "true");
+      iconSpan.textContent = iconName;
+      btn.appendChild(iconSpan);
+    }
     if (opts && opts.truncateLabel) {
       var nameSpan = document.createElement("span");
       nameSpan.className = "tab-btn-label";
@@ -1776,7 +1843,7 @@
       nameSpan.title = label;
       btn.appendChild(nameSpan);
     } else {
-      btn.textContent = label;
+      btn.appendChild(document.createTextNode(label));
     }
     var closeBtn = document.createElement("button");
     closeBtn.type = "button";
@@ -1792,6 +1859,9 @@
     btn.addEventListener("click", function(e) {
       if (e.target !== closeBtn && !closeBtn.contains(e.target)) switchTab(tabId);
     });
+    btn.addEventListener("dblclick", function() {
+      closeOtherTabs(tabId);
+    });
     tabBar.appendChild(btn);
     return btn;
   }
@@ -1801,6 +1871,23 @@
       createClosableTab(toolId, TOOL_LABELS[toolId] || toolId, "panel-" + toolId);
     }
     switchTab(toolId);
+  }
+  function closeOtherTabs(keepTabId) {
+    var tabBar = document.getElementById("tab-bar");
+    if (!tabBar) return;
+    var toClose = [];
+    tabBar.querySelectorAll(".tab-btn").forEach(function(btn) {
+      var id = btn.getAttribute("data-tab");
+      if (id && id !== keepTabId && btn.querySelector(".tab-btn-close")) {
+        toClose.push(id);
+      }
+    });
+    if (toClose.length === 0) return;
+    if (!window.confirm("Close " + toClose.length + " other tab" + (toClose.length > 1 ? "s" : "") + "?")) return;
+    toClose.forEach(function(id) {
+      closeToolTab(id);
+    });
+    if (activeTabId !== keepTabId) switchTab(keepTabId);
   }
   function closeToolTab(toolId) {
     var btn = findTabBtn(toolId);
@@ -1821,6 +1908,11 @@
       if (tabId && !btn.querySelector(".tab-btn-close")) {
         btn.addEventListener("click", function() {
           switchTab(tabId);
+        });
+      }
+      if (tabId) {
+        btn.addEventListener("dblclick", function() {
+          closeOtherTabs(tabId);
         });
       }
     });
@@ -2138,6 +2230,285 @@
     });
   }
 
+  // assets/web/settings.ts
+  var PREF_PREFIX = "drift-viewer-pref-";
+  function getPref(key, defaultValue) {
+    try {
+      const raw = localStorage.getItem(PREF_PREFIX + key);
+      if (raw === null) return defaultValue;
+      if (typeof defaultValue === "number") {
+        const n = Number(raw);
+        return isFinite(n) ? n : defaultValue;
+      }
+      if (typeof defaultValue === "boolean") {
+        return raw === "true";
+      }
+      return raw;
+    } catch {
+      return defaultValue;
+    }
+  }
+  function setPref(key, value) {
+    try {
+      localStorage.setItem(PREF_PREFIX + key, String(value));
+    } catch {
+    }
+  }
+  var PREF_SQL_HISTORY_MAX = "sqlHistoryMax";
+  var PREF_ANALYSIS_MAX = "analysisMax";
+  var PREF_DEFAULT_PAGE_SIZE = "defaultPageSize";
+  var PREF_DEFAULT_DISPLAY_FORMAT = "defaultDisplayFormat";
+  var PREF_DEFAULT_ONLY_MATCHING = "defaultOnlyMatching";
+  var PREF_SLOW_QUERY_THRESHOLD = "slowQueryThreshold";
+  var PREF_AUTO_REFRESH = "autoRefresh";
+  var PREF_EPOCH_DETECTION = "epochDetection";
+  var PREF_CONFIRM_NAVIGATE_AWAY = "confirmNavigateAway";
+  var DEFAULTS = {
+    [PREF_SQL_HISTORY_MAX]: 200,
+    [PREF_ANALYSIS_MAX]: 50,
+    [PREF_DEFAULT_PAGE_SIZE]: 200,
+    [PREF_DEFAULT_DISPLAY_FORMAT]: "raw",
+    [PREF_DEFAULT_ONLY_MATCHING]: true,
+    [PREF_SLOW_QUERY_THRESHOLD]: 100,
+    [PREF_AUTO_REFRESH]: true,
+    [PREF_EPOCH_DETECTION]: true,
+    [PREF_CONFIRM_NAVIGATE_AWAY]: true
+  };
+  function buildSettingsHtml() {
+    return `
+<div class="settings-panel">
+
+  <section class="settings-group">
+    <h3 class="settings-group-title">
+      <span class="material-symbols-outlined" aria-hidden="true">database</span>
+      Storage &amp; History
+    </h3>
+    <label class="settings-row">
+      <span class="settings-label">SQL history max entries</span>
+      <input type="number" id="pref-sqlHistoryMax" class="settings-input settings-input-number" min="10" max="2000" step="10" />
+    </label>
+    <label class="settings-row">
+      <span class="settings-label">Max saved analyses</span>
+      <input type="number" id="pref-analysisMax" class="settings-input settings-input-number" min="5" max="500" step="5" />
+    </label>
+    <div class="settings-row settings-row-actions">
+      <button type="button" id="settings-clear-all" class="btn btn-danger-outline settings-btn">
+        <span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span>
+        Clear all stored data
+      </button>
+      <span class="settings-hint">Removes pinned tables, table states, navigation history, SQL history, bookmarks, and saved analyses. Theme and sidebar preferences are kept.</span>
+    </div>
+  </section>
+
+  <section class="settings-group">
+    <h3 class="settings-group-title">
+      <span class="material-symbols-outlined" aria-hidden="true">table_chart</span>
+      Table Defaults
+    </h3>
+    <label class="settings-row">
+      <span class="settings-label">Default page size</span>
+      <select id="pref-defaultPageSize" class="settings-input settings-input-select">
+        <option value="50">50</option>
+        <option value="200">200</option>
+        <option value="500">500</option>
+        <option value="1000">1000</option>
+      </select>
+    </label>
+    <label class="settings-row">
+      <span class="settings-label">Default display format</span>
+      <select id="pref-defaultDisplayFormat" class="settings-input settings-input-select">
+        <option value="raw">Raw</option>
+        <option value="formatted">Formatted</option>
+      </select>
+    </label>
+    <label class="settings-row settings-toggle-row">
+      <span class="settings-label">Show only matching rows</span>
+      <span class="settings-sublabel">When a row filter is active, hide non-matching rows instead of highlighting them</span>
+      <input type="checkbox" id="pref-defaultOnlyMatching" class="settings-checkbox" />
+      <span class="settings-switch" role="switch" aria-checked="false"></span>
+    </label>
+  </section>
+
+  <section class="settings-group">
+    <h3 class="settings-group-title">
+      <span class="material-symbols-outlined" aria-hidden="true">speed</span>
+      Performance
+    </h3>
+    <label class="settings-row">
+      <span class="settings-label">Slow query threshold</span>
+      <span class="settings-sublabel">Queries exceeding this duration (ms) are flagged in the Perf tab</span>
+      <input type="number" id="pref-slowQueryThreshold" class="settings-input settings-input-number" min="10" max="60000" step="10" />
+    </label>
+    <label class="settings-row settings-toggle-row">
+      <span class="settings-label">Auto-refresh polling</span>
+      <span class="settings-sublabel">Automatically detect and reload when database data changes</span>
+      <input type="checkbox" id="pref-autoRefresh" class="settings-checkbox" />
+      <span class="settings-switch" role="switch" aria-checked="false"></span>
+    </label>
+  </section>
+
+  <section class="settings-group">
+    <h3 class="settings-group-title">
+      <span class="material-symbols-outlined" aria-hidden="true">format_paint</span>
+      Data Formatting
+    </h3>
+    <label class="settings-row settings-toggle-row">
+      <span class="settings-label">Auto-detect epoch timestamps</span>
+      <span class="settings-sublabel">Automatically format large integers as dates when column names suggest timestamps</span>
+      <input type="checkbox" id="pref-epochDetection" class="settings-checkbox" />
+      <span class="settings-switch" role="switch" aria-checked="false"></span>
+    </label>
+    <label class="settings-row settings-toggle-row">
+      <span class="settings-label">Confirm before leaving page</span>
+      <span class="settings-sublabel">Show a browser confirmation dialog when navigating away or closing the tab</span>
+      <input type="checkbox" id="pref-confirmNavigateAway" class="settings-checkbox" />
+      <span class="settings-switch" role="switch" aria-checked="false"></span>
+    </label>
+  </section>
+
+  <div class="settings-footer">
+    <button type="button" id="settings-reset-all" class="btn btn-outline settings-btn">
+      <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
+      Reset all to defaults
+    </button>
+  </div>
+
+</div>`;
+  }
+  function populateForm() {
+    setNumberInput("pref-sqlHistoryMax", getPref(PREF_SQL_HISTORY_MAX, DEFAULTS[PREF_SQL_HISTORY_MAX]));
+    setNumberInput("pref-analysisMax", getPref(PREF_ANALYSIS_MAX, DEFAULTS[PREF_ANALYSIS_MAX]));
+    setNumberInput("pref-slowQueryThreshold", getPref(PREF_SLOW_QUERY_THRESHOLD, DEFAULTS[PREF_SLOW_QUERY_THRESHOLD]));
+    setSelectValue("pref-defaultPageSize", String(getPref(PREF_DEFAULT_PAGE_SIZE, DEFAULTS[PREF_DEFAULT_PAGE_SIZE])));
+    setSelectValue("pref-defaultDisplayFormat", getPref(PREF_DEFAULT_DISPLAY_FORMAT, DEFAULTS[PREF_DEFAULT_DISPLAY_FORMAT]));
+    setToggle("pref-defaultOnlyMatching", getPref(PREF_DEFAULT_ONLY_MATCHING, DEFAULTS[PREF_DEFAULT_ONLY_MATCHING]));
+    setToggle("pref-autoRefresh", getPref(PREF_AUTO_REFRESH, DEFAULTS[PREF_AUTO_REFRESH]));
+    setToggle("pref-epochDetection", getPref(PREF_EPOCH_DETECTION, DEFAULTS[PREF_EPOCH_DETECTION]));
+    setToggle("pref-confirmNavigateAway", getPref(PREF_CONFIRM_NAVIGATE_AWAY, DEFAULTS[PREF_CONFIRM_NAVIGATE_AWAY]));
+  }
+  function setNumberInput(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.value = String(value);
+  }
+  function setSelectValue(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  }
+  function setToggle(id, checked) {
+    const cb = document.getElementById(id);
+    if (!cb) return;
+    cb.checked = checked;
+    const sw = cb.nextElementSibling;
+    if (sw && sw.classList.contains("settings-switch")) {
+      sw.setAttribute("aria-checked", checked ? "true" : "false");
+    }
+  }
+  function bindEvents() {
+    bindNumberInput("pref-sqlHistoryMax", PREF_SQL_HISTORY_MAX);
+    bindNumberInput("pref-analysisMax", PREF_ANALYSIS_MAX);
+    bindNumberInput("pref-slowQueryThreshold", PREF_SLOW_QUERY_THRESHOLD);
+    bindSelectInput("pref-defaultPageSize", PREF_DEFAULT_PAGE_SIZE);
+    bindSelectInput("pref-defaultDisplayFormat", PREF_DEFAULT_DISPLAY_FORMAT);
+    bindToggleInput("pref-defaultOnlyMatching", PREF_DEFAULT_ONLY_MATCHING);
+    bindToggleInput("pref-autoRefresh", PREF_AUTO_REFRESH);
+    bindToggleInput("pref-epochDetection", PREF_EPOCH_DETECTION);
+    bindToggleInput("pref-confirmNavigateAway", PREF_CONFIRM_NAVIGATE_AWAY);
+    const clearBtn = document.getElementById("settings-clear-all");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", () => {
+        if (!confirm("Clear all stored project data? Theme and sidebar preferences will be kept.")) return;
+        clearAllProjectData();
+        clearBtn.textContent = "Cleared!";
+        setTimeout(() => {
+          clearBtn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span> Clear all stored data';
+        }, 1500);
+      });
+    }
+    const resetBtn = document.getElementById("settings-reset-all");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", () => {
+        if (!confirm("Reset all settings to their default values?")) return;
+        resetAllPrefs();
+        populateForm();
+        applyRuntimeState();
+      });
+    }
+  }
+  function bindNumberInput(id, prefKey) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", () => {
+      const v = parseInt(el.value, 10);
+      if (isFinite(v) && v > 0) {
+        setPref(prefKey, v);
+        applyRuntimeState();
+      }
+    });
+  }
+  function bindSelectInput(id, prefKey) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", () => {
+      const n = Number(el.value);
+      setPref(prefKey, isFinite(n) ? n : el.value);
+      applyRuntimeState();
+    });
+  }
+  function bindToggleInput(id, prefKey) {
+    const cb = document.getElementById(id);
+    if (!cb) return;
+    const row = cb.closest(".settings-toggle-row");
+    if (row) {
+      row.addEventListener("click", (e) => {
+        if (e.target === cb) return;
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event("change"));
+      });
+    }
+    cb.addEventListener("change", () => {
+      setPref(prefKey, cb.checked);
+      const sw = cb.nextElementSibling;
+      if (sw && sw.classList.contains("settings-switch")) {
+        sw.setAttribute("aria-checked", cb.checked ? "true" : "false");
+      }
+      applyRuntimeState();
+    });
+  }
+  function applyRuntimeState() {
+    setShowOnlyMatchingRows(getPref(PREF_DEFAULT_ONLY_MATCHING, DEFAULTS[PREF_DEFAULT_ONLY_MATCHING]));
+    setPollingEnabled(getPref(PREF_AUTO_REFRESH, DEFAULTS[PREF_AUTO_REFRESH]));
+  }
+  function clearAllProjectData() {
+    collectProjectStorageKeys().forEach((k) => localStorage.removeItem(k));
+    setPinnedTables([]);
+    clearNavHistory();
+    setSqlHistory([]);
+    setSqlBookmarks([]);
+  }
+  function resetAllPrefs() {
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(PREF_PREFIX)) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  }
+  function initSettings() {
+    const panel = document.getElementById("settings-body");
+    if (!panel) return;
+    panel.innerHTML = buildSettingsHtml();
+    populateForm();
+    bindEvents();
+  }
+  function applyStoredPrefs() {
+    setLimit(getPref(PREF_DEFAULT_PAGE_SIZE, DEFAULTS[PREF_DEFAULT_PAGE_SIZE]));
+    setDisplayFormat(getPref(PREF_DEFAULT_DISPLAY_FORMAT, DEFAULTS[PREF_DEFAULT_DISPLAY_FORMAT]));
+    setShowOnlyMatchingRows(getPref(PREF_DEFAULT_ONLY_MATCHING, DEFAULTS[PREF_DEFAULT_ONLY_MATCHING]));
+    setPollingEnabled(getPref(PREF_AUTO_REFRESH, DEFAULTS[PREF_AUTO_REFRESH]));
+  }
+
   // assets/web/schema.ts
   function loadSchemaIntoPre() {
     var pre = document.getElementById("schema-inline-pre");
@@ -2178,8 +2549,8 @@
       const dataSection = document.getElementById("both-data-section");
       if (dataSection && currentTableName && currentTableJson !== null) {
         const displayData = getTableDisplayData(currentTableJson);
-        const filtered = filterRows(currentTableJson);
-        const metaText = rowCountText(currentTableName) + buildTableFilterMetaSuffix(filtered.length, currentTableJson.length);
+        const filtered2 = filterRows(currentTableJson);
+        const metaText = rowCountText(currentTableName) + buildTableFilterMetaSuffix(filtered2.length, currentTableJson.length);
         var fkMap = {};
         var cachedFks = fkMetaCache[currentTableName] || [];
         cachedFks.forEach(function(fk) {
@@ -2208,8 +2579,8 @@
       let dataHtml = "";
       if (currentTableName && currentTableJson !== null) {
         const displayData = getTableDisplayData(currentTableJson);
-        const filtered = filterRows(currentTableJson);
-        const metaText = rowCountText(currentTableName) + buildTableFilterMetaSuffix(filtered.length, currentTableJson.length);
+        const filtered2 = filterRows(currentTableJson);
+        const metaText = rowCountText(currentTableName) + buildTableFilterMetaSuffix(filtered2.length, currentTableJson.length);
         var fkMap = {};
         var cachedFks = fkMetaCache[currentTableName] || [];
         cachedFks.forEach(function(fk) {
@@ -2252,6 +2623,7 @@
     return tableColumnTypes[tableName] || {};
   }
   function isEpochTimestamp(value) {
+    if (!getPref(PREF_EPOCH_DETECTION, DEFAULTS[PREF_EPOCH_DETECTION])) return false;
     var n = Number(value);
     if (!isFinite(n) || n <= 0) return false;
     if (n > 9466848e5 && n < 3250368e7) return "ms";
@@ -2302,9 +2674,9 @@
       });
     }
   }
-  function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
-    if (!filtered || filtered.length === 0) return '<p class="meta">No rows.</p>';
-    var dataKeys = Object.keys(filtered[0]);
+  function buildDataTableHtml(filtered2, fkMap, colTypes, columnConfig) {
+    if (!filtered2 || filtered2.length === 0) return '<p class="meta">No rows.</p>';
+    var dataKeys = Object.keys(filtered2[0]);
     var order = dataKeys.slice();
     var hidden = [];
     var pinned = [];
@@ -2336,7 +2708,7 @@
     visible.forEach(function(k) {
       piiCols[k] = isPiiColumn(k);
     });
-    filtered.forEach(function(row) {
+    filtered2.forEach(function(row) {
       html += "<tr>";
       visible.forEach(function(k) {
         var val = row[k];
@@ -2441,14 +2813,33 @@
     }).join("");
     return '<div class="table-definition-wrap" role="region" aria-label="Table definition"><div class="table-definition-heading">\u25BC Table definition</div><div class="table-definition-scroll"><table class="table-definition"><thead><tr><th class="table-def-icons" scope="col"></th><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
   }
+  function bindResultsToggle() {
+    var headings = document.querySelectorAll(".results-table-heading");
+    for (var i = 0; i < headings.length; i++) {
+      var heading = headings[i];
+      if (heading.hasAttribute("data-toggle-bound")) continue;
+      heading.setAttribute("data-toggle-bound", "1");
+      heading.addEventListener("click", function() {
+        var wrap = this.closest(".results-table-wrap");
+        if (!wrap) return;
+        var isCollapsed = wrap.classList.toggle("results-collapsed");
+        var text = this.textContent || "";
+        if (isCollapsed) {
+          this.textContent = text.replace("\u25B2", "\u25BC");
+        } else {
+          this.textContent = text.replace("\u25BC", "\u25B2");
+        }
+      });
+    }
+  }
   function renderTableView(name, data) {
     const content = document.getElementById("content");
     const scope = getScope();
-    const filtered = filterRows(data);
+    const filtered2 = filterRows(data);
     const displayData = getTableDisplayData(data);
     const jsonStr = JSON.stringify(displayData, null, 2);
     setLastRenderedData(jsonStr);
-    const metaText = rowCountText(name) + buildTableFilterMetaSuffix(filtered.length, data.length);
+    const metaText = rowCountText(name) + buildTableFilterMetaSuffix(filtered2.length, data.length);
     var formatBar = document.getElementById("display-format-bar");
     if (formatBar) formatBar.style.display = scope !== "schema" ? "flex" : "none";
     var rowDisplayWrap = document.getElementById("row-display-toggle-wrap");
@@ -2464,7 +2855,11 @@
     }
     function renderDataHtml(fkMap, colTypes) {
       var defHtml = buildTableDefinitionHtml(name);
-      var tableHtml = wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(name))) + buildTableStatusBar(tableCounts[name], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(name)));
+      var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(name))) + buildTableStatusBar(tableCounts[name], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(name)));
+      var rowCount = displayData.length;
+      var totalCount = tableCounts[name];
+      var resultsLabel = totalCount != null ? rowCount + " of " + totalCount.toLocaleString() + " rows" : rowCount + " row" + (rowCount !== 1 ? "s" : "");
+      var tableHtml = '<div class="results-table-wrap" role="region" aria-label="Results"><div class="results-table-heading">\u25B2 Results \u2014 ' + resultsLabel + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
       var qbHtml = buildQueryBuilderHtml(name, colTypes);
       if (scope === "both") {
         setLastRenderedSchema(cachedSchema);
@@ -2480,6 +2875,7 @@
             applySearch();
             renderBreadcrumb();
             bindColumnTableEvents();
+            bindResultsToggle();
           });
         } else {
           var dataSection = document.getElementById("both-data-section");
@@ -2494,6 +2890,7 @@
           }
           applySearch();
           renderBreadcrumb();
+          bindResultsToggle();
         }
       } else {
         setLastRenderedSchema(null);
@@ -2503,6 +2900,7 @@
         applySearch();
         renderBreadcrumb();
         bindColumnTableEvents();
+        bindResultsToggle();
       }
     }
     Promise.all([
@@ -2550,11 +2948,17 @@
     if (badge) badge.style.display = checked ? "" : "none";
   }
   function initPiiMaskToggle() {
-    var cb = document.getElementById("hamburger-pii-mask-toggle");
+    var cb = document.getElementById("tb-mask-checkbox");
+    var sw = document.getElementById("tb-mask-toggle");
     if (!cb) return;
+    function syncSwitch() {
+      if (sw) sw.setAttribute("aria-pressed", cb.checked ? "true" : "false");
+    }
     syncMastheadMaskBadge(cb.checked);
+    syncSwitch();
     cb.addEventListener("change", function() {
       syncMastheadMaskBadge(cb.checked);
+      syncSwitch();
       if (currentTableName && currentTableJson) {
         renderTableView(currentTableName, currentTableJson);
       }
@@ -2592,7 +2996,7 @@
   function createShareSession() {
     var note = prompt("Add a note for your team (optional):\n\nSession will expire in 1 hour.");
     if (note === null) return;
-    var btn = document.getElementById("hamburger-share-btn");
+    var btn = document.getElementById("tb-share-btn");
     btn.disabled = true;
     setButtonBusy(btn, true, "Sharing\u2026");
     var state = captureViewerState();
@@ -3028,6 +3432,32 @@
     }
     return inputValue;
   }
+  function validateCellFormat(value, colMeta) {
+    var trimmed = value.trim();
+    var typ = (colMeta.type || "").toUpperCase();
+    if (trimmed === "") {
+      if (colMeta.notnull) {
+        var textLike = typ === "" || /CHAR|CLOB|TEXT/.test(typ);
+        if (!textLike) return "This column is NOT NULL \u2014 a value is required.";
+      }
+      return null;
+    }
+    var isIntLike = typ === "INTEGER" || typ === "INT" || typ === "BIGINT" || typ === "SMALLINT" || typ === "TINYINT";
+    if ((isIntLike || typ === "") && isBooleanColumn(colMeta.name)) {
+      var lower = trimmed.toLowerCase();
+      if (lower !== "0" && lower !== "1" && lower !== "true" && lower !== "false") {
+        return "Expected 0 or 1 (or true/false).";
+      }
+      return null;
+    }
+    if (isIntLike) {
+      if (!/^-?\d+$/.test(trimmed)) return "Expected an integer (e.g. 42, -7).";
+    }
+    if (typ === "REAL" || typ === "FLOAT" || typ === "DOUBLE" || /NUMERIC|DECIMAL/.test(typ)) {
+      if (isNaN(Number(trimmed)) || trimmed === "") return "Expected a number (e.g. 3.14, -0.5).";
+    }
+    return null;
+  }
   function tryStartBrowserCellEdit(td) {
     if (!currentTableName) return;
     loadSchemaMeta().then(function() {
@@ -3062,25 +3492,59 @@
       var pkJson = jsonPkValueForCellUpdate(pkRaw, pkName);
       var originalHtml = td.innerHTML;
       var startVal = readCellRawFromTd(td);
+      var isNull = td.querySelector(".cell-null") != null;
+      var colType = (colMeta.type || "").toUpperCase() || "unspecified";
+      var nullableLabel = colMeta.notnull ? "NOT NULL" : "nullable";
+      var container = document.createElement("div");
+      container.className = "cell-edit-container";
+      var contextEl = document.createElement("div");
+      contextEl.className = "cell-edit-context";
+      contextEl.textContent = pkName + "=" + pkRaw + " \u2022 " + columnKey + " (" + colType + ", " + nullableLabel + ")";
+      container.appendChild(contextEl);
+      var currentEl = document.createElement("div");
+      currentEl.className = "cell-edit-current";
+      currentEl.textContent = "was: " + (isNull ? "NULL" : startVal);
+      container.appendChild(currentEl);
       var input = document.createElement("input");
       input.type = "text";
       input.className = "cell-inline-editor";
       input.setAttribute("aria-label", "Edit " + columnKey);
       input.value = startVal;
-      input.style.cssText = "width:100%;box-sizing:border-box;font:inherit;padding:2px 4px;";
+      container.appendChild(input);
+      var errorEl = document.createElement("div");
+      errorEl.className = "cell-edit-error";
+      container.appendChild(errorEl);
       td.innerHTML = "";
-      td.appendChild(input);
+      td.appendChild(container);
       input.focus();
       input.select();
+      input.addEventListener("input", function() {
+        var err = validateCellFormat(input.value, colMeta);
+        errorEl.textContent = err || "";
+        errorEl.style.display = err ? "block" : "none";
+        input.classList.toggle("cell-edit-invalid", !!err);
+      });
       function restore() {
         td.innerHTML = originalHtml;
       }
       function commit() {
         input.removeEventListener("blur", onBlur);
+        var formatErr = validateCellFormat(input.value, colMeta);
+        if (formatErr) {
+          errorEl.textContent = formatErr;
+          errorEl.style.display = "block";
+          input.classList.add("cell-edit-invalid");
+          input.addEventListener("blur", onBlur);
+          input.focus();
+          return;
+        }
         var valJson = cellUpdateValueJson(input.value, colMeta);
         if (valJson === "__INVALID__") {
-          window.alert("This column is NOT NULL; enter a value or clear only if the column is nullable.");
-          restore();
+          errorEl.textContent = "This column is NOT NULL \u2014 a value is required.";
+          errorEl.style.display = "block";
+          input.classList.add("cell-edit-invalid");
+          input.addEventListener("blur", onBlur);
+          input.focus();
           return;
         }
         fetch("/api/cell/update", authOpts({
@@ -3100,14 +3564,20 @@
         }).then(function(res) {
           if (!res.ok || !res.data || res.data.error) {
             var msg = res.data && res.data.error ? res.data.error : "Request failed";
-            window.alert("Save failed: " + msg);
-            restore();
+            errorEl.textContent = "Save failed: " + msg;
+            errorEl.style.display = "block";
+            input.classList.add("cell-edit-invalid");
+            input.addEventListener("blur", onBlur);
+            input.focus();
             return;
           }
           loadTable(currentTableName);
         }).catch(function(err) {
-          window.alert("Save failed: " + (err && err.message ? err.message : String(err)));
-          restore();
+          errorEl.textContent = "Save failed: " + (err && err.message ? err.message : String(err));
+          errorEl.style.display = "block";
+          input.classList.add("cell-edit-invalid");
+          input.addEventListener("blur", onBlur);
+          input.focus();
         });
       }
       function onBlur() {
@@ -3620,28 +4090,13 @@
     if (theme === false) theme = "light";
     document.body.classList.remove("theme-dark", "theme-light", "theme-showcase", "theme-midnight");
     document.body.classList.add("theme-" + theme);
-    var labels = { dark: "Dark", light: "Light", showcase: "Showcase", midnight: "Midnight" };
-    var icons = { dark: "dark_mode", light: "light_mode", showcase: "auto_awesome", midnight: "bedtime" };
-    var themeLabel = document.getElementById("hamburger-theme-label");
-    if (themeLabel) themeLabel.textContent = labels[theme] || theme;
-    var themeBtn = document.getElementById("hamburger-theme-toggle");
-    if (themeBtn) {
-      var icon = themeBtn.querySelector(".material-symbols-outlined");
-      if (icon) icon.textContent = icons[theme] || "dark_mode";
-      var next = nextTheme(theme);
-      themeBtn.title = labels[next] + " theme \u2014 click to switch from " + labels[theme];
+    var themeOptions = document.querySelectorAll(".tb-theme-option");
+    for (var i = 0; i < themeOptions.length; i++) {
+      var opt = themeOptions[i];
+      var isActive = opt.getAttribute("data-theme") === theme;
+      opt.classList.toggle("active", isActive);
+      opt.setAttribute("aria-pressed", isActive ? "true" : "false");
     }
-  }
-  function nextTheme(current) {
-    var cycle = ["light", "showcase", "dark", "midnight"];
-    var idx = cycle.indexOf(current);
-    return cycle[(idx + 1) % cycle.length];
-  }
-  function currentTheme() {
-    if (document.body.classList.contains("theme-showcase")) return "showcase";
-    if (document.body.classList.contains("theme-midnight")) return "midnight";
-    if (document.body.classList.contains("theme-light")) return "light";
-    return "dark";
   }
   function detectVscodeTheme() {
     if (document.body.classList.contains("vscode-dark")) return "dark";
@@ -3666,12 +4121,14 @@
     applyTheme(prefersDark ? "dark" : "light");
   }
   function initThemeListeners() {
-    var themeToggleBtn = document.getElementById("hamburger-theme-toggle");
-    if (themeToggleBtn) {
-      themeToggleBtn.addEventListener("click", function() {
-        var next = nextTheme(currentTheme());
-        localStorage.setItem(THEME_KEY, next);
-        applyTheme(next);
+    var themeOptions = document.querySelectorAll(".tb-theme-option");
+    for (var i = 0; i < themeOptions.length; i++) {
+      themeOptions[i].addEventListener("click", function() {
+        var chosen = this.getAttribute("data-theme");
+        if (chosen) {
+          localStorage.setItem(THEME_KEY, chosen);
+          applyTheme(chosen);
+        }
       });
     }
     if (window.matchMedia) {
@@ -3684,37 +4141,31 @@
   }
 
   // assets/web/sidebar.ts
+  var layout = null;
+  var aside = null;
+  function applyAppSidebarCollapsed(collapsed) {
+    if (!layout || !aside) return;
+    layout.classList.toggle("app-sidebar-panel-collapsed", collapsed);
+    aside.setAttribute("aria-hidden", collapsed ? "true" : "false");
+    var tablesToggle = document.getElementById("tables-heading-toggle");
+    if (tablesToggle) {
+      tablesToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    }
+  }
+  function toggleSidebarCollapsed() {
+    if (!layout) return;
+    var collapsed = !layout.classList.contains("app-sidebar-panel-collapsed");
+    applyAppSidebarCollapsed(collapsed);
+    try {
+      localStorage.setItem(APP_SIDEBAR_PANEL_KEY, collapsed ? "1" : "0");
+    } catch (e) {
+    }
+  }
   function initSidebarCollapse() {
-    var layout = document.getElementById("app-layout");
-    var aside = document.getElementById("app-sidebar");
-    var menuBtn = document.getElementById("hamburger-sidebar-toggle");
-    var menuIcon = document.getElementById("hamburger-sidebar-icon");
-    var menuLabel = document.getElementById("hamburger-sidebar-label");
+    layout = document.getElementById("app-layout");
+    aside = document.getElementById("app-sidebar");
     var tablesToggle = document.getElementById("tables-heading-toggle");
     if (!layout || !aside) return;
-    function applyAppSidebarCollapsed(collapsed) {
-      layout.classList.toggle("app-sidebar-panel-collapsed", collapsed);
-      aside.setAttribute("aria-hidden", collapsed ? "true" : "false");
-      var label = collapsed ? "Show tables sidebar" : "Hide tables sidebar";
-      if (menuBtn) {
-        menuBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-        menuBtn.setAttribute("aria-label", label);
-        menuBtn.title = label;
-      }
-      if (menuIcon) menuIcon.textContent = collapsed ? "chevron_right" : "chevron_left";
-      if (menuLabel) menuLabel.textContent = collapsed ? "Show Sidebar" : "Hide Sidebar";
-      if (tablesToggle) {
-        tablesToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
-      }
-    }
-    function toggleSidebarCollapsed() {
-      var collapsed = !layout.classList.contains("app-sidebar-panel-collapsed");
-      applyAppSidebarCollapsed(collapsed);
-      try {
-        localStorage.setItem(APP_SIDEBAR_PANEL_KEY, collapsed ? "1" : "0");
-      } catch (e) {
-      }
-    }
     var storedCollapsed = false;
     try {
       storedCollapsed = localStorage.getItem(APP_SIDEBAR_PANEL_KEY) === "1";
@@ -3725,8 +4176,149 @@
       localStorage.removeItem("saropa_sidebar_tables_collapsed");
     } catch (e) {
     }
-    if (menuBtn) menuBtn.addEventListener("click", toggleSidebarCollapsed);
     if (tablesToggle) tablesToggle.addEventListener("click", toggleSidebarCollapsed);
+  }
+
+  // assets/web/history-sidebar.ts
+  var entries = [];
+  var activeFilter = "all";
+  var contentCollapsed = false;
+  var listEl = null;
+  var countEl = null;
+  var contentToggleBtn = null;
+  var sidebarEl = null;
+  function filtered() {
+    if (activeFilter === "all") return entries;
+    return entries.filter((e) => e.source === activeFilter);
+  }
+  function render() {
+    if (!listEl) return;
+    const items = filtered();
+    countEl?.replaceChildren(document.createTextNode("(" + items.length + ")"));
+    if (items.length === 0) {
+      listEl.innerHTML = '<li class="history-empty">No queries yet.</li>';
+      return;
+    }
+    listEl.innerHTML = items.map((e, i) => {
+      const preview = e.sql.length > 60 ? e.sql.slice(0, 57) + "\u2026" : e.sql;
+      const badge = '<span class="history-badge history-badge--' + esc2(e.source) + '">' + esc2(e.source) + "</span>";
+      const meta = [];
+      meta.push(e.durationMs + " ms");
+      if (e.rowCount != null) meta.push(e.rowCount + " row(s)");
+      if (e.error) meta.push("ERR");
+      const at = e.at ? formatRelativeTime(e.at) : "";
+      const metaStr = meta.join(" \xB7 ");
+      return '<li class="history-item' + (e.error ? " history-item--error" : "") + '" data-idx="' + i + '" title="' + esc2(e.sql) + '">' + badge + '<span class="history-sql">' + esc2(preview) + '</span><span class="history-meta">' + esc2(metaStr) + (at ? " \xB7 " + esc2(at) : "") + "</span></li>";
+    }).join("");
+  }
+  function formatRelativeTime(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 0) return "just now";
+    const sec = Math.floor(diff / 1e3);
+    if (sec < 60) return sec + " s ago";
+    const min = Math.floor(sec / 60);
+    if (min < 60) return min + " m ago";
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return hr + " h ago";
+    return Math.floor(hr / 24) + " d ago";
+  }
+  function applyPanelCollapsed(panelCollapsed) {
+    const layout2 = document.getElementById("app-layout");
+    if (!layout2) return;
+    layout2.classList.toggle("history-sidebar-collapsed", panelCollapsed);
+    if (sidebarEl) {
+      sidebarEl.setAttribute("aria-hidden", panelCollapsed ? "true" : "false");
+    }
+  }
+  function togglePanelCollapsed() {
+    const layout2 = document.getElementById("app-layout");
+    if (!layout2) return;
+    const panelCollapsed = !layout2.classList.contains("history-sidebar-collapsed");
+    applyPanelCollapsed(panelCollapsed);
+    try {
+      localStorage.setItem(HISTORY_SIDEBAR_KEY, panelCollapsed ? "1" : "0");
+    } catch (e) {
+    }
+  }
+  function fetchHistory() {
+    fetch("/api/history", authOpts()).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      entries = Array.isArray(data.entries) ? data.entries : [];
+      render();
+    }).catch(function() {
+    });
+  }
+  function clearHistory() {
+    if (!confirm("Clear all query history?")) return;
+    fetch("/api/history", Object.assign({ method: "DELETE" }, authOpts())).then(function() {
+      entries = [];
+      render();
+    }).catch(function() {
+    });
+  }
+  function initHistorySidebar() {
+    sidebarEl = document.getElementById("history-sidebar");
+    listEl = document.getElementById(
+      "query-history-list"
+    );
+    countEl = document.getElementById("history-count");
+    contentToggleBtn = document.getElementById(
+      "history-heading-toggle"
+    );
+    if (!sidebarEl || !listEl) return;
+    var storedCollapsed = false;
+    try {
+      storedCollapsed = localStorage.getItem(HISTORY_SIDEBAR_KEY) === "1";
+    } catch (e) {
+    }
+    applyPanelCollapsed(storedCollapsed);
+    if (contentToggleBtn) {
+      contentToggleBtn.addEventListener("click", function() {
+        contentCollapsed = !contentCollapsed;
+        contentToggleBtn.setAttribute("aria-expanded", contentCollapsed ? "false" : "true");
+        listEl.style.display = contentCollapsed ? "none" : "";
+        const filterBar2 = sidebarEl.querySelector(".history-filter-bar");
+        if (filterBar2) filterBar2.style.display = contentCollapsed ? "none" : "";
+        const actions = sidebarEl.querySelector(".history-actions");
+        if (actions) actions.style.display = contentCollapsed ? "none" : "";
+      });
+    }
+    const filterBar = sidebarEl.querySelector(".history-filter-bar");
+    if (filterBar) {
+      filterBar.addEventListener("click", function(e) {
+        const btn = e.target.closest(
+          ".history-filter"
+        );
+        if (!btn) return;
+        const filter = btn.getAttribute("data-filter");
+        if (!filter) return;
+        activeFilter = filter;
+        filterBar.querySelectorAll(".history-filter").forEach(function(b) {
+          const isActive = b.getAttribute("data-filter") === filter;
+          b.classList.toggle("active", isActive);
+          b.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+        render();
+      });
+    }
+    listEl.addEventListener("click", function(e) {
+      const li = e.target.closest(".history-item");
+      if (!li) return;
+      const idx = parseInt(li.getAttribute("data-idx") || "", 10);
+      const items = filtered();
+      if (isNaN(idx) || !items[idx]) return;
+      const sqlInput = document.getElementById("sql-input");
+      if (sqlInput) {
+        sqlInput.value = items[idx].sql;
+        sqlInput.focus();
+      }
+    });
+    const refreshBtn = document.getElementById("history-refresh");
+    if (refreshBtn) refreshBtn.addEventListener("click", fetchHistory);
+    const clearBtn = document.getElementById("history-clear");
+    if (clearBtn) clearBtn.addEventListener("click", clearHistory);
+    fetchHistory();
   }
 
   // assets/web/diagram.ts
@@ -3893,7 +4485,8 @@
     var id = "id_" + Date.now();
     var label = (/* @__PURE__ */ new Date()).toLocaleString();
     list.unshift({ id, savedAt: label, data });
-    if (list.length > ANALYSIS_MAX_SAVED) list.length = ANALYSIS_MAX_SAVED;
+    var maxSaved = getPref(PREF_ANALYSIS_MAX, DEFAULTS[PREF_ANALYSIS_MAX]);
+    if (list.length > maxSaved) list.length = maxSaved;
     try {
       localStorage.setItem(analysisStorageKey(type), JSON.stringify(list));
       return id;
@@ -4977,8 +5570,8 @@
       stCachedColTypes = colTypes;
       if (schema && cachedSchema === null) setCachedSchema(schema);
       var scope = stScope();
-      var filtered = stFilterRows(data);
-      var display = stOnlyMatching && stFilter() ? filtered : data;
+      var filtered2 = stFilterRows(data);
+      var display = stOnlyMatching && stFilter() ? filtered2 : data;
       if (!display || display.length === 0) display = data;
       var fkMap = {};
       (fks || []).forEach(function(fk) {
@@ -4995,7 +5588,7 @@
       }
       var filterSuffix = "";
       if (stFilter()) {
-        filterSuffix = stOnlyMatching ? " (filtered: " + filtered.length + " of " + data.length + ")" : " (showing all rows; filter: " + filtered.length + " match)";
+        filterSuffix = stOnlyMatching ? " (filtered: " + filtered2.length + " of " + data.length + ")" : " (showing all rows; filter: " + filtered2.length + " match)";
       }
       metaText += filterSuffix;
       var rawTableHtml = buildDataTableHtml(display, fkMap, colTypes, getColumnConfig(tableName));
@@ -5244,7 +5837,7 @@
         const rowCount = h && typeof h.rowCount === "number" ? h.rowCount : null;
         const at = h && typeof h.at === "string" ? h.at : null;
         return { sql, rowCount, at };
-      }).filter(Boolean).slice(0, SQL_HISTORY_MAX));
+      }).filter(Boolean).slice(0, getPref(PREF_SQL_HISTORY_MAX, DEFAULTS[PREF_SQL_HISTORY_MAX])));
     } catch (e) {
       setSqlHistory([]);
     }
@@ -5272,7 +5865,7 @@
     if (!sql) return;
     const at = (/* @__PURE__ */ new Date()).toISOString();
     setSqlHistory([{ sql, rowCount, at }].concat(sqlHistory.filter((h) => h.sql !== sql)));
-    setSqlHistory(sqlHistory.slice(0, SQL_HISTORY_MAX));
+    setSqlHistory(sqlHistory.slice(0, getPref(PREF_SQL_HISTORY_MAX, DEFAULTS[PREF_SQL_HISTORY_MAX])));
     saveSqlHistory();
   }
   function bindDropdownToInput(sel, items, inputEl) {
@@ -5723,6 +6316,7 @@
           }
           pushSqlHistory(sql, rows.length);
           refreshHistoryDropdown(historySel);
+          fetchHistory();
         }).catch((e) => {
           errorEl.textContent = e.message || String(e);
           errorEl.style.display = "block";
@@ -5771,9 +6365,10 @@
     let perfLoaded = false;
     var lastPerfData = null;
     function getSlowThreshold() {
-      if (!slowThresholdInput) return 100;
+      var fallback = getPref(PREF_SLOW_QUERY_THRESHOLD, DEFAULTS[PREF_SLOW_QUERY_THRESHOLD]);
+      if (!slowThresholdInput) return fallback;
       var v = parseInt(slowThresholdInput.value, 10);
-      return v > 0 ? v : 100;
+      return v > 0 ? v : fallback;
     }
     function fetchPerformance() {
       if (!refreshBtn || !container) return;
@@ -5944,6 +6539,7 @@
     if (el) el.style.display = "none";
   })();
   clearStaleProjectStorage();
+  applyStoredPrefs();
   function applyHealthWriteFlag(data) {
     if (data && typeof data.writeEnabled === "boolean") setDriftWriteEnabled(data.writeEnabled);
     var clearTableBtn = document.getElementById("clear-table-data");
@@ -5960,6 +6556,7 @@
   initNlModalListeners();
   function setupNavigateAwayConfirmation() {
     window.addEventListener("beforeunload", function(e) {
+      if (!getPref(PREF_CONFIRM_NAVIGATE_AWAY, DEFAULTS[PREF_CONFIRM_NAVIGATE_AWAY])) return;
       e.preventDefault();
       e.returnValue = "";
       return "";
@@ -6023,9 +6620,11 @@
     if (tabId === "size" && lastSizeAnalyticsData == null) triggerToolButtonIfReady("size-analyze", { checkDisabled: true });
     if (tabId === "perf") triggerToolButtonIfReady("perf-refresh", { checkDisabled: true });
     if (tabId === "anomaly") triggerToolButtonIfReady("anomaly-analyze", { checkDisabled: true });
+    if (typeof window._toolbarSyncActiveTab === "function") window._toolbarSyncActiveTab(tabId);
   };
   initTabsAndToolbar();
   initSidebarCollapse();
+  initHistorySidebar();
   initDiagram();
   initSnapshot();
   initCompare();
@@ -6699,47 +7298,102 @@
     }
   }).catch(function() {
   });
-  var shareBtn = document.getElementById("hamburger-share-btn");
+  var shareBtn = document.getElementById("tb-share-btn");
   if (shareBtn) shareBtn.addEventListener("click", createShareSession);
   restoreSession();
 
-  // assets/web/hamburger-menu.ts
-  function initHamburgerMenu() {
-    const trigger = document.getElementById("hamburger-trigger");
-    const menu = document.getElementById("hamburger-menu");
-    if (!trigger || !menu) return;
-    function toggleMenu(forceOpen) {
-      const opening = forceOpen !== void 0 ? forceOpen : trigger.getAttribute("aria-expanded") !== "true";
-      trigger.setAttribute("aria-expanded", opening ? "true" : "false");
-      menu.setAttribute("aria-hidden", opening ? "false" : "true");
-    }
-    trigger.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleMenu();
-    });
-    document.addEventListener("click", (e) => {
-      if (trigger.getAttribute("aria-expanded") === "true") {
-        const wrapper = trigger.parentElement;
-        if (wrapper && !wrapper.contains(e.target)) {
-          toggleMenu(false);
-        }
-      }
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && trigger.getAttribute("aria-expanded") === "true") {
-        toggleMenu(false);
-        trigger.focus();
-      }
-    });
-    menu.querySelectorAll(".hamburger-item[data-tool]").forEach((btn) => {
-      const toolId = btn.getAttribute("data-tool");
+  // assets/web/toolbar.ts
+  function initToolbar() {
+    document.querySelectorAll(".tb-icon-btn[data-tool]").forEach(function(btn) {
+      var toolId = btn.getAttribute("data-tool");
       if (toolId) {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", function() {
           openTool(toolId);
-          toggleMenu(false);
         });
       }
     });
+    window._toolbarSyncActiveTab = function(tabId) {
+      document.querySelectorAll(".tb-icon-btn[data-tool]").forEach(function(btn) {
+        var isActive = btn.getAttribute("data-tool") === tabId;
+        btn.classList.toggle("active", isActive);
+      });
+    };
+    var sidebarBtn = document.getElementById("tb-sidebar-toggle");
+    if (sidebarBtn) {
+      sidebarBtn.addEventListener("click", function() {
+        toggleSidebarCollapsed();
+        var layout3 = document.getElementById("app-layout");
+        var collapsed = layout3 ? layout3.classList.contains("app-sidebar-panel-collapsed") : false;
+        sidebarBtn.setAttribute("aria-pressed", collapsed ? "false" : "true");
+      });
+    }
+    var historyBtn = document.getElementById("tb-history-toggle");
+    if (historyBtn) {
+      historyBtn.addEventListener("click", function() {
+        togglePanelCollapsed();
+        var layout3 = document.getElementById("app-layout");
+        var collapsed = layout3 ? layout3.classList.contains("history-sidebar-collapsed") : false;
+        historyBtn.setAttribute("aria-pressed", collapsed ? "false" : "true");
+      });
+    }
+    var maskBtn = document.getElementById("tb-mask-toggle");
+    var maskCb = document.getElementById("tb-mask-checkbox");
+    if (maskBtn && maskCb) {
+      maskBtn.addEventListener("click", function() {
+        maskCb.checked = !maskCb.checked;
+        maskCb.dispatchEvent(new Event("change"));
+        maskBtn.setAttribute("aria-pressed", maskCb.checked ? "true" : "false");
+      });
+    }
+    var themeTrigger = document.getElementById("tb-theme-trigger");
+    var themeFlyout = document.getElementById("tb-theme-flyout");
+    if (themeTrigger && themeFlyout) {
+      themeTrigger.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var isOpen = themeTrigger.getAttribute("aria-expanded") === "true";
+        themeTrigger.setAttribute("aria-expanded", isOpen ? "false" : "true");
+      });
+      themeFlyout.querySelectorAll(".tb-theme-option").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          var chosen = btn.getAttribute("data-theme");
+          if (chosen) {
+            localStorage.setItem(THEME_KEY, chosen);
+            applyTheme(chosen);
+            themeTrigger.setAttribute("aria-expanded", "false");
+          }
+        });
+      });
+      document.addEventListener("click", function(e) {
+        if (themeTrigger.getAttribute("aria-expanded") === "true") {
+          var wrap = document.getElementById("tb-theme-wrap");
+          if (wrap && !wrap.contains(e.target)) {
+            themeTrigger.setAttribute("aria-expanded", "false");
+          }
+        }
+      });
+      document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape" && themeTrigger.getAttribute("aria-expanded") === "true") {
+          themeTrigger.setAttribute("aria-expanded", "false");
+          themeTrigger.focus();
+        }
+      });
+    }
+    var layout2 = document.getElementById("app-layout");
+    if (layout2 && sidebarBtn) {
+      var sidebarCollapsed = layout2.classList.contains("app-sidebar-panel-collapsed");
+      sidebarBtn.setAttribute("aria-pressed", sidebarCollapsed ? "false" : "true");
+    }
+    if (layout2 && historyBtn) {
+      var historyCollapsed = layout2.classList.contains("history-sidebar-collapsed");
+      historyBtn.setAttribute("aria-pressed", historyCollapsed ? "false" : "true");
+    }
+    var activeTab = document.querySelector(".tab-btn.active");
+    if (activeTab) {
+      var activeToolId = activeTab.getAttribute("data-tab");
+      document.querySelectorAll(".tb-icon-btn[data-tool]").forEach(function(btn) {
+        btn.classList.toggle("active", btn.getAttribute("data-tool") === activeToolId);
+      });
+    }
   }
 
   // assets/web/table-def-toggle.ts
@@ -6771,9 +7425,11 @@
   var api = initMasthead();
   console.log("[SDA] index.js bridge: initMasthead returned " + (api ? "API object" : "null"));
   if (api) window.mastheadStatus = api;
-  console.log("[SDA] index.js bridge: calling initHamburgerMenu()");
-  initHamburgerMenu();
+  console.log("[SDA] index.js bridge: calling initToolbar()");
+  initToolbar();
   console.log("[SDA] index.js bridge: calling initTableDefToggle()");
   initTableDefToggle();
+  console.log("[SDA] index.js bridge: calling initSettings()");
+  initSettings();
   console.log("[SDA] index.js bridge: init complete");
 })();

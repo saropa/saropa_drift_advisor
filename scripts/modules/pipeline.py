@@ -234,7 +234,7 @@ def _run_ext_build_and_validate(
             choice = ask_choice(
                 "Lint step failed. Choose what to do next",
                 choices=("retry", "skip", "abort"),
-                default="abort",
+                default="retry",
             )
             if choice == "retry":
                 warn("Retrying saropa_lints scan...")
@@ -253,20 +253,29 @@ def _run_ext_build_and_validate(
         heading("Step 10 \u00b7 Tests (skipped)")
     else:
         heading("Step 10 \u00b7 Tests")
-        if not run_step("Tests", step_test, results):
+        while True:
+            if run_step("Tests", step_test, results):
+                break
+
+            # Preserve only the final test disposition so reports and exit
+            # code reflect the user's final choice (retry/skip/abort).
+            if results and results[-1][0] == "Tests":
+                results.pop()
+
             choice = ask_choice(
                 "Extension tests failed. Choose what to do next",
-                choices=("skip", "abort"),
-                default="abort",
+                choices=("retry", "skip", "abort"),
+                default="retry",
             )
+            if choice == "retry":
+                warn("Retrying extension tests...")
+                continue
             if choice == "skip":
                 warn("Continuing despite test failures by user choice.")
-                # Replace the failed result so the report reflects the override.
-                if results and results[-1][0] == "Tests":
-                    results.pop()
                 results.append(("Tests (skipped)", True, 0.0))
-            else:
-                return "", False, None
+                break
+            # abort
+            return "", False, None
 
     version, ok = _validate_version_step(args, results, EXTENSION, "Step 11 \u00b7 Version & CHANGELOG")
     return version, ok, lint_report_path
@@ -298,19 +307,29 @@ def _run_dart_build_steps(
         heading("Dart \u00b7 Tests (skipped)")
     else:
         heading("Dart \u00b7 Tests")
-        if not run_step("Dart tests", run_tests, results):
+        while True:
+            if run_step("Dart tests", run_tests, results):
+                break
+
+            # Preserve only the final test disposition so reports and exit
+            # code reflect the user's final choice (retry/skip/abort).
+            if results and results[-1][0] == "Dart tests":
+                results.pop()
+
             choice = ask_choice(
                 "Dart tests failed. Choose what to do next",
-                choices=("skip", "abort"),
-                default="abort",
+                choices=("retry", "skip", "abort"),
+                default="retry",
             )
+            if choice == "retry":
+                warn("Retrying Dart tests...")
+                continue
             if choice == "skip":
                 warn("Continuing despite Dart test failures by user choice.")
-                if results and results[-1][0] == "Dart tests":
-                    results.pop()
                 results.append(("Dart tests (skipped)", True, 0.0))
-            else:
-                return False
+                break
+            # abort
+            return False
 
     heading("Dart \u00b7 Analysis")
     if not run_step("Dart analysis", run_analysis, results):

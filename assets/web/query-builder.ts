@@ -6,7 +6,7 @@
 import { esc, setButtonBusy } from './utils.ts';
 import * as S from './state.ts';
 import { getColumnConfig, saveTableState } from './persistence.ts';
-import { wrapDataTableInScroll, buildDataTableHtml, buildTableStatusBar, getVisibleColumnCount, renderTableView } from './table-view.ts';
+import { wrapDataTableInScroll, buildDataTableHtml, buildTableStatusBar, getVisibleColumnCount, renderTableView, bindResultsToggle } from './table-view.ts';
 import { bindColumnTableEvents } from './pagination.ts';
 
     /** Column type map for the current query builder instance. */
@@ -19,6 +19,15 @@ import { bindColumnTableEvents } from './pagination.ts';
       var html = '<div class="qb-section">';
       html += '<div class="qb-header" id="qb-toggle">\u25BC Query builder</div>';
       html += '<div id="qb-body" class="qb-body collapsed">';
+
+      // Visual/Raw mode toggle
+      html += '<div class="qb-mode-toggle">';
+      html += '<button type="button" id="qb-mode-visual" class="qb-mode-btn active" title="Visual query builder">Visual</button>';
+      html += '<button type="button" id="qb-mode-raw" class="qb-mode-btn" title="Edit SQL directly">Raw SQL</button>';
+      html += '</div>';
+
+      // Visual mode panel — the existing form controls
+      html += '<div id="qb-visual-panel">';
       html += '<div class="qb-row"><label>SELECT</label><div class="qb-columns" id="qb-columns">';
       cols.forEach(function(c) {
         html += '<label><input type="checkbox" value="' + esc(c) + '" checked> ' + esc(c) + '</label>';
@@ -38,6 +47,15 @@ import { bindColumnTableEvents } from './pagination.ts';
       html += '<input type="number" id="qb-limit" value="200" min="1" max="1000" style="width:5rem;">';
       html += '</div>';
       html += '<div class="qb-preview" id="qb-preview"></div>';
+      html += '</div>'; // end #qb-visual-panel
+
+      // Raw SQL panel — hidden by default, shown when user switches to Raw mode.
+      // Textarea is pre-filled with the visual builder's generated SQL on switch.
+      html += '<div id="qb-raw-panel" style="display:none;">';
+      html += '<textarea id="qb-raw-input" class="qb-raw-textarea" rows="4" spellcheck="false" placeholder="SELECT * FROM &quot;' + esc(tableName) + '&quot; LIMIT 200"></textarea>';
+      html += '</div>';
+
+      // Shared action buttons — used by both Visual and Raw modes
       html += '<div class="qb-row" style="margin-top:0.35rem;">';
       html += '<button type="button" id="qb-run" title="Execute the built query">Run query</button>';
       html += '<button type="button" id="qb-reset" title="Return to table view">Reset to table view</button>';
@@ -206,7 +224,13 @@ import { bindColumnTableEvents } from './pagination.ts';
     }
 
     export function runQueryBuilder() {
-      var sql = buildQueryFromBuilder(S.currentTableName);
+      // In Raw mode, use the textarea content directly instead of the visual builder
+      var rawPanel = document.getElementById('qb-raw-panel');
+      var rawInput = document.getElementById('qb-raw-input') as HTMLTextAreaElement | null;
+      var isRawMode = rawPanel && rawPanel.style.display !== 'none';
+      var sql = isRawMode && rawInput
+        ? rawInput.value.trim()
+        : buildQueryFromBuilder(S.currentTableName);
       if (!sql) return;
       var runBtn = document.getElementById('qb-run');
       if (runBtn) { runBtn.disabled = true; setButtonBusy(runBtn, true, 'Running\u2026'); }
@@ -233,15 +257,19 @@ import { bindColumnTableEvents } from './pagination.ts';
           var html = '<p class="meta">Query builder result: ' + rows.length + ' row(s)</p>';
           html += '<p class="meta" style="font-family:monospace;font-size:11px;color:var(--muted);">' + esc(sql) + '</p>';
           html += buildQueryBuilderHtml(S.currentTableName, colTypes);
-          // NOTE: wrapDataTableInScroll, buildDataTableHtml,
-          // buildTableStatusBar, getVisibleColumnCount, bindColumnTableEvents
-          // are defined in app.js and called via the global scope.
-          html += wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, getColumnConfig(S.currentTableName)));
-          html += buildTableStatusBar(S.tableCounts[S.currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(Object.keys(rows[0] || {}), getColumnConfig(S.currentTableName)));
+          // Wrap query builder results in the same collapsible expander
+          // used by the main table view, expanded by default.
+          var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, getColumnConfig(S.currentTableName)));
+          rawTableHtml += buildTableStatusBar(S.tableCounts[S.currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(Object.keys(rows[0] || {}), getColumnConfig(S.currentTableName)));
+          var resultsLabel = rows.length + ' row' + (rows.length !== 1 ? 's' : '');
+          html += '<div class="results-table-wrap" role="region" aria-label="Results">' +
+            '<div class="results-table-heading">\u25B2 Results \u2014 ' + resultsLabel + '</div>' +
+            '<div class="results-table-body">' + rawTableHtml + '</div></div>';
           content.innerHTML = html;
           bindQueryBuilderEvents(colTypes);
           restoreQueryBuilderUIState(savedState);
           bindColumnTableEvents();
+          bindResultsToggle();
           // Expand the QB body since user is actively using it
           var body = document.getElementById('qb-body');
           var toggle = document.getElementById('qb-toggle');
@@ -290,6 +318,34 @@ import { bindColumnTableEvents } from './pagination.ts';
       if (orderDir) orderDir.addEventListener('change', updateQbPreview);
       if (qbLimit) qbLimit.addEventListener('input', updateQbPreview);
       updateQbPreview();
+
+      // Visual/Raw mode toggle wiring
+      var visualBtn = document.getElementById('qb-mode-visual');
+      var rawBtn = document.getElementById('qb-mode-raw');
+      var visualPanel = document.getElementById('qb-visual-panel');
+      var rawPanel = document.getElementById('qb-raw-panel');
+      var rawInput = document.getElementById('qb-raw-input') as HTMLTextAreaElement | null;
+      if (visualBtn && rawBtn && visualPanel && rawPanel) {
+        visualBtn.addEventListener('click', function() {
+          // Switch to Visual mode
+          visualBtn.classList.add('active');
+          rawBtn.classList.remove('active');
+          visualPanel.style.display = '';
+          rawPanel.style.display = 'none';
+        });
+        rawBtn.addEventListener('click', function() {
+          // Switch to Raw mode — pre-fill textarea with the current
+          // visual builder SQL so the user can refine it manually.
+          rawBtn.classList.add('active');
+          visualBtn.classList.remove('active');
+          visualPanel.style.display = 'none';
+          rawPanel.style.display = '';
+          if (rawInput && S.currentTableName) {
+            rawInput.value = buildQueryFromBuilder(S.currentTableName);
+            rawInput.focus();
+          }
+        });
+      }
     }
 
     export function captureQueryBuilderState() {

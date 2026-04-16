@@ -93,11 +93,39 @@ def ask_choice(
     if default.lower() not in normalized:
         raise ValueError("default must be one of choices")
 
-    hint = "/".join(normalized)
+    # Build a map from first-letter abbreviation to full choice name,
+    # so the user can type "r" instead of "retry", etc.  If two choices
+    # share the same first letter the abbreviation is disabled for both
+    # and the user must type the full word.
+    first_letter: dict[str, str] = {}
+    collisions: set[str] = set()
+    for choice in normalized:
+        letter = choice[0]
+        if letter in first_letter:
+            collisions.add(letter)
+        else:
+            first_letter[letter] = choice
+    for letter in collisions:
+        first_letter.pop(letter, None)
+
+    # Format hint as "[R]etry, [S]kip, [A]bort" with the default marked.
+    parts: list[str] = []
+    for choice in normalized:
+        letter = choice[0]
+        # Capitalize the shortcut letter in brackets when it's unambiguous.
+        if letter in first_letter:
+            label = f"[{letter.upper()}]{choice[1:]}"
+        else:
+            label = choice
+        if choice == default.lower():
+            label += " (default)"
+        parts.append(label)
+    hint = ", ".join(parts)
+
     while True:
         try:
             raw = input(
-                f"  {C.YELLOW}{question} [{hint}] (default: {default}): {C.RESET}",
+                f"  {C.YELLOW}{question} {hint}: {C.RESET}",
             ).strip().lower()
         except (EOFError, KeyboardInterrupt):
             print()
@@ -106,6 +134,9 @@ def ask_choice(
             return default.lower()
         if raw in normalized:
             return raw
+        # Accept single-letter abbreviation when unambiguous.
+        if raw in first_letter:
+            return first_letter[raw]
         warn(f"Invalid choice '{raw}'. Please choose one of: {', '.join(normalized)}.")
 
 

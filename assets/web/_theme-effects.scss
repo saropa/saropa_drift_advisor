@@ -41,6 +41,13 @@ body.theme-midnight .app-header {
   animation: fancy-header-enter 0.5s ease both;
 }
 
+/* Tab bar slides in just after the header. */
+body.theme-showcase #tab-bar.tab-bar,
+body.theme-midnight #tab-bar.tab-bar {
+  animation: fancy-header-enter 0.45s ease both;
+  animation-delay: 0.08s;
+}
+
 @keyframes fancy-header-enter {
   from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -63,7 +70,9 @@ body.theme-midnight .app-header {
   body.theme-showcase .sidebar-section-title,
   body.theme-midnight .sidebar-section-title,
   body.theme-showcase .app-header,
-  body.theme-midnight .app-header {
+  body.theme-midnight .app-header,
+  body.theme-showcase #tab-bar.tab-bar,
+  body.theme-midnight #tab-bar.tab-bar {
     animation: none !important;
   }
 }

@@ -44,6 +44,9 @@ linter:
 plugins:
   saropa_lints:
     version: "11.1.0"
+    rule_packs:
+      enabled:
+        - drift
     # ═══════════════════════════════════════════════════════════════════
     # SAROPA LINTS CONFIGURATION
     # ═══════════════════════════════════════════════════════════════════

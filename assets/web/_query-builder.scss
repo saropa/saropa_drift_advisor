@@ -119,6 +119,57 @@
 /* Query preview: uses token radius (was hardcoded 3px). */
 .qb-preview { font-family: var(--font-mono); font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-2); margin-top: 0.35rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 4rem; overflow: auto; }
 
+/* ─── Visual / Raw SQL mode toggle ────────────────────────────────── */
+/* Pill-style toggle sitting above the query builder form / textarea. */
+.qb-mode-toggle {
+  display: inline-flex;
+  gap: 0;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.qb-mode-btn {
+  padding: 0.25rem 0.65rem;
+  font-size: var(--text-min-readable);
+  border: none;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.qb-mode-btn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+.qb-mode-btn.active {
+  background: var(--link);
+  color: #fff;
+}
+.qb-mode-btn:hover:not(.active) {
+  background: var(--surface);
+  color: var(--fg);
+}
+/* Raw SQL textarea: monospace, same border treatment as preview. */
+.qb-raw-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: var(--space-2);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  min-height: 4rem;
+}
+.qb-raw-textarea:focus {
+  outline: none;
+  border-color: var(--link);
+  box-shadow: 0 0 0 1px var(--link);
+}
+
 /* Size analytics: table column uses same link affordance as sidebar (not under .table-list). */
 #size-results a.size-table-link {
   color: var(--link);

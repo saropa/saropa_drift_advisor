@@ -13,22 +13,13 @@ export function applyTheme(theme) {
       document.body.classList.remove('theme-dark', 'theme-light', 'theme-showcase', 'theme-midnight');
       document.body.classList.add('theme-' + theme);
 
-      // Human-readable labels and Material icon names for each theme.
-      var labels = { dark: 'Dark', light: 'Light', showcase: 'Showcase', midnight: 'Midnight' };
-      var icons  = { dark: 'dark_mode', light: 'light_mode', showcase: 'auto_awesome', midnight: 'bedtime' };
-
-      // Update hamburger menu theme label and icon to reflect the active theme.
-      var themeLabel = document.getElementById('hamburger-theme-label');
-      if (themeLabel) themeLabel.textContent = labels[theme] || theme;
-
-      // Swap the Material Symbols icon to match the active theme.
-      var themeBtn = document.getElementById('hamburger-theme-toggle');
-      if (themeBtn) {
-        var icon = themeBtn.querySelector('.material-symbols-outlined');
-        if (icon) icon.textContent = icons[theme] || 'dark_mode';
-        // Tooltip names the next theme in the cycle.
-        var next = nextTheme(theme);
-        themeBtn.title = labels[next] + ' theme \u2014 click to switch from ' + labels[theme];
+      // Update the theme submenu: mark the active option with a CSS class.
+      var themeOptions = document.querySelectorAll('.tb-theme-option');
+      for (var i = 0; i < themeOptions.length; i++) {
+        var opt = themeOptions[i] as HTMLElement;
+        var isActive = opt.getAttribute('data-theme') === theme;
+        opt.classList.toggle('active', isActive);
+        opt.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       }
     }
 
@@ -90,14 +81,15 @@ export function initTheme() {
  * prefers-color-scheme change listener.  Call once at startup.
  */
 export function initThemeListeners() {
-    // Toggle button: cycle through all four themes.
-    // Theme cycle button lives in the hamburger menu.
-    var themeToggleBtn = document.getElementById('hamburger-theme-toggle');
-    if (themeToggleBtn) {
-      themeToggleBtn.addEventListener('click', function() {
-        var next = nextTheme(currentTheme());
-        localStorage.setItem(S.THEME_KEY, next);
-        applyTheme(next);
+    // Theme submenu: each option button selects its theme directly.
+    var themeOptions = document.querySelectorAll('.tb-theme-option');
+    for (var i = 0; i < themeOptions.length; i++) {
+      themeOptions[i].addEventListener('click', function() {
+        var chosen = this.getAttribute('data-theme');
+        if (chosen) {
+          localStorage.setItem(S.THEME_KEY, chosen);
+          applyTheme(chosen);
+        }
       });
     }
 

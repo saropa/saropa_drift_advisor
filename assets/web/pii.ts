@@ -3,9 +3,9 @@
  * Pure functions — no shared state. Toggle reads DOM directly.
  */
 
-/** Whether the "Mask sensitive data" hamburger menu toggle is checked. */
+/** Whether the "Mask sensitive data" toolbar toggle is checked. */
 export function isPiiMaskEnabled(): boolean {
-  const cb = document.getElementById('hamburger-pii-mask-toggle') as HTMLInputElement | null;
+  const cb = document.getElementById('tb-mask-checkbox') as HTMLInputElement | null;
   return cb ? cb.checked : false;
 }
 
