@@ -74,10 +74,16 @@ void main() {
     final initFnCall = RegExp(r'(?<!\w)initSidebarCollapse\(\)');
     final defIndex = appJs.indexOf(initFnDef);
     final callMatch = initFnCall.firstMatch(appJs);
-    expect(defIndex, greaterThanOrEqualTo(0),
-      reason: 'initSidebarCollapse must be defined in bundle.js');
-    expect(callMatch, isNotNull,
-      reason: 'initSidebarCollapse() must be called in bundle.js');
+    expect(
+      defIndex,
+      greaterThanOrEqualTo(0),
+      reason: 'initSidebarCollapse must be defined in bundle.js',
+    );
+    expect(
+      callMatch,
+      isNotNull,
+      reason: 'initSidebarCollapse() must be called in bundle.js',
+    );
     expect(
       defIndex,
       lessThan(callMatch!.start),
