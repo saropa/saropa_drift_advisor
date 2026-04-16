@@ -1,8 +1,21 @@
 #!/bin/sh
 
-# Pre-commit hook: Type-check AND verify compiled output exists.
-# Two independent gates — both must pass before a commit is allowed.
+# Pre-commit hook: Dart format + TypeScript lint + compiled output check.
+# All gates must pass before a commit is allowed.
 
+# ── Gate 0: Dart formatting ──
+# Mirrors the CI `dart format --set-exit-if-changed .` step so formatting
+# issues are caught locally before they fail the GitHub Actions build.
+echo "🔍 Checking Dart formatting..."
+dart format --set-exit-if-changed . || {
+  echo ""
+  echo "❌ Dart formatting issues detected! Run 'dart format .' to fix."
+  echo ""
+  exit 1
+}
+echo "✅ Dart format check passed"
+
+# ── Gate 1: TypeScript type-check ──
 echo "🔍 Running TypeScript lint check on extension..."
 
 cd extension || exit 1
