@@ -2,49 +2,86 @@
 
 # Pre-commit hook: Dart format + TypeScript lint + compiled output check.
 # All gates must pass before a commit is allowed.
+#
+# This hook must work in ALL Git environments on Windows:
+#   - Git Bash terminal
+#   - VS Code source control panel
+#   - GitHub Desktop (ships its own minimal Git with a stripped PATH)
+#
+# GitHub Desktop's Git does not include bash on its PATH. Since the
+# Flutter/Dart SDK launcher scripts use `#!/usr/bin/env bash`, every
+# `dart` invocation fails with:
+#   /usr/bin/env: 'bash': No such file or directory
+#
+# The PATH fixup below injects the Git-for-Windows bash location and
+# the Flutter/Dart SDK so the hook works everywhere.
+
+# ── PATH fixup for GitHub Desktop ──
+# GitHub Desktop uses its own embedded Git and does not inherit the
+# user's full system PATH. We prepend the paths that the gates below
+# need: Git-for-Windows (provides bash, required by Flutter SDK
+# wrapper scripts), Flutter/Dart SDK, and Node.js / npm.
+# Forward-slash POSIX paths work in MSYS/Git-Bash and are harmless
+# on systems that already have these directories on the PATH.
+export PATH="/c/Program Files/Git/usr/bin:/d/tools/flutter/bin:/c/Program Files/nodejs:$PATH"
+
+# ── Helper: list staged files matching a pattern ──
+# Returns 0 (true) when at least one staged file matches the grep
+# pattern; returns 1 (false) otherwise.  Using --diff-filter=d
+# excludes deleted files — formatting a deleted file would fail.
+has_staged() {
+  git diff --cached --name-only --diff-filter=d | grep -qE "$1"
+}
 
 # ── Gate 0: Dart formatting ──
-# Mirrors the CI `dart format --set-exit-if-changed .` step so formatting
-# issues are caught locally before they fail the GitHub Actions build.
-echo "🔍 Checking Dart formatting..."
-dart format --set-exit-if-changed . || {
-  echo ""
-  echo "❌ Dart formatting issues detected! Run 'dart format .' to fix."
-  echo ""
-  exit 1
-}
-echo "✅ Dart format check passed"
-
-# ── Gate 1: TypeScript type-check ──
-echo "🔍 Running TypeScript lint check on extension..."
-
-cd extension || exit 1
-
-# Gate 1: Type checking (catches type errors without emitting files)
-npm run lint || {
-  echo ""
-  echo "❌ TypeScript errors detected! Fix the errors above before committing."
-  echo ""
-  echo "   To see errors:  cd extension && npm run lint"
-  echo "   To compile:     cd extension && npm run compile"
-  echo ""
-  exit 1
-}
-
-echo "✅ TypeScript check passed"
-
-# Gate 2: Verify compiled entry point exists.
-# If out/extension.js is missing, VS Code silently fails to activate
-# the extension — no error message, no output channel, nothing works.
-# This catches git clean, stale builds, or tsconfig misconfiguration.
-if [ ! -f "out/extension.js" ]; then
-  echo ""
-  echo "❌ CRITICAL: out/extension.js does not exist!"
-  echo ""
-  echo "   The extension cannot activate without compiled JavaScript."
-  echo "   Run:  cd extension && npm run compile"
-  echo ""
-  exit 1
+# Only runs when .dart files are staged. Mirrors the CI step
+# `dart format --set-exit-if-changed .` so formatting issues are
+# caught locally before they fail the GitHub Actions build.
+if has_staged '\.dart$'; then
+  echo "Checking Dart formatting..."
+  dart format --set-exit-if-changed . || {
+    echo ""
+    echo "Dart formatting issues detected! Run 'dart format .' to fix."
+    echo ""
+    exit 1
+  }
+  echo "Dart format check passed"
+else
+  echo "No staged .dart files — skipping Dart format check"
 fi
 
-echo "✅ Compiled output verified (out/extension.js exists)"
+# ── Gate 1: TypeScript type-check ──
+# Only runs when .ts or .tsx files under extension/ are staged.
+if has_staged '^extension/.*\.tsx?$'; then
+  echo "Running TypeScript lint check on extension..."
+  cd extension || exit 1
+
+  # Type checking (catches type errors without emitting files)
+  npm run lint || {
+    echo ""
+    echo "TypeScript errors detected! Fix the errors above before committing."
+    echo ""
+    echo "   To see errors:  cd extension && npm run lint"
+    echo "   To compile:     cd extension && npm run compile"
+    echo ""
+    exit 1
+  }
+  echo "TypeScript check passed"
+
+  # Gate 2: Verify compiled entry point exists.
+  # If out/extension.js is missing, VS Code silently fails to activate
+  # the extension — no error message, no output channel, nothing works.
+  # This catches git clean, stale builds, or tsconfig misconfiguration.
+  if [ ! -f "out/extension.js" ]; then
+    echo ""
+    echo "CRITICAL: out/extension.js does not exist!"
+    echo ""
+    echo "   The extension cannot activate without compiled JavaScript."
+    echo "   Run:  cd extension && npm run compile"
+    echo ""
+    exit 1
+  fi
+  echo "Compiled output verified (out/extension.js exists)"
+else
+  echo "No staged extension .ts files — skipping TypeScript and build checks"
+fi
