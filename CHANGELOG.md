@@ -36,6 +36,18 @@ browse source on
 
 ---
 
+## [3.3.1]
+
+
+<details>
+<summary>Maintenance</summary>
+- **SECURITY.md** — replaced GitHub default template with a real security policy: private reporting via GitHub Security Advisories, response timeline commitments, scope definition, and coordinated disclosure terms
+
+</details>
+
+
+---
+
 ## [3.3.0]
 
 ### Added
