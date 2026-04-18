@@ -10,6 +10,7 @@
 
 import * as vscode from 'vscode';
 import { fetchWithTimeout } from '../transport/fetch-utils';
+import { isDriftProject } from '../diagnostics/dart-file-parser';
 import {
   PACKAGE_NAME,
   hasPackage,
@@ -94,7 +95,8 @@ export class PackageStatusMonitor implements vscode.Disposable {
   private async _checkPubspec(): Promise<void> {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders?.length) {
-      // No workspace — package not installed
+      // No workspace — not a Drift project, package not installed
+      void vscode.commands.executeCommand('setContext', 'driftViewer.isDriftProject', false);
       this._setInstalled(false);
       return;
     }
@@ -107,10 +109,17 @@ export class PackageStatusMonitor implements vscode.Disposable {
       const bytes = await vscode.workspace.fs.readFile(pubspecUri);
       content = Buffer.from(bytes).toString('utf-8');
     } catch {
-      // pubspec.yaml doesn't exist or can't be read
+      // pubspec.yaml doesn't exist or can't be read — not a Drift project
+      void vscode.commands.executeCommand('setContext', 'driftViewer.isDriftProject', false);
       this._setInstalled(false);
       return;
     }
+
+    // Update isDriftProject context key so sidebar views hide/show when the
+    // user adds or removes drift from pubspec.yaml while VS Code is open.
+    void vscode.commands.executeCommand(
+      'setContext', 'driftViewer.isDriftProject', isDriftProject(content),
+    );
 
     // --- Feature 2: set the packageInstalled context key ---
     const installed = hasPackage(content);
