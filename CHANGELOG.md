@@ -36,6 +36,16 @@ browse source on
 
 ---
 
+## [3.3.2]
+
+### Changed
+- **VS Code minimum version bumped to 1.115.0** — aligns `engines.vscode` with the `@types/vscode` typings to fix `.vsix` packaging errors
+
+### Fixed
+- **Extension sidebar no longer appears in non-Drift projects** — the Database Explorer, Drift Tools, and activity bar icon are now hidden in workspaces that don't declare `drift` or `saropa_drift_advisor` in pubspec.yaml. Previously, the "Get Started" welcome screen appeared in every Flutter/Dart project regardless of whether it used Drift.
+
+---
+
 ## [3.3.1]
 
 

@@ -105,6 +105,15 @@ export function bootstrapExtension(
   });
   const discoveryEnabled = cfg.get<boolean>('discovery.enabled', true) !== false;
 
+  // Set isDriftProject context key so sidebar views stay hidden in non-Drift
+  // workspaces. The key starts false and flips to true once the async check
+  // confirms drift or saropa_drift_advisor in pubspec.yaml. VS Code
+  // re-evaluates view `when` clauses reactively when the key changes.
+  void vscode.commands.executeCommand('setContext', 'driftViewer.isDriftProject', false);
+  void workspaceUsesDrift().then((isDrift) => {
+    void vscode.commands.executeCommand('setContext', 'driftViewer.isDriftProject', isDrift);
+  });
+
   if (!extensionEnabled) {
     serverManager.clearActive();
   } else if (discoveryEnabled) {

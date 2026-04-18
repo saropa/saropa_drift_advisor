@@ -2,7 +2,7 @@
   "name": "drift-viewer",
   "displayName": "Saropa Drift Advisor",
   "description": "Debug SQLite/Drift databases in VS Code with Saropa Drift Advisor.",
-  "version": "3.3.0",
+  "version": "3.3.2",
   "publisher": "saropa",
   "license": "MIT",
   "repository": {
@@ -14,7 +14,7 @@
     "url": "https://github.com/saropa/saropa_drift_advisor/issues"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.115.0"
   },
   "categories": [
     "Debuggers",
@@ -62,7 +62,8 @@
         {
           "id": "driftViewer.databaseExplorer",
           "name": "Database",
-          "icon": "media/icon-activitybar.svg"
+          "icon": "media/icon-activitybar.svg",
+          "when": "driftViewer.isDriftProject"
         },
         {
           "id": "driftViewer.pendingChanges",
@@ -73,7 +74,8 @@
         {
           "id": "driftViewer.toolbox",
           "name": "Drift Tools",
-          "icon": "$(tools)"
+          "icon": "$(tools)",
+          "when": "driftViewer.isDriftProject"
         }
       ],
       "debug": [
