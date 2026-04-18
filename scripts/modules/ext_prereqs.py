@@ -139,24 +139,54 @@ def check_vsce_auth() -> bool:
 
     info("Marketplace needs a login token (PAT).")
     info(f"  Get one: {C.WHITE}https://marketplace.visualstudio.com/manage{C.RESET}")
-    info("Running vsce login for publisher 'saropa'...")
-    login_result = subprocess.run(
-        ["npx", "@vscode/vsce", "login", "saropa"],
-        cwd=EXTENSION_DIR,
-        shell=(sys.platform == "win32"),
-    )
-    if login_result.returncode != 0:
-        fail("vsce login failed or was cancelled.")
-        return False
-    result = run(
-        ["npx", "@vscode/vsce", "verify-pat", "saropa"],
-        cwd=EXTENSION_DIR,
-        check=False,
-    )
-    if result.returncode == 0:
-        ok("Marketplace PAT verified for 'saropa'")
-        return True
-    fail("No valid marketplace PAT found for publisher 'saropa'.")
+
+    # Prompt for the PAT ourselves (up to 3 attempts) instead of letting
+    # vsce login prompt interactively — vsce re-prompts indefinitely when
+    # the credential store is unavailable, which is confusing.
+    import getpass
+
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            pat = (getpass.getpass(
+                prompt=f"  PAT for publisher 'saropa' (attempt {attempt}/{max_attempts}): ",
+            ) or "").strip()
+        except (EOFError, KeyboardInterrupt):
+            # User pressed Ctrl-C or stdin closed.
+            print()
+            fail("vsce login cancelled by user.")
+            return False
+
+        if not pat:
+            warn("Empty token entered.")
+            continue
+
+        # Pass the PAT non-interactively via stdin to avoid vsce's own
+        # retry loop that fires when the credential store fails.
+        login_result = subprocess.run(
+            ["npx", "@vscode/vsce", "login", "saropa"],
+            cwd=EXTENSION_DIR,
+            input=pat + "\n",
+            text=True,
+            shell=(sys.platform == "win32"),
+        )
+        if login_result.returncode != 0:
+            warn(f"Login attempt {attempt}/{max_attempts} failed.")
+            continue
+
+        # Verify the PAT actually took effect.
+        result = run(
+            ["npx", "@vscode/vsce", "verify-pat", "saropa"],
+            cwd=EXTENSION_DIR,
+            check=False,
+        )
+        if result.returncode == 0:
+            ok("Marketplace PAT verified for 'saropa'")
+            return True
+        warn(f"PAT verification failed (attempt {attempt}/{max_attempts}).")
+
+    # All attempts exhausted.
+    fail(f"vsce login failed after {max_attempts} attempts.")
     info(f"  Run manually: {C.YELLOW}npx @vscode/vsce login saropa{C.RESET}")
     return False
 

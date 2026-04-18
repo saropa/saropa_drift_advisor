@@ -36,6 +36,17 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+<details>
+<summary>Maintenance</summary>
+
+- **Publish script: vsce login limited to 3 attempts** — when the Marketplace credential store is unavailable, the script now prompts for the PAT up to 3 times and passes it non-interactively, instead of letting `vsce login` re-prompt indefinitely
+
+</details>
+
+---
+
 ## [3.3.2]
 
 ### Changed
