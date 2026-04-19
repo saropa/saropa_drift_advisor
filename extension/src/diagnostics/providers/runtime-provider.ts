@@ -1,11 +1,10 @@
 /**
  * Runtime diagnostic provider.
- * Reports runtime issues: data breakpoints, row alerts, connection errors.
- * Event store, event→issue conversion, and connection check live in diagnostics/runtime/.
+ * Reports runtime issues: data breakpoints and row alerts.
+ * Event store and event→issue conversion live in diagnostics/runtime/.
  */
 
 import * as vscode from 'vscode';
-import type { DriftApiClient } from '../../api-client';
 import type {
   DiagnosticCategory,
   IDiagnosticContext,
@@ -13,7 +12,6 @@ import type {
   IDiagnosticProvider,
 } from '../diagnostic-types';
 import { isDriftProject } from '../dart-file-parser';
-import { checkConnection } from '../runtime/connection-checker';
 import { eventToIssue } from '../runtime/event-converter';
 import type { IRuntimeEvent } from '../runtime/runtime-event-store';
 import { RuntimeEventStore } from '../runtime/runtime-event-store';
@@ -56,14 +54,6 @@ export class RuntimeProvider implements IDiagnosticProvider {
     });
   }
 
-  recordConnectionError(message: string): void {
-    this._store.addEvent({
-      type: 'connection-error',
-      message,
-      timestamp: Date.now(),
-    });
-  }
-
   clearEvents(): void {
     this._store.clearEvents();
   }
@@ -72,7 +62,7 @@ export class RuntimeProvider implements IDiagnosticProvider {
     return this._store.events;
   }
 
-  async collectDiagnostics(ctx: IDiagnosticContext): Promise<IDiagnosticIssue[]> {
+  async collectDiagnostics(_ctx: IDiagnosticContext): Promise<IDiagnosticIssue[]> {
     const issues: IDiagnosticIssue[] = [];
 
     this._store.pruneOldEvents();
@@ -108,13 +98,6 @@ export class RuntimeProvider implements IDiagnosticProvider {
       }
     }
 
-    await checkConnection(
-      ctx.client,
-      issues,
-      this._workspaceUri,
-      this._store.hasRecentConnectionError(),
-    );
-
     return issues;
   }
 
@@ -123,12 +106,6 @@ export class RuntimeProvider implements IDiagnosticProvider {
     _doc: vscode.TextDocument,
   ): vscode.CodeAction[] {
     const code = diag.code as string;
-
-    // Connection errors get their own tailored actions — the generic
-    // "Disable rule" label is confusing for an operational state issue.
-    if (code === 'connection-error') {
-      return this._connectionErrorActions();
-    }
 
     const actions: vscode.CodeAction[] = [];
 
@@ -183,47 +160,6 @@ export class RuntimeProvider implements IDiagnosticProvider {
     }
 
     return actions;
-  }
-
-  /**
-   * Quick fix actions for connection-error diagnostics.
-   * Prioritises actionable choices: retry, permanently dismiss, or open settings.
-   */
-  private _connectionErrorActions(): vscode.CodeAction[] {
-    // Retry: re-runs discovery + health check
-    const retryAction = new vscode.CodeAction(
-      'Retry Connection',
-      vscode.CodeActionKind.QuickFix,
-    );
-    retryAction.command = {
-      command: 'driftViewer.refreshTree',
-      title: 'Retry',
-    };
-    retryAction.isPreferred = true;
-
-    // Dismiss: disables this diagnostic rule so it never fires again
-    const dismissAction = new vscode.CodeAction(
-      "Don't Show Connection Warnings",
-      vscode.CodeActionKind.QuickFix,
-    );
-    dismissAction.command = {
-      command: 'driftViewer.disableDiagnosticRule',
-      title: 'Dismiss',
-      arguments: ['connection-error'],
-    };
-
-    // Settings: lets the user change host/port/auth if the server is elsewhere
-    const settingsAction = new vscode.CodeAction(
-      'Open Connection Settings',
-      vscode.CodeActionKind.QuickFix,
-    );
-    settingsAction.command = {
-      command: 'workbench.action.openSettings',
-      title: 'Settings',
-      arguments: ['driftViewer'],
-    };
-
-    return [retryAction, dismissAction, settingsAction];
   }
 
   dispose(): void {

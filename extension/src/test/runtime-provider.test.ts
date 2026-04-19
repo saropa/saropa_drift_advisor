@@ -76,13 +76,6 @@ describe('RuntimeProvider', () => {
       assert.strictEqual(provider.events[0].count, 10);
     });
 
-    it('should record connection errors', () => {
-      provider.recordConnectionError('Connection refused');
-
-      assert.strictEqual(provider.events.length, 1);
-      assert.strictEqual(provider.events[0].type, 'connection-error');
-    });
-
     it('should clear all events', () => {
       provider.recordBreakpointHit('users', 'Test');
       provider.recordRowsInserted('orders', 1);
@@ -132,58 +125,6 @@ describe('RuntimeProvider', () => {
       assert.ok(issue.message.includes('10 row(s) deleted'));
     });
 
-    it('should report connection warning when API fails in a Drift project', async () => {
-      const ctx = createContext({
-        generation: () => Promise.reject(new Error('ECONNREFUSED')),
-      });
-      const issues = await provider.collectDiagnostics(ctx);
-
-      const issue = issues.find((i) => i.code === 'connection-error');
-      assert.ok(issue, 'Should report connection-error');
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
-      assert.ok(
-        issue.message.includes('DriftDebugServer.start()'),
-        'Message should tell user how to start the server',
-      );
-    });
-
-    it('should NOT report connection error for non-Drift workspaces', async () => {
-      // Override: pubspec without drift dependency
-      fsReadStub.resolves(new TextEncoder().encode(PUBSPEC_WITHOUT_DRIFT));
-
-      const ctx = createContext({
-        generation: () => Promise.reject(new Error('ECONNREFUSED')),
-      });
-      const issues = await provider.collectDiagnostics(ctx);
-
-      const connectionErrors = issues.filter((i) => i.code === 'connection-error');
-      assert.strictEqual(connectionErrors.length, 0, 'Should not warn for non-Drift workspace');
-    });
-
-    it('should NOT report connection error when pubspec is missing', async () => {
-      // Override: simulate missing pubspec.yaml
-      fsReadStub.rejects(new Error('File not found'));
-
-      const ctx = createContext({
-        generation: () => Promise.reject(new Error('ECONNREFUSED')),
-      });
-      const issues = await provider.collectDiagnostics(ctx);
-
-      const connectionErrors = issues.filter((i) => i.code === 'connection-error');
-      assert.strictEqual(connectionErrors.length, 0, 'Should not warn when pubspec is missing');
-    });
-
-    it('should not duplicate connection errors within 30 seconds', async () => {
-      provider.recordConnectionError('Connection refused');
-      const ctx = createContext({
-        generation: () => Promise.reject(new Error('ECONNREFUSED')),
-      });
-      const issues = await provider.collectDiagnostics(ctx);
-
-      const connectionErrors = issues.filter((i) => i.code === 'connection-error');
-      assert.strictEqual(connectionErrors.length, 1, 'Should not duplicate');
-    });
-
     it('should skip non-Drift folders and target the first Drift folder in multi-root workspace', async () => {
       // Simulate multi-root workspace: first folder is non-Drift, second is Drift
       const nonDriftUri = Uri.parse('file:///projects/contacts');
@@ -207,16 +148,17 @@ describe('RuntimeProvider', () => {
         return new TextEncoder().encode(PUBSPEC_WITHOUT_DRIFT);
       });
 
-      const ctx = createContext({
-        generation: () => Promise.reject(new Error('ECONNREFUSED')),
-      });
+      // Record an event so there's something to emit, then verify the
+      // Drift workspace folder was selected (not the first/non-Drift one)
+      provider.recordBreakpointHit('users', 'Row count exceeded');
+
+      const ctx = createContext();
       const issues = await provider.collectDiagnostics(ctx);
 
-      const connIssue = issues.find((i) => i.code === 'connection-error');
-      assert.ok(connIssue, 'Should report connection-error');
-      // Diagnostic must target the Drift folder, NOT the first folder
+      const issue = issues.find((i) => i.code === 'data-breakpoint-hit');
+      assert.ok(issue, 'Should report data-breakpoint-hit');
       assert.strictEqual(
-        connIssue.fileUri.toString(),
+        issue.fileUri.toString(),
         driftUri.toString(),
         'Diagnostic should target the Drift project folder, not contacts',
       );
@@ -242,9 +184,7 @@ describe('RuntimeProvider', () => {
       // Record an event to verify it's NOT emitted without a workspace URI
       provider.recordBreakpointHit('users', 'Should be suppressed');
 
-      const ctx = createContext({
-        generation: () => Promise.reject(new Error('ECONNREFUSED')),
-      });
+      const ctx = createContext();
       const issues = await provider.collectDiagnostics(ctx);
 
       assert.strictEqual(issues.length, 0, 'Should emit no diagnostics when no Drift folder exists');

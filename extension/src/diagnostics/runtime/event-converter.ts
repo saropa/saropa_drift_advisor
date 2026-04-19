@@ -46,15 +46,6 @@ export function eventToIssue(
         data: { table: event.table, count: event.count },
       };
 
-    case 'connection-error':
-      return {
-        code: 'connection-error',
-        message: event.message,
-        fileUri: workspaceUri,
-        range: baseRange,
-        severity: vscode.DiagnosticSeverity.Warning,
-      };
-
     default:
       return undefined;
   }

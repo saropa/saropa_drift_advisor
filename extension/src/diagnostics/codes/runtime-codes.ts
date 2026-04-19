@@ -27,11 +27,4 @@ export const RUNTIME_CODES: Record<string, IDiagnosticCode> = {
     messageTemplate: '{count} row(s) deleted from "{table}"',
     hasFix: false,
   },
-  'connection-error': {
-    code: 'connection-error',
-    category: 'runtime',
-    defaultSeverity: vscode.DiagnosticSeverity.Information,
-    messageTemplate: 'Drift server not reachable — {message}',
-    hasFix: true,
-  },
 };
