@@ -1,9 +1,9 @@
 /**
- * In-memory store for runtime events (breakpoints, row changes, connection errors).
+ * In-memory store for runtime events (breakpoints, row changes).
  */
 
 export interface IRuntimeEvent {
-  type: 'breakpoint-hit' | 'row-inserted' | 'row-deleted' | 'connection-error';
+  type: 'breakpoint-hit' | 'row-inserted' | 'row-deleted';
   table?: string;
   message: string;
   timestamp: number;
@@ -39,11 +39,5 @@ export class RuntimeEventStore {
 
   get events(): readonly IRuntimeEvent[] {
     return this._events;
-  }
-
-  hasRecentConnectionError(withinMs = 30000): boolean {
-    return this._events.some(
-      (e) => e.type === 'connection-error' && Date.now() - e.timestamp < withinMs,
-    );
   }
 }

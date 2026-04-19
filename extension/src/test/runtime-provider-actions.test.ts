@@ -96,48 +96,6 @@ describe('RuntimeProvider', () => {
       assert.ok(clearAction, 'Should have clear alerts action');
     });
 
-    it('should provide retry, dismiss, and settings actions for connection errors', () => {
-      const diag = new Diagnostic(
-        new Range(0, 0, 0, 0),
-        '[drift_advisor] Drift server not reachable',
-        DiagnosticSeverity.Warning,
-      );
-      diag.code = 'connection-error';
-
-      const actions = provider.provideCodeActions(diag as any, {} as any);
-
-      // Retry Connection (preferred)
-      const retryAction = actions.find((a) => a.title === 'Retry Connection');
-      assert.ok(retryAction, 'Should have retry action');
-      assert.ok(retryAction.isPreferred, 'Retry should be preferred');
-      assert.strictEqual(retryAction.command?.command, 'driftViewer.refreshTree');
-
-      // Don't Show Connection Warnings
-      const dismissAction = actions.find((a) => a.title.includes("Don't Show"));
-      assert.ok(dismissAction, 'Should have dismiss action');
-      assert.strictEqual(dismissAction.command?.command, 'driftViewer.disableDiagnosticRule');
-      assert.deepStrictEqual(dismissAction.command?.arguments, ['connection-error']);
-
-      // Open Connection Settings
-      const settingsAction = actions.find((a) => a.title.includes('Settings'));
-      assert.ok(settingsAction, 'Should have settings action');
-      assert.strictEqual(settingsAction.command?.command, 'workbench.action.openSettings');
-    });
-
-    it('should NOT include generic disable-rule action for connection errors', () => {
-      const diag = new Diagnostic(
-        new Range(0, 0, 0, 0),
-        '[drift_advisor] Drift server not reachable',
-        DiagnosticSeverity.Warning,
-      );
-      diag.code = 'connection-error';
-
-      const actions = provider.provideCodeActions(diag as any, {} as any);
-
-      const genericDisable = actions.find((a) => a.title.includes('Disable "connection-error"'));
-      assert.ok(!genericDisable, 'Should NOT have generic disable-rule action');
-    });
-
     it('should always provide disable rule action for non-connection codes', () => {
       const diag = new Diagnostic(
         new Range(0, 0, 0, 0),
