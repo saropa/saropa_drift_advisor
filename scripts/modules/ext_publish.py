@@ -351,15 +351,27 @@ def run_ext_publish(
     heading("Step 16 · Verify store propagation")
     from modules.store_propagation import run_store_propagation_wait
     from modules.utils import run_step
+    # Pass vsix_path so that if the Marketplace check times out, the
+    # follow-up warning can point the user directly at the file they
+    # need to drag onto the publisher management page.
     propagation_ok = run_step(
         "Store propagation",
-        lambda: run_store_propagation_wait(version, stores, target="extension") == 0,
+        lambda: run_store_propagation_wait(
+            version, stores, target="extension", vsix_path=vsix_path,
+        ) == 0,
         results,
     )
     if not propagation_ok:
-        # Propagation timeout is non-fatal — the publish itself succeeded.
-        # Warn but don't abort.
-        warn("Store propagation check timed out; publish likely succeeded.")
+        # Propagation timeout is non-fatal — the publish CLI itself
+        # succeeded, but the store may not have indexed the new version.
+        # Targeted per-store guidance (including the Marketplace
+        # publisher URL for manual upload) was already emitted inside
+        # run_store_propagation_wait; just note here that we're not
+        # aborting so the rest of the report still prints.
+        warn(
+            "Store propagation check did not confirm all stores; "
+            "see the per-store guidance above to finish manually."
+        )
 
     report = save_report(results, version, vsix_path, is_publish=True, config=EXTENSION)
     print_timing(results)

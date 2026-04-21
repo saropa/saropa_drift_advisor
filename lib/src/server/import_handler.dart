@@ -5,7 +5,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:saropa_drift_advisor/src/drift_debug_import.dart';
+// Relative import: this file lives inside saropa_drift_advisor, so a
+// self-referential package URI would trip depend_on_referenced_packages
+// (a package cannot list itself in pubspec dependencies).
+import '../drift_debug_import.dart';
 
 import 'server_constants.dart';
 import 'server_context.dart';

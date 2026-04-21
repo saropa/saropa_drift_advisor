@@ -36,11 +36,20 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [3.3.4]
 
 ### Fixed
 
 - **Perf-regression false positives from the extension's own diagnostic probes** — every debug session ended with a warning of the shape *"Drift: 14 query regression(s) detected: SELECT SUM(CASE WHEN "id" IS NULL THEN …): 55ms vs baseline 6ms (9.17x)"* even when the app's own queries were unchanged. The SQL was not written by the user at all — it was the extension's own null-count scan from `DataQualityProvider`, `scoreNullDensity` in health metrics, and the column profiler, running over tables whose row counts differed from the prior session. The regression detector was comparing these probes against baselines it had captured from itself on a prior run, producing one false warning per probed table per session. The `sql()` client now accepts `{ internal: true }` and plumbs it through POST `/api/sql` (and the VM-service `runSql` RPC) so the server tags those timings as `isInternal: true`; `detectRegressions` skips internal entries in both the compare pass and the baseline-recording pass so internal probes neither fire false warnings nor poison future baselines. Raising `driftViewer.perfRegression.threshold` no longer required as a workaround
+
+<details>
+<summary>Maintenance</summary>
+
+- **Publish script: Marketplace propagation failure now points to the publisher page** — when the final Step 16 store-propagation check times out for the VS Code Marketplace, the warning now includes the publisher management URL (`marketplace.visualstudio.com/manage/publishers/Saropa`), the public listing URL, and the absolute path to the packaged `.vsix` so the user can upload it manually in one click instead of hunting for the file. Open VSX and pub.dev timeouts also emit store-specific guidance. Implemented in `scripts/modules/store_propagation.py` (per-store `pending` set) and `scripts/modules/ext_publish.py` (passes `vsix_path` through); new `MARKETPLACE_PUBLISHER_URL` constant added in `scripts/modules/constants.py`
+- **Lint cleanup: `prefer_return_await` + `depend_on_referenced_packages`** — removed redundant `Future<T>.value(...)` wrappers in two `async` branches of `vm_service_bridge.dart` (the async function already wraps the return value, so the explicit wrapper both added noise and tripped the lint); converted four self-referential `package:saropa_drift_advisor/...` imports inside `lib/` to relative paths in `drift_debug_server_io.dart`, `server/import_handler.dart`, `server/router.dart`, and `server/session_handler.dart` (a package cannot list itself in its own pubspec dependencies, so the self-import tripped `depend_on_referenced_packages`)
+- **Lint cleanup: `avoid_null_assertion` on regex group access in `server_context.dart`** — replaced `match.group(1)!` / `match.group(2)!` in `_parseCallerFrame` with `?? ''` fallbacks, and gated the file check on `file.isEmpty`. The regex literal guarantees both groups are non-null on a successful match today, so behavior is unchanged; the fallback removes a silent crash site if the pattern is ever edited. Related upstream bug filed against `saropa_lints` (`avoid_null_assertion_false_positive_regex_match_group.md`) — the rule should recognize `RegExpMatch.group(N)!` as a safe pattern.
+
+</details>
 
 ---
 
