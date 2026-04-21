@@ -1,10 +1,40 @@
-/* --- Inline toolbar: icon buttons integrated into the tab bar row --- */
+/* --- Top toolbar row: dedicated strip that holds every icon-only action
+ * button (sidebar toggles, tool launchers, theme flyout, share…).
+ * It used to share a single row with the open-tab list, which meant new
+ * tabs shoved the icons around when many tables were open. Splitting the
+ * two rows keeps the toolbar stable and gives the tab list its own space
+ * directly underneath (`#tab-bar`). --- */
+#toolbar-bar.toolbar-bar {
+  display: flex;
+  /* Center vertically so 2rem icons are not top-aligned in a taller row;
+   * this used to be `stretch` on the combined tab bar, which left icons
+   * hugging the top edge beside the 2.75rem tab buttons. */
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0.35rem var(--space-2) 0.35rem 0;
+  min-height: 2.5rem;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  /* Keep the theme flyout's dropdown unclipped when it hangs below. */
+  overflow: visible;
+  position: relative;
+  /* Toolbar sits above the tab row below it so the flyout menu overlaps
+   * tabs cleanly. */
+  z-index: 3;
+}
 
-/* Icon buttons in the tab bar (tool launchers, sidebar toggles). */
+/* Icon buttons used in both the toolbar row and (where applicable) the
+ * tab bar. */
 .tb-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Explicitly center the item on the cross axis — belt-and-braces with
+   * the parent `align-items: center`, and protects us if the button is
+   * reused inside a row that still uses `stretch`. */
+  align-self: center;
   width: 2rem;
   height: 2rem;
   padding: 0;
@@ -78,9 +108,18 @@
   /* Open downward from the button, right-aligned so it doesn't overflow. */
   top: 100%;
   right: 0;
-  z-index: 200;
+  /* z-index must sit above the tab panel chrome (border + bg) that starts
+   * directly beneath the tab bar; 200 was getting covered in some themes
+   * because the tab panels establish their own stacking via
+   * backdrop-filter. 5000 keeps us above tab panels but below full-screen
+   * overlays (modal dialogs use 10000+). */
+  z-index: 5000;
   min-width: 140px;
   padding: 0.25rem 0;
+  /* Force an opaque fallback: translucent theme overrides (showcase /
+   * midnight) made the flyout read as "the menu underneath the other"
+   * because the tab bar bled through. Opaque base keeps the menu
+   * readable; theme-specific overrides below can still tint it. */
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -134,14 +173,18 @@ body.theme-dark .tb-flyout {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
+/* Showcase/midnight keep a subtle blur/tint but must stay opaque enough
+ * that the tab bar icons do not read through the menu — a 0.15 alpha
+ * was too transparent and made the flyout look like "a menu underneath
+ * another menu". 0.92 alpha retains the glassy look without ghosting. */
 body.theme-showcase .tb-flyout,
 body.theme-midnight .tb-flyout {
   backdrop-filter: blur(16px) saturate(1.4);
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.92);
 }
 
 body.theme-midnight .tb-flyout {
-  background: rgba(10, 10, 30, 0.7);
+  background: rgba(10, 10, 30, 0.92);
 }
 
 /* --- Responsive: hide dividers on very narrow viewports --- */

@@ -1,16 +1,38 @@
-/* --- Tab bar: real tab look with active indicator and visual weight ---
- * Active tab gets a colored top accent bar and stronger visual treatment
- * so the user can instantly see which tab is focused. */
+/* --- Tab bar: row that sits directly below #toolbar-bar and holds only
+ * the user's currently-opened tabs (tool tabs and per-table tabs). The
+ * toolbar icons used to share this row with three "fixed" Tables/Search/
+ * Run SQL tabs; those are now toolbar icons, so this row is purely for
+ * closeable tabs opened on demand.
+ *
+ * Empty state: the row renders with its min-height so the layout does
+ * not jump when the first tab is opened. --- */
 #tab-bar.tab-bar {
   display: flex;
   align-items: stretch;
   gap: 0;
   margin: 0;
-  padding: 0 var(--space-2) 0 0;
+  padding: 0 var(--space-2) 0 var(--space-2);
   min-height: 2.75rem;
   border-bottom: 1px solid var(--border);
   background: var(--header-bg);
   flex-wrap: wrap;
+  /* Sit below the toolbar's stacking context so the theme flyout from
+   * the row above overlaps tabs (z-index 5000 on `.tb-flyout`). */
+  position: relative;
+  z-index: 1;
+}
+
+/* Hint text when no tabs are open yet — the Tables toolbar icon launches
+ * a tab, and this message points the user at it. Shown only when the
+ * row has no `.tab-btn` children. */
+#tab-bar.tab-bar:empty::before {
+  content: 'No tabs open \2014 click an icon above (Tables, Search, Run SQL\u2026) to open one.';
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-style: italic;
+  padding: 0 0.5rem;
 }
 
 .tab-bar .tab-btn {

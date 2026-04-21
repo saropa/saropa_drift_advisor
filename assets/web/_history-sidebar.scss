@@ -1,6 +1,9 @@
 /* --- History sidebar (right-side panel) --- */
 
-/* Heading: uppercase label with collapsible chevron. */
+/* Heading: plain uppercase label. Collapse is handled by the
+ * #tb-history-toggle toolbar icon, mirroring how #tb-sidebar-toggle
+ * collapses the tables sidebar — so no per-heading chevron/button
+ * toggle is needed (was confusing to have two collapse affordances). */
 .history-heading {
   font-size: var(--text-xs);
   font-weight: 600;
@@ -8,43 +11,9 @@
   letter-spacing: 0.05em;
   color: var(--muted);
   margin: 0 0 0.5rem;
-  padding: 0;
-}
-
-.history-heading button {
-  all: unset;
+  padding: 0.25rem 0;
   display: flex;
   align-items: center;
-  width: 100%;
-  font: inherit;
-  color: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-  user-select: none;
-  padding: 0.25rem 0;
-}
-
-/* Chevron indicator — collapses inline when section is collapsed. */
-.history-heading button::after {
-  content: '\25BC'; /* ▼ down-pointing triangle (expanded) */
-  display: inline-block;
-  margin-left: auto;
-  font-size: 0.75em;
-  transition: transform 0.15s ease;
-}
-
-.history-heading button[aria-expanded="false"]::after {
-  transform: rotate(-90deg);
-}
-
-.history-heading button:hover {
-  color: var(--link);
-}
-
-.history-heading button:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 2px;
 }
 
 /* Inline count badge next to the heading text. */

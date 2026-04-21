@@ -11,6 +11,7 @@
  */
 import { esc } from './utils.ts';
 import * as S from './state.ts';
+import { openTool } from './tabs.ts';
 
 /** Shape of a single history entry from GET /api/history. */
 interface HistoryEntry {
@@ -31,15 +32,11 @@ let entries: HistoryEntry[] = [];
 /** Currently active source filter. */
 let activeFilter: string = 'all';
 
-/** Whether the history list content is collapsed (heading chevron). */
-let contentCollapsed: boolean = false;
-
 // -------------------------------------------------------
 // DOM references (resolved once in init)
 // -------------------------------------------------------
 let listEl: HTMLUListElement | null = null;
 let countEl: HTMLElement | null = null;
-let contentToggleBtn: HTMLButtonElement | null = null;
 let sidebarEl: HTMLElement | null = null;
 
 // -------------------------------------------------------
@@ -186,30 +183,18 @@ export function initHistorySidebar(): void {
     'query-history-list',
   ) as HTMLUListElement | null;
   countEl = document.getElementById('history-count');
-  contentToggleBtn = document.getElementById(
-    'history-heading-toggle',
-  ) as HTMLButtonElement | null;
 
   if (!sidebarEl || !listEl) return;
 
   // --- Panel visibility: restore from localStorage ---
+  // The heading-chevron content-collapse was removed: the sidebar is now
+  // collapsed only via the #tb-history-toggle toolbar icon (matches the
+  // tables sidebar pattern). We still honor any previously persisted
+  // collapsed state so reloads don't resurrect a hidden sidebar.
   var storedCollapsed = false;
   try { storedCollapsed = localStorage.getItem(S.HISTORY_SIDEBAR_KEY) === '1'; }
   catch (e) { /* localStorage unavailable */ }
   applyPanelCollapsed(storedCollapsed);
-
-  // --- Content collapse/expand (heading chevron) ---
-  if (contentToggleBtn) {
-    contentToggleBtn.addEventListener('click', function () {
-      contentCollapsed = !contentCollapsed;
-      contentToggleBtn!.setAttribute('aria-expanded', contentCollapsed ? 'false' : 'true');
-      listEl!.style.display = contentCollapsed ? 'none' : '';
-      const filterBar = sidebarEl!.querySelector('.history-filter-bar') as HTMLElement | null;
-      if (filterBar) filterBar.style.display = contentCollapsed ? 'none' : '';
-      const actions = sidebarEl!.querySelector('.history-actions') as HTMLElement | null;
-      if (actions) actions.style.display = contentCollapsed ? 'none' : '';
-    });
-  }
 
   // --- Filter buttons ---
   const filterBar = sidebarEl.querySelector('.history-filter-bar');
@@ -235,6 +220,10 @@ export function initHistorySidebar(): void {
   }
 
   // --- Click to load SQL into runner input ---
+  // Also switch to the Run SQL tab so the user can see / edit / execute
+  // the loaded query immediately. Without the tab switch, clicking a
+  // history entry from any other tab (Tables, Schema, etc.) silently
+  // populated the hidden #sql-input — useful on refresh but invisible.
   listEl.addEventListener('click', function (e: Event) {
     const li = (e.target as HTMLElement).closest('.history-item') as HTMLElement | null;
     if (!li) return;
@@ -244,6 +233,12 @@ export function initHistorySidebar(): void {
     const sqlInput = document.getElementById('sql-input') as HTMLTextAreaElement | null;
     if (sqlInput) {
       sqlInput.value = items[idx].sql;
+      // Switch tabs FIRST so #sql-input is visible before we try to focus
+      // it — focusing a hidden element is a no-op in some browsers.
+      // `openTool` creates the Run SQL tab if it isn't already open (it
+      // no longer exists as a permanent tab — Tables/Search/Run SQL are
+      // toolbar icons now), then switches to it.
+      openTool('sql');
       sqlInput.focus();
     }
   });

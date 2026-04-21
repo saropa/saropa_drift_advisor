@@ -104,43 +104,50 @@ describe('Tab icons — tabs.ts createClosableTab', () => {
   });
 });
 
-describe('Tab icons — html_content.dart static tabs', () => {
+describe('Tab icons — html_content.dart toolbar icons', () => {
+  // Tables / Search / Run SQL used to live in the tab bar as permanent
+  // tab-btn entries with `data-tab-type`. They were moved into
+  // #toolbar-bar as `tb-icon-btn` launchers (data-tool) so the tab row
+  // below holds only user-opened tabs. Accent colors still apply to the
+  // tabs that `openTool` later creates via `createClosableTab`, so the
+  // assertions here target the toolbar launchers instead of removed
+  // static tab-btn markup.
   let htmlSrc: string;
 
   before(() => {
     htmlSrc = readAsset('lib/src/server/html_content.dart');
   });
 
-  it('static Tables tab has data-tab-type and icon', () => {
+  it('Tables toolbar icon exists with table_chart glyph', () => {
     assert.ok(
-      htmlSrc.includes('data-tab-type="tables"'),
-      'Static Tables tab must have data-tab-type="tables"',
+      htmlSrc.includes('data-tool="tables"'),
+      'Tables toolbar icon must have data-tool="tables"',
     );
     assert.ok(
-      htmlSrc.includes('tab-icon" aria-hidden="true">table_chart'),
-      'Static Tables tab must have a table_chart icon',
-    );
-  });
-
-  it('static Search tab has data-tab-type and icon', () => {
-    assert.ok(
-      htmlSrc.includes('data-tab-type="search"'),
-      'Static Search tab must have data-tab-type="search"',
-    );
-    assert.ok(
-      htmlSrc.includes('tab-icon" aria-hidden="true">search'),
-      'Static Search tab must have a search icon',
+      /data-tool="tables"[^>]*title="Tables"[\s\S]*?>table_chart</.test(htmlSrc),
+      'Tables toolbar icon must use the table_chart Material Symbol',
     );
   });
 
-  it('static Run SQL tab has data-tab-type and icon', () => {
+  it('Search toolbar icon exists with search glyph', () => {
     assert.ok(
-      htmlSrc.includes('data-tab-type="sql"'),
-      'Static Run SQL tab must have data-tab-type="sql"',
+      htmlSrc.includes('data-tool="search"'),
+      'Search toolbar icon must have data-tool="search"',
     );
     assert.ok(
-      htmlSrc.includes('tab-icon" aria-hidden="true">terminal'),
-      'Static Run SQL tab must have a terminal icon',
+      /data-tool="search"[^>]*title="Search"[\s\S]*?>search</.test(htmlSrc),
+      'Search toolbar icon must use the search Material Symbol',
+    );
+  });
+
+  it('Run SQL toolbar icon exists with terminal glyph', () => {
+    assert.ok(
+      htmlSrc.includes('data-tool="sql"'),
+      'Run SQL toolbar icon must have data-tool="sql"',
+    );
+    assert.ok(
+      /data-tool="sql"[^>]*title="Run SQL"[\s\S]*?>terminal</.test(htmlSrc),
+      'Run SQL toolbar icon must use the terminal Material Symbol',
     );
   });
 });
