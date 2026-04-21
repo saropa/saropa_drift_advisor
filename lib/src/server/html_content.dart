@@ -200,14 +200,19 @@ abstract final class HtmlContent {
       </div>
     </aside>
     <div class="app-main-content">
-      <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Views">
+      <!-- Toolbar row (top): all icon-only action buttons live here. Tables /
+           Search / Run SQL used to be fixed full-width tabs in this row; they
+           are now plain toolbar icons just like the other tools, so the layout
+           doesn't split between "permanent tabs" and "tool icons".
+           Opened tabs live in #tab-bar directly below this row. -->
+      <div id="toolbar-bar" class="toolbar-bar" role="toolbar" aria-label="Actions">
         <!-- Left sidebar toggle -->
         <button type="button" class="tb-icon-btn" id="tb-sidebar-toggle" title="Toggle tables sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">left_panel_open</span></button>
         <hr class="tb-divider" />
-        <!-- Tab buttons -->
-        <button type="button" class="tab-btn active" data-tab="tables" data-tab-type="tables" role="tab" aria-selected="true" aria-controls="panel-tables" id="tab-tables"><span class="material-symbols-outlined tab-icon" aria-hidden="true">table_chart</span>Tables</button>
-        <button type="button" class="tab-btn" data-tab="search" data-tab-type="search" role="tab" aria-selected="false" aria-controls="panel-search" id="tab-search"><span class="material-symbols-outlined tab-icon" aria-hidden="true">search</span>Search</button>
-        <button type="button" class="tab-btn" data-tab="sql" data-tab-type="sql" role="tab" aria-selected="false" aria-controls="panel-sql" id="tab-sql"><span class="material-symbols-outlined tab-icon" aria-hidden="true">terminal</span>Run SQL</button>
+        <!-- Core view icons (were fixed tabs until the tab-bar split) -->
+        <button type="button" class="tb-icon-btn" data-tool="tables" title="Tables"><span class="material-symbols-outlined" aria-hidden="true">table_chart</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="search" title="Search"><span class="material-symbols-outlined" aria-hidden="true">search</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="sql" title="Run SQL"><span class="material-symbols-outlined" aria-hidden="true">terminal</span></button>
         <hr class="tb-divider" />
         <!-- Tool launcher icons -->
         <button type="button" class="tb-icon-btn" data-tool="snapshot" title="Snapshot"><span class="material-symbols-outlined" aria-hidden="true">photo_camera</span></button>
@@ -244,6 +249,10 @@ abstract final class HtmlContent {
         <!-- Right sidebar toggle -->
         <button type="button" class="tb-icon-btn" id="tb-history-toggle" title="Toggle history sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">right_panel_open</span></button>
       </div>
+      <!-- Tab row (bottom): holds only the user's currently-opened tabs
+           (tool tabs, table tabs). Starts empty; the startup sequence auto-
+           opens the Tables tab so the user has a landing view. -->
+      <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Open tabs"></div>
       <div id="tab-panels" class="tab-panels">
         <div id="panel-tables" class="tab-panel active" role="tabpanel" aria-labelledby="tab-tables">
       <!-- Browse-all table list: shown when the "Tables" tab is active (no specific table selected).
@@ -325,23 +334,29 @@ abstract final class HtmlContent {
       <label for="sql-fields">Fields:</label>
       <select id="sql-fields" multiple title="Hold Ctrl/Cmd to pick multiple"><option value="">—</option></select>
       <button type="button" id="sql-template-lock" class="sql-lock-btn locked" title="Lock: auto-apply template when table or fields change"><span class="material-symbols-outlined" aria-hidden="true">lock</span></button>
-      <button type="button" id="sql-apply-template" title="Insert template query into editor">Apply template</button>
-      <button type="button" id="sql-run" class="btn-primary" title="Execute the SQL query">Run</button>
-      <label for="sql-history">History:</label>
+      <button type="button" id="sql-apply-template" title="Insert template query into editor"><span class="material-symbols-outlined" aria-hidden="true">post_add</span> Apply template</button>
+      <!-- "Recent" (no colon): label renamed from "History:" to match
+           the adjacent "— Recent —" dropdown, and the trailing colon
+           was removed. With a colon, the eye expects a value directly
+           after it; the dropdown's em-dash placeholder reads as empty
+           at a glance, so "History:" / "Recent:" looked like an error
+           state. Keeping just "Recent" turns the label into a prefix
+           descriptor that no longer demands a following value. -->
+      <label for="sql-history">Recent</label>
       <select id="sql-history" title="Recent queries — select to reuse"><option value="">— Recent —</option></select>
     </div>
     <div class="sql-toolbar" style="margin-top:0;">
       <label for="sql-bookmarks">Saved queries:</label>
       <select id="sql-bookmarks" title="Load a saved query" style="max-width:14rem;"><option value="">— Saved queries —</option></select>
-      <button type="button" id="sql-bookmark-save" title="Save current query">Save</button>
-      <button type="button" id="sql-bookmark-delete" title="Delete selected">Del</button>
-      <button type="button" id="sql-bookmark-export" title="Export as JSON">Export</button>
-      <button type="button" id="sql-bookmark-import" title="Import from JSON">Import</button>
+      <button type="button" id="sql-bookmark-save" title="Save current query"><span class="material-symbols-outlined" aria-hidden="true">bookmark_add</span> Save</button>
+      <button type="button" id="sql-bookmark-delete" title="Delete selected"><span class="material-symbols-outlined" aria-hidden="true">delete</span> Del</button>
+      <button type="button" id="sql-bookmark-export" title="Export as JSON"><span class="material-symbols-outlined" aria-hidden="true">download</span> Export</button>
+      <button type="button" id="sql-bookmark-import" title="Import from JSON"><span class="material-symbols-outlined" aria-hidden="true">upload</span> Import</button>
       <label for="sql-result-format">Show as:</label>
       <select id="sql-result-format"><option value="table">Table</option><option value="json">JSON</option></select>
     </div>
     <div class="sql-toolbar nl-ask-toolbar" style="margin-bottom:0.35rem;">
-      <button type="button" id="nl-open" title="Describe your question in plain English; preview SQL updates in the dialog as you type">Ask in English…</button>
+      <button type="button" id="nl-open" title="Describe your question in plain English; preview SQL updates in the dialog as you type"><span class="material-symbols-outlined" aria-hidden="true">smart_toy</span> Ask in English…</button>
     </div>
     <!-- NL question in a modal: live NL→SQL preview stays inside the dialog; Use copies into #sql-input. -->
     <div id="nl-modal" class="nl-modal" hidden aria-hidden="true">
@@ -361,6 +376,13 @@ abstract final class HtmlContent {
       </div>
     </div>
     <textarea id="sql-input" placeholder="SELECT * FROM my_table LIMIT 10"></textarea>
+    <!-- Run button sits directly beneath the editor so it's the natural
+         next action after typing / adjusting the query. Previously it lived
+         in the template toolbar above the editor, which visually detached
+         it from the query body it executes. -->
+    <div class="sql-toolbar sql-run-toolbar" style="margin-top:0.4rem;">
+      <button type="button" id="sql-run" class="btn-primary" title="Execute the SQL query"><span class="material-symbols-outlined" aria-hidden="true">play_arrow</span> Run</button>
+    </div>
     <div id="sql-explain-info" class="sql-explain-info" style="display: none;"></div>
     <div id="sql-error" class="sql-error" style="display: none;"></div>
     <div id="sql-result" class="sql-result" style="display: none;"></div>
@@ -567,7 +589,11 @@ abstract final class HtmlContent {
       </div>
     </div>
     <aside class="history-sidebar" id="history-sidebar" aria-label="Query history">
-      <h2 class="history-heading"><button type="button" id="history-heading-toggle" aria-expanded="true" title="Click to collapse/expand history">History <span id="history-count" class="history-count"></span></button></h2>
+      <!-- Plain heading: the sidebar itself is collapsed via the
+           #tb-history-toggle toolbar icon (same pattern as the tables
+           sidebar uses #tb-sidebar-toggle), so no inline collapse
+           button is needed here. -->
+      <h2 class="history-heading">History <span id="history-count" class="history-count"></span></h2>
       <div class="history-filter-bar" role="radiogroup" aria-label="Filter query history by source">
         <button type="button" class="history-filter active" data-filter="all" aria-pressed="true">All</button>
         <button type="button" class="history-filter" data-filter="browser" aria-pressed="false">Browser</button>

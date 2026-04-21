@@ -77,22 +77,16 @@ export function initTheme() {
     }
 
 /**
- * Wires up the hamburger-menu theme-toggle click handler and the OS-level
- * prefers-color-scheme change listener.  Call once at startup.
+ * Wires up the OS-level prefers-color-scheme change listener. Call once at
+ * startup.
+ *
+ * Theme-option click wiring lives in `toolbar.ts::initToolbar` — doing it
+ * there as well would register a *second* click handler on each
+ * `.tb-theme-option`, which caused the theme flyout to apply the theme twice
+ * and could desync `aria-expanded` (flyout appearing "locked" after the
+ * first selection).
  */
 export function initThemeListeners() {
-    // Theme submenu: each option button selects its theme directly.
-    var themeOptions = document.querySelectorAll('.tb-theme-option');
-    for (var i = 0; i < themeOptions.length; i++) {
-      themeOptions[i].addEventListener('click', function() {
-        var chosen = this.getAttribute('data-theme');
-        if (chosen) {
-          localStorage.setItem(S.THEME_KEY, chosen);
-          applyTheme(chosen);
-        }
-      });
-    }
-
     // Listen for real-time OS theme changes (e.g. the user toggles system
     // dark mode while the page is open). Only react if the user hasn't
     // set an explicit override in localStorage.

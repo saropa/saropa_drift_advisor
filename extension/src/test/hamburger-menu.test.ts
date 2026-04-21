@@ -20,7 +20,11 @@ describe('Toolbar — html_content.dart', () => {
   });
 
   // All tool launchers must be present as toolbar icon buttons.
+  // `tables`, `search`, and `sql` joined this list when they stopped
+  // being permanent tab-btn entries — they're now tb-icon-btn launchers
+  // that openTool() materialises into closeable tabs on demand.
   const expectedTools = [
+    'tables', 'search', 'sql',
     'snapshot', 'compare', 'index', 'size', 'perf',
     'anomaly', 'schema', 'diagram', 'import', 'export',
     'settings',

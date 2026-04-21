@@ -31,7 +31,7 @@
     import { getScope, applySearch, nextMatch, prevMatch } from './search.ts';
     import { copyCellValue, renderTableView, initPiiMaskToggle } from './table-view.ts';
     import { loadTable, applyTableListAndCounts, pollGeneration } from './table-list.ts';
-    import { initTabsAndToolbar, openTableTab } from './tabs.ts';
+    import { initTabsAndToolbar, openTableTab, openTool } from './tabs.ts';
     import { goToOffset, ensureColumnConfig, applyColumnConfigAndRender, populateColumnChooserList } from './pagination.ts';
     import { loadSchemaIntoPre, loadSchemaView, loadBothView } from './schema.ts';
     import { initSidebarCollapse } from './sidebar.ts';
@@ -209,6 +209,14 @@
     initTabsAndToolbar();
     initSidebarCollapse();
     initHistorySidebar();
+
+    // Tables / Search / Run SQL are no longer fixed tabs pinned to the tab
+    // bar — they're toolbar icons now. Auto-open the Tables tab at startup
+    // so the user lands on the familiar browse view instead of an empty
+    // tab row. `openTool` is idempotent on repeat calls and also routes
+    // through switchTab, so panel visibility and `_toolbarSyncActiveTab`
+    // stay in sync.
+    openTool('tables');
     initDiagram();
     initSnapshot();
     initCompare();
