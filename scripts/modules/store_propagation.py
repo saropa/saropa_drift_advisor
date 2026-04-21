@@ -108,7 +108,7 @@ def _poll_stores(
     store_keys: list[str],
     interval_secs: int = _POLL_INTERVAL_SECS,
     timeout_mins: int = _POLL_TIMEOUT_MINS,
-) -> bool:
+) -> set[str]:
     """Poll the given stores until *expected_version* is visible on all of them.
 
     Parameters
@@ -122,7 +122,15 @@ def _poll_stores(
     timeout_mins : int
         Total minutes before giving up.
 
-    Returns True when all stores report the expected version, False on timeout.
+    Returns
+    -------
+    set[str]
+        The subset of *store_keys* that confirmed the expected version
+        before the timeout. An empty intersection with *store_keys*
+        means everything confirmed; a non-empty ``set(store_keys) - confirmed``
+        identifies which stores (e.g. ``"marketplace"``) timed out so the
+        caller can emit targeted guidance (publisher URL, manual upload
+        instructions, etc.).
     """
     max_attempts = (timeout_mins * 60) // interval_secs + 1
     # Track which stores have confirmed the expected version so we can
@@ -152,7 +160,7 @@ def _poll_stores(
 
         # All stores confirmed — success.
         if confirmed == set(store_keys):
-            return True
+            return confirmed
 
         # Wait before the next attempt (skip sleep on the final iteration
         # so we don't waste time after the last check).
@@ -170,7 +178,7 @@ def _poll_stores(
             # End the dot line so the next log message starts on a fresh line.
             print()
 
-    return False
+    return confirmed
 
 
 # ── Public API ──────────────────────────────────────────────
@@ -180,6 +188,7 @@ def run_store_propagation_wait(
     expected_version: str,
     stores: str,
     target: str = "extension",
+    vsix_path: str | None = None,
 ) -> int:
     """Poll store APIs until the published version is visible.
 
@@ -193,6 +202,11 @@ def run_store_propagation_wait(
         Ignored when *target* is ``"dart"`` (only pub.dev is checked).
     target : str
         ``"dart"``, ``"extension"``, or ``"all"``.
+    vsix_path : str or None
+        Absolute path to the packaged ``.vsix`` that was published. When
+        the Marketplace propagation check times out, this path is echoed
+        into the manual-upload guidance so the user can drag it straight
+        onto the publisher management page without hunting for the file.
 
     Returns ExitCode.SUCCESS or ExitCode.STORE_VERSION_MISMATCH.
     """
@@ -220,7 +234,9 @@ def run_store_propagation_wait(
         f"({_POLL_INTERVAL_SECS}s interval, {_POLL_TIMEOUT_MINS} min max)."
     )
 
-    if _poll_stores(expected_version, store_keys):
+    confirmed = _poll_stores(expected_version, store_keys)
+    pending = set(store_keys) - confirmed
+    if not pending:
         ok(f"v{expected_version} confirmed on all stores.")
         return ExitCode.SUCCESS
 
@@ -230,5 +246,32 @@ def run_store_propagation_wait(
         f"{_POLL_TIMEOUT_MINS} minutes."
     )
     warn("The publish itself may have succeeded — CDN propagation can be slow.")
-    warn("Check the store pages manually to confirm.")
+
+    # Emit targeted, per-store follow-up guidance so the user knows
+    # exactly where to click. For the VS Code Marketplace we route them
+    # to the publisher management page, where a manual .vsix upload is
+    # the reliable fallback when the Marketplace silently drops an
+    # otherwise-successful `vsce publish`.
+    if "marketplace" in pending:
+        from modules.constants import MARKETPLACE_PUBLISHER_URL, MARKETPLACE_URL
+        warn(
+            "VS Code Marketplace did NOT pick up the new version. "
+            "Open the publisher page and upload the .vsix manually:"
+        )
+        info(f"  Publisher: {C.WHITE}{MARKETPLACE_PUBLISHER_URL}{C.RESET}")
+        info(f"  Listing:   {C.WHITE}{MARKETPLACE_URL}{C.RESET}")
+        if vsix_path:
+            # Echo the .vsix path so the user can copy-paste it into the
+            # upload dialog rather than re-deriving the build artefact.
+            info(f"  VSIX:      {C.WHITE}{vsix_path}{C.RESET}")
+    if "openvsx" in pending:
+        from modules.constants import OPENVSX_URL
+        warn("Open VSX did NOT pick up the new version. Check manually:")
+        info(f"  {C.WHITE}{OPENVSX_URL}{C.RESET}")
+    if "pubdev" in pending:
+        warn(
+            "pub.dev did NOT pick up the new version. Check the package "
+            "page and the GitHub Actions workflow run manually."
+        )
+
     return ExitCode.STORE_VERSION_MISMATCH

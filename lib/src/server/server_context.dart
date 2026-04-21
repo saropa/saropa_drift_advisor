@@ -291,7 +291,13 @@ final class ServerContext {
     final framePattern = RegExp(r'#\d+\s+\S+\s+\((.+?):(\d+):\d+\)');
 
     for (final match in framePattern.allMatches(stack.toString())) {
-      final file = match.group(1)!;
+      // Defensive `?? ''` over `!`: the regex's capture groups are
+      // guaranteed non-null on a successful match today, but a future
+      // pattern edit could silently turn these sites into crash points.
+      // An empty string falls through the skip filters below and is
+      // rejected by `int.tryParse`, so the fallback is safe.
+      final file = match.group(1) ?? '';
+      if (file.isEmpty) continue;
 
       // Skip this package's own server files — these are
       // internal handler frames (router, cell-update, etc.)
@@ -305,7 +311,7 @@ final class ServerContext {
         continue;
       }
 
-      final line = int.tryParse(match.group(2)!);
+      final line = int.tryParse(match.group(2) ?? '');
       if (line == null) continue;
 
       return (file, line);

@@ -5,7 +5,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
+// Relative import: same-package files must use relative paths, otherwise
+// depend_on_referenced_packages flags the self-referential package URI.
+import '../drift_debug_session.dart';
 
 import 'server_constants.dart';
 import 'server_context.dart';

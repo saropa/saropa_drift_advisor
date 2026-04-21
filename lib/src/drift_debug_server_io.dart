@@ -8,7 +8,12 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
+// Use a relative import instead of `package:saropa_drift_advisor/...` because
+// this file is part of the same package — a self-referential package URI
+// trips depend_on_referenced_packages (the rule checks whether the imported
+// package is declared as a dependency, and the package never depends on
+// itself).
+import 'drift_debug_session.dart';
 
 import 'server/router.dart';
 import 'server/server_constants.dart';

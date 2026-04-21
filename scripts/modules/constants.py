@@ -47,6 +47,14 @@ MARKETPLACE_URL = (
     "https://marketplace.visualstudio.com"
     f"/items?itemName={MARKETPLACE_EXTENSION_ID}"
 )
+# Publisher management page — where the user can manually upload a .vsix
+# when the `vsce publish` CLI path succeeds but the Marketplace never
+# indexes the new version (infrastructure glitch, silent rejection, etc.).
+# Published when the final store-propagation check fails so the user has a
+# direct one-click path to finish the release manually.
+MARKETPLACE_PUBLISHER_URL = (
+    "https://marketplace.visualstudio.com/manage/publishers/Saropa"
+)
 REPO_URL = "https://github.com/saropa/saropa_drift_advisor"
 OPENVSX_URL = "https://open-vsx.org/extension/saropa/drift-viewer"
 
