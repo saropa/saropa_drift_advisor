@@ -191,8 +191,17 @@ export class VmServiceClient {
     return apiGetTableFkMeta(this._callExtension, tableName);
   }
 
-  async runSql(sql: string): Promise<{ columns: string[]; rows: unknown[][] }> {
-    return apiRunSql(this._callExtension, sql);
+  /**
+   * Runs read-only SQL via VM service. Pass `{ internal: true }` for
+   * extension-owned diagnostic probes so the server tags the timing
+   * record as `isInternal` and excludes it from slow-query and perf
+   * regression diagnostics (mirrors the HTTP path).
+   */
+  async runSql(
+    sql: string,
+    opts?: { internal?: boolean },
+  ): Promise<{ columns: string[]; rows: unknown[][] }> {
+    return apiRunSql(this._callExtension, sql, opts);
   }
 
   async applyEditsBatch(statements: string[]): Promise<void> {

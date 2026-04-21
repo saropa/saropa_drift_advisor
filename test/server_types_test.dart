@@ -111,6 +111,38 @@ void main() {
 
       expect(body, isNotNull);
       expect(body!.sql, 'SELECT 1');
+      // Default — requests from user code must never be tagged internal.
+      expect(body.isInternal, isFalse);
+    });
+
+    test('fromJson captures internal flag when true', () {
+      final body = SqlRequestBody.fromJson(<String, dynamic>{
+        'sql': 'SELECT 1',
+        'internal': true,
+      });
+
+      expect(body, isNotNull);
+      expect(body!.sql, 'SELECT 1');
+      expect(body.isInternal, isTrue);
+    });
+
+    test('fromJson treats non-bool internal values as false', () {
+      // Boundary hardening: the internal flag is extension-controlled and
+      // must not be toggled by arbitrary truthy JSON (strings, numbers).
+      // Guards against a browser client opportunistically silencing its
+      // own slow queries by sending `"internal": "1"`.
+      for (final raw in <Object>['1', 'true', 1, 'yes']) {
+        final body = SqlRequestBody.fromJson(<String, dynamic>{
+          'sql': 'SELECT 1',
+          'internal': raw,
+        });
+        expect(body, isNotNull);
+        expect(
+          body!.isInternal,
+          isFalse,
+          reason: 'internal=$raw (${raw.runtimeType}) must not set isInternal',
+        );
+      }
     });
 
     test('fromJson trims whitespace from sql', () {

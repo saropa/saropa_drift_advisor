@@ -103,6 +103,18 @@ function aggregateQueries(
 ): Map<string, IAggregateEntry> {
   const map = new Map<string, IAggregateEntry>();
   for (const q of queries) {
+    // Skip extension-owned diagnostic probes (null-count scans,
+    // health-metrics aggregates, column profiler bursts). These are
+    // tagged with `isInternal: true` by the server when the extension
+    // passes `{ internal: true }` on the sql() call. Without this filter
+    // every debug session produces a warning shaped like "regression:
+    // SUM(CASE WHEN "id" IS NULL THEN 1 …) 55ms vs baseline 6ms (9x)"
+    // where the probe is being compared to a baseline it wrote itself
+    // in the previous session — a feedback loop that makes the warning
+    // useless. See BUG_perf_regression_false_positives_from_data_quality_probes.md.
+    // Also applied symmetrically in `recordSessionBaselines` so we don't
+    // poison future baselines with extension-owned timings.
+    if (q.isInternal) continue;
     const key = normalizeSql(q.sql);
     const existing = map.get(key);
     if (existing) {

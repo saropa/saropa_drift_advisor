@@ -21,10 +21,17 @@ final class SqlHandler {
 
   /// Runs read-only SQL and returns result map (for VM service RPC).
   /// Returns {@code {"rows": [...]}} on success or {@code {"error": "..."}} on failure.
+  ///
+  /// When [isInternal] is true, the query is routed through
+  /// [ServerContext.internalQuery] instead of the supplied [query]
+  /// callback so the recorded timing is stamped with `isInternal: true`.
+  /// This is how extension-owned diagnostic probes avoid polluting
+  /// slow-query and perf-regression analysis with their own overhead.
   Future<Map<String, dynamic>> runSqlResult(
     DriftDebugQuery query,
-    String sql,
-  ) async {
+    String sql, {
+    bool isInternal = false,
+  }) async {
     if (sql.trim().isEmpty) {
       return <String, String>{
         ServerConstants.jsonKeyError: ServerConstants.errorMissingSql,
@@ -36,7 +43,12 @@ final class SqlHandler {
       };
     }
     try {
-      final dynamic raw = await query(sql);
+      // Route through internalQuery so the timing record is stamped as
+      // extension-owned. This is what prevents the detector from seeing
+      // its own diagnostic scans as user-app regressions.
+      final dynamic raw = isInternal
+          ? await _ctx.internalQuery(sql)
+          : await query(sql);
       final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(raw);
       return <String, dynamic>{ServerConstants.jsonKeyRows: rows};
     } on Object catch (error, stack) {
@@ -44,15 +56,20 @@ final class SqlHandler {
     }
   }
 
-  /// Handles POST /api/sql: body {"sql": "SELECT ..."}.
+  /// Handles POST /api/sql: body {"sql": "SELECT ..."} (optionally
+  /// {"sql": "...", "internal": true} — see [SqlRequestBody.fromJson]).
   /// Validates read-only; returns {"rows": [...]}.
   Future<void> handleRunSql(HttpRequest request, DriftDebugQuery query) async {
-    final sql = await _readAndValidateSqlBody(request);
-    if (sql == null) {
+    final body = await _readAndValidateSqlBody(request);
+    if (body == null) {
       return;
     }
     final res = request.response;
-    final result = await runSqlResult(query, sql);
+    final result = await runSqlResult(
+      query,
+      body.sql,
+      isInternal: body.isInternal,
+    );
     _ctx.setJsonHeaders(res);
     if (result.containsKey(ServerConstants.jsonKeyError)) {
       res.statusCode = HttpStatus.internalServerError;
@@ -146,12 +163,15 @@ final class SqlHandler {
     HttpRequest request,
     DriftDebugQuery query,
   ) async {
-    final sql = await _readAndValidateSqlBody(request);
-    if (sql == null) {
+    final body = await _readAndValidateSqlBody(request);
+    if (body == null) {
       return;
     }
+    // Explain plans never feed into perf analysis, so the isInternal flag
+    // on the body is intentionally ignored here — the explain query runs
+    // through the normal instrumented path regardless.
     final res = request.response;
-    final result = await explainSqlResult(query, sql);
+    final result = await explainSqlResult(query, body.sql);
     _ctx.setJsonHeaders(res);
     if (result.containsKey(ServerConstants.jsonKeyError)) {
       res.statusCode = HttpStatus.internalServerError;
@@ -192,9 +212,14 @@ final class SqlHandler {
   }
 
   /// Reads, parses, and validates a POST SQL request body. Returns the
-  /// validated read-only SQL string, or null if validation failed (error
-  /// response already sent and closed).
-  Future<String?> _readAndValidateSqlBody(HttpRequest request) async {
+  /// validated [SqlRequestBody] (sql + isInternal tag), or null if validation
+  /// failed (error response already sent and closed).
+  ///
+  /// Returns the full body rather than just the sql string so callers can
+  /// see the `internal` flag — needed to route extension-owned probes
+  /// through [ServerContext.internalQuery] and keep their timings out of
+  /// slow-query / perf-regression diagnostics.
+  Future<SqlRequestBody?> _readAndValidateSqlBody(HttpRequest request) async {
     final res = request.response;
     String body;
     try {
@@ -242,7 +267,7 @@ final class SqlHandler {
       await res.close();
       return null;
     }
-    return sql;
+    return bodyObj;
   }
 
   /// Handles query execution errors with reduced noise for
