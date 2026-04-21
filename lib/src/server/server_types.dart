@@ -82,8 +82,33 @@ class QueryTiming {
 }
 
 /// Validated POST /api/sql request body (prefer_extension_type_for_wrapper, require_api_response_validation).
-extension type SqlRequestBody(String sql) implements Object {
+///
+/// Wraps a record so the extension type can carry the optional
+/// `isInternal` tag alongside the sql string without losing the
+/// prefer_extension_type_for_wrapper lint compliance.
+extension type SqlRequestBody._(({String sql, bool isInternal}) _fields)
+    implements Object {
+  /// Public ctor: preserves the original positional `sql`-only form used by
+  /// callers and tests. `isInternal` defaults to false — set it only for
+  /// extension-owned diagnostic probes.
+  SqlRequestBody(String sql, {bool isInternal = false})
+    : this._((sql: sql, isInternal: isInternal));
+
+  /// Trimmed sql string.
+  String get sql => _fields.sql;
+
+  /// True when the request came from an extension-owned diagnostic probe.
+  /// Propagated into the recorded [QueryTiming.isInternal] so the extension's
+  /// own scans are excluded from slow-query / perf-regression analysis.
+  bool get isInternal => _fields.isInternal;
+
   /// Validates shape and returns null on invalid (require_api_response_validation).
+  ///
+  /// Accepts a legacy body `{"sql": "..."}` as well as the newer
+  /// `{"sql": "...", "internal": true}` form. Only literal `true` enables
+  /// the internal flag — any other type (including `"1"`, `1`, `"true"`) is
+  /// rejected as false. This keeps the boundary strict: the internal tag is
+  /// extension-controlled and must not be toggled by arbitrary JSON shapes.
   static SqlRequestBody? fromJson(Object? decoded) {
     if (decoded is! Map<String, dynamic>) {
       return null;
@@ -96,6 +121,8 @@ extension type SqlRequestBody(String sql) implements Object {
     if (trimmedSql.isEmpty) {
       return null;
     }
-    return SqlRequestBody(trimmedSql);
+    final rawInternal = decoded[ServerConstants.jsonKeyInternal];
+    final isInternal = rawInternal == true;
+    return SqlRequestBody(trimmedSql, isInternal: isInternal);
   }
 }

@@ -247,6 +247,31 @@ describe('detectRegressions', () => {
     const result = detectRegressions(data, store, 2.0);
     assert.strictEqual(result.length, 0);
   });
+
+  it('should skip isInternal=true queries (extension-owned probes)', () => {
+    // Regression test for
+    // BUG_perf_regression_false_positives_from_data_quality_probes.md:
+    // without this filter every debug session fires a false-positive
+    // warning comparing the extension's own null-count probe to a
+    // baseline captured from a prior run of the probe itself.
+    store.record(
+      'select sum(case when "id" is null then ? else ? end) as ?, ? from ?',
+      6,
+    );
+
+    const data = makeData([
+      {
+        sql: 'SELECT SUM(CASE WHEN "id" IS NULL THEN 1 ELSE 0 END) AS "id_nulls", COUNT(*) FROM "affirmations"',
+        durationMs: 55,
+        rowCount: 1,
+        at: '',
+        isInternal: true,
+      },
+    ]);
+    const result = detectRegressions(data, store, 2.0);
+    assert.strictEqual(result.length, 0,
+      'extension-owned probes must never trigger regression warnings');
+  });
 });
 
 describe('recordSessionBaselines', () => {

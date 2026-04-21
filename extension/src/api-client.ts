@@ -150,9 +150,24 @@ export class DriftApiClient {
     return http.httpMutations(this._baseUrl, this._headers(), since);
   }
 
-  async sql(query: string): Promise<{ columns: string[]; rows: unknown[][] }> {
-    if (this._vmClient?.connected) return this._vmClient.runSql(query);
-    return http.httpSql(this._baseUrl, this._headers(), query);
+  /**
+   * Runs read-only SQL.
+   *
+   * Pass `{ internal: true }` for extension-owned diagnostic probes
+   * (null-count scans, health-metrics aggregates, change-detection
+   * queries). The server tags the timing record with `isInternal`
+   * so it is excluded from slow-query diagnostics and perf-regression
+   * detection — preventing a feedback loop where the extension's own
+   * overhead is reported as an application performance problem. See
+   * BUG_perf_regression_false_positives_from_data_quality_probes.md.
+   */
+  async sql(
+    query: string,
+    opts?: { internal?: boolean },
+  ): Promise<{ columns: string[]; rows: unknown[][] }> {
+    const internal = opts?.internal === true;
+    if (this._vmClient?.connected) return this._vmClient.runSql(query, { internal });
+    return http.httpSql(this._baseUrl, this._headers(), query, { internal });
   }
 
   /**

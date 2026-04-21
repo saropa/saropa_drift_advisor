@@ -182,7 +182,14 @@ export class DataQualityProvider implements IDiagnosticProvider {
     const sql = `SELECT ${nullExprs.join(', ')} FROM "${this._escapeSql(table.name)}"`;
 
     try {
-      const result = await ctx.client.sql(sql);
+      // Mark as internal: this is an extension-owned diagnostic probe, not
+      // an app query. Without the flag the server records it in the normal
+      // perf pool, and `detectRegressions` then compares the probe's
+      // current-session duration against a baseline captured from a prior
+      // run of the probe itself — a feedback loop that produces one false
+      // regression warning per probed table, every debug session. See
+      // BUG_perf_regression_false_positives_from_data_quality_probes.md.
+      const result = await ctx.client.sql(sql, { internal: true });
       if (result.rows.length > 0) {
         const row = result.rows[0];
         for (let i = 0; i < table.columns.length; i++) {

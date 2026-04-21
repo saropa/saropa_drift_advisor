@@ -61,16 +61,29 @@ export async function httpMutations(
   return { events, cursor };
 }
 
-/** Run SQL. */
+/**
+ * Run SQL.
+ *
+ * When `opts.internal` is true, the request body carries `internal: true`
+ * so the server tags the timing record as extension-owned. Omitting the
+ * option (the normal case) preserves the existing wire format — the
+ * server still records the query as `isInternal: false`.
+ */
 export async function httpSql(
   baseUrl: string,
   headers: ApiHeaders,
   query: string,
+  opts?: { internal?: boolean },
 ): Promise<{ columns: string[]; rows: unknown[][] }> {
+  // Only emit the `internal` key when explicitly set. Older servers
+  // that predate this flag simply ignore unknown keys, and avoiding
+  // the key when false keeps the wire payload identical to v3.3.3.
+  const body: Record<string, unknown> = { sql: query };
+  if (opts?.internal === true) body.internal = true;
   const resp = await fetchWithRetry(`${baseUrl}/api/sql`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sql: query }),
+    body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`SQL query failed: ${resp.status}`);
   return resp.json() as Promise<{ columns: string[]; rows: unknown[][] }>;

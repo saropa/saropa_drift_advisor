@@ -143,7 +143,13 @@ export function registerDebugCommandsPerf(
               const results = new Map<string, unknown[][]>();
               for (const query of queries) {
                 try {
-                  const r = await client.sql(query.sql);
+                  // Column profiling fires a burst of aggregate queries
+                  // (histogram, outliers, numeric stats, …) that are all
+                  // extension-owned, not app traffic. Tag internal so
+                  // these scans stay out of slow-query / perf-regression
+                  // analysis — same fix as the data-quality null-count
+                  // probes.
+                  const r = await client.sql(query.sql, { internal: true });
                   results.set(query.name, r.rows);
                 } catch {
                   // Skip failed queries gracefully

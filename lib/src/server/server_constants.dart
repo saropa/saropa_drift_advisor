@@ -147,6 +147,15 @@ abstract final class ServerConstants {
   static const String jsonKeyRows = 'rows';
   static const String jsonKeySql = 'sql';
 
+  /// JSON body field on POST /api/sql (and the VM-service `runSql` params map):
+  /// when `true`/`"1"` the request is tagged as an extension-owned diagnostic
+  /// probe (e.g. null-count scan, health-metrics aggregate) and its timing
+  /// record is stamped with `isInternal: true`. Optional — defaults to false
+  /// so the wire format stays identical for clients that predate the flag.
+  /// Added to fix the perf-regression-false-positive feedback loop where the
+  /// extension's own probes were compared to baselines of themselves.
+  static const String jsonKeyInternal = 'internal';
+
   /// JSON body field: list of single-statement SQL strings (POST /api/edits/apply).
   static const String jsonKeyStatements = 'statements';
   static const String jsonKeyCount = 'count';

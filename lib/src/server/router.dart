@@ -9,7 +9,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
+// Relative import: this file is inside saropa_drift_advisor, so a
+// self-referential package URI trips depend_on_referenced_packages.
+import '../drift_debug_session.dart';
 
 import 'analytics_handler.dart';
 import 'auth_handler.dart';
@@ -778,8 +780,16 @@ final class Router {
       );
 
   /// Runs read-only SQL for VM service RPC runSql.
-  Future<Map<String, dynamic>> runSqlResult(String sql) =>
-      _sql.runSqlResult(_ctx.instrumentedQuery, sql);
+  ///
+  /// When [isInternal] is true the query is recorded as extension-owned
+  /// (see [SqlHandler.runSqlResult]). Used when the VM service client
+  /// sends the internal flag for diagnostic probes (null-count scans,
+  /// health-metrics aggregates) — keeps those timings out of user-facing
+  /// slow-query and perf-regression analysis.
+  Future<Map<String, dynamic>> runSqlResult(
+    String sql, {
+    bool isInternal = false,
+  }) => _sql.runSqlResult(_ctx.instrumentedQuery, sql, isInternal: isInternal);
 
   /// Applies validated pending-edit statements (same rules as POST /api/edits/apply).
   Future<void> applyEditsBatchStatements(List<String> statements) =>

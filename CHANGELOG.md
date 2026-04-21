@@ -36,6 +36,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Perf-regression false positives from the extension's own diagnostic probes** — every debug session ended with a warning of the shape *"Drift: 14 query regression(s) detected: SELECT SUM(CASE WHEN "id" IS NULL THEN …): 55ms vs baseline 6ms (9.17x)"* even when the app's own queries were unchanged. The SQL was not written by the user at all — it was the extension's own null-count scan from `DataQualityProvider`, `scoreNullDensity` in health metrics, and the column profiler, running over tables whose row counts differed from the prior session. The regression detector was comparing these probes against baselines it had captured from itself on a prior run, producing one false warning per probed table per session. The `sql()` client now accepts `{ internal: true }` and plumbs it through POST `/api/sql` (and the VM-service `runSql` RPC) so the server tags those timings as `isInternal: true`; `detectRegressions` skips internal entries in both the compare pass and the baseline-recording pass so internal probes neither fire false warnings nor poison future baselines. Raising `driftViewer.perfRegression.threshold` no longer required as a workaround
+
+---
+
 ## [3.3.3]
 
 ### Removed

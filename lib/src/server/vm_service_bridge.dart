@@ -125,11 +125,12 @@ abstract final class VmServiceBridge {
   ) async {
     final router = _router;
     if (router == null) {
-      return Future<developer.ServiceExtensionResponse>.value(
-        developer.ServiceExtensionResponse.error(
-          developer.ServiceExtensionResponse.extensionErrorMin,
-          'Drift server not running',
-        ),
+      // Async function auto-wraps the response in a Future; an explicit
+      // Future.value() wrapper would trip prefer_return_await and obscure
+      // the error path. Return the value directly.
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        'Drift server not running',
       );
     }
 
@@ -156,11 +157,12 @@ abstract final class VmServiceBridge {
       final body = <String, dynamic>{ServerConstants.jsonKeyTables: tables};
       return developer.ServiceExtensionResponse.result(jsonEncode(body));
     } on Object catch (e) {
-      return Future<developer.ServiceExtensionResponse>.value(
-        developer.ServiceExtensionResponse.error(
-          developer.ServiceExtensionResponse.extensionErrorMin,
-          e.toString(),
-        ),
+      // Same rationale as the null-router branch above: async wraps the
+      // result automatically, so a Future.value() wrapper is both noise
+      // and a prefer_return_await trigger.
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        e.toString(),
       );
     }
   }
@@ -212,8 +214,14 @@ abstract final class VmServiceBridge {
         ServerConstants.errorMissingSql,
       );
     }
+    // VM-service params are flat strings — the client sends "1" for the
+    // internal flag (see apiRunSql in extension/src/transport/vm-service-api.ts).
+    // Anything else (absent, "0", "false", ...) is treated as a normal app
+    // query. Literal "1" is the only accepted truthy value so arbitrary
+    // callers can't opportunistically silence their own slow queries.
+    final isInternal = params[ServerConstants.jsonKeyInternal] == '1';
     try {
-      final result = await router.runSqlResult(sql);
+      final result = await router.runSqlResult(sql, isInternal: isInternal);
       return developer.ServiceExtensionResponse.result(jsonEncode(result));
     } on Object catch (e) {
       return developer.ServiceExtensionResponse.error(

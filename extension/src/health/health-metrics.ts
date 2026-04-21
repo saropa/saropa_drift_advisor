@@ -121,8 +121,12 @@ export async function scoreNullDensity(
     const nullExprs = table.columns.map(
       (c) => `SUM(CASE WHEN "${sqlId(c.name)}" IS NULL THEN 1 ELSE 0 END)`,
     );
+    // Mark as internal: this is a health-score null-density probe, not an
+    // app query. Same feedback-loop problem as the data-quality null-count
+    // scan — see BUG_perf_regression_false_positives_from_data_quality_probes.md.
     const result = await client.sql(
       `SELECT COUNT(*) AS total, ${nullExprs.join(', ')} FROM "${sqlId(table.name)}"`,
+      { internal: true },
     );
     const row = result.rows[0];
     if (!row) continue;
