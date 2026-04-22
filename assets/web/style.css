@@ -700,7 +700,11 @@ body.theme-light .header-pill.live {
   /* Extra right padding so text doesn't overlap the pin button */
   padding-right: 2rem;
   border-radius: var(--radius-sm);
-  color: var(--link);
+  /* Name color swapped to --muted per user feedback: --link rendered dimmer
+     than --muted against the sidebar background in dark themes, so the count
+     (--muted) visually dominated the name. Colors are swapped between name
+     and count below so the name — the primary content — wins the eye. */
+  color: var(--muted);
   text-decoration: none;
   font-size: var(--text-sm);
   line-height: 1.4;
@@ -716,13 +720,15 @@ body.theme-light .header-pill.live {
   white-space: nowrap;
 }
 
-/* Row count: grey, right-aligned, tabular digits (not link-colored) */
+/* Row count: right-aligned, tabular digits. Color swapped to --link so the
+   count sits back visually while the name (--muted) reads as primary. Count
+   is inside the row's <a>, so the link color doesn't invent a new affordance. */
 .table-link-count {
   flex-shrink: 0;
   margin-left: 0.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  color: var(--link);
 }
 
 .table-list a:hover {
@@ -743,8 +749,12 @@ body.theme-light .header-pill.live {
 }
 
 /* Pin button: absolutely positioned so it overlays the right side of each
-   table link. Visible at low opacity at rest (SB2) so it's discoverable.
-   Old style was opacity: 0 — completely invisible until hover. */
+   table link. Hidden at rest for unpinned rows — users asked for a cleaner
+   list with the unpin affordance appearing only on row hover. Pinned rows
+   keep the icon visible at all times (see .table-pin-btn.pinned below) so
+   the pinned state remains readable without hovering. Touch devices and
+   keyboard focus force the icon visible (see overrides below) since hover
+   isn't available to them. */
 .table-pin-btn {
   position: absolute;
   right: 0.25rem;
@@ -756,9 +766,9 @@ body.theme-light .header-pill.live {
   padding: 0.25rem;
   border-radius: var(--radius-sm);
   color: var(--muted);
-  /* Visible at rest (SB2): low opacity so it's discoverable without
-   * dominating the row visually. */
-  opacity: 0.3;
+  /* Hidden at rest (unpinned). Row-hover / focus / pinned / touch rules
+     below re-reveal it in the contexts where it must be reachable. */
+  opacity: 0;
   transition: opacity 0.15s ease, color 0.15s ease;
   line-height: 1;
   display: flex;
@@ -804,7 +814,10 @@ body.theme-light .header-pill.live {
   }
 }
 /* --- History sidebar (right-side panel) --- */
-/* Heading: uppercase label with collapsible chevron. */
+/* Heading: plain uppercase label. Collapse is handled by the
+ * #tb-history-toggle toolbar icon, mirroring how #tb-sidebar-toggle
+ * collapses the tables sidebar — so no per-heading chevron/button
+ * toggle is needed (was confusing to have two collapse affordances). */
 .history-heading {
   font-size: var(--text-xs);
   font-weight: 600;
@@ -812,43 +825,9 @@ body.theme-light .header-pill.live {
   letter-spacing: 0.05em;
   color: var(--muted);
   margin: 0 0 0.5rem;
-  padding: 0;
-}
-
-.history-heading button {
-  all: unset;
+  padding: 0.25rem 0;
   display: flex;
   align-items: center;
-  width: 100%;
-  font: inherit;
-  color: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-  user-select: none;
-  padding: 0.25rem 0;
-}
-
-/* Chevron indicator — collapses inline when section is collapsed. */
-.history-heading button::after {
-  content: "▼"; /* ▼ down-pointing triangle (expanded) */
-  display: inline-block;
-  margin-left: auto;
-  font-size: 0.75em;
-  transition: transform 0.15s ease;
-}
-
-.history-heading button[aria-expanded=false]::after {
-  transform: rotate(-90deg);
-}
-
-.history-heading button:hover {
-  color: var(--link);
-}
-
-.history-heading button:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 2px;
 }
 
 /* Inline count badge next to the heading text. */
@@ -1365,19 +1344,41 @@ body.theme-showcase .tables-browse-card:hover {
 
 /* Tools toolbar removed: all tool buttons now live in the hamburger menu.
  * See _hamburger-menu.scss for the replacement styles. */
-/* --- Tab bar: real tab look with active indicator and visual weight ---
- * Active tab gets a colored top accent bar and stronger visual treatment
- * so the user can instantly see which tab is focused. */
+/* --- Tab bar: row that sits directly below #toolbar-bar and holds only
+ * the user's currently-opened tabs (tool tabs and per-table tabs). The
+ * toolbar icons used to share this row with three "fixed" Tables/Search/
+ * Run SQL tabs; those are now toolbar icons, so this row is purely for
+ * closeable tabs opened on demand.
+ *
+ * Empty state: the row renders with its min-height so the layout does
+ * not jump when the first tab is opened. --- */
 #tab-bar.tab-bar {
   display: flex;
   align-items: stretch;
   gap: 0;
   margin: 0;
-  padding: 0 var(--space-2) 0 0;
+  padding: 0 var(--space-2) 0 var(--space-2);
   min-height: 2.75rem;
   border-bottom: 1px solid var(--border);
   background: var(--header-bg);
   flex-wrap: wrap;
+  /* Sit below the toolbar's stacking context so the theme flyout from
+   * the row above overlaps tabs (z-index 5000 on `.tb-flyout`). */
+  position: relative;
+  z-index: 1;
+}
+
+/* Hint text when no tabs are open yet — the Tables toolbar icon launches
+ * a tab, and this message points the user at it. Shown only when the
+ * row has no `.tab-btn` children. */
+#tab-bar.tab-bar:empty::before {
+  content: "No tabs open —click an icon above (Tables, Search, Run SQLu2026) to open one.";
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-style: italic;
+  padding: 0 0.5rem;
 }
 
 .tab-bar .tab-btn {
@@ -1863,6 +1864,35 @@ pre {
   color: var(--fg);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
+}
+
+/* Dim the dropdown when the user hasn't picked anything yet. The
+   placeholder entries for Saved queries, Recent, Table, Fields all use
+   value="" so this single rule covers them. Using option:checked (not
+   the static [selected] attribute) binds this to the live selection,
+   so the dim state clears the moment the user picks a real value and
+   re-applies if they return to the placeholder. Example states the
+   rule targets: "— Saved queries —", "— Recent —", "— Table —". */
+.sql-runner select:has(option[value=""]:checked) {
+  opacity: 0.55;
+}
+
+/* Icon + text buttons in the SQL toolbar: align the Material Symbols
+   glyph with the label text so icons don't baseline-shift the text. */
+.sql-runner .sql-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.sql-runner .sql-toolbar button .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* Run button gets its own row directly beneath the editor.
+   Left-aligned inside that row and visually emphasized so it stands
+   out as the primary action for the query body just above. */
+.sql-run-toolbar {
+  justify-content: flex-start;
 }
 
 .sql-runner textarea {
@@ -3408,12 +3438,43 @@ body.has-connection-banner {
   animation: reconnect-pulse 1.5s ease-in-out infinite;
 }
 
-/* --- Inline toolbar: icon buttons integrated into the tab bar row --- */
-/* Icon buttons in the tab bar (tool launchers, sidebar toggles). */
+/* --- Top toolbar row: dedicated strip that holds every icon-only action
+ * button (sidebar toggles, tool launchers, theme flyout, share…).
+ * It used to share a single row with the open-tab list, which meant new
+ * tabs shoved the icons around when many tables were open. Splitting the
+ * two rows keeps the toolbar stable and gives the tab list its own space
+ * directly underneath (`#tab-bar`). --- */
+#toolbar-bar.toolbar-bar {
+  display: flex;
+  /* Center vertically so 2rem icons are not top-aligned in a taller row;
+   * this used to be `stretch` on the combined tab bar, which left icons
+   * hugging the top edge beside the 2.75rem tab buttons. */
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0.35rem var(--space-2) 0.35rem 0;
+  min-height: 2.5rem;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  /* Keep the theme flyout's dropdown unclipped when it hangs below. */
+  overflow: visible;
+  position: relative;
+  /* Toolbar sits above the tab row below it so the flyout menu overlaps
+   * tabs cleanly. */
+  z-index: 3;
+}
+
+/* Icon buttons used in both the toolbar row and (where applicable) the
+ * tab bar. */
 .tb-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Explicitly center the item on the cross axis — belt-and-braces with
+   * the parent `align-items: center`, and protects us if the button is
+   * reused inside a row that still uses `stretch`. */
+  align-self: center;
   width: 2rem;
   height: 2rem;
   padding: 0;
@@ -3487,9 +3548,18 @@ body.has-connection-banner {
   /* Open downward from the button, right-aligned so it doesn't overflow. */
   top: 100%;
   right: 0;
-  z-index: 200;
+  /* z-index must sit above the tab panel chrome (border + bg) that starts
+   * directly beneath the tab bar; 200 was getting covered in some themes
+   * because the tab panels establish their own stacking via
+   * backdrop-filter. 5000 keeps us above tab panels but below full-screen
+   * overlays (modal dialogs use 10000+). */
+  z-index: 5000;
   min-width: 140px;
   padding: 0.25rem 0;
+  /* Force an opaque fallback: translucent theme overrides (showcase /
+   * midnight) made the flyout read as "the menu underneath the other"
+   * because the tab bar bled through. Opaque base keeps the menu
+   * readable; theme-specific overrides below can still tint it. */
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -3543,14 +3613,18 @@ body.theme-dark .tb-flyout {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
+/* Showcase/midnight keep a subtle blur/tint but must stay opaque enough
+ * that the tab bar icons do not read through the menu — a 0.15 alpha
+ * was too transparent and made the flyout look like "a menu underneath
+ * another menu". 0.92 alpha retains the glassy look without ghosting. */
 body.theme-showcase .tb-flyout,
 body.theme-midnight .tb-flyout {
   backdrop-filter: blur(16px) saturate(1.4);
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.92);
 }
 
 body.theme-midnight .tb-flyout {
-  background: rgba(10, 10, 30, 0.7);
+  background: rgba(10, 10, 30, 0.92);
 }
 
 /* --- Responsive: hide dividers on very narrow viewports --- */

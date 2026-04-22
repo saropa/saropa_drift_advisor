@@ -335,15 +335,16 @@ abstract final class HtmlContent {
       <select id="sql-fields" multiple title="Hold Ctrl/Cmd to pick multiple"><option value="">—</option></select>
       <button type="button" id="sql-template-lock" class="sql-lock-btn locked" title="Lock: auto-apply template when table or fields change"><span class="material-symbols-outlined" aria-hidden="true">lock</span></button>
       <button type="button" id="sql-apply-template" title="Insert template query into editor"><span class="material-symbols-outlined" aria-hidden="true">post_add</span> Apply template</button>
-      <!-- "Recent" (no colon): label renamed from "History:" to match
-           the adjacent "— Recent —" dropdown, and the trailing colon
-           was removed. With a colon, the eye expects a value directly
-           after it; the dropdown's em-dash placeholder reads as empty
-           at a glance, so "History:" / "Recent:" looked like an error
-           state. Keeping just "Recent" turns the label into a prefix
-           descriptor that no longer demands a following value. -->
-      <label for="sql-history">Recent</label>
-      <select id="sql-history" title="Recent queries — select to reuse"><option value="">— Recent —</option></select>
+      <!-- History toggle (replaces the old "Recent" label + select).
+           A dropdown read as a form control — the em-dash placeholder
+           looked like an empty value — and duplicated the History
+           sidebar, which after the click-to-open-Run-SQL fix is a
+           strict superset (full SQL, duration, rows, timestamp, source
+           badge). Collapsing both affordances into this single icon
+           button eliminates the "nothing after the label" problem AND
+           the data duplication. Button toggles #history-sidebar
+           visibility, matching the toolbar-level #tb-history-toggle. -->
+      <button type="button" id="sql-history-toggle" title="Show recent queries in the History sidebar" aria-label="Show recent queries"><span class="material-symbols-outlined" aria-hidden="true">history</span></button>
     </div>
     <div class="sql-toolbar" style="margin-top:0;">
       <label for="sql-bookmarks">Saved queries:</label>

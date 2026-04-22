@@ -5,8 +5,8 @@
 import * as S from './state.ts';
 import { esc, setButtonBusy } from './utils.ts';
 import { switchTab } from './tabs.ts';
-import { loadSqlHistory, pushSqlHistory, refreshHistoryDropdown, loadBookmarks, refreshBookmarksDropdown, addBookmark, deleteBookmark, exportBookmarks, importBookmarks, bindDropdownToInput } from './sql-history.ts';
-import { fetchHistory } from './history-sidebar.ts';
+import { loadSqlHistory, pushSqlHistory, loadBookmarks, refreshBookmarksDropdown, addBookmark, deleteBookmark, exportBookmarks, importBookmarks, bindDropdownToInput } from './sql-history.ts';
+import { fetchHistory, togglePanelCollapsed as toggleHistorySidebar } from './history-sidebar.ts';
 import { buildTableStatusBar } from './table-view.ts';
 
 export function initSqlRunner(): void {
@@ -16,7 +16,10 @@ export function initSqlRunner(): void {
   const lockBtn = document.getElementById('sql-template-lock') as HTMLButtonElement | null;
   const applyBtn = document.getElementById('sql-apply-template') as HTMLButtonElement | null;
   const runBtn = document.getElementById('sql-run') as HTMLButtonElement | null;
-  const historySel = document.getElementById('sql-history') as HTMLSelectElement | null;
+  // History toggle: icon button that opens the History sidebar. Replaces
+  // the old #sql-history <select> + "Recent" label, which duplicated data
+  // the sidebar already shows and looked empty when nothing was picked.
+  const historyToggleBtn = document.getElementById('sql-history-toggle') as HTMLButtonElement | null;
   const formatSel = document.getElementById('sql-result-format') as HTMLSelectElement | null;
   const inputEl = document.getElementById('sql-input') as HTMLTextAreaElement | null;
   const errorEl = document.getElementById('sql-error') as HTMLElement | null;
@@ -32,11 +35,13 @@ export function initSqlRunner(): void {
   const bookmarkExportBtn = document.getElementById('sql-bookmark-export');
   const bookmarkImportBtn = document.getElementById('sql-bookmark-import');
   loadSqlHistory();
-  refreshHistoryDropdown(historySel);
   loadBookmarks();
   refreshBookmarksDropdown(bookmarksSel);
-  bindDropdownToInput(historySel, S.sqlHistory, inputEl);
   bindDropdownToInput(bookmarksSel, S.sqlBookmarks, inputEl);
+  // Wire the history-toggle icon button to open/close the History sidebar.
+  // Same behavior as the toolbar-level #tb-history-toggle — we intentionally
+  // share the toggle function so both controls stay in sync.
+  if (historyToggleBtn) historyToggleBtn.addEventListener('click', toggleHistorySidebar);
   if (bookmarkSaveBtn) bookmarkSaveBtn.addEventListener('click', function() { addBookmark(inputEl, bookmarksSel); });
   if (bookmarkDeleteBtn) bookmarkDeleteBtn.addEventListener('click', function() { deleteBookmark(bookmarksSel); });
   if (bookmarkExportBtn) bookmarkExportBtn.addEventListener('click', exportBookmarks);
@@ -410,7 +415,6 @@ export function initSqlRunner(): void {
             if (cc) cc.style.display = 'none';
           }
           pushSqlHistory(sql, rows.length);
-          refreshHistoryDropdown(historySel);
           // Refresh the History sidebar so the new entry appears immediately.
           fetchHistory();
         })

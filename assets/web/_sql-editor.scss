@@ -44,6 +44,33 @@
   font-size: var(--text-sm);
 }
 
+/* Dim the dropdown when the user hasn't picked anything yet. The
+   placeholder entries for Saved queries, Recent, Table, Fields all use
+   value="" so this single rule covers them. Using option:checked (not
+   the static [selected] attribute) binds this to the live selection,
+   so the dim state clears the moment the user picks a real value and
+   re-applies if they return to the placeholder. Example states the
+   rule targets: "— Saved queries —", "— Recent —", "— Table —". */
+.sql-runner select:has(option[value=""]:checked) {
+  opacity: 0.55;
+}
+
+/* Icon + text buttons in the SQL toolbar: align the Material Symbols
+   glyph with the label text so icons don't baseline-shift the text. */
+.sql-runner .sql-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  .material-symbols-outlined { font-size: 18px; }
+}
+
+/* Run button gets its own row directly beneath the editor.
+   Left-aligned inside that row and visually emphasized so it stands
+   out as the primary action for the query body just above. */
+.sql-run-toolbar {
+  justify-content: flex-start;
+}
+
 .sql-runner textarea {
   width: 100%;
   min-height: 5rem;
