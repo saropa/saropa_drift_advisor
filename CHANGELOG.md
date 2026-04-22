@@ -36,6 +36,24 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Anomaly false positive on `lastModified` / `last_seen` / `last_accessed` style timestamp columns** — the data-quality scanner was firing a *"Potential outlier in \<table\>.last_modified: max value … is 4.1σ from mean …"* on any Drift table whose `DateTimeColumn get lastModified` had been written to a few times within the same day. The prior skip pattern covered `^created` / `^updated` / `^deleted` / `^modified` prefixes but nothing starting with `last_`, so Drift's canonical `lastModified` (serialized as `last_modified` in SQLite) fell straight through to the 3σ check. On a ~17-hour window σ is tiny by construction and the newest write always sits many σ above the mean — the "outlier" is just "the row we just wrote." The timestamp-skip pattern in `AnomalyDetector._detectNumericOutliers` now matches `last_modified`, `last_seen`, `last_accessed`, `last_used`, `last_sync`/`last_synced`, `last_refresh`/`last_refreshed`, `last_login`/`last_logout`, `last_activity`/`last_active`, `last_read`/`last_written`, `last_opened`/`last_viewed`/`last_played`, `last_fetch`/`last_fetched`, `last_heartbeat`/`last_ping`, `last_visit`/`last_visited`, `last_check`/`last_checked`, `last_poll`/`last_polled`, `last_scan`/`last_scanned` — in both snake_case and camelCase, without widening to generic `^last_.*` (which would have swallowed `last_name` / `last_ip`). Reported in [plans/history/2026.04/2026.04.22/BUG_anomaly_false_positive_tight_timestamp_range.md](plans/history/2026.04/2026.04.22/BUG_anomaly_false_positive_tight_timestamp_range.md)
+- **Potential outlier diagnostic now reports sample size** — the message now ends with `n=<sampleCount>` (e.g. *"… (range [1.0, 999.0], n=37)"*) alongside the existing min/mean/max/σ numbers. The minimum sample-size guard (`n ≥ 30`) filters the worst low-`n` false positives, but sigma estimates are still wide between ~30 and ~100 samples and the reader has no way to tell how big the n actually is from the old message. Surfacing it lets "4.1σ at n=35" be treated as weaker evidence than the same value at n=5000 without having to go query the table. Covers suggested fix #5 in the same bug report
+- **Duplicate anomaly diagnostics — same warning shown twice on the same column** — every anomaly from the Dart data-quality scanner (null counts, empty strings, potential outliers, orphaned FKs) was being published through two separate VS Code `DiagnosticCollection`s inside the extension: the legacy `drift-linter` collection (via `src/linter/schema-diagnostics.ts` → `mergeServerIssues` → column-declaration line) and the newer `drift-advisor` collection (via `src/diagnostics/providers/schema-provider.ts` → `checkAnomalies` → class-declaration line). The Problems panel showed two entries per anomaly with different owners and different line numbers for the same underlying issue — one on the `class Foo extends Table` header, one on the `DateTimeColumn get bar => …` getter — which is exactly the "two diagnostics on the same file for the same underlying statistic" reported in the bug. Two changes: (1) the legacy linter path no longer fetches or republishes `client.anomalies()` — it only handles index suggestions now, so there is a single anomaly emitter; (2) the remaining emitter (`checkAnomalies`) now parses the column name out of the anomaly message and lands the diagnostic on the column getter, with a fallback to the class header only when the column can't be resolved. Net result: one diagnostic per anomaly, at the column-declaration line, under the `drift-advisor` collection. Reported in [plans/history/2026.04/2026.04.22/BUG_anomaly_false_positive_tight_timestamp_range.md](plans/history/2026.04/2026.04.22/BUG_anomaly_false_positive_tight_timestamp_range.md) (Bug 2 — duplicate emission)
+
+<details>
+<summary>Maintenance</summary>
+
+- **`error_logger.dart`: `// ignore: avoid_print` directives now carry rationales** — the analyzer's `document_ignores` rule was flagging three bare `// ignore: avoid_print` lines in `lib/src/error_logger.dart` (lines 68, 116, 119) as info-level diagnostics. Each directive now appends ` -- intentional console output so logs/errors/stack traces are visible without DevTools`, so future readers see why `print` is deliberate here (structured `developer.log` alone is invisible in the standard Flutter console)
+- **Known remaining duplicate: index suggestions** — a smaller-scope duplicate is still present between the same two pipelines: the legacy linter republishes `client.indexSuggestions()` under the `drift-linter` collection with `code: 'index-suggestion'`, while `src/diagnostics/checkers/index-checker.ts` emits the same issues under `drift-advisor` with `code: 'missing-fk-index'` / `'missing-id-index'`. Because the codes differ, the two show up as distinct problems in the Problems panel (less confusing than the anomaly case, where codes matched) and collapsing them requires migrating the `DriftCodeActionProvider` quick-fixes (`Copy CREATE INDEX SQL`, etc.) into `SchemaProvider.provideCodeActions` so the legacy pipeline can be retired end-to-end. Tracked for a follow-up; not blocking this fix
+
+</details>
+
+---
+
 ## [3.3.5]
 
 Sidebar tables list is easier to read at a glance, clicking a history entry actually takes you to the Run SQL tab, the theme picker is no longer see-through, and the three always-on tools now live as toolbar icons above the tab bar instead of fighting for space with your open tabs. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
@@ -527,6 +545,11 @@ Eliminates false-positive diagnostics across index, FK, empty-table, and anomaly
 • **Anomaly scanner false positives on nullable columns** — `_detectNullValues()` flagged NULLs in columns declared `.nullable()`, producing up to 13 spurious warnings per table. NULL detection now only scans NOT NULL columns, where NULLs indicate genuine constraint violations (data corruption, direct SQL inserts, failed migrations). Severity changed from threshold-based warning/info to always `error`.
 
 • **Web UI blank for pub.dev consumers — CDN fallback silently killed by MIME mismatch** — When the debug server could not find web assets on disk (typical for separate projects using the package from pub.dev), it returned 404 with `Content-Type: text/plain`. Combined with Dart's default `X-Content-Type-Options: nosniff` header, both Firefox and Chrome MIME-blocked the response, which suppressed the `<link>`/`<script>` `onerror` callback. The multi-CDN fallback chain never fired — the page loaded blank with no CSS or JS. The 404 path now uses the expected content type (`text/css` or `application/javascript`) so browsers do not MIME-block it; the 404 status alone triggers `onerror` reliably.
+
+---
+
+## [Unreleased]
+
 
 ---
 
