@@ -14,7 +14,7 @@ import { registerNavCommands } from '../navigation/nav-commands-core';
 import { DriftApiClient } from '../api-client';
 import {
   fakeContext,
-  mockLinter,
+  mockDiagnosticManager,
   mockEditingBridge,
   mockFkNavigator,
   mockFilterBridge,
@@ -58,7 +58,7 @@ describe('Tree-button nav commands — visible output', () => {
     registerNavCommands(
       ctx,
       client,
-      mockLinter(),
+      mockDiagnosticManager(),
       mockEditingBridge(),
       mockFkNavigator(),
       serverManager,

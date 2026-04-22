@@ -43,7 +43,7 @@ linter:
 
 plugins:
   saropa_lints:
-    version: "12.3.2"
+    version: "12.3.4"
     rule_packs:
       enabled:
         - drift
@@ -51,7 +51,7 @@ plugins:
     # SAROPA LINTS CONFIGURATION
     # ═══════════════════════════════════════════════════════════════════
     # Regenerate with: dart run saropa_lints:init --tier recommended
-    # Tier: recommended (770 of 2142 rules enabled)
+    # Tier: recommended (770 of 2143 rules enabled)
     # Lint rules are disabled by default. Set to true to enable.
     # User customizations are preserved unless --reset is used
     #
@@ -248,7 +248,7 @@ plugins:
       avoid_nested_scaffolds: true  # [WARNING] Nested Scaffold widget detected inside another Scaffold. This creates duplicate app bars, floating action buttons, and bottom navigation, leading to broken layout, gesture conflicts, and a confusing user experience. {v5}
       avoid_notification_same_id: true  # [WARNING] Static or hardcoded notification ID causes newer notifications to silently replace older ones using the same identifier. Users will miss important alerts, messages, and time-sensitive updates without any indication that previous notifications were overwritten, leading to lost information and degraded communication reliability. {v3}
       avoid_notification_silent_failure: true  # [WARNING] Notification operation without error handling. Failures will be silent and hard to debug. {v2}
-      avoid_null_assertion: true  # [INFO] Null assertion operator (!) throws a runtime exception if the value is null, crashing the app without a meaningful error message. The resulting _CastError provides no context about which value was null or why, making production crashes difficult to diagnose from error reports alone. {v7}
+      avoid_null_assertion: true  # [INFO] Null assertion operator (!) throws a runtime exception if the value is null, crashing the app without a meaningful error message. The resulting _CastError provides no context about which value was null or why, making production crashes difficult to diagnose from error reports alone. {v8}
       avoid_openai_key_in_code: true  # [ERROR] Hardcoded OpenAI keys are extractable from binaries, enabling API abuse charged to your account. {v2}
       avoid_optional_field_crash: true  # [ERROR] JSON field accessed with direct bracket notation on a Map that may contain null values. When the API response omits an optional field, this direct access throws a runtime exception that crashes the app. Defensive null-aware access with ?[] prevents unexpected null pointer errors and provides graceful handling of incomplete or malformed JSON responses. {v2}
       avoid_overlapping_animations: true  # [WARNING] Multiple animations targeting the same property (e.g., opacity, position, scale) at the same time cause visual jitter, unpredictable results, and confusing UI behavior. Overlapping animations can make transitions hard to follow and degrade user experience, especially for users with cognitive or visual disabilities. {v4}
@@ -688,7 +688,7 @@ plugins:
       prefer_correct_type_name: true  # [WARNING] Type name is not UpperCamelCase. Nonstandard type names reduce code readability and break Dart conventions. Quick fix available: Adds a comment to flag for manual review. {v4}
       prefer_cursor_for_buttons: true  # [INFO] Interactive widget on web/desktop without a pointer cursor leaves the default arrow cursor, giving users no visual indication that the element is clickable. This violates web platform conventions and reduces discoverability of interactive elements, especially for GestureDetector-based custom buttons. {v6}
       prefer_data_masking: true  # [INFO] Unmasked sensitive data visible in UI and screenshots. Sensitive data (SSN, credit cards, passwords) must be partially masked when displayed to prevent shoulder surfing. {v4}
-      prefer_debug_print: true  # [INFO] print() should use debugPrint() for throttled console output. {v1}
+      prefer_debug_print: true  # [INFO] print() should use debugPrint() for throttled console output. {v2}
       prefer_define_hero_tag: true  # [WARNING] Hero widget without an explicit tag defaults to the widget itself, causing conflicts when multiple Hero widgets exist on the same screen. Duplicate tags trigger runtime assertion errors that crash the app during navigation transitions. {v4}
       prefer_delayed_permission_prompt: true  # [WARNING] Permission request detected in main() or initState(). Asking too early reduces acceptance rates. {v2}
       prefer_dispose_before_new_instance: true  # [WARNING] Reassigning without dispose leaks the old instance. Listeners and resources remain active forever. {v4}

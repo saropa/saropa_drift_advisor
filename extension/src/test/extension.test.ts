@@ -62,8 +62,11 @@ describe('Extension activation', () => {
   it('should push expected disposables', () => {
     activate(fakeContext());
     // Providers: treeView, definitionProvider, codeLensProvider, hoverProvider,
-    //   diagnosticCollection, codeActionProvider, fileDecoProvider, taskProvider,
-    //   terminalLinkProvider, timelineProvider (10)
+    //   fileDecoProvider, taskProvider,
+    //   terminalLinkProvider, timelineProvider (8)
+    //   (legacy `drift-linter` DiagnosticCollection + DriftCodeActionProvider
+    //    registration removed — the unified `drift-advisor` collection owned
+    //    by DiagnosticManager subscribes via `extension-diagnostics`)
     // Discovery: discovery, serverManager (2)
     // Lifecycle: watcher, statusBar, perfView, logBridge, 2 debug listeners,
     //   perf cleanup, snapshotStore (8)
@@ -108,7 +111,7 @@ describe('Extension activation', () => {
     // Nav: pauseDiscovery, resumeDiscovery, openConnectionHelp (3)
     // Editing: pendingChangesPersistence debounce, pendingEditsStatusBar (2)
     // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 199, `expected 199 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 197, `expected 197 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

@@ -215,7 +215,7 @@ Two changes:
 
 Net result: one diagnostic per anomaly, at the column-declaration line, under a single collection.
 
-**Known remaining duplicate (not blocking; tracked in CHANGELOG Maintenance).** Index suggestions are still published through both pipelines with *different* codes (`index-suggestion` vs `missing-fk-index` / `missing-id-index`), so the two show as distinct Problems entries rather than the misleading same-code duplicate this bug caught. Retiring the legacy path end-to-end requires migrating `DriftCodeActionProvider`'s quick-fixes into `SchemaProvider.provideCodeActions`.
+**Index-suggestion duplicate (also fixed in the same change set).** The audit that caught the anomaly duplicate turned up a parallel index-suggestion duplicate: same `client.indexSuggestions()` republished under `drift-linter` (`code: 'index-suggestion'`) and `drift-advisor` (`code: 'missing-fk-index'` / `'missing-id-index'`). Initially left as a known residual because the codes differed (less misleading than the anomaly case), but user pushed back and it was closed in the same fix by deleting the legacy pipeline entirely: `extension/src/linter/schema-diagnostics.ts`, `extension/src/linter/issue-mapper.ts`, the `SchemaDiagnostics` class, the `DriftCodeActionProvider`, the `drift-linter` DiagnosticCollection, their test files, and all their call-site wiring are gone. `DiagnosticManager` is now the single diagnostic owner in the extension. The `Copy CREATE INDEX SQL` quick-fix that lived on the legacy provider was already present on `SchemaProvider.provideCodeActions` keyed on the new codes, so no functional regression.
 
 ## Status of the report's "Suggested Fix" menu
 

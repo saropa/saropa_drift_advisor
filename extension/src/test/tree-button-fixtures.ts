@@ -62,9 +62,14 @@ export function mockDiscovery(): any {
   };
 }
 
-/** SchemaDiagnostics stub — refresh() is the only method nav-commands calls. */
-export function mockLinter(): any {
-  return { refresh: sinon.stub() };
+/**
+ * DiagnosticManager stub — nav-commands only exercises `refresh()`
+ * (for the user-triggered `driftViewer.runLinter` command). `refresh()`
+ * returns a Promise in the real implementation so the stub resolves
+ * rather than returning undefined, matching the real signature.
+ */
+export function mockDiagnosticManager(): any {
+  return { refresh: sinon.stub().resolves() };
 }
 
 /** EditingBridge stub — passed through to DriftViewerPanel, never called by nav-commands. */

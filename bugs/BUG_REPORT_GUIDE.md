@@ -99,6 +99,48 @@ If the bug involves CLI commands or background processes, paste the full termina
 
 If there is an error dialog, notification, or stack trace -- copy the full text. Screenshot alone is not enough for stack traces because they need to be searchable.
 
+### 6e. Emitter Attribution
+
+**Required for diagnostic / linter / analyzer bugs.** The `owner`, `code`, and `source` fields in a VS Code diagnostic are labels the emitter chose -- they are **not** attribution. Attribution is the file:line where the diagnostic is constructed and surfaced, proven by grep. Do not infer attribution from labels. If you skip this section, a downstream fix agent can look at a label like `drift-advisor` or `saropa-lints` and guess the bug "belongs to the other repo" -- then punt. This section exists specifically to kill that guess.
+
+#### What to include
+
+For **every** distinct `(owner, code)` pair that appears in the diagnostic payload:
+
+| Field | Example |
+|---|---|
+| `owner` | `drift-advisor` |
+| `code` | `anomaly` |
+| `source` | `Drift Advisor` |
+| Code registered at | `extension/src/diagnostics/codes/schema-codes.ts:101` |
+| Emit site(s) -- list ALL | `extension/src/diagnostics/checkers/anomaly-checker.ts:31` |
+| Grep command used | `` grep -rn "'anomaly'" extension/src/ `` |
+| Sibling-repo negative grep | `` grep -rn "'anomaly'" ../saropa_lints/lib/ `` -> 0 matches |
+
+"Emitter not yet located -- needs investigation" is an acceptable honest answer. "Likely lives in repo X" without a grep is **not** -- if you had time to write the sentence, you had time to run the grep.
+
+#### Duplicate-emission bugs
+
+If two diagnostics in the report carry different `(owner, code)` pairs, enumerate **every** emit site for each one. "Two labels, one repo" is a valid finding, but only if you have pasted the grep that proves both emit sites live in the same tree. Otherwise a fix agent will ship a fix for one path and claim the other is somebody else's problem.
+
+#### Mixed-language repos (this one)
+
+`saropa_drift_advisor` is **both** a Dart analyzer (under `lib/src/`) and a TypeScript VS Code extension (under `extension/src/`). Many diagnostics have a Dart emit path **and** a TypeScript emit path that flag the same underlying condition. When filing a diagnostic bug:
+
+- Grep **both** trees (`lib/src/` **and** `extension/src/`) for the code name.
+- List every match from each tree. A fix that only touches one language path will leave the other emitting the same diagnostic forever.
+- For a duplicate-emission report, assume both language paths are involved until the grep proves otherwise. Do not pick one as "canonical" until you have read both.
+
+#### Cross-repo attribution (only when proven)
+
+If you believe an emitter lives in a sibling Saropa repo (`saropa_lints`, `saropa_dart_utils`, `saropa_kykto`, etc.):
+
+1. Grep the suspected sibling repo for the code name and any related identifiers.
+2. Paste the exact command and the matching `file:line` result.
+3. **Only then** cross-file the bug in that repo.
+
+A sentence like "cross-filed because the rule source lives in `<repo>`" is a factual claim. It requires a grep result to back it up. If you cannot produce one, write "emitter not yet located" instead. Never use repo-name similarity, label similarity, or "sounds like" as a basis for cross-filing.
+
 ---
 
 ## 7. Screenshots and Screen Recordings
@@ -147,6 +189,8 @@ If you know when it last worked:
 - **What changed:** If you can identify a specific update, setting change, or OS update that coincided with the bug appearing.
 
 ---
+
+<!-- cspell:disable journalctl -->
 
 ## 11. Logs and Diagnostics
 
@@ -213,6 +257,19 @@ Copy this and fill it in:
 ## Error Output
 [Console errors, output channel content, stack traces -- full text, not truncated]
 
+## Emitter Attribution (diagnostic / linter / analyzer bugs only)
+For EACH distinct (owner, code) pair in the diagnostic payload -- duplicate this block as needed:
+- owner:
+- code:
+- source:
+- Registered at (file:line):
+- Emit site(s) (file:line -- list ALL):
+- Grep command used:
+- Sibling-repo negative grep (command + result, e.g. `grep -rn '<code>' ../saropa_lints/lib/` -> 0 matches):
+
+For mixed-language repos, grep BOTH `lib/src/` and `extension/src/` and list matches from each.
+If emitter not yet located, write "emitter not yet located -- needs investigation" rather than guessing.
+
 ## Screenshots / Recordings
 [Annotated screenshots or screen recordings]
 
@@ -247,6 +304,11 @@ Copy this and fill it in:
 - [ ] Steps to reproduce start from a clean state and are numbered
 - [ ] Expected vs. actual behavior are both stated explicitly
 - [ ] Error output is full text, not truncated or paraphrased
+- [ ] **Emitter Attribution filled in for every (owner, code) pair** -- file:line for registration AND every emit site, proven by grep commands pasted in the report
+- [ ] **Duplicate-emission bugs enumerate ALL emit sites** in this repo, not just one "canonical" one
+- [ ] **Mixed-language trees grep'd on both sides** -- `lib/src/` AND `extension/src/` -- with matches from each listed
+- [ ] **No cross-repo attribution without a positive grep result pasted** -- no "likely", "probably", "sounds like"
+- [ ] **No sibling-repo deferral without a negative grep result pasted** -- "not in saropa_lints" requires the zero-match grep to prove it
 - [ ] Screenshots are annotated if included
 - [ ] Minimal reproducible example is actually minimal
 - [ ] Checked for existing bug reports covering the same issue
