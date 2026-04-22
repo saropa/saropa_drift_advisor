@@ -5,6 +5,8 @@
 // Architecture: [_DriftDebugServerImpl] creates a [ServerContext] and [Router]
 // on start; the router dispatches to handler classes in lib/src/server/.
 // All DB access goes through [DriftDebugQuery] callbacks only.
+// ignore_for_file: document_ignores
+
 import 'dart:async';
 import 'dart:io';
 
@@ -189,6 +191,7 @@ class _DriftDebugServerImpl {
       maxRequestsPerSecond: maxRequestsPerSecond,
     );
 
+    // cspell:ignore SO_REUSEADDR SO_REUSEPORT
     try {
       final address = loopbackOnly
           ? InternetAddress.loopbackIPv4

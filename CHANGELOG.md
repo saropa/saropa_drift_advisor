@@ -36,7 +36,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [3.3.5]
+
+Sidebar tables list is easier to read at a glance, clicking a history entry actually takes you to the Run SQL tab, the theme picker is no longer see-through, and the three always-on tools now live as toolbar icons above the tab bar instead of fighting for space with your open tabs. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
 
 ### Fixed
 
@@ -56,9 +58,7 @@ browse source on
 - **Run SQL: empty dropdowns are dimmed** — when a dropdown is still on its placeholder entry (“— Saved queries —”, “— Recent —”, “—” for Table / Fields), it now renders at 55% opacity so the eye skips over unused controls and lands on filled ones. The dim lifts automatically the moment you pick a real value
 - **Run SQL: inline “Recent” dropdown replaced with a history icon button** — the old `History:` / `Recent:` label + `<select>` looked like a form input waiting for a value, and the em-dash placeholder read as empty. It also duplicated what the right-hand History sidebar already shows (with more detail: full SQL, duration, rows, timestamp, source badge), which after the previous fix even opens the Run SQL tab on click. The inline dropdown is gone; in its place is a single icon button (Material `history` glyph) that toggles the History sidebar open/closed — same behavior as the toolbar-level history toggle, so both controls stay in sync
 
----
-
-## [3.3.4]
+No more spurious "14 query regression(s) detected" warnings at the end of every debug session — the extension's own diagnostic probes are no longer mistaken for your app's slow queries. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.3.4/CHANGELOG.md)
 
 ### Fixed
 
@@ -77,6 +77,8 @@ browse source on
 
 ## [3.3.3]
 
+Removed the noisy "Drift server not reachable" diagnostic that stuck around whenever your Flutter app wasn't actively running in debug mode — connection state lives in the tree view and panel now, not in your Problems list. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.3.3/CHANGELOG.md)
+
 ### Removed
 - **"Drift server not reachable" diagnostic** — the proactive connection-health check fired whenever your Flutter app wasn't running in debug mode (i.e. most of the time), producing a permanent, low-value Information diagnostic that couldn't be distinguished from real issues. The tree view and panel already reflect live connection state, so the editor diagnostic was noise. Connection state is now surfaced only through the tree view / panel.
 
@@ -92,6 +94,8 @@ browse source on
 
 ## [3.3.2]
 
+The extension sidebar and "Get Started" welcome screen no longer show up in Flutter/Dart projects that don't actually use Drift. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.3.2/CHANGELOG.md)
+
 ### Changed
 - **VS Code minimum version bumped to 1.115.0** — aligns `engines.vscode` with the `@types/vscode` typings to fix `.vsix` packaging errors
 
@@ -102,6 +106,7 @@ browse source on
 
 ## [3.3.1]
 
+Added a real security policy so vulnerabilities can be reported privately through GitHub Security Advisories. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.3.1/CHANGELOG.md)
 
 <details>
 <summary>Maintenance</summary>
@@ -109,10 +114,11 @@ browse source on
 
 </details>
 
-
 ---
 
 ## [3.3.0]
+
+Brand-new Settings panel for persistent preferences, a right-side History sidebar showing every query the server has run, and every tool launcher is now a visible icon in the tab bar instead of buried in a hamburger menu — plus Showcase and Midnight finally got the glassmorphism overhaul they were always supposed to have. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.3.0/CHANGELOG.md)
 
 ### Added
 
@@ -147,6 +153,8 @@ browse source on
 
 ## [3.2.2]
 
+New setting lets you suppress specific diagnostic rules on specific tables, and several false-positive anomaly / slow-query warnings on bounded rating columns and internal probes are gone. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.2.2/CHANGELOG.md)
+
 ### Added
 
 - **Per-table diagnostic suppression** — new `driftViewer.diagnostics.tableExclusions` setting lets users suppress specific diagnostic rules on specific tables while keeping those rules active elsewhere; for example, suppress `no-foreign-keys` on tables that deliberately use UUID soft references without disabling the rule project-wide
@@ -158,6 +166,8 @@ browse source on
 - **Rating/score/percent column skip** — columns matching `rating`, `score`, `percent`, or `pct` are now excluded from sigma-based outlier detection, since bounded-scale data is inherently non-Gaussian
 
 ## [3.2.0]
+
+All ten toolbar buttons and the floating action button are now a single hamburger menu, the SQL editor auto-runs EXPLAIN as you type and shows an index report, and every theme got a beautification pass with consistent tokens, frosted tables, and fewer invisible borders. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.2.0/CHANGELOG.md)
 
 ### Added
 
@@ -222,6 +232,8 @@ browse source on
 
 ## [3.1.1]
 
+Killed 40+ false-positive "add a datetime index" suggestions that fired on every `created_at` and `updated_at` column regardless of whether it was actually being queried. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.1.1/CHANGELOG.md)
+
 ### Fixed
 
 - **Eliminated 40+ false-positive datetime index suggestions** — the blanket heuristic that flagged every `created_at`, `updated_at`, and `_at` column as needing an index has been removed (96% false-positive rate in real projects); legitimate datetime index suggestions are still caught by the evidence-based `unindexed-where-clause` diagnostic
@@ -229,6 +241,8 @@ browse source on
 ---
 
 ## [3.1.0]
+
+Save and compare snapshots for Index Suggestions, Size Analytics, Anomaly Detection, and Health Score — plus fewer noisy diagnostics in multi-root and non-Drift workspaces. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.1.0/CHANGELOG.md)
 
 ### Fixed
 
@@ -248,6 +262,8 @@ browse source on
 ---
 
 ## [3.0.3]
+
+Schema tab no longer gets stuck on "Loading…", "Ask in English" stops crashing on open, and the DB Diff tab shows a proper setup guide instead of raw developer-facing errors. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.3/CHANGELOG.md)
 
 ### Fixed
 
@@ -270,6 +286,8 @@ browse source on
 
 ## [3.0.2]
 
+Stale tables no longer carry over when you switch Flutter projects, and empty databases stop flagging every Dart table class as a "missing table" error. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.2/CHANGELOG.md)
+
 ### Fixed
 
 - **Stale tables persist after project switch** — switching Flutter projects reloaded the webview HTML but localStorage kept pinned tables, nav history, table state, SQL history, bookmarks, and analysis results from the previous project; now detects when the server origin changes and purges all project-specific storage while preserving user preferences (theme, sidebar state)
@@ -289,7 +307,7 @@ browse source on
 
 ## [3.0.1]
 
-Version bump for publication.
+Version bump for publication. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.1/CHANGELOG.md)
 
 ---
 
@@ -513,6 +531,8 @@ Eliminates false-positive diagnostics across index, FK, empty-table, and anomaly
 ---
 
 ## [2.14.2]
+
+Web UI no longer loads blank in Firefox — CSS and JS are inlined directly into the HTML when available, with a fetch-based CDN loader as the fallback instead of the broken `onerror` chain. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.14.2/CHANGELOG.md)
 
 **NOTE:** This changelog version was corrupted - it may not have been deployed
 
