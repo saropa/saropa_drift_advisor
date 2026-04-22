@@ -65,7 +65,7 @@ abstract final class DriftDebugErrorLogger {
         // developer.log alone is invisible in standard Flutter console
         // output, which makes diagnosing asset resolution failures
         // impossible without DevTools.
-        // ignore: avoid_print
+        // ignore: avoid_print -- intentional console output so logs are visible without DevTools
         print(line);
       } on Object catch (e, st) {
         // Defensive: if the logging call fails (e.g. encoding), report it without rethrowing.
@@ -113,10 +113,10 @@ abstract final class DriftDebugErrorLogger {
 
         // Console output so errors are visible without DevTools.
         final String line = '[$name] $error';
-        // ignore: avoid_print
+        // ignore: avoid_print -- intentional console output so errors are visible without DevTools
         print(line);
         if (includeTrace) {
-          // ignore: avoid_print
+          // ignore: avoid_print -- intentional console output so stack traces are visible without DevTools
           print(stack);
         }
       } on Object catch (e, st) {

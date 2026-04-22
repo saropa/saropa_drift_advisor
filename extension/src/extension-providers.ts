@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from './api-client';
 import type { AnnotationStore } from './annotations/annotation-store';
 import { DriftFileDecorationProvider, buildTableFileMap } from './decorations/file-decoration-provider';
-import { DriftCodeActionProvider, SchemaDiagnostics } from './linter/schema-diagnostics';
 import { DriftCodeLensProvider } from './codelens/drift-codelens-provider';
 import { TableNameMapper } from './codelens/table-name-mapper';
 import type { IDiagnosticIssue } from './diagnostics/diagnostic-types';
@@ -32,7 +31,6 @@ export interface ProviderSetupResult {
   hoverProvider: DriftHoverProvider;
   fileDecoProvider: DriftFileDecorationProvider;
   mapper: TableNameMapper;
-  linter: SchemaDiagnostics;
   snapshotStore: SnapshotStore;
   timelineProvider: DriftTimelineProvider;
   watchManager: WatchManager;
@@ -50,7 +48,7 @@ export interface LogCaptureIssuesRef {
 }
 
 /**
- * Register tree view, language providers (definition, codelens, hover), legacy linter,
+ * Register tree view, language providers (definition, codelens, hover),
  * file decorations, timeline, watch manager, data breakpoint provider, task/terminal, log bridge.
  * When issuesRef is provided, the log bridge will include diagnostic issues in session-end meta/sidecar.
  * [isDriftUiConnected] mirrors connection UI state so the Database tree can show real command rows
@@ -117,16 +115,13 @@ export function setupProviders(
     ),
   );
 
-  const diagnosticCollection = vscode.languages.createDiagnosticCollection('drift-linter');
-  context.subscriptions.push(diagnosticCollection);
-  const linter = new SchemaDiagnostics(client, diagnosticCollection);
-  context.subscriptions.push(
-    vscode.languages.registerCodeActionsProvider(
-      { language: 'dart', scheme: 'file' },
-      new DriftCodeActionProvider(),
-      { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
-    ),
-  );
+  // Legacy `drift-linter` diagnostic collection + `SchemaDiagnostics`
+  // + `DriftCodeActionProvider` removed. They were a parallel emission
+  // path for anomalies and index suggestions that duplicated the
+  // `drift-advisor` collection owned by DiagnosticManager. The
+  // `Copy CREATE INDEX SQL` quick-fix they provided now lives on
+  // `SchemaProvider.provideCodeActions` under the new codes
+  // (`missing-fk-index` / `missing-id-index`).
 
   const fileDecoProvider = new DriftFileDecorationProvider();
   context.subscriptions.push(
@@ -202,7 +197,6 @@ export function setupProviders(
     hoverProvider,
     fileDecoProvider,
     mapper,
-    linter,
     snapshotStore,
     timelineProvider,
     watchManager,

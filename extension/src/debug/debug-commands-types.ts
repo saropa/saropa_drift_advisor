@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { DriftTreeProvider } from '../tree/drift-tree-provider';
 import type { HoverCache } from '../hover/drift-hover-provider';
-import type { SchemaDiagnostics } from '../linter/schema-diagnostics';
+import type { DiagnosticManager } from '../diagnostics/diagnostic-manager';
 import type { LogCaptureBridge } from './log-capture-bridge';
 import type { ServerDiscovery } from '../server-discovery';
 import type { ServerManager } from '../server-manager';
@@ -25,7 +25,7 @@ export interface IDebugCommandDeps {
   treeProvider: DriftTreeProvider;
   treeView: vscode.TreeView<any>;
   hoverCache: HoverCache;
-  linter: SchemaDiagnostics;
+  diagnosticManager: DiagnosticManager;
   logBridge: LogCaptureBridge;
   discovery: ServerDiscovery;
   serverManager: ServerManager;

@@ -37,7 +37,7 @@ export function registerDebugCommandsVm(
     client,
     treeProvider,
     hoverCache,
-    linter,
+    diagnosticManager,
     logBridge,
     discovery,
     serverManager,
@@ -75,7 +75,7 @@ export function registerDebugCommandsVm(
             deps.refreshDriftConnectionUi?.();
             hoverCache.clear();
             perfProvider.stopAutoRefresh();
-            linter.clear();
+            diagnosticManager.clear();
             refreshStatusBar?.();
             treeProvider.refresh();
             logConnection(
@@ -193,7 +193,7 @@ export function registerDebugCommandsVm(
         }
       }
 
-      linter.clear();
+      diagnosticManager.clear();
       refreshStatusBar?.();
       logBridge.writeConnectionEvent('Drift debug server disconnected');
     }),

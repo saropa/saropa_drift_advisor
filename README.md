@@ -121,6 +121,28 @@ You usually inspect data in either a **browser** or the **extension**; both are 
 
 ---
 
+## Scope: Runtime Data vs. Static Code (complements `saropa_lints`)
+
+Saropa Drift Advisor and **[`saropa_lints`](https://pub.dev/packages/saropa_lints)** are complementary, not overlapping. Install both when you use Drift — they catch different classes of bugs.
+
+|                 | `saropa_drift_advisor` (this project)                                               | `saropa_lints`                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Analyzes**    | Live database file, schema, and data statistics                                     | Dart source code (AST)                                                                               |
+| **Runs as**     | VS Code extension + debug server (runtime)                                          | Analyzer plugin (compile-time)                                                                       |
+| **Drift rules** | Runtime/schema diagnostics — anomalies, invariants, data quality, query performance | 32 static code-pattern rules in `lib/src/rules/packages/drift_rules.dart`                            |
+| **Examples**    | Column-value outliers, schema drift, n+1 query detection, unique-index gaps         | `avoid_drift_enum_index_reorder`, `avoid_drift_update_without_where`, `require_drift_database_close` |
+| **Sees source** | No                                                                                  | Yes                                                                                                  |
+| **Sees data**   | Yes                                                                                 | No                                                                                                   |
+
+**Rule of thumb:**
+
+- A problem with the **data** in your running DB (unexpected distribution, schema mismatch, missing migration) → this project.
+- A problem with the **code** you wrote (wrong TypeConverter, missing `WHERE`, unclosed DB) → `saropa_lints`.
+
+Neither project will ever subsume the other — they operate on different inputs. File Drift-rule bugs against whichever project owns the rule surface that produced the diagnostic (look at the `source` / `owner` field in the Problems panel).
+
+---
+
 ## Features
 
 The subsections below are the **full feature inventory** (browser UI, REST API, and extension). If you only read one part of this README, read this: the project is not “a table viewer”—it is a **debug platform** for Drift/SQLite.

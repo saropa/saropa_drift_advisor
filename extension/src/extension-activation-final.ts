@@ -103,9 +103,15 @@ export function setupFinalPhases(
   // Phase 9: Command registration.
   track(runPhase('commands', d.channel, () => {
     if (d.providers && d.editing) {
+      // `d.diagnostics` is optional: if `setupDiagnostics` threw,
+      // we still register commands so the user keeps basic nav /
+      // debug commands. Nav-commands that dispatch to
+      // `diagnosticManager.refresh()` degrade to a visible error
+      // toast on invocation (the command still registers).
       registerAllCommands(d.context, d.cachedClient, {
         ...d.providers,
         ...d.editing,
+        ...(d.diagnostics ?? {}),
         annotationStore: d.annotationStore,
         statusItem: statusBars?.statusItem ?? vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100),
         discovery: d.discovery,
@@ -146,8 +152,11 @@ export function setupFinalPhases(
         if (d.providers) {
           if (d.loadOnConnect) void d.providers.treeProvider.refresh();
           d.providers.codeLensProvider.refreshRowCounts();
-          d.providers.linter.refresh();
         }
+        // DiagnosticManager is the single source of diagnostics; the
+        // legacy `SchemaDiagnostics` refresh that used to live here
+        // has been retired (it was duplicating anomaly + index-
+        // suggestion emissions into a second collection).
         d.diagnostics?.diagnosticManager.refresh().catch(() => {});
         if (d.providers && !d.getLightweight()) d.providers.refreshBadges().catch(() => {});
         connectionUiRefresh.fn?.();
@@ -195,7 +204,6 @@ export function setupFinalPhases(
         if (d.providers) {
           if (d.loadOnConnect) void d.providers.treeProvider.refresh();
           d.providers.codeLensProvider.refreshRowCounts();
-          d.providers.linter.refresh();
         }
         d.diagnostics?.diagnosticManager.refresh().catch(() => {});
         if (d.providers && !d.getLightweight()) d.providers.refreshBadges().catch(() => {});
@@ -256,7 +264,6 @@ export function setupFinalPhases(
         d.providers.hoverCache.clear();
         await d.providers.codeLensProvider.refreshRowCounts();
         d.providers.codeLensProvider.notifyChange();
-        d.providers.linter.refresh();
         d.diagnostics?.diagnosticManager.refresh().catch(() => {});
         d.providers.refreshBadges().catch(() => {});
         if (vscode.workspace.getConfiguration('driftViewer').get<boolean>('timeline.autoCapture', true)) {
@@ -280,7 +287,6 @@ export function setupFinalPhases(
           void d.providers.treeProvider.refresh();
         }
         d.providers.codeLensProvider.refreshRowCounts();
-        d.providers.linter.refresh();
       }
       if (isDriftUiConnected(d.serverManager, d.cachedClient)) {
         d.schemaCache.prewarm();

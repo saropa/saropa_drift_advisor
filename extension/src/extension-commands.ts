@@ -10,6 +10,7 @@ import type { ServerManager } from './server-manager';
 import type { GenerationWatcher } from './generation-watcher';
 import type { ProviderSetupResult } from './extension-providers';
 import type { EditingSetupResult } from './extension-editing';
+import type { DiagnosticSetupResult } from './extension-diagnostics';
 import { registerAnnotationCommands } from './annotations/annotation-commands';
 import { registerSeederCommands } from './seeder/seeder-commands';
 import { registerConstraintWizardCommands } from './constraint-wizard/constraint-commands';
@@ -47,7 +48,10 @@ import type { HealthStatusBar } from './status-bar-health';
 import type { SchemaTracker } from './schema-timeline/schema-tracker';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 
-export interface CommandRegistrationDeps extends ProviderSetupResult, EditingSetupResult {
+export interface CommandRegistrationDeps
+  extends ProviderSetupResult,
+    EditingSetupResult,
+    Partial<DiagnosticSetupResult> {
   annotationStore: AnnotationStore;
   statusItem: vscode.StatusBarItem;
   discovery: ServerDiscovery;
@@ -87,7 +91,6 @@ export function registerAllCommands(
     treeView,
     codeLensProvider,
     hoverCache,
-    linter,
     snapshotStore,
     watchManager,
     refreshBadges,
@@ -106,6 +109,21 @@ export function registerAllCommands(
     schemaTracker,
     healthStatusBar,
   } = deps;
+
+  // `diagnosticManager` comes from the optional `DiagnosticSetupResult`
+  // spread: if `setupDiagnostics` threw during activation, it's absent.
+  // Fall back to a minimal no-op so downstream command handlers don't
+  // have to check for undefined each time. The no-op preserves the
+  // public contract (`refresh()` returns a resolved Promise, `clear()`
+  // is a no-op) and simply does nothing — the user will see no
+  // diagnostics because the collection never got created, which is
+  // the correct degraded state when the diagnostic subsystem failed.
+  const diagnosticManager =
+    deps.diagnosticManager ??
+    ({
+      refresh: () => Promise.resolve(),
+      clear: () => {},
+    } as unknown as import('./diagnostics/diagnostic-manager').DiagnosticManager);
 
   // About commands are registered at the start of activate() (extension-main)
   // so the Database view (i) icon works even if registration here fails.
@@ -162,7 +180,7 @@ export function registerAllCommands(
     treeProvider,
     treeView,
     hoverCache,
-    linter,
+    diagnosticManager,
     logBridge,
     discovery,
     serverManager,
@@ -185,7 +203,7 @@ export function registerAllCommands(
   // block the others or the core debug/connection logic above.
   const featureModules: Array<[string, () => void]> = [
     ['tree', () => registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager)],
-    ['nav', () => registerNavCommands(context, client, linter, editingBridge, fkNavigator, serverManager, discovery, filterBridge, connectionChannel, deps.refreshDriftConnectionUi)],
+    ['nav', () => registerNavCommands(context, client, diagnosticManager, editingBridge, fkNavigator, serverManager, discovery, filterBridge, connectionChannel, deps.refreshDriftConnectionUi)],
     ['mutationStream', () => registerMutationStreamCommands(context, client, editingBridge, fkNavigator, filterBridge)],
     ['snapshot', () => registerSnapshotCommands(context, client, snapshotStore)],
     ['schemaDiff', () => registerSchemaDiffCommands(context, client)],

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
-import type { SchemaDiagnostics } from '../linter/schema-diagnostics';
+import type { DiagnosticManager } from '../diagnostics/diagnostic-manager';
 import type { EditingBridge } from '../editing/editing-bridge';
 import type { FilterBridge } from '../filters/filter-bridge';
 import type { FkNavigator } from '../navigation/fk-navigator';
@@ -11,11 +11,11 @@ import { getLogVerbosity, shouldLogConnectionLine } from '../log-verbosity';
 import { registerDiscoveryCommands } from './nav-commands-discovery';
 import { registerDiagnosticsCommands } from './nav-commands-diagnostics';
 
-/** Register navigation, linter, and discovery commands. */
+/** Register navigation, diagnostic, and discovery commands. */
 export function registerNavCommands(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
-  linter: SchemaDiagnostics,
+  diagnosticManager: DiagnosticManager,
   editingBridge: EditingBridge,
   fkNavigator: FkNavigator,
   serverManager: ServerManager,
@@ -133,8 +133,20 @@ export function registerNavCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.runLinter', () => {
       log('Run Linter: triggered by user');
+      // `Run Linter` is the user's manual "re-scan now" trigger. It
+      // used to drive the legacy `SchemaDiagnostics` pipeline; that
+      // pipeline has been retired in favor of the unified
+      // `DiagnosticManager`, so the command now kicks the same
+      // refresh that schema changes / file saves already trigger.
+      // Errors are swallowed inside `DiagnosticManager.refresh()`,
+      // so the try/catch here exists only to catch truly unexpected
+      // failures at the promise boundary.
       try {
-        linter.refresh();
+        diagnosticManager.refresh().catch((err) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          log(`Run Linter: failed — ${msg}`);
+          void vscode.window.showErrorMessage(`Linter failed: ${msg}`);
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log(`Run Linter: failed — ${msg}`);
