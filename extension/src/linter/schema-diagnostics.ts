@@ -46,12 +46,24 @@ export class SchemaDiagnostics {
     }
 
     try {
-      const [suggestions, anomalies] = await Promise.all([
-        this._client.indexSuggestions(),
-        this._client.anomalies(),
-      ]);
-
-      const issues = mergeServerIssues(suggestions, anomalies);
+      // Anomaly diagnostics are now emitted exclusively by the
+      // newer DiagnosticManager pipeline (SchemaProvider →
+      // checkAnomalies), under the `drift-advisor` collection
+      // and at the column-declaration line. This legacy linter
+      // pipeline used to fetch anomalies here and republish
+      // them through the separate `drift-linter` collection,
+      // which produced the two-owners duplicate reported in
+      // bugs/anomaly_false_positive_tight_timestamp_range.md
+      // (same warning showing up twice on the same column —
+      // once at the class header, once at the column getter).
+      // Index suggestions are still fetched here because the
+      // legacy code-action provider (`DriftCodeActionProvider`)
+      // below is still the registered handler for
+      // `index-suggestion` quick fixes; migrating those actions
+      // into `SchemaProvider.provideCodeActions` is a separate
+      // refactor.
+      const suggestions = await this._client.indexSuggestions();
+      const issues = mergeServerIssues(suggestions, []);
       if (issues.length === 0) {
         this._diagnostics.clear();
         return;

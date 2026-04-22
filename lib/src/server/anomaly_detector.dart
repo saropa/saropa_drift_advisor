@@ -256,8 +256,31 @@ abstract final class AnomalyDetector {
   /// epoch integers or ISO date values that span narrow
   /// real-world time windows but look like huge numeric
   /// ranges (e.g., 1735691375–1767237956 ≈ one year).
+  ///
+  /// The `^last_?(…)` branch catches "last-activity"
+  /// timestamps (`last_modified`, `last_seen`,
+  /// `last_accessed`, `last_sync`, …). These are the
+  /// worst-case z-score shape: the column is rewritten
+  /// on every row touch, so the distribution always
+  /// drifts forward with wall-clock time and σ shrinks
+  /// to whatever the observation window happens to be.
+  /// A table opened the same day produces a ~17-hour
+  /// window, σ on the order of an hour, and the newest
+  /// write sits many σ above the mean by construction —
+  /// the "outlier" is just "the row we just wrote." The
+  /// prior pattern had `^modified` but that never
+  /// matched `last_modified` (it starts with `last`),
+  /// so Drift's canonical `DateTimeColumn get
+  /// lastModified` (serialized as `last_modified` in the
+  /// SQLite schema) always fell through. `_?` + case-
+  /// insensitive matching covers both snake_case
+  /// (`last_modified`) and camelCase (`lastModified`)
+  /// without widening to generic `^last_.*`, which would
+  /// catch `last_name` / `last_ip` and suppress real
+  /// signals. See
+  /// bugs/anomaly_false_positive_tight_timestamp_range.md.
   static final _timestampPattern = RegExp(
-    r'(^created|^updated|^deleted|^modified|_at$|_date$|_time$|_timestamp$|^timestamp$)',
+    r'(^created|^updated|^deleted|^modified|^last_?(modified|seen|accessed|updated|used|sync|synced|refresh|refreshed|login|logout|active|activity|read|written|online|opened|played|viewed|fetch|fetched|heartbeat|ping|visit|visited|check|checked|poll|polled|scan|scanned)|_at$|_date$|_time$|_timestamp$|^timestamp$)',
     caseSensitive: false,
   );
 
@@ -498,6 +521,14 @@ abstract final class AnomalyDetector {
     final outlierValue = maxDeviation > minDeviation ? max : min;
     final outlierSigma = maxDeviation > minDeviation ? maxSigma : minSigma;
 
+    // Include the sample size (n) in the message. A low-n
+    // z-score is intrinsically unstable — 30 values is the
+    // hard floor above (see `_minSampleSizeForOutliers`), but
+    // 30 ≤ n < ~100 still produces wide confidence intervals
+    // around σ, so "4.1σ from mean" at n=35 is a weaker
+    // signal than the same number at n=5000. Surfacing n in
+    // the diagnostic lets the reader judge that for themselves
+    // without having to inspect the data.
     anomalies.add(<String, dynamic>{
       'table': tableName,
       'column': colName,
@@ -508,7 +539,7 @@ abstract final class AnomalyDetector {
           '$outlierEnd value $outlierValue is '
           '${outlierSigma.toStringAsFixed(1)}σ from mean '
           '${avg.toStringAsFixed(2)} '
-          '(range [$min, $max])',
+          '(range [$min, $max], n=$sampleCount)',
     });
   }
 

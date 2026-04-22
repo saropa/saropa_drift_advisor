@@ -601,6 +601,15 @@ void main() {
       test('no outlier for timestamp columns (created_at skip)', () async {
         // Unix timestamps spanning a year look like huge
         // ranges (~31M) but are normal time windows.
+        //
+        // The `last_*` / `lastModified` names are the
+        // recency-skewed / tight-window case from
+        // bugs/anomaly_false_positive_tight_timestamp_range.md
+        // — a column rewritten on every edit where σ is
+        // tiny and the newest write is always many σ
+        // above the mean. Both snake_case (Drift's
+        // default serialization) and camelCase (raw
+        // schema) must be suppressed.
         for (final colName in [
           'created_at',
           'updated_at',
@@ -610,6 +619,14 @@ void main() {
           'update_time',
           'event_timestamp',
           'timestamp',
+          'last_modified',
+          'lastModified',
+          'last_seen',
+          'last_accessed',
+          'last_used',
+          'last_sync',
+          'last_login',
+          'last_activity',
         ]) {
           final result = await AnomalyDetector.getAnomaliesResult(
             _anomalyQuery(
