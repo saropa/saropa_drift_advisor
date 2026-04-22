@@ -83,7 +83,11 @@
   /* Extra right padding so text doesn't overlap the pin button */
   padding-right: 2rem;
   border-radius: var(--radius-sm);
-  color: var(--link);
+  /* Name color swapped to --muted per user feedback: --link rendered dimmer
+     than --muted against the sidebar background in dark themes, so the count
+     (--muted) visually dominated the name. Colors are swapped between name
+     and count below so the name — the primary content — wins the eye. */
+  color: var(--muted);
   text-decoration: none;
   font-size: var(--text-sm);
   line-height: 1.4;
@@ -99,13 +103,15 @@
   white-space: nowrap;
 }
 
-/* Row count: grey, right-aligned, tabular digits (not link-colored) */
+/* Row count: right-aligned, tabular digits. Color swapped to --link so the
+   count sits back visually while the name (--muted) reads as primary. Count
+   is inside the row's <a>, so the link color doesn't invent a new affordance. */
 .table-link-count {
   flex-shrink: 0;
   margin-left: 0.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  color: var(--link);
 }
 
 .table-list a:hover {
@@ -126,8 +132,12 @@
 }
 
 /* Pin button: absolutely positioned so it overlays the right side of each
-   table link. Visible at low opacity at rest (SB2) so it's discoverable.
-   Old style was opacity: 0 — completely invisible until hover. */
+   table link. Hidden at rest for unpinned rows — users asked for a cleaner
+   list with the unpin affordance appearing only on row hover. Pinned rows
+   keep the icon visible at all times (see .table-pin-btn.pinned below) so
+   the pinned state remains readable without hovering. Touch devices and
+   keyboard focus force the icon visible (see overrides below) since hover
+   isn't available to them. */
 .table-pin-btn {
   position: absolute;
   right: 0.25rem;
@@ -139,9 +149,9 @@
   padding: 0.25rem;
   border-radius: var(--radius-sm);
   color: var(--muted);
-  /* Visible at rest (SB2): low opacity so it's discoverable without
-   * dominating the row visually. */
-  opacity: 0.3;
+  /* Hidden at rest (unpinned). Row-hover / focus / pinned / touch rules
+     below re-reveal it in the contexts where it must be reachable. */
+  opacity: 0;
   transition: opacity 0.15s ease, color 0.15s ease;
   line-height: 1;
   display: flex;

@@ -36,6 +36,28 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Sidebar tables: name vs count readability** — in the sidebar's Tables list, the grey row count had been rendering with more visual weight than the table name itself, making the name hard to pick out at a glance. The two colors are now swapped so the table name wins the eye and the count recedes
+- **Sidebar tables: unpin icon hidden until hover** — the faint pin/unpin button sat visible on every unpinned row at rest, adding a column of low-level noise down the sidebar. It is now hidden on unpinned rows and only appears when you hover the row (or focus it via keyboard). Pinned rows keep the icon visible so the pinned state is still obvious, and touch devices still see it since hover isn't available there
+- **History sidebar: clicking an entry now opens the Run SQL tab** — previously, clicking a query in the History sidebar populated the hidden `#sql-input` editor but left you on whatever tab you were on (Tables, Schema, etc.), so the click looked like it did nothing. The handler now switches to the Run SQL tab first, then drops focus into the editor, so the loaded query is visible immediately and ready to edit / re-run
+- **History sidebar: second collapse control removed** — the history heading had a down-chevron that toggled the inner list independently of the sidebar itself, creating two ways to “collapse history” that didn’t agree with each other. The chevron is gone; the right-hand toolbar icon (`⇥`) is now the only collapse affordance, mirroring how the tables sidebar already works
+- **Theme menu: flyout no longer reads as “a menu under another menu”** — on Showcase and Midnight the theme dropdown was at 15% opacity, so the toolbar icons behind it bled right through and the whole thing looked like two stacked menus. The flyout is now opaque (92% alpha on the tinted themes) and its `z-index` has been raised above the tab-panel chrome so it can’t be clipped by panels that establish their own stacking context
+- **Theme menu: double-fire on selection removed** — `.tb-theme-option` clicks had two listeners attached (one from `initThemeListeners`, one from `initToolbar`). Both applied the theme, but only the toolbar one closed the flyout, so the submenu looked “locked” after the first click. Theme-option wiring now lives only in `initToolbar`; `initThemeListeners` only watches the OS `prefers-color-scheme` change
+- **Toolbar icons: middle-aligned in the toolbar row** — 2 rem icon buttons were top-aligned against the 2.75 rem tab row because the flex container used `align-items: stretch` and mixed-height children default to flex-start when stretch can’t apply. The new `#toolbar-bar` sets `align-items: center` and `.tb-icon-btn` pins `align-self: center` as a belt-and-braces guard
+
+### Changed
+
+- **Toolbar split: Tables / Search / Run SQL are now toolbar icons, not fixed tabs** — the three “always-present” tabs used to share the tab row with the rest of the toolbar icons, which meant that opening several table tabs pushed the tools around and the permanent tabs took a lot of horizontal space for labels. Those three are now icon-only launchers in a dedicated top row (`#toolbar-bar`), alongside every other tool. The tab row (`#tab-bar`) below it holds only the tabs you have actually opened. On first load the Tables tab is auto-opened so you still land on the familiar browse view; closing it leaves the Tables panel visible but with no pinned tab, and clicking the Tables icon again re-creates a closeable tab
+- **Run SQL: Run button moved beneath the editor** — the primary Run button used to live in the template toolbar above the textarea, visually detached from the query body it executes. It now sits on its own row directly below the editor so it's the natural next action after typing
+- **Run SQL: icons added to every toolbar button** — Apply template, Save, Del, Export, Import, Ask in English…, and Run now carry Material Symbols icons (post_add, bookmark_add, delete, download, upload, smart_toy, play_arrow) matching the conventions used elsewhere in the viewer's toolbars
+- **Run SQL: empty dropdowns are dimmed** — when a dropdown is still on its placeholder entry (“— Saved queries —”, “— Recent —”, “—” for Table / Fields), it now renders at 55% opacity so the eye skips over unused controls and lands on filled ones. The dim lifts automatically the moment you pick a real value
+- **Run SQL: inline “Recent” dropdown replaced with a history icon button** — the old `History:` / `Recent:` label + `<select>` looked like a form input waiting for a value, and the em-dash placeholder read as empty. It also duplicated what the right-hand History sidebar already shows (with more detail: full SQL, duration, rows, timestamp, source badge), which after the previous fix even opens the Run SQL tab on click. The inline dropdown is gone; in its place is a single icon button (Material `history` glyph) that toggles the History sidebar open/closed — same behavior as the toolbar-level history toggle, so both controls stay in sync
+
+---
+
 ## [3.3.4]
 
 ### Fixed

@@ -4121,16 +4121,6 @@
     applyTheme(prefersDark ? "dark" : "light");
   }
   function initThemeListeners() {
-    var themeOptions = document.querySelectorAll(".tb-theme-option");
-    for (var i = 0; i < themeOptions.length; i++) {
-      themeOptions[i].addEventListener("click", function() {
-        var chosen = this.getAttribute("data-theme");
-        if (chosen) {
-          localStorage.setItem(THEME_KEY, chosen);
-          applyTheme(chosen);
-        }
-      });
-    }
     if (window.matchMedia) {
       window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function(e) {
         if (!localStorage.getItem(THEME_KEY)) {
@@ -4182,10 +4172,8 @@
   // assets/web/history-sidebar.ts
   var entries = [];
   var activeFilter = "all";
-  var contentCollapsed = false;
   var listEl = null;
   var countEl = null;
-  var contentToggleBtn = null;
   var sidebarEl = null;
   function filtered() {
     if (activeFilter === "all") return entries;
@@ -4263,9 +4251,6 @@
       "query-history-list"
     );
     countEl = document.getElementById("history-count");
-    contentToggleBtn = document.getElementById(
-      "history-heading-toggle"
-    );
     if (!sidebarEl || !listEl) return;
     var storedCollapsed = false;
     try {
@@ -4273,17 +4258,6 @@
     } catch (e) {
     }
     applyPanelCollapsed(storedCollapsed);
-    if (contentToggleBtn) {
-      contentToggleBtn.addEventListener("click", function() {
-        contentCollapsed = !contentCollapsed;
-        contentToggleBtn.setAttribute("aria-expanded", contentCollapsed ? "false" : "true");
-        listEl.style.display = contentCollapsed ? "none" : "";
-        const filterBar2 = sidebarEl.querySelector(".history-filter-bar");
-        if (filterBar2) filterBar2.style.display = contentCollapsed ? "none" : "";
-        const actions = sidebarEl.querySelector(".history-actions");
-        if (actions) actions.style.display = contentCollapsed ? "none" : "";
-      });
-    }
     const filterBar = sidebarEl.querySelector(".history-filter-bar");
     if (filterBar) {
       filterBar.addEventListener("click", function(e) {
@@ -4311,6 +4285,7 @@
       const sqlInput = document.getElementById("sql-input");
       if (sqlInput) {
         sqlInput.value = items[idx].sql;
+        openTool("sql");
         sqlInput.focus();
       }
     });
@@ -5848,18 +5823,6 @@
     } catch (e) {
     }
   }
-  function refreshHistoryDropdown(sel) {
-    if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">\u2014 Recent \u2014</option>' + sqlHistory.map((h, i) => {
-      const preview = h.sql.length > 50 ? h.sql.slice(0, 47) + "\u2026" : h.sql;
-      const rows = h.rowCount != null ? h.rowCount + " row(s)" : "";
-      const at = h.at ? new Date(h.at).toLocaleString() : "";
-      const label = [rows, at, preview].filter(Boolean).join(" \xB7 ");
-      return '<option value="' + i + '" title="' + esc2(h.sql) + '">' + esc2(label) + "</option>";
-    }).join("");
-    if (cur !== "" && parseInt(cur, 10) < sqlHistory.length) sel.value = cur;
-  }
   function pushSqlHistory(sql, rowCount) {
     sql = (sql || "").trim();
     if (!sql) return;
@@ -5978,7 +5941,7 @@
     const lockBtn = document.getElementById("sql-template-lock");
     const applyBtn = document.getElementById("sql-apply-template");
     const runBtn = document.getElementById("sql-run");
-    const historySel = document.getElementById("sql-history");
+    const historyToggleBtn = document.getElementById("sql-history-toggle");
     const formatSel = document.getElementById("sql-result-format");
     const inputEl = document.getElementById("sql-input");
     const errorEl = document.getElementById("sql-error");
@@ -5993,11 +5956,10 @@
     const bookmarkExportBtn = document.getElementById("sql-bookmark-export");
     const bookmarkImportBtn = document.getElementById("sql-bookmark-import");
     loadSqlHistory();
-    refreshHistoryDropdown(historySel);
     loadBookmarks();
     refreshBookmarksDropdown(bookmarksSel);
-    bindDropdownToInput(historySel, sqlHistory, inputEl);
     bindDropdownToInput(bookmarksSel, sqlBookmarks, inputEl);
+    if (historyToggleBtn) historyToggleBtn.addEventListener("click", togglePanelCollapsed);
     if (bookmarkSaveBtn) bookmarkSaveBtn.addEventListener("click", function() {
       addBookmark(inputEl, bookmarksSel);
     });
@@ -6315,7 +6277,6 @@
             if (cc) cc.style.display = "none";
           }
           pushSqlHistory(sql, rows.length);
-          refreshHistoryDropdown(historySel);
           fetchHistory();
         }).catch((e) => {
           errorEl.textContent = e.message || String(e);
@@ -6625,6 +6586,7 @@
   initTabsAndToolbar();
   initSidebarCollapse();
   initHistorySidebar();
+  openTool("tables");
   initDiagram();
   initSnapshot();
   initCompare();

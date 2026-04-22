@@ -833,9 +833,15 @@ void main() {
         expect(resp.statusCode, HttpStatus.ok);
         expect(resp.headers.value('content-type'), contains('text/html'));
         final body = await resp.transform(utf8.decoder).join();
-        expect(body, contains('id="sql-history"'));
+        // History UI on the Run SQL tab is now an icon-button that toggles
+        // the right-hand History sidebar (id="history-sidebar"). The old
+        // inline #sql-history <select> was removed because the sidebar is
+        // a strict superset — full SQL, duration, rows, timestamp, source.
+        expect(body, contains('id="sql-history-toggle"'));
+        expect(body, contains('id="history-sidebar"'));
         // SQL history UI is in app.js; the HTML either inlines it or
-        // references the CDN. Either way, the history panel must exist.
+        // references the CDN. Either way, the editor + history toggle
+        // must exist on the page.
         expect(body, contains('id="sql-input"'));
       } finally {
         client.close();
