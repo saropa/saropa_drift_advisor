@@ -49,6 +49,8 @@ declare global {
     /** Tab switching — set in app.js diagram/tab logic. */
     onTabSwitch?: (tabId: string) => void;
     ensureDiagramInited?: () => void;
+    /** Toolbar icon active-state sync — set by toolbar.ts, consumed by app.js onTabSwitch. */
+    _toolbarSyncActiveTab?: (tabId: string) => void;
     /** Search tab hooks — stubs defined in app.js, consumed by external Search UI extension. */
     _stOnActivate?: () => void;
     _stFocusInput?: () => void;
