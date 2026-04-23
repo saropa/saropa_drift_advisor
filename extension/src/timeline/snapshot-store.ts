@@ -231,6 +231,7 @@ export class SnapshotStore {
             .map((c) => c.name);
           const result = await client.sql(
             `SELECT * FROM "${table.name}" ORDER BY rowid LIMIT ${ROW_LIMIT}`,
+            { internal: true },
           );
           tables.set(table.name, {
             rowCount: table.rowCount,

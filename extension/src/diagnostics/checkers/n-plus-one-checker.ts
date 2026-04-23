@@ -32,6 +32,10 @@ export function checkNPlusOnePatterns(
   const tableQueryCounts = new Map<string, { count: number; queries: QueryEntry[] }>();
 
   for (const query of recentQueries) {
+    // Skip extension-owned probes (snapshots, health scans). They are not
+    // application N+1 patterns; mirror slow-query-checker + server slowQueries.
+    if (query.isInternal) continue;
+
     // N+1 is a read-path concern: repeated SELECTs that could be a single
     // JOIN or IN query. Write operations (INSERT/UPDATE/DELETE) are inherently
     // per-record and should not be counted (e.g. activity log inserts).

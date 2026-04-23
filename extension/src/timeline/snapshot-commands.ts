@@ -78,6 +78,7 @@ export function registerSnapshotCommands(
           const [result, meta] = await Promise.all([
             client.sql(
               `SELECT * FROM "${tableName}" ORDER BY rowid LIMIT ${ROW_LIMIT}`,
+              { internal: true },
             ),
             client.schemaMetadata(),
           ]);
