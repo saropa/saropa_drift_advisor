@@ -109,6 +109,24 @@ describe('PerformanceProvider', () => {
       assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
     });
 
+    it('should not count isInternal queries toward n-plus-one (extension probes)', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'name'])],
+        recentQueries: Array(15).fill(null).map((_, i) => ({
+          sql: `SELECT * FROM users WHERE id = ${i}`,
+          durationMs: 10,
+          rowCount: 1,
+          at: '2024-01-01',
+          isInternal: true,
+        })),
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'n-plus-one');
+      assert.ok(!issue, 'Extension-internal probes must not inflate N+1 counts');
+    });
+
     it('should not report n-plus-one for write operations (INSERT/UPDATE/DELETE)', async () => {
       // Activity log tables generate many independent INSERTs from separate user
       // actions — this is expected behavior, not an N+1 pattern.
