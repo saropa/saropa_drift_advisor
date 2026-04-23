@@ -46,6 +46,7 @@ export function initToolbar(): void {
       var layout = document.getElementById('app-layout');
       var collapsed = layout ? layout.classList.contains('app-sidebar-panel-collapsed') : false;
       sidebarBtn!.setAttribute('aria-pressed', collapsed ? 'false' : 'true');
+      if (typeof (window as any)._syncHomeSidebarToggles === 'function') (window as any)._syncHomeSidebarToggles();
     });
   }
 
@@ -58,6 +59,7 @@ export function initToolbar(): void {
       var layout = document.getElementById('app-layout');
       var collapsed = layout ? layout.classList.contains('history-sidebar-collapsed') : false;
       historyBtn!.setAttribute('aria-pressed', collapsed ? 'false' : 'true');
+      if (typeof (window as any)._syncHomeSidebarToggles === 'function') (window as any)._syncHomeSidebarToggles();
     });
   }
 
@@ -131,6 +133,8 @@ export function initToolbar(): void {
     var historyCollapsed = layout.classList.contains('history-sidebar-collapsed');
     historyBtn.setAttribute('aria-pressed', historyCollapsed ? 'false' : 'true');
   }
+
+  if (typeof (window as any)._syncHomeSidebarToggles === 'function') (window as any)._syncHomeSidebarToggles();
 
   // --- Sync initial active tool highlight ---
   // Highlight the toolbar button matching the initially active tab (if any).

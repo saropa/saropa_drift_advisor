@@ -466,7 +466,7 @@
   function setSchemaMeta(m) {
     schemaMeta = m;
   }
-  var activeTabId = "tables";
+  var activeTabId = "home";
   var openTableTabs = [];
   function setActiveTabId(id) {
     activeTabId = id;
@@ -669,6 +669,7 @@
   var APP_SIDEBAR_PANEL_KEY = "saropa_app_sidebar_collapsed";
   var HISTORY_SIDEBAR_KEY = "saropa_history_sidebar_collapsed";
   var TOOL_ICONS = {
+    home: "home",
     tables: "table_chart",
     sql: "terminal",
     search: "search",
@@ -685,6 +686,7 @@
     settings: "settings"
   };
   var TOOL_LABELS = {
+    home: "Home",
     tables: "Tables",
     sql: "Run SQL",
     search: "Search",
@@ -700,6 +702,27 @@
     export: "Export",
     settings: "Settings"
   };
+  var HOME_LAUNCHERS = [
+    { id: "tables", blurb: "browse, open tables, pagination, export" },
+    { id: "search", blurb: "schema + data search, filters, jump matches" },
+    { id: "sql", blurb: "editor, templates, bookmarks, charts, NL ask" },
+    { id: "snapshot", blurb: "capture schema, time travel" },
+    { id: "compare", blurb: "diff databases, migrations" },
+    { id: "index", blurb: "suggested indexes, query hints" },
+    { id: "schema", blurb: "DDL, columns, PRAGMA" },
+    { id: "diagram", blurb: "relationship graph" },
+    { id: "size", blurb: "table sizes, growth" },
+    { id: "perf", blurb: "slow statements, timings" },
+    { id: "anomaly", blurb: "health checks, drift signals" },
+    { id: "import", blurb: "CSV \u2192 table" },
+    { id: "export", blurb: "CSV, schema" },
+    { id: "settings", blurb: "prefs, masking, confirm navigate" }
+  ];
+  var HOME_EXTRAS = [
+    { action: "mask", icon: "visibility_off", label: "Mask PII", blurb: "redact sensitive columns" },
+    { action: "theme", icon: "palette", label: "Theme", blurb: "light, dark, showcase, midnight" },
+    { action: "share", icon: "share", label: "Share", blurb: "read-only session link" }
+  ];
   var OFFLINE_DISABLE_IDS = [
     "sql-run",
     "sql-apply-template",
@@ -1862,7 +1885,11 @@
     btn.addEventListener("dblclick", function() {
       closeOtherTabs(tabId);
     });
-    tabBar.appendChild(btn);
+    if (opts && opts.prepend) {
+      tabBar.insertBefore(btn, tabBar.firstChild);
+    } else {
+      tabBar.appendChild(btn);
+    }
     return btn;
   }
   function openTool(toolId) {
@@ -1892,14 +1919,24 @@
   function closeToolTab(toolId) {
     var btn = findTabBtn(toolId);
     if (!btn) return;
+    var wasActive = activeTabId === toolId;
     btn.remove();
     if (toolId.indexOf("tbl:") === 0) {
       var tableName = toolId.slice(4);
       var idx = openTableTabs.indexOf(tableName);
       if (idx >= 0) openTableTabs.splice(idx, 1);
     }
-    if (activeTabId === toolId) {
-      switchTab("tables");
+    var tabBar = document.getElementById("tab-bar");
+    var remaining = tabBar ? tabBar.querySelectorAll(".tab-btn") : [];
+    if (remaining.length === 0) {
+      createClosableTab("home", TOOL_LABELS.home || "Home", "panel-home", { prepend: true });
+      switchTab("home");
+      return;
+    }
+    if (wasActive) {
+      var last = remaining[remaining.length - 1];
+      var nextId = last.getAttribute("data-tab");
+      if (nextId) switchTab(nextId);
     }
   }
   function initTabsAndToolbar() {
@@ -1992,6 +2029,10 @@
     var sorted = tables.slice().sort(function(a, b) {
       return (pinnedSet.has(a) ? 0 : 1) - (pinnedSet.has(b) ? 0 : 1);
     });
+    var countEl2 = document.getElementById("tables-count");
+    if (countEl2) {
+      countEl2.replaceChildren(document.createTextNode("(" + sorted.length + ")"));
+    }
     sorted.forEach(function(t) {
       var isPinned = pinnedSet.has(t);
       var li = document.createElement("li");
@@ -2187,9 +2228,10 @@
     html += ' | <a href="#" id="nav-clear" class="nav-clear-link" title="Clear navigation trail">Clear path</a>';
     html += " | ";
     html += navHistory.map(function(h, idx) {
-      return '<a href="#" class="nav-crumb" data-idx="' + idx + '" style="color:var(--link);" title="Jump to ' + esc2(h.table) + '">' + esc2(h.table) + "</a>";
+      return '<a href="#" class="nav-crumb" data-idx="' + idx + '" data-longpress-copy="' + esc2(h.table) + '" style="color:var(--link);" title="Jump to ' + esc2(h.table) + '">' + esc2(h.table) + "</a>";
     }).join(" &#8594; ");
-    html += " &#8594; <strong>" + esc2(currentTableName || "") + "</strong>";
+    var curName = currentTableName || "";
+    html += ' &#8594; <strong data-longpress-copy="' + esc2(curName) + '">' + esc2(curName) + "</strong>";
     el.innerHTML = html;
     el.style.display = "block";
     var backBtn = document.getElementById("nav-back");
@@ -2693,17 +2735,22 @@
     var visible = order.filter(function(k) {
       return hidden.indexOf(k) < 0;
     });
+    var maskOn = isPiiMaskEnabled();
     var html = '<table id="data-table" class="drift-table"><thead><tr>';
     visible.forEach(function(k) {
       var fk = fkMap[k];
       var fkLabel = fk ? ' <span class="table-header-fk" title="FK to ' + esc2(fk.toTable) + "." + esc2(fk.toColumn) + '">&#8599;</span>' : "";
       var colType = colTypes ? colTypes[k] || "" : "";
       var typeBadge = colType ? ' <span class="col-type-badge" title="' + esc2(colType) + '">' + esc2(colType.substring(0, 4)) + "</span>" : "";
+      var maskBadge = "";
+      if (maskOn && isPiiColumn(k)) {
+        var maskTip = "Sensitive column: values are redacted while PII masking is on. Use the mask control in the toolbar to show raw data.";
+        maskBadge = ' <span class="col-mask-badge" title="' + esc2(maskTip) + '" aria-label="' + esc2(maskTip) + '"><span class="material-symbols-outlined" aria-hidden="true">visibility_off</span></span>';
+      }
       var thClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : "";
-      html += '<th data-column-key="' + esc2(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc2(k) + typeBadge + fkLabel + "</th>";
+      html += '<th data-column-key="' + esc2(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc2(k) + maskBadge + typeBadge + fkLabel + "</th>";
     });
     html += "</tr></thead><tbody>";
-    var maskOn = isPiiMaskEnabled();
     var piiCols = {};
     visible.forEach(function(k) {
       piiCols[k] = isPiiColumn(k);
@@ -2809,9 +2856,9 @@
       if (c.notnull) flags.push("NOT NULL");
       var flagStr = flags.length ? flags.join(", ") : "\u2014";
       var typCell = rawType ? esc2(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
-      return '<tr><td class="table-def-icons">' + iconHtml + badges + '</td><td class="table-def-name">' + esc2(c.name) + '</td><td class="table-def-type">' + typCell + '</td><td class="table-def-flags">' + esc2(flagStr) + "</td></tr>";
+      return '<tr><td class="table-def-icons">' + iconHtml + badges + '</td><td class="table-def-name" data-longpress-copy="' + esc2(c.name) + '">' + esc2(c.name) + '</td><td class="table-def-type">' + typCell + '</td><td class="table-def-flags">' + esc2(flagStr) + "</td></tr>";
     }).join("");
-    return '<div class="table-definition-wrap" role="region" aria-label="Table definition"><div class="table-definition-heading">\u25BC Table definition</div><div class="table-definition-scroll"><table class="table-definition"><thead><tr><th class="table-def-icons" scope="col"></th><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
+    return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition"><div class="table-definition-heading">\u25BC Table definition</div><div class="table-definition-scroll"><table class="table-definition"><thead><tr><th class="table-def-icons" scope="col"></th><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
   }
   function bindResultsToggle() {
     var headings = document.querySelectorAll(".results-table-heading");
@@ -4130,6 +4177,197 @@
     }
   }
 
+  // assets/web/long-press-copy.ts
+  var HOLD_MS = 520;
+  var MOVE_MAX_PX = 14;
+  var listenersInstalled = false;
+  var holdTimer = null;
+  var startX = 0;
+  var startY = 0;
+  var touchStartEl = null;
+  var activeTouchId = null;
+  function clearHold() {
+    if (holdTimer != null) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+  }
+  function inBlockingFormField(el) {
+    if (!el) return true;
+    if (el.closest("textarea, select")) return true;
+    var inp = el.closest("input");
+    if (inp instanceof HTMLInputElement) {
+      var t = (inp.type || "text").toLowerCase();
+      if (t !== "checkbox" && t !== "radio") return true;
+    }
+    return false;
+  }
+  function resolveLongPressCopyText(target) {
+    if (!target) return null;
+    var explicit = target.closest("[data-longpress-copy]");
+    if (explicit) {
+      var v = explicit.getAttribute("data-longpress-copy");
+      return v != null && v !== "" ? v : null;
+    }
+    if (target.closest(".table-pin-btn, .tab-btn-close, .cell-inline-editor")) return null;
+    var fk = target.closest(".fk-link[data-table][data-column]");
+    if (fk) {
+      var dt = fk.getAttribute("data-table");
+      var dc = fk.getAttribute("data-column");
+      if (dt && dc) return dt + "." + dc;
+    }
+    var th = target.closest(".drift-table th[data-column-key]");
+    if (th) {
+      var key = th.getAttribute("data-column-key");
+      return key != null && key !== "" ? key : null;
+    }
+    var td = target.closest(".drift-table td[data-column-key]");
+    if (td) {
+      var btn = td.querySelector(".cell-copy-btn");
+      var raw = btn && btn.getAttribute("data-raw");
+      if (raw != null) return raw;
+      var txt = (td.textContent || "").trim();
+      return txt || td.getAttribute("data-column-key");
+    }
+    var defName = target.closest(".table-def-name");
+    if (defName) {
+      var n = (defName.textContent || "").trim();
+      return n || null;
+    }
+    var tableLink = target.closest("a.table-link[data-table]");
+    if (tableLink && !target.closest(".table-pin-btn")) {
+      var tn = tableLink.getAttribute("data-table");
+      return tn != null && tn !== "" ? tn : null;
+    }
+    var browse = target.closest(".tables-browse-card[data-table]");
+    if (browse) {
+      var b = browse.getAttribute("data-table");
+      return b != null && b !== "" ? b : null;
+    }
+    var diagram = target.closest(".diagram-table[data-table]");
+    if (diagram) {
+      var d = diagram.getAttribute("data-table");
+      return d != null && d !== "" ? d : null;
+    }
+    var sizeLink = target.closest("a.size-table-link[data-table]");
+    if (sizeLink) {
+      var s = sizeLink.getAttribute("data-table");
+      return s != null && s !== "" ? s : null;
+    }
+    var sqlTh = target.closest("th[data-column-key]");
+    if (sqlTh) {
+      var sk = sqlTh.getAttribute("data-column-key");
+      return sk != null && sk !== "" ? sk : null;
+    }
+    var tabBtn = target.closest(".tab-btn[data-tab]");
+    if (tabBtn) {
+      var tid = tabBtn.getAttribute("data-tab") || "";
+      if (tid.indexOf("tbl:") === 0) return tid.slice(4);
+    }
+    var qbLabel = target.closest("#qb-columns label");
+    if (qbLabel) {
+      var cbin = qbLabel.querySelector('input[type="checkbox"][value]');
+      if (cbin) {
+        var val = cbin.getAttribute("value");
+        return val != null && val !== "" ? val : null;
+      }
+    }
+    return null;
+  }
+  function armClickSuppression() {
+    function onClickCap(e) {
+      document.removeEventListener("click", onClickCap, true);
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setTimeout(function() {
+      document.addEventListener("click", onClickCap, true);
+    }, 0);
+    setTimeout(function() {
+      document.removeEventListener("click", onClickCap, true);
+    }, 500);
+  }
+  function initLongPressCopy() {
+    if (listenersInstalled) return;
+    listenersInstalled = true;
+    document.addEventListener(
+      "touchstart",
+      function(e) {
+        if (e.touches.length > 1) {
+          clearHold();
+          activeTouchId = null;
+          touchStartEl = null;
+          return;
+        }
+        if (e.touches.length !== 1) return;
+        var t = e.touches[0];
+        var rawTarget = e.target;
+        var el = rawTarget instanceof Element ? rawTarget : document.elementFromPoint(t.clientX, t.clientY);
+        if (!el || inBlockingFormField(el)) return;
+        var preview = resolveLongPressCopyText(el);
+        if (!preview) return;
+        clearHold();
+        activeTouchId = t.identifier;
+        startX = t.clientX;
+        startY = t.clientY;
+        touchStartEl = el;
+        holdTimer = setTimeout(function() {
+          holdTimer = null;
+          var toCopy = touchStartEl ? resolveLongPressCopyText(touchStartEl) : null;
+          if (!toCopy) return;
+          copyCellValue(toCopy);
+          if (navigator.vibrate) {
+            try {
+              navigator.vibrate(12);
+            } catch {
+            }
+          }
+          armClickSuppression();
+        }, HOLD_MS);
+      },
+      { passive: true, capture: true }
+    );
+    document.addEventListener(
+      "touchmove",
+      function(e) {
+        if (holdTimer == null || activeTouchId == null) return;
+        if (e.touches.length > 1) {
+          clearHold();
+          activeTouchId = null;
+          touchStartEl = null;
+          return;
+        }
+        for (var i = 0; i < e.touches.length; i++) {
+          if (e.touches[i].identifier === activeTouchId) {
+            var t = e.touches[i];
+            var dx = t.clientX - startX;
+            var dy = t.clientY - startY;
+            if (dx * dx + dy * dy > MOVE_MAX_PX * MOVE_MAX_PX) {
+              clearHold();
+              activeTouchId = null;
+              touchStartEl = null;
+            }
+            return;
+          }
+        }
+      },
+      { passive: true, capture: true }
+    );
+    function endTouch(e) {
+      if (activeTouchId == null) return;
+      for (var i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === activeTouchId) {
+          clearHold();
+          activeTouchId = null;
+          touchStartEl = null;
+          return;
+        }
+      }
+    }
+    document.addEventListener("touchend", endTouch, { passive: true, capture: true });
+    document.addEventListener("touchcancel", endTouch, { passive: true, capture: true });
+  }
+
   // assets/web/sidebar.ts
   var layout = null;
   var aside = null;
@@ -4137,10 +4375,6 @@
     if (!layout || !aside) return;
     layout.classList.toggle("app-sidebar-panel-collapsed", collapsed);
     aside.setAttribute("aria-hidden", collapsed ? "true" : "false");
-    var tablesToggle = document.getElementById("tables-heading-toggle");
-    if (tablesToggle) {
-      tablesToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    }
   }
   function toggleSidebarCollapsed() {
     if (!layout) return;
@@ -4154,7 +4388,6 @@
   function initSidebarCollapse() {
     layout = document.getElementById("app-layout");
     aside = document.getElementById("app-sidebar");
-    var tablesToggle = document.getElementById("tables-heading-toggle");
     if (!layout || !aside) return;
     var storedCollapsed = false;
     try {
@@ -4166,7 +4399,6 @@
       localStorage.removeItem("saropa_sidebar_tables_collapsed");
     } catch (e) {
     }
-    if (tablesToggle) tablesToggle.addEventListener("click", toggleSidebarCollapsed);
   }
 
   // assets/web/history-sidebar.ts
@@ -4294,6 +4526,110 @@
     const clearBtn = document.getElementById("history-clear");
     if (clearBtn) clearBtn.addEventListener("click", clearHistory);
     fetchHistory();
+  }
+
+  // assets/web/home-screen.ts
+  function syncSidebarTogglesFromLayout() {
+    var layout2 = document.getElementById("app-layout");
+    var leftSw = document.getElementById("home-switch-tables");
+    var rightSw = document.getElementById("home-switch-history");
+    if (!layout2) return;
+    var leftCollapsed = layout2.classList.contains("app-sidebar-panel-collapsed");
+    var rightCollapsed = layout2.classList.contains("history-sidebar-collapsed");
+    var leftOn = !leftCollapsed;
+    var rightOn = !rightCollapsed;
+    if (leftSw) {
+      leftSw.setAttribute("aria-checked", leftOn ? "true" : "false");
+      leftSw.classList.toggle("home-switch-on", leftOn);
+    }
+    if (rightSw) {
+      rightSw.setAttribute("aria-checked", rightOn ? "true" : "false");
+      rightSw.classList.toggle("home-switch-on", rightOn);
+    }
+    var sidebarBtn = document.getElementById("tb-sidebar-toggle");
+    var historyBtn = document.getElementById("tb-history-toggle");
+    if (sidebarBtn) sidebarBtn.setAttribute("aria-pressed", leftOn ? "true" : "false");
+    if (historyBtn) historyBtn.setAttribute("aria-pressed", rightOn ? "true" : "false");
+  }
+  function wireHomeSwitch(id, toggle) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("click", function() {
+      toggle();
+      syncSidebarTogglesFromLayout();
+    });
+  }
+  function buildToolGrid() {
+    var grid = document.getElementById("home-tool-grid");
+    if (!grid) return;
+    grid.replaceChildren();
+    HOME_LAUNCHERS.forEach(function(item) {
+      var iconName = TOOL_ICONS[item.id];
+      var label = TOOL_LABELS[item.id] || item.id;
+      var card = document.createElement("button");
+      card.type = "button";
+      card.className = "home-tool-card";
+      card.setAttribute("data-tool", item.id);
+      card.title = label + " \u2014 " + item.blurb;
+      if (iconName) {
+        var icon = document.createElement("span");
+        icon.className = "material-symbols-outlined home-tool-card-icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = iconName;
+        card.appendChild(icon);
+      }
+      var name = document.createElement("span");
+      name.className = "home-tool-card-name";
+      name.textContent = label;
+      card.appendChild(name);
+      var blurb = document.createElement("span");
+      blurb.className = "home-tool-card-blurb";
+      blurb.textContent = item.blurb;
+      card.appendChild(blurb);
+      card.addEventListener("click", function() {
+        openTool(item.id);
+      });
+      grid.appendChild(card);
+    });
+    HOME_EXTRAS.forEach(function(item) {
+      var card = document.createElement("button");
+      card.type = "button";
+      card.className = "home-tool-card home-tool-card-extra";
+      card.setAttribute("data-home-extra", item.action);
+      card.title = item.label + " \u2014 " + item.blurb;
+      var icon = document.createElement("span");
+      icon.className = "material-symbols-outlined home-tool-card-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = item.icon;
+      card.appendChild(icon);
+      var name = document.createElement("span");
+      name.className = "home-tool-card-name";
+      name.textContent = item.label;
+      card.appendChild(name);
+      var blurb = document.createElement("span");
+      blurb.className = "home-tool-card-blurb";
+      blurb.textContent = item.blurb;
+      card.appendChild(blurb);
+      card.addEventListener("click", function() {
+        if (item.action === "mask") {
+          document.getElementById("tb-mask-toggle")?.click();
+          return;
+        }
+        if (item.action === "theme") {
+          document.getElementById("tb-theme-trigger")?.click();
+          return;
+        }
+        if (item.action === "share") document.getElementById("tb-share-btn")?.click();
+      });
+      grid.appendChild(card);
+    });
+  }
+  function initHomeScreen() {
+    buildToolGrid();
+    wireHomeSwitch("home-switch-tables", toggleSidebarCollapsed);
+    wireHomeSwitch("home-switch-history", togglePanelCollapsed);
+    syncSidebarTogglesFromLayout();
+    window._syncHomeSidebarToggles = syncSidebarTogglesFromLayout;
   }
 
   // assets/web/diagram.ts
@@ -6051,7 +6387,7 @@
       const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
       const total = rows.length;
       let tableHtml = '<div class="data-table-scroll-wrap"><table><thead><tr>' + keys.map(function(k) {
-        return "<th>" + esc2(k) + "</th>";
+        return '<th data-column-key="' + esc2(k) + '">' + esc2(k) + "</th>";
       }).join("") + "</tr></thead><tbody>";
       pageRows.forEach(function(row) {
         tableHtml += "<tr>" + keys.map(function(k) {
@@ -6549,6 +6885,7 @@
   initTheme();
   initThemeListeners();
   initPiiMaskToggle();
+  initLongPressCopy();
   if (DRIFT_VIEWER_AUTH_TOKEN) {
     schemaLink = document.getElementById("export-schema");
     if (schemaLink) schemaLink.href = "/api/schema";
@@ -6581,12 +6918,14 @@
     if (tabId === "size" && lastSizeAnalyticsData == null) triggerToolButtonIfReady("size-analyze", { checkDisabled: true });
     if (tabId === "perf") triggerToolButtonIfReady("perf-refresh", { checkDisabled: true });
     if (tabId === "anomaly") triggerToolButtonIfReady("anomaly-analyze", { checkDisabled: true });
+    if (tabId === "home" && typeof window._syncHomeSidebarToggles === "function") window._syncHomeSidebarToggles();
     if (typeof window._toolbarSyncActiveTab === "function") window._toolbarSyncActiveTab(tabId);
   };
   initTabsAndToolbar();
   initSidebarCollapse();
   initHistorySidebar();
-  openTool("tables");
+  initHomeScreen();
+  openTool("home");
   initDiagram();
   initSnapshot();
   initCompare();
@@ -7287,6 +7626,7 @@
         var layout3 = document.getElementById("app-layout");
         var collapsed = layout3 ? layout3.classList.contains("app-sidebar-panel-collapsed") : false;
         sidebarBtn.setAttribute("aria-pressed", collapsed ? "false" : "true");
+        if (typeof window._syncHomeSidebarToggles === "function") window._syncHomeSidebarToggles();
       });
     }
     var historyBtn = document.getElementById("tb-history-toggle");
@@ -7296,6 +7636,7 @@
         var layout3 = document.getElementById("app-layout");
         var collapsed = layout3 ? layout3.classList.contains("history-sidebar-collapsed") : false;
         historyBtn.setAttribute("aria-pressed", collapsed ? "false" : "true");
+        if (typeof window._syncHomeSidebarToggles === "function") window._syncHomeSidebarToggles();
       });
     }
     var maskBtn = document.getElementById("tb-mask-toggle");
@@ -7349,6 +7690,7 @@
       var historyCollapsed = layout2.classList.contains("history-sidebar-collapsed");
       historyBtn.setAttribute("aria-pressed", historyCollapsed ? "false" : "true");
     }
+    if (typeof window._syncHomeSidebarToggles === "function") window._syncHomeSidebarToggles();
     var activeTab = document.querySelector(".tab-btn.active");
     if (activeTab) {
       var activeToolId = activeTab.getAttribute("data-tab");

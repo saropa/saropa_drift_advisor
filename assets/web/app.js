@@ -30,8 +30,10 @@
     import { clearStaleProjectStorage, getColumnConfig, setColumnConfig, saveTableState, clearTableState, saveNavHistory, loadNavHistory } from './persistence.ts';
     import { getScope, applySearch, nextMatch, prevMatch } from './search.ts';
     import { copyCellValue, renderTableView, initPiiMaskToggle } from './table-view.ts';
+    import { initLongPressCopy } from './long-press-copy.ts';
     import { loadTable, applyTableListAndCounts, pollGeneration } from './table-list.ts';
     import { initTabsAndToolbar, openTableTab, openTool } from './tabs.ts';
+    import { initHomeScreen } from './home-screen.ts';
     import { goToOffset, ensureColumnConfig, applyColumnConfigAndRender, populateColumnChooserList } from './pagination.ts';
     import { loadSchemaIntoPre, loadSchemaView, loadBothView } from './schema.ts';
     import { initSidebarCollapse } from './sidebar.ts';
@@ -150,6 +152,7 @@
     // PII mask toggle (BUG-015): re-render table and search results when
     // toggled so display matches.  Lives in the toolbar.
     initPiiMaskToggle();
+    initLongPressCopy();
 
     if (S.DRIFT_VIEWER_AUTH_TOKEN) {
       var schemaLink = document.getElementById('export-schema');
@@ -202,6 +205,7 @@
       if (tabId === 'size' && S.lastSizeAnalyticsData == null) triggerToolButtonIfReady('size-analyze', { checkDisabled: true });
       if (tabId === 'perf') triggerToolButtonIfReady('perf-refresh', { checkDisabled: true });
       if (tabId === 'anomaly') triggerToolButtonIfReady('anomaly-analyze', { checkDisabled: true });
+      if (tabId === 'home' && typeof window._syncHomeSidebarToggles === 'function') window._syncHomeSidebarToggles();
       // Sync toolbar icon active state with the current tab.
       if (typeof window._toolbarSyncActiveTab === 'function') window._toolbarSyncActiveTab(tabId);
     };
@@ -209,14 +213,11 @@
     initTabsAndToolbar();
     initSidebarCollapse();
     initHistorySidebar();
+    initHomeScreen();
 
-    // Tables / Search / Run SQL are no longer fixed tabs pinned to the tab
-    // bar — they're toolbar icons now. Auto-open the Tables tab at startup
-    // so the user lands on the familiar browse view instead of an empty
-    // tab row. `openTool` is idempotent on repeat calls and also routes
-    // through switchTab, so panel visibility and `_toolbarSyncActiveTab`
-    // stay in sync.
-    openTool('tables');
+    // Home tab opens first: launcher grid for every tool + sidebar toggles.
+    // Closing the last tab re-opens Home (see closeToolTab in tabs.ts).
+    openTool('home');
     initDiagram();
     initSnapshot();
     initCompare();

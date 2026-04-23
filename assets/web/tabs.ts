@@ -19,7 +19,7 @@ import { loadTable } from './table-list.ts';
  * Table-specific tabs use the 'tbl:' prefix (e.g. 'tbl:users') and share
  * the #panel-tables panel. The "tables" tab shows a browse-all list;
  * 'tbl:{name}' tabs show that table's data in the shared content area.
- * @param {string} tabId - One of: tables, tbl:{name}, sql, search, snapshot, compare, index, size, perf, anomaly, import, schema, diagram
+ * @param {string} tabId - One of: home, tables, tbl:{name}, sql, search, snapshot, compare, index, size, perf, anomaly, import, schema, diagram
  */
 export function switchTab(tabId) {
   var tabBar = document.getElementById('tab-bar');
@@ -111,6 +111,7 @@ export function findTabBtn(tabId) {
  * @param {string} ariaControls - The panel id this tab controls
  * @param {Object} [opts] - Optional settings
  * @param {boolean} [opts.truncateLabel] - Wrap label in a span for CSS text truncation
+ * @param {boolean} [opts.prepend] - Insert at the start of the tab bar (e.g. Home recovery)
  * @returns {Element} The created tab button
  */
 export function createClosableTab(tabId: any, label: any, ariaControls: any, opts?: any) {
@@ -174,7 +175,11 @@ export function createClosableTab(tabId: any, label: any, ariaControls: any, opt
   // Double-click to close all other closeable tabs
   btn.addEventListener('dblclick', function() { closeOtherTabs(tabId); });
 
-  tabBar.appendChild(btn);
+  if (opts && opts.prepend) {
+    tabBar.insertBefore(btn, tabBar.firstChild);
+  } else {
+    tabBar.appendChild(btn);
+  }
   return btn;
 }
 
@@ -221,13 +226,14 @@ export function closeOtherTabs(keepTabId) {
 }
 
 /**
- * Closes a tool or table tab and switches to the Tables browse tab
- * if the closed tab was the active one. For table tabs (tbl:*),
- * also removes from the S.openTableTabs tracking array.
+ * Closes a tool or table tab. If the bar becomes empty, opens Home again.
+ * If the closed tab was active, switches to the last remaining tab.
+ * For table tabs (tbl:*), also removes from the S.openTableTabs tracking array.
  */
 export function closeToolTab(toolId) {
   var btn = findTabBtn(toolId);
   if (!btn) return;
+  var wasActive = S.activeTabId === toolId;
   btn.remove();
 
   // Remove from S.openTableTabs if it's a table tab
@@ -237,9 +243,17 @@ export function closeToolTab(toolId) {
     if (idx >= 0) S.openTableTabs.splice(idx, 1);
   }
 
-  if (S.activeTabId === toolId) {
-    // Prefer switching to the Tables browse tab when closing the active tab
-    switchTab('tables');
+  var tabBar = document.getElementById('tab-bar');
+  var remaining = tabBar ? tabBar.querySelectorAll('.tab-btn') : [];
+  if (remaining.length === 0) {
+    createClosableTab('home', S.TOOL_LABELS.home || 'Home', 'panel-home', { prepend: true });
+    switchTab('home');
+    return;
+  }
+  if (wasActive) {
+    var last = remaining[remaining.length - 1];
+    var nextId = last.getAttribute('data-tab');
+    if (nextId) switchTab(nextId);
   }
 }
 

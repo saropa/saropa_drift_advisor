@@ -20,8 +20,8 @@
 /// toggles are toolbar icon buttons — see `initSidebarCollapse` in
 /// `sidebar.ts` and `initToolbar` in `toolbar.ts`.
 ///
-/// The **Tables** sidebar shows skeleton rows under the Tables heading until `app.js` completes
-/// `GET /api/tables`; failures surface in the same block (see `buildIndexHtml` markup).
+/// The **Tables** sidebar shows skeleton rows under the Tables heading until the web bundle
+/// completes `GET /api/tables`; failures surface in the same block (see `buildIndexHtml` markup).
 import 'server_constants.dart';
 
 abstract final class HtmlContent {
@@ -154,58 +154,11 @@ abstract final class HtmlContent {
     ${_buildMastheadPill()}
     <!-- Share button lives in the toolbar (tb-share-btn). -->
   </header>
-  <div class="app-layout" id="app-layout">
-    <aside class="app-sidebar" id="app-sidebar">
-      <!-- Search options: collapsed by default; toolbar Search button toggles visibility. -->
-      <div id="sidebar-search-wrap" class="sidebar-section search-options-wrap collapsed" aria-hidden="true">
-        <h2 class="sidebar-section-title">Search</h2>
-      <div class="search-bar">
-        <label for="search-input">Search:</label>
-        <input type="text" id="search-input" placeholder="Search…" />
-        <label for="search-scope">in</label>
-        <select id="search-scope">
-          <option value="schema">Schema only</option>
-          <option value="data">DB data only</option>
-          <option value="both">Both</option>
-        </select>
-        <span id="search-nav" class="search-nav" style="display:none;">
-          <button type="button" id="search-prev" title="Previous match (Shift+Enter)">&#9650; Prev</button>
-          <span id="search-count"></span>
-          <button type="button" id="search-next" title="Next match (Enter)">Next &#9660;</button>
-        </span>
-        <label for="row-filter">Filter rows:</label>
-        <input type="text" id="row-filter" placeholder="Column value…" title="Client-side filter on current table" />
-        <div id="row-display-toggle-wrap" class="row-display-toggle" style="display:none;">
-          <span class="row-display-label">Show:</span>
-          <button type="button" id="row-display-all" class="row-display-btn" title="Show all rows">All rows</button>
-          <button type="button" id="row-display-matching" class="row-display-btn active" title="Show only rows matching filter">Matching</button>
-        </div>
-      </div>
-      </div>
-      <div id="sidebar-tables-wrap" class="sidebar-section sidebar-tables-wrap">
-      <h2 class="tables-heading"><button type="button" id="tables-heading-toggle" aria-expanded="true" title="Click to collapse/expand sidebar">Tables</button></h2>
-      <!-- Shimmer placeholders sit under the heading (not above) until /api/tables returns. -->
-      <div id="tables-loading" class="tables-loading" aria-busy="true" aria-label="Loading tables">
-        <ul class="table-list tables-skeleton" role="presentation">
-          <li><span class="tables-skeleton-bar"></span></li>
-          <li><span class="tables-skeleton-bar"></span></li>
-          <li><span class="tables-skeleton-bar"></span></li>
-          <li><span class="tables-skeleton-bar"></span></li>
-          <li><span class="tables-skeleton-bar"></span></li>
-          <li><span class="tables-skeleton-bar"></span></li>
-        </ul>
-        <p id="tables-loading-error" class="tables-loading-error meta" hidden role="alert"></p>
-      </div>
-      <ul id="tables" class="table-list"></ul>
-      </div>
-    </aside>
-    <div class="app-main-content">
-      <!-- Toolbar row (top): all icon-only action buttons live here. Tables /
-           Search / Run SQL used to be fixed full-width tabs in this row; they
-           are now plain toolbar icons just like the other tools, so the layout
-           doesn't split between "permanent tabs" and "tool icons".
-           Opened tabs live in #tab-bar directly below this row. -->
+  <div class="app-shell">
+  <!-- Full-width toolbar above the three-column layout (tables sidebar, main, history). -->
       <div id="toolbar-bar" class="toolbar-bar" role="toolbar" aria-label="Actions">
+        <button type="button" class="tb-icon-btn" data-tool="home" title="Home"><span class="material-symbols-outlined" aria-hidden="true">home</span></button>
+        <hr class="tb-divider" />
         <!-- Left sidebar toggle -->
         <button type="button" class="tb-icon-btn" id="tb-sidebar-toggle" title="Toggle tables sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">left_panel_open</span></button>
         <hr class="tb-divider" />
@@ -249,12 +202,71 @@ abstract final class HtmlContent {
         <!-- Right sidebar toggle -->
         <button type="button" class="tb-icon-btn" id="tb-history-toggle" title="Toggle history sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">right_panel_open</span></button>
       </div>
-      <!-- Tab row (bottom): holds only the user's currently-opened tabs
-           (tool tabs, table tabs). Starts empty; the startup sequence auto-
-           opens the Tables tab so the user has a landing view. -->
+  <div class="app-layout" id="app-layout">
+    <aside class="app-sidebar" id="app-sidebar">
+      <!-- Search options: collapsed by default; toolbar Search button toggles visibility. -->
+      <div id="sidebar-search-wrap" class="sidebar-section search-options-wrap collapsed" aria-hidden="true">
+        <h2 class="sidebar-section-title">Search</h2>
+      <div class="search-bar">
+        <label for="search-input">Search:</label>
+        <input type="text" id="search-input" placeholder="Search…" />
+        <label for="search-scope">in</label>
+        <select id="search-scope">
+          <option value="schema">Schema only</option>
+          <option value="data">DB data only</option>
+          <option value="both">Both</option>
+        </select>
+        <span id="search-nav" class="search-nav" style="display:none;">
+          <button type="button" id="search-prev" title="Previous match (Shift+Enter)">&#9650; Prev</button>
+          <span id="search-count"></span>
+          <button type="button" id="search-next" title="Next match (Enter)">Next &#9660;</button>
+        </span>
+        <label for="row-filter">Filter rows:</label>
+        <input type="text" id="row-filter" placeholder="Column value…" title="Client-side filter on current table" />
+        <div id="row-display-toggle-wrap" class="row-display-toggle" style="display:none;">
+          <span class="row-display-label">Show:</span>
+          <button type="button" id="row-display-all" class="row-display-btn" title="Show all rows">All rows</button>
+          <button type="button" id="row-display-matching" class="row-display-btn active" title="Show only rows matching filter">Matching</button>
+        </div>
+      </div>
+      </div>
+      <div id="sidebar-tables-wrap" class="sidebar-section sidebar-tables-wrap">
+      <h2 class="history-heading">Tables <span id="tables-count" class="history-count"></span></h2>
+      <!-- Shimmer placeholders sit under the heading (not above) until /api/tables returns. -->
+      <div id="tables-loading" class="tables-loading" aria-busy="true" aria-label="Loading tables">
+        <ul class="table-list tables-skeleton" role="presentation">
+          <li><span class="tables-skeleton-bar"></span></li>
+          <li><span class="tables-skeleton-bar"></span></li>
+          <li><span class="tables-skeleton-bar"></span></li>
+          <li><span class="tables-skeleton-bar"></span></li>
+          <li><span class="tables-skeleton-bar"></span></li>
+          <li><span class="tables-skeleton-bar"></span></li>
+        </ul>
+        <p id="tables-loading-error" class="tables-loading-error meta" hidden role="alert"></p>
+      </div>
+      <ul id="tables" class="table-list"></ul>
+      </div>
+    </aside>
+    <div class="app-main-content">
+      <!-- Tab row: closeable tool/table tabs; startup opens Home. -->
       <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Open tabs"></div>
       <div id="tab-panels" class="tab-panels">
-        <div id="panel-tables" class="tab-panel active" role="tabpanel" aria-labelledby="tab-tables">
+        <div id="panel-home" class="tab-panel active" role="tabpanel" aria-labelledby="tab-home">
+          <div class="home-screen">
+            <div class="home-sidebar-toggles" aria-label="Sidebar visibility">
+              <div class="home-sidebar-toggle-row">
+                <span class="home-sidebar-toggle-label" id="home-label-tables-sidebar">Tables sidebar (left)</span>
+                <button type="button" class="home-switch home-switch-on" id="home-switch-tables" role="switch" aria-labelledby="home-label-tables-sidebar" aria-checked="true"></button>
+              </div>
+              <div class="home-sidebar-toggle-row">
+                <span class="home-sidebar-toggle-label" id="home-label-history-sidebar">History (right)</span>
+                <button type="button" class="home-switch home-switch-on" id="home-switch-history" role="switch" aria-labelledby="home-label-history-sidebar" aria-checked="true"></button>
+              </div>
+            </div>
+            <div id="home-tool-grid" class="home-tool-grid"></div>
+          </div>
+        </div>
+        <div id="panel-tables" class="tab-panel" role="tabpanel" aria-labelledby="tab-tables" hidden>
       <!-- Browse-all table list: shown when the "Tables" tab is active (no specific table selected).
            Populated dynamically by renderTablesBrowse() in app.js with clickable table cards. -->
       <div id="tables-browse" class="tables-browse"></div>
@@ -607,6 +619,7 @@ abstract final class HtmlContent {
         <button type="button" id="history-clear" class="history-action-btn" title="Clear history"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
       </div>
     </aside>
+  </div>
   </div>
   <div id="column-context-menu" role="menu" aria-hidden="true">
     <button type="button" data-action="hide" role="menuitem" title="Hide this column from the table">Hide column</button>

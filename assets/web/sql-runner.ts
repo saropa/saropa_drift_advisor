@@ -150,7 +150,7 @@ export function initSqlRunner(): void {
     const pageRows = rows.slice(start, start + pageSize);
     const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
     const total = rows.length;
-    let tableHtml = '<div class="data-table-scroll-wrap"><table><thead><tr>' + keys.map(function(k) { return '<th>' + esc(k) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    let tableHtml = '<div class="data-table-scroll-wrap"><table><thead><tr>' + keys.map(function(k) { return '<th data-column-key="' + esc(k) + '">' + esc(k) + '</th>'; }).join('') + '</tr></thead><tbody>';
     pageRows.forEach(function(row) {
       tableHtml += '<tr>' + keys.map(function(k) { return '<td>' + esc(row[k] != null ? String(row[k]) : '') + '</td>'; }).join('') + '</tr>';
     });

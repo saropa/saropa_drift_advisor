@@ -68,28 +68,31 @@ body.theme-dark {
  * Elements that need frosted-glass depth add backdrop-filter in
  * _theme-midnight.scss. */
 body.theme-midnight {
-  --bg: rgba(15, 18, 25, 0.65);
-  --fg: #e3e3ff;
-  --bg-pre: rgba(29, 34, 64, 0.70);
-  --surface: rgba(35, 40, 72, 0.55);
-  --header-bg: rgba(23, 28, 54, 0.55);
-  /* Borders: raised alpha for visibility against deep navy (was 0.15/0.08). */
-  --border: rgba(143, 168, 255, 0.22);
-  --border-subtle: rgba(143, 168, 255, 0.12);
-  --muted: #a0a8d0;
-  /* Periwinkle accent — bright and distinctive */
-  --link: #8fa8ff;
-  --link-hover: #b0c4ff;
+  /* Slightly higher alphas so frosted panels read as stable dark substrates
+   * behind text — aurora still shows at edges but body copy is not washed out. */
+  --bg: rgba(15, 18, 28, 0.78);
+  --fg: #f2f3ff;
+  --bg-pre: rgba(26, 30, 52, 0.88);
+  --surface: rgba(32, 36, 58, 0.74);
+  --header-bg: rgba(22, 26, 48, 0.74);
+  /* Borders: stronger frost lines so structure scans on shifting background. */
+  --border: rgba(172, 190, 255, 0.34);
+  --border-subtle: rgba(143, 168, 255, 0.20);
+  /* Muted lifted for WCAG-like contrast on glass (was #a0a8d0 on bright aurora leaks). */
+  --muted: #c5cae8;
+  /* Periwinkle accent — slightly brighter for small labels and links */
+  --link: #b4c4ff;
+  --link-hover: #d6deff;
   --btn-primary-bg: #435389;
   --btn-primary-fg: #fff;
   --btn-primary-hover-bg: #526299;
-  --highlight-bg: rgba(143, 168, 255, 0.15);
-  --highlight-fg: #b0c4ff;
+  --highlight-bg: rgba(143, 168, 255, 0.22);
+  --highlight-fg: #e8ecff;
   --highlight-active-bg: #8fa8ff;
-  --highlight-active-fg: #1a1d2b;
-  --sidebar-bg: rgba(30, 34, 54, 0.45);
-  --row-alt: rgba(143, 168, 255, 0.04);
-  --focus-ring-color: rgba(143, 168, 255, 0.25);
+  --highlight-active-fg: #12141f;
+  --sidebar-bg: rgba(28, 32, 52, 0.65);
+  --row-alt: rgba(143, 168, 255, 0.06);
+  --focus-ring-color: rgba(180, 196, 255, 0.35);
 }
 
 /* Midnight overrides: periwinkle glow on surfaces, visible depth.

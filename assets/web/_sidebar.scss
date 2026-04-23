@@ -13,52 +13,9 @@
   padding: 0;
 }
 
-/* Tables list in sidebar — collapsible section.
-   The <h2> preserves heading semantics for screen-reader landmark navigation;
-   the nested <button> handles interaction (click, focus, aria-expanded). */
-.tables-heading {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-  margin: 1rem 0 0.5rem;
-  padding: 0;
-}
-
-/* Button reset: inherit heading styles, no default browser button chrome.
-   Flex layout pushes the chevron to the far right of the sidebar heading. */
-.tables-heading button {
-  all: unset;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  font: inherit;
-  color: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-  user-select: none;
-  padding: 0.25rem 0;
-}
-
-/* Left-pointing chevron, right-aligned via margin-left: auto.
-   No collapsed-state rotation needed: when the sidebar collapses
-   (width → 0, opacity → 0) this heading is invisible anyway. */
-.tables-heading button::after {
-  content: '\25C0'; /* ◀ left-pointing triangle */
-  display: inline-block;
-  margin-left: auto;
-  font-size: 1.1em;
-}
-
-.tables-heading button:hover { color: var(--link); }
-
-/* Keyboard focus indicator (WCAG 2.4.7) */
-.tables-heading button:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 2px;
-}
+/* Tables section title uses the same `.history-heading` styles as the
+   right sidebar (see `_history-sidebar.scss`). Panel collapse is only
+   via #tb-sidebar-toggle, matching the History sidebar pattern. */
 
 .sidebar-tables-wrap .table-list {
   overflow: hidden;

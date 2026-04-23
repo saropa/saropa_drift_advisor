@@ -154,6 +154,13 @@ describe('table-def-toggle.ts — table-view.ts DOM contract', () => {
     );
   });
 
+  it('table-view.ts starts collapsed (.td-collapsed on wrap)', () => {
+    assert.ok(
+      tableViewTs.includes('table-definition-wrap td-collapsed'),
+      're-renders must not expand the definition panel by omitting td-collapsed',
+    );
+  });
+
   it('table-view.ts emits .table-definition-heading', () => {
     assert.ok(
       tableViewTs.includes('table-definition-heading'),

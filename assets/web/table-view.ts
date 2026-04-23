@@ -105,6 +105,7 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
   if (columnConfig && columnConfig.pinned) pinned = columnConfig.pinned;
   var visible = order.filter(function(k) { return hidden.indexOf(k) < 0; });
 
+  var maskOn = isPiiMaskEnabled();
   var html = '<table id="data-table" class="drift-table"><thead><tr>';
   visible.forEach(function(k) {
     var fk = fkMap[k];
@@ -112,11 +113,32 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
     /* Column type badge: show abbreviated SQLite type next to the column name */
     var colType = colTypes ? (colTypes[k] || '') : '';
     var typeBadge = colType ? ' <span class="col-type-badge" title="' + esc(colType) + '">' + esc(colType.substring(0, 4)) + '</span>' : '';
+    /* When PII masking is on, mark sensitive columns in the header (same heuristic as cell masking). */
+    var maskBadge = '';
+    if (maskOn && isPiiColumn(k)) {
+      var maskTip =
+        'Sensitive column: values are redacted while PII masking is on. Use the mask control in the toolbar to show raw data.';
+      maskBadge =
+        ' <span class="col-mask-badge" title="' +
+        esc(maskTip) +
+        '" aria-label="' +
+        esc(maskTip) +
+        '"><span class="material-symbols-outlined" aria-hidden="true">visibility_off</span></span>';
+    }
     var thClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
-    html += '<th data-column-key="' + esc(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc(k) + typeBadge + fkLabel + '</th>';
+    html +=
+      '<th data-column-key="' +
+      esc(k) +
+      '" draggable="true"' +
+      thClass +
+      ' title="Drag to reorder; right-click for menu">' +
+      esc(k) +
+      maskBadge +
+      typeBadge +
+      fkLabel +
+      '</th>';
   });
   html += '</tr></thead><tbody>';
-  var maskOn = isPiiMaskEnabled();
   var piiCols = {};
   visible.forEach(function(k) { piiCols[k] = isPiiColumn(k); });
   filtered.forEach(function(row) {
@@ -254,15 +276,20 @@ export function buildTableDefinitionHtml(tableName) {
     var typCell = rawType ? esc(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
     return '<tr>' +
       '<td class="table-def-icons">' + iconHtml + badges + '</td>' +
-      '<td class="table-def-name">' + esc(c.name) + '</td>' +
+      '<td class="table-def-name" data-longpress-copy="' + esc(c.name) + '">' + esc(c.name) + '</td>' +
       '<td class="table-def-type">' + typCell + '</td>' +
       '<td class="table-def-flags">' + esc(flagStr) + '</td>' +
       '</tr>';
   }).join('');
 
-  // Collapsible behavior handled by table-def-toggle.js (event delegation
-  // + .td-collapsed class). DOM contract: wrap > heading + scroll.
-  return '<div class="table-definition-wrap" role="region" aria-label="Table definition">' +
+  // Collapsible: table-def-toggle.ts toggles .td-collapsed on click. td-collapsed in markup
+  // keeps re-renders (e.g. column reorder) collapsed without re-running init.
+  //
+  // Open-by-default later: omit td-collapsed on the wrap; set the heading to \u25B2 (expanded)
+  // to match initTableDefToggle's arrow swap. Also remove or skip the post-init loop in
+  // table-def-toggle.ts that force-adds td-collapsed to every .table-definition-wrap — it
+  // would still collapse everything on first load even if this HTML left the panel open.
+  return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition">' +
     '<div class="table-definition-heading">\u25BC Table definition</div>' +
     '<div class="table-definition-scroll">' +
     '<table class="table-definition">' +
