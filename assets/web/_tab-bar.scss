@@ -1,4 +1,5 @@
-/* --- Tab bar: row that sits directly below #toolbar-bar and holds only
+/* --- Tab bar: row at the top of the main column (toolbar is in `.app-shell`,
+ * above the three-column `#app-layout`). Holds only
  * the user's currently-opened tabs (tool tabs and per-table tabs). The
  * toolbar icons used to share this row with three "fixed" Tables/Search/
  * Run SQL tabs; those are now toolbar icons, so this row is purely for
@@ -22,11 +23,9 @@
   z-index: 1;
 }
 
-/* Hint text when no tabs are open yet — the Tables toolbar icon launches
- * a tab, and this message points the user at it. Shown only when the
- * row has no `.tab-btn` children. */
+/* Hint when the tab row is empty (e.g. JS failed before the first tab). */
 #tab-bar.tab-bar:empty::before {
-  content: 'No tabs open \2014 click an icon above (Tables, Search, Run SQL\u2026) to open one.';
+  content: 'No tabs open \2014 use Home or the toolbar icons to open a view.';
   display: inline-flex;
   align-items: center;
   font-size: var(--text-xs);
@@ -147,7 +146,7 @@ body.theme-showcase #tab-panels.tab-panels {
 
 /* Midnight: dark frosted tab panels so aurora bleeds through. */
 body.theme-midnight #tab-panels.tab-panels {
-  background: rgba(18, 22, 40, 0.45);
+  background: rgba(18, 22, 40, 0.68);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }

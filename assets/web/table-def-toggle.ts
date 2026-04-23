@@ -56,8 +56,9 @@ export function initTableDefToggle(): void {
   });
 
   // --- Apply default collapsed state to any already-rendered panels -----------
-  // On load, find all existing table-definition-wrap elements and collapse them.
-  // Future panels (rendered after navigation) are handled by the delegation above.
+  // On load, collapse wraps that predate this init (e.g. tests). New markup from
+  // buildTableDefinitionHtml includes td-collapsed so dynamic re-renders stay collapsed.
+  // Open-by-default: skip this loop (see buildTableDefinitionHtml in table-view.ts).
   const existing = document.querySelectorAll('.table-definition-wrap');
   for (let i = 0; i < existing.length; i++) {
     existing[i].classList.add('td-collapsed');

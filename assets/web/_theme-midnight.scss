@@ -78,7 +78,7 @@ body.theme-midnight::after {
 /* Frosted glass header — dark glass with periwinkle edge glow (TH7).
  * Lower opacity (0.55) and heavier blur (24px) let aurora through. */
 body.theme-midnight .app-header {
-  background: rgba(20, 25, 50, 0.55);
+  background: rgba(20, 25, 50, 0.72);
   backdrop-filter: blur(24px) saturate(1.5);
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
   border-bottom: 1px solid rgba(143, 168, 255, 0.15);
@@ -91,7 +91,7 @@ body.theme-midnight .app-header {
 
 /* Frosted glass sidebar — dark tint, aurora visible (TH7). */
 body.theme-midnight .app-sidebar {
-  background: rgba(20, 24, 48, 0.45);
+  background: rgba(20, 24, 48, 0.62);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border-right-color: rgba(143, 168, 255, 0.12);
@@ -101,14 +101,14 @@ body.theme-midnight .app-sidebar {
 
 /* Main content — translucent so aurora bleeds through (TH7). */
 body.theme-midnight .app-main-content {
-  background: rgba(12, 15, 22, 0.45);
+  background: rgba(12, 15, 24, 0.68);
   position: relative;
   z-index: 1;
 }
 
 /* Dark frosted cards — lower opacity (TH7), periwinkle glow on hover. */
 body.theme-midnight .feature-card {
-  background: rgba(28, 33, 62, 0.50);
+  background: rgba(28, 33, 62, 0.68);
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
   border: 1px solid rgba(143, 168, 255, 0.15);
@@ -180,7 +180,7 @@ body.theme-midnight .feature-card.expanded::before {
 
 /* Dark frosted browse cards (TH7). */
 body.theme-midnight .tables-browse-card {
-  background: rgba(28, 33, 62, 0.45);
+  background: rgba(28, 33, 62, 0.62);
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
   border: 1px solid rgba(143, 168, 255, 0.12);
@@ -193,7 +193,7 @@ body.theme-midnight .tables-browse-card {
 }
 
 body.theme-midnight .tables-browse-card:hover {
-  background: rgba(35, 40, 72, 0.60);
+  background: rgba(35, 40, 72, 0.76);
   border-color: rgba(143, 168, 255, 0.3);
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.3),
@@ -218,7 +218,7 @@ body.theme-midnight .btn-primary:hover:not(:disabled) {
 
 /* Midnight header buttons — dark glass. */
 body.theme-midnight .header-btn {
-  background: rgba(24, 28, 55, 0.50);
+  background: rgba(24, 28, 55, 0.65);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-color: rgba(143, 168, 255, 0.15);
@@ -233,7 +233,7 @@ body.theme-midnight .header-btn:hover {
 
 /* ── Tab bar: dark frosted glass strip below the header ─────────────── */
 body.theme-midnight #tab-bar.tab-bar {
-  background: rgba(20, 24, 48, 0.45);
+  background: rgba(20, 24, 48, 0.62);
   backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
   border-bottom-color: rgba(143, 168, 255, 0.12);
@@ -242,7 +242,7 @@ body.theme-midnight #tab-bar.tab-bar {
 /* Active tab: darker frost matching the frosted panel below.
  * --tab-accent is set per data-tab-type below for unique per-tab colors. */
 body.theme-midnight .tab-bar .tab-btn.active {
-  background: rgba(15, 18, 30, 0.60);
+  background: rgba(15, 18, 30, 0.75);
   border-color: rgba(143, 168, 255, 0.15);
   border-top: 2px solid var(--tab-accent, var(--link));
   border-bottom-color: rgba(15, 18, 30, 0.60);
@@ -253,7 +253,7 @@ body.theme-midnight .tab-bar .tab-btn.active {
  * Colors are chosen for contrast against the dark midnight background. */
 body.theme-midnight .tab-bar .tab-btn[data-tab-type="tables"]  { --tab-accent: #5ec4c8; }  /* teal */
 body.theme-midnight .tab-bar .tab-btn[data-tab-type="search"]  { --tab-accent: #f0b45e; }  /* amber */
-body.theme-midnight .tab-bar .tab-btn[data-tab-type="sql"]     { --tab-accent: #8fa8ff; }  /* periwinkle (default link) */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="sql"]     { --tab-accent: #b4c4ff; }  /* periwinkle — matches --link */
 body.theme-midnight .tab-bar .tab-btn[data-tab-type="snapshot"]{ --tab-accent: #c084fc; }  /* lavender */
 body.theme-midnight .tab-bar .tab-btn[data-tab-type="compare"] { --tab-accent: #f87171; }  /* coral red */
 body.theme-midnight .tab-bar .tab-btn[data-tab-type="index"]   { --tab-accent: #67e8f9; }  /* cyan */
@@ -265,17 +265,18 @@ body.theme-midnight .tab-bar .tab-btn[data-tab-type="schema"]  { --tab-accent: #
 body.theme-midnight .tab-bar .tab-btn[data-tab-type="diagram"] { --tab-accent: #38bdf8; }  /* sky blue */
 body.theme-midnight .tab-bar .tab-btn[data-tab-type="export"]  { --tab-accent: #d8b4fe; }  /* light purple */
 body.theme-midnight .tab-bar .tab-btn[data-tab-type="settings"]{ --tab-accent: #94a3b8; }  /* slate */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type="home"]    { --tab-accent: #a5b4fc; }  /* soft indigo */
 
 /* Hovered tab: periwinkle-tinted frost lift. */
 body.theme-midnight .tab-bar .tab-btn:hover {
-  background: rgba(28, 33, 62, 0.50);
+  background: rgba(28, 33, 62, 0.62);
 }
 
 /* ── Data table: deep frosted glass so aurora shows through ──────────
  * Overrides the base .data-table-scroll-wrap (opaque var(--surface)) with
  * translucent background + blur for the frosted-glass effect. */
 body.theme-midnight .data-table-scroll-wrap {
-  background: rgba(28, 33, 62, 0.45);
+  background: rgba(28, 33, 62, 0.65);
   backdrop-filter: blur(14px) saturate(1.3);
   -webkit-backdrop-filter: blur(14px) saturate(1.3);
   border-color: rgba(143, 168, 255, 0.15);
@@ -288,24 +289,24 @@ body.theme-midnight .data-table-scroll-wrap {
 /* Sticky header cells: heavier dark frost for readability when rows
  * scroll underneath, with periwinkle top-edge highlight. */
 body.theme-midnight .drift-table th {
-  background: rgba(20, 25, 50, 0.80);
+  background: rgba(20, 25, 50, 0.92);
 }
 
 /* Pinned columns: dark frost to match the table glass surface. */
 body.theme-midnight .drift-table td.col-pinned {
-  background: rgba(25, 30, 55, 0.75);
+  background: rgba(25, 30, 55, 0.88);
 }
 
 /* ── SQL editor: dark frosted textarea ────────────────────────────── */
 body.theme-midnight .sql-runner textarea {
-  background: rgba(24, 28, 55, 0.55);
+  background: rgba(24, 28, 55, 0.72);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-color: rgba(143, 168, 255, 0.18);
 }
 
 body.theme-midnight .sql-runner .sql-result .data-table-scroll-wrap {
-  background: rgba(28, 33, 62, 0.45);
+  background: rgba(28, 33, 62, 0.65);
   backdrop-filter: blur(14px) saturate(1.3);
   -webkit-backdrop-filter: blur(14px) saturate(1.3);
 }

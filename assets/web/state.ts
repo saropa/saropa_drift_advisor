@@ -21,7 +21,7 @@ export let schemaMeta: any = null;
 export function setSchemaMeta(m: any): void { schemaMeta = m; }
 
 // --- Tab state ---
-export let activeTabId = 'tables';
+export let activeTabId = 'home';
 export let openTableTabs: string[] = [];
 export function setActiveTabId(id: string): void { activeTabId = id; }
 export function setOpenTableTabs(tabs: string[]): void { openTableTabs = tabs; }
@@ -186,6 +186,7 @@ export const HISTORY_SIDEBAR_KEY = 'saropa_history_sidebar_collapsed';
  * Keep in sync with the hamburger menu icons in html_content.dart.
  */
 export const TOOL_ICONS: Record<string, string> = {
+  home: 'home',
   tables: 'table_chart',
   sql: 'terminal',
   search: 'search',
@@ -203,6 +204,7 @@ export const TOOL_ICONS: Record<string, string> = {
 };
 
 export const TOOL_LABELS: Record<string, string> = {
+  home: 'Home',
   tables: 'Tables',
   sql: 'Run SQL',
   search: 'Search',
@@ -218,6 +220,31 @@ export const TOOL_LABELS: Record<string, string> = {
   export: 'Export',
   settings: 'Settings',
 };
+
+/** Ordered list for the Home screen launcher grid (id + one-line blurb). */
+export const HOME_LAUNCHERS: { id: string; blurb: string }[] = [
+  { id: 'tables', blurb: 'browse, open tables, pagination, export' },
+  { id: 'search', blurb: 'schema + data search, filters, jump matches' },
+  { id: 'sql', blurb: 'editor, templates, bookmarks, charts, NL ask' },
+  { id: 'snapshot', blurb: 'capture schema, time travel' },
+  { id: 'compare', blurb: 'diff databases, migrations' },
+  { id: 'index', blurb: 'suggested indexes, query hints' },
+  { id: 'schema', blurb: 'DDL, columns, PRAGMA' },
+  { id: 'diagram', blurb: 'relationship graph' },
+  { id: 'size', blurb: 'table sizes, growth' },
+  { id: 'perf', blurb: 'slow statements, timings' },
+  { id: 'anomaly', blurb: 'health checks, drift signals' },
+  { id: 'import', blurb: 'CSV → table' },
+  { id: 'export', blurb: 'CSV, schema' },
+  { id: 'settings', blurb: 'prefs, masking, confirm navigate' },
+];
+
+/** Home-only shortcuts for toolbar actions without their own tab panel. */
+export const HOME_EXTRAS: { action: 'mask' | 'theme' | 'share'; icon: string; label: string; blurb: string }[] = [
+  { action: 'mask', icon: 'visibility_off', label: 'Mask PII', blurb: 'redact sensitive columns' },
+  { action: 'theme', icon: 'palette', label: 'Theme', blurb: 'light, dark, showcase, midnight' },
+  { action: 'share', icon: 'share', label: 'Share', blurb: 'read-only session link' },
+];
 
 // --- Offline disable IDs ---
 export const OFFLINE_DISABLE_IDS = [

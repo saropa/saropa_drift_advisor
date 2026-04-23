@@ -51,6 +51,8 @@ declare global {
     ensureDiagramInited?: () => void;
     /** Toolbar icon active-state sync — set by toolbar.ts, consumed by app.js onTabSwitch. */
     _toolbarSyncActiveTab?: (tabId: string) => void;
+    /** Home tab sidebar switches — set by home-screen.ts, called from toolbar.ts after sidebar toggles. */
+    _syncHomeSidebarToggles?: () => void;
     /** Search tab hooks — stubs defined in app.js, consumed by external Search UI extension. */
     _stOnActivate?: () => void;
     _stFocusInput?: () => void;

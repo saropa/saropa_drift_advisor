@@ -80,6 +80,7 @@ import { saveNavHistory, clearNavHistory } from './persistence.ts';
       // "orders" jumps straight there).
       html += S.navHistory.map(function(h, idx) {
         return '<a href="#" class="nav-crumb" data-idx="' + idx + '" '
+          + 'data-longpress-copy="' + esc(h.table) + '" '
           + 'style="color:var(--link);" '
           + 'title="Jump to ' + esc(h.table) + '">'
           + esc(h.table) + '</a>';
@@ -87,7 +88,8 @@ import { saveNavHistory, clearNavHistory } from './persistence.ts';
 
       // The current table is the final segment -- shown as bold, not
       // clickable, because it is already the active view.
-      html += ' &#8594; <strong>' + esc(S.currentTableName || '') + '</strong>';
+      var curName = S.currentTableName || '';
+      html += ' &#8594; <strong data-longpress-copy="' + esc(curName) + '">' + esc(curName) + '</strong>';
 
       el.innerHTML = html;
       el.style.display = 'block';

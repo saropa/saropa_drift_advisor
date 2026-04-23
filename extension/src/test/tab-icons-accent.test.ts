@@ -118,6 +118,17 @@ describe('Tab icons — html_content.dart toolbar icons', () => {
     htmlSrc = readAsset('lib/src/server/html_content.dart');
   });
 
+  it('Home toolbar icon exists with home glyph', () => {
+    assert.ok(
+      htmlSrc.includes('data-tool="home"'),
+      'Home toolbar icon must have data-tool="home"',
+    );
+    assert.ok(
+      /data-tool="home"[^>]*title="Home"[\s\S]*?>home</.test(htmlSrc),
+      'Home toolbar icon must use the home Material Symbol',
+    );
+  });
+
   it('Tables toolbar icon exists with table_chart glyph', () => {
     assert.ok(
       htmlSrc.includes('data-tool="tables"'),
@@ -180,7 +191,7 @@ describe('Tab accent colors — theme SCSS', () => {
 
   /** The tab types that should have accent colors in themed themes. */
   const tabTypes = [
-    'tables', 'search', 'sql', 'snapshot', 'compare',
+    'home', 'tables', 'search', 'sql', 'snapshot', 'compare',
     'index', 'size', 'perf', 'anomaly', 'import',
     'schema', 'diagram', 'export', 'settings',
   ];

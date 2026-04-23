@@ -97,6 +97,11 @@ export function renderTableList(tables) {
     return (pinnedSet.has(a) ? 0 : 1) - (pinnedSet.has(b) ? 0 : 1);
   });
 
+  var countEl = document.getElementById('tables-count');
+  if (countEl) {
+    countEl.replaceChildren(document.createTextNode('(' + sorted.length + ')'));
+  }
+
   sorted.forEach(function(t) {
     var isPinned = pinnedSet.has(t);
     var li = document.createElement('li');

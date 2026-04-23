@@ -1,0 +1,143 @@
+/* --- Home tab: sidebar switches + tool launcher grid --- */
+.home-screen {
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.home-sidebar-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.home-sidebar-toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.home-sidebar-toggle-label {
+  font-size: var(--text-sm);
+  color: var(--fg);
+  font-weight: 500;
+}
+
+/* Pill switch (tables / history sidebars) */
+.home-switch {
+  position: relative;
+  width: 2.5rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.home-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.home-switch.home-switch-on {
+  background: color-mix(in srgb, var(--link) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--link) 35%, var(--border));
+}
+
+.home-switch.home-switch-on::after {
+  transform: translateX(1.15rem);
+  background: var(--link);
+}
+
+.home-switch:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+.home-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.65rem;
+}
+
+.home-tool-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  min-height: 4.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.home-tool-card:hover {
+  border-color: var(--link);
+  background: var(--bg-pre);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.home-tool-card:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 1px;
+}
+
+.home-tool-card-icon {
+  font-size: 1.35rem;
+  color: var(--link);
+  line-height: 1;
+}
+
+.home-tool-card-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1.25;
+}
+
+.home-tool-card-blurb {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.home-tool-card-extra .home-tool-card-icon {
+  color: var(--muted);
+}
+
+.home-tool-card-extra:hover .home-tool-card-icon {
+  color: var(--link);
+}
+
+@supports not (background: color-mix(in srgb, red, blue)) {
+  .home-switch.home-switch-on {
+    background: var(--highlight-bg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-switch,
+  .home-switch::after,
+  .home-tool-card {
+    transition: none;
+  }
+}
