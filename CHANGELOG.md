@@ -36,7 +36,7 @@ browse source on
 
 ---
 
-## [3.3.6]
+## [3.4.0]
 
 No more bogus "potential outlier" warnings on `lastModified` / `last_seen` style timestamp columns, and every anomaly and missing-index suggestion now appears exactly once in the Problems panel instead of twice. Outlier messages also now tell you how many rows were sampled. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.3.6/CHANGELOG.md)
 

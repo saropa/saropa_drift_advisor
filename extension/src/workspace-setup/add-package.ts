@@ -12,7 +12,7 @@ const execAsync = promisify(exec);
 /** Package name as it appears in pubspec dependencies. */
 export const PACKAGE_NAME = 'saropa_drift_advisor';
 /** Version constraint; keep in sync with repo pubspec when cutting releases. */
-export const PACKAGE_VERSION = '^3.3.6';
+export const PACKAGE_VERSION = '^3.4.0';
 
 /** Prevents concurrent runs (double-click or repeated command). */
 let addPackageInProgress = false;
