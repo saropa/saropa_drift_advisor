@@ -36,9 +36,22 @@ browse source on
 
 ---
 
+## [3.4.1]
+
+Publish-pipeline bug report refreshed (no change to the shipped Dart package or extension behavior in this tag). [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.4.1/CHANGELOG.md)
+
+<details>
+<summary>Maintenance</summary>
+
+- **`bugs/PROBABLE_marketplace_failure_blocks_open_vsx_publish.md`** — verified against `scripts/modules/ext_publish.py` (`_run_publish_steps`): added line-level citations for the Marketplace failure path that returns before Step 14 (Open VSX), tightened repro steps, and replaced a Windows-only `rg` example with repo-root commands
+
+</details>
+
+---
+
 ## [3.4.0]
 
-No more bogus "potential outlier" warnings on `lastModified` / `last_seen` style timestamp columns, and every anomaly and missing-index suggestion now appears exactly once in the Problems panel instead of twice. Outlier messages also now tell you how many rows were sampled. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.3.6/CHANGELOG.md)
+No more bogus "potential outlier" warnings on `lastModified` / `last_seen` style timestamp columns, and every anomaly and missing-index suggestion now appears exactly once in the Problems panel instead of twice. Outlier messages also now tell you how many rows were sampled. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.4.0/CHANGELOG.md)
 
 ### Fixed
 
