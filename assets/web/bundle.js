@@ -883,6 +883,809 @@
     navigateToMatch(searchCurrentIndex - 1);
   }
 
+  // assets/web/schema-meta.ts
+  async function loadSchemaMeta() {
+    if (schemaMeta) return schemaMeta;
+    var r = await fetch("/api/schema/metadata", authOpts());
+    if (!r.ok) throw new Error("Failed to load schema metadata (HTTP " + r.status + ")");
+    setSchemaMeta(await r.json());
+    return schemaMeta;
+  }
+
+  // assets/web/query-builder-sql.ts
+  function filterHasValue(f) {
+    return "value" in f;
+  }
+  function sqlLiteral(v) {
+    if (typeof v === "number") return Number.isFinite(v) ? String(v) : "NULL";
+    if (typeof v === "boolean") return v ? "1" : "0";
+    return `'${String(v).replace(/'/g, "''")}'`;
+  }
+  function canonicalJoinKey(join) {
+    const a = `${join.leftTableId}.${join.leftColumn}`;
+    const b = `${join.rightTableId}.${join.rightColumn}`;
+    return [a, b].sort().join("=");
+  }
+  function renderSelectedColumn(sel, tableById2) {
+    const table = tableById2.get(sel.tableId);
+    if (!table) throw new Error("missing table for select");
+    const ref = `"${table.alias}"."${sel.column}"`;
+    if (!sel.aggregation) return ref;
+    const fn = String(sel.aggregation).toUpperCase();
+    const fallbackAlias = `${fn.toLowerCase()}_${sel.column}`;
+    const alias = sel.alias ?? fallbackAlias;
+    return `${fn}(${ref}) AS "${alias}"`;
+  }
+  function renderJoin(join, tableById2) {
+    const left = tableById2.get(join.leftTableId);
+    const right = tableById2.get(join.rightTableId);
+    if (!left || !right) throw new Error("join references unknown table");
+    const jt = join.type === "LEFT" || join.type === "RIGHT" || join.type === "INNER" ? join.type : "INNER";
+    return `${jt} JOIN "${right.baseTable}" AS "${right.alias}" ON "${right.alias}"."${join.rightColumn}" = "${left.alias}"."${join.leftColumn}"`;
+  }
+  function validateQueryModel(model) {
+    const errors = [];
+    const tableById2 = new Map(model.tables.map((t) => [t.id, t]));
+    if (model.tables.length === 0) {
+      errors.push("at least one table is required");
+      return errors;
+    }
+    const aliases = model.tables.map((t) => t.alias);
+    if (new Set(aliases).size !== aliases.length) {
+      errors.push("table aliases must be unique");
+    }
+    if (model.limit !== null && (!Number.isInteger(model.limit) || model.limit <= 0)) {
+      errors.push("limit must be a positive integer");
+    }
+    const missingTable = (id) => !tableById2.has(id);
+    for (const join of model.joins) {
+      if (missingTable(join.leftTableId) || missingTable(join.rightTableId)) {
+        errors.push(`join ${join.id} references unknown table`);
+      }
+    }
+    for (const sel of model.selectedColumns) {
+      if (missingTable(sel.tableId)) errors.push(`selected column ${sel.column} references unknown table`);
+    }
+    for (const filter of model.filters) {
+      if (missingTable(filter.tableId)) errors.push(`filter ${filter.id} references unknown table`);
+      if (filter.operator === "IN" && (!("values" in filter) || !filter.values || filter.values.length === 0)) {
+        errors.push(`filter ${filter.id} IN list cannot be empty`);
+      }
+    }
+    const seenJoinKeys = /* @__PURE__ */ new Set();
+    for (const join of model.joins) {
+      const key = canonicalJoinKey(join);
+      if (seenJoinKeys.has(key)) {
+        errors.push(`duplicate join detected (${join.id})`);
+      }
+      seenJoinKeys.add(key);
+    }
+    if (model.tables.length > 1) {
+      const rootId = model.tables[0].id;
+      const reachable = /* @__PURE__ */ new Set([rootId]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const j of model.joins) {
+          if (reachable.has(j.leftTableId) && !reachable.has(j.rightTableId)) {
+            reachable.add(j.rightTableId);
+            grew = true;
+          }
+          if (reachable.has(j.rightTableId) && !reachable.has(j.leftTableId)) {
+            reachable.add(j.leftTableId);
+            grew = true;
+          }
+        }
+      }
+      for (const t of model.tables) {
+        if (!reachable.has(t.id)) {
+          errors.push(`table "${t.alias}" is not connected to the query root via JOINs`);
+        }
+      }
+    }
+    if (model.groupBy.length > 0) {
+      const grouped = new Set(model.groupBy.map((g) => `${g.tableId}.${g.column}`));
+      for (const sel of model.selectedColumns) {
+        if (!sel.aggregation && !grouped.has(`${sel.tableId}.${sel.column}`)) {
+          errors.push(`non-aggregated select "${sel.column}" must be in GROUP BY`);
+        }
+      }
+    }
+    return errors;
+  }
+  function renderQuerySql(model) {
+    const errors = validateQueryModel(model);
+    if (errors.length > 0) {
+      throw new Error(`Invalid query model: ${errors.join("; ")}`);
+    }
+    const tableById2 = new Map(model.tables.map((t) => [t.id, t]));
+    const parts = [];
+    const selectCols = model.selectedColumns.map((c) => renderSelectedColumn(c, tableById2));
+    parts.push(`SELECT ${selectCols.length > 0 ? selectCols.join(", ") : "*"}`);
+    const root = model.tables[0];
+    parts.push(`FROM "${root.baseTable}" AS "${root.alias}"`);
+    for (const join of model.joins) {
+      parts.push(renderJoin(join, tableById2));
+    }
+    if (model.filters.length > 0) {
+      const where = model.filters.map((f, i) => {
+        const table = tableById2.get(f.tableId);
+        const ref = `"${table.alias}"."${f.column}"`;
+        const prefix = i === 0 ? "WHERE" : f.conjunction || "AND";
+        if (f.operator === "IS NULL" || f.operator === "IS NOT NULL") {
+          return `${prefix} ${ref} ${f.operator}`;
+        }
+        if (f.operator === "IN") {
+          const vals = f.values || [];
+          return `${prefix} ${ref} IN (${vals.map(sqlLiteral).join(", ")})`;
+        }
+        if (filterHasValue(f)) {
+          if (f.operator === "LIKE") {
+            return `${prefix} ${ref} LIKE ${sqlLiteral(f.value)}`;
+          }
+          return `${prefix} ${ref} ${f.operator} ${sqlLiteral(f.value)}`;
+        }
+        throw new Error(`Unexpected filter shape for operator: ${String(f.operator)}`);
+      });
+      parts.push(where.join("\n"));
+    }
+    if (model.groupBy.length > 0) {
+      const clauses = model.groupBy.map((g) => {
+        const table = tableById2.get(g.tableId);
+        return `"${table.alias}"."${g.column}"`;
+      });
+      parts.push(`GROUP BY ${clauses.join(", ")}`);
+    }
+    if (model.orderBy.length > 0) {
+      const clauses = model.orderBy.map((o) => {
+        const table = tableById2.get(o.tableId);
+        const dir = String(o.direction || "ASC").toUpperCase() === "DESC" ? "DESC" : "ASC";
+        return `"${table.alias}"."${o.column}" ${dir}`;
+      });
+      parts.push(`ORDER BY ${clauses.join(", ")}`);
+    }
+    if (model.limit !== null) {
+      parts.push(`LIMIT ${model.limit}`);
+    }
+    return parts.join("\n");
+  }
+  function getWhereOpsForType(columnType) {
+    const type = (columnType || "").toUpperCase();
+    if (type === "TEXT" || type.indexOf("VARCHAR") >= 0 || type.indexOf("CHAR") >= 0) {
+      return [
+        { val: "LIKE", label: "contains" },
+        { val: "=", label: "equals" },
+        { val: "!=", label: "!=" },
+        { val: "IS NULL", label: "is null" },
+        { val: "IS NOT NULL", label: "is not null" },
+        { val: "IN", label: "IN (comma list)" }
+      ];
+    }
+    if (type === "INTEGER" || type === "REAL" || type.indexOf("INT") >= 0 || type.indexOf("FLOAT") >= 0 || type.indexOf("DOUBLE") >= 0 || type.indexOf("NUM") >= 0 || type.indexOf("DECIMAL") >= 0) {
+      return [
+        { val: "=", label: "=" },
+        { val: "!=", label: "!=" },
+        { val: ">", label: ">" },
+        { val: "<", label: "<" },
+        { val: ">=", label: ">=" },
+        { val: "<=", label: "<=" },
+        { val: "IS NULL", label: "is null" },
+        { val: "IS NOT NULL", label: "is not null" },
+        { val: "IN", label: "IN (comma list)" }
+      ];
+    }
+    if (type === "BLOB") {
+      return [
+        { val: "IS NULL", label: "is null" },
+        { val: "IS NOT NULL", label: "is not null" }
+      ];
+    }
+    return [
+      { val: "=", label: "=" },
+      { val: "!=", label: "!=" },
+      { val: "LIKE", label: "contains" },
+      { val: "IS NULL", label: "is null" },
+      { val: "IS NOT NULL", label: "is not null" },
+      { val: "IN", label: "IN (comma list)" }
+    ];
+  }
+
+  // assets/web/query-builder-multi.ts
+  var _scope = "single";
+  var _multiModel = null;
+  var _multiRootTable = null;
+  var _onChange = () => {
+  };
+  function makeId(prefix) {
+    return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+  function schemaTableByName(name) {
+    const meta = schemaMeta;
+    if (!meta || !meta.tables || !name) return null;
+    const tables = meta.tables;
+    for (let i = 0; i < tables.length; i++) {
+      if (tables[i].name === name) return tables[i];
+    }
+    return null;
+  }
+  function tableColumnsFromSchema(baseTable) {
+    const t = schemaTableByName(baseTable);
+    if (!t || !t.columns) return [];
+    return t.columns.map((c) => ({ name: c.name, type: c.type, pk: c.pk }));
+  }
+  function buildFreshModel(rootTable, colTypes) {
+    const tid = makeId("tb");
+    const keys = Object.keys(colTypes || {});
+    const columns = keys.map((name) => ({ name, type: colTypes[name] || "", pk: false }));
+    return {
+      modelVersion: 1,
+      tables: [{ id: tid, baseTable: rootTable, alias: "t0", columns }],
+      joins: [],
+      selectedColumns: keys.map((name) => ({ tableId: tid, column: name })),
+      filters: [],
+      groupBy: [],
+      orderBy: [],
+      limit: 200
+    };
+  }
+  function setMultiChangeHandler(fn) {
+    _onChange = fn;
+  }
+  function notify() {
+    _onChange();
+  }
+  function getQbScope() {
+    return _scope;
+  }
+  function initMultiForTable(rootTable, colTypes) {
+    if (_multiRootTable !== rootTable || !_multiModel) {
+      _multiRootTable = rootTable;
+      _multiModel = buildFreshModel(rootTable, colTypes);
+    }
+  }
+  function setQbScope(next) {
+    _scope = next;
+    const simple = document.getElementById("qb-simple-visual");
+    const multi = document.getElementById("qb-multi-panel");
+    const btnS = document.getElementById("qb-scope-single");
+    const btnM = document.getElementById("qb-scope-multi");
+    if (simple) simple.style.display = next === "single" ? "" : "none";
+    if (multi) multi.style.display = next === "multi" ? "" : "none";
+    if (btnS) btnS.classList.toggle("active", next === "single");
+    if (btnM) btnM.classList.toggle("active", next === "multi");
+    if (next === "multi") renderMultiRoot();
+    notify();
+  }
+  function getMultiPreviewText() {
+    if (!_multiModel) return "";
+    const errs = validateQueryModel(_multiModel);
+    if (errs.length > 0) return "-- " + errs.join("; ");
+    try {
+      return renderQuerySql(_multiModel);
+    } catch (e) {
+      return "-- " + (e instanceof Error ? e.message : String(e));
+    }
+  }
+  function tryGetMultiSql() {
+    if (!_multiModel) return null;
+    const errs = validateQueryModel(_multiModel);
+    if (errs.length > 0) return null;
+    try {
+      return renderQuerySql(_multiModel).trim();
+    } catch {
+      return null;
+    }
+  }
+  function tableById(id) {
+    return _multiModel?.tables.find((t) => t.id === id);
+  }
+  function nextAlias() {
+    const n = _multiModel?.tables.length ?? 0;
+    return `t${n}`;
+  }
+  function syncSelectedColumnsAfterTableRemoved(removedId) {
+    if (!_multiModel) return;
+    _multiModel.selectedColumns = _multiModel.selectedColumns.filter((s) => s.tableId !== removedId);
+    _multiModel.groupBy = _multiModel.groupBy.filter((g) => g.tableId !== removedId);
+    _multiModel.orderBy = _multiModel.orderBy.filter((o) => o.tableId !== removedId);
+    _multiModel.filters = _multiModel.filters.filter((f) => f.tableId !== removedId);
+  }
+  function renderMultiRoot() {
+    const host = document.getElementById("qb-multi-root");
+    if (!host || !_multiModel) return;
+    const m = _multiModel;
+    const instOpts = m.tables.map((t) => `<option value="${esc2(t.id)}">${esc2(t.alias)} (${esc2(t.baseTable)})</option>`).join("");
+    const schemaTables = (schemaMeta?.tables || []).map((x) => x.name).sort();
+    const schemaOpts = schemaTables.map((n) => `<option value="${esc2(n)}">${esc2(n)}</option>`).join("");
+    const tablesHtml = m.tables.map((t) => {
+      const isRoot = m.tables[0]?.id === t.id;
+      const rm = isRoot ? "" : ` <button type="button" class="qb-m-remove-table" data-table-id="${esc2(t.id)}" title="Remove this table instance">Remove</button>`;
+      return `<li><strong>${esc2(t.alias)}</strong> \u2014 ${esc2(t.baseTable)}${rm}</li>`;
+    }).join("");
+    const joinsHtml = m.joins.length === 0 ? '<p class="meta">No JOINs yet. Add one before selecting columns from a second table.</p>' : m.joins.map((j) => {
+      const lt = tableById(j.leftTableId);
+      const rt = tableById(j.rightTableId);
+      const label = `${lt?.alias ?? "?"}.${j.leftColumn} ${j.type} JOIN ${rt?.alias ?? "?"}.${j.rightColumn}`;
+      return `<div class="qb-m-join-row">${esc2(label)} <button type="button" class="qb-m-remove-join" data-join-id="${esc2(j.id)}">\xD7</button></div>`;
+    }).join("");
+    const selColsHtml = m.selectedColumns.map((sc, idx) => {
+      const t = tableById(sc.tableId);
+      const instOptsRow = m.tables.map((tb) => `<option value="${esc2(tb.id)}"${tb.id === sc.tableId ? " selected" : ""}>${esc2(tb.alias)} (${esc2(tb.baseTable)})</option>`).join("");
+      const colOpts = (t?.columns || []).map((c) => `<option value="${esc2(c.name)}"${c.name === sc.column ? " selected" : ""}>${esc2(c.name)}</option>`).join("");
+      const aggOpts = ["", "COUNT", "SUM", "AVG", "MIN", "MAX"].map((a) => `<option value="${esc2(a)}"${(sc.aggregation || "") === a ? " selected" : ""}>${a ? esc2(a) : "(none)"}</option>`).join("");
+      const showAgg = m.groupBy.length > 0;
+      const aggHtml = showAgg ? `<select class="qb-m-sel-agg" data-sel-idx="${idx}" title="Aggregate (required when GROUP BY is non-empty)">${aggOpts}</select>` : "";
+      return `<div class="qb-row qb-m-sel-row">
+        <select class="qb-m-sel-table" data-sel-idx="${idx}">${instOptsRow}</select>
+        <select class="qb-m-sel-col" data-sel-idx="${idx}">${colOpts}</select>
+        ${aggHtml}
+        <button type="button" class="qb-m-remove-sel" data-sel-idx="${idx}" title="Remove column">\xD7</button>
+      </div>`;
+    }).join("");
+    const filtersHtml = m.filters.map((f, fi) => {
+      const t = tableById(f.tableId);
+      const type = t?.columns.find((c) => c.name === f.column)?.type || "";
+      const ops = getWhereOpsForType(type);
+      const opOpts = ops.map((o) => `<option value="${esc2(o.val)}"${f.operator === o.val ? " selected" : ""}>${esc2(o.label)}</option>`).join("");
+      const conn = fi === 0 ? "" : `<select class="qb-m-flt-conn" data-flt-id="${esc2(f.id)}"><option value="AND"${(f.conjunction || "AND") === "AND" ? " selected" : ""}>AND</option><option value="OR"${f.conjunction === "OR" ? " selected" : ""}>OR</option></select>`;
+      const valDisplay = f.operator === "IN" ? (f.values || []).join(", ") : f.value != null ? String(f.value) : "";
+      const valHidden = f.operator === "IS NULL" || f.operator === "IS NOT NULL" ? ' style="display:none"' : "";
+      return `<div class="qb-m-filter-row">${conn}
+        <select class="qb-m-flt-table" data-flt-id="${esc2(f.id)}">${m.tables.map((tb) => `<option value="${esc2(tb.id)}"${tb.id === f.tableId ? " selected" : ""}>${esc2(tb.alias)}</option>`).join("")}</select>
+        <select class="qb-m-flt-col" data-flt-id="${esc2(f.id)}">${(t?.columns || []).map((c) => `<option value="${esc2(c.name)}"${c.name === f.column ? " selected" : ""}>${esc2(c.name)}</option>`).join("")}</select>
+        <select class="qb-m-flt-op" data-flt-id="${esc2(f.id)}">${opOpts}</select>
+        <input type="text" class="qb-m-flt-val" data-flt-id="${esc2(f.id)}" value="${esc2(valDisplay)}" placeholder="value or comma-separated (IN)"${valHidden}/>
+        <button type="button" class="qb-m-remove-flt" data-flt-id="${esc2(f.id)}">\xD7</button>
+      </div>`;
+    }).join("");
+    const gbHtml = m.groupBy.map((g, gi) => {
+      const t = tableById(g.tableId);
+      const colOpts = (t?.columns || []).map((c) => `<option value="${esc2(c.name)}"${c.name === g.column ? " selected" : ""}>${esc2(c.name)}</option>`).join("");
+      return `<div class="qb-row"><select class="qb-m-gb-table" data-gb-idx="${gi}">${m.tables.map((tb) => `<option value="${esc2(tb.id)}"${tb.id === g.tableId ? " selected" : ""}>${esc2(tb.alias)}</option>`).join("")}</select><select class="qb-m-gb-col" data-gb-idx="${gi}">${colOpts}</select><button type="button" class="qb-m-remove-gb" data-gb-idx="${gi}">\xD7</button></div>`;
+    }).join("");
+    const obHtml = m.orderBy.map((o, oi) => {
+      const t = tableById(o.tableId);
+      const colOpts = (t?.columns || []).map((c) => `<option value="${esc2(c.name)}"${c.name === o.column ? " selected" : ""}>${esc2(c.name)}</option>`).join("");
+      return `<div class="qb-row"><select class="qb-m-ob-table" data-ob-idx="${oi}">${m.tables.map((tb) => `<option value="${esc2(tb.id)}"${tb.id === o.tableId ? " selected" : ""}>${esc2(tb.alias)}</option>`).join("")}</select><select class="qb-m-ob-col" data-ob-idx="${oi}">${colOpts}</select><select class="qb-m-ob-dir" data-ob-idx="${oi}"><option value="ASC"${o.direction === "ASC" ? " selected" : ""}>ASC</option><option value="DESC"${o.direction === "DESC" ? " selected" : ""}>DESC</option></select><button type="button" class="qb-m-remove-ob" data-ob-idx="${oi}">\xD7</button></div>`;
+    }).join("");
+    host.innerHTML = `
+<div class="qb-multi-section qb-section">
+  <div class="qb-header">\u25BC Tables</div>
+  <div class="qb-body">
+    <ul class="qb-m-table-list">${tablesHtml}</ul>
+  </div>
+</div>
+<div class="qb-multi-section qb-section">
+  <div class="qb-header">\u25BC JOINs</div>
+  <div class="qb-body">
+    ${joinsHtml}
+    <div class="qb-row" style="margin-top:0.5rem;flex-wrap:wrap;align-items:flex-end;">
+      <label>Left</label>
+      <select id="qb-m-join-left-t">${instOpts}</select>
+      <select id="qb-m-join-left-c"></select>
+      <select id="qb-m-join-type"><option value="INNER">INNER</option><option value="LEFT">LEFT</option><option value="RIGHT">RIGHT</option></select>
+      <label>Right table</label>
+      <select id="qb-m-join-right-base">${schemaOpts ? `<option value="">\u2014 pick \u2014</option>${schemaOpts}` : '<option value="">(load schema)</option>'}</select>
+      <select id="qb-m-join-right-c"></select>
+      <button type="button" id="qb-m-join-add">Add JOIN</button>
+    </div>
+    <p class="meta" style="margin-top:0.35rem;">Connects the <em>right</em> base table as a new instance (<code>tN</code>) or joins two existing instances when the right table already exists and you pick matching columns.</p>
+  </div>
+</div>
+<div class="qb-multi-section qb-section">
+  <div class="qb-header">\u25BC SELECT columns</div>
+  <div class="qb-body">
+    ${selColsHtml || '<p class="meta">No columns selected.</p>'}
+    <button type="button" id="qb-m-add-sel">+ Add column</button>
+  </div>
+</div>
+<div class="qb-multi-section qb-section">
+  <div class="qb-header">\u25BC WHERE</div>
+  <div class="qb-body">
+    ${filtersHtml || '<p class="meta">No filters.</p>'}
+    <button type="button" id="qb-m-add-flt">+ Add condition</button>
+  </div>
+</div>
+<div class="qb-multi-section qb-section">
+  <div class="qb-header">\u25BC GROUP BY</div>
+  <div class="qb-body">
+    ${gbHtml || '<p class="meta">None</p>'}
+    <button type="button" id="qb-m-add-gb">+ Add GROUP BY</button>
+  </div>
+</div>
+<div class="qb-multi-section qb-section">
+  <div class="qb-header">\u25BC ORDER BY</div>
+  <div class="qb-body">
+    ${obHtml || '<p class="meta">None</p>'}
+    <button type="button" id="qb-m-add-ob">+ Add ORDER BY</button>
+  </div>
+</div>
+<div class="qb-row" style="margin-top:0.5rem;"><label>LIMIT</label><input type="number" id="qb-m-limit" min="1" max="1000" value="${m.limit ?? 200}"/></div>
+`;
+    fillJoinColumnSelects();
+    wireMultiRoot(host);
+  }
+  function fillJoinColumnSelects() {
+    if (!_multiModel) return;
+    const leftT = document.getElementById("qb-m-join-left-t");
+    const leftC = document.getElementById("qb-m-join-left-c");
+    const rightB = document.getElementById("qb-m-join-right-base");
+    const rightC = document.getElementById("qb-m-join-right-c");
+    if (!leftT || !leftC) return;
+    const tid = leftT.value;
+    const t = tableById(tid);
+    const prevL = leftC.value;
+    leftC.innerHTML = (t?.columns || []).map((c) => `<option value="${esc2(c.name)}">${esc2(c.name)}</option>`).join("");
+    if (prevL && (t?.columns || []).some((c) => c.name === prevL)) leftC.value = prevL;
+    if (rightB && rightC) {
+      const base = rightB.value;
+      if (base) {
+        const cols = tableColumnsFromSchema(base);
+        const prevR = rightC.value;
+        rightC.innerHTML = cols.map((c) => `<option value="${esc2(c.name)}">${esc2(c.name)}</option>`).join("");
+        if (prevR && cols.some((c) => c.name === prevR)) rightC.value = prevR;
+      } else {
+        rightC.innerHTML = "";
+      }
+    }
+  }
+  async function suggestFkForJoin() {
+    const leftT = document.getElementById("qb-m-join-left-t");
+    const leftC = document.getElementById("qb-m-join-left-c");
+    const rightB = document.getElementById("qb-m-join-right-base");
+    const rightC = document.getElementById("qb-m-join-right-c");
+    if (!leftT || !leftC || !rightB || !rightC || !_multiModel) return;
+    const tbl = tableById(leftT.value);
+    if (!tbl) return;
+    const fks = await loadFkMeta(tbl.baseTable);
+    const fk = (fks || []).find((x) => x.fromColumn === leftC.value);
+    if (fk && fk.toTable) {
+      rightB.value = fk.toTable;
+      fillJoinColumnSelects();
+      if (fk.toColumn) rightC.value = fk.toColumn;
+    }
+  }
+  function wireMultiRoot(host) {
+    const leftT = document.getElementById("qb-m-join-left-t");
+    const leftC = document.getElementById("qb-m-join-left-c");
+    const rightB = document.getElementById("qb-m-join-right-base");
+    if (leftT) leftT.addEventListener("change", () => {
+      fillJoinColumnSelects();
+      void suggestFkForJoin();
+    });
+    if (leftC) leftC.addEventListener("change", () => {
+      void suggestFkForJoin();
+    });
+    if (rightB) rightB.addEventListener("change", () => fillJoinColumnSelects());
+    host.querySelector("#qb-m-join-add")?.addEventListener("click", () => {
+      if (!_multiModel) return;
+      const ltid = document.getElementById("qb-m-join-left-t").value;
+      const lc = document.getElementById("qb-m-join-left-c").value;
+      const jt = document.getElementById("qb-m-join-type").value;
+      const rb = document.getElementById("qb-m-join-right-base").value;
+      const rc = document.getElementById("qb-m-join-right-c").value;
+      if (!ltid || !lc || !rb || !rc) {
+        alert("Pick left column, right table, and right column for the JOIN.");
+        return;
+      }
+      const leftInst = tableById(ltid);
+      if (!leftInst) return;
+      let rightInst = _multiModel.tables.find((t) => t.baseTable === rb);
+      if (!rightInst) {
+        const alias = nextAlias();
+        const cols = tableColumnsFromSchema(rb);
+        rightInst = { id: makeId("tb"), baseTable: rb, alias, columns: cols };
+        _multiModel.tables.push(rightInst);
+        for (const c of cols) {
+          _multiModel.selectedColumns.push({ tableId: rightInst.id, column: c.name });
+        }
+      }
+      _multiModel.joins.push({
+        id: makeId("jn"),
+        leftTableId: ltid,
+        leftColumn: lc,
+        rightTableId: rightInst.id,
+        rightColumn: rc,
+        type: jt === "LEFT" || jt === "RIGHT" || jt === "INNER" ? jt : "INNER"
+      });
+      renderMultiRoot();
+      notify();
+    });
+    host.querySelectorAll(".qb-m-remove-join").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-join-id");
+        if (!_multiModel || !id) return;
+        _multiModel.joins = _multiModel.joins.filter((j) => j.id !== id);
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-remove-table").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-table-id");
+        if (!_multiModel || !id || _multiModel.tables[0]?.id === id) return;
+        _multiModel.joins = _multiModel.joins.filter((j) => j.leftTableId !== id && j.rightTableId !== id);
+        _multiModel.tables = _multiModel.tables.filter((t) => t.id !== id);
+        syncSelectedColumnsAfterTableRemoved(id);
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelector("#qb-m-add-sel")?.addEventListener("click", () => {
+      if (!_multiModel || !_multiModel.tables[0]) return;
+      const t0 = _multiModel.tables[0];
+      const c0 = t0.columns[0]?.name;
+      if (!c0) return;
+      _multiModel.selectedColumns.push({ tableId: t0.id, column: c0 });
+      renderMultiRoot();
+      notify();
+    });
+    host.querySelectorAll(".qb-m-sel-table").forEach((el) => {
+      el.addEventListener("change", () => {
+        const idx = Number(el.dataset.selIdx);
+        const tid = el.value;
+        if (!_multiModel || Number.isNaN(idx)) return;
+        const t = tableById(tid);
+        const col = t?.columns[0]?.name;
+        if (!col) return;
+        _multiModel.selectedColumns[idx] = { tableId: tid, column: col, aggregation: _multiModel.selectedColumns[idx]?.aggregation };
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-sel-col").forEach((el) => {
+      el.addEventListener("change", () => {
+        const idx = Number(el.dataset.selIdx);
+        if (!_multiModel || Number.isNaN(idx)) return;
+        _multiModel.selectedColumns[idx].column = el.value;
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-sel-agg").forEach((el) => {
+      el.addEventListener("change", () => {
+        const idx = Number(el.dataset.selIdx);
+        if (!_multiModel || Number.isNaN(idx)) return;
+        const v = el.value;
+        const cur = _multiModel.selectedColumns[idx];
+        _multiModel.selectedColumns[idx] = { ...cur, aggregation: v || void 0 };
+        notify();
+        renderMultiRoot();
+      });
+    });
+    host.querySelectorAll(".qb-m-remove-sel").forEach((el) => {
+      el.addEventListener("click", () => {
+        const idx = Number(el.dataset.selIdx);
+        if (!_multiModel || Number.isNaN(idx)) return;
+        _multiModel.selectedColumns.splice(idx, 1);
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelector("#qb-m-add-flt")?.addEventListener("click", () => {
+      if (!_multiModel || !_multiModel.tables[0]) return;
+      const t0 = _multiModel.tables[0];
+      const c0 = t0.columns[0]?.name;
+      if (!c0) return;
+      _multiModel.filters.push({
+        id: makeId("flt"),
+        tableId: t0.id,
+        column: c0,
+        operator: "=",
+        value: "",
+        conjunction: "AND"
+      });
+      renderMultiRoot();
+      notify();
+    });
+    host.querySelectorAll(".qb-m-flt-table").forEach((el) => {
+      el.addEventListener("change", () => {
+        const id = el.dataset.fltId;
+        const f = _multiModel?.filters.find((x) => x.id === id);
+        if (!f) return;
+        f.tableId = el.value;
+        const t = tableById(f.tableId);
+        f.column = t?.columns[0]?.name || f.column;
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-flt-col").forEach((el) => {
+      el.addEventListener("change", () => {
+        const id = el.dataset.fltId;
+        const f = _multiModel?.filters.find((x) => x.id === id);
+        if (!f) return;
+        f.column = el.value;
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-flt-op").forEach((el) => {
+      el.addEventListener("change", () => {
+        const id = el.dataset.fltId;
+        const f = _multiModel?.filters.find((x) => x.id === id);
+        if (!f) return;
+        f.operator = el.value;
+        if (f.operator === "IS NULL" || f.operator === "IS NOT NULL") {
+          delete f.value;
+          delete f.values;
+        } else if (f.operator === "IN") {
+          delete f.value;
+          f.values = [];
+        } else {
+          delete f.values;
+          if (f.value === void 0) f.value = "";
+        }
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-flt-val").forEach((el) => {
+      el.addEventListener("input", () => {
+        const id = el.dataset.fltId;
+        const f = _multiModel?.filters.find((x) => x.id === id);
+        if (!f) return;
+        const raw = el.value;
+        if (f.operator === "IN") {
+          const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+          f.values = parts.map((p) => {
+            const n = Number(p);
+            return !Number.isNaN(n) && p !== "" && String(n) === p ? n : p;
+          });
+        } else {
+          const n = Number(raw);
+          f.value = !Number.isNaN(n) && raw.trim() !== "" && String(n) === raw.trim() ? n : raw;
+        }
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-flt-conn").forEach((el) => {
+      el.addEventListener("change", () => {
+        const id = el.dataset.fltId;
+        const f = _multiModel?.filters.find((x) => x.id === id);
+        if (!f) return;
+        f.conjunction = el.value;
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-remove-flt").forEach((el) => {
+      el.addEventListener("click", () => {
+        const id = el.dataset.fltId;
+        if (!_multiModel || !id) return;
+        _multiModel.filters = _multiModel.filters.filter((x) => x.id !== id);
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelector("#qb-m-add-gb")?.addEventListener("click", () => {
+      if (!_multiModel || !_multiModel.tables[0]) return;
+      const t0 = _multiModel.tables[0];
+      const c0 = t0.columns[0]?.name;
+      if (!c0) return;
+      _multiModel.groupBy.push({ tableId: t0.id, column: c0 });
+      renderMultiRoot();
+      notify();
+    });
+    host.querySelectorAll(".qb-m-gb-table").forEach((el) => {
+      el.addEventListener("change", () => {
+        const idx = Number(el.dataset.gbIdx);
+        if (!_multiModel || Number.isNaN(idx)) return;
+        _multiModel.groupBy[idx].tableId = el.value;
+        const t = tableById(_multiModel.groupBy[idx].tableId);
+        _multiModel.groupBy[idx].column = t?.columns[0]?.name || "";
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-gb-col").forEach((el) => {
+      el.addEventListener("change", () => {
+        const idx = Number(el.dataset.gbIdx);
+        if (!_multiModel || Number.isNaN(idx)) return;
+        _multiModel.groupBy[idx].column = el.value;
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-remove-gb").forEach((el) => {
+      el.addEventListener("click", () => {
+        const idx = Number(el.dataset.gbIdx);
+        if (!_multiModel || Number.isNaN(idx)) return;
+        _multiModel.groupBy.splice(idx, 1);
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelector("#qb-m-add-ob")?.addEventListener("click", () => {
+      if (!_multiModel || !_multiModel.tables[0]) return;
+      const t0 = _multiModel.tables[0];
+      const c0 = t0.columns[0]?.name;
+      if (!c0) return;
+      _multiModel.orderBy.push({ tableId: t0.id, column: c0, direction: "ASC" });
+      renderMultiRoot();
+      notify();
+    });
+    host.querySelectorAll(".qb-m-ob-table").forEach((el) => {
+      el.addEventListener("change", () => {
+        const idx = Number(el.dataset.obIdx);
+        if (!_multiModel || Number.isNaN(idx)) return;
+        _multiModel.orderBy[idx].tableId = el.value;
+        const t = tableById(_multiModel.orderBy[idx].tableId);
+        _multiModel.orderBy[idx].column = t?.columns[0]?.name || "";
+        renderMultiRoot();
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-ob-col").forEach((el) => {
+      el.addEventListener("change", () => {
+        const idx = Number(el.dataset.obIdx);
+        if (!_multiModel || Number.isNaN(idx)) return;
+        _multiModel.orderBy[idx].column = el.value;
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-ob-dir").forEach((el) => {
+      el.addEventListener("change", () => {
+        const idx = Number(el.dataset.obIdx);
+        if (!_multiModel || Number.isNaN(idx)) return;
+        _multiModel.orderBy[idx].direction = el.value;
+        notify();
+      });
+    });
+    host.querySelectorAll(".qb-m-remove-ob").forEach((el) => {
+      el.addEventListener("click", () => {
+        const idx = Number(el.dataset.obIdx);
+        if (!_multiModel || Number.isNaN(idx)) return;
+        _multiModel.orderBy.splice(idx, 1);
+        renderMultiRoot();
+        notify();
+      });
+    });
+    const lim = document.getElementById("qb-m-limit");
+    if (lim) {
+      lim.addEventListener("input", () => {
+        if (!_multiModel) return;
+        const n = parseInt(lim.value, 10);
+        _multiModel.limit = Number.isFinite(n) && n > 0 ? n : null;
+        notify();
+      });
+    }
+  }
+  function captureMultiPersistable() {
+    if (!_multiModel) return null;
+    return {
+      modelVersion: 1,
+      tables: _multiModel.tables.map((t) => ({ id: t.id, baseTable: t.baseTable, alias: t.alias })),
+      joins: _multiModel.joins,
+      selectedColumns: _multiModel.selectedColumns,
+      filters: _multiModel.filters,
+      groupBy: _multiModel.groupBy,
+      orderBy: _multiModel.orderBy,
+      limit: _multiModel.limit
+    };
+  }
+  async function restoreMultiFromPersistable(blob) {
+    if (!blob || blob.modelVersion !== 1 || !Array.isArray(blob.tables)) return;
+    await loadSchemaMeta();
+    const tables = blob.tables.map((row) => ({
+      id: row.id,
+      baseTable: row.baseTable,
+      alias: row.alias,
+      columns: tableColumnsFromSchema(row.baseTable)
+    }));
+    _multiModel = {
+      modelVersion: 1,
+      tables,
+      joins: blob.joins || [],
+      selectedColumns: blob.selectedColumns || [],
+      filters: blob.filters || [],
+      groupBy: blob.groupBy || [],
+      orderBy: blob.orderBy || [],
+      limit: typeof blob.limit === "number" ? blob.limit : 200
+    };
+    _multiRootTable = tables[0]?.baseTable ?? null;
+    renderMultiRoot();
+    notify();
+  }
+
   // assets/web/pagination.ts
   function goToOffset(newOffset) {
     setOffset(Math.max(0, newOffset));
@@ -1067,7 +1870,12 @@
     html += '<button type="button" id="qb-mode-visual" class="qb-mode-btn active" title="Visual query builder">Visual</button>';
     html += '<button type="button" id="qb-mode-raw" class="qb-mode-btn" title="Edit SQL directly">Raw SQL</button>';
     html += "</div>";
+    html += '<div class="qb-mode-toggle qb-scope-toggle" title="Single-table keeps the classic form; multi-table adds JOINs, GROUP BY, and multi ORDER BY">';
+    html += '<button type="button" id="qb-scope-single" class="qb-mode-btn active">Single table</button>';
+    html += '<button type="button" id="qb-scope-multi" class="qb-mode-btn">Multi-table</button>';
+    html += "</div>";
     html += '<div id="qb-visual-panel">';
+    html += '<div id="qb-simple-visual">';
     html += '<div class="qb-row"><label>SELECT</label><div class="qb-columns" id="qb-columns">';
     cols.forEach(function(c) {
       html += '<label><input type="checkbox" value="' + esc2(c) + '" checked> ' + esc2(c) + "</label>";
@@ -1087,6 +1895,11 @@
     html += "</div>";
     html += '<div class="qb-row"><label>LIMIT</label>';
     html += '<input type="number" id="qb-limit" value="200" min="1" max="1000" style="width:5rem;">';
+    html += "</div>";
+    html += "</div>";
+    html += '<div id="qb-multi-panel" style="display:none;">';
+    html += '<p class="meta" style="margin:0 0 0.5rem 0;">Build JOINs from the root table. Preview shows validation errors until the graph is valid.</p>';
+    html += '<div id="qb-multi-root"></div>';
     html += "</div>";
     html += '<div class="qb-preview" id="qb-preview"></div>';
     html += "</div>";
@@ -1275,13 +2088,29 @@
   function updateQbPreview() {
     var preview = document.getElementById("qb-preview");
     if (!preview || !currentTableName) return;
+    if (getQbScope() === "multi") {
+      preview.textContent = getMultiPreviewText();
+      return;
+    }
     preview.textContent = buildQueryFromBuilder(currentTableName);
   }
   function runQueryBuilder() {
     var rawPanel = document.getElementById("qb-raw-panel");
     var rawInput = document.getElementById("qb-raw-input");
     var isRawMode = rawPanel && rawPanel.style.display !== "none";
-    var sql = isRawMode && rawInput ? rawInput.value.trim() : buildQueryFromBuilder(currentTableName);
+    var sql;
+    if (isRawMode && rawInput) {
+      sql = rawInput.value.trim();
+    } else if (getQbScope() === "multi") {
+      var multiSql = tryGetMultiSql();
+      if (!multiSql) {
+        alert("Fix validation errors shown in the preview, or switch to Raw SQL.");
+        return;
+      }
+      sql = multiSql;
+    } else {
+      sql = buildQueryFromBuilder(currentTableName);
+    }
     if (!sql) return;
     var runBtn = document.getElementById("qb-run");
     if (runBtn) {
@@ -1380,6 +2209,26 @@
     var visualPanel = document.getElementById("qb-visual-panel");
     var rawPanel = document.getElementById("qb-raw-panel");
     var rawInput = document.getElementById("qb-raw-input");
+    var scopeSingle = document.getElementById("qb-scope-single");
+    var scopeMulti = document.getElementById("qb-scope-multi");
+    if (scopeSingle && scopeMulti) {
+      setMultiChangeHandler(updateQbPreview);
+      initMultiForTable(currentTableName, colTypes);
+      void loadSchemaMeta().then(function() {
+        if (getQbScope() === "multi") renderMultiRoot();
+      });
+      scopeSingle.addEventListener("click", function() {
+        setQbScope("single");
+        updateQbPreview();
+      });
+      scopeMulti.addEventListener("click", function() {
+        initMultiForTable(currentTableName, colTypes);
+        void loadSchemaMeta().then(function() {
+          setQbScope("multi");
+          updateQbPreview();
+        });
+      });
+    }
     if (visualBtn && rawBtn && visualPanel && rawPanel) {
       visualBtn.addEventListener("click", function() {
         visualBtn.classList.add("active");
@@ -1393,14 +2242,28 @@
         visualPanel.style.display = "none";
         rawPanel.style.display = "";
         if (rawInput && currentTableName) {
-          rawInput.value = buildQueryFromBuilder(currentTableName);
+          if (getQbScope() === "multi") {
+            var ms = tryGetMultiSql();
+            rawInput.value = ms || getMultiPreviewText();
+          } else {
+            rawInput.value = buildQueryFromBuilder(currentTableName);
+          }
           rawInput.focus();
         }
       });
     }
   }
   function captureQueryBuilderState() {
-    var state = { active: queryBuilderActive, selectedColumns: [], whereClauses: [], orderBy: "", orderDir: "ASC", limit: 200 };
+    var state = {
+      active: queryBuilderActive,
+      qbScope: getQbScope(),
+      multi: captureMultiPersistable(),
+      selectedColumns: [],
+      whereClauses: [],
+      orderBy: "",
+      orderDir: "ASC",
+      limit: 200
+    };
     var checkboxes = document.querySelectorAll('#qb-columns input[type="checkbox"]');
     checkboxes.forEach(function(cb) {
       if (cb.checked) state.selectedColumns.push(cb.value);
@@ -1425,6 +2288,17 @@
   }
   function restoreQueryBuilderUIState(state) {
     if (!state) return;
+    if (state.qbScope === "multi" && state.multi) {
+      void loadSchemaMeta().then(function() {
+        return restoreMultiFromPersistable(state.multi);
+      }).then(function() {
+        setQbScope("multi");
+        updateQbPreview();
+      });
+      return;
+    }
+    initMultiForTable(currentTableName, _qbColTypes);
+    setQbScope("single");
     var checkboxes = document.querySelectorAll('#qb-columns input[type="checkbox"]');
     if (state.selectedColumns && state.selectedColumns.length > 0) {
       checkboxes.forEach(function(cb) {
@@ -2641,15 +3515,6 @@
     });
   }
 
-  // assets/web/schema-meta.ts
-  async function loadSchemaMeta() {
-    if (schemaMeta) return schemaMeta;
-    var r = await fetch("/api/schema/metadata", authOpts());
-    if (!r.ok) throw new Error("Failed to load schema metadata (HTTP " + r.status + ")");
-    setSchemaMeta(await r.json());
-    return schemaMeta;
-  }
-
   // assets/web/table-view.ts
   async function loadColumnTypes(tableName) {
     if (tableColumnTypes[tableName]) return tableColumnTypes[tableName];
@@ -2736,6 +3601,8 @@
       return hidden.indexOf(k) < 0;
     });
     var maskOn = isPiiMaskEnabled();
+    var singlePkName = getSinglePkColumnName(currentTableName);
+    var showRowDelete = !!driftWriteEnabled && !!singlePkName;
     var html = '<table id="data-table" class="drift-table"><thead><tr>';
     visible.forEach(function(k) {
       var fk = fkMap[k];
@@ -2750,6 +3617,9 @@
       var thClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : "";
       html += '<th data-column-key="' + esc2(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc2(k) + maskBadge + typeBadge + fkLabel + "</th>";
     });
+    if (showRowDelete) {
+      html += '<th class="row-action-col">Actions</th>';
+    }
     html += "</tr></thead><tbody>";
     var piiCols = {};
     visible.forEach(function(k) {
@@ -2789,6 +3659,10 @@
           html += "<td" + tdAttrs + '><span class="cell-text">' + cellContent + "</span>" + copyBtn + "</td>";
         }
       });
+      if (showRowDelete && singlePkName) {
+        var pkRaw = row[singlePkName] == null ? "" : String(row[singlePkName]);
+        html += '<td class="row-action-col"><button type="button" class="row-delete-btn" data-pk-col="' + esc2(singlePkName) + '" data-pk-raw="' + esc2(pkRaw) + '" title="Delete this row">Delete</button></td>';
+      }
       html += "</tr>";
     });
     html += "</tbody></table>";
@@ -2838,7 +3712,7 @@
     return "\u25CB";
   }
   function buildTableDefinitionHtml(tableName) {
-    var t = schemaTableByName(tableName);
+    var t = schemaTableByName2(tableName);
     if (!t || !t.columns || t.columns.length === 0) return "";
     var fkSet = {};
     var cachedFks = fkMetaCache[tableName] || [];
@@ -2974,7 +3848,7 @@
       return th.getAttribute("data-column-key") || "";
     });
   }
-  function schemaTableByName(name) {
+  function schemaTableByName2(name) {
     var meta = schemaMeta;
     if (!meta || !meta.tables || !name) return null;
     for (var i = 0; i < meta.tables.length; i++) {
@@ -2983,12 +3857,21 @@
     return null;
   }
   function getPkColumnNameForDataTable() {
-    var t = schemaTableByName(currentTableName);
+    var t = schemaTableByName2(currentTableName);
     if (!t || !t.columns) return null;
     for (var i = 0; i < t.columns.length; i++) {
       if (t.columns[i].pk) return t.columns[i].name;
     }
     return null;
+  }
+  function getSinglePkColumnName(tableName) {
+    var t = schemaTableByName2(tableName);
+    if (!t || !t.columns) return null;
+    var pkCols = t.columns.filter(function(c) {
+      return !!c.pk;
+    });
+    if (pkCols.length !== 1) return null;
+    return pkCols[0].name;
   }
   function syncMastheadMaskBadge(checked) {
     var badge = document.getElementById("masthead-mask-badge");
@@ -3440,6 +4323,18 @@
   }
 
   // assets/web/cell-edit.ts
+  var activeEditToken = 0;
+  function hasUnsavedWebEdit() {
+    return activeEditToken > 0;
+  }
+  function clearUnsavedWebEdit() {
+    activeEditToken = 0;
+  }
+  function tryBeginUnsavedWebEdit() {
+    if (activeEditToken > 0) return false;
+    activeEditToken = 1;
+    return true;
+  }
   function readCellRawFromTd(td) {
     if (!td) return "";
     var btn = td.querySelector(".cell-copy-btn");
@@ -3448,7 +4343,7 @@
     return (td.textContent || "").trim();
   }
   function jsonPkValueForCellUpdate(rawStr, pkColName) {
-    var t = schemaTableByName(currentTableName);
+    var t = schemaTableByName2(currentTableName);
     var col = null;
     if (t && t.columns) {
       for (var i = 0; i < t.columns.length; i++) {
@@ -3507,18 +4402,24 @@
   }
   function tryStartBrowserCellEdit(td) {
     if (!currentTableName) return;
+    if (!tryBeginUnsavedWebEdit()) {
+      window.alert("Finish or cancel the current edit before editing another cell.");
+      return;
+    }
     loadSchemaMeta().then(function() {
       var pkName = getPkColumnNameForDataTable();
       if (!pkName) {
+        clearUnsavedWebEdit();
         window.alert("This table has no primary key column; inline edit is disabled.");
         return;
       }
       var columnKey = td.getAttribute("data-column-key") || "";
       if (!columnKey || columnKey === pkName) {
+        clearUnsavedWebEdit();
         window.alert("Primary key columns cannot be edited inline.");
         return;
       }
-      var t = schemaTableByName(currentTableName);
+      var t = schemaTableByName2(currentTableName);
       var colMeta = null;
       if (t && t.columns) {
         for (var j = 0; j < t.columns.length; j++) {
@@ -3528,18 +4429,33 @@
           }
         }
       }
-      if (!colMeta) return;
+      if (!colMeta) {
+        clearUnsavedWebEdit();
+        return;
+      }
+      if ((colMeta.type || "").toUpperCase() === "BLOB") {
+        clearUnsavedWebEdit();
+        window.alert("BLOB columns cannot be edited inline.");
+        return;
+      }
       var keys = getVisibleDataColumnKeys(td);
       var colIdx = keys.indexOf(columnKey);
       var pkIdx = keys.indexOf(pkName);
-      if (colIdx < 0 || pkIdx < 0) return;
+      if (colIdx < 0 || pkIdx < 0) {
+        clearUnsavedWebEdit();
+        return;
+      }
       var tr = td.closest("tr");
-      if (!tr || !tr.children[pkIdx]) return;
+      if (!tr || !tr.children[pkIdx]) {
+        clearUnsavedWebEdit();
+        return;
+      }
       var pkRaw = readCellRawFromTd(tr.children[pkIdx]);
       var pkJson = jsonPkValueForCellUpdate(pkRaw, pkName);
       var originalHtml = td.innerHTML;
       var startVal = readCellRawFromTd(td);
       var isNull = td.querySelector(".cell-null") != null;
+      var initialEditText = isNull ? "" : String(startVal);
       var colType = (colMeta.type || "").toUpperCase() || "unspecified";
       var nullableLabel = colMeta.notnull ? "NOT NULL" : "nullable";
       var container = document.createElement("div");
@@ -3561,27 +4477,62 @@
       var errorEl = document.createElement("div");
       errorEl.className = "cell-edit-error";
       container.appendChild(errorEl);
+      var actions = document.createElement("div");
+      actions.className = "cell-edit-actions";
+      var saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.className = "btn-primary";
+      saveBtn.textContent = "Save";
+      var cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.textContent = "Cancel";
+      actions.appendChild(saveBtn);
+      actions.appendChild(cancelBtn);
+      container.appendChild(actions);
+      var failureActions = document.createElement("div");
+      failureActions.className = "cell-edit-failure-actions";
+      failureActions.style.display = "none";
+      var retrySaveBtn = document.createElement("button");
+      retrySaveBtn.type = "button";
+      retrySaveBtn.className = "cell-edit-retry-btn";
+      retrySaveBtn.textContent = "Retry save";
+      var reloadTableBtn = document.createElement("button");
+      reloadTableBtn.type = "button";
+      reloadTableBtn.className = "cell-edit-reload-btn";
+      reloadTableBtn.textContent = "Reload table";
+      failureActions.appendChild(retrySaveBtn);
+      failureActions.appendChild(reloadTableBtn);
+      container.appendChild(failureActions);
       td.innerHTML = "";
       td.appendChild(container);
       input.focus();
       input.select();
+      function updateDirtyHighlight() {
+        var dirty = input.value !== initialEditText;
+        td.classList.toggle("cell-edit-td-dirty", dirty);
+        tr.classList.toggle("cell-edit-row-dirty", dirty);
+      }
       input.addEventListener("input", function() {
         var err = validateCellFormat(input.value, colMeta);
         errorEl.textContent = err || "";
         errorEl.style.display = err ? "block" : "none";
         input.classList.toggle("cell-edit-invalid", !!err);
+        updateDirtyHighlight();
       });
+      updateDirtyHighlight();
       function restore() {
+        td.classList.remove("cell-edit-td-dirty");
+        tr.classList.remove("cell-edit-row-dirty");
         td.innerHTML = originalHtml;
+        clearUnsavedWebEdit();
       }
       function commit() {
-        input.removeEventListener("blur", onBlur);
+        failureActions.style.display = "none";
         var formatErr = validateCellFormat(input.value, colMeta);
         if (formatErr) {
           errorEl.textContent = formatErr;
           errorEl.style.display = "block";
           input.classList.add("cell-edit-invalid");
-          input.addEventListener("blur", onBlur);
           input.focus();
           return;
         }
@@ -3590,10 +4541,11 @@
           errorEl.textContent = "This column is NOT NULL \u2014 a value is required.";
           errorEl.style.display = "block";
           input.classList.add("cell-edit-invalid");
-          input.addEventListener("blur", onBlur);
           input.focus();
           return;
         }
+        saveBtn.disabled = true;
+        cancelBtn.disabled = true;
         fetch("/api/cell/update", authOpts({
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -3614,35 +4566,50 @@
             errorEl.textContent = "Save failed: " + msg;
             errorEl.style.display = "block";
             input.classList.add("cell-edit-invalid");
-            input.addEventListener("blur", onBlur);
+            failureActions.style.display = "flex";
+            saveBtn.disabled = false;
+            cancelBtn.disabled = false;
             input.focus();
             return;
           }
+          clearUnsavedWebEdit();
           loadTable(currentTableName);
         }).catch(function(err) {
           errorEl.textContent = "Save failed: " + (err && err.message ? err.message : String(err));
           errorEl.style.display = "block";
           input.classList.add("cell-edit-invalid");
-          input.addEventListener("blur", onBlur);
+          failureActions.style.display = "flex";
+          saveBtn.disabled = false;
+          cancelBtn.disabled = false;
           input.focus();
         });
       }
-      function onBlur() {
+      retrySaveBtn.addEventListener("click", function() {
+        failureActions.style.display = "none";
         commit();
-      }
+      });
+      reloadTableBtn.addEventListener("click", function() {
+        clearUnsavedWebEdit();
+        loadTable(currentTableName);
+      });
+      saveBtn.addEventListener("click", function() {
+        commit();
+      });
+      cancelBtn.addEventListener("click", function() {
+        restore();
+      });
       input.addEventListener("keydown", function(ev) {
         if (ev.key === "Enter") {
           ev.preventDefault();
-          input.blur();
+          commit();
         }
         if (ev.key === "Escape") {
           ev.preventDefault();
-          input.removeEventListener("blur", onBlur);
           restore();
         }
       });
-      input.addEventListener("blur", onBlur);
     }).catch(function(err) {
+      clearUnsavedWebEdit();
       window.alert("Could not load schema: " + (err && err.message ? err.message : String(err)));
     });
   }
@@ -6853,7 +7820,7 @@
   initNlModalListeners();
   function setupNavigateAwayConfirmation() {
     window.addEventListener("beforeunload", function(e) {
-      if (!getPref(PREF_CONFIRM_NAVIGATE_AWAY, DEFAULTS[PREF_CONFIRM_NAVIGATE_AWAY])) return;
+      if (!hasUnsavedWebEdit()) return;
       e.preventDefault();
       e.returnValue = "";
       return "";
@@ -7448,6 +8415,49 @@
     var rawValue = copyBtn ? copyBtn.getAttribute("data-raw") || "" : (td.textContent || "").trim();
     var columnKey = td.getAttribute("data-column-key") || "";
     showCellValuePopup(rawValue, columnKey);
+  });
+  document.addEventListener("click", function(e) {
+    var delBtn = (
+      /** @type {HTMLButtonElement | null} */
+      e.target.closest(".row-delete-btn")
+    );
+    if (!delBtn) return;
+    if (!driftWriteEnabled || !currentTableName) return;
+    var pkCol = delBtn.getAttribute("data-pk-col") || "";
+    var pkRaw = delBtn.getAttribute("data-pk-raw") || "";
+    if (!pkCol) return;
+    var confirmed = window.confirm("Delete row where " + pkCol + " = " + pkRaw + "?");
+    if (!confirmed) return;
+    delBtn.disabled = true;
+    var safeTable = currentTableName.replace(/"/g, '""');
+    var safePkCol = pkCol.replace(/"/g, '""');
+    var pkJson = JSON.stringify(jsonPkValueForCellUpdate(pkRaw, pkCol));
+    var stmt = 'DELETE FROM "' + safeTable + '" WHERE "' + safePkCol + '" = ' + pkJson;
+    fetch("/api/edits/apply", authOpts({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ statements: [stmt] })
+    })).then(function(r) {
+      return r.json().then(function(d) {
+        return { ok: r.ok, data: d };
+      });
+    }).then(function(res) {
+      if (!res.ok || !res.data || res.data.error) {
+        var msg = res.data && res.data.error ? res.data.error : "Request failed";
+        if (window.confirm("Delete failed: " + msg + "\n\nReload table data now? (Cancel keeps the current grid.)")) {
+          loadTable(currentTableName);
+        }
+        delBtn.disabled = false;
+        return;
+      }
+      loadTable(currentTableName);
+    }).catch(function(err) {
+      var em = err && err.message ? err.message : String(err);
+      if (window.confirm("Delete failed: " + em + "\n\nReload table data now? (Cancel keeps the current grid.)")) {
+        loadTable(currentTableName);
+      }
+      delBtn.disabled = false;
+    });
   });
   setupCellValuePopupButtons();
   document.getElementById("chart-render").addEventListener("click", function() {
