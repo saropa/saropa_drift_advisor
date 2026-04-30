@@ -1,5 +1,9 @@
 # Feature 59: AI Schema Reviewer
 
+## Relationship to Feature 66 (Drift Refactoring Engine)
+
+Structured migration plans and the refactoring webview live in [Feature 66](66-drift-refactoring-engine.md). Until this plan ships a full **AI Schema Reviewer** panel, Feature 66 exposes `driftViewer.refactoringOpenWithHint` and NL-SQL prefill as bridges for external or LLM-assisted findings. When Feature 59 is implemented, findings should be able to open the refactoring panel with structured hints (table/column/title/description) and, where appropriate, invoke the same plan and migration preview flows documented in 66.
+
 ## What It Does
 
 Send the entire database schema to an LLM and receive a structured review: normalization issues, naming inconsistencies, missing indexes, anti-patterns, redundant columns, and suggested improvements — each with generated migration Dart code to fix it. Like a senior DBA code-reviewing your schema.
