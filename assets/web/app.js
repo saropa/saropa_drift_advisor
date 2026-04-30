@@ -23,7 +23,7 @@
     import { createShareSession, restoreSession } from './session.ts';
     import { initNlModalListeners } from './nl-modal.ts';
     import { navigateToFk, renderBreadcrumb } from './fk-nav.ts';
-    import { tryStartBrowserCellEdit, showCellValuePopup, setupCellValuePopupButtons } from './cell-edit.ts';
+    import { tryStartBrowserCellEdit, showCellValuePopup, setupCellValuePopupButtons, hasUnsavedWebEdit, jsonPkValueForCellUpdate } from './cell-edit.ts';
     import { renderBarChart, renderStackedBarChart, renderPieChart, renderLineChart, renderAreaChart, renderScatterChart, renderHistogram, exportChartPng, exportChartSvg, exportChartCopy, setupChartResize } from './charts.ts';
     import { initConnectionDeps, hideConnectionBanner, updateLiveIndicatorForConnection, doHeartbeat, stopHeartbeat, startKeepAlive, stopKeepAlive } from './connection.ts';
     import { initTheme, initThemeListeners } from './theme.ts';
@@ -85,8 +85,8 @@
      */
     function setupNavigateAwayConfirmation() {
       window.addEventListener('beforeunload', function (e) {
-        // Skip the confirmation dialog when the user has disabled it in Settings
-        if (!getPref(PREF_CONFIRM_NAVIGATE_AWAY, DEFAULTS[PREF_CONFIRM_NAVIGATE_AWAY])) return;
+        // In web inline-edit mode, only prompt when there is an unsaved active edit.
+        if (!hasUnsavedWebEdit()) return;
         e.preventDefault();
         e.returnValue = '';
         return '';
@@ -731,6 +731,47 @@
       var rawValue = copyBtn ? (copyBtn.getAttribute('data-raw') || '') : (td.textContent || '').trim();
       var columnKey = td.getAttribute('data-column-key') || '';
       showCellValuePopup(rawValue, columnKey);
+    });
+
+    // Single-row delete with explicit confirmation text including stable row identity.
+    document.addEventListener('click', function(e) {
+      var delBtn = /** @type {HTMLButtonElement | null} */ (e.target.closest('.row-delete-btn'));
+      if (!delBtn) return;
+      if (!S.driftWriteEnabled || !S.currentTableName) return;
+      var pkCol = delBtn.getAttribute('data-pk-col') || '';
+      var pkRaw = delBtn.getAttribute('data-pk-raw') || '';
+      if (!pkCol) return;
+      var confirmed = window.confirm('Delete row where ' + pkCol + ' = ' + pkRaw + '?');
+      if (!confirmed) return;
+      delBtn.disabled = true;
+      var safeTable = S.currentTableName.replace(/"/g, '""');
+      var safePkCol = pkCol.replace(/"/g, '""');
+      var pkJson = JSON.stringify(jsonPkValueForCellUpdate(pkRaw, pkCol));
+      var stmt = 'DELETE FROM "' + safeTable + '" WHERE "' + safePkCol + '" = ' + pkJson;
+      fetch('/api/edits/apply', S.authOpts({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statements: [stmt] }),
+      }))
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+          if (!res.ok || !res.data || res.data.error) {
+            var msg = (res.data && res.data.error) ? res.data.error : 'Request failed';
+            if (window.confirm('Delete failed: ' + msg + '\n\nReload table data now? (Cancel keeps the current grid.)')) {
+              loadTable(S.currentTableName);
+            }
+            delBtn.disabled = false;
+            return;
+          }
+          loadTable(S.currentTableName);
+        })
+        .catch(function(err) {
+          var em = err && err.message ? err.message : String(err);
+          if (window.confirm('Delete failed: ' + em + '\n\nReload table data now? (Cancel keeps the current grid.)')) {
+            loadTable(S.currentTableName);
+          }
+          delBtn.disabled = false;
+        });
     });
 
     setupCellValuePopupButtons();

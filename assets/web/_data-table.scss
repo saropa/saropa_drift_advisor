@@ -77,6 +77,41 @@
   white-space: normal;
 }
 
+/* Draft differs from original cell value — subtle row/cell emphasis before Save. */
+.cell-edit-td-dirty {
+  outline: 2px solid var(--link);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--link) 12%, transparent);
+}
+tr.cell-edit-row-dirty {
+  background: color-mix(in srgb, var(--link) 6%, transparent);
+}
+
+/* Post–save-failure actions: retry same payload vs reload grid from server. */
+.cell-edit-failure-actions {
+  display: none;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+.cell-edit-retry-btn,
+.cell-edit-reload-btn {
+  min-height: 28px;
+  padding: 0 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+}
+.cell-edit-retry-btn:hover:not(:disabled),
+.cell-edit-reload-btn:hover:not(:disabled) {
+  border-color: var(--link);
+  color: var(--link);
+}
+
 /* Scroll container for data table: sticky headers, horizontal/vertical scroll.
  * Scrollbars always visible (overflow: scroll). Strengthened shadow for
  * visible depth. Custom scrollbars come from global styles in _base.scss. */

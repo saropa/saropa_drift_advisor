@@ -2,9 +2,12 @@
  * Query builder module.
  * Provides the visual SQL query builder UI: column selection, WHERE clauses,
  * ORDER BY, LIMIT, live preview, and state capture/restore.
+ * Supports single-table (legacy) and multi-table visual scopes (see query-builder-multi.ts).
  */
 import { esc, setButtonBusy } from './utils.ts';
 import * as S from './state.ts';
+import * as MQ from './query-builder-multi.ts';
+import { loadSchemaMeta } from './schema-meta.ts';
 import { getColumnConfig, saveTableState } from './persistence.ts';
 import { wrapDataTableInScroll, buildDataTableHtml, buildTableStatusBar, getVisibleColumnCount, renderTableView, bindResultsToggle } from './table-view.ts';
 import { bindColumnTableEvents } from './pagination.ts';
@@ -26,8 +29,15 @@ import { bindColumnTableEvents } from './pagination.ts';
       html += '<button type="button" id="qb-mode-raw" class="qb-mode-btn" title="Edit SQL directly">Raw SQL</button>';
       html += '</div>';
 
+      // Single-table vs multi-table scope (multi uses shared SQL renderer in query-builder-sql.ts).
+      html += '<div class="qb-mode-toggle qb-scope-toggle" title="Single-table keeps the classic form; multi-table adds JOINs, GROUP BY, and multi ORDER BY">';
+      html += '<button type="button" id="qb-scope-single" class="qb-mode-btn active">Single table</button>';
+      html += '<button type="button" id="qb-scope-multi" class="qb-mode-btn">Multi-table</button>';
+      html += '</div>';
+
       // Visual mode panel — the existing form controls
       html += '<div id="qb-visual-panel">';
+      html += '<div id="qb-simple-visual">';
       html += '<div class="qb-row"><label>SELECT</label><div class="qb-columns" id="qb-columns">';
       cols.forEach(function(c) {
         html += '<label><input type="checkbox" value="' + esc(c) + '" checked> ' + esc(c) + '</label>';
@@ -46,6 +56,13 @@ import { bindColumnTableEvents } from './pagination.ts';
       html += '<div class="qb-row"><label>LIMIT</label>';
       html += '<input type="number" id="qb-limit" value="200" min="1" max="1000" style="width:5rem;">';
       html += '</div>';
+      html += '</div>'; // end #qb-simple-visual
+
+      html += '<div id="qb-multi-panel" style="display:none;">';
+      html += '<p class="meta" style="margin:0 0 0.5rem 0;">Build JOINs from the root table. Preview shows validation errors until the graph is valid.</p>';
+      html += '<div id="qb-multi-root"></div>';
+      html += '</div>';
+
       html += '<div class="qb-preview" id="qb-preview"></div>';
       html += '</div>'; // end #qb-visual-panel
 
@@ -220,6 +237,10 @@ import { bindColumnTableEvents } from './pagination.ts';
     export function updateQbPreview() {
       var preview = document.getElementById('qb-preview');
       if (!preview || !S.currentTableName) return;
+      if (MQ.getQbScope() === 'multi') {
+        preview.textContent = MQ.getMultiPreviewText();
+        return;
+      }
       preview.textContent = buildQueryFromBuilder(S.currentTableName);
     }
 
@@ -228,9 +249,19 @@ import { bindColumnTableEvents } from './pagination.ts';
       var rawPanel = document.getElementById('qb-raw-panel');
       var rawInput = document.getElementById('qb-raw-input') as HTMLTextAreaElement | null;
       var isRawMode = rawPanel && rawPanel.style.display !== 'none';
-      var sql = isRawMode && rawInput
-        ? rawInput.value.trim()
-        : buildQueryFromBuilder(S.currentTableName);
+      var sql: string;
+      if (isRawMode && rawInput) {
+        sql = rawInput.value.trim();
+      } else if (MQ.getQbScope() === 'multi') {
+        var multiSql = MQ.tryGetMultiSql();
+        if (!multiSql) {
+          alert('Fix validation errors shown in the preview, or switch to Raw SQL.');
+          return;
+        }
+        sql = multiSql;
+      } else {
+        sql = buildQueryFromBuilder(S.currentTableName);
+      }
       if (!sql) return;
       var runBtn = document.getElementById('qb-run');
       if (runBtn) { runBtn.disabled = true; setButtonBusy(runBtn, true, 'Running\u2026'); }
@@ -325,6 +356,24 @@ import { bindColumnTableEvents } from './pagination.ts';
       var visualPanel = document.getElementById('qb-visual-panel');
       var rawPanel = document.getElementById('qb-raw-panel');
       var rawInput = document.getElementById('qb-raw-input') as HTMLTextAreaElement | null;
+      var scopeSingle = document.getElementById('qb-scope-single');
+      var scopeMulti = document.getElementById('qb-scope-multi');
+      if (scopeSingle && scopeMulti) {
+        MQ.setMultiChangeHandler(updateQbPreview);
+        MQ.initMultiForTable(S.currentTableName, colTypes);
+        void loadSchemaMeta().then(function() {
+          if (MQ.getQbScope() === 'multi') MQ.renderMultiRoot();
+        });
+        scopeSingle.addEventListener('click', function() { MQ.setQbScope('single'); updateQbPreview(); });
+        scopeMulti.addEventListener('click', function() {
+          MQ.initMultiForTable(S.currentTableName, colTypes);
+          void loadSchemaMeta().then(function() {
+            MQ.setQbScope('multi');
+            updateQbPreview();
+          });
+        });
+      }
+
       if (visualBtn && rawBtn && visualPanel && rawPanel) {
         visualBtn.addEventListener('click', function() {
           // Switch to Visual mode
@@ -341,7 +390,12 @@ import { bindColumnTableEvents } from './pagination.ts';
           visualPanel.style.display = 'none';
           rawPanel.style.display = '';
           if (rawInput && S.currentTableName) {
-            rawInput.value = buildQueryFromBuilder(S.currentTableName);
+            if (MQ.getQbScope() === 'multi') {
+              var ms = MQ.tryGetMultiSql();
+              rawInput.value = ms || MQ.getMultiPreviewText();
+            } else {
+              rawInput.value = buildQueryFromBuilder(S.currentTableName);
+            }
             rawInput.focus();
           }
         });
@@ -349,7 +403,16 @@ import { bindColumnTableEvents } from './pagination.ts';
     }
 
     export function captureQueryBuilderState() {
-      var state = { active: S.queryBuilderActive, selectedColumns: [], whereClauses: [], orderBy: '', orderDir: 'ASC', limit: 200 };
+      var state: any = {
+        active: S.queryBuilderActive,
+        qbScope: MQ.getQbScope(),
+        multi: MQ.captureMultiPersistable(),
+        selectedColumns: [],
+        whereClauses: [],
+        orderBy: '',
+        orderDir: 'ASC',
+        limit: 200,
+      };
       var checkboxes = document.querySelectorAll('#qb-columns input[type="checkbox"]');
       checkboxes.forEach(function(cb) { if (cb.checked) state.selectedColumns.push(cb.value); });
       var whereItems = document.querySelectorAll('#qb-where-list .qb-where-item');
@@ -373,6 +436,19 @@ import { bindColumnTableEvents } from './pagination.ts';
 
     export function restoreQueryBuilderUIState(state) {
       if (!state) return;
+      if (state.qbScope === 'multi' && state.multi) {
+        void loadSchemaMeta()
+          .then(function() {
+            return MQ.restoreMultiFromPersistable(state.multi as Record<string, unknown>);
+          })
+          .then(function() {
+            MQ.setQbScope('multi');
+            updateQbPreview();
+          });
+        return;
+      }
+      MQ.initMultiForTable(S.currentTableName, _qbColTypes);
+      MQ.setQbScope('single');
       var checkboxes = document.querySelectorAll('#qb-columns input[type="checkbox"]');
       if (state.selectedColumns && state.selectedColumns.length > 0) {
         checkboxes.forEach(function(cb) {
