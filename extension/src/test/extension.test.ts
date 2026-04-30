@@ -110,8 +110,12 @@ describe('Extension activation', () => {
     // Log Capture integration: session-end export + optional API (1)
     // Nav: pauseDiscovery, resumeDiscovery, openConnectionHelp (3)
     // Editing: pendingChangesPersistence debounce, pendingEditsStatusBar (2)
-    // Total grows as new features/commands are added; update when adding registrations
-    assert.strictEqual(subscriptions.length, 197, `expected 197 disposables, got ${subscriptions.length}`);
+    // Total grows as new features/commands are added; update when adding registrations.
+    // Query Builder adds command registrations + panel wiring subscriptions.
+    // Schema refactoring (Feature 66): suggestSchemaRefactorings, refactoringOpenWithHint (+2).
+    // DVR: GenerationWatcher listener refreshes open DVR panel (+1).
+    // Dashboard: addQueryWidgetToDashboard (+1); disposable count drifts with new commands.
+    assert.strictEqual(subscriptions.length, 209, `expected 209 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -214,6 +218,28 @@ describe('Extension activation', () => {
     activate(fakeContext());
     const registered = commands.getRegistered();
     assert.ok('driftViewer.openSqlNotebook' in registered);
+  });
+
+  it('should register visual query builder commands', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.openQueryBuilder' in registered);
+    assert.ok('driftViewer.buildQueryFromTable' in registered);
+    assert.ok('driftViewer.openQueryBuilderFromSql' in registered);
+  });
+
+  it('should register schema refactoring commands', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.suggestSchemaRefactorings' in registered);
+    assert.ok('driftViewer.refactoringOpenWithHint' in registered);
+  });
+
+  it('should register NL-to-SQL commands', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.askNaturalLanguage' in registered);
+    assert.ok('driftViewer.nlSqlHistory' in registered);
   });
 
   it('should register driftViewer.commitPendingEdits command', () => {

@@ -27,12 +27,21 @@ export class ErDiagramPanel {
     client: DriftApiClient,
     layout: IErLayout,
     mode: LayoutMode = 'auto',
+    focusTable?: string,
   ): void {
     const column = vscode.ViewColumn.Beside;
 
     if (ErDiagramPanel._currentPanel) {
       ErDiagramPanel._currentPanel._update(layout, mode);
       ErDiagramPanel._currentPanel._panel.reveal(column);
+      if (focusTable) {
+        setTimeout(() => {
+          void ErDiagramPanel._currentPanel?._panel.webview.postMessage({
+            command: 'focusTable',
+            table: focusTable,
+          });
+        }, 200);
+      }
       return;
     }
 
@@ -42,7 +51,7 @@ export class ErDiagramPanel {
       column,
       { enableScripts: true, retainContextWhenHidden: true },
     );
-    ErDiagramPanel._currentPanel = new ErDiagramPanel(panel, client, layout, mode);
+    ErDiagramPanel._currentPanel = new ErDiagramPanel(panel, client, layout, mode, focusTable);
   }
 
   private constructor(
@@ -50,6 +59,7 @@ export class ErDiagramPanel {
     client: DriftApiClient,
     layout: IErLayout,
     mode: LayoutMode,
+    focusTable?: string,
   ) {
     this._panel = panel;
     this._client = client;
@@ -65,6 +75,12 @@ export class ErDiagramPanel {
       this._disposables,
     );
     this._render();
+    if (focusTable) {
+      const t = focusTable;
+      setTimeout(() => {
+        void this._panel.webview.postMessage({ command: 'focusTable', table: t });
+      }, 200);
+    }
   }
 
   async refresh(): Promise<void> {

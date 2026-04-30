@@ -15,9 +15,12 @@ export function registerErDiagramCommands(
   watcher: GenerationWatcher,
 ): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand('driftViewer.showErDiagram', async () => {
-      await showErDiagram(client);
-    }),
+    vscode.commands.registerCommand(
+      'driftViewer.showErDiagram',
+      async (args?: { focusTable?: string }) => {
+        await showErDiagram(client, args?.focusTable);
+      },
+    ),
   );
 
   // Auto-refresh ER diagram when schema changes
@@ -29,7 +32,7 @@ export function registerErDiagramCommands(
   context.subscriptions.push(watcherSub);
 }
 
-async function showErDiagram(client: DriftApiClient): Promise<void> {
+async function showErDiagram(client: DriftApiClient, focusTable?: string): Promise<void> {
   try {
     const meta = await client.schemaMetadata();
     const allFks = await fetchAllFks(client, meta.map((t) => t.name));
@@ -37,7 +40,7 @@ async function showErDiagram(client: DriftApiClient): Promise<void> {
     const engine = new ErLayoutEngine();
     const layout = engine.layout(meta, allFks, 'auto');
 
-    ErDiagramPanel.createOrShow(client, layout, 'auto');
+    ErDiagramPanel.createOrShow(client, layout, 'auto', focusTable);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     vscode.window.showErrorMessage(`Failed to load ER Diagram: ${msg}`);

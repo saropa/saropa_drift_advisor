@@ -26,6 +26,59 @@ export function registerDashboardCommands(
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.addQueryWidgetToDashboard',
+      async (sql?: string, widgetTitle?: string) => {
+        const trimmed = sql?.trim();
+        if (!trimmed) {
+          void vscode.window.showWarningMessage(
+            'No SQL to add. Run NL-to-SQL or pass SQL as the first argument.',
+          );
+          return;
+        }
+        const title = (widgetTitle?.trim() || 'SQL query').slice(0, 120);
+        const openPanel = DashboardPanel.currentPanel;
+        if (openPanel) {
+          const w = await openPanel.appendQueryResultWidget(trimmed, title);
+          if (!w) {
+            void vscode.window.showErrorMessage(
+              'Could not add query widget (dashboard registry missing queryResult).',
+            );
+            return;
+          }
+          void vscode.window.showInformationMessage(
+            'Query result widget added to the dashboard.',
+          );
+          return;
+        }
+        const layout = dashboardState.load() ?? DashboardState.createDefault();
+        const w = DashboardPanel.appendQueryResultToLayout(
+          layout,
+          dashboardState,
+          trimmed,
+          title,
+        );
+        if (!w) {
+          void vscode.window.showErrorMessage(
+            'Could not add query widget (dashboard registry missing queryResult).',
+          );
+          return;
+        }
+        DashboardPanel.createOrShow(
+          context.extensionUri,
+          client,
+          layout,
+          dashboardState,
+          healthScorer,
+        );
+        void vscode.window.showInformationMessage(
+          'Query result widget added to the dashboard.',
+        );
+      },
+    ),
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.saveDashboard', async () => {
       if (!DashboardPanel.currentPanel) {
         vscode.window.showWarningMessage('No dashboard open to save.');

@@ -183,6 +183,12 @@ function diffBySignature(
 /** Max rows captured per table per snapshot. */
 export const ROW_LIMIT = 1000;
 
+/** Options for [SnapshotStore.capture] — e.g. bypass debounce after bulk apply. */
+export interface ISnapshotCaptureOptions {
+  /** When true, skip [minIntervalMs] so the VS Code timeline can refresh immediately. */
+  bypassDebounce?: boolean;
+}
+
 /** In-memory store of database snapshots with rolling window. */
 export class SnapshotStore {
   private _snapshots: ISnapshot[] = [];
@@ -214,9 +220,17 @@ export class SnapshotStore {
   }
 
   /** Capture current DB state. Returns null if debounced or busy. */
-  async capture(client: DriftApiClient): Promise<ISnapshot | null> {
+  async capture(
+    client: DriftApiClient,
+    opts?: ISnapshotCaptureOptions,
+  ): Promise<ISnapshot | null> {
     const now = Date.now();
-    if (now - this._lastCaptureTime < this._minIntervalMs) return null;
+    if (
+      opts?.bypassDebounce !== true &&
+      now - this._lastCaptureTime < this._minIntervalMs
+    ) {
+      return null;
+    }
     if (this._capturing) return null;
 
     this._capturing = true;

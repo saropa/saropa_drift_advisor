@@ -1,0 +1,19 @@
+{
+  "sessionId": "sess-golden",
+  "id": 7,
+  "sequence": 7,
+  "sql": "SELECT * FROM items WHERE id = ?",
+  "params": {
+    "positional": [42],
+    "named": { "limit": 10 }
+  },
+  "type": "select",
+  "timestamp": "2026-04-30T12:00:01.000Z",
+  "durationMs": 3.5,
+  "affectedRowCount": 0,
+  "resultRowCount": 1,
+  "table": "items",
+  "beforeState": null,
+  "afterState": null,
+  "extraFutureField": "ignored"
+}

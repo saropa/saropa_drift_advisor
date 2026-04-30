@@ -10,7 +10,7 @@
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
-import type { PerformanceData, QueryEntry } from '../api-types';
+import type { IRecordedQueryV1, PerformanceData, QueryEntry } from '../api-types';
 import type { IJoinPattern, IPatternIndexSuggestion, IQueryPattern } from './query-intelligence-types';
 
 /** Cache TTL in milliseconds (15 seconds). */
@@ -31,7 +31,27 @@ export class QueryIntelligence implements vscode.Disposable {
   }
 
   /** Record a query execution for pattern analysis. */
-  recordQuery(sql: string, durationMs: number, _rowCount: number): void {
+  recordQuery(sql: string, durationMs: number, rowCount: number): void {
+    this._ingestOneQuery(sql, durationMs, rowCount);
+    this._onDidChange.fire();
+  }
+
+  /**
+   * Ingests DVR timeline rows into the same pattern store as [recordQuery],
+   * firing a single change event for the batch (avoids UI churn on large pages).
+   */
+  recordFromDvrQueries(queries: readonly IRecordedQueryV1[]): void {
+    if (queries.length === 0) {
+      return;
+    }
+    for (const q of queries) {
+      const rows = q.type === 'select' ? q.resultRowCount : q.affectedRowCount;
+      this._ingestOneQuery(q.sql, q.durationMs, rows);
+    }
+    this._onDidChange.fire();
+  }
+
+  private _ingestOneQuery(sql: string, durationMs: number, _rowCount: number): void {
     const normalized = this._normalizeQuery(sql);
     const existing = this._patterns.get(normalized);
 
@@ -54,8 +74,6 @@ export class QueryIntelligence implements vscode.Disposable {
         lastSeen: Date.now(),
       });
     }
-
-    this._onDidChange.fire();
   }
 
   /** Get slow query patterns (avg > threshold). */

@@ -2,6 +2,7 @@
  * Orchestrates health scoring: prefetches API data and delegates to metric scorers.
  */
 
+import type * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { ForeignKey, TableMetadata } from '../api-types';
 import type { IHealthScore, MetricKey } from './health-types';
@@ -17,11 +18,20 @@ import {
   scoreTableBalance,
 } from './health-metrics';
 import { toGrade } from './health-utils';
+import { mergeRefactoringAdvisorIntoMetrics } from './health-refactoring-merge';
 
 export class HealthScorer {
   static readonly WEIGHTS: Record<MetricKey, number> = HEALTH_WEIGHTS;
 
-  async compute(client: DriftApiClient): Promise<IHealthScore> {
+  /**
+   * Computes the full health score. When [workspaceState] is provided, any
+   * persisted refactoring-advisor session is merged into schema-quality details
+   * so recommendations reflect recent dismiss/analysis activity.
+   */
+  async compute(
+    client: DriftApiClient,
+    workspaceState?: vscode.Memento,
+  ): Promise<IHealthScore> {
     const data = await this._prefetch(client);
 
     const metrics = await Promise.all([
@@ -32,6 +42,8 @@ export class HealthScorer {
       scoreTableBalance(data, HealthScorer.WEIGHTS.tableBalance),
       scoreSchemaQuality(data, HealthScorer.WEIGHTS.schemaQuality),
     ]);
+
+    mergeRefactoringAdvisorIntoMetrics(metrics, workspaceState);
 
     const overall = metrics.reduce((sum, m) => sum + m.score * m.weight, 0);
     const recommendations = generateRecommendations(metrics);

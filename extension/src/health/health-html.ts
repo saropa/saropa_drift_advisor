@@ -1,9 +1,14 @@
 import type {
   IHealthMetric, IHealthScore, IMetricAction, IRecommendation,
 } from './health-types';
+import type { IRefactoringAdvisorSession } from '../refactoring/refactoring-advisor-state';
 
 /** Build HTML for the health score dashboard webview panel. */
-export function buildHealthHtml(score: IHealthScore, historyCount: number = 0): string {
+export function buildHealthHtml(
+  score: IHealthScore,
+  historyCount: number = 0,
+  advisor?: IRefactoringAdvisorSession,
+): string {
   if (score.metrics.length === 0) {
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
@@ -16,6 +21,7 @@ export function buildHealthHtml(score: IHealthScore, historyCount: number = 0): 
   const gradeClass = gradeColorClass(score.grade);
   const cards = score.metrics.map((m) => buildMetricCard(m)).join('\n');
   const recs = buildRecommendations(score.recommendations);
+  const advisorHtml = advisor ? buildRefactoringAdvisorSection(advisor) : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -174,6 +180,16 @@ export function buildHealthHtml(score: IHealthScore, historyCount: number = 0): 
   .rec-action:hover {
     background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
   }
+  .advisor {
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 20px;
+    font-size: 12px;
+  }
+  .advisor h2 { font-size: 14px; margin: 0 0 8px 0; }
+  .advisor ul { margin: 6px 0 0 18px; padding: 0; }
+  .advisor .advisor-meta { opacity: 0.75; font-size: 11px; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -197,6 +213,8 @@ export function buildHealthHtml(score: IHealthScore, historyCount: number = 0): 
 </div>
 
 ${recs}
+
+${advisorHtml}
 
 <script>
   const vscode = acquireVsCodeApi();
@@ -228,6 +246,21 @@ ${recs}
 </script>
 </body>
 </html>`;
+}
+
+function buildRefactoringAdvisorSection(a: IRefactoringAdvisorSession): string {
+  const titles = a.topTitles.map((t) => `<li>${esc(t)}</li>`).join('');
+  const when = esc(a.updatedAt);
+  return `<div class="advisor">
+  <h2>Refactoring advisor (session)</h2>
+  <div>Last analysis: <strong>${a.suggestionCount}</strong> suggestion(s) across <strong>${a.tableCount}</strong> tables.
+  ${a.dismissedCount > 0 ? ` You dismissed <strong>${a.dismissedCount}</strong> in the panel.` : ''}</div>
+  ${a.topTitles.length ? `<ul>${titles}</ul>` : ''}
+  <div class="advisor-meta">Updated ${when}. Same summary is merged into <strong>Schema Quality</strong> details when you refresh the health score.</div>
+  <div style="margin-top:10px;">
+    <button class="btn" type="button" data-action-command="driftViewer.suggestSchemaRefactorings">Open refactoring panel</button>
+  </div>
+</div>`;
 }
 
 function buildMetricCard(m: IHealthMetric): string {

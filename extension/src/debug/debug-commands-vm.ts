@@ -17,6 +17,7 @@ import {
   registerVmServiceOutputListener,
 } from '../vm-service-uri';
 import { tryConnectVmInner } from './debug-vm-connect';
+import { hideDvrStatusBar } from '../dvr/dvr-status-bar';
 
 export interface IVmRegistrationOptions {
   perfProvider: PerformanceTreeProvider;
@@ -177,6 +178,10 @@ export function registerDebugCommandsVm(
     vscode.debug.onDidTerminateDebugSession((session) => {
       if (session.type !== 'dart' && session.type !== 'flutter') return;
       logConnection('Debug session ended. Drift disconnected.');
+      void client.dvrStop().catch(() => {
+        /* DVR endpoint may be unavailable on disconnect. */
+      });
+      hideDvrStatusBar();
       client.setVmClient(null);
       deps.refreshDriftConnectionUi?.();
       hoverCache.clear();

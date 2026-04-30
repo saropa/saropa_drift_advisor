@@ -129,7 +129,7 @@ export function registerExportCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.migrationPreview',
-      async () => {
+      async (args?: { advisorySqlSuffix?: string }) => {
         try {
           const result = await vscode.window.withProgress(
             {
@@ -144,8 +144,11 @@ export function registerExportCommands(
             `-- Generated: ${result.generatedAt}`,
             '',
           ].filter(Boolean).join('\n');
+          const suffix = args?.advisorySqlSuffix?.trim()
+            ? `\n\n-- --- Refactoring advisor (appendix; not executed) ---\n${args.advisorySqlSuffix.trim()}\n`
+            : '';
           const doc = await vscode.workspace.openTextDocument({
-            content: header + result.migrationSql,
+            content: header + result.migrationSql + suffix,
             language: 'sql',
           });
           await vscode.window.showTextDocument(

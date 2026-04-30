@@ -13,6 +13,7 @@ import { hasFlutterOrDartDebugSession, tryAdbForwardAndRetry } from './android-f
 import { isDriftUiConnected } from './connection-ui-state';
 import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
+import { refreshDvrStatusBar } from './dvr/dvr-status-bar';
 
 /** Delay before trying adb forward after a Flutter/Dart debug session starts (ms). */
 const ADB_FORWARD_DELAY_MS = 5000;
@@ -155,6 +156,19 @@ export function bootstrapExtension(
     vscode.debug.onDidStartDebugSession((session) => {
       const t = session.type?.toLowerCase() ?? '';
       if (t !== 'dart' && t !== 'flutter') return;
+      const autoRecord = vscode.workspace
+        .getConfiguration('driftViewer')
+        .get<boolean>('dvr.autoRecord', true) !== false;
+      if (autoRecord) {
+        void client
+          .dvrStart()
+          .then(() => {
+            void refreshDvrStatusBar(client);
+          })
+          .catch(() => {
+            /* DVR endpoint may not be available yet. */
+          });
+      }
       if (adbForwardTimer !== undefined) clearTimeout(adbForwardTimer);
       adbForwardTimer = setTimeout(() => {
         adbForwardTimer = undefined;

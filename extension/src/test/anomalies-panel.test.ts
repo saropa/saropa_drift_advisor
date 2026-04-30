@@ -36,6 +36,7 @@ describe('AnomaliesPanel', () => {
     const html = createdPanels[0].webview.html;
     assert.ok(html.includes('Anomalies'), 'should have title');
     assert.ok(html.includes('Orphaned rows'), 'should show error message');
+    assert.ok(html.includes('data-action="openBulkEdit"'), 'bulk edit entrypoint');
     assert.ok(html.includes('Duplicate rows'), 'should show warning message');
     assert.ok(html.includes('sev-error'), 'should have error severity class');
     assert.ok(html.includes('sev-warning'), 'should have warning severity class');

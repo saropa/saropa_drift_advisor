@@ -275,6 +275,24 @@ export class LogCaptureBridge {
     this._api.writeLine(`DRIFT: ${msg}`, { category: 'drift-perf' });
   }
 
+  /**
+   * Writes a compact JSON line for NL-to-SQL generations when log capture is
+   * enabled (same gating as {@link writeConnectionEvent}) so sessions can
+   * correlate prompts with generated SQL without logging full schema text.
+   */
+  writeNlQueryEvent(question: string, generatedSql: string): void {
+    if (!this._api) return;
+    if (getLogMode() === 'off') return;
+
+    const payload = JSON.stringify({
+      type: 'nl-query',
+      question,
+      generatedSql,
+      timestamp: Date.now(),
+    });
+    this._api.writeLine(`DRIFT NL-QUERY ${payload}`, { category: 'drift-perf' });
+  }
+
   dispose(): void {
     for (const d of this._disposables) {
       d.dispose();

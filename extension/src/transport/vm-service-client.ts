@@ -199,7 +199,11 @@ export class VmServiceClient {
    */
   async runSql(
     sql: string,
-    opts?: { internal?: boolean },
+    opts?: {
+      internal?: boolean;
+      args?: unknown[];
+      namedArgs?: Record<string, unknown>;
+    },
   ): Promise<{ columns: string[]; rows: unknown[][] }> {
     return apiRunSql(this._callExtension, sql, opts);
   }

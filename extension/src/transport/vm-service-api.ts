@@ -62,13 +62,26 @@ export async function apiGetTableFkMeta(
 export async function apiRunSql(
   request: ExtensionRequest,
   sql: string,
-  opts?: { internal?: boolean },
+  opts?: {
+    internal?: boolean;
+    args?: unknown[];
+    namedArgs?: Record<string, unknown>;
+  },
 ): Promise<{ columns: string[]; rows: unknown[][] }> {
   // VM service params are flat strings — serialize `internal` as "1" only
   // when set so older servers that don't know the flag just ignore it.
   // (Matches how httpSql omits the key in the default case.)
   const params: Record<string, string> = { sql };
   if (opts?.internal === true) params.internal = '1';
+  if (opts?.args != null && opts.args.length > 0) {
+    params.args = JSON.stringify(opts.args);
+  }
+  if (opts?.namedArgs != null) {
+    const nk = Object.keys(opts.namedArgs);
+    if (nk.length > 0) {
+      params.namedArgs = JSON.stringify(opts.namedArgs);
+    }
+  }
   const raw = await request(`${EXT_PREFIX}runSql`, params);
   const obj = parseJson<{ error?: string; rows?: unknown[][] }>(raw);
   if (obj?.error) throw new Error(String(obj.error));

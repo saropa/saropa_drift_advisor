@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import type { PerformanceData, QueryEntry } from '../api-types';
+import type { IRecordedQueryV1, PerformanceData, QueryEntry } from '../api-types';
 import type { PerfBaselineStore } from './perf-baseline-store';
 import { normalizeSql, truncateSql } from '../diagnostics/utils/sql-utils';
 
@@ -67,6 +67,60 @@ export function recordSessionBaselines(
   for (const [key, { totalMs, count }] of aggregates) {
     store.record(key, totalMs / count);
   }
+}
+
+/**
+ * Merges DVR timeline rows into [PerfBaselineStore] using the same
+ * [normalizeSql] keys as session perf aggregation — feeds regression
+ * detection without a separate capture pipeline.
+ */
+export function recordDvrQueriesIntoPerfBaselines(
+  queries: readonly IRecordedQueryV1[],
+  store: PerfBaselineStore,
+): void {
+  for (const q of queries) {
+    const sql = typeof q.sql === 'string' ? q.sql.trim() : '';
+    if (!sql) continue;
+    const dur = typeof q.durationMs === 'number' ? q.durationMs : Number(q.durationMs);
+    if (!Number.isFinite(dur) || dur < 0) continue;
+    const key = normalizeSql(sql);
+    if (key.length === 0) continue;
+    store.record(key, dur);
+  }
+}
+
+/**
+ * Builds [PerformanceData] from DVR rows so [detectRegressions] can run
+ * against the same baseline store as server-sourced perf snapshots.
+ */
+export function buildPerformanceDataFromDvrQueries(
+  queries: readonly IRecordedQueryV1[],
+  slowThresholdMs: number,
+): PerformanceData {
+  const recentQueries: QueryEntry[] = [];
+  for (const q of queries) {
+    const sql = typeof q.sql === 'string' ? q.sql.trim() : '';
+    if (!sql) continue;
+    const dur = typeof q.durationMs === 'number' ? q.durationMs : Number(q.durationMs);
+    if (!Number.isFinite(dur) || dur < 0) continue;
+    recentQueries.push({
+      sql,
+      durationMs: dur,
+      rowCount: q.type === 'select' ? q.resultRowCount : q.affectedRowCount,
+      at: q.timestamp,
+      isInternal: false,
+    });
+  }
+  const slowQueries = recentQueries.filter((e) => e.durationMs >= slowThresholdMs);
+  const totalDurationMs = recentQueries.reduce((a, e) => a + e.durationMs, 0);
+  return {
+    totalQueries: recentQueries.length,
+    totalDurationMs,
+    avgDurationMs:
+      recentQueries.length > 0 ? totalDurationMs / recentQueries.length : 0,
+    slowQueries,
+    recentQueries,
+  };
 }
 
 /**

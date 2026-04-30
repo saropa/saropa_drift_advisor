@@ -30,6 +30,7 @@ export function getNotebookHtml(): string {
       <div class="toolbar">
         <button id="btn-execute" title="Execute (Ctrl+Enter)">Run</button>
         <button id="btn-explain" title="Explain query plan">Explain</button>
+        <button type="button" id="btn-nl-sql" title="Generate SQL from plain English (LLM; requires API key)">Ask in English…</button>
         <button id="btn-chart" title="Chart results" disabled>Chart</button>
         <button id="btn-copy-json" title="Copy as JSON" disabled>Copy JSON</button>
         <button id="btn-copy-csv" title="Copy as CSV" disabled>Copy CSV</button>
@@ -79,6 +80,9 @@ export function getNotebookHtml(): string {
         document.getElementById('sql-input').value = msg.sql;
         getActiveTab().sql = msg.sql;
         break;
+      case 'insertQueryCell':
+        insertQueryCell(msg.sql || '', msg.title || 'Generated SQL');
+        break;
     }
   });
 
@@ -115,6 +119,25 @@ export function getNotebookHtml(): string {
   }
 
   function getActiveTab() { return tabs.find(function (t) { return t.id === activeTabId; }); }
+
+  /**
+   * Inserts a new tab pre-filled with generated SQL so users can review/edit
+   * before execution.
+   */
+  function insertQueryCell(sql, title) {
+    tabCounter++;
+    var tab = {
+      id: 't' + tabCounter,
+      title: title || ('Query ' + tabCounter),
+      sql: sql,
+      results: null,
+      columns: null,
+      error: null,
+      explain: null
+    };
+    tabs.push(tab);
+    switchTab(tab.id);
+  }
 
   function renderTabs() {
     var container = document.getElementById('tabs');
@@ -167,6 +190,9 @@ export function getNotebookHtml(): string {
 
   document.getElementById('btn-execute').addEventListener('click', executeQuery);
   document.getElementById('btn-explain').addEventListener('click', explainQuery);
+  document.getElementById('btn-nl-sql').addEventListener('click', function () {
+    vscode.postMessage({ command: 'requestNlSql' });
+  });
   document.getElementById('add-tab').addEventListener('click', addTab);
 
   document.getElementById('sql-input').addEventListener('keydown', function (e) {
@@ -285,6 +311,7 @@ export function getNotebookHtml(): string {
   // --- Init ---
   vscode.postMessage({ command: 'getSchema' });
   vscode.postMessage({ command: 'loadHistory' });
+  vscode.postMessage({ command: 'notebookReady' });
   renderTabs();
 
   // --- Inline JS modules ---

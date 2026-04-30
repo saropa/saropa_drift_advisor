@@ -179,3 +179,59 @@ export interface ISessionData {
   expiresAt: string;
   annotations: IAnnotation[];
 }
+
+// ---- Query Replay DVR (GET/POST /api/dvr/*) ----
+
+/** Shared versioned response envelope for DVR endpoints. */
+export interface IDvrEnvelope<T> {
+  schemaVersion: number;
+  generatedAt: string;
+  data: T;
+  error?: string;
+  message?: string;
+}
+
+/** Stable query event shape for the DVR timeline. */
+export interface IRecordedQueryV1 {
+  sessionId: string;
+  id: number;
+  sequence: number;
+  sql: string;
+  params: {
+    positional: unknown[];
+    named: Record<string, unknown>;
+  };
+  type: 'select' | 'insert' | 'update' | 'delete' | 'other';
+  timestamp: string;
+  durationMs: number;
+  affectedRowCount: number;
+  resultRowCount: number;
+  table: string | null;
+  beforeState: Array<Record<string, unknown>> | null;
+  afterState: Array<Record<string, unknown>> | null;
+  meta?: Record<string, unknown>;
+}
+
+/** Recorder status payload from `/api/dvr/status`. */
+export interface IDvrStatus {
+  recording: boolean;
+  queryCount: number;
+  sessionId: string;
+  minAvailableId: number | null;
+  maxAvailableId: number | null;
+  /** Ring buffer capacity when the server includes it (DVR v1). */
+  maxQueries?: number;
+  /** Whether write snapshots are captured (server-dependent). */
+  captureBeforeAfter?: boolean;
+}
+
+/** Paginated query listing payload from `/api/dvr/queries`. */
+export interface IDvrQueriesPage {
+  queries: IRecordedQueryV1[];
+  total: number;
+  sessionId: string;
+  minAvailableId: number | null;
+  maxAvailableId: number | null;
+  nextCursor: number | null;
+  prevCursor: number | null;
+}

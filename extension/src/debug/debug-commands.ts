@@ -9,6 +9,7 @@ import { PerfBaselinePanel } from './perf-baseline-panel';
 import { registerDebugCommandsPanels } from './debug-commands-panels';
 import { registerDebugCommandsPerf } from './debug-commands-perf';
 import { registerDebugCommandsVm } from './debug-commands-vm';
+import { DvrPanel } from '../dvr/dvr-panel';
 export type { IConnectionLog, IDebugCommandDeps } from './debug-commands-types';
 
 /** Register debug panel, profiler, docs, global search, and VM Service lifecycle. */
@@ -28,6 +29,7 @@ export function registerDebugCommands(
   registerDebugCommandsPanels(context, deps.client);
 
   const baselineStore = new PerfBaselineStore(context.workspaceState);
+  DvrPanel.setPerfBaselineStore(baselineStore);
 
   const refreshInterval = vscode.workspace.getConfiguration('driftViewer')
     .get<number>('performance.refreshIntervalMs', 3000) ?? 3000;
