@@ -135,7 +135,7 @@ abstract final class ServerConstants {
   /// Package version displayed in the web UI and health endpoint.
   /// Must match pubspec.yaml: updated on publish version writes, and the Dart
   /// analysis leg of scripts/publish.py reconciles this constant if it drifted.
-  static const String packageVersion = '3.4.1';
+  static const String packageVersion = '3.5.0';
 
   /// jsDelivr CDN base URL for serving web assets and images when
   /// local files are unavailable. Append `@v$packageVersion/…` for
