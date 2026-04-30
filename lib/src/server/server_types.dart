@@ -86,13 +86,33 @@ class QueryTiming {
 /// Wraps a record so the extension type can carry the optional
 /// `isInternal` tag alongside the sql string without losing the
 /// prefer_extension_type_for_wrapper lint compliance.
-extension type SqlRequestBody._(({String sql, bool isInternal}) _fields)
+extension type SqlRequestBody._(
+  ({
+    String sql,
+    bool isInternal,
+    List<dynamic>? dvrArgs,
+    Map<String, dynamic>? dvrNamedArgs,
+  })
+  _fields
+)
     implements Object {
   /// Public ctor: preserves the original positional `sql`-only form used by
   /// callers and tests. `isInternal` defaults to false — set it only for
   /// extension-owned diagnostic probes.
-  SqlRequestBody(String sql, {bool isInternal = false})
-    : this._((sql: sql, isInternal: isInternal));
+  ///
+  /// Optional [dvrArgs] / [dvrNamedArgs] are stored on Query Replay DVR entries
+  /// for `/api/sql` requests (declared bindings only; the SQL string is unchanged).
+  SqlRequestBody(
+    String sql, {
+    bool isInternal = false,
+    List<dynamic>? dvrArgs,
+    Map<String, dynamic>? dvrNamedArgs,
+  }) : this._((
+         sql: sql,
+         isInternal: isInternal,
+         dvrArgs: dvrArgs,
+         dvrNamedArgs: dvrNamedArgs,
+       ));
 
   /// Trimmed sql string.
   String get sql => _fields.sql;
@@ -101,6 +121,12 @@ extension type SqlRequestBody._(({String sql, bool isInternal}) _fields)
   /// Propagated into the recorded [QueryTiming.isInternal] so the extension's
   /// own scans are excluded from slow-query / perf-regression analysis.
   bool get isInternal => _fields.isInternal;
+
+  /// Positional args for DVR metadata (`args` in POST `/api/sql` JSON).
+  List<dynamic>? get dvrArgs => _fields.dvrArgs;
+
+  /// Named args for DVR metadata (`namedArgs` in POST `/api/sql` JSON).
+  Map<String, dynamic>? get dvrNamedArgs => _fields.dvrNamedArgs;
 
   /// Validates shape and returns null on invalid (require_api_response_validation).
   ///
@@ -123,6 +149,29 @@ extension type SqlRequestBody._(({String sql, bool isInternal}) _fields)
     }
     final rawInternal = decoded[ServerConstants.jsonKeyInternal];
     final isInternal = rawInternal == true;
-    return SqlRequestBody(trimmedSql, isInternal: isInternal);
+
+    List<dynamic>? args;
+    final rawArgs = decoded['args'];
+    if (rawArgs is List<dynamic>) {
+      args = rawArgs;
+    }
+
+    Map<String, dynamic>? namedArgs;
+    final rawNamed = decoded['namedArgs'];
+    if (rawNamed is Map<String, dynamic>) {
+      namedArgs = rawNamed;
+    } else if (rawNamed is Map) {
+      namedArgs = <String, dynamic>{};
+      for (final e in rawNamed.entries) {
+        namedArgs[e.key.toString()] = e.value;
+      }
+    }
+
+    return SqlRequestBody(
+      trimmedSql,
+      isInternal: isInternal,
+      dvrArgs: args,
+      dvrNamedArgs: namedArgs,
+    );
   }
 }

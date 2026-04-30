@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../dvr_bindings.dart';
+
 import 'server_constants.dart';
 import 'server_context.dart';
 import 'server_utils.dart';
@@ -31,6 +33,8 @@ final class SqlHandler {
     DriftDebugQuery query,
     String sql, {
     bool isInternal = false,
+    List<dynamic>? dvrArgs,
+    Map<String, dynamic>? dvrNamedArgs,
   }) async {
     if (sql.trim().isEmpty) {
       return <String, String>{
@@ -48,12 +52,40 @@ final class SqlHandler {
       // its own diagnostic scans as user-app regressions.
       final dynamic raw = isInternal
           ? await _ctx.internalQuery(sql)
-          : await query(sql);
+          : await _runUserSqlWithOptionalDvr(
+              query,
+              sql,
+              dvrArgs: dvrArgs,
+              dvrNamedArgs: dvrNamedArgs,
+            );
       final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(raw);
       return <String, dynamic>{ServerConstants.jsonKeyRows: rows};
     } on Object catch (error, stack) {
       return _handleQueryError(error, stack, sql);
     }
+  }
+
+  /// Runs [sql] through the instrumented query path, attaching optional DVR
+  /// binding metadata when `/api/sql` included `args` / `namedArgs`.
+  Future<List<Map<String, dynamic>>> _runUserSqlWithOptionalDvr(
+    DriftDebugQuery query,
+    String sql, {
+    List<dynamic>? dvrArgs,
+    Map<String, dynamic>? dvrNamedArgs,
+  }) {
+    final built = dvrParamsFromDeclarations(
+      positional: dvrArgs,
+      named: dvrNamedArgs,
+    );
+    if (built != null) {
+      return _ctx.instrumentedQueryWithDvrMeta(
+        sql,
+        dvrDeclaredParams: built.params,
+        dvrDeclaredParamsTruncated: built.truncated,
+        dvrHasDeclaredBindings: true,
+      );
+    }
+    return query(sql);
   }
 
   /// Handles POST /api/sql: body {"sql": "SELECT ..."} (optionally
@@ -69,6 +101,8 @@ final class SqlHandler {
       query,
       body.sql,
       isInternal: body.isInternal,
+      dvrArgs: body.dvrArgs,
+      dvrNamedArgs: body.dvrNamedArgs,
     );
     _ctx.setJsonHeaders(res);
     if (result.containsKey(ServerConstants.jsonKeyError)) {

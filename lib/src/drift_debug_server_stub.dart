@@ -21,6 +21,12 @@ mixin DriftDebugServer {
   /// Throws [UnsupportedError] because dart:io is not available on web.
   static Future<void> start({
     required Future<List<Map<String, dynamic>>> Function(String sql) query,
+    Future<List<Map<String, dynamic>>> Function(
+      String sql, {
+      List<Object?>? positionalArgs,
+      Map<String, Object?>? namedArgs,
+    })?
+    queryWithBindings,
     bool enabled = true,
     int port = 8_642,
     bool loopbackOnly = false,
@@ -31,6 +37,12 @@ mixin DriftDebugServer {
     Future<List<int>> Function()? getDatabaseBytes,
     Future<List<Map<String, dynamic>>> Function(String sql)? queryCompare,
     Future<void> Function(String sql)? writeQuery,
+    Future<void> Function(
+      String sql, {
+      List<Object?>? positionalArgs,
+      Map<String, Object?>? namedArgs,
+    })?
+    writeQueryWithBindings,
     void Function(String message)? onLog,
     void Function(Object error, StackTrace stack)? onError,
     Duration? sessionDuration,

@@ -934,6 +934,135 @@ void main() {
   });
 
   // =====================================================
+  // DVR endpoints
+  // =====================================================
+  group('dvr endpoints', () {
+    setUp(() async {
+      await startServer();
+    });
+
+    test('POST /api/dvr/start and GET /api/dvr/status', () async {
+      final started = await httpPost(port!, '/api/dvr/start');
+      expect(started.status, HttpStatus.ok);
+      expect(started.body['schemaVersion'], 1);
+
+      final status = await httpGet(port!, '/api/dvr/status');
+      expect(status.status, HttpStatus.ok);
+      final data = (status.body['data'] as Map<String, dynamic>);
+      expect(data['recording'], isTrue);
+      expect(data['sessionId'], isA<String>());
+      expect(data['queryCount'], isA<int>());
+    });
+
+    test('records SQL and returns it from /api/dvr/queries', () async {
+      await httpPost(port!, '/api/dvr/start');
+      final sqlResult = await httpPost(
+        port!,
+        '/api/sql',
+        json: <String, dynamic>{'sql': 'SELECT * FROM items'},
+      );
+      expect(sqlResult.status, HttpStatus.ok);
+
+      final queries = await httpGet(
+        port!,
+        '/api/dvr/queries?limit=20&direction=backward',
+      );
+      expect(queries.status, HttpStatus.ok);
+      final data = queries.body['data'] as Map<String, dynamic>;
+      final list = data['queries'] as List<dynamic>;
+      expect(list, isNotEmpty);
+      final first = list.first as Map<String, dynamic>;
+      expect(first['sql'], contains('SELECT'));
+      expect(first['sessionId'], isA<String>());
+      expect(first['resultRowCount'], isA<int>());
+    });
+
+    test(
+      'GET /api/dvr/query/:sessionId/:id returns QUERY_NOT_AVAILABLE for bad id',
+      () async {
+        await httpPost(port!, '/api/dvr/start');
+        final status = await httpGet(port!, '/api/dvr/status');
+        final sessionId =
+            (status.body['data'] as Map<String, dynamic>)['sessionId']
+                as String;
+        final missing = await httpGet(
+          port!,
+          '/api/dvr/query/$sessionId/999999',
+        );
+        expect(missing.status, HttpStatus.notFound);
+        expect(missing.body['error'], 'QUERY_NOT_AVAILABLE');
+      },
+    );
+
+    test(
+      'GET /api/dvr/query with wrong sessionId returns QUERY_NOT_AVAILABLE',
+      () async {
+        await httpPost(port!, '/api/dvr/start');
+        await httpPost(
+          port!,
+          '/api/sql',
+          json: <String, dynamic>{'sql': 'SELECT 1'},
+        );
+        final wrong = await httpGet(port!, '/api/dvr/query/wrong-session/0');
+        expect(wrong.status, HttpStatus.notFound);
+        expect(wrong.body['error'], 'QUERY_NOT_AVAILABLE');
+      },
+    );
+
+    test(
+      'POST /api/sql with args stores declared params on DVR entry',
+      () async {
+        await httpPost(port!, '/api/dvr/start');
+        await httpPost(
+          port!,
+          '/api/sql',
+          json: <String, dynamic>{
+            'sql': 'SELECT * FROM items WHERE id = 1',
+            'args': <dynamic>[1],
+            'namedArgs': <String, dynamic>{'x': 42},
+          },
+        );
+        final queries = await httpGet(
+          port!,
+          '/api/dvr/queries?limit=5&direction=backward',
+        );
+        expect(queries.status, HttpStatus.ok);
+        final data = queries.body['data'] as Map<String, dynamic>;
+        final list = data['queries'] as List<dynamic>;
+        expect(list, isNotEmpty);
+        final q = list.first as Map<String, dynamic>;
+        final params = q['params'] as Map<String, dynamic>;
+        expect((params['positional'] as List<dynamic>).length, 1);
+        expect((params['named'] as Map<String, dynamic>)['x'], 42);
+        expect(q['meta'], isA<Map<String, dynamic>>());
+        final meta = q['meta'] as Map<String, dynamic>;
+        expect(meta['bindingsUnavailable'], isFalse);
+      },
+    );
+
+    test(
+      'POST /api/dvr/config updates maxQueries and captureBeforeAfter',
+      () async {
+        await httpPost(port!, '/api/dvr/start');
+        final cfg = await httpPost(
+          port!,
+          '/api/dvr/config',
+          json: <String, dynamic>{'maxQueries': 2, 'captureBeforeAfter': false},
+        );
+        expect(cfg.status, HttpStatus.ok);
+        final data = cfg.body['data'] as Map<String, dynamic>;
+        expect(data['maxQueries'], 2);
+        expect(data['captureBeforeAfter'], isFalse);
+
+        final status = await httpGet(port!, '/api/dvr/status');
+        final sdata = status.body['data'] as Map<String, dynamic>;
+        expect(sdata['maxQueries'], 2);
+        expect(sdata['captureBeforeAfter'], isFalse);
+      },
+    );
+  });
+
+  // =====================================================
   // Session endpoints
   // =====================================================
   group('session endpoints', () {
@@ -1253,6 +1382,65 @@ void main() {
         final err = (r.body as Map<String, dynamic>)['error'] as String?;
         expect(err, isNotNull);
         // All statements validated before BEGIN — no writes or rollback needed.
+        expect(executedSql, isEmpty);
+      },
+    );
+
+    test(
+      'POST /api/edits/apply returns failedIndex and failedStatement when a statement execution fails',
+      () async {
+        final executedSql = <String>[];
+        await DriftDebugServer.stop();
+        await startServer(
+          writeQuery: (sql) async {
+            executedSql.add(sql);
+            if (sql.contains('DELETE FROM "items"')) {
+              throw Exception('foreign key constraint failed');
+            }
+          },
+        );
+
+        final failedSql = 'DELETE FROM "items" WHERE "id" = 2';
+        final r = await httpPost(
+          port!,
+          '/api/edits/apply',
+          json: <String, dynamic>{
+            'statements': <String>[
+              'UPDATE "items" SET "title" = \'A\' WHERE "id" = 1',
+              failedSql,
+            ],
+          },
+        );
+        expect(r.status, HttpStatus.internalServerError);
+        final body = r.body as Map<String, dynamic>;
+        expect(body['error'], isA<String>());
+        expect(body['failedIndex'], 1);
+        expect(body['failedStatement'], failedSql);
+        expect(executedSql, contains('ROLLBACK;'));
+      },
+    );
+
+    test(
+      'POST /api/edits/apply rejects semicolon-chained SQL in one item',
+      () async {
+        final executedSql = <String>[];
+        await DriftDebugServer.stop();
+        await startServer(writeQuery: (sql) async => executedSql.add(sql));
+
+        final r = await httpPost(
+          port!,
+          '/api/edits/apply',
+          json: <String, dynamic>{
+            'statements': <String>[
+              'UPDATE "items" SET "title" = \'A\' WHERE "id" = 1; DELETE FROM "items" WHERE "id" = 2',
+            ],
+          },
+        );
+        expect(r.status, HttpStatus.internalServerError);
+        final err = (r.body as Map<String, dynamic>)['error'] as String?;
+        expect(err, isNotNull);
+        expect(err, contains('Invalid data statement'));
+        // Validation must fail before transaction start.
         expect(executedSql, isEmpty);
       },
     );

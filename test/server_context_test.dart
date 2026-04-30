@@ -537,14 +537,13 @@ void main() {
       });
 
       test('timedQuery records timing on success', () async {
-        final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
-
-        final result = await ctx.timedQuery(
-          (_) async => [
+        final ctx = ServerContext(
+          query: (_) async => [
             <String, dynamic>{'id': 1},
           ],
-          'SELECT 1',
         );
+
+        final result = await ctx.timedQuery('SELECT 1');
 
         expect(result, hasLength(1));
         expect(ctx.queryTimings, hasLength(1));
@@ -552,26 +551,46 @@ void main() {
       });
 
       test('timedQuery records timing on error and rethrows', () async {
-        final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
+        final ctx = ServerContext(query: (_) async => throw Exception('fail'));
 
-        expect(
-          () => ctx.timedQuery((_) async => throw Exception('fail'), 'BAD SQL'),
-          throwsA(isA<Exception>()),
-        );
+        expect(() => ctx.timedQuery('BAD SQL'), throwsA(isA<Exception>()));
 
         // Timing should still be recorded after error.
         // Need to await the future to ensure the catch runs.
         try {
-          await ctx.timedQuery(
-            (_) async => throw Exception('fail'),
-            'BAD SQL 2',
-          );
+          await ctx.timedQuery('BAD SQL 2');
         } on Object catch (_) {
           // Expected.
         }
 
         expect(ctx.queryTimings.isNotEmpty, isTrue);
         expect(ctx.queryTimings.any((t) => t.error != null), isTrue);
+      });
+
+      test('timedQuery forwards DVR bindings to queryWithBindings', () async {
+        List<Object?>? seenPos;
+        Map<String, Object?>? seenNamed;
+        final ctx = ServerContext(
+          query: (_) async => <Map<String, dynamic>>[],
+          queryWithBindings: (sql, {positionalArgs, namedArgs}) async {
+            seenPos = positionalArgs;
+            seenNamed = namedArgs;
+            expect(sql, 'SELECT ?');
+            return <Map<String, dynamic>>[];
+          },
+        );
+
+        await ctx.instrumentedQueryWithDvrMeta(
+          'SELECT ?',
+          dvrDeclaredParams: <String, Object?>{
+            'positional': <Object?>[42],
+            'named': <String, Object?>{'k': 'v'},
+          },
+          dvrHasDeclaredBindings: true,
+        );
+
+        expect(seenPos, <Object?>[42]);
+        expect(seenNamed, <String, Object?>{'k': 'v'});
       });
 
       test('toString includes generation', () {

@@ -22,6 +22,7 @@ import 'server/server_constants.dart';
 import 'server/server_context.dart';
 import 'server/mutation_tracker.dart';
 import 'server/vm_service_bridge.dart';
+import 'query_recorder.dart';
 
 // Public API typedefs are defined in server/server_typedefs.dart
 // and re-exported here so the barrel export chain is preserved.
@@ -53,6 +54,10 @@ class _DriftDebugServerImpl {
   ///
   /// Parameters:
   /// * [query] — Required. Executes SQL and returns rows.
+  /// * [queryWithBindings] — Optional. When set, read queries that include DVR
+  ///   declared bindings are executed through this callback with
+  ///   `positionalArgs` / `namedArgs`; when null, bindings are metadata-only
+  ///   (same as passing only [query]).
   /// * [enabled] — If false, the server is not started (default true).
   /// * [port] — Port to bind (default 8642).
   /// * [loopbackOnly] — If true, bind to 127.0.0.1 only.
@@ -61,7 +66,10 @@ class _DriftDebugServerImpl {
   /// * [basicAuthUser] and [basicAuthPassword] — Optional HTTP Basic auth.
   /// * [getDatabaseBytes] — Optional callback for raw .sqlite download.
   /// * [queryCompare] — Optional second query for DB diff.
-  /// * [writeQuery] — Optional write callback for import endpoint.
+  /// * [writeQuery] — Optional write callback for import / batch / cell updates.
+  /// * [writeQueryWithBindings] — Optional write callback with binding parameters;
+  ///   when both [writeQuery] and this are set, this wins. HTTP paths still pass
+  ///   SQL strings only until a caller adds bound-write metadata.
   /// * [onLog] — Optional log callback.
   /// * [onError] — Optional error callback.
   /// * [sessionDuration] — Optional session expiry override (default 1 hour).
@@ -87,6 +95,7 @@ class _DriftDebugServerImpl {
   /// ```
   Future<void> start({
     required DriftDebugQuery query,
+    DriftDebugQueryWithBindings? queryWithBindings,
     bool enabled = true,
     int port = ServerConstants.defaultPort,
     bool loopbackOnly = false,
@@ -97,6 +106,7 @@ class _DriftDebugServerImpl {
     DriftDebugGetDatabaseBytes? getDatabaseBytes,
     DriftDebugQuery? queryCompare,
     DriftDebugWriteQuery? writeQuery,
+    DriftDebugWriteQueryWithBindings? writeQueryWithBindings,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
     Duration? sessionDuration,
@@ -143,12 +153,21 @@ class _DriftDebugServerImpl {
     }
 
     MutationTracker? mutationTracker;
+    QueryRecorder? queryRecorder;
     late DriftDebugQuery readQueryForMutation;
-    DriftDebugWriteQuery? wrappedWriteQuery = writeQuery;
+    DriftDebugWriteQuery? wrappedWriteQuery;
 
-    if (writeQuery != null) {
+    queryRecorder = QueryRecorder();
+
+    // Prefer [writeQueryWithBindings] when both are set so hosts can migrate
+    // to the richer callback without duplicate execution paths.
+    final DriftDebugWriteQuery? baseWrite = writeQueryWithBindings != null
+        ? (String sql) => writeQueryWithBindings(sql)
+        : writeQuery;
+
+    if (baseWrite != null) {
       mutationTracker = MutationTracker();
-      final originalWrite = writeQuery;
+      final originalWrite = baseWrite;
       wrappedWriteQuery = (String sql) async {
         final tracker = mutationTracker;
         if (tracker == null) {
@@ -158,16 +177,45 @@ class _DriftDebugServerImpl {
         }
         // Capture semantic mutation events around the existing writeQuery
         // behavior (best-effort row capture + ring-buffer storage).
-        await tracker.captureFromWriteQuery(
+        final startedAt = DateTime.now().toUtc();
+        final snapshots = await tracker.captureFromWriteQuery(
           originalWrite: originalWrite,
           readQuery: readQueryForMutation,
           sql: sql,
+        );
+        final elapsed = DateTime.now().toUtc().difference(startedAt);
+        // SQLite `changes()` reflects rows touched by the last statement on this
+        // connection — best-effort when [writeQuery] does not return a count.
+        var affectedRowCount = 0;
+        try {
+          final cr = await readQueryForMutation('SELECT changes() AS c');
+          if (cr.isNotEmpty) {
+            final v = cr.first['c'];
+            if (v is int) {
+              affectedRowCount = v;
+            } else if (v is num) {
+              affectedRowCount = v.toInt();
+            }
+          }
+        } on Object catch (e, st) {
+          // `changes()` is best-effort; failures must not break the write path.
+          onError?.call(e, st);
+          affectedRowCount = 0;
+        }
+        queryRecorder?.recordWrite(
+          sql: sql,
+          startedAtUtc: startedAt,
+          elapsed: elapsed,
+          affectedRowCount: affectedRowCount,
+          beforeState: snapshots?.beforeRows,
+          afterState: snapshots?.afterRows,
         );
       };
     }
 
     final ctx = ServerContext(
       query: query,
+      queryWithBindings: queryWithBindings,
       corsOrigin: corsOrigin,
       onLog: onLog,
       onError: onError,
@@ -176,13 +224,16 @@ class _DriftDebugServerImpl {
       basicAuthPassword: basicAuthPassword,
       getDatabaseBytes: getDatabaseBytes,
       queryCompare: queryCompare,
-      writeQuery: wrappedWriteQuery,
+      writeQuery: wrappedWriteQuery ?? writeQuery,
       mutationTracker: mutationTracker,
+      queryRecorder: queryRecorder,
       changeDetectionMinInterval: ServerConstants.changeDetectionMinInterval,
     );
 
-    if (writeQuery != null) {
-      readQueryForMutation = ctx.instrumentedQuery;
+    if (baseWrite != null) {
+      // Use raw reads for mutation capture and `changes()` so DVR/timing buffers
+      // are not flooded with helper SELECTs.
+      readQueryForMutation = ctx.queryRaw;
     }
 
     _router = Router(
@@ -330,6 +381,7 @@ mixin DriftDebugServer {
   /// is partially configured.
   static Future<void> start({
     required DriftDebugQuery query,
+    DriftDebugQueryWithBindings? queryWithBindings,
     bool enabled = true,
     int port = ServerConstants.defaultPort,
     bool loopbackOnly = false,
@@ -340,6 +392,7 @@ mixin DriftDebugServer {
     DriftDebugGetDatabaseBytes? getDatabaseBytes,
     DriftDebugQuery? queryCompare,
     DriftDebugWriteQuery? writeQuery,
+    DriftDebugWriteQueryWithBindings? writeQueryWithBindings,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
 
@@ -354,6 +407,7 @@ mixin DriftDebugServer {
     int? maxRequestsPerSecond,
   }) => _instance.start(
     query: query,
+    queryWithBindings: queryWithBindings,
     enabled: enabled,
     port: port,
     loopbackOnly: loopbackOnly,
@@ -364,6 +418,7 @@ mixin DriftDebugServer {
     getDatabaseBytes: getDatabaseBytes,
     queryCompare: queryCompare,
     writeQuery: writeQuery,
+    writeQueryWithBindings: writeQueryWithBindings,
     onLog: onLog,
     onError: onError,
     sessionDuration: sessionDuration,

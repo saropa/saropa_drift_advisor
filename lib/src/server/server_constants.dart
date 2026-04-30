@@ -103,6 +103,20 @@ abstract final class ServerConstants {
   static const String pathApiChangeDetectionAlt = 'api/change-detection';
   static const String pathApiMutations = '/api/mutations';
   static const String pathApiMutationsAlt = 'api/mutations';
+  static const String pathApiDvrStatus = '/api/dvr/status';
+  static const String pathApiDvrStatusAlt = 'api/dvr/status';
+  static const String pathApiDvrStart = '/api/dvr/start';
+  static const String pathApiDvrStartAlt = 'api/dvr/start';
+  static const String pathApiDvrStop = '/api/dvr/stop';
+  static const String pathApiDvrStopAlt = 'api/dvr/stop';
+  static const String pathApiDvrPause = '/api/dvr/pause';
+  static const String pathApiDvrPauseAlt = 'api/dvr/pause';
+  static const String pathApiDvrConfig = '/api/dvr/config';
+  static const String pathApiDvrConfigAlt = 'api/dvr/config';
+  static const String pathApiDvrQueries = '/api/dvr/queries';
+  static const String pathApiDvrQueriesAlt = 'api/dvr/queries';
+  static const String pathApiDvrQueryPrefix = '/api/dvr/query/';
+  static const String pathApiDvrQueryPrefixAlt = 'api/dvr/query/';
   static const String pathFavicon = '/favicon.ico';
   static const String pathFaviconAlt = 'favicon.ico';
 
@@ -137,6 +151,8 @@ abstract final class ServerConstants {
   /// When `1` or `true` on GET `/api/schema/metadata`, each table entry
   /// includes [jsonKeyForeignKeys] so clients avoid N per-table fk-meta calls.
   static const String queryParamIncludeForeignKeys = 'includeForeignKeys';
+  static const String queryParamCursor = 'cursor';
+  static const String queryParamDirection = 'direction';
   static const String queryParamFormat = 'format';
   static const String queryParamDetail = 'detail';
   static const String formatDownload = 'download';
@@ -160,6 +176,8 @@ abstract final class ServerConstants {
   static const String jsonKeyStatements = 'statements';
   static const String jsonKeyCount = 'count';
   static const String jsonKeyOk = 'ok';
+  static const String jsonKeyFailedIndex = 'failedIndex';
+  static const String jsonKeyFailedStatement = 'failedStatement';
 
   /// True when HTTP clients may call write endpoints ([writeQuery] configured).
   static const String jsonKeyWriteEnabled = 'writeEnabled';

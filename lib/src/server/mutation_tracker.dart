@@ -23,6 +23,21 @@ import 'server_typedefs.dart';
 
 enum MutationType { insert, update, delete }
 
+/// Row snapshots gathered around a single tracked DML write (for DVR / diagnostics).
+///
+/// Returned by [MutationTracker.captureFromWriteQuery] when the SQL was parsed as
+/// INSERT/UPDATE/DELETE. `null` from that method means the statement was not
+/// recognized as tracked DML (the write still executed).
+final class MutationRowSnapshots {
+  const MutationRowSnapshots({
+    required this.beforeRows,
+    required this.afterRows,
+  });
+
+  final List<Map<String, dynamic>>? beforeRows;
+  final List<Map<String, dynamic>>? afterRows;
+}
+
 final class MutationEvent {
   MutationEvent({
     required this.id,
@@ -93,7 +108,12 @@ class MutationTracker {
     }
   }
 
-  Future<void> captureFromWriteQuery({
+  /// Runs [originalWrite] with optional before/after row snapshots.
+  ///
+  /// Returns `null` when [sql] is not recognized as a tracked DML statement
+  /// (write still runs). Otherwise returns the snapshot lists captured for
+  /// that statement (either may be null when capture was not possible).
+  Future<MutationRowSnapshots?> captureFromWriteQuery({
     required DriftDebugWriteQuery originalWrite,
     required DriftDebugQuery readQuery,
     required String sql,
@@ -101,7 +121,7 @@ class MutationTracker {
     final parsed = _parseSqlForMutation(sql);
     if (parsed == null) {
       await originalWrite(sql);
-      return;
+      return null;
     }
 
     final type = parsed.type;
@@ -172,6 +192,7 @@ class MutationTracker {
       afterRows: afterRows,
       sql: sql,
     );
+    return MutationRowSnapshots(beforeRows: beforeRows, afterRows: afterRows);
   }
 
   void _recordEvent({
