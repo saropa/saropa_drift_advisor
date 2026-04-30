@@ -58,3 +58,7 @@ CLAUDE.md
 
 # Saropa Log Capture (index & cache)
 .saropa/
+
+# Bug docs: keep report guide, ignore finish checklist
+bugs/FINISH_GUIDE.md
+!bugs/BUG_REPORT_GUIDE.md
