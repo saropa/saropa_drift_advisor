@@ -13,8 +13,8 @@ export function registerQueryCostCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.analyzeQueryCost',
-      async () => {
-        const sql = await vscode.window.showInputBox({
+      async (inputSql?: string) => {
+        const sql = inputSql || await vscode.window.showInputBox({
           prompt: 'SQL query to analyze',
           placeHolder: 'SELECT ...',
         });

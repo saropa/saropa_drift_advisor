@@ -43,10 +43,18 @@ import { registerRollbackCommands } from './rollback/rollback-commands';
 import { registerPollingCommands } from './polling/polling-commands';
 import { registerSaropaLintsCommands } from './saropa-lints-commands';
 import { registerMutationStreamCommands } from './mutation-stream/mutation-stream-commands';
+import { registerDvrCommands } from './dvr/dvr-commands';
+import { DvrPanel } from './dvr/dvr-panel';
+import { refreshDvrStatusBar } from './dvr/dvr-status-bar';
+import { registerNlSqlCommands } from './nl-sql/nl-sql-commands';
+import { registerQueryBuilderCommands } from './query-builder/query-builder-commands';
+import { registerRefactoringCommands } from './refactoring/refactoring-commands';
 import { HealthScorer } from './health/health-scorer';
 import type { HealthStatusBar } from './status-bar-health';
 import type { SchemaTracker } from './schema-timeline/schema-tracker';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
+import type { SchemaIntelligence } from './engines/schema-intelligence';
+import type { QueryIntelligence } from './engines/query-intelligence';
 
 export interface CommandRegistrationDeps
   extends ProviderSetupResult,
@@ -66,6 +74,9 @@ export interface CommandRegistrationDeps
   healthStatusBar: HealthStatusBar;
   /** Filled by extension.ts; VM/debug code invokes to sync sidebar connection UI. */
   refreshDriftConnectionUi?: () => void;
+  /** Present when the intelligence activation phase succeeded. */
+  schemaIntelligence?: SchemaIntelligence;
+  queryIntelligence?: QueryIntelligence;
 }
 
 /**
@@ -108,6 +119,7 @@ export function registerAllCommands(
     connectionChannel,
     schemaTracker,
     healthStatusBar,
+    filterStore,
   } = deps;
 
   // `diagnosticManager` comes from the optional `DiagnosticSetupResult`
@@ -205,9 +217,44 @@ export function registerAllCommands(
     ['tree', () => registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager)],
     ['nav', () => registerNavCommands(context, client, diagnosticManager, editingBridge, fkNavigator, serverManager, discovery, filterBridge, connectionChannel, deps.refreshDriftConnectionUi)],
     ['mutationStream', () => registerMutationStreamCommands(context, client, editingBridge, fkNavigator, filterBridge)],
+    [
+      'dvr',
+      () => {
+        registerDvrCommands(context, client, {
+          queryIntelligence: deps.queryIntelligence,
+        });
+        context.subscriptions.push(
+          watcher.onDidChange(() => {
+            DvrPanel.refreshIfVisible();
+            void refreshDvrStatusBar(client);
+          }),
+        );
+      },
+    ],
+    [
+      'nlSql',
+      () =>
+        registerNlSqlCommands(context, client, {
+          filterStore,
+          schemaIntelligence: deps.schemaIntelligence,
+          queryIntelligence: deps.queryIntelligence,
+          logBridge,
+        }),
+    ],
     ['snapshot', () => registerSnapshotCommands(context, client, snapshotStore)],
     ['schemaDiff', () => registerSchemaDiffCommands(context, client)],
-    ['editing', () => registerEditingCommands(context, client, changeTracker, watchManager)],
+    [
+      'editing',
+      () =>
+        registerEditingCommands(
+          context,
+          client,
+          changeTracker,
+          watchManager,
+          connectionChannel,
+          snapshotStore,
+        ),
+    ],
     ['export', () => registerExportCommands(context, client)],
     ['snippet', () => registerSnippetCommands(context, client)],
     ['dataBreakpoint', () => registerDataBreakpointCommands(context, client, dbpProvider)],
@@ -222,6 +269,14 @@ export function registerAllCommands(
     ['isarGen', () => registerIsarGenCommands(context)],
     ['health', () => registerHealthCommands(context, client, healthStatusBar)],
     ['queryCost', () => registerQueryCostCommands(context, client)],
+    [
+      'queryBuilder',
+      () =>
+        registerQueryBuilderCommands(context, client, {
+          queryIntelligence: deps.queryIntelligence,
+        }),
+    ],
+    ['refactoring', () => registerRefactoringCommands(context, client)],
     ['dashboard', () => registerDashboardCommands(context, client, new HealthScorer())],
     ['invariant', () => registerInvariantCommands(context, client, watcher)],
     ['narrator', () => registerNarratorCommands(context, client)],

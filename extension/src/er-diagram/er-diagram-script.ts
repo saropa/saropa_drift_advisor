@@ -249,6 +249,14 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
       renderDiagram();
       hideLoading();
     }
+    if (msg.command === 'focusTable' && msg.table) {
+      const hit = nodes.find((n) => n.table === msg.table);
+      if (hit) {
+        selectedTable = msg.table;
+        zoom = Math.min(2.2, Math.max(zoom, 1));
+        renderDiagram();
+      }
+    }
   });
 
   // --- Responsive redraw: re-fit diagram when the panel is resized ---

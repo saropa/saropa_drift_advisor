@@ -50,6 +50,23 @@ export class SqlNotebookPanel {
     context.subscriptions.push(SqlNotebookPanel.currentPanel);
   }
 
+  /**
+   * Ensures the SQL Notebook is visible and inserts a new query tab populated
+   * with generated SQL text. The query is not executed automatically.
+   */
+  static showAndInsertQuery(
+    context: vscode.ExtensionContext,
+    client: DriftApiClient,
+    args: {
+      sql: string;
+      title?: string;
+      source?: string;
+    },
+  ): void {
+    SqlNotebookPanel.createOrShow(context, client);
+    SqlNotebookPanel.currentPanel?._insertQueryCell(args);
+  }
+
   private constructor(
     panel: vscode.WebviewPanel,
     context: vscode.ExtensionContext,
@@ -86,6 +103,8 @@ export class SqlNotebookPanel {
     query?: string;
     timestamp?: number;
     entry?: IQueryHistoryEntry;
+    title?: string;
+    source?: string;
   }): Promise<void> {
     switch (msg.command) {
       case 'execute':
@@ -121,7 +140,33 @@ export class SqlNotebookPanel {
       case 'loadHistoryEntry':
         this._loadHistoryEntry(msg.timestamp!);
         break;
+      case 'notebookReady':
+        // The webview sends this after boot so we can re-send pending insertions.
+        break;
+      case 'requestNlSql':
+        // Toolbar entry point: same command as Database view / palette.
+        void vscode.commands.executeCommand('driftViewer.askNaturalLanguage', {
+          openFrom: 'sql-notebook',
+        });
+        break;
     }
+  }
+
+  /**
+   * Posts an insertion request to the webview so a new tab appears with the
+   * provided SQL content and optional title/source metadata.
+   */
+  private _insertQueryCell(args: {
+    sql: string;
+    title?: string;
+    source?: string;
+  }): void {
+    this._post({
+      command: 'insertQueryCell',
+      sql: args.sql,
+      title: args.title,
+      source: args.source,
+    });
   }
 
   private async _executeQuery(

@@ -9,6 +9,66 @@ import { WatchPanel } from '../watch/watch-panel';
 import { SqlNotebookPanel } from '../sql-notebook/sql-notebook-panel';
 import { TableItem } from '../tree/tree-items';
 import { BulkEditPanel } from '../bulk-edit/bulk-edit-panel';
+import type { SnapshotStore } from '../timeline/snapshot-store';
+
+/**
+ * Returns a user-facing reason when a table is not editable in v1 bulk-edit flows.
+ *
+ * v1 requires exactly one PK column because pending-change identity and message
+ * protocol currently use singular `pkColumn` / `pkValue` fields.
+ */
+export function getSinglePkEditGuardReason(item: TableItem): string | undefined {
+  const pkColumns = item.table.columns.filter((c) => c.pk);
+  if (pkColumns.length === 0) {
+    return `Table "${item.table.name}" has no primary key column — editing needs stable row identity.`;
+  }
+  if (pkColumns.length > 1) {
+    return `Table "${item.table.name}" uses a composite primary key — editing is currently limited to single-column primary keys.`;
+  }
+  return undefined;
+}
+
+/**
+ * Builds a concise, user-focused apply failure message from transport errors.
+ *
+ * When the server includes batch failure metadata, this surfaces which
+ * statement failed and shows a trimmed SQL preview to speed up correction.
+ */
+export function formatApplyFailureMessage(errorDetail: string): string {
+  const indexMatch = /failed statement index:\s*(\d+)/i.exec(errorDetail);
+  const sqlMatch = /\nFailed SQL:\s*([\s\S]+)$/i.exec(errorDetail);
+  if (!indexMatch) {
+    return `Apply failed: ${errorDetail}`;
+  }
+  const statementNumber = Number.parseInt(indexMatch[1], 10) + 1;
+  const sql = sqlMatch?.[1]?.trim();
+  const sqlPreview = sql && sql.length > 160 ? `${sql.slice(0, 160)}...` : sql;
+  const lines = [
+    `Apply failed at statement #${statementNumber}.`,
+  ];
+  if (sqlPreview) {
+    lines.push(`SQL: ${sqlPreview}`);
+  }
+  lines.push('Pending edits were preserved. Fix the statement and retry.');
+  return lines.join('\n');
+}
+
+/** Extracts failing SQL from server-provided batch-apply error detail text. */
+export function extractFailedSql(errorDetail: string): string | undefined {
+  const sqlMatch = /\nFailed SQL:\s*([\s\S]+)$/i.exec(errorDetail);
+  const sql = sqlMatch?.[1]?.trim();
+  return sql && sql.length > 0 ? sql : undefined;
+}
+
+/** Returns true when the user chose to open SQL preview after apply failure. */
+export function shouldOpenPreviewSql(choice: string | undefined): boolean {
+  return choice === 'Preview SQL';
+}
+
+/** Returns true when the user chose to copy failing SQL after apply failure. */
+export function shouldCopyFailedSql(choice: string | undefined): boolean {
+  return choice === 'Copy Failed SQL';
+}
 
 /** Register watch and data editing commands. */
 export function registerEditingCommands(
@@ -16,6 +76,10 @@ export function registerEditingCommands(
   client: DriftApiClient,
   changeTracker: ChangeTracker,
   watchManager: WatchManager,
+  /** When set, successful batch applies append a line for session timelines / logs. */
+  driftLog?: vscode.OutputChannel,
+  /** When set, a post-apply snapshot refresh feeds the Drift Database timeline (row counts). */
+  snapshotStore?: SnapshotStore,
 ): void {
   // Watch commands
   context.subscriptions.push(
@@ -138,12 +202,35 @@ export function registerEditingCommands(
           () => client.applyEditsBatch(statements),
         );
         changeTracker.discardAll();
+        driftLog?.appendLine(
+          `[${new Date().toISOString()}] Bulk edit: applied ${statements.length} SQL statement(s).`,
+        );
+        // Refresh unified DB snapshots for the Timeline panel even when the user
+        // recently captured manually (normal debounce would skip).
+        void snapshotStore
+          ?.capture(client, { bypassDebounce: true })
+          .catch(() => {});
         void vscode.window.showInformationMessage(
           `Applied ${statements.length} statement(s). Pending edit list cleared.`,
         );
       } catch (err: unknown) {
         const detail = err instanceof Error ? err.message : String(err);
-        void vscode.window.showErrorMessage(`Apply failed: ${detail}`);
+        const failedSql = extractFailedSql(detail);
+        const actions = failedSql
+          ? ['Preview SQL', 'Copy Failed SQL']
+          : ['Preview SQL'];
+        const choice = await vscode.window.showErrorMessage(
+          formatApplyFailureMessage(detail),
+          ...actions,
+        );
+        if (shouldOpenPreviewSql(choice)) {
+          void vscode.commands.executeCommand('driftViewer.generateSql');
+        } else if (failedSql && shouldCopyFailedSql(choice)) {
+          await vscode.env.clipboard.writeText(failedSql);
+          void vscode.window.showInformationMessage(
+            'Copied failed SQL to clipboard.',
+          );
+        }
       }
     }),
   );
@@ -152,11 +239,9 @@ export function registerEditingCommands(
       'driftViewer.editTableData',
       async (item?: TableItem) => {
         if (item) {
-          const pk = item.table.columns.find((c) => c.pk);
-          if (!pk) {
-            void vscode.window.showWarningMessage(
-              `Table "${item.table.name}" has no primary key column — editing needs stable row identity.`,
-            );
+          const guardReason = getSinglePkEditGuardReason(item);
+          if (guardReason) {
+            void vscode.window.showWarningMessage(guardReason);
             return;
           }
         }

@@ -125,6 +125,23 @@ describe('DriftApiClient', () => {
         /500.*bad sql/,
       );
     });
+
+    it('should include failed statement index and SQL in thrown message', async () => {
+      fetchStub.resolves(
+        new Response(
+          JSON.stringify({
+            error: 'UNIQUE constraint failed: items.id',
+            failedIndex: 1,
+            failedStatement: 'INSERT INTO "items" ("id") VALUES (1)',
+          }),
+          { status: 500 },
+        ),
+      );
+      await assert.rejects(
+        () => client.applyEditsBatch(['UPDATE "items" SET "title" = \'A\'', 'INSERT ...']),
+        /failed statement index: 1[\s\S]*Failed SQL: INSERT INTO "items"/,
+      );
+    });
   });
 
   describe('baseUrl', () => {

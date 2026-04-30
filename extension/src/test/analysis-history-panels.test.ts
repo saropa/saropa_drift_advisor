@@ -11,7 +11,7 @@ import { IndexSuggestionsPanel } from '../health/index-suggestions-panel';
 import { AnomaliesPanel } from '../health/anomalies-panel';
 import { HealthPanel } from '../health/health-panel';
 import { SizePanel } from '../analytics/size-panel';
-import { resetMocks, createdPanels } from './vscode-mock';
+import { resetMocks, createdPanels, MockMemento } from './vscode-mock';
 import { makeClient, makeHistoryStore } from './fixtures/health-test-fixtures';
 import type { IndexSuggestion, Anomaly, ISizeAnalytics } from '../api-types';
 import type { IHealthScore } from '../health/health-types';
@@ -130,7 +130,7 @@ describe('Analysis history: HealthPanel', () => {
 
   it('should render history buttons in HTML', () => {
     const store = makeHistoryStore<IHealthScore>();
-    HealthPanel.createOrShow(makeScore(), makeClient(), store);
+    HealthPanel.createOrShow(makeScore(), makeClient(), store, new MockMemento());
     const html = createdPanels[0].webview.html;
     assert.ok(html.includes('saveSnapshot'), 'should have save button');
     assert.ok(html.includes('compareHistory'), 'should have compare button');
@@ -138,7 +138,7 @@ describe('Analysis history: HealthPanel', () => {
 
   it('should save snapshot to store on saveSnapshot message', () => {
     const store = makeHistoryStore<IHealthScore>();
-    HealthPanel.createOrShow(makeScore(), makeClient(), store);
+    HealthPanel.createOrShow(makeScore(), makeClient(), store, new MockMemento());
 
     createdPanels[0].webview.simulateMessage({ command: 'saveSnapshot' });
     return new Promise<void>((resolve) => setTimeout(() => {

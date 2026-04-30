@@ -27,6 +27,21 @@ function mockSchema(): Promise<TableMetadata[]> {
   ]);
 }
 
+/** Schema with a composite PK table to verify v1 guard behavior. */
+function compositePkSchema(): Promise<TableMetadata[]> {
+  return Promise.resolve([
+    {
+      name: 'memberships',
+      rowCount: 0,
+      columns: [
+        { name: 'org_id', type: 'INTEGER', pk: true, notnull: true },
+        { name: 'user_id', type: 'INTEGER', pk: true, notnull: true },
+        { name: 'role', type: 'TEXT', pk: false, notnull: false },
+      ],
+    },
+  ]);
+}
+
 describe('EditingBridge', () => {
   let tracker: ChangeTracker;
   let bridge: EditingBridge;
@@ -58,6 +73,23 @@ describe('EditingBridge', () => {
     assert.strictEqual(tracker.changes[0].kind, 'cell');
   });
 
+  it('should reject cellEdit when pkColumn is blank', async () => {
+    const handled = bridge.handleMessage({
+      command: 'cellEdit',
+      table: 'users',
+      pkColumn: '   ',
+      pkValue: 42,
+      column: 'name',
+      oldValue: 'Alice',
+      newValue: 'Bob',
+    });
+    assert.ok(handled);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.strictEqual(tracker.changeCount, 0);
+    assert.strictEqual(messageMock.warnings.length, 1);
+    assert.ok(messageMock.warnings[0].includes('row identity'));
+  });
+
   it('should not record invalid cell values when schema is available', async () => {
     const handled = bridge.handleMessage({
       command: 'cellEdit',
@@ -73,7 +105,26 @@ describe('EditingBridge', () => {
     assert.strictEqual(tracker.changeCount, 0);
   });
 
-  it('should handle rowDelete messages', () => {
+  it('should reject cellEdit for composite primary key tables', async () => {
+    const compositeBridge = new EditingBridge(tracker, compositePkSchema);
+    const handled = compositeBridge.handleMessage({
+      command: 'cellEdit',
+      table: 'memberships',
+      pkColumn: 'org_id',
+      pkValue: 1,
+      column: 'role',
+      oldValue: 'viewer',
+      newValue: 'admin',
+    });
+    assert.ok(handled);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.strictEqual(tracker.changeCount, 0);
+    assert.strictEqual(messageMock.warnings.length, 1);
+    assert.ok(messageMock.warnings[0].includes('composite primary key'));
+    compositeBridge.dispose();
+  });
+
+  it('should handle rowDelete messages', async () => {
     const handled = bridge.handleMessage({
       command: 'rowDelete',
       table: 'users',
@@ -81,8 +132,38 @@ describe('EditingBridge', () => {
       pkValue: 99,
     });
     assert.ok(handled);
+    await new Promise<void>((resolve) => setImmediate(resolve));
     assert.strictEqual(tracker.changeCount, 1);
     assert.strictEqual(tracker.changes[0].kind, 'delete');
+  });
+
+  it('should reject rowDelete when pkColumn is blank', () => {
+    const handled = bridge.handleMessage({
+      command: 'rowDelete',
+      table: 'users',
+      pkColumn: '',
+      pkValue: 99,
+    });
+    assert.ok(handled);
+    assert.strictEqual(tracker.changeCount, 0);
+    assert.strictEqual(messageMock.warnings.length, 1);
+    assert.ok(messageMock.warnings[0].includes('row identity'));
+  });
+
+  it('should reject rowDelete for composite primary key tables', async () => {
+    const compositeBridge = new EditingBridge(tracker, compositePkSchema);
+    const handled = compositeBridge.handleMessage({
+      command: 'rowDelete',
+      table: 'memberships',
+      pkColumn: 'org_id',
+      pkValue: 1,
+    });
+    assert.ok(handled);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.strictEqual(tracker.changeCount, 0);
+    assert.strictEqual(messageMock.warnings.length, 1);
+    assert.ok(messageMock.warnings[0].includes('composite primary key'));
+    compositeBridge.dispose();
   });
 
   it('should handle rowInsert messages', async () => {

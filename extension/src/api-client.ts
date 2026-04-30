@@ -10,6 +10,9 @@ import type {
   HealthResponse,
   ICompareReport,
   IDiagramData,
+  IDvrQueriesPage,
+  IDvrStatus,
+  IRecordedQueryV1,
   IImportResult,
   IMigrationPreview,
   IndexSuggestion,
@@ -160,14 +163,32 @@ export class DriftApiClient {
    * detection — preventing a feedback loop where the extension's own
    * overhead is reported as an application performance problem. See
    * BUG_perf_regression_false_positives_from_data_quality_probes.md.
+   *
+   * Optional `args` / `namedArgs` are forwarded on both HTTP and VM Service
+   * paths for DVR-declared bindings (the host may still execute SQL-only if
+   * it does not supply `queryWithBindings` on the Dart server).
    */
   async sql(
     query: string,
-    opts?: { internal?: boolean },
+    opts?: {
+      internal?: boolean;
+      args?: unknown[];
+      namedArgs?: Record<string, unknown>;
+    },
   ): Promise<{ columns: string[]; rows: unknown[][] }> {
     const internal = opts?.internal === true;
-    if (this._vmClient?.connected) return this._vmClient.runSql(query, { internal });
-    return http.httpSql(this._baseUrl, this._headers(), query, { internal });
+    if (this._vmClient?.connected) {
+      return this._vmClient.runSql(query, {
+        internal,
+        args: opts?.args,
+        namedArgs: opts?.namedArgs,
+      });
+    }
+    return http.httpSql(this._baseUrl, this._headers(), query, {
+      internal,
+      args: opts?.args,
+      namedArgs: opts?.namedArgs,
+    });
   }
 
   /**
@@ -283,5 +304,47 @@ export class DriftApiClient {
       text,
       author,
     );
+  }
+
+  /** Returns current DVR recorder status. */
+  async dvrStatus(): Promise<IDvrStatus> {
+    return http.httpDvrStatus(this._baseUrl, this._headers());
+  }
+
+  /** Starts DVR recording. */
+  async dvrStart(): Promise<IDvrStatus> {
+    return http.httpDvrStart(this._baseUrl, this._headers());
+  }
+
+  /** Stops DVR recording. */
+  async dvrStop(): Promise<IDvrStatus> {
+    return http.httpDvrStop(this._baseUrl, this._headers());
+  }
+
+  /** Pauses DVR recording without clearing captured history. */
+  async dvrPause(): Promise<IDvrStatus> {
+    return http.httpDvrPause(this._baseUrl, this._headers());
+  }
+
+  /** Updates DVR recorder options (buffer size, before/after capture). */
+  async dvrConfigure(body: {
+    maxQueries?: number;
+    captureBeforeAfter?: boolean;
+  }): Promise<{ maxQueries: number; captureBeforeAfter: boolean; queryCount: number; sessionId: string }> {
+    return http.httpDvrConfig(this._baseUrl, this._headers(), body);
+  }
+
+  /** Returns a cursor page of recorded DVR queries. */
+  async dvrQueries(options?: {
+    cursor?: number;
+    limit?: number;
+    direction?: 'forward' | 'backward';
+  }): Promise<IDvrQueriesPage> {
+    return http.httpDvrQueries(this._baseUrl, this._headers(), options);
+  }
+
+  /** Returns a single recorded DVR query event. */
+  async dvrQuery(sessionId: string, id: number): Promise<IRecordedQueryV1> {
+    return http.httpDvrQuery(this._baseUrl, this._headers(), sessionId, id);
   }
 }

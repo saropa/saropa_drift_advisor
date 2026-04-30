@@ -274,6 +274,7 @@ function _activateInner(
     schemaTracker,
     loadOnConnect,
     getLightweight,
+    intel: intel ?? undefined,
   }, track);
 
   // -----------------------------------------------------------------------

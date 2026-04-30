@@ -95,6 +95,16 @@ describe('SnapshotStore', () => {
       assert.strictEqual(store.snapshots.length, 2);
     });
 
+    it('should capture immediately when bypassDebounce is set (bulk edit timeline)', async () => {
+      stubCapture();
+      const store = new SnapshotStore(20, 5000);
+      const snap1 = await store.capture(client);
+      assert.ok(snap1);
+      const snap2 = await store.capture(client, { bypassDebounce: true });
+      assert.ok(snap2);
+      assert.strictEqual(store.snapshots.length, 2);
+    });
+
     it('should return null on API failure', async () => {
       fetchStub.rejects(new Error('network error'));
       const store = new SnapshotStore(20, 0);

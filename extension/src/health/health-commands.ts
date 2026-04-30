@@ -40,9 +40,9 @@ export function registerHealthCommands(
               location: vscode.ProgressLocation.Notification,
               title: 'Computing health score\u2026',
             },
-            () => scorer.compute(client),
+            () => scorer.compute(client, context.workspaceState),
           );
-          HealthPanel.createOrShow(score, client, healthHistoryStore);
+          HealthPanel.createOrShow(score, client, healthHistoryStore, context.workspaceState);
           // Update the status bar so the score is always visible
           healthStatusBar?.update(score.overall, score.grade);
         } catch (err: unknown) {

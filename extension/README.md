@@ -32,8 +32,11 @@ Works in Dart files with Drift table definitions:
 ### Query Tools
 
 - **SQL Notebook** (`Ctrl+Shift+Q`) — multi-statement editor with autocomplete, results grid, and inline charts
+- **Visual Query Builder** — compose `SELECT`s from the live schema (joins, filters, aggregates) with SQL preview/run; **Import SQL into Visual Query Builder** maps matching flat `SELECT` text back into the graph (best-effort)
+- **Natural language SQL** — ask in plain language for a `SELECT` against the current schema (OpenAI-compatible endpoint); then open in the SQL Notebook or **Edit in Visual Query Builder**
 - **EXPLAIN Panel** — color-coded query plan tree with index suggestions
 - **Live Watch** — monitor queries with diff highlighting; persists across sessions
+- **Query Replay DVR** — record SQL during debug sessions, then inspect recent queries in a timeline panel with filters, semantic search over captured row snapshots, stepping (buttons + keyboard), selection detail, JSON export, SQL editor / SQL Notebook / Query Cost actions, and a status-bar indicator; the panel refreshes when schema generation changes (`Open Query Replay DVR`). The debug server exposes `POST /api/dvr/config` for runtime buffer tuning and accepts optional `args` / `namedArgs` on `POST /api/sql` so DVR can store declared bindings (the executed SQL string is unchanged).
 
 ### Schema & Migration
 
@@ -43,6 +46,7 @@ Works in Dart files with Drift table definitions:
 - **Generate Dart** — scaffold Drift table classes from the runtime schema
 - **Isar-to-Drift Generator** — scan workspace or pick files to convert Isar `@collection` classes (Dart source or JSON schema) to Drift table definitions with configurable embedded/enum strategies
 - **Migration Preview** — preview migration DDL from database comparison
+- **Suggest Schema Refactorings** — Command Palette and Database view (when connected): heuristic suggestions (normalize low-cardinality text, wide-table split hints, overlap-based merge hints) with advisory SQL/Dart snippets; per-suggestion actions open **migration preview with plan appendix**, **ER diagram focused on a table**, or **Ask in English** with a pre-filled NL question; last run summary appears on the **Database Health Score** panel; does not execute SQL against the database
 
 ### Data Management
 
@@ -91,6 +95,12 @@ Works in Dart files with Drift table definitions:
 | `driftViewer.lightweight` | `false` | When true, skips badges/timeline/tree refresh on generation change |
 | `driftViewer.performance.slowThresholdMs` | `500` | Slow query threshold (ms) |
 | `driftViewer.integrations.includeInLogCaptureSession` | `full` | Controls what Drift Advisor contributes to Log Capture sessions: `none` (opt out), `header` (lightweight headers only), `full` (structured metadata + sidecar file) |
+| `driftViewer.dvr.autoRecord` | `true` | Automatically start Query Replay DVR recording on Dart/Flutter debug session start |
+| `driftViewer.dvr.maxQueries` | `5000` | Maximum number of DVR query events retained by the server ring buffer |
+| `driftViewer.dvr.captureBeforeAfter` | `true` | Request before/after snapshot capture for write queries when supported by the server |
+| `driftViewer.nlSql.apiUrl` | OpenAI-compatible chat URL | Full URL for NL-to-SQL chat completions (default targets OpenAI; override for other providers) |
+| `driftViewer.nlSql.model` | `gpt-4o-mini` | Model name sent to the NL-SQL endpoint |
+| `driftViewer.nlSql.maxTokens` | `500` | Max completion tokens for NL-SQL generation |
 
 ## Design: extension enablement
 
@@ -122,6 +132,10 @@ All commands are available via the command palette (`Ctrl+Shift+P`):
 | Schema Diff | Compare code vs runtime schema |
 | Schema Diagram | ER-style table visualization |
 | Open SQL Notebook | Multi-statement SQL editor |
+| Visual Query Builder | Schema-driven SELECT composer with run/preview |
+| Import SQL into Visual Query Builder | Map flat `SELECT` text into the visual model (best-effort) |
+| Ask Natural Language | NL-to-SQL using configured LLM endpoint |
+| NL Query History | Re-open or re-run prior NL-SQL generations |
 | Explain Query Plan | EXPLAIN for selected SQL (context menu when cursor/selection has SQL) |
 | Generate Dart from Schema | Scaffold Drift table classes |
 | Export SQL Dump | Save schema + data as `.sql` |

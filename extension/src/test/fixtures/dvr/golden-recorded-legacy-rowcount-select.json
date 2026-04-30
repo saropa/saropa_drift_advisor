@@ -1,0 +1,16 @@
+{
+  "sessionId": "sess-legacy",
+  "id": 3,
+  "sequence": 3,
+  "sql": "SELECT 1 AS one",
+  "params": { "positional": [], "named": {} },
+  "type": "select",
+  "timestamp": "2026-04-30T14:01:00.000Z",
+  "durationMs": 0.5,
+  "affectedRowCount": 0,
+  "resultRowCount": 0,
+  "table": null,
+  "beforeState": null,
+  "afterState": null,
+  "rowCount": 99
+}

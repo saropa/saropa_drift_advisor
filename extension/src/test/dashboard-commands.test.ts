@@ -47,14 +47,30 @@ describe('Dashboard commands', () => {
   });
 
   describe('registration', () => {
-    it('should register openDashboard, saveDashboard, loadDashboard, deleteDashboard', () => {
+    it('should register openDashboard, addQueryWidget, save, load, delete', () => {
       const context = fakeContext() as any;
       registerDashboardCommands(context, client);
       const registered = commands.getRegistered();
       assert.ok('driftViewer.openDashboard' in registered);
+      assert.ok('driftViewer.addQueryWidgetToDashboard' in registered);
       assert.ok('driftViewer.saveDashboard' in registered);
       assert.ok('driftViewer.loadDashboard' in registered);
       assert.ok('driftViewer.deleteDashboard' in registered);
+    });
+  });
+
+  describe('driftViewer.addQueryWidgetToDashboard', () => {
+    it('should open dashboard and append a query widget when panel was closed', () => {
+      const context = fakeContext() as any;
+      registerDashboardCommands(context, client);
+      commands.executeRegistered(
+        'driftViewer.addQueryWidgetToDashboard',
+        'SELECT 1 AS one',
+        'Test widget title',
+      );
+      assert.strictEqual(createdPanels.length, 1);
+      const html = createdPanels[0].webview.html;
+      assert.ok(html.includes('Dashboard'));
     });
   });
 

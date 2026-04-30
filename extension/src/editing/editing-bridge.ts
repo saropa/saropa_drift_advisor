@@ -36,6 +36,38 @@ type EditMessage =
   | CellEditMsg | RowDeleteMsg | RowInsertMsg
   | UndoMsg | RedoMsg | DiscardMsg;
 
+/**
+ * Validates that webview messages include the single PK column identity required
+ * by the current pending-change model (`pkColumn` + `pkValue`).
+ */
+function hasValidPkColumn(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
+ * Ensures the target table has exactly one PK column in schema metadata.
+ *
+ * The current edit message protocol stores row identity as singular
+ * `pkColumn`/`pkValue`, so composite PK tables must be rejected.
+ */
+function getSinglePkGuardReason(
+  tables: TableMetadata[],
+  tableName: string,
+): string | undefined {
+  const table = tables.find((t) => t.name === tableName);
+  if (!table) {
+    return `Edit rejected: table "${tableName}" was not found in schema metadata.`;
+  }
+  const pkCount = table.columns.filter((c) => c.pk).length;
+  if (pkCount === 0) {
+    return `Edit rejected: table "${tableName}" has no primary key column.`;
+  }
+  if (pkCount > 1) {
+    return `Edit rejected: table "${tableName}" has a composite primary key, which is not yet supported in inline editing.`;
+  }
+  return undefined;
+}
+
 function isEditMessage(msg: unknown): msg is EditMessage {
   if (typeof msg !== 'object' || msg === null) return false;
   const cmd = (msg as Record<string, unknown>).command;
@@ -81,10 +113,26 @@ export class EditingBridge implements vscode.Disposable {
 
     switch (msg.command) {
       case 'cellEdit':
+        if (!hasValidPkColumn(msg.pkColumn)) {
+          void vscode.window.showWarningMessage(
+            'Edit rejected: row identity is missing a primary key column.',
+          );
+          this._postCellEditRejected(
+            msg,
+            'Edit rejected: row identity is missing a primary key column.',
+          );
+          break;
+        }
         void this._handleCellEdit(msg);
         break;
       case 'rowDelete':
-        this._tracker.addRowDelete(msg.table, msg.pkColumn, msg.pkValue);
+        if (!hasValidPkColumn(msg.pkColumn)) {
+          void vscode.window.showWarningMessage(
+            'Delete rejected: row identity is missing a primary key column.',
+          );
+          break;
+        }
+        void this._handleRowDelete(msg);
         break;
       case 'rowInsert':
         void this._handleRowInsert(msg);
@@ -127,6 +175,12 @@ export class EditingBridge implements vscode.Disposable {
 
     try {
       const tables = await this._getSchema();
+      const pkGuardReason = getSinglePkGuardReason(tables, msg.table);
+      if (pkGuardReason) {
+        void vscode.window.showWarningMessage(pkGuardReason);
+        this._postCellEditRejected(msg, pkGuardReason);
+        return;
+      }
       const result = validateCellEdit(
         tables,
         msg.table,
@@ -159,6 +213,30 @@ export class EditingBridge implements vscode.Disposable {
       this._postCellEditRejected(
         msg,
         `Schema could not be loaded; change was not applied.${CELL_EDIT_HINT}`,
+      );
+    }
+  }
+
+  /**
+   * Validates row identity safety (single PK) before tracking a delete.
+   */
+  private async _handleRowDelete(msg: RowDeleteMsg): Promise<void> {
+    if (!this._getSchema) {
+      this._tracker.addRowDelete(msg.table, msg.pkColumn, msg.pkValue);
+      return;
+    }
+    try {
+      const tables = await this._getSchema();
+      const pkGuardReason = getSinglePkGuardReason(tables, msg.table);
+      if (pkGuardReason) {
+        void vscode.window.showWarningMessage(pkGuardReason);
+        return;
+      }
+      this._tracker.addRowDelete(msg.table, msg.pkColumn, msg.pkValue);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      void vscode.window.showErrorMessage(
+        `Could not validate row delete (${detail}).`,
       );
     }
   }

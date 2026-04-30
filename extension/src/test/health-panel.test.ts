@@ -5,7 +5,7 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { HealthPanel } from '../health/health-panel';
-import { resetMocks, createdPanels, clipboardMock } from './vscode-mock';
+import { resetMocks, createdPanels, clipboardMock, MockMemento } from './vscode-mock';
 import { makeClient, makeHistoryStore } from './fixtures/health-test-fixtures';
 
 describe('HealthPanel', () => {
@@ -36,7 +36,7 @@ describe('HealthPanel', () => {
       recommendations: [],
     };
     const client = makeClient();
-    HealthPanel.createOrShow(score, client, makeHistoryStore());
+    HealthPanel.createOrShow(score, client, makeHistoryStore(), new MockMemento());
 
     assert.strictEqual(createdPanels.length, 1);
     const html = createdPanels[0].webview.html;
@@ -48,8 +48,8 @@ describe('HealthPanel', () => {
   it('should reuse existing panel on second call', () => {
     const score = { overall: 90, grade: 'A-', metrics: [], recommendations: [] };
     const client = makeClient();
-    HealthPanel.createOrShow(score, client, makeHistoryStore());
-    HealthPanel.createOrShow(score, client, makeHistoryStore());
+    HealthPanel.createOrShow(score, client, makeHistoryStore(), new MockMemento());
+    HealthPanel.createOrShow(score, client, makeHistoryStore(), new MockMemento());
 
     assert.strictEqual(createdPanels.length, 1);
   });
@@ -57,7 +57,7 @@ describe('HealthPanel', () => {
   it('should copy report on copyReport message', () => {
     const score = { overall: 85, grade: 'B', metrics: [], recommendations: [] };
     const client = makeClient();
-    HealthPanel.createOrShow(score, client, makeHistoryStore());
+    HealthPanel.createOrShow(score, client, makeHistoryStore(), new MockMemento());
 
     clipboardMock.reset();
     createdPanels[0].webview.simulateMessage({ command: 'copyReport' });
