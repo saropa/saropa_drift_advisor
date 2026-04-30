@@ -4,11 +4,21 @@
  */
 import type {
   Anomaly,
+  IDvrQueriesPage,
+  IDvrStatus,
+  IRecordedQueryV1,
   IMutationStreamResponse,
   IndexSuggestion,
   MutationEvent,
   PerformanceData,
 } from './api-types';
+import {
+  parseDvrEnvelope,
+  parseDvrQueriesPageData,
+  parseDvrStatusData,
+  parseRecordedQueryV1,
+  tryParseDvrQueryNotAvailable,
+} from './dvr/dvr-client';
 import { fetchWithRetry, fetchWithTimeout } from './transport/fetch-utils';
 import type { ApiHeaders } from './api-client-http';
 
@@ -73,13 +83,23 @@ export async function httpSql(
   baseUrl: string,
   headers: ApiHeaders,
   query: string,
-  opts?: { internal?: boolean },
+  opts?: {
+    internal?: boolean;
+    args?: unknown[];
+    namedArgs?: Record<string, unknown>;
+  },
 ): Promise<{ columns: string[]; rows: unknown[][] }> {
   // Only emit the `internal` key when explicitly set. Older servers
   // that predate this flag simply ignore unknown keys, and avoiding
   // the key when false keeps the wire payload identical to v3.3.3.
   const body: Record<string, unknown> = { sql: query };
   if (opts?.internal === true) body.internal = true;
+  if (opts?.args != null && opts.args.length > 0) {
+    body.args = opts.args;
+  }
+  if (opts?.namedArgs != null && Object.keys(opts.namedArgs).length > 0) {
+    body.namedArgs = opts.namedArgs;
+  }
   const resp = await fetchWithRetry(`${baseUrl}/api/sql`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
@@ -103,9 +123,19 @@ export async function httpApplyEditsBatch(
   if (!resp.ok) {
     let detail = `Apply edits failed: ${resp.status}`;
     try {
-      const j = (await resp.json()) as { error?: string };
+      const j = (await resp.json()) as {
+        error?: string;
+        failedIndex?: number;
+        failedStatement?: string;
+      };
       if (typeof j?.error === 'string' && j.error.length > 0) {
         detail = `${detail} — ${j.error}`;
+      }
+      if (typeof j?.failedIndex === 'number') {
+        detail += ` (failed statement index: ${j.failedIndex})`;
+      }
+      if (typeof j?.failedStatement === 'string' && j.failedStatement.trim().length > 0) {
+        detail += `\nFailed SQL: ${j.failedStatement}`;
       }
     } catch {
       /* Response may be non-JSON. */
@@ -223,4 +253,151 @@ export async function httpSizeAnalytics(
   });
   if (!resp.ok) throw new Error(`Size analytics failed: ${resp.status}`);
   return resp.json() as Promise<import('./api-types').ISizeAnalytics>;
+}
+
+/** DVR status from `/api/dvr/status`. */
+export async function httpDvrStatus(
+  baseUrl: string,
+  headers: ApiHeaders,
+): Promise<IDvrStatus> {
+  const resp = await fetchWithRetry(`${baseUrl}/api/dvr/status`, { headers });
+  if (!resp.ok) throw new Error(`DVR status failed: ${resp.status}`);
+  const envelope = parseDvrEnvelope<unknown>(await resp.json(), 'DVR status');
+  return parseDvrStatusData(envelope.data);
+}
+
+/** Starts DVR recording via `/api/dvr/start`. */
+export async function httpDvrStart(
+  baseUrl: string,
+  headers: ApiHeaders,
+): Promise<IDvrStatus> {
+  const resp = await fetchWithRetry(`${baseUrl}/api/dvr/start`, {
+    method: 'POST',
+    headers,
+  });
+  if (!resp.ok) throw new Error(`DVR start failed: ${resp.status}`);
+  const envelope = parseDvrEnvelope<{
+    recording: boolean;
+    sessionId: string;
+  }>(await resp.json(), 'DVR start');
+  return {
+    recording: envelope.data.recording,
+    sessionId: envelope.data.sessionId,
+    queryCount: 0,
+    minAvailableId: null,
+    maxAvailableId: null,
+  };
+}
+
+/** Stops DVR recording via `/api/dvr/stop`. */
+export async function httpDvrStop(
+  baseUrl: string,
+  headers: ApiHeaders,
+): Promise<IDvrStatus> {
+  const resp = await fetchWithRetry(`${baseUrl}/api/dvr/stop`, {
+    method: 'POST',
+    headers,
+  });
+  if (!resp.ok) throw new Error(`DVR stop failed: ${resp.status}`);
+  const envelope = parseDvrEnvelope<{
+    recording: boolean;
+    sessionId: string;
+  }>(await resp.json(), 'DVR stop');
+  return {
+    recording: envelope.data.recording,
+    sessionId: envelope.data.sessionId,
+    queryCount: 0,
+    minAvailableId: null,
+    maxAvailableId: null,
+  };
+}
+
+/** Pauses DVR recording via `/api/dvr/pause`. */
+export async function httpDvrPause(
+  baseUrl: string,
+  headers: ApiHeaders,
+): Promise<IDvrStatus> {
+  const resp = await fetchWithRetry(`${baseUrl}/api/dvr/pause`, {
+    method: 'POST',
+    headers,
+  });
+  if (!resp.ok) throw new Error(`DVR pause failed: ${resp.status}`);
+  const envelope = parseDvrEnvelope<{
+    recording: boolean;
+    sessionId: string;
+  }>(await resp.json(), 'DVR pause');
+  return {
+    recording: envelope.data.recording,
+    sessionId: envelope.data.sessionId,
+    queryCount: 0,
+    minAvailableId: null,
+    maxAvailableId: null,
+  };
+}
+
+/** Cursor page from `/api/dvr/queries`. */
+export async function httpDvrQueries(
+  baseUrl: string,
+  headers: ApiHeaders,
+  options?: {
+    cursor?: number;
+    limit?: number;
+    direction?: 'forward' | 'backward';
+  },
+): Promise<IDvrQueriesPage> {
+  const params = new URLSearchParams();
+  if (typeof options?.cursor === 'number') params.set('cursor', String(options.cursor));
+  if (typeof options?.limit === 'number') params.set('limit', String(options.limit));
+  if (options?.direction) params.set('direction', options.direction);
+  const query = params.toString();
+  const resp = await fetchWithRetry(
+    `${baseUrl}/api/dvr/queries${query ? `?${query}` : ''}`,
+    { headers },
+  );
+  if (!resp.ok) throw new Error(`DVR queries failed: ${resp.status}`);
+  const envelope = parseDvrEnvelope<unknown>(await resp.json(), 'DVR queries');
+  return parseDvrQueriesPageData(envelope.data);
+}
+
+/** POST `/api/dvr/config` — updates recorder buffer options. */
+export async function httpDvrConfig(
+  baseUrl: string,
+  headers: ApiHeaders,
+  body: { maxQueries?: number; captureBeforeAfter?: boolean },
+): Promise<{ maxQueries: number; captureBeforeAfter: boolean; queryCount: number; sessionId: string }> {
+  const resp = await fetchWithRetry(`${baseUrl}/api/dvr/config`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`DVR config failed: ${resp.status}`);
+  const envelope = parseDvrEnvelope<{
+    maxQueries: number;
+    captureBeforeAfter: boolean;
+    queryCount: number;
+    sessionId: string;
+  }>(await resp.json(), 'DVR config');
+  return envelope.data;
+}
+
+/** Single query from `/api/dvr/query/:sessionId/:id`. */
+export async function httpDvrQuery(
+  baseUrl: string,
+  headers: ApiHeaders,
+  sessionId: string,
+  id: number,
+): Promise<IRecordedQueryV1> {
+  const resp = await fetchWithRetry(`${baseUrl}/api/dvr/query/${encodeURIComponent(sessionId)}/${id}`, {
+    headers,
+  });
+  const raw = await resp.json();
+  if (!resp.ok) {
+    const notAvail = tryParseDvrQueryNotAvailable(raw, sessionId, id);
+    if (notAvail) {
+      throw notAvail;
+    }
+    throw new Error(`DVR query fetch failed: ${resp.status}`);
+  }
+  const envelope = parseDvrEnvelope<unknown>(raw, 'DVR query');
+  return parseRecordedQueryV1(envelope.data);
 }

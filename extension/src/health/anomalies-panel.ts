@@ -8,6 +8,8 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { Anomaly } from '../api-types';
 import type { AnalysisHistoryStore } from '../analysis-history/analysis-history-store';
+import { getSinglePkEditGuardReason } from '../editing/editing-commands';
+import { TableItem } from '../tree/tree-items';
 import { AnalysisComparePanel } from '../analysis-history/analysis-compare-panel';
 import {
   renderAnomalies,
@@ -119,6 +121,41 @@ export class AnomaliesPanel {
           renderAnomalies,
           summarizeAnomalyDiff,
         );
+        break;
+      }
+      case 'openBulkEdit': {
+        try {
+          const tables = await this._client.schemaMetadata();
+          if (tables.length === 0) {
+            void vscode.window.showWarningMessage(
+              'No tables returned from the server — cannot open bulk edit.',
+            );
+            break;
+          }
+          const pick = await vscode.window.showQuickPick(
+            tables.map((t) => ({
+              label: t.name,
+              description: `${t.rowCount} row(s)`,
+            })),
+            {
+              placeHolder:
+                'Choose a table for bulk edit (requires exactly one primary key column)',
+            },
+          );
+          if (!pick) break;
+          const meta = tables.find((t) => t.name === pick.label);
+          if (!meta) break;
+          const item = new TableItem(meta);
+          const guard = getSinglePkEditGuardReason(item);
+          if (guard) {
+            void vscode.window.showWarningMessage(guard);
+            break;
+          }
+          await vscode.commands.executeCommand('driftViewer.editTableData', item);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          void vscode.window.showErrorMessage(`Bulk edit: ${errMsg}`);
+        }
         break;
       }
     }

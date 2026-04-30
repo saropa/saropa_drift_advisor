@@ -6,7 +6,9 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { DriftApiClient } from '../api-client';
 import { HealthScorer } from '../health/health-scorer';
+import { REFACTORING_ADVISOR_SESSION_KEY } from '../refactoring/refactoring-advisor-state';
 import { makeClient, stubPerfectDb } from './fixtures/health-test-fixtures';
+import { MockMemento } from './vscode-mock';
 
 describe('HealthScorer.compute', () => {
   let client: DriftApiClient;
@@ -136,6 +138,37 @@ describe('HealthScorer.compute', () => {
     const balanceMetric = result.metrics.find((m) => m.key === 'tableBalance')!;
     assert.ok(balanceMetric.score < 50, `Expected < 50, got ${balanceMetric.score}`);
     assert.ok(balanceMetric.details.length > 0);
+  });
+
+  it('should merge persisted refactoring advisor session into schema quality details', async () => {
+    stubPerfectDb(client);
+    const ws = new MockMemento();
+    await ws.update(REFACTORING_ADVISOR_SESSION_KEY, {
+      updatedAt: new Date().toISOString(),
+      tableCount: 5,
+      suggestionCount: 2,
+      dismissedCount: 1,
+      topTitles: ['Normalize status enum', 'Add index on foo'],
+    });
+
+    const scorer = new HealthScorer();
+    const result = await scorer.compute(client, ws);
+
+    const schemaMetric = result.metrics.find((m) => m.key === 'schemaQuality')!;
+    assert.ok(
+      schemaMetric.details.some((d) => d.includes('Refactoring advisor: 2 suggestion')),
+      'Expected advisor summary line in schema quality details',
+    );
+    assert.ok(
+      schemaMetric.details.some((d) => d.includes('dismissed in the panel')),
+      'Expected dismissed-count line when session has dismissals',
+    );
+    assert.ok(
+      schemaMetric.details.some((d) => d.includes('Refactoring hint: Normalize status enum')),
+      'Expected top suggestion title merged as hint line',
+    );
+    const action = schemaMetric.actions?.find((a) => a.command === 'driftViewer.suggestSchemaRefactorings');
+    assert.ok(action, 'Expected refactoring action on schema quality when session exists');
   });
 
   it('should drop schemaQuality score when tables lack primary keys', async () => {

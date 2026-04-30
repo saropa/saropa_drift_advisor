@@ -13,6 +13,7 @@ import {
   summarizeHealthDiff,
 } from '../analysis-history/analysis-renderers';
 import { buildHealthHtml } from './health-html';
+import { readAdvisorSession } from '../refactoring/refactoring-advisor-state';
 import { HealthScorer } from './health-scorer';
 
 /** Singleton panel showing the database health score dashboard. */
@@ -28,6 +29,7 @@ export class HealthPanel {
     score: IHealthScore,
     client: DriftApiClient,
     historyStore: AnalysisHistoryStore<IHealthScore>,
+    workspaceState: vscode.Memento,
   ): void {
     const column = vscode.ViewColumn.Beside;
 
@@ -43,19 +45,23 @@ export class HealthPanel {
       column,
       { enableScripts: true },
     );
-    HealthPanel._currentPanel = new HealthPanel(panel, score, client, historyStore);
+    HealthPanel._currentPanel = new HealthPanel(panel, score, client, historyStore, workspaceState);
   }
+
+  private readonly _workspaceState: vscode.Memento;
 
   private constructor(
     panel: vscode.WebviewPanel,
     score: IHealthScore,
     client: DriftApiClient,
     historyStore: AnalysisHistoryStore<IHealthScore>,
+    workspaceState: vscode.Memento,
   ) {
     this._panel = panel;
     this._score = score;
     this._client = client;
     this._historyStore = historyStore;
+    this._workspaceState = workspaceState;
 
     this._panel.onDidDispose(
       () => this._dispose(), null, this._disposables,
@@ -75,9 +81,11 @@ export class HealthPanel {
   }
 
   private _render(): void {
+    const advisor = readAdvisorSession(this._workspaceState);
     this._panel.webview.html = buildHealthHtml(
       this._score,
       this._historyStore.size,
+      advisor,
     );
   }
 
@@ -127,7 +135,7 @@ export class HealthPanel {
   private async _refresh(): Promise<void> {
     try {
       const scorer = new HealthScorer();
-      const score = await scorer.compute(this._client);
+      const score = await scorer.compute(this._client, this._workspaceState);
       this._update(score);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

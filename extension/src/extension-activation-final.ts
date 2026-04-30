@@ -24,6 +24,8 @@ import type { GenerationWatcher } from './generation-watcher';
 import type { setupProviders } from './extension-providers';
 import type { setupEditing } from './extension-editing';
 import type { setupDiagnostics } from './extension-diagnostics';
+import type { SchemaIntelligence } from './engines/schema-intelligence';
+import type { QueryIntelligence } from './engines/query-intelligence';
 import { ts, runPhase } from './extension-phase-utils';
 
 /** Dependencies for final activation phases (8–10). */
@@ -44,6 +46,8 @@ export interface FinalPhaseDeps {
   schemaTracker?: SchemaTracker;
   loadOnConnect: boolean;
   getLightweight: () => boolean;
+  /** Intelligence engines when the intelligence activation phase succeeded. */
+  intel?: { schemaIntel: SchemaIntelligence; queryIntel: QueryIntelligence };
 }
 
 /**
@@ -123,6 +127,8 @@ export function setupFinalPhases(
         connectionChannel: d.channel,
         healthStatusBar: statusBars?.healthStatusBar ?? new HealthStatusBar(),
         refreshDriftConnectionUi: () => connectionUiRefresh.fn?.(),
+        schemaIntelligence: d.intel?.schemaIntel,
+        queryIntelligence: d.intel?.queryIntel,
       });
     } else if (d.providers) {
       d.channel.appendLine(`[${ts()}] Registering commands without editing (editing phase failed).`);

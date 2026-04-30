@@ -3,12 +3,14 @@ import type { DriftApiClient } from '../api-client';
 import type {
   IDashboardLayout,
   IHealthScorerProvider,
+  IWidgetConfig,
   WebviewToExtensionMessage,
   WidgetType,
 } from './dashboard-types';
 import { DashboardState } from './dashboard-state';
 import { buildDashboardHtml } from './dashboard-html';
 import { handleDashboardMessage } from './panel/message-handler';
+import { addWidget, type IWidgetCrudContext } from './panel/widget-crud';
 import { findNextGridX, findNextGridY, generateId } from './panel/widget-layout';
 import { getDefaultWidgetConfig, WidgetDataFetcher } from './widget-data-fetcher';
 import { getWidgetDefinition, getWidgetTypeInfoList } from './widget-registry';
@@ -26,6 +28,56 @@ export class DashboardPanel {
   /** Get the current panel instance if it exists. */
   static get currentPanel(): DashboardPanel | undefined {
     return DashboardPanel._currentPanel;
+  }
+
+  /**
+   * Appends a `queryResult` widget to a layout when no panel is open, persists
+   * via [dashboardState], and returns the new widget (or null on failure).
+   * Used by {@link registerDashboardCommands} for NL-to-SQL / external callers.
+   */
+  static appendQueryResultToLayout(
+    layout: IDashboardLayout,
+    dashboardState: DashboardState,
+    sql: string,
+    widgetTitle: string,
+  ): IWidgetConfig | null {
+    const ctx: IWidgetCrudContext = {
+      layout,
+      state: dashboardState,
+      panel: { webview: { postMessage: () => {} } },
+      saveAndNotify: () => {
+        dashboardState.save(layout);
+      },
+      getWidgetDefinition,
+      findNextGridX: () => findNextGridX(layout),
+      findNextGridY: () => findNextGridY(layout),
+      generateId,
+    };
+    return addWidget(ctx, 'queryResult', {
+      ...getDefaultWidgetConfig('queryResult'),
+      sql,
+      title: widgetTitle,
+    });
+  }
+
+  /**
+   * Appends a SQL query-result widget to the live dashboard, persists, and
+   * fetches HTML for the new widget.
+   */
+  async appendQueryResultWidget(
+    sql: string,
+    widgetTitle: string,
+  ): Promise<IWidgetConfig | null> {
+    const ctx = this._getMessageContext() as unknown as IWidgetCrudContext;
+    const w = addWidget(ctx, 'queryResult', {
+      ...getDefaultWidgetConfig('queryResult'),
+      sql,
+      title: widgetTitle,
+    });
+    if (w) {
+      await this._refreshWidget(w.id);
+    }
+    return w;
   }
 
   /** Create or show the dashboard panel. */

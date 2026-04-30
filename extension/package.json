@@ -2,7 +2,7 @@
   "name": "drift-viewer",
   "displayName": "Saropa Drift Advisor",
   "description": "Debug SQLite/Drift databases in VS Code with Saropa Drift Advisor.",
-  "version": "3.4.1",
+  "version": "3.5.0",
   "publisher": "saropa",
   "license": "MIT",
   "repository": {
@@ -360,6 +360,44 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.openQueryBuilder",
+        "title": "Visual Query Builder",
+        "icon": "$(layout)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.buildQueryFromTable",
+        "title": "Build Query From Table",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.openQueryBuilderFromSql",
+        "title": "Import SQL into Visual Query Builder",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.suggestSchemaRefactorings",
+        "title": "Suggest Schema Refactorings",
+        "icon": "$(wrench)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.refactoringOpenWithHint",
+        "title": "Open Refactoring Advisor (External Hint)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.askNaturalLanguage",
+        "title": "Ask in English",
+        "icon": "$(comment-discussion)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.nlSqlHistory",
+        "title": "NL Query History",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.schemaDiff",
         "title": "Schema Diff (Code vs Runtime)",
         "category": "Saropa Drift Advisor"
@@ -620,6 +658,12 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.addQueryWidgetToDashboard",
+        "title": "Add SQL Query Widget to Dashboard",
+        "icon": "$(add)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.saveDashboard",
         "title": "Save Dashboard Layout",
         "category": "Saropa Drift Advisor"
@@ -754,6 +798,22 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.openDvr",
+        "title": "Open Query Replay DVR",
+        "icon": "$(record)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.dvrStartRecording",
+        "title": "Start DVR Recording",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.dvrStopRecording",
+        "title": "Stop DVR Recording",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.disableDiagnosticRule",
         "title": "Disable Diagnostic Rule",
         "icon": "$(circle-slash)",
@@ -827,6 +887,11 @@
           "group": "navigation"
         },
         {
+          "command": "driftViewer.openDvr",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected && inDebugMode",
+          "group": "navigation"
+        },
+        {
           "command": "driftViewer.refreshTree",
           "when": "view == driftViewer.databaseExplorer",
           "group": "navigation"
@@ -892,6 +957,11 @@
           "group": "1_more"
         },
         {
+          "command": "driftViewer.suggestSchemaRefactorings",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "1_more"
+        },
+        {
           "command": "driftViewer.healthScore",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
@@ -929,6 +999,11 @@
         {
           "command": "driftViewer.openWalkthrough",
           "when": "view == driftViewer.toolbox",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.askNaturalLanguage",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
         }
       ],
@@ -1258,6 +1333,16 @@
           "maximum": 10,
           "description": "Regression alert threshold: current avg / baseline avg. E.g. 2.0 means 2x slower."
         },
+        "driftViewer.perfRegression.recordBaselinesFromDvr": {
+          "type": "boolean",
+          "default": true,
+          "description": "When the Query Replay DVR panel loads or refreshes, merge each timeline row's duration into the perf baseline store (same normalized SQL keys as session baselines)."
+        },
+        "driftViewer.perfRegression.warnOnDvrPanelRefresh": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, each DVR panel refresh compares DVR timings to baselines and may show a regression warning (off by default — can be noisy)."
+        },
         "driftViewer.fileBadges.enabled": {
           "type": "boolean",
           "default": true,
@@ -1366,6 +1451,42 @@
           "maximum": 1000,
           "description": "Maximum number of SQL queries to keep in history."
         },
+        "driftViewer.nlSql.apiUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1/chat/completions",
+          "description": "LLM API endpoint for NL-to-SQL (OpenAI-compatible chat completions)."
+        },
+        "driftViewer.nlSql.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "LLM model used for NL-to-SQL generation."
+        },
+        "driftViewer.nlSql.maxTokens": {
+          "type": "number",
+          "default": 500,
+          "minimum": 64,
+          "maximum": 4000,
+          "description": "Maximum response tokens for NL-to-SQL generation."
+        },
+        "driftViewer.nlSql.seedSuggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, NL-to-SQL shows a QuickPick of past questions, saved filters, and notebook SQL history before the LLM runs."
+        },
+        "driftViewer.nlSql.maxSchemaTables": {
+          "type": "number",
+          "default": 80,
+          "minimum": 1,
+          "maximum": 500,
+          "description": "Max tables included in the NL-to-SQL schema prompt; extra tables are listed as omitted to control token size."
+        },
+        "driftViewer.nlSql.maxSchemaContextChars": {
+          "type": "number",
+          "default": 32000,
+          "minimum": 4000,
+          "maximum": 200000,
+          "description": "Hard cap on total schema context characters sent to the LLM; the builder truncates with a trailing notice when exceeded."
+        },
         "driftViewer.invariants.continuous": {
           "type": "boolean",
           "default": false,
@@ -1418,6 +1539,21 @@
           "type": "boolean",
           "default": true,
           "description": "Show a notification to open the Dashboard when a server first connects."
+        },
+        "driftViewer.dvr.autoRecord": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start Query Replay DVR recording when a Dart/Flutter debug session begins."
+        },
+        "driftViewer.dvr.maxQueries": {
+          "type": "number",
+          "default": 5000,
+          "description": "Maximum number of DVR query events retained by the server ring buffer."
+        },
+        "driftViewer.dvr.captureBeforeAfter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Request before/after state capture for write queries when supported by the server."
         }
       }
     },

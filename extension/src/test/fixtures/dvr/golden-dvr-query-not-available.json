@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-04-30T14:00:00.000Z",
+  "error": "QUERY_NOT_AVAILABLE",
+  "message": "gone",
+  "data": {
+    "sessionId": "sess-x",
+    "requestedId": 99,
+    "minAvailableId": 10,
+    "maxAvailableId": 20
+  }
+}

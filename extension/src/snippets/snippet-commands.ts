@@ -19,10 +19,10 @@ export function registerSnippetCommands(
     vscode.commands.registerCommand('driftViewer.openSnippetLibrary', () => {
       SnippetLibraryPanel.createOrShow(client, snippetStore);
     }),
-    vscode.commands.registerCommand('driftViewer.saveAsSnippet', async () => {
-      const sql = await vscode.window.showInputBox({ prompt: 'SQL query to save' });
+    vscode.commands.registerCommand('driftViewer.saveAsSnippet', async (inputSql?: string, inputName?: string) => {
+      const sql = inputSql || await vscode.window.showInputBox({ prompt: 'SQL query to save' });
       if (!sql) return;
-      const name = await vscode.window.showInputBox({ prompt: 'Snippet name' });
+      const name = inputName || await vscode.window.showInputBox({ prompt: 'Snippet name' });
       if (!name) return;
       const runner = new SnippetRunner(client);
       const varNames = runner.extractVariables(sql);

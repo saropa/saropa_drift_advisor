@@ -137,6 +137,7 @@ export function buildAnomaliesHtml(anomalies: Anomaly[], historyCount: number = 
     <button class="btn btn-secondary" data-action="saveSnapshot">Save Snapshot</button>
     <button class="btn btn-secondary" data-action="compareHistory">Compare${historyCount > 0 ? ` (${historyCount})` : ''}</button>
     <button class="btn" data-action="generateFixes">Generate Fix SQL</button>
+    <button class="btn btn-secondary" data-action="openBulkEdit" title="Pick a single-PK table and open the bulk edit dashboard">Bulk edit table…</button>
   </div>
 </div>
 

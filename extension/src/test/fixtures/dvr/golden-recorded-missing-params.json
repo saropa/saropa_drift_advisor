@@ -1,0 +1,14 @@
+{
+  "sessionId": "sess-noparams",
+  "id": 4,
+  "sequence": 4,
+  "sql": "DELETE FROM tmp WHERE 1=1",
+  "type": "delete",
+  "timestamp": "2026-04-30T14:02:00.000Z",
+  "durationMs": 2,
+  "affectedRowCount": 0,
+  "resultRowCount": 0,
+  "table": "tmp",
+  "beforeState": null,
+  "afterState": null
+}
