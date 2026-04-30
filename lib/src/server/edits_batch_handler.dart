@@ -10,6 +10,22 @@ import 'server_context.dart';
 import 'server_utils.dart';
 import 'sql_validator.dart';
 
+/// Structured failure metadata for one statement in a batch apply.
+final class BatchApplyStatementError implements Exception {
+  BatchApplyStatementError({
+    required this.index,
+    required this.statement,
+    required this.cause,
+  });
+
+  final int index;
+  final String statement;
+  final Object cause;
+
+  @override
+  String toString() => 'Statement #$index failed during batch apply: $cause';
+}
+
 /// HTTP handler for VS Code extension batch application of pending data edits.
 final class EditsBatchHandler {
   /// Creates a handler bound to [ctx].
@@ -52,12 +68,25 @@ final class EditsBatchHandler {
 
     try {
       await writeQuery('BEGIN IMMEDIATE;');
-      for (final rawStmt in statements) {
+      for (var i = 0; i < statements.length; i++) {
+        final rawStmt = statements[i];
         var s = rawStmt.trim();
         if (!s.endsWith(';')) {
           s = '$s;';
         }
-        await writeQuery(s);
+        try {
+          await writeQuery(s);
+        } on Object catch (statementError, statementStack) {
+          // Use as throw operand so the [Never] return is not treated as discarded.
+          throw Error.throwWithStackTrace(
+            BatchApplyStatementError(
+              index: i,
+              statement: rawStmt,
+              cause: statementError,
+            ),
+            statementStack,
+          );
+        }
       }
       await writeQuery('COMMIT;');
     } on Object catch (error, stack) {
@@ -149,11 +178,14 @@ final class EditsBatchHandler {
       _ctx.logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
       _ctx.setJsonHeaders(res);
-      res.write(
-        jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError: error.toString(),
-        }),
-      );
+      final errorPayload = <String, Object>{
+        ServerConstants.jsonKeyError: error.toString(),
+      };
+      if (error is BatchApplyStatementError) {
+        errorPayload[ServerConstants.jsonKeyFailedIndex] = error.index;
+        errorPayload[ServerConstants.jsonKeyFailedStatement] = error.statement;
+      }
+      res.write(jsonEncode(errorPayload));
       await res.close();
       return;
     }

@@ -14,6 +14,7 @@ import 'mutation_tracker.dart';
 import 'server_typedefs.dart';
 import 'server_types.dart';
 import 'server_utils.dart';
+import '../query_recorder.dart';
 
 // Re-export typedefs so handlers that import
 // server_context.dart still see DriftDebugQuery etc.
@@ -34,6 +35,7 @@ final class ServerContext {
   /// instrumentation so all queries are recorded.
   ServerContext({
     required DriftDebugQuery query,
+    DriftDebugQueryWithBindings? queryWithBindings,
     this.corsOrigin,
     this.onLog,
     this.onError,
@@ -44,12 +46,24 @@ final class ServerContext {
     this.queryCompare,
     this.writeQuery,
     this.mutationTracker,
+    this.queryRecorder,
     this.changeDetectionMinInterval,
-  }) : queryRaw = query;
+  }) : queryRaw = query,
+       _queryExec =
+           queryWithBindings ??
+           ((
+             String sql, {
+             List<Object?>? positionalArgs,
+             Map<String, Object?>? namedArgs,
+           }) => query(sql));
 
   /// The raw (unwrapped) query callback, before timing
   /// instrumentation.
   final DriftDebugQuery queryRaw;
+
+  /// Effective executor: either [queryWithBindings] from the constructor or a
+  /// thin wrapper around [queryRaw] that ignores binding arguments.
+  final DriftDebugQueryWithBindings _queryExec;
 
   /// Instrumented query callback that wraps [queryRaw]
   /// with timing. Each call records duration, row count,
@@ -58,14 +72,30 @@ final class ServerContext {
   /// Returns the query result rows from [queryRaw]
   /// after recording timing information.
   Future<List<Map<String, dynamic>>> instrumentedQuery(String sql) =>
-      timedQuery(queryRaw, sql);
+      timedQuery(sql, isInternal: false);
+
+  /// Like [instrumentedQuery] but forwards optional DVR binding metadata from
+  /// `/api/sql` (`args` / `namedArgs`) into the recorder without changing the
+  /// SQL string passed to [queryRaw].
+  Future<List<Map<String, dynamic>>> instrumentedQueryWithDvrMeta(
+    String sql, {
+    Map<String, Object?>? dvrDeclaredParams,
+    bool dvrDeclaredParamsTruncated = false,
+    bool dvrHasDeclaredBindings = false,
+  }) => timedQuery(
+    sql,
+    isInternal: false,
+    dvrDeclaredParams: dvrDeclaredParams,
+    dvrDeclaredParamsTruncated: dvrDeclaredParamsTruncated,
+    dvrHasDeclaredBindings: dvrHasDeclaredBindings,
+  );
 
   /// Like [instrumentedQuery] but tags the timing record as internal.
   /// Used for extension-owned diagnostic probes (change-detection
   /// COUNT(*) queries, sqlite_master lookups, etc.) so they are
   /// excluded from user-facing slow-query diagnostics.
   Future<List<Map<String, dynamic>>> internalQuery(String sql) =>
-      timedQuery(queryRaw, sql, isInternal: true);
+      timedQuery(sql, isInternal: true);
 
   /// Value for Access-Control-Allow-Origin header; null
   /// omits the header.
@@ -103,6 +133,9 @@ final class ServerContext {
   /// Optional mutation tracker that captures semantic mutation events
   /// triggered via the configured [writeQuery] callback.
   final MutationTracker? mutationTracker;
+
+  /// Optional Query Replay DVR recorder for timeline playback.
+  final QueryRecorder? queryRecorder;
 
   /// In-memory snapshot: id, createdAt, and full table
   /// data per table.
@@ -233,9 +266,11 @@ final class ServerContext {
   /// Returns the query result rows after recording
   /// duration, row count, and any errors.
   Future<List<Map<String, dynamic>>> timedQuery(
-    DriftDebugQuery fn,
     String sql, {
     bool isInternal = false,
+    Map<String, Object?>? dvrDeclaredParams,
+    bool dvrDeclaredParamsTruncated = false,
+    bool dvrHasDeclaredBindings = false,
   }) async {
     // Capture the stack before awaiting so we get the
     // actual call site, not the async continuation.
@@ -243,8 +278,28 @@ final class ServerContext {
 
     final stopwatch = Stopwatch()..start();
 
+    List<Object?>? execPos;
+    Map<String, Object?>? execNamed;
+    if (dvrHasDeclaredBindings && dvrDeclaredParams != null) {
+      final p = dvrDeclaredParams['positional'];
+      if (p is List<dynamic>) {
+        execPos = List<Object?>.from(p);
+      }
+      final n = dvrDeclaredParams['named'];
+      if (n is Map) {
+        execNamed = <String, Object?>{};
+        for (final e in n.entries) {
+          execNamed[e.key.toString()] = e.value as Object?;
+        }
+      }
+    }
+
     try {
-      final result = await fn(sql);
+      final result = await _queryExec(
+        sql,
+        positionalArgs: execPos,
+        namedArgs: execNamed,
+      );
 
       stopwatch.stop();
       recordTiming(
@@ -255,6 +310,19 @@ final class ServerContext {
         callerLine: caller?.$2,
         isInternal: isInternal,
       );
+
+      // Record query playback metadata for DVR timelines (skip internal probes).
+      if (!isInternal) {
+        queryRecorder?.recordRead(
+          sql: sql,
+          startedAtUtc: DateTime.now().toUtc().subtract(stopwatch.elapsed),
+          elapsed: stopwatch.elapsed,
+          resultRowCount: result.length,
+          declaredParams: dvrDeclaredParams,
+          declaredParamsTruncated: dvrDeclaredParamsTruncated,
+          hasDeclaredBindings: dvrHasDeclaredBindings,
+        );
+      }
 
       return result;
     } on Object catch (error) {

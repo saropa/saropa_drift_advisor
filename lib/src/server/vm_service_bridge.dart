@@ -220,8 +220,55 @@ abstract final class VmServiceBridge {
     // query. Literal "1" is the only accepted truthy value so arbitrary
     // callers can't opportunistically silence their own slow queries.
     final isInternal = params[ServerConstants.jsonKeyInternal] == '1';
+
+    // Optional JSON arrays/objects (flat VM params) mirror POST /api/sql
+    // `args` / `namedArgs` so VM clients can replay bound reads.
+    List<dynamic>? dvrArgs;
+    Map<String, dynamic>? dvrNamedArgs;
+    final argsJson = params['args'];
+    if (argsJson != null && argsJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(argsJson);
+        if (decoded is List<dynamic>) {
+          dvrArgs = decoded;
+        }
+      } on Object catch (e, st) {
+        // Malformed JSON: execute SQL without declared bindings rather than fail RPC.
+        developer.log(
+          'runSql: ignoring malformed args JSON (continuing without positional bindings)',
+          name: 'VmServiceBridge',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+    final namedJson = params['namedArgs'];
+    if (namedJson != null && namedJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(namedJson);
+        if (decoded is Map) {
+          dvrNamedArgs = Map<String, dynamic>.from(
+            decoded.map((k, v) => MapEntry('$k', v)),
+          );
+        }
+      } on Object catch (e, st) {
+        // Same tolerance as positional: ignore bad namedArgs payload.
+        developer.log(
+          'runSql: ignoring malformed namedArgs JSON (continuing without named bindings)',
+          name: 'VmServiceBridge',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+
     try {
-      final result = await router.runSqlResult(sql, isInternal: isInternal);
+      final result = await router.runSqlResult(
+        sql,
+        isInternal: isInternal,
+        dvrArgs: dvrArgs,
+        dvrNamedArgs: dvrNamedArgs,
+      );
       return developer.ServiceExtensionResponse.result(jsonEncode(result));
     } on Object catch (e) {
       return developer.ServiceExtensionResponse.error(

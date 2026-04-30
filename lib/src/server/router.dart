@@ -18,6 +18,7 @@ import 'auth_handler.dart';
 import 'cell_update_handler.dart';
 import 'edits_batch_handler.dart';
 import 'compare_handler.dart';
+import 'dvr_handler.dart';
 import 'generation_handler.dart';
 import 'import_handler.dart';
 import 'mutation_handler.dart';
@@ -31,6 +32,8 @@ import 'session_handler.dart';
 import 'snapshot_handler.dart';
 import 'sql_handler.dart';
 import 'table_handler.dart';
+
+import '../query_recorder.dart';
 
 /// Routes incoming HTTP requests to the appropriate handler.
 final class Router {
@@ -62,7 +65,8 @@ final class Router {
        _import = ImportHandler(ctx),
        _cellUpdate = CellUpdateHandler(ctx),
        _editsBatch = EditsBatchHandler(ctx),
-       _mutations = MutationHandler(ctx);
+       _mutations = MutationHandler(ctx),
+       _dvr = DvrHandler(ctx, Router._queryRecorderOrThrow(ctx));
 
   final ServerContext _ctx;
 
@@ -83,6 +87,20 @@ final class Router {
   final CellUpdateHandler _cellUpdate;
   final EditsBatchHandler _editsBatch;
   final MutationHandler _mutations;
+  final DvrHandler _dvr;
+
+  /// [ServerContext.queryRecorder] must be non-null: DVR HTTP routes read
+  /// from the in-memory ring buffer. Production [DriftDebugServer] always
+  /// supplies a [QueryRecorder]; tests that build a bare [Router] must set it.
+  static QueryRecorder _queryRecorderOrThrow(ServerContext ctx) {
+    final recorder = ctx.queryRecorder;
+    if (recorder == null) {
+      throw StateError(
+        'Router requires ServerContext.queryRecorder (null — DVR cannot run).',
+      );
+    }
+    return recorder;
+  }
 
   /// Main request handler: auth -> rate limit -> route by
   /// method and path.
@@ -174,6 +192,7 @@ final class Router {
       if (await _routeWriteApi(req, res, path, query)) return;
       if (await _routeSessionApi(req, res, path, query)) return;
       if (await _routePerformanceApi(req, res, path, query)) return;
+      if (await _routeDvrApi(req, res, path)) return;
       if (await _routeHistoryApi(req, res, path)) return;
 
       // No route matched — 404.
@@ -731,6 +750,63 @@ final class Router {
 
   // -------- History route group --------
 
+  /// Routes `/api/dvr/*` endpoints for Query Replay DVR controls and data.
+  Future<bool> _routeDvrApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+  ) async {
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiDvrStatus ||
+            path == ServerConstants.pathApiDvrStatusAlt)) {
+      await _dvr.handleStatus(response);
+      return true;
+    }
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiDvrStart ||
+            path == ServerConstants.pathApiDvrStartAlt)) {
+      await _dvr.handleStart(response);
+      return true;
+    }
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiDvrStop ||
+            path == ServerConstants.pathApiDvrStopAlt ||
+            path == ServerConstants.pathApiDvrPause ||
+            path == ServerConstants.pathApiDvrPauseAlt)) {
+      await _dvr.handleStopOrPause(response);
+      return true;
+    }
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiDvrConfig ||
+            path == ServerConstants.pathApiDvrConfigAlt)) {
+      await _dvr.handleConfig(request, response);
+      return true;
+    }
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiDvrQueries ||
+            path == ServerConstants.pathApiDvrQueriesAlt)) {
+      await _dvr.handleQueries(request, response);
+      return true;
+    }
+    if (request.method == ServerConstants.methodGet &&
+        (path.startsWith(ServerConstants.pathApiDvrQueryPrefix) ||
+            path.startsWith(ServerConstants.pathApiDvrQueryPrefixAlt))) {
+      final suffix = path.startsWith(ServerConstants.pathApiDvrQueryPrefix)
+          ? path.substring(ServerConstants.pathApiDvrQueryPrefix.length)
+          : path.substring(ServerConstants.pathApiDvrQueryPrefixAlt.length);
+      final parts = suffix.split('/');
+      if (parts.length == 2) {
+        final sessionId = parts.first;
+        final id = int.tryParse(parts.last);
+        if (id != null) {
+          await _dvr.handleQuery(response, sessionId: sessionId, id: id);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   /// Routes GET/DELETE /api/history for the query execution
   /// history sidebar.
   Future<bool> _routeHistoryApi(
@@ -789,7 +865,15 @@ final class Router {
   Future<Map<String, dynamic>> runSqlResult(
     String sql, {
     bool isInternal = false,
-  }) => _sql.runSqlResult(_ctx.instrumentedQuery, sql, isInternal: isInternal);
+    List<dynamic>? dvrArgs,
+    Map<String, dynamic>? dvrNamedArgs,
+  }) => _sql.runSqlResult(
+    _ctx.instrumentedQuery,
+    sql,
+    isInternal: isInternal,
+    dvrArgs: dvrArgs,
+    dvrNamedArgs: dvrNamedArgs,
+  );
 
   /// Applies validated pending-edit statements (same rules as POST /api/edits/apply).
   Future<void> applyEditsBatchStatements(List<String> statements) =>
