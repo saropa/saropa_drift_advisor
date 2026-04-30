@@ -14,10 +14,16 @@
     "typescript.tsserver.experimental.enableProjectDiagnostics": true,
     "saropaLints.enabled": true,
     "saropaLints.sidebar.showPackageVibrancy": true,
-    "saropaLints.sidebar.showSummary": false,
+    "saropaLints.sidebar.showSummary": true,
     "saropaLints.sidebar.showSuggestions": true,
     "saropaLints.sidebar.showDriftAdvisor": true,
     "saropaLints.sidebar.showFileRisk": true,
     "saropaLints.sidebar.showSecurityPosture": true,
-    "saropaLints.sidebar.showRulePacks": true
+    "saropaLints.sidebar.showRulePacks": true,
+    "saropaLints.sidebar.showTodosAndHacks": true,
+    "saropaLints.sidebar.showSuppressions": true,
+    "saropaLints.sidebar.showConfig": true,
+    "saropaLints.sidebar.showCommandCatalog": true,
+    "saropaLints.sidebar.showPackageDetails": true,
+    "saropaLints.todosAndHacks.workspaceScanEnabled": true
 }
