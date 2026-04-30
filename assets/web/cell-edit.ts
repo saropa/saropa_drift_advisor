@@ -9,6 +9,26 @@ import { schemaTableByName, getPkColumnNameForDataTable, getVisibleDataColumnKey
 import { loadTable } from './table-list.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
 
+/** Tracks whether a web inline edit is currently active (single-edit v1 guard). */
+let activeEditToken = 0;
+
+/** True when the browser UI has an unsaved inline edit open. */
+export function hasUnsavedWebEdit(): boolean {
+  return activeEditToken > 0;
+}
+
+/** Clear the single-edit lock after save/cancel. */
+function clearUnsavedWebEdit(): void {
+  activeEditToken = 0;
+}
+
+/** Acquire the single-edit lock; returns false when another edit is active. */
+function tryBeginUnsavedWebEdit(): boolean {
+  if (activeEditToken > 0) return false;
+  activeEditToken = 1;
+  return true;
+}
+
     export function readCellRawFromTd(td) {
       if (!td) return '';
       var btn = td.querySelector('.cell-copy-btn');
@@ -104,14 +124,20 @@ import { loadSchemaMeta } from './schema-meta.ts';
      */
     export function tryStartBrowserCellEdit(td) {
       if (!S.currentTableName) return;
+      if (!tryBeginUnsavedWebEdit()) {
+        window.alert('Finish or cancel the current edit before editing another cell.');
+        return;
+      }
       loadSchemaMeta().then(function() {
         var pkName = getPkColumnNameForDataTable();
         if (!pkName) {
+          clearUnsavedWebEdit();
           window.alert('This table has no primary key column; inline edit is disabled.');
           return;
         }
         var columnKey = td.getAttribute('data-column-key') || '';
         if (!columnKey || columnKey === pkName) {
+          clearUnsavedWebEdit();
           window.alert('Primary key columns cannot be edited inline.');
           return;
         }
@@ -122,20 +148,36 @@ import { loadSchemaMeta } from './schema-meta.ts';
             if (t.columns[j].name === columnKey) { colMeta = t.columns[j]; break; }
           }
         }
-        if (!colMeta) return;
+        if (!colMeta) {
+          clearUnsavedWebEdit();
+          return;
+        }
+        if ((colMeta.type || '').toUpperCase() === 'BLOB') {
+          clearUnsavedWebEdit();
+          window.alert('BLOB columns cannot be edited inline.');
+          return;
+        }
 
         var keys = getVisibleDataColumnKeys(td);
         var colIdx = keys.indexOf(columnKey);
         var pkIdx = keys.indexOf(pkName);
-        if (colIdx < 0 || pkIdx < 0) return;
+        if (colIdx < 0 || pkIdx < 0) {
+          clearUnsavedWebEdit();
+          return;
+        }
         var tr = td.closest('tr');
-        if (!tr || !tr.children[pkIdx]) return;
+        if (!tr || !tr.children[pkIdx]) {
+          clearUnsavedWebEdit();
+          return;
+        }
         var pkRaw = readCellRawFromTd(tr.children[pkIdx]);
         var pkJson = jsonPkValueForCellUpdate(pkRaw, pkName);
 
         var originalHtml = td.innerHTML;
         var startVal = readCellRawFromTd(td);
         var isNull = td.querySelector('.cell-null') != null;
+        /** Initial text in the editor — used to detect unsaved edits vs original DB value. */
+        var initialEditText = isNull ? '' : String(startVal);
 
         // Build the inline edit widget with context and validation feedback.
         // Context bar: shows which row (PK) and column/type are being edited,
@@ -170,10 +212,47 @@ import { loadSchemaMeta } from './schema-meta.ts';
         errorEl.className = 'cell-edit-error';
         container.appendChild(errorEl);
 
+        // Explicit Save/Cancel row controls (no blur auto-save in web v1).
+        var actions = document.createElement('div');
+        actions.className = 'cell-edit-actions';
+        var saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'btn-primary';
+        saveBtn.textContent = 'Save';
+        var cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = 'Cancel';
+        actions.appendChild(saveBtn);
+        actions.appendChild(cancelBtn);
+        container.appendChild(actions);
+
+        // Shown after server/network save failure — explicit retry vs discard local UI via reload.
+        var failureActions = document.createElement('div');
+        failureActions.className = 'cell-edit-failure-actions';
+        failureActions.style.display = 'none';
+        var retrySaveBtn = document.createElement('button');
+        retrySaveBtn.type = 'button';
+        retrySaveBtn.className = 'cell-edit-retry-btn';
+        retrySaveBtn.textContent = 'Retry save';
+        var reloadTableBtn = document.createElement('button');
+        reloadTableBtn.type = 'button';
+        reloadTableBtn.className = 'cell-edit-reload-btn';
+        reloadTableBtn.textContent = 'Reload table';
+        failureActions.appendChild(retrySaveBtn);
+        failureActions.appendChild(reloadTableBtn);
+        container.appendChild(failureActions);
+
         td.innerHTML = '';
         td.appendChild(container);
         input.focus();
         input.select();
+
+        /** Highlights the active cell/row when the draft value differs from the loaded row (Feature 47). */
+        function updateDirtyHighlight() {
+          var dirty = input.value !== initialEditText;
+          td.classList.toggle('cell-edit-td-dirty', dirty);
+          tr.classList.toggle('cell-edit-row-dirty', dirty);
+        }
 
         // Live validation on each keystroke: show/clear error as the user types
         input.addEventListener('input', function() {
@@ -181,22 +260,24 @@ import { loadSchemaMeta } from './schema-meta.ts';
           errorEl.textContent = err || '';
           errorEl.style.display = err ? 'block' : 'none';
           input.classList.toggle('cell-edit-invalid', !!err);
+          updateDirtyHighlight();
         });
+        updateDirtyHighlight();
 
         function restore() {
+          td.classList.remove('cell-edit-td-dirty');
+          tr.classList.remove('cell-edit-row-dirty');
           td.innerHTML = originalHtml;
+          clearUnsavedWebEdit();
         }
         function commit() {
-          input.removeEventListener('blur', onBlur);
-
+          failureActions.style.display = 'none';
           // Client-side format check before sending to the server
           var formatErr = validateCellFormat(input.value, colMeta);
           if (formatErr) {
             errorEl.textContent = formatErr;
             errorEl.style.display = 'block';
             input.classList.add('cell-edit-invalid');
-            // Re-attach blur so user can fix and try again
-            input.addEventListener('blur', onBlur);
             input.focus();
             return;
           }
@@ -206,10 +287,11 @@ import { loadSchemaMeta } from './schema-meta.ts';
             errorEl.textContent = 'This column is NOT NULL — a value is required.';
             errorEl.style.display = 'block';
             input.classList.add('cell-edit-invalid');
-            input.addEventListener('blur', onBlur);
             input.focus();
             return;
           }
+          saveBtn.disabled = true;
+          cancelBtn.disabled = true;
           fetch('/api/cell/update', S.authOpts({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -230,34 +312,49 @@ import { loadSchemaMeta } from './schema-meta.ts';
                 errorEl.textContent = 'Save failed: ' + msg;
                 errorEl.style.display = 'block';
                 input.classList.add('cell-edit-invalid');
-                // Re-attach so user can retry or press Escape
-                input.addEventListener('blur', onBlur);
+                failureActions.style.display = 'flex';
+                // Keep edit state open so users can adjust/retry (explicit v1 policy).
+                saveBtn.disabled = false;
+                cancelBtn.disabled = false;
                 input.focus();
                 return;
               }
+              clearUnsavedWebEdit();
               loadTable(S.currentTableName);
             })
             .catch(function(err) {
               errorEl.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err));
               errorEl.style.display = 'block';
               input.classList.add('cell-edit-invalid');
-              input.addEventListener('blur', onBlur);
+              failureActions.style.display = 'flex';
+              saveBtn.disabled = false;
+              cancelBtn.disabled = false;
               input.focus();
             });
         }
-        function onBlur() {
+        retrySaveBtn.addEventListener('click', function() {
+          failureActions.style.display = 'none';
           commit();
-        }
+        });
+        reloadTableBtn.addEventListener('click', function() {
+          clearUnsavedWebEdit();
+          loadTable(S.currentTableName);
+        });
+        saveBtn.addEventListener('click', function() {
+          commit();
+        });
+        cancelBtn.addEventListener('click', function() {
+          restore();
+        });
         input.addEventListener('keydown', function(ev) {
-          if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+          if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
           if (ev.key === 'Escape') {
             ev.preventDefault();
-            input.removeEventListener('blur', onBlur);
             restore();
           }
         });
-        input.addEventListener('blur', onBlur);
       }).catch(function(err) {
+        clearUnsavedWebEdit();
         window.alert('Could not load schema: ' + (err && err.message ? err.message : String(err)));
       });
     }

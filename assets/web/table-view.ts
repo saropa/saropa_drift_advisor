@@ -106,6 +106,8 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
   var visible = order.filter(function(k) { return hidden.indexOf(k) < 0; });
 
   var maskOn = isPiiMaskEnabled();
+  var singlePkName = getSinglePkColumnName(S.currentTableName);
+  var showRowDelete = !!S.driftWriteEnabled && !!singlePkName;
   var html = '<table id="data-table" class="drift-table"><thead><tr>';
   visible.forEach(function(k) {
     var fk = fkMap[k];
@@ -138,6 +140,9 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
       fkLabel +
       '</th>';
   });
+  if (showRowDelete) {
+    html += '<th class="row-action-col">Actions</th>';
+  }
   html += '</tr></thead><tbody>';
   var piiCols = {};
   visible.forEach(function(k) { piiCols[k] = isPiiColumn(k); });
@@ -179,6 +184,13 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
         html += '<td' + tdAttrs + '><span class="cell-text">' + cellContent + '</span>' + copyBtn + '</td>';
       }
     });
+    if (showRowDelete && singlePkName) {
+      var pkRaw = row[singlePkName] == null ? '' : String(row[singlePkName]);
+      html += '<td class="row-action-col"><button type="button" class="row-delete-btn"'
+        + ' data-pk-col="' + esc(singlePkName) + '"'
+        + ' data-pk-raw="' + esc(pkRaw) + '"'
+        + ' title="Delete this row">Delete</button></td>';
+    }
     html += '</tr>';
   });
   html += '</tbody></table>';
@@ -452,6 +464,15 @@ export function getPkColumnNameForDataTable() {
     if (t.columns[i].pk) return t.columns[i].name;
   }
   return null;
+}
+
+/** Returns the PK column name only when the table has exactly one PK column. */
+export function getSinglePkColumnName(tableName) {
+  var t = schemaTableByName(tableName);
+  if (!t || !t.columns) return null;
+  var pkCols = t.columns.filter(function(c) { return !!c.pk; });
+  if (pkCols.length !== 1) return null;
+  return pkCols[0].name;
 }
 
 /**
