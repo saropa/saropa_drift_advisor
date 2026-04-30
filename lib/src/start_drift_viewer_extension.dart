@@ -87,6 +87,7 @@ extension StartDriftViewerExtension on Object {
     DriftDebugGetDatabaseBytes? getDatabaseBytes,
     Object? compareDatabase,
     DriftDebugWriteQuery? writeQuery,
+    DriftDebugWriteQueryWithBindings? writeQueryWithBindings,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
   }) async {
@@ -105,6 +106,7 @@ extension StartDriftViewerExtension on Object {
           ? null
           : (sql) => _runDriftQuery(compareDatabase, sql),
       writeQuery: writeQuery,
+      writeQueryWithBindings: writeQueryWithBindings,
       onLog: onLog,
       onError: onError,
     );
