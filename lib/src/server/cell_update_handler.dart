@@ -334,6 +334,9 @@ _CoerceResult _validateAndCoerceColumnValue(_PragmaColumn col, Object? raw) {
   return _CoerceResult.ok(raw);
 }
 
+/// Returns true when [typeUpper] declares SQLite TEXT affinity — explicit
+/// CHAR/CLOB/TEXT, empty (no declared type defaults to TEXT here), or any
+/// type that is not INTEGER/REAL/BOOLEAN/BLOB.
 bool _isTextAffinity(String typeUpper) {
   if (typeUpper.isEmpty ||
       typeUpper.contains('CHAR') ||
