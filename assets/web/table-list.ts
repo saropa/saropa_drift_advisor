@@ -118,7 +118,11 @@ export function renderTableList(tables) {
     a.appendChild(nameSpan);
     if (S.tableCounts[t] != null) {
       var countSpan = document.createElement('span');
-      countSpan.className = 'table-link-count';
+      // Empty tables get a "-zero" modifier so the SCSS can dim "(0)" — the
+      // count carries no information for an empty table, so it should sit
+      // back visually instead of competing with non-empty rows for attention.
+      var isZero = Number(S.tableCounts[t]) === 0;
+      countSpan.className = 'table-link-count' + (isZero ? ' table-link-count-zero' : '');
       countSpan.textContent = '(' + formatTableRowCountDisplay(S.tableCounts[t]) + ')';
       a.appendChild(countSpan);
     }

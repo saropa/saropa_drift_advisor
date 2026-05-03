@@ -582,6 +582,7 @@
   var SERVER_ORIGIN_KEY = "drift-viewer-server-origin";
   var LIMIT_OPTIONS = [50, 200, 500, 1e3];
   var displayFormat = "raw";
+  var nullDisplay = "NULL";
   var tableColumnTypes = {};
   var queryBuilderActive = false;
   var queryBuilderState = null;
@@ -591,6 +592,9 @@
   var columnDragKey = null;
   function setDisplayFormat(f) {
     displayFormat = f;
+  }
+  function setNullDisplay(s) {
+    nullDisplay = s;
   }
   function setQueryBuilderActive(a) {
     queryBuilderActive = a;
@@ -1370,7 +1374,7 @@
       }
       const leftInst = tableById(ltid);
       if (!leftInst) return;
-      let rightInst = _multiModel.tables.find((t) => t.baseTable === rb);
+      let rightInst = _multiModel.tables.find((t) => t.baseTable === rb && t.id !== ltid);
       if (!rightInst) {
         const alias = nextAlias();
         const cols = tableColumnsFromSchema(rb);
@@ -2920,7 +2924,8 @@
       a.appendChild(nameSpan);
       if (tableCounts[t] != null) {
         var countSpan = document.createElement("span");
-        countSpan.className = "table-link-count";
+        var isZero = Number(tableCounts[t]) === 0;
+        countSpan.className = "table-link-count" + (isZero ? " table-link-count-zero" : "");
         countSpan.textContent = "(" + formatTableRowCountDisplay(tableCounts[t]) + ")";
         a.appendChild(countSpan);
       }
@@ -3174,6 +3179,7 @@
   var PREF_ANALYSIS_MAX = "analysisMax";
   var PREF_DEFAULT_PAGE_SIZE = "defaultPageSize";
   var PREF_DEFAULT_DISPLAY_FORMAT = "defaultDisplayFormat";
+  var PREF_NULL_DISPLAY = "nullDisplay";
   var PREF_DEFAULT_ONLY_MATCHING = "defaultOnlyMatching";
   var PREF_SLOW_QUERY_THRESHOLD = "slowQueryThreshold";
   var PREF_AUTO_REFRESH = "autoRefresh";
@@ -3184,6 +3190,7 @@
     [PREF_ANALYSIS_MAX]: 50,
     [PREF_DEFAULT_PAGE_SIZE]: 200,
     [PREF_DEFAULT_DISPLAY_FORMAT]: "raw",
+    [PREF_NULL_DISPLAY]: "NULL",
     [PREF_DEFAULT_ONLY_MATCHING]: true,
     [PREF_SLOW_QUERY_THRESHOLD]: 100,
     [PREF_AUTO_REFRESH]: true,
@@ -3235,6 +3242,14 @@
       <select id="pref-defaultDisplayFormat" class="settings-input settings-input-select">
         <option value="raw">Raw</option>
         <option value="formatted">Formatted</option>
+      </select>
+    </label>
+    <label class="settings-row">
+      <span class="settings-label">NULL display</span>
+      <span class="settings-sublabel">How SQL NULLs render in table cells (always shown dimmed)</span>
+      <select id="pref-nullDisplay" class="settings-input settings-input-select">
+        <option value="NULL">NULL</option>
+        <option value="-">- (dash)</option>
       </select>
     </label>
     <label class="settings-row settings-toggle-row">
@@ -3297,6 +3312,7 @@
     setNumberInput("pref-slowQueryThreshold", getPref(PREF_SLOW_QUERY_THRESHOLD, DEFAULTS[PREF_SLOW_QUERY_THRESHOLD]));
     setSelectValue("pref-defaultPageSize", String(getPref(PREF_DEFAULT_PAGE_SIZE, DEFAULTS[PREF_DEFAULT_PAGE_SIZE])));
     setSelectValue("pref-defaultDisplayFormat", getPref(PREF_DEFAULT_DISPLAY_FORMAT, DEFAULTS[PREF_DEFAULT_DISPLAY_FORMAT]));
+    setSelectValue("pref-nullDisplay", getPref(PREF_NULL_DISPLAY, DEFAULTS[PREF_NULL_DISPLAY]));
     setToggle("pref-defaultOnlyMatching", getPref(PREF_DEFAULT_ONLY_MATCHING, DEFAULTS[PREF_DEFAULT_ONLY_MATCHING]));
     setToggle("pref-autoRefresh", getPref(PREF_AUTO_REFRESH, DEFAULTS[PREF_AUTO_REFRESH]));
     setToggle("pref-epochDetection", getPref(PREF_EPOCH_DETECTION, DEFAULTS[PREF_EPOCH_DETECTION]));
@@ -3325,6 +3341,7 @@
     bindNumberInput("pref-slowQueryThreshold", PREF_SLOW_QUERY_THRESHOLD);
     bindSelectInput("pref-defaultPageSize", PREF_DEFAULT_PAGE_SIZE);
     bindSelectInput("pref-defaultDisplayFormat", PREF_DEFAULT_DISPLAY_FORMAT);
+    bindSelectInput("pref-nullDisplay", PREF_NULL_DISPLAY);
     bindToggleInput("pref-defaultOnlyMatching", PREF_DEFAULT_ONLY_MATCHING);
     bindToggleInput("pref-autoRefresh", PREF_AUTO_REFRESH);
     bindToggleInput("pref-epochDetection", PREF_EPOCH_DETECTION);
@@ -3393,6 +3410,7 @@
   function applyRuntimeState() {
     setShowOnlyMatchingRows(getPref(PREF_DEFAULT_ONLY_MATCHING, DEFAULTS[PREF_DEFAULT_ONLY_MATCHING]));
     setPollingEnabled(getPref(PREF_AUTO_REFRESH, DEFAULTS[PREF_AUTO_REFRESH]));
+    setNullDisplay(getPref(PREF_NULL_DISPLAY, DEFAULTS[PREF_NULL_DISPLAY]));
   }
   function clearAllProjectData() {
     collectProjectStorageKeys().forEach((k) => localStorage.removeItem(k));
@@ -3421,6 +3439,7 @@
   function applyStoredPrefs() {
     setLimit(getPref(PREF_DEFAULT_PAGE_SIZE, DEFAULTS[PREF_DEFAULT_PAGE_SIZE]));
     setDisplayFormat(getPref(PREF_DEFAULT_DISPLAY_FORMAT, DEFAULTS[PREF_DEFAULT_DISPLAY_FORMAT]));
+    setNullDisplay(getPref(PREF_NULL_DISPLAY, DEFAULTS[PREF_NULL_DISPLAY]));
     setShowOnlyMatchingRows(getPref(PREF_DEFAULT_ONLY_MATCHING, DEFAULTS[PREF_DEFAULT_ONLY_MATCHING]));
     setPollingEnabled(getPref(PREF_AUTO_REFRESH, DEFAULTS[PREF_AUTO_REFRESH]));
   }
@@ -3635,7 +3654,7 @@
         var displayStr = getDisplayValue(k, val, maskOn, piiCols[k]);
         var cellContent;
         if (isNull) {
-          cellContent = '<span class="cell-null">NULL</span>';
+          cellContent = '<span class="cell-null">' + esc2(nullDisplay) + "</span>";
         } else if (displayFormat === "formatted" && colTypes && !(maskOn && piiCols[k])) {
           var fmt = formatCellValue(val, k, colTypes[k]);
           if (fmt.wasFormatted) {
