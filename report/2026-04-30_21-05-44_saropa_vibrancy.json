@@ -1,0 +1,196 @@
+{
+  "audit_metadata": {
+    "timestamp": "2026-05-01T01:05:44.987Z",
+    "flutter_version": "unknown",
+    "dart_version": "unknown",
+    "total_packages_scanned": 2,
+    "execution_time_ms": 10952
+  },
+  "summary": {
+    "total": 2,
+    "vibrant": 2,
+    "stable": 0,
+    "outdated": 0,
+    "abandoned": 0,
+    "end_of_life": 0
+  },
+  "packages": [
+    {
+      "name": "saropa_lints",
+      "installed_version": "12.8.3",
+      "latest_version": "12.8.3",
+      "status": "Vibrant",
+      "vibrancy_score": 75,
+      "pub_points": 160,
+      "stars": 7,
+      "is_discontinued": false,
+      "is_unlisted": false,
+      "pub_dev_url": "https://pub.dev/packages/saropa_lints",
+      "repository_url": "https://github.com/saropa/saropa_lints",
+      "license": "MIT",
+      "archive_size_bytes": 5278829,
+      "bloat_rating": 7,
+      "file_usage_count": 0,
+      "file_usages": []
+    },
+    {
+      "name": "test",
+      "installed_version": "1.31.1",
+      "latest_version": "1.31.1",
+      "status": "Vibrant",
+      "vibrancy_score": 74.6,
+      "pub_points": 150,
+      "stars": 529,
+      "is_discontinued": false,
+      "is_unlisted": false,
+      "pub_dev_url": "https://pub.dev/packages/test",
+      "repository_url": "https://github.com/dart-lang/test/tree/master/pkgs/test",
+      "license": "BSD-3-Clause",
+      "archive_size_bytes": 366146,
+      "bloat_rating": 3,
+      "file_usage_count": 28,
+      "file_usages": [
+        {
+          "file_path": "test/web_viewer_table_definition_test.dart",
+          "line": 6,
+          "import_line": 6
+        },
+        {
+          "file_path": "test/web_viewer_nl_modal_contract_test.dart",
+          "line": 7,
+          "import_line": 7
+        },
+        {
+          "file_path": "test/web_app_size_tab_contract_test.dart",
+          "line": 9,
+          "import_line": 9
+        },
+        {
+          "file_path": "test/version_sync_test.dart",
+          "line": 4,
+          "import_line": 4
+        },
+        {
+          "file_path": "test/table_handler_test.dart",
+          "line": 6,
+          "import_line": 6
+        },
+        {
+          "file_path": "test/stress_performance_test.dart",
+          "line": 12,
+          "import_line": 12
+        },
+        {
+          "file_path": "test/start_drift_viewer_extension_test.dart",
+          "line": 5,
+          "import_line": 5
+        },
+        {
+          "file_path": "test/sql_validation_test.dart",
+          "line": 9,
+          "import_line": 9
+        },
+        {
+          "file_path": "test/sql_handler_test.dart",
+          "line": 4,
+          "import_line": 4
+        },
+        {
+          "file_path": "test/snapshot_handler_test.dart",
+          "line": 8,
+          "import_line": 8
+        },
+        {
+          "file_path": "test/server_types_test.dart",
+          "line": 4,
+          "import_line": 4
+        },
+        {
+          "file_path": "test/server_context_test.dart",
+          "line": 13,
+          "import_line": 13
+        },
+        {
+          "file_path": "test/schema_handler_test.dart",
+          "line": 7,
+          "import_line": 7
+        },
+        {
+          "file_path": "test/rate_limiter_test.dart",
+          "line": 6,
+          "import_line": 6
+        },
+        {
+          "file_path": "test/query_recorder_test.dart",
+          "line": 5,
+          "import_line": 5
+        },
+        {
+          "file_path": "test/performance_handler_test.dart",
+          "line": 8,
+          "import_line": 8
+        },
+        {
+          "file_path": "test/mutation_tracker_test.dart",
+          "line": 7,
+          "import_line": 7
+        },
+        {
+          "file_path": "test/index_analyzer_test.dart",
+          "line": 8,
+          "import_line": 8
+        },
+        {
+          "file_path": "test/import_result_test.dart",
+          "line": 3,
+          "import_line": 3
+        },
+        {
+          "file_path": "test/html_content_test.dart",
+          "line": 10,
+          "import_line": 10
+        },
+        {
+          "file_path": "test/handler_integration_test.dart",
+          "line": 8,
+          "import_line": 8
+        },
+        {
+          "file_path": "test/generation_handler_test.dart",
+          "line": 21,
+          "import_line": 21
+        },
+        {
+          "file_path": "test/dvr_bindings_test.dart",
+          "line": 5,
+          "import_line": 5
+        },
+        {
+          "file_path": "test/drift_debug_session_test.dart",
+          "line": 4,
+          "import_line": 4
+        },
+        {
+          "file_path": "test/drift_debug_server_test.dart",
+          "line": 4,
+          "import_line": 4
+        },
+        {
+          "file_path": "test/drift_debug_import_test.dart",
+          "line": 4,
+          "import_line": 4
+        },
+        {
+          "file_path": "test/compare_handler_test.dart",
+          "line": 8,
+          "import_line": 8
+        },
+        {
+          "file_path": "test/anomaly_detector_test.dart",
+          "line": 15,
+          "import_line": 15
+        }
+      ]
+    }
+  ]
+}
