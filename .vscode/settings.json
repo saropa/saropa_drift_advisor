@@ -25,5 +25,6 @@
     "saropaLints.sidebar.showConfig": true,
     "saropaLints.sidebar.showCommandCatalog": true,
     "saropaLints.sidebar.showPackageDetails": true,
-    "saropaLints.todosAndHacks.workspaceScanEnabled": true
+    "saropaLints.todosAndHacks.workspaceScanEnabled": true,
+    "saropaLints.violationsGroupBy": "impact"
 }
