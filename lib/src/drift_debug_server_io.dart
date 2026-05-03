@@ -5,7 +5,7 @@
 // Architecture: [_DriftDebugServerImpl] creates a [ServerContext] and [Router]
 // on start; the router dispatches to handler classes in lib/src/server/.
 // All DB access goes through [DriftDebugQuery] callbacks only.
-// ignore_for_file: document_ignores
+// ignore_for_file: document_ignores -- rationales live in block comments above each ignore for readability rather than inline
 
 import 'dart:async';
 import 'dart:io';
@@ -279,7 +279,7 @@ class _DriftDebugServerImpl {
       );
       final desc = _bannerCentered(ServerConstants.bannerDescription);
       final url = _bannerCentered('http://127.0.0.1:$port');
-      // ignore: avoid_print, avoid_print_in_release
+      // ignore: avoid_print, avoid_print_in_release -- print() is the only output that surfaces as I/flutter on Android; developer.log/ctx.log/stdout are invisible there, so the startup banner must use print
       print(
         '${ServerConstants.bannerTop}\n'
         '$title\n'
@@ -293,7 +293,7 @@ class _DriftDebugServerImpl {
     } on Object catch (error, stack) {
       // Print server startup failure visibly — same reasoning as the
       // banner above: developer.log is invisible on Android.
-      // ignore: avoid_print, avoid_print_error, avoid_print_in_release
+      // ignore: avoid_print, avoid_print_error, avoid_print_in_release -- startup failure must be visible on Android where developer.log/ctx.log do not surface; print is the only reliable channel
       print('[DriftDebugServer] FAILED TO START: $error');
       ctx.logError(error, stack);
     }
