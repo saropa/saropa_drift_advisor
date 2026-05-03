@@ -36,6 +36,26 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Web viewer: dimmed NULL cells with display option** — SQL `NULL` values in data tables now render dimmed (muted + italic) so empty cells are visually distinct from real text; new **Settings → Table Defaults → "NULL display"** lets you switch the label between `NULL` (default) and `-` (`assets/web/_data-display.scss`, `state.ts`, `settings.ts`, `table-view.ts`)
+
+### Changed
+
+- **Web viewer: tables sidebar row counts** — the row count next to each table name is now rendered one step smaller (`--text-xs`) so it reads as secondary metadata, and empty-table counts (`(0)`) are dimmed at 50% opacity so non-zero rows win the eye when scanning the list (`assets/web/table-list.ts`, `assets/web/_sidebar.scss`)
+
+<details>
+<summary>Maintenance</summary>
+
+- **Lint hygiene** — appended `--` rationales to `// ignore_for_file` and `// ignore` directives in `lib/src/drift_debug_server_io.dart` to satisfy `document_analyzer_ignore_rationale`
+- **Doc headers on flagged-complexity methods** — added concise `///` headers on `_isTextAffinity` (`lib/src/server/cell_update_handler.dart`), `_classifySql` / `_parseTableName` / `_record` (`lib/src/query_recorder.dart`), `_recordEvent` / `_extractWhereClause` (`lib/src/server/mutation_tracker.dart`), and `_migrationColumnMap` (`lib/src/server/compare_handler.dart`) so static-analysis complexity reports surface intent alongside the metric
+
+</details>
+
+---
+
 ## [3.5.0]
 
 Query Replay DVR is now available in the extension and server API, so you can record SQL activity during debug sessions and inspect recent queries in a timeline panel. Bulk editing also got a dedicated pending-changes grid in the extension, clearer batch-commit failures, and safer inline edits in the browser viewer when writes are enabled. The extension also adds a Visual Query Builder with optional SQL import and a full **natural-language-to-SQL** flow: after the model answers, you can land the SQL in the notebook, the query builder, a **saved snippet**, a **dashboard SQL widget**, or **query cost**, with an optional starter picker and safer prompts on huge schemas. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.5.0/CHANGELOG.md)
