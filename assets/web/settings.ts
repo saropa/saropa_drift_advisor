@@ -71,6 +71,8 @@ export const PREF_ANALYSIS_MAX = 'analysisMax';
 export const PREF_DEFAULT_PAGE_SIZE = 'defaultPageSize';
 /** Default display format: 'raw' or 'formatted'. */
 export const PREF_DEFAULT_DISPLAY_FORMAT = 'defaultDisplayFormat';
+/** How NULL values render in data table cells: 'NULL' or '-'. */
+export const PREF_NULL_DISPLAY = 'nullDisplay';
 /** Whether row filter defaults to "only matching" mode. */
 export const PREF_DEFAULT_ONLY_MATCHING = 'defaultOnlyMatching';
 /** Slow-query threshold in milliseconds for the Perf tab. */
@@ -91,6 +93,7 @@ export const DEFAULTS = {
   [PREF_ANALYSIS_MAX]: 50,
   [PREF_DEFAULT_PAGE_SIZE]: 200,
   [PREF_DEFAULT_DISPLAY_FORMAT]: 'raw',
+  [PREF_NULL_DISPLAY]: 'NULL',
   [PREF_DEFAULT_ONLY_MATCHING]: true,
   [PREF_SLOW_QUERY_THRESHOLD]: 100,
   [PREF_AUTO_REFRESH]: true,
@@ -148,6 +151,14 @@ function buildSettingsHtml(): string {
       <select id="pref-defaultDisplayFormat" class="settings-input settings-input-select">
         <option value="raw">Raw</option>
         <option value="formatted">Formatted</option>
+      </select>
+    </label>
+    <label class="settings-row">
+      <span class="settings-label">NULL display</span>
+      <span class="settings-sublabel">How SQL NULLs render in table cells (always shown dimmed)</span>
+      <select id="pref-nullDisplay" class="settings-input settings-input-select">
+        <option value="NULL">NULL</option>
+        <option value="-">- (dash)</option>
       </select>
     </label>
     <label class="settings-row settings-toggle-row">
@@ -215,6 +226,7 @@ function populateForm(): void {
   // Select inputs
   setSelectValue('pref-defaultPageSize', String(getPref(PREF_DEFAULT_PAGE_SIZE, DEFAULTS[PREF_DEFAULT_PAGE_SIZE])));
   setSelectValue('pref-defaultDisplayFormat', getPref(PREF_DEFAULT_DISPLAY_FORMAT, DEFAULTS[PREF_DEFAULT_DISPLAY_FORMAT]));
+  setSelectValue('pref-nullDisplay', getPref(PREF_NULL_DISPLAY, DEFAULTS[PREF_NULL_DISPLAY]));
 
   // Toggle inputs
   setToggle('pref-defaultOnlyMatching', getPref(PREF_DEFAULT_ONLY_MATCHING, DEFAULTS[PREF_DEFAULT_ONLY_MATCHING]));
@@ -258,6 +270,7 @@ function bindEvents(): void {
   // Select inputs — save on change
   bindSelectInput('pref-defaultPageSize', PREF_DEFAULT_PAGE_SIZE);
   bindSelectInput('pref-defaultDisplayFormat', PREF_DEFAULT_DISPLAY_FORMAT);
+  bindSelectInput('pref-nullDisplay', PREF_NULL_DISPLAY);
 
   // Toggle inputs — save on change
   bindToggleInput('pref-defaultOnlyMatching', PREF_DEFAULT_ONLY_MATCHING);
@@ -352,6 +365,9 @@ function bindToggleInput(id: string, prefKey: string): void {
 function applyRuntimeState(): void {
   S.setShowOnlyMatchingRows(getPref(PREF_DEFAULT_ONLY_MATCHING, DEFAULTS[PREF_DEFAULT_ONLY_MATCHING]));
   S.setPollingEnabled(getPref(PREF_AUTO_REFRESH, DEFAULTS[PREF_AUTO_REFRESH]));
+  // Push the chosen NULL display string into runtime state so the next
+  // table render reflects the new pick without a page reload.
+  S.setNullDisplay(getPref(PREF_NULL_DISPLAY, DEFAULTS[PREF_NULL_DISPLAY]));
 }
 
 // ---------------------------------------------------------------------------
@@ -409,6 +425,7 @@ export function applyStoredPrefs(): void {
   // Push stored prefs into S.* state so first renders use user values
   S.setLimit(getPref(PREF_DEFAULT_PAGE_SIZE, DEFAULTS[PREF_DEFAULT_PAGE_SIZE]));
   S.setDisplayFormat(getPref(PREF_DEFAULT_DISPLAY_FORMAT, DEFAULTS[PREF_DEFAULT_DISPLAY_FORMAT]));
+  S.setNullDisplay(getPref(PREF_NULL_DISPLAY, DEFAULTS[PREF_NULL_DISPLAY]));
   S.setShowOnlyMatchingRows(getPref(PREF_DEFAULT_ONLY_MATCHING, DEFAULTS[PREF_DEFAULT_ONLY_MATCHING]));
   S.setPollingEnabled(getPref(PREF_AUTO_REFRESH, DEFAULTS[PREF_AUTO_REFRESH]));
 }

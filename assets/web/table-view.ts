@@ -155,9 +155,12 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
       var rawStr = isNull ? '' : String(val);
       var displayStr = getDisplayValue(k, val, maskOn, piiCols[k]);
       var cellContent;
-      /* Null values render as a dimmed italic "NULL" indicator (industry-standard DB tool convention) */
+      /* Null values render dimmed via .cell-null. The label string is user-
+         configurable via Settings (Data Formatting → "NULL display") — defaults
+         to the industry-standard "NULL", but users can switch to "-" for a
+         compact dashboard look. esc() guards against future custom values. */
       if (isNull) {
-        cellContent = '<span class="cell-null">NULL</span>';
+        cellContent = '<span class="cell-null">' + esc(S.nullDisplay) + '</span>';
       } else if (S.displayFormat === 'formatted' && colTypes && !(maskOn && piiCols[k])) {
         var fmt = formatCellValue(val, k, colTypes[k]);
         if (fmt.wasFormatted) {

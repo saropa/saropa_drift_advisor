@@ -91,6 +91,9 @@ describe('Settings panel — settings.ts API', () => {
     'PREF_ANALYSIS_MAX',
     'PREF_DEFAULT_PAGE_SIZE',
     'PREF_DEFAULT_DISPLAY_FORMAT',
+    // PREF_NULL_DISPLAY: pins the contract that users can choose between
+    // 'NULL' and '-' for the SQL-NULL marker shown in data table cells.
+    'PREF_NULL_DISPLAY',
     'PREF_DEFAULT_ONLY_MATCHING',
     'PREF_SLOW_QUERY_THRESHOLD',
     'PREF_AUTO_REFRESH',
@@ -171,6 +174,16 @@ describe('Settings panel — style.css', () => {
     assert.ok(
       css.includes('.settings-switch'),
       'Settings styles must be compiled into style.css',
+    );
+  });
+
+  // The .cell-null class is emitted by table-view.ts on every NULL cell.
+  // Without an actual CSS rule, NULL markers render as plain text and are
+  // indistinguishable from real values — the bug this contract pins against.
+  it('cell-null dimming rule is compiled into style.css', () => {
+    assert.ok(
+      css.includes('.cell-null'),
+      'Compiled CSS must contain .cell-null selector so NULL cells render dimmed',
     );
   });
 });
