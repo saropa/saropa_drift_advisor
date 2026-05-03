@@ -307,6 +307,8 @@ final class QueryRecorder {
   /// Current maximum number of timeline entries retained before eviction.
   int get maxBufferQueries => _maxQueries;
 
+  /// Appends [query] to the ring buffer, evicting the oldest entry once the
+  /// buffer exceeds [_maxQueries] so memory stays bounded under long sessions.
   void _record(RecordedQuery query) {
     _queries.add(query);
     if (_queries.length > _maxQueries) {
@@ -314,6 +316,8 @@ final class QueryRecorder {
     }
   }
 
+  /// Classifies [sql] as `'select'` / `'insert'` / `'update'` / `'delete'` /
+  /// `'other'` from the leading keyword (WITH...SELECT counts as select).
   static String _classifySql(String sql) {
     final trimmed = sql.trimLeft().toUpperCase();
     if (trimmed.startsWith('SELECT') || trimmed.startsWith('WITH'))
@@ -324,6 +328,8 @@ final class QueryRecorder {
     return 'other';
   }
 
+  /// Extracts the target table identifier from [sql] for UPDATE / INSERT INTO
+  /// / DELETE FROM / SELECT ... FROM. Returns null when no pattern matches.
   static String? _parseTableName(String sql) {
     final cleaned = sql.replaceAll('\n', ' ').trim();
     final patterns = <RegExp>[

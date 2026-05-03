@@ -299,6 +299,9 @@ final class CompareHandler {
     }
   }
 
+  /// Builds a `column-name → PRAGMA table_info row` map for [table], used by
+  /// the migration diff to look up column metadata (type, notnull, default,
+  /// pk) in O(1) when comparing live and target schemas.
   Future<Map<String, Map<String, dynamic>>> _migrationColumnMap(
     DriftDebugQuery query,
     String table,

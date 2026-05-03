@@ -195,6 +195,9 @@ class MutationTracker {
     return MutationRowSnapshots(beforeRows: beforeRows, afterRows: afterRows);
   }
 
+  /// Appends a [MutationEvent] built from the args, evicts oldest entries
+  /// past [maxEvents] to bound memory, and signals any pending long-poll
+  /// waiters so they wake on the new event.
   void _recordEvent({
     required MutationType type,
     required String table,
@@ -324,6 +327,9 @@ class MutationTracker {
     return null;
   }
 
+  /// Extracts the WHERE clause body from [sql] (UPDATE / DELETE), stopping
+  /// at RETURNING, end of statement, or trailing semicolon. Returns null
+  /// when no WHERE is present so unconditional mutations can be detected.
   String? _extractWhereClause(String sql) {
     final match = RegExp(
       r'\bWHERE\b\s+(.+?)\s*(?:\bRETURNING\b|$|;)',
