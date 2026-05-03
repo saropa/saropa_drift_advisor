@@ -62,13 +62,22 @@
 
 /* Row count: right-aligned, tabular digits. Color swapped to --link so the
    count sits back visually while the name (--muted) reads as primary. Count
-   is inside the row's <a>, so the link color doesn't invent a new affordance. */
+   is inside the row's <a>, so the link color doesn't invent a new affordance.
+   Font size is one step smaller than the link's --text-sm so the count reads
+   as secondary metadata rather than competing with the table name. */
 .table-link-count {
   flex-shrink: 0;
   margin-left: 0.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
   color: var(--link);
+}
+
+/* Empty-table count: dimmed because "(0)" carries no actionable signal —
+   the user only needs to notice non-zero counts when scanning the list. */
+.table-link-count-zero {
+  opacity: 0.5;
 }
 
 .table-list a:hover {
