@@ -114,6 +114,13 @@ export const LIMIT_OPTIONS = [50, 200, 500, 1000];
 
 // --- Display & UI state ---
 export let displayFormat = 'raw';
+// String shown in place of SQL NULL in data table cells. User-configurable
+// via Settings (Data Formatting → "NULL display"). Two values supported:
+//   'NULL' — explicit, industry-standard DB tool convention (default)
+//   '-'    — compact dash, common in dashboards/reports
+// Always rendered inside .cell-null so the chosen string is visually dimmed
+// regardless of which option is picked.
+export let nullDisplay = 'NULL';
 export let tableColumnTypes: Record<string, any> = {};
 export let queryBuilderActive = false;
 export let queryBuilderState: any = null;
@@ -123,6 +130,7 @@ export let columnContextMenuTargetKey: string | null = null;
 export let columnDragKey: string | null = null;
 
 export function setDisplayFormat(f: string): void { displayFormat = f; }
+export function setNullDisplay(s: string): void { nullDisplay = s; }
 export function setTableColumnTypes(t: Record<string, any>): void { tableColumnTypes = t; }
 export function setQueryBuilderActive(a: boolean): void { queryBuilderActive = a; }
 export function setQueryBuilderState(s: any): void { queryBuilderState = s; }
