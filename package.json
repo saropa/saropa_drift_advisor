@@ -17,7 +17,7 @@
   "devDependencies": {
     "esbuild": "^0.28",
     "husky": "^9.1.7",
-    "sass": "^1.99",
+    "sass": "^1.100",
     "typescript": "^5.7"
   }
 }
