@@ -36,6 +36,12 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Improved
+
+- **Startup banner: emulator/device port-forward hint** — the server startup banner now shows the exact `adb forward tcp:<port> tcp:<port>` command alongside the `http://127.0.0.1:<port>` URL. When the host app runs on an Android emulator or a physical device, the bound port lives in that device's network namespace, so a host browser/viewer cannot reach the printed URL until the port is forwarded — previously "server started" and "viewer offline" looked contradictory with no on-screen guidance (`lib/src/drift_debug_server_io.dart`, `lib/src/server/server_constants.dart`)
+
 ## [3.5.1]
 
 ### Added

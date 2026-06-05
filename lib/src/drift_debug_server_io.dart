@@ -279,6 +279,15 @@ class _DriftDebugServerImpl {
       );
       final desc = _bannerCentered(ServerConstants.bannerDescription);
       final url = _bannerCentered('http://127.0.0.1:$port');
+      // The bound port lives in the host app's network namespace. On an
+      // Android emulator or a physical device this is NOT the dev machine's
+      // loopback, so the http://127.0.0.1 URL above is unreachable from a
+      // host browser/viewer until the port is forwarded. Show the exact
+      // command (with the actual bound port) so the user can act without
+      // guessing — this closes the "server started but viewer offline"
+      // diagnostic gap that otherwise looks like a contradiction.
+      final hint = _bannerCentered(ServerConstants.bannerEmulatorHint);
+      final forwardCmd = _bannerCentered('adb forward tcp:$port tcp:$port');
       // ignore: avoid_print, avoid_print_in_release -- print() is the only output that surfaces as I/flutter on Android; developer.log/ctx.log/stdout are invisible there, so the startup banner must use print
       print(
         '${ServerConstants.bannerTop}\n'
@@ -287,6 +296,9 @@ class _DriftDebugServerImpl {
         '${ServerConstants.bannerEmpty}\n'
         '$desc\n'
         '$url\n'
+        '${ServerConstants.bannerEmpty}\n'
+        '$hint\n'
+        '$forwardCmd\n'
         '${ServerConstants.bannerEmpty}\n'
         '${ServerConstants.bannerBottom}',
       );
