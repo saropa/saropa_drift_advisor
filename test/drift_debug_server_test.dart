@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -1999,6 +2000,48 @@ void main() {
       // Re-enable.
       DriftDebugServer.setChangeDetection(true);
       expect(DriftDebugServer.changeDetectionEnabled, isTrue);
+    });
+  });
+
+  group('startup banner diagnostics', () {
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    // The startup banner is the user's ONLY confirmation the server bound,
+    // and it has silently regressed three times (v1.4.1 fix, v1.7.0 break,
+    // 086152f relapse — see the print() comment in drift_debug_server_io).
+    // These tests pin the emulator/device port-forward hint so a future
+    // lint/refactor that drops or mangles it fails loudly here instead of
+    // shipping a banner that leaves host users unable to diagnose why the
+    // printed 127.0.0.1 URL is unreachable from outside the emulator.
+    test('banner shows adb forward hint with the actual bound port', () async {
+      final printed = <String>[];
+      await runZoned(
+        () async {
+          await DriftDebugServer.start(
+            query: (_) async => <Map<String, dynamic>>[],
+            enabled: true,
+            port: 0,
+          );
+        },
+        zoneSpecification: ZoneSpecification(
+          print: (self, parent, zone, line) => printed.add(line),
+        ),
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final banner = printed.join('\n');
+      // Caveat line: tells the host user the 127.0.0.1 URL lives in the
+      // device's namespace and must be forwarded first.
+      expect(
+        banner,
+        contains('On emulator/device, forward to the host first:'),
+      );
+      // The command must carry the REAL bound port on both sides — an
+      // ephemeral port here proves the value is interpolated, not hardcoded.
+      expect(banner, contains('adb forward tcp:$port tcp:$port'));
     });
   });
 }

@@ -48,6 +48,7 @@ Every connection between these components has broken, repeatedly, in different w
 
 | Fix | Component |
 |-----|-----------|
+| **Dart server: startup banner now prints the `adb forward` command** — The banner already showed `http://127.0.0.1:<port>`, but on an Android emulator or physical device that URL lives in the device's network namespace and is unreachable from a host browser/viewer until the port is forwarded. With no on-screen guidance, "server started" (banner visible after the v1.4.1/v1.7.0/086152f print() fixes) plus "viewer offline" looked contradictory — the exact failure this doc's "Active Regression" section warned about ("Combined with the need for `adb forward` on emulators, this creates a perfect storm"). The banner now prints `adb forward tcp:<port> tcp:<port>` with the ACTUAL bound port directly below the URL. Also fixed a latent bug where the banner printed the *requested* port (`:0` for ephemeral binds) instead of `server.port`. A new guard test (`drift_debug_server_test.dart`) captures the banner via a print-intercepting Zone and pins both the hint line and the port-accurate command, so the next `avoid_print`-style lint sweep that mangles the banner fails loudly instead of silently shipping. | Dart server |
 | **VS Code: "Browse all tables" link in Schema Search did nothing** — Periodic server-discovery updates fired `connectionState` messages to the webview, which called `doSearch()` when the query box was empty, replacing browse results with the idle placeholder. Added a `browseActive` flag in the webview script that prevents `applyConnectionState` from calling `doSearch()` while browse-all results are displayed. The flag is cleared on user input, scope/type filter changes, errors, and disconnect. | Extension |
 | **VS Code: phased activation — "command not found" can no longer kill the extension** — The entire `activate()` function was a ~270-line monolith with zero error isolation. A single throw anywhere caused VS Code to dispose ALL registered commands, while tree views (UI elements) survived — making the sidebar look normal while every button gave "command not found". This was silently breaking the extension for users. Activation is now split into 11 isolated phases (bootstrap → about-commands → schema-cache → providers → intelligence → diagnostics → editing → status-bars → commands → event-wiring), each wrapped in a `runPhase()` utility. On failure: error toast shown, stack trace logged to Output channel, later phases continue. The outer `activate()` never re-throws. 8 resilience tests verify that any phase can crash without killing commands from surviving phases. | Extension |
 | **VS Code: activation milestone logging** — Every phase logs its start and completion (or failure) to the Output channel with timestamps. The activation summary line shows "N/M phases succeeded". This makes it trivial to diagnose what broke when a user reports "commands not found" — just check Output → Saropa Drift Advisor for the phase that failed. | Extension |
@@ -400,3 +401,35 @@ None of them cover the full picture. This document is the first attempt to do so
 - **5 entries** for polling / long-poll / change detection
 - **4 entries** for MIME type / asset resolution
 - Connection fixes appear in **every single minor release** from 1.1.0 onward
+
+---
+
+## Finish Report (2026-06-05)
+
+**Trigger.** User reported, with a screenshot of the VS Code Database panel showing "Offline — cached schema http://127.0.0.1:…": *"unable to connect to live database and no way to diagnose. both are problems!"* The host app was a running instance of Saropa Contacts.
+
+**Diagnosis (evidence-backed, not inferred).**
+- Probed the Windows host: `Test-NetConnection 127.0.0.1:8642` → False; no `dart` process held any listening port. The viewer's target port was closed on the host.
+- The contacts app was running on `emulator-5554` (Android emulator), foreground activity `com.saropamobile.app`, target `D:\src\contacts\lib\main.dart` (confirmed via `Win32_Process` command line of the `flutter run` invocation). My initial "running as Flutter web → stub" theory was checked and discarded — the `./lib/...:L:C Symbol` log format is the contacts app's own logger, not a platform signal.
+- Inside the emulator: `/proc/net/tcp[6]` had no `21C2` (8642) listener while 2 other listeners existed — so the server was genuinely not bound, not just unreachable.
+- Read the emulator's `saropa_contacts.db` via `adb exec-out run-as`: the `user_env_overrides` table was empty → `EnvType.DriftAdvisorEnabled` was at its default `false`. The contacts gate (`main.dart:467-469`) therefore skipped `startDriftViewer` entirely.
+- Net: two stacked causes — (1) the advisor was never started (override off), and (2) even once started, the emulator-internal bind is unreachable from the host without `adb forward`.
+
+**Actions taken.**
+- Set `adb forward tcp:8642 tcp:8642` on the host (reversible, dev-machine only) so the path is ready once the server binds.
+- (A) Added an emulator/device port-forward hint to the server startup banner: a static caveat line plus the exact `adb forward tcp:<port> tcp:<port>` command, printed below the URL. This closes the advisor-side diagnostic gap for every consumer — the banner was previously the only on-screen signal and gave no hint that host access needs forwarding.
+- Fixed a latent banner bug surfaced by the new guard test: the banner printed the *requested* `port` (`:0` for ephemeral binds) instead of the actual `server.port`. Both the URL and the new forward command now use the bound port.
+
+**Scope.** (A) Dart package code + (C) docs. The contacts-side fix (B) — a diagnostic `else` in `main.dart` logging *which* gate condition failed — was proposed but NOT done; it edits another project (`D:\src\contacts`) and the user authorized only (A).
+
+**Files changed.**
+- `lib/src/drift_debug_server_io.dart` — banner builds `hint` + `forwardCmd` lines; introduced `boundPort = server.port` used by both the URL and forward command.
+- `lib/src/server/server_constants.dart` — new `bannerEmulatorHint` constant (≤ 50 chars to fit the banner box).
+- `test/drift_debug_server_test.dart` — new "startup banner diagnostics" group; captures the banner via a print-intercepting `Zone` and asserts the hint line + the port-accurate `adb forward` command (ephemeral port proves interpolation).
+- `CHANGELOG.md` — `[Unreleased]` Improved + Fixed entries.
+- `plans/connection-reliability-ongoing.md` — `[Unreleased]` table row + this report.
+- `lib/src/server/server_types.dart` — formatter-only whitespace (pre-commit `dart format` hook), unrelated to logic.
+
+**Verification.** `dart analyze lib test` → No issues found. `dart test` → all 548 pass (including the new banner guard). Banner alignment verified by rendering for the default port (8642) and a 5-digit port (65535); both fit the 50-wide box.
+
+**Not done / outstanding.** (B) contacts-side silent-skip diagnostic — awaiting user permission (cross-project). On-device confirmation that enabling the override + hot restart brings the viewer live is the user's manual step (the forward is already in place).
