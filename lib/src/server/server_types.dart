@@ -94,8 +94,7 @@ extension type SqlRequestBody._(
     Map<String, dynamic>? dvrNamedArgs,
   })
   _fields
-)
-    implements Object {
+) implements Object {
   /// Public ctor: preserves the original positional `sql`-only form used by
   /// callers and tests. `isInternal` defaults to false — set it only for
   /// extension-owned diagnostic probes.

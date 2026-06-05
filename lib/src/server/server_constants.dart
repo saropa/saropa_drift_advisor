@@ -275,6 +275,17 @@ abstract final class ServerConstants {
       '╰──────────────────────────────────────────────────╯';
   static const String bannerDescription =
       'Open in browser to view your database:';
+
+  /// Banner caveat shown above the host port-forward command. The server
+  /// binds inside whatever network namespace the host app runs in; on an
+  /// Android emulator or a physical device that is NOT the dev machine's
+  /// loopback, so a viewer/browser on the host cannot reach the printed
+  /// http://127.0.0.1 URL until the port is forwarded. Stating this in the
+  /// banner is the only diagnostic the user sees — without it, "server
+  /// started" + "viewer offline" look contradictory. Kept ≤ 50 chars so
+  /// _bannerCentered pads (longer text yields a broken, unpadded box line).
+  static const String bannerEmulatorHint =
+      'On emulator/device, forward to the host first:';
   static const String jsonKeyCounts = 'counts';
   static const String jsonKeyType = 'type';
   static const String jsonKeyPk = 'pk';
