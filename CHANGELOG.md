@@ -36,7 +36,7 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [3.6.0]
 
 ### Improved
 
@@ -45,8 +45,6 @@ browse source on
 ### Fixed
 
 - **Startup banner showed the requested port, not the bound port** — when the server was started with `port: 0` (let the OS pick an ephemeral port), the banner printed `http://127.0.0.1:0`; it now prints the actual OS-assigned port so the URL and the new `adb forward` command are copy-pasteable. The default fixed port (8642) was unaffected (`lib/src/drift_debug_server_io.dart`)
-
-## [3.5.1]
 
 ### Added
 
