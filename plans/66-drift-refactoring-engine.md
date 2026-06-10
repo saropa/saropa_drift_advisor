@@ -1,6 +1,6 @@
 # Feature 66: Drift Refactoring Engine
 
-**Status: CLOSED** (2026-04-30). Phases **1–3** delivered under `extension/src/refactoring/` plus health integration. Follow-on work is tracked only in [59-ai-schema-reviewer.md](./59-ai-schema-reviewer.md), [69-refactoring-extract-common-column-groups.md](./69-refactoring-extract-common-column-groups.md), and [70-health-score-refactoring-session-scoring.md](./70-health-score-refactoring-session-scoring.md).
+**Status: CLOSED** (2026-04-30). Phases **1–3** delivered under `extension/src/refactoring/` plus health integration. Follow-on work is tracked only in [59-ai-schema-reviewer.md](./59-ai-schema-reviewer.md), [69-refactoring-extract-common-column-groups.md (shipped, archived)](./history/2026.06/2026.06.10/69-refactoring-extract-common-column-groups.md), and [70-health-score-refactoring-session-scoring.md](./70-health-score-refactoring-session-scoring.md).
 
 Full specification (including historical execution checklists), architecture, and integration tables:
 
@@ -18,4 +18,4 @@ Delivered as phases 1–3 under `extension/src/refactoring/`; historical executi
 - **Phase 2 — Plan + migration preview.** Plan builder produces multi-step migrations with destructive/compatibility flags; webview preview. Gate met: plans render, SQL shape asserted by tests.
 - **Phase 3 — Health integration.** `mergeRefactoringAdvisorIntoMetrics` appends advisor narrative to Schema Quality details. Gate met: session details surface in Health Score panel.
 
-**Deferred (each owns its own plan):** LLM-assisted findings → [59](./59-ai-schema-reviewer.md); `extract` detection → [69](./69-refactoring-extract-common-column-groups.md); numeric health scoring of the session → [70](./70-health-score-refactoring-session-scoring.md).
+**Deferred (each owns its own plan):** LLM-assisted findings → [59](./59-ai-schema-reviewer.md); `extract` detection → **shipped** [69 (archived)](./history/2026.06/2026.06.10/69-refactoring-extract-common-column-groups.md); numeric health scoring of the session → [70](./70-health-score-refactoring-session-scoring.md).
