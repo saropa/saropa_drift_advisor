@@ -740,3 +740,29 @@ if (changes.deletes.length > 10) {
 - Schema changes between branch creation and restore will cause errors
 - No branch protection (e.g., "don't delete main backup")
 - Storage grows linearly with branch count × table size — no deduplication
+
+---
+
+## Implementation Plan
+
+Build the read-only path (capture → diff → merge SQL) fully before the destructive restore path, so the feature is useful and shippable even on read-only servers where restore is unavailable. Each phase ends at a verifiable gate. Files/tests referenced are defined in **New Files** and **Testing** above.
+
+### Phase 1 — Branch capture + persistence
+- Implement `branch-types.ts` and `BranchManager` (`branching/branch-manager.ts`): `createBranch` snapshots every non-`sqlite_` table via `SELECT *`, resolves PK column, persists to workspace state; plus `deleteBranch` / `getBranch`. Honor `maxBranches` / `maxRowsPerTable`.
+- **Gate:** create → list → delete round-trips through workspace state; row/table counts in `metadata` match the live DB.
+
+### Phase 2 — Diff engine (pure logic)
+- Implement `branch-diff.ts`: PK-keyed `_diffRows` producing inserts/updates/deletes, plus `diffBranchVsCurrent` and `diffBranchVsBranch` (including tables present in only one branch).
+- **Gate:** `branch-diff.test.ts` green — no-change zeros, insert/update/delete-only, mixed, cross-branch with one-sided tables, PK matching.
+
+### Phase 3 — Merge SQL generator (pure logic)
+- Implement `branch-merge-sql.ts`: forward and rollback generation, with deletes ordered child-before-parent using `DependencySorter` (from 20a) for FK safety. Reuse `sqlLiteral` escaping.
+- **Gate:** `branch-merge-sql.test.ts` green — forward INSERT/UPDATE/DELETE, rollback reversal, NULL/quote escaping, FK delete order, empty-diff → comments only.
+
+### Phase 4 — Server restore endpoint (Dart, writeQuery-gated)
+- Implement `branch_handler.dart` `POST /api/branch/restore` (returns 501 when `writeQuery` is null) and `branch_store.dart`; add `branchRestore` to `api-client.ts`. Clear tables in FK order (`data-reset.ts`) before re-inserting.
+- **Gate:** restore replaces table state on a write-enabled server; read-only server returns 501 and the extension degrades to diff/merge-SQL only.
+
+### Phase 5 — Branch panel + wiring + safety hooks
+- Build `branch-panel.ts` + `branch-html.ts` (list, diff view, merge-SQL-to-editor); register the six commands and `view/title` entry; wire "Create Backup First" into restore and the pre-destructive-edit branch prompt consumed by Bulk Edit ([47](./47-bulk-edit-grid.md)).
+- **Gate:** full UX path works — create, diff vs now, generate merge SQL into an editor tab, restore-with-backup, delete-with-confirm.

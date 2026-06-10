@@ -359,3 +359,29 @@ commands.registerCommand('driftViewer.branchFromSnapshot', async (snapshotId) =>
 - Removed rows shown at the bottom with strikethrough — no positional stability
 - No interpolation between snapshots — data jumps discretely
 - Playback doesn't capture new snapshots — it only replays existing ones
+
+---
+
+## Implementation Plan
+
+Build bottom-up so the diff logic is proven before any UI consumes it. Each phase ends at a verifiable gate; do not start phase N+1 until phase N's gate is green. Files and test cases referenced below are defined in **New Files**, **Architecture**, and **Testing** above — this is the order to build them, not a restatement.
+
+### Phase 1 — Expose snapshot data
+- Extend `timeline/timeline-provider.ts` to surface per-table row snapshots (`ITimelineSnapshot` / `ITableSnapshot`) for read by the engine. The provider already captures on generation change; this only adds an accessor, no new capture path.
+- **Gate:** the provider returns ordered snapshots with per-table rows + columns for a table that changed across two generations.
+
+### Phase 2 — Time-travel engine (pure logic, no VS Code dependency)
+- Implement `time-travel-engine.ts`: `getSnapshotCount()`, `getStateAt(table, index)`, and `_diffRows` (PK = first column; added/removed/changed/unchanged classification, `diffSummary` counts).
+- **Gate:** `time-travel-engine.test.ts` green for all listed cases — first-snapshot-all-added, add/remove/change classification, multi-column change, bounds checks.
+
+### Phase 3 — Webview panel + playback
+- Build `time-travel-panel.ts` + `time-travel-html.ts`: slider bound to snapshot index, diff-colored cells (green added / red removed / yellow changed), and the play/pause controller driving `seekTo` messages.
+- **Gate:** dragging the slider re-renders the table at each snapshot with correct cell highlighting; play auto-advances and stops at the last snapshot.
+
+### Phase 4 — Command wiring + discovery
+- Register `driftViewer.timeTravel`, the `view/item/context` entry on table items, and the playback-speed config; wire in `extension.ts`.
+- **Gate:** "Time Travel" appears on a table's context menu and opens the panel for that table; speed config takes effect.
+
+### Phase 5 — Cross-feature hooks (optional, gated on other features)
+- Wire "Create Branch Here" (needs [37](./37-data-branching.md)) and DVR sync (needs [26](./26-query-replay-dvr.md)). Each is additive and behind a capability check; ship phases 1–4 without them.
+- **Gate:** when 37/26 are present, the actions appear; when absent, they are hidden, not broken.

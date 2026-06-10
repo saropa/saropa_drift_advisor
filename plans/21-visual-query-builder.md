@@ -480,3 +480,32 @@ The Visual Builder benefits from Query Intelligence:
 - Join lines may overlap visually with many tables — no advanced auto-routing
 - No column type validation in filters (user can compare TEXT with integer literal)
 - Maximum ~10 tables on canvas before it becomes unwieldy
+
+---
+
+## Implementation Plan
+
+Web v1 already landed (single + multi-table builder, SQL render/validate) — see **Product direction** above. The remaining work closes the gap to the extension model and removes the hand-synced duplication. The canonical surface is the **website**; the extension webview is secondary. Each phase ends at a verifiable gate. Files/tests referenced are defined in **New Files**, **Architecture**, and **Testing** above.
+
+### Phase 0 — Landed (web v1)
+- `query-builder.ts` (Single | Multi), `query-builder-multi.ts` (multi model + UI), `query-builder-sql.ts` (validate/render aligned to the extension renderer). **Status: done; baseline for the phases below.**
+
+### Phase 1 — Single source of truth for model + SQL render
+- Collapse the duplicated TS: extract `query-model.ts` + `sql-renderer.ts` into one module consumed by both the web bundle and the extension webview (shared package or compile-for-web), with `validateQueryModel` enforcing all listed rules (≥1 table, unique aliases, no orphan refs, GROUP BY correctness, finite limit, no mirrored joins).
+- **Gate:** `sql-renderer.test.ts` green for every listed case (single, self-join, two-table join, scalar/null/IN filters, GROUP BY + aggregates, ORDER BY + LIMIT, empty-model rejection, escaping, duplicate-join rejection); web and extension import the same compiled module.
+
+### Phase 2 — Web parity: joins, GROUP BY, multiple ORDER BY
+- Extend `query-builder-multi.ts` and callers to add FK-hinted joins (from `/api/schema/metadata` + `tableFkMeta`), GROUP BY with per-column aggregation pickers, and multiple ORDER BY clauses; keep live SQL preview + `POST /api/sql` with request-ID staleness guarding.
+- **Gate:** a multi-table query with a join, GROUP BY, an aggregate, and two ORDER BY clauses builds visually, previews correct SQL, and runs; stale results from a prior run are dropped.
+
+### Phase 3 — SQL → visual graph import (web)
+- Port or share the `sql-import` rules so a pasted `SELECT` reconstructs the visual model in the browser (the main open item vs the extension).
+- **Gate:** pasting a representative join+filter+GROUP BY SELECT reproduces the equivalent visual model and re-renders identical SQL.
+
+### Phase 4 — Extension webview (optional, command-driven)
+- Host the shared model in `query-builder-panel.ts` + `query-builder-html.ts` for IDE-only flows (NL-SQL "Edit Visually", import SQL). No tree/sidebar discovery — palette/automation commands only, per **Product direction**.
+- **Gate:** `query-builder-panel.test.ts` green (request correlation drops stale results, capability flags hide unavailable integrations, remove-table cascades cleanup); NL-SQL handoff opens the builder with the generated SQL.
+
+### Phase 5 — Integration actions (capability-gated)
+- Wire "Open in Notebook", "Save as Snippet", "Add to Dashboard", "Analyze Cost", and `recordQuery`, each behind a capability flag with the documented failure behavior (toast + `integrationError`, state preserved).
+- **Gate:** each action invokes its target when present and is hidden/disabled when absent; failures never discard builder state.

@@ -30,3 +30,21 @@ Track **deterministic** refactoring detection for the `extract` suggestion type 
 
 - At least one golden fixture produces a stable `extract` suggestion with evidence strings.
 - No regression to existing normalize / split / merge tests.
+
+---
+
+## Implementation Plan
+
+Slots into the shipped Refactoring Engine ([66](66-drift-refactoring-engine.md)) as the `extract` suggestion type — no new panel, no new persistence contract. Deterministic only; LLM detection stays in [59](59-ai-schema-reviewer.md). Each phase ends at a verifiable gate.
+
+### Phase 1 — Co-occurrence analyzer
+- Extend `refactoring-analyzer.ts`: build per-table column-name sets, find cross-table intersections weighted by type compatibility, require a minimum table count, and recognize name-prefix families (`addr_*`, `created_at`/`updated_at`/`deleted_at` audit triplets, soft-delete bundles). Emit `IRefactoringSuggestion` with `type: 'extract'` and human-verifiable evidence strings.
+- **Gate:** a fixture with duplicated audit/address columns yields a stable `extract` suggestion with evidence; below-threshold co-occurrence yields none.
+
+### Phase 2 — Extract plan builder
+- Extend `refactoring-plan-builder.ts`: steps to create the shared table, backfill FKs, and drop redundant columns, each carrying destructive / compatibility flags — advisory only, no automatic schema writes.
+- **Gate:** generated plan has the correct step order and SQL shape, with destructive steps flagged; asserted by tests.
+
+### Phase 3 — Golden fixtures + regression guard
+- Add golden-fixture tests for the analyzer and plan builder; confirm confidence bounds and SQL shape.
+- **Gate:** at least one golden fixture produces a stable `extract` suggestion; existing normalize / split / merge tests still pass.

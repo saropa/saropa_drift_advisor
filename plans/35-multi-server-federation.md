@@ -532,3 +532,29 @@ The Dashboard Builder (Feature 36) gains federation-aware widgets:
 - Metadata refresh polls all servers — may be slow with many servers
 - No "primary server" concept — all servers are peers
 - Synchronized watch creates N watchers × M servers — can be expensive
+
+---
+
+## Implementation Plan
+
+Pure extension feature, opt-in (`federation.enabled: false`). Build the client pool and its logic first, then the surfaces that read it. Each phase ends at a verifiable gate. Files/tests referenced are defined in **New Files** and **Testing** above.
+
+### Phase 1 — Federation manager (client pool)
+- Implement `federation-manager.ts`: one `DriftApiClient` per discovered server, `_addServer` / `_markDisconnected` driven by `ServerDiscovery` events, `refreshMetadata`, and the `servers` / `connectedServers` accessors.
+- **Gate:** `federation-manager.test.ts` green for pool add on discovery, mark-disconnected on loss, metadata refresh, connected-list filtering.
+
+### Phase 2 — Cross-server query logic
+- Implement `runQueryAcross` (parallel `Promise.all`, per-server error isolation, duration capture) returning `ICrossQueryResult` per server.
+- **Gate:** `federation-manager.test.ts` green — query runs on all selected servers in parallel, one server's error doesn't block others.
+
+### Phase 3 — Schema comparison logic
+- Implement `compareSchemas` producing shared / only-A / only-B table sets via `_compareTables`.
+- **Gate:** comparison correctly classifies shared and one-sided tables and reports row counts.
+
+### Phase 4 — Tree provider + panels
+- Build `federation-tree-provider.ts` (server → table → column grouping with status icons), `cross-query-panel.ts` + html (side-by-side results, error cells), and `schema-compare-panel.ts` + html.
+- **Gate:** `cross-query-panel.test.ts` green; tree shows grouped servers with connected/disconnected icons; cross-query results render side-by-side, error servers show the error not a table.
+
+### Phase 5 — Commands, config, wiring (gated)
+- Register `crossServerQuery`, `compareServerSchemas`, `labelServer`; add `federation.enabled` / `refreshIntervalMs` config; wire everything in `extension.ts` behind the enabled flag, with the "need ≥2 connected servers" guards.
+- **Gate:** with the flag off, nothing changes from single-server behavior; with it on and 2+ servers, cross-query and compare work and labels persist to workspace state.
