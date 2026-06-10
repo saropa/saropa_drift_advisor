@@ -492,3 +492,30 @@ None of them cover the full picture. This document is the first attempt to do so
 **Outstanding (this phase).** None. Phases 2–5 of the Implementation Plan remain (lifecycle test, circuit breaker, unified webview handshake, server→extension push) and are tracked above. Surfaces beyond the tree/tools (Schema Search webview) still read connection state through their own message protocol; routing them onto `ConnectionStateMachine.onDidChange` is follow-on work, not part of Phase 1's gate.
 
 **Finish report appended:** plans/connection-reliability-ongoing.md (this section). Plan stays active — Phase 1 of 5 complete, document remains the tracker for Phases 2–5.
+
+---
+
+## Finish Report (2026-06-10) — Implementation Plan Phase 2
+
+**This work will be reviewed by another AI.**
+
+**Trigger.** Same top-5 build directive; Item 2 is Phase 2 of this document's Implementation Plan — the end-to-end connection lifecycle test (fixes gap 2, "No connection integration tests" / no full-lifecycle coverage).
+
+**Scope.** (B) VS Code extension, test-only. No production code changed.
+
+**What changed.**
+- **New `extension/src/test/connection-lifecycle.test.ts`** — wires the REAL chain (`DriftApiClient` + `ServerDiscovery` + `ServerManager` + `DriftTreeProvider` + `ConnectionStateMachine`, plus the mock command registry) against a `fetch`-stubbed HTTP server. A `LifecycleHarness` mirrors production wiring: the tree's `isDriftUiConnected` callback and the connection refresh both read the SAME machine, and the tree's `postRefreshHook` re-runs the refresh (promoting `connecting → connected` on schema load), exactly as activation wires it.
+- **Happy-path case** walks all six links: wiring (disconnected banner) → discovery fires → server auto-selected (`activeServer` set, phase `connecting`) → a registered `driftViewer.refreshTree` command loads schema → phase `connected` → root children contain the status row + both table rows. Cross-checks the `serverConnected` context agrees.
+- **Three negative cases** break one link each and assert the end state is NOT reached: (a) discovery never fires → phase stays `disconnected`, no tables; (b) schema fetch rejects → phase `connecting` not `connected`, REST-failure banner, zero table rows; (c) refresh command unregistered → `executeRegistered` returns `undefined`, schema never loads, zero table rows.
+
+**Why this shape.** The document's recurring failure is "a single link broke silently and shipped." A happy-path-only test would not catch that; each negative case is a guard that fails loudly if that specific link regresses. The break-tree-load case also pins the Phase 1 invariant end-to-end — transport-up-without-schema resolves to `connecting`, never a false `connected`.
+
+**Testing.**
+- Audited: no existing test pins the new file's symbols (new harness). The fetch-stub approach matches `drift-tree-provider.test.ts` conventions.
+- Command run: `npm run compile` (clean), targeted run of the 4 lifecycle cases (all pass), then `npm test` → **2632 passing** (was 2628; +4).
+
+**Constraint compliance.** Pure test addition; no workaround touched, no production behavior changed.
+
+**Outstanding (this phase).** None. The test is headless and runs in the existing mocha suite. It does NOT exercise the VM Service transport path or the browser long-poll path (out of scope for this gate, which targets the HTTP discovery → tree → command chain); extending it to the VM path is reasonable follow-on but not required by Phase 2. Phases 3–5 (circuit breaker, unified webview handshake, server→extension push) remain.
+
+**Finish report appended:** plans/connection-reliability-ongoing.md (this section). Plan stays active — Phases 1–2 of 5 complete.
