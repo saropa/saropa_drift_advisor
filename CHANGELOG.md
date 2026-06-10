@@ -37,6 +37,17 @@ browse source on
 ---
 
 
+## [Unreleased]
+
+<details>
+<summary>Maintenance</summary>
+
+- **Archive the website-vs-extension gap analysis; split remaining work into per-feature plans** — the parity sweep is complete (all high-impact and quick-win gaps closed on both surfaces), so `plans/GAP_FIT_PLAN.md` moved to `plans/history/2026.06/2026.06.10/` with a short stub left in place. The handful of still-open rows were lifted into standalone, individually trackable plans rather than buried in the archived tables: `71-website-dart-schema-scanning.md` (§5), `72-website-multiple-snapshots.md` (§8), `73-website-bulk-index-creation.md` (§11), and `74-ide-only-capabilities.md` — which reclassifies go-to-definition, code actions, and data breakpoints as intentionally IDE-only rather than unresolved parity gaps. The doc-maintenance backlog (evidence coverage, classification cleanup, parity release gate) retires with the archive.
+
+</details>
+
+---
+
 ## [3.6.1]
 
 ### Added
