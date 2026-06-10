@@ -1,5 +1,7 @@
 # Feature 22: Real-time Mutation Stream
 
+**Status: SHIPPED.** This feature is fully implemented and wired — the forward "Implementation Plan" lower in this doc is an **as-built** record, not pending work. Server: `lib/src/server/mutation_tracker.dart` (ring-buffer capture from the `writeQuery` callback, long-poll idle path) + `lib/src/server/mutation_handler.dart` (`GET /api/mutations`) routed in `lib/src/server/router.dart`. Extension: `extension/src/mutation-stream/` (panel, polling, filtering, view-row, webview assets) + `mutations()` on `api-client.ts` + the `driftViewer.openMutationStream` command (palette, `view/title`, and the Drift Tools status-bar menu). Tests: `test/mutation_tracker_test.dart` (Dart) and `extension/src/test/mutation-stream-filtering.test.ts` both pass.
+
 ## What It Does
 
 A live scrolling feed of every INSERT, UPDATE, and DELETE happening in the database, as they happen. Filterable by table, operation type, and column. Each event links back to the affected row in the table viewer. It's `tail -f` for your database.
@@ -340,7 +342,9 @@ context.subscriptions.push(
 
 ---
 
-## Implementation Plan
+## Implementation Plan (as built)
+
+**This describes the shipped feature, not pending work** (see the Status header at the top). The phases below were the build order; all are complete. Where the shipped code diverged from the original sketch, it generalized it — the tracker exposes `captureFromWriteQuery` returning `MutationRowSnapshots` (reused by DVR/diagnostics), and the extension stream was modularized across `mutation-stream-{panel,polling,filtering,html,view-row,webview-assets}.ts` to stay under the line cap.
 
 Build server-first: the capture path must exist and be proven before the extension has anything to poll. Each phase ends at a verifiable gate; do not start phase N+1 until phase N's gate is green. Files/tests referenced are defined in **New Files** and **Testing** above.
 
