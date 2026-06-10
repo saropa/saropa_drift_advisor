@@ -48,6 +48,7 @@ final class ServerContext {
     this.mutationTracker,
     this.queryRecorder,
     this.changeDetectionMinInterval,
+    this.declaredTableNames,
   }) : queryRaw = query,
        _queryExec =
            queryWithBindings ??
@@ -136,6 +137,18 @@ final class ServerContext {
 
   /// Optional Query Replay DVR recorder for timeline playback.
   final QueryRecorder? queryRecorder;
+
+  /// Names of the tables the app's Drift schema declares
+  /// (Drift `GeneratedDatabase.allTables` → `actualTableName`).
+  ///
+  /// Used only by the orphan physical-table check
+  /// ([OrphanTableDetector.getOrphanTablesResult]): physical tables not in
+  /// this set (and not internal) are flagged as orphans. Null when the host
+  /// did not supply it (the callback API, or a Drift db that does not expose
+  /// `allTables`) — in that case the orphan check is report-only and yields
+  /// no findings, since the advisor cannot otherwise tell an orphan from a
+  /// legitimate table.
+  final Set<String>? declaredTableNames;
 
   /// In-memory snapshot: id, createdAt, and full table
   /// data per table.

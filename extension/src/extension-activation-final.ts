@@ -273,7 +273,10 @@ export function setupFinalPhases(
         d.diagnostics?.diagnosticManager.refresh().catch(() => {});
         d.providers.refreshBadges().catch(() => {});
         if (vscode.workspace.getConfiguration('driftViewer').get<boolean>('timeline.autoCapture', true)) {
-          d.providers.snapshotStore.capture(d.cachedClient).catch(() => {});
+          // Trailing-edge debounce: a write burst coalesces into one re-dump
+          // after a quiet period instead of one full physical-table re-scan per
+          // generation bump (see SnapshotStore.requestCapture).
+          d.providers.snapshotStore.requestCapture(d.cachedClient);
         }
         d.providers.watchManager.refresh().catch(() => {});
         if (DashboardPanel.currentPanel) {

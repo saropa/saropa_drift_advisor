@@ -47,6 +47,7 @@ mixin DriftDebugServer {
     void Function(Object error, StackTrace stack)? onError,
     Duration? sessionDuration,
     int? maxRequestsPerSecond,
+    Set<String>? declaredTableNames,
   }) {
     throw UnsupportedError(_kUnsupportedMessage);
   }

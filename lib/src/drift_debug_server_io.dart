@@ -77,6 +77,13 @@ class _DriftDebugServerImpl {
   ///   requests exceeding this limit receive HTTP 429 (Too Many Requests)
   ///   with a `Retry-After: 1` header. The `/api/generation` (long-poll)
   ///   and `/api/health` endpoints are exempt. Defaults to null (no limit).
+  /// * [declaredTableNames] — Optional set of table names the app's Drift
+  ///   schema declares (Drift `GeneratedDatabase.allTables` →
+  ///   `actualTableName`). When supplied, the orphan physical-table check
+  ///   (`GET /api/analytics/orphan-tables`, merged into `GET /api/issues`)
+  ///   flags physical tables absent from this set. When null, that check is
+  ///   report-only and emits no findings. The `startDriftViewer` extension
+  ///   derives this automatically from a Drift database.
   ///
   /// Throws [ArgumentError] for invalid port or partial Basic auth.
   ///
@@ -111,6 +118,7 @@ class _DriftDebugServerImpl {
     DriftDebugOnError? onError,
     Duration? sessionDuration,
     int? maxRequestsPerSecond,
+    Set<String>? declaredTableNames,
   }) async {
     if (!enabled) {
       return;
@@ -228,6 +236,7 @@ class _DriftDebugServerImpl {
       mutationTracker: mutationTracker,
       queryRecorder: queryRecorder,
       changeDetectionMinInterval: ServerConstants.changeDetectionMinInterval,
+      declaredTableNames: declaredTableNames,
     );
 
     if (baseWrite != null) {
@@ -426,6 +435,14 @@ mixin DriftDebugServer {
     /// requests exceeding this limit receive HTTP 429. The long-poll
     /// `/api/generation` and `/api/health` endpoints are exempt.
     int? maxRequestsPerSecond,
+
+    /// Optional set of table names the app's Drift schema declares
+    /// (Drift `GeneratedDatabase.allTables` → `actualTableName`). Enables the
+    /// orphan physical-table check: physical tables absent from this set are
+    /// flagged via `GET /api/analytics/orphan-tables` and `GET /api/issues`.
+    /// When null, that check is report-only and emits no findings. The
+    /// `startDriftViewer` extension derives this automatically.
+    Set<String>? declaredTableNames,
   }) => _instance.start(
     query: query,
     queryWithBindings: queryWithBindings,
@@ -444,6 +461,7 @@ mixin DriftDebugServer {
     onError: onError,
     sessionDuration: sessionDuration,
     maxRequestsPerSecond: maxRequestsPerSecond,
+    declaredTableNames: declaredTableNames,
   );
 
   /// The port the server is bound to, or null if not running.
