@@ -463,3 +463,32 @@ None of them cover the full picture. This document is the first attempt to do so
 **Verification.** `dart analyze lib test` → No issues found. `dart test` → all 548 pass (including the new banner guard). Banner alignment verified by rendering for the default port (8642) and a 5-digit port (65535); both fit the 50-wide box.
 
 **Not done / outstanding.** (B) contacts-side silent-skip diagnostic — awaiting user permission (cross-project). On-device confirmation that enabling the override + hot restart brings the viewer live is the user's manual step (the forward is already in place).
+
+---
+
+## Finish Report (2026-06-10) — Implementation Plan Phase 1
+
+**This work will be reviewed by another AI.**
+
+**Trigger.** User directed: build the top-5 ranked items in order, running `/finish` after each. Item 1 is Phase 1 of this document's Implementation Plan — "single connection-state authority" (fixes gap 1 in *What Has NOT Been Fixed*).
+
+**Scope.** (B) VS Code extension (TypeScript) only. No Dart/Flutter app code, no user-facing copy.
+
+**What changed.**
+- **New `extension/src/connection-state.ts`** — the single authority. A pure model (`ConnectionSignals` = the four inputs httpServerSelected / vmServiceActive / schemaLoaded / offlineSchema; `computeConnectionPhase` → `disconnected | connecting | connected | offline`; `deriveConnectionContexts` → the two context flags) plus `ConnectionStateMachine`, the ONLY writer of `driftViewer.serverConnected` and `driftViewer.databaseTreeEmpty`. The machine re-pushes both flags on every `update()` (preserving the existing delayed-sync race workaround) but fires `onDidChange` only on a real phase transition.
+- **`connection-ui-state.ts`** — `isDriftUiConnected` and `buildConnectionPresentation` now derive "transport up" from `computeConnectionPhase`/`phaseHasTransport` (one definition, shared). `refreshDriftConnectionUi` gained an optional `stateMachine` target: when present it feeds the four signals and the machine pushes the contexts; when absent (focused unit tests) the legacy direct `setContext` path runs unchanged.
+- **`extension-activation-final.ts`** — creates the `ConnectionStateMachine`, registers it as a disposable, and passes it into the single `connectionUiRefresh.fn` funnel that every connection refresh already routes through.
+- **`tree/drift-tree-provider.ts`** — added a `hasLiveSchema` getter (`_connected && !_offlineSchema && tables>0`) as the `schemaLoaded` signal. The always-return-rows workaround and the hardcoded `databaseTreeEmpty=false` are unchanged (reliability constraint honored).
+
+**Why this is the fix, not another patch.** The history shows `serverConnected`, `databaseTreeEmpty`, and `isDriftUiConnected` were separate booleans set from different sites at different times. They are now all derived from one phase computed in one place; the two documented contradictions ("connected but no data", "disconnected but server running") are structurally unrepresentable and pinned by tests.
+
+**Testing.**
+- Audited existing tests referencing the touched symbols: `connection-ui-state.test.ts` (still green — uses the legacy no-machine path), `drift-tree-provider*.test.ts` and `drift-tree-provider-regression.test.ts` (pin `databaseTreeEmpty` — unchanged value), `extension.test.ts` disposable count (updated 209 → 210 for the added machine subscription, with a comment).
+- New `connection-state.test.ts`: enumerates all 16 signal combinations and asserts each invariant; drives the machine through the full disconnected → connecting → connected → offline → disconnected lifecycle; asserts single-writer context agreement, idempotent re-push on no-op update, and no event churn on no-op.
+- Command run: `npm run compile` (clean) and `npm test` → **2628 passing**.
+
+**Constraint compliance.** No existing workaround removed (Recurring Patterns §5 stack intact). The machine is wired into production (not dead code) as the single context writer via the existing refresh funnel.
+
+**Outstanding (this phase).** None. Phases 2–5 of the Implementation Plan remain (lifecycle test, circuit breaker, unified webview handshake, server→extension push) and are tracked above. Surfaces beyond the tree/tools (Schema Search webview) still read connection state through their own message protocol; routing them onto `ConnectionStateMachine.onDidChange` is follow-on work, not part of Phase 1's gate.
+
+**Finish report appended:** plans/connection-reliability-ongoing.md (this section). Plan stays active — Phase 1 of 5 complete, document remains the tracker for Phases 2–5.
