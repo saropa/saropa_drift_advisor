@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 
 import 'drift_debug_server.dart';
+import 'server/server_types.dart';
 
 /// Log name for startDriftViewer errors (used when duck-typing fails).
 const String _kStartViewerLogName = 'StartDriftViewer';
@@ -97,6 +98,104 @@ Set<String>? _deriveDeclaredTableNames(Object db) {
   }
 }
 
+/// Logs a debug-only diagnostic for the optional declared-schema derivation.
+/// Centralized so the catch blocks satisfy "no silent swallow" while staying
+/// quiet in release (the feature is optional and never breaks startup).
+void _logDeclaredSchemaSkip(Object error, StackTrace stack) {
+  if (!bool.fromEnvironment('dart.vm.product', defaultValue: false)) {
+    developer.log(
+      'startDriftViewer could not derive (part of) the declared schema; the '
+      'Code schema tab may be empty/partial. $error',
+      name: _kStartViewerLogName,
+      error: error,
+      stackTrace: stack,
+    );
+  }
+}
+
+/// Maps a duck-typed Drift `GeneratedColumn.type` (a `DriftSqlType` enum) to a
+/// SQLite storage type string for the declared-schema view. Best-effort: an
+/// unrecognized type falls back to TEXT. May throw if `column.type` is absent;
+/// the per-table catch in [_deriveDeclaredSchema] handles that.
+String _declaredSqlType(dynamic column) {
+  final String t = column.type.toString().toLowerCase();
+  if (t.contains('int') || t.contains('bool')) return 'INTEGER';
+  if (t.contains('double') || t.contains('real')) return 'REAL';
+  if (t.contains('blob') || t.contains('uint8')) return 'BLOB';
+  // string and dateTime (text/int storage) and anything else → TEXT.
+  return 'TEXT';
+}
+
+/// Reads the PK column names from a duck-typed Drift `TableInfo.$primaryKey`.
+DeclaredTable _declaredTableFrom(dynamic table, String name) {
+  final pkNames = <String>{};
+  final dynamic pkSet = table.$primaryKey;
+  if (pkSet is Iterable) {
+    for (final dynamic pc in pkSet) {
+      final dynamic pn = pc.name;
+      if (pn is String) pkNames.add(pn);
+    }
+  }
+
+  final declaredCols = <DeclaredColumn>[];
+  final dynamic cols = table.$columns;
+  if (cols is Iterable) {
+    for (final dynamic c in cols) {
+      final dynamic cn = c.name;
+      if (cn is! String || cn.isEmpty) continue;
+      final dynamic nullable = c.$nullable;
+      declaredCols.add(
+        DeclaredColumn(
+          name: cn,
+          sqlType: _declaredSqlType(c),
+          nullable: nullable is bool ? nullable : true,
+          isPk: pkNames.contains(cn),
+        ),
+      );
+    }
+  }
+  return DeclaredTable(name: name, columns: declaredCols);
+}
+
+/// Derives the code-declared schema (tables → columns/types/PK/nullable) by
+/// duck-typing a Drift `GeneratedDatabase`: `allTables` → each `TableInfo`'s
+/// `actualTableName`, `$columns` (each `GeneratedColumn` with `name`, `type`,
+/// `$nullable`), and `$primaryKey`.
+///
+/// Returns null when [db] is not a Drift `GeneratedDatabase` (drift_sqlite_async
+/// or a custom executor) or exposes none of these. Like
+/// [_deriveDeclaredTableNames], any failure is logged (debug-only) and never
+/// rethrown — the declared-schema tab is optional and must not break startup.
+/// Each table is derived independently so one malformed table cannot drop the
+/// rest.
+DeclaredSchema? _deriveDeclaredSchema(Object db) {
+  try {
+    final dynamic driftDb = db;
+    final dynamic tables = driftDb.allTables;
+    if (tables is! Iterable) {
+      return null;
+    }
+    final result = <DeclaredTable>[];
+    for (final dynamic table in tables) {
+      try {
+        final dynamic name = table.actualTableName;
+        if (name is! String || name.isEmpty) {
+          continue;
+        }
+        result.add(_declaredTableFrom(table, name));
+      } on Object catch (error, stack) {
+        // One malformed table (missing $columns/$primaryKey/type) is skipped;
+        // the remaining tables still produce a usable declared schema.
+        _logDeclaredSchemaSkip(error, stack);
+      }
+    }
+    return result.isEmpty ? null : result;
+  } on Object catch (error, stack) {
+    _logDeclaredSchemaSkip(error, stack);
+    return null;
+  }
+}
+
 /// Convenience API for Drift apps: `await myDb.startDriftViewer(...)`.
 ///
 /// This package intentionally does **not** depend on `drift`, so this extension is
@@ -141,6 +240,13 @@ extension StartDriftViewerExtension on Object {
       // check can flag tables present in the DB but absent from the schema.
       // Null (non-Drift db) leaves that check report-only.
       declaredTableNames: _deriveDeclaredTableNames(this),
+      // Derive the code-declared schema for the "Code schema" web tab. Captured
+      // once and returned by the callback; null (non-Drift db) leaves the tab
+      // empty. Best-effort — derivation failures never break startup.
+      declaredSchema: (() {
+        final schema = _deriveDeclaredSchema(this);
+        return schema == null ? null : () => schema;
+      })(),
       enabled: enabled,
       port: port,
       loopbackOnly: loopbackOnly,

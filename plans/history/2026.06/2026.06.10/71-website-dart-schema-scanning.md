@@ -91,8 +91,42 @@ without a running app instance.
 
 ## Tracking
 
-- Owner: TBD
-- Target: TBD
-- State: planned
+- Owner: shipped
+- Target: shipped 2026-06-10 (Option A)
+- State: complete
 - Evidence: extension reference parser `extension/src/schema-diff/dart-parser.ts`;
   callback precedent `lib/src/server/orphan_table_detector.dart`.
+
+---
+
+## Finish Report (2026-06-10) — Option A (Phases 1–3)
+
+**This work will be reviewed by another AI.**
+
+**Trigger.** Top-5 easiest-to-build directive, Item 5.
+
+**Scope.** (A) Dart package (`lib/`, `test/`) + web assets (`assets/web/`). Implemented **Option A** (host-provided declared-schema callback) as the plan recommended; Option B (porting the TS parser to Dart) was not built — it is only needed for scanning without a running app, which no consumer requires.
+
+**What changed.**
+- **`lib/src/server/server_types.dart`** (Phase 1) — new `DeclaredColumn`, `DeclaredTable`, `DeclaredSchema` (typedef), and `DeclaredSchemaCallback` (typedef).
+- **`lib/src/server/server_context.dart`** (Phase 1) — `declaredSchema` callback field/param, mirroring `declaredTableNames`.
+- **`lib/src/drift_debug_server_io.dart`** / **`drift_debug_server_stub.dart`** — `declaredSchema` threaded through both `start` declarations and the stub; passed to `ServerContext`.
+- **`lib/saropa_drift_advisor.dart`** — exports the four declared types (via `show`, keeping internal `Snapshot` private) so hosts can build a callback.
+- **`lib/src/start_drift_viewer_extension.dart`** — `_deriveDeclaredSchema` duck-types a Drift `GeneratedDatabase` (`allTables` → `actualTableName`, `$columns`/`name`/`type`/`$nullable`, `$primaryKey`) and is wired into `startDriftViewer`. Per-table try/catch (logged debug-only) so one malformed table can't drop the rest; non-Drift dbs yield null → tab stays empty. `_declaredSqlType` maps the `DriftSqlType` enum to a SQLite storage type.
+- **`lib/src/server/schema_handler.dart`** (Phase 2) — `sendDeclaredSchema`: serializes the callback result to `{available:true, tables:[{name, columns:[{name,sqlType,nullable,isPk}], indexes}]}`; `{available:false, tables:[]}` when no callback; 500 (logged) if the host callback throws.
+- **`lib/src/server/server_constants.dart`** — `pathApiSchemaDeclared` (+Alt) and `available`/`sqlType`/`nullable`/`isPk`/`indexes` keys (reused existing `name`/`columns`/`tables`).
+- **`lib/src/server/router.dart`** — `GET /api/schema/declared` in `_routeSchemaApi`, ahead of and independent of the change-detection-gated metadata routes (it issues no DB queries).
+- **`assets/web/declared-schema.ts`** (new, Phase 3) + `app.js` (import/init) + `state.ts` (`TOOL_LABELS.declared`) + `html_content.dart` (toolbar launcher `data-tool="declared"` + `panel-declared`). Renders a per-table collapsible column list; shows a clear "not available" note when the host supplied nothing. `bundle.js` rebuilt.
+- **`CHANGELOG.md`** — `[Unreleased]` Added entry.
+
+**Deviation from plan (intentional).** The plan said "new tab"; I implemented it as a **tool tab via the existing `data-tool` → `openTool` → `panel-*` system** (the same mechanism every other tool uses), which is the lowest-risk integration and avoids touching the dynamic tab-bar internals. The stretch goal (declared-vs-runtime divergence rendering) was **not** built — it's an additive enhancement on top of this endpoint and not required by the exit gate.
+
+**Testing.**
+- **New `test/declared_schema_test.dart`** — 3 cases: supplied callback serialized (columns/types/pk/nullable/indexes, default nullable), no-callback → `available:false`, throwing callback → 500.
+- `dart analyze` clean (`No issues found!`); `dart test` → **582 passing** (+3). `npm run typecheck:web` clean; bundle rebuilt. No existing web-contract test broke from the new tool/panel.
+
+**l10n.** SKIPPED [web-not-Flutter] — the web viewer is plain-English HTML outside the Flutter ARB catalog.
+
+**Outstanding.** None for Option A's exit gate (with a callback the tab lists code-declared tables/columns; without one the tab is empty, no errors). The auto-derive from Drift internals is best-effort duck-typing — if a future Drift version renames `$columns`/`$primaryKey`, derivation falls back to empty (logged), and the explicit `declaredSchema` callback remains exact. Stretch divergence view and Option B remain unbuilt by design.
+
+**Finish report appended:** plans/71-website-dart-schema-scanning.md (this section). Complete (Option A) → archived to plans/history/2026.06/2026.06.10/.

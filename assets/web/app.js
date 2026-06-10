@@ -41,6 +41,7 @@
     import { initDiagram } from './diagram.ts';
     import { initSnapshot, initCompare, initMigrationPreview } from './tools-compare.ts';
     import { initIndexSuggestions, initSizeAnalytics, initAnomalyDetection } from './tools-analytics.ts';
+    import { initDeclaredSchema } from './declared-schema.ts';
     import { initImport } from './tools-import.ts';
     import { initSearchTab } from './search-tab.ts';
     import { initSqlRunner } from './sql-runner.ts';
@@ -225,6 +226,7 @@
     initIndexSuggestions();
     initSizeAnalytics();
     initAnomalyDetection();
+    initDeclaredSchema();
     initImport();
     initSearchTab();
     initSqlRunner();

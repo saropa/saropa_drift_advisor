@@ -444,6 +444,16 @@ final class Router {
       return true;
     }
 
+    // GET /api/schema/declared — host-declared (code-side) Drift schema.
+    // Independent of change detection: it reads the in-memory callback, issues
+    // no DB queries, and is empty/available:false when no callback was supplied.
+    if (path == ServerConstants.pathApiSchemaDeclared ||
+        path == ServerConstants.pathApiSchemaDeclaredAlt) {
+      await _schema.sendDeclaredSchema(response);
+
+      return true;
+    }
+
     // GET /api/schema/metadata — when change detection off, return
     // empty tables to avoid PRAGMA table_info and COUNT(*) spam.
     if (path == ServerConstants.pathApiSchemaMetadata ||

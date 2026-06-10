@@ -33,6 +33,51 @@ class Snapshot {
       'Snapshot(id: $id, createdAt: $createdAt, tables: ${tables.length} tables)';
 }
 
+// --- Declared (code-side) schema (Feature 71) ---
+
+/// One column in a host-declared Drift schema (the schema as written in code,
+/// independent of the live SQLite file). Served by GET /api/schema/declared so
+/// the web viewer can show code-declared tables and (stretch) flag divergence
+/// from the runtime database.
+class DeclaredColumn {
+  const DeclaredColumn({
+    required this.name,
+    required this.sqlType,
+    this.nullable = true,
+    this.isPk = false,
+  });
+
+  final String name;
+
+  /// Declared SQLite storage type (e.g. INTEGER, TEXT). Free-form string so a
+  /// host can pass whatever its schema declares without a fixed enum.
+  final String sqlType;
+  final bool nullable;
+  final bool isPk;
+}
+
+/// One table in a host-declared Drift schema, with its columns and any declared
+/// index names. `indexes` may be empty when the host cannot supply them.
+class DeclaredTable {
+  const DeclaredTable({
+    required this.name,
+    required this.columns,
+    this.indexes = const <String>[],
+  });
+
+  final String name;
+  final List<DeclaredColumn> columns;
+  final List<String> indexes;
+}
+
+/// The full code-declared schema: an ordered list of tables.
+typedef DeclaredSchema = List<DeclaredTable>;
+
+/// Host-supplied callback returning the code-declared Drift schema. When null
+/// the GET /api/schema/declared endpoint reports the feature as unavailable
+/// (same opt-in posture as `declaredTableNames` for the orphan check).
+typedef DeclaredSchemaCallback = DeclaredSchema Function();
+
 /// A single query timing record for the performance monitor.
 class QueryTiming {
   QueryTiming({
