@@ -282,6 +282,12 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.timeTravel",
+        "title": "Time Travel",
+        "category": "Saropa Drift Advisor",
+        "icon": "$(history)"
+      },
+      {
         "command": "driftViewer.explainQuery",
         "title": "Explain Query Plan",
         "category": "Saropa Drift Advisor"
@@ -1032,6 +1038,11 @@
         },
         {
           "command": "driftViewer.viewTableData",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
+          "group": "1_view"
+        },
+        {
+          "command": "driftViewer.timeTravel",
           "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "1_view"
         },
