@@ -36,7 +36,8 @@ browse source on
 
 ---
 
-## [Unreleased]
+
+## [3.6.1]
 
 ### Added
 
