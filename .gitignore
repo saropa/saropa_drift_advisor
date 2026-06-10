@@ -19,8 +19,9 @@ Thumbs.db
 # Generated API docs (pub.dev generates its own)
 doc/api/
 
-# Reports (optional)
-reports/
+# Reports (optional) — ignore generated reports but keep the organizer script
+reports/*
+!reports/organize_reports.py
 
 # Secrets
 .env
