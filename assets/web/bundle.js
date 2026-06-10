@@ -6194,7 +6194,7 @@
     const historySel = document.getElementById("index-history");
     const compareBtn = document.getElementById("index-compare");
     var lastIndexData = null;
-    function renderIndexData(data) {
+    function renderIndexData(data, interactive) {
       if (!data) return '<p class="meta">No current result. Run Analyze first.</p>';
       var suggestions = data.suggestions || [];
       if (suggestions.length === 0) {
@@ -6204,11 +6204,14 @@
       var priorityIcons = { high: "!!", medium: "!", low: "\u2713" };
       var html = '<p class="meta">' + suggestions.length + " suggestion(s) across " + (data.tablesAnalyzed || 0) + " tables:</p>";
       html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-      html += '<tr><th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
-      suggestions.forEach(function(s) {
+      html += "<tr>";
+      if (interactive) html += '<th style="border:1px solid var(--border);padding:4px;"><input type="checkbox" id="index-select-all" title="Select all suggestions"></th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+      suggestions.forEach(function(s, i) {
         var color = priorityColors[s.priority] || "var(--fg)";
         var icon = priorityIcons[s.priority] || "";
         html += "<tr>";
+        if (interactive) html += '<td style="border:1px solid var(--border);padding:4px;text-align:center;"><input type="checkbox" class="idx-cb" data-idx="' + i + '"></td>';
         html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';font-weight:bold;">[' + esc2(icon) + "] " + esc2(s.priority).toUpperCase() + "</td>";
         html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(s.table) + "." + esc2(s.column) + "</td>";
         html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(s.reason) + "</td>";
@@ -6216,11 +6219,71 @@
         html += "</tr>";
       });
       html += "</table>";
+      if (interactive) {
+        html += '<div class="index-bulk-bar" style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">';
+        html += '<span id="index-sel-count" class="meta">0 selected</span>';
+        html += '<button id="index-preview-sel" class="btn" disabled>Preview SQL</button>';
+        if (driftWriteEnabled) {
+          html += '<button id="index-apply-sel" class="btn" disabled>Apply selected</button>';
+        } else {
+          html += '<span class="meta" title="Start the server with writeQuery configured to enable applying indexes.">Apply disabled \u2014 server is read-only</span>';
+        }
+        html += "</div>";
+        html += '<div id="index-preview-out" style="display:none;margin-top:0.5rem;"></div>';
+        html += '<div id="index-apply-out" style="display:none;margin-top:0.5rem;"></div>';
+      }
       return html;
     }
     function showIndexResult(html, isError) {
       container.innerHTML = html;
       container.style.display = "block";
+    }
+    function getSelectedIndexSqls() {
+      var out = [];
+      if (!container || !lastIndexData) return out;
+      var boxes = container.querySelectorAll("input.idx-cb");
+      Array.prototype.forEach.call(boxes, function(cb) {
+        if (!cb.checked) return;
+        var idx = parseInt(cb.getAttribute("data-idx"), 10);
+        var s = (lastIndexData.suggestions || [])[idx];
+        if (s && s.sql) out.push(s.sql);
+      });
+      return out;
+    }
+    function refreshIndexSelection() {
+      if (!container) return;
+      var count = getSelectedIndexSqls().length;
+      var countEl2 = document.getElementById("index-sel-count");
+      if (countEl2) countEl2.textContent = count + " selected";
+      var previewBtn = document.getElementById("index-preview-sel");
+      if (previewBtn) previewBtn.disabled = count === 0;
+      var applyBtn = document.getElementById("index-apply-sel");
+      if (applyBtn) applyBtn.disabled = count === 0;
+    }
+    function renderPreviewOutput(data) {
+      var valid = data && data.valid || [];
+      var rejected = data && data.rejected || [];
+      var html = '<p class="meta">' + valid.length + " valid, " + rejected.length + " rejected:</p>";
+      if (valid.length) {
+        html += '<pre style="white-space:pre-wrap;font-size:11px;background:rgba(0,0,0,0.12);padding:0.4rem;border-radius:4px;">' + valid.map(esc2).join("\n") + "</pre>";
+      }
+      rejected.forEach(function(r) {
+        html += '<div style="color:#e57373;font-size:11px;margin:0.2rem 0;">Rejected: <code>' + esc2(r.sql) + "</code> \u2014 " + esc2(r.reason) + "</div>";
+      });
+      return html;
+    }
+    function renderApplyOutput(data) {
+      var results = data && data.results || [];
+      var html = '<p class="meta">' + (data.applied || 0) + " of " + results.length + " index(es) created:</p>";
+      results.forEach(function(r) {
+        var ok = r.ok === true;
+        var color = ok ? "#7cb342" : "#e57373";
+        var mark = ok ? "OK" : "FAIL";
+        html += '<div style="color:' + color + ';font-size:11px;margin:0.2rem 0;">[' + mark + "] <code>" + esc2(r.sql) + "</code>";
+        if (!ok && r.error) html += " \u2014 " + esc2(r.error);
+        html += "</div>";
+      });
+      return html;
     }
     if (toggle && collapsible) {
       toggle.addEventListener("click", function() {
@@ -6241,6 +6304,86 @@
         }
       });
     }
+    if (container) {
+      container.addEventListener("change", function(e) {
+        var t = e.target;
+        if (!t) return;
+        if (t.id === "index-select-all") {
+          var boxes = container.querySelectorAll("input.idx-cb");
+          Array.prototype.forEach.call(boxes, function(cb) {
+            cb.checked = t.checked;
+          });
+          refreshIndexSelection();
+        } else if (t.classList && t.classList.contains("idx-cb")) {
+          refreshIndexSelection();
+        }
+      });
+      container.addEventListener("click", function(e) {
+        var t = e.target;
+        if (!t) return;
+        if (t.id === "index-preview-sel") {
+          var sqls = getSelectedIndexSqls();
+          if (sqls.length === 0) return;
+          var out = document.getElementById("index-preview-out");
+          setButtonBusy(t, true, "Previewing\u2026");
+          t.disabled = true;
+          fetch("/api/indexes/preview", authOpts({
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ indexSqls: sqls })
+          })).then(function(r) {
+            if (!r.ok) return r.json().then(function(d) {
+              throw new Error(d.error || "Request failed");
+            });
+            return r.json();
+          }).then(function(data) {
+            if (out) {
+              out.innerHTML = renderPreviewOutput(data);
+              out.style.display = "block";
+            }
+          }).catch(function(err) {
+            if (out) {
+              out.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(err.message) + "</p>";
+              out.style.display = "block";
+            }
+          }).finally(function() {
+            setButtonBusy(t, false, "Preview SQL");
+            refreshIndexSelection();
+          });
+        } else if (t.id === "index-apply-sel") {
+          var applySqls = getSelectedIndexSqls();
+          if (applySqls.length === 0) return;
+          if (!window.confirm("Create " + applySqls.length + " index(es) on the live database?")) return;
+          var applyOut = document.getElementById("index-apply-out");
+          setButtonBusy(t, true, "Applying\u2026");
+          t.disabled = true;
+          fetch("/api/indexes/apply", authOpts({
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ indexSqls: applySqls })
+          })).then(function(r) {
+            if (!r.ok) return r.json().then(function(d) {
+              throw new Error(d.error || "Request failed");
+            });
+            return r.json();
+          }).then(function(data) {
+            if (applyOut) {
+              applyOut.innerHTML = renderApplyOutput(data);
+              applyOut.style.display = "block";
+            }
+            showCopyToast((data.applied || 0) + " index(es) created \u2014 re-run Analyze to refresh the list.");
+          }).catch(function(err) {
+            if (applyOut) {
+              applyOut.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(err.message) + "</p>";
+              applyOut.style.display = "block";
+            }
+          }).finally(function() {
+            setButtonBusy(t, false, "Apply selected");
+            refreshIndexSelection();
+          });
+        }
+      });
+    }
     if (btn) btn.addEventListener("click", function() {
       btn.disabled = true;
       setButtonBusy(btn, true, "Analyzing\u2026");
@@ -6252,7 +6395,8 @@
         return r.json();
       }).then(function(data) {
         lastIndexData = data;
-        showIndexResult(renderIndexData(data));
+        showIndexResult(renderIndexData(data, true));
+        refreshIndexSelection();
         populateHistorySelect(historySel, "index");
       }).catch(function(e) {
         showIndexResult('<p class="meta" style="color:#e57373;">Error: ' + esc2(e.message) + "</p>");

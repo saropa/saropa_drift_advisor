@@ -101,6 +101,14 @@ abstract final class ServerConstants {
   /// POST batch of validated UPDATE/INSERT/DELETE statements in one transaction.
   static const String pathApiEditsApply = '/api/edits/apply';
   static const String pathApiEditsApplyAlt = 'api/edits/apply';
+
+  /// POST validate (no write) a list of CREATE INDEX statements for preview.
+  static const String pathApiIndexesPreview = '/api/indexes/preview';
+  static const String pathApiIndexesPreviewAlt = 'api/indexes/preview';
+
+  /// POST best-effort apply of CREATE INDEX statements (requires [writeQuery]).
+  static const String pathApiIndexesApply = '/api/indexes/apply';
+  static const String pathApiIndexesApplyAlt = 'api/indexes/apply';
   static const String pathApiHistory = '/api/history';
   static const String pathApiHistoryAlt = 'api/history';
   static const String pathApiChangeDetection = '/api/change-detection';
@@ -182,6 +190,17 @@ abstract final class ServerConstants {
   static const String jsonKeyOk = 'ok';
   static const String jsonKeyFailedIndex = 'failedIndex';
   static const String jsonKeyFailedStatement = 'failedStatement';
+
+  /// JSON body field: list of CREATE INDEX SQL strings (POST /api/indexes/*).
+  static const String jsonKeyIndexSqls = 'indexSqls';
+
+  /// JSON response fields for index preview/apply.
+  static const String jsonKeyValid = 'valid';
+  static const String jsonKeyRejected = 'rejected';
+  static const String jsonKeyReason = 'reason';
+  static const String jsonKeyResults = 'results';
+  static const String jsonKeyIndex = 'index';
+  static const String jsonKeyApplied = 'applied';
 
   /// True when HTTP clients may call write endpoints ([writeQuery] configured).
   static const String jsonKeyWriteEnabled = 'writeEnabled';
