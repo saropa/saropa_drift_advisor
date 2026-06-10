@@ -91,10 +91,42 @@ adds an apply path *and* makes it batch from the start.
 
 ## Tracking
 
-- Owner: TBD
-- Target: TBD
-- State: planned
+- Owner: shipped
+- Target: shipped 2026-06-10
+- State: complete
 - Evidence: suggestions `lib/src/server/index_analyzer.dart`; batch executor
   `lib/src/server/edits_batch_handler.dart`; validator gap
   `lib/src/server/sql_validator.dart`; display-only UI
   `assets/web/tools-analytics.ts`.
+
+---
+
+## Finish Report (2026-06-10) — Phases 1–4
+
+**This work will be reviewed by another AI.**
+
+**Trigger.** Top-5 easiest-to-build directive, Item 3.
+
+**Scope.** (A) Dart package (`lib/`, `test/`) + web assets (`assets/web/`). No Flutter app UI, no VS Code extension.
+
+**Key decision — best-effort per index, not all-or-nothing.** The plan's Phase 3 floated all-or-nothing first, but the exit gate requires "a deliberately bad suggestion reports its own failure without silently dropping the others." All-or-nothing would roll the good indexes back, contradicting that. Since `CREATE INDEX` is independent and idempotent (with `IF NOT EXISTS`), apply runs each statement on its own and returns a per-index `{index, sql, ok, error?}` array. Documented at the top of `index_batch_handler.dart`.
+
+**What changed.**
+- **`lib/src/server/sql_validator.dart`** (Phase 1) — new `isSingleCreateIndexSql`: reuses the existing single-statement core (strips comments/strings, rejects multi-statement), requires a `CREATE [UNIQUE] INDEX [IF NOT EXISTS]` prefix, and rejects any stacked DDL/DML/PRAGMA keyword or a second `CREATE`. Kept separate from `isSingleDataMutationSql` so index DDL is gated by its own narrow check rather than loosening the data-mutation validator.
+- **`lib/src/server/index_batch_handler.dart`** (new, Phases 2–3) — `handlePreview` (validate only, no write, works on read-only servers → `{valid, rejected}`) and `handleApply` (501 without `writeQuery`; best-effort per index → `{results, applied}`; invalid statements reported as failed without executing; `checkDataChange` fired only when ≥1 index was created).
+- **`lib/src/server/server_constants.dart`** — `pathApiIndexesPreview/Apply` (+Alt) and the `indexSqls/valid/rejected/reason/results/index/applied` JSON keys.
+- **`lib/src/server/router.dart`** — registered `IndexBatchHandler`; routed both endpoints under `_routeWriteApi` (preview there too, but it requires no `writeQuery`).
+- **`assets/web/tools-analytics.ts`** (Phase 4) — `renderIndexData` gained an `interactive` flag adding a per-row checkbox, select-all, a selection count, **Preview SQL**, and **Apply selected** (shown only when `S.driftWriteEnabled`, else a read-only note). Checkboxes are keyed by row index and the SQL is read back from `lastIndexData` (never put in an attribute — `esc()` does not escape the double quotes index SQL is full of). Delegated container listeners survive re-render; preview/apply POST the selected SQL and render `{valid/rejected}` / per-index `{ok/error}` results, with a toast prompting a re-Analyze. Compare/history views stay non-interactive.
+- **`assets/web/bundle.js`** — rebuilt via `npm run build:js` (committed; Dart consumers don't run Node).
+- **`CHANGELOG.md`** — `[Unreleased]` Added entry.
+
+**Testing.**
+- **New `test/index_batch_handler_test.dart`** — 7 validator unit cases (plain/UNIQUE/IF NOT EXISTS/partial-WHERE/case-insensitive accepted; non-index DDL, DML, stacked, empty rejected) + 4 HTTP integration cases via the real `DriftDebugServer`: preview classifies valid/rejected with no write callback; apply → 501 without `writeQuery`; apply is best-effort (one DB failure + one validator rejection isolated, `applied` count correct, rejected SQL never reaches the DB); non-array body → 400.
+- Audited existing tests referencing the touched symbols (router, validator, constants): `sql_validation_test.dart` (unchanged — `isReadOnlySql`/`isSingleDataMutationSql` untouched), handler/route tests still green.
+- `dart analyze` clean; `dart test` → **571 passing**. `npm run typecheck:web` clean; `npm run build:js` rebuilt the bundle.
+
+**l10n.** SKIPPED [web-not-Flutter] — the debug web viewer renders plain-English HTML and is not part of the Flutter ARB l10n catalog (no `l10n.*` getters exist for `assets/web/`). New strings match the surrounding convention in `tools-analytics.ts`.
+
+**Outstanding.** None. All four phases complete; exit gate met (select 2+, preview, apply, per-index status, bad-statement isolation). Manual browser confirmation is the user's step (see What to test).
+
+**Finish report appended:** plans/73-website-bulk-index-creation.md (this section). Plan fully complete → archived to plans/history/2026.06/2026.06.10/.
