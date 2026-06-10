@@ -38,6 +38,10 @@ browse source on
 
 ## [Unreleased]
 
+### Added
+
+- **Orphan physical-table check** — flags tables that physically exist in the SQLite file but are not declared anywhere in your Drift schema (typically left behind by a migration whose Drift definition was later removed or renamed). These are invisible to a schema-first audit and silently bloat the database, so the check starts from the physical side: it enumerates the real tables and subtracts the ones your schema declares. Findings appear in `GET /api/issues` (alongside index suggestions and anomalies) and at the new `GET /api/analytics/orphan-tables` endpoint, each naming the exact table and suggesting a `DROP TABLE` you can run by hand. It is report-only and never drops anything. When you start the viewer with `startDriftViewer`, the declared table set is derived automatically from your Drift database; with the callback API, pass the new `declaredTableNames` parameter to enable it. Without a declared set the check stays silent, so it never produces false positives. Android's `android_metadata` bookkeeping table is excluded by default (`lib/src/server/orphan_table_detector.dart`, `lib/src/server/analytics_handler.dart`, `lib/src/server/router.dart`, `lib/src/server/server_context.dart`, `lib/src/start_drift_viewer_extension.dart`, `lib/src/drift_debug_server_io.dart`)
+
 <details>
 <summary>Maintenance</summary>
 
