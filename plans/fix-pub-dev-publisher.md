@@ -24,6 +24,10 @@ Publish a new package under the correct publisher, then poison-pill the old one.
 | OIDC API calls via `fix-publisher.yml` (run #1, 2026-03-10) | All 5 endpoints returned 401 — admin APIs reject GitHub OIDC tokens |
 | Poison pill via CI (push `v0.2.5` tag, 2026-03-10) | `publish.yml` failed: "publishing from github is not enabled" — OIDC was never configured on pub.dev for this package |
 
+## Implementation Plan
+
+Executed in five phases below: **Phase 1** renames all code references to `saropa_drift_advisor`, **Phase 2** renames the GitHub repo, **Phase 3** publishes the new package under the correct publisher, **Phase 4** poison-pills the old package (blocked on pub.dev admin access), and **Phase 5** is post-poison-pill cleanup. Phases 1–3 are complete; Phase 4 is blocked. Each phase's detail follows.
+
 ## Completed: Phase 1 — Code Rename
 
 All references to `saropa_drift_viewer` updated to `saropa_drift_advisor`:

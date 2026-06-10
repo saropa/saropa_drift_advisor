@@ -8,6 +8,12 @@ The web viewer's JS assets are a 6700-line `app.js` monolith plus 4 small IIFEs 
 
 ---
 
+## Implementation Plan
+
+The migration runs in four phases below, each at a verifiable gate: **Phase 1** stands up the esbuild bundle and build wiring, **Phase 2** collapses the Dart server's per-module plumbing to a single `bundle.js`, **Phase 3** converts the small IIFE modules to TypeScript and bridges the remaining `window.*` globals, and **Phase 4** updates the affected Dart tests. The per-step detail (1a–3h), the file-change summary, and the verification steps follow.
+
+---
+
 ## Phase 1: esbuild infrastructure
 
 ### 1a. Create `assets/web/index.js` (entry point)
