@@ -4,6 +4,9 @@ import { ExplainPanel } from '../explain/explain-panel';
 import { extractSqlFromContext } from '../explain/sql-extractor';
 import { SnapshotDiffPanel } from './snapshot-diff-panel';
 import { computeTableDiff, ROW_LIMIT, rowsToObjects, SnapshotStore } from './snapshot-store';
+import { TimeTravelPanel } from '../time-travel/time-travel-panel';
+import { TimeTravelEngine } from '../time-travel/time-travel-engine';
+import type { TableItem } from '../tree/tree-items';
 
 const CONTEXT_HAS_SQL_AT_CURSOR = 'driftViewer.hasSqlAtCursor';
 /** Debounce (ms) for selection-based context update to avoid work on every cursor move. */
@@ -98,6 +101,37 @@ export function registerSnapshotCommands(
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Snapshot diff failed: ${msg}`);
         }
+      },
+    ),
+  );
+
+  // Time Travel: scrub a table's captured snapshots with row-level diff highlighting.
+  // Invoked from a table's context menu (passes the TableItem) or the palette (prompts).
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.timeTravel',
+      async (item?: TableItem) => {
+        if (snapshotStore.snapshots.length === 0) {
+          vscode.window.showInformationMessage(
+            'No snapshots captured yet. Capture a snapshot first, then time-travel through changes.',
+          );
+          return;
+        }
+        let tableName = item?.table?.name;
+        if (!tableName) {
+          // Palette invocation: pick from the tables that actually have snapshot history.
+          const engine = new TimeTravelEngine(snapshotStore);
+          const names = engine.getTableNames();
+          if (names.length === 0) {
+            vscode.window.showInformationMessage('No tables in the captured snapshots.');
+            return;
+          }
+          tableName = await vscode.window.showQuickPick(names, {
+            placeHolder: 'Select a table to time-travel through',
+          });
+          if (!tableName) return;
+        }
+        TimeTravelPanel.createOrShow(snapshotStore, tableName);
       },
     ),
   );
