@@ -26,6 +26,7 @@ import { registerExportCommands } from './export/export-commands';
 import { registerTreeCommands } from './tree/tree-commands';
 import { registerNavCommands } from './navigation/nav-commands';
 import { registerSnapshotCommands } from './timeline/snapshot-commands';
+import { registerBranchCommands } from './branching/branch-commands';
 import { registerEditingCommands } from './editing/editing-commands';
 import { registerDataBreakpointCommands } from './data-breakpoint/data-breakpoint-commands';
 import { registerDebugCommands } from './debug/debug-commands';
@@ -242,6 +243,7 @@ export function registerAllCommands(
         }),
     ],
     ['snapshot', () => registerSnapshotCommands(context, client, snapshotStore)],
+    ['branching', () => registerBranchCommands(context, client)],
     ['schemaDiff', () => registerSchemaDiffCommands(context, client)],
     [
       'editing',

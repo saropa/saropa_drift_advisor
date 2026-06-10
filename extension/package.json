@@ -288,6 +288,18 @@
         "icon": "$(history)"
       },
       {
+        "command": "driftViewer.openBranches",
+        "title": "Data Branches",
+        "category": "Saropa Drift Advisor",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "driftViewer.createBranch",
+        "title": "Create Data Branch",
+        "category": "Saropa Drift Advisor",
+        "icon": "$(git-branch)"
+      },
+      {
         "command": "driftViewer.explainQuery",
         "title": "Explain Query Plan",
         "category": "Saropa Drift Advisor"
@@ -903,6 +915,11 @@
           "group": "navigation"
         },
         {
+          "command": "driftViewer.openBranches",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "1_tools"
+        },
+        {
           "command": "driftViewer.generateSchemaDocs",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "1_more"
@@ -1220,6 +1237,16 @@
           "type": "boolean",
           "default": true,
           "description": "Master switch: when false, the extension does not discover or connect to Drift debug servers and all Drift Advisor features are off."
+        },
+        "driftViewer.branching.maxBranches": {
+          "type": "number",
+          "default": 10,
+          "description": "Maximum number of data branches to keep. When exceeded, the oldest branches are pruned first."
+        },
+        "driftViewer.branching.maxRowsPerTable": {
+          "type": "number",
+          "default": 10000,
+          "description": "Maximum rows captured per table when creating a data branch. Tables larger than this are captured up to the cap and flagged as truncated."
         },
         "driftViewer.authToken": {
           "type": "string",

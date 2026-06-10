@@ -39,11 +39,12 @@ browse source on
 
 ## [Unreleased]
 
-Scrub a table's history with the new **Time Travel** slider — drag through captured snapshots and watch rows appear, change, and disappear with diff highlighting, or hit play to animate the changes.
+Two new ways to work with your data over time: a **Time Travel** slider to scrub a table's snapshot history, and **Data Branches** to capture, diff, and restore named snapshots of the whole database like `git stash` for your data.
 
 ### Added
 
 - **Time Travel data slider** — right-click any table in the Database Explorer → **Time Travel** (or run it from the command palette) to open a slider across all captured snapshots of that table. Drag the slider, step with the ◀ ▶ buttons, or press play to animate; each frame highlights rows added (green), removed (red, struck through), and changed (amber, with the exact changed cells marked) versus the previous snapshot. A table picker and 0.5×–4× speed control sit above the grid, and the panel updates live as new snapshots are captured. Built on the existing snapshot history, using each table's real primary key to match rows.
+- **Data Branches (git-style)** — capture the whole database as a named branch, then experiment freely and compare. Open **Data Branches** from the Database Explorer toolbar (or "Create Data Branch" from the palette) to capture the current state. Each branch offers **Diff vs Now** (a row-level insert/update/delete view against the live database), **Generate Merge SQL** (differential SQL — forward or the reverse rollback — opened in an editor tab, with deletes ordered children-first so foreign keys are never violated), **Restore** (overwrite the live database with the branch's rows, with an offer to back up the current state first), and **Delete**. Branches persist in the workspace and honor configurable caps (`branching.maxBranches`, `branching.maxRowsPerTable`); a branch that hits the row cap is flagged as truncated so a partial capture is never mistaken for a complete one.
 
 <details>
 <summary>Maintenance</summary>
