@@ -224,6 +224,7 @@ export const TOOL_LABELS: Record<string, string> = {
   anomaly: 'Health',
   import: 'Import',
   schema: 'Schema',
+  declared: 'Code schema',
   diagram: 'Diagram',
   export: 'Export',
   settings: 'Settings',

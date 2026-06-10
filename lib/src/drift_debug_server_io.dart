@@ -20,6 +20,7 @@ import 'drift_debug_session.dart';
 import 'server/router.dart';
 import 'server/server_constants.dart';
 import 'server/server_context.dart';
+import 'server/server_types.dart';
 import 'server/mutation_tracker.dart';
 import 'server/vm_service_bridge.dart';
 import 'query_recorder.dart';
@@ -119,6 +120,7 @@ class _DriftDebugServerImpl {
     Duration? sessionDuration,
     int? maxRequestsPerSecond,
     Set<String>? declaredTableNames,
+    DeclaredSchemaCallback? declaredSchema,
   }) async {
     if (!enabled) {
       return;
@@ -237,6 +239,7 @@ class _DriftDebugServerImpl {
       queryRecorder: queryRecorder,
       changeDetectionMinInterval: ServerConstants.changeDetectionMinInterval,
       declaredTableNames: declaredTableNames,
+      declaredSchema: declaredSchema,
     );
 
     if (baseWrite != null) {
@@ -443,6 +446,13 @@ mixin DriftDebugServer {
     /// When null, that check is report-only and emits no findings. The
     /// `startDriftViewer` extension derives this automatically.
     Set<String>? declaredTableNames,
+
+    /// Optional callback returning the code-declared Drift schema (tables,
+    /// columns, types, PK/nullable flags). Served at GET /api/schema/declared
+    /// and shown in the web viewer's "Code schema" tab. When null the tab is
+    /// empty and the endpoint reports `available: false`. The `startDriftViewer`
+    /// extension derives this automatically from a Drift `GeneratedDatabase`.
+    DeclaredSchemaCallback? declaredSchema,
   }) => _instance.start(
     query: query,
     queryWithBindings: queryWithBindings,
@@ -462,6 +472,7 @@ mixin DriftDebugServer {
     sessionDuration: sessionDuration,
     maxRequestsPerSecond: maxRequestsPerSecond,
     declaredTableNames: declaredTableNames,
+    declaredSchema: declaredSchema,
   );
 
   /// The port the server is bound to, or null if not running.

@@ -67,6 +67,10 @@ abstract final class ServerConstants {
   static const String pathApiSnapshots = '/api/snapshots';
   static const String pathApiSnapshotsAlt = 'api/snapshots';
 
+  /// GET the host-declared (code-side) Drift schema (Feature 71).
+  static const String pathApiSchemaDeclared = '/api/schema/declared';
+  static const String pathApiSchemaDeclaredAlt = 'api/schema/declared';
+
   /// Dynamic prefix for per-snapshot operations: DELETE/PUT /api/snapshot/{id}.
   static const String pathApiSnapshotPrefix = '/api/snapshot/';
   static const String pathApiSnapshotPrefixAlt = 'api/snapshot/';
@@ -226,6 +230,13 @@ abstract final class ServerConstants {
   /// Compare response field: the target snapshot id, or null when the diff was
   /// taken against the live database.
   static const String jsonKeyTo = 'to';
+
+  /// Declared-schema (Feature 71) response fields.
+  static const String jsonKeyAvailable = 'available';
+  static const String jsonKeySqlType = 'sqlType';
+  static const String jsonKeyNullable = 'nullable';
+  static const String jsonKeyIsPk = 'isPk';
+  static const String jsonKeyIndexes = 'indexes';
   static const String jsonKeyId = 'id';
   static const String jsonKeyCreatedAt = 'createdAt';
   static const String jsonKeyTableCount = 'tableCount';

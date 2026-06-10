@@ -358,4 +358,65 @@ final class SchemaHandler {
       await res.close();
     }
   }
+
+  /// Handles GET /api/schema/declared: returns the host-declared (code-side)
+  /// Drift schema when a [ServerContext.declaredSchema] callback was supplied,
+  /// or `{ "available": false, "tables": [] }` when it was not — so the web tab
+  /// can stay empty without error (same opt-in posture as the orphan check).
+  Future<void> sendDeclaredSchema(HttpResponse response) async {
+    final res = response;
+    try {
+      final callback = _ctx.declaredSchema;
+      if (callback == null) {
+        _ctx.setJsonHeaders(res);
+        res.write(
+          jsonEncode(<String, dynamic>{
+            ServerConstants.jsonKeyAvailable: false,
+            ServerConstants.jsonKeyTables: <Map<String, dynamic>>[],
+          }),
+        );
+        return;
+      }
+
+      final schema = callback();
+      final tables = <Map<String, dynamic>>[
+        for (final table in schema)
+          <String, dynamic>{
+            ServerConstants.jsonKeyName: table.name,
+            ServerConstants.jsonKeyColumns: <Map<String, dynamic>>[
+              for (final col in table.columns)
+                <String, dynamic>{
+                  ServerConstants.jsonKeyName: col.name,
+                  ServerConstants.jsonKeySqlType: col.sqlType,
+                  ServerConstants.jsonKeyNullable: col.nullable,
+                  ServerConstants.jsonKeyIsPk: col.isPk,
+                },
+            ],
+            ServerConstants.jsonKeyIndexes: table.indexes,
+          },
+      ];
+
+      _ctx.setJsonHeaders(res);
+      res.write(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyAvailable: true,
+          ServerConstants.jsonKeyTables: tables,
+        }),
+      );
+    } on Object catch (error, stack) {
+      // A throwing host callback must not crash the endpoint — report it as a
+      // server error with the message, like the other schema endpoints.
+      _ctx.logError(error, stack);
+      res.statusCode = HttpStatus.internalServerError;
+      res.headers.contentType = ContentType.json;
+      _ctx.setCors(res);
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
+    } finally {
+      await res.close();
+    }
+  }
 }

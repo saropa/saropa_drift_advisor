@@ -173,6 +173,7 @@ abstract final class HtmlContent {
         <hr class="tb-divider" />
         <button type="button" class="tb-icon-btn" data-tool="index" title="Index"><span class="material-symbols-outlined" aria-hidden="true">format_list_bulleted</span></button>
         <button type="button" class="tb-icon-btn" data-tool="schema" title="Schema"><span class="material-symbols-outlined" aria-hidden="true">grid_on</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="declared" title="Code schema"><span class="material-symbols-outlined" aria-hidden="true">data_object</span></button>
         <button type="button" class="tb-icon-btn" data-tool="diagram" title="Diagram"><span class="material-symbols-outlined" aria-hidden="true">account_tree</span></button>
         <hr class="tb-divider" />
         <button type="button" class="tb-icon-btn" data-tool="size" title="Size"><span class="material-symbols-outlined" aria-hidden="true">bar_chart</span></button>
@@ -574,6 +575,15 @@ abstract final class HtmlContent {
         </div>
         <div id="panel-schema" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-schema" hidden>
           <div id="schema-collapsible" class="tool-panel-body"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
+        </div>
+        <div id="panel-declared" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-declared" hidden>
+          <div id="declared-collapsible" class="tool-panel-body">
+        <p class="meta">The schema as declared in your Drift code (tables, columns, types, primary keys). Available only when the host app supplies it; useful for spotting drift between code and the live database.</p>
+        <div class="toolbar">
+          <button type="button" id="declared-load" class="btn-primary" title="Load the code-declared schema">Load code schema</button>
+        </div>
+        <div id="declared-results" style="display:none;"></div>
+          </div>
         </div>
         <div id="panel-diagram" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-diagram" hidden>
           <div id="diagram-collapsible" class="tool-panel-body">

@@ -4,6 +4,8 @@
 
 export 'server/server_typedefs.dart';
 
+import 'server/server_types.dart';
+
 /// Unsupported-error message when VM (dart:io) is not available.
 const String _kUnsupportedMessage =
     'Drift debug server requires dart:io (VM). Not available on web.';
@@ -48,6 +50,7 @@ mixin DriftDebugServer {
     Duration? sessionDuration,
     int? maxRequestsPerSecond,
     Set<String>? declaredTableNames,
+    DeclaredSchemaCallback? declaredSchema,
   }) {
     throw UnsupportedError(_kUnsupportedMessage);
   }
