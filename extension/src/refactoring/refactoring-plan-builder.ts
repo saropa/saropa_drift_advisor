@@ -47,6 +47,36 @@ function suggestedMergeFkColumn(referencedTable: string, pkColumn: string): stri
   return base.length > 48 ? base.slice(0, 48) : base;
 }
 
+/** Deterministic shared-table name for an extracted column bundle. */
+function sharedExtractTableName(columns: string[]): string {
+  const raw = `shared_${columns.join('_')}`.replace(/[^a-zA-Z0-9_]/g, '_');
+  return raw.length > 60 ? raw.slice(0, 60) : raw;
+}
+
+/** Converts a snake_case SQL column name to a camelCase Dart getter name. */
+export function camelCaseFromSqlColumn(name: string): string {
+  const parts = name.split(/[^a-zA-Z0-9]+/).filter((p) => p.length > 0);
+  if (parts.length === 0) return 'column';
+  return parts
+    .map((p, i) => (i === 0 ? p.toLowerCase() : p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()))
+    .join('');
+}
+
+/** Renders a Drift column getter line for a mixin from a SQL type. */
+function driftColumnGetter(name: string, sqlType: string): string {
+  const getter = camelCaseFromSqlColumn(name);
+  switch (sqlType) {
+    case 'INTEGER':
+      return `  IntColumn get ${getter} => integer()();`;
+    case 'REAL':
+      return `  RealColumn get ${getter} => real()();`;
+    case 'BLOB':
+      return `  BlobColumn get ${getter} => blob()();`;
+    default:
+      return `  TextColumn get ${getter} => text()();`;
+  }
+}
+
 /**
  * Generates [IMigrationPlan] payloads for a suggestion using live schema metadata.
  */
@@ -75,6 +105,11 @@ export class MigrationPlanBuilder {
             suggestion.columns[0],
             tablesMeta,
           );
+        }
+        break;
+      case 'extract':
+        if (suggestion.columns.length > 0 && suggestion.tables.length > 0) {
+          return this.buildExtractPlan(suggestion.columns, suggestion.tables, tablesMeta);
         }
         break;
       default:
@@ -298,6 +333,80 @@ export class MigrationPlanBuilder {
       preflightWarnings: [
         `Confirm ${toTable}.${column} is effectively unique (or choose a different referenced column) before relying on this UPDATE.`,
         'Overlapping values can be coincidental; validate semantics before dropping legacy columns.',
+      ],
+    };
+  }
+
+  /**
+   * Extract: define a recurring column bundle once. Emits a shared-table + FK
+   * template (best for shared entities like addresses) plus a Drift mixin
+   * (best for per-row metadata like timestamps). Advisory only — the backfill
+   * and drop are left as commented steps because de-duplication semantics
+   * depend on whether the bundle is a shared entity or per-row data.
+   */
+  buildExtractPlan(columns: string[], sourceTables: string[], tablesMeta: TableMetadata[]): IMigrationPlan {
+    if (columns.length === 0 || sourceTables.length === 0) {
+      return {
+        steps: [],
+        dartCode: '',
+        driftTableClass: '',
+        preflightWarnings: ['Unable to build an extract plan (no columns or tables in the bundle).'],
+      };
+    }
+
+    const sharedName = sharedExtractTableName(columns);
+    const qs = quoteIdent(sharedName);
+    const fkCol = `${sharedName}_id`;
+
+    // Resolve each column's type from the first source table that declares it;
+    // default to TEXT when metadata is missing so the template still renders.
+    const sqlTypeForName = (name: string): string => {
+      for (const tn of sourceTables) {
+        const t = findTable(tablesMeta, tn);
+        const c = t?.columns.find((cc) => cc.name.toLowerCase() === name.toLowerCase());
+        if (c) return sqlTypeForColumn(c);
+      }
+      return 'TEXT';
+    };
+
+    const colDefs = columns.map((c) => `  ${quoteIdent(c)} ${sqlTypeForName(c)}`).join(',\n');
+
+    const steps: IMigrationStep[] = [
+      {
+        title: 'Create shared table',
+        description: `New table ${sharedName} defining the recurring columns once.`,
+        sql: `CREATE TABLE ${qs} (\n  "id" INTEGER PRIMARY KEY AUTOINCREMENT,\n${colDefs}\n);`,
+        reversible: true,
+      },
+      ...sourceTables.map((t) => ({
+        title: `Add reference on ${t}`,
+        description: `Add ${fkCol} on ${t} referencing ${sharedName}(id).`,
+        sql: `ALTER TABLE ${quoteIdent(t)}\nADD COLUMN ${quoteIdent(fkCol)} INTEGER REFERENCES ${qs}("id");`,
+        reversible: true,
+      })),
+      {
+        title: 'Backfill then drop moved columns',
+        description:
+          'Populate the shared rows and foreign keys per table, then drop the redundant columns after application code reads the shared table.',
+        sql:
+          `-- Per source table: insert shared rows, set ${fkCol}, then drop each moved column:\n` +
+          columns.map((c) => `-- ALTER TABLE <table> DROP COLUMN ${quoteIdent(c)};`).join('\n'),
+        reversible: true,
+        destructive: true,
+      },
+    ];
+
+    const className = pascalCaseFromSqlTable(sharedName);
+    const mixinBody = columns.map((c) => driftColumnGetter(c, sqlTypeForName(c))).join('\n');
+
+    return {
+      steps,
+      dartCode: this._generateDartMigration(steps),
+      driftTableClass: `mixin ${className}Columns on Table {\n${mixinBody}\n}`,
+      preflightWarnings: [
+        'For per-row metadata (e.g. timestamps), a Drift mixin (shown) is usually better than a shared table — reuse the definitions instead of normalizing.',
+        'For shared entities (e.g. addresses), use the shared-table + foreign-key template; de-duplicate and backfill before dropping source columns.',
+        'SQLite 3.35.0+ is required for ALTER TABLE ... DROP COLUMN; older targets need a table rebuild migration.',
       ],
     };
   }

@@ -112,3 +112,78 @@ describe('RefactoringAnalyzer', () => {
     assert.strictEqual(out.length, 0);
   });
 });
+
+/**
+ * Golden fixtures for the deterministic `extract` detector (Feature 69).
+ * These are schema-only (no SQL probes), so an empty `sqlResults` map is used;
+ * the default client response keeps normalization/merge probes quiet.
+ */
+describe('RefactoringAnalyzer extract detection', () => {
+  /** Builds a user table with an `id` PK plus the given (name, type) columns. */
+  function table(name: string, cols: Array<[string, string]>): TableMetadata {
+    return {
+      name,
+      rowCount: 10,
+      columns: [
+        { name: 'id', type: 'INTEGER', pk: true },
+        ...cols.map(([n, t]) => ({ name: n, type: t, pk: false })),
+      ],
+    };
+  }
+
+  async function run(tables: TableMetadata[]): Promise<ReturnType<RefactoringAnalyzer['analyze']>> {
+    const analyzer = new RefactoringAnalyzer(makeClient({ tables, sqlResults: new Map() }));
+    return analyzer.analyze();
+  }
+
+  it('suggests extract for an audit column family across tables', async () => {
+    const cols: Array<[string, string]> = [['created_at', 'TEXT'], ['updated_at', 'TEXT']];
+    const out = await run([table('users', cols), table('orders', cols), table('products', cols)]);
+    const ex = out.find((s) => s.type === 'extract');
+    assert.ok(ex, 'expected an extract suggestion');
+    assert.deepStrictEqual(ex!.columns, ['created_at', 'updated_at']);
+    assert.strictEqual(ex!.tables.length, 3);
+    assert.ok(ex!.confidence >= 0.8, 'family bundle should score high confidence');
+    assert.strictEqual(ex!.severity, 'high');
+  });
+
+  it('suggests extract for address columns shared across ragged table sets', async () => {
+    const out = await run([
+      table('users', [['street', 'TEXT'], ['city', 'TEXT'], ['zip', 'TEXT']]),
+      table('companies', [['street', 'TEXT'], ['city', 'TEXT'], ['country', 'TEXT']]),
+    ]);
+    const ex = out.find((s) => s.type === 'extract' && s.title.includes('address'));
+    assert.ok(ex, 'expected an address extract suggestion');
+    // zip/country appear in only one table each and are excluded; street/city remain.
+    assert.deepStrictEqual(ex!.columns, ['city', 'street']);
+  });
+
+  it('suggests extract for a generic recurring column group', async () => {
+    const cols: Array<[string, string]> = [['width', 'INTEGER'], ['height', 'INTEGER']];
+    const out = await run([table('a', cols), table('b', cols), table('c', cols)]);
+    const ex = out.find((s) => s.type === 'extract');
+    assert.ok(ex, 'expected a generic extract suggestion');
+    assert.deepStrictEqual(ex!.columns, ['height', 'width']);
+    assert.ok(ex!.confidence < 0.8, 'generic bundle scores below a known family');
+  });
+
+  it('skips extract when a candidate column appears in only one table', async () => {
+    const out = await run([
+      table('only', [['created_at', 'TEXT'], ['updated_at', 'TEXT']]),
+      table('other', [['title', 'TEXT']]),
+    ]);
+    assert.ok(!out.some((s) => s.type === 'extract'));
+  });
+
+  it('excludes a column whose type is inconsistent across tables', async () => {
+    const out = await run([
+      table('a', [['label', 'TEXT'], ['note', 'TEXT'], ['code', 'TEXT']]),
+      table('b', [['label', 'TEXT'], ['note', 'TEXT'], ['code', 'TEXT']]),
+      table('c', [['label', 'TEXT'], ['note', 'TEXT'], ['code', 'INTEGER']]),
+    ]);
+    const ex = out.find((s) => s.type === 'extract');
+    assert.ok(ex, 'label/note still form a bundle');
+    assert.ok(ex!.columns.includes('label') && ex!.columns.includes('note'));
+    assert.ok(!ex!.columns.includes('code'), 'type-inconsistent column must be excluded');
+  });
+});
