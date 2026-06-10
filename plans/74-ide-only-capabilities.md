@@ -24,3 +24,29 @@ cross-surface gaps.
 Revisit only if a realistic website approximation is proposed (e.g. a static
 symbol jump within the schema browser). Until then these are closed, not
 deferred — no owner or milestone is owed.
+
+## Implementation Plan
+
+**There is no build work in scope.** This plan records a classification
+decision, not a feature. The three capabilities are intentionally IDE-only;
+the only action this plan ever needed — removing them from the active parity
+tables — happened when the GAP analysis was archived. Nothing to start.
+
+The plan exists so the decision is greppable and the rows do not silently
+reappear as "open gaps" in a future audit. If a website approximation is later
+proposed, do **not** extend this plan in place — open a new numbered feature
+plan for that specific approximation (e.g. "website schema-symbol jump") and
+link back here, because each of the three has a different shape:
+
+- **Go-to-definition** — a website analogue would be a static jump from a column
+  reference to its declared table within the existing schema browser
+  (`assets/web/schema.ts`). No language server; purely intra-schema navigation.
+- **Code actions / quick fixes** — would require a write-back-to-source channel
+  the website does not have; realistically out of reach without the editor.
+- **Data breakpoints** — needs the runtime debugger; no read-only-viewer path
+  exists. Closed barring a fundamentally different architecture.
+
+### Exit gate
+
+No verification — closed by classification. Reopening starts a new plan, not a
+revision of this one.
