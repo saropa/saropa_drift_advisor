@@ -337,3 +337,29 @@ context.subscriptions.push(
 - Long-poll timeout (30s) means up to 30s delay if no events occur (not a real-time issue)
 - Bulk operations (INSERT...SELECT, multi-row INSERT) may appear as a single event
 - No support for DDL mutations (CREATE TABLE, ALTER TABLE) — data mutations only
+
+---
+
+## Implementation Plan
+
+Build server-first: the capture path must exist and be proven before the extension has anything to poll. Each phase ends at a verifiable gate; do not start phase N+1 until phase N's gate is green. Files/tests referenced are defined in **New Files** and **Testing** above.
+
+### Phase 1 — Server-side mutation capture (Dart)
+- Implement `mutation_tracker.dart` (`MutationTracker`, `MutationEvent`, `MutationType`) wrapping the `writeQuery` callback to capture before/after rows into a 500-event ring buffer; regex-parse table + WHERE from the SQL.
+- **Gate:** `mutation_tracker_test.dart` green — INSERT/UPDATE/DELETE captured with correct before/after state, ring-buffer eviction past `_maxEvents`, SQL parse for table + WHERE.
+
+### Phase 2 — Mutation endpoint (Dart)
+- Implement `mutation_handler.dart`: `GET /api/mutations?since=N` with `id`-cursor semantics and up-to-30s long-poll when no new events. Register the route and wire `writeQuery` wrapping in `server_context.dart`.
+- **Gate:** endpoint returns events with `id > since` and a `cursor`; long-poll returns promptly when an event arrives mid-wait.
+
+### Phase 3 — Extension polling client
+- Add `mutations()` to `api-client.ts`; implement `MutationClient` (cursor advance, dedup, 2s back-off on error) and the pure matching helpers in `mutation-stream-filtering.ts`.
+- **Gate:** `mutation-stream-filtering.test.ts` green; client advances the cursor and never re-fires an already-seen `id`.
+
+### Phase 4 — Stream panel UI
+- Build `mutation-stream-panel.ts` + `mutation-stream-html.ts`: live feed with INSERT/UPDATE/DELETE color coding, free-text vs column-value filter modes, pause/resume, JSON export, and click-to-open-row.
+- **Gate:** events render live with correct colors; pause freezes the feed; a click opens the affected row in the table viewer.
+
+### Phase 5 — Contributions + wiring
+- Add the command, `view/title` menu, and `maxEvents`/`autoScroll` config; wire `MutationClient` + `openMutationStream` in `extension.ts` (start polling on first open only).
+- **Gate:** command opens the panel and polling starts exactly once; config values are honored.
