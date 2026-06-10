@@ -702,6 +702,7 @@
     anomaly: "Health",
     import: "Import",
     schema: "Schema",
+    declared: "Code schema",
     diagram: "Diagram",
     export: "Export",
     settings: "Settings"
@@ -6799,6 +6800,68 @@
     });
   }
 
+  // assets/web/declared-schema.ts
+  function initDeclaredSchema() {
+    const btn = document.getElementById("declared-load");
+    const container = document.getElementById("declared-results");
+    if (!container) return;
+    function renderDeclared(data) {
+      if (!data || data.available === false) {
+        return '<p class="meta">No code-declared schema available. Start the viewer with a Drift database (the <code>startDriftViewer</code> extension supplies this automatically) or pass a <code>declaredSchema</code> callback to <code>DriftDebugServer.start</code>.</p>';
+      }
+      var tables = data && data.tables || [];
+      if (tables.length === 0) {
+        return '<p class="meta">The code-declared schema is empty.</p>';
+      }
+      var html = '<p class="meta">' + tables.length + " declared table(s):</p>";
+      tables.forEach(function(t) {
+        var cols = t.columns || [];
+        html += '<details style="margin:0.3rem 0;"><summary style="cursor:pointer;font-weight:600;">' + esc2(t.name) + ' <span class="meta">(' + cols.length + " columns)</span></summary>";
+        html += '<table style="border-collapse:collapse;width:100%;font-size:12px;margin:0.3rem 0;">';
+        html += '<tr><th style="border:1px solid var(--border);padding:4px;text-align:left;">Column</th><th style="border:1px solid var(--border);padding:4px;">Type</th><th style="border:1px solid var(--border);padding:4px;">Null</th><th style="border:1px solid var(--border);padding:4px;">PK</th></tr>';
+        cols.forEach(function(c) {
+          html += "<tr>";
+          html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(c.name) + "</td>";
+          html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(c.sqlType) + "</td>";
+          html += '<td style="border:1px solid var(--border);padding:4px;text-align:center;">' + (c.nullable ? "yes" : "no") + "</td>";
+          html += '<td style="border:1px solid var(--border);padding:4px;text-align:center;">' + (c.isPk ? "PK" : "") + "</td>";
+          html += "</tr>";
+        });
+        html += "</table>";
+        if (t.indexes && t.indexes.length) {
+          html += '<p class="meta">Indexes: ' + t.indexes.map(esc2).join(", ") + "</p>";
+        }
+        html += "</details>";
+      });
+      return html;
+    }
+    function load() {
+      if (btn) {
+        btn.disabled = true;
+        setButtonBusy(btn, true, "Loading\u2026");
+      }
+      container.style.display = "none";
+      fetch("/api/schema/declared", authOpts()).then(function(r) {
+        if (!r.ok) return r.json().then(function(d) {
+          throw new Error(d.error || "Request failed");
+        });
+        return r.json();
+      }).then(function(data) {
+        container.innerHTML = renderDeclared(data);
+        container.style.display = "block";
+      }).catch(function(e) {
+        container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(e.message) + "</p>";
+        container.style.display = "block";
+      }).finally(function() {
+        if (btn) {
+          btn.disabled = false;
+          setButtonBusy(btn, false, "Load code schema");
+        }
+      });
+    }
+    if (btn) btn.addEventListener("click", load);
+  }
+
   // assets/web/tools-import.ts
   function initImport() {
     const toggle = document.getElementById("import-toggle");
@@ -8164,6 +8227,7 @@
   initIndexSuggestions();
   initSizeAnalytics();
   initAnomalyDetection();
+  initDeclaredSchema();
   initImport();
   initSearchTab();
   initSqlRunner();

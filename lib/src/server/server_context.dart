@@ -49,6 +49,7 @@ final class ServerContext {
     this.queryRecorder,
     this.changeDetectionMinInterval,
     this.declaredTableNames,
+    this.declaredSchema,
   }) : queryRaw = query,
        _queryExec =
            queryWithBindings ??
@@ -149,6 +150,11 @@ final class ServerContext {
   /// no findings, since the advisor cannot otherwise tell an orphan from a
   /// legitimate table.
   final Set<String>? declaredTableNames;
+
+  /// Optional callback returning the code-declared Drift schema (Feature 71).
+  /// When null, GET /api/schema/declared reports the feature unavailable and the
+  /// web tab stays empty — same opt-in posture as [declaredTableNames].
+  final DeclaredSchemaCallback? declaredSchema;
 
   /// In-memory snapshots (oldest first): each holds id, createdAt, optional
   /// label, and full table data per table. Capped at [maxSnapshots] with
