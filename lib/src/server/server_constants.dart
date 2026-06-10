@@ -79,6 +79,10 @@ abstract final class ServerConstants {
   static const String pathApiAnalyticsAnomaliesAlt = 'api/analytics/anomalies';
   static const String pathApiAnalyticsSize = '/api/analytics/size';
   static const String pathApiAnalyticsSizeAlt = 'api/analytics/size';
+  static const String pathApiAnalyticsOrphanTables =
+      '/api/analytics/orphan-tables';
+  static const String pathApiAnalyticsOrphanTablesAlt =
+      'api/analytics/orphan-tables';
   static const String pathApiSessionShare = '/api/session/share';
   static const String pathApiSessionShareAlt = 'api/session/share';
   static const String pathApiSessionPrefix = '/api/session/';

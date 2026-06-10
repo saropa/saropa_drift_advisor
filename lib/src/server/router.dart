@@ -622,6 +622,15 @@ final class Router {
       return true;
     }
 
+    // GET /api/analytics/orphan-tables — physical tables absent from the
+    // Drift schema (orphans left by prior migrations).
+    if (path == ServerConstants.pathApiAnalyticsOrphanTables ||
+        path == ServerConstants.pathApiAnalyticsOrphanTablesAlt) {
+      await _analytics.handleOrphanTables(response, rawQuery);
+
+      return true;
+    }
+
     return false;
   }
 
@@ -911,6 +920,14 @@ final class Router {
   /// queries are not recorded in [queryTimings].
   Future<Map<String, dynamic>> getAnomaliesResult() =>
       _analytics.getAnomaliesResult(_ctx.queryRaw);
+
+  /// Returns orphan physical-table scan result for VM service RPC
+  /// getOrphanTables. Same shape as GET /api/analytics/orphan-tables.
+  ///
+  /// Uses [ServerContext.queryRaw] so introspection
+  /// queries are not recorded in [queryTimings].
+  Future<Map<String, dynamic>> getOrphanTablesResult() =>
+      _analytics.getOrphanTablesResult(_ctx.queryRaw);
 
   /// Returns explain plan for VM service RPC explainSql.
   Future<Map<String, dynamic>> explainSqlResult(String sql) =>

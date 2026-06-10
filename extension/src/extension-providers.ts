@@ -132,6 +132,8 @@ export function setupProviders(
   const snapshotStore = new SnapshotStore(
     cfg.get<number>('timeline.maxSnapshots', 20) ?? 20,
     cfg.get<number>('timeline.minIntervalMs', 10000) ?? 10000,
+    cfg.get<number>('timeline.captureDebounceMs', 200) ?? 200,
+    log ? (msg) => log.appendLine(`[${new Date().toISOString()}] ${msg}`) : undefined,
   );
   const timelineProvider = new DriftTimelineProvider(snapshotStore);
   // registerTimelineProvider is a proposed API in @types/vscode but stable

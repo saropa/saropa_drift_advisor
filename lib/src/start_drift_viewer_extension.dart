@@ -54,6 +54,49 @@ Future<List<Map<String, dynamic>>> _runDriftQuery(Object db, String sql) async {
   }
 }
 
+/// Derives the set of table names the Drift schema declares by duck-typing
+/// the database's `allTables` getter (a Drift `GeneratedDatabase` exposes
+/// `Iterable<TableInfo> get allTables`, each with `String get
+/// actualTableName`).
+///
+/// Returns null when [db] does not expose `allTables` (e.g.
+/// drift_sqlite_async or a custom executor), or when no usable names are
+/// found. Null leaves the orphan physical-table check report-only — it is an
+/// optional enhancement, so any failure is swallowed silently rather than
+/// breaking server startup.
+Set<String>? _deriveDeclaredTableNames(Object db) {
+  try {
+    final dynamic driftDb = db;
+    final dynamic tables = driftDb.allTables;
+    if (tables is! Iterable) {
+      return null;
+    }
+    final names = <String>{};
+    for (final dynamic table in tables) {
+      final dynamic name = table.actualTableName;
+      if (name is String && name.isNotEmpty) {
+        names.add(name);
+      }
+    }
+    return names.isEmpty ? null : names;
+  } on Object catch (error, stack) {
+    // Not a Drift GeneratedDatabase, or allTables/actualTableName absent.
+    // The viewer still works without the declared set; the orphan check
+    // simply stays report-only. Logged (debug-only) for visibility but never
+    // rethrown — a missing getter must not break server startup.
+    if (!bool.fromEnvironment('dart.vm.product', defaultValue: false)) {
+      developer.log(
+        'startDriftViewer could not derive declared table names from '
+        'allTables; orphan physical-table check stays report-only. $error',
+        name: _kStartViewerLogName,
+        error: error,
+        stackTrace: stack,
+      );
+    }
+    return null;
+  }
+}
+
 /// Convenience API for Drift apps: `await myDb.startDriftViewer(...)`.
 ///
 /// This package intentionally does **not** depend on `drift`, so this extension is
@@ -94,6 +137,10 @@ extension StartDriftViewerExtension on Object {
     // Preserve return await so async stack trace is retained (prefer_return_await).
     return await DriftDebugServer.start(
       query: (sql) => _runDriftQuery(this, sql),
+      // Derive the Drift-declared table set so the orphan physical-table
+      // check can flag tables present in the DB but absent from the schema.
+      // Null (non-Drift db) leaves that check report-only.
+      declaredTableNames: _deriveDeclaredTableNames(this),
       enabled: enabled,
       port: port,
       loopbackOnly: loopbackOnly,
