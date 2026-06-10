@@ -39,6 +39,12 @@ browse source on
 
 ## [Unreleased]
 
+Scrub a table's history with the new **Time Travel** slider — drag through captured snapshots and watch rows appear, change, and disappear with diff highlighting, or hit play to animate the changes.
+
+### Added
+
+- **Time Travel data slider** — right-click any table in the Database Explorer → **Time Travel** (or run it from the command palette) to open a slider across all captured snapshots of that table. Drag the slider, step with the ◀ ▶ buttons, or press play to animate; each frame highlights rows added (green), removed (red, struck through), and changed (amber, with the exact changed cells marked) versus the previous snapshot. A table picker and 0.5×–4× speed control sit above the grid, and the panel updates live as new snapshots are captured. Built on the existing snapshot history, using each table's real primary key to match rows.
+
 <details>
 <summary>Maintenance</summary>
 

@@ -116,7 +116,8 @@ describe('Extension activation', () => {
     // DVR: GenerationWatcher listener refreshes open DVR panel (+1).
     // Dashboard: addQueryWidgetToDashboard (+1); disposable count drifts with new commands.
     // Connection Phase 1: ConnectionStateMachine added to subscriptions (+1).
-    assert.strictEqual(subscriptions.length, 210, `expected 210 disposables, got ${subscriptions.length}`);
+    // Time-Travel (Feature 60): driftViewer.timeTravel command registration (+1).
+    assert.strictEqual(subscriptions.length, 211, `expected 211 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

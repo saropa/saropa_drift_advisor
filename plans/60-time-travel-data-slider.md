@@ -385,3 +385,33 @@ Build bottom-up so the diff logic is proven before any UI consumes it. Each phas
 ### Phase 5 — Cross-feature hooks (optional, gated on other features)
 - Wire "Create Branch Here" (needs [37](./37-data-branching.md)) and DVR sync (needs [26](./26-query-replay-dvr.md)). Each is additive and behind a capability check; ship phases 1–4 without them.
 - **Gate:** when 37/26 are present, the actions appear; when absent, they are hidden, not broken.
+
+---
+
+## Finish Report (2026-06-10) — Phases 1–4
+
+**This work will be reviewed by another AI.**
+
+**Trigger.** Top-5 build directive, Item 3. The Time-Travel Data Slider was the "quickest, high-wow" pick.
+
+**Scope.** (B) VS Code extension (TypeScript). New webview feature; one new user-facing command + context-menu entry. No Dart/server code.
+
+**What changed vs the original plan.** The plan assumed snapshots lived on `DriftTimelineProvider` with a "first column is the PK" diff. Reality is richer: the existing `SnapshotStore` (Feature 12) already captures full per-table rows **with `pkColumns`**. The engine was built on `SnapshotStore` and uses the real composite primary key (via the shared `pkKey` helper), falling back to first-column then full-row signature — strictly better row identity than the plan sketched, and consistent with `computeTableDiff`.
+
+**Files.**
+- `time-travel/time-travel-types.ts` (new) — `RowStatus`, `ITimeTravelRow`, `ITimeTravelState`, `ITimeTravelDiffSummary`.
+- `time-travel/time-travel-engine.ts` (new, Phase 1+2) — `TimeTravelEngine` over `SnapshotStore`: `getSnapshotCount`, `getTimestamps`, `getTableNames`, `getStateAt(table, index)` diffing each snapshot against the previous; out-of-range returns an empty frame (never throws).
+- `time-travel/time-travel-html.ts` (new, Phase 3) — interactive shell: sticky controls (table picker, speed 0.5×–4×, prev/play/next, range slider), diff-colored grid, client-side playback timer, `ready`/`seekTo`/`setTable` message protocol.
+- `time-travel/time-travel-panel.ts` (new, Phase 3) — singleton panel wiring the engine to the webview; opens on the latest snapshot; re-renders live on `store.onDidChange`; clamps the index when the rolling window trims old snapshots.
+- `timeline/snapshot-commands.ts` (Phase 4) — registers `driftViewer.timeTravel` (accepts a `TableItem` from the context menu, else QuickPicks a table with snapshot history; info message when no snapshots exist).
+- `package.json` (Phase 4) — command declaration (`$(history)` icon) + `view/item/context` entry on `driftTable`/`driftTablePinned` in the `1_view` group.
+- `test/time-travel-engine.test.ts` (new) — 13 cases covering the full plan matrix plus composite-PK and empty-store.
+- `test/extension.test.ts` — disposable count 210 → 211 (the new command).
+
+**Deviation from plan (intentional).** The plan listed a `driftViewer.timeTravel.playbackSpeedMs` config. The webview ships an in-panel speed picker (0.5×–4×) instead, which is a better UX and avoids a config key with no live consumer (project rule: no dead config). Not added.
+
+**Testing.** `npm run compile` clean; `npm test` → **2645 passing** (+13 engine + others). The exhaustive command-wiring tests pass, confirming `driftViewer.timeTravel` is both declared in `contributes.commands` and registered at runtime.
+
+**Outstanding.** Phase 5 only — the optional cross-feature hooks ("Create Branch Here" needs Feature 37; DVR sync needs Feature 26). Both are explicitly gated/optional in the plan above ("ship phases 1–4 without them"). Feature 37 is the next build item (top-5 Item 5), after which the branch-from-snapshot hook can be wired. Plan stays active for Phase 5.
+
+**Finish report appended:** plans/60-time-travel-data-slider.md (this section). Plan stays active — Phases 1–4 complete, Phase 5 (optional cross-feature hooks) deferred and documented in-place.
