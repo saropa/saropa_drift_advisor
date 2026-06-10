@@ -362,6 +362,36 @@ Despite all the patches above, these issues remain or recur:
 
 ---
 
+## Implementation Plan
+
+The five entries in **What Has NOT Been Fixed** are the work. The history above shows why piecemeal patching failed: each fix addressed one failure path while the systemic causes (no single state authority, no lifecycle test, no global breaker, inconsistent webview protocol, polling-only discovery) stayed in place. This plan attacks the causes in dependency order. The state contract (Phase 1) is foundational — the circuit breaker and the lifecycle test both need one authoritative "are we connected" before they can be written. Each phase ends at a verifiable gate; do not start phase N+1 until phase N's gate is green.
+
+> **Constraint that overrides ordering:** this is a reliability plan. No phase may remove an existing workaround until its replacement is proven by a test. The layered stack in **Recurring Patterns §5** stays in place until a phase explicitly subsumes a layer AND a test pins the new behavior. "Delete the old hack" is never its own step.
+
+### Phase 1 — Single connection-state authority (fixes gap 1)
+- Introduce one `ConnectionState` machine that owns the connected/working truth, derived from the underlying signals (HTTP discovery, VM Service, REST schema load). Every surface — Database tree, Schema Search, Drift Tools, status bar — reads from it instead of its own boolean. Keep `driftViewer.serverConnected` / `databaseTreeEmpty` / `isDriftUiConnected` as *derived outputs* of the machine, not independent inputs, so existing consumers keep working.
+- **Gate:** a unit test drives the machine through every transition and asserts no two derived flags can disagree (the exact contradiction — "connected but no data", "disconnected but server running" — is now impossible to represent); all existing surfaces compile against the derived outputs.
+
+### Phase 2 — End-to-end lifecycle test (fixes gap 2)
+- Build the missing full-flow test: extension activates → discovery scans → server found → tree loads → button clicked → data appears. Use the existing mock command registry plus a stub server so it runs headless. This is the regression net the project has never had.
+- **Gate:** the lifecycle test passes against the current build and fails if any single link (activation phase, discovery, tree load, command) is broken — verified by deliberately breaking each link once.
+
+### Phase 3 — Global circuit breaker + retry budget (fixes gap 3)
+- Add one breaker keyed on the Phase 1 state: when the server is genuinely down, health probes, schema fetches, discovery scans, and VM connect attempts stop hammering and collapse to a single backoff with a clear "server down" surface. Per-subsystem retries become budget-bounded, not independent.
+- **Gate:** a test simulating a down server asserts total outbound attempts across all subsystems stay within the budget over a fixed window (today they fan out uncapped), and recovery resumes within one backoff cycle of the server returning.
+
+### Phase 4 — Unified webview ready-handshake (fixes gap 4)
+- Extract the Schema Search ready-handshake into one shared protocol module and adopt it in every webview panel (Troubleshooting, Dashboard, ER Diagram, and the feature panels). No panel may post connection state before its handshake completes; the `acquireVsCodeApi` single-call invariant is enforced by the shared module, not re-implemented per panel.
+- **Gate:** a contract test asserts each panel uses the shared handshake and that a connection-state message sent before handshake is queued, not dropped — reproducing the "message lost during init → permanently broken panel" failure and proving it can't recur.
+
+### Phase 5 — Server→extension push (fixes gap 5)
+- Replace polling-only discovery with a push signal from the server (e.g. the server announces its bound port/health over the VM Service extension the extension already connects to), so the "server running but extension doesn't know yet" window closes. Polling stays as the fallback for hosts where push is unavailable — additive, not a replacement.
+- **Gate:** with push active, the extension reflects a freshly-started server without waiting for the next 30–60s scan; with push disabled, behavior is identical to today's polling. Both paths covered by tests.
+
+**Sequencing note for the active regression.** The print()-banner regression and the `adb forward` hint (top of this doc, [Unreleased]) are already fixed and guard-tested; they are not part of the phases above. This plan is the structural follow-on so the *next* silent break is caught by Phase 2/3/4 gates rather than a user screenshot.
+
+---
+
 ## How to Test Manually
 
 The extension and the example Flutter app are separate processes:
