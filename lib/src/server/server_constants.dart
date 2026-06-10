@@ -32,6 +32,7 @@ abstract final class ServerConstants {
   static const String methodGet = 'GET';
   static const String methodPost = 'POST';
   static const String methodDelete = 'DELETE';
+  static const String methodPut = 'PUT';
   static const String pathApiHealth = '/api/health';
   static const String pathApiHealthAlt = 'api/health';
   static const String pathApiGeneration = '/api/generation';
@@ -61,6 +62,14 @@ abstract final class ServerConstants {
   static const String pathApiSnapshotAlt = 'api/snapshot';
   static const String pathApiSnapshotCompare = '/api/snapshot/compare';
   static const String pathApiSnapshotCompareAlt = 'api/snapshot/compare';
+
+  /// GET list of all stored snapshots (multi-snapshot support, Feature 72).
+  static const String pathApiSnapshots = '/api/snapshots';
+  static const String pathApiSnapshotsAlt = 'api/snapshots';
+
+  /// Dynamic prefix for per-snapshot operations: DELETE/PUT /api/snapshot/{id}.
+  static const String pathApiSnapshotPrefix = '/api/snapshot/';
+  static const String pathApiSnapshotPrefixAlt = 'api/snapshot/';
   static const String pathApiComparePrefix = '/api/compare/';
   static const String pathApiComparePrefixAlt = 'api/compare/';
   static const String pathApiCompareReport = '/api/compare/report';
@@ -167,6 +176,11 @@ abstract final class ServerConstants {
   static const String queryParamDirection = 'direction';
   static const String queryParamFormat = 'format';
   static const String queryParamDetail = 'detail';
+
+  /// Snapshot pairwise-compare query params: from={id} and to={id}. When `to`
+  /// is omitted the compare runs against the live database ("now").
+  static const String queryParamFrom = 'from';
+  static const String queryParamTo = 'to';
   static const String formatDownload = 'download';
   static const String detailRows = 'rows';
   static const String jsonKeyEnabled = 'enabled';
@@ -206,6 +220,12 @@ abstract final class ServerConstants {
   static const String jsonKeyWriteEnabled = 'writeEnabled';
   static const String jsonKeyGeneration = 'generation';
   static const String jsonKeySnapshot = 'snapshot';
+  static const String jsonKeySnapshots = 'snapshots';
+  static const String jsonKeyLabel = 'label';
+
+  /// Compare response field: the target snapshot id, or null when the diff was
+  /// taken against the live database.
+  static const String jsonKeyTo = 'to';
   static const String jsonKeyId = 'id';
   static const String jsonKeyCreatedAt = 'createdAt';
   static const String jsonKeyTableCount = 'tableCount';

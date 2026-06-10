@@ -6013,21 +6013,83 @@
     const clearBtn = document.getElementById("snapshot-clear");
     const statusEl = document.getElementById("snapshot-status");
     const resultPre = document.getElementById("snapshot-compare-result");
-    function updateSnapshotUI(hasSnapshot, createdAt) {
-      compareBtn.disabled = !hasSnapshot;
-      exportLink.style.display = hasSnapshot ? "" : "none";
-      clearBtn.style.display = hasSnapshot ? "" : "none";
-      if (exportLink.style.display !== "none" && DRIFT_VIEWER_AUTH_TOKEN) {
-        exportLink.href = "/api/snapshot/compare?detail=rows&format=download";
-      } else if (hasSnapshot) exportLink.href = "/api/snapshot/compare?detail=rows&format=download";
-      statusEl.textContent = hasSnapshot ? "Snapshot: " + (createdAt || "") : "No snapshot.";
+    var snapshotItems = [];
+    function listHost() {
+      var host2 = document.getElementById("snapshot-list");
+      if (!host2 && statusEl && statusEl.parentNode) {
+        host2 = document.createElement("div");
+        host2.id = "snapshot-list";
+        host2.style.margin = "0.5rem 0";
+        statusEl.parentNode.insertBefore(host2, resultPre || null);
+      }
+      return host2;
     }
-    function refreshSnapshotStatus() {
-      fetch("/api/snapshot", authOpts()).then((r) => r.json()).then(function(data) {
-        const snap = data.snapshot;
-        updateSnapshotUI(!!snap, snap ? snap.createdAt : null);
+    function fmtSnapshotLabel(s) {
+      var when = s.createdAt || s.id || "";
+      return (s.label ? s.label + " \u2014 " : "") + when;
+    }
+    function buildExportHref() {
+      var from = document.getElementById("snapshot-from");
+      var to = document.getElementById("snapshot-to");
+      var qs = "detail=rows&format=download";
+      if (from && from.value) qs += "&from=" + encodeURIComponent(from.value);
+      if (to && to.value) qs += "&to=" + encodeURIComponent(to.value);
+      return "/api/snapshot/compare?" + qs;
+    }
+    function renderSnapshotList() {
+      var host2 = listHost();
+      if (!host2) return;
+      var has = snapshotItems.length > 0;
+      compareBtn.disabled = !has;
+      exportLink.style.display = has ? "" : "none";
+      clearBtn.style.display = has ? "" : "none";
+      if (has) exportLink.href = buildExportHref();
+      if (!has) {
+        host2.innerHTML = '<p class="meta">No snapshots yet. Capture one to start comparing.</p>';
+        return;
+      }
+      var html = '<div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.4rem;">';
+      html += '<label class="meta">From <select id="snapshot-from">';
+      snapshotItems.forEach(function(s) {
+        html += '<option value="' + esc2(s.id) + '">' + esc2(fmtSnapshotLabel(s)) + "</option>";
+      });
+      html += "</select></label>";
+      html += '<label class="meta">To <select id="snapshot-to"><option value="">now (live DB)</option>';
+      snapshotItems.forEach(function(s) {
+        html += '<option value="' + esc2(s.id) + '">' + esc2(fmtSnapshotLabel(s)) + "</option>";
+      });
+      html += "</select></label>";
+      html += "</div>";
+      html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
+      html += '<tr><th style="border:1px solid var(--border);padding:4px;text-align:left;">Snapshot</th><th style="border:1px solid var(--border);padding:4px;">Tables</th><th style="border:1px solid var(--border);padding:4px;">Actions</th></tr>';
+      snapshotItems.forEach(function(s) {
+        html += "<tr>";
+        html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(fmtSnapshotLabel(s)) + "</td>";
+        html += '<td style="border:1px solid var(--border);padding:4px;text-align:right;">' + (s.tableCount != null ? s.tableCount : "") + "</td>";
+        html += '<td style="border:1px solid var(--border);padding:4px;">';
+        html += '<button class="btn snapshot-rename" data-id="' + esc2(s.id) + '">Rename</button> ';
+        html += '<button class="btn snapshot-del" data-id="' + esc2(s.id) + '">Delete</button>';
+        html += "</td></tr>";
+      });
+      html += "</table>";
+      host2.innerHTML = html;
+      var fromSel = document.getElementById("snapshot-from");
+      if (fromSel && snapshotItems.length) fromSel.value = snapshotItems[snapshotItems.length - 1].id;
+      var toSel = document.getElementById("snapshot-to");
+      if (toSel) toSel.addEventListener("change", function() {
+        exportLink.href = buildExportHref();
+      });
+      if (fromSel) fromSel.addEventListener("change", function() {
+        exportLink.href = buildExportHref();
+      });
+    }
+    function refreshSnapshotList() {
+      fetch("/api/snapshots", authOpts()).then((r) => r.json()).then(function(data) {
+        snapshotItems = data && data.snapshots || [];
+        renderSnapshotList();
       }).catch(function() {
-        updateSnapshotUI(false);
+        snapshotItems = [];
+        renderSnapshotList();
       });
     }
     if (toggle && collapsible) {
@@ -6035,18 +6097,23 @@
         const isCollapsed = collapsible.classList.contains("collapsed");
         collapsible.classList.toggle("collapsed", !isCollapsed);
         syncFeatureCardExpanded(collapsible);
-        if (isCollapsed) refreshSnapshotStatus();
+        if (isCollapsed) refreshSnapshotList();
       });
     }
     if (takeBtn) takeBtn.addEventListener("click", function() {
+      var label = window.prompt("Optional label for this snapshot (leave blank for none):") || "";
       takeBtn.disabled = true;
       statusEl.textContent = "Capturing\u2026";
-      fetch("/api/snapshot", authOpts({ method: "POST" })).then((r) => r.json().then(function(d) {
+      fetch("/api/snapshot", authOpts({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: label.trim() })
+      })).then((r) => r.json().then(function(d) {
         return { ok: r.ok, data: d };
       })).then(function(o) {
         if (o.ok) {
-          updateSnapshotUI(true, o.data.createdAt);
           statusEl.textContent = "Snapshot saved at " + o.data.createdAt;
+          refreshSnapshotList();
         } else statusEl.textContent = o.data.error || "Failed";
       }).catch(function(e) {
         statusEl.textContent = "Error: " + e.message;
@@ -6055,12 +6122,17 @@
       });
     });
     if (compareBtn) compareBtn.addEventListener("click", function() {
+      var from = document.getElementById("snapshot-from");
+      var to = document.getElementById("snapshot-to");
+      var qs = "detail=rows";
+      if (from && from.value) qs += "&from=" + encodeURIComponent(from.value);
+      if (to && to.value) qs += "&to=" + encodeURIComponent(to.value);
       compareBtn.disabled = true;
       resultPre.style.display = "none";
       resultPre.innerHTML = "";
       statusEl.textContent = "Comparing\u2026";
       statusEl.setAttribute("aria-busy", "true");
-      fetch("/api/snapshot/compare?detail=rows", authOpts()).then((r) => r.json().then(function(d) {
+      fetch("/api/snapshot/compare?" + qs, authOpts()).then((r) => r.json().then(function(d) {
         return { ok: r.ok, data: d };
       })).then(function(o) {
         if (o.ok) {
@@ -6082,20 +6154,49 @@
       });
     });
     if (clearBtn) clearBtn.addEventListener("click", function() {
+      if (!window.confirm("Delete ALL snapshots?")) return;
       clearBtn.disabled = true;
       statusEl.textContent = "Clearing\u2026";
       fetch("/api/snapshot", authOpts({ method: "DELETE" })).then(function() {
-        updateSnapshotUI(false);
         resultPre.style.display = "none";
         resultPre.innerHTML = "";
-        refreshSnapshotStatus();
+        statusEl.textContent = "All snapshots cleared.";
+        refreshSnapshotList();
       }).catch(function(e) {
         statusEl.textContent = "Error: " + e.message;
       }).finally(function() {
         clearBtn.disabled = false;
       });
     });
-    refreshSnapshotStatus();
+    var host = listHost();
+    if (host) {
+      host.addEventListener("click", function(e) {
+        var t = e.target;
+        if (!t || !t.getAttribute) return;
+        var id = t.getAttribute("data-id");
+        if (!id) return;
+        if (t.classList.contains("snapshot-del")) {
+          if (!window.confirm("Delete this snapshot?")) return;
+          fetch("/api/snapshot/" + encodeURIComponent(id), authOpts({ method: "DELETE" })).then(function() {
+            refreshSnapshotList();
+          }).catch(function(err) {
+            statusEl.textContent = "Error: " + err.message;
+          });
+        } else if (t.classList.contains("snapshot-rename")) {
+          var label = window.prompt("New label (leave blank to clear):") || "";
+          fetch("/api/snapshot/" + encodeURIComponent(id), authOpts({
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ label: label.trim() })
+          })).then(function() {
+            refreshSnapshotList();
+          }).catch(function(err) {
+            statusEl.textContent = "Error: " + err.message;
+          });
+        }
+      });
+    }
+    refreshSnapshotList();
   }
   function initCompare() {
     const toggle = document.getElementById("compare-toggle");

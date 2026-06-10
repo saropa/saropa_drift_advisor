@@ -150,9 +150,56 @@ final class ServerContext {
   /// legitimate table.
   final Set<String>? declaredTableNames;
 
-  /// In-memory snapshot: id, createdAt, and full table
-  /// data per table.
-  Snapshot? snapshot;
+  /// In-memory snapshots (oldest first): each holds id, createdAt, optional
+  /// label, and full table data per table. Capped at [maxSnapshots] with
+  /// oldest-first eviction (mirrors the extension's rolling window) so a long
+  /// debugging session cannot grow memory unbounded.
+  final List<Snapshot> snapshots = <Snapshot>[];
+
+  /// Maximum retained snapshots before the oldest is evicted on a new capture.
+  static const int maxSnapshots = 20;
+
+  /// The most recently captured snapshot, or null when none exist. Preserves
+  /// the pre-multi-snapshot "current snapshot" semantics for GET /api/snapshot
+  /// and the default (no-param) compare.
+  Snapshot? get latestSnapshot => snapshots.isEmpty ? null : snapshots.last;
+
+  /// Appends [snap], evicting the oldest when over [maxSnapshots].
+  void addSnapshot(Snapshot snap) {
+    snapshots.add(snap);
+    while (snapshots.length > maxSnapshots) {
+      snapshots.removeAt(0);
+    }
+  }
+
+  /// Returns the stored snapshot with [id], or null.
+  Snapshot? snapshotById(String id) {
+    for (final s in snapshots) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  /// Removes the snapshot with [id]. Returns true when one was removed.
+  bool removeSnapshot(String id) {
+    final before = snapshots.length;
+    snapshots.removeWhere((s) => s.id == id);
+    return snapshots.length != before;
+  }
+
+  /// Replaces the snapshot with [id] with [updated] (used for label rename).
+  /// No-op when no snapshot matches [id].
+  void replaceSnapshot(String id, Snapshot updated) {
+    for (var i = 0; i < snapshots.length; i++) {
+      if (snapshots[i].id == id) {
+        snapshots[i] = updated;
+        return;
+      }
+    }
+  }
+
+  /// Clears all stored snapshots.
+  void clearSnapshots() => snapshots.clear();
 
   /// Monotonically incremented when table row counts
   /// change; used for live refresh and long-poll.
