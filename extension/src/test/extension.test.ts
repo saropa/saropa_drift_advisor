@@ -117,7 +117,8 @@ describe('Extension activation', () => {
     // Dashboard: addQueryWidgetToDashboard (+1); disposable count drifts with new commands.
     // Connection Phase 1: ConnectionStateMachine added to subscriptions (+1).
     // Time-Travel (Feature 60): driftViewer.timeTravel command registration (+1).
-    assert.strictEqual(subscriptions.length, 211, `expected 211 disposables, got ${subscriptions.length}`);
+    // Data Branching (Feature 37): BranchManager dispose + openBranches + createBranch (+3).
+    assert.strictEqual(subscriptions.length, 214, `expected 214 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

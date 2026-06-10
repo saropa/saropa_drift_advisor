@@ -766,3 +766,39 @@ Build the read-only path (capture → diff → merge SQL) fully before the destr
 ### Phase 5 — Branch panel + wiring + safety hooks
 - Build `branch-panel.ts` + `branch-html.ts` (list, diff view, merge-SQL-to-editor); register the six commands and `view/title` entry; wire "Create Backup First" into restore and the pre-destructive-edit branch prompt consumed by Bulk Edit ([47](./47-bulk-edit-grid.md)).
 - **Gate:** full UX path works — create, diff vs now, generate merge SQL into an editor tab, restore-with-backup, delete-with-confirm.
+
+---
+
+## Finish Report (2026-06-10) — Phases 1–5
+
+**This work will be reviewed by another AI.**
+
+**Trigger.** Top-5 build directive, Item 5 — the "biggest wow" feature.
+
+**Scope.** (B) VS Code extension (TypeScript). New webview feature + commands. **No Dart/server code** (see the Phase 4 deviation below).
+
+**Files (all new under `extension/src/branching/` unless noted).**
+- `branch-types.ts` — `IDataBranch`, `IBranchTable`, `IBranchDiff`, `ITableBranchDiff`, `IRowUpdate`.
+- `branch-manager.ts` (Phase 1) — `BranchManager`: capture every non-`sqlite_` table's rows (cap+1 SELECT to detect truncation), CRUD, FIFO prune at `maxBranches`, persist to workspace state. `captureLiveTables` is shared by create and diff-vs-current.
+- `branch-diff.ts` (Phase 2) — pure `diffTable` / `diffBranches`, PK-keyed via the shared `pkKey` helper with full-row-signature fallback for PK-less tables; directional A→B.
+- `branch-merge-sql.ts` (Phase 3) — `generateMergeSql(diff, direction, insertOrder)`: forward + rollback, deletes child-first (reverse of the FK insert order) then inserts parent-first; `sqlLiteral` escaping; `IS NULL` for null PKs; empty diff → comments only.
+- `branch-restore.ts` (Phase 4) — `restoreBranch` via the existing `client.sql()` write path, FK-ordered.
+- `branch-html.ts` + `branch-panel.ts` (Phase 5) — list + diff webview; the panel drives create/diff/merge/restore/delete from button messages; modal restore with "Create Backup First".
+- `branch-commands.ts` (Phase 5) — owns the `BranchManager` lifecycle; registers `driftViewer.openBranches` + `driftViewer.createBranch`.
+- `extension-commands.ts` — `branching` feature-module tuple.
+- `package.json` — 2 commands, `view/title` entry (`1_tools`, gated on `serverConnected`), `branching.maxBranches` / `branching.maxRowsPerTable` config.
+- `test/branch-diff.test.ts` (9 cases) + `test/branch-merge-sql.test.ts` (8 cases).
+- `test/extension.test.ts` — disposable count 211 → 214.
+
+**Deviation from plan (Phase 4, intentional, lower-risk).** The plan proposed a dedicated Dart `POST /api/branch/restore` endpoint + `branch_store.dart` + an `api-client.branchRestore` method. Instead, restore reuses the **existing `client.sql()` write path** that `DataReset` and the dataset importer already use — the same path the server already gates on its `writeQuery` callback. This deletes tables children-first and re-inserts parents-first via the existing `DependencySorter`. Rationale: no new server routing/endpoint/store for a single feature; inherits proven write/auth/validation; on a read-only server the writes fail (surfaced as "the server may be read-only") exactly as a 501 would have. Documented at the top of `branch-restore.ts`.
+
+**Command surface.** The plan listed six command IDs; shipped two (`openBranches`, `createBranch`) with diff/merge/restore/delete driven by panel buttons instead of separate palette commands — smaller surface, same workflow. The bidirectional command-wiring tests pass (every declared command is registered and vice versa).
+
+**Testing.** `npm run compile` clean; `npm test` → **2662 passing** (+17 branch engine cases). package.json validated as JSON.
+
+**Outstanding (cross-feature, deferred).** Two integration hooks from the plan's narrative remain, both depending on other features and both additive:
+1. Bulk Edit "Create Branch before destructive edit" prompt ([47](./47-bulk-edit-grid.md)) — a safety hook in the bulk-edit commit path.
+2. Time-Travel "Create Branch from Snapshot" ([60](./60-time-travel-data-slider.md) Phase 5) — now buildable since `BranchManager` exists.
+The core feature (create / diff / merge-SQL / restore / delete) is complete and tested. Plan stays active for these two cross-feature hooks.
+
+**Finish report appended:** plans/37-data-branching.md (this section). Plan stays active — Phases 1–5 of the core feature complete; two cross-feature integration hooks remain.
