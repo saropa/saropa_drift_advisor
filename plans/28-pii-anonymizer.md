@@ -579,3 +579,29 @@ Report generated with masked data
 - No support for preserving statistical distribution of numeric PII (e.g., age ranges)
 - Generated fake data uses small built-in lists (~50 names) — may have collisions on large datasets
 - BLOB columns are skipped entirely
+
+---
+
+## Implementation Plan
+
+Two tracks: the **web/server masking** (BUG-015) is mostly shipped and needs only its config remainder; the **extension anonymizer** (Feature 28) is fresh and builds bottom-up — detector → engine → formatter → panel. Each phase ends at a verifiable gate. Files/tests referenced are defined in **New Files** and **Testing** above.
+
+### Phase 1 — Finish web/server masking config (BUG-015 remainder)
+- Add server-side always-mask configuration and the `.drift-mask.json` rules file in `lib/src/server/html_content.dart` / `table_handler.dart`. The toggle, heuristics, and format-aware masking already shipped (see **Implementation Status**); this only adds persistent/forced rules.
+- **Gate:** columns listed in `.drift-mask.json` mask regardless of toggle state, in both display and CSV export.
+
+### Phase 2 — PII detector (pure logic)
+- Implement `pii-detector.ts`: name-pattern matching (`NAME_PATTERNS`) with confidence, PK skip, and value-based fallback (email/phone/IP) from sample rows; reuse column-name logic from Test Data Seeder (20) `column-detector.ts`.
+- **Gate:** `pii-detector.test.ts` green — all name patterns detected, PKs skipped, value-based email/phone/IP, correct confidence (high-on by default, low-off), empty result for no-PII tables.
+
+### Phase 3 — Anonymizer engine (consistent mapping)
+- Implement `anonymizer-engine.ts`: per-category fake generation with a `category:value → fake` cache so the same input maps to the same output across tables; NULL preservation; shared generator registry with the Seeder.
+- **Gate:** `anonymizer-engine.test.ts` green — same-in-same-out, distinct-in-distinct-out, NULL preserved, valid-shaped output per category, cross-table consistency.
+
+### Phase 4 — Output formatter
+- Implement `anonymizer-formatter.ts`: `toSql` (commented header, valid escaped INSERTs in FK order via `DependencySorter`/`dataset-export` from 20a) and `toJson`.
+- **Gate:** `anonymizer-formatter.test.ts` green — valid INSERT statements, valid JSON, quote/special-char escaping, header includes PII column count.
+
+### Phase 5 — Config panel + wiring
+- Build `anonymizer-panel.ts` + `anonymizer-html.ts`: detected-column review with toggles, 5-row original-vs-anonymized preview, output-format choice; register `driftViewer.anonymizeDatabase`, `view/title` entry, and config; wire the sample-then-detect flow in `extension.ts`.
+- **Gate:** command samples rows, opens the panel with detected columns, preview shows side-by-side, "Anonymize All" emits the chosen format; "no PII detected" path shows the info message.

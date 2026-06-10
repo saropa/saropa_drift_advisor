@@ -385,3 +385,29 @@ AI Finding: "orders.status should be normalized"
 - Review takes 5-15 seconds depending on model and schema size
 - No caching — re-analyze always calls the LLM again
 - LLM may hallucinate issues that don't exist — findings should be reviewed by the user
+
+---
+
+## Implementation Plan
+
+Build deterministic collection and parsing around the LLM call first, so the non-deterministic boundary is the only unverifiable part. Each phase ends at a verifiable gate. Files/tests referenced are defined in **New Files** and **Testing** above.
+
+### Phase 1 — Schema collection
+- Implement `collectSchema` in `ai-schema-reviewer.ts`: gather `schemaMetadata()`, `schemaDump()`, and per-table `tableFkMeta()`, excluding `sqlite_` internal tables, into `ISchemaSnapshot`.
+- **Gate:** snapshot includes every user table with columns, FKs, row counts, and CREATE statements; internal tables excluded (asserted in `ai-schema-reviewer.test.ts`).
+
+### Phase 2 — Prompt + LLM request
+- Implement `buildReviewPrompt` and the `vscode.lm.selectChatModels` request flow, with the explicit "no language model available — install Copilot" error when no model is selectable.
+- **Gate:** prompt contains CREATE statements + per-table stats; missing-model path produces the documented install error, not a crash.
+
+### Phase 3 — Response parsing + validation
+- Implement `parseReviewResponse` / `validateFinding`: extract JSON from markdown-fenced or bare responses, validate each finding's required fields, default `overall`/`categories`.
+- **Gate:** `ai-schema-reviewer.test.ts` green — fenced and bare JSON parsed, invalid JSON → meaningful error, empty findings → "no issues", per-finding field validation.
+
+### Phase 4 — Review panel + actions
+- Build `ai-review-panel.ts` + `ai-review-html.ts`: category cards with grades, copy-migration-SQL and copy-migration-Dart per finding, export, re-analyze.
+- **Gate:** results render by category; copy actions place the correct SQL/Dart on the clipboard; re-analyze re-issues the request.
+
+### Phase 5 — Wiring + Feature 66 bridge
+- Register `driftViewer.aiSchemaReview` and the `view/title` entry; wire findings to open the refactoring panel via `refactoringOpenWithHint` ([66](./66-drift-refactoring-engine.md)) with structured `{table, column, title, description}` hints.
+- **Gate:** command runs a review end-to-end; "View Refactoring Plan" opens 66's panel pre-seeded with the finding.
