@@ -151,6 +151,65 @@ describe('SnapshotStore', () => {
     });
   });
 
+  describe('requestCapture() — write-burst coalescing', () => {
+    it('coalesces a burst of writes into exactly one capture after the quiet window', async () => {
+      stubCapture();
+      const store = new SnapshotStore(20, 0, 200);
+      store.requestCapture(client);
+      await clock.tickAsync(100);
+      // Second write lands inside the window and must reset the timer, not
+      // kick off its own re-dump.
+      store.requestCapture(client);
+      await clock.tickAsync(100);
+      store.requestCapture(client);
+      // 200ms has elapsed since the first write but only 100ms since the last,
+      // so nothing should have fired yet.
+      assert.strictEqual(store.snapshots.length, 0);
+      await clock.tickAsync(200);
+      assert.strictEqual(store.snapshots.length, 1);
+    });
+
+    it('logs one coalesced-count line naming how many writes collapsed', async () => {
+      stubCapture();
+      const logs: string[] = [];
+      const store = new SnapshotStore(20, 0, 200, (m) => logs.push(m));
+      store.requestCapture(client);
+      store.requestCapture(client);
+      store.requestCapture(client);
+      await clock.tickAsync(200);
+      assert.strictEqual(store.snapshots.length, 1);
+      assert.ok(
+        logs.includes('timeline: re-dump (coalesced 3 writes)'),
+        logs.join(' | '),
+      );
+    });
+
+    it('uses singular wording for a single coalesced write', async () => {
+      stubCapture();
+      const logs: string[] = [];
+      const store = new SnapshotStore(20, 0, 200, (m) => logs.push(m));
+      store.requestCapture(client);
+      await clock.tickAsync(200);
+      assert.ok(
+        logs.includes('timeline: re-dump (coalesced 1 write)'),
+        logs.join(' | '),
+      );
+    });
+
+    it('bypasses the minIntervalMs floor so the final write is never dropped', async () => {
+      stubCapture();
+      const store = new SnapshotStore(20, 10_000, 200);
+      // A prior immediate capture sets the minIntervalMs floor.
+      const first = await store.capture(client);
+      assert.ok(first);
+      // A debounced write lands well inside the 10s floor; it must still
+      // capture so the open page reflects the latest committed state.
+      store.requestCapture(client);
+      await clock.tickAsync(200);
+      assert.strictEqual(store.snapshots.length, 2);
+    });
+  });
+
   describe('getById()', () => {
     it('should return snapshot by id', async () => {
       stubCapture();

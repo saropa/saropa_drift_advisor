@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'anomaly_detector.dart';
 import 'index_analyzer.dart';
+import 'orphan_table_detector.dart';
 import 'server_constants.dart';
 import 'server_context.dart';
 import 'server_utils.dart';
@@ -78,6 +79,45 @@ final class AnalyticsHandler {
   ) async {
     final res = response;
     final result = await getAnomaliesResult(query);
+    if (result.containsKey(ServerConstants.jsonKeyError)) {
+      res.statusCode = HttpStatus.internalServerError;
+      res.headers.contentType = ContentType.json;
+      _ctx.setCors(res);
+    } else {
+      _ctx.setJsonHeaders(res);
+    }
+    res.write(jsonEncode(result));
+    await res.close();
+  }
+
+  /// Returns the orphan physical-table scan result for VM service RPC.
+  ///
+  /// Delegates to [OrphanTableDetector.getOrphanTablesResult], passing the
+  /// Drift-declared table set from [ServerContext.declaredTableNames], and
+  /// wraps errors with [ServerContext.logError].
+  Future<Map<String, dynamic>> getOrphanTablesResult(
+    DriftDebugQuery query,
+  ) async {
+    try {
+      return await OrphanTableDetector.getOrphanTablesResult(
+        query,
+        declaredTableNames: _ctx.declaredTableNames,
+      );
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      return <String, String>{ServerConstants.jsonKeyError: error.toString()};
+    }
+  }
+
+  /// Handles GET /api/analytics/orphan-tables: flags physical tables present
+  /// in the database but absent from the Drift schema. Writes JSON to
+  /// [response].
+  Future<void> handleOrphanTables(
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
+    final res = response;
+    final result = await getOrphanTablesResult(query);
     if (result.containsKey(ServerConstants.jsonKeyError)) {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
@@ -179,38 +219,80 @@ final class AnalyticsHandler {
       }
     }
 
+    // Orphan physical tables: only yields findings when the host supplied the
+    // Drift-declared table set (via startDriftViewer or declaredTableNames).
+    // Without it the detector returns an empty list, so this block is a no-op
+    // rather than a source of false positives.
+    if (filter.includeOrphanTables) {
+      try {
+        final result = await OrphanTableDetector.getOrphanTablesResult(
+          query,
+          declaredTableNames: _ctx.declaredTableNames,
+        );
+        final orphans = result['orphans'] as List<Map<String, dynamic>>? ?? [];
+        for (final o in orphans) {
+          final table = o[ServerConstants.jsonKeyTable] as String? ?? '';
+          final message = o[ServerConstants.jsonKeyMessage] as String? ?? '';
+          final severity =
+              o[ServerConstants.jsonKeySeverity] as String? ?? 'warning';
+          issues.add(<String, dynamic>{
+            ServerConstants.jsonKeySource: 'orphan-table',
+            ServerConstants.jsonKeySeverity: severity,
+            ServerConstants.jsonKeyTable: table,
+            ServerConstants.jsonKeyMessage: message,
+            ServerConstants.jsonKeyType: OrphanTableDetector.orphanFindingType,
+            ServerConstants.jsonKeySuggestedSql:
+                o[ServerConstants.jsonKeySuggestedSql],
+          });
+        }
+      } on Object catch (error, stack) {
+        _ctx.logError(error, stack);
+        return <String, dynamic>{
+          ServerConstants.jsonKeyError: error.toString(),
+        };
+      }
+    }
+
     return <String, dynamic>{ServerConstants.jsonKeyIssues: issues};
   }
 
   /// Parses [sources] query param (comma-separated "index-suggestions",
-  /// "anomalies"). Returns which sources to include. When null/empty or
-  /// invalid, both are included; when only one token is present, only
-  /// that source is included.
-  ({bool includeIndexSuggestions, bool includeAnomalies}) _parseSourcesFilter(
-    String? sources,
-  ) {
+  /// "anomalies", "orphan-tables"). Returns which sources to include. When
+  /// null/empty, or when no recognized token is present, all sources are
+  /// included; otherwise only the recognized tokens present are included.
+  ({
+    bool includeIndexSuggestions,
+    bool includeAnomalies,
+    bool includeOrphanTables,
+  })
+  _parseSourcesFilter(String? sources) {
+    // Default (no filter / unrecognized): include everything.
+    const all = (
+      includeIndexSuggestions: true,
+      includeAnomalies: true,
+      includeOrphanTables: true,
+    );
     if (sources == null || sources.trim().isEmpty) {
-      return (includeIndexSuggestions: true, includeAnomalies: true);
+      return all;
     }
     final parts = sources
         .split(',')
         .map((e) => e.trim().toLowerCase())
         .toList();
-    if (parts.isEmpty) {
-      return (includeIndexSuggestions: true, includeAnomalies: true);
-    }
     final hasIndex = parts.any((p) => p == 'index-suggestions');
     final hasAnomalies = parts.any((p) => p == 'anomalies');
-    if (hasIndex && hasAnomalies) {
-      return (includeIndexSuggestions: true, includeAnomalies: true);
+    final hasOrphanTables = parts.any((p) => p == 'orphan-tables');
+
+    // No recognized token → treat as no filter rather than empty result, so
+    // a stale or typo'd query param never silently drops every issue.
+    if (!hasIndex && !hasAnomalies && !hasOrphanTables) {
+      return all;
     }
-    if (hasIndex) {
-      return (includeIndexSuggestions: true, includeAnomalies: false);
-    }
-    if (hasAnomalies) {
-      return (includeIndexSuggestions: false, includeAnomalies: true);
-    }
-    return (includeIndexSuggestions: true, includeAnomalies: true);
+    return (
+      includeIndexSuggestions: hasIndex,
+      includeAnomalies: hasAnomalies,
+      includeOrphanTables: hasOrphanTables,
+    );
   }
 
   /// Handles GET /api/issues: merged index suggestions and anomalies

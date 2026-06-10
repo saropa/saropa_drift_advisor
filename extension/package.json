@@ -1391,6 +1391,11 @@
           "default": 10000,
           "description": "Minimum milliseconds between automatic snapshot captures."
         },
+        "driftViewer.timeline.captureDebounceMs": {
+          "type": "number",
+          "default": 200,
+          "description": "Quiet-period (milliseconds) used to coalesce a burst of database writes into a single snapshot re-dump. Writes arriving within this window reset the timer, so one full physical-table re-scan runs after the writes settle rather than one per write."
+        },
         "driftViewer.watch.notifications": {
           "type": "boolean",
           "default": false,

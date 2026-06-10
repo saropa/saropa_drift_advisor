@@ -36,6 +36,17 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+<details>
+<summary>Maintenance</summary>
+
+- **Timeline auto-capture: coalesce write bursts into one re-dump** — an open timeline previously re-scanned every physical table (schema metadata + a per-table `SELECT`, a thousand-plus queries) on every detected DB write, and the old leading-edge guard fired that scan on the *first* write of a burst — the worst moment, mid write-storm — while silently dropping the rest, which could leave the panel stale on the final committed write. `SnapshotStore.requestCapture` now applies a trailing-edge debounce: writes within a quiet window (new `driftViewer.timeline.captureDebounceMs`, default 200 ms) reset the timer, so one re-dump runs after the burst settles, reflecting the coalesced final state, and the coalesced count is logged as `timeline: re-dump (coalesced K writes)` (`extension/src/timeline/snapshot-store.ts`, `extension/src/extension-providers.ts`, `extension/src/extension-activation-final.ts`, `extension/package.json`)
+
+</details>
+
+---
+
 ## [3.6.0]
 
 ### Improved
