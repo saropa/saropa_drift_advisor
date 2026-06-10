@@ -6,17 +6,27 @@ import 'server_constants.dart';
 // --- Snapshot (time-travel) ---
 
 /// In-memory snapshot of table state (for time-travel compare). Captured by POST /api/snapshot;
-/// GET /api/snapshot/compare diffs current DB vs this snapshot (per-table added/removed/unchanged).
+/// the server keeps several (see [ServerContext.snapshots]). GET /api/snapshot/compare diffs
+/// current DB (or another stored snapshot) against one (per-table added/removed/unchanged).
 class Snapshot {
   const Snapshot({
     required this.id,
     required this.createdAt,
     required this.tables,
+    this.label,
   });
 
   final String id;
   final DateTime createdAt;
   final Map<String, List<Map<String, dynamic>>> tables;
+
+  /// Optional user-supplied label for the snapshot list UI. The timestamp [id]
+  /// remains the stable key; the label is display-only and may be renamed.
+  final String? label;
+
+  /// Returns a copy with a new [label] (id/createdAt/tables unchanged).
+  Snapshot withLabel(String? newLabel) =>
+      Snapshot(id: id, createdAt: createdAt, tables: tables, label: newLabel);
 
   @override
   String toString() =>

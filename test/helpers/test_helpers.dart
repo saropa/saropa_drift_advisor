@@ -341,6 +341,47 @@ Future<({int status, dynamic body})> httpPost(
   }
 }
 
+/// Makes an HTTP PUT request with an optional JSON body and returns parsed response.
+Future<({int status, dynamic body})> httpPut(
+  int port,
+  String path, {
+  Map<String, dynamic>? json,
+  Map<String, String>? headers,
+}) async {
+  final client = HttpClient();
+  try {
+    final req = await client
+        .put('localhost', port, path)
+        .timeout(_kHttpRequestTimeout);
+    req.headers.contentType = ContentType.json;
+    if (headers != null) {
+      for (final entry in headers.entries) {
+        req.headers.set(entry.key, entry.value);
+      }
+    }
+    if (json != null) {
+      req.write(jsonEncode(json));
+    }
+    final resp = await req.close().timeout(_kHttpRequestTimeout);
+    final bodyStr = await resp.transform(utf8.decoder).join();
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(bodyStr);
+    } on FormatException catch (error, stack) {
+      developer.log(
+        'PUT helper received non-JSON response body.',
+        name: 'saropa_drift_advisor.test_helpers',
+        error: error,
+        stackTrace: stack,
+      );
+      decoded = bodyStr;
+    }
+    return (status: resp.statusCode, body: decoded);
+  } finally {
+    client.close();
+  }
+}
+
 /// Makes an HTTP DELETE request and returns parsed response.
 Future<({int status, dynamic body})> httpDelete(
   int port,

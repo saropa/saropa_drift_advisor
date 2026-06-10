@@ -486,16 +486,26 @@ final class Router {
     String path,
     DriftDebugQuery query,
   ) async {
-    // POST /api/snapshot — create a new snapshot.
+    // POST /api/snapshot — capture and append a new snapshot (optional label).
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiSnapshot ||
             path == ServerConstants.pathApiSnapshotAlt)) {
-      await _snapshot.handleSnapshotCreate(response, query);
+      await _snapshot.handleSnapshotCreate(request, response, query);
 
       return true;
     }
 
-    // GET /api/snapshot — retrieve current snapshot.
+    // GET /api/snapshots — list all stored snapshots (checked before the
+    // singular /api/snapshot routes; the trailing 's' makes them distinct).
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiSnapshots ||
+            path == ServerConstants.pathApiSnapshotsAlt)) {
+      await _snapshot.handleSnapshotList(response);
+
+      return true;
+    }
+
+    // GET /api/snapshot — retrieve the most recent snapshot.
     if (request.method == ServerConstants.methodGet &&
         (path == ServerConstants.pathApiSnapshot ||
             path == ServerConstants.pathApiSnapshotAlt)) {
@@ -504,7 +514,8 @@ final class Router {
       return true;
     }
 
-    // GET /api/snapshot/compare — diff snapshot vs current.
+    // GET /api/snapshot/compare — diff one snapshot vs another (from/to params)
+    // or vs the live database when `to` is omitted.
     if (request.method == ServerConstants.methodGet &&
         (path == ServerConstants.pathApiSnapshotCompare ||
             path == ServerConstants.pathApiSnapshotCompareAlt)) {
@@ -517,13 +528,40 @@ final class Router {
       return true;
     }
 
-    // DELETE /api/snapshot — clear snapshot.
+    // DELETE /api/snapshot — clear ALL snapshots (bare path, back-compat).
     if (request.method == ServerConstants.methodDelete &&
         (path == ServerConstants.pathApiSnapshot ||
             path == ServerConstants.pathApiSnapshotAlt)) {
       await _snapshot.handleSnapshotDelete(response);
 
       return true;
+    }
+
+    // DELETE/PUT /api/snapshot/{id} — per-snapshot delete / rename. Guarded so
+    // the /compare sub-path never lands here (it is matched above for GET, but
+    // a stray DELETE/PUT to it must not be treated as id="compare").
+    if (path.startsWith(ServerConstants.pathApiSnapshotPrefix) ||
+        path.startsWith(ServerConstants.pathApiSnapshotPrefixAlt)) {
+      final id = path.startsWith(ServerConstants.pathApiSnapshotPrefix)
+          ? path.substring(ServerConstants.pathApiSnapshotPrefix.length)
+          : path.substring(ServerConstants.pathApiSnapshotPrefixAlt.length);
+      if (id.isNotEmpty && id != 'compare') {
+        if (request.method == ServerConstants.methodDelete) {
+          await _snapshot.handleSnapshotDeleteOne(
+            response,
+            Uri.decodeComponent(id),
+          );
+          return true;
+        }
+        if (request.method == ServerConstants.methodPut) {
+          await _snapshot.handleSnapshotRename(
+            request,
+            response,
+            Uri.decodeComponent(id),
+          );
+          return true;
+        }
+      }
     }
 
     return false;
