@@ -260,4 +260,13 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     return this._offlineSchema;
   }
 
+  /**
+   * True when the tree holds a live table list loaded from the REST API (not the offline
+   * cache fallback). This is the `schemaLoaded` signal the ConnectionStateMachine reads to
+   * separate the `connected` phase from `connecting` (transport up but schema not yet here).
+   */
+  get hasLiveSchema(): boolean {
+    return this._connected && !this._offlineSchema && this._tables.length > 0;
+  }
+
 }

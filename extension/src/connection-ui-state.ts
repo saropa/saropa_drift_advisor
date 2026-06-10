@@ -23,6 +23,8 @@
  */
 
 import * as vscode from 'vscode';
+import { computeConnectionPhase, phaseHasTransport } from './connection-state';
+import type { ConnectionStateMachine } from './connection-state';
 import type { DriftApiClient } from './api-client';
 import type { ServerManager } from './server-manager';
 import type { ToolsTreeProvider } from './tree/tools-tree-provider';
@@ -51,7 +53,17 @@ export function isDriftUiConnected(
   serverManager: ServerManager,
   client: DriftApiClient,
 ): boolean {
-  return serverManager.activeServer !== undefined || client.usingVmService;
+  // Derived output of the single connection-state model (Phase 1): "transport up" has
+  // exactly one definition now, shared with ConnectionStateMachine and the presentation
+  // below, so this can never disagree with `driftViewer.serverConnected`.
+  return phaseHasTransport(
+    computeConnectionPhase({
+      httpServerSelected: serverManager.activeServer !== undefined,
+      vmServiceActive: client.usingVmService,
+      schemaLoaded: false,
+      offlineSchema: false,
+    }),
+  );
 }
 
 /**
@@ -64,7 +76,15 @@ export function buildConnectionPresentation(
   const viaVm = client.usingVmService;
   const active = serverManager.activeServer;
   const viaHttp = active !== undefined;
-  const connected = viaHttp || viaVm;
+  // Same single definition of "transport up" as isDriftUiConnected / ConnectionStateMachine.
+  const connected = phaseHasTransport(
+    computeConnectionPhase({
+      httpServerSelected: viaHttp,
+      vmServiceActive: viaVm,
+      schemaLoaded: false,
+      offlineSchema: false,
+    }),
+  );
 
   if (!connected) {
     return {
@@ -113,6 +133,13 @@ export interface IConnectionUiTargets {
   treeProvider?: DriftTreeProvider;
   /** Detects workspace-persisted schema for offline-aware connection hints. */
   schemaCache?: SchemaCache;
+  /**
+   * Single connection-state authority (Phase 1). When provided, it becomes the only writer
+   * of `driftViewer.serverConnected` / `driftViewer.databaseTreeEmpty`: this function feeds
+   * it the four signals and the machine pushes the contexts. When omitted (older unit tests),
+   * the legacy direct `setContext` path runs instead.
+   */
+  stateMachine?: ConnectionStateMachine;
 }
 
 /** Optional logging and behaviour for [refreshDriftConnectionUi]. */
@@ -175,15 +202,27 @@ export function refreshDriftConnectionUi(
     }
   }
 
-  try {
-    void vscode.commands.executeCommand(
-      'setContext',
-      'driftViewer.serverConnected',
-      pres.connected,
-    );
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    append?.(`[${now}] Connection UI: setContext failed — ${msg}`);
+  if (targets.stateMachine) {
+    // Single-authority path: feed the four signals; the machine derives the phase and is the
+    // ONLY writer of serverConnected / databaseTreeEmpty, so the two keys cannot disagree.
+    targets.stateMachine.update({
+      httpServerSelected: serverManager.activeServer !== undefined,
+      vmServiceActive: client.usingVmService,
+      schemaLoaded: targets.treeProvider?.hasLiveSchema === true,
+      offlineSchema: offlineTree,
+    });
+  } else {
+    // Legacy path (no machine wired, e.g. focused unit tests): push the context directly.
+    try {
+      void vscode.commands.executeCommand(
+        'setContext',
+        'driftViewer.serverConnected',
+        pres.connected,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      append?.(`[${now}] Connection UI: setContext failed — ${msg}`);
+    }
   }
 
   try {

@@ -115,7 +115,8 @@ describe('Extension activation', () => {
     // Schema refactoring (Feature 66): suggestSchemaRefactorings, refactoringOpenWithHint (+2).
     // DVR: GenerationWatcher listener refreshes open DVR panel (+1).
     // Dashboard: addQueryWidgetToDashboard (+1); disposable count drifts with new commands.
-    assert.strictEqual(subscriptions.length, 209, `expected 209 disposables, got ${subscriptions.length}`);
+    // Connection Phase 1: ConnectionStateMachine added to subscriptions (+1).
+    assert.strictEqual(subscriptions.length, 210, `expected 210 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
