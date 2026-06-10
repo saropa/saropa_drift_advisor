@@ -171,6 +171,120 @@ describe('HealthScorer.compute', () => {
     assert.ok(action, 'Expected refactoring action on schema quality when session exists');
   });
 
+  it('reduces schemaQuality for undismissed high-severity refactoring suggestions', async () => {
+    stubPerfectDb(client);
+    const ws = new MockMemento();
+    await ws.update(REFACTORING_ADVISOR_SESSION_KEY, {
+      updatedAt: new Date().toISOString(),
+      tableCount: 5,
+      suggestionCount: 3,
+      dismissedCount: 0,
+      topTitles: ['Extract audit columns'],
+      remainingBySeverity: { high: 2, medium: 1, low: 0 },
+    });
+
+    const result = await new HealthScorer().compute(client, ws);
+    const sq = result.metrics.find((m) => m.key === 'schemaQuality')!;
+    // Perfect DB scores 100; two undismissed high-severity items cost 2 × 5 = 10.
+    assert.strictEqual(sq.score, 90);
+    assert.ok(
+      sq.details.some((d) => d.includes('reduced 10 point')),
+      'Expected an explainable penalty detail line',
+    );
+  });
+
+  it('caps the schemaQuality refactoring penalty regardless of suggestion count', async () => {
+    stubPerfectDb(client);
+    const ws = new MockMemento();
+    await ws.update(REFACTORING_ADVISOR_SESSION_KEY, {
+      updatedAt: new Date().toISOString(),
+      tableCount: 5,
+      suggestionCount: 5,
+      dismissedCount: 0,
+      topTitles: [],
+      remainingBySeverity: { high: 5, medium: 0, low: 0 },
+    });
+
+    const result = await new HealthScorer().compute(client, ws);
+    const sq = result.metrics.find((m) => m.key === 'schemaQuality')!;
+    // 5 × 5 = 25 would apply, but the penalty is capped at 15: 100 − 15 = 85.
+    assert.strictEqual(sq.score, 85);
+  });
+
+  it('applies no refactoring penalty when high-severity suggestions are all dismissed', async () => {
+    stubPerfectDb(client);
+    const ws = new MockMemento();
+    await ws.update(REFACTORING_ADVISOR_SESSION_KEY, {
+      updatedAt: new Date().toISOString(),
+      tableCount: 5,
+      suggestionCount: 3,
+      dismissedCount: 3,
+      topTitles: [],
+      remainingBySeverity: { high: 0, medium: 0, low: 0 },
+    });
+
+    const result = await new HealthScorer().compute(client, ws);
+    const sq = result.metrics.find((m) => m.key === 'schemaQuality')!;
+    assert.strictEqual(sq.score, 100, 'No remaining high-severity items → no penalty');
+    assert.ok(!sq.details.some((d) => d.includes('reduced')), 'No penalty line when nothing applied');
+  });
+
+  it('leaves schemaQuality unchanged for a session without a severity histogram', async () => {
+    stubPerfectDb(client);
+    const ws = new MockMemento();
+    // Older session shape (pre-Feature 70): no remainingBySeverity field.
+    await ws.update(REFACTORING_ADVISOR_SESSION_KEY, {
+      updatedAt: new Date().toISOString(),
+      tableCount: 5,
+      suggestionCount: 2,
+      dismissedCount: 0,
+      topTitles: ['Normalize status enum'],
+    });
+
+    const result = await new HealthScorer().compute(client, ws);
+    const sq = result.metrics.find((m) => m.key === 'schemaQuality')!;
+    assert.strictEqual(sq.score, 100, 'Missing histogram must not change the baseline grade');
+  });
+
+  it('combines a missing-PK penalty with a capped refactoring penalty without going below zero', async () => {
+    stubPerfectDb(client);
+    // One of two tables lacks a primary key → scoreSchemaQuality base is 50.
+    (client.schemaMetadata as sinon.SinonStub).resolves([
+      {
+        name: 'users',
+        columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'name', type: 'TEXT', pk: false },
+        ],
+        rowCount: 10,
+      },
+      {
+        name: 'logs',
+        columns: [
+          { name: 'message', type: 'TEXT', pk: false },
+          { name: 'level', type: 'TEXT', pk: false },
+        ],
+        rowCount: 100,
+      },
+    ]);
+    const ws = new MockMemento();
+    await ws.update(REFACTORING_ADVISOR_SESSION_KEY, {
+      updatedAt: new Date().toISOString(),
+      tableCount: 2,
+      suggestionCount: 20,
+      dismissedCount: 0,
+      topTitles: [],
+      remainingBySeverity: { high: 20, medium: 0, low: 0 },
+    });
+
+    const result = await new HealthScorer().compute(client, ws);
+    const sq = result.metrics.find((m) => m.key === 'schemaQuality')!;
+    // Base 50 (one missing PK), refactoring penalty capped at 15 → 35. The two
+    // penalties target disjoint inputs (missing PK vs. structural suggestions),
+    // so this is additive, not double-counting.
+    assert.strictEqual(sq.score, 35);
+  });
+
   it('should drop schemaQuality score when tables lack primary keys', async () => {
     stubPerfectDb(client);
     (client.schemaMetadata as sinon.SinonStub).resolves([

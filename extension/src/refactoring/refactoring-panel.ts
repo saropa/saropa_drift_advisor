@@ -132,7 +132,7 @@ export class RefactoringPanel implements vscode.Disposable {
       buildAdvisorSession(
         this._tablesMeta.length,
         this._lastAnalyzeOrder,
-        this._dismissedIds.size,
+        this._dismissedIds,
       ),
     );
   }

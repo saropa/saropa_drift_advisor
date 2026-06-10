@@ -4,9 +4,17 @@
  */
 
 import type * as vscode from 'vscode';
+import type { RefactoringSeverity } from './refactoring-types';
 
 /** Workspace key for last refactoring analysis summary (stable string). */
 export const REFACTORING_ADVISOR_SESSION_KEY = 'driftViewer.refactoringAdvisorSessionV1';
+
+/** Count of still-undismissed suggestions bucketed by heuristic severity. */
+export interface IRemainingBySeverity {
+  high: number;
+  medium: number;
+  low: number;
+}
 
 /** Snapshot written after each successful analyze and updated on dismiss. */
 export interface IRefactoringAdvisorSession {
@@ -20,6 +28,13 @@ export interface IRefactoringAdvisorSession {
   dismissedCount: number;
   /** Up to five titles for quick scanning in the health panel. */
   topTitles: string[];
+  /**
+   * Severity histogram of the suggestions NOT yet dismissed. Optional so older
+   * persisted sessions (written before Feature 70) deserialize cleanly and
+   * apply no score adjustment — the health scorer treats a missing field as
+   * zero remaining, leaving the baseline grade unchanged.
+   */
+  remainingBySeverity?: IRemainingBySeverity;
 }
 
 /** Reads persisted advisor session, if any. */
@@ -36,18 +51,27 @@ export function writeAdvisorSession(ws: vscode.Memento, session: IRefactoringAdv
 /**
  * Builds a session object from the latest analyzer output.
  *
- * @param dismissedCount — suggestions dismissed since this analyze in the panel.
+ * @param dismissedIds — ids the user dismissed in the panel; drives both the
+ *   dismissed count and the remaining-by-severity histogram (dismissed
+ *   suggestions are excluded so dismissing a high-severity item restores the
+ *   health-score points it cost).
  */
 export function buildAdvisorSession(
   tableCount: number,
-  suggestions: ReadonlyArray<{ title: string }>,
-  dismissedCount: number,
+  suggestions: ReadonlyArray<{ id: string; title: string; severity: RefactoringSeverity }>,
+  dismissedIds: ReadonlySet<string>,
 ): IRefactoringAdvisorSession {
+  const remainingBySeverity: IRemainingBySeverity = { high: 0, medium: 0, low: 0 };
+  for (const s of suggestions) {
+    if (dismissedIds.has(s.id)) continue;
+    remainingBySeverity[s.severity]++;
+  }
   return {
     updatedAt: new Date().toISOString(),
     tableCount,
     suggestionCount: suggestions.length,
-    dismissedCount,
+    dismissedCount: dismissedIds.size,
     topTitles: suggestions.slice(0, 5).map((s) => s.title),
+    remainingBySeverity,
   };
 }
