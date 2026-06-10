@@ -11,6 +11,7 @@ import {
   isDriftUiConnected,
   refreshDriftConnectionUi as syncDriftConnectionUi,
 } from './connection-ui-state';
+import { ConnectionStateMachine } from './connection-state';
 import { DashboardPanel } from './dashboard/dashboard-panel';
 import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
@@ -78,6 +79,11 @@ export function setupFinalPhases(
     return { statusItem, healthStatusBar, toolsQuickPick, refreshStatusBar };
   }));
 
+  // Single connection-state authority (Phase 1): the one writer of serverConnected /
+  // databaseTreeEmpty. Every connection refresh below feeds it the four signals.
+  const connectionStateMachine = new ConnectionStateMachine();
+  d.context.subscriptions.push(connectionStateMachine);
+
   // Connection UI refresh callback — needs providers and schemaCache.
   const connectionUiRefresh: { fn?: () => void } = {};
   if (d.providers) {
@@ -87,6 +93,7 @@ export function setupFinalPhases(
         toolsProvider: providers.toolsProvider,
         treeProvider: providers.treeProvider,
         schemaCache: d.schemaCache,
+        stateMachine: connectionStateMachine,
       }, {
         appendLine: (msg: string) => {
           if (shouldLogConnectionLine(msg, getLogVerbosity())) {
