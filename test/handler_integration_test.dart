@@ -780,7 +780,7 @@ void main() {
         expect(issue, contains('message'));
         expect(
           issue['source'],
-          anyOf('index-suggestion', 'anomaly'),
+          anyOf('index-suggestion', 'anomaly', 'orphan-table'),
           reason: 'Stable issue shape (doc/API.md § Issues)',
         );
       }
