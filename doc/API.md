@@ -841,17 +841,58 @@ Returns database-level and per-table storage metrics.
 
 ---
 
+### `GET /api/analytics/orphan-tables`
+
+Flags **orphan physical tables**: tables that physically exist in the SQLite file but have no corresponding definition in the app's Drift schema. This is the inverse of the usual "schema declares a table the DB lacks" check — it starts from the physical side (enumerate `sqlite_master`, subtract the declared set), so it catches tables left behind by a migration whose Drift definition was later removed or renamed.
+
+The check is **report-only**: it suggests a `DROP TABLE` but never executes it. It runs only when the server was given the set of Drift-declared table names — automatically via `startDriftViewer`, or via the `declaredTableNames` parameter of `DriftDebugServer.start`. Without that set, `declaredSchemaAvailable` is `false` and `orphans` is always empty (no false positives). Android's `android_metadata` bookkeeping table is excluded by default.
+
+**Response** `200 OK`
+
+```json
+{
+  "orphans": [
+    {
+      "table": "leftover_v33",
+      "severity": "warning",
+      "type": "orphan_table",
+      "message": "Orphan physical table 'leftover_v33' — present in the database but not declared in the Drift schema. Left by a prior migration? Drop it or restore its definition.",
+      "suggestedSql": "DROP TABLE \"leftover_v33\";"
+    }
+  ],
+  "declaredSchemaAvailable": true,
+  "physicalTablesScanned": 6,
+  "declaredTableCount": 5,
+  "analyzedAt": "2026-06-10T00:00:00.000Z"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `orphans` | array | Orphan findings; empty when the schema is fully declared or no declared set was supplied |
+| `orphans[].table` | string | Physical table name, as stored in `sqlite_master` |
+| `orphans[].severity` | string | Always `"warning"` |
+| `orphans[].type` | string | Always `"orphan_table"` |
+| `orphans[].message` | string | Names the table, the likely cause, and the remedy |
+| `orphans[].suggestedSql` | string | Ready-to-run `DROP TABLE` (run manually — never auto-executed) |
+| `declaredSchemaAvailable` | bool | Whether a declared table set was supplied; `false` ⇒ check is report-only |
+| `physicalTablesScanned` | int | Count of physical tables enumerated (excludes `sqlite_%`) |
+| `declaredTableCount` | int | Size of the declared set (0 when unavailable) |
+| `analyzedAt` | string | ISO 8601 timestamp |
+
+---
+
 ## Issues
 
 ### `GET /api/issues`
 
-Returns a single merged list of index suggestions and data-quality anomalies in a stable issue shape. Intended for IDE integrations (e.g. Saropa Lints) and scripts that want one request instead of calling `GET /api/index-suggestions` and `GET /api/analytics/anomalies` separately.
+Returns a single merged list of index suggestions, data-quality anomalies, and orphan physical tables in a stable issue shape. Intended for IDE integrations (e.g. Saropa Lints) and scripts that want one request instead of calling `GET /api/index-suggestions`, `GET /api/analytics/anomalies`, and `GET /api/analytics/orphan-tables` separately.
 
 **Query Parameters**
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `sources` | string (optional) | both | Comma-separated: `index-suggestions`, `anomalies`. When present, only issues from the listed sources are included. Example: `?sources=anomalies` returns only anomaly issues. |
+| `sources` | string (optional) | all | Comma-separated: `index-suggestions`, `anomalies`, `orphan-tables`. When present, only issues from the listed sources are included. Example: `?sources=anomalies` returns only anomaly issues. An unrecognized value falls back to all sources rather than an empty result. |
 
 **Response** `200 OK`
 
@@ -875,6 +916,14 @@ Returns a single merged list of index suggestions and data-quality anomalies in 
       "message": "3 orphaned FK(s): orders.user_id -> users.id",
       "type": "orphaned_fk",
       "count": 3
+    },
+    {
+      "source": "orphan-table",
+      "severity": "warning",
+      "table": "leftover_v33",
+      "message": "Orphan physical table 'leftover_v33' — present in the database but not declared in the Drift schema. Left by a prior migration? Drop it or restore its definition.",
+      "type": "orphan_table",
+      "suggestedSql": "DROP TABLE \"leftover_v33\";"
     }
   ]
 }
@@ -884,15 +933,17 @@ Returns a single merged list of index suggestions and data-quality anomalies in 
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `source` | string | yes | `"index-suggestion"` or `"anomaly"` |
+| `source` | string | yes | `"index-suggestion"`, `"anomaly"`, or `"orphan-table"` |
 | `severity` | string | yes | `"error"`, `"warning"`, or `"info"` |
 | `table` | string | yes | SQL table name |
-| `column` | string | no | Column name when applicable; omitted for table-level issues (e.g. `duplicate_rows`) |
+| `column` | string | no | Column name when applicable; omitted for table-level issues (e.g. `duplicate_rows`, orphan tables) |
 | `message` | string | yes | Human-readable description |
-| `suggestedSql` | string | no | Index suggestions only: ready-to-run `CREATE INDEX` SQL |
-| `type` | string | no | Anomalies only: `null_values`, `empty_strings`, `orphaned_fk`, `duplicate_rows`, `potential_outlier` |
+| `suggestedSql` | string | no | Ready-to-run SQL: `CREATE INDEX` for index suggestions, `DROP TABLE` for orphan tables |
+| `type` | string | no | Anomalies: `null_values`, `empty_strings`, `orphaned_fk`, `duplicate_rows`, `potential_outlier`. Orphan tables: `orphan_table` |
 | `count` | int | no | Anomalies only: number of affected rows (not present for `potential_outlier`) |
 | `priority` | string | no | Index suggestions only: `"high"`, `"medium"`, or `"low"` |
+
+> **Orphan-table issues appear only when the server has the Drift-declared table set** (via `startDriftViewer` or the `declaredTableNames` parameter). See [`GET /api/analytics/orphan-tables`](#get-apianalyticsorphan-tables) for details.
 
 **Errors**: Same as other API routes: 401 when auth is required, 429 when rate limited, 500 on server error.
 
