@@ -21,6 +21,7 @@ import 'compare_handler.dart';
 import 'dvr_handler.dart';
 import 'generation_handler.dart';
 import 'import_handler.dart';
+import 'index_batch_handler.dart';
 import 'mutation_handler.dart';
 import 'performance_handler.dart';
 import 'rate_limiter.dart';
@@ -65,6 +66,7 @@ final class Router {
        _import = ImportHandler(ctx),
        _cellUpdate = CellUpdateHandler(ctx),
        _editsBatch = EditsBatchHandler(ctx),
+       _indexBatch = IndexBatchHandler(ctx),
        _mutations = MutationHandler(ctx),
        _dvr = DvrHandler(ctx, Router._queryRecorderOrThrow(ctx));
 
@@ -86,6 +88,7 @@ final class Router {
   final ImportHandler _import;
   final CellUpdateHandler _cellUpdate;
   final EditsBatchHandler _editsBatch;
+  final IndexBatchHandler _indexBatch;
   final MutationHandler _mutations;
   final DvrHandler _dvr;
 
@@ -653,6 +656,20 @@ final class Router {
         (path == ServerConstants.pathApiEditsApply ||
             path == ServerConstants.pathApiEditsApplyAlt)) {
       await _editsBatch.handleApplyBatch(request);
+      return true;
+    }
+    // Preview validates only (no write), so it is routed here but does not
+    // require writeQuery — read-only servers can still preview index SQL.
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiIndexesPreview ||
+            path == ServerConstants.pathApiIndexesPreviewAlt)) {
+      await _indexBatch.handlePreview(request);
+      return true;
+    }
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiIndexesApply ||
+            path == ServerConstants.pathApiIndexesApplyAlt)) {
+      await _indexBatch.handleApply(request);
       return true;
     }
     if (request.method == ServerConstants.methodPost &&

@@ -23,7 +23,13 @@ export function initIndexSuggestions(): void {
   const compareBtn = document.getElementById('index-compare');
   var lastIndexData = null;
 
-  function renderIndexData(data) {
+  // When `interactive` is true (the live Analyze result, not the read-only
+  // compare/history views), each row gets a checkbox and a bulk action bar so
+  // the user can preview and apply several CREATE INDEX statements at once.
+  // Checkboxes are keyed by row index (data-idx) and the SQL is read back from
+  // lastIndexData — never embedded in an attribute, since esc() does not escape
+  // double quotes and index SQL is full of them.
+  function renderIndexData(data, interactive?: any) {
     if (!data) return '<p class="meta">No current result. Run Analyze first.</p>';
     var suggestions = data.suggestions || [];
     if (suggestions.length === 0) {
@@ -33,11 +39,14 @@ export function initIndexSuggestions(): void {
     var priorityIcons = { high: '!!', medium: '!', low: '\u2713' };
     var html = '<p class="meta">' + suggestions.length + ' suggestion(s) across ' + (data.tablesAnalyzed || 0) + ' tables:</p>';
     html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-    html += '<tr><th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
-    suggestions.forEach(function(s) {
+    html += '<tr>';
+    if (interactive) html += '<th style="border:1px solid var(--border);padding:4px;"><input type="checkbox" id="index-select-all" title="Select all suggestions"></th>';
+    html += '<th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+    suggestions.forEach(function(s, i) {
       var color = priorityColors[s.priority] || 'var(--fg)';
       var icon = priorityIcons[s.priority] || '';
       html += '<tr>';
+      if (interactive) html += '<td style="border:1px solid var(--border);padding:4px;text-align:center;"><input type="checkbox" class="idx-cb" data-idx="' + i + '"></td>';
       html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';font-weight:bold;">[' + esc(icon) + '] ' + esc(s.priority).toUpperCase() + '</td>';
       html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.table) + '.' + esc(s.column) + '</td>';
       html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.reason) + '</td>';
@@ -45,12 +54,78 @@ export function initIndexSuggestions(): void {
       html += '</tr>';
     });
     html += '</table>';
+    if (interactive) {
+      html += '<div class="index-bulk-bar" style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">';
+      html += '<span id="index-sel-count" class="meta">0 selected</span>';
+      html += '<button id="index-preview-sel" class="btn" disabled>Preview SQL</button>';
+      if (S.driftWriteEnabled) {
+        html += '<button id="index-apply-sel" class="btn" disabled>Apply selected</button>';
+      } else {
+        html += '<span class="meta" title="Start the server with writeQuery configured to enable applying indexes.">Apply disabled — server is read-only</span>';
+      }
+      html += '</div>';
+      html += '<div id="index-preview-out" style="display:none;margin-top:0.5rem;"></div>';
+      html += '<div id="index-apply-out" style="display:none;margin-top:0.5rem;"></div>';
+    }
     return html;
   }
 
   function showIndexResult(html: any, isError?: any) {
     container.innerHTML = html;
     container.style.display = 'block';
+  }
+
+  /** SQL strings for the currently-checked suggestion rows (looked up by data-idx). */
+  function getSelectedIndexSqls(): string[] {
+    var out: string[] = [];
+    if (!container || !lastIndexData) return out;
+    var boxes = container.querySelectorAll('input.idx-cb');
+    Array.prototype.forEach.call(boxes, function(cb: any) {
+      if (!cb.checked) return;
+      var idx = parseInt(cb.getAttribute('data-idx'), 10);
+      var s = (lastIndexData.suggestions || [])[idx];
+      if (s && s.sql) out.push(s.sql);
+    });
+    return out;
+  }
+
+  /** Reflects the current selection count into the bar and enables/disables actions. */
+  function refreshIndexSelection(): void {
+    if (!container) return;
+    var count = getSelectedIndexSqls().length;
+    var countEl = document.getElementById('index-sel-count');
+    if (countEl) countEl.textContent = count + ' selected';
+    var previewBtn = document.getElementById('index-preview-sel') as any;
+    if (previewBtn) previewBtn.disabled = count === 0;
+    var applyBtn = document.getElementById('index-apply-sel') as any;
+    if (applyBtn) applyBtn.disabled = count === 0;
+  }
+
+  function renderPreviewOutput(data: any): string {
+    var valid = (data && data.valid) || [];
+    var rejected = (data && data.rejected) || [];
+    var html = '<p class="meta">' + valid.length + ' valid, ' + rejected.length + ' rejected:</p>';
+    if (valid.length) {
+      html += '<pre style="white-space:pre-wrap;font-size:11px;background:rgba(0,0,0,0.12);padding:0.4rem;border-radius:4px;">' + valid.map(esc).join('\n') + '</pre>';
+    }
+    rejected.forEach(function(r: any) {
+      html += '<div style="color:#e57373;font-size:11px;margin:0.2rem 0;">Rejected: <code>' + esc(r.sql) + '</code> — ' + esc(r.reason) + '</div>';
+    });
+    return html;
+  }
+
+  function renderApplyOutput(data: any): string {
+    var results = (data && data.results) || [];
+    var html = '<p class="meta">' + (data.applied || 0) + ' of ' + results.length + ' index(es) created:</p>';
+    results.forEach(function(r: any) {
+      var ok = r.ok === true;
+      var color = ok ? '#7cb342' : '#e57373';
+      var mark = ok ? 'OK' : 'FAIL';
+      html += '<div style="color:' + color + ';font-size:11px;margin:0.2rem 0;">[' + mark + '] <code>' + esc(r.sql) + '</code>';
+      if (!ok && r.error) html += ' — ' + esc(r.error);
+      html += '</div>';
+    });
+    return html;
   }
 
   if (toggle && collapsible) {
@@ -74,6 +149,75 @@ export function initIndexSuggestions(): void {
     });
   }
 
+  // Delegated handlers on the results container: the bulk bar and checkboxes are
+  // re-rendered on every Analyze (innerHTML), so binding here (once) survives
+  // re-renders rather than re-attaching per row.
+  if (container) {
+    container.addEventListener('change', function(e: any) {
+      var t = e.target;
+      if (!t) return;
+      if (t.id === 'index-select-all') {
+        var boxes = container.querySelectorAll('input.idx-cb');
+        Array.prototype.forEach.call(boxes, function(cb: any) { cb.checked = t.checked; });
+        refreshIndexSelection();
+      } else if (t.classList && t.classList.contains('idx-cb')) {
+        refreshIndexSelection();
+      }
+    });
+
+    container.addEventListener('click', function(e: any) {
+      var t = e.target;
+      if (!t) return;
+      if (t.id === 'index-preview-sel') {
+        var sqls = getSelectedIndexSqls();
+        if (sqls.length === 0) return;
+        var out = document.getElementById('index-preview-out');
+        setButtonBusy(t, true, 'Previewing…');
+        t.disabled = true;
+        fetch('/api/indexes/preview', S.authOpts({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ indexSqls: sqls }),
+        }))
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+            return r.json();
+          })
+          .then(function(data) {
+            if (out) { out.innerHTML = renderPreviewOutput(data); out.style.display = 'block'; }
+          })
+          .catch(function(err) {
+            if (out) { out.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(err.message) + '</p>'; out.style.display = 'block'; }
+          })
+          .finally(function() { setButtonBusy(t, false, 'Preview SQL'); refreshIndexSelection(); });
+      } else if (t.id === 'index-apply-sel') {
+        var applySqls = getSelectedIndexSqls();
+        if (applySqls.length === 0) return;
+        if (!window.confirm('Create ' + applySqls.length + ' index(es) on the live database?')) return;
+        var applyOut = document.getElementById('index-apply-out');
+        setButtonBusy(t, true, 'Applying…');
+        t.disabled = true;
+        fetch('/api/indexes/apply', S.authOpts({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ indexSqls: applySqls }),
+        }))
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+            return r.json();
+          })
+          .then(function(data) {
+            if (applyOut) { applyOut.innerHTML = renderApplyOutput(data); applyOut.style.display = 'block'; }
+            showCopyToast((data.applied || 0) + ' index(es) created — re-run Analyze to refresh the list.');
+          })
+          .catch(function(err) {
+            if (applyOut) { applyOut.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(err.message) + '</p>'; applyOut.style.display = 'block'; }
+          })
+          .finally(function() { setButtonBusy(t, false, 'Apply selected'); refreshIndexSelection(); });
+      }
+    });
+  }
+
   if (btn) btn.addEventListener('click', function() {
     btn.disabled = true;
     setButtonBusy(btn, true, 'Analyzing…');
@@ -85,7 +229,10 @@ export function initIndexSuggestions(): void {
       })
       .then(function(data) {
         lastIndexData = data;
-        showIndexResult(renderIndexData(data));
+        // Live result is interactive (checkboxes + bulk preview/apply bar);
+        // the read-only compare/history views call renderIndexData without it.
+        showIndexResult(renderIndexData(data, true));
+        refreshIndexSelection();
         populateHistorySelect(historySel, 'index');
       })
       .catch(function(e) {

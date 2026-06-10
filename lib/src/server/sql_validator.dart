@@ -164,4 +164,59 @@ abstract final class SqlValidator {
     }
     return true;
   }
+
+  /// True when [sql] is a single `CREATE [UNIQUE] INDEX [IF NOT EXISTS] ...`
+  /// statement and nothing else. Deliberately separate from
+  /// [isSingleDataMutationSql] (which rejects all DDL): index creation is the
+  /// only DDL the website is allowed to batch-apply, so it is gated by its own
+  /// narrowly-scoped check rather than loosening the data-mutation validator.
+  ///
+  /// Rejects multi-statement input, any non-index leading verb, and any stacked
+  /// DDL/DML/PRAGMA keyword (or a second `CREATE`) that slipped past the
+  /// single-statement guard. Partial-index `WHERE` clauses are allowed because
+  /// none of the forbidden keywords appear in a legitimate index definition.
+  static bool isSingleCreateIndexSql(String sql) {
+    final core = _singleStatementCoreForAnalysis(sql);
+    if (core == null) {
+      return false;
+    }
+    final upper = core.toUpperCase();
+
+    final isCreateIndex = RegExp(
+      r'^CREATE\s+(UNIQUE\s+)?INDEX\s+(IF\s+NOT\s+EXISTS\s+)?',
+    ).hasMatch(upper);
+    if (!isCreateIndex) {
+      return false;
+    }
+
+    const forbidden = <String>{
+      'INSERT',
+      'UPDATE',
+      'DELETE',
+      'REPLACE',
+      'TRUNCATE',
+      'DROP',
+      'ALTER',
+      'ATTACH',
+      'DETACH',
+      'PRAGMA',
+      'VACUUM',
+      'REINDEX',
+      'ANALYZE',
+    };
+    final words = RegExp(r'\b\w+\b').allMatches(upper).toList();
+    for (var i = 0; i < words.length; i++) {
+      final word = words[i].group(0);
+      if (word == null) continue;
+      if (forbidden.contains(word)) {
+        return false;
+      }
+      // The leading verb is the only legitimate CREATE; a later one indicates
+      // stacking that escaped the single-statement check.
+      if (i > 0 && word == 'CREATE') {
+        return false;
+      }
+    }
+    return true;
+  }
 }
