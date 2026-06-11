@@ -112,8 +112,10 @@ void main() {
     expect(htmlDart, contains('class="app-shell"'));
     expect(htmlDart, contains('id="toolbar-bar"'));
     expect(htmlDart, contains('id="app-sidebar"'));
-    // Collapse toggle survives; panel selection is via data-panel-btn icons.
-    expect(htmlDart, contains('id="tb-sidebar-toggle"'));
+    // The dedicated collapse icon is gone; the sidebar is hidden/shown and
+    // resized via the drag bar instead (see sidebar-resize.ts).
+    expect(htmlDart, isNot(contains('id="tb-sidebar-toggle"')));
+    expect(htmlDart, contains('id="app-sidebar-resizer"'));
     // The sidebar is a single host that shows one panel at a time.
     expect(htmlDart, contains('data-active-panel="tables"'));
     expect(htmlDart, contains('data-panel="tables"'));

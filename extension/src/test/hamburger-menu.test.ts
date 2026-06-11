@@ -3,7 +3,7 @@
  *
  * Validates that:
  *   1. Tool launcher icon buttons exist with correct data-tool attributes
- *   2. Sidebar toggle buttons exist with correct IDs
+ *   2. Sidebar is hidden/shown via the resize bar (no collapse icon); History selector exists
  *   3. Theme flyout with per-theme options exists
  *   4. Mask PII and Share buttons exist with correct IDs
  *   5. Compiled CSS contains toolbar styling
@@ -39,8 +39,12 @@ describe('Toolbar — html_content.dart', () => {
     });
   }
 
-  it('contains left sidebar toggle with correct ID', () => {
-    assert.ok(html.includes('id="tb-sidebar-toggle"'), 'Missing left sidebar toggle');
+  it('hides/shows the sidebar via the drag bar, not a collapse icon', () => {
+    assert.ok(
+      !html.includes('id="tb-sidebar-toggle"'),
+      'Dedicated collapse icon should be removed in favor of the resize bar',
+    );
+    assert.ok(html.includes('id="app-sidebar-resizer"'), 'Missing sidebar resize bar');
   });
 
   it('contains right history sidebar toggle with correct ID', () => {
