@@ -272,10 +272,13 @@ import { openTool } from './tabs.ts';
             mainErr.textContent = '';
             mainErr.style.display = 'none';
           }
-          // Surface the result where it runs: open/!switch to the Run SQL tab
+          // Surface the result where it runs: open / switch to the Run SQL tab
           // with the generated query loaded, instead of closing a dialog.
           openTool('sql');
           setNlModalError('', false);
+          // Reset the Ask panel's transient UI — stops any live dictation so the
+          // mic doesn't keep streaming, and drops the in-panel sample rows.
+          closeNlModal();
         } else {
           setNlModalError(result.error || 'Could not convert to SQL.', true);
         }
@@ -419,24 +422,29 @@ import { openTool } from './tabs.ts';
      */
     export function initNlModalListeners() {
       // The panel is shown by the Ask activity-bar icon (sidebar-panels.ts);
-      // there's no open/cancel/backdrop to wire anymore. When Ask is selected
-      // we focus the question box for a keyboard-ready start.
-      var askBtn = document.querySelector('[data-panel-btn="ask"]');
-      if (askBtn) {
-        askBtn.addEventListener('click', function () {
-          // Focus only when the panel is now showing (not when toggled shut).
-          var sb = document.getElementById('app-sidebar');
-          var layout = document.getElementById('app-layout');
-          var showing = sb && layout
-            && sb.getAttribute('data-active-panel') === 'ask'
-            && !layout.classList.contains('app-sidebar-panel-collapsed');
-          if (showing) {
-            var ta = document.getElementById('nl-modal-input');
-            if (ta) (ta as HTMLElement).focus();
-            scheduleNlLivePreview();
-          }
+      // there's no open/cancel/backdrop to wire anymore. We watch every panel
+      // switch: arriving at Ask focuses the question box; leaving it stops any
+      // in-flight dictation and clears stale sample rows (closeNlModal). The
+      // check is deferred so it runs AFTER sidebar-panels has flipped the
+      // active-panel attribute.
+      document.querySelectorAll('[data-panel-btn]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          setTimeout(function () {
+            var sb = document.getElementById('app-sidebar');
+            var layout = document.getElementById('app-layout');
+            var askShowing = !!sb && !!layout
+              && sb.getAttribute('data-active-panel') === 'ask'
+              && !layout.classList.contains('app-sidebar-panel-collapsed');
+            if (askShowing) {
+              var ta = document.getElementById('nl-modal-input');
+              if (ta) (ta as HTMLElement).focus();
+              scheduleNlLivePreview();
+            } else {
+              closeNlModal();
+            }
+          }, 0);
         });
-      }
+      });
       var nlUse = document.getElementById('nl-use');
       if (nlUse) nlUse.addEventListener('click', function () { useNlModal(); });
       // Dictation: only reveal + wire the mic when the browser supports the API,
