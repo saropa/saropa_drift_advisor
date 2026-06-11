@@ -94,5 +94,51 @@ class TestWriteAuditReport(unittest.TestCase):
         self.assertIn("note", payload)  # the floor-not-a-guarantee caveat must ship
 
 
+class TestMainCli(unittest.TestCase):
+    """Exit-code contract for the standalone CLI (scripts/l10n.py → l10n_audit.main).
+
+    audit mode always exits 0; check mode exits 1 only when a shipped locale has gaps.
+    Both EXTENSION_DIR (inputs) and REPO_ROOT (report output) are pointed at a temp dir
+    so the CLI runs without touching the real manifest or the reports/ tree.
+    """
+
+    def _run(self, mode: str, ext_files: dict[str, dict]) -> int:
+        with TemporaryDirectory() as tmp:
+            ext = Path(tmp) / "ext"
+            repo = Path(tmp) / "repo"
+            ext.mkdir()
+            repo.mkdir()
+            for name, data in ext_files.items():
+                _write(ext, name, data)
+            with patch.object(l10n_audit, "EXTENSION_DIR", str(ext)), \
+                    patch.object(l10n_audit, "REPO_ROOT", str(repo)):
+                return l10n_audit.main([mode])
+
+    def test_audit_mode_exits_zero_when_no_locales(self) -> None:
+        self.assertEqual(self._run("audit", {"package.nls.json": {"a.title": "A"}}), 0)
+
+    def test_check_mode_exits_zero_when_complete(self) -> None:
+        files = {
+            "package.nls.json": {"a.title": "A"},
+            "package.nls.fr.json": {"a.title": "Aa"},  # translated
+        }
+        self.assertEqual(self._run("check", files), 0)
+
+    def test_check_mode_exits_one_on_gaps(self) -> None:
+        files = {
+            "package.nls.json": {"a.title": "A", "b.title": "B"},
+            "package.nls.de.json": {"a.title": "A"},  # b missing, a untranslated → gap
+        }
+        self.assertEqual(self._run("check", files), 1)
+
+    def test_audit_mode_exits_zero_even_with_gaps(self) -> None:
+        # In audit mode, gaps are informational — exit code stays 0.
+        files = {
+            "package.nls.json": {"a.title": "A", "b.title": "B"},
+            "package.nls.de.json": {"a.title": "A"},
+        }
+        self.assertEqual(self._run("audit", files), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
