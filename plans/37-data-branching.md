@@ -764,7 +764,7 @@ Build the read-only path (capture → diff → merge SQL) fully before the destr
 - **Gate:** restore replaces table state on a write-enabled server; read-only server returns 501 and the extension degrades to diff/merge-SQL only.
 
 ### Phase 5 — Branch panel + wiring + safety hooks
-- Build `branch-panel.ts` + `branch-html.ts` (list, diff view, merge-SQL-to-editor); register the six commands and `view/title` entry; wire "Create Backup First" into restore and the pre-destructive-edit branch prompt consumed by Bulk Edit ([47](./47-bulk-edit-grid.md)).
+- Build `branch-panel.ts` + `branch-html.ts` (list, diff view, merge-SQL-to-editor); register the six commands and `view/title` entry; wire "Create Backup First" into restore and the pre-destructive-edit branch prompt consumed by Bulk Edit ([47](./history/2026.04/2026.04.30/47-bulk-edit-grid.md)).
 - **Gate:** full UX path works — create, diff vs now, generate merge SQL into an editor tab, restore-with-backup, delete-with-confirm.
 
 ---
@@ -797,7 +797,7 @@ Build the read-only path (capture → diff → merge SQL) fully before the destr
 **Testing.** `npm run compile` clean; `npm test` → **2662 passing** (+17 branch engine cases). package.json validated as JSON.
 
 **Outstanding (cross-feature, deferred).** Two integration hooks from the plan's narrative remain, both depending on other features and both additive:
-1. Bulk Edit "Create Branch before destructive edit" prompt ([47](./47-bulk-edit-grid.md)) — a safety hook in the bulk-edit commit path.
+1. Bulk Edit "Create Branch before destructive edit" prompt ([47](./history/2026.04/2026.04.30/47-bulk-edit-grid.md)) — a safety hook in the bulk-edit commit path.
 2. Time-Travel "Create Branch from Snapshot" ([60](./60-time-travel-data-slider.md) Phase 5) — now buildable since `BranchManager` exists.
 The core feature (create / diff / merge-SQL / restore / delete) is complete and tested. Plan stays active for these two cross-feature hooks.
 

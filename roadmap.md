@@ -58,7 +58,7 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 | 26  | [Query Replay DVR](plans/26-query-replay-dvr.md)               |  5→7  |  High  | `query_recorder.dart`   |
 | 35  | [Multi-Server Federation](plans/35-multi-server-federation.md) |  5→6  |  High  | Multiple clients        |
 | 37  | [Data Branching](plans/37-data-branching.md)                   |  5→7  |  High  | Fork/restore endpoints  |
-| 47  | [Bulk Edit Grid](plans/47-bulk-edit-grid.md)                   |  5→7  |  High  | `writeQuery` callback   |
+| 47  | [Bulk Edit Grid](plans/history/2026.04/2026.04.30/47-bulk-edit-grid.md) |  5→7  |  High  | `writeQuery` callback   |
 
 ### Low Priority Integrations (P3)
 

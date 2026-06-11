@@ -1,11 +1,18 @@
 /**
- * Shared low-level helpers for the SQL → query-model importer: comment
- * stripping, top-level clause boundary detection, identifier unquoting,
- * qualified-name parsing, scalar-literal coercion, and paren/string-aware CSV
- * splitting. These are pure string utilities with no dependency on the query
- * model, so every clause parser ([sql-import-from-joins], [sql-import-where],
- * etc.) can import them without forming an import cycle.
+ * Pure string primitives for the SQL → query-model importer (Feature 21,
+ * Phase 1): comment stripping, top-level clause boundary detection, identifier
+ * unquoting, qualified-name parsing, scalar-literal coercion, and paren/string-
+ * aware CSV splitting.
+ *
+ * Self-contained (no imports) so both the extension (tsc) and the web bundle
+ * (esbuild) share one copy. The clause parsers in [query-builder-core-import]
+ * build on these.
  */
+
+/** Short unique id for importer-created joins/filters (no crypto dependency). */
+export function makeImportId(prefix: string): string {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export function stripSqlComments(input: string): string {
   let s = input.replace(/\/\*[\s\S]*?\*\//g, ' ');
@@ -29,6 +36,17 @@ export interface IClausePositions {
   firstClauseStart: number;
 }
 
+export function indexOfKeyword(haystack: string, keyword: string): number {
+  const re =
+    keyword === 'GROUP BY'
+      ? /\bGROUP\s+BY\b/i
+      : keyword === 'ORDER BY'
+        ? /\bORDER\s+BY\b/i
+        : new RegExp(`\\b${keyword}\\b`, 'i');
+  const m = re.exec(haystack);
+  return m ? m.index : -1;
+}
+
 export function clausePositions(afterFrom: string): IClausePositions {
   const len = afterFrom.length;
   const w = indexOfKeyword(afterFrom, 'WHERE');
@@ -42,27 +60,12 @@ export function clausePositions(afterFrom: string): IClausePositions {
 
 /**
  * End index (exclusive) for the clause beginning at [start], i.e. before the
- * next WHERE/GROUP BY/ORDER BY/LIMIT that appears strictly after [start].
+ * next GROUP BY/ORDER BY/LIMIT that appears strictly after [start].
  */
-export function nextClauseEnd(
-  afterFrom: string,
-  start: number,
-  c: IClausePositions,
-): number {
+export function nextClauseEnd(afterFrom: string, start: number, c: IClausePositions): number {
   const len = afterFrom.length;
   const next = [c.groupBy, c.orderBy, c.limit].filter((x) => x >= 0 && x > start);
   return next.length ? Math.min(...next) : len;
-}
-
-export function indexOfKeyword(haystack: string, keyword: string): number {
-  const re =
-    keyword === 'GROUP BY'
-      ? /\bGROUP\s+BY\b/i
-      : keyword === 'ORDER BY'
-        ? /\bORDER\s+BY\b/i
-        : new RegExp(`\\b${keyword}\\b`, 'i');
-  const m = re.exec(haystack);
-  return m ? m.index : -1;
 }
 
 export function unquoteIdent(tok: string): string {
@@ -79,12 +82,12 @@ export function parseQualified(expr: string): { alias: string; col: string } | n
     .trim()
     .match(/^("(?:[^"]|"")+"|(\w+))\.("(?:[^"]|"")+"|(\w+))$/);
   if (!m) return null;
-  const alias = m[1].startsWith('"') ? unquoteIdent(m[1]) : m[2]!;
-  const col = m[3].startsWith('"') ? unquoteIdent(m[3]) : m[4]!;
+  const alias = m[1]!.startsWith('"') ? unquoteIdent(m[1]!) : m[2]!;
+  const col = m[3]!.startsWith('"') ? unquoteIdent(m[3]!) : m[4]!;
   return { alias, col };
 }
 
-/** First two qualified-name capture groups from [q] regex match. */
+/** First two qualified-name capture groups from a [q] regex match. */
 export function qualFromQMatch(m: RegExpMatchArray): { alias: string; col: string } {
   const alias = m[1]!.startsWith('"') ? unquoteIdent(m[1]!) : m[2]!;
   const col = m[3]!.startsWith('"') ? unquoteIdent(m[3]!) : m[4]!;
@@ -93,12 +96,8 @@ export function qualFromQMatch(m: RegExpMatchArray): { alias: string; col: strin
 
 export function parseScalarLiteral(rhs: string): string | number | boolean {
   const t = rhs.trim();
-  if (/^'/.test(t)) {
-    return t.slice(1, -1).replace(/''/g, "'");
-  }
-  if (/^"/.test(t)) {
-    return t.slice(1, -1).replace(/""/g, '"');
-  }
+  if (/^'/.test(t)) return t.slice(1, -1).replace(/''/g, "'");
+  if (/^"/.test(t)) return t.slice(1, -1).replace(/""/g, '"');
   if (/^(true|false)$/i.test(t)) return t.toLowerCase() === 'true';
   const n = Number(t);
   if (Number.isFinite(n) && t !== '') return n;
@@ -114,9 +113,7 @@ export function splitCsvRespectingParensAndStrings(s: string): string[] {
   for (let i = 0; i < s.length; i++) {
     const ch = s[i]!;
     if (inStr) {
-      if (ch === inStr) {
-        inStr = null;
-      }
+      if (ch === inStr) inStr = null;
       continue;
     }
     if (ch === '"' || ch === "'") {

@@ -685,6 +685,7 @@
     anomaly: "favorite",
     import: "upload",
     schema: "grid_on",
+    declared: "code",
     diagram: "account_tree",
     export: "download",
     settings: "settings"
@@ -897,10 +898,7 @@
     return schemaMeta;
   }
 
-  // assets/web/query-builder-sql.ts
-  function filterHasValue(f) {
-    return "value" in f;
-  }
+  // extension/src/query-builder/query-builder-core.ts
   function sqlLiteral(v) {
     if (typeof v === "number") return Number.isFinite(v) ? String(v) : "NULL";
     if (typeof v === "boolean") return v ? "1" : "0";
@@ -917,8 +915,7 @@
     const ref = `"${table.alias}"."${sel.column}"`;
     if (!sel.aggregation) return ref;
     const fn = String(sel.aggregation).toUpperCase();
-    const fallbackAlias = `${fn.toLowerCase()}_${sel.column}`;
-    const alias = sel.alias ?? fallbackAlias;
+    const alias = sel.alias ?? `${fn.toLowerCase()}_${sel.column}`;
     return `${fn}(${ref}) AS "${alias}"`;
   }
   function renderJoin(join, tableById2) {
@@ -953,7 +950,7 @@
     }
     for (const filter of model.filters) {
       if (missingTable(filter.tableId)) errors.push(`filter ${filter.id} references unknown table`);
-      if (filter.operator === "IN" && (!("values" in filter) || !filter.values || filter.values.length === 0)) {
+      if (filter.operator === "IN" && (!filter.values || filter.values.length === 0)) {
         errors.push(`filter ${filter.id} IN list cannot be empty`);
       }
     }
@@ -1024,10 +1021,7 @@
           const vals = f.values || [];
           return `${prefix} ${ref} IN (${vals.map(sqlLiteral).join(", ")})`;
         }
-        if (filterHasValue(f)) {
-          if (f.operator === "LIKE") {
-            return `${prefix} ${ref} LIKE ${sqlLiteral(f.value)}`;
-          }
+        if ("value" in f && f.value !== void 0) {
           return `${prefix} ${ref} ${f.operator} ${sqlLiteral(f.value)}`;
         }
         throw new Error(`Unexpected filter shape for operator: ${String(f.operator)}`);
@@ -1054,6 +1048,8 @@
     }
     return parts.join("\n");
   }
+
+  // extension/src/query-builder/query-builder-core-ops.ts
   function getWhereOpsForType(columnType) {
     const type = (columnType || "").toUpperCase();
     if (type === "TEXT" || type.indexOf("VARCHAR") >= 0 || type.indexOf("CHAR") >= 0) {
@@ -1654,6 +1650,12 @@
       });
     }
   }
+  function loadImportedMultiModel(model) {
+    _multiModel = model;
+    _multiRootTable = model.tables[0]?.baseTable ?? null;
+    renderMultiRoot();
+    notify();
+  }
   function captureMultiPersistable() {
     if (!_multiModel) return null;
     return {
@@ -1689,6 +1691,486 @@
     _multiRootTable = tables[0]?.baseTable ?? null;
     renderMultiRoot();
     notify();
+  }
+
+  // extension/src/query-builder/query-builder-core-parse.ts
+  function makeImportId(prefix) {
+    return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+  function stripSqlComments(input) {
+    let s = input.replace(/\/\*[\s\S]*?\*\//g, " ");
+    s = s.split("\n").map((line) => {
+      const idx = line.indexOf("--");
+      return idx >= 0 ? line.slice(0, idx) : line;
+    }).join("\n");
+    return s.trim();
+  }
+  function indexOfKeyword(haystack, keyword) {
+    const re = keyword === "GROUP BY" ? /\bGROUP\s+BY\b/i : keyword === "ORDER BY" ? /\bORDER\s+BY\b/i : new RegExp(`\\b${keyword}\\b`, "i");
+    const m = re.exec(haystack);
+    return m ? m.index : -1;
+  }
+  function clausePositions(afterFrom) {
+    const len = afterFrom.length;
+    const w = indexOfKeyword(afterFrom, "WHERE");
+    const g = indexOfKeyword(afterFrom, "GROUP BY");
+    const o = indexOfKeyword(afterFrom, "ORDER BY");
+    const l = indexOfKeyword(afterFrom, "LIMIT");
+    const starts = [w, g, o, l].filter((x) => x >= 0);
+    const firstClauseStart = starts.length ? Math.min(...starts) : len;
+    return { where: w, groupBy: g, orderBy: o, limit: l, firstClauseStart };
+  }
+  function nextClauseEnd(afterFrom, start, c) {
+    const len = afterFrom.length;
+    const next = [c.groupBy, c.orderBy, c.limit].filter((x) => x >= 0 && x > start);
+    return next.length ? Math.min(...next) : len;
+  }
+  function unquoteIdent(tok) {
+    if (tok.startsWith('"')) {
+      return tok.replace(/^"|"$/g, "").replace(/""/g, '"');
+    }
+    return tok;
+  }
+  function parseQualified(expr) {
+    const m = expr.replace(/\s+/g, " ").trim().match(/^("(?:[^"]|"")+"|(\w+))\.("(?:[^"]|"")+"|(\w+))$/);
+    if (!m) return null;
+    const alias = m[1].startsWith('"') ? unquoteIdent(m[1]) : m[2];
+    const col = m[3].startsWith('"') ? unquoteIdent(m[3]) : m[4];
+    return { alias, col };
+  }
+  function qualFromQMatch(m) {
+    const alias = m[1].startsWith('"') ? unquoteIdent(m[1]) : m[2];
+    const col = m[3].startsWith('"') ? unquoteIdent(m[3]) : m[4];
+    return { alias, col };
+  }
+  function parseScalarLiteral(rhs) {
+    const t = rhs.trim();
+    if (/^'/.test(t)) return t.slice(1, -1).replace(/''/g, "'");
+    if (/^"/.test(t)) return t.slice(1, -1).replace(/""/g, '"');
+    if (/^(true|false)$/i.test(t)) return t.toLowerCase() === "true";
+    const n = Number(t);
+    if (Number.isFinite(n) && t !== "") return n;
+    return t;
+  }
+  function splitCsvRespectingParensAndStrings(s) {
+    const out = [];
+    let depth = 0;
+    let start = 0;
+    let inStr = null;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (inStr) {
+        if (ch === inStr) inStr = null;
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        inStr = ch;
+        continue;
+      }
+      if (ch === "(") depth++;
+      if (ch === ")") depth = Math.max(0, depth - 1);
+      if (ch === "," && depth === 0) {
+        out.push(s.slice(start, i));
+        start = i + 1;
+      }
+    }
+    out.push(s.slice(start));
+    return out;
+  }
+
+  // extension/src/query-builder/query-builder-core-import-clauses.ts
+  function parseSelectList(selectList, model, aliasToInstanceId, warnings, errors) {
+    if (/^\*\s*$/i.test(selectList) || selectList === "*") return;
+    const parts = splitCsvRespectingParensAndStrings(selectList);
+    const aggRe = /^(SUM|COUNT|AVG|MIN|MAX)\s*\(\s*("(?:[^"]|"")+"|(\w+))\s*\.\s*("(?:[^"]|"")+"|(\w+))\s*\)(?:\s+AS\s+("(?:[^"]|"")+"|(\w+)))?/i;
+    for (const part of parts) {
+      const p = part.trim();
+      if (!p) continue;
+      const am = p.match(aggRe);
+      if (am) {
+        const fn = am[1].toUpperCase();
+        const aAlias = am[2].startsWith('"') ? am[2].replace(/^"|"$/g, "").replace(/""/g, '"') : am[3];
+        const aCol = am[4].startsWith('"') ? am[4].replace(/^"|"$/g, "").replace(/""/g, '"') : am[5];
+        const outAlias = am[6] ? am[6].startsWith('"') ? am[6].replace(/^"|"$/g, "").replace(/""/g, '"') : am[7] : void 0;
+        const tid = aliasToInstanceId.get(aAlias);
+        if (!tid) {
+          errors.push(`Unknown alias in aggregate: ${aAlias}`);
+          return;
+        }
+        model.selectedColumns.push({ tableId: tid, column: aCol, aggregation: fn, alias: outAlias });
+        continue;
+      }
+      const qc = parseQualified(p);
+      if (qc) {
+        const tid = aliasToInstanceId.get(qc.alias);
+        if (!tid) {
+          errors.push(`Unknown alias in SELECT: ${qc.alias}`);
+          return;
+        }
+        model.selectedColumns.push({ tableId: tid, column: qc.col });
+        continue;
+      }
+      warnings.push(`Skipped SELECT expression: ${p.slice(0, 80)}`);
+    }
+  }
+  function splitWhereManual(s) {
+    const result = [];
+    let depth = 0;
+    let inStr = null;
+    let buf = "";
+    let pendingJoin = "AND";
+    const flush = () => {
+      const t = buf.trim();
+      if (!t) {
+        buf = "";
+        return;
+      }
+      if (result.length === 0) result.push({ expr: t });
+      else result.push({ expr: t, join: pendingJoin });
+      buf = "";
+    };
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (inStr) {
+        buf += ch;
+        if (ch === inStr) inStr = null;
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        inStr = ch;
+        buf += ch;
+        continue;
+      }
+      if (ch === "(") {
+        depth++;
+        buf += ch;
+        continue;
+      }
+      if (ch === ")") {
+        depth = Math.max(0, depth - 1);
+        buf += ch;
+        continue;
+      }
+      if (depth === 0) {
+        const tail = s.slice(i);
+        const mAnd = tail.match(/^\s+AND\s+/i);
+        if (mAnd) {
+          flush();
+          pendingJoin = "AND";
+          i += mAnd[0].length - 1;
+          continue;
+        }
+        const mOr = tail.match(/^\s+OR\s+/i);
+        if (mOr) {
+          flush();
+          pendingJoin = "OR";
+          i += mOr[0].length - 1;
+          continue;
+        }
+      }
+      buf += ch;
+    }
+    flush();
+    return result;
+  }
+  function parseWherePredicate(expr, aliasToInstanceId, errors) {
+    const e = expr.replace(/\s+/g, " ").trim();
+    const q = `("(?:[^"]|"")+"|(\\w+))\\.("(?:[^"]|"")+"|(\\w+))`;
+    const isNull = new RegExp(`^${q}\\s+IS\\s+NULL\\s*$`, "i");
+    const isNotNull = new RegExp(`^${q}\\s+IS\\s+NOT\\s+NULL\\s*$`, "i");
+    const like = new RegExp(`^${q}\\s+LIKE\\s+('(?:[^']|'')*')\\s*$`, "i");
+    const inn = new RegExp(`^${q}\\s+IN\\s*\\(([^)]+)\\)\\s*$`, "i");
+    const cmp = new RegExp(`^${q}\\s*(=|!=|<>|<=|>=|<|>)\\s*(.+)$`, "i");
+    const bind = (m2) => {
+      const ac = qualFromQMatch(m2);
+      const tid = aliasToInstanceId.get(ac.alias);
+      if (!tid) {
+        errors.push(`Unknown alias in WHERE: ${ac.alias}`);
+        return null;
+      }
+      return { tid, col: ac.col };
+    };
+    let m = e.match(isNull);
+    if (m) {
+      const b = bind(m);
+      if (!b) return null;
+      return { id: makeImportId("flt"), tableId: b.tid, column: b.col, operator: "IS NULL", conjunction: "AND" };
+    }
+    m = e.match(isNotNull);
+    if (m) {
+      const b = bind(m);
+      if (!b) return null;
+      return { id: makeImportId("flt"), tableId: b.tid, column: b.col, operator: "IS NOT NULL", conjunction: "AND" };
+    }
+    m = e.match(like);
+    if (m) {
+      const b = bind(m);
+      if (!b) return null;
+      const lit = m[5];
+      const val = lit.slice(1, -1).replace(/''/g, "'");
+      return { id: makeImportId("flt"), tableId: b.tid, column: b.col, operator: "LIKE", value: val, conjunction: "AND" };
+    }
+    m = e.match(inn);
+    if (m) {
+      const b = bind(m);
+      if (!b) return null;
+      const inner = m[5];
+      const values = splitCsvRespectingParensAndStrings(inner).map((x) => parseScalarLiteral(x.trim()));
+      return { id: makeImportId("flt"), tableId: b.tid, column: b.col, operator: "IN", values, conjunction: "AND" };
+    }
+    m = e.match(cmp);
+    if (m) {
+      const b = bind(m);
+      if (!b) return null;
+      let op = m[5];
+      if (op === "<>") op = "!=";
+      if (!["=", "!=", "<", ">", "<=", ">="].includes(op)) return null;
+      const val = parseScalarLiteral(m[6].trim());
+      return { id: makeImportId("flt"), tableId: b.tid, column: b.col, operator: op, value: val, conjunction: "AND" };
+    }
+    return null;
+  }
+  function parseWhere(whereSql, model, aliasToInstanceId, warnings, errors) {
+    const chunks = splitWhereManual(whereSql);
+    if (chunks.some((c) => c.join === "OR")) {
+      warnings.push("WHERE used OR \u2014 verify intent; filters are a flat AND/OR chain in the builder");
+    }
+    for (const chunk of chunks) {
+      const filter = parseWherePredicate(chunk.expr, aliasToInstanceId, errors);
+      if (!filter) {
+        errors.push(`Unsupported WHERE predicate: ${chunk.expr}`);
+        return;
+      }
+      filter.conjunction = chunk.join ?? "AND";
+      model.filters.push(filter);
+    }
+  }
+  function parseGroupBy(groupSql, model, aliasToInstanceId, errors) {
+    for (const part of splitCsvRespectingParensAndStrings(groupSql)) {
+      const qc = parseQualified(part.trim());
+      if (!qc) {
+        errors.push(`GROUP BY column not understood: ${part}`);
+        return;
+      }
+      const tid = aliasToInstanceId.get(qc.alias);
+      if (!tid) {
+        errors.push(`Unknown alias in GROUP BY: ${qc.alias}`);
+        return;
+      }
+      model.groupBy.push({ tableId: tid, column: qc.col });
+    }
+  }
+  function parseOrderBy(orderSql, model, aliasToInstanceId, errors) {
+    for (const part of splitCsvRespectingParensAndStrings(orderSql)) {
+      const p = part.trim().replace(/\s+/g, " ");
+      const m = p.match(/^("(?:[^"]|"")+"|(\w+))\.("(?:[^"]|"")+"|(\w+))(?:\s+(ASC|DESC))?$/i);
+      if (!m) {
+        errors.push(`ORDER BY column not understood: ${p}`);
+        return;
+      }
+      const alias = m[1].startsWith('"') ? m[1].replace(/^"|"$/g, "").replace(/""/g, '"') : m[2];
+      const col = m[3].startsWith('"') ? m[3].replace(/^"|"$/g, "").replace(/""/g, '"') : m[4];
+      const dir = (m[5]?.toUpperCase() ?? "ASC") === "DESC" ? "DESC" : "ASC";
+      const tid = aliasToInstanceId.get(alias);
+      if (!tid) {
+        errors.push(`Unknown alias in ORDER BY: ${alias}`);
+        return;
+      }
+      model.orderBy.push({ tableId: tid, column: col, direction: dir });
+    }
+  }
+
+  // extension/src/query-builder/query-builder-core-import.ts
+  function parseJoinOnEquality(on) {
+    const t = on.replace(/\s+/g, " ").trim();
+    const eq = t.indexOf("=");
+    if (eq < 0) return null;
+    const left = parseQualified(t.slice(0, eq).trim());
+    const right = parseQualified(t.slice(eq + 1).trim());
+    if (!left || !right) return null;
+    return { leftAlias: left.alias, leftCol: left.col, rightAlias: right.alias, rightCol: right.col };
+  }
+  function parseFromAndJoins(segment, model, tableByName, aliasToInstanceId, makeTable, warnings, errors) {
+    let rest = segment.trim();
+    const first = /^("(?:[^"]|"")+"|(\w+))(?:\s+(?:AS\s+)?("(?:[^"]|"")+"|(\w+)))?\s*/i.exec(rest);
+    if (!first) {
+      errors.push("Could not parse first table in FROM");
+      return;
+    }
+    const tableName = first[1].startsWith('"') ? unquoteIdent(first[1]) : first[2] ?? first[1];
+    const aliasToken = first[3] || first[4];
+    const alias = aliasToken ? first[3]?.startsWith('"') ? unquoteIdent(first[3]) : first[4] : tableName;
+    const meta = tableByName.get(tableName);
+    if (!meta) {
+      errors.push(`Unknown table in schema: ${tableName}`);
+      return;
+    }
+    const root = makeTable(model, meta.name, meta.columns ?? [], alias);
+    aliasToInstanceId.set(root.alias, root.id);
+    rest = rest.slice(first[0].length).trim();
+    while (rest.length > 0) {
+      const jm = /^(INNER|LEFT|RIGHT)?\s*JOIN\s+("(?:[^"]|"")+"|(\w+))(?:\s+(?:AS\s+)?("(?:[^"]|"")+"|(\w+)))?\s+ON\s+/i.exec(
+        rest
+      );
+      if (!jm) {
+        if (/\S/.test(rest)) {
+          warnings.push(`Trailing FROM/JOIN text not parsed: ${rest.slice(0, 80)}\u2026`);
+        }
+        break;
+      }
+      const joinType = (jm[1] || "INNER").toUpperCase();
+      const rtName = jm[2].startsWith('"') ? unquoteIdent(jm[2]) : jm[3] ?? jm[2];
+      const rtAliasTok = jm[4] || jm[5];
+      const rtAlias = rtAliasTok ? jm[4]?.startsWith('"') ? unquoteIdent(jm[4]) : jm[5] : rtName;
+      const afterOn = rest.slice(jm[0].length);
+      const nextJoinIdx = afterOn.search(/\b(?:INNER|LEFT|RIGHT)?\s+JOIN\b/i);
+      const onClause = (nextJoinIdx >= 0 ? afterOn.slice(0, nextJoinIdx) : afterOn).trim();
+      rest = nextJoinIdx >= 0 ? afterOn.slice(nextJoinIdx).trim() : "";
+      const metaR = tableByName.get(rtName);
+      if (!metaR) {
+        errors.push(`Unknown join table: ${rtName}`);
+        return;
+      }
+      const rightInst = makeTable(model, metaR.name, metaR.columns ?? [], rtAlias);
+      aliasToInstanceId.set(rightInst.alias, rightInst.id);
+      const eq = parseJoinOnEquality(onClause);
+      if (!eq) {
+        errors.push(`Could not parse JOIN ON as column equality: ${onClause}`);
+        return;
+      }
+      let leftId;
+      let leftCol;
+      let rightId;
+      let rightCol;
+      const newAlias = rightInst.alias;
+      if (eq.leftAlias === newAlias) {
+        rightId = rightInst.id;
+        rightCol = eq.leftCol;
+        const other = aliasToInstanceId.get(eq.rightAlias);
+        if (!other) {
+          errors.push(`Unknown alias in JOIN ON: ${eq.rightAlias}`);
+          return;
+        }
+        leftId = other;
+        leftCol = eq.rightCol;
+      } else if (eq.rightAlias === newAlias) {
+        rightId = rightInst.id;
+        rightCol = eq.rightCol;
+        const other = aliasToInstanceId.get(eq.leftAlias);
+        if (!other) {
+          errors.push(`Unknown alias in JOIN ON: ${eq.leftAlias}`);
+          return;
+        }
+        leftId = other;
+        leftCol = eq.leftCol;
+      } else {
+        errors.push("JOIN ON does not reference the newly joined table alias");
+        return;
+      }
+      model.joins.push({
+        id: makeImportId("join"),
+        leftTableId: leftId,
+        leftColumn: leftCol,
+        rightTableId: rightId,
+        rightColumn: rightCol,
+        type: joinType === "LEFT" || joinType === "RIGHT" || joinType === "INNER" ? joinType : "INNER"
+      });
+    }
+  }
+  function importSelectSqlToCoreModel(rawSql, schemaTables, deps) {
+    const warnings = [];
+    const errors = [];
+    const sql = stripSqlComments(rawSql).replace(/;\s*$/, "").trim();
+    if (!sql) return { model: null, errors: ["Empty SQL"], warnings };
+    if (/^\s*with\b/i.test(sql)) {
+      return { model: null, errors: ["WITH / CTE queries cannot be imported into the visual builder yet"], warnings };
+    }
+    if (!/^\s*select\b/i.test(sql)) {
+      return { model: null, errors: ["Only SELECT statements can be imported"], warnings };
+    }
+    if (/\bunion\b/i.test(sql)) {
+      return { model: null, errors: ["UNION queries cannot be imported"], warnings };
+    }
+    const fromKw = /\bFROM\b/i.exec(sql);
+    if (!fromKw || fromKw.index === void 0) {
+      return { model: null, errors: ["Missing FROM clause"], warnings };
+    }
+    const selectList = sql.slice(6, fromKw.index).replace(/\s+/g, " ").trim();
+    const afterFrom = sql.slice(fromKw.index + fromKw[0].length).trim();
+    const clauses = clausePositions(afterFrom);
+    const fromJoinEnd = clauses.firstClauseStart < afterFrom.length ? clauses.firstClauseStart : afterFrom.length;
+    const fromJoinSegment = afterFrom.slice(0, fromJoinEnd).trim();
+    const whereSql = clauses.where >= 0 ? afterFrom.slice(clauses.where, nextClauseEnd(afterFrom, clauses.where, clauses)).replace(/^\s*WHERE\s+/i, "").trim() : "";
+    const groupSql = clauses.groupBy >= 0 ? afterFrom.slice(clauses.groupBy, nextClauseEnd(afterFrom, clauses.groupBy, clauses)).replace(/^\s*GROUP\s+BY\s+/i, "").trim() : "";
+    const orderSql = clauses.orderBy >= 0 ? afterFrom.slice(clauses.orderBy, nextClauseEnd(afterFrom, clauses.orderBy, clauses)).replace(/^\s*ORDER\s+BY\s+/i, "").trim() : "";
+    const limitSql = clauses.limit >= 0 ? afterFrom.slice(clauses.limit).replace(/^\s*LIMIT\s+/i, "").trim() : "";
+    const tableByName = new Map((schemaTables || []).map((t) => [t.name, t]));
+    const model = deps.createEmpty();
+    const aliasToInstanceId = /* @__PURE__ */ new Map();
+    parseFromAndJoins(fromJoinSegment, model, tableByName, aliasToInstanceId, deps.makeTable, warnings, errors);
+    if (errors.length > 0) return { model: null, errors, warnings };
+    if (model.tables.length === 0) {
+      return { model: null, errors: ["No tables parsed from FROM clause"], warnings };
+    }
+    parseSelectList(selectList, model, aliasToInstanceId, warnings, errors);
+    if (errors.length > 0) return { model: null, errors, warnings };
+    if (whereSql) parseWhere(whereSql, model, aliasToInstanceId, warnings, errors);
+    if (errors.length > 0) return { model: null, errors, warnings };
+    if (groupSql) parseGroupBy(groupSql, model, aliasToInstanceId, errors);
+    if (errors.length > 0) return { model: null, errors, warnings };
+    if (orderSql) parseOrderBy(orderSql, model, aliasToInstanceId, errors);
+    if (errors.length > 0) return { model: null, errors, warnings };
+    if (limitSql) {
+      const lim = Number.parseInt(limitSql.split(/\s+/)[0] ?? "", 10);
+      if (Number.isFinite(lim) && lim > 0) model.limit = lim;
+      else warnings.push(`LIMIT value not parsed: ${limitSql}`);
+    }
+    return { model, errors, warnings };
+  }
+
+  // assets/web/query-builder-import.ts
+  function makeId2(prefix) {
+    return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+  function pickAlias(used, forced, count) {
+    if (forced && !used.has(forced)) return forced;
+    let idx = count;
+    let alias = `t${idx}`;
+    while (used.has(alias)) {
+      idx++;
+      alias = `t${idx}`;
+    }
+    return alias;
+  }
+  function importSelectSqlToWebModel(rawSql, schemaTables) {
+    const result = importSelectSqlToCoreModel(rawSql, schemaTables, {
+      createEmpty: () => ({
+        modelVersion: 1,
+        tables: [],
+        joins: [],
+        selectedColumns: [],
+        filters: [],
+        groupBy: [],
+        orderBy: [],
+        limit: 200
+      }),
+      makeTable: (model, baseTable, columns, forcedAlias) => {
+        const used = new Set(model.tables.map((t) => t.alias));
+        const inst = {
+          id: makeId2("tb"),
+          baseTable,
+          alias: pickAlias(used, forcedAlias, model.tables.length),
+          columns: columns.map((c) => ({ name: c.name, type: c.type, pk: c.pk }))
+        };
+        model.tables.push(inst);
+        return inst;
+      }
+    });
+    return {
+      model: result.model ?? null,
+      errors: result.errors,
+      warnings: result.warnings
+    };
   }
 
   // assets/web/pagination.ts
@@ -1910,6 +2392,9 @@
     html += "</div>";
     html += '<div id="qb-raw-panel" style="display:none;">';
     html += '<textarea id="qb-raw-input" class="qb-raw-textarea" rows="4" spellcheck="false" placeholder="SELECT * FROM &quot;' + esc2(tableName) + '&quot; LIMIT 200"></textarea>';
+    html += '<div class="qb-row" style="margin-top:0.35rem;">';
+    html += '<button type="button" id="qb-raw-import" title="Parse the SQL above into the multi-table visual builder">Import to visual builder</button>';
+    html += "</div>";
     html += "</div>";
     html += '<div class="qb-row" style="margin-top:0.35rem;">';
     html += '<button type="button" id="qb-run" title="Execute the built query">Run query</button>';
@@ -2255,6 +2740,42 @@
           }
           rawInput.focus();
         }
+      });
+    }
+    var importBtn = document.getElementById("qb-raw-import");
+    if (importBtn) {
+      importBtn.addEventListener("click", function() {
+        var input = document.getElementById("qb-raw-input");
+        if (!input) return;
+        var sqlText = input.value.trim();
+        if (!sqlText) {
+          alert("Paste a SELECT statement to import.");
+          return;
+        }
+        void loadSchemaMeta().then(function() {
+          var schemaTables = schemaMeta && schemaMeta.tables || [];
+          var result = importSelectSqlToWebModel(sqlText, schemaTables);
+          if (!result.model || result.errors.length > 0) {
+            alert("Could not import SQL:\n" + result.errors.join("\n"));
+            return;
+          }
+          loadImportedMultiModel(result.model);
+          setQbScope("multi");
+          var vBtn = document.getElementById("qb-mode-visual");
+          var rBtn = document.getElementById("qb-mode-raw");
+          var vPanel = document.getElementById("qb-visual-panel");
+          var rPanel = document.getElementById("qb-raw-panel");
+          if (vBtn && rBtn && vPanel && rPanel) {
+            vBtn.classList.add("active");
+            rBtn.classList.remove("active");
+            vPanel.style.display = "";
+            rPanel.style.display = "none";
+          }
+          updateQbPreview();
+          if (result.warnings.length > 0) console.warn("SQL import warnings:", result.warnings);
+        }).catch(function(e) {
+          alert("Schema load failed: " + e.message);
+        });
       });
     }
   }

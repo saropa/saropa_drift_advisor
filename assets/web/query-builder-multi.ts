@@ -687,6 +687,18 @@ function wireMultiRoot(host: HTMLElement): void {
   }
 }
 
+/**
+ * Installs a model built outside the form (e.g. SQL → visual import) and renders
+ * it. The caller is responsible for switching the scope toggle to multi; this
+ * sets the root so a later [initMultiForTable] for the same table does not clobber it.
+ */
+export function loadImportedMultiModel(model: WebQbModel): void {
+  _multiModel = model;
+  _multiRootTable = model.tables[0]?.baseTable ?? null;
+  renderMultiRoot();
+  notify();
+}
+
 export function captureMultiPersistable(): Record<string, unknown> | null {
   if (!_multiModel) return null;
   return {
