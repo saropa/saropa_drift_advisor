@@ -11,10 +11,12 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConverter, runCount } from './helpers.mjs';
+import { loadModule, runCount } from './helpers.mjs';
 import { relational, contactsApp } from './fixtures.mjs';
 
-const nlToSql = await loadConverter();
+const mod = await loadModule();
+const nlToSql = mod.nlToSql;
+const isDateColumn = mod.isDateColumn;
 const rel = relational.meta;
 const app = contactsApp.meta;
 
@@ -308,11 +310,31 @@ describe('real Saropa Contacts shape (UUID links, camelCase, no FKs)', () => {
     assert.equal(relRun('contacts with more than one phone'), 1);
     assert.equal(relRun('contacts without any phones'), 1);
   });
-  it('KNOWN LIMITATION: camelCase favoriteAt is not auto-detected as a date column', () => {
-    // "favorite" has no created/updated/_at-snake token, so a temporal verb
-    // does not bind to favoriteAt. Documented so a future fix is intentional.
-    const sql = S('contacts changed today', app);
-    assert.doesNotMatch(sql, /favoriteAt/);
+  it('camelCase *At columns (favoriteAt) ARE now detected as date columns', () => {
+    assert.equal(isDateColumn({ name: 'favoriteAt', type: 'INTEGER' }), true);
+    assert.equal(isDateColumn({ name: 'emergencyAt', type: 'INTEGER' }), true);
+    assert.equal(isDateColumn({ name: 'eventDate', type: 'INTEGER' }), true);
+  });
+});
+
+describe('date-column detection (type + camelCase, not just name)', () => {
+  it('a declared temporal TYPE is detected regardless of column name', () => {
+    assert.equal(isDateColumn({ name: 'whenever', type: 'DATETIME' }), true);
+    assert.equal(isDateColumn({ name: 'x', type: 'TIMESTAMP' }), true);
+    const meta = { tables: [{ name: 'logs', rowCount: 1, columns: [
+      { name: 'id', type: 'INTEGER', pk: true }, { name: 'whenever', type: 'DATETIME' },
+    ] }] };
+    assert.match(nlToSql('logs changed today', meta).sql, /date\("whenever"/);
+  });
+  it('does NOT flag bool/status/count columns (would break "newest first")', () => {
+    assert.equal(isDateColumn({ name: 'isActive', type: 'INTEGER' }), false);
+    assert.equal(isDateColumn({ name: 'status', type: 'TEXT' }), false);
+    assert.equal(isDateColumn({ name: 'age', type: 'INTEGER' }), false);
+    assert.equal(isDateColumn({ name: 'format', type: 'TEXT' }), false); // not a camelCase *At
+  });
+  it('"newest first" prefers a created/updated column over an arbitrary date col', () => {
+    // contacts lists favoriteAt before createdAt; recency must still pick createdAt.
+    assert.match(S('contacts newest first', app), /ORDER BY "createdAt" DESC/);
   });
 });
 

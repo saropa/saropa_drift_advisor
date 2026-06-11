@@ -965,7 +965,7 @@
   // assets/web/nl-to-sql.ts
   function temporalWhere(q, target) {
     const dateCols = target.columns.filter(function(c) {
-      return /date|time|_at\b|_on\b|created|updated|modified|changed|added|edited|inserted|registered|timestamp|stamp|datetime|mtime|ctime|\bwhen\b|\bts\b|expir|expiry|\bdue\b|publish|posted|logged|synced|seen|visited|login|logout|access|effective|valid|start|end|birth|\bdob\b/i.test(c.name);
+      return isDateColumn(c) || /\bwhen\b|\bts\b|expiry|\bdue\b|logged|synced|seen|visited|login|logout|access|effective|valid|start|end|registered|inserted|added/i.test(c.name);
     });
     if (dateCols.length === 0) return "";
     const editVerb = /\b(?:chang|chnag|chagn|chaneg|chnge|chg|modif|modfi|mdoif|\bmod\b|updat|udpat|upadt|updt|\bupd\b|upd8|edit|eddit|edt|alter|altr|amend|ammend|revis|rivis|touch|tweak|twaek|adjust|ajust|adust|refresh|refesh|re-?sav|overwrit|overwrot|rewr|rewrot|rework|reword|mutat|patch|bump|sync|synch|migrat|recalc|reprocess|reindex|restamp|dirtied|flipp|toggl|reset|log(?:ged)?[ -]?in|sign(?:ed)?[ -]?in|seen|used|access|visit)/i;
@@ -1337,9 +1337,7 @@
     return conds;
   }
   function orderClause(q, target) {
-    const dateCol = target.columns.find(function(c) {
-      return /date|time|created|updated|_at\b|timestamp/i.test(c.name);
-    });
+    const dateCol = recencyColumn(target);
     const textCol = target.columns.find(function(c) {
       return /name|title|label|email/i.test(c.name);
     }) || target.columns.find(function(c) {
@@ -1381,6 +1379,17 @@
     if (/\ba couple\b/i.test(q)) return 2;
     if (/\b(?:top|first|head)\b/i.test(q)) return 10;
     return null;
+  }
+  function isDateColumn(col) {
+    if (/date|time|timestamp/i.test(col.type || "")) return true;
+    const name = col.name;
+    if (/date|time|timestamp|stamp|datetime|mtime|ctime|created|updated|modified|changed|edited|published|posted|expir|birth|\bdob\b|_at\b|_on\b/i.test(name)) return true;
+    return /[a-z](At|Date|Time|Timestamp)$/.test(name);
+  }
+  function recencyColumn(target) {
+    return target.columns.find(function(c) {
+      return /creat|updat|modif|edit|chang|_at\b/i.test(c.name);
+    }) || target.columns.find(isDateColumn);
   }
   function singularize(n) {
     if (/ies$/.test(n)) return n.replace(/ies$/, "y");
@@ -1691,16 +1700,12 @@
       const col = mentioned[0] || target.columns[1] || target.columns[0];
       sql = 'SELECT DISTINCT "' + col.name + '" FROM ' + tn + where + limClause;
     } else if (/latest|newest|most recent|last (\d+)/i.test(q)) {
-      const dateCol = target.columns.find(function(c) {
-        return /date|time|created|updated/i.test(c.name);
-      });
+      const dateCol = recencyColumn(target);
       const match = q.match(/last (\d+)/i);
       const rowLim = lim != null ? lim : match ? parseInt(match[1], 10) : 10;
       sql = "SELECT " + selectCols + " FROM " + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" DESC' : "") + " LIMIT " + rowLim;
     } else if (/oldest|earliest|first (\d+)/i.test(q)) {
-      const dateCol = target.columns.find(function(c) {
-        return /date|time|created|updated/i.test(c.name);
-      });
+      const dateCol = recencyColumn(target);
       const match2 = q.match(/first (\d+)/i);
       const rowLim = lim != null ? lim : match2 ? parseInt(match2[1], 10) : 10;
       sql = "SELECT " + selectCols + " FROM " + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" ASC' : "") + " LIMIT " + rowLim;
@@ -4929,7 +4934,7 @@
     var lower = name.toLowerCase();
     return /^(is_|has_|can_|should_|allow_|enable)/.test(lower) || /_(enabled|active|visible|deleted|archived|verified|confirmed|locked|published)\$/.test(lower) || lower === "active" || lower === "enabled" || lower === "deleted" || lower === "verified";
   }
-  function isDateColumn(name) {
+  function isDateColumn2(name) {
     var lower = name.toLowerCase();
     return /date|time|created|updated|deleted|_at\$|_on\$/.test(lower);
   }
@@ -4945,7 +4950,7 @@
       if (value === 0 || value === "0") return { formatted: "false", raw, wasFormatted: true };
       if (value === 1 || value === "1") return { formatted: "true", raw, wasFormatted: true };
     }
-    if ((type === "INTEGER" || type === "REAL" || type === "") && (isDateColumn(columnName) || isEpochTimestamp(value))) {
+    if ((type === "INTEGER" || type === "REAL" || type === "") && (isDateColumn2(columnName) || isEpochTimestamp(value))) {
       var epoch = isEpochTimestamp(value);
       if (epoch) {
         var ms = epoch === "ms" ? Number(value) : Number(value) * 1e3;
@@ -5869,9 +5874,7 @@
       var pt = parents[i].toTable;
       chips.push({ label: "has " + nlSingular(pt), phrase: "with a " + nlSingular(pt) });
     }
-    var dateCol = cols.filter(function(c) {
-      return /date|time|_at\b|created|updated|changed|timestamp/i.test(c.name);
-    })[0];
+    var dateCol = cols.filter(isDateColumn)[0];
     if (dateCol) {
       chips.push({ label: "this week", phrase: "created this week" });
       chips.push({ label: "today", phrase: "changed today" });
