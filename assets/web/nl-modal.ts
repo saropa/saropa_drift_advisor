@@ -114,6 +114,85 @@ import { esc, setButtonBusy } from './utils.ts';
       }
       setNlMicRecording(false);
     }
+    /**
+     * Restores the help sections to their default state: first group open, the
+     * rest collapsed, all examples visible, empty-state hidden. Used when the
+     * search box is cleared and when the panel is (re)opened.
+     */
+    function resetNlHelpSections() {
+      var panel = document.getElementById('nl-help-panel');
+      if (!panel) return;
+      var secs = panel.querySelectorAll('.nl-help-sec');
+      for (var i = 0; i < secs.length; i++) {
+        var sec = secs[i] as HTMLDetailsElement;
+        sec.open = (i === 0);
+        sec.hidden = false;
+        var items = sec.querySelectorAll('li');
+        for (var j = 0; j < items.length; j++) items[j].hidden = false;
+      }
+      var empty = panel.querySelector('.nl-help-empty') as HTMLElement | null;
+      if (empty) empty.hidden = true;
+    }
+
+    /**
+     * Filters the help examples by the search term: hides non-matching <li>s,
+     * hides sections left with no match, and force-expands the sections that do
+     * match so hits are visible without manual clicking. An empty term restores
+     * the default layout. Matching is plain case-insensitive substring — these
+     * are short example phrases, so no fuzzy logic is warranted.
+     */
+    function filterNlHelp() {
+      var input = document.getElementById('nl-help-search') as HTMLInputElement | null;
+      var panel = document.getElementById('nl-help-panel');
+      if (!input || !panel) return;
+      var term = String(input.value || '').trim().toLowerCase();
+      if (!term) { resetNlHelpSections(); return; }
+      var secs = panel.querySelectorAll('.nl-help-sec');
+      var anyVisible = false;
+      for (var i = 0; i < secs.length; i++) {
+        var sec = secs[i] as HTMLDetailsElement;
+        var items = sec.querySelectorAll('li');
+        var secHas = false;
+        for (var j = 0; j < items.length; j++) {
+          var el = items[j];
+          var match = (el.textContent || '').toLowerCase().indexOf(term) >= 0;
+          el.hidden = !match;
+          if (match) secHas = true;
+        }
+        sec.hidden = !secHas;
+        sec.open = secHas;
+        if (secHas) anyVisible = true;
+      }
+      var empty = panel.querySelector('.nl-help-empty') as HTMLElement | null;
+      if (empty) empty.hidden = anyVisible;
+    }
+
+    /**
+     * Toggles the phrase-coverage help panel and keeps the [i] button's
+     * aria-expanded in sync, so the disclosure state is exposed to assistive
+     * tech rather than communicated by the icon alone.
+     */
+    function toggleNlHelp() {
+      var panel = document.getElementById('nl-help-panel');
+      var btn = document.getElementById('nl-help');
+      if (!panel) return;
+      var show = panel.hidden;
+      panel.hidden = !show;
+      if (btn) btn.setAttribute('aria-expanded', show ? 'true' : 'false');
+      // On open, start from a clean, default layout (clear any prior filter).
+      if (show) {
+        var input = document.getElementById('nl-help-search') as HTMLInputElement | null;
+        if (input) input.value = '';
+        resetNlHelpSections();
+      }
+    }
+    /** Collapses the help panel (called on close so a reopen starts clean). */
+    function hideNlHelp() {
+      var panel = document.getElementById('nl-help-panel');
+      var btn = document.getElementById('nl-help');
+      if (panel) panel.hidden = true;
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
     /** NL conversion messages stay in the modal so they do not clear or replace run/query errors under the main editor. */
     export function setNlModalError(msg, visible) {
       var modalErr = document.getElementById('nl-modal-error');
@@ -185,6 +264,8 @@ import { esc, setButtonBusy } from './utils.ts';
       }
       // Kill any in-flight dictation so the mic doesn't keep streaming after close.
       stopNlMic();
+      // Collapse the help panel so a reopened dialog starts on the question box.
+      hideNlHelp();
       // Drop sample results so a reopened dialog doesn't show stale rows.
       clearNlPreviewResults();
       var openBtn = document.getElementById('nl-open');
@@ -367,6 +448,10 @@ import { esc, setButtonBusy } from './utils.ts';
         nlMic.hidden = false;
         nlMic.addEventListener('click', toggleNlMic);
       }
+      var nlHelp = document.getElementById('nl-help');
+      if (nlHelp) nlHelp.addEventListener('click', toggleNlHelp);
+      var nlHelpSearch = document.getElementById('nl-help-search');
+      if (nlHelpSearch) nlHelpSearch.addEventListener('input', filterNlHelp);
       var nlCopy = document.getElementById('nl-copy');
       if (nlCopy) nlCopy.addEventListener('click', function () { copyNlSql(); });
       var nlPreviewRun = document.getElementById('nl-preview-run');

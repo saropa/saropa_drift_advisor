@@ -313,6 +313,111 @@
 .nl-icon-btn .material-symbols-outlined {
   font-size: 1.1rem;
 }
+/* Info [i] button pinned to the panel's top-right corner. The panel is
+   position:relative, so this anchors without disturbing the title's flow. */
+.nl-help-btn {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.8rem;
+}
+/* Phrase-coverage cheat-sheet revealed by the [i] button. Reads as an inset
+   card so it's clearly secondary to the question box, not another input. */
+.nl-help-panel {
+  margin: 0 0 0.75rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+/* Search row: a leading magnifier icon and a full-width filter input. */
+.nl-help-search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.6rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.nl-help-search-row .material-symbols-outlined {
+  font-size: 1.05rem;
+  color: var(--muted);
+}
+.nl-help-search {
+  flex: 1;
+  min-width: 0;
+  padding: 0.1rem 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+/* Collapsible groups stacked one per row. */
+.nl-help-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.nl-help-sec {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.25rem;
+}
+.nl-help-sec > summary {
+  cursor: pointer;
+  padding: 0.25rem 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg);
+  list-style: none;
+}
+/* Custom disclosure caret (▸ / ▾) so it matches across browsers. */
+.nl-help-sec > summary::-webkit-details-marker {
+  display: none;
+}
+.nl-help-sec > summary::before {
+  content: "\25B8";
+  display: inline-block;
+  width: 1rem;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.nl-help-sec[open] > summary::before {
+  transform: rotate(90deg);
+}
+.nl-help-sec ul {
+  margin: 0.15rem 0 0.3rem;
+  padding: 0 0 0 1rem;
+  list-style: none;
+}
+.nl-help-sec li {
+  margin: 0 0 0.25rem;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.4;
+}
+.nl-help-empty {
+  margin: 0.4rem 0 0;
+  padding-left: 1rem;
+}
+/* Inline code chips for the example phrases — compact, monospaced, low-contrast
+   so a column of them stays scannable. */
+.nl-help-panel code {
+  padding: 0.05rem 0.3rem;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.8em;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+  white-space: nowrap;
+}
+.nl-help-foot {
+  margin: 0.65rem 0 0;
+  line-height: 1.4;
+}
 /* Active dictation: accent color + pulse so the listening state reads without
    relying on color alone (the icon also swaps to mic_off via JS). */
 .nl-mic.recording {
