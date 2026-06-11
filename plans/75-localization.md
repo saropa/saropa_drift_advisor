@@ -312,10 +312,17 @@ low-quality upgrade keeps the existing value rather than regressing to English.
    locale is missing the key.
 3. Run `generate:nls-coverage` to refresh the coverage data.
 
-### 5.3 Audit coverage (read-only)
-`python scripts/translate_l10n.py --run-mode audit` → per-locale coverage table +
-quality split, writes a timestamped report under `reports/<YYYY.MM>/<YYYY.MM.DD>/`
-plus a gaps worklist when gaps exist.
+### 5.3 Audit coverage (read-only, standalone)
+Run the manifest l10n audit on its own, outside publish:
+```
+python scripts/l10n.py            # report + per-locale coverage table (exit 0)
+python scripts/l10n.py check      # pre-publish / CI gate: exit 1 when any locale has gaps
+```
+It writes a JSON report to `reports/<YYYYMMDD>/<ts>_l10n_manifest_audit.json` and
+prints a per-locale missing/untranslated/translated summary. It **never translates**.
+(The same audit runs as Step 11 of the publish extension leg — §5.5.) A future
+runtime audit (`translate_l10n.py --run-mode audit`, Phase 4) covers the host/web
+bundles + a quality split; today's entry covers the manifest, which is what ships.
 
 ### 5.4 Translate (deliberate, operator-run only)
 ```
@@ -459,8 +466,9 @@ in phases, each at a check that must pass before the next:
 | Browser lookup | `vt()` / `t()` — `assets/web/l10n.ts` |
 | Manifest source | `extension/package.nls.json` |
 | Manifest translations | `extension/package.nls.<locale>.json` |
-| Translation toolchain | `scripts/translate_l10n.py` + `scripts/modules/.../l10n_*.py` |
-| Publish l10n step | `scripts/publish.py` |
+| Standalone manifest audit | `scripts/l10n.py` (`audit` / `check`) → `scripts/modules/l10n_audit.py` |
+| Translation toolchain (future) | `scripts/translate_l10n.py` + `scripts/modules/.../l10n_*.py` |
+| Publish l10n step | `scripts/publish.py` (extension leg, Step 11) → `scripts/modules/l10n_audit.py` |
 
 ---
 
