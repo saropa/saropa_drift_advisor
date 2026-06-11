@@ -78,6 +78,7 @@ The web viewer's toolbar can now show labels: click any empty space in the toolb
 
 ### Improved
 
+- **Website: "Ask in English" understands relationships even without declared foreign keys** — many schemas link tables by a shared id/UUID column instead of a declared SQLite foreign key (Saropa Contacts links every table by `contactSaropaUUID`). The wizard now infers those relationships from column naming (`<noun>_id` → that table, and a shared `*UUID` column → its owner table). So it best-guesses the right main table (e.g. a name search lands on **contacts**, not the largest detail table), and relationship phrases like **"contacts with more than one connection"** generate correct queries even when the database declares no foreign keys.
 - **Website: large binary (BLOB) cells no longer slow the grid** — BLOB values are now shown as a short preview instead of dumping the whole value into the cell, which previously made tables with big binary columns sluggish. Hover a truncated BLOB cell and click the new expand button (next to copy) to read the full value in a popup.
 
 <details>
