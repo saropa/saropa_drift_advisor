@@ -7,6 +7,7 @@
 import { esc, setButtonBusy } from './utils.ts';
 import * as S from './state.ts';
 import * as MQ from './query-builder-multi.ts';
+import { importSelectSqlToWebModel } from './query-builder-import.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
 import { getColumnConfig, saveTableState } from './persistence.ts';
 import { wrapDataTableInScroll, buildDataTableHtml, buildTableStatusBar, getVisibleColumnCount, renderTableView, bindResultsToggle } from './table-view.ts';
@@ -70,6 +71,10 @@ import { bindColumnTableEvents } from './pagination.ts';
       // Textarea is pre-filled with the visual builder's generated SQL on switch.
       html += '<div id="qb-raw-panel" style="display:none;">';
       html += '<textarea id="qb-raw-input" class="qb-raw-textarea" rows="4" spellcheck="false" placeholder="SELECT * FROM &quot;' + esc(tableName) + '&quot; LIMIT 200"></textarea>';
+      // Reconstruct a flat SELECT into the multi-table visual graph (Feature 21, Phase 3).
+      html += '<div class="qb-row" style="margin-top:0.35rem;">';
+      html += '<button type="button" id="qb-raw-import" title="Parse the SQL above into the multi-table visual builder">Import to visual builder</button>';
+      html += '</div>';
       html += '</div>';
 
       // Shared action buttons — used by both Visual and Raw modes
@@ -398,6 +403,46 @@ import { bindColumnTableEvents } from './pagination.ts';
             }
             rawInput.focus();
           }
+        });
+      }
+
+      // "Import to visual builder": parse the Raw SQL textarea into the
+      // multi-table model and switch to the multi visual scope. On any hard
+      // error the existing builder state is preserved (model stays null).
+      var importBtn = document.getElementById('qb-raw-import');
+      if (importBtn) {
+        importBtn.addEventListener('click', function() {
+          var input = document.getElementById('qb-raw-input') as HTMLTextAreaElement | null;
+          if (!input) return;
+          var sqlText = input.value.trim();
+          if (!sqlText) { alert('Paste a SELECT statement to import.'); return; }
+          void loadSchemaMeta()
+            .then(function() {
+              var schemaTables = (S.schemaMeta && S.schemaMeta.tables) || [];
+              var result = importSelectSqlToWebModel(sqlText, schemaTables);
+              if (!result.model || result.errors.length > 0) {
+                alert('Could not import SQL:\n' + result.errors.join('\n'));
+                return;
+              }
+              MQ.loadImportedMultiModel(result.model);
+              MQ.setQbScope('multi');
+              // Return to Visual mode so the reconstructed graph is visible.
+              var vBtn = document.getElementById('qb-mode-visual');
+              var rBtn = document.getElementById('qb-mode-raw');
+              var vPanel = document.getElementById('qb-visual-panel');
+              var rPanel = document.getElementById('qb-raw-panel');
+              if (vBtn && rBtn && vPanel && rPanel) {
+                vBtn.classList.add('active');
+                rBtn.classList.remove('active');
+                vPanel.style.display = '';
+                rPanel.style.display = 'none';
+              }
+              updateQbPreview();
+              // Warnings flag lossy/ambiguous constructs (e.g. OR chains) without
+              // blocking the import; the populated graph is the success signal.
+              if (result.warnings.length > 0) console.warn('SQL import warnings:', result.warnings);
+            })
+            .catch(function(e) { alert('Schema load failed: ' + e.message); });
         });
       }
     }
