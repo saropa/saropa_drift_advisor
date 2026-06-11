@@ -200,6 +200,139 @@ import { openTool } from './tabs.ts';
         modalErr.style.display = 'none';
       }
     }
+    /** Lightweight singularizer for readable chip phrases (companies→company). */
+    function nlSingular(n) {
+      if (/ies$/.test(n)) return n.replace(/ies$/, 'y');
+      if (/(ses|xes|zes|ches|shes)$/.test(n)) return n.replace(/es$/, '');
+      if (/s$/.test(n) && !/ss$/.test(n)) return n.replace(/s$/, '');
+      return n;
+    }
+
+    /** The table chosen in the clarifier dropdown, or undefined for auto-detect. */
+    function nlTableOverride() {
+      var sel = document.getElementById('nl-table-select') as HTMLSelectElement | null;
+      return sel && sel.value ? sel.value : undefined;
+    }
+
+    /** Fills the clarifier dropdown with every table (once). */
+    function populateNlTableSelect(meta) {
+      var sel = document.getElementById('nl-table-select') as HTMLSelectElement | null;
+      if (!sel || sel.options.length > 1) return;
+      var tables = (meta && meta.tables) || [];
+      for (var i = 0; i < tables.length; i++) {
+        var o = document.createElement('option');
+        o.value = tables[i].name;
+        o.textContent = tables[i].name;
+        sel.appendChild(o);
+      }
+    }
+
+    /**
+     * Shows a hint when the table was guessed (and not overridden), so the user
+     * knows to pick one if the guess is wrong — turning the old dead-end into a
+     * one-click correction.
+     */
+    function updateNlClarifier(result) {
+      var hint = document.getElementById('nl-clarify-hint');
+      var clarify = document.getElementById('nl-clarify');
+      if (!hint || !clarify) return;
+      var guessed = result && result.table && !nlTableOverride()
+        && (result.confidence === 'guess' || result.confidence === 'ambiguous');
+      if (guessed) {
+        hint.textContent = 'Guessed “' + result.table + '” — pick a table if that’s wrong';
+        clarify.classList.add('nl-clarify-guess');
+      } else {
+        hint.textContent = '';
+        clarify.classList.remove('nl-clarify-guess');
+      }
+    }
+
+    /**
+     * Builds schema-derived refinement chips for [tableName]: each is a
+     * natural-language phrase that clicking appends to (or removes from) the
+     * question. Relationship chips come first (the differentiator), then
+     * date / boolean / numeric facets, then count / sort / limit.
+     */
+    function nlRefinements(tableName, meta) {
+      var tables = (meta && meta.tables) || [];
+      var t = null;
+      for (var i = 0; i < tables.length; i++) if (tables[i].name === tableName) { t = tables[i]; break; }
+      if (!t) return [];
+      var cols = t.columns || [];
+      var fks = (meta && meta.foreignKeys) || [];
+      var chips = [];
+      // Relationships first.
+      var children = fks.filter(function (e) { return e.toTable === tableName; });
+      for (var i = 0; i < children.length && i < 2; i++) {
+        var ct = children[i].fromTable;
+        chips.push({ label: '>1 ' + ct, phrase: 'with more than one ' + nlSingular(ct) });
+        chips.push({ label: 'no ' + ct, phrase: 'without any ' + ct });
+      }
+      var parents = fks.filter(function (e) { return e.fromTable === tableName; });
+      for (var i = 0; i < parents.length && i < 1; i++) {
+        var pt = parents[i].toTable;
+        chips.push({ label: 'has ' + nlSingular(pt), phrase: 'with a ' + nlSingular(pt) });
+      }
+      // Date facets.
+      var dateCol = cols.filter(function (c) { return /date|time|_at\b|created|updated|changed|timestamp/i.test(c.name); })[0];
+      if (dateCol) {
+        chips.push({ label: 'this week', phrase: 'created this week' });
+        chips.push({ label: 'today', phrase: 'changed today' });
+        chips.push({ label: 'stale 90d', phrase: 'not updated in 90 days' });
+      }
+      // Boolean flags.
+      var boolCols = cols.filter(function (c) {
+        return /bool|int/i.test(c.type || '') && /^is_|^has_|active|enabled|verified|archived|deleted|subscribed/i.test(c.name);
+      });
+      for (var i = 0; i < boolCols.length && i < 2; i++) {
+        var nm = boolCols[i].name.toLowerCase().replace(/^(is|has)_/, '').replace(/_/g, ' ');
+        chips.push({ label: 'only ' + nm, phrase: nm });
+      }
+      // Numeric extreme.
+      var numCol = cols.filter(function (c) { return /int|real|num|float/i.test(c.type || '') && !/^id$|_id$/i.test(c.name); })[0];
+      if (numCol) chips.push({ label: 'highest ' + numCol.name, phrase: 'highest ' + numCol.name });
+      // Always-available shaping.
+      chips.push({ label: 'count', phrase: 'as a total' });
+      chips.push({ label: 'newest', phrase: 'newest first' });
+      chips.push({ label: 'top 10', phrase: 'top 10' });
+      return chips.slice(0, 10);
+    }
+
+    /** Adds the phrase to the question, or removes it if already present. */
+    function toggleNlRefinement(phrase) {
+      var ta = document.getElementById('nl-modal-input') as HTMLTextAreaElement | null;
+      if (!ta) return;
+      var cur = String(ta.value || '');
+      var idx = cur.toLowerCase().indexOf(phrase.toLowerCase());
+      if (idx >= 0) {
+        ta.value = (cur.slice(0, idx) + cur.slice(idx + phrase.length)).replace(/\s{2,}/g, ' ').trim();
+      } else {
+        ta.value = (cur.trim() + ' ' + phrase).trim();
+      }
+      ta.focus();
+      scheduleNlLivePreview();
+    }
+
+    /** Renders the refinement chips, marking ones already in the question. */
+    function renderNlRefinements(tableName, meta) {
+      var wrap = document.getElementById('nl-refine');
+      if (!wrap) return;
+      var ta = document.getElementById('nl-modal-input') as HTMLTextAreaElement | null;
+      var q = (ta ? String(ta.value || '') : '').toLowerCase();
+      var chips = nlRefinements(tableName, meta);
+      wrap.innerHTML = '';
+      chips.forEach(function (chip) {
+        var applied = q.indexOf(chip.phrase.toLowerCase()) >= 0;
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'nl-chip' + (applied ? ' nl-chip-on' : '');
+        b.textContent = chip.label;
+        b.title = (applied ? 'Remove: ' : 'Add: ') + chip.phrase;
+        b.addEventListener('click', function () { toggleNlRefinement(chip.phrase); });
+        wrap.appendChild(b);
+      });
+    }
+
     async function applyNlLivePreview() {
       var ta = document.getElementById('nl-modal-input');
       var preview = document.getElementById('nl-modal-sql-preview');
@@ -208,14 +341,21 @@ import { openTool } from './tabs.ts';
       // Any change to the question makes prior sample results stale — drop them
       // so the table never shows rows for SQL that no longer matches the preview.
       clearNlPreviewResults();
-      if (!question) {
-        preview.value = '';
-        setNlModalError('', false);
-        return;
-      }
       try {
         var meta = await loadSchemaMeta();
-        var result = nlToSql(question, meta);
+        populateNlTableSelect(meta);
+        var override = nlTableOverride();
+        if (!question) {
+          // No question yet: clear the preview but still show the chips for the
+          // chosen (or first) table so the user has somewhere to start.
+          preview.value = '';
+          setNlModalError('', false);
+          updateNlClarifier(null);
+          var first = override || (meta.tables && meta.tables[0] && meta.tables[0].name);
+          renderNlRefinements(first, meta);
+          return;
+        }
+        var result = nlToSql(question, meta, { table: override });
         if (result.sql) {
           preview.value = result.sql;
           setNlModalError('', false);
@@ -223,6 +363,8 @@ import { openTool } from './tabs.ts';
           preview.value = '';
           setNlModalError(result.error || 'Could not convert to SQL.', true);
         }
+        updateNlClarifier(result);
+        renderNlRefinements((result && result.table) || override, meta);
       } catch (err) {
         preview.value = '';
         setNlModalError('Error: ' + (err.message || err), true);
@@ -460,6 +602,10 @@ import { openTool } from './tabs.ts';
       if (nlHelpSearch) nlHelpSearch.addEventListener('input', filterNlHelp);
       var nlCopy = document.getElementById('nl-copy');
       if (nlCopy) nlCopy.addEventListener('click', function () { copyNlSql(); });
+      // Clarifier dropdown: picking a table overrides the auto-detected one and
+      // re-runs the preview against it.
+      var nlTableSel = document.getElementById('nl-table-select');
+      if (nlTableSel) nlTableSel.addEventListener('change', scheduleNlLivePreview);
       var nlPreviewRun = document.getElementById('nl-preview-run');
       if (nlPreviewRun) nlPreviewRun.addEventListener('click', function () { previewNlResults(); });
       var nlModalInput = document.getElementById('nl-modal-input');
