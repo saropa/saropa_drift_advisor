@@ -1,5 +1,5 @@
 <!--
-  Archived 2026-04-30: phases 1–4 shipped per plan status. Stub: ../../../../47-bulk-edit-grid.md
+  Archived 2026-04-30: phases 1–4 shipped per plan status. Active stub removed 2026-06-10; this is now the canonical record.
 -->
 
 # Feature 47: Bulk Edit Grid (Extension + Web UI)

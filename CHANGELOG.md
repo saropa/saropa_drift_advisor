@@ -38,6 +38,21 @@ browse source on
 
   **Open VSX Registry** - [open-vsx.org / extension / saropa / drift-viewer](https://open-vsx.org/extension/saropa/drift-viewer)
 
+## [Unreleased]
+
+Paste a query and see it as a diagram: the web viewer's query builder can now turn a `SELECT` you've typed (or pasted) into the multi-table visual graph.
+
+### Added
+
+- **Website: import SQL into the visual builder** — in the debug web viewer's query builder, switch to **Raw SQL**, paste or write a flat `SELECT`, and click **Import to visual builder** to reconstruct it as a multi-table graph (tables, JOINs, selected columns and aggregates, WHERE filters, GROUP BY, ORDER BY, and LIMIT). The builder then re-renders the exact same SQL, so you can keep editing visually and run it against your data. Supports the same query shape the VS Code Visual Query Builder produces (quoted identifiers, `AS` aliases, INNER/LEFT/RIGHT joins on column equality, self-joins, `=`/`!=`/`<`/`>`/`<=`/`>=`/`LIKE`/`IN`/`IS [NOT] NULL`); unsupported constructs (CTEs, `UNION`, subqueries) are reported instead of producing a wrong graph, and a failed parse leaves your current builder untouched. This closes the last gap between the website query builder and the extension's.
+
+<details>
+<summary>Maintenance</summary>
+
+- **Single source of truth for query-builder SQL (Feature 21, Phase 1)** — the visual query builder's SQL rendering, validation, literal escaping, WHERE-operator lists, and flat-`SELECT` importer were previously hand-synced between the extension (`sql-renderer.ts`, `sql-import*.ts`) and the web bundle (`query-builder-sql.ts`, `query-builder-import.ts`), so the two could silently diverge and emit different SQL for the same model. Extracted them into self-contained, dependency-free `query-builder-core*.ts` modules (`-core` render/validate/literal, `-core-ops` operator lists, `-core-parse` string primitives, `-core-import` + `-core-import-clauses` parser) that compile into both the extension (tsc) and the web bundle (esbuild). The extension's `sql-renderer.ts`/`sql-import.ts` and the web's `query-builder-sql.ts`/`query-builder-import.ts` are now thin adapters re-exporting or delegating to the shared core; the importer injects a per-surface table factory so the extension keeps its initials aliases + canvas `position` and the web keeps `tN` aliases. Deleted the five now-redundant `sql-import-{utils,from-joins,select-list,where,group-order}.ts` helpers. The shared validator also adds the JOIN-reachability check the web had but the extension lacked (a disconnected table now reports an error instead of producing an un-runnable cross-join SELECT). All 2677 extension tests pass; web typecheck/build clean; an import→render→import→render stability check confirms identical re-rendered SQL.
+
+</details>
+
 ## [3.7.0]
 
 Two new ways to work with your data over time: a **Time Travel** slider to scrub a table's snapshot history, and **Data Branches** to capture, diff, and restore named snapshots of the whole database like `git stash` for your data.

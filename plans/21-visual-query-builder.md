@@ -22,7 +22,7 @@ Extend `assets/web/query-builder.ts` (and callers) so the **website** gains ever
 | No “paste SELECT → graph” | Optional: port or share `sql-import` rules (TS shared with extension, or hand-ported JS) behind Raw/paste affordance |
 | Results + preview | Keep live SQL preview + `POST /api/sql` (already the web pattern) |
 
-**Web v1 (landed in repo):** `assets/web/query-builder.ts` exposes **Single table | Multi-table**; `query-builder-multi.ts` holds the multi UI and model; `query-builder-sql.ts` validates/renders SQL aligned with the extension renderer (duplicated TS until a shared package exists). **Still open vs extension:** browser **SQL → visual graph** import (`sql-import` parity), and a single compiled shared module instead of hand-synced files.
+**Web v1 (landed in repo):** `assets/web/query-builder.ts` exposes **Single table | Multi-table**; `query-builder-multi.ts` holds the multi UI and model; `query-builder-sql.ts` validates/renders SQL aligned with the extension renderer (duplicated TS until a shared package exists). **Web SQL → visual graph import landed** (`query-builder-import.ts`, wired behind the Raw SQL panel's "Import to visual builder" button). **Shared single-source module landed (Phase 1):** render/validate/ops/parse/import now live in dependency-free `query-builder-core*.ts` consumed by both surfaces; the four web/extension files are thin adapters. No remaining parity gap vs the extension.
 
 **Implementation note:** Prefer **one source of truth** for model + SQL rendering (shared package, or compile extension query-builder TS for the web bundle) so the site and extension do not diverge. Until that lands, treat the extension webview as a **secondary** or internal surface.
 
@@ -490,17 +490,17 @@ Web v1 already landed (single + multi-table builder, SQL render/validate) — se
 ### Phase 0 — Landed (web v1)
 - `query-builder.ts` (Single | Multi), `query-builder-multi.ts` (multi model + UI), `query-builder-sql.ts` (validate/render aligned to the extension renderer). **Status: done; baseline for the phases below.**
 
-### Phase 1 — Single source of truth for model + SQL render
-- Collapse the duplicated TS: extract `query-model.ts` + `sql-renderer.ts` into one module consumed by both the web bundle and the extension webview (shared package or compile-for-web), with `validateQueryModel` enforcing all listed rules (≥1 table, unique aliases, no orphan refs, GROUP BY correctness, finite limit, no mirrored joins).
-- **Gate:** `sql-renderer.test.ts` green for every listed case (single, self-join, two-table join, scalar/null/IN filters, GROUP BY + aggregates, ORDER BY + LIMIT, empty-model rejection, escaping, duplicate-join rejection); web and extension import the same compiled module.
+### Phase 1 — Single source of truth for model + SQL render — DONE
+- Collapsed the duplicated TS into self-contained `extension/src/query-builder/query-builder-core*.ts` (`-core` render/validate/`sqlLiteral`, `-core-ops` operator lists, `-core-parse` string primitives, `-core-import` + `-core-import-clauses` flat-SELECT parser). No `api-client`/`vscode` imports, so esbuild bundles them into the web build and tsc into the extension. The extension (`sql-renderer.ts`, `sql-import.ts`) and web (`query-builder-sql.ts`, `query-builder-import.ts`) are thin adapters; the importer takes an injected table factory so each surface keeps its own model shape (extension: initials aliases + canvas `position`; web: `tN`). The five `sql-import-*` helpers were deleted. `validateQueryModel` enforces all listed rules and now also the JOIN-reachability check (was web-only).
+- **Gate met:** `sql-renderer.test.ts` (and the full 2677-test extension suite) green; web `typecheck:web`/`build:js` clean; web and extension import the same compiled core; round-trip stability verified.
 
 ### Phase 2 — Web parity: joins, GROUP BY, multiple ORDER BY
 - Extend `query-builder-multi.ts` and callers to add FK-hinted joins (from `/api/schema/metadata` + `tableFkMeta`), GROUP BY with per-column aggregation pickers, and multiple ORDER BY clauses; keep live SQL preview + `POST /api/sql` with request-ID staleness guarding.
 - **Gate:** a multi-table query with a join, GROUP BY, an aggregate, and two ORDER BY clauses builds visually, previews correct SQL, and runs; stale results from a prior run are dropped.
 
-### Phase 3 — SQL → visual graph import (web)
-- Port or share the `sql-import` rules so a pasted `SELECT` reconstructs the visual model in the browser (the main open item vs the extension).
-- **Gate:** pasting a representative join+filter+GROUP BY SELECT reproduces the equivalent visual model and re-renders identical SQL.
+### Phase 3 — SQL → visual graph import (web) — DONE
+- Ported the `sql-import` rules to `assets/web/query-builder-import.ts` (`importSelectSqlToWebModel`) so a pasted `SELECT` reconstructs the multi-table model in the browser; wired behind the Raw SQL panel's **Import to visual builder** button in `query-builder.ts`. A failed parse preserves existing builder state (model returned as `null`).
+- **Gate met:** a join+filter+GROUP BY+aggregate+multi-ORDER BY SELECT (plus IN/IS NULL, self-join, and `*` cases) reproduces the equivalent visual model and re-renders identical SQL — verified by an import→render→import→render stability check using the same web renderer.
 
 ### Phase 4 — Extension webview (optional, command-driven)
 - Host the shared model in `query-builder-panel.ts` + `query-builder-html.ts` for IDE-only flows (NL-SQL "Edit Visually", import SQL). No tree/sidebar discovery — palette/automation commands only, per **Product direction**.
