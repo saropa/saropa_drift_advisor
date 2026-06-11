@@ -9,6 +9,8 @@
  * - Mask PII toggle (#tb-mask-toggle + #tb-mask-checkbox)
  * - Theme flyout (#tb-theme-trigger + #tb-theme-flyout)
  * - Share button (#tb-share-btn)
+ * - Density toggle: clicking bare toolbar whitespace (not an icon) switches
+ *   between icon-only and icon+label ("labeled") modes.
  */
 import { openTool } from './tabs.ts';
 import { toggleSidebarCollapsed } from './sidebar.ts';
@@ -18,6 +20,37 @@ import * as S from './state.ts';
 
 /** Initializes toolbar icon buttons. Call once from app.js. */
 export function initToolbar(): void {
+  // --- Density toggle: icon-only vs icon+label ---
+  // Clicking the toolbar's bare whitespace (the strip itself, a divider, or
+  // the flex spacer — anything that is NOT an icon button or the theme
+  // flyout) flips between the default icon-only layout and a "labeled" layout
+  // that shows each button's short title in a dim bounding box. We gate on
+  // closest('.tb-icon-btn, .tb-flyout') so a real button click still runs its
+  // own action without also toggling density.
+  var toolbar = document.getElementById('toolbar-bar');
+  if (toolbar) {
+    // Restore the persisted density before wiring the toggle so the initial
+    // paint matches the user's last choice. localStorage reads can throw in
+    // private-mode / restricted webview contexts, so guard like sidebar.ts.
+    try {
+      if (localStorage.getItem(S.TOOLBAR_LABELS_KEY) === '1') {
+        toolbar.classList.add('tb-labeled');
+      }
+    } catch (e) {
+      /* localStorage unavailable — fall back to default icon-only mode */
+    }
+    toolbar.addEventListener('click', function (e: Event) {
+      var hitButton = (e.target as HTMLElement).closest('.tb-icon-btn, .tb-flyout');
+      if (hitButton) return; // real control click — let its own handler run
+      var labeled = toolbar!.classList.toggle('tb-labeled');
+      try {
+        localStorage.setItem(S.TOOLBAR_LABELS_KEY, labeled ? '1' : '0');
+      } catch (e) {
+        /* localStorage unavailable — density still toggles for this session */
+      }
+    });
+  }
+
   // --- Tool launcher icons ---
   document.querySelectorAll('.tb-icon-btn[data-tool]').forEach(function (btn) {
     var toolId = btn.getAttribute('data-tool');

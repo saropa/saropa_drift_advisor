@@ -1,12 +1,14 @@
 /**
  * Table definition collapsible toggle — self-contained module.
  *
- * Adds collapsible ▼/▲ behavior to the table definition panel rendered
+ * Adds collapsible behavior to the table definition panel rendered
  * by `buildTableDefinitionHtml` in app.js. Uses event delegation on the
  * document so it works regardless of when the panel HTML is injected.
  *
- * Collapsed by default — the heading shows "▼ Table definition" and
- * the body (column list) is hidden. Click to expand/collapse.
+ * Collapsed by default — the body (column list) is hidden. The expand/collapse
+ * chevron is a CSS ::after on the heading keyed off the .td-collapsed class
+ * (defined in _query-builder.scss), so the arrow is never part of the text.
+ * Click the heading to expand/collapse.
  *
  * DOM contract (from app.js `buildTableDefinitionHtml`):
  *   .table-definition-wrap     — outer container
@@ -38,9 +40,9 @@ export function initTableDefToggle(): void {
   document.head.appendChild(style);
 
   // --- Event delegation -------------------------------------------------------
-  // Listen for clicks on any .table-definition-heading, toggle the
-  // .td-collapsed class on the parent .table-definition-wrap, and swap
-  // the ▼/▲ arrow prefix in the heading text.
+  // Listen for clicks on any .table-definition-heading and toggle the
+  // .td-collapsed class on the parent .table-definition-wrap. The chevron
+  // direction follows from that class via CSS ::after — no text mutation.
   document.addEventListener('click', (e: Event) => {
     const target = e.target as Element;
     const heading = target.closest && target.closest('.table-definition-heading');
@@ -49,10 +51,8 @@ export function initTableDefToggle(): void {
     const wrap = heading.closest('.table-definition-wrap');
     if (!wrap) return;
 
-    const isCollapsed = wrap.classList.toggle('td-collapsed');
-    heading.textContent = isCollapsed
-      ? '\u25BC Table definition'
-      : '\u25B2 Table definition';
+    // Chevron direction follows .td-collapsed via CSS ::after \u2014 no text mutation.
+    wrap.classList.toggle('td-collapsed');
   });
 
   // --- Apply default collapsed state to any already-rendered panels -----------
@@ -62,7 +62,5 @@ export function initTableDefToggle(): void {
   const existing = document.querySelectorAll('.table-definition-wrap');
   for (let i = 0; i < existing.length; i++) {
     existing[i].classList.add('td-collapsed');
-    const h = existing[i].querySelector('.table-definition-heading');
-    if (h) h.textContent = '\u25BC Table definition';
   }
 }

@@ -157,40 +157,40 @@ abstract final class HtmlContent {
   <div class="app-shell">
   <!-- Full-width toolbar above the three-column layout (tables sidebar, main, history). -->
       <div id="toolbar-bar" class="toolbar-bar" role="toolbar" aria-label="Actions">
-        <button type="button" class="tb-icon-btn" data-tool="home" title="Home"><span class="material-symbols-outlined" aria-hidden="true">home</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="home" data-label="Home" title="Home"><span class="material-symbols-outlined" aria-hidden="true">home</span></button>
         <hr class="tb-divider" />
         <!-- Left sidebar toggle -->
-        <button type="button" class="tb-icon-btn" id="tb-sidebar-toggle" title="Toggle tables sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">left_panel_open</span></button>
+        <button type="button" class="tb-icon-btn" id="tb-sidebar-toggle" data-label="Tables" title="Toggle tables sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">left_panel_open</span></button>
         <hr class="tb-divider" />
         <!-- Core view icons (were fixed tabs until the tab-bar split) -->
-        <button type="button" class="tb-icon-btn" data-tool="tables" title="Tables"><span class="material-symbols-outlined" aria-hidden="true">table_chart</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="search" title="Search"><span class="material-symbols-outlined" aria-hidden="true">search</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="sql" title="Run SQL"><span class="material-symbols-outlined" aria-hidden="true">terminal</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="tables" data-label="Tables" title="Tables"><span class="material-symbols-outlined" aria-hidden="true">table_chart</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="search" data-label="Search" title="Search"><span class="material-symbols-outlined" aria-hidden="true">search</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="sql" data-label="SQL" title="Run SQL"><span class="material-symbols-outlined" aria-hidden="true">terminal</span></button>
         <hr class="tb-divider" />
         <!-- Tool launcher icons -->
-        <button type="button" class="tb-icon-btn" data-tool="snapshot" title="Snapshot"><span class="material-symbols-outlined" aria-hidden="true">photo_camera</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="compare" title="DB diff"><span class="material-symbols-outlined" aria-hidden="true">compare_arrows</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="snapshot" data-label="Snapshot" title="Snapshot"><span class="material-symbols-outlined" aria-hidden="true">photo_camera</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="compare" data-label="Diff" title="DB diff"><span class="material-symbols-outlined" aria-hidden="true">compare_arrows</span></button>
         <hr class="tb-divider" />
-        <button type="button" class="tb-icon-btn" data-tool="index" title="Index"><span class="material-symbols-outlined" aria-hidden="true">format_list_bulleted</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="schema" title="Schema"><span class="material-symbols-outlined" aria-hidden="true">grid_on</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="declared" title="Code schema"><span class="material-symbols-outlined" aria-hidden="true">data_object</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="diagram" title="Diagram"><span class="material-symbols-outlined" aria-hidden="true">account_tree</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="index" data-label="Index" title="Index"><span class="material-symbols-outlined" aria-hidden="true">format_list_bulleted</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="schema" data-label="Schema" title="Schema"><span class="material-symbols-outlined" aria-hidden="true">grid_on</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="declared" data-label="Code" title="Code schema"><span class="material-symbols-outlined" aria-hidden="true">data_object</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="diagram" data-label="Diagram" title="Diagram"><span class="material-symbols-outlined" aria-hidden="true">account_tree</span></button>
         <hr class="tb-divider" />
-        <button type="button" class="tb-icon-btn" data-tool="size" title="Size"><span class="material-symbols-outlined" aria-hidden="true">bar_chart</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="perf" title="Perf"><span class="material-symbols-outlined" aria-hidden="true">speed</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="anomaly" title="Health"><span class="material-symbols-outlined" aria-hidden="true">favorite</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="size" data-label="Size" title="Size"><span class="material-symbols-outlined" aria-hidden="true">bar_chart</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="perf" data-label="Perf" title="Perf"><span class="material-symbols-outlined" aria-hidden="true">speed</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="anomaly" data-label="Health" title="Health"><span class="material-symbols-outlined" aria-hidden="true">favorite</span></button>
         <hr class="tb-divider" />
-        <button type="button" class="tb-icon-btn" data-tool="import" title="Import"><span class="material-symbols-outlined" aria-hidden="true">upload</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="export" title="Export"><span class="material-symbols-outlined" aria-hidden="true">download</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="settings" title="Settings"><span class="material-symbols-outlined" aria-hidden="true">settings</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="import" data-label="Import" title="Import"><span class="material-symbols-outlined" aria-hidden="true">upload</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="export" data-label="Export" title="Export"><span class="material-symbols-outlined" aria-hidden="true">download</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="settings" data-label="Settings" title="Settings"><span class="material-symbols-outlined" aria-hidden="true">settings</span></button>
         <!-- Spacer pushes right-side controls to far right -->
         <span class="tb-spacer"></span>
         <!-- Mask PII toggle — hidden checkbox + visible icon button -->
         <input type="checkbox" id="tb-mask-checkbox" aria-label="Mask sensitive data" hidden />
-        <button type="button" class="tb-icon-btn" id="tb-mask-toggle" title="Mask PII" aria-pressed="false"><span class="material-symbols-outlined" aria-hidden="true">visibility_off</span></button>
+        <button type="button" class="tb-icon-btn" id="tb-mask-toggle" data-label="Mask" title="Mask PII" aria-pressed="false"><span class="material-symbols-outlined" aria-hidden="true">visibility_off</span></button>
         <!-- Theme flyout -->
         <div class="tb-flyout-wrap" id="tb-theme-wrap">
-          <button type="button" class="tb-icon-btn" id="tb-theme-trigger" title="Theme" aria-expanded="false"><span class="material-symbols-outlined" aria-hidden="true">palette</span></button>
+          <button type="button" class="tb-icon-btn" id="tb-theme-trigger" data-label="Theme" title="Theme" aria-expanded="false"><span class="material-symbols-outlined" aria-hidden="true">palette</span></button>
           <div class="tb-flyout" id="tb-theme-flyout">
             <button type="button" class="tb-flyout-item tb-theme-option" data-theme="light"><span class="material-symbols-outlined" aria-hidden="true">light_mode</span>Light</button>
             <button type="button" class="tb-flyout-item tb-theme-option" data-theme="showcase"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span>Showcase</button>
@@ -198,10 +198,10 @@ abstract final class HtmlContent {
             <button type="button" class="tb-flyout-item tb-theme-option" data-theme="midnight"><span class="material-symbols-outlined" aria-hidden="true">bedtime</span>Midnight</button>
           </div>
         </div>
-        <button type="button" class="tb-icon-btn" id="tb-share-btn" title="Share"><span class="material-symbols-outlined" aria-hidden="true">share</span></button>
+        <button type="button" class="tb-icon-btn" id="tb-share-btn" data-label="Share" title="Share"><span class="material-symbols-outlined" aria-hidden="true">share</span></button>
         <hr class="tb-divider" />
         <!-- Right sidebar toggle -->
-        <button type="button" class="tb-icon-btn" id="tb-history-toggle" title="Toggle history sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">right_panel_open</span></button>
+        <button type="button" class="tb-icon-btn" id="tb-history-toggle" data-label="History" title="Toggle history sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">right_panel_open</span></button>
       </div>
   <div class="app-layout" id="app-layout">
     <aside class="app-sidebar" id="app-sidebar">
