@@ -233,6 +233,15 @@
   }
 }
 
+/* NL "Ask" panel: the natural-language tool now lives inside the left sidebar
+   (relocated at runtime by sidebar-panels.ts). Flush block layout — no modal
+   overlay or centering. Inner controls keep their .nl-modal-* classes, so their
+   styling below is shared between the old modal markup and the panel. */
+.nl-panel-body {
+  /* Anchor for the absolutely-positioned [i] help button (.nl-help-btn). */
+  position: relative;
+}
+
 /* Natural-language helper: opens from a single toolbar control; modal textarea matches SQL editor styling. */
 .nl-modal {
   position: fixed;

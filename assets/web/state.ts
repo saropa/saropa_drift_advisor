@@ -204,6 +204,9 @@ export function setSessionFastMode(f: boolean): void { sessionFastMode = f; }
 // --- Sidebar ---
 export const APP_SIDEBAR_PANEL_KEY = 'saropa_app_sidebar_collapsed';
 export const HISTORY_SIDEBAR_KEY = 'saropa_history_sidebar_collapsed';
+// User-chosen sidebar width (px) set by dragging the resize bar. Stored apart
+// from the collapsed flag so "how wide when shown" survives a hide/show cycle.
+export const APP_SIDEBAR_WIDTH_KEY = 'saropa_app_sidebar_width';
 
 // --- Tool labels ---
 /**

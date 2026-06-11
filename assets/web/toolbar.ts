@@ -4,8 +4,7 @@
  * Handles:
  * - Tool launcher icons (data-tool → openTool)
  * - Active tool highlighting (syncs with current tab)
- * - Left sidebar toggle (#tb-sidebar-toggle)
- * - Right history sidebar toggle (#tb-history-toggle)
+ * - History panel selector (#tb-history-toggle, data-panel-btn="history")
  * - Mask PII toggle (#tb-mask-toggle + #tb-mask-checkbox)
  * - Theme flyout (#tb-theme-trigger + #tb-theme-flyout)
  * - Share button (#tb-share-btn)
@@ -68,9 +67,10 @@ export function initToolbar(): void {
     });
   };
 
-  // The sidebar panel selectors (#tb-sidebar-toggle collapse, the Tables /
-  // Search / History data-panel-btn icons) are wired in sidebar-panels.ts,
-  // the single owner of which panel is visible.
+  // The sidebar panel selectors (Tables / Search / History data-panel-btn
+  // icons) are wired in sidebar-panels.ts, the single owner of which panel is
+  // visible. The sidebar is hidden/shown and resized via the drag bar
+  // (#app-sidebar-resizer), wired in sidebar-resize.ts.
 
   // --- Mask PII toggle ---
   var maskBtn = document.getElementById('tb-mask-toggle');
