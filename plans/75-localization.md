@@ -573,3 +573,40 @@ Grepped `extension/src/test` and `scripts/tests` for every changed symbol (`nls-
 - This task added the audit MECHANISM; with no locale bundles there are no gaps yet, so the maintainer prompt is dormant until locale files exist.
 
 Commit `1245a5f` carries the code; this finish commit adds `scripts/tests/test_l10n_audit.py` and this appended report. Plan stays ACTIVE (System A all but the activation notice done; Phases 2–5 pending).
+
+---
+
+## Finish Report (2026-06-11) — standalone scripts/l10n.py entry point + plan ordering
+
+**Trigger.** The user asked for a standalone way to run the localization step, modeled on Saropa Log Capture's `& python …\scripts\translate_l10n.py` — "we need something like this that can be run separately." Then, asked "what is next? build the bundles?", they said "no, just update the plan." This report covers the standalone entry point (commit `52ca442`) and the plan-ordering/injection-gap update (commit `10b1f16`), plus the `main()` exit-code tests added in this finish pass.
+
+**This work will be reviewed by another AI.**
+
+### Scope
+(C) scripts/docs only — `scripts/l10n.py` (new launcher), `scripts/modules/l10n_audit.py` (added `main()` + `ok`/`heading` imports), `scripts/tests/test_l10n_audit.py` (added `main()` tests), `plans/75-localization.md`, `CHANGELOG.md`. NOT (A) Flutter/Dart, NOT (B) extension TypeScript.
+
+### What changed
+- **Created** `scripts/l10n.py` — thin top-level launcher (puts `scripts/` on `sys.path`, calls `modules.l10n_audit.main`). Usage: `python scripts/l10n.py` (audit: report + table, exit 0), `python scripts/l10n.py check` (exit 1 on gaps). Docstring states plainly it audits and NEVER translates.
+- **Edited** `scripts/modules/l10n_audit.py` — added `main(argv)` (argparse `audit`/`check` modes; reuses `audit_manifest_nls` + `write_audit_report` + `_print_summary`; no ignore/retry/abort prompt standalone since there is nothing to gate); added `ok`/`heading` to the display import.
+- **Edited** `scripts/tests/test_l10n_audit.py` — added `TestMainCli` (4 cases: audit→0 no-locale, check→0 complete, check→1 on gaps, audit→0 even with gaps), patching `EXTENSION_DIR` + `REPO_ROOT` to a temp dir.
+- **Edited** `plans/75-localization.md` — §5.3 now documents the real `scripts/l10n.py` command; §10 lists it; §9 STATUS records (a) the server-injection gap (`initWebL10n()` consumes `window.__SDA_L10N` but nothing in `lib/` produces it, so the browser overlay path is inert) and (b) the NEXT ordering: vertical slice → sweep → English baselines (the first real "build the bundles") → toolchain → gated translate run.
+- **Edited** `CHANGELOG.md` — Maintenance bullet for the standalone entry.
+
+### Verification (commands run)
+- `python scripts/l10n.py` → exit 0, "English-only — nothing to translate", report written.
+- `python scripts/l10n.py check` (clean) → exit 0; with a synthetic incomplete `package.nls.de.json` → exit 1 printing the gap; cleaned up after.
+- `python -m unittest scripts.tests.test_l10n_audit` → 9 passing (5 prior + 4 new `main()` cases).
+- `python -m unittest discover -s scripts/tests` → **41 passing**.
+
+### Test audit (Section 4A)
+Grepped the test tree for the changed symbols (`l10n.py`, `main`, `l10n_audit`). Only `test_l10n_audit.py` references them; `audit_manifest_nls`/`write_audit_report` were unchanged, so the 5 existing cases stayed valid (re-run green). Added `main()` coverage rather than leave the new exit-code contract untested.
+
+### Notes for the reviewer
+- Named the entry `l10n.py`, NOT `translate_l10n.py` — it audits and must not be mistaken for the (future, gated) translate pipeline, which reserves the `translate_l10n.py` name (§4/§10).
+- Standalone deliberately has no ignore/retry/abort prompt: that prompt exists to gate a publish (`step_l10n_audit`); run on its own there is nothing to abort, so `main()` just reports and (in `check`) sets an exit code.
+
+### Outstanding (unchanged)
+- Phase 1 tail: the runtime activation coverage notice.
+- Phases 2–5: the vertical slice (incl. the Dart `window.__SDA_L10N` injection), the sweep, the English baselines, the translation toolchain, and any gated translate run.
+
+`Finish report appended: plans/75-localization.md`. Plan stays ACTIVE — this task closed a sub-feature (standalone entry) and a docs update; the plan as a whole still has Phases 2–5 and the activation notice open (case 3: closed partial scope, plan still active, so no archive/split).
