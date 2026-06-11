@@ -16,9 +16,9 @@
 ///
 /// Buttons and collapsible headers include [title] attributes for hover tooltips.
 ///
-/// Layout shell uses [id="app-layout"] and [id="app-sidebar"]; sidebar
-/// toggles are toolbar icon buttons — see `initSidebarCollapse` in
-/// `sidebar.ts` and `initToolbar` in `toolbar.ts`.
+/// Layout shell uses [id="app-layout"] and [id="app-sidebar"]; the sidebar is
+/// hidden/shown and resized by dragging [id="app-sidebar-resizer"] (see
+/// `sidebar-resize.ts`) or by clicking the active panel icon (`sidebar-panels.ts`).
 ///
 /// The **Tables** sidebar shows skeleton rows under the Tables heading until the web bundle
 /// completes `GET /api/tables`; failures surface in the same block (see `buildIndexHtml` markup).
@@ -159,14 +159,14 @@ abstract final class HtmlContent {
       <div id="toolbar-bar" class="toolbar-bar" role="toolbar" aria-label="Actions">
         <button type="button" class="tb-icon-btn" data-tool="home" data-label="Home" title="Home"><span class="material-symbols-outlined" aria-hidden="true">home</span></button>
         <hr class="tb-divider" />
-        <!-- Collapse/expand the active sidebar panel (clicking the active
-             panel's own icon also collapses it, VS Code style). -->
-        <button type="button" class="tb-icon-btn" id="tb-sidebar-toggle" data-label="Collapse" title="Collapse sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">left_panel_open</span></button>
-        <hr class="tb-divider" />
+        <!-- No dedicated collapse icon: the sidebar is hidden/shown by dragging
+             the resize bar to zero width (#app-sidebar-resizer), or by clicking
+             the active panel's own icon (VS Code click-active-to-hide). -->
         <!-- Sidebar PANEL selectors: each shows one panel in the single left
              sidebar (data-panel-btn → sidebar-panels.ts). One visible at a time. -->
         <button type="button" class="tb-icon-btn" data-panel-btn="tables" data-label="Tables" title="Tables" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">table_chart</span></button>
         <button type="button" class="tb-icon-btn" data-panel-btn="search" data-label="Search" title="Search" aria-pressed="false"><span class="material-symbols-outlined" aria-hidden="true">search</span></button>
+        <button type="button" class="tb-icon-btn" data-panel-btn="ask" data-label="Ask" title="Ask in English" aria-pressed="false"><span class="material-symbols-outlined" aria-hidden="true">smart_toy</span></button>
         <button type="button" class="tb-icon-btn" data-tool="sql" data-label="SQL" title="Run SQL"><span class="material-symbols-outlined" aria-hidden="true">terminal</span></button>
         <hr class="tb-divider" />
         <!-- Tool launcher icons -->
@@ -269,6 +269,12 @@ abstract final class HtmlContent {
         </div>
       </aside>
     </aside>
+    <!-- Drag handle between the sidebar and main content. Dragging sets the
+         sidebar width (persisted); dragging to zero hides it. The handle stays
+         in the flex row at all widths — including zero — so the user can always
+         grab it to pull the sidebar back open (it widens when hidden, see
+         _layout.scss). role="separator" + tabindex make it keyboard-resizable. -->
+    <div class="app-sidebar-resizer" id="app-sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" tabindex="0"></div>
     <div class="app-main-content">
       <!-- Tab row: closeable tool/table tabs; startup opens Home. -->
       <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Open tabs"></div>
@@ -390,18 +396,18 @@ abstract final class HtmlContent {
       <label for="sql-result-format">Show as:</label>
       <select id="sql-result-format"><option value="table">Table</option><option value="json">JSON</option></select>
     </div>
-    <div class="sql-toolbar nl-ask-toolbar" style="margin-bottom:0.35rem;">
-      <button type="button" id="nl-open" title="Describe your question in plain English; preview SQL updates in the dialog as you type"><span class="material-symbols-outlined" aria-hidden="true">smart_toy</span> Ask in English…</button>
-    </div>
-    <!-- NL question in a modal: live NL→SQL preview stays inside the dialog; Use copies into #sql-input. -->
-    <div id="nl-modal" class="nl-modal" hidden aria-hidden="true">
-      <div class="nl-modal-backdrop" id="nl-modal-backdrop" tabindex="-1"></div>
-      <div class="nl-modal-panel" role="dialog" aria-modal="true" aria-labelledby="nl-modal-title" tabindex="-1">
+    <!-- NL "Ask" panel: authored here next to the SQL runner, but moved into
+         #app-sidebar at runtime by sidebar-panels.ts so it becomes one of the
+         single sidebar's swappable panels (shown via the Ask activity-bar
+         icon). Live NL→SQL preview; Use writes into #sql-input and shows the
+         SQL runner. -->
+    <div id="sidebar-ask" class="sidebar-section nl-panel" data-panel="ask" hidden>
+      <div class="nl-panel-body">
         <!-- Info button sits at the panel's top-right corner; it toggles the
              phrase-coverage help panel below the title. -->
         <button type="button" id="nl-help" class="nl-icon-btn nl-help-btn" title="What can I ask? Show supported phrases" aria-label="Show supported phrases" aria-expanded="false" aria-controls="nl-help-panel"><span class="material-symbols-outlined" aria-hidden="true">info</span></button>
         <h3 id="nl-modal-title" class="nl-modal-title">Ask in English</h3>
-        <p class="meta nl-modal-hint">Preview updates as you type. Use copies the preview into the main SQL editor; Cancel or Escape closes without changing it.</p>
+        <p class="meta nl-modal-hint">Preview updates as you type. Use copies the generated SQL into the Run SQL editor and switches to it.</p>
         <!-- Coverage cheat-sheet: hidden by default, revealed by the [i] button.
              Summarizes what the natural-language converter understands so the
              phrasing space is discoverable instead of guessed at. -->
@@ -502,8 +508,7 @@ abstract final class HtmlContent {
         <div id="nl-modal-results" class="nl-modal-results" hidden></div>
         <div class="nl-modal-actions">
           <button type="button" id="nl-preview-run" title="Run the generated SQL and show the first 10 rows here">Preview results</button>
-          <button type="button" id="nl-use" class="btn-primary" title="Copy preview SQL into the main editor and close">Use</button>
-          <button type="button" id="nl-cancel" title="Close without changing the main SQL editor">Cancel</button>
+          <button type="button" id="nl-use" class="btn-primary" title="Copy the generated SQL into the Run SQL editor and switch to it">Use</button>
         </div>
       </div>
     </div>

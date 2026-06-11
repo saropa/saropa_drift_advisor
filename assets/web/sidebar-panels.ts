@@ -47,9 +47,6 @@ function syncIcons(): void {
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     btn.classList.toggle('active', on);
   });
-  // The dedicated collapse button reads pressed while the sidebar is open.
-  const collapseBtn = document.getElementById('tb-sidebar-toggle');
-  if (collapseBtn) collapseBtn.setAttribute('aria-pressed', collapsed ? 'false' : 'true');
   // Keep the Home-screen panel switches in step (defined in home-screen.ts).
   const sync = (window as any)._syncHomeSidebarToggles;
   if (typeof sync === 'function') sync();
@@ -66,6 +63,25 @@ export function selectPanel(name: string): void {
 }
 
 /**
+ * Sets the collapsed (hidden) state of the sidebar without changing which panel
+ * is active. Shared by the panel-icon click-to-hide, the keyboard/header path,
+ * and the resize bar (sidebar-resize.ts) so all three keep the persisted flag,
+ * the layout class, and the icon state in agreement.
+ */
+export function setSidebarCollapsed(collapsed: boolean): void {
+  if (!sidebar || !layout) return;
+  layout.classList.toggle(COLLAPSED_CLASS, collapsed);
+  sidebar.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
+  persist(sidebar.getAttribute('data-active-panel') || 'tables', collapsed);
+  syncIcons();
+}
+
+/** True when the sidebar is currently collapsed (hidden). */
+export function isSidebarCollapsed(): boolean {
+  return !!layout && layout.classList.contains(COLLAPSED_CLASS);
+}
+
+/**
  * Click handler for a panel icon: switch to it, OR collapse the sidebar if it
  * is already the visible panel (VS Code click-active-to-hide).
  */
@@ -74,10 +90,7 @@ export function togglePanel(name: string): void {
   const isActive = sidebar.getAttribute('data-active-panel') === name;
   const collapsed = layout.classList.contains(COLLAPSED_CLASS);
   if (isActive && !collapsed) {
-    layout.classList.add(COLLAPSED_CLASS);
-    sidebar.setAttribute('aria-hidden', 'true');
-    persist(name, true);
-    syncIcons();
+    setSidebarCollapsed(true);
     return;
   }
   selectPanel(name);
@@ -85,12 +98,7 @@ export function togglePanel(name: string): void {
 
 /** Collapses/expands the current panel without changing which panel is active. */
 export function toggleSidebarCollapsed(): void {
-  if (!sidebar || !layout) return;
-  const collapsed = !layout.classList.contains(COLLAPSED_CLASS);
-  layout.classList.toggle(COLLAPSED_CLASS, collapsed);
-  sidebar.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
-  persist(sidebar.getAttribute('data-active-panel') || 'tables', collapsed);
-  syncIcons();
+  setSidebarCollapsed(!isSidebarCollapsed());
 }
 
 /** Restores persisted state and wires the activity-bar panel icons. */
@@ -98,6 +106,13 @@ export function initSidebarPanels(): void {
   sidebar = document.getElementById('app-sidebar');
   layout = document.getElementById('app-layout');
   if (!sidebar || !layout) return;
+
+  // The Ask (NL) panel is authored next to the SQL runner for editing
+  // convenience; relocate it into the sidebar so it becomes a swappable panel
+  // alongside Tables / Search / History (must be a direct child for the
+  // data-active-panel CSS to show/hide it).
+  const ask = document.getElementById('sidebar-ask');
+  if (ask && ask.parentElement !== sidebar) sidebar.appendChild(ask);
 
   // Restore { panel, collapsed }; default to Tables, expanded.
   let panel = 'tables';
@@ -121,10 +136,6 @@ export function initSidebarPanels(): void {
     const name = btn.getAttribute('data-panel-btn');
     if (name) btn.addEventListener('click', function () { togglePanel(name); });
   });
-
-  // Generic collapse toggle (#tb-sidebar-toggle) hides/shows the active panel.
-  const collapseBtn = document.getElementById('tb-sidebar-toggle');
-  if (collapseBtn) collapseBtn.addEventListener('click', toggleSidebarCollapsed);
 
   syncIcons();
 }

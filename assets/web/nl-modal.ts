@@ -9,13 +9,8 @@ import * as S from './state.ts';
 import { nlToSql } from './nl-to-sql.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
 import { esc, setButtonBusy } from './utils.ts';
-
-    function nlModalOnEscape(e) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeNlModal();
-      }
-    }
+import { selectPanel } from './sidebar-panels.ts';
+import { openTool } from './tabs.ts';
 
     /**
      * Web Speech API dictation for the NL question box.
@@ -240,40 +235,27 @@ import { esc, setButtonBusy } from './utils.ts';
         applyNlLivePreview();
       }, 120));
     }
+    /** Shows the Ask panel in the sidebar and focuses the question box. */
     export function openNlModal() {
-      var modal = document.getElementById('nl-modal');
+      selectPanel('ask');
       var ta = document.getElementById('nl-modal-input');
-      if (!modal || !ta) return;
-      modal.hidden = false;
-      modal.setAttribute('aria-hidden', 'false');
-      ta.focus();
-      if (!S.nlModalEscapeListenerActive) {
-        document.addEventListener('keydown', nlModalOnEscape);
-        S.setNlModalEscapeListenerActive(true);
-      }
+      if (ta) ta.focus();
       scheduleNlLivePreview();
     }
+    /**
+     * Resets the Ask panel's transient UI (dictation, help disclosure, sample
+     * results). The panel is hidden by the sidebar's panel switch, not by this
+     * function — there's no modal to close — but we still stop the mic and
+     * clear stale preview rows when the user finishes a query.
+     */
     export function closeNlModal() {
-      var modal = document.getElementById('nl-modal');
-      if (!modal) return;
-      modal.hidden = true;
-      modal.setAttribute('aria-hidden', 'true');
-      if (S.nlModalEscapeListenerActive) {
-        document.removeEventListener('keydown', nlModalOnEscape);
-        S.setNlModalEscapeListenerActive(false);
-      }
-      // Kill any in-flight dictation so the mic doesn't keep streaming after close.
       stopNlMic();
-      // Collapse the help panel so a reopened dialog starts on the question box.
       hideNlHelp();
-      // Drop sample results so a reopened dialog doesn't show stale rows.
       clearNlPreviewResults();
-      var openBtn = document.getElementById('nl-open');
-      if (openBtn) openBtn.focus();
     }
     async function useNlModal() {
       var ta = document.getElementById('nl-modal-input');
-      var sqlEl = document.getElementById('sql-input');
+      var sqlEl = document.getElementById('sql-input') as HTMLTextAreaElement | null;
       if (!ta || !sqlEl) return;
       var question = String(ta.value || '').trim();
       if (!question) {
@@ -290,7 +272,10 @@ import { esc, setButtonBusy } from './utils.ts';
             mainErr.textContent = '';
             mainErr.style.display = 'none';
           }
-          closeNlModal();
+          // Surface the result where it runs: open/!switch to the Run SQL tab
+          // with the generated query loaded, instead of closing a dialog.
+          openTool('sql');
+          setNlModalError('', false);
         } else {
           setNlModalError(result.error || 'Could not convert to SQL.', true);
         }
@@ -433,12 +418,25 @@ import { esc, setButtonBusy } from './utils.ts';
      * Call once after DOMContentLoaded / initial render.
      */
     export function initNlModalListeners() {
-      var nlOpenEl = document.getElementById('nl-open');
-      if (nlOpenEl) nlOpenEl.addEventListener('click', openNlModal);
-      var nlBackdrop = document.getElementById('nl-modal-backdrop');
-      if (nlBackdrop) nlBackdrop.addEventListener('click', closeNlModal);
-      var nlCancel = document.getElementById('nl-cancel');
-      if (nlCancel) nlCancel.addEventListener('click', closeNlModal);
+      // The panel is shown by the Ask activity-bar icon (sidebar-panels.ts);
+      // there's no open/cancel/backdrop to wire anymore. When Ask is selected
+      // we focus the question box for a keyboard-ready start.
+      var askBtn = document.querySelector('[data-panel-btn="ask"]');
+      if (askBtn) {
+        askBtn.addEventListener('click', function () {
+          // Focus only when the panel is now showing (not when toggled shut).
+          var sb = document.getElementById('app-sidebar');
+          var layout = document.getElementById('app-layout');
+          var showing = sb && layout
+            && sb.getAttribute('data-active-panel') === 'ask'
+            && !layout.classList.contains('app-sidebar-panel-collapsed');
+          if (showing) {
+            var ta = document.getElementById('nl-modal-input');
+            if (ta) (ta as HTMLElement).focus();
+            scheduleNlLivePreview();
+          }
+        });
+      }
       var nlUse = document.getElementById('nl-use');
       if (nlUse) nlUse.addEventListener('click', function () { useNlModal(); });
       // Dictation: only reveal + wire the mic when the browser supports the API,

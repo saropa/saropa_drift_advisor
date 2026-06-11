@@ -521,8 +521,10 @@ body.theme-light .header-pill.live {
 .app-sidebar {
   box-sizing: border-box;
   flex: 0 0 auto;
-  width: clamp(280px, 100%, 300px);
-  max-width: min(300px, 100%);
+  /* Width is user-driven via the resize bar (sidebar-resize.ts sets
+     --app-sidebar-width on #app-layout). Default 300px until a stored width
+     loads. No fixed max-width — the drag logic clamps to a sane range. */
+  width: var(--app-sidebar-width, 300px);
   min-width: 0;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
@@ -534,13 +536,14 @@ body.theme-light .header-pill.live {
      row above, so it no longer adds to this offset. */
   top: 57px;
   max-height: calc(100vh - 57px);
-  transition: width 0.2s ease, max-width 0.2s ease, padding 0.2s ease, border-width 0.2s ease, opacity 0.15s ease;
+  transition: width 0.2s ease, padding 0.2s ease, border-width 0.2s ease, opacity 0.15s ease;
 }
 
-/* Collapsed via header toggle: sidebar shrinks to zero; main column grows. */
+/* Collapsed (dragged to zero, or active-panel-icon click): sidebar shrinks to
+   zero and the main column grows. The resizer stays in the row (widened below)
+   so the hidden sidebar can be dragged back open. */
 .app-layout.app-sidebar-panel-collapsed .app-sidebar {
   width: 0;
-  max-width: 0;
   padding-left: 0;
   padding-right: 0;
   border-right-width: 0;
@@ -549,8 +552,63 @@ body.theme-light .header-pill.live {
   pointer-events: none;
 }
 
+/* While the bar is being dragged, kill the width transition so the sidebar
+   tracks the pointer 1:1 instead of easing behind it. */
+.app-layout.app-sidebar-resizing .app-sidebar {
+  transition: none;
+}
+
+/* --- Sidebar resize bar: a thin draggable column between sidebar and main.
+   Transparent at rest (the sidebar's own border-right is the visible seam);
+   it highlights on hover/drag. flex:0 0 auto keeps it from stealing main-column
+   width. touch-action:none lets pointer drags drive resize instead of scroll. */
+.app-sidebar-resizer {
+  flex: 0 0 auto;
+  width: 6px;
+  align-self: stretch;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 1;
+  touch-action: none;
+  transition: background 0.15s ease, width 0.15s ease;
+}
+
+.app-sidebar-resizer:hover,
+.app-sidebar-resizer:focus-visible,
+.app-layout.app-sidebar-resizing .app-sidebar-resizer {
+  background: var(--link);
+  outline: none;
+}
+
+/* When the sidebar is hidden (width 0) the seam disappears, so make the handle
+   a wider, always-visible grab target — the user explicitly needs to find and
+   pull it back open. A centered vertical grip line signals "drag me". */
+.app-layout.app-sidebar-panel-collapsed .app-sidebar-resizer {
+  width: 12px;
+  background: var(--border);
+}
+
+.app-layout.app-sidebar-panel-collapsed .app-sidebar-resizer::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  border-radius: 1px;
+  background: var(--muted);
+  opacity: 0.7;
+}
+
+.app-layout.app-sidebar-panel-collapsed .app-sidebar-resizer:hover {
+  background: var(--link);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .app-sidebar {
+  .app-sidebar,
+  .app-sidebar-resizer {
     transition: none;
   }
 }
@@ -578,6 +636,10 @@ body.theme-light .header-pill.live {
     display: none;
     opacity: 1;
     pointer-events: auto;
+  }
+  /* Horizontal resize is meaningless once the sidebar stacks full-width. */
+  .app-sidebar-resizer {
+    display: none;
   }
 }
 .app-main-content {
@@ -2440,6 +2502,15 @@ pre {
   margin: 0.2rem 0;
   white-space: pre-wrap;
   font-size: 12px;
+}
+
+/* NL "Ask" panel: the natural-language tool now lives inside the left sidebar
+   (relocated at runtime by sidebar-panels.ts). Flush block layout — no modal
+   overlay or centering. Inner controls keep their .nl-modal-* classes, so their
+   styling below is shared between the old modal markup and the panel. */
+.nl-panel-body {
+  /* Anchor for the absolutely-positioned [i] help button (.nl-help-btn). */
+  position: relative;
 }
 
 /* Natural-language helper: opens from a single toolbar control; modal textarea matches SQL editor styling. */
