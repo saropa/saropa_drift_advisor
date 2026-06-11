@@ -12,7 +12,8 @@
     "build:js:watch": "node esbuild.config.mjs --watch",
     "build:style": "sass assets/web/style.scss assets/web/style.css --no-source-map",
     "build:style:watch": "sass assets/web/style.scss assets/web/style.css --watch --no-source-map",
-    "build": "npm run build:js && npm run build:style"
+    "build": "npm run build:js && npm run build:style",
+    "test:web": "node --test \"assets/web/test/**/*.test.mjs\""
   },
   "devDependencies": {
     "esbuild": "^0.28",
