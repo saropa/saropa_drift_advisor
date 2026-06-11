@@ -51,6 +51,20 @@ export function isDateColumn(name) {
   var lower = name.toLowerCase();
   return /date|time|created|updated|deleted|_at\$|_on\$/.test(lower);
 }
+
+/**
+ * BLOB/binary columns can hold values up to the SQLite column limit (MBs).
+ * Pushing the full string into a cell text node and relying on CSS
+ * `text-overflow: ellipsis` forces the browser to lay out the entire
+ * (clipped) line — that layout cost is what froze the grid on binary-heavy
+ * tables. We instead render a hard substring so only a handful of characters
+ * ever enter the laid-out text node; the full value stays in the copy
+ * button's data-raw attribute (attributes are not laid out) for copy/expand.
+ */
+export var BLOB_PREVIEW_CHARS = 48;
+export function isBlobType(colType) {
+  return /BLOB|BINARY/.test((colType || '').toUpperCase());
+}
 export function formatCellValue(value, columnName, columnType) {
   var raw = value != null ? String(value) : '';
   if (value == null || value === '') return { formatted: raw, raw: raw, wasFormatted: false };
@@ -154,6 +168,11 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
       var isNull = val == null;
       var rawStr = isNull ? '' : String(val);
       var displayStr = getDisplayValue(k, val, maskOn, piiCols[k]);
+      /* BLOB cells: never let the full value reach the laid-out text node
+         (see BLOB_PREVIEW_CHARS). Truncated cells get an expand button so the
+         user can still read/copy the whole value via the cell-value popup. */
+      var isBlob = colTypes ? isBlobType(colTypes[k]) : false;
+      var blobTruncated = false;
       var cellContent;
       /* Null values render dimmed via .cell-null. The label string is user-
          configurable via Settings (Data Formatting → "NULL display") — defaults
@@ -161,6 +180,16 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
          compact dashboard look. esc() guards against future custom values. */
       if (isNull) {
         cellContent = '<span class="cell-null">' + esc(S.nullDisplay) + '</span>';
+      } else if (isBlob) {
+        // Substring before esc() so we cap the work to a few characters, not
+        // escape an MB-sized string only to throw most of it away.
+        if (displayStr.length > BLOB_PREVIEW_CHARS) {
+          cellContent = esc(displayStr.substring(0, BLOB_PREVIEW_CHARS)) +
+            '<span class="cell-blob-ellipsis" aria-hidden="true">…</span>';
+          blobTruncated = true;
+        } else {
+          cellContent = esc(displayStr);
+        }
       } else if (S.displayFormat === 'formatted' && colTypes && !(maskOn && piiCols[k])) {
         var fmt = formatCellValue(val, k, colTypes[k]);
         if (fmt.wasFormatted) {
@@ -173,6 +202,14 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
         cellContent = esc(displayStr);
       }
       var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc(displayStr) + '" title="Copy value">&#x2398;</button>';
+      /* Expand button sits next to copy on hover; opens the full (untruncated)
+         value in the cell-value popup. Only shown when the BLOB preview clipped
+         the value, since that is the only case the visible text is incomplete.
+         It reads the full value from the sibling copy button's data-raw, so the
+         value is stored once (single source) rather than duplicated per button. */
+      var expandBtn = blobTruncated
+        ? '<button type="button" class="cell-expand-btn" title="Open full value">&#x26F6;</button>'
+        : '';
       var tdClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
       var tdAttrs = ' data-column-key="' + esc(k) + '"' + tdClass;
       /* cell-text wrapper allows CSS truncation with ellipsis while copy button stays visible on hover */
@@ -182,9 +219,9 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
         html += 'data-table="' + esc(fk.toTable) + '" ';
         html += 'data-column="' + esc(fk.toColumn) + '" ';
         html += 'data-value="' + esc(rawStr) + '">' ;
-        html += cellContent + ' &#8594;</a></span>' + copyBtn + '</td>';
+        html += cellContent + ' &#8594;</a></span>' + expandBtn + copyBtn + '</td>';
       } else {
-        html += '<td' + tdAttrs + '><span class="cell-text">' + cellContent + '</span>' + copyBtn + '</td>';
+        html += '<td' + tdAttrs + '><span class="cell-text">' + cellContent + '</span>' + expandBtn + copyBtn + '</td>';
       }
     });
     if (showRowDelete && singlePkName) {
@@ -245,6 +282,35 @@ export function buildTableStatusBar(total, offset, limit, displayedLen, columnCo
 }
 
 /**
+ * Builds the "Results — …" heading label: row count and column count, each
+ * collapsing to a single number when the page shows the whole set so we never
+ * print the redundant "126 of 126". Examples:
+ *   126 rows / 5 columns
+ *   126 of 1,126 rows / 5 of 19 columns
+ *
+ * @param rowCount     - Rows on the current page
+ * @param totalRows    - Server total row count, or null when unknown
+ * @param visibleCols  - Columns currently shown (after hide config)
+ * @param totalCols    - Columns available in the result set
+ */
+export function buildResultsLabel(rowCount, totalRows, visibleCols, totalCols) {
+  // Rows: show the total only when it differs from what is on the page.
+  var rowsText = (totalRows != null && totalRows !== rowCount)
+    ? rowCount.toLocaleString() + ' of ' + totalRows.toLocaleString() + ' rows'
+    : rowCount.toLocaleString() + ' row' + (rowCount !== 1 ? 's' : '');
+
+  // Columns: same collapse — drop the duplicate when every column is visible.
+  var colsText = '';
+  if (totalCols != null && totalCols > 0) {
+    colsText = (visibleCols != null && visibleCols !== totalCols)
+      ? visibleCols + ' of ' + totalCols + ' columns'
+      : totalCols + ' column' + (totalCols !== 1 ? 's' : '');
+  }
+
+  return colsText ? rowsText + ' / ' + colsText : rowsText;
+}
+
+/**
  * Returns an icon character representing the SQL column type for quick
  * visual scanning in the table definition panel.
  */
@@ -273,11 +339,23 @@ export function buildTableDefinitionHtml(tableName) {
   var cachedFks = S.fkMetaCache[tableName] || [];
   cachedFks.forEach(function(fk) { fkSet[fk.fromColumn] = fk; });
 
+  // Current column visibility: a checked box means the column is shown in the
+  // results grid. Backed by the same columnConfig.hidden list the column
+  // chooser and right-click "Hide" use, so all three stay in sync.
+  var cfg = getColumnConfig(tableName);
+  var hiddenCols = (cfg && cfg.hidden) || [];
+
   var rows = t.columns.map(function(c) {
     var rawType = c.type != null ? String(c.type).trim() : '';
     // Type icon cell
     var icon = columnTypeIcon(rawType);
     var iconHtml = '<span class="table-def-icon" title="' + esc(rawType || 'unspecified') + '">' + esc(icon) + '</span>';
+    // Show/hide checkbox: toggles this column's visibility in the results table.
+    var isHidden = hiddenCols.indexOf(c.name) >= 0;
+    var visCell = '<td class="table-def-vis">' +
+      '<input type="checkbox" class="table-def-colvis" data-col-key="' + esc(c.name) + '"' +
+      (isHidden ? '' : ' checked') +
+      ' title="Show this column in the results table" aria-label="Show ' + esc(c.name) + ' in results"></td>';
     // PK / FK badge icons (separate from the type icon)
     var badges = '';
     if (c.pk)            badges += '<span class="table-def-badge table-def-badge-pk" title="Primary key">\uD83D\uDD11</span>';
@@ -290,6 +368,7 @@ export function buildTableDefinitionHtml(tableName) {
 
     var typCell = rawType ? esc(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
     return '<tr>' +
+      visCell +
       '<td class="table-def-icons">' + iconHtml + badges + '</td>' +
       '<td class="table-def-name" data-longpress-copy="' + esc(c.name) + '">' + esc(c.name) + '</td>' +
       '<td class="table-def-type">' + typCell + '</td>' +
@@ -300,15 +379,18 @@ export function buildTableDefinitionHtml(tableName) {
   // Collapsible: table-def-toggle.ts toggles .td-collapsed on click. td-collapsed in markup
   // keeps re-renders (e.g. column reorder) collapsed without re-running init.
   //
-  // Open-by-default later: omit td-collapsed on the wrap; set the heading to \u25B2 (expanded)
-  // to match initTableDefToggle's arrow swap. Also remove or skip the post-init loop in
+  // The expand/collapse chevron is a CSS ::after on the heading keyed off .td-collapsed
+  // (see _query-builder.scss) \u2014 no arrow character lives in the markup.
+  //
+  // Open-by-default later: omit td-collapsed on the wrap. Also remove or skip the post-init loop in
   // table-def-toggle.ts that force-adds td-collapsed to every .table-definition-wrap — it
   // would still collapse everything on first load even if this HTML left the panel open.
   return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition">' +
-    '<div class="table-definition-heading">\u25BC Table definition</div>' +
+    '<div class="table-definition-heading">Table definition</div>' +
     '<div class="table-definition-scroll">' +
     '<table class="table-definition">' +
     '<thead><tr>' +
+      '<th class="table-def-vis" scope="col" title="Show column in the results table">Show</th>' +
       '<th class="table-def-icons" scope="col"></th>' +
       '<th scope="col">Column</th>' +
       '<th scope="col">Type</th>' +
@@ -320,7 +402,8 @@ export function buildTableDefinitionHtml(tableName) {
 /**
  * Binds click-to-toggle on the results table expander heading.
  * Uses event delegation so it works regardless of render timing.
- * Toggles .results-collapsed on the wrapper and swaps the ▼/▲ arrow.
+ * Toggles .results-collapsed on the wrapper; the chevron is a CSS ::after
+ * keyed off that class (see _data-table.scss), so no text swap is needed.
  */
 export function bindResultsToggle(): void {
   var headings = document.querySelectorAll('.results-table-heading');
@@ -332,14 +415,9 @@ export function bindResultsToggle(): void {
     heading.addEventListener('click', function() {
       var wrap = this.closest('.results-table-wrap');
       if (!wrap) return;
-      var isCollapsed = wrap.classList.toggle('results-collapsed');
-      // Swap only the leading arrow character, preserve the rest of the heading
-      var text = this.textContent || '';
-      if (isCollapsed) {
-        this.textContent = text.replace('\u25B2', '\u25BC');
-      } else {
-        this.textContent = text.replace('\u25BC', '\u25B2');
-      }
+      // Chevron direction is driven by CSS ::after keyed off .results-collapsed
+      // (see _data-table.scss) \u2014 toggling the class is all that is needed.
+      wrap.classList.toggle('results-collapsed');
     });
   }
 }
@@ -372,14 +450,18 @@ export function renderTableView(name, data) {
     var defHtml = buildTableDefinitionHtml(name);
     var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(name))) + buildTableStatusBar(S.tableCounts[name], S.offset, S.limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(name)));
     // Wrap results table in a collapsible expander, expanded by default.
-    // Row count in the heading gives context when collapsed.
+    // Row/column counts in the heading give context when collapsed.
     var rowCount = displayData.length;
     var totalCount = S.tableCounts[name];
-    var resultsLabel = totalCount != null
-      ? rowCount + ' of ' + totalCount.toLocaleString() + ' rows'
-      : rowCount + ' row' + (rowCount !== 1 ? 's' : '');
+    var resultDataKeys = Object.keys(displayData[0] || {});
+    var resultsLabel = buildResultsLabel(
+      rowCount,
+      totalCount != null ? totalCount : null,
+      getVisibleColumnCount(resultDataKeys, getColumnConfig(name)),
+      resultDataKeys.length
+    );
     var tableHtml = '<div class="results-table-wrap" role="region" aria-label="Results">' +
-      '<div class="results-table-heading">\u25B2 Results \u2014 ' + resultsLabel + '</div>' +
+      '<div class="results-table-heading">Results \u2014 ' + resultsLabel + '</div>' +
       '<div class="results-table-body">' + rawTableHtml + '</div></div>';
     var qbHtml = buildQueryBuilderHtml(name, colTypes);
     if (scope === 'both') {

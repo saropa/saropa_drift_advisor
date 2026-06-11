@@ -105,6 +105,11 @@ export const THEME_KEY = 'drift-viewer-theme';
 export const TABLE_STATE_KEY_PREFIX = 'drift-viewer-table-state-';
 export const NAV_HISTORY_KEY = 'drift-viewer-nav-history';
 export const PINNED_TABLES_KEY = 'drift-viewer-pinned-tables';
+// Toolbar density: when set, icon buttons show their short text label inside
+// a dim bounding box ("labeled" mode); unset is the default icon-only mode.
+// Toggled by clicking bare toolbar whitespace (not an icon). Persisted so the
+// chosen density survives reloads.
+export const TOOLBAR_LABELS_KEY = 'drift-viewer-toolbar-labels';
 // Tracks which server (host:port) owns the current localStorage data.
 // When the user switches projects the origin changes and we must clear
 // stale table state, pinned tables, nav history, etc. so the webview

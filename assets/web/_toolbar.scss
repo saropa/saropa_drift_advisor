@@ -77,6 +77,38 @@
   border-color: var(--border);
 }
 
+/* --- Labeled (density) mode ---
+ * Toggled by clicking the toolbar's bare whitespace (handled in toolbar.ts,
+ * which flips `.tb-labeled` on `#toolbar-bar`). In this mode each icon button
+ * grows to fit its short `data-label` word rendered after the glyph, and every
+ * button carries a permanent dim bounding box so the now-wider hit targets
+ * read as discrete controls instead of floating text. The default (no class)
+ * stays icon-only. A subtle pointer hint on the strip signals it is clickable
+ * whitespace; the buttons override it back to pointer for their own affordance. */
+#toolbar-bar.tb-labeled {
+  cursor: pointer;
+}
+
+#toolbar-bar.tb-labeled .tb-icon-btn {
+  /* Let the button size to icon + label instead of the fixed 2rem square. */
+  width: auto;
+  gap: 0.3rem;
+  padding: 0 0.5rem;
+  /* Permanent dim border requested for the labeled style — uses the same
+   * --border token as :hover but stays on at rest so the box is always shown. */
+  border-color: var(--border);
+}
+
+/* The short word: pulled from data-label so the tooltip `title` can stay a
+ * fuller phrase (e.g. "Toggle tables sidebar" -> label "Tables"). */
+#toolbar-bar.tb-labeled .tb-icon-btn[data-label]::after {
+  content: attr(data-label);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 /* Vertical divider between groups in the tab bar. */
 .tb-divider {
   display: inline-block;
