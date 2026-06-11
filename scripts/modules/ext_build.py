@@ -3,7 +3,13 @@
 
 import os
 
-from modules.constants import C, MAX_FILE_LINES, EXTENSION_DIR, REPO_ROOT
+from modules.constants import (
+    C,
+    MAX_FILE_LINES,
+    MAX_TEST_FILE_LINES,
+    EXTENSION_DIR,
+    REPO_ROOT,
+)
 from modules.display import ask_yn, fail, fix, info, ok, print_cmd_output, warn
 from modules.utils import run
 
@@ -94,12 +100,14 @@ def check_file_line_limits() -> bool:
             filepath = os.path.join(dirpath, fname)
             with open(filepath, encoding="utf-8") as f:
                 count = sum(1 for _ in f)
-            if count > MAX_FILE_LINES:
+            # Test suites get a higher cap than production source — see constants.
+            limit = MAX_TEST_FILE_LINES if fname.endswith(".test.ts") else MAX_FILE_LINES
+            if count > limit:
                 rel = os.path.relpath(filepath, REPO_ROOT)
-                violations.append(f"{rel} ({count} lines)")
+                violations.append(f"{rel} ({count} lines, limit {limit})")
 
     if violations:
-        warn(f"{len(violations)} file(s) exceed {MAX_FILE_LINES}-line limit:")
+        warn(f"{len(violations)} file(s) exceed the line limit:")
         for v in violations:
             print(f"         {C.YELLOW}{v}{C.RESET}")
         if not ask_yn("Continue anyway?", default=True):

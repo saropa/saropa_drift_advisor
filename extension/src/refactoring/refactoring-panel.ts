@@ -14,11 +14,18 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { TableMetadata } from '../api-types';
 import { buildAdvisorSession, writeAdvisorSession } from './refactoring-advisor-state';
-import { buildNlSqlSeedFromSuggestion } from './refactoring-nl-bridge';
 import { RefactoringAnalyzer } from './refactoring-analyzer';
 import { MigrationPlanBuilder } from './refactoring-plan-builder';
 import { getRefactoringHtml } from './refactoring-html';
 import type { IRefactoringSuggestion, IMigrationPlan } from './refactoring-types';
+import {
+  copyPlanDart,
+  copyPlanDrift,
+  copyPlanSql,
+  openErDiagramFocused,
+  openMigrationPreviewWithPlan,
+  openNlSqlPrefilled,
+} from './refactoring-panel-actions';
 
 /**
  * Opens or focuses the singleton refactoring panel.
@@ -148,13 +155,13 @@ export class RefactoringPanel implements vscode.Disposable {
           await this._viewPlan(String(msg.suggestionId || ''));
           break;
         case 'copySql':
-          await this._copySql(String(msg.suggestionId || ''));
+          await copyPlanSql(this._getOrBuildPlan(String(msg.suggestionId || '')));
           break;
         case 'copyDart':
-          await this._copyDart(String(msg.suggestionId || ''));
+          await copyPlanDart(this._getOrBuildPlan(String(msg.suggestionId || '')));
           break;
         case 'copyDriftTable':
-          await this._copyDrift(String(msg.suggestionId || ''));
+          await copyPlanDrift(this._getOrBuildPlan(String(msg.suggestionId || '')));
           break;
         case 'dismiss':
           this._onDismiss(String(msg.suggestionId || ''));
@@ -163,7 +170,7 @@ export class RefactoringPanel implements vscode.Disposable {
           await vscode.commands.executeCommand('driftViewer.migrationPreview');
           break;
         case 'openMigrationPreviewWithPlan':
-          await this._openMigrationPreviewWithPlan(String(msg.suggestionId || ''));
+          await openMigrationPreviewWithPlan(this._getOrBuildPlan(String(msg.suggestionId || '')));
           break;
         case 'openSchemaDiagram':
           await vscode.commands.executeCommand('driftViewer.showErDiagram');
@@ -175,10 +182,10 @@ export class RefactoringPanel implements vscode.Disposable {
           await vscode.commands.executeCommand('driftViewer.schemaDiff');
           break;
         case 'openErDiagramFocused':
-          await this._openErDiagramFocused(String(msg.suggestionId || ''));
+          await openErDiagramFocused(this._suggestionsById.get(String(msg.suggestionId || '')));
           break;
         case 'openNlSqlPrefilled':
-          await this._openNlSqlPrefilled(String(msg.suggestionId || ''));
+          await openNlSqlPrefilled(this._suggestionsById.get(String(msg.suggestionId || '')));
           break;
         default:
           break;
@@ -266,87 +273,4 @@ export class RefactoringPanel implements vscode.Disposable {
     this._post({ command: 'plan', plan, suggestion });
   }
 
-  private async _maybeConfirmDestructive(plan: IMigrationPlan): Promise<boolean> {
-    const destructive = plan.steps.some((s) => s.destructive);
-    if (!destructive) return true;
-    const choice = await vscode.window.showWarningMessage(
-      'This plan includes destructive SQL (for example DROP COLUMN). Copy anyway?',
-      { modal: true },
-      'Copy',
-    );
-    return choice === 'Copy';
-  }
-
-  private _planSqlSuffix(id: string): string {
-    const plan = this._getOrBuildPlan(id);
-    if (!plan) return '';
-    return plan.steps.map((s) => `-- ${s.title}\n${s.sql}`).join('\n\n');
-  }
-
-  private async _openMigrationPreviewWithPlan(id: string): Promise<void> {
-    const plan = this._getOrBuildPlan(id);
-    if (!plan) {
-      void vscode.window.showErrorMessage('No plan available for this suggestion.');
-      return;
-    }
-    if (!(await this._maybeConfirmDestructive(plan))) return;
-    const suffix = this._planSqlSuffix(id);
-    await vscode.commands.executeCommand('driftViewer.migrationPreview', {
-      advisorySqlSuffix: suffix,
-    });
-  }
-
-  private async _openErDiagramFocused(id: string): Promise<void> {
-    const s = this._suggestionsById.get(id);
-    const focus = s?.tables[0];
-    if (!focus) {
-      void vscode.window.showErrorMessage('No table context for this suggestion.');
-      return;
-    }
-    await vscode.commands.executeCommand('driftViewer.showErDiagram', { focusTable: focus });
-  }
-
-  private async _openNlSqlPrefilled(id: string): Promise<void> {
-    const s = this._suggestionsById.get(id);
-    if (!s) {
-      void vscode.window.showErrorMessage('Suggestion not found; run Analyze again.');
-      return;
-    }
-    const initialQuestion = buildNlSqlSeedFromSuggestion(s);
-    await vscode.commands.executeCommand('driftViewer.askNaturalLanguage', {
-      initialQuestion,
-    });
-  }
-
-  private async _copySql(id: string): Promise<void> {
-    const plan = this._getOrBuildPlan(id);
-    if (!plan) {
-      void vscode.window.showErrorMessage('No plan available; open a migration plan first.');
-      return;
-    }
-    if (!(await this._maybeConfirmDestructive(plan))) return;
-    const sql = plan.steps.map((s) => `-- ${s.title}\n${s.sql}`).join('\n\n');
-    await vscode.env.clipboard.writeText(sql);
-    void vscode.window.showInformationMessage('SQL copied to clipboard.');
-  }
-
-  private async _copyDart(id: string): Promise<void> {
-    const plan = this._getOrBuildPlan(id);
-    if (!plan) {
-      void vscode.window.showErrorMessage('No plan available.');
-      return;
-    }
-    await vscode.env.clipboard.writeText(plan.dartCode);
-    void vscode.window.showInformationMessage('Dart migration snippet copied.');
-  }
-
-  private async _copyDrift(id: string): Promise<void> {
-    const plan = this._getOrBuildPlan(id);
-    if (!plan) {
-      void vscode.window.showErrorMessage('No plan available.');
-      return;
-    }
-    await vscode.env.clipboard.writeText(plan.driftTableClass);
-    void vscode.window.showInformationMessage('Drift table snippet copied.');
-  }
 }

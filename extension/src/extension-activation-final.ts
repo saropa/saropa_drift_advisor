@@ -7,14 +7,10 @@ import { updateStatusBar } from './status-bar';
 import { HealthStatusBar } from './status-bar-health';
 import { ToolsQuickPickStatusBar, registerToolsQuickPickCommand } from './status-bar-tools';
 import { registerAllCommands } from './extension-commands';
-import {
-  isDriftUiConnected,
-  refreshDriftConnectionUi as syncDriftConnectionUi,
-} from './connection-ui-state';
+import { refreshDriftConnectionUi as syncDriftConnectionUi } from './connection-ui-state';
 import { ConnectionStateMachine } from './connection-state';
-import { DashboardPanel } from './dashboard/dashboard-panel';
-import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
+import { wireEventListeners } from './extension-activation-event-wiring';
 import type { SchemaCache } from './schema-cache/schema-cache';
 import type { ServerDiscovery } from './server-discovery';
 import type { ServerManager } from './server-manager';
@@ -61,7 +57,6 @@ export function setupFinalPhases(
   track: <T>(r: T | undefined) => T | undefined,
 ): void {
   // Phase 8: Status bars + UI wiring.
-  let dashboardPromptShown = false;
   const statusBars = track(runPhase('status-bars', d.channel, () => {
     const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     const refreshStatusBar = (): void =>
@@ -152,164 +147,6 @@ export function setupFinalPhases(
 
   // Phase 10: Event listeners + initial state.
   track(runPhase('event-wiring', d.channel, () => {
-    // Master enable/disable switch.
-    const applyEnabledState = (enabled: boolean): void => {
-      void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', enabled);
-      if (enabled) {
-        if (d.discoveryEnabled) {
-          void workspaceUsesDrift().then((isDrift) => {
-            if (isDrift) d.discovery.start();
-          });
-        }
-        d.watcher.start();
-        if (d.providers) {
-          if (d.loadOnConnect) void d.providers.treeProvider.refresh();
-          d.providers.codeLensProvider.refreshRowCounts();
-        }
-        // DiagnosticManager is the single source of diagnostics; the
-        // legacy `SchemaDiagnostics` refresh that used to live here
-        // has been retired (it was duplicating anomaly + index-
-        // suggestion emissions into a second collection).
-        d.diagnostics?.diagnosticManager.refresh().catch(() => {});
-        if (d.providers && !d.getLightweight()) d.providers.refreshBadges().catch(() => {});
-        connectionUiRefresh.fn?.();
-      } else {
-        d.discovery.stop();
-        d.watcher.stop();
-        d.serverManager.clearActive();
-        d.schemaCache.invalidate();
-        statusBars?.healthStatusBar.hide();
-        statusBars?.toolsQuickPick.hide();
-        connectionUiRefresh.fn?.();
-      }
-      statusBars?.refreshStatusBar();
-    };
-
-    d.context.subscriptions.push(
-      vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('driftViewer.enabled')) {
-          const enabled = vscode.workspace.getConfiguration('driftViewer').get<boolean>('enabled', true) !== false;
-          applyEnabledState(enabled);
-        }
-      }),
-    );
-
-    // Server connection lifecycle.
-    let treeLoadedLazy = false;
-    d.serverManager.onDidChangeActive((server) => {
-      statusBars?.refreshStatusBar();
-      d.schemaCache.invalidate();
-      connectionUiRefresh.fn?.();
-      if (isDriftUiConnected(d.serverManager, d.cachedClient)) {
-        statusBars?.toolsQuickPick.show();
-      } else {
-        statusBars?.toolsQuickPick.hide();
-      }
-      if (!server) {
-        statusBars?.healthStatusBar.hide();
-        treeLoadedLazy = false;
-      }
-      if (server) {
-        d.watcher.stop();
-        d.watcher.reset();
-        d.watcher.start();
-        d.schemaCache.prewarm();
-        if (d.providers) {
-          if (d.loadOnConnect) void d.providers.treeProvider.refresh();
-          d.providers.codeLensProvider.refreshRowCounts();
-        }
-        d.diagnostics?.diagnosticManager.refresh().catch(() => {});
-        if (d.providers && !d.getLightweight()) d.providers.refreshBadges().catch(() => {});
-        if (d.providers) d.providers.watchManager.refresh().catch(() => {});
-        if (!dashboardPromptShown) {
-          dashboardPromptShown = true;
-          const showOnConnect = vscode.workspace
-            .getConfiguration('driftViewer')
-            .get<boolean>('dashboard.showOnConnect', true);
-          const suppressKey = 'driftViewer.suppressDashboardPrompt';
-          const suppressed = d.context.workspaceState.get<boolean>(suppressKey, false);
-          if (showOnConnect && !suppressed) {
-            void vscode.window.showInformationMessage(
-              'Drift server connected! Open the Dashboard to explore all features.',
-              'Open Dashboard',
-              "Don't Show Again",
-            ).then((choice) => {
-              if (choice === 'Open Dashboard') {
-                vscode.commands.executeCommand('driftViewer.openDashboard');
-              } else if (choice === "Don't Show Again") {
-                d.context.workspaceState.update(suppressKey, true);
-              }
-            });
-          }
-        }
-      }
-    });
-
-    // Delayed context sync to handle races where the sidebar evaluates
-    // before the extension finishes wiring.
-    const syncContextTimeout = setTimeout(() => connectionUiRefresh.fn?.(), 1500);
-    d.context.subscriptions.push({ dispose: () => clearTimeout(syncContextTimeout) });
-
-    // Discovery server list changes.
-    d.discovery.onDidChangeServers(() => {
-      statusBars?.refreshStatusBar();
-      connectionUiRefresh.fn?.();
-    });
-
-    // Lazy tree loading when the tree view becomes visible.
-    if (d.providers && typeof d.providers.treeView.onDidChangeVisibility === 'function') {
-      d.context.subscriptions.push(
-        d.providers.treeView.onDidChangeVisibility((e: { visible: boolean }) => {
-          if (e.visible && !d.loadOnConnect && !treeLoadedLazy && isDriftUiConnected(d.serverManager, d.cachedClient)) {
-            treeLoadedLazy = true;
-            void d.providers!.treeProvider.refresh();
-          }
-        }),
-      );
-    }
-
-    // Schema generation watcher — refreshes tree, caches, linters, etc.
-    d.watcher.onDidChange(async () => {
-      d.schemaCache.invalidate();
-      if (!d.getLightweight() && d.providers) {
-        void d.providers.treeProvider.refresh();
-        d.providers.definitionProvider.clearCache();
-        d.providers.hoverCache.clear();
-        await d.providers.codeLensProvider.refreshRowCounts();
-        d.providers.codeLensProvider.notifyChange();
-        d.diagnostics?.diagnosticManager.refresh().catch(() => {});
-        d.providers.refreshBadges().catch(() => {});
-        if (vscode.workspace.getConfiguration('driftViewer').get<boolean>('timeline.autoCapture', true)) {
-          // Trailing-edge debounce: a write burst coalesces into one re-dump
-          // after a quiet period instead of one full physical-table re-scan per
-          // generation bump (see SnapshotStore.requestCapture).
-          d.providers.snapshotStore.requestCapture(d.cachedClient);
-        }
-        d.providers.watchManager.refresh().catch(() => {});
-        if (DashboardPanel.currentPanel) {
-          DashboardPanel.currentPanel.refreshAll().catch(() => {});
-        }
-      }
-      if (d.providers) {
-        d.providers.dbpProvider.onGenerationChange().catch(() => {});
-      }
-    });
-
-    // Start watcher + initial refresh if extension is enabled.
-    if (d.extensionEnabled) {
-      d.watcher.start();
-      if (d.providers) {
-        if (d.loadOnConnect) {
-          void d.providers.treeProvider.refresh();
-        }
-        d.providers.codeLensProvider.refreshRowCounts();
-      }
-      if (isDriftUiConnected(d.serverManager, d.cachedClient)) {
-        d.schemaCache.prewarm();
-      }
-      d.diagnostics?.diagnosticManager.refresh().catch(() => {});
-      if (d.providers && !d.getLightweight()) d.providers.refreshBadges().catch(() => {});
-    }
-    d.context.subscriptions.push({ dispose: () => d.watcher.stop() });
+    wireEventListeners(d, statusBars, connectionUiRefresh);
   }));
 }
