@@ -186,7 +186,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Read-only SQL runner** with table/column autocomplete, templates, and query history
 - **Saved queries** — save, name, export/import as JSON
 - **Visual query builder** — **Single table** (SELECT checkboxes, type-aware WHERE with AND/OR, ORDER BY, LIMIT) or **Multi-table** (JOINs with FK hints, multi `ORDER BY`, `GROUP BY` with per-column aggregates, live preview); both support Visual / Raw SQL and run via `POST /api/sql`. In Raw SQL mode, **Import to visual builder** reconstructs a pasted flat `SELECT` (tables, joins, aggregates, filters, GROUP BY, ORDER BY, LIMIT) into the multi-table graph
-- **Natural language → SQL** — **Ask in English…** opens a modal with live SQL preview (debounced); English questions (count, average, latest, group-by) map via pattern matching; **Use** copies into the main editor without replacing run-error UI
+- **Natural language → SQL** — **Ask in English…** opens a modal with live SQL preview (debounced); English questions (count, average, latest, group-by) map via pattern matching; **Use** copies into the main editor without replacing run-error UI; a **microphone** button dictates the question via the browser's Web Speech API (shown only where supported), a **copy** button puts the generated SQL on the clipboard, and **Preview results** runs the query and shows the first 10 rows inside the dialog
 - **Auto-explain** — automatic query plan analysis as you type (debounced), showing cost estimate, index usage per table (used / available / missing), and full scan warnings
 
 #### Data Visualization
