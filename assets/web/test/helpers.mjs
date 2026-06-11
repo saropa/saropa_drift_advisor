@@ -15,11 +15,11 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-let _nlToSql = null;
+let _mod = null;
 
-/** Bundles and imports the real nlToSql once, caching it for the suite. */
-export async function loadConverter() {
-  if (_nlToSql) return _nlToSql;
+/** Bundles and imports the real nl-to-sql module once, caching it. */
+export async function loadModule() {
+  if (_mod) return _mod;
   const out = await build({
     entryPoints: [join(here, '..', 'nl-to-sql.ts')],
     bundle: true,
@@ -27,9 +27,13 @@ export async function loadConverter() {
     write: false,
     logLevel: 'silent',
   });
-  const mod = await import('data:text/javascript,' + encodeURIComponent(out.outputFiles[0].text));
-  _nlToSql = mod.nlToSql;
-  return _nlToSql;
+  _mod = await import('data:text/javascript,' + encodeURIComponent(out.outputFiles[0].text));
+  return _mod;
+}
+
+/** Convenience: just the nlToSql export. */
+export async function loadConverter() {
+  return (await loadModule()).nlToSql;
 }
 
 // One clock for the whole run so every temporal assertion shares "now".

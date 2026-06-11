@@ -61,9 +61,12 @@ interface NlResult {
  * quarter"), weekends, and *-to-date aliases ("ytd", "mtd").
  */
 function temporalWhere(q: string, target: SchemaTable): string {
-  // Candidate timestamp columns: anything whose name reads like a date/time.
+  // Candidate timestamp columns. isDateColumn covers the declared temporal
+  // type + camelCase suffixes; the extra name tokens here keep the broader
+  // intent-gated set this branch already accepted (start/end/seen/login/…).
   const dateCols = target.columns.filter(function (c) {
-    return /date|time|_at\b|_on\b|created|updated|modified|changed|added|edited|inserted|registered|timestamp|stamp|datetime|mtime|ctime|\bwhen\b|\bts\b|expir|expiry|\bdue\b|publish|posted|logged|synced|seen|visited|login|logout|access|effective|valid|start|end|birth|\bdob\b/i.test(c.name);
+    return isDateColumn(c)
+      || /\bwhen\b|\bts\b|expiry|\bdue\b|logged|synced|seen|visited|login|logout|access|effective|valid|start|end|registered|inserted|added/i.test(c.name);
   });
   if (dateCols.length === 0) return '';
 
@@ -455,7 +458,7 @@ function valueWhere(question: string, target: SchemaTable): string[] {
  * phrase doesn't get swallowed by the "by <word>" group-by heuristic.
  */
 function orderClause(q: string, target: SchemaTable): string {
-  const dateCol = target.columns.find(function (c) { return /date|time|created|updated|_at\b|timestamp/i.test(c.name); });
+  const dateCol = recencyColumn(target);
   const textCol = target.columns.find(function (c) { return /name|title|label|email/i.test(c.name); })
     || target.columns.find(function (c) { return /char|text|clob/i.test(c.type || ''); });
   let m: RegExpMatchArray | null;
@@ -500,6 +503,35 @@ function limitFrom(q: string): number | null {
 }
 
 /** Converts a natural language question to a SQL query using schema metadata. */
+/**
+ * True if a column holds a date/time. Two signals:
+ *  1. Declared TYPE — `DATE` / `DATETIME` / `TIMESTAMP` / `TIME`. Decisive when
+ *     the schema uses a temporal type. (Drift stores DateTime as INTEGER, so
+ *     the type is the generic 'INTEGER' there and this signal doesn't fire.)
+ *  2. NAME — high-confidence date words, snake `_at` / `_on`, OR a camelCase
+ *     temporal suffix (favoriteAt, eventDate, lastSeenTime). The camelCase
+ *     check is case-SENSITIVE so it doesn't match "format"/"status".
+ *
+ * Conservative on purpose: it must not flag bool/status/count columns, because
+ * it also drives "newest first" ordering and the date refinement chips.
+ */
+export function isDateColumn(col: SchemaColumn): boolean {
+  if (/date|time|timestamp/i.test(col.type || '')) return true;
+  const name = col.name;
+  if (/date|time|timestamp|stamp|datetime|mtime|ctime|created|updated|modified|changed|edited|published|posted|expir|birth|\bdob\b|_at\b|_on\b/i.test(name)) return true;
+  return /[a-z](At|Date|Time|Timestamp)$/.test(name);
+}
+
+/**
+ * The column "newest / oldest / latest" should order by — i.e. recency. Prefers
+ * a created/updated/modified column over an arbitrary date column (so "newest
+ * first" doesn't sort by favoriteAt), falling back to any date column.
+ */
+function recencyColumn(target: SchemaTable): SchemaColumn | undefined {
+  return target.columns.find(function (c) { return /creat|updat|modif|edit|chang|_at\b/i.test(c.name); })
+    || target.columns.find(isDateColumn);
+}
+
 /** English-ish singularizer for matching table names: companies→company,
  *  addresses→address, phones→phone. Good enough for FK-table name matching. */
 function singularize(n: string): string {
@@ -877,12 +909,12 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
     // outside the (single-column) result set.
     sql = 'SELECT DISTINCT "' + col.name + '" FROM ' + tn + where + limClause;
   } else if (/latest|newest|most recent|last (\d+)/i.test(q)) {
-    const dateCol = target.columns.find(function (c) { return /date|time|created|updated/i.test(c.name); });
+    const dateCol = recencyColumn(target);
     const match = q.match(/last (\d+)/i);
     const rowLim = lim != null ? lim : (match ? parseInt(match[1], 10) : 10);
     sql = 'SELECT ' + selectCols + ' FROM ' + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" DESC' : '') + ' LIMIT ' + rowLim;
   } else if (/oldest|earliest|first (\d+)/i.test(q)) {
-    const dateCol = target.columns.find(function (c) { return /date|time|created|updated/i.test(c.name); });
+    const dateCol = recencyColumn(target);
     const match2 = q.match(/first (\d+)/i);
     const rowLim = lim != null ? lim : (match2 ? parseInt(match2[1], 10) : 10);
     sql = 'SELECT ' + selectCols + ' FROM ' + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" ASC' : '') + ' LIMIT ' + rowLim;
