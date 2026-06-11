@@ -2455,6 +2455,59 @@ pre {
   color: var(--muted);
 }
 
+/* Row holds the "Your question" label and the dictation mic on one line so the
+   mic sits at the input's top-right without consuming vertical space. */
+.nl-modal-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.nl-modal-label-row .nl-modal-label {
+  margin-bottom: 0;
+}
+
+.nl-mic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  margin-bottom: 0.35rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.nl-mic:hover {
+  color: var(--fg);
+  border-color: var(--link);
+}
+
+.nl-mic .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+/* Active dictation: accent color + pulse so the listening state reads without
+   relying on color alone (the icon also swaps to mic_off via JS). */
+.nl-mic.recording {
+  color: var(--link);
+  border-color: var(--link);
+  animation: nl-mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes nl-mic-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--focus-ring-color);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--focus-ring-color);
+  }
+}
 .nl-modal-input {
   width: 100%;
   min-height: 7rem;

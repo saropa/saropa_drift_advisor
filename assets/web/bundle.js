@@ -4777,6 +4777,79 @@
       closeNlModal();
     }
   }
+  var nlRecognition = null;
+  var nlMicActive = false;
+  function nlSpeechApi() {
+    var w = window;
+    return w.SpeechRecognition || w.webkitSpeechRecognition || null;
+  }
+  function setNlMicRecording(on) {
+    nlMicActive = on;
+    var btn = document.getElementById("nl-mic");
+    if (!btn) return;
+    btn.classList.toggle("recording", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    var icon = btn.querySelector(".material-symbols-outlined");
+    if (icon) icon.textContent = on ? "mic_off" : "mic";
+  }
+  function ensureNlRecognition() {
+    if (nlRecognition) return nlRecognition;
+    var Api = nlSpeechApi();
+    if (!Api) return null;
+    var rec = new Api();
+    rec.lang = navigator.language || "en-US";
+    rec.interimResults = false;
+    rec.continuous = false;
+    rec.onresult = function(event) {
+      var ta = document.getElementById("nl-modal-input");
+      if (!ta) return;
+      var transcript = "";
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) transcript += event.results[i][0].transcript;
+      }
+      transcript = transcript.trim();
+      if (!transcript) return;
+      var existing = String(ta.value || "");
+      ta.value = existing ? existing.replace(/\s*$/, "") + " " + transcript : transcript;
+      scheduleNlLivePreview();
+    };
+    rec.onerror = function(event) {
+      var code = event && event.error;
+      if (code === "not-allowed" || code === "service-not-allowed") {
+        setNlModalError("Microphone access was blocked. Allow it in your browser to dictate.", true);
+      } else if (code === "no-speech") {
+        setNlModalError("No speech detected. Tap the mic and try again.", true);
+      } else if (code !== "aborted") {
+        setNlModalError("Speech recognition error: " + code, true);
+      }
+    };
+    rec.onend = function() {
+      setNlMicRecording(false);
+    };
+    nlRecognition = rec;
+    return rec;
+  }
+  function toggleNlMic() {
+    var rec = ensureNlRecognition();
+    if (!rec) return;
+    if (nlMicActive) {
+      rec.stop();
+      return;
+    }
+    setNlModalError("", false);
+    try {
+      rec.start();
+      setNlMicRecording(true);
+    } catch (err) {
+      setNlMicRecording(false);
+    }
+  }
+  function stopNlMic() {
+    if (nlRecognition && nlMicActive) {
+      nlRecognition.abort();
+    }
+    setNlMicRecording(false);
+  }
   function setNlModalError(msg, visible) {
     var modalErr = document.getElementById("nl-modal-error");
     if (visible && msg) {
@@ -4842,6 +4915,7 @@
       document.removeEventListener("keydown", nlModalOnEscape);
       setNlModalEscapeListenerActive(false);
     }
+    stopNlMic();
     var openBtn = document.getElementById("nl-open");
     if (openBtn) openBtn.focus();
   }
@@ -4883,6 +4957,11 @@
     if (nlUse) nlUse.addEventListener("click", function() {
       useNlModal();
     });
+    var nlMic = document.getElementById("nl-mic");
+    if (nlMic && nlSpeechApi()) {
+      nlMic.hidden = false;
+      nlMic.addEventListener("click", toggleNlMic);
+    }
     var nlModalInput = document.getElementById("nl-modal-input");
     if (nlModalInput) {
       nlModalInput.addEventListener("input", scheduleNlLivePreview);
