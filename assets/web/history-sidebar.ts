@@ -257,17 +257,15 @@ function showOccurrencesDialog(group: HistoryGroup): void {
     dialogOverlay.setAttribute('role', 'dialog');
     dialogOverlay.setAttribute('aria-modal', 'true');
     dialogOverlay.setAttribute('aria-label', 'Query run history');
+    // Backdrop click closes; clicks inside the panel do not. Attached ONCE
+    // here (not per-open) because the overlay node is reused — re-adding it
+    // on every open would leak a listener per dialog open.
+    dialogOverlay.addEventListener('click', function (ev: Event) {
+      if (ev.target === dialogOverlay) closeOccurrencesDialog();
+    });
     document.body.appendChild(dialogOverlay);
   }
   const overlay = dialogOverlay;
-
-  function close(): void {
-    overlay.style.display = 'none';
-    document.removeEventListener('keydown', onKey);
-  }
-  function onKey(ev: KeyboardEvent): void {
-    if (ev.key === 'Escape') close();
-  }
 
   const preview =
     group.sql.length > 200 ? group.sql.slice(0, 197) + '…' : group.sql;
@@ -336,12 +334,9 @@ function showOccurrencesDialog(group: HistoryGroup): void {
     });
   }
   const closeBtn = overlay.querySelector('.history-dialog-close');
-  if (closeBtn) closeBtn.addEventListener('click', close);
-  // Backdrop click (outside the panel) closes; clicks inside do not.
-  overlay.addEventListener('click', function (ev: Event) {
-    if (ev.target === overlay) close();
-  });
-  document.addEventListener('keydown', onKey);
+  if (closeBtn) closeBtn.addEventListener('click', closeOccurrencesDialog);
+  // Escape handler is balanced: added on open, removed in closeOccurrencesDialog.
+  document.addEventListener('keydown', onOccurrencesKey);
   overlay.style.display = 'flex';
 }
 
