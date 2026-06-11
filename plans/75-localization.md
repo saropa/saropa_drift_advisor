@@ -422,9 +422,23 @@ in phases, each at a check that must pass before the next:
 > landed: the host `t()`/`getWebviewL10nMap()` runtime (`extension/src/l10n.ts` +
 > `strings-host.ts`) and the browser `vt()` runtime (`assets/web/l10n.ts` +
 > `strings-web.ts`) are stood up, build-verified, and unit-tested for the host side;
-> `initWebL10n()` is wired into the web entry. NOT yet done in Phase 2: migrating an
-> actual panel + web-viewer call-site as a vertical slice (registries carry only
-> seed keys). Phases 3–5 not started. See the Finish Report appended below.
+> `initWebL10n()` is wired into the web entry. NOT yet done in Phase 2: (a) migrating
+> an actual panel + web-viewer call-site as a vertical slice (registries carry only
+> ~30 seed keys, so no real string flows through `t()`/`vt()` yet); and (b) the
+> **server-injection gap** — `initWebL10n()` *consumes* `window.__SDA_L10N` but
+> nothing *produces* it (the Dart server in `lib/` does not emit the inline catalog
+> script), so the browser overlay path has never rendered a non-English string
+> end-to-end. Phases 3–5 not started. See the Finish Report appended below.
+>
+> **NEXT (recommended order).** (1) Phase 2 vertical slice — migrate one panel + one
+> web module to keys AND wire the Dart `window.__SDA_L10N` injection, proving the
+> overlay path end-to-end; (2) Phase 3 sweep; (3) build the **English baselines**
+> (`bundle.l10n.json` + `web.json`) — this is the first real "build the bundles"
+> step and is mechanical/English-only; (4) Phase 4 toolchain; (5) Phase 5 translate
+> run → the translated `.<locale>.json` bundles (gated, never automatic). Building
+> any locale bundle before the sweep is premature — the registries hold only seed
+> keys, so there is almost nothing to translate. The activation coverage notice
+> (Phase 1 tail) can slot in anytime but adds little value until locales exist.
 
 - **Phase 1 — Manifest NLS (System A).** Externalize `package.json` strings to
   `package.nls.json`, rewrite values as `%key%`, add the key-sync helper +
@@ -435,7 +449,9 @@ in phases, each at a check that must pass before the next:
   and the host `t()` / browser `l10n.ts` utilities. Migrate ONE panel and ONE web
   viewer module as a vertical slice. *Gate:* the slice renders via `t()`/`vt()`
   with the English baseline; fail-soft to key verified.
-  *(utilities + registries ✅ done; vertical-slice migration ⬜ pending.)*
+  *(utilities + registries ✅ done; vertical-slice migration ⬜ pending; Dart
+  `window.__SDA_L10N` injection ⬜ pending — without it the browser overlay path is
+  inert and only the bundled English registry renders.)*
 - **Phase 3 — Sweep.** Convert remaining `*-html.ts` panels and `assets/web/*.ts`
   modules to keys. *Gate:* a lint/grep finds no hardcoded user-facing literals in
   converted files; English baseline syncs clean.
