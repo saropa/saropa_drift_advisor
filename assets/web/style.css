@@ -3556,7 +3556,9 @@ body.theme-dark .data-table-scroll-wrap {
   user-select: none;
 }
 
-.table-definition-heading:hover {
+/* Underline only the label on hover (not the whole heading) so hovering a tool
+   button doesn't drag an underline across the icons. */
+.table-definition-heading:hover .table-definition-heading-label {
   text-decoration: underline;
 }
 
@@ -3565,12 +3567,135 @@ body.theme-dark .data-table-scroll-wrap {
    with the heading text. */
 .table-definition-heading::after {
   content: "▲";
-  margin-left: auto;
+  /* .table-def-tools already carries margin-left:auto and pushes the tools +
+     chevron to the right edge, so the chevron only needs a small gap from the
+     tools — not its own auto-margin (that would split the free space twice). */
+  margin-left: 0;
   padding-left: 0.5rem;
   font-size: 0.7em;
   color: var(--muted);
   opacity: 0.55;
   text-decoration: none;
+}
+
+/* Heading label sits at the left; tools group is pushed right by margin-left:auto. */
+.table-definition-heading-label {
+  white-space: nowrap;
+}
+
+/* Icon-button group inside the heading (meta toggle + copy JSON/Flutter). */
+.table-def-tools {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Compact icon buttons. Muted by default; link color on hover. The hover
+   underline on the heading is suppressed while over a tool so the buttons
+   read as their own controls, not part of the heading text. */
+.table-def-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+
+.table-def-tool:hover {
+  color: var(--link);
+  background: var(--bg-hover, rgba(127, 127, 127, 0.12));
+}
+
+.table-def-tool .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+/* Active state for the meta toggle: link-colored so the user can see profiling
+   is currently on even when the panel is collapsed. */
+.table-def-tool.is-active {
+  color: var(--link);
+}
+
+/* Transient busy state while the profiling query runs. */
+.table-def-tool.is-busy {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* --- Profiling (meta) columns ------------------------------------------------
+   Appended after the base columns when the meta toggle is on. Numeric columns
+   are right-aligned and tabular so values line up; value columns stay compact. */
+.table-definition th.tdm-col,
+.table-definition td.tdm-col {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.tdm-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  color: var(--muted);
+}
+
+.tdm-val {
+  font-family: var(--font-mono);
+  color: var(--muted);
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tdm-dim {
+  opacity: 0.4;
+}
+
+/* Fill cell: a thin completeness bar plus the percent, side by side. */
+.tdm-fill-cell {
+  white-space: nowrap;
+}
+
+.tdm-bar {
+  display: inline-block;
+  width: 3rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--border, rgba(127, 127, 127, 0.25));
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.tdm-bar-fill {
+  display: block;
+  height: 100%;
+  /* Green-ish fill signals completeness; uses the link accent so it follows the
+     active theme rather than hard-coding a color. */
+  background: var(--accent, var(--link));
+  border-radius: 999px;
+}
+
+.tdm-pct {
+  margin-left: 0.35rem;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+/* Candidate-key flag in the Unique column. */
+.tdm-unique {
+  white-space: nowrap;
+  color: var(--link);
+}
+
+.tdm-key {
+  font-size: 0.8rem;
 }
 
 .td-collapsed .table-definition-heading::after {

@@ -591,6 +591,11 @@
   var showOnlyMatchingRows = true;
   var columnContextMenuTargetKey = null;
   var columnDragKey = null;
+  var tableDefMetaOn = false;
+  var tableDefStats = {};
+  function setTableDefMetaOn(v) {
+    tableDefMetaOn = v;
+  }
   function setDisplayFormat(f) {
     displayFormat = f;
   }
@@ -4277,6 +4282,48 @@
     if (/DATE|TIME|TIMESTAMP/.test(t)) return "\u25F7";
     return "\u25CB";
   }
+  function formatTableDefBytes(n) {
+    if (n == null || !isFinite(n)) return "\u2014";
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+    if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + " MB";
+    return (n / (1024 * 1024 * 1024)).toFixed(1) + " GB";
+  }
+  function formatMetaScalar(value) {
+    if (value == null) return '<span class="tdm-dim">\u2014</span>';
+    var s = String(value);
+    var TRUNC = 22;
+    if (s.length > TRUNC) {
+      return '<span title="' + esc2(s) + '">' + esc2(s.substring(0, TRUNC)) + "\u2026</span>";
+    }
+    return esc2(s);
+  }
+  function buildColumnMetaCells(stat) {
+    if (!stat) {
+      var dash = '<td class="tdm-col"><span class="tdm-dim">\u2014</span></td>';
+      return dash + dash + dash + dash + dash + dash + dash;
+    }
+    var total = stat.total || 0;
+    var nonnull = stat.nonnull || 0;
+    var fillPct = total > 0 ? Math.round(nonnull / total * 100) : 0;
+    var fillTitle = nonnull + " of " + total + " rows filled (" + stat.nulls + " null)";
+    var fillCell = '<td class="tdm-col tdm-fill-cell"><span class="tdm-bar" title="' + esc2(fillTitle) + '"><span class="tdm-bar-fill" style="width:' + fillPct + '%"></span></span><span class="tdm-pct">' + fillPct + "%</span></td>";
+    var nullsCell = '<td class="tdm-col tdm-num">' + (stat.nulls > 0 ? stat.nulls.toLocaleString() : '<span class="tdm-dim">0</span>') + "</td>";
+    var distinctCell = '<td class="tdm-col tdm-num">' + (stat.distinct || 0).toLocaleString() + "</td>";
+    var uniqueCell;
+    if (total > 0 && stat.distinct === total && stat.nulls === 0) {
+      uniqueCell = '<td class="tdm-col tdm-unique" title="Candidate key: every value is unique"><span class="tdm-key">\u{1F511}</span> 100%</td>';
+    } else if (total > 0) {
+      var uPct = Math.round(stat.distinct / total * 100);
+      uniqueCell = '<td class="tdm-col tdm-num" title="' + stat.distinct + " distinct of " + total + ' rows">' + uPct + "%</td>";
+    } else {
+      uniqueCell = '<td class="tdm-col tdm-num"><span class="tdm-dim">\u2014</span></td>';
+    }
+    var minCell = '<td class="tdm-col tdm-val">' + formatMetaScalar(stat.min) + "</td>";
+    var maxCell = '<td class="tdm-col tdm-val">' + formatMetaScalar(stat.max) + "</td>";
+    var sizeCell = '<td class="tdm-col tdm-num" title="Total bytes across all rows (SUM of LENGTH)">' + esc2(formatTableDefBytes(stat.bytes)) + "</td>";
+    return fillCell + nullsCell + distinctCell + uniqueCell + minCell + maxCell + sizeCell;
+  }
   function buildTableDefinitionHtml(tableName) {
     var t = schemaTableByName2(tableName);
     if (!t || !t.columns || t.columns.length === 0) return "";
@@ -4287,6 +4334,9 @@
     });
     var cfg = getColumnConfig(tableName);
     var hiddenCols = cfg && cfg.hidden || [];
+    var metaOn = !!tableDefMetaOn;
+    var stats = tableDefStats[tableName];
+    var showMeta = metaOn && !!stats;
     var rows = t.columns.map(function(c) {
       var rawType = c.type != null ? String(c.type).trim() : "";
       var icon = columnTypeIcon(rawType);
@@ -4300,9 +4350,13 @@
       if (c.notnull) flags.push("NOT NULL");
       var flagStr = flags.length ? flags.join(", ") : "\u2014";
       var typCell = rawType ? esc2(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
-      return "<tr>" + visCell + '<td class="table-def-icons">' + iconHtml + badges + '</td><td class="table-def-name" data-longpress-copy="' + esc2(c.name) + '">' + esc2(c.name) + '</td><td class="table-def-type">' + typCell + '</td><td class="table-def-flags">' + esc2(flagStr) + "</td></tr>";
+      var metaCells = showMeta ? buildColumnMetaCells(stats[c.name]) : "";
+      return "<tr>" + visCell + '<td class="table-def-icons">' + iconHtml + badges + '</td><td class="table-def-name" data-longpress-copy="' + esc2(c.name) + '">' + esc2(c.name) + '</td><td class="table-def-type">' + typCell + '</td><td class="table-def-flags">' + esc2(flagStr) + "</td>" + metaCells + "</tr>";
     }).join("");
-    return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition"><div class="table-definition-heading">Table definition</div><div class="table-definition-scroll"><table class="table-definition"><thead><tr><th class="table-def-vis" scope="col" title="Show column in the results table">Show</th><th class="table-def-icons" scope="col"></th><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
+    var metaHeads = showMeta ? '<th class="tdm-col" scope="col" title="Share of rows with a non-null value">Fill</th><th class="tdm-col" scope="col" title="Number of NULL values">Nulls</th><th class="tdm-col" scope="col" title="Number of distinct values">Distinct</th><th class="tdm-col" scope="col" title="Uniqueness; key flag when every value is unique">Unique</th><th class="tdm-col" scope="col" title="Smallest value">Min</th><th class="tdm-col" scope="col" title="Largest value">Max</th><th class="tdm-col" scope="col" title="Total stored bytes">Size</th>' : "";
+    var metaActive = metaOn ? " is-active" : "";
+    var tools = '<span class="table-def-tools"><button type="button" class="table-def-tool' + metaActive + '" data-tdm-action="toggle-meta" title="Show column profiling stats (fill, nulls, distinct, min/max, size)" aria-label="Toggle column profiling stats" aria-pressed="' + (metaOn ? "true" : "false") + '"><span class="material-symbols-outlined" aria-hidden="true">insights</span></button><button type="button" class="table-def-tool" data-tdm-action="copy-json" title="Copy table definition as JSON" aria-label="Copy table definition as JSON"><span class="material-symbols-outlined" aria-hidden="true">data_object</span></button><button type="button" class="table-def-tool" data-tdm-action="copy-flutter" title="Copy table definition as Flutter (Drift) class" aria-label="Copy table definition as Flutter code"><span class="material-symbols-outlined" aria-hidden="true">flutter_dash</span></button></span>';
+    return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition" data-table-name="' + esc2(tableName) + '"><div class="table-definition-heading"><span class="table-definition-heading-label">Table definition</span>' + tools + '</div><div class="table-definition-scroll"><table class="table-definition"><thead><tr><th class="table-def-vis" scope="col" title="Show column in the results table">Show</th><th class="table-def-icons" scope="col"></th><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th>' + metaHeads + "</tr></thead><tbody>" + rows + "</tbody></table></div></div>";
   }
   function bindResultsToggle() {
     var headings = document.querySelectorAll(".results-table-heading");
@@ -9952,12 +10006,13 @@
   // assets/web/table-def-toggle.ts
   function initTableDefToggle() {
     const style = document.createElement("style");
-    style.textContent = "/* table-def-toggle \u2014 collapsible table definition styles */\n.table-definition-heading {\n  cursor: pointer;\n  user-select: none;\n  color: var(--link);\n  font-size: 0.875rem;\n  padding: 0.25rem 0;\n}\n.table-definition-heading:hover { text-decoration: underline; }\n.td-collapsed .table-definition-scroll { display: none; }\n";
+    style.textContent = "/* table-def-toggle \u2014 collapsible table definition styles */\n.table-definition-heading {\n  cursor: pointer;\n  user-select: none;\n  color: var(--link);\n  font-size: 0.875rem;\n  padding: 0.25rem 0;\n}\n.table-definition-heading:hover .table-definition-heading-label { text-decoration: underline; }\n.td-collapsed .table-definition-scroll { display: none; }\n";
     document.head.appendChild(style);
     document.addEventListener("click", (e) => {
       const target = e.target;
       const heading = target.closest && target.closest(".table-definition-heading");
       if (!heading) return;
+      if (target.closest && target.closest(".table-def-tool")) return;
       const wrap = heading.closest(".table-definition-wrap");
       if (!wrap) return;
       wrap.classList.toggle("td-collapsed");
@@ -9966,6 +10021,204 @@
     for (let i = 0; i < existing.length; i++) {
       existing[i].classList.add("td-collapsed");
     }
+  }
+
+  // assets/web/table-def-meta.ts
+  function quoteIdent(name) {
+    return '"' + String(name).replace(/"/g, '""') + '"';
+  }
+  function isBlobLikeType(rawType) {
+    return /BLOB|BINARY/.test((rawType || "").toUpperCase());
+  }
+  function isTextLikeType(rawType) {
+    return /CHAR|TEXT|CLOB|STRING/.test((rawType || "").toUpperCase());
+  }
+  async function buildStatsForTable(tableName) {
+    const t = schemaTableByName2(tableName);
+    if (!t || !t.columns || t.columns.length === 0) return {};
+    const selects = ['COUNT(*) AS "__total__"'];
+    t.columns.forEach(function(c, i) {
+      const col = quoteIdent(c.name);
+      const rawType = c.type != null ? String(c.type) : "";
+      selects.push("COUNT(" + col + ') AS "c' + i + '__nn"');
+      selects.push("COUNT(DISTINCT " + col + ') AS "c' + i + '__d"');
+      selects.push("SUM(LENGTH(" + col + ')) AS "c' + i + '__bytes"');
+      if (!isBlobLikeType(rawType)) {
+        selects.push("MIN(" + col + ') AS "c' + i + '__min"');
+        selects.push("MAX(" + col + ') AS "c' + i + '__max"');
+      }
+      if (isTextLikeType(rawType)) {
+        selects.push("SUM(CASE WHEN " + col + ` = '' THEN 1 ELSE 0 END) AS "c` + i + '__blank"');
+      }
+    });
+    const sql = "SELECT " + selects.join(", ") + " FROM " + quoteIdent(tableName);
+    const resp = await fetch("/api/sql", authOpts({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sql })
+    }));
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data && data.error ? data.error : "Stats query failed");
+    const row = data.rows && data.rows[0] || {};
+    const total = Number(row["__total__"]) || 0;
+    const out = { __total__: total };
+    t.columns.forEach(function(c, i) {
+      const nn = Number(row["c" + i + "__nn"]) || 0;
+      out[c.name] = {
+        total,
+        nonnull: nn,
+        nulls: total - nn,
+        distinct: Number(row["c" + i + "__d"]) || 0,
+        bytes: row["c" + i + "__bytes"] != null ? Number(row["c" + i + "__bytes"]) : null,
+        min: row["c" + i + "__min"] != null ? row["c" + i + "__min"] : null,
+        max: row["c" + i + "__max"] != null ? row["c" + i + "__max"] : null,
+        blank: row["c" + i + "__blank"] != null ? Number(row["c" + i + "__blank"]) : null
+      };
+    });
+    return out;
+  }
+  function driftColumnFor(rawType) {
+    const t = (rawType || "").toUpperCase();
+    if (/INT/.test(t)) return { columnType: "IntColumn", builder: "integer" };
+    if (/BOOL/.test(t)) return { columnType: "BoolColumn", builder: "boolean" };
+    if (/REAL|FLOA|DOUB|NUMERIC|DECIMAL/.test(t)) return { columnType: "RealColumn", builder: "real" };
+    if (/BLOB|BINARY/.test(t)) return { columnType: "BlobColumn", builder: "blob" };
+    if (/DATE|TIME/.test(t)) return { columnType: "DateTimeColumn", builder: "dateTime" };
+    return { columnType: "TextColumn", builder: "text" };
+  }
+  function pascalCase(name) {
+    return String(name).split(/[^a-zA-Z0-9]+/).filter(Boolean).map(function(p) {
+      return p.charAt(0).toUpperCase() + p.slice(1);
+    }).join("") || "Table";
+  }
+  function camelCase(name) {
+    const pascal = pascalCase(name);
+    const camel = pascal.charAt(0).toLowerCase() + pascal.slice(1);
+    return /^[0-9]/.test(camel) ? "c" + camel : camel;
+  }
+  function fkForColumn(tableName, colName) {
+    const cachedFks = fkMetaCache[tableName] || [];
+    for (let i = 0; i < cachedFks.length; i++) {
+      if (cachedFks[i].fromColumn === colName) return cachedFks[i];
+    }
+    return null;
+  }
+  function buildDefinitionJson(tableName) {
+    const t = schemaTableByName2(tableName);
+    if (!t || !t.columns) return "{}";
+    const stats = tableDefStats[tableName];
+    const columns = t.columns.map(function(c) {
+      const fk = fkForColumn(tableName, c.name);
+      const entry = {
+        name: c.name,
+        type: c.type != null ? String(c.type) : "",
+        primaryKey: !!c.pk,
+        notNull: !!c.notnull,
+        foreignKey: fk ? { table: fk.toTable, column: fk.toColumn } : null
+      };
+      if (stats && stats[c.name]) entry.stats = stats[c.name];
+      return entry;
+    });
+    const doc = { table: tableName, columns };
+    if (stats && stats.__total__ != null) doc.rowCount = stats.__total__;
+    return JSON.stringify(doc, null, 2);
+  }
+  function buildFlutterDrift(tableName) {
+    const t = schemaTableByName2(tableName);
+    if (!t || !t.columns) return "// No columns for " + tableName;
+    const className = pascalCase(tableName);
+    const pkCols = t.columns.filter(function(c) {
+      return !!c.pk;
+    });
+    const singleIntAutoInc = pkCols.length === 1 && /INT/.test(String(pkCols[0].type || "").toUpperCase());
+    const lines = [];
+    lines.push("class " + className + " extends Table {");
+    t.columns.forEach(function(c) {
+      const drift = driftColumnFor(c.type != null ? String(c.type) : "");
+      let chain = drift.builder + "()";
+      if (c.pk && singleIntAutoInc) {
+        chain = drift.builder + "().autoIncrement()";
+      } else if (!c.notnull && !c.pk) {
+        chain = drift.builder + "().nullable()";
+      }
+      lines.push("  " + drift.columnType + " get " + camelCase(c.name) + " => " + chain + "();");
+    });
+    if (pkCols.length > 0 && !singleIntAutoInc) {
+      const set = pkCols.map(function(c) {
+        return camelCase(c.name);
+      }).join(", ");
+      lines.push("");
+      lines.push("  @override");
+      lines.push("  Set<Column> get primaryKey => {" + set + "};");
+    }
+    lines.push("}");
+    return lines.join("\n");
+  }
+  function copyToClipboard(text, toastMessage) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() {
+        showCopyToast(toastMessage);
+      }).catch(function() {
+      });
+    }
+  }
+  function rerenderPanel(wrap, tableName, expand) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = buildTableDefinitionHtml(tableName);
+    const fresh = tmp.firstElementChild;
+    if (!fresh) return;
+    if (expand) fresh.classList.remove("td-collapsed");
+    wrap.replaceWith(fresh);
+  }
+  function initTableDefMeta() {
+    document.addEventListener("click", function(e) {
+      const target = e.target;
+      const btn = target && target.closest && target.closest(".table-def-tool");
+      if (!btn) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const wrap = btn.closest(".table-definition-wrap");
+      if (!wrap) return;
+      const tableName = wrap.getAttribute("data-table-name") || currentTableName || "";
+      if (!tableName) return;
+      const action = btn.getAttribute("data-tdm-action");
+      if (action === "copy-json") {
+        copyToClipboard(buildDefinitionJson(tableName), "Definition copied as JSON");
+        return;
+      }
+      if (action === "copy-flutter") {
+        copyToClipboard(buildFlutterDrift(tableName), "Definition copied as Flutter");
+        return;
+      }
+      if (action === "toggle-meta") {
+        const turningOn = !tableDefMetaOn;
+        if (!turningOn) {
+          setTableDefMetaOn(false);
+          rerenderPanel(wrap, tableName, false);
+          return;
+        }
+        setTableDefMetaOn(true);
+        if (tableDefStats[tableName]) {
+          rerenderPanel(wrap, tableName, true);
+          return;
+        }
+        btn.classList.add("is-busy");
+        buildStatsForTable(tableName).then(function(stats) {
+          tableDefStats[tableName] = stats;
+          const live = document.querySelector(
+            '.table-definition-wrap[data-table-name="' + cssAttrEscape(tableName) + '"]'
+          ) || wrap;
+          rerenderPanel(live, tableName, true);
+        }).catch(function(err) {
+          setTableDefMetaOn(false);
+          btn.classList.remove("is-busy");
+          showCopyToast("Stats failed: " + (err && err.message ? err.message : "error"));
+        });
+      }
+    });
+  }
+  function cssAttrEscape(v) {
+    return String(v).replace(/["\\]/g, "\\$&");
   }
 
   // assets/web/index.js
@@ -9979,6 +10232,8 @@
   initToolbar();
   console.log("[SDA] index.js bridge: calling initTableDefToggle()");
   initTableDefToggle();
+  console.log("[SDA] index.js bridge: calling initTableDefMeta()");
+  initTableDefMeta();
   console.log("[SDA] index.js bridge: calling initSettings()");
   initSettings();
   console.log("[SDA] index.js bridge: init complete");

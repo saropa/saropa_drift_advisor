@@ -145,19 +145,27 @@ describe('collapsible chevrons — right-aligned and dimmed', () => {
     css = readAsset('assets/web/style.css');
   });
 
-  // Each collapsible heading must place its chevron via ::after on the right
-  // (margin-left:auto) in muted color — never the old left-of-text link arrow.
-  const headings = [
-    '.results-table-heading::after',
-    '.table-definition-heading::after',
-    '.qb-section .qb-header::after',
+  // Each collapsible heading must place its chevron via ::after on the right in
+  // muted color — never the old left-of-text link arrow. Right-alignment comes
+  // from a margin-left:auto: on the chevron's own ::after for the simple
+  // headings, or — for the table-definition heading, which now also carries a
+  // tools button group — on the .table-def-tools element that precedes the
+  // chevron (the ::after then only needs a small fixed gap, see _query-builder.scss).
+  const headings: Array<{ sel: string; rightAlignFrom: string }> = [
+    { sel: '.results-table-heading::after', rightAlignFrom: '.results-table-heading::after' },
+    { sel: '.table-definition-heading::after', rightAlignFrom: '.table-def-tools' },
+    { sel: '.qb-section .qb-header::after', rightAlignFrom: '.qb-section .qb-header::after' },
   ];
 
-  for (const sel of headings) {
+  for (const { sel, rightAlignFrom } of headings) {
     it(`${sel} is right-aligned and muted`, () => {
       const block = extractBlock(css, sel);
       assert.ok(block.length > 0, `${sel} rule should exist`);
-      assert.ok(block.includes('margin-left: auto'), `${sel} should push the chevron right`);
+      const alignBlock = extractBlock(css, rightAlignFrom);
+      assert.ok(
+        alignBlock.includes('margin-left: auto'),
+        `${rightAlignFrom} should push the chevron right`,
+      );
       assert.ok(block.includes('var(--muted)'), `${sel} chevron should be dimmed, not link color`);
     });
   }
