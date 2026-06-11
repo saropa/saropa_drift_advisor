@@ -5807,7 +5807,7 @@
       chips.push({ label: "only " + nm, phrase: nm });
     }
     var numCol = cols.filter(function(c) {
-      return /int|real|num|float/i.test(c.type || "") && !/^id$|_id$/i.test(c.name);
+      return /int|real|num|float|double|dec/i.test(c.type || "") && !/^id$|_id$|date|time|_at\b|_on\b|created|updated|changed|timestamp|^is_|^has_|active|enabled|disabled|verified|visible|hidden|archived|deleted|locked|subscribed|public|private/i.test(c.name);
     })[0];
     if (numCol) chips.push({ label: "highest " + numCol.name, phrase: "highest " + numCol.name });
     chips.push({ label: "count", phrase: "as a total" });
