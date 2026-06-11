@@ -4691,6 +4691,33 @@
   }
 
   // assets/web/nl-to-sql.ts
+  function temporalWhere(q, target) {
+    const dateCols = target.columns.filter(function(c) {
+      return /date|time|_at\b|created|updated|modified|changed|added|edited|timestamp/i.test(c.name);
+    });
+    if (dateCols.length === 0) return "";
+    let col;
+    if (/chang|modif|updat|edit/i.test(q)) {
+      col = dateCols.find(function(c) {
+        return /updat|modif|chang|edit/i.test(c.name);
+      });
+    } else if (/creat|added|\bnew\b|register|insert/i.test(q)) {
+      col = dateCols.find(function(c) {
+        return /creat|add|insert|register/i.test(c.name);
+      });
+    }
+    if (!col) col = dateCols[0];
+    const isEpoch = /int/i.test(col.type);
+    const dateExpr = isEpoch ? 'date("' + col.name + `", 'unixepoch', 'localtime')` : 'date("' + col.name + '")';
+    const lastN = q.match(/last (\d+) days?/i);
+    if (/\btoday\b/i.test(q)) return " WHERE " + dateExpr + " = date('now', 'localtime')";
+    if (/\byesterday\b/i.test(q)) return " WHERE " + dateExpr + " = date('now', '-1 day', 'localtime')";
+    if (lastN) return " WHERE " + dateExpr + " >= date('now', '-" + parseInt(lastN[1]) + " days', 'localtime')";
+    if (/this week/i.test(q)) return " WHERE " + dateExpr + " >= date('now', 'weekday 1', '-7 days', 'localtime')";
+    if (/this month/i.test(q)) return " WHERE " + dateExpr + " >= date('now', 'start of month', 'localtime')";
+    if (/this year/i.test(q)) return " WHERE " + dateExpr + " >= date('now', 'start of year', 'localtime')";
+    return "";
+  }
   function nlToSql(question, meta) {
     const q = question.toLowerCase().trim();
     const tables = meta.tables || [];
@@ -4714,58 +4741,59 @@
     }).join(", ") : "*";
     let sql = "";
     const tn = '"' + target.name + '"';
+    const where = temporalWhere(q, target);
     if (/how many|count|total number/i.test(q)) {
-      sql = "SELECT COUNT(*) FROM " + tn;
+      sql = "SELECT COUNT(*) FROM " + tn + where;
     } else if (/average|avg|mean/i.test(q)) {
       const numCol = mentioned.find(function(c) {
         return /int|real|num|float/i.test(c.type);
       }) || target.columns.find(function(c) {
         return /int|real|num|float/i.test(c.type);
       });
-      sql = numCol ? 'SELECT AVG("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " LIMIT 50";
+      sql = numCol ? 'SELECT AVG("' + numCol.name + '") FROM ' + tn + where : "SELECT * FROM " + tn + where + " LIMIT 50";
     } else if (/sum|total\b/i.test(q) && !/total number/i.test(q)) {
       const numCol = mentioned.find(function(c) {
         return /int|real|num|float/i.test(c.type);
       }) || target.columns.find(function(c) {
         return /int|real|num|float/i.test(c.type);
       });
-      sql = numCol ? 'SELECT SUM("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " LIMIT 50";
+      sql = numCol ? 'SELECT SUM("' + numCol.name + '") FROM ' + tn + where : "SELECT * FROM " + tn + where + " LIMIT 50";
     } else if (/max|maximum|highest|largest|biggest/i.test(q)) {
       const numCol = mentioned.find(function(c) {
         return /int|real|num|float/i.test(c.type);
       }) || target.columns.find(function(c) {
         return /int|real|num|float/i.test(c.type);
       });
-      sql = numCol ? 'SELECT MAX("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " ORDER BY 1 DESC LIMIT 1";
+      sql = numCol ? 'SELECT MAX("' + numCol.name + '") FROM ' + tn + where : "SELECT * FROM " + tn + where + " ORDER BY 1 DESC LIMIT 1";
     } else if (/min|minimum|lowest|smallest/i.test(q)) {
       const numCol = mentioned.find(function(c) {
         return /int|real|num|float/i.test(c.type);
       }) || target.columns.find(function(c) {
         return /int|real|num|float/i.test(c.type);
       });
-      sql = numCol ? 'SELECT MIN("' + numCol.name + '") FROM ' + tn : "SELECT * FROM " + tn + " ORDER BY 1 ASC LIMIT 1";
+      sql = numCol ? 'SELECT MIN("' + numCol.name + '") FROM ' + tn + where : "SELECT * FROM " + tn + where + " ORDER BY 1 ASC LIMIT 1";
     } else if (/distinct|unique/i.test(q)) {
       const col = mentioned[0] || target.columns[1] || target.columns[0];
-      sql = 'SELECT DISTINCT "' + col.name + '" FROM ' + tn;
+      sql = 'SELECT DISTINCT "' + col.name + '" FROM ' + tn + where;
     } else if (/latest|newest|most recent|last (\d+)/i.test(q)) {
       const dateCol = target.columns.find(function(c) {
         return /date|time|created|updated/i.test(c.name);
       });
       const match = q.match(/last (\d+)/i);
       const lim = match ? parseInt(match[1]) : 10;
-      sql = "SELECT " + selectCols + " FROM " + tn + (dateCol ? ' ORDER BY "' + dateCol.name + '" DESC' : "") + " LIMIT " + lim;
+      sql = "SELECT " + selectCols + " FROM " + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" DESC' : "") + " LIMIT " + lim;
     } else if (/oldest|earliest|first (\d+)/i.test(q)) {
       const dateCol = target.columns.find(function(c) {
         return /date|time|created|updated/i.test(c.name);
       });
       const match2 = q.match(/first (\d+)/i);
       const lim = match2 ? parseInt(match2[1]) : 10;
-      sql = "SELECT " + selectCols + " FROM " + tn + (dateCol ? ' ORDER BY "' + dateCol.name + '" ASC' : "") + " LIMIT " + lim;
+      sql = "SELECT " + selectCols + " FROM " + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" ASC' : "") + " LIMIT " + lim;
     } else if (/group by|per\s+\w+|by\s+\w+/i.test(q)) {
       const groupCol = mentioned[0] || target.columns[1] || target.columns[0];
-      sql = 'SELECT "' + groupCol.name + '", COUNT(*) AS count FROM ' + tn + ' GROUP BY "' + groupCol.name + '" ORDER BY count DESC';
+      sql = 'SELECT "' + groupCol.name + '", COUNT(*) AS count FROM ' + tn + where + ' GROUP BY "' + groupCol.name + '" ORDER BY count DESC';
     } else {
-      sql = "SELECT " + selectCols + " FROM " + tn + " LIMIT 50";
+      sql = "SELECT " + selectCols + " FROM " + tn + where + " LIMIT 50";
     }
     return { sql, table: target.name };
   }

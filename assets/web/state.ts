@@ -134,6 +134,19 @@ export let showOnlyMatchingRows = true;
 export let columnContextMenuTargetKey: string | null = null;
 export let columnDragKey: string | null = null;
 
+// --- Table-definition meta columns ---
+// When on, the table-definition panel renders per-column profiling stats
+// (fill rate, nulls, distinct/uniqueness, min/max, byte size). Opt-in because
+// the stats are computed with a full-table aggregate SQL query (one round trip
+// per table) — too expensive to run on every table view automatically.
+export let tableDefMetaOn = false;
+// Per-table stats cache keyed by table name. Each value is the parsed result of
+// the profiling query (see table-def-meta.ts buildStatsForTable). Cached so
+// re-renders (column reorder, full table re-render) reuse the same numbers
+// instead of re-querying the database.
+export const tableDefStats: Record<string, any> = {};
+export function setTableDefMetaOn(v: boolean): void { tableDefMetaOn = v; }
+
 export function setDisplayFormat(f: string): void { displayFormat = f; }
 export function setNullDisplay(s: string): void { nullDisplay = s; }
 export function setTableColumnTypes(t: Record<string, any>): void { tableColumnTypes = t; }
