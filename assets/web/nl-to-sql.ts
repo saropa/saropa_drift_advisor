@@ -401,6 +401,10 @@ function valueWhere(question: string, target: SchemaTable): string[] {
     // so "is_active" also responds to a bare "active".
     const spaced = c.name.toLowerCase().replace(/_/g, ' ');
     const stripped = c.name.toLowerCase().replace(/^(?:is|has|can)_/, '').replace(/_/g, ' ');
+    // Skip if this flag word was already consumed as ANOTHER column's value —
+    // "status is not active" means status != 'active', not also active = 0.
+    const lowerConds = conds.join(' ').toLowerCase();
+    if (lowerConds.indexOf("'" + spaced + "'") >= 0 || lowerConds.indexOf("'" + stripped + "'") >= 0) continue;
     const vAlt = (stripped !== spaced ? [spaced, stripped] : [spaced]).map(escRe).join('|');
     // Negation: "not active", or an in-/un-/non- prefix glued on ("inactive").
     const neg = new RegExp("\\b(?:not|non-?|isn'?t|aren'?t)\\s+(?:" + vAlt + ')\\b|\\b(?:in|un|non)(?:' + vAlt + ')\\b', 'i');
@@ -754,8 +758,11 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
   if (/how many|\bcount\b|total number|number of/i.test(q) && !isGrouping) {
     sql = 'SELECT COUNT(*) FROM ' + tn + where;
   } else if (/duplicate|repeated|dupe/i.test(q)) {
-    // Rows sharing a value — the classic "find duplicate emails" check.
-    const col = mentioned[0] ||
+    // Rows sharing a value — the classic "find duplicate emails" check. Prefer
+    // the column the user named after "duplicate" (matchColumn handles the
+    // plural, e.g. "emails" → the email column) over any mention or fallback.
+    const dupWord = q.match(/(?:duplicate|repeated|dupe)d?\s+([a-z0-9_]+)/i);
+    const col = (dupWord && matchColumn(dupWord[1], target)) || mentioned[0] ||
       target.columns.find(function (c) { return /name|email|title|slug|code/i.test(c.name); }) ||
       target.columns[1] || target.columns[0];
     sql = 'SELECT "' + col.name + '", COUNT(*) AS count FROM ' + tn + where +
@@ -792,7 +799,8 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
     // Grouping: explicit "group by / per X / by X / breakdown" (computed above
     // as isGrouping, which already excludes sort phrases and top-N rankings).
   } else if (isGrouping) {
-    const byMatch = q.match(/\bby\s+([a-z0-9_]+)/i);
+    // The group column comes from "by X" OR "per X" ("contacts per company").
+    const byMatch = q.match(/\b(?:by|per)\s+([a-z0-9_]+)/i);
     const groupCol = (byMatch && matchColumn(byMatch[1], target)) || mentioned[0] || target.columns[1] || target.columns[0];
     sql = 'SELECT "' + groupCol.name + '", COUNT(*) AS count FROM ' + tn + where + ' GROUP BY "' + groupCol.name + '" ORDER BY count DESC' + limClause;
   } else {
