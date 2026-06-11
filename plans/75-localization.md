@@ -327,22 +327,39 @@ Manual/external path: fill the empty `translation` field in the exported gaps JS
 and reimport (`--import <file>`), recorded as `manual` provenance.
 
 ### 5.5 Publish-time behavior
-The publish flow (`scripts/publish.py`) **syncs the English baseline only** (key
-alignment for both the host bundle and `web.json`) and **reports** gaps + exports a
-worklist. It **never translates.** Gaps are non-fatal (retry / ignore / abort;
-CI ignores). Only a failed English-sync write is a hard error.
+The extension leg of `scripts/publish.py` runs a **manifest l10n audit** as Step 11
+(module `scripts/modules/l10n_audit.py`, before the version/CHANGELOG step). It:
+- measures the manifest NLS bundles (`extension/package.nls*.json`) — per locale,
+  how many keys are missing vs present-but-untranslated (value == English);
+- **always writes a report** to `reports/<YYYYMMDD>/<ts>_l10n_manifest_audit.json`
+  (the same date folder as the publish summary) and prints its path;
+- **never translates.**
+
+When gaps exist (missing or untranslated keys in a shipped locale), the maintainer
+is prompted **[I]gnore / [R]etry / [A]bort** (default **ignore** — English-first
+release, and Enter/EOF/CI proceeds rather than hanging):
+- **ignore** → ship as-is; untranslated strings appear in English;
+- **retry** → re-run the audit after updating `package.nls.<locale>.json` in another
+  terminal;
+- **abort** → stop the publish to close the gaps first.
+
+With no locale bundles (today's English-only state) there are no gaps, so the step
+writes the report and proceeds silently — no prompt. The runtime-l10n baseline sync
+(host + `web.json`) is added when that toolchain lands (Phase 4); this step covers
+the manifest, which is what ships today.
 
 ---
 
 ## 6. Coverage & quality gates (summary)
 
-| Gate | System | What it proves | When |
-|---|---|---|---|
-| `verify-nls` | Manifest | key parity (no missing/orphan `%key%`) | `compile`, CI |
-| `verify:nls-coverage` | Manifest | coverage data file is current | `compile`, CI |
-| activation notice | Manifest | tells the user once when chrome < ~90% | runtime |
-| `translate_l10n.py --run-mode audit` | Runtime | per-locale coverage + quality split | manual / publish |
-| publish sync step | Runtime | baselines (host + web) aligned; gaps reported | publish |
+| Gate | System | What it proves | When | Status |
+|---|---|---|---|---|
+| `verify-nls` | Manifest | key parity (no missing/orphan `%key%`) | `compile`, CI | ✅ |
+| `verify:nls-coverage` | Manifest | `nls-coverage-data.ts` is current (staleness only; does NOT gate on low coverage) | `compile`, CI | ✅ |
+| publish l10n audit | Manifest | per-locale missing/untranslated counts; ignore/retry/abort on gaps; writes report | publish (ext leg) | ✅ |
+| activation notice | Manifest | tells the user once when chrome < ~90% | runtime | ⬜ |
+| `translate_l10n.py --run-mode audit` | Runtime | per-locale coverage + quality split | manual / publish | ⬜ |
+| publish sync step | Runtime | baselines (host + web) aligned; gaps reported | publish | ⬜ |
 
 **Key-parity and value-coverage are different claims.** `verify-nls` passing does
 **not** mean the manifest is translated — `verify:nls-coverage` measures that,
@@ -388,10 +405,13 @@ the exact command, and wait.**
 Unlike the source guide (which documents a built system), this is net-new. Land it
 in phases, each at a check that must pass before the next:
 
-> **STATUS (2026-06-11).** Phase 1 partially landed: 231 manifest strings
-> externalized to `package.nls.json` + `%key%`, and the `verify-nls` parity guard is
-> wired into `compile` (green). NOT yet done in Phase 1: the `verify:nls-coverage`
-> value-coverage script and the activation coverage notice. Phase 2 partially
+> **STATUS (2026-06-11).** Phase 1 nearly complete: 231 manifest strings
+> externalized to `package.nls.json` + `%key%`; the `verify-nls` parity guard AND
+> the `verify:nls-coverage` staleness guard are both wired into `compile` (green);
+> and the publish extension leg runs a manifest l10n audit (Step 11) with an
+> ignore/retry/abort prompt and a written report (§5.5). NOT yet done in Phase 1:
+> only the runtime activation coverage notice (consumes `nls-coverage-data.ts`).
+> Phase 2 partially
 > landed: the host `t()`/`getWebviewL10nMap()` runtime (`extension/src/l10n.ts` +
 > `strings-host.ts`) and the browser `vt()` runtime (`assets/web/l10n.ts` +
 > `strings-web.ts`) are stood up, build-verified, and unit-tested for the host side;
@@ -403,7 +423,7 @@ in phases, each at a check that must pass before the next:
   `package.nls.json`, rewrite values as `%key%`, add the key-sync helper +
   `verify-nls` + `verify:nls-coverage`, ship empty (English-only) locale files.
   *Gate:* extension activates, all chrome reads correctly, `verify-nls` green.
-  *(verify-nls ✅ done; verify:nls-coverage + activation notice ⬜ pending.)*
+  *(verify-nls ✅, verify:nls-coverage ✅, publish l10n audit ✅ done; activation notice ⬜ pending.)*
 - **Phase 2 — Runtime source-of-truth.** Stand up `extension/src/l10n/` registries
   and the host `t()` / browser `l10n.ts` utilities. Migrate ONE panel and ONE web
   viewer module as a vertical slice. *Gate:* the slice renders via `t()`/`vt()`
