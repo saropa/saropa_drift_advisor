@@ -6,7 +6,8 @@ import * as S from './state.ts';
 import { esc, setButtonBusy } from './utils.ts';
 import { switchTab } from './tabs.ts';
 import { loadSqlHistory, pushSqlHistory, loadBookmarks, refreshBookmarksDropdown, addBookmark, deleteBookmark, exportBookmarks, importBookmarks, bindDropdownToInput } from './sql-history.ts';
-import { fetchHistory, togglePanelCollapsed as toggleHistorySidebar } from './history-sidebar.ts';
+import { fetchHistory } from './history-sidebar.ts';
+import { selectPanel } from './sidebar-panels.ts';
 import { buildTableStatusBar } from './table-view.ts';
 
 export function initSqlRunner(): void {
@@ -38,10 +39,9 @@ export function initSqlRunner(): void {
   loadBookmarks();
   refreshBookmarksDropdown(bookmarksSel);
   bindDropdownToInput(bookmarksSel, S.sqlBookmarks, inputEl);
-  // Wire the history-toggle icon button to open/close the History sidebar.
-  // Same behavior as the toolbar-level #tb-history-toggle — we intentionally
-  // share the toggle function so both controls stay in sync.
-  if (historyToggleBtn) historyToggleBtn.addEventListener('click', toggleHistorySidebar);
+  // Show the History panel in the single sidebar — same destination as the
+  // activity-bar History icon, so both controls land on the same panel.
+  if (historyToggleBtn) historyToggleBtn.addEventListener('click', function () { selectPanel('history'); });
   if (bookmarkSaveBtn) bookmarkSaveBtn.addEventListener('click', function() { addBookmark(inputEl, bookmarksSel); });
   if (bookmarkDeleteBtn) bookmarkDeleteBtn.addEventListener('click', function() { deleteBookmark(bookmarksSel); });
   if (bookmarkExportBtn) bookmarkExportBtn.addEventListener('click', exportBookmarks);

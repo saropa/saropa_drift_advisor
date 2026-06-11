@@ -4,30 +4,32 @@
  */
 import * as S from './state.ts';
 import { openTool } from './tabs.ts';
-import { toggleSidebarCollapsed } from './sidebar.ts';
-import { togglePanelCollapsed } from './history-sidebar.ts';
+import { togglePanel } from './sidebar-panels.ts';
 
+/**
+ * Reflects the single sidebar's state onto the two Home switches. With one
+ * swappable sidebar, a switch reads "on" only when its panel is the visible
+ * one (active AND not collapsed) — so the pair behaves like a radio: showing
+ * Tables turns History off, and collapsing turns both off.
+ */
 function syncSidebarTogglesFromLayout(): void {
   var layout = document.getElementById('app-layout');
-  var leftSw = document.getElementById('home-switch-tables');
-  var rightSw = document.getElementById('home-switch-history');
-  if (!layout) return;
-  var leftCollapsed = layout.classList.contains('app-sidebar-panel-collapsed');
-  var rightCollapsed = layout.classList.contains('history-sidebar-collapsed');
-  var leftOn = !leftCollapsed;
-  var rightOn = !rightCollapsed;
-  if (leftSw) {
-    leftSw.setAttribute('aria-checked', leftOn ? 'true' : 'false');
-    leftSw.classList.toggle('home-switch-on', leftOn);
+  var sidebar = document.getElementById('app-sidebar');
+  var tablesSw = document.getElementById('home-switch-tables');
+  var historySw = document.getElementById('home-switch-history');
+  if (!layout || !sidebar) return;
+  var collapsed = layout.classList.contains('app-sidebar-panel-collapsed');
+  var active = sidebar.getAttribute('data-active-panel');
+  var tablesOn = !collapsed && active === 'tables';
+  var historyOn = !collapsed && active === 'history';
+  if (tablesSw) {
+    tablesSw.setAttribute('aria-checked', tablesOn ? 'true' : 'false');
+    tablesSw.classList.toggle('home-switch-on', tablesOn);
   }
-  if (rightSw) {
-    rightSw.setAttribute('aria-checked', rightOn ? 'true' : 'false');
-    rightSw.classList.toggle('home-switch-on', rightOn);
+  if (historySw) {
+    historySw.setAttribute('aria-checked', historyOn ? 'true' : 'false');
+    historySw.classList.toggle('home-switch-on', historyOn);
   }
-  var sidebarBtn = document.getElementById('tb-sidebar-toggle');
-  var historyBtn = document.getElementById('tb-history-toggle');
-  if (sidebarBtn) sidebarBtn.setAttribute('aria-pressed', leftOn ? 'true' : 'false');
-  if (historyBtn) historyBtn.setAttribute('aria-pressed', rightOn ? 'true' : 'false');
 }
 
 function wireHomeSwitch(id: string, toggle: () => void): void {
@@ -110,8 +112,8 @@ function buildToolGrid(): void {
 /** Builds the launcher grid, wires sidebar switches. Call once after DOM is ready. */
 export function initHomeScreen(): void {
   buildToolGrid();
-  wireHomeSwitch('home-switch-tables', toggleSidebarCollapsed);
-  wireHomeSwitch('home-switch-history', togglePanelCollapsed);
+  wireHomeSwitch('home-switch-tables', function () { togglePanel('tables'); });
+  wireHomeSwitch('home-switch-history', function () { togglePanel('history'); });
   syncSidebarTogglesFromLayout();
   (window as unknown as { _syncHomeSidebarToggles?: () => void })._syncHomeSidebarToggles =
     syncSidebarTogglesFromLayout;

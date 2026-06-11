@@ -36,7 +36,7 @@
     import { initHomeScreen } from './home-screen.ts';
     import { goToOffset, ensureColumnConfig, applyColumnConfigAndRender, populateColumnChooserList } from './pagination.ts';
     import { loadSchemaIntoPre, loadSchemaView, loadBothView } from './schema.ts';
-    import { initSidebarCollapse } from './sidebar.ts';
+    import { initSidebarPanels } from './sidebar-panels.ts';
     import { initHistorySidebar } from './history-sidebar.ts';
     import { initDiagram } from './diagram.ts';
     import { initSnapshot, initCompare, initMigrationPreview } from './tools-compare.ts';
@@ -212,7 +212,7 @@
     };
 
     initTabsAndToolbar();
-    initSidebarCollapse();
+    initSidebarPanels();
     initHistorySidebar();
     initHomeScreen();
 
