@@ -3,79 +3,15 @@ import type { TableMetadata } from '../api-types';
 import { ChangeTracker, PendingChange } from './change-tracker';
 import { EDITING_SCRIPT } from './editing-bridge-script';
 import { validateCellEdit, validateRowInsert } from './sqlite-cell-value';
+import type { CellEditMsg, RowDeleteMsg, RowInsertMsg } from './editing-message-types';
+import {
+  getSinglePkGuardReason,
+  hasValidPkColumn,
+  isEditMessage,
+} from './editing-validators';
 
 const CELL_EDIT_HINT =
   ' Tip: for nullable columns, an empty cell is saved as NULL.';
-
-/** Messages sent from the webview to the extension. */
-interface CellEditMsg {
-  command: 'cellEdit';
-  table: string;
-  pkColumn: string;
-  pkValue: unknown;
-  column: string;
-  oldValue: unknown;
-  newValue: unknown;
-}
-interface RowDeleteMsg {
-  command: 'rowDelete';
-  table: string;
-  pkColumn: string;
-  pkValue: unknown;
-}
-interface RowInsertMsg {
-  command: 'rowInsert';
-  table: string;
-  values: Record<string, unknown>;
-}
-interface UndoMsg { command: 'undo'; }
-interface RedoMsg { command: 'redo'; }
-interface DiscardMsg { command: 'discardAll'; }
-
-type EditMessage =
-  | CellEditMsg | RowDeleteMsg | RowInsertMsg
-  | UndoMsg | RedoMsg | DiscardMsg;
-
-/**
- * Validates that webview messages include the single PK column identity required
- * by the current pending-change model (`pkColumn` + `pkValue`).
- */
-function hasValidPkColumn(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-/**
- * Ensures the target table has exactly one PK column in schema metadata.
- *
- * The current edit message protocol stores row identity as singular
- * `pkColumn`/`pkValue`, so composite PK tables must be rejected.
- */
-function getSinglePkGuardReason(
-  tables: TableMetadata[],
-  tableName: string,
-): string | undefined {
-  const table = tables.find((t) => t.name === tableName);
-  if (!table) {
-    return `Edit rejected: table "${tableName}" was not found in schema metadata.`;
-  }
-  const pkCount = table.columns.filter((c) => c.pk).length;
-  if (pkCount === 0) {
-    return `Edit rejected: table "${tableName}" has no primary key column.`;
-  }
-  if (pkCount > 1) {
-    return `Edit rejected: table "${tableName}" has a composite primary key, which is not yet supported in inline editing.`;
-  }
-  return undefined;
-}
-
-function isEditMessage(msg: unknown): msg is EditMessage {
-  if (typeof msg !== 'object' || msg === null) return false;
-  const cmd = (msg as Record<string, unknown>).command;
-  return (
-    cmd === 'cellEdit' || cmd === 'rowDelete' || cmd === 'rowInsert' ||
-    cmd === 'undo' || cmd === 'redo' || cmd === 'discardAll'
-  );
-}
 
 /**
  * Bridge between the webview (injected editing JS) and the ChangeTracker.

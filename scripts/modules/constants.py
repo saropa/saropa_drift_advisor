@@ -39,6 +39,11 @@ SERVER_CONSTANTS_PATH = os.path.join(
 # Maximum lines allowed per TypeScript source file.
 MAX_FILE_LINES = 300
 
+# Test files (*.test.ts) get a higher cap: they hold many describe/it blocks, so
+# splitting them adds churn without improving cohesion. Keep production source
+# tight (300) while letting suites stay whole.
+MAX_TEST_FILE_LINES = 500
+
 # Git tag prefix — distinct from Dart package tags (which use "v").
 TAG_PREFIX = "ext-v"
 

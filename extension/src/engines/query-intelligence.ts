@@ -12,6 +12,7 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { IRecordedQueryV1, PerformanceData, QueryEntry } from '../api-types';
 import type { IJoinPattern, IPatternIndexSuggestion, IQueryPattern } from './query-intelligence-types';
+import { normalizeQuery, parseQuery } from './query-intelligence-parser';
 
 /** Cache TTL in milliseconds (15 seconds). */
 const CACHE_TTL_MS = 15_000;
@@ -52,7 +53,7 @@ export class QueryIntelligence implements vscode.Disposable {
   }
 
   private _ingestOneQuery(sql: string, durationMs: number, _rowCount: number): void {
-    const normalized = this._normalizeQuery(sql);
+    const normalized = normalizeQuery(sql);
     const existing = this._patterns.get(normalized);
 
     if (existing) {
@@ -61,7 +62,7 @@ export class QueryIntelligence implements vscode.Disposable {
       existing.avgDurationMs = existing.totalDurationMs / existing.executionCount;
       existing.lastSeen = Date.now();
     } else {
-      const parsed = this._parseQuery(sql);
+      const parsed = parseQuery(sql);
       this._patterns.set(normalized, {
         pattern: normalized,
         tables: parsed.tables,
@@ -82,7 +83,7 @@ export class QueryIntelligence implements vscode.Disposable {
     const patterns: IQueryPattern[] = [];
 
     for (const q of perf.slowQueries) {
-      const normalized = this._normalizeQuery(q.sql);
+      const normalized = normalizeQuery(q.sql);
       const existing = this._patterns.get(normalized);
       if (existing && existing.avgDurationMs > thresholdMs) {
         patterns.push(existing);
@@ -176,11 +177,11 @@ export class QueryIntelligence implements vscode.Disposable {
     pattern: IQueryPattern | undefined;
     suggestions: string[];
   }> {
-    const normalized = this._normalizeQuery(sql);
+    const normalized = normalizeQuery(sql);
     const pattern = this._patterns.get(normalized);
     const suggestions: string[] = [];
 
-    const parsed = this._parseQuery(sql);
+    const parsed = parseQuery(sql);
 
     if (parsed.whereColumns.length > 0 && parsed.tables.length > 0) {
       for (const col of parsed.whereColumns) {
@@ -230,84 +231,6 @@ export class QueryIntelligence implements vscode.Disposable {
     }
 
     return this._perfCache;
-  }
-
-  private _normalizeQuery(sql: string): string {
-    return sql
-      .replace(/\s+/g, ' ')
-      .replace(/\d+/g, '?')
-      .replace(/'[^']*'/g, '?')
-      .trim()
-      .toLowerCase();
-  }
-
-  private _parseQuery(sql: string): {
-    tables: string[];
-    whereColumns: string[];
-    joinColumns: string[];
-    orderByColumns: string[];
-  } {
-    const tables: string[] = [];
-    const whereColumns: string[] = [];
-    const joinColumns: string[] = [];
-    const orderByColumns: string[] = [];
-
-    const fromMatch = sql.match(/FROM\s+"?(\w+)"?/gi);
-    if (fromMatch) {
-      for (const m of fromMatch) {
-        const table = m.replace(/FROM\s+"?/i, '').replace(/"$/, '');
-        tables.push(table);
-      }
-    }
-
-    const joinMatch = sql.match(/JOIN\s+"?(\w+)"?/gi);
-    if (joinMatch) {
-      for (const m of joinMatch) {
-        const table = m.replace(/JOIN\s+"?/i, '').replace(/"$/, '');
-        tables.push(table);
-      }
-    }
-
-    const whereMatch = sql.match(/WHERE\s+(.+?)(?:ORDER|GROUP|LIMIT|$)/i);
-    if (whereMatch) {
-      const whereCols = whereMatch[1].match(/"?(\w+)"?\s*[=<>!]/g);
-      if (whereCols) {
-        for (const c of whereCols) {
-          const col = c.replace(/["'\s=<>!]/g, '');
-          if (col && !['AND', 'OR', 'NOT', 'NULL'].includes(col.toUpperCase())) {
-            whereColumns.push(col);
-          }
-        }
-      }
-    }
-
-    const joinOnMatch = sql.match(/ON\s+.+?(?:WHERE|ORDER|GROUP|LIMIT|JOIN|$)/gi);
-    if (joinOnMatch) {
-      for (const m of joinOnMatch) {
-        const cols = m.match(/"?(\w+)"?\s*=/g);
-        if (cols) {
-          for (const c of cols) {
-            const col = c.replace(/["'\s=]/g, '');
-            if (col) joinColumns.push(col);
-          }
-        }
-      }
-    }
-
-    const orderMatch = sql.match(/ORDER\s+BY\s+(.+?)(?:LIMIT|$)/i);
-    if (orderMatch) {
-      const orderCols = orderMatch[1].match(/"?(\w+)"?/g);
-      if (orderCols) {
-        for (const c of orderCols) {
-          const col = c.replace(/"/g, '');
-          if (!['ASC', 'DESC'].includes(col.toUpperCase())) {
-            orderByColumns.push(col);
-          }
-        }
-      }
-    }
-
-    return { tables, whereColumns, joinColumns, orderByColumns };
   }
 
   dispose(): void {

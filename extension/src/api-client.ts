@@ -1,6 +1,11 @@
 /**
  * Drift API client: routes requests to VM Service when debugging,
  * otherwise uses HTTP. Re-exports API types for convenience.
+ *
+ * Connection state and the always-HTTP endpoints (schema export, database file,
+ * reports, sessions, DVR recorder) live on [DriftApiClientBase] in
+ * api-client-base.ts. This subclass adds the VM-Service transport and the
+ * methods that route between VM and HTTP based on `_vmClient.connected`.
  */
 
 export type * from './api-types';
@@ -8,51 +13,25 @@ import type {
   Anomaly,
   ForeignKey,
   HealthResponse,
-  ICompareReport,
-  IDiagramData,
-  IDvrQueriesPage,
-  IDvrStatus,
-  IRecordedQueryV1,
-  IImportResult,
-  IMigrationPreview,
   IndexSuggestion,
-  ISessionData,
-  ISessionShareResult,
-  ISizeAnalytics,
   IMutationStreamResponse,
   PerformanceData,
   TableMetadata,
 } from './api-types';
 import type { VmServiceClient } from './transport/vm-service-client';
-import {
-  importDataRequest,
-  sessionAnnotateRequest,
-  sessionGetRequest,
-  sessionShareRequest,
-} from './api-client-sessions';
 import * as http from './api-client-http';
+import { DriftApiClientBase } from './api-client-base';
 
 /** Returned by [DriftApiClient.onVmTransportChanged] so callers can unsubscribe. */
 export interface IVmTransportSubscription {
   dispose(): void;
 }
 
-export class DriftApiClient {
-  private _baseUrl: string;
-  private _authToken: string | undefined;
+export class DriftApiClient extends DriftApiClientBase {
   /** When set and connected, VM used for health, schema, sql, generation, performance, anomalies, explain, clear (Plan 68). */
   private _vmClient: VmServiceClient | null = null;
   /** Listeners notified whenever [setVmClient] runs (connect, swap, or clear). */
   private readonly _vmTransportListeners = new Set<() => void>();
-
-  constructor(host: string, port: number) {
-    this._baseUrl = `http://${host}:${port}`;
-  }
-
-  /** Update the server endpoint (called by ServerManager on active server change). */
-  reconfigure(host: string, port: number): void {
-    this._baseUrl = `http://${host}:${port}`;
-  }
 
   /** Use VM Service for core API when debugging (Plan 68). Clears on debug session end. */
   setVmClient(client: VmServiceClient | null): void {
@@ -91,34 +70,9 @@ export class DriftApiClient {
     return this._vmClient?.connected === true;
   }
 
-  /** Set or clear the Bearer auth token sent with every request. */
-  setAuthToken(token: string | undefined): void {
-    this._authToken = token || undefined;
-  }
-
-  get host(): string {
-    return new URL(this._baseUrl).hostname;
-  }
-
-  get port(): number {
-    return Number.parseInt(new URL(this._baseUrl).port, 10);
-  }
-
-  get baseUrl(): string {
-    return this._baseUrl;
-  }
-
   /** UI label when connected: "VM Service" or HTTP URL. */
   get connectionDisplayName(): string {
     return this.usingVmService ? 'VM Service' : this._baseUrl;
-  }
-
-  private _headers(extra?: Record<string, string>): Record<string, string> {
-    const h: Record<string, string> = { 'X-Drift-Client': 'vscode', ...extra };
-    if (this._authToken) {
-      h['Authorization'] = `Bearer ${this._authToken}`;
-    }
-    return h;
   }
 
   async health(): Promise<HealthResponse> {
@@ -244,107 +198,5 @@ export class DriftApiClient {
       return;
     }
     return http.httpClearPerformance(this._baseUrl, this._headers());
-  }
-
-  async schemaDiagram(): Promise<IDiagramData> {
-    return http.httpSchemaDiagram(this._baseUrl, this._headers());
-  }
-
-  async schemaDump(): Promise<string> {
-    return http.httpSchemaDump(this._baseUrl, this._headers());
-  }
-
-  async databaseFile(): Promise<ArrayBuffer> {
-    return http.httpDatabaseFile(this._baseUrl, this._headers());
-  }
-
-  async compareReport(): Promise<ICompareReport> {
-    return http.httpCompareReport(this._baseUrl, this._headers());
-  }
-
-  async migrationPreview(): Promise<IMigrationPreview> {
-    return http.httpMigrationPreview(this._baseUrl, this._headers());
-  }
-
-  async sizeAnalytics(): Promise<ISizeAnalytics> {
-    return http.httpSizeAnalytics(this._baseUrl, this._headers());
-  }
-
-  async importData(
-    format: string,
-    table: string,
-    data: string,
-  ): Promise<IImportResult> {
-    return importDataRequest(
-      this._baseUrl,
-      this._headers({ 'Content-Type': 'application/json' }),
-      format,
-      table,
-      data,
-    );
-  }
-
-  async sessionShare(state: Record<string, unknown>): Promise<ISessionShareResult> {
-    return sessionShareRequest(
-      this._baseUrl,
-      this._headers({ 'Content-Type': 'application/json' }),
-      state,
-    );
-  }
-
-  async sessionGet(id: string): Promise<ISessionData> {
-    return sessionGetRequest(this._baseUrl, this._headers(), id);
-  }
-
-  async sessionAnnotate(id: string, text: string, author: string): Promise<void> {
-    return sessionAnnotateRequest(
-      this._baseUrl,
-      this._headers({ 'Content-Type': 'application/json' }),
-      id,
-      text,
-      author,
-    );
-  }
-
-  /** Returns current DVR recorder status. */
-  async dvrStatus(): Promise<IDvrStatus> {
-    return http.httpDvrStatus(this._baseUrl, this._headers());
-  }
-
-  /** Starts DVR recording. */
-  async dvrStart(): Promise<IDvrStatus> {
-    return http.httpDvrStart(this._baseUrl, this._headers());
-  }
-
-  /** Stops DVR recording. */
-  async dvrStop(): Promise<IDvrStatus> {
-    return http.httpDvrStop(this._baseUrl, this._headers());
-  }
-
-  /** Pauses DVR recording without clearing captured history. */
-  async dvrPause(): Promise<IDvrStatus> {
-    return http.httpDvrPause(this._baseUrl, this._headers());
-  }
-
-  /** Updates DVR recorder options (buffer size, before/after capture). */
-  async dvrConfigure(body: {
-    maxQueries?: number;
-    captureBeforeAfter?: boolean;
-  }): Promise<{ maxQueries: number; captureBeforeAfter: boolean; queryCount: number; sessionId: string }> {
-    return http.httpDvrConfig(this._baseUrl, this._headers(), body);
-  }
-
-  /** Returns a cursor page of recorded DVR queries. */
-  async dvrQueries(options?: {
-    cursor?: number;
-    limit?: number;
-    direction?: 'forward' | 'backward';
-  }): Promise<IDvrQueriesPage> {
-    return http.httpDvrQueries(this._baseUrl, this._headers(), options);
-  }
-
-  /** Returns a single recorded DVR query event. */
-  async dvrQuery(sessionId: string, id: number): Promise<IRecordedQueryV1> {
-    return http.httpDvrQuery(this._baseUrl, this._headers(), sessionId, id);
   }
 }

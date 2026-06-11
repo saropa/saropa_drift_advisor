@@ -9,19 +9,18 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { IRecordedQueryV1 } from '../api-types';
 import type { QueryIntelligence } from '../engines/query-intelligence';
-import { SqlNotebookPanel } from '../sql-notebook/sql-notebook-panel';
 import { refreshDvrStatusBar } from './dvr-status-bar';
 import { buildDvrPanelHtml } from './dvr-html';
 import { filterRecordedQueries, type DvrQueryKindFilter } from './dvr-search';
+import { buildDetailHtml } from './dvr-detail-format';
 import {
-  buildPerformanceDataFromDvrQueries,
-  detectRegressions,
-  recordDvrQueriesIntoPerfBaselines,
-  showRegressionWarning,
-} from '../debug/perf-regression-detector';
+  analyzeSqlCost,
+  applyDvrPerfTracking,
+  exportTimeline,
+  openSqlInEditor,
+  openSqlInNotebook,
+} from './dvr-panel-actions';
 import type { PerfBaselineStore } from '../debug/perf-baseline-store';
-
-const _kDetailJsonMax = 12_000;
 
 type DvrWebviewMessage =
   | { command: 'ready' }
@@ -134,31 +133,11 @@ export class DvrPanel {
   private async _fetchDetail(sessionId: string, id: number): Promise<void> {
     try {
       const q = await this._client.dvrQuery(sessionId, id);
-      const chunk = JSON.stringify(
-        {
-          params: q.params,
-          beforeState: q.beforeState,
-          afterState: q.afterState,
-          meta: q.meta,
-        },
-        null,
-        2,
-      );
-      const clipped = chunk.length > _kDetailJsonMax ? `${chunk.slice(0, _kDetailJsonMax)}…` : chunk;
-      this._detailHtml = `<pre>${this._escapeHtml(clipped)}</pre>`;
+      this._detailHtml = buildDetailHtml(q);
     } catch {
       this._detailHtml = '<pre>(detail unavailable — id may have been evicted)</pre>';
     }
     this._render();
-  }
-
-  private _escapeHtml(s: string): string {
-    return s
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
   }
 
   private _currentSql(): string | undefined {
@@ -232,12 +211,7 @@ export class DvrPanel {
           return;
         }
         case 'export': {
-          const payload = JSON.stringify(this._timeline(), null, 2);
-          const doc = await vscode.workspace.openTextDocument({
-            content: payload,
-            language: 'json',
-          });
-          await vscode.window.showTextDocument(doc, { preview: true });
+          await exportTimeline(this._timeline());
           return;
         }
         case 'openSql': {
@@ -246,11 +220,7 @@ export class DvrPanel {
             void vscode.window.showInformationMessage('Select a query first (click a row or use timeline).');
             return;
           }
-          const doc = await vscode.workspace.openTextDocument({
-            content: sql,
-            language: 'sql',
-          });
-          await vscode.window.showTextDocument(doc, { preview: true });
+          await openSqlInEditor(sql);
           return;
         }
         case 'openNotebook': {
@@ -259,11 +229,7 @@ export class DvrPanel {
             void vscode.window.showInformationMessage('Select a query first.');
             return;
           }
-          SqlNotebookPanel.showAndInsertQuery(this._extensionContext, this._client, {
-            sql,
-            title: `DVR #${this._focusedId ?? ''}`,
-            source: 'dvr',
-          });
+          openSqlInNotebook(this._extensionContext, this._client, sql, this._focusedId);
           return;
         }
         case 'analyzeCost': {
@@ -272,7 +238,7 @@ export class DvrPanel {
             void vscode.window.showInformationMessage('Select a query first.');
             return;
           }
-          await vscode.commands.executeCommand('driftViewer.analyzeQueryCost', sql);
+          await analyzeSqlCost(sql);
           return;
         }
         case 'openSnapshotDiff': {
@@ -299,28 +265,7 @@ export class DvrPanel {
     this._captureBeforeAfter = status.captureBeforeAfter;
     const page = await this._client.dvrQueries({ limit: 500, direction: 'backward' });
     this._queries = page.queries;
-    DvrPanel._queryIntelligence?.recordFromDvrQueries(this._queries);
-
-    const perfCfg = vscode.workspace.getConfiguration('driftViewer.perfRegression');
-    const store = DvrPanel._perfBaselineStore;
-    if (store && perfCfg.get<boolean>('recordBaselinesFromDvr', true)) {
-      recordDvrQueriesIntoPerfBaselines(this._queries, store);
-    }
-    if (
-      store &&
-      perfCfg.get<boolean>('warnOnDvrPanelRefresh', false) &&
-      perfCfg.get<boolean>('enabled', true)
-    ) {
-      const threshold = perfCfg.get<number>('threshold', 2) ?? 2;
-      const slowMs =
-        vscode.workspace.getConfiguration('driftViewer.performance').get<number>('slowThresholdMs', 500) ??
-        500;
-      const data = buildPerformanceDataFromDvrQueries(this._queries, slowMs);
-      const hits = detectRegressions(data, store, threshold);
-      if (hits.length > 0) {
-        showRegressionWarning(hits);
-      }
-    }
+    applyDvrPerfTracking(this._queries, DvrPanel._queryIntelligence, DvrPanel._perfBaselineStore);
 
     this._error = '';
     await this._syncFocusAfterRefresh();
