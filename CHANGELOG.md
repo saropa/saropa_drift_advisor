@@ -48,6 +48,17 @@ The web viewer's toolbar can now show labels: click any empty space in the toolb
 
 - **Website: history groups repeated queries** — in the debug web viewer's History sidebar, identical SQL is now collapsed into a single row instead of repeating once per run. When a query ran more than once, a clickable **(n)** count appears next to it; clicking it opens a dialog listing every run with its source, time, and duration, plus a **Copy** button that copies the query and all its run times/durations as tab-separated text (ready to paste into a spreadsheet). When the same SQL ran from more than one source (browser / app / internal), the collapsed row shows a pill for each source; otherwise it shows the most recent run's duration and timestamp. Clicking the row (outside the count) loads its SQL into Run SQL as before.
 - **Website: toolbar label toggle** — click the blank whitespace between the debug web viewer's toolbar icons (not an icon) to flip the whole toolbar between two looks: compact icon-only, or each icon paired with a short word inside a dim bounding box. The mode is saved, so it stays the way you left it across reloads.
+- **Website: dictate your question by voice** — the "Ask in English…" dialog now has a microphone button next to the question box. Click it and speak; your words are transcribed into the box and the SQL preview updates as usual. The button only appears in browsers that support voice input (Chrome, Edge, Safari) and stays hidden elsewhere. Recognition uses your browser's built-in speech service, so audio is handled by your browser, not the viewer.
+- **Website: show or hide result columns from the table definition** — the "Table definition" panel now has a **Show** checkbox on each column row. Uncheck a column to drop it from the results grid; check it to bring it back. It stays in sync with the right-click "Hide" menu and the column chooser, and your choices are remembered per table.
+
+### Changed
+
+- **Website: clearer results header** — the results section header now reads, for example, **"Results — 126 rows / 5 columns"**, and only shows the larger totals when they differ (**"126 of 1,126 rows / 5 of 19 columns"**) instead of repeating an identical count like "126 of 126 rows".
+- **Website: expand/collapse chevrons moved to the right** — the ▲/▼ arrows on collapsible section headers (Results, Table definition, Query builder) now sit at the right edge, dimmed, so they no longer crowd the heading text on the left.
+
+### Improved
+
+- **Website: large binary (BLOB) cells no longer slow the grid** — BLOB values are now shown as a short preview instead of dumping the whole value into the cell, which previously made tables with big binary columns sluggish. Hover a truncated BLOB cell and click the new expand button (next to copy) to read the full value in a popup.
 
 ---
 

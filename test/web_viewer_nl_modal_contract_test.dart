@@ -37,8 +37,26 @@ void main() {
       expect(htmlDart, contains('id="nl-modal-input"'));
       expect(htmlDart, isNot(contains('id="nl-input"')));
       expect(htmlDart, isNot(contains('id="nl-convert"')));
+      // Dictation mic ships hidden in markup; JS reveals it only when the
+      // browser exposes the Web Speech API.
+      expect(htmlDart, contains('id="nl-mic"'));
+      expect(htmlDart, contains('<button type="button" id="nl-mic"'));
+      expect(
+        htmlDart,
+        matches(RegExp(r'id="nl-mic"[^>]*\shidden')),
+        reason:
+            'mic must start hidden so unsupported browsers see no dead control',
+      );
     },
   );
+
+  test('NL modal script: speech recognition wiring and close-stops-mic', () {
+    expect(appJs, contains('webkitSpeechRecognition'));
+    expect(appJs, contains('getElementById("nl-mic")'));
+    // Recognition must be aborted when the dialog closes so the mic stops.
+    expect(appJs, contains('function stopNlMic'));
+    expect(appJs, contains('function toggleNlMic'));
+  });
 
   test(
     'NL modal script: preview-only live path and Use copies to sql-input',
