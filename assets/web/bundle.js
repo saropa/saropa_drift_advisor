@@ -6013,6 +6013,13 @@
     return d.toLocaleString();
   }
   var dialogOverlay = null;
+  function closeOccurrencesDialog() {
+    if (dialogOverlay) dialogOverlay.style.display = "none";
+    document.removeEventListener("keydown", onOccurrencesKey);
+  }
+  function onOccurrencesKey(ev) {
+    if (ev.key === "Escape") closeOccurrencesDialog();
+  }
   function occurrencesToTsv(group, rows) {
     const header = "Time	Duration (ms)";
     const body = rows.map((e) => formatAbsoluteTime(e.at) + "	" + e.durationMs).join("\n");
@@ -6030,16 +6037,12 @@
       dialogOverlay.setAttribute("role", "dialog");
       dialogOverlay.setAttribute("aria-modal", "true");
       dialogOverlay.setAttribute("aria-label", "Query run history");
+      dialogOverlay.addEventListener("click", function(ev) {
+        if (ev.target === dialogOverlay) closeOccurrencesDialog();
+      });
       document.body.appendChild(dialogOverlay);
     }
     const overlay = dialogOverlay;
-    function close() {
-      overlay.style.display = "none";
-      document.removeEventListener("keydown", onKey);
-    }
-    function onKey(ev) {
-      if (ev.key === "Escape") close();
-    }
     const preview = group.sql.length > 200 ? group.sql.slice(0, 197) + "\u2026" : group.sql;
     const tableRows = rows.map((e) => {
       const badge = '<span class="history-badge history-badge--' + esc2(e.source) + '">' + esc2(e.source) + "</span>";
@@ -6059,11 +6062,8 @@
       });
     }
     const closeBtn = overlay.querySelector(".history-dialog-close");
-    if (closeBtn) closeBtn.addEventListener("click", close);
-    overlay.addEventListener("click", function(ev) {
-      if (ev.target === overlay) close();
-    });
-    document.addEventListener("keydown", onKey);
+    if (closeBtn) closeBtn.addEventListener("click", closeOccurrencesDialog);
+    document.addEventListener("keydown", onOccurrencesKey);
     overlay.style.display = "flex";
   }
   function applyPanelCollapsed(panelCollapsed) {
