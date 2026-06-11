@@ -23,7 +23,7 @@ import time
 from datetime import datetime
 
 from modules.constants import C, EXTENSION_DIR, REPO_ROOT
-from modules.display import ask_choice, info, warn
+from modules.display import ask_choice, heading, info, ok, warn
 
 # Matches a per-locale bundle (package.nls.<locale>.json) but NOT the English base
 # (package.nls.json), which has no locale segment.
@@ -184,3 +184,53 @@ def step_l10n_audit(results: list[tuple[str, bool, float]]) -> bool:
         warn("Aborting publish to address localization gaps first.")
         results.append((_STEP_NAME, False, time.time() - start))
         return False
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI for the standalone localization entry point (``scripts/l10n.py``).
+
+    Runs the manifest l10n audit on its own, outside the publish pipeline. Unlike
+    the publish step there is nothing to gate, so there is NO ignore/retry/abort
+    prompt — this just reports and (in ``check`` mode) sets an exit code.
+
+    Modes::
+
+        audit  (default)  write the report + print the per-locale coverage summary; exit 0.
+        check             same, but exit 1 when any shipped locale has gaps (pre-publish / CI gate).
+
+    This entry NEVER translates. Translating is a separate, deliberate, operator-run
+    step (plan 75 Phase 4) that is intentionally not wired here.
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="l10n",
+        description="Saropa Drift Advisor — manifest localization audit (audits, never translates).",
+    )
+    parser.add_argument(
+        "mode",
+        nargs="?",
+        default="audit",
+        choices=("audit", "check"),
+        help="audit: report only (default). check: exit non-zero when gaps exist.",
+    )
+    args = parser.parse_args(argv)
+
+    heading("Manifest localization audit")
+    audit = audit_manifest_nls()
+    report_path = write_audit_report(audit)
+    _print_summary(audit, report_path)
+
+    if not audit["has_gaps"]:
+        if audit["locale_count"] == 0:
+            ok("English-only — no locale bundles to audit yet (nothing to translate).")
+        else:
+            ok("All shipped locales are fully translated.")
+        return 0
+
+    # Gaps exist. In 'audit' mode they are informational; in 'check' mode they fail.
+    if args.mode == "check":
+        warn("Localization gaps present (missing or untranslated manifest keys).")
+        return 1
+    info("  Gaps are non-fatal; translating is a separate operator-run step (never automatic).")
+    return 0
