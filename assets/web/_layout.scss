@@ -71,6 +71,12 @@
 }
 
 @media (max-width: 900px) {
+  /* Narrow: drop back to a stacked shell so the activity bar becomes a
+     horizontal strip on top (see _toolbar.scss) instead of a left column. */
+  .app-shell {
+    flex-direction: column;
+  }
+
   .app-layout {
     flex-direction: column;
     min-height: 0;
