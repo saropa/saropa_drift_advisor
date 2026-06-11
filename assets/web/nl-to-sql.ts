@@ -23,6 +23,55 @@ interface NlResult {
   error?: string;
 }
 
+/**
+ * Builds a SQLite WHERE predicate for a temporal phrase ("today", "yesterday",
+ * "this week/month/year", "last N days") in the question, scoped to the date
+ * column the verb implies. Returns '' when no temporal phrase is present or the
+ * table has no usable date column — the caller appends the result after FROM
+ * and before any ORDER BY / LIMIT.
+ *
+ * Without this, a question like "how many contacts changed today" silently
+ * dropped both "changed" and "today", producing a bare `SELECT COUNT(*)` over
+ * the whole table — the headline NL-to-SQL bug this guards against.
+ */
+function temporalWhere(q: string, target: SchemaTable): string {
+  // Candidate date columns: anything whose name reads like a timestamp.
+  const dateCols = target.columns.filter(function (c) {
+    return /date|time|_at\b|created|updated|modified|changed|added|edited|timestamp/i.test(c.name);
+  });
+  if (dateCols.length === 0) return '';
+
+  // Pick the column by the verb so "changed"/"updated"/"modified" targets the
+  // modified-date column and "created"/"added"/"new" targets the creation-date
+  // column; a bare temporal mention with no verb falls back to the first one.
+  let col: SchemaColumn | undefined;
+  if (/chang|modif|updat|edit/i.test(q)) {
+    col = dateCols.find(function (c) { return /updat|modif|chang|edit/i.test(c.name); });
+  } else if (/creat|added|\bnew\b|register|insert/i.test(q)) {
+    col = dateCols.find(function (c) { return /creat|add|insert|register/i.test(c.name); });
+  }
+  if (!col) col = dateCols[0];
+
+  // Express the stored value as a local calendar date. Drift stores DateTime as
+  // INTEGER unix-epoch seconds by default; TEXT columns hold ISO-8601 strings.
+  // The 'localtime' modifier makes "today" mean the user's local day, not UTC.
+  const isEpoch = /int/i.test(col.type);
+  const dateExpr = isEpoch
+    ? 'date("' + col.name + "\", 'unixepoch', 'localtime')"
+    : 'date("' + col.name + '")';
+
+  // Range comparisons (week/month/year/last N) over a half-open lower bound;
+  // single-day comparisons use equality against the rendered local date.
+  const lastN = q.match(/last (\d+) days?/i);
+  if (/\btoday\b/i.test(q)) return ' WHERE ' + dateExpr + " = date('now', 'localtime')";
+  if (/\byesterday\b/i.test(q)) return ' WHERE ' + dateExpr + " = date('now', '-1 day', 'localtime')";
+  if (lastN) return ' WHERE ' + dateExpr + " >= date('now', '-" + parseInt(lastN[1]) + " days', 'localtime')";
+  if (/this week/i.test(q)) return ' WHERE ' + dateExpr + " >= date('now', 'weekday 1', '-7 days', 'localtime')";
+  if (/this month/i.test(q)) return ' WHERE ' + dateExpr + " >= date('now', 'start of month', 'localtime')";
+  if (/this year/i.test(q)) return ' WHERE ' + dateExpr + " >= date('now', 'start of year', 'localtime')";
+  return '';
+}
+
 /** Converts a natural language question to a SQL query using schema metadata. */
 export function nlToSql(question: string, meta: SchemaMeta): NlResult {
   const q = question.toLowerCase().trim();
