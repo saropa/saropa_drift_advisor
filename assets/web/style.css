@@ -2513,6 +2513,80 @@ pre {
   position: relative;
 }
 
+/* Clarifier bar: the table dropdown + a "guessed" hint that appears only when
+   the converter had to infer the table. */
+.nl-clarify {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.6rem;
+  flex-wrap: wrap;
+}
+
+.nl-clarify-label {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.nl-clarify-select {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 0.15rem 0.3rem;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+}
+
+.nl-clarify-hint {
+  flex: 1 1 100%;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* Highlight the dropdown while the table is only a guess. */
+.nl-clarify-guess .nl-clarify-select {
+  border-color: var(--link);
+}
+
+/* Refinement chips: pill buttons that add/remove a phrase from the question. */
+.nl-refine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.4rem 0 0.6rem;
+}
+
+.nl-chip {
+  font: inherit;
+  font-size: 0.8em;
+  line-height: 1.2;
+  padding: 0.15rem 0.55rem;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.nl-chip:hover {
+  border-color: var(--link);
+  color: var(--link);
+}
+
+/* Applied chip: its phrase is already in the question (click to remove). */
+.nl-chip-on {
+  border-color: var(--link);
+  color: var(--link);
+  font-weight: 600;
+}
+
+.nl-chip-on::before {
+  content: "✓";
+}
+
 /* Natural-language helper: opens from a single toolbar control; modal textarea matches SQL editor styling. */
 .nl-modal {
   position: fixed;

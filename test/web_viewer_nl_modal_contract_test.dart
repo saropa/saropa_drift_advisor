@@ -116,6 +116,20 @@ void main() {
     },
   );
 
+  test('Ask wizard: clarifier dropdown + schema-derived refinement chips', () {
+    // Clarifier lets the user override the best-guessed table (no dead-ends).
+    expect(htmlDart, contains('id="nl-clarify"'));
+    expect(htmlDart, contains('id="nl-table-select"'));
+    // Refinement chips strip, populated by JS from the resolved table + schema.
+    expect(htmlDart, contains('id="nl-refine"'));
+    expect(appJs, contains('function renderNlRefinements'));
+    expect(appJs, contains('getElementById("nl-table-select")'));
+    // Metadata is fetched with FK edges so relationship chips/predicates work.
+    expect(appJs, contains('includeForeignKeys=1'));
+    expect(styleScss, contains('.nl-clarify'));
+    expect(styleScss, contains('.nl-chip'));
+  });
+
   test('Single swappable sidebar: activity-bar panels, SCSS, JS wiring', () {
     expect(htmlDart, contains('id="app-layout"'));
     expect(htmlDart, contains('class="app-shell"'));
