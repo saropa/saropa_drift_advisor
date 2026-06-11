@@ -6,22 +6,26 @@
  * directly underneath (`#tab-bar`). --- */
 #toolbar-bar.toolbar-bar {
   display: flex;
-  /* Center vertically so 2rem icons are not top-aligned in a taller row;
-   * this used to be `stretch` on the combined tab bar, which left icons
-   * hugging the top edge beside the 2.75rem tab buttons. */
+  /* VS Code activity bar: a vertical icon strip on the far left of the shell.
+   * Column flow stacks the icons top-to-bottom; the .tb-spacer (flex:1) now
+   * pushes the trailing global actions (mask/theme/share/history) to the
+   * bottom of the strip. Sticky so it stays put while the page scrolls. */
+  flex-direction: column;
   align-items: center;
   gap: 0;
   margin: 0;
-  padding: 0.35rem var(--space-2);
-  min-height: 2.5rem;
+  padding: var(--space-2) 0.35rem;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
+  align-self: stretch;
   background: var(--header-bg);
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-  /* Keep the theme flyout's dropdown unclipped when it hangs below. */
-  overflow: visible;
-  position: relative;
-  /* Toolbar sits above the tab row below it so the flyout menu overlaps
-   * tabs cleanly. */
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 57px;
+  max-height: calc(100vh - 57px);
+  overflow-y: auto;
+  overflow-x: visible;
+  /* Above the sidebar/main so the theme flyout overlaps them cleanly. */
   z-index: 3;
 }
 
@@ -109,22 +113,22 @@
   white-space: nowrap;
 }
 
-/* Vertical divider between groups in the tab bar. */
+/* Horizontal divider between icon groups in the vertical strip. */
 .tb-divider {
-  display: inline-block;
-  width: 0;
-  height: 1.2rem;
+  display: block;
+  width: 1.4rem;
+  height: 0;
   border: none;
-  border-left: 1px solid var(--border);
-  margin: 0 0.25rem;
+  border-top: 1px solid var(--border);
+  margin: 0.3rem 0;
   align-self: center;
   flex-shrink: 0;
 }
 
-/* Spacer pushes right-side items to the far right. */
+/* Spacer pushes the trailing global actions to the bottom of the strip. */
 .tb-spacer {
   flex: 1 1 0;
-  min-width: 0;
+  min-height: 0;
 }
 
 /* --- Theme flyout --- */
@@ -137,9 +141,11 @@
 .tb-flyout {
   display: none;
   position: absolute;
-  /* Open downward from the button, right-aligned so it doesn't overflow. */
-  top: 100%;
-  right: 0;
+  /* Open to the RIGHT of the button in the vertical strip (was downward when
+     the toolbar was a top row). */
+  top: 0;
+  left: 100%;
+  margin-left: 0.3rem;
   /* z-index must sit above the tab panel chrome (border + bg) that starts
    * directly beneath the tab bar; 200 was getting covered in some themes
    * because the tab panels establish their own stacking via
@@ -219,7 +225,38 @@ body.theme-midnight .tb-flyout {
   background: rgba(10, 10, 30, 0.92);
 }
 
-/* --- Responsive: hide dividers on very narrow viewports --- */
+/* --- Responsive: below 900px the shell stacks (see _layout.scss), so the
+   activity bar reverts to a horizontal top strip that wraps. --- */
+@media (max-width: 900px) {
+  #toolbar-bar.toolbar-bar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 0.35rem var(--space-2);
+    position: static;
+    max-height: none;
+    overflow: visible;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tb-divider {
+    width: 0;
+    height: 1.2rem;
+    border-top: none;
+    border-left: 1px solid var(--border);
+    margin: 0 0.25rem;
+  }
+
+  .tb-flyout {
+    top: 100%;
+    left: auto;
+    right: 0;
+    margin-left: 0;
+  }
+}
+
+/* --- Hide dividers on very narrow viewports --- */
 @media (max-width: 600px) {
   .tb-divider {
     display: none;
