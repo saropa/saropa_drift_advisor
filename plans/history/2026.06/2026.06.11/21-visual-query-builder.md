@@ -509,3 +509,38 @@ Web v1 already landed (single + multi-table builder, SQL render/validate) — se
 ### Phase 5 — Integration actions (capability-gated)
 - Wire "Open in Notebook", "Save as Snippet", "Add to Dashboard", "Analyze Cost", and `recordQuery`, each behind a capability flag with the documented failure behavior (toast + `integrationError`, state preserved).
 - **Gate:** each action invokes its target when present and is hidden/disabled when absent; failures never discard builder state.
+
+---
+
+## Finish Report (2026-06-11)
+
+**Trigger:** "implement this: plans/21-visual-query-builder.md". On inspection, Phases 0/2/4/5 were already landed; the two open items were Phase 3 (web SQL→visual import) and Phase 1 (single shared SQL module). Both are now implemented, closing the plan.
+
+**Scope:** (B) VS Code extension (TypeScript) + the Dart package's debug web bundle (`assets/web/*.ts`, esbuild). No Flutter/Dart app code (`lib/`) touched → Flutter l10n checklist is out of scope.
+
+### Phase 3 — web SQL → visual graph import
+- New `assets/web/query-builder-import.ts` → `importSelectSqlToWebModel(sql, schemaTables)` produces the multi-table `WebQbModel`.
+- `assets/web/query-builder.ts`: added an **Import to visual builder** button to the Raw SQL panel + handler (parse → load → switch to multi visual scope; alert on error; failed parse keeps prior state).
+- `assets/web/query-builder-multi.ts`: `loadImportedMultiModel(model)` installs the parsed graph.
+
+### Phase 1 — single source of truth
+- Extracted the duplicated SQL semantics into self-contained, dependency-free modules under `extension/src/query-builder/`: `query-builder-core.ts` (render/validate/`sqlLiteral`), `query-builder-core-ops.ts` (WHERE operator lists), `query-builder-core-parse.ts` (string primitives + `makeImportId`), `query-builder-core-import.ts` + `query-builder-core-import-clauses.ts` (flat-SELECT parser, factory-injected table creation).
+- Adapters: extension `sql-renderer.ts` / `sql-import.ts` and web `query-builder-sql.ts` / `query-builder-import.ts` now re-export or delegate to the core. The importer injects a per-surface table factory, so the extension keeps initials aliases + canvas `position` and the web keeps `tN` aliases.
+- Deleted the 5 redundant `sql-import-{utils,from-joins,select-list,where,group-order}.ts` helpers (`utils` renamed → `query-builder-core-parse.ts`).
+- The shared validator also added the JOIN-reachability check the web had but the extension lacked (a disconnected table now reports an error rather than emitting an un-runnable cross-join SELECT — a behavior improvement to the extension, covered by the existing 2677-test suite).
+
+### Verification
+- `extension` `npm run compile` clean; full mocha suite **2677 passing** (covers `sql-renderer`, `sql-import`, `query-model`, `query-builder-panel`, exercising the shared core through the unchanged public adapters).
+- `npm run typecheck:web` clean; `npm run build:js` rebuilt `assets/web/bundle.js`.
+- Throwaway import→render→import→render stability check passed 4/4 (join+filter+GROUP BY+aggregate+multi-ORDER BY, IN/IS NULL, self-join, `*`) — confirms a pasted SELECT reproduces an equivalent model and re-renders identical SQL.
+
+### Files
+- Added: `extension/src/query-builder/query-builder-core.ts`, `-core-ops.ts`, `-core-import.ts`, `-core-import-clauses.ts`; `assets/web/query-builder-import.ts`.
+- Renamed: `sql-import-utils.ts` → `query-builder-core-parse.ts`.
+- Modified: extension `sql-renderer.ts`, `sql-import.ts`; web `query-builder.ts`, `query-builder-multi.ts`, `query-builder-sql.ts`, `bundle.js`; `CHANGELOG.md`, `README.md`, this plan.
+- Deleted: `sql-import-{from-joins,select-list,where,group-order}.ts`.
+
+### Outstanding
+None for this plan. "Known Limitations" (HAVING, subquery/UNION, nested boolean grouping, save/load) remain intentionally out of scope; any future work gets its own plan.
+
+No bug archive — task did not close a `bugs/*.md` file.
