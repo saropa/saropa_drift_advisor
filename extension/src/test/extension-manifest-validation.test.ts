@@ -132,10 +132,21 @@ describe('Extension manifest validation', () => {
       .flat()
       .map((item) => item.command)
       .filter((c): c is string => typeof c === 'string' && c.length > 0);
-    // Collect all command: references in viewsWelcome contents
+    // Collect all command: references in viewsWelcome contents. The contents are
+    // localized (plan 75 System A): each value is a `%key%` placeholder and the
+    // real text — including its command: links — lives in package.nls.json. Resolve
+    // the placeholder before scanning, otherwise this check would silently find
+    // zero welcome commands and validate nothing.
+    const nlsPath = path.join(__dirname, '..', '..', 'package.nls.json');
+    const nls = JSON.parse(fs.readFileSync(nlsPath, 'utf-8')) as Record<string, string>;
+    const resolveNls = (s: string | undefined): string => {
+      if (!s) return '';
+      const m = /^%(.+)%$/.exec(s);
+      return m ? (nls[m[1]] ?? '') : s;
+    };
     const welcomeCommands: string[] = [];
     for (const w of pkg.contributes?.viewsWelcome ?? []) {
-      const matches = (w.contents ?? '').match(/command:[^\s)]+/g) ?? [];
+      const matches = resolveNls(w.contents).match(/command:[^\s)]+/g) ?? [];
       for (const m of matches) {
         welcomeCommands.push(m.replace('command:', ''));
       }

@@ -70,6 +70,23 @@ void main() {
     );
     expect(appJs, contains('getElementById("nl-copy")'));
     expect(appJs, contains('getElementById("nl-preview-run")'));
+    // Phrase-coverage help: [i] button + panel that ships hidden, toggled by JS.
+    expect(htmlDart, contains('id="nl-help"'));
+    expect(htmlDart, contains('id="nl-help-panel"'));
+    expect(
+      htmlDart,
+      matches(RegExp(r'id="nl-help-panel"[^>]*\shidden')),
+      reason: 'help panel must start hidden until the [i] button reveals it',
+    );
+    expect(appJs, contains('function toggleNlHelp'));
+    expect(appJs, contains('getElementById("nl-help")'));
+    expect(styleScss, contains('.nl-help-panel'));
+    // Help panel is searchable with collapsible groups.
+    expect(htmlDart, contains('id="nl-help-search"'));
+    expect(htmlDart, contains('class="nl-help-sec"'));
+    expect(appJs, contains('function filterNlHelp'));
+    expect(appJs, contains('getElementById("nl-help-search")'));
+    expect(styleScss, contains('.nl-help-sec'));
     // Preview caps rows via a subquery wrapper, not by mutating the inner SQL.
     expect(appJs, contains('function previewNlResults'));
     expect(appJs, contains('function copyNlSql'));
