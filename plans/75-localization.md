@@ -510,3 +510,42 @@ Grepped `extension/src/test` and `test/` for every touched symbol (`l10n`, `pack
 - No `package.nls.<locale>.json` / web overlay files yet — added only on a deliberate, authorized translate pass.
 
 Plan stays ACTIVE in `plans/` — only 2 of 5 phases are partially done; the remaining phases are the documented bulk, so neither archival (case 1) nor split (case 2) applies. Status annotated in §9.
+
+---
+
+## Finish Report (2026-06-11) — verify:nls-coverage + publish l10n audit
+
+**Trigger.** The user asked to (1) build `verify:nls-coverage` (the value-coverage measure + its generated data file) and (2) make publish run an l10n audit for maintainers with an `[i]gnore / [r]etry / [a]bort` prompt, clear prompt text, and a pointer to the audit report. Continues plan 75 System A (§2/§5.5/§6).
+
+**This work will be reviewed by another AI.**
+
+### Scope
+(B) VS Code extension (`extension/scripts/nls-coverage.mjs`, generated `extension/src/l10n/nls-coverage-data.ts`, `extension/package.json` scripts) + (C) publish scripts (`scripts/modules/l10n_audit.py`, `scripts/modules/pipeline.py`, `scripts/tests/test_l10n_audit.py`) + docs (this plan, CHANGELOG). NOT (A) Flutter/Dart.
+
+### What changed
+- **Created** `extension/scripts/nls-coverage.mjs` — measures per-locale how many manifest values differ from English; default mode regenerates the snapshot + prints a table; `--check` fails ONLY on staleness (never on low coverage) with line-ending-normalized comparison.
+- **Created (generated)** `extension/src/l10n/nls-coverage-data.ts` — `NLS_TOTAL_KEYS = 231`, `NLS_COVERAGE = {}` (English-only today); deterministic, no timestamp (so `--check` is stable).
+- **Edited** `extension/package.json` — added `generate:nls-coverage` / `verify:nls-coverage` scripts; chained `verify:nls-coverage` into `compile`.
+- **Created** `scripts/modules/l10n_audit.py` — `audit_manifest_nls()` (missing/untranslated/translated/pct per locale), `write_audit_report()` (writes `reports/<YYYYMMDD>/<ts>_l10n_manifest_audit.json`, carries the floor-not-a-guarantee note), `step_l10n_audit()` (writes report, prompts `[I]gnore/[R]etry/[A]bort` default ignore on gaps, returns proceed/abort).
+- **Edited** `scripts/modules/pipeline.py` — wired the audit as Step 11 of the extension leg; bumped Version/CHANGELOG to Step 12.
+- **Created** `scripts/tests/test_l10n_audit.py` — 5 unittest cases (no-locale, partial gap math + pct, fully-translated, base-not-a-locale regex guard, report writer).
+- **Edited** `CHANGELOG.md` (Maintenance bullet) and this plan (§5.5, §6 gate table, §9 STATUS).
+
+### Verification (commands run)
+- `cd extension && node scripts/nls-coverage.mjs --check` → OK (current). Confirmed it FAILS (exit 1) when a synthetic `package.nls.de.json` is added without regenerating, then OK again after cleanup.
+- Extension `compile` chain (`tsc && verify-nls && verify:nls-coverage`) → green; the pre-commit hook re-ran it on commit (`Compiled output verified`).
+- `python -m unittest discover -s scripts/tests` → **37 passing** (incl. the 5 new). Gap math confirmed on a synthetic `de` (2 translated / 228 missing / 1 untranslated → `has_gaps`).
+
+### Test audit (Section 4A)
+Grepped `extension/src/test` and `scripts/tests` for every changed symbol (`nls-coverage`, `NLS_COVERAGE`, `NLS_TOTAL_KEYS`, `l10n_audit`, `audit_manifest`, `Step 11/12`, `verify:nls-coverage`) — no existing test referenced them, so nothing broke. The committed `nls-coverage-data.ts` has its own regression guard: `verify:nls-coverage --check` in the compile chain.
+
+### Notes for the reviewer
+- The coverage measure exists in JS (the dev/CI gate + the generated TS snapshot the future activation notice reads) and the audit reimplements the same simple value-differs-English count in Python (the publish report). The duplication is deliberate: separate consumers, separate languages, no shared runtime, and a subprocess+stdout-parse bridge would be more brittle than a 10-line re-read. Both name the same limitation (a legitimate cognate identical to English reads as untranslated → the percent is a floor).
+- Default `ignore` (not the plan's original `retry`) so Enter/EOF/CI proceeds rather than hanging, and because English-for-untranslated is the expected English-first outcome. Plan §5.5 updated to match.
+
+### Outstanding (unchanged from the framework/System-A report above)
+- Phase 1: only the runtime activation coverage notice remains (consumes `nls-coverage-data.ts`).
+- Phases 2–5: vertical-slice migration, the string sweep, the Python translation toolchain, and any translate run.
+- This task added the audit MECHANISM; with no locale bundles there are no gaps yet, so the maintainer prompt is dormant until locale files exist.
+
+Commit `1245a5f` carries the code; this finish commit adds `scripts/tests/test_l10n_audit.py` and this appended report. Plan stays ACTIVE (System A all but the activation notice done; Phases 2–5 pending).
