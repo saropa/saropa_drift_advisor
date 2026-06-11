@@ -3,6 +3,37 @@
   margin-bottom: 1.25rem;
 }
 
+/* --- Single swappable sidebar: show ONLY the active panel ---
+   Each panel section carries data-panel; #app-sidebar's data-active-panel
+   selects which one is visible. Enumerated (not a generic match) because CSS
+   can't compare two attributes for equality. */
+#app-sidebar > [data-panel] {
+  display: none;
+}
+
+#app-sidebar[data-active-panel="tables"] > [data-panel="tables"],
+#app-sidebar[data-active-panel="search"] > [data-panel="search"],
+#app-sidebar[data-active-panel="history"] > [data-panel="history"],
+#app-sidebar[data-active-panel="ask"] > [data-panel="ask"] {
+  display: block;
+}
+
+/* History panel folded into the left sidebar: strip the old right-column
+   chrome (sticky width, left border, padding) so it renders flush like the
+   other panels. Higher specificity overrides _layout.scss / _history-sidebar.scss. */
+#app-sidebar .history-sidebar {
+  position: static;
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  max-height: none;
+  border-left: none;
+  padding: 0;
+  margin-bottom: 1.25rem;
+  background: transparent;
+  overflow: visible;
+}
+
 .sidebar-section-title {
   font-size: var(--text-xs);
   font-weight: 600;

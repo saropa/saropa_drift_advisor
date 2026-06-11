@@ -748,8 +748,6 @@
   function setSessionFastMode(f) {
     sessionFastMode = f;
   }
-  var APP_SIDEBAR_PANEL_KEY = "saropa_app_sidebar_collapsed";
-  var HISTORY_SIDEBAR_KEY = "saropa_history_sidebar_collapsed";
   var TOOL_ICONS = {
     home: "home",
     tables: "table_chart",
@@ -6718,37 +6716,192 @@
     document.addEventListener("touchcancel", endTouch, { passive: true, capture: true });
   }
 
-  // assets/web/sidebar.ts
+  // assets/web/sidebar-panels.ts
+  var PANEL_KEY = "saropa_sidebar_panel";
+  var COLLAPSED_CLASS = "app-sidebar-panel-collapsed";
+  var sidebar = null;
   var layout = null;
-  var aside = null;
-  function applyAppSidebarCollapsed(collapsed) {
-    if (!layout || !aside) return;
-    layout.classList.toggle("app-sidebar-panel-collapsed", collapsed);
-    aside.setAttribute("aria-hidden", collapsed ? "true" : "false");
+  function persist(panel, collapsed) {
+    try {
+      localStorage.setItem(PANEL_KEY, JSON.stringify({ panel, collapsed }));
+    } catch (e) {
+    }
+  }
+  function syncIcons() {
+    if (!sidebar || !layout) return;
+    const active = sidebar.getAttribute("data-active-panel");
+    const collapsed = layout.classList.contains(COLLAPSED_CLASS);
+    document.querySelectorAll("[data-panel-btn]").forEach(function(btn) {
+      const on = btn.getAttribute("data-panel-btn") === active && !collapsed;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("active", on);
+    });
+    const collapseBtn = document.getElementById("tb-sidebar-toggle");
+    if (collapseBtn) collapseBtn.setAttribute("aria-pressed", collapsed ? "false" : "true");
+    const sync = window._syncHomeSidebarToggles;
+    if (typeof sync === "function") sync();
+  }
+  function selectPanel(name) {
+    if (!sidebar || !layout) return;
+    sidebar.setAttribute("data-active-panel", name);
+    layout.classList.remove(COLLAPSED_CLASS);
+    sidebar.setAttribute("aria-hidden", "false");
+    persist(name, false);
+    syncIcons();
+  }
+  function togglePanel(name) {
+    if (!sidebar || !layout) return;
+    const isActive = sidebar.getAttribute("data-active-panel") === name;
+    const collapsed = layout.classList.contains(COLLAPSED_CLASS);
+    if (isActive && !collapsed) {
+      layout.classList.add(COLLAPSED_CLASS);
+      sidebar.setAttribute("aria-hidden", "true");
+      persist(name, true);
+      syncIcons();
+      return;
+    }
+    selectPanel(name);
   }
   function toggleSidebarCollapsed() {
-    if (!layout) return;
-    var collapsed = !layout.classList.contains("app-sidebar-panel-collapsed");
-    applyAppSidebarCollapsed(collapsed);
+    if (!sidebar || !layout) return;
+    const collapsed = !layout.classList.contains(COLLAPSED_CLASS);
+    layout.classList.toggle(COLLAPSED_CLASS, collapsed);
+    sidebar.setAttribute("aria-hidden", collapsed ? "true" : "false");
+    persist(sidebar.getAttribute("data-active-panel") || "tables", collapsed);
+    syncIcons();
+  }
+  function initSidebarPanels() {
+    sidebar = document.getElementById("app-sidebar");
+    layout = document.getElementById("app-layout");
+    if (!sidebar || !layout) return;
+    let panel = "tables";
+    let collapsed = false;
     try {
-      localStorage.setItem(APP_SIDEBAR_PANEL_KEY, collapsed ? "1" : "0");
+      const raw = localStorage.getItem(PANEL_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.panel === "string") panel = parsed.panel;
+        collapsed = !!(parsed && parsed.collapsed);
+      }
     } catch (e) {
+    }
+    sidebar.setAttribute("data-active-panel", panel);
+    layout.classList.toggle(COLLAPSED_CLASS, collapsed);
+    sidebar.setAttribute("aria-hidden", collapsed ? "true" : "false");
+    document.querySelectorAll("[data-panel-btn]").forEach(function(btn) {
+      const name = btn.getAttribute("data-panel-btn");
+      if (name) btn.addEventListener("click", function() {
+        togglePanel(name);
+      });
+    });
+    const collapseBtn = document.getElementById("tb-sidebar-toggle");
+    if (collapseBtn) collapseBtn.addEventListener("click", toggleSidebarCollapsed);
+    syncIcons();
+  }
+
+  // assets/web/home-screen.ts
+  function syncSidebarTogglesFromLayout() {
+    var layout2 = document.getElementById("app-layout");
+    var sidebar2 = document.getElementById("app-sidebar");
+    var tablesSw = document.getElementById("home-switch-tables");
+    var historySw = document.getElementById("home-switch-history");
+    if (!layout2 || !sidebar2) return;
+    var collapsed = layout2.classList.contains("app-sidebar-panel-collapsed");
+    var active = sidebar2.getAttribute("data-active-panel");
+    var tablesOn = !collapsed && active === "tables";
+    var historyOn = !collapsed && active === "history";
+    if (tablesSw) {
+      tablesSw.setAttribute("aria-checked", tablesOn ? "true" : "false");
+      tablesSw.classList.toggle("home-switch-on", tablesOn);
+    }
+    if (historySw) {
+      historySw.setAttribute("aria-checked", historyOn ? "true" : "false");
+      historySw.classList.toggle("home-switch-on", historyOn);
     }
   }
-  function initSidebarCollapse() {
-    layout = document.getElementById("app-layout");
-    aside = document.getElementById("app-sidebar");
-    if (!layout || !aside) return;
-    var storedCollapsed = false;
-    try {
-      storedCollapsed = localStorage.getItem(APP_SIDEBAR_PANEL_KEY) === "1";
-    } catch (e) {
-    }
-    applyAppSidebarCollapsed(storedCollapsed);
-    try {
-      localStorage.removeItem("saropa_sidebar_tables_collapsed");
-    } catch (e) {
-    }
+  function wireHomeSwitch(id, toggle) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("click", function() {
+      toggle();
+      syncSidebarTogglesFromLayout();
+    });
+  }
+  function buildToolGrid() {
+    var grid = document.getElementById("home-tool-grid");
+    if (!grid) return;
+    grid.replaceChildren();
+    HOME_LAUNCHERS.forEach(function(item) {
+      var iconName = TOOL_ICONS[item.id];
+      var label = TOOL_LABELS[item.id] || item.id;
+      var card = document.createElement("button");
+      card.type = "button";
+      card.className = "home-tool-card";
+      card.setAttribute("data-tool", item.id);
+      card.title = label + " \u2014 " + item.blurb;
+      if (iconName) {
+        var icon = document.createElement("span");
+        icon.className = "material-symbols-outlined home-tool-card-icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = iconName;
+        card.appendChild(icon);
+      }
+      var name = document.createElement("span");
+      name.className = "home-tool-card-name";
+      name.textContent = label;
+      card.appendChild(name);
+      var blurb = document.createElement("span");
+      blurb.className = "home-tool-card-blurb";
+      blurb.textContent = item.blurb;
+      card.appendChild(blurb);
+      card.addEventListener("click", function() {
+        openTool(item.id);
+      });
+      grid.appendChild(card);
+    });
+    HOME_EXTRAS.forEach(function(item) {
+      var card = document.createElement("button");
+      card.type = "button";
+      card.className = "home-tool-card home-tool-card-extra";
+      card.setAttribute("data-home-extra", item.action);
+      card.title = item.label + " \u2014 " + item.blurb;
+      var icon = document.createElement("span");
+      icon.className = "material-symbols-outlined home-tool-card-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = item.icon;
+      card.appendChild(icon);
+      var name = document.createElement("span");
+      name.className = "home-tool-card-name";
+      name.textContent = item.label;
+      card.appendChild(name);
+      var blurb = document.createElement("span");
+      blurb.className = "home-tool-card-blurb";
+      blurb.textContent = item.blurb;
+      card.appendChild(blurb);
+      card.addEventListener("click", function() {
+        if (item.action === "mask") {
+          document.getElementById("tb-mask-toggle")?.click();
+          return;
+        }
+        if (item.action === "theme") {
+          document.getElementById("tb-theme-trigger")?.click();
+          return;
+        }
+        if (item.action === "share") document.getElementById("tb-share-btn")?.click();
+      });
+      grid.appendChild(card);
+    });
+  }
+  function initHomeScreen() {
+    buildToolGrid();
+    wireHomeSwitch("home-switch-tables", function() {
+      togglePanel("tables");
+    });
+    wireHomeSwitch("home-switch-history", function() {
+      togglePanel("history");
+    });
+    syncSidebarTogglesFromLayout();
+    window._syncHomeSidebarToggles = syncSidebarTogglesFromLayout;
   }
 
   // assets/web/history-sidebar.ts
@@ -6879,24 +7032,6 @@
     document.addEventListener("keydown", onOccurrencesKey);
     overlay.style.display = "flex";
   }
-  function applyPanelCollapsed(panelCollapsed) {
-    const layout2 = document.getElementById("app-layout");
-    if (!layout2) return;
-    layout2.classList.toggle("history-sidebar-collapsed", panelCollapsed);
-    if (sidebarEl) {
-      sidebarEl.setAttribute("aria-hidden", panelCollapsed ? "true" : "false");
-    }
-  }
-  function togglePanelCollapsed() {
-    const layout2 = document.getElementById("app-layout");
-    if (!layout2) return;
-    const panelCollapsed = !layout2.classList.contains("history-sidebar-collapsed");
-    applyPanelCollapsed(panelCollapsed);
-    try {
-      localStorage.setItem(HISTORY_SIDEBAR_KEY, panelCollapsed ? "1" : "0");
-    } catch (e) {
-    }
-  }
   function fetchHistory() {
     fetch("/api/history", authOpts()).then(function(r) {
       return r.json();
@@ -6921,12 +7056,6 @@
     );
     countEl = document.getElementById("history-count");
     if (!sidebarEl || !listEl) return;
-    var storedCollapsed = false;
-    try {
-      storedCollapsed = localStorage.getItem(HISTORY_SIDEBAR_KEY) === "1";
-    } catch (e) {
-    }
-    applyPanelCollapsed(storedCollapsed);
     const filterBar = sidebarEl.querySelector(".history-filter-bar");
     if (filterBar) {
       filterBar.addEventListener("click", function(e) {
@@ -6970,110 +7099,6 @@
     const clearBtn = document.getElementById("history-clear");
     if (clearBtn) clearBtn.addEventListener("click", clearHistory);
     fetchHistory();
-  }
-
-  // assets/web/home-screen.ts
-  function syncSidebarTogglesFromLayout() {
-    var layout2 = document.getElementById("app-layout");
-    var leftSw = document.getElementById("home-switch-tables");
-    var rightSw = document.getElementById("home-switch-history");
-    if (!layout2) return;
-    var leftCollapsed = layout2.classList.contains("app-sidebar-panel-collapsed");
-    var rightCollapsed = layout2.classList.contains("history-sidebar-collapsed");
-    var leftOn = !leftCollapsed;
-    var rightOn = !rightCollapsed;
-    if (leftSw) {
-      leftSw.setAttribute("aria-checked", leftOn ? "true" : "false");
-      leftSw.classList.toggle("home-switch-on", leftOn);
-    }
-    if (rightSw) {
-      rightSw.setAttribute("aria-checked", rightOn ? "true" : "false");
-      rightSw.classList.toggle("home-switch-on", rightOn);
-    }
-    var sidebarBtn = document.getElementById("tb-sidebar-toggle");
-    var historyBtn = document.getElementById("tb-history-toggle");
-    if (sidebarBtn) sidebarBtn.setAttribute("aria-pressed", leftOn ? "true" : "false");
-    if (historyBtn) historyBtn.setAttribute("aria-pressed", rightOn ? "true" : "false");
-  }
-  function wireHomeSwitch(id, toggle) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener("click", function() {
-      toggle();
-      syncSidebarTogglesFromLayout();
-    });
-  }
-  function buildToolGrid() {
-    var grid = document.getElementById("home-tool-grid");
-    if (!grid) return;
-    grid.replaceChildren();
-    HOME_LAUNCHERS.forEach(function(item) {
-      var iconName = TOOL_ICONS[item.id];
-      var label = TOOL_LABELS[item.id] || item.id;
-      var card = document.createElement("button");
-      card.type = "button";
-      card.className = "home-tool-card";
-      card.setAttribute("data-tool", item.id);
-      card.title = label + " \u2014 " + item.blurb;
-      if (iconName) {
-        var icon = document.createElement("span");
-        icon.className = "material-symbols-outlined home-tool-card-icon";
-        icon.setAttribute("aria-hidden", "true");
-        icon.textContent = iconName;
-        card.appendChild(icon);
-      }
-      var name = document.createElement("span");
-      name.className = "home-tool-card-name";
-      name.textContent = label;
-      card.appendChild(name);
-      var blurb = document.createElement("span");
-      blurb.className = "home-tool-card-blurb";
-      blurb.textContent = item.blurb;
-      card.appendChild(blurb);
-      card.addEventListener("click", function() {
-        openTool(item.id);
-      });
-      grid.appendChild(card);
-    });
-    HOME_EXTRAS.forEach(function(item) {
-      var card = document.createElement("button");
-      card.type = "button";
-      card.className = "home-tool-card home-tool-card-extra";
-      card.setAttribute("data-home-extra", item.action);
-      card.title = item.label + " \u2014 " + item.blurb;
-      var icon = document.createElement("span");
-      icon.className = "material-symbols-outlined home-tool-card-icon";
-      icon.setAttribute("aria-hidden", "true");
-      icon.textContent = item.icon;
-      card.appendChild(icon);
-      var name = document.createElement("span");
-      name.className = "home-tool-card-name";
-      name.textContent = item.label;
-      card.appendChild(name);
-      var blurb = document.createElement("span");
-      blurb.className = "home-tool-card-blurb";
-      blurb.textContent = item.blurb;
-      card.appendChild(blurb);
-      card.addEventListener("click", function() {
-        if (item.action === "mask") {
-          document.getElementById("tb-mask-toggle")?.click();
-          return;
-        }
-        if (item.action === "theme") {
-          document.getElementById("tb-theme-trigger")?.click();
-          return;
-        }
-        if (item.action === "share") document.getElementById("tb-share-btn")?.click();
-      });
-      grid.appendChild(card);
-    });
-  }
-  function initHomeScreen() {
-    buildToolGrid();
-    wireHomeSwitch("home-switch-tables", toggleSidebarCollapsed);
-    wireHomeSwitch("home-switch-history", togglePanelCollapsed);
-    syncSidebarTogglesFromLayout();
-    window._syncHomeSidebarToggles = syncSidebarTogglesFromLayout;
   }
 
   // assets/web/diagram.ts
@@ -9046,7 +9071,9 @@
     loadBookmarks();
     refreshBookmarksDropdown(bookmarksSel);
     bindDropdownToInput(bookmarksSel, sqlBookmarks, inputEl);
-    if (historyToggleBtn) historyToggleBtn.addEventListener("click", togglePanelCollapsed);
+    if (historyToggleBtn) historyToggleBtn.addEventListener("click", function() {
+      selectPanel("history");
+    });
     if (bookmarkSaveBtn) bookmarkSaveBtn.addEventListener("click", function() {
       addBookmark(inputEl, bookmarksSel);
     });
@@ -9673,7 +9700,7 @@
     if (typeof window._toolbarSyncActiveTab === "function") window._toolbarSyncActiveTab(tabId);
   };
   initTabsAndToolbar();
-  initSidebarCollapse();
+  initSidebarPanels();
   initHistorySidebar();
   initHomeScreen();
   openTool("home");
@@ -10460,26 +10487,6 @@
         btn.classList.toggle("active", isActive);
       });
     };
-    var sidebarBtn = document.getElementById("tb-sidebar-toggle");
-    if (sidebarBtn) {
-      sidebarBtn.addEventListener("click", function() {
-        toggleSidebarCollapsed();
-        var layout3 = document.getElementById("app-layout");
-        var collapsed = layout3 ? layout3.classList.contains("app-sidebar-panel-collapsed") : false;
-        sidebarBtn.setAttribute("aria-pressed", collapsed ? "false" : "true");
-        if (typeof window._syncHomeSidebarToggles === "function") window._syncHomeSidebarToggles();
-      });
-    }
-    var historyBtn = document.getElementById("tb-history-toggle");
-    if (historyBtn) {
-      historyBtn.addEventListener("click", function() {
-        togglePanelCollapsed();
-        var layout3 = document.getElementById("app-layout");
-        var collapsed = layout3 ? layout3.classList.contains("history-sidebar-collapsed") : false;
-        historyBtn.setAttribute("aria-pressed", collapsed ? "false" : "true");
-        if (typeof window._syncHomeSidebarToggles === "function") window._syncHomeSidebarToggles();
-      });
-    }
     var maskBtn = document.getElementById("tb-mask-toggle");
     var maskCb = document.getElementById("tb-mask-checkbox");
     if (maskBtn && maskCb) {
@@ -10521,15 +10528,6 @@
           themeTrigger.focus();
         }
       });
-    }
-    var layout2 = document.getElementById("app-layout");
-    if (layout2 && sidebarBtn) {
-      var sidebarCollapsed = layout2.classList.contains("app-sidebar-panel-collapsed");
-      sidebarBtn.setAttribute("aria-pressed", sidebarCollapsed ? "false" : "true");
-    }
-    if (layout2 && historyBtn) {
-      var historyCollapsed = layout2.classList.contains("history-sidebar-collapsed");
-      historyBtn.setAttribute("aria-pressed", historyCollapsed ? "false" : "true");
     }
     if (typeof window._syncHomeSidebarToggles === "function") window._syncHomeSidebarToggles();
     var activeTab = document.querySelector(".tab-btn.active");
