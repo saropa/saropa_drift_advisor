@@ -288,8 +288,12 @@ import { openTool } from './tabs.ts';
         var nm = boolCols[i].name.toLowerCase().replace(/^(is|has)_/, '').replace(/_/g, ' ');
         chips.push({ label: 'only ' + nm, phrase: nm });
       }
-      // Numeric extreme.
-      var numCol = cols.filter(function (c) { return /int|real|num|float/i.test(c.type || '') && !/^id$|_id$/i.test(c.name); })[0];
+      // Numeric extreme — a real measure, so skip ids, boolean flags, and
+      // date/time columns ("highest active" / "highest updated_at" are nonsense).
+      var numCol = cols.filter(function (c) {
+        return /int|real|num|float|double|dec/i.test(c.type || '')
+          && !/^id$|_id$|date|time|_at\b|_on\b|created|updated|changed|timestamp|^is_|^has_|active|enabled|disabled|verified|visible|hidden|archived|deleted|locked|subscribed|public|private/i.test(c.name);
+      })[0];
       if (numCol) chips.push({ label: 'highest ' + numCol.name, phrase: 'highest ' + numCol.name });
       // Always-available shaping.
       chips.push({ label: 'count', phrase: 'as a total' });
