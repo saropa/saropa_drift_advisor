@@ -6,6 +6,7 @@
  * directly instead of relying on a global `declare`.
  */
 import * as S from './state.ts';
+import { inferForeignKeys } from './nl-to-sql.ts';
 
 /**
  * Returns the cached schema metadata, fetching it from the debug
@@ -37,6 +38,12 @@ export async function loadSchemaMeta(): Promise<any> {
       }
     }
     meta.foreignKeys = edges;
+  }
+  // Add soft FK edges inferred from column naming (e.g. shared *UUID columns)
+  // so relationship chips + the relationship engine work on convention-linked
+  // schemas that declare no SQLite foreign keys.
+  if (meta && Array.isArray(meta.tables)) {
+    meta.foreignKeys = inferForeignKeys(meta);
   }
   S.setSchemaMeta(meta);
   return S.schemaMeta;

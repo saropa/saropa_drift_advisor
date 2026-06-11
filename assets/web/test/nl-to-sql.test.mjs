@@ -284,21 +284,29 @@ describe('real Saropa Contacts shape (UUID links, camelCase, no FKs)', () => {
     assert.match(S('contacts changed today', app), /date\("updatedAt"/);
     assert.equal(appRun('contacts changed today'), 1); // Alice updated today
   });
-  it('relationship phrases are inert without declared FKs', () => {
-    const sql = S('contacts with more than one connection', app);
-    assert.doesNotMatch(sql, /EXISTS/);
-    assert.doesNotMatch(sql, /SELECT COUNT\(\*\) FROM/);
-    assert.ok(appRun('contacts with more than one connection') >= 0);
-  });
   it('boolean count still works on a real table', () => {
     assert.match(S('how many contacts', app), /COUNT\(\*\) FROM "contacts"/);
   });
-  it('KNOWN LIMITATION: no-FK hub falls back to row count (biggest table)', () => {
-    // With no FK graph, "search for alice" guesses the largest table
-    // (contact_points), not contacts — the clarifier lets the user fix it.
+  it('soft-FK inference: hub becomes contacts via shared *UUID columns', () => {
+    // contact_points + connections both carry contactSaropaUUID, so contacts
+    // (its owner) gains the most inbound soft edges and wins the hub guess —
+    // no longer the biggest-by-rowcount detail table.
     const r = nlToSql('search for alice', app);
     assert.equal(r.confidence, 'guess');
-    assert.equal(r.table, 'contact_points');
+    assert.equal(r.table, 'contacts');
+    assert.match(r.sql, /"givenName" LIKE '%alice%'/);
+  });
+  it('soft-FK inference: relationship phrases work on UUID-linked tables', () => {
+    const sql = S('contacts with more than one connection', app);
+    assert.match(sql,
+      /\(SELECT COUNT\(\*\) FROM "connections" WHERE "connections"\."contactSaropaUUID" = "contacts"\."contactSaropaUUID"\) > 1/);
+    assert.ok(appRun('contacts with more than one connection') >= 0);
+  });
+  it('soft-FK inference adds no spurious edges to a declared-FK schema', () => {
+    // The relational fixture's FK behavior is unchanged (Rule 1 edges dedupe
+    // against the declared ones; Rule 2 finds no *UUID columns).
+    assert.equal(relRun('contacts with more than one phone'), 1);
+    assert.equal(relRun('contacts without any phones'), 1);
   });
   it('KNOWN LIMITATION: camelCase favoriteAt is not auto-detected as a date column', () => {
     // "favorite" has no created/updated/_at-snake token, so a temporal verb

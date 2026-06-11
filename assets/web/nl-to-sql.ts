@@ -631,6 +631,91 @@ function relationshipWhere(q: string, target: SchemaTable, meta: SchemaMeta): st
   return conds;
 }
 
+/** "<noun>_id" / "<noun>Id" → the referenced noun ("contact_id" → "contact"); null for a bare "id". */
+function idTargetNoun(colName: string): string | null {
+  if (/^id$/i.test(colName)) return null;
+  const m = colName.match(/^(.+?)_?id$/i);
+  return m && m[1] ? m[1].replace(/_+$/, '') : null;
+}
+
+/**
+ * Returns declared FK edges PLUS soft edges inferred from column naming, so
+ * the wizard works on schemas that link by convention instead of declared
+ * SQLite foreign keys (e.g. Saropa Contacts links every table by a shared
+ * `contactSaropaUUID` and never calls `.references()`).
+ *
+ * Two conventions, both common:
+ *  1. `<noun>_id` / `<noun>Id` → references the table whose singular name is
+ *     <noun> ("phones.contact_id" → contacts).
+ *  2. a shared `*UUID` identity column carried by several tables → the children
+ *     reference the OWNER table whose singular name is embedded in the column
+ *     name ("contact_points.contactSaropaUUID" → contacts, the owner of
+ *     "contactSaropaUUID").
+ *
+ * Inferred edges are deduped against declared ones, so a schema that DOES
+ * declare its FKs is unaffected (the same edge isn't added twice).
+ */
+export function inferForeignKeys(meta: SchemaMeta): ForeignKey[] {
+  const tables = meta.tables || [];
+  const edges: ForeignKey[] = (meta.foreignKeys || []).slice();
+  const keyOf = function (e: ForeignKey) { return e.fromTable + '.' + e.fromColumn + '->' + e.toTable + '.' + e.toColumn; };
+  const seen: { [k: string]: boolean } = {};
+  edges.forEach(function (e) { seen[keyOf(e)] = true; });
+  const add = function (fromTable: string, fromColumn: string, toTable: string, toColumn: string) {
+    if (fromTable === toTable && fromColumn === toColumn) return; // not a self-identity edge
+    const e = { fromTable: fromTable, fromColumn: fromColumn, toTable: toTable, toColumn: toColumn };
+    if (!seen[keyOf(e)]) { seen[keyOf(e)] = true; edges.push(e); }
+  };
+  const pkOf = function (t: SchemaTable) {
+    const pk = t.columns.find(function (c) { return c.pk; });
+    return pk ? pk.name : 'id';
+  };
+
+  // Rule 1: <noun>_id / <noun>Id → table whose (singular) name is <noun>.
+  for (let bi = 0; bi < tables.length; bi++) {
+    const b = tables[bi];
+    for (let ci = 0; ci < b.columns.length; ci++) {
+      const noun = idTargetNoun(b.columns[ci].name);
+      if (!noun) continue;
+      const nl = noun.toLowerCase();
+      const parent = tables.find(function (t) {
+        const tn = t.name.toLowerCase();
+        return tn === nl || singularize(tn) === nl || tn === nl + 's';
+      });
+      if (parent && parent.name !== b.name) add(b.name, b.columns[ci].name, parent.name, pkOf(parent));
+    }
+  }
+
+  // Rule 2: a shared *UUID identity column → children reference its owner.
+  const idCols: { [col: string]: string[] } = {};
+  for (let bi = 0; bi < tables.length; bi++) {
+    const b = tables[bi];
+    for (let ci = 0; ci < b.columns.length; ci++) {
+      const cn = b.columns[ci].name;
+      if (!/uuid/i.test(cn)) continue;
+      (idCols[cn] = idCols[cn] || []).push(b.name);
+    }
+  }
+  for (const col in idCols) {
+    const carriers = idCols[col];
+    if (carriers.length < 2) continue;
+    const colLower = col.toLowerCase();
+    // Owner = carrier whose singular name is embedded in the column name; the
+    // longest such match wins so "contacts"→"contact" beats a stray short hit.
+    let owner: string | null = null;
+    let ownerLen = 0;
+    for (let i = 0; i < carriers.length; i++) {
+      const s = singularize(carriers[i].toLowerCase());
+      if (colLower.indexOf(s) >= 0 && s.length > ownerLen) { owner = carriers[i]; ownerLen = s.length; }
+    }
+    if (!owner) continue;
+    for (let i = 0; i < carriers.length; i++) {
+      if (carriers[i] !== owner) add(carriers[i], col, owner, col);
+    }
+  }
+  return edges;
+}
+
 /**
  * Picks the "hub" table — the one most likely to be the subject of a query.
  * The entity others point at (contacts referenced by phones/emails/addresses)
@@ -700,6 +785,11 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
   const q = question.toLowerCase().trim();
   const tables = meta.tables || [];
   if (tables.length === 0) return { sql: null, error: 'No tables in the schema to query.' };
+
+  // Augment declared FKs with soft edges inferred from column naming so hub
+  // detection and the relationship engine work on convention-linked schemas
+  // (e.g. shared *UUID columns) that declare no SQLite foreign keys.
+  meta = { tables: tables, foreignKeys: inferForeignKeys(meta) };
 
   // Resolve the table (best-guess, never a dead-end). An explicit override from
   // the clarifier dropdown wins and is treated as a named choice.
