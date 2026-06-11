@@ -38,7 +38,7 @@ browse source on
 
   **Open VSX Registry** - [open-vsx.org / extension / saropa / drift-viewer](https://open-vsx.org/extension/saropa/drift-viewer)
 
-## [Unreleased]
+## [3.7.1]
 
 Paste a query and see it as a diagram: the web viewer's query builder can now turn a `SELECT` you've typed (or pasted) into the multi-table visual graph.
 
