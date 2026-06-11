@@ -6,7 +6,7 @@
  * main SQL editor.
  */
 import * as S from './state.ts';
-import { nlToSql } from './nl-to-sql.ts';
+import { nlToSql, isDateColumn } from './nl-to-sql.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
 import { esc, setButtonBusy } from './utils.ts';
 import { selectPanel } from './sidebar-panels.ts';
@@ -274,7 +274,7 @@ import { openTool } from './tabs.ts';
         chips.push({ label: 'has ' + nlSingular(pt), phrase: 'with a ' + nlSingular(pt) });
       }
       // Date facets.
-      var dateCol = cols.filter(function (c) { return /date|time|_at\b|created|updated|changed|timestamp/i.test(c.name); })[0];
+      var dateCol = cols.filter(isDateColumn)[0];
       if (dateCol) {
         chips.push({ label: 'this week', phrase: 'created this week' });
         chips.push({ label: 'today', phrase: 'changed today' });
