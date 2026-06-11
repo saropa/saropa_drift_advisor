@@ -6,21 +6,41 @@
 interface SchemaColumn {
   name: string;
   type: string;
+  // Present on /api/schema/metadata; used by the relationship engine and PK
+  // resolution. Optional so older callers / fixtures still type-check.
+  pk?: boolean;
+  notnull?: boolean;
+}
+
+/** A foreign-key edge: fromTable.fromColumn references toTable.toColumn. */
+interface ForeignKey {
+  fromTable: string;
+  fromColumn: string;
+  toTable: string;
+  toColumn: string;
 }
 
 interface SchemaTable {
   name: string;
   columns: SchemaColumn[];
+  rowCount?: number;
 }
 
 interface SchemaMeta {
   tables: SchemaTable[];
+  // Populated when metadata is fetched with includeForeignKeys=1. The
+  // relationship engine reads this to offer / build EXISTS predicates.
+  foreignKeys?: ForeignKey[];
 }
 
 interface NlResult {
   sql: string | null;
   table?: string;
   error?: string;
+  // How the table was chosen ('named' = the question named it; 'guess' = we
+  // inferred it) and the full candidate list, so the UI can show a clarifier.
+  confidence?: 'named' | 'only' | 'ambiguous' | 'guess';
+  candidates?: string[];
 }
 
 /**
@@ -476,19 +496,215 @@ function limitFrom(q: string): number | null {
 }
 
 /** Converts a natural language question to a SQL query using schema metadata. */
-export function nlToSql(question: string, meta: SchemaMeta): NlResult {
-  const q = question.toLowerCase().trim();
-  const tables = meta.tables || [];
-  let target: SchemaTable | null = null;
-  for (let i = 0; i < tables.length; i++) {
-    const t = tables[i];
-    const name = t.name.toLowerCase();
-    const singular = name.endsWith('s') ? name.slice(0, -1) : name;
-    if (q.includes(name) || q.includes(singular)) { target = t; break; }
+/** English-ish singularizer for matching table names: companies→company,
+ *  addresses→address, phones→phone. Good enough for FK-table name matching. */
+function singularize(n: string): string {
+  if (/ies$/.test(n)) return n.replace(/ies$/, 'y');
+  if (/(ses|xes|zes|ches|shes)$/.test(n)) return n.replace(/es$/, '');
+  if (/s$/.test(n) && !/ss$/.test(n)) return n.replace(/s$/, '');
+  return n;
+}
+
+// Shared number parser for relationship quantifiers ("more than two phones").
+const REL_COUNT_WORDS: { [k: string]: number } = {
+  a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+  seven: 7, eight: 8, nine: 9, ten: 10, couple: 2, few: 3, several: 5,
+};
+function numFromToken(tok: string): number {
+  if (!tok) return 1;
+  const t = tok.toLowerCase().replace(/\s+of$/, '').trim();
+  if (/^\d+$/.test(t)) return parseInt(t, 10);
+  return REL_COUNT_WORDS[t] != null ? REL_COUNT_WORDS[t] : 1;
+}
+
+/**
+ * Builds FK-relationship predicates from the question — "contacts with more
+ * than one phone", "without any orders", "that belong to a company". Uses
+ * row-preserving EXISTS / correlated-count subqueries (never JOINs) so the
+ * result stays rows-of-the-base-table. Returns [] when the schema has no FK
+ * metadata or the question names no related table.
+ *
+ * children(target) = tables whose FK points AT target (target "has" them);
+ * parents(target)  = tables target's own FK points at (target "belongs to").
+ * Self-referential FKs alias the subquery table so the correlation is valid.
+ */
+function relationshipWhere(q: string, target: SchemaTable, meta: SchemaMeta): string[] {
+  const edges = meta.foreignKeys || [];
+  if (edges.length === 0) return [];
+  const tn = '"' + target.name + '"';
+  const conds: string[] = [];
+  const seen: { [k: string]: boolean } = {};
+  const escRe = function (s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+  const NUM = '(\\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten|couple(?: of)?|few|several)';
+  // name | singular alternation for a related table.
+  const nameAlt = function (table: string) {
+    const n = table.toLowerCase();
+    const singular = singularize(n);
+    return singular !== n ? escRe(n) + '|' + escRe(singular) : escRe(n);
+  };
+
+  const children = edges.filter(function (e) { return e.toTable === target.name; })
+    .map(function (e) { return { table: e.fromTable, fkCol: e.fromColumn, pkCol: e.toColumn }; });
+  const parents = edges.filter(function (e) { return e.fromTable === target.name; })
+    .map(function (e) { return { table: e.toTable, fkCol: e.fromColumn, pkCol: e.toColumn }; });
+
+  // --- children: count / existence of related rows pointing back at target ---
+  for (let i = 0; i < children.length; i++) {
+    const c = children[i];
+    if (seen[c.table]) continue;
+    const alt = nameAlt(c.table);
+    if (!new RegExp('\\b(?:' + alt + ')\\b', 'i').test(q)) continue;
+    // Self-FK needs an alias so "rel.fk = base.pk" isn't ambiguous.
+    const selfRef = c.table === target.name;
+    const from = selfRef ? '"' + c.table + '" AS rel' : '"' + c.table + '"';
+    const al = selfRef ? 'rel' : '"' + c.table + '"';
+    const corr = al + '."' + c.fkCol + '" = ' + tn + '."' + c.pkCol + '"';
+    const countSub = '(SELECT COUNT(*) FROM ' + from + ' WHERE ' + corr + ')';
+    const existsSub = 'EXISTS (SELECT 1 FROM ' + from + ' WHERE ' + corr + ')';
+    const notExists = 'NOT EXISTS (SELECT 1 FROM ' + from + ' WHERE ' + corr + ')';
+    const W = function (body: string) { return new RegExp(body, 'i'); };
+    let m: RegExpMatchArray | null;
+    // Order matters: count comparisons first, then negation, then existence,
+    // then a bare exact DIGIT count. "with a/an/any/some/one … " means EXISTS
+    // (has at least one) — checked before the exact-count branch so the "a" in
+    // "with a phone" isn't read as the number 1 ("exactly one").
+    if ((m = q.match(W('\\b(?:with|having)\\s+(?:more than|over)\\s+' + NUM + '\\s+(?:' + alt + ')\\b')))) {
+      conds.push(countSub + ' > ' + numFromToken(m[1]));
+    } else if ((m = q.match(W('\\b(?:with|having)\\s+at least\\s+' + NUM + '\\s+(?:' + alt + ')\\b')))) {
+      conds.push(countSub + ' >= ' + numFromToken(m[1]));
+    } else if (W('\\bwithout\\s+(?:any\\s+)?(?:' + alt + ')\\b').test(q)
+      || W('\\b(?:with|having)\\s+no\\s+(?:' + alt + ')\\b').test(q)) {
+      conds.push(notExists);
+    } else if (W('\\b(?:with|having)\\s+(?:a|an|any|some|one|at least one|one or more)\\s+(?:' + alt + ')\\b').test(q)) {
+      conds.push(existsSub);
+    } else if ((m = q.match(W('\\b(?:with|having)\\s+(?:exactly\\s+)?(\\d+)\\s+(?:' + alt + ')\\b')))) {
+      conds.push(countSub + ' = ' + m[1]);
+    } else {
+      continue;
+    }
+    seen[c.table] = true;
   }
 
-  if (!target && tables.length === 1) target = tables[0];
-  if (!target) return { sql: null, error: 'Could not identify a table from your question.' };
+  // --- parents: target's own FK column set / null / orphaned ---
+  for (let i = 0; i < parents.length; i++) {
+    const p = parents[i];
+    if (seen[p.table]) continue;
+    const alt = nameAlt(p.table);
+    if (!new RegExp('\\b(?:' + alt + ')\\b', 'i').test(q)) continue;
+    const fk = tn + '."' + p.fkCol + '"';
+    const W = function (body: string) { return new RegExp(body, 'i'); };
+    if (W('\\b(?:without|with no|having no|missing|no)\\s+(?:a |an )?(?:' + alt + ')\\b').test(q)
+      || W('\\borphan(?:ed)?\\b').test(q)) {
+      conds.push(fk + ' IS NULL');
+      seen[p.table] = true;
+    } else if (W('\\b(?:with|has|having|linked to|belongs? to|attached to|in)\\s+(?:a |an |its )?(?:' + alt + ')\\b').test(q)) {
+      conds.push(fk + ' IS NOT NULL');
+      seen[p.table] = true;
+    }
+  }
+
+  // --- generic "relationship(s)" with no concrete table named ---
+  // "Related rows" = the sum of all child tables' correlated counts, so
+  // "more than one relationship" counts across every child type together.
+  // EXISTS/NOT-EXISTS use an OR/AND across children for the same reason.
+  if (children.length > 0 && conds.length === 0 && /\brelationship/i.test(q)) {
+    const counts = children.map(function (c) {
+      const corr = '"' + c.table + '"."' + c.fkCol + '" = ' + tn + '."' + c.pkCol + '"';
+      return '(SELECT COUNT(*) FROM "' + c.table + '" WHERE ' + corr + ')';
+    });
+    const sum = counts.join(' + ');
+    const anyExists = children.map(function (c) {
+      const corr = '"' + c.table + '"."' + c.fkCol + '" = ' + tn + '."' + c.pkCol + '"';
+      return 'EXISTS (SELECT 1 FROM "' + c.table + '" WHERE ' + corr + ')';
+    }).join(' OR ');
+    let m: RegExpMatchArray | null;
+    if ((m = q.match(new RegExp('\\b(?:more than|over)\\s+' + NUM + '\\s+relationship', 'i')))) conds.push('(' + sum + ') > ' + numFromToken(m[1]));
+    else if ((m = q.match(new RegExp('\\bat least\\s+' + NUM + '\\s+relationship', 'i')))) conds.push('(' + sum + ') >= ' + numFromToken(m[1]));
+    else if (/\b(?:no|without|zero)\s+relationship/i.test(q)) conds.push('NOT (' + anyExists + ')');
+    else if (/\b(?:a|any|some|with)\s+relationship/i.test(q)) conds.push('(' + anyExists + ')');
+  }
+
+  return conds;
+}
+
+/**
+ * Picks the "hub" table — the one most likely to be the subject of a query.
+ * The entity others point at (contacts referenced by phones/emails/addresses)
+ * is usually it, so rank by inbound FK count first, then row count, then name.
+ * Falls back gracefully to row count / name when no FK metadata is loaded.
+ */
+function pickHubTable(cands: SchemaTable[], meta: SchemaMeta): SchemaTable {
+  const fks = meta.foreignKeys || [];
+  const inbound = function (t: SchemaTable): number {
+    let n = 0;
+    for (let i = 0; i < fks.length; i++) if (fks[i].toTable === t.name) n++;
+    return n;
+  };
+  return cands.slice().sort(function (a, b) {
+    const fa = inbound(a), fb = inbound(b);
+    if (fb !== fa) return fb - fa;
+    const ra = a.rowCount || 0, rb = b.rowCount || 0;
+    if (rb !== ra) return rb - ra;
+    return a.name.localeCompare(b.name);
+  })[0];
+}
+
+interface ResolvedTable {
+  table: SchemaTable;
+  confidence: 'named' | 'only' | 'ambiguous' | 'guess';
+  candidates: string[];
+}
+
+/**
+ * Chooses the target table — and never dead-ends. If the question names a
+ * table we use it; if several are named we pick the hub and flag it ambiguous;
+ * if none is named we best-guess (the only table, else the hub) and flag it a
+ * guess so the UI can surface a clarifier. The full candidate list rides along
+ * so the dropdown can offer every table.
+ */
+function resolveTable(q: string, meta: SchemaMeta): ResolvedTable {
+  const tables = meta.tables || [];
+  const all = tables.map(function (t) { return t.name; });
+  const esc = function (s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+  // Word-bounded name/singular match so "order" doesn't fire inside "reorder".
+  const named = tables.filter(function (t) {
+    const n = t.name.toLowerCase();
+    const singular = singularize(n);
+    return new RegExp('\\b' + esc(n) + '\\b', 'i').test(q)
+      || (singular !== n && new RegExp('\\b' + esc(singular) + '\\b', 'i').test(q));
+  });
+  if (named.length === 1) return { table: named[0], confidence: 'named', candidates: all };
+  if (named.length > 1) {
+    // The subject is usually the table named FIRST ("phones with a contact"
+    // → phones), so prefer the earliest mention over the hub here.
+    const firstIndex = function (t: SchemaTable): number {
+      const n = t.name.toLowerCase();
+      const s = singularize(n);
+      const i1 = q.search(new RegExp('\\b' + esc(n) + '\\b', 'i'));
+      const i2 = s !== n ? q.search(new RegExp('\\b' + esc(s) + '\\b', 'i')) : -1;
+      const found = [i1, i2].filter(function (x) { return x >= 0; });
+      return found.length ? Math.min.apply(null, found) : 1e9;
+    };
+    const earliest = named.slice().sort(function (a, b) { return firstIndex(a) - firstIndex(b); })[0];
+    return { table: earliest, confidence: 'ambiguous', candidates: named.map(function (t) { return t.name; }) };
+  }
+  if (tables.length === 1) return { table: tables[0], confidence: 'only', candidates: all };
+  return { table: pickHubTable(tables, meta), confidence: 'guess', candidates: all };
+}
+
+export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: string }): NlResult {
+  const q = question.toLowerCase().trim();
+  const tables = meta.tables || [];
+  if (tables.length === 0) return { sql: null, error: 'No tables in the schema to query.' };
+
+  // Resolve the table (best-guess, never a dead-end). An explicit override from
+  // the clarifier dropdown wins and is treated as a named choice.
+  let resolved = resolveTable(q, meta);
+  if (opts && opts.table) {
+    const forced = tables.find(function (t) { return t.name === opts.table; });
+    if (forced) resolved = { table: forced, confidence: 'named', candidates: resolved.candidates };
+  }
+  const target = resolved.table;
   // Word-bounded so a short column name doesn't match inside a longer word —
   // e.g. "age" must not light up for "aver(age)", which would make
   // "average balance" pick AVG(age) instead of AVG(balance).
@@ -511,6 +727,9 @@ export function nlToSql(question: string, meta: SchemaMeta): NlResult {
   // valueWhere takes the original-case question so string values keep their case.
   const vw = valueWhere(question, target);
   for (let i = 0; i < vw.length; i++) conds.push(vw[i]);
+  // FK-relationship predicates ("with more than one phone", "without orders").
+  const rw = relationshipWhere(q, target, meta);
+  for (let i = 0; i < rw.length; i++) conds.push(rw[i]);
   const where = conds.length ? ' WHERE ' + conds.join(' AND ') : '';
 
   // Ordering and row-cap apply to the row-returning branches; an explicit cap
@@ -579,5 +798,5 @@ export function nlToSql(question: string, meta: SchemaMeta): NlResult {
   } else {
     sql = 'SELECT ' + selectCols + ' FROM ' + tn + where + order + ' LIMIT ' + (lim != null ? lim : 50);
   }
-  return { sql: sql, table: target.name };
+  return { sql: sql, table: target.name, confidence: resolved.confidence, candidates: resolved.candidates };
 }

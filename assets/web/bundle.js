@@ -965,9 +965,26 @@
   // assets/web/schema-meta.ts
   async function loadSchemaMeta() {
     if (schemaMeta) return schemaMeta;
-    var r = await fetch("/api/schema/metadata", authOpts());
+    var r = await fetch("/api/schema/metadata?includeForeignKeys=1", authOpts());
     if (!r.ok) throw new Error("Failed to load schema metadata (HTTP " + r.status + ")");
-    setSchemaMeta(await r.json());
+    var meta = await r.json();
+    if (meta && Array.isArray(meta.tables) && !Array.isArray(meta.foreignKeys)) {
+      var edges = [];
+      for (var i = 0; i < meta.tables.length; i++) {
+        var t = meta.tables[i];
+        var fks = t && t.foreignKeys;
+        if (Array.isArray(fks)) {
+          for (var j = 0; j < fks.length; j++) {
+            var fk = fks[j];
+            if (fk && fk.toTable && fk.fromColumn && fk.toColumn) {
+              edges.push({ fromTable: t.name, fromColumn: fk.fromColumn, toTable: fk.toTable, toColumn: fk.toColumn });
+            }
+          }
+        }
+      }
+      meta.foreignKeys = edges;
+    }
+    setSchemaMeta(meta);
     return schemaMeta;
   }
 
@@ -5229,21 +5246,188 @@
     if (/\b(?:top|first|head)\b/i.test(q)) return 10;
     return null;
   }
-  function nlToSql(question, meta) {
-    const q = question.toLowerCase().trim();
-    const tables = meta.tables || [];
-    let target = null;
-    for (let i = 0; i < tables.length; i++) {
-      const t = tables[i];
-      const name = t.name.toLowerCase();
-      const singular = name.endsWith("s") ? name.slice(0, -1) : name;
-      if (q.includes(name) || q.includes(singular)) {
-        target = t;
-        break;
+  function singularize(n) {
+    if (/ies$/.test(n)) return n.replace(/ies$/, "y");
+    if (/(ses|xes|zes|ches|shes)$/.test(n)) return n.replace(/es$/, "");
+    if (/s$/.test(n) && !/ss$/.test(n)) return n.replace(/s$/, "");
+    return n;
+  }
+  var REL_COUNT_WORDS = {
+    a: 1,
+    an: 1,
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+    couple: 2,
+    few: 3,
+    several: 5
+  };
+  function numFromToken(tok) {
+    if (!tok) return 1;
+    const t = tok.toLowerCase().replace(/\s+of$/, "").trim();
+    if (/^\d+$/.test(t)) return parseInt(t, 10);
+    return REL_COUNT_WORDS[t] != null ? REL_COUNT_WORDS[t] : 1;
+  }
+  function relationshipWhere(q, target, meta) {
+    const edges = meta.foreignKeys || [];
+    if (edges.length === 0) return [];
+    const tn = '"' + target.name + '"';
+    const conds = [];
+    const seen = {};
+    const escRe = function(s) {
+      return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    };
+    const NUM = "(\\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten|couple(?: of)?|few|several)";
+    const nameAlt = function(table) {
+      const n = table.toLowerCase();
+      const singular = singularize(n);
+      return singular !== n ? escRe(n) + "|" + escRe(singular) : escRe(n);
+    };
+    const children = edges.filter(function(e) {
+      return e.toTable === target.name;
+    }).map(function(e) {
+      return { table: e.fromTable, fkCol: e.fromColumn, pkCol: e.toColumn };
+    });
+    const parents = edges.filter(function(e) {
+      return e.fromTable === target.name;
+    }).map(function(e) {
+      return { table: e.toTable, fkCol: e.fromColumn, pkCol: e.toColumn };
+    });
+    for (let i = 0; i < children.length; i++) {
+      const c = children[i];
+      if (seen[c.table]) continue;
+      const alt = nameAlt(c.table);
+      if (!new RegExp("\\b(?:" + alt + ")\\b", "i").test(q)) continue;
+      const selfRef = c.table === target.name;
+      const from = selfRef ? '"' + c.table + '" AS rel' : '"' + c.table + '"';
+      const al = selfRef ? "rel" : '"' + c.table + '"';
+      const corr = al + '."' + c.fkCol + '" = ' + tn + '."' + c.pkCol + '"';
+      const countSub = "(SELECT COUNT(*) FROM " + from + " WHERE " + corr + ")";
+      const existsSub = "EXISTS (SELECT 1 FROM " + from + " WHERE " + corr + ")";
+      const notExists = "NOT EXISTS (SELECT 1 FROM " + from + " WHERE " + corr + ")";
+      const W = function(body) {
+        return new RegExp(body, "i");
+      };
+      let m;
+      if (m = q.match(W("\\b(?:with|having)\\s+(?:more than|over)\\s+" + NUM + "\\s+(?:" + alt + ")\\b"))) {
+        conds.push(countSub + " > " + numFromToken(m[1]));
+      } else if (m = q.match(W("\\b(?:with|having)\\s+at least\\s+" + NUM + "\\s+(?:" + alt + ")\\b"))) {
+        conds.push(countSub + " >= " + numFromToken(m[1]));
+      } else if (W("\\bwithout\\s+(?:any\\s+)?(?:" + alt + ")\\b").test(q) || W("\\b(?:with|having)\\s+no\\s+(?:" + alt + ")\\b").test(q)) {
+        conds.push(notExists);
+      } else if (W("\\b(?:with|having)\\s+(?:a|an|any|some|one|at least one|one or more)\\s+(?:" + alt + ")\\b").test(q)) {
+        conds.push(existsSub);
+      } else if (m = q.match(W("\\b(?:with|having)\\s+(?:exactly\\s+)?(\\d+)\\s+(?:" + alt + ")\\b"))) {
+        conds.push(countSub + " = " + m[1]);
+      } else {
+        continue;
+      }
+      seen[c.table] = true;
+    }
+    for (let i = 0; i < parents.length; i++) {
+      const p = parents[i];
+      if (seen[p.table]) continue;
+      const alt = nameAlt(p.table);
+      if (!new RegExp("\\b(?:" + alt + ")\\b", "i").test(q)) continue;
+      const fk = tn + '."' + p.fkCol + '"';
+      const W = function(body) {
+        return new RegExp(body, "i");
+      };
+      if (W("\\b(?:without|with no|having no|missing|no)\\s+(?:a |an )?(?:" + alt + ")\\b").test(q) || W("\\borphan(?:ed)?\\b").test(q)) {
+        conds.push(fk + " IS NULL");
+        seen[p.table] = true;
+      } else if (W("\\b(?:with|has|having|linked to|belongs? to|attached to|in)\\s+(?:a |an |its )?(?:" + alt + ")\\b").test(q)) {
+        conds.push(fk + " IS NOT NULL");
+        seen[p.table] = true;
       }
     }
-    if (!target && tables.length === 1) target = tables[0];
-    if (!target) return { sql: null, error: "Could not identify a table from your question." };
+    if (children.length > 0 && conds.length === 0 && /\brelationship/i.test(q)) {
+      const counts = children.map(function(c) {
+        const corr = '"' + c.table + '"."' + c.fkCol + '" = ' + tn + '."' + c.pkCol + '"';
+        return '(SELECT COUNT(*) FROM "' + c.table + '" WHERE ' + corr + ")";
+      });
+      const sum = counts.join(" + ");
+      const anyExists = children.map(function(c) {
+        const corr = '"' + c.table + '"."' + c.fkCol + '" = ' + tn + '."' + c.pkCol + '"';
+        return 'EXISTS (SELECT 1 FROM "' + c.table + '" WHERE ' + corr + ")";
+      }).join(" OR ");
+      let m;
+      if (m = q.match(new RegExp("\\b(?:more than|over)\\s+" + NUM + "\\s+relationship", "i"))) conds.push("(" + sum + ") > " + numFromToken(m[1]));
+      else if (m = q.match(new RegExp("\\bat least\\s+" + NUM + "\\s+relationship", "i"))) conds.push("(" + sum + ") >= " + numFromToken(m[1]));
+      else if (/\b(?:no|without|zero)\s+relationship/i.test(q)) conds.push("NOT (" + anyExists + ")");
+      else if (/\b(?:a|any|some|with)\s+relationship/i.test(q)) conds.push("(" + anyExists + ")");
+    }
+    return conds;
+  }
+  function pickHubTable(cands, meta) {
+    const fks = meta.foreignKeys || [];
+    const inbound = function(t) {
+      let n = 0;
+      for (let i = 0; i < fks.length; i++) if (fks[i].toTable === t.name) n++;
+      return n;
+    };
+    return cands.slice().sort(function(a, b) {
+      const fa = inbound(a), fb = inbound(b);
+      if (fb !== fa) return fb - fa;
+      const ra = a.rowCount || 0, rb = b.rowCount || 0;
+      if (rb !== ra) return rb - ra;
+      return a.name.localeCompare(b.name);
+    })[0];
+  }
+  function resolveTable(q, meta) {
+    const tables = meta.tables || [];
+    const all = tables.map(function(t) {
+      return t.name;
+    });
+    const esc3 = function(s) {
+      return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    };
+    const named = tables.filter(function(t) {
+      const n = t.name.toLowerCase();
+      const singular = singularize(n);
+      return new RegExp("\\b" + esc3(n) + "\\b", "i").test(q) || singular !== n && new RegExp("\\b" + esc3(singular) + "\\b", "i").test(q);
+    });
+    if (named.length === 1) return { table: named[0], confidence: "named", candidates: all };
+    if (named.length > 1) {
+      const firstIndex = function(t) {
+        const n = t.name.toLowerCase();
+        const s = singularize(n);
+        const i1 = q.search(new RegExp("\\b" + esc3(n) + "\\b", "i"));
+        const i2 = s !== n ? q.search(new RegExp("\\b" + esc3(s) + "\\b", "i")) : -1;
+        const found = [i1, i2].filter(function(x) {
+          return x >= 0;
+        });
+        return found.length ? Math.min.apply(null, found) : 1e9;
+      };
+      const earliest = named.slice().sort(function(a, b) {
+        return firstIndex(a) - firstIndex(b);
+      })[0];
+      return { table: earliest, confidence: "ambiguous", candidates: named.map(function(t) {
+        return t.name;
+      }) };
+    }
+    if (tables.length === 1) return { table: tables[0], confidence: "only", candidates: all };
+    return { table: pickHubTable(tables, meta), confidence: "guess", candidates: all };
+  }
+  function nlToSql(question, meta, opts) {
+    const q = question.toLowerCase().trim();
+    const tables = meta.tables || [];
+    if (tables.length === 0) return { sql: null, error: "No tables in the schema to query." };
+    let resolved = resolveTable(q, meta);
+    if (opts && opts.table) {
+      const forced = tables.find(function(t) {
+        return t.name === opts.table;
+      });
+      if (forced) resolved = { table: forced, confidence: "named", candidates: resolved.candidates };
+    }
+    const target = resolved.table;
     const wb = function(s) {
       return new RegExp("\\b" + s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
     };
@@ -5261,6 +5445,8 @@
     if (tw) conds.push(tw);
     const vw = valueWhere(question, target);
     for (let i = 0; i < vw.length; i++) conds.push(vw[i]);
+    const rw = relationshipWhere(q, target, meta);
+    for (let i = 0; i < rw.length; i++) conds.push(rw[i]);
     const where = conds.length ? " WHERE " + conds.join(" AND ") : "";
     const order = orderClause(q, target);
     const lim = limitFrom(q);
@@ -5316,7 +5502,7 @@
     } else {
       sql = "SELECT " + selectCols + " FROM " + tn + where + order + " LIMIT " + (lim != null ? lim : 50);
     }
-    return { sql, table: target.name };
+    return { sql, table: target.name, confidence: resolved.confidence, candidates: resolved.candidates };
   }
 
   // assets/web/sidebar-panels.ts
