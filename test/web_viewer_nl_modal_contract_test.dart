@@ -30,9 +30,18 @@ void main() {
   final String styleScss = _readAllScss();
 
   test(
-    'NL modal shell: compact trigger and preview field, no legacy inline row',
+    'Ask (NL) panel shell: sidebar panel, preview field, no modal chrome',
     () {
-      expect(htmlDart, contains('id="nl-open"'));
+      // The NL tool is a sidebar panel now (#sidebar-ask, data-panel="ask"),
+      // opened by the Ask activity-bar icon — not a modal dialog.
+      expect(htmlDart, contains('id="sidebar-ask"'));
+      expect(htmlDart, contains('data-panel="ask"'));
+      expect(htmlDart, contains('data-panel-btn="ask"'));
+      // Modal chrome is gone: no open trigger, backdrop, or Cancel button.
+      expect(htmlDart, isNot(contains('id="nl-open"')));
+      expect(htmlDart, isNot(contains('id="nl-modal-backdrop"')));
+      expect(htmlDart, isNot(contains('id="nl-cancel"')));
+      // Inner controls keep their ids/classes.
       expect(htmlDart, contains('id="nl-modal-sql-preview"'));
       expect(htmlDart, contains('id="nl-modal-input"'));
       expect(htmlDart, isNot(contains('id="nl-input"')));
