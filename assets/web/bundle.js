@@ -5164,6 +5164,8 @@
       })) continue;
       const spaced = c.name.toLowerCase().replace(/_/g, " ");
       const stripped = c.name.toLowerCase().replace(/^(?:is|has|can)_/, "").replace(/_/g, " ");
+      const lowerConds = conds.join(" ").toLowerCase();
+      if (lowerConds.indexOf("'" + spaced + "'") >= 0 || lowerConds.indexOf("'" + stripped + "'") >= 0) continue;
       const vAlt = (stripped !== spaced ? [spaced, stripped] : [spaced]).map(escRe).join("|");
       const neg = new RegExp("\\b(?:not|non-?|isn'?t|aren'?t)\\s+(?:" + vAlt + ")\\b|\\b(?:in|un|non)(?:" + vAlt + ")\\b", "i");
       const pos = new RegExp("\\b(?:" + vAlt + ")\\b", "i");
@@ -5462,7 +5464,8 @@
     if (/how many|\bcount\b|total number|number of/i.test(q) && !isGrouping) {
       sql = "SELECT COUNT(*) FROM " + tn + where;
     } else if (/duplicate|repeated|dupe/i.test(q)) {
-      const col = mentioned[0] || target.columns.find(function(c) {
+      const dupWord = q.match(/(?:duplicate|repeated|dupe)d?\s+([a-z0-9_]+)/i);
+      const col = dupWord && matchColumn(dupWord[1], target) || mentioned[0] || target.columns.find(function(c) {
         return /name|email|title|slug|code/i.test(c.name);
       }) || target.columns[1] || target.columns[0];
       sql = 'SELECT "' + col.name + '", COUNT(*) AS count FROM ' + tn + where + ' GROUP BY "' + col.name + '" HAVING count > 1 ORDER BY count DESC' + limClause;
@@ -5496,7 +5499,7 @@
       const rowLim = lim != null ? lim : match2 ? parseInt(match2[1], 10) : 10;
       sql = "SELECT " + selectCols + " FROM " + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" ASC' : "") + " LIMIT " + rowLim;
     } else if (isGrouping) {
-      const byMatch = q.match(/\bby\s+([a-z0-9_]+)/i);
+      const byMatch = q.match(/\b(?:by|per)\s+([a-z0-9_]+)/i);
       const groupCol = byMatch && matchColumn(byMatch[1], target) || mentioned[0] || target.columns[1] || target.columns[0];
       sql = 'SELECT "' + groupCol.name + '", COUNT(*) AS count FROM ' + tn + where + ' GROUP BY "' + groupCol.name + '" ORDER BY count DESC' + limClause;
     } else {
