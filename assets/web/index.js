@@ -25,12 +25,15 @@ import './app.js';
 // Self-contained modules that only need the DOM to be ready.
 import { initToolbar } from './toolbar.ts';
 import { initTableDefToggle } from './table-def-toggle.ts';
+import { initTableDefMeta } from './table-def-meta.ts';
 import { initSettings } from './settings.ts';
 
 console.log('[SDA] index.js bridge: calling initToolbar()');
 initToolbar();
 console.log('[SDA] index.js bridge: calling initTableDefToggle()');
 initTableDefToggle();
+console.log('[SDA] index.js bridge: calling initTableDefMeta()');
+initTableDefMeta();
 console.log('[SDA] index.js bridge: calling initSettings()');
 initSettings();
 console.log('[SDA] index.js bridge: init complete');

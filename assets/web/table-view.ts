@@ -326,9 +326,84 @@ export function columnTypeIcon(rawType) {
   return '\u25CB'; // ○ — fallback
 }
 
+/** Human-readable byte size for the table-definition Size column: 932 B, 4.2 KB, 1.3 MB. */
+export function formatTableDefBytes(n) {
+  if (n == null || !isFinite(n)) return '—';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  return (n / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+}
+
+/**
+ * Renders a min/max profiling value into a compact, escaped cell. Long values
+ * (text columns can be paragraphs) are truncated so the meta columns stay
+ * scannable; the full value lives in the title attribute for hover.
+ */
+function formatMetaScalar(value) {
+  if (value == null) return '<span class="tdm-dim">—</span>';
+  var s = String(value);
+  var TRUNC = 22;
+  if (s.length > TRUNC) {
+    return '<span title="' + esc(s) + '">' + esc(s.substring(0, TRUNC)) + '…</span>';
+  }
+  return esc(s);
+}
+
+/**
+ * Builds the trailing meta <td> cells for one column when profiling is on.
+ * Order must match the meta <th> cells in buildTableDefinitionHtml:
+ * Fill, Nulls, Distinct, Unique, Min, Max, Size.
+ */
+function buildColumnMetaCells(stat) {
+  if (!stat) {
+    // Stats missing for this column — render dashes so the row still lines up
+    // with the header (defensive; should not normally happen).
+    var dash = '<td class="tdm-col"><span class="tdm-dim">—</span></td>';
+    return dash + dash + dash + dash + dash + dash + dash;
+  }
+  var total = stat.total || 0;
+  var nonnull = stat.nonnull || 0;
+  // Fill rate = non-null fraction of all rows. Drives the completeness bar.
+  var fillPct = total > 0 ? Math.round((nonnull / total) * 100) : 0;
+  var fillTitle = nonnull + ' of ' + total + ' rows filled (' + stat.nulls + ' null)';
+  var fillCell = '<td class="tdm-col tdm-fill-cell">' +
+    '<span class="tdm-bar" title="' + esc(fillTitle) + '">' +
+    '<span class="tdm-bar-fill" style="width:' + fillPct + '%"></span></span>' +
+    '<span class="tdm-pct">' + fillPct + '%</span></td>';
+
+  var nullsCell = '<td class="tdm-col tdm-num">' +
+    (stat.nulls > 0 ? stat.nulls.toLocaleString() : '<span class="tdm-dim">0</span>') + '</td>';
+
+  var distinctCell = '<td class="tdm-col tdm-num">' + (stat.distinct || 0).toLocaleString() + '</td>';
+
+  // Uniqueness: a column whose distinct count equals the row count (and has no
+  // nulls) is a candidate key — flag it with a key glyph. Otherwise show the
+  // distinct-to-rows ratio so low-cardinality (categorical) columns stand out.
+  var uniqueCell;
+  if (total > 0 && stat.distinct === total && stat.nulls === 0) {
+    uniqueCell = '<td class="tdm-col tdm-unique" title="Candidate key: every value is unique">' +
+      '<span class="tdm-key">🔑</span> 100%</td>';
+  } else if (total > 0) {
+    var uPct = Math.round((stat.distinct / total) * 100);
+    uniqueCell = '<td class="tdm-col tdm-num" title="' + stat.distinct + ' distinct of ' + total + ' rows">' + uPct + '%</td>';
+  } else {
+    uniqueCell = '<td class="tdm-col tdm-num"><span class="tdm-dim">—</span></td>';
+  }
+
+  var minCell = '<td class="tdm-col tdm-val">' + formatMetaScalar(stat.min) + '</td>';
+  var maxCell = '<td class="tdm-col tdm-val">' + formatMetaScalar(stat.max) + '</td>';
+  var sizeCell = '<td class="tdm-col tdm-num" title="Total bytes across all rows (SUM of LENGTH)">' +
+    esc(formatTableDefBytes(stat.bytes)) + '</td>';
+
+  return fillCell + nullsCell + distinctCell + uniqueCell + minCell + maxCell + sizeCell;
+}
+
 /**
  * Builds the collapsible table-definition panel showing column metadata
- * (type icon, name, SQL type, PK/FK/constraint badges).
+ * (type icon, name, SQL type, PK/FK/constraint badges). When profiling is on
+ * (S.tableDefMetaOn) and stats are cached for the table, appends per-column
+ * meta columns (fill, nulls, distinct, uniqueness, min/max, size).
  */
 export function buildTableDefinitionHtml(tableName) {
   var t = schemaTableByName(tableName);
@@ -344,6 +419,13 @@ export function buildTableDefinitionHtml(tableName) {
   // chooser and right-click "Hide" use, so all three stay in sync.
   var cfg = getColumnConfig(tableName);
   var hiddenCols = (cfg && cfg.hidden) || [];
+
+  // Profiling columns render only when the user has toggled meta on AND the
+  // stats query for this table has completed (table-def-meta.ts caches results
+  // in S.tableDefStats). Until then the base columns render alone.
+  var metaOn = !!S.tableDefMetaOn;
+  var stats = S.tableDefStats[tableName];
+  var showMeta = metaOn && !!stats;
 
   var rows = t.columns.map(function(c) {
     var rawType = c.type != null ? String(c.type).trim() : '';
@@ -367,12 +449,14 @@ export function buildTableDefinitionHtml(tableName) {
     var flagStr = flags.length ? flags.join(', ') : '\u2014';
 
     var typCell = rawType ? esc(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
+    var metaCells = showMeta ? buildColumnMetaCells(stats[c.name]) : '';
     return '<tr>' +
       visCell +
       '<td class="table-def-icons">' + iconHtml + badges + '</td>' +
       '<td class="table-def-name" data-longpress-copy="' + esc(c.name) + '">' + esc(c.name) + '</td>' +
       '<td class="table-def-type">' + typCell + '</td>' +
       '<td class="table-def-flags">' + esc(flagStr) + '</td>' +
+      metaCells +
       '</tr>';
   }).join('');
 
@@ -385,8 +469,41 @@ export function buildTableDefinitionHtml(tableName) {
   // Open-by-default later: omit td-collapsed on the wrap. Also remove or skip the post-init loop in
   // table-def-toggle.ts that force-adds td-collapsed to every .table-definition-wrap — it
   // would still collapse everything on first load even if this HTML left the panel open.
-  return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition">' +
-    '<div class="table-definition-heading">Table definition</div>' +
+  // Meta header cells, appended after the base headers when profiling is on.
+  var metaHeads = showMeta
+    ? '<th class="tdm-col" scope="col" title="Share of rows with a non-null value">Fill</th>' +
+      '<th class="tdm-col" scope="col" title="Number of NULL values">Nulls</th>' +
+      '<th class="tdm-col" scope="col" title="Number of distinct values">Distinct</th>' +
+      '<th class="tdm-col" scope="col" title="Uniqueness; key flag when every value is unique">Unique</th>' +
+      '<th class="tdm-col" scope="col" title="Smallest value">Min</th>' +
+      '<th class="tdm-col" scope="col" title="Largest value">Max</th>' +
+      '<th class="tdm-col" scope="col" title="Total stored bytes">Size</th>'
+    : '';
+
+  // Heading toolbar: meta toggle + JSON/Flutter copy. The buttons live inside the
+  // clickable heading, so table-def-meta.ts calls stopPropagation on tool clicks
+  // to keep them from also collapsing the panel (table-def-toggle.ts).
+  var metaActive = metaOn ? ' is-active' : '';
+  var tools = '<span class="table-def-tools">' +
+    '<button type="button" class="table-def-tool' + metaActive + '" data-tdm-action="toggle-meta"' +
+      ' title="Show column profiling stats (fill, nulls, distinct, min/max, size)"' +
+      ' aria-label="Toggle column profiling stats" aria-pressed="' + (metaOn ? 'true' : 'false') + '">' +
+      '<span class="material-symbols-outlined" aria-hidden="true">insights</span></button>' +
+    '<button type="button" class="table-def-tool" data-tdm-action="copy-json"' +
+      ' title="Copy table definition as JSON" aria-label="Copy table definition as JSON">' +
+      '<span class="material-symbols-outlined" aria-hidden="true">data_object</span></button>' +
+    '<button type="button" class="table-def-tool" data-tdm-action="copy-flutter"' +
+      ' title="Copy table definition as Flutter (Drift) class" aria-label="Copy table definition as Flutter code">' +
+      '<span class="material-symbols-outlined" aria-hidden="true">flutter_dash</span></button>' +
+    '</span>';
+
+  // data-table-name lets table-def-meta.ts resolve which table a tool click acts on
+  // (and re-find the live panel after an async stats fetch).
+  return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition" data-table-name="' + esc(tableName) + '">' +
+    '<div class="table-definition-heading">' +
+    '<span class="table-definition-heading-label">Table definition</span>' +
+    tools +
+    '</div>' +
     '<div class="table-definition-scroll">' +
     '<table class="table-definition">' +
     '<thead><tr>' +
@@ -395,6 +512,7 @@ export function buildTableDefinitionHtml(tableName) {
       '<th scope="col">Column</th>' +
       '<th scope="col">Type</th>' +
       '<th scope="col">Constraints</th>' +
+      metaHeads +
     '</tr></thead>' +
     '<tbody>' + rows + '</tbody></table></div></div>';
 }
