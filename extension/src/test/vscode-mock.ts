@@ -205,6 +205,24 @@ export const env = {
   },
 };
 
+/**
+ * Mock of `vscode.l10n`. With no translation bundle loaded (the test environment),
+ * the real `vscode.l10n.t()` returns the English message verbatim, applying only
+ * `{0}`/`{1}` positional substitution — so this mock does exactly that. Lets the
+ * host l10n runtime (src/l10n.ts) run under the test harness.
+ */
+export const l10n = {
+  t(message: string, ...args: Array<string | number | boolean>): string {
+    if (args.length === 0) {
+      return message;
+    }
+    return message.replace(/\{(\d+)\}/g, (match, index) => {
+      const i = Number(index);
+      return i < args.length ? String(args[i]) : match;
+    });
+  },
+};
+
 
 export const languages = {
   createDiagnosticCollection: (name: string): MockDiagnosticCollection => {

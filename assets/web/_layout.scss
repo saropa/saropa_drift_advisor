@@ -1,7 +1,11 @@
-/* --- Shell below the masthead: full-width toolbar + three-column row --- */
+/* --- Shell below the masthead: VS Code-style layout — a vertical activity-bar
+   icon strip on the far left, then the sidebar + main row. The strip is the
+   re-oriented #toolbar-bar (see _toolbar.scss); flex-row puts it on the left and
+   lets .app-layout fill the rest. Narrow viewports fall back to a stacked
+   horizontal strip (media query below). --- */
 .app-shell {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   max-width: 100%;
   min-height: calc(100vh - 60px);
 }
@@ -36,9 +40,10 @@
   overflow-y: auto;
   overflow-x: hidden;
   position: sticky;
-  /* Below sticky header (~57px) + full-width toolbar row (min-height + padding + border). */
-  top: calc(57px + 2.5rem + 0.7rem + 1px);
-  max-height: calc(100vh - 57px - 2.5rem - 0.7rem - 1px);
+  /* Below the sticky masthead (~57px). The toolbar is now a left column, not a
+     row above, so it no longer adds to this offset. */
+  top: 57px;
+  max-height: calc(100vh - 57px);
   transition:
     width 0.2s ease,
     max-width 0.2s ease,
@@ -111,8 +116,8 @@
   overflow-x: hidden;
   position: sticky;
   /* Match .app-sidebar — same offset below header + global toolbar. */
-  top: calc(57px + 2.5rem + 0.7rem + 1px);
-  max-height: calc(100vh - 57px - 2.5rem - 0.7rem - 1px);
+  top: 57px;
+  max-height: calc(100vh - 57px);
   transition:
     width 0.2s ease,
     max-width 0.2s ease,

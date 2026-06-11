@@ -376,8 +376,89 @@ abstract final class HtmlContent {
     <div id="nl-modal" class="nl-modal" hidden aria-hidden="true">
       <div class="nl-modal-backdrop" id="nl-modal-backdrop" tabindex="-1"></div>
       <div class="nl-modal-panel" role="dialog" aria-modal="true" aria-labelledby="nl-modal-title" tabindex="-1">
+        <!-- Info button sits at the panel's top-right corner; it toggles the
+             phrase-coverage help panel below the title. -->
+        <button type="button" id="nl-help" class="nl-icon-btn nl-help-btn" title="What can I ask? Show supported phrases" aria-label="Show supported phrases" aria-expanded="false" aria-controls="nl-help-panel"><span class="material-symbols-outlined" aria-hidden="true">info</span></button>
         <h3 id="nl-modal-title" class="nl-modal-title">Ask in English</h3>
         <p class="meta nl-modal-hint">Preview updates as you type. Use copies the preview into the main SQL editor; Cancel or Escape closes without changing it.</p>
+        <!-- Coverage cheat-sheet: hidden by default, revealed by the [i] button.
+             Summarizes what the natural-language converter understands so the
+             phrasing space is discoverable instead of guessed at. -->
+        <div id="nl-help-panel" class="nl-help-panel" hidden>
+          <!-- Live filter: typing narrows every section's examples and expands
+               the sections that still have a match, so the cheat-sheet stays
+               navigable as it grows. -->
+          <div class="nl-help-search-row">
+            <span class="material-symbols-outlined" aria-hidden="true">search</span>
+            <input type="search" id="nl-help-search" class="nl-help-search" placeholder="Filter examples — try &quot;this week&quot; or &quot;top&quot;" aria-label="Filter help examples" autocomplete="off">
+          </div>
+          <!-- Collapsible groups (native details/summary). The first opens by
+               default; the rest stay collapsed until clicked or matched by a
+               search. Grouped by the job the phrase does, across all roles. -->
+          <div class="nl-help-sections">
+            <details class="nl-help-sec" open>
+              <summary>Counting &amp; math</summary>
+              <ul>
+                <li><code>how many contacts?</code></li>
+                <li><code>average balance</code> · <code>typical age</code></li>
+                <li><code>total / combined balance</code></li>
+                <li><code>highest / lowest age</code> · <code>peak balance</code></li>
+                <li><code>distinct country</code></li>
+              </ul>
+            </details>
+            <details class="nl-help-sec">
+              <summary>Filter by value</summary>
+              <ul>
+                <li><code>age &gt; 30</code> · <code>age between 18 and 65</code></li>
+                <li><code>status = active</code> · <code>status is not closed</code></li>
+                <li><code>email contains gmail</code> · <code>name starts with a</code></li>
+                <li><code>ends with .com</code> · <code>named john</code> · <code>search for alice</code></li>
+                <li><code>active</code> · <code>not archived</code> · <code>verified</code></li>
+                <li><code>has email</code> · <code>no phone</code> · <code>balance is null</code></li>
+                <li><code>negative balance</code> · <code>zero stock</code></li>
+              </ul>
+            </details>
+            <details class="nl-help-sec">
+              <summary>Dates &amp; time windows</summary>
+              <ul>
+                <li><code>changed today</code> · <code>created yesterday</code></li>
+                <li><code>this week / month / quarter / year</code></li>
+                <li><code>last 7 days</code> · <code>24h</code> · <code>3mo</code></li>
+                <li><code>in June</code> · <code>in 2024</code> · <code>Q1</code></li>
+                <li><code>this morning</code> · <code>last night</code></li>
+              </ul>
+            </details>
+            <details class="nl-help-sec">
+              <summary>Stale data &amp; quality checks</summary>
+              <ul>
+                <li><code>not updated in 30 days</code> · <code>stale</code> · <code>dormant</code></li>
+                <li><code>older than 6 months</code></li>
+                <li><code>not logged in for 60 days</code></li>
+                <li><code>duplicate emails</code> · <code>test accounts</code></li>
+                <li><code>longest name</code> · <code>shortest email</code></li>
+              </ul>
+            </details>
+            <details class="nl-help-sec">
+              <summary>Sort &amp; limit</summary>
+              <ul>
+                <li><code>top 10 by balance</code> · <code>bottom 5</code></li>
+                <li><code>sort by name desc</code> · <code>alphabetical</code></li>
+                <li><code>newest first</code> · <code>oldest first</code></li>
+                <li><code>show 20</code> · <code>first 5</code> · <code>a dozen</code></li>
+              </ul>
+            </details>
+            <details class="nl-help-sec">
+              <summary>Group &amp; segment</summary>
+              <ul>
+                <li><code>count by country</code> · <code>per plan</code></li>
+                <li><code>breakdown by source</code> · <code>users by channel</code></li>
+                <li><code>subscribed</code> · <code>unsubscribed</code></li>
+              </ul>
+            </details>
+            <p class="nl-help-empty meta" hidden>No examples match — try a different word.</p>
+          </div>
+          <p class="meta nl-help-foot">Phrases combine — e.g. <code>active contacts created this week sorted by name</code>. Verbs pick the date column: <strong>changed / updated / edited</strong> use the modified date; <strong>created / added / joined</strong> use the creation date.</p>
+        </div>
         <div class="nl-modal-label-row">
           <label for="nl-modal-input" class="nl-modal-label">Your question</label>
           <!-- Dictation button: hidden in markup, un-hidden by JS only when the

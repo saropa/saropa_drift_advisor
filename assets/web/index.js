@@ -8,8 +8,16 @@
  * The TS modules export clean APIs. The window.* bridge below keeps
  * app.js working until it is modularised in a future migration.
  */
+import { initWebL10n } from './l10n.ts';
 import { highlightSql } from './sql-highlight.ts';
 import { initMasthead } from './masthead.ts';
+
+// Localization first: resolve the active locale and install any host/server-
+// injected translation overlay (window.__SDA_L10N) BEFORE any module renders, so
+// the first synchronous vt() call during DOMContentLoaded already sees the right
+// catalog. Fail-soft to bundled English when no overlay is present (plan 75 §3.3).
+console.log('[SDA] index.js bridge: initWebL10n()');
+initWebL10n();
 
 // Bridge: app.js reads window.sqlHighlight and window.mastheadStatus.
 console.log('[SDA] index.js bridge: setting window.sqlHighlight');
