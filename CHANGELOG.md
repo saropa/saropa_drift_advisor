@@ -53,6 +53,10 @@ The web viewer's toolbar can now show labels: click any empty space in the toolb
 - **Website: preview results in the dialog** — a new **Preview results** button in the "Ask in English…" dialog runs the generated query and shows the first 10 rows in a compact table right inside the dialog, so you can sanity-check the SQL before clicking Use. The sample clears automatically when you change the question.
 - **Website: show or hide result columns from the table definition** — the "Table definition" panel now has a **Show** checkbox on each column row. Uncheck a column to drop it from the results grid; check it to bring it back. It stays in sync with the right-click "Hide" menu and the column chooser, and your choices are remembered per table.
 
+### Fixed
+
+- **Website: "Ask in English" now keeps date filters like "today"** — a question such as "how many contacts changed today?" previously dropped the "changed today" part and counted the whole table (`SELECT COUNT(*) FROM "contacts"`). The dialog now recognizes time phrases — **today**, **yesterday**, **this week / month / year**, and **last N days** — and the verb that goes with them (**changed / updated / modified** vs **created / added**), so it adds the matching date filter to the generated SQL.
+
 ### Changed
 
 - **Website: clearer results header** — the results section header now reads, for example, **"Results — 126 rows / 5 columns"**, and only shows the larger totals when they differ (**"126 of 1,126 rows / 5 of 19 columns"**) instead of repeating an identical count like "126 of 126 rows".
