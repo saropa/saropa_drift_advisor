@@ -410,15 +410,9 @@ export function initHistorySidebar(): void {
 
   if (!sidebarEl || !listEl) return;
 
-  // --- Panel visibility: restore from localStorage ---
-  // The heading-chevron content-collapse was removed: the sidebar is now
-  // collapsed only via the #tb-history-toggle toolbar icon (matches the
-  // tables sidebar pattern). We still honor any previously persisted
-  // collapsed state so reloads don't resurrect a hidden sidebar.
-  var storedCollapsed = false;
-  try { storedCollapsed = localStorage.getItem(S.HISTORY_SIDEBAR_KEY) === '1'; }
-  catch (e) { /* localStorage unavailable */ }
-  applyPanelCollapsed(storedCollapsed);
+  // Visibility is no longer owned here: History is one of the single sidebar's
+  // swappable panels, shown/hidden by sidebar-panels.ts via #app-sidebar's
+  // data-active-panel. This module only populates + wires the list.
 
   // --- Filter buttons ---
   const filterBar = sidebarEl.querySelector('.history-filter-bar');

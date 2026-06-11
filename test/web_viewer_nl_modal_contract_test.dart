@@ -107,43 +107,57 @@ void main() {
     },
   );
 
-  test('App sidebar panel toggle: HTML ids, SCSS hook, JS key and toggle', () {
+  test('Single swappable sidebar: activity-bar panels, SCSS, JS wiring', () {
     expect(htmlDart, contains('id="app-layout"'));
     expect(htmlDart, contains('class="app-shell"'));
     expect(htmlDart, contains('id="toolbar-bar"'));
     expect(htmlDart, contains('id="app-sidebar"'));
-    // Sidebar toggle is a toolbar icon button (was hamburger menu toggle).
+    // Collapse toggle survives; panel selection is via data-panel-btn icons.
     expect(htmlDart, contains('id="tb-sidebar-toggle"'));
+    // The sidebar is a single host that shows one panel at a time.
+    expect(htmlDart, contains('data-active-panel="tables"'));
+    expect(htmlDart, contains('data-panel="tables"'));
+    expect(htmlDart, contains('data-panel="search"'));
     expect(
       htmlDart,
-      isNot(contains('toolbar button above')),
-      reason: 'sidebar no longer duplicates Export-tab directions',
+      contains('data-panel="history"'),
+      reason: 'History is folded into the left sidebar as a panel',
     );
+    // History panel selector reuses the #history-sidebar element + id.
+    expect(htmlDart, contains('data-panel-btn="tables"'));
+    expect(htmlDart, contains('data-panel-btn="history"'));
+    expect(htmlDart, contains('id="history-sidebar"'));
+    // Old two-sidebar markup is gone: no separate right-column history aside.
+    expect(
+      htmlDart,
+      isNot(contains('class="history-sidebar" id="history-sidebar"')),
+      reason: 'history is now a sidebar-section panel, not a right column',
+    );
+
+    // SCSS: collapse hook + panel-visibility driver.
     expect(styleScss, contains('app-sidebar-panel-collapsed'));
-    expect(appJs, contains('APP_SIDEBAR_PANEL_KEY'));
-    expect(appJs, contains('saropa_app_sidebar_collapsed'));
-    expect(appJs, contains('classList.toggle("app-sidebar-panel-collapsed"'));
-    // initSidebarCollapse restores state and wires the toolbar toggle only.
-    // Check that initSidebarCollapse is defined before it is invoked (not before
-    // the classList.toggle helper it calls, which is hoisted inside the module).
-    final initFnDef = 'function initSidebarCollapse';
-    final initFnCall = RegExp(r'(?<!\w)initSidebarCollapse\(\)');
+    expect(styleScss, contains('data-active-panel'));
+
+    // JS: the panel module owns state, restores it, and toggles the class.
+    expect(appJs, contains('saropa_sidebar_panel'));
+    expect(appJs, contains('data-active-panel'));
+    expect(appJs, contains('data-panel-btn'));
+    expect(appJs, contains('app-sidebar-panel-collapsed'));
+    // initSidebarPanels must be defined before it is called.
+    final initFnDef = 'function initSidebarPanels';
+    final initFnCall = RegExp(r'(?<!\w)initSidebarPanels\(\)');
     final defIndex = appJs.indexOf(initFnDef);
     final callMatch = initFnCall.firstMatch(appJs);
     expect(
       defIndex,
       greaterThanOrEqualTo(0),
-      reason: 'initSidebarCollapse must be defined in bundle.js',
+      reason: 'initSidebarPanels must be defined in bundle.js',
     );
-    expect(
-      callMatch,
-      isNotNull,
-      reason: 'initSidebarCollapse() must be called in bundle.js',
-    );
+    expect(callMatch, isNotNull, reason: 'initSidebarPanels() must be called');
     expect(
       defIndex,
       lessThan(callMatch!.start),
-      reason: 'initSidebarCollapse must be defined before it is called',
+      reason: 'initSidebarPanels must be defined before it is called',
     );
   });
 

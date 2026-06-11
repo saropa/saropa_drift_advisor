@@ -13,8 +13,6 @@
  *   between icon-only and icon+label ("labeled") modes.
  */
 import { openTool } from './tabs.ts';
-import { toggleSidebarCollapsed } from './sidebar.ts';
-import { togglePanelCollapsed as toggleHistoryCollapsed } from './history-sidebar.ts';
 import { applyTheme } from './theme.ts';
 import * as S from './state.ts';
 
@@ -70,31 +68,9 @@ export function initToolbar(): void {
     });
   };
 
-  // --- Left sidebar toggle ---
-  var sidebarBtn = document.getElementById('tb-sidebar-toggle');
-  if (sidebarBtn) {
-    sidebarBtn.addEventListener('click', function () {
-      toggleSidebarCollapsed();
-      // Sync aria-pressed with the sidebar state.
-      var layout = document.getElementById('app-layout');
-      var collapsed = layout ? layout.classList.contains('app-sidebar-panel-collapsed') : false;
-      sidebarBtn!.setAttribute('aria-pressed', collapsed ? 'false' : 'true');
-      if (typeof (window as any)._syncHomeSidebarToggles === 'function') (window as any)._syncHomeSidebarToggles();
-    });
-  }
-
-  // --- Right history sidebar toggle ---
-  var historyBtn = document.getElementById('tb-history-toggle');
-  if (historyBtn) {
-    historyBtn.addEventListener('click', function () {
-      toggleHistoryCollapsed();
-      // Sync aria-pressed with the sidebar state.
-      var layout = document.getElementById('app-layout');
-      var collapsed = layout ? layout.classList.contains('history-sidebar-collapsed') : false;
-      historyBtn!.setAttribute('aria-pressed', collapsed ? 'false' : 'true');
-      if (typeof (window as any)._syncHomeSidebarToggles === 'function') (window as any)._syncHomeSidebarToggles();
-    });
-  }
+  // The sidebar panel selectors (#tb-sidebar-toggle collapse, the Tables /
+  // Search / History data-panel-btn icons) are wired in sidebar-panels.ts,
+  // the single owner of which panel is visible.
 
   // --- Mask PII toggle ---
   var maskBtn = document.getElementById('tb-mask-toggle');
@@ -155,17 +131,6 @@ export function initToolbar(): void {
   // --- Share button ---
   // The share button's click handler is wired by session.ts
   // via the #tb-share-btn ID. No additional wiring needed here.
-
-  // --- Sync initial sidebar button states ---
-  var layout = document.getElementById('app-layout');
-  if (layout && sidebarBtn) {
-    var sidebarCollapsed = layout.classList.contains('app-sidebar-panel-collapsed');
-    sidebarBtn.setAttribute('aria-pressed', sidebarCollapsed ? 'false' : 'true');
-  }
-  if (layout && historyBtn) {
-    var historyCollapsed = layout.classList.contains('history-sidebar-collapsed');
-    historyBtn.setAttribute('aria-pressed', historyCollapsed ? 'false' : 'true');
-  }
 
   if (typeof (window as any)._syncHomeSidebarToggles === 'function') (window as any)._syncHomeSidebarToggles();
 

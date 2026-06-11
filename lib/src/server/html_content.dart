@@ -159,12 +159,14 @@ abstract final class HtmlContent {
       <div id="toolbar-bar" class="toolbar-bar" role="toolbar" aria-label="Actions">
         <button type="button" class="tb-icon-btn" data-tool="home" data-label="Home" title="Home"><span class="material-symbols-outlined" aria-hidden="true">home</span></button>
         <hr class="tb-divider" />
-        <!-- Left sidebar toggle -->
-        <button type="button" class="tb-icon-btn" id="tb-sidebar-toggle" data-label="Tables" title="Toggle tables sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">left_panel_open</span></button>
+        <!-- Collapse/expand the active sidebar panel (clicking the active
+             panel's own icon also collapses it, VS Code style). -->
+        <button type="button" class="tb-icon-btn" id="tb-sidebar-toggle" data-label="Collapse" title="Collapse sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">left_panel_open</span></button>
         <hr class="tb-divider" />
-        <!-- Core view icons (were fixed tabs until the tab-bar split) -->
-        <button type="button" class="tb-icon-btn" data-tool="tables" data-label="Tables" title="Tables"><span class="material-symbols-outlined" aria-hidden="true">table_chart</span></button>
-        <button type="button" class="tb-icon-btn" data-tool="search" data-label="Search" title="Search"><span class="material-symbols-outlined" aria-hidden="true">search</span></button>
+        <!-- Sidebar PANEL selectors: each shows one panel in the single left
+             sidebar (data-panel-btn → sidebar-panels.ts). One visible at a time. -->
+        <button type="button" class="tb-icon-btn" data-panel-btn="tables" data-label="Tables" title="Tables" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">table_chart</span></button>
+        <button type="button" class="tb-icon-btn" data-panel-btn="search" data-label="Search" title="Search" aria-pressed="false"><span class="material-symbols-outlined" aria-hidden="true">search</span></button>
         <button type="button" class="tb-icon-btn" data-tool="sql" data-label="SQL" title="Run SQL"><span class="material-symbols-outlined" aria-hidden="true">terminal</span></button>
         <hr class="tb-divider" />
         <!-- Tool launcher icons -->
@@ -200,13 +202,16 @@ abstract final class HtmlContent {
         </div>
         <button type="button" class="tb-icon-btn" id="tb-share-btn" data-label="Share" title="Share"><span class="material-symbols-outlined" aria-hidden="true">share</span></button>
         <hr class="tb-divider" />
-        <!-- Right sidebar toggle -->
-        <button type="button" class="tb-icon-btn" id="tb-history-toggle" data-label="History" title="Toggle history sidebar" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">right_panel_open</span></button>
+        <!-- History panel selector (was a separate right sidebar; now one of the
+             single left sidebar's swappable panels). -->
+        <button type="button" class="tb-icon-btn" id="tb-history-toggle" data-panel-btn="history" data-label="History" title="History" aria-pressed="false"><span class="material-symbols-outlined" aria-hidden="true">history</span></button>
       </div>
   <div class="app-layout" id="app-layout">
-    <aside class="app-sidebar" id="app-sidebar">
-      <!-- Search options: collapsed by default; toolbar Search button toggles visibility. -->
-      <div id="sidebar-search-wrap" class="sidebar-section search-options-wrap collapsed" aria-hidden="true">
+    <!-- Single swappable sidebar: shows ONE panel at a time, chosen by the
+         activity-bar icons (data-active-panel ↔ data-panel-btn). -->
+    <aside class="app-sidebar" id="app-sidebar" data-active-panel="tables">
+      <!-- Search panel — shown when the Search activity-bar icon is active. -->
+      <div id="sidebar-search-wrap" class="sidebar-section search-options-wrap" data-panel="search">
         <h2 class="sidebar-section-title">Search</h2>
       <div class="search-bar">
         <label for="search-input">Search:</label>
@@ -231,7 +236,7 @@ abstract final class HtmlContent {
         </div>
       </div>
       </div>
-      <div id="sidebar-tables-wrap" class="sidebar-section sidebar-tables-wrap">
+      <div id="sidebar-tables-wrap" class="sidebar-section sidebar-tables-wrap" data-panel="tables">
       <h2 class="history-heading">Tables <span id="tables-count" class="history-count"></span></h2>
       <!-- Shimmer placeholders sit under the heading (not above) until /api/tables returns. -->
       <div id="tables-loading" class="tables-loading" aria-busy="true" aria-label="Loading tables">
@@ -247,6 +252,22 @@ abstract final class HtmlContent {
       </div>
       <ul id="tables" class="table-list"></ul>
       </div>
+      <!-- History panel — folded in from the old right sidebar; keeps id
+           #history-sidebar so history-sidebar.ts wiring is unchanged. -->
+      <aside class="sidebar-section history-sidebar" id="history-sidebar" data-panel="history" aria-label="Query history">
+        <h2 class="history-heading">History <span id="history-count" class="history-count"></span></h2>
+        <div class="history-filter-bar" role="radiogroup" aria-label="Filter query history by source">
+          <button type="button" class="history-filter active" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" class="history-filter" data-filter="browser" aria-pressed="false">Browser</button>
+          <button type="button" class="history-filter" data-filter="app" aria-pressed="false">App</button>
+          <button type="button" class="history-filter" data-filter="internal" aria-pressed="false">Internal</button>
+        </div>
+        <ul id="query-history-list" class="query-history-list"></ul>
+        <div class="history-actions">
+          <button type="button" id="history-refresh" class="history-action-btn" title="Refresh history"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
+          <button type="button" id="history-clear" class="history-action-btn" title="Clear history"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
+        </div>
+      </aside>
     </aside>
     <div class="app-main-content">
       <!-- Tab row: closeable tool/table tabs; startup opens Home. -->
@@ -254,14 +275,14 @@ abstract final class HtmlContent {
       <div id="tab-panels" class="tab-panels">
         <div id="panel-home" class="tab-panel active" role="tabpanel" aria-labelledby="tab-home">
           <div class="home-screen">
-            <div class="home-sidebar-toggles" aria-label="Sidebar visibility">
+            <div class="home-sidebar-toggles" aria-label="Sidebar panel">
               <div class="home-sidebar-toggle-row">
-                <span class="home-sidebar-toggle-label" id="home-label-tables-sidebar">Tables sidebar (left)</span>
+                <span class="home-sidebar-toggle-label" id="home-label-tables-sidebar">Tables panel</span>
                 <button type="button" class="home-switch home-switch-on" id="home-switch-tables" role="switch" aria-labelledby="home-label-tables-sidebar" aria-checked="true"></button>
               </div>
               <div class="home-sidebar-toggle-row">
-                <span class="home-sidebar-toggle-label" id="home-label-history-sidebar">History (right)</span>
-                <button type="button" class="home-switch home-switch-on" id="home-switch-history" role="switch" aria-labelledby="home-label-history-sidebar" aria-checked="true"></button>
+                <span class="home-sidebar-toggle-label" id="home-label-history-sidebar">History panel</span>
+                <button type="button" class="home-switch" id="home-switch-history" role="switch" aria-labelledby="home-label-history-sidebar" aria-checked="false"></button>
               </div>
             </div>
             <div id="home-tool-grid" class="home-tool-grid"></div>
@@ -708,24 +729,6 @@ abstract final class HtmlContent {
         </div>
       </div>
     </div>
-    <aside class="history-sidebar" id="history-sidebar" aria-label="Query history">
-      <!-- Plain heading: the sidebar itself is collapsed via the
-           #tb-history-toggle toolbar icon (same pattern as the tables
-           sidebar uses #tb-sidebar-toggle), so no inline collapse
-           button is needed here. -->
-      <h2 class="history-heading">History <span id="history-count" class="history-count"></span></h2>
-      <div class="history-filter-bar" role="radiogroup" aria-label="Filter query history by source">
-        <button type="button" class="history-filter active" data-filter="all" aria-pressed="true">All</button>
-        <button type="button" class="history-filter" data-filter="browser" aria-pressed="false">Browser</button>
-        <button type="button" class="history-filter" data-filter="app" aria-pressed="false">App</button>
-        <button type="button" class="history-filter" data-filter="internal" aria-pressed="false">Internal</button>
-      </div>
-      <ul id="query-history-list" class="query-history-list"></ul>
-      <div class="history-actions">
-        <button type="button" id="history-refresh" class="history-action-btn" title="Refresh history"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
-        <button type="button" id="history-clear" class="history-action-btn" title="Clear history"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
-      </div>
-    </aside>
   </div>
   </div>
   <div id="column-context-menu" role="menu" aria-hidden="true">
