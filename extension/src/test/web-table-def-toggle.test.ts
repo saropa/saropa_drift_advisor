@@ -75,8 +75,8 @@ describe('table-def-toggle.ts — self-contained collapsible module', () => {
   // The chevron is now a CSS ::after keyed off .td-collapsed (see
   // _query-builder.scss), not an arrow swapped into the heading text.
   it('does not embed arrow glyphs in the heading text (chevron is CSS)', () => {
-    assert.ok(js.includes('\u25BC'), 'should contain ▼ (down arrow for collapsed)');
-    assert.ok(js.includes('\u25B2'), 'should contain ▲ (up arrow for expanded)');
+    assert.ok(!js.includes('\u25BC'), 'module should not embed the down chevron glyph');
+    assert.ok(!js.includes('\u25B2'), 'module should not embed the up chevron glyph');
   });
 
   // Applies collapsed state to existing panels on load.

@@ -15,6 +15,104 @@ import { loadSchemaMeta } from './schema-meta.ts';
         closeNlModal();
       }
     }
+
+    /**
+     * Web Speech API dictation for the NL question box.
+     *
+     * The recognizer is created lazily and reused. We keep a single module-level
+     * handle so closeNlModal() can stop an in-flight session — recognition must
+     * never outlive the dialog (the mic stays hot and keeps streaming audio
+     * otherwise). nlMicActive guards against double-start, which throws on some
+     * engines.
+     */
+    var nlRecognition = null;
+    var nlMicActive = false;
+
+    function nlSpeechApi() {
+      // Chromium exposes the prefixed name; standard name is the spec target.
+      // Cast through any: the DOM lib type for Window has no SpeechRecognition.
+      var w = window as any;
+      return w.SpeechRecognition || w.webkitSpeechRecognition || null;
+    }
+
+    function setNlMicRecording(on) {
+      nlMicActive = on;
+      var btn = document.getElementById('nl-mic');
+      if (!btn) return;
+      btn.classList.toggle('recording', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      var icon = btn.querySelector('.material-symbols-outlined');
+      // Swap to a "listening" glyph so the active state reads without color alone.
+      if (icon) icon.textContent = on ? 'mic_off' : 'mic';
+    }
+
+    function ensureNlRecognition() {
+      if (nlRecognition) return nlRecognition;
+      var Api = nlSpeechApi();
+      if (!Api) return null;
+      var rec = new Api();
+      rec.lang = (navigator.language || 'en-US');
+      rec.interimResults = false;
+      rec.continuous = false;
+      rec.onresult = function (event) {
+        var ta = document.getElementById('nl-modal-input');
+        if (!ta) return;
+        // Concatenate every final transcript chunk from this session.
+        var transcript = '';
+        for (var i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) transcript += event.results[i][0].transcript;
+        }
+        transcript = transcript.trim();
+        if (!transcript) return;
+        // Append to existing text (with a separating space) rather than
+        // overwrite, so dictation adds to whatever the user already typed.
+        var existing = String(ta.value || '');
+        ta.value = existing ? existing.replace(/\s*$/, '') + ' ' + transcript : transcript;
+        scheduleNlLivePreview();
+      };
+      rec.onerror = function (event) {
+        var code = event && event.error;
+        // not-allowed / service-not-allowed = mic permission denied or blocked.
+        if (code === 'not-allowed' || code === 'service-not-allowed') {
+          setNlModalError('Microphone access was blocked. Allow it in your browser to dictate.', true);
+        } else if (code === 'no-speech') {
+          setNlModalError('No speech detected. Tap the mic and try again.', true);
+        } else if (code !== 'aborted') {
+          setNlModalError('Speech recognition error: ' + code, true);
+        }
+      };
+      rec.onend = function () {
+        setNlMicRecording(false);
+      };
+      nlRecognition = rec;
+      return rec;
+    }
+
+    function toggleNlMic() {
+      var rec = ensureNlRecognition();
+      if (!rec) return;
+      if (nlMicActive) {
+        rec.stop();
+        return;
+      }
+      setNlModalError('', false);
+      try {
+        rec.start();
+        setNlMicRecording(true);
+      } catch (err) {
+        // start() throws if called while already running; resync UI state.
+        setNlMicRecording(false);
+      }
+    }
+
+    function stopNlMic() {
+      if (nlRecognition && nlMicActive) {
+        // abort() (not stop()) discards the in-flight result — the dialog is
+        // closing, so we don't want a late transcript writing into a hidden box.
+        nlRecognition.abort();
+      }
+      setNlMicRecording(false);
+    }
     /** NL conversion messages stay in the modal so they do not clear or replace run/query errors under the main editor. */
     export function setNlModalError(msg, visible) {
       var modalErr = document.getElementById('nl-modal-error');
@@ -81,6 +179,8 @@ import { loadSchemaMeta } from './schema-meta.ts';
         document.removeEventListener('keydown', nlModalOnEscape);
         S.setNlModalEscapeListenerActive(false);
       }
+      // Kill any in-flight dictation so the mic doesn't keep streaming after close.
+      stopNlMic();
       var openBtn = document.getElementById('nl-open');
       if (openBtn) openBtn.focus();
     }
@@ -125,6 +225,13 @@ import { loadSchemaMeta } from './schema-meta.ts';
       if (nlCancel) nlCancel.addEventListener('click', closeNlModal);
       var nlUse = document.getElementById('nl-use');
       if (nlUse) nlUse.addEventListener('click', function () { useNlModal(); });
+      // Dictation: only reveal + wire the mic when the browser supports the API,
+      // so unsupported browsers (Firefox) keep the button hidden, not dead.
+      var nlMic = document.getElementById('nl-mic');
+      if (nlMic && nlSpeechApi()) {
+        nlMic.hidden = false;
+        nlMic.addEventListener('click', toggleNlMic);
+      }
       var nlModalInput = document.getElementById('nl-modal-input');
       if (nlModalInput) {
         nlModalInput.addEventListener('input', scheduleNlLivePreview);
