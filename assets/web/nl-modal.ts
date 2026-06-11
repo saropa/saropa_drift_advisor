@@ -8,6 +8,7 @@
 import * as S from './state.ts';
 import { nlToSql } from './nl-to-sql.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
+import { esc, setButtonBusy } from './utils.ts';
 
     function nlModalOnEscape(e) {
       if (e.key === 'Escape') {
@@ -130,6 +131,9 @@ import { loadSchemaMeta } from './schema-meta.ts';
       var preview = document.getElementById('nl-modal-sql-preview');
       if (!ta || !preview) return;
       var question = String(ta.value || '').trim();
+      // Any change to the question makes prior sample results stale — drop them
+      // so the table never shows rows for SQL that no longer matches the preview.
+      clearNlPreviewResults();
       if (!question) {
         preview.value = '';
         setNlModalError('', false);
@@ -181,6 +185,8 @@ import { loadSchemaMeta } from './schema-meta.ts';
       }
       // Kill any in-flight dictation so the mic doesn't keep streaming after close.
       stopNlMic();
+      // Drop sample results so a reopened dialog doesn't show stale rows.
+      clearNlPreviewResults();
       var openBtn = document.getElementById('nl-open');
       if (openBtn) openBtn.focus();
     }
@@ -213,6 +219,135 @@ import { loadSchemaMeta } from './schema-meta.ts';
     }
 
     /**
+     * Copies the generated SQL preview to the clipboard.
+     *
+     * Distinct from Use: Use overwrites the main editor and closes the dialog;
+     * Copy just puts the text on the clipboard so the user can paste it
+     * elsewhere while keeping the dialog (and the main editor) untouched.
+     */
+    async function copyNlSql() {
+      var preview = document.getElementById('nl-modal-sql-preview') as HTMLTextAreaElement | null;
+      var btn = document.getElementById('nl-copy');
+      var sql = preview ? String(preview.value || '').trim() : '';
+      if (!sql) {
+        setNlModalError('Nothing to copy yet — enter a question first.', true);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(sql);
+      } catch (err) {
+        // Clipboard API needs a secure context / permission; fall back to a
+        // hidden-textarea execCommand copy so the button still works on http.
+        try {
+          preview.focus();
+          preview.select();
+          document.execCommand('copy');
+        } catch (err2) {
+          setNlModalError('Could not copy to the clipboard.', true);
+          return;
+        }
+      }
+      // Brief visual confirmation: swap the icon to a check, then restore.
+      if (btn) {
+        var icon = btn.querySelector('.material-symbols-outlined');
+        if (icon) {
+          var prev = icon.textContent;
+          icon.textContent = 'check';
+          btn.classList.add('copied');
+          setTimeout(function () {
+            icon.textContent = prev;
+            btn.classList.remove('copied');
+          }, 1100);
+        }
+      }
+    }
+
+    /**
+     * Runs the generated SQL and renders the first 10 rows inside the dialog.
+     *
+     * The preview SQL is wrapped as a subquery with an outer LIMIT 10 rather
+     * than appended with " LIMIT 10": the generated query may already carry its
+     * own LIMIT / ORDER BY / aggregates, and the subquery wrapper caps the row
+     * count without having to parse or rewrite the inner SQL. SELECT * over the
+     * subquery preserves the inner column names.
+     */
+    async function previewNlResults() {
+      var preview = document.getElementById('nl-modal-sql-preview') as HTMLTextAreaElement | null;
+      var resultsEl = document.getElementById('nl-modal-results');
+      var btn = document.getElementById('nl-preview-run') as HTMLButtonElement | null;
+      var sql = preview ? String(preview.value || '').trim() : '';
+      if (!sql) {
+        setNlModalError('Enter a question to generate SQL first.', true);
+        return;
+      }
+      if (!resultsEl) return;
+      setNlModalError('', false);
+      // Strip a trailing semicolon so the subquery wrapper stays valid SQL.
+      var inner = sql.replace(/;\s*$/, '');
+      var limited = 'SELECT * FROM (\n' + inner + '\n) LIMIT 10';
+      var origLabel = btn ? btn.textContent : '';
+      if (btn) {
+        btn.disabled = true;
+        setButtonBusy(btn, true, 'Running…');
+      }
+      try {
+        var resp = await fetch('/api/sql', S.authOpts({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql: limited }),
+        }));
+        var data = await resp.json();
+        if (!resp.ok) {
+          // Surface the server error in the modal error line, not the results box.
+          setNlModalError(data.error || 'Preview failed.', true);
+          resultsEl.hidden = true;
+          resultsEl.innerHTML = '';
+          return;
+        }
+        renderNlPreviewRows(resultsEl, data.rows || []);
+      } catch (err) {
+        setNlModalError('Preview error: ' + ((err as any).message || err), true);
+        resultsEl.hidden = true;
+        resultsEl.innerHTML = '';
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          setButtonBusy(btn, false, origLabel || 'Preview results');
+        }
+      }
+    }
+
+    /** Renders preview rows as a compact table (or an empty-state line). */
+    function renderNlPreviewRows(container, rows) {
+      container.hidden = false;
+      if (!rows || rows.length === 0) {
+        container.innerHTML = '<p class="meta nl-modal-results-empty">Query ran — 0 rows.</p>';
+        return;
+      }
+      var keys = Object.keys(rows[0]);
+      var html = '<p class="meta">First ' + rows.length + ' row(s)</p>';
+      html += '<div class="data-table-scroll-wrap"><table><thead><tr>';
+      html += keys.map(function (k) { return '<th>' + esc(k) + '</th>'; }).join('');
+      html += '</tr></thead><tbody>';
+      rows.forEach(function (row) {
+        html += '<tr>' + keys.map(function (k) {
+          return '<td>' + esc(row[k] != null ? String(row[k]) : '') + '</td>';
+        }).join('') + '</tr>';
+      });
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    }
+
+    /** Clears the in-dialog preview results (called on close and on reconvert). */
+    function clearNlPreviewResults() {
+      var resultsEl = document.getElementById('nl-modal-results');
+      if (resultsEl) {
+        resultsEl.hidden = true;
+        resultsEl.innerHTML = '';
+      }
+    }
+
+    /**
      * Wires up NL modal DOM event listeners.
      * Call once after DOMContentLoaded / initial render.
      */
@@ -232,6 +367,10 @@ import { loadSchemaMeta } from './schema-meta.ts';
         nlMic.hidden = false;
         nlMic.addEventListener('click', toggleNlMic);
       }
+      var nlCopy = document.getElementById('nl-copy');
+      if (nlCopy) nlCopy.addEventListener('click', function () { copyNlSql(); });
+      var nlPreviewRun = document.getElementById('nl-preview-run');
+      if (nlPreviewRun) nlPreviewRun.addEventListener('click', function () { previewNlResults(); });
       var nlModalInput = document.getElementById('nl-modal-input');
       if (nlModalInput) {
         nlModalInput.addEventListener('input', scheduleNlLivePreview);

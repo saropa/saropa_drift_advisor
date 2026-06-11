@@ -4866,6 +4866,7 @@
     var preview = document.getElementById("nl-modal-sql-preview");
     if (!ta || !preview) return;
     var question = String(ta.value || "").trim();
+    clearNlPreviewResults();
     if (!question) {
       preview.value = "";
       setNlModalError("", false);
@@ -4916,6 +4917,7 @@
       setNlModalEscapeListenerActive(false);
     }
     stopNlMic();
+    clearNlPreviewResults();
     var openBtn = document.getElementById("nl-open");
     if (openBtn) openBtn.focus();
   }
@@ -4946,6 +4948,110 @@
       setNlModalError("Error: " + (err.message || err), true);
     }
   }
+  async function copyNlSql() {
+    var preview = document.getElementById("nl-modal-sql-preview");
+    var btn = document.getElementById("nl-copy");
+    var sql = preview ? String(preview.value || "").trim() : "";
+    if (!sql) {
+      setNlModalError("Nothing to copy yet \u2014 enter a question first.", true);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(sql);
+    } catch (err) {
+      try {
+        preview.focus();
+        preview.select();
+        document.execCommand("copy");
+      } catch (err2) {
+        setNlModalError("Could not copy to the clipboard.", true);
+        return;
+      }
+    }
+    if (btn) {
+      var icon = btn.querySelector(".material-symbols-outlined");
+      if (icon) {
+        var prev = icon.textContent;
+        icon.textContent = "check";
+        btn.classList.add("copied");
+        setTimeout(function() {
+          icon.textContent = prev;
+          btn.classList.remove("copied");
+        }, 1100);
+      }
+    }
+  }
+  async function previewNlResults() {
+    var preview = document.getElementById("nl-modal-sql-preview");
+    var resultsEl = document.getElementById("nl-modal-results");
+    var btn = document.getElementById("nl-preview-run");
+    var sql = preview ? String(preview.value || "").trim() : "";
+    if (!sql) {
+      setNlModalError("Enter a question to generate SQL first.", true);
+      return;
+    }
+    if (!resultsEl) return;
+    setNlModalError("", false);
+    var inner = sql.replace(/;\s*$/, "");
+    var limited = "SELECT * FROM (\n" + inner + "\n) LIMIT 10";
+    var origLabel = btn ? btn.textContent : "";
+    if (btn) {
+      btn.disabled = true;
+      setButtonBusy(btn, true, "Running\u2026");
+    }
+    try {
+      var resp = await fetch("/api/sql", authOpts({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sql: limited })
+      }));
+      var data = await resp.json();
+      if (!resp.ok) {
+        setNlModalError(data.error || "Preview failed.", true);
+        resultsEl.hidden = true;
+        resultsEl.innerHTML = "";
+        return;
+      }
+      renderNlPreviewRows(resultsEl, data.rows || []);
+    } catch (err) {
+      setNlModalError("Preview error: " + (err.message || err), true);
+      resultsEl.hidden = true;
+      resultsEl.innerHTML = "";
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        setButtonBusy(btn, false, origLabel || "Preview results");
+      }
+    }
+  }
+  function renderNlPreviewRows(container, rows) {
+    container.hidden = false;
+    if (!rows || rows.length === 0) {
+      container.innerHTML = '<p class="meta nl-modal-results-empty">Query ran \u2014 0 rows.</p>';
+      return;
+    }
+    var keys = Object.keys(rows[0]);
+    var html = '<p class="meta">First ' + rows.length + " row(s)</p>";
+    html += '<div class="data-table-scroll-wrap"><table><thead><tr>';
+    html += keys.map(function(k) {
+      return "<th>" + esc2(k) + "</th>";
+    }).join("");
+    html += "</tr></thead><tbody>";
+    rows.forEach(function(row) {
+      html += "<tr>" + keys.map(function(k) {
+        return "<td>" + esc2(row[k] != null ? String(row[k]) : "") + "</td>";
+      }).join("") + "</tr>";
+    });
+    html += "</tbody></table></div>";
+    container.innerHTML = html;
+  }
+  function clearNlPreviewResults() {
+    var resultsEl = document.getElementById("nl-modal-results");
+    if (resultsEl) {
+      resultsEl.hidden = true;
+      resultsEl.innerHTML = "";
+    }
+  }
   function initNlModalListeners() {
     var nlOpenEl = document.getElementById("nl-open");
     if (nlOpenEl) nlOpenEl.addEventListener("click", openNlModal);
@@ -4962,6 +5068,14 @@
       nlMic.hidden = false;
       nlMic.addEventListener("click", toggleNlMic);
     }
+    var nlCopy = document.getElementById("nl-copy");
+    if (nlCopy) nlCopy.addEventListener("click", function() {
+      copyNlSql();
+    });
+    var nlPreviewRun = document.getElementById("nl-preview-run");
+    if (nlPreviewRun) nlPreviewRun.addEventListener("click", function() {
+      previewNlResults();
+    });
     var nlModalInput = document.getElementById("nl-modal-input");
     if (nlModalInput) {
       nlModalInput.addEventListener("input", scheduleNlLivePreview);
