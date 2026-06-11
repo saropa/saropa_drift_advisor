@@ -5731,20 +5731,142 @@
       modalErr.style.display = "none";
     }
   }
+  function nlSingular(n) {
+    if (/ies$/.test(n)) return n.replace(/ies$/, "y");
+    if (/(ses|xes|zes|ches|shes)$/.test(n)) return n.replace(/es$/, "");
+    if (/s$/.test(n) && !/ss$/.test(n)) return n.replace(/s$/, "");
+    return n;
+  }
+  function nlTableOverride() {
+    var sel = document.getElementById("nl-table-select");
+    return sel && sel.value ? sel.value : void 0;
+  }
+  function populateNlTableSelect(meta) {
+    var sel = document.getElementById("nl-table-select");
+    if (!sel || sel.options.length > 1) return;
+    var tables = meta && meta.tables || [];
+    for (var i = 0; i < tables.length; i++) {
+      var o = document.createElement("option");
+      o.value = tables[i].name;
+      o.textContent = tables[i].name;
+      sel.appendChild(o);
+    }
+  }
+  function updateNlClarifier(result) {
+    var hint = document.getElementById("nl-clarify-hint");
+    var clarify = document.getElementById("nl-clarify");
+    if (!hint || !clarify) return;
+    var guessed = result && result.table && !nlTableOverride() && (result.confidence === "guess" || result.confidence === "ambiguous");
+    if (guessed) {
+      hint.textContent = "Guessed \u201C" + result.table + "\u201D \u2014 pick a table if that\u2019s wrong";
+      clarify.classList.add("nl-clarify-guess");
+    } else {
+      hint.textContent = "";
+      clarify.classList.remove("nl-clarify-guess");
+    }
+  }
+  function nlRefinements(tableName, meta) {
+    var tables = meta && meta.tables || [];
+    var t = null;
+    for (var i = 0; i < tables.length; i++) if (tables[i].name === tableName) {
+      t = tables[i];
+      break;
+    }
+    if (!t) return [];
+    var cols = t.columns || [];
+    var fks = meta && meta.foreignKeys || [];
+    var chips = [];
+    var children = fks.filter(function(e) {
+      return e.toTable === tableName;
+    });
+    for (var i = 0; i < children.length && i < 2; i++) {
+      var ct = children[i].fromTable;
+      chips.push({ label: ">1 " + ct, phrase: "with more than one " + nlSingular(ct) });
+      chips.push({ label: "no " + ct, phrase: "without any " + ct });
+    }
+    var parents = fks.filter(function(e) {
+      return e.fromTable === tableName;
+    });
+    for (var i = 0; i < parents.length && i < 1; i++) {
+      var pt = parents[i].toTable;
+      chips.push({ label: "has " + nlSingular(pt), phrase: "with a " + nlSingular(pt) });
+    }
+    var dateCol = cols.filter(function(c) {
+      return /date|time|_at\b|created|updated|changed|timestamp/i.test(c.name);
+    })[0];
+    if (dateCol) {
+      chips.push({ label: "this week", phrase: "created this week" });
+      chips.push({ label: "today", phrase: "changed today" });
+      chips.push({ label: "stale 90d", phrase: "not updated in 90 days" });
+    }
+    var boolCols = cols.filter(function(c) {
+      return /bool|int/i.test(c.type || "") && /^is_|^has_|active|enabled|verified|archived|deleted|subscribed/i.test(c.name);
+    });
+    for (var i = 0; i < boolCols.length && i < 2; i++) {
+      var nm = boolCols[i].name.toLowerCase().replace(/^(is|has)_/, "").replace(/_/g, " ");
+      chips.push({ label: "only " + nm, phrase: nm });
+    }
+    var numCol = cols.filter(function(c) {
+      return /int|real|num|float/i.test(c.type || "") && !/^id$|_id$/i.test(c.name);
+    })[0];
+    if (numCol) chips.push({ label: "highest " + numCol.name, phrase: "highest " + numCol.name });
+    chips.push({ label: "count", phrase: "as a total" });
+    chips.push({ label: "newest", phrase: "newest first" });
+    chips.push({ label: "top 10", phrase: "top 10" });
+    return chips.slice(0, 10);
+  }
+  function toggleNlRefinement(phrase) {
+    var ta = document.getElementById("nl-modal-input");
+    if (!ta) return;
+    var cur = String(ta.value || "");
+    var idx = cur.toLowerCase().indexOf(phrase.toLowerCase());
+    if (idx >= 0) {
+      ta.value = (cur.slice(0, idx) + cur.slice(idx + phrase.length)).replace(/\s{2,}/g, " ").trim();
+    } else {
+      ta.value = (cur.trim() + " " + phrase).trim();
+    }
+    ta.focus();
+    scheduleNlLivePreview();
+  }
+  function renderNlRefinements(tableName, meta) {
+    var wrap = document.getElementById("nl-refine");
+    if (!wrap) return;
+    var ta = document.getElementById("nl-modal-input");
+    var q = (ta ? String(ta.value || "") : "").toLowerCase();
+    var chips = nlRefinements(tableName, meta);
+    wrap.innerHTML = "";
+    chips.forEach(function(chip) {
+      var applied = q.indexOf(chip.phrase.toLowerCase()) >= 0;
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "nl-chip" + (applied ? " nl-chip-on" : "");
+      b.textContent = chip.label;
+      b.title = (applied ? "Remove: " : "Add: ") + chip.phrase;
+      b.addEventListener("click", function() {
+        toggleNlRefinement(chip.phrase);
+      });
+      wrap.appendChild(b);
+    });
+  }
   async function applyNlLivePreview() {
     var ta = document.getElementById("nl-modal-input");
     var preview = document.getElementById("nl-modal-sql-preview");
     if (!ta || !preview) return;
     var question = String(ta.value || "").trim();
     clearNlPreviewResults();
-    if (!question) {
-      preview.value = "";
-      setNlModalError("", false);
-      return;
-    }
     try {
       var meta = await loadSchemaMeta();
-      var result = nlToSql(question, meta);
+      populateNlTableSelect(meta);
+      var override = nlTableOverride();
+      if (!question) {
+        preview.value = "";
+        setNlModalError("", false);
+        updateNlClarifier(null);
+        var first = override || meta.tables && meta.tables[0] && meta.tables[0].name;
+        renderNlRefinements(first, meta);
+        return;
+      }
+      var result = nlToSql(question, meta, { table: override });
       if (result.sql) {
         preview.value = result.sql;
         setNlModalError("", false);
@@ -5752,6 +5874,8 @@
         preview.value = "";
         setNlModalError(result.error || "Could not convert to SQL.", true);
       }
+      updateNlClarifier(result);
+      renderNlRefinements(result && result.table || override, meta);
     } catch (err) {
       preview.value = "";
       setNlModalError("Error: " + (err.message || err), true);
@@ -5936,6 +6060,8 @@
     if (nlCopy) nlCopy.addEventListener("click", function() {
       copyNlSql();
     });
+    var nlTableSel = document.getElementById("nl-table-select");
+    if (nlTableSel) nlTableSel.addEventListener("change", scheduleNlLivePreview);
     var nlPreviewRun = document.getElementById("nl-preview-run");
     if (nlPreviewRun) nlPreviewRun.addEventListener("click", function() {
       previewNlResults();

@@ -408,6 +408,14 @@ abstract final class HtmlContent {
         <button type="button" id="nl-help" class="nl-icon-btn nl-help-btn" title="What can I ask? Show supported phrases" aria-label="Show supported phrases" aria-expanded="false" aria-controls="nl-help-panel"><span class="material-symbols-outlined" aria-hidden="true">info</span></button>
         <h3 id="nl-modal-title" class="nl-modal-title">Ask in English</h3>
         <p class="meta nl-modal-hint">Preview updates as you type. Use copies the generated SQL into the Run SQL editor and switches to it.</p>
+        <!-- Clarifier: the table the query runs against. "Auto-detect" lets the
+             converter best-guess; the hint appears when it had to guess so the
+             user can correct it in one click (no more dead-ends). -->
+        <div id="nl-clarify" class="nl-clarify">
+          <label for="nl-table-select" class="nl-clarify-label">Table</label>
+          <select id="nl-table-select" class="nl-clarify-select"><option value="">Auto-detect</option></select>
+          <span id="nl-clarify-hint" class="meta nl-clarify-hint"></span>
+        </div>
         <!-- Coverage cheat-sheet: hidden by default, revealed by the [i] button.
              Summarizes what the natural-language converter understands so the
              phrasing space is discoverable instead of guessed at. -->
@@ -495,6 +503,10 @@ abstract final class HtmlContent {
           <button type="button" id="nl-mic" class="nl-icon-btn nl-mic" hidden title="Dictate your question (audio is processed by your browser's speech service)" aria-label="Dictate your question"><span class="material-symbols-outlined" aria-hidden="true">mic</span></button>
         </div>
         <textarea id="nl-modal-input" class="nl-modal-input" rows="6" placeholder="e.g. how many users were created today?"></textarea>
+        <!-- Refinement chips: schema-derived one-click phrases (relationships,
+             dates, flags, count/sort/limit). Clicking adds/removes the phrase
+             from the question. Populated by renderNlRefinements in nl-modal.ts. -->
+        <div id="nl-refine" class="nl-refine" aria-label="Refine the query"></div>
         <div class="nl-modal-label-row">
           <label for="nl-modal-sql-preview" class="nl-modal-label">Generated SQL (preview)</label>
           <!-- Copy the generated SQL straight to the clipboard without first
