@@ -58,6 +58,25 @@ void main() {
     expect(appJs, contains('function toggleNlMic'));
   });
 
+  test('NL modal: copy-SQL and preview-results controls + wiring', () {
+    expect(htmlDart, contains('id="nl-copy"'));
+    expect(htmlDart, contains('id="nl-preview-run"'));
+    expect(htmlDart, contains('id="nl-modal-results"'));
+    // Sample-results container ships hidden; JS reveals it on a Preview run.
+    expect(
+      htmlDart,
+      matches(RegExp(r'id="nl-modal-results"[^>]*\shidden')),
+      reason: 'results container must start hidden until a preview runs',
+    );
+    expect(appJs, contains('getElementById("nl-copy")'));
+    expect(appJs, contains('getElementById("nl-preview-run")'));
+    // Preview caps rows via a subquery wrapper, not by mutating the inner SQL.
+    expect(appJs, contains('function previewNlResults'));
+    expect(appJs, contains('function copyNlSql'));
+    expect(styleScss, contains('.nl-modal-results'));
+    expect(styleScss, contains('.nl-icon-btn'));
+  });
+
   test(
     'NL modal script: preview-only live path and Use copies to sql-input',
     () {
