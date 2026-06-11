@@ -2,8 +2,10 @@
 .table-definition-wrap {
   margin: 0 0 0.75rem;
 }
-/* Clickable toggle — mirrors qb-header (▼/▲ collapse) */
+/* Clickable toggle — chevron lives in a right-aligned ::after (see below). */
 .table-definition-heading {
+  display: flex;
+  align-items: center;
   font-size: 0.875rem;
   font-weight: 600;
   margin: 0;
@@ -13,6 +15,19 @@
   user-select: none;
 }
 .table-definition-heading:hover { text-decoration: underline; }
+/* Right-aligned, dimmed expand/collapse chevron. Direction follows .td-collapsed
+   on the wrap (▲ expanded / ▼ collapsed). Muted color keeps it from competing
+   with the heading text. */
+.table-definition-heading::after {
+  content: "\25B2";
+  margin-left: auto;
+  padding-left: 0.5rem;
+  font-size: 0.7em;
+  color: var(--muted);
+  opacity: 0.55;
+  text-decoration: none;
+}
+.td-collapsed .table-definition-heading::after { content: "\25BC"; }
 /* Collapse handled by table-def-toggle.js (.td-collapsed .table-definition-scroll) */
 .table-definition-scroll {
   overflow-x: auto;
@@ -56,6 +71,21 @@
   font-size: var(--text-xs);
   white-space: nowrap;
 }
+/* Show/hide checkbox column: narrow, centered; header label kept muted/small. */
+.table-def-vis {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  text-align: center;
+  white-space: nowrap;
+}
+.table-def-vis input[type="checkbox"] {
+  cursor: pointer;
+  vertical-align: middle;
+}
+th.table-def-vis {
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
 /* Fixed-width icon column: type icon + optional PK/FK badges */
 .table-def-icons {
   width: 3.2rem;
@@ -83,8 +113,27 @@
 .table-def-badge-fk { opacity: 0.75; }
 
 .qb-section { margin-bottom: 0.5rem; }
-.qb-section .qb-header { cursor: pointer; user-select: none; color: var(--link); font-size: 0.875rem; padding: 0.25rem 0; }
+.qb-section .qb-header { display: flex; align-items: center; cursor: pointer; user-select: none; color: var(--link); font-size: 0.875rem; padding: 0.25rem 0; }
 .qb-section .qb-header:hover { text-decoration: underline; }
+/* Right-aligned, dimmed chevron for the collapsible query-builder header.
+   Direction follows .is-collapsed on the heading itself (▲ expanded /
+   ▼ collapsed) — the qb body is a sibling, so the state class can't live
+   there and be reached by a CSS selector. */
+.qb-section .qb-header::after {
+  content: "\25B2";
+  margin-left: auto;
+  padding-left: 0.5rem;
+  font-size: 0.7em;
+  color: var(--muted);
+  opacity: 0.55;
+  text-decoration: none;
+}
+.qb-section .qb-header.is-collapsed::after { content: "\25BC"; }
+/* Multi-table query-builder section labels are not collapsible — no chevron,
+   and the cursor stays default so they don't read as interactive toggles. */
+.qb-section .qb-header.qb-header-static { cursor: default; }
+.qb-section .qb-header.qb-header-static::after { content: none; }
+.qb-section .qb-header.qb-header-static:hover { text-decoration: none; }
 /* Query builder body: uses token radius for consistency (was hardcoded 4px). */
 .qb-section .qb-body { padding: var(--space-3); background: var(--bg-pre); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .qb-section .qb-body.collapsed { display: none; }

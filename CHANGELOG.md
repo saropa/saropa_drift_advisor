@@ -38,6 +38,19 @@ browse source on
 
   **Open VSX Registry** - [open-vsx.org / extension / saropa / drift-viewer](https://open-vsx.org/extension/saropa/drift-viewer)
 
+---
+
+## [Unreleased]
+
+The web viewer's toolbar can now show labels: click any empty space in the toolbar row to switch between icon-only buttons and icons with a short word in a dim box. Your choice is remembered.
+
+### Added
+
+- **Website: history groups repeated queries** — in the debug web viewer's History sidebar, identical SQL is now collapsed into a single row instead of repeating once per run. When a query ran more than once, a clickable **(n)** count appears next to it; clicking it opens a dialog listing every run with its source, time, and duration, plus a **Copy** button that copies the query and all its run times/durations as tab-separated text (ready to paste into a spreadsheet). When the same SQL ran from more than one source (browser / app / internal), the collapsed row shows a pill for each source; otherwise it shows the most recent run's duration and timestamp. Clicking the row (outside the count) loads its SQL into Run SQL as before.
+- **Website: toolbar label toggle** — click the blank whitespace between the debug web viewer's toolbar icons (not an icon) to flip the whole toolbar between two looks: compact icon-only, or each icon paired with a short word inside a dim bounding box. The mode is saved, so it stays the way you left it across reloads.
+
+---
+
 ## [3.7.1]
 
 Paste a query and see it as a diagram: the web viewer's query builder can now turn a `SELECT` you've typed (or pasted) into the multi-table visual graph.

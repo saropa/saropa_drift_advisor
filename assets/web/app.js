@@ -706,6 +706,25 @@
       }
     });
 
+    // Table-definition "Show" checkboxes: toggle a column's visibility in the
+    // results grid. Shares columnConfig.hidden with the column chooser and the
+    // header right-click menu so a column hidden in one place reflects in all.
+    document.addEventListener('change', function(e) {
+      var visCb = e.target.closest('.table-def-colvis');
+      if (!visCb) return;
+      var key = visCb.getAttribute('data-col-key');
+      if (!key || !S.currentTableName || !S.currentTableJson || !S.currentTableJson.length) return;
+      var dataKeys = Object.keys(S.currentTableJson[0]);
+      var config = ensureColumnConfig(S.currentTableName, dataKeys);
+      if (visCb.checked) {
+        config.hidden = config.hidden.filter(function(k) { return k !== key; });
+      } else if (config.hidden.indexOf(key) < 0) {
+        config.hidden.push(key);
+      }
+      setColumnConfig(S.currentTableName, config);
+      applyColumnConfigAndRender();
+    });
+
 
     document.addEventListener('click', function(e) {
       var copyBtn = e.target.closest('.cell-copy-btn');
@@ -713,6 +732,19 @@
         e.preventDefault();
         e.stopPropagation();
         copyCellValue(copyBtn.getAttribute('data-raw') || '');
+        return;
+      }
+      // Expand button (BLOB cells): open the full value popup. The full value
+      // lives only in the sibling copy button's data-raw, so read it from there.
+      var expandBtn = e.target.closest('.cell-expand-btn');
+      if (expandBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var expandTd = expandBtn.closest('.drift-table td');
+        var srcCopy = expandTd ? expandTd.querySelector('.cell-copy-btn') : null;
+        var fullValue = srcCopy ? (srcCopy.getAttribute('data-raw') || '') : '';
+        var expandKey = expandTd ? (expandTd.getAttribute('data-column-key') || '') : '';
+        showCellValuePopup(fullValue, expandKey);
         return;
       }
       var link = e.target.closest('.fk-link');

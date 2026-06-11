@@ -93,6 +93,28 @@ void main() {
     );
   });
 
+  test(
+    'Toolbar label toggle: data-labels, SCSS labeled mode, JS key + wiring',
+    () {
+      // Each toolbar icon button carries a short data-label word used to render
+      // the label in "labeled" density mode. Spot-check a representative set
+      // spanning data-tool launchers and the id-based toggles/actions.
+      expect(htmlDart, contains('data-label="Home"'));
+      expect(htmlDart, contains('data-label="Tables"'));
+      expect(htmlDart, contains('data-label="SQL"'));
+      expect(htmlDart, contains('data-label="Mask"'));
+      expect(htmlDart, contains('data-label="Theme"'));
+      expect(htmlDart, contains('data-label="History"'));
+      // SCSS exposes the labeled-mode hook and renders the label from data-label.
+      expect(styleScss, contains('tb-labeled'));
+      expect(styleScss, contains('content: attr(data-label)'));
+      // Bundle persists the chosen density and toggles on whitespace clicks.
+      expect(appJs, contains('TOOLBAR_LABELS_KEY'));
+      expect(appJs, contains('drift-viewer-toolbar-labels'));
+      expect(appJs, contains('classList.toggle("tb-labeled")'));
+    },
+  );
+
   test('Tables sidebar heading matches History (no chevron; count span)', () {
     expect(
       htmlDart,

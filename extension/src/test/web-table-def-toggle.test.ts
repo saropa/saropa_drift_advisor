@@ -72,8 +72,9 @@ describe('table-def-toggle.ts — self-contained collapsible module', () => {
     );
   });
 
-  // Arrow characters: ▼ (collapsed) and ▲ (expanded).
-  it('swaps ▼/▲ arrow in heading text', () => {
+  // The chevron is now a CSS ::after keyed off .td-collapsed (see
+  // _query-builder.scss), not an arrow swapped into the heading text.
+  it('does not embed arrow glyphs in the heading text (chevron is CSS)', () => {
     assert.ok(js.includes('\u25BC'), 'should contain ▼ (down arrow for collapsed)');
     assert.ok(js.includes('\u25B2'), 'should contain ▲ (up arrow for expanded)');
   });

@@ -277,13 +277,13 @@ export function renderMultiRoot(): void {
 
   host.innerHTML = `
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC Tables</div>
+  <div class="qb-header qb-header-static">Tables</div>
   <div class="qb-body">
     <ul class="qb-m-table-list">${tablesHtml}</ul>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC JOINs</div>
+  <div class="qb-header qb-header-static">JOINs</div>
   <div class="qb-body">
     ${joinsHtml}
     <div class="qb-row" style="margin-top:0.5rem;flex-wrap:wrap;align-items:flex-end;">
@@ -300,28 +300,28 @@ export function renderMultiRoot(): void {
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC SELECT columns</div>
+  <div class="qb-header qb-header-static">SELECT columns</div>
   <div class="qb-body">
     ${selColsHtml || '<p class="meta">No columns selected.</p>'}
     <button type="button" id="qb-m-add-sel">+ Add column</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC WHERE</div>
+  <div class="qb-header qb-header-static">WHERE</div>
   <div class="qb-body">
     ${filtersHtml || '<p class="meta">No filters.</p>'}
     <button type="button" id="qb-m-add-flt">+ Add condition</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC GROUP BY</div>
+  <div class="qb-header qb-header-static">GROUP BY</div>
   <div class="qb-body">
     ${gbHtml || '<p class="meta">None</p>'}
     <button type="button" id="qb-m-add-gb">+ Add GROUP BY</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC ORDER BY</div>
+  <div class="qb-header qb-header-static">ORDER BY</div>
   <div class="qb-body">
     ${obHtml || '<p class="meta">None</p>'}
     <button type="button" id="qb-m-add-ob">+ Add ORDER BY</button>

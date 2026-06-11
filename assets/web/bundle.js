@@ -579,6 +579,7 @@
   var TABLE_STATE_KEY_PREFIX = "drift-viewer-table-state-";
   var NAV_HISTORY_KEY = "drift-viewer-nav-history";
   var PINNED_TABLES_KEY = "drift-viewer-pinned-tables";
+  var TOOLBAR_LABELS_KEY = "drift-viewer-toolbar-labels";
   var SERVER_ORIGIN_KEY = "drift-viewer-server-origin";
   var LIMIT_OPTIONS = [50, 200, 500, 1e3];
   var displayFormat = "raw";
@@ -1251,13 +1252,13 @@
     }).join("");
     host.innerHTML = `
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC Tables</div>
+  <div class="qb-header qb-header-static">Tables</div>
   <div class="qb-body">
     <ul class="qb-m-table-list">${tablesHtml}</ul>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC JOINs</div>
+  <div class="qb-header qb-header-static">JOINs</div>
   <div class="qb-body">
     ${joinsHtml}
     <div class="qb-row" style="margin-top:0.5rem;flex-wrap:wrap;align-items:flex-end;">
@@ -1274,28 +1275,28 @@
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC SELECT columns</div>
+  <div class="qb-header qb-header-static">SELECT columns</div>
   <div class="qb-body">
     ${selColsHtml || '<p class="meta">No columns selected.</p>'}
     <button type="button" id="qb-m-add-sel">+ Add column</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC WHERE</div>
+  <div class="qb-header qb-header-static">WHERE</div>
   <div class="qb-body">
     ${filtersHtml || '<p class="meta">No filters.</p>'}
     <button type="button" id="qb-m-add-flt">+ Add condition</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC GROUP BY</div>
+  <div class="qb-header qb-header-static">GROUP BY</div>
   <div class="qb-body">
     ${gbHtml || '<p class="meta">None</p>'}
     <button type="button" id="qb-m-add-gb">+ Add GROUP BY</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header">\u25BC ORDER BY</div>
+  <div class="qb-header qb-header-static">ORDER BY</div>
   <div class="qb-body">
     ${obHtml || '<p class="meta">None</p>'}
     <button type="button" id="qb-m-add-ob">+ Add ORDER BY</button>
@@ -2351,7 +2352,7 @@
     if (cols.length === 0) return "";
     _qbColTypes = colTypes;
     var html = '<div class="qb-section">';
-    html += '<div class="qb-header" id="qb-toggle">\u25BC Query builder</div>';
+    html += '<div class="qb-header is-collapsed" id="qb-toggle">Query builder</div>';
     html += '<div id="qb-body" class="qb-body collapsed">';
     html += '<div class="qb-mode-toggle">';
     html += '<button type="button" id="qb-mode-visual" class="qb-mode-btn active" title="Visual query builder">Visual</button>';
@@ -2634,10 +2635,12 @@
       var html = '<p class="meta">Query builder result: ' + rows.length + " row(s)</p>";
       html += '<p class="meta" style="font-family:monospace;font-size:11px;color:var(--muted);">' + esc2(sql) + "</p>";
       html += buildQueryBuilderHtml(currentTableName, colTypes);
-      var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, getColumnConfig(currentTableName)));
-      rawTableHtml += buildTableStatusBar(tableCounts[currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(Object.keys(rows[0] || {}), getColumnConfig(currentTableName)));
-      var resultsLabel = rows.length + " row" + (rows.length !== 1 ? "s" : "");
-      html += '<div class="results-table-wrap" role="region" aria-label="Results"><div class="results-table-heading">\u25B2 Results \u2014 ' + resultsLabel + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
+      var qbDataKeys = Object.keys(rows[0] || {});
+      var qbColConfig = getColumnConfig(currentTableName);
+      var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, qbColConfig));
+      rawTableHtml += buildTableStatusBar(tableCounts[currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(qbDataKeys, qbColConfig));
+      var resultsLabel = buildResultsLabel(rows.length, null, getVisibleColumnCount(qbDataKeys, qbColConfig), qbDataKeys.length);
+      html += '<div class="results-table-wrap" role="region" aria-label="Results"><div class="results-table-heading">Results \u2014 ' + resultsLabel + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
       content.innerHTML = html;
       bindQueryBuilderEvents(colTypes);
       restoreQueryBuilderUIState(savedState);
@@ -2646,7 +2649,7 @@
       var body = document.getElementById("qb-body");
       var toggle = document.getElementById("qb-toggle");
       if (body) body.classList.remove("collapsed");
-      if (toggle) toggle.textContent = "\u25B2 Query builder";
+      if (toggle) toggle.classList.remove("is-collapsed");
       saveTableState(currentTableName);
     }).catch(function(e) {
       alert("Error: " + e.message);
@@ -2672,7 +2675,7 @@
       toggle.addEventListener("click", function() {
         var collapsed = body.classList.contains("collapsed");
         body.classList.toggle("collapsed", !collapsed);
-        toggle.textContent = collapsed ? "\u25B2 Query builder" : "\u25BC Query builder";
+        toggle.classList.toggle("is-collapsed", !collapsed);
       });
     }
     var addBtn = document.getElementById("qb-add-where");
@@ -4086,6 +4089,10 @@
     var lower = name.toLowerCase();
     return /date|time|created|updated|deleted|_at\$|_on\$/.test(lower);
   }
+  var BLOB_PREVIEW_CHARS = 48;
+  function isBlobType(colType) {
+    return /BLOB|BINARY/.test((colType || "").toUpperCase());
+  }
   function formatCellValue(value, columnName, columnType) {
     var raw = value != null ? String(value) : "";
     if (value == null || value === "") return { formatted: raw, raw, wasFormatted: false };
@@ -4174,9 +4181,18 @@
         var isNull = val == null;
         var rawStr = isNull ? "" : String(val);
         var displayStr = getDisplayValue(k, val, maskOn, piiCols[k]);
+        var isBlob = colTypes ? isBlobType(colTypes[k]) : false;
+        var blobTruncated = false;
         var cellContent;
         if (isNull) {
           cellContent = '<span class="cell-null">' + esc2(nullDisplay) + "</span>";
+        } else if (isBlob) {
+          if (displayStr.length > BLOB_PREVIEW_CHARS) {
+            cellContent = esc2(displayStr.substring(0, BLOB_PREVIEW_CHARS)) + '<span class="cell-blob-ellipsis" aria-hidden="true">\u2026</span>';
+            blobTruncated = true;
+          } else {
+            cellContent = esc2(displayStr);
+          }
         } else if (displayFormat === "formatted" && colTypes && !(maskOn && piiCols[k])) {
           var fmt = formatCellValue(val, k, colTypes[k]);
           if (fmt.wasFormatted) {
@@ -4188,6 +4204,7 @@
           cellContent = esc2(displayStr);
         }
         var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc2(displayStr) + '" title="Copy value">&#x2398;</button>';
+        var expandBtn = blobTruncated ? '<button type="button" class="cell-expand-btn" title="Open full value">&#x26F6;</button>' : "";
         var tdClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : "";
         var tdAttrs = ' data-column-key="' + esc2(k) + '"' + tdClass;
         if (fk && !isNull) {
@@ -4195,9 +4212,9 @@
           html += 'data-table="' + esc2(fk.toTable) + '" ';
           html += 'data-column="' + esc2(fk.toColumn) + '" ';
           html += 'data-value="' + esc2(rawStr) + '">';
-          html += cellContent + " &#8594;</a></span>" + copyBtn + "</td>";
+          html += cellContent + " &#8594;</a></span>" + expandBtn + copyBtn + "</td>";
         } else {
-          html += "<td" + tdAttrs + '><span class="cell-text">' + cellContent + "</span>" + copyBtn + "</td>";
+          html += "<td" + tdAttrs + '><span class="cell-text">' + cellContent + "</span>" + expandBtn + copyBtn + "</td>";
         }
       });
       if (showRowDelete && singlePkName) {
@@ -4241,6 +4258,14 @@
     if (colText) parts.push(colText);
     return '<div class="table-status-bar" role="status">' + parts.join(" \u2022 ") + "</div>";
   }
+  function buildResultsLabel(rowCount, totalRows, visibleCols, totalCols) {
+    var rowsText = totalRows != null && totalRows !== rowCount ? rowCount.toLocaleString() + " of " + totalRows.toLocaleString() + " rows" : rowCount.toLocaleString() + " row" + (rowCount !== 1 ? "s" : "");
+    var colsText = "";
+    if (totalCols != null && totalCols > 0) {
+      colsText = visibleCols != null && visibleCols !== totalCols ? visibleCols + " of " + totalCols + " columns" : totalCols + " column" + (totalCols !== 1 ? "s" : "");
+    }
+    return colsText ? rowsText + " / " + colsText : rowsText;
+  }
   function columnTypeIcon(rawType) {
     if (!rawType) return "\u25CB";
     var t = rawType.toUpperCase();
@@ -4260,10 +4285,14 @@
     cachedFks.forEach(function(fk) {
       fkSet[fk.fromColumn] = fk;
     });
+    var cfg = getColumnConfig(tableName);
+    var hiddenCols = cfg && cfg.hidden || [];
     var rows = t.columns.map(function(c) {
       var rawType = c.type != null ? String(c.type).trim() : "";
       var icon = columnTypeIcon(rawType);
       var iconHtml = '<span class="table-def-icon" title="' + esc2(rawType || "unspecified") + '">' + esc2(icon) + "</span>";
+      var isHidden = hiddenCols.indexOf(c.name) >= 0;
+      var visCell = '<td class="table-def-vis"><input type="checkbox" class="table-def-colvis" data-col-key="' + esc2(c.name) + '"' + (isHidden ? "" : " checked") + ' title="Show this column in the results table" aria-label="Show ' + esc2(c.name) + ' in results"></td>';
       var badges = "";
       if (c.pk) badges += '<span class="table-def-badge table-def-badge-pk" title="Primary key">\u{1F511}</span>';
       if (fkSet[c.name]) badges += '<span class="table-def-badge table-def-badge-fk" title="FK \u2192 ' + esc2(fkSet[c.name].toTable) + "." + esc2(fkSet[c.name].toColumn) + '">\u{1F517}</span>';
@@ -4271,9 +4300,9 @@
       if (c.notnull) flags.push("NOT NULL");
       var flagStr = flags.length ? flags.join(", ") : "\u2014";
       var typCell = rawType ? esc2(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
-      return '<tr><td class="table-def-icons">' + iconHtml + badges + '</td><td class="table-def-name" data-longpress-copy="' + esc2(c.name) + '">' + esc2(c.name) + '</td><td class="table-def-type">' + typCell + '</td><td class="table-def-flags">' + esc2(flagStr) + "</td></tr>";
+      return "<tr>" + visCell + '<td class="table-def-icons">' + iconHtml + badges + '</td><td class="table-def-name" data-longpress-copy="' + esc2(c.name) + '">' + esc2(c.name) + '</td><td class="table-def-type">' + typCell + '</td><td class="table-def-flags">' + esc2(flagStr) + "</td></tr>";
     }).join("");
-    return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition"><div class="table-definition-heading">\u25BC Table definition</div><div class="table-definition-scroll"><table class="table-definition"><thead><tr><th class="table-def-icons" scope="col"></th><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
+    return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition"><div class="table-definition-heading">Table definition</div><div class="table-definition-scroll"><table class="table-definition"><thead><tr><th class="table-def-vis" scope="col" title="Show column in the results table">Show</th><th class="table-def-icons" scope="col"></th><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
   }
   function bindResultsToggle() {
     var headings = document.querySelectorAll(".results-table-heading");
@@ -4284,13 +4313,7 @@
       heading.addEventListener("click", function() {
         var wrap = this.closest(".results-table-wrap");
         if (!wrap) return;
-        var isCollapsed = wrap.classList.toggle("results-collapsed");
-        var text = this.textContent || "";
-        if (isCollapsed) {
-          this.textContent = text.replace("\u25B2", "\u25BC");
-        } else {
-          this.textContent = text.replace("\u25BC", "\u25B2");
-        }
+        wrap.classList.toggle("results-collapsed");
       });
     }
   }
@@ -4320,8 +4343,14 @@
       var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(name))) + buildTableStatusBar(tableCounts[name], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(name)));
       var rowCount = displayData.length;
       var totalCount = tableCounts[name];
-      var resultsLabel = totalCount != null ? rowCount + " of " + totalCount.toLocaleString() + " rows" : rowCount + " row" + (rowCount !== 1 ? "s" : "");
-      var tableHtml = '<div class="results-table-wrap" role="region" aria-label="Results"><div class="results-table-heading">\u25B2 Results \u2014 ' + resultsLabel + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
+      var resultDataKeys = Object.keys(displayData[0] || {});
+      var resultsLabel = buildResultsLabel(
+        rowCount,
+        totalCount != null ? totalCount : null,
+        getVisibleColumnCount(resultDataKeys, getColumnConfig(name)),
+        resultDataKeys.length
+      );
+      var tableHtml = '<div class="results-table-wrap" role="region" aria-label="Results"><div class="results-table-heading">Results \u2014 ' + resultsLabel + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
       var qbHtml = buildQueryBuilderHtml(name, colTypes);
       if (scope === "both") {
         setLastRenderedSchema(cachedSchema);
@@ -5264,15 +5293,15 @@
     var W = size.w, H = size.h, PAD = 56;
     var xLabel = opts.xLabel != null ? opts.xLabel : xKey;
     var yLabel = opts.yLabel != null ? opts.yLabel : yKey;
-    var groups = {};
+    var groups2 = {};
     data.forEach(function(d) {
       var k = String(d[xKey]);
-      if (!groups[k]) groups[k] = [];
-      groups[k].push(Number(d[yKey]) || 0);
+      if (!groups2[k]) groups2[k] = [];
+      groups2[k].push(Number(d[yKey]) || 0);
     });
-    var labels = Object.keys(groups);
+    var labels = Object.keys(groups2);
     var sums = labels.map(function(k) {
-      return groups[k].reduce(function(a, b) {
+      return groups2[k].reduce(function(a, b) {
         return a + b;
       }, 0);
     });
@@ -5288,7 +5317,7 @@
       svg += '<text class="chart-axis-label" x="' + (PAD - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + esc2(v) + "</text>";
     }
     labels.forEach(function(label, gi) {
-      var segs = groups[label];
+      var segs = groups2[label];
       var x = PAD + gi * (barW + 4) + 2;
       var accY = H - PAD;
       segs.forEach(function(val, si) {
@@ -5911,6 +5940,7 @@
 
   // assets/web/history-sidebar.ts
   var entries = [];
+  var groups = [];
   var activeFilter = "all";
   var listEl = null;
   var countEl = null;
@@ -5919,24 +5949,50 @@
     if (activeFilter === "all") return entries;
     return entries.filter((e) => e.source === activeFilter);
   }
+  function groupEntries(list) {
+    const bySql = /* @__PURE__ */ new Map();
+    const result = [];
+    for (const e of list) {
+      let g = bySql.get(e.sql);
+      if (!g) {
+        g = { sql: e.sql, latest: e, occurrences: [] };
+        bySql.set(e.sql, g);
+        result.push(g);
+      }
+      g.occurrences.push(e);
+      if (e.at && (!g.latest.at || new Date(e.at).getTime() > new Date(g.latest.at).getTime())) {
+        g.latest = e;
+      }
+    }
+    return result;
+  }
   function render() {
     if (!listEl) return;
-    const items = filtered();
-    countEl?.replaceChildren(document.createTextNode("(" + items.length + ")"));
-    if (items.length === 0) {
+    groups = groupEntries(filtered());
+    countEl?.replaceChildren(document.createTextNode("(" + groups.length + ")"));
+    if (groups.length === 0) {
       listEl.innerHTML = '<li class="history-empty">No queries yet.</li>';
       return;
     }
-    listEl.innerHTML = items.map((e, i) => {
+    listEl.innerHTML = groups.map((g, i) => {
+      const e = g.latest;
       const preview = e.sql.length > 60 ? e.sql.slice(0, 57) + "\u2026" : e.sql;
-      const badge = '<span class="history-badge history-badge--' + esc2(e.source) + '">' + esc2(e.source) + "</span>";
+      const sources = [];
+      for (const o of g.occurrences) {
+        if (sources.indexOf(o.source) < 0) sources.push(o.source);
+      }
+      const badge = '<span class="history-badges">' + sources.map(
+        (s) => '<span class="history-badge history-badge--' + esc2(s) + '">' + esc2(s) + "</span>"
+      ).join("") + "</span>";
       const meta = [];
       meta.push(e.durationMs + " ms");
       if (e.rowCount != null) meta.push(e.rowCount + " row(s)");
       if (e.error) meta.push("ERR");
       const at = e.at ? formatRelativeTime(e.at) : "";
       const metaStr = meta.join(" \xB7 ");
-      return '<li class="history-item' + (e.error ? " history-item--error" : "") + '" data-idx="' + i + '" title="' + esc2(e.sql) + '">' + badge + '<span class="history-sql">' + esc2(preview) + '</span><span class="history-meta">' + esc2(metaStr) + (at ? " \xB7 " + esc2(at) : "") + "</span></li>";
+      const count = g.occurrences.length;
+      const countBadge = count > 1 ? '<button type="button" class="history-count-badge" data-idx="' + i + '" title="Show all ' + count + ' runs of this query">(' + count + ")</button>" : "";
+      return '<li class="history-item' + (e.error ? " history-item--error" : "") + '" data-idx="' + i + '" title="' + esc2(e.sql) + '">' + badge + '<span class="history-item-line"><span class="history-sql">' + esc2(preview) + "</span>" + countBadge + '</span><span class="history-meta">' + esc2(metaStr) + (at ? " \xB7 " + esc2(at) : "") + "</span></li>";
     }).join("");
   }
   function formatRelativeTime(iso) {
@@ -5949,6 +6005,66 @@
     const hr = Math.floor(min / 60);
     if (hr < 24) return hr + " h ago";
     return Math.floor(hr / 24) + " d ago";
+  }
+  function formatAbsoluteTime(iso) {
+    if (!iso) return "\u2014";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString();
+  }
+  var dialogOverlay = null;
+  function occurrencesToTsv(group, rows) {
+    const header = "Time	Duration (ms)";
+    const body = rows.map((e) => formatAbsoluteTime(e.at) + "	" + e.durationMs).join("\n");
+    return group.sql + "\n\n" + header + "\n" + body;
+  }
+  function showOccurrencesDialog(group) {
+    const rows = group.occurrences.slice().sort((a, b) => {
+      const ta = a.at ? new Date(a.at).getTime() : 0;
+      const tb = b.at ? new Date(b.at).getTime() : 0;
+      return tb - ta;
+    });
+    if (!dialogOverlay) {
+      dialogOverlay = document.createElement("div");
+      dialogOverlay.className = "history-dialog-overlay";
+      dialogOverlay.setAttribute("role", "dialog");
+      dialogOverlay.setAttribute("aria-modal", "true");
+      dialogOverlay.setAttribute("aria-label", "Query run history");
+      document.body.appendChild(dialogOverlay);
+    }
+    const overlay = dialogOverlay;
+    function close() {
+      overlay.style.display = "none";
+      document.removeEventListener("keydown", onKey);
+    }
+    function onKey(ev) {
+      if (ev.key === "Escape") close();
+    }
+    const preview = group.sql.length > 200 ? group.sql.slice(0, 197) + "\u2026" : group.sql;
+    const tableRows = rows.map((e) => {
+      const badge = '<span class="history-badge history-badge--' + esc2(e.source) + '">' + esc2(e.source) + "</span>";
+      return "<tr" + (e.error ? ' class="history-dialog-row--error"' : "") + "><td>" + badge + "</td><td>" + esc2(formatAbsoluteTime(e.at)) + '</td><td class="history-dialog-num">' + esc2(e.durationMs + " ms") + "</td><td>" + (e.error ? '<span title="' + esc2(e.error) + '">ERR</span>' : "") + "</td></tr>";
+    }).join("");
+    overlay.innerHTML = '<div class="history-dialog"><div class="history-dialog-header"><h3 class="history-dialog-title">Query runs (' + rows.length + ')</h3><button type="button" class="history-dialog-close" title="Close">\u2715</button></div><pre class="history-dialog-sql">' + esc2(preview) + '</pre><div class="history-dialog-table-wrap"><table class="history-dialog-table"><thead><tr><th>Source</th><th>Time</th><th>Duration</th><th></th></tr></thead><tbody>' + tableRows + '</tbody></table></div><div class="history-dialog-actions"><button type="button" class="history-dialog-copy">Copy</button></div></div>';
+    const copyBtn = overlay.querySelector(".history-dialog-copy");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", function() {
+        const text = occurrencesToTsv(group, rows);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function() {
+            showCopyToast("Copied " + rows.length + " runs");
+          }).catch(function() {
+          });
+        }
+      });
+    }
+    const closeBtn = overlay.querySelector(".history-dialog-close");
+    if (closeBtn) closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", function(ev) {
+      if (ev.target === overlay) close();
+    });
+    document.addEventListener("keydown", onKey);
+    overlay.style.display = "flex";
   }
   function applyPanelCollapsed(panelCollapsed) {
     const layout2 = document.getElementById("app-layout");
@@ -6017,14 +6133,21 @@
       });
     }
     listEl.addEventListener("click", function(e) {
+      const countBtn = e.target.closest(
+        ".history-count-badge"
+      );
+      if (countBtn) {
+        const gi = parseInt(countBtn.getAttribute("data-idx") || "", 10);
+        if (!isNaN(gi) && groups[gi]) showOccurrencesDialog(groups[gi]);
+        return;
+      }
       const li = e.target.closest(".history-item");
       if (!li) return;
       const idx = parseInt(li.getAttribute("data-idx") || "", 10);
-      const items = filtered();
-      if (isNaN(idx) || !items[idx]) return;
+      if (isNaN(idx) || !groups[idx]) return;
       const sqlInput = document.getElementById("sql-input");
       if (sqlInput) {
-        sqlInput.value = items[idx].sql;
+        sqlInput.value = groups[idx].sql;
         openTool("sql");
         sqlInput.focus();
       }
@@ -9238,12 +9361,40 @@
       });
     }
   });
+  document.addEventListener("change", function(e) {
+    var visCb = e.target.closest(".table-def-colvis");
+    if (!visCb) return;
+    var key = visCb.getAttribute("data-col-key");
+    if (!key || !currentTableName || !currentTableJson || !currentTableJson.length) return;
+    var dataKeys = Object.keys(currentTableJson[0]);
+    var config = ensureColumnConfig(currentTableName, dataKeys);
+    if (visCb.checked) {
+      config.hidden = config.hidden.filter(function(k) {
+        return k !== key;
+      });
+    } else if (config.hidden.indexOf(key) < 0) {
+      config.hidden.push(key);
+    }
+    setColumnConfig(currentTableName, config);
+    applyColumnConfigAndRender();
+  });
   document.addEventListener("click", function(e) {
     var copyBtn = e.target.closest(".cell-copy-btn");
     if (copyBtn) {
       e.preventDefault();
       e.stopPropagation();
       copyCellValue(copyBtn.getAttribute("data-raw") || "");
+      return;
+    }
+    var expandBtn = e.target.closest(".cell-expand-btn");
+    if (expandBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      var expandTd = expandBtn.closest(".drift-table td");
+      var srcCopy = expandTd ? expandTd.querySelector(".cell-copy-btn") : null;
+      var fullValue = srcCopy ? srcCopy.getAttribute("data-raw") || "" : "";
+      var expandKey = expandTd ? expandTd.getAttribute("data-column-key") || "" : "";
+      showCellValuePopup(fullValue, expandKey);
       return;
     }
     var link = e.target.closest(".fk-link");
@@ -9464,6 +9615,24 @@
 
   // assets/web/toolbar.ts
   function initToolbar() {
+    var toolbar = document.getElementById("toolbar-bar");
+    if (toolbar) {
+      try {
+        if (localStorage.getItem(TOOLBAR_LABELS_KEY) === "1") {
+          toolbar.classList.add("tb-labeled");
+        }
+      } catch (e) {
+      }
+      toolbar.addEventListener("click", function(e) {
+        var hitButton = e.target.closest(".tb-icon-btn, .tb-flyout");
+        if (hitButton) return;
+        var labeled = toolbar.classList.toggle("tb-labeled");
+        try {
+          localStorage.setItem(TOOLBAR_LABELS_KEY, labeled ? "1" : "0");
+        } catch (e2) {
+        }
+      });
+    }
     document.querySelectorAll(".tb-icon-btn[data-tool]").forEach(function(btn) {
       var toolId = btn.getAttribute("data-tool");
       if (toolId) {
@@ -9570,14 +9739,11 @@
       if (!heading) return;
       const wrap = heading.closest(".table-definition-wrap");
       if (!wrap) return;
-      const isCollapsed = wrap.classList.toggle("td-collapsed");
-      heading.textContent = isCollapsed ? "\u25BC Table definition" : "\u25B2 Table definition";
+      wrap.classList.toggle("td-collapsed");
     });
     const existing = document.querySelectorAll(".table-definition-wrap");
     for (let i = 0; i < existing.length; i++) {
       existing[i].classList.add("td-collapsed");
-      const h = existing[i].querySelector(".table-definition-heading");
-      if (h) h.textContent = "\u25BC Table definition";
     }
   }
 

@@ -10,7 +10,7 @@ import * as MQ from './query-builder-multi.ts';
 import { importSelectSqlToWebModel } from './query-builder-import.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
 import { getColumnConfig, saveTableState } from './persistence.ts';
-import { wrapDataTableInScroll, buildDataTableHtml, buildTableStatusBar, getVisibleColumnCount, renderTableView, bindResultsToggle } from './table-view.ts';
+import { wrapDataTableInScroll, buildDataTableHtml, buildTableStatusBar, getVisibleColumnCount, buildResultsLabel, renderTableView, bindResultsToggle } from './table-view.ts';
 import { bindColumnTableEvents } from './pagination.ts';
 
     /** Column type map for the current query builder instance. */
@@ -21,7 +21,9 @@ import { bindColumnTableEvents } from './pagination.ts';
       if (cols.length === 0) return '';
       _qbColTypes = colTypes;
       var html = '<div class="qb-section">';
-      html += '<div class="qb-header" id="qb-toggle">\u25BC Query builder</div>';
+      // is-collapsed drives the CSS ::after chevron (collapsed by default to match
+      // the qb-body.collapsed state below); no arrow character in the markup.
+      html += '<div class="qb-header is-collapsed" id="qb-toggle">Query builder</div>';
       html += '<div id="qb-body" class="qb-body collapsed">';
 
       // Visual/Raw mode toggle
@@ -295,11 +297,15 @@ import { bindColumnTableEvents } from './pagination.ts';
           html += buildQueryBuilderHtml(S.currentTableName, colTypes);
           // Wrap query builder results in the same collapsible expander
           // used by the main table view, expanded by default.
-          var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, getColumnConfig(S.currentTableName)));
-          rawTableHtml += buildTableStatusBar(S.tableCounts[S.currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(Object.keys(rows[0] || {}), getColumnConfig(S.currentTableName)));
-          var resultsLabel = rows.length + ' row' + (rows.length !== 1 ? 's' : '');
+          var qbDataKeys = Object.keys(rows[0] || {});
+          var qbColConfig = getColumnConfig(S.currentTableName);
+          var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, qbColConfig));
+          rawTableHtml += buildTableStatusBar(S.tableCounts[S.currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(qbDataKeys, qbColConfig));
+          // Query-builder results are the full result set (no separate server
+          // total), so rows collapse to a single count; columns reflect hiding.
+          var resultsLabel = buildResultsLabel(rows.length, null, getVisibleColumnCount(qbDataKeys, qbColConfig), qbDataKeys.length);
           html += '<div class="results-table-wrap" role="region" aria-label="Results">' +
-            '<div class="results-table-heading">\u25B2 Results \u2014 ' + resultsLabel + '</div>' +
+            '<div class="results-table-heading">Results \u2014 ' + resultsLabel + '</div>' +
             '<div class="results-table-body">' + rawTableHtml + '</div></div>';
           content.innerHTML = html;
           bindQueryBuilderEvents(colTypes);
@@ -310,7 +316,7 @@ import { bindColumnTableEvents } from './pagination.ts';
           var body = document.getElementById('qb-body');
           var toggle = document.getElementById('qb-toggle');
           if (body) body.classList.remove('collapsed');
-          if (toggle) toggle.textContent = '\u25B2 Query builder';
+          if (toggle) toggle.classList.remove('is-collapsed');
           saveTableState(S.currentTableName);
         })
         .catch(function(e) { alert('Error: ' + e.message); })
@@ -336,7 +342,8 @@ import { bindColumnTableEvents } from './pagination.ts';
         toggle.addEventListener('click', function() {
           var collapsed = body.classList.contains('collapsed');
           body.classList.toggle('collapsed', !collapsed);
-          toggle.textContent = collapsed ? '\u25B2 Query builder' : '\u25BC Query builder';
+          // Keep the heading's is-collapsed flag in sync so the CSS chevron flips.
+          toggle.classList.toggle('is-collapsed', !collapsed);
         });
       }
       var addBtn = document.getElementById('qb-add-where');

@@ -887,6 +887,15 @@ body.theme-light .header-pill.live {
   border-left: 2px solid var(--error, #e53e3e);
 }
 
+/* Wraps one or more source pills on the row header. A group can merge runs
+   from multiple sources (identical SQL), so the pills wrap with a small gap. */
+.history-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin-bottom: 0.1rem;
+}
+
 /* Source badge: small colored label. */
 .history-badge {
   display: inline-block;
@@ -917,6 +926,15 @@ body.theme-light .header-pill.live {
   background: rgba(128, 128, 128, 0.1);
 }
 
+/* SQL line: preview text plus an optional (n) run-count badge.
+   The badge keeps its width while the preview truncates beside it. */
+.history-item-line {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
 /* SQL preview text — monospace, truncated. */
 .history-sql {
   font-family: var(--font-mono, "Fira Code", monospace);
@@ -926,6 +944,34 @@ body.theme-light .header-pill.live {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* (n) run-count badge: a small clickable pill that opens the runs dialog.
+   flex-shrink:0 so it never collapses when the SQL preview is long. */
+.history-count-badge {
+  all: unset;
+  flex: 0 0 auto;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--link, #2b6cb0);
+  background: rgba(43, 108, 176, 0.12);
+  user-select: none;
+}
+
+.history-count-badge:hover {
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
+}
+
+.history-count-badge:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 1px;
 }
 
 /* Meta line: duration, row count, timestamp. */
@@ -986,6 +1032,143 @@ body.theme-light .header-pill.live {
     overflow-y: auto;
   }
 }
+/* --- Occurrences dialog (opened by the (n) run-count badge) --- */
+/* z-index 10000+ keeps it above sidebars/toolbars, matching the other
+   modal overlays in the viewer. */
+.history-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+}
+
+.history-dialog {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, #fff);
+  color: var(--fg, #111);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  max-width: min(640px, 95vw);
+  max-height: 85vh;
+  width: 100%;
+}
+
+.history-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-dialog-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.history-dialog-close {
+  all: unset;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+
+.history-dialog-close:hover {
+  color: var(--fg);
+  background: rgba(128, 128, 128, 0.1);
+}
+
+/* Full SQL preview — wraps, monospace, scrolls if very long. */
+.history-dialog-sql {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  font-family: var(--font-mono, "Fira Code", monospace);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 8rem;
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
+  background: rgba(128, 128, 128, 0.06);
+}
+
+/* Scroll region for the runs table when there are many executions. */
+.history-dialog-table-wrap {
+  overflow: auto;
+  flex: 1 1 auto;
+}
+
+.history-dialog-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+.history-dialog-table th,
+.history-dialog-table td {
+  text-align: left;
+  padding: 0.35rem 1rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.history-dialog-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg, #fff);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Right-align the numeric duration column for quick scanning. */
+.history-dialog-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-dialog-row--error td {
+  color: var(--error, #e53e3e);
+}
+
+.history-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.history-dialog-copy {
+  all: unset;
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-sm);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
+}
+
+.history-dialog-copy:hover {
+  filter: brightness(1.05);
+}
+
+.history-dialog-copy:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
 /* --- Export toolbar --- */
 .export-toolbar {
   display: flex;
@@ -2597,6 +2780,8 @@ body.theme-light #live-indicator.connection-status {
 }
 
 .results-table-heading {
+  display: flex;
+  align-items: center;
   cursor: pointer;
   user-select: none;
   color: var(--link);
@@ -2607,6 +2792,23 @@ body.theme-light #live-indicator.connection-status {
 
 .results-table-heading:hover {
   text-decoration: underline;
+}
+
+/* Expand/collapse chevron: right-aligned and dimmed (muted, not link color) so
+   it reads as an affordance without competing with the heading text. Direction
+   follows .results-collapsed on the wrap (▲ expanded / ▼ collapsed). */
+.results-table-heading::after {
+  content: "▲";
+  margin-left: auto;
+  padding-left: 0.5rem;
+  font-size: 0.7em;
+  color: var(--muted);
+  opacity: 0.55;
+  text-decoration: none;
+}
+
+.results-collapsed .results-table-heading::after {
+  content: "▼";
 }
 
 /* When collapsed, hide the table body (scroll wrap + status bar). */
@@ -3026,6 +3228,47 @@ body.theme-dark .data-table-scroll-wrap {
   transform: scale(1.08);
 }
 
+/* BLOB expand button: same affordance as the copy button, sitting just to its
+   left so the pair reads as one hover toolbar. Only rendered for truncated
+   BLOB cells (see buildDataTableHtml). */
+.drift-table td .cell-expand-btn {
+  display: none;
+  position: absolute;
+  top: 2px;
+  right: 30px;
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--text-min-readable);
+  padding: 4px 8px;
+  min-width: 24px;
+  min-height: 24px;
+  cursor: pointer;
+  line-height: 1;
+  z-index: 1;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.drift-table td:hover .cell-expand-btn {
+  display: inline-flex;
+}
+
+.drift-table td .cell-expand-btn:hover {
+  color: var(--fg);
+  border-color: var(--link);
+  transform: scale(1.08);
+}
+
+/* Dimmed trailing ellipsis on truncated BLOB previews — signals "more here"
+   without implying the clipped characters are real data. */
+.drift-table td .cell-blob-ellipsis {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
 /* Column context menu and chooser panel */
 #column-context-menu {
   display: none;
@@ -3223,8 +3466,10 @@ body.theme-dark .data-table-scroll-wrap {
   margin: 0 0 0.75rem;
 }
 
-/* Clickable toggle — mirrors qb-header (▼/▲ collapse) */
+/* Clickable toggle — chevron lives in a right-aligned ::after (see below). */
 .table-definition-heading {
+  display: flex;
+  align-items: center;
   font-size: 0.875rem;
   font-weight: 600;
   margin: 0;
@@ -3236,6 +3481,23 @@ body.theme-dark .data-table-scroll-wrap {
 
 .table-definition-heading:hover {
   text-decoration: underline;
+}
+
+/* Right-aligned, dimmed expand/collapse chevron. Direction follows .td-collapsed
+   on the wrap (▲ expanded / ▼ collapsed). Muted color keeps it from competing
+   with the heading text. */
+.table-definition-heading::after {
+  content: "▲";
+  margin-left: auto;
+  padding-left: 0.5rem;
+  font-size: 0.7em;
+  color: var(--muted);
+  opacity: 0.55;
+  text-decoration: none;
+}
+
+.td-collapsed .table-definition-heading::after {
+  content: "▼";
 }
 
 /* Collapse handled by table-def-toggle.js (.td-collapsed .table-definition-scroll) */
@@ -3290,6 +3552,24 @@ body.theme-dark .data-table-scroll-wrap {
   white-space: nowrap;
 }
 
+/* Show/hide checkbox column: narrow, centered; header label kept muted/small. */
+.table-def-vis {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.table-def-vis input[type=checkbox] {
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+th.table-def-vis {
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
 /* Fixed-width icon column: type icon + optional PK/FK badges */
 .table-def-icons {
   width: 3.2rem;
@@ -3329,6 +3609,8 @@ body.theme-dark .data-table-scroll-wrap {
 }
 
 .qb-section .qb-header {
+  display: flex;
+  align-items: center;
   cursor: pointer;
   user-select: none;
   color: var(--link);
@@ -3338,6 +3620,38 @@ body.theme-dark .data-table-scroll-wrap {
 
 .qb-section .qb-header:hover {
   text-decoration: underline;
+}
+
+/* Right-aligned, dimmed chevron for the collapsible query-builder header.
+   Direction follows .is-collapsed on the heading itself (▲ expanded /
+   ▼ collapsed) — the qb body is a sibling, so the state class can't live
+   there and be reached by a CSS selector. */
+.qb-section .qb-header::after {
+  content: "▲";
+  margin-left: auto;
+  padding-left: 0.5rem;
+  font-size: 0.7em;
+  color: var(--muted);
+  opacity: 0.55;
+  text-decoration: none;
+}
+
+.qb-section .qb-header.is-collapsed::after {
+  content: "▼";
+}
+
+/* Multi-table query-builder section labels are not collapsible — no chevron,
+   and the cursor stays default so they don't read as interactive toggles. */
+.qb-section .qb-header.qb-header-static {
+  cursor: default;
+}
+
+.qb-section .qb-header.qb-header-static::after {
+  content: none;
+}
+
+.qb-section .qb-header.qb-header-static:hover {
+  text-decoration: none;
 }
 
 /* Query builder body: uses token radius for consistency (was hardcoded 4px). */
@@ -3700,6 +4014,38 @@ body.has-connection-banner {
 .tb-icon-btn[aria-pressed=true]:hover {
   background: var(--highlight-bg);
   border-color: var(--border);
+}
+
+/* --- Labeled (density) mode ---
+ * Toggled by clicking the toolbar's bare whitespace (handled in toolbar.ts,
+ * which flips `.tb-labeled` on `#toolbar-bar`). In this mode each icon button
+ * grows to fit its short `data-label` word rendered after the glyph, and every
+ * button carries a permanent dim bounding box so the now-wider hit targets
+ * read as discrete controls instead of floating text. The default (no class)
+ * stays icon-only. A subtle pointer hint on the strip signals it is clickable
+ * whitespace; the buttons override it back to pointer for their own affordance. */
+#toolbar-bar.tb-labeled {
+  cursor: pointer;
+}
+
+#toolbar-bar.tb-labeled .tb-icon-btn {
+  /* Let the button size to icon + label instead of the fixed 2rem square. */
+  width: auto;
+  gap: 0.3rem;
+  padding: 0 0.5rem;
+  /* Permanent dim border requested for the labeled style — uses the same
+   * --border token as :hover but stays on at rest so the box is always shown. */
+  border-color: var(--border);
+}
+
+/* The short word: pulled from data-label so the tooltip `title` can stay a
+ * fuller phrase (e.g. "Toggle tables sidebar" -> label "Tables"). */
+#toolbar-bar.tb-labeled .tb-icon-btn[data-label]::after {
+  content: attr(data-label);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 /* Vertical divider between groups in the tab bar. */
