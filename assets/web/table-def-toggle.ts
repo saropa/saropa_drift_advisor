@@ -35,7 +35,9 @@ export function initTableDefToggle(): void {
     '  font-size: 0.875rem;\n' +
     '  padding: 0.25rem 0;\n' +
     '}\n' +
-    '.table-definition-heading:hover { text-decoration: underline; }\n' +
+    // Underline only the label span so hovering the tool buttons (meta toggle,
+    // copy JSON/Flutter) doesn't drag an underline across the icons.
+    '.table-definition-heading:hover .table-definition-heading-label { text-decoration: underline; }\n' +
     '.td-collapsed .table-definition-scroll { display: none; }\n';
   document.head.appendChild(style);
 
@@ -47,6 +49,13 @@ export function initTableDefToggle(): void {
     const target = e.target as Element;
     const heading = target.closest && target.closest('.table-definition-heading');
     if (!heading) return;
+
+    // The heading hosts the meta/export tool buttons (table-def-meta.ts). Both
+    // that module and this one delegate clicks on `document`, so stopPropagation
+    // in the meta handler cannot stop this same-target listener from also firing.
+    // Bail out explicitly when the click came from a tool button so a tool click
+    // never also collapses/expands the panel.
+    if (target.closest && target.closest('.table-def-tool')) return;
 
     const wrap = heading.closest('.table-definition-wrap');
     if (!wrap) return;
