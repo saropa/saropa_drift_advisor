@@ -48,7 +48,7 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 | 59  | [AI Schema Reviewer](plans/59-ai-schema-reviewer.md)                |  5→6  | Medium | Requires LLM integration            |
 | 18  | [Natural Language SQL](plans/18-natural-language-sql.md)            |  5→6  | Medium | Requires LLM integration            |
 | 66  | [Drift Refactoring Engine](plans/66-drift-refactoring-engine.md)    |  5→7  |  High  | ← AI Review, Profiler               |
-| 21  | [Visual Query Builder](plans/21-visual-query-builder.md)            |  4→5  |  High  | ← QueryIntelligence                 |
+| 21  | [Visual Query Builder](plans/history/2026.06/2026.06.11/21-visual-query-builder.md) |  4→5  |  High  | ← QueryIntelligence                 |
 
 ### Tier 2: Requires Server Changes
 
