@@ -277,7 +277,17 @@ def _run_ext_build_and_validate(
             # abort
             return "", False, None
 
-    version, ok = _validate_version_step(args, results, EXTENSION, "Step 11 \u00b7 Version & CHANGELOG")
+    # Localization audit (System A, plan 75 \u00a75.5): measure manifest NLS coverage,
+    # write a report under reports/<YYYYMMDD>/, and let the maintainer ignore / retry
+    # / abort on gaps. Non-fatal \u2014 untranslated strings ship as English; translating
+    # is a separate operator-run step, never run at publish. With no locale bundles
+    # (today's English-only state) there are no gaps, so this proceeds silently.
+    heading("Step 11 \u00b7 Localization audit")
+    from modules.l10n_audit import step_l10n_audit
+    if not step_l10n_audit(results):
+        return "", False, lint_report_path
+
+    version, ok = _validate_version_step(args, results, EXTENSION, "Step 12 \u00b7 Version & CHANGELOG")
     return version, ok, lint_report_path
 
 
