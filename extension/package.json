@@ -1678,8 +1678,10 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && npm run verify-nls",
+    "compile": "tsc -p ./ && npm run verify-nls && npm run verify:nls-coverage",
     "verify-nls": "node scripts/verify-nls.mjs",
+    "generate:nls-coverage": "node scripts/nls-coverage.mjs",
+    "verify:nls-coverage": "node scripts/nls-coverage.mjs --check",
     "watch": "tsc -watch -p ./",
     "lint": "tsc --noEmit -p ./",
     "pretest": "npm run compile",
