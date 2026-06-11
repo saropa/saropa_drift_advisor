@@ -244,3 +244,23 @@ assets/web/app.js                  # Client-side editing logic (mirrors editing-
 - **No multi-cell selection** — no Excel-style drag-select or paste in the current injected script.
 - **Computed/generated columns** — trigger side effects are not modeled in the grid.
 - **Persistent draft** is best-effort — workspace storage quota errors are silently ignored.
+
+---
+
+## Finish Report (2026-06-11)
+
+**Trigger:** User asked to move the completed Feature 47 plan to the appropriate history folder.
+
+**Scope:** (C) docs only — no code, no tests, no localization.
+
+**What changed:** Feature 47 already had its full canonical archive here (`plans/history/2026.04/2026.04.30/47-bulk-edit-grid.md`); the active tree only held a thin stub (`plans/47-bulk-edit-grid.md`) that pointed at this file and duplicated a condensed "as-built" summary already covered in full below. "Move to history" therefore meant removing the redundant active stub, not a literal `git mv` (the destination filename was already occupied by this archive).
+
+- Removed `plans/47-bulk-edit-grid.md` (the redundant active stub).
+- Repointed the 3 inbound links that targeted the stub to this archive path:
+  - `roadmap.md` line 61 (Tier 2 feature table row 47).
+  - `plans/37-data-branching.md` lines 767 and 800 (Phase 5 wiring + safety-hook references to Bulk Edit).
+- Updated this archive's header comment, which had pointed back at the now-deleted stub, to note the stub was removed and this file is the canonical record.
+
+**Verification:** `git grep` confirms zero remaining references to the active stub path (`./47-bulk-edit-grid.md` / `plans/47-bulk-edit-grid.md`); all three repointed links and the stub deletion are present in the committed tree (changes were bundled into commit 4f1b28a alongside the Feature 21 archival). No `bugs/*.md` closed. No tests reference the changed markdown paths.
+
+**Outstanding:** None. Feature 47 code (phases 1–4) was already shipped per v3.5.0; this task was archival housekeeping only.
