@@ -15,6 +15,6 @@ User-facing behavior for NL-SQL is under `## [3.5.0]` in [CHANGELOG.md](../CHANG
 Delivered as two phases under `extension/src/nl-sql/`. Detail lives in the archive; this is the shipped shape.
 
 - **Phase 1 — NL→SQL translation.** Prompt builder feeds schema context to the LLM; response parsed into a candidate SQL string with confidence. Gate met: parser unit tests green, generated SQL executes against `/api/sql`.
-- **Phase 2 — Integration handoffs.** "Edit Visually" bridge into the Visual Query Builder ([21](./21-visual-query-builder.md)) and query recording. Gate met: command registered, handoff round-trips SQL.
+- **Phase 2 — Integration handoffs.** "Edit Visually" bridge into the Visual Query Builder ([21](./history/2026.06/2026.06.11/21-visual-query-builder.md)) and query recording. Gate met: command registered, handoff round-trips SQL.
 
-No further phases planned here; enhancements track in [21](./21-visual-query-builder.md) and [59](./59-ai-schema-reviewer.md).
+No further phases planned here; enhancements track in [21](./history/2026.06/2026.06.11/21-visual-query-builder.md) and [59](./59-ai-schema-reviewer.md).
