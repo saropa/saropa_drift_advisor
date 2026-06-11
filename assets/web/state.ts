@@ -206,6 +206,7 @@ export const TOOL_ICONS: Record<string, string> = {
   anomaly: 'favorite',
   import: 'upload',
   schema: 'grid_on',
+  declared: 'code',
   diagram: 'account_tree',
   export: 'download',
   settings: 'settings',

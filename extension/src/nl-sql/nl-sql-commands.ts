@@ -9,14 +9,12 @@ import type { LogCaptureBridge } from '../debug/log-capture-bridge';
 import type { QueryIntelligence } from '../engines/query-intelligence';
 import type { SchemaIntelligence } from '../engines/schema-intelligence';
 import type { FilterStore } from '../filters/filter-store';
-import { QueryBuilderPanel } from '../query-builder/query-builder-panel';
 import { QueryHistoryStore } from '../sql-notebook/query-history-store';
-import { SqlNotebookPanel } from '../sql-notebook/sql-notebook-panel';
-import { LlmClient } from './llm-client';
 import { NlSqlHistory } from './nl-sql-history';
 import { pickNlSqlQuestion } from './nl-sql-question-picker';
-import { NlSqlProvider } from './nl-sql-provider';
 import { SchemaContextBuilder } from './schema-context-builder';
+import { dispatchNlSqlDestination, pickNlSqlDestination } from './nl-sql-destination';
+import { ensureNlSqlApiKey, generateSqlWithFeedback } from './nl-sql-generation';
 
 /** Optional args when invoked from SQL Notebook toolbar (`executeCommand`). */
 export interface IAskNaturalLanguageArgs {
@@ -37,8 +35,6 @@ export interface INlSqlCommandDeps {
   /** When Log Capture is active, NL generations can emit optional debug lines. */
   logBridge?: LogCaptureBridge;
 }
-
-type NlSqlDestination = 'notebook' | 'vqb' | 'snippet' | 'dashboard' | 'cost';
 
 /**
  * Registers NL-to-SQL commands for generating SQL from plain-English prompts
@@ -170,196 +166,4 @@ export function registerNlSqlCommands(
       },
     ),
   );
-}
-
-async function pickNlSqlDestination(): Promise<NlSqlDestination | undefined> {
-  const items: Array<vscode.QuickPickItem & { dest: NlSqlDestination }> = [
-    {
-      label: '$(notebook) Open in SQL Notebook',
-      description: 'Insert into a new query tab',
-      dest: 'notebook',
-    },
-    {
-      label: '$(symbol-structure) Edit in Visual Query Builder',
-      description: 'Import into the visual query builder (supported SELECT only)',
-      dest: 'vqb',
-    },
-    {
-      label: '$(bookmark) Save as SQL snippet',
-      description: 'Store in the snippet library (name suggested from your question)',
-      dest: 'snippet',
-    },
-    {
-      label: '$(dashboard) Add query widget to dashboard',
-      description: 'Append a SQL query-result widget to the current dashboard layout',
-      dest: 'dashboard',
-    },
-    {
-      label: '$(pulse) Analyze query cost',
-      description: 'Run cost / EXPLAIN analysis with this SQL',
-      dest: 'cost',
-    },
-  ];
-  const chosen = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Where should the SQL go?',
-    ignoreFocusOut: true,
-  });
-  return chosen?.dest;
-}
-
-/** Builds a short snippet name from the NL question (safe for storage). */
-function suggestedSnippetName(question: string): string {
-  const cleaned = question.replace(/["\n\r]/g, ' ').trim().slice(0, 55);
-  return cleaned.length > 0 ? `NL: ${cleaned}` : 'NL-to-SQL';
-}
-
-/**
- * Routes validated SQL to the surface the user picked.
- *
- * Dashboard path appends a `queryResult` widget via `driftViewer.addQueryWidgetToDashboard`.
- */
-async function dispatchNlSqlDestination(
-  dest: NlSqlDestination,
-  sql: string,
-  questionSummary: string,
-  context: vscode.ExtensionContext,
-  client: DriftApiClient,
-  queryIntelligence?: QueryIntelligence,
-): Promise<void> {
-  switch (dest) {
-    case 'notebook':
-      SqlNotebookPanel.showAndInsertQuery(context, client, {
-        sql,
-        source: 'nl-to-sql',
-        title: `Question: ${questionSummary}`,
-      });
-      break;
-    case 'vqb':
-      QueryBuilderPanel.createOrShow(context, client, undefined, {
-        importSql: sql,
-        queryIntelligence,
-      });
-      break;
-    case 'snippet':
-      await vscode.commands.executeCommand(
-        'driftViewer.saveAsSnippet',
-        sql,
-        suggestedSnippetName(questionSummary),
-      );
-      break;
-    case 'dashboard':
-      await vscode.commands.executeCommand(
-        'driftViewer.addQueryWidgetToDashboard',
-        sql,
-        `NL: ${questionSummary.slice(0, 100)}`,
-      );
-      break;
-    case 'cost':
-      await vscode.commands.executeCommand('driftViewer.analyzeQueryCost', sql);
-      break;
-  }
-}
-
-/** Returns false if the user cancels API key setup. */
-async function ensureNlSqlApiKey(
-  context: vscode.ExtensionContext,
-): Promise<boolean> {
-  const existing = await context.secrets.get('driftViewer.nlSql.apiKey');
-  if (existing) {
-    return true;
-  }
-  const setChoice = await vscode.window.showWarningMessage(
-    'No API key configured for NL-to-SQL.',
-    'Set API Key',
-  );
-  if (setChoice !== 'Set API Key') {
-    return false;
-  }
-  const keyInput = await vscode.window.showInputBox({
-    prompt: 'Enter API key for NL-to-SQL',
-    password: true,
-    ignoreFocusOut: true,
-  });
-  if (!keyInput) {
-    return false;
-  }
-  await context.secrets.store('driftViewer.nlSql.apiKey', keyInput);
-  return true;
-}
-
-type IGenerateOutcome =
-  | { kind: 'success'; sql: string }
-  | { kind: 'retry' }
-  | { kind: 'abort' };
-
-/**
- * Runs LLM generation with a status-bar indicator and surfaces failures with
- * an optional **Retry** action (validation errors do not write history).
- */
-async function generateSqlWithFeedback(
-  context: vscode.ExtensionContext,
-  schemaBuilder: SchemaContextBuilder,
-  history: NlSqlHistory,
-  question: string,
-): Promise<IGenerateOutcome> {
-  const config = vscode.workspace.getConfiguration('driftViewer.nlSql');
-  const resolvedApiKey =
-    (await context.secrets.get('driftViewer.nlSql.apiKey')) ?? '';
-
-  const llm = new LlmClient({
-    apiUrl: config.get<string>(
-      'apiUrl',
-      'https://api.openai.com/v1/chat/completions',
-    ),
-    apiKey: resolvedApiKey,
-    model: config.get<string>('model', 'gpt-4o-mini'),
-    maxTokens: config.get<number>('maxTokens', 500),
-  });
-  const provider = new NlSqlProvider(schemaBuilder, llm, history);
-
-  const statusItem = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Left,
-    100,
-  );
-  statusItem.name = 'Saropa NL-to-SQL';
-  statusItem.text = '$(sync~spin) NL-to-SQL: generating…';
-  statusItem.tooltip = 'Calling the configured LLM; see notification if it fails.';
-  statusItem.show();
-
-  try {
-    const sql = await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: 'Generating SQL…',
-        cancellable: false,
-      },
-      () => provider.ask(question),
-    );
-    statusItem.text = '$(check) NL-to-SQL: done';
-    statusItem.tooltip = 'SQL generated successfully.';
-    setTimeout(() => statusItem.dispose(), 4000);
-    return { kind: 'success', sql };
-  } catch (error: unknown) {
-    const detail = error instanceof Error ? error.message : String(error);
-    const rateLimited =
-      /\b429\b/i.test(detail) || /\brate\s*limit/i.test(detail);
-    if (rateLimited) {
-      statusItem.text = '$(warning) NL-to-SQL: rate limited';
-      statusItem.tooltip =
-        'The LLM provider returned HTTP 429 or a rate-limit message. Wait and use Retry.';
-      statusItem.show();
-      setTimeout(() => statusItem.dispose(), 12_000);
-    } else {
-      statusItem.dispose();
-    }
-
-    const choice = await vscode.window.showErrorMessage(
-      `NL-to-SQL failed: ${detail}`,
-      'Retry',
-    );
-    if (choice === 'Retry') {
-      return { kind: 'retry' };
-    }
-    return { kind: 'abort' };
-  }
 }
