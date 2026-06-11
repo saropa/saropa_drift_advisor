@@ -5467,6 +5467,12 @@
       setNlMicRecording(false);
     }
   }
+  function stopNlMic() {
+    if (nlRecognition && nlMicActive) {
+      nlRecognition.abort();
+    }
+    setNlMicRecording(false);
+  }
   function resetNlHelpSections() {
     var panel = document.getElementById("nl-help-panel");
     if (!panel) return;
@@ -5522,6 +5528,12 @@
       resetNlHelpSections();
     }
   }
+  function hideNlHelp() {
+    var panel = document.getElementById("nl-help-panel");
+    var btn = document.getElementById("nl-help");
+    if (panel) panel.hidden = true;
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  }
   function setNlModalError(msg, visible) {
     var modalErr = document.getElementById("nl-modal-error");
     if (visible && msg) {
@@ -5566,6 +5578,11 @@
       applyNlLivePreview();
     }, 120));
   }
+  function closeNlModal() {
+    stopNlMic();
+    hideNlHelp();
+    clearNlPreviewResults();
+  }
   async function useNlModal() {
     var ta = document.getElementById("nl-modal-input");
     var sqlEl = document.getElementById("sql-input");
@@ -5587,6 +5604,7 @@
         }
         openTool("sql");
         setNlModalError("", false);
+        closeNlModal();
       } else {
         setNlModalError(result.error || "Could not convert to SQL.", true);
       }
@@ -5699,19 +5717,22 @@
     }
   }
   function initNlModalListeners() {
-    var askBtn = document.querySelector('[data-panel-btn="ask"]');
-    if (askBtn) {
-      askBtn.addEventListener("click", function() {
-        var sb = document.getElementById("app-sidebar");
-        var layout3 = document.getElementById("app-layout");
-        var showing = sb && layout3 && sb.getAttribute("data-active-panel") === "ask" && !layout3.classList.contains("app-sidebar-panel-collapsed");
-        if (showing) {
-          var ta = document.getElementById("nl-modal-input");
-          if (ta) ta.focus();
-          scheduleNlLivePreview();
-        }
+    document.querySelectorAll("[data-panel-btn]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        setTimeout(function() {
+          var sb = document.getElementById("app-sidebar");
+          var layout3 = document.getElementById("app-layout");
+          var askShowing = !!sb && !!layout3 && sb.getAttribute("data-active-panel") === "ask" && !layout3.classList.contains("app-sidebar-panel-collapsed");
+          if (askShowing) {
+            var ta = document.getElementById("nl-modal-input");
+            if (ta) ta.focus();
+            scheduleNlLivePreview();
+          } else {
+            closeNlModal();
+          }
+        }, 0);
       });
-    }
+    });
     var nlUse = document.getElementById("nl-use");
     if (nlUse) nlUse.addEventListener("click", function() {
       useNlModal();
