@@ -384,13 +384,22 @@ abstract final class HtmlContent {
                browser exposes the Web Speech API, so unsupported browsers
                (e.g. Firefox) never see a dead control. Speech recognition in
                Chromium streams audio to the browser vendor's service. -->
-          <button type="button" id="nl-mic" class="nl-mic" hidden title="Dictate your question (audio is processed by your browser's speech service)" aria-label="Dictate your question"><span class="material-symbols-outlined" aria-hidden="true">mic</span></button>
+          <button type="button" id="nl-mic" class="nl-icon-btn nl-mic" hidden title="Dictate your question (audio is processed by your browser's speech service)" aria-label="Dictate your question"><span class="material-symbols-outlined" aria-hidden="true">mic</span></button>
         </div>
         <textarea id="nl-modal-input" class="nl-modal-input" rows="6" placeholder="e.g. how many users were created today?"></textarea>
-        <label for="nl-modal-sql-preview" class="nl-modal-label">Generated SQL (preview)</label>
+        <div class="nl-modal-label-row">
+          <label for="nl-modal-sql-preview" class="nl-modal-label">Generated SQL (preview)</label>
+          <!-- Copy the generated SQL straight to the clipboard without first
+               copying it into the main editor (Use). -->
+          <button type="button" id="nl-copy" class="nl-icon-btn nl-copy" title="Copy the generated SQL to the clipboard" aria-label="Copy generated SQL"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button>
+        </div>
         <textarea id="nl-modal-sql-preview" class="nl-modal-sql-preview" readonly rows="5" aria-readonly="true" title="Live preview; not applied to the runner until you click Use"></textarea>
         <p id="nl-modal-error" class="sql-error nl-modal-error" style="display:none;" role="status"></p>
+        <!-- In-dialog sample of the generated SQL's results (first 10 rows),
+             so the query can be sanity-checked before clicking Use. -->
+        <div id="nl-modal-results" class="nl-modal-results" hidden></div>
         <div class="nl-modal-actions">
+          <button type="button" id="nl-preview-run" title="Run the generated SQL and show the first 10 rows here">Preview results</button>
           <button type="button" id="nl-use" class="btn-primary" title="Copy preview SQL into the main editor and close">Use</button>
           <button type="button" id="nl-cancel" title="Close without changing the main SQL editor">Cancel</button>
         </div>
