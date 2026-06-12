@@ -125,24 +125,25 @@ def interactive_menu(
     """Show the audit summary, present the action menu, dispatch the choice.
 
     The deliberate translate options (3–6) prompt a y/N confirmation first
-    (operator-gated, plan 75 §7) and still perform no machine translation until an
-    engine is wired — they report what would be sent and stop. Audit (1) and sync
-    (2) are always safe.
+    (operator-gated, plan 75 §7). Audit (1) and sync (2) are always safe.
+
+    The audit here is run against the TEN TARGET locales (not just locales that
+    already have a bundle on disk), so a fresh English-only project correctly shows
+    all ten at 0% with everything to translate — and the menu defaults to Translate
+    — rather than reporting "nothing to translate" because no bundles exist yet.
     """
     from modules.display import ask_choice, ask_yn
 
     reports_dir = reports_dir or (REPO_ROOT / "reports" / "interactive")
 
-    report = audit.run_audit()
+    report = audit.run_audit(TRANSLATED_LOCALES)
     emit(f"Runtime l10n — {report['source_keys']} source keys "
-         f"({report['host_keys']} host + {report['web_keys']} web).")
-    if report["english_only"]:
-        emit("  English-only — no locale bundles on disk yet.")
-    else:
-        for loc in report["locales"]:
-            emit(f"  {loc['locale']:>6}: {loc['coverage_pct']:5.1f}%  "
-                 f"missing={loc['missing']} untranslated={loc['untranslated']} "
-                 f"low={loc['low_quality']}")
+         f"({report['host_keys']} host + {report['web_keys']} web). "
+         f"Target locales: {len(TRANSLATED_LOCALES)}.")
+    for loc in report["locales"]:
+        emit(f"  {loc['locale']:>6}: {loc['coverage_pct']:5.1f}%  "
+             f"missing={loc['missing']} untranslated={loc['untranslated']} "
+             f"low={loc['low_quality']}")
 
     _print_menu(emit)
     default, hint = _resolve_menu_default(report)
@@ -157,7 +158,7 @@ def interactive_menu(
     if choice == "0":
         return 0
     if choice == "1":
-        return actions.run_audit_action(emit, reports_dir, timestamp)
+        return actions.run_audit_action(emit, reports_dir, timestamp, TRANSLATED_LOCALES)
     if choice == "2":
         return actions.run_sync_action(emit)
 
