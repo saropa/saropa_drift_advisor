@@ -29,7 +29,10 @@ outstanding-work picture). Section C records intentional out-of-scope exclusions
 
 These are the actual finds. Each was confirmed absent from the codebase.
 
-### A1. Website server-side portable report export (`report_handler.dart`)
+### A1. Website server-side portable report export (`report_handler.dart`) — DONE (2026-06-12)
+- **Resolution:** `GET /api/report` added (`report_handler.dart` + `report_html.dart`),
+  routed in the schema/export group, with a **Report** link in the web Export panel.
+  Finish report appended to `plans/history/2026.03/20260314/25-portable-snapshot-report.md`.
 - **Source:** `plans/history/2026.03/20260314/25-portable-snapshot-report.md:5` —
   "Extension-side fully implemented in v1.3.4. Server-side `report_handler.dart`
   deferred (marked optional)."
