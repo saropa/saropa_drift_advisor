@@ -7,11 +7,18 @@
  *   (contacts → companies, phones → contacts, contacts.manager_id → contacts
  *   self-ref). Drives the FK relationship engine.
  *
- * - `contactsApp`: modeled on the actual Saropa Contacts Drift schema
- *   (D:/src/contacts/lib/database/drift). That schema links rows by UUID
- *   columns, NOT declared SQLite foreign keys, and uses camelCase names
- *   (givenName, favoriteAt, lastModified). So `foreignKeys` is empty here —
- *   exercising the no-FK path and real-world column naming.
+ * - `contactsApp`: shaped after the Saropa Contacts Drift schema
+ *   (D:/src/contacts/lib/database/drift), which links rows by UUID columns and
+ *   declares NO SQLite foreign keys — so `foreignKeys` is empty, exercising the
+ *   no-FK / soft-FK-inference path.
+ *
+ *   NOTE ON CASING: the column names here use the Dart GETTER names (camelCase:
+ *   givenName, favoriteAt, contactSaropaUUID) on purpose, to exercise the
+ *   converter's camelCase date/UUID detection. The ACTUAL SQLite columns in
+ *   that app are snake_case — Drift converts (givenName → given_name,
+ *   contactSaropaUUID → contact_saropa_uuid) — which the metadata endpoint
+ *   reads. Both casings are covered: this fixture pins the camelCase path; the
+ *   snake_case path is the well-trodden default exercised by `relational`.
  *
  * Each fixture carries `meta` (passed to nlToSql), `ddl` (CREATE statements),
  * and `seed(db, now)` so generated SQL can be executed against real SQLite.
