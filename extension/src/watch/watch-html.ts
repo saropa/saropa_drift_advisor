@@ -1,4 +1,4 @@
-import { t } from '../l10n';
+import { t, getWebviewL10nMap } from '../l10n';
 
 /** Generate the HTML content for the watch panel webview. */
 export function getWatchHtml(): string {
@@ -134,6 +134,19 @@ export function getWatchHtml(): string {
 <script>
   const vscode = acquireVsCodeApi();
 
+  // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active
+  // display language and injects them here, because client-side render functions
+  // have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
+  // fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
+  const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.replay.watch.']))};
+  function vt(key) {
+    const args = arguments;
+    return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
+      const i = Number(d) + 1;
+      return i < args.length ? args[i] : m;
+    });
+  }
+
   window.addEventListener('message', (event) => {
     const msg = event.data;
     if (msg.command === 'update') renderWatches(msg.entries);
@@ -160,13 +173,11 @@ export function getWatchHtml(): string {
 
   function renderCard(entry) {
     const pausedClass = entry.paused ? ' watch-paused' : '';
-    // TODO(l10n): client-script string ('{n} rows')
     const meta = entry.currentResult
-      ? entry.currentResult.rows.length + ' rows'
+      ? vt('panel.replay.watch.rows', entry.currentResult.rows.length)
       : '';
-    // TODO(l10n): client-script string ('· changed {time}')
     const changed = entry.lastChangedAt
-      ? ' · changed ' + formatTime(entry.lastChangedAt)
+      ? vt('panel.replay.watch.changedSuffix', formatTime(entry.lastChangedAt))
       : '';
 
     let body = '';
@@ -177,10 +188,9 @@ export function getWatchHtml(): string {
     }
 
     const summary = renderSummary(entry.diff);
-    // TODO(l10n): client-script string ('Resume' / 'Pause' button labels)
     const pauseBtn = entry.paused
-      ? btn('Resume', 'resumeWatch', entry.id)
-      : btn('Pause', 'pauseWatch', entry.id);
+      ? btn(vt('panel.replay.watch.resume'), 'resumeWatch', entry.id)
+      : btn(vt('panel.replay.watch.pause'), 'pauseWatch', entry.id);
 
     return '<div class="watch-card' + pausedClass + '">'
       + '<div class="watch-header">'
@@ -190,9 +200,8 @@ export function getWatchHtml(): string {
       + '  </div>'
       + '  <div class="watch-actions">'
       +      pauseBtn
-      // TODO(l10n): client-script string ('Clear' / 'Remove' button labels)
-      +      btn('Clear', 'clearDiff', entry.id)
-      +      btn('Remove', 'removeWatch', entry.id, 'btn-danger')
+      +      btn(vt('panel.replay.watch.clear'), 'clearDiff', entry.id)
+      +      btn(vt('panel.replay.watch.remove'), 'removeWatch', entry.id, 'btn-danger')
       + '  </div>'
       + '</div>'
       + '<div class="watch-body">' + body + '</div>'
@@ -245,11 +254,10 @@ export function getWatchHtml(): string {
   function renderSummary(diff) {
     if (!diff) return '';
     const parts = [];
-    // TODO(l10n): client-script string ('{n} added/removed/changed/unchanged' summary parts)
-    if (diff.addedRows.length) parts.push(diff.addedRows.length + ' added');
-    if (diff.removedRows.length) parts.push(diff.removedRows.length + ' removed');
-    if (diff.changedRows.length) parts.push(diff.changedRows.length + ' changed');
-    if (diff.unchangedCount) parts.push(diff.unchangedCount + ' unchanged');
+    if (diff.addedRows.length) parts.push(vt('panel.replay.watch.summary.added', diff.addedRows.length));
+    if (diff.removedRows.length) parts.push(vt('panel.replay.watch.summary.removed', diff.removedRows.length));
+    if (diff.changedRows.length) parts.push(vt('panel.replay.watch.summary.changed', diff.changedRows.length));
+    if (diff.unchangedCount) parts.push(vt('panel.replay.watch.summary.unchanged', diff.unchangedCount));
     return parts.join(' · ');
   }
 
@@ -265,11 +273,10 @@ export function getWatchHtml(): string {
 
   function formatTime(ts) {
     const secs = Math.floor((Date.now() - ts) / 1000);
-    // TODO(l10n): client-script string ('just now' / '{n}s ago' / '{n}m ago')
-    if (secs < 5) return 'just now';
-    if (secs < 60) return secs + 's ago';
+    if (secs < 5) return vt('panel.replay.watch.time.justNow');
+    if (secs < 60) return vt('panel.replay.watch.time.seconds', secs);
     const mins = Math.floor(secs / 60);
-    return mins + 'm ago';
+    return vt('panel.replay.watch.time.minutes', mins);
   }
 </script>
 </body>

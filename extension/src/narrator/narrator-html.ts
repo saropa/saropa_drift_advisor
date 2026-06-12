@@ -4,7 +4,7 @@
 
 import type { INarrativeResult } from './narrator-types';
 import { getNarratorCss } from './narrator-styles';
-import { t } from '../l10n';
+import { t, getWebviewL10nMap } from '../l10n';
 
 /**
  * Build the full HTML for the narrator panel.
@@ -130,14 +130,27 @@ function clientScript(): string {
   return `
 const vscode = acquireVsCodeApi();
 
+// __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active
+// display language and injects them here, because client-side render functions
+// have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
+// fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
+const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.tools.narrator.']))};
+function vt(key) {
+  const args = arguments;
+  return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
+    const i = Number(d) + 1;
+    return i < args.length ? args[i] : m;
+  });
+}
+
 function copyText() {
   vscode.postMessage({ command: 'copyText' });
-  showToast('Text copied to clipboard'); // TODO(l10n): client-script string
+  showToast(vt('panel.tools.narrator.toast.textCopied'));
 }
 
 function copyMarkdown() {
   vscode.postMessage({ command: 'copyMarkdown' });
-  showToast('Markdown copied to clipboard'); // TODO(l10n): client-script string
+  showToast(vt('panel.tools.narrator.toast.markdownCopied'));
 }
 
 function regenerate() {

@@ -92,4 +92,10 @@ export const stringsPanelNotes: Record<string, string> = {
   'panel.notes.library.btn.save': 'Save',
   'panel.notes.library.btn.cancel': 'Cancel',
   'panel.notes.library.empty': 'No snippets yet. Click "+ New" to create one.',
+
+  // --- SQL snippet library: client-script strings (resolved in-browser via the
+  //     __VT bridge, since deleteSnippet()'s confirm() runs client-side). {0}
+  //     carries the snippet name — never English concatenation. ---
+  // {0} = snippet name being deleted (raw, shown inside a confirm() dialog).
+  'panel.notes.library.confirm.delete': 'Delete snippet "{0}"?',
 };

@@ -1,7 +1,7 @@
 import type {
   IImpactBranch, IImpactResult, IImpactRow, IOutboundRef,
 } from './impact-types';
-import { t } from '../l10n';
+import { t, getWebviewL10nMap } from '../l10n';
 
 /** Build the HTML for the row impact analysis webview panel. */
 export function buildImpactHtml(result: IImpactResult): string {
@@ -201,9 +201,21 @@ function css(): string {
 }
 
 function clientScript(): string {
-  // TODO(l10n): client-script strings ('Analyzing impact…', 'Error: …') below run
-  // in the webview without host t() — needs the __VT bridge (plan 75 §3.3).
   return `const vscode = acquireVsCodeApi();
+
+    // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active
+    // display language and injects them here, because client-side render functions
+    // have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
+    // fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
+    const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.quality.impact.']))};
+    function vt(key) {
+      const args = arguments;
+      return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
+        const i = Number(d) + 1;
+        return i < args.length ? args[i] : m;
+      });
+    }
+
     function post(cmd) { vscode.postMessage({ command: cmd }); }
     function navigate(tbl, col, val) {
       vscode.postMessage({ command: 'navigate', table: tbl, pkColumn: col, pkValue: val });
@@ -212,7 +224,7 @@ function clientScript(): string {
       var msg = e.data;
       var out = document.getElementById('sqlOutput');
       if (msg.command === 'loading') {
-        out.textContent = 'Analyzing impact\\u2026';
+        out.textContent = vt('panel.quality.impact.client.analyzing');
         out.style.display = 'block';
       }
       if (msg.command === 'deleteSql') {
@@ -220,7 +232,7 @@ function clientScript(): string {
         out.style.display = 'block';
       }
       if (msg.command === 'error') {
-        out.textContent = 'Error: ' + msg.message;
+        out.textContent = vt('panel.quality.impact.client.error', msg.message);
         out.style.display = 'block';
       }
     });`;
