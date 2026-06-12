@@ -337,4 +337,78 @@ void main() {
       );
     });
   });
+
+  // -------------------------------------------------------------------------
+  // l10n catalog injection (plan 75 §3.3): the shell inlines
+  // `window.__SDA_L10N` before the bundle so the viewer's synchronous
+  // initWebL10n() picks up the active locale + translation overlay at boot.
+  // -------------------------------------------------------------------------
+  group('HtmlContent l10n injection', () {
+    test(
+      'omits __SDA_L10N when no locale is resolved (English-only default)',
+      () {
+        // The common case today: no override, no catalog → no injection, so the
+        // viewer self-detects via navigator.language and renders bundled English.
+        final html = HtmlContent.buildIndexHtml(
+          inlineCss: '/* c */',
+          inlineBundleJs: '/* j */',
+        );
+        expect(html, isNot(contains('__SDA_L10N')));
+      },
+    );
+
+    test('injects locale with a null catalog when locale but no catalog', () {
+      // An explicit ?locale= override (e.g. a hosted VS Code panel) pins the
+      // locale even with no translation shipped — the viewer renders English
+      // but reports the correct active locale.
+      final html = HtmlContent.buildIndexHtml(
+        inlineBundleJs: '/* j */',
+        l10nLocale: 'de',
+      );
+      expect(
+        html,
+        contains('window.__SDA_L10N={"locale":"de","catalog":null}'),
+      );
+    });
+
+    test('inlines the catalog JSON verbatim when provided', () {
+      final html = HtmlContent.buildIndexHtml(
+        inlineBundleJs: '/* j */',
+        l10nLocale: 'de',
+        l10nCatalogJson: '{"viewer.table.grid.actionsHeader":"Aktionen"}',
+      );
+      expect(
+        html,
+        contains(
+          'window.__SDA_L10N={"locale":"de",'
+          '"catalog":{"viewer.table.grid.actionsHeader":"Aktionen"}}',
+        ),
+      );
+    });
+
+    test('the catalog script precedes the bundle script', () {
+      // initWebL10n() runs first in the bundle and reads window.__SDA_L10N
+      // synchronously, so the catalog must be set BEFORE the bundle executes.
+      final html = HtmlContent.buildIndexHtml(
+        inlineBundleJs: '/* BUNDLE_MARKER */',
+        l10nLocale: 'de',
+      );
+      final l10nIdx = html.indexOf('__SDA_L10N');
+      final bundleIdx = html.indexOf('BUNDLE_MARKER');
+      expect(l10nIdx, greaterThanOrEqualTo(0));
+      expect(l10nIdx, lessThan(bundleIdx));
+    });
+
+    test('escapes a </script> sequence inside catalog values', () {
+      // A translated value could theoretically contain </script>; it must be
+      // escaped so it cannot prematurely close the injected <script> tag.
+      final html = HtmlContent.buildIndexHtml(
+        inlineBundleJs: '/* j */',
+        l10nLocale: 'de',
+        l10nCatalogJson: '{"k":"a</script>b"}',
+      );
+      expect(html, isNot(contains('a</script>b')));
+      expect(html, contains(r'a<\/script>b'));
+    });
+  });
 }
