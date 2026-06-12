@@ -234,6 +234,12 @@ abstract final class ServerConstants {
   /// Declared-schema (Feature 71) response fields.
   static const String jsonKeyAvailable = 'available';
   static const String jsonKeySqlType = 'sqlType';
+
+  /// Drift semantic column type ('dateTime' | 'bool' | 'int' | 'double' |
+  /// 'string' | 'blob') when a declared Drift schema is available. Lets the NL
+  /// converter detect dates/bools exactly instead of guessing from the lossy
+  /// SQLite storage type (Drift stores DateTime/bool as INTEGER).
+  static const String jsonKeyDriftType = 'driftType';
   static const String jsonKeyNullable = 'nullable';
   static const String jsonKeyIsPk = 'isPk';
   static const String jsonKeyIndexes = 'indexes';

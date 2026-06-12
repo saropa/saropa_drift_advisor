@@ -1287,6 +1287,8 @@
       }
     }
     const boolish = function(c) {
+      if (c.driftType === "bool") return true;
+      if (c.driftType && c.driftType !== "int") return false;
       return /bool|int|tinyint/i.test(c.type || "") && /^is_|^has_|^can_|active|enabled?|disabled?|verified|visible|hidden|archived|deleted|locked|starred|pinned|favou?rite|public|private|completed?|done|paid|unread|read|sent|approved|rejected|blocked|banned/i.test(c.name);
     };
     for (let bi = 0; bi < target.columns.length; bi++) {
@@ -1381,6 +1383,7 @@
     return null;
   }
   function isDateColumn(col) {
+    if (col.driftType === "dateTime") return true;
     if (/date|time|timestamp/i.test(col.type || "")) return true;
     const name = col.name;
     if (/date|time|timestamp|stamp|datetime|mtime|ctime|created|updated|modified|changed|edited|published|posted|expir|birth|\bdob\b|_at\b|_on\b/i.test(name)) return true;
@@ -5881,7 +5884,7 @@
       chips.push({ label: "stale 90d", phrase: "not updated in 90 days" });
     }
     var boolCols = cols.filter(function(c) {
-      return /bool|int/i.test(c.type || "") && /^is_|^has_|active|enabled|verified|archived|deleted|subscribed/i.test(c.name);
+      return c.driftType === "bool" || /bool|int/i.test(c.type || "") && /^is_|^has_|active|enabled|verified|archived|deleted|subscribed/i.test(c.name);
     });
     for (var i = 0; i < boolCols.length && i < 2; i++) {
       var nm = boolCols[i].name.toLowerCase().replace(/^(is|has)_/, "").replace(/_/g, " ");

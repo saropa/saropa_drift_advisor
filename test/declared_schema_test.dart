@@ -73,6 +73,44 @@ void main() {
       expect(users['indexes'], <String>['idx_users_email']);
     });
 
+    test('carries the Drift semantic type (driftType) when supplied', () async {
+      DeclaredSchema declared() => <DeclaredTable>[
+        const DeclaredTable(
+          name: 'events',
+          columns: <DeclaredColumn>[
+            DeclaredColumn(name: 'id', sqlType: 'INTEGER', isPk: true),
+            DeclaredColumn(
+              name: 'startsAt',
+              sqlType: 'INTEGER',
+              driftType: 'dateTime',
+            ),
+            DeclaredColumn(
+              name: 'isPublic',
+              sqlType: 'INTEGER',
+              driftType: 'bool',
+            ),
+          ],
+        ),
+      ];
+
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+        declaredSchema: declared,
+      );
+      port = DriftDebugServer.port;
+
+      final res = await httpGet(port!, '/api/schema/declared');
+      final cols =
+          ((res.body as Map)['tables'] as List).first['columns'] as List;
+      // Drift's INTEGER storage hides date/bool; driftType preserves it.
+      expect((cols[1] as Map)['driftType'], 'dateTime');
+      expect((cols[2] as Map)['driftType'], 'bool');
+      // No driftType supplied for `id` → key omitted (conditional emission).
+      expect((cols.first as Map).containsKey('driftType'), false);
+    });
+
     test('reports available:false when no callback is supplied', () async {
       await DriftDebugServer.start(query: mockQuery, enabled: true, port: 0);
       port = DriftDebugServer.port;

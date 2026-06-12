@@ -10,6 +10,10 @@ interface SchemaColumn {
   // resolution. Optional so older callers / fixtures still type-check.
   pk?: boolean;
   notnull?: boolean;
+  // Drift SEMANTIC type ('dateTime' | 'bool' | 'int' | …) when a declared Drift
+  // schema is available — lets date/bool detection be exact instead of guessing
+  // from the SQLite storage type (Drift stores DateTime/bool as INTEGER).
+  driftType?: string;
 }
 
 /** A foreign-key edge: fromTable.fromColumn references toTable.toColumn. */
@@ -392,6 +396,12 @@ function valueWhere(question: string, target: SchemaTable): string[] {
   // "age"/"id" are never coerced to "= 1". Skipped when the column already got
   // an explicit predicate above, to avoid a contradictory "= 0 AND = 1".
   const boolish = function (c: SchemaColumn) {
+    // Exact when Drift declared the column a bool; otherwise a flag-shaped name
+    // on an int/bool storage type. (The bare-flag handler below still only
+    // fires when the column's name appears as an adjective in the question, so
+    // widening the candidate set here can't coerce a random int to "= 1".)
+    if (c.driftType === 'bool') return true;
+    if (c.driftType && c.driftType !== 'int') return false;
     return /bool|int|tinyint/i.test(c.type || '')
       && /^is_|^has_|^can_|active|enabled?|disabled?|verified|visible|hidden|archived|deleted|locked|starred|pinned|favou?rite|public|private|completed?|done|paid|unread|read|sent|approved|rejected|blocked|banned/i.test(c.name);
   };
@@ -516,6 +526,8 @@ function limitFrom(q: string): number | null {
  * it also drives "newest first" ordering and the date refinement chips.
  */
 export function isDateColumn(col: SchemaColumn): boolean {
+  // Exact signal first: Drift's semantic type, when the host declared a schema.
+  if (col.driftType === 'dateTime') return true;
   if (/date|time|timestamp/i.test(col.type || '')) return true;
   const name = col.name;
   if (/date|time|timestamp|stamp|datetime|mtime|ctime|created|updated|modified|changed|edited|published|posted|expir|birth|\bdob\b|_at\b|_on\b/i.test(name)) return true;

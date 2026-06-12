@@ -126,6 +126,23 @@ String _declaredSqlType(dynamic column) {
   return 'TEXT';
 }
 
+/// Maps a Drift `GeneratedColumn.type` (a `DriftSqlType` enum) to a normalized
+/// SEMANTIC token, preserving the date/bool distinction that [_declaredSqlType]
+/// collapses (DateTime/bool both store as INTEGER). Used to populate
+/// [DeclaredColumn.driftType]. Like [_declaredSqlType], it may throw if
+/// `column.type` is absent — the per-table catch in [_deriveDeclaredSchema]
+/// handles that, so we don't swallow it here.
+String? _declaredDriftType(dynamic column) {
+  final String t = column.type.toString().toLowerCase();
+  if (t.contains('datetime')) return 'dateTime';
+  if (t.contains('bool')) return 'bool';
+  if (t.contains('double') || t.contains('real')) return 'double';
+  if (t.contains('blob') || t.contains('uint8')) return 'blob';
+  if (t.contains('int')) return 'int';
+  if (t.contains('string') || t.contains('text')) return 'string';
+  return null;
+}
+
 /// Reads the PK column names from a duck-typed Drift `TableInfo.$primaryKey`.
 DeclaredTable _declaredTableFrom(dynamic table, String name) {
   final pkNames = <String>{};
@@ -148,6 +165,7 @@ DeclaredTable _declaredTableFrom(dynamic table, String name) {
         DeclaredColumn(
           name: cn,
           sqlType: _declaredSqlType(c),
+          driftType: _declaredDriftType(c),
           nullable: nullable is bool ? nullable : true,
           isPk: pkNames.contains(cn),
         ),
