@@ -6,7 +6,9 @@ import 'dart:io';
 
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_types.dart';
 import 'server_utils.dart';
+import 'soft_relationship_detector.dart';
 import 'table_handler.dart';
 
 /// Handles schema-related API endpoints.
@@ -120,10 +122,103 @@ final class SchemaHandler {
       }
     }
 
+    // Soft (inferred, undeclared) relationships for dashed rendering
+    // (Feature 77 Phase 3): edges implied by column naming (`<noun>_id`, shared
+    // `*UUID`) that no SQLite FK and no host manifest declares. Drawing them
+    // dashed makes a convention-linked schema's relationships visible in the ER
+    // diagram even before the developer declares them. Computed from the
+    // columns + declared FKs ALREADY gathered above — no extra PRAGMA reads, so
+    // the per-table FK round-trip stays single. A failure here must not break
+    // the diagram (the declared-FK view is the primary payload), so it degrades
+    // to an empty list.
+    final softRelationships = <Map<String, dynamic>>[];
+    try {
+      // Reduce the gathered table maps to the inference input shape.
+      final softTables = <SoftRelTable>[];
+      for (final t in tables) {
+        final rawCols = t[ServerConstants.jsonKeyColumns];
+        final cols = <SoftRelColumn>[];
+        if (rawCols is List) {
+          for (final c in rawCols) {
+            if (c is Map) {
+              cols.add(
+                SoftRelColumn(
+                  c[ServerConstants.jsonKeyName] as String? ?? '',
+                  isPk: c[ServerConstants.jsonKeyPk] == true,
+                ),
+              );
+            }
+          }
+        }
+        softTables.add(
+          SoftRelTable(t[ServerConstants.jsonKeyName] as String? ?? '', cols),
+        );
+      }
+
+      // Declared SQLite FK edges to subtract (already built above).
+      final declaredKeys = <String>{
+        for (final fk in foreignKeys)
+          SoftRelationshipDetector.edgeKey(
+            fk[ServerConstants.fkFromTable] as String? ?? '',
+            fk[ServerConstants.fkFromColumn] as String? ?? '',
+            fk[ServerConstants.fkToTable] as String? ?? '',
+            fk[ServerConstants.fkToColumn] as String? ?? '',
+          ),
+      };
+
+      // Host manifest edges to subtract — a manifested link is declared, so it
+      // is solid-or-absent, never dashed.
+      final manifest = _resolveManifest();
+      final manifestKeys = <String>{
+        if (manifest != null)
+          for (final e in manifest)
+            SoftRelationshipDetector.edgeKey(
+              e.fromTable,
+              e.fromColumn,
+              e.toTable,
+              e.toColumn,
+            ),
+      };
+
+      for (final edge in SoftRelationshipDetector.inferEdges(softTables)) {
+        if (declaredKeys.contains(edge.key) ||
+            manifestKeys.contains(edge.key)) {
+          continue;
+        }
+        softRelationships.add(<String, dynamic>{
+          ServerConstants.fkFromTable: edge.fromTable,
+          ServerConstants.fkFromColumn: edge.fromColumn,
+          ServerConstants.fkToTable: edge.toTable,
+          ServerConstants.fkToColumn: edge.toColumn,
+          ServerConstants.jsonKeyRule: edge.rule,
+        });
+      }
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+    }
+
     return <String, dynamic>{
       ServerConstants.jsonKeyTables: tables,
       ServerConstants.jsonKeyForeignKeys: foreignKeys,
+      ServerConstants.jsonKeySoftRelationships: softRelationships,
     };
+  }
+
+  /// Resolves the host relationship manifest (Feature 78) for soft-edge
+  /// subtraction. Null when no callback was supplied (so every inferred edge is
+  /// shown dashed); an empty list when a callback exists but threw (a faulty
+  /// host callback must not break the diagram).
+  DeclaredRelationships? _resolveManifest() {
+    final callback = _ctx.declaredRelationships;
+    if (callback == null) {
+      return null;
+    }
+    try {
+      return callback();
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      return const <DeclaredRelationship>[];
+    }
   }
 
   /// Sends JSON diagram data for GET /api/schema/diagram.
