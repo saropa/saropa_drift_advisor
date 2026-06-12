@@ -8947,7 +8947,158 @@
     });
   }
 
+  // assets/web/schema-divergence.ts
+  function typeAffinity(raw) {
+    const t = (raw || "").toUpperCase();
+    if (t.length === 0) return "BLOB";
+    if (t.includes("INT")) return "INTEGER";
+    if (t.includes("CHAR") || t.includes("CLOB") || t.includes("TEXT")) {
+      return "TEXT";
+    }
+    if (t.includes("BLOB")) return "BLOB";
+    if (t.includes("REAL") || t.includes("FLOA") || t.includes("DOUB")) {
+      return "REAL";
+    }
+    return "NUMERIC";
+  }
+  function isInternalTable(name) {
+    return name.toLowerCase().startsWith("sqlite_");
+  }
+  function indexColumns(cols) {
+    const m = /* @__PURE__ */ new Map();
+    for (const c of cols || []) {
+      if (c && typeof c.name === "string") m.set(c.name, c);
+    }
+    return m;
+  }
+  function computeSchemaDivergence(declared, runtime) {
+    const findings = [];
+    const declaredByName = /* @__PURE__ */ new Map();
+    for (const t of declared || []) {
+      if (t && typeof t.name === "string") declaredByName.set(t.name, t);
+    }
+    const runtimeByName = /* @__PURE__ */ new Map();
+    for (const t of runtime || []) {
+      if (t && typeof t.name === "string") runtimeByName.set(t.name, t);
+    }
+    const declaredNames = [...declaredByName.keys()].sort();
+    const runtimeOnly = [...runtimeByName.keys()].filter((n) => !declaredByName.has(n) && !isInternalTable(n)).sort();
+    for (const name of declaredNames) {
+      const d = declaredByName.get(name);
+      const r = runtimeByName.get(name);
+      if (!r) {
+        findings.push({
+          table: name,
+          kind: "missing-table",
+          detail: "declared in code but not found in the live database"
+        });
+        continue;
+      }
+      compareColumns(name, d, r, findings);
+    }
+    for (const name of runtimeOnly) {
+      findings.push({
+        table: name,
+        kind: "extra-table",
+        detail: "present in the live database but not declared in code"
+      });
+    }
+    return findings;
+  }
+  function compareColumns(table, declared, runtime, out) {
+    const dCols = declared.columns || [];
+    const rCols = indexColumns(runtime.columns);
+    const dColNames = indexColumns(dCols);
+    for (const dc of dCols) {
+      if (!dc || typeof dc.name !== "string") continue;
+      const rc = rCols.get(dc.name);
+      if (!rc) {
+        out.push({
+          table,
+          column: dc.name,
+          kind: "missing-column",
+          detail: "declared in code but missing from the live table"
+        });
+        continue;
+      }
+      const dAff = typeAffinity(dc.sqlType);
+      const rAff = typeAffinity(rc.type);
+      if (dAff !== rAff) {
+        out.push({
+          table,
+          column: dc.name,
+          kind: "type-mismatch",
+          detail: "code " + dAff + " vs database " + rAff
+        });
+      }
+      const dNullable = dc.nullable !== false;
+      const rNullable = rc.notnull !== true;
+      if (dNullable !== rNullable) {
+        out.push({
+          table,
+          column: dc.name,
+          kind: "nullable-mismatch",
+          detail: "code " + (dNullable ? "nullable" : "not null") + " vs database " + (rNullable ? "nullable" : "not null")
+        });
+      }
+      const dPk = dc.isPk === true;
+      const rPk = rc.pk === true;
+      if (dPk !== rPk) {
+        out.push({
+          table,
+          column: dc.name,
+          kind: "pk-mismatch",
+          detail: "code " + (dPk ? "primary key" : "not a key") + " vs database " + (rPk ? "primary key" : "not a key")
+        });
+      }
+    }
+    for (const rc of runtime.columns || []) {
+      if (!rc || typeof rc.name !== "string") continue;
+      if (!dColNames.has(rc.name)) {
+        out.push({
+          table,
+          column: rc.name,
+          kind: "extra-column",
+          detail: "present in the live table but not declared in code"
+        });
+      }
+    }
+  }
+
   // assets/web/declared-schema.ts
+  var DIVERGENCE_LABELS = {
+    "missing-table": "Missing table",
+    "extra-table": "Extra table",
+    "missing-column": "Missing column",
+    "extra-column": "Extra column",
+    "type-mismatch": "Type",
+    "nullable-mismatch": "Nullability",
+    "pk-mismatch": "Primary key"
+  };
+  function renderDivergence(findings, runtimeAvailable) {
+    if (!runtimeAvailable) {
+      return '<p class="meta">Live database schema is unavailable (change detection may be off), so code-vs-database divergence was not computed.</p>';
+    }
+    if (findings.length === 0) {
+      return '<p class="meta" style="color:#66bb6a;">\u2713 Code and database schemas match \u2014 no divergence found.</p>';
+    }
+    const byTable = /* @__PURE__ */ new Map();
+    for (const f of findings) {
+      const list = byTable.get(f.table) || [];
+      list.push(f);
+      byTable.set(f.table, list);
+    }
+    let html = '<p class="meta" style="color:#e57373;">' + findings.length + " divergence(s) between code and the live database:</p>";
+    byTable.forEach(function(list, table) {
+      html += '<div style="margin:0.3rem 0;"><strong>' + esc2(table) + '</strong><ul style="margin:0.2rem 0 0.4rem 1rem;padding:0;">';
+      list.forEach(function(f) {
+        const where = f.column ? esc2(table) + "." + esc2(f.column) : esc2(table);
+        html += '<li><span class="meta">[' + esc2(DIVERGENCE_LABELS[f.kind]) + "]</span> " + where + " \u2014 " + esc2(f.detail) + "</li>";
+      });
+      html += "</ul></div>";
+    });
+    return html;
+  }
   function initDeclaredSchema() {
     const btn = document.getElementById("declared-load");
     const container = document.getElementById("declared-results");
@@ -8994,7 +9145,19 @@
         });
         return r.json();
       }).then(function(data) {
-        container.innerHTML = renderDeclared(data);
+        if (!data || data.available === false) {
+          container.innerHTML = renderDeclared(data);
+          return;
+        }
+        return loadSchemaMeta().then(function(meta) {
+          const runtimeTables = meta && meta.tables || [];
+          const runtimeAvailable = runtimeTables.length > 0;
+          const findings = computeSchemaDivergence(data.tables, runtimeTables);
+          container.innerHTML = '<section style="margin-bottom:0.6rem;"><h4 style="margin:0 0 0.2rem;">Code vs database</h4>' + renderDivergence(findings, runtimeAvailable) + "</section>" + renderDeclared(data);
+        }).catch(function() {
+          container.innerHTML = '<section style="margin-bottom:0.6rem;"><h4 style="margin:0 0 0.2rem;">Code vs database</h4>' + renderDivergence([], false) + "</section>" + renderDeclared(data);
+        });
+      }).then(function() {
         container.style.display = "block";
       }).catch(function(e) {
         container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(e.message) + "</p>";
