@@ -4,6 +4,7 @@
 import os
 import re
 import sys
+import time
 from datetime import datetime
 
 from modules.constants import C, REPO_ROOT
@@ -52,6 +53,125 @@ def print_cmd_output(result) -> None:
 def dim(text: str) -> str:
     """Wrap text in dim ANSI codes for secondary information."""
     return f"{C.DIM}{text}{C.RESET}"
+
+
+def coverage_color(pct: float) -> str:
+    """Pick a severity color for a coverage percentage so the audit summary can be
+    scanned at a glance: red below a third, yellow up to near-complete, green at or
+    above near-complete. Thresholds are intentionally generous on the yellow band —
+    a locale is only "green" once it is essentially shipped."""
+    if pct < 33.3:
+        return C.RED
+    if pct < 90.0:
+        return C.YELLOW
+    return C.GREEN
+
+
+# ── Live Progress Meter ──────────────────────────────────────
+
+
+def _fmt_duration(seconds: float) -> str:
+    """Format a duration as M:SS (or H:MM:SS past an hour) for the ETA readout.
+
+    Returns a placeholder for a non-finite estimate (no throughput yet) instead of
+    raising, so the meter can render before the first item completes.
+    """
+    if seconds != seconds or seconds == float("inf") or seconds < 0:  # NaN / inf / <0
+        return "--:--"
+    total = int(seconds)
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
+
+
+class ProgressMeter:
+    """Live single-line progress bar carrying a words-per-minute rate and an ETA.
+
+    The rate and ETA are derived from WORDS processed, not item count, on purpose:
+    translation keys span a single word to whole paragraphs, so an item-count ETA
+    swings wildly while a word-rate settles quickly and predicts the finish far more
+    steadily.
+
+    On a TTY it redraws in place with a carriage return. On a non-TTY (pipe / file /
+    CI) it instead prints one milestone line per ~10% so a redirected log stays
+    readable rather than filling with control characters.
+    """
+
+    def __init__(
+        self,
+        label: str,
+        total_items: int,
+        total_words: int,
+        width: int = 22,
+        stream=None,
+    ) -> None:
+        self.label = label
+        self.total_items = max(int(total_items), 0)
+        self.total_words = max(int(total_words), 0)
+        self.width = width
+        self.stream = stream or sys.stdout
+        # Start the clock at construction (after the one-time model load), so the
+        # WPM rate reflects steady-state translation throughput, not warm-up.
+        self._start = time.monotonic()
+        self._tty = bool(getattr(self.stream, "isatty", lambda: False)())
+        self._last_bucket = -1  # last 10% milestone emitted in non-TTY mode
+
+    def _rate_and_eta(self, done_words: int) -> tuple[float, float]:
+        """Return (words-per-minute, eta-seconds) from elapsed wall time.
+
+        Yields a 0 rate and an infinite ETA until at least one word has completed,
+        which the duration formatter renders as a placeholder.
+        """
+        elapsed = time.monotonic() - self._start
+        if done_words <= 0 or elapsed <= 0:
+            return 0.0, float("inf")
+        wpm = done_words / elapsed * 60.0
+        remaining_words = max(self.total_words - done_words, 0)
+        eta = remaining_words / (done_words / elapsed)
+        return wpm, eta
+
+    def update(self, done_items: int, done_words: int) -> None:
+        """Redraw the bar for the given progress (items position, words for rate)."""
+        frac = (done_items / self.total_items) if self.total_items else 1.0
+        frac = min(max(frac, 0.0), 1.0)
+        wpm, eta = self._rate_and_eta(done_words)
+
+        if self._tty:
+            filled = int(round(frac * self.width))
+            bar = (
+                f"{C.GREEN}{'█' * filled}{C.RESET}"
+                f"{C.DIM}{'░' * (self.width - filled)}{C.RESET}"
+            )
+            line = (
+                f"  {C.BOLD}{self.label:>6}{C.RESET} "
+                f"[{bar}] {C.CYAN}{frac * 100:5.1f}%{C.RESET}  "
+                f"{done_items}/{self.total_items} keys "
+                f"{C.DIM}·{C.RESET} {C.YELLOW}{wpm:4.0f} wpm{C.RESET} "
+                f"{C.DIM}·{C.RESET} ETA {C.WHITE}{_fmt_duration(eta)}{C.RESET}"
+            )
+            # Trailing spaces clear any tail left by a previously longer line.
+            self.stream.write("\r" + line + "   ")
+            self.stream.flush()
+            return
+
+        # Non-TTY: one line per 10% bucket so a redirected log stays readable.
+        bucket = int(frac * 10)
+        if bucket > self._last_bucket:
+            self._last_bucket = bucket
+            self.stream.write(
+                f"  {self.label}: {frac * 100:.0f}% "
+                f"({done_items}/{self.total_items}) "
+                f"{wpm:.0f} wpm ETA {_fmt_duration(eta)}\n"
+            )
+            self.stream.flush()
+
+    def finish(self) -> None:
+        """End the in-place line (TTY only) so following output starts on its own."""
+        if self._tty:
+            self.stream.write("\n")
+            self.stream.flush()
 
 
 def ask_yn(question: str, default: bool = True) -> bool:

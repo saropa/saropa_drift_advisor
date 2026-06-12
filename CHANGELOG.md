@@ -40,6 +40,23 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+Publish tooling now runs the runtime translation audit and points you at the command to open the translation util — no user-facing change.
+
+<details>
+<summary>Maintenance</summary>
+
+- **Translate util: live progress bar, WPM/ETA, and run logs** — the operator-gated translate pass now renders a per-locale progress bar with a words-per-minute rate and an ETA (computed from words processed, not key count, so the estimate stays steady across short and long strings). On a non-TTY it degrades to one milestone line per ~10% instead of carriage-return spam. Every key is journaled: shipped values to `reports/<YYYYMMDD>/<ts>_translate.log` and dropped/failed keys (brand-mangled drops, engine aborts) to the sibling `..._translate_errors.log`; both paths are printed at the end, even on an early CTRL-C abort. The interactive menu summary, the audit summary, and the translate output now color coverage by severity (red/yellow/green) and highlight the engine name. New `ProgressMeter` / `coverage_color` / `_fmt_duration` helpers in `scripts/modules/display.py`; wiring in `scripts/modules/l10n/actions.py` and `scripts/modules/l10n/cli.py`. No machine translation is run by these changes.
+- **Publish runs the runtime translation audit (plan 75 §5.5)** — the extension publish leg's runtime l10n step (Step 11b) now runs the full runtime (System B) translation audit (`scripts/modules/l10n/audit.py`) over the ten target locales and writes a timestamped report to `reports/<YYYYMMDD>/<ts>_l10n_runtime_audit.json`, alongside the existing dry-run baseline/sync check. It prints the per-locale coverage summary, the **audit report path** (a full filesystem path), and the **full absolute-path command** (running interpreter + `scripts/translate_l10n.py`) to open the translation util's interactive menu — so the maintainer can jump straight to the operator-gated translate pass. The baseline-stale hint now uses that same absolute-path command instead of a bare `python scripts/...`. Read-only and non-fatal: it never translates and never dirties the tree; gaps stay a warning (English-first). `scripts/modules/pipeline.py`.
+- **Fixed: publish Step 11b silently crashed every run** — the runtime l10n step always failed with `cannot access local variable 'ok'`. Root cause: `_run_ext_build_and_validate` later did `version, ok = …`, which made `ok` a function-local for the WHOLE function, shadowing the imported `ok()` display helper, so the baseline line above it raised `UnboundLocalError` and the step fell into its non-fatal except. Renamed the local to `version_ok`; the step (now the translation audit) runs cleanly. `scripts/modules/pipeline.py`.
+- **Fixed: Dart pre-publish dry-run was always skipped on Windows** — `pre_publish_validation` short-circuited on `win32` citing an old Dart SDK `nul`-path crash, so Windows publishes shipped to pub.dev with NO local `dart pub publish --dry-run` validation. That SDK bug is gone (verified clean on Dart 3.12.1), so the unconditional skip was removed — the dry-run now runs on every platform (exit 65 still treated as a pass for advisory warnings). `scripts/modules/dart_build.py`.
+- **Fixed: 4 stale extension toolbar tests** — `hamburger-menu.test.ts` and `tab-icons-accent.test.ts` still asserted the Tables and Search toolbar buttons as `data-tool="…"` launchers, but those became permanent `data-panel-btn="…"` panel buttons; the assertions now match (and `tables`/`search` moved out of the `data-tool` launcher list into a dedicated `data-panel-btn` check). Buttons and glyphs were unchanged — this was a test/markup drift, not a regression.
+- **Split `constraint-wizard-html.ts` under the line limit** — extracted the static document shell (the `<style>` block and client `<script>`, ~140 lines) into a new `constraint-wizard-shell.ts` exporting `wrapConstraintWizardHtml(body)`, dropping the main file from 305 to 166 lines (under the 300 limit) so publish no longer prompts "Continue anyway?". Pure move; no behavior change.
+- **Clearer local-install label in publish** — the publish "Local Install" step's `Installed locally: code vX` line read as if it had just installed the new build, when it actually reports the version ALREADY installed in the editor (install happens at the later prompt). Relabeled to `Currently installed:` / `Not currently installed in VS Code or Cursor.`. `scripts/modules/pipeline.py`.
+
+</details>
+
 ## [3.7.2]
 
 The web viewer's toolbar can now show labels: click any empty space in the toolbar row to switch between icon-only buttons and icons with a short word in a dim box. Your choice is remembered.
