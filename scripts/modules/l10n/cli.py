@@ -146,8 +146,10 @@ def interactive_menu(
 
     _print_menu(emit)
     default, hint = _resolve_menu_default(report)
+    # ask_choice already renders "[1] (default), [2], …", so the question text
+    # carries only the human hint — not a second "(default N)" that would double up.
     choice = ask_choice(
-        f"Choice (default {default}: {hint})",
+        f"Choice — {hint}",
         ("1", "2", "3", "4", "5", "6", "0"),
         default,
     )

@@ -14,13 +14,19 @@ short human summary via the injected `emit` callable, so the module stays testab
 and free of direct stdout coupling.
 """
 
+import time
 from pathlib import Path
 from typing import Callable
 
-from modules.l10n import audit, bundles, scopes, sync
-from modules.l10n.provenance import ENGINE_MANUAL, save_provenance
+from modules.l10n import audit, brands, bundles, engines, extract, provenance, scopes, sync
+from modules.l10n.provenance import (
+    ENGINE_GOOGLE, ENGINE_MANUAL, is_forced_identity, save_provenance,
+)
 
 Emit = Callable[[str], None]
+# A pluggable translator: (english, locale) -> translated. Injected in tests so no
+# network call is ever made; the default binding calls the real engine.
+Translator = Callable[[str, str], str]
 
 
 def run_audit_action(
@@ -114,33 +120,131 @@ def run_import_action(
     return 0
 
 
+def _translated_by_key(
+    locale: str,
+    source_host: dict[str, str],
+    source_web: dict[str, str],
+) -> dict[str, str]:
+    """Adapt both per-surface locale bundles into one symbolic-key → value map."""
+    web = bundles.load_json(bundles.web_locale_bundle_path(locale))
+    host = bundles.load_json(bundles.host_locale_bundle_path(locale))
+    out: dict[str, str] = {k: web[k] for k in source_web if k in web}
+    for key, english in source_host.items():
+        if english in host:
+            out[key] = host[english]
+    return out
+
+
+def _translate_with_retry(
+    translate_fn: Translator,
+    text: str,
+    locale: str,
+    throttle: float,
+    attempts: int = 2,
+) -> str:
+    """Call the translator with a small throttle and one backoff retry.
+
+    `EngineUnavailableError` is fatal (no point retrying a missing library) and
+    propagates immediately; transient/network errors get one backoff retry before
+    the last exception is re-raised.
+    """
+    last: Exception | None = None
+    for i in range(attempts):
+        try:
+            if throttle:
+                time.sleep(throttle)
+            return translate_fn(text, locale)
+        except engines.EngineUnavailableError:
+            raise
+        except Exception as exc:  # network blip / rate limit / circuit
+            last = exc
+            time.sleep(0.5 * (i + 1))
+    assert last is not None
+    raise last
+
+
 def run_translate_action(
     emit: Emit,
     locales: list[str],
     scope: str,
     confirmed: bool,
+    translate_fn: Translator | None = None,
+    throttle: float = 0.2,
 ) -> int:
-    """The deliberate translate pass — HARD-GATED (plan 75 §7).
+    """The deliberate translate pass — operator-gated (plan 75 §7).
 
-    Refuses without explicit confirmation and a named locale set. Even when
-    confirmed, it stops at the unwired engine binding (engines.translate_one) so no
-    machine translation is performed from this repo. Always returns 1 (blocked).
+    Refuses without explicit confirmation and a named locale set. When confirmed,
+    translates the selected scope keys per locale through `translate_fn` (default:
+    the real Google engine via `engines.translate_one`; tests inject a fake so no
+    network call is made), writing BOTH the web (`web.<locale>.json`, key-keyed) and
+    host (`bundle.l10n.<locale>.json`, English-value-keyed) bundles atomically after
+    each locale — so a CTRL-C is a resumable pause, not a loss. Brand-mangled
+    results are dropped (the key stays English) rather than shipped. Provenance is
+    recorded so a later upgrade pass can find weak output.
     """
     if not confirmed or not locales:
         emit("REFUSED: the translate pass is operator-gated and never runs "
              "unattended (plan 75 §7).")
-        emit("It requires BOTH an explicit --confirm-translate flag AND a named "
-             "--locales list, e.g.:")
+        emit("It requires BOTH explicit confirmation AND a named locale list, e.g.:")
         emit("  python scripts/translate_l10n.py --run-mode translate "
              "--locales de,fr --scope gaps --confirm-translate")
         return 1
 
-    # Confirmed + named: report what WOULD be sent, then stop at the unwired engine.
-    source = audit.extract.extract_all()
+    source_host = extract.extract_host()
+    source_web = extract.extract_web()
+    source = {**source_host, **source_web}
+    web_keys = set(source_web)
+
+    if translate_fn is None:
+        breaker = engines.CircuitBreaker()
+
+        def translate_fn(text: str, locale: str) -> str:  # noqa: ARG001
+            return engines.translate_one(text, locale, authorized=True, breaker=breaker)
+
+    grand_total = 0
     for locale in locales:
-        translated_web = bundles.load_json(bundles.web_locale_bundle_path(locale))
-        keys = scopes.select_keys(scope, source, translated_web, locale)
-        emit(f"  {locale}: scope={scope} would process {len(keys)} keys.")
-    emit("STOP: no engine binding is wired in this repo — machine translation was "
-         "NOT performed. Wire NLLB/Google in the operator action to run a real pass.")
-    return 1
+        web_bundle = bundles.load_json(bundles.web_locale_bundle_path(locale))
+        host_bundle = bundles.load_json(bundles.host_locale_bundle_path(locale))
+        existing = _translated_by_key(locale, source_host, source_web)
+        prov_existing = provenance.load_provenance(locale)
+        keys = sorted(scopes.select_keys(scope, source, existing, locale, prov_existing))
+        emit(f"  {locale}: translating {len(keys)} keys (scope={scope})…")
+
+        prov_updates: dict[str, str] = {}
+        done = 0
+        aborted = False
+        try:
+            for key in keys:
+                english = source[key]
+                if is_forced_identity(english, locale):
+                    continue  # brand/acronym/symbol — correct value IS English
+                value = _translate_with_retry(translate_fn, english, locale, throttle)
+                if brands.validate_brands(english, value):
+                    continue  # dropped a brand — keep English, don't ship mangled
+                if key in web_keys:
+                    web_bundle[key] = value
+                else:
+                    host_bundle[source_host[key]] = value
+                prov_updates[key] = ENGINE_GOOGLE
+                done += 1
+        except engines.EngineUnavailableError as exc:
+            emit(f"  Engine unavailable — {exc}")
+            aborted = True
+        except KeyboardInterrupt:
+            emit("  Interrupted — saving progress so far (resumable on re-run).")
+            aborted = True
+        finally:
+            # Persist whatever was translated, atomically, even on abort/CTRL-C.
+            bundles.write_json_atomic(bundles.web_locale_bundle_path(locale), web_bundle)
+            bundles.write_json_atomic(bundles.host_locale_bundle_path(locale), host_bundle)
+            save_provenance(locale, prov_updates)
+
+        grand_total += done
+        emit(f"  {locale}: wrote {done} translations.")
+        if aborted:
+            emit("Translate pass stopped early; re-run to resume from where it left off.")
+            return 1
+
+    emit(f"Done — {grand_total} translations across {len(locales)} locale(s). "
+         f"Run --run-mode audit to review coverage.")
+    return 0

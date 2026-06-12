@@ -79,6 +79,36 @@ def nllb_model_is_cached() -> bool:
         return False
 
 
+class EngineUnavailableError(RuntimeError):
+    """Raised when no translation engine library is installed/usable."""
+
+
+# Catalog tag → Google Translate language code. Most match; the regional Chinese
+# and Brazilian-Portuguese tags need Google's own spelling.
+_GOOGLE_CODE = {
+    "pt-br": "pt", "zh-cn": "zh-CN", "zh-tw": "zh-TW",
+    "de": "de", "es": "es", "fr": "fr", "it": "it",
+    "ja": "ja", "ko": "ko", "ru": "ru",
+}
+
+
+def _google_translate(text: str, target_locale: str) -> str:
+    """Translate `text` en→`target_locale` via deep-translator (Google).
+
+    Lazy import so audit/sync never load the library. Network-only — no GPU, so it
+    cannot lock the machine the way an NLLB job once did (the reason NLLB stays
+    off-by-default). Raises `EngineUnavailableError` if the library is missing.
+    """
+    try:
+        from deep_translator import GoogleTranslator  # lazy
+    except ImportError as exc:  # pragma: no cover - env-dependent
+        raise EngineUnavailableError(
+            "deep-translator is not installed. Run: pip install deep-translator"
+        ) from exc
+    code = _GOOGLE_CODE.get(target_locale, target_locale)
+    return GoogleTranslator(source="en", target=code).translate(text) or text
+
+
 def translate_one(
     text: str,
     target_locale: str,
@@ -87,13 +117,14 @@ def translate_one(
     breaker: CircuitBreaker,
     prefer_nllb: bool = True,
 ) -> str:
-    """Translate one string. GATED — raises unless `authorized=True`.
+    """Translate one string en→`target_locale`. GATED — raises unless authorized.
 
-    This is the only entry that performs machine translation, and it is never
-    called by `audit`/`sync` nor by this repo's tests. The deliberate `translate`
-    action sets `authorized=True` after an explicit operator confirmation. The
-    engine itself (NLLB when cached, else Google) is imported lazily inside the
-    branch so an unauthorized or audit-only run never loads it.
+    Brand tokens are shielded (`<B0>` placeholders) before the engine call and
+    restored after, so the translator can never mangle a brand. NLLB is used only
+    when its model is already cached AND not skipped (`SAROPA_SKIP_NLLB`); since the
+    NLLB GPU path is what once locked the machine, the safe default is Google
+    (network-only). A failed call records against the circuit breaker and re-raises;
+    a success resets it.
     """
     if not authorized:
         raise TranslationNotAuthorizedError(
@@ -101,11 +132,24 @@ def translate_one(
             "operator-gated (plan 75 §7). No machine translation was performed."
         )
     breaker.check()
-    # The concrete engine call (deep_translator / NLLB) is intentionally not wired
-    # here: this repo never runs MT. The deliberate translate action supplies the
-    # engine binding at call time. Reaching this point unbound is a programming
-    # error, surfaced loudly rather than silently returning English.
-    raise NotImplementedError(  # pragma: no cover - never run in this repo
-        "engine binding not provided — wire the NLLB/Google call in the operator "
-        "translate action before running a real translation pass."
-    )
+
+    from modules.l10n.brands import shield_brands, unshield_brands
+
+    shielded, replacements = shield_brands(text)
+    try:
+        # NLLB intentionally stays unwired unless explicitly built out (GPU risk);
+        # the engine is Google. `prefer_nllb` is honored only when a cached model
+        # exists, which this probe gates — today that is never, so Google is used.
+        import os
+
+        use_nllb = prefer_nllb and nllb_model_is_cached() and not os.environ.get("SAROPA_SKIP_NLLB")
+        if use_nllb:  # pragma: no cover - no cached model in this repo
+            raise EngineUnavailableError("NLLB path not wired; falling back to Google.")
+        out = _google_translate(shielded, target_locale)
+        breaker.record_success()
+    except EngineUnavailableError:
+        raise
+    except Exception:
+        breaker.record_failure()
+        raise
+    return unshield_brands(out, replacements)
