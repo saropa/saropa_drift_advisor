@@ -126,3 +126,70 @@ Port its shape, not its code.
 **Outstanding.** None for the delivered scope (Phases 1–3, exit gate met). Phase 4 explicitly deferred as above.
 
 **Finish report appended:** plans/72-website-multiple-snapshots.md (this section). Core complete → archived to plans/history/2026.06/2026.06.10/ (Phase 4 optional/deferred, documented here).
+
+---
+
+## Finish Report (2026-06-12) — Phase 4 (persistence across server restart)
+
+Builds the deferred Phase 4. Phases 1-3 kept the snapshot list in memory on
+`ServerContext`, so it survived a browser reload (re-fetched via
+`GET /api/snapshots`) but not a restart of the host app's debug session — the
+in-memory list was lost when the process stopped. An opt-in on-disk store now
+mirrors the list so it outlives a server restart.
+
+**Opt-in, zero default change.** A new optional `snapshotStorePath` on
+`DriftDebugServer.start` enables persistence. When it is null (the default),
+nothing is read or written and behavior is byte-identical to before — no
+surprise disk writes. The path is host configuration (the app developer chooses
+it), never user or network input.
+
+**What changed.**
+
+- **`lib/src/server/server_types.dart`** — `Snapshot` gained `toJson()` and a
+  tolerant `static fromJson()` that returns null for a malformed record (missing
+  id, unparseable date, wrong shape) so one bad entry is skipped rather than
+  failing the whole load.
+- **`lib/src/server/snapshot_store.dart`** (new) — `SnapshotStore.load`/`save`.
+  Writes are atomic (serialize → write `<path>.tmp` → rename over the target) so
+  a crash mid-write can't leave a half-written file; loads tolerate an absent,
+  empty, corrupt, or wrong-shape file by returning empty. Both are best-effort:
+  failures are routed to an `onError` logger (wired to `ServerContext.logError`)
+  rather than thrown, so a disk problem never breaks a snapshot operation. The
+  trusted-host-path lints are suppressed inline with rationale.
+- **`lib/src/server/server_context.dart`** — `snapshotStorePath` field;
+  `loadPersistedSnapshots()` (called at startup, caps the loaded list to
+  `maxSnapshots`, keeping the newest); `_persistSnapshots()` invoked from
+  `addSnapshot`/`removeSnapshot`/`replaceSnapshot`/`clearSnapshots`, serialized
+  through a single write chain so rapid mutations can't interleave their writes;
+  and a `snapshotPersistenceSettled` getter so a host can flush before shutdown
+  (and tests have a deterministic read point).
+- **`lib/src/drift_debug_server_io.dart`** — `snapshotStorePath` threaded through
+  both `start` declarations and into `ServerContext`; `loadPersistedSnapshots()`
+  is awaited before the server binds, so a restart serves the restored list.
+- **`lib/src/drift_debug_server_stub.dart`** — param added to the stub signature
+  for source compatibility on unsupported platforms.
+
+**Testing.**
+
+- **New `test/snapshot_persistence_test.dart`** (11 cases): Snapshot JSON
+  round-trip (label present/absent, malformed → null); `SnapshotStore` save/load
+  round-trip, missing-file → empty, corrupt-file → empty + error surfaced,
+  per-record corruption skipped; `ServerContext` survives a simulated restart
+  (write with one context, reload with a fresh one on the same path),
+  delete/clear rewrite the file, no-path stays in memory and writes nothing, and
+  an over-cap stored list loads capped to the newest `maxSnapshots`.
+- `dart test` → **632 passing** (+11). `dart analyze` on all changed/new files →
+  **No issues found** (saropa_lints clean).
+
+**l10n.** SKIPPED [no-UI] — no Flutter or web UI strings; a host-API option plus
+server-side persistence.
+
+**Back-compat.** The new param is optional; the new `Snapshot` JSON methods are
+additive; existing snapshot tests (`snapshot_multi_test`, `snapshot_handler_test`,
+`server_types_test`) are untouched and green.
+
+**Outstanding.** None. The exit-gate concern Phase 4 named — survival across a
+server restart — is met for hosts that opt in via `snapshotStorePath`.
+
+**Finish report appended:** plans/history/2026.06/2026.06.10/72-website-multiple-snapshots.md
+(this section). No bug archive — task did not close a `bugs/*.md` file.

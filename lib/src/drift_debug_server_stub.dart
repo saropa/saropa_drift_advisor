@@ -52,6 +52,7 @@ mixin DriftDebugServer {
     Set<String>? declaredTableNames,
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
+    String? snapshotStorePath,
   }) {
     throw UnsupportedError(_kUnsupportedMessage);
   }
