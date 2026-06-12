@@ -61,22 +61,80 @@ class CircuitBreaker:
 
 
 def nllb_model_is_cached() -> bool:
-    """True only if an NLLB model is already on disk — never triggers a download.
+    """True only if the NLLB model is already on disk — never triggers a download.
 
-    Lazy + defensive: any import or lookup error means "not cached", so the caller
-    silently falls back to Google rather than risk a multi-GB surprise download
-    (plan 75 §4). This is a probe, not a load.
+    Delegates to `nllb_engine.is_available()`, which probes the HF cache (incl. the
+    `SAROPA_NLLB_MODEL_DIR` override and the shared `<drive>\\tools\\meta_nllb`
+    location) with `local_files_only=True`. A probe, not a load.
     """
-    try:  # pragma: no cover - environment-dependent, not exercised in tests
-        from pathlib import Path
-        import os
-
-        hub = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
-        if not hub.exists():
-            return False
-        return any("nllb" in p.name.lower() for p in hub.rglob("*") if p.is_dir())
+    try:
+        from modules.l10n import nllb_engine
+        return nllb_engine.is_available()
     except Exception:
         return False
+
+
+# Engine labels stamped into provenance (mirror modules.l10n.provenance).
+ENGINE_LABEL_NLLB = "nllb"
+ENGINE_LABEL_GOOGLE = "google"
+
+
+def make_locale_translator(
+    locale: str,
+    *,
+    authorized: bool,
+    breaker: CircuitBreaker,
+    prefer_nllb: bool = True,
+):
+    """Build a per-string translator for `locale` + the engine label it uses.
+
+    GATED — raises `TranslationNotAuthorizedError` unless `authorized=True`. Picks
+    NLLB-200 when its model is cached and not disabled (`SAROPA_SKIP_NLLB`),
+    constructing it ONCE here (the model loads on first use and is reused across
+    every string + locale); otherwise Google. Returns
+    `(translate(text) -> str, engine_label)`. The returned callable brand-shields
+    (`<B0>` placeholders) before the engine and restores after, records the circuit
+    breaker, and on an NLLB miss (None) keeps the English source rather than blank.
+    """
+    if not authorized:
+        raise TranslationNotAuthorizedError(
+            "make_locale_translator called without authorization — the translate "
+            "pass is operator-gated (plan 75 §7)."
+        )
+
+    from modules.l10n.brands import shield_brands, unshield_brands
+
+    nllb = None
+    label = ENGINE_LABEL_GOOGLE
+    if prefer_nllb:
+        try:
+            from modules.l10n import nllb_engine
+            if nllb_engine.is_available():
+                nllb = nllb_engine.NllbTranslator(locale)  # loads the model
+                label = ENGINE_LABEL_NLLB
+        except Exception:
+            nllb = None  # any NLLB setup failure → fall back to Google
+
+    def translate(text: str) -> str:
+        breaker.check()
+        shielded, replacements = shield_brands(text)
+        try:
+            if nllb is not None:
+                out = nllb.translate(shielded)
+                if out is None:  # NLLB miss (timeout / echo / over-length) → keep English
+                    breaker.record_success()
+                    return text
+            else:
+                out = _google_translate(shielded, locale)
+            breaker.record_success()
+        except EngineUnavailableError:
+            raise
+        except Exception:
+            breaker.record_failure()
+            raise
+        return unshield_brands(out, replacements)
+
+    return translate, label
 
 
 class EngineUnavailableError(RuntimeError):

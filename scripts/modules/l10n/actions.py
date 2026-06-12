@@ -136,13 +136,12 @@ def _translated_by_key(
 
 
 def _translate_with_retry(
-    translate_fn: Translator,
+    per_string_fn: Callable[[str], str],
     text: str,
-    locale: str,
     throttle: float,
     attempts: int = 2,
 ) -> str:
-    """Call the translator with a small throttle and one backoff retry.
+    """Call the locale-bound translator with a small throttle and one backoff retry.
 
     `EngineUnavailableError` is fatal (no point retrying a missing library) and
     propagates immediately; transient/network errors get one backoff retry before
@@ -153,7 +152,7 @@ def _translate_with_retry(
         try:
             if throttle:
                 time.sleep(throttle)
-            return translate_fn(text, locale)
+            return per_string_fn(text)
         except engines.EngineUnavailableError:
             raise
         except Exception as exc:  # network blip / rate limit / circuit
@@ -195,11 +194,18 @@ def run_translate_action(
     source = {**source_host, **source_web}
     web_keys = set(source_web)
 
-    if translate_fn is None:
+    # Per-locale translator factory → (translate(text)->str, engine_label). The
+    # default picks NLLB-200 when cached, else Google. A test-injected translate_fn
+    # (english, locale)->str is wrapped as a Google-labelled factory so no engine
+    # loads and no network call is made.
+    if translate_fn is not None:
+        def factory(loc: str):
+            return (lambda text: translate_fn(text, loc)), ENGINE_GOOGLE
+    else:
         breaker = engines.CircuitBreaker()
 
-        def translate_fn(text: str, locale: str) -> str:  # noqa: ARG001
-            return engines.translate_one(text, locale, authorized=True, breaker=breaker)
+        def factory(loc: str):
+            return engines.make_locale_translator(loc, authorized=True, breaker=breaker)
 
     grand_total = 0
     for locale in locales:
@@ -208,7 +214,13 @@ def run_translate_action(
         existing = _translated_by_key(locale, source_host, source_web)
         prov_existing = provenance.load_provenance(locale)
         keys = sorted(scopes.select_keys(scope, source, existing, locale, prov_existing))
-        emit(f"  {locale}: translating {len(keys)} keys (scope={scope})…")
+
+        try:
+            per_string_fn, engine_label = factory(locale)
+        except engines.TranslationNotAuthorizedError:
+            emit("REFUSED: translation is operator-gated (plan 75 §7).")
+            return 1
+        emit(f"  {locale}: translating {len(keys)} keys via {engine_label} (scope={scope})…")
 
         prov_updates: dict[str, str] = {}
         done = 0
@@ -218,14 +230,14 @@ def run_translate_action(
                 english = source[key]
                 if is_forced_identity(english, locale):
                     continue  # brand/acronym/symbol — correct value IS English
-                value = _translate_with_retry(translate_fn, english, locale, throttle)
+                value = _translate_with_retry(per_string_fn, english, throttle)
                 if brands.validate_brands(english, value):
                     continue  # dropped a brand — keep English, don't ship mangled
                 if key in web_keys:
                     web_bundle[key] = value
                 else:
                     host_bundle[source_host[key]] = value
-                prov_updates[key] = ENGINE_GOOGLE
+                prov_updates[key] = engine_label
                 done += 1
         except engines.EngineUnavailableError as exc:
             emit(f"  Engine unavailable — {exc}")
