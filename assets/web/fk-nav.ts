@@ -10,6 +10,7 @@ import { esc } from './utils.ts';
 import { loadTable, updateTableListActive } from './table-list.ts';
 import { switchTab } from './tabs.ts';
 import { saveNavHistory, clearNavHistory } from './persistence.ts';
+import { vt } from './l10n.ts';
 
     export function loadFkMeta(tableName) {
       if (S.fkMetaCache[tableName]) return Promise.resolve(S.fkMetaCache[tableName]);
@@ -64,11 +65,13 @@ import { saveNavHistory, clearNavHistory } from './persistence.ts';
 
       // --- Build the breadcrumb HTML ---
 
-      // "Back" link: pops the most recent entry (same as browser back)
-      var html = '<a href="#" id="nav-back" style="color:var(--link);" title="Go back to previous table">&#8592; Back</a>';
+      // "Back" link: pops the most recent entry (same as browser back).
+      // The arrow glyph (&#8592;) is a symbol prepended as static markup; only
+      // the word "Back" and the tooltip are localized.
+      var html = '<a href="#" id="nav-back" style="color:var(--link);" title="' + esc(vt('viewer.settings.fknav.backTitle')) + '">&#8592; ' + esc(vt('viewer.settings.fknav.back')) + '</a>';
 
       // "Clear path" link: discards the entire trail and hides the breadcrumb
-      html += ' | <a href="#" id="nav-clear" class="nav-clear-link" title="Clear navigation trail">Clear path</a>';
+      html += ' | <a href="#" id="nav-clear" class="nav-clear-link" title="' + esc(vt('viewer.settings.fknav.clearPathTitle')) + '">' + esc(vt('viewer.settings.fknav.clearPath')) + '</a>';
 
       // Separator before the breadcrumb trail
       html += ' | ';
@@ -82,7 +85,7 @@ import { saveNavHistory, clearNavHistory } from './persistence.ts';
         return '<a href="#" class="nav-crumb" data-idx="' + idx + '" '
           + 'data-longpress-copy="' + esc(h.table) + '" '
           + 'style="color:var(--link);" '
-          + 'title="Jump to ' + esc(h.table) + '">'
+          + 'title="' + esc(vt('viewer.settings.fknav.jumpTitle', h.table)) + '">'
           + esc(h.table) + '</a>';
       }).join(' &#8594; ');
 

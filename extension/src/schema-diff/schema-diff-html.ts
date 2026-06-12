@@ -11,6 +11,7 @@ import {
 import { IDartTable } from './dart-schema';
 import { TableMetadata } from '../api-client';
 import { highlightSql, sqlHighlightCss } from '../sql-highlight';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -32,10 +33,10 @@ function renderSummary(diff: ISchemaDiffResult): string {
   );
 
   return `<div class="summary">
-  <span class="badge ok">${matched} matched</span>
-  ${codeOnly ? `<span class="badge warn">${codeOnly} code-only</span>` : ''}
-  ${dbOnly ? `<span class="badge err">${dbOnly} db-only</span>` : ''}
-  ${mismatches ? `<span class="badge warn">${mismatches} issue${mismatches !== 1 ? 's' : ''}</span>` : ''}
+  <span class="badge ok">${t('panel.schema.diff.badge.matched', matched)}</span>
+  ${codeOnly ? `<span class="badge warn">${t('panel.schema.diff.badge.codeOnly', codeOnly)}</span>` : ''}
+  ${dbOnly ? `<span class="badge err">${t('panel.schema.diff.badge.dbOnly', dbOnly)}</span>` : ''}
+  ${mismatches ? `<span class="badge warn">${mismatches !== 1 ? t('panel.schema.diff.badge.issues', mismatches) : t('panel.schema.diff.badge.issue', mismatches)}</span>` : ''}
 </div>`;
 }
 
@@ -49,31 +50,42 @@ function renderMatchedTable(td: ITableColumnDiff): string {
     || td.columnsOnlyInDb.length > 0
     || td.typeMismatches.length > 0;
   const cls = hasIssues ? 'row-warn' : 'row-ok';
-  const status = hasIssues ? 'issues' : 'OK';
+  const status = hasIssues
+    ? t('panel.schema.diff.row.status.issues')
+    : t('panel.schema.diff.row.status.ok');
   const codeColCount = td.codeTable.columns.length;
   const dbColCount = td.matchedColumns
     + td.columnsOnlyInDb.length;
 
   const details: string[] = [];
 
+  // Pre-built nav-link markup is passed as {0} so it survives translation intact.
   for (const c of td.columnsOnlyInCode) {
     details.push(
-      `<div class="detail warn">+ Column `
-      + `${navLink(c.sqlName, td.codeTable.fileUri, c.line)}`
-      + ` (${esc(c.sqlType)}) — only in code</div>`,
+      `<div class="detail warn">${t(
+        'panel.schema.diff.detail.codeOnly',
+        navLink(c.sqlName, td.codeTable.fileUri, c.line),
+        esc(c.sqlType),
+      )}</div>`,
     );
   }
   for (const c of td.columnsOnlyInDb) {
     details.push(
-      `<div class="detail err">- Column "${esc(c.name)}"`
-      + ` (${esc(c.type)}) — only in DB</div>`,
+      `<div class="detail err">${t(
+        'panel.schema.diff.detail.dbOnly',
+        esc(c.name),
+        esc(c.type),
+      )}</div>`,
     );
   }
   for (const m of td.typeMismatches) {
     details.push(
-      `<div class="detail warn">~ `
-      + `${navLink(m.columnName, td.codeTable.fileUri, m.dartColumn.line)}`
-      + `: code=${esc(m.codeType)}, db=${esc(m.dbType)}</div>`,
+      `<div class="detail warn">${t(
+        'panel.schema.diff.detail.typeMismatch',
+        navLink(m.columnName, td.codeTable.fileUri, m.dartColumn.line),
+        esc(m.codeType),
+        esc(m.dbType),
+      )}</div>`,
     );
   }
 
@@ -84,7 +96,7 @@ function renderMatchedTable(td: ITableColumnDiff): string {
   return `<details class="${cls}"${hasIssues ? ' open' : ''}>
   <summary>
     ${navLink(td.tableName, td.codeTable.fileUri, td.codeTable.line)}
-    <span class="col-count">${codeColCount} code / ${dbColCount} db cols</span>
+    <span class="col-count">${t('panel.schema.diff.row.colCount', codeColCount, dbColCount)}</span>
     <span class="status">${status}</span>
   </summary>
   ${inner}
@@ -97,8 +109,8 @@ function renderCodeOnlyTable(table: IDartTable): string {
     .join('\n');
   return `<div class="row-err">
   ${navLink(table.sqlTableName, table.fileUri, table.line)}
-  <span class="col-count">${table.columns.length} columns</span>
-  <span class="status">CREATE TABLE needed</span>
+  <span class="col-count">${t('panel.schema.diff.codeOnly.colCount', table.columns.length)}</span>
+  <span class="status">${t('panel.schema.diff.codeOnly.status')}</span>
   ${cols ? `<div class="details">${cols}</div>` : ''}
 </div>`;
 }
@@ -106,15 +118,17 @@ function renderCodeOnlyTable(table: IDartTable): string {
 function renderDbOnlyTable(table: TableMetadata): string {
   return `<div class="row-err">
   <span class="table-name">${esc(table.name)}</span>
-  <span class="col-count">${table.columns.length} columns</span>
-  <span class="status">may need DROP TABLE</span>
+  <span class="col-count">${t('panel.schema.diff.dbOnly.colCount', table.columns.length)}</span>
+  <span class="status">${t('panel.schema.diff.dbOnly.status')}</span>
 </div>`;
 }
 
+// `title` is an already-localized SQL-block heading; it is also interpolated into
+// the "Copy {0}" button label so the verb+noun stays one reorderable unit.
 function renderSqlBlock(title: string, action: string, sql: string): string {
   return `<h3>${esc(title)}</h3>`
     + `<div class="toolbar"><button class="copy-btn" data-action="${esc(action)}">`
-    + `Copy ${esc(title)}</button></div>`
+    + `${t('panel.schema.diff.sql.copy', esc(title))}</button></div>`
     + `<pre class="sql-block">${highlightSql(sql)}</pre>`;
 }
 
@@ -131,7 +145,7 @@ export function buildSchemaDiffHtml(
 
   // Matched tables
   if (diff.tableDiffs.length > 0) {
-    sections.push('<h3>Matched Tables</h3>');
+    sections.push(`<h3>${t('panel.schema.diff.section.matched')}</h3>`);
     sections.push(
       diff.tableDiffs.map((td) => renderMatchedTable(td)).join('\n'),
     );
@@ -139,19 +153,19 @@ export function buildSchemaDiffHtml(
 
   // Code-only tables
   if (diff.tablesOnlyInCode.length > 0) {
-    sections.push('<h3>Only in Code (needs migration)</h3>');
+    sections.push(`<h3>${t('panel.schema.diff.section.codeOnly')}</h3>`);
     sections.push(
       diff.tablesOnlyInCode
-        .map((t) => renderCodeOnlyTable(t)).join('\n'),
+        .map((tbl) => renderCodeOnlyTable(tbl)).join('\n'),
     );
   }
 
   // DB-only tables
   if (diff.tablesOnlyInDb.length > 0) {
-    sections.push('<h3>Only in Database (orphaned?)</h3>');
+    sections.push(`<h3>${t('panel.schema.diff.section.dbOnly')}</h3>`);
     sections.push(
       diff.tablesOnlyInDb
-        .map((t) => renderDbOnlyTable(t)).join('\n'),
+        .map((tbl) => renderDbOnlyTable(tbl)).join('\n'),
     );
   }
 
@@ -160,16 +174,16 @@ export function buildSchemaDiffHtml(
     sections.push(
       '<div class="toolbar" style="margin-top:16px">'
       + '<button class="copy-btn" data-action="generateMigration">'
-      + 'Generate Migration Code</button></div>',
+      + `${t('panel.schema.diff.btn.generateMigration')}</button></div>`,
     );
   }
 
   // SQL blocks
   if (migrationSql) {
-    sections.push(renderSqlBlock('Migration SQL', 'copyMigrationSql', migrationSql));
+    sections.push(renderSqlBlock(t('panel.schema.diff.sql.migration.title'), 'copyMigrationSql', migrationSql));
   }
   if (fullSchemaSql) {
-    sections.push(renderSqlBlock('Full Schema SQL', 'copyFullSchemaSql', fullSchemaSql));
+    sections.push(renderSqlBlock(t('panel.schema.diff.sql.fullSchema.title'), 'copyFullSchemaSql', fullSchemaSql));
   }
 
   // No differences
@@ -179,11 +193,11 @@ export function buildSchemaDiffHtml(
     && diff.tablesOnlyInDb.length === 0
   ) {
     sections.push(
-      '<p class="empty">No tables found to compare.</p>',
+      `<p class="empty">${t('panel.schema.diff.empty')}</p>`,
     );
   }
 
-  const body = `<h2>Code vs Runtime Schema Diff</h2>\n${sections.join('\n')}`;
+  const body = `<h2>${t('panel.schema.diff.title')}</h2>\n${sections.join('\n')}`;
   return wrapHtml(body);
 }
 

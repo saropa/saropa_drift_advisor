@@ -1,4 +1,5 @@
 import type { Anomaly } from '../api-types';
+import { t } from '../l10n';
 
 /**
  * Build HTML for the Anomalies webview panel.
@@ -11,7 +12,7 @@ export function buildAnomaliesHtml(anomalies: Anomaly[], historyCount: number = 
 <style>body { font-family: var(--vscode-font-family); color: var(--vscode-foreground);
   background: var(--vscode-editor-background); }
 .empty { padding: 32px; text-align: center; opacity: 0.6; }</style>
-</head><body><div class="empty">No anomalies found.</div></body></html>`;
+</head><body><div class="empty">${t('panel.quality.anomalies.empty')}</div></body></html>`;
   }
 
   const errorCount = anomalies.filter((a) => a.severity === 'error').length;
@@ -131,29 +132,29 @@ export function buildAnomaliesHtml(anomalies: Anomaly[], historyCount: number = 
 </head>
 <body>
 <div class="header">
-  <h1>Anomalies</h1>
+  <h1>${t('panel.quality.anomalies.title')}</h1>
   <div class="btn-group">
-    <button class="btn btn-secondary" data-action="refresh">Refresh</button>
-    <button class="btn btn-secondary" data-action="saveSnapshot">Save Snapshot</button>
-    <button class="btn btn-secondary" data-action="compareHistory">Compare${historyCount > 0 ? ` (${historyCount})` : ''}</button>
-    <button class="btn" data-action="generateFixes">Generate Fix SQL</button>
-    <button class="btn btn-secondary" data-action="openBulkEdit" title="Pick a single-PK table and open the bulk edit dashboard">Bulk edit table…</button>
+    <button class="btn btn-secondary" data-action="refresh">${t('panel.quality.anomalies.btn.refresh')}</button>
+    <button class="btn btn-secondary" data-action="saveSnapshot">${t('panel.quality.anomalies.btn.saveSnapshot')}</button>
+    <button class="btn btn-secondary" data-action="compareHistory">${historyCount > 0 ? t('panel.quality.anomalies.btn.compareCount', historyCount) : t('panel.quality.anomalies.btn.compare')}</button>
+    <button class="btn" data-action="generateFixes">${t('panel.quality.anomalies.btn.generateFixes')}</button>
+    <button class="btn btn-secondary" data-action="openBulkEdit" title="${t('panel.quality.anomalies.btn.bulkEdit.title')}">${t('panel.quality.anomalies.btn.bulkEdit')}</button>
   </div>
 </div>
 
 <div class="filters">
-  <button class="filter-btn active" data-filter="all">All <span class="filter-count">(${anomalies.length})</span></button>
-  ${errorCount > 0 ? `<button class="filter-btn" data-filter="error">\u2716 Errors <span class="filter-count">(${errorCount})</span></button>` : ''}
-  ${warnCount > 0 ? `<button class="filter-btn" data-filter="warning">\u26A0 Warnings <span class="filter-count">(${warnCount})</span></button>` : ''}
-  ${infoCount > 0 ? `<button class="filter-btn" data-filter="info">\u2139 Info <span class="filter-count">(${infoCount})</span></button>` : ''}
+  <button class="filter-btn active" data-filter="all">${t('panel.quality.anomalies.filter.all', anomalies.length)}</button>
+  ${errorCount > 0 ? `<button class="filter-btn" data-filter="error">\u2716 ${t('panel.quality.anomalies.filter.errors', errorCount)}</button>` : ''}
+  ${warnCount > 0 ? `<button class="filter-btn" data-filter="warning">\u26A0 ${t('panel.quality.anomalies.filter.warnings', warnCount)}</button>` : ''}
+  ${infoCount > 0 ? `<button class="filter-btn" data-filter="info">\u2139 ${t('panel.quality.anomalies.filter.info', infoCount)}</button>` : ''}
 </div>
 
 <table>
   <thead>
     <tr>
       <th></th>
-      <th>Severity</th>
-      <th>Message</th>
+      <th>${t('panel.quality.anomalies.th.severity')}</th>
+      <th>${t('panel.quality.anomalies.th.message')}</th>
     </tr>
   </thead>
   <tbody>

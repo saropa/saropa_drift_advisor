@@ -3,6 +3,7 @@
  * bookmarks, auto-explain, result display, and chart rendering.
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 import { esc, setButtonBusy } from './utils.ts';
 import { switchTab } from './tabs.ts';
 import { loadSqlHistory, pushSqlHistory, loadBookmarks, refreshBookmarksDropdown, addBookmark, deleteBookmark, exportBookmarks, importBookmarks, bindDropdownToInput } from './sql-history.ts';
@@ -99,8 +100,8 @@ export function initSqlRunner(): void {
       const icon = lockBtn.querySelector('.material-symbols-outlined');
       if (icon) icon.textContent = templateLocked ? 'lock' : 'lock_open';
       lockBtn.title = templateLocked
-        ? 'Lock: auto-apply template when table or fields change'
-        : 'Unlocked: table/field changes won\u2019t auto-apply template';
+        ? vt('viewer.sql.template.lock.locked')
+        : vt('viewer.sql.template.lock.unlocked');
     });
   }
 
@@ -113,7 +114,7 @@ export function initSqlRunner(): void {
       const name = this.value;
       if (fieldsSel) fieldsSel.innerHTML = '<option value="">—</option>';
       if (!name) return;
-      if (fieldsSel) fieldsSel.innerHTML = '<option value="">Loading…</option>';
+      if (fieldsSel) fieldsSel.innerHTML = '<option value="">' + esc(vt('viewer.sql.fields.loading')) + '</option>';
       const requestedTable = name;
       fetch('/api/table/' + encodeURIComponent(name) + '/columns', S.authOpts())
         .then(r => r.json())
@@ -159,10 +160,10 @@ export function initSqlRunner(): void {
     const prevDisabled = sqlResultPage <= 0;
     const nextDisabled = (start + pageSize) >= total;
     const paginationHtml = '<div class="sql-result-pagination toolbar" style="margin-top:0.35rem;">' +
-      '<button type="button" id="sql-result-prev"' + (prevDisabled ? ' disabled' : '') + '>Prev</button>' +
-      '<button type="button" id="sql-result-next"' + (nextDisabled ? ' disabled' : '') + '>Next</button>' +
+      '<button type="button" id="sql-result-prev"' + (prevDisabled ? ' disabled' : '') + '>' + esc(vt('viewer.sql.result.prev')) + '</button>' +
+      '<button type="button" id="sql-result-next"' + (nextDisabled ? ' disabled' : '') + '>' + esc(vt('viewer.sql.result.next')) + '</button>' +
       '</div>';
-    resultEl.innerHTML = '<p class="meta">' + total + ' row(s)</p>' + tableHtml + statusHtml + paginationHtml;
+    resultEl.innerHTML = '<p class="meta">' + esc(vt('viewer.sql.result.rowCount', total)) + '</p>' + tableHtml + statusHtml + paginationHtml;
     const prevBtn = resultEl.querySelector('#sql-result-prev');
     const nextBtn = resultEl.querySelector('#sql-result-next');
     if (prevBtn) prevBtn.addEventListener('click', function() { sqlResultPage--; renderSqlResultPage(); });
@@ -213,7 +214,7 @@ export function initSqlRunner(): void {
     explainAbort = new AbortController();
 
     explainEl.style.display = 'block';
-    explainEl.innerHTML = '<p class="meta explain-loading">Analyzing query\u2026</p>';
+    explainEl.innerHTML = '<p class="meta explain-loading">' + esc(vt('viewer.sql.explain.analyzing')) + '</p>';
 
     fetch('/api/sql/explain', Object.assign({}, S.authOpts({
       method: 'POST',
@@ -223,7 +224,7 @@ export function initSqlRunner(): void {
       .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
       .then(({ ok, data }) => {
         if (!ok) {
-          explainEl.innerHTML = '<p class="meta" style="color:#e57373;">' + esc(data.error || 'Explain failed') + '</p>';
+          explainEl.innerHTML = '<p class="meta" style="color:#e57373;">' + esc(data.error || vt('viewer.sql.explain.failed')) + '</p>';
           return;
         }
         renderExplainInfo(data);
@@ -292,19 +293,21 @@ export function initSqlRunner(): void {
     // Cost rating
     const costScore = scanCount * 3 + subqueryCount * 2 + (sortPresent ? 1 : 0) + (tempPresent ? 1 : 0);
     let costLabel: string, costColor: string;
-    if (costScore === 0) { costLabel = 'Low'; costColor = '#81c784'; }
-    else if (costScore <= 3) { costLabel = 'Medium'; costColor = '#ffb74d'; }
-    else { costLabel = 'High'; costColor = '#e57373'; }
+    if (costScore === 0) { costLabel = vt('viewer.sql.explain.cost.low'); costColor = '#81c784'; }
+    else if (costScore <= 3) { costLabel = vt('viewer.sql.explain.cost.medium'); costColor = '#ffb74d'; }
+    else { costLabel = vt('viewer.sql.explain.cost.high'); costColor = '#e57373'; }
 
     // Build cost summary
     let html = '<div class="explain-cost-bar">';
-    html += '<strong>Estimated cost:</strong> <span style="color:' + costColor + ';font-weight:600;">' + costLabel + '</span>';
+    html += '<strong>' + esc(vt('viewer.sql.explain.estimatedCost')) + '</strong> <span style="color:' + costColor + ';font-weight:600;">' + esc(costLabel) + '</span>';
+    // Each part picks a singular/plural key so plural agreement is the
+    // translator's, never English suffix concatenation ('s'/'ies').
     const parts: string[] = [];
-    if (scanCount > 0) parts.push(scanCount + ' full scan' + (scanCount > 1 ? 's' : ''));
-    if (searchCount > 0) parts.push(searchCount + ' index lookup' + (searchCount > 1 ? 's' : ''));
-    if (subqueryCount > 0) parts.push(subqueryCount + ' subquer' + (subqueryCount > 1 ? 'ies' : 'y'));
-    if (sortPresent) parts.push('sort');
-    if (tempPresent) parts.push('temp storage');
+    if (scanCount > 0) parts.push(vt(scanCount > 1 ? 'viewer.sql.explain.part.scan.many' : 'viewer.sql.explain.part.scan.one', scanCount));
+    if (searchCount > 0) parts.push(vt(searchCount > 1 ? 'viewer.sql.explain.part.lookup.many' : 'viewer.sql.explain.part.lookup.one', searchCount));
+    if (subqueryCount > 0) parts.push(vt(subqueryCount > 1 ? 'viewer.sql.explain.part.subquery.many' : 'viewer.sql.explain.part.subquery.one', subqueryCount));
+    if (sortPresent) parts.push(vt('viewer.sql.explain.part.sort'));
+    if (tempPresent) parts.push(vt('viewer.sql.explain.part.tempStorage'));
     if (parts.length > 0) html += ' &mdash; ' + esc(parts.join(', '));
     html += '</div>';
 
@@ -322,22 +325,22 @@ export function initSqlRunner(): void {
         html += '<span class="explain-table-name">' + esc(tbl) + '</span>';
 
         if (access === 'scan') {
-          html += ' <span class="explain-badge badge-scan">full scan</span>';
+          html += ' <span class="explain-badge badge-scan">' + esc(vt('viewer.sql.explain.badge.fullScan')) + '</span>';
         }
 
         if (tblIndexes.length === 0) {
           // No indexes at all on this table.
-          html += ' <span class="explain-badge badge-missing">no indexes</span>';
+          html += ' <span class="explain-badge badge-missing">' + esc(vt('viewer.sql.explain.badge.noIndexes')) + '</span>';
         } else {
           // Show each index with used/unused status.
           for (const idx of tblIndexes) {
             const isUsed = usedIndexNames.has(idx.name);
             const badge = isUsed ? 'badge-used' : 'badge-unused';
-            const label = isUsed ? 'used' : 'available';
+            const label = isUsed ? vt('viewer.sql.explain.badge.used') : vt('viewer.sql.explain.badge.available');
             html += ' <span class="explain-badge ' + badge + '" title="' +
               esc(idx.name) + ' (' + esc(idx.columns.join(', ')) + ')' +
               (idx.unique ? ' UNIQUE' : '') + '">';
-            html += esc(idx.name) + ' <small>(' + label + ')</small></span>';
+            html += esc(idx.name) + ' <small>(' + esc(label) + ')</small></span>';
           }
         }
 
@@ -348,7 +351,7 @@ export function initSqlRunner(): void {
 
     // Collapsible full query plan detail.
     if (rows.length > 0) {
-      html += '<details class="explain-details"><summary>Query plan detail (' + rows.length + ' step' + (rows.length > 1 ? 's' : '') + ')</summary><pre>';
+      html += '<details class="explain-details"><summary>' + esc(vt(rows.length > 1 ? 'viewer.sql.explain.steps.many' : 'viewer.sql.explain.steps.one', rows.length)) + '</summary><pre>';
       rows.forEach(function(r: any) { html += esc(String(r.detail || '').trim()) + '\n'; });
       html += '</pre></details>';
     }
@@ -368,13 +371,13 @@ export function initSqlRunner(): void {
       const sql = String(inputEl.value || '').trim();
       clearSqlResults();
       if (!sql) {
-        errorEl.textContent = 'Enter a SELECT query.';
+        errorEl.textContent = vt('viewer.sql.run.emptyQuery');
         errorEl.style.display = 'block';
 
    return;
       }
       const runBtnOrigText = runBtn.textContent;
-      setButtonBusy(runBtn, true, 'Running\u2026');
+      setButtonBusy(runBtn, true, vt('viewer.sql.run.busy'));
       runBtn.disabled = true;
       fetch('/api/sql', S.authOpts({
         method: 'POST',
@@ -384,7 +387,7 @@ export function initSqlRunner(): void {
         .then(r => r.json().then(data => ({ ok: r.ok, data: data })))
         .then(({ ok, data }) => {
           if (!ok) {
-            errorEl.textContent = data.error || 'Request failed';
+            errorEl.textContent = data.error || vt('viewer.sql.run.requestFailed');
             errorEl.style.display = 'block';
 
    return;
@@ -396,7 +399,7 @@ export function initSqlRunner(): void {
             sqlResultPage = 0;
             renderSqlResultPage();
           } else {
-            resultEl.innerHTML = '<p class="meta">' + rows.length + ' row(s)</p><pre>' + esc(JSON.stringify(rows, null, 2)) + '</pre>';
+            resultEl.innerHTML = '<p class="meta">' + esc(vt('viewer.sql.result.rowCount', rows.length)) + '</p><pre>' + esc(JSON.stringify(rows, null, 2)) + '</pre>';
           }
           resultEl.style.display = 'block';
           // Show chart controls when results available

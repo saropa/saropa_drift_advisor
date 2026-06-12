@@ -1,4 +1,5 @@
 import type { ILineageNode, ILineageResult } from './lineage-types';
+import { t } from '../l10n';
 
 /** Build the HTML for the data lineage webview panel. */
 export function buildLineageHtml(result: ILineageResult): string {
@@ -9,16 +10,16 @@ export function buildLineageHtml(result: ILineageResult): string {
   const downstream = r.children.filter((c) => c.direction === 'downstream');
 
   const upHtml = upstream.length > 0
-    ? sectionHtml('Upstream', 'upstream', upstream)
-    : '<p class="empty">No upstream parents found.</p>';
+    ? sectionHtml('upstream', upstream)
+    : `<p class="empty">${t('panel.schema.lineage.empty.upstream')}</p>`;
 
   const downHtml = downstream.length > 0
-    ? sectionHtml('Downstream', 'downstream', downstream)
-    : '<p class="empty">No downstream dependents found.</p>';
+    ? sectionHtml('downstream', downstream)
+    : `<p class="empty">${t('panel.schema.lineage.empty.downstream')}</p>`;
 
   const counts = [
-    `${result.upstreamCount} upstream`,
-    `${result.downstreamCount} downstream`,
+    t('panel.schema.lineage.count.upstream', result.upstreamCount),
+    t('panel.schema.lineage.count.downstream', result.downstreamCount),
   ].join(', ');
 
   return `<!DOCTYPE html>
@@ -30,18 +31,18 @@ ${css()}
 </style>
 </head>
 <body>
-  <h2>Data Lineage &mdash; ${title}</h2>
+  <h2>${t('panel.schema.lineage.title', title)}</h2>
 
   <div class="controls">
-    <label>Depth:
+    <label>${t('panel.schema.lineage.controls.depth')}
       <select id="depth">
         ${depthOptions(3)}
       </select>
     </label>
-    <label class="radio"><input type="radio" name="dir" value="both" checked> Both</label>
-    <label class="radio"><input type="radio" name="dir" value="up"> Up only</label>
-    <label class="radio"><input type="radio" name="dir" value="down"> Down only</label>
-    <button onclick="retrace()">Re-trace</button>
+    <label class="radio"><input type="radio" name="dir" value="both" checked> ${t('panel.schema.lineage.controls.both')}</label>
+    <label class="radio"><input type="radio" name="dir" value="up"> ${t('panel.schema.lineage.controls.upOnly')}</label>
+    <label class="radio"><input type="radio" name="dir" value="down"> ${t('panel.schema.lineage.controls.downOnly')}</label>
+    <button onclick="retrace()">${t('panel.schema.lineage.btn.retrace')}</button>
   </div>
 
   <div class="root-preview">
@@ -51,11 +52,11 @@ ${css()}
   ${upHtml}
   ${downHtml}
 
-  <p class="summary">Total: ${esc(counts)}</p>
+  <p class="summary">${t('panel.schema.lineage.summary.total', esc(counts))}</p>
 
   <div class="actions">
-    <button onclick="post('exportJson')">Copy as JSON</button>
-    <button onclick="post('generateDelete')">Generate DELETE SQL</button>
+    <button onclick="post('exportJson')">${t('panel.schema.lineage.btn.exportJson')}</button>
+    <button onclick="post('generateDelete')">${t('panel.schema.lineage.btn.generateDelete')}</button>
   </div>
 
   <pre id="sqlOutput" class="sql-output" style="display:none"></pre>
@@ -67,12 +68,20 @@ ${clientScript(r.table, r.pkColumn, r.pkValue)}
 </html>`;
 }
 
+// `dir` is the machine direction ('upstream'|'downstream') used for the CSS class
+// and to pick the localized heading + role subtitle.
 function sectionHtml(
-  label: string, dir: string, nodes: ILineageNode[],
+  dir: 'upstream' | 'downstream', nodes: ILineageNode[],
 ): string {
   const items = nodes.map((n) => nodeHtml(n, 0)).join('');
+  const heading = dir === 'upstream'
+    ? t('panel.schema.lineage.section.upstream')
+    : t('panel.schema.lineage.section.downstream');
+  const role = dir === 'upstream'
+    ? t('panel.schema.lineage.section.upstream.role')
+    : t('panel.schema.lineage.section.downstream.role');
   return `<div class="section ${dir}">
-    <h3>${esc(label)} (${label === 'Upstream' ? 'parents' : 'dependents'})</h3>
+    <h3>${heading} (${role})</h3>
     <div class="tree">${items}</div>
   </div>`;
 }
@@ -80,7 +89,7 @@ function sectionHtml(
 function nodeHtml(node: ILineageNode, depth: number): string {
   const indent = depth * 20;
   const fkLabel = node.fkColumn
-    ? `<span class="fk-label">via ${esc(node.fkColumn)}</span>`
+    ? `<span class="fk-label">${t('panel.schema.lineage.via', esc(node.fkColumn))}</span>`
     : '';
   const pvw = previewHtml(node.preview);
   const kids = node.children.map((c) => nodeHtml(c, depth + 1)).join('');
@@ -177,6 +186,7 @@ function clientScript(
       var msg = e.data;
       var out = document.getElementById('sqlOutput');
       if (msg.command === 'loading') {
+        // TODO(l10n): client-script string
         out.textContent = 'Tracing lineage\u2026';
         out.style.display = 'block';
       }
@@ -185,6 +195,7 @@ function clientScript(
         out.style.display = 'block';
       }
       if (msg.command === 'error') {
+        // TODO(l10n): client-script string
         out.textContent = 'Error: ' + msg.message;
         out.style.display = 'block';
       }

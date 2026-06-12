@@ -14,6 +14,7 @@ import type {
 } from './clipboard-import-types';
 import { getClipboardImportCss } from './clipboard-import-styles';
 import { getClipboardImportScript } from './clipboard-import-scripts';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -28,10 +29,10 @@ function renderColumnOptions(
   tableColumns: ColumnMetadata[],
   selected: string | null,
 ): string {
-  const options = ['<option value="">(skip)</option>'];
+  const options = [`<option value="">${t('panel.data.clip.option.skip')}</option>`];
   for (const col of tableColumns) {
     const sel = col.name === selected ? ' selected' : '';
-    const pk = col.pk ? ' (PK)' : '';
+    const pk = col.pk ? t('panel.data.clip.option.pk') : '';
     options.push(`<option value="${esc(col.name)}"${sel}>${esc(col.name)}${pk}</option>`);
   }
   return options.join('\n');
@@ -58,7 +59,7 @@ function renderMappingTable(
   }).join('\n');
 
   return `<table class="mapping-table">
-    <thead><tr><th>Clipboard Column</th><th>→ Table Column</th><th>Sample</th></tr></thead>
+    <thead><tr><th>${t('panel.data.clip.map.col.clipboard')}</th><th>${t('panel.data.clip.map.col.table')}</th><th>${t('panel.data.clip.map.col.sample')}</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -67,7 +68,7 @@ function renderPreviewTable(parsed: IParsedClipboard, mapping: IColumnMapping[])
   const activeMappings = mapping.filter((m) => m.tableColumn !== null);
 
   if (activeMappings.length === 0) {
-    return '<div class="empty">No columns mapped. Select target columns above.</div>';
+    return `<div class="empty">${t('panel.data.clip.preview.empty')}</div>`;
   }
 
   const header = activeMappings.map((m) => `<th>${esc(m.tableColumn!)}</th>`).join('');
@@ -88,7 +89,7 @@ function renderPreviewTable(parsed: IParsedClipboard, mapping: IColumnMapping[])
   </table>`;
 
   if (parsed.rows.length > 5) {
-    html += `<div class="truncated">Showing 5 of ${parsed.rows.length} rows</div>`;
+    html += `<div class="truncated">${t('panel.data.clip.preview.truncated', parsed.rows.length)}</div>`;
   }
 
   return html;
@@ -106,17 +107,17 @@ function renderValidationResults(results: IValidationResult[]): string {
 
   if (errorRows.length > 0) {
     html += `<div class="validation-errors">
-      <div class="validation-header">✗ ${errorRows.length} rows with errors:</div>
+      <div class="validation-header">${t('panel.data.clip.valid.errorsHeader', errorRows.length)}</div>
       <ul>`;
 
     for (const row of errorRows.slice(0, 5)) {
       for (const err of row.errors) {
-        html += `<li>Row ${row.row + 1}: ${esc(err.message)}</li>`;
+        html += `<li>${t('panel.data.clip.valid.errorRow', row.row + 1, esc(err.message))}</li>`;
       }
     }
 
     if (errorRows.length > 5) {
-      html += `<li>...and ${errorRows.length - 5} more rows with errors</li>`;
+      html += `<li>${t('panel.data.clip.valid.errorsMore', errorRows.length - 5)}</li>`;
     }
 
     html += '</ul></div>';
@@ -124,17 +125,17 @@ function renderValidationResults(results: IValidationResult[]): string {
 
   if (warningRows.length > 0) {
     html += `<div class="validation-warnings">
-      <div class="validation-header">⚠ ${warningRows.length} rows with warnings:</div>
+      <div class="validation-header">${t('panel.data.clip.valid.warningsHeader', warningRows.length)}</div>
       <ul>`;
 
     for (const row of warningRows.slice(0, 3)) {
       for (const warn of row.warnings) {
-        html += `<li>Row ${row.row + 1}: ${esc(warn.message)}</li>`;
+        html += `<li>${t('panel.data.clip.valid.warningRow', row.row + 1, esc(warn.message))}</li>`;
       }
     }
 
     if (warningRows.length > 3) {
-      html += `<li>...and ${warningRows.length - 3} more rows with warnings</li>`;
+      html += `<li>${t('panel.data.clip.valid.warningsMore', warningRows.length - 3)}</li>`;
     }
 
     html += '</ul></div>';
@@ -146,25 +147,25 @@ function renderValidationResults(results: IValidationResult[]): string {
 
 function renderDryRunResults(results: IDryRunResult): string {
   let html = '<div class="dry-run-results">';
-  html += '<div class="dry-run-header">Dry Run Preview:</div>';
+  html += `<div class="dry-run-header">${t('panel.data.clip.dry.header')}</div>`;
   html += '<div class="dry-run-summary">';
 
   if (results.wouldInsert > 0) {
-    html += `<div class="stat insert">INSERT ${results.wouldInsert} new rows</div>`;
+    html += `<div class="stat insert">${t('panel.data.clip.dry.insert', results.wouldInsert)}</div>`;
   }
   if (results.wouldUpdate > 0) {
-    html += `<div class="stat update">UPDATE ${results.wouldUpdate} existing rows</div>`;
+    html += `<div class="stat update">${t('panel.data.clip.dry.update', results.wouldUpdate)}</div>`;
   }
   if (results.wouldSkip > 0) {
-    html += `<div class="stat skip">SKIP ${results.wouldSkip} rows</div>`;
+    html += `<div class="stat skip">${t('panel.data.clip.dry.skip', results.wouldSkip)}</div>`;
   }
 
   html += '</div>';
 
   if (results.conflicts.length > 0) {
     html += '<div class="conflicts-preview">';
-    html += '<div class="conflicts-header">Updates Preview:</div>';
-    html += '<table class="conflicts-table"><thead><tr><th>Row</th><th>Column</th><th>Current</th><th>New</th></tr></thead><tbody>';
+    html += `<div class="conflicts-header">${t('panel.data.clip.dry.updatesHeader')}</div>`;
+    html += `<table class="conflicts-table"><thead><tr><th>${t('panel.data.clip.dry.col.row')}</th><th>${t('panel.data.clip.dry.col.column')}</th><th>${t('panel.data.clip.dry.col.current')}</th><th>${t('panel.data.clip.dry.col.new')}</th></tr></thead><tbody>`;
 
     for (const conflict of results.conflicts.slice(0, 10)) {
       for (const diff of conflict.diff.slice(0, 3)) {
@@ -180,7 +181,7 @@ function renderDryRunResults(results: IDryRunResult): string {
     html += '</tbody></table>';
 
     if (results.conflicts.length > 10) {
-      html += `<div class="truncated">...and ${results.conflicts.length - 10} more updates</div>`;
+      html += `<div class="truncated">${t('panel.data.clip.dry.updatesMore', results.conflicts.length - 10)}</div>`;
     }
 
     html += '</div>';
@@ -203,13 +204,13 @@ export function buildClipboardImportHtml(
 
   let resultsHtml = '';
   if (loading) {
-    resultsHtml = '<div class="loading">Processing…</div>';
+    resultsHtml = `<div class="loading">${t('panel.data.clip.status.processing')}</div>`;
   } else if (error) {
     resultsHtml = `<div class="error">${esc(error)}</div>`;
   } else if (success) {
-    resultsHtml = `<div class="success">✓ Imported ${success.imported} rows`;
+    resultsHtml = `<div class="success">${t('panel.data.clip.status.imported', success.imported)}`;
     if (success.skipped > 0) {
-      resultsHtml += ` (${success.skipped} skipped)`;
+      resultsHtml += ` ${t('panel.data.clip.status.skipped', success.skipped)}`;
     }
     resultsHtml += '</div>';
   } else if (validationResults && validationResults.length > 0) {
@@ -219,49 +220,49 @@ export function buildClipboardImportHtml(
   }
 
   const body = `
-<h2>Paste into: ${esc(table)}
-  <span class="badge">${parsed.rows.length} rows detected</span>
+<h2>${t('panel.data.clip.header.pasteInto', esc(table))}
+  <span class="badge">${t('panel.data.clip.header.rowsDetected', parsed.rows.length)}</span>
   <span class="badge format">${parsed.format.toUpperCase()}</span>
 </h2>
 
 <div class="options-panel">
-  <div class="options-header">Import Strategy</div>
+  <div class="options-header">${t('panel.data.clip.strategy.title')}</div>
   <div class="options-row">
-    <label><input type="radio" name="strategy" value="insert" ${options.strategy === 'insert' ? 'checked' : ''} /> Insert only</label>
-    <label><input type="radio" name="strategy" value="insert_skip_conflicts" ${options.strategy === 'insert_skip_conflicts' ? 'checked' : ''} /> Skip conflicts</label>
-    <label><input type="radio" name="strategy" value="upsert" ${options.strategy === 'upsert' ? 'checked' : ''} /> Upsert</label>
-    <label><input type="radio" name="strategy" value="dry_run" ${options.strategy === 'dry_run' ? 'checked' : ''} /> Dry run</label>
+    <label><input type="radio" name="strategy" value="insert" ${options.strategy === 'insert' ? 'checked' : ''} /> ${t('panel.data.clip.strategy.insert')}</label>
+    <label><input type="radio" name="strategy" value="insert_skip_conflicts" ${options.strategy === 'insert_skip_conflicts' ? 'checked' : ''} /> ${t('panel.data.clip.strategy.skipConflicts')}</label>
+    <label><input type="radio" name="strategy" value="upsert" ${options.strategy === 'upsert' ? 'checked' : ''} /> ${t('panel.data.clip.strategy.upsert')}</label>
+    <label><input type="radio" name="strategy" value="dry_run" ${options.strategy === 'dry_run' ? 'checked' : ''} /> ${t('panel.data.clip.strategy.dryRun')}</label>
   </div>
   <div class="options-row">
-    <label>Match by:</label>
+    <label>${t('panel.data.clip.matchBy.label')}</label>
     <select id="matchBy">
-      <option value="pk" ${options.matchBy === 'pk' ? 'selected' : ''}>${esc(pkColumn)} (Primary Key)</option>
+      <option value="pk" ${options.matchBy === 'pk' ? 'selected' : ''}>${t('panel.data.clip.matchBy.pkOption', esc(pkColumn))}</option>
     </select>
     <label class="checkbox-label">
       <input type="checkbox" id="continueOnError" ${options.continueOnError ? 'checked' : ''} />
-      Continue on error
+      ${t('panel.data.clip.continueOnError')}
     </label>
   </div>
 </div>
 
 <div class="section">
-  <div class="section-header">Column Mapping</div>
+  <div class="section-header">${t('panel.data.clip.section.mapping')}</div>
   ${renderMappingTable(mapping, tableColumns, parsed)}
-  <div class="mapping-summary">${activeMappings} of ${mapping.length} columns mapped</div>
+  <div class="mapping-summary">${t('panel.data.clip.mapping.summary', activeMappings, mapping.length)}</div>
 </div>
 
 <div class="section">
-  <div class="section-header">Preview</div>
+  <div class="section-header">${t('panel.data.clip.section.preview')}</div>
   ${renderPreviewTable(parsed, mapping)}
 </div>
 
 <div id="results">${resultsHtml}</div>
 
 <div class="actions">
-  <button class="btn" data-action="cancel">Cancel</button>
-  <button class="btn" data-action="validate">Validate</button>
+  <button class="btn" data-action="cancel">${t('panel.data.clip.btn.cancel')}</button>
+  <button class="btn" data-action="validate">${t('panel.data.clip.btn.validate')}</button>
   <button class="btn primary" data-action="import" ${activeMappings === 0 ? 'disabled' : ''}>
-    ${options.strategy === 'dry_run' ? 'Run Dry Run' : `Import ${validRows} rows`}
+    ${options.strategy === 'dry_run' ? t('panel.data.clip.btn.runDryRun') : t('panel.data.clip.btn.import', validRows)}
   </button>
 </div>`;
 

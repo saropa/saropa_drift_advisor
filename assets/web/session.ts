@@ -8,6 +8,7 @@ import * as S from './state.ts';
 import { esc, setButtonBusy } from './utils.ts';
 import { showCopyToast } from './table-view.ts';
 import { openTableTab } from './tabs.ts';
+import { vt } from './l10n.ts';
 
     function captureViewerState(): Record<string, any> {
       var state: Record<string, any> = {
@@ -28,24 +29,23 @@ import { openTableTab } from './tabs.ts';
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(shareUrl)
           .then(function () {
-            alert('Share URL copied to clipboard!\n\n' + shareUrl +
-              '\n\nExpires: ' + new Date(expiresAt).toLocaleString());
+            alert(vt('viewer.session.share.copied', shareUrl, new Date(expiresAt).toLocaleString()));
           })
           .catch(function () {
-            prompt('Copy this share URL:', shareUrl);
+            prompt(vt('viewer.session.share.promptCopy'), shareUrl);
           });
       } else {
-        prompt('Copy this share URL:', shareUrl);
+        prompt(vt('viewer.session.share.promptCopy'), shareUrl);
       }
     }
 
     export function createShareSession() {
       // Use literal newlines so the native prompt() shows line breaks in the message.
-      var note = prompt('Add a note for your team (optional):\n\nSession will expire in 1 hour.');
+      var note = prompt(vt('viewer.session.share.promptNote'));
       if (note === null) return;
       var btn = document.getElementById('tb-share-btn');
       btn.disabled = true;
-      setButtonBusy(btn, true, 'Sharing\u2026');
+      setButtonBusy(btn, true, vt('viewer.session.share.busy'));
       var state = captureViewerState();
       if (note) state.note = note;
 
@@ -55,22 +55,23 @@ import { openTableTab } from './tabs.ts';
         body: JSON.stringify(state),
       }))
         .then(function (r) {
-          if (!r.ok) throw new Error('Server error ' + r.status);
+          if (!r.ok) throw new Error(vt('viewer.session.share.serverError', r.status));
           return r.json();
         })
         .then(function (data) {
           copyShareUrl(location.origin + location.pathname + data.url, data.expiresAt);
         })
         .catch(function (e) {
-          alert('Failed to create share: ' + e.message);
+          alert(vt('viewer.session.share.failed', e.message));
         })
         .finally(function () {
           btn.disabled = false;
           // Restore the hamburger menu item's icon + label after busy state.
+          // Material icon glyph name ('share') is a machine value, not UI text.
           btn.classList.remove('btn-busy');
           btn.innerHTML =
             '<span class="material-symbols-outlined" aria-hidden="true">share</span>' +
-            'Share';
+            vt('viewer.session.share.menuLabel');
         });
     }
 
@@ -97,11 +98,13 @@ import { openTableTab } from './tabs.ts';
       banner.style.cssText =
         'background:#f8d7da;color:#721c24;padding:0.75rem;' +
         'font-size:13px;text-align:center;border-bottom:2px solid #f5c6cb;';
+      // Markup (strong/br/span) lives at the call site; only the human-readable
+      // text is externalized so word order can change per locale.
       banner.innerHTML =
-        '<strong>Session Expired</strong><br>' +
-        'The shared session you are trying to access has expired or was not found.<br>' +
+        '<strong>' + vt('viewer.session.expired.title') + '</strong><br>' +
+        vt('viewer.session.expired.body') + '<br>' +
         '<span style="font-size:11px;color:#856404;">' +
-        'Sessions expire after 1 hour. Ask the person who shared the link to create a new one.</span>';
+        vt('viewer.session.expired.hint') + '</span>';
       document.body.prepend(banner);
     }
 
@@ -114,7 +117,7 @@ import { openTableTab } from './tabs.ts';
 
       if (diffMs <= 0) {
         // Session has expired: show expired state in the info bar.
-        countdownEl.textContent = 'EXPIRED';
+        countdownEl.textContent = vt('viewer.session.countdown.expired');
         countdownEl.style.color = '#ff4444';
         var bar = document.getElementById('session-info-bar');
         if (bar) bar.style.background = '#cc3333';
@@ -133,7 +136,7 @@ import { openTableTab } from './tabs.ts';
       // Under 10 minutes: yellow warning styling + faster updates.
       if (mins < 10) {
         countdownEl.style.color = '#ffcc00';
-        countdownEl.textContent = 'Expires in ' + mins + 'm ' + secs + 's';
+        countdownEl.textContent = vt('viewer.session.countdown.expiresInMinSec', mins, secs);
         // Switch to 10-second update cadence for urgency (once only).
         if (!S.sessionFastMode && S.sessionCountdownInterval) {
           S.setSessionFastMode(true);
@@ -150,9 +153,7 @@ import { openTableTab } from './tabs.ts';
           warningBanner.style.cssText =
             'background:#fff3cd;color:#856404;padding:0.3rem 0.5rem;' +
             'font-size:12px;text-align:center;border-bottom:1px solid #ffc107;';
-          warningBanner.textContent =
-            'Warning: This session expires in less than 10 minutes. ' +
-            'Click "Extend" to add more time.';
+          warningBanner.textContent = vt('viewer.session.countdown.warning');
           var bar = document.getElementById('session-info-bar');
           if (bar && bar.nextSibling) {
             bar.parentNode.insertBefore(warningBanner, bar.nextSibling);
@@ -161,7 +162,7 @@ import { openTableTab } from './tabs.ts';
           }
         }
       } else {
-        countdownEl.textContent = 'Expires in ' + mins + ' min';
+        countdownEl.textContent = vt('viewer.session.countdown.expiresInMin', mins);
       }
     }
 
@@ -171,14 +172,14 @@ import { openTableTab } from './tabs.ts';
       var extBtn = document.getElementById('session-extend-btn');
       if (extBtn) {
         extBtn.disabled = true;
-        extBtn.textContent = 'Extending\u2026';
+        extBtn.textContent = vt('viewer.session.extend.busy');
       }
 
       fetch('/api/session/' + encodeURIComponent(S.currentSessionId) + '/extend',
         S.authOpts({ method: 'POST' })
       )
         .then(function(r) {
-          if (!r.ok) throw new Error('Failed to extend session');
+          if (!r.ok) throw new Error(vt('viewer.session.extend.serverError'));
           return r.json();
         })
         .then(function(data) {
@@ -207,15 +208,15 @@ import { openTableTab } from './tabs.ts';
           }
 
           // Show confirmation via the existing copy-toast element.
-          showCopyToast('Session extended!');
+          showCopyToast(vt('viewer.session.extend.done'));
         })
         .catch(function(e) {
-          alert('Failed to extend session: ' + e.message);
+          alert(vt('viewer.session.extend.failed', e.message));
         })
         .finally(function() {
           if (extBtn) {
             extBtn.disabled = false;
-            extBtn.textContent = 'Extend';
+            extBtn.textContent = vt('viewer.session.extend.label');
           }
         });
     }
@@ -226,10 +227,14 @@ import { openTableTab } from './tabs.ts';
       infoBar.style.cssText =
         'background:var(--link);color:var(--bg);padding:0.3rem 0.5rem;font-size:12px;text-align:center;';
 
-      // Left side: session info text with optional note.
-      var info = 'Shared session';
-      if (state.note) info += ': "' + esc(state.note) + '"';
-      info += ' (created ' + new Date(createdAt).toLocaleString() + ')';
+      // Left side: session info text with optional note. The note variant is a
+      // separate key (not English concatenation) so the whole phrase can be
+      // reordered per locale; the created-timestamp suffix is appended via its
+      // own token.
+      var info = state.note
+        ? vt('viewer.session.info.sharedWithNote', esc(state.note))
+        : vt('viewer.session.info.shared');
+      info += vt('viewer.session.info.created', new Date(createdAt).toLocaleString());
       var infoSpan = document.createElement('span');
       infoSpan.textContent = info;
 
@@ -240,8 +245,8 @@ import { openTableTab } from './tabs.ts';
 
       var extendBtn = document.createElement('button');
       extendBtn.id = 'session-extend-btn';
-      extendBtn.textContent = 'Extend';
-      extendBtn.title = 'Extend session by 1 hour';
+      extendBtn.textContent = vt('viewer.session.extend.label');
+      extendBtn.title = vt('viewer.session.extend.title');
       extendBtn.style.cssText =
         'margin-left:0.5rem;font-size:11px;padding:0.1rem 0.4rem;cursor:pointer;' +
         'background:var(--bg);color:var(--link);border:1px solid var(--bg);border-radius:3px;';
@@ -265,7 +270,7 @@ import { openTableTab } from './tabs.ts';
       var annoEl = document.createElement('div');
       annoEl.style.cssText =
         'background:var(--bg-pre);padding:0.3rem 0.5rem;font-size:11px;border-left:3px solid var(--link);margin:0.3rem 0;';
-      var annoHtml = '<strong>Annotations:</strong><br>';
+      var annoHtml = '<strong>' + vt('viewer.session.annotations.heading') + '</strong><br>';
       annotations.forEach(function (a) {
         annoHtml += '<span class="meta">[' + esc(a.author) + ' at ' +
           new Date(a.at).toLocaleTimeString() + ']</span> ' +

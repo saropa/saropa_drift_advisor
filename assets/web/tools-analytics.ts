@@ -11,6 +11,7 @@ import { esc, setButtonBusy, syncFeatureCardExpanded } from './utils.ts';
 import { populateHistorySelect, getSavedAnalyses, getSavedAnalysisById, saveAnalysis, downloadJSON, showAnalysisCompare } from './analysis.ts';
 import { showCopyToast } from './table-view.ts';
 import { openTableTab } from './tabs.ts';
+import { vt } from './l10n.ts';
 
 export function initIndexSuggestions(): void {
   const toggle = document.getElementById('index-toggle');
@@ -30,18 +31,18 @@ export function initIndexSuggestions(): void {
   // lastIndexData — never embedded in an attribute, since esc() does not escape
   // double quotes and index SQL is full of them.
   function renderIndexData(data, interactive?: any) {
-    if (!data) return '<p class="meta">No current result. Run Analyze first.</p>';
+    if (!data) return '<p class="meta">' + vt('viewer.tools.index.empty') + '</p>';
     var suggestions = data.suggestions || [];
     if (suggestions.length === 0) {
-      return '<p class="meta" style="color:#7cb342;">No index suggestions — schema looks good!</p>';
+      return '<p class="meta" style="color:#7cb342;">' + vt('viewer.tools.index.none') + '</p>';
     }
     var priorityColors = { high: '#e57373', medium: '#ffb74d', low: '#7cb342' };
     var priorityIcons = { high: '!!', medium: '!', low: '\u2713' };
-    var html = '<p class="meta">' + suggestions.length + ' suggestion(s) across ' + (data.tablesAnalyzed || 0) + ' tables:</p>';
+    var html = '<p class="meta">' + vt('viewer.tools.index.summary', suggestions.length, data.tablesAnalyzed || 0) + '</p>';
     html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
     html += '<tr>';
-    if (interactive) html += '<th style="border:1px solid var(--border);padding:4px;"><input type="checkbox" id="index-select-all" title="Select all suggestions"></th>';
-    html += '<th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+    if (interactive) html += '<th style="border:1px solid var(--border);padding:4px;"><input type="checkbox" id="index-select-all" title="' + vt('viewer.tools.index.selectAll') + '"></th>';
+    html += '<th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.tools.index.col.priority') + '</th><th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.tools.index.col.tableColumn') + '</th><th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.tools.index.col.reason') + '</th><th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.tools.index.col.sql') + '</th></tr>';
     suggestions.forEach(function(s, i) {
       var color = priorityColors[s.priority] || 'var(--fg)';
       var icon = priorityIcons[s.priority] || '';
@@ -50,18 +51,18 @@ export function initIndexSuggestions(): void {
       html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';font-weight:bold;">[' + esc(icon) + '] ' + esc(s.priority).toUpperCase() + '</td>';
       html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.table) + '.' + esc(s.column) + '</td>';
       html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.reason) + '</td>';
-      html += '<td style="border:1px solid var(--border);padding:4px;"><code style="font-size:11px;cursor:pointer;" title="Click to copy" onclick="navigator.clipboard.writeText(this.textContent)">' + esc(s.sql) + '</code></td>';
+      html += '<td style="border:1px solid var(--border);padding:4px;"><code style="font-size:11px;cursor:pointer;" title="' + vt('viewer.tools.index.copyHint') + '" onclick="navigator.clipboard.writeText(this.textContent)">' + esc(s.sql) + '</code></td>';
       html += '</tr>';
     });
     html += '</table>';
     if (interactive) {
       html += '<div class="index-bulk-bar" style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">';
-      html += '<span id="index-sel-count" class="meta">0 selected</span>';
-      html += '<button id="index-preview-sel" class="btn" disabled>Preview SQL</button>';
+      html += '<span id="index-sel-count" class="meta">' + vt('viewer.tools.index.selected', 0) + '</span>';
+      html += '<button id="index-preview-sel" class="btn" disabled>' + vt('viewer.tools.index.previewSql') + '</button>';
       if (S.driftWriteEnabled) {
-        html += '<button id="index-apply-sel" class="btn" disabled>Apply selected</button>';
+        html += '<button id="index-apply-sel" class="btn" disabled>' + vt('viewer.tools.index.applySelected') + '</button>';
       } else {
-        html += '<span class="meta" title="Start the server with writeQuery configured to enable applying indexes.">Apply disabled — server is read-only</span>';
+        html += '<span class="meta" title="' + vt('viewer.tools.index.applyDisabledHint') + '">' + vt('viewer.tools.index.applyDisabled') + '</span>';
       }
       html += '</div>';
       html += '<div id="index-preview-out" style="display:none;margin-top:0.5rem;"></div>';
@@ -94,7 +95,7 @@ export function initIndexSuggestions(): void {
     if (!container) return;
     var count = getSelectedIndexSqls().length;
     var countEl = document.getElementById('index-sel-count');
-    if (countEl) countEl.textContent = count + ' selected';
+    if (countEl) countEl.textContent = vt('viewer.tools.index.selected', count);
     var previewBtn = document.getElementById('index-preview-sel') as any;
     if (previewBtn) previewBtn.disabled = count === 0;
     var applyBtn = document.getElementById('index-apply-sel') as any;
@@ -104,25 +105,26 @@ export function initIndexSuggestions(): void {
   function renderPreviewOutput(data: any): string {
     var valid = (data && data.valid) || [];
     var rejected = (data && data.rejected) || [];
-    var html = '<p class="meta">' + valid.length + ' valid, ' + rejected.length + ' rejected:</p>';
+    var html = '<p class="meta">' + vt('viewer.tools.index.preview.summary', valid.length, rejected.length) + '</p>';
     if (valid.length) {
       html += '<pre style="white-space:pre-wrap;font-size:11px;background:rgba(0,0,0,0.12);padding:0.4rem;border-radius:4px;">' + valid.map(esc).join('\n') + '</pre>';
     }
+    // SQL + reason are pre-escaped/wrapped at the call site; the value carries the {0}/{1} tokens only.
     rejected.forEach(function(r: any) {
-      html += '<div style="color:#e57373;font-size:11px;margin:0.2rem 0;">Rejected: <code>' + esc(r.sql) + '</code> — ' + esc(r.reason) + '</div>';
+      html += '<div style="color:#e57373;font-size:11px;margin:0.2rem 0;">' + vt('viewer.tools.index.preview.rejected', '<code>' + esc(r.sql) + '</code>', esc(r.reason)) + '</div>';
     });
     return html;
   }
 
   function renderApplyOutput(data: any): string {
     var results = (data && data.results) || [];
-    var html = '<p class="meta">' + (data.applied || 0) + ' of ' + results.length + ' index(es) created:</p>';
+    var html = '<p class="meta">' + vt('viewer.tools.index.apply.summary', data.applied || 0, results.length) + '</p>';
     results.forEach(function(r: any) {
       var ok = r.ok === true;
       var color = ok ? '#7cb342' : '#e57373';
-      var mark = ok ? 'OK' : 'FAIL';
+      var mark = ok ? vt('viewer.tools.index.apply.ok') : vt('viewer.tools.index.apply.fail');
       html += '<div style="color:' + color + ';font-size:11px;margin:0.2rem 0;">[' + mark + '] <code>' + esc(r.sql) + '</code>';
-      if (!ok && r.error) html += ' — ' + esc(r.error);
+      if (!ok && r.error) html += vt('viewer.tools.index.apply.errorSuffix', esc(r.error));
       html += '</div>';
     });
     return html;
@@ -172,7 +174,7 @@ export function initIndexSuggestions(): void {
         var sqls = getSelectedIndexSqls();
         if (sqls.length === 0) return;
         var out = document.getElementById('index-preview-out');
-        setButtonBusy(t, true, 'Previewing…');
+        setButtonBusy(t, true, vt('viewer.tools.index.busy.preview'));
         t.disabled = true;
         fetch('/api/indexes/preview', S.authOpts({
           method: 'POST',
@@ -180,22 +182,22 @@ export function initIndexSuggestions(): void {
           body: JSON.stringify({ indexSqls: sqls }),
         }))
           .then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || vt('viewer.tools.index.requestFailed')); });
             return r.json();
           })
           .then(function(data) {
             if (out) { out.innerHTML = renderPreviewOutput(data); out.style.display = 'block'; }
           })
           .catch(function(err) {
-            if (out) { out.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(err.message) + '</p>'; out.style.display = 'block'; }
+            if (out) { out.innerHTML = '<p class="meta" style="color:#e57373;">' + vt('viewer.tools.index.error', esc(err.message)) + '</p>'; out.style.display = 'block'; }
           })
-          .finally(function() { setButtonBusy(t, false, 'Preview SQL'); refreshIndexSelection(); });
+          .finally(function() { setButtonBusy(t, false, vt('viewer.tools.index.previewSql')); refreshIndexSelection(); });
       } else if (t.id === 'index-apply-sel') {
         var applySqls = getSelectedIndexSqls();
         if (applySqls.length === 0) return;
-        if (!window.confirm('Create ' + applySqls.length + ' index(es) on the live database?')) return;
+        if (!window.confirm(vt('viewer.tools.index.apply.confirm', applySqls.length))) return;
         var applyOut = document.getElementById('index-apply-out');
-        setButtonBusy(t, true, 'Applying…');
+        setButtonBusy(t, true, vt('viewer.tools.index.busy.apply'));
         t.disabled = true;
         fetch('/api/indexes/apply', S.authOpts({
           method: 'POST',
@@ -203,28 +205,28 @@ export function initIndexSuggestions(): void {
           body: JSON.stringify({ indexSqls: applySqls }),
         }))
           .then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || vt('viewer.tools.index.requestFailed')); });
             return r.json();
           })
           .then(function(data) {
             if (applyOut) { applyOut.innerHTML = renderApplyOutput(data); applyOut.style.display = 'block'; }
-            showCopyToast((data.applied || 0) + ' index(es) created — re-run Analyze to refresh the list.');
+            showCopyToast(vt('viewer.tools.index.apply.toast', data.applied || 0));
           })
           .catch(function(err) {
-            if (applyOut) { applyOut.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(err.message) + '</p>'; applyOut.style.display = 'block'; }
+            if (applyOut) { applyOut.innerHTML = '<p class="meta" style="color:#e57373;">' + vt('viewer.tools.index.error', esc(err.message)) + '</p>'; applyOut.style.display = 'block'; }
           })
-          .finally(function() { setButtonBusy(t, false, 'Apply selected'); refreshIndexSelection(); });
+          .finally(function() { setButtonBusy(t, false, vt('viewer.tools.index.applySelected')); refreshIndexSelection(); });
       }
     });
   }
 
   if (btn) btn.addEventListener('click', function() {
     btn.disabled = true;
-    setButtonBusy(btn, true, 'Analyzing…');
+    setButtonBusy(btn, true, vt('viewer.tools.index.busy.analyze'));
     container.style.display = 'none';
     fetch('/api/index-suggestions', S.authOpts())
       .then(function(r) {
-        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || vt('viewer.tools.index.requestFailed')); });
         return r.json();
       })
       .then(function(data) {
@@ -236,18 +238,18 @@ export function initIndexSuggestions(): void {
         populateHistorySelect(historySel, 'index');
       })
       .catch(function(e) {
-        showIndexResult('<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>');
+        showIndexResult('<p class="meta" style="color:#e57373;">' + vt('viewer.tools.index.error', esc(e.message)) + '</p>');
       })
       .finally(function() {
         btn.disabled = false;
-        setButtonBusy(btn, false, 'Analyze');
+        setButtonBusy(btn, false, vt('viewer.tools.index.analyze'));
       });
   });
 
   if (saveBtn) saveBtn.addEventListener('click', function() {
     if (!lastIndexData) return;
     var id = saveAnalysis('index', lastIndexData);
-    showCopyToast(id != null ? 'Saved' : 'Save failed (storage may be full)');
+    showCopyToast(id != null ? vt('viewer.tools.analysis.saved') : vt('viewer.tools.analysis.saveFailed'));
     populateHistorySelect(historySel, 'index');
   });
 
@@ -257,10 +259,10 @@ export function initIndexSuggestions(): void {
   });
 
   if (compareBtn) compareBtn.addEventListener('click', function() {
-    showAnalysisCompare('index', 'Index suggestions', getSavedAnalyses('index'), lastIndexData, renderIndexData, function(a, b) {
+    showAnalysisCompare('index', vt('viewer.tools.index.compareTitle'), getSavedAnalyses('index'), lastIndexData, renderIndexData, function(a, b) {
       var sa = (a && a.suggestions) ? a.suggestions.length : 0;
       var sb = (b && b.suggestions) ? b.suggestions.length : 0;
-      return 'Before: ' + sa + ' suggestion(s) · After: ' + sb + ' suggestion(s)';
+      return vt('viewer.tools.index.compareSummary', sa, sb);
     });
   });
 }
@@ -286,40 +288,40 @@ export function initSizeAnalytics(): void {
    * Shown on hover for read-only labels, values, headers, and cells.
    */
   var SIZE_TT = {
-    totalCard: 'Total size of the SQLite database file: PRAGMA page_count × PRAGMA page_size. Matches the main .db file size on disk.',
-    usedCard: 'Bytes in pages that store data: total file size minus bytes in freelist pages (see Free). Same as totalSizeBytes − freeSpaceBytes from the server.',
-    freeCard: 'Bytes in pages on SQLite\u2019s freelist (PRAGMA freelist_count × page_size). Unused pages inside the file that SQLite can reuse for new data without growing the file.',
-    journalCard: 'SQLite PRAGMA journal_mode. wal means WAL (write-ahead logging): new writes go to a separate .wal file and are merged into the main database at checkpoint; readers can run at the same time as one writer. Other modes include delete, truncate, persist, memory, and off.',
-    pagesTotal: 'Total bytes in all pages: page_count × page_size. Same number as Total Size.',
-    pagesFormula: 'PRAGMA page_count (number of pages) × PRAGMA page_size (bytes per page, often 4096).',
-    thTable: 'Name of this table in SQLite.',
-    thRows: 'Row count for each table (SELECT COUNT(*) FROM table). Bar length is relative to the largest table in this list.',
-    thColumns: 'Number of columns defined on the table (rows from PRAGMA table_info).',
-    thIndexes: 'Number of indexes on the table (PRAGMA index_list), plus each index name.',
-    tdTableLink: 'SQLite table name. Click to open this table in its own tab.',
-    tdRows: 'Approximate number of rows in this table.',
-    tdColumns: 'How many columns this table has.',
-    tdIndexes: 'Index count and names from PRAGMA index_list for this table.'
+    totalCard: vt('viewer.tools.size.tt.totalCard'),
+    usedCard: vt('viewer.tools.size.tt.usedCard'),
+    freeCard: vt('viewer.tools.size.tt.freeCard'),
+    journalCard: vt('viewer.tools.size.tt.journalCard'),
+    pagesTotal: vt('viewer.tools.size.tt.pagesTotal'),
+    pagesFormula: vt('viewer.tools.size.tt.pagesFormula'),
+    thTable: vt('viewer.tools.size.tt.thTable'),
+    thRows: vt('viewer.tools.size.tt.thRows'),
+    thColumns: vt('viewer.tools.size.tt.thColumns'),
+    thIndexes: vt('viewer.tools.size.tt.thIndexes'),
+    tdTableLink: vt('viewer.tools.size.tt.tdTableLink'),
+    tdRows: vt('viewer.tools.size.tt.tdRows'),
+    tdColumns: vt('viewer.tools.size.tt.tdColumns'),
+    tdIndexes: vt('viewer.tools.size.tt.tdIndexes')
   };
 
   function renderSizeData(data) {
-    if (!data) return '<p class="meta">No data.</p>';
+    if (!data) return '<p class="meta">' + vt('viewer.tools.size.empty') + '</p>';
     var html = '<div style="margin:0.5rem 0;">';
     html += '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">';
     html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc(SIZE_TT.totalCard) + '">';
-    html += '<div class="meta">Total Size</div>';
+    html += '<div class="meta">' + vt('viewer.tools.size.card.total') + '</div>';
     html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.totalSizeBytes) + '</div></div>';
     html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc(SIZE_TT.usedCard) + '">';
-    html += '<div class="meta">Used</div>';
+    html += '<div class="meta">' + vt('viewer.tools.size.card.used') + '</div>';
     html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.usedSizeBytes) + '</div></div>';
     html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc(SIZE_TT.freeCard) + '">';
-    html += '<div class="meta">Free</div>';
+    html += '<div class="meta">' + vt('viewer.tools.size.card.free') + '</div>';
     html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.freeSpaceBytes) + '</div></div>';
     html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc(SIZE_TT.journalCard) + '">';
-    html += '<div class="meta">Journal</div>';
+    html += '<div class="meta">' + vt('viewer.tools.size.card.journal') + '</div>';
     html += '<div style="font-size:1.2rem;font-weight:bold;">' + esc(data.journalMode || '') + '</div></div>';
     html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc(SIZE_TT.pagesTotal) + '">';
-    html += '<div class="meta">Pages</div>';
+    html += '<div class="meta">' + vt('viewer.tools.size.card.pages') + '</div>';
     var pc = data.pageCount || 0;
     var ps = data.pageSize || 0;
     var pageBytes = pc * ps;
@@ -327,10 +329,10 @@ export function initSizeAnalytics(): void {
     html += '<div class="meta size-pages-formula" title="' + esc(SIZE_TT.pagesFormula) + '">(' + pc.toLocaleString() + ' × ' + ps.toLocaleString() + ')</div></div>';
     html += '</div>';
     html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-    html += '<tr><th style="border:1px solid var(--border);padding:4px;" title="' + esc(SIZE_TT.thTable) + '">Table</th>';
-    html += '<th style="border:1px solid var(--border);padding:4px;min-width:8rem;" title="' + esc(SIZE_TT.thRows) + '">Rows</th>';
-    html += '<th style="border:1px solid var(--border);padding:4px;text-align:right;" title="' + esc(SIZE_TT.thColumns) + '">Columns</th>';
-    html += '<th style="border:1px solid var(--border);padding:4px;" title="' + esc(SIZE_TT.thIndexes) + '">Indexes</th></tr>';
+    html += '<tr><th style="border:1px solid var(--border);padding:4px;" title="' + esc(SIZE_TT.thTable) + '">' + vt('viewer.tools.size.col.table') + '</th>';
+    html += '<th style="border:1px solid var(--border);padding:4px;min-width:8rem;" title="' + esc(SIZE_TT.thRows) + '">' + vt('viewer.tools.size.col.rows') + '</th>';
+    html += '<th style="border:1px solid var(--border);padding:4px;text-align:right;" title="' + esc(SIZE_TT.thColumns) + '">' + vt('viewer.tools.size.col.columns') + '</th>';
+    html += '<th style="border:1px solid var(--border);padding:4px;" title="' + esc(SIZE_TT.thIndexes) + '">' + vt('viewer.tools.size.col.indexes') + '</th></tr>';
     var tables = data.tables || [];
     var maxRows = Math.max.apply(null, tables.map(function(t) { return t.rowCount; }).concat([1]));
     tables.forEach(function(t) {
@@ -384,11 +386,11 @@ export function initSizeAnalytics(): void {
 
   if (btn) btn.addEventListener('click', function() {
     btn.disabled = true;
-    setButtonBusy(btn, true, 'Analyzing…');
+    setButtonBusy(btn, true, vt('viewer.tools.size.busy.analyze'));
     container.style.display = 'none';
     fetch('/api/analytics/size', S.authOpts())
       .then(function(r) {
-        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || vt('viewer.tools.size.requestFailed')); });
         return r.json();
       })
       .then(function(data) {
@@ -398,19 +400,19 @@ export function initSizeAnalytics(): void {
         populateHistorySelect(historySel, 'size');
       })
       .catch(function(e) {
-        container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
+        container.innerHTML = '<p class="meta" style="color:#e57373;">' + vt('viewer.tools.size.error', esc(e.message)) + '</p>';
         container.style.display = 'block';
       })
       .finally(function() {
         btn.disabled = false;
-        setButtonBusy(btn, false, 'Analyze');
+        setButtonBusy(btn, false, vt('viewer.tools.size.analyze'));
       });
   });
 
   if (saveBtn) saveBtn.addEventListener('click', function() {
     if (!S.lastSizeAnalyticsData) return;
     var id = saveAnalysis('size', S.lastSizeAnalyticsData);
-    showCopyToast(id != null ? 'Saved' : 'Save failed (storage may be full)');
+    showCopyToast(id != null ? vt('viewer.tools.analysis.saved') : vt('viewer.tools.analysis.saveFailed'));
     populateHistorySelect(historySel, 'size');
   });
 
@@ -420,10 +422,10 @@ export function initSizeAnalytics(): void {
   });
 
   if (compareBtn) compareBtn.addEventListener('click', function() {
-    showAnalysisCompare('size', 'Database size analytics', getSavedAnalyses('size'), S.lastSizeAnalyticsData, renderSizeData, function(a, b) {
+    showAnalysisCompare('size', vt('viewer.tools.size.compareTitle'), getSavedAnalyses('size'), S.lastSizeAnalyticsData, renderSizeData, function(a, b) {
       var ta = (a && a.totalSizeBytes) != null ? formatBytes(a.totalSizeBytes) : '—';
       var tb = (b && b.totalSizeBytes) != null ? formatBytes(b.totalSizeBytes) : '—';
-      return 'Before: ' + ta + ' total · After: ' + tb + ' total';
+      return vt('viewer.tools.size.compareSummary', ta, tb);
     });
   });
 }
@@ -465,17 +467,17 @@ export function initAnomalyDetection(): void {
   }
 
   function renderAnomalyData(data) {
-    if (!data) return '<p class="meta">No current result. Run Scan first.</p>';
+    if (!data) return '<p class="meta">' + vt('viewer.tools.anomaly.empty') + '</p>';
     var anomalies = data.anomalies || [];
     var health = computeHealthScore(anomalies);
     // Health score pill: always shown after a scan (even when clean)
     var html = '<div class="health-score-pill" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;margin:0.4rem 0;border-radius:6px;background:rgba(0,0,0,0.15);font-size:14px;">';
     html += '<span style="font-size:1.6em;font-weight:700;color:' + health.color + ';">' + health.grade + '</span>';
     html += '<span style="color:' + health.color + ';font-weight:600;">' + health.score + '/100</span>';
-    html += '<span class="meta" style="margin-left:0.3rem;">across ' + (data.tablesScanned || 0) + ' tables</span>';
+    html += '<span class="meta" style="margin-left:0.3rem;">' + vt('viewer.tools.anomaly.across', data.tablesScanned || 0) + '</span>';
     html += '</div>';
     if (anomalies.length === 0) {
-      html += '<p class="meta" style="color:#7cb342;">No anomalies detected. Data looks clean!</p>';
+      html += '<p class="meta" style="color:#7cb342;">' + vt('viewer.tools.anomaly.clean') + '</p>';
       return html;
     }
     // Breakdown: count by severity
@@ -485,11 +487,13 @@ export function initAnomalyDetection(): void {
       else if (a.severity === 'warning') warnCount++;
       else infoCount++;
     });
+    // Singular/plural split per severity; markup wraps the localized count at the call site.
     var breakdown = [];
-    if (errCount) breakdown.push('<span style="color:#e57373;">' + errCount + ' error' + (errCount > 1 ? 's' : '') + '</span>');
-    if (warnCount) breakdown.push('<span style="color:#ffb74d;">' + warnCount + ' warning' + (warnCount > 1 ? 's' : '') + '</span>');
-    if (infoCount) breakdown.push('<span style="color:#7cb342;">' + infoCount + ' info</span>');
-    html += '<p class="meta">' + anomalies.length + ' finding(s): ' + breakdown.join(', ') + '</p>';
+    if (errCount) breakdown.push('<span style="color:#e57373;">' + vt(errCount === 1 ? 'viewer.tools.anomaly.errors.one' : 'viewer.tools.anomaly.errors.many', errCount) + '</span>');
+    if (warnCount) breakdown.push('<span style="color:#ffb74d;">' + vt(warnCount === 1 ? 'viewer.tools.anomaly.warnings.one' : 'viewer.tools.anomaly.warnings.many', warnCount) + '</span>');
+    if (infoCount) breakdown.push('<span style="color:#7cb342;">' + vt('viewer.tools.anomaly.info', infoCount) + '</span>');
+    // {1} is the pre-wrapped severity breakdown markup; {0} the total finding count.
+    html += '<p class="meta">' + vt('viewer.tools.anomaly.findings', anomalies.length, breakdown.join(', ')) + '</p>';
     var icons = { error: '!!', warning: '!', info: 'i' };
     var colors = { error: '#e57373', warning: '#ffb74d', info: '#7cb342' };
     anomalies.forEach(function(a) {
@@ -528,11 +532,11 @@ export function initAnomalyDetection(): void {
 
   if (btn) btn.addEventListener('click', function() {
     btn.disabled = true;
-    setButtonBusy(btn, true, 'Scanning\u2026');
+    setButtonBusy(btn, true, vt('viewer.tools.anomaly.busy.scan'));
     container.style.display = 'none';
     fetch('/api/analytics/anomalies', S.authOpts())
       .then(function(r) {
-        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || vt('viewer.tools.anomaly.requestFailed')); });
         return r.json();
       })
       .then(function(data) {
@@ -542,19 +546,19 @@ export function initAnomalyDetection(): void {
         populateHistorySelect(historySel, 'anomaly');
       })
       .catch(function(e) {
-        container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
+        container.innerHTML = '<p class="meta" style="color:#e57373;">' + vt('viewer.tools.anomaly.error', esc(e.message)) + '</p>';
         container.style.display = 'block';
       })
       .finally(function() {
         btn.disabled = false;
-        setButtonBusy(btn, false, 'Scan for anomalies');
+        setButtonBusy(btn, false, vt('viewer.tools.anomaly.scan'));
       });
   });
 
   if (saveBtn) saveBtn.addEventListener('click', function() {
     if (!lastAnomalyData) return;
     var id = saveAnalysis('anomaly', lastAnomalyData);
-    showCopyToast(id != null ? 'Saved' : 'Save failed (storage may be full)');
+    showCopyToast(id != null ? vt('viewer.tools.analysis.saved') : vt('viewer.tools.analysis.saveFailed'));
     populateHistorySelect(historySel, 'anomaly');
   });
 
@@ -564,10 +568,10 @@ export function initAnomalyDetection(): void {
   });
 
   if (compareBtn) compareBtn.addEventListener('click', function() {
-    showAnalysisCompare('anomaly', 'Data health', getSavedAnalyses('anomaly'), lastAnomalyData, renderAnomalyData, function(a, b) {
+    showAnalysisCompare('anomaly', vt('viewer.tools.anomaly.compareTitle'), getSavedAnalyses('anomaly'), lastAnomalyData, renderAnomalyData, function(a, b) {
       var na = (a && a.anomalies) ? a.anomalies.length : 0;
       var nb = (b && b.anomalies) ? b.anomalies.length : 0;
-      return 'Before: ' + na + ' finding(s) · After: ' + nb + ' finding(s)';
+      return vt('viewer.tools.anomaly.compareSummary', na, nb);
     });
   });
 }

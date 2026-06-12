@@ -3,6 +3,8 @@
  * Pure function: takes a question and schema metadata, returns SQL or an error.
  */
 
+import { vt } from './l10n.ts';
+
 interface SchemaColumn {
   name: string;
   type: string;
@@ -958,11 +960,11 @@ export function narrateAnswer(
   value: number | null,
   totalCount: number | null,
 ): string | null {
-  const table = r.table || 'rows';
+  const table = r.table || vt('viewer.sql.narrate.fallback.rows');
   // The user's temporal phrase, echoed verbatim with a leading space ("last
   // week" → " last week") so it slots into a template without double-spacing.
   const qual = r.qualifier ? ' ' + r.qualifier : '';
-  const col = r.aggColumn ? r.aggColumn.replace(/_/g, ' ') : 'value';
+  const col = r.aggColumn ? r.aggColumn.replace(/_/g, ' ') : vt('viewer.sql.narrate.fallback.value');
   const n = function (x: number | null): string {
     return x == null ? '0' : x.toLocaleString('en-US');
   };
@@ -970,28 +972,33 @@ export function narrateAnswer(
     case 'count': {
       // "added"/"changed" only read naturally with a time window; without one a
       // bare "Your database added 45 contacts" is odd, so fall back to "has".
+      // Each verb is its own key so the whole sentence stays translatable as a
+      // unit (word order around the verb differs per language).
       const verb = (qual && r.answerVerb && r.answerVerb !== 'has') ? r.answerVerb : 'has';
-      return 'Your database ' + verb + ' ' + n(value) + ' ' + table + qual + '.';
+      const verbKey = verb === 'added'
+        ? 'viewer.sql.narrate.count.added'
+        : verb === 'changed' ? 'viewer.sql.narrate.count.changed' : 'viewer.sql.narrate.count.has';
+      return vt(verbKey, n(value), table, qual);
     }
     case 'sum':
-      return 'The total ' + col + ' across ' + table + qual + ' is ' + n(value) + '.';
+      return vt('viewer.sql.narrate.sum', col, table, qual, n(value));
     case 'avg':
-      return 'The average ' + col + ' for ' + table + qual + ' is ' + n(value) + '.';
+      return vt('viewer.sql.narrate.avg', col, table, qual, n(value));
     case 'max':
-      return 'The highest ' + col + ' for ' + table + qual + ' is ' + n(value) + '.';
+      return vt('viewer.sql.narrate.max', col, table, qual, n(value));
     case 'min':
-      return 'The lowest ' + col + ' for ' + table + qual + ' is ' + n(value) + '.';
+      return vt('viewer.sql.narrate.min', col, table, qual, n(value));
     case 'distinct':
-      return 'Found ' + n(totalCount) + ' distinct ' + col + ' value' + (totalCount === 1 ? '' : 's') + '.';
+      return vt(totalCount === 1 ? 'viewer.sql.narrate.distinct.one' : 'viewer.sql.narrate.distinct.many', n(totalCount), col);
     case 'duplicate':
-      return 'Found ' + n(totalCount) + ' ' + col + ' value' + (totalCount === 1 ? '' : 's') + ' that repeat.';
+      return vt(totalCount === 1 ? 'viewer.sql.narrate.duplicate.one' : 'viewer.sql.narrate.duplicate.many', n(totalCount), col);
     case 'group':
-      return n(totalCount) + ' group' + (totalCount === 1 ? '' : 's') + ' of ' + table + qual + '.';
+      return vt(totalCount === 1 ? 'viewer.sql.narrate.group.one' : 'viewer.sql.narrate.group.many', n(totalCount), table, qual);
     case 'rows':
     case 'latest':
     case 'oldest':
     default:
-      return 'Found ' + n(totalCount) + ' ' + table + qual + '.';
+      return vt('viewer.sql.narrate.found', n(totalCount), table, qual);
   }
 }
 
@@ -1004,7 +1011,7 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
   const wake = wakeStrip.wake;
   const q = question.toLowerCase().trim();
   const tables = meta.tables || [];
-  if (tables.length === 0) return { sql: null, error: 'No tables in the schema to query.', wake: wake };
+  if (tables.length === 0) return { sql: null, error: vt('viewer.sql.nl.noTables'), wake: wake };
   // Wake phrase with nothing left to ask ("hey saropa") — not an error, just no
   // question. Signalled as wake-without-sql so the panel can say so politely.
   if (wake && !q) return { sql: null, wake: true };

@@ -3,6 +3,7 @@
  */
 
 import type { IRecordedQueryV1 } from '../api-types';
+import { t } from '../l10n';
 
 export interface IDvrPanelHtmlState {
   recording: boolean;
@@ -52,11 +53,11 @@ export function buildDvrPanelHtml(state: IDvrPanelHtmlState): string {
       ? 0
       : Math.max(0, tq.findIndex((q) => q.id === state.focusedId)) + 1;
   const total = tq.length;
-  const posLabel = total === 0 ? '—' : `${pos} of ${total}`;
+  const posLabel = total === 0 ? '—' : t('panel.replay.dvr.timeline.pos', pos, total);
 
   const rows =
     tq.length === 0
-      ? '<div class="empty">No queries match the current filters.</div>'
+      ? `<div class="empty">${t('panel.replay.dvr.empty')}</div>`
       : tq
           .map((q) => rowHtml(q, state.focusedId))
           .join('\n');
@@ -70,7 +71,7 @@ export function buildDvrPanelHtml(state: IDvrPanelHtmlState): string {
 
   const detail =
     state.detailHtml.length > 0
-      ? `<div class="detail"><div class="detailTitle">Selection detail</div>${state.detailHtml}</div>`
+      ? `<div class="detail"><div class="detailTitle">${t('panel.replay.dvr.detail.title')}</div>${state.detailHtml}</div>`
       : '';
 
   return `<!DOCTYPE html>
@@ -100,35 +101,35 @@ export function buildDvrPanelHtml(state: IDvrPanelHtmlState): string {
 </head>
 <body>
   <div class="toolbar">
-    <button id="start">Start</button>
-    <button id="pause">Pause</button>
-    <button id="stop">Stop</button>
-    <button id="refresh">Refresh</button>
-    <button id="export">Export JSON</button>
-    <button id="openSql">Open SQL (editor)</button>
-    <button id="openNotebook">Open in SQL Notebook</button>
-    <button id="analyzeCost">Query Cost</button>
-    <button id="openSnapshotDiff" title="Opens Saropa snapshot diff (timeline)">Snapshot diff</button>
-    <button id="openSchemaRollback" title="Schema snapshots → migration rollback wizard">Schema rollback…</button>
+    <button id="start">${t('panel.replay.dvr.btn.start')}</button>
+    <button id="pause">${t('panel.replay.dvr.btn.pause')}</button>
+    <button id="stop">${t('panel.replay.dvr.btn.stop')}</button>
+    <button id="refresh">${t('panel.replay.dvr.btn.refresh')}</button>
+    <button id="export">${t('panel.replay.dvr.btn.export')}</button>
+    <button id="openSql">${t('panel.replay.dvr.btn.openSql')}</button>
+    <button id="openNotebook">${t('panel.replay.dvr.btn.openNotebook')}</button>
+    <button id="analyzeCost">${t('panel.replay.dvr.btn.analyzeCost')}</button>
+    <button id="openSnapshotDiff" title="${t('panel.replay.dvr.btn.snapshotDiff.title')}">${t('panel.replay.dvr.btn.snapshotDiff')}</button>
+    <button id="openSchemaRollback" title="${t('panel.replay.dvr.btn.schemaRollback.title')}">${t('panel.replay.dvr.btn.schemaRollback')}</button>
   </div>
   <div class="timeline">
-    <span>Timeline: <strong>${escapeHtml(posLabel)}</strong></span>
+    <span>${t('panel.replay.dvr.timeline.label')} <strong>${escapeHtml(posLabel)}</strong></span>
     <button id="first">|◀</button>
     <button id="prev">◀</button>
     <button id="next">▶</button>
     <button id="last">▶|</button>
   </div>
   <div class="filters">
-    <label>Search <input type="text" id="search" value="${escapeHtml(state.searchText)}" placeholder="SQL substring" /></label>
-    <label>Kind <select id="kind">
-      <option value="all" ${selAll}>All</option>
-      <option value="reads" ${selReads}>Reads</option>
-      <option value="writes" ${selWrites}>Writes</option>
+    <label>${t('panel.replay.dvr.filter.search')} <input type="text" id="search" value="${escapeHtml(state.searchText)}" placeholder="${t('panel.replay.dvr.filter.search.placeholder')}" /></label>
+    <label>${t('panel.replay.dvr.filter.kind')} <select id="kind">
+      <option value="all" ${selAll}>${t('panel.replay.dvr.filter.kind.all')}</option>
+      <option value="reads" ${selReads}>${t('panel.replay.dvr.filter.kind.reads')}</option>
+      <option value="writes" ${selWrites}>${t('panel.replay.dvr.filter.kind.writes')}</option>
     </select></label>
-    <label>Table <input type="text" id="tableFilter" value="${escapeHtml(state.tableFilter)}" placeholder="table name" /></label>
-    <button id="applyFilters">Apply</button>
+    <label>${t('panel.replay.dvr.filter.table')} <input type="text" id="tableFilter" value="${escapeHtml(state.tableFilter)}" placeholder="${t('panel.replay.dvr.filter.table.placeholder')}" /></label>
+    <button id="applyFilters">${t('panel.replay.dvr.filter.apply')}</button>
   </div>
-  <div class="status">Status: ${state.recording ? 'Recording' : 'Stopped'} · session=${escapeHtml(state.sessionId)} · count=${state.count} · maxQueries=${maxQ} · captureBeforeAfter=${cap}</div>
+  <div class="status">${t('panel.replay.dvr.status.line', state.recording ? t('panel.replay.dvr.status.recording') : t('panel.replay.dvr.status.stopped'), escapeHtml(state.sessionId), state.count, maxQ, cap)}</div>
   ${state.error ? `<div class="error">${escapeHtml(state.error)}</div>` : ''}
   ${detail}
   ${rows}

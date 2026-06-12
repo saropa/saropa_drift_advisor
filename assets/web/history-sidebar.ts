@@ -10,6 +10,7 @@
  * visibility persists in localStorage.
  */
 import { esc } from './utils.ts';
+import { vt } from './l10n.ts';
 import * as S from './state.ts';
 import { openTool } from './tabs.ts';
 import { showCopyToast } from './table-view.ts';
@@ -107,7 +108,7 @@ function render(): void {
   countEl?.replaceChildren(document.createTextNode('(' + groups.length + ')'));
 
   if (groups.length === 0) {
-    listEl.innerHTML = '<li class="history-empty">No queries yet.</li>';
+    listEl.innerHTML = '<li class="history-empty">' + esc(vt('viewer.nav.history.empty')) + '</li>';
     return;
   }
 
@@ -141,8 +142,8 @@ function render(): void {
         '</span>';
       const meta: string[] = [];
       meta.push(e.durationMs + ' ms');
-      if (e.rowCount != null) meta.push(e.rowCount + ' row(s)');
-      if (e.error) meta.push('ERR');
+      if (e.rowCount != null) meta.push(vt('viewer.nav.history.rows', e.rowCount));
+      if (e.error) meta.push(vt('viewer.nav.history.errorMark'));
       const at = e.at ? formatRelativeTime(e.at) : '';
       const metaStr = meta.join(' \u00B7 ');
       // The (n) badge is a separate click target (handled before the
@@ -153,9 +154,9 @@ function render(): void {
         count > 1
           ? '<button type="button" class="history-count-badge" data-idx="' +
             i +
-            '" title="Show all ' +
-            count +
-            ' runs of this query">(' +
+            '" title="' +
+            esc(vt('viewer.nav.history.runsTooltip', count)) +
+            '">(' +
             count +
             ')</button>'
           : '';
@@ -189,14 +190,14 @@ function render(): void {
 /** Formats an ISO timestamp as a short relative string (e.g. "2 m ago"). */
 function formatRelativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 0) return 'just now';
+  if (diff < 0) return vt('viewer.nav.history.time.justNow');
   const sec = Math.floor(diff / 1000);
-  if (sec < 60) return sec + ' s ago';
+  if (sec < 60) return vt('viewer.nav.history.time.seconds', sec);
   const min = Math.floor(sec / 60);
-  if (min < 60) return min + ' m ago';
+  if (min < 60) return vt('viewer.nav.history.time.minutes', min);
   const hr = Math.floor(min / 60);
-  if (hr < 24) return hr + ' h ago';
-  return Math.floor(hr / 24) + ' d ago';
+  if (hr < 24) return vt('viewer.nav.history.time.hours', hr);
+  return vt('viewer.nav.history.time.days', Math.floor(hr / 24));
 }
 
 /** Formats an ISO timestamp as a readable local date-time, or '—' if absent. */
@@ -256,7 +257,7 @@ function showOccurrencesDialog(group: HistoryGroup): void {
     dialogOverlay.className = 'history-dialog-overlay';
     dialogOverlay.setAttribute('role', 'dialog');
     dialogOverlay.setAttribute('aria-modal', 'true');
-    dialogOverlay.setAttribute('aria-label', 'Query run history');
+    dialogOverlay.setAttribute('aria-label', vt('viewer.nav.history.dialog.ariaLabel'));
     // Backdrop click closes; clicks inside the panel do not. Attached ONCE
     // here (not per-open) because the overlay node is reused — re-adding it
     // on every open would leak a listener per dialog open.
@@ -289,7 +290,7 @@ function showOccurrencesDialog(group: HistoryGroup): void {
         '</td><td class="history-dialog-num">' +
         esc(e.durationMs + ' ms') +
         '</td><td>' +
-        (e.error ? '<span title="' + esc(e.error) + '">ERR</span>' : '') +
+        (e.error ? '<span title="' + esc(e.error) + '">' + esc(vt('viewer.nav.history.errorMark')) + '</span>' : '') +
         '</td></tr>'
       );
     })
@@ -298,23 +299,23 @@ function showOccurrencesDialog(group: HistoryGroup): void {
   overlay.innerHTML =
     '<div class="history-dialog">' +
     '<div class="history-dialog-header">' +
-    '<h3 class="history-dialog-title">Query runs (' +
-    rows.length +
-    ')</h3>' +
-    '<button type="button" class="history-dialog-close" title="Close">✕</button>' +
+    '<h3 class="history-dialog-title">' +
+    esc(vt('viewer.nav.history.dialog.title', rows.length)) +
+    '</h3>' +
+    '<button type="button" class="history-dialog-close" title="' + esc(vt('viewer.nav.history.dialog.close')) + '">✕</button>' +
     '</div>' +
     '<pre class="history-dialog-sql">' +
     esc(preview) +
     '</pre>' +
     '<div class="history-dialog-table-wrap">' +
     '<table class="history-dialog-table">' +
-    '<thead><tr><th>Source</th><th>Time</th><th>Duration</th><th></th></tr></thead>' +
+    '<thead><tr><th>' + esc(vt('viewer.nav.history.col.source')) + '</th><th>' + esc(vt('viewer.nav.history.col.time')) + '</th><th>' + esc(vt('viewer.nav.history.col.duration')) + '</th><th></th></tr></thead>' +
     '<tbody>' +
     tableRows +
     '</tbody></table>' +
     '</div>' +
     '<div class="history-dialog-actions">' +
-    '<button type="button" class="history-dialog-copy">Copy</button>' +
+    '<button type="button" class="history-dialog-copy">' + esc(vt('viewer.nav.history.dialog.copy')) + '</button>' +
     '</div>' +
     '</div>';
 
@@ -327,7 +328,7 @@ function showOccurrencesDialog(group: HistoryGroup): void {
         navigator.clipboard
           .writeText(text)
           .then(function () {
-            showCopyToast('Copied ' + rows.length + ' runs');
+            showCopyToast(vt('viewer.nav.history.copied', rows.length));
           })
           .catch(function () {});
       }
@@ -387,7 +388,7 @@ export function fetchHistory(): void {
 
 /** Sends DELETE /api/history and clears the local cache. */
 function clearHistory(): void {
-  if (!confirm('Clear all query history?')) return;
+  if (!confirm(vt('viewer.nav.history.clearConfirm'))) return;
   fetch('/api/history', Object.assign({ method: 'DELETE' }, S.authOpts()))
     .then(function () {
       entries = [];

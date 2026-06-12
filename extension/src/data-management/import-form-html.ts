@@ -3,6 +3,8 @@
  * Collects dataset source and import mode in one view instead of
  * two sequential showQuickPick prompts.
  */
+import { t } from '../l10n';
+
 export function buildImportFormHtml(
   datasets: Array<{ name: string; path: string }>,
 ): string {
@@ -122,52 +124,52 @@ export function buildImportFormHtml(
 </style>
 </head>
 <body>
-<h1>Import Dataset</h1>
+<h1>${t('panel.data.import.title')}</h1>
 
 <div class="field">
-  <div class="field-label">Dataset Source</div>
+  <div class="field-label">${t('panel.data.import.field.source')}</div>
   <div class="ds-grid">
     ${datasetRadios}
     <label class="ds-option">
       <input type="radio" name="dataset" value="__browse__"${browseChecked} />
       <div class="ds-card">
-        <div class="ds-name">Browse for file\u2026</div>
-        <div class="ds-path">Select a .json dataset from disk</div>
+        <div class="ds-name">${t('panel.data.import.browse.name')}</div>
+        <div class="ds-path">${t('panel.data.import.browse.desc')}</div>
       </div>
     </label>
   </div>
 </div>
 
 <div class="field">
-  <div class="field-label">Import Mode</div>
+  <div class="field-label">${t('panel.data.import.field.mode')}</div>
   <div class="mode-grid">
     <label class="mode-option">
       <input type="radio" name="mode" value="append" checked />
       <div class="mode-card">
-        <div class="mode-name">Append</div>
-        <div class="mode-desc">Add rows to existing data</div>
+        <div class="mode-name">${t('panel.data.import.mode.append.name')}</div>
+        <div class="mode-desc">${t('panel.data.import.mode.append.desc')}</div>
       </div>
     </label>
     <label class="mode-option">
       <input type="radio" name="mode" value="replace" />
       <div class="mode-card">
-        <div class="mode-name">Replace</div>
-        <div class="mode-desc">Clear target tables first</div>
+        <div class="mode-name">${t('panel.data.import.mode.replace.name')}</div>
+        <div class="mode-desc">${t('panel.data.import.mode.replace.desc')}</div>
       </div>
     </label>
     <label class="mode-option">
       <input type="radio" name="mode" value="sql" />
       <div class="mode-card">
-        <div class="mode-name">SQL Only</div>
-        <div class="mode-desc">Generate SQL without executing</div>
+        <div class="mode-name">${t('panel.data.import.mode.sql.name')}</div>
+        <div class="mode-desc">${t('panel.data.import.mode.sql.desc')}</div>
       </div>
     </label>
   </div>
 </div>
 
 <div class="btn-row">
-  <button class="btn btn-primary" id="submit">Import</button>
-  <button class="btn btn-secondary" id="cancel">Cancel</button>
+  <button class="btn btn-primary" id="submit">${t('panel.data.import.btn.import')}</button>
+  <button class="btn btn-secondary" id="cancel">${t('panel.data.import.btn.cancel')}</button>
 </div>
 
 <script>

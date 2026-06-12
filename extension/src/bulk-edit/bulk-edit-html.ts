@@ -4,6 +4,8 @@
  * in a dedicated `*-html.ts` and the panel controller separate.
  */
 
+import { t } from '../l10n';
+
 /**
  * Builds minimal themed HTML for the bulk-edit dashboard (no external assets).
  */
@@ -14,7 +16,7 @@ export function bulkEditHtml(): string {
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
-  <title>Bulk edit data</title>
+  <title>${t('panel.data.bulk.docTitle')}</title>
   <style>
     body {
       font-family: var(--vscode-font-family);
@@ -54,37 +56,37 @@ export function bulkEditHtml(): string {
   </style>
 </head>
 <body>
-  <h1>Saropa Drift Advisor — Edit table data</h1>
-  <p>Pending operations in this workspace: <span class="count" id="c">0</span></p>
+  <h1>${t('panel.data.bulk.title')}</h1>
+  <p>${t('panel.data.bulk.pending', '<span class="count" id="c">0</span>')}</p>
   <p class="meta" id="pageMeta"></p>
-  <p>Edit cells in the <strong>table viewer panel</strong> (double-click a cell). When the debug server has <code>writeQuery</code> configured, you can apply the batch below.</p>
+  <p>${t('panel.data.bulk.instructions', `<strong>${t('panel.data.bulk.instructions.viewer')}</strong>`, '<code>writeQuery</code>')}</p>
   <div class="row">
-    <button type="button" id="openViewer">Open table viewer</button>
-    <button type="button" id="preview" class="secondary">Preview SQL</button>
-    <button type="button" id="commit">Apply to database</button>
+    <button type="button" id="openViewer">${t('panel.data.bulk.btn.openViewer')}</button>
+    <button type="button" id="preview" class="secondary">${t('panel.data.bulk.btn.preview')}</button>
+    <button type="button" id="commit">${t('panel.data.bulk.btn.commit')}</button>
   </div>
   <div class="row">
-    <button type="button" id="undo" class="secondary">Undo</button>
-    <button type="button" id="redo" class="secondary">Redo</button>
-    <button type="button" id="discard" class="secondary">Discard all</button>
+    <button type="button" id="undo" class="secondary">${t('panel.data.bulk.btn.undo')}</button>
+    <button type="button" id="redo" class="secondary">${t('panel.data.bulk.btn.redo')}</button>
+    <button type="button" id="discard" class="secondary">${t('panel.data.bulk.btn.discard')}</button>
   </div>
   <div class="row">
-    <button type="button" id="invariants" class="secondary">Data invariants…</button>
-    <button type="button" id="clipboardImport" class="secondary">Paste from clipboard…</button>
-    <button type="button" id="openDvr" class="secondary">Query DVR</button>
-    <button type="button" id="captureSnapshot" class="secondary" title="Capture row-level snapshot for Timeline / diff (safety net before destructive edits)">Capture DB snapshot…</button>
+    <button type="button" id="invariants" class="secondary">${t('panel.data.bulk.btn.invariants')}</button>
+    <button type="button" id="clipboardImport" class="secondary">${t('panel.data.bulk.btn.clipboardImport')}</button>
+    <button type="button" id="openDvr" class="secondary">${t('panel.data.bulk.btn.openDvr')}</button>
+    <button type="button" id="captureSnapshot" class="secondary" title="${t('panel.data.bulk.captureSnapshot.title')}">${t('panel.data.bulk.btn.captureSnapshot')}</button>
   </div>
-  <p class="keyboard-hint" id="gridHint">Grid: Tab to focus, Arrow Up/Down to move the row selection, Enter opens the table viewer, Escape clears selection. Ctrl+Enter applies (same as toolbar).</p>
+  <p class="keyboard-hint" id="gridHint">${t('panel.data.bulk.gridHint')}</p>
   <div class="grid-wrap" id="gridWrap" tabindex="0" role="region" aria-labelledby="gridHint">
     <table>
-      <thead><tr><th>Kind</th><th>Table</th><th>Details</th><th>When</th></tr></thead>
-      <tbody id="gridBody"><tr><td colspan="4">No pending edits.</td></tr></tbody>
+      <thead><tr><th>${t('panel.data.bulk.col.kind')}</th><th>${t('panel.data.bulk.col.table')}</th><th>${t('panel.data.bulk.col.details')}</th><th>${t('panel.data.bulk.col.when')}</th></tr></thead>
+      <tbody id="gridBody"><tr><td colspan="4">${t('panel.data.bulk.grid.empty')}</td></tr></tbody>
     </table>
   </div>
   <div class="pager">
-    <button type="button" id="prevPage" class="secondary">Prev</button>
-    <span id="pageInfo">Page 1 / 1</span>
-    <button type="button" id="nextPage" class="secondary">Next</button>
+    <button type="button" id="prevPage" class="secondary">${t('panel.data.bulk.pager.prev')}</button>
+    <span id="pageInfo">${t('panel.data.bulk.pager.pageInfo', 1, 1)}</span>
+    <button type="button" id="nextPage" class="secondary">${t('panel.data.bulk.pager.next')}</button>
   </div>
   <script>
     (function() {
@@ -134,12 +136,15 @@ export function bulkEditHtml(): string {
         if (page >= totalPages) page = totalPages - 1;
         var start = page * pageSize;
         var end = Math.min(rows.length, start + pageSize);
+        // TODO(l10n): client-script string
         pageInfo.textContent = 'Page ' + (page + 1) + ' / ' + totalPages;
+        // TODO(l10n): client-script string
         pageMeta.textContent = rows.length > 0 ? ('Showing ' + (start + 1) + '-' + end + ' of ' + rows.length + ' pending edits') : 'No pending edits.';
         document.getElementById('prevPage').disabled = page <= 0;
         document.getElementById('nextPage').disabled = page >= totalPages - 1;
         if (rows.length === 0) {
           selectedAbs = -1;
+          // TODO(l10n): client-script string
           body.innerHTML = '<tr><td colspan="4">No pending edits.</td></tr>';
           return;
         }

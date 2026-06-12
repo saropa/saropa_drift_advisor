@@ -8,6 +8,7 @@
  */
 
 import type { IBranchDiff, IDataBranch } from './branch-types';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -51,26 +52,35 @@ ${body}
 
 /** Render the branch list with a "New Branch" toolbar and per-branch actions. */
 export function buildBranchListHtml(branches: readonly IDataBranch[]): string {
-  const toolbar = `<div class="toolbar"><button data-command="create">+ New Branch</button></div>`;
+  const toolbar = `<div class="toolbar"><button data-command="create">${t('panel.compare.branch.btn.new')}</button></div>`;
   if (branches.length === 0) {
-    return shell(`<h2>Data Branches</h2>${toolbar}<p class="empty">No branches yet. Capture the current database state as a branch to experiment safely.</p>`);
+    return shell(`<h2>${t('panel.compare.branch.title')}</h2>${toolbar}<p class="empty">${t('panel.compare.branch.empty')}</p>`);
   }
   const cards = branches
     .map((b) => {
+      // "(truncated)" marker carries a tooltip explaining the per-table row cap.
       const trunc = b.metadata.truncated
-        ? ` <span class="truncated" title="At least one table hit the row cap">(truncated)</span>`
+        ? ` <span class="truncated" title="${t('panel.compare.branch.truncated.title')}">${t('panel.compare.branch.truncated.label')}</span>`
         : '';
+      // Capture timestamp, table count, and locale-formatted row count are passed as
+      // {0}/{1}/{2} tokens so the sentence stays one translator-reorderable unit.
+      const meta = t(
+        'panel.compare.branch.meta',
+        esc(b.createdAt),
+        b.metadata.tableCount,
+        b.metadata.totalRows.toLocaleString(),
+      );
       return `<div class="branch">
         <div class="name">${esc(b.name)}</div>
-        <div class="meta">Captured ${esc(b.createdAt)} — ${b.metadata.tableCount} tables, ${b.metadata.totalRows.toLocaleString()} rows${trunc}</div>
-        <button data-command="diff" data-branch="${esc(b.id)}">Diff vs Now</button>
-        <button data-command="merge" data-branch="${esc(b.id)}" class="secondary">Generate Merge SQL</button>
-        <button data-command="restore" data-branch="${esc(b.id)}" class="secondary">Restore</button>
-        <button data-command="delete" data-branch="${esc(b.id)}" class="secondary">Delete</button>
+        <div class="meta">${meta}${trunc}</div>
+        <button data-command="diff" data-branch="${esc(b.id)}">${t('panel.compare.branch.btn.diff')}</button>
+        <button data-command="merge" data-branch="${esc(b.id)}" class="secondary">${t('panel.compare.branch.btn.merge')}</button>
+        <button data-command="restore" data-branch="${esc(b.id)}" class="secondary">${t('panel.compare.branch.btn.restore')}</button>
+        <button data-command="delete" data-branch="${esc(b.id)}" class="secondary">${t('panel.compare.branch.btn.delete')}</button>
       </div>`;
     })
     .join('\n');
-  return shell(`<h2>Data Branches</h2>${toolbar}${cards}`);
+  return shell(`<h2>${t('panel.compare.branch.title')}</h2>${toolbar}${cards}`);
 }
 
 function diffRows(columns: string[], rows: Record<string, unknown>[], cls: string): string {
@@ -84,29 +94,29 @@ function diffRows(columns: string[], rows: Record<string, unknown>[], cls: strin
 
 /** Render a branch diff (branch → current) with per-table insert/update/delete sections. */
 export function buildBranchDiffHtml(diff: IBranchDiff): string {
-  const back = `<div class="back"><button data-command="list" class="secondary">&larr; Back to branches</button></div>`;
-  const header = `<h2>Diff: ${esc(diff.branchA)} &rarr; ${esc(diff.branchB)}</h2>
-    <p><span class="badge added">${diff.summary.inserts} inserted</span>
-       <span class="badge changed">${diff.summary.updates} changed</span>
-       <span class="badge removed">${diff.summary.deletes} deleted</span></p>`;
+  const back = `<div class="back"><button data-command="list" class="secondary">&larr; ${t('panel.compare.branch.btn.back')}</button></div>`;
+  const header = `<h2>${t('panel.compare.branch.diff.heading', esc(diff.branchA), esc(diff.branchB))}</h2>
+    <p><span class="badge added">${t('panel.compare.branch.summary.inserted', diff.summary.inserts)}</span>
+       <span class="badge changed">${t('panel.compare.branch.summary.changed', diff.summary.updates)}</span>
+       <span class="badge removed">${t('panel.compare.branch.summary.deleted', diff.summary.deletes)}</span></p>`;
 
   if (diff.tableDiffs.length === 0) {
-    return shell(`${back}${header}<p class="empty">No differences between this branch and the current database.</p>`);
+    return shell(`${back}${header}<p class="empty">${t('panel.compare.branch.diff.empty')}</p>`);
   }
 
   const sections = diff.tableDiffs
     .map((td) => {
       const parts: string[] = [`<h3>${esc(td.table)}</h3>`];
       if (td.inserts.length > 0) {
-        parts.push(`<p><span class="badge added">+${td.inserts.length} inserted</span></p>`);
+        parts.push(`<p><span class="badge added">${t('panel.compare.branch.table.inserted', td.inserts.length)}</span></p>`);
         parts.push(diffRows(td.columns, td.inserts, 'added'));
       }
       if (td.updates.length > 0) {
-        parts.push(`<p><span class="badge changed">~${td.updates.length} changed</span></p>`);
+        parts.push(`<p><span class="badge changed">${t('panel.compare.branch.table.changed', td.updates.length)}</span></p>`);
         parts.push(diffRows(td.columns, td.updates.map((u) => u.after), 'changed'));
       }
       if (td.deletes.length > 0) {
-        parts.push(`<p><span class="badge removed">-${td.deletes.length} deleted</span></p>`);
+        parts.push(`<p><span class="badge removed">${t('panel.compare.branch.table.deleted', td.deletes.length)}</span></p>`);
         parts.push(diffRows(td.columns, td.deletes, 'removed'));
       }
       return parts.join('\n');

@@ -7,6 +7,7 @@ import { getPref, PREF_SLOW_QUERY_THRESHOLD, DEFAULTS } from './settings.ts';
 import { renderBarChart, renderLineChart, applyChartUI, getChartSize, exportChartPng, exportChartSvg, exportChartCopy } from './charts.ts';
 import { populateHistorySelect, getSavedAnalyses, getSavedAnalysisById, saveAnalysis, downloadJSON, showAnalysisCompare } from './analysis.ts';
 import { showCopyToast } from './table-view.ts';
+import { vt } from './l10n.ts';
 
 export function initPerformance(): void {
   const toggle = document.getElementById('perf-toggle');
@@ -34,19 +35,19 @@ export function initPerformance(): void {
   function fetchPerformance() {
     if (!refreshBtn || !container) return;
     refreshBtn.disabled = true;
-    setButtonBusy(refreshBtn, true, 'Loading\u2026');
+    setButtonBusy(refreshBtn, true, vt('viewer.session.perf.loading'));
     container.style.display = 'none';
     var threshold = getSlowThreshold();
     fetch('/api/analytics/performance?slowThresholdMs=' + threshold, S.authOpts())
       .then(function(r) {
-        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || vt('viewer.session.perf.requestFailed')); });
         return r.json();
       })
       .then(function(data) {
         perfLoaded = true;
         lastPerfData = data;
         if (data.totalQueries === 0) {
-          container.innerHTML = '<p class="meta">No queries recorded yet. Browse some tables, then update.</p>';
+          container.innerHTML = '<p class="meta">' + vt('viewer.session.perf.empty') + '</p>';
         } else {
           container.innerHTML = renderPerformance(data);
         }
@@ -54,39 +55,40 @@ export function initPerformance(): void {
         populateHistorySelect(historySel, 'perf');
       })
       .catch(function(e) {
-        container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
+        container.innerHTML = '<p class="meta" style="color:#e57373;">' + vt('viewer.session.perf.error', esc(e.message)) + '</p>';
         container.style.display = 'block';
       })
       .finally(function() {
         // Restore Update button state so user can run again
         if (refreshBtn) {
           refreshBtn.disabled = false;
-          setButtonBusy(refreshBtn, false, 'Update');
+          setButtonBusy(refreshBtn, false, vt('viewer.session.perf.update'));
         }
       });
   }
 
   function renderPerformance(data) {
-    if (!data) return '<p class="meta">No data.</p>';
+    if (!data) return '<p class="meta">' + vt('viewer.session.perf.noData') + '</p>';
     var html = '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.3rem 0;">';
-    html += '<div class="meta">Total: ' + esc(String(data.totalQueries || 0)) + ' queries</div>';
-    html += '<div class="meta">Total time: ' + esc(String(data.totalDurationMs || 0)) + ' ms</div>';
-    html += '<div class="meta">Avg: ' + esc(String(data.avgDurationMs || 0)) + ' ms</div>';
+    html += '<div class="meta">' + vt('viewer.session.perf.summary.total', esc(String(data.totalQueries || 0))) + '</div>';
+    html += '<div class="meta">' + vt('viewer.session.perf.summary.totalTime', esc(String(data.totalDurationMs || 0))) + '</div>';
+    html += '<div class="meta">' + vt('viewer.session.perf.summary.avg', esc(String(data.avgDurationMs || 0))) + '</div>';
     html += '</div>';
 
     if (data.slowQueries && data.slowQueries.length > 0) {
       var thresh = data.slowThresholdMs || 100;
-      html += '<p class="meta" style="color:#e57373;font-weight:bold;">Slow queries (&gt;' + esc(String(thresh)) + 'ms):</p>';
+      html += '<p class="meta" style="color:#e57373;font-weight:bold;">' + vt('viewer.session.perf.slow.heading', esc(String(thresh))) + '</p>';
       html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-      html += '<tr><th style="border:1px solid var(--border);padding:4px;">Duration</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;">Time</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+      html += '<tr><th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.duration') + '</th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.rows') + '</th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.time') + '</th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.sql') + '</th></tr>';
       data.slowQueries.forEach(function(q) {
         var sql = q.sql || '';
         html += '<tr>';
         // Prefix with [!!] icon so slow status is conveyed without color alone
-        html += '<td style="border:1px solid var(--border);padding:4px;color:#e57373;font-weight:bold;">[!!] ' + esc(String(q.durationMs)) + ' ms</td>';
+        // [!!] icon is a status symbol (kept literal); the 'ms' unit is a UI label.
+        html += '<td style="border:1px solid var(--border);padding:4px;color:#e57373;font-weight:bold;">[!!] ' + esc(String(q.durationMs)) + ' ' + vt('viewer.session.perf.col.ms') + '</td>';
         html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(String(q.rowCount)) + '</td>';
         html += '<td style="border:1px solid var(--border);padding:4px;font-size:11px;">' + esc(q.at) + '</td>';
         html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(sql) + '">' + esc(sql.length > 80 ? sql.slice(0, 80) + '\u2026' : sql) + '</td>';
@@ -96,13 +98,13 @@ export function initPerformance(): void {
     }
 
     if (data.queryPatterns && data.queryPatterns.length > 0) {
-      html += '<p class="meta" style="margin-top:0.5rem;">Most time-consuming patterns:</p>';
+      html += '<p class="meta" style="margin-top:0.5rem;">' + vt('viewer.session.perf.patterns.heading') + '</p>';
       html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-      html += '<tr><th style="border:1px solid var(--border);padding:4px;">Total ms</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;">Count</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;">Avg ms</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;">Max ms</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;">Pattern</th></tr>';
+      html += '<tr><th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.totalMs') + '</th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.count') + '</th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.avgMs') + '</th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.maxMs') + '</th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.pattern') + '</th></tr>';
       data.queryPatterns.forEach(function(p) {
         var pattern = p.pattern || '';
         html += '<tr>';
@@ -117,11 +119,11 @@ export function initPerformance(): void {
     }
 
     if (data.recentQueries && data.recentQueries.length > 0) {
-      html += '<p class="meta" style="margin-top:0.5rem;">Recent queries (newest first):</p>';
+      html += '<p class="meta" style="margin-top:0.5rem;">' + vt('viewer.session.perf.recent.heading') + '</p>';
       html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-      html += '<tr><th style="border:1px solid var(--border);padding:4px;">ms</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+      html += '<tr><th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.ms') + '</th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.rows') + '</th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.session.perf.col.sql') + '</th></tr>';
       var recentThresh = data.slowThresholdMs || 100;
       var warnThresh = Math.round(recentThresh / 2);
       data.recentQueries.forEach(function(q) {
@@ -153,7 +155,7 @@ export function initPerformance(): void {
       if (saved && saved.data) {
         lastPerfData = saved.data;
         container.innerHTML = (saved.data.totalQueries === 0)
-          ? '<p class="meta">No queries recorded (saved run).</p>'
+          ? '<p class="meta">' + vt('viewer.session.perf.emptySaved') + '</p>'
           : renderPerformance(saved.data);
         container.style.display = 'block';
       }
@@ -163,7 +165,7 @@ export function initPerformance(): void {
   if (saveBtn) saveBtn.addEventListener('click', function() {
     if (!lastPerfData) return;
     var id = saveAnalysis('perf', lastPerfData);
-    showCopyToast(id != null ? 'Saved' : 'Save failed (storage may be full)');
+    showCopyToast(id != null ? vt('viewer.session.perf.saved') : vt('viewer.session.perf.saveFailed'));
     populateHistorySelect(historySel, 'perf');
   });
 
@@ -173,12 +175,12 @@ export function initPerformance(): void {
   });
 
   if (compareBtn) compareBtn.addEventListener('click', function() {
-    showAnalysisCompare('perf', 'Query performance', getSavedAnalyses('perf'), lastPerfData, function(d) {
-      return d && d.totalQueries !== 0 ? renderPerformance(d) : '<p class="meta">No queries in this run.</p>';
+    showAnalysisCompare('perf', vt('viewer.session.perf.compareLabel'), getSavedAnalyses('perf'), lastPerfData, function(d) {
+      return d && d.totalQueries !== 0 ? renderPerformance(d) : '<p class="meta">' + vt('viewer.session.perf.noQueriesInRun') + '</p>';
     }, function(a, b) {
       var qa = (a && a.totalQueries) != null ? a.totalQueries : 0;
       var qb = (b && b.totalQueries) != null ? b.totalQueries : 0;
-      return 'Before: ' + qa + ' queries · After: ' + qb + ' queries';
+      return vt('viewer.session.perf.compareSummary', qa, qb);
     });
   });
 
@@ -195,22 +197,22 @@ export function initPerformance(): void {
 
   if (clearBtn) clearBtn.addEventListener('click', function() {
     clearBtn.disabled = true;
-    clearBtn.textContent = 'Clearing\u2026';
+    clearBtn.textContent = vt('viewer.session.perf.clearing');
     fetch('/api/analytics/performance', S.authOpts({ method: 'DELETE' }))
       .then(function(r) {
-        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Clear failed'); });
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || vt('viewer.session.perf.clearFailed')); });
         lastPerfData = null;
-        container.innerHTML = '<p class="meta">Performance history cleared.</p>';
+        container.innerHTML = '<p class="meta">' + vt('viewer.session.perf.cleared') + '</p>';
         container.style.display = 'block';
         perfLoaded = false;
       })
       .catch(function(e) {
-        container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
+        container.innerHTML = '<p class="meta" style="color:#e57373;">' + vt('viewer.session.perf.error', esc(e.message)) + '</p>';
         container.style.display = 'block';
       })
       .finally(function() {
         clearBtn.disabled = false;
-        clearBtn.textContent = 'Clear';
+        clearBtn.textContent = vt('viewer.session.perf.clear');
       });
   });
 }

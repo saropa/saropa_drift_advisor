@@ -11,6 +11,7 @@ import type {
 } from './seeder-types';
 import { GENERATOR_TYPES } from './seeder-types';
 import { wrapHtml } from './seeder-html-shell';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -34,10 +35,10 @@ export function buildSeederHtml(
     return renderTable(c, i, prev);
   }).join('\n');
   const body = `
-<h2>Test Data Seeder</h2>
+<h2>${t('panel.data.seeder.title')}</h2>
 ${warning}
 <div class="global-controls">
-  <label>Rows per table:
+  <label>${t('panel.data.seeder.rowsPerTable')}
     <input id="globalRowCount" type="number" min="1" max="10000"
       value="${configs[0]?.rowCount ?? 100}" />
   </label>
@@ -45,15 +46,15 @@ ${warning}
 ${tables}
 <div class="actions">
   <div class="output-mode">
-    <label>Output:</label>
-    <label><input type="radio" name="outputMode" value="sql" checked /> SQL</label>
-    <label><input type="radio" name="outputMode" value="json" /> JSON</label>
-    <label><input type="radio" name="outputMode" value="execute" /> Execute</label>
+    <label>${t('panel.data.seeder.output.label')}</label>
+    <label><input type="radio" name="outputMode" value="sql" checked /> ${t('panel.data.seeder.output.sql')}</label>
+    <label><input type="radio" name="outputMode" value="json" /> ${t('panel.data.seeder.output.json')}</label>
+    <label><input type="radio" name="outputMode" value="execute" /> ${t('panel.data.seeder.output.execute')}</label>
   </div>
   <div class="buttons">
-    <button class="btn" data-action="preview">Preview (5 rows)</button>
-    <button class="btn primary" data-action="generate">Generate</button>
-    <button class="btn" data-action="exportDataset">Export as Dataset</button>
+    <button class="btn" data-action="preview">${t('panel.data.seeder.btn.preview')}</button>
+    <button class="btn primary" data-action="generate">${t('panel.data.seeder.btn.generate')}</button>
+    <button class="btn" data-action="exportDataset">${t('panel.data.seeder.btn.exportDataset')}</button>
   </div>
 </div>
 ${preview ? renderPreview(preview) : ''}`;
@@ -62,9 +63,10 @@ ${preview ? renderPreview(preview) : ''}`;
 }
 
 function renderWarning(tables: string[]): string {
-  return `<div class="warning">Circular FK dependencies detected in:
-    ${tables.map((t) => `<strong>${esc(t)}</strong>`).join(', ')}.
-    FK columns in these tables will use NULL.</div>`;
+  // Table names are wrapped in <strong> at the call site and joined, then passed
+  // as {0} so the bold survives and the sentence stays one reorderable unit.
+  const names = tables.map((tbl) => `<strong>${esc(tbl)}</strong>`).join(', ');
+  return `<div class="warning">${t('panel.data.seeder.warning', names)}</div>`;
 }
 
 function renderTable(
@@ -79,10 +81,10 @@ function renderTable(
   <details class="table-group" ${index === 0 ? 'open' : ''}>
     <summary class="table-header">
       ${esc(config.table)}
-      <span class="badge">${config.columns.length} cols</span>
+      <span class="badge">${t('panel.data.seeder.cols', config.columns.length)}</span>
       <input class="row-count" type="number" min="1" max="10000"
         value="${config.rowCount}" data-table="${esc(config.table)}"
-        title="Rows for ${esc(config.table)}" />
+        title="${t('panel.data.seeder.rowsFor', esc(config.table))}" />
     </summary>
     <div class="column-list">${cols}</div>
     ${preview ? renderMiniTable(preview) : ''}
@@ -118,14 +120,14 @@ function renderOptions(current: GeneratorType): string {
 function renderPreview(results: ITableSeedResult[]): string {
   if (results.length === 0) return '';
   return `<div class="preview-section">
-    <h3>Preview</h3>
+    <h3>${t('panel.data.seeder.preview.title')}</h3>
     ${results.map(renderMiniTable).join('\n')}
   </div>`;
 }
 
 function renderMiniTable(result: ITableSeedResult): string {
   if (result.rows.length === 0) {
-    return `<div class="mini-empty">${esc(result.table)}: no rows</div>`;
+    return `<div class="mini-empty">${t('panel.data.seeder.preview.noRows', esc(result.table))}</div>`;
   }
   const cols = Object.keys(result.rows[0]);
   const header = cols.map((c) => `<th>${esc(c)}</th>`).join('');
