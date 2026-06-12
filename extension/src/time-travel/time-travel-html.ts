@@ -11,7 +11,7 @@
  * slider and asks the panel for each successive frame, so the heavy diff stays extension-side.
  */
 
-import { t } from '../l10n';
+import { t, getWebviewL10nMap } from '../l10n';
 
 /** Build the self-contained interactive HTML for the time-travel panel. */
 export function buildTimeTravelHtml(): string {
@@ -95,6 +95,20 @@ export function buildTimeTravelHtml(): string {
 
   <script>
     const vscode = acquireVsCodeApi();
+
+    // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active
+    // display language and injects them here, because client-side render functions
+    // have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
+    // fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
+    const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.replay.timeTravel.']))};
+    function vt(key) {
+      const args = arguments;
+      return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
+        const i = Number(d) + 1;
+        return i < args.length ? args[i] : m;
+      });
+    }
+
     const slider = document.getElementById('slider');
     const tablePicker = document.getElementById('tablePicker');
     const speed = document.getElementById('speed');
@@ -158,18 +172,15 @@ export function buildTimeTravelHtml(): string {
 
     function renderState(state) {
       const s = state.diffSummary || { added: 0, removed: 0, changed: 0 };
-      // TODO(l10n): client-script string ('Snapshot {n} of {m} — {time}')
-      // TODO(l10n): client-script string ('No snapshots captured yet')
       positionEl.textContent = state.totalSnapshots > 0
-        ? 'Snapshot ' + (state.snapshotIndex + 1) + ' of ' + state.totalSnapshots + ' — ' + fmtTime(state.timestamp)
-        : 'No snapshots captured yet';
+        ? vt('panel.replay.timeTravel.position.snapshot', state.snapshotIndex + 1, state.totalSnapshots, fmtTime(state.timestamp))
+        : vt('panel.replay.timeTravel.position.none');
       summaryEl.innerHTML = '<span class="added">+' + s.added + '</span> · '
         + '<span class="changed">~' + s.changed + '</span> · '
         + '<span class="removed">-' + s.removed + '</span>';
 
       if (!state.rows || state.rows.length === 0) {
-        // TODO(l10n): client-script string ('No rows for "{table}" at this snapshot.')
-        grid.innerHTML = '<p class="empty">No rows for "' + esc(state.table) + '" at this snapshot.</p>';
+        grid.innerHTML = '<p class="empty">' + vt('panel.replay.timeTravel.grid.empty', esc(state.table)) + '</p>';
         return;
       }
       const cols = state.columns;

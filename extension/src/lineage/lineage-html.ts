@@ -1,5 +1,5 @@
 import type { ILineageNode, ILineageResult } from './lineage-types';
-import { t } from '../l10n';
+import { t, getWebviewL10nMap } from '../l10n';
 
 /** Build the HTML for the data lineage webview panel. */
 export function buildLineageHtml(result: ILineageResult): string {
@@ -168,6 +168,20 @@ function clientScript(
   table: string, pkColumn: string, pkValue: unknown,
 ): string {
   return `const vscode = acquireVsCodeApi();
+
+    // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active
+    // display language and injects them here, because client-side render functions
+    // have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
+    // fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
+    const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.schema.lineage.']))};
+    function vt(key) {
+      const args = arguments;
+      return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
+        const i = Number(d) + 1;
+        return i < args.length ? args[i] : m;
+      });
+    }
+
     function post(cmd) { vscode.postMessage({ command: cmd }); }
     function navigate(tbl, col, val) {
       vscode.postMessage({ command: 'trace', table: tbl, pkColumn: col, pkValue: val,
@@ -186,8 +200,7 @@ function clientScript(
       var msg = e.data;
       var out = document.getElementById('sqlOutput');
       if (msg.command === 'loading') {
-        // TODO(l10n): client-script string
-        out.textContent = 'Tracing lineage\u2026';
+        out.textContent = vt('panel.schema.lineage.client.tracing');
         out.style.display = 'block';
       }
       if (msg.command === 'deleteSql') {
@@ -195,8 +208,7 @@ function clientScript(
         out.style.display = 'block';
       }
       if (msg.command === 'error') {
-        // TODO(l10n): client-script string
-        out.textContent = 'Error: ' + msg.message;
+        out.textContent = vt('panel.schema.lineage.client.error', msg.message);
         out.style.display = 'block';
       }
     });`;

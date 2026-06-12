@@ -73,6 +73,16 @@ export const stringsPanelReplay: Record<string, string> = {
   'panel.replay.timeTravel.next.title': 'Next snapshot',
   'panel.replay.timeTravel.position.empty': 'No snapshots',
 
+  // --- Time-travel: client-script strings (resolved in-browser via the __VT
+  //     bridge, since renderState() runs client-side). {0}/{1}/{2} tokens carry
+  //     the position index, total, formatted time and table name — never English
+  //     concatenation, so a translator can reorder the sentence. ---
+  // {0} = current snapshot (1-based), {1} = total snapshots, {2} = formatted time.
+  'panel.replay.timeTravel.position.snapshot': 'Snapshot {0} of {1} — {2}',
+  'panel.replay.timeTravel.position.none': 'No snapshots captured yet',
+  // {0} = table name (already HTML-escaped at the call site).
+  'panel.replay.timeTravel.grid.empty': 'No rows for "{0}" at this snapshot.',
+
   // --- Mutation stream ---
   'panel.replay.mutation.title': 'Mutation Stream',
   'panel.replay.mutation.loading': 'Loading schema…',
@@ -107,6 +117,24 @@ export const stringsPanelReplay: Record<string, string> = {
   // markup kept inline in the value so the sentence stays one reorderable unit.
   'panel.replay.watch.empty.hint':
     'Right-click a table in the Database explorer and select <b>Watch Table</b>',
+
+  // --- Watch panel: client-script strings (resolved in-browser via the __VT
+  //     bridge, since the panel's render functions run client-side). {0} tokens
+  //     carry counts / formatted times — never English concatenation. ---
+  'panel.replay.watch.rows': '{0} rows',
+  // Leading separator + label prepended to the card meta line: "5 rows · changed 3s ago".
+  'panel.replay.watch.changedSuffix': ' · changed {0}',
+  'panel.replay.watch.resume': 'Resume',
+  'panel.replay.watch.pause': 'Pause',
+  'panel.replay.watch.clear': 'Clear',
+  'panel.replay.watch.remove': 'Remove',
+  'panel.replay.watch.summary.added': '{0} added',
+  'panel.replay.watch.summary.removed': '{0} removed',
+  'panel.replay.watch.summary.changed': '{0} changed',
+  'panel.replay.watch.summary.unchanged': '{0} unchanged',
+  'panel.replay.watch.time.justNow': 'just now',
+  'panel.replay.watch.time.seconds': '{0}s ago',
+  'panel.replay.watch.time.minutes': '{0}m ago',
 
   // --- Sampling: header / form ---
   // {0} = table name (kept literal, passed as a token).

@@ -144,4 +144,11 @@ export const stringsPanelSchema: Record<string, string> = {
   'panel.schema.lineage.summary.total': 'Total: {0}',
   'panel.schema.lineage.btn.exportJson': 'Copy as JSON',
   'panel.schema.lineage.btn.generateDelete': 'Generate DELETE SQL',
+
+  // --- Data Lineage: client-script strings (resolved in-browser via the __VT
+  //     bridge, since the panel's render functions run client-side). {0} tokens
+  //     carry runtime values — never English concatenation. ---
+  'panel.schema.lineage.client.tracing': 'Tracing lineage…',
+  // {0} = the host-supplied error message text.
+  'panel.schema.lineage.client.error': 'Error: {0}',
 };

@@ -4,7 +4,7 @@
  * in a dedicated `*-html.ts` and the panel controller separate.
  */
 
-import { t } from '../l10n';
+import { t, getWebviewL10nMap } from '../l10n';
 
 /**
  * Builds minimal themed HTML for the bulk-edit dashboard (no external assets).
@@ -91,6 +91,18 @@ export function bulkEditHtml(): string {
   <script>
     (function() {
       var vscode = acquireVsCodeApi();
+      // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active
+      // display language and injects them here, because client-side render functions
+      // have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
+      // fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
+      const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.data.bulk.']))};
+      function vt(key) {
+        const args = arguments;
+        return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
+          const i = Number(d) + 1;
+          return i < args.length ? args[i] : m;
+        });
+      }
       var page = 0;
       var pageSize = 20;
       var rows = [];
@@ -136,16 +148,15 @@ export function bulkEditHtml(): string {
         if (page >= totalPages) page = totalPages - 1;
         var start = page * pageSize;
         var end = Math.min(rows.length, start + pageSize);
-        // TODO(l10n): client-script string
-        pageInfo.textContent = 'Page ' + (page + 1) + ' / ' + totalPages;
-        // TODO(l10n): client-script string
-        pageMeta.textContent = rows.length > 0 ? ('Showing ' + (start + 1) + '-' + end + ' of ' + rows.length + ' pending edits') : 'No pending edits.';
+        pageInfo.textContent = vt('panel.data.bulk.pager.pageInfo', page + 1, totalPages);
+        pageMeta.textContent = rows.length > 0
+          ? vt('panel.data.bulk.pageMeta.showing', start + 1, end, rows.length)
+          : vt('panel.data.bulk.grid.empty');
         document.getElementById('prevPage').disabled = page <= 0;
         document.getElementById('nextPage').disabled = page >= totalPages - 1;
         if (rows.length === 0) {
           selectedAbs = -1;
-          // TODO(l10n): client-script string
-          body.innerHTML = '<tr><td colspan="4">No pending edits.</td></tr>';
+          body.innerHTML = '<tr><td colspan="4">' + vt('panel.data.bulk.grid.empty') + '</td></tr>';
           return;
         }
         if (selectedAbs >= rows.length) selectedAbs = rows.length - 1;

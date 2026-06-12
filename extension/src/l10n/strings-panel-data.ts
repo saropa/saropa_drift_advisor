@@ -180,4 +180,12 @@ export const stringsPanelData: Record<string, string> = {
   // {0} = current page number, {1} = total page count, e.g. "Page 1 / 1".
   'panel.data.bulk.pager.pageInfo': 'Page {0} / {1}',
   'panel.data.bulk.pager.next': 'Next',
+
+  // --- Bulk-edit dashboard: client-script strings (resolved in-browser via the
+  //     __VT bridge, since the grid's render runs client-side). The pager
+  //     position reuses `panel.data.bulk.pager.pageInfo` and the empty-grid text
+  //     reuses `panel.data.bulk.grid.empty`; only the range meta line is new. ---
+  // {0} = 1-based first row shown, {1} = last row shown, {2} = total pending
+  //   edits, e.g. "Showing 1-20 of 53 pending edits".
+  'panel.data.bulk.pageMeta.showing': 'Showing {0}-{1} of {2} pending edits',
 };
