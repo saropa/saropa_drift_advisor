@@ -260,3 +260,75 @@ channel.
 4. **Cardinality / link-type metadata — omit for v1.** The four-field edge tuple
    is sufficient for EXISTS predicates and the advisory. Add one-to-many /
    many-to-many only when a concrete consumer needs it.
+
+---
+
+## Finish Report (2026-06-11)
+
+**Scope shipped: Phase 1 (Dart channel) + Phase 2 (metadata fold).** Phase 3
+(advisory / orphan-row integration with Features 77 + the
+`FEATURE_orphan_row_check_consume_declared_relationships` spec) is a separate
+active workstream and is NOT part of this change — this plan stays in the active
+tree until that lands.
+
+### What changed
+
+- **`DeclaredRelationship` type + manifest typedefs**
+  ([server_types.dart](../lib/src/server/server_types.dart)) — the directed-edge
+  record (`fromTable`/`fromColumn`/`toTable`/`toColumn`, optional `label`, and
+  `orphanCheckable` default-true), plus `DeclaredRelationships` and
+  `DeclaredRelationshipsCallback`. (The `orphanCheckable` field was added to the
+  type by the parallel orphan-row workstream; this change carries it through the
+  serialization channel so the manifest is exposed losslessly.)
+- **Context + start() wiring** — `ServerContext.declaredRelationships`
+  ([server_context.dart](../lib/src/server/server_context.dart)) and an optional
+  `declaredRelationships` parameter threaded through both `start()` forms
+  ([drift_debug_server_io.dart](../lib/src/drift_debug_server_io.dart)) and the
+  web stub ([drift_debug_server_stub.dart](../lib/src/drift_debug_server_stub.dart)).
+  All optional/defaulted — no existing caller breaks.
+- **Dedicated endpoint** `GET /api/schema/relationships`
+  ([schema_handler.dart](../lib/src/server/schema_handler.dart)
+  `sendDeclaredRelationships`, routed in
+  [router.dart](../lib/src/server/router.dart)) — serializes the manifest;
+  `available:false` + empty list when no callback; 500 when the callback throws.
+  `label` and `orphanCheckable:false` are emitted only when set (omit-default
+  convention; absence of `orphanCheckable` means true).
+- **Metadata fold** — `getSchemaMetadataList(includeForeignKeys: true)` now seeds
+  each table's `foreignKeys` from the manifest (authoritative) before merging
+  PRAGMA FKs, deduped by edge identity `(fromColumn, toTable, toColumn)`;
+  manifest wins on a duplicate edge (its label survives), per §10.2. A PRAGMA
+  failure no longer drops already-seeded manifest edges. The web wizard picks
+  these up with **no client change**: `schema-meta.ts` flattens per-table
+  `foreignKeys` into `meta.foreignKeys`, and `inferForeignKeys` seeds from and
+  dedupes against that, so manifest edges survive verbatim and inference only
+  fills genuine gaps (§5 confirmed by reading
+  [nl-to-sql.ts:702](../assets/web/nl-to-sql.ts)).
+- **Public exports** ([saropa_drift_advisor.dart](../lib/saropa_drift_advisor.dart))
+  — `DeclaredRelationship`, `DeclaredRelationships`,
+  `DeclaredRelationshipsCallback`.
+- **Constants** — `pathApiSchemaRelationships`(+Alt), `jsonKeyRelationships`,
+  `jsonKeyOrphanCheckable` ([server_constants.dart](../lib/src/server/server_constants.dart)).
+- **Tests** — new
+  [test/declared_relationships_test.dart](../test/declared_relationships_test.dart)
+  (serialize + label/orphanCheckable conditional emission, available:false,
+  500-on-throw); two metadata-fold cases added to
+  [test/schema_handler_test.dart](../test/schema_handler_test.dart) (manifest
+  surfaces as `foreignKeys` with no PRAGMA; merge + dedupe with manifest label
+  winning). `createTestContext` gained an optional `declaredRelationships`
+  param.
+- **Changelog** — Added entry under `[Unreleased]`.
+
+### Gate
+
+- `dart analyze` (full package): **No issues found.**
+- `dart test` (full suite): **All 608 tests passed**, including the parallel
+  workstream's `anomaly_detector_test.dart`.
+
+### Not done here (separate scope)
+
+- Phase 3 advisory / orphan-row consumption (Feature 77 +
+  `FEATURE_orphan_row_check_consume_declared_relationships`) — actively owned by
+  another workstream; its `anomaly_detector.dart` already reads
+  `ServerContext.declaredRelationships` directly (the Dart object, not this
+  endpoint's JSON).
+- No host-side manifest generation — the host supplies the callback (plan §7).
