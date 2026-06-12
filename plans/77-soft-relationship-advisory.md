@@ -1,12 +1,17 @@
 # Feature 77: Soft-Relationship Advisory
 
-**Status: foundation shipped; detector pending.** The detection engine this
-advisory surfaces is **already built and shipped** — `inferForeignKeys`
+**Status: IMPLEMENTED (Phases 1–2).** The Dart detector, the dedicated endpoint,
+and the `/api/issues` merge are built, tested, and shipped (see the
+Implementation note at the foot of this file). Phase 3 (ER-diagram dashed edges)
+remains out of scope for the first cut — **do not archive this plan until Phase 3
+lands or is explicitly dropped.**
+
+The detection engine this advisory surfaces was already built — `inferForeignKeys`
 ([nl-to-sql.ts:702](../assets/web/nl-to-sql.ts)) computes the soft edges and
-already feeds the NL wizard ([nl-to-sql.ts:836](../assets/web/nl-to-sql.ts)).
-What remains is surfacing those inferred-but-undeclared edges as a diagnostic
-**finding** (this doc) and reading the manifest ([78](./78-declared-relationships-manifest.md))
-to mark them resolved.
+feeds the NL wizard ([nl-to-sql.ts:836](../assets/web/nl-to-sql.ts)). Phases 1–2
+port those two rules to Dart, surface the inferred-but-undeclared edges as a
+diagnostic **finding**, and read the manifest
+([78](./78-declared-relationships-manifest.md)) to mark them resolved.
 
 Surfaces, as a report-only diagnostic finding, the case where tables are
 *related by column-naming convention* (a shared `*UUID` identity column, or a
@@ -229,9 +234,18 @@ always-on scan is what would be noisy.
 
 ## 9. Phasing & gates
 
-- **Phase 1 — Dart inference + detector.** Port the two rules; `SoftRelationshipDetector.getResult` returns the finding list. Gate: unit + cross-impl contract tests green; declared FKs and (stub) manifest correctly subtract.
-- **Phase 2 — endpoint + `/api/issues` merge.** Gate: route contract test green; merged issues carry `soft_relationship`; Health tab shows the count.
-- **Phase 3 (optional, later) — ER diagram dashed edges.** Out of scope for the first cut.
+- **Phase 1 — Dart inference + detector. ✅ DONE.** Ported the two rules into
+  [SoftRelationshipDetector](../lib/src/server/soft_relationship_detector.dart);
+  `getSoftRelationshipsResult` returns the finding list. Gate met: unit +
+  cross-impl contract tests green; declared FKs and the manifest subtract.
+- **Phase 2 — endpoint + `/api/issues` merge. ✅ DONE.** `GET
+  /api/issues/soft-relationships` and the merged `soft_relationship` source in
+  `GET /api/issues` are live. Gate met: handler-level merge + dedicated-result
+  tests green; merged issues carry `soft_relationship`.
+- **Phase 3 (optional, later) — ER diagram dashed edges. ⬜ NOT STARTED.** Out of
+  scope for the first cut. The finding shape already carries `from*`/`to*`/`rule`
+  to drive it. This is the only remaining work; the plan stays un-archived until
+  it lands or is dropped.
 
 Each phase ships independently. Phase 1 has no user-visible effect on its own,
 so it can land ahead of the endpoint safely.
@@ -257,3 +271,93 @@ so it can land ahead of the endpoint safely.
    call-to-action is "declare it via the manifest," so the manifest channel must
    exist for the finding to be resolvable. Build 78's channel, then 77's
    detector reads `manifestAvailable` and subtracts manifested edges.
+
+---
+
+## Finish Report (2026-06-12)
+
+### Scope
+
+Phases 1–2 of this plan: the Dart soft-relationship detector, its dedicated
+endpoint, and the `/api/issues` merge. Touches (A) Dart package code
+(`lib/src/server/`, `test/`) and (C) docs (this plan, CHANGELOG). Phase 3
+(ER-diagram dashed edges) is **not** implemented and remains the only open work;
+the plan stays active and un-archived until it lands or is dropped.
+
+### What was built
+
+A schema relationship that exists by column-naming convention — a shared
+`*UUID` identity column, or a `<noun>_id` reference — but carries no SQLite
+foreign key is invisible to every tool that reads `PRAGMA foreign_key_list`: the
+ER diagram, join-aware queries, the orphan check, and the NL wizard's
+relationship engine all miss it. `SoftRelationshipDetector`
+([lib/src/server/soft_relationship_detector.dart](../lib/src/server/soft_relationship_detector.dart))
+surfaces those undeclared links as report-only `info` findings.
+
+The detector is a deliberate Dart port of the two `inferForeignKeys` rules in
+[assets/web/nl-to-sql.ts](../assets/web/nl-to-sql.ts): rule 1 maps a
+`<noun>_id` / `<noun>Id` column to the table whose singular name is the noun;
+rule 2 maps a `*UUID` column carried by two or more tables to the owner table
+whose singular name is embedded in the column (longest match wins). Each
+inferred edge is tagged with the convention that produced it (`noun_id` is the
+stronger signal, `shared_uuid` the weaker) so a consumer can filter by
+confidence.
+
+`getSoftRelationshipsResult` reads `PRAGMA table_info` and
+`PRAGMA foreign_key_list` per table, runs the inference, then subtracts (a) every
+declared SQLite FK edge and (b) every edge in the host relationship manifest
+(Feature 78, `DeclaredRelationships`). What remains are the findings. A manifest
+that declares an inferred edge therefore RESOLVES the finding — the advisory's
+whole purpose is to push the developer toward declaring exactly these — rather
+than suppressing it. A null manifest (no host callback) yields
+`manifestAvailable: false` and reports every inferred edge; that is safe because
+the findings are `info` and the endpoint is opt-in. The detector never mutates
+anything and never scans or counts rows — it stops at the schema level, so an
+offline-first app's not-yet-synced child rows generate no noise.
+
+Findings carry no `suggestedSql`: the recommended remedy is the manifest, not a
+`CREATE` statement, because for an app that links by UUID and ships a prebuilt
+database, enforced SQLite foreign keys are the expensive path (global
+`PRAGMA foreign_keys`, dual schema sources) while the manifest is descriptive
+metadata with zero runtime DB risk.
+
+`AnalyticsHandler`
+([lib/src/server/analytics_handler.dart](../lib/src/server/analytics_handler.dart))
+gained `getSoftRelationshipsResult` and `handleSoftRelationships`, sourcing the
+manifest from `ServerContext.declaredRelationships`. The `soft_relationship`
+type is merged into `GET /api/issues` alongside the orphan-table and anomaly
+sources, and the `sources` filter accepts a new `soft-relationships` token.
+`GET /api/issues/soft-relationships` is registered in
+[router.dart](../lib/src/server/router.dart). New constants (`jsonKeyRule`, the
+result-envelope keys, and the route paths) live in
+[server_constants.dart](../lib/src/server/server_constants.dart).
+
+### Verification
+
+- `dart analyze` — clean, no issues found, across the full package.
+- `dart test` — full suite green (608 tests).
+- `dart test test/soft_relationship_detector_test.dart test/orphan_table_issues_test.dart`
+  — 15 tests green. The new suite covers declared-FK subtraction, manifest
+  resolution (both via the detector and via the context callback through
+  `/api/issues`), `info` severity, the opt-in `manifestAvailable` payload, the
+  merged-issues shape, and a cross-impl contract that feeds the detector the
+  exact `contactsApp` / `relational` column shapes the web `inferForeignKeys`
+  suite uses — so the two copies of the two rules cannot silently drift.
+
+### Test audit
+
+Existing tests referencing the changed symbols were `test/orphan_table_issues_test.dart`
+(shares `getIssuesList` and the `sources` filter whose record type gained a
+fourth field). It passes unchanged: the filter remains backward compatible
+(unrecognized/empty `sources` still includes every source, including the new
+one).
+
+### Outstanding
+
+Phase 3 — ER-diagram dashed edges for inferred-but-undeclared links — is not
+started. The finding shape already carries `fromTable` / `fromColumn` /
+`toTable` / `toColumn` / `rule` to drive it. No bug archive — this task closed no
+`bugs/*.md` file. Feature 78's own surfacing endpoints (the dedicated
+`/api/schema/relationships` route registration, the metadata `foreignKeys` fold,
+the web-side consumption) are tracked under
+[plan 78](./78-declared-relationships-manifest.md), not here.
