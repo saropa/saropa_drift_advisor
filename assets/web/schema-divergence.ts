@@ -13,6 +13,8 @@
  * findings it returns.
  */
 
+import { vt } from './l10n.ts';
+
 /** A single drift finding between the code and runtime schemas. */
 export interface DivergenceFinding {
   /** Table the finding belongs to. */
@@ -123,7 +125,7 @@ export function computeSchemaDivergence(
       findings.push({
         table: name,
         kind: 'missing-table',
-        detail: 'declared in code but not found in the live database',
+        detail: vt('viewer.schema.divergence.missingTable'),
       });
       continue;
     }
@@ -134,7 +136,7 @@ export function computeSchemaDivergence(
     findings.push({
       table: name,
       kind: 'extra-table',
-      detail: 'present in the live database but not declared in code',
+      detail: vt('viewer.schema.divergence.extraTable'),
     });
   }
 
@@ -160,7 +162,7 @@ function compareColumns(
         table,
         column: dc.name,
         kind: 'missing-column',
-        detail: 'declared in code but missing from the live table',
+        detail: vt('viewer.schema.divergence.missingColumn'),
       });
       continue;
     }
@@ -171,7 +173,7 @@ function compareColumns(
         table,
         column: dc.name,
         kind: 'type-mismatch',
-        detail: 'code ' + dAff + ' vs database ' + rAff,
+        detail: vt('viewer.schema.divergence.typeMismatch', dAff, rAff),
       });
     }
     // Runtime nullability is the inverse of PRAGMA's NOT NULL flag.
@@ -182,11 +184,11 @@ function compareColumns(
         table,
         column: dc.name,
         kind: 'nullable-mismatch',
-        detail:
-          'code ' +
-          (dNullable ? 'nullable' : 'not null') +
-          ' vs database ' +
-          (rNullable ? 'nullable' : 'not null'),
+        detail: vt(
+          'viewer.schema.divergence.nullableMismatch',
+          vt(dNullable ? 'viewer.schema.divergence.nullable' : 'viewer.schema.divergence.notNull'),
+          vt(rNullable ? 'viewer.schema.divergence.nullable' : 'viewer.schema.divergence.notNull'),
+        ),
       });
     }
     const dPk = dc.isPk === true;
@@ -196,11 +198,11 @@ function compareColumns(
         table,
         column: dc.name,
         kind: 'pk-mismatch',
-        detail:
-          'code ' +
-          (dPk ? 'primary key' : 'not a key') +
-          ' vs database ' +
-          (rPk ? 'primary key' : 'not a key'),
+        detail: vt(
+          'viewer.schema.divergence.pkMismatch',
+          vt(dPk ? 'viewer.schema.divergence.primaryKey' : 'viewer.schema.divergence.notAKey'),
+          vt(rPk ? 'viewer.schema.divergence.primaryKey' : 'viewer.schema.divergence.notAKey'),
+        ),
       });
     }
   }
@@ -212,7 +214,7 @@ function compareColumns(
         table,
         column: rc.name,
         kind: 'extra-column',
-        detail: 'present in the live table but not declared in code',
+        detail: vt('viewer.schema.divergence.extraColumn'),
       });
     }
   }

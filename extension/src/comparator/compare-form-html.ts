@@ -3,6 +3,8 @@
  * Collects table A, PK A, scope (same/different), table B, PK B in one view
  * instead of 4-5 sequential top-bar prompts.
  */
+import { t } from '../l10n';
+
 export function buildCompareFormHtml(
   tableNames: string[],
   preselectedTable?: string,
@@ -120,49 +122,49 @@ export function buildCompareFormHtml(
 </style>
 </head>
 <body>
-<h1>Compare Rows</h1>
+<h1>${t('panel.compare.form.title')}</h1>
 
 <div class="row-section">
-  <h2>Row A</h2>
+  <h2>${t('panel.compare.form.rowA')}</h2>
   <div class="field">
-    <div class="field-label">Table</div>
+    <div class="field-label">${t('panel.compare.form.field.table')}</div>
     <select id="tableA">${options}</select>
   </div>
   <div class="field">
-    <div class="field-label">Primary Key Value</div>
-    <input type="text" id="pkA" placeholder="Enter primary key value" />
-    <div class="error-text" id="pkA-error">Primary key is required</div>
+    <div class="field-label">${t('panel.compare.form.field.pk')}</div>
+    <input type="text" id="pkA" placeholder="${t('panel.compare.form.pk.placeholder')}" />
+    <div class="error-text" id="pkA-error">${t('panel.compare.form.pk.required')}</div>
   </div>
 </div>
 
-<div class="field-label" style="margin-bottom:8px">Compare with</div>
+<div class="field-label" style="margin-bottom:8px">${t('panel.compare.form.compareWith')}</div>
 <div class="scope-row">
   <label class="scope-option">
     <input type="radio" name="scope" value="same" checked />
-    <span class="scope-label">Same table</span>
+    <span class="scope-label">${t('panel.compare.form.scope.same')}</span>
   </label>
   <label class="scope-option">
     <input type="radio" name="scope" value="different" />
-    <span class="scope-label">Different table</span>
+    <span class="scope-label">${t('panel.compare.form.scope.different')}</span>
   </label>
 </div>
 
 <div class="row-section">
-  <h2>Row B</h2>
+  <h2>${t('panel.compare.form.rowB')}</h2>
   <div class="field" id="tableBField" style="display:none">
-    <div class="field-label">Table</div>
+    <div class="field-label">${t('panel.compare.form.field.table')}</div>
     <select id="tableB">${options}</select>
   </div>
   <div class="field">
-    <div class="field-label">Primary Key Value</div>
-    <input type="text" id="pkB" placeholder="Enter primary key value" />
-    <div class="error-text" id="pkB-error">Primary key is required</div>
+    <div class="field-label">${t('panel.compare.form.field.pk')}</div>
+    <input type="text" id="pkB" placeholder="${t('panel.compare.form.pk.placeholder')}" />
+    <div class="error-text" id="pkB-error">${t('panel.compare.form.pk.required')}</div>
   </div>
 </div>
 
 <div class="btn-row">
-  <button class="btn btn-primary" id="submit">Compare</button>
-  <button class="btn btn-secondary" id="cancel">Cancel</button>
+  <button class="btn btn-primary" id="submit">${t('panel.compare.form.btn.compare')}</button>
+  <button class="btn btn-secondary" id="cancel">${t('panel.compare.form.btn.cancel')}</button>
 </div>
 
 <script>

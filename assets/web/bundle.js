@@ -15,6 +15,19 @@
     "nl.modal.dictate": "Dictate",
     "nl.modal.copySql": "Copy SQL",
     "nl.modal.preview": "Preview results",
+    // --- Masthead connection-status pill (assets/web/masthead.ts) ---
+    // The decorative status dot (●) is prepended in code, NOT part of these values —
+    // it is a symbol that must never vary per locale. Status words and the full
+    // tooltip sentences ARE translatable; the em-dash/ellipsis stay inside the value
+    // because they belong to the sentence's punctuation.
+    "masthead.status.online": "Online",
+    "masthead.status.paused": "Paused",
+    "masthead.status.offline": "Offline",
+    "masthead.status.reconnecting": "Reconnecting\u2026",
+    "masthead.title.online": "Online \u2014 click to pause change detection.",
+    "masthead.title.paused": "Paused \u2014 click to resume live updates.",
+    "masthead.title.offline": "Offline \u2014 connection lost. Reconnect to resume live updates.",
+    "masthead.title.reconnecting": "Offline \u2014 reconnecting\u2026",
     // --- Generic status / feedback messages (assets/web/utils.ts consumers) ---
     // {0} is the concrete value (e.g. a SQL snippet, a count) — keep it a token,
     // never concatenated English, so word order can change per locale.
@@ -24,8 +37,953 @@
     "msg.rowsAffected": "{0} rows affected"
   };
 
+  // assets/web/l10n/strings-web-table.ts
+  var stringsWebTable = {
+    // --- Data grid (assets/web/table-view.ts: buildDataTableHtml) ---
+    "viewer.table.grid.empty": "No rows.",
+    // {0} = referenced table, {1} = referenced column.
+    "viewer.table.grid.fkHeaderTitle": "FK to {0}.{1}",
+    "viewer.table.grid.maskTip": "Sensitive column: values are redacted while PII masking is on. Use the mask control in the toolbar to show raw data.",
+    "viewer.table.grid.headerDragTitle": "Drag to reorder; right-click for menu",
+    "viewer.table.grid.actionsHeader": "Actions",
+    // {0} = raw (unformatted) cell value shown on hover over a formatted cell.
+    "viewer.table.grid.rawTitle": "Raw: {0}",
+    "viewer.table.grid.copyValueTitle": "Copy value",
+    "viewer.table.grid.expandValueTitle": "Open full value",
+    "viewer.table.grid.rowDeleteTitle": "Delete this row",
+    "viewer.table.grid.rowDeleteLabel": "Delete",
+    // Formatted boolean cell values (INTEGER columns with a boolean-style name).
+    "viewer.table.grid.boolTrue": "true",
+    "viewer.table.grid.boolFalse": "false",
+    // --- Copy toast (assets/web/table-view.ts: showCopyToast) ---
+    "viewer.table.toast.copied": "Copied!",
+    // --- Status bar (assets/web/table-view.ts: buildTableStatusBar) ---
+    // {0} = wrapped row-range markup, {1} = total row count.
+    "viewer.table.status.showing": "Showing {0} of {1} rows",
+    "viewer.table.status.pastEnd": "(past end of results)",
+    // Column count chip — singular vs plural. {0} = count.
+    "viewer.table.status.columnOne": "{0} column",
+    "viewer.table.status.columnMany": "{0} columns",
+    // --- Results heading label (assets/web/table-view.ts: buildResultsLabel) ---
+    // Rows: {0} = page count, {1} = total. "of" form when total differs from page.
+    "viewer.table.results.rowsOf": "{0} of {1} rows",
+    "viewer.table.results.rowOne": "{0} row",
+    "viewer.table.results.rowMany": "{0} rows",
+    // Columns: {0} = visible count, {1} = total.
+    "viewer.table.results.colsOf": "{0} of {1} columns",
+    "viewer.table.results.colOne": "{0} column",
+    "viewer.table.results.colMany": "{0} columns",
+    // {0} = the composed rows/columns label above.
+    "viewer.table.results.heading": "Results \u2014 {0}",
+    "viewer.table.results.regionLabel": "Results",
+    "viewer.table.results.loading": "Loading\u2026",
+    // "both" view data-section header. {0} = table name.
+    "viewer.table.results.dataHeader": "Table data: {0}",
+    // --- Table-definition panel (assets/web/table-view.ts: buildTableDefinitionHtml) ---
+    "viewer.table.def.regionLabel": "Table definition",
+    "viewer.table.def.headingLabel": "Table definition",
+    // Shown as the type-icon hover when a column declares no SQL type.
+    "viewer.table.def.typeUnspecified": "unspecified",
+    // Type cell body when the column declares no SQL type.
+    "viewer.table.def.typeEmpty": "(unspecified)",
+    "viewer.table.def.visTitle": "Show this column in the results table",
+    // {0} = column name.
+    "viewer.table.def.visLabel": "Show {0} in results",
+    "viewer.table.def.badgePk": "Primary key",
+    // {0} = referenced table, {1} = referenced column.
+    "viewer.table.def.badgeFk": "FK \u2192 {0}.{1}",
+    // NOT NULL is a SQL keyword shown as the column constraint flag.
+    "viewer.table.def.flagNotNull": "NOT NULL",
+    // Base column-table headers.
+    "viewer.table.def.colShow": "Show",
+    "viewer.table.def.colShowTitle": "Show column in the results table",
+    "viewer.table.def.colColumn": "Column",
+    "viewer.table.def.colType": "Type",
+    "viewer.table.def.colConstraints": "Constraints",
+    // --- Table-definition profiling meta columns (assets/web/table-view.ts) ---
+    "viewer.table.def.metaFill": "Fill",
+    "viewer.table.def.metaFillTitle": "Share of rows with a non-null value",
+    "viewer.table.def.metaNulls": "Nulls",
+    "viewer.table.def.metaNullsTitle": "Number of NULL values",
+    "viewer.table.def.metaDistinct": "Distinct",
+    "viewer.table.def.metaDistinctTitle": "Number of distinct values",
+    "viewer.table.def.metaUnique": "Unique",
+    "viewer.table.def.metaUniqueTitle": "Uniqueness; key flag when every value is unique",
+    "viewer.table.def.metaMin": "Min",
+    "viewer.table.def.metaMinTitle": "Smallest value",
+    "viewer.table.def.metaMax": "Max",
+    "viewer.table.def.metaMaxTitle": "Largest value",
+    "viewer.table.def.metaSize": "Size",
+    "viewer.table.def.metaSizeTitle": "Total stored bytes",
+    // Per-column meta cell hovers. {0}=non-null, {1}=total, {2}=null count.
+    "viewer.table.def.fillCellTitle": "{0} of {1} rows filled ({2} null)",
+    "viewer.table.def.uniqueKeyTitle": "Candidate key: every value is unique",
+    // {0} = distinct count, {1} = total rows.
+    "viewer.table.def.uniqueRatioTitle": "{0} distinct of {1} rows",
+    "viewer.table.def.sizeCellTitle": "Total bytes across all rows (SUM of LENGTH)",
+    // --- Table-definition export/meta tool buttons (assets/web/table-view.ts) ---
+    "viewer.table.def.toolMetaTitle": "Show column profiling stats (fill, nulls, distinct, min/max, size)",
+    "viewer.table.def.toolMetaLabel": "Toggle column profiling stats",
+    "viewer.table.def.toolJsonTitle": "Copy table definition as JSON",
+    "viewer.table.def.toolJsonLabel": "Copy table definition as JSON",
+    "viewer.table.def.toolFlutterTitle": "Copy table definition as Flutter (Drift) class",
+    "viewer.table.def.toolFlutterLabel": "Copy table definition as Flutter code",
+    // --- Table-definition export tool toasts/errors (assets/web/table-def-meta.ts) ---
+    "viewer.table.def.copiedJson": "Definition copied as JSON",
+    "viewer.table.def.copiedFlutter": "Definition copied as Flutter",
+    // {0} = error message.
+    "viewer.table.def.statsFailed": "Stats failed: {0}",
+    // Fallback when the failed stats query returns no error detail.
+    "viewer.table.def.statsQueryFailed": "Stats query failed",
+    // Generic fallback substituted for {0} in statsFailed when no message exists.
+    "viewer.table.def.errorGeneric": "error",
+    // --- Sidebar table list / loading (assets/web/table-list.ts) ---
+    // rowCountText: {0} = table name, {1} = page-size limit.
+    "viewer.table.list.upToRows": "{0} (up to {1} rows)",
+    "viewer.table.list.noRowsInRange": "no rows in this range",
+    // {0} = first row index, {1} = last row index.
+    "viewer.table.list.showingRange": "showing {0}\u2013{1}",
+    // {0}=table name, {1}=total, {2}=range text (one of the two above).
+    "viewer.table.list.countRowOne": "{0} ({1} row; {2})",
+    "viewer.table.list.countRowMany": "{0} ({1} rows; {2})",
+    "viewer.table.list.pinTitle": "Pin to top",
+    "viewer.table.list.unpinTitle": "Unpin",
+    // {0} = table name.
+    "viewer.table.list.loadingNamed": "Loading {0}\u2026",
+    "viewer.table.list.loading": "Loading\u2026",
+    "viewer.table.list.loadError": "Error",
+    "viewer.table.list.browseEmpty": "No tables found.",
+    // {0} = table name.
+    "viewer.table.list.browseOpenTitle": "Open {0} in a tab",
+    // --- Cell-value popup (assets/web/cell-edit.ts: showCellValuePopup) ---
+    "viewer.table.popup.title": "Cell value",
+    // {0} = column name.
+    "viewer.table.popup.titleNamed": "Cell value: {0}",
+    // --- Inline cell edit alerts (assets/web/cell-edit.ts) ---
+    "viewer.table.edit.busy": "Finish or cancel the current edit before editing another cell.",
+    "viewer.table.edit.noPk": "This table has no primary key column; inline edit is disabled.",
+    "viewer.table.edit.pkLocked": "Primary key columns cannot be edited inline.",
+    "viewer.table.edit.blobLocked": "BLOB columns cannot be edited inline.",
+    // {0} = error message.
+    "viewer.table.edit.schemaFailed": "Could not load schema: {0}",
+    // --- Inline cell edit validation messages (assets/web/cell-edit.ts) ---
+    "viewer.table.edit.notNull": "This column is NOT NULL \u2014 a value is required.",
+    "viewer.table.edit.expectBool": "Expected 0 or 1 (or true/false).",
+    "viewer.table.edit.expectInt": "Expected an integer (e.g. 42, -7).",
+    "viewer.table.edit.expectNumber": "Expected a number (e.g. 3.14, -0.5).",
+    // --- Inline cell edit context / controls (assets/web/cell-edit.ts) ---
+    // SQL type shown in the edit context bar when the column declares no type.
+    "viewer.table.edit.typeUnspecified": "unspecified",
+    // Nullability label in the edit context bar (paired with flagNotNull style).
+    "viewer.table.edit.nullable": "nullable",
+    "viewer.table.edit.constraintNotNull": "NOT NULL",
+    // {0}=PK name, {1}=PK value, {2}=column name, {3}=type, {4}=nullability label.
+    "viewer.table.edit.context": "{0}={1} \u2022 {2} ({3}, {4})",
+    // {0} = original value (or the NULL label).
+    "viewer.table.edit.was": "was: {0}",
+    // Standalone NULL marker shown for the original value when it is null.
+    "viewer.table.edit.nullValue": "NULL",
+    // {0} = column name.
+    "viewer.table.edit.inputLabel": "Edit {0}",
+    "viewer.table.edit.save": "Save",
+    "viewer.table.edit.cancel": "Cancel",
+    "viewer.table.edit.retry": "Retry save",
+    "viewer.table.edit.reload": "Reload table",
+    // {0} = server/network error message.
+    "viewer.table.edit.saveFailed": "Save failed: {0}",
+    "viewer.table.edit.requestFailed": "Request failed"
+  };
+
+  // assets/web/l10n/strings-web-query-builder.ts
+  var stringsWebQueryBuilder = {
+    // --- Builder shell + mode/scope toggles (query-builder.ts) ---
+    "viewer.qb.header": "Query builder",
+    "viewer.qb.mode.visual.title": "Visual query builder",
+    "viewer.qb.mode.visual.label": "Visual",
+    "viewer.qb.mode.raw.title": "Edit SQL directly",
+    "viewer.qb.mode.raw.label": "Raw SQL",
+    "viewer.qb.scope.toggle.title": "Single-table keeps the classic form; multi-table adds JOINs, GROUP BY, and multi ORDER BY",
+    "viewer.qb.scope.single.label": "Single table",
+    "viewer.qb.scope.multi.label": "Multi-table",
+    // --- Single-table form labels + controls (query-builder.ts) ---
+    // SELECT/WHERE/ORDER BY/LIMIT label the form rows; kept as user-facing words
+    // so a locale may translate the form even though the same tokens are SQL.
+    "viewer.qb.label.select": "SELECT",
+    "viewer.qb.label.where": "WHERE",
+    "viewer.qb.label.orderBy": "ORDER BY",
+    "viewer.qb.label.limit": "LIMIT",
+    "viewer.qb.order.none": "None",
+    "viewer.qb.where.add.title": "Add another WHERE condition",
+    "viewer.qb.where.add.label": "+ Add condition",
+    "viewer.qb.where.connector.title": "Combine with previous condition",
+    "viewer.qb.where.value.placeholder": "value",
+    "viewer.qb.where.remove.title": "Remove condition",
+    // --- WHERE operator labels (query-builder.ts getWhereOps) ---
+    // The operator VALUES (LIKE, =, IS NULL, …) are SQL and stay literal; only
+    // these readable labels are translatable. Symbol labels (=, !=, >, <) are not
+    // here because they are pure symbols, not prose.
+    "viewer.qb.op.contains": "contains",
+    "viewer.qb.op.equals": "equals",
+    "viewer.qb.op.notContains": "not contains",
+    "viewer.qb.op.startsWith": "starts with",
+    "viewer.qb.op.isNull": "is null",
+    "viewer.qb.op.isNotNull": "is not null",
+    // --- Multi-table panel intro + raw-import (query-builder.ts) ---
+    "viewer.qb.multi.intro": "Build JOINs from the root table. Preview shows validation errors until the graph is valid.",
+    "viewer.qb.raw.import.title": "Parse the SQL above into the multi-table visual builder",
+    "viewer.qb.raw.import.label": "Import to visual builder",
+    // --- Shared run/reset actions (query-builder.ts) ---
+    "viewer.qb.run.title": "Execute the built query",
+    "viewer.qb.run.label": "Run query",
+    "viewer.qb.run.busy": "Running\u2026",
+    "viewer.qb.reset.title": "Return to table view",
+    "viewer.qb.reset.label": "Reset to table view",
+    // --- Results header + status (query-builder.ts) ---
+    // {0} is a pluralized row count; {0} in results.heading is the pre-built
+    // results label (markup/count assembled at the call site).
+    "viewer.qb.result.rowCount": "Query builder result: {0} row(s)",
+    "viewer.qb.results.heading": "Results \u2014 {0}",
+    "viewer.qb.results.ariaLabel": "Results",
+    // --- Alerts / errors (query-builder.ts) ---
+    "viewer.qb.alert.fixValidation": "Fix validation errors shown in the preview, or switch to Raw SQL.",
+    // {0} is the server-returned error text (or the unknown fallback below).
+    "viewer.qb.alert.queryError": "Query error: {0}",
+    "viewer.qb.alert.unknownError": "Unknown error",
+    // {0} is the thrown error message.
+    "viewer.qb.alert.error": "Error: {0}",
+    "viewer.qb.alert.pasteSelect": "Paste a SELECT statement to import.",
+    // {0} is the newline-joined importer error list.
+    "viewer.qb.alert.importFailed": "Could not import SQL:\n{0}",
+    // {0} is the thrown error message from schema loading.
+    "viewer.qb.alert.schemaLoadFailed": "Schema load failed: {0}",
+    // --- Multi-table section headings (query-builder-multi.ts) ---
+    "viewer.qb.section.tables": "Tables",
+    "viewer.qb.section.joins": "JOINs",
+    "viewer.qb.section.selectColumns": "SELECT columns",
+    "viewer.qb.section.where": "WHERE",
+    "viewer.qb.section.groupBy": "GROUP BY",
+    "viewer.qb.section.orderBy": "ORDER BY",
+    // --- Multi-table tables/joins controls (query-builder-multi.ts) ---
+    "viewer.qb.multi.table.remove.title": "Remove this table instance",
+    "viewer.qb.multi.table.remove.label": "Remove",
+    "viewer.qb.multi.joins.empty": "No JOINs yet. Add one before selecting columns from a second table.",
+    "viewer.qb.multi.join.left.label": "Left",
+    "viewer.qb.multi.join.rightTable.label": "Right table",
+    "viewer.qb.multi.join.add.label": "Add JOIN",
+    "viewer.qb.multi.join.rightBase.pick": "\u2014 pick \u2014",
+    "viewer.qb.multi.join.rightBase.loadSchema": "(load schema)",
+    // <em>/<code> markup is applied at the call site around the {0}/{1} tokens so
+    // the emphasized "right" and the tN code span can be reordered per locale.
+    "viewer.qb.multi.join.help": "Connects the {0} base table as a new instance ({1}) or joins two existing instances when the right table already exists and you pick matching columns.",
+    // Emphasized word and code token wrapped at the call site.
+    "viewer.qb.multi.join.help.right": "right",
+    "viewer.qb.multi.join.help.tn": "tN",
+    // --- Multi-table SELECT columns (query-builder-multi.ts) ---
+    "viewer.qb.multi.sel.empty": "No columns selected.",
+    "viewer.qb.multi.sel.add.label": "+ Add column",
+    "viewer.qb.multi.sel.agg.none": "(none)",
+    "viewer.qb.multi.sel.agg.title": "Aggregate (required when GROUP BY is non-empty)",
+    "viewer.qb.multi.sel.remove.title": "Remove column",
+    // --- Multi-table WHERE filters (query-builder-multi.ts) ---
+    "viewer.qb.multi.flt.empty": "No filters.",
+    "viewer.qb.multi.flt.add.label": "+ Add condition",
+    "viewer.qb.multi.flt.value.placeholder": "value or comma-separated (IN)",
+    // --- Multi-table GROUP BY / ORDER BY (query-builder-multi.ts) ---
+    // Shared "None" empty state for both GROUP BY and ORDER BY sections.
+    "viewer.qb.multi.empty.none": "None",
+    "viewer.qb.multi.gb.add.label": "+ Add GROUP BY",
+    "viewer.qb.multi.ob.add.label": "+ Add ORDER BY",
+    // --- Multi-table alerts (query-builder-multi.ts) ---
+    "viewer.qb.multi.alert.pickJoin": "Pick left column, right table, and right column for the JOIN."
+  };
+
+  // assets/web/l10n/strings-web-schema.ts
+  var stringsWebSchema = {
+    // --- Schema view (assets/web/schema.ts) ---
+    "viewer.schema.load.failed": "Failed to load.",
+    "viewer.schema.loading": "Loading schema\u2026",
+    "viewer.schema.loadingShort": "Loading\u2026",
+    "viewer.schema.error": "Error",
+    "viewer.schema.heading": "Schema",
+    "viewer.schema.tableData.heading": "Table data",
+    // {0} is the selected table name.
+    "viewer.schema.tableData.headingNamed": "Table data: {0}",
+    "viewer.schema.selectTablePrompt": "Select a table above to load data.",
+    // --- Schema metadata loader (assets/web/schema-meta.ts) ---
+    // {0} is the HTTP status code from the failed metadata request.
+    "viewer.schema.meta.loadFailed": "Failed to load schema metadata (HTTP {0})",
+    // --- Divergence findings (assets/web/schema-divergence.ts detail strings,
+    //     rendered by declared-schema.ts) ---
+    "viewer.schema.divergence.missingTable": "declared in code but not found in the live database",
+    "viewer.schema.divergence.extraTable": "present in the live database but not declared in code",
+    "viewer.schema.divergence.missingColumn": "declared in code but missing from the live table",
+    "viewer.schema.divergence.extraColumn": "present in the live table but not declared in code",
+    // {0} is the code-side type affinity, {1} the database-side affinity.
+    "viewer.schema.divergence.typeMismatch": "code {0} vs database {1}",
+    // {0}/{1} are nullability words from the nullable/notNull keys below.
+    "viewer.schema.divergence.nullableMismatch": "code {0} vs database {1}",
+    "viewer.schema.divergence.nullable": "nullable",
+    "viewer.schema.divergence.notNull": "not null",
+    // {0}/{1} are primary-key words from the primaryKey/notAKey keys below.
+    "viewer.schema.divergence.pkMismatch": "code {0} vs database {1}",
+    "viewer.schema.divergence.primaryKey": "primary key",
+    "viewer.schema.divergence.notAKey": "not a key",
+    // --- Code-vs-database view (assets/web/declared-schema.ts) ---
+    // Divergence-kind tags shown on each finding.
+    "viewer.schema.divergence.label.missingTable": "Missing table",
+    "viewer.schema.divergence.label.extraTable": "Extra table",
+    "viewer.schema.divergence.label.missingColumn": "Missing column",
+    "viewer.schema.divergence.label.extraColumn": "Extra column",
+    "viewer.schema.divergence.label.typeMismatch": "Type",
+    "viewer.schema.divergence.label.nullableMismatch": "Nullability",
+    "viewer.schema.divergence.label.pkMismatch": "Primary key",
+    "viewer.schema.declared.runtimeUnavailable": "Live database schema is unavailable (change detection may be off), so code-vs-database divergence was not computed.",
+    "viewer.schema.declared.match": "\u2713 Code and database schemas match \u2014 no divergence found.",
+    // {0} is the divergence count.
+    "viewer.schema.declared.divergenceCount": "{0} divergence(s) between code and the live database:",
+    "viewer.schema.declared.noCodeSchema": "No code-declared schema available. Start the viewer with a Drift database (the <code>startDriftViewer</code> extension supplies this automatically) or pass a <code>declaredSchema</code> callback to <code>DriftDebugServer.start</code>.",
+    "viewer.schema.declared.empty": "The code-declared schema is empty.",
+    // {0} is the declared-table count.
+    "viewer.schema.declared.tableCount": "{0} declared table(s):",
+    // {0} is the column count for a declared table.
+    "viewer.schema.declared.columnCount": "({0} columns)",
+    "viewer.schema.declared.col.column": "Column",
+    "viewer.schema.declared.col.type": "Type",
+    "viewer.schema.declared.col.null": "Null",
+    "viewer.schema.declared.col.pk": "PK",
+    "viewer.schema.declared.null.yes": "yes",
+    "viewer.schema.declared.null.no": "no",
+    "viewer.schema.declared.pk.flag": "PK",
+    // {0} is a comma-joined list of index names.
+    "viewer.schema.declared.indexes": "Indexes: {0}",
+    "viewer.schema.declared.codeVsDatabase": "Code vs database",
+    "viewer.schema.declared.load": "Load code schema",
+    "viewer.schema.declared.loading": "Loading\u2026",
+    // {0} is the error message text.
+    "viewer.schema.declared.error": "Error: {0}",
+    "viewer.schema.declared.requestFailed": "Request failed",
+    // --- Search filter meta (assets/web/search.ts) ---
+    // {0} filtered row count, {1} total row count.
+    "viewer.schema.search.filteredOf": " (filtered: {0} of {1})",
+    // {0} is the count of rows matching the filter.
+    "viewer.schema.search.showingAll": " (showing all rows; filter: {0} match)",
+    "viewer.schema.search.noMatches": "No matches",
+    // {0} current match (1-based), {1} total matches.
+    "viewer.schema.search.matchCounter": "{0} of {1}",
+    // --- Search tab (assets/web/search-tab.ts) ---
+    "viewer.schema.searchTab.optionSelect": "-- select --",
+    "viewer.schema.searchTab.selectPrompt": "Select a table and type a search term.",
+    "viewer.schema.searchTab.selectTableAbove": "Select a table above.",
+    // {0} is the table name being loaded.
+    "viewer.schema.searchTab.loadingTable": "Loading {0}\u2026",
+    "viewer.schema.searchTab.loadingSchemaError": "Error loading schema",
+    // {0} table name, {1} total row count, {2} row/rows word (rowsSingular/rowsPlural), {3} range text.
+    "viewer.schema.searchTab.metaCount": "{0} ({1} {2}; {3})",
+    // {0} table name, {1} row limit when total is unknown.
+    "viewer.schema.searchTab.metaUpTo": "{0} (up to {1} rows)",
+    "viewer.schema.searchTab.rowsSingular": "row",
+    "viewer.schema.searchTab.rowsPlural": "rows",
+    // {0} first row number, {1} last row number.
+    "viewer.schema.searchTab.rangeShowing": "showing {0}\u2013{1}",
+    "viewer.schema.searchTab.rangeNone": "no rows in this range"
+  };
+
+  // assets/web/l10n/strings-web-sql.ts
+  var stringsWebSql = {
+    // --- Run SQL panel: template lock toggle (sql-runner.ts) ---
+    "viewer.sql.template.lock.locked": "Lock: auto-apply template when table or fields change",
+    "viewer.sql.template.lock.unlocked": "Unlocked: table/field changes won\u2019t auto-apply template",
+    // --- Run SQL panel: column dropdown placeholders (sql-runner.ts) ---
+    // The em-dash option is the "no field selected" placeholder; "Loading…" shows
+    // while columns are fetched for the chosen table.
+    "viewer.sql.fields.loading": "Loading\u2026",
+    // --- Run SQL panel: result table + pagination (sql-runner.ts) ---
+    "viewer.sql.result.prev": "Prev",
+    "viewer.sql.result.next": "Next",
+    // {0} is the row count; "row(s)" stays inside the value so plural handling is
+    // the translator's, not English concatenation's.
+    "viewer.sql.result.rowCount": "{0} row(s)",
+    // --- Run SQL panel: run button + errors (sql-runner.ts) ---
+    "viewer.sql.run.busy": "Running\u2026",
+    "viewer.sql.run.emptyQuery": "Enter a SELECT query.",
+    "viewer.sql.run.requestFailed": "Request failed",
+    // --- Run SQL panel: auto-explain (sql-runner.ts) ---
+    "viewer.sql.explain.analyzing": "Analyzing query\u2026",
+    "viewer.sql.explain.failed": "Explain failed",
+    "viewer.sql.explain.estimatedCost": "Estimated cost:",
+    // Cost rating words shown next to the estimate.
+    "viewer.sql.explain.cost.low": "Low",
+    "viewer.sql.explain.cost.medium": "Medium",
+    "viewer.sql.explain.cost.high": "High",
+    // Cost-summary parts; {0} is the count. Singular / plural are separate keys.
+    "viewer.sql.explain.part.scan.one": "{0} full scan",
+    "viewer.sql.explain.part.scan.many": "{0} full scans",
+    "viewer.sql.explain.part.lookup.one": "{0} index lookup",
+    "viewer.sql.explain.part.lookup.many": "{0} index lookups",
+    "viewer.sql.explain.part.subquery.one": "{0} subquery",
+    "viewer.sql.explain.part.subquery.many": "{0} subqueries",
+    "viewer.sql.explain.part.sort": "sort",
+    "viewer.sql.explain.part.tempStorage": "temp storage",
+    // Index-report badges per table.
+    "viewer.sql.explain.badge.fullScan": "full scan",
+    "viewer.sql.explain.badge.noIndexes": "no indexes",
+    "viewer.sql.explain.badge.used": "used",
+    "viewer.sql.explain.badge.available": "available",
+    // Collapsible plan-detail summary; {0} is the step count (singular / plural).
+    "viewer.sql.explain.steps.one": "Query plan detail ({0} step)",
+    "viewer.sql.explain.steps.many": "Query plan detail ({0} steps)",
+    // --- SQL history + bookmarks dropdowns (sql-history.ts) ---
+    "viewer.sql.history.recent": "\u2014 Recent \u2014",
+    // {0} is the number of saved queries.
+    "viewer.sql.bookmarks.saved": "\u2014 Saved queries ({0}) \u2014",
+    // Prompt shown when naming a query to bookmark.
+    "viewer.sql.bookmarks.namePrompt": "Name for this query:",
+    // {0} is the saved-query name being deleted.
+    "viewer.sql.bookmarks.deleteConfirm": "Delete saved query \u201C{0}\u201D?",
+    "viewer.sql.bookmarks.exportEmpty": "No saved queries to export.",
+    "viewer.sql.bookmarks.importExpectedArray": "Expected JSON array",
+    // {0} = newly imported count, {1} = skipped duplicate count.
+    "viewer.sql.bookmarks.importResult": "Imported {0} new saved query(s). {1} duplicate(s) skipped.",
+    // {0} is the underlying error message.
+    "viewer.sql.bookmarks.importInvalid": "Invalid file: {0}",
+    // --- Ask panel: refinement chip tooltips (nl-modal.ts) ---
+    // {0} is the chip's NL phrase. The phrase stays English: it is appended to the
+    // question and re-parsed by the English-only converter (a functional token,
+    // like a SQL keyword), so only the action verb here is localized.
+    "viewer.sql.nl.chip.add": "Add: {0}",
+    "viewer.sql.nl.chip.remove": "Remove: {0}",
+    // --- Ask panel: refine-in-English hint (nl-modal.ts) ---
+    // {0} is the combined refined question text.
+    "viewer.sql.nl.refineHint": "Refining last query: {0}",
+    // --- Ask panel: dictation errors (nl-modal.ts) ---
+    "viewer.sql.nl.mic.blocked": "Microphone access was blocked. Allow it in your browser to dictate.",
+    "viewer.sql.nl.mic.noSpeech": "No speech detected. Tap the mic and try again.",
+    // {0} is the speech-recognition error code.
+    "viewer.sql.nl.mic.error": "Speech recognition error: {0}",
+    // --- Ask panel: clarifier hint (nl-modal.ts) ---
+    // {0} is the guessed table name.
+    "viewer.sql.nl.clarify.guessed": "Guessed \u201C{0}\u201D \u2014 pick a table if that\u2019s wrong",
+    // --- Ask panel: status / error messages (nl-modal.ts) ---
+    "viewer.sql.nl.convertFailed": "Could not convert to SQL.",
+    "viewer.sql.nl.noQuestion": "I heard you, but I didn\u2019t catch a question \u2014 try \u201Chow many contacts were added last week?\u201D",
+    "viewer.sql.nl.enterQuestion": "Enter a question first.",
+    // {0} is the underlying error message.
+    "viewer.sql.nl.error": "Error: {0}",
+    "viewer.sql.nl.copyEmpty": "Nothing to copy yet \u2014 enter a question first.",
+    "viewer.sql.nl.copyFailed": "Could not copy to the clipboard.",
+    "viewer.sql.nl.previewNeedsSql": "Enter a question to generate SQL first.",
+    "viewer.sql.nl.previewFailed": "Preview failed.",
+    // {0} is the underlying error message.
+    "viewer.sql.nl.previewError": "Preview error: {0}",
+    "viewer.sql.nl.preview.busy": "Running\u2026",
+    // --- Ask panel: preview-result rows (nl-modal.ts) ---
+    "viewer.sql.nl.results.empty": "Query ran \u2014 0 rows.",
+    // {0} is the number of rows shown.
+    "viewer.sql.nl.results.firstRows": "First {0} row(s)",
+    // --- NL narration: generic fallback nouns (nl-to-sql.ts) ---
+    // Substituted into the narration sentences when the table / aggregate column
+    // name is unknown, so the sentence stays grammatical instead of blank.
+    "viewer.sql.narrate.fallback.rows": "rows",
+    "viewer.sql.narrate.fallback.value": "value",
+    // --- NL narration: spoken-style answers (nl-to-sql.ts) ---
+    // Verb-keyed count sentences: {0} = number, {1} = table, {2} = temporal
+    // qualifier (verbatim user phrase, may be empty). Three verbs → three keys so
+    // each reads naturally and is independently translatable.
+    "viewer.sql.narrate.count.has": "Your database has {0} {1}{2}.",
+    "viewer.sql.narrate.count.added": "Your database added {0} {1}{2}.",
+    "viewer.sql.narrate.count.changed": "Your database changed {0} {1}{2}.",
+    // Aggregate sentences: {0} = column, {1} = table, {2} = qualifier, {3} = value.
+    "viewer.sql.narrate.sum": "The total {0} across {1}{2} is {3}.",
+    "viewer.sql.narrate.avg": "The average {0} for {1}{2} is {3}.",
+    "viewer.sql.narrate.max": "The highest {0} for {1}{2} is {3}.",
+    "viewer.sql.narrate.min": "The lowest {0} for {1}{2} is {3}.",
+    // Distinct / duplicate: {0} = count, {1} = column. Singular / plural separate.
+    "viewer.sql.narrate.distinct.one": "Found {0} distinct {1} value.",
+    "viewer.sql.narrate.distinct.many": "Found {0} distinct {1} values.",
+    "viewer.sql.narrate.duplicate.one": "Found {0} {1} value that repeat.",
+    "viewer.sql.narrate.duplicate.many": "Found {0} {1} values that repeat.",
+    // Group: {0} = count, {1} = table, {2} = qualifier. Singular / plural separate.
+    "viewer.sql.narrate.group.one": "{0} group of {1}{2}.",
+    "viewer.sql.narrate.group.many": "{0} groups of {1}{2}.",
+    // Rows / latest / oldest fallback: {0} = count, {1} = table, {2} = qualifier.
+    "viewer.sql.narrate.found": "Found {0} {1}{2}.",
+    // --- NL converter errors (nl-to-sql.ts) ---
+    "viewer.sql.nl.noTables": "No tables in the schema to query."
+  };
+
+  // assets/web/l10n/strings-web-tools.ts
+  var stringsWebTools = {
+    // --- Import (assets/web/tools-import.ts) ---
+    // {0} = error count; singular/plural split because word order and the
+    // (N error(s)) wrapper differ per locale.
+    "viewer.tools.import.history.errors.one": "({0} error)",
+    "viewer.tools.import.history.errors.many": "({0} errors)",
+    // {0} = imported row count.
+    "viewer.tools.import.history.rows": "{0} row(s)",
+    "viewer.tools.import.mapping.loading": "Loading columns\u2026",
+    "viewer.tools.import.mapping.skip": "(skip)",
+    "viewer.tools.import.mapping.loadFailed": "Failed to load table columns.",
+    "viewer.tools.import.clipboard.unavailable": "Clipboard API not available (requires HTTPS or localhost).",
+    "viewer.tools.import.clipboard.empty": "Clipboard is empty.",
+    // {0} = underlying error message.
+    "viewer.tools.import.clipboard.readFailed": "Failed to read clipboard: {0}",
+    "viewer.tools.import.clipboard.permissionDenied": "Permission denied",
+    // {0} = target table name (escaped at call site).
+    "viewer.tools.import.confirm": 'Import data into table "{0}"? This cannot be undone.',
+    "viewer.tools.import.busy": "Importing\u2026",
+    "viewer.tools.import.button": "Import",
+    // {0} = error detail.
+    "viewer.tools.import.error": "Error: {0}",
+    "viewer.tools.import.requestFailed": "Request failed",
+    "viewer.tools.import.failed": "Import failed",
+    // {0} = imported row count.
+    "viewer.tools.import.result": "Imported {0} row(s).",
+    // {0} = error count, {1} = first errors joined with "; ".
+    "viewer.tools.import.resultErrors": "{0} error(s): {1}",
+    // --- Index suggestions (assets/web/tools-analytics.ts) ---
+    "viewer.tools.index.empty": "No current result. Run Analyze first.",
+    "viewer.tools.index.none": "No index suggestions \u2014 schema looks good!",
+    // {0} = suggestion count, {1} = tables analyzed count.
+    "viewer.tools.index.summary": "{0} suggestion(s) across {1} tables:",
+    "viewer.tools.index.selectAll": "Select all suggestions",
+    "viewer.tools.index.col.priority": "Priority",
+    "viewer.tools.index.col.tableColumn": "Table.Column",
+    "viewer.tools.index.col.reason": "Reason",
+    "viewer.tools.index.col.sql": "SQL",
+    "viewer.tools.index.copyHint": "Click to copy",
+    // {0} = count of currently-selected suggestion rows.
+    "viewer.tools.index.selected": "{0} selected",
+    "viewer.tools.index.previewSql": "Preview SQL",
+    "viewer.tools.index.applySelected": "Apply selected",
+    "viewer.tools.index.applyDisabledHint": "Start the server with writeQuery configured to enable applying indexes.",
+    "viewer.tools.index.applyDisabled": "Apply disabled \u2014 server is read-only",
+    // {0} = valid count, {1} = rejected count.
+    "viewer.tools.index.preview.summary": "{0} valid, {1} rejected:",
+    // {0} = SQL (escaped), {1} = rejection reason.
+    "viewer.tools.index.preview.rejected": "Rejected: {0} \u2014 {1}",
+    // {0} = applied count, {1} = total attempted.
+    "viewer.tools.index.apply.summary": "{0} of {1} index(es) created:",
+    "viewer.tools.index.apply.ok": "OK",
+    "viewer.tools.index.apply.fail": "FAIL",
+    // {0} = per-statement error detail, appended after the SQL on a failed row.
+    "viewer.tools.index.apply.errorSuffix": " \u2014 {0}",
+    // {0} = applied count.
+    "viewer.tools.index.apply.toast": "{0} index(es) created \u2014 re-run Analyze to refresh the list.",
+    // {0} = number of indexes to create.
+    "viewer.tools.index.apply.confirm": "Create {0} index(es) on the live database?",
+    "viewer.tools.index.busy.preview": "Previewing\u2026",
+    "viewer.tools.index.busy.apply": "Applying\u2026",
+    "viewer.tools.index.busy.analyze": "Analyzing\u2026",
+    "viewer.tools.index.analyze": "Analyze",
+    "viewer.tools.index.requestFailed": "Request failed",
+    // {0} = error detail.
+    "viewer.tools.index.error": "Error: {0}",
+    "viewer.tools.index.compareTitle": "Index suggestions",
+    // {0} = before suggestion count, {1} = after suggestion count.
+    "viewer.tools.index.compareSummary": "Before: {0} suggestion(s) \xB7 After: {1} suggestion(s)",
+    // --- Size analytics (assets/web/tools-analytics.ts) ---
+    "viewer.tools.size.empty": "No data.",
+    "viewer.tools.size.card.total": "Total Size",
+    "viewer.tools.size.card.used": "Used",
+    "viewer.tools.size.card.free": "Free",
+    "viewer.tools.size.card.journal": "Journal",
+    "viewer.tools.size.card.pages": "Pages",
+    "viewer.tools.size.col.table": "Table",
+    "viewer.tools.size.col.rows": "Rows",
+    "viewer.tools.size.col.columns": "Columns",
+    "viewer.tools.size.col.indexes": "Indexes",
+    "viewer.tools.size.busy.analyze": "Analyzing\u2026",
+    "viewer.tools.size.analyze": "Analyze",
+    "viewer.tools.size.requestFailed": "Request failed",
+    // {0} = error detail.
+    "viewer.tools.size.error": "Error: {0}",
+    "viewer.tools.size.compareTitle": "Database size analytics",
+    // {0} = before total size (formatted), {1} = after total size (formatted).
+    "viewer.tools.size.compareSummary": "Before: {0} total \xB7 After: {1} total",
+    // Native title tooltips for the size cards/headers/cells.
+    "viewer.tools.size.tt.totalCard": "Total size of the SQLite database file: PRAGMA page_count \xD7 PRAGMA page_size. Matches the main .db file size on disk.",
+    "viewer.tools.size.tt.usedCard": "Bytes in pages that store data: total file size minus bytes in freelist pages (see Free). Same as totalSizeBytes \u2212 freeSpaceBytes from the server.",
+    "viewer.tools.size.tt.freeCard": "Bytes in pages on SQLite\u2019s freelist (PRAGMA freelist_count \xD7 page_size). Unused pages inside the file that SQLite can reuse for new data without growing the file.",
+    "viewer.tools.size.tt.journalCard": "SQLite PRAGMA journal_mode. wal means WAL (write-ahead logging): new writes go to a separate .wal file and are merged into the main database at checkpoint; readers can run at the same time as one writer. Other modes include delete, truncate, persist, memory, and off.",
+    "viewer.tools.size.tt.pagesTotal": "Total bytes in all pages: page_count \xD7 page_size. Same number as Total Size.",
+    "viewer.tools.size.tt.pagesFormula": "PRAGMA page_count (number of pages) \xD7 PRAGMA page_size (bytes per page, often 4096).",
+    "viewer.tools.size.tt.thTable": "Name of this table in SQLite.",
+    "viewer.tools.size.tt.thRows": "Row count for each table (SELECT COUNT(*) FROM table). Bar length is relative to the largest table in this list.",
+    "viewer.tools.size.tt.thColumns": "Number of columns defined on the table (rows from PRAGMA table_info).",
+    "viewer.tools.size.tt.thIndexes": "Number of indexes on the table (PRAGMA index_list), plus each index name.",
+    "viewer.tools.size.tt.tdTableLink": "SQLite table name. Click to open this table in its own tab.",
+    "viewer.tools.size.tt.tdRows": "Approximate number of rows in this table.",
+    "viewer.tools.size.tt.tdColumns": "How many columns this table has.",
+    "viewer.tools.size.tt.tdIndexes": "Index count and names from PRAGMA index_list for this table.",
+    // --- Anomaly detection (assets/web/tools-analytics.ts) ---
+    "viewer.tools.anomaly.empty": "No current result. Run Scan first.",
+    // {0} = number of tables scanned.
+    "viewer.tools.anomaly.across": "across {0} tables",
+    "viewer.tools.anomaly.clean": "No anomalies detected. Data looks clean!",
+    // {0} = error count.
+    "viewer.tools.anomaly.errors.one": "{0} error",
+    "viewer.tools.anomaly.errors.many": "{0} errors",
+    // {0} = warning count.
+    "viewer.tools.anomaly.warnings.one": "{0} warning",
+    "viewer.tools.anomaly.warnings.many": "{0} warnings",
+    // {0} = info count.
+    "viewer.tools.anomaly.info": "{0} info",
+    // {0} = total finding count, {1} = pre-wrapped severity breakdown markup.
+    "viewer.tools.anomaly.findings": "{0} finding(s): {1}",
+    "viewer.tools.anomaly.busy.scan": "Scanning\u2026",
+    "viewer.tools.anomaly.scan": "Scan for anomalies",
+    "viewer.tools.anomaly.requestFailed": "Request failed",
+    // {0} = error detail.
+    "viewer.tools.anomaly.error": "Error: {0}",
+    "viewer.tools.anomaly.compareTitle": "Data health",
+    // {0} = before finding count, {1} = after finding count.
+    "viewer.tools.anomaly.compareSummary": "Before: {0} finding(s) \xB7 After: {1} finding(s)",
+    // --- Snapshot / compare / migration (assets/web/tools-compare.ts) ---
+    // {0} = optional label prefix; the em-dash separator stays in the value.
+    "viewer.tools.snapshot.labelPrefix": "{0} \u2014 ",
+    "viewer.tools.snapshot.empty": "No snapshots yet. Capture one to start comparing.",
+    "viewer.tools.snapshot.from": "From",
+    "viewer.tools.snapshot.to": "To",
+    "viewer.tools.snapshot.now": "now (live DB)",
+    "viewer.tools.snapshot.col.snapshot": "Snapshot",
+    "viewer.tools.snapshot.col.tables": "Tables",
+    "viewer.tools.snapshot.col.actions": "Actions",
+    "viewer.tools.snapshot.rename": "Rename",
+    "viewer.tools.snapshot.delete": "Delete",
+    "viewer.tools.snapshot.takePrompt": "Optional label for this snapshot (leave blank for none):",
+    "viewer.tools.snapshot.capturing": "Capturing\u2026",
+    // {0} = createdAt timestamp.
+    "viewer.tools.snapshot.saved": "Snapshot saved at {0}",
+    "viewer.tools.snapshot.failed": "Failed",
+    // {0} = error message.
+    "viewer.tools.snapshot.error": "Error: {0}",
+    "viewer.tools.snapshot.comparing": "Comparing\u2026",
+    "viewer.tools.snapshot.compareFailed": "Compare failed",
+    "viewer.tools.snapshot.clearConfirm": "Delete ALL snapshots?",
+    "viewer.tools.snapshot.clearing": "Clearing\u2026",
+    "viewer.tools.snapshot.cleared": "All snapshots cleared.",
+    "viewer.tools.snapshot.deleteConfirm": "Delete this snapshot?",
+    "viewer.tools.snapshot.renamePrompt": "New label (leave blank to clear):",
+    "viewer.tools.compare.loading": "Loading\u2026",
+    "viewer.tools.compare.notConfigured": "Not configured. A comparison database is needed \u2014 see the setup guide above.",
+    "viewer.tools.compare.requestFailed": "Request failed",
+    // {0} = error message.
+    "viewer.tools.compare.error": "Error: {0}",
+    "viewer.tools.migration.busy": "Generating\u2026",
+    "viewer.tools.migration.noChanges": "-- No changes detected.",
+    // {0} = statement count.
+    "viewer.tools.migration.summary": "{0} statement(s) generated",
+    "viewer.tools.migration.withWarnings": " (includes warnings)",
+    "viewer.tools.migration.copySql": "Copy SQL",
+    "viewer.tools.migration.copySqlTitle": "Copy migration SQL to clipboard",
+    "viewer.tools.migration.copied": "Copied!",
+    "viewer.tools.migration.button": "Migration Preview",
+    // --- Analysis history / compare modal (assets/web/analysis.ts) ---
+    "viewer.tools.analysis.pastRuns": "\u2014 Past runs \u2014",
+    "viewer.tools.analysis.compareAria": "Compare analysis results",
+    // {0} = analysis title.
+    "viewer.tools.analysis.compareHeading": "Compare: {0}",
+    "viewer.tools.analysis.prompt": "Select Before and After to compare.",
+    "viewer.tools.analysis.before": "Before:",
+    "viewer.tools.analysis.after": "After:",
+    "viewer.tools.analysis.selectPlaceholder": "\u2014 select \u2014",
+    "viewer.tools.analysis.currentResult": "Current result",
+    "viewer.tools.analysis.close": "Close",
+    "viewer.tools.analysis.closeTitle": "Close compare panel",
+    "viewer.tools.analysis.selectBefore": "Select Before.",
+    "viewer.tools.analysis.selectAfter": "Select After.",
+    "viewer.tools.analysis.saved": "Saved",
+    "viewer.tools.analysis.saveFailed": "Save failed (storage may be full)",
+    // --- Snapshot row-diff render (assets/web/analysis.ts) ---
+    "viewer.tools.diff.col.table": "Table",
+    "viewer.tools.diff.col.then": "Then",
+    "viewer.tools.diff.col.now": "Now",
+    "viewer.tools.diff.col.status": "Status",
+    "viewer.tools.diff.noPk": "No primary key \u2014 counts only",
+    "viewer.tools.diff.noChanges": "No changes detected",
+    // {0} = added row count.
+    "viewer.tools.diff.added": "+{0} added",
+    // {0} = removed row count.
+    "viewer.tools.diff.removed": "-{0} removed",
+    // {0} = changed row count.
+    "viewer.tools.diff.changed": "~{0} changed",
+    // {0} = added row count (detail header).
+    "viewer.tools.diff.addedDetail": "+ {0} added:",
+    // {0} = removed row count (detail header).
+    "viewer.tools.diff.removedDetail": "- {0} removed:",
+    // {0} = changed row count (detail header).
+    "viewer.tools.diff.changedDetail": "~ {0} changed:",
+    // --- Charts (assets/web/charts.ts) ---
+    "viewer.tools.chart.scatterNumeric": "Scatter requires numeric X and Y columns.",
+    "viewer.tools.chart.noNumeric": "No numeric data.",
+    "viewer.tools.chart.histogram.bin": "Bin",
+    "viewer.tools.chart.histogram.count": "Count",
+    "viewer.tools.chart.pie.other": "Other",
+    // Stacked-bar segment hover tooltip: {0} = group label, {1} = segment index, {2} = value.
+    "viewer.tools.chart.stacked.segment": "{0} segment {1}: {2}",
+    "viewer.tools.chart.copyImage": "Copy image",
+    "viewer.tools.chart.copied": "Copied!"
+  };
+
+  // assets/web/l10n/strings-web-nav.ts
+  var stringsWebNav = {
+    // --- Tabs (assets/web/tabs.ts) ---
+    "viewer.nav.tab.close": "Close tab",
+    // {0} is the tab's label — keep it a token so word order can vary per locale.
+    "viewer.nav.tab.closeNamed": "Close {0}",
+    // Default Home tab label, used when the TOOL_LABELS lookup has no entry.
+    "viewer.nav.tab.home": "Home",
+    // Bulk-close confirmation — singular vs plural are separate keys; {0} is the count.
+    "viewer.nav.tab.closeOthers.one": "Close {0} other tab?",
+    "viewer.nav.tab.closeOthers.many": "Close {0} other tabs?",
+    // --- Query history sidebar (assets/web/history-sidebar.ts) ---
+    "viewer.nav.history.empty": "No queries yet.",
+    // Row-count suffix in a history entry's meta line; {0} is the count.
+    "viewer.nav.history.rows": "{0} row(s)",
+    // Error marker shown in a history row / occurrences table when a run failed.
+    "viewer.nav.history.errorMark": "ERR",
+    // (n) count badge tooltip; {0} is how many times the identical SQL ran.
+    "viewer.nav.history.runsTooltip": "Show all {0} runs of this query",
+    // Occurrences dialog accessible name and title; {0} is the run count.
+    "viewer.nav.history.dialog.ariaLabel": "Query run history",
+    "viewer.nav.history.dialog.title": "Query runs ({0})",
+    "viewer.nav.history.dialog.close": "Close",
+    // Occurrences table column headers.
+    "viewer.nav.history.col.source": "Source",
+    "viewer.nav.history.col.time": "Time",
+    "viewer.nav.history.col.duration": "Duration",
+    "viewer.nav.history.dialog.copy": "Copy",
+    // Copy-success toast; {0} is the number of runs copied.
+    "viewer.nav.history.copied": "Copied {0} runs",
+    // Clear-history confirmation.
+    "viewer.nav.history.clearConfirm": "Clear all query history?",
+    // Relative-time phrases for a history entry's timestamp. Separate keys per unit
+    // so each can be translated independently; {0} is the elapsed count.
+    "viewer.nav.history.time.justNow": "just now",
+    "viewer.nav.history.time.seconds": "{0} s ago",
+    "viewer.nav.history.time.minutes": "{0} m ago",
+    "viewer.nav.history.time.hours": "{0} h ago",
+    "viewer.nav.history.time.days": "{0} d ago",
+    // --- Home launcher (assets/web/home-screen.ts) ---
+    // Tool-card hover tooltip: "{0}" is the tool label, "{1}" its blurb. The em-dash
+    // separator is fixed punctuation; both surrounding values are tokens so a
+    // translator can reorder them.
+    "viewer.nav.home.cardTooltip": "{0} \u2014 {1}"
+  };
+
+  // assets/web/l10n/strings-web-session.ts
+  var stringsWebSession = {
+    // --- Connection banner (assets/web/connection.ts) ---
+    // The decorative bullet/em-dash/ellipsis punctuation stays inside each value
+    // because it belongs to the sentence, not to code. {0} is the dynamic count
+    // (seconds, interval, attempt number) kept as a token so it can be reordered.
+    "viewer.session.banner.reconnecting": "Reconnecting\u2026",
+    "viewer.session.banner.restoring": "Restoring connection\u2026",
+    "viewer.session.banner.lost.checking": "Connection lost \u2014 checking\u2026",
+    "viewer.session.banner.lost.nextRetry": "Connection lost \u2014 next retry in {0}s",
+    "viewer.session.banner.lost.reconnecting": "Connection lost \u2014 reconnecting\u2026",
+    "viewer.session.banner.attempt": "Attempt {0}",
+    "viewer.session.banner.retryingEvery": "Retrying every {0}s",
+    "viewer.session.banner.maxInterval": "(max interval)",
+    // --- Session share / restore (assets/web/session.ts) ---
+    // {0} is the share URL or the localized expiry timestamp; {1} keeps a second
+    // dynamic value where two appear in one prompt/alert.
+    "viewer.session.share.copied": "Share URL copied to clipboard!\n\n{0}\n\nExpires: {1}",
+    "viewer.session.share.promptCopy": "Copy this share URL:",
+    "viewer.session.share.promptNote": "Add a note for your team (optional):\n\nSession will expire in 1 hour.",
+    "viewer.session.share.busy": "Sharing\u2026",
+    "viewer.session.share.menuLabel": "Share",
+    "viewer.session.share.failed": "Failed to create share: {0}",
+    // {0} = HTTP status code; surfaced to the user inside the share-failed alert.
+    "viewer.session.share.serverError": "Server error {0}",
+    // --- Session expired / restore banners (assets/web/session.ts) ---
+    "viewer.session.expired.title": "Session Expired",
+    "viewer.session.expired.body": "The shared session you are trying to access has expired or was not found.",
+    "viewer.session.expired.hint": "Sessions expire after 1 hour. Ask the person who shared the link to create a new one.",
+    // --- Session countdown / extend (assets/web/session.ts) ---
+    // {0} = minutes, {1} = seconds where both appear.
+    "viewer.session.countdown.expired": "EXPIRED",
+    "viewer.session.countdown.expiresInMinSec": "Expires in {0}m {1}s",
+    "viewer.session.countdown.expiresInMin": "Expires in {0} min",
+    "viewer.session.countdown.warning": 'Warning: This session expires in less than 10 minutes. Click "Extend" to add more time.',
+    "viewer.session.extend.label": "Extend",
+    "viewer.session.extend.title": "Extend session by 1 hour",
+    "viewer.session.extend.busy": "Extending\u2026",
+    "viewer.session.extend.done": "Session extended!",
+    "viewer.session.extend.failed": "Failed to extend session: {0}",
+    // Surfaced as the {0} inside extend.failed when the server rejects the request.
+    "viewer.session.extend.serverError": "Failed to extend session",
+    // --- Session info bar (assets/web/session.ts) ---
+    // info bar text: "Shared session" with optional note then created timestamp.
+    // {0} = escaped note, {1} = localized created timestamp.
+    "viewer.session.info.shared": "Shared session",
+    "viewer.session.info.sharedWithNote": 'Shared session: "{0}"',
+    "viewer.session.info.created": " (created {0})",
+    "viewer.session.annotations.heading": "Annotations:",
+    // --- Performance tab (assets/web/performance.ts) ---
+    // {0} carries an escaped error message or SQL snippet; numeric stats are
+    // pre-escaped at the call site and injected via {0}.
+    "viewer.session.perf.loading": "Loading\u2026",
+    "viewer.session.perf.update": "Update",
+    "viewer.session.perf.empty": "No queries recorded yet. Browse some tables, then update.",
+    "viewer.session.perf.emptySaved": "No queries recorded (saved run).",
+    "viewer.session.perf.noData": "No data.",
+    "viewer.session.perf.noQueriesInRun": "No queries in this run.",
+    "viewer.session.perf.error": "Error: {0}",
+    "viewer.session.perf.cleared": "Performance history cleared.",
+    "viewer.session.perf.clearing": "Clearing\u2026",
+    "viewer.session.perf.clear": "Clear",
+    "viewer.session.perf.saved": "Saved",
+    "viewer.session.perf.saveFailed": "Save failed (storage may be full)",
+    "viewer.session.perf.requestFailed": "Request failed",
+    "viewer.session.perf.clearFailed": "Clear failed",
+    "viewer.session.perf.compareLabel": "Query performance",
+    // Summary line stats: {0} = total queries, total ms, avg ms.
+    "viewer.session.perf.summary.total": "Total: {0} queries",
+    "viewer.session.perf.summary.totalTime": "Total time: {0} ms",
+    "viewer.session.perf.summary.avg": "Avg: {0} ms",
+    // Slow-query section. {0} = threshold ms.
+    "viewer.session.perf.slow.heading": "Slow queries (&gt;{0}ms):",
+    "viewer.session.perf.patterns.heading": "Most time-consuming patterns:",
+    "viewer.session.perf.recent.heading": "Recent queries (newest first):",
+    // Compare summary: {0} = before count, {1} = after count.
+    "viewer.session.perf.compareSummary": "Before: {0} queries \xB7 After: {1} queries",
+    // Table column headers.
+    "viewer.session.perf.col.duration": "Duration",
+    "viewer.session.perf.col.rows": "Rows",
+    "viewer.session.perf.col.time": "Time",
+    "viewer.session.perf.col.sql": "SQL",
+    "viewer.session.perf.col.totalMs": "Total ms",
+    "viewer.session.perf.col.count": "Count",
+    "viewer.session.perf.col.avgMs": "Avg ms",
+    "viewer.session.perf.col.maxMs": "Max ms",
+    "viewer.session.perf.col.pattern": "Pattern",
+    "viewer.session.perf.col.ms": "ms",
+    // --- Pagination bar (assets/web/pagination.ts) ---
+    // {0}=from, {1}=to, {2}=total in the range readout; {0}=page elsewhere.
+    "viewer.session.pagination.zeroRows": "0 rows",
+    "viewer.session.pagination.showingRange": "Showing {0}\u2013{1} of {2} rows",
+    "viewer.session.pagination.pageUnknownTotal": "Page {0} (total unknown)",
+    "viewer.session.pagination.pageLabel": "Page ",
+    "viewer.session.pagination.currentPageAria": "Current page",
+    "viewer.session.pagination.of": " of {0}",
+    "viewer.session.column.unpin": "Unpin",
+    "viewer.session.column.pin": "Pin",
+    "viewer.session.column.unpin.title": "Unpin this column",
+    "viewer.session.column.pin.title": "Pin this column to the left"
+  };
+
+  // assets/web/l10n/strings-web-settings.ts
+  var stringsWebSettings = {
+    // --- Settings panel: group titles (assets/web/settings.ts) ---
+    "viewer.settings.group.storage": "Storage & History",
+    "viewer.settings.group.tableDefaults": "Table Defaults",
+    "viewer.settings.group.performance": "Performance",
+    "viewer.settings.group.dataFormatting": "Data Formatting",
+    // --- Settings panel: storage & history ---
+    "viewer.settings.storage.sqlHistoryMax": "SQL history max entries",
+    "viewer.settings.storage.maxAnalyses": "Max saved analyses",
+    "viewer.settings.storage.clearAll": "Clear all stored data",
+    "viewer.settings.storage.clearAllHint": "Removes pinned tables, table states, navigation history, SQL history, bookmarks, and saved analyses. Theme and sidebar preferences are kept.",
+    // Transient confirmation shown on the Clear button after the data is cleared.
+    "viewer.settings.storage.cleared": "Cleared!",
+    // --- Settings panel: table defaults ---
+    "viewer.settings.table.defaultPageSize": "Default page size",
+    "viewer.settings.table.defaultDisplayFormat": "Default display format",
+    "viewer.settings.table.displayFormat.raw": "Raw",
+    "viewer.settings.table.displayFormat.formatted": "Formatted",
+    "viewer.settings.table.nullDisplay": "NULL display",
+    "viewer.settings.table.nullDisplaySub": "How SQL NULLs render in table cells (always shown dimmed)",
+    // The dash option label keeps the literal dash glyph plus a clarifying word.
+    "viewer.settings.table.nullDisplay.dash": "- (dash)",
+    "viewer.settings.table.onlyMatching": "Show only matching rows",
+    "viewer.settings.table.onlyMatchingSub": "When a row filter is active, hide non-matching rows instead of highlighting them",
+    // --- Settings panel: performance ---
+    "viewer.settings.perf.slowQueryThreshold": "Slow query threshold",
+    "viewer.settings.perf.slowQueryThresholdSub": "Queries exceeding this duration (ms) are flagged in the Perf tab",
+    "viewer.settings.perf.autoRefresh": "Auto-refresh polling",
+    "viewer.settings.perf.autoRefreshSub": "Automatically detect and reload when database data changes",
+    // --- Settings panel: data formatting ---
+    "viewer.settings.format.epochDetection": "Auto-detect epoch timestamps",
+    "viewer.settings.format.epochDetectionSub": "Automatically format large integers as dates when column names suggest timestamps",
+    "viewer.settings.format.confirmNavigate": "Confirm before leaving page",
+    "viewer.settings.format.confirmNavigateSub": "Show a browser confirmation dialog when navigating away or closing the tab",
+    // --- Settings panel: footer + confirm dialogs ---
+    "viewer.settings.footer.resetAll": "Reset all to defaults",
+    "viewer.settings.confirm.clearAll": "Clear all stored project data? Theme and sidebar preferences will be kept.",
+    "viewer.settings.confirm.resetAll": "Reset all settings to their default values?",
+    // --- FK navigation breadcrumb (assets/web/fk-nav.ts) ---
+    // The arrow glyph (←) is a symbol prepended in code; only the word is here.
+    "viewer.settings.fknav.back": "Back",
+    "viewer.settings.fknav.backTitle": "Go back to previous table",
+    "viewer.settings.fknav.clearPath": "Clear path",
+    "viewer.settings.fknav.clearPathTitle": "Clear navigation trail",
+    // {0} is the target table name — a token so word order can change per locale.
+    "viewer.settings.fknav.jumpTitle": "Jump to {0}",
+    // --- ER diagram (assets/web/diagram.ts) ---
+    "viewer.settings.diagram.noTables": "No tables.",
+    "viewer.settings.diagram.loading": "Loading\u2026",
+    // {0} is the error text — kept a token so the prefix can be reordered.
+    "viewer.settings.diagram.loadFailed": "Failed to load diagram: {0}",
+    // Soft-relationship "how it was inferred" descriptions (s.rule branch).
+    "viewer.settings.diagram.rule.nounId": "id-name convention",
+    "viewer.settings.diagram.rule.sharedUuid": "shared UUID column",
+    // Column primary-key badge shown inside each table box.
+    "viewer.settings.diagram.pk": "PK",
+    // Screen-reader text-alternative section headings.
+    "viewer.settings.diagram.alt.tableList": "Schema table list",
+    "viewer.settings.diagram.alt.fkHeading": "Foreign key relationships",
+    "viewer.settings.diagram.alt.softHeading": "Inferred (undeclared) relationships",
+    // Soft-relationship suffix appended to an A.b → C.d edge line. {0} is the
+    // "how" phrase (rule.nounId / rule.sharedUuid). The full edge string is
+    // assembled at the call site with the arrow glyph as static markup.
+    "viewer.settings.diagram.alt.softInferred": "(inferred from {0}, not declared)",
+    // --- ER diagram: SVG aria-labels (singular/plural are separate keys) ---
+    // {0} = table count. Singular vs plural picked by code, not an inline if.
+    "viewer.settings.diagram.aria.tablesOne": "{0} table",
+    "viewer.settings.diagram.aria.tablesMany": "{0} tables",
+    // {0} = foreign-key relationship count.
+    "viewer.settings.diagram.aria.fksOne": "{0} foreign key relationship",
+    "viewer.settings.diagram.aria.fksMany": "{0} foreign key relationships",
+    // {0} = inferred-relationship count. Leading conjunction included because it
+    // joins onto the FK clause in the same aria sentence.
+    "viewer.settings.diagram.aria.softOne": " and {0} inferred (undeclared) relationship",
+    "viewer.settings.diagram.aria.softMany": " and {0} inferred (undeclared) relationships",
+    // Full schema-diagram aria-label. {0} = tables clause, {1} = FK clause,
+    // {2} = soft clause (may be empty). Joined with "and" inside the value so a
+    // translator controls the phrasing around the three counts.
+    "viewer.settings.diagram.aria.summary": "Schema diagram showing {0} and {1}{2}",
+    // --- ER diagram: per-table aria-label (singular/plural columns) ---
+    // {0} = table name, {1} = column count. Two count variants; the optional
+    // primary-key clause ({2}) is appended by code only when a PK exists.
+    "viewer.settings.diagram.aria.tableOne": "{0} table, {1} column{2}",
+    "viewer.settings.diagram.aria.tableMany": "{0} table, {1} columns{2}",
+    // Appended to the per-table aria-label. {0} = comma-joined PK column names.
+    "viewer.settings.diagram.aria.pkClause": ", primary key: {0}",
+    // --- ER diagram: text-alternative per-table line (singular/plural) ---
+    // {0} = table name (pre-wrapped <strong>), {1} = column count, {2} = column list.
+    "viewer.settings.diagram.alt.tableOne": "{0} ({1} column): {2}",
+    "viewer.settings.diagram.alt.tableMany": "{0} ({1} columns): {2}",
+    // Primary-key marker appended to a column name in the text alternative.
+    "viewer.settings.diagram.alt.pkMark": " (PK)"
+  };
+
+  // assets/web/l10n/strings-web-misc.ts
+  var stringsWebMisc = {};
+
   // assets/web/l10n.ts
-  var WEB_STRING_REGISTRIES = [webStrings];
+  var WEB_STRING_REGISTRIES = [
+    webStrings,
+    stringsWebTable,
+    stringsWebQueryBuilder,
+    stringsWebSchema,
+    stringsWebSql,
+    stringsWebTools,
+    stringsWebNav,
+    stringsWebSession,
+    stringsWebSettings,
+    stringsWebMisc
+  ];
   var englishStrings = Object.assign({}, ...WEB_STRING_REGISTRIES);
   var KNOWN_LOCALES = ["pt-br", "zh-cn", "zh-tw", "de", "es", "fr", "it", "ja", "ko", "ru", "en"];
   var activeOverlay = {};
@@ -60,6 +1018,19 @@
   function installCatalog(locale, catalog) {
     activeLocale = normalizeLocale(locale);
     activeOverlay = activeLocale === "en" || !catalog ? {} : catalog;
+  }
+  function substitute(template, args) {
+    if (args.length === 0) {
+      return template;
+    }
+    return template.replace(/\{(\d+)\}/g, (match, index) => {
+      const i = Number(index);
+      return i < args.length ? String(args[i]) : match;
+    });
+  }
+  function vt(key, ...args) {
+    const template = activeOverlay[key] ?? englishStrings[key] ?? key;
+    return substitute(template, args);
   }
   function initWebL10n() {
     const injected = typeof window !== "undefined" ? window.__SDA_L10N : void 0;
@@ -232,16 +1203,7 @@
   }
 
   // assets/web/masthead.ts
-  var STATUS = {
-    online: "\u25CF Online",
-    onlineTitle: "Online \u2014 click to pause change detection.",
-    paused: "\u25CF Paused",
-    pausedTitle: "Paused \u2014 click to resume live updates.",
-    offline: "\u25CF Offline",
-    offlineTitle: "Offline \u2014 connection lost. Reconnect to resume live updates.",
-    reconnecting: "\u25CF Reconnecting\u2026",
-    reconnectingTitle: "Offline \u2014 reconnecting\u2026"
-  };
+  var STATUS_DOT = "\u25CF ";
   function initMasthead() {
     const indicator = document.getElementById("live-indicator");
     if (!indicator) {
@@ -261,21 +1223,21 @@
         if (state === "connected") {
           indicator.classList.remove("disconnected", "reconnecting");
           indicator.disabled = false;
-          indicator.textContent = pollingEnabled2 ? STATUS.online : STATUS.paused;
+          indicator.textContent = STATUS_DOT + vt(pollingEnabled2 ? "masthead.status.online" : "masthead.status.paused");
           indicator.classList.toggle("paused", !pollingEnabled2);
-          indicator.title = pollingEnabled2 ? STATUS.onlineTitle : STATUS.pausedTitle;
+          indicator.title = vt(pollingEnabled2 ? "masthead.title.online" : "masthead.title.paused");
         } else if (state === "disconnected") {
-          indicator.textContent = STATUS.offline;
+          indicator.textContent = STATUS_DOT + vt("masthead.status.offline");
           indicator.classList.add("disconnected");
           indicator.classList.remove("paused", "reconnecting");
           indicator.disabled = true;
-          indicator.title = STATUS.offlineTitle;
+          indicator.title = vt("masthead.title.offline");
         } else {
-          indicator.textContent = STATUS.reconnecting;
+          indicator.textContent = STATUS_DOT + vt("masthead.status.reconnecting");
           indicator.classList.add("disconnected", "reconnecting");
           indicator.classList.remove("paused");
           indicator.disabled = true;
-          indicator.title = STATUS.reconnectingTitle;
+          indicator.title = vt("masthead.title.reconnecting");
         }
       },
       /** Show a transient ellipsis while a toggle request is in-flight. */
@@ -861,8 +1823,8 @@
   }
   function buildTableFilterMetaSuffix(filteredLen, totalLen) {
     if (!getRowFilter()) return "";
-    if (showOnlyMatchingRows) return " (filtered: " + filteredLen + " of " + totalLen + ")";
-    return " (showing all rows; filter: " + filteredLen + " match)";
+    if (showOnlyMatchingRows) return vt("viewer.schema.search.filteredOf", filteredLen, totalLen);
+    return vt("viewer.schema.search.showingAll", filteredLen);
   }
   function expandSectionContaining(el) {
     var node = el;
@@ -929,7 +1891,7 @@
       navigateToMatch(0);
     } else {
       navEl.style.display = term ? "flex" : "none";
-      countEl2.textContent = term ? "No matches" : "";
+      countEl2.textContent = term ? vt("viewer.schema.search.noMatches") : "";
       document.getElementById("search-prev").disabled = true;
       document.getElementById("search-next").disabled = true;
     }
@@ -949,7 +1911,7 @@
     current.classList.add("highlight-active");
     expandSectionContaining(current);
     current.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
-    countEl2.textContent = searchCurrentIndex + 1 + " of " + searchMatches.length;
+    countEl2.textContent = vt("viewer.schema.search.matchCounter", searchCurrentIndex + 1, searchMatches.length);
     prevBtn.disabled = false;
     nextBtn.disabled = false;
   }
@@ -1664,36 +2626,37 @@
     return (base.trim() + " " + fragment.trim()).replace(/\s+/g, " ").trim();
   }
   function narrateAnswer(r, value, totalCount) {
-    const table = r.table || "rows";
+    const table = r.table || vt("viewer.sql.narrate.fallback.rows");
     const qual = r.qualifier ? " " + r.qualifier : "";
-    const col = r.aggColumn ? r.aggColumn.replace(/_/g, " ") : "value";
+    const col = r.aggColumn ? r.aggColumn.replace(/_/g, " ") : vt("viewer.sql.narrate.fallback.value");
     const n = function(x) {
       return x == null ? "0" : x.toLocaleString("en-US");
     };
     switch (r.answerKind) {
       case "count": {
         const verb = qual && r.answerVerb && r.answerVerb !== "has" ? r.answerVerb : "has";
-        return "Your database " + verb + " " + n(value) + " " + table + qual + ".";
+        const verbKey = verb === "added" ? "viewer.sql.narrate.count.added" : verb === "changed" ? "viewer.sql.narrate.count.changed" : "viewer.sql.narrate.count.has";
+        return vt(verbKey, n(value), table, qual);
       }
       case "sum":
-        return "The total " + col + " across " + table + qual + " is " + n(value) + ".";
+        return vt("viewer.sql.narrate.sum", col, table, qual, n(value));
       case "avg":
-        return "The average " + col + " for " + table + qual + " is " + n(value) + ".";
+        return vt("viewer.sql.narrate.avg", col, table, qual, n(value));
       case "max":
-        return "The highest " + col + " for " + table + qual + " is " + n(value) + ".";
+        return vt("viewer.sql.narrate.max", col, table, qual, n(value));
       case "min":
-        return "The lowest " + col + " for " + table + qual + " is " + n(value) + ".";
+        return vt("viewer.sql.narrate.min", col, table, qual, n(value));
       case "distinct":
-        return "Found " + n(totalCount) + " distinct " + col + " value" + (totalCount === 1 ? "" : "s") + ".";
+        return vt(totalCount === 1 ? "viewer.sql.narrate.distinct.one" : "viewer.sql.narrate.distinct.many", n(totalCount), col);
       case "duplicate":
-        return "Found " + n(totalCount) + " " + col + " value" + (totalCount === 1 ? "" : "s") + " that repeat.";
+        return vt(totalCount === 1 ? "viewer.sql.narrate.duplicate.one" : "viewer.sql.narrate.duplicate.many", n(totalCount), col);
       case "group":
-        return n(totalCount) + " group" + (totalCount === 1 ? "" : "s") + " of " + table + qual + ".";
+        return vt(totalCount === 1 ? "viewer.sql.narrate.group.one" : "viewer.sql.narrate.group.many", n(totalCount), table, qual);
       case "rows":
       case "latest":
       case "oldest":
       default:
-        return "Found " + n(totalCount) + " " + table + qual + ".";
+        return vt("viewer.sql.narrate.found", n(totalCount), table, qual);
     }
   }
   function nlToSql(question, meta, opts) {
@@ -1702,7 +2665,7 @@
     const wake = wakeStrip.wake;
     const q = question.toLowerCase().trim();
     const tables = meta.tables || [];
-    if (tables.length === 0) return { sql: null, error: "No tables in the schema to query.", wake };
+    if (tables.length === 0) return { sql: null, error: vt("viewer.sql.nl.noTables"), wake };
     if (wake && !q) return { sql: null, wake: true };
     let answerVerb = "has";
     if (BORN_VERB.test(q)) answerVerb = "added";
@@ -1839,7 +2802,7 @@
   async function loadSchemaMeta() {
     if (schemaMeta) return schemaMeta;
     var r = await fetch("/api/schema/metadata?includeForeignKeys=1", authOpts());
-    if (!r.ok) throw new Error("Failed to load schema metadata (HTTP " + r.status + ")");
+    if (!r.ok) throw new Error(vt("viewer.schema.meta.loadFailed", r.status));
     var meta = await r.json();
     if (meta && Array.isArray(meta.tables) && !Array.isArray(meta.foreignKeys)) {
       var edges = [];
@@ -2166,10 +3129,10 @@
     const schemaOpts = schemaTables.map((n) => `<option value="${esc2(n)}">${esc2(n)}</option>`).join("");
     const tablesHtml = m.tables.map((t) => {
       const isRoot = m.tables[0]?.id === t.id;
-      const rm = isRoot ? "" : ` <button type="button" class="qb-m-remove-table" data-table-id="${esc2(t.id)}" title="Remove this table instance">Remove</button>`;
+      const rm = isRoot ? "" : ` <button type="button" class="qb-m-remove-table" data-table-id="${esc2(t.id)}" title="${esc2(vt("viewer.qb.multi.table.remove.title"))}">${esc2(vt("viewer.qb.multi.table.remove.label"))}</button>`;
       return `<li><strong>${esc2(t.alias)}</strong> \u2014 ${esc2(t.baseTable)}${rm}</li>`;
     }).join("");
-    const joinsHtml = m.joins.length === 0 ? '<p class="meta">No JOINs yet. Add one before selecting columns from a second table.</p>' : m.joins.map((j) => {
+    const joinsHtml = m.joins.length === 0 ? `<p class="meta">${esc2(vt("viewer.qb.multi.joins.empty"))}</p>` : m.joins.map((j) => {
       const lt = tableById(j.leftTableId);
       const rt = tableById(j.rightTableId);
       const label = `${lt?.alias ?? "?"}.${j.leftColumn} ${j.type} JOIN ${rt?.alias ?? "?"}.${j.rightColumn}`;
@@ -2179,14 +3142,14 @@
       const t = tableById(sc.tableId);
       const instOptsRow = m.tables.map((tb) => `<option value="${esc2(tb.id)}"${tb.id === sc.tableId ? " selected" : ""}>${esc2(tb.alias)} (${esc2(tb.baseTable)})</option>`).join("");
       const colOpts = (t?.columns || []).map((c) => `<option value="${esc2(c.name)}"${c.name === sc.column ? " selected" : ""}>${esc2(c.name)}</option>`).join("");
-      const aggOpts = ["", "COUNT", "SUM", "AVG", "MIN", "MAX"].map((a) => `<option value="${esc2(a)}"${(sc.aggregation || "") === a ? " selected" : ""}>${a ? esc2(a) : "(none)"}</option>`).join("");
+      const aggOpts = ["", "COUNT", "SUM", "AVG", "MIN", "MAX"].map((a) => `<option value="${esc2(a)}"${(sc.aggregation || "") === a ? " selected" : ""}>${a ? esc2(a) : esc2(vt("viewer.qb.multi.sel.agg.none"))}</option>`).join("");
       const showAgg = m.groupBy.length > 0;
-      const aggHtml = showAgg ? `<select class="qb-m-sel-agg" data-sel-idx="${idx}" title="Aggregate (required when GROUP BY is non-empty)">${aggOpts}</select>` : "";
+      const aggHtml = showAgg ? `<select class="qb-m-sel-agg" data-sel-idx="${idx}" title="${esc2(vt("viewer.qb.multi.sel.agg.title"))}">${aggOpts}</select>` : "";
       return `<div class="qb-row qb-m-sel-row">
         <select class="qb-m-sel-table" data-sel-idx="${idx}">${instOptsRow}</select>
         <select class="qb-m-sel-col" data-sel-idx="${idx}">${colOpts}</select>
         ${aggHtml}
-        <button type="button" class="qb-m-remove-sel" data-sel-idx="${idx}" title="Remove column">\xD7</button>
+        <button type="button" class="qb-m-remove-sel" data-sel-idx="${idx}" title="${esc2(vt("viewer.qb.multi.sel.remove.title"))}">\xD7</button>
       </div>`;
     }).join("");
     const filtersHtml = m.filters.map((f, fi) => {
@@ -2201,7 +3164,7 @@
         <select class="qb-m-flt-table" data-flt-id="${esc2(f.id)}">${m.tables.map((tb) => `<option value="${esc2(tb.id)}"${tb.id === f.tableId ? " selected" : ""}>${esc2(tb.alias)}</option>`).join("")}</select>
         <select class="qb-m-flt-col" data-flt-id="${esc2(f.id)}">${(t?.columns || []).map((c) => `<option value="${esc2(c.name)}"${c.name === f.column ? " selected" : ""}>${esc2(c.name)}</option>`).join("")}</select>
         <select class="qb-m-flt-op" data-flt-id="${esc2(f.id)}">${opOpts}</select>
-        <input type="text" class="qb-m-flt-val" data-flt-id="${esc2(f.id)}" value="${esc2(valDisplay)}" placeholder="value or comma-separated (IN)"${valHidden}/>
+        <input type="text" class="qb-m-flt-val" data-flt-id="${esc2(f.id)}" value="${esc2(valDisplay)}" placeholder="${esc2(vt("viewer.qb.multi.flt.value.placeholder"))}"${valHidden}/>
         <button type="button" class="qb-m-remove-flt" data-flt-id="${esc2(f.id)}">\xD7</button>
       </div>`;
     }).join("");
@@ -2215,59 +3178,64 @@
       const colOpts = (t?.columns || []).map((c) => `<option value="${esc2(c.name)}"${c.name === o.column ? " selected" : ""}>${esc2(c.name)}</option>`).join("");
       return `<div class="qb-row"><select class="qb-m-ob-table" data-ob-idx="${oi}">${m.tables.map((tb) => `<option value="${esc2(tb.id)}"${tb.id === o.tableId ? " selected" : ""}>${esc2(tb.alias)}</option>`).join("")}</select><select class="qb-m-ob-col" data-ob-idx="${oi}">${colOpts}</select><select class="qb-m-ob-dir" data-ob-idx="${oi}"><option value="ASC"${o.direction === "ASC" ? " selected" : ""}>ASC</option><option value="DESC"${o.direction === "DESC" ? " selected" : ""}>DESC</option></select><button type="button" class="qb-m-remove-ob" data-ob-idx="${oi}">\xD7</button></div>`;
     }).join("");
+    const joinHelp = vt(
+      "viewer.qb.multi.join.help",
+      `<em>${esc2(vt("viewer.qb.multi.join.help.right"))}</em>`,
+      `<code>${esc2(vt("viewer.qb.multi.join.help.tn"))}</code>`
+    );
     host.innerHTML = `
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">Tables</div>
+  <div class="qb-header qb-header-static">${esc2(vt("viewer.qb.section.tables"))}</div>
   <div class="qb-body">
     <ul class="qb-m-table-list">${tablesHtml}</ul>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">JOINs</div>
+  <div class="qb-header qb-header-static">${esc2(vt("viewer.qb.section.joins"))}</div>
   <div class="qb-body">
     ${joinsHtml}
     <div class="qb-row" style="margin-top:0.5rem;flex-wrap:wrap;align-items:flex-end;">
-      <label>Left</label>
+      <label>${esc2(vt("viewer.qb.multi.join.left.label"))}</label>
       <select id="qb-m-join-left-t">${instOpts}</select>
       <select id="qb-m-join-left-c"></select>
       <select id="qb-m-join-type"><option value="INNER">INNER</option><option value="LEFT">LEFT</option><option value="RIGHT">RIGHT</option></select>
-      <label>Right table</label>
-      <select id="qb-m-join-right-base">${schemaOpts ? `<option value="">\u2014 pick \u2014</option>${schemaOpts}` : '<option value="">(load schema)</option>'}</select>
+      <label>${esc2(vt("viewer.qb.multi.join.rightTable.label"))}</label>
+      <select id="qb-m-join-right-base">${schemaOpts ? `<option value="">${esc2(vt("viewer.qb.multi.join.rightBase.pick"))}</option>${schemaOpts}` : `<option value="">${esc2(vt("viewer.qb.multi.join.rightBase.loadSchema"))}</option>`}</select>
       <select id="qb-m-join-right-c"></select>
-      <button type="button" id="qb-m-join-add">Add JOIN</button>
+      <button type="button" id="qb-m-join-add">${esc2(vt("viewer.qb.multi.join.add.label"))}</button>
     </div>
-    <p class="meta" style="margin-top:0.35rem;">Connects the <em>right</em> base table as a new instance (<code>tN</code>) or joins two existing instances when the right table already exists and you pick matching columns.</p>
+    <p class="meta" style="margin-top:0.35rem;">${joinHelp}</p>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">SELECT columns</div>
+  <div class="qb-header qb-header-static">${esc2(vt("viewer.qb.section.selectColumns"))}</div>
   <div class="qb-body">
-    ${selColsHtml || '<p class="meta">No columns selected.</p>'}
-    <button type="button" id="qb-m-add-sel">+ Add column</button>
+    ${selColsHtml || `<p class="meta">${esc2(vt("viewer.qb.multi.sel.empty"))}</p>`}
+    <button type="button" id="qb-m-add-sel">${esc2(vt("viewer.qb.multi.sel.add.label"))}</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">WHERE</div>
+  <div class="qb-header qb-header-static">${esc2(vt("viewer.qb.section.where"))}</div>
   <div class="qb-body">
-    ${filtersHtml || '<p class="meta">No filters.</p>'}
-    <button type="button" id="qb-m-add-flt">+ Add condition</button>
+    ${filtersHtml || `<p class="meta">${esc2(vt("viewer.qb.multi.flt.empty"))}</p>`}
+    <button type="button" id="qb-m-add-flt">${esc2(vt("viewer.qb.multi.flt.add.label"))}</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">GROUP BY</div>
+  <div class="qb-header qb-header-static">${esc2(vt("viewer.qb.section.groupBy"))}</div>
   <div class="qb-body">
-    ${gbHtml || '<p class="meta">None</p>'}
-    <button type="button" id="qb-m-add-gb">+ Add GROUP BY</button>
+    ${gbHtml || `<p class="meta">${esc2(vt("viewer.qb.multi.empty.none"))}</p>`}
+    <button type="button" id="qb-m-add-gb">${esc2(vt("viewer.qb.multi.gb.add.label"))}</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">ORDER BY</div>
+  <div class="qb-header qb-header-static">${esc2(vt("viewer.qb.section.orderBy"))}</div>
   <div class="qb-body">
-    ${obHtml || '<p class="meta">None</p>'}
-    <button type="button" id="qb-m-add-ob">+ Add ORDER BY</button>
+    ${obHtml || `<p class="meta">${esc2(vt("viewer.qb.multi.empty.none"))}</p>`}
+    <button type="button" id="qb-m-add-ob">${esc2(vt("viewer.qb.multi.ob.add.label"))}</button>
   </div>
 </div>
-<div class="qb-row" style="margin-top:0.5rem;"><label>LIMIT</label><input type="number" id="qb-m-limit" min="1" max="1000" value="${m.limit ?? 200}"/></div>
+<div class="qb-row" style="margin-top:0.5rem;"><label>${esc2(vt("viewer.qb.label.limit"))}</label><input type="number" id="qb-m-limit" min="1" max="1000" value="${m.limit ?? 200}"/></div>
 `;
     fillJoinColumnSelects();
     wireMultiRoot(host);
@@ -2332,7 +3300,7 @@
       const rb = document.getElementById("qb-m-join-right-base").value;
       const rc = document.getElementById("qb-m-join-right-c").value;
       if (!ltid || !lc || !rb || !rc) {
-        alert("Pick left column, right table, and right column for the JOIN.");
+        alert(vt("viewer.qb.multi.alert.pickJoin"));
         return;
       }
       const leftInst = tableById(ltid);
@@ -3178,9 +4146,9 @@
       if (total != null) {
         const from = offset + 1;
         const to = Math.min(offset + limit, total);
-        statusEl.textContent = total === 0 ? "0 rows" : "Showing " + from + "\u2013" + to + " of " + total.toLocaleString() + " rows";
+        statusEl.textContent = total === 0 ? vt("viewer.session.pagination.zeroRows") : vt("viewer.session.pagination.showingRange", from, to, total.toLocaleString());
       } else {
-        statusEl.textContent = "Page " + currentPage + " (total unknown)";
+        statusEl.textContent = vt("viewer.session.pagination.pageUnknownTotal", currentPage);
       }
     }
     const onFirstPage = offset <= 0;
@@ -3192,12 +4160,12 @@
     pagesEl.innerHTML = "";
     const pageLabel = document.createElement("label");
     pageLabel.setAttribute("for", "pagination-page");
-    pageLabel.textContent = "Page ";
+    pageLabel.textContent = vt("viewer.session.pagination.pageLabel");
     pageLabel.className = "pagination-page-label";
     pagesEl.appendChild(pageLabel);
     const pageSel = document.createElement("select");
     pageSel.id = "pagination-page";
-    pageSel.setAttribute("aria-label", "Current page");
+    pageSel.setAttribute("aria-label", vt("viewer.session.pagination.currentPageAria"));
     if (totalPages != null) {
       for (let p = 1; p <= totalPages; p++) {
         const opt = document.createElement("option");
@@ -3217,7 +4185,7 @@
     const ofSpan = document.createElement("span");
     ofSpan.id = "pagination-of";
     ofSpan.className = "pagination-of";
-    ofSpan.textContent = totalPages != null ? " of " + totalPages : "";
+    ofSpan.textContent = totalPages != null ? vt("viewer.session.pagination.of", totalPages) : "";
     pagesEl.appendChild(ofSpan);
     pageSel.addEventListener("change", function() {
       const p = parseInt(this.value, 10) || 1;
@@ -3292,8 +4260,8 @@
       label.textContent = key;
       var pinBtn = document.createElement("button");
       pinBtn.type = "button";
-      pinBtn.textContent = config.pinned.indexOf(key) >= 0 ? "Unpin" : "Pin";
-      pinBtn.title = config.pinned.indexOf(key) >= 0 ? "Unpin this column" : "Pin this column to the left";
+      pinBtn.textContent = config.pinned.indexOf(key) >= 0 ? vt("viewer.session.column.unpin") : vt("viewer.session.column.pin");
+      pinBtn.title = config.pinned.indexOf(key) >= 0 ? vt("viewer.session.column.unpin.title") : vt("viewer.session.column.pin.title");
       pinBtn.style.fontSize = "11px";
       pinBtn.addEventListener("click", function() {
         var idx = config.pinned.indexOf(key);
@@ -3317,41 +4285,41 @@
     if (cols.length === 0) return "";
     _qbColTypes = colTypes;
     var html = '<div class="qb-section">';
-    html += '<div class="qb-header is-collapsed" id="qb-toggle">Query builder</div>';
+    html += '<div class="qb-header is-collapsed" id="qb-toggle">' + esc2(vt("viewer.qb.header")) + "</div>";
     html += '<div id="qb-body" class="qb-body collapsed">';
     html += '<div class="qb-mode-toggle">';
-    html += '<button type="button" id="qb-mode-visual" class="qb-mode-btn active" title="Visual query builder">Visual</button>';
-    html += '<button type="button" id="qb-mode-raw" class="qb-mode-btn" title="Edit SQL directly">Raw SQL</button>';
+    html += '<button type="button" id="qb-mode-visual" class="qb-mode-btn active" title="' + esc2(vt("viewer.qb.mode.visual.title")) + '">' + esc2(vt("viewer.qb.mode.visual.label")) + "</button>";
+    html += '<button type="button" id="qb-mode-raw" class="qb-mode-btn" title="' + esc2(vt("viewer.qb.mode.raw.title")) + '">' + esc2(vt("viewer.qb.mode.raw.label")) + "</button>";
     html += "</div>";
-    html += '<div class="qb-mode-toggle qb-scope-toggle" title="Single-table keeps the classic form; multi-table adds JOINs, GROUP BY, and multi ORDER BY">';
-    html += '<button type="button" id="qb-scope-single" class="qb-mode-btn active">Single table</button>';
-    html += '<button type="button" id="qb-scope-multi" class="qb-mode-btn">Multi-table</button>';
+    html += '<div class="qb-mode-toggle qb-scope-toggle" title="' + esc2(vt("viewer.qb.scope.toggle.title")) + '">';
+    html += '<button type="button" id="qb-scope-single" class="qb-mode-btn active">' + esc2(vt("viewer.qb.scope.single.label")) + "</button>";
+    html += '<button type="button" id="qb-scope-multi" class="qb-mode-btn">' + esc2(vt("viewer.qb.scope.multi.label")) + "</button>";
     html += "</div>";
     html += '<div id="qb-visual-panel">';
     html += '<div id="qb-simple-visual">';
-    html += '<div class="qb-row"><label>SELECT</label><div class="qb-columns" id="qb-columns">';
+    html += '<div class="qb-row"><label>' + esc2(vt("viewer.qb.label.select")) + '</label><div class="qb-columns" id="qb-columns">';
     cols.forEach(function(c) {
       html += '<label><input type="checkbox" value="' + esc2(c) + '" checked> ' + esc2(c) + "</label>";
     });
     html += "</div></div>";
-    html += '<div class="qb-row"><label>WHERE</label><div style="flex:1;">';
+    html += '<div class="qb-row"><label>' + esc2(vt("viewer.qb.label.where")) + '</label><div style="flex:1;">';
     html += '<div id="qb-where-list"></div>';
-    html += '<button type="button" id="qb-add-where" style="font-size:11px;" title="Add another WHERE condition">+ Add condition</button>';
+    html += '<button type="button" id="qb-add-where" style="font-size:11px;" title="' + esc2(vt("viewer.qb.where.add.title")) + '">' + esc2(vt("viewer.qb.where.add.label")) + "</button>";
     html += "</div></div>";
-    html += '<div class="qb-row"><label>ORDER BY</label>';
-    html += '<select id="qb-order-col"><option value="">None</option>';
+    html += '<div class="qb-row"><label>' + esc2(vt("viewer.qb.label.orderBy")) + "</label>";
+    html += '<select id="qb-order-col"><option value="">' + esc2(vt("viewer.qb.order.none")) + "</option>";
     cols.forEach(function(c) {
       html += '<option value="' + esc2(c) + '">' + esc2(c) + "</option>";
     });
     html += "</select>";
     html += '<select id="qb-order-dir"><option value="ASC">ASC</option><option value="DESC">DESC</option></select>';
     html += "</div>";
-    html += '<div class="qb-row"><label>LIMIT</label>';
+    html += '<div class="qb-row"><label>' + esc2(vt("viewer.qb.label.limit")) + "</label>";
     html += '<input type="number" id="qb-limit" value="200" min="1" max="1000" style="width:5rem;">';
     html += "</div>";
     html += "</div>";
     html += '<div id="qb-multi-panel" style="display:none;">';
-    html += '<p class="meta" style="margin:0 0 0.5rem 0;">Build JOINs from the root table. Preview shows validation errors until the graph is valid.</p>';
+    html += '<p class="meta" style="margin:0 0 0.5rem 0;">' + esc2(vt("viewer.qb.multi.intro")) + "</p>";
     html += '<div id="qb-multi-root"></div>';
     html += "</div>";
     html += '<div class="qb-preview" id="qb-preview"></div>';
@@ -3359,12 +4327,12 @@
     html += '<div id="qb-raw-panel" style="display:none;">';
     html += '<textarea id="qb-raw-input" class="qb-raw-textarea" rows="4" spellcheck="false" placeholder="SELECT * FROM &quot;' + esc2(tableName) + '&quot; LIMIT 200"></textarea>';
     html += '<div class="qb-row" style="margin-top:0.35rem;">';
-    html += '<button type="button" id="qb-raw-import" title="Parse the SQL above into the multi-table visual builder">Import to visual builder</button>';
+    html += '<button type="button" id="qb-raw-import" title="' + esc2(vt("viewer.qb.raw.import.title")) + '">' + esc2(vt("viewer.qb.raw.import.label")) + "</button>";
     html += "</div>";
     html += "</div>";
     html += '<div class="qb-row" style="margin-top:0.35rem;">';
-    html += '<button type="button" id="qb-run" title="Execute the built query">Run query</button>';
-    html += '<button type="button" id="qb-reset" title="Return to table view">Reset to table view</button>';
+    html += '<button type="button" id="qb-run" title="' + esc2(vt("viewer.qb.run.title")) + '">' + esc2(vt("viewer.qb.run.label")) + "</button>";
+    html += '<button type="button" id="qb-reset" title="' + esc2(vt("viewer.qb.reset.title")) + '">' + esc2(vt("viewer.qb.reset.label")) + "</button>";
     html += "</div>";
     html += "</div></div>";
     return html;
@@ -3373,12 +4341,12 @@
     var type = (columnType || "").toUpperCase();
     if (type === "TEXT" || type.indexOf("VARCHAR") >= 0 || type.indexOf("CHAR") >= 0) {
       return [
-        { val: "LIKE", label: "contains" },
-        { val: "=", label: "equals" },
-        { val: "NOT_LIKE", label: "not contains" },
-        { val: "LIKE_START", label: "starts with" },
-        { val: "IS NULL", label: "is null" },
-        { val: "IS NOT NULL", label: "is not null" }
+        { val: "LIKE", label: vt("viewer.qb.op.contains") },
+        { val: "=", label: vt("viewer.qb.op.equals") },
+        { val: "NOT_LIKE", label: vt("viewer.qb.op.notContains") },
+        { val: "LIKE_START", label: vt("viewer.qb.op.startsWith") },
+        { val: "IS NULL", label: vt("viewer.qb.op.isNull") },
+        { val: "IS NOT NULL", label: vt("viewer.qb.op.isNotNull") }
       ];
     } else if (type === "INTEGER" || type === "REAL" || type.indexOf("INT") >= 0 || type.indexOf("FLOAT") >= 0 || type.indexOf("DOUBLE") >= 0 || type.indexOf("NUM") >= 0 || type.indexOf("DECIMAL") >= 0) {
       return [
@@ -3388,21 +4356,21 @@
         { val: "<", label: "<" },
         { val: ">=", label: ">=" },
         { val: "<=", label: "<=" },
-        { val: "IS NULL", label: "is null" },
-        { val: "IS NOT NULL", label: "is not null" }
+        { val: "IS NULL", label: vt("viewer.qb.op.isNull") },
+        { val: "IS NOT NULL", label: vt("viewer.qb.op.isNotNull") }
       ];
     } else if (type === "BLOB") {
       return [
-        { val: "IS NULL", label: "is null" },
-        { val: "IS NOT NULL", label: "is not null" }
+        { val: "IS NULL", label: vt("viewer.qb.op.isNull") },
+        { val: "IS NOT NULL", label: vt("viewer.qb.op.isNotNull") }
       ];
     }
     return [
       { val: "=", label: "=" },
       { val: "!=", label: "!=" },
-      { val: "LIKE", label: "contains" },
-      { val: "IS NULL", label: "is null" },
-      { val: "IS NOT NULL", label: "is not null" }
+      { val: "LIKE", label: vt("viewer.qb.op.contains") },
+      { val: "IS NULL", label: vt("viewer.qb.op.isNull") },
+      { val: "IS NOT NULL", label: vt("viewer.qb.op.isNotNull") }
     ];
   }
   function addWhereClause(colTypes, preset) {
@@ -3416,7 +4384,7 @@
     if (!isFirst) {
       var connSel = document.createElement("select");
       connSel.className = "qb-where-connector";
-      connSel.title = "Combine with previous condition";
+      connSel.title = vt("viewer.qb.where.connector.title");
       var optAnd = document.createElement("option");
       optAnd.value = "AND";
       optAnd.textContent = "AND";
@@ -3443,12 +4411,12 @@
     var valInput = document.createElement("input");
     valInput.type = "text";
     valInput.className = "qb-where-val";
-    valInput.placeholder = "value";
+    valInput.placeholder = vt("viewer.qb.where.value.placeholder");
     valInput.style.width = "8rem";
     var removeBtn = document.createElement("button");
     removeBtn.type = "button";
     removeBtn.textContent = "\xD7";
-    removeBtn.title = "Remove condition";
+    removeBtn.title = vt("viewer.qb.where.remove.title");
     removeBtn.addEventListener("click", function() {
       div.remove();
       updateQbPreview();
@@ -3560,7 +4528,7 @@
     } else if (getQbScope() === "multi") {
       var multiSql = tryGetMultiSql();
       if (!multiSql) {
-        alert("Fix validation errors shown in the preview, or switch to Raw SQL.");
+        alert(vt("viewer.qb.alert.fixValidation"));
         return;
       }
       sql = multiSql;
@@ -3571,7 +4539,7 @@
     var runBtn = document.getElementById("qb-run");
     if (runBtn) {
       runBtn.disabled = true;
-      setButtonBusy(runBtn, true, "Running\u2026");
+      setButtonBusy(runBtn, true, vt("viewer.qb.run.busy"));
     }
     var savedState = captureQueryBuilderState();
     fetch("/api/sql", authOpts({
@@ -3584,7 +4552,7 @@
       });
     }).then(function(result) {
       if (!result.ok) {
-        alert("Query error: " + (result.data.error || "Unknown error"));
+        alert(vt("viewer.qb.alert.queryError", result.data.error || vt("viewer.qb.alert.unknownError")));
         return;
       }
       setQueryBuilderActive(true);
@@ -3597,7 +4565,7 @@
         fkMap[fk.fromColumn] = fk;
       });
       var colTypes = tableColumnTypes[currentTableName] || {};
-      var html = '<p class="meta">Query builder result: ' + rows.length + " row(s)</p>";
+      var html = '<p class="meta">' + esc2(vt("viewer.qb.result.rowCount", rows.length)) + "</p>";
       html += '<p class="meta" style="font-family:monospace;font-size:11px;color:var(--muted);">' + esc2(sql) + "</p>";
       html += buildQueryBuilderHtml(currentTableName, colTypes);
       var qbDataKeys = Object.keys(rows[0] || {});
@@ -3605,7 +4573,7 @@
       var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, qbColConfig));
       rawTableHtml += buildTableStatusBar(tableCounts[currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(qbDataKeys, qbColConfig));
       var resultsLabel = buildResultsLabel(rows.length, null, getVisibleColumnCount(qbDataKeys, qbColConfig), qbDataKeys.length);
-      html += '<div class="results-table-wrap" role="region" aria-label="Results"><div class="results-table-heading">Results \u2014 ' + resultsLabel + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
+      html += '<div class="results-table-wrap" role="region" aria-label="' + esc2(vt("viewer.qb.results.ariaLabel")) + '"><div class="results-table-heading">' + vt("viewer.qb.results.heading", resultsLabel) + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
       content.innerHTML = html;
       bindQueryBuilderEvents(colTypes);
       restoreQueryBuilderUIState(savedState);
@@ -3617,11 +4585,11 @@
       if (toggle) toggle.classList.remove("is-collapsed");
       saveTableState(currentTableName);
     }).catch(function(e) {
-      alert("Error: " + e.message);
+      alert(vt("viewer.qb.alert.error", e.message));
     }).finally(function() {
       if (runBtn) {
         runBtn.disabled = false;
-        setButtonBusy(runBtn, false, "Run query");
+        setButtonBusy(runBtn, false, vt("viewer.qb.run.label"));
       }
     });
   }
@@ -3717,14 +4685,14 @@
         if (!input) return;
         var sqlText = input.value.trim();
         if (!sqlText) {
-          alert("Paste a SELECT statement to import.");
+          alert(vt("viewer.qb.alert.pasteSelect"));
           return;
         }
         void loadSchemaMeta().then(function() {
           var schemaTables = schemaMeta && schemaMeta.tables || [];
           var result = importSelectSqlToWebModel(sqlText, schemaTables);
           if (!result.model || result.errors.length > 0) {
-            alert("Could not import SQL:\n" + result.errors.join("\n"));
+            alert(vt("viewer.qb.alert.importFailed", result.errors.join("\n")));
             return;
           }
           loadImportedMultiModel(result.model);
@@ -3742,7 +4710,7 @@
           updateQbPreview();
           if (result.warnings.length > 0) console.warn("SQL import warnings:", result.warnings);
         }).catch(function(e) {
-          alert("Schema load failed: " + e.message);
+          alert(vt("viewer.qb.alert.schemaLoadFailed", e.message));
         });
       });
     }
@@ -4008,23 +4976,23 @@
     if (!msgEl || !diagEl) return;
     const parts = [];
     if (connectionState === "reconnecting") {
-      msgEl.textContent = "Reconnecting\u2026";
-      diagEl.textContent = "Restoring connection\u2026";
+      msgEl.textContent = vt("viewer.session.banner.reconnecting");
+      diagEl.textContent = vt("viewer.session.banner.restoring");
       return;
     }
     if (heartbeatInFlight) {
-      msgEl.textContent = "Connection lost \u2014 checking\u2026";
-      parts.push("Attempt " + heartbeatAttemptCount);
+      msgEl.textContent = vt("viewer.session.banner.lost.checking");
+      parts.push(vt("viewer.session.banner.attempt", heartbeatAttemptCount));
     } else if (nextHeartbeatAt != null) {
       const secs = Math.max(0, Math.ceil((nextHeartbeatAt - Date.now()) / 1e3));
-      msgEl.textContent = "Connection lost \u2014 next retry in " + secs + "s";
+      msgEl.textContent = vt("viewer.session.banner.lost.nextRetry", secs);
       const intervalSec = currentBackoffMs / 1e3;
-      parts.push("Retrying every " + intervalSec + "s");
-      if (currentBackoffMs >= BACKOFF_MAX_MS) parts.push("(max interval)");
-      parts.push("Attempt " + heartbeatAttemptCount);
+      parts.push(vt("viewer.session.banner.retryingEvery", intervalSec));
+      if (currentBackoffMs >= BACKOFF_MAX_MS) parts.push(vt("viewer.session.banner.maxInterval"));
+      parts.push(vt("viewer.session.banner.attempt", heartbeatAttemptCount));
     } else {
-      msgEl.textContent = "Connection lost \u2014 reconnecting\u2026";
-      parts.push("Attempt " + heartbeatAttemptCount);
+      msgEl.textContent = vt("viewer.session.banner.lost.reconnecting");
+      parts.push(vt("viewer.session.banner.attempt", heartbeatAttemptCount));
     }
     diagEl.textContent = parts.join(" \u2022 ");
   }
@@ -4239,8 +5207,8 @@
     var closeBtn = document.createElement("button");
     closeBtn.type = "button";
     closeBtn.className = "tab-btn-close";
-    closeBtn.title = "Close tab";
-    closeBtn.setAttribute("aria-label", "Close " + label);
+    closeBtn.title = vt("viewer.nav.tab.close");
+    closeBtn.setAttribute("aria-label", vt("viewer.nav.tab.closeNamed", label));
     closeBtn.textContent = "\xD7";
     closeBtn.addEventListener("click", function(e) {
       e.stopPropagation();
@@ -4278,7 +5246,8 @@
       }
     });
     if (toClose.length === 0) return;
-    if (!window.confirm("Close " + toClose.length + " other tab" + (toClose.length > 1 ? "s" : "") + "?")) return;
+    const confirmMsg = toClose.length > 1 ? vt("viewer.nav.tab.closeOthers.many", toClose.length) : vt("viewer.nav.tab.closeOthers.one", toClose.length);
+    if (!window.confirm(confirmMsg)) return;
     toClose.forEach(function(id) {
       closeToolTab(id);
     });
@@ -4297,7 +5266,7 @@
     var tabBar = document.getElementById("tab-bar");
     var remaining = tabBar ? tabBar.querySelectorAll(".tab-btn") : [];
     if (remaining.length === 0) {
-      createClosableTab("home", TOOL_LABELS.home || "Home", "panel-home", { prepend: true });
+      createClosableTab("home", TOOL_LABELS.home || vt("viewer.nav.tab.home"), "panel-home", { prepend: true });
       switchTab("home");
       return;
     }
@@ -4336,9 +5305,9 @@
   function rowCountText(name) {
     const total = tableCounts[name];
     const len = currentTableJson && currentTableJson.length || 0;
-    if (total == null) return esc2(name) + " (up to " + limit + " rows)";
-    const rangeText = len > 0 ? "showing " + (offset + 1) + "\u2013" + (offset + len) : "no rows in this range";
-    return esc2(name) + " (" + total + " row" + (total !== 1 ? "s" : "") + "; " + rangeText + ")";
+    if (total == null) return vt("viewer.table.list.upToRows", esc2(name), limit);
+    const rangeText = len > 0 ? vt("viewer.table.list.showingRange", offset + 1, offset + len) : vt("viewer.table.list.noRowsInRange");
+    return vt(total !== 1 ? "viewer.table.list.countRowMany" : "viewer.table.list.countRowOne", esc2(name), total, rangeText);
   }
   function updateTableListActive() {
     var name = currentTableName;
@@ -4361,9 +5330,9 @@
     const content = document.getElementById("content");
     const scope = getScope();
     if (scope === "both" && cachedSchema !== null) {
-      content.innerHTML = '<p class="meta">Loading ' + esc2(name) + "\u2026</p>";
+      content.innerHTML = '<p class="meta">' + vt("viewer.table.list.loadingNamed", esc2(name)) + "</p>";
     } else if (scope !== "both") {
-      content.innerHTML = '<p class="meta">' + esc2(name) + '</p><p class="meta">Loading\u2026</p>';
+      content.innerHTML = '<p class="meta">' + esc2(name) + '</p><p class="meta">' + vt("viewer.table.list.loading") + "</p>";
     }
     fetch("/api/table/" + encodeURIComponent(name) + "?S.limit=" + limit + "&S.offset=" + offset, authOpts()).then((r) => r.json()).then((data) => {
       if (currentTableName !== name) return;
@@ -4379,7 +5348,7 @@
       });
     }).catch((e) => {
       if (currentTableName !== name) return;
-      content.innerHTML = '<p class="meta">Error</p><pre>' + esc2(String(e)) + "</pre>";
+      content.innerHTML = '<p class="meta">' + vt("viewer.table.list.loadError") + "</p><pre>" + esc2(String(e)) + "</pre>";
     });
   }
   function renderTableList(tables) {
@@ -4422,7 +5391,7 @@
       var pinBtn = document.createElement("button");
       pinBtn.type = "button";
       pinBtn.className = "table-pin-btn" + (isPinned ? " pinned" : "");
-      pinBtn.title = isPinned ? "Unpin" : "Pin to top";
+      pinBtn.title = isPinned ? vt("viewer.table.list.unpinTitle") : vt("viewer.table.list.pinTitle");
       pinBtn.setAttribute("aria-pressed", isPinned ? "true" : "false");
       var pinIcon = document.createElement("span");
       pinIcon.className = "material-symbols-outlined";
@@ -4457,7 +5426,7 @@
     var browseEl = document.getElementById("tables-browse");
     if (!browseEl) return;
     if (!tables || tables.length === 0) {
-      browseEl.innerHTML = '<p class="meta">No tables found.</p>';
+      browseEl.innerHTML = '<p class="meta">' + vt("viewer.table.list.browseEmpty") + "</p>";
       return;
     }
     var html = '<div class="tables-browse-grid">';
@@ -4466,7 +5435,7 @@
       if (tableCounts[t] != null) {
         countHtml = '<span class="browse-card-count">(' + esc2(formatTableRowCountDisplay(tableCounts[t])) + ")</span>";
       }
-      html += '<button type="button" class="tables-browse-card" data-table="' + esc2(t) + '" title="Open ' + esc2(t) + ' in a tab">';
+      html += '<button type="button" class="tables-browse-card" data-table="' + esc2(t) + '" title="' + esc2(vt("viewer.table.list.browseOpenTitle", t)) + '">';
       html += '<span class="browse-card-name">' + esc2(t) + "</span>";
       html += countHtml;
       html += "</button>";
@@ -4593,11 +5562,11 @@
       el.style.display = "none";
       return;
     }
-    var html = '<a href="#" id="nav-back" style="color:var(--link);" title="Go back to previous table">&#8592; Back</a>';
-    html += ' | <a href="#" id="nav-clear" class="nav-clear-link" title="Clear navigation trail">Clear path</a>';
+    var html = '<a href="#" id="nav-back" style="color:var(--link);" title="' + esc2(vt("viewer.settings.fknav.backTitle")) + '">&#8592; ' + esc2(vt("viewer.settings.fknav.back")) + "</a>";
+    html += ' | <a href="#" id="nav-clear" class="nav-clear-link" title="' + esc2(vt("viewer.settings.fknav.clearPathTitle")) + '">' + esc2(vt("viewer.settings.fknav.clearPath")) + "</a>";
     html += " | ";
     html += navHistory.map(function(h, idx) {
-      return '<a href="#" class="nav-crumb" data-idx="' + idx + '" data-longpress-copy="' + esc2(h.table) + '" style="color:var(--link);" title="Jump to ' + esc2(h.table) + '">' + esc2(h.table) + "</a>";
+      return '<a href="#" class="nav-crumb" data-idx="' + idx + '" data-longpress-copy="' + esc2(h.table) + '" style="color:var(--link);" title="' + esc2(vt("viewer.settings.fknav.jumpTitle", h.table)) + '">' + esc2(h.table) + "</a>";
     }).join(" &#8594; ");
     var curName = currentTableName || "";
     html += ' &#8594; <strong data-longpress-copy="' + esc2(curName) + '">' + esc2(curName) + "</strong>";
@@ -4694,32 +5663,32 @@
   <section class="settings-group">
     <h3 class="settings-group-title">
       <span class="material-symbols-outlined" aria-hidden="true">database</span>
-      Storage &amp; History
+      ${vt("viewer.settings.group.storage")}
     </h3>
     <label class="settings-row">
-      <span class="settings-label">SQL history max entries</span>
+      <span class="settings-label">${vt("viewer.settings.storage.sqlHistoryMax")}</span>
       <input type="number" id="pref-sqlHistoryMax" class="settings-input settings-input-number" min="10" max="2000" step="10" />
     </label>
     <label class="settings-row">
-      <span class="settings-label">Max saved analyses</span>
+      <span class="settings-label">${vt("viewer.settings.storage.maxAnalyses")}</span>
       <input type="number" id="pref-analysisMax" class="settings-input settings-input-number" min="5" max="500" step="5" />
     </label>
     <div class="settings-row settings-row-actions">
       <button type="button" id="settings-clear-all" class="btn btn-danger-outline settings-btn">
         <span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span>
-        Clear all stored data
+        ${vt("viewer.settings.storage.clearAll")}
       </button>
-      <span class="settings-hint">Removes pinned tables, table states, navigation history, SQL history, bookmarks, and saved analyses. Theme and sidebar preferences are kept.</span>
+      <span class="settings-hint">${vt("viewer.settings.storage.clearAllHint")}</span>
     </div>
   </section>
 
   <section class="settings-group">
     <h3 class="settings-group-title">
       <span class="material-symbols-outlined" aria-hidden="true">table_chart</span>
-      Table Defaults
+      ${vt("viewer.settings.group.tableDefaults")}
     </h3>
     <label class="settings-row">
-      <span class="settings-label">Default page size</span>
+      <span class="settings-label">${vt("viewer.settings.table.defaultPageSize")}</span>
       <select id="pref-defaultPageSize" class="settings-input settings-input-select">
         <option value="50">50</option>
         <option value="200">200</option>
@@ -4728,23 +5697,23 @@
       </select>
     </label>
     <label class="settings-row">
-      <span class="settings-label">Default display format</span>
+      <span class="settings-label">${vt("viewer.settings.table.defaultDisplayFormat")}</span>
       <select id="pref-defaultDisplayFormat" class="settings-input settings-input-select">
-        <option value="raw">Raw</option>
-        <option value="formatted">Formatted</option>
+        <option value="raw">${vt("viewer.settings.table.displayFormat.raw")}</option>
+        <option value="formatted">${vt("viewer.settings.table.displayFormat.formatted")}</option>
       </select>
     </label>
     <label class="settings-row">
-      <span class="settings-label">NULL display</span>
-      <span class="settings-sublabel">How SQL NULLs render in table cells (always shown dimmed)</span>
+      <span class="settings-label">${vt("viewer.settings.table.nullDisplay")}</span>
+      <span class="settings-sublabel">${vt("viewer.settings.table.nullDisplaySub")}</span>
       <select id="pref-nullDisplay" class="settings-input settings-input-select">
         <option value="NULL">NULL</option>
-        <option value="-">- (dash)</option>
+        <option value="-">${vt("viewer.settings.table.nullDisplay.dash")}</option>
       </select>
     </label>
     <label class="settings-row settings-toggle-row">
-      <span class="settings-label">Show only matching rows</span>
-      <span class="settings-sublabel">When a row filter is active, hide non-matching rows instead of highlighting them</span>
+      <span class="settings-label">${vt("viewer.settings.table.onlyMatching")}</span>
+      <span class="settings-sublabel">${vt("viewer.settings.table.onlyMatchingSub")}</span>
       <input type="checkbox" id="pref-defaultOnlyMatching" class="settings-checkbox" />
       <span class="settings-switch" role="switch" aria-checked="false"></span>
     </label>
@@ -4753,16 +5722,16 @@
   <section class="settings-group">
     <h3 class="settings-group-title">
       <span class="material-symbols-outlined" aria-hidden="true">speed</span>
-      Performance
+      ${vt("viewer.settings.group.performance")}
     </h3>
     <label class="settings-row">
-      <span class="settings-label">Slow query threshold</span>
-      <span class="settings-sublabel">Queries exceeding this duration (ms) are flagged in the Perf tab</span>
+      <span class="settings-label">${vt("viewer.settings.perf.slowQueryThreshold")}</span>
+      <span class="settings-sublabel">${vt("viewer.settings.perf.slowQueryThresholdSub")}</span>
       <input type="number" id="pref-slowQueryThreshold" class="settings-input settings-input-number" min="10" max="60000" step="10" />
     </label>
     <label class="settings-row settings-toggle-row">
-      <span class="settings-label">Auto-refresh polling</span>
-      <span class="settings-sublabel">Automatically detect and reload when database data changes</span>
+      <span class="settings-label">${vt("viewer.settings.perf.autoRefresh")}</span>
+      <span class="settings-sublabel">${vt("viewer.settings.perf.autoRefreshSub")}</span>
       <input type="checkbox" id="pref-autoRefresh" class="settings-checkbox" />
       <span class="settings-switch" role="switch" aria-checked="false"></span>
     </label>
@@ -4771,17 +5740,17 @@
   <section class="settings-group">
     <h3 class="settings-group-title">
       <span class="material-symbols-outlined" aria-hidden="true">format_paint</span>
-      Data Formatting
+      ${vt("viewer.settings.group.dataFormatting")}
     </h3>
     <label class="settings-row settings-toggle-row">
-      <span class="settings-label">Auto-detect epoch timestamps</span>
-      <span class="settings-sublabel">Automatically format large integers as dates when column names suggest timestamps</span>
+      <span class="settings-label">${vt("viewer.settings.format.epochDetection")}</span>
+      <span class="settings-sublabel">${vt("viewer.settings.format.epochDetectionSub")}</span>
       <input type="checkbox" id="pref-epochDetection" class="settings-checkbox" />
       <span class="settings-switch" role="switch" aria-checked="false"></span>
     </label>
     <label class="settings-row settings-toggle-row">
-      <span class="settings-label">Confirm before leaving page</span>
-      <span class="settings-sublabel">Show a browser confirmation dialog when navigating away or closing the tab</span>
+      <span class="settings-label">${vt("viewer.settings.format.confirmNavigate")}</span>
+      <span class="settings-sublabel">${vt("viewer.settings.format.confirmNavigateSub")}</span>
       <input type="checkbox" id="pref-confirmNavigateAway" class="settings-checkbox" />
       <span class="settings-switch" role="switch" aria-checked="false"></span>
     </label>
@@ -4790,7 +5759,7 @@
   <div class="settings-footer">
     <button type="button" id="settings-reset-all" class="btn btn-outline settings-btn">
       <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
-      Reset all to defaults
+      ${vt("viewer.settings.footer.resetAll")}
     </button>
   </div>
 
@@ -4839,18 +5808,18 @@
     const clearBtn = document.getElementById("settings-clear-all");
     if (clearBtn) {
       clearBtn.addEventListener("click", () => {
-        if (!confirm("Clear all stored project data? Theme and sidebar preferences will be kept.")) return;
+        if (!confirm(vt("viewer.settings.confirm.clearAll"))) return;
         clearAllProjectData();
-        clearBtn.textContent = "Cleared!";
+        clearBtn.textContent = vt("viewer.settings.storage.cleared");
         setTimeout(() => {
-          clearBtn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span> Clear all stored data';
+          clearBtn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span> ' + vt("viewer.settings.storage.clearAll");
         }, 1500);
       });
     }
     const resetBtn = document.getElementById("settings-reset-all");
     if (resetBtn) {
       resetBtn.addEventListener("click", () => {
-        if (!confirm("Reset all settings to their default values?")) return;
+        if (!confirm(vt("viewer.settings.confirm.resetAll"))) return;
         resetAllPrefs();
         populateForm();
         applyRuntimeState();
@@ -4946,12 +5915,12 @@
       setCachedSchema(schema);
       pre.innerHTML = highlightSqlSafe(schema);
     }).catch(function() {
-      pre.textContent = "Failed to load.";
+      pre.textContent = vt("viewer.schema.load.failed");
     });
   }
   function loadSchemaView() {
     const content = document.getElementById("content");
-    content.innerHTML = '<p class="meta">Loading schema\u2026</p>';
+    content.innerHTML = '<p class="meta">' + vt("viewer.schema.loading") + "</p>";
     if (cachedSchema !== null) {
       renderSchemaContent(content, cachedSchema);
       applySearch();
@@ -4962,7 +5931,7 @@
       renderSchemaContent(content, schema);
       applySearch();
     }).catch((e) => {
-      content.innerHTML = '<p class="meta">Error</p><pre>' + esc2(String(e)) + "</pre>";
+      content.innerHTML = '<p class="meta">' + vt("viewer.schema.error") + "</p><pre>" + esc2(String(e)) + "</pre>";
     });
   }
   function renderSchemaContent(container, schema) {
@@ -4970,7 +5939,7 @@
     setLastRenderedSchema(schema);
     const scope = getScope();
     if (scope === "both") {
-      container.innerHTML = '<div class="search-section-collapsible expanded"><div class="collapsible-header" data-collapsible>Schema</div><div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div></div><div class="search-section-collapsible expanded" id="both-data-section"><div class="collapsible-header" data-collapsible>Table data</div><div class="collapsible-body"><p class="meta">Select a table above to load data.</p></div></div>';
+      container.innerHTML = '<div class="search-section-collapsible expanded"><div class="collapsible-header" data-collapsible>' + vt("viewer.schema.heading") + '</div><div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div></div><div class="search-section-collapsible expanded" id="both-data-section"><div class="collapsible-header" data-collapsible>' + vt("viewer.schema.tableData.heading") + '</div><div class="collapsible-body"><p class="meta">' + vt("viewer.schema.selectTablePrompt") + "</p></div></div>";
       const dataSection = document.getElementById("both-data-section");
       if (dataSection && currentTableName && currentTableJson !== null) {
         const displayData = getTableDisplayData(currentTableJson);
@@ -4984,20 +5953,20 @@
         var colTypes = tableColumnTypes[currentTableName] || {};
         var dataBody = dataSection.querySelector(".collapsible-body");
         var headerEl = dataSection.querySelector(".collapsible-header");
-        if (headerEl) headerEl.textContent = "Table data: " + currentTableName;
+        if (headerEl) headerEl.textContent = vt("viewer.schema.tableData.headingNamed", currentTableName);
         if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + "</p>" + buildTableDefinitionHtml(currentTableName) + wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(currentTableName)));
       }
     } else {
-      container.innerHTML = '<p class="meta">Schema</p><pre id="content-pre">' + highlightSqlSafe(schema) + "</pre>";
+      container.innerHTML = '<p class="meta">' + vt("viewer.schema.heading") + '</p><pre id="content-pre">' + highlightSqlSafe(schema) + "</pre>";
     }
   }
   function buildBothViewSectionsHtml(tableName, metaText, qbHtml, tableHtml, schema, defHtml) {
     defHtml = defHtml || "";
-    return '<div class="search-section-collapsible expanded"><div class="collapsible-header" data-collapsible>Schema</div><div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div></div><div class="search-section-collapsible expanded" id="both-data-section"><div class="collapsible-header" data-collapsible>Table data: ' + esc2(tableName) + '</div><div class="collapsible-body"><p class="meta">' + metaText + "</p>" + defHtml + qbHtml + tableHtml + "</div></div>";
+    return '<div class="search-section-collapsible expanded"><div class="collapsible-header" data-collapsible>' + vt("viewer.schema.heading") + '</div><div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div></div><div class="search-section-collapsible expanded" id="both-data-section"><div class="collapsible-header" data-collapsible>' + vt("viewer.schema.tableData.headingNamed", esc2(tableName)) + '</div><div class="collapsible-body"><p class="meta">' + metaText + "</p>" + defHtml + qbHtml + tableHtml + "</div></div>";
   }
   function loadBothView() {
     const content = document.getElementById("content");
-    content.innerHTML = '<p class="meta">Loading\u2026</p>';
+    content.innerHTML = '<p class="meta">' + vt("viewer.schema.loadingShort") + "</p>";
     (cachedSchema !== null ? Promise.resolve(cachedSchema) : fetch("/api/schema", authOpts()).then((r) => r.text())).then((schema) => {
       if (cachedSchema === null) setCachedSchema(schema);
       setLastRenderedSchema(schema);
@@ -5015,12 +5984,12 @@
         dataHtml = '<p class="meta">' + metaText + "</p>" + buildTableDefinitionHtml(currentTableName) + wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(currentTableName))) + buildTableStatusBar(tableCounts[currentTableName], offset, limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(currentTableName)));
       } else {
         setLastRenderedData(null);
-        dataHtml = '<p class="meta">Select a table above to load data.</p>';
+        dataHtml = '<p class="meta">' + vt("viewer.schema.selectTablePrompt") + "</p>";
       }
-      content.innerHTML = '<div class="search-section-collapsible expanded"><div class="collapsible-header" data-collapsible>Schema</div><div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div></div><div class="search-section-collapsible expanded" id="both-data-section"><div class="collapsible-header" data-collapsible>Table data</div><div class="collapsible-body">' + dataHtml + "</div></div>";
+      content.innerHTML = '<div class="search-section-collapsible expanded"><div class="collapsible-header" data-collapsible>' + vt("viewer.schema.heading") + '</div><div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div></div><div class="search-section-collapsible expanded" id="both-data-section"><div class="collapsible-header" data-collapsible>' + vt("viewer.schema.tableData.heading") + '</div><div class="collapsible-body">' + dataHtml + "</div></div>";
       applySearch();
     }).catch((e) => {
-      content.innerHTML = '<p class="meta">Error</p><pre>' + esc2(String(e)) + "</pre>";
+      content.innerHTML = '<p class="meta">' + vt("viewer.schema.error") + "</p><pre>" + esc2(String(e)) + "</pre>";
     });
   }
 
@@ -5063,8 +6032,8 @@
     if (value == null || value === "") return { formatted: raw, raw, wasFormatted: false };
     var type = (columnType || "").toUpperCase();
     if ((type === "INTEGER" || type === "") && isBooleanColumn(columnName)) {
-      if (value === 0 || value === "0") return { formatted: "false", raw, wasFormatted: true };
-      if (value === 1 || value === "1") return { formatted: "true", raw, wasFormatted: true };
+      if (value === 0 || value === "0") return { formatted: vt("viewer.table.grid.boolFalse"), raw, wasFormatted: true };
+      if (value === 1 || value === "1") return { formatted: vt("viewer.table.grid.boolTrue"), raw, wasFormatted: true };
     }
     if ((type === "INTEGER" || type === "REAL" || type === "") && (isDateColumn2(columnName) || isEpochTimestamp(value))) {
       var epoch = isEpochTimestamp(value);
@@ -5085,7 +6054,7 @@
     clearTimeout(toast._hideTimer);
     toast._hideTimer = setTimeout(function() {
       toast.classList.remove("show");
-      toast.textContent = "Copied!";
+      toast.textContent = vt("viewer.table.toast.copied");
     }, 1200);
   }
   function copyCellValue(text) {
@@ -5095,7 +6064,7 @@
     }
   }
   function buildDataTableHtml(filtered2, fkMap, colTypes, columnConfig) {
-    if (!filtered2 || filtered2.length === 0) return '<p class="meta">No rows.</p>';
+    if (!filtered2 || filtered2.length === 0) return '<p class="meta">' + vt("viewer.table.grid.empty") + "</p>";
     var dataKeys = Object.keys(filtered2[0]);
     var order = dataKeys.slice();
     var hidden = [];
@@ -5119,19 +6088,19 @@
     var html = '<table id="data-table" class="drift-table"><thead><tr>';
     visible.forEach(function(k) {
       var fk = fkMap[k];
-      var fkLabel = fk ? ' <span class="table-header-fk" title="FK to ' + esc2(fk.toTable) + "." + esc2(fk.toColumn) + '">&#8599;</span>' : "";
+      var fkLabel = fk ? ' <span class="table-header-fk" title="' + esc2(vt("viewer.table.grid.fkHeaderTitle", fk.toTable, fk.toColumn)) + '">&#8599;</span>' : "";
       var colType = colTypes ? colTypes[k] || "" : "";
       var typeBadge = colType ? ' <span class="col-type-badge" title="' + esc2(colType) + '">' + esc2(colType.substring(0, 4)) + "</span>" : "";
       var maskBadge = "";
       if (maskOn && isPiiColumn(k)) {
-        var maskTip = "Sensitive column: values are redacted while PII masking is on. Use the mask control in the toolbar to show raw data.";
+        var maskTip = vt("viewer.table.grid.maskTip");
         maskBadge = ' <span class="col-mask-badge" title="' + esc2(maskTip) + '" aria-label="' + esc2(maskTip) + '"><span class="material-symbols-outlined" aria-hidden="true">visibility_off</span></span>';
       }
       var thClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : "";
-      html += '<th data-column-key="' + esc2(k) + '" draggable="true"' + thClass + ' title="Drag to reorder; right-click for menu">' + esc2(k) + maskBadge + typeBadge + fkLabel + "</th>";
+      html += '<th data-column-key="' + esc2(k) + '" draggable="true"' + thClass + ' title="' + esc2(vt("viewer.table.grid.headerDragTitle")) + '">' + esc2(k) + maskBadge + typeBadge + fkLabel + "</th>";
     });
     if (showRowDelete) {
-      html += '<th class="row-action-col">Actions</th>';
+      html += '<th class="row-action-col">' + esc2(vt("viewer.table.grid.actionsHeader")) + "</th>";
     }
     html += "</tr></thead><tbody>";
     var piiCols = {};
@@ -5161,15 +6130,15 @@
         } else if (displayFormat === "formatted" && colTypes && !(maskOn && piiCols[k])) {
           var fmt = formatCellValue(val, k, colTypes[k]);
           if (fmt.wasFormatted) {
-            cellContent = '<span title="Raw: ' + esc2(fmt.raw) + '">' + esc2(fmt.formatted) + '</span><span class="cell-raw">' + esc2(fmt.raw) + "</span>";
+            cellContent = '<span title="' + esc2(vt("viewer.table.grid.rawTitle", fmt.raw)) + '">' + esc2(fmt.formatted) + '</span><span class="cell-raw">' + esc2(fmt.raw) + "</span>";
           } else {
             cellContent = esc2(displayStr);
           }
         } else {
           cellContent = esc2(displayStr);
         }
-        var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc2(displayStr) + '" title="Copy value">&#x2398;</button>';
-        var expandBtn = blobTruncated ? '<button type="button" class="cell-expand-btn" title="Open full value">&#x26F6;</button>' : "";
+        var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc2(displayStr) + '" title="' + esc2(vt("viewer.table.grid.copyValueTitle")) + '">&#x2398;</button>';
+        var expandBtn = blobTruncated ? '<button type="button" class="cell-expand-btn" title="' + esc2(vt("viewer.table.grid.expandValueTitle")) + '">&#x26F6;</button>' : "";
         var tdClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : "";
         var tdAttrs = ' data-column-key="' + esc2(k) + '"' + tdClass;
         if (fk && !isNull) {
@@ -5184,7 +6153,7 @@
       });
       if (showRowDelete && singlePkName) {
         var pkRaw = row[singlePkName] == null ? "" : String(row[singlePkName]);
-        html += '<td class="row-action-col"><button type="button" class="row-delete-btn" data-pk-col="' + esc2(singlePkName) + '" data-pk-raw="' + esc2(pkRaw) + '" title="Delete this row">Delete</button></td>';
+        html += '<td class="row-action-col"><button type="button" class="row-delete-btn" data-pk-col="' + esc2(singlePkName) + '" data-pk-raw="' + esc2(pkRaw) + '" title="' + esc2(vt("viewer.table.grid.rowDeleteTitle")) + '">' + esc2(vt("viewer.table.grid.rowDeleteLabel")) + "</button></td>";
       }
       html += "</tr>";
     });
@@ -5215,19 +6184,20 @@
   function buildTableStatusBar(total, offset2, limit2, displayedLen, columnCount) {
     var rangeText = displayedLen > 0 ? offset2 + 1 + "\u2013" + (offset2 + displayedLen) : "0";
     var totalText = total != null ? total.toLocaleString() : "?";
-    var colText = columnCount != null && columnCount > 0 ? columnCount + " column" + (columnCount !== 1 ? "s" : "") : "";
-    var parts = ['Showing <span class="table-status-range">' + rangeText + "</span> of " + totalText + " rows"];
+    var colText = columnCount != null && columnCount > 0 ? vt(columnCount !== 1 ? "viewer.table.status.columnMany" : "viewer.table.status.columnOne", columnCount) : "";
+    var rangeMarkup = '<span class="table-status-range">' + rangeText + "</span>";
+    var parts = [vt("viewer.table.status.showing", rangeMarkup, totalText)];
     if (displayedLen === 0 && total != null && total > 0 && offset2 >= total) {
-      parts.push("(past end of results)");
+      parts.push(vt("viewer.table.status.pastEnd"));
     }
     if (colText) parts.push(colText);
     return '<div class="table-status-bar" role="status">' + parts.join(" \u2022 ") + "</div>";
   }
   function buildResultsLabel(rowCount, totalRows, visibleCols, totalCols) {
-    var rowsText = totalRows != null && totalRows !== rowCount ? rowCount.toLocaleString() + " of " + totalRows.toLocaleString() + " rows" : rowCount.toLocaleString() + " row" + (rowCount !== 1 ? "s" : "");
+    var rowsText = totalRows != null && totalRows !== rowCount ? vt("viewer.table.results.rowsOf", rowCount.toLocaleString(), totalRows.toLocaleString()) : vt(rowCount !== 1 ? "viewer.table.results.rowMany" : "viewer.table.results.rowOne", rowCount.toLocaleString());
     var colsText = "";
     if (totalCols != null && totalCols > 0) {
-      colsText = visibleCols != null && visibleCols !== totalCols ? visibleCols + " of " + totalCols + " columns" : totalCols + " column" + (totalCols !== 1 ? "s" : "");
+      colsText = visibleCols != null && visibleCols !== totalCols ? vt("viewer.table.results.colsOf", visibleCols, totalCols) : vt(totalCols !== 1 ? "viewer.table.results.colMany" : "viewer.table.results.colOne", totalCols);
     }
     return colsText ? rowsText + " / " + colsText : rowsText;
   }
@@ -5266,22 +6236,22 @@
     var total = stat.total || 0;
     var nonnull = stat.nonnull || 0;
     var fillPct = total > 0 ? Math.round(nonnull / total * 100) : 0;
-    var fillTitle = nonnull + " of " + total + " rows filled (" + stat.nulls + " null)";
+    var fillTitle = vt("viewer.table.def.fillCellTitle", nonnull, total, stat.nulls);
     var fillCell = '<td class="tdm-col tdm-fill-cell"><span class="tdm-bar" title="' + esc2(fillTitle) + '"><span class="tdm-bar-fill" style="width:' + fillPct + '%"></span></span><span class="tdm-pct">' + fillPct + "%</span></td>";
     var nullsCell = '<td class="tdm-col tdm-num">' + (stat.nulls > 0 ? stat.nulls.toLocaleString() : '<span class="tdm-dim">0</span>') + "</td>";
     var distinctCell = '<td class="tdm-col tdm-num">' + (stat.distinct || 0).toLocaleString() + "</td>";
     var uniqueCell;
     if (total > 0 && stat.distinct === total && stat.nulls === 0) {
-      uniqueCell = '<td class="tdm-col tdm-unique" title="Candidate key: every value is unique"><span class="tdm-key">\u{1F511}</span> 100%</td>';
+      uniqueCell = '<td class="tdm-col tdm-unique" title="' + esc2(vt("viewer.table.def.uniqueKeyTitle")) + '"><span class="tdm-key">\u{1F511}</span> 100%</td>';
     } else if (total > 0) {
       var uPct = Math.round(stat.distinct / total * 100);
-      uniqueCell = '<td class="tdm-col tdm-num" title="' + stat.distinct + " distinct of " + total + ' rows">' + uPct + "%</td>";
+      uniqueCell = '<td class="tdm-col tdm-num" title="' + esc2(vt("viewer.table.def.uniqueRatioTitle", stat.distinct, total)) + '">' + uPct + "%</td>";
     } else {
       uniqueCell = '<td class="tdm-col tdm-num"><span class="tdm-dim">\u2014</span></td>';
     }
     var minCell = '<td class="tdm-col tdm-val">' + formatMetaScalar(stat.min) + "</td>";
     var maxCell = '<td class="tdm-col tdm-val">' + formatMetaScalar(stat.max) + "</td>";
-    var sizeCell = '<td class="tdm-col tdm-num" title="Total bytes across all rows (SUM of LENGTH)">' + esc2(formatTableDefBytes(stat.bytes)) + "</td>";
+    var sizeCell = '<td class="tdm-col tdm-num" title="' + esc2(vt("viewer.table.def.sizeCellTitle")) + '">' + esc2(formatTableDefBytes(stat.bytes)) + "</td>";
     return fillCell + nullsCell + distinctCell + uniqueCell + minCell + maxCell + sizeCell;
   }
   function buildTableDefinitionHtml(tableName) {
@@ -5300,23 +6270,23 @@
     var rows = t.columns.map(function(c) {
       var rawType = c.type != null ? String(c.type).trim() : "";
       var icon = columnTypeIcon(rawType);
-      var iconHtml = '<span class="table-def-icon" title="' + esc2(rawType || "unspecified") + '">' + esc2(icon) + "</span>";
+      var iconHtml = '<span class="table-def-icon" title="' + esc2(rawType || vt("viewer.table.def.typeUnspecified")) + '">' + esc2(icon) + "</span>";
       var isHidden = hiddenCols.indexOf(c.name) >= 0;
-      var visCell = '<td class="table-def-vis"><input type="checkbox" class="table-def-colvis" data-col-key="' + esc2(c.name) + '"' + (isHidden ? "" : " checked") + ' title="Show this column in the results table" aria-label="Show ' + esc2(c.name) + ' in results"></td>';
+      var visCell = '<td class="table-def-vis"><input type="checkbox" class="table-def-colvis" data-col-key="' + esc2(c.name) + '"' + (isHidden ? "" : " checked") + ' title="' + esc2(vt("viewer.table.def.visTitle")) + '" aria-label="' + esc2(vt("viewer.table.def.visLabel", c.name)) + '"></td>';
       var badges = "";
-      if (c.pk) badges += '<span class="table-def-badge table-def-badge-pk" title="Primary key">\u{1F511}</span>';
-      if (fkSet[c.name]) badges += '<span class="table-def-badge table-def-badge-fk" title="FK \u2192 ' + esc2(fkSet[c.name].toTable) + "." + esc2(fkSet[c.name].toColumn) + '">\u{1F517}</span>';
+      if (c.pk) badges += '<span class="table-def-badge table-def-badge-pk" title="' + esc2(vt("viewer.table.def.badgePk")) + '">\u{1F511}</span>';
+      if (fkSet[c.name]) badges += '<span class="table-def-badge table-def-badge-fk" title="' + esc2(vt("viewer.table.def.badgeFk", fkSet[c.name].toTable, fkSet[c.name].toColumn)) + '">\u{1F517}</span>';
       var flags = [];
-      if (c.notnull) flags.push("NOT NULL");
+      if (c.notnull) flags.push(vt("viewer.table.def.flagNotNull"));
       var flagStr = flags.length ? flags.join(", ") : "\u2014";
-      var typCell = rawType ? esc2(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
+      var typCell = rawType ? esc2(rawType) : '<span class="table-def-type-empty">' + esc2(vt("viewer.table.def.typeEmpty")) + "</span>";
       var metaCells = showMeta ? buildColumnMetaCells(stats[c.name]) : "";
       return "<tr>" + visCell + '<td class="table-def-icons">' + iconHtml + badges + '</td><td class="table-def-name" data-longpress-copy="' + esc2(c.name) + '">' + esc2(c.name) + '</td><td class="table-def-type">' + typCell + '</td><td class="table-def-flags">' + esc2(flagStr) + "</td>" + metaCells + "</tr>";
     }).join("");
-    var metaHeads = showMeta ? '<th class="tdm-col" scope="col" title="Share of rows with a non-null value">Fill</th><th class="tdm-col" scope="col" title="Number of NULL values">Nulls</th><th class="tdm-col" scope="col" title="Number of distinct values">Distinct</th><th class="tdm-col" scope="col" title="Uniqueness; key flag when every value is unique">Unique</th><th class="tdm-col" scope="col" title="Smallest value">Min</th><th class="tdm-col" scope="col" title="Largest value">Max</th><th class="tdm-col" scope="col" title="Total stored bytes">Size</th>' : "";
+    var metaHeads = showMeta ? '<th class="tdm-col" scope="col" title="' + esc2(vt("viewer.table.def.metaFillTitle")) + '">' + esc2(vt("viewer.table.def.metaFill")) + '</th><th class="tdm-col" scope="col" title="' + esc2(vt("viewer.table.def.metaNullsTitle")) + '">' + esc2(vt("viewer.table.def.metaNulls")) + '</th><th class="tdm-col" scope="col" title="' + esc2(vt("viewer.table.def.metaDistinctTitle")) + '">' + esc2(vt("viewer.table.def.metaDistinct")) + '</th><th class="tdm-col" scope="col" title="' + esc2(vt("viewer.table.def.metaUniqueTitle")) + '">' + esc2(vt("viewer.table.def.metaUnique")) + '</th><th class="tdm-col" scope="col" title="' + esc2(vt("viewer.table.def.metaMinTitle")) + '">' + esc2(vt("viewer.table.def.metaMin")) + '</th><th class="tdm-col" scope="col" title="' + esc2(vt("viewer.table.def.metaMaxTitle")) + '">' + esc2(vt("viewer.table.def.metaMax")) + '</th><th class="tdm-col" scope="col" title="' + esc2(vt("viewer.table.def.metaSizeTitle")) + '">' + esc2(vt("viewer.table.def.metaSize")) + "</th>" : "";
     var metaActive = metaOn ? " is-active" : "";
-    var tools = '<span class="table-def-tools"><button type="button" class="table-def-tool' + metaActive + '" data-tdm-action="toggle-meta" title="Show column profiling stats (fill, nulls, distinct, min/max, size)" aria-label="Toggle column profiling stats" aria-pressed="' + (metaOn ? "true" : "false") + '"><span class="material-symbols-outlined" aria-hidden="true">insights</span></button><button type="button" class="table-def-tool" data-tdm-action="copy-json" title="Copy table definition as JSON" aria-label="Copy table definition as JSON"><span class="material-symbols-outlined" aria-hidden="true">data_object</span></button><button type="button" class="table-def-tool" data-tdm-action="copy-flutter" title="Copy table definition as Flutter (Drift) class" aria-label="Copy table definition as Flutter code"><span class="material-symbols-outlined" aria-hidden="true">flutter_dash</span></button></span>';
-    return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition" data-table-name="' + esc2(tableName) + '"><div class="table-definition-heading"><span class="table-definition-heading-label">Table definition</span>' + tools + '</div><div class="table-definition-scroll"><table class="table-definition"><thead><tr><th class="table-def-vis" scope="col" title="Show column in the results table">Show</th><th class="table-def-icons" scope="col"></th><th scope="col">Column</th><th scope="col">Type</th><th scope="col">Constraints</th>' + metaHeads + "</tr></thead><tbody>" + rows + "</tbody></table></div></div>";
+    var tools = '<span class="table-def-tools"><button type="button" class="table-def-tool' + metaActive + '" data-tdm-action="toggle-meta" title="' + esc2(vt("viewer.table.def.toolMetaTitle")) + '" aria-label="' + esc2(vt("viewer.table.def.toolMetaLabel")) + '" aria-pressed="' + (metaOn ? "true" : "false") + '"><span class="material-symbols-outlined" aria-hidden="true">insights</span></button><button type="button" class="table-def-tool" data-tdm-action="copy-json" title="' + esc2(vt("viewer.table.def.toolJsonTitle")) + '" aria-label="' + esc2(vt("viewer.table.def.toolJsonLabel")) + '"><span class="material-symbols-outlined" aria-hidden="true">data_object</span></button><button type="button" class="table-def-tool" data-tdm-action="copy-flutter" title="' + esc2(vt("viewer.table.def.toolFlutterTitle")) + '" aria-label="' + esc2(vt("viewer.table.def.toolFlutterLabel")) + '"><span class="material-symbols-outlined" aria-hidden="true">flutter_dash</span></button></span>';
+    return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="' + esc2(vt("viewer.table.def.regionLabel")) + '" data-table-name="' + esc2(tableName) + '"><div class="table-definition-heading"><span class="table-definition-heading-label">' + esc2(vt("viewer.table.def.headingLabel")) + "</span>" + tools + '</div><div class="table-definition-scroll"><table class="table-definition"><thead><tr><th class="table-def-vis" scope="col" title="' + esc2(vt("viewer.table.def.colShowTitle")) + '">' + esc2(vt("viewer.table.def.colShow")) + '</th><th class="table-def-icons" scope="col"></th><th scope="col">' + esc2(vt("viewer.table.def.colColumn")) + '</th><th scope="col">' + esc2(vt("viewer.table.def.colType")) + '</th><th scope="col">' + esc2(vt("viewer.table.def.colConstraints")) + "</th>" + metaHeads + "</tr></thead><tbody>" + rows + "</tbody></table></div></div>";
   }
   function bindResultsToggle() {
     var headings = document.querySelectorAll(".results-table-heading");
@@ -5350,7 +6320,7 @@
       if (matchBtn) matchBtn.classList.toggle("active", showOnlyMatchingRows);
     }
     if (!fkMetaCache[name] && scope !== "both") {
-      content.innerHTML = '<p class="meta">' + metaText + '</p><p class="meta">Loading\u2026</p>';
+      content.innerHTML = '<p class="meta">' + metaText + '</p><p class="meta">' + vt("viewer.table.results.loading") + "</p>";
     }
     function renderDataHtml(fkMap, colTypes) {
       var defHtml = buildTableDefinitionHtml(name);
@@ -5364,7 +6334,7 @@
         getVisibleColumnCount(resultDataKeys, getColumnConfig(name)),
         resultDataKeys.length
       );
-      var tableHtml = '<div class="results-table-wrap" role="region" aria-label="Results"><div class="results-table-heading">Results \u2014 ' + resultsLabel + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
+      var tableHtml = '<div class="results-table-wrap" role="region" aria-label="' + esc2(vt("viewer.table.results.regionLabel")) + '"><div class="results-table-heading">' + vt("viewer.table.results.heading", resultsLabel) + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
       var qbHtml = buildQueryBuilderHtml(name, colTypes);
       if (scope === "both") {
         setLastRenderedSchema(cachedSchema);
@@ -5388,7 +6358,7 @@
             var dataBody = dataSection.querySelector(".collapsible-body");
             var headerEl = dataSection.querySelector(".collapsible-header");
             if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + "</p>" + defHtml + qbHtml + tableHtml;
-            if (headerEl) headerEl.textContent = "Table data: " + name;
+            if (headerEl) headerEl.textContent = vt("viewer.table.results.dataHeader", name);
             bindColumnTableEvents();
             bindQueryBuilderEvents(colTypes);
             if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);
@@ -5499,20 +6469,20 @@
   function copyShareUrl(shareUrl, expiresAt) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(shareUrl).then(function() {
-        alert("Share URL copied to clipboard!\n\n" + shareUrl + "\n\nExpires: " + new Date(expiresAt).toLocaleString());
+        alert(vt("viewer.session.share.copied", shareUrl, new Date(expiresAt).toLocaleString()));
       }).catch(function() {
-        prompt("Copy this share URL:", shareUrl);
+        prompt(vt("viewer.session.share.promptCopy"), shareUrl);
       });
     } else {
-      prompt("Copy this share URL:", shareUrl);
+      prompt(vt("viewer.session.share.promptCopy"), shareUrl);
     }
   }
   function createShareSession() {
-    var note = prompt("Add a note for your team (optional):\n\nSession will expire in 1 hour.");
+    var note = prompt(vt("viewer.session.share.promptNote"));
     if (note === null) return;
     var btn = document.getElementById("tb-share-btn");
     btn.disabled = true;
-    setButtonBusy(btn, true, "Sharing\u2026");
+    setButtonBusy(btn, true, vt("viewer.session.share.busy"));
     var state = captureViewerState();
     if (note) state.note = note;
     fetch("/api/session/share", authOpts({
@@ -5520,16 +6490,16 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(state)
     })).then(function(r) {
-      if (!r.ok) throw new Error("Server error " + r.status);
+      if (!r.ok) throw new Error(vt("viewer.session.share.serverError", r.status));
       return r.json();
     }).then(function(data) {
       copyShareUrl(location.origin + location.pathname + data.url, data.expiresAt);
     }).catch(function(e) {
-      alert("Failed to create share: " + e.message);
+      alert(vt("viewer.session.share.failed", e.message));
     }).finally(function() {
       btn.disabled = false;
       btn.classList.remove("btn-busy");
-      btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">share</span>Share';
+      btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">share</span>' + vt("viewer.session.share.menuLabel");
     });
   }
   function applySessionState(state) {
@@ -5550,7 +6520,7 @@
   function showSessionExpiredBanner() {
     var banner = document.createElement("div");
     banner.style.cssText = "background:#f8d7da;color:#721c24;padding:0.75rem;font-size:13px;text-align:center;border-bottom:2px solid #f5c6cb;";
-    banner.innerHTML = '<strong>Session Expired</strong><br>The shared session you are trying to access has expired or was not found.<br><span style="font-size:11px;color:#856404;">Sessions expire after 1 hour. Ask the person who shared the link to create a new one.</span>';
+    banner.innerHTML = "<strong>" + vt("viewer.session.expired.title") + "</strong><br>" + vt("viewer.session.expired.body") + '<br><span style="font-size:11px;color:#856404;">' + vt("viewer.session.expired.hint") + "</span>";
     document.body.prepend(banner);
   }
   function updateSessionCountdown(countdownEl) {
@@ -5560,7 +6530,7 @@
     var exp = new Date(target);
     var diffMs = exp.getTime() - now.getTime();
     if (diffMs <= 0) {
-      countdownEl.textContent = "EXPIRED";
+      countdownEl.textContent = vt("viewer.session.countdown.expired");
       countdownEl.style.color = "#ff4444";
       var bar = document.getElementById("session-info-bar");
       if (bar) bar.style.background = "#cc3333";
@@ -5576,7 +6546,7 @@
     var secs = Math.floor(diffMs % 6e4 / 1e3);
     if (mins < 10) {
       countdownEl.style.color = "#ffcc00";
-      countdownEl.textContent = "Expires in " + mins + "m " + secs + "s";
+      countdownEl.textContent = vt("viewer.session.countdown.expiresInMinSec", mins, secs);
       if (!sessionFastMode && sessionCountdownInterval) {
         setSessionFastMode(true);
         clearInterval(sessionCountdownInterval);
@@ -5589,7 +6559,7 @@
         var warningBanner = document.createElement("div");
         warningBanner.id = "session-expiry-warning";
         warningBanner.style.cssText = "background:#fff3cd;color:#856404;padding:0.3rem 0.5rem;font-size:12px;text-align:center;border-bottom:1px solid #ffc107;";
-        warningBanner.textContent = 'Warning: This session expires in less than 10 minutes. Click "Extend" to add more time.';
+        warningBanner.textContent = vt("viewer.session.countdown.warning");
         var bar = document.getElementById("session-info-bar");
         if (bar && bar.nextSibling) {
           bar.parentNode.insertBefore(warningBanner, bar.nextSibling);
@@ -5598,7 +6568,7 @@
         }
       }
     } else {
-      countdownEl.textContent = "Expires in " + mins + " min";
+      countdownEl.textContent = vt("viewer.session.countdown.expiresInMin", mins);
     }
   }
   function extendSession() {
@@ -5606,13 +6576,13 @@
     var extBtn = document.getElementById("session-extend-btn");
     if (extBtn) {
       extBtn.disabled = true;
-      extBtn.textContent = "Extending\u2026";
+      extBtn.textContent = vt("viewer.session.extend.busy");
     }
     fetch(
       "/api/session/" + encodeURIComponent(currentSessionId) + "/extend",
       authOpts({ method: "POST" })
     ).then(function(r) {
-      if (!r.ok) throw new Error("Failed to extend session");
+      if (!r.ok) throw new Error(vt("viewer.session.extend.serverError"));
       return r.json();
     }).then(function(data) {
       setCurrentSessionExpiresAt(data.expiresAt);
@@ -5631,13 +6601,13 @@
           updateSessionCountdown(countdownEl);
         }, 3e4));
       }
-      showCopyToast("Session extended!");
+      showCopyToast(vt("viewer.session.extend.done"));
     }).catch(function(e) {
-      alert("Failed to extend session: " + e.message);
+      alert(vt("viewer.session.extend.failed", e.message));
     }).finally(function() {
       if (extBtn) {
         extBtn.disabled = false;
-        extBtn.textContent = "Extend";
+        extBtn.textContent = vt("viewer.session.extend.label");
       }
     });
   }
@@ -5645,9 +6615,8 @@
     var infoBar = document.createElement("div");
     infoBar.id = "session-info-bar";
     infoBar.style.cssText = "background:var(--link);color:var(--bg);padding:0.3rem 0.5rem;font-size:12px;text-align:center;";
-    var info = "Shared session";
-    if (state.note) info += ': "' + esc2(state.note) + '"';
-    info += " (created " + new Date(createdAt).toLocaleString() + ")";
+    var info = state.note ? vt("viewer.session.info.sharedWithNote", esc2(state.note)) : vt("viewer.session.info.shared");
+    info += vt("viewer.session.info.created", new Date(createdAt).toLocaleString());
     var infoSpan = document.createElement("span");
     infoSpan.textContent = info;
     var countdownSpan = document.createElement("span");
@@ -5655,8 +6624,8 @@
     countdownSpan.style.cssText = "margin-left:1rem;font-weight:bold;";
     var extendBtn = document.createElement("button");
     extendBtn.id = "session-extend-btn";
-    extendBtn.textContent = "Extend";
-    extendBtn.title = "Extend session by 1 hour";
+    extendBtn.textContent = vt("viewer.session.extend.label");
+    extendBtn.title = vt("viewer.session.extend.title");
     extendBtn.style.cssText = "margin-left:0.5rem;font-size:11px;padding:0.1rem 0.4rem;cursor:pointer;background:var(--bg);color:var(--link);border:1px solid var(--bg);border-radius:3px;";
     extendBtn.addEventListener("click", function() {
       extendSession();
@@ -5675,7 +6644,7 @@
     if (!annotations || annotations.length === 0) return;
     var annoEl = document.createElement("div");
     annoEl.style.cssText = "background:var(--bg-pre);padding:0.3rem 0.5rem;font-size:11px;border-left:3px solid var(--link);margin:0.3rem 0;";
-    var annoHtml = "<strong>Annotations:</strong><br>";
+    var annoHtml = "<strong>" + vt("viewer.session.annotations.heading") + "</strong><br>";
     annotations.forEach(function(a) {
       annoHtml += '<span class="meta">[' + esc2(a.author) + " at " + new Date(a.at).toLocaleTimeString() + "]</span> " + esc2(a.text) + "<br>";
     });
@@ -5800,7 +6769,7 @@
     var hint = document.getElementById("nl-refine-hint");
     if (!hint) return;
     if (combined) {
-      hint.textContent = "Refining last query: " + combined;
+      hint.textContent = vt("viewer.sql.nl.refineHint", combined);
       hint.hidden = false;
     } else {
       hint.textContent = "";
@@ -5844,11 +6813,11 @@
     rec.onerror = function(event) {
       var code = event && event.error;
       if (code === "not-allowed" || code === "service-not-allowed") {
-        setNlModalError("Microphone access was blocked. Allow it in your browser to dictate.", true);
+        setNlModalError(vt("viewer.sql.nl.mic.blocked"), true);
       } else if (code === "no-speech") {
-        setNlModalError("No speech detected. Tap the mic and try again.", true);
+        setNlModalError(vt("viewer.sql.nl.mic.noSpeech"), true);
       } else if (code !== "aborted") {
-        setNlModalError("Speech recognition error: " + code, true);
+        setNlModalError(vt("viewer.sql.nl.mic.error", code), true);
       }
     };
     rec.onend = function() {
@@ -5977,7 +6946,7 @@
     if (!hint || !clarify) return;
     var guessed = result && result.table && !nlTableOverride() && (result.confidence === "guess" || result.confidence === "ambiguous");
     if (guessed) {
-      hint.textContent = "Guessed \u201C" + result.table + "\u201D \u2014 pick a table if that\u2019s wrong";
+      hint.textContent = vt("viewer.sql.nl.clarify.guessed", result.table);
       clarify.classList.add("nl-clarify-guess");
     } else {
       hint.textContent = "";
@@ -6058,7 +7027,7 @@
       b.type = "button";
       b.className = "nl-chip" + (applied ? " nl-chip-on" : "");
       b.textContent = chip.label;
-      b.title = (applied ? "Remove: " : "Add: ") + chip.phrase;
+      b.title = vt(applied ? "viewer.sql.nl.chip.remove" : "viewer.sql.nl.chip.add", chip.phrase);
       b.addEventListener("click", function() {
         toggleNlRefinement(chip.phrase);
       });
@@ -6098,18 +7067,16 @@
       } else if (result.wake) {
         preview.value = "";
         setNlModalError("", false);
-        renderNlNarrativeMessage(
-          "I heard you, but I didn\u2019t catch a question \u2014 try \u201Chow many contacts were added last week?\u201D"
-        );
+        renderNlNarrativeMessage(vt("viewer.sql.nl.noQuestion"));
       } else {
         preview.value = "";
-        setNlModalError(result.error || "Could not convert to SQL.", true);
+        setNlModalError(result.error || vt("viewer.sql.nl.convertFailed"), true);
       }
       updateNlClarifier(result);
       renderNlRefinements(result && result.table || override, meta);
     } catch (err) {
       preview.value = "";
-      setNlModalError("Error: " + (err.message || err), true);
+      setNlModalError(vt("viewer.sql.nl.error", err.message || err), true);
     }
   }
   function scheduleNlLivePreview() {
@@ -6130,7 +7097,7 @@
     if (!ta || !sqlEl) return;
     var question = String(ta.value || "").trim();
     if (!question) {
-      setNlModalError("Enter a question first.", true);
+      setNlModalError(vt("viewer.sql.nl.enterQuestion"), true);
       return;
     }
     try {
@@ -6150,10 +7117,10 @@
         setNlModalError("", false);
         closeNlModal();
       } else {
-        setNlModalError(result.error || "Could not convert to SQL.", true);
+        setNlModalError(result.error || vt("viewer.sql.nl.convertFailed"), true);
       }
     } catch (err) {
-      setNlModalError("Error: " + (err.message || err), true);
+      setNlModalError(vt("viewer.sql.nl.error", err.message || err), true);
     }
   }
   async function copyNlSql() {
@@ -6161,7 +7128,7 @@
     var btn = document.getElementById("nl-copy");
     var sql = preview ? String(preview.value || "").trim() : "";
     if (!sql) {
-      setNlModalError("Nothing to copy yet \u2014 enter a question first.", true);
+      setNlModalError(vt("viewer.sql.nl.copyEmpty"), true);
       return;
     }
     try {
@@ -6172,7 +7139,7 @@
         preview.select();
         document.execCommand("copy");
       } catch (err2) {
-        setNlModalError("Could not copy to the clipboard.", true);
+        setNlModalError(vt("viewer.sql.nl.copyFailed"), true);
         return;
       }
     }
@@ -6195,7 +7162,7 @@
     var btn = document.getElementById("nl-preview-run");
     var sql = preview ? String(preview.value || "").trim() : "";
     if (!sql) {
-      setNlModalError("Enter a question to generate SQL first.", true);
+      setNlModalError(vt("viewer.sql.nl.previewNeedsSql"), true);
       return;
     }
     if (!resultsEl) return;
@@ -6205,7 +7172,7 @@
     var origLabel = btn ? btn.textContent : "";
     if (btn) {
       btn.disabled = true;
-      setButtonBusy(btn, true, "Running\u2026");
+      setButtonBusy(btn, true, vt("viewer.sql.nl.preview.busy"));
     }
     try {
       var resp = await fetch("/api/sql", authOpts({
@@ -6215,7 +7182,7 @@
       }));
       var data = await resp.json();
       if (!resp.ok) {
-        setNlModalError(data.error || "Preview failed.", true);
+        setNlModalError(data.error || vt("viewer.sql.nl.previewFailed"), true);
         resultsEl.hidden = true;
         resultsEl.innerHTML = "";
         return;
@@ -6231,24 +7198,24 @@
         await renderNlNarrative(resultsEl, lastNlResult, data.rows || []);
       }
     } catch (err) {
-      setNlModalError("Preview error: " + (err.message || err), true);
+      setNlModalError(vt("viewer.sql.nl.previewError", err.message || err), true);
       resultsEl.hidden = true;
       resultsEl.innerHTML = "";
     } finally {
       if (btn) {
         btn.disabled = false;
-        setButtonBusy(btn, false, origLabel || "Preview results");
+        setButtonBusy(btn, false, origLabel || vt("nl.modal.preview"));
       }
     }
   }
   function renderNlPreviewRows(container, rows) {
     container.hidden = false;
     if (!rows || rows.length === 0) {
-      container.innerHTML = '<p class="meta nl-modal-results-empty">Query ran \u2014 0 rows.</p>';
+      container.innerHTML = '<p class="meta nl-modal-results-empty">' + esc2(vt("viewer.sql.nl.results.empty")) + "</p>";
       return;
     }
     var keys = Object.keys(rows[0]);
-    var html = '<p class="meta">First ' + rows.length + " row(s)</p>";
+    var html = '<p class="meta">' + esc2(vt("viewer.sql.nl.results.firstRows", rows.length)) + "</p>";
     html += '<div class="data-table-scroll-wrap"><table><thead><tr>';
     html += keys.map(function(k) {
       return "<th>" + esc2(k) + "</th>";
@@ -6421,7 +7388,7 @@
     if (trimmed === "") {
       if (colMeta.notnull) {
         var textLike = typ === "" || /CHAR|CLOB|TEXT/.test(typ);
-        if (!textLike) return "This column is NOT NULL \u2014 a value is required.";
+        if (!textLike) return vt("viewer.table.edit.notNull");
       }
       return null;
     }
@@ -6429,35 +7396,35 @@
     if ((isIntLike || typ === "") && isBooleanColumn(colMeta.name)) {
       var lower = trimmed.toLowerCase();
       if (lower !== "0" && lower !== "1" && lower !== "true" && lower !== "false") {
-        return "Expected 0 or 1 (or true/false).";
+        return vt("viewer.table.edit.expectBool");
       }
       return null;
     }
     if (isIntLike) {
-      if (!/^-?\d+$/.test(trimmed)) return "Expected an integer (e.g. 42, -7).";
+      if (!/^-?\d+$/.test(trimmed)) return vt("viewer.table.edit.expectInt");
     }
     if (typ === "REAL" || typ === "FLOAT" || typ === "DOUBLE" || /NUMERIC|DECIMAL/.test(typ)) {
-      if (isNaN(Number(trimmed)) || trimmed === "") return "Expected a number (e.g. 3.14, -0.5).";
+      if (isNaN(Number(trimmed)) || trimmed === "") return vt("viewer.table.edit.expectNumber");
     }
     return null;
   }
   function tryStartBrowserCellEdit(td) {
     if (!currentTableName) return;
     if (!tryBeginUnsavedWebEdit()) {
-      window.alert("Finish or cancel the current edit before editing another cell.");
+      window.alert(vt("viewer.table.edit.busy"));
       return;
     }
     loadSchemaMeta().then(function() {
       var pkName = getPkColumnNameForDataTable();
       if (!pkName) {
         clearUnsavedWebEdit();
-        window.alert("This table has no primary key column; inline edit is disabled.");
+        window.alert(vt("viewer.table.edit.noPk"));
         return;
       }
       var columnKey = td.getAttribute("data-column-key") || "";
       if (!columnKey || columnKey === pkName) {
         clearUnsavedWebEdit();
-        window.alert("Primary key columns cannot be edited inline.");
+        window.alert(vt("viewer.table.edit.pkLocked"));
         return;
       }
       var t = schemaTableByName2(currentTableName);
@@ -6476,7 +7443,7 @@
       }
       if ((colMeta.type || "").toUpperCase() === "BLOB") {
         clearUnsavedWebEdit();
-        window.alert("BLOB columns cannot be edited inline.");
+        window.alert(vt("viewer.table.edit.blobLocked"));
         return;
       }
       var keys = getVisibleDataColumnKeys(td);
@@ -6497,22 +7464,22 @@
       var startVal = readCellRawFromTd(td);
       var isNull = td.querySelector(".cell-null") != null;
       var initialEditText = isNull ? "" : String(startVal);
-      var colType = (colMeta.type || "").toUpperCase() || "unspecified";
-      var nullableLabel = colMeta.notnull ? "NOT NULL" : "nullable";
+      var colType = (colMeta.type || "").toUpperCase() || vt("viewer.table.edit.typeUnspecified");
+      var nullableLabel = colMeta.notnull ? vt("viewer.table.edit.constraintNotNull") : vt("viewer.table.edit.nullable");
       var container = document.createElement("div");
       container.className = "cell-edit-container";
       var contextEl = document.createElement("div");
       contextEl.className = "cell-edit-context";
-      contextEl.textContent = pkName + "=" + pkRaw + " \u2022 " + columnKey + " (" + colType + ", " + nullableLabel + ")";
+      contextEl.textContent = vt("viewer.table.edit.context", pkName, pkRaw, columnKey, colType, nullableLabel);
       container.appendChild(contextEl);
       var currentEl = document.createElement("div");
       currentEl.className = "cell-edit-current";
-      currentEl.textContent = "was: " + (isNull ? "NULL" : startVal);
+      currentEl.textContent = vt("viewer.table.edit.was", isNull ? vt("viewer.table.edit.nullValue") : startVal);
       container.appendChild(currentEl);
       var input = document.createElement("input");
       input.type = "text";
       input.className = "cell-inline-editor";
-      input.setAttribute("aria-label", "Edit " + columnKey);
+      input.setAttribute("aria-label", vt("viewer.table.edit.inputLabel", columnKey));
       input.value = startVal;
       container.appendChild(input);
       var errorEl = document.createElement("div");
@@ -6523,10 +7490,10 @@
       var saveBtn = document.createElement("button");
       saveBtn.type = "button";
       saveBtn.className = "btn-primary";
-      saveBtn.textContent = "Save";
+      saveBtn.textContent = vt("viewer.table.edit.save");
       var cancelBtn = document.createElement("button");
       cancelBtn.type = "button";
-      cancelBtn.textContent = "Cancel";
+      cancelBtn.textContent = vt("viewer.table.edit.cancel");
       actions.appendChild(saveBtn);
       actions.appendChild(cancelBtn);
       container.appendChild(actions);
@@ -6536,11 +7503,11 @@
       var retrySaveBtn = document.createElement("button");
       retrySaveBtn.type = "button";
       retrySaveBtn.className = "cell-edit-retry-btn";
-      retrySaveBtn.textContent = "Retry save";
+      retrySaveBtn.textContent = vt("viewer.table.edit.retry");
       var reloadTableBtn = document.createElement("button");
       reloadTableBtn.type = "button";
       reloadTableBtn.className = "cell-edit-reload-btn";
-      reloadTableBtn.textContent = "Reload table";
+      reloadTableBtn.textContent = vt("viewer.table.edit.reload");
       failureActions.appendChild(retrySaveBtn);
       failureActions.appendChild(reloadTableBtn);
       container.appendChild(failureActions);
@@ -6579,7 +7546,7 @@
         }
         var valJson = cellUpdateValueJson(input.value, colMeta);
         if (valJson === "__INVALID__") {
-          errorEl.textContent = "This column is NOT NULL \u2014 a value is required.";
+          errorEl.textContent = vt("viewer.table.edit.notNull");
           errorEl.style.display = "block";
           input.classList.add("cell-edit-invalid");
           input.focus();
@@ -6603,8 +7570,8 @@
           });
         }).then(function(res) {
           if (!res.ok || !res.data || res.data.error) {
-            var msg = res.data && res.data.error ? res.data.error : "Request failed";
-            errorEl.textContent = "Save failed: " + msg;
+            var msg = res.data && res.data.error ? res.data.error : vt("viewer.table.edit.requestFailed");
+            errorEl.textContent = vt("viewer.table.edit.saveFailed", msg);
             errorEl.style.display = "block";
             input.classList.add("cell-edit-invalid");
             failureActions.style.display = "flex";
@@ -6616,7 +7583,7 @@
           clearUnsavedWebEdit();
           loadTable(currentTableName);
         }).catch(function(err) {
-          errorEl.textContent = "Save failed: " + (err && err.message ? err.message : String(err));
+          errorEl.textContent = vt("viewer.table.edit.saveFailed", err && err.message ? err.message : String(err));
           errorEl.style.display = "block";
           input.classList.add("cell-edit-invalid");
           failureActions.style.display = "flex";
@@ -6651,7 +7618,7 @@
       });
     }).catch(function(err) {
       clearUnsavedWebEdit();
-      window.alert("Could not load schema: " + (err && err.message ? err.message : String(err)));
+      window.alert(vt("viewer.table.edit.schemaFailed", err && err.message ? err.message : String(err)));
     });
   }
   function showCellValuePopup(rawValue, columnKey) {
@@ -6659,7 +7626,7 @@
     var textEl = document.getElementById("cell-value-popup-text");
     var titleEl = document.getElementById("cell-value-popup-title");
     if (!popup || !textEl || !titleEl) return;
-    titleEl.textContent = columnKey ? "Cell value: " + columnKey : "Cell value";
+    titleEl.textContent = columnKey ? vt("viewer.table.popup.titleNamed", columnKey) : vt("viewer.table.popup.title");
     textEl.textContent = rawValue !== void 0 && rawValue !== null ? String(rawValue) : "";
     popup.classList.add("show");
     popup.setAttribute("aria-hidden", "false");
@@ -6796,7 +7763,7 @@
         var by = accY - bh;
         var color = CHART_COLORS[si % CHART_COLORS.length];
         svg += '<rect class="chart-bar chart-stacked-segment" x="' + x + '" y="' + by + '" width="' + barW + '" height="' + bh + '" fill="' + color + '">';
-        svg += "<title>" + esc2(label) + " segment " + (si + 1) + ": " + val + "</title></rect>";
+        svg += "<title>" + vt("viewer.tools.chart.stacked.segment", esc2(label), si + 1, val) + "</title></rect>";
         accY = by;
       });
       if (labels.length <= 20) {
@@ -6826,7 +7793,7 @@
       if (vals[i] >= threshold) significant.push({ label: d[labelKey], value: vals[i] });
       else otherVal += vals[i];
     });
-    if (otherVal > 0) significant.push({ label: "Other", value: otherVal });
+    if (otherVal > 0) significant.push({ label: vt("viewer.tools.chart.pie.other"), value: otherVal });
     var svg = '<svg class="chart-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">';
     var angle = 0;
     significant.forEach(function(d, i) {
@@ -6954,7 +7921,7 @@
       return isFinite(v);
     });
     if (xs.length === 0 || ys.length === 0) {
-      container.innerHTML = '<p class="meta">Scatter requires numeric X and Y columns.</p>';
+      container.innerHTML = '<p class="meta">' + vt("viewer.tools.chart.scatterNumeric") + "</p>";
       document.getElementById("chart-container").style.display = "block";
       var exportBar = document.getElementById("chart-export-toolbar");
       if (exportBar) exportBar.style.display = "none";
@@ -6998,7 +7965,7 @@
       return isFinite(v);
     });
     if (vals.length === 0) {
-      container.innerHTML = '<p class="meta">No numeric data.</p>';
+      container.innerHTML = '<p class="meta">' + vt("viewer.tools.chart.noNumeric") + "</p>";
       document.getElementById("chart-container").style.display = "block";
       var exportBar = document.getElementById("chart-export-toolbar");
       if (exportBar) exportBar.style.display = "none";
@@ -7015,7 +7982,7 @@
     var histData = counts.map(function(c, i) {
       return { label: (min + i * binWidth).toFixed(1) + "-" + (min + (i + 1) * binWidth).toFixed(1), value: c };
     });
-    renderBarChart(container, histData, "label", "value", { title: opts.title, description: opts.description, xLabel: "Bin", yLabel: "Count" });
+    renderBarChart(container, histData, "label", "value", { title: opts.title, description: opts.description, xLabel: vt("viewer.tools.chart.histogram.bin"), yLabel: vt("viewer.tools.chart.histogram.count") });
   }
   function exportChartPng() {
     var wrap = document.getElementById("chart-svg-wrap");
@@ -7093,9 +8060,9 @@
           var copyBtn = btn;
           navigator.clipboard.write([new ClipboardItem({ "image/png": blob2 })]).then(function() {
             if (copyBtn) {
-              copyBtn.textContent = "Copied!";
+              copyBtn.textContent = vt("viewer.tools.chart.copied");
               setTimeout(function() {
-                copyBtn.textContent = "Copy image";
+                copyBtn.textContent = vt("viewer.tools.chart.copyImage");
               }, 1500);
             }
           }).catch(function() {
@@ -7415,7 +8382,7 @@
       card.type = "button";
       card.className = "home-tool-card";
       card.setAttribute("data-tool", item.id);
-      card.title = label + " \u2014 " + item.blurb;
+      card.title = vt("viewer.nav.home.cardTooltip", label, item.blurb);
       if (iconName) {
         var icon = document.createElement("span");
         icon.className = "material-symbols-outlined home-tool-card-icon";
@@ -7441,7 +8408,7 @@
       card.type = "button";
       card.className = "home-tool-card home-tool-card-extra";
       card.setAttribute("data-home-extra", item.action);
-      card.title = item.label + " \u2014 " + item.blurb;
+      card.title = vt("viewer.nav.home.cardTooltip", item.label, item.blurb);
       var icon = document.createElement("span");
       icon.className = "material-symbols-outlined home-tool-card-icon";
       icon.setAttribute("aria-hidden", "true");
@@ -7634,7 +8601,7 @@
     groups = groupEntries(filtered());
     countEl?.replaceChildren(document.createTextNode("(" + groups.length + ")"));
     if (groups.length === 0) {
-      listEl.innerHTML = '<li class="history-empty">No queries yet.</li>';
+      listEl.innerHTML = '<li class="history-empty">' + esc2(vt("viewer.nav.history.empty")) + "</li>";
       return;
     }
     listEl.innerHTML = groups.map((g, i) => {
@@ -7649,25 +8616,25 @@
       ).join("") + "</span>";
       const meta = [];
       meta.push(e.durationMs + " ms");
-      if (e.rowCount != null) meta.push(e.rowCount + " row(s)");
-      if (e.error) meta.push("ERR");
+      if (e.rowCount != null) meta.push(vt("viewer.nav.history.rows", e.rowCount));
+      if (e.error) meta.push(vt("viewer.nav.history.errorMark"));
       const at = e.at ? formatRelativeTime(e.at) : "";
       const metaStr = meta.join(" \xB7 ");
       const count = g.occurrences.length;
-      const countBadge = count > 1 ? '<button type="button" class="history-count-badge" data-idx="' + i + '" title="Show all ' + count + ' runs of this query">(' + count + ")</button>" : "";
+      const countBadge = count > 1 ? '<button type="button" class="history-count-badge" data-idx="' + i + '" title="' + esc2(vt("viewer.nav.history.runsTooltip", count)) + '">(' + count + ")</button>" : "";
       return '<li class="history-item' + (e.error ? " history-item--error" : "") + '" data-idx="' + i + '" title="' + esc2(e.sql) + '">' + badge + '<span class="history-item-line"><span class="history-sql">' + esc2(preview) + "</span>" + countBadge + '</span><span class="history-meta">' + esc2(metaStr) + (at ? " \xB7 " + esc2(at) : "") + "</span></li>";
     }).join("");
   }
   function formatRelativeTime(iso) {
     const diff = Date.now() - new Date(iso).getTime();
-    if (diff < 0) return "just now";
+    if (diff < 0) return vt("viewer.nav.history.time.justNow");
     const sec = Math.floor(diff / 1e3);
-    if (sec < 60) return sec + " s ago";
+    if (sec < 60) return vt("viewer.nav.history.time.seconds", sec);
     const min = Math.floor(sec / 60);
-    if (min < 60) return min + " m ago";
+    if (min < 60) return vt("viewer.nav.history.time.minutes", min);
     const hr = Math.floor(min / 60);
-    if (hr < 24) return hr + " h ago";
-    return Math.floor(hr / 24) + " d ago";
+    if (hr < 24) return vt("viewer.nav.history.time.hours", hr);
+    return vt("viewer.nav.history.time.days", Math.floor(hr / 24));
   }
   function formatAbsoluteTime(iso) {
     if (!iso) return "\u2014";
@@ -7699,7 +8666,7 @@
       dialogOverlay.className = "history-dialog-overlay";
       dialogOverlay.setAttribute("role", "dialog");
       dialogOverlay.setAttribute("aria-modal", "true");
-      dialogOverlay.setAttribute("aria-label", "Query run history");
+      dialogOverlay.setAttribute("aria-label", vt("viewer.nav.history.dialog.ariaLabel"));
       dialogOverlay.addEventListener("click", function(ev) {
         if (ev.target === dialogOverlay) closeOccurrencesDialog();
       });
@@ -7709,16 +8676,16 @@
     const preview = group.sql.length > 200 ? group.sql.slice(0, 197) + "\u2026" : group.sql;
     const tableRows = rows.map((e) => {
       const badge = '<span class="history-badge history-badge--' + esc2(e.source) + '">' + esc2(e.source) + "</span>";
-      return "<tr" + (e.error ? ' class="history-dialog-row--error"' : "") + "><td>" + badge + "</td><td>" + esc2(formatAbsoluteTime(e.at)) + '</td><td class="history-dialog-num">' + esc2(e.durationMs + " ms") + "</td><td>" + (e.error ? '<span title="' + esc2(e.error) + '">ERR</span>' : "") + "</td></tr>";
+      return "<tr" + (e.error ? ' class="history-dialog-row--error"' : "") + "><td>" + badge + "</td><td>" + esc2(formatAbsoluteTime(e.at)) + '</td><td class="history-dialog-num">' + esc2(e.durationMs + " ms") + "</td><td>" + (e.error ? '<span title="' + esc2(e.error) + '">' + esc2(vt("viewer.nav.history.errorMark")) + "</span>" : "") + "</td></tr>";
     }).join("");
-    overlay.innerHTML = '<div class="history-dialog"><div class="history-dialog-header"><h3 class="history-dialog-title">Query runs (' + rows.length + ')</h3><button type="button" class="history-dialog-close" title="Close">\u2715</button></div><pre class="history-dialog-sql">' + esc2(preview) + '</pre><div class="history-dialog-table-wrap"><table class="history-dialog-table"><thead><tr><th>Source</th><th>Time</th><th>Duration</th><th></th></tr></thead><tbody>' + tableRows + '</tbody></table></div><div class="history-dialog-actions"><button type="button" class="history-dialog-copy">Copy</button></div></div>';
+    overlay.innerHTML = '<div class="history-dialog"><div class="history-dialog-header"><h3 class="history-dialog-title">' + esc2(vt("viewer.nav.history.dialog.title", rows.length)) + '</h3><button type="button" class="history-dialog-close" title="' + esc2(vt("viewer.nav.history.dialog.close")) + '">\u2715</button></div><pre class="history-dialog-sql">' + esc2(preview) + '</pre><div class="history-dialog-table-wrap"><table class="history-dialog-table"><thead><tr><th>' + esc2(vt("viewer.nav.history.col.source")) + "</th><th>" + esc2(vt("viewer.nav.history.col.time")) + "</th><th>" + esc2(vt("viewer.nav.history.col.duration")) + "</th><th></th></tr></thead><tbody>" + tableRows + '</tbody></table></div><div class="history-dialog-actions"><button type="button" class="history-dialog-copy">' + esc2(vt("viewer.nav.history.dialog.copy")) + "</button></div></div>";
     const copyBtn = overlay.querySelector(".history-dialog-copy");
     if (copyBtn) {
       copyBtn.addEventListener("click", function() {
         const text = occurrencesToTsv(group, rows);
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(text).then(function() {
-            showCopyToast("Copied " + rows.length + " runs");
+            showCopyToast(vt("viewer.nav.history.copied", rows.length));
           }).catch(function() {
           });
         }
@@ -7739,7 +8706,7 @@
     });
   }
   function clearHistory() {
-    if (!confirm("Clear all query history?")) return;
+    if (!confirm(vt("viewer.nav.history.clearConfirm"))) return;
     fetch("/api/history", Object.assign({ method: "DELETE" }, authOpts())).then(function() {
       entries = [];
       render();
@@ -7819,7 +8786,7 @@
       const fks = data.foreignKeys || [];
       const softs = data.softRelationships || [];
       if (tables.length === 0) {
-        container.innerHTML = '<p class="meta">No tables.</p>';
+        container.innerHTML = '<p class="meta">' + esc2(vt("viewer.settings.diagram.noTables")) + "</p>";
         return;
       }
       const rows = Math.ceil(tables.length / COLS);
@@ -7837,8 +8804,11 @@
         if (side === "left") return { x: p.x, y: cy };
         return { x: cx, y: cy };
       };
-      const softLabel = softs.length ? " and " + softs.length + " inferred (undeclared) relationship" + (softs.length !== 1 ? "s" : "") : "";
-      let svg = '<svg role="group" aria-label="Schema diagram showing ' + tables.length + " table" + (tables.length !== 1 ? "s" : "") + " and " + fks.length + " foreign key relationship" + (fks.length !== 1 ? "s" : "") + softLabel + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
+      const tablesClause = vt(tables.length !== 1 ? "viewer.settings.diagram.aria.tablesMany" : "viewer.settings.diagram.aria.tablesOne", tables.length);
+      const fksClause = vt(fks.length !== 1 ? "viewer.settings.diagram.aria.fksMany" : "viewer.settings.diagram.aria.fksOne", fks.length);
+      const softLabel = softs.length ? vt(softs.length !== 1 ? "viewer.settings.diagram.aria.softMany" : "viewer.settings.diagram.aria.softOne", softs.length) : "";
+      const ariaSummary = vt("viewer.settings.diagram.aria.summary", tablesClause, fksClause, softLabel);
+      let svg = '<svg role="group" aria-label="' + esc2(ariaSummary) + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
       svg += '<g class="diagram-links">';
       fks.forEach(function(fk) {
         const iFrom = nameToIndex[fk.fromTable];
@@ -7856,8 +8826,8 @@
         const from = getCenter(iFrom, "right");
         const to = getCenter(iTo, "left");
         const mid = (from.x + to.x) / 2;
-        const how = s.rule === "noun_id" ? "id-name convention" : "shared UUID column";
-        svg += '<path class="diagram-link diagram-link-soft" d="M' + from.x + "," + from.y + " C" + mid + "," + from.y + " " + mid + "," + to.y + " " + to.x + "," + to.y + '"><title>' + esc2(s.fromTable) + "." + esc2(s.fromColumn) + " \u2192 " + esc2(s.toTable) + "." + esc2(s.toColumn) + " (inferred from " + how + ", not declared)</title></path>";
+        const how = vt(s.rule === "noun_id" ? "viewer.settings.diagram.rule.nounId" : "viewer.settings.diagram.rule.sharedUuid");
+        svg += '<path class="diagram-link diagram-link-soft" d="M' + from.x + "," + from.y + " C" + mid + "," + from.y + " " + mid + "," + to.y + " " + to.x + "," + to.y + '"><title>' + esc2(s.fromTable) + "." + esc2(s.fromColumn) + " \u2192 " + esc2(s.toTable) + "." + esc2(s.toColumn) + " " + esc2(vt("viewer.settings.diagram.alt.softInferred", how)) + "</title></path>";
       });
       svg += '</g><g class="diagram-tables">';
       tables.forEach(function(t, i) {
@@ -7870,9 +8840,10 @@
         }).map(function(c) {
           return c.name;
         });
-        const ariaLabel = t.name + " table, " + allCols.length + " column" + (allCols.length !== 1 ? "s" : "") + (pkCols.length ? ", primary key: " + pkCols.join(", ") : "");
+        const pkClause = pkCols.length ? vt("viewer.settings.diagram.aria.pkClause", pkCols.join(", ")) : "";
+        const ariaLabel = vt(allCols.length !== 1 ? "viewer.settings.diagram.aria.tableMany" : "viewer.settings.diagram.aria.tableOne", t.name, allCols.length, pkClause);
         let body = cols.map(function(c) {
-          const pk = c.pk ? ' <tspan class="diagram-pk">PK</tspan>' : "";
+          const pk = c.pk ? ' <tspan class="diagram-pk">' + esc2(vt("viewer.settings.diagram.pk")) + "</tspan>" : "";
           return '<tspan class="diagram-col" x="8" dy="16">' + esc2(c.name) + (c.type ? " " + esc2(c.type) : "") + pk + "</tspan>";
         }).join("");
         if (allCols.length > 6) body += '<tspan class="diagram-col" x="8" dy="16">\u2026</tspan>';
@@ -7910,28 +8881,28 @@
       });
       var altEl = document.getElementById("diagram-text-alt");
       if (altEl) {
-        var altHtml = "<h4>Schema table list</h4><ul>";
+        var altHtml = "<h4>" + esc2(vt("viewer.settings.diagram.alt.tableList")) + "</h4><ul>";
         tables.forEach(function(t) {
           var cols = t.columns || [];
-          altHtml += "<li><strong>" + esc2(t.name) + "</strong> (" + cols.length + " column" + (cols.length !== 1 ? "s" : "") + "): ";
-          altHtml += cols.map(function(c) {
-            return esc2(c.name) + (c.pk ? " (PK)" : "");
+          var nameMarkup = "<strong>" + esc2(t.name) + "</strong>";
+          var colList = cols.map(function(c) {
+            return esc2(c.name) + (c.pk ? vt("viewer.settings.diagram.alt.pkMark") : "");
           }).join(", ");
-          altHtml += "</li>";
+          altHtml += "<li>" + vt(cols.length !== 1 ? "viewer.settings.diagram.alt.tableMany" : "viewer.settings.diagram.alt.tableOne", nameMarkup, cols.length, colList) + "</li>";
         });
         altHtml += "</ul>";
         if (fks.length > 0) {
-          altHtml += "<h4>Foreign key relationships</h4><ul>";
+          altHtml += "<h4>" + esc2(vt("viewer.settings.diagram.alt.fkHeading")) + "</h4><ul>";
           fks.forEach(function(fk) {
             altHtml += "<li>" + esc2(fk.fromTable) + "." + esc2(fk.fromColumn) + " \u2192 " + esc2(fk.toTable) + "." + esc2(fk.toColumn) + "</li>";
           });
           altHtml += "</ul>";
         }
         if (softs.length > 0) {
-          altHtml += "<h4>Inferred (undeclared) relationships</h4><ul>";
+          altHtml += "<h4>" + esc2(vt("viewer.settings.diagram.alt.softHeading")) + "</h4><ul>";
           softs.forEach(function(s) {
-            const how = s.rule === "noun_id" ? "id-name convention" : "shared UUID column";
-            altHtml += "<li>" + esc2(s.fromTable) + "." + esc2(s.fromColumn) + " \u2192 " + esc2(s.toTable) + "." + esc2(s.toColumn) + " (inferred from " + how + ", not declared)</li>";
+            const how = vt(s.rule === "noun_id" ? "viewer.settings.diagram.rule.nounId" : "viewer.settings.diagram.rule.sharedUuid");
+            altHtml += "<li>" + esc2(s.fromTable) + "." + esc2(s.fromColumn) + " \u2192 " + esc2(s.toTable) + "." + esc2(s.toColumn) + " " + esc2(vt("viewer.settings.diagram.alt.softInferred", how)) + "</li>";
           });
           altHtml += "</ul>";
         }
@@ -7940,12 +8911,12 @@
     }
     function loadAndRenderDiagram() {
       if (diagramData === null) {
-        container.innerHTML = '<p class="meta">Loading\u2026</p>';
+        container.innerHTML = '<p class="meta">' + esc2(vt("viewer.settings.diagram.loading")) + "</p>";
         fetch("/api/schema/diagram", authOpts()).then((r) => r.json()).then(function(data) {
           diagramData = data;
           renderDiagram(data);
         }).catch(function(e) {
-          container.innerHTML = '<p class="meta">Failed to load diagram: ' + esc2(String(e)) + "</p>";
+          container.innerHTML = '<p class="meta">' + esc2(vt("viewer.settings.diagram.loadFailed", String(e))) + "</p>";
         });
       } else {
         renderDiagram(diagramData);
@@ -8010,7 +8981,7 @@
     if (!selectEl) return;
     var list = getSavedAnalyses(type);
     var value = selectEl.value;
-    selectEl.innerHTML = '<option value="">\u2014 Past runs \u2014</option>';
+    selectEl.innerHTML = '<option value="">' + vt("viewer.tools.analysis.pastRuns") + "</option>";
     list.forEach(function(item) {
       var opt = document.createElement("option");
       opt.value = item.id;
@@ -8026,7 +8997,7 @@
       overlay.id = "analysis-compare-overlay";
       overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;";
       overlay.setAttribute("aria-modal", "true");
-      overlay.setAttribute("aria-label", "Compare analysis results");
+      overlay.setAttribute("aria-label", vt("viewer.tools.analysis.compareAria"));
       document.body.appendChild(overlay);
     }
     var beforeId = "";
@@ -8044,26 +9015,26 @@
     function updateSummary() {
       beforeData = getData(beforeId);
       afterData = getData(afterId);
-      summaryEl.textContent = summaryFn ? summaryFn(beforeData, afterData) : "Select Before and After to compare.";
+      summaryEl.textContent = summaryFn ? summaryFn(beforeData, afterData) : vt("viewer.tools.analysis.prompt");
       if (beforeData && afterData && renderFn) {
         leftPanel.innerHTML = renderFn(beforeData);
         rightPanel.innerHTML = renderFn(afterData);
       } else {
-        leftPanel.innerHTML = beforeData ? renderFn(beforeData) : '<p class="meta">Select Before.</p>';
-        rightPanel.innerHTML = afterData ? renderFn(afterData) : '<p class="meta">Select After.</p>';
+        leftPanel.innerHTML = beforeData ? renderFn(beforeData) : '<p class="meta">' + vt("viewer.tools.analysis.selectBefore") + "</p>";
+        rightPanel.innerHTML = afterData ? renderFn(afterData) : '<p class="meta">' + vt("viewer.tools.analysis.selectAfter") + "</p>";
       }
     }
     var panel = document.createElement("div");
     panel.style.cssText = "background:var(--bg, #fff);color:var(--fg, #111);padding:1rem;border-radius:8px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);";
-    panel.innerHTML = '<h3 style="margin:0 0 0.75rem;">Compare: ' + esc2(title) + "</h3>";
+    panel.innerHTML = '<h3 style="margin:0 0 0.75rem;">' + vt("viewer.tools.analysis.compareHeading", esc2(title)) + "</h3>";
     var toolbar = document.createElement("div");
     toolbar.className = "toolbar";
     toolbar.style.marginBottom = "0.5rem";
     var beforeLabel = document.createElement("label");
-    beforeLabel.textContent = "Before:";
+    beforeLabel.textContent = vt("viewer.tools.analysis.before");
     var beforeSel = document.createElement("select");
     beforeSel.id = "compare-before";
-    beforeSel.innerHTML = '<option value="">\u2014 select \u2014</option><option value="_current">Current result</option>';
+    beforeSel.innerHTML = '<option value="">' + vt("viewer.tools.analysis.selectPlaceholder") + '</option><option value="_current">' + vt("viewer.tools.analysis.currentResult") + "</option>";
     (savedList || []).forEach(function(item) {
       var opt = document.createElement("option");
       opt.value = item.id;
@@ -8071,10 +9042,10 @@
       beforeSel.appendChild(opt);
     });
     var afterLabel = document.createElement("label");
-    afterLabel.textContent = "After:";
+    afterLabel.textContent = vt("viewer.tools.analysis.after");
     var afterSel = document.createElement("select");
     afterSel.id = "compare-after";
-    afterSel.innerHTML = '<option value="">\u2014 select \u2014</option><option value="_current">Current result</option>';
+    afterSel.innerHTML = '<option value="">' + vt("viewer.tools.analysis.selectPlaceholder") + '</option><option value="_current">' + vt("viewer.tools.analysis.currentResult") + "</option>";
     (savedList || []).forEach(function(item) {
       var opt = document.createElement("option");
       opt.value = item.id;
@@ -8083,8 +9054,8 @@
     });
     var closeBtn = document.createElement("button");
     closeBtn.type = "button";
-    closeBtn.textContent = "Close";
-    closeBtn.title = "Close compare panel";
+    closeBtn.textContent = vt("viewer.tools.analysis.close");
+    closeBtn.title = vt("viewer.tools.analysis.closeTitle");
     toolbar.appendChild(beforeLabel);
     toolbar.appendChild(beforeSel);
     toolbar.appendChild(afterLabel);
@@ -8094,16 +9065,16 @@
     var summaryEl = document.createElement("p");
     summaryEl.className = "meta";
     summaryEl.style.marginBottom = "0.5rem";
-    summaryEl.textContent = "Select Before and After to compare.";
+    summaryEl.textContent = vt("viewer.tools.analysis.prompt");
     panel.appendChild(summaryEl);
     var columns = document.createElement("div");
     columns.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:1rem;";
     var leftPanel = document.createElement("div");
     leftPanel.style.cssText = "border:1px solid var(--border);padding:0.5rem;border-radius:4px;max-height:50vh;overflow:auto;";
-    leftPanel.innerHTML = '<p class="meta">Select Before.</p>';
+    leftPanel.innerHTML = '<p class="meta">' + vt("viewer.tools.analysis.selectBefore") + "</p>";
     var rightPanel = document.createElement("div");
     rightPanel.style.cssText = "border:1px solid var(--border);padding:0.5rem;border-radius:4px;max-height:50vh;overflow:auto;";
-    rightPanel.innerHTML = '<p class="meta">Select After.</p>';
+    rightPanel.innerHTML = '<p class="meta">' + vt("viewer.tools.analysis.selectAfter") + "</p>";
     columns.appendChild(leftPanel);
     columns.appendChild(rightPanel);
     panel.appendChild(columns);
@@ -8149,19 +9120,19 @@
   }
   function renderRowDiff(container, tables) {
     var html = "";
-    html += '<table class="snapshot-summary-table"><thead><tr><th>Table</th><th>Then</th><th>Now</th><th>Status</th></tr></thead><tbody>';
+    html += '<table class="snapshot-summary-table"><thead><tr><th>' + vt("viewer.tools.diff.col.table") + "</th><th>" + vt("viewer.tools.diff.col.then") + "</th><th>" + vt("viewer.tools.diff.col.now") + "</th><th>" + vt("viewer.tools.diff.col.status") + "</th></tr></thead><tbody>";
     tables.forEach(function(t) {
       var status = "";
       if (!t.hasPk) {
-        status = "No primary key \u2014 counts only";
+        status = vt("viewer.tools.diff.noPk");
       } else if (t.addedRows && t.addedRows.length > 0 || t.removedRows && t.removedRows.length > 0 || t.changedRows && t.changedRows.length > 0) {
         var parts = [];
-        if (t.addedRows && t.addedRows.length > 0) parts.push("+" + t.addedRows.length + " added");
-        if (t.removedRows && t.removedRows.length > 0) parts.push("-" + t.removedRows.length + " removed");
-        if (t.changedRows && t.changedRows.length > 0) parts.push("~" + t.changedRows.length + " changed");
+        if (t.addedRows && t.addedRows.length > 0) parts.push(vt("viewer.tools.diff.added", t.addedRows.length));
+        if (t.removedRows && t.removedRows.length > 0) parts.push(vt("viewer.tools.diff.removed", t.removedRows.length));
+        if (t.changedRows && t.changedRows.length > 0) parts.push(vt("viewer.tools.diff.changed", t.changedRows.length));
         status = parts.join(", ");
       } else {
-        status = "No changes detected";
+        status = vt("viewer.tools.diff.noChanges");
       }
       html += "<tr><td>" + esc2(t.table) + "</td><td>" + t.countThen + "</td><td>" + t.countNow + "</td><td>" + esc2(status) + "</td></tr>";
     });
@@ -8172,15 +9143,15 @@
       if (!hasDetail) return;
       html += '<h4 style="margin:0.5rem 0 0.25rem;">' + esc2(t.table) + "</h4>";
       if (t.addedRows && t.addedRows.length > 0) {
-        html += '<p class="meta" style="color:#7cb342;">+ ' + t.addedRows.length + " added:</p>";
+        html += '<p class="meta" style="color:#7cb342;">' + vt("viewer.tools.diff.addedDetail", t.addedRows.length) + "</p>";
         html += renderDiffRows(t.addedRows, "added");
       }
       if (t.removedRows && t.removedRows.length > 0) {
-        html += '<p class="meta" style="color:#e57373;">- ' + t.removedRows.length + " removed:</p>";
+        html += '<p class="meta" style="color:#e57373;">' + vt("viewer.tools.diff.removedDetail", t.removedRows.length) + "</p>";
         html += renderDiffRows(t.removedRows, "removed");
       }
       if (t.changedRows && t.changedRows.length > 0) {
-        html += '<p class="meta" style="color:#ffb74d;">~ ' + t.changedRows.length + " changed:</p>";
+        html += '<p class="meta" style="color:#ffb74d;">' + vt("viewer.tools.diff.changedDetail", t.changedRows.length) + "</p>";
         t.changedRows.forEach(function(cr) {
           var keys = Object.keys(cr.now);
           var changed = new Set(cr.changedColumns || []);
@@ -8226,7 +9197,7 @@
     }
     function fmtSnapshotLabel(s) {
       var when = s.createdAt || s.id || "";
-      return (s.label ? s.label + " \u2014 " : "") + when;
+      return (s.label ? vt("viewer.tools.snapshot.labelPrefix", s.label) : "") + when;
     }
     function buildExportHref() {
       var from = document.getElementById("snapshot-from");
@@ -8245,30 +9216,30 @@
       clearBtn.style.display = has ? "" : "none";
       if (has) exportLink.href = buildExportHref();
       if (!has) {
-        host2.innerHTML = '<p class="meta">No snapshots yet. Capture one to start comparing.</p>';
+        host2.innerHTML = '<p class="meta">' + vt("viewer.tools.snapshot.empty") + "</p>";
         return;
       }
       var html = '<div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.4rem;">';
-      html += '<label class="meta">From <select id="snapshot-from">';
+      html += '<label class="meta">' + vt("viewer.tools.snapshot.from") + ' <select id="snapshot-from">';
       snapshotItems.forEach(function(s) {
         html += '<option value="' + esc2(s.id) + '">' + esc2(fmtSnapshotLabel(s)) + "</option>";
       });
       html += "</select></label>";
-      html += '<label class="meta">To <select id="snapshot-to"><option value="">now (live DB)</option>';
+      html += '<label class="meta">' + vt("viewer.tools.snapshot.to") + ' <select id="snapshot-to"><option value="">' + vt("viewer.tools.snapshot.now") + "</option>";
       snapshotItems.forEach(function(s) {
         html += '<option value="' + esc2(s.id) + '">' + esc2(fmtSnapshotLabel(s)) + "</option>";
       });
       html += "</select></label>";
       html += "</div>";
       html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-      html += '<tr><th style="border:1px solid var(--border);padding:4px;text-align:left;">Snapshot</th><th style="border:1px solid var(--border);padding:4px;">Tables</th><th style="border:1px solid var(--border);padding:4px;">Actions</th></tr>';
+      html += '<tr><th style="border:1px solid var(--border);padding:4px;text-align:left;">' + vt("viewer.tools.snapshot.col.snapshot") + '</th><th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.tools.snapshot.col.tables") + '</th><th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.tools.snapshot.col.actions") + "</th></tr>";
       snapshotItems.forEach(function(s) {
         html += "<tr>";
         html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(fmtSnapshotLabel(s)) + "</td>";
         html += '<td style="border:1px solid var(--border);padding:4px;text-align:right;">' + (s.tableCount != null ? s.tableCount : "") + "</td>";
         html += '<td style="border:1px solid var(--border);padding:4px;">';
-        html += '<button class="btn snapshot-rename" data-id="' + esc2(s.id) + '">Rename</button> ';
-        html += '<button class="btn snapshot-del" data-id="' + esc2(s.id) + '">Delete</button>';
+        html += '<button class="btn snapshot-rename" data-id="' + esc2(s.id) + '">' + vt("viewer.tools.snapshot.rename") + "</button> ";
+        html += '<button class="btn snapshot-del" data-id="' + esc2(s.id) + '">' + vt("viewer.tools.snapshot.delete") + "</button>";
         html += "</td></tr>";
       });
       html += "</table>";
@@ -8301,9 +9272,9 @@
       });
     }
     if (takeBtn) takeBtn.addEventListener("click", function() {
-      var label = window.prompt("Optional label for this snapshot (leave blank for none):") || "";
+      var label = window.prompt(vt("viewer.tools.snapshot.takePrompt")) || "";
       takeBtn.disabled = true;
-      statusEl.textContent = "Capturing\u2026";
+      statusEl.textContent = vt("viewer.tools.snapshot.capturing");
       fetch("/api/snapshot", authOpts({
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -8312,11 +9283,11 @@
         return { ok: r.ok, data: d };
       })).then(function(o) {
         if (o.ok) {
-          statusEl.textContent = "Snapshot saved at " + o.data.createdAt;
+          statusEl.textContent = vt("viewer.tools.snapshot.saved", o.data.createdAt);
           refreshSnapshotList();
-        } else statusEl.textContent = o.data.error || "Failed";
+        } else statusEl.textContent = o.data.error || vt("viewer.tools.snapshot.failed");
       }).catch(function(e) {
-        statusEl.textContent = "Error: " + e.message;
+        statusEl.textContent = vt("viewer.tools.snapshot.error", e.message);
       }).finally(function() {
         takeBtn.disabled = false;
       });
@@ -8330,7 +9301,7 @@
       compareBtn.disabled = true;
       resultPre.style.display = "none";
       resultPre.innerHTML = "";
-      statusEl.textContent = "Comparing\u2026";
+      statusEl.textContent = vt("viewer.tools.snapshot.comparing");
       statusEl.setAttribute("aria-busy", "true");
       fetch("/api/snapshot/compare?" + qs, authOpts()).then((r) => r.json().then(function(d) {
         return { ok: r.ok, data: d };
@@ -8344,26 +9315,26 @@
           resultPre.style.display = "block";
           statusEl.textContent = "";
         } else {
-          statusEl.textContent = o.data.error || "Compare failed";
+          statusEl.textContent = o.data.error || vt("viewer.tools.snapshot.compareFailed");
         }
       }).catch(function(e) {
-        statusEl.textContent = "Error: " + e.message;
+        statusEl.textContent = vt("viewer.tools.snapshot.error", e.message);
       }).finally(function() {
         compareBtn.disabled = false;
         statusEl.removeAttribute("aria-busy");
       });
     });
     if (clearBtn) clearBtn.addEventListener("click", function() {
-      if (!window.confirm("Delete ALL snapshots?")) return;
+      if (!window.confirm(vt("viewer.tools.snapshot.clearConfirm"))) return;
       clearBtn.disabled = true;
-      statusEl.textContent = "Clearing\u2026";
+      statusEl.textContent = vt("viewer.tools.snapshot.clearing");
       fetch("/api/snapshot", authOpts({ method: "DELETE" })).then(function() {
         resultPre.style.display = "none";
         resultPre.innerHTML = "";
-        statusEl.textContent = "All snapshots cleared.";
+        statusEl.textContent = vt("viewer.tools.snapshot.cleared");
         refreshSnapshotList();
       }).catch(function(e) {
-        statusEl.textContent = "Error: " + e.message;
+        statusEl.textContent = vt("viewer.tools.snapshot.error", e.message);
       }).finally(function() {
         clearBtn.disabled = false;
       });
@@ -8376,14 +9347,14 @@
         var id = t.getAttribute("data-id");
         if (!id) return;
         if (t.classList.contains("snapshot-del")) {
-          if (!window.confirm("Delete this snapshot?")) return;
+          if (!window.confirm(vt("viewer.tools.snapshot.deleteConfirm"))) return;
           fetch("/api/snapshot/" + encodeURIComponent(id), authOpts({ method: "DELETE" })).then(function() {
             refreshSnapshotList();
           }).catch(function(err) {
-            statusEl.textContent = "Error: " + err.message;
+            statusEl.textContent = vt("viewer.tools.snapshot.error", err.message);
           });
         } else if (t.classList.contains("snapshot-rename")) {
-          var label = window.prompt("New label (leave blank to clear):") || "";
+          var label = window.prompt(vt("viewer.tools.snapshot.renamePrompt")) || "";
           fetch("/api/snapshot/" + encodeURIComponent(id), authOpts({
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -8391,7 +9362,7 @@
           })).then(function() {
             refreshSnapshotList();
           }).catch(function(err) {
-            statusEl.textContent = "Error: " + err.message;
+            statusEl.textContent = vt("viewer.tools.snapshot.error", err.message);
           });
         }
       });
@@ -8418,21 +9389,21 @@
     if (viewBtn) viewBtn.addEventListener("click", function() {
       viewBtn.disabled = true;
       resultPre.style.display = "none";
-      statusEl.textContent = "Loading\u2026";
+      statusEl.textContent = vt("viewer.tools.compare.loading");
       fetch("/api/compare/report", authOpts()).then((r) => r.json().then(function(d) {
         return { status: r.status, data: d };
       })).then(function(o) {
         if (o.status === 501) {
-          statusEl.textContent = "Not configured. A comparison database is needed \u2014 see the setup guide above.";
+          statusEl.textContent = vt("viewer.tools.compare.notConfigured");
         } else if (o.status >= 400) {
-          statusEl.textContent = o.data.error || "Request failed";
+          statusEl.textContent = o.data.error || vt("viewer.tools.compare.requestFailed");
         } else {
           resultPre.textContent = JSON.stringify(o.data, null, 2);
           resultPre.style.display = "block";
           statusEl.textContent = "";
         }
       }).catch(function(e) {
-        statusEl.textContent = "Error: " + e.message;
+        statusEl.textContent = vt("viewer.tools.compare.error", e.message);
       }).finally(function() {
         viewBtn.disabled = false;
       });
@@ -8445,7 +9416,7 @@
     if (!btn) return;
     btn.addEventListener("click", function() {
       btn.disabled = true;
-      setButtonBusy(btn, true, "Generating\u2026");
+      setButtonBusy(btn, true, vt("viewer.tools.migration.busy"));
       resultPre.style.display = "none";
       statusEl.textContent = "";
       fetch("/api/migration/preview", authOpts()).then(function(r) {
@@ -8454,32 +9425,32 @@
         });
       }).then(function(o) {
         if (o.status === 501) {
-          statusEl.textContent = "Not configured. A comparison database is needed \u2014 see the setup guide above.";
+          statusEl.textContent = vt("viewer.tools.compare.notConfigured");
           return;
         }
         if (o.status >= 400) {
-          statusEl.textContent = o.data.error || "Request failed";
+          statusEl.textContent = o.data.error || vt("viewer.tools.compare.requestFailed");
           return;
         }
-        var sql = o.data.migrationSql || "-- No changes detected.";
-        var html = '<p class="meta">' + o.data.changeCount + " statement(s) generated";
-        if (o.data.hasWarnings) html += " (includes warnings)";
+        var sql = o.data.migrationSql || vt("viewer.tools.migration.noChanges");
+        var html = '<p class="meta">' + vt("viewer.tools.migration.summary", o.data.changeCount);
+        if (o.data.hasWarnings) html += vt("viewer.tools.migration.withWarnings");
         html += "</p>";
         html += '<pre style="font-size:11px;max-height:30vh;overflow:auto;background:var(--bg-pre);padding:0.5rem;border-radius:4px;">' + highlightSqlSafe(sql) + "</pre>";
-        html += '<button type="button" id="migration-copy-sql" title="Copy migration SQL to clipboard">Copy SQL</button>';
+        html += '<button type="button" id="migration-copy-sql" title="' + vt("viewer.tools.migration.copySqlTitle") + '">' + vt("viewer.tools.migration.copySql") + "</button>";
         resultPre.innerHTML = html;
         resultPre.style.display = "block";
         statusEl.textContent = "";
         var copyBtn = document.getElementById("migration-copy-sql");
         if (copyBtn) copyBtn.addEventListener("click", function() {
           navigator.clipboard.writeText(sql);
-          this.textContent = "Copied!";
+          this.textContent = vt("viewer.tools.migration.copied");
         });
       }).catch(function(e) {
-        statusEl.textContent = "Error: " + e.message;
+        statusEl.textContent = vt("viewer.tools.compare.error", e.message);
       }).finally(function() {
         btn.disabled = false;
-        setButtonBusy(btn, false, "Migration Preview");
+        setButtonBusy(btn, false, vt("viewer.tools.migration.button"));
       });
     });
   }
@@ -8496,18 +9467,18 @@
     const compareBtn = document.getElementById("index-compare");
     var lastIndexData = null;
     function renderIndexData(data, interactive) {
-      if (!data) return '<p class="meta">No current result. Run Analyze first.</p>';
+      if (!data) return '<p class="meta">' + vt("viewer.tools.index.empty") + "</p>";
       var suggestions = data.suggestions || [];
       if (suggestions.length === 0) {
-        return '<p class="meta" style="color:#7cb342;">No index suggestions \u2014 schema looks good!</p>';
+        return '<p class="meta" style="color:#7cb342;">' + vt("viewer.tools.index.none") + "</p>";
       }
       var priorityColors = { high: "#e57373", medium: "#ffb74d", low: "#7cb342" };
       var priorityIcons = { high: "!!", medium: "!", low: "\u2713" };
-      var html = '<p class="meta">' + suggestions.length + " suggestion(s) across " + (data.tablesAnalyzed || 0) + " tables:</p>";
+      var html = '<p class="meta">' + vt("viewer.tools.index.summary", suggestions.length, data.tablesAnalyzed || 0) + "</p>";
       html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
       html += "<tr>";
-      if (interactive) html += '<th style="border:1px solid var(--border);padding:4px;"><input type="checkbox" id="index-select-all" title="Select all suggestions"></th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+      if (interactive) html += '<th style="border:1px solid var(--border);padding:4px;"><input type="checkbox" id="index-select-all" title="' + vt("viewer.tools.index.selectAll") + '"></th>';
+      html += '<th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.tools.index.col.priority") + '</th><th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.tools.index.col.tableColumn") + '</th><th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.tools.index.col.reason") + '</th><th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.tools.index.col.sql") + "</th></tr>";
       suggestions.forEach(function(s, i) {
         var color = priorityColors[s.priority] || "var(--fg)";
         var icon = priorityIcons[s.priority] || "";
@@ -8516,18 +9487,18 @@
         html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';font-weight:bold;">[' + esc2(icon) + "] " + esc2(s.priority).toUpperCase() + "</td>";
         html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(s.table) + "." + esc2(s.column) + "</td>";
         html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(s.reason) + "</td>";
-        html += '<td style="border:1px solid var(--border);padding:4px;"><code style="font-size:11px;cursor:pointer;" title="Click to copy" onclick="navigator.clipboard.writeText(this.textContent)">' + esc2(s.sql) + "</code></td>";
+        html += '<td style="border:1px solid var(--border);padding:4px;"><code style="font-size:11px;cursor:pointer;" title="' + vt("viewer.tools.index.copyHint") + '" onclick="navigator.clipboard.writeText(this.textContent)">' + esc2(s.sql) + "</code></td>";
         html += "</tr>";
       });
       html += "</table>";
       if (interactive) {
         html += '<div class="index-bulk-bar" style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">';
-        html += '<span id="index-sel-count" class="meta">0 selected</span>';
-        html += '<button id="index-preview-sel" class="btn" disabled>Preview SQL</button>';
+        html += '<span id="index-sel-count" class="meta">' + vt("viewer.tools.index.selected", 0) + "</span>";
+        html += '<button id="index-preview-sel" class="btn" disabled>' + vt("viewer.tools.index.previewSql") + "</button>";
         if (driftWriteEnabled) {
-          html += '<button id="index-apply-sel" class="btn" disabled>Apply selected</button>';
+          html += '<button id="index-apply-sel" class="btn" disabled>' + vt("viewer.tools.index.applySelected") + "</button>";
         } else {
-          html += '<span class="meta" title="Start the server with writeQuery configured to enable applying indexes.">Apply disabled \u2014 server is read-only</span>';
+          html += '<span class="meta" title="' + vt("viewer.tools.index.applyDisabledHint") + '">' + vt("viewer.tools.index.applyDisabled") + "</span>";
         }
         html += "</div>";
         html += '<div id="index-preview-out" style="display:none;margin-top:0.5rem;"></div>';
@@ -8555,7 +9526,7 @@
       if (!container) return;
       var count = getSelectedIndexSqls().length;
       var countEl2 = document.getElementById("index-sel-count");
-      if (countEl2) countEl2.textContent = count + " selected";
+      if (countEl2) countEl2.textContent = vt("viewer.tools.index.selected", count);
       var previewBtn = document.getElementById("index-preview-sel");
       if (previewBtn) previewBtn.disabled = count === 0;
       var applyBtn = document.getElementById("index-apply-sel");
@@ -8564,24 +9535,24 @@
     function renderPreviewOutput(data) {
       var valid = data && data.valid || [];
       var rejected = data && data.rejected || [];
-      var html = '<p class="meta">' + valid.length + " valid, " + rejected.length + " rejected:</p>";
+      var html = '<p class="meta">' + vt("viewer.tools.index.preview.summary", valid.length, rejected.length) + "</p>";
       if (valid.length) {
         html += '<pre style="white-space:pre-wrap;font-size:11px;background:rgba(0,0,0,0.12);padding:0.4rem;border-radius:4px;">' + valid.map(esc2).join("\n") + "</pre>";
       }
       rejected.forEach(function(r) {
-        html += '<div style="color:#e57373;font-size:11px;margin:0.2rem 0;">Rejected: <code>' + esc2(r.sql) + "</code> \u2014 " + esc2(r.reason) + "</div>";
+        html += '<div style="color:#e57373;font-size:11px;margin:0.2rem 0;">' + vt("viewer.tools.index.preview.rejected", "<code>" + esc2(r.sql) + "</code>", esc2(r.reason)) + "</div>";
       });
       return html;
     }
     function renderApplyOutput(data) {
       var results = data && data.results || [];
-      var html = '<p class="meta">' + (data.applied || 0) + " of " + results.length + " index(es) created:</p>";
+      var html = '<p class="meta">' + vt("viewer.tools.index.apply.summary", data.applied || 0, results.length) + "</p>";
       results.forEach(function(r) {
         var ok = r.ok === true;
         var color = ok ? "#7cb342" : "#e57373";
-        var mark = ok ? "OK" : "FAIL";
+        var mark = ok ? vt("viewer.tools.index.apply.ok") : vt("viewer.tools.index.apply.fail");
         html += '<div style="color:' + color + ';font-size:11px;margin:0.2rem 0;">[' + mark + "] <code>" + esc2(r.sql) + "</code>";
-        if (!ok && r.error) html += " \u2014 " + esc2(r.error);
+        if (!ok && r.error) html += vt("viewer.tools.index.apply.errorSuffix", esc2(r.error));
         html += "</div>";
       });
       return html;
@@ -8626,7 +9597,7 @@
           var sqls = getSelectedIndexSqls();
           if (sqls.length === 0) return;
           var out = document.getElementById("index-preview-out");
-          setButtonBusy(t, true, "Previewing\u2026");
+          setButtonBusy(t, true, vt("viewer.tools.index.busy.preview"));
           t.disabled = true;
           fetch("/api/indexes/preview", authOpts({
             method: "POST",
@@ -8634,7 +9605,7 @@
             body: JSON.stringify({ indexSqls: sqls })
           })).then(function(r) {
             if (!r.ok) return r.json().then(function(d) {
-              throw new Error(d.error || "Request failed");
+              throw new Error(d.error || vt("viewer.tools.index.requestFailed"));
             });
             return r.json();
           }).then(function(data) {
@@ -8644,19 +9615,19 @@
             }
           }).catch(function(err) {
             if (out) {
-              out.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(err.message) + "</p>";
+              out.innerHTML = '<p class="meta" style="color:#e57373;">' + vt("viewer.tools.index.error", esc2(err.message)) + "</p>";
               out.style.display = "block";
             }
           }).finally(function() {
-            setButtonBusy(t, false, "Preview SQL");
+            setButtonBusy(t, false, vt("viewer.tools.index.previewSql"));
             refreshIndexSelection();
           });
         } else if (t.id === "index-apply-sel") {
           var applySqls = getSelectedIndexSqls();
           if (applySqls.length === 0) return;
-          if (!window.confirm("Create " + applySqls.length + " index(es) on the live database?")) return;
+          if (!window.confirm(vt("viewer.tools.index.apply.confirm", applySqls.length))) return;
           var applyOut = document.getElementById("index-apply-out");
-          setButtonBusy(t, true, "Applying\u2026");
+          setButtonBusy(t, true, vt("viewer.tools.index.busy.apply"));
           t.disabled = true;
           fetch("/api/indexes/apply", authOpts({
             method: "POST",
@@ -8664,7 +9635,7 @@
             body: JSON.stringify({ indexSqls: applySqls })
           })).then(function(r) {
             if (!r.ok) return r.json().then(function(d) {
-              throw new Error(d.error || "Request failed");
+              throw new Error(d.error || vt("viewer.tools.index.requestFailed"));
             });
             return r.json();
           }).then(function(data) {
@@ -8672,14 +9643,14 @@
               applyOut.innerHTML = renderApplyOutput(data);
               applyOut.style.display = "block";
             }
-            showCopyToast((data.applied || 0) + " index(es) created \u2014 re-run Analyze to refresh the list.");
+            showCopyToast(vt("viewer.tools.index.apply.toast", data.applied || 0));
           }).catch(function(err) {
             if (applyOut) {
-              applyOut.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(err.message) + "</p>";
+              applyOut.innerHTML = '<p class="meta" style="color:#e57373;">' + vt("viewer.tools.index.error", esc2(err.message)) + "</p>";
               applyOut.style.display = "block";
             }
           }).finally(function() {
-            setButtonBusy(t, false, "Apply selected");
+            setButtonBusy(t, false, vt("viewer.tools.index.applySelected"));
             refreshIndexSelection();
           });
         }
@@ -8687,11 +9658,11 @@
     }
     if (btn) btn.addEventListener("click", function() {
       btn.disabled = true;
-      setButtonBusy(btn, true, "Analyzing\u2026");
+      setButtonBusy(btn, true, vt("viewer.tools.index.busy.analyze"));
       container.style.display = "none";
       fetch("/api/index-suggestions", authOpts()).then(function(r) {
         if (!r.ok) return r.json().then(function(d) {
-          throw new Error(d.error || "Request failed");
+          throw new Error(d.error || vt("viewer.tools.index.requestFailed"));
         });
         return r.json();
       }).then(function(data) {
@@ -8700,16 +9671,16 @@
         refreshIndexSelection();
         populateHistorySelect(historySel, "index");
       }).catch(function(e) {
-        showIndexResult('<p class="meta" style="color:#e57373;">Error: ' + esc2(e.message) + "</p>");
+        showIndexResult('<p class="meta" style="color:#e57373;">' + vt("viewer.tools.index.error", esc2(e.message)) + "</p>");
       }).finally(function() {
         btn.disabled = false;
-        setButtonBusy(btn, false, "Analyze");
+        setButtonBusy(btn, false, vt("viewer.tools.index.analyze"));
       });
     });
     if (saveBtn) saveBtn.addEventListener("click", function() {
       if (!lastIndexData) return;
       var id = saveAnalysis("index", lastIndexData);
-      showCopyToast(id != null ? "Saved" : "Save failed (storage may be full)");
+      showCopyToast(id != null ? vt("viewer.tools.analysis.saved") : vt("viewer.tools.analysis.saveFailed"));
       populateHistorySelect(historySel, "index");
     });
     if (exportBtn) exportBtn.addEventListener("click", function() {
@@ -8717,10 +9688,10 @@
       downloadJSON(lastIndexData, "index-suggestions-" + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) + ".json");
     });
     if (compareBtn) compareBtn.addEventListener("click", function() {
-      showAnalysisCompare("index", "Index suggestions", getSavedAnalyses("index"), lastIndexData, renderIndexData, function(a, b) {
+      showAnalysisCompare("index", vt("viewer.tools.index.compareTitle"), getSavedAnalyses("index"), lastIndexData, renderIndexData, function(a, b) {
         var sa = a && a.suggestions ? a.suggestions.length : 0;
         var sb = b && b.suggestions ? b.suggestions.length : 0;
-        return "Before: " + sa + " suggestion(s) \xB7 After: " + sb + " suggestion(s)";
+        return vt("viewer.tools.index.compareSummary", sa, sb);
       });
     });
   }
@@ -8739,39 +9710,39 @@
       return (bytes / 1048576).toFixed(2) + " MB";
     }
     var SIZE_TT = {
-      totalCard: "Total size of the SQLite database file: PRAGMA page_count \xD7 PRAGMA page_size. Matches the main .db file size on disk.",
-      usedCard: "Bytes in pages that store data: total file size minus bytes in freelist pages (see Free). Same as totalSizeBytes \u2212 freeSpaceBytes from the server.",
-      freeCard: "Bytes in pages on SQLite\u2019s freelist (PRAGMA freelist_count \xD7 page_size). Unused pages inside the file that SQLite can reuse for new data without growing the file.",
-      journalCard: "SQLite PRAGMA journal_mode. wal means WAL (write-ahead logging): new writes go to a separate .wal file and are merged into the main database at checkpoint; readers can run at the same time as one writer. Other modes include delete, truncate, persist, memory, and off.",
-      pagesTotal: "Total bytes in all pages: page_count \xD7 page_size. Same number as Total Size.",
-      pagesFormula: "PRAGMA page_count (number of pages) \xD7 PRAGMA page_size (bytes per page, often 4096).",
-      thTable: "Name of this table in SQLite.",
-      thRows: "Row count for each table (SELECT COUNT(*) FROM table). Bar length is relative to the largest table in this list.",
-      thColumns: "Number of columns defined on the table (rows from PRAGMA table_info).",
-      thIndexes: "Number of indexes on the table (PRAGMA index_list), plus each index name.",
-      tdTableLink: "SQLite table name. Click to open this table in its own tab.",
-      tdRows: "Approximate number of rows in this table.",
-      tdColumns: "How many columns this table has.",
-      tdIndexes: "Index count and names from PRAGMA index_list for this table."
+      totalCard: vt("viewer.tools.size.tt.totalCard"),
+      usedCard: vt("viewer.tools.size.tt.usedCard"),
+      freeCard: vt("viewer.tools.size.tt.freeCard"),
+      journalCard: vt("viewer.tools.size.tt.journalCard"),
+      pagesTotal: vt("viewer.tools.size.tt.pagesTotal"),
+      pagesFormula: vt("viewer.tools.size.tt.pagesFormula"),
+      thTable: vt("viewer.tools.size.tt.thTable"),
+      thRows: vt("viewer.tools.size.tt.thRows"),
+      thColumns: vt("viewer.tools.size.tt.thColumns"),
+      thIndexes: vt("viewer.tools.size.tt.thIndexes"),
+      tdTableLink: vt("viewer.tools.size.tt.tdTableLink"),
+      tdRows: vt("viewer.tools.size.tt.tdRows"),
+      tdColumns: vt("viewer.tools.size.tt.tdColumns"),
+      tdIndexes: vt("viewer.tools.size.tt.tdIndexes")
     };
     function renderSizeData(data) {
-      if (!data) return '<p class="meta">No data.</p>';
+      if (!data) return '<p class="meta">' + vt("viewer.tools.size.empty") + "</p>";
       var html = '<div style="margin:0.5rem 0;">';
       html += '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">';
       html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc2(SIZE_TT.totalCard) + '">';
-      html += '<div class="meta">Total Size</div>';
+      html += '<div class="meta">' + vt("viewer.tools.size.card.total") + "</div>";
       html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.totalSizeBytes) + "</div></div>";
       html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc2(SIZE_TT.usedCard) + '">';
-      html += '<div class="meta">Used</div>';
+      html += '<div class="meta">' + vt("viewer.tools.size.card.used") + "</div>";
       html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.usedSizeBytes) + "</div></div>";
       html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc2(SIZE_TT.freeCard) + '">';
-      html += '<div class="meta">Free</div>';
+      html += '<div class="meta">' + vt("viewer.tools.size.card.free") + "</div>";
       html += '<div style="font-size:1.2rem;font-weight:bold;">' + formatBytes(data.freeSpaceBytes) + "</div></div>";
       html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc2(SIZE_TT.journalCard) + '">';
-      html += '<div class="meta">Journal</div>';
+      html += '<div class="meta">' + vt("viewer.tools.size.card.journal") + "</div>";
       html += '<div style="font-size:1.2rem;font-weight:bold;">' + esc2(data.journalMode || "") + "</div></div>";
       html += '<div style="padding:0.5rem;border:1px solid var(--border);border-radius:4px;" title="' + esc2(SIZE_TT.pagesTotal) + '">';
-      html += '<div class="meta">Pages</div>';
+      html += '<div class="meta">' + vt("viewer.tools.size.card.pages") + "</div>";
       var pc = data.pageCount || 0;
       var ps = data.pageSize || 0;
       var pageBytes = pc * ps;
@@ -8779,10 +9750,10 @@
       html += '<div class="meta size-pages-formula" title="' + esc2(SIZE_TT.pagesFormula) + '">(' + pc.toLocaleString() + " \xD7 " + ps.toLocaleString() + ")</div></div>";
       html += "</div>";
       html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-      html += '<tr><th style="border:1px solid var(--border);padding:4px;" title="' + esc2(SIZE_TT.thTable) + '">Table</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;min-width:8rem;" title="' + esc2(SIZE_TT.thRows) + '">Rows</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;text-align:right;" title="' + esc2(SIZE_TT.thColumns) + '">Columns</th>';
-      html += '<th style="border:1px solid var(--border);padding:4px;" title="' + esc2(SIZE_TT.thIndexes) + '">Indexes</th></tr>';
+      html += '<tr><th style="border:1px solid var(--border);padding:4px;" title="' + esc2(SIZE_TT.thTable) + '">' + vt("viewer.tools.size.col.table") + "</th>";
+      html += '<th style="border:1px solid var(--border);padding:4px;min-width:8rem;" title="' + esc2(SIZE_TT.thRows) + '">' + vt("viewer.tools.size.col.rows") + "</th>";
+      html += '<th style="border:1px solid var(--border);padding:4px;text-align:right;" title="' + esc2(SIZE_TT.thColumns) + '">' + vt("viewer.tools.size.col.columns") + "</th>";
+      html += '<th style="border:1px solid var(--border);padding:4px;" title="' + esc2(SIZE_TT.thIndexes) + '">' + vt("viewer.tools.size.col.indexes") + "</th></tr>";
       var tables = data.tables || [];
       var maxRows = Math.max.apply(null, tables.map(function(t) {
         return t.rowCount;
@@ -8833,11 +9804,11 @@
     }
     if (btn) btn.addEventListener("click", function() {
       btn.disabled = true;
-      setButtonBusy(btn, true, "Analyzing\u2026");
+      setButtonBusy(btn, true, vt("viewer.tools.size.busy.analyze"));
       container.style.display = "none";
       fetch("/api/analytics/size", authOpts()).then(function(r) {
         if (!r.ok) return r.json().then(function(d) {
-          throw new Error(d.error || "Request failed");
+          throw new Error(d.error || vt("viewer.tools.size.requestFailed"));
         });
         return r.json();
       }).then(function(data) {
@@ -8846,17 +9817,17 @@
         container.style.display = "block";
         populateHistorySelect(historySel, "size");
       }).catch(function(e) {
-        container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(e.message) + "</p>";
+        container.innerHTML = '<p class="meta" style="color:#e57373;">' + vt("viewer.tools.size.error", esc2(e.message)) + "</p>";
         container.style.display = "block";
       }).finally(function() {
         btn.disabled = false;
-        setButtonBusy(btn, false, "Analyze");
+        setButtonBusy(btn, false, vt("viewer.tools.size.analyze"));
       });
     });
     if (saveBtn) saveBtn.addEventListener("click", function() {
       if (!lastSizeAnalyticsData) return;
       var id = saveAnalysis("size", lastSizeAnalyticsData);
-      showCopyToast(id != null ? "Saved" : "Save failed (storage may be full)");
+      showCopyToast(id != null ? vt("viewer.tools.analysis.saved") : vt("viewer.tools.analysis.saveFailed"));
       populateHistorySelect(historySel, "size");
     });
     if (exportBtn) exportBtn.addEventListener("click", function() {
@@ -8864,10 +9835,10 @@
       downloadJSON(lastSizeAnalyticsData, "size-analytics-" + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) + ".json");
     });
     if (compareBtn) compareBtn.addEventListener("click", function() {
-      showAnalysisCompare("size", "Database size analytics", getSavedAnalyses("size"), lastSizeAnalyticsData, renderSizeData, function(a, b) {
+      showAnalysisCompare("size", vt("viewer.tools.size.compareTitle"), getSavedAnalyses("size"), lastSizeAnalyticsData, renderSizeData, function(a, b) {
         var ta = (a && a.totalSizeBytes) != null ? formatBytes(a.totalSizeBytes) : "\u2014";
         var tb = (b && b.totalSizeBytes) != null ? formatBytes(b.totalSizeBytes) : "\u2014";
-        return "Before: " + ta + " total \xB7 After: " + tb + " total";
+        return vt("viewer.tools.size.compareSummary", ta, tb);
       });
     });
   }
@@ -8902,16 +9873,16 @@
       return { score, grade, color };
     }
     function renderAnomalyData(data) {
-      if (!data) return '<p class="meta">No current result. Run Scan first.</p>';
+      if (!data) return '<p class="meta">' + vt("viewer.tools.anomaly.empty") + "</p>";
       var anomalies = data.anomalies || [];
       var health = computeHealthScore(anomalies);
       var html = '<div class="health-score-pill" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.4rem 0.8rem;margin:0.4rem 0;border-radius:6px;background:rgba(0,0,0,0.15);font-size:14px;">';
       html += '<span style="font-size:1.6em;font-weight:700;color:' + health.color + ';">' + health.grade + "</span>";
       html += '<span style="color:' + health.color + ';font-weight:600;">' + health.score + "/100</span>";
-      html += '<span class="meta" style="margin-left:0.3rem;">across ' + (data.tablesScanned || 0) + " tables</span>";
+      html += '<span class="meta" style="margin-left:0.3rem;">' + vt("viewer.tools.anomaly.across", data.tablesScanned || 0) + "</span>";
       html += "</div>";
       if (anomalies.length === 0) {
-        html += '<p class="meta" style="color:#7cb342;">No anomalies detected. Data looks clean!</p>';
+        html += '<p class="meta" style="color:#7cb342;">' + vt("viewer.tools.anomaly.clean") + "</p>";
         return html;
       }
       var errCount = 0, warnCount = 0, infoCount = 0;
@@ -8921,10 +9892,10 @@
         else infoCount++;
       });
       var breakdown = [];
-      if (errCount) breakdown.push('<span style="color:#e57373;">' + errCount + " error" + (errCount > 1 ? "s" : "") + "</span>");
-      if (warnCount) breakdown.push('<span style="color:#ffb74d;">' + warnCount + " warning" + (warnCount > 1 ? "s" : "") + "</span>");
-      if (infoCount) breakdown.push('<span style="color:#7cb342;">' + infoCount + " info</span>");
-      html += '<p class="meta">' + anomalies.length + " finding(s): " + breakdown.join(", ") + "</p>";
+      if (errCount) breakdown.push('<span style="color:#e57373;">' + vt(errCount === 1 ? "viewer.tools.anomaly.errors.one" : "viewer.tools.anomaly.errors.many", errCount) + "</span>");
+      if (warnCount) breakdown.push('<span style="color:#ffb74d;">' + vt(warnCount === 1 ? "viewer.tools.anomaly.warnings.one" : "viewer.tools.anomaly.warnings.many", warnCount) + "</span>");
+      if (infoCount) breakdown.push('<span style="color:#7cb342;">' + vt("viewer.tools.anomaly.info", infoCount) + "</span>");
+      html += '<p class="meta">' + vt("viewer.tools.anomaly.findings", anomalies.length, breakdown.join(", ")) + "</p>";
       var icons = { error: "!!", warning: "!", info: "i" };
       var colors = { error: "#e57373", warning: "#ffb74d", info: "#7cb342" };
       anomalies.forEach(function(a) {
@@ -8960,11 +9931,11 @@
     }
     if (btn) btn.addEventListener("click", function() {
       btn.disabled = true;
-      setButtonBusy(btn, true, "Scanning\u2026");
+      setButtonBusy(btn, true, vt("viewer.tools.anomaly.busy.scan"));
       container.style.display = "none";
       fetch("/api/analytics/anomalies", authOpts()).then(function(r) {
         if (!r.ok) return r.json().then(function(d) {
-          throw new Error(d.error || "Request failed");
+          throw new Error(d.error || vt("viewer.tools.anomaly.requestFailed"));
         });
         return r.json();
       }).then(function(data) {
@@ -8973,17 +9944,17 @@
         container.style.display = "block";
         populateHistorySelect(historySel, "anomaly");
       }).catch(function(e) {
-        container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(e.message) + "</p>";
+        container.innerHTML = '<p class="meta" style="color:#e57373;">' + vt("viewer.tools.anomaly.error", esc2(e.message)) + "</p>";
         container.style.display = "block";
       }).finally(function() {
         btn.disabled = false;
-        setButtonBusy(btn, false, "Scan for anomalies");
+        setButtonBusy(btn, false, vt("viewer.tools.anomaly.scan"));
       });
     });
     if (saveBtn) saveBtn.addEventListener("click", function() {
       if (!lastAnomalyData) return;
       var id = saveAnalysis("anomaly", lastAnomalyData);
-      showCopyToast(id != null ? "Saved" : "Save failed (storage may be full)");
+      showCopyToast(id != null ? vt("viewer.tools.analysis.saved") : vt("viewer.tools.analysis.saveFailed"));
       populateHistorySelect(historySel, "anomaly");
     });
     if (exportBtn) exportBtn.addEventListener("click", function() {
@@ -8991,10 +9962,10 @@
       downloadJSON(lastAnomalyData, "anomaly-scan-" + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) + ".json");
     });
     if (compareBtn) compareBtn.addEventListener("click", function() {
-      showAnalysisCompare("anomaly", "Data health", getSavedAnalyses("anomaly"), lastAnomalyData, renderAnomalyData, function(a, b) {
+      showAnalysisCompare("anomaly", vt("viewer.tools.anomaly.compareTitle"), getSavedAnalyses("anomaly"), lastAnomalyData, renderAnomalyData, function(a, b) {
         var na = a && a.anomalies ? a.anomalies.length : 0;
         var nb = b && b.anomalies ? b.anomalies.length : 0;
-        return "Before: " + na + " finding(s) \xB7 After: " + nb + " finding(s)";
+        return vt("viewer.tools.anomaly.compareSummary", na, nb);
       });
     });
   }
@@ -9042,7 +10013,7 @@
         findings.push({
           table: name,
           kind: "missing-table",
-          detail: "declared in code but not found in the live database"
+          detail: vt("viewer.schema.divergence.missingTable")
         });
         continue;
       }
@@ -9052,7 +10023,7 @@
       findings.push({
         table: name,
         kind: "extra-table",
-        detail: "present in the live database but not declared in code"
+        detail: vt("viewer.schema.divergence.extraTable")
       });
     }
     return findings;
@@ -9069,7 +10040,7 @@
           table,
           column: dc.name,
           kind: "missing-column",
-          detail: "declared in code but missing from the live table"
+          detail: vt("viewer.schema.divergence.missingColumn")
         });
         continue;
       }
@@ -9080,7 +10051,7 @@
           table,
           column: dc.name,
           kind: "type-mismatch",
-          detail: "code " + dAff + " vs database " + rAff
+          detail: vt("viewer.schema.divergence.typeMismatch", dAff, rAff)
         });
       }
       const dNullable = dc.nullable !== false;
@@ -9090,7 +10061,11 @@
           table,
           column: dc.name,
           kind: "nullable-mismatch",
-          detail: "code " + (dNullable ? "nullable" : "not null") + " vs database " + (rNullable ? "nullable" : "not null")
+          detail: vt(
+            "viewer.schema.divergence.nullableMismatch",
+            vt(dNullable ? "viewer.schema.divergence.nullable" : "viewer.schema.divergence.notNull"),
+            vt(rNullable ? "viewer.schema.divergence.nullable" : "viewer.schema.divergence.notNull")
+          )
         });
       }
       const dPk = dc.isPk === true;
@@ -9100,7 +10075,11 @@
           table,
           column: dc.name,
           kind: "pk-mismatch",
-          detail: "code " + (dPk ? "primary key" : "not a key") + " vs database " + (rPk ? "primary key" : "not a key")
+          detail: vt(
+            "viewer.schema.divergence.pkMismatch",
+            vt(dPk ? "viewer.schema.divergence.primaryKey" : "viewer.schema.divergence.notAKey"),
+            vt(rPk ? "viewer.schema.divergence.primaryKey" : "viewer.schema.divergence.notAKey")
+          )
         });
       }
     }
@@ -9111,28 +10090,28 @@
           table,
           column: rc.name,
           kind: "extra-column",
-          detail: "present in the live table but not declared in code"
+          detail: vt("viewer.schema.divergence.extraColumn")
         });
       }
     }
   }
 
   // assets/web/declared-schema.ts
-  var DIVERGENCE_LABELS = {
-    "missing-table": "Missing table",
-    "extra-table": "Extra table",
-    "missing-column": "Missing column",
-    "extra-column": "Extra column",
-    "type-mismatch": "Type",
-    "nullable-mismatch": "Nullability",
-    "pk-mismatch": "Primary key"
+  var DIVERGENCE_LABEL_KEYS = {
+    "missing-table": "viewer.schema.divergence.label.missingTable",
+    "extra-table": "viewer.schema.divergence.label.extraTable",
+    "missing-column": "viewer.schema.divergence.label.missingColumn",
+    "extra-column": "viewer.schema.divergence.label.extraColumn",
+    "type-mismatch": "viewer.schema.divergence.label.typeMismatch",
+    "nullable-mismatch": "viewer.schema.divergence.label.nullableMismatch",
+    "pk-mismatch": "viewer.schema.divergence.label.pkMismatch"
   };
   function renderDivergence(findings, runtimeAvailable) {
     if (!runtimeAvailable) {
-      return '<p class="meta">Live database schema is unavailable (change detection may be off), so code-vs-database divergence was not computed.</p>';
+      return '<p class="meta">' + esc2(vt("viewer.schema.declared.runtimeUnavailable")) + "</p>";
     }
     if (findings.length === 0) {
-      return '<p class="meta" style="color:#66bb6a;">\u2713 Code and database schemas match \u2014 no divergence found.</p>';
+      return '<p class="meta" style="color:#66bb6a;">' + esc2(vt("viewer.schema.declared.match")) + "</p>";
     }
     const byTable = /* @__PURE__ */ new Map();
     for (const f of findings) {
@@ -9140,12 +10119,12 @@
       list.push(f);
       byTable.set(f.table, list);
     }
-    let html = '<p class="meta" style="color:#e57373;">' + findings.length + " divergence(s) between code and the live database:</p>";
+    let html = '<p class="meta" style="color:#e57373;">' + esc2(vt("viewer.schema.declared.divergenceCount", findings.length)) + "</p>";
     byTable.forEach(function(list, table) {
       html += '<div style="margin:0.3rem 0;"><strong>' + esc2(table) + '</strong><ul style="margin:0.2rem 0 0.4rem 1rem;padding:0;">';
       list.forEach(function(f) {
         const where = f.column ? esc2(table) + "." + esc2(f.column) : esc2(table);
-        html += '<li><span class="meta">[' + esc2(DIVERGENCE_LABELS[f.kind]) + "]</span> " + where + " \u2014 " + esc2(f.detail) + "</li>";
+        html += '<li><span class="meta">[' + esc2(vt(DIVERGENCE_LABEL_KEYS[f.kind])) + "]</span> " + where + " \u2014 " + esc2(f.detail) + "</li>";
       });
       html += "</ul></div>";
     });
@@ -9157,29 +10136,29 @@
     if (!container) return;
     function renderDeclared(data) {
       if (!data || data.available === false) {
-        return '<p class="meta">No code-declared schema available. Start the viewer with a Drift database (the <code>startDriftViewer</code> extension supplies this automatically) or pass a <code>declaredSchema</code> callback to <code>DriftDebugServer.start</code>.</p>';
+        return '<p class="meta">' + vt("viewer.schema.declared.noCodeSchema") + "</p>";
       }
       var tables = data && data.tables || [];
       if (tables.length === 0) {
-        return '<p class="meta">The code-declared schema is empty.</p>';
+        return '<p class="meta">' + esc2(vt("viewer.schema.declared.empty")) + "</p>";
       }
-      var html = '<p class="meta">' + tables.length + " declared table(s):</p>";
+      var html = '<p class="meta">' + esc2(vt("viewer.schema.declared.tableCount", tables.length)) + "</p>";
       tables.forEach(function(t) {
         var cols = t.columns || [];
-        html += '<details style="margin:0.3rem 0;"><summary style="cursor:pointer;font-weight:600;">' + esc2(t.name) + ' <span class="meta">(' + cols.length + " columns)</span></summary>";
+        html += '<details style="margin:0.3rem 0;"><summary style="cursor:pointer;font-weight:600;">' + esc2(t.name) + ' <span class="meta">' + esc2(vt("viewer.schema.declared.columnCount", cols.length)) + "</span></summary>";
         html += '<table style="border-collapse:collapse;width:100%;font-size:12px;margin:0.3rem 0;">';
-        html += '<tr><th style="border:1px solid var(--border);padding:4px;text-align:left;">Column</th><th style="border:1px solid var(--border);padding:4px;">Type</th><th style="border:1px solid var(--border);padding:4px;">Null</th><th style="border:1px solid var(--border);padding:4px;">PK</th></tr>';
+        html += '<tr><th style="border:1px solid var(--border);padding:4px;text-align:left;">' + esc2(vt("viewer.schema.declared.col.column")) + '</th><th style="border:1px solid var(--border);padding:4px;">' + esc2(vt("viewer.schema.declared.col.type")) + '</th><th style="border:1px solid var(--border);padding:4px;">' + esc2(vt("viewer.schema.declared.col.null")) + '</th><th style="border:1px solid var(--border);padding:4px;">' + esc2(vt("viewer.schema.declared.col.pk")) + "</th></tr>";
         cols.forEach(function(c) {
           html += "<tr>";
           html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(c.name) + "</td>";
           html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(c.sqlType) + "</td>";
-          html += '<td style="border:1px solid var(--border);padding:4px;text-align:center;">' + (c.nullable ? "yes" : "no") + "</td>";
-          html += '<td style="border:1px solid var(--border);padding:4px;text-align:center;">' + (c.isPk ? "PK" : "") + "</td>";
+          html += '<td style="border:1px solid var(--border);padding:4px;text-align:center;">' + esc2(vt(c.nullable ? "viewer.schema.declared.null.yes" : "viewer.schema.declared.null.no")) + "</td>";
+          html += '<td style="border:1px solid var(--border);padding:4px;text-align:center;">' + (c.isPk ? esc2(vt("viewer.schema.declared.pk.flag")) : "") + "</td>";
           html += "</tr>";
         });
         html += "</table>";
         if (t.indexes && t.indexes.length) {
-          html += '<p class="meta">Indexes: ' + t.indexes.map(esc2).join(", ") + "</p>";
+          html += '<p class="meta">' + esc2(vt("viewer.schema.declared.indexes", t.indexes.join(", "))) + "</p>";
         }
         html += "</details>";
       });
@@ -9188,12 +10167,12 @@
     function load() {
       if (btn) {
         btn.disabled = true;
-        setButtonBusy(btn, true, "Loading\u2026");
+        setButtonBusy(btn, true, vt("viewer.schema.declared.loading"));
       }
       container.style.display = "none";
       fetch("/api/schema/declared", authOpts()).then(function(r) {
         if (!r.ok) return r.json().then(function(d) {
-          throw new Error(d.error || "Request failed");
+          throw new Error(d.error || vt("viewer.schema.declared.requestFailed"));
         });
         return r.json();
       }).then(function(data) {
@@ -9205,19 +10184,19 @@
           const runtimeTables = meta && meta.tables || [];
           const runtimeAvailable = runtimeTables.length > 0;
           const findings = computeSchemaDivergence(data.tables, runtimeTables);
-          container.innerHTML = '<section style="margin-bottom:0.6rem;"><h4 style="margin:0 0 0.2rem;">Code vs database</h4>' + renderDivergence(findings, runtimeAvailable) + "</section>" + renderDeclared(data);
+          container.innerHTML = '<section style="margin-bottom:0.6rem;"><h4 style="margin:0 0 0.2rem;">' + esc2(vt("viewer.schema.declared.codeVsDatabase")) + "</h4>" + renderDivergence(findings, runtimeAvailable) + "</section>" + renderDeclared(data);
         }).catch(function() {
-          container.innerHTML = '<section style="margin-bottom:0.6rem;"><h4 style="margin:0 0 0.2rem;">Code vs database</h4>' + renderDivergence([], false) + "</section>" + renderDeclared(data);
+          container.innerHTML = '<section style="margin-bottom:0.6rem;"><h4 style="margin:0 0 0.2rem;">' + esc2(vt("viewer.schema.declared.codeVsDatabase")) + "</h4>" + renderDivergence([], false) + "</section>" + renderDeclared(data);
         });
       }).then(function() {
         container.style.display = "block";
       }).catch(function(e) {
-        container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(e.message) + "</p>";
+        container.innerHTML = '<p class="meta" style="color:#e57373;">' + esc2(vt("viewer.schema.declared.error", e.message)) + "</p>";
         container.style.display = "block";
       }).finally(function() {
         if (btn) {
           btn.disabled = false;
-          setButtonBusy(btn, false, "Load code schema");
+          setButtonBusy(btn, false, vt("viewer.schema.declared.load"));
         }
       });
     }
@@ -9258,8 +10237,8 @@
       var html = "";
       for (var i = 0; i < importHistory.length; i++) {
         var h = importHistory[i];
-        var errText = h.errors.length > 0 ? ' <span style="color:#e57373;">(' + h.errors.length + " error(s))</span>" : "";
-        html += '<div style="padding:2px 0;border-bottom:1px solid var(--border,#333);"><span style="opacity:0.6;">' + esc2(h.time) + "</span> <strong>" + esc2(h.table) + "</strong> (" + esc2(h.format) + ") &mdash; " + h.imported + " row(s)" + errText + "</div>";
+        var errText = h.errors.length > 0 ? ' <span style="color:#e57373;">' + vt(h.errors.length === 1 ? "viewer.tools.import.history.errors.one" : "viewer.tools.import.history.errors.many", h.errors.length) + "</span>" : "";
+        html += '<div style="padding:2px 0;border-bottom:1px solid var(--border,#333);"><span style="opacity:0.6;">' + esc2(h.time) + "</span> <strong>" + esc2(h.table) + "</strong> (" + esc2(h.format) + ") &mdash; " + vt("viewer.tools.import.history.rows", h.imported) + errText + "</div>";
       }
       historyListEl.innerHTML = html;
     }
@@ -9290,7 +10269,7 @@
         return;
       }
       var requestedTable = tableName;
-      mappingTbody.innerHTML = '<tr><td colspan="2" class="meta">Loading columns\u2026</td></tr>';
+      mappingTbody.innerHTML = '<tr><td colspan="2" class="meta">' + vt("viewer.tools.import.mapping.loading") + "</td></tr>";
       mappingContainer.style.display = "block";
       fetch("/api/table/" + encodeURIComponent(tableName) + "/columns", authOpts()).then(function(r) {
         return r.json();
@@ -9302,7 +10281,7 @@
         }
         var html = "";
         importCsvHeaders.forEach(function(csvCol) {
-          var optHtml = '<option value="">(skip)</option>' + tableColumns.map(function(tc) {
+          var optHtml = '<option value="">' + vt("viewer.tools.import.mapping.skip") + "</option>" + tableColumns.map(function(tc) {
             return '<option value="' + esc2(tc) + '">' + esc2(tc) + "</option>";
           }).join("");
           html += '<tr><td style="border:1px solid var(--border);padding:4px;">' + esc2(csvCol) + "</td>";
@@ -9311,7 +10290,7 @@
         mappingTbody.innerHTML = html;
       }).catch(function() {
         if (tableSel.value !== requestedTable) return;
-        mappingTbody.innerHTML = '<tr><td colspan="2" class="meta" style="color:#e57373;">Failed to load table columns.</td></tr>';
+        mappingTbody.innerHTML = '<tr><td colspan="2" class="meta" style="color:#e57373;">' + vt("viewer.tools.import.mapping.loadFailed") + "</td></tr>";
       });
     }
     function updateImportState() {
@@ -9363,12 +10342,12 @@
     if (pasteBtn) {
       pasteBtn.addEventListener("click", function() {
         if (!navigator.clipboard || !navigator.clipboard.readText) {
-          alert("Clipboard API not available (requires HTTPS or localhost).");
+          alert(vt("viewer.tools.import.clipboard.unavailable"));
           return;
         }
         navigator.clipboard.readText().then(function(text) {
           if (!text || !text.trim()) {
-            alert("Clipboard is empty.");
+            alert(vt("viewer.tools.import.clipboard.empty"));
             return;
           }
           importFileData = text;
@@ -9396,7 +10375,7 @@
           if (fileInput) fileInput.value = "";
           updateImportState();
         }).catch(function(e) {
-          alert("Failed to read clipboard: " + (e.message || "Permission denied"));
+          alert(vt("viewer.tools.import.clipboard.readFailed", e.message || vt("viewer.tools.import.clipboard.permissionDenied")));
         });
       });
     }
@@ -9413,11 +10392,11 @@
         var table = tableSel && tableSel.value;
         var format = formatSel && formatSel.value;
         if (!table || !importFileData) return;
-        if (!confirm('Import data into table "' + esc2(table) + '"? This cannot be undone.')) return;
+        if (!confirm(vt("viewer.tools.import.confirm", esc2(table)))) return;
         runBtn.disabled = true;
         var runBtnOrigText = runBtn.textContent;
-        setButtonBusy(runBtn, true, "Importing\u2026");
-        statusEl.textContent = "Importing\u2026";
+        setButtonBusy(runBtn, true, vt("viewer.tools.import.busy"));
+        statusEl.textContent = vt("viewer.tools.import.busy");
         var body = { format, data: importFileData, table };
         if (format === "csv" && mappingContainer && mappingContainer.style.display !== "none") {
           var mapping = {};
@@ -9438,25 +10417,25 @@
           });
         }).then(function(o) {
           if (!o.ok) {
-            statusEl.textContent = "Error: " + (o.data.error || "Request failed");
+            statusEl.textContent = vt("viewer.tools.import.error", o.data.error || vt("viewer.tools.import.requestFailed"));
             statusEl.style.color = "#e57373";
-            addImportHistory(table, format, 0, [o.data.error || "Request failed"]);
+            addImportHistory(table, format, 0, [o.data.error || vt("viewer.tools.import.requestFailed")]);
             return;
           }
           var d = o.data;
-          var msg = "Imported " + d.imported + " row(s).";
-          if (d.errors && d.errors.length > 0) msg += " " + d.errors.length + " error(s): " + d.errors.slice(0, 3).join("; ");
+          var msg = vt("viewer.tools.import.result", d.imported);
+          if (d.errors && d.errors.length > 0) msg += " " + vt("viewer.tools.import.resultErrors", d.errors.length, d.errors.slice(0, 3).join("; "));
           statusEl.textContent = msg;
           statusEl.style.color = "";
           addImportHistory(table, format, d.imported, d.errors || []);
           if (d.imported > 0 && currentTableName === table) loadTable(table);
         }).catch(function(e) {
-          statusEl.textContent = "Error: " + (e.message || "Import failed");
+          statusEl.textContent = vt("viewer.tools.import.error", e.message || vt("viewer.tools.import.failed"));
           statusEl.style.color = "#e57373";
-          addImportHistory(table, format, 0, [e.message || "Import failed"]);
+          addImportHistory(table, format, 0, [e.message || vt("viewer.tools.import.failed")]);
         }).finally(function() {
           runBtn.disabled = !importFileData || !tableSel || !tableSel.value;
-          setButtonBusy(runBtn, false, runBtnOrigText || "Import");
+          setButtonBusy(runBtn, false, runBtnOrigText || vt("viewer.tools.import.button"));
         });
       });
     }
@@ -9498,7 +10477,7 @@
     }
     window._stPopulateTables = function(tables) {
       var prev = stTableSel.value;
-      stTableSel.innerHTML = '<option value="">-- select --</option>';
+      stTableSel.innerHTML = '<option value="">' + esc2(vt("viewer.schema.searchTab.optionSelect")) + "</option>";
       (tables || []).forEach(function(t) {
         var opt = document.createElement("option");
         opt.value = t;
@@ -9548,14 +10527,15 @@
       var len = data.length;
       var metaText = esc2(tableName);
       if (total != null) {
-        var rangeText = len > 0 ? "showing " + (stOffset + 1) + "\u2013" + (stOffset + len) : "no rows in this range";
-        metaText = esc2(tableName) + " (" + total + " row" + (total !== 1 ? "s" : "") + "; " + rangeText + ")";
+        var rangeText = len > 0 ? vt("viewer.schema.searchTab.rangeShowing", stOffset + 1, stOffset + len) : vt("viewer.schema.searchTab.rangeNone");
+        var rowWord = vt(total !== 1 ? "viewer.schema.searchTab.rowsPlural" : "viewer.schema.searchTab.rowsSingular");
+        metaText = vt("viewer.schema.searchTab.metaCount", esc2(tableName), total, rowWord, rangeText);
       } else {
-        metaText = esc2(tableName) + " (up to " + stLimit + " rows)";
+        metaText = vt("viewer.schema.searchTab.metaUpTo", esc2(tableName), stLimit);
       }
       var filterSuffix = "";
       if (stFilter()) {
-        filterSuffix = stOnlyMatching ? " (filtered: " + filtered2.length + " of " + data.length + ")" : " (showing all rows; filter: " + filtered2.length + " match)";
+        filterSuffix = stOnlyMatching ? vt("viewer.schema.search.filteredOf", filtered2.length, data.length) : vt("viewer.schema.search.showingAll", filtered2.length);
       }
       metaText += filterSuffix;
       var rawTableHtml = buildDataTableHtml(display, fkMap, colTypes, getColumnConfig(tableName));
@@ -9568,7 +10548,7 @@
       );
       if (scope === "both" && schema) {
         stSchemaText = schema;
-        stPanel.innerHTML = '<div class="search-section-collapsible expanded"><div class="collapsible-header" data-collapsible>Schema</div><div class="collapsible-body"><pre id="st-schema-pre">' + highlightSqlSafe(schema) + '</pre></div></div><div class="search-section-collapsible expanded"><div class="collapsible-header" data-collapsible>Table data: ' + esc2(tableName) + '</div><div class="collapsible-body"><p class="meta st-meta">' + metaText + "</p>" + tableHtml + "</div></div>";
+        stPanel.innerHTML = '<div class="search-section-collapsible expanded"><div class="collapsible-header" data-collapsible>' + vt("viewer.schema.heading") + '</div><div class="collapsible-body"><pre id="st-schema-pre">' + highlightSqlSafe(schema) + '</pre></div></div><div class="search-section-collapsible expanded"><div class="collapsible-header" data-collapsible>' + vt("viewer.schema.tableData.headingNamed", esc2(tableName)) + '</div><div class="collapsible-body"><p class="meta st-meta">' + metaText + "</p>" + tableHtml + "</div></div>";
       } else {
         stSchemaText = null;
         stPanel.innerHTML = '<p class="meta st-meta">' + metaText + "</p>" + tableHtml;
@@ -9583,11 +10563,11 @@
       var scope = stScope();
       var tableName = stTableName;
       if (!tableName && scope !== "schema") {
-        stPanel.innerHTML = '<p class="meta">Select a table and type a search term.</p>';
+        stPanel.innerHTML = '<p class="meta">' + vt("viewer.schema.searchTab.selectPrompt") + "</p>";
         return;
       }
       if (scope === "schema") {
-        stPanel.innerHTML = '<p class="meta">Loading schema\u2026</p>';
+        stPanel.innerHTML = '<p class="meta">' + vt("viewer.schema.loading") + "</p>";
         var schemaPromise = cachedSchema !== null ? Promise.resolve(cachedSchema) : fetch("/api/schema", authOpts()).then(function(r) {
           return r.text();
         });
@@ -9595,34 +10575,34 @@
           if (cachedSchema === null) setCachedSchema(schema);
           stSchemaText = schema;
           stTableJson = null;
-          stPanel.innerHTML = '<p class="meta">Schema</p><pre id="st-schema-pre">' + highlightSqlSafe(schema) + "</pre>";
+          stPanel.innerHTML = '<p class="meta">' + vt("viewer.schema.heading") + '</p><pre id="st-schema-pre">' + highlightSqlSafe(schema) + "</pre>";
           stHighlight();
         }).catch(function(e) {
-          stPanel.innerHTML = '<p class="meta">Error</p><pre>' + esc2(String(e)) + "</pre>";
+          stPanel.innerHTML = '<p class="meta">' + vt("viewer.schema.error") + "</p><pre>" + esc2(String(e)) + "</pre>";
         });
         return;
       }
       if (!tableName) {
-        stPanel.innerHTML = '<p class="meta">Select a table above.</p>';
+        stPanel.innerHTML = '<p class="meta">' + vt("viewer.schema.searchTab.selectTableAbove") + "</p>";
         return;
       }
       if (stTableJson && stCachedFks !== null && stCachedColTypes !== null) {
         if (scope === "both" && !cachedSchema) {
-          stPanel.innerHTML = '<p class="meta">Loading schema\u2026</p>';
+          stPanel.innerHTML = '<p class="meta">' + vt("viewer.schema.loading") + "</p>";
           fetch("/api/schema", authOpts()).then(function(r) {
             return r.text();
           }).then(function(schema) {
             setCachedSchema(schema);
             if (stTableName === tableName) stBuildContent(stTableJson, schema, stCachedFks, stCachedColTypes, tableName);
           }).catch(function(e) {
-            stPanel.innerHTML = '<p class="meta">Error loading schema</p><pre>' + esc2(String(e)) + "</pre>";
+            stPanel.innerHTML = '<p class="meta">' + vt("viewer.schema.searchTab.loadingSchemaError") + "</p><pre>" + esc2(String(e)) + "</pre>";
           });
           return;
         }
         stBuildContent(stTableJson, scope === "both" ? cachedSchema : null, stCachedFks, stCachedColTypes, tableName);
         return;
       }
-      stPanel.innerHTML = '<p class="meta">Loading ' + esc2(tableName) + "\u2026</p>";
+      stPanel.innerHTML = '<p class="meta">' + vt("viewer.schema.searchTab.loadingTable", esc2(tableName)) + "</p>";
       var dataFetch = fetch("/api/table/" + encodeURIComponent(tableName) + "?limit=" + stLimit + "&offset=" + stOffset, authOpts()).then(function(r) {
         return r.json();
       });
@@ -9648,15 +10628,16 @@
               var metaEl = stPanel.querySelector(".st-meta");
               if (metaEl) {
                 var len = stTableJson ? stTableJson.length : 0;
-                var rangeText = len > 0 ? "showing " + (stOffset + 1) + "\u2013" + (stOffset + len) : "no rows in this range";
-                metaEl.textContent = tableName + " (" + o.count + " row" + (o.count !== 1 ? "s" : "") + "; " + rangeText + ")";
+                var rangeText = len > 0 ? vt("viewer.schema.searchTab.rangeShowing", stOffset + 1, stOffset + len) : vt("viewer.schema.searchTab.rangeNone");
+                var rowWord = vt(o.count !== 1 ? "viewer.schema.searchTab.rowsPlural" : "viewer.schema.searchTab.rowsSingular");
+                metaEl.textContent = vt("viewer.schema.searchTab.metaCount", tableName, o.count, rowWord, rangeText);
               }
             }
           }).catch(function() {
           });
         }
       }).catch(function(e) {
-        stPanel.innerHTML = '<p class="meta">Error</p><pre>' + esc2(String(e)) + "</pre>";
+        stPanel.innerHTML = '<p class="meta">' + vt("viewer.schema.error") + "</p><pre>" + esc2(String(e)) + "</pre>";
       });
     }
     function stHighlight() {
@@ -9692,7 +10673,7 @@
         stNavigate(0);
       } else {
         stNavEl.style.display = term ? "flex" : "none";
-        stCountEl.textContent = term ? "No matches" : "";
+        stCountEl.textContent = term ? vt("viewer.schema.search.noMatches") : "";
         stPrevBtn.disabled = true;
         stNextBtn.disabled = true;
       }
@@ -9709,7 +10690,7 @@
       el.classList.add("highlight-active");
       expandSectionContaining(el);
       el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
-      stCountEl.textContent = stMatchIdx + 1 + " of " + stMatches.length;
+      stCountEl.textContent = vt("viewer.schema.search.matchCounter", stMatchIdx + 1, stMatches.length);
       stPrevBtn.disabled = false;
       stNextBtn.disabled = false;
     }
@@ -9856,7 +10837,7 @@
   function refreshBookmarksDropdown(sel) {
     if (!sel) return;
     const cur = sel.value;
-    sel.innerHTML = '<option value="">\u2014 Saved queries (' + sqlBookmarks.length + ") \u2014</option>" + sqlBookmarks.map(function(b, i) {
+    sel.innerHTML = '<option value="">' + esc2(vt("viewer.sql.bookmarks.saved", sqlBookmarks.length)) + "</option>" + sqlBookmarks.map(function(b, i) {
       return '<option value="' + i + '" title="' + esc2(b.sql) + '">' + esc2(b.name) + "</option>";
     }).join("");
     if (cur !== "" && parseInt(cur, 10) < sqlBookmarks.length) sel.value = cur;
@@ -9864,7 +10845,7 @@
   function addBookmark(inputEl, bookmarksSel) {
     const sql = inputEl.value.trim();
     if (!sql) return;
-    const name = prompt("Name for this query:", sql.slice(0, 40));
+    const name = prompt(vt("viewer.sql.bookmarks.namePrompt"), sql.slice(0, 40));
     if (name == null || String(name).trim() === "") return;
     sqlBookmarks.unshift({ name, sql, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
     saveBookmarks();
@@ -9873,14 +10854,14 @@
   function deleteBookmark(bookmarksSel) {
     const idx = parseInt(bookmarksSel.value, 10);
     if (isNaN(idx) || !sqlBookmarks[idx]) return;
-    if (!confirm('Delete saved query "' + sqlBookmarks[idx].name + '"?')) return;
+    if (!confirm(vt("viewer.sql.bookmarks.deleteConfirm", sqlBookmarks[idx].name))) return;
     sqlBookmarks.splice(idx, 1);
     saveBookmarks();
     refreshBookmarksDropdown(bookmarksSel);
   }
   function exportBookmarks() {
     if (sqlBookmarks.length === 0) {
-      alert("No saved queries to export.");
+      alert(vt("viewer.sql.bookmarks.exportEmpty"));
       return;
     }
     const blob = new Blob([JSON.stringify(sqlBookmarks, null, 2)], { type: "application/json" });
@@ -9903,7 +10884,7 @@
         try {
           const raw = typeof reader.result === "string" ? reader.result : "";
           const imported = JSON.parse(raw);
-          if (!Array.isArray(imported)) throw new Error("Expected JSON array");
+          if (!Array.isArray(imported)) throw new Error(vt("viewer.sql.bookmarks.importExpectedArray"));
           let newCount = 0;
           imported.forEach(function(b) {
             if (b.name && b.sql && !sqlBookmarks.some(function(e) {
@@ -9915,9 +10896,9 @@
           });
           saveBookmarks();
           refreshBookmarksDropdown(bookmarksSel);
-          alert("Imported " + newCount + " new saved query(s). " + (imported.length - newCount) + " duplicate(s) skipped.");
+          alert(vt("viewer.sql.bookmarks.importResult", newCount, imported.length - newCount));
         } catch (e) {
-          alert("Invalid file: " + e.message);
+          alert(vt("viewer.sql.bookmarks.importInvalid", e.message));
         }
       };
       reader.readAsText(file);
@@ -10005,7 +10986,7 @@
         lockBtn.classList.toggle("locked", templateLocked);
         const icon = lockBtn.querySelector(".material-symbols-outlined");
         if (icon) icon.textContent = templateLocked ? "lock" : "lock_open";
-        lockBtn.title = templateLocked ? "Lock: auto-apply template when table or fields change" : "Unlocked: table/field changes won\u2019t auto-apply template";
+        lockBtn.title = templateLocked ? vt("viewer.sql.template.lock.locked") : vt("viewer.sql.template.lock.unlocked");
       });
     }
     if (applyBtn) applyBtn.addEventListener("click", applyTemplate);
@@ -10015,7 +10996,7 @@
         const name = this.value;
         if (fieldsSel) fieldsSel.innerHTML = '<option value="">\u2014</option>';
         if (!name) return;
-        if (fieldsSel) fieldsSel.innerHTML = '<option value="">Loading\u2026</option>';
+        if (fieldsSel) fieldsSel.innerHTML = '<option value="">' + esc2(vt("viewer.sql.fields.loading")) + "</option>";
         const requestedTable = name;
         fetch("/api/table/" + encodeURIComponent(name) + "/columns", authOpts()).then((r) => r.json()).then((cols) => {
           if (tableSel.value !== requestedTable) return;
@@ -10056,8 +11037,8 @@
       const statusHtml = buildTableStatusBar(total, start, pageSize, pageRows.length, keys.length);
       const prevDisabled = sqlResultPage <= 0;
       const nextDisabled = start + pageSize >= total;
-      const paginationHtml = '<div class="sql-result-pagination toolbar" style="margin-top:0.35rem;"><button type="button" id="sql-result-prev"' + (prevDisabled ? " disabled" : "") + '>Prev</button><button type="button" id="sql-result-next"' + (nextDisabled ? " disabled" : "") + ">Next</button></div>";
-      resultEl.innerHTML = '<p class="meta">' + total + " row(s)</p>" + tableHtml + statusHtml + paginationHtml;
+      const paginationHtml = '<div class="sql-result-pagination toolbar" style="margin-top:0.35rem;"><button type="button" id="sql-result-prev"' + (prevDisabled ? " disabled" : "") + ">" + esc2(vt("viewer.sql.result.prev")) + '</button><button type="button" id="sql-result-next"' + (nextDisabled ? " disabled" : "") + ">" + esc2(vt("viewer.sql.result.next")) + "</button></div>";
+      resultEl.innerHTML = '<p class="meta">' + esc2(vt("viewer.sql.result.rowCount", total)) + "</p>" + tableHtml + statusHtml + paginationHtml;
       const prevBtn = resultEl.querySelector("#sql-result-prev");
       const nextBtn = resultEl.querySelector("#sql-result-next");
       if (prevBtn) prevBtn.addEventListener("click", function() {
@@ -10105,14 +11086,14 @@
       if (explainAbort) explainAbort.abort();
       explainAbort = new AbortController();
       explainEl.style.display = "block";
-      explainEl.innerHTML = '<p class="meta explain-loading">Analyzing query\u2026</p>';
+      explainEl.innerHTML = '<p class="meta explain-loading">' + esc2(vt("viewer.sql.explain.analyzing")) + "</p>";
       fetch("/api/sql/explain", Object.assign({}, authOpts({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sql })
       }), { signal: explainAbort.signal })).then((r) => r.json().then((d) => ({ ok: r.ok, data: d }))).then(({ ok, data }) => {
         if (!ok) {
-          explainEl.innerHTML = '<p class="meta" style="color:#e57373;">' + esc2(data.error || "Explain failed") + "</p>";
+          explainEl.innerHTML = '<p class="meta" style="color:#e57373;">' + esc2(data.error || vt("viewer.sql.explain.failed")) + "</p>";
           return;
         }
         renderExplainInfo(data);
@@ -10162,23 +11143,23 @@
       const costScore = scanCount * 3 + subqueryCount * 2 + (sortPresent ? 1 : 0) + (tempPresent ? 1 : 0);
       let costLabel, costColor;
       if (costScore === 0) {
-        costLabel = "Low";
+        costLabel = vt("viewer.sql.explain.cost.low");
         costColor = "#81c784";
       } else if (costScore <= 3) {
-        costLabel = "Medium";
+        costLabel = vt("viewer.sql.explain.cost.medium");
         costColor = "#ffb74d";
       } else {
-        costLabel = "High";
+        costLabel = vt("viewer.sql.explain.cost.high");
         costColor = "#e57373";
       }
       let html = '<div class="explain-cost-bar">';
-      html += '<strong>Estimated cost:</strong> <span style="color:' + costColor + ';font-weight:600;">' + costLabel + "</span>";
+      html += "<strong>" + esc2(vt("viewer.sql.explain.estimatedCost")) + '</strong> <span style="color:' + costColor + ';font-weight:600;">' + esc2(costLabel) + "</span>";
       const parts = [];
-      if (scanCount > 0) parts.push(scanCount + " full scan" + (scanCount > 1 ? "s" : ""));
-      if (searchCount > 0) parts.push(searchCount + " index lookup" + (searchCount > 1 ? "s" : ""));
-      if (subqueryCount > 0) parts.push(subqueryCount + " subquer" + (subqueryCount > 1 ? "ies" : "y"));
-      if (sortPresent) parts.push("sort");
-      if (tempPresent) parts.push("temp storage");
+      if (scanCount > 0) parts.push(vt(scanCount > 1 ? "viewer.sql.explain.part.scan.many" : "viewer.sql.explain.part.scan.one", scanCount));
+      if (searchCount > 0) parts.push(vt(searchCount > 1 ? "viewer.sql.explain.part.lookup.many" : "viewer.sql.explain.part.lookup.one", searchCount));
+      if (subqueryCount > 0) parts.push(vt(subqueryCount > 1 ? "viewer.sql.explain.part.subquery.many" : "viewer.sql.explain.part.subquery.one", subqueryCount));
+      if (sortPresent) parts.push(vt("viewer.sql.explain.part.sort"));
+      if (tempPresent) parts.push(vt("viewer.sql.explain.part.tempStorage"));
       if (parts.length > 0) html += " &mdash; " + esc2(parts.join(", "));
       html += "</div>";
       const tableNames = Object.keys(tableAccess);
@@ -10190,17 +11171,17 @@
           html += '<div class="explain-table-row">';
           html += '<span class="explain-table-name">' + esc2(tbl) + "</span>";
           if (access === "scan") {
-            html += ' <span class="explain-badge badge-scan">full scan</span>';
+            html += ' <span class="explain-badge badge-scan">' + esc2(vt("viewer.sql.explain.badge.fullScan")) + "</span>";
           }
           if (tblIndexes.length === 0) {
-            html += ' <span class="explain-badge badge-missing">no indexes</span>';
+            html += ' <span class="explain-badge badge-missing">' + esc2(vt("viewer.sql.explain.badge.noIndexes")) + "</span>";
           } else {
             for (const idx of tblIndexes) {
               const isUsed = usedIndexNames.has(idx.name);
               const badge = isUsed ? "badge-used" : "badge-unused";
-              const label = isUsed ? "used" : "available";
+              const label = isUsed ? vt("viewer.sql.explain.badge.used") : vt("viewer.sql.explain.badge.available");
               html += ' <span class="explain-badge ' + badge + '" title="' + esc2(idx.name) + " (" + esc2(idx.columns.join(", ")) + ")" + (idx.unique ? " UNIQUE" : "") + '">';
-              html += esc2(idx.name) + " <small>(" + label + ")</small></span>";
+              html += esc2(idx.name) + " <small>(" + esc2(label) + ")</small></span>";
             }
           }
           html += "</div>";
@@ -10208,7 +11189,7 @@
         html += "</div>";
       }
       if (rows.length > 0) {
-        html += '<details class="explain-details"><summary>Query plan detail (' + rows.length + " step" + (rows.length > 1 ? "s" : "") + ")</summary><pre>";
+        html += '<details class="explain-details"><summary>' + esc2(vt(rows.length > 1 ? "viewer.sql.explain.steps.many" : "viewer.sql.explain.steps.one", rows.length)) + "</summary><pre>";
         rows.forEach(function(r) {
           html += esc2(String(r.detail || "").trim()) + "\n";
         });
@@ -10225,12 +11206,12 @@
         const sql = String(inputEl.value || "").trim();
         clearSqlResults();
         if (!sql) {
-          errorEl.textContent = "Enter a SELECT query.";
+          errorEl.textContent = vt("viewer.sql.run.emptyQuery");
           errorEl.style.display = "block";
           return;
         }
         const runBtnOrigText = runBtn.textContent;
-        setButtonBusy(runBtn, true, "Running\u2026");
+        setButtonBusy(runBtn, true, vt("viewer.sql.run.busy"));
         runBtn.disabled = true;
         fetch("/api/sql", authOpts({
           method: "POST",
@@ -10238,7 +11219,7 @@
           body: JSON.stringify({ sql })
         })).then((r) => r.json().then((data) => ({ ok: r.ok, data }))).then(({ ok, data }) => {
           if (!ok) {
-            errorEl.textContent = data.error || "Request failed";
+            errorEl.textContent = data.error || vt("viewer.sql.run.requestFailed");
             errorEl.style.display = "block";
             return;
           }
@@ -10249,7 +11230,7 @@
             sqlResultPage = 0;
             renderSqlResultPage();
           } else {
-            resultEl.innerHTML = '<p class="meta">' + rows.length + " row(s)</p><pre>" + esc2(JSON.stringify(rows, null, 2)) + "</pre>";
+            resultEl.innerHTML = '<p class="meta">' + esc2(vt("viewer.sql.result.rowCount", rows.length)) + "</p><pre>" + esc2(JSON.stringify(rows, null, 2)) + "</pre>";
           }
           resultEl.style.display = "block";
           var chartControls = document.getElementById("chart-controls");
@@ -10328,53 +11309,53 @@
     function fetchPerformance() {
       if (!refreshBtn || !container) return;
       refreshBtn.disabled = true;
-      setButtonBusy(refreshBtn, true, "Loading\u2026");
+      setButtonBusy(refreshBtn, true, vt("viewer.session.perf.loading"));
       container.style.display = "none";
       var threshold = getSlowThreshold();
       fetch("/api/analytics/performance?slowThresholdMs=" + threshold, authOpts()).then(function(r) {
         if (!r.ok) return r.json().then(function(d) {
-          throw new Error(d.error || "Request failed");
+          throw new Error(d.error || vt("viewer.session.perf.requestFailed"));
         });
         return r.json();
       }).then(function(data) {
         perfLoaded = true;
         lastPerfData = data;
         if (data.totalQueries === 0) {
-          container.innerHTML = '<p class="meta">No queries recorded yet. Browse some tables, then update.</p>';
+          container.innerHTML = '<p class="meta">' + vt("viewer.session.perf.empty") + "</p>";
         } else {
           container.innerHTML = renderPerformance(data);
         }
         container.style.display = "block";
         populateHistorySelect(historySel, "perf");
       }).catch(function(e) {
-        container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(e.message) + "</p>";
+        container.innerHTML = '<p class="meta" style="color:#e57373;">' + vt("viewer.session.perf.error", esc2(e.message)) + "</p>";
         container.style.display = "block";
       }).finally(function() {
         if (refreshBtn) {
           refreshBtn.disabled = false;
-          setButtonBusy(refreshBtn, false, "Update");
+          setButtonBusy(refreshBtn, false, vt("viewer.session.perf.update"));
         }
       });
     }
     function renderPerformance(data) {
-      if (!data) return '<p class="meta">No data.</p>';
+      if (!data) return '<p class="meta">' + vt("viewer.session.perf.noData") + "</p>";
       var html = '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.3rem 0;">';
-      html += '<div class="meta">Total: ' + esc2(String(data.totalQueries || 0)) + " queries</div>";
-      html += '<div class="meta">Total time: ' + esc2(String(data.totalDurationMs || 0)) + " ms</div>";
-      html += '<div class="meta">Avg: ' + esc2(String(data.avgDurationMs || 0)) + " ms</div>";
+      html += '<div class="meta">' + vt("viewer.session.perf.summary.total", esc2(String(data.totalQueries || 0))) + "</div>";
+      html += '<div class="meta">' + vt("viewer.session.perf.summary.totalTime", esc2(String(data.totalDurationMs || 0))) + "</div>";
+      html += '<div class="meta">' + vt("viewer.session.perf.summary.avg", esc2(String(data.avgDurationMs || 0))) + "</div>";
       html += "</div>";
       if (data.slowQueries && data.slowQueries.length > 0) {
         var thresh = data.slowThresholdMs || 100;
-        html += '<p class="meta" style="color:#e57373;font-weight:bold;">Slow queries (&gt;' + esc2(String(thresh)) + "ms):</p>";
+        html += '<p class="meta" style="color:#e57373;font-weight:bold;">' + vt("viewer.session.perf.slow.heading", esc2(String(thresh))) + "</p>";
         html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-        html += '<tr><th style="border:1px solid var(--border);padding:4px;">Duration</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">Time</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+        html += '<tr><th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.duration") + "</th>";
+        html += '<th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.rows") + "</th>";
+        html += '<th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.time") + "</th>";
+        html += '<th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.sql") + "</th></tr>";
         data.slowQueries.forEach(function(q) {
           var sql = q.sql || "";
           html += "<tr>";
-          html += '<td style="border:1px solid var(--border);padding:4px;color:#e57373;font-weight:bold;">[!!] ' + esc2(String(q.durationMs)) + " ms</td>";
+          html += '<td style="border:1px solid var(--border);padding:4px;color:#e57373;font-weight:bold;">[!!] ' + esc2(String(q.durationMs)) + " " + vt("viewer.session.perf.col.ms") + "</td>";
           html += '<td style="border:1px solid var(--border);padding:4px;">' + esc2(String(q.rowCount)) + "</td>";
           html += '<td style="border:1px solid var(--border);padding:4px;font-size:11px;">' + esc2(q.at) + "</td>";
           html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc2(sql) + '">' + esc2(sql.length > 80 ? sql.slice(0, 80) + "\u2026" : sql) + "</td>";
@@ -10383,13 +11364,13 @@
         html += "</table>";
       }
       if (data.queryPatterns && data.queryPatterns.length > 0) {
-        html += '<p class="meta" style="margin-top:0.5rem;">Most time-consuming patterns:</p>';
+        html += '<p class="meta" style="margin-top:0.5rem;">' + vt("viewer.session.perf.patterns.heading") + "</p>";
         html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-        html += '<tr><th style="border:1px solid var(--border);padding:4px;">Total ms</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">Count</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">Avg ms</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">Max ms</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">Pattern</th></tr>';
+        html += '<tr><th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.totalMs") + "</th>";
+        html += '<th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.count") + "</th>";
+        html += '<th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.avgMs") + "</th>";
+        html += '<th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.maxMs") + "</th>";
+        html += '<th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.pattern") + "</th></tr>";
         data.queryPatterns.forEach(function(p) {
           var pattern = p.pattern || "";
           html += "<tr>";
@@ -10403,11 +11384,11 @@
         html += "</table>";
       }
       if (data.recentQueries && data.recentQueries.length > 0) {
-        html += '<p class="meta" style="margin-top:0.5rem;">Recent queries (newest first):</p>';
+        html += '<p class="meta" style="margin-top:0.5rem;">' + vt("viewer.session.perf.recent.heading") + "</p>";
         html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-        html += '<tr><th style="border:1px solid var(--border);padding:4px;">ms</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
-        html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+        html += '<tr><th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.ms") + "</th>";
+        html += '<th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.rows") + "</th>";
+        html += '<th style="border:1px solid var(--border);padding:4px;">' + vt("viewer.session.perf.col.sql") + "</th></tr>";
         var recentThresh = data.slowThresholdMs || 100;
         var warnThresh = Math.round(recentThresh / 2);
         data.recentQueries.forEach(function(q) {
@@ -10433,7 +11414,7 @@
         var saved = getSavedAnalysisById("perf", id);
         if (saved && saved.data) {
           lastPerfData = saved.data;
-          container.innerHTML = saved.data.totalQueries === 0 ? '<p class="meta">No queries recorded (saved run).</p>' : renderPerformance(saved.data);
+          container.innerHTML = saved.data.totalQueries === 0 ? '<p class="meta">' + vt("viewer.session.perf.emptySaved") + "</p>" : renderPerformance(saved.data);
           container.style.display = "block";
         }
       });
@@ -10441,7 +11422,7 @@
     if (saveBtn) saveBtn.addEventListener("click", function() {
       if (!lastPerfData) return;
       var id = saveAnalysis("perf", lastPerfData);
-      showCopyToast(id != null ? "Saved" : "Save failed (storage may be full)");
+      showCopyToast(id != null ? vt("viewer.session.perf.saved") : vt("viewer.session.perf.saveFailed"));
       populateHistorySelect(historySel, "perf");
     });
     if (exportBtn) exportBtn.addEventListener("click", function() {
@@ -10449,12 +11430,12 @@
       downloadJSON(lastPerfData, "performance-" + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) + ".json");
     });
     if (compareBtn) compareBtn.addEventListener("click", function() {
-      showAnalysisCompare("perf", "Query performance", getSavedAnalyses("perf"), lastPerfData, function(d) {
-        return d && d.totalQueries !== 0 ? renderPerformance(d) : '<p class="meta">No queries in this run.</p>';
+      showAnalysisCompare("perf", vt("viewer.session.perf.compareLabel"), getSavedAnalyses("perf"), lastPerfData, function(d) {
+        return d && d.totalQueries !== 0 ? renderPerformance(d) : '<p class="meta">' + vt("viewer.session.perf.noQueriesInRun") + "</p>";
       }, function(a, b) {
         var qa = (a && a.totalQueries) != null ? a.totalQueries : 0;
         var qb = (b && b.totalQueries) != null ? b.totalQueries : 0;
-        return "Before: " + qa + " queries \xB7 After: " + qb + " queries";
+        return vt("viewer.session.perf.compareSummary", qa, qb);
       });
     });
     if (toggle && collapsible) {
@@ -10468,21 +11449,21 @@
     if (refreshBtn) refreshBtn.addEventListener("click", fetchPerformance);
     if (clearBtn) clearBtn.addEventListener("click", function() {
       clearBtn.disabled = true;
-      clearBtn.textContent = "Clearing\u2026";
+      clearBtn.textContent = vt("viewer.session.perf.clearing");
       fetch("/api/analytics/performance", authOpts({ method: "DELETE" })).then(function(r) {
         if (!r.ok) return r.json().then(function(d) {
-          throw new Error(d.error || "Clear failed");
+          throw new Error(d.error || vt("viewer.session.perf.clearFailed"));
         });
         lastPerfData = null;
-        container.innerHTML = '<p class="meta">Performance history cleared.</p>';
+        container.innerHTML = '<p class="meta">' + vt("viewer.session.perf.cleared") + "</p>";
         container.style.display = "block";
         perfLoaded = false;
       }).catch(function(e) {
-        container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc2(e.message) + "</p>";
+        container.innerHTML = '<p class="meta" style="color:#e57373;">' + vt("viewer.session.perf.error", esc2(e.message)) + "</p>";
         container.style.display = "block";
       }).finally(function() {
         clearBtn.disabled = false;
-        clearBtn.textContent = "Clear";
+        clearBtn.textContent = vt("viewer.session.perf.clear");
       });
     });
   }
@@ -11475,7 +12456,7 @@
       body: JSON.stringify({ sql })
     }));
     const data = await resp.json();
-    if (!resp.ok) throw new Error(data && data.error ? data.error : "Stats query failed");
+    if (!resp.ok) throw new Error(data && data.error ? data.error : vt("viewer.table.def.statsQueryFailed"));
     const row = data.rows && data.rows[0] || {};
     const total = Number(row["__total__"]) || 0;
     const out = { __total__: total };
@@ -11600,11 +12581,11 @@
       if (!tableName) return;
       const action = btn.getAttribute("data-tdm-action");
       if (action === "copy-json") {
-        copyToClipboard(buildDefinitionJson(tableName), "Definition copied as JSON");
+        copyToClipboard(buildDefinitionJson(tableName), vt("viewer.table.def.copiedJson"));
         return;
       }
       if (action === "copy-flutter") {
-        copyToClipboard(buildFlutterDrift(tableName), "Definition copied as Flutter");
+        copyToClipboard(buildFlutterDrift(tableName), vt("viewer.table.def.copiedFlutter"));
         return;
       }
       if (action === "toggle-meta") {
@@ -11629,7 +12610,7 @@
         }).catch(function(err) {
           setTableDefMetaOn(false);
           btn.classList.remove("is-busy");
-          showCopyToast("Stats failed: " + (err && err.message ? err.message : "error"));
+          showCopyToast(vt("viewer.table.def.statsFailed", err && err.message ? err.message : vt("viewer.table.def.errorGeneric")));
         });
       }
     });

@@ -9,6 +9,7 @@
  * empty stubs.
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 
 // --- External dependencies that remain in app.js ---
 // These are not yet exported from their own modules, so we use
@@ -87,24 +88,25 @@ export function updateConnectionBannerText(): void {
   if (!msgEl || !diagEl) return;
   const parts: string[] = [];
   if (S.connectionState === 'reconnecting') {
-    msgEl.textContent = 'Reconnecting\u2026';
-    diagEl.textContent = 'Restoring connection\u2026';
+    msgEl.textContent = vt('viewer.session.banner.reconnecting');
+    diagEl.textContent = vt('viewer.session.banner.restoring');
     return;
   }
   if (S.heartbeatInFlight) {
-    msgEl.textContent = 'Connection lost \u2014 checking\u2026';
-    parts.push('Attempt ' + S.heartbeatAttemptCount);
+    msgEl.textContent = vt('viewer.session.banner.lost.checking');
+    parts.push(vt('viewer.session.banner.attempt', S.heartbeatAttemptCount));
   } else if (S.nextHeartbeatAt != null) {
     const secs = Math.max(0, Math.ceil((S.nextHeartbeatAt - Date.now()) / 1000));
-    msgEl.textContent = 'Connection lost \u2014 next retry in ' + secs + 's';
+    msgEl.textContent = vt('viewer.session.banner.lost.nextRetry', secs);
     const intervalSec = S.currentBackoffMs / 1000;
-    parts.push('Retrying every ' + intervalSec + 's');
-    if (S.currentBackoffMs >= S.BACKOFF_MAX_MS) parts.push('(max interval)');
-    parts.push('Attempt ' + S.heartbeatAttemptCount);
+    parts.push(vt('viewer.session.banner.retryingEvery', intervalSec));
+    if (S.currentBackoffMs >= S.BACKOFF_MAX_MS) parts.push(vt('viewer.session.banner.maxInterval'));
+    parts.push(vt('viewer.session.banner.attempt', S.heartbeatAttemptCount));
   } else {
-    msgEl.textContent = 'Connection lost \u2014 reconnecting\u2026';
-    parts.push('Attempt ' + S.heartbeatAttemptCount);
+    msgEl.textContent = vt('viewer.session.banner.lost.reconnecting');
+    parts.push(vt('viewer.session.banner.attempt', S.heartbeatAttemptCount));
   }
+  // Decorative bullet separator (\u25cf-style) is a symbol, kept out of the catalog.
   diagEl.textContent = parts.join(' \u2022 ');
 }
 

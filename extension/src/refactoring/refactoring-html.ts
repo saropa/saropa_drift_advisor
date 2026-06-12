@@ -3,6 +3,8 @@
  *
  * Uses inline script only (no external bundles) to match other advisor panels.
  */
+import { t } from '../l10n';
+
 export function getRefactoringHtml(): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -41,16 +43,16 @@ export function getRefactoringHtml(): string {
 </head>
 <body>
 <div class="wrap">
-  <h1>Schema refactoring suggestions</h1>
-  <div class="muted">Advisory analysis only — generated SQL is not executed automatically. Review and adapt before applying.</div>
+  <h1>${t('panel.quality.refactor.title')}</h1>
+  <div class="muted">${t('panel.quality.refactor.subtitle')}</div>
   <div id="hintBanner" class="hint-banner"></div>
   <div class="toolbar">
-    <button id="btnAnalyze">Analyze schema</button>
-    <label><input type="checkbox" id="riskOnly" /> High migration risk only</label>
-    <button class="secondary" id="btnMigration">Open migration preview</button>
-    <button class="secondary" id="btnGenMigration">Generate migration (Dart)</button>
-    <button class="secondary" id="btnSchemaDiff">Schema diff</button>
-    <button class="secondary" id="btnDiagram">Open schema diagram</button>
+    <button id="btnAnalyze">${t('panel.quality.refactor.btn.analyze')}</button>
+    <label><input type="checkbox" id="riskOnly" /> ${t('panel.quality.refactor.riskOnly')}</label>
+    <button class="secondary" id="btnMigration">${t('panel.quality.refactor.btn.migration')}</button>
+    <button class="secondary" id="btnGenMigration">${t('panel.quality.refactor.btn.genMigration')}</button>
+    <button class="secondary" id="btnSchemaDiff">${t('panel.quality.refactor.btn.schemaDiff')}</button>
+    <button class="secondary" id="btnDiagram">${t('panel.quality.refactor.btn.diagram')}</button>
   </div>
   <div id="status" class="muted"></div>
   <div id="error" class="error" style="display:none;"></div>
@@ -58,6 +60,7 @@ export function getRefactoringHtml(): string {
   <div id="plan" class="plan" style="display:none;"></div>
 </div>
 <script>
+// TODO(l10n): client-script strings — needs the __VT webview bridge (plan 75 §3.3).
 (function () {
   const vscode = acquireVsCodeApi();
   const listEl = document.getElementById('list');

@@ -4,6 +4,7 @@
 
 import type { INarrativeResult } from './narrator-types';
 import { getNarratorCss } from './narrator-styles';
+import { t } from '../l10n';
 
 /**
  * Build the full HTML for the narrator panel.
@@ -25,7 +26,7 @@ ${getNarratorCss()}
 </head>
 <body>
   <header class="header">
-    <h1>DATA STORY — ${title}</h1>
+    <h1>${t('panel.tools.narrator.title', title)}</h1>
   </header>
 
   <main class="content">
@@ -35,9 +36,9 @@ ${formatNarrativeHtml(result.text)}
   </main>
 
   <footer class="actions">
-    <button onclick="copyText()">Copy Text</button>
-    <button onclick="copyMarkdown()">Copy Markdown</button>
-    <button onclick="regenerate()">Regenerate</button>
+    <button onclick="copyText()">${t('panel.tools.narrator.btn.copyText')}</button>
+    <button onclick="copyMarkdown()">${t('panel.tools.narrator.btn.copyMarkdown')}</button>
+    <button onclick="regenerate()">${t('panel.tools.narrator.btn.regenerate')}</button>
   </footer>
 
   <div id="toast" class="toast hidden"></div>
@@ -63,13 +64,13 @@ ${getNarratorCss()}
 </head>
 <body>
   <header class="header">
-    <h1>DATA STORY — ${esc(table)} #${esc(String(pkValue))}</h1>
+    <h1>${t('panel.tools.narrator.title', `${esc(table)} #${esc(String(pkValue))}`)}</h1>
   </header>
 
   <main class="content">
     <div class="loading">
       <div class="spinner"></div>
-      <p>Generating story...</p>
+      <p>${t('panel.tools.narrator.loading')}</p>
     </div>
   </main>
 </body>
@@ -90,13 +91,13 @@ ${getNarratorCss()}
 </head>
 <body>
   <header class="header">
-    <h1>DATA STORY</h1>
+    <h1>${t('panel.tools.narrator.titleBare')}</h1>
   </header>
 
   <main class="content">
     <div class="error">
-      <p>Error: ${esc(message)}</p>
-      <button onclick="regenerate()">Try Again</button>
+      <p>${t('panel.tools.narrator.error', esc(message))}</p>
+      <button onclick="regenerate()">${t('panel.tools.narrator.btn.tryAgain')}</button>
     </div>
   </main>
 
@@ -131,12 +132,12 @@ const vscode = acquireVsCodeApi();
 
 function copyText() {
   vscode.postMessage({ command: 'copyText' });
-  showToast('Text copied to clipboard');
+  showToast('Text copied to clipboard'); // TODO(l10n): client-script string
 }
 
 function copyMarkdown() {
   vscode.postMessage({ command: 'copyMarkdown' });
-  showToast('Markdown copied to clipboard');
+  showToast('Markdown copied to clipboard'); // TODO(l10n): client-script string
 }
 
 function regenerate() {

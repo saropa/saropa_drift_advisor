@@ -2,7 +2,7 @@
 
 **Status: IMPLEMENTED.** Shipped across commits `1340c38` (activity-bar shell, §12 L1), `abde88a` (NL wizard core — `resolveTable` + FK `relationshipWhere`, Parts A + C), and `6cc388e` (Ask panel UI — table clarifier + refinement chips, §12 L2 + Part B). This doc is retained as the design record.
 
-This evolves the **web viewer's** "Ask in English" box ([assets/web/nl-to-sql.ts](../assets/web/nl-to-sql.ts) + [assets/web/nl-modal.ts](../assets/web/nl-modal.ts)), which is a **local heuristic converter** — distinct from Feature [18](./18-natural-language-sql.md) (the VS Code extension's **LLM-based** NL-SQL). No LLM, no network round-trip; everything runs in the browser against schema metadata.
+This evolves the **web viewer's** "Ask in English" box ([assets/web/nl-to-sql.ts](../assets/web/nl-to-sql.ts) + [assets/web/nl-modal.ts](../assets/web/nl-modal.ts)), which is a **local heuristic converter** — distinct from Feature [18](../../2026.04/2026.04.30/18-natural-language-sql.md) (the VS Code extension's **LLM-based** NL-SQL). No LLM, no network round-trip; everything runs in the browser against schema metadata.
 
 Related: [21 Visual Query Builder](./history/2026.06/2026.06.11/21-visual-query-builder.md), [59 AI Schema Reviewer](./59-ai-schema-reviewer.md).
 

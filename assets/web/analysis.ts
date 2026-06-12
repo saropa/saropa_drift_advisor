@@ -7,6 +7,7 @@
 import { esc } from './utils.ts';
 import * as S from './state.ts';
 import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
+import { vt } from './l10n.ts';
 
     export function analysisStorageKey(type) {
       return S.ANALYSIS_STORAGE_PREFIX + type;
@@ -61,7 +62,7 @@ import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
       if (!selectEl) return;
       var list = getSavedAnalyses(type);
       var value = selectEl.value;
-      selectEl.innerHTML = '<option value="">— Past runs —</option>';
+      selectEl.innerHTML = '<option value="">' + vt('viewer.tools.analysis.pastRuns') + '</option>';
       list.forEach(function (item) {
         var opt = document.createElement('option');
         opt.value = item.id;
@@ -79,7 +80,7 @@ import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
         overlay.id = 'analysis-compare-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
         overlay.setAttribute('aria-modal', 'true');
-        overlay.setAttribute('aria-label', 'Compare analysis results');
+        overlay.setAttribute('aria-label', vt('viewer.tools.analysis.compareAria'));
         document.body.appendChild(overlay);
       }
       var beforeId = '';
@@ -97,26 +98,26 @@ import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
       function updateSummary() {
         beforeData = getData(beforeId);
         afterData = getData(afterId);
-        summaryEl.textContent = summaryFn ? summaryFn(beforeData, afterData) : 'Select Before and After to compare.';
+        summaryEl.textContent = summaryFn ? summaryFn(beforeData, afterData) : vt('viewer.tools.analysis.prompt');
         if (beforeData && afterData && renderFn) {
           leftPanel.innerHTML = renderFn(beforeData);
           rightPanel.innerHTML = renderFn(afterData);
         } else {
-          leftPanel.innerHTML = beforeData ? renderFn(beforeData) : '<p class="meta">Select Before.</p>';
-          rightPanel.innerHTML = afterData ? renderFn(afterData) : '<p class="meta">Select After.</p>';
+          leftPanel.innerHTML = beforeData ? renderFn(beforeData) : '<p class="meta">' + vt('viewer.tools.analysis.selectBefore') + '</p>';
+          rightPanel.innerHTML = afterData ? renderFn(afterData) : '<p class="meta">' + vt('viewer.tools.analysis.selectAfter') + '</p>';
         }
       }
       var panel = document.createElement('div');
       panel.style.cssText = 'background:var(--bg, #fff);color:var(--fg, #111);padding:1rem;border-radius:8px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
-      panel.innerHTML = '<h3 style="margin:0 0 0.75rem;">Compare: ' + esc(title) + '</h3>';
+      panel.innerHTML = '<h3 style="margin:0 0 0.75rem;">' + vt('viewer.tools.analysis.compareHeading', esc(title)) + '</h3>';
       var toolbar = document.createElement('div');
       toolbar.className = 'toolbar';
       toolbar.style.marginBottom = '0.5rem';
       var beforeLabel = document.createElement('label');
-      beforeLabel.textContent = 'Before:';
+      beforeLabel.textContent = vt('viewer.tools.analysis.before');
       var beforeSel = document.createElement('select');
       beforeSel.id = 'compare-before';
-      beforeSel.innerHTML = '<option value="">— select —</option><option value="_current">Current result</option>';
+      beforeSel.innerHTML = '<option value="">' + vt('viewer.tools.analysis.selectPlaceholder') + '</option><option value="_current">' + vt('viewer.tools.analysis.currentResult') + '</option>';
       (savedList || []).forEach(function (item) {
         var opt = document.createElement('option');
         opt.value = item.id;
@@ -124,10 +125,10 @@ import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
         beforeSel.appendChild(opt);
       });
       var afterLabel = document.createElement('label');
-      afterLabel.textContent = 'After:';
+      afterLabel.textContent = vt('viewer.tools.analysis.after');
       var afterSel = document.createElement('select');
       afterSel.id = 'compare-after';
-      afterSel.innerHTML = '<option value="">— select —</option><option value="_current">Current result</option>';
+      afterSel.innerHTML = '<option value="">' + vt('viewer.tools.analysis.selectPlaceholder') + '</option><option value="_current">' + vt('viewer.tools.analysis.currentResult') + '</option>';
       (savedList || []).forEach(function (item) {
         var opt = document.createElement('option');
         opt.value = item.id;
@@ -136,8 +137,8 @@ import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
       });
       var closeBtn = document.createElement('button');
       closeBtn.type = 'button';
-      closeBtn.textContent = 'Close';
-      closeBtn.title = 'Close compare panel';
+      closeBtn.textContent = vt('viewer.tools.analysis.close');
+      closeBtn.title = vt('viewer.tools.analysis.closeTitle');
       toolbar.appendChild(beforeLabel);
       toolbar.appendChild(beforeSel);
       toolbar.appendChild(afterLabel);
@@ -147,16 +148,16 @@ import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
       var summaryEl = document.createElement('p');
       summaryEl.className = 'meta';
       summaryEl.style.marginBottom = '0.5rem';
-      summaryEl.textContent = 'Select Before and After to compare.';
+      summaryEl.textContent = vt('viewer.tools.analysis.prompt');
       panel.appendChild(summaryEl);
       var columns = document.createElement('div');
       columns.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:1rem;';
       var leftPanel = document.createElement('div');
       leftPanel.style.cssText = 'border:1px solid var(--border);padding:0.5rem;border-radius:4px;max-height:50vh;overflow:auto;';
-      leftPanel.innerHTML = '<p class="meta">Select Before.</p>';
+      leftPanel.innerHTML = '<p class="meta">' + vt('viewer.tools.analysis.selectBefore') + '</p>';
       var rightPanel = document.createElement('div');
       rightPanel.style.cssText = 'border:1px solid var(--border);padding:0.5rem;border-radius:4px;max-height:50vh;overflow:auto;';
-      rightPanel.innerHTML = '<p class="meta">Select After.</p>';
+      rightPanel.innerHTML = '<p class="meta">' + vt('viewer.tools.analysis.selectAfter') + '</p>';
       columns.appendChild(leftPanel);
       columns.appendChild(rightPanel);
       panel.appendChild(columns);
@@ -198,19 +199,19 @@ import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
     export function renderRowDiff(container, tables) {
       var html = '';
       // Summary table: one row per table for quick scanning (styles in .snapshot-summary-table)
-      html += '<table class="snapshot-summary-table"><thead><tr><th>Table</th><th>Then</th><th>Now</th><th>Status</th></tr></thead><tbody>';
+      html += '<table class="snapshot-summary-table"><thead><tr><th>' + vt('viewer.tools.diff.col.table') + '</th><th>' + vt('viewer.tools.diff.col.then') + '</th><th>' + vt('viewer.tools.diff.col.now') + '</th><th>' + vt('viewer.tools.diff.col.status') + '</th></tr></thead><tbody>';
       tables.forEach(function(t) {
         var status = '';
         if (!t.hasPk) {
-          status = 'No primary key \u2014 counts only';
+          status = vt('viewer.tools.diff.noPk');
         } else if ((t.addedRows && t.addedRows.length > 0) || (t.removedRows && t.removedRows.length > 0) || (t.changedRows && t.changedRows.length > 0)) {
           var parts = [];
-          if (t.addedRows && t.addedRows.length > 0) parts.push('+' + t.addedRows.length + ' added');
-          if (t.removedRows && t.removedRows.length > 0) parts.push('-' + t.removedRows.length + ' removed');
-          if (t.changedRows && t.changedRows.length > 0) parts.push('~' + t.changedRows.length + ' changed');
+          if (t.addedRows && t.addedRows.length > 0) parts.push(vt('viewer.tools.diff.added', t.addedRows.length));
+          if (t.removedRows && t.removedRows.length > 0) parts.push(vt('viewer.tools.diff.removed', t.removedRows.length));
+          if (t.changedRows && t.changedRows.length > 0) parts.push(vt('viewer.tools.diff.changed', t.changedRows.length));
           status = parts.join(', ');
         } else {
-          status = 'No changes detected';
+          status = vt('viewer.tools.diff.noChanges');
         }
         html += '<tr><td>' + esc(t.table) + '</td><td>' + t.countThen + '</td><td>' + t.countNow + '</td><td>' + esc(status) + '</td></tr>';
       });
@@ -222,15 +223,15 @@ import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
         if (!hasDetail) return;
         html += '<h4 style="margin:0.5rem 0 0.25rem;">' + esc(t.table) + '</h4>';
         if (t.addedRows && t.addedRows.length > 0) {
-          html += '<p class="meta" style="color:#7cb342;">+ ' + t.addedRows.length + ' added:</p>';
+          html += '<p class="meta" style="color:#7cb342;">' + vt('viewer.tools.diff.addedDetail', t.addedRows.length) + '</p>';
           html += renderDiffRows(t.addedRows, 'added');
         }
         if (t.removedRows && t.removedRows.length > 0) {
-          html += '<p class="meta" style="color:#e57373;">- ' + t.removedRows.length + ' removed:</p>';
+          html += '<p class="meta" style="color:#e57373;">' + vt('viewer.tools.diff.removedDetail', t.removedRows.length) + '</p>';
           html += renderDiffRows(t.removedRows, 'removed');
         }
         if (t.changedRows && t.changedRows.length > 0) {
-          html += '<p class="meta" style="color:#ffb74d;">~ ' + t.changedRows.length + ' changed:</p>';
+          html += '<p class="meta" style="color:#ffb74d;">' + vt('viewer.tools.diff.changedDetail', t.changedRows.length) + '</p>';
           t.changedRows.forEach(function(cr) {
             var keys = Object.keys(cr.now);
             var changed = new Set(cr.changedColumns || []);

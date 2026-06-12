@@ -5,6 +5,7 @@
  * Extracted from app.js — function bodies are unchanged.
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 import { esc, formatTableRowCountDisplay } from './utils.ts';
 import { getPinnedTables, setPinnedTables, togglePinTable, saveTableState, restoreTableState } from './persistence.ts';
 import { getScope } from './search.ts';
@@ -19,9 +20,11 @@ import { setupPagination, updatePaginationBar } from './pagination.ts';
 export function rowCountText(name) {
   const total = S.tableCounts[name];
   const len = (S.currentTableJson && S.currentTableJson.length) || 0;
-  if (total == null) return esc(name) + ' (up to ' + S.limit + ' rows)';
-  const rangeText = len > 0 ? ('showing ' + (S.offset + 1) + '–' + (S.offset + len)) : 'no rows in this range';
-  return esc(name) + ' (' + total + ' row' + (total !== 1 ? 's' : '') + '; ' + rangeText + ')';
+  if (total == null) return vt('viewer.table.list.upToRows', esc(name), S.limit);
+  const rangeText = len > 0
+    ? vt('viewer.table.list.showingRange', S.offset + 1, S.offset + len)
+    : vt('viewer.table.list.noRowsInRange');
+  return vt(total !== 1 ? 'viewer.table.list.countRowMany' : 'viewer.table.list.countRowOne', esc(name), total, rangeText);
 }
 
 /** Updates which table link has .active in the sidebar (UI redesign: current table highlight). */
@@ -48,9 +51,9 @@ export function loadTable(name) {
   const content = document.getElementById('content');
   const scope = getScope();
   if (scope === 'both' && S.cachedSchema !== null) {
-    content.innerHTML = '<p class="meta">Loading ' + esc(name) + '…</p>';
+    content.innerHTML = '<p class="meta">' + vt('viewer.table.list.loadingNamed', esc(name)) + '</p>';
   } else if (scope !== 'both') {
-    content.innerHTML = '<p class="meta">' + esc(name) + '</p><p class="meta">Loading…</p>';
+    content.innerHTML = '<p class="meta">' + esc(name) + '</p><p class="meta">' + vt('viewer.table.list.loading') + '</p>';
   }
   fetch('/api/table/' + encodeURIComponent(name) + '?S.limit=' + S.limit + '&S.offset=' + S.offset, S.authOpts())
     .then(r => r.json())
@@ -71,7 +74,7 @@ export function loadTable(name) {
     })
     .catch(e => {
       if (S.currentTableName !== name) return;
-      content.innerHTML = '<p class="meta">Error</p><pre>' + esc(String(e)) + '</pre>';
+      content.innerHTML = '<p class="meta">' + vt('viewer.table.list.loadError') + '</p><pre>' + esc(String(e)) + '</pre>';
     });
 }
 
@@ -131,7 +134,7 @@ export function renderTableList(tables) {
     var pinBtn = document.createElement('button');
     pinBtn.type = 'button';
     pinBtn.className = 'table-pin-btn' + (isPinned ? ' pinned' : '');
-    pinBtn.title = isPinned ? 'Unpin' : 'Pin to top';
+    pinBtn.title = isPinned ? vt('viewer.table.list.unpinTitle') : vt('viewer.table.list.pinTitle');
     pinBtn.setAttribute('aria-pressed', isPinned ? 'true' : 'false');
     var pinIcon = document.createElement('span');
     pinIcon.className = 'material-symbols-outlined';
@@ -177,7 +180,7 @@ export function renderTablesBrowse(tables) {
   if (!browseEl) return;
 
   if (!tables || tables.length === 0) {
-    browseEl.innerHTML = '<p class="meta">No tables found.</p>';
+    browseEl.innerHTML = '<p class="meta">' + vt('viewer.table.list.browseEmpty') + '</p>';
     return;
   }
 
@@ -187,7 +190,7 @@ export function renderTablesBrowse(tables) {
     if (S.tableCounts[t] != null) {
       countHtml = '<span class="browse-card-count">(' + esc(formatTableRowCountDisplay(S.tableCounts[t])) + ')</span>';
     }
-    html += '<button type="button" class="tables-browse-card" data-table="' + esc(t) + '" title="Open ' + esc(t) + ' in a tab">';
+    html += '<button type="button" class="tables-browse-card" data-table="' + esc(t) + '" title="' + esc(vt('viewer.table.list.browseOpenTitle', t)) + '">';
     html += '<span class="browse-card-name">' + esc(t) + '</span>';
     html += countHtml;
     html += '</button>';

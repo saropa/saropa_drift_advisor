@@ -23,6 +23,7 @@
  *   .table-def-tool[data-tdm-action]         — the three icon buttons
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 import { showCopyToast, schemaTableByName, buildTableDefinitionHtml } from './table-view.ts';
 
 /**
@@ -82,7 +83,7 @@ async function buildStatsForTable(tableName: string): Promise<Record<string, any
     body: JSON.stringify({ sql: sql }),
   }));
   const data = await resp.json();
-  if (!resp.ok) throw new Error(data && data.error ? data.error : 'Stats query failed');
+  if (!resp.ok) throw new Error(data && data.error ? data.error : vt('viewer.table.def.statsQueryFailed'));
 
   const row = (data.rows && data.rows[0]) || {};
   const total = Number(row['__total__']) || 0;
@@ -253,12 +254,12 @@ export function initTableDefMeta(): void {
     const action = btn.getAttribute('data-tdm-action');
 
     if (action === 'copy-json') {
-      copyToClipboard(buildDefinitionJson(tableName), 'Definition copied as JSON');
+      copyToClipboard(buildDefinitionJson(tableName), vt('viewer.table.def.copiedJson'));
       return;
     }
 
     if (action === 'copy-flutter') {
-      copyToClipboard(buildFlutterDrift(tableName), 'Definition copied as Flutter');
+      copyToClipboard(buildFlutterDrift(tableName), vt('viewer.table.def.copiedFlutter'));
       return;
     }
 
@@ -289,7 +290,7 @@ export function initTableDefMeta(): void {
       }).catch(function (err) {
         S.setTableDefMetaOn(false);
         btn.classList.remove('is-busy');
-        showCopyToast('Stats failed: ' + (err && err.message ? err.message : 'error'));
+        showCopyToast(vt('viewer.table.def.statsFailed', err && err.message ? err.message : vt('viewer.table.def.errorGeneric')));
       });
     }
   });

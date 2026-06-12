@@ -4,6 +4,7 @@ import { getExplainJs } from './sql-notebook-explain';
 import { getResultsJs } from './sql-notebook-results';
 import { getNotebookShellJs } from './sql-notebook-shell-js';
 import { getNotebookCss } from './sql-notebook-styles';
+import { t } from '../l10n';
 
 /** Build the full HTML scaffold for the SQL Notebook webview. */
 export function getNotebookHtml(): string {
@@ -18,33 +19,33 @@ export function getNotebookHtml(): string {
 <div id="app">
   <div id="tab-bar">
     <div id="tabs"></div>
-    <button id="add-tab" title="New query tab">+</button>
+    <button id="add-tab" title="${t('panel.query.notebook.tab.new')}">+</button>
   </div>
   <div id="main-area">
     <div id="editor-area">
       <div class="sql-input-wrap">
-        <textarea id="sql-input" placeholder="Enter SQL... (Ctrl+Enter to execute)"
+        <textarea id="sql-input" placeholder="${t('panel.query.notebook.sql.placeholder')}"
           spellcheck="false"></textarea>
         <div id="autocomplete-dropdown" class="autocomplete-dropdown"
           style="display:none;"></div>
       </div>
       <div class="toolbar">
-        <button id="btn-execute" title="Execute (Ctrl+Enter)">Run</button>
-        <button id="btn-explain" title="Explain query plan">Explain</button>
-        <button type="button" id="btn-nl-sql" title="Generate SQL from plain English (LLM; requires API key)">Ask in English…</button>
-        <button id="btn-chart" title="Chart results" disabled>Chart</button>
-        <button id="btn-copy-json" title="Copy as JSON" disabled>Copy JSON</button>
-        <button id="btn-copy-csv" title="Copy as CSV" disabled>Copy CSV</button>
+        <button id="btn-execute" title="${t('panel.query.notebook.btn.run.title')}">${t('panel.query.notebook.btn.run')}</button>
+        <button id="btn-explain" title="${t('panel.query.notebook.btn.explain.title')}">${t('panel.query.notebook.btn.explain')}</button>
+        <button type="button" id="btn-nl-sql" title="${t('panel.query.notebook.btn.ask.title')}">${t('panel.query.notebook.btn.ask')}</button>
+        <button id="btn-chart" title="${t('panel.query.notebook.btn.chart.title')}" disabled>${t('panel.query.notebook.btn.chart')}</button>
+        <button id="btn-copy-json" title="${t('panel.query.notebook.btn.copyJson.title')}" disabled>${t('panel.query.notebook.btn.copyJson')}</button>
+        <button id="btn-copy-csv" title="${t('panel.query.notebook.btn.copyCsv.title')}" disabled>${t('panel.query.notebook.btn.copyCsv')}</button>
       </div>
-      <div id="status-bar" class="status-bar">Ready</div>
+      <div id="status-bar" class="status-bar">${t('panel.query.notebook.status.ready')}</div>
       <div id="result-area"></div>
     </div>
     <div id="history-sidebar">
       <div class="history-header">
-        <h3>History</h3>
-        <button id="btn-clear-history" title="Clear all history">Clear</button>
+        <h3>${t('panel.query.notebook.history.title')}</h3>
+        <button id="btn-clear-history" title="${t('panel.query.notebook.history.clear.title')}">${t('panel.query.notebook.history.clear')}</button>
       </div>
-      <input type="text" id="history-search" placeholder="Search history..." />
+      <input type="text" id="history-search" placeholder="${t('panel.query.notebook.history.searchPlaceholder')}" />
       <div id="history-counter" class="history-counter"></div>
       <div id="history-list"></div>
     </div>

@@ -125,14 +125,21 @@ describe('results heading label', () => {
   });
 
   it('no longer prefixes the heading with an arrow glyph', () => {
-    // The heading text must start at "Results" with no leading ▲/▼ — the
-    // chevron is a CSS ::after now, not a character in the markup.
+    // The heading text must start at "Results" with no leading ▲/▼ — the chevron
+    // is a CSS ::after now, not a character in the markup. Post-l10n the literal
+    // moved into the web registry, so assert the heading wires the vt() key and
+    // the registry value starts at "Results" with no arrow glyph.
+    const tableReg = readAsset('assets/web/l10n/strings-web-table.ts');
     assert.ok(
-      /results-table-heading">Results /.test(tableView),
-      'heading text should start at "Results", chevron is CSS',
+      /results-table-heading">'\s*\+\s*vt\('viewer\.table\.results\.heading'/.test(tableView),
+      'heading should be built from the localized results.heading key',
     );
     assert.ok(
-      !/▲ Results|▼ Results/.test(tableView),
+      /'viewer\.table\.results\.heading':\s*'Results /.test(tableReg),
+      'registry results.heading value should start at "Results", chevron is CSS',
+    );
+    assert.ok(
+      !/▲ Results|▼ Results/.test(tableReg),
       'no arrow glyph should precede the Results label',
     );
   });

@@ -16,6 +16,7 @@ import {
   clearNavHistory,
   collectProjectStorageKeys,
 } from './persistence.ts';
+import { vt } from './l10n.ts';
 
 // ---------------------------------------------------------------------------
 // Persistence helpers
@@ -113,32 +114,32 @@ function buildSettingsHtml(): string {
   <section class="settings-group">
     <h3 class="settings-group-title">
       <span class="material-symbols-outlined" aria-hidden="true">database</span>
-      Storage &amp; History
+      ${vt('viewer.settings.group.storage')}
     </h3>
     <label class="settings-row">
-      <span class="settings-label">SQL history max entries</span>
+      <span class="settings-label">${vt('viewer.settings.storage.sqlHistoryMax')}</span>
       <input type="number" id="pref-sqlHistoryMax" class="settings-input settings-input-number" min="10" max="2000" step="10" />
     </label>
     <label class="settings-row">
-      <span class="settings-label">Max saved analyses</span>
+      <span class="settings-label">${vt('viewer.settings.storage.maxAnalyses')}</span>
       <input type="number" id="pref-analysisMax" class="settings-input settings-input-number" min="5" max="500" step="5" />
     </label>
     <div class="settings-row settings-row-actions">
       <button type="button" id="settings-clear-all" class="btn btn-danger-outline settings-btn">
         <span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span>
-        Clear all stored data
+        ${vt('viewer.settings.storage.clearAll')}
       </button>
-      <span class="settings-hint">Removes pinned tables, table states, navigation history, SQL history, bookmarks, and saved analyses. Theme and sidebar preferences are kept.</span>
+      <span class="settings-hint">${vt('viewer.settings.storage.clearAllHint')}</span>
     </div>
   </section>
 
   <section class="settings-group">
     <h3 class="settings-group-title">
       <span class="material-symbols-outlined" aria-hidden="true">table_chart</span>
-      Table Defaults
+      ${vt('viewer.settings.group.tableDefaults')}
     </h3>
     <label class="settings-row">
-      <span class="settings-label">Default page size</span>
+      <span class="settings-label">${vt('viewer.settings.table.defaultPageSize')}</span>
       <select id="pref-defaultPageSize" class="settings-input settings-input-select">
         <option value="50">50</option>
         <option value="200">200</option>
@@ -147,23 +148,23 @@ function buildSettingsHtml(): string {
       </select>
     </label>
     <label class="settings-row">
-      <span class="settings-label">Default display format</span>
+      <span class="settings-label">${vt('viewer.settings.table.defaultDisplayFormat')}</span>
       <select id="pref-defaultDisplayFormat" class="settings-input settings-input-select">
-        <option value="raw">Raw</option>
-        <option value="formatted">Formatted</option>
+        <option value="raw">${vt('viewer.settings.table.displayFormat.raw')}</option>
+        <option value="formatted">${vt('viewer.settings.table.displayFormat.formatted')}</option>
       </select>
     </label>
     <label class="settings-row">
-      <span class="settings-label">NULL display</span>
-      <span class="settings-sublabel">How SQL NULLs render in table cells (always shown dimmed)</span>
+      <span class="settings-label">${vt('viewer.settings.table.nullDisplay')}</span>
+      <span class="settings-sublabel">${vt('viewer.settings.table.nullDisplaySub')}</span>
       <select id="pref-nullDisplay" class="settings-input settings-input-select">
         <option value="NULL">NULL</option>
-        <option value="-">- (dash)</option>
+        <option value="-">${vt('viewer.settings.table.nullDisplay.dash')}</option>
       </select>
     </label>
     <label class="settings-row settings-toggle-row">
-      <span class="settings-label">Show only matching rows</span>
-      <span class="settings-sublabel">When a row filter is active, hide non-matching rows instead of highlighting them</span>
+      <span class="settings-label">${vt('viewer.settings.table.onlyMatching')}</span>
+      <span class="settings-sublabel">${vt('viewer.settings.table.onlyMatchingSub')}</span>
       <input type="checkbox" id="pref-defaultOnlyMatching" class="settings-checkbox" />
       <span class="settings-switch" role="switch" aria-checked="false"></span>
     </label>
@@ -172,16 +173,16 @@ function buildSettingsHtml(): string {
   <section class="settings-group">
     <h3 class="settings-group-title">
       <span class="material-symbols-outlined" aria-hidden="true">speed</span>
-      Performance
+      ${vt('viewer.settings.group.performance')}
     </h3>
     <label class="settings-row">
-      <span class="settings-label">Slow query threshold</span>
-      <span class="settings-sublabel">Queries exceeding this duration (ms) are flagged in the Perf tab</span>
+      <span class="settings-label">${vt('viewer.settings.perf.slowQueryThreshold')}</span>
+      <span class="settings-sublabel">${vt('viewer.settings.perf.slowQueryThresholdSub')}</span>
       <input type="number" id="pref-slowQueryThreshold" class="settings-input settings-input-number" min="10" max="60000" step="10" />
     </label>
     <label class="settings-row settings-toggle-row">
-      <span class="settings-label">Auto-refresh polling</span>
-      <span class="settings-sublabel">Automatically detect and reload when database data changes</span>
+      <span class="settings-label">${vt('viewer.settings.perf.autoRefresh')}</span>
+      <span class="settings-sublabel">${vt('viewer.settings.perf.autoRefreshSub')}</span>
       <input type="checkbox" id="pref-autoRefresh" class="settings-checkbox" />
       <span class="settings-switch" role="switch" aria-checked="false"></span>
     </label>
@@ -190,17 +191,17 @@ function buildSettingsHtml(): string {
   <section class="settings-group">
     <h3 class="settings-group-title">
       <span class="material-symbols-outlined" aria-hidden="true">format_paint</span>
-      Data Formatting
+      ${vt('viewer.settings.group.dataFormatting')}
     </h3>
     <label class="settings-row settings-toggle-row">
-      <span class="settings-label">Auto-detect epoch timestamps</span>
-      <span class="settings-sublabel">Automatically format large integers as dates when column names suggest timestamps</span>
+      <span class="settings-label">${vt('viewer.settings.format.epochDetection')}</span>
+      <span class="settings-sublabel">${vt('viewer.settings.format.epochDetectionSub')}</span>
       <input type="checkbox" id="pref-epochDetection" class="settings-checkbox" />
       <span class="settings-switch" role="switch" aria-checked="false"></span>
     </label>
     <label class="settings-row settings-toggle-row">
-      <span class="settings-label">Confirm before leaving page</span>
-      <span class="settings-sublabel">Show a browser confirmation dialog when navigating away or closing the tab</span>
+      <span class="settings-label">${vt('viewer.settings.format.confirmNavigate')}</span>
+      <span class="settings-sublabel">${vt('viewer.settings.format.confirmNavigateSub')}</span>
       <input type="checkbox" id="pref-confirmNavigateAway" class="settings-checkbox" />
       <span class="settings-switch" role="switch" aria-checked="false"></span>
     </label>
@@ -209,7 +210,7 @@ function buildSettingsHtml(): string {
   <div class="settings-footer">
     <button type="button" id="settings-reset-all" class="btn btn-outline settings-btn">
       <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
-      Reset all to defaults
+      ${vt('viewer.settings.footer.resetAll')}
     </button>
   </div>
 
@@ -282,12 +283,12 @@ function bindEvents(): void {
   const clearBtn = document.getElementById('settings-clear-all');
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
-      if (!confirm('Clear all stored project data? Theme and sidebar preferences will be kept.')) return;
+      if (!confirm(vt('viewer.settings.confirm.clearAll'))) return;
       clearAllProjectData();
       // Visual feedback: briefly swap button text
-      clearBtn.textContent = 'Cleared!';
+      clearBtn.textContent = vt('viewer.settings.storage.cleared');
       setTimeout(() => {
-        clearBtn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span> Clear all stored data';
+        clearBtn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span> ' + vt('viewer.settings.storage.clearAll');
       }, 1500);
     });
   }
@@ -296,7 +297,7 @@ function bindEvents(): void {
   const resetBtn = document.getElementById('settings-reset-all');
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
-      if (!confirm('Reset all settings to their default values?')) return;
+      if (!confirm(vt('viewer.settings.confirm.resetAll'))) return;
       resetAllPrefs();
       populateForm();
       // Apply the reset defaults to runtime state immediately

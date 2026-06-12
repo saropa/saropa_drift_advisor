@@ -5,6 +5,7 @@
  * raw cell values from table cells, and the cell-value detail popup.
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 import { schemaTableByName, getPkColumnNameForDataTable, getVisibleDataColumnKeys, copyCellValue, isBooleanColumn } from './table-view.ts';
 import { loadTable } from './table-list.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
@@ -83,7 +84,7 @@ function tryBeginUnsavedWebEdit(): boolean {
       if (trimmed === '') {
         if (colMeta.notnull) {
           var textLike = typ === '' || /CHAR|CLOB|TEXT/.test(typ);
-          if (!textLike) return 'This column is NOT NULL — a value is required.';
+          if (!textLike) return vt('viewer.table.edit.notNull');
         }
         return null;
       }
@@ -94,7 +95,7 @@ function tryBeginUnsavedWebEdit(): boolean {
       if ((isIntLike || typ === '') && isBooleanColumn(colMeta.name)) {
         var lower = trimmed.toLowerCase();
         if (lower !== '0' && lower !== '1' && lower !== 'true' && lower !== 'false') {
-          return 'Expected 0 or 1 (or true/false).';
+          return vt('viewer.table.edit.expectBool');
         }
         // Valid boolean value — skip the generic integer check below
         // since "true"/"false" are valid here but would fail /^-?\d+$/
@@ -103,12 +104,12 @@ function tryBeginUnsavedWebEdit(): boolean {
 
       // Integer check: must be a whole number (optional leading minus)
       if (isIntLike) {
-        if (!/^-?\d+$/.test(trimmed)) return 'Expected an integer (e.g. 42, -7).';
+        if (!/^-?\d+$/.test(trimmed)) return vt('viewer.table.edit.expectInt');
       }
 
       // Real/float check: must be a valid number
       if (typ === 'REAL' || typ === 'FLOAT' || typ === 'DOUBLE' || /NUMERIC|DECIMAL/.test(typ)) {
-        if (isNaN(Number(trimmed)) || trimmed === '') return 'Expected a number (e.g. 3.14, -0.5).';
+        if (isNaN(Number(trimmed)) || trimmed === '') return vt('viewer.table.edit.expectNumber');
       }
 
       return null;
@@ -125,20 +126,20 @@ function tryBeginUnsavedWebEdit(): boolean {
     export function tryStartBrowserCellEdit(td) {
       if (!S.currentTableName) return;
       if (!tryBeginUnsavedWebEdit()) {
-        window.alert('Finish or cancel the current edit before editing another cell.');
+        window.alert(vt('viewer.table.edit.busy'));
         return;
       }
       loadSchemaMeta().then(function() {
         var pkName = getPkColumnNameForDataTable();
         if (!pkName) {
           clearUnsavedWebEdit();
-          window.alert('This table has no primary key column; inline edit is disabled.');
+          window.alert(vt('viewer.table.edit.noPk'));
           return;
         }
         var columnKey = td.getAttribute('data-column-key') || '';
         if (!columnKey || columnKey === pkName) {
           clearUnsavedWebEdit();
-          window.alert('Primary key columns cannot be edited inline.');
+          window.alert(vt('viewer.table.edit.pkLocked'));
           return;
         }
         var t = schemaTableByName(S.currentTableName);
@@ -154,7 +155,7 @@ function tryBeginUnsavedWebEdit(): boolean {
         }
         if ((colMeta.type || '').toUpperCase() === 'BLOB') {
           clearUnsavedWebEdit();
-          window.alert('BLOB columns cannot be edited inline.');
+          window.alert(vt('viewer.table.edit.blobLocked'));
           return;
         }
 
@@ -182,8 +183,8 @@ function tryBeginUnsavedWebEdit(): boolean {
         // Build the inline edit widget with context and validation feedback.
         // Context bar: shows which row (PK) and column/type are being edited,
         // plus the original value so the user knows what they're changing from.
-        var colType = (colMeta.type || '').toUpperCase() || 'unspecified';
-        var nullableLabel = colMeta.notnull ? 'NOT NULL' : 'nullable';
+        var colType = (colMeta.type || '').toUpperCase() || vt('viewer.table.edit.typeUnspecified');
+        var nullableLabel = colMeta.notnull ? vt('viewer.table.edit.constraintNotNull') : vt('viewer.table.edit.nullable');
 
         var container = document.createElement('div');
         container.className = 'cell-edit-container';
@@ -191,19 +192,19 @@ function tryBeginUnsavedWebEdit(): boolean {
         // Context header: row identity + column metadata
         var contextEl = document.createElement('div');
         contextEl.className = 'cell-edit-context';
-        contextEl.textContent = pkName + '=' + pkRaw + ' \u2022 ' + columnKey + ' (' + colType + ', ' + nullableLabel + ')';
+        contextEl.textContent = vt('viewer.table.edit.context', pkName, pkRaw, columnKey, colType, nullableLabel);
         container.appendChild(contextEl);
 
         // Current value display so the user sees what they're changing from
         var currentEl = document.createElement('div');
         currentEl.className = 'cell-edit-current';
-        currentEl.textContent = 'was: ' + (isNull ? 'NULL' : startVal);
+        currentEl.textContent = vt('viewer.table.edit.was', isNull ? vt('viewer.table.edit.nullValue') : startVal);
         container.appendChild(currentEl);
 
         var input = document.createElement('input');
         input.type = 'text';
         input.className = 'cell-inline-editor';
-        input.setAttribute('aria-label', 'Edit ' + columnKey);
+        input.setAttribute('aria-label', vt('viewer.table.edit.inputLabel', columnKey));
         input.value = startVal;
         container.appendChild(input);
 
@@ -218,10 +219,10 @@ function tryBeginUnsavedWebEdit(): boolean {
         var saveBtn = document.createElement('button');
         saveBtn.type = 'button';
         saveBtn.className = 'btn-primary';
-        saveBtn.textContent = 'Save';
+        saveBtn.textContent = vt('viewer.table.edit.save');
         var cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
-        cancelBtn.textContent = 'Cancel';
+        cancelBtn.textContent = vt('viewer.table.edit.cancel');
         actions.appendChild(saveBtn);
         actions.appendChild(cancelBtn);
         container.appendChild(actions);
@@ -233,11 +234,11 @@ function tryBeginUnsavedWebEdit(): boolean {
         var retrySaveBtn = document.createElement('button');
         retrySaveBtn.type = 'button';
         retrySaveBtn.className = 'cell-edit-retry-btn';
-        retrySaveBtn.textContent = 'Retry save';
+        retrySaveBtn.textContent = vt('viewer.table.edit.retry');
         var reloadTableBtn = document.createElement('button');
         reloadTableBtn.type = 'button';
         reloadTableBtn.className = 'cell-edit-reload-btn';
-        reloadTableBtn.textContent = 'Reload table';
+        reloadTableBtn.textContent = vt('viewer.table.edit.reload');
         failureActions.appendChild(retrySaveBtn);
         failureActions.appendChild(reloadTableBtn);
         container.appendChild(failureActions);
@@ -284,7 +285,7 @@ function tryBeginUnsavedWebEdit(): boolean {
 
           var valJson = cellUpdateValueJson(input.value, colMeta);
           if (valJson === '__INVALID__') {
-            errorEl.textContent = 'This column is NOT NULL — a value is required.';
+            errorEl.textContent = vt('viewer.table.edit.notNull');
             errorEl.style.display = 'block';
             input.classList.add('cell-edit-invalid');
             input.focus();
@@ -308,8 +309,8 @@ function tryBeginUnsavedWebEdit(): boolean {
             })
             .then(function(res) {
               if (!res.ok || !res.data || res.data.error) {
-                var msg = (res.data && res.data.error) ? res.data.error : 'Request failed';
-                errorEl.textContent = 'Save failed: ' + msg;
+                var msg = (res.data && res.data.error) ? res.data.error : vt('viewer.table.edit.requestFailed');
+                errorEl.textContent = vt('viewer.table.edit.saveFailed', msg);
                 errorEl.style.display = 'block';
                 input.classList.add('cell-edit-invalid');
                 failureActions.style.display = 'flex';
@@ -323,7 +324,7 @@ function tryBeginUnsavedWebEdit(): boolean {
               loadTable(S.currentTableName);
             })
             .catch(function(err) {
-              errorEl.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err));
+              errorEl.textContent = vt('viewer.table.edit.saveFailed', err && err.message ? err.message : String(err));
               errorEl.style.display = 'block';
               input.classList.add('cell-edit-invalid');
               failureActions.style.display = 'flex';
@@ -355,7 +356,7 @@ function tryBeginUnsavedWebEdit(): boolean {
         });
       }).catch(function(err) {
         clearUnsavedWebEdit();
-        window.alert('Could not load schema: ' + (err && err.message ? err.message : String(err)));
+        window.alert(vt('viewer.table.edit.schemaFailed', err && err.message ? err.message : String(err)));
       });
     }
 
@@ -369,7 +370,7 @@ function tryBeginUnsavedWebEdit(): boolean {
       var textEl = document.getElementById('cell-value-popup-text');
       var titleEl = document.getElementById('cell-value-popup-title');
       if (!popup || !textEl || !titleEl) return;
-      titleEl.textContent = columnKey ? 'Cell value: ' + columnKey : 'Cell value';
+      titleEl.textContent = columnKey ? vt('viewer.table.popup.titleNamed', columnKey) : vt('viewer.table.popup.title');
       textEl.textContent = rawValue !== undefined && rawValue !== null ? String(rawValue) : '';
       popup.classList.add('show');
       popup.setAttribute('aria-hidden', 'false');

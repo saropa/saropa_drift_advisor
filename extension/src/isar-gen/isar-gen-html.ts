@@ -8,6 +8,7 @@ import type {
   IIsarGenConfig,
   IIsarMappingResult,
 } from './isar-gen-types';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -26,11 +27,11 @@ function renderSourceSummary(
     .map((c) => `<li>${esc(c.className)} (${esc(c.fileUri)}:${c.line})</li>`)
     .join('\n');
   const embItems = embeddeds.length > 0
-    ? `<p>Embedded Objects: ${embeddeds.length}</p><ul>`
+    ? `<p>${t('panel.tools.isar.embedded', embeddeds.length)}</p><ul>`
       + embeddeds.map((e) => `<li>${esc(e.className)}</li>`).join('')
       + '</ul>'
     : '';
-  return `<h3>Source: ${collections.length} collection(s)</h3>
+  return `<h3>${t('panel.tools.isar.sourceHeading', collections.length)}</h3>
 <ul>${items}</ul>${embItems}`;
 }
 
@@ -43,67 +44,68 @@ function renderOptions(config: IIsarGenConfig): string {
   const idxChecked = config.includeIndexes ? ' checked' : '';
   const cmnChecked = config.includeComments ? ' checked' : '';
 
-  return `<h3>Options</h3>
+  return `<h3>${t('panel.tools.isar.options')}</h3>
 <div class="option-group">
-  <label>Embedded strategy:</label>
+  <label>${t('panel.tools.isar.embeddedStrategy')}</label>
   <label><input type="radio" name="embedded" value="json"${embJson}>
-    JSON serialize</label>
+    ${t('panel.tools.isar.embedded.json')}</label>
   <label><input type="radio" name="embedded" value="flatten"${embFlat}>
-    Flatten columns</label>
+    ${t('panel.tools.isar.embedded.flatten')}</label>
 </div>
 <div class="option-group">
-  <label>Enum strategy:</label>
+  <label>${t('panel.tools.isar.enumStrategy')}</label>
   <label><input type="radio" name="enum" value="auto"${enumAuto}>
-    Auto-detect</label>
+    ${t('panel.tools.isar.enum.auto')}</label>
   <label><input type="radio" name="enum" value="integer"${enumInt}>
-    Force integer</label>
+    ${t('panel.tools.isar.enum.integer')}</label>
   <label><input type="radio" name="enum" value="text"${enumText}>
-    Force text</label>
+    ${t('panel.tools.isar.enum.text')}</label>
 </div>
 <div class="option-group">
   <label><input type="checkbox" name="indexes"${idxChecked}>
-    Include indexes</label>
+    ${t('panel.tools.isar.includeIndexes')}</label>
   <label><input type="checkbox" name="comments"${cmnChecked}>
-    Include comments</label>
+    ${t('panel.tools.isar.includeComments')}</label>
 </div>`;
 }
 
 function renderTableBlock(
-  t: IIsarMappingResult['tables'][0],
+  tbl: IIsarMappingResult['tables'][0],
   prefix?: string,
 ): string {
-  const cols = t.columns
+  const cols = tbl.columns
     .map((c) => `  <tr><td>${esc(c.getterName)}</td>`
       + `<td>${esc(c.columnType)}</td>`
       + `<td>${esc(c.comment ?? '')}</td></tr>`)
     .join('\n');
+  // Junction tables get a "{prefix}: {name}" label; the prefix word is itself a
+  // catalog string so the whole label is translatable, joined via a token key.
   const label = prefix
-    ? `${prefix}: ${esc(t.tableName ?? t.className)}`
-    : esc(t.className);
+    ? t('panel.tools.isar.junctionLabel', prefix, esc(tbl.tableName ?? tbl.className))
+    : esc(tbl.className);
   return `<h4>${label}</h4>
-<table><thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+<table><thead><tr><th>${t('panel.tools.isar.col.column')}</th><th>${t('panel.tools.isar.col.type')}</th><th>${t('panel.tools.isar.col.notes')}</th></tr></thead>
 <tbody>${cols}</tbody></table>`;
 }
 
 function renderPreview(result: IIsarMappingResult): string {
   const tables = result.tables
-    .map((t) => renderTableBlock(t)).join('\n');
+    .map((tbl) => renderTableBlock(tbl)).join('\n');
   const junctions = result.junctionTables
-    .map((jt) => renderTableBlock(jt, 'Junction')).join('\n');
+    .map((jt) => renderTableBlock(jt, t('panel.tools.isar.junctionPrefix'))).join('\n');
 
   const warns = result.warnings.length > 0
-    ? '<div class="warnings"><h4>Warnings</h4><ul>'
+    ? `<div class="warnings"><h4>${t('panel.tools.isar.warnings')}</h4><ul>`
       + result.warnings.map((w) => `<li>${esc(w)}</li>`).join('')
       + '</ul></div>'
     : '';
 
   const skipped = result.skippedBacklinks.length > 0
-    ? '<div class="muted"><p>Skipped backlinks: '
-      + result.skippedBacklinks.map((b) => esc(b)).join(', ')
+    ? `<div class="muted"><p>${t('panel.tools.isar.skipped', result.skippedBacklinks.map((b) => esc(b)).join(', '))}`
       + '</p></div>'
     : '';
 
-  return `<h3>Mapping Preview</h3>${tables}${junctions}${warns}${skipped}`;
+  return `<h3>${t('panel.tools.isar.preview')}</h3>${tables}${junctions}${warns}${skipped}`;
 }
 
 /** Build the full webview HTML. */
@@ -114,14 +116,14 @@ export function buildIsarGenHtml(
   mappingResult: IIsarMappingResult,
 ): string {
   const body = `
-<h2>Isar to Drift Schema Generator</h2>
+<h2>${t('panel.tools.isar.title')}</h2>
 ${renderSourceSummary(collections, embeddeds)}
 ${renderOptions(config)}
 ${renderPreview(mappingResult)}
 <div class="toolbar">
-  <button class="btn" data-action="generate">Generate Dart</button>
-  <button class="btn" data-action="copy">Copy to Clipboard</button>
-  <button class="btn" data-action="save">Save to File</button>
+  <button class="btn" data-action="generate">${t('panel.tools.isar.btn.generate')}</button>
+  <button class="btn" data-action="copy">${t('panel.tools.isar.btn.copy')}</button>
+  <button class="btn" data-action="save">${t('panel.tools.isar.btn.save')}</button>
 </div>`;
 
   return wrapHtml(body);

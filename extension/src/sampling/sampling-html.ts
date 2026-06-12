@@ -5,6 +5,7 @@
 
 import type { ColumnMetadata } from '../api-types';
 import type { ISamplingResult } from './sampling-types';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -23,15 +24,14 @@ function renderColumnOptions(columns: ColumnMetadata[]): string {
 
 function renderResultTable(result: ISamplingResult): string {
   if (result.rows.length === 0) {
-    return '<div class="empty">No rows returned.</div>';
+    return `<div class="empty">${t('panel.replay.sampling.result.empty')}</div>`;
   }
 
   const pct = result.totalRows > 0
     ? ((result.sampledRows / result.totalRows) * 100).toFixed(1)
     : '0';
 
-  let html = `<div class="summary">${result.sampledRows} rows`
-    + ` (${pct}% of ${result.totalRows}) in ${result.durationMs}ms</div>`;
+  let html = `<div class="summary">${t('panel.replay.sampling.result.summary', result.sampledRows, pct, result.totalRows, result.durationMs)}</div>`;
 
   if (result.stats && result.stats.length > 0) {
     html += renderCohortTable(result);
@@ -40,8 +40,8 @@ function renderResultTable(result: ISamplingResult): string {
   }
 
   html += `<div class="toolbar">
-    <button class="btn" data-action="exportCsv">Export CSV</button>
-    <button class="btn" data-action="copySql">Copy SQL</button>
+    <button class="btn" data-action="exportCsv">${t('panel.replay.sampling.btn.exportCsv')}</button>
+    <button class="btn" data-action="copySql">${t('panel.replay.sampling.btn.copySql')}</button>
   </div>`;
 
   return html;
@@ -61,8 +61,7 @@ function renderDataTable(result: ISamplingResult): string {
     <tbody>${bodyRows}</tbody></table></div>`;
 
   if (result.rows.length > 200) {
-    html += `<div class="truncated">Showing 200 of ${result.rows.length}`
-      + ` rows. Export CSV for full data.</div>`;
+    html += `<div class="truncated">${t('panel.replay.sampling.truncated', 200, result.rows.length)}</div>`;
   }
 
   return html;
@@ -74,10 +73,13 @@ function renderCohortTable(result: ISamplingResult): string {
   const numCol = hasNumeric ? stats.find((s) => s.numericStats)!
     .numericStats!.column : '';
 
-  let header = '<th>Cohort</th><th>Count</th><th>%</th>';
+  let header = `<th>${t('panel.replay.sampling.cohort.col.cohort')}</th>`
+    + `<th>${t('panel.replay.sampling.cohort.col.count')}</th>`
+    + `<th>${t('panel.replay.sampling.cohort.col.percent')}</th>`;
   if (hasNumeric) {
-    header += `<th>Avg ${esc(numCol)}</th>`
-      + `<th>Min ${esc(numCol)}</th><th>Max ${esc(numCol)}</th>`;
+    header += `<th>${t('panel.replay.sampling.cohort.col.avg', esc(numCol))}</th>`
+      + `<th>${t('panel.replay.sampling.cohort.col.min', esc(numCol))}</th>`
+      + `<th>${t('panel.replay.sampling.cohort.col.max', esc(numCol))}</th>`;
   }
 
   const bodyRows = stats.map((s) => {
@@ -117,45 +119,45 @@ export function buildSamplingHtml(
   const colOpts = renderColumnOptions(columns);
 
   const resultsHtml = searching
-    ? '<div class="searching">Sampling\u2026</div>'
+    ? `<div class="searching">${t('panel.replay.sampling.searching')}</div>`
     : result ? renderResultTable(result) : '';
 
   const body = `
-<h2>Data Sampling \u2014 ${esc(table)}
-  <span class="badge">${totalRows.toLocaleString()} rows</span></h2>
+<h2>${t('panel.replay.sampling.title', esc(table))}
+  <span class="badge">${t('panel.replay.sampling.badge.rows', totalRows.toLocaleString())}</span></h2>
 <div class="sample-form">
   <div class="options-row">
-    <label>Mode:</label>
+    <label>${t('panel.replay.sampling.mode')}</label>
     <label><input type="radio" name="mode" value="random" checked />
-      Random</label>
+      ${t('panel.replay.sampling.mode.random')}</label>
     <label><input type="radio" name="mode" value="stratified" />
-      Stratified</label>
+      ${t('panel.replay.sampling.mode.stratified')}</label>
     <label><input type="radio" name="mode" value="percentile" />
-      Percentile</label>
+      ${t('panel.replay.sampling.mode.percentile')}</label>
     <label><input type="radio" name="mode" value="cohort" />
-      Cohort</label>
+      ${t('panel.replay.sampling.mode.cohort')}</label>
   </div>
   <div class="options-row">
-    <label>Size:</label>
+    <label>${t('panel.replay.sampling.size')}</label>
     <input id="sampleSize" type="number" value="50" min="1" max="10000" />
   </div>
   <div class="options-row mode-opt" data-modes="stratified">
-    <label>Group by:</label>
+    <label>${t('panel.replay.sampling.groupBy')}</label>
     <select id="stratifyCol">${colOpts}</select>
   </div>
   <div class="options-row mode-opt" data-modes="percentile">
-    <label>Column:</label>
+    <label>${t('panel.replay.sampling.column')}</label>
     <select id="percentileCol">${colOpts}</select>
-    <label>Range:</label>
+    <label>${t('panel.replay.sampling.range')}</label>
     <input id="pMin" type="number" value="90" min="0" max="100" />
     <span>\u2013</span>
     <input id="pMax" type="number" value="100" min="0" max="100" />
   </div>
   <div class="options-row mode-opt" data-modes="cohort">
-    <label>Column:</label>
+    <label>${t('panel.replay.sampling.column')}</label>
     <select id="cohortCol">${colOpts}</select>
   </div>
-  <button class="btn primary" data-action="sample">Sample</button>
+  <button class="btn primary" data-action="sample">${t('panel.replay.sampling.btn.sample')}</button>
 </div>
 <div id="results">${resultsHtml}</div>`;
 

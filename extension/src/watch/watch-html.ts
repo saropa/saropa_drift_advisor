@@ -1,3 +1,5 @@
+import { t } from '../l10n';
+
 /** Generate the HTML content for the watch panel webview. */
 export function getWatchHtml(): string {
   return `<!DOCTYPE html>
@@ -124,8 +126,8 @@ export function getWatchHtml(): string {
 <body>
 <div id="container">
   <div id="empty-state" class="empty-state">
-    <h2>No active watches</h2>
-    <p>Right-click a table in the Database explorer and select <b>Watch Table</b></p>
+    <h2>${t('panel.replay.watch.empty.title')}</h2>
+    <p>${t('panel.replay.watch.empty.hint')}</p>
   </div>
   <div id="watches"></div>
 </div>
@@ -158,9 +160,11 @@ export function getWatchHtml(): string {
 
   function renderCard(entry) {
     const pausedClass = entry.paused ? ' watch-paused' : '';
+    // TODO(l10n): client-script string ('{n} rows')
     const meta = entry.currentResult
       ? entry.currentResult.rows.length + ' rows'
       : '';
+    // TODO(l10n): client-script string ('· changed {time}')
     const changed = entry.lastChangedAt
       ? ' · changed ' + formatTime(entry.lastChangedAt)
       : '';
@@ -173,6 +177,7 @@ export function getWatchHtml(): string {
     }
 
     const summary = renderSummary(entry.diff);
+    // TODO(l10n): client-script string ('Resume' / 'Pause' button labels)
     const pauseBtn = entry.paused
       ? btn('Resume', 'resumeWatch', entry.id)
       : btn('Pause', 'pauseWatch', entry.id);
@@ -185,6 +190,7 @@ export function getWatchHtml(): string {
       + '  </div>'
       + '  <div class="watch-actions">'
       +      pauseBtn
+      // TODO(l10n): client-script string ('Clear' / 'Remove' button labels)
       +      btn('Clear', 'clearDiff', entry.id)
       +      btn('Remove', 'removeWatch', entry.id, 'btn-danger')
       + '  </div>'
@@ -239,6 +245,7 @@ export function getWatchHtml(): string {
   function renderSummary(diff) {
     if (!diff) return '';
     const parts = [];
+    // TODO(l10n): client-script string ('{n} added/removed/changed/unchanged' summary parts)
     if (diff.addedRows.length) parts.push(diff.addedRows.length + ' added');
     if (diff.removedRows.length) parts.push(diff.removedRows.length + ' removed');
     if (diff.changedRows.length) parts.push(diff.changedRows.length + ' changed');
@@ -258,6 +265,7 @@ export function getWatchHtml(): string {
 
   function formatTime(ts) {
     const secs = Math.floor((Date.now() - ts) / 1000);
+    // TODO(l10n): client-script string ('just now' / '{n}s ago' / '{n}m ago')
     if (secs < 5) return 'just now';
     if (secs < 60) return secs + 's ago';
     const mins = Math.floor(secs / 60);

@@ -5,6 +5,7 @@
  * Extracted from app.js — function bodies are unchanged.
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 import { esc, formatTableRowCountDisplay } from './utils.ts';
 import { isPiiMaskEnabled, isPiiColumn, getDisplayValue } from './pii.ts';
 import { getScope, filterRows, getTableDisplayData, buildTableFilterMetaSuffix, applySearch } from './search.ts';
@@ -70,8 +71,8 @@ export function formatCellValue(value, columnName, columnType) {
   if (value == null || value === '') return { formatted: raw, raw: raw, wasFormatted: false };
   var type = (columnType || '').toUpperCase();
   if ((type === 'INTEGER' || type === '') && isBooleanColumn(columnName)) {
-    if (value === 0 || value === '0') return { formatted: 'false', raw: raw, wasFormatted: true };
-    if (value === 1 || value === '1') return { formatted: 'true', raw: raw, wasFormatted: true };
+    if (value === 0 || value === '0') return { formatted: vt('viewer.table.grid.boolFalse'), raw: raw, wasFormatted: true };
+    if (value === 1 || value === '1') return { formatted: vt('viewer.table.grid.boolTrue'), raw: raw, wasFormatted: true };
   }
   if ((type === 'INTEGER' || type === 'REAL' || type === '') && (isDateColumn(columnName) || isEpochTimestamp(value))) {
     var epoch = isEpochTimestamp(value);
@@ -96,7 +97,7 @@ export function showCopyToast(message) {
     toast.classList.remove('show');
     // Always reset to default text after fade to avoid race
     // conditions when overlapping toasts capture stale text.
-    toast.textContent = 'Copied!';
+    toast.textContent = vt('viewer.table.toast.copied');
   }, 1200);
 }
 export function copyCellValue(text) {
@@ -106,7 +107,7 @@ export function copyCellValue(text) {
 }
 
 export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
-  if (!filtered || filtered.length === 0) return '<p class="meta">No rows.</p>';
+  if (!filtered || filtered.length === 0) return '<p class="meta">' + vt('viewer.table.grid.empty') + '</p>';
   var dataKeys = Object.keys(filtered[0]);
   var order = dataKeys.slice();
   var hidden = [];
@@ -125,15 +126,14 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
   var html = '<table id="data-table" class="drift-table"><thead><tr>';
   visible.forEach(function(k) {
     var fk = fkMap[k];
-    var fkLabel = fk ? ' <span class="table-header-fk" title="FK to ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '">&#8599;</span>' : '';
+    var fkLabel = fk ? ' <span class="table-header-fk" title="' + esc(vt('viewer.table.grid.fkHeaderTitle', fk.toTable, fk.toColumn)) + '">&#8599;</span>' : '';
     /* Column type badge: show abbreviated SQLite type next to the column name */
     var colType = colTypes ? (colTypes[k] || '') : '';
     var typeBadge = colType ? ' <span class="col-type-badge" title="' + esc(colType) + '">' + esc(colType.substring(0, 4)) + '</span>' : '';
     /* When PII masking is on, mark sensitive columns in the header (same heuristic as cell masking). */
     var maskBadge = '';
     if (maskOn && isPiiColumn(k)) {
-      var maskTip =
-        'Sensitive column: values are redacted while PII masking is on. Use the mask control in the toolbar to show raw data.';
+      var maskTip = vt('viewer.table.grid.maskTip');
       maskBadge =
         ' <span class="col-mask-badge" title="' +
         esc(maskTip) +
@@ -147,7 +147,7 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
       esc(k) +
       '" draggable="true"' +
       thClass +
-      ' title="Drag to reorder; right-click for menu">' +
+      ' title="' + esc(vt('viewer.table.grid.headerDragTitle')) + '">' +
       esc(k) +
       maskBadge +
       typeBadge +
@@ -155,7 +155,7 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
       '</th>';
   });
   if (showRowDelete) {
-    html += '<th class="row-action-col">Actions</th>';
+    html += '<th class="row-action-col">' + esc(vt('viewer.table.grid.actionsHeader')) + '</th>';
   }
   html += '</tr></thead><tbody>';
   var piiCols = {};
@@ -193,7 +193,7 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
       } else if (S.displayFormat === 'formatted' && colTypes && !(maskOn && piiCols[k])) {
         var fmt = formatCellValue(val, k, colTypes[k]);
         if (fmt.wasFormatted) {
-          cellContent = '<span title="Raw: ' + esc(fmt.raw) + '">' + esc(fmt.formatted) + '</span>'
+          cellContent = '<span title="' + esc(vt('viewer.table.grid.rawTitle', fmt.raw)) + '">' + esc(fmt.formatted) + '</span>'
             + '<span class="cell-raw">' + esc(fmt.raw) + '</span>';
         } else {
           cellContent = esc(displayStr);
@@ -201,14 +201,14 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
       } else {
         cellContent = esc(displayStr);
       }
-      var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc(displayStr) + '" title="Copy value">&#x2398;</button>';
+      var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc(displayStr) + '" title="' + esc(vt('viewer.table.grid.copyValueTitle')) + '">&#x2398;</button>';
       /* Expand button sits next to copy on hover; opens the full (untruncated)
          value in the cell-value popup. Only shown when the BLOB preview clipped
          the value, since that is the only case the visible text is incomplete.
          It reads the full value from the sibling copy button's data-raw, so the
          value is stored once (single source) rather than duplicated per button. */
       var expandBtn = blobTruncated
-        ? '<button type="button" class="cell-expand-btn" title="Open full value">&#x26F6;</button>'
+        ? '<button type="button" class="cell-expand-btn" title="' + esc(vt('viewer.table.grid.expandValueTitle')) + '">&#x26F6;</button>'
         : '';
       var tdClass = pinned.indexOf(k) >= 0 ? ' class="col-pinned"' : '';
       var tdAttrs = ' data-column-key="' + esc(k) + '"' + tdClass;
@@ -229,7 +229,7 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
       html += '<td class="row-action-col"><button type="button" class="row-delete-btn"'
         + ' data-pk-col="' + esc(singlePkName) + '"'
         + ' data-pk-raw="' + esc(pkRaw) + '"'
-        + ' title="Delete this row">Delete</button></td>';
+        + ' title="' + esc(vt('viewer.table.grid.rowDeleteTitle')) + '">' + esc(vt('viewer.table.grid.rowDeleteLabel')) + '</button></td>';
     }
     html += '</tr>';
   });
@@ -272,10 +272,15 @@ export function buildTableStatusBar(total, offset, limit, displayedLen, columnCo
     ? (offset + 1) + '\u2013' + (offset + displayedLen)
     : '0';
   var totalText = total != null ? total.toLocaleString() : '?';
-  var colText = (columnCount != null && columnCount > 0) ? (columnCount + ' column' + (columnCount !== 1 ? 's' : '')) : '';
-  var parts = ['Showing <span class="table-status-range">' + rangeText + '</span> of ' + totalText + ' rows'];
+  var colText = (columnCount != null && columnCount > 0)
+    ? vt(columnCount !== 1 ? 'viewer.table.status.columnMany' : 'viewer.table.status.columnOne', columnCount)
+    : '';
+  // Range is pre-wrapped in markup so the {0} token carries the styled span; the
+  // catalog value keeps word order ("Showing {0} of {1} rows") translator-editable.
+  var rangeMarkup = '<span class="table-status-range">' + rangeText + '</span>';
+  var parts = [vt('viewer.table.status.showing', rangeMarkup, totalText)];
   if (displayedLen === 0 && total != null && total > 0 && offset >= total) {
-    parts.push('(past end of results)');
+    parts.push(vt('viewer.table.status.pastEnd'));
   }
   if (colText) parts.push(colText);
   return '<div class="table-status-bar" role="status">' + parts.join(' \u2022 ') + '</div>';
@@ -296,15 +301,15 @@ export function buildTableStatusBar(total, offset, limit, displayedLen, columnCo
 export function buildResultsLabel(rowCount, totalRows, visibleCols, totalCols) {
   // Rows: show the total only when it differs from what is on the page.
   var rowsText = (totalRows != null && totalRows !== rowCount)
-    ? rowCount.toLocaleString() + ' of ' + totalRows.toLocaleString() + ' rows'
-    : rowCount.toLocaleString() + ' row' + (rowCount !== 1 ? 's' : '');
+    ? vt('viewer.table.results.rowsOf', rowCount.toLocaleString(), totalRows.toLocaleString())
+    : vt(rowCount !== 1 ? 'viewer.table.results.rowMany' : 'viewer.table.results.rowOne', rowCount.toLocaleString());
 
   // Columns: same collapse — drop the duplicate when every column is visible.
   var colsText = '';
   if (totalCols != null && totalCols > 0) {
     colsText = (visibleCols != null && visibleCols !== totalCols)
-      ? visibleCols + ' of ' + totalCols + ' columns'
-      : totalCols + ' column' + (totalCols !== 1 ? 's' : '');
+      ? vt('viewer.table.results.colsOf', visibleCols, totalCols)
+      : vt(totalCols !== 1 ? 'viewer.table.results.colMany' : 'viewer.table.results.colOne', totalCols);
   }
 
   return colsText ? rowsText + ' / ' + colsText : rowsText;
@@ -366,7 +371,7 @@ function buildColumnMetaCells(stat) {
   var nonnull = stat.nonnull || 0;
   // Fill rate = non-null fraction of all rows. Drives the completeness bar.
   var fillPct = total > 0 ? Math.round((nonnull / total) * 100) : 0;
-  var fillTitle = nonnull + ' of ' + total + ' rows filled (' + stat.nulls + ' null)';
+  var fillTitle = vt('viewer.table.def.fillCellTitle', nonnull, total, stat.nulls);
   var fillCell = '<td class="tdm-col tdm-fill-cell">' +
     '<span class="tdm-bar" title="' + esc(fillTitle) + '">' +
     '<span class="tdm-bar-fill" style="width:' + fillPct + '%"></span></span>' +
@@ -382,18 +387,18 @@ function buildColumnMetaCells(stat) {
   // distinct-to-rows ratio so low-cardinality (categorical) columns stand out.
   var uniqueCell;
   if (total > 0 && stat.distinct === total && stat.nulls === 0) {
-    uniqueCell = '<td class="tdm-col tdm-unique" title="Candidate key: every value is unique">' +
+    uniqueCell = '<td class="tdm-col tdm-unique" title="' + esc(vt('viewer.table.def.uniqueKeyTitle')) + '">' +
       '<span class="tdm-key">🔑</span> 100%</td>';
   } else if (total > 0) {
     var uPct = Math.round((stat.distinct / total) * 100);
-    uniqueCell = '<td class="tdm-col tdm-num" title="' + stat.distinct + ' distinct of ' + total + ' rows">' + uPct + '%</td>';
+    uniqueCell = '<td class="tdm-col tdm-num" title="' + esc(vt('viewer.table.def.uniqueRatioTitle', stat.distinct, total)) + '">' + uPct + '%</td>';
   } else {
     uniqueCell = '<td class="tdm-col tdm-num"><span class="tdm-dim">—</span></td>';
   }
 
   var minCell = '<td class="tdm-col tdm-val">' + formatMetaScalar(stat.min) + '</td>';
   var maxCell = '<td class="tdm-col tdm-val">' + formatMetaScalar(stat.max) + '</td>';
-  var sizeCell = '<td class="tdm-col tdm-num" title="Total bytes across all rows (SUM of LENGTH)">' +
+  var sizeCell = '<td class="tdm-col tdm-num" title="' + esc(vt('viewer.table.def.sizeCellTitle')) + '">' +
     esc(formatTableDefBytes(stat.bytes)) + '</td>';
 
   return fillCell + nullsCell + distinctCell + uniqueCell + minCell + maxCell + sizeCell;
@@ -431,24 +436,24 @@ export function buildTableDefinitionHtml(tableName) {
     var rawType = c.type != null ? String(c.type).trim() : '';
     // Type icon cell
     var icon = columnTypeIcon(rawType);
-    var iconHtml = '<span class="table-def-icon" title="' + esc(rawType || 'unspecified') + '">' + esc(icon) + '</span>';
+    var iconHtml = '<span class="table-def-icon" title="' + esc(rawType || vt('viewer.table.def.typeUnspecified')) + '">' + esc(icon) + '</span>';
     // Show/hide checkbox: toggles this column's visibility in the results table.
     var isHidden = hiddenCols.indexOf(c.name) >= 0;
     var visCell = '<td class="table-def-vis">' +
       '<input type="checkbox" class="table-def-colvis" data-col-key="' + esc(c.name) + '"' +
       (isHidden ? '' : ' checked') +
-      ' title="Show this column in the results table" aria-label="Show ' + esc(c.name) + ' in results"></td>';
+      ' title="' + esc(vt('viewer.table.def.visTitle')) + '" aria-label="' + esc(vt('viewer.table.def.visLabel', c.name)) + '"></td>';
     // PK / FK badge icons (separate from the type icon)
     var badges = '';
-    if (c.pk)            badges += '<span class="table-def-badge table-def-badge-pk" title="Primary key">\uD83D\uDD11</span>';
-    if (fkSet[c.name])   badges += '<span class="table-def-badge table-def-badge-fk" title="FK \u2192 ' + esc(fkSet[c.name].toTable) + '.' + esc(fkSet[c.name].toColumn) + '">\uD83D\uDD17</span>';
+    if (c.pk)            badges += '<span class="table-def-badge table-def-badge-pk" title="' + esc(vt('viewer.table.def.badgePk')) + '">\uD83D\uDD11</span>';
+    if (fkSet[c.name])   badges += '<span class="table-def-badge table-def-badge-fk" title="' + esc(vt('viewer.table.def.badgeFk', fkSet[c.name].toTable, fkSet[c.name].toColumn)) + '">\uD83D\uDD17</span>';
 
     // Constraints text (NOT NULL only — PK/FK are shown as badges)
     var flags = [];
-    if (c.notnull) flags.push('NOT NULL');
+    if (c.notnull) flags.push(vt('viewer.table.def.flagNotNull'));
     var flagStr = flags.length ? flags.join(', ') : '\u2014';
 
-    var typCell = rawType ? esc(rawType) : '<span class="table-def-type-empty">(unspecified)</span>';
+    var typCell = rawType ? esc(rawType) : '<span class="table-def-type-empty">' + esc(vt('viewer.table.def.typeEmpty')) + '</span>';
     var metaCells = showMeta ? buildColumnMetaCells(stats[c.name]) : '';
     return '<tr>' +
       visCell +
@@ -471,13 +476,13 @@ export function buildTableDefinitionHtml(tableName) {
   // would still collapse everything on first load even if this HTML left the panel open.
   // Meta header cells, appended after the base headers when profiling is on.
   var metaHeads = showMeta
-    ? '<th class="tdm-col" scope="col" title="Share of rows with a non-null value">Fill</th>' +
-      '<th class="tdm-col" scope="col" title="Number of NULL values">Nulls</th>' +
-      '<th class="tdm-col" scope="col" title="Number of distinct values">Distinct</th>' +
-      '<th class="tdm-col" scope="col" title="Uniqueness; key flag when every value is unique">Unique</th>' +
-      '<th class="tdm-col" scope="col" title="Smallest value">Min</th>' +
-      '<th class="tdm-col" scope="col" title="Largest value">Max</th>' +
-      '<th class="tdm-col" scope="col" title="Total stored bytes">Size</th>'
+    ? '<th class="tdm-col" scope="col" title="' + esc(vt('viewer.table.def.metaFillTitle')) + '">' + esc(vt('viewer.table.def.metaFill')) + '</th>' +
+      '<th class="tdm-col" scope="col" title="' + esc(vt('viewer.table.def.metaNullsTitle')) + '">' + esc(vt('viewer.table.def.metaNulls')) + '</th>' +
+      '<th class="tdm-col" scope="col" title="' + esc(vt('viewer.table.def.metaDistinctTitle')) + '">' + esc(vt('viewer.table.def.metaDistinct')) + '</th>' +
+      '<th class="tdm-col" scope="col" title="' + esc(vt('viewer.table.def.metaUniqueTitle')) + '">' + esc(vt('viewer.table.def.metaUnique')) + '</th>' +
+      '<th class="tdm-col" scope="col" title="' + esc(vt('viewer.table.def.metaMinTitle')) + '">' + esc(vt('viewer.table.def.metaMin')) + '</th>' +
+      '<th class="tdm-col" scope="col" title="' + esc(vt('viewer.table.def.metaMaxTitle')) + '">' + esc(vt('viewer.table.def.metaMax')) + '</th>' +
+      '<th class="tdm-col" scope="col" title="' + esc(vt('viewer.table.def.metaSizeTitle')) + '">' + esc(vt('viewer.table.def.metaSize')) + '</th>'
     : '';
 
   // Heading toolbar: meta toggle + JSON/Flutter copy. The buttons live inside the
@@ -486,32 +491,32 @@ export function buildTableDefinitionHtml(tableName) {
   var metaActive = metaOn ? ' is-active' : '';
   var tools = '<span class="table-def-tools">' +
     '<button type="button" class="table-def-tool' + metaActive + '" data-tdm-action="toggle-meta"' +
-      ' title="Show column profiling stats (fill, nulls, distinct, min/max, size)"' +
-      ' aria-label="Toggle column profiling stats" aria-pressed="' + (metaOn ? 'true' : 'false') + '">' +
+      ' title="' + esc(vt('viewer.table.def.toolMetaTitle')) + '"' +
+      ' aria-label="' + esc(vt('viewer.table.def.toolMetaLabel')) + '" aria-pressed="' + (metaOn ? 'true' : 'false') + '">' +
       '<span class="material-symbols-outlined" aria-hidden="true">insights</span></button>' +
     '<button type="button" class="table-def-tool" data-tdm-action="copy-json"' +
-      ' title="Copy table definition as JSON" aria-label="Copy table definition as JSON">' +
+      ' title="' + esc(vt('viewer.table.def.toolJsonTitle')) + '" aria-label="' + esc(vt('viewer.table.def.toolJsonLabel')) + '">' +
       '<span class="material-symbols-outlined" aria-hidden="true">data_object</span></button>' +
     '<button type="button" class="table-def-tool" data-tdm-action="copy-flutter"' +
-      ' title="Copy table definition as Flutter (Drift) class" aria-label="Copy table definition as Flutter code">' +
+      ' title="' + esc(vt('viewer.table.def.toolFlutterTitle')) + '" aria-label="' + esc(vt('viewer.table.def.toolFlutterLabel')) + '">' +
       '<span class="material-symbols-outlined" aria-hidden="true">flutter_dash</span></button>' +
     '</span>';
 
   // data-table-name lets table-def-meta.ts resolve which table a tool click acts on
   // (and re-find the live panel after an async stats fetch).
-  return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="Table definition" data-table-name="' + esc(tableName) + '">' +
+  return '<div class="table-definition-wrap td-collapsed" role="region" aria-label="' + esc(vt('viewer.table.def.regionLabel')) + '" data-table-name="' + esc(tableName) + '">' +
     '<div class="table-definition-heading">' +
-    '<span class="table-definition-heading-label">Table definition</span>' +
+    '<span class="table-definition-heading-label">' + esc(vt('viewer.table.def.headingLabel')) + '</span>' +
     tools +
     '</div>' +
     '<div class="table-definition-scroll">' +
     '<table class="table-definition">' +
     '<thead><tr>' +
-      '<th class="table-def-vis" scope="col" title="Show column in the results table">Show</th>' +
+      '<th class="table-def-vis" scope="col" title="' + esc(vt('viewer.table.def.colShowTitle')) + '">' + esc(vt('viewer.table.def.colShow')) + '</th>' +
       '<th class="table-def-icons" scope="col"></th>' +
-      '<th scope="col">Column</th>' +
-      '<th scope="col">Type</th>' +
-      '<th scope="col">Constraints</th>' +
+      '<th scope="col">' + esc(vt('viewer.table.def.colColumn')) + '</th>' +
+      '<th scope="col">' + esc(vt('viewer.table.def.colType')) + '</th>' +
+      '<th scope="col">' + esc(vt('viewer.table.def.colConstraints')) + '</th>' +
       metaHeads +
     '</tr></thead>' +
     '<tbody>' + rows + '</tbody></table></div></div>';
@@ -562,7 +567,7 @@ export function renderTableView(name, data) {
   }
   // Show loading hint while FK metadata is being fetched for the first time
   if (!S.fkMetaCache[name] && scope !== 'both') {
-    content.innerHTML = '<p class="meta">' + metaText + '</p><p class="meta">Loading\u2026</p>';
+    content.innerHTML = '<p class="meta">' + metaText + '</p><p class="meta">' + vt('viewer.table.results.loading') + '</p>';
   }
   function renderDataHtml(fkMap, colTypes) {
     var defHtml = buildTableDefinitionHtml(name);
@@ -578,8 +583,8 @@ export function renderTableView(name, data) {
       getVisibleColumnCount(resultDataKeys, getColumnConfig(name)),
       resultDataKeys.length
     );
-    var tableHtml = '<div class="results-table-wrap" role="region" aria-label="Results">' +
-      '<div class="results-table-heading">Results \u2014 ' + resultsLabel + '</div>' +
+    var tableHtml = '<div class="results-table-wrap" role="region" aria-label="' + esc(vt('viewer.table.results.regionLabel')) + '">' +
+      '<div class="results-table-heading">' + vt('viewer.table.results.heading', resultsLabel) + '</div>' +
       '<div class="results-table-body">' + rawTableHtml + '</div></div>';
     var qbHtml = buildQueryBuilderHtml(name, colTypes);
     if (scope === 'both') {
@@ -602,7 +607,7 @@ export function renderTableView(name, data) {
           var dataBody = dataSection.querySelector('.collapsible-body');
           var headerEl = dataSection.querySelector('.collapsible-header');
           if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + '</p>' + defHtml + qbHtml + tableHtml;
-          if (headerEl) headerEl.textContent = 'Table data: ' + name;
+          if (headerEl) headerEl.textContent = vt('viewer.table.results.dataHeader', name);
           bindColumnTableEvents();
           bindQueryBuilderEvents(colTypes);
           if (S.queryBuilderState) restoreQueryBuilderUIState(S.queryBuilderState);

@@ -1,8 +1,8 @@
 /**
  * Masthead pill — connection-status UI controller.
  *
- * Self-contained module: owns the STATUS_LABELS constants and exposes
- * a minimal API for app.js to drive.
+ * Self-contained module: resolves its pill labels through the web l10n
+ * registry (vt) and exposes a minimal API for app.js to drive.
  *
  * DOM contract:
  *   #live-indicator — button inside .masthead-pill that displays the
@@ -13,6 +13,8 @@
  * Styles live in _masthead.scss.
  */
 
+import { vt } from './l10n.ts';
+
 /** Public API shape for the masthead connection-status pill. */
 export interface MastheadStatus {
   setConnection(state: string, pollingEnabled: boolean): void;
@@ -20,19 +22,14 @@ export interface MastheadStatus {
   onToggle: Function | null;
 }
 
-// Centralised labels for the masthead connection-status pill.
-// Change wording here once — both setConnection and the click
-// handler read from this object.
-const STATUS = {
-  online:            '\u25cf Online',
-  onlineTitle:       'Online \u2014 click to pause change detection.',
-  paused:            '\u25cf Paused',
-  pausedTitle:       'Paused \u2014 click to resume live updates.',
-  offline:           '\u25cf Offline',
-  offlineTitle:      'Offline \u2014 connection lost. Reconnect to resume live updates.',
-  reconnecting:      '\u25cf Reconnecting\u2026',
-  reconnectingTitle: 'Offline \u2014 reconnecting\u2026',
-};
+// Decorative status dot prepended to every pill label. It is a symbol, not text,
+// so it stays OUT of the l10n catalog (it must never vary per locale) and is
+// concatenated onto the localized status word \u2014 the one place prepending a
+// non-English literal is correct rather than English concatenation. The status
+// words and full tooltip sentences live in strings-web.ts (masthead.status.* /
+// masthead.title.*) and resolve via vt() at call time so a late-installed locale
+// overlay still applies.
+const STATUS_DOT = '\u25cf ';
 
 /**
  * Initialises the masthead pill and returns the status API, or null
@@ -55,21 +52,21 @@ export function initMasthead(): MastheadStatus | null {
       if (state === 'connected') {
         indicator.classList.remove('disconnected', 'reconnecting');
         indicator.disabled = false;
-        indicator.textContent = pollingEnabled ? STATUS.online : STATUS.paused;
+        indicator.textContent = STATUS_DOT + vt(pollingEnabled ? 'masthead.status.online' : 'masthead.status.paused');
         indicator.classList.toggle('paused', !pollingEnabled);
-        indicator.title = pollingEnabled ? STATUS.onlineTitle : STATUS.pausedTitle;
+        indicator.title = vt(pollingEnabled ? 'masthead.title.online' : 'masthead.title.paused');
       } else if (state === 'disconnected') {
-        indicator.textContent = STATUS.offline;
+        indicator.textContent = STATUS_DOT + vt('masthead.status.offline');
         indicator.classList.add('disconnected');
         indicator.classList.remove('paused', 'reconnecting');
         indicator.disabled = true;
-        indicator.title = STATUS.offlineTitle;
+        indicator.title = vt('masthead.title.offline');
       } else {
-        indicator.textContent = STATUS.reconnecting;
+        indicator.textContent = STATUS_DOT + vt('masthead.status.reconnecting');
         indicator.classList.add('disconnected', 'reconnecting');
         indicator.classList.remove('paused');
         indicator.disabled = true;
-        indicator.title = STATUS.reconnectingTitle;
+        indicator.title = vt('masthead.title.reconnecting');
       }
     },
 

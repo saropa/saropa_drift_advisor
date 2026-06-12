@@ -5,6 +5,7 @@
 
 import type { ISchemaChange, ISchemaSnapshot } from './schema-timeline-types';
 import { diffSchemaSnapshots } from './schema-differ';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -21,10 +22,8 @@ export function buildSchemaTimelineHtml(
 ): string {
   if (snapshots.length === 0) {
     return wrapHtml(`<div class="empty">
-      <h2>No schema snapshots yet</h2>
-      <p>Schema snapshots are captured automatically when the database
-      generation changes. Start your app and modify the schema to see
-      the timeline.</p>
+      <h2>${t('panel.schema.timeline.empty.title')}</h2>
+      <p>${t('panel.schema.timeline.empty.body')}</p>
     </div>`);
   }
 
@@ -35,8 +34,8 @@ export function buildSchemaTimelineHtml(
 
   return wrapHtml(`
     <div class="header">
-      <h2>Schema Evolution Timeline</h2>
-      <button id="export-btn" title="Copy timeline as JSON">Export</button>
+      <h2>${t('panel.schema.timeline.title')}</h2>
+      <button id="export-btn" title="${t('panel.schema.timeline.btn.export.title')}">${t('panel.schema.timeline.btn.export')}</button>
     </div>
     <div class="timeline">${entries}</div>
     <div class="summary">${summary}</div>
@@ -70,8 +69,8 @@ function renderEntries(
   for (let i = 0; i < snapshots.length; i++) {
     const snap = snapshots[i];
     const isCurrent = i === snapshots.length - 1;
-    const label = isCurrent ? '(current)' : '';
-    const delta = i > 0 ? timeDelta(snapshots[i - 1], snap) : 'Initial';
+    const label = isCurrent ? t('panel.schema.timeline.label.current') : '';
+    const delta = i > 0 ? timeDelta(snapshots[i - 1], snap) : t('panel.schema.timeline.delta.initial');
     const changes = diffs[i];
 
     parts.push(`
@@ -79,7 +78,7 @@ function renderEntries(
         <div class="dot"></div>
         <div class="content">
           <div class="gen-header">
-            <strong>Gen ${esc(snap.generation)}</strong>
+            <strong>${t('panel.schema.timeline.gen', esc(snap.generation))}</strong>
             <span class="time">${esc(formatTime(snap.timestamp))}</span>
             <span class="delta">(${esc(delta)})</span>
             <span class="label">${esc(label)}</span>
@@ -94,16 +93,16 @@ function renderEntries(
 }
 
 function renderInitial(snap: ISchemaSnapshot): string {
-  const names = snap.tables.map((t) => esc(t.name)).join(', ');
+  const names = snap.tables.map((tbl) => esc(tbl.name)).join(', ');
   return `<div class="change-list">
-    <div class="change add">${snap.tables.length} tables: ${names}</div>
+    <div class="change add">${t('panel.schema.timeline.initial', snap.tables.length, names)}</div>
   </div>`;
 }
 
 function renderChanges(changes: ISchemaChange[]): string {
   if (changes.length === 0) {
     return '<div class="change-list"><div class="change none">'
-      + 'No schema changes (data only)</div></div>';
+      + `${t('panel.schema.timeline.change.none')}</div></div>`;
   }
 
   const items = changes.map((c) => {
@@ -131,16 +130,19 @@ function changeIcon(type: ISchemaChange['type']): string {
 }
 
 function changeLabel(type: ISchemaChange['type']): string {
-  const labels: Record<string, string> = {
-    table_added: 'Added table',
-    table_dropped: 'Dropped table',
-    column_added: 'Added column in',
-    column_removed: 'Removed column in',
-    column_type_changed: 'Type changed in',
-    fk_added: 'Added FK in',
-    fk_removed: 'Removed FK in',
+  // Each change type maps to a localized label phrase; the table name follows it
+  // as <strong>-wrapped data at the call site. Unknown type → its raw id (fail-soft).
+  const keys: Record<string, string> = {
+    table_added: 'panel.schema.timeline.change.tableAdded',
+    table_dropped: 'panel.schema.timeline.change.tableDropped',
+    column_added: 'panel.schema.timeline.change.columnAdded',
+    column_removed: 'panel.schema.timeline.change.columnRemoved',
+    column_type_changed: 'panel.schema.timeline.change.columnTypeChanged',
+    fk_added: 'panel.schema.timeline.change.fkAdded',
+    fk_removed: 'panel.schema.timeline.change.fkRemoved',
   };
-  return labels[type] ?? type;
+  const key = keys[type];
+  return key ? t(key) : type;
 }
 
 function renderSummary(
@@ -158,14 +160,28 @@ function renderSummary(
     }
   }
 
+  // Each fragment has its own singular/plural key so a translator controls the
+  // plural form per language, rather than English "s" suffixing.
   const parts: string[] = [];
-  if (added) parts.push(`${added} table${added !== 1 ? 's' : ''} added`);
-  if (dropped) parts.push(`${dropped} dropped`);
-  if (modified) parts.push(`${modified} column change${modified !== 1 ? 's' : ''}`);
-  if (fkChanges) parts.push(`${fkChanges} FK change${fkChanges !== 1 ? 's' : ''}`);
+  if (added) {
+    parts.push(added !== 1
+      ? t('panel.schema.timeline.summary.tablesAdded', added)
+      : t('panel.schema.timeline.summary.tableAdded', added));
+  }
+  if (dropped) parts.push(t('panel.schema.timeline.summary.dropped', dropped));
+  if (modified) {
+    parts.push(modified !== 1
+      ? t('panel.schema.timeline.summary.columnChanges', modified)
+      : t('panel.schema.timeline.summary.columnChange', modified));
+  }
+  if (fkChanges) {
+    parts.push(fkChanges !== 1
+      ? t('panel.schema.timeline.summary.fkChanges', fkChanges)
+      : t('panel.schema.timeline.summary.fkChange', fkChanges));
+  }
 
-  const text = parts.length > 0 ? parts.join(', ') : 'No changes';
-  return `<div class="summary-text">${snapshots.length} snapshots — ${text}</div>`;
+  const text = parts.length > 0 ? parts.join(', ') : t('panel.schema.timeline.summary.noChanges');
+  return `<div class="summary-text">${t('panel.schema.timeline.summary.text', snapshots.length, text)}</div>`;
 }
 
 function formatTime(iso: string): string {

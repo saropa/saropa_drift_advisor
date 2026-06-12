@@ -11,6 +11,7 @@ import type {
   IPerformanceSummary,
 } from './query-cost-types';
 import { getQueryCostCss } from './query-cost-styles';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -32,10 +33,10 @@ function nodeClass(node: IPlanNode): string {
 }
 
 function nodeBadge(node: IPlanNode): string {
-  if (node.isFullScan) return 'FULL SCAN';
+  if (node.isFullScan) return t('panel.query.cost.badge.fullScan');
   switch (node.operation) {
-    case 'search': return 'INDEX';
-    case 'use_temp_btree': return 'TEMP';
+    case 'search': return t('panel.query.cost.badge.index');
+    case 'use_temp_btree': return t('panel.query.cost.badge.temp');
     default: return '';
   }
 }
@@ -47,7 +48,7 @@ function renderNode(node: IPlanNode): string {
     ? ` <span class="badge ${cls}">${badge}</span>`
     : '';
   const tableInfo = node.table ? ` <span class="table-name">${esc(node.table)}</span>` : '';
-  const indexInfo = node.index ? ` <span class="index-name">via ${esc(node.index)}</span>` : '';
+  const indexInfo = node.index ? ` <span class="index-name">${t('panel.query.cost.node.via', esc(node.index))}</span>` : '';
   const children = node.children.map((c) => renderNode(c)).join('\n');
   return `<div class="node ${cls}">
   <div class="node-detail">${esc(node.detail)}${badgeHtml}${tableInfo}${indexInfo}</div>
@@ -68,26 +69,40 @@ function renderWarnings(warnings: IPlanWarning[]): string {
 </div>`;
     })
     .join('\n');
-  return `<h3>Warnings</h3>\n${items}`;
+  return `<h3>${t('panel.query.cost.section.warnings')}</h3>\n${items}`;
 }
 
 function renderSummary(summary: IPerformanceSummary): string {
-  return `<h3>Performance Summary</h3>
+  // Count-driven labels: pick the singular key when the count is exactly 1, else plural;
+  // the count is passed as {0} so a translator controls word order, not concatenation.
+  const scanText = summary.scanCount === 1
+    ? t('panel.query.cost.summary.scans.one', summary.scanCount)
+    : t('panel.query.cost.summary.scans.many', summary.scanCount);
+  const indexText = summary.indexCount === 1
+    ? t('panel.query.cost.summary.indexes.one', summary.indexCount)
+    : t('panel.query.cost.summary.indexes.many', summary.indexCount);
+  const tempText = summary.tempBTreeCount === 1
+    ? t('panel.query.cost.summary.temp.one', summary.tempBTreeCount)
+    : t('panel.query.cost.summary.temp.many', summary.tempBTreeCount);
+  const opsText = summary.totalNodes === 1
+    ? t('panel.query.cost.summary.ops.one', summary.totalNodes)
+    : t('panel.query.cost.summary.ops.many', summary.totalNodes);
+  return `<h3>${t('panel.query.cost.section.summary')}</h3>
 <div class="summary">
   <div class="summary-item ${summary.scanCount > 0 ? 'summary-bad' : 'summary-good'}">
     ${summary.scanCount > 0 ? '&#9888;' : '&#10003;'}
-    ${summary.scanCount} full table scan${summary.scanCount !== 1 ? 's' : ''}
+    ${scanText}
   </div>
   <div class="summary-item summary-good">
-    &#10003; ${summary.indexCount} index${summary.indexCount !== 1 ? 'es' : ''} used
+    &#10003; ${indexText}
   </div>
   ${summary.tempBTreeCount > 0
     ? `<div class="summary-item summary-info">
-    &#8505; ${summary.tempBTreeCount} temporary sort${summary.tempBTreeCount !== 1 ? 's' : ''}
+    &#8505; ${tempText}
   </div>`
     : ''}
   <div class="summary-item summary-neutral">
-    ${summary.totalNodes} total operation${summary.totalNodes !== 1 ? 's' : ''}
+    ${opsText}
   </div>
 </div>`;
 }
@@ -103,13 +118,13 @@ function renderSuggestions(suggestions: IIndexSuggestion[]): string {
   </div>
   <code class="suggestion-sql">${esc(s.sql)}</code>
   <div class="suggestion-actions">
-    <button class="copy-btn" data-action="copySuggestion" data-index="${i}">Copy</button>
-    <button class="run-btn" data-action="runSuggestion" data-index="${i}">Run</button>
+    <button class="copy-btn" data-action="copySuggestion" data-index="${i}">${t('panel.query.cost.suggestion.copy')}</button>
+    <button class="run-btn" data-action="runSuggestion" data-index="${i}">${t('panel.query.cost.suggestion.run')}</button>
   </div>
 </div>`,
     )
     .join('\n');
-  return `<h3>Suggestions</h3>\n${items}`;
+  return `<h3>${t('panel.query.cost.section.suggestions')}</h3>\n${items}`;
 }
 
 /** Build self-contained HTML for the query cost analysis panel. */
@@ -124,14 +139,14 @@ export function buildQueryCostHtml(
   const suggestionsHtml = renderSuggestions(suggestions);
 
   const body = `
-<h2>Query Cost Analysis</h2>
+<h2>${t('panel.query.cost.title')}</h2>
 <div class="toolbar">
-  <button class="copy-btn" data-action="copySql">Copy SQL</button>
-  <button class="copy-btn" data-action="copyPlan">Copy Plan</button>
-  <button class="copy-btn" data-action="reanalyze">Re-analyze</button>
+  <button class="copy-btn" data-action="copySql">${t('panel.query.cost.btn.copySql')}</button>
+  <button class="copy-btn" data-action="copyPlan">${t('panel.query.cost.btn.copyPlan')}</button>
+  <button class="copy-btn" data-action="reanalyze">${t('panel.query.cost.btn.reanalyze')}</button>
 </div>
 <div class="sql-block"><code>${esc(sql)}</code></div>
-<h3>Execution Plan</h3>
+<h3>${t('panel.query.cost.section.executionPlan')}</h3>
 <div class="tree">${tree}</div>
 ${warningsHtml}
 ${summaryHtml}

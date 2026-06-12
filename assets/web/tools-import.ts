@@ -7,6 +7,7 @@
 import * as S from './state.ts';
 import { esc, setButtonBusy, syncFeatureCardExpanded } from './utils.ts';
 import { loadTable } from './table-list.ts';
+import { vt } from './l10n.ts';
 
 export function initImport(): void {
   const toggle = document.getElementById('import-toggle');
@@ -45,12 +46,15 @@ export function initImport(): void {
     var html = '';
     for (var i = 0; i < importHistory.length; i++) {
       var h = importHistory[i];
-      var errText = h.errors.length > 0 ? ' <span style="color:#e57373;">(' + h.errors.length + ' error(s))</span>' : '';
+      // Singular/plural split on error count; markup wraps the localized value at the call site.
+      var errText = h.errors.length > 0
+        ? ' <span style="color:#e57373;">' + vt(h.errors.length === 1 ? 'viewer.tools.import.history.errors.one' : 'viewer.tools.import.history.errors.many', h.errors.length) + '</span>'
+        : '';
       html += '<div style="padding:2px 0;border-bottom:1px solid var(--border,#333);">'
         + '<span style="opacity:0.6;">' + esc(h.time) + '</span> '
         + '<strong>' + esc(h.table) + '</strong> '
         + '(' + esc(h.format) + ') &mdash; '
-        + h.imported + ' row(s)' + errText
+        + vt('viewer.tools.import.history.rows', h.imported) + errText
         + '</div>';
     }
     historyListEl.innerHTML = html;
@@ -82,7 +86,7 @@ export function initImport(): void {
       return;
     }
     var requestedTable = tableName;
-    mappingTbody.innerHTML = '<tr><td colspan="2" class="meta">Loading columns…</td></tr>';
+    mappingTbody.innerHTML = '<tr><td colspan="2" class="meta">' + vt('viewer.tools.import.mapping.loading') + '</td></tr>';
     mappingContainer.style.display = 'block';
     fetch('/api/table/' + encodeURIComponent(tableName) + '/columns', S.authOpts())
       .then(function(r) { return r.json(); })
@@ -91,7 +95,7 @@ export function initImport(): void {
         if (!Array.isArray(tableColumns)) { mappingContainer.style.display = 'none'; return; }
         var html = '';
         importCsvHeaders.forEach(function(csvCol) {
-          var optHtml = '<option value="">(skip)</option>' + tableColumns.map(function(tc) {
+          var optHtml = '<option value="">' + vt('viewer.tools.import.mapping.skip') + '</option>' + tableColumns.map(function(tc) {
             return '<option value="' + esc(tc) + '">' + esc(tc) + '</option>';
           }).join('');
           html += '<tr><td style="border:1px solid var(--border);padding:4px;">' + esc(csvCol) + '</td>';
@@ -101,7 +105,7 @@ export function initImport(): void {
       })
       .catch(function() {
         if (tableSel.value !== requestedTable) return;
-        mappingTbody.innerHTML = '<tr><td colspan="2" class="meta" style="color:#e57373;">Failed to load table columns.</td></tr>';
+        mappingTbody.innerHTML = '<tr><td colspan="2" class="meta" style="color:#e57373;">' + vt('viewer.tools.import.mapping.loadFailed') + '</td></tr>';
       });
   }
 
@@ -153,11 +157,11 @@ export function initImport(): void {
   if (pasteBtn) {
     pasteBtn.addEventListener('click', function() {
       if (!navigator.clipboard || !navigator.clipboard.readText) {
-        alert('Clipboard API not available (requires HTTPS or localhost).');
+        alert(vt('viewer.tools.import.clipboard.unavailable'));
         return;
       }
       navigator.clipboard.readText().then(function(text) {
-        if (!text || !text.trim()) { alert('Clipboard is empty.'); return; }
+        if (!text || !text.trim()) { alert(vt('viewer.tools.import.clipboard.empty')); return; }
         importFileData = text;
         // Auto-detect format: JSON starts with [ or {, TSV has tabs, else CSV.
         var trimmed = text.trim();
@@ -187,7 +191,7 @@ export function initImport(): void {
         if (fileInput) fileInput.value = '';
         updateImportState();
       }).catch(function(e) {
-        alert('Failed to read clipboard: ' + (e.message || 'Permission denied'));
+        alert(vt('viewer.tools.import.clipboard.readFailed', e.message || vt('viewer.tools.import.clipboard.permissionDenied')));
       });
     });
   }
@@ -207,11 +211,11 @@ export function initImport(): void {
       var table = tableSel && tableSel.value;
       var format = formatSel && formatSel.value;
       if (!table || !importFileData) return;
-      if (!confirm('Import data into table "' + esc(table) + '"? This cannot be undone.')) return;
+      if (!confirm(vt('viewer.tools.import.confirm', esc(table)))) return;
       runBtn.disabled = true;
       var runBtnOrigText = runBtn.textContent;
-      setButtonBusy(runBtn, true, 'Importing…');
-      statusEl.textContent = 'Importing…';
+      setButtonBusy(runBtn, true, vt('viewer.tools.import.busy'));
+      statusEl.textContent = vt('viewer.tools.import.busy');
       var body = { format: format, data: importFileData, table: table };
       if (format === 'csv' && mappingContainer && mappingContainer.style.display !== 'none') {
         var mapping = {};
@@ -230,27 +234,27 @@ export function initImport(): void {
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
         .then(function(o) {
           if (!o.ok) {
-            statusEl.textContent = 'Error: ' + (o.data.error || 'Request failed');
+            statusEl.textContent = vt('viewer.tools.import.error', o.data.error || vt('viewer.tools.import.requestFailed'));
             statusEl.style.color = '#e57373';
-            addImportHistory(table, format, 0, [o.data.error || 'Request failed']);
+            addImportHistory(table, format, 0, [o.data.error || vt('viewer.tools.import.requestFailed')]);
             return;
           }
           var d = o.data;
-          var msg = 'Imported ' + d.imported + ' row(s).';
-          if (d.errors && d.errors.length > 0) msg += ' ' + d.errors.length + ' error(s): ' + d.errors.slice(0, 3).join('; ');
+          var msg = vt('viewer.tools.import.result', d.imported);
+          if (d.errors && d.errors.length > 0) msg += ' ' + vt('viewer.tools.import.resultErrors', d.errors.length, d.errors.slice(0, 3).join('; '));
           statusEl.textContent = msg;
           statusEl.style.color = '';
           addImportHistory(table, format, d.imported, d.errors || []);
           if (d.imported > 0 && S.currentTableName === table) loadTable(table);
         })
         .catch(function(e) {
-          statusEl.textContent = 'Error: ' + (e.message || 'Import failed');
+          statusEl.textContent = vt('viewer.tools.import.error', e.message || vt('viewer.tools.import.failed'));
           statusEl.style.color = '#e57373';
-          addImportHistory(table, format, 0, [e.message || 'Import failed']);
+          addImportHistory(table, format, 0, [e.message || vt('viewer.tools.import.failed')]);
         })
         .finally(function() {
           runBtn.disabled = !importFileData || !tableSel || !tableSel.value;
-          setButtonBusy(runBtn, false, runBtnOrigText || 'Import');
+          setButtonBusy(runBtn, false, runBtnOrigText || vt('viewer.tools.import.button'));
         });
     });
   }

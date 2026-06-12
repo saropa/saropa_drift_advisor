@@ -449,12 +449,22 @@ in phases, each at a check that must pass before the next:
   and the host `t()` / browser `l10n.ts` utilities. Migrate ONE panel and ONE web
   viewer module as a vertical slice. *Gate:* the slice renders via `t()`/`vt()`
   with the English baseline; fail-soft to key verified.
-  *(utilities + registries ✅ done; vertical-slice migration ⬜ pending; Dart
-  `window.__SDA_L10N` injection ⬜ pending — without it the browser overlay path is
-  inert and only the bundled English registry renders.)*
-- **Phase 3 — Sweep.** Convert remaining `*-html.ts` panels and `assets/web/*.ts`
-  modules to keys. *Gate:* a lint/grep finds no hardcoded user-facing literals in
-  converted files; English baseline syncs clean.
+  *(utilities + registries ✅; vertical slice ✅ — `health-html.ts` via `t()` +
+  `masthead.ts` via `vt()`, build + suite green. Dart `window.__SDA_L10N` injection
+  ⬜ still pending — without it the browser overlay path is inert and only the
+  bundled English registry renders, which is correct for today's English-only state
+  but blocks rendering an actual translated locale in a plain browser.)*
+- **Phase 3 — Sweep. ✅ (server-rendered) / ⬜ (client-script subset).** Converted
+  all 46 host `*-html.ts` panels into ten `strings-panel-*.ts` family slices (787
+  host keys) and ~45 `assets/web/*.ts` modules into nine `strings-web-*.ts` slices
+  (652 web keys), rewired to `t()`/`vt()`, all registered. *Gate met:* a key-resolve
+  check confirms every `t()/vt()` literal resolves to a registry; `tsc`/`typecheck:web`
+  clean; bundle builds; full extension suite green (only the pre-existing
+  `html_content.dart` toolbar/tab-icon failures remain, unrelated). **Remaining:**
+  ~27 strings generated INSIDE embedded panel `<script>` blocks still render English
+  literals and carry a `// TODO(l10n): client-script string` marker — they need the
+  `__VT` bridge (`getWebviewL10nMap()` injection) wired per panel, since client
+  scripts have no host `t()`. That bridge wiring is the open tail of Phase 3.
 - **Phase 4 — Toolchain + gates.** Port `translate_l10n.py` + modules (audit,
   brand shielding, provenance, scopes), wire the publish sync step and the
   activation coverage notice. *Gate:* `--run-mode audit` produces a coverage report;
@@ -604,3 +614,37 @@ Grepped the test tree for the changed symbols (`l10n.py`, `main`, `l10n_audit`).
 - Phases 2–5: the vertical slice (incl. the Dart `window.__SDA_L10N` injection), the sweep, the English baselines, the translation toolchain, and any gated translate run.
 
 `Finish report appended: plans/75-localization.md`. Plan stays ACTIVE — this task closed a sub-feature (standalone entry) and a docs update; the plan as a whole still has Phases 2–5 and the activation notice open (case 3: closed partial scope, plan still active, so no archive/split).
+
+---
+
+## Finish Report (2026-06-12) — Phase 2 vertical slice + Phase 3 runtime string sweep
+
+**Objective.** "Set up all user-facing keys in English" and rewire the call sites — i.e. the Phase 3 runtime sweep (System B). Take the framework from seed keys to a complete English source-of-truth that the render code actually consumes via `t()`/`vt()`.
+
+### Scope
+(B) VS Code extension host panels (`extension/src/**/*-html.ts`, TypeScript) + the web-viewer modules (`assets/web/*.ts`, bundled by esbuild) + l10n registries + the affected contract tests. NOT (A) Flutter/Dart `lib/` (out of scope per §1.3; the Dart `window.__SDA_L10N` injection remains open). NOT the manifest System A (already done).
+
+### What changed
+- **Vertical slice (Phase 2) — pattern lock, build+suite verified first:**
+  - Host: `extension/src/health/health-html.ts` rewired to `t()`; new slice `extension/src/l10n/strings-panel-health.ts`.
+  - Web: `assets/web/masthead.ts` rewired to `vt()`; masthead keys added to the seed `assets/web/l10n/strings-web.ts`.
+- **Host sweep (Phase 3) — all 46 `*-html.ts` panels** rewired to `t()`, externalized into **ten** `strings-panel-*.ts` family slices (`health`, `schema`, `query`, `data`, `compare`, `replay`, `quality`, `notes`, `dashboard`, `tools`), all registered in `extension/src/l10n.ts` `HOST_STRING_REGISTRIES`. **787 host keys** (from a 17-key seed).
+- **Web sweep (Phase 3) — ~45 `assets/web/*.ts` modules** rewired to `vt()`, externalized into **nine** `strings-web-*.ts` slices (`table`, `query-builder`, `schema`, `sql`, `tools`, `nav`, `session`, `settings`, `misc`), registered centrally in `assets/web/l10n.ts` `WEB_STRING_REGISTRIES`. **652 web keys** (from an 11-key seed). `misc` is an empty `{}` slice (its five modules — `utils`/`toolbar`/`long-press-copy`/`sql-highlight`/`state` — render no own literals).
+- **Contract tests updated** to follow the registry indirection (the sweep moved literals out of the modules they grepped): `extension/src/test/web-inline-edit-contract.test.ts`, `web-table-def-icons.test.ts`, `web-table-view-blob-colvis.test.ts`, and the host `l10n.test.ts` (its `getWebviewL10nMap` size assertion was pinned to the 11-key seed; now asserts superset membership, not an exact count).
+- **CHANGELOG** Maintenance bullet under `[Unreleased]`.
+
+### Method
+Locked the conventions with the verified vertical slice, then fanned out the sweep across 18 parallel subagents (9 host + 9 web), each owning a distinct batch of source files + its own registry slice (no shared-file write contention). Conventions enforced: externalize human-readable UI text only; leave CSS / `data-*` / command IDs / `console` logs / symbols literal; `{0}`/`{1}` tokens for runtime values (never English concatenation); markup-wrapped dynamic values pre-wrapped at the call site, static emphasis markup inline; singular/plural and if/ternary variants each get their own key.
+
+### Verification (commands run)
+- `npm run typecheck:web` → clean; `npm run build:js` → `bundle.js` rebuilt (556.9 kb).
+- `cd extension && npm run compile` → `tsc` clean + `verify-nls: OK (231)` + `verify:nls-coverage: OK`.
+- Key-resolve check (`d:\tmp\verify-l10n-keys.mjs`, throwaway): every `t()/vt()` literal key resolves — host 787 defined / web 652 defined; the only "unresolved" is the intentional `host.does.not.exist` fail-soft test fixture. (Defined > used because some keys are resolved via dynamic key-maps a literal regex can't see, e.g. `panel.notes.icon.${icon}` — not a gap.)
+- Full extension mocha suite → **2707 passing**, 4 failing. All 4 failures are pre-existing and unrelated (`Toolbar`/`Tab icons — html_content.dart`): they assert `data-tool="…"` in the Dart-generated `html_content.dart`, which this task never touched (no `.dart` modified) and which genuinely lacks those attributes in the committed tree.
+
+### Outstanding (the open tail of Phase 3)
+- **~27 client-script strings** generated inside embedded panel `<script>` blocks still render English literals, each marked `// TODO(l10n): client-script string` (in `lineage`, `bulk-edit`, `analysis-compare`, `time-travel`, `watch`, `refactoring`, `impact`, `snippet-library`, `narrator`). They need the `__VT` bridge (`getWebviewL10nMap()` injection into each panel's first client script) — client scripts have no host `t()`. This is a per-panel wiring follow-up, not new extraction.
+- **Phase 2 Dart `window.__SDA_L10N` injection** still open: the browser overlay path is inert until `lib/` emits the inline catalog script. English renders correctly regardless (bundled registry); this only blocks an actual translated locale in a plain browser.
+- Phase 1 tail (activation coverage notice), Phase 4 (translation toolchain), Phase 5 (gated translate run) unchanged.
+
+Plan stays ACTIVE: Phase 3 server-rendered surfaces done; the client-script bridge subset, the Dart injection, and Phases 4–5 remain.

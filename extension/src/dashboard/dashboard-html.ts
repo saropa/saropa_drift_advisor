@@ -1,6 +1,7 @@
 import { escapeHtml, type IDashboardLayout, type IWidgetConfig, type IWidgetTypeInfo } from './dashboard-types';
 import { getDashboardCss } from './dashboard-css';
 import { getDashboardJs } from './dashboard-scripts';
+import { t } from '../l10n';
 
 /** Build the complete HTML for the dashboard webview. */
 export function buildDashboardHtml(
@@ -25,23 +26,23 @@ ${getDashboardCss()}
 <body>
 <div class="dashboard">
   <div class="header">
-    <h1>Dashboard</h1>
+    <h1>${t('panel.dashboard.title')}</h1>
     <div class="header-actions">
-      <button class="btn" id="addWidgetBtn">\u{2795} Add Widget</button>
-      <button class="btn" id="layoutBtn">\u2699 Layout</button>
-      <button class="btn" id="refreshBtn">\u{1F504} Refresh</button>
+      <button class="btn" id="addWidgetBtn">\u{2795} ${t('panel.dashboard.btn.addWidget')}</button>
+      <button class="btn" id="layoutBtn">\u2699 ${t('panel.dashboard.btn.layout')}</button>
+      <button class="btn" id="refreshBtn">\u{1F504} ${t('panel.dashboard.btn.refresh')}</button>
     </div>
   </div>
 
   <div class="grid" id="grid" style="grid-template-columns: repeat(${layout.columns}, 1fr);">
-    ${widgetsHtml || '<div class="empty-state"><p>No widgets yet.</p><p>Click "+ Add Widget" to get started.</p></div>'}
+    ${widgetsHtml || `<div class="empty-state"><p>${t('panel.dashboard.empty.title')}</p><p>${t('panel.dashboard.empty.hint')}</p></div>`}
   </div>
 </div>
 
 <div class="modal" id="addWidgetModal">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>Add Widget</h2>
+      <h2>${t('panel.dashboard.addModal.title')}</h2>
       <button class="modal-close" id="closeAddModal">\u00D7</button>
     </div>
     <div class="widget-picker" id="widgetPicker">
@@ -52,14 +53,14 @@ ${getDashboardCss()}
 <div class="modal" id="configModal">
   <div class="modal-content">
     <div class="modal-header">
-      <h2 id="configModalTitle">Configure Widget</h2>
+      <h2 id="configModalTitle">${t('panel.dashboard.configModal.title')}</h2>
       <button class="modal-close" id="closeConfigModal">\u00D7</button>
     </div>
     <form id="configForm">
       <div id="configFields"></div>
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Save</button>
-        <button type="button" class="btn" id="cancelConfigBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary">${t('panel.dashboard.configModal.save')}</button>
+        <button type="button" class="btn" id="cancelConfigBtn">${t('panel.dashboard.configModal.cancel')}</button>
       </div>
     </form>
   </div>
@@ -68,12 +69,12 @@ ${getDashboardCss()}
 <div class="modal" id="layoutModal">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>Manage Layouts</h2>
+      <h2>${t('panel.dashboard.layoutModal.title')}</h2>
       <button class="modal-close" id="closeLayoutModal">\u00D7</button>
     </div>
     <div class="layout-actions">
-      <input type="text" id="layoutNameInput" placeholder="Layout name..." value="${esc(layout.name)}">
-      <button class="btn" id="saveLayoutBtn">Save</button>
+      <input type="text" id="layoutNameInput" placeholder="${t('panel.dashboard.layoutModal.namePlaceholder')}" value="${esc(layout.name)}">
+      <button class="btn" id="saveLayoutBtn">${t('panel.dashboard.layoutModal.save')}</button>
     </div>
   </div>
 </div>
@@ -94,14 +95,14 @@ function buildWidgetHtml(widget: IWidgetConfig, bodyHtml?: string): string {
     <div class="widget-header">
       <span class="widget-title">${esc(widget.title)}</span>
       <div class="widget-actions">
-        ${widget.type === 'chart' ? '<button class="widget-btn widget-copy-chart" title="Copy chart to clipboard">\u{1F4CB}</button>' : ''}
-        <button class="widget-btn widget-edit" title="Edit">\u270F</button>
-        <button class="widget-btn widget-refresh" title="Refresh">\u{1F504}</button>
-        <button class="widget-btn widget-remove" title="Remove">\u00D7</button>
+        ${widget.type === 'chart' ? `<button class="widget-btn widget-copy-chart" title="${t('panel.dashboard.widget.copyChart')}">\u{1F4CB}</button>` : ''}
+        <button class="widget-btn widget-edit" title="${t('panel.dashboard.widget.edit')}">\u270F</button>
+        <button class="widget-btn widget-refresh" title="${t('panel.dashboard.widget.refresh')}">\u{1F504}</button>
+        <button class="widget-btn widget-remove" title="${t('panel.dashboard.widget.remove')}">\u00D7</button>
       </div>
     </div>
     <div class="widget-body" id="body-${esc(widget.id)}">
-      ${bodyHtml || '<p class="loading">Loading\u2026</p>'}
+      ${bodyHtml || `<p class="loading">${t('panel.dashboard.widget.loading')}</p>`}
     </div>
     <div class="widget-resize-handle"></div>
   </div>`;

@@ -5,6 +5,7 @@
 
 import type { ISearchResult } from './global-search-types';
 import { groupByTable } from './global-search-engine';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -20,12 +21,21 @@ function renderResults(result: ISearchResult): string {
   const tableCount = groups.size;
   const matchCount = result.matches.length;
 
-  let summary = `<div class="summary">Found ${matchCount} match${matchCount !== 1 ? 'es' : ''}`;
-  summary += ` across ${tableCount} table${tableCount !== 1 ? 's' : ''}`;
-  summary += ` (${result.durationMs}ms, ${result.tablesSearched} tables searched)</div>`;
+  // Plural suffixes ("es"/"s") are passed as {1}/{3} tokens so each count stays
+  // attached to its pluralized noun as one translator-reorderable sentence.
+  const summaryText = t(
+    'panel.tools.search.summary',
+    matchCount,
+    matchCount !== 1 ? 'es' : '',
+    tableCount,
+    tableCount !== 1 ? 's' : '',
+    result.durationMs,
+    result.tablesSearched,
+  );
+  const summary = `<div class="summary">${summaryText}</div>`;
 
   if (matchCount === 0) {
-    return `${summary}<div class="empty">No matches found.</div>`;
+    return `${summary}<div class="empty">${t('panel.tools.search.empty')}</div>`;
   }
 
   const sections: string[] = [];
@@ -36,7 +46,7 @@ function renderResults(result: ISearchResult): string {
         <span class="match-col">${esc(m.column)}</span> =
         <span class="match-val">"${esc(m.matchedValue)}"</span>
         <button class="btn" data-action="copyValue"
-          data-value="${esc(m.matchedValue)}">Copy</button>
+          data-value="${esc(m.matchedValue)}">${t('panel.tools.search.copy')}</button>
       </div>`).join('\n');
 
     sections.push(`
@@ -56,32 +66,32 @@ export function buildGlobalSearchHtml(
   searching?: boolean,
 ): string {
   const resultsHtml = searching
-    ? '<div class="searching">Searching\u2026</div>'
+    ? `<div class="searching">${t('panel.tools.search.searching')}</div>`
     : result ? renderResults(result) : '';
 
   const body = `
-<h2>Global Search</h2>
+<h2>${t('panel.tools.search.title')}</h2>
 <div class="search-form">
   <div class="input-row">
-    <input id="query" type="text" placeholder="Search value\u2026"
+    <input id="query" type="text" placeholder="${esc(t('panel.tools.search.placeholder'))}"
       value="${result ? esc(result.query) : ''}" />
-    <button class="btn primary" data-action="search">Search</button>
+    <button class="btn primary" data-action="search">${t('panel.tools.search.btn.search')}</button>
   </div>
   <div class="options-row">
-    <label>Mode:</label>
+    <label>${t('panel.tools.search.mode.label')}</label>
     <label><input type="radio" name="mode" value="exact"
-      ${!result || result.mode === 'exact' ? 'checked' : ''} /> Exact</label>
+      ${!result || result.mode === 'exact' ? 'checked' : ''} /> ${t('panel.tools.search.mode.exact')}</label>
     <label><input type="radio" name="mode" value="contains"
-      ${result?.mode === 'contains' ? 'checked' : ''} /> Contains</label>
+      ${result?.mode === 'contains' ? 'checked' : ''} /> ${t('panel.tools.search.mode.contains')}</label>
     <label><input type="radio" name="mode" value="regex"
-      ${result?.mode === 'regex' ? 'checked' : ''} /> Regex</label>
+      ${result?.mode === 'regex' ? 'checked' : ''} /> ${t('panel.tools.search.mode.regex')}</label>
   </div>
   <div class="options-row">
-    <label>Scope:</label>
+    <label>${t('panel.tools.search.scope.label')}</label>
     <label><input type="radio" name="scope" value="all"
-      checked /> All columns</label>
+      checked /> ${t('panel.tools.search.scope.all')}</label>
     <label><input type="radio" name="scope" value="text_only"
-      /> Text columns only</label>
+      /> ${t('panel.tools.search.scope.textOnly')}</label>
   </div>
 </div>
 <div id="results">${resultsHtml}</div>`;

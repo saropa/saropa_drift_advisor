@@ -3,6 +3,7 @@
  * and sidebar visibility switches (tables left, history right).
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 import { openTool } from './tabs.ts';
 import { togglePanel } from './sidebar-panels.ts';
 
@@ -53,7 +54,7 @@ function buildToolGrid(): void {
     card.type = 'button';
     card.className = 'home-tool-card';
     card.setAttribute('data-tool', item.id);
-    card.title = label + ' — ' + item.blurb;
+    card.title = vt('viewer.nav.home.cardTooltip', label, item.blurb);
     if (iconName) {
       var icon = document.createElement('span');
       icon.className = 'material-symbols-outlined home-tool-card-icon';
@@ -80,7 +81,7 @@ function buildToolGrid(): void {
     card.type = 'button';
     card.className = 'home-tool-card home-tool-card-extra';
     card.setAttribute('data-home-extra', item.action);
-    card.title = item.label + ' — ' + item.blurb;
+    card.title = vt('viewer.nav.home.cardTooltip', item.label, item.blurb);
     var icon = document.createElement('span');
     icon.className = 'material-symbols-outlined home-tool-card-icon';
     icon.setAttribute('aria-hidden', 'true');

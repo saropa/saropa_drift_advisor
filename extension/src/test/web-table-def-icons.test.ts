@@ -84,10 +84,15 @@ describe('table-def icons — table-view.ts columnTypeIcon function', () => {
 
 describe('table-def icons — table-view.ts HTML output', () => {
   let appJs: string;
+  // The l10n sweep (plan 75 Phase 3) moved the PK-badge title text into the web
+  // registry; assert the module wires the vt() key and the registry ships the
+  // English value, rather than pinning the literal to the module source.
+  let tableReg: string;
 
   before(() => {
     // buildTableDefinitionHtml and related HTML output moved to table-view.ts
     appJs = readAsset('assets/web/table-view.ts');
+    tableReg = readAsset('assets/web/l10n/strings-web-table.ts');
   });
 
   it('emits .table-def-icons in header row', () => {
@@ -117,8 +122,12 @@ describe('table-def icons — table-view.ts HTML output', () => {
       'should emit PK badge class',
     );
     assert.ok(
-      appJs.includes('Primary key'),
-      'PK badge should have a descriptive title attribute',
+      appJs.includes("title=\"' + esc(vt('viewer.table.def.badgePk'))"),
+      'PK badge should wire a localized descriptive title attribute',
+    );
+    assert.ok(
+      tableReg.includes("'viewer.table.def.badgePk': 'Primary key'"),
+      'registry should ship the English PK-badge title',
     );
   });
 

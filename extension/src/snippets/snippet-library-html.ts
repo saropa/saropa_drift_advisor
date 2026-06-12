@@ -1,5 +1,6 @@
 import type { ISqlSnippet } from './snippet-types';
 import { renderSnippetCard } from './snippet-card-html';
+import { t } from '../l10n';
 
 interface ILibraryData {
   snippets: ISqlSnippet[];
@@ -95,35 +96,35 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
 </head>
 <body>
   <h2>
-    SQL Snippet Library
+    ${t('panel.notes.library.title')}
     <span class="toolbar">
-      <button onclick="showNewForm()">+ New</button>
-      <button class="secondary" onclick="post('importFile')">Import</button>
-      <button class="secondary" onclick="post('exportAll')">Export</button>
+      <button onclick="showNewForm()">${t('panel.notes.library.btn.new')}</button>
+      <button class="secondary" onclick="post('importFile')">${t('panel.notes.library.btn.import')}</button>
+      <button class="secondary" onclick="post('exportAll')">${t('panel.notes.library.btn.export')}</button>
     </span>
   </h2>
-  <input type="text" class="search" placeholder="Search snippets..."
+  <input type="text" class="search" placeholder="${esc(t('panel.notes.library.search.placeholder'))}"
          oninput="handleSearch(this.value)" />
   <div id="newForm" style="display:none" class="form-overlay">
-    <div class="form-row"><label>Name</label>
-      <input type="text" id="formName" placeholder="Snippet name" /></div>
-    <div class="form-row"><label>Category</label>
+    <div class="form-row"><label>${t('panel.notes.library.form.name')}</label>
+      <input type="text" id="formName" placeholder="${esc(t('panel.notes.library.form.name.placeholder'))}" /></div>
+    <div class="form-row"><label>${t('panel.notes.library.form.category')}</label>
       <input type="text" id="formCategory" value="Uncategorized"
-             list="catList" placeholder="Category" />
+             list="catList" placeholder="${esc(t('panel.notes.library.form.category.placeholder'))}" />
       <datalist id="catList">
         ${data.categories.map((c) => `<option value="${esc(c)}">`).join('')}
       </datalist></div>
-    <div class="form-row"><label>Description</label>
-      <input type="text" id="formDesc" placeholder="Optional description" /></div>
-    <div class="form-row" style="align-items:flex-start"><label>SQL</label>
-      <textarea id="formSql" placeholder="SELECT * FROM ..."></textarea></div>
+    <div class="form-row"><label>${t('panel.notes.library.form.description')}</label>
+      <input type="text" id="formDesc" placeholder="${esc(t('panel.notes.library.form.description.placeholder'))}" /></div>
+    <div class="form-row" style="align-items:flex-start"><label>${t('panel.notes.library.form.sql')}</label>
+      <textarea id="formSql" placeholder="${esc(t('panel.notes.library.form.sql.placeholder'))}"></textarea></div>
     <div class="form-actions">
-      <button onclick="submitNewForm()">Save</button>
-      <button class="secondary" onclick="hideNewForm()">Cancel</button>
+      <button onclick="submitNewForm()">${t('panel.notes.library.btn.save')}</button>
+      <button class="secondary" onclick="hideNewForm()">${t('panel.notes.library.btn.cancel')}</button>
     </div>
   </div>
   <div id="snippetList">
-    ${sections || '<p class="empty">No snippets yet. Click "+ New" to create one.</p>'}
+    ${sections || `<p class="empty">${t('panel.notes.library.empty')}</p>`}
   </div>
   <script>
     const vscode = acquireVsCodeApi();
@@ -157,6 +158,7 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
     }
     function editSnippet(id) { post('getSnippet', { id: id }); }
     function deleteSnippet(id, name) {
+      // TODO(l10n): client-script string
       if (confirm('Delete snippet "' + name + '"?')) post('deleteSnippet', { id: id });
     }
     function showRunForm(id) {

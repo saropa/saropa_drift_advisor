@@ -6,6 +6,7 @@
  * directly instead of relying on a global `declare`.
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 import { inferForeignKeys } from './nl-to-sql.ts';
 
 /**
@@ -18,7 +19,7 @@ export async function loadSchemaMeta(): Promise<any> {
   // includeForeignKeys=1 adds a per-table `foreignKeys` list so the NL
   // relationship engine can offer / build EXISTS predicates across tables.
   var r = await fetch('/api/schema/metadata?includeForeignKeys=1', S.authOpts());
-  if (!r.ok) throw new Error('Failed to load schema metadata (HTTP ' + r.status + ')');
+  if (!r.ok) throw new Error(vt('viewer.schema.meta.loadFailed', r.status));
   var meta = await r.json();
   // Flatten the per-table foreignKeys (PRAGMA shape omits fromTable) into a
   // single top-level edge list {fromTable, fromColumn, toTable, toColumn} so

@@ -6,6 +6,7 @@
  * main SQL editor.
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 import { nlToSql, isDateColumn, narrateAnswer, detectRefinement, combineRefinement } from './nl-to-sql.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
 import { esc, setButtonBusy } from './utils.ts';
@@ -62,7 +63,7 @@ import { openTool } from './tabs.ts';
       var hint = document.getElementById('nl-refine-hint');
       if (!hint) return;
       if (combined) {
-        hint.textContent = 'Refining last query: ' + combined;
+        hint.textContent = vt('viewer.sql.nl.refineHint', combined);
         hint.hidden = false;
       } else {
         hint.textContent = '';
@@ -116,11 +117,11 @@ import { openTool } from './tabs.ts';
         var code = event && event.error;
         // not-allowed / service-not-allowed = mic permission denied or blocked.
         if (code === 'not-allowed' || code === 'service-not-allowed') {
-          setNlModalError('Microphone access was blocked. Allow it in your browser to dictate.', true);
+          setNlModalError(vt('viewer.sql.nl.mic.blocked'), true);
         } else if (code === 'no-speech') {
-          setNlModalError('No speech detected. Tap the mic and try again.', true);
+          setNlModalError(vt('viewer.sql.nl.mic.noSpeech'), true);
         } else if (code !== 'aborted') {
-          setNlModalError('Speech recognition error: ' + code, true);
+          setNlModalError(vt('viewer.sql.nl.mic.error', code), true);
         }
       };
       rec.onend = function () {
@@ -285,7 +286,7 @@ import { openTool } from './tabs.ts';
       var guessed = result && result.table && !nlTableOverride()
         && (result.confidence === 'guess' || result.confidence === 'ambiguous');
       if (guessed) {
-        hint.textContent = 'Guessed “' + result.table + '” — pick a table if that’s wrong';
+        hint.textContent = vt('viewer.sql.nl.clarify.guessed', result.table);
         clarify.classList.add('nl-clarify-guess');
       } else {
         hint.textContent = '';
@@ -378,7 +379,7 @@ import { openTool } from './tabs.ts';
         b.type = 'button';
         b.className = 'nl-chip' + (applied ? ' nl-chip-on' : '');
         b.textContent = chip.label;
-        b.title = (applied ? 'Remove: ' : 'Add: ') + chip.phrase;
+        b.title = vt(applied ? 'viewer.sql.nl.chip.remove' : 'viewer.sql.nl.chip.add', chip.phrase);
         b.addEventListener('click', function () { toggleNlRefinement(chip.phrase); });
         wrap.appendChild(b);
       });
@@ -431,18 +432,16 @@ import { openTool } from './tabs.ts';
           // Addressed by name but nothing left to ask after stripping the phrase.
           preview.value = '';
           setNlModalError('', false);
-          renderNlNarrativeMessage(
-            'I heard you, but I didn’t catch a question — try “how many contacts were added last week?”',
-          );
+          renderNlNarrativeMessage(vt('viewer.sql.nl.noQuestion'));
         } else {
           preview.value = '';
-          setNlModalError(result.error || 'Could not convert to SQL.', true);
+          setNlModalError(result.error || vt('viewer.sql.nl.convertFailed'), true);
         }
         updateNlClarifier(result);
         renderNlRefinements((result && result.table) || override, meta);
       } catch (err) {
         preview.value = '';
-        setNlModalError('Error: ' + (err.message || err), true);
+        setNlModalError(vt('viewer.sql.nl.error', err.message || err), true);
       }
     }
     export function scheduleNlLivePreview() {
@@ -476,7 +475,7 @@ import { openTool } from './tabs.ts';
       if (!ta || !sqlEl) return;
       var question = String(ta.value || '').trim();
       if (!question) {
-        setNlModalError('Enter a question first.', true);
+        setNlModalError(vt('viewer.sql.nl.enterQuestion'), true);
         return;
       }
       try {
@@ -502,10 +501,10 @@ import { openTool } from './tabs.ts';
           // mic doesn't keep streaming, and drops the in-panel sample rows.
           closeNlModal();
         } else {
-          setNlModalError(result.error || 'Could not convert to SQL.', true);
+          setNlModalError(result.error || vt('viewer.sql.nl.convertFailed'), true);
         }
       } catch (err) {
-        setNlModalError('Error: ' + (err.message || err), true);
+        setNlModalError(vt('viewer.sql.nl.error', err.message || err), true);
       }
     }
 
@@ -521,7 +520,7 @@ import { openTool } from './tabs.ts';
       var btn = document.getElementById('nl-copy');
       var sql = preview ? String(preview.value || '').trim() : '';
       if (!sql) {
-        setNlModalError('Nothing to copy yet — enter a question first.', true);
+        setNlModalError(vt('viewer.sql.nl.copyEmpty'), true);
         return;
       }
       try {
@@ -534,7 +533,7 @@ import { openTool } from './tabs.ts';
           preview.select();
           document.execCommand('copy');
         } catch (err2) {
-          setNlModalError('Could not copy to the clipboard.', true);
+          setNlModalError(vt('viewer.sql.nl.copyFailed'), true);
           return;
         }
       }
@@ -568,7 +567,7 @@ import { openTool } from './tabs.ts';
       var btn = document.getElementById('nl-preview-run') as HTMLButtonElement | null;
       var sql = preview ? String(preview.value || '').trim() : '';
       if (!sql) {
-        setNlModalError('Enter a question to generate SQL first.', true);
+        setNlModalError(vt('viewer.sql.nl.previewNeedsSql'), true);
         return;
       }
       if (!resultsEl) return;
@@ -579,7 +578,7 @@ import { openTool } from './tabs.ts';
       var origLabel = btn ? btn.textContent : '';
       if (btn) {
         btn.disabled = true;
-        setButtonBusy(btn, true, 'Running…');
+        setButtonBusy(btn, true, vt('viewer.sql.nl.preview.busy'));
       }
       try {
         var resp = await fetch('/api/sql', S.authOpts({
@@ -590,7 +589,7 @@ import { openTool } from './tabs.ts';
         var data = await resp.json();
         if (!resp.ok) {
           // Surface the server error in the modal error line, not the results box.
-          setNlModalError(data.error || 'Preview failed.', true);
+          setNlModalError(data.error || vt('viewer.sql.nl.previewFailed'), true);
           resultsEl.hidden = true;
           resultsEl.innerHTML = '';
           return;
@@ -609,13 +608,13 @@ import { openTool } from './tabs.ts';
           await renderNlNarrative(resultsEl, lastNlResult, data.rows || []);
         }
       } catch (err) {
-        setNlModalError('Preview error: ' + ((err as any).message || err), true);
+        setNlModalError(vt('viewer.sql.nl.previewError', (err as any).message || err), true);
         resultsEl.hidden = true;
         resultsEl.innerHTML = '';
       } finally {
         if (btn) {
           btn.disabled = false;
-          setButtonBusy(btn, false, origLabel || 'Preview results');
+          setButtonBusy(btn, false, origLabel || vt('nl.modal.preview'));
         }
       }
     }
@@ -624,11 +623,11 @@ import { openTool } from './tabs.ts';
     function renderNlPreviewRows(container, rows) {
       container.hidden = false;
       if (!rows || rows.length === 0) {
-        container.innerHTML = '<p class="meta nl-modal-results-empty">Query ran — 0 rows.</p>';
+        container.innerHTML = '<p class="meta nl-modal-results-empty">' + esc(vt('viewer.sql.nl.results.empty')) + '</p>';
         return;
       }
       var keys = Object.keys(rows[0]);
-      var html = '<p class="meta">First ' + rows.length + ' row(s)</p>';
+      var html = '<p class="meta">' + esc(vt('viewer.sql.nl.results.firstRows', rows.length)) + '</p>';
       html += '<div class="data-table-scroll-wrap"><table><thead><tr>';
       html += keys.map(function (k) { return '<th>' + esc(k) + '</th>'; }).join('');
       html += '</tr></thead><tbody>';
