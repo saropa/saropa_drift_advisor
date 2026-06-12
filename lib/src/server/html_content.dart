@@ -507,6 +507,10 @@ abstract final class HtmlContent {
              dates, flags, count/sort/limit). Clicking adds/removes the phrase
              from the question. Populated by renderNlRefinements in nl-modal.ts. -->
         <div id="nl-refine" class="nl-refine" aria-label="Refine the query"></div>
+        <!-- Refine-in-English hint: shown by nl-modal.ts when a follow-up like
+             "now only active" is being appended to the previous query, so the
+             user sees the combined question that will actually run. -->
+        <p id="nl-refine-hint" class="meta nl-refine-hint" role="status" hidden></p>
         <div class="nl-modal-label-row">
           <label for="nl-modal-sql-preview" class="nl-modal-label">Generated SQL (preview)</label>
           <!-- Copy the generated SQL straight to the clipboard without first
