@@ -73,7 +73,11 @@ These are the actual finds. Each was confirmed absent from the codebase.
 - **Gate:** A query whose table doubled in rows between sessions does **not** raise a
   regression alert solely from the row-count growth; a real per-row slowdown still does.
 
-### A4. Website schema-scanning divergence view (71 stretch + Option B)
+### A4. Website schema-scanning divergence view (71 stretch + Option B) — DONE (2026-06-12)
+- **Resolution:** Client-side `computeSchemaDivergence` (`schema-divergence.ts`)
+  diffs declared vs runtime schema; rendered in the Code-schema web tab. Option B
+  (Dart source parser) remains out of scope by design. Finish report appended to
+  `plans/history/2026.06/2026.06.10/71-website-dart-schema-scanning.md`.
 - **Source:** `plans/history/2026.06/2026.06.10/71-website-dart-schema-scanning.md:126`
   — "Stretch divergence view and Option B remain unbuilt by design." Option A
   (list code-declared tables/columns from the host callback) shipped.

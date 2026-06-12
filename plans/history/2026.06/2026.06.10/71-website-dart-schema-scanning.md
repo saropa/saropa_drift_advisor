@@ -126,3 +126,58 @@ without a running app instance.
 **Outstanding.** None for Option A's exit gate (with a callback the tab lists code-declared tables/columns; without one the tab is empty, no errors). The auto-derive from Drift internals is best-effort duck-typing — if a future Drift version renames `$columns`/`$primaryKey`, derivation falls back to empty (logged), and the explicit `declaredSchema` callback remains exact. Stretch divergence view and Option B remain unbuilt by design.
 
 **Finish report appended:** plans/71-website-dart-schema-scanning.md (this section). Complete (Option A) → archived to plans/history/2026.06/2026.06.10/.
+
+---
+
+## Finish Report (2026-06-12) — divergence view (stretch goal)
+
+Builds the stretch goal the Option A report left "unbuilt by design": a
+code-vs-runtime schema divergence view. Option A let the web viewer *list* the
+host's code-declared schema; it could not show where that declared schema had
+drifted from the live database — the higher-value half of the feature. The
+**Code schema** tool now diffs the two and surfaces the differences.
+
+**Approach.** Pure client-side diff reusing the two existing endpoints — no new
+server route. After `GET /api/schema/declared` returns an available schema, the
+tool also loads the cached runtime schema (`GET /api/schema/metadata` via the
+shared `loadSchemaMeta`) and diffs them in the browser.
+
+**What changed.**
+
+- **`assets/web/schema-divergence.ts`** (new) — DOM-free, side-effect-free
+  `computeSchemaDivergence(declared, runtime)` plus `typeAffinity()`. Reports
+  `missing-table`, `extra-table`, `missing-column`, `extra-column`,
+  `type-mismatch`, `nullable-mismatch`, and `pk-mismatch` findings in a
+  deterministic order (declared tables sorted, then runtime-only sorted). Type
+  comparison normalizes both sides to SQLite storage affinity so `INT`/`INTEGER`
+  and `VARCHAR`/`TEXT` don't read as drift; runtime nullability is derived as the
+  inverse of PRAGMA's `notnull`; `sqlite_*` internal tables are never reported as
+  extra. Kept separate from the renderer specifically so it is unit-testable.
+- **`assets/web/declared-schema.ts`** — loads the runtime schema alongside the
+  declared one and renders a grouped "Code vs database" divergence block above
+  the table list. The metadata load is best-effort: a failure or an empty
+  runtime schema (commonly change detection being off) degrades to a "divergence
+  not computed" note instead of an error or a flood of false "missing" findings.
+  An agreeing schema renders an explicit "✓ schemas match".
+- **`assets/web/bundle.js`** — rebuilt (esbuild) so the tool ships the new code.
+
+**Testing.**
+
+- **`assets/web/test/schema-divergence.test.mjs`** (new, 9 cases via `node --test`)
+  — affinity synonym collapsing; agreement → no findings; INT/INTEGER &
+  VARCHAR/TEXT treated as matching; missing-table; extra-table; `sqlite_*` never
+  extra; missing + extra columns; combined type/nullability/pk mismatches;
+  unset-nullable defaults to nullable.
+- `npm run test:web` → **181 passing** (+9). `npm run typecheck:web` clean.
+  `npm run build:js` rebuilt the bundle. Dart web-contract tests
+  (`web_viewer_nl_modal_contract_test`, `html_content_test`) still green.
+
+**l10n.** SKIPPED [web-not-Flutter] — the web viewer is plain-English HTML
+outside the Flutter ARB catalog.
+
+**Outstanding.** None for the divergence view. Option B (porting the Dart
+source parser) remains unbuilt by design — Option A's host callback supplies the
+exact declared schema, which is what the diff consumes.
+
+**Finish report appended:** plans/history/2026.06/2026.06.10/71-website-dart-schema-scanning.md
+(this section). No bug archive — task did not close a `bugs/*.md` file.
