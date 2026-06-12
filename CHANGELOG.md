@@ -26,7 +26,7 @@ Install the library from
 [pub.dev](https://pub.dev/packages/saropa_drift_advisor); report issues and
 browse source on
 [GitHub](https://github.com/saropa/saropa_drift_advisor). History before
-**2.6.0** lives in [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
+**3.0.3** lives in [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
 
 ---
 
@@ -40,7 +40,7 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [3.7.2]
 
 The web viewer's toolbar can now show labels: click any empty space in the toolbar row to switch between icon-only buttons and icons with a short word in a dim box. Your choice is remembered.
 
@@ -110,10 +110,6 @@ The web viewer's toolbar can now show labels: click any empty space in the toolb
 - **Reclassify the IDE-only capabilities note as a guide** — the former `plans/74-ide-only-capabilities.md` carried no build work; it only records that go-to-definition, code actions, and data breakpoints are intentionally IDE-only (not website parity gaps). Moved it to `plans/guides/IDE_ONLY_CAPABILITIES.md`, dropped the feature-number/plan framing, and rewrote it as a reference doc: an editor-surface-vs-website table explaining why each is out of reach for the read-only viewer, plus per-capability reopening criteria. Historical references (the archived `GAP_FIT_PLAN.md`, prior changelog entry) keep the old path.
 
 </details>
-
----
-
-## [3.7.1]
 
 Paste a query and see it as a diagram: the web viewer's query builder can now turn a `SELECT` you've typed (or pasted) into the multi-table visual graph.
 
@@ -506,161 +502,4 @@ Save and compare snapshots for Index Suggestions, Size Analytics, Anomaly Detect
 
 ---
 
-## [3.0.3]
-
-Schema tab no longer gets stuck on "Loading…", "Ask in English" stops crashing on open, and the DB Diff tab shows a proper setup guide instead of raw developer-facing errors. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.3/CHANGELOG.md)
-
-### Fixed
-
-- **Schema tab stuck on "Loading…"** — when schema DDL was already cached from another view (table data in "both" scope, search tab), the Schema tab never rendered the cached content; now uses cache-first rendering so the tab displays immediately
-- **"Ask in English" crashes with `loadSchemaMeta is not defined`** — the NL modal, table-view column-type loader, and cell-edit module all called `loadSchemaMeta` at runtime but the function was scoped inside `app.js` and never reachable from the bundled TS modules; extracted into a shared `schema-meta.ts` module with proper imports
-
-### Improved
-
-- **DB Diff tab shows setup guide instead of error jargon** — when the comparison database is not configured, the panel now explains what the feature does and shows a collapsible "How to enable" section with a code example; buttons are hidden until the feature is active, instead of showing developer-facing error messages after clicking
-- **Quieter debug console for stale tables** — when a table is listed in `sqlite_master` but has been dropped since the last metadata fetch, the server now logs a one-line warning instead of a full stack trace; snapshot capture skips failed tables instead of aborting
-
-<details>
-<summary>Maintenance</summary>
-
-- **README screenshots** — added 10 feature screenshots (Tables, Table Data, Schema, Index, Size, Perf, Health, Import, Ask in English, Light Mode) in an HTML grid with captions; renamed files from random hashes to descriptive names; added Screenshots link to TOC
-
-</details>
-
----
-
-## [3.0.2]
-
-Stale tables no longer carry over when you switch Flutter projects, and empty databases stop flagging every Dart table class as a "missing table" error. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.2/CHANGELOG.md)
-
-### Fixed
-
-- **Stale tables persist after project switch** — switching Flutter projects reloaded the webview HTML but localStorage kept pinned tables, nav history, table state, SQL history, bookmarks, and analysis results from the previous project; now detects when the server origin changes and purges all project-specific storage while preserving user preferences (theme, sidebar state)
-- **False-positive "missing table" errors on empty database** — when the database had no tables (app never run, or server connected to an empty DB), every Dart table class was flagged with an Error-level `missing-table-in-db` diagnostic; now detects the empty-DB condition and suppresses individual missing-table errors while still flagging genuinely missing tables in partially populated databases
-
-<details>
-<summary>Maintenance</summary>
-
-- **File modularization** — split 3 files exceeding 300-line limit: dashboard chart-clipboard logic, ER diagram SVG helpers, and panel test fixtures each extracted into dedicated modules
-- **Final IIFE extraction** — moved last 4 inline init blocks (`initPiiMaskToggle`, `initSearchToggle`, `setupCellValuePopupButtons`, `setupChartResize`) into their feature modules; removed 70 unused imports; `app.js` reduced to 926-line init-only glue
-- **Test coverage** — added tests verifying extracted helpers compose correctly into webview script output
-- **Test coverage** — 22 contract tests for server-origin storage clearing: state constant, persistence function wiring, key targeting, UI-preference preservation, call ordering in app.js, and bundle integration
-
-</details>
-
----
-
-## [3.0.1]
-
-Version bump for publication. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.1/CHANGELOG.md)
-
----
-
-## [3.0.0]
-
-Fixed stale data after switching servers, restored broken heartbeat and polling controls, and added Log Capture session export so Drift Advisor diagnostics flow into your capture sessions automatically. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.0/CHANGELOG.md)
-
-### Fixed
-
-- **Wrong project tables after server switch** — webview panel showed stale tables from the previous project when the debug server changed; now detects host/port changes and fully reloads content from the new server
-- **Retry targeted wrong server** — the Retry button in the webview used the original server endpoint instead of the current one after a server switch; now always uses the panel's current host/port
-- **Heartbeat reconnection stopped working** — heartbeat reconnection silently dropped back to no-op stubs instead of resuming polling; now wired correctly at startup
-- **Polling toggle missing** — the masthead pill click handler and keep-alive toggle stopped responding; restored
-
-### Added
-
-- **Log Capture session export** — when both extensions are installed and `driftViewer.integrations.includeInLogCaptureSession` is `full` (the default), session end now writes structured metadata (query stats, anomalies, schema summary, health, diagnostic issues) into the Log Capture session and a `{session}.drift-advisor.json` sidecar file; set to `header` for lightweight headers only, or `none` to opt out entirely
-- **Log Capture extension API** — `getSessionSnapshot()` is now available on `context.exports` so Log Capture's built-in provider can request a snapshot directly without the file fallback
-- **Session file fallback** — `.saropa/drift-advisor-session.json` is written at session end for tools and scenarios where the extension API is unavailable
-
-<details>
-<summary>Maintenance</summary>
-
-- **esbuild bundling** — all web JS/TS assets bundled into a single `bundle.js` via esbuild; Dart server plumbing collapsed from 4 cached fields / 4 script tags to 1
-- **Full JS modularization** — `app.js` decomposed from 6882-line monolith to 915-line init glue; 23 TypeScript modules extracted; shared state centralized in `state.ts` with typed exports
-- **SCSS modularization** — `style.scss` decomposed from 2184 lines to 28-line import hub with 17 feature partials; migrated from deprecated `@import` to `@use`
-- **Connection diagnostic logging** — all connection state transitions, poll cycles, heartbeat, and keep-alive events now emit `[SDA]` prefixed console.log entries for browser dev tools tracing
-
-</details>
-
----
-
-## [2.19.0]
-
-Type badges on columns, random data sampling, health scores, query cost analysis, and a pile of UI polish. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.19.0/CHANGELOG.md)
-
-### Added
-
-- **Column type icons** (Website) — data table column headers now show a compact type badge (e.g. TEXT, INT, REAL, BLOB) sourced from schema metadata; full type in tooltip
-- **Table definition type icons** (Website) — table definition panel now shows a fixed-width icon column with type glyphs (`#` integer, `T` text, `.#` real, etc.) plus 🔑 PK and 🔗 FK badges for quick visual scanning
-- **Data sampling** (Website) — Sample button in the pagination bar loads a random sample of rows via `ORDER BY RANDOM() LIMIT N`
-- **Health score** (Website) — anomaly scan results now show a 0–100 health score with letter grade (A–F) and a severity breakdown summary
-- **Query cost analysis** (Website) — EXPLAIN output now shows an estimated cost rating (Low/Medium/High) with operation counts (full scans, index lookups, subqueries, sorts, temp storage) and a collapsible raw plan detail view
-
-### Fixed
-
-- **App logo not appearing** (Website) — replaced corrupted inlined base64 PNG (~185 lines) with a CDN-hosted URL using the same jsDelivr + `@main` fallback pattern as CSS/JS assets
-
-### Changed
-
-- **Query history expanded** (Website) — SQL history limit increased from 20 to 200 entries, matching the VS Code extension
-
-- **Collapsible table definition** (Website) — table definition panel above the data grid is now collapsible (collapsed by default), matching the query builder pattern; self-contained in `table-def-toggle.js`
-- **Masthead pill** (Website) — combined the version badge and connection status into a single header pill showing logo · version · Online/Offline; styles extracted to `_masthead.scss` partial, HTML extracted to `_buildMastheadPill()` method
-- **Connection status terminology** (Website) — renamed "Live" to "Online" throughout the web viewer for clarity
-- **Sidebar toggle arrow** (Website) — arrow is now larger, right-aligned, and points left instead of down for clearer collapse affordance
-- **FAB opens upward** (Website) — floating action button menu now fans upward from the trigger, with items right-aligned against the trigger edge
-- **Share moved to FAB** (Website) — Share button relocated from the header bar into the FAB menu as the first action item
-- **FAB modularized** (Website) — FAB styles extracted to `_fab.scss` partial, FAB UI logic extracted to self-contained `fab.js` module
-- **Premium theme effects** (Website) — Showcase and Midnight themes now have real glassmorphism (backdrop-filter blur on header, sidebar, cards), animated gradient backgrounds, rainbow shimmer borders on expanded cards, floating glow orb (Midnight), entrance animations, and gradient buttons; removed broken CDN dependency on nonexistent drift-enhanced.css; all four themes are always available without external network requests
-- **Monospace font upgrade** (Website) — switched to JetBrains Mono via Google Fonts CDN; centralized font stack into a single `--font-mono` CSS custom property for easy future changes
-- **Responsive toolbar** (Website) — tools toolbar no longer wraps to a second row; text labels progressively hide at three breakpoints (1100px, 900px, 700px) leaving icon-only buttons with tooltips at narrow widths
-
-### Added
-
-- **Column visibility toggle** (Extension) — SQL Notebook results now have a "Columns" button to show/hide individual columns, with a dropdown chooser and "Show All" reset
-- **Row filter toggle** (Extension) — SQL Notebook filter bar now has a "Matching/All" toggle to switch between showing only matching rows and showing all rows
-- **Responsive ER diagram** (Extension) — ER diagram automatically re-fits to the panel when the window is resized, debounced to avoid flicker
-- **Export index analysis** (Extension) — Index Suggestions panel has a new "Export Analysis" button that exports as JSON, CSV, or Markdown to clipboard or file
-- **Copy chart to clipboard** (Extension) — Dashboard chart widgets now have a clipboard button in the header that copies the chart as a PNG image
-- **JSON export** (Website) — Export panel now offers "Table JSON" alongside the existing CSV download
-- **Import history log** (Website) — Import panel tracks all import operations during the session in a collapsible history list showing time, table, format, row count, and errors
-
-### Fixed
-
-- **Acronym column name mismatch detection** — When Drift's camelCase-to-snake_case splits acronyms like `UUID` into `u_u_i_d`, but the database uses `uuid`, the advisor now reports a single `column-name-acronym-mismatch` diagnostic instead of a confusing `missing-column-in-db` / `extra-column-in-db` pair. The message explains the root cause and suggests both fix options (rename getter or `.named()` override)
-- **Anomaly detector: reduced false positives** — Numeric outlier detection now skips timestamp columns (`created_at`, `*_date`, etc.), sort/ordering columns (`sort_order`, `position`, `rank`, etc.), and year/founded columns. Added a log-scale fallback so distributions spanning orders of magnitude (e.g., currency exchange rates, engagement scores) are no longer flagged. Outlier messages now identify which end (min/max) is the problem and by how many σ
-- **Slow-query and N+1 false positives on table definitions** — Runtime performance diagnostics (`slow-query-pattern`, `n-plus-one`) moved from the `performance` category to `runtime` so users can disable them independently of schema checks. Server-internal queries (no caller location) are now downgraded from Warning to Information severity. When caller location is available, diagnostics pin to the call site at full Warning severity. Slow-query messages include row count; N+1 messages hint at batching via JOIN/IN for high repeat counts
-
----
-
-## [2.17.5]
-
-Super FAB menu, app logo in the tab bar, and premium theme effects that actually look dramatic now. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.17.5/CHANGELOG.md)
-
-### Added
-
-- **Super FAB menu** — Sidebar toggle, theme cycle, and PII mask moved from the header into a floating action button in the bottom-right corner. Click the gear icon to expand; click outside or press Escape to dismiss
-- **App logo in tab bar** — Replaced the "Saropa Drift Adviser" text header with the app logo, positioned inline with the tab buttons
-
-### Fixed
-
-- **Showcase/Midnight themes now show dramatic visual effects** — The premium themes had nearly-opaque backgrounds (75-85% alpha) that made glassmorphism invisible. Completely rewritten with floating ambient orbs, glass shimmer sweeps, card entrance animations with blur-to-clear, rainbow borders visible at rest, dramatic hover lifts, animated gradient buttons, and backgrounds at 25-35% alpha so the frosted glass effect is unmistakable
-- **Sticky header preserved in premium themes** — The enhanced CSS was overriding `position: sticky` with `position: relative` on the header, causing it to scroll away instead of staying fixed
-
----
-
-## [2.17.4]
-
-Fixed the changelog — 2.17.2 had accidentally overwritten the 2.17.1 entry. Both versions are now listed correctly below. [log](https://github.com/saropa/saropa_drift_advisor/blob/v2.17.4/CHANGELOG.md)
-
-<details>
-<summary>Maintenance</summary>
-
-- **Publish pipeline: store propagation polling** — After publishing, the pipeline now polls pub.dev, VS Code Marketplace, and/or Open VSX APIs until the new version is visible (30 s interval, 10 min max). Timeout is non-fatal
-
-</details>
-
----
-
-For older versions (2.17.3 and prior), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
+For older versions (3.0.3 and prior), see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
