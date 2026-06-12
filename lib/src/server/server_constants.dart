@@ -58,6 +58,8 @@ abstract final class ServerConstants {
   static const String pathApiDumpAlt = 'api/dump';
   static const String pathApiDatabase = '/api/database';
   static const String pathApiDatabaseAlt = 'api/database';
+  static const String pathApiReport = '/api/report';
+  static const String pathApiReportAlt = 'api/report';
   static const String pathApiSnapshot = '/api/snapshot';
   static const String pathApiSnapshotAlt = 'api/snapshot';
   static const String pathApiSnapshotCompare = '/api/snapshot/compare';
@@ -200,6 +202,17 @@ abstract final class ServerConstants {
   static const String queryParamTo = 'to';
   static const String formatDownload = 'download';
   static const String detailRows = 'rows';
+
+  /// Portable-report (`/api/report`) query params. `tables` is a comma list of
+  /// table names (defaults to all), `maxRows` caps embedded rows per table, and
+  /// `schema`/`anomalies` set to [valueFalse] omit those sections.
+  static const String queryParamTables = 'tables';
+  static const String queryParamMaxRows = 'maxRows';
+  static const String queryParamSchema = 'schema';
+  static const String queryParamAnomalies = 'anomalies';
+
+  /// Literal `'false'` used to switch off optional report sections via the URL.
+  static const String valueFalse = 'false';
   static const String jsonKeyEnabled = 'enabled';
   static const String jsonKeyChangeDetection = 'changeDetection';
   static const String jsonKeyError = 'error';
@@ -293,6 +306,7 @@ abstract final class ServerConstants {
   static const String jsonKeyMessage = 'message';
   static const String jsonKeySeverity = 'severity';
   static const String jsonKeyColumn = 'column';
+  static const String jsonKeyAnomalies = 'anomalies';
   static const String jsonKeyPriority = 'priority';
   static const String headerAuthorization = 'authorization';
   static const String authSchemeBearer = 'Bearer ';

@@ -454,3 +454,72 @@ interface IReportConfig {
 - No incremental export — entire report is regenerated each time
 - The HTML template is a simplified version of the web UI — not feature-parity
 - No password protection or encryption on the exported file
+
+---
+
+## Finish Report (2026-06-12)
+
+Completes the server-side half of this feature, which the original 2026-03-14
+implementation deferred as "optional" (Implementation Summary, line 5). The
+extension could export a portable report since v1.3.4, but the website/server
+had no equivalent — a developer using the browser viewer had no way to produce
+a shareable, self-contained snapshot. A new `GET /api/report` endpoint closes
+that gap and brings the website to parity with the extension command.
+
+**What it does.** The endpoint streams a single self-contained HTML file
+(`Content-Disposition: attachment`) with the database snapshot, schema DDL, and
+anomaly findings inlined — no server, no network, no dependencies to open it.
+The document carries a table list with row counts, click-to-view paged tables
+(50 rows/page) with a per-table text filter, the schema DDL, a severity-coded
+anomaly list, and a light/dark theme toggle.
+
+**Endpoint.** `GET /api/report?tables=a,b&maxRows=N&schema=false&anomalies=false`.
+`tables` defaults to every table; `maxRows` defaults to 1000 and is clamped to
+1..50000 (every row is inlined, so the ceiling keeps the file shareable);
+`schema`/`anomalies` set to `false` omit those sections.
+
+**Files.**
+
+- **`lib/src/server/report_html.dart`** (new) — `ReportHtmlBuilder.build(...)`
+  plus the `ReportTableData` slice type. The report embeds the snapshot as a
+  single JSON island and renders it client-side with `textContent` (never
+  `innerHTML`), so a cell containing `<script>` becomes literal text — the
+  report is XSS-safe by construction. The one escape applied to the JSON string
+  is the standard `</` → `<\/` break-out guard so a value containing
+  `</script>` cannot terminate the data tag.
+- **`lib/src/server/report_handler.dart`** (new) — `ReportHandler.handle(...)`
+  collects per-table columns (`PRAGMA table_info`), a capped page of rows
+  (`SELECT * … LIMIT`), and the true count (`SELECT COUNT(*)`); pulls schema DDL
+  via `ServerUtils.getSchemaSql`; and runs the anomaly scan via the shared
+  `AnalyticsHandler` (a failing scan logs and ships an empty anomaly list rather
+  than sinking the export). Requested table names are intersected with the live
+  `getTableNames()` set, so the name interpolated into `SELECT` is always a real
+  table — no injection surface, matching how the rest of the server treats table
+  names.
+- **`lib/src/server/router.dart`** — registers `_report` and routes
+  `GET /api/report` inside the existing schema/export route group.
+- **`lib/src/server/server_constants.dart`** — `pathApiReport`(+Alt), the four
+  query-param keys, `valueFalse`, and `jsonKeyAnomalies`.
+- **`lib/src/server/html_content.dart`** — a **Report** link in the web viewer's
+  Export panel (and a narrative line), matching the existing hardcoded export
+  links (the web-viewer HTML is not yet ARB-localized; Feature 75 web l10n is
+  scaffolding only).
+
+**Testing.**
+
+- `test/report_html_test.dart` (6 cases) — complete-document structure, JSON
+  embedding, the `</script>` break-out guard (a cell carrying
+  `</script><script>alert(1)</script>` round-trips as data and never adds a
+  third closing tag), schema/anomaly section toggling, and a zero-table report.
+- `test/report_handler_test.dart` (4 cases, real `DriftDebugServer`) — HTML
+  attachment with all tables embedded, `?tables=` restriction, unknown-table
+  allow-listing, and `schema=false` omission.
+- `dart test` → **621 passing**. `dart analyze` on all changed + new files →
+  **No issues found** (saropa_lints clean).
+
+**Known limitations (unchanged from the original spec).** Large datasets produce
+large files (all rows inlined); client-side filter is linear; BLOBs render as
+their stringified value; no charts. The `maxRows` ceiling bounds the worst case.
+
+**Finish report appended:** plans/history/2026.03/20260314/25-portable-snapshot-report.md
+(this section). No bug archive — task did not close a `bugs/*.md` file.
