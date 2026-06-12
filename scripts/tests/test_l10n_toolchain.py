@@ -222,6 +222,22 @@ class TestAuditSync(unittest.TestCase):
         self.assertEqual(res["orphans_pruned"], 1)
         self.assertNotIn("viewer.gone", bundles.load_json(bundles.web_locale_bundle_path("de")))
 
+    def test_translate_writes_bundles_with_injected_fake(self):
+        # Confirmed translate with an injected fake translator — no network. Writes
+        # the web key + the host (English-value-keyed) entry, and records provenance.
+        from modules.l10n import actions
+        out: list[str] = []
+        fake = lambda english, locale: f"[{locale}]{english}"
+        code = actions.run_translate_action(
+            out.append, ["de"], "gaps", confirmed=True, translate_fn=fake, throttle=0,
+        )
+        self.assertEqual(code, 0)
+        web = bundles.load_json(bundles.web_locale_bundle_path("de"))
+        host = bundles.load_json(bundles.host_locale_bundle_path("de"))
+        self.assertEqual(web.get("viewer.bye"), "[de]Bye")
+        self.assertEqual(host.get("Hello"), "[de]Hello")
+        self.assertEqual(provenance.load_provenance("de").get("viewer.bye"), ENGINE_GOOGLE)
+
 
 class TestMenu(unittest.TestCase):
     """Interactive menu dispatch — drives input + capturing emit (no console writes)."""
@@ -274,10 +290,20 @@ class TestMenu(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertTrue(any("Cancelled" in line for line in out))
 
-    def test_translate_all_confirmed_still_no_mt(self):
-        code, out = self._drive(["3", "y"])  # translate all → Yes, but engine unwired
-        self.assertEqual(code, 1)
-        self.assertTrue(any("NOT performed" in line for line in out))
+    def test_translate_all_confirmed_translates_via_engine(self):
+        # Menu choice 3 (translate all) + Yes → dispatches the real path, but with
+        # engines.translate_one monkeypatched to a fake so no network call is made.
+        import time as _time
+        from modules.l10n import engines
+        orig, orig_sleep = engines.translate_one, _time.sleep
+        engines.translate_one = lambda text, locale, **k: f"[{locale}]{text}"
+        _time.sleep = lambda *a, **k: None  # skip the real per-call throttle in tests
+        try:
+            code, out = self._drive(["3", "y"])
+        finally:
+            engines.translate_one, _time.sleep = orig, orig_sleep
+        self.assertEqual(code, 0)
+        self.assertTrue(any("translations across" in line for line in out))
 
     def test_translate_specific_unknown_locale_cancels(self):
         code, out = self._drive(["4", "xx"])  # specific locales → invalid tag
@@ -298,14 +324,12 @@ class TestCli(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertTrue(any("REFUSED" in line for line in out))
 
-    def test_translate_confirmed_still_does_not_translate(self):
+    def test_translate_refuses_without_confirm_flag(self):
+        # Named locale but no --confirm-translate → still gated.
         out: list[str] = []
-        code = cli.main(
-            ["--run-mode", "translate", "--locales", "de", "--confirm-translate"],
-            emit=out.append,
-        )
+        code = cli.main(["--run-mode", "translate", "--locales", "de"], emit=out.append)
         self.assertEqual(code, 1)
-        self.assertTrue(any("NOT performed" in line for line in out))
+        self.assertTrue(any("REFUSED" in line for line in out))
 
 
 if __name__ == "__main__":
