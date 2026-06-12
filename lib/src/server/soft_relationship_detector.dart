@@ -14,7 +14,7 @@
 // this one finds a relationship the data clearly has but the schema never
 // declared.
 //
-// Honest scope (matches plans/77-soft-relationship-advisory.md):
+// Honest scope (matches plans/history/2026.06/2026.06.12/77-soft-relationship-advisory.md):
 //  * NOT a push to add SQLite `REFERENCES`. The recommended remedy is the
 //    host relationship MANIFEST (Feature 78, [DeclaredRelationships]) — zero
 //    runtime DB risk, no global `PRAGMA foreign_keys`, no migration. When the
