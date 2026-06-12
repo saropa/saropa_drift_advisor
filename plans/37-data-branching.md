@@ -771,9 +771,7 @@ Build the read-only path (capture → diff → merge SQL) fully before the destr
 
 ## Finish Report (2026-06-10) — Phases 1–5
 
-**This work will be reviewed by another AI.**
-
-**Trigger.** Top-5 build directive, Item 5 — the "biggest wow" feature.
+**Feature.** Git-style data branching for the VS Code extension: capture named snapshots of database state, diff a branch against current/another branch, generate differential merge/rollback SQL, and restore a branch.
 
 **Scope.** (B) VS Code extension (TypeScript). New webview feature + commands. **No Dart/server code** (see the Phase 4 deviation below).
 

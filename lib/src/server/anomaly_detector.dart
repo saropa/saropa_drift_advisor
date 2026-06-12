@@ -133,9 +133,7 @@ abstract final class AnomalyDetector {
       //    detector; for a zero-FK host these declared edges are the ONLY
       //    relationship source the orphan check has.
       final declaredEdges = declaredRelationships
-          .where(
-            (edge) => edge.fromTable == tableName && edge.orphanCheckable,
-          )
+          .where((edge) => edge.fromTable == tableName && edge.orphanCheckable)
           .toList(growable: false);
       await _detectOrphanedForeignKeys(
         query: query,

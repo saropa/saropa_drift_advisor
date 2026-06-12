@@ -1,13 +1,10 @@
 # NL→SQL Unit Test Suite + Converter Fixes
 
-**Trigger (user request, verbatim):** "create extensive and substantial unit tests for the natural language processing sub system. scan my local project for project table ideas: D:\src\contacts\lib\database\drift\drift_database.dart"
+The web viewer's heuristic NL→SQL converter ([assets/web/nl-to-sql.ts](../../../../assets/web/nl-to-sql.ts)) lacked an executable test suite. This task builds extensive, substantial unit tests for that subsystem, grounded in table models drawn from a real Saropa project schema (`D:\src\contacts\lib\database\drift\drift_database.dart`).
 
 Built a permanent, executable test suite for the web viewer's heuristic NL→SQL converter ([assets/web/nl-to-sql.ts](../../../../assets/web/nl-to-sql.ts)), grounded in two fixtures derived from real Saropa data models. Writing the suite surfaced three real converter bugs, all fixed in the same change.
 
 ## Finish Report (2026-06-11)
-
-### 1. Critical note
-This work will be reviewed by another AI.
 
 ### 2. Scope
 **(A)** project code — but specifically the **web-viewer TypeScript/JS** subsystem (`assets/web/`), not Flutter UI and not the VS Code extension. New tests run under Node (`node:test`). No Dart `lib/` logic changed.
@@ -43,7 +40,7 @@ Finish report saved: `plans/history/2026.06/2026.06.11/nl-sql-unit-test-suite.md
 - `assets/web/bundle.js` — rebuilt.
 - `package.json` — `test:web` script.
 
-### Core logic diff summary (for reviewer)
+### Core logic diff summary
 1. **Duplicate column:** `const dupWord = q.match(/(?:duplicate|repeated|dupe)d?\s+([a-z0-9_]+)/i); col = (dupWord && matchColumn(dupWord[1], target)) || …` — "duplicate emails" now groups by `email`, not the first name-ish column.
 2. **Bool-flag value collision:** before emitting `flag = 0/1`, skip when `conds` already contains `'<flagword>'` as a quoted literal (case-folded) — "status is not active" no longer also emits `active = 0`.
 3. **Group column:** `q.match(/\b(?:by|per)\s+([a-z0-9_]+)/i)` — "contacts per company" now groups by `company_id`.
@@ -52,4 +49,4 @@ Finish report saved: `plans/history/2026.06/2026.06.11/nl-sql-unit-test-suite.md
 - **No-FK hub fallback:** without declared SQLite foreign keys, the best-guess table heuristic falls back to the largest table by row count. For the real (UUID-linked) Saropa Contacts schema that picks `contact_points`, not `contacts`. The clarifier dropdown lets the user override. (Test: "KNOWN LIMITATION: no-FK hub falls back to row count".)
 - **camelCase date columns:** `*At` camelCase columns (favoriteAt, emergencyAt, eventStart) aren't auto-detected as date columns; only names containing created/updated/modified/time/date/`_at` (snake) are. (Test: "KNOWN LIMITATION: camelCase favoriteAt is not auto-detected".)
 
-Both are real weaknesses against the user's actual schema; a follow-up could (a) infer soft relationships from shared `*UUID`/`*_id` column names when no declared FK exists, and (b) treat camelCase `*At`/`*Date`/`*Timestamp` as date columns.
+Both are real weaknesses against the real Saropa Contacts schema; a follow-up could (a) infer soft relationships from shared `*UUID`/`*_id` column names when no declared FK exists, and (b) treat camelCase `*At`/`*Date`/`*Timestamp` as date columns.
