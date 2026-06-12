@@ -4,6 +4,7 @@
 import 'dart:math' show log, sqrt;
 
 import 'server_typedefs.dart';
+import 'server_types.dart';
 import 'server_utils.dart';
 
 /// Static data-quality anomaly detection methods.
@@ -28,9 +29,19 @@ abstract final class AnomalyDetector {
   /// Pure function: no [ServerContext] dependency.
   /// Callers are responsible for error handling and
   /// logging.
+  ///
+  /// [declaredRelationships] is the host's convention-based relationship
+  /// manifest (Feature 78). A host that links tables by a shared UUID column
+  /// declares ZERO SQLite foreign keys, so `PRAGMA foreign_key_list` is empty
+  /// and the orphan-row check would otherwise see no relationships at all. The
+  /// caller resolves [ServerContext.declaredRelationships] to a plain list and
+  /// hands it down here, keeping this function pure and parameter-only for
+  /// tests. Defaults to empty (a host that links by real FKs supplies nothing).
   static Future<Map<String, dynamic>> getAnomaliesResult(
-    DriftDebugQuery query,
-  ) async {
+    DriftDebugQuery query, {
+    List<DeclaredRelationship> declaredRelationships =
+        const <DeclaredRelationship>[],
+  }) async {
     final tableNames = await ServerUtils.getTableNames(query);
     final anomalies = <Map<String, dynamic>>[];
 
@@ -115,12 +126,23 @@ abstract final class AnomalyDetector {
         }
       }
 
-      // 4. Detect orphaned foreign key references.
+      // 4. Detect orphaned foreign key references. Narrow the host manifest to
+      //    this table's joinable edges: fromTable matches AND orphanCheckable
+      //    (list_ref / seed_identity edges are excluded — a scalar LEFT JOIN
+      //    cannot represent them). PRAGMA-derived FKs are added inside the
+      //    detector; for a zero-FK host these declared edges are the ONLY
+      //    relationship source the orphan check has.
+      final declaredEdges = declaredRelationships
+          .where(
+            (edge) => edge.fromTable == tableName && edge.orphanCheckable,
+          )
+          .toList(growable: false);
       await _detectOrphanedForeignKeys(
         query: query,
         tableName: tableName,
         tableNames: tableNames,
         anomalies: anomalies,
+        declaredEdges: declaredEdges,
       );
 
       // 5. Detect duplicate rows (DISTINCT count vs
@@ -546,50 +568,104 @@ abstract final class AnomalyDetector {
   /// Checks foreign keys on [tableName] and flags any
   /// rows where the FK value has no matching row in the
   /// referenced table (orphaned references).
+  ///
+  /// Relationship edges come from two sources, unioned:
+  /// 1. `PRAGMA foreign_key_list` — SQLite-ENFORCED foreign keys. An orphan
+  ///    found through one is genuine corruption (the engine should have
+  ///    prevented it) → severity `error`.
+  /// 2. [declaredEdges] — the host's convention-based manifest (Feature 78),
+  ///    already narrowed by the caller to this table's orphan-checkable edges.
+  ///    These links are descriptive only; SQLite does not enforce them, so an
+  ///    orphan is EXPECTED steady state in an offline-first host (out-of-order
+  ///    sync, soft-deleted parents) → severity `warning`, not `error`.
+  ///
+  /// For a host that declares no SQLite FKs (links by shared UUID column),
+  /// source 1 is empty and [declaredEdges] is the only relationship source —
+  /// without it the entire orphan-row class is silent for that host.
   static Future<void> _detectOrphanedForeignKeys({
     required DriftDebugQuery query,
     required String tableName,
     required List<String> tableNames,
     required List<Map<String, dynamic>> anomalies,
+    required List<DeclaredRelationship> declaredEdges,
   }) async {
     final fkRows = ServerUtils.normalizeRows(
       await query('PRAGMA foreign_key_list("$tableName")'),
     );
 
+    // Build the candidate edge set. Enforced FKs first so a declared edge that
+    // duplicates one (same from/to columns) is dropped below and keeps the
+    // stronger `error` severity rather than being re-reported as a `warning`.
+    final edges = <_OrphanEdge>[];
     for (final fk in fkRows) {
       final fromCol = fk['from'] as String?;
       final toTable = fk['table'] as String?;
       final toCol = fk['to'] as String?;
-      if (fromCol != null &&
-          toTable != null &&
-          toCol != null &&
-          tableNames.contains(toTable)) {
-        // LEFT JOIN to find FK values with no matching
-        // row in the referenced table.
-        final orphanCount = ServerUtils.extractCountFromRows(
-          ServerUtils.normalizeRows(
-            await query(
-              'SELECT COUNT(*) AS c FROM "$tableName" t '
-              'LEFT JOIN "$toTable" r '
-              'ON t."$fromCol" = r."$toCol" '
-              'WHERE t."$fromCol" IS NOT NULL '
-              'AND r."$toCol" IS NULL',
-            ),
+      if (fromCol != null && toTable != null && toCol != null) {
+        edges.add(
+          _OrphanEdge(
+            fromCol: fromCol,
+            toTable: toTable,
+            toCol: toCol,
+            enforced: true,
           ),
         );
+      }
+    }
+    for (final edge in declaredEdges) {
+      // Skip an edge already covered by an enforced FK (dedup on the join
+      // triple). A host that BOTH declares and enforces a link is reported once
+      // at `error`, never doubled.
+      final alreadyEnforced = edges.any(
+        (existing) =>
+            existing.fromCol == edge.fromColumn &&
+            existing.toTable == edge.toTable &&
+            existing.toCol == edge.toColumn,
+      );
+      if (!alreadyEnforced) {
+        edges.add(
+          _OrphanEdge(
+            fromCol: edge.fromColumn,
+            toTable: edge.toTable,
+            toCol: edge.toColumn,
+            enforced: false,
+          ),
+        );
+      }
+    }
 
-        if (orphanCount > 0) {
-          anomalies.add(<String, dynamic>{
-            'table': tableName,
-            'column': fromCol,
-            'type': 'orphaned_fk',
-            'severity': 'error',
-            'count': orphanCount,
-            'message':
-                '$orphanCount orphaned FK(s): '
-                '$tableName.$fromCol -> $toTable.$toCol',
-          });
-        }
+    for (final edge in edges) {
+      // Only join against tables actually present in the schema — a manifest
+      // can name a parent table the running DB does not have.
+      if (!tableNames.contains(edge.toTable)) {
+        continue;
+      }
+
+      // LEFT JOIN to find FK values with no matching
+      // row in the referenced table.
+      final orphanCount = ServerUtils.extractCountFromRows(
+        ServerUtils.normalizeRows(
+          await query(
+            'SELECT COUNT(*) AS c FROM "$tableName" t '
+            'LEFT JOIN "${edge.toTable}" r '
+            'ON t."${edge.fromCol}" = r."${edge.toCol}" '
+            'WHERE t."${edge.fromCol}" IS NOT NULL '
+            'AND r."${edge.toCol}" IS NULL',
+          ),
+        ),
+      );
+
+      if (orphanCount > 0) {
+        anomalies.add(<String, dynamic>{
+          'table': tableName,
+          'column': edge.fromCol,
+          'type': 'orphaned_fk',
+          'severity': edge.enforced ? 'error' : 'warning',
+          'count': orphanCount,
+          'message':
+              '$orphanCount orphaned FK(s): '
+              '$tableName.${edge.fromCol} -> ${edge.toTable}.${edge.toCol}',
+        });
       }
     }
   }
@@ -624,4 +700,23 @@ abstract final class AnomalyDetector {
       });
     }
   }
+}
+
+/// One orphan-checkable relationship edge for [AnomalyDetector], normalized
+/// from either an enforced `PRAGMA foreign_key_list` row or a host-declared
+/// manifest edge. [enforced] carries the source so the orphan finding's
+/// severity can branch: enforced → `error` (real corruption), declared-only →
+/// `warning` (expected in an offline-first host).
+final class _OrphanEdge {
+  const _OrphanEdge({
+    required this.fromCol,
+    required this.toTable,
+    required this.toCol,
+    required this.enforced,
+  });
+
+  final String fromCol;
+  final String toTable;
+  final String toCol;
+  final bool enforced;
 }
