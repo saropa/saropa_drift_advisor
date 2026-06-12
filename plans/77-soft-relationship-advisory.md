@@ -1,17 +1,19 @@
 # Feature 77: Soft-Relationship Advisory
 
-**Status: IMPLEMENTED (Phases 1–2).** The Dart detector, the dedicated endpoint,
-and the `/api/issues` merge are built, tested, and shipped (see the
-Implementation note at the foot of this file). Phase 3 (ER-diagram dashed edges)
-remains out of scope for the first cut — **do not archive this plan until Phase 3
-lands or is explicitly dropped.**
+**Status: IMPLEMENTED (Phases 1–3) — all phases complete.** The Dart detector,
+the dedicated endpoint, the `/api/issues` merge, and the ER-diagram dashed-edge
+rendering are built, tested, and shipped (see the Finish Reports at the foot of
+this file). Ready to archive on the next `/finish` pass (held in the active tree
+only because [78](./78-declared-relationships-manifest.md) still cross-links it
+and is itself mid-flight).
 
 The detection engine this advisory surfaces was already built — `inferForeignKeys`
 ([nl-to-sql.ts:702](../assets/web/nl-to-sql.ts)) computes the soft edges and
 feeds the NL wizard ([nl-to-sql.ts:836](../assets/web/nl-to-sql.ts)). Phases 1–2
-port those two rules to Dart, surface the inferred-but-undeclared edges as a
+ported those two rules to Dart, surfaced the inferred-but-undeclared edges as a
 diagnostic **finding**, and read the manifest
-([78](./78-declared-relationships-manifest.md)) to mark them resolved.
+([78](./78-declared-relationships-manifest.md)) to mark them resolved. Phase 3
+renders those same edges as dashed lines in the ER diagram.
 
 Surfaces, as a report-only diagnostic finding, the case where tables are
 *related by column-naming convention* (a shared `*UUID` identity column, or a
@@ -242,10 +244,14 @@ always-on scan is what would be noisy.
   /api/issues/soft-relationships` and the merged `soft_relationship` source in
   `GET /api/issues` are live. Gate met: handler-level merge + dedicated-result
   tests green; merged issues carry `soft_relationship`.
-- **Phase 3 (optional, later) — ER diagram dashed edges. ⬜ NOT STARTED.** Out of
-  scope for the first cut. The finding shape already carries `from*`/`to*`/`rule`
-  to drive it. This is the only remaining work; the plan stays un-archived until
-  it lands or is dropped.
+- **Phase 3 — ER diagram dashed edges. ✅ DONE.** `getDiagramData` now emits a
+  `softRelationships` array (inferred edges, minus declared FKs and manifest),
+  computed from the columns + declared FKs it already gathered — no extra PRAGMA
+  reads. The web renderer ([assets/web/diagram.ts](../assets/web/diagram.ts))
+  draws them as dashed `.diagram-link-soft` paths with an "inferred … not
+  declared" `<title>`, lists them in the screen-reader text alternative, and
+  counts them in the diagram's aria-label. Gate met: diagram-data soft-edge unit
+  tests green; web bundle + style rebuilt; `tsc --noEmit` clean.
 
 Each phase ships independently. Phase 1 has no user-visible effect on its own,
 so it can land ahead of the endpoint safely.
@@ -352,12 +358,73 @@ fourth field). It passes unchanged: the filter remains backward compatible
 (unrecognized/empty `sources` still includes every source, including the new
 one).
 
+### Outstanding (as of Phases 1–2)
+
+Phase 3 — ER-diagram dashed edges — was the only open item at the time of this
+report; it has since landed (see the Phase 3 Finish Report below). No bug
+archive — this task closed no `bugs/*.md` file. Feature 78's own surfacing
+endpoints (the dedicated `/api/schema/relationships` route registration, the
+metadata `foreignKeys` fold, the web-side consumption) are tracked under
+[plan 78](./78-declared-relationships-manifest.md), not here.
+
+---
+
+## Finish Report — Phase 3 (2026-06-12)
+
+### Scope
+
+The ER-diagram dashed-edge rendering. Touches (A) Dart package code
+([lib/src/server/schema_handler.dart](../lib/src/server/schema_handler.dart),
+`test/`), the web viewer ([assets/web/diagram.ts](../assets/web/diagram.ts),
+[_data-display.scss](../assets/web/_data-display.scss), the rebuilt
+`bundle.js` / `style.css`), and (C) docs (this plan, CHANGELOG).
+
+### What was built
+
+The ER diagram previously drew only declared SQLite foreign keys, so a schema
+that links by convention (shared `*UUID`, `<noun>_id`) showed its tables as
+disconnected boxes even though the relationships exist. `getDiagramData` now
+also emits a `softRelationships` array: the edges `SoftRelationshipDetector`
+infers, minus the declared FK edges and minus any host-manifest edges. It is
+computed from the column and declared-FK data the method already gathered —
+`inferEdges` is pure and runs over that in-memory shape — so no additional
+`PRAGMA` round-trips are issued (the single per-table `foreign_key_list` read is
+preserved, which a regression test pins). A manifest-declared edge is treated as
+declared and therefore omitted from the dashed set, consistent with the finding
+subtraction in Phases 1–2.
+
+The web renderer draws each soft edge with the same bezier curve as a foreign
+key but adds the `.diagram-link-soft` class — `stroke-dasharray: 5 4` at 0.65
+opacity — so it reads as "the data links these, but nothing declares it." Each
+dashed path carries a `<title>` naming the convention that inferred it
+("inferred from shared UUID column, not declared"), the screen-reader text
+alternative gains an "Inferred (undeclared) relationships" list, and the
+diagram's aria-label counts the inferred edges alongside the declared ones.
+
+### Verification
+
+- `dart analyze` — clean.
+- `dart test` — full suite green (611 tests; +3 diagram soft-edge cases over the
+  608 at Phases 1–2).
+- `dart test test/schema_handler_test.dart` — 21 green, including the existing
+  "FK query error is swallowed / FK read happens once" regression (the
+  no-extra-PRAGMA design keeps it at one read) and three new cases: UUID-linked
+  schema surfaces two soft edges, a declared FK is not duplicated as soft, and a
+  manifest covering an inferred edge removes it from the dashed set.
+- `npm run build` — `bundle.js` + `style.css` regenerated; `npm run
+  typecheck:web` (`tsc --noEmit`) clean; `npm run test:web` — 172 green.
+
+### Test audit
+
+The `getDiagramData` test group asserted on `tables` / `foreignKeys` only;
+adding `softRelationships` is additive and broke none. The one test that did
+fail mid-development — "FK query error is swallowed … FK read happens once" —
+drove the design away from re-invoking the detector (which re-read PRAGMA) toward
+computing soft edges from already-gathered data; it now passes.
+
 ### Outstanding
 
-Phase 3 — ER-diagram dashed edges for inferred-but-undeclared links — is not
-started. The finding shape already carries `fromTable` / `fromColumn` /
-`toTable` / `toColumn` / `rule` to drive it. No bug archive — this task closed no
-`bugs/*.md` file. Feature 78's own surfacing endpoints (the dedicated
-`/api/schema/relationships` route registration, the metadata `foreignKeys` fold,
-the web-side consumption) are tracked under
-[plan 78](./78-declared-relationships-manifest.md), not here.
+None for Feature 77 — all three phases complete. Feature 78's surfacing work
+(manifest edges rendered solid in the diagram, the `/api/schema/relationships`
+route, the metadata fold) remains tracked under
+[plan 78](./78-declared-relationships-manifest.md).

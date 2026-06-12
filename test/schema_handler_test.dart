@@ -97,6 +97,111 @@ void main() {
         expect(foreignKeys, isEmpty);
       });
 
+      test(
+        'UUID-linked schema with no FKs surfaces soft edges for dashed render',
+        () async {
+          // contacts (owner) + contact_points + connections share
+          // contactSaropaUUID and declare no SQLite FK — so foreignKeys is empty
+          // and the two child→owner links must come through as soft edges.
+          final ctx = createTestContext();
+          final handler = SchemaHandler(ctx);
+          final query = mockQueryWithTables(
+            tableColumns: {
+              'contacts': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                {'name': 'contactSaropaUUID', 'type': 'TEXT', 'pk': 0},
+              ],
+              'contact_points': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                {'name': 'contactSaropaUUID', 'type': 'TEXT', 'pk': 0},
+              ],
+              'connections': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                {'name': 'contactSaropaUUID', 'type': 'TEXT', 'pk': 0},
+              ],
+            },
+          );
+
+          final data = await handler.getDiagramData(query);
+
+          expect(data['foreignKeys'] as List, isEmpty);
+          final soft = (data['softRelationships'] as List)
+              .cast<Map<String, dynamic>>();
+          expect(soft, hasLength(2));
+          expect(soft.every((s) => s['toTable'] == 'contacts'), isTrue);
+          expect(soft.every((s) => s['rule'] == 'shared_uuid'), isTrue);
+          expect(
+            soft.map((s) => s['fromTable']).toSet(),
+            equals(<String>{'contact_points', 'connections'}),
+          );
+        },
+      );
+
+      test('declared FK is not duplicated as a soft edge', () async {
+        // orders.user_id → users is a real FK; the noun_id inference would also
+        // produce it, but it must be subtracted, leaving no soft edge.
+        final ctx = createTestContext();
+        final handler = SchemaHandler(ctx);
+        final query = mockQueryWithTables(
+          tableColumns: {
+            'orders': [
+              {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
+            ],
+            'users': [
+              {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+            ],
+          },
+          tableForeignKeys: {
+            'orders': [
+              {'from': 'user_id', 'table': 'users', 'to': 'id'},
+            ],
+          },
+        );
+
+        final data = await handler.getDiagramData(query);
+
+        expect(data['foreignKeys'] as List, hasLength(1));
+        expect(data['softRelationships'] as List, isEmpty);
+      });
+
+      test('a manifest covering an inferred edge removes it from soft', () async {
+        final ctx = createTestContext(
+          declaredRelationships: () => const <DeclaredRelationship>[
+            DeclaredRelationship(
+              fromTable: 'contact_points',
+              fromColumn: 'contactSaropaUUID',
+              toTable: 'contacts',
+              toColumn: 'contactSaropaUUID',
+            ),
+          ],
+        );
+        final handler = SchemaHandler(ctx);
+        final query = mockQueryWithTables(
+          tableColumns: {
+            'contacts': [
+              {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              {'name': 'contactSaropaUUID', 'type': 'TEXT', 'pk': 0},
+            ],
+            'contact_points': [
+              {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              {'name': 'contactSaropaUUID', 'type': 'TEXT', 'pk': 0},
+            ],
+            'connections': [
+              {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              {'name': 'contactSaropaUUID', 'type': 'TEXT', 'pk': 0},
+            ],
+          },
+        );
+
+        final data = await handler.getDiagramData(query);
+        final soft = (data['softRelationships'] as List)
+            .cast<Map<String, dynamic>>();
+        // Only connections remains; the manifested contact_points edge is gone.
+        expect(soft, hasLength(1));
+        expect(soft.single['fromTable'], 'connections');
+      });
+
       test('empty database returns empty tables and foreignKeys', () async {
         final ctx = createTestContext();
         final handler = SchemaHandler(ctx);

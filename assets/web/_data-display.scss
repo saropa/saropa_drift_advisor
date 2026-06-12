@@ -50,6 +50,10 @@ body.theme-light #live-indicator.connection-status { color: #558b2f; }
 .diagram-table .diagram-name { font-weight: 600; font-size: 13px; }
 .diagram-table .diagram-col { font-size: 11px; fill: var(--muted); }
 .diagram-link { stroke: var(--muted); stroke-width: 1; fill: none; }
+/* Soft (inferred, undeclared) relationship: dashed + dimmer so it reads as
+   "the data links these, but nothing declares it" — distinct from a solid,
+   declared foreign key. */
+.diagram-link-soft { stroke-dasharray: 5 4; opacity: 0.65; }
 /* Focus ring for keyboard navigation of diagram table boxes */
 .diagram-table:focus rect { stroke: var(--link); stroke-width: 2.5; }
 .diagram-table:focus { outline: none; }
