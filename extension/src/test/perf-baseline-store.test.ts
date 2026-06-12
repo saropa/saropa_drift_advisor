@@ -248,6 +248,88 @@ describe('detectRegressions', () => {
     assert.strictEqual(result.length, 0);
   });
 
+  // Regression tests for
+  // BUG_perf_regression_false_positives_from_data_quality_probes.md Suggestion #2
+  // (row-count / cold-vs-warm normalization, deferred from the isInternal fix).
+  it('should NOT flag a query whose time grew only because its table grew', () => {
+    // Baseline: 100ms returning 100 rows (1ms/row). Recorded WITH a row count so
+    // the detector takes the per-row path.
+    store.record('select * from items', 100, 100);
+
+    // This session: 1000 rows at 1000ms — same 1ms/row, table just 10x bigger.
+    const data = makeData([
+      { sql: 'SELECT * FROM items', durationMs: 1000, rowCount: 1000, at: '' },
+    ]);
+    const result = detectRegressions(data, store, 2.0);
+    assert.strictEqual(
+      result.length,
+      0,
+      'pure table growth (same per-row cost) must not be a regression',
+    );
+  });
+
+  it('should flag a genuine per-row slowdown even when row count is unchanged', () => {
+    store.record('select * from items', 100, 100); // 1ms/row baseline
+
+    // Same 100 rows but 5ms/row now — a real regression.
+    const data = makeData([
+      { sql: 'SELECT * FROM items', durationMs: 500, rowCount: 100, at: '' },
+    ]);
+    const result = detectRegressions(data, store, 2.0);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].rowCountNormalized, true);
+    assert.strictEqual(result[0].ratio, 5);
+    assert.strictEqual(result[0].currentRowCount, 100);
+    assert.strictEqual(result[0].baselineRowCount, 100);
+  });
+
+  it('should flag a per-row slowdown that raw timing would hide (fewer rows now)', () => {
+    store.record('select * from items', 100, 100); // 1ms/row baseline
+
+    // Only 10 rows now but 50ms — raw is 0.5x (faster!) yet 5ms/row is 5x worse.
+    const data = makeData([
+      { sql: 'SELECT * FROM items', durationMs: 50, rowCount: 10, at: '' },
+    ]);
+    const result = detectRegressions(data, store, 2.0);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].rowCountNormalized, true);
+    assert.strictEqual(result[0].ratio, 5);
+  });
+
+  it('should fall back to raw comparison when the baseline has no row count', () => {
+    // Pre-row-count baseline (two-arg record): must behave exactly as before.
+    store.record('select * from items', 100);
+    const data = makeData([
+      { sql: 'SELECT * FROM items', durationMs: 250, rowCount: 9999, at: '' },
+    ]);
+    const result = detectRegressions(data, store, 2.0);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].rowCountNormalized, false);
+    assert.strictEqual(result[0].ratio, 2.5);
+  });
+
+  it('should fall back to raw comparison when this session returned zero rows', () => {
+    store.record('update items set x = ?', 100, 5);
+    const data = makeData([
+      { sql: 'UPDATE items SET x = 1', durationMs: 300, rowCount: 0, at: '' },
+    ]);
+    const result = detectRegressions(data, store, 2.0);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].rowCountNormalized, false);
+    assert.strictEqual(result[0].ratio, 3);
+  });
+
+  it('recordSessionBaselines should persist a rolling avgRowCount', () => {
+    const data = makeData([
+      { sql: 'SELECT * FROM items', durationMs: 100, rowCount: 40, at: '' },
+      { sql: 'SELECT * FROM items', durationMs: 200, rowCount: 60, at: '' },
+    ]);
+    recordSessionBaselines(data, store);
+    const b = store.get('select * from items')!;
+    assert.strictEqual(b.avgDurationMs, 150); // (100+200)/2
+    assert.strictEqual(b.avgRowCount, 50); // (40+60)/2
+  });
+
   it('should skip isInternal=true queries (extension-owned probes)', () => {
     // Regression test for
     // BUG_perf_regression_false_positives_from_data_quality_probes.md:
