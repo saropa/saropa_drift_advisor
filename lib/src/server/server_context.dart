@@ -14,6 +14,7 @@ import 'mutation_tracker.dart';
 import 'server_typedefs.dart';
 import 'server_types.dart';
 import 'server_utils.dart';
+import 'snapshot_store.dart';
 import '../query_recorder.dart';
 
 // Re-export typedefs so handlers that import
@@ -51,6 +52,7 @@ final class ServerContext {
     this.declaredTableNames,
     this.declaredSchema,
     this.declaredRelationships,
+    this.snapshotStorePath,
   }) : queryRaw = query,
        _queryExec =
            queryWithBindings ??
@@ -175,6 +177,57 @@ final class ServerContext {
   /// Maximum retained snapshots before the oldest is evicted on a new capture.
   static const int maxSnapshots = 20;
 
+  /// Optional file path the snapshot list is mirrored to so it survives a
+  /// SERVER restart (Feature 72 Phase 4). Null (the default) keeps the prior
+  /// in-memory-only behavior — nothing is read or written. Host configuration,
+  /// passed to `DriftDebugServer.start`; never user/network input.
+  final String? snapshotStorePath;
+
+  /// Serializes snapshot writes so two rapid mutations cannot interleave their
+  /// file writes. Each [_persistSnapshots] appends to this chain.
+  Future<void> _snapshotPersistChain = Future<void>.value();
+
+  /// Completes when all snapshot writes queued so far have finished. Lets a host
+  /// await a durable on-disk state before shutting the process down, and gives
+  /// tests a deterministic point to read the persisted file. Resolves
+  /// immediately when persistence is disabled (the chain stays settled).
+  Future<void> get snapshotPersistenceSettled => _snapshotPersistChain;
+
+  /// Loads any persisted snapshots into [snapshots] at startup. No-op when no
+  /// store path is configured. Honors [maxSnapshots] (keeps the newest) so a
+  /// store written by an older, higher cap can't exceed the current limit.
+  Future<void> loadPersistedSnapshots() async {
+    final String? path = snapshotStorePath;
+    if (path == null) return;
+    final List<Snapshot> loaded = await SnapshotStore.load(
+      path,
+      onError: logError,
+    );
+    if (loaded.isEmpty) return;
+    snapshots
+      ..clear()
+      ..addAll(
+        loaded.length > maxSnapshots
+            ? loaded.sublist(loaded.length - maxSnapshots)
+            : loaded,
+      );
+  }
+
+  /// Mirrors the current [snapshots] list to disk when a store path is set.
+  /// Best-effort and non-blocking: chained so writes don't overlap, with every
+  /// failure routed to [logError] rather than thrown (a disk problem must never
+  /// break a capture/delete/rename). No-op when persistence is off.
+  void _persistSnapshots() {
+    final String? path = snapshotStorePath;
+    if (path == null) return;
+    // Snapshot the list now so a later mutation can't change what this write
+    // serializes mid-flight.
+    final List<Snapshot> current = List<Snapshot>.of(snapshots);
+    _snapshotPersistChain = _snapshotPersistChain.then(
+      (_) => SnapshotStore.save(path, current, onError: logError),
+    );
+  }
+
   /// The most recently captured snapshot, or null when none exist. Preserves
   /// the pre-multi-snapshot "current snapshot" semantics for GET /api/snapshot
   /// and the default (no-param) compare.
@@ -186,6 +239,7 @@ final class ServerContext {
     while (snapshots.length > maxSnapshots) {
       snapshots.removeAt(0);
     }
+    _persistSnapshots();
   }
 
   /// Returns the stored snapshot with [id], or null.
@@ -200,7 +254,9 @@ final class ServerContext {
   bool removeSnapshot(String id) {
     final before = snapshots.length;
     snapshots.removeWhere((s) => s.id == id);
-    return snapshots.length != before;
+    final removed = snapshots.length != before;
+    if (removed) _persistSnapshots();
+    return removed;
   }
 
   /// Replaces the snapshot with [id] with [updated] (used for label rename).
@@ -209,13 +265,17 @@ final class ServerContext {
     for (var i = 0; i < snapshots.length; i++) {
       if (snapshots[i].id == id) {
         snapshots[i] = updated;
+        _persistSnapshots();
         return;
       }
     }
   }
 
   /// Clears all stored snapshots.
-  void clearSnapshots() => snapshots.clear();
+  void clearSnapshots() {
+    snapshots.clear();
+    _persistSnapshots();
+  }
 
   /// Monotonically incremented when table row counts
   /// change; used for live refresh and long-poll.
