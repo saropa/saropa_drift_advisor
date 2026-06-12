@@ -454,17 +454,21 @@ in phases, each at a check that must pass before the next:
   ⬜ still pending — without it the browser overlay path is inert and only the
   bundled English registry renders, which is correct for today's English-only state
   but blocks rendering an actual translated locale in a plain browser.)*
-- **Phase 3 — Sweep. ✅ (server-rendered) / ⬜ (client-script subset).** Converted
-  all 46 host `*-html.ts` panels into ten `strings-panel-*.ts` family slices (787
-  host keys) and ~45 `assets/web/*.ts` modules into nine `strings-web-*.ts` slices
-  (652 web keys), rewired to `t()`/`vt()`, all registered. *Gate met:* a key-resolve
-  check confirms every `t()/vt()` literal resolves to a registry; `tsc`/`typecheck:web`
-  clean; bundle builds; full extension suite green (only the pre-existing
-  `html_content.dart` toolbar/tab-icon failures remain, unrelated). **Remaining:**
-  ~27 strings generated INSIDE embedded panel `<script>` blocks still render English
-  literals and carry a `// TODO(l10n): client-script string` marker — they need the
-  `__VT` bridge (`getWebviewL10nMap()` injection) wired per panel, since client
-  scripts have no host `t()`. That bridge wiring is the open tail of Phase 3.
+- **Phase 3 — Sweep. ✅ (complete — server-rendered + client-script).** Converted
+  all 46 host `*-html.ts` panels into ten `strings-panel-*.ts` family slices and ~45
+  `assets/web/*.ts` modules into nine `strings-web-*.ts` slices, rewired to
+  `t()`/`vt()`, all registered (841 host + 652 web keys). The **client-script tail**
+  is now closed too: the 9 panels with strings generated inside embedded `<script>`
+  blocks (`watch`, `time-travel`, `analysis-compare`, `bulk-edit`, `lineage`,
+  `narrator`, `impact`, `refactoring`, `snippet-library`) inject the `__VT` bridge
+  (`getWebviewL10nMap(['panel.<area>.'])` + a `vt()` helper, prefix-filtered) at the
+  top of their client script, and their ~54 client strings are keys in the owning
+  slices. *Gate met:* a key-resolve check confirms every `t()/vt()` literal resolves
+  to a registry; zero `// TODO(l10n): client-script string` markers remain at any
+  call site; `tsc`/`typecheck:web` clean; bundle builds; full extension suite green
+  (only the pre-existing `html_content.dart` toolbar/tab-icon failures remain,
+  unrelated). **Every host-panel + web-viewer user-facing string now flows through
+  l10n** (English source; translation is the separate gated step).
 - **Phase 4 — Toolchain + gates.** Port `translate_l10n.py` + modules (audit,
   brand shielding, provenance, scopes), wire the publish sync step and the
   activation coverage notice. *Gate:* `--run-mode audit` produces a coverage report;
@@ -648,3 +652,7 @@ Locked the conventions with the verified vertical slice, then fanned out the swe
 - Phase 1 tail (activation coverage notice), Phase 4 (translation toolchain), Phase 5 (gated translate run) unchanged.
 
 Plan stays ACTIVE: Phase 3 server-rendered surfaces done; the client-script bridge subset, the Dart injection, and Phases 4–5 remain.
+
+### Addendum (same day) — client-script `__VT` bridge: Phase 3 tail closed
+
+Wired the `__VT` webview bridge into the 9 panels whose strings are generated inside embedded `<script>` blocks (`watch`, `time-travel`, `analysis-compare`, `bulk-edit`, `lineage`, `narrator`, `impact`, `refactoring`, `snippet-library`). Pattern locked on `watch-html.ts` first (build + suite verified), then fanned out across 7 subagents grouped by owning slice so no two touched the same registry file. Each panel injects `const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.<area>.']))}` + a `vt()` helper (identical `{0}`/`{1}` substitution + fail-soft as the host runtime) right after `acquireVsCodeApi()`, prefix-filtered to its own keys; the ~54 client strings became keys in the owning `strings-panel-*.ts` slices (counts/times/names as tokens; variants separately keyed). **Verification:** `tsc` clean; zero `// TODO(l10n): client-script string` markers remain at any call site; key-resolve check green (841 host keys, all used keys resolve bar the intentional `host.does.not.exist` fixture); full suite **2707 passing** (same 4 pre-existing `html_content.dart` failures, no `.dart` touched). Phase 3 is now complete end-to-end; the open items are the Phase 2 Dart `window.__SDA_L10N` injection (needs `lib/` sign-off; inert until translated catalogs exist) and Phases 1-tail/4/5.

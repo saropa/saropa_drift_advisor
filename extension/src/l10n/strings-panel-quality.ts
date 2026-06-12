@@ -152,4 +152,51 @@ export const stringsPanelQuality: Record<string, string> = {
   'panel.quality.impact.btn.generateDelete': 'Generate DELETE SQL',
   'panel.quality.impact.btn.exportJson': 'Export JSON',
   'panel.quality.impact.btn.refresh': 'Refresh',
+
+  // --- impact: client-script strings (resolved in-browser via the __VT bridge,
+  //     since the panel's message handler renders these client-side). {0} carries
+  //     the caught error message — never English concatenation. ---
+  'panel.quality.impact.client.analyzing': 'Analyzing impact…',
+  // {0} = error message text received from the host.
+  'panel.quality.impact.client.error': 'Error: {0}',
+
+  // --- refactor: client-script strings (resolved in-browser via the __VT bridge,
+  //     since the suggestion list / plan render client-side). {0}/{1} carry counts,
+  //     names and error text — never English concatenation, so a translator can
+  //     reorder the sentence. Singular/plural and step variants get their own keys. ---
+  'panel.quality.refactor.client.filter.empty':
+    'No suggestions match the current filter. Try Analyze or clear filters.',
+  // {0} = confidence value formatted to 2 decimals (data, passed as a token).
+  'panel.quality.refactor.client.badge.confidence': 'confidence {0}',
+  // {0} = migration-risk level (data value: low/medium/high).
+  'panel.quality.refactor.client.badge.risk': 'risk {0}',
+  // {0} = severity level (data value).
+  'panel.quality.refactor.client.badge.severity': 'severity {0}',
+  'panel.quality.refactor.client.topValues': 'Top values',
+  'panel.quality.refactor.client.btn.viewPlan': 'View plan',
+  'panel.quality.refactor.client.btn.migAppend': 'Migration preview + plan',
+  'panel.quality.refactor.client.btn.erFocus': 'ER: focus table',
+  'panel.quality.refactor.client.btn.nlPrefill': 'Ask in English…',
+  'panel.quality.refactor.client.btn.dismiss': 'Dismiss',
+  // {0} = analyzed table count, {1} = suggestion count.
+  'panel.quality.refactor.client.status.analyzing': 'Analyzing…',
+  'panel.quality.refactor.client.status.analyzed': 'Analyzed {0} tables — {1} suggestions.',
+  'panel.quality.refactor.client.empty.fallback': 'No suggestions.',
+  'panel.quality.refactor.client.error.unknown': 'Unknown error',
+  // Plan step badges (reversible flag + destructive marker).
+  'panel.quality.refactor.client.step.reversible': 'reversible',
+  'panel.quality.refactor.client.step.notReversible': 'not reversible',
+  'panel.quality.refactor.client.step.destructive': 'destructive',
+  // {0} = 1-based step number, {1} = step title. Step heading prefix.
+  'panel.quality.refactor.client.step.heading': 'Step {0}: {1}',
+  // {0} = suggestion title. Migration-plan section heading.
+  'panel.quality.refactor.client.plan.heading': 'Migration plan — {0}',
+  'panel.quality.refactor.client.btn.copySql': 'Copy all SQL',
+  'panel.quality.refactor.client.btn.copyDart': 'Copy Dart snippet',
+  'panel.quality.refactor.client.btn.copyDrift': 'Copy Drift table class',
+  // External-hint banner. {0} = table name, {1} = optional ".column" suffix.
+  'panel.quality.refactor.client.hint.table': 'Table: {0}{1}',
+  'panel.quality.refactor.client.hint.titleFallback': 'External hint',
+  'panel.quality.refactor.client.hint.dismiss': 'Dismiss hint',
+  'panel.quality.refactor.client.hint.runAnalyze': 'Run full analyze',
 };

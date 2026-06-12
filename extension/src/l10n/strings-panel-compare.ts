@@ -87,6 +87,14 @@ export const stringsPanelCompare: Record<string, string> = {
   'panel.compare.history.col.after': 'After',
   'panel.compare.history.placeholder': 'Select a snapshot above.',
 
+  // --- Analysis-history compare view: client-script strings (resolved in-browser
+  //     via the __VT bridge, since the panel's compareResult handler rebuilds the
+  //     column labels and placeholders client-side after the host posts back). ---
+  'panel.compare.history.client.before': 'Before',
+  'panel.compare.history.client.after': 'After',
+  'panel.compare.history.client.selectSnapshot': 'Select a snapshot above.',
+  'panel.compare.history.client.selectToCompare': 'Select Before and After to compare.',
+
   // --- Branch manager (branch-html.ts) ---
   'panel.compare.branch.title': 'Data Branches',
   'panel.compare.branch.btn.new': '+ New Branch',

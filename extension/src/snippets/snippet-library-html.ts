@@ -1,6 +1,6 @@
 import type { ISqlSnippet } from './snippet-types';
 import { renderSnippetCard } from './snippet-card-html';
-import { t } from '../l10n';
+import { t, getWebviewL10nMap } from '../l10n';
 
 interface ILibraryData {
   snippets: ISqlSnippet[];
@@ -128,6 +128,20 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
   </div>
   <script>
     const vscode = acquireVsCodeApi();
+
+    // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active
+    // display language and injects them here, because client-side render functions
+    // have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
+    // fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
+    const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.notes.library.']))};
+    function vt(key) {
+      const args = arguments;
+      return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
+        const i = Number(d) + 1;
+        return i < args.length ? args[i] : m;
+      });
+    }
+
     function post(cmd, data) { vscode.postMessage(Object.assign({ command: cmd }, data || {})); }
     function toggleCategory(el) { el.classList.toggle('collapsed'); }
     var _searchTimer;
@@ -158,8 +172,7 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
     }
     function editSnippet(id) { post('getSnippet', { id: id }); }
     function deleteSnippet(id, name) {
-      // TODO(l10n): client-script string
-      if (confirm('Delete snippet "' + name + '"?')) post('deleteSnippet', { id: id });
+      if (confirm(vt('panel.notes.library.confirm.delete', name))) post('deleteSnippet', { id: id });
     }
     function showRunForm(id) {
       var el = document.getElementById('run-' + id);

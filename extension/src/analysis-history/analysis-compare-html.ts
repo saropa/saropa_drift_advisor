@@ -5,7 +5,7 @@
  */
 
 import type { IAnalysisSnapshot } from './analysis-history-store';
-import { t } from '../l10n';
+import { t, getWebviewL10nMap } from '../l10n';
 
 /**
  * Build the full HTML for the compare panel.
@@ -138,6 +138,20 @@ export function buildCompareHtml<T>(
 
 <script>
   const vscode = acquireVsCodeApi();
+
+  // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active
+  // display language and injects them here, because client-side render functions
+  // have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
+  // fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
+  const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.compare.history.']))};
+  function vt(key) {
+    const args = arguments;
+    return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
+      const i = Number(d) + 1;
+      return i < args.length ? args[i] : m;
+    });
+  }
+
   const beforeSel = document.getElementById('before-sel');
   const afterSel = document.getElementById('after-sel');
   const summary = document.getElementById('summary');
@@ -158,16 +172,11 @@ export function buildCompareHtml<T>(
   window.addEventListener('message', (event) => {
     const msg = event.data;
     if (msg.command === 'compareResult') {
-      // TODO(l10n): client-script string ("Before")
-      // TODO(l10n): client-script string ("Select a snapshot above.")
-      leftCol.innerHTML = '<div class="col-label">Before</div>' +
-        (msg.beforeHtml || '<div class="placeholder">Select a snapshot above.</div>');
-      // TODO(l10n): client-script string ("After")
-      // TODO(l10n): client-script string ("Select a snapshot above.")
-      rightCol.innerHTML = '<div class="col-label">After</div>' +
-        (msg.afterHtml || '<div class="placeholder">Select a snapshot above.</div>');
-      // TODO(l10n): client-script string ("Select Before and After to compare.")
-      summary.textContent = msg.summary || 'Select Before and After to compare.';
+      leftCol.innerHTML = '<div class="col-label">' + vt('panel.compare.history.client.before') + '</div>' +
+        (msg.beforeHtml || '<div class="placeholder">' + vt('panel.compare.history.client.selectSnapshot') + '</div>');
+      rightCol.innerHTML = '<div class="col-label">' + vt('panel.compare.history.client.after') + '</div>' +
+        (msg.afterHtml || '<div class="placeholder">' + vt('panel.compare.history.client.selectSnapshot') + '</div>');
+      summary.textContent = msg.summary || vt('panel.compare.history.client.selectToCompare');
     }
   });
 </script>

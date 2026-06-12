@@ -86,6 +86,12 @@ export const stringsPanelTools: Record<string, string> = {
   'panel.tools.narrator.error': 'Error: {0}',
   'panel.tools.narrator.btn.tryAgain': 'Try Again',
 
+  // --- Data story narrator: client-script strings (resolved in-browser via the
+  //     __VT bridge, since copyText()/copyMarkdown() showToast() run client-side).
+  //     No tokens — plain confirmation toasts. ---
+  'panel.tools.narrator.toast.textCopied': 'Text copied to clipboard',
+  'panel.tools.narrator.toast.markdownCopied': 'Markdown copied to clipboard',
+
   // --- Troubleshooting ---
   'panel.tools.trouble.title': 'Troubleshooting',
   'panel.tools.trouble.subtitle':

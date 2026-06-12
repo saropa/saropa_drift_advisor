@@ -3,7 +3,7 @@
  *
  * Uses inline script only (no external bundles) to match other advisor panels.
  */
-import { t } from '../l10n';
+import { t, getWebviewL10nMap } from '../l10n';
 
 export function getRefactoringHtml(): string {
   return `<!DOCTYPE html>
@@ -60,9 +60,22 @@ export function getRefactoringHtml(): string {
   <div id="plan" class="plan" style="display:none;"></div>
 </div>
 <script>
-// TODO(l10n): client-script strings — needs the __VT webview bridge (plan 75 §3.3).
 (function () {
   const vscode = acquireVsCodeApi();
+
+  // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active
+  // display language and injects them here, because client-side render functions
+  // have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
+  // fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
+  const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.quality.refactor.']))};
+  function vt(key) {
+    const args = arguments;
+    return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
+      const i = Number(d) + 1;
+      return i < args.length ? args[i] : m;
+    });
+  }
+
   const listEl = document.getElementById('list');
   const planEl = document.getElementById('plan');
   const statusEl = document.getElementById('status');
@@ -93,7 +106,7 @@ export function getRefactoringHtml(): string {
   function renderList() {
     applyFilter();
     if (filtered.length === 0) {
-      listEl.innerHTML = '<div class="muted">No suggestions match the current filter. Try Analyze or clear filters.</div>';
+      listEl.innerHTML = '<div class="muted">' + vt('panel.quality.refactor.client.filter.empty') + '</div>';
       return;
     }
     listEl.innerHTML = filtered.map(function (s) {
@@ -106,19 +119,19 @@ export function getRefactoringHtml(): string {
           '<h2>' + escapeHtml(s.title) + '</h2>' +
           '<div class="badges">' +
             '<span class="badge">' + escapeHtml(s.type) + '</span>' +
-            '<span class="badge">confidence ' + s.confidence.toFixed(2) + '</span>' +
-            '<span class="badge">risk ' + escapeHtml(s.estimatedMigrationRisk) + '</span>' +
-            '<span class="badge">severity ' + escapeHtml(s.severity) + '</span>' +
+            '<span class="badge">' + vt('panel.quality.refactor.client.badge.confidence', s.confidence.toFixed(2)) + '</span>' +
+            '<span class="badge">' + vt('panel.quality.refactor.client.badge.risk', escapeHtml(s.estimatedMigrationRisk)) + '</span>' +
+            '<span class="badge">' + vt('panel.quality.refactor.client.badge.severity', escapeHtml(s.severity)) + '</span>' +
           '</div>' +
           '<div>' + escapeHtml(s.description) + '</div>' +
           '<ul class="evidence">' + s.evidence.map(function (e) { return '<li>' + escapeHtml(e) + '</li>'; }).join('') + '</ul>' +
-          (tv ? '<div class="muted">Top values</div><ul class="evidence">' + tv + '</ul>' : '') +
+          (tv ? '<div class="muted">' + vt('panel.quality.refactor.client.topValues') + '</div><ul class="evidence">' + tv + '</ul>' : '') +
           '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">' +
-            '<button data-act="plan" data-id="' + sid + '">View plan</button>' +
-            '<button class="secondary" data-act="migAppend" data-id="' + sid + '">Migration preview + plan</button>' +
-            '<button class="secondary" data-act="erFocus" data-id="' + sid + '">ER: focus table</button>' +
-            '<button class="secondary" data-act="nlPrefill" data-id="' + sid + '">Ask in English…</button>' +
-            '<button class="secondary" data-act="dismiss" data-id="' + sid + '">Dismiss</button>' +
+            '<button data-act="plan" data-id="' + sid + '">' + vt('panel.quality.refactor.client.btn.viewPlan') + '</button>' +
+            '<button class="secondary" data-act="migAppend" data-id="' + sid + '">' + vt('panel.quality.refactor.client.btn.migAppend') + '</button>' +
+            '<button class="secondary" data-act="erFocus" data-id="' + sid + '">' + vt('panel.quality.refactor.client.btn.erFocus') + '</button>' +
+            '<button class="secondary" data-act="nlPrefill" data-id="' + sid + '">' + vt('panel.quality.refactor.client.btn.nlPrefill') + '</button>' +
+            '<button class="secondary" data-act="dismiss" data-id="' + sid + '">' + vt('panel.quality.refactor.client.btn.dismiss') + '</button>' +
           '</div>' +
         '</div>'
       );
@@ -162,22 +175,24 @@ export function getRefactoringHtml(): string {
       return '<div class="warn">' + escapeHtml(w) + '</div>';
     }).join('');
     const steps = (p.steps || []).map(function (st, i) {
-      const tag = st.destructive ? ' <span class="badge">destructive</span>' : '';
-      const rev = st.reversible ? 'reversible' : 'not reversible';
+      const tag = st.destructive ? ' <span class="badge">' + vt('panel.quality.refactor.client.step.destructive') + '</span>' : '';
+      const rev = st.reversible
+        ? vt('panel.quality.refactor.client.step.reversible')
+        : vt('panel.quality.refactor.client.step.notReversible');
       return (
         '<div class="step">' +
-          '<h3>Step ' + (i + 1) + ': ' + escapeHtml(st.title) + ' <span class="badge">' + rev + '</span>' + tag + '</h3>' +
+          '<h3>' + vt('panel.quality.refactor.client.step.heading', (i + 1), escapeHtml(st.title)) + ' <span class="badge">' + rev + '</span>' + tag + '</h3>' +
           '<div class="muted">' + escapeHtml(st.description) + '</div>' +
           '<pre>' + escapeHtml(st.sql) + '</pre>' +
         '</div>'
       );
     }).join('');
     planEl.innerHTML =
-      '<h2>Migration plan — ' + escapeHtml(s.title) + '</h2>' + warns + steps +
+      '<h2>' + vt('panel.quality.refactor.client.plan.heading', escapeHtml(s.title)) + '</h2>' + warns + steps +
       '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;">' +
-        '<button id="copySql">Copy all SQL</button>' +
-        '<button class="secondary" id="copyDart">Copy Dart snippet</button>' +
-        '<button class="secondary" id="copyDrift">Copy Drift table class</button>' +
+        '<button id="copySql">' + vt('panel.quality.refactor.client.btn.copySql') + '</button>' +
+        '<button class="secondary" id="copyDart">' + vt('panel.quality.refactor.client.btn.copyDart') + '</button>' +
+        '<button class="secondary" id="copyDrift">' + vt('panel.quality.refactor.client.btn.copyDrift') + '</button>' +
       '</div>' +
       '<pre id="dartPreview" style="margin-top:10px;max-height:180px;">' + escapeHtml(p.dartCode || '') + '</pre>';
 
@@ -195,12 +210,12 @@ export function getRefactoringHtml(): string {
   window.addEventListener('message', function (event) {
     const msg = event.data || {};
     if (msg.command === 'analyzing') {
-      statusEl.textContent = 'Analyzing…';
+      statusEl.textContent = vt('panel.quality.refactor.client.status.analyzing');
       setError('');
       return;
     }
     if (msg.command === 'suggestions') {
-      statusEl.textContent = 'Analyzed ' + (msg.tableCount || 0) + ' tables — ' + (msg.suggestions || []).length + ' suggestions.';
+      statusEl.textContent = vt('panel.quality.refactor.client.status.analyzed', (msg.tableCount || 0), (msg.suggestions || []).length);
       suggestions = msg.suggestions || [];
       setError('');
       var hb = document.getElementById('hintBanner');
@@ -215,15 +230,17 @@ export function getRefactoringHtml(): string {
       var el = document.getElementById('hintBanner');
       if (!el) return;
       el.style.display = 'block';
+      // {1} carries the optional ".column" suffix (escaped), or '' when absent, so
+      // the table line stays one reorderable sentence instead of concatenated parts.
+      var colSuffix = msg.column ? '.' + escapeHtml(String(msg.column)) : '';
       var tbl = msg.table
-        ? '<div class="muted">Table: ' + escapeHtml(String(msg.table)) +
-          (msg.column ? '.' + escapeHtml(String(msg.column)) : '') + '</div>'
+        ? '<div class="muted">' + vt('panel.quality.refactor.client.hint.table', escapeHtml(String(msg.table)), colSuffix) + '</div>'
         : '';
       el.innerHTML =
-        '<div><strong>' + escapeHtml(String(msg.title || 'External hint')) + '</strong>' + tbl +
+        '<div><strong>' + escapeHtml(String(msg.title || vt('panel.quality.refactor.client.hint.titleFallback'))) + '</strong>' + tbl +
         '<p style="margin:6px 0;">' + escapeHtml(String(msg.description || '')) + '</p>' +
-        '<button type="button" id="hintDismiss">Dismiss hint</button> ' +
-        '<button type="button" id="hintRunAnalyze">Run full analyze</button></div>';
+        '<button type="button" id="hintDismiss">' + vt('panel.quality.refactor.client.hint.dismiss') + '</button> ' +
+        '<button type="button" id="hintRunAnalyze">' + vt('panel.quality.refactor.client.hint.runAnalyze') + '</button></div>';
       document.getElementById('hintDismiss').addEventListener('click', function () {
         el.style.display = 'none';
         el.innerHTML = '';
@@ -242,11 +259,11 @@ export function getRefactoringHtml(): string {
     }
     if (msg.command === 'error') {
       statusEl.textContent = '';
-      setError(msg.message || 'Unknown error');
+      setError(msg.message || vt('panel.quality.refactor.client.error.unknown'));
       return;
     }
     if (msg.command === 'empty') {
-      statusEl.textContent = msg.reason || 'No suggestions.';
+      statusEl.textContent = msg.reason || vt('panel.quality.refactor.client.empty.fallback');
       suggestions = [];
       renderList();
       return;
