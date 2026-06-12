@@ -412,6 +412,16 @@ the exact command, and wait.**
 Unlike the source guide (which documents a built system), this is net-new. Land it
 in phases, each at a check that must pass before the next:
 
+> **STATUS (2026-06-12) — ARCHIVED.** Phases 1–4 are complete and verified (see
+> the Finish Reports below). The localization framework, both the manifest (System A)
+> and runtime (System B) pipelines, the toolchain, and the English baselines are all
+> built, tested, and in the shipping tree. Phase 5 — the deliberate, operator-run
+> machine-translation passes that fill the ten locale catalogs — is an **ongoing
+> operational activity with no completion state**: translations are maintained on a
+> recurring cadence, never "finished", and each run is separately authorized (§7).
+> The plan therefore leaves the active tree rather than waiting on a step that never
+> closes. The translate run-mode stays hard-gated and is never run unattended.
+>
 > **STATUS (2026-06-11).** Phase 1 nearly complete: 231 manifest strings
 > externalized to `package.nls.json` + `%key%`; the `verify-nls` parity guard AND
 > the `verify:nls-coverage` staleness guard are both wired into `compile` (green);
@@ -743,3 +753,52 @@ The runtime (System B) strings were extractable from the registries and renderab
 - Phase 5 — the first deliberate translate run — remains, and is the only step that runs MT (operator-gated, never automatic). It produces the `bundle.l10n.<locale>.json` / `web.<locale>.json` catalogs that light up the runtime + the activation notice's real percentages.
 
 Plan stays ACTIVE: Phases 1–4 complete; only Phase 5 (the gated translate run) remains (case 3 — partial scope closed, plan still active).
+
+---
+
+## Finish Report (2026-06-12) — Plan archived; translation is an ongoing operation
+
+The localization plan reached the end of its buildable scope. Phases 1–4 — the
+manifest NLS pipeline (System A), the runtime host/browser l10n pipeline (System B),
+the full source-string sweep, the Python translation toolchain, and the English
+baselines — are all implemented, unit-tested, and present in the shipping tree, as
+detailed in the seven Finish Reports above. The only remaining step, Phase 5, is the
+deliberate machine-translation pass that fills the ten locale catalogs. That step has
+no terminal "done" state: translations are corrected and re-run on a recurring,
+operator-authorized cadence (each run hard-gated per §7, never unattended), so it is
+an ongoing operation rather than a plan deliverable. A plan whose only open item is a
+never-closing operational loop does not belong in the active tree; it is archived to
+history with the framework recorded as complete.
+
+### Scope
+(C) docs only — the plan file is moved from the active tree to history; its §9 STATUS
+block is updated to record the archival rationale. No code, tests, scripts, or
+catalogs changed in this pass; the working tree carried no code edits. The translation
+pipeline was not run.
+
+### What changed
+- **Edited** `plans/75-localization.md` — §9 STATUS block gained a 2026-06-12 ARCHIVED
+  note stating Phases 1–4 are complete and Phase 5 is an ongoing, hard-gated
+  operational step with no completion state; this report appended.
+- **Moved** `plans/75-localization.md` → `plans/history/2026.06/2026.06.12/75-localization.md`
+  (the dotted-date path matching existing siblings).
+
+### Verification
+- Confirmed against the prior Finish Reports and the §6 gate table that every Phase
+  1–4 gate is marked complete (`verify-nls`, `verify:nls-coverage`, publish manifest
+  audit, activation notice, runtime `--run-mode audit`, publish runtime sync step).
+- Confirmed the live coverage report still reads English-only (all ten locales at 0%,
+  1494 source keys) — expected, since Phase 5 has not been run and is not run here.
+- Working tree had no code changes to test; this is a documentation move only.
+
+### Outstanding (intentionally — not a gap)
+- Phase 5 machine-translation passes remain an ongoing operation, performed only on
+  explicit per-run authorization. Archiving the plan does not change that gating, the
+  toolchain, or the never-translate-unattended rule (§7). When a translate run is
+  authorized and produces locale catalogs, the runtime renders them and the activation
+  notice reports real percentages with no further code change.
+
+`Finish report appended: plans/history/2026.06/2026.06.12/75-localization.md`
+`Plan archived: plans/75-localization.md → plans/history/2026.06/2026.06.12/75-localization.md`
+Plan FULLY archived (case 1): buildable scope complete; the sole remaining item is an
+ongoing operation with no completion state, so no active-tree remainder is split out.
