@@ -287,6 +287,34 @@ def _run_ext_build_and_validate(
     if not step_l10n_audit(results):
         return "", False, lint_report_path
 
+    # Runtime (System B) baseline check \u2014 verify the committed host base bundle
+    # (`l10n/bundle.l10n.json`) is current vs the registries, and report locale
+    # alignment. NEVER translates and NEVER rewrites here (dry-run only), so a
+    # publish never dirties the working tree (plan 75 \u00a75.5/\u00a77). Stale/gappy is a
+    # warning, not a gate \u2014 English-first release.
+    _sync_start = time.time()
+    try:
+        from modules.l10n.sync import base_bundle_is_current, run_sync as _runtime_sync
+        _status = base_bundle_is_current()
+        if _status["current"]:
+            ok(f"Runtime l10n baseline current ({_status['expected']} host keys).")
+        else:
+            warn(
+                f"Runtime l10n baseline STALE: bundle.l10n.json has "
+                f"{_status['on_disk']} entries, source has {_status['expected']}. "
+                f"Run: python scripts/translate_l10n.py --run-mode sync"
+            )
+        for _a in _runtime_sync(dry_run=True)["aligned"]:
+            if _a["missing"] or _a["orphans_pruned"]:
+                info(
+                    f"  runtime {_a['surface']} {_a['locale']}: "
+                    f"missing={_a['missing']} orphans_pruned={_a['orphans_pruned']}"
+                )
+        results.append(("Step 11b \u00b7 Runtime l10n sync", True, time.time() - _sync_start))
+    except Exception as _exc:  # never block publish on the advisory runtime check
+        warn(f"Runtime l10n sync check failed (non-fatal): {_exc}")
+        results.append(("Step 11b \u00b7 Runtime l10n sync", False, time.time() - _sync_start))
+
     version, ok = _validate_version_step(args, results, EXTENSION, "Step 12 \u00b7 Version & CHANGELOG")
     return version, ok, lint_report_path
 
