@@ -3029,6 +3029,14 @@ body.theme-light #live-indicator.connection-status {
   fill: none;
 }
 
+/* Soft (inferred, undeclared) relationship: dashed + dimmer so it reads as
+   "the data links these, but nothing declares it" — distinct from a solid,
+   declared foreign key. */
+.diagram-link-soft {
+  stroke-dasharray: 5 4;
+  opacity: 0.65;
+}
+
 /* Focus ring for keyboard navigation of diagram table boxes */
 .diagram-table:focus rect {
   stroke: var(--link);

@@ -7765,6 +7765,7 @@
     function renderDiagram(data) {
       const tables = data.tables || [];
       const fks = data.foreignKeys || [];
+      const softs = data.softRelationships || [];
       if (tables.length === 0) {
         container.innerHTML = '<p class="meta">No tables.</p>';
         return;
@@ -7784,7 +7785,8 @@
         if (side === "left") return { x: p.x, y: cy };
         return { x: cx, y: cy };
       };
-      let svg = '<svg role="group" aria-label="Schema diagram showing ' + tables.length + " table" + (tables.length !== 1 ? "s" : "") + " and " + fks.length + " foreign key relationship" + (fks.length !== 1 ? "s" : "") + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
+      const softLabel = softs.length ? " and " + softs.length + " inferred (undeclared) relationship" + (softs.length !== 1 ? "s" : "") : "";
+      let svg = '<svg role="group" aria-label="Schema diagram showing ' + tables.length + " table" + (tables.length !== 1 ? "s" : "") + " and " + fks.length + " foreign key relationship" + (fks.length !== 1 ? "s" : "") + softLabel + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
       svg += '<g class="diagram-links">';
       fks.forEach(function(fk) {
         const iFrom = nameToIndex[fk.fromTable];
@@ -7794,6 +7796,16 @@
         const to = getCenter(iTo, "left");
         const mid = (from.x + to.x) / 2;
         svg += '<path class="diagram-link" d="M' + from.x + "," + from.y + " C" + mid + "," + from.y + " " + mid + "," + to.y + " " + to.x + "," + to.y + '"><title>' + esc2(fk.fromTable) + "." + esc2(fk.fromColumn) + " \u2192 " + esc2(fk.toTable) + "." + esc2(fk.toColumn) + "</title></path>";
+      });
+      softs.forEach(function(s) {
+        const iFrom = nameToIndex[s.fromTable];
+        const iTo = nameToIndex[s.toTable];
+        if (iFrom == null || iTo == null) return;
+        const from = getCenter(iFrom, "right");
+        const to = getCenter(iTo, "left");
+        const mid = (from.x + to.x) / 2;
+        const how = s.rule === "noun_id" ? "id-name convention" : "shared UUID column";
+        svg += '<path class="diagram-link diagram-link-soft" d="M' + from.x + "," + from.y + " C" + mid + "," + from.y + " " + mid + "," + to.y + " " + to.x + "," + to.y + '"><title>' + esc2(s.fromTable) + "." + esc2(s.fromColumn) + " \u2192 " + esc2(s.toTable) + "." + esc2(s.toColumn) + " (inferred from " + how + ", not declared)</title></path>";
       });
       svg += '</g><g class="diagram-tables">';
       tables.forEach(function(t, i) {
@@ -7860,6 +7872,14 @@
           altHtml += "<h4>Foreign key relationships</h4><ul>";
           fks.forEach(function(fk) {
             altHtml += "<li>" + esc2(fk.fromTable) + "." + esc2(fk.fromColumn) + " \u2192 " + esc2(fk.toTable) + "." + esc2(fk.toColumn) + "</li>";
+          });
+          altHtml += "</ul>";
+        }
+        if (softs.length > 0) {
+          altHtml += "<h4>Inferred (undeclared) relationships</h4><ul>";
+          softs.forEach(function(s) {
+            const how = s.rule === "noun_id" ? "id-name convention" : "shared UUID column";
+            altHtml += "<li>" + esc2(s.fromTable) + "." + esc2(s.fromColumn) + " \u2192 " + esc2(s.toTable) + "." + esc2(s.toColumn) + " (inferred from " + how + ", not declared)</li>";
           });
           altHtml += "</ul>";
         }

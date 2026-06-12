@@ -25,6 +25,10 @@ export function initDiagram(): void {
   function renderDiagram(data) {
     const tables = data.tables || [];
     const fks = data.foreignKeys || [];
+    // Soft relationships (Feature 77): edges inferred from column naming that no
+    // SQLite FK or manifest declares. Drawn dashed so the link is visible even
+    // though nothing declares it.
+    const softs = data.softRelationships || [];
     if (tables.length === 0) {
       container.innerHTML = '<p class="meta">No tables.</p>';
    
@@ -46,7 +50,8 @@ export function initDiagram(): void {
 
     // Use role="group" (not "img") so screen readers announce the summary
     // label but still allow navigation into the focusable table children.
-    let svg = '<svg role="group" aria-label="Schema diagram showing ' + tables.length + ' table' + (tables.length !== 1 ? 's' : '') + ' and ' + fks.length + ' foreign key relationship' + (fks.length !== 1 ? 's' : '') + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
+    const softLabel = softs.length ? ' and ' + softs.length + ' inferred (undeclared) relationship' + (softs.length !== 1 ? 's' : '') : '';
+    let svg = '<svg role="group" aria-label="Schema diagram showing ' + tables.length + ' table' + (tables.length !== 1 ? 's' : '') + ' and ' + fks.length + ' foreign key relationship' + (fks.length !== 1 ? 's' : '') + softLabel + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
     svg += '<g class="diagram-links">';
     fks.forEach(function(fk) {
       const iFrom = nameToIndex[fk.fromTable];
@@ -59,6 +64,20 @@ export function initDiagram(): void {
       // describe the relationship (matches chart tooltip pattern).
       svg += '<path class="diagram-link" d="M' + from.x + ',' + from.y + ' C' + mid + ',' + from.y + ' ' + mid + ',' + to.y + ' ' + to.x + ',' + to.y + '">'
         + '<title>' + esc(fk.fromTable) + '.' + esc(fk.fromColumn) + ' \u2192 ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '</title></path>';
+    });
+    // Soft edges: same curve, drawn dashed via .diagram-link-soft. The <title>
+    // names the convention that inferred it and that nothing declares it, so the
+    // dashed line reads as "inferred, not declared" on hover / to a screen reader.
+    softs.forEach(function(s) {
+      const iFrom = nameToIndex[s.fromTable];
+      const iTo = nameToIndex[s.toTable];
+      if (iFrom == null || iTo == null) return;
+      const from = getCenter(iFrom, 'right');
+      const to = getCenter(iTo, 'left');
+      const mid = (from.x + to.x) / 2;
+      const how = s.rule === 'noun_id' ? 'id-name convention' : 'shared UUID column';
+      svg += '<path class="diagram-link diagram-link-soft" d="M' + from.x + ',' + from.y + ' C' + mid + ',' + from.y + ' ' + mid + ',' + to.y + ' ' + to.x + ',' + to.y + '">'
+        + '<title>' + esc(s.fromTable) + '.' + esc(s.fromColumn) + ' \u2192 ' + esc(s.toTable) + '.' + esc(s.toColumn) + ' (inferred from ' + how + ', not declared)</title></path>';
     });
     svg += '</g><g class="diagram-tables">';
     tables.forEach(function(t, i) {
@@ -134,6 +153,14 @@ export function initDiagram(): void {
         altHtml += '<h4>Foreign key relationships</h4><ul>';
         fks.forEach(function(fk) {
           altHtml += '<li>' + esc(fk.fromTable) + '.' + esc(fk.fromColumn) + ' \u2192 ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '</li>';
+        });
+        altHtml += '</ul>';
+      }
+      if (softs.length > 0) {
+        altHtml += '<h4>Inferred (undeclared) relationships</h4><ul>';
+        softs.forEach(function(s) {
+          const how = s.rule === 'noun_id' ? 'id-name convention' : 'shared UUID column';
+          altHtml += '<li>' + esc(s.fromTable) + '.' + esc(s.fromColumn) + ' \u2192 ' + esc(s.toTable) + '.' + esc(s.toColumn) + ' (inferred from ' + how + ', not declared)</li>';
         });
         altHtml += '</ul>';
       }
