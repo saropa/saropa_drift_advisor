@@ -1,6 +1,6 @@
 # Feature 76: Guided NL Query Wizard (web viewer)
 
-**Status: SPEC / NOT STARTED.** Design doc for review before any code.
+**Status: IMPLEMENTED.** Shipped across commits `1340c38` (activity-bar shell, §12 L1), `abde88a` (NL wizard core — `resolveTable` + FK `relationshipWhere`, Parts A + C), and `6cc388e` (Ask panel UI — table clarifier + refinement chips, §12 L2 + Part B). This doc is retained as the design record.
 
 This evolves the **web viewer's** "Ask in English" box ([assets/web/nl-to-sql.ts](../assets/web/nl-to-sql.ts) + [assets/web/nl-modal.ts](../assets/web/nl-modal.ts)), which is a **local heuristic converter** — distinct from Feature [18](./18-natural-language-sql.md) (the VS Code extension's **LLM-based** NL-SQL). No LLM, no network round-trip; everything runs in the browser against schema metadata.
 
@@ -349,3 +349,26 @@ Layout L1–L2 should precede wizard Phase A/B/C, since the wizard's home must e
 - **Collapse-on-reclick** — ✅ on (clicking the active panel icon hides the sidebar, VS Code style).
 - **Panels vs main-views** — ✅ §12.3 split stands: Tables / Search / Ask / History are panels; SQL, Diagram, Size, Perf, Compare, Snapshot, Schema, Code, Index, Health, Import, Export stay main-area views; Home / Settings / Mask / Theme / Share are bottom-pinned global actions.
 - **"Use" action** — ✅ writes to the SQL runner and switches the main view to SQL.
+
+---
+
+## Finish Report (2026-06-12)
+
+The web viewer's "Ask in English" box evolved from a single-table heuristic converter that dead-ended on ambiguity into a guided, schema-aware query builder. All three design parts and the layout restructure described above shipped; the plan's status header had remained `SPEC / NOT STARTED` long after the code landed, so a reader scanning the active `plans/` tree would wrongly conclude the feature was unbuilt. The header was corrected to `IMPLEMENTED` and the completed plan archived to `plans/history/`.
+
+### What shipped (verified against code, not the header)
+
+- **Part A — best-guess table + clarifier.** `resolveTable(q, meta)` ([assets/web/nl-to-sql.ts:833](../../../assets/web/nl-to-sql.ts#L833)) returns a ranked `{ table, confidence, candidates }` instead of the old hard error; `nlToSql(question, meta, opts?: { table?: string })` ([nl-to-sql.ts:946](../../../assets/web/nl-to-sql.ts#L946)) accepts an explicit table so the `#nl-table-select` dropdown ([lib/src/server/html_content.dart:416](../../../lib/src/server/html_content.dart#L416)) sets structural context decoupled from the text.
+- **Part B — refinement chips.** Rendered into `#nl-refine` ([html_content.dart:509](../../../lib/src/server/html_content.dart#L509)); chips append/remove their natural-language phrase so the text box stays the single source of truth.
+- **Part C — FK/PK relationship engine.** `relationshipWhere(q, target, meta)` ([nl-to-sql.ts:614](../../../assets/web/nl-to-sql.ts#L614)) emits row-preserving `EXISTS` / `NOT EXISTS` / correlated-count predicates from `?includeForeignKeys=1` metadata.
+- **§12 — activity-bar layout restructure.** The toolbar re-oriented into a vertical VS Code-style activity bar; the NL modal became the `#sidebar-ask` panel ([html_content.dart:404](../../../lib/src/server/html_content.dart#L404)).
+
+Delivered across commits `1340c38` (activity-bar shell), `abde88a` (NL wizard core), and `6cc388e` (Ask panel UI). A later commit `e455d53` ("Hey Saropa" wake phrase) built narrative answers on top of the Ask panel.
+
+### Scope of this finish pass
+
+Documentation only. No `lib/`, `assets/`, `test/`, or `extension/` code was touched — the feature code already shipped and was changelogged when built. The change set is the plan-file status correction plus the archival move to `plans/history/2026.06/2026.06.12/` and the repointed reference from [plans/77-soft-relationship-advisory.md](../../../plans/77-soft-relationship-advisory.md).
+
+`Finish report appended: plans/history/2026.06/2026.06.12/76-nl-query-wizard.md`
+`Plan archived: plans/76-nl-query-wizard.md → plans/history/2026.06/2026.06.12/76-nl-query-wizard.md`
+`No bug archive — task did not close a bugs/*.md file`
