@@ -436,11 +436,11 @@ None of them cover the full picture. This document is the first attempt to do so
 
 ## Finish Report (2026-06-05)
 
-**Trigger.** User reported, with a screenshot of the VS Code Database panel showing "Offline — cached schema http://127.0.0.1:…": *"unable to connect to live database and no way to diagnose. both are problems!"* The host app was a running instance of Saropa Contacts.
+**Problem.** The VS Code Database panel showed "Offline — cached schema http://127.0.0.1:…": the viewer could not connect to the live database and offered no way to diagnose why. The host app was a running instance of Saropa Contacts.
 
 **Diagnosis (evidence-backed, not inferred).**
 - Probed the Windows host: `Test-NetConnection 127.0.0.1:8642` → False; no `dart` process held any listening port. The viewer's target port was closed on the host.
-- The contacts app was running on `emulator-5554` (Android emulator), foreground activity `com.saropamobile.app`, target `D:\src\contacts\lib\main.dart` (confirmed via `Win32_Process` command line of the `flutter run` invocation). My initial "running as Flutter web → stub" theory was checked and discarded — the `./lib/...:L:C Symbol` log format is the contacts app's own logger, not a platform signal.
+- The contacts app was running on `emulator-5554` (Android emulator), foreground activity `com.saropamobile.app`, target `D:\src\contacts\lib\main.dart` (confirmed via `Win32_Process` command line of the `flutter run` invocation). An initial "running as Flutter web → stub" theory was checked and discarded — the `./lib/...:L:C Symbol` log format is the contacts app's own logger, not a platform signal.
 - Inside the emulator: `/proc/net/tcp[6]` had no `21C2` (8642) listener while 2 other listeners existed — so the server was genuinely not bound, not just unreachable.
 - Read the emulator's `saropa_contacts.db` via `adb exec-out run-as`: the `user_env_overrides` table was empty → `EnvType.DriftAdvisorEnabled` was at its default `false`. The contacts gate (`main.dart:467-469`) therefore skipped `startDriftViewer` entirely.
 - Net: two stacked causes — (1) the advisor was never started (override off), and (2) even once started, the emulator-internal bind is unreachable from the host without `adb forward`.
@@ -450,7 +450,7 @@ None of them cover the full picture. This document is the first attempt to do so
 - (A) Added an emulator/device port-forward hint to the server startup banner: a static caveat line plus the exact `adb forward tcp:<port> tcp:<port>` command, printed below the URL. This closes the advisor-side diagnostic gap for every consumer — the banner was previously the only on-screen signal and gave no hint that host access needs forwarding.
 - Fixed a latent banner bug surfaced by the new guard test: the banner printed the *requested* `port` (`:0` for ephemeral binds) instead of the actual `server.port`. Both the URL and the new forward command now use the bound port.
 
-**Scope.** (A) Dart package code + (C) docs. The contacts-side fix (B) — a diagnostic `else` in `main.dart` logging *which* gate condition failed — was proposed but NOT done; it edits another project (`D:\src\contacts`) and the user authorized only (A).
+**Scope.** (A) Dart package code + (C) docs. The contacts-side fix (B) — a diagnostic `else` in `main.dart` logging *which* gate condition failed — was proposed but NOT done; it edits another project (`D:\src\contacts`) and only (A) was authorized.
 
 **Files changed.**
 - `lib/src/drift_debug_server_io.dart` — banner builds `hint` + `forwardCmd` lines; introduced `boundPort = server.port` used by both the URL and forward command.
@@ -468,9 +468,7 @@ None of them cover the full picture. This document is the first attempt to do so
 
 ## Finish Report (2026-06-10) — Implementation Plan Phase 1
 
-**This work will be reviewed by another AI.**
-
-**Trigger.** User directed: build the top-5 ranked items in order, running `/finish` after each. Item 1 is Phase 1 of this document's Implementation Plan — "single connection-state authority" (fixes gap 1 in *What Has NOT Been Fixed*).
+**Objective.** Phase 1 of this document's Implementation Plan — "single connection-state authority" (fixes gap 1 in *What Has NOT Been Fixed*).
 
 **Scope.** (B) VS Code extension (TypeScript) only. No Dart/Flutter app code, no user-facing copy.
 
@@ -497,9 +495,7 @@ None of them cover the full picture. This document is the first attempt to do so
 
 ## Finish Report (2026-06-10) — Implementation Plan Phase 2
 
-**This work will be reviewed by another AI.**
-
-**Trigger.** Same top-5 build directive; Item 2 is Phase 2 of this document's Implementation Plan — the end-to-end connection lifecycle test (fixes gap 2, "No connection integration tests" / no full-lifecycle coverage).
+**Objective.** Phase 2 of this document's Implementation Plan — the end-to-end connection lifecycle test (fixes gap 2, "No connection integration tests" / no full-lifecycle coverage).
 
 **Scope.** (B) VS Code extension, test-only. No production code changed.
 

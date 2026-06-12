@@ -6,7 +6,7 @@
  * main SQL editor.
  */
 import * as S from './state.ts';
-import { nlToSql, isDateColumn } from './nl-to-sql.ts';
+import { nlToSql, isDateColumn, narrateAnswer } from './nl-to-sql.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
 import { esc, setButtonBusy } from './utils.ts';
 import { selectPanel } from './sidebar-panels.ts';
@@ -23,6 +23,14 @@ import { openTool } from './tabs.ts';
      */
     var nlRecognition = null;
     var nlMicActive = false;
+
+    /**
+     * The most recent NlResult from the live preview. The wake-phrase narrator
+     * reads its answerKind / verb / qualifier to phrase the spoken answer, so it
+     * must reflect the question currently shown in the preview. Set on every
+     * applyNlLivePreview run; consumed by previewNlResults when result.wake.
+     */
+    var lastNlResult = null;
 
     function nlSpeechApi() {
       // Chromium exposes the prefixed name; standard name is the spec target.
@@ -361,9 +369,20 @@ import { openTool } from './tabs.ts';
           return;
         }
         var result = nlToSql(question, meta, { table: override });
+        lastNlResult = result;
         if (result.sql) {
           preview.value = result.sql;
           setNlModalError('', false);
+          // Wake phrase ("hey saropa, …") turns the panel into a chat reply: run
+          // the query and narrate the answer now, rather than waiting for a click.
+          if (result.wake) previewNlResults();
+        } else if (result.wake) {
+          // Addressed by name but nothing left to ask after stripping the phrase.
+          preview.value = '';
+          setNlModalError('', false);
+          renderNlNarrativeMessage(
+            'I heard you, but I didn’t catch a question — try “how many contacts were added last week?”',
+          );
         } else {
           preview.value = '';
           setNlModalError(result.error || 'Could not convert to SQL.', true);
@@ -521,6 +540,10 @@ import { openTool } from './tabs.ts';
           return;
         }
         renderNlPreviewRows(resultsEl, data.rows || []);
+        // Wake-phrase questions get a spoken-style answer above the rows.
+        if (lastNlResult && lastNlResult.wake) {
+          await renderNlNarrative(resultsEl, lastNlResult, data.rows || []);
+        }
       } catch (err) {
         setNlModalError('Preview error: ' + ((err as any).message || err), true);
         resultsEl.hidden = true;
@@ -552,6 +575,86 @@ import { openTool } from './tabs.ts';
       });
       html += '</tbody></table></div>';
       container.innerHTML = html;
+    }
+
+    // Answer kinds whose SQL returns a single aggregate cell to read directly.
+    // The rest (rows / latest / oldest / distinct / duplicate / group) need an
+    // exact COUNT(*) for their narrated total.
+    var NL_SCALAR_KINDS = { count: 1, sum: 1, avg: 1, max: 1, min: 1 };
+
+    /**
+     * Renders the spoken-style answer at the TOP of the results area for a
+     * wake-phrase question: the sentence, a divider, then the full SQL that
+     * derived it (per the user's request to always show the query). Scalar
+     * answers read the single returned cell; the rest run one extra COUNT(*)
+     * (trailing LIMIT stripped) so the narrated total is exact, not the 10-row
+     * preview cap.
+     */
+    async function renderNlNarrative(resultsEl, result, rows) {
+      var sentence;
+      if (NL_SCALAR_KINDS[result.answerKind]) {
+        var value = (rows && rows.length) ? firstCell(rows[0]) : null;
+        sentence = narrateAnswer(result, value, null);
+      } else {
+        var total = await nlExactCount(result.sql);
+        sentence = narrateAnswer(result, null, total);
+      }
+      if (!sentence) return;
+      prependNlNarrative(resultsEl, sentence, result.sql);
+    }
+
+    /** First column value of a result row (aggregates return a single cell). */
+    function firstCell(row) {
+      var keys = Object.keys(row || {});
+      if (!keys.length) return null;
+      var v = row[keys[0]];
+      return v == null ? null : Number(v);
+    }
+
+    /**
+     * Exact row count for a non-scalar answer. The generated SQL caps rows with a
+     * trailing LIMIT for the preview; counting that would undercount, so the
+     * trailing LIMIT is stripped before wrapping in COUNT(*). Returns null on
+     * any error, which narrateAnswer renders as "0".
+     */
+    async function nlExactCount(sql) {
+      var inner = String(sql || '').replace(/;\s*$/, '').replace(/\s+limit\s+\d+\s*$/i, '');
+      try {
+        var resp = await fetch('/api/sql', S.authOpts({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql: 'SELECT COUNT(*) AS n FROM (\n' + inner + '\n)' }),
+        }));
+        var data = await resp.json();
+        if (!resp.ok || !data.rows || !data.rows.length) return null;
+        return firstCell(data.rows[0]);
+      } catch (err) {
+        return null;
+      }
+    }
+
+    /** Inserts the narrative bubble (sentence + divider + SQL) above the rows. */
+    function prependNlNarrative(resultsEl, sentence, sql) {
+      resultsEl.hidden = false;
+      var html =
+        '<div class="nl-narrative">' +
+        '<p class="nl-narrative-say">' + esc(sentence) + '</p>' +
+        '<hr class="nl-narrative-rule">' +
+        '<pre class="nl-narrative-sql">' + esc(String(sql || '')) + '</pre>' +
+        '</div>';
+      resultsEl.insertAdjacentHTML('afterbegin', html);
+    }
+
+    /**
+     * Narrative bubble carrying only a message (no SQL) — used when the user said
+     * the wake phrase but left no answerable question.
+     */
+    function renderNlNarrativeMessage(msg) {
+      var resultsEl = document.getElementById('nl-modal-results');
+      if (!resultsEl) return;
+      resultsEl.hidden = false;
+      resultsEl.innerHTML =
+        '<div class="nl-narrative"><p class="nl-narrative-say">' + esc(msg) + '</p></div>';
     }
 
     /** Clears the in-dialog preview results (called on close and on reconvert). */

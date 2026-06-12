@@ -5,7 +5,7 @@
 > Status: Open — spec only. No advisor code changed by this report.
 
 ## CRITICAL NOTE
-This work will be reviewed by another AI. Written for fast, skeptical verification. Code claims below are anchored to **symbols** (class / method / field / typedef names) rather than line numbers, so the references stay valid as the files change — grep the symbol to locate it. The single most important finding: **Feature 78 wires the declared-relationship manifest into the SCHEMA / wizard / ER-diagram path, but NOT into the orphan-ROW anomaly check** — that check still drives its `LEFT JOIN` exclusively from `PRAGMA foreign_key_list`, which is empty for a host that declares no SQLite FKs. Read the Root Cause before the proposal.
+Written for fast, skeptical verification. Code claims below are anchored to **symbols** (class / method / field / typedef names) rather than line numbers, so the references stay valid as the files change — grep the symbol to locate it. The single most important finding: **Feature 78 wires the declared-relationship manifest into the SCHEMA / wizard / ER-diagram path, but NOT into the orphan-ROW anomaly check** — that check still drives its `LEFT JOIN` exclusively from `PRAGMA foreign_key_list`, which is empty for a host that declares no SQLite FKs. Read the Root Cause before the proposal.
 
 ---
 
@@ -120,7 +120,7 @@ Declared manifest edge the host would supply:
 ```
 Today: `_detectOrphanedForeignKeys` reports nothing (no PRAGMA FK). Desired: one `orphaned_fk` warning, `1 orphaned FK(s): contact_points.contact_saropa_u_u_i_d -> contacts.contact_saropa_u_u_i_d`.
 
-## 9. What I Already Verified
+## 9. Already Verified
 - Feature 78 IS consumed by the schema metadata fold in `schema_handler.dart` — confirmed by reading the file (the `_ctx.declaredRelationships` read + per-table `foreignKeys` seed), not assumed.
 - The orphan-row check's ONLY relationship source is the PRAGMA inside `AnomalyDetector._detectOrphanedForeignKeys` — confirmed; `declaredRelationships` appears nowhere in `anomaly_detector.dart` (`grep -rn "declaredRelationships" lib/src/server/anomaly_detector.dart` → 0 matches).
 - `orphan_table_detector.dart` is a different concern (physical orphan TABLES, not rows) — read in full; not part of this gap.
@@ -139,8 +139,6 @@ Adopt option C.1 (`orphanCheckable` flag on `DeclaredRelationship`) vs C.2 (host
 ---
 
 ## Finish Report (2026-06-11)
-
-**This work will be reviewed by another AI.**
 
 ### Scope
 (C) docs only. One markdown spec in the `saropa_drift_advisor` `bugs/` tree. No advisor code (`lib/src/`, `extension/src/`), no tests, no host code touched.

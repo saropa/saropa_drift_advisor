@@ -462,8 +462,8 @@ Use this checklist before marking any item as done:
 
 ## Finish Report (2026-06-10)
 
-**Trigger:** User asked to archive `GAP_FIT_PLAN.md`, then "split into logical
-plans and archive the plan with finished items."
+**Context:** `GAP_FIT_PLAN.md` needed archival; its remaining open items had to be
+split into logical standalone plans before archiving the plan with finished items.
 
 **Scope:** (C) docs only — no app or extension code touched.
 

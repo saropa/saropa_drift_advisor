@@ -50,6 +50,7 @@ final class ServerContext {
     this.changeDetectionMinInterval,
     this.declaredTableNames,
     this.declaredSchema,
+    this.declaredRelationships,
   }) : queryRaw = query,
        _queryExec =
            queryWithBindings ??
@@ -155,6 +156,15 @@ final class ServerContext {
   /// When null, GET /api/schema/declared reports the feature unavailable and the
   /// web tab stays empty — same opt-in posture as [declaredTableNames].
   final DeclaredSchemaCallback? declaredSchema;
+
+  /// Optional callback returning the host-declared relationship manifest
+  /// (Feature 78): the parent→child links the app knows from its Dart code but
+  /// never expresses as SQLite foreign keys. Read as authoritative ground truth
+  /// by GET /api/schema/relationships and merged into the metadata fold's
+  /// `foreignKeys`. When null, GET /api/schema/relationships reports
+  /// `available: false` and the wizard falls back to its column-name heuristic —
+  /// same opt-in posture as [declaredSchema].
+  final DeclaredRelationshipsCallback? declaredRelationships;
 
   /// In-memory snapshots (oldest first): each holds id, createdAt, optional
   /// label, and full table data per table. Capped at [maxSnapshots] with

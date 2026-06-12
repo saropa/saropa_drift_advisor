@@ -454,6 +454,17 @@ final class Router {
       return true;
     }
 
+    // GET /api/schema/relationships — host-declared relationship manifest
+    // (Feature 78). Like /declared, it reads an in-memory callback, issues no
+    // DB queries, and is empty/available:false when no callback was supplied —
+    // so it is independent of change detection.
+    if (path == ServerConstants.pathApiSchemaRelationships ||
+        path == ServerConstants.pathApiSchemaRelationshipsAlt) {
+      await _schema.sendDeclaredRelationships(response);
+
+      return true;
+    }
+
     // GET /api/schema/metadata — when change detection off, return
     // empty tables to avoid PRAGMA table_info and COUNT(*) spam.
     if (path == ServerConstants.pathApiSchemaMetadata ||
@@ -678,6 +689,15 @@ final class Router {
     if (path == ServerConstants.pathApiAnalyticsOrphanTables ||
         path == ServerConstants.pathApiAnalyticsOrphanTablesAlt) {
       await _analytics.handleOrphanTables(response, rawQuery);
+
+      return true;
+    }
+
+    // GET /api/issues/soft-relationships — convention-linked tables (shared
+    // *UUID / <noun>_id) that declare no SQLite FK or manifest (Feature 77).
+    if (path == ServerConstants.pathApiIssuesSoftRelationships ||
+        path == ServerConstants.pathApiIssuesSoftRelationshipsAlt) {
+      await _analytics.handleSoftRelationships(response, rawQuery);
 
       return true;
     }

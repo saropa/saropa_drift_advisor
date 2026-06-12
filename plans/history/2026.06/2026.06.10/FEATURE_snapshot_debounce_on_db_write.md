@@ -79,8 +79,6 @@ log for what was a small number of logical writes.
 
 ## Finish Report (2026-06-10)
 
-This work will be reviewed by another AI.
-
 ### Scope
 
 **(B) VS Code extension (`extension/`, TypeScript)** only. No Dart (`lib/`,

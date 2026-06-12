@@ -52,7 +52,15 @@ library saropa_drift_advisor;
 export 'src/drift_debug_server.dart';
 export 'src/error_logger.dart';
 export 'src/start_drift_viewer_extension.dart';
-// Public types for the optional declared-schema callback (Feature 71). `show`
-// keeps the internal Snapshot type out of the public surface.
+// Public types for the optional declared-schema callback (Feature 71) and the
+// declared-relationship manifest (Feature 78). `show` keeps the internal
+// Snapshot type out of the public surface.
 export 'src/server/server_types.dart'
-    show DeclaredColumn, DeclaredTable, DeclaredSchema, DeclaredSchemaCallback;
+    show
+        DeclaredColumn,
+        DeclaredTable,
+        DeclaredSchema,
+        DeclaredSchemaCallback,
+        DeclaredRelationship,
+        DeclaredRelationships,
+        DeclaredRelationshipsCallback;

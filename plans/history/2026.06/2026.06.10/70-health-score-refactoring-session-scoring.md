@@ -49,10 +49,6 @@ Extends the live Health Score (`extension/src/health/`) so the persisted refacto
 
 ## Finish Report (2026-06-10) — Phases 1–3
 
-**This work will be reviewed by another AI.**
-
-**Trigger.** Top-5 easiest-to-build directive, Item 2.
-
 **Scope.** (B) VS Code extension (TypeScript) only. No Dart/server code.
 
 **The bounded rule (Phase 1).** Schema Quality loses `5` points per undismissed **high**-severity refactoring suggestion, capped at `15` total, floored at 0. Only `severity === 'high'` penalizes (medium/low are tracked but do not deduct). The input is disjoint from `scoreSchemaQuality`, which scores **only** missing-primary-key tables; refactoring suggestions are normalize/split/merge/extract structural hints, so no underlying issue is counted twice. Worked example in the combine test: a missing-PK table (base 50) plus 20 high-severity suggestions → 50 − min(15, 100) = **35** (the two penalties are additive across disjoint inputs, never the same issue twice).

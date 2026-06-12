@@ -71,6 +71,19 @@ abstract final class ServerConstants {
   static const String pathApiSchemaDeclared = '/api/schema/declared';
   static const String pathApiSchemaDeclaredAlt = 'api/schema/declared';
 
+  /// GET the host-declared relationship manifest (Feature 78).
+  static const String pathApiSchemaRelationships = '/api/schema/relationships';
+  static const String pathApiSchemaRelationshipsAlt =
+      'api/schema/relationships';
+
+  /// GET soft-relationship advisory findings (Feature 77): edges inferred from
+  /// column naming that no SQLite FK or manifest declares. A sub-path of
+  /// `/api/issues` because the result is an issues list, not a schema surface.
+  static const String pathApiIssuesSoftRelationships =
+      '/api/issues/soft-relationships';
+  static const String pathApiIssuesSoftRelationshipsAlt =
+      'api/issues/soft-relationships';
+
   /// Dynamic prefix for per-snapshot operations: DELETE/PUT /api/snapshot/{id}.
   static const String pathApiSnapshotPrefix = '/api/snapshot/';
   static const String pathApiSnapshotPrefixAlt = 'api/snapshot/';
@@ -360,6 +373,28 @@ abstract final class ServerConstants {
   static const String fkToTable = 'toTable';
   static const String fkToColumn = 'toColumn';
   static const String jsonKeyForeignKeys = 'foreignKeys';
+
+  /// JSON key for the host-declared relationship manifest list (Feature 78),
+  /// returned by GET /api/schema/relationships.
+  static const String jsonKeyRelationships = 'relationships';
+
+  /// JSON key for [DeclaredRelationship.orphanCheckable]. Emitted on a manifest
+  /// edge only when `false` (true is the default and absence means true), so a
+  /// reader of GET /api/schema/relationships can tell joinable edges from
+  /// list_ref / seed_identity edges the orphan-row check must skip.
+  static const String jsonKeyOrphanCheckable = 'orphanCheckable';
+
+  /// JSON key naming which naming convention produced a soft-relationship
+  /// finding (Feature 77): `'noun_id'` (stronger) or `'shared_uuid'`. Lets a
+  /// consumer filter to the higher-confidence edges.
+  static const String jsonKeyRule = 'rule';
+
+  /// Soft-relationship advisory result-envelope keys (Feature 77), mirroring the
+  /// orphan check's report shape so consumers read a familiar contract.
+  static const String jsonKeySoftRelationships = 'softRelationships';
+  static const String jsonKeyManifestAvailable = 'manifestAvailable';
+  static const String jsonKeyDeclaredFkCount = 'declaredFkCount';
+  static const String jsonKeyTablesScanned = 'tablesScanned';
   static const String jsonKeyHasPk = 'hasPk';
   static const String jsonKeyAddedRows = 'addedRows';
   static const String jsonKeyRemovedRows = 'removedRows';

@@ -82,8 +82,6 @@ Do not implement T15(b)/(c) from this repo.
 
 ## Finish Report (2026-06-10)
 
-This work will be reviewed by another AI.
-
 ### Scope
 
 (A) Dart package code (`lib/`, `test/`) + (C) docs (`CHANGELOG.md`, `doc/API.md`). No VS Code extension (TypeScript) changes.

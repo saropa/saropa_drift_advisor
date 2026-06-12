@@ -490,9 +490,7 @@ in phases, each at a check that must pass before the next:
 
 ## Finish Report (2026-06-11)
 
-**Trigger.** The user asked "do we support multiple UI languages for users?" (answer: no — the project was English-only with no l10n scaffolding), then to internalize the Saropa Log Capture localization spec as this plan, then to "start the plan by migrating … the framework," then "proceed" (→ System A). This report covers the framework scaffolding + System A (manifest NLS), which partially land Phases 1–2 of §9.
-
-**This work will be reviewed by another AI.**
+**Objective.** The project was English-only with no l10n scaffolding. This report covers the framework scaffolding + System A (manifest NLS), which partially land Phases 1–2 of §9.
 
 ### Scope
 (B) VS Code extension (TypeScript) + the web-viewer assets (`assets/web`, TypeScript bundled by esbuild), plus (C) docs (this plan, CHANGELOG). NOT (A) Flutter/Dart app code — `lib/` was untouched.
@@ -539,9 +537,7 @@ Plan stays ACTIVE in `plans/` — only 2 of 5 phases are partially done; the rem
 
 ## Finish Report (2026-06-11) — verify:nls-coverage + publish l10n audit
 
-**Trigger.** The user asked to (1) build `verify:nls-coverage` (the value-coverage measure + its generated data file) and (2) make publish run an l10n audit for maintainers with an `[i]gnore / [r]etry / [a]bort` prompt, clear prompt text, and a pointer to the audit report. Continues plan 75 System A (§2/§5.5/§6).
-
-**This work will be reviewed by another AI.**
+**Objective.** Add (1) `verify:nls-coverage` — the value-coverage measure + its generated data file — and (2) a publish-time l10n audit for maintainers with an `[i]gnore / [r]etry / [a]bort` prompt, clear prompt text, and a pointer to the audit report. Continues plan 75 System A (§2/§5.5/§6).
 
 ### Scope
 (B) VS Code extension (`extension/scripts/nls-coverage.mjs`, generated `extension/src/l10n/nls-coverage-data.ts`, `extension/package.json` scripts) + (C) publish scripts (`scripts/modules/l10n_audit.py`, `scripts/modules/pipeline.py`, `scripts/tests/test_l10n_audit.py`) + docs (this plan, CHANGELOG). NOT (A) Flutter/Dart.
@@ -578,9 +574,7 @@ Commit `1245a5f` carries the code; this finish commit adds `scripts/tests/test_l
 
 ## Finish Report (2026-06-11) — standalone scripts/l10n.py entry point + plan ordering
 
-**Trigger.** The user asked for a standalone way to run the localization step, modeled on Saropa Log Capture's `& python …\scripts\translate_l10n.py` — "we need something like this that can be run separately." Then, asked "what is next? build the bundles?", they said "no, just update the plan." This report covers the standalone entry point (commit `52ca442`) and the plan-ordering/injection-gap update (commit `10b1f16`), plus the `main()` exit-code tests added in this finish pass.
-
-**This work will be reviewed by another AI.**
+**Objective.** Provide a standalone way to run the localization audit step, modeled on Saropa Log Capture's `& python …\scripts\translate_l10n.py`, runnable separately from publish. This report covers the standalone entry point (commit `52ca442`), the plan-ordering/injection-gap update (commit `10b1f16`), and the `main()` exit-code tests.
 
 ### Scope
 (C) scripts/docs only — `scripts/l10n.py` (new launcher), `scripts/modules/l10n_audit.py` (added `main()` + `ok`/`heading` imports), `scripts/tests/test_l10n_audit.py` (added `main()` tests), `plans/75-localization.md`, `CHANGELOG.md`. NOT (A) Flutter/Dart, NOT (B) extension TypeScript.

@@ -2839,6 +2839,42 @@ pre {
   margin: 0.35rem 0 0;
 }
 
+/* "Hey Saropa" spoken-style answer (Feature 79): a chat reply above the sample
+   rows — the sentence, a divider, then the full SQL that derived it. The left
+   accent border marks it as the assistant's reply, distinct from the data grid. */
+.nl-narrative {
+  margin: 0 0 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--link);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.nl-narrative-say {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.nl-narrative-rule {
+  margin: 0.5rem 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle, var(--border));
+}
+
+/* The derived query, shown in full (never truncated) so the answer is auditable;
+   wraps instead of scrolling so the whole statement is visible at a glance. */
+.nl-narrative-sql {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .nl-modal-input {
   width: 100%;
   min-height: 7rem;

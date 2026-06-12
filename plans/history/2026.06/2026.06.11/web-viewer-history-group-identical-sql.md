@@ -1,12 +1,8 @@
 # Web viewer — group identical SQL in the History sidebar
 
-User request (verbatim): "1. group IDENTICAL sql calls  2. when more than 1 show a (`<n>`) number in the suffix  3. when the suffix is clicked on, show a dialog with a table of all the times and durations. it should have a copy button in this dialog" — followed by "keep groups but note the source in the dialog column. and the header can have multiple source pills".
-
-The debug web viewer's right-hand History sidebar previously rendered one row per query execution, so a query run repeatedly produced many duplicate rows. This task collapses identical SQL into a single grouped row with a clickable run-count, and adds a dialog listing every run's source/time/duration with a Copy button.
+The debug web viewer's right-hand History sidebar previously rendered one row per query execution, so a query run repeatedly produced many duplicate rows. This task collapses identical SQL into a single grouped row with a clickable run-count, shows a `(<n>)` count in the suffix when a query ran more than once, and adds a dialog listing every run's source/time/duration with a Copy button. Groups are kept while the source is noted per-run in a dialog column, and the group header can carry multiple source pills.
 
 ## Finish Report (2026-06-11)
-
-This work will be reviewed by another AI.
 
 ### Scope
 (B) Web viewer browser assets (`assets/web/` TypeScript + SCSS), plus the changelog. No Flutter/Dart app code, no `extension/` TypeScript. The web-viewer TS is compiled by esbuild into `bundle.js`; SCSS is compiled by sass into `style.css`.
@@ -31,12 +27,12 @@ This work will be reviewed by another AI.
 
 ### Testing
 - **Existing-test audit (mandatory):** grepped `test/` and `extension/src/test/` for `history-sidebar`, `initHistorySidebar`, `fetchHistory`, `query-history-list`, `history-count-badge`, `showOccurrencesDialog`, `history-dialog`, `groupEntries`. Two matches:
-  - `test/drift_debug_server_test.dart` — asserts the **server-rendered static HTML** contains `id="sql-history-toggle"`, `id="history-sidebar"`, `id="sql-input"`. My change is entirely **client-side rendering JS**; it does not alter the static markup IDs. Not affected.
+  - `test/drift_debug_server_test.dart` — asserts the **server-rendered static HTML** contains `id="sql-history-toggle"`, `id="history-sidebar"`, `id="sql-input"`. This change is entirely **client-side rendering JS**; it does not alter the static markup IDs. Not affected.
   - `extension/src/test/sql-notebook-panel.test.ts` — asserts the **extension webview** HTML includes `history-sidebar` (a different surface from `assets/web/`). Not affected.
-  - No assertion pins the grouping/rendering behavior I changed.
+  - No assertion pins the grouping/rendering behavior this change introduced.
 - **No JS/TS test harness exists for `assets/web/` browser modules** (no jest/vitest config, no `assets/web/*.test.*`). Verification gates for this surface are `tsc` typecheck + esbuild build + sass build. New-behavior unit tests (4B) cannot be added without introducing a browser-test framework + dependencies — a blast-radius infrastructure decision out of this task's scope.
 - **Commands run (all clean):** `npm run typecheck:web` (tsc `--noEmit`, 0 errors), `npm run build:js` (esbuild → bundle.js), `npm run build:style` (sass → style.css).
-- Dart server suite not executed in this environment; my change cannot affect it (no server-HTML delta) — audited by inspection.
+- Dart server suite not executed in this environment; this change cannot affect it (no server-HTML delta) — audited by inspection.
 
 ### l10n
 SKIPPED [B-NOT-IN-SCOPE] for the Flutter ARB pipeline and the extension `l10n()` catalog. The browser web viewer has no i18n catalog; all sibling strings in `history-sidebar.ts` are hardcoded English by existing design. Added strings ("Query runs (n)", "Source"/"Time"/"Duration", "Copy", "Show all N runs of this query", "Copied N runs") follow that established convention.

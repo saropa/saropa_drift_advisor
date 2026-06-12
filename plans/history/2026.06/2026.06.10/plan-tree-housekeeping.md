@@ -1,10 +1,8 @@
 # Plan-tree housekeeping — archive shipped/redundant plans, add Implementation Plan headings
 
-**Trigger.** User request, verbatim: (1) "if 22-realtime-mutation-stream.md is done then it should be archived into the history folder"; (2) "if GAP_FIT_PLAN.md is redundant then archive it"; (3) "yes add the headings" (to the two plans that carried phased steps but no `## Implementation Plan` heading). Follow-up to a prior session that added/verified Implementation Plan sections across the plan tree.
+**Problem.** Shipped and redundant plans remained in the active `plans/` tree (`22-realtime-mutation-stream.md` was shipped; `GAP_FIT_PLAN.md` was redundant), and two phased plans lacked an `## Implementation Plan` heading. Follow-up to prior work that added and verified Implementation Plan sections across the plan tree.
 
 ## Finish Report (2026-06-10)
-
-**This work will be reviewed by another AI.**
 
 **Scope.** (C) docs only — plan-tree files and one CHANGELOG maintenance line. No Dart, no extension code, no tests touched.
 

@@ -963,13 +963,13 @@
   }
 
   // assets/web/nl-to-sql.ts
+  var EDIT_VERB = /\b(?:chang|chnag|chagn|chaneg|chnge|chg|modif|modfi|mdoif|\bmod\b|updat|udpat|upadt|updt|\bupd\b|upd8|edit|eddit|edt|alter|altr|amend|ammend|revis|rivis|touch|tweak|twaek|adjust|ajust|adust|refresh|refesh|re-?sav|overwrit|overwrot|rewr|rewrot|rework|reword|mutat|patch|bump|sync|synch|migrat|recalc|reprocess|reindex|restamp|dirtied|flipp|toggl|reset|log(?:ged)?[ -]?in|sign(?:ed)?[ -]?in|seen|used|access|visit)/i;
+  var BORN_VERB = /\bcreat|\bcraet|\bcreaet|\bkreat|\bcrt\b|\bcre\b|\badd(?:ed|ing|s)?\b|\bnew\b|\binsert|\binser|\bins\b|\bregist|\breg\b|\bsign(?:ed)?[ -]?up|\bsignup|\bjoin|\bmade\b|\bimport|\bimpor|\benter(?:ed|ing|s)?\b|\bborn\b|\bestablish|\bgenerat|\bspawn|\boriginat|\bonboard|\bseed|\bprovision|\benrol|\bsubscrib|\bactivat|\bcaptur|\brecord|\bposted|\bfirst (?:seen|added|created)/i;
   function temporalWhere(q, target) {
     const dateCols = target.columns.filter(function(c) {
       return isDateColumn(c) || /\bwhen\b|\bts\b|expiry|\bdue\b|logged|synced|seen|visited|login|logout|access|effective|valid|start|end|registered|inserted|added/i.test(c.name);
     });
-    if (dateCols.length === 0) return "";
-    const editVerb = /\b(?:chang|chnag|chagn|chaneg|chnge|chg|modif|modfi|mdoif|\bmod\b|updat|udpat|upadt|updt|\bupd\b|upd8|edit|eddit|edt|alter|altr|amend|ammend|revis|rivis|touch|tweak|twaek|adjust|ajust|adust|refresh|refesh|re-?sav|overwrit|overwrot|rewr|rewrot|rework|reword|mutat|patch|bump|sync|synch|migrat|recalc|reprocess|reindex|restamp|dirtied|flipp|toggl|reset|log(?:ged)?[ -]?in|sign(?:ed)?[ -]?in|seen|used|access|visit)/i;
-    const bornVerb = /\bcreat|\bcraet|\bcreaet|\bkreat|\bcrt\b|\bcre\b|\badd(?:ed|ing|s)?\b|\bnew\b|\binsert|\binser|\bins\b|\bregist|\breg\b|\bsign(?:ed)?[ -]?up|\bsignup|\bjoin|\bmade\b|\bimport|\bimpor|\benter(?:ed|ing|s)?\b|\bborn\b|\bestablish|\bgenerat|\bspawn|\boriginat|\bonboard|\bseed|\bprovision|\benrol|\bsubscrib|\bactivat|\bcaptur|\brecord|\bposted|\bfirst (?:seen|added|created)/i;
+    if (dateCols.length === 0) return { sql: "", phrase: "" };
     const editCol = function(c) {
       return /updat|modif|chang|edit|alter|revis|touch|mtime|last.?mod|lastmod|sync|version|\brev\b|dirty|login|logged|seen|used|access|visit|active/i.test(c.name);
     };
@@ -977,8 +977,8 @@
       return /creat|add|insert|regist|made|born|origin|ctime|first|since|seed|provision|enrol|subscrib|activat|signup|join|captur|logged|record|posted|import/i.test(c.name);
     };
     let col;
-    if (editVerb.test(q)) col = dateCols.find(editCol);
-    else if (bornVerb.test(q)) col = dateCols.find(bornCol);
+    if (EDIT_VERB.test(q)) col = dateCols.find(editCol);
+    else if (BORN_VERB.test(q)) col = dateCols.find(bornCol);
     if (!col) col = dateCols[0];
     const isEpoch = /int/i.test(col.type);
     const d = isEpoch ? `date("${col.name}", 'unixepoch', 'localtime')` : `date("${col.name}")`;
@@ -1164,9 +1164,9 @@
     matchers.unshift(...staleMatchers);
     for (let i = 0; i < matchers.length; i++) {
       const m = q.match(matchers[i].re);
-      if (m) return matchers[i].f(m);
+      if (m) return { sql: matchers[i].f(m), phrase: m[0].trim() };
     }
-    return "";
+    return { sql: "", phrase: "" };
   }
   function matchColumn(word, target) {
     const w = word.toLowerCase().trim();
@@ -1635,10 +1635,60 @@
     if (tables.length === 1) return { table: tables[0], confidence: "only", candidates: all };
     return { table: pickHubTable(tables, meta), confidence: "guess", candidates: all };
   }
+  var WAKE_NAME = "(?:sa?ropa|saropah|saroppa|saroper|sarope|sarropa|seropa|siropa|soropa|zaropa|saraopa|sropa|sarppa|sa\\s?ropa|sar\\s?opa|sara\\s?opa|say\\s?ropa)";
+  var WAKE_RE = new RegExp(
+    "^\\s*(?:(?:ok(?:ay)?|hey|hi|hello|yo|hey there|um+|uh+|please)[\\s,]*)*" + WAKE_NAME + "(?:[\\s,.:!?-]+|$)",
+    "i"
+  );
+  function stripWakePhrase(question) {
+    const m = question.match(WAKE_RE);
+    if (!m) return { question, wake: false };
+    return { question: question.slice(m[0].length).trim(), wake: true };
+  }
+  function narrateAnswer(r, value, totalCount) {
+    const table = r.table || "rows";
+    const qual = r.qualifier ? " " + r.qualifier : "";
+    const col = r.aggColumn ? r.aggColumn.replace(/_/g, " ") : "value";
+    const n = function(x) {
+      return x == null ? "0" : x.toLocaleString("en-US");
+    };
+    switch (r.answerKind) {
+      case "count": {
+        const verb = qual && r.answerVerb && r.answerVerb !== "has" ? r.answerVerb : "has";
+        return "Your database " + verb + " " + n(value) + " " + table + qual + ".";
+      }
+      case "sum":
+        return "The total " + col + " across " + table + qual + " is " + n(value) + ".";
+      case "avg":
+        return "The average " + col + " for " + table + qual + " is " + n(value) + ".";
+      case "max":
+        return "The highest " + col + " for " + table + qual + " is " + n(value) + ".";
+      case "min":
+        return "The lowest " + col + " for " + table + qual + " is " + n(value) + ".";
+      case "distinct":
+        return "Found " + n(totalCount) + " distinct " + col + " value" + (totalCount === 1 ? "" : "s") + ".";
+      case "duplicate":
+        return "Found " + n(totalCount) + " " + col + " value" + (totalCount === 1 ? "" : "s") + " that repeat.";
+      case "group":
+        return n(totalCount) + " group" + (totalCount === 1 ? "" : "s") + " of " + table + qual + ".";
+      case "rows":
+      case "latest":
+      case "oldest":
+      default:
+        return "Found " + n(totalCount) + " " + table + qual + ".";
+    }
+  }
   function nlToSql(question, meta, opts) {
+    const wakeStrip = stripWakePhrase(question);
+    question = wakeStrip.question;
+    const wake = wakeStrip.wake;
     const q = question.toLowerCase().trim();
     const tables = meta.tables || [];
-    if (tables.length === 0) return { sql: null, error: "No tables in the schema to query." };
+    if (tables.length === 0) return { sql: null, error: "No tables in the schema to query.", wake };
+    if (wake && !q) return { sql: null, wake: true };
+    let answerVerb = "has";
+    if (BORN_VERB.test(q)) answerVerb = "added";
+    else if (EDIT_VERB.test(q)) answerVerb = "changed";
     meta = { tables, foreignKeys: inferForeignKeys(meta) };
     let resolved = resolveTable(q, meta);
     if (opts && opts.table) {
@@ -1662,7 +1712,7 @@
     const tn = '"' + target.name + '"';
     const conds = [];
     const tw = temporalWhere(q, target);
-    if (tw) conds.push(tw);
+    if (tw.sql) conds.push(tw.sql);
     const vw = valueWhere(question, target);
     for (let i = 0; i < vw.length; i++) conds.push(vw[i]);
     const rw = relationshipWhere(q, target, meta);
@@ -1679,47 +1729,92 @@
         return /int|real|num|float|double|dec/i.test(c.type);
       });
     };
+    let answerKind = "rows";
+    let aggColumn;
     if (/how many|\bcount\b|total number|number of/i.test(q) && !isGrouping) {
       sql = "SELECT COUNT(*) FROM " + tn + where;
+      answerKind = "count";
     } else if (/duplicate|repeated|dupe/i.test(q)) {
       const dupWord = q.match(/(?:duplicate|repeated|dupe)d?\s+([a-z0-9_]+)/i);
       const col = dupWord && matchColumn(dupWord[1], target) || mentioned[0] || target.columns.find(function(c) {
         return /name|email|title|slug|code/i.test(c.name);
       }) || target.columns[1] || target.columns[0];
       sql = 'SELECT "' + col.name + '", COUNT(*) AS count FROM ' + tn + where + ' GROUP BY "' + col.name + '" HAVING count > 1 ORDER BY count DESC' + limClause;
+      answerKind = "duplicate";
+      aggColumn = col.name;
     } else if (/average|avg|\bmean\b|typical|on average/i.test(q)) {
       const numCol = numericCol();
-      sql = numCol ? 'SELECT AVG("' + numCol.name + '") FROM ' + tn + where : "SELECT * FROM " + tn + where + " LIMIT 50";
+      if (numCol) {
+        sql = 'SELECT AVG("' + numCol.name + '") FROM ' + tn + where;
+        answerKind = "avg";
+        aggColumn = numCol.name;
+      } else {
+        sql = "SELECT * FROM " + tn + where + " LIMIT 50";
+      }
     } else if (/sum|total\b|altogether|combined|grand total|aggregate/i.test(q) && !/total number/i.test(q)) {
       const numCol = numericCol();
-      sql = numCol ? 'SELECT SUM("' + numCol.name + '") FROM ' + tn + where : "SELECT * FROM " + tn + where + " LIMIT 50";
+      if (numCol) {
+        sql = 'SELECT SUM("' + numCol.name + '") FROM ' + tn + where;
+        answerKind = "sum";
+        aggColumn = numCol.name;
+      } else {
+        sql = "SELECT * FROM " + tn + where + " LIMIT 50";
+      }
     } else if (/max|maximum|highest|largest|biggest|peak|topmost/i.test(q)) {
       const numCol = numericCol();
-      sql = numCol ? 'SELECT MAX("' + numCol.name + '") FROM ' + tn + where : "SELECT * FROM " + tn + where + " ORDER BY 1 DESC LIMIT 1";
+      if (numCol) {
+        sql = 'SELECT MAX("' + numCol.name + '") FROM ' + tn + where;
+        answerKind = "max";
+        aggColumn = numCol.name;
+      } else {
+        sql = "SELECT * FROM " + tn + where + " ORDER BY 1 DESC LIMIT 1";
+      }
     } else if (/\bmin\b|minimum|lowest|smallest/i.test(q)) {
       const numCol = numericCol();
-      sql = numCol ? 'SELECT MIN("' + numCol.name + '") FROM ' + tn + where : "SELECT * FROM " + tn + where + " ORDER BY 1 ASC LIMIT 1";
+      if (numCol) {
+        sql = 'SELECT MIN("' + numCol.name + '") FROM ' + tn + where;
+        answerKind = "min";
+        aggColumn = numCol.name;
+      } else {
+        sql = "SELECT * FROM " + tn + where + " ORDER BY 1 ASC LIMIT 1";
+      }
     } else if (/distinct|unique/i.test(q)) {
       const col = mentioned[0] || target.columns[1] || target.columns[0];
       sql = 'SELECT DISTINCT "' + col.name + '" FROM ' + tn + where + limClause;
+      answerKind = "distinct";
+      aggColumn = col.name;
     } else if (/latest|newest|most recent|last (\d+)/i.test(q)) {
       const dateCol = recencyColumn(target);
       const match = q.match(/last (\d+)/i);
       const rowLim = lim != null ? lim : match ? parseInt(match[1], 10) : 10;
       sql = "SELECT " + selectCols + " FROM " + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" DESC' : "") + " LIMIT " + rowLim;
+      answerKind = "latest";
     } else if (/oldest|earliest|first (\d+)/i.test(q)) {
       const dateCol = recencyColumn(target);
       const match2 = q.match(/first (\d+)/i);
       const rowLim = lim != null ? lim : match2 ? parseInt(match2[1], 10) : 10;
       sql = "SELECT " + selectCols + " FROM " + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" ASC' : "") + " LIMIT " + rowLim;
+      answerKind = "oldest";
     } else if (isGrouping) {
       const byMatch = q.match(/\b(?:by|per)\s+([a-z0-9_]+)/i);
       const groupCol = byMatch && matchColumn(byMatch[1], target) || mentioned[0] || target.columns[1] || target.columns[0];
       sql = 'SELECT "' + groupCol.name + '", COUNT(*) AS count FROM ' + tn + where + ' GROUP BY "' + groupCol.name + '" ORDER BY count DESC' + limClause;
+      answerKind = "group";
+      aggColumn = groupCol.name;
     } else {
       sql = "SELECT " + selectCols + " FROM " + tn + where + order + " LIMIT " + (lim != null ? lim : 50);
     }
-    return { sql, table: target.name, confidence: resolved.confidence, candidates: resolved.candidates };
+    return {
+      sql,
+      table: target.name,
+      confidence: resolved.confidence,
+      candidates: resolved.candidates,
+      wake,
+      answerKind,
+      answerVerb,
+      qualifier: tw.phrase,
+      aggColumn
+    };
   }
 
   // assets/web/schema-meta.ts
@@ -5674,6 +5769,7 @@
   // assets/web/nl-modal.ts
   var nlRecognition = null;
   var nlMicActive = false;
+  var lastNlResult = null;
   function nlSpeechApi() {
     var w = window;
     return w.SpeechRecognition || w.webkitSpeechRecognition || null;
@@ -5951,9 +6047,17 @@
         return;
       }
       var result = nlToSql(question, meta, { table: override });
+      lastNlResult = result;
       if (result.sql) {
         preview.value = result.sql;
         setNlModalError("", false);
+        if (result.wake) previewNlResults();
+      } else if (result.wake) {
+        preview.value = "";
+        setNlModalError("", false);
+        renderNlNarrativeMessage(
+          "I heard you, but I didn\u2019t catch a question \u2014 try \u201Chow many contacts were added last week?\u201D"
+        );
       } else {
         preview.value = "";
         setNlModalError(result.error || "Could not convert to SQL.", true);
@@ -6071,6 +6175,9 @@
         return;
       }
       renderNlPreviewRows(resultsEl, data.rows || []);
+      if (lastNlResult && lastNlResult.wake) {
+        await renderNlNarrative(resultsEl, lastNlResult, data.rows || []);
+      }
     } catch (err) {
       setNlModalError("Preview error: " + (err.message || err), true);
       resultsEl.hidden = true;
@@ -6102,6 +6209,51 @@
     });
     html += "</tbody></table></div>";
     container.innerHTML = html;
+  }
+  var NL_SCALAR_KINDS = { count: 1, sum: 1, avg: 1, max: 1, min: 1 };
+  async function renderNlNarrative(resultsEl, result, rows) {
+    var sentence;
+    if (NL_SCALAR_KINDS[result.answerKind]) {
+      var value = rows && rows.length ? firstCell(rows[0]) : null;
+      sentence = narrateAnswer(result, value, null);
+    } else {
+      var total = await nlExactCount(result.sql);
+      sentence = narrateAnswer(result, null, total);
+    }
+    if (!sentence) return;
+    prependNlNarrative(resultsEl, sentence, result.sql);
+  }
+  function firstCell(row) {
+    var keys = Object.keys(row || {});
+    if (!keys.length) return null;
+    var v = row[keys[0]];
+    return v == null ? null : Number(v);
+  }
+  async function nlExactCount(sql) {
+    var inner = String(sql || "").replace(/;\s*$/, "").replace(/\s+limit\s+\d+\s*$/i, "");
+    try {
+      var resp = await fetch("/api/sql", authOpts({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sql: "SELECT COUNT(*) AS n FROM (\n" + inner + "\n)" })
+      }));
+      var data = await resp.json();
+      if (!resp.ok || !data.rows || !data.rows.length) return null;
+      return firstCell(data.rows[0]);
+    } catch (err) {
+      return null;
+    }
+  }
+  function prependNlNarrative(resultsEl, sentence, sql) {
+    resultsEl.hidden = false;
+    var html = '<div class="nl-narrative"><p class="nl-narrative-say">' + esc2(sentence) + '</p><hr class="nl-narrative-rule"><pre class="nl-narrative-sql">' + esc2(String(sql || "")) + "</pre></div>";
+    resultsEl.insertAdjacentHTML("afterbegin", html);
+  }
+  function renderNlNarrativeMessage(msg) {
+    var resultsEl = document.getElementById("nl-modal-results");
+    if (!resultsEl) return;
+    resultsEl.hidden = false;
+    resultsEl.innerHTML = '<div class="nl-narrative"><p class="nl-narrative-say">' + esc2(msg) + "</p></div>";
   }
   function clearNlPreviewResults() {
     var resultsEl = document.getElementById("nl-modal-results");

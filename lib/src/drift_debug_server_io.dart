@@ -121,6 +121,7 @@ class _DriftDebugServerImpl {
     int? maxRequestsPerSecond,
     Set<String>? declaredTableNames,
     DeclaredSchemaCallback? declaredSchema,
+    DeclaredRelationshipsCallback? declaredRelationships,
   }) async {
     if (!enabled) {
       return;
@@ -240,6 +241,7 @@ class _DriftDebugServerImpl {
       changeDetectionMinInterval: ServerConstants.changeDetectionMinInterval,
       declaredTableNames: declaredTableNames,
       declaredSchema: declaredSchema,
+      declaredRelationships: declaredRelationships,
     );
 
     if (baseWrite != null) {
@@ -453,6 +455,15 @@ mixin DriftDebugServer {
     /// empty and the endpoint reports `available: false`. The `startDriftViewer`
     /// extension derives this automatically from a Drift `GeneratedDatabase`.
     DeclaredSchemaCallback? declaredSchema,
+
+    /// Optional callback returning the host-declared relationship manifest:
+    /// the parent→child links the app knows in code but does not express as
+    /// SQLite foreign keys (Feature 78). Served at GET /api/schema/relationships
+    /// and merged into `GET /api/schema/metadata?includeForeignKeys=1` so the
+    /// web wizard treats them as authoritative instead of guessing from column
+    /// names. When null the endpoint reports `available: false` and the wizard
+    /// keeps its heuristic.
+    DeclaredRelationshipsCallback? declaredRelationships,
   }) => _instance.start(
     query: query,
     queryWithBindings: queryWithBindings,
@@ -473,6 +484,7 @@ mixin DriftDebugServer {
     maxRequestsPerSecond: maxRequestsPerSecond,
     declaredTableNames: declaredTableNames,
     declaredSchema: declaredSchema,
+    declaredRelationships: declaredRelationships,
   );
 
   /// The port the server is bound to, or null if not running.

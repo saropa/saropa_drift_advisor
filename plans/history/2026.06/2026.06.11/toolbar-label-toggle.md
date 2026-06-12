@@ -1,16 +1,13 @@
 # Toolbar label-density toggle (web viewer)
 
-Triggered by the user's request: "add a toggle functionality to the toolbar
-when i click on whitespace (not an icon) toggle the state: 1. icon with short
-word explaining the icon with a dim bounding box (border); 2. current icon only
-style" — followed by "persist this user setting". The debug web viewer's
+The debug web viewer's
 toolbar row (`#toolbar-bar`) previously rendered icon-only buttons with no way
 to surface a text label. This adds a two-state density toggle, flipped by
-clicking the toolbar's bare whitespace, and persists the choice.
+clicking the toolbar's bare whitespace: state 1 renders each icon with a short
+word and a dim bounding box (border); state 2 is the icon-only style. The chosen
+mode is persisted as a user setting.
 
 ## Finish Report (2026-06-11)
-
-This work will be reviewed by another AI.
 
 ### Scope
 
@@ -65,7 +62,7 @@ shell (`lib/src/server/html_content.dart`), the browser TypeScript bundle
   `tb-icon-btn`, `toolbar-bar`, `initToolbar`, `data-label`, `tb-labeled`,
   `TOOLBAR_LABELS`): `test/web_viewer_nl_modal_contract_test.dart`,
   `extension/src/test/hamburger-menu.test.ts`,
-  `extension/src/test/tab-icons-accent.test.ts`. None pinned values my change
+  `extension/src/test/tab-icons-accent.test.ts`. None pinned values this change
   removed — all still assert `id="toolbar-bar"`, `.tb-icon-btn`, and
   `function initToolbar`, which remain present.
 - **Extended** `web_viewer_nl_modal_contract_test.dart` with a new test

@@ -1,13 +1,8 @@
 # Web viewer — table-definition profiling columns + JSON/Flutter export
 
-**Trigger (user request, verbatim):** "1. add meta columns (add info icon) to 'table definition': null count, data count, last updated, first created, size, and many more. be creative and WOW me. 2. add an icon (toolbar?) to toggle on/off the meta table columns. 3. add an icon to copy the table definition to json. 4. add an icon to copy the table definition to flutter code."
-
-This added a profiling/meta column set and three export/toggle tool buttons to the debug web viewer's "Table definition" panel (the table-view screen). No bug or pre-existing plan file described this work, so this record is created fresh.
+The debug web viewer's "Table definition" panel (the table-view screen) lacked per-column profiling metadata and export affordances. This task adds a profiling/meta column set (null count, data count, last updated, first created, size, and more), an info icon, a toolbar toggle to show/hide the meta columns, and two copy actions that export the table definition to JSON and to Flutter/Drift code. No bug or pre-existing plan file described this work, so this record is created fresh.
 
 ## Finish Report (2026-06-11)
-
-### 1. Critical note
-This work will be reviewed by another AI.
 
 ### 2. Scope
 **(B) — web viewer assets (TypeScript/JS + SCSS) and extension contract tests.** No Flutter/Dart app code (A) and not docs-only (C). The web viewer lives in `assets/web/*.ts` (bundled by esbuild into `bundle.js`) with styles in `assets/web/*.scss` (compiled by sass into `style.css`); contract tests live in `extension/src/test/`.
