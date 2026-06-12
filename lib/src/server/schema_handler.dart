@@ -200,6 +200,37 @@ final class SchemaHandler {
       }
     }
 
+    // When the host supplied a relationship manifest (Feature 78) AND the
+    // caller wants foreign keys, group its edges by `fromTable` once so each
+    // table's `foreignKeys` list can be seeded with the authoritative manifest
+    // links before falling back to PRAGMA FKs. Edges are stored in the same
+    // per-table fk-meta shape (fromColumn/toTable/toColumn, plus optional
+    // label) the web flatten step expects, so the wizard picks them up with no
+    // client change. A throwing callback must not break metadata — skip the fold.
+    final Map<String, List<Map<String, dynamic>>> manifestByTable =
+        <String, List<Map<String, dynamic>>>{};
+    if (includeForeignKeys) {
+      final relationshipsCallback = _ctx.declaredRelationships;
+      if (relationshipsCallback != null) {
+        try {
+          for (final edge in relationshipsCallback()) {
+            final bucket = manifestByTable.putIfAbsent(
+              edge.fromTable,
+              () => <Map<String, dynamic>>[],
+            );
+            bucket.add(<String, dynamic>{
+              ServerConstants.fkFromColumn: edge.fromColumn,
+              ServerConstants.fkToTable: edge.toTable,
+              ServerConstants.fkToColumn: edge.toColumn,
+              if (edge.label != null) ServerConstants.jsonKeyLabel: edge.label,
+            });
+          }
+        } on Object catch (error, stack) {
+          _ctx.logError(error, stack);
+        }
+      }
+    }
+
     final tables = <Map<String, dynamic>>[];
 
     for (final tableName in tableNames) {
@@ -241,18 +272,39 @@ final class SchemaHandler {
       };
 
       if (includeForeignKeys) {
+        // Seed with manifest edges (authoritative) so a host that links by
+        // convention is treated as ground truth, then merge real SQLite FKs.
+        final merged = <Map<String, dynamic>>[...?manifestByTable[tableName]];
+
+        // Dedupe by edge identity (fromColumn → toTable.toColumn). Manifest
+        // entries are added first, so a PRAGMA row for the same edge is dropped
+        // and the manifest's version (including its optional label) wins — the
+        // resolved precedence for duplicate edges (plan §10.2).
+        final seen = <String>{
+          for (final e in merged)
+            '${e[ServerConstants.fkFromColumn]} '
+                '${e[ServerConstants.fkToTable]} '
+                '${e[ServerConstants.fkToColumn]}',
+        };
+
         try {
           final dynamic rawFk = await query(
             'PRAGMA foreign_key_list("$tableName")',
           );
           final fkRows = ServerUtils.normalizeRows(rawFk);
-          tableEntry[ServerConstants.jsonKeyForeignKeys] =
-              TableHandler.fkMetaMapsFromPragmaRows(fkRows);
+          for (final fk in TableHandler.fkMetaMapsFromPragmaRows(fkRows)) {
+            final key =
+                '${fk[ServerConstants.fkFromColumn]} '
+                '${fk[ServerConstants.fkToTable]} '
+                '${fk[ServerConstants.fkToColumn]}';
+            if (seen.add(key)) merged.add(fk);
+          }
         } on Object catch (error, stack) {
+          // A PRAGMA failure must not drop the manifest edges already seeded.
           _ctx.logError(error, stack);
-          tableEntry[ServerConstants.jsonKeyForeignKeys] =
-              <Map<String, dynamic>>[];
         }
+
+        tableEntry[ServerConstants.jsonKeyForeignKeys] = merged;
       }
 
       tables.add(tableEntry);
@@ -435,6 +487,71 @@ final class SchemaHandler {
         jsonEncode(<String, dynamic>{
           ServerConstants.jsonKeyAvailable: true,
           ServerConstants.jsonKeyTables: tables,
+        }),
+      );
+    } on Object catch (error, stack) {
+      // A throwing host callback must not crash the endpoint — report it as a
+      // server error with the message, like the other schema endpoints.
+      _ctx.logError(error, stack);
+      res.statusCode = HttpStatus.internalServerError;
+      res.headers.contentType = ContentType.json;
+      _ctx.setCors(res);
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
+    } finally {
+      await res.close();
+    }
+  }
+
+  /// Handles GET /api/schema/relationships (Feature 78): returns the
+  /// host-declared relationship manifest when a
+  /// [ServerContext.declaredRelationships] callback was supplied, or
+  /// `{ "available": false, "relationships": [] }` when it was not — so a host
+  /// that links by SQLite FKs (or neither) gets an empty, non-error response
+  /// (same opt-in posture as [sendDeclaredSchema]). The manifest is descriptive
+  /// only; this endpoint reads the in-memory callback and issues no DB queries.
+  Future<void> sendDeclaredRelationships(HttpResponse response) async {
+    final res = response;
+    try {
+      final callback = _ctx.declaredRelationships;
+      if (callback == null) {
+        _ctx.setJsonHeaders(res);
+        res.write(
+          jsonEncode(<String, dynamic>{
+            ServerConstants.jsonKeyAvailable: false,
+            ServerConstants.jsonKeyRelationships: <Map<String, dynamic>>[],
+          }),
+        );
+        return;
+      }
+
+      final relationships = <Map<String, dynamic>>[
+        for (final edge in callback())
+          <String, dynamic>{
+            ServerConstants.fkFromTable: edge.fromTable,
+            ServerConstants.fkFromColumn: edge.fromColumn,
+            ServerConstants.fkToTable: edge.toTable,
+            ServerConstants.fkToColumn: edge.toColumn,
+            // Omit label when null so the JSON stays minimal (no field for
+            // documentation only — it's only carried when the host set it).
+            if (edge.label != null) ServerConstants.jsonKeyLabel: edge.label,
+            // Carry orphanCheckable only when the host turned it off (true is
+            // the default; absence means true). Lets a reader of this endpoint
+            // tell joinable edges from list_ref / seed_identity edges the
+            // orphan-row check must skip — no host information is lost.
+            if (!edge.orphanCheckable)
+              ServerConstants.jsonKeyOrphanCheckable: false,
+          },
+      ];
+
+      _ctx.setJsonHeaders(res);
+      res.write(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyAvailable: true,
+          ServerConstants.jsonKeyRelationships: relationships,
         }),
       );
     } on Object catch (error, stack) {

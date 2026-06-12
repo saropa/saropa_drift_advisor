@@ -249,7 +249,7 @@ assets/web/app.js                  # Client-side editing logic (mirrors editing-
 
 ## Finish Report (2026-06-11)
 
-**Trigger:** User asked to move the completed Feature 47 plan to the appropriate history folder.
+**Context:** The completed Feature 47 plan needed moving to the appropriate history folder.
 
 **Scope:** (C) docs only — no code, no tests, no localization.
 

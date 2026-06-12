@@ -101,10 +101,6 @@ without a running app instance.
 
 ## Finish Report (2026-06-10) — Option A (Phases 1–3)
 
-**This work will be reviewed by another AI.**
-
-**Trigger.** Top-5 easiest-to-build directive, Item 5.
-
 **Scope.** (A) Dart package (`lib/`, `test/`) + web assets (`assets/web/`). Implemented **Option A** (host-provided declared-schema callback) as the plan recommended; Option B (porting the TS parser to Dart) was not built — it is only needed for scanning without a running app, which no consumer requires.
 
 **What changed.**
@@ -119,7 +115,7 @@ without a running app instance.
 - **`assets/web/declared-schema.ts`** (new, Phase 3) + `app.js` (import/init) + `state.ts` (`TOOL_LABELS.declared`) + `html_content.dart` (toolbar launcher `data-tool="declared"` + `panel-declared`). Renders a per-table collapsible column list; shows a clear "not available" note when the host supplied nothing. `bundle.js` rebuilt.
 - **`CHANGELOG.md`** — `[Unreleased]` Added entry.
 
-**Deviation from plan (intentional).** The plan said "new tab"; I implemented it as a **tool tab via the existing `data-tool` → `openTool` → `panel-*` system** (the same mechanism every other tool uses), which is the lowest-risk integration and avoids touching the dynamic tab-bar internals. The stretch goal (declared-vs-runtime divergence rendering) was **not** built — it's an additive enhancement on top of this endpoint and not required by the exit gate.
+**Deviation from plan (intentional).** The plan said "new tab"; it was implemented as a **tool tab via the existing `data-tool` → `openTool` → `panel-*` system** (the same mechanism every other tool uses), which is the lowest-risk integration and avoids touching the dynamic tab-bar internals. The stretch goal (declared-vs-runtime divergence rendering) was **not** built — it's an additive enhancement on top of this endpoint and not required by the exit gate.
 
 **Testing.**
 - **New `test/declared_schema_test.dart`** — 3 cases: supplied callback serialized (columns/types/pk/nullable/indexes, default nullable), no-callback → `available:false`, throwing callback → 500.

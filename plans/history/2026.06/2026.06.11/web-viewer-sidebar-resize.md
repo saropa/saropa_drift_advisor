@@ -1,10 +1,5 @@
 # Web viewer: resizable sidebar with drag bar
 
-**Triggered by user request:** "since we only have 1 sidebar now, we should make
-it resizable with a vertical bar. when set to zero (user hides, thats fine, just
-make it wider so it is easier to grab. we can also remove the show/hide toggle
-icons for the sidebar."
-
 After the sidebar-consolidation work left the web viewer with a single swappable
 left sidebar, this change gives that sidebar a drag handle on its right edge,
 persists the chosen width, keeps the handle grabbable (widened) when the sidebar
@@ -12,9 +7,6 @@ is dragged to zero/hidden, and removes the now-redundant dedicated collapse icon
 from the activity bar.
 
 ## Finish Report (2026-06-11)
-
-### 1. Critical Note
-This work will be reviewed by another AI.
 
 ### 2. Scope
 - **(A)** Dart package web-viewer assets + server-generated HTML: `lib/src/server/html_content.dart`, `assets/web/*` (TS/SCSS/JS), and the Dart contract test.

@@ -51,6 +51,7 @@ mixin DriftDebugServer {
     int? maxRequestsPerSecond,
     Set<String>? declaredTableNames,
     DeclaredSchemaCallback? declaredSchema,
+    DeclaredRelationshipsCallback? declaredRelationships,
   }) {
     throw UnsupportedError(_kUnsupportedMessage);
   }

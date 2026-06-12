@@ -53,9 +53,7 @@ Slots into the shipped Refactoring Engine ([66](66-drift-refactoring-engine.md))
 
 ## Finish Report (2026-06-10) — Phases 1–3
 
-**This work will be reviewed by another AI.**
-
-**Trigger.** Top-5 easiest-to-build directive, Item 1. Slots the `extract` suggestion type into the already-shipped Refactoring Engine (66) — no new panel, no new persistence contract, exactly as scoped.
+**Context.** Slots the `extract` suggestion type into the already-shipped Refactoring Engine (66) — no new panel, no new persistence contract, exactly as scoped.
 
 **Scope.** (B) VS Code extension (TypeScript) only. No Dart/server code, no user-facing webview changes (suggestions render through the existing generic panel/HTML).
 

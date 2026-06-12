@@ -103,10 +103,6 @@ adds an apply path *and* makes it batch from the start.
 
 ## Finish Report (2026-06-10) — Phases 1–4
 
-**This work will be reviewed by another AI.**
-
-**Trigger.** Top-5 easiest-to-build directive, Item 3.
-
 **Scope.** (A) Dart package (`lib/`, `test/`) + web assets (`assets/web/`). No Flutter app UI, no VS Code extension.
 
 **Key decision — best-effort per index, not all-or-nothing.** The plan's Phase 3 floated all-or-nothing first, but the exit gate requires "a deliberately bad suggestion reports its own failure without silently dropping the others." All-or-nothing would roll the good indexes back, contradicting that. Since `CREATE INDEX` is independent and idempotent (with `IF NOT EXISTS`), apply runs each statement on its own and returns a per-index `{index, sql, ok, error?}` array. Documented at the top of `index_batch_handler.dart`.
@@ -127,6 +123,6 @@ adds an apply path *and* makes it batch from the start.
 
 **l10n.** SKIPPED [web-not-Flutter] — the debug web viewer renders plain-English HTML and is not part of the Flutter ARB l10n catalog (no `l10n.*` getters exist for `assets/web/`). New strings match the surrounding convention in `tools-analytics.ts`.
 
-**Outstanding.** None. All four phases complete; exit gate met (select 2+, preview, apply, per-index status, bad-statement isolation). Manual browser confirmation is the user's step (see What to test).
+**Outstanding.** None. All four phases complete; exit gate met (select 2+, preview, apply, per-index status, bad-statement isolation). Manual browser confirmation remains as a final verification step (see What to test).
 
 **Finish report appended:** plans/73-website-bulk-index-creation.md (this section). Plan fully complete → archived to plans/history/2026.06/2026.06.10/.

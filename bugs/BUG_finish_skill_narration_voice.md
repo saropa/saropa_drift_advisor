@@ -1,3 +1,5 @@
+Status: Fixed
+
 ## Title
 
 `/finish` skill persisted finish-report files in AI-session-narration voice instead of durable third-person engineering records.
@@ -82,5 +84,6 @@ Section 7 of `SKILL.md` (both DEFAULT and LINTER variants) now carries a **Voice
 ## Remediation status — this repo
 
 - Commit attribution: clean (0). No action needed.
-- Working report files (~23 `.md` with narration voice): rewrite into record voice — the remaining local cleanup.
-- Published-history content scrub: NOT recommended — the narration text is internal-doc content, not commit attribution; rewriting `origin/main` to scrub old snapshots means a force-push that changes every hash and breaks clones/PRs/CI. Fix working files and commit; leave history immutable.
+- Working report files (23 `.md` with narration voice): DONE — all rewritten into third-person record voice (boilerplate "reviewed by another AI" lines deleted, chat-quoting `Trigger` openers rewritten into objective problem/feature statements, session-deixis converted to third person). Covers the 4 active `plans/*.md`, the orphan-row/snapshot feature specs, and all archived `plans/history/**` reports. The technical bodies (file lists, scope, test results, diffs) were left verbatim.
+- This bug report itself still contains the marker strings — intentionally, as quoted examples documenting the defect (Steps to Reproduce, Actual Behavior, Root Cause). Those quotes stay; they are not narration voice.
+- Published-history content scrub (git force-push): NOT done and NOT recommended — the narration text is internal-doc content, not commit attribution; rewriting `origin/main` to scrub old commit snapshots means a force-push that changes every hash and breaks clones/PRs/CI. The working files are fixed and committed; commit history stays immutable.

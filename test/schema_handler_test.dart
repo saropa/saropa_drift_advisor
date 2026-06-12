@@ -356,6 +356,129 @@ void main() {
         expect(fk0['toTable'], 'users');
         expect(fk0['toColumn'], 'id');
       });
+
+      // -----------------------------------------------------
+      // Feature 78 — relationship-manifest fold into foreignKeys
+      // -----------------------------------------------------
+      test(
+        'folds a relationship manifest into foreignKeys when no PRAGMA FKs',
+        () async {
+          // A host that links by convention declares no SQLite FKs; the
+          // manifest is the authoritative source and must surface as the
+          // per-table `foreignKeys` so the web wizard treats it as ground truth.
+          final ctx = createTestContext(
+            declaredRelationships: () => const <DeclaredRelationship>[
+              DeclaredRelationship(
+                fromTable: 'phones',
+                fromColumn: 'contactUUID',
+                toTable: 'contacts',
+                toColumn: 'saropaUUID',
+                label: 'contact → phones',
+              ),
+            ],
+          );
+          final handler = SchemaHandler(ctx);
+          final query = mockQueryWithTables(
+            tableColumns: {
+              'phones': [
+                {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+                {'name': 'contactUUID', 'type': 'TEXT', 'pk': 0},
+              ],
+              'contacts': [
+                {'name': 'saropaUUID', 'type': 'TEXT', 'pk': 1},
+              ],
+            },
+            tableCounts: {'phones': 2, 'contacts': 1},
+          );
+
+          final tables = await handler.getSchemaMetadataList(
+            query,
+            includeForeignKeys: true,
+          );
+
+          final phones = tables.firstWhere((t) => t['name'] == 'phones');
+          final fks = phones['foreignKeys'] as List<dynamic>;
+          expect(fks, hasLength(1));
+          final fk = fks.first as Map;
+          expect(fk['fromColumn'], 'contactUUID');
+          expect(fk['toTable'], 'contacts');
+          expect(fk['toColumn'], 'saropaUUID');
+          // Optional label rides along (consumer: diagram / wizard chip text).
+          expect(fk['label'], 'contact → phones');
+
+          // A table the manifest doesn't mention has no foreign keys.
+          final contacts = tables.firstWhere((t) => t['name'] == 'contacts');
+          expect(contacts['foreignKeys'] as List<dynamic>, isEmpty);
+        },
+      );
+
+      test('merges manifest + PRAGMA FKs, deduping by edge identity', () async {
+        // A host may declare some SQLite FKs and manifest the rest. The same
+        // edge from both sources must appear once; the manifest's version wins
+        // (it carries the label) — resolved precedence for duplicate edges.
+        final ctx = createTestContext(
+          declaredRelationships: () => const <DeclaredRelationship>[
+            // Duplicates the real PRAGMA FK below (same edge identity).
+            DeclaredRelationship(
+              fromTable: 'orders',
+              fromColumn: 'user_id',
+              toTable: 'users',
+              toColumn: 'id',
+              label: 'order → user',
+            ),
+            // A manifest-only soft edge with no SQLite FK behind it.
+            DeclaredRelationship(
+              fromTable: 'orders',
+              fromColumn: 'coupon_code',
+              toTable: 'coupons',
+              toColumn: 'code',
+            ),
+          ],
+        );
+        final handler = SchemaHandler(ctx);
+        final query = mockQueryWithTables(
+          tableColumns: {
+            'orders': [
+              {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              {'name': 'user_id', 'type': 'INTEGER', 'pk': 0},
+              {'name': 'coupon_code', 'type': 'TEXT', 'pk': 0},
+            ],
+          },
+          tableCounts: {'orders': 3},
+          tableForeignKeys: {
+            'orders': [
+              {
+                'id': 0,
+                'seq': 0,
+                'table': 'users',
+                'from': 'user_id',
+                'to': 'id',
+              },
+            ],
+          },
+        );
+
+        final tables = await handler.getSchemaMetadataList(
+          query,
+          includeForeignKeys: true,
+        );
+
+        final fks = tables.first['foreignKeys'] as List<dynamic>;
+        // Two distinct edges: the deduped user_id→users.id and coupon→coupons.
+        expect(fks, hasLength(2));
+
+        final userEdge =
+            fks.firstWhere((e) => (e as Map)['fromColumn'] == 'user_id') as Map;
+        // Manifest wins on the duplicate edge → its label survives.
+        expect(userEdge['toTable'], 'users');
+        expect(userEdge['label'], 'order → user');
+
+        final couponEdge =
+            fks.firstWhere((e) => (e as Map)['fromColumn'] == 'coupon_code')
+                as Map;
+        expect(couponEdge['toTable'], 'coupons');
+        expect(couponEdge['toColumn'], 'code');
+      });
     });
 
     // -------------------------------------------------------

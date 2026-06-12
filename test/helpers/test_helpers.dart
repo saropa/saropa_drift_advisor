@@ -30,6 +30,7 @@ ServerContext createTestContext({
   DriftDebugGetDatabaseBytes? getDatabaseBytes,
   Set<String>? declaredTableNames,
   DeclaredSchemaCallback? declaredSchema,
+  DeclaredRelationshipsCallback? declaredRelationships,
 }) {
   return ServerContext(
     query: query ?? (_) async => <Map<String, dynamic>>[],
@@ -44,6 +45,7 @@ ServerContext createTestContext({
     getDatabaseBytes: getDatabaseBytes,
     declaredTableNames: declaredTableNames,
     declaredSchema: declaredSchema,
+    declaredRelationships: declaredRelationships,
   );
 }
 

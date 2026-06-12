@@ -37,6 +37,12 @@ interface SchemaMeta {
   foreignKeys?: ForeignKey[];
 }
 
+/** The aggregate / shape the generated SQL produces, so the narrator can pick a
+ *  sentence template without re-parsing the SQL string. */
+type AnswerKind =
+  | 'count' | 'sum' | 'avg' | 'max' | 'min'
+  | 'distinct' | 'rows' | 'group' | 'duplicate' | 'latest' | 'oldest';
+
 interface NlResult {
   sql: string | null;
   table?: string;
@@ -45,13 +51,39 @@ interface NlResult {
   // inferred it) and the full candidate list, so the UI can show a clarifier.
   confidence?: 'named' | 'only' | 'ambiguous' | 'guess';
   candidates?: string[];
+  // --- "Hey Saropa" narration metadata (Feature 79) ---
+  // True when the question carried a wake phrase ("hey saropa, …"). The phrase
+  // is stripped before interpretation, so it never affects the SQL; it only
+  // switches the panel to a spoken-style answer.
+  wake?: boolean;
+  // Which branch built the SQL (drives the narration template).
+  answerKind?: AnswerKind;
+  // For a count, the verb the detected temporal family implies ('added' for a
+  // creation window, 'changed' for an edit window, else 'has').
+  answerVerb?: 'added' | 'changed' | 'has';
+  // The user's own temporal phrase, echoed verbatim ("last week"), so narration
+  // never has to reconstruct English from the SQL window expression. '' if none.
+  qualifier?: string;
+  // Display name of the aggregated column for sum/avg/max/min narration.
+  aggColumn?: string;
 }
+
+// Verb families decide WHICH timestamp a temporal phrase targets — and, in
+// nlToSql, the narrated verb ("added" vs "changed"). Hoisted to module scope so
+// temporalWhere's column choice and nlToSql's narration read the SAME lists; a
+// mismatch would let the sentence say "added" while the SQL filtered the
+// modified column. Edit family = "changed/updated/edited" (+ misspellings);
+// birth family = "created/added/new/joined".
+const EDIT_VERB = /\b(?:chang|chnag|chagn|chaneg|chnge|chg|modif|modfi|mdoif|\bmod\b|updat|udpat|upadt|updt|\bupd\b|upd8|edit|eddit|edt|alter|altr|amend|ammend|revis|rivis|touch|tweak|twaek|adjust|ajust|adust|refresh|refesh|re-?sav|overwrit|overwrot|rewr|rewrot|rework|reword|mutat|patch|bump|sync|synch|migrat|recalc|reprocess|reindex|restamp|dirtied|flipp|toggl|reset|log(?:ged)?[ -]?in|sign(?:ed)?[ -]?in|seen|used|access|visit)/i;
+const BORN_VERB = /\bcreat|\bcraet|\bcreaet|\bkreat|\bcrt\b|\bcre\b|\badd(?:ed|ing|s)?\b|\bnew\b|\binsert|\binser|\bins\b|\bregist|\breg\b|\bsign(?:ed)?[ -]?up|\bsignup|\bjoin|\bmade\b|\bimport|\bimpor|\benter(?:ed|ing|s)?\b|\bborn\b|\bestablish|\bgenerat|\bspawn|\boriginat|\bonboard|\bseed|\bprovision|\benrol|\bsubscrib|\bactivat|\bcaptur|\brecord|\bposted|\bfirst (?:seen|added|created)/i;
 
 /**
  * Builds a SQLite WHERE predicate for a temporal phrase in the question, scoped
- * to the date column the verb implies. Returns '' when no temporal phrase is
- * present or the table has no usable date column — the caller ANDs the returned
- * predicate into the shared WHERE clause (so it composes with column filters).
+ * to the date column the verb implies. Returns `{ sql, phrase }` where `sql` is
+ * '' when no temporal phrase is present or the table has no usable date column,
+ * and `phrase` is the matched user text echoed back for narration ("last week").
+ * The caller ANDs `sql` into the shared WHERE clause (so it composes with column
+ * filters) and uses `phrase` only for the spoken-style answer.
  *
  * Without this, a question like "how many contacts changed today" silently
  * dropped both "changed" and "today", producing a bare `SELECT COUNT(*)` over
@@ -64,7 +96,7 @@ interface NlResult {
  * rolling windows ("past few weeks"), calendar periods ("last month", "this
  * quarter"), weekends, and *-to-date aliases ("ytd", "mtd").
  */
-function temporalWhere(q: string, target: SchemaTable): string {
+function temporalWhere(q: string, target: SchemaTable): { sql: string; phrase: string } {
   // Candidate timestamp columns. isDateColumn covers the declared temporal
   // type + camelCase suffixes; the extra name tokens here keep the broader
   // intent-gated set this branch already accepted (start/end/seen/login/…).
@@ -72,20 +104,20 @@ function temporalWhere(q: string, target: SchemaTable): string {
     return isDateColumn(c)
       || /\bwhen\b|\bts\b|expiry|\bdue\b|logged|synced|seen|visited|login|logout|access|effective|valid|start|end|registered|inserted|added/i.test(c.name);
   });
-  if (dateCols.length === 0) return '';
+  if (dateCols.length === 0) return { sql: '', phrase: '' };
 
-  // Verb families decide WHICH column. Edit-family ("changed/updated/edited"
-  // and common misspellings) targets the modified column; birth-family
+  // Verb families decide WHICH column (and, in nlToSql, the narrated verb). Edit
+  // family ("changed/updated/edited") targets the modified column; birth family
   // ("created/added/new/joined") targets the creation column. A bare temporal
-  // mention with no verb falls back to the first timestamp column.
-  const editVerb = /\b(?:chang|chnag|chagn|chaneg|chnge|chg|modif|modfi|mdoif|\bmod\b|updat|udpat|upadt|updt|\bupd\b|upd8|edit|eddit|edt|alter|altr|amend|ammend|revis|rivis|touch|tweak|twaek|adjust|ajust|adust|refresh|refesh|re-?sav|overwrit|overwrot|rewr|rewrot|rework|reword|mutat|patch|bump|sync|synch|migrat|recalc|reprocess|reindex|restamp|dirtied|flipp|toggl|reset|log(?:ged)?[ -]?in|sign(?:ed)?[ -]?in|seen|used|access|visit)/i;
-  const bornVerb = /\bcreat|\bcraet|\bcreaet|\bkreat|\bcrt\b|\bcre\b|\badd(?:ed|ing|s)?\b|\bnew\b|\binsert|\binser|\bins\b|\bregist|\breg\b|\bsign(?:ed)?[ -]?up|\bsignup|\bjoin|\bmade\b|\bimport|\bimpor|\benter(?:ed|ing|s)?\b|\bborn\b|\bestablish|\bgenerat|\bspawn|\boriginat|\bonboard|\bseed|\bprovision|\benrol|\bsubscrib|\bactivat|\bcaptur|\brecord|\bposted|\bfirst (?:seen|added|created)/i;
+  // mention with no verb falls back to the first timestamp column. The family
+  // regexes are module-level (BORN_VERB / EDIT_VERB) so column choice here and
+  // narration in nlToSql share one source of truth.
   const editCol = function (c: SchemaColumn) { return /updat|modif|chang|edit|alter|revis|touch|mtime|last.?mod|lastmod|sync|version|\brev\b|dirty|login|logged|seen|used|access|visit|active/i.test(c.name); };
   const bornCol = function (c: SchemaColumn) { return /creat|add|insert|regist|made|born|origin|ctime|first|since|seed|provision|enrol|subscrib|activat|signup|join|captur|logged|record|posted|import/i.test(c.name); };
 
   let col: SchemaColumn | undefined;
-  if (editVerb.test(q)) col = dateCols.find(editCol);
-  else if (bornVerb.test(q)) col = dateCols.find(bornCol);
+  if (EDIT_VERB.test(q)) col = dateCols.find(editCol);
+  else if (BORN_VERB.test(q)) col = dateCols.find(bornCol);
   if (!col) col = dateCols[0];
 
   // Drift stores DateTime as INTEGER unix-epoch seconds by default; TEXT columns
@@ -281,9 +313,12 @@ function temporalWhere(q: string, target: SchemaTable): string {
 
   for (let i = 0; i < matchers.length; i++) {
     const m = q.match(matchers[i].re);
-    if (m) return matchers[i].f(m);
+    // m[0] is the full matched substring — the user's own temporal phrase,
+    // echoed back as `phrase` so narration says "last week" verbatim rather than
+    // reconstructing it from the SQL window expression.
+    if (m) return { sql: matchers[i].f(m), phrase: m[0].trim() };
   }
-  return '';
+  return { sql: '', phrase: '' };
 }
 
 /** Finds the column a free-text word refers to (exact, spaced, or substring). */
@@ -825,10 +860,109 @@ function resolveTable(q: string, meta: SchemaMeta): ResolvedTable {
   return { table: pickHubTable(tables, meta), confidence: 'guess', candidates: all };
 }
 
+// Name net: "Saropa" plus common typo / speech-to-text mishearings. Internal
+// spaces are allowed ("sa ropa", "sara opa") because dictation often splits the
+// word. Extend this list freely as new mishearings are observed — that's the
+// single place to add one.
+const WAKE_NAME =
+  '(?:sa?ropa|saropah|saroppa|saroper|sarope|sarropa|seropa|siropa|soropa|zaropa|saraopa|sropa|sarppa|sa\\s?ropa|sar\\s?opa|sara\\s?opa|say\\s?ropa)';
+// Anchored at the START only: an optional greeting (alone or repeated), then the
+// NAME, then a separator OR end-of-string. The trailing separator/end is what
+// stops "saropaccounts" from being read as the name "saropa" + "ccounts"; the
+// name (not a bare greeting) is the trigger, so "hey, how many…" never fires.
+const WAKE_RE = new RegExp(
+  '^\\s*(?:(?:ok(?:ay)?|hey|hi|hello|yo|hey there|um+|uh+|please)[\\s,]*)*' +
+  WAKE_NAME + '(?:[\\s,.:!?-]+|$)',
+  'i',
+);
+
+/**
+ * Strips a leading conversational wake phrase ("hey saropa, …") from the
+ * question, returning the cleaned question and whether a wake phrase was
+ * present. The phrase is matched ONLY at the start (see [[WAKE_RE]]), so a real
+ * "saropa" appearing mid-question as a value is never stripped. Pure + exported
+ * so the catch-list is unit-tested directly.
+ */
+export function stripWakePhrase(question: string): { question: string; wake: boolean } {
+  const m = question.match(WAKE_RE);
+  if (!m) return { question: question, wake: false };
+  return { question: question.slice(m[0].length).trim(), wake: true };
+}
+
+/**
+ * Formats the spoken-style answer for a wake-phrase question. Pure and
+ * exported (no DOM) so it's unit-tested with canned values: given the
+ * narration metadata from [[nlToSql]], the scalar `value` (the single aggregate
+ * cell, or null for non-scalar shapes), and `totalCount` (the exact row count,
+ * supplied for row/group shapes), it returns one sentence — or null when there
+ * is nothing sensible to say.
+ *
+ * Always names the entity and carries the concrete number (never a bare value),
+ * speaks in second/third person about the database (never first person), and
+ * echoes the user's own temporal phrase verbatim as the qualifier.
+ */
+export function narrateAnswer(
+  r: NlResult,
+  value: number | null,
+  totalCount: number | null,
+): string | null {
+  const table = r.table || 'rows';
+  // The user's temporal phrase, echoed verbatim with a leading space ("last
+  // week" → " last week") so it slots into a template without double-spacing.
+  const qual = r.qualifier ? ' ' + r.qualifier : '';
+  const col = r.aggColumn ? r.aggColumn.replace(/_/g, ' ') : 'value';
+  const n = function (x: number | null): string {
+    return x == null ? '0' : x.toLocaleString('en-US');
+  };
+  switch (r.answerKind) {
+    case 'count': {
+      // "added"/"changed" only read naturally with a time window; without one a
+      // bare "Your database added 45 contacts" is odd, so fall back to "has".
+      const verb = (qual && r.answerVerb && r.answerVerb !== 'has') ? r.answerVerb : 'has';
+      return 'Your database ' + verb + ' ' + n(value) + ' ' + table + qual + '.';
+    }
+    case 'sum':
+      return 'The total ' + col + ' across ' + table + qual + ' is ' + n(value) + '.';
+    case 'avg':
+      return 'The average ' + col + ' for ' + table + qual + ' is ' + n(value) + '.';
+    case 'max':
+      return 'The highest ' + col + ' for ' + table + qual + ' is ' + n(value) + '.';
+    case 'min':
+      return 'The lowest ' + col + ' for ' + table + qual + ' is ' + n(value) + '.';
+    case 'distinct':
+      return 'Found ' + n(totalCount) + ' distinct ' + col + ' value' + (totalCount === 1 ? '' : 's') + '.';
+    case 'duplicate':
+      return 'Found ' + n(totalCount) + ' ' + col + ' value' + (totalCount === 1 ? '' : 's') + ' that repeat.';
+    case 'group':
+      return n(totalCount) + ' group' + (totalCount === 1 ? '' : 's') + ' of ' + table + qual + '.';
+    case 'rows':
+    case 'latest':
+    case 'oldest':
+    default:
+      return 'Found ' + n(totalCount) + ' ' + table + qual + '.';
+  }
+}
+
 export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: string }): NlResult {
+  // "Hey Saropa" wake phrase: stripped up front so it never reaches table /
+  // column / value matching. `wake` rides along on the result and only changes
+  // how the panel PRESENTS the answer (a spoken-style sentence), never the SQL.
+  const wakeStrip = stripWakePhrase(question);
+  question = wakeStrip.question;
+  const wake = wakeStrip.wake;
   const q = question.toLowerCase().trim();
   const tables = meta.tables || [];
-  if (tables.length === 0) return { sql: null, error: 'No tables in the schema to query.' };
+  if (tables.length === 0) return { sql: null, error: 'No tables in the schema to query.', wake: wake };
+  // Wake phrase with nothing left to ask ("hey saropa") — not an error, just no
+  // question. Signalled as wake-without-sql so the panel can say so politely.
+  if (wake && !q) return { sql: null, wake: true };
+
+  // Narrated verb for a count: which timestamp family the question implies.
+  // Same lists temporalWhere uses to choose the date column, so the sentence
+  // ("added"/"changed") agrees with the column actually filtered.
+  let answerVerb: 'added' | 'changed' | 'has' = 'has';
+  if (BORN_VERB.test(q)) answerVerb = 'added';
+  else if (EDIT_VERB.test(q)) answerVerb = 'changed';
 
   // Augment declared FKs with soft edges inferred from column naming so hub
   // detection and the relationship engine work on convention-linked schemas
@@ -861,7 +995,7 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
   // so every branch filters consistently; sits after FROM, before ORDER/LIMIT.
   const conds: string[] = [];
   const tw = temporalWhere(q, target);
-  if (tw) conds.push(tw);
+  if (tw.sql) conds.push(tw.sql);
   // valueWhere takes the original-case question so string values keep their case.
   const vw = valueWhere(question, target);
   for (let i = 0; i < vw.length; i++) conds.push(vw[i]);
@@ -889,8 +1023,14 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
       target.columns.find(function (c) { return /int|real|num|float|double|dec/i.test(c.type); });
   };
 
+  // Records which branch built the SQL (and, for aggregates, the column) so the
+  // wake-phrase narrator can pick a sentence template without re-parsing SQL.
+  let answerKind: AnswerKind = 'rows';
+  let aggColumn: string | undefined;
+
   if (/how many|\bcount\b|total number|number of/i.test(q) && !isGrouping) {
     sql = 'SELECT COUNT(*) FROM ' + tn + where;
+    answerKind = 'count';
   } else if (/duplicate|repeated|dupe/i.test(q)) {
     // Rows sharing a value — the classic "find duplicate emails" check. Prefer
     // the column the user named after "duplicate" (matchColumn handles the
@@ -901,35 +1041,46 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
       target.columns[1] || target.columns[0];
     sql = 'SELECT "' + col.name + '", COUNT(*) AS count FROM ' + tn + where +
       ' GROUP BY "' + col.name + '" HAVING count > 1 ORDER BY count DESC' + limClause;
+    answerKind = 'duplicate';
+    aggColumn = col.name;
   } else if (/average|avg|\bmean\b|typical|on average/i.test(q)) {
     const numCol = numericCol();
-    sql = numCol ? 'SELECT AVG("' + numCol.name + '") FROM ' + tn + where : 'SELECT * FROM ' + tn + where + ' LIMIT 50';
+    // No numeric column → no scalar to speak; fall back to a row list ('rows').
+    if (numCol) { sql = 'SELECT AVG("' + numCol.name + '") FROM ' + tn + where; answerKind = 'avg'; aggColumn = numCol.name; }
+    else { sql = 'SELECT * FROM ' + tn + where + ' LIMIT 50'; }
   } else if (/sum|total\b|altogether|combined|grand total|aggregate/i.test(q) && !/total number/i.test(q)) {
     const numCol = numericCol();
-    sql = numCol ? 'SELECT SUM("' + numCol.name + '") FROM ' + tn + where : 'SELECT * FROM ' + tn + where + ' LIMIT 50';
+    if (numCol) { sql = 'SELECT SUM("' + numCol.name + '") FROM ' + tn + where; answerKind = 'sum'; aggColumn = numCol.name; }
+    else { sql = 'SELECT * FROM ' + tn + where + ' LIMIT 50'; }
   } else if (/max|maximum|highest|largest|biggest|peak|topmost/i.test(q)) {
     const numCol = numericCol();
-    sql = numCol ? 'SELECT MAX("' + numCol.name + '") FROM ' + tn + where : 'SELECT * FROM ' + tn + where + ' ORDER BY 1 DESC LIMIT 1';
+    if (numCol) { sql = 'SELECT MAX("' + numCol.name + '") FROM ' + tn + where; answerKind = 'max'; aggColumn = numCol.name; }
+    else { sql = 'SELECT * FROM ' + tn + where + ' ORDER BY 1 DESC LIMIT 1'; }
     // Word-bound "min" so a temporal "… minutes" phrase doesn't trip the
     // MIN aggregate (the substring "min" lives inside "minutes").
   } else if (/\bmin\b|minimum|lowest|smallest/i.test(q)) {
     const numCol = numericCol();
-    sql = numCol ? 'SELECT MIN("' + numCol.name + '") FROM ' + tn + where : 'SELECT * FROM ' + tn + where + ' ORDER BY 1 ASC LIMIT 1';
+    if (numCol) { sql = 'SELECT MIN("' + numCol.name + '") FROM ' + tn + where; answerKind = 'min'; aggColumn = numCol.name; }
+    else { sql = 'SELECT * FROM ' + tn + where + ' ORDER BY 1 ASC LIMIT 1'; }
   } else if (/distinct|unique/i.test(q)) {
     const col = mentioned[0] || target.columns[1] || target.columns[0];
     // No ORDER BY here: with DISTINCT, SQLite rejects an ORDER BY on a column
     // outside the (single-column) result set.
     sql = 'SELECT DISTINCT "' + col.name + '" FROM ' + tn + where + limClause;
+    answerKind = 'distinct';
+    aggColumn = col.name;
   } else if (/latest|newest|most recent|last (\d+)/i.test(q)) {
     const dateCol = recencyColumn(target);
     const match = q.match(/last (\d+)/i);
     const rowLim = lim != null ? lim : (match ? parseInt(match[1], 10) : 10);
     sql = 'SELECT ' + selectCols + ' FROM ' + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" DESC' : '') + ' LIMIT ' + rowLim;
+    answerKind = 'latest';
   } else if (/oldest|earliest|first (\d+)/i.test(q)) {
     const dateCol = recencyColumn(target);
     const match2 = q.match(/first (\d+)/i);
     const rowLim = lim != null ? lim : (match2 ? parseInt(match2[1], 10) : 10);
     sql = 'SELECT ' + selectCols + ' FROM ' + tn + where + (dateCol ? ' ORDER BY "' + dateCol.name + '" ASC' : '') + ' LIMIT ' + rowLim;
+    answerKind = 'oldest';
     // Grouping: explicit "group by / per X / by X / breakdown" (computed above
     // as isGrouping, which already excludes sort phrases and top-N rankings).
   } else if (isGrouping) {
@@ -937,8 +1088,20 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
     const byMatch = q.match(/\b(?:by|per)\s+([a-z0-9_]+)/i);
     const groupCol = (byMatch && matchColumn(byMatch[1], target)) || mentioned[0] || target.columns[1] || target.columns[0];
     sql = 'SELECT "' + groupCol.name + '", COUNT(*) AS count FROM ' + tn + where + ' GROUP BY "' + groupCol.name + '" ORDER BY count DESC' + limClause;
+    answerKind = 'group';
+    aggColumn = groupCol.name;
   } else {
     sql = 'SELECT ' + selectCols + ' FROM ' + tn + where + order + ' LIMIT ' + (lim != null ? lim : 50);
   }
-  return { sql: sql, table: target.name, confidence: resolved.confidence, candidates: resolved.candidates };
+  return {
+    sql: sql,
+    table: target.name,
+    confidence: resolved.confidence,
+    candidates: resolved.candidates,
+    wake: wake,
+    answerKind: answerKind,
+    answerVerb: answerVerb,
+    qualifier: tw.phrase,
+    aggColumn: aggColumn,
+  };
 }

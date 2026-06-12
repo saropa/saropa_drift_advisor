@@ -514,7 +514,7 @@ Web v1 already landed (single + multi-table builder, SQL render/validate) — se
 
 ## Finish Report (2026-06-11)
 
-**Trigger:** "implement this: plans/21-visual-query-builder.md". On inspection, Phases 0/2/4/5 were already landed; the two open items were Phase 3 (web SQL→visual import) and Phase 1 (single shared SQL module). Both are now implemented, closing the plan.
+Implementation of `plans/21-visual-query-builder.md`. On inspection, Phases 0/2/4/5 were already landed; the two open items were Phase 3 (web SQL→visual import) and Phase 1 (single shared SQL module). Both are now implemented, closing the plan.
 
 **Scope:** (B) VS Code extension (TypeScript) + the Dart package's debug web bundle (`assets/web/*.ts`, esbuild). No Flutter/Dart app code (`lib/`) touched → Flutter l10n checklist is out of scope.
 

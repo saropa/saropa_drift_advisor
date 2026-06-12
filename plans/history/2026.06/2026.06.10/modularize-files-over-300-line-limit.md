@@ -1,13 +1,10 @@
 # Modularize extension files exceeding the 300-line limit
 
-**Trigger:** The user pasted the Step 7 (Quality Checks) build output listing 26 `extension/src/**/*.ts`
-files over the 300-line limit and asked: "make a plan to modularize / split up these files". The build
-check is a soft WARN, but 26 trips were turning the signal into noise.
+**Problem.** The Step 7 (Quality Checks) build output listed 26 `extension/src/**/*.ts` files over the
+300-line limit; these needed splitting into cohesive sibling modules. The build check is a soft WARN, but
+26 trips were turning the signal into noise.
 
 ## Finish Report (2026-06-10)
-
-### 1. Critical note
-This work will be reviewed by another AI.
 
 ### 2. Scope
 - **(B)** VS Code extension (TypeScript) — 19 source files split into cohesive sibling modules.
@@ -86,7 +83,7 @@ Test files were exempted from splitting rather than split: `constants.py` adds
 **Modified (this task):** the 19 original source files (now thin orchestrators/barrels), `CHANGELOG.md`,
 `scripts/modules/constants.py`, `scripts/modules/ext_build.py`.
 
-### Verification summary for the Reviewer AI
+### Verification summary
 Scan of all `src/**/*.ts` confirms 0 files over their cap (300 source / 500 test). `tsc` build + `tsc
 --noEmit` clean. 2677 Mocha tests pass. Python build modules parse (`ast.parse` OK). No behavior change;
 public export surfaces preserved via re-exports.

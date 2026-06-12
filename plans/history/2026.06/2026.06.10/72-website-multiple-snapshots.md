@@ -102,10 +102,6 @@ Port its shape, not its code.
 
 ## Finish Report (2026-06-10) — Phases 1–3 (Phase 4 deferred, optional)
 
-**This work will be reviewed by another AI.**
-
-**Trigger.** Top-5 easiest-to-build directive, Item 4.
-
 **Scope.** (A) Dart package (`lib/`, `test/`) + web assets (`assets/web/`). No Flutter app UI, no VS Code extension.
 
 **What changed.**
