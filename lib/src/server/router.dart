@@ -25,6 +25,7 @@ import 'index_batch_handler.dart';
 import 'mutation_handler.dart';
 import 'performance_handler.dart';
 import 'rate_limiter.dart';
+import 'report_handler.dart';
 import 'schema_handler.dart';
 import 'server_constants.dart';
 import 'server_context.dart';
@@ -61,6 +62,7 @@ final class Router {
        _snapshot = SnapshotHandler(ctx),
        _compare = CompareHandler(ctx),
        _analytics = AnalyticsHandler(ctx),
+       _report = ReportHandler(ctx, AnalyticsHandler(ctx)),
        _performance = PerformanceHandler(ctx),
        _session = SessionHandler(ctx, sessionStore),
        _import = ImportHandler(ctx),
@@ -83,6 +85,7 @@ final class Router {
   final SnapshotHandler _snapshot;
   final CompareHandler _compare;
   final AnalyticsHandler _analytics;
+  final ReportHandler _report;
   final PerformanceHandler _performance;
   final SessionHandler _session;
   final ImportHandler _import;
@@ -490,6 +493,14 @@ final class Router {
     if (path == ServerConstants.pathApiDatabase ||
         path == ServerConstants.pathApiDatabaseAlt) {
       await _schema.sendDatabaseFile(response);
+
+      return true;
+    }
+
+    // GET /api/report — self-contained portable HTML report download.
+    if (path == ServerConstants.pathApiReport ||
+        path == ServerConstants.pathApiReportAlt) {
+      await _report.handle(request, response, query);
 
       return true;
     }
