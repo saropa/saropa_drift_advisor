@@ -129,24 +129,28 @@ describe('Tab icons — html_content.dart toolbar icons', () => {
     );
   });
 
+  // Tables and Search are permanent toolbar buttons keyed by data-panel-btn
+  // (not data-tool launchers like the on-demand tools) — they open fixed panels
+  // rather than materializing closeable tabs, so they carry the panel-button
+  // attribute instead.
   it('Tables toolbar icon exists with table_chart glyph', () => {
     assert.ok(
-      htmlSrc.includes('data-tool="tables"'),
-      'Tables toolbar icon must have data-tool="tables"',
+      htmlSrc.includes('data-panel-btn="tables"'),
+      'Tables toolbar icon must have data-panel-btn="tables"',
     );
     assert.ok(
-      /data-tool="tables"[^>]*title="Tables"[\s\S]*?>table_chart</.test(htmlSrc),
+      /data-panel-btn="tables"[^>]*title="Tables"[\s\S]*?>table_chart</.test(htmlSrc),
       'Tables toolbar icon must use the table_chart Material Symbol',
     );
   });
 
   it('Search toolbar icon exists with search glyph', () => {
     assert.ok(
-      htmlSrc.includes('data-tool="search"'),
-      'Search toolbar icon must have data-tool="search"',
+      htmlSrc.includes('data-panel-btn="search"'),
+      'Search toolbar icon must have data-panel-btn="search"',
     );
     assert.ok(
-      /data-tool="search"[^>]*title="Search"[\s\S]*?>search</.test(htmlSrc),
+      /data-panel-btn="search"[^>]*title="Search"[\s\S]*?>search</.test(htmlSrc),
       'Search toolbar icon must use the search Material Symbol',
     );
   });
