@@ -1645,6 +1645,24 @@
     if (!m) return { question, wake: false };
     return { question: question.slice(m[0].length).trim(), wake: true };
   }
+  var REFINE_LEAD_RE = /^\s*(?:and\s+)?(?:now|also|plus|additionally|moreover|furthermore|then|just|only|narrow(?:\s+(?:it|down))?(?:\s+to)?|filter(?:\s+to)?|restrict(?:\s+to)?|refine(?:\s+to)?)\b[,:]?\s+/i;
+  var REFINE_AND_RE = /^\s*and\s+/i;
+  function detectRefinement(input) {
+    const lead = input.match(REFINE_LEAD_RE);
+    if (lead) {
+      const fragment = input.slice(lead[0].length).trim();
+      if (fragment.length > 0) return { isRefinement: true, fragment };
+    }
+    const and = input.match(REFINE_AND_RE);
+    if (and) {
+      const fragment = input.slice(and[0].length).trim();
+      if (fragment.length > 0) return { isRefinement: true, fragment };
+    }
+    return { isRefinement: false, fragment: input.trim() };
+  }
+  function combineRefinement(base, fragment) {
+    return (base.trim() + " " + fragment.trim()).replace(/\s+/g, " ").trim();
+  }
   function narrateAnswer(r, value, totalCount) {
     const table = r.table || "rows";
     const qual = r.qualifier ? " " + r.qualifier : "";
@@ -5770,6 +5788,25 @@
   var nlRecognition = null;
   var nlMicActive = false;
   var lastNlResult = null;
+  var nlBaseQuestion = "";
+  function effectiveNlQuestion(raw) {
+    var ref = detectRefinement(raw);
+    if (ref.isRefinement && nlBaseQuestion) {
+      return combineRefinement(nlBaseQuestion, ref.fragment);
+    }
+    return raw;
+  }
+  function setNlRefineHint(combined) {
+    var hint = document.getElementById("nl-refine-hint");
+    if (!hint) return;
+    if (combined) {
+      hint.textContent = "Refining last query: " + combined;
+      hint.hidden = false;
+    } else {
+      hint.textContent = "";
+      hint.hidden = true;
+    }
+  }
   function nlSpeechApi() {
     var w = window;
     return w.SpeechRecognition || w.webkitSpeechRecognition || null;
@@ -6041,16 +6078,22 @@
       if (!question) {
         preview.value = "";
         setNlModalError("", false);
+        setNlRefineHint("");
+        nlBaseQuestion = "";
         updateNlClarifier(null);
         var first = override || meta.tables && meta.tables[0] && meta.tables[0].name;
         renderNlRefinements(first, meta);
         return;
       }
-      var result = nlToSql(question, meta, { table: override });
+      var effective = effectiveNlQuestion(question);
+      var refining = effective !== question;
+      setNlRefineHint(refining ? effective : "");
+      var result = nlToSql(effective, meta, { table: override });
       lastNlResult = result;
       if (result.sql) {
         preview.value = result.sql;
         setNlModalError("", false);
+        if (!refining) nlBaseQuestion = question;
         if (result.wake) previewNlResults();
       } else if (result.wake) {
         preview.value = "";
@@ -6092,8 +6135,11 @@
     }
     try {
       var meta = await loadSchemaMeta();
-      var result = nlToSql(question, meta);
+      var effective = effectiveNlQuestion(question);
+      var result = nlToSql(effective, meta);
       if (result.sql) {
+        nlBaseQuestion = effective;
+        setNlRefineHint("");
         sqlEl.value = result.sql;
         var mainErr = document.getElementById("sql-error");
         if (mainErr) {
@@ -6175,6 +6221,12 @@
         return;
       }
       renderNlPreviewRows(resultsEl, data.rows || []);
+      var nlInput = document.getElementById("nl-modal-input");
+      var ranQuestion = nlInput ? String(nlInput.value || "").trim() : "";
+      if (ranQuestion) {
+        nlBaseQuestion = effectiveNlQuestion(ranQuestion);
+        setNlRefineHint("");
+      }
       if (lastNlResult && lastNlResult.wake) {
         await renderNlNarrative(resultsEl, lastNlResult, data.rows || []);
       }

@@ -6,7 +6,7 @@
  * main SQL editor.
  */
 import * as S from './state.ts';
-import { nlToSql, isDateColumn, narrateAnswer } from './nl-to-sql.ts';
+import { nlToSql, isDateColumn, narrateAnswer, detectRefinement, combineRefinement } from './nl-to-sql.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
 import { esc, setButtonBusy } from './utils.ts';
 import { selectPanel } from './sidebar-panels.ts';
@@ -31,6 +31,44 @@ import { openTool } from './tabs.ts';
      * applyNlLivePreview run; consumed by previewNlResults when result.wake.
      */
     var lastNlResult = null;
+
+    /**
+     * Refine-in-English loop (Feature 18 polish): the last question that was run
+     * (Use / Preview results) or shown as a fresh preview. A follow-up that
+     * starts with an additive connective ("now only active", "and sorted by
+     * name") is appended to this base and the combined English is re-parsed, so
+     * the user narrows the prior query instead of restarting. Empty until the
+     * first query; reset when the question box is cleared.
+     */
+    var nlBaseQuestion = '';
+
+    /**
+     * Resolves the question to actually convert: when [raw] is a refinement and
+     * a base exists, returns the base + fragment combined; otherwise [raw]. Pure
+     * read of [nlBaseQuestion] — it never mutates the base (callers update the
+     * base only at fresh-preview / run time, so live keystrokes can't corrupt the
+     * accumulated question mid-type).
+     */
+    function effectiveNlQuestion(raw: string): string {
+      var ref = detectRefinement(raw);
+      if (ref.isRefinement && nlBaseQuestion) {
+        return combineRefinement(nlBaseQuestion, ref.fragment);
+      }
+      return raw;
+    }
+
+    /** Shows or hides the "refining the last query" hint with the combined text. */
+    function setNlRefineHint(combined: string) {
+      var hint = document.getElementById('nl-refine-hint');
+      if (!hint) return;
+      if (combined) {
+        hint.textContent = 'Refining last query: ' + combined;
+        hint.hidden = false;
+      } else {
+        hint.textContent = '';
+        hint.hidden = true;
+      }
+    }
 
     function nlSpeechApi() {
       // Chromium exposes the prefixed name; standard name is the spec target.
@@ -360,19 +398,32 @@ import { openTool } from './tabs.ts';
         var override = nlTableOverride();
         if (!question) {
           // No question yet: clear the preview but still show the chips for the
-          // chosen (or first) table so the user has somewhere to start.
+          // chosen (or first) table so the user has somewhere to start. An empty
+          // box also ends the refine loop — the next query starts a fresh base.
           preview.value = '';
           setNlModalError('', false);
+          setNlRefineHint('');
+          nlBaseQuestion = '';
           updateNlClarifier(null);
           var first = override || (meta.tables && meta.tables[0] && meta.tables[0].name);
           renderNlRefinements(first, meta);
           return;
         }
-        var result = nlToSql(question, meta, { table: override });
+        // Refine-in-English: a connective-led follow-up ("now only active") is
+        // appended to the last query's base; otherwise the raw question stands.
+        var effective = effectiveNlQuestion(question);
+        var refining = effective !== question;
+        setNlRefineHint(refining ? effective : '');
+        var result = nlToSql(effective, meta, { table: override });
         lastNlResult = result;
         if (result.sql) {
           preview.value = result.sql;
           setNlModalError('', false);
+          // A fresh (non-refining) question that converts becomes the new base
+          // for the next follow-up; a refining preview leaves the base untouched
+          // so rapid keystrokes can't accumulate partial fragments (the base
+          // advances only when the refined query is actually run).
+          if (!refining) nlBaseQuestion = question;
           // Wake phrase ("hey saropa, …") turns the panel into a chat reply: run
           // the query and narrate the answer now, rather than waiting for a click.
           if (result.wake) previewNlResults();
@@ -430,8 +481,13 @@ import { openTool } from './tabs.ts';
       }
       try {
         var meta = await loadSchemaMeta();
-        var result = nlToSql(question, meta);
+        // Convert the effective (possibly refined) question, then advance the
+        // base to it so a subsequent "and …" / "now …" builds on what was run.
+        var effective = effectiveNlQuestion(question);
+        var result = nlToSql(effective, meta);
         if (result.sql) {
+          nlBaseQuestion = effective;
+          setNlRefineHint('');
           sqlEl.value = result.sql;
           var mainErr = document.getElementById('sql-error');
           if (mainErr) {
@@ -540,6 +596,14 @@ import { openTool } from './tabs.ts';
           return;
         }
         renderNlPreviewRows(resultsEl, data.rows || []);
+        // Running a refined query commits it as the new base, so the next
+        // "and …" follow-up narrows this result rather than the original.
+        var nlInput = document.getElementById('nl-modal-input') as HTMLTextAreaElement | null;
+        var ranQuestion = nlInput ? String(nlInput.value || '').trim() : '';
+        if (ranQuestion) {
+          nlBaseQuestion = effectiveNlQuestion(ranQuestion);
+          setNlRefineHint('');
+        }
         // Wake-phrase questions get a spoken-style answer above the rows.
         if (lastNlResult && lastNlResult.wake) {
           await renderNlNarrative(resultsEl, lastNlResult, data.rows || []);
