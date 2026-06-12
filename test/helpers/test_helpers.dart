@@ -8,6 +8,7 @@ import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:saropa_drift_advisor/src/server/server_context.dart';
+import 'package:saropa_drift_advisor/src/server/server_types.dart';
 
 /// Network timeout used by test HTTP helpers so hanging sockets fail fast.
 const Duration _kHttpRequestTimeout = Duration(seconds: 30);
@@ -28,6 +29,7 @@ ServerContext createTestContext({
   DriftDebugWriteQuery? writeQuery,
   DriftDebugGetDatabaseBytes? getDatabaseBytes,
   Set<String>? declaredTableNames,
+  DeclaredSchemaCallback? declaredSchema,
 }) {
   return ServerContext(
     query: query ?? (_) async => <Map<String, dynamic>>[],
@@ -41,6 +43,7 @@ ServerContext createTestContext({
     writeQuery: writeQuery,
     getDatabaseBytes: getDatabaseBytes,
     declaredTableNames: declaredTableNames,
+    declaredSchema: declaredSchema,
   );
 }
 

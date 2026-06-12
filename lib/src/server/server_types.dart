@@ -43,6 +43,7 @@ class DeclaredColumn {
   const DeclaredColumn({
     required this.name,
     required this.sqlType,
+    this.driftType,
     this.nullable = true,
     this.isPk = false,
   });
@@ -52,6 +53,13 @@ class DeclaredColumn {
   /// Declared SQLite storage type (e.g. INTEGER, TEXT). Free-form string so a
   /// host can pass whatever its schema declares without a fixed enum.
   final String sqlType;
+
+  /// Drift SEMANTIC type ('dateTime' | 'bool' | 'int' | 'double' | 'string' |
+  /// 'blob'), when derivable from a Drift `GeneratedColumn`. Null for raw
+  /// SQLite hosts. Drift stores DateTime/bool as INTEGER, so [sqlType] alone
+  /// can't distinguish them — this carries the lost distinction so the NL
+  /// converter can detect dates/bools exactly.
+  final String? driftType;
   final bool nullable;
   final bool isPk;
 }
