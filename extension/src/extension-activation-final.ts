@@ -11,6 +11,7 @@ import { refreshDriftConnectionUi as syncDriftConnectionUi } from './connection-
 import { ConnectionStateMachine } from './connection-state';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 import { wireEventListeners } from './extension-activation-event-wiring';
+import { maybeShowCoverageNotice } from './l10n/coverage-notice';
 import type { SchemaCache } from './schema-cache/schema-cache';
 import type { ServerDiscovery } from './server-discovery';
 import type { ServerManager } from './server-manager';
@@ -148,5 +149,12 @@ export function setupFinalPhases(
   // Phase 10: Event listeners + initial state.
   track(runPhase('event-wiring', d.channel, () => {
     wireEventListeners(d, statusBars, connectionUiRefresh);
+  }));
+
+  // Phase 11: One-time per-display-language l10n coverage notice (plan 75 §2).
+  // Fire-and-forget — it must never block or fail activation; the function
+  // itself stays silent for English, untracked, and already-complete locales.
+  track(runPhase('l10n-coverage-notice', d.channel, () => {
+    void maybeShowCoverageNotice(d.context);
   }));
 }

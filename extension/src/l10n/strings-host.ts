@@ -44,4 +44,13 @@ export const hostStrings: Record<string, string> = {
   'host.dialog.discardEdits.confirm': 'Discard all pending edits?',
   'host.dialog.discardEdits.ok': 'Discard',
   'host.dialog.cancel': 'Cancel',
+
+  // --- l10n coverage notice (plan 75 §2) — shown once per display language when
+  //     the VS Code menu chrome is mostly untranslated. {0} = percent (0–100),
+  //     {1} = the language's English name. Reassures that the data viewer (the
+  //     bulk of the UI) is localized even while the editor menus lag. This is a
+  //     runtime string so, once translations exist, the notice itself appears in
+  //     the user's language. ---
+  'host.l10n.coverageNotice':
+    'Saropa Drift Advisor menus are {0}% translated to {1} so far — the rest show in English. The database viewer itself is fully localized.',
 };

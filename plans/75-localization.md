@@ -364,7 +364,7 @@ the manifest, which is what ships today.
 | `verify-nls` | Manifest | key parity (no missing/orphan `%key%`) | `compile`, CI | ✅ |
 | `verify:nls-coverage` | Manifest | `nls-coverage-data.ts` is current (staleness only; does NOT gate on low coverage) | `compile`, CI | ✅ |
 | publish l10n audit | Manifest | per-locale missing/untranslated counts; ignore/retry/abort on gaps; writes report | publish (ext leg) | ✅ |
-| activation notice | Manifest | tells the user once when chrome < ~90% | runtime | ⬜ |
+| activation notice | Manifest | tells the user once when chrome < ~90% | runtime | ✅ |
 | `translate_l10n.py --run-mode audit` | Runtime | per-locale coverage + quality split | manual / publish | ⬜ |
 | publish sync step | Runtime | baselines (host + web) aligned; gaps reported | publish | ⬜ |
 
@@ -444,7 +444,7 @@ in phases, each at a check that must pass before the next:
   `package.nls.json`, rewrite values as `%key%`, add the key-sync helper +
   `verify-nls` + `verify:nls-coverage`, ship empty (English-only) locale files.
   *Gate:* extension activates, all chrome reads correctly, `verify-nls` green.
-  *(verify-nls ✅, verify:nls-coverage ✅, publish l10n audit ✅ done; activation notice ⬜ pending.)*
+  *(verify-nls ✅, verify:nls-coverage ✅, publish l10n audit ✅, activation notice ✅ — all done; Phase 1 complete.)*
 - **Phase 2 — Runtime source-of-truth.** Stand up `extension/src/l10n/` registries
   and the host `t()` / browser `l10n.ts` utilities. Migrate ONE panel and ONE web
   viewer module as a vertical slice. *Gate:* the slice renders via `t()`/`vt()`
@@ -666,3 +666,33 @@ Closed the server-injection gap. The debug server now produces the global the vi
 - **Extension** — `nav-commands-core.ts` (Open in Browser) and `panel.ts` (hosted panel `fetch`) append `?locale=${vscode.env.language}`; the `<base href>` stays query-free so relative `/api/...` calls still resolve.
 
 **Verification:** `dart analyze` clean (the two traversal lints are documented false positives — `tag` is allowlisted); `dart test test/html_content_test.dart` **32 passing** (5 new injection tests: default-omits, locale+null-catalog, verbatim-catalog, ordering-before-bundle, `</script>` escape); `dart test test/generation_handler_test.dart` green; extension `compile` + full mocha suite **2707 passing** (same 4 pre-existing `html_content.dart` failures). **Inert today** (no `web.<locale>.json` ships, so every lookup yields English); the path activates with zero code change the moment a catalog exists. Remaining: Phase 1-tail activation notice, Phase 4 toolchain, Phase 5 gated translate run.
+
+---
+
+## Finish Report (2026-06-12) — Phase 1 tail: activation coverage notice
+
+VS Code auto-selects the manifest NLS locale from the editor display language, so a user running the editor in a non-English language could see mostly-English command titles, settings, and menus and conclude the product is not localized — even though the data viewer (the bulk of the UI) is. A one-time, per-display-language activation notice now surfaces that gap honestly and reassures that the viewer itself is localized. Policy is **notify, not gate** (plan 75 §2): every locale bundle keeps shipping; the notice is the entire user-facing mechanism.
+
+### Scope
+(B) VS Code extension TypeScript + (C) docs (CHANGELOG, this plan). NOT (A) Flutter/Dart.
+
+### What changed
+- **Created** `extension/src/l10n/coverage-notice.ts` — the notice logic. `evaluateCoverageNotice(rawDisplayLanguage, coverage, alreadyShown)` is a pure decision returning the locale + rounded percent + English language name to show, or `null` (silent) for English, untracked languages, locales at/above the 90% threshold, or an already-shown locale. `normalizeLocale` mirrors the client/server rules (`de-AT`→`de`, `pt-BR`→`pt-br`, Chinese-script→`zh-cn`/`zh-tw`). `maybeShowCoverageNotice(context)` is the thin vscode shell: reads `env.language`, the generated `NLS_COVERAGE` snapshot, and a once-per-language `globalState` gate; marks the gate before showing; wrapped in try/catch so a storage failure never reaches the activation path.
+- **Edited** `extension/src/l10n/strings-host.ts` — added `host.l10n.coverageNotice` (a runtime `t()` string, so the notice localizes itself once translations exist), `{0}` = percent, `{1}` = language name.
+- **Edited** `extension/src/extension-activation-final.ts` — wired `maybeShowCoverageNotice` as a fire-and-forget Phase 11 of `setupFinalPhases`.
+- **Created** `extension/src/test/coverage-notice.test.ts` — 10 cases pinning `normalizeLocale` folding/fallback and the full `evaluateCoverageNotice` decision matrix (English-silent, untracked-silent, tracked-0%-shows, below-threshold rounds + names, at/above-threshold silent, already-shown silent, every tracked locale produces a decision).
+- **Edited** `CHANGELOG.md` (Maintenance) and this plan (§6 gate table + §9 Phase 1 marker → complete).
+
+### Verification (commands run)
+- Test audit: grepped `extension/src/test` for every touched symbol (`coverage-notice`, `evaluateCoverageNotice`, `normalizeLocale`, `maybeShowCoverageNotice`, `setupFinalPhases`, `l10n-coverage-notice`, `host.l10n.coverageNotice`, `NLS_COVERAGE`) — only the new test references them; nothing pre-existing pinned them, so nothing broke.
+- `cd extension && npm run compile` → `tsc` clean + `verify-nls: OK (231)` + `verify:nls-coverage: OK`.
+- Full extension mocha suite → **2717 passing** (was 2707; +10 new), 4 failing — the same pre-existing `html_content.dart` toolbar/tab-icon failures, unrelated (no `.dart` touched).
+
+### Notes for the reviewer
+- The notice CAN fire today: a user whose editor display language is one of the ten translated locales sees `0%` (no manifest locale bundle ships yet) and gets the notice once. English and untracked display languages stay silent. This is intended — it tells a German-editor user the menus are not yet translated while the viewer is.
+- The decision logic is duplicated-by-design across three runtimes (`coverage-notice.ts` host, `assets/web/l10n.ts` browser, `generation_handler.dart` server) because they share no module; all three resolve a BCP-47 tag to the same catalog tag.
+
+### Outstanding
+- Phase 1 is now complete. Remaining: Phase 4 (translation toolchain) and Phase 5 (the gated translate run). The notice shows real percentages only once Phase 5 produces manifest locale bundles.
+
+Plan stays ACTIVE: this closed the Phase 1 tail; Phases 4–5 remain (case 3 — partial scope closed, plan still active).
