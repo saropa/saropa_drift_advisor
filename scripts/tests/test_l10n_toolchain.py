@@ -161,6 +161,31 @@ class TestEngines(unittest.TestCase):
         with self.assertRaises(engines.TranslationNotAuthorizedError):
             engines.translate_one("Hello", "de", authorized=False, breaker=b)
 
+    def test_make_locale_translator_refuses_without_authorization(self):
+        b = engines.CircuitBreaker()
+        with self.assertRaises(engines.TranslationNotAuthorizedError):
+            engines.make_locale_translator("de", authorized=False, breaker=b)
+
+    def test_make_locale_translator_google_when_nllb_skipped(self):
+        # SAROPA_SKIP_NLLB disables NLLB → Google label, no model load. _google_translate
+        # is faked so the test makes no network call.
+        import os
+        b = engines.CircuitBreaker()
+        orig_g = engines._google_translate
+        engines._google_translate = lambda text, loc: f"G:{text}"
+        os.environ["SAROPA_SKIP_NLLB"] = "1"
+        try:
+            fn, label = engines.make_locale_translator("de", authorized=True, breaker=b)
+            self.assertEqual(label, engines.ENGINE_LABEL_GOOGLE)
+            self.assertEqual(fn("Hello"), "G:Hello")
+        finally:
+            engines._google_translate = orig_g
+            os.environ.pop("SAROPA_SKIP_NLLB", None)
+
+    def test_nllb_cache_probe_returns_bool(self):
+        # Delegates to nllb_engine.is_available without loading the model.
+        self.assertIsInstance(engines.nllb_model_is_cached(), bool)
+
 
 class TestAuditSync(unittest.TestCase):
     def setUp(self):
@@ -292,16 +317,17 @@ class TestMenu(unittest.TestCase):
 
     def test_translate_all_confirmed_translates_via_engine(self):
         # Menu choice 3 (translate all) + Yes → dispatches the real path, but with
-        # engines.translate_one monkeypatched to a fake so no network call is made.
+        # engines.make_locale_translator monkeypatched so NO engine (NLLB/Google)
+        # loads and no network call is made.
         import time as _time
         from modules.l10n import engines
-        orig, orig_sleep = engines.translate_one, _time.sleep
-        engines.translate_one = lambda text, locale, **k: f"[{locale}]{text}"
+        orig, orig_sleep = engines.make_locale_translator, _time.sleep
+        engines.make_locale_translator = lambda loc, **k: (lambda text: f"[{loc}]{text}", "nllb")
         _time.sleep = lambda *a, **k: None  # skip the real per-call throttle in tests
         try:
             code, out = self._drive(["3", "y"])
         finally:
-            engines.translate_one, _time.sleep = orig, orig_sleep
+            engines.make_locale_translator, _time.sleep = orig, orig_sleep
         self.assertEqual(code, 0)
         self.assertTrue(any("translations across" in line for line in out))
 
