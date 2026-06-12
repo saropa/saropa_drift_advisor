@@ -365,8 +365,8 @@ the manifest, which is what ships today.
 | `verify:nls-coverage` | Manifest | `nls-coverage-data.ts` is current (staleness only; does NOT gate on low coverage) | `compile`, CI | ✅ |
 | publish l10n audit | Manifest | per-locale missing/untranslated counts; ignore/retry/abort on gaps; writes report | publish (ext leg) | ✅ |
 | activation notice | Manifest | tells the user once when chrome < ~90% | runtime | ✅ |
-| `translate_l10n.py --run-mode audit` | Runtime | per-locale coverage + quality split | manual / publish | ⬜ |
-| publish sync step | Runtime | baselines (host + web) aligned; gaps reported | publish | ⬜ |
+| `translate_l10n.py --run-mode audit` | Runtime | per-locale coverage + quality split | manual / publish | ✅ |
+| publish sync step | Runtime | baselines (host + web) aligned; gaps reported | publish (Step 11b) | ✅ |
 
 **Key-parity and value-coverage are different claims.** `verify-nls` passing does
 **not** mean the manifest is translated — `verify:nls-coverage` measures that,
@@ -470,10 +470,15 @@ in phases, each at a check that must pass before the next:
   (only the pre-existing `html_content.dart` toolbar/tab-icon failures remain,
   unrelated). **Every host-panel + web-viewer user-facing string now flows through
   l10n** (English source; translation is the separate gated step).
-- **Phase 4 — Toolchain + gates.** Port `translate_l10n.py` + modules (audit,
-  brand shielding, provenance, scopes), wire the publish sync step and the
-  activation coverage notice. *Gate:* `--run-mode audit` produces a coverage report;
-  publish sync aligns both baselines without translating.
+- **Phase 4 — Toolchain + gates. ✅ (translate path gated, never run).** Added
+  `scripts/translate_l10n.py` + the `scripts/modules/l10n/` package (extract, brands,
+  provenance, scopes, bundles, sync, audit, engines, actions, cli). Built the host
+  English baseline `l10n/bundle.l10n.json` (721 entries). Wired the publish runtime
+  baseline check (Step 11b, staleness + alignment, never translates/rewrites) and the
+  activation coverage notice (Phase 1 tail). *Gate met:* `--run-mode audit` produces a
+  coverage report (English-only today); `--run-mode sync` aligns both baselines without
+  translating; 24 unit tests green. The `translate` run-mode is **hard-gated** — refuses
+  without `--confirm-translate` + named locales and performs no MT from the repo (§7).
 - **Phase 5 — First deliberate translate run.** Operator-run, explicitly
   authorized, for the agreed locale set. *Gate:* audit shows the target locales
   above the chosen coverage floor; provenance recorded.
@@ -696,3 +701,45 @@ VS Code auto-selects the manifest NLS locale from the editor display language, s
 - Phase 1 is now complete. Remaining: Phase 4 (translation toolchain) and Phase 5 (the gated translate run). The notice shows real percentages only once Phase 5 produces manifest locale bundles.
 
 Plan stays ACTIVE: this closed the Phase 1 tail; Phases 4–5 remain (case 3 — partial scope closed, plan still active).
+
+---
+
+## Finish Report (2026-06-12) — Phase 4: runtime l10n toolchain + English baseline
+
+The runtime (System B) strings were extractable from the registries and renderable in English, but there was no tooling to audit translation coverage, build the host English baseline bundle, or drive a (gated) translation pass — the manifest audit (`scripts/l10n.py`) only covered System A. This adds the System-B toolchain and the first real bundle build, while keeping the machine-translation path hard-gated (plan 75 §7).
+
+### Scope
+(C) scripts + docs, plus the generated baseline `l10n/bundle.l10n.json`. NOT (A) Flutter/Dart, NOT (B) extension TypeScript.
+
+### What changed
+- **Created** `scripts/translate_l10n.py` — launcher (UTF-8 console, `scripts/` on path → `modules.l10n.cli.main`). Distinct from `scripts/l10n.py` (manifest System A).
+- **Created** `scripts/modules/l10n/` package:
+  - `extract.py` — globs `extension/src/l10n/strings-*.ts` + `assets/web/l10n/strings-web*.ts`, parses the `Record<string,string>` literals (tolerant regex from the object body, so doc-comment examples are not scraped; JS-escape + `\uXXXX` decode) into `{symbolic_key: english}` (842 host / 652 web today).
+  - `brands.py` — brand/acronym/symbol/verified-cognate classification + `<B0>` placeholder shield/restore + `validate_brands`. Tokens seeded for this project (`Saropa`, `Drift`, `SQLite`, `Flutter`, `Isar`, `VM Service`, `.drift-rules.json`, …; acronyms `SQL`/`PII`/`FK`/`PK`/`DVR`/…).
+  - `provenance.py` — per-locale `l10n/provenance/<locale>.json` (symbolic-key → engine), high/low quality model (untracked = low), forced-identity inference.
+  - `scopes.py` — `missing` / `gaps` / `low_quality` key selection (brand en-copies excluded from gaps).
+  - `bundles.py` — read/write the two formats (host value-keyed `bundle.l10n.<locale>.json`, web symbolic-key-keyed `web.<locale>.json`), locale discovery, atomic writes.
+  - `sync.py` — builds the host English identity baseline `l10n/bundle.l10n.json`, aligns/prunes locale bundles, `base_bundle_is_current` staleness check. Never translates.
+  - `audit.py` — per-locale classification (missing/untranslated/identity/brand-mangled/translated-by-engine) + coverage percent (documented as a floor) + JSON report writer (timestamp injected, deterministic).
+  - `engines.py` — gated NLLB/Google wrappers + `CircuitBreaker`; `translate_one` raises without `authorized=True` and is never bound to a real engine here.
+  - `actions.py` — run-mode dispatch (audit/sync/import work; translate hard-gated and never performs MT).
+  - `cli.py` — argparse over the run-modes; wall-clock read here so the audit stays deterministic.
+- **Generated** `l10n/bundle.l10n.json` — 721 value-keyed identity entries (the host English baseline; `reports/` audit JSON is gitignored).
+- **Edited** `scripts/modules/pipeline.py` — Step 11b runtime baseline check (staleness + alignment via dry-run, never rewrites/translates; non-fatal warning, English-first).
+- **Created** `scripts/tests/test_l10n_toolchain.py` — 24 cases.
+- **Edited** `CHANGELOG.md` (Maintenance) and this plan (§6 gate table, §9 Phase 4 marker).
+
+### Verification (commands run)
+- `python scripts/translate_l10n.py --run-mode audit` → exit 0, 1494 source keys, English-only, report written.
+- `python scripts/translate_l10n.py --run-mode sync` → built `l10n/bundle.l10n.json` (721 entries), exit 0; re-run leaves it byte-identical (currency confirmed).
+- `python scripts/translate_l10n.py --run-mode translate` → REFUSED (exit 1); with `--locales de --confirm-translate` → STOPS at the unwired engine, performs no MT (exit 1).
+- `python -m unittest scripts.tests.test_l10n_toolchain` → 24 passing; `python -m unittest discover -s scripts/tests` → **65 passing** (41 prior + 24 new). `modules.pipeline` imports clean.
+
+### Notes for the reviewer
+- The translation-execution path (NLLB load + network translator loop, ~1000 lines in the source design) is deliberately NOT ported as runnable code: this repo never runs MT (plan 75 §7). `engines.py` carries the testable circuit breaker + the authorization gate; `actions.run_translate_action` reports what a pass WOULD touch and then stops. Wiring a real engine is a separate, operator-owned step.
+- `brands.py` / `provenance.py` are adapted from the proven Saropa Log Capture modules; `extract.py` / `bundles.py` / `audit.py` / `sync.py` are new for this project's two-format data model. `_normalizeLocale`-equivalent logic is intentionally duplicated across host/web/server/toolchain because the four runtimes share no module.
+
+### Outstanding
+- Phase 5 — the first deliberate translate run — remains, and is the only step that runs MT (operator-gated, never automatic). It produces the `bundle.l10n.<locale>.json` / `web.<locale>.json` catalogs that light up the runtime + the activation notice's real percentages.
+
+Plan stays ACTIVE: Phases 1–4 complete; only Phase 5 (the gated translate run) remains (case 3 — partial scope closed, plan still active).
