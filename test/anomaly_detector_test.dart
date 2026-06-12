@@ -12,6 +12,7 @@
 // _anomalyQuery() wrapper.
 
 import 'package:saropa_drift_advisor/src/server/anomaly_detector.dart';
+import 'package:saropa_drift_advisor/src/server/server_types.dart';
 import 'package:test/test.dart';
 
 import 'helpers/test_helpers.dart';
@@ -1252,6 +1253,167 @@ void main() {
             .where((a) => (a as Map)['type'] == 'orphaned_fk')
             .toList();
         expect(orphans, isEmpty);
+      });
+
+      // -------------------------------------------------------
+      // Declared-relationship orphan detection (Feature 78)
+      //
+      // A host that links tables by a shared UUID column declares ZERO SQLite
+      // FKs, so the PRAGMA is empty. The orphan check must consume the host's
+      // declared manifest instead, and report those orphans as WARNINGS (an
+      // unenforced convention link orphan is expected steady state, not
+      // corruption).
+      // -------------------------------------------------------
+
+      test('detects declared-relationship orphan as a warning (zero FKs)', () async {
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'contact_points': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('contact_saropa_u_u_i_d', 'TEXT'),
+              ],
+              'contacts': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('contact_saropa_u_u_i_d', 'TEXT'),
+              ],
+            },
+            counts: {'contact_points': 5, 'contacts': 3},
+            // No PRAGMA foreign keys at all — host links by convention.
+            orphanCounts: {
+              'contact_points.contact_saropa_u_u_i_d->'
+                  'contacts.contact_saropa_u_u_i_d': 1,
+            },
+          ),
+          declaredRelationships: const [
+            DeclaredRelationship(
+              fromTable: 'contact_points',
+              fromColumn: 'contact_saropa_u_u_i_d',
+              toTable: 'contacts',
+              toColumn: 'contact_saropa_u_u_i_d',
+            ),
+          ],
+        );
+
+        final anomalies = (result['anomalies'] as List)
+            .cast<Map<String, dynamic>>();
+        final orphan = anomalies
+            .where((a) => a['type'] == 'orphaned_fk')
+            .firstOrNull;
+        expect(orphan, isNotNull);
+        // Declared (unenforced) edge → warning, NOT error.
+        expect(orphan!['severity'], 'warning');
+        expect(orphan['count'], 1);
+        expect(orphan['table'], 'contact_points');
+        expect(orphan['column'], 'contact_saropa_u_u_i_d');
+      });
+
+      test('skips declared edge whose parent table is absent from schema', () async {
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'contact_points': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('contact_saropa_u_u_i_d', 'TEXT'),
+              ],
+              // 'contacts' table not in schema.
+            },
+            counts: {'contact_points': 5},
+            orphanCounts: {
+              'contact_points.contact_saropa_u_u_i_d->'
+                  'contacts.contact_saropa_u_u_i_d': 9,
+            },
+          ),
+          declaredRelationships: const [
+            DeclaredRelationship(
+              fromTable: 'contact_points',
+              fromColumn: 'contact_saropa_u_u_i_d',
+              toTable: 'contacts',
+              toColumn: 'contact_saropa_u_u_i_d',
+            ),
+          ],
+        );
+
+        final orphans = (result['anomalies'] as List)
+            .where((a) => (a as Map)['type'] == 'orphaned_fk')
+            .toList();
+        expect(orphans, isEmpty);
+      });
+
+      test('ignores declared edge flagged orphanCheckable: false', () async {
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'contacts': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('group_uuids', 'TEXT'),
+                _col('contact_saropa_u_u_i_d', 'TEXT'),
+              ],
+              'groups': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('group_uuid', 'TEXT'),
+              ],
+            },
+            counts: {'contacts': 5, 'groups': 3},
+            orphanCounts: {
+              // A scalar join would (wrongly) find orphans for the list_ref.
+              'contacts.group_uuids->groups.group_uuid': 4,
+            },
+          ),
+          declaredRelationships: const [
+            // list_ref: a JSON array of UUIDs in one text cell — a scalar
+            // LEFT JOIN is wrong, so it is excluded from the orphan check.
+            DeclaredRelationship(
+              fromTable: 'contacts',
+              fromColumn: 'group_uuids',
+              toTable: 'groups',
+              toColumn: 'group_uuid',
+              orphanCheckable: false,
+            ),
+          ],
+        );
+
+        final orphans = (result['anomalies'] as List)
+            .where((a) => (a as Map)['type'] == 'orphaned_fk')
+            .toList();
+        expect(orphans, isEmpty);
+      });
+
+      test('declared edge duplicating an enforced FK stays a single error', () async {
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'orders': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('user_id', 'INTEGER'),
+              ],
+              'users': [_col('id', 'INTEGER', pk: 1)],
+            },
+            counts: {'orders': 5, 'users': 3},
+            tableForeignKeys: {
+              'orders': [
+                {'from': 'user_id', 'table': 'users', 'to': 'id'},
+              ],
+            },
+            orphanCounts: {'orders.user_id->users.id': 2},
+          ),
+          // Same edge the host also declares — must NOT double-report or
+          // downgrade the enforced FK's error severity.
+          declaredRelationships: const [
+            DeclaredRelationship(
+              fromTable: 'orders',
+              fromColumn: 'user_id',
+              toTable: 'users',
+              toColumn: 'id',
+            ),
+          ],
+        );
+
+        final orphans = (result['anomalies'] as List)
+            .where((a) => (a as Map)['type'] == 'orphaned_fk')
+            .toList();
+        expect(orphans.length, 1);
+        expect((orphans.first as Map)['severity'], 'error');
       });
 
       // -------------------------------------------------------

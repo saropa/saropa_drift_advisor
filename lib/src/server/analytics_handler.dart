@@ -12,7 +12,9 @@ import 'index_analyzer.dart';
 import 'orphan_table_detector.dart';
 import 'server_constants.dart';
 import 'server_context.dart';
+import 'server_types.dart';
 import 'server_utils.dart';
+import 'soft_relationship_detector.dart';
 
 /// Handles analytics-related API endpoints.
 ///
@@ -25,6 +27,24 @@ final class AnalyticsHandler {
   AnalyticsHandler(this._ctx);
 
   final ServerContext _ctx;
+
+  /// Resolves the host's declared relationship manifest (Feature 78) into a
+  /// plain list for the orphan-row anomaly check. Returns empty when no
+  /// callback was supplied (host links by real SQLite FKs, or by nothing) or
+  /// when the callback throws — a faulty host callback must not break anomaly
+  /// scanning, mirroring the skip-on-throw posture of the schema metadata fold.
+  List<DeclaredRelationship> _resolveDeclaredRelationships() {
+    final callback = _ctx.declaredRelationships;
+    if (callback == null) {
+      return const <DeclaredRelationship>[];
+    }
+    try {
+      return callback();
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      return const <DeclaredRelationship>[];
+    }
+  }
 
   /// Returns index suggestions and table count
   /// (for HTTP and VM service RPC).
@@ -65,7 +85,10 @@ final class AnalyticsHandler {
   /// and wraps errors with [ServerContext.logError].
   Future<Map<String, dynamic>> getAnomaliesResult(DriftDebugQuery query) async {
     try {
-      return await AnomalyDetector.getAnomaliesResult(query);
+      return await AnomalyDetector.getAnomaliesResult(
+        query,
+        declaredRelationships: _resolveDeclaredRelationships(),
+      );
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       return <String, String>{ServerConstants.jsonKeyError: error.toString()};
@@ -118,6 +141,54 @@ final class AnalyticsHandler {
   ) async {
     final res = response;
     final result = await getOrphanTablesResult(query);
+    if (result.containsKey(ServerConstants.jsonKeyError)) {
+      res.statusCode = HttpStatus.internalServerError;
+      res.headers.contentType = ContentType.json;
+      _ctx.setCors(res);
+    } else {
+      _ctx.setJsonHeaders(res);
+    }
+    res.write(jsonEncode(result));
+    await res.close();
+  }
+
+  /// Returns the soft-relationship advisory result for VM service RPC and the
+  /// dedicated endpoint (Feature 77).
+  ///
+  /// Delegates to [SoftRelationshipDetector.getSoftRelationshipsResult],
+  /// passing the host relationship manifest (Feature 78) so manifested edges are
+  /// subtracted (resolved). `manifest` is null when no callback was supplied —
+  /// every inferred edge is then reported (`info`, opt-in) and
+  /// `manifestAvailable` is false. Wraps errors with [ServerContext.logError].
+  Future<Map<String, dynamic>> getSoftRelationshipsResult(
+    DriftDebugQuery query,
+  ) async {
+    try {
+      // Null manifest (no callback) ⇒ manifestAvailable:false; a present-but-
+      // throwing callback degrades to an empty list (still available) via
+      // _resolveDeclaredRelationships, never breaking the scan.
+      final manifest = _ctx.declaredRelationships == null
+          ? null
+          : _resolveDeclaredRelationships();
+      return await SoftRelationshipDetector.getSoftRelationshipsResult(
+        query,
+        manifest: manifest,
+      );
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      return <String, String>{ServerConstants.jsonKeyError: error.toString()};
+    }
+  }
+
+  /// Handles GET /api/issues/soft-relationships: edges inferred from column
+  /// naming (`<noun>_id`, shared `*UUID`) that no SQLite FK or manifest
+  /// declares. Report-only. Writes JSON to [response].
+  Future<void> handleSoftRelationships(
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
+    final res = response;
+    final result = await getSoftRelationshipsResult(query);
     if (result.containsKey(ServerConstants.jsonKeyError)) {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
@@ -184,7 +255,10 @@ final class AnalyticsHandler {
 
     if (filter.includeAnomalies) {
       try {
-        final result = await AnomalyDetector.getAnomaliesResult(query);
+        final result = await AnomalyDetector.getAnomaliesResult(
+          query,
+          declaredRelationships: _resolveDeclaredRelationships(),
+        );
         if (result.containsKey(ServerConstants.jsonKeyError)) {
           return result;
         }
@@ -253,17 +327,59 @@ final class AnalyticsHandler {
       }
     }
 
+    // Soft relationships (Feature 77): edges inferred from column naming that
+    // no SQLite FK or host manifest declares. Always safe to include — `info`
+    // severity, and the finding carries its own from/to/rule so the merged
+    // shape needs no per-consumer change (mirrors the orphan-table merge).
+    if (filter.includeSoftRelationships) {
+      try {
+        final result = await getSoftRelationshipsResult(query);
+        if (result.containsKey(ServerConstants.jsonKeyError)) {
+          return result;
+        }
+        final softRels =
+            result[ServerConstants.jsonKeySoftRelationships]
+                as List<Map<String, dynamic>>? ??
+            const <Map<String, dynamic>>[];
+        for (final s in softRels) {
+          issues.add(<String, dynamic>{
+            ServerConstants.jsonKeySource: 'soft-relationship',
+            ServerConstants.jsonKeySeverity:
+                s[ServerConstants.jsonKeySeverity] ??
+                SoftRelationshipDetector.severity,
+            ServerConstants.jsonKeyTable: s[ServerConstants.fkFromTable] ?? '',
+            ServerConstants.jsonKeyMessage:
+                s[ServerConstants.jsonKeyMessage] ?? '',
+            ServerConstants.jsonKeyType:
+                SoftRelationshipDetector.softRelationshipFindingType,
+            ServerConstants.fkFromTable: s[ServerConstants.fkFromTable],
+            ServerConstants.fkFromColumn: s[ServerConstants.fkFromColumn],
+            ServerConstants.fkToTable: s[ServerConstants.fkToTable],
+            ServerConstants.fkToColumn: s[ServerConstants.fkToColumn],
+            ServerConstants.jsonKeyRule: s[ServerConstants.jsonKeyRule],
+          });
+        }
+      } on Object catch (error, stack) {
+        _ctx.logError(error, stack);
+        return <String, dynamic>{
+          ServerConstants.jsonKeyError: error.toString(),
+        };
+      }
+    }
+
     return <String, dynamic>{ServerConstants.jsonKeyIssues: issues};
   }
 
   /// Parses [sources] query param (comma-separated "index-suggestions",
-  /// "anomalies", "orphan-tables"). Returns which sources to include. When
-  /// null/empty, or when no recognized token is present, all sources are
-  /// included; otherwise only the recognized tokens present are included.
+  /// "anomalies", "orphan-tables", "soft-relationships"). Returns which sources
+  /// to include. When null/empty, or when no recognized token is present, all
+  /// sources are included; otherwise only the recognized tokens present are
+  /// included.
   ({
     bool includeIndexSuggestions,
     bool includeAnomalies,
     bool includeOrphanTables,
+    bool includeSoftRelationships,
   })
   _parseSourcesFilter(String? sources) {
     // Default (no filter / unrecognized): include everything.
@@ -271,6 +387,7 @@ final class AnalyticsHandler {
       includeIndexSuggestions: true,
       includeAnomalies: true,
       includeOrphanTables: true,
+      includeSoftRelationships: true,
     );
     if (sources == null || sources.trim().isEmpty) {
       return all;
@@ -282,16 +399,21 @@ final class AnalyticsHandler {
     final hasIndex = parts.any((p) => p == 'index-suggestions');
     final hasAnomalies = parts.any((p) => p == 'anomalies');
     final hasOrphanTables = parts.any((p) => p == 'orphan-tables');
+    final hasSoftRelationships = parts.any((p) => p == 'soft-relationships');
 
     // No recognized token → treat as no filter rather than empty result, so
     // a stale or typo'd query param never silently drops every issue.
-    if (!hasIndex && !hasAnomalies && !hasOrphanTables) {
+    if (!hasIndex &&
+        !hasAnomalies &&
+        !hasOrphanTables &&
+        !hasSoftRelationships) {
       return all;
     }
     return (
       includeIndexSuggestions: hasIndex,
       includeAnomalies: hasAnomalies,
       includeOrphanTables: hasOrphanTables,
+      includeSoftRelationships: hasSoftRelationships,
     );
   }
 

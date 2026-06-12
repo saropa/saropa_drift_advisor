@@ -2,7 +2,7 @@
 
 > Type: Feature / Enhancement (NOT a runtime crash). Severity: Medium — a whole class of orphan-row anomalies is invisible for any host that links by convention (shared UUID column) instead of SQLite foreign keys.
 > Labels: `enhancement`, `anomaly-detector`, `feature-78`, `needs-design-decision`.
-> Status: Open — spec only. No advisor code changed by this report.
+> Status: Fixed — advisor side implemented (proposals A, B, C.1, E). Host companion task D tracked in the Contacts repo.
 
 ## CRITICAL NOTE
 This work will be reviewed by another AI. Written for fast, skeptical verification. Every code claim below is anchored to a `file:line` proven by grep; the grep commands are in the Emitter Attribution section. The single most important finding: **Feature 78 already wired the declared-relationship manifest into the SCHEMA / wizard / ER-diagram path, but NOT into the orphan-ROW anomaly check** — that check still drives its `LEFT JOIN` exclusively from `PRAGMA foreign_key_list`, which is empty for a host that declares no SQLite FKs. Read the Root Cause before the proposal.
@@ -135,3 +135,45 @@ Today: `_detectOrphanedForeignKeys` reports nothing (no PRAGMA FK). Desired: one
 Adopt option C.1 (`orphanCheckable` flag on `DeclaredRelationship`) vs C.2 (host pre-filters edges). Recommendation: C.1 — preserves all 27 edges for the wizard/diagram while letting the orphan check use only the 14 joinable ones.
 
 # END OF REPORT
+
+---
+
+## Finish Report (2026-06-11)
+
+This work will be reviewed by another AI.
+
+### Scope
+**(A)** Dart package code (`lib/src/server/`, `test/`). No extension/TypeScript code changed (section E was a report-only verification of existing TS — confirmed correct, no edit). No docs/scripts beyond CHANGELOG + this archive.
+
+### What was implemented (proposals A, B, C.1, E)
+- **C.1 — `orphanCheckable` flag.** Added `final bool orphanCheckable` (default `true`) to `DeclaredRelationship` (`lib/src/server/server_types.dart`). The orphan-row check filters on it; the wizard / ER-diagram path is untouched and still uses every edge. Maps 1:1 to the host manifest's `orphan_checkable` field, so no host information is lost. Option C.2 (host pre-filters) was rejected per the report — it would strip list/seed edges the wizard wants.
+- **A — union the two relationship sources.** `AnomalyDetector._detectOrphanedForeignKeys` (`lib/src/server/anomaly_detector.dart`) now builds its candidate edge set from BOTH `PRAGMA foreign_key_list` AND the host's declared edges, deduping on the `(fromColumn, toTable, toColumn)` join triple. The existing `LEFT JOIN child.fromCol = parent.toCol` runs per edge, so the manifest's differing physical column names are handled with no same-name heuristic. `getAnomaliesResult` gained an optional `List<DeclaredRelationship> declaredRelationships` param (default empty); it narrows the manifest per-table by `fromTable == tableName && orphanCheckable` before handing the slice to the detector. A new private `_OrphanEdge` value type normalizes both sources and carries an `enforced` flag.
+- **B — severity by source.** Enforced PRAGMA-FK orphan → `error` (real corruption the engine should have blocked). Declared-only (unenforced) orphan → `warning` (expected steady state in an offline-first host: out-of-order sync, soft-deleted parents). A link that is BOTH declared and an enforced FK dedups to the single `error`, never doubled or downgraded.
+- **Wiring.** `AnalyticsHandler` (`lib/src/server/analytics_handler.dart`) gained `_resolveDeclaredRelationships()` — resolves `ServerContext.declaredRelationships`, returning empty on a null OR throwing callback (skip-on-throw, mirroring the schema-metadata fold). Both anomaly call sites (`getAnomaliesResult` and `getIssuesList`) feed it through. The detector stays pure/parameter-only for tests.
+- **E — TS verified, no change.** `extension/src/diagnostics/checkers/anomaly-checker.ts:59-64` already maps `severity: 'warning'` → `vscode.DiagnosticSeverity.Warning`. Declared-orphan warnings render at Warning level. The message regex `/(\w+)\.(\w+)/` resolves the table+column correctly from the new message text.
+
+### Companion task D (NOT this repo)
+Saropa Contacts (`d:/src/contacts`) must set `ServerContext.declaredRelationships` to a callback that reads `.saropa/schema/relationship_hints.json` and maps each entry to a `DeclaredRelationship` (incl. `kind` → `orphanCheckable`). Tracked in the Contacts repo per the report. Until the host wires it, the advisor change is inert for that host (empty list → identical prior behavior) — zero regression risk for existing hosts.
+
+### Deep review notes
+- **Logic/safety:** dedup compares the join triple before adding a declared edge, so a host declaring + enforcing the same link is reported once at the stronger severity. Parent-table-absent guard (`tableNames.contains(edge.toTable)`) prevents a manifest naming a table the running DB lacks from issuing a bad join. Throwing host callback is caught and logged, never crashes the scan.
+- **No collection-unsafe access** introduced; `_OrphanEdge` list built with explicit loops.
+- **Backward compatibility:** new param is optional-with-default; the positional `getAnomaliesResult(query)` call in `stress_performance_test.dart:255` compiles and behaves identically.
+
+### Testing
+- **Audited existing tests** referencing the changed symbols: `anomaly_detector_test.dart` (updated), `declared_relationships_test.dart` (DeclaredRelationship serialization — JSON shape unchanged, still passes), `stress_performance_test.dart` (positional call, unaffected).
+- **Added 4 cases** to `test/anomaly_detector_test.dart`: declared-orphan → warning with zero PRAGMA FKs; declared edge whose parent table is absent → skipped; `orphanCheckable: false` (list_ref) → ignored; declared edge duplicating an enforced FK → single `error`.
+- **Ran:** `dart test` → **597 passing** (incl. the 4 new). `dart analyze` on the four changed files → **No issues found** (saropa_lints clean).
+
+### Files changed
+- `lib/src/server/server_types.dart` — `orphanCheckable` field + dartdoc.
+- `lib/src/server/anomaly_detector.dart` — union/dedup/severity logic, `_OrphanEdge`, `getAnomaliesResult` param, import.
+- `lib/src/server/analytics_handler.dart` — `_resolveDeclaredRelationships()`, both call sites, import.
+- `test/anomaly_detector_test.dart` — import + 4 new tests.
+- `CHANGELOG.md` — `[Unreleased] → Added` entry.
+
+### Outstanding
+Host-side task D (Contacts repo). No advisor-side work remains.
+
+Bug archived: `bugs/FEATURE_orphan_row_check_consume_declared_relationships.md` → `plans/history/2026.06/2026.06.11/FEATURE_orphan_row_check_consume_declared_relationships.md`
+Finish report appended: `plans/history/2026.06/2026.06.11/FEATURE_orphan_row_check_consume_declared_relationships.md`

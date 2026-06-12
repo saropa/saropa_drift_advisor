@@ -86,6 +86,57 @@ typedef DeclaredSchema = List<DeclaredTable>;
 /// (same opt-in posture as `declaredTableNames` for the orphan check).
 typedef DeclaredSchemaCallback = DeclaredSchema Function();
 
+// --- Declared (code-side) relationship manifest (Feature 78) ---
+
+/// One declared relationship edge: `fromTable.fromColumn` references
+/// `toTable.toColumn`. Descriptive only — the advisor reads it to know the link
+/// exists; it never enforces it (no `PRAGMA foreign_keys`, no constraint, no
+/// migration). This is how a host that links by convention (a shared UUID/`_id`
+/// column) instead of SQLite foreign keys makes its relationships visible to
+/// tooling, turning the web wizard's column-name heuristic into a fact.
+class DeclaredRelationship {
+  const DeclaredRelationship({
+    required this.fromTable,
+    required this.fromColumn,
+    required this.toTable,
+    required this.toColumn,
+    this.label,
+    this.orphanCheckable = true,
+  });
+
+  final String fromTable;
+  final String fromColumn;
+  final String toTable;
+  final String toColumn;
+
+  /// Optional human name for the edge ("contact → phones"). Real consumer is
+  /// the ER diagram / wizard relationship chip text; omitted from JSON when
+  /// null (no field for documentation only — it has a display consumer).
+  final String? label;
+
+  /// Whether this edge can be checked for orphaned rows with a scalar
+  /// `LEFT JOIN child.col = parent.col`. Defaults to `true`.
+  ///
+  /// The orphan-row anomaly check ([AnomalyDetector]) reads this to filter the
+  /// manifest down to joinable edges. The wizard / ER diagram ignore it — they
+  /// want every edge for the graph. Set `false` for edge kinds a single-column
+  /// equality join cannot represent: a `list_ref` (a JSON array of many parent
+  /// UUIDs in one text cell — a scalar join is simply wrong) or a
+  /// `seed_identity` (a static-data UUID that becomes a contact UUID on seed,
+  /// not a foreign key at all). Maps 1:1 to the host manifest's
+  /// `orphan_checkable` field so no host information is lost.
+  final bool orphanCheckable;
+}
+
+/// The full host-declared relationship manifest: an ordered list of edges.
+typedef DeclaredRelationships = List<DeclaredRelationship>;
+
+/// Host-supplied callback returning the relationship manifest. When null the
+/// GET /api/schema/relationships endpoint reports `available: false` and the
+/// metadata fold falls back to `PRAGMA foreign_key_list` (same opt-in posture
+/// as [DeclaredSchemaCallback]).
+typedef DeclaredRelationshipsCallback = DeclaredRelationships Function();
+
 /// A single query timing record for the performance monitor.
 class QueryTiming {
   QueryTiming({
