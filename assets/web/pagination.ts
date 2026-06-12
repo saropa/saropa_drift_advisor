@@ -10,6 +10,7 @@ import { loadTable } from './table-list.ts';
 import { getColumnConfig, setColumnConfig, saveTableState, clearTableState } from './persistence.ts';
 import { renderTableView } from './table-view.ts';
 import { getScope } from './search.ts';
+import { vt } from './l10n.ts';
 
 /**
  * Navigates to a given offset: updates state, syncs advanced offset input,
@@ -49,9 +50,11 @@ export function updatePaginationBar(total) {
         if (total != null) {
           const from = S.offset + 1;
           const to = Math.min(S.offset + S.limit, total);
-          statusEl.textContent = total === 0 ? '0 rows' : 'Showing ' + from + '\u2013' + to + ' of ' + total.toLocaleString() + ' rows';
+          statusEl.textContent = total === 0
+            ? vt('viewer.session.pagination.zeroRows')
+            : vt('viewer.session.pagination.showingRange', from, to, total.toLocaleString());
         } else {
-          statusEl.textContent = 'Page ' + currentPage + ' (total unknown)';
+          statusEl.textContent = vt('viewer.session.pagination.pageUnknownTotal', currentPage);
         }
       }
 
@@ -69,12 +72,12 @@ export function updatePaginationBar(total) {
       pagesEl.innerHTML = '';
       const pageLabel = document.createElement('label');
       pageLabel.setAttribute('for', 'pagination-page');
-      pageLabel.textContent = 'Page ';
+      pageLabel.textContent = vt('viewer.session.pagination.pageLabel');
       pageLabel.className = 'pagination-page-label';
       pagesEl.appendChild(pageLabel);
       const pageSel = document.createElement('select');
       pageSel.id = 'pagination-page';
-      pageSel.setAttribute('aria-label', 'Current page');
+      pageSel.setAttribute('aria-label', vt('viewer.session.pagination.currentPageAria'));
       if (totalPages != null) {
         for (let p = 1; p <= totalPages; p++) {
           const opt = document.createElement('option');
@@ -94,7 +97,7 @@ export function updatePaginationBar(total) {
       const ofSpan = document.createElement('span');
       ofSpan.id = 'pagination-of';
       ofSpan.className = 'pagination-of';
-      ofSpan.textContent = totalPages != null ? ' of ' + totalPages : '';
+      ofSpan.textContent = totalPages != null ? vt('viewer.session.pagination.of', totalPages) : '';
       pagesEl.appendChild(ofSpan);
 
       pageSel.addEventListener('change', function() {
@@ -172,8 +175,8 @@ export function populateColumnChooserList() {
         label.textContent = key;
         var pinBtn = document.createElement('button');
         pinBtn.type = 'button';
-        pinBtn.textContent = config.pinned.indexOf(key) >= 0 ? 'Unpin' : 'Pin';
-        pinBtn.title = config.pinned.indexOf(key) >= 0 ? 'Unpin this column' : 'Pin this column to the left';
+        pinBtn.textContent = config.pinned.indexOf(key) >= 0 ? vt('viewer.session.column.unpin') : vt('viewer.session.column.pin');
+        pinBtn.title = config.pinned.indexOf(key) >= 0 ? vt('viewer.session.column.unpin.title') : vt('viewer.session.column.pin.title');
         pinBtn.style.fontSize = '11px';
         pinBtn.addEventListener('click', function() {
           var idx = config.pinned.indexOf(key);

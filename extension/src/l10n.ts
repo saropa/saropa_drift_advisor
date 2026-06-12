@@ -21,13 +21,35 @@
 import * as vscode from 'vscode';
 
 import { hostStrings } from './l10n/strings-host';
+import { stringsPanelDashboard } from './l10n/strings-panel-dashboard';
+import { stringsPanelHealth } from './l10n/strings-panel-health';
+import { stringsPanelSchema } from './l10n/strings-panel-schema';
+import { stringsPanelQuery } from './l10n/strings-panel-query';
+import { stringsPanelCompare } from './l10n/strings-panel-compare';
+import { stringsPanelData } from './l10n/strings-panel-data';
+import { stringsPanelReplay } from './l10n/strings-panel-replay';
+import { stringsPanelQuality } from './l10n/strings-panel-quality';
+import { stringsPanelTools } from './l10n/strings-panel-tools';
+import { stringsPanelNotes } from './l10n/strings-panel-notes';
 
 /**
  * Every host English registry, merged into one lookup. Explicit list (not a glob)
  * — add new `strings-host*.ts` / `strings-panel-*.ts` slices here as they are split
  * out under the 300-line limit.
  */
-const HOST_STRING_REGISTRIES: Array<Record<string, string>> = [hostStrings];
+const HOST_STRING_REGISTRIES: Array<Record<string, string>> = [
+  hostStrings,
+  stringsPanelDashboard,
+  stringsPanelHealth,
+  stringsPanelSchema,
+  stringsPanelQuery,
+  stringsPanelCompare,
+  stringsPanelData,
+  stringsPanelReplay,
+  stringsPanelQuality,
+  stringsPanelTools,
+  stringsPanelNotes,
+];
 
 /** Merged symbolic-key → English map. */
 const strings: Record<string, string> = Object.assign({}, ...HOST_STRING_REGISTRIES);

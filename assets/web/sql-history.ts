@@ -4,6 +4,7 @@
  * including dropdown UI binding, import/export, and CRUD operations.
  */
 import { esc } from './utils.ts';
+import { vt } from './l10n.ts';
 import * as S from './state.ts';
 import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
 
@@ -33,9 +34,9 @@ import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
     export function refreshHistoryDropdown(sel) {
       if (!sel) return;
       const cur = sel.value;
-      sel.innerHTML = '<option value="">— Recent —</option>' + S.sqlHistory.map((h, i) => {
+      sel.innerHTML = '<option value="">' + esc(vt('viewer.sql.history.recent')) + '</option>' + S.sqlHistory.map((h, i) => {
         const preview = h.sql.length > 50 ? h.sql.slice(0, 47) + '…' : h.sql;
-        const rows = h.rowCount != null ? (h.rowCount + ' row(s)') : '';
+        const rows = h.rowCount != null ? vt('viewer.sql.result.rowCount', h.rowCount) : '';
         const at = h.at ? new Date(h.at).toLocaleString() : '';
         const label = [rows, at, preview].filter(Boolean).join(' · ');
         return '<option value="' + i + '" title="' + esc(h.sql) + '">' + esc(label) + '</option>';
@@ -86,7 +87,7 @@ import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
     export function refreshBookmarksDropdown(sel) {
       if (!sel) return;
       const cur = sel.value;
-      sel.innerHTML = '<option value="">— Saved queries (' + S.sqlBookmarks.length + ') —</option>' +
+      sel.innerHTML = '<option value="">' + esc(vt('viewer.sql.bookmarks.saved', S.sqlBookmarks.length)) + '</option>' +
         S.sqlBookmarks.map(function(b, i) {
           return '<option value="' + i + '" title="' + esc(b.sql) + '">' + esc(b.name) + '</option>';
         }).join('');
@@ -95,7 +96,7 @@ import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
     export function addBookmark(inputEl, bookmarksSel) {
       const sql = inputEl.value.trim();
       if (!sql) return;
-      const name = prompt('Name for this query:', sql.slice(0, 40));
+      const name = prompt(vt('viewer.sql.bookmarks.namePrompt'), sql.slice(0, 40));
       if (name == null || String(name).trim() === '') return;
       S.sqlBookmarks.unshift({ name: name, sql: sql, createdAt: new Date().toISOString() });
       saveBookmarks();
@@ -104,13 +105,13 @@ import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
     export function deleteBookmark(bookmarksSel) {
       const idx = parseInt(bookmarksSel.value, 10);
       if (isNaN(idx) || !S.sqlBookmarks[idx]) return;
-      if (!confirm('Delete saved query "' + S.sqlBookmarks[idx].name + '"?')) return;
+      if (!confirm(vt('viewer.sql.bookmarks.deleteConfirm', S.sqlBookmarks[idx].name))) return;
       S.sqlBookmarks.splice(idx, 1);
       saveBookmarks();
       refreshBookmarksDropdown(bookmarksSel);
     }
     export function exportBookmarks() {
-      if (S.sqlBookmarks.length === 0) { alert('No saved queries to export.'); return; }
+      if (S.sqlBookmarks.length === 0) { alert(vt('viewer.sql.bookmarks.exportEmpty')); return; }
       const blob = new Blob([JSON.stringify(S.sqlBookmarks, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -131,7 +132,7 @@ import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
           try {
             const raw = typeof reader.result === 'string' ? reader.result : '';
             const imported = JSON.parse(raw);
-            if (!Array.isArray(imported)) throw new Error('Expected JSON array');
+            if (!Array.isArray(imported)) throw new Error(vt('viewer.sql.bookmarks.importExpectedArray'));
             let newCount = 0;
             imported.forEach(function(b) {
               if (b.name && b.sql && !S.sqlBookmarks.some(function(e) { return e.sql === b.sql; })) {
@@ -141,9 +142,9 @@ import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
             });
             saveBookmarks();
             refreshBookmarksDropdown(bookmarksSel);
-            alert('Imported ' + newCount + ' new saved query(s). ' + (imported.length - newCount) + ' duplicate(s) skipped.');
+            alert(vt('viewer.sql.bookmarks.importResult', newCount, imported.length - newCount));
           } catch (e) {
-            alert('Invalid file: ' + e.message);
+            alert(vt('viewer.sql.bookmarks.importInvalid', e.message));
           }
         };
         reader.readAsText(file);

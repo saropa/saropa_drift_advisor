@@ -1,4 +1,5 @@
 import type { ISizeAnalytics } from '../api-types';
+import { t } from '../l10n';
 
 /** Build the HTML for the size analytics webview panel. */
 export function buildSizeHtml(data: ISizeAnalytics, historyCount: number = 0): string {
@@ -9,17 +10,18 @@ export function buildSizeHtml(data: ISizeAnalytics, historyCount: number = 0): s
     ? Math.round((data.usedSizeBytes / data.totalSizeBytes) * 100)
     : 0;
 
-  const maxRows = Math.max(...data.tables.map((t) => t.rowCount), 1);
-  const tableRows = data.tables.map((t) => {
-    const barW = Math.max(1, Math.round((t.rowCount / maxRows) * 100));
-    const idxList = t.indexes.length > 0
-      ? t.indexes.map((i) => esc(i)).join(', ')
-      : '<span class="dim">none</span>';
+  // Local map params renamed to `tbl`/`idx` so they do not shadow the imported `t()` l10n helper.
+  const maxRows = Math.max(...data.tables.map((tbl) => tbl.rowCount), 1);
+  const tableRows = data.tables.map((tbl) => {
+    const barW = Math.max(1, Math.round((tbl.rowCount / maxRows) * 100));
+    const idxList = tbl.indexes.length > 0
+      ? tbl.indexes.map((idx) => esc(idx)).join(', ')
+      : `<span class="dim">${t('panel.size.idx.none')}</span>`;
     return `<tr>
-      <td>${esc(t.table)}</td>
-      <td class="num">${t.rowCount.toLocaleString()}</td>
-      <td class="num">${t.columnCount}</td>
-      <td class="num">${t.indexCount}</td>
+      <td>${esc(tbl.table)}</td>
+      <td class="num">${tbl.rowCount.toLocaleString()}</td>
+      <td class="num">${tbl.columnCount}</td>
+      <td class="num">${tbl.indexCount}</td>
       <td class="bar-cell"><div class="bar" style="width:${barW}%"></div></td>
       <td class="idx">${idxList}</td>
     </tr>`;
@@ -56,48 +58,48 @@ export function buildSizeHtml(data: ISizeAnalytics, historyCount: number = 0): s
 </style>
 </head>
 <body>
-  <h2>Database Size Analytics</h2>
+  <h2>${t('panel.size.title')}</h2>
   <div class="summary">
     <div class="card">
       <div class="card-value">${total}</div>
-      <div class="card-label">Total Size</div>
+      <div class="card-label">${t('panel.size.card.total')}</div>
       <div class="usage-bar"><div class="usage-fill" style="width:${pct}%"></div></div>
     </div>
     <div class="card">
       <div class="card-value">${used}</div>
-      <div class="card-label">Used</div>
+      <div class="card-label">${t('panel.size.card.used')}</div>
     </div>
     <div class="card">
       <div class="card-value">${free}</div>
-      <div class="card-label">Free</div>
+      <div class="card-label">${t('panel.size.card.free')}</div>
     </div>
     <div class="card">
       <div class="card-value">${data.tableCount}</div>
-      <div class="card-label">Tables</div>
+      <div class="card-label">${t('panel.size.card.tables')}</div>
     </div>
     <div class="card">
       <div class="card-value">${data.pageCount.toLocaleString()}</div>
-      <div class="card-label">Pages (${formatBytes(data.pageSize)} each)</div>
+      <div class="card-label">${t('panel.size.card.pages', formatBytes(data.pageSize))}</div>
     </div>
     <div class="card">
       <div class="card-value">${esc(data.journalMode)}</div>
-      <div class="card-label">Journal Mode</div>
+      <div class="card-label">${t('panel.size.card.journalMode')}</div>
     </div>
   </div>
 
-  <h3>Tables by Row Count</h3>
+  <h3>${t('panel.size.tablesHeading')}</h3>
   <table>
     <thead><tr>
-      <th>Table</th><th>Rows</th><th>Cols</th>
-      <th>Indexes</th><th></th><th>Index Names</th>
+      <th>${t('panel.size.col.table')}</th><th>${t('panel.size.col.rows')}</th><th>${t('panel.size.col.cols')}</th>
+      <th>${t('panel.size.col.indexes')}</th><th></th><th>${t('panel.size.col.indexNames')}</th>
     </tr></thead>
     <tbody>${tableRows}</tbody>
   </table>
 
   <div style="display:flex;gap:6px;margin-top:12px;">
-    <button onclick="post('copyReport')">Copy as JSON</button>
-    <button onclick="post('saveSnapshot')">Save Snapshot</button>
-    <button onclick="post('compareHistory')">Compare${historyCount > 0 ? ` (${historyCount})` : ''}</button>
+    <button onclick="post('copyReport')">${t('panel.size.btn.copyJson')}</button>
+    <button onclick="post('saveSnapshot')">${t('panel.size.btn.saveSnapshot')}</button>
+    <button onclick="post('compareHistory')">${historyCount > 0 ? t('panel.size.btn.compareCount', historyCount) : t('panel.size.btn.compare')}</button>
   </div>
   <script>
     const vscode = acquireVsCodeApi();

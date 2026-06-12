@@ -3,6 +3,7 @@ import type {
 } from './health-types';
 import type { IRefactoringAdvisorSession } from '../refactoring/refactoring-advisor-state';
 import { getHealthCss } from './health-css';
+import { t } from '../l10n';
 
 /** Build HTML for the health score dashboard webview panel. */
 export function buildHealthHtml(
@@ -16,7 +17,7 @@ export function buildHealthHtml(
 <style>body { font-family: var(--vscode-font-family); color: var(--vscode-foreground);
   background: var(--vscode-editor-background); }
 .empty { padding: 32px; text-align: center; opacity: 0.6; }</style>
-</head><body><div class="empty">No metrics available.</div></body></html>`;
+</head><body><div class="empty">${t('panel.health.empty')}</div></body></html>`;
   }
 
   const gradeClass = gradeColorClass(score.grade);
@@ -33,18 +34,18 @@ export function buildHealthHtml(
 </head>
 <body>
 <div class="header">
-  <h1>Database Health Score</h1>
+  <h1>${t('panel.health.title')}</h1>
   <div class="btn-group">
-    <button class="btn" data-action="refresh">Refresh</button>
-    <button class="btn" data-action="copyReport">Copy Report</button>
-    <button class="btn" data-action="saveSnapshot">Save Snapshot</button>
-    <button class="btn" data-action="compareHistory">Compare${historyCount > 0 ? ` (${historyCount})` : ''}</button>
+    <button class="btn" data-action="refresh">${t('panel.health.btn.refresh')}</button>
+    <button class="btn" data-action="copyReport">${t('panel.health.btn.copyReport')}</button>
+    <button class="btn" data-action="saveSnapshot">${t('panel.health.btn.saveSnapshot')}</button>
+    <button class="btn" data-action="compareHistory">${historyCount > 0 ? t('panel.health.btn.compareCount', historyCount) : t('panel.health.btn.compare')}</button>
   </div>
 </div>
 
 <div class="overall">
   <div class="overall-grade ${gradeClass}">${esc(score.grade)}</div>
-  <div class="overall-score">Score: ${score.overall}/100</div>
+  <div class="overall-score">${t('panel.health.overall.score', score.overall)}</div>
 </div>
 
 <div class="cards">
@@ -90,14 +91,17 @@ ${advisorHtml}
 function buildRefactoringAdvisorSection(a: IRefactoringAdvisorSession): string {
   const titles = a.topTitles.map((t) => `<li>${esc(t)}</li>`).join('');
   const when = esc(a.updatedAt);
+  // Counts are wrapped in <strong> at the call site and passed as {0}/{1} tokens so
+  // the bold survives while the sentence stays one translator-reorderable unit.
+  const summary = t('panel.health.advisor.summary', `<strong>${a.suggestionCount}</strong>`, `<strong>${a.tableCount}</strong>`);
+  const dismissed = a.dismissedCount > 0 ? ` ${t('panel.health.advisor.dismissed', `<strong>${a.dismissedCount}</strong>`)}` : '';
   return `<div class="advisor">
-  <h2>Refactoring advisor (session)</h2>
-  <div>Last analysis: <strong>${a.suggestionCount}</strong> suggestion(s) across <strong>${a.tableCount}</strong> tables.
-  ${a.dismissedCount > 0 ? ` You dismissed <strong>${a.dismissedCount}</strong> in the panel.` : ''}</div>
+  <h2>${t('panel.health.advisor.title')}</h2>
+  <div>${summary}${dismissed}</div>
   ${a.topTitles.length ? `<ul>${titles}</ul>` : ''}
-  <div class="advisor-meta">Updated ${when}. Same summary is merged into <strong>Schema Quality</strong> details when you refresh the health score.</div>
+  <div class="advisor-meta">${t('panel.health.advisor.updated', when)}</div>
   <div style="margin-top:10px;">
-    <button class="btn" type="button" data-action-command="driftViewer.suggestSchemaRefactorings">Open refactoring panel</button>
+    <button class="btn" type="button" data-action-command="driftViewer.suggestSchemaRefactorings">${t('panel.health.advisor.open')}</button>
   </div>
 </div>`;
 }
@@ -128,8 +132,8 @@ function buildActions(actions?: IMetricAction[]): string {
 
 function buildRecommendations(recs: IRecommendation[]): string {
   if (recs.length === 0) {
-    return `<div class="recs"><h2>Recommendations</h2>
-      <div style="opacity:0.6;font-size:12px">No issues found. Great job!</div></div>`;
+    return `<div class="recs"><h2>${t('panel.health.recs.title')}</h2>
+      <div style="opacity:0.6;font-size:12px">${t('panel.health.recs.none')}</div></div>`;
   }
   const items = recs.map((r) => {
     const icon = r.severity === 'error' ? '\u2716' : r.severity === 'warning' ? '\u26A0' : '\u2139';
@@ -141,13 +145,13 @@ function buildRecommendations(recs: IRecommendation[]): string {
       <span class="rec-metric">${esc(r.metric)}</span>
     </div>`;
   }).join('\n');
-  return `<div class="recs"><h2>Recommendations</h2>${items}</div>`;
+  return `<div class="recs"><h2>${t('panel.health.recs.title')}</h2>${items}</div>`;
 }
 
 function buildRecAction(action?: IMetricAction): string {
   if (!action) return '';
   const argsAttr = action.args ? ` data-args='${esc(JSON.stringify(action.args))}'` : '';
-  return `<button class="rec-action" data-action-command="${esc(action.command)}"${argsAttr}>Fix</button>`;
+  return `<button class="rec-action" data-action-command="${esc(action.command)}"${argsAttr}>${t('panel.health.rec.fix')}</button>`;
 }
 
 function gradeColorClass(grade: string): string {

@@ -3,14 +3,16 @@
  * Collects table selection (multi-select) and dataset name in one view
  * instead of two sequential showQuickPick + showInputBox prompts.
  */
+import { t } from '../l10n';
+
 export function buildExportFormHtml(
   tables: Array<{ name: string; rowCount: number }>,
 ): string {
-  const checkboxes = tables.map((t) =>
+  const checkboxes = tables.map((tbl) =>
     `<label class="table-option">
-      <input type="checkbox" value="${esc(t.name)}" checked />
-      <span class="table-name">${esc(t.name)}</span>
-      <span class="table-rows">${t.rowCount} rows</span>
+      <input type="checkbox" value="${esc(tbl.name)}" checked />
+      <span class="table-name">${esc(tbl.name)}</span>
+      <span class="table-rows">${t('panel.data.export.table.rows', tbl.rowCount)}</span>
     </label>`,
   ).join('\n');
 
@@ -122,29 +124,29 @@ export function buildExportFormHtml(
 </style>
 </head>
 <body>
-<h1>Export Dataset</h1>
+<h1>${t('panel.data.export.title')}</h1>
 
 <div class="field">
-  <div class="field-label">Dataset Name</div>
-  <input type="text" id="name" placeholder="my-dataset" />
-  <div class="error-text" id="name-error">Dataset name is required</div>
+  <div class="field-label">${t('panel.data.export.field.name')}</div>
+  <input type="text" id="name" placeholder="${t('panel.data.export.name.placeholder')}" />
+  <div class="error-text" id="name-error">${t('panel.data.export.name.error')}</div>
 </div>
 
 <div class="field">
-  <div class="field-label">Tables to Export</div>
+  <div class="field-label">${t('panel.data.export.field.tables')}</div>
   <div class="table-toolbar">
-    <button class="toolbar-btn" id="selectAll">Select all</button>
-    <button class="toolbar-btn" id="selectNone">Select none</button>
+    <button class="toolbar-btn" id="selectAll">${t('panel.data.export.selectAll')}</button>
+    <button class="toolbar-btn" id="selectNone">${t('panel.data.export.selectNone')}</button>
   </div>
   <div class="table-list">
     ${checkboxes}
   </div>
-  <div class="error-text" id="tables-error">Select at least one table</div>
+  <div class="error-text" id="tables-error">${t('panel.data.export.tables.error')}</div>
 </div>
 
 <div class="btn-row">
-  <button class="btn btn-primary" id="submit">Export</button>
-  <button class="btn btn-secondary" id="cancel">Cancel</button>
+  <button class="btn btn-primary" id="submit">${t('panel.data.export.btn.export')}</button>
+  <button class="btn btn-secondary" id="cancel">${t('panel.data.export.btn.cancel')}</button>
 </div>
 
 <script>

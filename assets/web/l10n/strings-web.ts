@@ -45,6 +45,20 @@ export const webStrings: Record<string, string> = {
   'nl.modal.copySql': 'Copy SQL',
   'nl.modal.preview': 'Preview results',
 
+  // --- Masthead connection-status pill (assets/web/masthead.ts) ---
+  // The decorative status dot (●) is prepended in code, NOT part of these values —
+  // it is a symbol that must never vary per locale. Status words and the full
+  // tooltip sentences ARE translatable; the em-dash/ellipsis stay inside the value
+  // because they belong to the sentence's punctuation.
+  'masthead.status.online': 'Online',
+  'masthead.status.paused': 'Paused',
+  'masthead.status.offline': 'Offline',
+  'masthead.status.reconnecting': 'Reconnecting…',
+  'masthead.title.online': 'Online — click to pause change detection.',
+  'masthead.title.paused': 'Paused — click to resume live updates.',
+  'masthead.title.offline': 'Offline — connection lost. Reconnect to resume live updates.',
+  'masthead.title.reconnecting': 'Offline — reconnecting…',
+
   // --- Generic status / feedback messages (assets/web/utils.ts consumers) ---
   // {0} is the concrete value (e.g. a SQL snippet, a count) — keep it a token,
   // never concatenated English, so word order can change per locale.

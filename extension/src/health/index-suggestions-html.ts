@@ -1,4 +1,5 @@
 import type { IndexSuggestion } from '../api-types';
+import { t } from '../l10n';
 
 /**
  * Build HTML for the Index Suggestions webview panel.
@@ -14,7 +15,7 @@ export function buildIndexSuggestionsHtml(
 <style>body { font-family: var(--vscode-font-family); color: var(--vscode-foreground);
   background: var(--vscode-editor-background); }
 .empty { padding: 32px; text-align: center; opacity: 0.6; }</style>
-</head><body><div class="empty">No missing indexes detected.</div></body></html>`;
+</head><body><div class="empty">${t('panel.quality.index.empty')}</div></body></html>`;
   }
 
   const rows = suggestions.map((s, i) => {
@@ -27,7 +28,7 @@ export function buildIndexSuggestionsHtml(
       <td>${esc(s.reason)}</td>
       <td class="sql-cell"><code>${esc(s.sql)}</code></td>
       <td>
-        <button class="action-btn" data-copy="${i}" title="Copy SQL">Copy</button>
+        <button class="action-btn" data-copy="${i}" title="${t('panel.quality.index.row.copy.title')}">${t('panel.quality.index.row.copy')}</button>
       </td>
     </tr>`;
   }).join('\n');
@@ -127,27 +128,27 @@ export function buildIndexSuggestionsHtml(
 </head>
 <body>
 <div class="header">
-  <h1>Index Suggestions</h1>
+  <h1>${t('panel.quality.index.title')}</h1>
   <div class="btn-group">
-    <button class="btn btn-secondary" data-action="copySelected">Copy Selected SQL</button>
-    <button class="btn btn-secondary" data-action="copyAll">Copy All SQL</button>
-    <button class="btn btn-secondary" data-action="exportAnalysis">Export Analysis</button>
-    <button class="btn btn-secondary" data-action="saveSnapshot">Save Snapshot</button>
-    <button class="btn btn-secondary" data-action="compareHistory">Compare${historyCount > 0 ? ` (${historyCount})` : ''}</button>
-    <button class="btn" data-action="createAll">Create All Indexes</button>
+    <button class="btn btn-secondary" data-action="copySelected">${t('panel.quality.index.btn.copySelected')}</button>
+    <button class="btn btn-secondary" data-action="copyAll">${t('panel.quality.index.btn.copyAll')}</button>
+    <button class="btn btn-secondary" data-action="exportAnalysis">${t('panel.quality.index.btn.exportAnalysis')}</button>
+    <button class="btn btn-secondary" data-action="saveSnapshot">${t('panel.quality.index.btn.saveSnapshot')}</button>
+    <button class="btn btn-secondary" data-action="compareHistory">${historyCount > 0 ? t('panel.quality.index.btn.compareCount', historyCount) : t('panel.quality.index.btn.compare')}</button>
+    <button class="btn" data-action="createAll">${t('panel.quality.index.btn.createAll')}</button>
   </div>
 </div>
-<div class="summary">${suggestions.length} missing index(es) detected</div>
+<div class="summary">${t('panel.quality.index.summary', suggestions.length)}</div>
 
 <table>
   <thead>
     <tr>
-      <th><input type="checkbox" class="select-all" title="Select all" /></th>
-      <th>Table</th>
-      <th>Column</th>
-      <th>Priority</th>
-      <th>Reason</th>
-      <th>SQL</th>
+      <th><input type="checkbox" class="select-all" title="${t('panel.quality.index.selectAll.title')}" /></th>
+      <th>${t('panel.quality.index.th.table')}</th>
+      <th>${t('panel.quality.index.th.column')}</th>
+      <th>${t('panel.quality.index.th.priority')}</th>
+      <th>${t('panel.quality.index.th.reason')}</th>
+      <th>${t('panel.quality.index.th.sql')}</th>
       <th></th>
     </tr>
   </thead>

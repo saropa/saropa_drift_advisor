@@ -1,14 +1,15 @@
 import type { IRowDiff, IRowDiffColumn } from './row-differ';
+import { t } from '../l10n';
 
 /** Build the HTML for the row comparator webview panel. */
 export function buildComparatorHtml(diff: IRowDiff): string {
   const rows = diff.columns.map((c) => renderRow(c)).join('');
 
   const parts: string[] = [];
-  if (diff.sameCount > 0) parts.push(`${diff.sameCount} same`);
-  if (diff.differentCount > 0) parts.push(`${diff.differentCount} different`);
-  if (diff.onlyACount > 0) parts.push(`${diff.onlyACount} only in A`);
-  if (diff.onlyBCount > 0) parts.push(`${diff.onlyBCount} only in B`);
+  if (diff.sameCount > 0) parts.push(t('panel.compare.comparator.summary.same', diff.sameCount));
+  if (diff.differentCount > 0) parts.push(t('panel.compare.comparator.summary.different', diff.differentCount));
+  if (diff.onlyACount > 0) parts.push(t('panel.compare.comparator.summary.onlyA', diff.onlyACount));
+  if (diff.onlyBCount > 0) parts.push(t('panel.compare.comparator.summary.onlyB', diff.onlyBCount));
   const summary = parts.join(', ');
 
   return `<!DOCTYPE html>
@@ -47,11 +48,11 @@ export function buildComparatorHtml(diff: IRowDiff): string {
 </style>
 </head>
 <body>
-  <h2>${esc(diff.labelA)} vs ${esc(diff.labelB)}</h2>
+  <h2>${t('panel.compare.comparator.heading', esc(diff.labelA), esc(diff.labelB))}</h2>
   <table>
     <thead>
       <tr>
-        <th>Column</th>
+        <th>${t('panel.compare.comparator.th.column')}</th>
         <th>${esc(diff.labelA)}</th>
         <th>${esc(diff.labelB)}</th>
       </tr>
@@ -60,8 +61,8 @@ export function buildComparatorHtml(diff: IRowDiff): string {
   </table>
   <p class="summary">${esc(summary)}</p>
   <div class="actions">
-    <button onclick="post('swapRows')">Swap A/B</button>
-    <button onclick="post('copyJson')">Copy as JSON</button>
+    <button onclick="post('swapRows')">${t('panel.compare.comparator.btn.swap')}</button>
+    <button onclick="post('copyJson')">${t('panel.compare.comparator.btn.copyJson')}</button>
   </div>
   <script>
     const vscode = acquireVsCodeApi();
@@ -83,7 +84,7 @@ function renderRow(c: IRowDiffColumn): string {
 }
 
 function formatValue(v: unknown): string {
-  if (v === null) return '<em>NULL</em>';
+  if (v === null) return `<em>${t('panel.compare.comparator.value.null')}</em>`;
   if (v === undefined) return '';
   if (typeof v === 'string') return esc(`"${v}"`);
   return esc(String(v));

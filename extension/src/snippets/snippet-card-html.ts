@@ -1,4 +1,5 @@
 import type { ISqlSnippet } from './snippet-types';
+import { t } from '../l10n';
 
 /** Render a single snippet card with run form, edit, and delete actions. */
 export function renderSnippetCard(
@@ -10,7 +11,7 @@ export function renderSnippetCard(
     if (v.type === 'table') {
       return `<div class="var-row">${label}
         <select data-var="${esc(v.name)}" onchange="updatePreview('${esc(s.id)}')">
-          <option value="">-- select table --</option>
+          <option value="">${esc(t('panel.notes.snippet.table.placeholder'))}</option>
           ${tableOptions}
         </select></div>`;
     }
@@ -28,9 +29,9 @@ export function renderSnippetCard(
         ${varInputs}
         <div class="preview">${esc(s.sql)}</div>
         <div class="form-actions">
-          <button onclick="runSnippet('${esc(s.id)}')">Run</button>
+          <button onclick="runSnippet('${esc(s.id)}')">${t('panel.notes.snippet.btn.run')}</button>
           <button class="secondary"
-                  onclick="showRunForm('${esc(s.id)}')">Cancel</button>
+                  onclick="showRunForm('${esc(s.id)}')">${t('panel.notes.snippet.btn.cancel')}</button>
         </div>
         <div id="result-${esc(s.id)}"></div>
       </div>`
@@ -40,7 +41,7 @@ export function renderSnippetCard(
     ? `<div class="snippet-desc">${esc(s.description)}</div>`
     : '';
   const meta = s.useCount > 0
-    ? `<div class="snippet-meta">Used ${s.useCount} time${s.useCount === 1 ? '' : 's'}</div>`
+    ? `<div class="snippet-meta">${t('panel.notes.snippet.used', s.useCount)}</div>`
     : '';
 
   const runAction = s.variables.length > 0
@@ -52,9 +53,9 @@ export function renderSnippetCard(
     ${desc}
     <div class="snippet-sql">${esc(s.sql)}</div>
     <div class="snippet-actions">
-      <button onclick="${runAction}">Run</button>
-      <button class="secondary" onclick="editSnippet('${esc(s.id)}')">Edit</button>
-      <button class="secondary danger" onclick="deleteSnippet('${esc(s.id)}', '${escAttr(s.name)}')">Delete</button>
+      <button onclick="${runAction}">${t('panel.notes.snippet.btn.run')}</button>
+      <button class="secondary" onclick="editSnippet('${esc(s.id)}')">${t('panel.notes.snippet.btn.edit')}</button>
+      <button class="secondary danger" onclick="deleteSnippet('${esc(s.id)}', '${escAttr(s.name)}')">${t('panel.notes.snippet.btn.delete')}</button>
     </div>
     ${runForm}
     ${meta}

@@ -6,6 +6,7 @@
  */
 import * as S from './state.ts';
 import { esc } from './utils.ts';
+import { vt } from './l10n.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
 import { loadFkMeta } from './fk-nav.ts';
 import { renderQuerySql, validateQueryModel, getWhereOpsForType } from './query-builder-sql.ts';
@@ -191,14 +192,14 @@ export function renderMultiRoot(): void {
       const isRoot = m.tables[0]?.id === t.id;
       const rm = isRoot
         ? ''
-        : ` <button type="button" class="qb-m-remove-table" data-table-id="${esc(t.id)}" title="Remove this table instance">Remove</button>`;
+        : ` <button type="button" class="qb-m-remove-table" data-table-id="${esc(t.id)}" title="${esc(vt('viewer.qb.multi.table.remove.title'))}">${esc(vt('viewer.qb.multi.table.remove.label'))}</button>`;
       return `<li><strong>${esc(t.alias)}</strong> — ${esc(t.baseTable)}${rm}</li>`;
     })
     .join('');
 
   const joinsHtml =
     m.joins.length === 0
-      ? '<p class="meta">No JOINs yet. Add one before selecting columns from a second table.</p>'
+      ? `<p class="meta">${esc(vt('viewer.qb.multi.joins.empty'))}</p>`
       : m.joins
           .map((j) => {
             const lt = tableById(j.leftTableId);
@@ -218,17 +219,17 @@ export function renderMultiRoot(): void {
         .map((c) => `<option value="${esc(c.name)}"${c.name === sc.column ? ' selected' : ''}>${esc(c.name)}</option>`)
         .join('');
       const aggOpts = ['', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX']
-        .map((a) => `<option value="${esc(a)}"${(sc.aggregation || '') === a ? ' selected' : ''}>${a ? esc(a) : '(none)'}</option>`)
+        .map((a) => `<option value="${esc(a)}"${(sc.aggregation || '') === a ? ' selected' : ''}>${a ? esc(a) : esc(vt('viewer.qb.multi.sel.agg.none'))}</option>`)
         .join('');
       const showAgg = m.groupBy.length > 0;
       const aggHtml = showAgg
-        ? `<select class="qb-m-sel-agg" data-sel-idx="${idx}" title="Aggregate (required when GROUP BY is non-empty)">${aggOpts}</select>`
+        ? `<select class="qb-m-sel-agg" data-sel-idx="${idx}" title="${esc(vt('viewer.qb.multi.sel.agg.title'))}">${aggOpts}</select>`
         : '';
       return `<div class="qb-row qb-m-sel-row">
         <select class="qb-m-sel-table" data-sel-idx="${idx}">${instOptsRow}</select>
         <select class="qb-m-sel-col" data-sel-idx="${idx}">${colOpts}</select>
         ${aggHtml}
-        <button type="button" class="qb-m-remove-sel" data-sel-idx="${idx}" title="Remove column">\u00D7</button>
+        <button type="button" class="qb-m-remove-sel" data-sel-idx="${idx}" title="${esc(vt('viewer.qb.multi.sel.remove.title'))}">\u00D7</button>
       </div>`;
     })
     .join('');
@@ -249,7 +250,7 @@ export function renderMultiRoot(): void {
         <select class="qb-m-flt-table" data-flt-id="${esc(f.id)}">${m.tables.map((tb) => `<option value="${esc(tb.id)}"${tb.id === f.tableId ? ' selected' : ''}>${esc(tb.alias)}</option>`).join('')}</select>
         <select class="qb-m-flt-col" data-flt-id="${esc(f.id)}">${(t?.columns || []).map((c) => `<option value="${esc(c.name)}"${c.name === f.column ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
         <select class="qb-m-flt-op" data-flt-id="${esc(f.id)}">${opOpts}</select>
-        <input type="text" class="qb-m-flt-val" data-flt-id="${esc(f.id)}" value="${esc(valDisplay)}" placeholder="value or comma-separated (IN)"${valHidden}/>
+        <input type="text" class="qb-m-flt-val" data-flt-id="${esc(f.id)}" value="${esc(valDisplay)}" placeholder="${esc(vt('viewer.qb.multi.flt.value.placeholder'))}"${valHidden}/>
         <button type="button" class="qb-m-remove-flt" data-flt-id="${esc(f.id)}">\u00D7</button>
       </div>`;
     })
@@ -275,59 +276,67 @@ export function renderMultiRoot(): void {
     })
     .join('');
 
+  // The join-help sentence wraps an emphasized "right" and a <code>tN</code>
+  // span around translatable tokens {0}/{1}; the markup lives here at the call
+  // site so a locale can reorder the words while keeping the styling.
+  const joinHelp = vt(
+    'viewer.qb.multi.join.help',
+    `<em>${esc(vt('viewer.qb.multi.join.help.right'))}</em>`,
+    `<code>${esc(vt('viewer.qb.multi.join.help.tn'))}</code>`,
+  );
   host.innerHTML = `
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">Tables</div>
+  <div class="qb-header qb-header-static">${esc(vt('viewer.qb.section.tables'))}</div>
   <div class="qb-body">
     <ul class="qb-m-table-list">${tablesHtml}</ul>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">JOINs</div>
+  <div class="qb-header qb-header-static">${esc(vt('viewer.qb.section.joins'))}</div>
   <div class="qb-body">
     ${joinsHtml}
     <div class="qb-row" style="margin-top:0.5rem;flex-wrap:wrap;align-items:flex-end;">
-      <label>Left</label>
+      <label>${esc(vt('viewer.qb.multi.join.left.label'))}</label>
       <select id="qb-m-join-left-t">${instOpts}</select>
       <select id="qb-m-join-left-c"></select>
       <select id="qb-m-join-type"><option value="INNER">INNER</option><option value="LEFT">LEFT</option><option value="RIGHT">RIGHT</option></select>
-      <label>Right table</label>
-      <select id="qb-m-join-right-base">${schemaOpts ? `<option value="">— pick —</option>${schemaOpts}` : '<option value="">(load schema)</option>'}</select>
+      <label>${esc(vt('viewer.qb.multi.join.rightTable.label'))}</label>
+      <select id="qb-m-join-right-base">${schemaOpts ? `<option value="">${esc(vt('viewer.qb.multi.join.rightBase.pick'))}</option>${schemaOpts}` : `<option value="">${esc(vt('viewer.qb.multi.join.rightBase.loadSchema'))}</option>`}</select>
       <select id="qb-m-join-right-c"></select>
-      <button type="button" id="qb-m-join-add">Add JOIN</button>
+      <button type="button" id="qb-m-join-add">${esc(vt('viewer.qb.multi.join.add.label'))}</button>
     </div>
-    <p class="meta" style="margin-top:0.35rem;">Connects the <em>right</em> base table as a new instance (<code>tN</code>) or joins two existing instances when the right table already exists and you pick matching columns.</p>
+    <p class="meta" style="margin-top:0.35rem;">${joinHelp}</p>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">SELECT columns</div>
+  <div class="qb-header qb-header-static">${esc(vt('viewer.qb.section.selectColumns'))}</div>
   <div class="qb-body">
-    ${selColsHtml || '<p class="meta">No columns selected.</p>'}
-    <button type="button" id="qb-m-add-sel">+ Add column</button>
+    ${selColsHtml || `<p class="meta">${esc(vt('viewer.qb.multi.sel.empty'))}</p>`}
+    <button type="button" id="qb-m-add-sel">${esc(vt('viewer.qb.multi.sel.add.label'))}</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">WHERE</div>
+  <div class="qb-header qb-header-static">${esc(vt('viewer.qb.section.where'))}</div>
   <div class="qb-body">
-    ${filtersHtml || '<p class="meta">No filters.</p>'}
-    <button type="button" id="qb-m-add-flt">+ Add condition</button>
+    ${filtersHtml || `<p class="meta">${esc(vt('viewer.qb.multi.flt.empty'))}</p>`}
+    <button type="button" id="qb-m-add-flt">${esc(vt('viewer.qb.multi.flt.add.label'))}</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">GROUP BY</div>
+  <div class="qb-header qb-header-static">${esc(vt('viewer.qb.section.groupBy'))}</div>
   <div class="qb-body">
-    ${gbHtml || '<p class="meta">None</p>'}
-    <button type="button" id="qb-m-add-gb">+ Add GROUP BY</button>
+    ${gbHtml || `<p class="meta">${esc(vt('viewer.qb.multi.empty.none'))}</p>`}
+    <button type="button" id="qb-m-add-gb">${esc(vt('viewer.qb.multi.gb.add.label'))}</button>
   </div>
 </div>
 <div class="qb-multi-section qb-section">
-  <div class="qb-header qb-header-static">ORDER BY</div>
+  <div class="qb-header qb-header-static">${esc(vt('viewer.qb.section.orderBy'))}</div>
   <div class="qb-body">
-    ${obHtml || '<p class="meta">None</p>'}
-    <button type="button" id="qb-m-add-ob">+ Add ORDER BY</button>
+    ${obHtml || `<p class="meta">${esc(vt('viewer.qb.multi.empty.none'))}</p>`}
+    <button type="button" id="qb-m-add-ob">${esc(vt('viewer.qb.multi.ob.add.label'))}</button>
   </div>
 </div>
-<div class="qb-row" style="margin-top:0.5rem;"><label>LIMIT</label><input type="number" id="qb-m-limit" min="1" max="1000" value="${m.limit ?? 200}"/></div>
+<div class="qb-row" style="margin-top:0.5rem;"><label>${esc(vt('viewer.qb.label.limit'))}</label><input type="number" id="qb-m-limit" min="1" max="1000" value="${m.limit ?? 200}"/></div>
 `;
 
   fillJoinColumnSelects();
@@ -392,7 +401,7 @@ function wireMultiRoot(host: HTMLElement): void {
     const rb = (document.getElementById('qb-m-join-right-base') as HTMLSelectElement).value;
     const rc = (document.getElementById('qb-m-join-right-c') as HTMLSelectElement).value;
     if (!ltid || !lc || !rb || !rc) {
-      alert('Pick left column, right table, and right column for the JOIN.');
+      alert(vt('viewer.qb.multi.alert.pickJoin'));
       return;
     }
     const leftInst = tableById(ltid);

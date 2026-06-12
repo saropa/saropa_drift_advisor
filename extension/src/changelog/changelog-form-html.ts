@@ -1,3 +1,5 @@
+import { t } from '../l10n';
+
 /**
  * Build HTML for the Snapshot Changelog form webview panel.
  * Collects "from" and "to" snapshots in one view instead of
@@ -93,25 +95,25 @@ export function buildChangelogFormHtml(
 </style>
 </head>
 <body>
-<h1>Snapshot Changelog</h1>
+<h1>${t('panel.notes.changelog.title')}</h1>
 
 <div class="field">
-  <div class="field-label">From (older snapshot)</div>
+  <div class="field-label">${t('panel.notes.changelog.from.label')}</div>
   <select id="from">${fromOptions}</select>
-  <div class="hint">The baseline snapshot to compare from</div>
+  <div class="hint">${t('panel.notes.changelog.from.hint')}</div>
 </div>
 
 <div class="field">
-  <div class="field-label">To (newer snapshot)</div>
+  <div class="field-label">${t('panel.notes.changelog.to.label')}</div>
   <select id="to">${toOptions}</select>
-  <div class="hint">The target snapshot to compare against</div>
+  <div class="hint">${t('panel.notes.changelog.to.hint')}</div>
 </div>
 
-<div class="error-text" id="sameError">Please select two different snapshots</div>
+<div class="error-text" id="sameError">${t('panel.notes.changelog.sameError')}</div>
 
 <div class="btn-row">
-  <button class="btn btn-primary" id="submit">Generate Changelog</button>
-  <button class="btn btn-secondary" id="cancel">Cancel</button>
+  <button class="btn btn-primary" id="submit">${t('panel.notes.changelog.btn.submit')}</button>
+  <button class="btn btn-secondary" id="cancel">${t('panel.notes.changelog.btn.cancel')}</button>
 </div>
 
 <script>

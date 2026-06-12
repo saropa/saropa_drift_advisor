@@ -8,6 +8,7 @@
 import * as S from './state.ts';
 import { esc, setButtonBusy, highlightSqlSafe, syncFeatureCardExpanded } from './utils.ts';
 import { renderRowDiff } from './analysis.ts';
+import { vt } from './l10n.ts';
 
 export function initSnapshot(): void {
   const toggle = document.getElementById('snapshot-toggle');
@@ -38,7 +39,7 @@ export function initSnapshot(): void {
 
   function fmtSnapshotLabel(s: any): string {
     var when = s.createdAt || s.id || '';
-    return (s.label ? (s.label + ' — ') : '') + when;
+    return (s.label ? vt('viewer.tools.snapshot.labelPrefix', s.label) : '') + when;
   }
 
   // `to` selector includes "now (live DB)" (empty value) so the legacy
@@ -62,17 +63,17 @@ export function initSnapshot(): void {
     if (has) exportLink.href = buildExportHref();
 
     if (!has) {
-      host.innerHTML = '<p class="meta">No snapshots yet. Capture one to start comparing.</p>';
+      host.innerHTML = '<p class="meta">' + vt('viewer.tools.snapshot.empty') + '</p>';
       return;
     }
 
     var html = '<div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.4rem;">';
-    html += '<label class="meta">From <select id="snapshot-from">';
+    html += '<label class="meta">' + vt('viewer.tools.snapshot.from') + ' <select id="snapshot-from">';
     snapshotItems.forEach(function(s) {
       html += '<option value="' + esc(s.id) + '">' + esc(fmtSnapshotLabel(s)) + '</option>';
     });
     html += '</select></label>';
-    html += '<label class="meta">To <select id="snapshot-to"><option value="">now (live DB)</option>';
+    html += '<label class="meta">' + vt('viewer.tools.snapshot.to') + ' <select id="snapshot-to"><option value="">' + vt('viewer.tools.snapshot.now') + '</option>';
     snapshotItems.forEach(function(s) {
       html += '<option value="' + esc(s.id) + '">' + esc(fmtSnapshotLabel(s)) + '</option>';
     });
@@ -80,14 +81,14 @@ export function initSnapshot(): void {
     html += '</div>';
 
     html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
-    html += '<tr><th style="border:1px solid var(--border);padding:4px;text-align:left;">Snapshot</th><th style="border:1px solid var(--border);padding:4px;">Tables</th><th style="border:1px solid var(--border);padding:4px;">Actions</th></tr>';
+    html += '<tr><th style="border:1px solid var(--border);padding:4px;text-align:left;">' + vt('viewer.tools.snapshot.col.snapshot') + '</th><th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.tools.snapshot.col.tables') + '</th><th style="border:1px solid var(--border);padding:4px;">' + vt('viewer.tools.snapshot.col.actions') + '</th></tr>';
     snapshotItems.forEach(function(s) {
       html += '<tr>';
       html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(fmtSnapshotLabel(s)) + '</td>';
       html += '<td style="border:1px solid var(--border);padding:4px;text-align:right;">' + (s.tableCount != null ? s.tableCount : '') + '</td>';
       html += '<td style="border:1px solid var(--border);padding:4px;">';
-      html += '<button class="btn snapshot-rename" data-id="' + esc(s.id) + '">Rename</button> ';
-      html += '<button class="btn snapshot-del" data-id="' + esc(s.id) + '">Delete</button>';
+      html += '<button class="btn snapshot-rename" data-id="' + esc(s.id) + '">' + vt('viewer.tools.snapshot.rename') + '</button> ';
+      html += '<button class="btn snapshot-del" data-id="' + esc(s.id) + '">' + vt('viewer.tools.snapshot.delete') + '</button>';
       html += '</td></tr>';
     });
     html += '</table>';
@@ -122,9 +123,9 @@ export function initSnapshot(): void {
   }
 
   if (takeBtn) takeBtn.addEventListener('click', function() {
-    var label = window.prompt('Optional label for this snapshot (leave blank for none):') || '';
+    var label = window.prompt(vt('viewer.tools.snapshot.takePrompt')) || '';
     takeBtn.disabled = true;
-    statusEl.textContent = 'Capturing…';
+    statusEl.textContent = vt('viewer.tools.snapshot.capturing');
     fetch('/api/snapshot', S.authOpts({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -133,11 +134,11 @@ export function initSnapshot(): void {
       .then(r => r.json().then(function(d) { return { ok: r.ok, data: d }; }))
       .then(function(o) {
         if (o.ok) {
-          statusEl.textContent = 'Snapshot saved at ' + o.data.createdAt;
+          statusEl.textContent = vt('viewer.tools.snapshot.saved', o.data.createdAt);
           refreshSnapshotList();
-        } else statusEl.textContent = o.data.error || 'Failed';
+        } else statusEl.textContent = o.data.error || vt('viewer.tools.snapshot.failed');
       })
-      .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
+      .catch(function(e) { statusEl.textContent = vt('viewer.tools.snapshot.error', e.message); })
       .finally(function() { takeBtn.disabled = false; });
   });
 
@@ -150,7 +151,7 @@ export function initSnapshot(): void {
     compareBtn.disabled = true;
     resultPre.style.display = 'none';
     resultPre.innerHTML = '';
-    statusEl.textContent = 'Comparing…';
+    statusEl.textContent = vt('viewer.tools.snapshot.comparing');
     statusEl.setAttribute('aria-busy', 'true');
     fetch('/api/snapshot/compare?' + qs, S.authOpts())
       .then(r => r.json().then(function(d) { return { ok: r.ok, data: d }; }))
@@ -164,10 +165,10 @@ export function initSnapshot(): void {
           resultPre.style.display = 'block';
           statusEl.textContent = '';
         } else {
-          statusEl.textContent = o.data.error || 'Compare failed';
+          statusEl.textContent = o.data.error || vt('viewer.tools.snapshot.compareFailed');
         }
       })
-      .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
+      .catch(function(e) { statusEl.textContent = vt('viewer.tools.snapshot.error', e.message); })
       .finally(function() {
         compareBtn.disabled = false;
         statusEl.removeAttribute('aria-busy');
@@ -175,17 +176,17 @@ export function initSnapshot(): void {
   });
 
   if (clearBtn) clearBtn.addEventListener('click', function() {
-    if (!window.confirm('Delete ALL snapshots?')) return;
+    if (!window.confirm(vt('viewer.tools.snapshot.clearConfirm'))) return;
     clearBtn.disabled = true;
-    statusEl.textContent = 'Clearing…';
+    statusEl.textContent = vt('viewer.tools.snapshot.clearing');
     fetch('/api/snapshot', S.authOpts({ method: 'DELETE' }))
       .then(function() {
         resultPre.style.display = 'none';
         resultPre.innerHTML = '';
-        statusEl.textContent = 'All snapshots cleared.';
+        statusEl.textContent = vt('viewer.tools.snapshot.cleared');
         refreshSnapshotList();
       })
-      .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
+      .catch(function(e) { statusEl.textContent = vt('viewer.tools.snapshot.error', e.message); })
       .finally(function() { clearBtn.disabled = false; });
   });
 
@@ -198,19 +199,19 @@ export function initSnapshot(): void {
       var id = t.getAttribute('data-id');
       if (!id) return;
       if (t.classList.contains('snapshot-del')) {
-        if (!window.confirm('Delete this snapshot?')) return;
+        if (!window.confirm(vt('viewer.tools.snapshot.deleteConfirm'))) return;
         fetch('/api/snapshot/' + encodeURIComponent(id), S.authOpts({ method: 'DELETE' }))
           .then(function() { refreshSnapshotList(); })
-          .catch(function(err) { statusEl.textContent = 'Error: ' + err.message; });
+          .catch(function(err) { statusEl.textContent = vt('viewer.tools.snapshot.error', err.message); });
       } else if (t.classList.contains('snapshot-rename')) {
-        var label = window.prompt('New label (leave blank to clear):') || '';
+        var label = window.prompt(vt('viewer.tools.snapshot.renamePrompt')) || '';
         fetch('/api/snapshot/' + encodeURIComponent(id), S.authOpts({
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ label: label.trim() }),
         }))
           .then(function() { refreshSnapshotList(); })
-          .catch(function(err) { statusEl.textContent = 'Error: ' + err.message; });
+          .catch(function(err) { statusEl.textContent = vt('viewer.tools.snapshot.error', err.message); });
       }
     });
   }
@@ -240,21 +241,21 @@ export function initCompare(): void {
   if (viewBtn) viewBtn.addEventListener('click', function() {
     viewBtn.disabled = true;
     resultPre.style.display = 'none';
-    statusEl.textContent = 'Loading…';
+    statusEl.textContent = vt('viewer.tools.compare.loading');
     fetch('/api/compare/report', S.authOpts())
       .then(r => r.json().then(function(d) { return { status: r.status, data: d }; }))
       .then(function(o) {
         if (o.status === 501) {
-          statusEl.textContent = 'Not configured. A comparison database is needed \u2014 see the setup guide above.';
+          statusEl.textContent = vt('viewer.tools.compare.notConfigured');
         } else if (o.status >= 400) {
-          statusEl.textContent = o.data.error || 'Request failed';
+          statusEl.textContent = o.data.error || vt('viewer.tools.compare.requestFailed');
         } else {
           resultPre.textContent = JSON.stringify(o.data, null, 2);
           resultPre.style.display = 'block';
           statusEl.textContent = '';
         }
       })
-      .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
+      .catch(function(e) { statusEl.textContent = vt('viewer.tools.compare.error', e.message); })
       .finally(function() { viewBtn.disabled = false; });
   });
 }
@@ -266,41 +267,41 @@ export function initMigrationPreview(): void {
   if (!btn) return;
   btn.addEventListener('click', function() {
     btn.disabled = true;
-    setButtonBusy(btn, true, 'Generating…');
+    setButtonBusy(btn, true, vt('viewer.tools.migration.busy'));
     resultPre.style.display = 'none';
     statusEl.textContent = '';
     fetch('/api/migration/preview', S.authOpts())
       .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
       .then(function(o) {
         if (o.status === 501) {
-          statusEl.textContent = 'Not configured. A comparison database is needed \u2014 see the setup guide above.';
+          statusEl.textContent = vt('viewer.tools.compare.notConfigured');
 
    return;
         }
         if (o.status >= 400) {
-          statusEl.textContent = o.data.error || 'Request failed';
+          statusEl.textContent = o.data.error || vt('viewer.tools.compare.requestFailed');
 
    return;
         }
-        var sql = o.data.migrationSql || '-- No changes detected.';
-        var html = '<p class="meta">' + o.data.changeCount + ' statement(s) generated';
-        if (o.data.hasWarnings) html += ' (includes warnings)';
+        var sql = o.data.migrationSql || vt('viewer.tools.migration.noChanges');
+        var html = '<p class="meta">' + vt('viewer.tools.migration.summary', o.data.changeCount);
+        if (o.data.hasWarnings) html += vt('viewer.tools.migration.withWarnings');
         html += '</p>';
         html += '<pre style="font-size:11px;max-height:30vh;overflow:auto;background:var(--bg-pre);padding:0.5rem;border-radius:4px;">' + highlightSqlSafe(sql) + '</pre>';
-        html += '<button type="button" id="migration-copy-sql" title="Copy migration SQL to clipboard">Copy SQL</button>';
+        html += '<button type="button" id="migration-copy-sql" title="' + vt('viewer.tools.migration.copySqlTitle') + '">' + vt('viewer.tools.migration.copySql') + '</button>';
         resultPre.innerHTML = html;
         resultPre.style.display = 'block';
         statusEl.textContent = '';
         var copyBtn = document.getElementById('migration-copy-sql');
         if (copyBtn) copyBtn.addEventListener('click', function() {
           navigator.clipboard.writeText(sql);
-          this.textContent = 'Copied!';
+          this.textContent = vt('viewer.tools.migration.copied');
         });
       })
-      .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
+      .catch(function(e) { statusEl.textContent = vt('viewer.tools.compare.error', e.message); })
       .finally(function() {
         btn.disabled = false;
-        setButtonBusy(btn, false, 'Migration Preview');
+        setButtonBusy(btn, false, vt('viewer.tools.migration.button'));
       });
 });
 }

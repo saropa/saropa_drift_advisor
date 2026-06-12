@@ -5,6 +5,7 @@
  * Extracted from app.js — function bodies are unchanged.
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 
 // TODO: cross-module imports — these functions live in modules still being
 // extracted or remaining in app.js. Listed here for future wiring.
@@ -158,8 +159,8 @@ export function createClosableTab(tabId: any, label: any, ariaControls: any, opt
   var closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'tab-btn-close';
-  closeBtn.title = 'Close tab';
-  closeBtn.setAttribute('aria-label', 'Close ' + label);
+  closeBtn.title = vt('viewer.nav.tab.close');
+  closeBtn.setAttribute('aria-label', vt('viewer.nav.tab.closeNamed', label));
   closeBtn.textContent = '\u00d7';
   closeBtn.addEventListener('click', function(e) {
     e.stopPropagation();
@@ -216,8 +217,13 @@ export function closeOtherTabs(keepTabId) {
 
   if (toClose.length === 0) return;
 
-  // Confirm before bulk-closing
-  if (!window.confirm('Close ' + toClose.length + ' other tab' + (toClose.length > 1 ? 's' : '') + '?')) return;
+  // Confirm before bulk-closing. Singular and plural are separate l10n keys so
+  // languages with non-English plural rules render correctly.
+  const confirmMsg =
+    toClose.length > 1
+      ? vt('viewer.nav.tab.closeOthers.many', toClose.length)
+      : vt('viewer.nav.tab.closeOthers.one', toClose.length);
+  if (!window.confirm(confirmMsg)) return;
 
   toClose.forEach(function(id) { closeToolTab(id); });
 
@@ -246,7 +252,7 @@ export function closeToolTab(toolId) {
   var tabBar = document.getElementById('tab-bar');
   var remaining = tabBar ? tabBar.querySelectorAll('.tab-btn') : [];
   if (remaining.length === 0) {
-    createClosableTab('home', S.TOOL_LABELS.home || 'Home', 'panel-home', { prepend: true });
+    createClosableTab('home', S.TOOL_LABELS.home || vt('viewer.nav.tab.home'), 'panel-home', { prepend: true });
     switchTab('home');
     return;
   }

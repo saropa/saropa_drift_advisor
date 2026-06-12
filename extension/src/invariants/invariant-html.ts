@@ -4,6 +4,7 @@
 
 import type { IInvariant, IInvariantSummary } from './invariant-types';
 import { getInvariantStyles } from './invariant-styles';
+import { t } from '../l10n';
 
 /** Build the complete HTML for the invariant manager panel. */
 export function buildInvariantHtml(
@@ -28,30 +29,30 @@ ${getInvariantStyles()}
 </head>
 <body>
 <div class="header">
-  <h1>Data Invariants</h1>
+  <h1>${t('panel.quality.invariants.title')}</h1>
   <div class="btn-group">
-    <button class="btn" data-action="addRule">+ Add Rule</button>
-    <button class="btn primary" data-action="runAll">Run All</button>
+    <button class="btn" data-action="addRule">${t('panel.quality.invariants.btn.addRule')}</button>
+    <button class="btn primary" data-action="runAll">${t('panel.quality.invariants.btn.runAll')}</button>
   </div>
 </div>
 
 <div class="summary ${statusClass}">
   <div class="summary-stat">
     <span class="summary-value">${summary.passingCount}</span>
-    <span class="summary-label">Passing</span>
+    <span class="summary-label">${t('panel.quality.invariants.summary.passing')}</span>
   </div>
   <div class="summary-stat">
     <span class="summary-value">${summary.failingCount}</span>
-    <span class="summary-label">Failing</span>
+    <span class="summary-label">${t('panel.quality.invariants.summary.failing')}</span>
   </div>
   <div class="summary-stat">
     <span class="summary-value">${summary.totalEnabled}</span>
-    <span class="summary-label">Total</span>
+    <span class="summary-label">${t('panel.quality.invariants.summary.total')}</span>
   </div>
   ${summary.lastCheckTime ? `
   <div class="summary-stat">
     <span class="summary-value">${formatTime(summary.lastCheckTime)}</span>
-    <span class="summary-label">Last Check</span>
+    <span class="summary-label">${t('panel.quality.invariants.summary.lastCheck')}</span>
   </div>
   ` : ''}
 </div>
@@ -78,16 +79,16 @@ ${getInvariantStyles()}
 </head>
 <body>
 <div class="header">
-  <h1>Data Invariants</h1>
+  <h1>${t('panel.quality.invariants.title')}</h1>
   <div class="btn-group">
-    <button class="btn primary" data-action="addRule">+ Add Rule</button>
+    <button class="btn primary" data-action="addRule">${t('panel.quality.invariants.btn.addRule')}</button>
   </div>
 </div>
 <div class="empty">
   <div class="empty-icon">$(shield)</div>
-  <h2>No invariants defined</h2>
-  <p>Data invariants help ensure your database maintains consistency.</p>
-  <p>Click "Add Rule" to create your first invariant check.</p>
+  <h2>${t('panel.quality.invariants.empty.title')}</h2>
+  <p>${t('panel.quality.invariants.empty.body')}</p>
+  <p>${t('panel.quality.invariants.empty.cta')}</p>
 </div>
 <script>
 ${getScript()}
@@ -105,12 +106,15 @@ function buildInvariantCard(inv: IInvariant): string {
   let resultInfo = '';
   if (result) {
     if (result.error) {
-      resultInfo = `<div class="result error">Error: ${esc(result.error)}</div>`;
+      resultInfo = `<div class="result error">${t('panel.quality.invariants.result.error', esc(result.error))}</div>`;
     } else if (result.passed) {
-      resultInfo = `<div class="result pass">PASS — checked ${formatTime(result.checkedAt)} (${result.durationMs}ms)</div>`;
+      resultInfo = `<div class="result pass">${t('panel.quality.invariants.result.pass', formatTime(result.checkedAt), result.durationMs)}</div>`;
     } else {
-      const rowText = result.violationCount === 1 ? '1 row' : `${result.violationCount} rows`;
-      resultInfo = `<div class="result fail">FAIL (${rowText}) — checked ${formatTime(result.checkedAt)}</div>`;
+      // Singular/plural row phrase is its own key, then embedded as {0} in the FAIL line.
+      const rowText = result.violationCount === 1
+        ? t('panel.quality.invariants.result.rowOne')
+        : t('panel.quality.invariants.result.rowMany', result.violationCount);
+      resultInfo = `<div class="result fail">${t('panel.quality.invariants.result.fail', rowText, formatTime(result.checkedAt))}</div>`;
 
       if (result.violatingRows.length > 0) {
         const preview = result.violatingRows
@@ -136,23 +140,23 @@ function buildInvariantCard(inv: IInvariant): string {
     <span class="card-table">${esc(inv.table)}</span>
     <span class="card-severity severity-${inv.severity}">${inv.severity}</span>
     <div class="card-actions">
-      <button class="icon-btn" data-action="toggle" title="${inv.enabled ? 'Disable' : 'Enable'}">
+      <button class="icon-btn" data-action="toggle" title="${inv.enabled ? t('panel.quality.invariants.action.disable') : t('panel.quality.invariants.action.enable')}">
         ${inv.enabled ? '$(eye)' : '$(eye-closed)'}
       </button>
-      <button class="icon-btn" data-action="runOne" title="Run Check">$(play)</button>
-      <button class="icon-btn" data-action="edit" title="Edit">$(edit)</button>
-      <button class="icon-btn danger" data-action="remove" title="Remove">$(trash)</button>
+      <button class="icon-btn" data-action="runOne" title="${t('panel.quality.invariants.action.run')}">$(play)</button>
+      <button class="icon-btn" data-action="edit" title="${t('panel.quality.invariants.action.edit')}">$(edit)</button>
+      <button class="icon-btn danger" data-action="remove" title="${t('panel.quality.invariants.action.remove')}">$(trash)</button>
     </div>
   </div>
   <div class="card-sql">
     <code>${esc(inv.sql)}</code>
   </div>
   <div class="card-expectation">
-    Expect: ${inv.expectation === 'zero_rows' ? '0 rows (no violations)' : 'At least 1 row'}
+    ${t('panel.quality.invariants.expect.label', inv.expectation === 'zero_rows' ? t('panel.quality.invariants.expect.zeroRows') : t('panel.quality.invariants.expect.atLeastOne'))}
   </div>
   ${resultInfo}
-  ${!result && inv.enabled ? '<div class="result pending">Not yet checked</div>' : ''}
-  ${!inv.enabled ? '<div class="result disabled">Disabled</div>' : ''}
+  ${!result && inv.enabled ? `<div class="result pending">${t('panel.quality.invariants.result.pending')}</div>` : ''}
+  ${!inv.enabled ? `<div class="result disabled">${t('panel.quality.invariants.result.disabled')}</div>` : ''}
 </div>`;
 }
 

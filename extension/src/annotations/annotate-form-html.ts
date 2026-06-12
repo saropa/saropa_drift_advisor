@@ -1,5 +1,6 @@
 import type { AnnotationIcon } from './annotation-types';
 import { ANNOTATION_ICON_EMOJI } from './annotation-types';
+import { t } from '../l10n';
 
 /** Context passed to the form so it knows what entity is being annotated. */
 export interface IAnnotateFormContext {
@@ -28,9 +29,12 @@ export function buildAnnotateFormHtml(ctx: IAnnotateFormContext): string {
   const radios = iconOptions.map((icon, i) => {
     const emoji = ANNOTATION_ICON_EMOJI[icon];
     const checked = i === 0 ? ' checked' : '';
+    // Icon type name is a fixed enum value; its display label is keyed per-icon so
+    // the radio reads localized text while the `value` attribute stays the raw id.
+    const iconLabel = t(`panel.notes.icon.${icon}`);
     return `<label class="icon-option">
       <input type="radio" name="icon" value="${icon}"${checked} />
-      <span class="icon-label">${emoji} ${esc(icon)}</span>
+      <span class="icon-label">${emoji} ${esc(iconLabel)}</span>
     </label>`;
   }).join('\n');
 
@@ -134,24 +138,24 @@ export function buildAnnotateFormHtml(ctx: IAnnotateFormContext): string {
 </style>
 </head>
 <body>
-<h1>Add Annotation</h1>
-<div class="target">${esc(ctx.kind)}: ${target}</div>
+<h1>${t('panel.notes.annotate.title')}</h1>
+<div class="target">${t('panel.notes.annotate.target', esc(ctx.kind), target)}</div>
 
 <div class="field">
-  <div class="field-label">Type</div>
+  <div class="field-label">${t('panel.notes.annotate.field.type')}</div>
   <div class="icon-grid">
     ${radios}
   </div>
 </div>
 
 <div class="field">
-  <div class="field-label">Note</div>
-  <textarea id="note" placeholder='e.g. "Unused column \u2014 candidate for removal"'></textarea>
+  <div class="field-label">${t('panel.notes.annotate.field.note')}</div>
+  <textarea id="note" placeholder="${esc(t('panel.notes.annotate.note.placeholder'))}"></textarea>
 </div>
 
 <div class="btn-row">
-  <button class="btn btn-primary" id="submit">Add Annotation</button>
-  <button class="btn btn-secondary" id="cancel">Cancel</button>
+  <button class="btn btn-primary" id="submit">${t('panel.notes.annotate.btn.submit')}</button>
+  <button class="btn btn-secondary" id="cancel">${t('panel.notes.annotate.btn.cancel')}</button>
 </div>
 
 <script>

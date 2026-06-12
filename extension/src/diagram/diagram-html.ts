@@ -1,4 +1,5 @@
 import type { IDiagramData, IDiagramTable } from '../api-types';
+import { t } from '../l10n';
 
 const BOX_W = 220;
 const BOX_GAP = 40;
@@ -12,7 +13,7 @@ export function buildDiagramHtml(data: IDiagramData): string {
 <style>body { font-family: var(--vscode-font-family); color: var(--vscode-foreground);
   background: var(--vscode-editor-background); }
 .empty { padding: 32px; text-align: center; opacity: 0.6; }</style>
-</head><body><div class="empty">No tables found.</div></body></html>`;
+</head><body><div class="empty">${t('panel.schema.diagram.empty')}</div></body></html>`;
   }
 
   const positions = layoutTables(data.tables);

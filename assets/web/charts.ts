@@ -4,6 +4,7 @@
      */
     import * as S from './state.ts';
     import { esc } from './utils.ts';
+    import { vt } from './l10n.ts';
 
     export function getChartSize() {
       var wrap = document.getElementById('chart-wrapper');
@@ -113,7 +114,7 @@
           var by = accY - bh;
           var color = S.CHART_COLORS[si % S.CHART_COLORS.length];
           svg += '<rect class="chart-bar chart-stacked-segment" x="' + x + '" y="' + by + '" width="' + barW + '" height="' + bh + '" fill="' + color + '">';
-          svg += '<title>' + esc(label) + ' segment ' + (si + 1) + ': ' + val + '</title></rect>';
+          svg += '<title>' + vt('viewer.tools.chart.stacked.segment', esc(label), (si + 1), val) + '</title></rect>';
           accY = by;
         });
         if (labels.length <= 20) {
@@ -140,7 +141,7 @@
         if (vals[i] >= threshold) significant.push({ label: d[labelKey], value: vals[i] });
         else otherVal += vals[i];
       });
-      if (otherVal > 0) significant.push({ label: 'Other', value: otherVal });
+      if (otherVal > 0) significant.push({ label: vt('viewer.tools.chart.pie.other'), value: otherVal });
       var svg = '<svg class="chart-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">';
       var angle = 0;
       significant.forEach(function(d, i) {
@@ -261,7 +262,7 @@
       var xs = data.map(function(d) { return Number(d[xKey]); }).filter(function(v) { return isFinite(v); });
       var ys = data.map(function(d) { return Number(d[yKey]); }).filter(function(v) { return isFinite(v); });
       if (xs.length === 0 || ys.length === 0) {
-        container.innerHTML = '<p class="meta">Scatter requires numeric X and Y columns.</p>';
+        container.innerHTML = '<p class="meta">' + vt('viewer.tools.chart.scatterNumeric') + '</p>';
         document.getElementById('chart-container').style.display = 'block';
         var exportBar = document.getElementById('chart-export-toolbar');
         if (exportBar) exportBar.style.display = 'none';
@@ -302,7 +303,7 @@
       bins = bins || 10;
       var vals = data.map(function(d) { return Number(d[valueKey]); }).filter(function(v) { return isFinite(v); });
       if (vals.length === 0) {
-        container.innerHTML = '<p class="meta">No numeric data.</p>';
+        container.innerHTML = '<p class="meta">' + vt('viewer.tools.chart.noNumeric') + '</p>';
         document.getElementById('chart-container').style.display = 'block';
         var exportBar = document.getElementById('chart-export-toolbar');
         if (exportBar) exportBar.style.display = 'none';
@@ -319,7 +320,7 @@
       var histData = counts.map(function(c, i) {
         return { label: (min + i * binWidth).toFixed(1) + '-' + (min + (i + 1) * binWidth).toFixed(1), value: c };
       });
-      renderBarChart(container, histData, 'label', 'value', { title: opts.title, description: opts.description, xLabel: 'Bin', yLabel: 'Count' });
+      renderBarChart(container, histData, 'label', 'value', { title: opts.title, description: opts.description, xLabel: vt('viewer.tools.chart.histogram.bin'), yLabel: vt('viewer.tools.chart.histogram.count') });
     }
 
     /** Export chart as PNG: serialize SVG to image, draw to canvas, download. Disables button during async export. */
@@ -395,7 +396,7 @@
           if (navigator.clipboard && navigator.clipboard.write) {
             var copyBtn = btn;
             navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(function() {
-              if (copyBtn) { copyBtn.textContent = 'Copied!'; setTimeout(function() { copyBtn.textContent = 'Copy image'; }, 1500); }
+              if (copyBtn) { copyBtn.textContent = vt('viewer.tools.chart.copied'); setTimeout(function() { copyBtn.textContent = vt('viewer.tools.chart.copyImage'); }, 1500); }
             }).catch(function() {}).finally(done);
           } else { done(); }
         }, 'image/png');

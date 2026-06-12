@@ -36,8 +36,14 @@ describe('host l10n runtime', () => {
   });
 
   it('getWebviewL10nMap returns every key when no prefix filter is given', () => {
+    // The map merges EVERY host registry (strings-host + all panel slices), so it
+    // is a superset of hostStrings. Assert superset membership + a known value
+    // rather than pinning an exact count — the string sweep grows it continuously.
     const map = getWebviewL10nMap();
-    assert.strictEqual(Object.keys(map).length, Object.keys(hostStrings).length);
+    for (const k of Object.keys(hostStrings)) {
+      assert.ok(k in map, `expected host key ${k} in webview map`);
+    }
+    assert.ok(Object.keys(map).length >= Object.keys(hostStrings).length);
     assert.strictEqual(map['host.dialog.cancel'], 'Cancel');
   });
 

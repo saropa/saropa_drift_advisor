@@ -10,6 +10,7 @@ import type {
   IProfileAnomaly,
   ITopValue,
 } from './profiler-types';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -34,33 +35,33 @@ function renderCard(label: string, value: string): string {
 function renderSummary(p: IColumnProfile): string {
   const nullLabel = `${p.nullCount.toLocaleString()} (${fmt(p.nullPercentage)}%)`;
   return `<div class="summary">
-  ${renderCard('Total Rows', p.totalRows.toLocaleString())}
-  ${renderCard('Non-Null', p.nonNullCount.toLocaleString())}
-  ${renderCard('Null', nullLabel)}
-  ${renderCard('Distinct', p.distinctCount.toLocaleString())}
+  ${renderCard(t('panel.profiler.card.totalRows'), p.totalRows.toLocaleString())}
+  ${renderCard(t('panel.profiler.card.nonNull'), p.nonNullCount.toLocaleString())}
+  ${renderCard(t('panel.profiler.card.null'), nullLabel)}
+  ${renderCard(t('panel.profiler.card.distinct'), p.distinctCount.toLocaleString())}
 </div>`;
 }
 
 function renderNumericStats(p: IColumnProfile): string {
   if (p.min === undefined) return '';
-  return `<h3>Numeric Statistics</h3>
+  return `<h3>${t('panel.profiler.numeric.heading')}</h3>
 <div class="stats-grid">
-  <div><span class="stat-label">Min</span><span class="stat-value">${fmt(p.min)}</span></div>
-  <div><span class="stat-label">Max</span><span class="stat-value">${fmt(p.max ?? 0)}</span></div>
-  <div><span class="stat-label">Mean</span><span class="stat-value">${fmt(p.mean ?? 0)}</span></div>
-  <div><span class="stat-label">Median</span><span class="stat-value">${p.median !== undefined ? fmt(p.median) : 'N/A'}</span></div>
-  <div><span class="stat-label">Std Dev</span><span class="stat-value">${p.stdDev !== undefined ? fmt(p.stdDev, 2) : 'N/A'}</span></div>
+  <div><span class="stat-label">${t('panel.profiler.numeric.min')}</span><span class="stat-value">${fmt(p.min)}</span></div>
+  <div><span class="stat-label">${t('panel.profiler.numeric.max')}</span><span class="stat-value">${fmt(p.max ?? 0)}</span></div>
+  <div><span class="stat-label">${t('panel.profiler.numeric.mean')}</span><span class="stat-value">${fmt(p.mean ?? 0)}</span></div>
+  <div><span class="stat-label">${t('panel.profiler.numeric.median')}</span><span class="stat-value">${p.median !== undefined ? fmt(p.median) : t('panel.profiler.stat.na')}</span></div>
+  <div><span class="stat-label">${t('panel.profiler.numeric.stdDev')}</span><span class="stat-value">${p.stdDev !== undefined ? fmt(p.stdDev, 2) : t('panel.profiler.stat.na')}</span></div>
 </div>`;
 }
 
 function renderTextStats(p: IColumnProfile): string {
   if (p.minLength === undefined) return '';
-  return `<h3>Text Statistics</h3>
+  return `<h3>${t('panel.profiler.text.heading')}</h3>
 <div class="stats-grid">
-  <div><span class="stat-label">Min Length</span><span class="stat-value">${p.minLength}</span></div>
-  <div><span class="stat-label">Max Length</span><span class="stat-value">${p.maxLength}</span></div>
-  <div><span class="stat-label">Avg Length</span><span class="stat-value">${fmt(p.avgLength ?? 0, 1)}</span></div>
-  <div><span class="stat-label">Empty Strings</span><span class="stat-value">${p.emptyCount}</span></div>
+  <div><span class="stat-label">${t('panel.profiler.text.minLength')}</span><span class="stat-value">${p.minLength}</span></div>
+  <div><span class="stat-label">${t('panel.profiler.text.maxLength')}</span><span class="stat-value">${p.maxLength}</span></div>
+  <div><span class="stat-label">${t('panel.profiler.text.avgLength')}</span><span class="stat-value">${fmt(p.avgLength ?? 0, 1)}</span></div>
+  <div><span class="stat-label">${t('panel.profiler.text.emptyStrings')}</span><span class="stat-value">${p.emptyCount}</span></div>
 </div>`;
 }
 
@@ -96,8 +97,8 @@ function renderTopValues(values: ITopValue[]): string {
   <td class="num">${fmt(v.percentage)}%</td>
 </tr>`,
   ).join('\n');
-  return `<h3>Top Values</h3>
-<table><thead><tr><th>#</th><th>Value</th><th>Count</th><th>%</th></tr></thead>
+  return `<h3>${t('panel.profiler.topValues.heading')}</h3>
+<table><thead><tr><th>#</th><th>${t('panel.profiler.topValues.col.value')}</th><th>${t('panel.profiler.topValues.col.count')}</th><th>%</th></tr></thead>
 <tbody>${rows}</tbody></table>`;
 }
 
@@ -110,8 +111,8 @@ function renderPatterns(patterns: IPattern[]): string {
   <td class="num">${fmt(p.percentage)}%</td>
 </tr>`,
   ).join('\n');
-  return `<h3>Pattern Breakdown</h3>
-<table><thead><tr><th>Pattern</th><th>Count</th><th>%</th></tr></thead>
+  return `<h3>${t('panel.profiler.patterns.heading')}</h3>
+<table><thead><tr><th>${t('panel.profiler.patterns.col.pattern')}</th><th>${t('panel.profiler.patterns.col.count')}</th><th>%</th></tr></thead>
 <tbody>${rows}</tbody></table>`;
 }
 
@@ -122,28 +123,31 @@ function renderAnomalies(anomalies: IProfileAnomaly[]): string {
     const icon = a.severity === 'warning' ? '\u26a0' : '\u2139';
     return `<div class="alert ${cls}">${icon} ${esc(a.message)}</div>`;
   }).join('\n');
-  return `<h3>Anomalies</h3>\n${items}`;
+  return `<h3>${t('panel.profiler.anomalies.heading')}</h3>\n${items}`;
 }
 
 /** Build complete HTML for the column profiler webview. */
 export function buildProfilerHtml(profile: IColumnProfile): string {
-  const typeLabel = profile.isNumeric ? 'Numeric' : 'Text';
+  const typeLabel = profile.isNumeric
+    ? t('panel.profiler.type.numeric')
+    : t('panel.profiler.type.text');
+  // {0} = SQL column type (data, from profile.type); {1} = Numeric/Text label.
   const heading = `${esc(profile.table)}.${esc(profile.column)}`
-    + ` <span class="type-badge">${esc(profile.type)} (${typeLabel})</span>`;
+    + ` <span class="type-badge">${t('panel.profiler.typeBadge', esc(profile.type), typeLabel)}</span>`;
 
   let body = `<h2>${heading}</h2>\n`;
   body += `<div class="toolbar">
-  <button class="copy-btn" data-action="copyJson">Copy as JSON</button>
+  <button class="copy-btn" data-action="copyJson">${t('panel.profiler.btn.copyJson')}</button>
 </div>\n`;
   body += renderSummary(profile);
 
   if (profile.isNumeric) {
     body += renderNumericStats(profile);
-    body += renderHistogram('Value Distribution', profile.histogram ?? []);
+    body += renderHistogram(t('panel.profiler.histogram.valueDistribution'), profile.histogram ?? []);
   } else {
     body += renderTextStats(profile);
     body += renderHistogram(
-      'Length Distribution', profile.lengthHistogram ?? [],
+      t('panel.profiler.histogram.lengthDistribution'), profile.lengthHistogram ?? [],
     );
     body += renderPatterns(profile.patterns ?? []);
   }

@@ -1,4 +1,5 @@
 import type { IPerfBaseline } from './perf-baseline-store';
+import { t } from '../l10n';
 
 /**
  * Build HTML for the Performance Baselines webview panel.
@@ -13,7 +14,7 @@ export function buildPerfBaselineHtml(
 <style>body { font-family: var(--vscode-font-family); color: var(--vscode-foreground);
   background: var(--vscode-editor-background); }
 .empty { padding: 32px; text-align: center; opacity: 0.6; }</style>
-</head><body><div class="empty">No performance baselines stored.</div></body></html>`;
+</head><body><div class="empty">${t('panel.perf.empty')}</div></body></html>`;
   }
 
   // Sort by avg duration descending (slowest first) for quick triage
@@ -32,7 +33,7 @@ export function buildPerfBaselineHtml(
       <td class="num">${b.sampleCount}</td>
       <td class="date-cell">${esc(updated)}</td>
       <td>
-        <button class="action-btn" data-reset="${i}" title="Reset this baseline">Reset</button>
+        <button class="action-btn" data-reset="${i}" title="${t('panel.perf.resetOne.tooltip')}">${t('panel.perf.btn.reset')}</button>
       </td>
     </tr>`;
   }).join('\n');
@@ -128,20 +129,20 @@ export function buildPerfBaselineHtml(
 </head>
 <body>
 <div class="header">
-  <h1>Performance Baselines</h1>
+  <h1>${t('panel.perf.title')}</h1>
   <div class="btn-group">
-    <button class="btn btn-danger" data-action="resetAll">Reset All</button>
+    <button class="btn btn-danger" data-action="resetAll">${t('panel.perf.btn.resetAll')}</button>
   </div>
 </div>
-<div class="summary">${baselines.length} baseline(s) stored, sorted by avg duration (slowest first)</div>
+<div class="summary">${t('panel.perf.summary', baselines.length)}</div>
 
 <table>
   <thead>
     <tr>
-      <th>SQL Pattern</th>
-      <th style="text-align:right">Avg Duration</th>
-      <th style="text-align:right">Samples</th>
-      <th>Last Updated</th>
+      <th>${t('panel.perf.col.sqlPattern')}</th>
+      <th style="text-align:right">${t('panel.perf.col.avgDuration')}</th>
+      <th style="text-align:right">${t('panel.perf.col.samples')}</th>
+      <th>${t('panel.perf.col.lastUpdated')}</th>
       <th></th>
     </tr>
   </thead>

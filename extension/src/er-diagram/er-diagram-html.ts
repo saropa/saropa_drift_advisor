@@ -5,6 +5,7 @@
 import type { IErEdge, IErNode, LayoutMode } from './er-diagram-types';
 import { getErDiagramCss } from './er-diagram-styles';
 import { getErDiagramScript } from './er-diagram-script';
+import { t } from '../l10n';
 
 export function buildErDiagramHtml(
   nodes: IErNode[],
@@ -17,7 +18,7 @@ export function buildErDiagramHtml(
 <style>body { font-family: var(--vscode-font-family); color: var(--vscode-foreground);
   background: var(--vscode-editor-background); }
 .empty { padding: 32px; text-align: center; opacity: 0.6; }</style>
-</head><body><div class="empty">No tables in schema.</div></body></html>`;
+</head><body><div class="empty">${t('panel.schema.er.empty')}</div></body></html>`;
   }
 
   const nodesJson = JSON.stringify(nodes);
@@ -34,22 +35,22 @@ export function buildErDiagramHtml(
 </head>
 <body>
 <div class="toolbar">
-  <span class="toolbar-title">ER Diagram</span>
+  <span class="toolbar-title">${t('panel.schema.er.title')}</span>
   <div class="toolbar-group">
     <select id="layoutMode">
-      <option value="auto"${currentMode === 'auto' ? ' selected' : ''}>Auto Layout</option>
-      <option value="hierarchical"${currentMode === 'hierarchical' ? ' selected' : ''}>Hierarchical</option>
-      <option value="clustered"${currentMode === 'clustered' ? ' selected' : ''}>Clustered</option>
+      <option value="auto"${currentMode === 'auto' ? ' selected' : ''}>${t('panel.schema.er.layout.auto')}</option>
+      <option value="hierarchical"${currentMode === 'hierarchical' ? ' selected' : ''}>${t('panel.schema.er.layout.hierarchical')}</option>
+      <option value="clustered"${currentMode === 'clustered' ? ' selected' : ''}>${t('panel.schema.er.layout.clustered')}</option>
     </select>
-    <button class="btn" id="fitBtn">Fit</button>
+    <button class="btn" id="fitBtn">${t('panel.schema.er.btn.fit')}</button>
     <button class="btn" id="zoomInBtn">+</button>
     <button class="btn" id="zoomOutBtn">−</button>
     <button class="btn" id="refreshBtn">⟳</button>
     <select id="exportFormat">
-      <option value="">Export…</option>
-      <option value="svg">SVG</option>
-      <option value="png">PNG</option>
-      <option value="mermaid">Mermaid</option>
+      <option value="">${t('panel.schema.er.export.placeholder')}</option>
+      <option value="svg">${t('panel.schema.er.export.svg')}</option>
+      <option value="png">${t('panel.schema.er.export.png')}</option>
+      <option value="mermaid">${t('panel.schema.er.export.mermaid')}</option>
     </select>
   </div>
 </div>
@@ -62,9 +63,9 @@ export function buildErDiagramHtml(
 </div>
 
 <div class="context-menu" id="contextMenu">
-  <div class="context-menu-item" data-action="viewData">View Data</div>
-  <div class="context-menu-item" data-action="seed">Seed Test Data</div>
-  <div class="context-menu-item" data-action="profile">Profile Columns</div>
+  <div class="context-menu-item" data-action="viewData">${t('panel.schema.er.menu.viewData')}</div>
+  <div class="context-menu-item" data-action="seed">${t('panel.schema.er.menu.seed')}</div>
+  <div class="context-menu-item" data-action="profile">${t('panel.schema.er.menu.profile')}</div>
 </div>
 
 <script>${getErDiagramScript(nodesJson, edgesJson)}</script>

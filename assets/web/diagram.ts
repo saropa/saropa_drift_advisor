@@ -4,6 +4,7 @@
 import * as S from './state.ts';
 import { esc, syncFeatureCardExpanded } from './utils.ts';
 import { openTableTab } from './tabs.ts';
+import { vt } from './l10n.ts';
 
 export function initDiagram(): void {
   const container = document.getElementById('diagram-container');
@@ -30,7 +31,7 @@ export function initDiagram(): void {
     // though nothing declares it.
     const softs = data.softRelationships || [];
     if (tables.length === 0) {
-      container.innerHTML = '<p class="meta">No tables.</p>';
+      container.innerHTML = '<p class="meta">' + esc(vt('viewer.settings.diagram.noTables')) + '</p>';
    
    return;
     }
@@ -50,8 +51,13 @@ export function initDiagram(): void {
 
     // Use role="group" (not "img") so screen readers announce the summary
     // label but still allow navigation into the focusable table children.
-    const softLabel = softs.length ? ' and ' + softs.length + ' inferred (undeclared) relationship' + (softs.length !== 1 ? 's' : '') : '';
-    let svg = '<svg role="group" aria-label="Schema diagram showing ' + tables.length + ' table' + (tables.length !== 1 ? 's' : '') + ' and ' + fks.length + ' foreign key relationship' + (fks.length !== 1 ? 's' : '') + softLabel + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
+    // Singular/plural are separate keys (a translator can't reorder an inline
+    // 's' suffix); the three count clauses are assembled via the summary key.
+    const tablesClause = vt(tables.length !== 1 ? 'viewer.settings.diagram.aria.tablesMany' : 'viewer.settings.diagram.aria.tablesOne', tables.length);
+    const fksClause = vt(fks.length !== 1 ? 'viewer.settings.diagram.aria.fksMany' : 'viewer.settings.diagram.aria.fksOne', fks.length);
+    const softLabel = softs.length ? vt(softs.length !== 1 ? 'viewer.settings.diagram.aria.softMany' : 'viewer.settings.diagram.aria.softOne', softs.length) : '';
+    const ariaSummary = vt('viewer.settings.diagram.aria.summary', tablesClause, fksClause, softLabel);
+    let svg = '<svg role="group" aria-label="' + esc(ariaSummary) + '" width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg">';
     svg += '<g class="diagram-links">';
     fks.forEach(function(fk) {
       const iFrom = nameToIndex[fk.fromTable];
@@ -75,9 +81,12 @@ export function initDiagram(): void {
       const from = getCenter(iFrom, 'right');
       const to = getCenter(iTo, 'left');
       const mid = (from.x + to.x) / 2;
-      const how = s.rule === 'noun_id' ? 'id-name convention' : 'shared UUID column';
+      // The "how" phrase (which naming convention inferred the edge) is a keyed
+      // variant; the "(inferred from {0}, not declared)" suffix wraps it so a
+      // translator controls the phrasing around the edge endpoints.
+      const how = vt(s.rule === 'noun_id' ? 'viewer.settings.diagram.rule.nounId' : 'viewer.settings.diagram.rule.sharedUuid');
       svg += '<path class="diagram-link diagram-link-soft" d="M' + from.x + ',' + from.y + ' C' + mid + ',' + from.y + ' ' + mid + ',' + to.y + ' ' + to.x + ',' + to.y + '">'
-        + '<title>' + esc(s.fromTable) + '.' + esc(s.fromColumn) + ' \u2192 ' + esc(s.toTable) + '.' + esc(s.toColumn) + ' (inferred from ' + how + ', not declared)</title></path>';
+        + '<title>' + esc(s.fromTable) + '.' + esc(s.fromColumn) + ' \u2192 ' + esc(s.toTable) + '.' + esc(s.toColumn) + ' ' + esc(vt('viewer.settings.diagram.alt.softInferred', how)) + '</title></path>';
     });
     svg += '</g><g class="diagram-tables">';
     tables.forEach(function(t, i) {
@@ -86,12 +95,14 @@ export function initDiagram(): void {
       const cols = allCols.slice(0, 6);
       const name = esc(t.name);
       // Build an ARIA label summarising the table for screen readers:
-      // e.g. "users table, 5 columns, primary key: id"
+      // e.g. "users table, 5 columns, primary key: id". Column count has
+      // separate singular/plural keys; the PK clause is appended only when a
+      // primary key exists, with the column names as a {0} token.
       const pkCols = allCols.filter(function(c) { return c.pk; }).map(function(c) { return c.name; });
-      const ariaLabel = t.name + ' table, ' + allCols.length + ' column' + (allCols.length !== 1 ? 's' : '')
-        + (pkCols.length ? ', primary key: ' + pkCols.join(', ') : '');
+      const pkClause = pkCols.length ? vt('viewer.settings.diagram.aria.pkClause', pkCols.join(', ')) : '';
+      const ariaLabel = vt(allCols.length !== 1 ? 'viewer.settings.diagram.aria.tableMany' : 'viewer.settings.diagram.aria.tableOne', t.name, allCols.length, pkClause);
       let body = cols.map(function(c) {
-        const pk = c.pk ? ' <tspan class="diagram-pk">PK</tspan>' : '';
+        const pk = c.pk ? ' <tspan class="diagram-pk">' + esc(vt('viewer.settings.diagram.pk')) + '</tspan>' : '';
         // Use local x coordinate (relative to the parent <g> transform),
         // not absolute – the group's translate already positions the box.
         return '<tspan class="diagram-col" x="8" dy="16">' + esc(c.name) + (c.type ? ' ' + esc(c.type) : '') + pk + '</tspan>';
@@ -141,26 +152,28 @@ export function initDiagram(): void {
     // Lists every table with its columns plus FK relationships.
     var altEl = document.getElementById('diagram-text-alt');
     if (altEl) {
-      var altHtml = '<h4>Schema table list</h4><ul>';
+      var altHtml = '<h4>' + esc(vt('viewer.settings.diagram.alt.tableList')) + '</h4><ul>';
       tables.forEach(function(t) {
         var cols = t.columns || [];
-        altHtml += '<li><strong>' + esc(t.name) + '</strong> (' + cols.length + ' column' + (cols.length !== 1 ? 's' : '') + '): ';
-        altHtml += cols.map(function(c) { return esc(c.name) + (c.pk ? ' (PK)' : ''); }).join(', ');
-        altHtml += '</li>';
+        // The table name is pre-wrapped in <strong> as static markup, then
+        // passed as the {0} token; column count uses singular/plural keys.
+        var nameMarkup = '<strong>' + esc(t.name) + '</strong>';
+        var colList = cols.map(function(c) { return esc(c.name) + (c.pk ? vt('viewer.settings.diagram.alt.pkMark') : ''); }).join(', ');
+        altHtml += '<li>' + vt(cols.length !== 1 ? 'viewer.settings.diagram.alt.tableMany' : 'viewer.settings.diagram.alt.tableOne', nameMarkup, cols.length, colList) + '</li>';
       });
       altHtml += '</ul>';
       if (fks.length > 0) {
-        altHtml += '<h4>Foreign key relationships</h4><ul>';
+        altHtml += '<h4>' + esc(vt('viewer.settings.diagram.alt.fkHeading')) + '</h4><ul>';
         fks.forEach(function(fk) {
           altHtml += '<li>' + esc(fk.fromTable) + '.' + esc(fk.fromColumn) + ' \u2192 ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '</li>';
         });
         altHtml += '</ul>';
       }
       if (softs.length > 0) {
-        altHtml += '<h4>Inferred (undeclared) relationships</h4><ul>';
+        altHtml += '<h4>' + esc(vt('viewer.settings.diagram.alt.softHeading')) + '</h4><ul>';
         softs.forEach(function(s) {
-          const how = s.rule === 'noun_id' ? 'id-name convention' : 'shared UUID column';
-          altHtml += '<li>' + esc(s.fromTable) + '.' + esc(s.fromColumn) + ' \u2192 ' + esc(s.toTable) + '.' + esc(s.toColumn) + ' (inferred from ' + how + ', not declared)</li>';
+          const how = vt(s.rule === 'noun_id' ? 'viewer.settings.diagram.rule.nounId' : 'viewer.settings.diagram.rule.sharedUuid');
+          altHtml += '<li>' + esc(s.fromTable) + '.' + esc(s.fromColumn) + ' \u2192 ' + esc(s.toTable) + '.' + esc(s.toColumn) + ' ' + esc(vt('viewer.settings.diagram.alt.softInferred', how)) + '</li>';
         });
         altHtml += '</ul>';
       }
@@ -170,7 +183,7 @@ export function initDiagram(): void {
 
   function loadAndRenderDiagram() {
     if (diagramData === null) {
-      container.innerHTML = '<p class="meta">Loading…</p>';
+      container.innerHTML = '<p class="meta">' + esc(vt('viewer.settings.diagram.loading')) + '</p>';
       fetch('/api/schema/diagram', S.authOpts())
         .then(r => r.json())
         .then(function(data) {
@@ -178,7 +191,7 @@ export function initDiagram(): void {
           renderDiagram(data);
         })
         .catch(function(e) {
-          container.innerHTML = '<p class="meta">Failed to load diagram: ' + esc(String(e)) + '</p>';
+          container.innerHTML = '<p class="meta">' + esc(vt('viewer.settings.diagram.loadFailed', String(e))) + '</p>';
         });
     } else {
       renderDiagram(diagramData);

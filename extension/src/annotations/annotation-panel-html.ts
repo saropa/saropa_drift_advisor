@@ -4,6 +4,7 @@
  */
 
 import { ANNOTATION_ICON_EMOJI, type IAnnotation } from './annotation-types';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -47,9 +48,9 @@ function renderAnnotation(ann: IAnnotation): string {
   </div>
   <div class="ann-note">${note}</div>
   <div class="ann-actions">
-    <button class="btn" data-action="edit" data-id="${id}">Edit</button>
+    <button class="btn" data-action="edit" data-id="${id}">${t('panel.notes.panel.btn.edit')}</button>
     <button class="btn btn-danger" data-action="remove" data-id="${id}">
-      Remove
+      ${t('panel.notes.panel.btn.remove')}
     </button>
   </div>
 </div>`;
@@ -71,20 +72,19 @@ function renderGroup(
 
 function renderEmpty(): string {
   return `<div class="empty">
-  <p>No annotations yet.</p>
+  <p>${t('panel.notes.panel.empty.title')}</p>
   <p class="hint">
-    Right-click a table or column in the Database Explorer
-    to add an annotation.
+    ${t('panel.notes.panel.empty.hint')}
   </p>
 </div>`;
 }
 
 function renderToolbar(count: number): string {
   return `<div class="toolbar">
-  <span class="toolbar-title">Annotations</span>
+  <span class="toolbar-title">${t('panel.notes.panel.title')}</span>
   <span class="badge">${count}</span>
-  <button class="btn" data-action="copyJson" title="Copy as JSON">
-    Copy JSON
+  <button class="btn" data-action="copyJson" title="${esc(t('panel.notes.panel.copyJson.title'))}">
+    ${t('panel.notes.panel.btn.copyJson')}
   </button>
 </div>`;
 }

@@ -21,12 +21,32 @@
  */
 
 import { webStrings } from './l10n/strings-web.ts';
+import { stringsWebTable } from './l10n/strings-web-table.ts';
+import { stringsWebQueryBuilder } from './l10n/strings-web-query-builder.ts';
+import { stringsWebSchema } from './l10n/strings-web-schema.ts';
+import { stringsWebSql } from './l10n/strings-web-sql.ts';
+import { stringsWebTools } from './l10n/strings-web-tools.ts';
+import { stringsWebNav } from './l10n/strings-web-nav.ts';
+import { stringsWebSession } from './l10n/strings-web-session.ts';
+import { stringsWebSettings } from './l10n/strings-web-settings.ts';
+import { stringsWebMisc } from './l10n/strings-web-misc.ts';
 
 /**
  * Every web English registry, merged into one lookup. Explicit (not a glob)
  * because esbuild bundles at build time — add new `strings-web-*.ts` files here.
  */
-const WEB_STRING_REGISTRIES: Array<Record<string, string>> = [webStrings];
+const WEB_STRING_REGISTRIES: Array<Record<string, string>> = [
+  webStrings,
+  stringsWebTable,
+  stringsWebQueryBuilder,
+  stringsWebSchema,
+  stringsWebSql,
+  stringsWebTools,
+  stringsWebNav,
+  stringsWebSession,
+  stringsWebSettings,
+  stringsWebMisc,
+];
 
 /** Merged symbolic-key → English map. Built once at module load. */
 const englishStrings: Record<string, string> = Object.assign({}, ...WEB_STRING_REGISTRIES);

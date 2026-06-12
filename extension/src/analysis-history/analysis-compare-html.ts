@@ -5,6 +5,7 @@
  */
 
 import type { IAnalysisSnapshot } from './analysis-history-store';
+import { t } from '../l10n';
 
 /**
  * Build the full HTML for the compare panel.
@@ -103,35 +104,35 @@ export function buildCompareHtml<T>(
 </head>
 <body>
 <div class="header">
-  <h1>Compare: ${esc(title)}</h1>
+  <h1>${t('panel.compare.history.title', esc(title))}</h1>
 </div>
 
 <div class="toolbar">
-  <label for="before-sel">Before:</label>
+  <label for="before-sel">${t('panel.compare.history.before')}</label>
   <select id="before-sel">
-    <option value="">— select —</option>
-    <option value="_current">Current result</option>
+    <option value="">${t('panel.compare.history.select')}</option>
+    <option value="_current">${t('panel.compare.history.current')}</option>
     ${options}
   </select>
 
-  <label for="after-sel">After:</label>
+  <label for="after-sel">${t('panel.compare.history.after')}</label>
   <select id="after-sel">
-    <option value="">— select —</option>
-    <option value="_current">Current result</option>
+    <option value="">${t('panel.compare.history.select')}</option>
+    <option value="_current">${t('panel.compare.history.current')}</option>
     ${options}
   </select>
 </div>
 
-<div class="summary" id="summary">Select Before and After to compare.</div>
+<div class="summary" id="summary">${t('panel.compare.history.summary')}</div>
 
 <div class="columns">
   <div class="col" id="left-col">
-    <div class="col-label">Before</div>
-    <div class="placeholder">Select a snapshot above.</div>
+    <div class="col-label">${t('panel.compare.history.col.before')}</div>
+    <div class="placeholder">${t('panel.compare.history.placeholder')}</div>
   </div>
   <div class="col" id="right-col">
-    <div class="col-label">After</div>
-    <div class="placeholder">Select a snapshot above.</div>
+    <div class="col-label">${t('panel.compare.history.col.after')}</div>
+    <div class="placeholder">${t('panel.compare.history.placeholder')}</div>
   </div>
 </div>
 
@@ -157,10 +158,15 @@ export function buildCompareHtml<T>(
   window.addEventListener('message', (event) => {
     const msg = event.data;
     if (msg.command === 'compareResult') {
+      // TODO(l10n): client-script string ("Before")
+      // TODO(l10n): client-script string ("Select a snapshot above.")
       leftCol.innerHTML = '<div class="col-label">Before</div>' +
         (msg.beforeHtml || '<div class="placeholder">Select a snapshot above.</div>');
+      // TODO(l10n): client-script string ("After")
+      // TODO(l10n): client-script string ("Select a snapshot above.")
       rightCol.innerHTML = '<div class="col-label">After</div>' +
         (msg.afterHtml || '<div class="placeholder">Select a snapshot above.</div>');
+      // TODO(l10n): client-script string ("Select Before and After to compare.")
       summary.textContent = msg.summary || 'Select Before and After to compare.';
     }
   });

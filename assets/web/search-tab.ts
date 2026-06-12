@@ -2,6 +2,7 @@
  * Search tab init — event handlers for the self-contained Search panel.
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 import { esc, setButtonBusy, highlightSqlSafe, formatTableRowCountDisplay, syncFeatureCardExpanded } from './utils.ts';
 import { getDisplayValue, isPiiMaskEnabled, isPiiColumn } from './pii.ts';
 import { applySearch, nextMatch, prevMatch, highlightText, getScope, getSearchTerm, getRowFilter, filterRows, getTableDisplayData, buildTableFilterMetaSuffix, expandSectionContaining } from './search.ts';
@@ -50,7 +51,7 @@ export function initSearchTab(): void {
   // Called by renderTableList whenever the table list updates.
   window._stPopulateTables = function(tables) {
     var prev = stTableSel.value;
-    stTableSel.innerHTML = '<option value="">-- select --</option>';
+    stTableSel.innerHTML = '<option value="">' + esc(vt('viewer.schema.searchTab.optionSelect')) + '</option>';
     (tables || []).forEach(function(t) {
       var opt = document.createElement('option');
       opt.value = t;
@@ -120,16 +121,20 @@ export function initSearchTab(): void {
     var len = data.length;
     var metaText = esc(tableName);
     if (total != null) {
-      var rangeText = len > 0 ? ('showing ' + (stOffset + 1) + '\u2013' + (stOffset + len)) : 'no rows in this range';
-      metaText = esc(tableName) + ' (' + total + ' row' + (total !== 1 ? 's' : '') + '; ' + rangeText + ')';
+      var rangeText = len > 0
+        ? vt('viewer.schema.searchTab.rangeShowing', stOffset + 1, stOffset + len)
+        : vt('viewer.schema.searchTab.rangeNone');
+      // Singular/plural row word is a separate key, not an inline English branch.
+      var rowWord = vt(total !== 1 ? 'viewer.schema.searchTab.rowsPlural' : 'viewer.schema.searchTab.rowsSingular');
+      metaText = vt('viewer.schema.searchTab.metaCount', esc(tableName), total, rowWord, rangeText);
     } else {
-      metaText = esc(tableName) + ' (up to ' + stLimit + ' rows)';
+      metaText = vt('viewer.schema.searchTab.metaUpTo', esc(tableName), stLimit);
     }
     var filterSuffix = '';
     if (stFilter()) {
       filterSuffix = stOnlyMatching
-        ? ' (filtered: ' + filtered.length + ' of ' + data.length + ')'
-        : ' (showing all rows; filter: ' + filtered.length + ' match)';
+        ? vt('viewer.schema.search.filteredOf', filtered.length, data.length)
+        : vt('viewer.schema.search.showingAll', filtered.length);
     }
     metaText += filterSuffix;
 
@@ -144,11 +149,11 @@ export function initSearchTab(): void {
       stSchemaText = schema;
       stPanel.innerHTML =
         '<div class="search-section-collapsible expanded">' +
-          '<div class="collapsible-header" data-collapsible>Schema</div>' +
+          '<div class="collapsible-header" data-collapsible>' + vt('viewer.schema.heading') + '</div>' +
           '<div class="collapsible-body"><pre id="st-schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
         '</div>' +
         '<div class="search-section-collapsible expanded">' +
-          '<div class="collapsible-header" data-collapsible>Table data: ' + esc(tableName) + '</div>' +
+          '<div class="collapsible-header" data-collapsible>' + vt('viewer.schema.tableData.headingNamed', esc(tableName)) + '</div>' +
           '<div class="collapsible-body"><p class="meta st-meta">' + metaText + '</p>' + tableHtml + '</div>' +
         '</div>';
     } else {
@@ -172,13 +177,13 @@ export function initSearchTab(): void {
 
     // Nothing selected yet → show prompt
     if (!tableName && scope !== 'schema') {
-      stPanel.innerHTML = '<p class="meta">Select a table and type a search term.</p>';
+      stPanel.innerHTML = '<p class="meta">' + vt('viewer.schema.searchTab.selectPrompt') + '</p>';
       return;
     }
 
     // Schema-only view
     if (scope === 'schema') {
-      stPanel.innerHTML = '<p class="meta">Loading schema\u2026</p>';
+      stPanel.innerHTML = '<p class="meta">' + vt('viewer.schema.loading') + '</p>';
       var schemaPromise = S.cachedSchema !== null
         ? Promise.resolve(S.cachedSchema)
         : fetch('/api/schema', S.authOpts()).then(function(r) { return r.text(); });
@@ -186,17 +191,17 @@ export function initSearchTab(): void {
         if (S.cachedSchema === null) S.setCachedSchema(schema);
         stSchemaText = schema;
         stTableJson = null; // FIX #3: was stDataJson (undeclared → implicit global)
-        stPanel.innerHTML = '<p class="meta">Schema</p><pre id="st-schema-pre">' + highlightSqlSafe(schema) + '</pre>';
+        stPanel.innerHTML = '<p class="meta">' + vt('viewer.schema.heading') + '</p><pre id="st-schema-pre">' + highlightSqlSafe(schema) + '</pre>';
         stHighlight();
       }).catch(function(e) {
-        stPanel.innerHTML = '<p class="meta">Error</p><pre>' + esc(String(e)) + '</pre>';
+        stPanel.innerHTML = '<p class="meta">' + vt('viewer.schema.error') + '</p><pre>' + esc(String(e)) + '</pre>';
       });
       return;
     }
 
     // Data or Both: need table data
     if (!tableName) {
-      stPanel.innerHTML = '<p class="meta">Select a table above.</p>';
+      stPanel.innerHTML = '<p class="meta">' + vt('viewer.schema.searchTab.selectTableAbove') + '</p>';
       return;
     }
 
@@ -205,12 +210,12 @@ export function initSearchTab(): void {
       // Schema might still be needed for 'both' scope
       if (scope === 'both' && !S.cachedSchema) {
         // Fetch schema only, then render with cached table data
-        stPanel.innerHTML = '<p class="meta">Loading schema\u2026</p>';
+        stPanel.innerHTML = '<p class="meta">' + vt('viewer.schema.loading') + '</p>';
         fetch('/api/schema', S.authOpts()).then(function(r) { return r.text(); }).then(function(schema) {
           S.setCachedSchema(schema);
           if (stTableName === tableName) stBuildContent(stTableJson, schema, stCachedFks, stCachedColTypes, tableName);
         }).catch(function(e) {
-          stPanel.innerHTML = '<p class="meta">Error loading schema</p><pre>' + esc(String(e)) + '</pre>';
+          stPanel.innerHTML = '<p class="meta">' + vt('viewer.schema.searchTab.loadingSchemaError') + '</p><pre>' + esc(String(e)) + '</pre>';
         });
         return;
       }
@@ -219,7 +224,7 @@ export function initSearchTab(): void {
     }
 
     // Fresh fetch: show loading indicator
-    stPanel.innerHTML = '<p class="meta">Loading ' + esc(tableName) + '\u2026</p>';
+    stPanel.innerHTML = '<p class="meta">' + vt('viewer.schema.searchTab.loadingTable', esc(tableName)) + '</p>';
 
     // FIX #2: Use search-tab-local limit/offset (not global)
     var dataFetch = fetch('/api/table/' + encodeURIComponent(tableName) + '?limit=' + stLimit + '&offset=' + stOffset, S.authOpts())
@@ -251,15 +256,19 @@ export function initSearchTab(): void {
                 var metaEl = stPanel.querySelector('.st-meta');
                 if (metaEl) {
                   var len = stTableJson ? stTableJson.length : 0;
-                  var rangeText = len > 0 ? ('showing ' + (stOffset + 1) + '\u2013' + (stOffset + len)) : 'no rows in this range';
-                  metaEl.textContent = tableName + ' (' + o.count + ' row' + (o.count !== 1 ? 's' : '') + '; ' + rangeText + ')';
+                  var rangeText = len > 0
+                    ? vt('viewer.schema.searchTab.rangeShowing', stOffset + 1, stOffset + len)
+                    : vt('viewer.schema.searchTab.rangeNone');
+                  var rowWord = vt(o.count !== 1 ? 'viewer.schema.searchTab.rowsPlural' : 'viewer.schema.searchTab.rowsSingular');
+                  // textContent (not HTML) \u2014 table name is set raw, no esc needed here.
+                  metaEl.textContent = vt('viewer.schema.searchTab.metaCount', tableName, o.count, rowWord, rangeText);
                 }
               }
             }).catch(function() {});
         }
       })
       .catch(function(e) {
-        stPanel.innerHTML = '<p class="meta">Error</p><pre>' + esc(String(e)) + '</pre>';
+        stPanel.innerHTML = '<p class="meta">' + vt('viewer.schema.error') + '</p><pre>' + esc(String(e)) + '</pre>';
       });
   }
 
@@ -302,7 +311,7 @@ export function initSearchTab(): void {
       stNavigate(0);
     } else {
       stNavEl.style.display = term ? 'flex' : 'none';
-      stCountEl.textContent = term ? 'No matches' : '';
+      stCountEl.textContent = term ? vt('viewer.schema.search.noMatches') : '';
       stPrevBtn.disabled = true;
       stNextBtn.disabled = true;
     }
@@ -321,7 +330,7 @@ export function initSearchTab(): void {
     el.classList.add('highlight-active');
     expandSectionContaining(el);
     el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-    stCountEl.textContent = (stMatchIdx + 1) + ' of ' + stMatches.length;
+    stCountEl.textContent = vt('viewer.schema.search.matchCounter', stMatchIdx + 1, stMatches.length);
     stPrevBtn.disabled = false;
     stNextBtn.disabled = false;
   }

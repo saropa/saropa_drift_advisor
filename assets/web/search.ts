@@ -3,6 +3,7 @@
  * Extracted from app.js — all shared state accessed via S.*.
  */
 import * as S from './state.ts';
+import { vt } from './l10n.ts';
 import { esc } from './utils.ts';
 
 export function escapeRe(s) {
@@ -47,8 +48,8 @@ export function getTableDisplayData(data) {
      */
 export function buildTableFilterMetaSuffix(filteredLen, totalLen) {
       if (!getRowFilter()) return '';
-      if (S.showOnlyMatchingRows) return ' (filtered: ' + filteredLen + ' of ' + totalLen + ')';
-      return ' (showing all rows; filter: ' + filteredLen + ' match)';
+      if (S.showOnlyMatchingRows) return vt('viewer.schema.search.filteredOf', filteredLen, totalLen);
+      return vt('viewer.schema.search.showingAll', filteredLen);
     }
 
     // Expand any collapsed section that contains the given DOM element.
@@ -128,7 +129,7 @@ export function applySearch() {
       } else {
         // Show "No matches" when user typed something, hide entirely when empty
         navEl.style.display = term ? 'flex' : 'none';
-        countEl.textContent = term ? 'No matches' : '';
+        countEl.textContent = term ? vt('viewer.schema.search.noMatches') : '';
         document.getElementById('search-prev').disabled = true;
         document.getElementById('search-next').disabled = true;
       }
@@ -167,7 +168,7 @@ export function navigateToMatch(index) {
       current.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
 
       // Update "X of Y" counter (1-based for display)
-      countEl.textContent = (S.searchCurrentIndex + 1) + ' of ' + S.searchMatches.length;
+      countEl.textContent = vt('viewer.schema.search.matchCounter', S.searchCurrentIndex + 1, S.searchMatches.length);
 
       // Both buttons always enabled (wrap-around navigation)
       prevBtn.disabled = false;

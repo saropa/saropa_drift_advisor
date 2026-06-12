@@ -1,3 +1,5 @@
+import { t } from '../l10n';
+
 /**
  * Build HTML for the Add Data Breakpoint form webview panel.
  * Collects table, breakpoint type, and optional condition in one view
@@ -110,55 +112,55 @@ export function buildBreakpointFormHtml(
 </style>
 </head>
 <body>
-<h1>Add Data Breakpoint</h1>
+<h1>${t('panel.tools.breakpoint.title')}</h1>
 
 <div class="field">
-  <div class="field-label">Table</div>
+  <div class="field-label">${t('panel.tools.breakpoint.field.table')}</div>
   <select id="table">${options}</select>
 </div>
 
 <div class="field">
-  <div class="field-label">Breakpoint Type</div>
+  <div class="field-label">${t('panel.tools.breakpoint.field.type')}</div>
   <div class="type-grid">
     <label class="type-option">
       <input type="radio" name="type" value="conditionMet" />
       <div class="type-card">
-        <div class="type-name">Condition Met</div>
-        <div class="type-desc">SQL returns non-zero count</div>
+        <div class="type-name">${t('panel.tools.breakpoint.type.conditionMet.name')}</div>
+        <div class="type-desc">${t('panel.tools.breakpoint.type.conditionMet.desc')}</div>
       </div>
     </label>
     <label class="type-option">
       <input type="radio" name="type" value="rowInserted" checked />
       <div class="type-card">
-        <div class="type-name">Row Inserted</div>
-        <div class="type-desc">Row count increases</div>
+        <div class="type-name">${t('panel.tools.breakpoint.type.rowInserted.name')}</div>
+        <div class="type-desc">${t('panel.tools.breakpoint.type.rowInserted.desc')}</div>
       </div>
     </label>
     <label class="type-option">
       <input type="radio" name="type" value="rowDeleted" />
       <div class="type-card">
-        <div class="type-name">Row Deleted</div>
-        <div class="type-desc">Row count decreases</div>
+        <div class="type-name">${t('panel.tools.breakpoint.type.rowDeleted.name')}</div>
+        <div class="type-desc">${t('panel.tools.breakpoint.type.rowDeleted.desc')}</div>
       </div>
     </label>
     <label class="type-option">
       <input type="radio" name="type" value="rowChanged" />
       <div class="type-card">
-        <div class="type-name">Row Changed</div>
-        <div class="type-desc">Any data changes</div>
+        <div class="type-name">${t('panel.tools.breakpoint.type.rowChanged.name')}</div>
+        <div class="type-desc">${t('panel.tools.breakpoint.type.rowChanged.desc')}</div>
       </div>
     </label>
   </div>
 </div>
 
 <div class="field condition-field" id="conditionField">
-  <div class="field-label">SQL Condition</div>
+  <div class="field-label">${t('panel.tools.breakpoint.field.condition')}</div>
   <textarea id="condition" placeholder='SELECT COUNT(*) FROM "users" WHERE balance < 0'></textarea>
 </div>
 
 <div class="btn-row">
-  <button class="btn btn-primary" id="submit">Add Breakpoint</button>
-  <button class="btn btn-secondary" id="cancel">Cancel</button>
+  <button class="btn btn-primary" id="submit">${t('panel.tools.breakpoint.btn.add')}</button>
+  <button class="btn btn-secondary" id="cancel">${t('panel.tools.breakpoint.btn.cancel')}</button>
 </div>
 
 <script>

@@ -5,6 +5,7 @@
 
 import type { IExplainNode } from './explain-panel';
 import type { IndexSuggestion } from '../api-client';
+import { t } from '../l10n';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -26,9 +27,9 @@ function scanClass(node: IExplainNode): string {
 
 function scanLabel(node: IExplainNode): string {
   switch (node.scanType) {
-    case 'search': return 'INDEX';
-    case 'scan': return 'FULL SCAN';
-    case 'temp': return 'TEMP';
+    case 'search': return t('panel.query.explain.badge.index');
+    case 'scan': return t('panel.query.explain.badge.fullScan');
+    case 'temp': return t('panel.query.explain.badge.temp');
     default: return '';
   }
 }
@@ -56,11 +57,11 @@ function renderSuggestions(suggestions: IndexSuggestion[]): string {
         `<div class="suggestion">
   <span class="suggestion-reason">${esc(s.reason)}</span>
   <code>${esc(s.sql)}</code>
-  <button class="copy-btn" data-action="copySuggestion" data-index="${i}">Copy</button>
+  <button class="copy-btn" data-action="copySuggestion" data-index="${i}">${t('panel.query.explain.suggestion.copy')}</button>
 </div>`,
     )
     .join('\n');
-  return `<h3>Index Suggestions</h3>\n${items}`;
+  return `<h3>${t('panel.query.explain.section.suggestions')}</h3>\n${items}`;
 }
 
 /** Build self-contained HTML for the explain query plan panel. */
@@ -73,10 +74,10 @@ export function buildExplainHtml(
   const suggestionsHtml = renderSuggestions(suggestions);
 
   const body = `
-<h2>Query Plan</h2>
+<h2>${t('panel.query.explain.title')}</h2>
 <div class="toolbar">
-  <button class="copy-btn" data-action="copySql">Copy SQL</button>
-  <button class="copy-btn" data-action="copyPlan">Copy Plan</button>
+  <button class="copy-btn" data-action="copySql">${t('panel.query.explain.btn.copySql')}</button>
+  <button class="copy-btn" data-action="copyPlan">${t('panel.query.explain.btn.copyPlan')}</button>
 </div>
 <div class="sql-block"><code>${esc(sql)}</code></div>
 <div class="tree">${tree}</div>

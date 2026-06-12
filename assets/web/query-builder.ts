@@ -5,6 +5,7 @@
  * Supports single-table (legacy) and multi-table visual scopes (see query-builder-multi.ts).
  */
 import { esc, setButtonBusy } from './utils.ts';
+import { vt } from './l10n.ts';
 import * as S from './state.ts';
 import * as MQ from './query-builder-multi.ts';
 import { importSelectSqlToWebModel } from './query-builder-import.ts';
@@ -23,46 +24,46 @@ import { bindColumnTableEvents } from './pagination.ts';
       var html = '<div class="qb-section">';
       // is-collapsed drives the CSS ::after chevron (collapsed by default to match
       // the qb-body.collapsed state below); no arrow character in the markup.
-      html += '<div class="qb-header is-collapsed" id="qb-toggle">Query builder</div>';
+      html += '<div class="qb-header is-collapsed" id="qb-toggle">' + esc(vt('viewer.qb.header')) + '</div>';
       html += '<div id="qb-body" class="qb-body collapsed">';
 
       // Visual/Raw mode toggle
       html += '<div class="qb-mode-toggle">';
-      html += '<button type="button" id="qb-mode-visual" class="qb-mode-btn active" title="Visual query builder">Visual</button>';
-      html += '<button type="button" id="qb-mode-raw" class="qb-mode-btn" title="Edit SQL directly">Raw SQL</button>';
+      html += '<button type="button" id="qb-mode-visual" class="qb-mode-btn active" title="' + esc(vt('viewer.qb.mode.visual.title')) + '">' + esc(vt('viewer.qb.mode.visual.label')) + '</button>';
+      html += '<button type="button" id="qb-mode-raw" class="qb-mode-btn" title="' + esc(vt('viewer.qb.mode.raw.title')) + '">' + esc(vt('viewer.qb.mode.raw.label')) + '</button>';
       html += '</div>';
 
       // Single-table vs multi-table scope (multi uses shared SQL renderer in query-builder-sql.ts).
-      html += '<div class="qb-mode-toggle qb-scope-toggle" title="Single-table keeps the classic form; multi-table adds JOINs, GROUP BY, and multi ORDER BY">';
-      html += '<button type="button" id="qb-scope-single" class="qb-mode-btn active">Single table</button>';
-      html += '<button type="button" id="qb-scope-multi" class="qb-mode-btn">Multi-table</button>';
+      html += '<div class="qb-mode-toggle qb-scope-toggle" title="' + esc(vt('viewer.qb.scope.toggle.title')) + '">';
+      html += '<button type="button" id="qb-scope-single" class="qb-mode-btn active">' + esc(vt('viewer.qb.scope.single.label')) + '</button>';
+      html += '<button type="button" id="qb-scope-multi" class="qb-mode-btn">' + esc(vt('viewer.qb.scope.multi.label')) + '</button>';
       html += '</div>';
 
       // Visual mode panel — the existing form controls
       html += '<div id="qb-visual-panel">';
       html += '<div id="qb-simple-visual">';
-      html += '<div class="qb-row"><label>SELECT</label><div class="qb-columns" id="qb-columns">';
+      html += '<div class="qb-row"><label>' + esc(vt('viewer.qb.label.select')) + '</label><div class="qb-columns" id="qb-columns">';
       cols.forEach(function(c) {
         html += '<label><input type="checkbox" value="' + esc(c) + '" checked> ' + esc(c) + '</label>';
       });
       html += '</div></div>';
-      html += '<div class="qb-row"><label>WHERE</label><div style="flex:1;">';
+      html += '<div class="qb-row"><label>' + esc(vt('viewer.qb.label.where')) + '</label><div style="flex:1;">';
       html += '<div id="qb-where-list"></div>';
-      html += '<button type="button" id="qb-add-where" style="font-size:11px;" title="Add another WHERE condition">+ Add condition</button>';
+      html += '<button type="button" id="qb-add-where" style="font-size:11px;" title="' + esc(vt('viewer.qb.where.add.title')) + '">' + esc(vt('viewer.qb.where.add.label')) + '</button>';
       html += '</div></div>';
-      html += '<div class="qb-row"><label>ORDER BY</label>';
-      html += '<select id="qb-order-col"><option value="">None</option>';
+      html += '<div class="qb-row"><label>' + esc(vt('viewer.qb.label.orderBy')) + '</label>';
+      html += '<select id="qb-order-col"><option value="">' + esc(vt('viewer.qb.order.none')) + '</option>';
       cols.forEach(function(c) { html += '<option value="' + esc(c) + '">' + esc(c) + '</option>'; });
       html += '</select>';
       html += '<select id="qb-order-dir"><option value="ASC">ASC</option><option value="DESC">DESC</option></select>';
       html += '</div>';
-      html += '<div class="qb-row"><label>LIMIT</label>';
+      html += '<div class="qb-row"><label>' + esc(vt('viewer.qb.label.limit')) + '</label>';
       html += '<input type="number" id="qb-limit" value="200" min="1" max="1000" style="width:5rem;">';
       html += '</div>';
       html += '</div>'; // end #qb-simple-visual
 
       html += '<div id="qb-multi-panel" style="display:none;">';
-      html += '<p class="meta" style="margin:0 0 0.5rem 0;">Build JOINs from the root table. Preview shows validation errors until the graph is valid.</p>';
+      html += '<p class="meta" style="margin:0 0 0.5rem 0;">' + esc(vt('viewer.qb.multi.intro')) + '</p>';
       html += '<div id="qb-multi-root"></div>';
       html += '</div>';
 
@@ -75,14 +76,14 @@ import { bindColumnTableEvents } from './pagination.ts';
       html += '<textarea id="qb-raw-input" class="qb-raw-textarea" rows="4" spellcheck="false" placeholder="SELECT * FROM &quot;' + esc(tableName) + '&quot; LIMIT 200"></textarea>';
       // Reconstruct a flat SELECT into the multi-table visual graph (Feature 21, Phase 3).
       html += '<div class="qb-row" style="margin-top:0.35rem;">';
-      html += '<button type="button" id="qb-raw-import" title="Parse the SQL above into the multi-table visual builder">Import to visual builder</button>';
+      html += '<button type="button" id="qb-raw-import" title="' + esc(vt('viewer.qb.raw.import.title')) + '">' + esc(vt('viewer.qb.raw.import.label')) + '</button>';
       html += '</div>';
       html += '</div>';
 
       // Shared action buttons — used by both Visual and Raw modes
       html += '<div class="qb-row" style="margin-top:0.35rem;">';
-      html += '<button type="button" id="qb-run" title="Execute the built query">Run query</button>';
-      html += '<button type="button" id="qb-reset" title="Return to table view">Reset to table view</button>';
+      html += '<button type="button" id="qb-run" title="' + esc(vt('viewer.qb.run.title')) + '">' + esc(vt('viewer.qb.run.label')) + '</button>';
+      html += '<button type="button" id="qb-reset" title="' + esc(vt('viewer.qb.reset.title')) + '">' + esc(vt('viewer.qb.reset.label')) + '</button>';
       html += '</div>';
       html += '</div></div>';
       return html;
@@ -92,26 +93,26 @@ import { bindColumnTableEvents } from './pagination.ts';
       var type = (columnType || '').toUpperCase();
       if (type === 'TEXT' || type.indexOf('VARCHAR') >= 0 || type.indexOf('CHAR') >= 0) {
         return [
-          { val: 'LIKE', label: 'contains' }, { val: '=', label: 'equals' },
-          { val: 'NOT_LIKE', label: 'not contains' }, { val: 'LIKE_START', label: 'starts with' },
-          { val: 'IS NULL', label: 'is null' }, { val: 'IS NOT NULL', label: 'is not null' }
+          { val: 'LIKE', label: vt('viewer.qb.op.contains') }, { val: '=', label: vt('viewer.qb.op.equals') },
+          { val: 'NOT_LIKE', label: vt('viewer.qb.op.notContains') }, { val: 'LIKE_START', label: vt('viewer.qb.op.startsWith') },
+          { val: 'IS NULL', label: vt('viewer.qb.op.isNull') }, { val: 'IS NOT NULL', label: vt('viewer.qb.op.isNotNull') }
         ];
       } else if (type === 'INTEGER' || type === 'REAL' || type.indexOf('INT') >= 0 || type.indexOf('FLOAT') >= 0 || type.indexOf('DOUBLE') >= 0 || type.indexOf('NUM') >= 0 || type.indexOf('DECIMAL') >= 0) {
         return [
           { val: '=', label: '=' }, { val: '!=', label: '!=' },
           { val: '>', label: '>' }, { val: '<', label: '<' },
           { val: '>=', label: '>=' }, { val: '<=', label: '<=' },
-          { val: 'IS NULL', label: 'is null' }, { val: 'IS NOT NULL', label: 'is not null' }
+          { val: 'IS NULL', label: vt('viewer.qb.op.isNull') }, { val: 'IS NOT NULL', label: vt('viewer.qb.op.isNotNull') }
         ];
       } else if (type === 'BLOB') {
         return [
-          { val: 'IS NULL', label: 'is null' }, { val: 'IS NOT NULL', label: 'is not null' }
+          { val: 'IS NULL', label: vt('viewer.qb.op.isNull') }, { val: 'IS NOT NULL', label: vt('viewer.qb.op.isNotNull') }
         ];
       }
       return [
         { val: '=', label: '=' }, { val: '!=', label: '!=' },
-        { val: 'LIKE', label: 'contains' },
-        { val: 'IS NULL', label: 'is null' }, { val: 'IS NOT NULL', label: 'is not null' }
+        { val: 'LIKE', label: vt('viewer.qb.op.contains') },
+        { val: 'IS NULL', label: vt('viewer.qb.op.isNull') }, { val: 'IS NOT NULL', label: vt('viewer.qb.op.isNotNull') }
       ];
     }
 
@@ -132,7 +133,7 @@ import { bindColumnTableEvents } from './pagination.ts';
       if (!isFirst) {
         var connSel = document.createElement('select');
         connSel.className = 'qb-where-connector';
-        connSel.title = 'Combine with previous condition';
+        connSel.title = vt('viewer.qb.where.connector.title');
         var optAnd = document.createElement('option');
         optAnd.value = 'AND';
         optAnd.textContent = 'AND';
@@ -158,12 +159,12 @@ import { bindColumnTableEvents } from './pagination.ts';
       var valInput = document.createElement('input');
       valInput.type = 'text';
       valInput.className = 'qb-where-val';
-      valInput.placeholder = 'value';
+      valInput.placeholder = vt('viewer.qb.where.value.placeholder');
       valInput.style.width = '8rem';
       var removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.textContent = '\u00D7';
-      removeBtn.title = 'Remove condition';
+      removeBtn.title = vt('viewer.qb.where.remove.title');
       removeBtn.addEventListener('click', function() { div.remove(); updateQbPreview(); });
       var presetValue = preset ? preset.value : null;
       function updateOps() {
@@ -262,7 +263,7 @@ import { bindColumnTableEvents } from './pagination.ts';
       } else if (MQ.getQbScope() === 'multi') {
         var multiSql = MQ.tryGetMultiSql();
         if (!multiSql) {
-          alert('Fix validation errors shown in the preview, or switch to Raw SQL.');
+          alert(vt('viewer.qb.alert.fixValidation'));
           return;
         }
         sql = multiSql;
@@ -271,7 +272,7 @@ import { bindColumnTableEvents } from './pagination.ts';
       }
       if (!sql) return;
       var runBtn = document.getElementById('qb-run');
-      if (runBtn) { runBtn.disabled = true; setButtonBusy(runBtn, true, 'Running\u2026'); }
+      if (runBtn) { runBtn.disabled = true; setButtonBusy(runBtn, true, vt('viewer.qb.run.busy')); }
       var savedState = captureQueryBuilderState();
       fetch('/api/sql', S.authOpts({
         method: 'POST',
@@ -281,7 +282,7 @@ import { bindColumnTableEvents } from './pagination.ts';
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
         .then(function(result) {
           if (!result.ok) {
-            alert('Query error: ' + (result.data.error || 'Unknown error'));
+            alert(vt('viewer.qb.alert.queryError', result.data.error || vt('viewer.qb.alert.unknownError')));
             return;
           }
           S.setQueryBuilderActive(true);
@@ -292,7 +293,7 @@ import { bindColumnTableEvents } from './pagination.ts';
           var cachedFks = S.fkMetaCache[S.currentTableName] || [];
           (cachedFks || []).forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
           var colTypes = S.tableColumnTypes[S.currentTableName] || {};
-          var html = '<p class="meta">Query builder result: ' + rows.length + ' row(s)</p>';
+          var html = '<p class="meta">' + esc(vt('viewer.qb.result.rowCount', rows.length)) + '</p>';
           html += '<p class="meta" style="font-family:monospace;font-size:11px;color:var(--muted);">' + esc(sql) + '</p>';
           html += buildQueryBuilderHtml(S.currentTableName, colTypes);
           // Wrap query builder results in the same collapsible expander
@@ -304,8 +305,8 @@ import { bindColumnTableEvents } from './pagination.ts';
           // Query-builder results are the full result set (no separate server
           // total), so rows collapse to a single count; columns reflect hiding.
           var resultsLabel = buildResultsLabel(rows.length, null, getVisibleColumnCount(qbDataKeys, qbColConfig), qbDataKeys.length);
-          html += '<div class="results-table-wrap" role="region" aria-label="Results">' +
-            '<div class="results-table-heading">Results \u2014 ' + resultsLabel + '</div>' +
+          html += '<div class="results-table-wrap" role="region" aria-label="' + esc(vt('viewer.qb.results.ariaLabel')) + '">' +
+            '<div class="results-table-heading">' + vt('viewer.qb.results.heading', resultsLabel) + '</div>' +
             '<div class="results-table-body">' + rawTableHtml + '</div></div>';
           content.innerHTML = html;
           bindQueryBuilderEvents(colTypes);
@@ -319,9 +320,9 @@ import { bindColumnTableEvents } from './pagination.ts';
           if (toggle) toggle.classList.remove('is-collapsed');
           saveTableState(S.currentTableName);
         })
-        .catch(function(e) { alert('Error: ' + e.message); })
+        .catch(function(e) { alert(vt('viewer.qb.alert.error', e.message)); })
         .finally(function() {
-          if (runBtn) { runBtn.disabled = false; setButtonBusy(runBtn, false, 'Run query'); }
+          if (runBtn) { runBtn.disabled = false; setButtonBusy(runBtn, false, vt('viewer.qb.run.label')); }
         });
     }
 
@@ -422,13 +423,13 @@ import { bindColumnTableEvents } from './pagination.ts';
           var input = document.getElementById('qb-raw-input') as HTMLTextAreaElement | null;
           if (!input) return;
           var sqlText = input.value.trim();
-          if (!sqlText) { alert('Paste a SELECT statement to import.'); return; }
+          if (!sqlText) { alert(vt('viewer.qb.alert.pasteSelect')); return; }
           void loadSchemaMeta()
             .then(function() {
               var schemaTables = (S.schemaMeta && S.schemaMeta.tables) || [];
               var result = importSelectSqlToWebModel(sqlText, schemaTables);
               if (!result.model || result.errors.length > 0) {
-                alert('Could not import SQL:\n' + result.errors.join('\n'));
+                alert(vt('viewer.qb.alert.importFailed', result.errors.join('\n')));
                 return;
               }
               MQ.loadImportedMultiModel(result.model);
@@ -449,7 +450,7 @@ import { bindColumnTableEvents } from './pagination.ts';
               // blocking the import; the populated graph is the success signal.
               if (result.warnings.length > 0) console.warn('SQL import warnings:', result.warnings);
             })
-            .catch(function(e) { alert('Schema load failed: ' + e.message); });
+            .catch(function(e) { alert(vt('viewer.qb.alert.schemaLoadFailed', e.message)); });
         });
       }
     }
