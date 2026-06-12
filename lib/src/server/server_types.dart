@@ -28,6 +28,48 @@ class Snapshot {
   Snapshot withLabel(String? newLabel) =>
       Snapshot(id: id, createdAt: createdAt, tables: tables, label: newLabel);
 
+  /// JSON form for on-disk persistence ([ServerContext.snapshotStorePath]).
+  /// `createdAt` is an ISO-8601 string; `tables` is already JSON-native.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    ServerConstants.jsonKeyId: id,
+    ServerConstants.jsonKeyCreatedAt: createdAt.toIso8601String(),
+    if (label != null) ServerConstants.jsonKeyLabel: label,
+    ServerConstants.jsonKeyTables: tables,
+  };
+
+  /// Rebuilds a [Snapshot] from [toJson] output. Returns null when the entry is
+  /// not a well-formed object (missing id, unparseable date, or wrong shape) so
+  /// a single corrupt record can be skipped rather than aborting the whole load.
+  static Snapshot? fromJson(Object? decoded) {
+    if (decoded is! Map<String, dynamic>) return null;
+    final Object? id = decoded[ServerConstants.jsonKeyId];
+    final Object? createdRaw = decoded[ServerConstants.jsonKeyCreatedAt];
+    if (id is! String || createdRaw is! String) return null;
+    final DateTime? createdAt = DateTime.tryParse(createdRaw);
+    if (createdAt == null) return null;
+
+    final Map<String, List<Map<String, dynamic>>> tables =
+        <String, List<Map<String, dynamic>>>{};
+    final Object? rawTables = decoded[ServerConstants.jsonKeyTables];
+    if (rawTables is Map<String, dynamic>) {
+      rawTables.forEach((String table, Object? rows) {
+        if (rows is List) {
+          tables[table] = rows.whereType<Map<String, dynamic>>().toList(
+            growable: false,
+          );
+        }
+      });
+    }
+
+    final Object? label = decoded[ServerConstants.jsonKeyLabel];
+    return Snapshot(
+      id: id,
+      createdAt: createdAt,
+      tables: tables,
+      label: label is String ? label : null,
+    );
+  }
+
   @override
   String toString() =>
       'Snapshot(id: $id, createdAt: $createdAt, tables: ${tables.length} tables)';

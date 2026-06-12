@@ -122,6 +122,7 @@ class _DriftDebugServerImpl {
     Set<String>? declaredTableNames,
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
+    String? snapshotStorePath,
   }) async {
     if (!enabled) {
       return;
@@ -242,7 +243,13 @@ class _DriftDebugServerImpl {
       declaredTableNames: declaredTableNames,
       declaredSchema: declaredSchema,
       declaredRelationships: declaredRelationships,
+      snapshotStorePath: snapshotStorePath,
     );
+
+    // Restore any snapshots persisted by a previous run before serving, so the
+    // list survives a server restart (Feature 72 Phase 4). No-op when no store
+    // path was configured.
+    await ctx.loadPersistedSnapshots();
 
     if (baseWrite != null) {
       // Use raw reads for mutation capture and `changes()` so DVR/timing buffers
@@ -464,6 +471,14 @@ mixin DriftDebugServer {
     /// names. When null the endpoint reports `available: false` and the wizard
     /// keeps its heuristic.
     DeclaredRelationshipsCallback? declaredRelationships,
+
+    /// Optional file path the website snapshot list is mirrored to so it
+    /// survives a server restart (Feature 72). On start the list is reloaded
+    /// from this file; every capture/delete/rename rewrites it atomically.
+    /// When null (the default) snapshots stay in memory only, as before — a
+    /// browser reload still re-fetches them, but a process restart clears them.
+    /// Host configuration; never user/network input.
+    String? snapshotStorePath,
   }) => _instance.start(
     query: query,
     queryWithBindings: queryWithBindings,
@@ -485,6 +500,7 @@ mixin DriftDebugServer {
     declaredTableNames: declaredTableNames,
     declaredSchema: declaredSchema,
     declaredRelationships: declaredRelationships,
+    snapshotStorePath: snapshotStorePath,
   );
 
   /// The port the server is bound to, or null if not running.

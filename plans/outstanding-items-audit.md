@@ -45,7 +45,11 @@ These are the actual finds. Each was confirmed absent from the codebase.
 - **Gate:** From the website, export a self-contained report for a live DB; opening
   the file offline reproduces the extension report's content.
 
-### A2. Website multi-snapshot persistence across server restart (72 Phase 4)
+### A2. Website multi-snapshot persistence across server restart (72 Phase 4) — DONE (2026-06-12)
+- **Resolution:** Opt-in `snapshotStorePath` on `DriftDebugServer.start`; snapshots
+  mirrored to that file (atomic write) and reloaded on start (`SnapshotStore` +
+  `ServerContext.loadPersistedSnapshots`). Finish report appended to
+  `plans/history/2026.06/2026.06.10/72-website-multiple-snapshots.md`.
 - **Source:** `plans/history/2026.06/2026.06.10/72-website-multiple-snapshots.md:103,126`
   — Phases 1–3 shipped; "Phase 4 explicitly deferred" (optional persistence).
 - **State:** Confirmed not built — website snapshots live in `ServerContext`
