@@ -93,8 +93,8 @@ def _print_menu(emit: Callable[[str], None]) -> None:
     heading("Localization actions")
     emit("  1  Audit only (write the coverage report)")
     emit("  2  Sync the English baseline (build host bundle, prune orphans)")
-    emit("  3  Translate GAPS — all 10 locales")
-    emit("  4  Translate GAPS — specific locales")
+    emit("  3  Translate GAPS (NLLB) — all 10 locales")
+    emit("  4  Translate GAPS (NLLB) — specific locales")
     emit("  5  Upgrade LOW-QUALITY → NLLB — all 10 locales")
     emit("  6  Upgrade LOW-QUALITY → NLLB — specific locales")
     emit("  0  Exit")
@@ -132,14 +132,19 @@ def interactive_menu(
     all ten at 0% with everything to translate — and the menu defaults to Translate
     — rather than reporting "nothing to translate" because no bundles exist yet.
     """
-    from modules.display import ask_choice, ask_yn
+    from modules.display import ask_choice
+    from modules.l10n import engines
 
     reports_dir = reports_dir or (REPO_ROOT / "reports" / "interactive")
+
+    engine_name = "NLLB-200 (offline, cached)" if engines.nllb_model_is_cached() \
+        else "Google Translate (fallback — NLLB model not cached)"
 
     report = audit.run_audit(TRANSLATED_LOCALES)
     emit(f"Runtime l10n — {report['source_keys']} source keys "
          f"({report['host_keys']} host + {report['web_keys']} web). "
          f"Target locales: {len(TRANSLATED_LOCALES)}.")
+    emit(f"Engine: {engine_name}")
     for loc in report["locales"]:
         emit(f"  {loc['locale']:>6}: {loc['coverage_pct']:5.1f}%  "
              f"missing={loc['missing']} untranslated={loc['untranslated']} "
@@ -162,14 +167,13 @@ def interactive_menu(
     if choice == "2":
         return actions.run_sync_action(emit)
 
-    # Translate / upgrade — deliberate, confirmed, gated.
+    # Translate / upgrade — the menu choice IS the confirmation (no second prompt,
+    # matching the reference flow). Selecting specific locales (4/6) but entering
+    # none cancels.
     scope = scopes.SCOPE_GAPS if choice in ("3", "4") else scopes.SCOPE_LOW_QUALITY
     locales = TRANSLATED_LOCALES if choice in ("3", "5") else _prompt_locales(emit)
     if not locales:
         emit("Cancelled — no locales selected.")
-        return 2
-    if not ask_yn("This runs the deliberate machine-translation pass. Proceed?", default=False):
-        emit("Cancelled.")
         return 2
     actions.run_sync_action(emit)  # always sync the baseline before translating
     return actions.run_translate_action(emit, locales, scope, confirmed=True)

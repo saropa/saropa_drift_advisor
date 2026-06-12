@@ -310,22 +310,17 @@ class TestMenu(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertTrue(bundles.host_base_bundle_path().exists())
 
-    def test_translate_all_declined_at_confirm(self):
-        code, out = self._drive(["3", "n"])  # translate all → answer No
-        self.assertEqual(code, 2)
-        self.assertTrue(any("Cancelled" in line for line in out))
-
-    def test_translate_all_confirmed_translates_via_engine(self):
-        # Menu choice 3 (translate all) + Yes → dispatches the real path, but with
-        # engines.make_locale_translator monkeypatched so NO engine (NLLB/Google)
-        # loads and no network call is made.
+    def test_translate_all_dispatches_directly(self):
+        # Menu choice 3 (translate all) dispatches immediately — no second confirm
+        # (matches the reference flow). engines.make_locale_translator is
+        # monkeypatched so NO engine (NLLB/Google) loads and no network call is made.
         import time as _time
         from modules.l10n import engines
         orig, orig_sleep = engines.make_locale_translator, _time.sleep
         engines.make_locale_translator = lambda loc, **k: (lambda text: f"[{loc}]{text}", "nllb")
         _time.sleep = lambda *a, **k: None  # skip the real per-call throttle in tests
         try:
-            code, out = self._drive(["3", "y"])
+            code, out = self._drive(["3"])  # single answer — no confirmation prompt
         finally:
             engines.make_locale_translator, _time.sleep = orig, orig_sleep
         self.assertEqual(code, 0)
