@@ -22,7 +22,7 @@ relationship is invisible to every tool that reads `PRAGMA foreign_key_list`.
 
 Companion to [78 — declared-relationships manifest](./78-declared-relationships-manifest.md):
 the manifest is the *fix* this advisory points at. Builds on the inference
-engine already shipped for [76 — NL Query Wizard](./76-nl-query-wizard.md)
+engine already shipped for [76 — NL Query Wizard](./history/2026.06/2026.06.12/76-nl-query-wizard.md)
 (`inferForeignKeys`, [assets/web/nl-to-sql.ts](../assets/web/nl-to-sql.ts)).
 
 ---
