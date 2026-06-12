@@ -161,6 +161,12 @@ export class DriftViewerPanel {
     // server is silently discarded when it finally resolves.
     const seq = ++this._loadSeq;
     const baseUrl = `http://${host}:${port}`;
+    // Fetch the shell with the editor display language so the server inlines the
+    // matching l10n catalog (plan 75 §3.3) and a hosted panel matches the editor
+    // rather than the OS locale. The query is only on the fetch URL — `<base href>`
+    // below stays query-free so relative `/api/...` calls resolve correctly.
+    const lang = encodeURIComponent(vscode.env.language || '');
+    const fetchUrl = lang ? `${baseUrl}?locale=${lang}` : baseUrl;
 
     // Show loading state immediately
     this._panel.webview.html = `
@@ -170,7 +176,7 @@ export class DriftViewerPanel {
       </body></html>`;
 
     try {
-      const resp = await fetch(baseUrl);
+      const resp = await fetch(fetchUrl);
       if (this._disposed || seq !== this._loadSeq) return;
 
       let html = await resp.text();

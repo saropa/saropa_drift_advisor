@@ -61,6 +61,32 @@ final class GenerationHandler {
   /// Single esbuild bundle containing app + hamburger-menu + masthead + table-def-toggle.
   static String? _cachedBundleJs;
 
+  /// Per-locale web l10n catalog cache (plan 75 §3.3). Key = catalog tag (e.g.
+  /// `de`, `pt-br`); value = verbatim `assets/web/l10n/web.<tag>.json` contents,
+  /// or `null` when no catalog file ships for that locale. A present key with a
+  /// `null` value is a cached "looked, found nothing" — so a locale with no
+  /// translation is probed once, not on every request. English-only today: every
+  /// lookup caches `null`, so the injection is inert until catalogs are added.
+  static final Map<String, String?> _webCatalogCache = {};
+
+  /// Locales the viewer ships catalogs for — MUST mirror `KNOWN_LOCALES` in
+  /// `assets/web/l10n.ts`. Duplicated (not shared) because the host is Dart and
+  /// the viewer is TypeScript with no common module; both resolve a raw BCP-47
+  /// tag to the same catalog tag so the server picks the file the client expects.
+  static const List<String> _knownLocales = [
+    'pt-br',
+    'zh-cn',
+    'zh-tw',
+    'de',
+    'es',
+    'fr',
+    'it',
+    'ja',
+    'ko',
+    'ru',
+    'en',
+  ];
+
   /// GET /api/health — returns {"ok": true}.
   Future<void> sendHealth(HttpResponse response) async {
     final res = response;
@@ -130,20 +156,120 @@ final class GenerationHandler {
   /// chain that Firefox ignores for 404 responses with correct MIME types.
   /// When local assets are unavailable, the HTML references CDN URLs
   /// directly via a fetch-based loader.
-  Future<void> sendHtml(HttpResponse response, HttpRequest _) async {
+  Future<void> sendHtml(HttpResponse response, HttpRequest request) async {
     final res = response;
 
-    // Eagerly resolve the package root so cached CSS/JS are available.
-    await _resolvePackageRootPath();
+    // Eagerly resolve the package root so cached CSS/JS (and l10n catalogs) are
+    // available.
+    final packageRoot = await _resolvePackageRootPath();
+
+    // Resolve the viewer locale + its translation catalog for inline injection
+    // (plan 75 §3.3). English-only today, so this normally yields (null, null)
+    // and nothing is injected — the viewer then self-detects via navigator.language.
+    final (locale, catalogJson) = await _resolveL10n(request, packageRoot);
 
     res.headers.contentType = ContentType.html;
     res.write(
       HtmlContent.buildIndexHtml(
         inlineCss: _cachedStyleCss,
         inlineBundleJs: _cachedBundleJs,
+        l10nLocale: locale,
+        l10nCatalogJson: catalogJson,
       ),
     );
     await res.close();
+  }
+
+  /// Decides which locale + catalog to inline into the viewer shell.
+  ///
+  /// Two signals, in priority order:
+  ///  1. An explicit `?locale=` query param — the VS Code host appends its
+  ///     editor display language so a hosted panel matches the editor. An
+  ///     explicit override is always injected (even with no catalog → the viewer
+  ///     pins that locale and renders bundled English), so the panel never
+  ///     silently disagrees with the editor.
+  ///  2. Otherwise the browser's `Accept-Language`, but ONLY when a catalog
+  ///     actually ships for it — without a translation there is nothing to add
+  ///     over the viewer's own `navigator.language` default, so we inject
+  ///     nothing and leave detection to the client (no behavior change).
+  ///
+  /// Returns `(null, null)` when neither applies.
+  Future<(String?, String?)> _resolveL10n(
+    HttpRequest request,
+    String? packageRoot,
+  ) async {
+    final override = request.uri.queryParameters['locale'];
+    if (override != null && override.trim().isNotEmpty) {
+      final tag = _normalizeLocale(override);
+      return (tag, await _loadWebCatalog(tag, packageRoot));
+    }
+
+    final accept = request.headers.value(HttpHeaders.acceptLanguageHeader);
+    if (accept == null || accept.isEmpty) {
+      return (null, null);
+    }
+    // First tag only; strip any q-weight (`;q=0.8`) and whitespace.
+    final first = accept.split(',').first.split(';').first.trim();
+    final tag = _normalizeLocale(first);
+    if (tag == 'en') {
+      return (null, null);
+    }
+    final catalog = await _loadWebCatalog(tag, packageRoot);
+    // No catalog → nothing to override the client's own detection with.
+    return catalog == null ? (null, null) : (tag, catalog);
+  }
+
+  /// Maps a raw BCP-47 tag (`de-AT`, `pt-BR`, `zh-Hans-CN`) to a catalog tag.
+  /// Mirrors `normalizeLocale` in `assets/web/l10n.ts`: full lowercased tag
+  /// first (so `pt-br` / `zh-cn` win), then the Chinese-script and pt-BR special
+  /// cases, then the primary subtag; `en` (fail-soft) when nothing matches.
+  String _normalizeLocale(String raw) {
+    final lower = raw.toLowerCase().replaceAll('_', '-');
+    if (_knownLocales.contains(lower)) {
+      return lower;
+    }
+    if (lower.startsWith('zh')) {
+      if (lower.contains('hant') ||
+          lower.contains('-tw') ||
+          lower.contains('-hk')) {
+        return 'zh-tw';
+      }
+      return 'zh-cn';
+    }
+    if (lower.startsWith('pt') && lower.contains('-br')) {
+      return 'pt-br';
+    }
+    final primary = lower.split('-').first;
+    return _knownLocales.contains(primary) ? primary : 'en';
+  }
+
+  /// Reads `assets/web/l10n/web.<tag>.json` from [packageRoot], cached per tag.
+  /// Returns the verbatim file contents, or `null` when the file is absent or
+  /// unreadable (English-only state: every probe currently caches `null`).
+  Future<String?> _loadWebCatalog(String tag, String? packageRoot) async {
+    if (_webCatalogCache.containsKey(tag)) {
+      return _webCatalogCache[tag];
+    }
+    String? contents;
+    // Hard allowlist guard: only a known catalog tag ever reaches the filesystem.
+    // `tag` already comes from `_normalizeLocale` (which can only return a member
+    // of `_knownLocales`), but asserting it here makes the no-path-traversal
+    // property provable at the read site — the tag is a fixed token like `de`,
+    // never user-controlled path text, so `../` can never reach the File path.
+    if (packageRoot != null && tag != 'en' && _knownLocales.contains(tag)) {
+      // ignore: avoid_path_traversal, require_file_path_sanitization -- `tag` is allow-listed on the line above (a fixed catalog token like `de`), never user path text, so `../` cannot appear
+      final file = File('$packageRoot/assets/web/l10n/web.$tag.json');
+      try {
+        if (await file.exists()) {
+          contents = await file.readAsString();
+        }
+      } on Object catch (error, stack) {
+        // Missing/unreadable catalog is non-fatal — fall through to English.
+        _ctx.logError(error, stack);
+      }
+    }
+    _webCatalogCache[tag] = contents;
+    return contents;
   }
 
   /// Serves the local CSS asset for backward-compatible direct access.

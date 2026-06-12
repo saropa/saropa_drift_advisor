@@ -451,9 +451,10 @@ in phases, each at a check that must pass before the next:
   with the English baseline; fail-soft to key verified.
   *(utilities + registries ✅; vertical slice ✅ — `health-html.ts` via `t()` +
   `masthead.ts` via `vt()`, build + suite green. Dart `window.__SDA_L10N` injection
-  ⬜ still pending — without it the browser overlay path is inert and only the
-  bundled English registry renders, which is correct for today's English-only state
-  but blocks rendering an actual translated locale in a plain browser.)*
+  ✅ — the server now resolves a locale (`?locale=` override, which the extension
+  passes from `vscode.env.language`, else catalog-backed `Accept-Language`) and
+  inlines the `web.<locale>.json` catalog before the bundle; inert today since no
+  translated catalogs ship, but the browser overlay path is now live end-to-end.)*
 - **Phase 3 — Sweep. ✅ (complete — server-rendered + client-script).** Converted
   all 46 host `*-html.ts` panels into ten `strings-panel-*.ts` family slices and ~45
   `assets/web/*.ts` modules into nine `strings-web-*.ts` slices, rewired to
@@ -656,3 +657,12 @@ Plan stays ACTIVE: Phase 3 server-rendered surfaces done; the client-script brid
 ### Addendum (same day) — client-script `__VT` bridge: Phase 3 tail closed
 
 Wired the `__VT` webview bridge into the 9 panels whose strings are generated inside embedded `<script>` blocks (`watch`, `time-travel`, `analysis-compare`, `bulk-edit`, `lineage`, `narrator`, `impact`, `refactoring`, `snippet-library`). Pattern locked on `watch-html.ts` first (build + suite verified), then fanned out across 7 subagents grouped by owning slice so no two touched the same registry file. Each panel injects `const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.<area>.']))}` + a `vt()` helper (identical `{0}`/`{1}` substitution + fail-soft as the host runtime) right after `acquireVsCodeApi()`, prefix-filtered to its own keys; the ~54 client strings became keys in the owning `strings-panel-*.ts` slices (counts/times/names as tokens; variants separately keyed). **Verification:** `tsc` clean; zero `// TODO(l10n): client-script string` markers remain at any call site; key-resolve check green (841 host keys, all used keys resolve bar the intentional `host.does.not.exist` fixture); full suite **2707 passing** (same 4 pre-existing `html_content.dart` failures, no `.dart` touched). Phase 3 is now complete end-to-end; the open items are the Phase 2 Dart `window.__SDA_L10N` injection (needs `lib/` sign-off; inert until translated catalogs exist) and Phases 1-tail/4/5.
+
+### Addendum (same day) — Phase 2 Dart `window.__SDA_L10N` injection: browser overlay path live
+
+Closed the server-injection gap. The debug server now produces the global the viewer's `initWebL10n()` consumes:
+- **`lib/src/server/html_content.dart`** — `buildIndexHtml` gained `l10nLocale` / `l10nCatalogJson` params and inlines `<script>window.__SDA_L10N={"locale":…,"catalog":…}</script>` **before** the bundle script (so the synchronous boot sees it), with `</script>` escaped in catalog values and the locale `jsonEncode`d.
+- **`lib/src/server/generation_handler.dart`** — `sendHtml` now reads the request: an explicit `?locale=` override is always injected (pins the panel to the editor language even with no catalog); otherwise `Accept-Language` is honored **only when a catalog actually ships** for it (else nothing is injected and the client self-detects via `navigator.language` — no behavior change). `_normalizeLocale` mirrors the client's `assets/web/l10n.ts` rules (`de-AT`→`de`, `pt-BR`→`pt-br`, Chinese-script→`zh-cn`/`zh-tw`); `_loadWebCatalog` reads `assets/web/l10n/web.<tag>.json` (per-locale cache, hard allowlist guard before any file read).
+- **Extension** — `nav-commands-core.ts` (Open in Browser) and `panel.ts` (hosted panel `fetch`) append `?locale=${vscode.env.language}`; the `<base href>` stays query-free so relative `/api/...` calls still resolve.
+
+**Verification:** `dart analyze` clean (the two traversal lints are documented false positives — `tag` is allowlisted); `dart test test/html_content_test.dart` **32 passing** (5 new injection tests: default-omits, locale+null-catalog, verbatim-catalog, ordering-before-bundle, `</script>` escape); `dart test test/generation_handler_test.dart` green; extension `compile` + full mocha suite **2707 passing** (same 4 pre-existing `html_content.dart` failures). **Inert today** (no `web.<locale>.json` ships, so every lookup yields English); the path activates with zero code change the moment a catalog exists. Remaining: Phase 1-tail activation notice, Phase 4 toolchain, Phase 5 gated translate run.

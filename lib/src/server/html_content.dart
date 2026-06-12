@@ -22,6 +22,8 @@
 ///
 /// The **Tables** sidebar shows skeleton rows under the Tables heading until the web bundle
 /// completes `GET /api/tables`; failures surface in the same block (see `buildIndexHtml` markup).
+import 'dart:convert';
+
 import 'server_constants.dart';
 
 abstract final class HtmlContent {
@@ -67,7 +69,12 @@ abstract final class HtmlContent {
   /// requests, works offline, and avoids the unreliable `onerror`
   /// fallback chain. When null, a small fetch-based loader tries
   /// version-pinned jsDelivr, then `@main`.
-  static String buildIndexHtml({String? inlineCss, String? inlineBundleJs}) {
+  static String buildIndexHtml({
+    String? inlineCss,
+    String? inlineBundleJs,
+    String? l10nLocale,
+    String? l10nCatalogJson,
+  }) {
     // CSS: inline <style> when available, otherwise CDN <link>.
     // No escaping needed for CSS — </style> is not valid CSS syntax
     // and will never appear in the stylesheet.
@@ -96,6 +103,19 @@ abstract final class HtmlContent {
   tryNext();
 })();
 </script>''';
+
+    // l10n catalog injection (plan 75 §3.3): when the server has resolved a
+    // locale (an explicit ?locale= override, or an Accept-Language match that we
+    // actually ship a catalog for) it inlines `window.__SDA_L10N` BEFORE the
+    // bundle so the viewer's synchronous initWebL10n() sees it during boot — the
+    // browser app has no vscode.l10n, so the translation overlay arrives this way
+    // or not at all. The catalog JSON is the verbatim web.<locale>.json contents
+    // (or `null` when English / no catalog exists). `</script>` is escaped the same
+    // way as the bundle, since a translated value could theoretically contain it.
+    final l10nTag = (l10nLocale != null && l10nLocale.isNotEmpty)
+        ? '<script>window.__SDA_L10N={"locale":${jsonEncode(l10nLocale)},'
+              '"catalog":${(l10nCatalogJson ?? 'null').replaceAll('</script>', r'<\/script>')}};</script>'
+        : '';
 
     // Startup diagnostic lines shown in the loading overlay.
     // Per-asset source and status so a mixed state (e.g. CSS inlined
@@ -781,6 +801,7 @@ abstract final class HtmlContent {
 
   <!-- FAB removed: all actions consolidated into the toolbar in the tab bar. -->
 
+  $l10nTag
   $bundleJsTag
 </body></html>
 ''';

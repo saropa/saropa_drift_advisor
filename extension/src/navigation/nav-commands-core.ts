@@ -50,7 +50,10 @@ export function registerNavCommands(
         );
         return;
       }
-      const url = `http://${client.host}:${client.port}`;
+      // Pass the editor display language as ?locale= so the server inlines the
+      // matching l10n catalog (plan 75 §3.3). Harmless when English / no catalog.
+      const lang = encodeURIComponent(vscode.env.language || '');
+      const url = `http://${client.host}:${client.port}${lang ? `?locale=${lang}` : ''}`;
       try {
         log(`Open in Browser: opening ${url}`);
         const opened = await vscode.env.openExternal(vscode.Uri.parse(url));
