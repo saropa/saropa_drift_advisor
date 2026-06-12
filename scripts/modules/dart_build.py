@@ -3,7 +3,6 @@
 
 import os
 import shutil
-import sys
 
 from modules.constants import REPO_ROOT, TEST_DIR
 from modules.display import fail, fix, info, ok, print_cmd_output, warn
@@ -159,12 +158,15 @@ def run_outdated_check() -> bool:
 def pre_publish_validation() -> bool:
     """Run ``dart pub publish --dry-run``.
 
-    Skipped on Windows due to a known Dart SDK path bug.
-    """
-    if sys.platform == "win32":
-        warn("Skipping dry-run on Windows (known Dart SDK 'nul' path bug)")
-        return True
+    Runs on every platform. The historical Windows 'nul' path crash in older Dart
+    SDKs is gone (verified clean on 3.12.1), so the unconditional Windows skip that
+    used to live here was dropped — skipping meant Windows publishes shipped to
+    pub.dev with no local package validation at all.
 
+    Treats exit 65 as a pass alongside 0: `--dry-run` returns 65 when it surfaces
+    advisory warnings (e.g. a not-yet-committed file during the analysis phase),
+    which is informational here, not a validation failure.
+    """
     result = run(["dart", "pub", "publish", "--dry-run"], cwd=REPO_ROOT)
     if result.returncode in (0, 65):
         ok("Package validated successfully")

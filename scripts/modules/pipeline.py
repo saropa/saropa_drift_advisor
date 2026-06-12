@@ -287,14 +287,61 @@ def _run_ext_build_and_validate(
     if not step_l10n_audit(results):
         return "", False, lint_report_path
 
-    # Runtime (System B) baseline check \u2014 verify the committed host base bundle
-    # (`l10n/bundle.l10n.json`) is current vs the registries, and report locale
-    # alignment. NEVER translates and NEVER rewrites here (dry-run only), so a
-    # publish never dirties the working tree (plan 75 \u00a75.5/\u00a77). Stale/gappy is a
-    # warning, not a gate \u2014 English-first release.
+    # Runtime (System B) translation audit + baseline check (plan 75 \u00a75.5). The
+    # audit classifies every shipped locale against the runtime registries and writes
+    # a timestamped JSON report under reports/<YYYYMMDD>/ (same convention as the
+    # manifest audit and the publish summary). The sync check then verifies the
+    # committed host base bundle (`l10n/bundle.l10n.json`) is current vs the
+    # registries. Both are READ-ONLY here \u2014 they NEVER translate and the sync runs
+    # dry-run only, so a publish never dirties the working tree (plan 75 \u00a75.5/\u00a77).
+    # Gaps are a warning, not a gate \u2014 English-first release; translating is a
+    # separate operator-run step (the translation util below), never run at publish.
     _sync_start = time.time()
     try:
+        import sys as _sys
+        from datetime import datetime as _datetime
+        from pathlib import Path as _Path
+
+        from modules.constants import SCRIPT_DIR
+        from modules.l10n import audit as _runtime_audit
+        from modules.l10n.cli import TRANSLATED_LOCALES
         from modules.l10n.sync import base_bundle_is_current, run_sync as _runtime_sync
+
+        # Audit the ten TARGET locales (not just locales already on disk) so an
+        # English-only project correctly reports everything still to translate
+        # rather than "nothing to translate" because no bundles exist yet. The
+        # wall-clock is read here and passed down so the audit module stays
+        # deterministic (same split the standalone launcher uses).
+        _now = _datetime.now()
+        _reports_dir = _Path(REPO_ROOT) / "reports" / _now.strftime("%Y%m%d")
+        _audit_report = _runtime_audit.run_audit(TRANSLATED_LOCALES)
+        _audit_path = _runtime_audit.write_report(
+            _audit_report, _reports_dir, _now.strftime("%Y%m%d_%H%M%S")
+        )
+
+        info(
+            f"  Runtime l10n: {_audit_report['source_keys']} source keys "
+            f"({_audit_report['host_keys']} host + {_audit_report['web_keys']} web) "
+            f"across {len(TRANSLATED_LOCALES)} target locale(s):"
+        )
+        for _loc in _audit_report["locales"]:
+            info(
+                f"    {_loc['locale']:>6}: {_loc['coverage_pct']:5.1f}%  "
+                f"missing={_loc['missing']} untranslated={_loc['untranslated']} "
+                f"low={_loc['low_quality']}"
+            )
+        # The audit report URL \u2014 a full filesystem path the maintainer can open.
+        info(f"  Audit report: {C.WHITE}{_audit_path}{C.RESET}")
+
+        # Full ABSOLUTE-path command (running interpreter + script) so the
+        # maintainer can open the translation util's interactive menu by
+        # copy-paste regardless of cwd or which Python is on PATH. This publish
+        # step only reports coverage; the util is where the separate,
+        # operator-gated translate pass is actually run (plan 75 \u00a77).
+        _translate_util = os.path.join(SCRIPT_DIR, "translate_l10n.py")
+        info(f"  Translation util: {C.WHITE}{_sys.executable} {_translate_util}{C.RESET}")
+
+        # Baseline currency check (dry-run, never rewrites the tree).
         _status = base_bundle_is_current()
         if _status["current"]:
             ok(f"Runtime l10n baseline current ({_status['expected']} host keys).")
@@ -302,7 +349,7 @@ def _run_ext_build_and_validate(
             warn(
                 f"Runtime l10n baseline STALE: bundle.l10n.json has "
                 f"{_status['on_disk']} entries, source has {_status['expected']}. "
-                f"Run: python scripts/translate_l10n.py --run-mode sync"
+                f"Run: {_sys.executable} {_translate_util} --run-mode sync"
             )
         for _a in _runtime_sync(dry_run=True)["aligned"]:
             if _a["missing"] or _a["orphans_pruned"]:
@@ -310,13 +357,19 @@ def _run_ext_build_and_validate(
                     f"  runtime {_a['surface']} {_a['locale']}: "
                     f"missing={_a['missing']} orphans_pruned={_a['orphans_pruned']}"
                 )
-        results.append(("Step 11b \u00b7 Runtime l10n sync", True, time.time() - _sync_start))
+        results.append(("Step 11b \u00b7 Runtime l10n audit", True, time.time() - _sync_start))
     except Exception as _exc:  # never block publish on the advisory runtime check
-        warn(f"Runtime l10n sync check failed (non-fatal): {_exc}")
-        results.append(("Step 11b \u00b7 Runtime l10n sync", False, time.time() - _sync_start))
+        warn(f"Runtime l10n audit failed (non-fatal): {_exc}")
+        results.append(("Step 11b \u00b7 Runtime l10n audit", False, time.time() - _sync_start))
 
-    version, ok = _validate_version_step(args, results, EXTENSION, "Step 12 \u00b7 Version & CHANGELOG")
-    return version, ok, lint_report_path
+    # Use a distinct local name: assigning bare `ok` here would make `ok` a
+    # function-local for the WHOLE function, shadowing the imported ok() display
+    # helper and turning every earlier ok(...) call (the Step 11b baseline line)
+    # into an UnboundLocalError \u2014 which is exactly what silently broke Step 11b.
+    version, version_ok = _validate_version_step(
+        args, results, EXTENSION, "Step 12 \u00b7 Version & CHANGELOG"
+    )
+    return version, version_ok, lint_report_path
 
 
 # ── Dart Analysis ────────────────────────────────────────
@@ -487,12 +540,20 @@ def package_and_install(
 
     heading("Local Install")
     ok(f"VSIX: {C.WHITE}{os.path.basename(vsix_path)}{C.RESET}")
+    # Reports the EXTENSION version ALREADY installed in the editor (the previous
+    # release), not the freshly-packaged .vsix above — install happens later via
+    # prompt_install. The label names the extension and each editor so the number
+    # never reads as the editor's own version (e.g. "code v3.7.1" looked like VS
+    # Code 3.7.1 rather than drift-viewer 3.7.1 inside VS Code).
+    from modules.constants import MARKETPLACE_EXTENSION_ID
+    # "saropa.drift-viewer" -> "drift-viewer": the user-facing extension name.
+    ext_name = MARKETPLACE_EXTENSION_ID.split(".", 1)[-1]
     installed = get_installed_extension_versions()
     if installed:
         parts = [f"{editor} v{ver}" for editor, ver in sorted(installed.items())]
-        info(f"Installed locally: {', '.join(parts)}")
+        info(f"Currently installed {ext_name}: {', '.join(parts)}")
     else:
-        info("Not installed in VS Code or Cursor.")
+        info(f"{ext_name} not currently installed in VS Code or Cursor.")
     print_install_instructions(vsix_path)
     if getattr(args, "auto_install", False):
         _auto_install_vsix(vsix_path)

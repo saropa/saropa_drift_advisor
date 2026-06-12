@@ -19,12 +19,12 @@ describe('Toolbar — html_content.dart', () => {
     html = readAsset('lib/src/server/html_content.dart');
   });
 
-  // All tool launchers must be present as toolbar icon buttons.
-  // `tables`, `search`, and `sql` joined this list when they stopped
-  // being permanent tab-btn entries — they're now tb-icon-btn launchers
-  // that openTool() materialises into closeable tabs on demand.
+  // On-demand tool launchers must be present as data-tool toolbar icon buttons;
+  // openTool() materialises each into a closeable tab on demand. `sql` is one of
+  // these. `tables` and `search` are NOT here — they are permanent panel buttons
+  // keyed by data-panel-btn (checked separately below).
   const expectedTools = [
-    'tables', 'search', 'sql',
+    'sql',
     'snapshot', 'compare', 'index', 'size', 'perf',
     'anomaly', 'schema', 'diagram', 'import', 'export',
     'settings',
@@ -35,6 +35,19 @@ describe('Toolbar — html_content.dart', () => {
       assert.ok(
         html.includes(`data-tool="${tool}"`),
         `Toolbar must contain a data-tool="${tool}" icon button`,
+      );
+    });
+  }
+
+  // Tables and Search are permanent toolbar buttons (data-panel-btn), not
+  // on-demand data-tool launchers, so they are asserted on their own attribute.
+  const expectedPanelButtons = ['tables', 'search'];
+
+  for (const panel of expectedPanelButtons) {
+    it(`contains data-panel-btn="${panel}" toolbar button`, () => {
+      assert.ok(
+        html.includes(`data-panel-btn="${panel}"`),
+        `Toolbar must contain a data-panel-btn="${panel}" icon button`,
       );
     });
   }
