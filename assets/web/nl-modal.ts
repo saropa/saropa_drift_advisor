@@ -280,9 +280,10 @@ import { openTool } from './tabs.ts';
         chips.push({ label: 'today', phrase: 'changed today' });
         chips.push({ label: 'stale 90d', phrase: 'not updated in 90 days' });
       }
-      // Boolean flags.
+      // Boolean flags — exact when Drift declared a bool, else a flag-shaped name.
       var boolCols = cols.filter(function (c) {
-        return /bool|int/i.test(c.type || '') && /^is_|^has_|active|enabled|verified|archived|deleted|subscribed/i.test(c.name);
+        return c.driftType === 'bool'
+          || (/bool|int/i.test(c.type || '') && /^is_|^has_|active|enabled|verified|archived|deleted|subscribed/i.test(c.name));
       });
       for (var i = 0; i < boolCols.length && i < 2; i++) {
         var nm = boolCols[i].name.toLowerCase().replace(/^(is|has)_/, '').replace(/_/g, ' ');

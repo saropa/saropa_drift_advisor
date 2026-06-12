@@ -4,6 +4,7 @@
 // Tests the data-returning methods directly with mock query callbacks.
 
 import 'package:saropa_drift_advisor/src/server/schema_handler.dart';
+import 'package:saropa_drift_advisor/src/server/server_types.dart';
 import 'package:test/test.dart';
 
 import 'helpers/test_helpers.dart';
@@ -229,6 +230,54 @@ void main() {
         final idCol =
             columns.firstWhere((c) => (c as Map)['name'] == 'id') as Map;
         expect(idCol['pk'], true);
+      });
+
+      test('enriches columns with driftType from a declared schema', () async {
+        // The host declares Drift semantic types; the metadata endpoint joins
+        // them onto the PRAGMA columns by name so the NL converter can detect
+        // dates/bools exactly (Drift stores both as INTEGER).
+        final ctx = createTestContext(
+          declaredSchema: () => <DeclaredTable>[
+            const DeclaredTable(
+              name: 'events',
+              columns: <DeclaredColumn>[
+                DeclaredColumn(name: 'id', sqlType: 'INTEGER', isPk: true),
+                DeclaredColumn(
+                  name: 'starts_at',
+                  sqlType: 'INTEGER',
+                  driftType: 'dateTime',
+                ),
+                DeclaredColumn(
+                  name: 'is_public',
+                  sqlType: 'INTEGER',
+                  driftType: 'bool',
+                ),
+              ],
+            ),
+          ],
+        );
+        final handler = SchemaHandler(ctx);
+        final query = mockQueryWithTables(
+          tableColumns: {
+            'events': [
+              {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+              {'name': 'starts_at', 'type': 'INTEGER', 'pk': 0},
+              {'name': 'is_public', 'type': 'INTEGER', 'pk': 0},
+            ],
+          },
+          tableCounts: {'events': 3},
+        );
+
+        final tables = await handler.getSchemaMetadataList(query);
+        final cols = tables.first['columns'] as List;
+        Map<String, dynamic> col(String n) =>
+            cols.firstWhere((c) => (c as Map)['name'] == n)
+                as Map<String, dynamic>;
+
+        expect(col('starts_at')['driftType'], 'dateTime');
+        expect(col('is_public')['driftType'], 'bool');
+        // No declared driftType for id → key absent, not null.
+        expect(col('id').containsKey('driftType'), false);
       });
 
       test('handles zero-row table', () async {

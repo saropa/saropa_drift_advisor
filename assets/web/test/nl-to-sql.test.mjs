@@ -336,6 +336,22 @@ describe('date-column detection (type + camelCase, not just name)', () => {
     // contacts lists favoriteAt before createdAt; recency must still pick createdAt.
     assert.match(S('contacts newest first', app), /ORDER BY "createdAt" DESC/);
   });
+
+  it('Drift SEMANTIC type makes date/bool detection exact (driftType wins)', () => {
+    // A column Drift declares dateTime/bool is detected regardless of its
+    // INTEGER storage type or non-obvious name.
+    assert.equal(isDateColumn({ name: 'foo', type: 'INTEGER', driftType: 'dateTime' }), true);
+    const meta = { tables: [{ name: 'events', rowCount: 1, columns: [
+      { name: 'id', type: 'INTEGER', pk: true },
+      { name: 'whenStamp', type: 'INTEGER', driftType: 'dateTime' },
+      { name: 'flagged', type: 'INTEGER', driftType: 'bool' },
+    ] }] };
+    assert.match(nlToSql('events changed today', meta).sql, /date\("whenStamp"/);
+    assert.match(nlToSql('flagged events', meta).sql, /"flagged" = 1/);
+  });
+  it('driftType=int keeps a plain int a non-date, non-bool', () => {
+    assert.equal(isDateColumn({ name: 'count', type: 'INTEGER', driftType: 'int' }), false);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────

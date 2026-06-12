@@ -177,6 +177,29 @@ final class SchemaHandler {
     // cycle to avoid N individual COUNT(*) queries.
     final cachedCounts = _ctx.cachedTableCounts;
 
+    // When the host supplied a declared Drift schema, build a
+    // table → column → driftType lookup once so PRAGMA columns (which only
+    // carry the lossy SQLite storage type) can be enriched with the Drift
+    // SEMANTIC type. This lets the NL converter detect dates/bools exactly.
+    // A throwing host callback must not break metadata — it just skips enrichment.
+    final Map<String, Map<String, String>> driftTypes =
+        <String, Map<String, String>>{};
+    final declaredCallback = _ctx.declaredSchema;
+    if (declaredCallback != null) {
+      try {
+        for (final table in declaredCallback()) {
+          final cols = <String, String>{};
+          for (final col in table.columns) {
+            final dt = col.driftType;
+            if (dt != null) cols[col.name] = dt;
+          }
+          if (cols.isNotEmpty) driftTypes[table.name] = cols;
+        }
+      } on Object catch (error, stack) {
+        _ctx.logError(error, stack);
+      }
+    }
+
     final tables = <Map<String, dynamic>>[];
 
     for (final tableName in tableNames) {
@@ -184,6 +207,15 @@ final class SchemaHandler {
         await query('PRAGMA table_info("$tableName")'),
       );
       final columns = _pragmaTableInfoToColumns(infoRows);
+
+      // Attach the Drift semantic type to each column when one is known.
+      final tableDriftTypes = driftTypes[tableName];
+      if (tableDriftTypes != null) {
+        for (final col in columns) {
+          final dt = tableDriftTypes[col[ServerConstants.jsonKeyName]];
+          if (dt != null) col[ServerConstants.jsonKeyDriftType] = dt;
+        }
+      }
 
       // Use cached count if available; otherwise fall
       // back to a per-table COUNT(*) query.
@@ -388,6 +420,8 @@ final class SchemaHandler {
                 <String, dynamic>{
                   ServerConstants.jsonKeyName: col.name,
                   ServerConstants.jsonKeySqlType: col.sqlType,
+                  if (col.driftType != null)
+                    ServerConstants.jsonKeyDriftType: col.driftType,
                   ServerConstants.jsonKeyNullable: col.nullable,
                   ServerConstants.jsonKeyIsPk: col.isPk,
                 },
