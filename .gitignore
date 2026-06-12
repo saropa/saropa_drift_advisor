@@ -62,4 +62,8 @@ CLAUDE.md
 
 # Bug docs: keep report guide, ignore finish checklist
 bugs/FINISH_GUIDE.md
+# Internal /finish tooling defect record — narration-voice content stays out of
+# the tracked package; the durable instruction lives in the global finish skill
+# and the gitignored FINISH_GUIDE.md, not in the published repo.
+bugs/BUG_finish_skill_narration_voice.md
 !bugs/BUG_REPORT_GUIDE.md
