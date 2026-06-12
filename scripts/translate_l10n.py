@@ -7,8 +7,14 @@ Thin entry point: puts `scripts/` on `sys.path` and dispatches to
 MANIFEST NLS (System A); this drives the RUNTIME l10n — the host/web symbolic-key
 registries and their generated bundles.
 
+Run with NO arguments in a terminal for the INTERACTIVE MENU: it shows the audit,
+then a numbered action list (1 audit · 2 sync · 3 translate gaps all locales ·
+4 translate gaps specific · 5 upgrade low-quality all · 6 upgrade specific · 0 exit)
+with a context-aware default and "all 10 locales" presets — no long flag string to
+type. Any flag, or a non-TTY (CI / pipe), uses the scriptable --run-mode path below.
+
 Examples (full absolute paths recommended when handing a command to a user):
-  python scripts/translate_l10n.py                       # audit (report, exit 0)
+  python scripts/translate_l10n.py                       # interactive menu (TTY)
   python scripts/translate_l10n.py --run-mode audit --check   # CI gate on gaps
   python scripts/translate_l10n.py --run-mode sync       # build English baselines
   python scripts/translate_l10n.py --run-mode sync --dry-run
@@ -34,7 +40,12 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
-from modules.l10n.cli import main  # noqa: E402  (after sys.path setup)
+from modules.l10n.cli import interactive_menu, main  # noqa: E402  (after sys.path setup)
 
 if __name__ == "__main__":
+    # No args in a real terminal → the interactive menu (audit + numbered actions
+    # with context-aware defaults). Any flag, or a non-TTY (CI / pipe), → the
+    # scriptable --run-mode path.
+    if len(sys.argv) == 1 and sys.stdin.isatty():
+        raise SystemExit(interactive_menu())
     raise SystemExit(main(sys.argv[1:]))
