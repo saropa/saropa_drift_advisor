@@ -132,21 +132,27 @@ def interactive_menu(
     all ten at 0% with everything to translate — and the menu defaults to Translate
     — rather than reporting "nothing to translate" because no bundles exist yet.
     """
-    from modules.display import ask_choice
+    from modules.display import C, ask_choice, coverage_color
     from modules.l10n import engines
 
+    # Remember whether the caller pinned a reports dir (tests do, to sandbox the
+    # translate journal). When they didn't, a real translate run stamps its own
+    # dated reports/<YYYYMMDD>/<ts> folder rather than the audit's interactive one.
+    explicit_reports = reports_dir is not None
     reports_dir = reports_dir or (REPO_ROOT / "reports" / "interactive")
 
     engine_name = "NLLB-200 (offline, cached)" if engines.nllb_model_is_cached() \
         else "Google Translate (fallback — NLLB model not cached)"
 
     report = audit.run_audit(TRANSLATED_LOCALES)
-    emit(f"Runtime l10n — {report['source_keys']} source keys "
+    emit(f"Runtime l10n — {C.BOLD}{report['source_keys']}{C.RESET} source keys "
          f"({report['host_keys']} host + {report['web_keys']} web). "
          f"Target locales: {len(TRANSLATED_LOCALES)}.")
-    emit(f"Engine: {engine_name}")
+    emit(f"Engine: {C.MAGENTA}{engine_name}{C.RESET}")
     for loc in report["locales"]:
-        emit(f"  {loc['locale']:>6}: {loc['coverage_pct']:5.1f}%  "
+        pct = loc["coverage_pct"]
+        emit(f"  {C.BOLD}{loc['locale']:>6}{C.RESET}: "
+             f"{coverage_color(pct)}{pct:5.1f}%{C.RESET}  "
              f"missing={loc['missing']} untranslated={loc['untranslated']} "
              f"low={loc['low_quality']}")
 
@@ -176,7 +182,13 @@ def interactive_menu(
         emit("Cancelled — no locales selected.")
         return 2
     actions.run_sync_action(emit)  # always sync the baseline before translating
-    return actions.run_translate_action(emit, locales, scope, confirmed=True)
+    # In real use pass no reports dir so the action stamps a dated reports/<date>/
+    # folder for its journal; in tests forward the pinned sandbox dir + stamp.
+    return actions.run_translate_action(
+        emit, locales, scope, confirmed=True,
+        reports_dir=reports_dir if explicit_reports else None,
+        timestamp=timestamp if explicit_reports else None,
+    )
 
 
 def main(argv: Sequence[str] | None = None, emit: Callable[[str], None] = print) -> int:

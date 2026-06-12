@@ -15,13 +15,21 @@ and free of direct stdout coupling.
 """
 
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+from modules.constants import C
+from modules.display import ProgressMeter, coverage_color
 from modules.l10n import audit, brands, bundles, engines, extract, provenance, scopes, sync
 from modules.l10n.provenance import (
     ENGINE_GOOGLE, ENGINE_MANUAL, is_forced_identity, save_provenance,
 )
+
+# Repo root resolved from this file (scripts/modules/l10n/actions.py → repo root),
+# matching cli.py — used to land the translate logs under reports/<date>/ when the
+# caller does not supply an explicit reports directory.
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 Emit = Callable[[str], None]
 # A pluggable translator: (english, locale) -> translated. Injected in tests so no
@@ -46,14 +54,16 @@ def run_audit_action(
         emit("English-only — no locale bundles on disk; nothing to translate.")
     else:
         for loc in report["locales"]:  # type: ignore[union-attr]
+            pct = loc["coverage_pct"]
             emit(
-                f"  {loc['locale']:>6}: {loc['coverage_pct']:5.1f}%  "
+                f"  {C.BOLD}{loc['locale']:>6}{C.RESET}: "
+                f"{coverage_color(pct)}{pct:5.1f}%{C.RESET}  "
                 f"missing={loc['missing']} untranslated={loc['untranslated']} "
                 f"translated={loc['translated']} "
                 f"(hi={loc['high_quality']} lo={loc['low_quality']}) "
                 f"orphans={loc['orphans']}"
             )
-    emit(f"Report: {path}")
+    emit(f"Report: {C.WHITE}{path}{C.RESET}")
 
     if fail_on_gaps and audit.has_gaps(report):
         emit("Gaps present (missing / untranslated / brand-mangled keys).")
@@ -162,6 +172,46 @@ def _translate_with_retry(
     raise last
 
 
+class _TranslateLogger:
+    """Paired human-readable logs for one translate pass: a success log and an
+    error log, both under reports/<date>/.
+
+    The success log records every shipped value; the error log records every key
+    that was NOT shipped — a brand-mangled result that was dropped, or an engine
+    failure that aborted a locale. Both files are created up front (with a header)
+    so the reported paths always resolve: an empty error log is positive evidence of
+    a clean run, not a missing file.
+    """
+
+    def __init__(self, log_path: Path, error_path: Path) -> None:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        self.log_path = log_path
+        self.error_path = error_path
+        self.error_count = 0
+        self._log = open(log_path, "w", encoding="utf-8")  # noqa: SIM115
+        self._err = open(error_path, "w", encoding="utf-8")  # noqa: SIM115
+        self._log.write(
+            "# Translation log — shipped values  (locale  key :: english -> translated)\n"
+        )
+        self._err.write(
+            "# Translation error log — dropped or failed keys  (locale  key :: reason)\n"
+        )
+
+    def translated(self, locale: str, key: str, english: str, value: str) -> None:
+        self._log.write(f"[{locale}] {key} :: {english!r} -> {value!r}\n")
+
+    def dropped(self, locale: str, key: str, english: str, reason: str) -> None:
+        self.error_count += 1
+        self._err.write(f"[{locale}] {key} :: {english!r} -> {reason}\n")
+
+    def close(self) -> None:
+        for handle in (self._log, self._err):
+            try:
+                handle.close()
+            except Exception:
+                pass
+
+
 def run_translate_action(
     emit: Emit,
     locales: list[str],
@@ -169,6 +219,8 @@ def run_translate_action(
     confirmed: bool,
     translate_fn: Translator | None = None,
     throttle: float = 0.2,
+    reports_dir: Path | None = None,
+    timestamp: str | None = None,
 ) -> int:
     """The deliberate translate pass — operator-gated (plan 75 §7).
 
@@ -180,6 +232,11 @@ def run_translate_action(
     each locale — so a CTRL-C is a resumable pause, not a loss. Brand-mangled
     results are dropped (the key stays English) rather than shipped. Provenance is
     recorded so a later upgrade pass can find weak output.
+
+    Each locale renders a live progress bar with a words-per-minute rate and ETA,
+    and every key is journaled: shipped values to reports/<date>/<stamp>_translate.log
+    and dropped/failed keys to the sibling ..._translate_errors.log, whose paths are
+    printed at the end (even on an early abort).
     """
     if not confirmed or not locales:
         emit("REFUSED: the translate pass is operator-gated and never runs "
@@ -207,56 +264,100 @@ def run_translate_action(
         def factory(loc: str):
             return engines.make_locale_translator(loc, authorized=True, breaker=breaker)
 
+    # Resolve where the run's two logs land. The wall clock is read here (not in a
+    # deterministic helper) only when the caller hasn't already supplied a dated
+    # folder + stamp, so both the menu path and a direct --run-mode call get logs.
+    if reports_dir is None or timestamp is None:
+        now = datetime.now()
+        reports_dir = reports_dir or (REPO_ROOT / "reports" / now.strftime("%Y%m%d"))
+        timestamp = timestamp or now.strftime("%Y%m%d_%H%M%S")
+    logger = _TranslateLogger(
+        reports_dir / f"{timestamp}_translate.log",
+        reports_dir / f"{timestamp}_translate_errors.log",
+    )
+
     grand_total = 0
-    for locale in locales:
-        web_bundle = bundles.load_json(bundles.web_locale_bundle_path(locale))
-        host_bundle = bundles.load_json(bundles.host_locale_bundle_path(locale))
-        existing = _translated_by_key(locale, source_host, source_web)
-        prov_existing = provenance.load_provenance(locale)
-        keys = sorted(scopes.select_keys(scope, source, existing, locale, prov_existing))
+    try:
+        for locale in locales:
+            web_bundle = bundles.load_json(bundles.web_locale_bundle_path(locale))
+            host_bundle = bundles.load_json(bundles.host_locale_bundle_path(locale))
+            existing = _translated_by_key(locale, source_host, source_web)
+            prov_existing = provenance.load_provenance(locale)
+            keys = sorted(scopes.select_keys(scope, source, existing, locale, prov_existing))
 
-        try:
-            per_string_fn, engine_label = factory(locale)
-        except engines.TranslationNotAuthorizedError:
-            emit("REFUSED: translation is operator-gated (plan 75 §7).")
-            return 1
-        emit(f"  {locale}: translating {len(keys)} keys via {engine_label} (scope={scope})…")
+            try:
+                per_string_fn, engine_label = factory(locale)
+            except engines.TranslationNotAuthorizedError:
+                emit("REFUSED: translation is operator-gated (plan 75 §7).")
+                return 1
 
-        prov_updates: dict[str, str] = {}
-        done = 0
-        aborted = False
-        try:
-            for key in keys:
-                english = source[key]
-                if is_forced_identity(english, locale):
-                    continue  # brand/acronym/symbol — correct value IS English
-                value = _translate_with_retry(per_string_fn, english, throttle)
-                if brands.validate_brands(english, value):
-                    continue  # dropped a brand — keep English, don't ship mangled
-                if key in web_keys:
-                    web_bundle[key] = value
-                else:
-                    host_bundle[source_host[key]] = value
-                prov_updates[key] = engine_label
-                done += 1
-        except engines.EngineUnavailableError as exc:
-            emit(f"  Engine unavailable — {exc}")
-            aborted = True
-        except KeyboardInterrupt:
-            emit("  Interrupted — saving progress so far (resumable on re-run).")
-            aborted = True
-        finally:
-            # Persist whatever was translated, atomically, even on abort/CTRL-C.
-            bundles.write_json_atomic(bundles.web_locale_bundle_path(locale), web_bundle)
-            bundles.write_json_atomic(bundles.host_locale_bundle_path(locale), host_bundle)
-            save_provenance(locale, prov_updates)
+            # Pre-filter to the keys whose correct value is genuinely a translation
+            # (brands / acronyms / pure symbols keep their English form and are
+            # skipped). The progress denominator AND the per-locale word total are
+            # taken from THIS list, so the bar reaches 100% exactly when the real
+            # work is done and the ETA is computed against translatable words only.
+            translatable = [k for k in keys if not is_forced_identity(source[k], locale)]
+            total_words = sum(len(source[k].split()) for k in translatable)
+            emit(
+                f"  {C.BOLD}{locale}{C.RESET}: translating "
+                f"{C.CYAN}{len(translatable)}{C.RESET} keys "
+                f"{C.DIM}({total_words} words){C.RESET} via "
+                f"{C.MAGENTA}{engine_label}{C.RESET} (scope={scope})…"
+            )
 
-        grand_total += done
-        emit(f"  {locale}: wrote {done} translations.")
-        if aborted:
-            emit("Translate pass stopped early; re-run to resume from where it left off.")
-            return 1
+            meter = ProgressMeter(locale, len(translatable), total_words)
+            prov_updates: dict[str, str] = {}
+            done = 0
+            processed = 0
+            processed_words = 0  # drives the WPM rate / ETA (counts work, not just ships)
+            aborted = False
+            try:
+                for key in translatable:
+                    english = source[key]
+                    value = _translate_with_retry(per_string_fn, english, throttle)
+                    processed += 1
+                    processed_words += len(english.split())
+                    if brands.validate_brands(english, value):
+                        # Dropped a brand — keep English, don't ship mangled; record it.
+                        logger.dropped(locale, key, english, "DROPPED (brand mangled)")
+                    else:
+                        if key in web_keys:
+                            web_bundle[key] = value
+                        else:
+                            host_bundle[source_host[key]] = value
+                        prov_updates[key] = engine_label
+                        logger.translated(locale, key, english, value)
+                        done += 1
+                    meter.update(processed, processed_words)
+            except engines.EngineUnavailableError as exc:
+                logger.dropped(locale, "—", "—", f"ENGINE UNAVAILABLE ({exc})")
+                emit(f"  {C.RED}Engine unavailable{C.RESET} — {exc}")
+                aborted = True
+            except KeyboardInterrupt:
+                emit(f"  {C.YELLOW}Interrupted{C.RESET} — saving progress so far "
+                     f"(resumable on re-run).")
+                aborted = True
+            finally:
+                meter.finish()
+                # Persist whatever was translated, atomically, even on abort/CTRL-C.
+                bundles.write_json_atomic(bundles.web_locale_bundle_path(locale), web_bundle)
+                bundles.write_json_atomic(bundles.host_locale_bundle_path(locale), host_bundle)
+                save_provenance(locale, prov_updates)
 
-    emit(f"Done — {grand_total} translations across {len(locales)} locale(s). "
-         f"Run --run-mode audit to review coverage.")
-    return 0
+            grand_total += done
+            emit(f"  {C.GREEN}{locale}{C.RESET}: wrote {C.BOLD}{done}{C.RESET} translations.")
+            if aborted:
+                emit("Translate pass stopped early; re-run to resume from where it left off.")
+                return 1
+
+        emit(f"{C.GREEN}Done{C.RESET} — {C.BOLD}{grand_total}{C.RESET} translations "
+             f"across {len(locales)} locale(s). Run --run-mode audit to review coverage.")
+        return 0
+    finally:
+        # Always close the logs and surface their locations — including on an early
+        # abort/return — so the operator can open them straight from the terminal.
+        logger.close()
+        err_tail = (f"{C.RED}{logger.error_count} dropped/failed{C.RESET}"
+                    if logger.error_count else f"{C.GREEN}0 dropped/failed{C.RESET}")
+        emit(f"  Translation log:       {C.WHITE}{logger.log_path}{C.RESET}")
+        emit(f"  Translation error log: {C.WHITE}{logger.error_path}{C.RESET} ({err_tail})")

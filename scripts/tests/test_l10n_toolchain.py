@@ -253,8 +253,12 @@ class TestAuditSync(unittest.TestCase):
         from modules.l10n import actions
         out: list[str] = []
         fake = lambda english, locale: f"[{locale}]{english}"
+        # reports_dir/timestamp are pinned to the temp tree so the run's journal
+        # files land there instead of polluting the real repo reports/ folder.
+        reports_dir = Path(self._tmp.name) / "reports"
         code = actions.run_translate_action(
             out.append, ["de"], "gaps", confirmed=True, translate_fn=fake, throttle=0,
+            reports_dir=reports_dir, timestamp="testrun",
         )
         self.assertEqual(code, 0)
         web = bundles.load_json(bundles.web_locale_bundle_path("de"))
@@ -262,6 +266,10 @@ class TestAuditSync(unittest.TestCase):
         self.assertEqual(web.get("viewer.bye"), "[de]Bye")
         self.assertEqual(host.get("Hello"), "[de]Hello")
         self.assertEqual(provenance.load_provenance("de").get("viewer.bye"), ENGINE_GOOGLE)
+        # The success log and (always-created) error log exist and are surfaced.
+        self.assertTrue((reports_dir / "testrun_translate.log").exists())
+        self.assertTrue((reports_dir / "testrun_translate_errors.log").exists())
+        self.assertTrue(any("Translation log:" in line for line in out))
 
 
 class TestMenu(unittest.TestCase):
