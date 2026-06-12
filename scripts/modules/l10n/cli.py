@@ -19,10 +19,17 @@ import argparse
 from pathlib import Path
 from typing import Callable, Sequence
 
-from modules.l10n import actions, scopes
+from modules.l10n import actions, audit, scopes, sync
 
 _MODULE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = _MODULE_DIR.parents[2]
+
+# The ten translated locales (plan 75 §1.2) — the "all locales" preset so the
+# interactive menu never makes the operator type the long list. English is the
+# source and never a target.
+TRANSLATED_LOCALES = [
+    "de", "es", "fr", "it", "ja", "ko", "pt-br", "ru", "zh-cn", "zh-tw",
+]
 
 
 def _parse_locales(raw: str | None) -> list[str]:
@@ -59,6 +66,110 @@ def build_parser() -> argparse.ArgumentParser:
                    help="translate mode: explicit confirmation (still never runs "
                         "MT from this repo)")
     return p
+
+
+# ── Interactive menu (no args, TTY) ───────────────────────────────────────────
+
+
+def _resolve_menu_default(report: dict) -> tuple[str, str]:
+    """Pick the menu default + a short hint from what the audit + sync state imply.
+
+    Stale English baseline → sync; else gaps in any locale → translate gaps; else
+    weak translations → upgrade; else (English-only / all clean) → audit only.
+    """
+    if not sync.base_bundle_is_current()["current"]:
+        return "2", "sync the English baseline"
+    if audit.has_gaps(report):
+        return "3", "translate gaps, all locales"
+    if any(loc["low_quality"] for loc in report["locales"]):
+        return "5", "upgrade low-quality, all locales"
+    return "1", "nothing outstanding"
+
+
+def _print_menu(emit: Callable[[str], None]) -> None:
+    """Print the numbered action menu."""
+    from modules.display import heading
+
+    heading("Localization actions")
+    emit("  1  Audit only (write the coverage report)")
+    emit("  2  Sync the English baseline (build host bundle, prune orphans)")
+    emit("  3  Translate GAPS — all 10 locales")
+    emit("  4  Translate GAPS — specific locales")
+    emit("  5  Upgrade LOW-QUALITY → NLLB — all 10 locales")
+    emit("  6  Upgrade LOW-QUALITY → NLLB — specific locales")
+    emit("  0  Exit")
+
+
+def _prompt_locales(emit: Callable[[str], None]) -> list[str]:
+    """Ask for comma-separated locale tags; validate against the translated set."""
+    from modules.display import C
+
+    emit(f"  Available: {', '.join(TRANSLATED_LOCALES)}")
+    try:
+        raw = input(f"  {C.YELLOW}Locales (comma-separated): {C.RESET}").strip()
+    except (EOFError, KeyboardInterrupt):
+        return []
+    codes = [c.strip().lower() for c in raw.split(",") if c.strip()]
+    unknown = [c for c in codes if c not in TRANSLATED_LOCALES]
+    if unknown:
+        emit(f"  Unknown locale(s): {', '.join(unknown)}")
+        return []
+    return codes
+
+
+def interactive_menu(
+    emit: Callable[[str], None] = print,
+    reports_dir: Path | None = None,
+    timestamp: str = "interactive",
+) -> int:
+    """Show the audit summary, present the action menu, dispatch the choice.
+
+    The deliberate translate options (3–6) prompt a y/N confirmation first
+    (operator-gated, plan 75 §7) and still perform no machine translation until an
+    engine is wired — they report what would be sent and stop. Audit (1) and sync
+    (2) are always safe.
+    """
+    from modules.display import ask_choice, ask_yn
+
+    reports_dir = reports_dir or (REPO_ROOT / "reports" / "interactive")
+
+    report = audit.run_audit()
+    emit(f"Runtime l10n — {report['source_keys']} source keys "
+         f"({report['host_keys']} host + {report['web_keys']} web).")
+    if report["english_only"]:
+        emit("  English-only — no locale bundles on disk yet.")
+    else:
+        for loc in report["locales"]:
+            emit(f"  {loc['locale']:>6}: {loc['coverage_pct']:5.1f}%  "
+                 f"missing={loc['missing']} untranslated={loc['untranslated']} "
+                 f"low={loc['low_quality']}")
+
+    _print_menu(emit)
+    default, hint = _resolve_menu_default(report)
+    choice = ask_choice(
+        f"Choice (default {default}: {hint})",
+        ("1", "2", "3", "4", "5", "6", "0"),
+        default,
+    )
+
+    if choice == "0":
+        return 0
+    if choice == "1":
+        return actions.run_audit_action(emit, reports_dir, timestamp)
+    if choice == "2":
+        return actions.run_sync_action(emit)
+
+    # Translate / upgrade — deliberate, confirmed, gated.
+    scope = scopes.SCOPE_GAPS if choice in ("3", "4") else scopes.SCOPE_LOW_QUALITY
+    locales = TRANSLATED_LOCALES if choice in ("3", "5") else _prompt_locales(emit)
+    if not locales:
+        emit("Cancelled — no locales selected.")
+        return 2
+    if not ask_yn("This runs the deliberate machine-translation pass. Proceed?", default=False):
+        emit("Cancelled.")
+        return 2
+    actions.run_sync_action(emit)  # always sync the baseline before translating
+    return actions.run_translate_action(emit, locales, scope, confirmed=True)
 
 
 def main(argv: Sequence[str] | None = None, emit: Callable[[str], None] = print) -> int:

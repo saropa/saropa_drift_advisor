@@ -223,6 +223,68 @@ class TestAuditSync(unittest.TestCase):
         self.assertNotIn("viewer.gone", bundles.load_json(bundles.web_locale_bundle_path("de")))
 
 
+class TestMenu(unittest.TestCase):
+    """Interactive menu dispatch — drives input + capturing emit (no console writes)."""
+
+    def setUp(self):
+        import builtins
+        self._tmp = tempfile.TemporaryDirectory()
+        root = Path(self._tmp.name)
+        self._orig = (bundles.HOST_L10N_DIR, bundles.WEB_L10N_DIR, provenance.PROVENANCE_DIR)
+        bundles.HOST_L10N_DIR = root / "l10n"
+        bundles.WEB_L10N_DIR = root / "web"
+        provenance.PROVENANCE_DIR = root / "l10n" / "provenance"
+        self._orig_host, self._orig_web = extract.extract_host, extract.extract_web
+        extract.extract_host = lambda: {"host.greet": "Hello"}
+        extract.extract_web = lambda: {"viewer.bye": "Bye"}
+        self._real_input = builtins.input
+
+    def tearDown(self):
+        import builtins
+        bundles.HOST_L10N_DIR, bundles.WEB_L10N_DIR, provenance.PROVENANCE_DIR = self._orig
+        extract.extract_host, extract.extract_web = self._orig_host, self._orig_web
+        builtins.input = self._real_input
+        self._tmp.cleanup()
+
+    def _drive(self, answers):
+        import builtins
+        from modules.l10n import cli
+        it = iter(answers)
+        builtins.input = lambda *a, **k: next(it)
+        out: list[str] = []
+        code = cli.interactive_menu(emit=out.append, reports_dir=Path(self._tmp.name))
+        return code, out
+
+    def test_exit_choice(self):
+        code, _ = self._drive(["0"])
+        self.assertEqual(code, 0)
+
+    def test_audit_choice(self):
+        code, out = self._drive(["1"])
+        self.assertEqual(code, 0)
+        self.assertTrue(any("source keys" in line for line in out))
+
+    def test_sync_choice_builds_baseline(self):
+        code, _ = self._drive(["2"])
+        self.assertEqual(code, 0)
+        self.assertTrue(bundles.host_base_bundle_path().exists())
+
+    def test_translate_all_declined_at_confirm(self):
+        code, out = self._drive(["3", "n"])  # translate all → answer No
+        self.assertEqual(code, 2)
+        self.assertTrue(any("Cancelled" in line for line in out))
+
+    def test_translate_all_confirmed_still_no_mt(self):
+        code, out = self._drive(["3", "y"])  # translate all → Yes, but engine unwired
+        self.assertEqual(code, 1)
+        self.assertTrue(any("NOT performed" in line for line in out))
+
+    def test_translate_specific_unknown_locale_cancels(self):
+        code, out = self._drive(["4", "xx"])  # specific locales → invalid tag
+        self.assertEqual(code, 2)
+        self.assertTrue(any("Unknown locale" in line for line in out))
+
+
 class TestCli(unittest.TestCase):
     def test_audit_dispatch_returns_zero(self):
         out: list[str] = []
