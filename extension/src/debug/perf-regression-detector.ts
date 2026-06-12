@@ -13,8 +13,21 @@ export interface IRegressionResult {
   normalizedSql: string;
   currentAvgMs: number;
   baselineAvgMs: number;
-  /** currentAvg / baselineAvg */
+  /**
+   * The slowdown factor that crossed the threshold. When `rowCountNormalized`
+   * is true this is the *per-row* ratio (current ms/row ÷ baseline ms/row);
+   * otherwise it is the raw `currentAvg / baselineAvg`.
+   */
   ratio: number;
+  /** Average result rows this session (rounded). */
+  currentRowCount: number;
+  /** Average result rows in the baseline, or undefined if never tracked. */
+  baselineRowCount?: number;
+  /**
+   * True when `ratio` was computed per-row because both the baseline and this
+   * session returned a positive row count — i.e. table growth was factored out.
+   */
+  rowCountNormalized: boolean;
 }
 
 /**
@@ -32,12 +45,39 @@ export function detectRegressions(
   ]);
   const regressions: IRegressionResult[] = [];
 
-  for (const [key, { totalMs, count, exampleSql }] of aggregates) {
+  for (const [key, { totalMs, totalRows, count, exampleSql }] of aggregates) {
     const baseline = store.get(key);
     if (!baseline || baseline.sampleCount < 1 || baseline.avgDurationMs <= 0) continue;
 
     const currentAvg = totalMs / count;
-    const ratio = currentAvg / baseline.avgDurationMs;
+    const currentRows = count > 0 ? totalRows / count : 0;
+    const baselineRows =
+      typeof baseline.avgRowCount === 'number' ? baseline.avgRowCount : undefined;
+
+    // Normalize by result-row count when both the baseline and this session
+    // returned a positive number of rows. A query that returns more rows simply
+    // because its table grew costs proportionally more wall-time; comparing
+    // per-row cost cancels that growth, so we only warn on a genuine per-row
+    // slowdown — not on table growth (or a cold page cache enlarging an honest
+    // result set). Aggregates that return one row both sessions reduce to the
+    // raw ratio (per-row == raw). Baselines recorded before row-count tracking
+    // have no avgRowCount and fall back to the raw comparison, unchanged.
+    // See BUG_perf_regression_false_positives_from_data_quality_probes.md
+    // (Suggestion #2, deferred from the 2026-04-21 isInternal fix).
+    let ratio: number;
+    let rowCountNormalized = false;
+    if (baselineRows !== undefined && baselineRows > 0 && currentRows > 0) {
+      const basePerRow = baseline.avgDurationMs / baselineRows;
+      const curPerRow = currentAvg / currentRows;
+      if (basePerRow > 0) {
+        ratio = curPerRow / basePerRow;
+        rowCountNormalized = true;
+      } else {
+        ratio = currentAvg / baseline.avgDurationMs;
+      }
+    } else {
+      ratio = currentAvg / baseline.avgDurationMs;
+    }
 
     if (ratio >= threshold) {
       regressions.push({
@@ -46,6 +86,10 @@ export function detectRegressions(
         currentAvgMs: Math.round(currentAvg),
         baselineAvgMs: Math.round(baseline.avgDurationMs),
         ratio: Math.round(ratio * 100) / 100,
+        currentRowCount: Math.round(currentRows),
+        baselineRowCount:
+          baselineRows !== undefined ? Math.round(baselineRows) : undefined,
+        rowCountNormalized,
       });
     }
   }
@@ -64,8 +108,8 @@ export function recordSessionBaselines(
     ...data.slowQueries,
     ...data.recentQueries,
   ]);
-  for (const [key, { totalMs, count }] of aggregates) {
-    store.record(key, totalMs / count);
+  for (const [key, { totalMs, totalRows, count }] of aggregates) {
+    store.record(key, totalMs / count, totalRows / count);
   }
 }
 
@@ -85,7 +129,11 @@ export function recordDvrQueriesIntoPerfBaselines(
     if (!Number.isFinite(dur) || dur < 0) continue;
     const key = normalizeSql(sql);
     if (key.length === 0) continue;
-    store.record(key, dur);
+    // A SELECT's work scales with the rows it returns; a write's with the rows
+    // it touches. Feed whichever applies so DVR-sourced baselines carry a row
+    // count and participate in per-row normalization like live sessions.
+    const rows = q.type === 'select' ? q.resultRowCount : q.affectedRowCount;
+    store.record(key, dur, Number.isFinite(rows) ? rows : undefined);
   }
 }
 
@@ -131,10 +179,16 @@ export function showRegressionWarning(
 ): void {
   if (regressions.length === 0) return;
   const top = regressions.slice(0, 3);
-  const lines = top.map(
-    (r) =>
-      `  "${truncateSql(r.sql, 40)}": ${r.currentAvgMs}ms vs baseline ${r.baselineAvgMs}ms (${r.ratio}x)`,
-  );
+  const lines = top.map((r) => {
+    const sql = truncateSql(r.sql, 40);
+    // When the ratio is per-row, spell out the row counts so the reader sees
+    // the slowdown is not just the table growing — otherwise "250ms vs 100ms
+    // (1.1x)" reads as inconsistent next to the raw millisecond figures.
+    if (r.rowCountNormalized) {
+      return `  "${sql}": ${r.ratio}x slower per row (${r.currentAvgMs}ms/${r.currentRowCount} rows vs baseline ${r.baselineAvgMs}ms/${r.baselineRowCount} rows)`;
+    }
+    return `  "${sql}": ${r.currentAvgMs}ms vs baseline ${r.baselineAvgMs}ms (${r.ratio}x)`;
+  });
   const suffix =
     regressions.length > 3
       ? `\n  ...and ${regressions.length - 3} more`
@@ -148,6 +202,7 @@ export function showRegressionWarning(
 
 interface IAggregateEntry {
   totalMs: number;
+  totalRows: number;
   count: number;
   exampleSql: string;
 }
@@ -170,12 +225,19 @@ function aggregateQueries(
     // poison future baselines with extension-owned timings.
     if (q.isInternal) continue;
     const key = normalizeSql(q.sql);
+    const rows = Number.isFinite(q.rowCount) ? q.rowCount : 0;
     const existing = map.get(key);
     if (existing) {
       existing.totalMs += q.durationMs;
+      existing.totalRows += rows;
       existing.count += 1;
     } else {
-      map.set(key, { totalMs: q.durationMs, count: 1, exampleSql: q.sql });
+      map.set(key, {
+        totalMs: q.durationMs,
+        totalRows: rows,
+        count: 1,
+        exampleSql: q.sql,
+      });
     }
   }
   return map;

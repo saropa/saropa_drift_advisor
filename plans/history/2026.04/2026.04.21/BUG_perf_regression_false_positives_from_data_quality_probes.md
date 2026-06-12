@@ -134,3 +134,65 @@ A more complete fix would also record row count alongside the baseline and eithe
 - Existing `test/performance_handler_test.dart` already validates server-side `isInternal` filtering from `slowQueries` — no new tests needed there.
 
 **Verification:** `dart analyze` clean on changed files (16 pre-existing warnings in unrelated files); `tsc --noEmit` clean; 48 Dart tests + 2501 extension mocha tests pass.
+
+## Finish Report (2026-06-12)
+
+Closes Suggestion #2 from the triage section above — the half of the original
+fix that was explicitly deferred on 2026-04-21. The end-of-session perf
+regression check previously compared a query's raw average wall-time against its
+stored baseline. A query whose table grew between debug sessions returns more
+rows and therefore costs proportionally more time, so it tripped the threshold
+and produced a regression warning the developer could not act on (the slowdown
+was table growth, not a code change). The same effect appeared when a result set
+that was warm in the page cache on the baseline run came back cold on the next
+run. With the extension's own `isInternal` probes already excluded, this
+table-growth/cache noise was the remaining false-positive source in genuine app
+queries.
+
+**Approach.** The detector now compares *per-row* cost — current ms/row against
+baseline ms/row — whenever it has a row count for both sides. Table growth
+cancels out (more rows at the same per-row cost is not a regression); a real
+per-row slowdown still crosses the threshold, including the case where the query
+returns *fewer* rows now and raw timing would have read as "faster" and hidden
+it. Baselines recorded before row-count tracking carry no count and fall back to
+the unchanged raw comparison, so behavior shifts gradually as baselines refresh
+rather than all at once.
+
+**What changed.**
+
+- **`extension/src/debug/perf-baseline-store.ts`** — `IPerfBaseline` gained an
+  optional `avgRowCount`. `record(normalizedSql, durationMs, rowCount?)` takes an
+  optional third argument and blends the row count into a rolling average with
+  the same 20-sample EMA cap as the duration. The third argument is optional so
+  every existing two-arg caller and test is untouched; the EMA seeds from the
+  first observed count so a pre-existing baseline is not diluted against a
+  phantom zero.
+- **`extension/src/debug/perf-regression-detector.ts`** — `aggregateQueries`
+  sums result rows per normalized key (`IAggregateEntry.totalRows`, non-finite
+  counts coerced to 0). `detectRegressions` divides by row count on both sides
+  when the baseline has a tracked count and both counts are positive, else uses
+  the raw ratio; `IRegressionResult` exposes `currentRowCount`,
+  `baselineRowCount`, and `rowCountNormalized`. `recordSessionBaselines` and
+  `recordDvrQueriesIntoPerfBaselines` thread the per-query row count
+  (`resultRowCount` for selects, `affectedRowCount` for writes) into the store.
+  `showRegressionWarning` renders normalized findings as "Nx slower per row" with
+  both row counts shown, so the figure is not misread next to raw millisecond
+  values.
+
+**Safety.** Every division is guarded (`baselineRows > 0`, `currentRows > 0`,
+`basePerRow > 0`); a zero-row session (writes, empty results) falls back to the
+raw ratio. The new fields are additive and optional, so persisted baselines from
+prior releases deserialize cleanly.
+
+**Test coverage added** (`extension/src/test/perf-baseline-store.test.ts`, 6
+cases): pure table growth at constant per-row cost is not flagged; a genuine
+per-row slowdown at constant row count is flagged with `rowCountNormalized`
+true; a per-row slowdown that raw timing would hide (fewer rows, lower total
+time) is flagged; a baseline with no row count falls back to the raw ratio; a
+zero-row session falls back to the raw ratio; `recordSessionBaselines` persists a
+rolling `avgRowCount`.
+
+**Verification:** `npm run compile` clean (tsc + NLS checks); the
+`perf-baseline-store.test.ts` file is fully green; full mocha suite 2707 passing.
+Four failures in unrelated toolbar `data-tool` tests pre-exist this change (a
+separate web-viewer workstream) and touch none of the perf files modified here.

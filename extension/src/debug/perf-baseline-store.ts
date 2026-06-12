@@ -14,6 +14,14 @@ export interface IPerfBaseline {
   normalizedSql: string;
   /** Rolling average duration in ms. */
   avgDurationMs: number;
+  /**
+   * Rolling average result-row count for this query, tracked alongside the
+   * duration so the regression detector can compare *per-row* cost rather than
+   * raw wall-time. Optional: baselines recorded before row-count tracking was
+   * added (and any caller that omits the count) leave this undefined, which the
+   * detector treats as "no row-count signal" and falls back to raw comparison.
+   */
+  avgRowCount?: number;
   /** Number of sessions that contributed to this average. */
   sampleCount: number;
   /** Timestamp of last update. */
@@ -54,19 +62,37 @@ export class PerfBaselineStore {
    * Record a new observation for a normalized SQL pattern.
    * Uses exponential moving average: newAvg = (oldAvg * cap + duration) / (cap + 1)
    * where cap = min(sampleCount, MAX_SAMPLES).
+   *
+   * `rowCount` (the query's result-row count) is averaged with the same EMA so
+   * the detector can normalize by it. It is optional so the two-arg callers and
+   * pre-existing tests keep working; an omitted/non-finite count simply leaves
+   * the stored `avgRowCount` untouched.
    */
-  record(normalizedSql: string, durationMs: number): void {
+  record(normalizedSql: string, durationMs: number, rowCount?: number): void {
+    const hasRows =
+      typeof rowCount === 'number' && Number.isFinite(rowCount) && rowCount >= 0;
     const existing = this._baselines.get(normalizedSql);
     if (existing) {
       const cap = Math.min(existing.sampleCount, MAX_SAMPLES);
       existing.avgDurationMs =
         (existing.avgDurationMs * cap + durationMs) / (cap + 1);
+      // Blend the new row count into the rolling average. Seed from the current
+      // sample when the baseline predates row-count tracking so the first count
+      // we ever see is taken as-is rather than diluted against a phantom zero.
+      if (hasRows) {
+        const prevRows =
+          typeof existing.avgRowCount === 'number'
+            ? existing.avgRowCount
+            : rowCount;
+        existing.avgRowCount = (prevRows * cap + rowCount) / (cap + 1);
+      }
       existing.sampleCount = cap + 1;
       existing.updatedAt = Date.now();
     } else {
       this._baselines.set(normalizedSql, {
         normalizedSql,
         avgDurationMs: durationMs,
+        avgRowCount: hasRows ? rowCount : undefined,
         sampleCount: 1,
         updatedAt: Date.now(),
       });
