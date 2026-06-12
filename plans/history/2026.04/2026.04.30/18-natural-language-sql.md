@@ -1,10 +1,10 @@
 <!--
-  Archived 2026-04-30: full retained specification. Entry-point stub: ../../../../18-natural-language-sql.md
+  Archived 2026-04-30: full retained specification (self-contained).
 -->
 
 # Feature 18: Natural Language to SQL
 
-> **Status: COMPLETE** — Phases 1 and 2 are implemented in the VS Code extension (as of 2026-04-30). Active stub: [../../../../18-natural-language-sql.md](../../../../18-natural-language-sql.md).
+> **Status: COMPLETE** — Phases 1 and 2 are implemented in the VS Code extension (as of 2026-04-30).
 
 ## What It Does
 
@@ -356,3 +356,62 @@ None — this is a query tool, not a health metric.
 - No feedback loop: if the SQL is wrong, user must manually fix it (no "refine" step)
 - API key stored in VS Code secret storage — not synced across machines
 - Phase 2 cross-feature actions are implemented as listed above; further polish (e.g. refine-in-English loop) is future work
+
+---
+
+## Finish Report (2026-06-12) — refine-in-English loop
+
+Builds the polish item named as future work above: a refine-in-English loop for
+the website's "Ask in English" panel. Previously each question stood alone — to
+narrow a result the user re-typed the whole thing. Now a follow-up that begins
+with an additive connective is appended to the previous query and the combined
+English is re-converted, so questions stack: "active contacts" → "and sorted by
+name" → "now only from last week" each builds on the last.
+
+**Why this is small.** The heuristic converter already reads multiple
+conditions, sorts, and limits from a single string, so refinement reduces to
+*appending* the new fragment to the accumulated base question and re-running the
+existing `nlToSql`. No change to the conversion engine itself.
+
+**What changed.**
+
+- **`assets/web/nl-to-sql.ts`** — two pure, exported helpers: `detectRefinement`
+  classifies a follow-up by a leading additive connective (now/and/also/plus/
+  then/just/only/filter to/narrow to/restrict to/refine to) and extracts the
+  fragment after it; `combineRefinement` appends the fragment to the base and
+  collapses whitespace. The connective must be followed by real text, so a fresh
+  query that merely starts with "only" (with no prior query) is not hijacked.
+  Replacement-style words ("instead") are deliberately excluded — the loop is
+  additive, and appending a contradictory condition would empty the result.
+- **`assets/web/nl-modal.ts`** — a `nlBaseQuestion` accumulator and an
+  `effectiveNlQuestion` resolver. The base advances only when a query is *run*
+  (Use / Preview results) or a fresh non-refining question converts in the live
+  preview — never on a refining keystroke, so rapid typing can't accumulate
+  partial fragments. The live preview shows the combined SQL and a "Refining
+  last query: …" hint; clearing the box ends the loop. `Use` and `Preview
+  results` both convert the effective (combined) question.
+- **`lib/src/server/html_content.dart`** — a `#nl-refine-hint` status line below
+  the question box.
+- **`assets/web/bundle.js`** — rebuilt.
+
+**Testing.**
+
+- **`assets/web/test/nl-refine.test.mjs`** (new, 6 cases via `node --test`):
+  connective detection (positive + fresh-question negatives + empty-fragment
+  guard), fragment extraction, whitespace-collapsing combine, and a round-trip
+  asserting a refined question yields merged SQL (ORDER BY added, the base date
+  filter retained) that runs against the fixture DB.
+- `npm run test:web` → **187 passing** (+6). `npm run typecheck:web` clean.
+  `npm run build:js` rebuilt the bundle. Dart web-contract tests
+  (`web_viewer_nl_modal_contract_test`, `html_content_test`) still green with the
+  added markup id.
+
+**l10n.** SKIPPED [web-not-Flutter] — the web viewer is plain-English HTML
+outside the Flutter ARB catalog.
+
+**Outstanding.** None for the additive refine loop. Replacement semantics
+("change the sort to …", "instead of active") are intentionally out of scope —
+the loop stacks conditions; a replacement model would be its own feature.
+
+**Finish report appended:** plans/history/2026.04/2026.04.30/18-natural-language-sql.md
+(this section). No bug archive — task did not close a `bugs/*.md` file.

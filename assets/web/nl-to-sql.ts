@@ -889,6 +889,58 @@ export function stripWakePhrase(question: string): { question: string; wake: boo
   return { question: question.slice(m[0].length).trim(), wake: true };
 }
 
+// Leading connectives that mark a follow-up as a REFINEMENT of the previous
+// question rather than a fresh one ("now only active", "and sorted by name",
+// "also from last week"). Deliberately ADDITIVE only — words like "instead"
+// that imply replacing a prior condition are excluded, because the refine loop
+// appends the fragment to the base question and a contradictory append (active
+// AND inactive) would produce an empty result. The connective is matched only
+// at the very start and must be followed by more text, so a fresh query that
+// merely begins with "only" (e.g. "only active users", with no prior query) is
+// not hijacked — see [[detectRefinement]].
+const REFINE_LEAD_RE =
+  /^\s*(?:and\s+)?(?:now|also|plus|additionally|moreover|furthermore|then|just|only|narrow(?:\s+(?:it|down))?(?:\s+to)?|filter(?:\s+to)?|restrict(?:\s+to)?|refine(?:\s+to)?)\b[,:]?\s+/i;
+// A bare leading "and …" ("and active", "and sorted by name") is also a refine.
+const REFINE_AND_RE = /^\s*and\s+/i;
+
+/**
+ * Classifies a follow-up question as a refinement of the previous one. Returns
+ * the fragment (the meaningful remainder after the connective) so the caller can
+ * append it to the base question. When no leading connective is present the input
+ * is a fresh question and `fragment` is just the trimmed input.
+ *
+ * Pure + exported so the connective set is unit-tested directly. Whether a
+ * refinement actually combines is the caller's choice (it needs a non-empty base
+ * to refine — see the Ask panel's `effectiveNlQuestion`).
+ */
+export function detectRefinement(input: string): {
+  isRefinement: boolean;
+  fragment: string;
+} {
+  const lead = input.match(REFINE_LEAD_RE);
+  if (lead) {
+    const fragment = input.slice(lead[0].length).trim();
+    if (fragment.length > 0) return { isRefinement: true, fragment: fragment };
+  }
+  const and = input.match(REFINE_AND_RE);
+  if (and) {
+    const fragment = input.slice(and[0].length).trim();
+    if (fragment.length > 0) return { isRefinement: true, fragment: fragment };
+  }
+  return { isRefinement: false, fragment: input.trim() };
+}
+
+/**
+ * Appends a refinement [fragment] to a [base] question, producing the combined
+ * English the converter re-parses. nlToSql already reads multiple conditions,
+ * sorts, and limits from a single string, so "active contacts" + "from last
+ * week" → "active contacts from last week" yields the merged query for free.
+ * Collapses whitespace so the combined string stays clean across several rounds.
+ */
+export function combineRefinement(base: string, fragment: string): string {
+  return (base.trim() + ' ' + fragment.trim()).replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Formats the spoken-style answer for a wake-phrase question. Pure and
  * exported (no DOM) so it's unit-tested with canned values: given the

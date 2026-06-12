@@ -94,7 +94,12 @@ These are the actual finds. Each was confirmed absent from the codebase.
 - **Gate:** With a declared-schema callback present, a table the code declares but
   the DB lacks (and vice versa) is shown as a divergence.
 
-### A5. NL-SQL "refine-in-English" loop (18 Phase 2 polish)
+### A5. NL-SQL "refine-in-English" loop (18 Phase 2 polish) — DONE (2026-06-12)
+- **Resolution:** Additive refine loop in the Ask panel — `detectRefinement` +
+  `combineRefinement` (`nl-to-sql.ts`) append a connective-led follow-up to the
+  prior question; `effectiveNlQuestion`/`nlBaseQuestion` accumulate in
+  `nl-modal.ts` with a `#nl-refine-hint`. Finish report appended to
+  `plans/history/2026.04/2026.04.30/18-natural-language-sql.md`.
 - **Source:** `plans/history/2026.04/2026.04.30/18-natural-language-sql.md:358` —
   "further polish (e.g. refine-in-English loop) is future work."
 - **State:** Not built. NL-to-SQL converts a single question; there is no
