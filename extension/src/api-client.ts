@@ -170,6 +170,16 @@ export class DriftApiClient extends DriftApiClientBase {
     return http.httpAnomalies(this._baseUrl, this._headers());
   }
 
+  /**
+   * Merged issues as the raw Saropa Diagnostic Envelope (plan 67 §2), used by
+   * the offline diagnostics mirror. HTTP-only: the merged+enveloped endpoint
+   * is not exposed over the VM bridge, and discovery always has an HTTP base
+   * URL while the server is reachable.
+   */
+  async issues(): Promise<unknown> {
+    return http.httpIssuesEnvelope(this._baseUrl, this._headers());
+  }
+
   async performance(): Promise<PerformanceData> {
     if (this._vmClient?.connected) return this._vmClient.getPerformance();
     return http.httpPerformance(this._baseUrl, this._headers());

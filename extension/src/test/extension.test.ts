@@ -69,6 +69,7 @@ describe('Extension activation', () => {
     assert.ok('driftViewer.openSchemaForTable' in registered);
     assert.ok('driftViewer.openIssues' in registered);
     assert.ok('driftViewer.goToDefinitionForTable' in registered);
+    assert.ok('driftViewer.writeDiagnosticsMirror' in registered);
   });
 
   it('should push expected disposables', () => {
@@ -132,7 +133,9 @@ describe('Extension activation', () => {
     // Data Branching (Feature 37): BranchManager dispose + openBranches + createBranch (+3).
     // Suite integration (plan 67 R5): openExplainForSql, openTable,
     //   openSchemaForTable, openIssues, goToDefinitionForTable (+5).
-    assert.strictEqual(subscriptions.length, 219, `expected 219 disposables, got ${subscriptions.length}`);
+    // Suite diagnostics mirror (plan 67 R2): watcher.onDidChange subscription,
+    //   debounce-timer dispose, writeDiagnosticsMirror command (+3).
+    assert.strictEqual(subscriptions.length, 222, `expected 222 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

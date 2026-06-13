@@ -194,6 +194,7 @@ export const workspace = {
     writeFile: async (uri: any, content: Uint8Array) => {
       writtenFiles.push({ uri, content });
     },
+    createDirectory: async (_uri: any): Promise<void> => { /* no-op */ },
   },
 };
 
