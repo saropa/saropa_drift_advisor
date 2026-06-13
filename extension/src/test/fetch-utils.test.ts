@@ -189,4 +189,48 @@ describe('fetchWithRetry', () => {
     );
     assert.strictEqual(fetchStub.callCount, 1);
   });
+
+  // Audit M4: a non-idempotent POST must NOT be retried, even on a transient
+  // error — the first attempt may have applied a server-side write before the
+  // connection dropped, so re-sending would duplicate it.
+  it('should NOT retry a POST (non-idempotent) on transient error', async () => {
+    fetchStub
+      .onFirstCall().rejects(new Error('fetch failed'))
+      .onSecondCall().resolves(new Response('ok', { status: 200 }));
+    await assert.rejects(
+      () => fetchWithRetry('http://localhost:8642/api/import', { method: 'POST' }),
+      /fetch failed/,
+    );
+    assert.strictEqual(fetchStub.callCount, 1);
+  });
+
+  it('should retry a POST flagged idempotent on transient error', async () => {
+    fetchStub
+      .onFirstCall().rejects(new Error('fetch failed'))
+      .onSecondCall().resolves(new Response('ok', { status: 200 }));
+    const resp = await fetchWithRetry('http://localhost:8642/api/sql', {
+      method: 'POST',
+      idempotent: true,
+    });
+    assert.strictEqual(resp.status, 200);
+    assert.strictEqual(fetchStub.callCount, 2);
+  });
+
+  it('should retry PUT/DELETE (idempotent by method) on transient error', async () => {
+    fetchStub
+      .onFirstCall().rejects(new Error('fetch failed'))
+      .onSecondCall().resolves(new Response('ok', { status: 200 }));
+    const resp = await fetchWithRetry('http://localhost:8642/api/snapshot/x', {
+      method: 'DELETE',
+    });
+    assert.strictEqual(resp.status, 200);
+    assert.strictEqual(fetchStub.callCount, 2);
+  });
+
+  it('should strip idempotent from the init passed to native fetch', async () => {
+    fetchStub.resolves(new Response('ok'));
+    await fetchWithRetry('http://localhost:8642', { idempotent: true });
+    const callArgs = fetchStub.firstCall.args[1] as Record<string, unknown>;
+    assert.strictEqual(callArgs.idempotent, undefined);
+  });
 });

@@ -90,6 +90,8 @@ export async function httpSql(
   }
   const resp = await fetchWithRetry(`${baseUrl}/api/sql`, {
     method: 'POST',
+    // Read-only query (server enforces SELECT/WITH); safe to retry (audit M4).
+    idempotent: true,
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
@@ -105,6 +107,8 @@ export async function httpExplainSql(
 ): Promise<{ rows: Record<string, unknown>[]; sql: string }> {
   const resp = await fetchWithRetry(`${baseUrl}/api/sql/explain`, {
     method: 'POST',
+    // EXPLAIN is read-only; safe to retry (audit M4).
+    idempotent: true,
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ sql: query }),
   });
