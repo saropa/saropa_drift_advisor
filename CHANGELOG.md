@@ -62,6 +62,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 - Phase 3 (resource safety) — H3: every POST handler now reads its body through a shared `ServerUtils.readBodyBytes` cap (64 MiB) and returns HTTP 413 on overflow, instead of buffering an unbounded body into memory before validation.
 - Phase 3 — M4: `fetchWithRetry` no longer retries non-idempotent requests by default. A transient error on a mutating POST (data import, session create/annotate) is surfaced instead of silently re-sent, so a connection drop after the server applied the write can't duplicate it. Read/idempotent POSTs (`/api/sql`, `/api/sql/explain`, `/api/change-detection`, DVR stop/pause/config) opt back into retry explicitly.
 - Phase 5 (hardening) — L1: the auth token/password comparison no longer early-returns on a length mismatch (which leaked the expected secret's length via timing); the length difference is folded into the constant-time comparison.
+- Phase 5 — L7: removed the duplicate, weaker `ServerUtils.parseCsvLines` (used only by its own tests); the single canonical CSV parser is `DriftDebugImportProcessor.parseCsvLines`.
 - Phase 3 — M7/M8: the Query Replay (DVR) recorder now uses a circular buffer so evicting the oldest entry is O(1) instead of O(n) per insert (and config shrink O(n) instead of O(n²)); the table-name parser bounds its input to avoid a CPU spike on very long generated SQL. No behavior change for users.
 
 ### Fixed
