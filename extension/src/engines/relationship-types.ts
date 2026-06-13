@@ -7,6 +7,8 @@ export interface IRelationshipNode {
   table: string;
   column: string;
   pkValue: unknown;
+  /** This node's own primary-key column, used to delete its row in FK order. */
+  pkColumn: string;
   depth: number;
   children: IRelationshipNode[];
 }
