@@ -3,7 +3,6 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 // Relative import: same-package files must use relative paths, otherwise
 // depend_on_referenced_packages flags the self-referential package URI.
@@ -27,13 +26,16 @@ final class SessionHandler {
     final res = request.response;
 
     try {
-      final builder = BytesBuilder();
-
-      await for (final chunk in request) {
-        builder.add(chunk);
+      final bytes = await ServerUtils.readBodyBytes(
+        request,
+        maxBytes: ServerConstants.maxRequestBodyBytes,
+      );
+      if (bytes == null) {
+        await _ctx.sendPayloadTooLarge(res);
+        return;
       }
 
-      final body = utf8.decode(builder.toBytes());
+      final body = utf8.decode(bytes);
       final decoded = ServerUtils.parseJsonMap(body);
 
       if (decoded == null) {
@@ -95,11 +97,14 @@ final class SessionHandler {
     final res = request.response;
 
     try {
-      // Drain the request body (may be empty for extend).
-      final builder = BytesBuilder();
-
-      await for (final chunk in request) {
-        builder.add(chunk);
+      // Drain the request body (may be empty for extend), with a size cap.
+      final drained = await ServerUtils.readBodyBytes(
+        request,
+        maxBytes: ServerConstants.maxRequestBodyBytes,
+      );
+      if (drained == null) {
+        await _ctx.sendPayloadTooLarge(res);
+        return;
       }
 
       final newExpiresAt = _sessionStore.extend(sessionId);
@@ -138,15 +143,17 @@ final class SessionHandler {
     final res = request.response;
 
     try {
-      final builder = BytesBuilder();
-
-      await for (final chunk in request) {
-        builder.add(chunk);
+      final bytes = await ServerUtils.readBodyBytes(
+        request,
+        maxBytes: ServerConstants.maxRequestBodyBytes,
+      );
+      if (bytes == null) {
+        await _ctx.sendPayloadTooLarge(res);
+        return;
       }
 
       final body =
-          ServerUtils.parseJsonMap(utf8.decode(builder.toBytes())) ??
-          <String, dynamic>{};
+          ServerUtils.parseJsonMap(utf8.decode(bytes)) ?? <String, dynamic>{};
 
       final added = _sessionStore.annotate(
         sessionId,

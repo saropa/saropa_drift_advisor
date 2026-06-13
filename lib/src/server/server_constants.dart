@@ -16,6 +16,12 @@ abstract final class ServerConstants {
   static const int defaultLimit = 200;
 
   static const int maxOffset = 2_000_000;
+
+  /// Maximum accepted POST body size (64 MiB). Every handler buffers the whole
+  /// body before validating it, so an uncapped body is an OOM vector — generous
+  /// enough for realistic data imports while still bounding memory (audit H3).
+  static const int maxRequestBodyBytes = 64 * 1024 * 1024;
+
   static const Duration longPollTimeout = Duration(seconds: 30);
 
   /// Poll interval during long-poll wait.
@@ -326,6 +332,8 @@ abstract final class ServerConstants {
   static const String authRequiredMessage =
       'Authentication required. Use Authorization header with Bearer scheme or HTTP Basic.';
   static const String errorInvalidRequestBody = 'Invalid request body';
+  static const String errorPayloadTooLarge =
+      'Request body too large (limit 64 MiB).';
   static const String errorInvalidJson = 'Invalid JSON';
   static const String errorMissingSql = 'Missing or empty sql';
   static const String errorReadOnlyOnly =

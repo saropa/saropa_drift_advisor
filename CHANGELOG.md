@@ -59,6 +59,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 
 - Full-codebase security/quality audit recorded in `plans/full-codebase-audit-2026.06.12.md`. Phase 1 (secure boundaries): loopback default + no wildcard CORS; extension Bearer token withheld from non-loopback hosts; fixed confirmed webview/SPA XSS sinks (query-result rendering, lineage/impact inline handlers, ER-diagram `<script>` embedding, dashboard config form) via new `attrJsString`/`jsonForScript`/`isLoopbackHost` helpers; allowlisted dashboard `executeAction` to `driftViewer.*` commands.
 - Phase 2 (SQL integrity): all SQL identifier interpolation now routes through a single `ServerUtils.quoteIdent` helper (doubles embedded `"`); read-only SQL validator rewritten as a single-pass tokenizer that cannot be desynchronized by comments-inside-strings or strings-inside-comments (e.g. `SELECT 'a -- b' ; DROP TABLE t --` is now correctly rejected); cell-update PK value coerced against column affinity. Regression tests added for each.
+- Phase 3 (resource safety) — H3: every POST handler now reads its body through a shared `ServerUtils.readBodyBytes` cap (64 MiB) and returns HTTP 413 on overflow, instead of buffering an unbounded body into memory before validation.
 
 </details>
 

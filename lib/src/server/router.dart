@@ -7,7 +7,6 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 // Relative import: this file is inside saropa_drift_advisor, so a
 // self-referential package URI trips depend_on_referenced_packages.
@@ -1086,13 +1085,16 @@ final class Router {
     final res = request.response;
 
     try {
-      final builder = BytesBuilder();
-
-      await for (final chunk in request) {
-        builder.add(chunk);
+      final bytes = await ServerUtils.readBodyBytes(
+        request,
+        maxBytes: ServerConstants.maxRequestBodyBytes,
+      );
+      if (bytes == null) {
+        await _ctx.sendPayloadTooLarge(res);
+        return;
       }
 
-      final body = utf8.decode(builder.toBytes());
+      final body = utf8.decode(bytes);
       final decoded = ServerUtils.parseJsonMap(body);
 
       final enabledValue = decoded?[ServerConstants.jsonKeyEnabled];

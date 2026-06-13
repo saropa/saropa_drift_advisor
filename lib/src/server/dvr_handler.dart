@@ -3,7 +3,6 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import '../query_recorder.dart';
 import 'server_constants.dart';
@@ -43,11 +42,15 @@ final class DvrHandler {
   Future<void> handleConfig(HttpRequest request, HttpResponse response) async {
     late String raw;
     try {
-      final builder = BytesBuilder();
-      await for (final chunk in request) {
-        builder.add(chunk);
+      final bytes = await ServerUtils.readBodyBytes(
+        request,
+        maxBytes: ServerConstants.maxRequestBodyBytes,
+      );
+      if (bytes == null) {
+        await _ctx.sendPayloadTooLarge(response);
+        return;
       }
-      raw = utf8.decode(builder.toBytes());
+      raw = utf8.decode(bytes);
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       response.statusCode = HttpStatus.badRequest;
