@@ -4,6 +4,7 @@
 /// extension can scrub and inspect recent query history.
 library;
 
+import 'dart:collection';
 import 'dart:math' as math;
 
 /// Immutable DVR query event stored in the recorder ring buffer.
@@ -81,7 +82,11 @@ final class QueryRecorder {
     : _maxQueries = maxQueries > 0 ? maxQueries : 5000,
       _captureBeforeAfter = captureBeforeAfter;
 
-  final List<RecordedQuery> _queries = <RecordedQuery>[];
+  // ListQueue (circular buffer) so the oldest entry evicts in O(1). A plain
+  // List.removeAt(0) shifts every element — at the 5000-entry default that made
+  // each insert past the cap O(n), and updateConfig's shrink loop O(n²).
+  // See plans/full-codebase-audit-2026.06.12.md M7.
+  final ListQueue<RecordedQuery> _queries = ListQueue<RecordedQuery>();
   bool _recording = false;
   int _nextId = 0;
   int _maxQueries;
@@ -121,7 +126,8 @@ final class QueryRecorder {
     if (maxQueries != null && maxQueries > 0) {
       _maxQueries = maxQueries;
       while (_queries.length > _maxQueries) {
-        _queries.removeAt(0);
+        // ignore: avoid_ignoring_return_values -- evicting the oldest entry; the removed value is intentionally discarded
+        _queries.removeFirst();
       }
     }
     if (captureBeforeAfter != null) {
@@ -251,8 +257,12 @@ final class QueryRecorder {
     final items = <RecordedQuery>[];
 
     if (isBackward) {
-      for (int i = _queries.length - 1; i >= 0; i--) {
-        final q = _queries[i];
+      // ListQueue has no operator[]; snapshot once for reverse indexed walk.
+      // Paging is user-initiated and infrequent, so the O(n) copy is fine —
+      // unlike the per-insert eviction that M7 made O(1).
+      final snapshot = _queries.toList(growable: false);
+      for (int i = snapshot.length - 1; i >= 0; i--) {
+        final q = snapshot[i];
         if (cursor >= 0 && q.id >= cursor) {
           continue;
         }
@@ -312,7 +322,8 @@ final class QueryRecorder {
   void _record(RecordedQuery query) {
     _queries.add(query);
     if (_queries.length > _maxQueries) {
-      _queries.removeAt(0);
+      // ignore: avoid_ignoring_return_values -- evicting the oldest entry; the removed value is intentionally discarded
+      _queries.removeFirst();
     }
   }
 
@@ -320,18 +331,34 @@ final class QueryRecorder {
   /// `'other'` from the leading keyword (WITH...SELECT counts as select).
   static String _classifySql(String sql) {
     final trimmed = sql.trimLeft().toUpperCase();
-    if (trimmed.startsWith('SELECT') || trimmed.startsWith('WITH'))
+    if (trimmed.startsWith('SELECT') || trimmed.startsWith('WITH')) {
       return 'select';
-    if (trimmed.startsWith('INSERT')) return 'insert';
-    if (trimmed.startsWith('UPDATE')) return 'update';
-    if (trimmed.startsWith('DELETE')) return 'delete';
+    }
+    if (trimmed.startsWith('INSERT')) {
+      return 'insert';
+    }
+    if (trimmed.startsWith('UPDATE')) {
+      return 'update';
+    }
+    if (trimmed.startsWith('DELETE')) {
+      return 'delete';
+    }
     return 'other';
   }
 
   /// Extracts the target table identifier from [sql] for UPDATE / INSERT INTO
   /// / DELETE FROM / SELECT ... FROM. Returns null when no pattern matches.
   static String? _parseTableName(String sql) {
-    final cleaned = sql.replaceAll('\n', ' ').trim();
+    // Bound the input the regexes scan. The leading table name always sits near
+    // the start, but `^\s*SELECT\s+.*?\s+FROM` has a lazy `.*?` that can backtrack
+    // heavily on a long SELECT with no early FROM (big IN-lists, generated SQL) —
+    // a ReDoS-shaped CPU spike on the recording hot path. Matching only the first
+    // 2000 chars caps that work without losing the table name.
+    // See plans/full-codebase-audit-2026.06.12.md M8.
+    final flattened = sql.replaceAll('\n', ' ').trim();
+    final cleaned = flattened.length > 2000
+        ? flattened.substring(0, 2000)
+        : flattened;
     final patterns = <RegExp>[
       RegExp(r'^\s*UPDATE\s+"?([A-Za-z0-9_]+)"?', caseSensitive: false),
       RegExp(r'^\s*INSERT\s+INTO\s+"?([A-Za-z0-9_]+)"?', caseSensitive: false),
