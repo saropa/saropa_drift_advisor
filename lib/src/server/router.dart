@@ -988,6 +988,9 @@ final class Router {
     ServerConstants.jsonKeyOk: true,
     ServerConstants.jsonKeyExtensionConnected: true,
     ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
+    // Mirror the HTTP health shape (plan 67 §2.3) so the VM-service path
+    // advertises the same diagnostic-envelope version.
+    ServerConstants.jsonKeySchemaVersion: ServerConstants.issuesSchemaVersion,
     ServerConstants.jsonKeyWriteEnabled: _ctx.writeQuery != null,
     ServerConstants.jsonKeyCompareEnabled: _ctx.queryCompare != null,
     ServerConstants.jsonKeyCapabilities: _ctx.writeQuery != null

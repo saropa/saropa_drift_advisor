@@ -82,6 +82,9 @@ void main() {
       expect(r.status, HttpStatus.ok);
       expect(r.body['ok'], isTrue);
       expect(r.body['version'], isA<String>());
+      // Saropa Diagnostic Envelope version advertised for suite clients
+      // (plan 67 §2.3).
+      expect(r.body['schemaVersion'], 1);
       // Contract: shape matches doc/API.md § Health & Generation.
       expect(r.body['extensionConnected'], isA<bool>());
       expect(r.body['writeEnabled'], isFalse);
@@ -771,6 +774,18 @@ void main() {
       final body = r.body as Map<String, dynamic>;
       expect(body, contains('issues'));
       expect(body['issues'], isA<List<dynamic>>());
+
+      // Saropa Diagnostic Envelope (plan 67 §2): top-level metadata lets a
+      // suite consumer version-gate and attribute the list.
+      expect(body['schemaVersion'], 1);
+      final producer = body['producer'] as Map<String, dynamic>;
+      expect(producer['name'], 'saropa_drift_advisor');
+      expect(producer['version'], isA<String>());
+      expect(producer['version'], isNotEmpty);
+      expect(body['generatedAt'], isA<String>());
+      // generatedAt must be a parseable ISO 8601 instant.
+      expect(DateTime.tryParse(body['generatedAt'] as String), isNotNull);
+
       final issues = body['issues'] as List<dynamic>;
       for (final raw in issues) {
         final issue = raw as Map<String, dynamic>;
@@ -780,9 +795,26 @@ void main() {
         expect(issue, contains('message'));
         expect(
           issue['source'],
-          anyOf('index-suggestion', 'anomaly', 'orphan-table'),
+          anyOf(
+            'index-suggestion',
+            'anomaly',
+            'orphan-table',
+            'soft-relationship',
+          ),
           reason: 'Stable issue shape (doc/API.md § Issues)',
         );
+
+        // Additive envelope fields per issue (plan 67 §2.1).
+        expect(issue, contains('id'));
+        expect(issue['id'], isA<String>());
+        expect(issue['id'], isNotEmpty);
+        expect(
+          issue['category'],
+          anyOf('performance', 'data', 'schema', 'other'),
+          reason: 'Shared taxonomy bucket',
+        );
+        // title is the suite-standard alias of message — same text today.
+        expect(issue['title'], issue['message']);
       }
     });
 

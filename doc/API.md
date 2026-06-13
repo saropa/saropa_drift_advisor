@@ -123,6 +123,7 @@ Health check. Always succeeds when the server is running.
   "ok": true,
   "extensionConnected": false,
   "version": "2.6.0",
+  "schemaVersion": 1,
   "capabilities": ["issues"]
 }
 ```
@@ -132,6 +133,7 @@ Health check. Always succeeds when the server is running.
 | `ok` | boolean | Always `true` |
 | `extensionConnected` | boolean | Whether a VS Code extension client has connected recently (detected via `X-Drift-Client: vscode` header) |
 | `version` | string | Package version from `pubspec.yaml` |
+| `schemaVersion` | int | Saropa Diagnostic Envelope version (see [`GET /api/issues`](#get-apiissues)). Lets a suite client (Saropa Lints, Saropa Log Capture) confirm the issue shape before parsing. Bumped only on a breaking change; consumers ignore unknown fields and refuse a higher major. |
 | `capabilities` | array of strings | Server feature flags. Contains `"issues"` when `GET /api/issues` is supported; clients can use this to prefer the merged issues endpoint over separate index-suggestions and anomalies calls. |
 
 **Note:** The VS Code extension’s **port discovery** treats a host as a Saropa Drift server only when **`ok` is true and `version` is a non-empty string**, so it does not need a follow-up schema request per port.
@@ -888,6 +890,8 @@ The check is **report-only**: it suggests a `DROP TABLE` but never executes it. 
 
 Returns a single merged list of index suggestions, data-quality anomalies, and orphan physical tables in a stable issue shape. Intended for IDE integrations (e.g. Saropa Lints) and scripts that want one request instead of calling `GET /api/index-suggestions`, `GET /api/analytics/anomalies`, and `GET /api/analytics/orphan-tables` separately.
 
+The list is wrapped in the **Saropa Diagnostic Envelope** — the shared cross-tool protocol used across Saropa Lints, Saropa Drift Advisor, and Saropa Log Capture. The envelope adds top-level `schemaVersion`, `producer`, and `generatedAt`, and each issue carries `id`, `category`, and `title` in addition to its existing fields. The envelope is **additive**: every previously documented field is unchanged, so existing consumers need no update.
+
 **Query Parameters**
 
 | Param | Type | Default | Description |
@@ -898,29 +902,41 @@ Returns a single merged list of index suggestions, data-quality anomalies, and o
 
 ```json
 {
+  "schemaVersion": 1,
+  "producer": { "name": "saropa_drift_advisor", "version": "3.7.3" },
+  "generatedAt": "2026-06-13T10:15:00.000Z",
   "issues": [
     {
+      "id": "saropa_drift_advisor:index-suggestion:orders:user_id",
       "source": "index-suggestion",
+      "category": "performance",
       "severity": "warning",
       "table": "orders",
       "column": "user_id",
+      "title": "orders.user_id: Foreign key without index (references users.id)",
       "message": "orders.user_id: Foreign key without index (references users.id)",
       "suggestedSql": "CREATE INDEX idx_orders_user_id ON \"orders\"(\"user_id\");",
       "priority": "high"
     },
     {
+      "id": "saropa_drift_advisor:anomaly:orders:user_id:orphaned_fk",
       "source": "anomaly",
+      "category": "data",
       "severity": "error",
       "table": "orders",
       "column": "user_id",
+      "title": "3 orphaned FK(s): orders.user_id -> users.id",
       "message": "3 orphaned FK(s): orders.user_id -> users.id",
       "type": "orphaned_fk",
       "count": 3
     },
     {
+      "id": "saropa_drift_advisor:orphan-table:leftover_v33:orphan_table",
       "source": "orphan-table",
+      "category": "schema",
       "severity": "warning",
       "table": "leftover_v33",
+      "title": "Orphan physical table 'leftover_v33' — present in the database but not declared in the Drift schema. Left by a prior migration? Drop it or restore its definition.",
       "message": "Orphan physical table 'leftover_v33' — present in the database but not declared in the Drift schema. Left by a prior migration? Drop it or restore its definition.",
       "type": "orphan_table",
       "suggestedSql": "DROP TABLE \"leftover_v33\";"
@@ -929,15 +945,27 @@ Returns a single merged list of index suggestions, data-quality anomalies, and o
 }
 ```
 
+**Envelope fields** (Saropa Diagnostic Envelope, shared across the Saropa suite)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `schemaVersion` | int | yes | Envelope version. Bumped only on a breaking change; consumers ignore unknown fields and refuse a higher major. |
+| `producer` | object | yes | `{ "name": "saropa_drift_advisor", "version": "<package semver>" }` — attributes the issues when merged into a multi-tool list. |
+| `generatedAt` | string | yes | ISO 8601 UTC timestamp of when the list was produced. |
+| `issues` | array | yes | The merged issue list (envelope carrier key; equivalent to `diagnostics` in the shared spec). |
+
 **Issue object fields**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `source` | string | yes | `"index-suggestion"`, `"anomaly"`, or `"orphan-table"` |
+| `id` | string | yes | Stable, locale-independent dedupe key built from semantic fields only (`producer:source:table:column:type[:fkTo...]`). Never contains `message`/`title`, so it is consistent across UI languages. |
+| `source` | string | yes | `"index-suggestion"`, `"anomaly"`, `"orphan-table"`, or `"soft-relationship"` (the detector that produced the issue) |
+| `category` | string | yes | Shared taxonomy: `"performance"` (index suggestions), `"data"` (anomalies), `"schema"` (orphan tables, inferred relationships), or `"other"` |
 | `severity` | string | yes | `"error"`, `"warning"`, or `"info"` |
 | `table` | string | yes | SQL table name |
 | `column` | string | no | Column name when applicable; omitted for table-level issues (e.g. `duplicate_rows`, orphan tables) |
-| `message` | string | yes | Human-readable description |
+| `title` | string | yes | Localized one-line summary. Same text as `message` today; emitted as the suite-standard field so cross-tool consumers read one key. |
+| `message` | string | yes | Human-readable description (retained for backward compatibility; alias of `title`) |
 | `suggestedSql` | string | no | Ready-to-run SQL: `CREATE INDEX` for index suggestions, `DROP TABLE` for orphan tables |
 | `type` | string | no | Anomalies: `null_values`, `empty_strings`, `orphaned_fk`, `duplicate_rows`, `potential_outlier`. Orphan tables: `orphan_table` |
 | `count` | int | no | Anomalies only: number of affected rows (not present for `potential_outlier`) |

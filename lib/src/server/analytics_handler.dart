@@ -367,7 +367,88 @@ final class AnalyticsHandler {
       }
     }
 
-    return <String, dynamic>{ServerConstants.jsonKeyIssues: issues};
+    return _wrapIssuesEnvelope(issues);
+  }
+
+  /// Wraps the merged issue list in the Saropa Diagnostic Envelope (plan 67
+  /// §2) so the sibling suite tools can consume `/api/issues` with stable
+  /// attribution and version-gate the shape.
+  ///
+  /// Additive by design: every pre-existing issue field is preserved, so
+  /// current `/api/issues` consumers (the Saropa Lints extension, scripts)
+  /// keep working. Each issue gains a [ServerConstants.jsonKeyCategory]
+  /// (shared taxonomy), a locale-independent [ServerConstants.jsonKeyId]
+  /// (cross-tool dedupe key), and a [ServerConstants.jsonKeyTitle] (alias of
+  /// `message`). Top-level `schemaVersion` / `producer` / `generatedAt` let a
+  /// consumer reject an incompatible shape.
+  Map<String, dynamic> _wrapIssuesEnvelope(List<Map<String, dynamic>> issues) {
+    for (final issue in issues) {
+      final source = issue[ServerConstants.jsonKeySource] as String? ?? '';
+      issue[ServerConstants.jsonKeyCategory] = _categoryForSource(source);
+      // Title mirrors message — emitted alongside, never replacing it, so the
+      // existing public shape stays intact while the suite standardizes on
+      // `title`.
+      issue[ServerConstants.jsonKeyTitle] =
+          issue[ServerConstants.jsonKeyMessage] as String? ?? '';
+      issue[ServerConstants.jsonKeyId] = _issueId(issue);
+    }
+    return <String, dynamic>{
+      ServerConstants.jsonKeySchemaVersion: ServerConstants.issuesSchemaVersion,
+      ServerConstants.jsonKeyProducer: <String, dynamic>{
+        ServerConstants.jsonKeyName: ServerConstants.productName,
+        ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
+      },
+      ServerConstants.jsonKeyGeneratedAt: DateTime.now()
+          .toUtc()
+          .toIso8601String(),
+      ServerConstants.jsonKeyIssues: issues,
+    };
+  }
+
+  /// Maps a detector `source` to the shared diagnostic category (plan 67
+  /// §2.1). Unknown sources fall back to `other` rather than echoing the raw
+  /// source, so a consumer's category filter never sees an undocumented bucket.
+  String _categoryForSource(String source) {
+    switch (source) {
+      case 'index-suggestion':
+        return ServerConstants.categoryPerformance;
+      case 'anomaly':
+        return ServerConstants.categoryData;
+      case 'orphan-table':
+      case 'soft-relationship':
+        return ServerConstants.categorySchema;
+      default:
+        return ServerConstants.categoryOther;
+    }
+  }
+
+  /// Builds a stable, locale-independent dedupe id from semantic fields only
+  /// (plan 67 §2.1). Two diagnostics that agree on tool, detector, table,
+  /// column, type, and (for inferred edges) target are the same issue
+  /// regardless of message wording — so `message`/`title`, which localize,
+  /// are deliberately excluded. Empty segments are dropped to keep the id
+  /// compact.
+  String _issueId(Map<String, dynamic> issue) {
+    String field(String key) => issue[key]?.toString() ?? '';
+    // Soft relationships carry their endpoint in fk* fields rather than the
+    // generic table/column, so fall back to those for table and column.
+    final table = field(ServerConstants.jsonKeyTable).isNotEmpty
+        ? field(ServerConstants.jsonKeyTable)
+        : field(ServerConstants.fkFromTable);
+    final column = field(ServerConstants.jsonKeyColumn).isNotEmpty
+        ? field(ServerConstants.jsonKeyColumn)
+        : field(ServerConstants.fkFromColumn);
+    final parts = <String>[
+      ServerConstants.productName,
+      field(ServerConstants.jsonKeySource),
+      table,
+      column,
+      field(ServerConstants.jsonKeyType),
+      // Disambiguate inferred relationships sharing a from-table/column.
+      field(ServerConstants.fkToTable),
+      field(ServerConstants.fkToColumn),
+    ];
+    return parts.where((p) => p.isNotEmpty).join(':');
   }
 
   /// Parses [sources] query param (comma-separated "index-suggestions",

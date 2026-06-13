@@ -16,7 +16,44 @@ import {
   clearNavHistory,
   collectProjectStorageKeys,
 } from './persistence.ts';
-import { vt } from './l10n.ts';
+import { vt, getActiveLocale } from './l10n.ts';
+
+// ---------------------------------------------------------------------------
+// Locale-aware number formatting
+// ---------------------------------------------------------------------------
+//
+// Native `<input type="number">` cannot show thousands separators (the HTML
+// spec requires its value to be a bare floating-point literal), so large
+// limits like 2000 / 60000 render as cramped digit runs. We use a custom
+// text-input stepper instead and format the displayed value with the active
+// locale's grouping (1,000 in en-US, 1.000 in de, 1 000 in fr).
+
+/** Formats an integer with the active locale's grouping separators. */
+function fmtNum(n: number): string {
+  try {
+    return new Intl.NumberFormat(getActiveLocale()).format(n);
+  } catch {
+    // Intl or the locale tag is unavailable — fall back to the bare integer
+    // rather than blanking the field.
+    return String(n);
+  }
+}
+
+/**
+ * Parses a user-entered, possibly-grouped value back to an integer. Strips
+ * every non-digit so any locale's group separator (comma, period, space,
+ * non-breaking space) is tolerated; values here are always positive integers.
+ * Returns NaN for an empty/garbage entry so callers can fall back.
+ */
+function parseNum(raw: string): number {
+  const digits = raw.replace(/\D/g, '');
+  return digits === '' ? NaN : parseInt(digits, 10);
+}
+
+/** Clamps `n` into the inclusive [min, max] range. */
+function clampNum(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n));
+}
 
 // ---------------------------------------------------------------------------
 // Persistence helpers
@@ -106,6 +143,25 @@ export const DEFAULTS = {
 // Panel rendering
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds a custom numeric stepper: a text input (so the value can carry
+ * locale grouping separators that `type="number"` forbids) flanked by
+ * up/down buttons. min/max/step ride along as data-attributes so the bind
+ * logic stays generic. The buttons are decorative (`aria-hidden`, removed
+ * from the tab order) — the input itself is the labeled, keyboard-steppable
+ * control via the wrapping `<label>`.
+ */
+function numberField(id: string, min: number, max: number, step: number): string {
+  return `<span class="settings-stepper">
+        <input type="text" inputmode="numeric" id="${id}" class="settings-input settings-input-number"
+          data-min="${min}" data-max="${max}" data-step="${step}" autocomplete="off" spellcheck="false" />
+        <span class="settings-stepper-btns" aria-hidden="true">
+          <button type="button" class="settings-stepper-btn" data-step-dir="1" tabindex="-1"><span class="material-symbols-outlined">keyboard_arrow_up</span></button>
+          <button type="button" class="settings-stepper-btn" data-step-dir="-1" tabindex="-1"><span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+        </span>
+      </span>`;
+}
+
 /** Builds the inner HTML for the settings panel body. */
 function buildSettingsHtml(): string {
   return `
@@ -118,11 +174,11 @@ function buildSettingsHtml(): string {
     </h3>
     <label class="settings-row">
       <span class="settings-label">${vt('viewer.settings.storage.sqlHistoryMax')}</span>
-      <input type="number" id="pref-sqlHistoryMax" class="settings-input settings-input-number" min="10" max="2000" step="10" />
+      ${numberField('pref-sqlHistoryMax', 10, 2000, 10)}
     </label>
     <label class="settings-row">
       <span class="settings-label">${vt('viewer.settings.storage.maxAnalyses')}</span>
-      <input type="number" id="pref-analysisMax" class="settings-input settings-input-number" min="5" max="500" step="5" />
+      ${numberField('pref-analysisMax', 5, 500, 5)}
     </label>
     <div class="settings-row settings-row-actions">
       <button type="button" id="settings-clear-all" class="btn btn-danger-outline settings-btn">
@@ -141,10 +197,10 @@ function buildSettingsHtml(): string {
     <label class="settings-row">
       <span class="settings-label">${vt('viewer.settings.table.defaultPageSize')}</span>
       <select id="pref-defaultPageSize" class="settings-input settings-input-select">
-        <option value="50">50</option>
-        <option value="200">200</option>
-        <option value="500">500</option>
-        <option value="1000">1000</option>
+        <option value="50">${fmtNum(50)}</option>
+        <option value="200">${fmtNum(200)}</option>
+        <option value="500">${fmtNum(500)}</option>
+        <option value="1000">${fmtNum(1000)}</option>
       </select>
     </label>
     <label class="settings-row">
@@ -178,7 +234,7 @@ function buildSettingsHtml(): string {
     <label class="settings-row">
       <span class="settings-label">${vt('viewer.settings.perf.slowQueryThreshold')}</span>
       <span class="settings-sublabel">${vt('viewer.settings.perf.slowQueryThresholdSub')}</span>
-      <input type="number" id="pref-slowQueryThreshold" class="settings-input settings-input-number" min="10" max="60000" step="10" />
+      ${numberField('pref-slowQueryThreshold', 10, 60000, 10)}
     </label>
     <label class="settings-row settings-toggle-row">
       <span class="settings-label">${vt('viewer.settings.perf.autoRefresh')}</span>
@@ -238,7 +294,8 @@ function populateForm(): void {
 
 function setNumberInput(id: string, value: number): void {
   const el = document.getElementById(id) as HTMLInputElement | null;
-  if (el) el.value = String(value);
+  // Show the grouped form (1,000) — the input is type="text" so this is legal.
+  if (el) el.value = fmtNum(value);
 }
 
 function setSelectValue(id: string, value: string): void {
@@ -309,13 +366,54 @@ function bindEvents(): void {
 function bindNumberInput(id: string, prefKey: string): void {
   const el = document.getElementById(id) as HTMLInputElement | null;
   if (!el) return;
-  el.addEventListener('change', () => {
-    const v = parseInt(el.value, 10);
-    if (isFinite(v) && v > 0) {
-      setPref(prefKey, v);
-      applyRuntimeState();
+
+  const min = Number(el.dataset.min);
+  const max = Number(el.dataset.max);
+  const step = Number(el.dataset.step) || 1;
+
+  // Clamp, persist, and re-display the value in its grouped (1,000) form.
+  // Called on commit (blur/Enter) and on every stepper/keyboard adjustment so
+  // the field never holds an out-of-range or unformatted value.
+  const commit = (n: number): void => {
+    const clamped = clampNum(n, min, max);
+    el.value = fmtNum(clamped);
+    setPref(prefKey, clamped);
+    applyRuntimeState();
+  };
+
+  // The current value, falling back to min when the field is empty/garbage so
+  // a stepper click from a blank box still produces a sane number.
+  const current = (): number => {
+    const v = parseNum(el.value);
+    return isFinite(v) ? v : min;
+  };
+
+  // Normalize and persist when the user finishes editing.
+  el.addEventListener('change', () => commit(current()));
+
+  // Keyboard stepping mirrors the native number input the text field replaced.
+  el.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      commit(current() + step);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      commit(current() - step);
     }
   });
+
+  // Up/down buttons. preventDefault keeps the click from also activating the
+  // wrapping <label> (which would steal focus back to the input mid-press).
+  const stepper = el.closest('.settings-stepper');
+  if (stepper) {
+    stepper.querySelectorAll('.settings-stepper-btn').forEach((btn) => {
+      btn.addEventListener('click', (e: Event) => {
+        e.preventDefault();
+        const dir = Number((btn as HTMLElement).dataset.stepDir) || 0;
+        commit(current() + dir * step);
+      });
+    });
+  }
 }
 
 function bindSelectInput(id: string, prefKey: string): void {

@@ -186,6 +186,63 @@ describe('Settings panel — style.css', () => {
       'Compiled CSS must contain .cell-null selector so NULL cells render dimmed',
     );
   });
+
+  // Every settings row is a two-column grid so the control sits inline-right
+  // with the sublabel spanning underneath; pins against a regression to the
+  // old flex+wrap layout that pushed sublabel'd controls onto their own line.
+  it('settings rows use a grid layout with explicit areas', () => {
+    assert.ok(
+      css.includes('grid-template-areas'),
+      'Settings rows must use grid-template-areas for consistent inline layout',
+    );
+  });
+
+  // The custom numeric stepper replaces the native type="number" spinner so
+  // values can carry locale grouping separators.
+  it('custom number stepper styles are compiled into style.css', () => {
+    assert.ok(
+      css.includes('.settings-stepper-btn'),
+      'Compiled CSS must contain .settings-stepper-btn for the custom numeric stepper',
+    );
+  });
+});
+
+describe('Settings panel — numeric formatting', () => {
+  let ts: string;
+
+  before(() => {
+    ts = readAsset('assets/web/settings.ts');
+  });
+
+  // Numeric limits must display with the active locale's grouping separators
+  // (1,000 / 1.000 / 1 000). Native type="number" cannot do this; the value
+  // is formatted through Intl.NumberFormat against the active locale.
+  it('formats numbers via Intl.NumberFormat with the active locale', () => {
+    assert.ok(
+      ts.includes('Intl.NumberFormat'),
+      'settings.ts must format numeric values via Intl.NumberFormat',
+    );
+    assert.ok(
+      ts.includes('getActiveLocale'),
+      'settings.ts must format against the active locale (getActiveLocale)',
+    );
+  });
+
+  // The native spinner is replaced by a text-input stepper that can render
+  // grouped values; pins the markup the bind logic and CSS depend on.
+  it('renders the custom number stepper markup', () => {
+    assert.ok(
+      ts.includes('settings-stepper'),
+      'settings.ts must build the custom settings-stepper widget',
+    );
+    // The stepper input is a text field (native type="number" cannot render
+    // grouping separators), so the numeric prefs must build a text input with
+    // numeric inputmode rather than a native number spinner.
+    assert.ok(
+      ts.includes('type="text" inputmode="numeric"'),
+      'the numeric stepper input must be a text input with numeric inputmode',
+    );
+  });
 });
 
 describe('Settings panel — index.js integration', () => {

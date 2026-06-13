@@ -97,6 +97,10 @@ final class GenerationHandler {
         ServerConstants.jsonKeyOk: true,
         ServerConstants.jsonKeyExtensionConnected: _ctx.isExtensionConnected,
         ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
+        // Saropa Diagnostic Envelope version (plan 67 §2.3): lets a suite
+        // client confirm the `/api/issues` shape before parsing it.
+        ServerConstants.jsonKeySchemaVersion:
+            ServerConstants.issuesSchemaVersion,
         ServerConstants.jsonKeyWriteEnabled: _ctx.writeQuery != null,
         ServerConstants.jsonKeyCompareEnabled: _ctx.queryCompare != null,
         ServerConstants.jsonKeyCapabilities: _ctx.writeQuery != null
