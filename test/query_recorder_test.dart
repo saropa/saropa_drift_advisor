@@ -77,6 +77,21 @@ void main() {
       expect(r.queryBySessionAndId(r.sessionId, 0), isNotNull);
     });
 
+    test('parses table from a very long SELECT without backtracking (M8)', () {
+      final r = QueryRecorder();
+      r.startRecording();
+      // A huge IN-list after FROM is the ReDoS-shaped input; the table name sits
+      // early, so the bounded match must still return it and return promptly.
+      final bigInList = List<String>.generate(50000, (i) => '$i').join(',');
+      r.recordRead(
+        sql: 'SELECT * FROM users WHERE id IN ($bigInList)',
+        startedAtUtc: DateTime.utc(2026, 1, 1),
+        elapsed: Duration.zero,
+        resultRowCount: 0,
+      );
+      expect(r.queryBySessionAndId(r.sessionId, 0)!.table, 'users');
+    });
+
     test('backward page respects cursor boundary', () {
       final r = QueryRecorder(maxQueries: 100);
       r.startRecording();
