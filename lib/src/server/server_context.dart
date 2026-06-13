@@ -584,6 +584,20 @@ final class ServerContext {
     await response.close();
   }
 
+  /// Sends HTTP 413 (Payload Too Large) when a request body exceeds
+  /// [ServerConstants.maxRequestBodyBytes]. Pairs with
+  /// [ServerUtils.readBodyBytes], which returns null on overflow (audit H3).
+  Future<void> sendPayloadTooLarge(HttpResponse response) async {
+    response.statusCode = HttpStatus.requestEntityTooLarge;
+    setJsonHeaders(response);
+    response.write(
+      jsonEncode(<String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.errorPayloadTooLarge,
+      }),
+    );
+    await response.close();
+  }
+
   /// Sets Content-Disposition (attachment) and
   /// Content-Type headers for file downloads.
   void setAttachmentHeaders(HttpResponse response, String filename) {

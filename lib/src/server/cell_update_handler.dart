@@ -5,7 +5,6 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'server_constants.dart';
 import 'server_context.dart';
@@ -64,11 +63,15 @@ final class CellUpdateHandler {
 
     late String body;
     try {
-      final builder = BytesBuilder();
-      await for (final chunk in request) {
-        builder.add(chunk);
+      final bytes = await ServerUtils.readBodyBytes(
+        request,
+        maxBytes: ServerConstants.maxRequestBodyBytes,
+      );
+      if (bytes == null) {
+        await _ctx.sendPayloadTooLarge(res);
+        return;
       }
-      body = utf8.decode(builder.toBytes());
+      body = utf8.decode(bytes);
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       await _badRequest(res, ServerConstants.errorInvalidRequestBody);

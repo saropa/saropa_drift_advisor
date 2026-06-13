@@ -105,7 +105,14 @@ final class SnapshotHandler {
   /// Reads an optional `{ "label": "..." }` from [request]; null on empty body,
   /// non-JSON, or a missing/blank label (a label is never required).
   Future<String?> _readOptionalLabel(HttpRequest request) async {
-    final body = await utf8.decoder.bind(request).join();
+    // Cap the body even though a label is tiny: an uncapped read is an OOM
+    // vector regardless of how small the legitimate payload is (audit H3).
+    final bytes = await ServerUtils.readBodyBytes(
+      request,
+      maxBytes: ServerConstants.maxRequestBodyBytes,
+    );
+    if (bytes == null) return null;
+    final body = utf8.decode(bytes);
     if (body.trim().isEmpty) return null;
     final decoded = ServerUtils.parseJsonMap(body);
     final raw = decoded?[ServerConstants.jsonKeyLabel];

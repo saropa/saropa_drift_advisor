@@ -3,7 +3,6 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 // Relative import: this file lives inside saropa_drift_advisor, so a
 // self-referential package URI would trip depend_on_referenced_packages
@@ -47,13 +46,16 @@ final class ImportHandler {
     }
 
     try {
-      final builder = BytesBuilder();
-
-      await for (final chunk in request) {
-        builder.add(chunk);
+      final bytes = await ServerUtils.readBodyBytes(
+        request,
+        maxBytes: ServerConstants.maxRequestBodyBytes,
+      );
+      if (bytes == null) {
+        await _ctx.sendPayloadTooLarge(res);
+        return;
       }
 
-      final body = utf8.decode(builder.toBytes());
+      final body = utf8.decode(bytes);
       final decoded = ServerUtils.parseJsonMap(body);
 
       if (decoded == null) {
