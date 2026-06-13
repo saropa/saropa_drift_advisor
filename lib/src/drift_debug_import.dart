@@ -225,10 +225,7 @@ final class DriftDebugImportProcessor {
     required String table,
     required Future<void> Function(String sql) writeQuery,
   }) async {
-    final statements = data
-        .split(';')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty);
+    final statements = _splitSqlStatements(data);
     int imported = 0;
     final errors = <String>[];
 
@@ -249,6 +246,90 @@ final class DriftDebugImportProcessor {
     );
   }
 
+  /// Splits a SQL script into individual statements on top-level `;`, ignoring
+  /// semicolons inside string literals (`'…'` / `"…"`, with `''`/`""` escapes)
+  /// and inside line (`-- …`) and block (`/* … */`) comments.
+  ///
+  /// A naive `data.split(';')` shattered any statement containing a semicolon in
+  /// a string literal (e.g. `INSERT INTO t VALUES ('a;b')`) into broken
+  /// fragments. This single-pass scanner tracks lexical state so a `;` only ends
+  /// a statement when it is genuinely at statement level.
+  /// See plans/full-codebase-audit-2026.06.12.md M11.
+  static List<String> _splitSqlStatements(String sql) {
+    final out = <String>[];
+    final buf = StringBuffer();
+    final n = sql.length;
+    var i = 0;
+
+    void flush() {
+      final s = buf.toString().trim();
+      if (s.isNotEmpty) {
+        out.add(s);
+      }
+      buf.clear();
+    }
+
+    while (i < n) {
+      final c = sql[i];
+
+      // Line comment: skip to end of line. Comments are dropped from the
+      // statement (the DB would ignore them anyway); skipping avoids treating a
+      // `;` inside the comment as a separator.
+      if (c == '-' && i + 1 < n && sql[i + 1] == '-') {
+        i += 2;
+        while (i < n && sql[i] != '\n') {
+          i++;
+        }
+        continue;
+      }
+
+      // Block comment: skip through the closing */ (or to end if unterminated).
+      if (c == '/' && i + 1 < n && sql[i + 1] == '*') {
+        i += 2;
+        while (i < n && !(sql[i] == '*' && i + 1 < n && sql[i + 1] == '/')) {
+          i++;
+        }
+        i = i + 1 < n ? i + 2 : n;
+        continue;
+      }
+
+      // String / quoted-identifier literal: copy verbatim including the matching
+      // closing quote, honoring doubled-quote escapes; `;` inside is not a split.
+      if (c == "'" || c == '"') {
+        final quote = c;
+        buf.write(c);
+        i++;
+        while (i < n) {
+          buf.write(sql[i]);
+          if (sql[i] == quote) {
+            if (i + 1 < n && sql[i + 1] == quote) {
+              buf.write(sql[i + 1]);
+              i += 2;
+              continue;
+            }
+            i++;
+            break;
+          }
+          i++;
+        }
+        continue;
+      }
+
+      // Top-level statement separator.
+      if (c == ';') {
+        flush();
+        i++;
+        continue;
+      }
+
+      buf.write(c);
+      i++;
+    }
+
+    flush();
+    return out;
+  }
+
   /// Wraps a SQL identifier in double quotes, escaping any
   /// embedded double-quote characters by doubling them.
   static String _escapeIdentifier(dynamic name) {
@@ -257,60 +338,88 @@ final class DriftDebugImportProcessor {
     return '"$escaped"';
   }
 
-  /// Parses CSV text into rows (each a list of field strings).
+  /// Parses CSV text into rows (each a list of field strings), RFC-4180 style.
   ///
-  /// Handles quoted fields with embedded commas, escaped
-  /// quotes (`""`), CR+LF line endings, and UTF-8 BOM.
-  /// Empty lines are skipped.
+  /// Handles quoted fields with embedded commas AND embedded newlines, escaped
+  /// quotes (`""`), CR+LF / CR line endings, and a UTF-8 BOM. Fully-empty lines
+  /// are skipped.
   ///
-  /// Returns a list of rows where each row is a list of
-  /// trimmed field values.
+  /// A QUOTED field's content is preserved exactly (no trimming) — quoting is how
+  /// a CSV author signals "this whitespace/newline is data". Only UNQUOTED fields
+  /// are trimmed, matching the lenient `a, b` → `a`,`b` convention. The previous
+  /// implementation split on `\n` before parsing quotes (so a quoted newline
+  /// broke the record) and trimmed every field (corrupting quoted whitespace).
+  /// See plans/full-codebase-audit-2026.06.12.md M10.
   static List<List<String>> parseCsvLines(String csv) {
     // Strip BOM and normalize line endings.
     String normalized = csv;
-
     if (normalized.isNotEmpty && normalized.codeUnitAt(0) == _bomCodeUnit) {
       normalized = normalized.substring(1);
     }
     normalized = normalized.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 
     final result = <List<String>>[];
-    final lines = normalized.split('\n');
-    final current = StringBuffer();
+    final field = StringBuffer();
+    var row = <String>[];
+    var inQuotes = false;
+    var fieldWasQuoted = false;
 
-    for (final line in lines) {
-      if (line.trim().isNotEmpty) {
-        final fields = <String>[];
-        bool isInQuotes = false;
+    // Commit the current field to the row; only unquoted content is trimmed.
+    void endField() {
+      final raw = field.toString();
+      row.add(fieldWasQuoted ? raw : raw.trim());
+      field.clear();
+      fieldWasQuoted = false;
+    }
 
-        current.clear();
-
-        int charIndex = 0;
-
-        while (charIndex < line.length) {
-          final c = line[charIndex];
-
-          if (c == '"') {
-            if (isInQuotes &&
-                charIndex + 1 < line.length &&
-                line[charIndex + 1] == '"') {
-              current.write('"');
-              charIndex++;
-            } else {
-              isInQuotes = !isInQuotes;
-            }
-          } else if (c == ',' && !isInQuotes) {
-            fields.add(current.toString().trim());
-            current.clear();
-          } else {
-            current.write(c);
-          }
-          charIndex++;
-        }
-
-        fields.add(current.toString().trim());
-        result.add(fields);
+    // Commit the current row, skipping a blank line (no fields seen, empty
+    // unquoted current field) so it matches the old "empty lines are skipped"
+    // behavior. Computed BEFORE endField so it never reads row.first.
+    void endRow() {
+      // A line with no fields whose only (unquoted) content is whitespace is a
+      // blank line — skip it. A quoted empty field ("") is real data, kept.
+      final isBlank =
+          row.isEmpty && !fieldWasQuoted && field.toString().trim().isEmpty;
+      endField();
+      if (!isBlank) {
+        result.add(row);
       }
+      row = <String>[];
+    }
+
+    final n = normalized.length;
+    var i = 0;
+    while (i < n) {
+      final c = normalized[i];
+      if (inQuotes) {
+        if (c == '"') {
+          if (i + 1 < n && normalized[i + 1] == '"') {
+            field.write('"');
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          field.write(c);
+        }
+      } else {
+        if (c == '"') {
+          inQuotes = true;
+          fieldWasQuoted = true;
+        } else if (c == ',') {
+          endField();
+        } else if (c == '\n') {
+          endRow();
+        } else {
+          field.write(c);
+        }
+      }
+      i++;
+    }
+
+    // Flush any trailing field/row not terminated by a newline.
+    if (field.isNotEmpty || row.isNotEmpty || fieldWasQuoted) {
+      endRow();
     }
 
     return result;
