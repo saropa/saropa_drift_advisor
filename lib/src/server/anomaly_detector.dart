@@ -49,11 +49,13 @@ abstract final class AnomalyDetector {
       // Fetch column metadata and row count for the
       // current table — shared by multiple detectors.
       final colInfoRows = ServerUtils.normalizeRows(
-        await query('PRAGMA table_info("$tableName")'),
+        await query('PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})'),
       );
       final tableRowCount = ServerUtils.extractCountFromRows(
         ServerUtils.normalizeRows(
-          await query('SELECT COUNT(*) AS c FROM "$tableName"'),
+          await query(
+            'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(tableName)}',
+          ),
         ),
       );
 
@@ -181,8 +183,8 @@ abstract final class AnomalyDetector {
     final nullCount = ServerUtils.extractCountFromRows(
       ServerUtils.normalizeRows(
         await query(
-          'SELECT COUNT(*) AS c FROM "$tableName" '
-          'WHERE "$colName" IS NULL',
+          'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(tableName)} '
+          'WHERE ${ServerUtils.quoteIdent(colName)} IS NULL',
         ),
       ),
     );
@@ -217,8 +219,8 @@ abstract final class AnomalyDetector {
     final emptyCount = ServerUtils.extractCountFromRows(
       ServerUtils.normalizeRows(
         await query(
-          'SELECT COUNT(*) AS c FROM "$tableName" '
-          "WHERE \"$colName\" = ''",
+          'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(tableName)} '
+          "WHERE ${ServerUtils.quoteIdent(colName)} = ''",
         ),
       ),
     );
@@ -420,13 +422,13 @@ abstract final class AnomalyDetector {
     // the minimum sample size guard below.
     final statsRows = ServerUtils.normalizeRows(
       await query(
-        'SELECT AVG("$colName") AS avg_val, '
-        'MIN("$colName") AS min_val, '
-        'MAX("$colName") AS max_val, '
-        'AVG("$colName" * "$colName") - '
-        'AVG("$colName") * AVG("$colName") AS variance, '
-        'COUNT("$colName") AS cnt '
-        'FROM "$tableName" WHERE "$colName" IS NOT NULL',
+        'SELECT AVG(${ServerUtils.quoteIdent(colName)}) AS avg_val, '
+        'MIN(${ServerUtils.quoteIdent(colName)}) AS min_val, '
+        'MAX(${ServerUtils.quoteIdent(colName)}) AS max_val, '
+        'AVG(${ServerUtils.quoteIdent(colName)} * ${ServerUtils.quoteIdent(colName)}) - '
+        'AVG(${ServerUtils.quoteIdent(colName)}) * AVG(${ServerUtils.quoteIdent(colName)}) AS variance, '
+        'COUNT(${ServerUtils.quoteIdent(colName)}) AS cnt '
+        'FROM ${ServerUtils.quoteIdent(tableName)} WHERE ${ServerUtils.quoteIdent(colName)} IS NOT NULL',
       ),
     );
     if (statsRows.isEmpty) {
@@ -588,7 +590,9 @@ abstract final class AnomalyDetector {
     required List<DeclaredRelationship> declaredEdges,
   }) async {
     final fkRows = ServerUtils.normalizeRows(
-      await query('PRAGMA foreign_key_list("$tableName")'),
+      await query(
+        'PRAGMA foreign_key_list(${ServerUtils.quoteIdent(tableName)})',
+      ),
     );
 
     // Build the candidate edge set. Enforced FKs first so a declared edge that
@@ -644,11 +648,11 @@ abstract final class AnomalyDetector {
       final orphanCount = ServerUtils.extractCountFromRows(
         ServerUtils.normalizeRows(
           await query(
-            'SELECT COUNT(*) AS c FROM "$tableName" t '
-            'LEFT JOIN "${edge.toTable}" r '
-            'ON t."${edge.fromCol}" = r."${edge.toCol}" '
-            'WHERE t."${edge.fromCol}" IS NOT NULL '
-            'AND r."${edge.toCol}" IS NULL',
+            'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(tableName)} t '
+            'LEFT JOIN ${ServerUtils.quoteIdent(edge.toTable)} r '
+            'ON t.${ServerUtils.quoteIdent(edge.fromCol)} = r.${ServerUtils.quoteIdent(edge.toCol)} '
+            'WHERE t.${ServerUtils.quoteIdent(edge.fromCol)} IS NOT NULL '
+            'AND r.${ServerUtils.quoteIdent(edge.toCol)} IS NULL',
           ),
         ),
       );
@@ -681,7 +685,7 @@ abstract final class AnomalyDetector {
       ServerUtils.normalizeRows(
         await query(
           'SELECT COUNT(*) AS c FROM '
-          '(SELECT DISTINCT * FROM "$tableName")',
+          '(SELECT DISTINCT * FROM ${ServerUtils.quoteIdent(tableName)})',
         ),
       ),
     );

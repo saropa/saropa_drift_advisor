@@ -118,7 +118,9 @@ final class DriftDebugImportProcessor {
           final cols = keys.map(_escapeIdentifier).join(', ');
           final vals = keys.map((k) => sqlLiteral(row[k])).join(', ');
 
-          await writeQuery('INSERT INTO "$table" ($cols) VALUES ($vals)');
+          await writeQuery(
+            'INSERT INTO ${_escapeIdentifier(table)} ($cols) VALUES ($vals)',
+          );
           imported++;
         } on Object catch (e) {
           errors.add('Row $i: $e');
@@ -193,7 +195,9 @@ final class DriftDebugImportProcessor {
               .map((v) => sqlLiteral(v))
               .join(', ');
 
-          await writeQuery('INSERT INTO "$table" ($cols) VALUES ($vals)');
+          await writeQuery(
+            'INSERT INTO ${_escapeIdentifier(table)} ($cols) VALUES ($vals)',
+          );
           imported++;
         } else {
           final colCount = rowValues.length;

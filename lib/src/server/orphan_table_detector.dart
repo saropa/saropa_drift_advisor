@@ -119,7 +119,7 @@ abstract final class OrphanTableDetector {
           // Report-only: suggested remedy the developer can run by hand.
           // The advisor never executes DDL on its own — dropping a table is
           // destructive and stays a human decision.
-          'suggestedSql': 'DROP TABLE "$tableName";',
+          'suggestedSql': 'DROP TABLE ${ServerUtils.quoteIdent(tableName)};',
         });
       }
     }

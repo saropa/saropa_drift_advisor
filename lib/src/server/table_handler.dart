@@ -70,7 +70,9 @@ final class TableHandler {
       tableName: tableName,
     ))
       return;
-    final dynamic rawInfo = await query('PRAGMA table_info("$tableName")');
+    final dynamic rawInfo = await query(
+      'PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})',
+    );
     final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(rawInfo);
     final List<String> columns = rows
         .map((r) => r[ServerConstants.jsonKeyName] as String? ?? '')
@@ -112,7 +114,9 @@ final class TableHandler {
     required String tableName,
   }) async {
     final List<Map<String, dynamic>> fkRows = ServerUtils.normalizeRows(
-      await query('PRAGMA foreign_key_list("$tableName")'),
+      await query(
+        'PRAGMA foreign_key_list(${ServerUtils.quoteIdent(tableName)})',
+      ),
     );
     return fkMetaMapsFromPragmaRows(fkRows);
   }
@@ -155,7 +159,7 @@ final class TableHandler {
     ))
       return;
     final dynamic rawCount = await query(
-      'SELECT COUNT(*) AS c FROM "$tableName"',
+      'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(tableName)}',
     );
     final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(rawCount);
     final int count = ServerUtils.extractCountFromRows(rows);
@@ -180,7 +184,7 @@ final class TableHandler {
     ))
       return;
     final dynamic raw = await query(
-      'SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset',
+      'SELECT * FROM ${ServerUtils.quoteIdent(tableName)} LIMIT $limit OFFSET $offset',
     );
     final List<Map<String, dynamic>> data = ServerUtils.normalizeRows(raw);
     _ctx.setJsonHeaders(res);

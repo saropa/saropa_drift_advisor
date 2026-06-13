@@ -53,9 +53,22 @@ abstract final class ServerUtils {
 
     final countValue = firstRow[ServerConstants.jsonKeyCountColumn];
 
-    return countValue is int
-        ? countValue
-        : (countValue is num ? countValue.toInt() : 0);
+    // Handle the String case: some host executors (JSON round-trips, certain
+    // sqflite/custom backends) return numeric columns as strings. Without this
+    // branch a string COUNT silently became 0, making every count-based anomaly
+    // check (nulls, empty strings, duplicates, orphan FKs) report no findings.
+    // Mirrors the String-tolerant parsing already in report_handler/analytics.
+    // See plans/full-codebase-audit-2026.06.12.md M1.
+    if (countValue is int) {
+      return countValue;
+    }
+    if (countValue is num) {
+      return countValue.toInt();
+    }
+    if (countValue is String) {
+      return int.tryParse(countValue) ?? 0;
+    }
+    return 0;
   }
 
   /// Fetches table names from sqlite_master
@@ -111,11 +124,29 @@ abstract final class ServerUtils {
     return n > ServerConstants.maxOffset ? ServerConstants.maxOffset : n;
   }
 
+  /// Quotes [name] as a SQLite identifier (table or column), doubling any
+  /// embedded double-quote.
+  ///
+  /// Every identifier interpolated into SQL must go through this. Table/column
+  /// names are validated against `sqlite_master`/PRAGMA before use, but a name
+  /// is a legal SQLite identifier even when it contains `"` (`CREATE TABLE
+  /// "a""b" …`), so interpolating it raw as `"$name"` lets that `"` break out of
+  /// the quoting — identifier injection / broken SQL. Doubling the quote closes
+  /// that. See plans/full-codebase-audit-2026.06.12.md H2.
+  static String quoteIdent(String name) => '"${name.replaceAll('"', '""')}"';
+
   /// Escapes a value for use in a SQL INSERT literal.
   ///
   /// Returns a SQL-safe string representation: NULL for
   /// null, unquoted for numbers, quoted for strings,
   /// and X'...' for byte lists.
+  ///
+  /// String escaping doubles single quotes ONLY (`'` → `''`). SQLite string
+  /// literals have no backslash escape — `\` is an ordinary character — so the
+  /// previous `\` → `\\` doubling silently corrupted any value containing a
+  /// backslash (e.g. `C:\path` was stored as `C:\\path`). Doubling the quote is
+  /// both necessary and sufficient to neutralize injection here.
+  /// See plans/full-codebase-audit-2026.06.12.md C3.
   static String sqlLiteral(Object? value) {
     if (value == null) {
       return 'NULL';
@@ -128,7 +159,7 @@ abstract final class ServerUtils {
     }
 
     if (value is String) {
-      final escaped = value.replaceAll(r'\', r'\\').replaceAll("'", "''");
+      final escaped = value.replaceAll("'", "''");
 
       return "'$escaped'";
     }
@@ -145,10 +176,7 @@ abstract final class ServerUtils {
       return "X'$hex'";
     }
 
-    final escaped = value
-        .toString()
-        .replaceAll(r'\', r'\\')
-        .replaceAll("'", "''");
+    final escaped = value.toString().replaceAll("'", "''");
 
     return "'$escaped'";
   }

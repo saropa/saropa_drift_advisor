@@ -41,7 +41,7 @@ abstract final class IndexAnalyzer {
       // Collect existing indexed columns for this table
       // so we can skip columns that already have coverage.
       final existingIndexRows = ServerUtils.normalizeRows(
-        await query('PRAGMA index_list("$tableName")'),
+        await query('PRAGMA index_list(${ServerUtils.quoteIdent(tableName)})'),
       );
       final indexedColumns = <String>{};
 
@@ -49,7 +49,9 @@ abstract final class IndexAnalyzer {
         final idxName = idx['name'] as String?;
         if (idxName != null) {
           final idxInfoRows = ServerUtils.normalizeRows(
-            await query('PRAGMA index_info("$idxName")'),
+            await query(
+              'PRAGMA index_info(${ServerUtils.quoteIdent(idxName)})',
+            ),
           );
 
           for (final col in idxInfoRows) {
@@ -62,7 +64,9 @@ abstract final class IndexAnalyzer {
       // 1. Check foreign keys — un-indexed FK columns
       //    cause slow JOINs and cascaded deletes.
       final fkRows = ServerUtils.normalizeRows(
-        await query('PRAGMA foreign_key_list("$tableName")'),
+        await query(
+          'PRAGMA foreign_key_list(${ServerUtils.quoteIdent(tableName)})',
+        ),
       );
 
       for (final fk in fkRows) {
@@ -77,7 +81,7 @@ abstract final class IndexAnalyzer {
                 '(references ${fk['table']}.${fk['to']})',
             'sql':
                 'CREATE INDEX idx_${tableName}_$fromCol '
-                'ON "$tableName"("$fromCol");',
+                'ON ${ServerUtils.quoteIdent(tableName)}(${ServerUtils.quoteIdent(fromCol)});',
             'priority': 'high',
           });
         }
@@ -85,7 +89,7 @@ abstract final class IndexAnalyzer {
 
       // 2. Check column naming patterns for _id suffix.
       final colInfoRows = ServerUtils.normalizeRows(
-        await query('PRAGMA table_info("$tableName")'),
+        await query('PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})'),
       );
 
       for (final col in colInfoRows) {
@@ -116,7 +120,7 @@ abstract final class IndexAnalyzer {
                   'JOINs/WHERE',
               'sql':
                   'CREATE INDEX idx_${tableName}_$colName '
-                  'ON "$tableName"("$colName");',
+                  'ON ${ServerUtils.quoteIdent(tableName)}(${ServerUtils.quoteIdent(colName)});',
               'priority': 'medium',
             });
           }

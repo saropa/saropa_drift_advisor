@@ -64,10 +64,16 @@ final class CompareHandler {
         final futures = <Future<List<Map<String, dynamic>>>>[];
 
         if (tablesA.contains(table)) {
-          futures.add(query('SELECT COUNT(*) AS c FROM "$table"'));
+          futures.add(
+            query('SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(table)}'),
+          );
         }
         if (tablesB.contains(table)) {
-          futures.add(queryB('SELECT COUNT(*) AS c FROM "$table"'));
+          futures.add(
+            queryB(
+              'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(table)}',
+            ),
+          );
         }
 
         final results = futures.isEmpty
@@ -246,7 +252,9 @@ final class CompareHandler {
     for (final table in tablesA) {
       if (!tablesB.contains(table)) {
         migrations.add('-- DROPPED TABLE: $table');
-        migrations.add('DROP TABLE IF EXISTS "$table";');
+        migrations.add(
+          'DROP TABLE IF EXISTS ${ServerUtils.quoteIdent(table)};',
+        );
         migrations.add('');
       }
     }
@@ -307,7 +315,7 @@ final class CompareHandler {
     String table,
   ) async {
     final cols = ServerUtils.normalizeRows(
-      await query('PRAGMA table_info("$table")'),
+      await query('PRAGMA table_info(${ServerUtils.quoteIdent(table)})'),
     );
     final map = <String, Map<String, dynamic>>{};
 
@@ -336,7 +344,8 @@ final class CompareHandler {
         final nn = isNotNull ? ' NOT NULL' : '';
 
         changes.add(
-          'ALTER TABLE "$table" ADD COLUMN "$colName" $type$nn$dflt;',
+          'ALTER TABLE ${ServerUtils.quoteIdent(table)} '
+          'ADD COLUMN ${ServerUtils.quoteIdent(colName)} $type$nn$dflt;',
         );
       }
     }
@@ -356,7 +365,10 @@ final class CompareHandler {
           '(CREATE new, INSERT...SELECT, DROP old, ALTER...RENAME).',
         );
         changes.add('-- SQLite >= 3.35.0:');
-        changes.add('ALTER TABLE "$table" DROP COLUMN "$colName";');
+        changes.add(
+          'ALTER TABLE ${ServerUtils.quoteIdent(table)} '
+          'DROP COLUMN ${ServerUtils.quoteIdent(colName)};',
+        );
       }
     }
   }
@@ -403,10 +415,10 @@ final class CompareHandler {
     required DriftDebugQuery queryB,
   }) async {
     final idxA = ServerUtils.normalizeRows(
-      await queryA('PRAGMA index_list("$table")'),
+      await queryA('PRAGMA index_list(${ServerUtils.quoteIdent(table)})'),
     );
     final idxB = ServerUtils.normalizeRows(
-      await queryB('PRAGMA index_list("$table")'),
+      await queryB('PRAGMA index_list(${ServerUtils.quoteIdent(table)})'),
     );
     final idxNamesA = idxA
         .map((r) => r['name']?.toString() ?? '')
@@ -422,7 +434,7 @@ final class CompareHandler {
         final idxSqlRows = ServerUtils.normalizeRows(
           await queryB(
             'SELECT sql FROM sqlite_master '
-            'WHERE type=\'index\' AND name=\'$idxName\'',
+            "WHERE type='index' AND name=${ServerUtils.sqlLiteral(idxName)}",
           ),
         );
         final idxSql = idxSqlRows.firstOrNull?['sql'] as String?;
@@ -435,7 +447,7 @@ final class CompareHandler {
 
     for (final idxName in idxNamesA) {
       if (!idxNamesB.contains(idxName)) {
-        changes.add('DROP INDEX IF EXISTS "$idxName";');
+        changes.add('DROP INDEX IF EXISTS ${ServerUtils.quoteIdent(idxName)};');
       }
     }
   }

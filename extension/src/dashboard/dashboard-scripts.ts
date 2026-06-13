@@ -202,15 +202,16 @@ function renderConfigForm(schema, existingConfig, tables) {
     const value = existingConfig[field.key] !== undefined ? existingConfig[field.key] : (field.default || '');
     let input = '';
     if (field.type === 'tableSelect') {
+      // tables are live DB table names — escape value+text (audit C2).
       input = '<select name="' + field.key + '">' +
-        tables.map(t => '<option value="' + t + '"' + (value === t ? ' selected' : '') + '>' + t + '</option>').join('') +
+        tables.map(t => '<option value="' + escapeHtml(t) + '"' + (value === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>').join('') +
         '</select>';
     } else if (field.type === 'select') {
       input = '<select name="' + field.key + '">' +
-        (field.options || []).map(o => '<option value="' + o + '"' + (value === o ? ' selected' : '') + '>' + o + '</option>').join('') +
+        (field.options || []).map(o => '<option value="' + escapeHtml(o) + '"' + (value === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('') +
         '</select>';
     } else if (field.type === 'number') {
-      input = '<input type="number" name="' + field.key + '" value="' + value + '">';
+      input = '<input type="number" name="' + field.key + '" value="' + escapeHtml(value) + '">';
     } else if (field.type === 'checkbox') {
       input = '<input type="checkbox" name="' + field.key + '"' + (value ? ' checked' : '') + '>';
     } else {
@@ -226,7 +227,9 @@ function renderConfigForm(schema, existingConfig, tables) {
 }
 
 function escapeHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 ` + getChartClipboardJs() + `
 `;

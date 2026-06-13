@@ -512,17 +512,21 @@ final class AnalyticsHandler {
           await query(
             'SELECT COUNT(*) AS '
             '${ServerConstants.jsonKeyCountColumn} '
-            'FROM "$tableName"',
+            'FROM ${ServerUtils.quoteIdent(tableName)}',
           ),
         );
         final rowCount = ServerUtils.extractCountFromRows(countRows);
 
         final colInfoRows = ServerUtils.normalizeRows(
-          await query('PRAGMA table_info("$tableName")'),
+          await query(
+            'PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})',
+          ),
         );
 
         final indexRows = ServerUtils.normalizeRows(
-          await query('PRAGMA index_list("$tableName")'),
+          await query(
+            'PRAGMA index_list(${ServerUtils.quoteIdent(tableName)})',
+          ),
         );
         final indexNames = indexRows
             .map((r) => r[ServerConstants.jsonKeyName]?.toString() ?? '')

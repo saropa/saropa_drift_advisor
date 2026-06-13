@@ -323,7 +323,7 @@ abstract final class SoftRelationshipDetector {
 
     for (final tableName in tableNames) {
       final infoRows = ServerUtils.normalizeRows(
-        await query('PRAGMA table_info("$tableName")'),
+        await query('PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})'),
       );
       final columns = <SoftRelColumn>[];
       for (final row in infoRows) {
@@ -342,7 +342,9 @@ abstract final class SoftRelationshipDetector {
       // Declared SQLite FKs to subtract. A schema that DOES declare a link must
       // not also be flagged as a soft (undeclared) one.
       final fkRows = ServerUtils.normalizeRows(
-        await query('PRAGMA foreign_key_list("$tableName")'),
+        await query(
+          'PRAGMA foreign_key_list(${ServerUtils.quoteIdent(tableName)})',
+        ),
       );
       for (final row in fkRows) {
         final toTable = row[ServerConstants.jsonKeyTable] as String?;

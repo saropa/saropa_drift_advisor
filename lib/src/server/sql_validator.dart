@@ -11,6 +11,119 @@ import 'server_utils.dart';
 /// Extracted from [SqlHandler] so validation can be
 /// tested without constructing a full handler context.
 abstract final class SqlValidator {
+  /// Masks comments and string/identifier literals in [sql] in a SINGLE
+  /// left-to-right pass that tracks lexical state, returning text where comments
+  /// become spaces and every quoted run becomes `?`.
+  ///
+  /// This replaces the previous chain of independent regex passes. That chain
+  /// stripped comments BEFORE masking strings, so an apostrophe inside a comment
+  /// (or a `--` / `/*` inside a string literal) desynchronized quote pairing and
+  /// could hide a trailing `; <write statement>` from the multi-statement check
+  /// — e.g. `SELECT 'a -- b' ; DROP TABLE t --` was wrongly accepted as
+  /// read-only. A single state machine cannot desync because it only enters a
+  /// comment when not already inside a string, and vice versa. It also masks
+  /// `[bracket]` and `` `backtick` `` identifier quoting, which the regex chain
+  /// ignored entirely. See plans/full-codebase-audit-2026.06.12.md H1.
+  static String _maskCommentsAndLiterals(String sql) {
+    final buf = StringBuffer();
+    final n = sql.length;
+    var i = 0;
+    while (i < n) {
+      final c = sql[i];
+
+      // Line comment `-- … <newline>`: replace the whole run with one space.
+      if (c == '-' && i + 1 < n && sql[i + 1] == '-') {
+        i += 2;
+        while (i < n && sql[i] != '\n') {
+          i++;
+        }
+        buf.write(' ');
+        continue;
+      }
+
+      // Block comment `/* … */`: replace with one space (unterminated → to end).
+      if (c == '/' && i + 1 < n && sql[i + 1] == '*') {
+        i += 2;
+        while (i < n && !(sql[i] == '*' && i + 1 < n && sql[i + 1] == '/')) {
+          i++;
+        }
+        i += 2; // skip the closing */ (clamped below if it ran off the end)
+        if (i > n) i = n;
+        buf.write(' ');
+        continue;
+      }
+
+      // Single-quoted string literal with `''` escape → `?`.
+      if (c == "'") {
+        i++;
+        while (i < n) {
+          if (sql[i] == "'") {
+            if (i + 1 < n && sql[i + 1] == "'") {
+              i += 2; // doubled '' is an escaped quote, stay in the string
+              continue;
+            }
+            i++; // closing quote
+            break;
+          }
+          i++;
+        }
+        buf.write('?');
+        continue;
+      }
+
+      // Double-quoted identifier with `""` escape → `?`.
+      if (c == '"') {
+        i++;
+        while (i < n) {
+          if (sql[i] == '"') {
+            if (i + 1 < n && sql[i + 1] == '"') {
+              i += 2;
+              continue;
+            }
+            i++;
+            break;
+          }
+          i++;
+        }
+        buf.write('?');
+        continue;
+      }
+
+      // Backtick identifier with `` `` `` escape → `?` (MySQL-compat quoting).
+      if (c == '`') {
+        i++;
+        while (i < n) {
+          if (sql[i] == '`') {
+            if (i + 1 < n && sql[i + 1] == '`') {
+              i += 2;
+              continue;
+            }
+            i++;
+            break;
+          }
+          i++;
+        }
+        buf.write('?');
+        continue;
+      }
+
+      // Bracket identifier `[ … ]` (no escape in SQLite; first `]` closes) → `?`.
+      if (c == '[') {
+        i++;
+        while (i < n && sql[i] != ']') {
+          i++;
+        }
+        if (i < n) i++; // skip closing ]
+        buf.write('?');
+        continue;
+      }
+
+      buf.write(c);
+      i++;
+    }
+    return buf.toString();
+  }
+
   /// Steps 1–5 of the read-only pipeline: strip comments and
   /// literal/identifier markers, require a single statement,
   /// return the core text with no trailing semicolon; or null
@@ -21,21 +134,7 @@ abstract final class SqlValidator {
       return null;
     }
 
-    final noLineComments = trimmed.replaceAll(RegExp(r'--[^\n]*'), ' ');
-    final noBlockComments = noLineComments.replaceAll(
-      RegExp(r'/\*[\s\S]*?\*/'),
-      ' ',
-    );
-    final noSingleQuotes = noBlockComments.replaceAllMapped(
-      RegExp(r"'(?:[^']|'')*'"),
-      (_) => '?',
-    );
-    final noStrings = noSingleQuotes.replaceAllMapped(
-      RegExp(r'"(?:[^"]|"")*"'),
-      (_) => '?',
-    );
-
-    final sqlNoStrings = noStrings.trim();
+    final sqlNoStrings = _maskCommentsAndLiterals(trimmed).trim();
 
     final firstSemicolon = sqlNoStrings.indexOf(';');
     if (firstSemicolon >= 0 &&
