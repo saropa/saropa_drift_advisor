@@ -6,6 +6,11 @@
 import * as vscode from 'vscode';
 import type { IndexSuggestion } from '../api-client';
 import { buildExplainHtml, buildPlanText } from './explain-html';
+import {
+  readSiblingDiagnostics,
+  relatedDiagnostics,
+  type SuiteDiagnostic,
+} from '../suite/suite-diagnostics';
 
 export interface IExplainNode {
   id: number;
@@ -78,6 +83,23 @@ export function findScannedTables(nodes: IExplainNode[]): string[] {
   return tables;
 }
 
+/**
+ * Extract every table named in the plan (both SCAN TABLE and SEARCH TABLE),
+ * used to relate sibling-tool findings to this query. Broader than
+ * [findScannedTables], which is intentionally limited to full scans for index
+ * suggestions — a Lints finding about a table is relevant however that table is
+ * accessed.
+ */
+export function findReferencedTables(nodes: IExplainNode[]): string[] {
+  const tables: string[] = [];
+  for (const node of nodes) {
+    const m = /\bTABLE\s+(\w+)/i.exec(node.detail);
+    if (m) tables.push(m[1]);
+    tables.push(...findReferencedTables(node.children));
+  }
+  return tables;
+}
+
 /** Filter index suggestions to those relevant to scanned tables. */
 function filterSuggestions(
   suggestions: IndexSuggestion[],
@@ -95,19 +117,27 @@ export class ExplainPanel {
   private _sql: string;
   private _nodes: IExplainNode[];
   private _suggestions: IndexSuggestion[];
+  private _suiteNotes: SuiteDiagnostic[];
 
-  static createOrShow(
+  static async createOrShow(
     sql: string,
     result: { rows: Record<string, unknown>[]; sql: string },
     allSuggestions: IndexSuggestion[],
-  ): void {
+  ): Promise<void> {
     const nodes = buildExplainTree(result.rows);
     const scanned = findScannedTables(nodes);
     const suggestions = filterSuggestions(allSuggestions, scanned);
+    // Cross-tool context (plan 67 R3): findings the sibling tools left for the
+    // tables/SQL in this plan. Best-effort — readSiblingDiagnostics never throws,
+    // so a missing or bad sibling mirror just yields no notes.
+    const suiteNotes = relatedDiagnostics(await readSiblingDiagnostics(), {
+      tables: findReferencedTables(nodes),
+      sql,
+    });
     const column = vscode.ViewColumn.Beside;
 
     if (ExplainPanel._currentPanel) {
-      ExplainPanel._currentPanel._update(sql, nodes, suggestions);
+      ExplainPanel._currentPanel._update(sql, nodes, suggestions, suiteNotes);
       ExplainPanel._currentPanel._panel.reveal(column);
       return;
     }
@@ -119,7 +149,7 @@ export class ExplainPanel {
       { enableScripts: true },
     );
     ExplainPanel._currentPanel = new ExplainPanel(
-      panel, sql, nodes, suggestions,
+      panel, sql, nodes, suggestions, suiteNotes,
     );
   }
 
@@ -128,11 +158,13 @@ export class ExplainPanel {
     sql: string,
     nodes: IExplainNode[],
     suggestions: IndexSuggestion[],
+    suiteNotes: SuiteDiagnostic[],
   ) {
     this._panel = panel;
     this._sql = sql;
     this._nodes = nodes;
     this._suggestions = suggestions;
+    this._suiteNotes = suiteNotes;
 
     this._panel.onDidDispose(
       () => this._dispose(), null, this._disposables,
@@ -151,17 +183,19 @@ export class ExplainPanel {
     sql: string,
     nodes: IExplainNode[],
     suggestions: IndexSuggestion[],
+    suiteNotes: SuiteDiagnostic[],
   ): void {
     this._sql = sql;
     this._nodes = nodes;
     this._suggestions = suggestions;
+    this._suiteNotes = suiteNotes;
     this._panel.title = 'Explain: Query Plan';
     this._render();
   }
 
   private _render(): void {
     this._panel.webview.html = buildExplainHtml(
-      this._sql, this._nodes, this._suggestions,
+      this._sql, this._nodes, this._suggestions, this._suiteNotes,
     );
   }
 
