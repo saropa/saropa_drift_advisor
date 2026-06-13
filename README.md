@@ -227,8 +227,8 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 #### Server Configuration
 
 - **Port** — default 8642; configurable
-- **Bind** — `0.0.0.0` by default; `loopbackOnly: true` for `127.0.0.1` only
-- **CORS** — `'*'`, specific origin, or disabled
+- **Bind** — `127.0.0.1` by default (`loopbackOnly: true`); pass `loopbackOnly: false` to bind `0.0.0.0` for emulator/dev-tunnel access (set an `authToken` when you do)
+- **CORS** — no header by default; pass `corsOrigin: '*'` or a specific origin to enable
 - **Auth** — optional Bearer token or HTTP Basic for dev tunnels
 - **Session duration** — optional `sessionDuration` (e.g. 1 hour) for shared session URLs
 - **Rate limiting** — optional `maxRequestsPerSecond`; 429 with `Retry-After` when exceeded; long-poll and health endpoints exempt
@@ -436,8 +436,8 @@ Use the **VS Code extension** (recommended) or open **http://127.0.0.1:8642** in
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **`enabled`**                                 | Typically `kDebugMode`. If `false`, server is not started.                                                           |
 | **`port`**                                    | Default `8642`.                                                                                                      |
-| **`loopbackOnly`**                            | Bind to loopback only (default `false`).                                                                             |
-| **`corsOrigin`**                              | CORS header: `'*'`, specific origin, or `null` to disable.                                                           |
+| **`loopbackOnly`**                            | Bind to loopback only (default `true`). Pass `false` to bind `0.0.0.0`.                                              |
+| **`corsOrigin`**                              | Access-Control-Allow-Origin: `null` (default, no header), `'*'`, or a specific origin.                              |
 | **`authToken`**                               | Optional; requests require Bearer token or `?token=`. Use for tunnels.                                               |
 | **`basicAuthUser`** / **`basicAuthPassword`** | Optional; HTTP Basic auth when both set.                                                                             |
 | **`getDatabaseBytes`**                        | Optional; when set, `GET /api/database` serves raw SQLite file for download.                                         |
@@ -457,7 +457,7 @@ Use the **VS Code extension** (recommended) or open **http://127.0.0.1:8642** in
 
 **Debug only.** Do not enable in production.
 
-- Default bind: `0.0.0.0`; use **`loopbackOnly: true`** to bind to `127.0.0.1` only.
+- Default bind: `127.0.0.1` (loopback only) with **no** CORS header; pass **`loopbackOnly: false`** to bind `0.0.0.0` (and set an `authToken` when exposing beyond loopback).
 - **Default read-only posture:** table listing and reads; SQL runner and EXPLAIN accept **read-only** SQL (`SELECT` / `WITH ... SELECT` only); ad-hoc writes and DDL are rejected. If you supply **`writeQuery`**, only **explicit** import/edit/batch-apply flows run validated write statements—never arbitrary client SQL. Table/column endpoints use allow-lists; table names and limit/offset are validated.
 
 **Secure dev tunnel (ngrok, port forwarding):** use **`authToken`** or **`basicAuthUser`** / **`basicAuthPassword`**:
