@@ -69,6 +69,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 - **CSV import preserves quoted data faithfully.** A newline inside a quoted CSV field no longer splits the row, and whitespace inside a quoted field is kept exactly (only unquoted fields are trimmed).
 - **SQL import handles semicolons inside string values.** A statement like `INSERT INTO t VALUES ('a;b')` is no longer shattered at the embedded semicolon; statements are split only at real statement boundaries (semicolons inside strings and comments are ignored).
 - **More accurate numeric outlier detection.** The data-quality scan now computes column variance in a numerically stable two-pass form (the previous one-pass formula lost precision on large-magnitude columns, so it could miss real outliers or flag normal values), and its log-scale check for wide, log-normal columns is now based on the actual distribution of the values rather than a circular range estimate.
+- **Correct "safe delete" planning and relationship traversal.** The cascade-delete plan now includes the leaf rows that actually hold the blocking foreign keys (previously skipped, so the plan could never complete), targets each row by its own primary-key column (not the root's), tracks the true nesting depth, and guards against cyclic foreign-key graphs.
 
 </details>
 

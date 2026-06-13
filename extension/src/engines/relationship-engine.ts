@@ -21,6 +21,7 @@ import type {
   IRelationshipNode,
 } from './relationship-types';
 import { createRelationshipCache } from './relationship-engine-cache';
+import { q } from '../shared-utils';
 
 const CACHE_TTL_MS = 60_000;
 
@@ -45,25 +46,37 @@ export class RelationshipEngine implements vscode.Disposable {
     table: string,
     pkValue: unknown,
     maxDepth = 5,
+    pkColumn = 'id',
+    depth = 0,
+    visited: Set<string> = new Set<string>(),
   ): Promise<IRelationshipNode> {
-    const fks = await this._cache.getForeignKeys(table);
     const root: IRelationshipNode = {
       table,
-      column: 'id',
+      column: pkColumn,
       pkValue,
-      depth: 0,
+      pkColumn,
+      depth,
       children: [],
     };
 
-    if (maxDepth <= 0) return root;
+    // Cycle guard: a self/mutually-referential FK graph would otherwise recurse
+    // to maxDepth on every cycle. Stop the first time a (table, pk) repeats.
+    const key = `${table}:${String(pkValue)}`;
+    if (maxDepth <= 0 || visited.has(key)) return root;
+    visited.add(key);
 
+    const fks = await this._cache.getForeignKeys(table);
     for (const fk of fks) {
-      const fkValue = await this._getFkValue(table, fk.fromColumn, pkValue);
+      const fkValue = await this._getFkValue(
+        table, fk.fromColumn, pkColumn, pkValue,
+      );
       if (fkValue === null || fkValue === undefined) continue;
 
-      const child = await this.walkUpstream(fk.toTable, fkValue, maxDepth - 1);
+      // The parent row lives in fk.toTable, identified by fk.toColumn.
+      const child = await this.walkUpstream(
+        fk.toTable, fkValue, maxDepth - 1, fk.toColumn, depth + 1, visited,
+      );
       child.column = fk.toColumn;
-      child.depth = 1;
       root.children.push(child);
     }
 
@@ -79,30 +92,42 @@ export class RelationshipEngine implements vscode.Disposable {
     pkValue: unknown,
     maxDepth = 3,
     maxBreadth = 10,
+    pkColumn = 'id',
+    depth = 0,
+    visited: Set<string> = new Set<string>(),
   ): Promise<IRelationshipNode> {
-    const reverseFks = await this._cache.getReverseForeignKeys(table);
     const root: IRelationshipNode = {
       table,
-      column: 'id',
+      column: pkColumn,
       pkValue,
-      depth: 0,
+      pkColumn,
+      depth,
       children: [],
     };
 
-    if (maxDepth <= 0) return root;
+    // Cycle guard (see walkUpstream).
+    const key = `${table}:${String(pkValue)}`;
+    if (maxDepth <= 0 || visited.has(key)) return root;
+    visited.add(key);
 
+    const reverseFks = await this._cache.getReverseForeignKeys(table);
     for (const fk of reverseFks.slice(0, maxBreadth)) {
       const dependentRows = await this._getDependentRows(
         fk.table, fk.column, pkValue, maxBreadth,
       );
 
       for (const depRow of dependentRows) {
-        const depPkValue = depRow.id ?? depRow[Object.keys(depRow)[0]];
+        // Determine the dependent row's OWN primary-key column/value: prefer an
+        // `id` column, else fall back to the first selected column. The delete
+        // planner targets each row by THIS column, not the root's pk column.
+        const childPkColumn = 'id' in depRow ? 'id' : Object.keys(depRow)[0];
+        const depPkValue = depRow[childPkColumn];
         const child = await this.walkDownstream(
           fk.table, depPkValue, maxDepth - 1, maxBreadth,
+          childPkColumn, depth + 1, visited,
         );
+        // The link from this dependent row up to its parent is fk.column.
         child.column = fk.column;
-        child.depth = 1;
         root.children.push(child);
       }
     }
@@ -135,15 +160,21 @@ export class RelationshipEngine implements vscode.Disposable {
     pkColumn: string,
     pkValue: unknown,
   ): Promise<IDeletePlan> {
-    const downstream = await this.walkDownstream(table, pkValue, 5, 20);
+    const downstream = await this.walkDownstream(
+      table, pkValue, 5, 20, pkColumn,
+    );
     const statements: string[] = [];
     const affectedTables: IAffectedTable[] = [];
     const seen = new Set<string>();
 
-    this._generateDeleteStatements(downstream, pkColumn, statements, seen);
+    // Emit deletes for every DEPENDENT row, deepest first, each by its own pk
+    // column. The root row itself is deleted last (below).
+    this._generateDeleteStatements(downstream, statements, seen);
 
     const pkLiteral = this._sqlLiteral(pkValue);
-    statements.push(`DELETE FROM "${table}" WHERE "${pkColumn}" = ${pkLiteral};`);
+    statements.push(
+      `DELETE FROM ${q(table)} WHERE ${q(pkColumn)} = ${pkLiteral};`,
+    );
 
     this._collectTables(downstream, affectedTables, 'child', new Set());
     affectedTables.push({ table, rowCount: 1, relationship: 'child' });
@@ -177,11 +208,15 @@ export class RelationshipEngine implements vscode.Disposable {
   private async _getFkValue(
     table: string,
     column: string,
+    pkColumn: string,
     pkValue: unknown,
   ): Promise<unknown> {
     try {
+      // Filter by the row's actual primary-key column, not a hardcoded `id` —
+      // tables with a non-`id` PK previously always returned null here.
       const result = await this._client.sql(
-        `SELECT "${column}" FROM "${table}" WHERE id = ${this._sqlLiteral(pkValue)} LIMIT 1`,
+        `SELECT ${q(column)} FROM ${q(table)} `
+        + `WHERE ${q(pkColumn)} = ${this._sqlLiteral(pkValue)} LIMIT 1`,
       );
       return result.rows[0]?.[0] ?? null;
     } catch {
@@ -197,7 +232,8 @@ export class RelationshipEngine implements vscode.Disposable {
   ): Promise<Record<string, unknown>[]> {
     try {
       const result = await this._client.sql(
-        `SELECT * FROM "${table}" WHERE "${column}" = ${this._sqlLiteral(value)} LIMIT ${limit}`,
+        `SELECT * FROM ${q(table)} `
+        + `WHERE ${q(column)} = ${this._sqlLiteral(value)} LIMIT ${limit}`,
       );
       return result.rows.map((row, idx) => {
         const obj: Record<string, unknown> = {};
@@ -232,24 +268,31 @@ export class RelationshipEngine implements vscode.Disposable {
     }
   }
 
+  /**
+   * Emits a DELETE for every DEPENDENT node in [node]'s subtree, deepest first,
+   * each targeting its own table and primary-key column. The subtree root itself
+   * is NOT emitted (the caller deletes the root row separately) — but every
+   * descendant IS, including leaves: leaf rows are exactly the ones that hold the
+   * foreign keys blocking the parent delete, so skipping them (the prior
+   * `children.length > 0` gate) left the delete plan unable to complete.
+   */
   private _generateDeleteStatements(
     node: IRelationshipNode,
-    pkColumn: string,
     statements: string[],
     seen: Set<string>,
   ): void {
     for (const child of node.children) {
-      this._generateDeleteStatements(child, pkColumn, statements, seen);
-    }
+      // Recurse first so a child's own dependents are deleted before the child.
+      this._generateDeleteStatements(child, statements, seen);
 
-    const key = `${node.table}:${node.pkValue}`;
-    if (seen.has(key)) return;
-    seen.add(key);
+      const key = `${child.table}:${child.pkColumn}:${String(child.pkValue)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
 
-    if (node.children.length > 0) {
-      const pkLiteral = this._sqlLiteral(node.pkValue);
+      const pkLiteral = this._sqlLiteral(child.pkValue);
       statements.push(
-        `DELETE FROM "${node.table}" WHERE "${pkColumn}" = ${pkLiteral};`,
+        `DELETE FROM ${q(child.table)} `
+        + `WHERE ${q(child.pkColumn)} = ${pkLiteral};`,
       );
     }
   }
