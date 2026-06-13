@@ -159,7 +159,7 @@ export function registerSnapshotCommands(
               client.indexSuggestions(),
             ]),
           );
-          ExplainPanel.createOrShow(sql, result, suggestions);
+          await ExplainPanel.createOrShow(sql, result, suggestions);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Explain failed: ${msg}`);

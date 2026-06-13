@@ -96,6 +96,11 @@ export const stringsPanelQuery: Record<string, string> = {
   'panel.query.explain.btn.copyPlan': 'Copy Plan',
   'panel.query.explain.section.suggestions': 'Index Suggestions',
   'panel.query.explain.suggestion.copy': 'Copy',
+  // Cross-tool section: findings from sibling Saropa tools (Lints, Log Capture)
+  // that relate to the tables/SQL in this plan (plan 67 R3). The per-finding
+  // text is the sibling's own already-localized title/detail, so only this
+  // heading needs translating here.
+  'panel.query.explain.section.suiteRelated': 'Related Saropa Suite Findings',
 
   // --- SQL Notebook ---
   'panel.query.notebook.tab.new': 'New query tab',

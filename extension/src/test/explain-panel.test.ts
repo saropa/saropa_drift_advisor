@@ -125,14 +125,14 @@ describe('ExplainPanel', () => {
     (ExplainPanel as any)._currentPanel = undefined;
   });
 
-  it('should create a webview panel with explain HTML', () => {
+  it('should create a webview panel with explain HTML', async () => {
     const result = {
       rows: [
         { id: 2, parent: 0, notused: 0, detail: 'SCAN TABLE users' },
       ],
       sql: 'EXPLAIN QUERY PLAN SELECT * FROM users',
     };
-    ExplainPanel.createOrShow('SELECT * FROM users', result, []);
+    await ExplainPanel.createOrShow('SELECT * FROM users', result, []);
     assert.strictEqual(createdPanels.length, 1);
     const html = latestPanel().webview.html;
     assert.ok(html.includes('Query Plan'));
@@ -140,17 +140,17 @@ describe('ExplainPanel', () => {
     assert.ok(html.includes('FULL SCAN'));
   });
 
-  it('should reuse existing panel on second call', () => {
+  it('should reuse existing panel on second call', async () => {
     const result = {
       rows: [{ id: 2, parent: 0, notused: 0, detail: 'SCAN TABLE a' }],
       sql: 'EXPLAIN QUERY PLAN SELECT * FROM a',
     };
-    ExplainPanel.createOrShow('SELECT * FROM a', result, []);
-    ExplainPanel.createOrShow('SELECT * FROM b', result, []);
+    await ExplainPanel.createOrShow('SELECT * FROM a', result, []);
+    await ExplainPanel.createOrShow('SELECT * FROM b', result, []);
     assert.strictEqual(createdPanels.length, 1);
   });
 
-  it('should show index suggestions for scanned tables', () => {
+  it('should show index suggestions for scanned tables', async () => {
     const result = {
       rows: [
         { id: 2, parent: 0, notused: 0, detail: 'SCAN TABLE orders' },
@@ -173,7 +173,7 @@ describe('ExplainPanel', () => {
         priority: 'low' as const,
       },
     ];
-    ExplainPanel.createOrShow('SELECT * FROM orders', result, suggestions);
+    await ExplainPanel.createOrShow('SELECT * FROM orders', result, suggestions);
     const html = latestPanel().webview.html;
     // Should show suggestion for orders but not users
     assert.ok(html.includes('idx_orders_user_id'));
@@ -185,7 +185,7 @@ describe('ExplainPanel', () => {
       rows: [{ id: 2, parent: 0, notused: 0, detail: 'SCAN TABLE x' }],
       sql: 'EXPLAIN QUERY PLAN SELECT 1',
     };
-    ExplainPanel.createOrShow('SELECT 1', result, []);
+    await ExplainPanel.createOrShow('SELECT 1', result, []);
     clipboardMock.reset();
     latestPanel().webview.simulateMessage({ command: 'copySql' });
     assert.strictEqual(clipboardMock.text, 'SELECT 1');
@@ -196,13 +196,13 @@ describe('ExplainPanel', () => {
       rows: [{ id: 2, parent: 0, notused: 0, detail: 'SCAN TABLE y' }],
       sql: 'EXPLAIN QUERY PLAN SELECT 1',
     };
-    ExplainPanel.createOrShow('SELECT 1', result, []);
+    await ExplainPanel.createOrShow('SELECT 1', result, []);
     clipboardMock.reset();
     latestPanel().webview.simulateMessage({ command: 'copyPlan' });
     assert.ok(clipboardMock.text?.includes('SCAN TABLE y'));
   });
 
-  it('should copy suggestion SQL on copySuggestion message', () => {
+  it('should copy suggestion SQL on copySuggestion message', async () => {
     const result = {
       rows: [
         { id: 2, parent: 0, notused: 0, detail: 'SCAN TABLE items' },
@@ -218,7 +218,7 @@ describe('ExplainPanel', () => {
         priority: 'high' as const,
       },
     ];
-    ExplainPanel.createOrShow('SELECT * FROM items', result, suggestions);
+    await ExplainPanel.createOrShow('SELECT * FROM items', result, suggestions);
     clipboardMock.reset();
     latestPanel().webview.simulateMessage({
       command: 'copySuggestion', index: 0,

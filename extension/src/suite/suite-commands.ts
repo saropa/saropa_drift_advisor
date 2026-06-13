@@ -43,7 +43,7 @@ export function registerSuiteCommands(
             },
             () => Promise.all([client.explainSql(sql), client.indexSuggestions()]),
           );
-          ExplainPanel.createOrShow(sql, result, suggestions);
+          await ExplainPanel.createOrShow(sql, result, suggestions);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           void vscode.window.showErrorMessage(`Explain failed: ${msg}`);
