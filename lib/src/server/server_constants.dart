@@ -318,6 +318,44 @@ abstract final class ServerConstants {
   static const String jsonKeyColumn = 'column';
   static const String jsonKeyAnomalies = 'anomalies';
   static const String jsonKeyPriority = 'priority';
+
+  // --- Saropa Diagnostic Envelope (cross-tool suite protocol, plan 67 §2) ---
+  // GET /api/issues wraps its merged list in this envelope so the sibling
+  // tools (Saropa Lints, Saropa Log Capture) can consume it with correct
+  // attribution and version-gate the shape. The fields below are ADDITIVE:
+  // every pre-existing issue field is preserved, so current consumers are
+  // unaffected.
+
+  /// Envelope schema version. Bumped only on a breaking change to the issue
+  /// shape; consumers ignore unknown fields and refuse a higher major.
+  static const int issuesSchemaVersion = 1;
+
+  /// Producer identity carried in the envelope so a merged multi-tool list
+  /// (e.g. Saropa Log Capture's combined view) can attribute each issue to
+  /// the tool that emitted it.
+  static const String productName = 'saropa_drift_advisor';
+
+  static const String jsonKeySchemaVersion = 'schemaVersion';
+  static const String jsonKeyProducer = 'producer';
+  // `jsonKeyGeneratedAt` ('generatedAt') is already declared below and reused
+  // here for the envelope's generation timestamp.
+
+  /// Shared taxonomy bucket for an issue (plan 67 §2.1).
+  static const String jsonKeyCategory = 'category';
+
+  /// Localized one-line summary. Emitted alongside (not instead of)
+  /// [jsonKeyMessage] during migration so existing `/api/issues` consumers
+  /// that read `message` keep working while the suite standardizes on
+  /// `title`.
+  static const String jsonKeyTitle = 'title';
+
+  /// Diagnostic categories (plan 67 §2.1). A missing index is a
+  /// query-performance concern; an anomaly is a data-quality concern; orphan
+  /// tables and inferred relationships are schema concerns.
+  static const String categoryPerformance = 'performance';
+  static const String categoryData = 'data';
+  static const String categorySchema = 'schema';
+  static const String categoryOther = 'other';
   static const String headerAuthorization = 'authorization';
   static const String authSchemeBearer = 'Bearer ';
   static const String authSchemeBasic = 'Basic ';

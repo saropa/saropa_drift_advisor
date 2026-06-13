@@ -1019,6 +1019,9 @@
     activeLocale = normalizeLocale(locale);
     activeOverlay = activeLocale === "en" || !catalog ? {} : catalog;
   }
+  function getActiveLocale() {
+    return activeLocale;
+  }
   function substitute(template, args) {
     if (args.length === 0) {
       return template;
@@ -5611,6 +5614,20 @@
   }
 
   // assets/web/settings.ts
+  function fmtNum(n) {
+    try {
+      return new Intl.NumberFormat(getActiveLocale()).format(n);
+    } catch {
+      return String(n);
+    }
+  }
+  function parseNum(raw) {
+    const digits = raw.replace(/\D/g, "");
+    return digits === "" ? NaN : parseInt(digits, 10);
+  }
+  function clampNum(n, min, max) {
+    return Math.min(max, Math.max(min, n));
+  }
   var PREF_PREFIX = "drift-viewer-pref-";
   function getPref(key, defaultValue) {
     try {
@@ -5656,6 +5673,16 @@
     [PREF_EPOCH_DETECTION]: true,
     [PREF_CONFIRM_NAVIGATE_AWAY]: true
   };
+  function numberField(id, min, max, step) {
+    return `<span class="settings-stepper">
+        <input type="text" inputmode="numeric" id="${id}" class="settings-input settings-input-number"
+          data-min="${min}" data-max="${max}" data-step="${step}" autocomplete="off" spellcheck="false" />
+        <span class="settings-stepper-btns" aria-hidden="true">
+          <button type="button" class="settings-stepper-btn" data-step-dir="1" tabindex="-1"><span class="material-symbols-outlined">keyboard_arrow_up</span></button>
+          <button type="button" class="settings-stepper-btn" data-step-dir="-1" tabindex="-1"><span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+        </span>
+      </span>`;
+  }
   function buildSettingsHtml() {
     return `
 <div class="settings-panel">
@@ -5667,11 +5694,11 @@
     </h3>
     <label class="settings-row">
       <span class="settings-label">${vt("viewer.settings.storage.sqlHistoryMax")}</span>
-      <input type="number" id="pref-sqlHistoryMax" class="settings-input settings-input-number" min="10" max="2000" step="10" />
+      ${numberField("pref-sqlHistoryMax", 10, 2e3, 10)}
     </label>
     <label class="settings-row">
       <span class="settings-label">${vt("viewer.settings.storage.maxAnalyses")}</span>
-      <input type="number" id="pref-analysisMax" class="settings-input settings-input-number" min="5" max="500" step="5" />
+      ${numberField("pref-analysisMax", 5, 500, 5)}
     </label>
     <div class="settings-row settings-row-actions">
       <button type="button" id="settings-clear-all" class="btn btn-danger-outline settings-btn">
@@ -5690,10 +5717,10 @@
     <label class="settings-row">
       <span class="settings-label">${vt("viewer.settings.table.defaultPageSize")}</span>
       <select id="pref-defaultPageSize" class="settings-input settings-input-select">
-        <option value="50">50</option>
-        <option value="200">200</option>
-        <option value="500">500</option>
-        <option value="1000">1000</option>
+        <option value="50">${fmtNum(50)}</option>
+        <option value="200">${fmtNum(200)}</option>
+        <option value="500">${fmtNum(500)}</option>
+        <option value="1000">${fmtNum(1e3)}</option>
       </select>
     </label>
     <label class="settings-row">
@@ -5727,7 +5754,7 @@
     <label class="settings-row">
       <span class="settings-label">${vt("viewer.settings.perf.slowQueryThreshold")}</span>
       <span class="settings-sublabel">${vt("viewer.settings.perf.slowQueryThresholdSub")}</span>
-      <input type="number" id="pref-slowQueryThreshold" class="settings-input settings-input-number" min="10" max="60000" step="10" />
+      ${numberField("pref-slowQueryThreshold", 10, 6e4, 10)}
     </label>
     <label class="settings-row settings-toggle-row">
       <span class="settings-label">${vt("viewer.settings.perf.autoRefresh")}</span>
@@ -5779,7 +5806,7 @@
   }
   function setNumberInput(id, value) {
     const el = document.getElementById(id);
-    if (el) el.value = String(value);
+    if (el) el.value = fmtNum(value);
   }
   function setSelectValue(id, value) {
     const el = document.getElementById(id);
@@ -5829,13 +5856,39 @@
   function bindNumberInput(id, prefKey) {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener("change", () => {
-      const v = parseInt(el.value, 10);
-      if (isFinite(v) && v > 0) {
-        setPref(prefKey, v);
-        applyRuntimeState();
+    const min = Number(el.dataset.min);
+    const max = Number(el.dataset.max);
+    const step = Number(el.dataset.step) || 1;
+    const commit = (n) => {
+      const clamped = clampNum(n, min, max);
+      el.value = fmtNum(clamped);
+      setPref(prefKey, clamped);
+      applyRuntimeState();
+    };
+    const current = () => {
+      const v = parseNum(el.value);
+      return isFinite(v) ? v : min;
+    };
+    el.addEventListener("change", () => commit(current()));
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        commit(current() + step);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        commit(current() - step);
       }
     });
+    const stepper = el.closest(".settings-stepper");
+    if (stepper) {
+      stepper.querySelectorAll(".settings-stepper-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          const dir = Number(btn.dataset.stepDir) || 0;
+          commit(current() + dir * step);
+        });
+      });
+    }
   }
   function bindSelectInput(id, prefKey) {
     const el = document.getElementById(id);
