@@ -49,6 +49,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 ### Added
 
 - **`GET /api/issues` now returns the Saropa Diagnostic Envelope** — the shared cross-tool format used across Saropa Lints, Drift Advisor, and Saropa Log Capture. The response gains top-level `schemaVersion`, `producer`, and `generatedAt`, and each issue gains a stable `id` (locale-independent dedupe key), a `category` (`performance` / `data` / `schema`), and a `title` (the suite-standard alias of `message`). The change is additive — every existing field is unchanged — so current consumers need no update; `GET /api/health` now advertises the envelope's `schemaVersion` so a client can version-gate before parsing.
+- **Five stable deep-link commands for cross-tool integration** — `driftViewer.openExplainForSql`, `openTable`, `openSchemaForTable`, `openIssues`, and `goToDefinitionForTable` let another extension (Saropa Lints, Saropa Log Capture) jump straight into the matching Drift Advisor surface — e.g. a slow-query signal opens its EXPLAIN plan, a runtime issue opens the table definition. Each takes a plain options object so it can be invoked programmatically; the ids are a public contract and will stay stable across releases.
 
 ### Improved
 

@@ -59,6 +59,18 @@ describe('Extension activation', () => {
     assert.ok('driftViewer.filterByColumn' in registered);
   });
 
+  it('should register Saropa suite deep-link commands (plan 67 R5)', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    // These ids are the public cross-tool contract: sibling tools' diagnostic
+    // fix.command entries target them, so a rename must fail this test.
+    assert.ok('driftViewer.openExplainForSql' in registered);
+    assert.ok('driftViewer.openTable' in registered);
+    assert.ok('driftViewer.openSchemaForTable' in registered);
+    assert.ok('driftViewer.openIssues' in registered);
+    assert.ok('driftViewer.goToDefinitionForTable' in registered);
+  });
+
   it('should push expected disposables', () => {
     activate(fakeContext());
     // Providers: treeView, definitionProvider, codeLensProvider, hoverProvider,
@@ -118,7 +130,9 @@ describe('Extension activation', () => {
     // Connection Phase 1: ConnectionStateMachine added to subscriptions (+1).
     // Time-Travel (Feature 60): driftViewer.timeTravel command registration (+1).
     // Data Branching (Feature 37): BranchManager dispose + openBranches + createBranch (+3).
-    assert.strictEqual(subscriptions.length, 214, `expected 214 disposables, got ${subscriptions.length}`);
+    // Suite integration (plan 67 R5): openExplainForSql, openTable,
+    //   openSchemaForTable, openIssues, goToDefinitionForTable (+5).
+    assert.strictEqual(subscriptions.length, 219, `expected 219 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
