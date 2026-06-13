@@ -22,9 +22,16 @@ export function rowsToObjects(
   });
 }
 
-/** Build a stable string key from a row's primary key columns. */
+/** Build a stable string key from a row's primary key columns.
+ *
+ * Uses JSON.stringify per component (not String(v ?? '')) so values of different
+ * types or null-ness don't collide: `String(null)` and `String('')` were both
+ * `''`, and `String(1)` matched `String('1')` — making `(null,'x')` collide with
+ * `('','x')` and `1` with `'1'`, which mis-pairs added/removed rows as matched.
+ * See plans/full-codebase-audit-2026.06.12.md M14.
+ */
 export function pkKey(row: Record<string, unknown>, pkCols: string[]): string {
-  return pkCols.map((c) => String(row[c] ?? '')).join('\0');
+  return pkCols.map((c) => JSON.stringify(row[c] ?? null)).join('\0');
 }
 
 function rowSignature(row: Record<string, unknown>): string {

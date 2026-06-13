@@ -211,7 +211,12 @@ export class AnnotationStore {
   }
 
   private _persist(): void {
-    this._state.update(STORAGE_KEY, this._annotations);
+    // Fire-and-forget write with an explicit void + rejection handler so a
+    // failed Memento write can't surface as an unhandled promise rejection
+    // (the other store methods were already void-marked). See audit M6.
+    void Promise.resolve(this._state.update(STORAGE_KEY, this._annotations)).catch(
+      () => {},
+    );
     for (const listener of this._listeners) {
       listener();
     }

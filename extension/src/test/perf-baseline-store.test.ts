@@ -53,6 +53,22 @@ describe('PerfBaselineStore', () => {
     store = new PerfBaselineStore(memento as any);
   });
 
+  // Audit M5: a corrupted/version-mismatched persisted value must not crash the
+  // constructor; invalid entries are dropped.
+  it('survives a corrupted persisted value (non-array)', () => {
+    const bad = new MockMemento();
+    bad.update('driftViewer.perfBaselines', { not: 'an array' });
+    const s = new PerfBaselineStore(bad as any);
+    assert.strictEqual(s.size, 0);
+  });
+
+  it('drops persisted entries missing normalizedSql', () => {
+    const bad = new MockMemento();
+    bad.update('driftViewer.perfBaselines', [{ foo: 1 }, null]);
+    const s = new PerfBaselineStore(bad as any);
+    assert.strictEqual(s.size, 0);
+  });
+
   it('should start empty', () => {
     assert.strictEqual(store.size, 0);
     assert.strictEqual(store.get('anything'), undefined);
