@@ -105,13 +105,21 @@ final class AuthHandler {
   }
 
   /// Constant-time string comparison to reduce timing side channels.
+  ///
+  /// Does NOT early-return on a length mismatch — that short-circuit leaked the
+  /// expected secret's length via response timing. Instead the length difference
+  /// is folded into the accumulator and the loop always runs for the expected
+  /// secret's length [b] (a per-config constant), reading [a] modulo its own
+  /// length so a shorter candidate still costs the same number of iterations.
+  /// See plans/full-codebase-audit-2026.06.12.md L1.
   bool _secureCompare(String a, String b) {
-    if (a.length != b.length) {
-      return false;
-    }
-    int result = 0;
-    for (int i = 0; i < a.length; i++) {
-      result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    final int lenA = a.length;
+    final int lenB = b.length;
+    // A length mismatch alone guarantees a non-zero (failing) result.
+    int result = lenA ^ lenB;
+    for (int i = 0; i < lenB; i++) {
+      final int ca = lenA == 0 ? 0 : a.codeUnitAt(i % lenA);
+      result |= ca ^ b.codeUnitAt(i);
     }
 
     return result == 0;
