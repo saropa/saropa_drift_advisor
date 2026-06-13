@@ -68,6 +68,7 @@
   "command.openSchemaForTable.title": "Open Schema for Table (Suite Deep Link)",
   "command.openIssues.title": "Open Issues (Suite Deep Link)",
   "command.goToDefinitionForTable.title": "Go to Table Definition (Suite Deep Link)",
+  "command.writeDiagnosticsMirror.title": "Write Diagnostics Mirror (Suite)",
   "command.askNaturalLanguage.title": "Ask in English",
   "command.nlSqlHistory.title": "NL Query History",
   "command.schemaDiff.title": "Schema Diff (Code vs Runtime)",

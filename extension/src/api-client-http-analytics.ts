@@ -39,6 +39,23 @@ export async function httpAnomalies(
   return Array.isArray(data.anomalies) ? data.anomalies : [];
 }
 
+/**
+ * Merged issues as the raw Saropa Diagnostic Envelope (plan 67 §2).
+ *
+ * Returned verbatim (untyped) so the offline mirror persists exactly what the
+ * server produced — schemaVersion, producer, generatedAt, and each issue's
+ * id/category/title — keeping the server the single source of truth for the
+ * envelope shape. Callers that need typed access should validate structurally.
+ */
+export async function httpIssuesEnvelope(
+  baseUrl: string,
+  headers: ApiHeaders,
+): Promise<unknown> {
+  const resp = await fetchWithRetry(`${baseUrl}/api/issues`, { headers });
+  if (!resp.ok) throw new Error(`Issues fetch failed: ${resp.status}`);
+  return resp.json();
+}
+
 /** Performance data. */
 export async function httpPerformance(
   baseUrl: string,

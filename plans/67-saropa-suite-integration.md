@@ -163,6 +163,18 @@ one of these documented ids.
     not yet wired (the latter needs the Section 3 command ids to exist in the Lints extension first).
 - **R2 — Write the offline mirror** to `.saropa/diagnostics/advisor.json` on each scan, so Lints and
   Log Capture can read Advisor's issues when the debug server is not running (Section 2.3).
+  - **Status: shipped (this build).** Implemented in
+    [extension/src/suite/diagnostics-mirror.ts](../extension/src/suite/diagnostics-mirror.ts): the
+    extension fetches the live `/api/issues` envelope (new `client.issues()` →
+    `httpIssuesEnvelope`) and writes it verbatim to `<workspace>/.saropa/diagnostics/advisor.json`.
+    Refresh trigger is the generation watcher (debounced) — the mirror is captured *while the server
+    is up*, since the debug server is gone by the time a session ends and a fetch would fail. Manual
+    refresh via the `driftViewer.writeDiagnosticsMirror` command. Best-effort: it skips (leaving any
+    existing mirror intact) when there is no workspace, the server is unreachable, or the payload is
+    not a valid envelope, so a transient failure never wipes a good mirror. Covered by
+    `extension/src/test/suite-diagnostics-mirror.test.ts`.
+  - **Deferred:** the symmetric R3 consumption (Advisor *reading* the sibling
+    `lints.json`/`log-capture.json` mirrors) is tracked separately under R3 below.
 - **R3 — Consume sibling envelopes.** Read `.saropa/diagnostics/lints.json` and
   `.saropa/diagnostics/log-capture.json` and render the relevant ones inside Advisor's own surfaces:
   in the EXPLAIN / Index panels show "Lints rule `X` also governs this" and "Log Capture saw this
@@ -242,11 +254,13 @@ visible from any entry point.
 ## 8. Phasing
 
 1. **Protocol first (R1, R2, R5).** Pure schema + command-id work, zero user-facing risk; everything
-   else depends on it. **In progress** — R5 (the five public deep-link command ids) has shipped in the
-   extension, and the `/api/issues` envelope + `/api/health` `schemaVersion` half of R1 has shipped in
-   the Dart package (see the R1 and R5 Status notes above). Still open in Phase 1: the offline mirror
-   R2 (extension writes `.saropa/diagnostics/advisor.json`), plus the `sql`/`fix.command` remainder of
-   R1 — the `fix.command` work now has its target command ids to point at.
+   else depends on it. **Substantially shipped** — R5 (the five public deep-link command ids), R2 (the
+   offline mirror `.saropa/diagnostics/advisor.json`), and the `/api/issues` envelope + `/api/health`
+   `schemaVersion` half of R1 have all landed (see the R1, R2, and R5 Status notes above). The only
+   Phase-1 remainder is the `sql`/`fix.command` part of R1 — emitting, on each Advisor issue that has a
+   static counterpart, a `fix.command` pointing at the relevant Lints rule (e.g. a missing-index issue
+   → `saropaLints.explainRule` for `require_database_index`). That now has its target command ids to
+   point at, but depends on the Lints extension contributing them (Lints doc R4).
 2. **Consume + render (R3).** Each tool shows the others' relevant diagnostics with correct
    attribution.
 3. **Drift Health loop (R4 / Section 5).** The flagship; structurally uncopyable.
