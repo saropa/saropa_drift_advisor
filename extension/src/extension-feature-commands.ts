@@ -40,6 +40,7 @@ import { registerTroubleshootingCommands } from './troubleshooting/troubleshooti
 import { registerRollbackCommands } from './rollback/rollback-commands';
 import { registerPollingCommands } from './polling/polling-commands';
 import { registerSaropaLintsCommands } from './saropa-lints-commands';
+import { registerSuiteCommands } from './suite/suite-commands';
 import { registerMutationStreamCommands } from './mutation-stream/mutation-stream-commands';
 import { registerDvrCommands } from './dvr/dvr-commands';
 import { DvrPanel } from './dvr/dvr-panel';
@@ -157,6 +158,7 @@ export function registerFeatureModules(
     ['rollback', () => registerRollbackCommands(context, schemaTracker)],
     ['polling', () => registerPollingCommands(context, client, deps.toolsProvider)],
     ['saropaLints', () => registerSaropaLintsCommands(context)],
+    ['suite', () => registerSuiteCommands(context, client)],
   ];
   const failedModules: Array<{ name: string; error: string }> = [];
   for (const [name, register] of featureModules) {

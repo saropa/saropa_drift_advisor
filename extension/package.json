@@ -405,6 +405,31 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.openExplainForSql",
+        "title": "%command.openExplainForSql.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.openTable",
+        "title": "%command.openTable.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.openSchemaForTable",
+        "title": "%command.openSchemaForTable.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.openIssues",
+        "title": "%command.openIssues.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.goToDefinitionForTable",
+        "title": "%command.goToDefinitionForTable.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.askNaturalLanguage",
         "title": "%command.askNaturalLanguage.title%",
         "icon": "$(comment-discussion)",
