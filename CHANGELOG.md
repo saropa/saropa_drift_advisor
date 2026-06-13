@@ -40,7 +40,7 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [3.7.3]
 
 Publish tooling now runs the runtime translation audit and points you at the command to open the translation util — no user-facing change.
 
@@ -56,8 +56,6 @@ Publish tooling now runs the runtime translation audit and points you at the com
 - **Clearer local-install label in publish** — the publish "Local Install" step's `Installed locally: code vX` line read as if it had just installed the new build, when it actually reports the EXTENSION version ALREADY installed in the editor (install happens at the later prompt). It also read as the editor's own version. Relabeled to `Currently installed drift-viewer: code vX` (and `drift-viewer not currently installed in VS Code or Cursor.`), naming the extension so the version can't be mistaken for VS Code's. `scripts/modules/pipeline.py`.
 
 </details>
-
-## [3.7.2]
 
 The web viewer's toolbar can now show labels: click any empty space in the toolbar row to switch between icon-only buttons and icons with a short word in a dim box. Your choice is remembered.
 
