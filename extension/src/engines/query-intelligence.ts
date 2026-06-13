@@ -21,6 +21,15 @@ export class QueryIntelligence implements vscode.Disposable {
   private _patterns = new Map<string, IQueryPattern>();
   private _perfCache: PerformanceData | undefined;
   private _perfCacheTime = 0;
+  /**
+   * ISO timestamp of the newest server query already folded into [_patterns].
+   * Each cache refresh re-fetches the whole rolling perf window; without this
+   * cursor every refresh re-ingested every query, inflating executionCount /
+   * totalDurationMs (and thus the slow-query and index advice) on every TTL
+   * expiry. ISO-8601 UTC strings sort chronologically, so a `>` compare admits
+   * only genuinely newer queries. See plans/full-codebase-audit-2026.06.12.md M3.
+   */
+  private _lastIngestedAt = '';
 
   private readonly _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
@@ -214,6 +223,7 @@ export class QueryIntelligence implements vscode.Disposable {
   clear(): void {
     this._patterns.clear();
     this._perfCache = undefined;
+    this._lastIngestedAt = '';
     this._onDidChange.fire();
   }
 
@@ -226,9 +236,16 @@ export class QueryIntelligence implements vscode.Disposable {
     this._perfCache = await this._client.performance();
     this._perfCacheTime = now;
 
+    // Fold in only queries newer than the last one already ingested, so a query
+    // is counted exactly once across refreshes (the perf window is re-fetched
+    // whole each time). Advance the cursor to the newest `at` seen.
+    let newestAt = this._lastIngestedAt;
     for (const q of this._perfCache.recentQueries ?? []) {
+      if (q.at <= this._lastIngestedAt) continue;
       this.recordQuery(q.sql, q.durationMs, q.rowCount ?? 0);
+      if (q.at > newestAt) newestAt = q.at;
     }
+    this._lastIngestedAt = newestAt;
 
     return this._perfCache;
   }
