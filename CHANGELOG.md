@@ -72,6 +72,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 - **Correct "safe delete" planning and relationship traversal.** The cascade-delete plan now includes the leaf rows that actually hold the blocking foreign keys (previously skipped, so the plan could never complete), targets each row by its own primary-key column (not the root's), tracks the true nesting depth, and guards against cyclic foreign-key graphs.
 - **Accurate query statistics.** Query execution counts (which drive slow-query detection and index suggestions) no longer inflate over time — each recorded query is now counted once instead of being re-tallied on every periodic refresh.
 - **Diagnostics fixes.** A diagnostic on an `INSERT … SELECT` statement is now attributed to the inserted-into table (not the source table); per-table diagnostic exclusions now also apply to runtime/query events (the key they carried was never matched); and schema insights refresh on a real schema change instead of serving stale data until a timer lapses.
+- **Robust persisted-data handling.** Importing a corrupted snippet file now fails with a clear message instead of throwing; a corrupted saved performance-baseline value no longer breaks the panel on load; and snapshot/branch row-diffing no longer mis-pairs rows whose primary key differs only by null-ness or type (e.g. `null` vs `""`, `1` vs `"1"`).
 
 </details>
 

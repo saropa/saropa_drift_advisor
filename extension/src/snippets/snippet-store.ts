@@ -51,9 +51,21 @@ export class SnippetStore {
   }
 
   importFrom(json: string): number {
-    const data = JSON.parse(json) as ISnippetExport;
-    if (data.$schema !== 'drift-snippets/v1') {
+    // Parse defensively: an edited/truncated import file is untrusted input.
+    // A bare JSON.parse threw a SyntaxError, and a valid-JSON-but-wrong-shape
+    // file made `for (… of data.snippets)` throw "not iterable". Both now
+    // surface as a clear error. See plans/full-codebase-audit-2026.06.12.md M5.
+    let data: ISnippetExport;
+    try {
+      data = JSON.parse(json) as ISnippetExport;
+    } catch {
+      throw new Error('Invalid snippet file: not valid JSON');
+    }
+    if (data?.$schema !== 'drift-snippets/v1') {
       throw new Error('Invalid snippet file: missing drift-snippets/v1 schema');
+    }
+    if (!Array.isArray(data.snippets)) {
+      throw new Error('Invalid snippet file: "snippets" must be an array');
     }
     const existing = this.getAll();
     const existingIds = new Set(existing.map((s) => s.id));
