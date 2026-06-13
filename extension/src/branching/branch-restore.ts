@@ -1,16 +1,22 @@
 /**
  * Branch restore (Feature 37, Phase 4): overwrite the live database with a branch's captured rows.
  *
- * **Deviation from the original plan (intentional, lower-risk).** The plan proposed a dedicated
- * Dart `POST /api/branch/restore` endpoint. Instead, restore reuses the EXISTING server write path
- * (`client.sql()` DELETE/INSERT) that `DataReset` and the dataset importer already rely on — the
- * same path the server gates on its `writeQuery` callback. That avoids new server routing and an
- * extra endpoint for a one-feature need, and inherits the proven write/auth/validation behavior.
- * On a read-only server the writes fail just as `/api/branch/restore` would have returned 501;
- * the caller surfaces that as an error and the diff / merge-SQL paths still work.
+ * **Single transactional batch.** All clears and re-inserts are submitted as ONE statement list to
+ * the server's `POST /api/edits/apply` path (via {@link DriftApiClient.applyEditsBatch}), which runs
+ * them inside `BEGIN IMMEDIATE … COMMIT` and rolls the whole set back on any failure. The previous
+ * implementation issued each DELETE/INSERT through `client.sql()`; that is the read-only `/api/sql`
+ * path, which rejects writes — so it never actually restored — and even if it had, a mid-restore
+ * failure (a bad row) would have left the database with some tables cleared and others repopulated.
+ * The batch path is both functional (gated on the server `writeQuery` callback, returns an error on a
+ * read-only server) and atomic.
  *
- * **FK order.** Tables are cleared children-first and re-inserted parents-first (via
- * {@link DependencySorter}) so foreign keys are never violated mid-restore.
+ * **FK order.** Statements are ordered children-first for the clears and parents-first for the
+ * inserts (via {@link DependencySorter}) so foreign keys are never violated within the transaction.
+ *
+ * **Size bound.** The batch endpoint caps a single apply at 500 statements. A restore that needs more
+ * (clears + every captured row) is rejected as a whole rather than applied partially — preserving the
+ * all-or-nothing guarantee. Chunking is intentionally NOT used here because separate chunks would be
+ * separate transactions and reintroduce the half-restored state this change exists to prevent.
  */
 
 import type { DriftApiClient } from '../api-client';
@@ -18,6 +24,7 @@ import type { IDataBranch } from './branch-types';
 import { DependencySorter } from '../data-management/dependency-sorter';
 import { DataReset } from '../data-management/data-reset';
 import { sqlLiteral } from './branch-merge-sql';
+import { q } from '../shared-utils';
 
 export interface IBranchRestoreResult {
   tablesRestored: number;
@@ -25,9 +32,9 @@ export interface IBranchRestoreResult {
 }
 
 /**
- * Replace the live state of every table captured in {@link branch} with the branch's rows.
- * Throws if any write fails (e.g. read-only server) — restore is all-or-nothing from the
- * caller's perspective, though SQLite itself applies statements incrementally.
+ * Replace the live state of every table captured in {@link branch} with the branch's rows, in one
+ * transaction. Throws if the batch fails (read-only server, oversized batch, or a bad row) — and on
+ * failure the live database is left untouched because the server rolls the transaction back.
  */
 export async function restoreBranch(
   client: DriftApiClient,
@@ -41,9 +48,11 @@ export async function restoreBranch(
   const insertOrder = sorter.sortForInsert(tableNames, fks);
   const byName = new Map(branch.tables.map((t) => [t.name, t]));
 
+  const statements: string[] = [];
+
   // Clear children before parents so deletes never trip a foreign key.
   for (const name of deleteOrder) {
-    await client.sql(`DELETE FROM "${name}"`);
+    statements.push(`DELETE FROM ${q(name)}`);
   }
 
   // Re-insert parents before children.
@@ -53,11 +62,17 @@ export async function restoreBranch(
     if (!table) continue;
     for (const row of table.rows) {
       const cols = Object.keys(row);
-      const colList = cols.map((c) => `"${c}"`).join(', ');
+      const colList = cols.map((c) => q(c)).join(', ');
       const valList = cols.map((c) => sqlLiteral(row[c])).join(', ');
-      await client.sql(`INSERT INTO "${name}" (${colList}) VALUES (${valList})`);
+      statements.push(`INSERT INTO ${q(name)} (${colList}) VALUES (${valList})`);
       rowsInserted += 1;
     }
+  }
+
+  // One atomic apply: the server wraps the whole list in a transaction and rolls
+  // back on any failure, so a restore is all-or-nothing.
+  if (statements.length > 0) {
+    await client.applyEditsBatch(statements);
   }
 
   return { tablesRestored: insertOrder.length, rowsInserted };
