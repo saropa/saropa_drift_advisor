@@ -13,6 +13,7 @@ export {
 export {
   httpIndexSuggestions,
   httpAnomalies,
+  httpIssuesEnvelope,
   httpPerformance,
   httpClearPerformance,
   httpSizeAnalytics,
