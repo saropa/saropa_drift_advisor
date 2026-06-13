@@ -59,6 +59,8 @@ export async function httpDvrStop(
 ): Promise<IDvrStatus> {
   const resp = await fetchWithRetry(`${baseUrl}/api/dvr/stop`, {
     method: 'POST',
+    // Stopping an already-stopped recorder is a no-op; safe to retry (audit M4).
+    idempotent: true,
     headers,
   });
   if (!resp.ok) throw new Error(`DVR stop failed: ${resp.status}`);
@@ -82,6 +84,8 @@ export async function httpDvrPause(
 ): Promise<IDvrStatus> {
   const resp = await fetchWithRetry(`${baseUrl}/api/dvr/pause`, {
     method: 'POST',
+    // Pausing an already-paused recorder is a no-op; safe to retry (audit M4).
+    idempotent: true,
     headers,
   });
   if (!resp.ok) throw new Error(`DVR pause failed: ${resp.status}`);
@@ -130,6 +134,8 @@ export async function httpDvrConfig(
 ): Promise<{ maxQueries: number; captureBeforeAfter: boolean; queryCount: number; sessionId: string }> {
   const resp = await fetchWithRetry(`${baseUrl}/api/dvr/config`, {
     method: 'POST',
+    // Setting recorder options to fixed values is idempotent (audit M4).
+    idempotent: true,
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });

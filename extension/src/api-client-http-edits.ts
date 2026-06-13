@@ -61,6 +61,8 @@ export async function httpSetChangeDetection(
 ): Promise<boolean> {
   const resp = await fetchWithRetry(`${baseUrl}/api/change-detection`, {
     method: 'POST',
+    // Setting a flag to a fixed value is idempotent; safe to retry (audit M4).
+    idempotent: true,
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
   });

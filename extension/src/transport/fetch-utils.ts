@@ -22,8 +22,21 @@ export const HEALTH_PROBE_TIMEOUT_MS = 4500;
  */
 const SAFETY_MARGIN_MS = 2000;
 
-/** Init options extended with an optional timeout. */
-export type FetchWithTimeoutInit = RequestInit & { timeoutMs?: number };
+/**
+ * Init options extended with an optional timeout and an idempotency hint.
+ *
+ * `idempotent` controls whether {@link fetchWithRetry} may re-send the request
+ * on a transient error. When omitted it is inferred from the HTTP method:
+ * GET/HEAD/OPTIONS/PUT/DELETE are idempotent (safe to retry), POST/PATCH are
+ * NOT. Set `idempotent: true` on a read-only or set-to-a-value POST (e.g.
+ * `/api/sql`, `/api/change-detection`) to opt back into retry. Leave it unset on
+ * a mutating POST (import, session create/annotate) so a connection drop after
+ * the server applied the write does not duplicate it. See audit M4.
+ */
+export type FetchWithTimeoutInit = RequestInit & {
+  timeoutMs?: number;
+  idempotent?: boolean;
+};
 
 /**
  * Fetch with an AbortController-based timeout **plus** a `Promise.race`
@@ -75,8 +88,8 @@ export async function fetchWithTimeout(
   });
 
   try {
-    // Strip timeoutMs before passing to native fetch
-    const { timeoutMs: _, signal: __, ...rest } = init ?? {};
+    // Strip our extra options before passing to native fetch
+    const { timeoutMs: _, signal: __, idempotent: ___, ...rest } = init ?? {};
     return await Promise.race([
       fetch(url, { ...rest, signal: controller.signal }),
       safety,
@@ -106,15 +119,32 @@ export function isTransientError(err: unknown): boolean {
 }
 
 /**
+ * True when an HTTP method is safe to retry (idempotent by HTTP semantics).
+ * POST/PATCH are excluded — re-sending them can duplicate a server-side write.
+ */
+function methodIsIdempotent(method?: string): boolean {
+  const m = (method ?? 'GET').toUpperCase();
+  return (
+    m === 'GET' || m === 'HEAD' || m === 'OPTIONS' || m === 'PUT' || m === 'DELETE'
+  );
+}
+
+/**
  * Fetch with timeout + a single retry on transient errors.
  * Adds 200ms delay before retry to avoid hammering a recovering server.
  * Non-transient errors (4xx, parse failures) are thrown immediately.
  * Does not retry if the caller's signal was intentionally aborted.
+ *
+ * Retry is gated on idempotency: a non-idempotent request (POST/PATCH without
+ * `idempotent: true`) is NEVER retried, because the first attempt may have
+ * reached the server and applied a write before the connection dropped —
+ * re-sending would duplicate it (audit M4).
  */
 export async function fetchWithRetry(
   url: string,
   init?: FetchWithTimeoutInit,
 ): Promise<Response> {
+  const canRetry = init?.idempotent ?? methodIsIdempotent(init?.method);
   try {
     const resp = await fetchWithTimeout(url, init);
     if (resp.status >= 500) {
@@ -124,7 +154,8 @@ export async function fetchWithRetry(
   } catch (err) {
     // Don't retry if the caller intentionally aborted the request.
     if (init?.signal?.aborted) throw err;
-    if (isTransientError(err)) {
+    // Don't retry a non-idempotent request — re-sending may duplicate a write.
+    if (canRetry && isTransientError(err)) {
       await new Promise((r) => setTimeout(r, 200));
       const resp = await fetchWithTimeout(url, init);
       if (resp.status >= 500) {
