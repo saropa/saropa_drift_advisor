@@ -415,20 +415,22 @@ abstract final class AnomalyDetector {
       return;
     }
 
-    // Fetch mean, min, max, population variance, and
-    // non-null count in a single query. Variance is
-    // computed as E[X²] - E[X]² which SQLite can evaluate
-    // without extensions. The count is used to enforce
-    // the minimum sample size guard below.
+    // First pass: mean, min, max, and non-null count. Variance is computed
+    // separately below as a SECOND pass (E[(X-mean)²]) rather than the naive
+    // E[X²]-E[X]² in one query. The naive form subtracts two large, nearly
+    // equal sums and loses most significant bits to floating-point cancellation
+    // for large-magnitude, low-spread columns — yielding a garbage σ that either
+    // suppressed real outliers (σ rounded to ~0) or flagged everything (tiny σ).
+    // See plans/full-codebase-audit-2026.06.12.md M2.
+    final col = ServerUtils.quoteIdent(colName);
+    final tbl = ServerUtils.quoteIdent(tableName);
     final statsRows = ServerUtils.normalizeRows(
       await query(
-        'SELECT AVG(${ServerUtils.quoteIdent(colName)}) AS avg_val, '
-        'MIN(${ServerUtils.quoteIdent(colName)}) AS min_val, '
-        'MAX(${ServerUtils.quoteIdent(colName)}) AS max_val, '
-        'AVG(${ServerUtils.quoteIdent(colName)} * ${ServerUtils.quoteIdent(colName)}) - '
-        'AVG(${ServerUtils.quoteIdent(colName)}) * AVG(${ServerUtils.quoteIdent(colName)}) AS variance, '
-        'COUNT(${ServerUtils.quoteIdent(colName)}) AS cnt '
-        'FROM ${ServerUtils.quoteIdent(tableName)} WHERE ${ServerUtils.quoteIdent(colName)} IS NOT NULL',
+        'SELECT AVG($col) AS avg_val, '
+        'MIN($col) AS min_val, '
+        'MAX($col) AS max_val, '
+        'COUNT($col) AS cnt '
+        'FROM $tbl WHERE $col IS NOT NULL',
       ),
     );
     if (statsRows.isEmpty) {
@@ -475,11 +477,19 @@ abstract final class AnomalyDetector {
       }
     }
 
-    // Compute population standard deviation from the
-    // SQL-computed variance. Clamp to zero to guard
-    // against floating-point rounding producing tiny
-    // negative values.
-    final rawVariance = ServerUtils.toDouble(statsRows.first['variance']) ?? 0;
+    // Second pass: population variance as E[(X-mean)²], with the mean from the
+    // first pass interpolated as a numeric literal (a double — no injection).
+    // This is numerically stable where the naive one-pass form was not.
+    final varianceRows = ServerUtils.normalizeRows(
+      await query(
+        'SELECT AVG(($col - $avg) * ($col - $avg)) AS variance '
+        'FROM $tbl WHERE $col IS NOT NULL',
+      ),
+    );
+    final rawVariance = varianceRows.isEmpty
+        ? 0.0
+        : (ServerUtils.toDouble(varianceRows.first['variance']) ?? 0);
+    // Clamp to zero to guard against tiny negative rounding.
     final stddev = sqrt(rawVariance < 0 ? 0 : rawVariance);
 
     // Zero stddev means all values are identical — no
@@ -503,35 +513,25 @@ abstract final class AnomalyDetector {
       return;
     }
 
-    // Log-scale fallback for all-positive columns.
-    // Distributions like currency exchange rates and
-    // engagement scores span orders of magnitude but
-    // look reasonable on a log scale. If the log-
-    // transformed data passes the 3σ check, suppress
-    // the anomaly.
-    if (min > 0) {
-      final logMin = log(min);
-      final logMax = log(max);
-      final logAvg = log(avg);
-
-      // Approximate log-space stddev from the range.
-      // For a distribution spanning [logMin, logMax],
-      // using (range / 4) as a conservative stddev
-      // estimate (covers ~95% of a normal distribution).
-      final logRange = logMax - logMin;
-      final logStddev = logRange / 4;
-
-      if (logStddev > 0) {
-        final logMinDev = (logMin - logAvg).abs();
-        final logMaxDev = (logMax - logAvg).abs();
-        final logThreshold = logStddev * 3;
-
-        if (logMinDev <= logThreshold && logMaxDev <= logThreshold) {
-          // Passes on log scale — this is a wide but
-          // log-normal distribution, not an outlier.
-          return;
-        }
-      }
+    // Log-scale fallback for all-positive columns. Distributions like currency
+    // exchange rates and engagement scores span orders of magnitude but look
+    // reasonable on a log scale; if the extremes are within 3σ of the GEOMETRIC
+    // mean in log space, the spread is log-normal, not an outlier — suppress.
+    //
+    // The previous heuristic derived a log σ from the range (range/4) and
+    // centered on log(arithmetic mean). With only min/max/mean it was circular:
+    // both extremes ARE the range, so the test almost always passed and
+    // suppressed everything. Locating an outlier needs the distribution of the
+    // logs, so the real mean/variance of LN(x) are now computed in SQL. See M2.
+    if (min > 0 &&
+        await _passesLogScaleCheck(
+          query: query,
+          col: col,
+          tbl: tbl,
+          min: min,
+          max: max,
+        )) {
+      return;
     }
 
     // Identify which end is the outlier and by how many
@@ -563,6 +563,57 @@ abstract final class AnomalyDetector {
           '${avg.toStringAsFixed(2)} '
           '(range [$min, $max], n=$sampleCount)',
     });
+  }
+
+  /// Returns true when the all-positive column's extremes sit within 3σ of the
+  /// geometric mean in LOG space — i.e. the wide spread is log-normal, not an
+  /// outlier, and the linear-scale flag should be suppressed.
+  ///
+  /// [col] and [tbl] are already-quoted identifiers. The mean and variance of
+  /// `LN(x)` are computed in SQL (the naive `E[Y²]-E[Y]²` form is numerically
+  /// safe here because log values are small-magnitude, unlike the raw column).
+  /// SQLite exposes `LN` only when built with math functions; on a build without
+  /// them the query throws and this returns false (do not suppress — report the
+  /// outlier rather than silently swallow it). See plans/full-codebase-audit-2026.06.12.md M2.
+  static Future<bool> _passesLogScaleCheck({
+    required DriftDebugQuery query,
+    required String col,
+    required String tbl,
+    required double min,
+    required double max,
+  }) async {
+    try {
+      final rows = ServerUtils.normalizeRows(
+        await query(
+          'SELECT AVG(LN($col)) AS log_mean, '
+          'AVG(LN($col) * LN($col)) AS log_sqmean '
+          'FROM $tbl WHERE $col IS NOT NULL',
+        ),
+      );
+      if (rows.isEmpty) {
+        return false;
+      }
+      final logMean = ServerUtils.toDouble(rows.first['log_mean']);
+      final logSqMean = ServerUtils.toDouble(rows.first['log_sqmean']);
+      if (logMean == null || logSqMean == null) {
+        return false;
+      }
+      // ignore: avoid_equal_expressions -- E[Y²] - E[Y]²: squaring the mean, identical operands are intentional
+      final logVariance = logSqMean - logMean * logMean;
+      final logStddev = sqrt(logVariance < 0 ? 0 : logVariance);
+      if (logStddev == 0) {
+        return false;
+      }
+      final logThreshold = logStddev * 3;
+      final logMinDev = (log(min) - logMean).abs();
+      final logMaxDev = (log(max) - logMean).abs();
+      return logMinDev <= logThreshold && logMaxDev <= logThreshold;
+      // ignore: require_catch_logging -- a missing LN() (build without math functions) is an expected capability gap, not an error to surface; we degrade by not suppressing
+    } on Object {
+      // No LN() (SQLite built without math functions): cannot evaluate the log
+      // distribution, so do not suppress — fall through and report the outlier.
+      return false;
+    }
   }
 
   /// Checks foreign keys on [tableName] and flags any
