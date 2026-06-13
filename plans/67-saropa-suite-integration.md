@@ -179,6 +179,19 @@ one of these documented ids.
   `.saropa/diagnostics/log-capture.json` and render the relevant ones inside Advisor's own surfaces:
   in the EXPLAIN / Index panels show "Lints rule `X` also governs this" and "Log Capture saw this
   query run slow N times this session."
+  - **Status: partially shipped (this build).** Reader + matcher implemented in
+    [extension/src/suite/suite-diagnostics.ts](../extension/src/suite/suite-diagnostics.ts)
+    (`readSiblingDiagnostics`, `parseEnvelope`, `relatedDiagnostics`) — malformed-safe, tolerant of
+    either `issues`/`diagnostics` carrier key, matching a query by referenced table or exact SQL. The
+    **EXPLAIN panel** now renders a "Related Saropa Suite Findings" section
+    ([explain-html.ts](../extension/src/explain/explain-html.ts) `renderSuiteNotes`,
+    [explain-panel.ts](../extension/src/explain/explain-panel.ts) `findReferencedTables` +
+    `createOrShow`), showing each sibling finding's tool, its own already-localized title/detail, and
+    rule id; HTML-escaped. Covered by `extension/src/test/suite-diagnostics.test.ts`.
+  - **Deferred:** rendering the same notes on the standalone index-suggestions / anomalies surfaces
+    and the holistic dashboard; surfacing a per-finding `fix.command` deep-link back to the sibling
+    (needs the sibling command ids — Lints doc R4). The "saw N times" count rides on the sibling's
+    own `detail` text rather than a dedicated field, so no schema change is needed here.
 - **R4 — Drift Health surface (the flagship loop, see Section 5).** A single panel that joins
   Advisor's runtime schema/data evidence with Lints' static Drift rules and Log Capture's live SQL
   telemetry for the same table/query.
@@ -262,7 +275,10 @@ visible from any entry point.
    → `saropaLints.explainRule` for `require_database_index`). That now has its target command ids to
    point at, but depends on the Lints extension contributing them (Lints doc R4).
 2. **Consume + render (R3).** Each tool shows the others' relevant diagnostics with correct
-   attribution.
+   attribution. **In progress (Advisor side)** — the sibling-envelope reader/matcher and the EXPLAIN
+   panel's "Related Saropa Suite Findings" section have shipped (see the R3 Status note above).
+   Remaining: the standalone index/anomaly surfaces and dashboard, and the per-finding deep-link back
+   to the sibling.
 3. **Drift Health loop (R4 / Section 5).** The flagship; structurally uncopyable.
 4. **Commit correlation (R6 / Section 6).**
 5. **Shared infra extraction (Section 7).** Highest code-debt payoff; consolidation of code that has

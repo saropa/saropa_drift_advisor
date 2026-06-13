@@ -5,7 +5,18 @@
 
 import type { IExplainNode } from './explain-panel';
 import type { IndexSuggestion } from '../api-client';
+import type { SuiteDiagnostic } from '../suite/suite-diagnostics';
 import { t } from '../l10n';
+
+/** Human label for a sibling tool's machine source token (brand names, kept as-is). */
+function suiteSourceLabel(source: string | undefined): string {
+  switch (source) {
+    case 'lints': return 'Saropa Lints';
+    case 'log-capture': return 'Saropa Log Capture';
+    case 'advisor': return 'Saropa Drift Advisor';
+    default: return source ?? 'Saropa Suite';
+  }
+}
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -64,14 +75,46 @@ function renderSuggestions(suggestions: IndexSuggestion[]): string {
   return `<h3>${t('panel.query.explain.section.suggestions')}</h3>\n${items}`;
 }
 
+/**
+ * Render the cross-tool "Related Saropa Suite Findings" section (plan 67 R3).
+ * Each row shows the producing tool, the finding's own already-localized title
+ * (and optional detail), and its rule id when present. The title/detail are
+ * passthrough data from the sibling — never re-translated here.
+ */
+function renderSuiteNotes(notes: SuiteDiagnostic[]): string {
+  if (notes.length === 0) return '';
+  const items = notes
+    .map((n) => {
+      const src = esc(suiteSourceLabel(n.source));
+      const title = esc(n.title ?? n.detail ?? n.ruleId ?? '');
+      const detail = n.detail && n.detail !== n.title
+        ? `<span class="suite-detail">${esc(n.detail)}</span>`
+        : '';
+      const rule = n.ruleId
+        ? `<code class="suite-rule">${esc(n.ruleId)}</code>`
+        : '';
+      const sev = esc(n.severity ?? 'info');
+      return `<div class="suite-note suite-${sev}">
+  <span class="suite-src">${src}</span>
+  <span class="suite-title">${title}</span>
+  ${detail}
+  ${rule}
+</div>`;
+    })
+    .join('\n');
+  return `<h3>${t('panel.query.explain.section.suiteRelated')}</h3>\n${items}`;
+}
+
 /** Build self-contained HTML for the explain query plan panel. */
 export function buildExplainHtml(
   sql: string,
   nodes: IExplainNode[],
   suggestions: IndexSuggestion[],
+  suiteNotes: SuiteDiagnostic[] = [],
 ): string {
   const tree = nodes.map((n) => renderNode(n)).join('\n');
   const suggestionsHtml = renderSuggestions(suggestions);
+  const suiteHtml = renderSuiteNotes(suiteNotes);
 
   const body = `
 <h2>${t('panel.query.explain.title')}</h2>
@@ -81,7 +124,8 @@ export function buildExplainHtml(
 </div>
 <div class="sql-block"><code>${esc(sql)}</code></div>
 <div class="tree">${tree}</div>
-${suggestionsHtml}`;
+${suggestionsHtml}
+${suiteHtml}`;
 
   return wrapHtml(body);
 }
@@ -179,6 +223,36 @@ function wrapHtml(body: string): string {
     font-size: 13px;
     display: block;
     margin-bottom: 6px;
+  }
+  .suite-note {
+    margin: 8px 0;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: var(--vscode-editor-inactiveSelectionBackground, #333);
+    border-left: 4px solid var(--vscode-panel-border, #444);
+  }
+  .suite-note.suite-error { border-left-color: #dc3545; }
+  .suite-note.suite-warning { border-left-color: #e0a800; }
+  .suite-note.suite-info { border-left-color: #0e639c; }
+  .suite-src {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.8;
+    margin-right: 8px;
+  }
+  .suite-title { font-size: 13px; }
+  .suite-detail {
+    display: block;
+    font-size: 12px;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+  .suite-rule {
+    display: inline-block;
+    font-size: 11px;
+    opacity: 0.6;
+    margin-top: 4px;
   }
 </style>
 </head>
