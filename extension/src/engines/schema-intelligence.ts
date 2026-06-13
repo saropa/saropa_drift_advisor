@@ -89,26 +89,42 @@ export class SchemaIntelligence implements vscode.Disposable {
     }
 
     this._loading = true;
-    this._loadPromise = this._loadInsights();
+    const load = this._loadInsights();
+    this._loadPromise = load;
 
     try {
-      this._cache = await this._loadPromise;
-      this._cacheTime = Date.now();
-      this._onDidChange.fire(this._cache);
-      return this._cache;
+      const result = await load;
+      // Commit only if this load is still the current one. checkGeneration may
+      // have superseded it (a migration landed mid-load); committing then would
+      // cache pre-migration data. The `=== load` guard drops the stale result.
+      // See plans/full-codebase-audit-2026.06.12.md M12.
+      if (this._loadPromise === load) {
+        this._cache = result;
+        this._cacheTime = Date.now();
+        this._onDidChange.fire(result);
+      }
+      return result;
     } finally {
-      this._loading = false;
-      this._loadPromise = undefined;
+      if (this._loadPromise === load) {
+        this._loading = false;
+        this._loadPromise = undefined;
+      }
     }
   }
 
-  /** Invalidate cache on generation change. */
+  /** Invalidate cache on generation change. Returns true when the generation
+   *  actually advanced (and the cache was dropped). */
   async checkGeneration(): Promise<boolean> {
     try {
       const gen = await this._client.generation(0);
       if (gen !== this._generation) {
         this._generation = gen;
+        // Drop the cache AND its timestamp, and supersede any in-flight load so
+        // it cannot commit stale (pre-migration) insights via the guard above.
         this._cache = undefined;
+        this._cacheTime = 0;
+        this._loadPromise = undefined;
+        this._loading = false;
         return true;
       }
       return false;

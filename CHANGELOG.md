@@ -71,6 +71,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 - **More accurate numeric outlier detection.** The data-quality scan now computes column variance in a numerically stable two-pass form (the previous one-pass formula lost precision on large-magnitude columns, so it could miss real outliers or flag normal values), and its log-scale check for wide, log-normal columns is now based on the actual distribution of the values rather than a circular range estimate.
 - **Correct "safe delete" planning and relationship traversal.** The cascade-delete plan now includes the leaf rows that actually hold the blocking foreign keys (previously skipped, so the plan could never complete), targets each row by its own primary-key column (not the root's), tracks the true nesting depth, and guards against cyclic foreign-key graphs.
 - **Accurate query statistics.** Query execution counts (which drive slow-query detection and index suggestions) no longer inflate over time — each recorded query is now counted once instead of being re-tallied on every periodic refresh.
+- **Diagnostics fixes.** A diagnostic on an `INSERT … SELECT` statement is now attributed to the inserted-into table (not the source table); per-table diagnostic exclusions now also apply to runtime/query events (the key they carried was never matched); and schema insights refresh on a real schema change instead of serving stale data until a timer lapses.
 
 </details>
 
