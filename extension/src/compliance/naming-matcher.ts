@@ -12,13 +12,26 @@ const CONVENTION_PATTERNS: Record<NamingConvention, RegExp> = {
   UPPER_SNAKE: /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/,
 };
 
-/** Check whether `name` matches the given naming convention. */
+/** Check whether `name` matches the given naming convention.
+ *
+ * Fails CLOSED on an unknown convention (returns false). A typo'd convention in
+ * `.drift-rules.json` (e.g. `"snakecase"`) previously returned true, silently
+ * marking every name compliant and disabling the rule without any signal.
+ * See plans/full-codebase-audit-2026.06.12.md M13.
+ */
 export function matchesConvention(
   name: string,
   convention: NamingConvention,
 ): boolean {
   const pattern = CONVENTION_PATTERNS[convention];
-  return pattern ? pattern.test(name) : true;
+  return pattern ? pattern.test(name) : false;
+}
+
+/** True when `convention` is one of the known naming conventions. Used to
+ *  validate config so an unknown value can be reported rather than silently
+ *  disabling the check. */
+export function isKnownConvention(convention: string): convention is NamingConvention {
+  return Object.prototype.hasOwnProperty.call(CONVENTION_PATTERNS, convention);
 }
 
 /** Human-readable label for a convention (used in diagnostic messages). */

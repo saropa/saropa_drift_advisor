@@ -3,6 +3,7 @@ import {
   matchesConvention,
   matchesFkPattern,
   conventionLabel,
+  isKnownConvention,
 } from '../compliance/naming-matcher';
 
 describe('matchesConvention', () => {
@@ -92,5 +93,21 @@ describe('conventionLabel', () => {
     assert.strictEqual(conventionLabel('camelCase'), 'camelCase');
     assert.strictEqual(conventionLabel('PascalCase'), 'PascalCase');
     assert.strictEqual(conventionLabel('UPPER_SNAKE'), 'UPPER_SNAKE');
+  });
+});
+
+// Audit M13: an unknown/typo'd convention must fail CLOSED, not mark everything
+// compliant.
+describe('matchesConvention fail-closed (M13)', () => {
+  it('returns false for an unknown convention', () => {
+    assert.strictEqual(
+      matchesConvention('anything', 'snakecase' as never),
+      false,
+    );
+  });
+
+  it('isKnownConvention distinguishes valid from typo', () => {
+    assert.strictEqual(isKnownConvention('snake_case'), true);
+    assert.strictEqual(isKnownConvention('snakecase'), false);
   });
 });
