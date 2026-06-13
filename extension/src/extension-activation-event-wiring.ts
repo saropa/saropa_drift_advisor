@@ -152,6 +152,11 @@ export function wireEventListeners(
   // Schema generation watcher — refreshes tree, caches, linters, etc.
   d.watcher.onDidChange(async () => {
     d.schemaCache.invalidate();
+    // Drop the SchemaIntelligence cache on a real generation change so schema
+    // insights (and the diagnostics built from them, refreshed below) reflect
+    // the new schema instead of serving stale data until the TTL lapses. This
+    // call was previously never made. See plans/full-codebase-audit-2026.06.12.md M12.
+    d.intel?.schemaIntel.checkGeneration().catch(() => {});
     if (!d.getLightweight() && d.providers) {
       void d.providers.treeProvider.refresh();
       d.providers.definitionProvider.clearCache();

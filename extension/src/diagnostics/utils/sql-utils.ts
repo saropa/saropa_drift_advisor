@@ -21,17 +21,23 @@ export function isReadQuery(sql: string): boolean {
  * @returns Table name or null if not matched
  */
 export function extractTableFromSql(sql: string): string | null {
-  const fromMatch = sql.match(/FROM\s+"?(\w+)"?/i);
-  if (fromMatch) return fromMatch[1];
-
-  const insertMatch = sql.match(/INSERT\s+INTO\s+"?(\w+)"?/i);
+  // Classify by the LEADING verb first. Matching FROM first returned the wrong
+  // table for `INSERT INTO logs SELECT * FROM users` (it picked `users`, the
+  // source, not `logs`, the target). INSERT/UPDATE/DELETE are anchored to the
+  // statement start so the write target wins over any later FROM.
+  // See plans/full-codebase-audit-2026.06.12.md M12.
+  const insertMatch = sql.match(/^\s*INSERT\s+INTO\s+"?(\w+)"?/i);
   if (insertMatch) return insertMatch[1];
 
-  const updateMatch = sql.match(/UPDATE\s+"?(\w+)"?/i);
+  const updateMatch = sql.match(/^\s*UPDATE\s+"?(\w+)"?/i);
   if (updateMatch) return updateMatch[1];
 
-  const deleteMatch = sql.match(/DELETE\s+FROM\s+"?(\w+)"?/i);
+  const deleteMatch = sql.match(/^\s*DELETE\s+FROM\s+"?(\w+)"?/i);
   if (deleteMatch) return deleteMatch[1];
+
+  // SELECT (or anything else): the first FROM clause names the primary table.
+  const fromMatch = sql.match(/\bFROM\s+"?(\w+)"?/i);
+  if (fromMatch) return fromMatch[1];
 
   return null;
 }
