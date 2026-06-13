@@ -112,4 +112,14 @@ describe('SnippetStore', () => {
     const json = JSON.stringify({ $schema: 'wrong', snippets: [] });
     assert.throws(() => store.importFrom(json), /drift-snippets\/v1/);
   });
+
+  // Audit M5: untrusted import file must fail with a clear error, not crash.
+  it('should reject non-JSON import with a clear error', () => {
+    assert.throws(() => store.importFrom('{not json'), /not valid JSON/);
+  });
+
+  it('should reject import whose snippets is not an array', () => {
+    const json = JSON.stringify({ $schema: 'drift-snippets/v1', snippets: 42 });
+    assert.throws(() => store.importFrom(json), /must be an array/);
+  });
 });

@@ -33,8 +33,17 @@ export class PerfBaselineStore {
   private _listeners: Array<() => void> = [];
 
   constructor(private readonly _state: vscode.Memento) {
+    // Guard against a corrupted/version-mismatched persisted value: a non-array
+    // (or entries missing normalizedSql) would otherwise throw in the
+    // constructor and break store creation. See plans/full-codebase-audit-2026.06.12.md M5.
     const raw = _state.get<IPerfBaseline[]>(STORAGE_KEY, []);
-    this._baselines = new Map(raw.map((b) => [b.normalizedSql, b]));
+    const valid = Array.isArray(raw)
+      ? raw.filter(
+          (b): b is IPerfBaseline =>
+            b != null && typeof (b as IPerfBaseline).normalizedSql === 'string',
+        )
+      : [];
+    this._baselines = new Map(valid.map((b) => [b.normalizedSql, b]));
   }
 
   onDidChange(listener: () => void): { dispose: () => void } {
