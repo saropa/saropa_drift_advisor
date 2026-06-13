@@ -477,8 +477,8 @@ def _confirm_dart_publish(version: str) -> bool:
     print("    4. Create GitHub release")
     print(f"\n  {C.RED}These actions are irreversible.{C.RESET}")
 
-    # Default to "no" to prevent accidental publishes.
-    return ask_yn("Proceed with publish?", default=False)
+    # Default to "yes" so a bare Enter proceeds with the publish.
+    return ask_yn("Proceed with publish?", default=True)
 
 
 def _confirm_full_publish(dart_version: str, ext_version: str) -> bool:
@@ -519,8 +519,8 @@ def _confirm_full_publish(dart_version: str, ext_version: str) -> bool:
     print("    5. Create GitHub releases for both")
     print(f"\n  {C.RED}These actions are irreversible.{C.RESET}")
 
-    # Default to "no" — safety first.
-    return ask_yn("Proceed with publish?", default=False)
+    # Default to "yes" so a bare Enter proceeds with the publish.
+    return ask_yn("Proceed with publish?", default=True)
 
 
 def _run_publish(target, dart_version, ext_version, vsix_path, results, ext_lint_report=None):
