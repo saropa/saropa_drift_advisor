@@ -37,12 +37,18 @@ browse source on
   **VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
 
   **Open VSX Registry** - [open-vsx.org / extension / saropa / drift-viewer](https://open-vsx.org/extension/saropa/drift-viewer)
+  
+  **Repo** - [github.com / saropa / saropa_drift_advisor](https://github.com/saropa/saropa_drift_advisor)
 
 ---
 
 ## [Unreleased]
 
 The debug server is now private by default: it binds to your machine only (127.0.0.1) and no longer sends a wildcard cross-origin header, so other devices on your network — and random websites you visit while debugging — can't reach your app's database. If you relied on connecting from another device, pass `loopbackOnly: false` (and set an `authToken`). [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Improved
+
+- **Cleaner Settings panel.** Numeric limits (SQL history size, saved analyses, slow-query threshold, page size) now show thousands separators in your language's format (e.g. `1,000`) and have a tidier stepper with more room around the value. Every setting row now lines its control up on the right with its description underneath, so values, dropdowns, and toggles all sit on one consistent column instead of some dropping onto their own line.
 
 ### Fixed
 

@@ -5582,28 +5582,45 @@ body.theme-midnight #tab-bar.tab-bar {
   opacity: 0.7;
 }
 
-/* --- Rows: each setting --- */
+/* --- Rows: each setting ---
+   Two-column grid so every row is laid out identically: the label on the left,
+   the control (number stepper / select / toggle) inline on the right, and the
+   optional sublabel spanning the full width underneath. Explicit grid-areas
+   mean the visual layout is independent of DOM order, so rows with and without
+   a sublabel — and number vs. select vs. toggle controls — all align the same
+   way. (Previous flex+wrap layout pushed sublabel'd controls onto their own
+   line, so some values/toggles landed underneath instead of inline.) */
 .settings-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "label control" "sub    sub";
   align-items: center;
-  gap: var(--space-2, 0.5rem);
+  column-gap: var(--space-3, 0.75rem);
+  row-gap: var(--space-1, 0.25rem);
   padding: var(--space-2, 0.5rem) 0;
   cursor: default;
 }
 
 .settings-label {
-  flex: 1 1 auto;
+  grid-area: label;
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--fg);
 }
 
 .settings-sublabel {
-  flex-basis: 100%;
+  grid-area: sub;
   font-size: 0.75rem;
   color: var(--muted);
-  margin-top: calc(-1 * var(--space-1, 0.25rem));
+}
+
+/* Every right-hand control shares the "control" cell, pinned to the right
+   edge so values and toggles line up in a single column down the panel. */
+.settings-input,
+.settings-stepper,
+.settings-switch {
+  grid-area: control;
+  justify-self: end;
 }
 
 /* --- Number & select inputs --- */
@@ -5625,12 +5642,59 @@ body.theme-midnight #tab-bar.tab-bar {
 }
 
 .settings-input-number {
-  width: 6rem;
+  width: 5.5rem;
   text-align: right;
+  /* Extra inline padding so the grouped value (e.g. 60,000) has breathing
+     room from the field edges and the adjacent stepper buttons, rather than
+     hugging the border. */
+  padding-left: var(--space-3, 0.75rem);
+  padding-right: var(--space-2, 0.5rem);
 }
 
 .settings-input-select {
   min-width: 6rem;
+}
+
+/* --- Number stepper (custom up/down beside the value) ---
+   Replaces the native type="number" spinner, which cannot display locale
+   grouping separators and renders inconsistently across browsers. The input
+   and the button stack share a single rounded shell. */
+.settings-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  gap: var(--space-1, 0.25rem);
+}
+
+.settings-stepper-btns {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.settings-stepper-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 0.85rem;
+  padding: 0;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.settings-stepper-btn:hover {
+  color: var(--fg);
+  border-color: var(--link);
+}
+
+.settings-stepper-btn .material-symbols-outlined {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 /* --- Toggle switch (mirrors hamburger-switch pattern) --- */
@@ -5650,7 +5714,6 @@ body.theme-midnight #tab-bar.tab-bar {
 }
 
 .settings-switch {
-  margin-left: auto;
   position: relative;
   display: inline-block;
   width: 36px;
@@ -5682,8 +5745,10 @@ body.theme-midnight #tab-bar.tab-bar {
   transform: translateX(16px);
 }
 
-/* --- Action rows (clear data, reset) --- */
+/* --- Action rows (clear data, reset) ---
+   Override the grid base: a button stacked above its hint, left-aligned. */
 .settings-row-actions {
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2, 0.5rem);
@@ -5750,6 +5815,7 @@ body.theme-midnight #tab-bar.tab-bar {
   .settings-switch,
   .settings-switch::after,
   .settings-input,
+  .settings-stepper-btn,
   .btn-danger-outline,
   .btn-outline {
     transition: none;
