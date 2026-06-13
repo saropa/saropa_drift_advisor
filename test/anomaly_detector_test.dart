@@ -928,11 +928,12 @@ void main() {
       test(
         'no outlier for log-normal distributions (log-scale fallback)',
         () async {
-          // Engagement points [4, 337] with avg 80.61 fail
-          // on a linear scale but pass on log scale:
-          //   log(4)=1.39, log(337)=5.82, log(80.61)=4.39
-          //   logRange=4.43, logStddev=1.11
-          //   logMaxDev=|5.82-4.39|=1.43 < 3×1.11=3.33 → OK
+          // Engagement points [4, 337], avg 80.61, fail the LINEAR 3σ check but
+          // are log-normal, so the log-scale check (now computed from the real
+          // mean/variance of LN(x)) suppresses the flag:
+          //   geometric mean of logs ≈ 4.0, log variance ≈ 1.21 (logStddev 1.1)
+          //   logMaxDev=|ln(337)-4.0|=1.82 < 3×1.1=3.3 → suppressed
+          //   logMinDev=|ln(4)-4.0|=2.61 < 3.3 → suppressed
           final result = await AnomalyDetector.getAnomaliesResult(
             _anomalyQuery(
               tableColumns: {
@@ -950,6 +951,10 @@ void main() {
                   // stddev ≈ 50, so maxDev = |337-80.61| = 256
                   // > 3×50 = 150 → fails linear check.
                   'variance': 2500.0,
+                  // Log-space stats (mean of LN(x), mean of LN(x)²): geometric
+                  // mean ~e^4, variance 17.21-16=1.21 → logStddev 1.1.
+                  'log_mean': 4.0,
+                  'log_sqmean': 17.21,
                 },
               },
             ),
@@ -1685,6 +1690,48 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
       }
       return [
         <String, dynamic>{'c': 0},
+      ];
+    }
+
+    // Log-scale stats query (M2): SELECT AVG(LN(col)) AS log_mean,
+    // AVG(LN(col)*LN(col)) AS log_sqmean. When the test supplies `log_mean` /
+    // `log_sqmean` in numericStats, return them so the log-scale suppression can
+    // be exercised; otherwise return no row (simulates a SQLite build without
+    // math functions — the detector then does not suppress).
+    if (sql.contains('AVG(LN(')) {
+      if (numericStats != null) {
+        for (final entry in numericStats.entries) {
+          final parts = entry.key.split('.');
+          if (sql.contains('"${parts[0]}"') && sql.contains('"${parts[1]}"')) {
+            final lm = entry.value['log_mean'];
+            final ls = entry.value['log_sqmean'];
+            if (lm != null && ls != null) {
+              return [
+                <String, dynamic>{'log_mean': lm, 'log_sqmean': ls},
+              ];
+            }
+          }
+        }
+      }
+      return <Map<String, dynamic>>[];
+    }
+
+    // Second-pass variance query (M2): SELECT AVG((col-mean)*(col-mean)) AS
+    // variance. Has AVG( but not MIN(/MAX(, so it is distinct from the stats
+    // query below. Returns the `variance` supplied in numericStats.
+    if (sql.contains('AS variance') && !sql.contains('MIN(')) {
+      if (numericStats != null) {
+        for (final entry in numericStats.entries) {
+          final parts = entry.key.split('.');
+          if (sql.contains('"${parts[0]}"') && sql.contains('"${parts[1]}"')) {
+            return [
+              <String, dynamic>{'variance': entry.value['variance'] ?? 0.0},
+            ];
+          }
+        }
+      }
+      return [
+        <String, dynamic>{'variance': 0.0},
       ];
     }
 

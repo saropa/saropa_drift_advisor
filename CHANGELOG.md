@@ -68,6 +68,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 - **Restoring a data branch is now atomic.** A branch restore applies all its table clears and row re-inserts in one server-side transaction that rolls back on any failure — a partway failure no longer leaves the database with some tables wiped and others repopulated. (It also now uses the write-enabled apply path; the previous path went through the read-only query endpoint and could not perform the restore at all.)
 - **CSV import preserves quoted data faithfully.** A newline inside a quoted CSV field no longer splits the row, and whitespace inside a quoted field is kept exactly (only unquoted fields are trimmed).
 - **SQL import handles semicolons inside string values.** A statement like `INSERT INTO t VALUES ('a;b')` is no longer shattered at the embedded semicolon; statements are split only at real statement boundaries (semicolons inside strings and comments are ignored).
+- **More accurate numeric outlier detection.** The data-quality scan now computes column variance in a numerically stable two-pass form (the previous one-pass formula lost precision on large-magnitude columns, so it could miss real outliers or flag normal values), and its log-scale check for wide, log-normal columns is now based on the actual distribution of the values rather than a circular range estimate.
 
 </details>
 
