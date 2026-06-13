@@ -46,6 +46,10 @@ browse source on
 
 The debug server is now private by default: it binds to your machine only (127.0.0.1) and no longer sends a wildcard cross-origin header, so other devices on your network — and random websites you visit while debugging — can't reach your app's database. If you relied on connecting from another device, pass `loopbackOnly: false` (and set an `authToken`). [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
 
+### Added
+
+- **`GET /api/issues` now returns the Saropa Diagnostic Envelope** — the shared cross-tool format used across Saropa Lints, Drift Advisor, and Saropa Log Capture. The response gains top-level `schemaVersion`, `producer`, and `generatedAt`, and each issue gains a stable `id` (locale-independent dedupe key), a `category` (`performance` / `data` / `schema`), and a `title` (the suite-standard alias of `message`). The change is additive — every existing field is unchanged — so current consumers need no update; `GET /api/health` now advertises the envelope's `schemaVersion` so a client can version-gate before parsing.
+
 ### Improved
 
 - **Cleaner Settings panel.** Numeric limits (SQL history size, saved analyses, slow-query threshold, page size) now show thousands separators in your language's format (e.g. `1,000`) and have a tidier stepper with more room around the value. Every setting row now lines its control up on the right with its description underneath, so values, dropdowns, and toggles all sit on one consistent column instead of some dropping onto their own line.

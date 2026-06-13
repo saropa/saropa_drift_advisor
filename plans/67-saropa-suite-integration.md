@@ -146,6 +146,21 @@ one of these documented ids.
   `category`, `table`, `sql`, and a `fix.command` pointing at a Lints rule when a runtime issue has a
   static counterpart (e.g. a missing-index issue links to `saropaLints.explainRule` for
   `require_database_index`). Advertise `schemaVersion` in `/api/health.capabilities`.
+  - **Status: partially shipped (this build).** Done: the envelope wrapper (`schemaVersion`,
+    `producer`, `generatedAt`) on `GET /api/issues`; per-issue `id` (locale-independent dedupe key),
+    `category` (`performance`/`data`/`schema`/`other`), and `title` (alias of `message`); the same
+    wrap on the VM-service `getIssues` RPC; `schemaVersion` advertised on `GET /api/health` (HTTP +
+    VM). Additive — existing fields untouched. Implemented in
+    [analytics_handler.dart](../lib/src/server/analytics_handler.dart) (`_wrapIssuesEnvelope`,
+    `_categoryForSource`, `_issueId`), [server_constants.dart](../lib/src/server/server_constants.dart),
+    [generation_handler.dart](../lib/src/server/generation_handler.dart),
+    [router.dart](../lib/src/server/router.dart); documented in [doc/API.md](../doc/API.md); covered by
+    `test/handler_integration_test.dart`.
+  - **Deferred (rest of R1):** per-diagnostic `source: "advisor"` is intentionally NOT emitted — tool
+    identity lives in `producer.name`, and the existing per-issue `source` field keeps its established
+    meaning (the *detector*: index-suggestion / anomaly / orphan-table / soft-relationship) for
+    backward compatibility. A normalized `sql` field and a `fix.command` deep-link to a Lints rule are
+    not yet wired (the latter needs the Section 3 command ids to exist in the Lints extension first).
 - **R2 — Write the offline mirror** to `.saropa/diagnostics/advisor.json` on each scan, so Lints and
   Log Capture can read Advisor's issues when the debug server is not running (Section 2.3).
 - **R3 — Consume sibling envelopes.** Read `.saropa/diagnostics/lints.json` and
@@ -220,7 +235,10 @@ visible from any entry point.
 ## 8. Phasing
 
 1. **Protocol first (R1, R2, R5).** Pure schema + command-id work, zero user-facing risk; everything
-   else depends on it.
+   else depends on it. **In progress** — the `/api/issues` envelope + `/api/health` `schemaVersion`
+   half of R1 has shipped in the Dart package (see R1 Status above). Still open in Phase 1: the offline
+   mirror R2 and the extension command ids R5 (both live in the `extension/` TypeScript, not the Dart
+   core), plus the `sql`/`fix.command` remainder of R1.
 2. **Consume + render (R3).** Each tool shows the others' relevant diagnostics with correct
    attribution.
 3. **Drift Health loop (R4 / Section 5).** The flagship; structurally uncopyable.
