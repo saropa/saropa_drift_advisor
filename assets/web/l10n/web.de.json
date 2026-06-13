@@ -1,0 +1,21 @@
+{
+  "masthead.status.offline": "Offline ist das offline.",
+  "masthead.status.online": "Online-Online-online, die online sind und sich auf dem Internet befinden.",
+  "masthead.status.paused": "Pausiert, angehalten",
+  "masthead.status.reconnecting": "Wieder verbinden ... wieder verbinden.",
+  "masthead.title.offline": "Offline  ⁇  Verbindung verloren. Wiederherstellen der Verbindung, um Live-Updates fortzusetzen.",
+  "masthead.title.online": "Online  ⁇  Klicken Sie, um die Änderungserkennung zu pausieren.",
+  "masthead.title.paused": "Pausiert  ⁇  klicken Sie, um die Live-Updates fortzusetzen.",
+  "masthead.title.reconnecting": "Offline  ⁇  Wiederherstellung der Verbindung...",
+  "msg.copied": "Kopiert auf die Zwischenablage.",
+  "msg.errorCopied": "Fehler kopiert in die Zwischenablage.",
+  "msg.rowsAffected": "{0} Reihen betroffen sind.",
+  "msg.sqlCopied": "SQL kopiert in die Zwischenablage.",
+  "nl.modal.cancel": "Stornieren Sie stornieren",
+  "nl.modal.copySql": "Kopieren Sie SQL-SQL.",
+  "nl.modal.dictate": "Diktieren, diktieren.",
+  "nl.modal.placeholder": "Beschreiben Sie die gewünschten Zeilen, in einfacher Sprache...",
+  "nl.modal.preview": "Vorschau auf die Ergebnisse.",
+  "nl.modal.title": "Fragen Sie auf Englisch.",
+  "nl.modal.use": "Verwenden verwenden verwinden verwenden"
+}
