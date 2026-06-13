@@ -4,7 +4,6 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import '../dvr_bindings.dart';
 
@@ -261,12 +260,15 @@ final class SqlHandler {
     final res = request.response;
     String body;
     try {
-      final builder = BytesBuilder();
-      await for (final chunk in request) {
-        builder.add(chunk);
+      final bytes = await ServerUtils.readBodyBytes(
+        request,
+        maxBytes: ServerConstants.maxRequestBodyBytes,
+      );
+      if (bytes == null) {
+        await _ctx.sendPayloadTooLarge(res);
+        return null;
       }
-
-      body = utf8.decode(builder.toBytes());
+      body = utf8.decode(bytes);
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       res.statusCode = HttpStatus.badRequest;

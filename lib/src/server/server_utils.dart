@@ -4,6 +4,8 @@
 
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'server_constants.dart';
 import 'server_typedefs.dart';
@@ -122,6 +124,40 @@ abstract final class ServerUtils {
     }
 
     return n > ServerConstants.maxOffset ? ServerConstants.maxOffset : n;
+  }
+
+  /// Reads the full request body into bytes, enforcing a [maxBytes] cap.
+  ///
+  /// Returns null when the body exceeds the cap — either by the declared
+  /// `Content-Length` (fast reject) or by the bytes actually streamed (a client
+  /// can lie about or omit Content-Length). The caller turns null into HTTP 413.
+  ///
+  /// Every POST handler buffers the whole body before validating it; without a
+  /// cap a client could stream an arbitrarily large body and exhaust memory
+  /// before any size check ran. See plans/full-codebase-audit-2026.06.12.md H3.
+  // ignore: avoid_redundant_async -- the `await for` over the request stream requires async; the lint only counts `await` expressions, not await-for
+  static Future<Uint8List?> readBodyBytes(
+    HttpRequest request, {
+    required int maxBytes,
+  }) async {
+    // Fast path: trust a declared length only to reject early. -1 means unknown.
+    final declared = request.contentLength;
+    if (declared > maxBytes) {
+      return null;
+    }
+
+    final builder = BytesBuilder(copy: false);
+    var total = 0;
+    await for (final chunk in request) {
+      total += chunk.length;
+      if (total > maxBytes) {
+        // Stop reading and signal overflow; the streamed size beat the cap
+        // regardless of what Content-Length claimed.
+        return null;
+      }
+      builder.add(chunk);
+    }
+    return builder.takeBytes();
   }
 
   /// Quotes [name] as a SQLite identifier (table or column), doubling any
