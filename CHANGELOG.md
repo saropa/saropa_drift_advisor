@@ -42,7 +42,7 @@ browse source on
 
 ## [3.7.3]
 
-Publish tooling now runs the runtime translation audit and points you at the command to open the translation util — no user-facing change.
+Publish tooling now runs the runtime translation audit and points you at the command to open the translation util — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.7.3/CHANGELOG.md)
 
 <details>
 <summary>Maintenance</summary>
@@ -54,6 +54,7 @@ Publish tooling now runs the runtime translation audit and points you at the com
 - **Fixed: 4 stale extension toolbar tests** — `hamburger-menu.test.ts` and `tab-icons-accent.test.ts` still asserted the Tables and Search toolbar buttons as `data-tool="…"` launchers, but those became permanent `data-panel-btn="…"` panel buttons; the assertions now match (and `tables`/`search` moved out of the `data-tool` launcher list into a dedicated `data-panel-btn` check). Buttons and glyphs were unchanged — this was a test/markup drift, not a regression.
 - **Split `constraint-wizard-html.ts` under the line limit** — extracted the static document shell (the `<style>` block and client `<script>`, ~140 lines) into a new `constraint-wizard-shell.ts` exporting `wrapConstraintWizardHtml(body)`, dropping the main file from 305 to 166 lines (under the 300 limit) so publish no longer prompts "Continue anyway?". Pure move; no behavior change.
 - **Clearer local-install label in publish** — the publish "Local Install" step's `Installed locally: code vX` line read as if it had just installed the new build, when it actually reports the EXTENSION version ALREADY installed in the editor (install happens at the later prompt). It also read as the editor's own version. Relabeled to `Currently installed drift-viewer: code vX` (and `drift-viewer not currently installed in VS Code or Cursor.`), naming the extension so the version can't be mistaken for VS Code's. `scripts/modules/pipeline.py`.
+- **Publish "Proceed?" prompts default to yes** — both the Dart-only and full (`all`) publish confirmation prompts now default to yes, so pressing Enter at `Proceed with publish?` proceeds instead of aborting. `scripts/publish.py`.
 
 </details>
 
@@ -141,7 +142,7 @@ Paste a query and see it as a diagram: the web viewer's query builder can now tu
 
 ## [3.7.0]
 
-Two new ways to work with your data over time: a **Time Travel** slider to scrub a table's snapshot history, and **Data Branches** to capture, diff, and restore named snapshots of the whole database like `git stash` for your data.
+Two new ways to work with your data over time: a **Time Travel** slider to scrub a table's snapshot history, and **Data Branches** to capture, diff, and restore named snapshots of the whole database like `git stash` for your data. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.7.0/CHANGELOG.md)
 
 ### Added
 
@@ -173,6 +174,8 @@ Two new ways to work with your data over time: a **Time Travel** slider to scrub
 
 ## [3.6.1]
 
+Spots leftover tables that physically sit in your SQLite file but your Drift schema no longer declares, so you can clean up after old migrations. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.6.1/CHANGELOG.md)
+
 ### Added
 
 - **Orphan physical-table check** — flags tables that physically exist in the SQLite file but are not declared anywhere in your Drift schema (typically left behind by a migration whose Drift definition was later removed or renamed). These are invisible to a schema-first audit and silently bloat the database, so the check starts from the physical side: it enumerates the real tables and subtracts the ones your schema declares. Findings appear in `GET /api/issues` (alongside index suggestions and anomalies) and at the new `GET /api/analytics/orphan-tables` endpoint, each naming the exact table and suggesting a `DROP TABLE` you can run by hand. It is report-only and never drops anything. When you start the viewer with `startDriftViewer`, the declared table set is derived automatically from your Drift database; with the callback API, pass the new `declaredTableNames` parameter to enable it. Without a declared set the check stays silent, so it never produces false positives. Android's `android_metadata` bookkeeping table is excluded by default (`lib/src/server/orphan_table_detector.dart`, `lib/src/server/analytics_handler.dart`, `lib/src/server/router.dart`, `lib/src/server/server_context.dart`, `lib/src/start_drift_viewer_extension.dart`, `lib/src/drift_debug_server_io.dart`)
@@ -187,6 +190,8 @@ Two new ways to work with your data over time: a **Time Travel** slider to scrub
 ---
 
 ## [3.6.0]
+
+The startup banner now shows the exact `adb forward` command and the real bound port for emulator and device debugging, NULL cells in data tables render dimmed (with a display option), and tables-sidebar row counts read as quieter secondary text. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.6.0/CHANGELOG.md)
 
 ### Improved
 
