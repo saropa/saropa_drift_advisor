@@ -219,6 +219,56 @@ void main() {
       });
     });
 
+    // Regression for audit H1: the old regex chain stripped comments before
+    // masking strings, so an apostrophe inside a comment (or a comment marker
+    // inside a string) desynchronized quote pairing and hid a trailing write
+    // statement. The single-pass tokenizer must catch all of these.
+    group('comment/string desync bypasses are rejected (H1)', () {
+      test('apostrophe in trailing comment cannot hide a stacked DROP', () {
+        expect(
+          SqlValidator.isReadOnlySql("SELECT 'a -- b' ; DROP TABLE t --"),
+          isFalse,
+        );
+      });
+
+      test('comment marker inside a string literal does not unmask SQL', () {
+        expect(
+          SqlValidator.isReadOnlySql("SELECT '/* ' ; DELETE FROM t WHERE 1 /*"),
+          isFalse,
+        );
+      });
+
+      test('bracket-quoted identifier cannot smuggle a second statement', () {
+        expect(
+          SqlValidator.isReadOnlySql('SELECT [c] FROM t; DROP TABLE t'),
+          isFalse,
+        );
+      });
+
+      test('backtick-quoted identifier cannot smuggle a second statement', () {
+        expect(
+          SqlValidator.isReadOnlySql('SELECT `c` FROM t; DROP TABLE t'),
+          isFalse,
+        );
+      });
+
+      test('semicolon INSIDE a string literal stays a single valid SELECT', () {
+        expect(
+          SqlValidator.isReadOnlySql("SELECT * FROM t WHERE note = 'a;b'"),
+          isTrue,
+        );
+      });
+
+      test('forbidden keyword only inside a string is still allowed', () {
+        expect(
+          SqlValidator.isReadOnlySql(
+            "SELECT * FROM t WHERE note = 'DROP TABLE'",
+          ),
+          isTrue,
+        );
+      });
+    });
+
     group('edge cases', () {
       test('empty string is rejected', () {
         expect(SqlValidator.isReadOnlySql(''), isFalse);

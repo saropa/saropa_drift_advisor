@@ -179,12 +179,49 @@ void main() {
         expect(ServerUtils.sqlLiteral("it's"), "'it''s'");
       });
 
-      test('escapes backslash in strings', () {
-        expect(ServerUtils.sqlLiteral(r'path\to'), r"'path\\to'");
+      test('leaves backslash untouched in strings (SQLite has no \\ escape)', () {
+        // SQLite string literals escape ONLY the single quote (''); backslash is
+        // an ordinary character. The old code doubled it, corrupting any value
+        // with a backslash (e.g. C:\path stored as C:\\path). The literal must
+        // preserve the backslash exactly. See audit C3.
+        expect(ServerUtils.sqlLiteral(r'path\to'), r"'path\to'");
       });
 
       test('returns hex literal for byte list', () {
         expect(ServerUtils.sqlLiteral(<int>[0xDE, 0xAD]), "X'dead'");
+      });
+
+      test('quoteIdent wraps and doubles embedded double-quotes (H2)', () {
+        expect(ServerUtils.quoteIdent('users'), '"users"');
+        // A legal SQLite identifier containing a quote must not break out.
+        expect(ServerUtils.quoteIdent('a"b'), '"a""b"');
+        expect(
+          ServerUtils.quoteIdent('x" = 1 OR "1"="1'),
+          '"x"" = 1 OR ""1""=""1"',
+        );
+      });
+
+      test('extractCountFromRows parses a String count (M1)', () {
+        // Some host executors return numeric columns as strings; the old code
+        // silently coerced those to 0, hiding every count-based anomaly.
+        expect(
+          ServerUtils.extractCountFromRows(<Map<String, dynamic>>[
+            {'c': '42'},
+          ]),
+          42,
+        );
+        expect(
+          ServerUtils.extractCountFromRows(<Map<String, dynamic>>[
+            {'c': 7},
+          ]),
+          7,
+        );
+        expect(
+          ServerUtils.extractCountFromRows(<Map<String, dynamic>>[
+            {'c': 'not-a-number'},
+          ]),
+          0,
+        );
       });
 
       test('returns quoted toString for other types', () {

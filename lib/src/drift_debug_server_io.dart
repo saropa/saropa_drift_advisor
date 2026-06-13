@@ -106,8 +106,18 @@ class _DriftDebugServerImpl {
     DriftDebugQueryWithBindings? queryWithBindings,
     bool enabled = true,
     int port = ServerConstants.defaultPort,
-    bool loopbackOnly = false,
-    String? corsOrigin = '*',
+    // SECURE DEFAULT: bind to loopback only. This server exposes the app's
+    // entire database; binding to 0.0.0.0 (the old default) made it readable
+    // by any host on the network. Hosts that genuinely need a non-loopback
+    // bind (e.g. an emulator/dev-tunnel scenario) must opt in explicitly and
+    // should also set an authToken. See plans/full-codebase-audit-2026.06.12.md C1.
+    bool loopbackOnly = true,
+    // SECURE DEFAULT: no Access-Control-Allow-Origin header. The wildcard '*'
+    // default let any website the developer visited read DB responses
+    // cross-origin (a DNS-rebinding / malicious-page vector). The web viewer is
+    // served same-origin and does not need CORS; only set this when a real
+    // cross-origin consumer requires it. See audit C1.
+    String? corsOrigin,
     String? authToken,
     String? basicAuthUser,
     String? basicAuthPassword,
@@ -426,8 +436,18 @@ mixin DriftDebugServer {
     DriftDebugQueryWithBindings? queryWithBindings,
     bool enabled = true,
     int port = ServerConstants.defaultPort,
-    bool loopbackOnly = false,
-    String? corsOrigin = '*',
+
+    /// SECURE DEFAULT (true): bind to 127.0.0.1 only. This server exposes the
+    /// app's whole database; the previous `false` default bound 0.0.0.0 and made
+    /// it readable by any host on the network. Pass `false` only for an
+    /// explicit emulator/dev-tunnel scenario, and set [authToken] when you do.
+    bool loopbackOnly = true,
+
+    /// SECURE DEFAULT (null = no header): Access-Control-Allow-Origin value. The
+    /// previous `'*'` default let any website read DB responses cross-origin.
+    /// The bundled web viewer is same-origin and needs no CORS; set this only
+    /// for a genuine cross-origin consumer.
+    String? corsOrigin,
     String? authToken,
     String? basicAuthUser,
     String? basicAuthPassword,

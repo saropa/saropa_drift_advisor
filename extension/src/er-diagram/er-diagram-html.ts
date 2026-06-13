@@ -6,6 +6,7 @@ import type { IErEdge, IErNode, LayoutMode } from './er-diagram-types';
 import { getErDiagramCss } from './er-diagram-styles';
 import { getErDiagramScript } from './er-diagram-script';
 import { t } from '../l10n';
+import { jsonForScript } from '../shared-utils';
 
 export function buildErDiagramHtml(
   nodes: IErNode[],
@@ -21,8 +22,11 @@ export function buildErDiagramHtml(
 </head><body><div class="empty">${t('panel.schema.er.empty')}</div></body></html>`;
   }
 
-  const nodesJson = JSON.stringify(nodes);
-  const edgesJson = JSON.stringify(edges);
+  // jsonForScript (not plain JSON.stringify): nodes/edges carry DB table and
+  // column names; a name containing `</script>` would otherwise break out of the
+  // inline <script> below. See plans/full-codebase-audit-2026.06.12.md C2.
+  const nodesJson = jsonForScript(nodes);
+  const edgesJson = jsonForScript(edges);
 
   return `<!DOCTYPE html>
 <html lang="en">

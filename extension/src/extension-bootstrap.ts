@@ -14,6 +14,7 @@ import { isDriftUiConnected } from './connection-ui-state';
 import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 import { refreshDvrStatusBar } from './dvr/dvr-status-bar';
+import { isLoopbackHost } from './shared-utils';
 
 /** Delay before trying adb forward after a Flutter/Dart debug session starts (ms). */
 const ADB_FORWARD_DELAY_MS = 5000;
@@ -58,6 +59,22 @@ export function bootstrapExtension(
   const authToken = cfg.get<string>('authToken', '') ?? '';
   if (authToken) client.setAuthToken(authToken);
 
+  // The auth token is only ever transmitted to a loopback host (enforced in
+  // DriftApiClientBase._headers and below for discovery). Warn loudly when a
+  // remote host is configured alongside a token so the user understands the
+  // token is being withheld rather than silently sent off-box.
+  // See plans/full-codebase-audit-2026.06.12.md H4.
+  const hostIsLoopback = isLoopbackHost(host);
+  if (authToken && !hostIsLoopback) {
+    connectionChannel.appendLine(
+      `[security] driftViewer.host is "${host}" (not loopback). The auth token ` +
+        'will NOT be sent to it — sending Bearer credentials to a non-local host ' +
+        'is blocked. Use a loopback host, or remove the token if a remote host is intended.',
+    );
+  }
+  // Gate the discovery probes' Bearer header the same way as the client.
+  const discoveryToken = hostIsLoopback ? (authToken || undefined) : undefined;
+
   const watcher = new GenerationWatcher(client);
   const lastKnownPorts = context.workspaceState.get<number[]>('driftViewer.lastKnownPorts', []);
   const discovery = new ServerDiscovery({
@@ -65,16 +82,23 @@ export function bootstrapExtension(
     portRangeStart: cfg.get<number>('discovery.portRangeStart', 8642) ?? 8642,
     portRangeEnd: cfg.get<number>('discovery.portRangeEnd', 8649) ?? 8649,
     additionalPorts: lastKnownPorts,
-    authHeaders: discoveryAuthHeadersFromToken(authToken || undefined),
+    authHeaders: discoveryAuthHeadersFromToken(discoveryToken),
   });
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       const driftCfg = vscode.workspace.getConfiguration('driftViewer');
-      if (e.affectsConfiguration('driftViewer.authToken')) {
+      if (
+        e.affectsConfiguration('driftViewer.authToken') ||
+        e.affectsConfiguration('driftViewer.host')
+      ) {
         const token = driftCfg.get<string>('authToken', '') ?? '';
+        const curHost = driftCfg.get<string>('host', '127.0.0.1') ?? '127.0.0.1';
         client.setAuthToken(token || undefined);
-        discovery.setAuthHeaders(discoveryAuthHeadersFromToken(token || undefined));
+        // Re-gate discovery's Bearer header: withhold it whenever the (possibly
+        // just-changed) host is not loopback. The client self-gates in _headers.
+        const gatedToken = isLoopbackHost(curHost) ? (token || undefined) : undefined;
+        discovery.setAuthHeaders(discoveryAuthHeadersFromToken(gatedToken));
       }
       if (e.affectsConfiguration('driftViewer.logVerbosity')) {
         logVerbosity = getLogVerbosity(driftCfg);

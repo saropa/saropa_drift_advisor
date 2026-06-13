@@ -1,5 +1,6 @@
 import type { ILineageNode, ILineageResult } from './lineage-types';
 import { t, getWebviewL10nMap } from '../l10n';
+import { attrJsString, jsonForScript } from '../shared-utils';
 
 /** Build the HTML for the data lineage webview panel. */
 export function buildLineageHtml(result: ILineageResult): string {
@@ -173,7 +174,7 @@ function clientScript(
     // display language and injects them here, because client-side render functions
     // have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
     // fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
-    const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.schema.lineage.']))};
+    const __VT = ${jsonForScript(getWebviewL10nMap(['panel.schema.lineage.']))};
     function vt(key) {
       const args = arguments;
       return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
@@ -190,9 +191,9 @@ function clientScript(
     }
     function retrace() {
       vscode.postMessage({ command: 'trace',
-        table: ${JSON.stringify(table)},
-        pkColumn: ${JSON.stringify(pkColumn)},
-        pkValue: ${JSON.stringify(pkValue)},
+        table: ${jsonForScript(table)},
+        pkColumn: ${jsonForScript(pkColumn)},
+        pkValue: ${jsonForScript(pkValue)},
         depth: Number(document.getElementById('depth').value),
         direction: document.querySelector('input[name="dir"]:checked').value });
     }
@@ -222,11 +223,17 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+// escAttr/escJs feed values into an inline onclick="navigate('…')" — a JS string
+// inside a double-quoted HTML attribute. The old versions escaped only the JS
+// quote, leaving a raw `"` free to close the attribute and a `<`/`>` free to
+// open a tag (stored XSS via DB table/column/PK values). Both now delegate to
+// the shared attrJsString, which is safe in BOTH the JS-string and
+// HTML-attribute contexts. See plans/full-codebase-audit-2026.06.12.md C2.
 function escAttr(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return attrJsString(s);
 }
 
 function escJs(v: unknown): string {
   if (typeof v === 'number') return String(v);
-  return `'${String(v).replace(/'/g, "\\'")}'`;
+  return `'${attrJsString(v)}'`;
 }

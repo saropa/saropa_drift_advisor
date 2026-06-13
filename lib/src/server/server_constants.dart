@@ -232,6 +232,10 @@ abstract final class ServerConstants {
   static const String jsonKeyStatements = 'statements';
   static const String jsonKeyCount = 'count';
   static const String jsonKeyOk = 'ok';
+
+  /// Rows actually changed by a cell update (from SQLite `changes()`), so the
+  /// client can warn when a stale primary key matched zero rows (audit H5).
+  static const String jsonKeyRowsAffected = 'rowsAffected';
   static const String jsonKeyFailedIndex = 'failedIndex';
   static const String jsonKeyFailedStatement = 'failedStatement';
 
