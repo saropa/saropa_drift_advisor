@@ -172,6 +172,13 @@ one of these documented ids.
   telemetry for the same table/query.
 - **R5 — Reciprocal deep-link targets.** Register the commands in Section 3 and keep their ids
   stable; treat them as public API (changelog any change).
+  - **Status: shipped (this build).** All five Section 3 command ids are registered as stable public
+    wrappers in [extension/src/suite/suite-commands.ts](../extension/src/suite/suite-commands.ts),
+    wired through the feature-module registry, declared in `extension/package.json` (NLS titles), and
+    asserted by `extension/src/test/extension.test.ts`. They delegate to existing internal commands
+    (or, for `openExplainForSql`, run the explain panel against the supplied SQL via the API client),
+    so the cross-tool contract is decoupled from internal command churn. Per-table focus for
+    `openTable`/`openSchemaForTable` is a future enhancement that will not change the ids or signatures.
 - **R6 — Commit correlation.** Stamp every emitted diagnostic with the current `commitSha` (Advisor
   already records session metadata SHAs for the Log Capture bridge) so Section 6 can align all three
   tools per commit.
@@ -235,10 +242,11 @@ visible from any entry point.
 ## 8. Phasing
 
 1. **Protocol first (R1, R2, R5).** Pure schema + command-id work, zero user-facing risk; everything
-   else depends on it. **In progress** — the `/api/issues` envelope + `/api/health` `schemaVersion`
-   half of R1 has shipped in the Dart package (see R1 Status above). Still open in Phase 1: the offline
-   mirror R2 and the extension command ids R5 (both live in the `extension/` TypeScript, not the Dart
-   core), plus the `sql`/`fix.command` remainder of R1.
+   else depends on it. **In progress** — R5 (the five public deep-link command ids) has shipped in the
+   extension, and the `/api/issues` envelope + `/api/health` `schemaVersion` half of R1 has shipped in
+   the Dart package (see the R1 and R5 Status notes above). Still open in Phase 1: the offline mirror
+   R2 (extension writes `.saropa/diagnostics/advisor.json`), plus the `sql`/`fix.command` remainder of
+   R1 — the `fix.command` work now has its target command ids to point at.
 2. **Consume + render (R3).** Each tool shows the others' relevant diagnostics with correct
    attribution.
 3. **Drift Health loop (R4 / Section 5).** The flagship; structurally uncopyable.
