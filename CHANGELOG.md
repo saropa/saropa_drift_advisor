@@ -66,6 +66,8 @@ The debug server is now private by default: it binds to your machine only (127.0
 ### Fixed
 
 - **Restoring a data branch is now atomic.** A branch restore applies all its table clears and row re-inserts in one server-side transaction that rolls back on any failure — a partway failure no longer leaves the database with some tables wiped and others repopulated. (It also now uses the write-enabled apply path; the previous path went through the read-only query endpoint and could not perform the restore at all.)
+- **CSV import preserves quoted data faithfully.** A newline inside a quoted CSV field no longer splits the row, and whitespace inside a quoted field is kept exactly (only unquoted fields are trimmed).
+- **SQL import handles semicolons inside string values.** A statement like `INSERT INTO t VALUES ('a;b')` is no longer shattered at the embedded semicolon; statements are split only at real statement boundaries (semicolons inside strings and comments are ignored).
 
 </details>
 

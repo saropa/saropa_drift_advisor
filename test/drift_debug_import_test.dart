@@ -324,6 +324,25 @@ void main() {
         expect(result.imported, 1);
         expect(executedSql, hasLength(1));
       });
+
+      test(
+        'keeps a semicolon inside a string literal as one statement (M11)',
+        () async {
+          final executedSql = <String>[];
+          final result = await processor.processImport(
+            format: 'sql',
+            data:
+                "INSERT INTO items (note) VALUES ('a;b'); "
+                "INSERT INTO items (note) VALUES ('c')",
+            table: 'items',
+            writeQuery: (sql) async => executedSql.add(sql),
+            sqlLiteral: testSqlLiteral,
+          );
+          // Two real statements — the ';' inside 'a;b' is not a separator.
+          expect(result.imported, 2);
+          expect(executedSql[0], contains("'a;b'"));
+        },
+      );
     });
 
     group('unsupported format', () {
@@ -416,5 +435,24 @@ void main() {
     test('returns empty list for whitespace-only input', () {
       expect(DriftDebugImportProcessor.parseCsvLines('  \n  \n  '), isEmpty);
     });
+
+    test('preserves a newline embedded in a quoted field (M10)', () {
+      final rows = DriftDebugImportProcessor.parseCsvLines(
+        'name,note\n"multi\nline","ok"',
+      );
+      // The quoted newline does NOT start a new record.
+      expect(rows, hasLength(2));
+      expect(rows[1][0], 'multi\nline');
+      expect(rows[1][1], 'ok');
+    });
+
+    test(
+      'preserves whitespace inside a quoted field, trims only unquoted (M10)',
+      () {
+        final rows = DriftDebugImportProcessor.parseCsvLines('"  a  ", b ');
+        expect(rows[0][0], '  a  '); // quoted: kept exactly
+        expect(rows[0][1], 'b'); // unquoted: trimmed
+      },
+    );
   });
 }
