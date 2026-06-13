@@ -40,6 +40,28 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+The debug server is now private by default: it binds to your machine only (127.0.0.1) and no longer sends a wildcard cross-origin header, so other devices on your network — and random websites you visit while debugging — can't reach your app's database. If you relied on connecting from another device, pass `loopbackOnly: false` (and set an `authToken`). [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Fixed
+
+- **Backslash data corruption on write.** Importing or cell-editing a value containing a backslash (for example a Windows path like `C:\Users`) no longer silently doubles the backslash in storage. SQLite string literals never used a backslash escape; the extra escaping corrupted data on every write path.
+- **Cell edits now report how many rows changed.** A cell update against a stale or mistyped primary key used to report success even when it matched no row; the response now carries the affected-row count so the editor can tell you nothing changed.
+- **Data-quality scan no longer silently under-reports.** When the host database returned row counts as text, the anomaly scan treated the count as zero and reported no issues; counts are now parsed whether numeric or text.
+
+### Changed
+
+- **BREAKING (secure defaults):** `DriftDebugServer.start` and `startDriftViewer` now default to `loopbackOnly: true` (was `false`, which bound `0.0.0.0` and exposed the database to the whole network) and `corsOrigin: null` (was `'*'`, which let any web page read DB responses cross-origin). The bundled web viewer is served same-origin and is unaffected. To restore the old behavior, pass `loopbackOnly: false` and `corsOrigin: '*'` explicitly — and set an `authToken` when binding beyond loopback.
+
+<details>
+<summary>Maintenance</summary>
+
+- Full-codebase security/quality audit recorded in `plans/full-codebase-audit-2026.06.12.md`. Phase 1 (secure boundaries): loopback default + no wildcard CORS; extension Bearer token withheld from non-loopback hosts; fixed confirmed webview/SPA XSS sinks (query-result rendering, lineage/impact inline handlers, ER-diagram `<script>` embedding, dashboard config form) via new `attrJsString`/`jsonForScript`/`isLoopbackHost` helpers; allowlisted dashboard `executeAction` to `driftViewer.*` commands.
+- Phase 2 (SQL integrity): all SQL identifier interpolation now routes through a single `ServerUtils.quoteIdent` helper (doubles embedded `"`); read-only SQL validator rewritten as a single-pass tokenizer that cannot be desynchronized by comments-inside-strings or strings-inside-comments (e.g. `SELECT 'a -- b' ; DROP TABLE t --` is now correctly rejected); cell-update PK value coerced against column affinity. Regression tests added for each.
+
+</details>
+
 ## [3.7.3]
 
 Publish tooling now runs the runtime translation audit and points you at the command to open the translation util — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.7.3/CHANGELOG.md)

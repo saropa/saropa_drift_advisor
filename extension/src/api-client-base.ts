@@ -28,6 +28,7 @@ import {
   sessionShareRequest,
 } from './api-client-sessions';
 import * as http from './api-client-http';
+import { isLoopbackHost } from './shared-utils';
 
 export class DriftApiClientBase {
   protected _baseUrl: string;
@@ -61,7 +62,13 @@ export class DriftApiClientBase {
 
   protected _headers(extra?: Record<string, string>): Record<string, string> {
     const h: Record<string, string> = { 'X-Drift-Client': 'vscode', ...extra };
-    if (this._authToken) {
+    // Only ever send the Bearer token to a loopback host. `host` comes from
+    // free-form workspace config (`driftViewer.host`), so a malicious
+    // `.vscode/settings.json` could otherwise exfiltrate the token to an
+    // attacker-chosen address on workspace open. Sending the token to a remote
+    // host is opt-out by omission here, not by trust of the config value.
+    // See plans/full-codebase-audit-2026.06.12.md H4.
+    if (this._authToken && isLoopbackHost(this.host)) {
       h['Authorization'] = `Bearer ${this._authToken}`;
     }
     return h;

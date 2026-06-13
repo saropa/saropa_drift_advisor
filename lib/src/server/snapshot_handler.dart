@@ -37,7 +37,7 @@ final class SnapshotHandler {
       final Map<String, List<Map<String, dynamic>>> data = {};
       for (final table in tables) {
         final List<Map<String, dynamic>> rows = await query(
-          'SELECT * FROM "$table"',
+          'SELECT * FROM ${ServerUtils.quoteIdent(table)}',
         );
         data[table] = rows.map((r) => Map<String, dynamic>.from(r)).toList();
       }
@@ -220,7 +220,9 @@ final class SnapshotHandler {
         final rowsNowList = toSnap == null
             ? (tablesNow.contains(table)
                   ? ServerUtils.normalizeRows(
-                      await query('SELECT * FROM "$table"'),
+                      await query(
+                        'SELECT * FROM ${ServerUtils.quoteIdent(table)}',
+                      ),
                     )
                   : <Map<String, dynamic>>[])
             : (toSnap.tables[table] ?? <Map<String, dynamic>>[]);
@@ -301,7 +303,7 @@ final class SnapshotHandler {
     required DriftDebugQuery query,
   }) async {
     final pkInfoRows = ServerUtils.normalizeRows(
-      await query('PRAGMA table_info("$table")'),
+      await query('PRAGMA table_info(${ServerUtils.quoteIdent(table)})'),
     );
 
     final pkColumns = <String>[];

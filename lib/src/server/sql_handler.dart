@@ -157,7 +157,9 @@ final class SqlHandler {
       final indexes = <String, List<Map<String, dynamic>>>{};
       for (final tableName in tableNames) {
         final idxRows = ServerUtils.normalizeRows(
-          await query('PRAGMA index_list("$tableName")'),
+          await query(
+            'PRAGMA index_list(${ServerUtils.quoteIdent(tableName)})',
+          ),
         );
         final tableIndexes = <Map<String, dynamic>>[];
         for (final idx in idxRows) {
@@ -165,7 +167,9 @@ final class SqlHandler {
           final unique = idx['unique'];
           if (idxName == null) continue;
           final infoRows = ServerUtils.normalizeRows(
-            await query('PRAGMA index_info("$idxName")'),
+            await query(
+              'PRAGMA index_info(${ServerUtils.quoteIdent(idxName)})',
+            ),
           );
           final columns = infoRows
               .map((r) => r['name']?.toString() ?? '')

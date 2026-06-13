@@ -112,7 +112,9 @@ final class CellUpdateHandler {
     }
 
     final infoRows = ServerUtils.normalizeRows(
-      await _ctx.instrumentedQuery('PRAGMA table_info("$table")'),
+      await _ctx.instrumentedQuery(
+        'PRAGMA table_info(${ServerUtils.quoteIdent(table)})',
+      ),
     );
     final columns = <String, _PragmaColumn>{};
     for (final r in infoRows) {
@@ -167,12 +169,28 @@ final class CellUpdateHandler {
       return;
     }
 
-    final setLit = ServerUtils.sqlLiteral(coerced.value);
-    final pkLit = ServerUtils.sqlLiteral(pkValueRaw);
+    // Coerce the PK value against the PK column's affinity, same as the cell
+    // value. Without this a string pkValue against an integer PK (or a JSON
+    // list/map) produces a WHERE that matches no row, yet the update reported
+    // success — a silent no-op. See plans/full-codebase-audit-2026.06.12.md H5.
+    final pkCoerced = _validateAndCoerceColumnValue(pkMeta, pkValueRaw);
+    if (pkCoerced.errorMessage != null) {
+      await _badRequest(
+        res,
+        'Primary key value invalid: ${pkCoerced.errorMessage!}',
+      );
+      return;
+    }
 
+    final setLit = ServerUtils.sqlLiteral(coerced.value);
+    final pkLit = ServerUtils.sqlLiteral(pkCoerced.value);
+
+    // Identifiers go through quoteIdent so a name containing `"` cannot break
+    // out of the quoting (audit H2).
     final sql =
-        'UPDATE "$table" SET "$column" = $setLit '
-        'WHERE "$pkColumn" = $pkLit';
+        'UPDATE ${ServerUtils.quoteIdent(table)} '
+        'SET ${ServerUtils.quoteIdent(column)} = $setLit '
+        'WHERE ${ServerUtils.quoteIdent(pkColumn)} = $pkLit';
 
     try {
       await writeQuery(sql);
@@ -189,10 +207,30 @@ final class CellUpdateHandler {
       return;
     }
 
+    // Surface the concrete outcome (rows changed) instead of a bare ok:true: a
+    // stale pkValue can match zero rows, and the user must see that the edit
+    // affected nothing. `changes()` reflects the last statement on the write
+    // connection (best-effort; a count-probe failure must not fail the update).
+    // Uses queryRaw so the probe stays out of the DVR/perf buffers (audit H5).
+    var rowsAffected = 0;
+    try {
+      final cr = ServerUtils.normalizeRows(
+        await _ctx.queryRaw('SELECT changes() AS c'),
+      );
+      rowsAffected = ServerUtils.extractCountFromRows(cr);
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+    }
+
     await _ctx.checkDataChange();
 
     _ctx.setJsonHeaders(res);
-    res.write(jsonEncode(<String, dynamic>{ServerConstants.jsonKeyOk: true}));
+    res.write(
+      jsonEncode(<String, dynamic>{
+        ServerConstants.jsonKeyOk: true,
+        ServerConstants.jsonKeyRowsAffected: rowsAffected,
+      }),
+    );
     await res.close();
   }
 

@@ -193,11 +193,21 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
       var prev = form.querySelector('.preview');
       if (prev) prev.textContent = sql;
     }
+    // Escape ALL dynamic values before they reach innerHTML. cols/rows are live
+    // DB column names + cell values and msg.message is SQLite error text (which
+    // echoes table/column/value) — any of them can contain HTML. Without this,
+    // a cell like <img src=x onerror=...> is stored XSS in the developer's
+    // browser. See plans/full-codebase-audit-2026.06.12.md C2.
+    function escHtml(v) {
+      return String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
     function renderResultTable(cid, cols, rows) {
       var el = document.getElementById(cid); if (!el) return;
-      var h = '<tr>' + cols.map(function(c) { return '<th>' + c + '</th>'; }).join('') + '</tr>';
+      var h = '<tr>' + cols.map(function(c) { return '<th>' + escHtml(c) + '</th>'; }).join('') + '</tr>';
       var b = rows.map(function(r) {
-        return '<tr>' + r.map(function(v) { return '<td>' + (v === null ? '<em>NULL</em>' : v) + '</td>'; }).join('') + '</tr>';
+        return '<tr>' + r.map(function(v) { return '<td>' + (v === null ? '<em>NULL</em>' : escHtml(v)) + '</td>'; }).join('') + '</tr>';
       }).join('');
       el.innerHTML = '<table class="result-table"><thead>' + h + '</thead><tbody>' + b + '</tbody></table>';
     }
@@ -207,7 +217,7 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
       else if (msg.command === 'queryResult') renderResultTable('result-' + msg.snippetId, msg.columns, msg.rows);
       else if (msg.command === 'error') {
         var el = document.getElementById('result-' + msg.snippetId);
-        if (el) el.innerHTML = '<p class="error">' + msg.message + '</p>';
+        if (el) el.innerHTML = '<p class="error">' + escHtml(msg.message) + '</p>';
       }
     });
   </script>

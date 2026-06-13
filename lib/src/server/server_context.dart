@@ -689,10 +689,9 @@ final class ServerContext {
       // and double quotes for the identifier, so table
       // names containing either character produce valid SQL.
       final literal = t.replaceAll("'", "''");
-      final identifier = t.replaceAll('"', '""');
 
       return "SELECT '$literal' AS t, COUNT(*) AS c "
-          'FROM "$identifier"';
+          'FROM ${ServerUtils.quoteIdent(t)}';
     });
     final sql = parts.join(' UNION ALL ');
 

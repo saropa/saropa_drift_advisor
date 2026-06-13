@@ -2,6 +2,7 @@ import type {
   IImpactBranch, IImpactResult, IImpactRow, IOutboundRef,
 } from './impact-types';
 import { t, getWebviewL10nMap } from '../l10n';
+import { attrJsString, jsonForScript } from '../shared-utils';
 
 /** Build the HTML for the row impact analysis webview panel. */
 export function buildImpactHtml(result: IImpactResult): string {
@@ -207,7 +208,7 @@ function clientScript(): string {
     // display language and injects them here, because client-side render functions
     // have no host t(). vt() does the same {0}/{1} substitution as the host runtime,
     // fail-soft to the key. Only this panel's keys are shipped (prefix-filtered).
-    const __VT = ${JSON.stringify(getWebviewL10nMap(['panel.quality.impact.']))};
+    const __VT = ${jsonForScript(getWebviewL10nMap(['panel.quality.impact.']))};
     function vt(key) {
       const args = arguments;
       return (__VT[key] || key).replace(/\\{(\\d+)\\}/g, (m, d) => {
@@ -246,11 +247,16 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+// Both feed DB table/column/PK values into an inline onclick="navigate('…')"
+// (JS string inside a double-quoted HTML attribute). The old escapers handled
+// only the JS quote, leaving `"`/`<`/`>` free to break out (stored XSS). They
+// now delegate to the shared attrJsString, safe in both contexts.
+// See plans/full-codebase-audit-2026.06.12.md C2.
 function escAttr(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return attrJsString(s);
 }
 
 function escJs(v: unknown): string {
   if (typeof v === 'number') return String(v);
-  return `'${String(v).replace(/'/g, "\\'")}'`;
+  return `'${attrJsString(v)}'`;
 }

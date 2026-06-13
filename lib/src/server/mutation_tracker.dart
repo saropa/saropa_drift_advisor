@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'server_typedefs.dart';
+import 'server_utils.dart';
 
 enum MutationType { insert, update, delete }
 
@@ -234,7 +235,8 @@ class MutationTracker {
     required String whereClause,
   }) async {
     try {
-      final sql = 'SELECT * FROM "$table" WHERE $whereClause';
+      final sql =
+          'SELECT * FROM ${ServerUtils.quoteIdent(table)} WHERE $whereClause';
       return await readQuery(sql);
     } on Object catch (error, stack) {
       // Capture is optional; log and continue when snapshot reads fail.
@@ -255,7 +257,9 @@ class MutationTracker {
     try {
       // Capture a single row (best-effort). For multi-row inserts, this will
       // only reflect the last inserted row.
-      final sql = 'SELECT * FROM "$table" WHERE rowid = last_insert_rowid()';
+      final sql =
+          'SELECT * FROM ${ServerUtils.quoteIdent(table)} '
+          'WHERE rowid = last_insert_rowid()';
       return await readQuery(sql);
     } on Object catch (error, stack) {
       // Capture is optional; log and continue when post-insert lookup fails.
