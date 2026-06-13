@@ -427,29 +427,9 @@ void main() {
       });
     });
 
-    group('parseCsvLines', () {
-      test('parses basic CSV rows', () {
-        final rows = ServerUtils.parseCsvLines('a,b\n1,2');
-        expect(rows, hasLength(2));
-        expect(rows[0], ['a', 'b']);
-        expect(rows[1], ['1', '2']);
-      });
-
-      test('handles quoted fields', () {
-        final rows = ServerUtils.parseCsvLines('name\n"a,b"');
-        expect(rows[1][0], 'a,b');
-      });
-
-      test('handles escaped quotes', () {
-        final rows = ServerUtils.parseCsvLines('name\n"he said ""hi"""');
-        expect(rows[1][0], 'he said "hi"');
-      });
-
-      test('skips empty lines', () {
-        final rows = ServerUtils.parseCsvLines('a\n\n1\n\n2');
-        expect(rows, hasLength(3));
-      });
-    });
+    // The duplicate ServerUtils.parseCsvLines was removed (audit L7); the
+    // canonical parser is covered by DriftDebugImportProcessor.parseCsvLines
+    // tests in drift_debug_import_test.dart.
 
     group('getTableNames', () {
       test('returns sorted table names excluding sqlite_ prefix', () async {

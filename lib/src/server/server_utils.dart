@@ -358,49 +358,13 @@ abstract final class ServerUtils {
     return null;
   }
 
-  /// Parses CSV text into a list of rows (each a list
-  /// of field strings).
-  ///
-  /// Returns a list where each element is one parsed
-  /// row. Handles quoted fields with embedded commas
-  /// and escaped quotes ("").
-  static List<List<String>> parseCsvLines(String csv) {
-    final result = <List<String>>[];
-    final lines = csv.split('\n');
-    final current = StringBuffer();
-
-    for (final line in lines) {
-      if (line.trim().isNotEmpty) {
-        final fields = <String>[];
-        var inQuotes = false;
-
-        current.clear();
-
-        for (int i = 0; i < line.length; i++) {
-          final c = line[i];
-
-          if (c == '"') {
-            if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
-              current.write('"');
-              i++;
-            } else {
-              inQuotes = !inQuotes;
-            }
-          } else if (c == ',' && !inQuotes) {
-            fields.add(current.toString().trim());
-            current.clear();
-          } else {
-            current.write(c);
-          }
-        }
-
-        fields.add(current.toString().trim());
-        result.add(fields);
-      }
-    }
-
-    return result;
-  }
+  // NOTE: the CSV parser previously duplicated here was removed (audit L7). It
+  // was the weaker of two copies — it split on `\n` before parsing quotes (so a
+  // quoted newline broke the row) and trimmed quoted content — and was used only
+  // by its own tests, never by production code. The canonical, RFC-4180-correct
+  // parser is `DriftDebugImportProcessor.parseCsvLines`, which the import path
+  // actually calls. Keeping one implementation avoids a future caller picking the
+  // weaker one.
 
   /// Severity sort order fallback for unknown values.
   static const int _unknownSeverityOrder = 3;
