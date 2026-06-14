@@ -14,6 +14,11 @@ extension/
 # GitHub CI/CD workflows and config
 .github/
 
+# Developer launch/test docs. The plural "docs/" also trips pub's
+# "rename top-level docs to doc" layout warning, which fails
+# `dart pub publish --dry-run` with exit code 65.
+/docs/
+
 # Node.js tooling (used by the VS Code extension build)
 node_modules/
 package.json
