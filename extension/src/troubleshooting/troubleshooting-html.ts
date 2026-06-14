@@ -146,7 +146,7 @@ export function buildTroubleshootingHtml(port: number): string {
   <button class="btn btn-secondary" data-action="openSettings">${t('panel.tools.trouble.btn.settings')}</button>
 </div>
 
-<script>
+<script nonce="__CSP_NONCE__">
   // Acquire the VS Code API for posting messages back to the extension
   const vscode = acquireVsCodeApi();
   document.addEventListener('click', (e) => {

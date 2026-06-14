@@ -2,7 +2,7 @@
  * Document shell for the Constraint Wizard webview.
  *
  * Holds the static HTML envelope: the `<style>` block (all wizard CSS) and the
- * client `<script>` that posts user actions back to the extension host. Split
+ * client `<script nonce="__CSP_NONCE__">` that posts user actions back to the extension host. Split
  * out of constraint-wizard-html.ts so the body-rendering helpers there stay
  * under the per-file line limit and aren't buried beneath ~140 lines of CSS.
  * Pure string assembly — no l10n or other imports, so it never needs the host
@@ -108,7 +108,7 @@ export function wrapConstraintWizardHtml(body: string): string {
 </head>
 <body>
 ${body}
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
 
   document.addEventListener('click', (e) => {

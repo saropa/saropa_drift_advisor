@@ -9,6 +9,7 @@ import type {
   IConstraintTestResult,
 } from './constraint-types';
 import { buildConstraintWizardHtml } from './constraint-wizard-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 let _nextId = 1;
 
@@ -73,10 +74,10 @@ export class ConstraintWizardPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildConstraintWizardHtml(
+    this._panel.webview.html = secureWebviewHtml(buildConstraintWizardHtml(
       this._table, this._columns, this._fks,
       this._drafts, this._results,
-    );
+    ));
   }
 
   private async _handleMessage(

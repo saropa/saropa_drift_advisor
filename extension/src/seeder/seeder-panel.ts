@@ -9,6 +9,7 @@ import type {
   SeederMessage,
   SeederOutputMode,
 } from './seeder-types';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton webview panel for test data seeder configuration. */
 export class SeederPanel {
@@ -62,9 +63,9 @@ export class SeederPanel {
   }
 
   private _render(preview?: ITableSeedResult[]): void {
-    this._panel.webview.html = buildSeederHtml(
+    this._panel.webview.html = secureWebviewHtml(buildSeederHtml(
       this._configs, preview,
-    );
+    ));
   }
 
   private async _handleMessage(msg: SeederMessage): Promise<void> {

@@ -9,6 +9,7 @@ import type { AnnotationIcon } from './annotation-types';
 import type { AnnotationStore } from './annotation-store';
 import type { IAnnotateFormContext } from './annotate-form-html';
 import { buildAnnotateFormHtml } from './annotate-form-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Non-singleton panel — a new form opens each time the user annotates. */
 export class AnnotateFormPanel {
@@ -49,7 +50,7 @@ export class AnnotateFormPanel {
       null,
       this._disposables,
     );
-    this._panel.webview.html = buildAnnotateFormHtml(this._ctx);
+    this._panel.webview.html = secureWebviewHtml(buildAnnotateFormHtml(this._ctx));
   }
 
   private _handleMessage(

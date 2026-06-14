@@ -20,7 +20,7 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
     const items = grouped[cat];
     const cards = items.map((s) => renderSnippetCard(s, tableOptions)).join('');
     return `<div class="category">
-      <div class="cat-header" onclick="toggleCategory(this)">
+      <div class="cat-header" data-click="toggleCategory" data-a0="$this">
         <span class="arrow">&#9660;</span> ${esc(cat)}
         <span class="count">(${items.length})</span>
       </div>
@@ -98,13 +98,13 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
   <h2>
     ${t('panel.notes.library.title')}
     <span class="toolbar">
-      <button onclick="showNewForm()">${t('panel.notes.library.btn.new')}</button>
-      <button class="secondary" onclick="post('importFile')">${t('panel.notes.library.btn.import')}</button>
-      <button class="secondary" onclick="post('exportAll')">${t('panel.notes.library.btn.export')}</button>
+      <button data-click="showNewForm">${t('panel.notes.library.btn.new')}</button>
+      <button class="secondary" data-click="post" data-a0="importFile">${t('panel.notes.library.btn.import')}</button>
+      <button class="secondary" data-click="post" data-a0="exportAll">${t('panel.notes.library.btn.export')}</button>
     </span>
   </h2>
   <input type="text" class="search" placeholder="${esc(t('panel.notes.library.search.placeholder'))}"
-         oninput="handleSearch(this.value)" />
+         data-input="handleSearch" data-a0="$value" />
   <div id="newForm" style="display:none" class="form-overlay">
     <div class="form-row"><label>${t('panel.notes.library.form.name')}</label>
       <input type="text" id="formName" placeholder="${esc(t('panel.notes.library.form.name.placeholder'))}" /></div>
@@ -119,14 +119,14 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
     <div class="form-row" style="align-items:flex-start"><label>${t('panel.notes.library.form.sql')}</label>
       <textarea id="formSql" placeholder="${esc(t('panel.notes.library.form.sql.placeholder'))}"></textarea></div>
     <div class="form-actions">
-      <button onclick="submitNewForm()">${t('panel.notes.library.btn.save')}</button>
-      <button class="secondary" onclick="hideNewForm()">${t('panel.notes.library.btn.cancel')}</button>
+      <button data-click="submitNewForm">${t('panel.notes.library.btn.save')}</button>
+      <button class="secondary" data-click="hideNewForm">${t('panel.notes.library.btn.cancel')}</button>
     </div>
   </div>
   <div id="snippetList">
     ${sections || `<p class="empty">${t('panel.notes.library.empty')}</p>`}
   </div>
-  <script>
+  <script nonce="__CSP_NONCE__">
     const vscode = acquireVsCodeApi();
 
     // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active
@@ -177,6 +177,13 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
     function showRunForm(id) {
       var el = document.getElementById('run-' + id);
       if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+    // Primary "Run" action on a snippet card. hasVars is '1'/'0' (data-a1) so the
+    // delegated dispatcher can pass it as a string; with variables, open the run
+    // form, otherwise run immediately with no values.
+    function runOrShow(id, hasVars) {
+      if (hasVars === '1') showRunForm(id);
+      else post('runSnippet', { id: id, values: {} });
     }
     function runSnippet(id) {
       var inputs = document.getElementById('run-' + id).querySelectorAll('[data-var]');

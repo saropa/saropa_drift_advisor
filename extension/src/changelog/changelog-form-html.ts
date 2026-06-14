@@ -116,7 +116,7 @@ export function buildChangelogFormHtml(
   <button class="btn btn-secondary" id="cancel">${t('panel.notes.changelog.btn.cancel')}</button>
 </div>
 
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
 
   document.getElementById('submit').addEventListener('click', () => {

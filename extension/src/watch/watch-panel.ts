@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getWatchHtml } from './watch-html';
 import { WatchManager } from './watch-manager';
+import { secureWebviewHtml } from '../webview-csp';
 
 /**
  * Singleton webview panel that displays all active data watches
@@ -55,7 +56,7 @@ export class WatchPanel {
     this._disposables.push(changeDisposable);
 
     // Set initial HTML scaffold
-    this._panel.webview.html = getWatchHtml();
+    this._panel.webview.html = secureWebviewHtml(getWatchHtml());
 
     // Send current state immediately
     this._postUpdate();

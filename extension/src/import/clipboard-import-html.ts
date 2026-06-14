@@ -281,7 +281,7 @@ ${getClipboardImportCss()}
 </head>
 <body>
 ${body}
-<script>${getClipboardImportScript()}
+<script nonce="__CSP_NONCE__">${getClipboardImportScript()}
 </script>
 </body>
 </html>`;

@@ -9,6 +9,7 @@ import { DriftApiClient } from '../api-client';
 import { GlobalSearchEngine } from './global-search-engine';
 import { buildGlobalSearchHtml } from './global-search-html';
 import type { ISearchResult, SearchMode, SearchScope } from './global-search-types';
+import { secureWebviewHtml } from '../webview-csp';
 
 interface ISearchMessage {
   command: 'search';
@@ -70,7 +71,7 @@ export class GlobalSearchPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildGlobalSearchHtml(this._lastResult);
+    this._panel.webview.html = secureWebviewHtml(buildGlobalSearchHtml(this._lastResult));
   }
 
   private async _handleMessage(msg: PanelMessage): Promise<void> {
@@ -87,15 +88,15 @@ export class GlobalSearchPanel {
   private async _doSearch(
     query: string, mode: SearchMode, scope: SearchScope,
   ): Promise<void> {
-    this._panel.webview.html = buildGlobalSearchHtml(undefined, true);
+    this._panel.webview.html = secureWebviewHtml(buildGlobalSearchHtml(undefined, true));
 
     try {
       this._lastResult = await this._engine.search(query, mode, scope);
-      this._panel.webview.html = buildGlobalSearchHtml(this._lastResult);
+      this._panel.webview.html = secureWebviewHtml(buildGlobalSearchHtml(this._lastResult));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this._lastResult = undefined;
-      this._panel.webview.html = buildGlobalSearchHtml();
+      this._panel.webview.html = secureWebviewHtml(buildGlobalSearchHtml());
       vscode.window.showErrorMessage(`Search failed: ${message}`);
     }
   }

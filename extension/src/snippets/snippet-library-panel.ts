@@ -4,6 +4,7 @@ import type { DriftApiClient } from '../api-client';
 import { buildSnippetLibraryHtml } from './snippet-library-html';
 import { SnippetRunner, snippetUuid } from './snippet-runner';
 import type { SnippetStore } from './snippet-store';
+import { secureWebviewHtml } from '../webview-csp';
 
 interface IRunMessage {
   command: 'runSnippet';
@@ -100,11 +101,11 @@ export class SnippetLibraryPanel {
       ? this._store.search(filter)
       : this._store.getAll();
 
-    this._panel.webview.html = buildSnippetLibraryHtml({
+    this._panel.webview.html = secureWebviewHtml(buildSnippetLibraryHtml({
       snippets,
       categories: this._store.getCategories(),
       tables: this._cachedTables,
-    });
+    }));
   }
 
   private async _handleMessage(msg: WebviewMessage): Promise<void> {

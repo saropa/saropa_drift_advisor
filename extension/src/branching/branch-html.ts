@@ -39,7 +39,7 @@ function styles(): string {
 function shell(body: string): string {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">${styles()}</head><body>
 ${body}
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-command]');

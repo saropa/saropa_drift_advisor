@@ -163,7 +163,7 @@ export function buildBreakpointFormHtml(
   <button class="btn btn-secondary" id="cancel">${t('panel.tools.breakpoint.btn.cancel')}</button>
 </div>
 
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
 
   // Show/hide condition field based on selected type

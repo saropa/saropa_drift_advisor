@@ -12,6 +12,7 @@ import {
   summarizeSizeDiff,
 } from '../analysis-history/analysis-renderers';
 import { buildSizeHtml } from './size-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton panel showing database size breakdown. */
 export class SizePanel {
@@ -69,10 +70,10 @@ export class SizePanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildSizeHtml(
+    this._panel.webview.html = secureWebviewHtml(buildSizeHtml(
       this._data,
       this._historyStore.size,
-    );
+    ));
   }
 
   private _handleMessage(msg: { command: string }): void {

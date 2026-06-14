@@ -13,6 +13,7 @@ import { DatasetImport } from './dataset-import';
 import { DependencySorter } from './dependency-sorter';
 import { DataReset } from './data-reset';
 import { buildImportFormHtml } from './import-form-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Non-singleton form panel for dataset import. */
 export class ImportFormPanel {
@@ -59,7 +60,7 @@ export class ImportFormPanel {
       null,
       this._disposables,
     );
-    this._panel.webview.html = buildImportFormHtml(this._datasets);
+    this._panel.webview.html = secureWebviewHtml(buildImportFormHtml(this._datasets));
   }
 
   private async _handleMessage(

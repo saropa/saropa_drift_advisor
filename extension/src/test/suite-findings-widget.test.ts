@@ -24,8 +24,11 @@ describe('suiteFindings widget', () => {
       {},
     );
     assert.ok(html.includes('No suite findings'));
-    // The deep link targets Advisor's own stable command id (plan 67 §3 / R5).
-    assert.ok(html.includes("actionCommand:'driftViewer.openDriftHealth'"));
+    // The deep-link button drives the dashboard's executeAction handler via a
+    // delegated data-* attribute (inline onclick was removed for the C2b nonce
+    // CSP); the command id is Advisor's own stable target (plan 67 §3 / R5).
+    assert.ok(html.includes('data-click="executeAction"'));
+    assert.ok(html.includes('data-a0="driftViewer.openDriftHealth"'));
   });
 
   it('renders total, per-severity, and per-tool counts when there are findings', () => {

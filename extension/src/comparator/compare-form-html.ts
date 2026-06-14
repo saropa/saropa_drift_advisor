@@ -167,7 +167,7 @@ export function buildCompareFormHtml(
   <button class="btn btn-secondary" id="cancel">${t('panel.compare.form.btn.cancel')}</button>
 </div>
 
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
 
   // Toggle table B selector visibility based on scope

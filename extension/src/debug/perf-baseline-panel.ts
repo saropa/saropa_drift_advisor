@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import type { PerfBaselineStore, IPerfBaseline } from './perf-baseline-store';
 import { buildPerfBaselineHtml } from './perf-baseline-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton panel showing performance baselines in a rich table. */
 export class PerfBaselinePanel {
@@ -62,7 +63,7 @@ export class PerfBaselinePanel {
     // Snapshot the current baselines sorted by avg duration descending
     this._sorted = Array.from(this._store.baselines.values())
       .sort((a, b) => b.avgDurationMs - a.avgDurationMs);
-    this._panel.webview.html = buildPerfBaselineHtml(this._sorted);
+    this._panel.webview.html = secureWebviewHtml(buildPerfBaselineHtml(this._sorted));
   }
 
   private async _handleMessage(

@@ -196,7 +196,7 @@ ${SUITE_NOTES_CSS}
 </head>
 <body>
 ${body}
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');

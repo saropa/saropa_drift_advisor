@@ -10,6 +10,7 @@ import { ErLayoutEngine } from './er-layout-engine';
 import { ErExport } from './er-export';
 import { buildErDiagramHtml } from './er-diagram-html';
 import { fetchAllFks } from './er-diagram-utils';
+import { secureWebviewHtml } from '../webview-csp';
 
 export class ErDiagramPanel {
   private static _currentPanel: ErDiagramPanel | undefined;
@@ -104,11 +105,11 @@ export class ErDiagramPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildErDiagramHtml(
+    this._panel.webview.html = secureWebviewHtml(buildErDiagramHtml(
       this._layout.nodes,
       this._layout.edges,
       this._mode,
-    );
+    ));
   }
 
   private async _handleMessage(msg: WebviewToExtMessage): Promise<void> {

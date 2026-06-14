@@ -245,7 +245,7 @@ function wrapHtml(body: string, table: string): string {
 </head>
 <body>
 ${body}
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
   const table = ${JSON.stringify(table)};
 

@@ -2,7 +2,7 @@ import type {
   IImpactBranch, IImpactResult, IImpactRow, IOutboundRef,
 } from './impact-types';
 import { t, getWebviewL10nMap } from '../l10n';
-import { attrJsString, jsonForScript } from '../shared-utils';
+import { jsonForScript } from '../shared-utils';
 
 /** Build the HTML for the row impact analysis webview panel. */
 export function buildImpactHtml(result: IImpactResult): string {
@@ -49,14 +49,14 @@ ${css()}
   ${sumHtml}
 
   <div class="actions">
-    <button onclick="post('generateDelete')">${t('panel.quality.impact.btn.generateDelete')}</button>
-    <button onclick="post('exportJson')">${t('panel.quality.impact.btn.exportJson')}</button>
-    <button onclick="post('refresh')">${t('panel.quality.impact.btn.refresh')}</button>
+    <button data-click="post" data-a0="generateDelete">${t('panel.quality.impact.btn.generateDelete')}</button>
+    <button data-click="post" data-a0="exportJson">${t('panel.quality.impact.btn.exportJson')}</button>
+    <button data-click="post" data-a0="refresh">${t('panel.quality.impact.btn.refresh')}</button>
   </div>
 
   <pre id="sqlOutput" class="sql-output" style="display:none"></pre>
 
-  <script>
+  <script nonce="__CSP_NONCE__">
 ${clientScript()}
   </script>
 </body>
@@ -66,7 +66,7 @@ ${clientScript()}
 function outboundSection(refs: IOutboundRef[]): string {
   const items = refs.map((ref) => {
     const pvw = previewHtml(ref.preview);
-    return `<div class="outbound-ref clickable" onclick="navigate('${escAttr(ref.table)}','${escAttr(ref.pkColumn)}',${escJs(ref.pkValue)})">
+    return `<div class="outbound-ref clickable" data-click="navigate" data-a0="${esc(ref.table)}" data-a1="${esc(ref.pkColumn)}" data-a2="${esc(String(ref.pkValue))}">
       <strong>${esc(ref.table)}</strong>.${esc(ref.pkColumn)} = ${esc(String(ref.pkValue))}
       <span class="fk-label">${t('panel.quality.impact.via', esc(ref.fkColumn))}</span>
       <span class="preview">${pvw}</span>
@@ -104,7 +104,7 @@ function impactRowHtml(row: IImpactRow, table: string): string {
   const childHtml = row.children.map((b) => branchHtml(b)).join('');
 
   return `<div class="impact-row">
-    <span class="row-header clickable" onclick="navigate('${escAttr(table)}','${escAttr(row.pkColumn)}',${escJs(row.pkValue)})">
+    <span class="row-header clickable" data-click="navigate" data-a0="${esc(table)}" data-a1="${esc(row.pkColumn)}" data-a2="${esc(String(row.pkValue))}">
       ${esc(row.pkColumn)}=${esc(String(row.pkValue))}
     </span>
     <span class="preview">${pvw}</span>
@@ -245,18 +245,4 @@ function esc(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-// Both feed DB table/column/PK values into an inline onclick="navigate('…')"
-// (JS string inside a double-quoted HTML attribute). The old escapers handled
-// only the JS quote, leaving `"`/`<`/`>` free to break out (stored XSS). They
-// now delegate to the shared attrJsString, safe in both contexts.
-// See plans/full-codebase-audit-2026.06.12.md C2.
-function escAttr(s: string): string {
-  return attrJsString(s);
-}
-
-function escJs(v: unknown): string {
-  if (typeof v === 'number') return String(v);
-  return `'${attrJsString(v)}'`;
 }

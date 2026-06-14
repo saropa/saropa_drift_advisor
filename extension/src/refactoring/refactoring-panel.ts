@@ -26,6 +26,7 @@ import {
   openMigrationPreviewWithPlan,
   openNlSqlPrefilled,
 } from './refactoring-panel-actions';
+import { secureWebviewHtml } from '../webview-csp';
 
 /**
  * Opens or focuses the singleton refactoring panel.
@@ -106,7 +107,7 @@ export class RefactoringPanel implements vscode.Disposable {
     this._panel = panel;
     this._client = client;
     this._workspaceState = workspaceState;
-    this._panel.webview.html = getRefactoringHtml();
+    this._panel.webview.html = secureWebviewHtml(getRefactoringHtml());
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
     this._panel.webview.onDidReceiveMessage(
       (msg) => {

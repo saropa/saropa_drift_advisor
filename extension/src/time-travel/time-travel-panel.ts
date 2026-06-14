@@ -16,6 +16,7 @@ import * as vscode from 'vscode';
 import { SnapshotStore } from '../timeline/snapshot-store';
 import { TimeTravelEngine } from './time-travel-engine';
 import { buildTimeTravelHtml } from './time-travel-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 export class TimeTravelPanel {
   private static _current: TimeTravelPanel | undefined;
@@ -50,7 +51,7 @@ export class TimeTravelPanel {
     // Start at the most recent snapshot so the panel opens on "now", not the oldest frame.
     this._index = Math.max(0, this._engine.getSnapshotCount() - 1);
 
-    this._panel.webview.html = buildTimeTravelHtml();
+    this._panel.webview.html = secureWebviewHtml(buildTimeTravelHtml());
 
     this._panel.webview.onDidReceiveMessage(
       (msg) => this._onMessage(msg),
