@@ -39,13 +39,15 @@ export class DriftViewerPanel {
     editingBridge?: EditingBridge,
     fkNavigator?: FkNavigator,
     filterBridge?: FilterBridge,
-    options?: { vmOnly?: boolean },
+    options?: { vmOnly?: boolean; focusTable?: string },
   ): void {
     const column = vscode.ViewColumn.Beside;
+    const focusTable = options?.focusTable?.trim() || undefined;
     if (DriftViewerPanel.currentPanel) {
       // If the server changed (different project), reload content
       // instead of just revealing the stale panel.
       const cur = DriftViewerPanel.currentPanel;
+      if (focusTable) cur._focusTable = focusTable;
       if (cur._host !== host || cur._port !== port) {
         cur._host = host;
         cur._port = port;
@@ -54,6 +56,11 @@ export class DriftViewerPanel {
         } else {
           cur._loadContent(host, port);
         }
+      } else if (focusTable && !cur._vmOnly) {
+        // Same server, but a sibling deep-link (plan 67 R5) asked to focus a
+        // specific table. The web app reads its `#TableName` deep-link only on
+        // load, so reload the content to re-fire it against the new table.
+        cur._loadContent(host, port);
       }
       cur._panel.reveal(column);
       return;
@@ -69,13 +76,20 @@ export class DriftViewerPanel {
       },
     );
     DriftViewerPanel.currentPanel = new DriftViewerPanel(
-      panel, host, port, editingBridge, fkNavigator, filterBridge, options?.vmOnly,
+      panel, host, port, editingBridge, fkNavigator, filterBridge, options?.vmOnly, focusTable,
     );
   }
 
   private readonly _vmOnly: boolean;
   private _host: string;
   private _port: number;
+  /**
+   * Table to deep-link to on the next content load (plan 67 R5). When set, the
+   * loaded web app's existing `#TableName` deep-link is fired so a sibling tool's
+   * "open table" lands on that table rather than the default view. Mutable: a
+   * later focus request on the reused panel overwrites it before a reload.
+   */
+  private _focusTable?: string;
 
   /**
    * Monotonic load sequence counter. Incremented at the start of each
@@ -93,11 +107,13 @@ export class DriftViewerPanel {
     private readonly _fkNavigator?: FkNavigator,
     private readonly _filterBridge?: FilterBridge,
     vmOnly = false,
+    focusTable?: string,
   ) {
     this._panel = panel;
     this._vmOnly = vmOnly;
     this._host = host;
     this._port = port;
+    this._focusTable = focusTable;
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
     if (this._editingBridge) {
@@ -218,6 +234,15 @@ export class DriftViewerPanel {
         html = html.replace('</body>', `<script>${filterScript}</script></body>`);
       }
 
+      // Deep-link to a specific table when a sibling tool asked for one (plan 67
+      // R5). Sets the fragment before the web app runs, so its existing
+      // `#TableName` deep-link opens that table. Injected into <head> so it lands
+      // before the app's bundle; harmless when the table is absent (the app's
+      // own `tables.indexOf` guard simply ignores an unknown name).
+      if (this._focusTable) {
+        html = html.replace('<head>', `<head>${focusTableHashScript(this._focusTable)}`);
+      }
+
       this._panel.webview.html = html;
     } catch {
       if (this._disposed || seq !== this._loadSeq) return;
@@ -249,4 +274,20 @@ export class DriftViewerPanel {
     this._panel.dispose();
     this._disposables.forEach((d) => d.dispose());
   }
+}
+
+/**
+ * Builds the inline script that sets the document fragment to [table], so the
+ * loaded web app's existing `#TableName` deep-link (in bundle.js) opens that
+ * table. Exported for tests.
+ *
+ * Defense in depth on the table name (untrusted: it can arrive from a sibling
+ * tool's diagnostic): `encodeURIComponent` strips the characters that could end
+ * the `<script>`/break the URL fragment (`<`, `>`, `/`, quotes all percent-
+ * encode), and `JSON.stringify` then wraps the result as a safe JS string
+ * literal. The web app decodes it back with `decodeURIComponent`.
+ */
+export function focusTableHashScript(table: string): string {
+  const encoded = JSON.stringify(encodeURIComponent(table));
+  return `<script>try{location.hash=${encoded};}catch(e){}</script>`;
 }
