@@ -69,6 +69,21 @@ describe('buildDriftHealthHtml', () => {
     assert.ok(html.includes('No suite findings'));
   });
 
+  it('flags a finding from a different commit as stale, but not a matching or unknown one', () => {
+    const model = buildDriftHealth([
+      d({ source: 'lints', table: 'orders', title: 'old finding', commitSha: 'OLD' }),
+    ]);
+    // Assert on the rendered badge (class="dh-stale"); the bare token dh-stale
+    // also appears in the CSS, so match the attribute form that only a rendered
+    // finding produces.
+    // Different current commit → stale.
+    assert.ok(buildDriftHealthHtml(model, 'NEW').includes('class="dh-stale"'));
+    // Same commit → not stale.
+    assert.ok(!buildDriftHealthHtml(model, 'OLD').includes('class="dh-stale"'));
+    // Unknown current commit → never guess.
+    assert.ok(!buildDriftHealthHtml(model).includes('class="dh-stale"'));
+  });
+
   it('renders a table card with tool columns and escapes text', () => {
     const html = buildDriftHealthHtml(buildDriftHealth([
       d({ source: 'advisor', table: 'orders', title: 'missing index' }),
