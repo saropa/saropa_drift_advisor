@@ -9,6 +9,7 @@ import type { DriftApiClient } from '../api-client';
 import type { DataBreakpointProvider } from './data-breakpoint-provider';
 import type { DataBreakpointType } from './data-breakpoint-types';
 import { buildBreakpointFormHtml } from './breakpoint-form-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Non-singleton form panel — opens fresh each time. */
 export class BreakpointFormPanel {
@@ -57,9 +58,9 @@ export class BreakpointFormPanel {
       null,
       this._disposables,
     );
-    this._panel.webview.html = buildBreakpointFormHtml(
+    this._panel.webview.html = secureWebviewHtml(buildBreakpointFormHtml(
       tableNames, preselectedTable,
-    );
+    ));
   }
 
   private _handleMessage(

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { ILineageResult } from './lineage-types';
 import { LineageTracer, generateDeleteSql } from './lineage-tracer';
 import { buildLineageHtml } from './lineage-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton webview panel for data lineage visualization. */
 export class LineagePanel {
@@ -60,7 +61,7 @@ export class LineagePanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildLineageHtml(this._result);
+    this._panel.webview.html = secureWebviewHtml(buildLineageHtml(this._result));
   }
 
   private async _handleMessage(

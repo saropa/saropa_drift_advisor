@@ -149,7 +149,7 @@ export function buildExportFormHtml(
   <button class="btn btn-secondary" id="cancel">${t('panel.data.export.btn.cancel')}</button>
 </div>
 
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
 
   // Select all / none

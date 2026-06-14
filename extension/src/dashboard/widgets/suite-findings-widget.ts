@@ -53,10 +53,11 @@ function renderSuiteFindingsHtml(summary: SuiteFindingsSummary): string {
   const clean = summary.total === 0;
   // The open-panel button reuses the dashboard's executeAction path; the command
   // id is Advisor's own stable deep-link target (plan 67 §3 / R5).
+  // data-click + the delegated dispatcher replace the inline onclick the C2b
+  // nonce CSP would block; executeAction() is a global in the dashboard script.
   const openButton =
     `<button class="suite-open-btn" `
-    + `onclick="vscode.postMessage({command:'executeAction',`
-    + `actionCommand:'driftViewer.openDriftHealth'})" `
+    + `data-click="executeAction" data-a0="driftViewer.openDriftHealth" `
     + `title="Open the full Drift Health panel">Open Drift Health</button>`;
 
   if (clean) {

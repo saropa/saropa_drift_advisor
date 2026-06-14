@@ -39,7 +39,7 @@ export function buildSchemaTimelineHtml(
     </div>
     <div class="timeline">${entries}</div>
     <div class="summary">${summary}</div>
-    <script>
+    <script nonce="__CSP_NONCE__">
       const vscode = acquireVsCodeApi();
       document.getElementById('export-btn')
         .addEventListener('click', () => {

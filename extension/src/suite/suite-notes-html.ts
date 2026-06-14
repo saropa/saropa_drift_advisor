@@ -106,7 +106,7 @@ export const SUITE_NOTES_CSS = `
   .suite-fix:hover { background: var(--vscode-button-secondaryHoverBackground, #45494e); }`;
 
 /**
- * Client-side script (insert inside a panel's <script>): forwards a suite-fix
+ * Client-side script (insert inside a panel's <script nonce="__CSP_NONCE__">): forwards a suite-fix
  * button click to the host as a `suiteFix` message carrying the command + args.
  */
 export const SUITE_NOTES_SCRIPT = `

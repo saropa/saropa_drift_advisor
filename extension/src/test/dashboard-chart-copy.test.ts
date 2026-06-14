@@ -7,6 +7,7 @@
 import * as assert from 'assert';
 import { buildDashboardHtml } from '../dashboard/dashboard-html';
 import { getWidgetTypeInfoList } from '../dashboard/widget-registry';
+import { secureWebviewHtml } from '../webview-csp';
 import type { IDashboardLayout, IWidgetConfig } from '../dashboard/dashboard-types';
 
 function defaultLayout(overrides: Partial<IDashboardLayout> = {}): IDashboardLayout {
@@ -77,9 +78,15 @@ describe('dashboard chart copy button', () => {
   });
 
   it('should include blob: in img-src CSP for SVG-to-PNG clipboard rendering', () => {
-    const html = buildDashboardHtml(defaultLayout(), widgetTypes, new Map());
+    // CSP is now applied centrally (audit C2b); the dashboard renders through
+    // secureWebviewHtml, whose default img-src allows blob: so the chart-copy
+    // SVG-to-PNG path keeps working.
+    const html = secureWebviewHtml(
+      buildDashboardHtml(defaultLayout(), widgetTypes, new Map()),
+    );
+    const csp = html.match(/Content-Security-Policy" content="([^"]+)"/)?.[1] ?? '';
     assert.ok(
-      html.includes('img-src blob:'),
+      /img-src[^;]*\bblob:/.test(csp),
       'CSP must allow blob: in img-src for chart copy to work',
     );
   });

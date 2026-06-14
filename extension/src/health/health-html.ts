@@ -56,7 +56,7 @@ ${recs}
 
 ${advisorHtml}
 
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
   document.addEventListener('click', (e) => {
     // Handle header button actions (refresh, copyReport)

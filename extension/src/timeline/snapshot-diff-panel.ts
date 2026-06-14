@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { IChangedRow, ITableDiff } from './snapshot-store';
+import { secureWebviewHtml } from '../webview-csp';
 
 function esc(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -212,7 +213,7 @@ export class SnapshotDiffPanel {
 
   private _update(tableName: string, diff: ITableDiff): void {
     this._panel.title = `Diff: ${tableName}`;
-    this._panel.webview.html = buildDiffHtml(tableName, diff);
+    this._panel.webview.html = secureWebviewHtml(buildDiffHtml(tableName, diff));
   }
 
   private _dispose(): void {

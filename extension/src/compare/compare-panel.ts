@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { ICompareReport } from '../api-types';
 import { buildCompareHtml } from './compare-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton panel showing database-A-vs-B comparison. */
 export class ComparePanel {
@@ -62,7 +63,7 @@ export class ComparePanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildCompareHtml(this._report);
+    this._panel.webview.html = secureWebviewHtml(buildCompareHtml(this._report));
   }
 
   private _handleMessage(msg: { command: string }): void {

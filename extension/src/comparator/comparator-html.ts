@@ -61,10 +61,10 @@ export function buildComparatorHtml(diff: IRowDiff): string {
   </table>
   <p class="summary">${esc(summary)}</p>
   <div class="actions">
-    <button onclick="post('swapRows')">${t('panel.compare.comparator.btn.swap')}</button>
-    <button onclick="post('copyJson')">${t('panel.compare.comparator.btn.copyJson')}</button>
+    <button data-click="post" data-a0="swapRows">${t('panel.compare.comparator.btn.swap')}</button>
+    <button data-click="post" data-a0="copyJson">${t('panel.compare.comparator.btn.copyJson')}</button>
   </div>
-  <script>
+  <script nonce="__CSP_NONCE__">
     const vscode = acquireVsCodeApi();
     function post(cmd) { vscode.postMessage({ command: cmd }); }
   </script>

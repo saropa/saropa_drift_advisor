@@ -24,7 +24,7 @@ export function buildErDiagramHtml(
 
   // jsonForScript (not plain JSON.stringify): nodes/edges carry DB table and
   // column names; a name containing `</script>` would otherwise break out of the
-  // inline <script> below. See plans/full-codebase-audit-2026.06.12.md C2.
+  // inline <script nonce="__CSP_NONCE__"> below. See plans/full-codebase-audit-2026.06.12.md C2.
   const nodesJson = jsonForScript(nodes);
   const edgesJson = jsonForScript(edges);
 
@@ -72,7 +72,7 @@ export function buildErDiagramHtml(
   <div class="context-menu-item" data-action="profile">${t('panel.schema.er.menu.profile')}</div>
 </div>
 
-<script>${getErDiagramScript(nodesJson, edgesJson)}</script>
+<script nonce="__CSP_NONCE__">${getErDiagramScript(nodesJson, edgesJson)}</script>
 </body>
 </html>`;
 }

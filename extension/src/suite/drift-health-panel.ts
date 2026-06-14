@@ -19,6 +19,7 @@ import { buildDriftHealth } from './drift-health';
 import { buildDriftHealthHtml } from './drift-health-html';
 import { resolveWorkspaceCommit } from './workspace-commit';
 import { availableCommandSet, executeSuiteFix } from './suite-notes-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 // Coalesce generation-watcher bursts (e.g. a multi-statement import) so the
 // panel re-fetches once, not per tick.
@@ -115,9 +116,9 @@ export class DriftHealthPanel {
       availableCommandSet(),
     ]);
     const model = buildDriftHealth(diagnostics);
-    this._panel.webview.html = buildDriftHealthHtml(model, currentCommit, {
+    this._panel.webview.html = secureWebviewHtml(buildDriftHealthHtml(model, currentCommit, {
       availableCommands,
-    });
+    }));
   }
 
   private _dispose(): void {

@@ -14,6 +14,7 @@ import { addWidget, type IWidgetCrudContext } from './panel/widget-crud';
 import { findNextGridX, findNextGridY, generateId } from './panel/widget-layout';
 import { getDefaultWidgetConfig, WidgetDataFetcher } from './widget-data-fetcher';
 import { getWidgetDefinition, getWidgetTypeInfoList } from './widget-registry';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton webview panel for the custom dashboard builder. */
 export class DashboardPanel {
@@ -154,7 +155,7 @@ export class DashboardPanel {
   private async _render(): Promise<void> {
     const widgetTypes = getWidgetTypeInfoList();
     const initialHtml = new Map<string, string>();
-    this._panel.webview.html = buildDashboardHtml(this._layout, widgetTypes, initialHtml);
+    this._panel.webview.html = secureWebviewHtml(buildDashboardHtml(this._layout, widgetTypes, initialHtml));
   }
 
   private async _refreshAllWidgets(): Promise<void> {

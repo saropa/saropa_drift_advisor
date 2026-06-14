@@ -13,6 +13,7 @@ import { readCommitHistory } from './commit-history-store';
 import { buildCommitTimeline } from './commit-timeline';
 import { buildCommitTimelineHtml } from './commit-timeline-html';
 import { resolveWorkspaceCommit } from './workspace-commit';
+import { secureWebviewHtml } from '../webview-csp';
 
 // Coalesce generation-watcher bursts so the panel re-reads history once, not
 // per tick — matching the Drift Health panel's debounce.
@@ -75,7 +76,7 @@ export class CommitTimelinePanel {
       resolveWorkspaceCommit(),
     ]);
     const model = buildCommitTimeline(history, currentCommit);
-    this._panel.webview.html = buildCommitTimelineHtml(model);
+    this._panel.webview.html = secureWebviewHtml(buildCommitTimelineHtml(model));
   }
 
   private _dispose(): void {

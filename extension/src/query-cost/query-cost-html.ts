@@ -181,7 +181,7 @@ ${getQueryCostCss()}
 </head>
 <body>
 ${body}
-<script>
+<script nonce="__CSP_NONCE__">
   var vscode = acquireVsCodeApi();
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('[data-action]');

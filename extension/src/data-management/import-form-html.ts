@@ -172,7 +172,7 @@ export function buildImportFormHtml(
   <button class="btn btn-secondary" id="cancel">${t('panel.data.import.btn.cancel')}</button>
 </div>
 
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
 
   document.getElementById('submit').addEventListener('click', () => {

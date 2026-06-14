@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { IImpactResult } from './impact-types';
 import { ImpactAnalyzer, generateImpactDeleteSql } from './impact-analyzer';
 import { buildImpactHtml } from './impact-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton webview panel for row impact analysis. */
 export class ImpactPanel {
@@ -61,7 +62,7 @@ export class ImpactPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildImpactHtml(this._result);
+    this._panel.webview.html = secureWebviewHtml(buildImpactHtml(this._result));
   }
 
   private async _handleMessage(

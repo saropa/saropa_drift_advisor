@@ -10,6 +10,7 @@ import { escapeCsvCell } from '../shared-utils';
 import { SamplingEngine } from './sampling-engine';
 import { buildSamplingHtml } from './sampling-html';
 import type { ISamplingConfig, ISamplingResult } from './sampling-types';
+import { secureWebviewHtml } from '../webview-csp';
 
 interface ISampleMessage {
   command: 'sample';
@@ -100,9 +101,9 @@ export class SamplingPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildSamplingHtml(
+    this._panel.webview.html = secureWebviewHtml(buildSamplingHtml(
       this._table, this._columns, this._totalRows, this._lastResult,
-    );
+    ));
   }
 
   private async _handleMessage(msg: PanelMessage): Promise<void> {
@@ -126,15 +127,15 @@ export class SamplingPanel {
   }
 
   private async _runSample(config: ISamplingConfig): Promise<void> {
-    this._panel.webview.html = buildSamplingHtml(
+    this._panel.webview.html = secureWebviewHtml(buildSamplingHtml(
       this._table, this._columns, this._totalRows, undefined, true,
-    );
+    ));
 
     try {
       this._lastResult = await this._engine.sample(config);
-      this._panel.webview.html = buildSamplingHtml(
+      this._panel.webview.html = secureWebviewHtml(buildSamplingHtml(
         this._table, this._columns, this._totalRows, this._lastResult,
-      );
+      ));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this._lastResult = undefined;

@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { buildTroubleshootingHtml } from './troubleshooting-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton panel showing troubleshooting and connection guidance. */
 export class TroubleshootingPanel {
@@ -50,7 +51,7 @@ export class TroubleshootingPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildTroubleshootingHtml(this._port);
+    this._panel.webview.html = secureWebviewHtml(buildTroubleshootingHtml(this._port));
   }
 
   /** Route button actions from the webview back to VS Code commands, with error handling. */

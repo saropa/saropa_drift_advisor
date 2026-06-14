@@ -10,6 +10,7 @@ import { ChangelogGenerator } from './changelog-generator';
 import { ChangelogRenderer } from './changelog-renderer';
 import type { ISnapshotRef } from './changelog-types';
 import { buildChangelogFormHtml } from './changelog-form-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 function toRef(snap: ISnapshot): ISnapshotRef {
   return {
@@ -57,7 +58,7 @@ export class ChangelogFormPanel {
       null,
       this._disposables,
     );
-    this._panel.webview.html = buildChangelogFormHtml(items);
+    this._panel.webview.html = secureWebviewHtml(buildChangelogFormHtml(items));
   }
 
   private async _handleMessage(

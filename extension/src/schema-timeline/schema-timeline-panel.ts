@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import type { ISchemaSnapshot } from './schema-timeline-types';
 import type { SchemaTracker } from './schema-tracker';
 import { buildSchemaTimelineHtml } from './schema-timeline-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton panel showing schema evolution over time. */
 export class SchemaTimelinePanel {
@@ -68,7 +69,7 @@ export class SchemaTimelinePanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildSchemaTimelineHtml(this._snapshots);
+    this._panel.webview.html = secureWebviewHtml(buildSchemaTimelineHtml(this._snapshots));
   }
 
   private _handleMessage(msg: { command: string }): void {

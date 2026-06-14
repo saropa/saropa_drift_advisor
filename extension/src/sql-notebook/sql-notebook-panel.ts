@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { DriftApiClient } from '../api-client';
 import { QueryHistoryStore } from './query-history-store';
 import { getNotebookHtml } from './sql-notebook-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Persisted query history entry. */
 export interface IQueryHistoryEntry {
@@ -88,7 +89,7 @@ export class SqlNotebookPanel {
       this._disposables,
     );
 
-    this._panel.webview.html = getNotebookHtml();
+    this._panel.webview.html = secureWebviewHtml(getNotebookHtml());
 
     // Send schema on first load (async, fire-and-forget).
     void this._sendSchema();

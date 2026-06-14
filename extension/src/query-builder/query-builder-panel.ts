@@ -21,6 +21,7 @@ import {
   type IFkContext,
 } from './query-builder-model-ops';
 import { handleQbMessage } from './query-builder-message-handler';
+import { secureWebviewHtml } from '../webview-csp';
 
 interface IBuilderCapabilities {
   notebook: boolean;
@@ -100,7 +101,7 @@ export class QueryBuilderPanel implements vscode.Disposable {
     this._queryIntelligence = panelOptions?.queryIntelligence;
     void this._context;
     this._panel = panel;
-    this._panel.webview.html = getQueryBuilderHtml();
+    this._panel.webview.html = secureWebviewHtml(getQueryBuilderHtml());
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
     this._panel.webview.onDidReceiveMessage((msg) => {
       void this._handleMessage(msg as Record<string, unknown>);

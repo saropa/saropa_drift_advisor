@@ -11,6 +11,7 @@ import { rowsToObjects } from '../timeline/snapshot-store';
 import { RowDiffer } from './row-differ';
 import { ComparatorPanel } from './comparator-panel';
 import { buildCompareFormHtml } from './compare-form-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Quote a PK value for use in a WHERE clause. */
 function sqlLiteral(value: string): string {
@@ -68,10 +69,10 @@ export class CompareFormPanel {
       null,
       this._disposables,
     );
-    this._panel.webview.html = buildCompareFormHtml(
+    this._panel.webview.html = secureWebviewHtml(buildCompareFormHtml(
       this._tableNames,
       preselectedTable,
-    );
+    ));
   }
 
   private async _handleMessage(

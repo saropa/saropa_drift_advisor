@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import type { ChangeTracker, PendingChange } from '../editing/change-tracker';
 import { bulkEditHtml } from './bulk-edit-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 const VIEW_TYPE = 'driftViewer.bulkEdit';
 
@@ -41,7 +42,7 @@ export class BulkEditPanel {
       vscode.ViewColumn.One,
       { enableScripts: true, retainContextWhenHidden: true },
     );
-    this._panel.webview.html = bulkEditHtml();
+    this._panel.webview.html = secureWebviewHtml(bulkEditHtml());
 
     this._disposables.push(
       this._changeTracker.onDidChange(() => this._pushState()),

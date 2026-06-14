@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import type { IColumnProfile } from './profiler-types';
 import { buildProfilerHtml } from './profiler-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton panel showing column profile statistics. */
 export class ProfilerPanel {
@@ -57,7 +58,7 @@ export class ProfilerPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildProfilerHtml(this._profile);
+    this._panel.webview.html = secureWebviewHtml(buildProfilerHtml(this._profile));
   }
 
   private _handleMessage(msg: { command: string }): void {

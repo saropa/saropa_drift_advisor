@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import { DataNarrator } from './data-narrator';
 import { buildErrorHtml, buildLoadingHtml, buildNarratorHtml } from './narrator-html';
 import type { INarrativeResult, NarratorToExtensionMessage } from './narrator-types';
+import { secureWebviewHtml } from '../webview-csp';
 
 export class NarratorPanel {
   private static _currentPanel: NarratorPanel | undefined;
@@ -80,14 +81,14 @@ export class NarratorPanel {
 
   private _render(): void {
     if (!this._result) {
-      this._panel.webview.html = buildLoadingHtml(
+      this._panel.webview.html = secureWebviewHtml(buildLoadingHtml(
         this._currentTable,
         this._currentPkValue,
-      );
+      ));
       return;
     }
 
-    this._panel.webview.html = buildNarratorHtml(this._result);
+    this._panel.webview.html = secureWebviewHtml(buildNarratorHtml(this._result));
   }
 
   private async _handleMessage(msg: NarratorToExtensionMessage): Promise<void> {
@@ -125,10 +126,10 @@ export class NarratorPanel {
 
     this._result = undefined;
     this._updateTitle();
-    this._panel.webview.html = buildLoadingHtml(
+    this._panel.webview.html = secureWebviewHtml(buildLoadingHtml(
       this._currentTable,
       this._currentPkValue,
-    );
+    ));
 
     try {
       const graph = await this._narrator.buildGraph(
@@ -140,7 +141,7 @@ export class NarratorPanel {
       this._update(result);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      this._panel.webview.html = buildErrorHtml(message);
+      this._panel.webview.html = secureWebviewHtml(buildErrorHtml(message));
     } finally {
       this._isRegenerating = false;
     }

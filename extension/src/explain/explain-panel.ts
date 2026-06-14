@@ -16,6 +16,7 @@ import {
   executeSuiteFix,
   type SuiteRenderOptions,
 } from '../suite/suite-notes-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 export interface IExplainNode {
   id: number;
@@ -208,9 +209,9 @@ export class ExplainPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildExplainHtml(
+    this._panel.webview.html = secureWebviewHtml(buildExplainHtml(
       this._sql, this._nodes, this._suggestions, this._suiteNotes, this._suiteOpts,
-    );
+    ));
   }
 
   private _handleMessage(msg: {

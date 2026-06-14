@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import type { AnnotationStore } from './annotation-store';
 import { buildAnnotationHtml } from './annotation-panel-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Bookmarks panel showing all annotations grouped by table. */
 export class AnnotationPanel {
@@ -61,9 +62,9 @@ export class AnnotationPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildAnnotationHtml(
+    this._panel.webview.html = secureWebviewHtml(buildAnnotationHtml(
       this._store.annotations,
-    );
+    ));
   }
 
   private _handleMessage(

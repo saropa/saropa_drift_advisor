@@ -10,6 +10,7 @@ import type { IParsedPlan, IIndexSuggestion } from './query-cost-types';
 import { buildQueryCostHtml, buildPlanText } from './query-cost-html';
 import { ExplainParser } from './explain-parser';
 import { IndexSuggester } from './index-suggester';
+import { secureWebviewHtml } from '../webview-csp';
 
 export class QueryCostPanel {
   private static _currentPanel: QueryCostPanel | undefined;
@@ -88,11 +89,11 @@ export class QueryCostPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildQueryCostHtml(
+    this._panel.webview.html = secureWebviewHtml(buildQueryCostHtml(
       this._sql,
       this._plan,
       this._suggestions,
-    );
+    ));
   }
 
   private _handleMessage(

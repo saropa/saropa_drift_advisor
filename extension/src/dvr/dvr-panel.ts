@@ -21,6 +21,7 @@ import {
   openSqlInNotebook,
 } from './dvr-panel-actions';
 import type { PerfBaselineStore } from '../debug/perf-baseline-store';
+import { secureWebviewHtml } from '../webview-csp';
 
 type DvrWebviewMessage =
   | { command: 'ready' }
@@ -273,7 +274,7 @@ export class DvrPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildDvrPanelHtml({
+    this._panel.webview.html = secureWebviewHtml(buildDvrPanelHtml({
       recording: this._recording,
       sessionId: this._sessionId,
       count: this._count,
@@ -286,7 +287,7 @@ export class DvrPanel {
       timelineQueries: this._timeline(),
       focusedId: this._focusedId,
       detailHtml: this._detailHtml,
-    });
+    }));
   }
 
   private _dispose(): void {

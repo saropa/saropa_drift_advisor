@@ -13,6 +13,7 @@ import {
   promptEditRule,
   promptRemoveRule,
 } from './invariant-prompts';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton webview panel for managing data invariants. */
 export class InvariantPanel {
@@ -75,10 +76,10 @@ export class InvariantPanel {
 
   private _render(): void {
     const summary = this._manager.getSummary();
-    this._panel.webview.html = buildInvariantHtml(
+    this._panel.webview.html = secureWebviewHtml(buildInvariantHtml(
       this._manager.invariants,
       summary,
-    );
+    ));
   }
 
   private async _handleMessage(msg: IInvariantWebviewMessage): Promise<void> {
