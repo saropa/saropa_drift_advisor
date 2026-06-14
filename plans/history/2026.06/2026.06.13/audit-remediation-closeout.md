@@ -42,7 +42,7 @@ A full security and code-quality audit of the `saropa_drift_advisor` package (th
 
 - **C2b** nonce-based CSP across ~40 webview panels + the served HTML (defense-in-depth; the exploitable sinks are already fixed under C2a). Best done as a focused per-panel pass with render verification.
 - **L5** consolidation of ~15 duplicate `esc()` helpers (latent-only gaps; canonical helpers already exist).
-- **L6** removal of stale artifacts — `analysis_options_custom.yaml.bak`, `assets/web/app.js.bak`, and duplicated `*.js` next to their `*.ts` sources (both `.bak` files still on disk). The duplicate CSV parser half of the original L7 finding was removed; the rest is not.
+- **L6** removal of stale artifacts — the two `.bak` files (`analysis_options_custom.yaml.bak`, `assets/web/app.js.bak`) were deleted 2026-06-14; the duplicated `*.js` next to their `*.ts` sources remain. The duplicate CSV parser half of the original L7 finding was removed earlier; the helper dedup is not.
 - **L7 (remainder)** TS helper dedup — three case converters, 3 `makeId` copies, shared TTL constants, codelens O(n²) line scan. Cosmetic.
 - **L4** `safeSubstring` rewrite — cosmetic, not scheduled.
 - **L3** rotation of the Open VSX publish token (user action).
