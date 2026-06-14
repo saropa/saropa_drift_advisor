@@ -392,9 +392,11 @@ visible from any entry point.
    ([extension/src/suite/cross-discovery.ts](../extension/src/suite/cross-discovery.ts),
    `maybeRecommendSuiteTools`; pure `pubspecDeclaresPackage` / `recommendableSiblings` are unit-tested
    in `cross-discovery.test.ts`). Evidence-based (the user already adopted the package) and gated
-   before the toast shows, so it never nags; fire-and-forget from activation. **Still open:** publish a
-   "Saropa for Flutter" Extension Pack bundling all three — a marketplace/packaging task, not code in
-   this repo.
+   before the toast shows, so it never nags; fire-and-forget from activation. **Extension Pack —
+   already published:** the bundle exists as **Saropa Suite**
+   (`marketplace.visualstudio.com/items?itemName=saropa.saropa-suite`), a one-click install of Drift
+   Advisor + Saropa Lints + Saropa Log Capture (see [ABOUT_SAROPA.md](../ABOUT_SAROPA.md)). Phase 6 is
+   complete; nothing remains here.
 
 ---
 
