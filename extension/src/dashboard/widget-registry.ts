@@ -9,6 +9,7 @@ import { MONITORING_WIDGETS } from './widgets/monitoring-widgets';
 import { QUERY_WIDGETS } from './widgets/query-widgets';
 import { UTILITY_WIDGETS } from './widgets/utility-widgets';
 import { DISCOVERY_WIDGETS } from './widgets/discovery-widget';
+import { SUITE_FINDINGS_WIDGETS } from './widgets/suite-findings-widget';
 
 export type { IWidgetDefinition } from './dashboard-types';
 
@@ -19,6 +20,7 @@ export const WIDGET_REGISTRY: IWidgetDefinition[] = [
   ...MONITORING_WIDGETS,
   ...UTILITY_WIDGETS,
   ...DISCOVERY_WIDGETS,
+  ...SUITE_FINDINGS_WIDGETS,
 ];
 
 /** Get widget type info for the add widget picker. */
