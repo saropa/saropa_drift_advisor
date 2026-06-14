@@ -77,3 +77,15 @@ export function escapeCsvCell(value: unknown): string {
     ? `"${s.replace(/"/g, '""')}"`
     : s;
 }
+
+/**
+ * A compact, unique-enough id for in-memory / persisted-state records
+ * (annotations, saved filters, query-builder nodes). Timestamp + random suffix;
+ * an optional [prefix] tags the kind (e.g. `tbl`, `flt`, `join`). Consolidates
+ * three near-identical local copies (audit L7). Ids are opaque — only compared
+ * for equality, never parsed — so the format is free to be uniform.
+ */
+export function makeId(prefix?: string): string {
+  const core = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  return prefix ? `${prefix}_${core}` : core;
+}

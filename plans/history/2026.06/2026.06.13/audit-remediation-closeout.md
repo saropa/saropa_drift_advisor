@@ -38,14 +38,16 @@ A full security and code-quality audit of the `saropa_drift_advisor` package (th
 - **L2** error-detail echo: intentional for a debug server; the C1 loopback default removes the exposure premise.
 - **L8** long-poll DB probing: already bounded by the 2 s `changeDetectionMinInterval` throttle.
 
-### Handed off (not done)
+### Handed off (not done) — as of this 2026-06-13 report
 
-- **C2b** nonce-based CSP across ~40 webview panels + the served HTML (defense-in-depth; the exploitable sinks are already fixed under C2a). Best done as a focused per-panel pass with render verification.
-- **L5** consolidation of ~15 duplicate `esc()` helpers (latent-only gaps; canonical helpers already exist).
-- **L6** removal of stale artifacts — the two `.bak` files (`analysis_options_custom.yaml.bak`, `assets/web/app.js.bak`) were deleted 2026-06-14; the duplicated `*.js` next to their `*.ts` sources remain. The duplicate CSV parser half of the original L7 finding was removed earlier; the helper dedup is not.
-- **L7 (remainder)** TS helper dedup — three case converters, 3 `makeId` copies, shared TTL constants, codelens O(n²) line scan. Cosmetic.
-- **L4** `safeSubstring` rewrite — cosmetic, not scheduled.
-- **L3** rotation of the Open VSX publish token (user action).
+Subsequent progress (2026-06-14) is noted inline; the audit doc
+`plans/full-codebase-audit-2026.06.12.md` is the live source of truth.
+
+- **C2b** nonce-based CSP. Phase 1 (all 47 extension webview panels) shipped 2026-06-14. Phase 2 (the Dart-served SPA + the data-grid webview) is deferred with a full plan at `plans/deferred/c2b-phase2-served-spa-csp.md`.
+- **L5** consolidation of the remaining duplicate `esc()` helpers (latent-only; canonical helpers already exist). Still open.
+- **L6** stale artifacts — the two `.bak` files were deleted 2026-06-14; the duplicated `*.js` next to their `*.ts` sources still remain.
+- **L7** TS helper dedup — DONE 2026-06-14 (`makeId` consolidated; codelens line scan now `positionAt`). The case converters were left intentionally distinct (domain-specific rules, not redundant).
+- **L4** `safeSubstring` rewrite — DONE 2026-06-14 (direct `substring`).
 
 ### Documentation updated
 
@@ -58,6 +60,6 @@ A full security and code-quality audit of the `saropa_drift_advisor` package (th
 - Extension: `tsc --noEmit -p ./` clean; full Mocha suite 2749 tests pass.
 - Every commit passed the repo pre-commit hook (Dart format+analyze and, for TS commits, `tsc` + build verification).
 
-### Outstanding
+### Outstanding (as of 2026-06-14)
 
-Engineering: **C2b** (CSP backstop), **L5** (esc consolidation), **L6** (remove stale `.bak`/`.js` artifacts). User action: **L3** (rotate OVSX token). Optional/cosmetic: **L4**, **L7 remainder**. The umbrella audit document `plans/full-codebase-audit-2026.06.12.md` remains active because of these open items; it now carries per-finding `✅ DONE` / `☑ REVIEWED` / `⏳ NEEDS BUILDING` tags.
+Engineering: **C2b phase 2** (served-SPA + data-grid CSP — deferred, see `plans/deferred/c2b-phase2-served-spa-csp.md`), **L5** (esc consolidation), **L6** (remove duplicated `*.js`). The umbrella audit document `plans/full-codebase-audit-2026.06.12.md` remains active because of these; it carries per-finding status tags and is the live source of truth.

@@ -14,22 +14,18 @@
 
 This audit file stays open because of the items below. Each finding in the sections that follow is tagged `✅ DONE`, `☑ REVIEWED — no change`, or `⏳ NEEDS BUILDING`.
 
-**Every Critical, High, and Medium finding is fixed.** What remains: one defense-in-depth security task (C2b), one cleanup (L5), the duplicated-`*.js` tail of an artifact sweep (L6 — its `.bak` files are gone), one credential rotation only the user can do (L3), and two optional cosmetic items (L4, L7 remainder).
+**Every Critical, High, and Medium finding is fixed.** What remains: the second phase of one defense-in-depth security task (C2b phase 2, deferred), and two engineering cleanups (L5, L6).
 
 ### Needs building — engineering
 
-1. **C2b (partial) — nonce-based CSP.** `✅ all 47 extension webview panels DONE` (shared `secureWebviewHtml` post-processor: per-render nonce CSP, `'unsafe-inline'` removed from dashboard/bulk-edit/data-grid, inline handlers converted to delegated `data-*` dispatch; full suite green). `⏳ the Dart-served SPA + panel.ts data-grid REMAIN` — the served HTML (`html_content.dart`) boots via inline `onerror=` CDN-fallback handlers and a dynamic `createElement('script')` loader, both of which a strict nonce CSP blocks; doing this safely means reworking that fallback path and verifying the viewer still loads in both inline-asset and CDN-fallback modes.
-2. **L5 — consolidate the ~15 duplicate `esc()` helpers into one complete `escapeHtml` (`& < > " '` + `String()` coercion).** Latent only: every current sink double-quotes its attributes, so the missing `'` escape is not exploitable today. Canonical reference impls already exist (`dvr-html.ts`, `mutation-stream-html-helpers.ts`).
+1. **C2b phase 2 — nonce CSP for the Dart-served SPA + the data-grid webview.** `✅ phase 1 DONE` — all 47 extension webview panels (shared `secureWebviewHtml` post-processor: per-render nonce CSP, `'unsafe-inline'` removed from dashboard/bulk-edit, inline handlers converted to delegated `data-*` dispatch; full suite green). `⏳ phase 2 DEFERRED` — the browser-served SPA (`html_content.dart`) and the data-grid webview (`panel.ts`) boot via inline `onerror=` CDN-fallback handlers and a dynamic `createElement('script')` loader, both blocked by a strict nonce CSP, so this needs a boot-path rework plus manual verification of both the inline-asset and CDN-fallback load modes. **Full detailed plan: [`plans/deferred/c2b-phase2-served-spa-csp.md`](deferred/c2b-phase2-served-spa-csp.md).**
+2. **L5 — consolidate the ~15 duplicate `esc()` helpers into one complete `escapeHtml` (`& < > " '` + `String()` coercion).** Latent only: every current sink double-quotes its attributes, so the missing `'` escape is not exploitable today. Canonical reference impls already exist (`dvr-html.ts`, `mutation-stream-html-helpers.ts`). (Smaller than originally scoped — phase-1 work already removed the `attrJsString`-based escapers in lineage/impact.)
 3. **L6 — remove stale artifacts.** The two `.bak` files (`analysis_options_custom.yaml.bak`, `assets/web/app.js.bak`) were deleted 2026-06-14. Remaining: the duplicated `*.js` files next to their `*.ts` sources — confirm nothing is load-bearing before removing. (The duplicate CSV parser half of the original L7 finding is already removed.)
 
-### Needs action — user
+### Done — closed since the original audit
 
-4. **L3 — rotate the Open VSX publish token** (`OVSX_PAT` in `.env`). It was surfaced in the audit session, so treat it as compromised. **Cannot be done in code.**
-
-### Optional — cosmetic, not scheduled
-
-5. **L4 — `safeSubstring` rewrite.** Correct today, just obscure and double-allocating (`server_utils.dart:177`). Leave unless touched for other reasons.
-6. **L7 (remainder) — TS helper dedup.** The duplicate CSV parser is gone; consolidating the three case converters, the 3 `makeId` copies, shared TTL constants, and the codelens O(n²) line scan is still open. Cosmetic.
+- **L4 — `safeSubstring` rewrite.** ✅ Done 2026-06-14 — the double `replaceRange` is now a direct `substring(start, safeEnd)` (the four guards above it prove the bounds); tests unchanged and green.
+- **L7 (remainder) — TS helper dedup.** ✅ Done 2026-06-14 — the 3 `makeId` copies are consolidated into one `shared-utils.makeId(prefix?)`, and the codelens O(n²) per-keystroke line scan now uses `document.positionAt` (O(log n)). The three snake/pascal case converters were left intentionally distinct: they carry domain-specific rules (Drift acronym splitting, `'Lookup'` empty fallback) and are NOT redundant — merging would change behavior. (`isar`'s `toSnake` was already a thin wrapper over `dartClassToSnakeCase`.)
 
 ### Reviewed — no change required
 
@@ -78,7 +74,7 @@ Severity reflects this package's real threat model (a debug tool, often on local
 `drift_debug_server_io.dart:109,268-270` and `start_drift_viewer_extension.dart:242-243`. Defaults are `loopbackOnly: false` (→ `InternetAddress.anyIPv4`, i.e. `0.0.0.0`), `corsOrigin: '*'`, `authToken: null`. With no auth the entire database is readable by any host that can reach the port; with `writeQuery` wired it is also writable. The wildcard CORS header means *any* web page the developer opens can `fetch('http://localhost:8642/api/dump')` and read the response cross-origin (a DNS-rebinding / malicious-site vector), even when the server is "only" on localhost.
 **Fix:** default `loopbackOnly: true`; do not emit `Access-Control-Allow-Origin: *` by default (omit the header, or echo a vetted origin); require an explicit opt-in (and ideally a generated token) before binding to a non-loopback address. Document the posture in the README's first server example.
 
-**C2 — Stored XSS in served SPA and extension webviews; no CSP backstop** ✓ verified (3 sinks + CSP) — `✅ exploitable sinks fixed (C2a)` · `✅ executeAction allowlisted (C2c)` · `✅ CSP on all 47 webview panels (C2b phase 1)` · `⏳ CSP on the served SPA + data-grid panel REMAINS (C2b phase 2)`
+**C2 — Stored XSS in served SPA and extension webviews; no CSP backstop** ✓ verified (3 sinks + CSP) — `✅ exploitable sinks fixed (C2a)` · `✅ executeAction allowlisted (C2c)` · `✅ CSP on all 47 webview panels (C2b phase 1)` · `⏳ CSP on the served SPA + data-grid panel DEFERRED (C2b phase 2 → plans/deferred/c2b-phase2-served-spa-csp.md)`
 DB content reaches HTML unescaped in several places, and there is no Content-Security-Policy (or `'unsafe-inline'` where one exists), so each miss executes script.
 - `assets/web/.../snippets`→ no; the SPA result path: `snippets/snippet-library-html.ts:198-210` builds `'<th>'+c+'</th>'`, `'<td>'+v+'</td>'`, and `'<p class="error">'+msg.message` straight into `innerHTML` — DB column names, **cell values**, and SQLite error text. The file's own `esc()` is never called here. ✓
 - `lineage/lineage-html.ts:100` — `onclick="navigate('${escAttr(node.table)}',...)"` where `escAttr` escapes only `\` and `'`, inside a **double-quoted** attribute; an unescaped `"` in a table/column/PK value breaks out. Same defect in `impact/impact-html.ts:68,106`. ✓
@@ -143,18 +139,17 @@ Every handler does `await for (chunk in request) builder.add(chunk)` with no cap
 
 - `✅ DONE` — **L1 — `_secureCompare` leaks length** ✓ verified. `auth_handler.dart:108-110` early-returns on length mismatch, defeating the constant-time loop for length. Minor for a dev tool; fold length into the result without early return.
 - `☑ REVIEWED — no change` (C1 loopback default removes the exposure premise) — **L2 — Error responses echo `error.toString()`** ✓ verified. `server_context.dart:581` and many handlers return raw SQLite/exception text (schema, paths, SQL) to the client. Acceptable for debug, but information disclosure on an open/tunneled server. Consider gating detail behind a flag.
-- `⏳ NEEDS ACTION — user must rotate` — **L3 — Open VSX publish token in plaintext `.env`** ✓ verified. `OVSX_PAT=ovsxat_…` sits in plaintext on disk. Correctly gitignored and pub-excluded, so not leaked via git/pub — but it is a live credential; rotate it (it has now been surfaced in this session) and inject it from a secret store at publish time rather than a working-tree file.
-- `⏳ OPTIONAL — cosmetic, not scheduled` — **L4 — `safeSubstring` reimplements `substring` via double `replaceRange`** ✓ verified (`server_utils.dart:177`) — correct but obscure and double-allocating; the guards above already prove the bounds.
+- `✅ DONE (2026-06-14)` — **L4 — `safeSubstring` reimplements `substring` via double `replaceRange`** ✓ verified (`server_utils.dart:177`) — now a direct `substring(start, safeEnd)`; the four guards above prove the bounds, tests unchanged and green.
 - `⏳ NEEDS BUILDING` — **L5 — `esc()` single-quote omission, systemic + duplicated** *(agent-reported)*. ~15 separate `esc()` copies escape `& < > "` but not `'`; not exploitable today (all attributes double-quoted) but a latent landmine. Complete reference impls exist (`dvr-html.ts`, `mutation-stream-html-helpers.ts`). Consolidate to one.
 - `✅ .bak files removed (2026-06-14)` · `⏳ duplicated *.js still open` — **L6 — Repo clutter / stale artifacts**: the two `.bak` files (`analysis_options_custom.yaml.bak` 163KB, `assets/web/app.js.bak` 322KB) were deleted; the duplicated `*.js` next to their `*.ts` sources remain — confirm what's load-bearing, then remove.
-- `✅ partial — duplicate CSV parser removed` · `⏳ OPTIONAL — helper dedup still open (cosmetic)` — **L7 — Duplicated helpers** *(agent-reported)*: three different snake/pascal-case converters (`invariant-diagnostics`, `table-name-mapper`, `dart-names`); duplicated `makeId` (still 3 copies), TTL constants, `999` line-end sentinel; `codelens` O(n²) line-number computation on every keystroke. The `ServerUtils.parseCsvLines` duplicate was removed; the TS helper consolidation above is not yet done.
+- `✅ DONE (2026-06-14)` — **L7 — Duplicated helpers** *(agent-reported)*: the 3 `makeId` copies are now one `shared-utils.makeId(prefix?)`; the `codelens` O(n²) per-keystroke line scan uses `document.positionAt` (O(log n)); the duplicate `ServerUtils.parseCsvLines` was already removed. The three snake/pascal case converters (`table-name-mapper.dartClassToSnakeCase`, `dart-names.snakeToPascal`, `refactoring-plan-naming.pascalCaseFromSqlTable`) were left intentionally distinct — they carry domain-specific rules (Drift acronym splitting, `'Lookup'`/`'column'` empty fallbacks) and are NOT redundant; `isar`'s `toSnake` is already a wrapper over `dartClassToSnakeCase`. (TTL constants / `999` sentinel: trivial, not pursued.)
 - `☑ REVIEWED — no change` (bounded by the 2 s `changeDetectionMinInterval` throttle) — **L8 — Long-poll per-connection DB probing** *(agent-reported)*. `generation_handler.dart:131` runs `checkDataChange()` each interval per concurrent client for the whole window, driven by a client-supplied `since` with no upper bound. Verify the interval floor; consider a shared change-detection tick.
 
 ---
 
 ## Detailed Remediation Plan
 
-> **Status: Phases 1–4 are shipped and verified.** Phase 5 (hygiene) is the only one with open work — and within it only step 18 (rotate token, L3), the CSP half of step 19 (C2b) + the `esc()`/helper consolidation (L5, L7 remainder), and the artifact removal (L6) remain. Steps 20's items (L1 done; L2, L8 reviewed) are closed. The detailed plan below is kept verbatim as the original specification.
+> **Status: Phases 1–4 are shipped and verified.** Remaining open work: C2b phase 2 (served SPA + data-grid CSP — deferred to [`plans/deferred/c2b-phase2-served-spa-csp.md`](deferred/c2b-phase2-served-spa-csp.md)), the `esc()` consolidation (L5), and the duplicated-`*.js` removal (L6). L4 and L7 are done; L1 done; L2/L8 reviewed. The detailed plan below is kept verbatim as the original specification.
 
 Ordered by leverage. Each phase is independently shippable; phases 1–2 are the security-defining ones.
 
@@ -201,9 +196,8 @@ Ordered by leverage. Each phase is independently shippable; phases 1–2 are the
 
 ### Phase 5 — Hygiene
 
-18. Rotate the OVSX token and source it from a secret store (L3).
-19. Consolidate duplicated escapers/converters/helpers; remove `*.bak` and stale `*.js` artifacts (L5–L7).
-20. Constant-time-compare length hardening (L1); error-detail gating (L2); long-poll tick review (L8).
+18. Consolidate duplicated escapers/converters/helpers; remove `*.bak` and stale `*.js` artifacts (L5–L7).
+19. Constant-time-compare length hardening (L1); error-detail gating (L2); long-poll tick review (L8).
 
 ---
 

@@ -4,6 +4,7 @@
  * The visual query builder tracks table instances by stable IDs so a single
  * base table can be added multiple times for self-joins.
  */
+import { makeId } from '../shared-utils';
 import type { ColumnMetadata } from '../api-client';
 
 export type JoinType = 'INNER' | 'LEFT' | 'RIGHT';
@@ -183,9 +184,6 @@ export function nextAlias(model: IQueryModel, baseTable: string): string {
   return alias;
 }
 
-/**
- * Small helper for deterministic IDs in the webview process.
- */
-export function makeId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
+// Query-builder node ids (tbl/join/flt) come from the shared id helper
+// (audit L7); re-exported so existing query-model importers are unaffected.
+export { makeId };

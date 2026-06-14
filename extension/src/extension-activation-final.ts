@@ -12,6 +12,7 @@ import { ConnectionStateMachine } from './connection-state';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 import { wireEventListeners } from './extension-activation-event-wiring';
 import { maybeShowCoverageNotice } from './l10n/coverage-notice';
+import { maybeRecommendSuiteTools } from './suite/cross-discovery';
 import type { SchemaCache } from './schema-cache/schema-cache';
 import type { ServerDiscovery } from './server-discovery';
 import type { ServerManager } from './server-manager';
@@ -156,5 +157,13 @@ export function setupFinalPhases(
   // itself stays silent for English, untracked, and already-complete locales.
   track(runPhase('l10n-coverage-notice', d.channel, () => {
     void maybeShowCoverageNotice(d.context);
+  }));
+
+  // Phase 12: Suite cross-discovery nudge (plan 67 Phase 6). Fire-and-forget —
+  // offers a sibling Saropa extension once when the project uses its Dart
+  // package but lacks the extension; silent for non-Dart projects and tools the
+  // user already has or has been offered.
+  track(runPhase('suite-cross-discovery', d.channel, () => {
+    void maybeRecommendSuiteTools(d.context);
   }));
 }
