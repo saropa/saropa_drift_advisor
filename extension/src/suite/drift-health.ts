@@ -83,3 +83,61 @@ export function buildDriftHealth(
   );
   return { tables, untabled, totalIssues };
 }
+
+/** Flat counts across the whole join — per-tool and per-severity. */
+export interface SuiteFindingsSummary {
+  /** Total findings from known producers (the model's totalIssues). */
+  total: number;
+  /** Number of distinct tables carrying at least one finding. */
+  tables: number;
+  advisor: number;
+  lints: number;
+  logCapture: number;
+  errors: number;
+  warnings: number;
+}
+
+/**
+ * Reduces a built Drift Health model to flat per-tool / per-severity counts.
+ * The single source of truth for "how the suite counts findings": both the
+ * Suite Findings dashboard widget and the commit timeline use it, so a count
+ * shown in one surface can never disagree with another. Counts only known
+ * producers (buildDriftHealth already dropped the rest), so it matches the
+ * per-table view exactly.
+ */
+export function summarizeDriftHealth(model: DriftHealthModel): SuiteFindingsSummary {
+  let advisor = 0;
+  let lints = 0;
+  let logCapture = 0;
+  let errors = 0;
+  let warnings = 0;
+  const tally = (d: SuiteDiagnostic): void => {
+    if (d.severity === 'error') errors++;
+    else if (d.severity === 'warning') warnings++;
+  };
+  for (const g of model.tables) {
+    advisor += g.advisor.length;
+    lints += g.lints.length;
+    logCapture += g.logCapture.length;
+    g.advisor.forEach(tally);
+    g.lints.forEach(tally);
+    g.logCapture.forEach(tally);
+  }
+  // Untabled findings still count toward tool totals and severities; they just
+  // have no table to group under (query-level signals, project-wide rules).
+  for (const d of model.untabled) {
+    if (d.source === 'advisor') advisor++;
+    else if (d.source === 'lints') lints++;
+    else if (d.source === 'log-capture') logCapture++;
+    tally(d);
+  }
+  return {
+    total: model.totalIssues,
+    tables: model.tables.length,
+    advisor,
+    lints,
+    logCapture,
+    errors,
+    warnings,
+  };
+}

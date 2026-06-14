@@ -77,24 +77,52 @@ const SIBLING_FILES: ReadonlyArray<{ file: string; source: string }> = [
   { file: 'log-capture.json', source: 'log-capture' },
 ];
 
+/**
+ * All three suite mirror files, including Advisor's own. Used by surfaces that
+ * snapshot the persisted on-disk state of every tool (the commit timeline),
+ * rather than fetching Advisor live. Advisor's mirror is already canonical
+ * (`source: "advisor"` per entry), so the implied source is just a backfill.
+ */
+const ALL_MIRROR_FILES: ReadonlyArray<{ file: string; source: string }> = [
+  { file: 'advisor.json', source: 'advisor' },
+  ...SIBLING_FILES,
+];
+
 const MIRROR_DIR = '.saropa/diagnostics';
+
+/** Reads the given mirror files from the first workspace folder, merged. */
+async function readMirrorFiles(
+  files: ReadonlyArray<{ file: string; source: string }>,
+): Promise<SuiteDiagnostic[]> {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) return [];
+
+  const all: SuiteDiagnostic[] = [];
+  for (const { file, source } of files) {
+    const uri = vscode.Uri.joinPath(folder.uri, ...MIRROR_DIR.split('/'), file);
+    const diags = await readEnvelopeFile(uri, source);
+    all.push(...diags);
+  }
+  return all;
+}
 
 /**
  * Reads both sibling mirrors from the first workspace folder and returns their
  * merged diagnostics. Each entry's `source` is backfilled from the file it came
  * from when the envelope omits it. Returns [] when there is no workspace.
  */
-export async function readSiblingDiagnostics(): Promise<SuiteDiagnostic[]> {
-  const folder = vscode.workspace.workspaceFolders?.[0];
-  if (!folder) return [];
+export function readSiblingDiagnostics(): Promise<SuiteDiagnostic[]> {
+  return readMirrorFiles(SIBLING_FILES);
+}
 
-  const all: SuiteDiagnostic[] = [];
-  for (const { file, source } of SIBLING_FILES) {
-    const uri = vscode.Uri.joinPath(folder.uri, ...MIRROR_DIR.split('/'), file);
-    const diags = await readEnvelopeFile(uri, source);
-    all.push(...diags);
-  }
-  return all;
+/**
+ * Reads all three suite mirrors (Advisor + the two siblings) from disk, merged.
+ * Unlike the Drift Health panel — which fetches Advisor live for freshness —
+ * the commit timeline records the persisted snapshot at a commit, so it reads
+ * Advisor from its mirror too. Returns [] when there is no workspace.
+ */
+export function readAllSuiteDiagnostics(): Promise<SuiteDiagnostic[]> {
+  return readMirrorFiles(ALL_MIRROR_FILES);
 }
 
 /** Reads and parses one envelope file; any failure yields []. */

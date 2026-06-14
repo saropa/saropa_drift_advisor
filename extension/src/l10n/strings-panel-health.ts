@@ -73,4 +73,28 @@ export const stringsPanelHealth: Record<string, string> = {
   'panel.driftHealth.sort.label': 'Sort:',
   'panel.driftHealth.sort.count': 'Findings',
   'panel.driftHealth.sort.name': 'Table name',
+
+  // --- Commit Timeline panel (cross-commit trend, plan 67 R6 / §6) ---
+  'panel.commitTimeline.title': 'Suite Commit Timeline',
+  'panel.commitTimeline.intro':
+    'Suite finding counts per commit over time — see whether a checkout added or cleared issues.',
+  // {0} = number of commits with a recorded snapshot.
+  'panel.commitTimeline.count': '{0} commit(s) tracked',
+  'panel.commitTimeline.empty':
+    'No commit history yet. Counts are recorded per commit while the debug server runs — come back after a few sessions.',
+  'panel.commitTimeline.btn.refresh': 'Refresh',
+  // Badge on the row whose commit matches the current checkout.
+  'panel.commitTimeline.current': 'current',
+  // Short tool labels for the per-commit breakdown chips.
+  'panel.commitTimeline.tool.advisor': 'Advisor',
+  'panel.commitTimeline.tool.lints': 'Lints',
+  'panel.commitTimeline.tool.logCapture': 'Log Capture',
+  // {0} = error count, {1} = warning count for the commit.
+  'panel.commitTimeline.severity': '{0} error(s), {1} warning(s)',
+  // Delta vs the previous commit. {0} = absolute change in total findings.
+  'panel.commitTimeline.delta.up': '+{0} vs previous',
+  'panel.commitTimeline.delta.down': '-{0} vs previous',
+  'panel.commitTimeline.delta.same': 'no change',
+  // Shown against the oldest snapshot, which has no earlier commit to compare to.
+  'panel.commitTimeline.delta.first': 'first recorded',
 };

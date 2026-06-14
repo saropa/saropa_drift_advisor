@@ -71,6 +71,7 @@ describe('Extension activation', () => {
     assert.ok('driftViewer.goToDefinitionForTable' in registered);
     assert.ok('driftViewer.writeDiagnosticsMirror' in registered);
     assert.ok('driftViewer.openDriftHealth' in registered);
+    assert.ok('driftViewer.openCommitTimeline' in registered);
   });
 
   it('should push expected disposables', () => {
@@ -137,7 +138,8 @@ describe('Extension activation', () => {
     // Suite diagnostics mirror (plan 67 R2): watcher.onDidChange subscription,
     //   debounce-timer dispose, writeDiagnosticsMirror command (+3).
     // Suite Drift Health (plan 67 R4): openDriftHealth command (+1).
-    assert.strictEqual(subscriptions.length, 223, `expected 223 disposables, got ${subscriptions.length}`);
+    // Suite Commit Timeline (plan 67 R6 / §6): openCommitTimeline command (+1).
+    assert.strictEqual(subscriptions.length, 224, `expected 224 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

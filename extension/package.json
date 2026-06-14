@@ -440,6 +440,11 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.openCommitTimeline",
+        "title": "%command.openCommitTimeline.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.askNaturalLanguage",
         "title": "%command.askNaturalLanguage.title%",
         "icon": "$(comment-discussion)",
