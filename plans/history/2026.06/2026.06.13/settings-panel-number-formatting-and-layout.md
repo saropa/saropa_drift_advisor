@@ -13,8 +13,6 @@ instead of sitting inline on the right with the other rows.
 
 ## Finish Report (2026-06-13)
 
-This work will be reviewed by another AI.
-
 ### Scope
 
 (B) Web-viewer assets that compile into the VS Code extension bundle —

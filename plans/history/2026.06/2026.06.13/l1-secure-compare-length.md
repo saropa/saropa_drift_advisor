@@ -4,8 +4,6 @@ The Bearer-token / Basic-auth comparison short-circuited with `if (a.length != b
 
 ## Finish Report (2026-06-13)
 
-This work will be reviewed by another AI. — (chat-time note; not part of the durable record.)
-
 ### Scope
 
 (A) Dart package code (`lib/`). No extension/Flutter/docs beyond the changelog. No dedicated test (the method is private); exercised by the existing auth integration tests.

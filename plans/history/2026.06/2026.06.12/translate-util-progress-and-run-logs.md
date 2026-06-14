@@ -17,8 +17,6 @@ translation is performed by the change.
 
 ### 1. Critical Note
 
-This work will be reviewed by another AI.
-
 ### 2. Scope
 
 **(C) docs/scripts only.** The change touches the Python publish/localization
