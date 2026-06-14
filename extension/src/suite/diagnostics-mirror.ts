@@ -9,9 +9,15 @@
  * data-change generation tick) rather than at session end, when a fetch would
  * already fail.
  *
- * The envelope is persisted verbatim: the server owns the shape (schemaVersion,
- * producer, generatedAt, per-issue id/category/title); this module only stores
- * a copy on disk.
+ * The server owns the live shape (schemaVersion, producer, generatedAt,
+ * per-issue id/category/title), but the live `/api/issues` envelope is NOT
+ * written verbatim: it uses the legacy carrier key `issues` and sets each
+ * entry's `source` to the DETECTOR name (anomaly / index-suggestion / …),
+ * whereas the sibling tools read this file with a strict parser that requires
+ * the canonical carrier key `diagnostics` and a tool-level `source` of
+ * `advisor`. Writing the live shape verbatim parsed to ZERO diagnostics on the
+ * consumer side — the mirror existed but rendered nothing. {@link
+ * toCanonicalEnvelope} performs that one translation before the write.
  */
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
@@ -57,14 +63,19 @@ export async function writeAdvisorDiagnosticsMirror(
     return false;
   }
 
+  // Translate the live `/api/issues` shape into the canonical envelope the
+  // sibling tools' strict on-disk parser accepts (carrier key `diagnostics`,
+  // `source: "advisor"`). See toCanonicalEnvelope for why verbatim fails.
+  const canonical = toCanonicalEnvelope(envelope as Record<string, unknown>);
+
   // Stamp the capture commit (plan 67 R6) so a sibling can tell whether these
   // issues match its current checkout. The server cannot know the workspace's
   // git state (it runs inside the app), so the extension adds it here. Best-
   // effort: when the commit can't be resolved, the field is simply absent.
   const commitSha = await resolveWorkspaceCommit();
   const stamped = commitSha === undefined
-    ? envelope
-    : { ...(envelope as Record<string, unknown>), commitSha };
+    ? canonical
+    : { ...canonical, commitSha };
 
   const dirUri = vscode.Uri.joinPath(folder.uri, ...MIRROR_DIR.split('/'));
   const fileUri = vscode.Uri.joinPath(dirUri, MIRROR_FILE);
@@ -72,6 +83,42 @@ export async function writeAdvisorDiagnosticsMirror(
   const bytes = new TextEncoder().encode(JSON.stringify(stamped, null, 2));
   await vscode.workspace.fs.writeFile(fileUri, bytes);
   return true;
+}
+
+/**
+ * Translates the live `/api/issues` envelope into the canonical Saropa
+ * Diagnostic Envelope the sibling tools read from disk.
+ *
+ * Two and only two things change. (1) The carrier array moves from the legacy
+ * key `issues` to `diagnostics` — Log Capture's strict mirror parser rejects
+ * the WHOLE file when `diagnostics` is not an array, so a verbatim `issues`
+ * envelope yields nothing. (2) Each entry's `source` is set to the tool name
+ * `advisor`; the live shape puts the DETECTOR (anomaly / index-suggestion / …)
+ * there, but the consumer's parser only accepts a `source` of
+ * `lints | advisor | log-capture` and drops any other entry. The detector is
+ * preserved as `ruleId` (its canonical home — "the Advisor check id") so the
+ * relabel loses no information; an entry that already carries an explicit
+ * `ruleId` keeps it. Every other field passes through untouched.
+ */
+export function toCanonicalEnvelope(
+  envelope: Record<string, unknown>,
+): Record<string, unknown> {
+  const rawIssues = Array.isArray(envelope.issues) ? envelope.issues : [];
+  const diagnostics = rawIssues.map((entry) => {
+    if (typeof entry !== 'object' || entry === null) return entry;
+    const e = entry as Record<string, unknown>;
+    const detector = typeof e.source === 'string' ? e.source : undefined;
+    return {
+      ...e,
+      source: 'advisor',
+      ruleId: e.ruleId ?? detector,
+    };
+  });
+
+  // Drop the legacy `issues` key so the file carries exactly one carrier the
+  // strict parser recognizes (no duplicated source of truth on disk).
+  const { issues: _legacyIssues, ...rest } = envelope;
+  return { ...rest, diagnostics };
 }
 
 /**
