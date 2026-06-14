@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { createdPanels } from './vscode-mock';
-import { DriftViewerPanel } from '../panel';
+import { DriftViewerPanel, focusTableHashScript } from '../panel';
 import { latestPanel, setupPanelTest, settle, minimalHtml, titledHtml, htmlResponse, bodyHtml } from './panel.test-helpers';
 
 describe('DriftViewerPanel', () => {
@@ -295,5 +295,66 @@ describe('DriftViewerPanel', () => {
       'CSP should allow new server');
     assert.ok(!html.includes('8642'),
       'should not reference old server in CSP or base tag');
+  });
+
+  // Plan 67 R5: a sibling deep-link (openTable) asks the panel to focus a table.
+  it('injects the table deep-link hash into loaded HTML when focusTable is set', async () => {
+    fetchStub.resolves(htmlResponse(minimalHtml));
+    DriftViewerPanel.createOrShow('127.0.0.1', 8642, undefined, undefined, undefined, {
+      focusTable: 'Orders',
+    });
+    await settle();
+
+    const html = latestPanel().webview.html;
+    // The web app reads `#TableName` on load; the injected script sets it.
+    assert.ok(html.includes('location.hash="Orders"'), 'should set the deep-link hash');
+  });
+
+  it('does not inject the deep-link hash when no focusTable is given', async () => {
+    fetchStub.resolves(htmlResponse(minimalHtml));
+    DriftViewerPanel.createOrShow('127.0.0.1', 8642);
+    await settle();
+
+    assert.ok(!latestPanel().webview.html.includes('location.hash='),
+      'no hash script without a focus table');
+  });
+
+  it('reloads to re-fire the deep-link when focusing a table on the open same-server panel', async () => {
+    // Fresh response per call: a Response body is single-use, so the reload
+    // needs its own (mirrors the server-switch tests above).
+    fetchStub.onFirstCall().resolves(htmlResponse(minimalHtml));
+    fetchStub.onSecondCall().resolves(htmlResponse(minimalHtml));
+    DriftViewerPanel.createOrShow('127.0.0.1', 8642);
+    await settle();
+    const firstCalls = fetchStub.callCount;
+
+    // Same server, now asked to focus a table → must reload (web app reads the
+    // hash only on load), not just reveal.
+    DriftViewerPanel.createOrShow('127.0.0.1', 8642, undefined, undefined, undefined, {
+      focusTable: 'Users',
+    });
+    await settle();
+
+    assert.ok(fetchStub.callCount > firstCalls, 'should reload content to re-fire the deep-link');
+    assert.ok(latestPanel().webview.html.includes('location.hash="Users"'));
+  });
+});
+
+describe('focusTableHashScript', () => {
+  it('encodes the table name into a safe inline script', () => {
+    assert.strictEqual(
+      focusTableHashScript('Orders'),
+      '<script>try{location.hash="Orders";}catch(e){}</script>',
+    );
+  });
+
+  it('neutralizes a name that tries to break out of the script tag', () => {
+    const script = focusTableHashScript('x</script><img src=q onerror=alert(1)>');
+    // The dangerous characters are percent-encoded, so no literal markup survives.
+    assert.ok(!script.includes('</script><img'));
+    assert.ok(!script.includes('onerror=alert'));
+    assert.ok(script.includes('%3C%2Fscript%3E'));
+    // Exactly one closing tag — the script's own.
+    assert.strictEqual(script.match(/<\/script>/g)?.length, 1);
   });
 });

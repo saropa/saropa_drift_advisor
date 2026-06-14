@@ -142,11 +142,13 @@ export function registerTreeCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.viewTableData',
-      (_item: TableItem) => {
+      (item?: TableItem) => {
         try {
+          // Focus the selected table so clicking it (or a sibling deep-link via
+          // openTable, plan 67 R5) opens that table, not the default view.
           DriftViewerPanel.createOrShow(
             client.host, client.port, editingBridge, fkNavigator, filterBridge,
-            panelOptions(),
+            { ...panelOptions(), focusTable: item?.table?.name },
           );
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
