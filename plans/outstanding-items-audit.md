@@ -160,8 +160,42 @@ Recording these so the next audit does not re-chase them:
 
 ---
 
-## Recommended order
+## Recommended order — COMPLETED (2026-06-12)
 
-A3 (live false-positive, hurts trust in diagnostics) → A1 + A4 (close website/server
-parity gaps that the extension already has) → A2 (durability) → A5 (polish). Each
-gets its own standalone plan file before work starts, per repo convention.
+All Section A items were delivered in this order: A3 (live false-positive in the
+diagnostics) → A1 + A4 (website/server parity gaps) → A2 (durability) → A5 (polish).
+Nothing in Section A remains outstanding; only the Section B forward specs and the
+Section C exclusions stand.
+
+---
+
+## Finish Report (2026-06-14)
+
+After all five Section A deferrals were built and code-verified on 2026-06-12,
+each A-item gained a leading `Resolution: DONE` line, but the original
+`State: Confirmed not built` bullet beneath it was left in place. The document
+therefore asserted both "DONE" and "Confirmed not built" inside the same entry,
+and the headline plus the Recommended-order footer still framed Section A as open
+work — a self-contradiction that would mislead the next reader or audit pass.
+
+**Change:** the five stale `State:` bullets (A1–A5) were removed. Each surviving
+`Deliverable:` bullet was relabeled `Original deliverable:` so it reads as
+historical context preserved under the Resolution line rather than open scope.
+The headline paragraph now states Section A is closed (all five built and verified
+2026-06-12); the Recommended-order footer is marked `COMPLETED` and rewritten in
+past tense. No A-item's source, resolution, or gate text was altered — only the
+framing that contradicted the resolved status.
+
+**Verification:** the artifacts each Resolution names were confirmed present in the
+codebase — `lib/src/server/report_handler.dart` + `report_html.dart` (A1);
+`lib/src/server/snapshot_store.dart` with `snapshotStorePath` /
+`loadPersistedSnapshots` wiring (A2); `avgRowCount` per-row normalization in
+`extension/src/debug/perf-regression-detector.ts` + `perf-baseline-store.ts` (A3);
+`assets/web/schema-divergence.ts` with `computeSchemaDivergence` + test (A4);
+`detectRefinement` / `combineRefinement` in `assets/web/nl-to-sql.ts` with
+`nl-refine.test.mjs` (A5). Sections B and C were not touched; they remain the only
+standing items, both tracked outside this audit.
+
+**Scope:** docs-only. No code, tests, or user-facing strings changed; no bug or
+plan was closed by this edit. The file stays in the active `plans/` tree as a
+living reference because Section B still points at open forward specs.
