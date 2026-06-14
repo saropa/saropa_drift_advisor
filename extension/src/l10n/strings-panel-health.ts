@@ -45,4 +45,21 @@ export const stringsPanelHealth: Record<string, string> = {
   'panel.health.advisor.updated':
     'Updated {0}. Same summary is merged into <strong>Schema Quality</strong> details when you refresh the health score.',
   'panel.health.advisor.open': 'Open refactoring panel',
+
+  // --- Drift Health panel (cross-tool join, plan 67 R4) ---
+  // Tool labels keep the brand name (identity) and translate only the lens
+  // descriptor after the dash. Per-finding text is the producing tool's own
+  // already-localized title/detail, so it is not re-translated here.
+  'panel.driftHealth.title': 'Drift Health',
+  'panel.driftHealth.intro':
+    'Static code, live data, and runtime behavior for each table, joined across the Saropa suite.',
+  // {0} = total finding count across every table.
+  'panel.driftHealth.count': '{0} finding(s) across the suite',
+  'panel.driftHealth.empty':
+    'No suite findings yet. Start the debug server and run Saropa Lints / Saropa Log Capture to populate this view.',
+  'panel.driftHealth.col.advisor': 'Drift Advisor — runtime',
+  'panel.driftHealth.col.lints': 'Saropa Lints — static',
+  'panel.driftHealth.col.logCapture': 'Saropa Log Capture — telemetry',
+  'panel.driftHealth.untabled': 'Query-level (no table)',
+  'panel.driftHealth.btn.refresh': 'Refresh',
 };

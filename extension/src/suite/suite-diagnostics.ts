@@ -89,9 +89,28 @@ export function parseEnvelope(text: string, source: string): SuiteDiagnostic[] {
   } catch {
     return [];
   }
-  if (typeof parsed !== 'object' || parsed === null) return [];
+  return diagnosticsFromEnvelope(parsed, source);
+}
 
-  const env = parsed as SuiteEnvelope;
+/**
+ * Extracts diagnostics from an already-parsed envelope object. Exported for the
+ * Drift Health panel, which feeds it the live `/api/issues` payload (already
+ * JSON) rather than file text.
+ *
+ * When [forceSource] is true the diagnostic's own `source` is overridden with
+ * [source] — used for Advisor's own envelope, whose per-issue `source` is the
+ * detector (anomaly / index-suggestion) and must be relabeled to the tool
+ * ("advisor") for tool-level grouping. Otherwise `source` is only backfilled
+ * when absent.
+ */
+export function diagnosticsFromEnvelope(
+  envelope: unknown,
+  source: string,
+  forceSource = false,
+): SuiteDiagnostic[] {
+  if (typeof envelope !== 'object' || envelope === null) return [];
+
+  const env = envelope as SuiteEnvelope;
   const raw = Array.isArray(env.issues)
     ? env.issues
     : Array.isArray(env.diagnostics)
@@ -103,7 +122,7 @@ export function parseEnvelope(text: string, source: string): SuiteDiagnostic[] {
   for (const entry of raw) {
     if (typeof entry !== 'object' || entry === null) continue;
     const d = entry as SuiteDiagnostic;
-    out.push({ ...d, source: d.source ?? source });
+    out.push({ ...d, source: forceSource ? source : (d.source ?? source) });
   }
   return out;
 }
