@@ -85,8 +85,10 @@ const CATEGORIES: DiscoveryCategory[] = [
 
 /** Build an HTML card for a single command button. */
 function renderButton(cmd: DiscoveryCommand): string {
-  // The dashboard message handler already supports 'executeAction' messages
-  return `<button class="discovery-btn" onclick="vscode.postMessage({command:'executeAction',actionCommand:'${esc(cmd.commandId)}'})"`
+  // The dashboard message handler already supports 'executeAction' messages.
+  // data-click + the delegated dispatcher replace the inline onclick the C2b
+  // nonce CSP would block; executeAction() is a global in the dashboard script.
+  return `<button class="discovery-btn" data-click="executeAction" data-a0="${esc(cmd.commandId)}"`
     + ` title="${esc(cmd.description)}">${esc(cmd.label)}</button>`;
 }
 

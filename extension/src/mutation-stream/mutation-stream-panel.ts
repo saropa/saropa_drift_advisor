@@ -18,6 +18,7 @@ import {
 import { MAX_MUTATION_BUFFER_SIZE, MutationStreamPoller } from './mutation-stream-polling';
 import type { MutationStreamFilters, MutationStreamWebviewMessage } from './mutation-stream-types';
 import { viewMutationEventRow } from './mutation-stream-view-row';
+import { secureWebviewHtml } from '../webview-csp';
 
 export class MutationStreamPanel {
   private static _currentPanel: MutationStreamPanel | undefined;
@@ -103,12 +104,12 @@ export class MutationStreamPanel {
     if (this._initStarted) return;
     this._initStarted = true;
 
-    this._panel.webview.html = buildMutationStreamLoadingHtml({
+    this._panel.webview.html = secureWebviewHtml(buildMutationStreamLoadingHtml({
       message: 'Loading schema for column filters…',
-    });
+    }));
 
     if (this._client.usingVmService) {
-      this._panel.webview.html = buildVmServiceUnavailableHtml();
+      this._panel.webview.html = secureWebviewHtml(buildVmServiceUnavailableHtml());
       return;
     }
 
@@ -186,13 +187,13 @@ export class MutationStreamPanel {
     const tables = resolveMutationFilterTables(this._tables, this._events);
     const columns = this._availableColumns(f.table);
 
-    this._panel.webview.html = buildMutationStreamHtml({
+    this._panel.webview.html = secureWebviewHtml(buildMutationStreamHtml({
       events: filtered,
       filters: f,
       paused: this._paused,
       tables,
       columns,
-    });
+    }));
   }
 
   private async _handleMessage(

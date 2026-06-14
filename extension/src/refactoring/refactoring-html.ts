@@ -59,7 +59,7 @@ export function getRefactoringHtml(): string {
   <div id="list"></div>
   <div id="plan" class="plan" style="display:none;"></div>
 </div>
-<script>
+<script nonce="__CSP_NONCE__">
 (function () {
   const vscode = acquireVsCodeApi();
 

@@ -162,7 +162,7 @@ export function buildMutationStreamHtml(args: {
     ${cards}
   </div>
 
-  <script>${mutationStreamScript(paused)}</script>
+  <script nonce="__CSP_NONCE__">${mutationStreamScript(paused)}</script>
 </body>
 </html>`;
 }

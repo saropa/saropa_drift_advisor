@@ -22,6 +22,7 @@ import { ImportExecutor } from './import-executor';
 import { ImportHistory } from './import-history';
 import { ImportValidator } from './import-validator';
 import { captureSchemaSnapshot } from './schema-freshness';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton webview panel for clipboard import: parse → map → validate → import → history. */
 export class ClipboardImportPanel {
@@ -144,12 +145,12 @@ export class ClipboardImportPanel {
   }
 
   private _render(loading = false, error?: string, success?: { imported: number; skipped: number }): void {
-    this._panel.webview.html = buildClipboardImportHtml(
+    this._panel.webview.html = secureWebviewHtml(buildClipboardImportHtml(
       this._state,
       loading,
       error,
       success,
-    );
+    ));
   }
 
   private async _handleMessage(msg: PanelMessage): Promise<void> {

@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import type { IAnalysisSnapshot } from './analysis-history-store';
 import { buildCompareHtml } from './analysis-compare-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /**
  * Renders a single analysis snapshot as an HTML fragment (no <html>/<body>).
@@ -99,7 +100,7 @@ export class AnalysisComparePanel {
     );
 
     // Initial render with empty selection
-    this._panel.webview.html = buildCompareHtml(title, snapshots);
+    this._panel.webview.html = secureWebviewHtml(buildCompareHtml(title, snapshots));
   }
 
   private _dispose(): void {

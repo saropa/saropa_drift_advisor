@@ -131,7 +131,7 @@ export function wrapHtml(body: string): string {
 </head>
 <body>
 ${body}
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
 
   function getOutputMode() {

@@ -93,7 +93,7 @@ export function buildTimeTravelHtml(): string {
   </div>
   <div id="grid"></div>
 
-  <script>
+  <script nonce="__CSP_NONCE__">
     const vscode = acquireVsCodeApi();
 
     // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active

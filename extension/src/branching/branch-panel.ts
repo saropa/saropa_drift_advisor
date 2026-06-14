@@ -18,6 +18,7 @@ import { restoreBranch } from './branch-restore';
 import { DependencySorter } from '../data-management/dependency-sorter';
 import { DataReset } from '../data-management/data-reset';
 import { buildBranchDiffHtml, buildBranchListHtml } from './branch-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 export class BranchPanel {
   private static _current: BranchPanel | undefined;
@@ -53,7 +54,7 @@ export class BranchPanel {
   }
 
   private _renderList(): void {
-    this._panel.webview.html = buildBranchListHtml(this._manager.branches);
+    this._panel.webview.html = secureWebviewHtml(buildBranchListHtml(this._manager.branches));
   }
 
   private async _onMessage(msg: { command: string; branchId?: string }): Promise<void> {
@@ -128,7 +129,7 @@ export class BranchPanel {
       async () => {
         const current = await this._currentAsBranch();
         const diff = diffBranches(branch, current);
-        this._panel.webview.html = buildBranchDiffHtml(diff);
+        this._panel.webview.html = secureWebviewHtml(buildBranchDiffHtml(diff));
       },
     );
   }

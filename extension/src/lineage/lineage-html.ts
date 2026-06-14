@@ -1,6 +1,6 @@
 import type { ILineageNode, ILineageResult } from './lineage-types';
 import { t, getWebviewL10nMap } from '../l10n';
-import { attrJsString, jsonForScript } from '../shared-utils';
+import { jsonForScript } from '../shared-utils';
 
 /** Build the HTML for the data lineage webview panel. */
 export function buildLineageHtml(result: ILineageResult): string {
@@ -43,7 +43,7 @@ ${css()}
     <label class="radio"><input type="radio" name="dir" value="both" checked> ${t('panel.schema.lineage.controls.both')}</label>
     <label class="radio"><input type="radio" name="dir" value="up"> ${t('panel.schema.lineage.controls.upOnly')}</label>
     <label class="radio"><input type="radio" name="dir" value="down"> ${t('panel.schema.lineage.controls.downOnly')}</label>
-    <button onclick="retrace()">${t('panel.schema.lineage.btn.retrace')}</button>
+    <button data-click="retrace">${t('panel.schema.lineage.btn.retrace')}</button>
   </div>
 
   <div class="root-preview">
@@ -56,13 +56,13 @@ ${css()}
   <p class="summary">${t('panel.schema.lineage.summary.total', esc(counts))}</p>
 
   <div class="actions">
-    <button onclick="post('exportJson')">${t('panel.schema.lineage.btn.exportJson')}</button>
-    <button onclick="post('generateDelete')">${t('panel.schema.lineage.btn.generateDelete')}</button>
+    <button data-click="post" data-a0="exportJson">${t('panel.schema.lineage.btn.exportJson')}</button>
+    <button data-click="post" data-a0="generateDelete">${t('panel.schema.lineage.btn.generateDelete')}</button>
   </div>
 
   <pre id="sqlOutput" class="sql-output" style="display:none"></pre>
 
-  <script>
+  <script nonce="__CSP_NONCE__">
 ${clientScript(r.table, r.pkColumn, r.pkValue)}
   </script>
 </body>
@@ -97,8 +97,12 @@ function nodeHtml(node: ILineageNode, depth: number): string {
   const pk = esc(String(node.pkValue));
   const tbl = esc(node.table);
 
+  // data-click + the delegated dispatcher replace the inline onclick the C2b
+  // nonce CSP blocks. The PK value rides as a plain string (data-a2); the host's
+  // trace handler coerces it against the column type (audit H5), so passing it
+  // un-typed here is correct and avoids re-introducing a JS-in-attribute sink.
   return `<div class="node" style="margin-left:${indent}px">
-    <span class="node-header clickable" onclick="navigate('${escAttr(node.table)}','${escAttr(node.pkColumn)}',${escJs(node.pkValue)})">
+    <span class="node-header clickable" data-click="navigate" data-a0="${esc(node.table)}" data-a1="${esc(node.pkColumn)}" data-a2="${esc(String(node.pkValue))}">
       <strong>${tbl}</strong>.${esc(node.pkColumn)} = ${pk}
     </span>
     ${fkLabel}
@@ -221,19 +225,4 @@ function esc(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-// escAttr/escJs feed values into an inline onclick="navigate('…')" — a JS string
-// inside a double-quoted HTML attribute. The old versions escaped only the JS
-// quote, leaving a raw `"` free to close the attribute and a `<`/`>` free to
-// open a tag (stored XSS via DB table/column/PK values). Both now delegate to
-// the shared attrJsString, which is safe in BOTH the JS-string and
-// HTML-attribute contexts. See plans/full-codebase-audit-2026.06.12.md C2.
-function escAttr(s: string): string {
-  return attrJsString(s);
-}
-
-function escJs(v: unknown): string {
-  if (typeof v === 'number') return String(v);
-  return `'${attrJsString(v)}'`;
 }

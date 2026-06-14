@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import { DatasetExport } from './dataset-export';
 import { buildExportFormHtml } from './export-form-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Non-singleton form panel for dataset export. */
 export class ExportFormPanel {
@@ -48,7 +49,7 @@ export class ExportFormPanel {
       null,
       this._disposables,
     );
-    this._panel.webview.html = buildExportFormHtml(tables);
+    this._panel.webview.html = secureWebviewHtml(buildExportFormHtml(tables));
   }
 
   private async _handleMessage(

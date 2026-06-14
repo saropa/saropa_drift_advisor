@@ -57,7 +57,7 @@ export function buildDiagramHtml(data: IDiagramData): string {
   <svg width="${maxX}" height="${maxY}">${lines.join('')}</svg>
   ${boxes.join('\n')}
 </div>
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
   document.querySelectorAll('.tbl-header').forEach(el => {
     el.addEventListener('click', () => {

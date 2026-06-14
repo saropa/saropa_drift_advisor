@@ -18,7 +18,8 @@ export function buildDashboardHtml(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src blob:;">
+<!-- CSP applied centrally by secureWebviewHtml (audit C2b): a per-render nonce
+  locks script-src; the shared policy allows blob:/data: images. -->
 <style>
 ${getDashboardCss()}
 </style>
@@ -79,7 +80,7 @@ ${getDashboardCss()}
   </div>
 </div>
 
-<script>
+<script nonce="__CSP_NONCE__">
 ${getDashboardJs(widgetTypesJson, layoutJson)}
 </script>
 </body>

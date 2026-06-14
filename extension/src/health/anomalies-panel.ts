@@ -17,6 +17,7 @@ import {
 } from '../analysis-history/analysis-renderers';
 import { buildAnomaliesHtml } from './anomalies-html';
 import { buildSuiteSectionFor, executeSuiteFix } from '../suite/suite-notes-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Builds the related-suite-findings section for a set of anomalies (plan 67 R3). */
 function suiteSectionForAnomalies(anomalies: Anomaly[]): Promise<string> {
@@ -91,11 +92,11 @@ export class AnomaliesPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildAnomaliesHtml(
+    this._panel.webview.html = secureWebviewHtml(buildAnomaliesHtml(
       this._anomalies,
       this._historyStore.size,
       this._suiteSection,
-    );
+    ));
   }
 
   private async _handleMessage(

@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import type { IDiagramData } from '../api-types';
 import { buildDiagramHtml } from './diagram-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton panel showing an ER-style schema diagram. */
 export class DiagramPanel {
@@ -57,7 +58,7 @@ export class DiagramPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildDiagramHtml(this._data);
+    this._panel.webview.html = secureWebviewHtml(buildDiagramHtml(this._data));
   }
 
   private _handleMessage(msg: { command: string; name?: string }): void {

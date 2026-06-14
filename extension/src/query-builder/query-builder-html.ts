@@ -111,7 +111,7 @@ export function getQueryBuilderHtml(): string {
   </div>
 </div>
 
-<script>${getQueryBuilderClientJs()}</script>
+<script nonce="__CSP_NONCE__">${getQueryBuilderClientJs()}</script>
 </body>
 </html>`;
 }

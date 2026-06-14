@@ -15,6 +15,7 @@ import {
 } from '../analysis-history/analysis-renderers';
 import { buildIndexSuggestionsHtml } from './index-suggestions-html';
 import { buildSuiteSectionFor, executeSuiteFix } from '../suite/suite-notes-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton panel showing index suggestions in a rich table. */
 export class IndexSuggestionsPanel {
@@ -84,11 +85,11 @@ export class IndexSuggestionsPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildIndexSuggestionsHtml(
+    this._panel.webview.html = secureWebviewHtml(buildIndexSuggestionsHtml(
       this._suggestions,
       this._historyStore.size,
       this._suiteSection,
-    );
+    ));
   }
 
   private async _handleMessage(

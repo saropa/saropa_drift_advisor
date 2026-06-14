@@ -51,7 +51,7 @@ export function getNotebookHtml(): string {
     </div>
   </div>
 </div>
-<script>
+<script nonce="__CSP_NONCE__">
   // --- Shell: tabs, message routing, execute/explain, history ---
   ${getNotebookShellJs()}
 

@@ -133,7 +133,7 @@ export function buildDvrPanelHtml(state: IDvrPanelHtmlState): string {
   ${state.error ? `<div class="error">${escapeHtml(state.error)}</div>` : ''}
   ${detail}
   ${rows}
-  <script>
+  <script nonce="__CSP_NONCE__">
     const vscode = acquireVsCodeApi();
     function post(cmd, payload) { vscode.postMessage(Object.assign({ command: cmd }, payload || {})); }
     document.getElementById('start').addEventListener('click', () => post('start'));

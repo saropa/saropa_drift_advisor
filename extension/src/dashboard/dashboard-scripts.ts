@@ -18,6 +18,14 @@ let draggingId = null;
 let configWidgetId = null;
 let configWidgetType = null;
 
+// Global handler for widget action buttons. Widgets render data-click="executeAction"
+// data-a0="<commandId>" instead of an inline onclick, because the C2b nonce CSP
+// blocks inline handlers; the delegated dispatcher (webview-csp.ts) calls this.
+// The command id is allowlisted to driftViewer.* in the message handler (C2c).
+function executeAction(commandId) {
+  vscode.postMessage({ command: 'executeAction', actionCommand: commandId });
+}
+
 // Render widget picker
 const picker = document.getElementById('widgetPicker');
 picker.innerHTML = widgetTypes.map(wt => 

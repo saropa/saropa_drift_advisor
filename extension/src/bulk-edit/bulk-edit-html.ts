@@ -14,8 +14,8 @@ export function bulkEditHtml(): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
+  <!-- CSP applied centrally by secureWebviewHtml (audit C2b): a per-render
+    nonce locks script-src, replacing the old unsafe-inline policy. -->
   <title>${t('panel.data.bulk.docTitle')}</title>
   <style>
     body {
@@ -88,7 +88,7 @@ export function bulkEditHtml(): string {
     <span id="pageInfo">${t('panel.data.bulk.pager.pageInfo', 1, 1)}</span>
     <button type="button" id="nextPage" class="secondary">${t('panel.data.bulk.pager.next')}</button>
   </div>
-  <script>
+  <script nonce="__CSP_NONCE__">
     (function() {
       var vscode = acquireVsCodeApi();
       // __VT bridge (plan 75 §3.3): the host resolves this panel's keys to the active

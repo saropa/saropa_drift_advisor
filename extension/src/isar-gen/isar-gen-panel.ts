@@ -14,6 +14,7 @@ import { defaultIsarGenConfig } from './isar-gen-types';
 import { mapIsarToDrift } from './isar-type-mapper';
 import { generateDriftSource } from './isar-drift-codegen';
 import { buildIsarGenHtml } from './isar-gen-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton webview panel for Isar-to-Drift generation. */
 export class IsarGenPanel {
@@ -74,12 +75,12 @@ export class IsarGenPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildIsarGenHtml(
+    this._panel.webview.html = secureWebviewHtml(buildIsarGenHtml(
       this._collections,
       this._embeddeds,
       this._config,
       this._getMappingResult(),
-    );
+    ));
   }
 
   private async _handleMessage(

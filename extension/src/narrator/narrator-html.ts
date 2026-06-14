@@ -36,14 +36,14 @@ ${formatNarrativeHtml(result.text)}
   </main>
 
   <footer class="actions">
-    <button onclick="copyText()">${t('panel.tools.narrator.btn.copyText')}</button>
-    <button onclick="copyMarkdown()">${t('panel.tools.narrator.btn.copyMarkdown')}</button>
-    <button onclick="regenerate()">${t('panel.tools.narrator.btn.regenerate')}</button>
+    <button data-click="copyText">${t('panel.tools.narrator.btn.copyText')}</button>
+    <button data-click="copyMarkdown">${t('panel.tools.narrator.btn.copyMarkdown')}</button>
+    <button data-click="regenerate">${t('panel.tools.narrator.btn.regenerate')}</button>
   </footer>
 
   <div id="toast" class="toast hidden"></div>
 
-  <script>
+  <script nonce="__CSP_NONCE__">
 ${clientScript()}
   </script>
 </body>
@@ -97,11 +97,11 @@ ${getNarratorCss()}
   <main class="content">
     <div class="error">
       <p>${t('panel.tools.narrator.error', esc(message))}</p>
-      <button onclick="regenerate()">${t('panel.tools.narrator.btn.tryAgain')}</button>
+      <button data-click="regenerate">${t('panel.tools.narrator.btn.tryAgain')}</button>
     </div>
   </main>
 
-  <script>
+  <script nonce="__CSP_NONCE__">
 ${clientScript()}
   </script>
 </body>

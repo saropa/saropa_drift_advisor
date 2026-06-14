@@ -163,7 +163,7 @@ ${SUITE_NOTES_CSS}
 </table>
 ${suiteSection}
 
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
 
   // Select-all toggle

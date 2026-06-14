@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { IRowDiff } from './row-differ';
 import { RowDiffer } from './row-differ';
 import { buildComparatorHtml } from './comparator-html';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton webview panel for row-vs-row comparison. */
 export class ComparatorPanel {
@@ -50,7 +51,7 @@ export class ComparatorPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildComparatorHtml(this._diff);
+    this._panel.webview.html = secureWebviewHtml(buildComparatorHtml(this._diff));
   }
 
   private _handleMessage(msg: { command: string }): void {

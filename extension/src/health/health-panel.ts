@@ -15,6 +15,7 @@ import {
 import { buildHealthHtml } from './health-html';
 import { readAdvisorSession } from '../refactoring/refactoring-advisor-state';
 import { HealthScorer } from './health-scorer';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton panel showing the database health score dashboard. */
 export class HealthPanel {
@@ -82,11 +83,11 @@ export class HealthPanel {
 
   private _render(): void {
     const advisor = readAdvisorSession(this._workspaceState);
-    this._panel.webview.html = buildHealthHtml(
+    this._panel.webview.html = secureWebviewHtml(buildHealthHtml(
       this._score,
       this._historyStore.size,
       advisor,
-    );
+    ));
   }
 
   private _handleMessage(

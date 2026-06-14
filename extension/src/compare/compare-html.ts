@@ -87,10 +87,10 @@ export function buildCompareHtml(report: ICompareReport): string {
   ${countTable}
   <div class="footer">${t('panel.compare.db.generated', esc(report.generatedAt))}</div>
   <div style="display:flex;gap:8px;margin-top:8px;">
-    <button onclick="post('copyReport')">${t('panel.compare.db.btn.copyReport')}</button>
-    <button onclick="post('copyMigrationSql')">${t('panel.compare.db.btn.copyMigrationSql')}</button>
+    <button data-click="post" data-a0="copyReport">${t('panel.compare.db.btn.copyReport')}</button>
+    <button data-click="post" data-a0="copyMigrationSql">${t('panel.compare.db.btn.copyMigrationSql')}</button>
   </div>
-  <script>
+  <script nonce="__CSP_NONCE__">
     const vscode = acquireVsCodeApi();
     function post(cmd) { vscode.postMessage({ command: cmd }); }
   </script>

@@ -97,11 +97,11 @@ export function buildSizeHtml(data: ISizeAnalytics, historyCount: number = 0): s
   </table>
 
   <div style="display:flex;gap:6px;margin-top:12px;">
-    <button onclick="post('copyReport')">${t('panel.size.btn.copyJson')}</button>
-    <button onclick="post('saveSnapshot')">${t('panel.size.btn.saveSnapshot')}</button>
-    <button onclick="post('compareHistory')">${historyCount > 0 ? t('panel.size.btn.compareCount', historyCount) : t('panel.size.btn.compare')}</button>
+    <button data-click="post" data-a0="copyReport">${t('panel.size.btn.copyJson')}</button>
+    <button data-click="post" data-a0="saveSnapshot">${t('panel.size.btn.saveSnapshot')}</button>
+    <button data-click="post" data-a0="compareHistory">${historyCount > 0 ? t('panel.size.btn.compareCount', historyCount) : t('panel.size.btn.compare')}</button>
   </div>
-  <script>
+  <script nonce="__CSP_NONCE__">
     const vscode = acquireVsCodeApi();
     function post(cmd) { vscode.postMessage({ command: cmd }); }
   </script>

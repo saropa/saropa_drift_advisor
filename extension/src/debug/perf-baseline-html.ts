@@ -151,7 +151,7 @@ export function buildPerfBaselineHtml(
   </tbody>
 </table>
 
-<script>
+<script nonce="__CSP_NONCE__">
   const vscode = acquireVsCodeApi();
 
   document.addEventListener('click', (e) => {

@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { ISchemaDiffResult } from './schema-diff';
 import { buildSchemaDiffHtml } from './schema-diff-html';
 import { generateMigrationDart } from '../migration-gen/migration-codegen';
+import { secureWebviewHtml } from '../webview-csp';
 
 /** Singleton panel showing code-vs-runtime schema diff. */
 export class SchemaDiffPanel {
@@ -80,9 +81,9 @@ export class SchemaDiffPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = buildSchemaDiffHtml(
+    this._panel.webview.html = secureWebviewHtml(buildSchemaDiffHtml(
       this._diff, this._migrationSql, this._fullSchemaSql,
-    );
+    ));
   }
 
   private _handleMessage(

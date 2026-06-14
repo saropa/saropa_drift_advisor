@@ -61,7 +61,7 @@ ${getInvariantStyles()}
   ${cards}
 </div>
 
-<script>
+<script nonce="__CSP_NONCE__">
 ${getScript()}
 </script>
 </body>
@@ -90,7 +90,7 @@ ${getInvariantStyles()}
   <p>${t('panel.quality.invariants.empty.body')}</p>
   <p>${t('panel.quality.invariants.empty.cta')}</p>
 </div>
-<script>
+<script nonce="__CSP_NONCE__">
 ${getScript()}
 </script>
 </body>
