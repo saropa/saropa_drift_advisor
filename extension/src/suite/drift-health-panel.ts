@@ -16,6 +16,7 @@ import {
 } from './suite-diagnostics';
 import { buildDriftHealth } from './drift-health';
 import { buildDriftHealthHtml } from './drift-health-html';
+import { resolveWorkspaceCommit } from './workspace-commit';
 
 /**
  * Gathers the three tools' diagnostics. Advisor's own envelope is fetched live
@@ -72,8 +73,14 @@ export class DriftHealthPanel {
   }
 
   private async _refresh(): Promise<void> {
-    const model = buildDriftHealth(await collectDiagnostics(this._client));
-    this._panel.webview.html = buildDriftHealthHtml(model);
+    // Resolve the current commit so findings captured at a different one are
+    // flagged stale (plan 67 R6); undefined when not a git workspace.
+    const [diagnostics, currentCommit] = await Promise.all([
+      collectDiagnostics(this._client),
+      resolveWorkspaceCommit(),
+    ]);
+    const model = buildDriftHealth(diagnostics);
+    this._panel.webview.html = buildDriftHealthHtml(model, currentCommit);
   }
 
   private _dispose(): void {

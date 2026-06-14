@@ -207,6 +207,18 @@ one of these documented ids.
 - **R6 — Commit correlation.** Stamp every emitted diagnostic with the current `commitSha` (Advisor
   already records session metadata SHAs for the Log Capture bridge) so Section 6 can align all three
   tools per commit.
+  - **Status: shipped (this build).** A dependency-free
+    [extension/src/suite/workspace-commit.ts](../extension/src/suite/workspace-commit.ts) resolves the
+    workspace commit by reading `.git/HEAD` (loose ref → packed-refs fallback; pure `parseHeadRef` /
+    `findPackedRef` are unit-tested). The diagnostics mirror stamps the resolved `commitSha` at the
+    envelope top level on write; `diagnosticsFromEnvelope` backfills each diagnostic's `commitSha` from
+    the envelope when absent (per-diagnostic wins). The Drift Health panel resolves the current commit
+    and renders a **stale** badge (dimmed row) on any finding from a different commit — never guessing
+    when either commit is unknown. Covered by `workspace-commit.test.ts` and the commit assertions in
+    `suite-diagnostics.test.ts` / `drift-health.test.ts`.
+  - **Deferred:** the deeper "at commit X, N lint findings + schema V + these signals" timeline view,
+    and embedding the cross-tool commit set into the Log Capture session sidecar (Section 6's richer
+    form) — the per-finding stamping + staleness that the suite needs day-to-day is in place.
 
 ---
 
@@ -296,7 +308,9 @@ visible from any entry point.
    the `driftViewer.openDriftHealth` panel joins all three lenses per table (see the R4 Status note in
    Section 5). Post-MVP: per-finding deep-link actions, filter/sort controls, auto-refresh, design
    polish.
-4. **Commit correlation (R6 / Section 6).**
+4. **Commit correlation (R6 / Section 6).** **Shipped** — commit stamping on the mirror + stale
+   marking in Drift Health (see the R6 Status note above). The richer cross-tool timeline view remains
+   deferred.
 5. **Shared infra extraction (Section 7).** Highest code-debt payoff; consolidation of code that has
    already converged, so low design risk.
 6. **Extension Pack + cross-discovery** — publish "Saropa for Flutter" bundling all three; gate

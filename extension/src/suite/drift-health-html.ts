@@ -16,26 +16,43 @@ function esc(value: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * A finding is stale when it was captured at a known commit that differs from
+ * the current checkout (plan 67 R6) — it may no longer reflect this code. A
+ * finding with no commit, or when the current commit is unknown, is never
+ * marked (we don't guess).
+ */
+function isStale(d: SuiteDiagnostic, currentCommit?: string): boolean {
+  return Boolean(currentCommit && d.commitSha && d.commitSha !== currentCommit);
+}
+
 /** Renders one finding row: severity dot, its own localized title/detail, rule id. */
-function renderFinding(d: SuiteDiagnostic): string {
+function renderFinding(d: SuiteDiagnostic, currentCommit?: string): string {
   const sev = esc(d.severity ?? 'info');
   const title = esc(d.title ?? d.detail ?? d.ruleId ?? '');
   const detail = d.detail && d.detail !== d.title
     ? `<span class="dh-detail">${esc(d.detail)}</span>`
     : '';
   const rule = d.ruleId ? `<code class="dh-rule">${esc(d.ruleId)}</code>` : '';
-  return `<li class="dh-finding dh-${sev}">
+  const stale = isStale(d, currentCommit)
+    ? ` <span class="dh-stale" title="${esc(d.commitSha)}">${t('panel.driftHealth.stale')}</span>`
+    : '';
+  return `<li class="dh-finding dh-${sev}${stale ? ' dh-is-stale' : ''}">
   <span class="dh-dot dh-dot-${sev}" aria-hidden="true"></span>
   <span class="dh-title">${title}</span>
-  ${rule}
+  ${rule}${stale}
   ${detail}
 </li>`;
 }
 
 /** Renders one tool column within a table card; omitted when the tool has none. */
-function renderColumn(labelKey: string, findings: SuiteDiagnostic[]): string {
+function renderColumn(
+  labelKey: string,
+  findings: SuiteDiagnostic[],
+  currentCommit?: string,
+): string {
   if (findings.length === 0) return '';
-  const items = findings.map(renderFinding).join('\n');
+  const items = findings.map((f) => renderFinding(f, currentCommit)).join('\n');
   return `<div class="dh-col">
   <h4 class="dh-col-label">${t(labelKey)} <span class="dh-col-count">${findings.length}</span></h4>
   <ul class="dh-list">${items}</ul>
@@ -43,11 +60,11 @@ function renderColumn(labelKey: string, findings: SuiteDiagnostic[]): string {
 }
 
 /** Renders one table card with its (non-empty) tool columns. */
-function renderTable(group: DriftHealthTable): string {
+function renderTable(group: DriftHealthTable, currentCommit?: string): string {
   const cols = [
-    renderColumn('panel.driftHealth.col.advisor', group.advisor),
-    renderColumn('panel.driftHealth.col.lints', group.lints),
-    renderColumn('panel.driftHealth.col.logCapture', group.logCapture),
+    renderColumn('panel.driftHealth.col.advisor', group.advisor, currentCommit),
+    renderColumn('panel.driftHealth.col.lints', group.lints, currentCommit),
+    renderColumn('panel.driftHealth.col.logCapture', group.logCapture, currentCommit),
   ].join('\n');
   return `<section class="dh-card">
   <h3 class="dh-table">${esc(group.table)} <span class="dh-table-count">${group.total}</span></h3>
@@ -55,14 +72,20 @@ function renderTable(group: DriftHealthTable): string {
 </section>`;
 }
 
-/** Build the full Drift Health panel HTML for [model]. */
-export function buildDriftHealthHtml(model: DriftHealthModel): string {
-  const cards = model.tables.map(renderTable).join('\n');
+/**
+ * Build the full Drift Health panel HTML for [model]. [currentCommit], when
+ * known, flags findings captured at a different commit as stale (plan 67 R6).
+ */
+export function buildDriftHealthHtml(
+  model: DriftHealthModel,
+  currentCommit?: string,
+): string {
+  const cards = model.tables.map((tbl) => renderTable(tbl, currentCommit)).join('\n');
 
   const untabled = model.untabled.length > 0
     ? `<section class="dh-card">
   <h3 class="dh-table">${t('panel.driftHealth.untabled')} <span class="dh-table-count">${model.untabled.length}</span></h3>
-  <ul class="dh-list">${model.untabled.map(renderFinding).join('\n')}</ul>
+  <ul class="dh-list">${model.untabled.map((f) => renderFinding(f, currentCommit)).join('\n')}</ul>
 </section>`
     : '';
 
@@ -131,6 +154,13 @@ function wrapHtml(body: string): string {
   .dh-title { font-size: 13px; }
   .dh-rule { font-size: 11px; opacity: 0.6; }
   .dh-detail { flex-basis: 100%; font-size: 12px; opacity: 0.7; margin-left: 14px; }
+  .dh-finding.dh-is-stale { opacity: 0.55; }
+  .dh-stale {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 0 5px; border-radius: 8px;
+    color: var(--vscode-editorWarning-foreground, #e0a800);
+    border: 1px solid var(--vscode-editorWarning-foreground, #e0a800);
+  }
 </style>
 </head>
 <body>

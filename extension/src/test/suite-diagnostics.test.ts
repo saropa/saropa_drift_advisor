@@ -36,6 +36,16 @@ describe('parseEnvelope', () => {
     assert.strictEqual(out.length, 1);
     assert.strictEqual(out[0].title, 'ok');
   });
+
+  it('inherits the envelope commitSha when an entry omits its own (plan 67 R6)', () => {
+    const text = JSON.stringify({
+      commitSha: 'envSha',
+      issues: [{ title: 'a' }, { title: 'b', commitSha: 'ownSha' }],
+    });
+    const out = parseEnvelope(text, 'lints');
+    assert.strictEqual(out[0].commitSha, 'envSha'); // inherited
+    assert.strictEqual(out[1].commitSha, 'ownSha'); // per-diagnostic wins
+  });
 });
 
 describe('relatedDiagnostics', () => {

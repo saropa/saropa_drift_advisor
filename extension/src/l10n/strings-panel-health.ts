@@ -62,4 +62,7 @@ export const stringsPanelHealth: Record<string, string> = {
   'panel.driftHealth.col.logCapture': 'Saropa Log Capture — telemetry',
   'panel.driftHealth.untabled': 'Query-level (no table)',
   'panel.driftHealth.btn.refresh': 'Refresh',
+  // Shown on a finding captured at a different commit than the current checkout
+  // (plan 67 R6) — it may no longer reflect the code in front of you.
+  'panel.driftHealth.stale': 'stale',
 };
