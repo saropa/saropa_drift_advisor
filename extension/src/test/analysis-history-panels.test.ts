@@ -48,17 +48,17 @@ describe('Analysis history: IndexSuggestionsPanel', () => {
   beforeEach(() => { resetMocks(); (IndexSuggestionsPanel as any)._currentPanel = undefined; });
   afterEach(() => sinon.restore());
 
-  it('should render Save Snapshot and Compare buttons in HTML', () => {
+  it('should render Save Snapshot and Compare buttons in HTML', async () => {
     const store = makeHistoryStore<IndexSuggestion[]>();
-    IndexSuggestionsPanel.createOrShow(makeSuggestions(), makeClient(), store);
+    await IndexSuggestionsPanel.createOrShow(makeSuggestions(), makeClient(), store);
     const html = createdPanels[0].webview.html;
     assert.ok(html.includes('saveSnapshot'), 'should have save button');
     assert.ok(html.includes('compareHistory'), 'should have compare button');
   });
 
-  it('should save snapshot to store on saveSnapshot message', () => {
+  it('should save snapshot to store on saveSnapshot message', async () => {
     const store = makeHistoryStore<IndexSuggestion[]>();
-    IndexSuggestionsPanel.createOrShow(makeSuggestions(), makeClient(), store);
+    await IndexSuggestionsPanel.createOrShow(makeSuggestions(), makeClient(), store);
     assert.strictEqual(store.size, 0, 'store should start empty');
 
     createdPanels[0].webview.simulateMessage({ command: 'saveSnapshot' });
@@ -70,9 +70,9 @@ describe('Analysis history: IndexSuggestionsPanel', () => {
     }, 20));
   });
 
-  it('should show history count in Compare button after saving', () => {
+  it('should show history count in Compare button after saving', async () => {
     const store = makeHistoryStore<IndexSuggestion[]>();
-    IndexSuggestionsPanel.createOrShow(makeSuggestions(), makeClient(), store);
+    await IndexSuggestionsPanel.createOrShow(makeSuggestions(), makeClient(), store);
 
     createdPanels[0].webview.simulateMessage({ command: 'saveSnapshot' });
     return new Promise<void>((resolve) => setTimeout(() => {
@@ -82,10 +82,10 @@ describe('Analysis history: IndexSuggestionsPanel', () => {
     }, 20));
   });
 
-  it('should open compare panel on compareHistory message', () => {
+  it('should open compare panel on compareHistory message', async () => {
     const store = makeHistoryStore<IndexSuggestion[]>();
     store.save(makeSuggestions());
-    IndexSuggestionsPanel.createOrShow(makeSuggestions(), makeClient(), store);
+    await IndexSuggestionsPanel.createOrShow(makeSuggestions(), makeClient(), store);
 
     const panelCountBefore = createdPanels.length;
     createdPanels[0].webview.simulateMessage({ command: 'compareHistory' });
@@ -104,17 +104,17 @@ describe('Analysis history: AnomaliesPanel', () => {
   beforeEach(() => { resetMocks(); (AnomaliesPanel as any)._currentPanel = undefined; });
   afterEach(() => sinon.restore());
 
-  it('should render history buttons in HTML', () => {
+  it('should render history buttons in HTML', async () => {
     const store = makeHistoryStore<Anomaly[]>();
-    AnomaliesPanel.createOrShow(makeAnomalies(), makeClient(), store);
+    await AnomaliesPanel.createOrShow(makeAnomalies(), makeClient(), store);
     const html = createdPanels[0].webview.html;
     assert.ok(html.includes('saveSnapshot'), 'should have save button');
     assert.ok(html.includes('compareHistory'), 'should have compare button');
   });
 
-  it('should save snapshot to store on saveSnapshot message', () => {
+  it('should save snapshot to store on saveSnapshot message', async () => {
     const store = makeHistoryStore<Anomaly[]>();
-    AnomaliesPanel.createOrShow(makeAnomalies(), makeClient(), store);
+    await AnomaliesPanel.createOrShow(makeAnomalies(), makeClient(), store);
 
     createdPanels[0].webview.simulateMessage({ command: 'saveSnapshot' });
     return new Promise<void>((resolve) => setTimeout(() => {
@@ -128,7 +128,7 @@ describe('Analysis history: HealthPanel', () => {
   beforeEach(() => { resetMocks(); (HealthPanel as any)._currentPanel = undefined; });
   afterEach(() => sinon.restore());
 
-  it('should render history buttons in HTML', () => {
+  it('should render history buttons in HTML', async () => {
     const store = makeHistoryStore<IHealthScore>();
     HealthPanel.createOrShow(makeScore(), makeClient(), store, new MockMemento());
     const html = createdPanels[0].webview.html;
@@ -136,7 +136,7 @@ describe('Analysis history: HealthPanel', () => {
     assert.ok(html.includes('compareHistory'), 'should have compare button');
   });
 
-  it('should save snapshot to store on saveSnapshot message', () => {
+  it('should save snapshot to store on saveSnapshot message', async () => {
     const store = makeHistoryStore<IHealthScore>();
     HealthPanel.createOrShow(makeScore(), makeClient(), store, new MockMemento());
 
@@ -153,7 +153,7 @@ describe('Analysis history: SizePanel', () => {
   beforeEach(() => { resetMocks(); (SizePanel as any)._currentPanel = undefined; });
   afterEach(() => sinon.restore());
 
-  it('should render history buttons in HTML', () => {
+  it('should render history buttons in HTML', async () => {
     const store = makeHistoryStore<ISizeAnalytics>();
     SizePanel.createOrShow(makeSizeData(), store);
     const html = createdPanels[0].webview.html;
@@ -161,7 +161,7 @@ describe('Analysis history: SizePanel', () => {
     assert.ok(html.includes('compareHistory'), 'should have compare button');
   });
 
-  it('should save snapshot to store on saveSnapshot message', () => {
+  it('should save snapshot to store on saveSnapshot message', async () => {
     const store = makeHistoryStore<ISizeAnalytics>();
     SizePanel.createOrShow(makeSizeData(), store);
 

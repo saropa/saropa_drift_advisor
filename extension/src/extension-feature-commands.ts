@@ -160,7 +160,7 @@ export function registerFeatureModules(
     ['polling', () => registerPollingCommands(context, client, deps.toolsProvider)],
     ['saropaLints', () => registerSaropaLintsCommands(context)],
     ['suite', () => {
-      registerSuiteCommands(context, client);
+      registerSuiteCommands(context, client, watcher);
       registerDiagnosticsMirror(context, client, watcher);
     }],
   ];

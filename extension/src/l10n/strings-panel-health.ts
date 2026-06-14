@@ -65,4 +65,12 @@ export const stringsPanelHealth: Record<string, string> = {
   // Shown on a finding captured at a different commit than the current checkout
   // (plan 67 R6) — it may no longer reflect the code in front of you.
   'panel.driftHealth.stale': 'stale',
+  // Toolbar: severity filter + sort (plan 67 R4 polish). {0} = matching count.
+  'panel.driftHealth.filter.all': 'All ({0})',
+  'panel.driftHealth.filter.errors': 'Errors ({0})',
+  'panel.driftHealth.filter.warnings': 'Warnings ({0})',
+  'panel.driftHealth.filter.info': 'Info ({0})',
+  'panel.driftHealth.sort.label': 'Sort:',
+  'panel.driftHealth.sort.count': 'Findings',
+  'panel.driftHealth.sort.name': 'Table name',
 };

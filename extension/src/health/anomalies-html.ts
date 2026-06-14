@@ -1,11 +1,18 @@
 import type { Anomaly } from '../api-types';
+import { SUITE_NOTES_CSS, SUITE_NOTES_SCRIPT } from '../suite/suite-notes-html';
 import { t } from '../l10n';
 
 /**
  * Build HTML for the Anomalies webview panel.
  * Shows a filterable list of detected anomalies with severity icons.
+ * [suiteSection] is the prebuilt "Related Saropa Suite Findings" HTML (plan 67
+ * R3), already escaped and command-gated; '' when there are no related findings.
  */
-export function buildAnomaliesHtml(anomalies: Anomaly[], historyCount: number = 0): string {
+export function buildAnomaliesHtml(
+  anomalies: Anomaly[],
+  historyCount: number = 0,
+  suiteSection: string = '',
+): string {
   if (anomalies.length === 0) {
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
@@ -128,6 +135,7 @@ export function buildAnomaliesHtml(anomalies: Anomaly[], historyCount: number = 
   .sev-badge-warning { background: #eab30833; color: #eab308; }
   .sev-badge-info { background: #3b82f633; color: #3b82f6; }
   .hidden { display: none; }
+${SUITE_NOTES_CSS}
 </style>
 </head>
 <body>
@@ -161,6 +169,7 @@ export function buildAnomaliesHtml(anomalies: Anomaly[], historyCount: number = 
     ${rows}
   </tbody>
 </table>
+${suiteSection}
 
 <script>
   const vscode = acquireVsCodeApi();
@@ -191,6 +200,7 @@ export function buildAnomaliesHtml(anomalies: Anomaly[], historyCount: number = 
       vscode.postMessage({ command: actionBtn.dataset.action });
     }
   });
+${SUITE_NOTES_SCRIPT}
 </script>
 </body>
 </html>`;

@@ -16,6 +16,15 @@ import {
   summarizeAnomalyDiff,
 } from '../analysis-history/analysis-renderers';
 import { buildAnomaliesHtml } from './anomalies-html';
+import { buildSuiteSectionFor, executeSuiteFix } from '../suite/suite-notes-html';
+
+/** Builds the related-suite-findings section for a set of anomalies (plan 67 R3). */
+function suiteSectionForAnomalies(anomalies: Anomaly[]): Promise<string> {
+  const tables = anomalies
+    .map((a) => a.table)
+    .filter((t): t is string => typeof t === 'string' && t.length > 0);
+  return buildSuiteSectionFor({ tables });
+}
 
 /** Singleton panel showing anomaly detection results. */
 export class AnomaliesPanel {
@@ -23,18 +32,20 @@ export class AnomaliesPanel {
   private readonly _panel: vscode.WebviewPanel;
   private readonly _disposables: vscode.Disposable[] = [];
   private _anomalies: Anomaly[];
+  private _suiteSection = '';
   private readonly _client: DriftApiClient;
   private readonly _historyStore: AnalysisHistoryStore<Anomaly[]>;
 
-  static createOrShow(
+  static async createOrShow(
     anomalies: Anomaly[],
     client: DriftApiClient,
     historyStore: AnalysisHistoryStore<Anomaly[]>,
-  ): void {
+  ): Promise<void> {
     const column = vscode.ViewColumn.Active;
+    const suiteSection = await suiteSectionForAnomalies(anomalies);
 
     if (AnomaliesPanel._currentPanel) {
-      AnomaliesPanel._currentPanel._update(anomalies);
+      AnomaliesPanel._currentPanel._update(anomalies, suiteSection);
       AnomaliesPanel._currentPanel._panel.reveal(column);
       return;
     }
@@ -46,7 +57,7 @@ export class AnomaliesPanel {
       { enableScripts: true },
     );
     AnomaliesPanel._currentPanel =
-      new AnomaliesPanel(panel, anomalies, client, historyStore);
+      new AnomaliesPanel(panel, anomalies, client, historyStore, suiteSection);
   }
 
   private constructor(
@@ -54,11 +65,13 @@ export class AnomaliesPanel {
     anomalies: Anomaly[],
     client: DriftApiClient,
     historyStore: AnalysisHistoryStore<Anomaly[]>,
+    suiteSection: string,
   ) {
     this._panel = panel;
     this._anomalies = anomalies;
     this._client = client;
     this._historyStore = historyStore;
+    this._suiteSection = suiteSection;
 
     this._panel.onDidDispose(
       () => this._dispose(), null, this._disposables,
@@ -71,8 +84,9 @@ export class AnomaliesPanel {
     this._render();
   }
 
-  private _update(anomalies: Anomaly[]): void {
+  private _update(anomalies: Anomaly[], suiteSection: string): void {
     this._anomalies = anomalies;
+    this._suiteSection = suiteSection;
     this._render();
   }
 
@@ -80,17 +94,23 @@ export class AnomaliesPanel {
     this._panel.webview.html = buildAnomaliesHtml(
       this._anomalies,
       this._historyStore.size,
+      this._suiteSection,
     );
   }
 
   private async _handleMessage(
-    msg: { command: string },
+    msg: { command: string; fixCommand?: unknown; fixArgs?: unknown },
   ): Promise<void> {
     switch (msg.command) {
+      // Cross-tool deep-link (plan 67 R1); re-validated host-side before running.
+      case 'suiteFix': {
+        await executeSuiteFix(msg);
+        break;
+      }
       case 'refresh': {
         try {
           const anomalies = await this._client.anomalies();
-          this._update(anomalies);
+          this._update(anomalies, await suiteSectionForAnomalies(anomalies));
         } catch (err: unknown) {
           const errMsg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Refresh failed: ${errMsg}`);

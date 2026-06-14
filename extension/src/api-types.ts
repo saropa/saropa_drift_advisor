@@ -39,6 +39,10 @@ export interface IndexSuggestion {
 export interface Anomaly {
   message: string;
   severity: 'error' | 'warning' | 'info';
+  /** Table the anomaly concerns; present on table-scoped findings from the server. */
+  table?: string;
+  /** Column the anomaly concerns, when column-scoped. */
+  column?: string;
 }
 
 export interface QueryEntry {

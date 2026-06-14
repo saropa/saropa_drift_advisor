@@ -29,6 +29,38 @@ export interface SuiteDiagnostic {
   sql?: string;
   /** Commit the finding was captured at (plan 67 R6); backfilled from the envelope when absent. */
   commitSha?: string;
+  /** Optional primary action — a deep-link to a suite command (plan 67 §2.1 / R1). */
+  fix?: SuiteFix;
+}
+
+/** A diagnostic's primary action: a contributed VS Code command (plan 67 §3). */
+export interface SuiteFix {
+  kind?: string;
+  title?: string;
+  command?: string;
+  args?: unknown[];
+  uri?: string;
+}
+
+/**
+ * Command-id prefixes a suite fix-action is allowed to invoke. A `fix.command`
+ * arrives from a sibling's on-disk file or the debug server, so it is untrusted
+ * input: the panels execute it ONLY when it is both in this allowlist and
+ * actually registered. This mirrors the Log Capture hardening that removed an
+ * over-broad "run any command" webview message.
+ */
+export const SUITE_COMMAND_PREFIXES: readonly string[] = [
+  'driftViewer.',
+  'saropaLints.',
+  'saropaLogCapture.',
+];
+
+/** True when [command] is a non-empty string under an allowed suite prefix. */
+export function isAllowedSuiteCommand(command: unknown): command is string {
+  return (
+    typeof command === 'string'
+    && SUITE_COMMAND_PREFIXES.some((p) => command.startsWith(p))
+  );
 }
 
 /** A sibling's on-disk envelope. Carrier key is `issues` (Advisor) or `diagnostics` (canonical). */

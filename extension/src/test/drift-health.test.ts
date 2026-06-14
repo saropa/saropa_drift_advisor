@@ -84,6 +84,31 @@ describe('buildDriftHealthHtml', () => {
     assert.ok(!buildDriftHealthHtml(model).includes('class="dh-stale"'));
   });
 
+  it('renders the severity filter toolbar with per-severity counts and sort control', () => {
+    const html = buildDriftHealthHtml(buildDriftHealth([
+      d({ source: 'advisor', table: 'orders', severity: 'error' }),
+      d({ source: 'lints', table: 'orders', severity: 'warning' }),
+      d({ source: 'advisor', table: 'users', severity: 'info' }),
+    ]));
+    assert.ok(html.includes('data-sev-filter="all"'));
+    assert.ok(html.includes('data-sev-filter="error"'));
+    assert.ok(html.includes('data-sev-filter="warning"'));
+    assert.ok(html.includes('data-sev-filter="info"'));
+    assert.ok(html.includes('class="dh-sort-select"'));
+    // Cards carry sort keys.
+    assert.ok(html.includes('data-total='));
+    assert.ok(html.includes('data-table='));
+    // Findings carry the severity used by the client-side filter.
+    assert.ok(html.includes('data-sev="error"'));
+  });
+
+  it('omits the toolbar in the empty state', () => {
+    const html = buildDriftHealthHtml({ tables: [], untabled: [], totalIssues: 0 });
+    // Assert on the rendered element (class="dh-toolbar"); the bare token also
+    // appears in the CSS rule.
+    assert.ok(!html.includes('class="dh-toolbar"'));
+  });
+
   it('renders a table card with tool columns and escapes text', () => {
     const html = buildDriftHealthHtml(buildDriftHealth([
       d({ source: 'advisor', table: 'orders', title: 'missing index' }),

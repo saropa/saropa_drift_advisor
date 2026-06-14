@@ -15,12 +15,14 @@
  */
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
+import type { GenerationWatcher } from '../generation-watcher';
 import { ExplainPanel } from '../explain/explain-panel';
 import { DriftHealthPanel } from './drift-health-panel';
 
 export function registerSuiteCommands(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
+  watcher?: GenerationWatcher,
 ): void {
   // openExplainForSql: explain a SPECIFIC query supplied by a sibling (a Log
   // Capture slow-query signal, a Lints finding) rather than whatever sits in
@@ -60,7 +62,7 @@ export function registerSuiteCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.openDriftHealth',
-      () => DriftHealthPanel.createOrShow(client),
+      () => DriftHealthPanel.createOrShow(client, watcher),
     ),
   );
 
