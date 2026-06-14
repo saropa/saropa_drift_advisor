@@ -227,6 +227,19 @@ One panel, three evidence sources, one fix. Advisor hosts this panel because it 
 can render live schema + EXPLAIN; it pulls the static side from `lints.json` and the telemetry side
 from `log-capture.json` (or the live Log Capture command in Section 3).
 
+**Status: MVP shipped (this build).** The `driftViewer.openDriftHealth` command opens a Drift Health
+webview that joins all three lenses **per table**: Advisor's live `/api/issues` (fetched and relabeled
+`source: advisor`), Saropa Lints' `lints.json`, and Saropa Log Capture's `log-capture.json`. Pure join
+model in [extension/src/suite/drift-health.ts](../extension/src/suite/drift-health.ts)
+(`buildDriftHealth` — group by table, case-folded merge, sort by finding count); theme-aware,
+HTML-escaped rendering in
+[extension/src/suite/drift-health-html.ts](../extension/src/suite/drift-health-html.ts); panel +
+Refresh in [extension/src/suite/drift-health-panel.ts](../extension/src/suite/drift-health-panel.ts).
+Covered by `extension/src/test/drift-health.test.ts`.
+**Deferred (post-MVP):** per-finding `fix.command` action buttons (needs the sibling command ids,
+Lints doc R4), severity filtering / sort controls, auto-refresh on the generation watcher, and the
+deeper design polish (RTL, dyslexia mode) the global UX bar calls for.
+
 ---
 
 ## 6. Cross-commit / session correlation
@@ -279,7 +292,10 @@ visible from any entry point.
    panel's "Related Saropa Suite Findings" section have shipped (see the R3 Status note above).
    Remaining: the standalone index/anomaly surfaces and dashboard, and the per-finding deep-link back
    to the sibling.
-3. **Drift Health loop (R4 / Section 5).** The flagship; structurally uncopyable.
+3. **Drift Health loop (R4 / Section 5).** The flagship; structurally uncopyable. **MVP shipped** —
+   the `driftViewer.openDriftHealth` panel joins all three lenses per table (see the R4 Status note in
+   Section 5). Post-MVP: per-finding deep-link actions, filter/sort controls, auto-refresh, design
+   polish.
 4. **Commit correlation (R6 / Section 6).**
 5. **Shared infra extraction (Section 7).** Highest code-debt payoff; consolidation of code that has
    already converged, so low design risk.

@@ -16,6 +16,7 @@
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import { ExplainPanel } from '../explain/explain-panel';
+import { DriftHealthPanel } from './drift-health-panel';
 
 export function registerSuiteCommands(
   context: vscode.ExtensionContext,
@@ -50,6 +51,16 @@ export function registerSuiteCommands(
         }
         return undefined;
       },
+    ),
+  );
+
+  // openDriftHealth: the flagship cross-tool view (plan 67 R4) — joins Advisor's
+  // live issues with the sibling tools' static findings and runtime signals per
+  // table. No args; refreshes itself on open and on its Refresh button.
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.openDriftHealth',
+      () => DriftHealthPanel.createOrShow(client),
     ),
   );
 
