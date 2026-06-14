@@ -6,6 +6,7 @@
 
 import type { IAnalysisSnapshot } from './analysis-history-store';
 import { t, getWebviewL10nMap } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /**
  * Build the full HTML for the compare panel.
@@ -185,10 +186,4 @@ export function buildCompareHtml<T>(
 }
 
 /** HTML-escape a string. */
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

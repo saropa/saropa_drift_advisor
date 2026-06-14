@@ -1,4 +1,5 @@
 import type { IDocTable, ISchemaDocsData } from './schema-docs-types';
+import { escapeHtml } from '../shared-utils';
 
 /** Renders schema documentation as a self-contained HTML page. */
 export class DocsHtmlRenderer {
@@ -140,10 +141,4 @@ export class DocsHtmlRenderer {
 }
 
 /** Escape HTML entities. */
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

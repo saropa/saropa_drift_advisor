@@ -1,5 +1,6 @@
 import type { IPerfBaseline } from './perf-baseline-store';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /**
  * Build HTML for the Performance Baselines webview panel.
@@ -177,10 +178,4 @@ function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max) + '\u2026' : s;
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

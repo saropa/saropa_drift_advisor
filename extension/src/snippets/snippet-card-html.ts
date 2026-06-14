@@ -1,5 +1,6 @@
 import type { ISqlSnippet } from './snippet-types';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /** Render a single snippet card with run form, edit, and delete actions. */
 export function renderSnippetCard(
@@ -63,13 +64,7 @@ export function renderSnippetCard(
   </div>`;
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
 
 function escAttr(s: string): string {
   return esc(s).replace(/'/g, '&#39;');

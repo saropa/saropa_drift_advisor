@@ -11,7 +11,7 @@ export const FILTER_BRIDGE_SCRIPT = `
 
   function esc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   // Detect current table name (same approach as editing bridge getTableMeta)

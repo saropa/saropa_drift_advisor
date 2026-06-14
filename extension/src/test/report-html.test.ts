@@ -229,7 +229,13 @@ describe('buildReportHtml', () => {
       }],
     });
     const html = buildReportHtml(data);
-    assert.ok(html.includes("showTable('it\\'s')"));
+    // The single canonical escaper (audit L5) now HTML-entity-encodes the
+    // apostrophe too: escJs makes it `it\'s`, then escapeHtml turns the `'`
+    // into `&#39;`. The browser decodes the attribute back to showTable('it\'s')
+    // — valid JS, and the `\'` keeps the value from breaking out of the string.
+    assert.ok(html.includes("showTable('it\\&#39;s')"));
+    // The raw, un-escaped breakout form must NOT appear.
+    assert.ok(!html.includes("showTable('it's')"));
   });
 
   it('should render anomaly severity icons', () => {

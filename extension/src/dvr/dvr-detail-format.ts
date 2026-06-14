@@ -4,19 +4,15 @@
  * from dvr-panel.ts so the panel keeps only state and message routing.
  */
 
+import { escapeHtml } from '../shared-utils';
 import type { IRecordedQueryV1 } from '../api-types';
+
+// Re-exported from the single canonical escaper (audit L5) so existing
+// importers of this module are unaffected.
+export { escapeHtml };
 
 /** Cap detail JSON so a huge before/after state can't bloat the webview. */
 const DETAIL_JSON_MAX = 12_000;
-
-export function escapeHtml(s: string): string {
-  return s
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
 
 /** Render the detail pane HTML for one recorded query. */
 export function buildDetailHtml(q: IRecordedQueryV1): string {

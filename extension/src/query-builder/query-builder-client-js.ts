@@ -19,7 +19,7 @@ export function getQueryBuilderClientJs(): string {
     lastRunRequestId: null,
   };
   const byId = (id) => document.getElementById(id);
-  const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const parseInstance = (value) => value ? value.split('|') : ['', ''];
 
   function post(command, payload) {

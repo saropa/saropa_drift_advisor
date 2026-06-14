@@ -1,6 +1,7 @@
 import type { ISqlSnippet } from './snippet-types';
 import { renderSnippetCard } from './snippet-card-html';
 import { t, getWebviewL10nMap } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 interface ILibraryData {
   snippets: ISqlSnippet[];
@@ -242,7 +243,4 @@ function groupByCategory(snippets: ISqlSnippet[]): Record<string, ISqlSnippet[]>
   return grouped;
 }
 
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

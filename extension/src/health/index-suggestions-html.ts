@@ -1,6 +1,7 @@
 import type { IndexSuggestion } from '../api-types';
 import { SUITE_NOTES_CSS, SUITE_NOTES_SCRIPT } from '../suite/suite-notes-html';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /**
  * Build HTML for the Index Suggestions webview panel.
@@ -202,10 +203,4 @@ ${SUITE_NOTES_SCRIPT}
 }
 
 /** HTML-escape a string. */
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

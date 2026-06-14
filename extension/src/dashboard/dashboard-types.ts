@@ -112,15 +112,9 @@ export interface IWidgetDefinition {
   renderHtml: (data: unknown, config: Record<string, unknown>) => string;
 }
 
-/** Escape HTML special characters to prevent XSS. */
-export function escapeHtml(s: string): string {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// Re-exported from the single canonical escaper (audit L5) so the many
+// dashboard files importing escapeHtml from this module are unaffected.
+export { escapeHtml } from '../shared-utils';
 
 /** Convert health grade letter to CSS class for coloring. */
 export function gradeColorClass(grade: string): string {

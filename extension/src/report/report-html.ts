@@ -4,6 +4,7 @@ import { highlightSql } from '../sql-highlight';
 import { getReportCss } from './report-css';
 import { getReportJs } from './report-scripts';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /** Build a complete self-contained HTML report from collected data. */
 export function buildReportHtml(data: IReportData): string {
@@ -113,13 +114,7 @@ function buildAnomalySection(anomalies: Anomaly[]): string {
 }
 
 /** Escape HTML special characters. */
-function esc(s: string): string {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
 
 /** Escape a string for embedding in a JavaScript string literal within onclick. */
 function escJs(s: string): string {

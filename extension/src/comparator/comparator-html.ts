@@ -1,5 +1,6 @@
 import type { IRowDiff, IRowDiffColumn } from './row-differ';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /** Build the HTML for the row comparator webview panel. */
 export function buildComparatorHtml(diff: IRowDiff): string {
@@ -90,10 +91,4 @@ function formatValue(v: unknown): string {
   return esc(String(v));
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

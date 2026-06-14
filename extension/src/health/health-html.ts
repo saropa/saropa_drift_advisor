@@ -4,6 +4,7 @@ import type {
 import type { IRefactoringAdvisorSession } from '../refactoring/refactoring-advisor-state';
 import { getHealthCss } from './health-css';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /** Build HTML for the health score dashboard webview panel. */
 export function buildHealthHtml(
@@ -163,10 +164,4 @@ function gradeColorClass(grade: string): string {
   return 'grade-f';
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

@@ -4,6 +4,7 @@
  * instead of 4-5 sequential top-bar prompts.
  */
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 export function buildCompareFormHtml(
   tableNames: string[],
@@ -221,10 +222,4 @@ export function buildCompareFormHtml(
 </html>`;
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
