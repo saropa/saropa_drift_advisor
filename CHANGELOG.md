@@ -64,6 +64,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 
 ### Fixed
 
+- **Offline diagnostics mirror is now readable by the other Saropa tools.** The `.saropa/diagnostics/advisor.json` mirror was written in the live API's shape (an `issues` array, each entry tagged with its detector name), but Saropa Lints and Saropa Log Capture read the mirror with the strict suite format (a `diagnostics` array, each entry tagged `advisor`) — so the file parsed to nothing on their side and the offline "Database issues (Drift Advisor)" section stayed empty whenever the debug server was down. The mirror now writes the canonical suite shape; the detector name is preserved as each finding's `ruleId`. The live `GET /api/issues` response is unchanged.
 - **Backslash data corruption on write.** Importing or cell-editing a value containing a backslash (for example a Windows path like `C:\Users`) no longer silently doubles the backslash in storage. SQLite string literals never used a backslash escape; the extra escaping corrupted data on every write path.
 - **Cell edits now report how many rows changed.** A cell update against a stale or mistyped primary key used to report success even when it matched no row; the response now carries the affected-row count so the editor can tell you nothing changed.
 - **Data-quality scan no longer silently under-reports.** When the host database returned row counts as text, the anomaly scan treated the count as zero and reported no issues; counts are now parsed whether numeric or text.
