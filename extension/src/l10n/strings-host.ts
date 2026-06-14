@@ -53,4 +53,14 @@ export const hostStrings: Record<string, string> = {
   //     the user's language. ---
   'host.l10n.coverageNotice':
     'Saropa Drift Advisor menus are {0}% translated to {1} so far — the rest show in English. The database viewer itself is fully localized.',
+
+  // --- Suite cross-discovery (plan 67 Phase 6) — shown once per tool when the
+  //     project depends on a sibling Saropa Dart package but its VS Code
+  //     extension is not installed. Each names what the sibling adds on top of
+  //     Drift Advisor; the shared action label installs it. ---
+  'host.suite.recommend.lints':
+    'This project uses the Saropa Lints package, but the Saropa Lints extension is not installed — it adds static Drift rules and quick fixes alongside Drift Advisor. Install it?',
+  'host.suite.recommend.logCapture':
+    'This project uses the Saropa Log Capture package, but the Saropa Log Capture extension is not installed — it records the logs, crashes, and slow queries behind Drift Advisor findings. Install it?',
+  'host.suite.recommend.install': 'Install',
 };

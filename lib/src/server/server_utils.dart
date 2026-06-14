@@ -238,7 +238,10 @@ abstract final class ServerUtils {
       return '';
     }
 
-    return s.replaceRange(safeEnd, s.length, '').replaceRange(0, start, '');
+    // The four guards above prove 0 <= start < safeEnd <= s.length, so the
+    // direct substring cannot throw. (Was a double replaceRange — correct but
+    // obscure and double-allocating. See audit L4.)
+    return s.substring(start, safeEnd);
   }
 
   /// Stable JSON string representation of a row for

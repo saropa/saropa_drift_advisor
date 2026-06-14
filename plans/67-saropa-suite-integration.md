@@ -386,8 +386,15 @@ visible from any entry point.
    remains on the Advisor side.
 5. **Shared infra extraction (Section 7).** Highest code-debt payoff; consolidation of code that has
    already converged, so low design risk.
-6. **Extension Pack + cross-discovery** — publish "Saropa for Flutter" bundling all three; gate
-   cross-recommend nudges once (reuse Lints' offered/dismissed pattern).
+6. **Extension Pack + cross-discovery.** **Cross-discovery shipped** — when the workspace's
+   `pubspec.yaml` depends on a sibling Saropa package (`saropa_lints` / `saropa_log_capture`) but that
+   tool's VS Code extension is not installed, Advisor offers to install it once, ever, per tool
+   ([extension/src/suite/cross-discovery.ts](../extension/src/suite/cross-discovery.ts),
+   `maybeRecommendSuiteTools`; pure `pubspecDeclaresPackage` / `recommendableSiblings` are unit-tested
+   in `cross-discovery.test.ts`). Evidence-based (the user already adopted the package) and gated
+   before the toast shows, so it never nags; fire-and-forget from activation. **Still open:** publish a
+   "Saropa for Flutter" Extension Pack bundling all three — a marketplace/packaging task, not code in
+   this repo.
 
 ---
 

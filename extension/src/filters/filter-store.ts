@@ -1,14 +1,8 @@
 import type * as vscode from 'vscode';
+import { makeId } from '../shared-utils';
 import type { ISavedFilter } from './filter-types';
 
 const STORAGE_KEY = 'driftViewer.savedFilters';
-
-/** Generate a compact unique ID. */
-function makeId(): string {
-  return (
-    Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
-  );
-}
 
 /** CRUD store for saved filters, persisted in workspace state. */
 export class FilterStore {

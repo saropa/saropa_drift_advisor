@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { makeId } from '../shared-utils';
 import type {
   AnnotationIcon,
   IAnnotation,
@@ -7,13 +8,6 @@ import type {
 } from './annotation-types';
 
 const STORAGE_KEY = 'driftViewer.annotations';
-
-/** Generate a compact unique ID. */
-function makeId(): string {
-  return (
-    Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
-  );
-}
 
 /** CRUD store for annotations, persisted in workspace state. */
 export class AnnotationStore {
