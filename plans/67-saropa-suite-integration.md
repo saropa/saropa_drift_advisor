@@ -336,27 +336,26 @@ the natural carrier — extend it to embed the envelope (`source: "advisor"`) an
 
 ---
 
-## 7. Shared infrastructure (cross-repo, tracked in all three docs)
+## 7. Shared infrastructure — WON'T DO (rejected architecture, 2026-06-14)
 
-These are duplicated across the three TypeScript extensions and worth extracting to internal shared
-packages (path/git deps, **not** a monorepo merge — keep the three independently publishable):
+**Decision: not extracting shared packages.** The original idea was to pull the code duplicated across
+the three TypeScript extensions into internal shared packages — `saropa-vscode-i18n` (i18n/translation
+tooling), `saropa-vscode-ui` (webview/dashboard kit: theme tokens, KPI cards, focus rings, the
+light/high-contrast rendering all three got wrong the same way), and `saropa-release-tools` (the
+`publish.py` orchestrator + changelog conventions). That design is rejected.
 
-- **i18n / translation tooling** — all three run an NLLB-then-Google fallback, real-coverage audits,
-  day-bucketed report paths, and "this locale is N% translated" notices. Extract
-  `saropa-vscode-i18n`. (Sharing the *tooling*; running any translation job stays separate and
-  explicitly authorized.)
-- **Webview / dashboard kit** — theme tokens, KPI cards, sortable tables, sparklines, focus rings,
-  skip-links, axe-checked light/dark/high-contrast rendering. Lints already decomposed its dashboards
-  into reusable section builders; all three shipped the same "fixed color washes out in
-  light/high-contrast" class of bug. Extract `saropa-vscode-ui`.
-- **Release tooling** — `publish.py` orchestrator (retry/ignore/abort, the never-run-NLLB publish
-  guard), dependency-import publish gate, write-time American-English gate, and the shared changelog
-  conventions (dateless headers, `<details>Maintenance</details>`, `[log](tag-url)`,
-  ROADMAP→plans redirect). All three already converged on these by hand. Extract
-  `saropa-release-tools` (Python).
+**Why not.** Three new publishable packages for three in-house consumers is over-engineering: the
+versioning, publishing, lockstep-release, and dependency-graph coordination cost exceeds the
+duplication it removes at that scale. The suite already carries many packages (saropa_drift_advisor,
+saropa_lints, saropa-log-capture, saropa_dart_utils, saropa-claude-guard, the Saropa Suite pack);
+tripling the publishable surface to delete copy-paste is a bad trade with **zero user-facing benefit**.
+`saropa_dart_utils` can't absorb this either — it's a Dart library; these are TypeScript extensions.
 
-Ownership of the extraction is shared; each repo's doc lists the same Section 7 so the work is
-visible from any entry point.
+**The duplication is real but accepted.** The shared "fixed color washes out in high-contrast" bug
+that hit all three is a genuine copy-paste-divergence symptom. It is accepted as a known trade-off
+rather than fixed by new packages. If such a shared bug recurs and the pain justifies action, the
+lighter moves — a single internal shared module via a path dep, or a vendoring/sync script — are
+preferred over publishing new units; revisit then, scoped to the specific shared code that hurt.
 
 ---
 
@@ -384,8 +383,9 @@ visible from any entry point.
    history of suite finding counts with deltas in `.saropa/diagnostics/history.json`; and the session
    sidecar's `commitSha` + `suiteMirrors` correlation block (see the R6 Status notes above). Nothing
    remains on the Advisor side.
-5. **Shared infra extraction (Section 7).** Highest code-debt payoff; consolidation of code that has
-   already converged, so low design risk.
+5. **Shared infra extraction (Section 7).** **Won't do** — rejected as over-engineering (three new
+   publishable packages for three in-house consumers; coordination cost > duplication removed, no
+   user-facing benefit). See Section 7 for the full rationale.
 6. **Extension Pack + cross-discovery.** **Cross-discovery shipped** — when the workspace's
    `pubspec.yaml` depends on a sibling Saropa package (`saropa_lints` / `saropa_log_capture`) but that
    tool's VS Code extension is not installed, Advisor offers to install it once, ever, per tool
