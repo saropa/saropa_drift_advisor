@@ -13,7 +13,8 @@ export type WidgetType =
   | 'dvrStatus'
   | 'watchDiff'
   | 'customText'
-  | 'featureDiscovery';
+  | 'featureDiscovery'
+  | 'suiteFindings';
 
 /** Chart types supported by the chart widget. */
 export type ChartType = 'bar' | 'pie' | 'line';
