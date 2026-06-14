@@ -86,6 +86,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 - Phase 5 — L7: removed the duplicate, weaker `ServerUtils.parseCsvLines` (used only by its own tests); the single canonical CSV parser is `DriftDebugImportProcessor.parseCsvLines`.
 - Phase 3 — M7/M8: the Query Replay (DVR) recorder now uses a circular buffer so evicting the oldest entry is O(1) instead of O(n) per insert (and config shrink O(n) instead of O(n²)); the table-name parser bounds its input to avoid a CPU spike on very long generated SQL. No behavior change for users.
 - Historical finish/plan report files under `plans/history/**` had a stray AI-session-narration boilerplate line removed (carried in by `/finish` runs after the first generator fix only partially closed the leak). The report-generator instruction was corrected so future runs cannot reintroduce it. Documentation hygiene only — no package code changed.
+- Plan housekeeping — the pub.dev publisher-identity plan was closed: its doable scope (rename the package to `saropa_drift_advisor`, rename the repo, publish under the `saropa.com` verified publisher) is complete, so the parent plan was archived to `plans/history/2026.06/2026.06.14/fix-pub-dev-publisher.md`. The one remaining task — poison-pilling the old `saropa_drift_viewer` package, blocked on pub.dev admin access — was split into a new `plans/deferred/poison-pill-old-package.md` so blocked work no longer sits inside a "mostly complete" plan. Documentation only — no package code changed.
 
 ### Fixed
 

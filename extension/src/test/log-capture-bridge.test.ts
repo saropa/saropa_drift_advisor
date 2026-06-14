@@ -139,6 +139,11 @@ describe('LogCaptureBridge', () => {
       assert.strictEqual(sidecarData.baseUrl, BASE);
       assert.ok(Array.isArray(sidecarData.anomalies));
       assert.ok(Array.isArray(sidecarData.schema));
+      // Suite commit correlation (plan 67 §6): commit is omitted (never an empty
+      // placeholder) unless resolvable; suiteMirrors, when present, is an array of
+      // refs. Shapes only — the shared mock's workspace/git state varies by order.
+      assert.ok(sidecarData.commitSha === undefined || typeof sidecarData.commitSha === 'string');
+      assert.ok(sidecarData.suiteMirrors === undefined || Array.isArray(sidecarData.suiteMirrors));
     });
 
     it('should return only header when includeInLogCaptureSession is header', async () => {

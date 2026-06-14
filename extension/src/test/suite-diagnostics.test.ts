@@ -3,7 +3,12 @@
  * rendering in the Explain panel's "Related Saropa Suite Findings" section.
  */
 import * as assert from 'assert';
-import { parseEnvelope, relatedDiagnostics } from '../suite/suite-diagnostics';
+import {
+  envelopeMeta,
+  parseEnvelope,
+  readSuiteMirrorRefs,
+  relatedDiagnostics,
+} from '../suite/suite-diagnostics';
 import { buildExplainHtml } from '../explain/explain-html';
 
 describe('parseEnvelope', () => {
@@ -97,5 +102,45 @@ describe('buildExplainHtml suite section', () => {
     ]);
     assert.ok(!html.includes('<img src=x'));
     assert.ok(html.includes('&lt;img'));
+  });
+});
+
+describe('envelopeMeta', () => {
+  it('reads commitSha and counts the canonical `diagnostics` carrier', () => {
+    const text = JSON.stringify({
+      schemaVersion: 1,
+      commitSha: 'deadbeef',
+      diagnostics: [{ title: 'a' }, { title: 'b' }, { title: 'c' }],
+    });
+    assert.deepStrictEqual(envelopeMeta(text), { commitSha: 'deadbeef', count: 3 });
+  });
+
+  it('falls back to the legacy `issues` carrier and a missing commit', () => {
+    const text = JSON.stringify({ issues: [{ title: 'a' }] });
+    assert.deepStrictEqual(envelopeMeta(text), { commitSha: undefined, count: 1 });
+  });
+
+  it('returns zero for malformed or non-object input', () => {
+    assert.deepStrictEqual(envelopeMeta('not json'), { count: 0 });
+    assert.deepStrictEqual(envelopeMeta('42'), { count: 0 });
+    assert.deepStrictEqual(envelopeMeta('{}'), { commitSha: undefined, count: 0 });
+  });
+});
+
+describe('readSuiteMirrorRefs', () => {
+  // The shared vscode mock's workspace state is set by other suites, so this is
+  // robust to both states: either no workspace (→ []) or a workspace whose empty
+  // mirror files parse to zero-count refs. Either way the contract holds: an
+  // array of well-shaped refs over the known tool sources, never a throw.
+  it('returns well-shaped refs over the known tool sources', async () => {
+    const refs = await readSuiteMirrorRefs();
+    assert.ok(Array.isArray(refs));
+    const sources = new Set(['advisor', 'lints', 'log-capture']);
+    for (const ref of refs) {
+      assert.ok(sources.has(ref.source));
+      assert.strictEqual(typeof ref.present, 'boolean');
+      assert.strictEqual(typeof ref.count, 'number');
+      assert.ok(ref.file.startsWith('.saropa/diagnostics/'));
+    }
   });
 });

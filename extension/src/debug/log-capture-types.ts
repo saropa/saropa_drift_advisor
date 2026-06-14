@@ -10,6 +10,7 @@ import type {
   PerformanceData,
   TableMetadata,
 } from '../api-types';
+import type { SuiteMirrorRef } from '../suite/suite-diagnostics';
 
 /** Minimal shape we need from Log Capture's IntegrationEndContext. */
 export interface LogCaptureEndContext {
@@ -65,6 +66,8 @@ export interface DriftAdvisorMetaPayload {
     byCode: Record<string, number>;
     bySeverity: Record<string, number>;
   };
+  /** Commit the session was captured at (plan 67 R6), when resolvable. */
+  commitSha?: string;
 }
 
 /** Serialized issue for sidecar (workspace-relative path). */
@@ -88,6 +91,21 @@ export interface DriftAdvisorSidecar {
   sizeAnalytics?: unknown;
   compareReport?: unknown;
   issues?: DriftAdvisorSidecarIssue[];
+  /**
+   * Commit this session was captured at (plan 67 R6). The correlation key that
+   * aligns this session's data with the suite mirrors below and the per-commit
+   * timeline. Absent when the workspace commit can't be resolved.
+   */
+  commitSha?: string;
+  /**
+   * References to the three suite tools' on-disk diagnostics mirrors at session
+   * end (plan 67 §6) — present flag, capture commit, and finding count per tool,
+   * NOT a copy of their contents. Lets a reader tell, for this session's commit,
+   * which tools had findings and whether each mirror was captured at the same
+   * commit (a different commit means that tool's findings are stale for this
+   * session). The mirror files remain the single source of truth for the detail.
+   */
+  suiteMirrors?: SuiteMirrorRef[];
 }
 
 /** Issue shape expected from the optional getter (matches IDiagnosticIssue subset). */
