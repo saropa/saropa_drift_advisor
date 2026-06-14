@@ -125,6 +125,80 @@ export function readAllSuiteDiagnostics(): Promise<SuiteDiagnostic[]> {
   return readMirrorFiles(ALL_MIRROR_FILES);
 }
 
+/**
+ * A pointer to one tool's on-disk mirror, with just enough to correlate it —
+ * NOT a copy of its contents (the mirror file is the single source of truth).
+ * Used by the Log Capture session sidecar (plan 67 §6) to record, per tool,
+ * which mirror existed at session end, the commit it was captured at, and how
+ * many findings it held — so a session can be aligned against all three tools
+ * by commit without duplicating their diagnostics into the session artifact.
+ */
+export interface SuiteMirrorRef {
+  /** Producing tool: 'advisor' | 'lints' | 'log-capture'. */
+  source: string;
+  /** Workspace-relative path to the mirror (never an absolute home path). */
+  file: string;
+  /** False when the tool has written no mirror (not installed / never ran). */
+  present: boolean;
+  /** The commit the mirror was captured at (plan 67 R6), when stamped. */
+  commitSha?: string;
+  /** Number of diagnostics the mirror holds. */
+  count: number;
+}
+
+/**
+ * Reads a mirror's top-level capture commit and finding count from its JSON
+ * text, malformed-safe. Exported for tests. Accepts either carrier key
+ * (`diagnostics` canonical, `issues` legacy); a non-object or unparseable input
+ * yields `{count: 0}` with no commit.
+ */
+export function envelopeMeta(text: string): { commitSha?: string; count: number } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { count: 0 };
+  }
+  if (typeof parsed !== 'object' || parsed === null) return { count: 0 };
+  const env = parsed as SuiteEnvelope;
+  const arr = Array.isArray(env.diagnostics)
+    ? env.diagnostics
+    : Array.isArray(env.issues)
+      ? env.issues
+      : [];
+  return {
+    commitSha: typeof env.commitSha === 'string' ? env.commitSha : undefined,
+    count: arr.length,
+  };
+}
+
+/**
+ * Returns a reference to each suite mirror (Advisor + the two siblings) — present
+ * flag, capture commit, and finding count — without loading their full contents.
+ * Returns [] when there is no workspace. Best-effort per file: an unreadable or
+ * malformed mirror reports `present:false` / `count:0` rather than throwing.
+ */
+export async function readSuiteMirrorRefs(): Promise<SuiteMirrorRef[]> {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) return [];
+
+  const refs: SuiteMirrorRef[] = [];
+  for (const { file, source } of ALL_MIRROR_FILES) {
+    const rel = `${MIRROR_DIR}/${file}`;
+    const uri = vscode.Uri.joinPath(folder.uri, ...MIRROR_DIR.split('/'), file);
+    let text: string;
+    try {
+      text = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+    } catch {
+      refs.push({ source, file: rel, present: false, count: 0 });
+      continue;
+    }
+    const { commitSha, count } = envelopeMeta(text);
+    refs.push({ source, file: rel, present: true, commitSha, count });
+  }
+  return refs;
+}
+
 /** Reads and parses one envelope file; any failure yields []. */
 async function readEnvelopeFile(
   uri: vscode.Uri,

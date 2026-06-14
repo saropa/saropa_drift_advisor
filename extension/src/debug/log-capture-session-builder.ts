@@ -27,6 +27,8 @@ import {
   serializeIssues,
   writeSessionFile,
 } from './log-capture-session-serialization';
+import { resolveWorkspaceCommit } from '../suite/workspace-commit';
+import { readSuiteMirrorRefs } from '../suite/suite-diagnostics';
 
 /**
  * Gathers performance/anomaly/schema/health/index data (respecting the
@@ -120,6 +122,16 @@ export async function buildSessionEndContributions(
   const issuesSummary = buildIssuesSummary(issues);
   const sidecarIssues = serializeIssues(issues);
 
+  // Cross-tool commit correlation (plan 67 §6): tag the session with its commit
+  // and reference the three tools' on-disk mirrors captured at that commit, so
+  // this session record can be aligned against all three lenses. Both reads are
+  // filesystem-only (the debug server is already going away at session end) and
+  // best-effort — a missing .git or .saropa never blocks the contributions.
+  const [commitSha, suiteMirrors] = await Promise.all([
+    resolveWorkspaceCommit().catch(() => undefined),
+    readSuiteMirrorRefs().catch(() => []),
+  ]);
+
   const baseUrl = client.baseUrl;
 
   const metaPayload: DriftAdvisorMetaPayload = {
@@ -132,6 +144,10 @@ export async function buildSessionEndContributions(
   };
   if (issuesSummary.count > 0) {
     metaPayload.issuesSummary = issuesSummary;
+  }
+  // Only stamp the commit when resolvable — never emit an empty/placeholder sha.
+  if (commitSha) {
+    metaPayload.commitSha = commitSha;
   }
 
   const sidecar: DriftAdvisorSidecar = {
@@ -149,6 +165,10 @@ export async function buildSessionEndContributions(
     health: health ?? { ok: false },
     indexSuggestions: indexSuggestions ?? undefined,
     issues: sidecarIssues.length > 0 ? sidecarIssues : undefined,
+    commitSha: commitSha ?? undefined,
+    // Reference the suite mirrors (advisor + siblings) at this commit; omit the
+    // key entirely when none were found so the sidecar stays clean.
+    suiteMirrors: suiteMirrors.length > 0 ? suiteMirrors : undefined,
   };
 
   const contributions: LogCaptureContribution[] = [
