@@ -4,6 +4,7 @@
  * two sequential showQuickPick prompts.
  */
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 export function buildImportFormHtml(
   datasets: Array<{ name: string; path: string }>,
@@ -197,10 +198,4 @@ export function buildImportFormHtml(
 </html>`;
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

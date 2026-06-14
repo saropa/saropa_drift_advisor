@@ -12,15 +12,9 @@ import type {
 import { GENERATOR_TYPES } from './seeder-types';
 import { wrapHtml } from './seeder-html-shell';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
-function esc(value: unknown): string {
-  const s = value === null || value === undefined ? '' : String(value);
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
 
 /** Build the complete HTML for the seeder configuration panel. */
 export function buildSeederHtml(

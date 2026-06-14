@@ -5,6 +5,7 @@
 import type { IInvariant, IInvariantSummary } from './invariant-types';
 import { getInvariantStyles } from './invariant-styles';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /** Build the complete HTML for the invariant manager panel. */
 export function buildInvariantHtml(
@@ -194,13 +195,7 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
 
 function getScript(): string {
   return `

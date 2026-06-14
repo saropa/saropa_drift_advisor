@@ -79,6 +79,26 @@ export function escapeCsvCell(value: unknown): string {
 }
 
 /**
+ * The single canonical HTML escaper. Escapes `& < > " '` and coerces non-string
+ * values via `String()` (null/undefined → empty). Safe for HTML text AND for
+ * both single- and double-quoted attribute values.
+ *
+ * Consolidates ~50 near-identical local `esc`/`escapeHtml` copies (audit L5),
+ * many of which omitted the `'` escape — a latent breakout the moment any sink
+ * uses a single-quoted attribute. `'` → `&#39;` renders identically to `'` in
+ * every HTML context, so escaping it is strictly safer and visually invisible.
+ */
+export function escapeHtml(value: unknown): string {
+  const s = value === null || value === undefined ? '' : String(value);
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * A compact, unique-enough id for in-memory / persisted-state records
  * (annotations, saved filters, query-builder nodes). Timestamp + random suffix;
  * an optional [prefix] tags the kind (e.g. `tbl`, `flt`, `join`). Consolidates

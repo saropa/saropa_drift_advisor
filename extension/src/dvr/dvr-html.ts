@@ -2,8 +2,13 @@
  * HTML shell for the Query Replay DVR webview (toolbar, filters, timeline, detail).
  */
 
+import { escapeHtml } from '../shared-utils';
 import type { IRecordedQueryV1 } from '../api-types';
 import { t } from '../l10n';
+
+// Re-exported from the single canonical escaper (audit L5) so existing
+// importers of this module are unaffected.
+export { escapeHtml };
 
 export interface IDvrPanelHtmlState {
   recording: boolean;
@@ -21,16 +26,6 @@ export interface IDvrPanelHtmlState {
   focusedId: number | null;
   /** Escaped HTML block for params / before / after (may be empty). */
   detailHtml: string;
-}
-
-/** Escapes text for safe insertion into HTML text nodes and attributes. */
-export function escapeHtml(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
 
 function rowHtml(q: IRecordedQueryV1, focusedId: number | null): string {

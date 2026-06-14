@@ -5,15 +5,9 @@
  */
 import type { TimelineModel, TimelineRow } from './commit-timeline';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
-function esc(value: unknown): string {
-  const s = value === null || value === undefined ? '' : String(value);
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
 
 /** Compact, locale-stable capture time: `2026-06-14 09:31` from the ISO string. */
 function formatWhen(iso: string): string {

@@ -32,7 +32,10 @@ describe('highlightSql', () => {
   it('wraps single-quoted strings with sql-str (doubled quote escape)', () => {
     const out = highlightSql("'hello''world'");
     assert.ok(out.includes('class="sql-str"'));
-    assert.ok(out.includes("'hello''world'"));
+    // String detection runs on the raw SQL; the canonical escaper (audit L5)
+    // now HTML-entity-encodes the apostrophes in the emitted span, which the
+    // browser renders identically to 'hello''world'.
+    assert.ok(out.includes('&#39;hello&#39;&#39;world&#39;'));
   });
 
   it('wraps double-quoted identifiers with sql-id', () => {

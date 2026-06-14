@@ -6,15 +6,9 @@
 import type { ISchemaChange, ISchemaSnapshot } from './schema-timeline-types';
 import { diffSchemaSnapshots } from './schema-differ';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
-function esc(value: unknown): string {
-  const s = value === null || value === undefined ? '' : String(value);
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
 
 /** Build the full HTML document for the schema timeline panel. */
 export function buildSchemaTimelineHtml(

@@ -10,7 +10,7 @@ var PAGE_SIZE = 50;
 function esc(v) {
   if (v === null || v === undefined) return '<span class="null">NULL</span>';
   return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function showTable(name) {

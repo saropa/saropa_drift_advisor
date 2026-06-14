@@ -1,5 +1,6 @@
 import type { ISizeAnalytics } from '../api-types';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /** Build the HTML for the size analytics webview panel. */
 export function buildSizeHtml(data: ISizeAnalytics, historyCount: number = 0): string {
@@ -115,10 +116,4 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
