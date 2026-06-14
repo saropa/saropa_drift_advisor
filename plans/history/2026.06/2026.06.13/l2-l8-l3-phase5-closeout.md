@@ -4,8 +4,6 @@ Records the review outcome for the remaining Low-severity audit items that did n
 
 ## Finish Report (2026-06-13)
 
-This work will be reviewed by another AI. — (chat-time note; not part of the durable record.)
-
 ### Scope
 
 (C) Documentation only — no code change. Each item below was reviewed against the current code.

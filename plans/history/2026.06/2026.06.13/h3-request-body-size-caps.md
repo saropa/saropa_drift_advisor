@@ -4,8 +4,6 @@ Every POST handler in the debug server buffered the entire request body into mem
 
 ## Finish Report (2026-06-13)
 
-This work will be reviewed by another AI. — (chat-time note; not part of the durable record below.)
-
 ### Scope
 
 (A) Dart package code (`lib/`) and Dart tests (`test/`). No extension/TypeScript, no Flutter UI, no docs-only changes beyond the changelog.

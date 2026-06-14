@@ -82,6 +82,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 - Phase 5 (hardening) — L1: the auth token/password comparison no longer early-returns on a length mismatch (which leaked the expected secret's length via timing); the length difference is folded into the constant-time comparison.
 - Phase 5 — L7: removed the duplicate, weaker `ServerUtils.parseCsvLines` (used only by its own tests); the single canonical CSV parser is `DriftDebugImportProcessor.parseCsvLines`.
 - Phase 3 — M7/M8: the Query Replay (DVR) recorder now uses a circular buffer so evicting the oldest entry is O(1) instead of O(n) per insert (and config shrink O(n) instead of O(n²)); the table-name parser bounds its input to avoid a CPU spike on very long generated SQL. No behavior change for users.
+- Historical finish/plan report files under `plans/history/**` had a stray AI-session-narration boilerplate line removed (carried in by `/finish` runs after the first generator fix only partially closed the leak). The report-generator instruction was corrected so future runs cannot reintroduce it. Documentation hygiene only — no package code changed.
 
 ### Fixed
 

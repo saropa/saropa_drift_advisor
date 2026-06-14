@@ -4,8 +4,6 @@ Restoring a data branch overwrote the live database by issuing each table clear 
 
 ## Finish Report (2026-06-13)
 
-This work will be reviewed by another AI. — (chat-time note; not part of the durable record.)
-
 ### Scope
 
 (B) VS Code extension (TypeScript). No Dart, no Flutter, no docs beyond the changelog.

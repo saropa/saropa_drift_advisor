@@ -4,8 +4,6 @@ Two CSV parsers existed: `DriftDebugImportProcessor.parseCsvLines` (the one the 
 
 ## Finish Report (2026-06-13)
 
-This work will be reviewed by another AI. — (chat-time note; not part of the durable record.)
-
 ### Scope
 
 (A) Dart package code (`lib/`) + Dart test. No extension/Flutter/docs beyond the changelog.
