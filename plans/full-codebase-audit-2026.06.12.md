@@ -8,6 +8,36 @@
 
 ---
 
+## Remediation status (updated 2026-06-13)
+
+**Almost everything is fixed and verified.** 15 commits on branch `security/audit-phases-1-2` closed every Critical, High, and Medium finding plus most Low ones (Dart: `analyze` clean + 648 tests pass; extension: `tsc` clean + 2749 tests pass). Per-finding reports and the verification record live in [`plans/history/2026.06/2026.06.13/audit-remediation-closeout.md`](history/2026.06/2026.06.13/audit-remediation-closeout.md).
+
+This audit file stays open because of the items below. Each finding in the sections that follow is tagged `✅ DONE`, `☑ REVIEWED — no change`, or `⏳ NEEDS BUILDING`.
+
+**Every Critical, High, and Medium finding is fixed.** What remains: one defense-in-depth security task (C2b), one cleanup (L5), one artifact removal (L6), one credential rotation only the user can do (L3), and two optional cosmetic items (L4, L7 remainder).
+
+### Needs building — engineering
+
+1. **C2b — nonce-based CSP across all webview panels + the served HTML.** Defense-in-depth. The actually-exploitable XSS sinks were already fixed (C2a); this adds a strict `default-src 'none'; script-src 'nonce-…'` backstop to the ~40 panels and the Dart-served pages that still have none (or `'unsafe-inline'`). Best done as a focused per-panel pass with render verification.
+2. **L5 — consolidate the ~15 duplicate `esc()` helpers into one complete `escapeHtml` (`& < > " '` + `String()` coercion).** Latent only: every current sink double-quotes its attributes, so the missing `'` escape is not exploitable today. Canonical reference impls already exist (`dvr-html.ts`, `mutation-stream-html-helpers.ts`).
+3. **L6 — remove stale artifacts** still on disk: `analysis_options_custom.yaml.bak` (163 KB), `assets/web/app.js.bak` (322 KB), and the duplicated `*.js` files next to their `*.ts` sources. Confirm nothing is load-bearing first. (The duplicate CSV parser half of the original L7 finding is already removed.)
+
+### Needs action — user
+
+4. **L3 — rotate the Open VSX publish token** (`OVSX_PAT` in `.env`). It was surfaced in the audit session, so treat it as compromised. **Cannot be done in code.**
+
+### Optional — cosmetic, not scheduled
+
+5. **L4 — `safeSubstring` rewrite.** Correct today, just obscure and double-allocating (`server_utils.dart:177`). Leave unless touched for other reasons.
+6. **L7 (remainder) — TS helper dedup.** The duplicate CSV parser is gone; consolidating the three case converters, the 3 `makeId` copies, shared TTL constants, and the codelens O(n²) line scan is still open. Cosmetic.
+
+### Reviewed — no change required
+
+- **L2** debug-server error echo — the C1 loopback default removes the exposure premise.
+- **L8** long-poll probing — already bounded by the 2 s `changeDetectionMinInterval` throttle.
+
+---
+
 ## High-Level Report
 
 ### The shape of the risk
@@ -44,11 +74,11 @@ Severity reflects this package's real threat model (a debug tool, often on local
 
 ### CRITICAL
 
-**C1 — Insecure-by-default network exposure** ✓ verified
+**C1 — Insecure-by-default network exposure** ✓ verified — `✅ DONE`
 `drift_debug_server_io.dart:109,268-270` and `start_drift_viewer_extension.dart:242-243`. Defaults are `loopbackOnly: false` (→ `InternetAddress.anyIPv4`, i.e. `0.0.0.0`), `corsOrigin: '*'`, `authToken: null`. With no auth the entire database is readable by any host that can reach the port; with `writeQuery` wired it is also writable. The wildcard CORS header means *any* web page the developer opens can `fetch('http://localhost:8642/api/dump')` and read the response cross-origin (a DNS-rebinding / malicious-site vector), even when the server is "only" on localhost.
 **Fix:** default `loopbackOnly: true`; do not emit `Access-Control-Allow-Origin: *` by default (omit the header, or echo a vetted origin); require an explicit opt-in (and ideally a generated token) before binding to a non-loopback address. Document the posture in the README's first server example.
 
-**C2 — Stored XSS in served SPA and extension webviews; no CSP backstop** ✓ verified (3 sinks + CSP)
+**C2 — Stored XSS in served SPA and extension webviews; no CSP backstop** ✓ verified (3 sinks + CSP) — `✅ exploitable sinks fixed (C2a)` · `✅ executeAction allowlisted (C2c)` · `⏳ CSP backstop NEEDS BUILDING (C2b)`
 DB content reaches HTML unescaped in several places, and there is no Content-Security-Policy (or `'unsafe-inline'` where one exists), so each miss executes script.
 - `assets/web/.../snippets`→ no; the SPA result path: `snippets/snippet-library-html.ts:198-210` builds `'<th>'+c+'</th>'`, `'<td>'+v+'</td>'`, and `'<p class="error">'+msg.message` straight into `innerHTML` — DB column names, **cell values**, and SQLite error text. The file's own `esc()` is never called here. ✓
 - `lineage/lineage-html.ts:100` — `onclick="navigate('${escAttr(node.table)}',...)"` where `escAttr` escapes only `\` and `'`, inside a **double-quoted** attribute; an unescaped `"` in a table/column/PK value breaks out. Same defect in `impact/impact-html.ts:68,106`. ✓
@@ -58,11 +88,13 @@ DB content reaches HTML unescaped in several places, and there is no Content-Sec
 **Escalation:** `dashboard/panel/message-handler.ts:91-95` runs `vscode.commands.executeCommand(msg.actionCommand, msg.args)` with no allowlist, and several DB-mutating `postMessage` handlers validate only `command` (bulk-edit commit, editing-bridge, clipboard-import, seeder) — so an XSS can drive editor commands and DB writes *(agent-reported)*.
 **Fix:** add a per-render nonce CSP (`default-src 'none'; script-src 'nonce-…'; …`) to every webview and to the Dart-served HTML; drop `'unsafe-inline'`; replace inline `onclick` with delegated listeners; consolidate to one complete `escapeHtml` (`& < > " '` + `String()` coercion) and call it at every dynamic sink; allowlist `executeAction` command ids; add runtime shape validation to DB-mutating message handlers.
 
-**C3 — `sqlLiteral` corrupts string data by doubling backslashes** ✓ verified
+**C3 — `sqlLiteral` corrupts string data by doubling backslashes** ✓ verified — `✅ DONE`
 `server_utils.dart:131,148-152`: `value.replaceAll(r'\', r'\\').replaceAll("'", "''")`. SQLite string literals escape **only** `'` (as `''`); backslash is an ordinary character. Doubling `\` silently stores a second backslash for every imported/edited/dumped string containing one (`C:\path` → `C:\\path`). Not an injection (the `''` doubling still neutralizes quotes), but silent, irreversible data corruption on every write path (`import_handler`, `cell_update_handler`, `getFullDumpSql`). Used for `pkValue` in `cell_update_handler.dart:171` with no type coercion.
 **Fix:** delete the `.replaceAll(r'\', r'\\')`; escape only `'`. Prefer the existing `queryWithBindings` parameter-binding path over literal interpolation.
 
 ### HIGH
+
+> **Status: all of H1–H6 are `✅ DONE`** — fixed and verified (see closeout). Detail retained below as the historical record.
 
 **H1 — SQL read-only validator can be desynchronized from the executed SQL** ✓ verified
 `sql_validator.dart:24-53`. Comments are stripped (`--…`, `/*…*/`) **before** string literals are masked. An apostrophe inside a comment, or a `--`/`/*` inside a string literal, shifts quote pairing so a trailing `; <write statement>` is hidden from the first-semicolon multi-statement check. Worked example: `SELECT 'a -- b' ; DROP TABLE t --` is accepted as read-only. The DB executes the original string. For Drift hosts using `customSelect` (single-statement prepare) the trailing statement is ignored, but the package explicitly supports "raw SQLite app via injectable callback," where a host using multi-statement `execute` is exposed. Also does not normalize `[bracket]`/`` `backtick` `` identifier quoting.
@@ -90,6 +122,8 @@ Every handler does `await for (chunk in request) builder.add(chunk)` with no cap
 
 ### MEDIUM
 
+> **Status: all of M1–M14 are `✅ DONE`** — fixed and verified (see closeout). Detail retained below as the historical record.
+
 - **M1 — String-typed COUNT silently coerced to 0** ✓ verified. `server_utils.dart:46-59` returns 0 when a count column is a `String`; hosts whose executor returns numeric columns as strings make the whole anomaly scanner (`_detectNullValues`, `_detectEmptyStrings`, duplicates, orphan FKs) report **no findings** (false negatives). `report_handler.dart` and `analytics_handler.dart:472` already handle the String case — `extractCountFromRows` is the outlier. Fix: add `if (countValue is String) return int.tryParse(countValue) ?? 0;`.
 - **M2 — Naive variance with catastrophic cancellation** ✓ verified. `anomaly_detector.dart:426-427` computes `AVG(x*x) - AVG(x)*AVG(x)` in SQL; for large-magnitude, low-spread columns floating-point cancellation yields garbage σ (clamped-to-0 suppresses real outliers, or tiny σ flags everything). The log-scale fallback (`:510-533`, `logStddev = logRange/4`) is a statistically unsound heuristic, not a real log-space σ. Fix: two-pass / Welford, or `AVG((x-mean)*(x-mean))` after fetching the mean.
 - **M3 — Query-stat double-counting inflates all index/slow-query advice** *(agent-reported)*. `engines/query-intelligence.ts:226-233` re-ingests `recentQueries` on every 15s TTL refresh; `executionCount`/`totalDurationMs` grow on each cache expiry. Fix: track an ingested cursor.
@@ -107,18 +141,20 @@ Every handler does `await for (chunk in request) builder.add(chunk)` with no cap
 
 ### LOW
 
-- **L1 — `_secureCompare` leaks length** ✓ verified. `auth_handler.dart:108-110` early-returns on length mismatch, defeating the constant-time loop for length. Minor for a dev tool; fold length into the result without early return.
-- **L2 — Error responses echo `error.toString()`** ✓ verified. `server_context.dart:581` and many handlers return raw SQLite/exception text (schema, paths, SQL) to the client. Acceptable for debug, but information disclosure on an open/tunneled server. Consider gating detail behind a flag.
-- **L3 — Open VSX publish token in plaintext `.env`** ✓ verified. `OVSX_PAT=ovsxat_…` sits in plaintext on disk. Correctly gitignored and pub-excluded, so not leaked via git/pub — but it is a live credential; rotate it (it has now been surfaced in this session) and inject it from a secret store at publish time rather than a working-tree file.
-- **L4 — `safeSubstring` reimplements `substring` via double `replaceRange`** ✓ verified (`server_utils.dart:177`) — correct but obscure and double-allocating; the guards above already prove the bounds.
-- **L5 — `esc()` single-quote omission, systemic + duplicated** *(agent-reported)*. ~15 separate `esc()` copies escape `& < > "` but not `'`; not exploitable today (all attributes double-quoted) but a latent landmine. Complete reference impls exist (`dvr-html.ts`, `mutation-stream-html-helpers.ts`). Consolidate to one.
-- **L6 — Repo clutter / stale artifacts**: `analysis_options_custom.yaml.bak` (163KB), `assets/web/app.js.bak` (322KB), and duplicated `*.js` next to their `*.ts` sources. Confirm what's load-bearing; remove the rest.
-- **L7 — Duplicated helpers** *(agent-reported)*: three different snake/pascal-case converters (`invariant-diagnostics`, `table-name-mapper`, `dart-names`); duplicated `makeId`, TTL constants, `999` line-end sentinel; `codelens` O(n²) line-number computation on every keystroke.
-- **L8 — Long-poll per-connection DB probing** *(agent-reported)*. `generation_handler.dart:131` runs `checkDataChange()` each interval per concurrent client for the whole window, driven by a client-supplied `since` with no upper bound. Verify the interval floor; consider a shared change-detection tick.
+- `✅ DONE` — **L1 — `_secureCompare` leaks length** ✓ verified. `auth_handler.dart:108-110` early-returns on length mismatch, defeating the constant-time loop for length. Minor for a dev tool; fold length into the result without early return.
+- `☑ REVIEWED — no change` (C1 loopback default removes the exposure premise) — **L2 — Error responses echo `error.toString()`** ✓ verified. `server_context.dart:581` and many handlers return raw SQLite/exception text (schema, paths, SQL) to the client. Acceptable for debug, but information disclosure on an open/tunneled server. Consider gating detail behind a flag.
+- `⏳ NEEDS ACTION — user must rotate` — **L3 — Open VSX publish token in plaintext `.env`** ✓ verified. `OVSX_PAT=ovsxat_…` sits in plaintext on disk. Correctly gitignored and pub-excluded, so not leaked via git/pub — but it is a live credential; rotate it (it has now been surfaced in this session) and inject it from a secret store at publish time rather than a working-tree file.
+- `⏳ OPTIONAL — cosmetic, not scheduled` — **L4 — `safeSubstring` reimplements `substring` via double `replaceRange`** ✓ verified (`server_utils.dart:177`) — correct but obscure and double-allocating; the guards above already prove the bounds.
+- `⏳ NEEDS BUILDING` — **L5 — `esc()` single-quote omission, systemic + duplicated** *(agent-reported)*. ~15 separate `esc()` copies escape `& < > "` but not `'`; not exploitable today (all attributes double-quoted) but a latent landmine. Complete reference impls exist (`dvr-html.ts`, `mutation-stream-html-helpers.ts`). Consolidate to one.
+- `⏳ NEEDS BUILDING` — **L6 — Repo clutter / stale artifacts**: `analysis_options_custom.yaml.bak` (163KB), `assets/web/app.js.bak` (322KB), and duplicated `*.js` next to their `*.ts` sources. Confirm what's load-bearing; remove the rest. (Both `.bak` files are still on disk as of 2026-06-13.)
+- `✅ partial — duplicate CSV parser removed` · `⏳ OPTIONAL — helper dedup still open (cosmetic)` — **L7 — Duplicated helpers** *(agent-reported)*: three different snake/pascal-case converters (`invariant-diagnostics`, `table-name-mapper`, `dart-names`); duplicated `makeId` (still 3 copies), TTL constants, `999` line-end sentinel; `codelens` O(n²) line-number computation on every keystroke. The `ServerUtils.parseCsvLines` duplicate was removed; the TS helper consolidation above is not yet done.
+- `☑ REVIEWED — no change` (bounded by the 2 s `changeDetectionMinInterval` throttle) — **L8 — Long-poll per-connection DB probing** *(agent-reported)*. `generation_handler.dart:131` runs `checkDataChange()` each interval per concurrent client for the whole window, driven by a client-supplied `since` with no upper bound. Verify the interval floor; consider a shared change-detection tick.
 
 ---
 
 ## Detailed Remediation Plan
+
+> **Status: Phases 1–4 are shipped and verified.** Phase 5 (hygiene) is the only one with open work — and within it only step 18 (rotate token, L3), the CSP half of step 19 (C2b) + the `esc()`/helper consolidation (L5, L7 remainder), and the artifact removal (L6) remain. Steps 20's items (L1 done; L2, L8 reviewed) are closed. The detailed plan below is kept verbatim as the original specification.
 
 Ordered by leverage. Each phase is independently shippable; phases 1–2 are the security-defining ones.
 
