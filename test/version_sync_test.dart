@@ -63,6 +63,38 @@ void main() {
     },
   );
 
+  // ------------------------------------------------------------------
+  // .pubignore guard: the top-level "docs/" directory must stay excluded.
+  //
+  // pub.dev's layout convention reserves the singular "doc/" name; a
+  // plural top-level "docs/" directory triggers a "rename docs to doc"
+  // warning. `dart pub publish --dry-run` exits 65 on ANY warning, so a
+  // re-introduced docs/ entry in the package breaks the publish workflow.
+  // Because a .pubignore overrides .gitignore entirely, docs/ must be
+  // listed here explicitly or it gets bundled. This test pins the fix.
+  // ------------------------------------------------------------------
+  test('.pubignore excludes the top-level docs/ directory', () {
+    final lines = File('.pubignore')
+        .readAsLinesSync()
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty && !l.startsWith('#'))
+        .toList();
+
+    // Accept either the root-anchored "/docs/" or the bare "docs/" form;
+    // both keep the plural directory out of the published package.
+    final excludesDocs = lines.any(
+      (l) => l == '/docs/' || l == 'docs/' || l == '/docs' || l == 'docs',
+    );
+    expect(
+      excludesDocs,
+      isTrue,
+      reason:
+          '.pubignore must exclude the top-level docs/ directory; otherwise '
+          'pub emits the "rename docs to doc" layout warning and '
+          '`dart pub publish --dry-run` fails with exit code 65.',
+    );
+  });
+
   test('ServerConstants.packageVersion matches pubspec.yaml version', () {
     // Read the pubspec.yaml file from the project root to extract the
     // canonical version string. This catches cases where a developer bumps

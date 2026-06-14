@@ -26,3 +26,17 @@ package-lock.json
 
 # Claude Code config (developer-local)
 .claude/
+
+# Build output and generated API docs. These are .gitignore'd, but pub ignores
+# .gitignore entirely once a .pubignore exists, so they must be listed here too
+# or they get bundled into the published package.
+/build/
+/doc/api/
+
+# Developer-only directories consumers do not need at runtime: bug reports,
+# planning notes, generated audit reports, and Python/Dart build tooling.
+/bugs/
+/plans/
+/reports/
+/scripts/
+/tool/
