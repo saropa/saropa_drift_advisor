@@ -356,6 +356,25 @@ abstract final class ServerConstants {
   static const String categoryData = 'data';
   static const String categorySchema = 'schema';
   static const String categoryOther = 'other';
+
+  // --- Diagnostic fix action (plan 67 §2.1 / R1) ---
+  // A table-scoped issue carries a `fix` deep-link so a consumer (the Drift
+  // Health panel, or a sibling tool rendering Advisor's issues) can jump to the
+  // table's Drift class. It targets Advisor's OWN navigation command — NOT a
+  // Lints rule: Advisor's runtime detectors (missing index, anomaly, orphan
+  // table) have no static Lints counterpart to point at (verified against
+  // saropa_lints `drift_rules.dart`), so the cross-tool fix here is navigation,
+  // not a static-rule explainer.
+  static const String jsonKeyFix = 'fix';
+  static const String jsonKeyKind = 'kind';
+  static const String jsonKeyCommand = 'command';
+  static const String jsonKeyArgs = 'args';
+  static const String fixKindCommand = 'command';
+
+  /// VS Code command a table-scoped issue's fix deep-links to (one of the
+  /// extension's stable suite command ids, plan 67 §3).
+  static const String commandGoToTableDefinition =
+      'driftViewer.goToDefinitionForTable';
   static const String headerAuthorization = 'authorization';
   static const String authSchemeBearer = 'Bearer ';
   static const String authSchemeBasic = 'Basic ';

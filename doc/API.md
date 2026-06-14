@@ -970,6 +970,7 @@ The list is wrapped in the **Saropa Diagnostic Envelope** — the shared cross-t
 | `type` | string | no | Anomalies: `null_values`, `empty_strings`, `orphaned_fk`, `duplicate_rows`, `potential_outlier`. Orphan tables: `orphan_table` |
 | `count` | int | no | Anomalies only: number of affected rows (not present for `potential_outlier`) |
 | `priority` | string | no | Index suggestions only: `"high"`, `"medium"`, or `"low"` |
+| `fix` | object | no | Primary action for a table-scoped issue: `{ "kind": "command", "command": "driftViewer.goToDefinitionForTable", "args": [{ "table": "<name>" }], "title": "Go to table definition" }`. A consumer renders this as a button (gated on the command being registered). Absent on issues with no table. |
 
 > **Orphan-table issues appear only when the server has the Drift-declared table set** (via `startDriftViewer` or the `declaredTableNames` parameter). See [`GET /api/analytics/orphan-tables`](#get-apianalyticsorphan-tables) for details.
 
