@@ -27,12 +27,16 @@ export interface SuiteDiagnostic {
   ruleId?: string;
   table?: string;
   sql?: string;
+  /** Commit the finding was captured at (plan 67 R6); backfilled from the envelope when absent. */
+  commitSha?: string;
 }
 
 /** A sibling's on-disk envelope. Carrier key is `issues` (Advisor) or `diagnostics` (canonical). */
 interface SuiteEnvelope {
   issues?: unknown;
   diagnostics?: unknown;
+  /** Envelope-level capture commit (plan 67 R6); applied to entries that omit their own. */
+  commitSha?: string;
 }
 
 /** The two sibling mirror files Advisor consumes, with the source each implies. */
@@ -122,7 +126,12 @@ export function diagnosticsFromEnvelope(
   for (const entry of raw) {
     if (typeof entry !== 'object' || entry === null) continue;
     const d = entry as SuiteDiagnostic;
-    out.push({ ...d, source: forceSource ? source : (d.source ?? source) });
+    out.push({
+      ...d,
+      source: forceSource ? source : (d.source ?? source),
+      // Per-diagnostic commit wins; otherwise inherit the envelope's (plan 67 R6).
+      commitSha: d.commitSha ?? env.commitSha,
+    });
   }
   return out;
 }

@@ -16,6 +16,7 @@
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { GenerationWatcher } from '../generation-watcher';
+import { resolveWorkspaceCommit } from './workspace-commit';
 
 const MIRROR_DIR = '.saropa/diagnostics';
 const MIRROR_FILE = 'advisor.json';
@@ -56,10 +57,19 @@ export async function writeAdvisorDiagnosticsMirror(
     return false;
   }
 
+  // Stamp the capture commit (plan 67 R6) so a sibling can tell whether these
+  // issues match its current checkout. The server cannot know the workspace's
+  // git state (it runs inside the app), so the extension adds it here. Best-
+  // effort: when the commit can't be resolved, the field is simply absent.
+  const commitSha = await resolveWorkspaceCommit();
+  const stamped = commitSha === undefined
+    ? envelope
+    : { ...(envelope as Record<string, unknown>), commitSha };
+
   const dirUri = vscode.Uri.joinPath(folder.uri, ...MIRROR_DIR.split('/'));
   const fileUri = vscode.Uri.joinPath(dirUri, MIRROR_FILE);
   await vscode.workspace.fs.createDirectory(dirUri);
-  const bytes = new TextEncoder().encode(JSON.stringify(envelope, null, 2));
+  const bytes = new TextEncoder().encode(JSON.stringify(stamped, null, 2));
   await vscode.workspace.fs.writeFile(fileUri, bytes);
   return true;
 }
