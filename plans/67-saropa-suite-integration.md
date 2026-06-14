@@ -190,8 +190,8 @@ one of these documented ids.
     existing mirror intact) when there is no workspace, the server is unreachable, or the payload is
     not a valid envelope, so a transient failure never wipes a good mirror. Covered by
     `extension/src/test/suite-diagnostics-mirror.test.ts`.
-  - **Deferred:** the symmetric R3 consumption (Advisor *reading* the sibling
-    `lints.json`/`log-capture.json` mirrors) is tracked separately under R3 below.
+  - The symmetric consumption (Advisor *reading* the sibling
+    `lints.json`/`log-capture.json` mirrors) is R3 below — **shipped**.
 - **R3 — Consume sibling envelopes.** Read `.saropa/diagnostics/lints.json` and
   `.saropa/diagnostics/log-capture.json` and render the relevant ones inside Advisor's own surfaces:
   in the EXPLAIN / Index panels show "Lints rule `X` also governs this" and "Log Capture saw this
