@@ -116,8 +116,10 @@ deeper feature below is not).
 - **`plans/60-time-travel-data-slider.md`** — visual time-travel scrubber; 26-DVR's
   finish report names this + a unified timeline as the cross-subsystem deferral.
 
-(Infra plans `connection-reliability-ongoing`, `esbuild-ts-migration`,
-`fix-pub-dev-publisher` are ongoing tracks, not feature gaps.)
+(Infra plans `connection-reliability-ongoing`, `esbuild-ts-migration` are
+ongoing tracks, not feature gaps. The pub.dev publisher-identity plan is
+closed — its one blocked remainder lives in
+`plans/deferred/poison-pill-old-package.md`, gated on pub.dev admin access.)
 
 ---
 
