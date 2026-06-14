@@ -16,7 +16,7 @@
     "test:web": "node --test \"assets/web/test/**/*.test.mjs\""
   },
   "devDependencies": {
-    "esbuild": "^0.28",
+    "esbuild": "^0.28.1",
     "husky": "^9.1.7",
     "sass": "^1.99",
     "typescript": "^5.7"
