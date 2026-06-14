@@ -57,6 +57,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 - **Related suite findings now appear on the Index Suggestions and Anomaly panels too** — not just on Explain — so the static rule and runtime signal for a table sit next to its index/anomaly analysis.
 - **Drift Health refreshes itself as your data changes** (no manual Refresh needed while the panel is open), and gains a **severity filter** (All / Errors / Warnings / Info) and a **sort** control (by finding count or table name).
 - **Cross-tool jump actions on findings.** A table-scoped issue now offers a one-click action to jump to the table's Drift class; the button only appears when the target command is installed, and every action is re-validated against an allowlist before it runs (no arbitrary command execution from a diagnostics file).
+- **New Suite Findings dashboard widget.** Add it from the dashboard's widget picker for an at-a-glance count of cross-tool findings — total, errors vs warnings, and a per-tool breakdown (Drift Advisor / Saropa Lints / Log Capture) — with one click through to the full Drift Health view. It reads the same live issues and sibling diagnostics as that view, so the numbers always match.
 
 ### Improved
 

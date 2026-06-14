@@ -168,9 +168,16 @@ one of these documented ids.
     prefixes) AND registered, and `executeSuiteFix` re-validates before running — so a sibling-emitted
     `fix.command` (pointing at an Advisor command) will render and run safely once siblings ship them.
     Covered by `extension/src/test/suite-notes.test.ts` and the Dart `handler_integration_test`.
-  - **Deferred (rest of R1):** per-diagnostic `source: "advisor"` is intentionally NOT emitted — tool
+  - **Closed (rest of R1):** per-diagnostic `source: "advisor"` is intentionally NOT emitted — tool
     identity lives in `producer.name`, and the existing per-issue `source` field keeps its established
-    meaning (the *detector*) for backward compatibility. A normalized `sql` field is not yet wired.
+    meaning (the *detector*) for backward compatibility. The **normalized `sql` field does not apply to
+    Advisor** and is not a gap: Advisor's four detectors don't run a query to find a problem, so there
+    is no originating query text to normalize — index-suggestion and orphan-table carry `suggestedSql`
+    (the `CREATE INDEX` / `DROP` *fix*, not a query), and anomaly / soft-relationship have no SQL at
+    all (verified in [analytics_handler.dart](../lib/src/server/analytics_handler.dart) `getIssuesList`).
+    The envelope's `sql` is for query-shaped diagnostics (Log Capture's slow queries); the consumer
+    already matches on it (`relatedDiagnostics`, `buildDriftHealth` untabled routing). Emitting it on
+    Advisor issues would ship an always-empty field.
 - **R2 — Write the offline mirror** to `.saropa/diagnostics/advisor.json` on each scan, so Lints and
   Log Capture can read Advisor's issues when the debug server is not running (Section 2.3).
   - **Status: shipped (this build).** Implemented in
@@ -202,8 +209,18 @@ one of these documented ids.
     ([suite-notes-html.ts](../extension/src/suite/suite-notes-html.ts) `buildSuiteSectionFor`) now also
     feeds the Index Suggestions and Anomalies panels (matched by their tables), and the EXPLAIN
     renderer was refactored onto the same shared code. Covered by `suite-notes.test.ts`.
-  - **Deferred:** the holistic dashboard surface. The "saw N times" count rides on the sibling's own
-    `detail` text rather than a dedicated field, so no schema change is needed.
+  - **Holistic dashboard surface — shipped (this build).** A **Suite Findings** widget on the
+    customizable dashboard
+    ([extension/src/dashboard/widgets/suite-findings-widget.ts](../extension/src/dashboard/widgets/suite-findings-widget.ts))
+    joins all three lenses into compact counts — total findings, per-severity (errors / warnings),
+    and per-tool (Advisor / Lints / Log Capture) — with an "Open Drift Health" deep link
+    (`driftViewer.openDriftHealth`). It reuses the same reader (`readSiblingDiagnostics`), envelope
+    relabeler (`diagnosticsFromEnvelope(..., 'advisor', true)`), and join (`buildDriftHealth`) as the
+    full panel, so its counts can never diverge from it. Best-effort: a down server yields zero Advisor
+    findings, not an error. Covered by `extension/src/test/suite-findings-widget.test.ts`. The "saw N
+    times" count rides on the sibling's own `detail` text rather than a dedicated field, so no schema
+    change is needed. **R3 is complete** — EXPLAIN, Index Suggestions, Anomalies, the Drift Health
+    panel, and now the dashboard widget all surface sibling findings.
 - **R4 — Drift Health surface (the flagship loop, see Section 5).** A single panel that joins
   Advisor's runtime schema/data evidence with Lints' static Drift rules and Log Capture's live SQL
   telemetry for the same table/query.
@@ -228,9 +245,11 @@ one of these documented ids.
     and renders a **stale** badge (dimmed row) on any finding from a different commit — never guessing
     when either commit is unknown. Covered by `workspace-commit.test.ts` and the commit assertions in
     `suite-diagnostics.test.ts` / `drift-health.test.ts`.
-  - **Deferred:** the deeper "at commit X, N lint findings + schema V + these signals" timeline view,
-    and embedding the cross-tool commit set into the Log Capture session sidecar (Section 6's richer
-    form) — the per-finding stamping + staleness that the suite needs day-to-day is in place.
+  - **R6 core is complete.** What remains is a **separate, larger feature**, not a gap in R6: the
+    deeper "at commit X, N lint findings + schema V + these signals" timeline view, and embedding the
+    cross-tool commit set into the Log Capture session sidecar (Section 6's richer form). The
+    per-finding stamping + staleness that the suite needs day-to-day is in place; the timeline is a new
+    multi-commit history surface that should be planned on its own, not carried as R6 residue.
 
 ---
 
@@ -263,9 +282,11 @@ Covered by `extension/src/test/drift-health.test.ts`.
 **Post-MVP — shipped (this build):** per-finding fix-action buttons (R1, security-gated), severity
 filter + sort controls, auto-refresh on the generation watcher (debounced, visible-only), and
 code-level design touches (keyboard focus-visible outlines, ARIA toolbar/pressed states, logical
-RTL margins). **Still open:** a full visual design audit (RTL/dyslexia rendering verified on a real
-panel, design-system token adoption beyond `--vscode-*`) — that needs visual review, not just code,
-so it is not claimed as done here.
+RTL margins). **Open — needs a running VS Code, not a code edit:** a full visual design audit (RTL /
+dyslexia rendering verified on a real rendered panel, contrast against WCAG AA, design-system token
+adoption beyond `--vscode-*`). This is a **LAUNCH_TEST** item: the code-level work is in, but a visual
+result cannot be claimed from a headless environment — it requires loading the extension and looking
+at the panel. Tracked as the one manual-verification task for this feature, not as unfinished code.
 
 ---
 
@@ -315,16 +336,17 @@ visible from any entry point.
    → `saropaLints.explainRule` for `require_database_index`). That now has its target command ids to
    point at, but depends on the Lints extension contributing them (Lints doc R4).
 2. **Consume + render (R3).** Each tool shows the others' relevant diagnostics with correct
-   attribution. **Done (Advisor side)** — reader/matcher + the "Related Saropa Suite Findings" section
-   on the EXPLAIN, Index Suggestions, and Anomalies panels, plus the security-gated per-finding fix
-   button. Only the holistic dashboard surface remains.
+   attribution. **Complete (Advisor side)** — reader/matcher + the "Related Saropa Suite Findings"
+   section on the EXPLAIN, Index Suggestions, and Anomalies panels, the security-gated per-finding fix
+   button, and the **Suite Findings dashboard widget** (the holistic surface). Nothing remains.
 3. **Drift Health loop (R4 / Section 5).** The flagship; structurally uncopyable. **Shipped** — the
    `driftViewer.openDriftHealth` panel joins all three lenses per table, with per-finding fix actions,
-   severity filter + sort, and auto-refresh (see the R4 Status note in Section 5). Residual: a full
-   visual design audit (RTL/dyslexia render verification, design-system tokens).
-4. **Commit correlation (R6 / Section 6).** **Shipped** — commit stamping on the mirror + stale
-   marking in Drift Health (see the R6 Status note above). The richer cross-tool timeline view remains
-   deferred.
+   severity filter + sort, and auto-refresh (see the R4 Status note in Section 5). One manual
+   verification (LAUNCH_TEST) remains: a visual design audit on a rendered panel (RTL / dyslexia /
+   contrast / design-system tokens) — code is in; the result needs a running VS Code to confirm.
+4. **Commit correlation (R6 / Section 6).** **Core shipped** — commit stamping on the mirror + stale
+   marking in Drift Health (see the R6 Status note above). The richer cross-tool timeline view is a
+   separate future feature, not R6 residue.
 5. **Shared infra extraction (Section 7).** Highest code-debt payoff; consolidation of code that has
    already converged, so low design risk.
 6. **Extension Pack + cross-discovery** — publish "Saropa for Flutter" bundling all three; gate
