@@ -136,6 +136,27 @@ def get_marketplace_published_version() -> str | None:
 _PUBLISH_TIMEOUT_SECS = 300
 
 
+def _already_published(result) -> bool:
+    """True when a failed publish was rejected because the version already exists.
+
+    The version-skip guard in ``publish_all`` queries ``vsce show`` /
+    ``ovsx get``, but the public listing lags acceptance by minutes
+    (store CDN propagation). On a ``--resume`` retry the guard can read a
+    stale older version, miss the skip, and re-attempt a publish that the
+    store then rejects. Both registries surface that as a non-zero exit with
+    an "already exists" / "already published" message. That state is the
+    desired end state, not a failure — treat it as success so retries are
+    idempotent. vsce says "... vX.Y.Z already exists"; ovsx says
+    "... version X.Y.Z is already published".
+    """
+    blob = " ".join(
+        part.lower()
+        for part in (getattr(result, "stdout", ""), getattr(result, "stderr", ""))
+        if part
+    )
+    return "already exists" in blob or "already published" in blob
+
+
 def publish_marketplace(vsix_path: str) -> bool:
     """Publish the pre-built .vsix to VS Code Marketplace."""
     info(f"Publishing {os.path.basename(vsix_path)} to marketplace...")
@@ -152,6 +173,10 @@ def publish_marketplace(vsix_path: str) -> bool:
         )
         return False
     if result.returncode != 0:
+        # A propagation-lag retry against an already-live version is success.
+        if _already_published(result):
+            ok("VS Code Marketplace already has this version; nothing to do.")
+            return True
         fail("Marketplace publish failed:")
         print_cmd_output(result)
         return False
@@ -179,6 +204,10 @@ def publish_openvsx(vsix_path: str) -> bool:
         )
         return False
     if result.returncode != 0:
+        # A propagation-lag retry against an already-live version is success.
+        if _already_published(result):
+            ok("Open VSX already has this version; nothing to do.")
+            return True
         fail("Open VSX publish failed:")
         print_cmd_output(result)
         return False
