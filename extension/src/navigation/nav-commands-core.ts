@@ -94,12 +94,14 @@ export function registerNavCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.viewTableInPanel',
-      (_tableName: string) => {
+      (tableName?: string) => {
         log('View Table in Panel: triggered by user');
         try {
+          // Focus the requested table (e.g. the ER diagram's "View Data" action)
+          // via the web app's deep-link rather than opening the default view.
           DriftViewerPanel.createOrShow(
             client.host, client.port, editingBridge, fkNavigator, filterBridge,
-            openInPanelOptions(),
+            { ...openInPanelOptions(), focusTable: tableName },
           );
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

@@ -77,9 +77,10 @@ export function registerSuiteCommands(
     ),
   );
 
-  // openTable: open the live data view. driftViewer.viewTableData opens the
-  // database panel and ignores its item argument today; the `table` option is
-  // accepted now so the contract is stable when table-focused open lands.
+  // openTable: open the live data view focused on the requested table.
+  // driftViewer.viewTableData now reads the synthesized item's table name and
+  // deep-links the web app to it (plan 67 R5), so a sibling "open table orders"
+  // lands on that table's data, not the default view.
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.openTable',
@@ -91,14 +92,20 @@ export function registerSuiteCommands(
     ),
   );
 
-  // openSchemaForTable: surface the schema/relationships view. Routes to the
-  // ER diagram today; per-table focus is a future enhancement that will not
-  // change this id or signature.
+  // openSchemaForTable: surface the schema/relationships view focused on the
+  // requested table. The ER diagram command accepts a `focusTable` and the panel
+  // highlights/centers it, so a sibling "open schema for orders" lands on that
+  // table. With no table it opens the full diagram.
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.openSchemaForTable',
-      (_args?: { table?: string }) =>
-        vscode.commands.executeCommand('driftViewer.showErDiagram'),
+      (args?: { table?: string }) => {
+        const table = args?.table?.trim();
+        return vscode.commands.executeCommand(
+          'driftViewer.showErDiagram',
+          table ? { focusTable: table } : undefined,
+        );
+      },
     ),
   );
 

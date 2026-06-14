@@ -231,8 +231,17 @@ one of these documented ids.
     wired through the feature-module registry, declared in `extension/package.json` (NLS titles), and
     asserted by `extension/src/test/extension.test.ts`. They delegate to existing internal commands
     (or, for `openExplainForSql`, run the explain panel against the supplied SQL via the API client),
-    so the cross-tool contract is decoupled from internal command churn. Per-table focus for
-    `openTable`/`openSchemaForTable` is a future enhancement that will not change the ids or signatures.
+    so the cross-tool contract is decoupled from internal command churn.
+  - **Per-table focus — shipped (this build).** `openTable` and `openSchemaForTable` now act on their
+    `table` argument instead of opening a generic view. `openTable` threads the table to
+    [DriftViewerPanel](../extension/src/panel.ts), which injects a `location.hash` so the web app's
+    existing `#TableName` deep-link (in the served `bundle.js`) opens that table — reloading to re-fire
+    it when the panel is already open on the same server (the app reads the hash only on load); the
+    table name is `encodeURIComponent` + `JSON.stringify` hardened against script-tag breakout
+    (`focusTableHashScript`, unit-tested). `openSchemaForTable` passes `{ focusTable }` to
+    `driftViewer.showErDiagram`, which already centers/highlights the table in the ER panel. The tree's
+    "View Table Data" and the ER diagram's "View Data" action focus their table the same way. Covered by
+    `extension/src/test/panel.test.ts`. The command ids and signatures are unchanged.
 - **R6 — Commit correlation.** Stamp every emitted diagnostic with the current `commitSha` (Advisor
   already records session metadata SHAs for the Log Capture bridge) so Section 6 can align all three
   tools per commit.
