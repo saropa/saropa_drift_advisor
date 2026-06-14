@@ -1,13 +1,17 @@
 import type { IndexSuggestion } from '../api-types';
+import { SUITE_NOTES_CSS, SUITE_NOTES_SCRIPT } from '../suite/suite-notes-html';
 import { t } from '../l10n';
 
 /**
  * Build HTML for the Index Suggestions webview panel.
  * Shows a table of missing-index recommendations with copy / create actions.
+ * [suiteSection] is the prebuilt "Related Saropa Suite Findings" HTML (plan 67
+ * R3), already escaped and command-gated; '' when there are no related findings.
  */
 export function buildIndexSuggestionsHtml(
   suggestions: IndexSuggestion[],
   historyCount: number = 0,
+  suiteSection: string = '',
 ): string {
   if (suggestions.length === 0) {
     return `<!DOCTYPE html>
@@ -124,6 +128,7 @@ export function buildIndexSuggestionsHtml(
   }
   /* Select-all checkbox in header */
   .select-all { margin: 0; vertical-align: middle; }
+${SUITE_NOTES_CSS}
 </style>
 </head>
 <body>
@@ -156,6 +161,7 @@ export function buildIndexSuggestionsHtml(
     ${rows}
   </tbody>
 </table>
+${suiteSection}
 
 <script>
   const vscode = acquireVsCodeApi();
@@ -189,6 +195,7 @@ export function buildIndexSuggestionsHtml(
       vscode.postMessage({ command: 'copySingle', index: Number(copyBtn.dataset.copy) });
     }
   });
+${SUITE_NOTES_SCRIPT}
 </script>
 </body>
 </html>`;

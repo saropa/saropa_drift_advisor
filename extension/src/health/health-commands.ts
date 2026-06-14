@@ -64,7 +64,7 @@ export function registerHealthCommands(
             vscode.window.showInformationMessage('No missing indexes detected.');
             return;
           }
-          IndexSuggestionsPanel.createOrShow(suggestions, client, indexHistoryStore);
+          await IndexSuggestionsPanel.createOrShow(suggestions, client, indexHistoryStore);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Failed to fetch index suggestions: ${msg}`);
@@ -121,7 +121,7 @@ export function registerHealthCommands(
             vscode.window.showInformationMessage('No anomalies found.');
             return;
           }
-          AnomaliesPanel.createOrShow(anomalies, client, anomalyHistoryStore);
+          await AnomaliesPanel.createOrShow(anomalies, client, anomalyHistoryStore);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(`Failed to fetch anomalies: ${msg}`);

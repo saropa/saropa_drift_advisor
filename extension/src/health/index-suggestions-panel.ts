@@ -14,6 +14,7 @@ import {
   summarizeIndexDiff,
 } from '../analysis-history/analysis-renderers';
 import { buildIndexSuggestionsHtml } from './index-suggestions-html';
+import { buildSuiteSectionFor, executeSuiteFix } from '../suite/suite-notes-html';
 
 /** Singleton panel showing index suggestions in a rich table. */
 export class IndexSuggestionsPanel {
@@ -21,18 +22,23 @@ export class IndexSuggestionsPanel {
   private readonly _panel: vscode.WebviewPanel;
   private readonly _disposables: vscode.Disposable[] = [];
   private _suggestions: IndexSuggestion[];
+  private _suiteSection = '';
   private readonly _client: DriftApiClient;
   private readonly _historyStore: AnalysisHistoryStore<IndexSuggestion[]>;
 
-  static createOrShow(
+  static async createOrShow(
     suggestions: IndexSuggestion[],
     client: DriftApiClient,
     historyStore: AnalysisHistoryStore<IndexSuggestion[]>,
-  ): void {
+  ): Promise<void> {
     const column = vscode.ViewColumn.Active;
+    // Related findings from the sibling tools for these tables (plan 67 R3).
+    const suiteSection = await buildSuiteSectionFor({
+      tables: suggestions.map((s) => s.table),
+    });
 
     if (IndexSuggestionsPanel._currentPanel) {
-      IndexSuggestionsPanel._currentPanel._update(suggestions);
+      IndexSuggestionsPanel._currentPanel._update(suggestions, suiteSection);
       IndexSuggestionsPanel._currentPanel._panel.reveal(column);
       return;
     }
@@ -44,7 +50,7 @@ export class IndexSuggestionsPanel {
       { enableScripts: true },
     );
     IndexSuggestionsPanel._currentPanel =
-      new IndexSuggestionsPanel(panel, suggestions, client, historyStore);
+      new IndexSuggestionsPanel(panel, suggestions, client, historyStore, suiteSection);
   }
 
   private constructor(
@@ -52,11 +58,13 @@ export class IndexSuggestionsPanel {
     suggestions: IndexSuggestion[],
     client: DriftApiClient,
     historyStore: AnalysisHistoryStore<IndexSuggestion[]>,
+    suiteSection: string,
   ) {
     this._panel = panel;
     this._suggestions = suggestions;
     this._client = client;
     this._historyStore = historyStore;
+    this._suiteSection = suiteSection;
 
     this._panel.onDidDispose(
       () => this._dispose(), null, this._disposables,
@@ -69,8 +77,9 @@ export class IndexSuggestionsPanel {
     this._render();
   }
 
-  private _update(suggestions: IndexSuggestion[]): void {
+  private _update(suggestions: IndexSuggestion[], suiteSection: string): void {
     this._suggestions = suggestions;
+    this._suiteSection = suiteSection;
     this._render();
   }
 
@@ -78,13 +87,24 @@ export class IndexSuggestionsPanel {
     this._panel.webview.html = buildIndexSuggestionsHtml(
       this._suggestions,
       this._historyStore.size,
+      this._suiteSection,
     );
   }
 
   private async _handleMessage(
-    msg: { command: string; index?: number; indexes?: number[] },
+    msg: {
+      command: string;
+      index?: number;
+      indexes?: number[];
+      fixCommand?: unknown;
+      fixArgs?: unknown;
+    },
   ): Promise<void> {
     switch (msg.command) {
+      // Cross-tool deep-link (plan 67 R1); re-validated host-side before running.
+      case 'suiteFix':
+        await executeSuiteFix(msg);
+        break;
       case 'copySingle': {
         if (msg.index !== undefined && this._suggestions[msg.index]) {
           await vscode.env.clipboard.writeText(this._suggestions[msg.index].sql);

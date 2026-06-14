@@ -28,9 +28,9 @@ describe('AnomaliesPanel', () => {
     sinon.restore();
   });
 
-  it('should create a webview panel with anomaly list', () => {
+  it('should create a webview panel with anomaly list', async () => {
     const client = makeClient();
-    AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
+    await AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
 
     assert.strictEqual(createdPanels.length, 1);
     const html = createdPanels[0].webview.html;
@@ -42,25 +42,25 @@ describe('AnomaliesPanel', () => {
     assert.ok(html.includes('sev-warning'), 'should have warning severity class');
   });
 
-  it('should show empty state when no anomalies', () => {
+  it('should show empty state when no anomalies', async () => {
     const client = makeClient();
-    AnomaliesPanel.createOrShow([], client, makeHistoryStore());
+    await AnomaliesPanel.createOrShow([], client, makeHistoryStore());
 
     const html = createdPanels[0].webview.html;
     assert.ok(html.includes('No anomalies found'));
   });
 
-  it('should reuse existing panel on second call', () => {
+  it('should reuse existing panel on second call', async () => {
     const client = makeClient();
-    AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
-    AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
+    await AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
+    await AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
 
     assert.strictEqual(createdPanels.length, 1, 'singleton should reuse panel');
   });
 
-  it('should show severity filter buttons with counts', () => {
+  it('should show severity filter buttons with counts', async () => {
     const client = makeClient();
-    AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
+    await AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
 
     const html = createdPanels[0].webview.html;
     // Verify filter buttons include counts
@@ -77,7 +77,7 @@ describe('AnomaliesPanel', () => {
     ];
     sinon.stub(client, 'anomalies').resolves(refreshed);
 
-    AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
+    await AnomaliesPanel.createOrShow(makeAnomalies(), client, makeHistoryStore());
     createdPanels[0].webview.simulateMessage({ command: 'refresh' });
 
     // Wait for async refresh to complete

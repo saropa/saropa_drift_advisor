@@ -39,9 +39,9 @@ describe('IndexSuggestionsPanel', () => {
     sinon.restore();
   });
 
-  it('should create a webview panel with suggestions table', () => {
+  it('should create a webview panel with suggestions table', async () => {
     const client = makeClient();
-    IndexSuggestionsPanel.createOrShow(makeSuggestions(), client, makeHistoryStore());
+    await IndexSuggestionsPanel.createOrShow(makeSuggestions(), client, makeHistoryStore());
 
     assert.strictEqual(createdPanels.length, 1);
     const html = createdPanels[0].webview.html;
@@ -53,27 +53,27 @@ describe('IndexSuggestionsPanel', () => {
     assert.ok(html.includes('CREATE INDEX'), 'should show SQL');
   });
 
-  it('should show empty state when no suggestions', () => {
+  it('should show empty state when no suggestions', async () => {
     const client = makeClient();
-    IndexSuggestionsPanel.createOrShow([], client, makeHistoryStore());
+    await IndexSuggestionsPanel.createOrShow([], client, makeHistoryStore());
 
     assert.strictEqual(createdPanels.length, 1);
     const html = createdPanels[0].webview.html;
     assert.ok(html.includes('No missing indexes detected'));
   });
 
-  it('should reuse existing panel on second call', () => {
+  it('should reuse existing panel on second call', async () => {
     const client = makeClient();
-    IndexSuggestionsPanel.createOrShow(makeSuggestions(), client, makeHistoryStore());
-    IndexSuggestionsPanel.createOrShow(makeSuggestions(), client, makeHistoryStore());
+    await IndexSuggestionsPanel.createOrShow(makeSuggestions(), client, makeHistoryStore());
+    await IndexSuggestionsPanel.createOrShow(makeSuggestions(), client, makeHistoryStore());
 
     assert.strictEqual(createdPanels.length, 1, 'singleton should reuse panel');
   });
 
-  it('should copy single SQL on copySingle message', () => {
+  it('should copy single SQL on copySingle message', async () => {
     const client = makeClient();
     const suggestions = makeSuggestions();
-    IndexSuggestionsPanel.createOrShow(suggestions, client, makeHistoryStore());
+    await IndexSuggestionsPanel.createOrShow(suggestions, client, makeHistoryStore());
 
     clipboardMock.reset();
     createdPanels[0].webview.simulateMessage({ command: 'copySingle', index: 0 });
@@ -84,10 +84,10 @@ describe('IndexSuggestionsPanel', () => {
     }, 10));
   });
 
-  it('should copy all SQL on copyAll message', () => {
+  it('should copy all SQL on copyAll message', async () => {
     const client = makeClient();
     const suggestions = makeSuggestions();
-    IndexSuggestionsPanel.createOrShow(suggestions, client, makeHistoryStore());
+    await IndexSuggestionsPanel.createOrShow(suggestions, client, makeHistoryStore());
 
     clipboardMock.reset();
     createdPanels[0].webview.simulateMessage({ command: 'copyAll' });
@@ -98,10 +98,10 @@ describe('IndexSuggestionsPanel', () => {
     }, 10));
   });
 
-  it('should copy selected SQL on copySelected message', () => {
+  it('should copy selected SQL on copySelected message', async () => {
     const client = makeClient();
     const suggestions = makeSuggestions();
-    IndexSuggestionsPanel.createOrShow(suggestions, client, makeHistoryStore());
+    await IndexSuggestionsPanel.createOrShow(suggestions, client, makeHistoryStore());
 
     clipboardMock.reset();
     // Only select index 1

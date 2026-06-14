@@ -149,6 +149,9 @@ export const commands = {
     }
     return registeredCommands[id]?.(...args);
   },
+  /** Mirrors vscode.commands.getCommands — the registered command ids. */
+  getCommands: async (_filterInternal?: boolean): Promise<string[]> =>
+    Object.keys(registeredCommands),
   /** Helper to invoke a registered command in tests. */
   executeRegistered: (id: string, ...args: any[]) => registeredCommands[id]?.(...args),
   getRegistered: () => ({ ...registeredCommands }),

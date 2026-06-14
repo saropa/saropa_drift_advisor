@@ -156,11 +156,21 @@ one of these documented ids.
     [generation_handler.dart](../lib/src/server/generation_handler.dart),
     [router.dart](../lib/src/server/router.dart); documented in [doc/API.md](../doc/API.md); covered by
     `test/handler_integration_test.dart`.
+  - **`fix.command` — shipped (this build).** Each table-scoped issue now carries a `fix` deep-link
+    in the envelope. **Finding:** Advisor's runtime detectors have **no** static Lints counterpart to
+    point at — verified against `saropa_lints/lib/src/rules/packages/drift_rules.dart` (it has
+    `avoid_drift_enum_index_reorder` and a unique-`@TableIndex` insert rule, but no missing-index
+    rule, because a missing index is a runtime concern). So the `fix` targets Advisor's own
+    `driftViewer.goToDefinitionForTable` (a valid, always-available navigation action) rather than a
+    fabricated Lints rule id. Consumer side: a shared, **security-gated** renderer
+    ([extension/src/suite/suite-notes-html.ts](../extension/src/suite/suite-notes-html.ts)) shows a
+    fix button only when the command is allowlisted (`driftViewer.`/`saropaLints.`/`saropaLogCapture.`
+    prefixes) AND registered, and `executeSuiteFix` re-validates before running — so a sibling-emitted
+    `fix.command` (pointing at an Advisor command) will render and run safely once siblings ship them.
+    Covered by `extension/src/test/suite-notes.test.ts` and the Dart `handler_integration_test`.
   - **Deferred (rest of R1):** per-diagnostic `source: "advisor"` is intentionally NOT emitted — tool
     identity lives in `producer.name`, and the existing per-issue `source` field keeps its established
-    meaning (the *detector*: index-suggestion / anomaly / orphan-table / soft-relationship) for
-    backward compatibility. A normalized `sql` field and a `fix.command` deep-link to a Lints rule are
-    not yet wired (the latter needs the Section 3 command ids to exist in the Lints extension first).
+    meaning (the *detector*) for backward compatibility. A normalized `sql` field is not yet wired.
 - **R2 — Write the offline mirror** to `.saropa/diagnostics/advisor.json` on each scan, so Lints and
   Log Capture can read Advisor's issues when the debug server is not running (Section 2.3).
   - **Status: shipped (this build).** Implemented in
@@ -188,10 +198,12 @@ one of these documented ids.
     [explain-panel.ts](../extension/src/explain/explain-panel.ts) `findReferencedTables` +
     `createOrShow`), showing each sibling finding's tool, its own already-localized title/detail, and
     rule id; HTML-escaped. Covered by `extension/src/test/suite-diagnostics.test.ts`.
-  - **Deferred:** rendering the same notes on the standalone index-suggestions / anomalies surfaces
-    and the holistic dashboard; surfacing a per-finding `fix.command` deep-link back to the sibling
-    (needs the sibling command ids — Lints doc R4). The "saw N times" count rides on the sibling's
-    own `detail` text rather than a dedicated field, so no schema change is needed here.
+  - **Index + Anomaly surfaces — shipped (this build).** The shared renderer
+    ([suite-notes-html.ts](../extension/src/suite/suite-notes-html.ts) `buildSuiteSectionFor`) now also
+    feeds the Index Suggestions and Anomalies panels (matched by their tables), and the EXPLAIN
+    renderer was refactored onto the same shared code. Covered by `suite-notes.test.ts`.
+  - **Deferred:** the holistic dashboard surface. The "saw N times" count rides on the sibling's own
+    `detail` text rather than a dedicated field, so no schema change is needed.
 - **R4 — Drift Health surface (the flagship loop, see Section 5).** A single panel that joins
   Advisor's runtime schema/data evidence with Lints' static Drift rules and Log Capture's live SQL
   telemetry for the same table/query.
@@ -248,9 +260,12 @@ HTML-escaped rendering in
 [extension/src/suite/drift-health-html.ts](../extension/src/suite/drift-health-html.ts); panel +
 Refresh in [extension/src/suite/drift-health-panel.ts](../extension/src/suite/drift-health-panel.ts).
 Covered by `extension/src/test/drift-health.test.ts`.
-**Deferred (post-MVP):** per-finding `fix.command` action buttons (needs the sibling command ids,
-Lints doc R4), severity filtering / sort controls, auto-refresh on the generation watcher, and the
-deeper design polish (RTL, dyslexia mode) the global UX bar calls for.
+**Post-MVP — shipped (this build):** per-finding fix-action buttons (R1, security-gated), severity
+filter + sort controls, auto-refresh on the generation watcher (debounced, visible-only), and
+code-level design touches (keyboard focus-visible outlines, ARIA toolbar/pressed states, logical
+RTL margins). **Still open:** a full visual design audit (RTL/dyslexia rendering verified on a real
+panel, design-system token adoption beyond `--vscode-*`) — that needs visual review, not just code,
+so it is not claimed as done here.
 
 ---
 
@@ -300,14 +315,13 @@ visible from any entry point.
    → `saropaLints.explainRule` for `require_database_index`). That now has its target command ids to
    point at, but depends on the Lints extension contributing them (Lints doc R4).
 2. **Consume + render (R3).** Each tool shows the others' relevant diagnostics with correct
-   attribution. **In progress (Advisor side)** — the sibling-envelope reader/matcher and the EXPLAIN
-   panel's "Related Saropa Suite Findings" section have shipped (see the R3 Status note above).
-   Remaining: the standalone index/anomaly surfaces and dashboard, and the per-finding deep-link back
-   to the sibling.
-3. **Drift Health loop (R4 / Section 5).** The flagship; structurally uncopyable. **MVP shipped** —
-   the `driftViewer.openDriftHealth` panel joins all three lenses per table (see the R4 Status note in
-   Section 5). Post-MVP: per-finding deep-link actions, filter/sort controls, auto-refresh, design
-   polish.
+   attribution. **Done (Advisor side)** — reader/matcher + the "Related Saropa Suite Findings" section
+   on the EXPLAIN, Index Suggestions, and Anomalies panels, plus the security-gated per-finding fix
+   button. Only the holistic dashboard surface remains.
+3. **Drift Health loop (R4 / Section 5).** The flagship; structurally uncopyable. **Shipped** — the
+   `driftViewer.openDriftHealth` panel joins all three lenses per table, with per-finding fix actions,
+   severity filter + sort, and auto-refresh (see the R4 Status note in Section 5). Residual: a full
+   visual design audit (RTL/dyslexia render verification, design-system tokens).
 4. **Commit correlation (R6 / Section 6).** **Shipped** — commit stamping on the mirror + stale
    marking in Drift Health (see the R6 Status note above). The richer cross-tool timeline view remains
    deferred.

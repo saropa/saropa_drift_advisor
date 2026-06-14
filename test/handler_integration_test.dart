@@ -815,6 +815,20 @@ void main() {
         );
         // title is the suite-standard alias of message — same text today.
         expect(issue['title'], issue['message']);
+
+        // Table-scoped issues carry a fix deep-link to the table definition
+        // (plan 67 R1); table-less issues (if any) carry none.
+        final table = issue['table'] as String? ?? '';
+        if (table.isNotEmpty) {
+          final fix = issue['fix'] as Map<String, dynamic>;
+          expect(fix['kind'], 'command');
+          expect(fix['command'], 'driftViewer.goToDefinitionForTable');
+          expect(fix['args'], isA<List<dynamic>>());
+          expect(
+            (fix['args'] as List<dynamic>).first,
+            containsPair('table', table),
+          );
+        }
       }
     });
 

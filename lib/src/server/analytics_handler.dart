@@ -391,6 +391,7 @@ final class AnalyticsHandler {
       issue[ServerConstants.jsonKeyTitle] =
           issue[ServerConstants.jsonKeyMessage] as String? ?? '';
       issue[ServerConstants.jsonKeyId] = _issueId(issue);
+      _attachFix(issue);
     }
     return <String, dynamic>{
       ServerConstants.jsonKeySchemaVersion: ServerConstants.issuesSchemaVersion,
@@ -420,6 +421,26 @@ final class AnalyticsHandler {
       default:
         return ServerConstants.categoryOther;
     }
+  }
+
+  /// Attaches a `fix` deep-link to a table-scoped issue (plan 67 R1) so a
+  /// consumer can jump to the table's Drift class. Targets Advisor's own
+  /// navigation command — Advisor's runtime detectors have no static Lints
+  /// counterpart to point at. Issues with no table get no fix (nothing to
+  /// navigate to). The title is plain English, matching the English-only debug
+  /// API surface; consumers may relabel via the command if they localize.
+  void _attachFix(Map<String, dynamic> issue) {
+    final table = issue[ServerConstants.jsonKeyTable] as String? ?? '';
+    if (table.isEmpty) return;
+    issue[ServerConstants.jsonKeyFix] = <String, dynamic>{
+      ServerConstants.jsonKeyKind: ServerConstants.fixKindCommand,
+      ServerConstants.jsonKeyCommand:
+          ServerConstants.commandGoToTableDefinition,
+      ServerConstants.jsonKeyArgs: <Map<String, dynamic>>[
+        <String, dynamic>{ServerConstants.jsonKeyTable: table},
+      ],
+      ServerConstants.jsonKeyTitle: 'Go to table definition',
+    };
   }
 
   /// Builds a stable, locale-independent dedupe id from semantic fields only

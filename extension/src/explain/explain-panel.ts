@@ -11,6 +11,11 @@ import {
   relatedDiagnostics,
   type SuiteDiagnostic,
 } from '../suite/suite-diagnostics';
+import {
+  availableCommandSet,
+  executeSuiteFix,
+  type SuiteRenderOptions,
+} from '../suite/suite-notes-html';
 
 export interface IExplainNode {
   id: number;
@@ -118,6 +123,7 @@ export class ExplainPanel {
   private _nodes: IExplainNode[];
   private _suggestions: IndexSuggestion[];
   private _suiteNotes: SuiteDiagnostic[];
+  private _suiteOpts: SuiteRenderOptions;
 
   static async createOrShow(
     sql: string,
@@ -134,10 +140,14 @@ export class ExplainPanel {
       tables: findReferencedTables(nodes),
       sql,
     });
+    // Gate fix-action buttons to commands the host actually has (plan 67 R1).
+    const suiteOpts: SuiteRenderOptions = {
+      availableCommands: await availableCommandSet(),
+    };
     const column = vscode.ViewColumn.Beside;
 
     if (ExplainPanel._currentPanel) {
-      ExplainPanel._currentPanel._update(sql, nodes, suggestions, suiteNotes);
+      ExplainPanel._currentPanel._update(sql, nodes, suggestions, suiteNotes, suiteOpts);
       ExplainPanel._currentPanel._panel.reveal(column);
       return;
     }
@@ -149,7 +159,7 @@ export class ExplainPanel {
       { enableScripts: true },
     );
     ExplainPanel._currentPanel = new ExplainPanel(
-      panel, sql, nodes, suggestions, suiteNotes,
+      panel, sql, nodes, suggestions, suiteNotes, suiteOpts,
     );
   }
 
@@ -159,12 +169,14 @@ export class ExplainPanel {
     nodes: IExplainNode[],
     suggestions: IndexSuggestion[],
     suiteNotes: SuiteDiagnostic[],
+    suiteOpts: SuiteRenderOptions,
   ) {
     this._panel = panel;
     this._sql = sql;
     this._nodes = nodes;
     this._suggestions = suggestions;
     this._suiteNotes = suiteNotes;
+    this._suiteOpts = suiteOpts;
 
     this._panel.onDidDispose(
       () => this._dispose(), null, this._disposables,
@@ -184,22 +196,29 @@ export class ExplainPanel {
     nodes: IExplainNode[],
     suggestions: IndexSuggestion[],
     suiteNotes: SuiteDiagnostic[],
+    suiteOpts: SuiteRenderOptions,
   ): void {
     this._sql = sql;
     this._nodes = nodes;
     this._suggestions = suggestions;
     this._suiteNotes = suiteNotes;
+    this._suiteOpts = suiteOpts;
     this._panel.title = 'Explain: Query Plan';
     this._render();
   }
 
   private _render(): void {
     this._panel.webview.html = buildExplainHtml(
-      this._sql, this._nodes, this._suggestions, this._suiteNotes,
+      this._sql, this._nodes, this._suggestions, this._suiteNotes, this._suiteOpts,
     );
   }
 
-  private _handleMessage(msg: { command: string; index?: number }): void {
+  private _handleMessage(msg: {
+    command: string;
+    index?: number;
+    fixCommand?: unknown;
+    fixArgs?: unknown;
+  }): void {
     switch (msg.command) {
       case 'copySql':
         vscode.env.clipboard.writeText(this._sql);
@@ -215,6 +234,11 @@ export class ExplainPanel {
         ) {
           vscode.env.clipboard.writeText(this._suggestions[msg.index].sql);
         }
+        break;
+      // Cross-tool deep-link (plan 67 R1). executeSuiteFix re-validates the
+      // command against the allowlist + registered set before running it.
+      case 'suiteFix':
+        void executeSuiteFix(msg);
         break;
     }
   }
