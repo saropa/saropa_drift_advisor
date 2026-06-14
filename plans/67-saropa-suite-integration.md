@@ -262,8 +262,20 @@ one of these documented ids.
     badge, and the +/- delta versus the previous commit so a regression or a cleanup is obvious.
     Auto-refreshes on the generation watcher (debounced, visible-only). Covered by
     `commit-history.test.ts`, `commit-timeline.test.ts`, and `commit-history-store.test.ts`.
-  - **Still open (Section 6 only):** embedding the cross-tool commit set into the Log Capture session
-    sidecar (the sidecar lives in Log Capture's repo, so it is tracked on that side).
+  - **Session sidecar correlation — shipped (this build).** The sidecar is exported by Advisor (not
+    Log Capture), so this was in-repo: the Log Capture session sidecar + meta payload now carry the
+    session `commitSha` and a `suiteMirrors` reference block — for each tool (advisor / lints /
+    log-capture) its mirror's presence, capture commit, and finding count
+    ([log-capture-session-builder.ts](../extension/src/debug/log-capture-session-builder.ts),
+    [log-capture-types.ts](../extension/src/debug/log-capture-types.ts), reader
+    `readSuiteMirrorRefs` in
+    [suite-diagnostics.ts](../extension/src/suite/suite-diagnostics.ts)). It references the mirrors
+    rather than copying their contents (the mirror files stay the single source of truth; a different
+    `commitSha` on a tool's ref means its findings are stale for this session). Both reads are
+    filesystem-only and best-effort, so a missing `.git`/`.saropa` never blocks session contributions;
+    the commit is omitted, never emitted as a placeholder, when unresolvable. Covered by the
+    `envelopeMeta` / `readSuiteMirrorRefs` tests in `suite-diagnostics.test.ts` and the sidecar
+    assertions in `log-capture-bridge.test.ts`. **R6 / Section 6 are now complete on the Advisor side.**
 
 ---
 
@@ -358,11 +370,11 @@ visible from any entry point.
    severity filter + sort, and auto-refresh (see the R4 Status note in Section 5). One manual
    verification (LAUNCH_TEST) remains: a visual design audit on a rendered panel (RTL / dyslexia /
    contrast / design-system tokens) — code is in; the result needs a running VS Code to confirm.
-4. **Commit correlation (R6 / Section 6).** **Shipped** — commit stamping on the mirror + stale
-   marking in Drift Health, AND the cross-commit timeline (`driftViewer.openCommitTimeline`): a
-   per-commit history of suite finding counts with deltas, accumulated in
-   `.saropa/diagnostics/history.json` (see the R6 Status note above). The only Section 6 remainder is
-   embedding the commit set into the Log Capture session sidecar, which lives in that repo.
+4. **Commit correlation (R6 / Section 6).** **Complete.** Commit stamping on the mirror + stale
+   marking in Drift Health; the cross-commit timeline (`driftViewer.openCommitTimeline`) — a per-commit
+   history of suite finding counts with deltas in `.saropa/diagnostics/history.json`; and the session
+   sidecar's `commitSha` + `suiteMirrors` correlation block (see the R6 Status notes above). Nothing
+   remains on the Advisor side.
 5. **Shared infra extraction (Section 7).** Highest code-debt payoff; consolidation of code that has
    already converged, so low design risk.
 6. **Extension Pack + cross-discovery** — publish "Saropa for Flutter" bundling all three; gate
