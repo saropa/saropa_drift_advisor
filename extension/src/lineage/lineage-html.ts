@@ -1,6 +1,6 @@
 import type { ILineageNode, ILineageResult } from './lineage-types';
 import { t, getWebviewL10nMap } from '../l10n';
-import { jsonForScript } from '../shared-utils';
+import { escapeHtml, jsonForScript } from '../shared-utils';
 
 /** Build the HTML for the data lineage webview panel. */
 export function buildLineageHtml(result: ILineageResult): string {
@@ -219,10 +219,4 @@ function clientScript(
     });`;
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

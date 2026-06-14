@@ -1,5 +1,5 @@
 /**
- * Contract tests for the table-def-toggle.js module.
+ * Contract tests for the table-def-toggle.ts module.
  *
  * Verifies that the self-contained collapsible toggle script:
  *  - exists on disk and is non-empty

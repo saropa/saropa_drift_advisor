@@ -1,4 +1,5 @@
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /**
  * Build HTML for the Add Data Breakpoint form webview panel.
@@ -203,10 +204,4 @@ export function buildBreakpointFormHtml(
 </html>`;
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

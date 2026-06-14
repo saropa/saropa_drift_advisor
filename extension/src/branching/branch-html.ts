@@ -9,11 +9,9 @@
 
 import type { IBranchDiff, IDataBranch } from './branch-types';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
-function esc(value: unknown): string {
-  const s = value === null || value === undefined ? '' : String(value);
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
 
 function styles(): string {
   return `<style>

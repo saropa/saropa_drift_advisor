@@ -7,6 +7,7 @@
 
 import type { IndexSuggestion, Anomaly, ISizeAnalytics } from '../api-types';
 import type { IHealthScore } from '../health/health-types';
+import { escapeHtml } from '../shared-utils';
 
 // ---- Index Suggestions ----
 
@@ -197,10 +198,4 @@ function severityIcon(severity: string): string {
   }
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

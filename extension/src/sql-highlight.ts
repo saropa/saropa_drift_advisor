@@ -1,3 +1,4 @@
+import { escapeHtml } from './shared-utils';
 /**
  * Modular SQL syntax highlighter.
  * Returns HTML with <span> tokens for keywords, strings, numbers, and comments.
@@ -5,13 +6,7 @@
  */
 
 /** HTML-escape so highlighted output is safe to inject. */
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
 
 /** SQL keywords (SQLite / common DDL/DML) for syntax highlighting. */
 const KEYWORDS = new Set([

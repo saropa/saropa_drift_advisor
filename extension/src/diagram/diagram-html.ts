@@ -1,5 +1,6 @@
 import type { IDiagramData, IDiagramTable } from '../api-types';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 const BOX_W = 220;
 const BOX_GAP = 40;
@@ -119,10 +120,4 @@ function buildFkLine(from: Pos, to: Pos): string {
   return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;

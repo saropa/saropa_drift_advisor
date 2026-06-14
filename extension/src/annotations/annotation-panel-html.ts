@@ -5,15 +5,9 @@
 
 import { ANNOTATION_ICON_EMOJI, type IAnnotation } from './annotation-types';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
-function esc(value: unknown): string {
-  const s = value === null || value === undefined ? '' : String(value);
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
 
 /** Alias kept for readability in the HTML template functions. */
 const ICON_MAP = ANNOTATION_ICON_EMOJI;

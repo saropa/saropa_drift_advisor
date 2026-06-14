@@ -6,16 +6,10 @@
 
 import { TROUBLESHOOTING_STYLES } from './troubleshooting-styles';
 import { t } from '../l10n';
+import { escapeHtml } from '../shared-utils';
 
 /** Escape HTML special characters to prevent injection. */
-function esc(value: unknown): string {
-  const s = value === null || value === undefined ? '' : String(value);
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const esc = escapeHtml;
 
 /** Build the full troubleshooting HTML page. */
 export function buildTroubleshootingHtml(port: number): string {

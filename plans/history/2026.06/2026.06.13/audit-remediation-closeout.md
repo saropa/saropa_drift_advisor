@@ -62,4 +62,4 @@ Subsequent progress (2026-06-14) is noted inline; the audit doc
 
 ### Outstanding (as of 2026-06-14)
 
-Engineering: **C2b phase 2** (served-SPA + data-grid CSP — deferred, see `plans/deferred/c2b-phase2-served-spa-csp.md`), **L5** (esc consolidation), **L6** (remove duplicated `*.js`). The umbrella audit document `plans/full-codebase-audit-2026.06.12.md` remains active because of these; it carries per-finding status tags and is the live source of truth.
+Only **C2b phase 2** (served-SPA + data-grid CSP — deferred, see `plans/deferred/c2b-phase2-served-spa-csp.md`). L5 (esc consolidation) and L6 (duplicate `.js`/`.bak` removal) were completed 2026-06-14. The umbrella audit document `plans/full-codebase-audit-2026.06.12.md` remains active solely because of C2b phase 2; it carries per-finding status tags and is the live source of truth.
