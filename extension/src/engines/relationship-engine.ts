@@ -21,6 +21,13 @@ import type {
   IRelationshipNode,
 } from './relationship-types';
 import { createRelationshipCache } from './relationship-engine-cache';
+import {
+  collectTables,
+  generateDeleteStatements,
+  getDependentRows,
+  getFkValue,
+  sqlLiteral,
+} from './relationship-engine-sql';
 import { q } from '../shared-utils';
 
 const CACHE_TTL_MS = 60_000;
@@ -67,8 +74,8 @@ export class RelationshipEngine implements vscode.Disposable {
 
     const fks = await this._cache.getForeignKeys(table);
     for (const fk of fks) {
-      const fkValue = await this._getFkValue(
-        table, fk.fromColumn, pkColumn, pkValue,
+      const fkValue = await getFkValue(
+        this._client, table, fk.fromColumn, pkColumn, pkValue,
       );
       if (fkValue === null || fkValue === undefined) continue;
 
@@ -112,8 +119,8 @@ export class RelationshipEngine implements vscode.Disposable {
 
     const reverseFks = await this._cache.getReverseForeignKeys(table);
     for (const fk of reverseFks.slice(0, maxBreadth)) {
-      const dependentRows = await this._getDependentRows(
-        fk.table, fk.column, pkValue, maxBreadth,
+      const dependentRows = await getDependentRows(
+        this._client, fk.table, fk.column, pkValue, maxBreadth,
       );
 
       for (const depRow of dependentRows) {
@@ -144,10 +151,10 @@ export class RelationshipEngine implements vscode.Disposable {
     const seen = new Set<string>();
 
     const upstream = await this.walkUpstream(table, pkValue, 3);
-    this._collectTables(upstream, affected, 'parent', seen);
+    collectTables(upstream, affected, 'parent', seen);
 
     const downstream = await this.walkDownstream(table, pkValue, 3, 10);
-    this._collectTables(downstream, affected, 'child', seen);
+    collectTables(downstream, affected, 'child', seen);
 
     return affected;
   }
@@ -169,14 +176,14 @@ export class RelationshipEngine implements vscode.Disposable {
 
     // Emit deletes for every DEPENDENT row, deepest first, each by its own pk
     // column. The root row itself is deleted last (below).
-    this._generateDeleteStatements(downstream, statements, seen);
+    generateDeleteStatements(downstream, statements, seen);
 
-    const pkLiteral = this._sqlLiteral(pkValue);
+    const pkLiteral = sqlLiteral(pkValue);
     statements.push(
       `DELETE FROM ${q(table)} WHERE ${q(pkColumn)} = ${pkLiteral};`,
     );
 
-    this._collectTables(downstream, affectedTables, 'child', new Set());
+    collectTables(downstream, affectedTables, 'child', new Set());
     affectedTables.push({ table, rowCount: 1, relationship: 'child' });
 
     return {
@@ -203,105 +210,6 @@ export class RelationshipEngine implements vscode.Disposable {
    */
   notifyChange(table: string): void {
     this._onRelationshipChange.fire(table);
-  }
-
-  private async _getFkValue(
-    table: string,
-    column: string,
-    pkColumn: string,
-    pkValue: unknown,
-  ): Promise<unknown> {
-    try {
-      // Filter by the row's actual primary-key column, not a hardcoded `id` —
-      // tables with a non-`id` PK previously always returned null here.
-      const result = await this._client.sql(
-        `SELECT ${q(column)} FROM ${q(table)} `
-        + `WHERE ${q(pkColumn)} = ${this._sqlLiteral(pkValue)} LIMIT 1`,
-      );
-      return result.rows[0]?.[0] ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  private async _getDependentRows(
-    table: string,
-    column: string,
-    value: unknown,
-    limit: number,
-  ): Promise<Record<string, unknown>[]> {
-    try {
-      const result = await this._client.sql(
-        `SELECT * FROM ${q(table)} `
-        + `WHERE ${q(column)} = ${this._sqlLiteral(value)} LIMIT ${limit}`,
-      );
-      return result.rows.map((row, idx) => {
-        const obj: Record<string, unknown> = {};
-        result.columns.forEach((col, i) => {
-          obj[col] = row[i];
-        });
-        obj._rowIndex = idx;
-        return obj;
-      });
-    } catch {
-      return [];
-    }
-  }
-
-  private _collectTables(
-    node: IRelationshipNode,
-    result: IAffectedTable[],
-    relationship: 'parent' | 'child',
-    seen: Set<string>,
-  ): void {
-    if (seen.has(node.table)) return;
-    seen.add(node.table);
-
-    result.push({
-      table: node.table,
-      rowCount: 1,
-      relationship,
-    });
-
-    for (const child of node.children) {
-      this._collectTables(child, result, relationship, seen);
-    }
-  }
-
-  /**
-   * Emits a DELETE for every DEPENDENT node in [node]'s subtree, deepest first,
-   * each targeting its own table and primary-key column. The subtree root itself
-   * is NOT emitted (the caller deletes the root row separately) — but every
-   * descendant IS, including leaves: leaf rows are exactly the ones that hold the
-   * foreign keys blocking the parent delete, so skipping them (the prior
-   * `children.length > 0` gate) left the delete plan unable to complete.
-   */
-  private _generateDeleteStatements(
-    node: IRelationshipNode,
-    statements: string[],
-    seen: Set<string>,
-  ): void {
-    for (const child of node.children) {
-      // Recurse first so a child's own dependents are deleted before the child.
-      this._generateDeleteStatements(child, statements, seen);
-
-      const key = `${child.table}:${child.pkColumn}:${String(child.pkValue)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      const pkLiteral = this._sqlLiteral(child.pkValue);
-      statements.push(
-        `DELETE FROM ${q(child.table)} `
-        + `WHERE ${q(child.pkColumn)} = ${pkLiteral};`,
-      );
-    }
-  }
-
-  private _sqlLiteral(value: unknown): string {
-    if (value === null || value === undefined) return 'NULL';
-    if (typeof value === 'number') return String(value);
-    if (typeof value === 'boolean') return value ? '1' : '0';
-    return `'${String(value).replace(/'/g, "''")}'`;
   }
 
   dispose(): void {
