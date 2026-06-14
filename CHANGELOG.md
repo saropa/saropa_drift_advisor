@@ -42,10 +42,11 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.0.1]
 
 <details><summary>Maintenance</summary>
 
+- **Excluded `docs/` from the published package** (`.pubignore`) to fix the publish workflow failing at `dart pub publish --dry-run` with exit code 65. A new top-level `docs/launch/` directory tripped pub's "rename top-level docs to doc" layout warning, and the dry-run treats any warning as a failure. The directory holds developer launch/test notes consumers do not need.
 - **Bumped esbuild to 0.28.1** (from 0.28.0) to clear advisory [GHSA-gv7w-rqvm-qjhr](https://github.com/advisories/GHSA-gv7w-rqvm-qjhr) — the esbuild Deno module wrote downloaded native binaries to disk without SHA-256 integrity verification, allowing RCE when `NPM_CONFIG_REGISTRY` is attacker-controlled. The exploit path is Deno-only (`lib/deno/mod.ts`); this project builds via Node (`node esbuild.config.mjs`), so it was not exposed, but the floor is raised to the patched release regardless. esbuild is a devDependency (web-viewer bundle build only) and ships in no released artifact.
 
 </details>

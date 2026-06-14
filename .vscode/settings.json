@@ -26,5 +26,15 @@
     "saropaLints.sidebar.showCommandCatalog": true,
     "saropaLints.sidebar.showPackageDetails": true,
     "saropaLints.todosAndHacks.workspaceScanEnabled": true,
-    "saropaLints.violationsGroupBy": "impact"
+    "saropaLints.violationsGroupBy": "impact",
+    "saropaLogCapture.integrations.adapters": [
+        "packages",
+        "git",
+        "environment",
+        "performance",
+        "terminal",
+        "flutterCrashLogs",
+        "crashlytics",
+        "testResults"
+    ]
 }
