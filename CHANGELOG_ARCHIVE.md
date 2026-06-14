@@ -1,6 +1,102 @@
 # Changelog Archive
 
-Versions 3.0.3 and prior. For current changes see [CHANGELOG.md](./CHANGELOG.md).
+Versions 3.2.0 and prior. For current changes see [CHANGELOG.md](./CHANGELOG.md).
+
+---
+
+## [3.2.0]
+
+All ten toolbar buttons and the floating action button are now a single hamburger menu, the SQL editor auto-runs EXPLAIN as you type and shows an index report, and every theme got a beautification pass with consistent tokens, frosted tables, and fewer invisible borders. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.2.0/CHANGELOG.md)
+
+### Added
+
+- **Bug report guide** — added `bugs/BUG_REPORT_GUIDE.md` with a comprehensive template and checklist for filing useful bug reports
+- **Project name in masthead pill** — "Saropa Drift Advisor" now appears between the logo and version badge, making the product identifiable at a glance
+- **Template lock toggle** — lock icon in the Run SQL toolbar; when locked (default), changing table or field selections auto-applies the current template
+- **Auto-explain with index report** — the SQL editor now automatically analyzes query plans as you type (1.2 s debounce), showing estimated cost, which indexes are used vs available, and flagging full-scan tables with no indexes
+
+### Changed
+
+- **Hamburger menu replaces toolbar and FAB** — the 10-button toolbar row and the floating action button are consolidated into a single hamburger menu (☰) at the left edge of the tab bar; tools are grouped by purpose (Snapshots & Comparison, Performance Analysis, Schema Tools, Import/Export) with labeled sections; app-wide settings (sidebar toggle, theme cycle, PII mask, share) sit below a heavy divider; reclaims an entire row of vertical space and eliminates the FAB overlay
+
+### Fixed
+
+- **Theme contract tests fail in CLI but pass in IDE** — `extractBlock` test helper matched compound selectors like `body.theme-dark ::-webkit-scrollbar-thumb` before the real variable-defining block; now skips blocks that don't contain CSS custom properties
+- **Publish pipeline aborts on test failure with no recovery** — extension and Dart test steps now prompt skip/abort on failure (matching the existing lint step pattern) so a known failure doesn't force a full pipeline restart
+- **Publish pipeline prompt defaults** — target selection defaults to option 1 on Enter; "Continue with uncommitted changes?" defaults to Y
+- **Publish pipeline git operations hard-abort without asking** — every git failure (add, commit, push, tag) now prompts skip/abort instead of silently ending the script; "nothing to commit" is auto-recovered as success
+- **Outlier false positive on external ID columns** — numeric outlier detection now skips identifier columns (`*_id`, `*Id`, `*_key`, `*Key`, `*_code`, `*Code`) and primary key columns, since external IDs are opaque identifiers not drawn from a normal distribution; also adds a minimum sample size guard (n < 30) to prevent unreliable sigma estimates from flagging small datasets
+- **Empty-string false positive on columns with empty-string default** — the anomaly detector no longer flags empty strings when the column's schema declares `withDefault(const Constant(''))`, since those values are the designed "no value" sentinel, not data quality problems
+- **PII mask toggle now works and gives visible feedback** — toggling the MASK checkbox immediately re-renders tables and search results without a page refresh; a bright "MASKED" badge appears in the masthead pill so the user always knows when masking is active
+- **Expanded PII column detection** — the mask heuristic now recognizes many more column names as sensitive: `name`, `first_name`, `last_name`, `username`, `salary`, `credit_card`, `ip`, `dob`, `passport`, `license`, `city`, `zip`, `latitude`/`longitude`, and dozens more; previously only 9 patterns were checked; short words like `tel` and `name` use word-boundary matching to avoid false positives on `hotel` or `filename`
+
+### Improved
+
+- **Unified table grid styling across all panels** — Search, Run SQL, and Query Builder now share the same table formatting as the Tables panel (borders, alternating rows, hover highlight, copy-on-hover, column context menu, drag-to-reorder, double-click cell popup)
+- **Theme beautification pass** — all four themes overhauled for contrast, visibility, and visual identity:
+  - **Light**: opaque borders (`#c2cde0`) replace invisible rgba hairlines; `--muted` darkened to `#556685` for WCAG AA; card shadows strengthened for visible depth
+  - **Dark**: borders lightened to `#4a4d52` for visibility against dark backgrounds
+  - **Showcase**: gradient stops changed from near-white to saturated pastels (lavender, pink, peach, sky) so frosted-glass surfaces actually show the moving gradient behind them; surface opacity lowered and blur strengthened; white frost-edge borders; frosted tab panels and data tables
+  - **Midnight**: aurora gradient widened from monochrome navy to indigo/teal/purple shifts; primary orb raised from 8% to 18% opacity; second warm-purple orb added; surface opacity lowered so aurora bleeds through; expanded card periwinkle glow halo now visible; input focus glow ring added; frosted tab panels and data tables
+  - **All themes**: entrance animations strengthened (12px translate); per-file hardcoded rgba border overrides replaced with `var(--border)` tokens
+- **Global UI polish** — systematic beautification across all partials:
+  - **Spacing tokens** (`--space-1` through `--space-12`): 4px geometric scale added to `:root`; migrated into tab panels, query builder, and pagination
+  - **Global form controls**: centralized input/select/textarea styling in `_base.scss` with consistent border-radius, padding, and theme-aware focus rings (`--focus-ring-color` per theme); removed duplicated focus ring rules from `_search.scss` and `_sql-editor.scss`
+  - **Custom scrollbars**: thin, theme-tinted scrollbars for Firefox (scrollbar-width/color) and Chromium (::-webkit-scrollbar) across all themes
+  - **Text selection**: theme-aware `::selection` color matching each theme's accent
+  - **Tab bar**: active tab gets 2px colored top accent bar and bold weight; close button visible at rest (opacity 0.4) instead of hidden
+  - **Buttons**: secondary buttons get subtle shadow for depth; `.btn-danger` uses `--radius-md` token (was hardcoded 4px) with hover glow; toolbar buttons lift on hover (`translateY(-1px)`)
+  - **Sidebar**: pin button visible at rest (opacity 0.3) instead of invisible
+  - **Masthead**: status button gets subtle pill background so it reads as interactive
+  - **Data table**: header row gets 2px bottom border for clear separation; scroll container gets stronger shadow and per-theme frosted glass treatment
+  - **Pagination**: "Advanced" toggle gets visible border/background (was invisible text)
+  - **Query builder**: hardcoded `border-radius: 3px/4px` replaced with `--radius-sm` token; spacing uses `--space-*` tokens
+
+### Changed
+
+- **Removed project logo from tab bar** — the small icon next to the Tables tab has been removed; the logo remains in the masthead pill
+- **Dimmed version number in masthead** — the version badge is now muted grey, keeping it readable but visually secondary to the project name
+- **Run SQL panel always visible** — the collapsible header has been removed; the SQL runner is now always expanded inside its tab
+- **Smart field substitution in templates** — all templates (except COUNT) now substitute selected fields for `*`, not just the "SELECT columns" template
+- **Explain button removed** — replaced by automatic query plan analysis; the separate Explain button is no longer needed
+
+<details><summary>Maintenance</summary>
+
+- **Modularized `tools.ts` (850 lines) into 3 files** — `tools-compare.ts` (snapshot, compare, migration preview), `tools-analytics.ts` (index suggestions, size analytics, anomaly detection), and `tools-import.ts` (CSV/JSON/TSV import); each file has its own imports and no shared private state
+- **Modularized `_theme-effects.scss` (482 lines) into 3 files** — `_theme-showcase.scss` (showcase glassmorphism effects), `_theme-midnight.scss` (midnight aurora/glow effects), and a slim `_theme-effects.scss` (shared entrance animations + reduced-motion override)
+
+</details>
+
+---
+
+## [3.1.1]
+
+Killed 40+ false-positive "add a datetime index" suggestions that fired on every `created_at` and `updated_at` column regardless of whether it was actually being queried. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.1.1/CHANGELOG.md)
+
+### Fixed
+
+- **Eliminated 40+ false-positive datetime index suggestions** — the blanket heuristic that flagged every `created_at`, `updated_at`, and `_at` column as needing an index has been removed (96% false-positive rate in real projects); legitimate datetime index suggestions are still caught by the evidence-based `unindexed-where-clause` diagnostic
+
+---
+
+## [3.1.0]
+
+Save and compare snapshots for Index Suggestions, Size Analytics, Anomaly Detection, and Health Score — plus fewer noisy diagnostics in multi-root and non-Drift workspaces. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.1.0/CHANGELOG.md)
+
+### Fixed
+
+- **Connection warning no longer targets wrong folder in multi-root workspaces** — in workspaces with several root folders, the "Drift server not reachable" diagnostic attached to whichever folder happened to be first, even non-Drift projects; now scans folders and only targets one that actually uses Drift
+- **Consistent `[drift_advisor]` prefix on all diagnostics** — index-suggestion and invariant-violation diagnostics from the legacy linter paths were missing the `[drift_advisor]` message prefix; all diagnostic messages now include it for consistent filtering in the Problems panel
+- **Boolean columns no longer flagged as datetime index candidates** — the index-suggestion heuristic matched any column name ending in `time`, causing `BoolColumn` fields like `is_free_time` to produce a spurious "Date/time column" diagnostic; the pattern now requires `timestamp` instead of bare `time`
+- **No more "no longer responding" toasts in non-Drift projects** — server discovery port scanning now only starts when the workspace pubspec.yaml declares a Drift dependency; previously every VS Code workspace triggered scanning and stale server-lost notifications
+
+### Added
+
+- **Save & compare analysis history** — Index Suggestions, Size Analytics, Anomaly Detection, and Health Score panels now have Save Snapshot and Compare buttons; snapshots are persisted in workspace state (up to 50 per type) and can be compared side-by-side with a diff summary showing what changed between runs
+
+### Changed
+
+- **Connection diagnostic downgraded from Warning to Information** — "server not reachable" is the normal state when the debug server isn't running; the diagnostic now shows as an info icon instead of a yellow triangle, reducing noise in the Problems panel
 
 ---
 
