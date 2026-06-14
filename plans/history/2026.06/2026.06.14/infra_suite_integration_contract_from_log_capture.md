@@ -1,6 +1,11 @@
 # INFRA: Saropa suite integration — contract Drift Advisor must satisfy (Log Capture side has shipped)
 
-**Status: Open**
+**Status: Satisfied** — all four done-criteria met. The offline mirror originally
+shipped in the live `/api/issues` shape (carrier key `issues`, detector-level
+`source`), which Log Capture's strict on-disk parser rejected outright; the mirror
+writer now translates to the canonical envelope (`diagnostics` carrier,
+`source: "advisor"`, detector preserved as `ruleId`) before writing. See the
+Finish Report below.
 
 Created: 2026-06-13
 Type: Infrastructure / cross-tool integration
@@ -136,7 +141,17 @@ So a Drift Advisor issue that Log Capture saw run slow can deep-link back with
 
 ## Changes Made
 
-<!-- Fill in as the Advisor work lands; add commit hashes. -->
+- `extension/src/suite/suite-commands.ts` — registered `driftViewer.openExplainForSql` + `openTable` (and `openSchemaForTable`, `openIssues`, `goToDefinitionForTable`), each taking a single options object.
+- `extension/src/suite/diagnostics-mirror.ts` — writes `.saropa/diagnostics/advisor.json` on each generation tick; `toCanonicalEnvelope` translates the live `/api/issues` shape (`issues[]` + detector `source`) into the canonical envelope (`diagnostics[]` + `source: "advisor"`, detector kept as `ruleId`) the sibling parser requires.
+- `extension/src/suite/suite-diagnostics.ts` + `drift-health-panel.ts` — Drift Health panel joins live schema/EXPLAIN with `lints.json` + `log-capture.json`, correlated by `commitSha`; sibling reads tolerate absent/truncated/newer-schema files.
+
+## Finish Report (2026-06-14)
+
+**Defect found during review and fixed:** piece #2 (the offline mirror) was implemented by dumping the live `/api/issues` envelope to disk verbatim. Log Capture's offline reader is strict — `envelope-parse.ts` rejects the whole file unless `diagnostics` is an array, and drops any entry whose `source` is not one of `lints | advisor | log-capture`. Advisor's mirror used the legacy `issues` carrier and a detector-level `source` (`anomaly` / `index-suggestion` / …), so the file parsed to zero diagnostics: the live `/api/issues` network path worked, but the offline fallback — the entire reason the mirror exists — rendered nothing.
+
+**Fix:** `toCanonicalEnvelope` in `diagnostics-mirror.ts` performs exactly two translations before the write — `issues` → `diagnostics`, and each entry's `source` → `advisor` with the detector preserved as `ruleId`. All other fields and top-level metadata pass through unchanged. The live `GET /api/issues` response is untouched, so its existing consumers are unaffected.
+
+**Verification:** `npx tsc -p ./` clean; full extension suite green (2796 passing). New tests in `suite-diagnostics-mirror.test.ts` assert the canonical carrier/source/ruleId mapping, explicit-`ruleId` preservation, non-object entry passthrough, and the empty-`issues` case.
 
 ## Commits
 

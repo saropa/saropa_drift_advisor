@@ -8,7 +8,7 @@
  */
 import * as assert from 'assert';
 import { resetMocks, Uri, workspace, writtenFiles } from './vscode-mock';
-import { writeAdvisorDiagnosticsMirror } from '../suite/diagnostics-mirror';
+import { toCanonicalEnvelope, writeAdvisorDiagnosticsMirror } from '../suite/diagnostics-mirror';
 
 /** Minimal client stub exposing only the issues() method the mirror calls. */
 function clientReturning(value: unknown | (() => never)): { issues: () => Promise<unknown> } {
@@ -28,20 +28,50 @@ describe('Suite diagnostics mirror', () => {
     ];
   });
 
-  it('writes a valid envelope verbatim to .saropa/diagnostics/advisor.json', async () => {
+  it('writes the canonical envelope to .saropa/diagnostics/advisor.json', async () => {
+    // Live `/api/issues` shape: legacy `issues` carrier, detector-level `source`.
     const envelope = {
       schemaVersion: 1,
       producer: { name: 'saropa_drift_advisor', version: '9.9.9' },
       generatedAt: '2026-06-13T00:00:00.000Z',
-      issues: [{ id: 'x', source: 'anomaly', category: 'data', severity: 'info' }],
+      issues: [{ id: 'x', source: 'anomaly', category: 'data', severity: 'info', title: 'Bad row' }],
     };
     const ok = await writeAdvisorDiagnosticsMirror(clientReturning(envelope) as any);
     assert.strictEqual(ok, true);
     assert.strictEqual(writtenFiles.length, 1);
     const { uri, content } = writtenFiles[0];
     assert.ok(String(uri.fsPath ?? uri.path).replace(/\\/g, '/').endsWith('.saropa/diagnostics/advisor.json'));
-    // Persisted verbatim — the server owns the shape, the mirror only copies it.
-    assert.deepStrictEqual(JSON.parse(new TextDecoder().decode(content)), envelope);
+    // Translated to canonical: `diagnostics` carrier, `source: "advisor"`,
+    // detector preserved as `ruleId`. The strict consumer parser needs this.
+    const parsed = JSON.parse(new TextDecoder().decode(content));
+    assert.strictEqual(parsed.issues, undefined, 'legacy issues key must be dropped');
+    assert.ok(Array.isArray(parsed.diagnostics));
+    assert.deepStrictEqual(parsed.diagnostics, [
+      { id: 'x', source: 'advisor', category: 'data', severity: 'info', title: 'Bad row', ruleId: 'anomaly' },
+    ]);
+    // Top-level envelope metadata is preserved unchanged.
+    assert.strictEqual(parsed.schemaVersion, 1);
+    assert.deepStrictEqual(parsed.producer, { name: 'saropa_drift_advisor', version: '9.9.9' });
+  });
+
+  it('toCanonicalEnvelope keeps an explicit ruleId and passes other fields through', async () => {
+    const out = toCanonicalEnvelope({
+      schemaVersion: 1,
+      issues: [
+        { id: 'a', source: 'index-suggestion', ruleId: 'require_database_index', table: 't', sql: 'SELECT 1' },
+        'not-an-object',
+      ],
+    });
+    assert.deepStrictEqual(out.diagnostics, [
+      { id: 'a', source: 'advisor', ruleId: 'require_database_index', table: 't', sql: 'SELECT 1' },
+      'not-an-object',
+    ]);
+    assert.strictEqual((out as any).issues, undefined);
+  });
+
+  it('toCanonicalEnvelope yields an empty diagnostics array when issues is absent', () => {
+    const out = toCanonicalEnvelope({ schemaVersion: 1, producer: { name: 'x', version: '1' } });
+    assert.deepStrictEqual(out.diagnostics, []);
   });
 
   it('returns false and writes nothing when there is no workspace folder', async () => {
