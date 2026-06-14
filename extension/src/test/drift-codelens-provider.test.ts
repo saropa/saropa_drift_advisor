@@ -5,7 +5,19 @@ import { TableNameMapper } from '../codelens/table-name-mapper';
 import { DriftCodeLensProvider } from '../codelens/drift-codelens-provider';
 
 function fakeDocument(content: string): any {
-  return { getText: () => content };
+  // positionAt mirrors vscode.TextDocument.positionAt — the provider uses it to
+  // turn a regex match offset into a line (real impl is O(log n); this naive
+  // version is fine for tests). See audit L7.
+  return {
+    getText: () => content,
+    positionAt: (offset: number) => {
+      const before = content.slice(0, offset);
+      return {
+        line: before.split('\n').length - 1,
+        character: offset - (before.lastIndexOf('\n') + 1),
+      };
+    },
+  };
 }
 
 const SAMPLE_DART = `

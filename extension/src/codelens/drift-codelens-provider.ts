@@ -55,7 +55,10 @@ export class DriftCodeLensProvider implements vscode.CodeLensProvider {
 
     while ((match = TABLE_CLASS_REGEX.exec(text)) !== null) {
       const dartClassName = match[1];
-      const line = text.substring(0, match.index).split('\n').length - 1;
+      // positionAt() binary-searches precomputed line offsets (O(log n)). The
+      // previous substring(0, index).split('\n') was O(n) PER match, so an N-line
+      // file with M table classes cost O(N·M) on every keystroke. See audit L7.
+      const line = document.positionAt(match.index).line;
       const range = new vscode.Range(line, 0, line, 0);
 
       const sqlName = this._mapper.resolve(dartClassName);
