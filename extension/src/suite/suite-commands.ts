@@ -18,6 +18,7 @@ import type { DriftApiClient } from '../api-client';
 import type { GenerationWatcher } from '../generation-watcher';
 import { ExplainPanel } from '../explain/explain-panel';
 import { DriftHealthPanel } from './drift-health-panel';
+import { CommitTimelinePanel } from './commit-timeline-panel';
 
 export function registerSuiteCommands(
   context: vscode.ExtensionContext,
@@ -63,6 +64,16 @@ export function registerSuiteCommands(
     vscode.commands.registerCommand(
       'driftViewer.openDriftHealth',
       () => DriftHealthPanel.createOrShow(client, watcher),
+    ),
+  );
+
+  // openCommitTimeline: the cross-commit trend view (plan 67 R6 / §6) — finding
+  // counts per commit over time, read from the accumulated history file. No
+  // args; refreshes on open, on its Refresh button, and on generation ticks.
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.openCommitTimeline',
+      () => CommitTimelinePanel.createOrShow(watcher),
     ),
   );
 

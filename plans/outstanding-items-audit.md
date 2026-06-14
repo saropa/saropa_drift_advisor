@@ -14,10 +14,12 @@ Several files carry **stale status headers** that read as unbuilt but are not
 (see "Ruled out" below); each was confirmed implemented by grepping the artifact
 it names.
 
-What remains is a **small, precise set of buried deferrals** — sub-features that a
+Section A found a **small, precise set of buried deferrals** — sub-features that a
 finish report explicitly punted ("optional", "deferred", "left for a future
-change", "by design") while the parent item was marked done. None of these are
-tracked by their own active plan today. They are listed in Section A.
+change", "by design") while the parent item was marked done. **All five (A1–A5)
+were built and code-verified on 2026-06-12; Section A is now closed.** Each entry
+keeps its original source/deliverable/gate as historical context under its
+Resolution line.
 
 Section B lists the unbuilt feature specs that **are** already tracked as active
 `plans/` files (so they are not "buried", but are included so this is a complete
@@ -36,10 +38,7 @@ These are the actual finds. Each was confirmed absent from the codebase.
 - **Source:** `plans/history/2026.03/20260314/25-portable-snapshot-report.md:5` —
   "Extension-side fully implemented in v1.3.4. Server-side `report_handler.dart`
   deferred (marked optional)."
-- **State:** Confirmed not built — no `report_handler.dart` and no portable-report
-  route under `lib/src/`. The extension can export a portable HTML report; the
-  website/server cannot.
-- **Deliverable:** A `GET /api/report` (or equivalent) handler in
+- **Original deliverable:** A `GET /api/report` (or equivalent) handler in
   `lib/src/server/` that emits the same portable snapshot report the extension
   produces, plus a web-UI entry point to download it.
 - **Gate:** From the website, export a self-contained report for a live DB; opening
@@ -52,10 +51,7 @@ These are the actual finds. Each was confirmed absent from the codebase.
   `plans/history/2026.06/2026.06.10/72-website-multiple-snapshots.md`.
 - **Source:** `plans/history/2026.06/2026.06.10/72-website-multiple-snapshots.md:103,126`
   — Phases 1–3 shipped; "Phase 4 explicitly deferred" (optional persistence).
-- **State:** Confirmed not built — website snapshots live in `ServerContext`
-  in-memory list only; no disk write/reload found in `lib/src/`. A server restart
-  drops all captured snapshots.
-- **Deliverable:** Persist the snapshot list (to a `.saropa/` file or equivalent)
+- **Original deliverable:** Persist the snapshot list (to a `.saropa/` file or equivalent)
   and reload it on server start, so multi-snapshot history survives a restart.
 - **Gate:** Create ≥2 snapshots, restart the server, confirm the list and pairwise
   diff still work.
@@ -67,12 +63,7 @@ These are the actual finds. Each was confirmed absent from the codebase.
 - **Source:** `plans/history/2026.04/2026.04.21/BUG_perf_regression_false_positives_from_data_quality_probes.md:129`
   — "Explicitly not fixed in this change: Suggestion #2 — normalizing comparisons
   for row count or cold-vs-warm cache — was left for a future change."
-- **State:** Confirmed open. The 2026.04.21 fix only stopped the extension flagging
-  *its own* diagnostic probes. A genuine user-app query against a **growing** table
-  still compares raw timings against a prior-session baseline and reads as "slower"
-  purely because the table grew or the cache was cold — a live false-positive source
-  in `perf-regression-detector` / `perf-baseline` comparison.
-- **Deliverable:** Normalize the baseline comparison by row count (and/or flag
+- **Original deliverable:** Normalize the baseline comparison by row count (and/or flag
   cold-vs-warm first-run timings) before emitting a regression alert.
 - **Gate:** A query whose table doubled in rows between sessions does **not** raise a
   regression alert solely from the row-count growth; a real per-row slowdown still does.
@@ -85,10 +76,7 @@ These are the actual finds. Each was confirmed absent from the codebase.
 - **Source:** `plans/history/2026.06/2026.06.10/71-website-dart-schema-scanning.md:126`
   — "Stretch divergence view and Option B remain unbuilt by design." Option A
   (list code-declared tables/columns from the host callback) shipped.
-- **State:** Partially built. The website can list the declared schema; it cannot
-  yet **diff** code-declared schema against the live runtime schema and surface
-  drift (the high-value half of the feature).
-- **Deliverable:** A code-vs-runtime divergence view in the website schema tab
+- **Original deliverable:** A code-vs-runtime divergence view in the website schema tab
   (missing/extra tables, column type/nullability drift), reusing the existing
   `schema-diff` machinery.
 - **Gate:** With a declared-schema callback present, a table the code declares but
@@ -102,10 +90,7 @@ These are the actual finds. Each was confirmed absent from the codebase.
   `plans/history/2026.04/2026.04.30/18-natural-language-sql.md`.
 - **Source:** `plans/history/2026.04/2026.04.30/18-natural-language-sql.md:358` —
   "further polish (e.g. refine-in-English loop) is future work."
-- **State:** Not built. NL-to-SQL converts a single question; there is no
-  conversational follow-up to refine the prior query in English ("now only the
-  active ones").
-- **Deliverable:** Let a follow-up question amend the previous `NlResult` rather
+- **Original deliverable:** Let a follow-up question amend the previous `NlResult` rather
   than restart from scratch in the Ask panel.
 - **Gate:** After one query, a refining phrase narrows/extends it without
   re-specifying the base intent.

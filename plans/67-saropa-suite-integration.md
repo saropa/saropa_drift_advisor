@@ -245,11 +245,25 @@ one of these documented ids.
     and renders a **stale** badge (dimmed row) on any finding from a different commit — never guessing
     when either commit is unknown. Covered by `workspace-commit.test.ts` and the commit assertions in
     `suite-diagnostics.test.ts` / `drift-health.test.ts`.
-  - **R6 core is complete.** What remains is a **separate, larger feature**, not a gap in R6: the
-    deeper "at commit X, N lint findings + schema V + these signals" timeline view, and embedding the
-    cross-tool commit set into the Log Capture session sidecar (Section 6's richer form). The
-    per-finding stamping + staleness that the suite needs day-to-day is in place; the timeline is a new
-    multi-commit history surface that should be planned on its own, not carried as R6 residue.
+  - **Cross-commit timeline — shipped (this build).** The richer Section 6 form: Advisor now
+    accumulates a per-commit snapshot of suite finding counts and renders the trend. On each mirror
+    write it records `{commitSha, generatedAt, total, errors, warnings, advisor, lints, logCapture}`
+    into `.saropa/diagnostics/history.json`
+    ([commit-history-store.ts](../extension/src/suite/commit-history-store.ts) `recordCommitSnapshot`,
+    reading all three on-disk mirrors via `readAllSuiteDiagnostics` and the shared count reducer
+    `summarizeDriftHealth`). The pure model
+    ([commit-history.ts](../extension/src/suite/commit-history.ts)) is malformed-safe and upserts by
+    commit (re-scanning a checkout updates its row, never duplicates it; capped at 200 commits). The
+    `driftViewer.openCommitTimeline` command opens a read-only webview
+    ([commit-timeline.ts](../extension/src/suite/commit-timeline.ts) →
+    [commit-timeline-html.ts](../extension/src/suite/commit-timeline-html.ts) →
+    [commit-timeline-panel.ts](../extension/src/suite/commit-timeline-panel.ts)) showing commits
+    newest-first, a stacked severity bar scaled to the busiest commit, per-tool counts, a current-commit
+    badge, and the +/- delta versus the previous commit so a regression or a cleanup is obvious.
+    Auto-refreshes on the generation watcher (debounced, visible-only). Covered by
+    `commit-history.test.ts`, `commit-timeline.test.ts`, and `commit-history-store.test.ts`.
+  - **Still open (Section 6 only):** embedding the cross-tool commit set into the Log Capture session
+    sidecar (the sidecar lives in Log Capture's repo, so it is tracked on that side).
 
 ---
 
@@ -344,9 +358,11 @@ visible from any entry point.
    severity filter + sort, and auto-refresh (see the R4 Status note in Section 5). One manual
    verification (LAUNCH_TEST) remains: a visual design audit on a rendered panel (RTL / dyslexia /
    contrast / design-system tokens) — code is in; the result needs a running VS Code to confirm.
-4. **Commit correlation (R6 / Section 6).** **Core shipped** — commit stamping on the mirror + stale
-   marking in Drift Health (see the R6 Status note above). The richer cross-tool timeline view is a
-   separate future feature, not R6 residue.
+4. **Commit correlation (R6 / Section 6).** **Shipped** — commit stamping on the mirror + stale
+   marking in Drift Health, AND the cross-commit timeline (`driftViewer.openCommitTimeline`): a
+   per-commit history of suite finding counts with deltas, accumulated in
+   `.saropa/diagnostics/history.json` (see the R6 Status note above). The only Section 6 remainder is
+   embedding the commit set into the Log Capture session sidecar, which lives in that repo.
 5. **Shared infra extraction (Section 7).** Highest code-debt payoff; consolidation of code that has
    already converged, so low design risk.
 6. **Extension Pack + cross-discovery** — publish "Saropa for Flutter" bundling all three; gate

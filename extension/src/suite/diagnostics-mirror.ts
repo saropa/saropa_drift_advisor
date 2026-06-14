@@ -23,6 +23,7 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { GenerationWatcher } from '../generation-watcher';
 import { resolveWorkspaceCommit } from './workspace-commit';
+import { recordCommitSnapshot } from './commit-history-store';
 
 const MIRROR_DIR = '.saropa/diagnostics';
 const MIRROR_FILE = 'advisor.json';
@@ -136,7 +137,13 @@ export function registerDiagnosticsMirror(
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = undefined;
-      void writeAdvisorDiagnosticsMirror(client);
+      // Write the mirror first, then record a per-commit snapshot — the snapshot
+      // reads Advisor's mirror from disk, so it must run AFTER the write to pick
+      // up the current counts (plan 67 R6 timeline). Both are best-effort.
+      void (async () => {
+        await writeAdvisorDiagnosticsMirror(client);
+        await recordCommitSnapshot();
+      })();
     }, DEBOUNCE_MS);
   };
 
@@ -161,6 +168,9 @@ export function registerDiagnosticsMirror(
       async () => {
         const ok = await writeAdvisorDiagnosticsMirror(client);
         if (ok) {
+          // Capture a per-commit snapshot for the timeline alongside the mirror
+          // (plan 67 R6); best-effort, so a missing commit just skips it.
+          await recordCommitSnapshot();
           void vscode.window.showInformationMessage(
             `Wrote Saropa diagnostics mirror to ${MIRROR_DIR}/${MIRROR_FILE}.`,
           );
