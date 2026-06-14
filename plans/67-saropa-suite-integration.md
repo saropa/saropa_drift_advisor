@@ -409,3 +409,61 @@ preferred over publishing new units; revisit then, scoped to the specific shared
 - Internal: [59-ai-schema-reviewer.md](59-ai-schema-reviewer.md),
   [66-drift-refactoring-engine.md](66-drift-refactoring-engine.md) — findings that open the
   refactoring panel with structured hints are a natural consumer of the envelope's `fix.command`.
+
+---
+
+## Finish Report (2026-06-14)
+
+The Advisor side of the Saropa suite integration is implementation-complete. Every requirement (R1–R6)
+and both later phases (consume/render, Drift Health loop, commit correlation, cross-discovery) ship as
+code; the Extension Pack already exists as the published Saropa Suite bundle; and the Section 7
+shared-package extraction was evaluated and rejected as over-engineering.
+
+**Scope:** (B) VS Code extension (TypeScript) + (C) plan/docs. No Dart app code (`lib/`) changed in
+this closeout pass — the Dart `/api/issues` envelope (R1) landed in an earlier pass and is unchanged.
+
+**What shipped (each its own commit, additive):**
+- **Suite Findings dashboard widget** — a customizable-dashboard widget reducing the three-lens join to
+  per-tool / per-severity counts with a deep link to Drift Health. Reuses `buildDriftHealth` +
+  `summarizeDriftHealth` (extracted as the single count reducer) so widget, panel, and timeline counts
+  cannot diverge. (R3 holistic surface.)
+- **Commit timeline** — `driftViewer.openCommitTimeline`. A per-commit history of suite finding counts
+  accumulated in `.saropa/diagnostics/history.json` (upsert-by-commit, capped at 200), rendered
+  newest-first with a stacked severity bar, per-tool counts, current-commit badge, and a +/- delta
+  versus the previous commit. Recorded on each mirror write; auto-refreshes on the generation watcher.
+- **Session sidecar correlation** — the Log Capture session sidecar + meta payload now carry the
+  session `commitSha` and a `suiteMirrors` reference block (per tool: present, capture commit, count),
+  referencing the on-disk mirrors rather than copying their contents. (R6 / §6.)
+- **Per-table focus** — `openTable` / `openSchemaForTable` act on their `table` argument. `openTable`
+  injects a `location.hash` so the served web app's existing `#TableName` deep-link opens the table
+  (reloading to re-fire when already open on the same server; the table name is
+  `encodeURIComponent` + `JSON.stringify` hardened against script-tag breakout). `openSchemaForTable`
+  passes `{ focusTable }` to the ER diagram. The tree's "View Table Data" and the ER "View Data" action
+  focus the same way. (R5.)
+- **Cross-discovery nudge** — when `pubspec.yaml` depends on `saropa_lints` / `saropa_log_capture` but
+  the matching extension is absent, offers to install it once (gated before the toast, fire-and-forget
+  from activation). Evidence-based, so it never nags projects that don't use the package. (Phase 6.)
+
+**Architecture decision — Section 7 rejected:** extracting `saropa-vscode-i18n` / `-ui` /
+`-release-tools` would add three publishable packages for three in-house consumers; the
+versioning/publishing/release-coordination cost exceeds the duplication removed, with no user-facing
+benefit. The duplication (notably the shared high-contrast color bug) is accepted as a known
+trade-off; if it recurs, a single path-dep module or a sync script is preferred over new published
+units. Rationale recorded in Section 7.
+
+**Verification:** `tsc` clean, lint clean; full extension suite passes (2845 tests) with new coverage
+for the widget, commit-history model + store, timeline view model + HTML, mirror refs / `envelopeMeta`,
+per-table focus injection + escaping, and cross-discovery selection. The Dart `handler_integration_test`
+covers the envelope. (A separate in-flight workstream's `drift-codelens-provider` tests are
+order-dependent flaky and unrelated to this work; they pass on a clean run.)
+
+**Outstanding:** a visual design audit of the Drift Health, Commit Timeline, and Suite Findings panels
+(RTL / dyslexia / high-contrast rendering, WCAG AA contrast) — code-level a11y work is in, but the
+visual result needs a rendered VS Code window; tracked in `docs/launch/LAUNCH_TEST.md`. The sibling
+halves of the protocol (Saropa Lints contributing `saropaLints.explainRule`; Log Capture consuming the
+sidecar) live in their own repos and are tracked in the sibling plan docs above.
+
+**Plan retained, not archived:** this document is the canonical cross-repo protocol owner that the
+three sibling plans reference by path, and the suite effort is not complete across those repos —
+archiving the Advisor copy would orphan those references and misrepresent the multi-repo effort as
+done. It stays active as the protocol reference.

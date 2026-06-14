@@ -70,6 +70,17 @@ Works in Dart files with Drift table definitions:
 - **Open Session** — view a shared session by ID
 - **Annotate Session** — add notes to shared sessions
 
+### Saropa Suite
+
+Integration with the sibling Saropa tools (Saropa Lints, Saropa Log Capture) — see the [Saropa Suite](https://marketplace.visualstudio.com/items?itemName=saropa.saropa-suite) pack.
+
+- **Drift Health** — one panel joining all three lenses per table: Advisor's live runtime issues, Lints' static findings, Log Capture's runtime signals; severity filter, sort, per-finding fix actions, stale-by-commit badges
+- **Suite Findings widget** — at-a-glance cross-tool counts on the dashboard, linking to Drift Health
+- **Commit Timeline** — suite finding counts per commit over time, with per-commit deltas
+- **Per-table deep links** — `openTable` / `openSchemaForTable` focus the requested table; siblings can jump straight into the matching Advisor surface
+- **Offline diagnostics mirror** — `.saropa/diagnostics/advisor.json` so siblings read Advisor's issues when the debug server is down; sessions are commit-stamped for cross-tool correlation
+- **Cross-tool suggestions** — offers to install a sibling extension once when its Dart package is in use but its extension is not
+
 ## Configuration
 
 | Setting | Default | Description |
