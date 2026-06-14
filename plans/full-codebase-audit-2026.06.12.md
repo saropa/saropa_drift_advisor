@@ -8,29 +8,24 @@
 
 ---
 
-## Remediation status (updated 2026-06-13)
+## Remediation status — CLOSED (2026-06-14)
 
-**Almost everything is fixed and verified.** 15 commits on branch `security/audit-phases-1-2` closed every Critical, High, and Medium finding plus most Low ones (Dart: `analyze` clean + 648 tests pass; extension: `tsc` clean + 2749 tests pass). Per-finding reports and the verification record live in [`plans/history/2026.06/2026.06.13/audit-remediation-closeout.md`](history/2026.06/2026.06.13/audit-remediation-closeout.md).
+> This completed audit is kept in place (not moved to `plans/history/`) because 27 source files cite it by this exact path as stable anchors (`// See plans/full-codebase-audit-2026.06.12.md <finding>`). Relocating it would break those references; the doc is closed logically, not relocated.
 
-This audit file stays open because of the items below. Each finding in the sections that follow is tagged `✅ DONE`, `☑ REVIEWED — no change`, or `⏳ NEEDS BUILDING`.
+**Every finding in this audit is resolved.** All Critical, High, and Medium findings are fixed and verified; all Low findings are either fixed or reviewed-as-acceptable. Verification on close: Dart `analyze` clean; extension `tsc` clean and the full Mocha suite (2845 tests) green. Per-finding reports and the original verification record live in [`plans/history/2026.06/2026.06.13/audit-remediation-closeout.md`](history/2026.06/2026.06.13/audit-remediation-closeout.md).
 
-**Every Critical, High, and Medium finding is fixed. The only open item is the second phase of one defense-in-depth security task — C2b phase 2, deferred with a full plan.** Everything else from the original audit is done or reviewed.
+One follow-on enhancement was scoped OUT of this audit and tracked as its own active plan, so it does not hold this audit open:
 
-### Needs building — engineering
+- **C2b phase 2 — nonce CSP for the Dart-served browser SPA + the data-grid webview.** Defense-in-depth only; the exploitable XSS sinks (C2a) are already fixed and the server is loopback-only by default (C1). It is deferred because the served viewer boots via inline `onerror=` CDN-fallback handlers and a dynamic `createElement('script')` loader, both of which a strict nonce CSP blocks — so it needs a careful boot-path rework plus manual verification of both load modes. Full plan: [`plans/deferred/c2b-phase2-served-spa-csp.md`](deferred/c2b-phase2-served-spa-csp.md).
 
-1. **C2b phase 2 — nonce CSP for the Dart-served SPA + the data-grid webview.** `✅ phase 1 DONE` — all 47 extension webview panels (shared `secureWebviewHtml` post-processor: per-render nonce CSP, `'unsafe-inline'` removed from dashboard/bulk-edit, inline handlers converted to delegated `data-*` dispatch; full suite green). `⏳ phase 2 DEFERRED` — the browser-served SPA (`html_content.dart`) and the data-grid webview (`panel.ts`) boot via inline `onerror=` CDN-fallback handlers and a dynamic `createElement('script')` loader, both blocked by a strict nonce CSP, so this needs a boot-path rework plus manual verification of both the inline-asset and CDN-fallback load modes. **Full detailed plan: [`plans/deferred/c2b-phase2-served-spa-csp.md`](deferred/c2b-phase2-served-spa-csp.md).**
+Each finding below carries its final status tag (`✅ DONE` / `☑ REVIEWED — no change`). Summary of what changed since the original audit, by severity:
 
-### Done — closed since the original audit
+- **CRITICAL** — C1 (secure loopback/CORS defaults), C2 (XSS sinks fixed C2a; `executeAction` allowlisted C2c; nonce CSP on all 47 webview panels C2b phase 1), C3 (`sqlLiteral` backslash corruption): all DONE.
+- **HIGH** — H1–H6: all DONE.
+- **MEDIUM** — M1–M14: all DONE.
+- **LOW** — L1, L4, L5, L6, L7: DONE. L2, L8: reviewed, no change. L3 (OVSX token rotation) was removed from scope (handled outside this audit).
 
-- **L5 — `esc()` consolidation.** ✅ Done 2026-06-14 — the ~50 near-identical HTML escapers are now one canonical `shared-utils.escapeHtml` (`& < > " '` + `String()` coercion); ~43 host-side copies alias it, the three prior `escapeHtml` defs re-export it, and the in-browser copies that can't import it were given the missing `'` escape. Full extension suite green.
-- **L6 — stale artifacts.** ✅ Done 2026-06-14 — the two `.bak` files and the three stale duplicate web assets (`masthead.js`, `sql-highlight.js`, `table-def-toggle.js`, all superseded by their `.ts` sources via the esbuild bundle) are removed.
-- **L4 — `safeSubstring` rewrite.** ✅ Done 2026-06-14 — the double `replaceRange` is now a direct `substring(start, safeEnd)` (the four guards above it prove the bounds); tests unchanged and green.
-- **L7 (remainder) — TS helper dedup.** ✅ Done 2026-06-14 — the 3 `makeId` copies are consolidated into one `shared-utils.makeId(prefix?)`, and the codelens O(n²) per-keystroke line scan now uses `document.positionAt` (O(log n)). The three snake/pascal case converters were left intentionally distinct: they carry domain-specific rules (Drift acronym splitting, `'Lookup'` empty fallback) and are NOT redundant — merging would change behavior. (`isar`'s `toSnake` was already a thin wrapper over `dartClassToSnakeCase`.)
-
-### Reviewed — no change required
-
-- **L2** debug-server error echo — the C1 loopback default removes the exposure premise.
-- **L8** long-poll probing — already bounded by the 2 s `changeDetectionMinInterval` throttle.
+> The detail below is the original audit content, preserved verbatim with per-finding status tags appended. It is the historical record; the live forward item is the deferred C2b phase 2 plan linked above.
 
 ---
 
@@ -206,3 +201,44 @@ Ordered by leverage. Each phase is independently shippable; phases 1–2 are the
 1. **Is non-loopback binding an intended supported mode** (dev tunnels are referenced in comments)? If yes, the fix is "secure default + explicit opt-in"; if no, it can be removed entirely.
 2. **Should write features (cell update, import, branching) be off by default** and require explicit host opt-in, given the open-by-default network posture?
 3. **Threat model for the webviews:** are table/column *names* considered trusted (developer-authored schema) while cell *values* are untrusted? That changes whether lineage/er-diagram are Critical or High — the snippet result path (cell values) is unambiguously the worst.
+
+---
+
+## Finish Report (2026-06-14)
+
+### Status
+
+This audit is **closed**. Every Critical, High, and Medium finding is fixed and verified; every Low finding is fixed or reviewed-as-acceptable. One follow-on enhancement (C2b phase 2) is scoped out and tracked as its own active plan, so it does not hold this audit open.
+
+### Scope
+
+The remediation spanned the Dart debug server (`lib/`, `test/`), the VS Code extension (`extension/src`, TS tests), the browser SPA assets (`assets/web/`), and the project docs/changelog. It landed across the `security/audit-phases-1-2` branch in a sequence of focused commits (secure boundaries → SQL integrity → resource safety → detector/engine accuracy → hygiene → the C2b webview CSP → the L4–L7 cleanups).
+
+### What changed, by theme
+
+- **Network boundary (C1, H4):** the server defaults to `loopbackOnly: true` with no wildcard CORS header; the extension withholds the Bearer token from non-loopback hosts. BREAKING for anyone who relied on `0.0.0.0` + `'*'`.
+- **Content boundary / XSS (C2):** the confirmed stored-XSS sinks were fixed (C2a), the dashboard `executeAction` command id was allowlisted (C2c), and a per-render nonce Content-Security-Policy was added to all 47 extension webview panels through one shared `secureWebviewHtml` post-processor (C2b phase 1). The post-processor swaps an author `__CSP_NONCE__` placeholder rather than auto-stamping every `<script>`, so an injected script from any future escaping miss is inert. Inline `on*` handlers were converted to delegated `data-*` dispatch because a nonce CSP blocks inline handlers. The browser-served SPA and the data-grid webview (C2b phase 2) are deferred — see `plans/deferred/c2b-phase2-served-spa-csp.md`.
+- **SQL correctness (C3, H1, H2, H5):** `ServerUtils.sqlLiteral` no longer doubles backslashes (silent data corruption); all identifier interpolation routes through `ServerUtils.quoteIdent`; the read-only validator is a single-pass tokenizer that cannot be desynchronized by comments-in-strings or strings-in-comments; cell updates coerce the PK value and report affected rows.
+- **Resource safety (H3, M4, M7, M8, M9, M10, M11):** a POST body-size cap (HTTP 413), no-retry for non-idempotent requests, an O(1) DVR ring buffer with a bounded table-name parser, transactional branch restore, and RFC-4180 CSV + literal-aware SQL statement parsing.
+- **Detector / engine accuracy (M1, M2, M3, M5, M6, M12, M13, M14, H6):** string-tolerant count extraction, numerically-stable variance, single-count query statistics, hardened persisted-state loading, diagnostic table attribution + cache freshness, fail-closed naming compliance, key-collision fixes, and a corrected relationship-engine traversal / safe-delete planner.
+- **Hygiene (L1, L4, L5, L6, L7):** constant-time auth compare without a length leak; `safeSubstring` simplified to a direct `substring`; the ~50 HTML escapers consolidated into one `shared-utils.escapeHtml` (with the previously-missing `'` escape added everywhere); stale duplicate web assets and `.bak` files removed; the `makeId` copies consolidated and the CodeLens per-keystroke line scan reduced from O(n²) to O(log n) via `document.positionAt`.
+
+### Reviewed without change
+
+- **L2** (error-detail echo) — intentional for a debug server; the C1 loopback default removes the exposure premise.
+- **L8** (long-poll probing) — already bounded by the 2 s `changeDetectionMinInterval` throttle.
+
+### Out of scope
+
+- **C2b phase 2** — deferred with a full plan (`plans/deferred/c2b-phase2-served-spa-csp.md`): defense-in-depth on a loopback-only surface whose exploitable sinks are already fixed, requiring a careful viewer-boot-path rework plus manual verification of both the inline-asset and CDN-fallback load modes.
+- **OVSX publish-token rotation** (former L3) — a credential-management action handled outside this audit.
+
+### Verification on close
+
+Dart `analyze` clean; extension `tsc --noEmit` clean; the full extension Mocha suite (2845 tests) passes. Each remediation commit also passed the repo pre-commit hook (Dart format+analyze, and for TS commits `tsc` + build verification).
+
+### Disposition
+
+This completed audit is retained at its original path rather than moved to `plans/history/`, because 27 source files cite it by that exact path as stable cross-reference anchors (`// See plans/full-codebase-audit-2026.06.12.md <finding>`); relocating it would break those references. It is closed logically (status marked CLOSED, finish report appended) without physical relocation.
+
+Finish report appended: `plans/full-codebase-audit-2026.06.12.md` (closed in place).
