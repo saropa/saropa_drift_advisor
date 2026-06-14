@@ -2,6 +2,7 @@
 // ServerContext. These are stateless helper functions
 // used across multiple handler files.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
@@ -135,29 +136,54 @@ abstract final class ServerUtils {
   /// Every POST handler buffers the whole body before validating it; without a
   /// cap a client could stream an arbitrarily large body and exhaust memory
   /// before any size check ran. See plans/full-codebase-audit-2026.06.12.md H3.
-  // ignore: avoid_redundant_async -- the `await for` over the request stream requires async; the lint only counts `await` expressions, not await-for
+  ///
+  /// Implemented with an explicit [StreamSubscription] rather than `await for`
+  /// so the method needs no `async` wrapper — the overflow path cancels the
+  /// subscription to stop reading immediately, which an `await for` + `return`
+  /// also did, but without the redundant async/Future scheduling overhead.
   static Future<Uint8List?> readBodyBytes(
     HttpRequest request, {
     required int maxBytes,
-  }) async {
+  }) {
     // Fast path: trust a declared length only to reject early. -1 means unknown.
     final declared = request.contentLength;
     if (declared > maxBytes) {
-      return null;
+      return Future<Uint8List?>.value(null);
     }
 
+    final completer = Completer<Uint8List?>();
     final builder = BytesBuilder(copy: false);
     var total = 0;
-    await for (final chunk in request) {
-      total += chunk.length;
-      if (total > maxBytes) {
-        // Stop reading and signal overflow; the streamed size beat the cap
-        // regardless of what Content-Length claimed.
-        return null;
-      }
-      builder.add(chunk);
-    }
-    return builder.takeBytes();
+    late final StreamSubscription<Uint8List> subscription;
+
+    subscription = request.listen(
+      (chunk) {
+        total += chunk.length;
+        if (total > maxBytes) {
+          // The streamed size beat the cap regardless of what Content-Length
+          // claimed. Cancel so we stop reading instead of buffering more, then
+          // signal overflow. Guard isCompleted so a late onDone can't double
+          // complete.
+          unawaited(subscription.cancel());
+          if (!completer.isCompleted) {
+            completer.complete(null);
+          }
+          return;
+        }
+        builder.add(chunk);
+      },
+      onError: completer.completeError,
+      onDone: () {
+        if (!completer.isCompleted) {
+          completer.complete(builder.takeBytes());
+        }
+      },
+      // A stream error aborts the read; cancel and surface it to the caller,
+      // matching the throw an `await for` would have produced.
+      cancelOnError: true,
+    );
+
+    return completer.future;
   }
 
   /// Quotes [name] as a SQLite identifier (table or column), doubling any
