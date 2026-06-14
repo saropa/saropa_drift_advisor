@@ -1,0 +1,84 @@
+/**
+ * Tests for the Drift Health join model + panel HTML (plan 67 R4).
+ */
+import * as assert from 'assert';
+import { buildDriftHealth } from '../suite/drift-health';
+import { buildDriftHealthHtml } from '../suite/drift-health-html';
+import type { SuiteDiagnostic } from '../suite/suite-diagnostics';
+
+const d = (over: Partial<SuiteDiagnostic>): SuiteDiagnostic => ({ severity: 'info', ...over });
+
+describe('buildDriftHealth', () => {
+  it('groups by table and splits findings by tool', () => {
+    const model = buildDriftHealth([
+      d({ source: 'advisor', table: 'orders', title: 'missing index' }),
+      d({ source: 'lints', table: 'orders', title: 'no where', ruleId: 'avoid_drift_update_without_where' }),
+      d({ source: 'log-capture', table: 'orders', title: 'slow' }),
+    ]);
+    assert.strictEqual(model.tables.length, 1);
+    const g = model.tables[0];
+    assert.strictEqual(g.table, 'orders');
+    assert.strictEqual(g.advisor.length, 1);
+    assert.strictEqual(g.lints.length, 1);
+    assert.strictEqual(g.logCapture.length, 1);
+    assert.strictEqual(g.total, 3);
+    assert.strictEqual(model.totalIssues, 3);
+  });
+
+  it('merges case-variant table names and keeps first-seen display casing', () => {
+    const model = buildDriftHealth([
+      d({ source: 'advisor', table: 'Orders' }),
+      d({ source: 'lints', table: 'orders' }),
+    ]);
+    assert.strictEqual(model.tables.length, 1);
+    assert.strictEqual(model.tables[0].table, 'Orders');
+    assert.strictEqual(model.tables[0].total, 2);
+  });
+
+  it('sorts tables by total desc, then name', () => {
+    const model = buildDriftHealth([
+      d({ source: 'advisor', table: 'a' }),
+      d({ source: 'advisor', table: 'b' }),
+      d({ source: 'lints', table: 'b' }),
+    ]);
+    assert.deepStrictEqual(model.tables.map((t) => t.table), ['b', 'a']);
+  });
+
+  it('routes table-less findings to untabled', () => {
+    const model = buildDriftHealth([
+      d({ source: 'log-capture', sql: 'SELECT 1', title: 'query-level' }),
+    ]);
+    assert.strictEqual(model.tables.length, 0);
+    assert.strictEqual(model.untabled.length, 1);
+    assert.strictEqual(model.totalIssues, 1);
+  });
+
+  it('ignores findings from unknown producers', () => {
+    const model = buildDriftHealth([
+      d({ source: 'mystery', table: 'orders' }),
+      d({ source: 'advisor', table: 'orders' }),
+    ]);
+    assert.strictEqual(model.totalIssues, 1);
+    assert.strictEqual(model.tables[0].advisor.length, 1);
+  });
+});
+
+describe('buildDriftHealthHtml', () => {
+  it('shows the empty state with no findings', () => {
+    const html = buildDriftHealthHtml({ tables: [], untabled: [], totalIssues: 0 });
+    assert.ok(html.includes('No suite findings'));
+  });
+
+  it('renders a table card with tool columns and escapes text', () => {
+    const html = buildDriftHealthHtml(buildDriftHealth([
+      d({ source: 'advisor', table: 'orders', title: 'missing index' }),
+      d({ source: 'lints', table: 'orders', title: '<script>x</script>', ruleId: 'r1' }),
+    ]));
+    assert.ok(html.includes('orders'));
+    assert.ok(html.includes('Drift Advisor'));
+    assert.ok(html.includes('Saropa Lints'));
+    assert.ok(html.includes('r1'));
+    assert.ok(!html.includes('<script>x</script>'));
+    assert.ok(html.includes('&lt;script&gt;'));
+  });
+});
