@@ -4,8 +4,6 @@ A full security and code-quality audit of the `saropa_drift_advisor` package (th
 
 ## Finish Report (2026-06-13)
 
-This work will be reviewed by another AI. — (chat-time note; not part of the durable record.)
-
 ### Scope
 
 (A) Dart package (`lib/`, `test/`), (B) VS Code extension (`extension/src`, TS tests), (C) docs (`CHANGELOG.md`, `README.md`, `plans/history`). The remediation landed as 15 commits on branch `security/audit-phases-1-2`.
