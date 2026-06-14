@@ -14,13 +14,13 @@
 
 This audit file stays open because of the items below. Each finding in the sections that follow is tagged `✅ DONE`, `☑ REVIEWED — no change`, or `⏳ NEEDS BUILDING`.
 
-**Every Critical, High, and Medium finding is fixed.** What remains: one defense-in-depth security task (C2b), one cleanup (L5), one artifact removal (L6), one credential rotation only the user can do (L3), and two optional cosmetic items (L4, L7 remainder).
+**Every Critical, High, and Medium finding is fixed.** What remains: one defense-in-depth security task (C2b), one cleanup (L5), the duplicated-`*.js` tail of an artifact sweep (L6 — its `.bak` files are gone), one credential rotation only the user can do (L3), and two optional cosmetic items (L4, L7 remainder).
 
 ### Needs building — engineering
 
 1. **C2b — nonce-based CSP across all webview panels + the served HTML.** Defense-in-depth. The actually-exploitable XSS sinks were already fixed (C2a); this adds a strict `default-src 'none'; script-src 'nonce-…'` backstop to the ~40 panels and the Dart-served pages that still have none (or `'unsafe-inline'`). Best done as a focused per-panel pass with render verification.
 2. **L5 — consolidate the ~15 duplicate `esc()` helpers into one complete `escapeHtml` (`& < > " '` + `String()` coercion).** Latent only: every current sink double-quotes its attributes, so the missing `'` escape is not exploitable today. Canonical reference impls already exist (`dvr-html.ts`, `mutation-stream-html-helpers.ts`).
-3. **L6 — remove stale artifacts** still on disk: `analysis_options_custom.yaml.bak` (163 KB), `assets/web/app.js.bak` (322 KB), and the duplicated `*.js` files next to their `*.ts` sources. Confirm nothing is load-bearing first. (The duplicate CSV parser half of the original L7 finding is already removed.)
+3. **L6 — remove stale artifacts.** The two `.bak` files (`analysis_options_custom.yaml.bak`, `assets/web/app.js.bak`) were deleted 2026-06-14. Remaining: the duplicated `*.js` files next to their `*.ts` sources — confirm nothing is load-bearing before removing. (The duplicate CSV parser half of the original L7 finding is already removed.)
 
 ### Needs action — user
 
@@ -146,7 +146,7 @@ Every handler does `await for (chunk in request) builder.add(chunk)` with no cap
 - `⏳ NEEDS ACTION — user must rotate` — **L3 — Open VSX publish token in plaintext `.env`** ✓ verified. `OVSX_PAT=ovsxat_…` sits in plaintext on disk. Correctly gitignored and pub-excluded, so not leaked via git/pub — but it is a live credential; rotate it (it has now been surfaced in this session) and inject it from a secret store at publish time rather than a working-tree file.
 - `⏳ OPTIONAL — cosmetic, not scheduled` — **L4 — `safeSubstring` reimplements `substring` via double `replaceRange`** ✓ verified (`server_utils.dart:177`) — correct but obscure and double-allocating; the guards above already prove the bounds.
 - `⏳ NEEDS BUILDING` — **L5 — `esc()` single-quote omission, systemic + duplicated** *(agent-reported)*. ~15 separate `esc()` copies escape `& < > "` but not `'`; not exploitable today (all attributes double-quoted) but a latent landmine. Complete reference impls exist (`dvr-html.ts`, `mutation-stream-html-helpers.ts`). Consolidate to one.
-- `⏳ NEEDS BUILDING` — **L6 — Repo clutter / stale artifacts**: `analysis_options_custom.yaml.bak` (163KB), `assets/web/app.js.bak` (322KB), and duplicated `*.js` next to their `*.ts` sources. Confirm what's load-bearing; remove the rest. (Both `.bak` files are still on disk as of 2026-06-13.)
+- `✅ .bak files removed (2026-06-14)` · `⏳ duplicated *.js still open` — **L6 — Repo clutter / stale artifacts**: the two `.bak` files (`analysis_options_custom.yaml.bak` 163KB, `assets/web/app.js.bak` 322KB) were deleted; the duplicated `*.js` next to their `*.ts` sources remain — confirm what's load-bearing, then remove.
 - `✅ partial — duplicate CSV parser removed` · `⏳ OPTIONAL — helper dedup still open (cosmetic)` — **L7 — Duplicated helpers** *(agent-reported)*: three different snake/pascal-case converters (`invariant-diagnostics`, `table-name-mapper`, `dart-names`); duplicated `makeId` (still 3 copies), TTL constants, `999` line-end sentinel; `codelens` O(n²) line-number computation on every keystroke. The `ServerUtils.parseCsvLines` duplicate was removed; the TS helper consolidation above is not yet done.
 - `☑ REVIEWED — no change` (bounded by the 2 s `changeDetectionMinInterval` throttle) — **L8 — Long-poll per-connection DB probing** *(agent-reported)*. `generation_handler.dart:131` runs `checkDataChange()` each interval per concurrent client for the whole window, driven by a client-supplied `since` with no upper bound. Verify the interval floor; consider a shared change-detection tick.
 
