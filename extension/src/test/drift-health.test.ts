@@ -2,7 +2,7 @@
  * Tests for the Drift Health join model + panel HTML (plan 67 R4).
  */
 import * as assert from 'assert';
-import { buildDriftHealth } from '../suite/drift-health';
+import { buildDriftHealth, summarizeDriftHealth } from '../suite/drift-health';
 import { buildDriftHealthHtml } from '../suite/drift-health-html';
 import type { SuiteDiagnostic } from '../suite/suite-diagnostics';
 
@@ -60,6 +60,27 @@ describe('buildDriftHealth', () => {
     ]);
     assert.strictEqual(model.totalIssues, 1);
     assert.strictEqual(model.tables[0].advisor.length, 1);
+  });
+});
+
+describe('summarizeDriftHealth', () => {
+  it('flattens per-tool and per-severity counts, including untabled findings', () => {
+    const s = summarizeDriftHealth(buildDriftHealth([
+      d({ source: 'advisor', table: 'orders', severity: 'error' }),
+      d({ source: 'lints', table: 'orders', severity: 'warning' }),
+      d({ source: 'log-capture', table: 'orders', severity: 'info' }),
+      // Untabled (query-level) advisor finding still counts toward advisor + total.
+      d({ source: 'advisor', sql: 'SELECT 1', severity: 'warning' }),
+      // Unknown producer is excluded entirely.
+      d({ source: 'mystery', table: 'orders', severity: 'error' }),
+    ]));
+    assert.strictEqual(s.total, 4);
+    assert.strictEqual(s.tables, 1);
+    assert.strictEqual(s.advisor, 2);
+    assert.strictEqual(s.lints, 1);
+    assert.strictEqual(s.logCapture, 1);
+    assert.strictEqual(s.errors, 1);
+    assert.strictEqual(s.warnings, 2);
   });
 });
 

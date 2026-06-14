@@ -58,6 +58,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 - **Drift Health refreshes itself as your data changes** (no manual Refresh needed while the panel is open), and gains a **severity filter** (All / Errors / Warnings / Info) and a **sort** control (by finding count or table name).
 - **Cross-tool jump actions on findings.** A table-scoped issue now offers a one-click action to jump to the table's Drift class; the button only appears when the target command is installed, and every action is re-validated against an allowlist before it runs (no arbitrary command execution from a diagnostics file).
 - **New Suite Findings dashboard widget.** Add it from the dashboard's widget picker for an at-a-glance count of cross-tool findings — total, errors vs warnings, and a per-tool breakdown (Drift Advisor / Saropa Lints / Log Capture) — with one click through to the full Drift Health view. It reads the same live issues and sibling diagnostics as that view, so the numbers always match.
+- **New Suite Commit Timeline.** Run **Saropa Drift Advisor: Open Commit Timeline (Suite)** to see how many suite findings each commit carried over time — newest first, with a per-commit severity bar, a per-tool breakdown, a badge on your current checkout, and a +/- change versus the previous commit so a regression or a cleanup stands out. Counts are recorded per commit while the debug server runs (kept in `.saropa/diagnostics/history.json`); the view refreshes itself as your data changes.
 
 ### Improved
 

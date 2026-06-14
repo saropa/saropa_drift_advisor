@@ -20,20 +20,10 @@ import {
   readSiblingDiagnostics,
   type SuiteDiagnostic,
 } from '../../suite/suite-diagnostics';
-import { buildDriftHealth } from '../../suite/drift-health';
+import { buildDriftHealth, summarizeDriftHealth } from '../../suite/drift-health';
+import type { SuiteFindingsSummary } from '../../suite/drift-health';
 
 const esc = escapeHtml;
-
-/** The compact summary this widget renders — counts only, no per-finding text. */
-interface SuiteFindingsSummary {
-  total: number;
-  tables: number;
-  advisor: number;
-  lints: number;
-  logCapture: number;
-  errors: number;
-  warnings: number;
-}
 
 /**
  * Collects all three tools' diagnostics and reduces them to counts. Advisor's
@@ -52,46 +42,10 @@ async function fetchSuiteFindings(
     advisor = [];
   }
   const siblings = await readSiblingDiagnostics();
-  const model = buildDriftHealth([...advisor, ...siblings]);
-
-  // buildDriftHealth already drops unknown producers and routes table-less
-  // findings to `untabled`; count from its buckets so the totals match the
-  // panel exactly (the model's totalIssues is the authoritative figure).
-  let advisorCount = 0;
-  let lintsCount = 0;
-  let logCaptureCount = 0;
-  let errors = 0;
-  let warnings = 0;
-  const tally = (d: SuiteDiagnostic): void => {
-    if (d.severity === 'error') errors++;
-    else if (d.severity === 'warning') warnings++;
-  };
-  for (const g of model.tables) {
-    advisorCount += g.advisor.length;
-    lintsCount += g.lints.length;
-    logCaptureCount += g.logCapture.length;
-    g.advisor.forEach(tally);
-    g.lints.forEach(tally);
-    g.logCapture.forEach(tally);
-  }
-  // Untabled findings still count toward tool totals and severities; they just
-  // have no table to group under (query-level signals, project-wide rules).
-  for (const d of model.untabled) {
-    if (d.source === 'advisor') advisorCount++;
-    else if (d.source === 'lints') lintsCount++;
-    else if (d.source === 'log-capture') logCaptureCount++;
-    tally(d);
-  }
-
-  return {
-    total: model.totalIssues,
-    tables: model.tables.length,
-    advisor: advisorCount,
-    lints: lintsCount,
-    logCapture: logCaptureCount,
-    errors,
-    warnings,
-  };
+  // buildDriftHealth drops unknown producers and routes table-less findings to
+  // `untabled`; summarizeDriftHealth is the shared count reducer, so this
+  // widget's numbers always match the Drift Health panel and the timeline.
+  return summarizeDriftHealth(buildDriftHealth([...advisor, ...siblings]));
 }
 
 /** Renders the summary counts plus a deep-link button to the full panel. */
