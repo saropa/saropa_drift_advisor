@@ -42,7 +42,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.0.2]
+
+Big schemas are easier to read now: a sidebar toggle groups related tables together (your `contacts` table sits with `contact_avatars`, `contact_groups`, and friends), and the toolbar got tidied up. The analysis panels, badges, and exported reports all follow your editor's light / dark / high-contrast theme instead of fighting it, and a few widgets that showed "NaN" or blank cells are fixed. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.2/CHANGELOG.md)
 
 ### Added
 
@@ -74,6 +76,8 @@ browse source on
 ---
 
 ## [4.0.1]
+
+Housekeeping release — a behind-the-scenes security update to a build tool, with no changes to how the package or extension behaves for you. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.1/CHANGELOG.md)
 
 <!-- cspell:ignore GHSA-gv7w-rqvm-qjhr -->
 <details><summary>Maintenance</summary>
