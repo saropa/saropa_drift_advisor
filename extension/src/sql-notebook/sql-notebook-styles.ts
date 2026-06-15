@@ -196,9 +196,9 @@ export function getNotebookCss(): string {
     font-size: 0.8em; padding: 1px 6px; border-radius: 3px; margin-left: 6px;
     font-weight: bold;
   }
-  .explain-search .explain-badge { background: #2ea04380; color: #4ec970; }
-  .explain-scan .explain-badge { background: #f1444480; color: #f88; }
-  .explain-temp .explain-badge { background: #cca70080; color: #e6c54a; }
+  .explain-search .explain-badge { background: color-mix(in srgb, var(--status-good) 50%, transparent); color: var(--status-good); }
+  .explain-scan .explain-badge { background: color-mix(in srgb, var(--status-bad) 50%, transparent); color: var(--status-bad); }
+  .explain-temp .explain-badge { background: color-mix(in srgb, var(--accent-warning) 50%, transparent); color: var(--accent-warning); }
 
   /* --- Chart --- */
   .chart-area {

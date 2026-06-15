@@ -54,7 +54,7 @@ export const FK_NAVIGATION_SCRIPT = `
           a.href = '#';
           a.textContent = val;
           a.title = fk.toTable + '.' + fk.toColumn + ' = ' + val;
-          a.style.cssText = 'color:#4fc3f7;text-decoration:underline;cursor:pointer;';
+          a.style.cssText = 'color:var(--vscode-textLink-foreground,#4fc3f7);text-decoration:underline;cursor:pointer;';
           a.addEventListener('click', function(e) {
             e.preventDefault();
             vscodeApi.postMessage({
@@ -94,12 +94,12 @@ export const FK_NAVIGATION_SCRIPT = `
     html += '<button class="fk-nav-btn" data-dir="back"' +
       (canBack ? '' : ' disabled') +
       ' style="border:none;background:none;cursor:pointer;color:' +
-      (canBack ? '#4fc3f7' : '#666') + ';font-size:14px;">&larr;</button>';
+      (canBack ? 'var(--vscode-textLink-foreground,#4fc3f7)' : 'var(--vscode-disabledForeground,#666)') + ';font-size:14px;">&larr;</button>';
     html += '<button class="fk-nav-btn" data-dir="forward"' +
       (canForward ? '' : ' disabled') +
       ' style="border:none;background:none;cursor:pointer;color:' +
-      (canForward ? '#4fc3f7' : '#666') + ';font-size:14px;">&rarr;</button>';
-    html += '<span style="color:#ccc;">';
+      (canForward ? 'var(--vscode-textLink-foreground,#4fc3f7)' : 'var(--vscode-disabledForeground,#666)') + ';font-size:14px;">&rarr;</button>';
+    html += '<span style="color:var(--vscode-foreground,#ccc);">';
     entries.forEach(function(e, i) {
       if (i > 0) html += ' &rsaquo; ';
       html += esc(e.table);
@@ -127,16 +127,16 @@ export const FK_NAVIGATION_SCRIPT = `
       document.body.appendChild(overlay);
     }
     overlay.style.display = 'block';
-    var html = '<h3 style="color:#ccc;margin:0 0 12px;font-family:system-ui;">' +
+    var html = '<h3 style="color:var(--vscode-foreground,#ccc);margin:0 0 12px;font-family:system-ui;">' +
       esc(table);
     if (filter) html += ' WHERE ' + esc(filter.column) + ' = ' + esc(filter.value);
     html += '</h3>';
     html += '<table data-table-name="' + esc(table) +
-      '" style="border-collapse:collapse;width:100%;color:#ccc;font-size:13px;">';
+      '" style="border-collapse:collapse;width:100%;color:var(--vscode-foreground,#ccc);font-size:13px;">';
     html += '<thead><tr>';
     columns.forEach(function(c) {
       html += '<th style="text-align:left;padding:4px 8px;' +
-        'border-bottom:1px solid #555;">' + esc(c) + '</th>';
+        'border-bottom:1px solid var(--vscode-panel-border,#555);">' + esc(c) + '</th>';
     });
     html += '</tr></thead><tbody>';
     rows.forEach(function(row) {
@@ -144,7 +144,7 @@ export const FK_NAVIGATION_SCRIPT = `
       row.forEach(function(val) {
         var display = val === null ? 'NULL' : String(val);
         html += '<td style="padding:4px 8px;' +
-          'border-bottom:1px solid #333;">' + esc(display) + '</td>';
+          'border-bottom:1px solid var(--vscode-panel-border,#333);">' + esc(display) + '</td>';
       });
       html += '</tr>';
     });

@@ -58,6 +58,7 @@ browse source on
 - **Dashboard "Explore Drift Advisor" feature buttons now look like buttons.** In many color themes the secondary-button background blended into the card behind it and the buttons had no border, so they read as plain text. They now carry a visible border and theme-neutral fallbacks.
 - **The Row Count widget no longer shows "NaN".** It read the count by array position, but the server returns each result row as an object keyed by column name, so the lookup missed and produced NaN. It now reads the value correctly and shows 0 for an empty table.
 - **The Table Preview widget now shows column headers and cell values.** It expected positional rows and a separate column list, but the server returns rows as objects keyed by column name (and omits the column list over HTTP), so the preview rendered with no headers and blank cells. It now derives columns from the row data and fills the cells.
+- **Foreign-key navigator, filter bar, in-grid edit buttons, and the SQL Notebook EXPLAIN badges now follow the editor theme.** The FK navigator overlay, the filter Save/Delete buttons, the in-grid delete/add-row buttons, and the SQL Notebook query-plan badges hardcoded fixed colors that washed out or clashed in light and high-contrast themes. The data-grid overlays (which live in the table viewer, not a themed panel) now use the editor's own theme variables; the SQL Notebook badges use the shared status tokens. The transient connecting/error screen also follows the theme instead of a fixed gray.
 
 <details><summary>Maintenance</summary>
 

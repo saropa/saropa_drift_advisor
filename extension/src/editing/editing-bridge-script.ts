@@ -89,7 +89,7 @@ export const EDITING_SCRIPT = `
     const btn = document.createElement('button');
     btn.textContent = 'Delete this row?';
     btn.style.cssText = 'position:fixed;z-index:9999;padding:4px 12px;' +
-      'background:var(--status-bad);color:#fff;border:none;border-radius:4px;cursor:pointer;' +
+      'background:var(--vscode-charts-red,#d32f2f);color:#fff;border:none;border-radius:4px;cursor:pointer;' +
       'font-size:13px;top:' + e.clientY + 'px;left:' + e.clientX + 'px;';
     document.body.appendChild(btn);
     function cleanup() { btn.remove(); document.removeEventListener('click', onOutside); }
@@ -100,7 +100,7 @@ export const EDITING_SCRIPT = `
       cleanup();
       tr.style.textDecoration = 'line-through';
       tr.style.opacity = '0.4';
-      tr.style.backgroundColor = 'color-mix(in srgb, var(--status-bad) 15%, transparent)';
+      tr.style.backgroundColor = 'color-mix(in srgb, var(--vscode-charts-red,#d32f2f) 15%, transparent)';
       vscodeApi.postMessage({
         command: 'rowDelete',
         table: meta.name,
@@ -117,7 +117,7 @@ export const EDITING_SCRIPT = `
       btn.className = 'drift-add-row-btn';
       btn.textContent = '+ Add Row';
       btn.style.cssText = 'margin:8px 0;padding:4px 12px;font-size:13px;' +
-        'cursor:pointer;background:var(--status-good);color:#fff;border:none;border-radius:4px;';
+        'cursor:pointer;background:var(--vscode-charts-green,#2e7d32);color:#fff;border:none;border-radius:4px;';
       btn.addEventListener('click', function() {
         const values = {};
         meta.headers.forEach(function(h, i) {
