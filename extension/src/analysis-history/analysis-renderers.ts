@@ -26,7 +26,7 @@ export function renderIndexSuggestions(suggestions: IndexSuggestion[]): string {
     </tr>`;
   }).join('');
   return `<div style="margin-bottom:4px;font-weight:600">${suggestions.length} suggestion(s)</div>
-<style>.priority-high{color:#ef4444}.priority-medium{color:#eab308}.priority-low{color:#3b82f6}</style>
+<style>.priority-high{color:var(--status-bad)}.priority-medium{color:var(--accent-warning)}.priority-low{color:var(--accent-info)}</style>
 <table><thead><tr><th>Table</th><th>Column</th><th>Priority</th><th>Reason</th></tr></thead>
 <tbody>${rows}</tbody></table>`;
 }
@@ -108,7 +108,7 @@ export function renderAnomalies(anomalies: Anomaly[]): string {
       `<td>${esc(a.message)}</td></tr>`;
   }).join('');
   return `<div style="margin-bottom:4px;font-weight:600">${anomalies.length} anomaly(ies)</div>
-<style>.sev-error{color:#ef4444}.sev-warning{color:#eab308}.sev-info{color:#3b82f6}</style>
+<style>.sev-error{color:var(--status-bad)}.sev-warning{color:var(--accent-warning)}.sev-info{color:var(--accent-info)}</style>
 <table><thead><tr><th></th><th>Severity</th><th>Message</th></tr></thead>
 <tbody>${rows}</tbody></table>`;
 }

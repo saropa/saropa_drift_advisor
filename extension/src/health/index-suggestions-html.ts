@@ -112,9 +112,9 @@ export function buildIndexSuggestionsHtml(
     font-weight: 600;
     text-transform: uppercase;
   }
-  .priority-high { background: #ef444433; color: #ef4444; }
-  .priority-medium { background: #eab30833; color: #eab308; }
-  .priority-low { background: #3b82f633; color: #3b82f6; }
+  .priority-high { background: color-mix(in srgb, var(--status-bad) 20%, transparent); color: var(--status-bad); }
+  .priority-medium { background: color-mix(in srgb, var(--accent-warning) 20%, transparent); color: var(--accent-warning); }
+  .priority-low { background: color-mix(in srgb, var(--accent-info) 20%, transparent); color: var(--accent-info); }
   .action-btn {
     padding: 2px 8px;
     font-size: 11px;

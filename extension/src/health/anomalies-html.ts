@@ -121,9 +121,9 @@ export function buildAnomaliesHtml(
   }
   tr:hover { background: var(--vscode-list-hoverBackground); }
   .sev-cell { width: 24px; text-align: center; font-size: 14px; }
-  .sev-error { color: #ef4444; }
-  .sev-warning { color: #eab308; }
-  .sev-info { color: #3b82f6; }
+  .sev-error { color: var(--status-bad); }
+  .sev-warning { color: var(--accent-warning); }
+  .sev-info { color: var(--accent-info); }
   .badge {
     display: inline-block;
     padding: 1px 6px;
@@ -132,9 +132,9 @@ export function buildAnomaliesHtml(
     font-weight: 600;
     text-transform: uppercase;
   }
-  .sev-badge-error { background: #ef444433; color: #ef4444; }
-  .sev-badge-warning { background: #eab30833; color: #eab308; }
-  .sev-badge-info { background: #3b82f633; color: #3b82f6; }
+  .sev-badge-error { background: color-mix(in srgb, var(--status-bad) 20%, transparent); color: var(--status-bad); }
+  .sev-badge-warning { background: color-mix(in srgb, var(--accent-warning) 20%, transparent); color: var(--accent-warning); }
+  .sev-badge-info { background: color-mix(in srgb, var(--accent-info) 20%, transparent); color: var(--accent-info); }
   .hidden { display: none; }
 ${SUITE_NOTES_CSS}
 </style>

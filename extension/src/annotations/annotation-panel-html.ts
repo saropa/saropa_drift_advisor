@@ -137,8 +137,8 @@ export function buildAnnotationHtml(
     font-size: 11px; font-weight: 600;
   }
   .btn {
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
+    background: var(--vscode-button-secondaryBackground, var(--surface-3));
+    color: var(--vscode-button-secondaryForeground, var(--text));
     border: none; border-radius: 4px;
     padding: 4px 10px; cursor: pointer;
     font-size: 12px;

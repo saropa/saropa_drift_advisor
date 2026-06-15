@@ -1,4 +1,6 @@
-/** Dashboard webview styles (extracted from dashboard-html for modularization). */
+/** Dashboard webview styles (extracted from dashboard-html for modularization).
+ * The design tokens this references (var(--status-*), var(--grade-*), etc.) are
+ * injected centrally by secureWebviewHtml — see views/design-tokens.ts. */
 
 export function getDashboardCss(): string {
   return `
@@ -24,8 +26,8 @@ body {
 .btn {
   padding: 6px 12px;
   border: 1px solid var(--vscode-button-border, var(--vscode-widget-border));
-  background: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground, var(--surface-3));
+  color: var(--vscode-button-secondaryForeground, var(--text));
   border-radius: 3px;
   cursor: pointer;
   font-size: 12px;
@@ -189,19 +191,19 @@ body {
 .health-grade { font-size: 32px; font-weight: bold; }
 .health-score { font-size: 12px; opacity: 0.7; }
 .health-metrics { font-size: 10px; opacity: 0.7; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.grade-a { color: #22c55e; }
-.grade-b { color: #84cc16; }
-.grade-c { color: #eab308; }
-.grade-d { color: #f97316; }
-.grade-f { color: #ef4444; }
+.grade-a { color: var(--grade-a); }
+.grade-b { color: var(--grade-b); }
+.grade-c { color: var(--grade-c); }
+.grade-d { color: var(--grade-d); }
+.grade-f { color: var(--grade-f); }
 
 .widget-invariants { font-size: 11px; }
 .invariant-summary { font-weight: 500; margin-bottom: 8px; }
-.invariant-summary.passing { color: #22c55e; }
-.invariant-summary.failing { color: #ef4444; }
+.invariant-summary.passing { color: var(--status-good); }
+.invariant-summary.failing { color: var(--status-bad); }
 .invariant-item { padding: 2px 0; opacity: 0.8; }
-.invariant-item.error { color: #ef4444; }
-.invariant-item.warning { color: #eab308; }
+.invariant-item.error { color: var(--status-bad); }
+.invariant-item.warning { color: var(--accent-warning); }
 
 .widget-dvr {
   display: flex;

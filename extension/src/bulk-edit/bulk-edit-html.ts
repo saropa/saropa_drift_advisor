@@ -47,8 +47,8 @@ export function bulkEditHtml(): string {
       font-size: var(--vscode-font-size);
     }
     button.secondary {
-      background: var(--vscode-button-secondaryBackground);
-      color: var(--vscode-button-secondaryForeground);
+      background: var(--vscode-button-secondaryBackground, var(--surface-3));
+      color: var(--vscode-button-secondaryForeground, var(--text));
     }
     .grid-wrap:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
     tr.pending-row-selected { background: var(--vscode-list-inactiveSelectionBackground); }

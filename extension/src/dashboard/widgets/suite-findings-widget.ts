@@ -110,8 +110,8 @@ const SUITE_FINDINGS_CSS = `
   .suite-zero { opacity:0.5; }
   .suite-clean { font-size:13px; color:var(--vscode-foreground); }
   .suite-actions { margin-top:2px; }
-  .suite-open-btn { background:var(--vscode-button-secondaryBackground);
-    color:var(--vscode-button-secondaryForeground); border:none; border-radius:3px;
+  .suite-open-btn { background:var(--vscode-button-secondaryBackground, var(--surface-3));
+    color:var(--vscode-button-secondaryForeground, var(--text)); border:none; border-radius:3px;
     padding:4px 10px; font-size:11px; cursor:pointer; }
   .suite-open-btn:hover { background:var(--vscode-button-secondaryHoverBackground); }
 `;

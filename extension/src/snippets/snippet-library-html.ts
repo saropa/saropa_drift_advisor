@@ -50,8 +50,8 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
            color: var(--vscode-button-foreground); border: none;
            border-radius: 2px; white-space: nowrap; }
   button:hover { background: var(--vscode-button-hoverBackground); }
-  button.secondary { background: var(--vscode-button-secondaryBackground);
-                     color: var(--vscode-button-secondaryForeground); }
+  button.secondary { background: var(--vscode-button-secondaryBackground, var(--surface-3));
+                     color: var(--vscode-button-secondaryForeground, var(--text)); }
   button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
   button.danger { background: var(--vscode-errorForeground); color: #fff; }
   .category { margin-bottom: 8px; }
