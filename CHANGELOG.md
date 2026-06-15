@@ -46,7 +46,7 @@ browse source on
 
 ### Added
 
-- **Group tables by name in the Database sidebar.** A new toolbar toggle bundles tables that share a name prefix (every `contact_*` table, every `checklist_*` table, and so on) into collapsible sections, so a wide schema is much easier to scan. Toggle it off to return to the flat list; the choice is remembered per workspace. Pinned tables stay flat at the top either way.
+- **Group tables by name in the Database sidebar.** A new toolbar toggle bundles related tables into collapsible sections, so a wide schema is much easier to scan. Tables are grouped by their entity stem, so a `contacts` table sits with `contact_avatars`, `contact_groups`, and the rest (singular/plural and `-s`/`-es` forms are matched). Toggle it off to return to the flat list; the choice is remembered per workspace. Pinned tables stay flat at the top either way.
 
 ### Changed
 
