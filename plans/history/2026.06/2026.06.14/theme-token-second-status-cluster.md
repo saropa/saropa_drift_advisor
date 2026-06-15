@@ -36,9 +36,18 @@ Suggestions, and Anomalies panels), `mutation-stream/mutation-stream-webview-ass
 `profiler/profiler-html.ts`, `er-diagram/er-diagram-styles.ts` (webview only),
 `constraint-wizard/constraint-wizard-shell.ts`, `isar-gen/isar-gen-html.ts`,
 `branching/branch-html.ts`, `seeder/seeder-html-shell.ts`,
-`filters/filter-bridge-script.ts`, and `editing/editing-bridge-script.ts`. The two bridge
-scripts build inline `style="…"` strings injected into the data-grid webview, which carries
-the same token `:root`, so `var(--status-bad)` resolves there too.
+`filters/filter-bridge-script.ts`, and `editing/editing-bridge-script.ts`.
+
+The filter, editing, and foreign-key bridge scripts are a deliberate exception: they build
+inline `style="…"` strings injected into the main data-viewer webview, whose HTML is fetched
+from the Drift debug server rather than built through `secureWebviewHtml`, so the custom
+token `:root` is NOT present there. Those three scripts therefore reference the
+always-injected `--vscode-*` theme variables directly (`--vscode-charts-green` /
+`--vscode-charts-red` / `--vscode-textLink-foreground` / `--vscode-foreground` /
+`--vscode-panel-border`, each with a hex fallback) instead of the custom tokens — that is
+what actually follows the editor theme in a webview the token block never reaches. The
+transient loading/error page set directly on `webview.html` in `panel.ts` uses
+`var(--vscode-foreground, #ccc)` for the same reason.
 
 **Standalone schema-docs export re-skinned to the brand palette.** `DocsHtmlRenderer`
 (`schema-docs/docs-html-renderer.ts`) emits a self-contained HTML documentation file that has
@@ -101,6 +110,9 @@ they predate this change and are outside its color-only scope.
   `extension/src/seeder/seeder-html-shell.ts`,
   `extension/src/filters/filter-bridge-script.ts`,
   `extension/src/editing/editing-bridge-script.ts`,
+  `extension/src/navigation/fk-navigator-script.ts`,
+  `extension/src/sql-notebook/sql-notebook-styles.ts`,
+  `extension/src/panel.ts`,
   `extension/src/schema-docs/docs-html-renderer.ts`
 - Changed (docs): `CHANGELOG.md`, `docs/launch/LAUNCH_TEST.md`
 - Created: `plans/history/2026.06/2026.06.14/theme-token-second-status-cluster.md`
