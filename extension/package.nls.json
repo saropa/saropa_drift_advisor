@@ -12,6 +12,8 @@
   "command.openInBrowser.title": "Open in Browser",
   "command.openInPanel.title": "Open in Editor Panel",
   "command.refreshTree.title": "Refresh",
+  "command.groupTablesByName.title": "Group Tables by Name",
+  "command.flattenTables.title": "Show Tables as Flat List",
   "command.viewTableData.title": "View Table Data",
   "command.goToDriftTableDefinition.title": "Go to Table Definition (Dart)",
   "command.goToDriftColumnDefinition.title": "Go to Column Definition (Dart)",

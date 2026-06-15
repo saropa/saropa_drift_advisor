@@ -7,8 +7,10 @@ import {
   ColumnItem,
   ConnectionStatusItem,
   ForeignKeyItem,
+  TableGroupItem,
   TableItem,
 } from '../tree/tree-items';
+import { TableGroupingStore } from '../tree/table-grouping-store';
 
 describe('DriftTreeProvider', () => {
   let fetchStub: sinon.SinonStub;
@@ -189,6 +191,75 @@ describe('DriftTreeProvider', () => {
     it('should return the element itself', () => {
       const item = new ConnectionStatusItem('http://localhost', true);
       assert.strictEqual(provider.getTreeItem(item), item);
+    });
+  });
+
+  describe('group tables by name', () => {
+    // Minimal Memento backing the grouping toggle without a real workspace.
+    function fakeMemento(): any {
+      const data = new Map<string, unknown>();
+      return {
+        get: (key: string, def?: unknown) => (data.has(key) ? data.get(key) : def),
+        update: (key: string, value: unknown) => {
+          data.set(key, value);
+          return Promise.resolve();
+        },
+        keys: () => [...data.keys()],
+      };
+    }
+
+    const groupedMetadata = [
+      { name: 'contact_avatars', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 1 },
+      { name: 'contact_groups', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 1 },
+      { name: 'activities', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 1 },
+    ];
+
+    async function loadGrouped(): Promise<DriftTreeProvider> {
+      fetchStub.onFirstCall().resolves(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      fetchStub.onSecondCall().resolves(new Response(JSON.stringify(groupedMetadata), { status: 200 }));
+      const store = new TableGroupingStore(fakeMemento());
+      await store.setGrouped(true);
+      provider.setGroupingStore(store);
+      await provider.refresh();
+      return provider;
+    }
+
+    it('bundles tables sharing a prefix into a TableGroupItem and leaves singletons flat', async () => {
+      await loadGrouped();
+      const root = await provider.getChildren();
+
+      const group = root.find((n) => n instanceof TableGroupItem) as TableGroupItem | undefined;
+      assert.ok(group, 'expected a contact_* group node');
+      assert.strictEqual(group!.groupKey, 'contact');
+      assert.strictEqual(group!.tables.length, 2);
+
+      // The lone "activities" table has no prefix-mate, so it stays a flat TableItem.
+      const singleton = root.find(
+        (n) => n instanceof TableItem && (n as TableItem).table.name === 'activities',
+      );
+      assert.ok(singleton, 'activities should remain a flat table, not a group');
+    });
+
+    it('returns the member tables when a group node is expanded', async () => {
+      await loadGrouped();
+      const root = await provider.getChildren();
+      const group = root.find((n) => n instanceof TableGroupItem) as TableGroupItem;
+
+      const members = await provider.getChildren(group);
+      assert.strictEqual(members.length, 2);
+      assert.deepStrictEqual(
+        members.map((m) => (m as TableItem).table.name),
+        ['contact_avatars', 'contact_groups'],
+      );
+    });
+
+    it('shows a flat table list when grouping is off (default)', async () => {
+      fetchStub.onFirstCall().resolves(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      fetchStub.onSecondCall().resolves(new Response(JSON.stringify(groupedMetadata), { status: 200 }));
+      await provider.refresh();
+
+      const root = await provider.getChildren();
+      assert.ok(!root.some((n) => n instanceof TableGroupItem), 'no groups when toggle is off');
     });
   });
 });

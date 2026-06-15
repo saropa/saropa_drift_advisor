@@ -108,6 +108,7 @@ describe('Extension activation', () => {
     // FK navigation: fkNavigator (1)
     // Saved filters: filterBridge (1)
     // Pin store: pinTable, unpinTable, onDidChange, dispose (4)
+    // Grouping store: groupTablesByName, flattenTables, onDidChange, dispose (4)
     // Source navigation: goToDriftTableDefinition, goToDriftColumnDefinition (2)
     // Health score: healthScore (1)
     // Impact analysis: analyzeRowImpact (1)
@@ -139,7 +140,9 @@ describe('Extension activation', () => {
     //   debounce-timer dispose, writeDiagnosticsMirror command (+3).
     // Suite Drift Health (plan 67 R4): openDriftHealth command (+1).
     // Suite Commit Timeline (plan 67 R6 / §6): openCommitTimeline command (+1).
-    assert.strictEqual(subscriptions.length, 224, `expected 224 disposables, got ${subscriptions.length}`);
+    // Sidebar grouping: TableGroupingStore groupTablesByName + flattenTables +
+    //   onDidChange listener + store dispose (+4).
+    assert.strictEqual(subscriptions.length, 228, `expected 228 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

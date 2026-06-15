@@ -55,6 +55,27 @@ export class PinnedGroupItem extends vscode.TreeItem {
   }
 }
 
+/**
+ * Collapsible group node for the "group tables by name" toggle. Bundles all
+ * tables that share a name prefix (the part before the first underscore, e.g.
+ * every `contact_*` table) so a wide schema collapses into navigable sections.
+ * Carries its member [TableItem]s so the provider can return them on expand
+ * without recomputing the grouping.
+ */
+export class TableGroupItem extends vscode.TreeItem {
+  constructor(
+    public readonly groupKey: string,
+    public readonly tables: TableItem[],
+  ) {
+    super(groupKey, vscode.TreeItemCollapsibleState.Collapsed);
+    const count = tables.length;
+    this.description = `${count} table${count === 1 ? '' : 's'}`;
+    this.iconPath = new vscode.ThemeIcon('symbol-namespace');
+    this.contextValue = 'driftTableGroup';
+    this.tooltip = `${count} tables prefixed "${groupKey}_"`;
+  }
+}
+
 export class TableItem extends vscode.TreeItem {
   constructor(
     public readonly table: TableMetadata,

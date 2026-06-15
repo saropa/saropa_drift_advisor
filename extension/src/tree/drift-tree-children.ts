@@ -12,6 +12,7 @@ import {
   ForeignKeyItem,
   PinnedGroupItem,
   SchemaRestFailureBannerItem,
+  TableGroupItem,
   TableItem,
 } from './tree-items';
 import {
@@ -26,6 +27,7 @@ export type TreeNode =
   | DisconnectedBannerItem
   | SchemaRestFailureBannerItem
   | PinnedGroupItem
+  | TableGroupItem
   | ActionItem
   | TableItem
   | ColumnItem
@@ -39,6 +41,11 @@ export interface TreeChildrenState {
   isDriftUiConnected: () => boolean;
   tableItems: TableItem[];
   annotationStore?: AnnotationStore;
+  /**
+   * When true, unpinned tables are bundled into [TableGroupItem]s by name prefix.
+   * Optional so existing callers (and tests) default to the flat list.
+   */
+  grouped?: boolean;
 }
 
 /**
@@ -84,8 +91,15 @@ export async function resolveChildren(
     if (pinned.length > 0) {
       items.push(new PinnedGroupItem(pinned.length));
     }
-    items.push(...pinned, ...unpinned);
+    // Pinned tables stay flat for quick access; only the unpinned list is grouped.
+    items.push(...pinned);
+    items.push(...(state.grouped ? groupTablesByName(unpinned) : unpinned));
     return items;
+  }
+
+  // Group level: return the member tables (already built, no recompute).
+  if (element instanceof TableGroupItem) {
+    return element.tables;
   }
 
   // Table level: columns + foreign keys (lazy-loaded)
@@ -105,6 +119,48 @@ export async function resolveChildren(
   }
 
   return [];
+}
+
+/**
+ * Derive the grouping key for a table: the name segment before the first
+ * underscore (e.g. `contact_avatars` -> `contact`). Tables with no underscore
+ * are their own key, so they never collapse under an unrelated prefix.
+ */
+function tableGroupKey(name: string): string {
+  const underscore = name.indexOf('_');
+  return underscore === -1 ? name : name.slice(0, underscore);
+}
+
+/**
+ * Bundle tables that share a name prefix into [TableGroupItem]s, leaving
+ * single-member prefixes as plain [TableItem]s (a one-table "group" is noise).
+ * Groups and lone tables are interleaved alphabetically by key so the order
+ * matches a flat alphabetical list with related tables nested.
+ */
+function groupTablesByName(tables: TableItem[]): TreeNode[] {
+  const byKey = new Map<string, TableItem[]>();
+  for (const item of tables) {
+    const key = tableGroupKey(item.table.name);
+    const bucket = byKey.get(key) ?? [];
+    bucket.push(item);
+    byKey.set(key, bucket);
+  }
+
+  // Each entry sorts by its key (group prefix) or, for lone tables, the table
+  // name — which equals the key when there is no underscore, and otherwise
+  // shares the prefix, so a single localeCompare on the key orders both kinds.
+  const entries = [...byKey.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+  const nodes: TreeNode[] = [];
+  for (const [key, members] of entries) {
+    if (members.length === 1) {
+      nodes.push(members[0]);
+      continue;
+    }
+    members.sort((a, b) => a.table.name.localeCompare(b.table.name));
+    nodes.push(new TableGroupItem(key, members));
+  }
+  return nodes;
 }
 
 /** Max characters for an annotation preview in tree item descriptions. */

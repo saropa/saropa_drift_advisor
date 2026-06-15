@@ -133,6 +133,18 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.groupTablesByName",
+        "title": "%command.groupTablesByName.title%",
+        "icon": "$(list-tree)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.flattenTables",
+        "title": "%command.flattenTables.title%",
+        "icon": "$(list-flat)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.viewTableData",
         "title": "%command.viewTableData.title%",
         "category": "Saropa Drift Advisor"
@@ -447,7 +459,7 @@
       {
         "command": "driftViewer.askNaturalLanguage",
         "title": "%command.askNaturalLanguage.title%",
-        "icon": "$(comment-discussion)",
+        "icon": "$(sparkle)",
         "category": "Saropa Drift Advisor"
       },
       {
@@ -935,34 +947,119 @@
     "menus": {
       "view/title": [
         {
-          "command": "driftViewer.aboutSaropa",
+          "command": "driftViewer.refreshTree",
           "when": "view == driftViewer.databaseExplorer",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "driftViewer.groupTablesByName",
+          "when": "view == driftViewer.databaseExplorer && !driftViewer.tablesGrouped",
+          "group": "navigation@2"
+        },
+        {
+          "command": "driftViewer.flattenTables",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.tablesGrouped",
+          "group": "navigation@2"
+        },
+        {
+          "command": "driftViewer.openDashboard",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation@3"
+        },
+        {
+          "command": "driftViewer.healthScore",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation@4"
+        },
+        {
+          "command": "driftViewer.askNaturalLanguage",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation@5"
+        },
+        {
+          "command": "driftViewer.showToolsQuickPick",
+          "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation@6"
         },
         {
           "command": "driftViewer.openInBrowser",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "navigation"
+          "group": "1_explore@1"
         },
         {
           "command": "driftViewer.openDvr",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected && inDebugMode",
-          "group": "navigation"
+          "group": "1_explore@2"
         },
         {
-          "command": "driftViewer.refreshTree",
+          "command": "driftViewer.openBookmarks",
           "when": "view == driftViewer.databaseExplorer",
-          "group": "navigation"
+          "group": "1_explore@3"
         },
         {
-          "command": "driftViewer.openBranches",
+          "command": "driftViewer.showErDiagram",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "1_tools"
+          "group": "1_explore@4"
         },
         {
           "command": "driftViewer.generateSchemaDocs",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "1_more"
+          "group": "1_explore@5"
+        },
+        {
+          "command": "driftViewer.globalSearch",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "2_data@1"
+        },
+        {
+          "command": "driftViewer.importDataset",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "2_data@2"
+        },
+        {
+          "command": "driftViewer.openSnippetLibrary",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "2_data@3"
+        },
+        {
+          "command": "driftViewer.isarToDrift",
+          "when": "view == driftViewer.databaseExplorer",
+          "group": "2_data@4"
+        },
+        {
+          "command": "driftViewer.openBranches",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "2_data@5"
+        },
+        {
+          "command": "driftViewer.suggestSchemaRefactorings",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "3_quality@1"
+        },
+        {
+          "command": "driftViewer.manageInvariants",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "3_quality@2"
+        },
+        {
+          "command": "driftViewer.exportReport",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "3_quality@3"
+        },
+        {
+          "command": "driftViewer.clearAnnotations",
+          "when": "view == driftViewer.databaseExplorer",
+          "group": "3_quality@4"
+        },
+        {
+          "command": "driftViewer.aboutSaropa",
+          "when": "view == driftViewer.databaseExplorer",
+          "group": "4_about@1"
+        },
+        {
+          "command": "driftViewer.addPackageToProject",
+          "when": "view == driftViewer.databaseExplorer && !driftViewer.packageInstalled",
+          "group": "4_about@2"
         },
         {
           "command": "driftViewer.refreshPerformance",
@@ -990,83 +1087,8 @@
           "group": "navigation"
         },
         {
-          "command": "driftViewer.importDataset",
-          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "1_more"
-        },
-        {
-          "command": "driftViewer.globalSearch",
-          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "1_more"
-        },
-        {
-          "command": "driftViewer.openBookmarks",
-          "when": "view == driftViewer.databaseExplorer",
-          "group": "navigation"
-        },
-        {
-          "command": "driftViewer.clearAnnotations",
-          "when": "view == driftViewer.databaseExplorer",
-          "group": "1_more"
-        },
-        {
-          "command": "driftViewer.isarToDrift",
-          "when": "view == driftViewer.databaseExplorer",
-          "group": "1_more"
-        },
-        {
-          "command": "driftViewer.openSnippetLibrary",
-          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "1_more"
-        },
-        {
-          "command": "driftViewer.suggestSchemaRefactorings",
-          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "1_more"
-        },
-        {
-          "command": "driftViewer.healthScore",
-          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "navigation"
-        },
-        {
-          "command": "driftViewer.openDashboard",
-          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "navigation"
-        },
-        {
-          "command": "driftViewer.showToolsQuickPick",
-          "when": "view == driftViewer.databaseExplorer",
-          "group": "navigation"
-        },
-        {
-          "command": "driftViewer.manageInvariants",
-          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "1_more"
-        },
-        {
-          "command": "driftViewer.showErDiagram",
-          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "1_more"
-        },
-        {
-          "command": "driftViewer.exportReport",
-          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
-          "group": "1_more"
-        },
-        {
-          "command": "driftViewer.addPackageToProject",
-          "when": "view == driftViewer.databaseExplorer && !driftViewer.packageInstalled",
-          "group": "1_more"
-        },
-        {
           "command": "driftViewer.openWalkthrough",
           "when": "view == driftViewer.toolbox",
-          "group": "navigation"
-        },
-        {
-          "command": "driftViewer.askNaturalLanguage",
-          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
         }
       ],

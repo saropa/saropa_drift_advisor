@@ -7,6 +7,7 @@ import type { FkNavigator } from '../navigation/fk-navigator';
 import type { ServerManager } from '../server-manager';
 import { DriftViewerPanel } from '../panel';
 import { PinStore } from './pin-store';
+import { TableGroupingStore } from './table-grouping-store';
 import { ColumnItem, TableItem } from './tree-items';
 import { exportTable } from '../export/format-export';
 import { snakeToPascal } from '../dart-names';
@@ -57,6 +58,23 @@ export function registerTreeCommands(
     ),
     pinStore.onDidChange(() => treeProvider.refresh()),
     { dispose: () => pinStore.dispose() },
+  );
+
+  // Group-by-name toggle — two commands so the toolbar can swap icon by state.
+  // Re-render only (no server refetch): the table set is unchanged, only its
+  // presentation differs.
+  const groupingStore = new TableGroupingStore(context.workspaceState);
+  treeProvider.setGroupingStore(groupingStore);
+  void groupingStore.syncContext();
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.groupTablesByName', () => {
+      void groupingStore.setGrouped(true);
+    }),
+    vscode.commands.registerCommand('driftViewer.flattenTables', () => {
+      void groupingStore.setGrouped(false);
+    }),
+    groupingStore.onDidChange(() => treeProvider.rerender()),
+    { dispose: () => groupingStore.dispose() },
   );
 
   context.subscriptions.push(
