@@ -182,7 +182,7 @@ export function buildBreakpointFormHtml(
     if (type === 'conditionMet') {
       condition = document.getElementById('condition').value.trim();
       if (!condition) {
-        document.getElementById('condition').style.borderColor = '#ef4444';
+        document.getElementById('condition').style.borderColor = 'var(--status-bad)';
         return;
       }
     }

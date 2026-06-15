@@ -17,7 +17,7 @@ export function getRefactoringHtml(): string {
   .muted { opacity: 0.8; font-size: 12px; margin-bottom: 12px; }
   .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
   button { font: inherit; font-size: 12px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 10px; border-radius: 2px; cursor: pointer; }
-  button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+  button.secondary { background: var(--vscode-button-secondaryBackground, var(--surface-3)); color: var(--vscode-button-secondaryForeground, var(--text)); }
   .card { border: 1px solid var(--vscode-widget-border); border-radius: 4px; padding: 10px; margin-bottom: 10px; }
   .card h2 { font-size: 13px; margin: 0 0 6px; }
   .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }

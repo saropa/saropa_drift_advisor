@@ -24,6 +24,8 @@
 
 import * as crypto from 'crypto';
 
+import { getWebviewTokens } from './views/design-tokens';
+
 /** A fresh, unguessable per-render nonce. 128 bits is ample for a CSP nonce. */
 export function getNonce(): string {
   return crypto.randomBytes(16).toString('base64');
@@ -98,9 +100,17 @@ export function secureWebviewHtml(
 
   const meta =
     `<meta http-equiv="Content-Security-Policy" content="${buildWebviewCsp(nonce, opts)}">`;
+
+  // Define the canonical Saropa design tokens once for EVERY webview, here at
+  // the single choke point all panels pass through, rather than each panel
+  // prepending them to its own stylesheet. Panels reference var(--status-bad),
+  // var(--brand), etc.; this is where those names resolve. style-src allows
+  // 'unsafe-inline' so the injected <style> needs no nonce. See design-tokens.ts.
+  const headAdditions =
+    `${meta}<style data-saropa-tokens>${getWebviewTokens()}</style>`;
   out = CSP_META_RE.test(out)
-    ? out.replace(CSP_META_RE, meta)
-    : out.replace(/<head(\s[^>]*)?>/i, (m) => `${m}${meta}`);
+    ? out.replace(CSP_META_RE, headAdditions)
+    : out.replace(/<head(\s[^>]*)?>/i, (m) => `${m}${headAdditions}`);
 
   // The dispatcher is our own trusted script, so it takes the real nonce directly.
   const dispatcher =

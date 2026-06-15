@@ -169,7 +169,7 @@ export function buildAnnotateFormHtml(ctx: IAnnotateFormContext): string {
     const icon = document.querySelector('input[name="icon"]:checked')?.value;
     const note = document.getElementById('note').value.trim();
     if (!note) {
-      document.getElementById('note').style.borderColor = '#ef4444';
+      document.getElementById('note').style.borderColor = 'var(--status-bad)';
       return;
     }
     vscode.postMessage({ command: 'submit', icon, note });

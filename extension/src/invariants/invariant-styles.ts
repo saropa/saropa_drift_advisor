@@ -54,9 +54,9 @@ export function getInvariantStyles(): string {
     margin-bottom: 16px;
     background: var(--vscode-editor-inactiveSelectionBackground);
   }
-  .summary.status-pass { border-left: 3px solid #22c55e; }
-  .summary.status-fail { border-left: 3px solid #ef4444; }
-  .summary.status-pending { border-left: 3px solid #eab308; }
+  .summary.status-pass { border-left: 3px solid var(--status-good); }
+  .summary.status-fail { border-left: 3px solid var(--status-bad); }
+  .summary.status-pending { border-left: 3px solid var(--accent-warning); }
   .summary-stat {
     display: flex;
     flex-direction: column;
@@ -99,10 +99,10 @@ export function getInvariantStyles(): string {
     padding: 12px;
     background: var(--vscode-editor-background);
   }
-  .card.pass { border-left: 3px solid #22c55e; }
-  .card.fail { border-left: 3px solid #ef4444; }
-  .card.error { border-left: 3px solid #f97316; }
-  .card.pending { border-left: 3px solid #eab308; }
+  .card.pass { border-left: 3px solid var(--status-good); }
+  .card.fail { border-left: 3px solid var(--status-bad); }
+  .card.error { border-left: 3px solid var(--accent-high); }
+  .card.pending { border-left: 3px solid var(--accent-warning); }
   .card.disabled { opacity: 0.5; }
   .card-header {
     display: flex;
@@ -130,9 +130,9 @@ export function getInvariantStyles(): string {
     border-radius: 3px;
     text-transform: uppercase;
   }
-  .severity-error { background: #ef4444; color: white; }
-  .severity-warning { background: #eab308; color: black; }
-  .severity-info { background: #3b82f6; color: white; }
+  .severity-error { background: var(--status-bad); color: white; }
+  .severity-warning { background: var(--accent-warning); color: black; }
+  .severity-info { background: var(--accent-info); color: white; }
   .card-actions {
     display: flex;
     gap: 4px;
@@ -150,7 +150,7 @@ export function getInvariantStyles(): string {
     background: var(--vscode-list-hoverBackground);
   }
   .icon-btn.danger:hover {
-    background: #ef4444;
+    background: var(--status-bad);
     color: white;
   }
   .card-sql {
@@ -176,17 +176,17 @@ export function getInvariantStyles(): string {
     padding: 4px 8px;
     border-radius: 3px;
   }
-  .result.pass { color: #22c55e; }
-  .result.fail { color: #ef4444; }
-  .result.error { color: #f97316; }
-  .result.pending { color: #eab308; }
+  .result.pass { color: var(--status-good); }
+  .result.fail { color: var(--status-bad); }
+  .result.error { color: var(--accent-high); }
+  .result.pending { color: var(--accent-warning); }
   .result.disabled { color: var(--vscode-disabledForeground); }
   .violations {
     font-size: 11px;
     opacity: 0.8;
     margin-top: 4px;
     padding-left: 8px;
-    border-left: 2px solid #ef4444;
+    border-left: 2px solid var(--status-bad);
   }
 `;
 }

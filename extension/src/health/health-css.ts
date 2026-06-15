@@ -2,6 +2,9 @@
  * CSS for the database health-score dashboard webview. Split out of
  * health-html.ts so the builder file stays focused on structure and the
  * per-section HTML helpers.
+ *
+ * The design tokens referenced here (var(--grade-*), var(--status-*), etc.) are
+ * injected centrally by secureWebviewHtml — see views/design-tokens.ts.
  */
 export function getHealthCss(): string {
   return `
@@ -44,11 +47,11 @@ export function getHealthCss(): string {
     opacity: 0.7;
     margin-top: 4px;
   }
-  .grade-a { color: #22c55e; }
-  .grade-b { color: #84cc16; }
-  .grade-c { color: #eab308; }
-  .grade-d { color: #f97316; }
-  .grade-f { color: #ef4444; }
+  .grade-a { color: var(--grade-a); }
+  .grade-b { color: var(--grade-b); }
+  .grade-c { color: var(--grade-c); }
+  .grade-d { color: var(--grade-d); }
+  .grade-f { color: var(--grade-f); }
   .cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -104,9 +107,9 @@ export function getHealthCss(): string {
     gap: 8px;
   }
   .rec-icon { flex-shrink: 0; width: 16px; text-align: center; }
-  .rec-error .rec-icon { color: #ef4444; }
-  .rec-warning .rec-icon { color: #eab308; }
-  .rec-info .rec-icon { color: #3b82f6; }
+  .rec-error .rec-icon { color: var(--status-bad); }
+  .rec-warning .rec-icon { color: var(--accent-warning); }
+  .rec-info .rec-icon { color: var(--accent-info); }
   .rec-metric {
     opacity: 0.5;
     font-size: 11px;

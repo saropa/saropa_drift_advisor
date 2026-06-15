@@ -12,7 +12,7 @@ export function getQueryBuilderCss(): string {
   select, input, button { font: inherit; font-size: 12px; }
   select, input { width: 100%; box-sizing: border-box; margin-bottom: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 4px 6px; }
   button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 5px 8px; border-radius: 2px; cursor: pointer; margin-right: 6px; }
-  button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+  button.secondary { background: var(--vscode-button-secondaryBackground, var(--surface-3)); color: var(--vscode-button-secondaryForeground, var(--text)); }
   .table-card { border: 1px solid var(--vscode-widget-border); border-radius: 4px; margin-bottom: 8px; padding: 6px; }
   .table-title { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
   .cols { max-height: 140px; overflow: auto; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--vscode-widget-border); }

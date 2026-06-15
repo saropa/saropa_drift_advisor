@@ -64,7 +64,7 @@ export function getWatchHtml(): string {
   .btn {
     cursor: pointer;
     background: none;
-    border: 1px solid var(--vscode-button-secondaryBackground);
+    border: 1px solid var(--vscode-button-secondaryBackground, var(--border));
     color: var(--vscode-textLink-foreground);
     border-radius: 3px;
     padding: 2px 8px;

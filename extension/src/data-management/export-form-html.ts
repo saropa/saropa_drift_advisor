@@ -93,7 +93,7 @@ export function buildExportFormHtml(
     font-family: var(--vscode-editor-font-family);
   }
   .error-text {
-    color: #ef4444;
+    color: var(--status-bad);
     font-size: 11px;
     margin-top: 4px;
     display: none;

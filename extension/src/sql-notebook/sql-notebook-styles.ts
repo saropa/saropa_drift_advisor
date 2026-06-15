@@ -86,8 +86,8 @@ export function getNotebookCss(): string {
   .toolbar { display: flex; gap: 6px; padding: 0 8px 8px 8px; flex-wrap: wrap; }
   .toolbar button {
     padding: 4px 12px; cursor: pointer; border: none; border-radius: 3px;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
+    background: var(--vscode-button-secondaryBackground, var(--surface-3));
+    color: var(--vscode-button-secondaryForeground, var(--text));
     font-size: var(--vscode-font-size);
   }
   .toolbar button:hover:not(:disabled) {
@@ -122,8 +122,8 @@ export function getNotebookCss(): string {
   .result-filter:focus { border-color: var(--vscode-focusBorder); }
   .filter-toggle-btn, .col-visibility-btn {
     padding: 4px 10px; cursor: pointer; border: none; border-radius: 3px;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
+    background: var(--vscode-button-secondaryBackground, var(--surface-3));
+    color: var(--vscode-button-secondaryForeground, var(--text));
     font-size: var(--vscode-font-size); white-space: nowrap;
   }
   .filter-toggle-btn:hover, .col-visibility-btn:hover {
@@ -149,8 +149,8 @@ export function getNotebookCss(): string {
   }
   .col-chooser-action {
     padding: 2px 8px; cursor: pointer; border: none; border-radius: 3px;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground); font-size: 0.85em;
+    background: var(--vscode-button-secondaryBackground, var(--surface-3));
+    color: var(--vscode-button-secondaryForeground, var(--text)); font-size: 0.85em;
   }
   .col-chooser-action:hover {
     background: var(--vscode-button-secondaryHoverBackground);

@@ -1,29 +1,36 @@
 /** Returns self-contained CSS for the portable report HTML. */
 export function getReportCss(): string {
   return `
+/* Standalone export palette: the canonical Saropa brand fallback (style guide
+   §3.6) baked in, since an emailed / CI-artifact report has no host theme to
+   inherit. The local token NAMES (--bg, --accent, …) are kept so the report's
+   markup is unchanged; only the VALUES move to the brand palette — brand orange
+   replaces the former blue accent, surfaces/text/borders adopt the guide's
+   neutrals, and anomaly colors match the semantic status fallbacks. The
+   [data-theme] toggle below is the report's own dark mechanism, left intact. */
 :root {
-  --bg: #ffffff; --fg: #1a1a1a; --border: #e0e0e0;
-  --accent: #0066cc; --accent-fg: #ffffff;
-  --hover-bg: #f5f5f5; --sidebar-bg: #f8f8f8;
-  --search-bg: #ffffff; --search-border: #ccc;
-  --badge-bg: #0066cc; --badge-fg: #ffffff;
-  --truncated: #e67e22; --null-fg: #999;
-  --schema-bg: #f4f4f4; --code-fg: #1a1a1a;
-  --anomaly-error: #e74c3c; --anomaly-warning: #f39c12; --anomaly-info: #3498db;
+  --bg: #fafaf9; --fg: #0f172a; --border: #e5e7eb;
+  --accent: #ea580c; --accent-fg: #ffffff;
+  --hover-bg: #f5f5f4; --sidebar-bg: #f5f5f4;
+  --search-bg: #ffffff; --search-border: #cbd5e1;
+  --badge-bg: #ea580c; --badge-fg: #ffffff;
+  --truncated: #d97706; --null-fg: #64748b;
+  --schema-bg: #eeeeec; --code-fg: #0f172a;
+  --anomaly-error: #dc2626; --anomaly-warning: #d97706; --anomaly-info: #2563eb;
   --tab-bg: transparent; --tab-active-bg: var(--accent); --tab-active-fg: #ffffff;
-  --pagination-bg: #f0f0f0;
+  --pagination-bg: #eeeeec;
 }
 [data-theme="dark"] {
-  --bg: #1e1e1e; --fg: #d4d4d4; --border: #444;
-  --accent: #4da6ff; --accent-fg: #1e1e1e;
-  --hover-bg: #2a2a2a; --sidebar-bg: #252525;
-  --search-bg: #2a2a2a; --search-border: #555;
-  --badge-bg: #4da6ff; --badge-fg: #1e1e1e;
-  --truncated: #f39c12; --null-fg: #666;
-  --schema-bg: #252525; --code-fg: #d4d4d4;
-  --anomaly-error: #e74c3c; --anomaly-warning: #f39c12; --anomaly-info: #4da6ff;
-  --tab-active-bg: #4da6ff; --tab-active-fg: #1e1e1e;
-  --pagination-bg: #2a2a2a;
+  --bg: #0a0f1c; --fg: #f1f5f9; --border: rgba(148,163,184,.18);
+  --accent: #fb923c; --accent-fg: #0a0f1c;
+  --hover-bg: #1e293b; --sidebar-bg: #0f172a;
+  --search-bg: #0b1220; --search-border: #334155;
+  --badge-bg: #ea580c; --badge-fg: #ffffff;
+  --truncated: #f59e0b; --null-fg: #94a3b8;
+  --schema-bg: #1e293b; --code-fg: #f1f5f9;
+  --anomaly-error: #f87171; --anomaly-warning: #fbbf24; --anomaly-info: #60a5fa;
+  --tab-active-bg: var(--accent); --tab-active-fg: #0a0f1c;
+  --pagination-bg: #1e293b;
 }
 * { box-sizing: border-box; }
 body {

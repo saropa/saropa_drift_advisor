@@ -70,8 +70,8 @@ export function buildPerfBaselineHtml(
   }
   .btn:hover { opacity: 0.9; }
   .btn-danger {
-    background: #ef4444;
-    border-color: #ef4444;
+    background: var(--status-bad);
+    border-color: var(--status-bad);
     color: #fff;
   }
   .btn-group { display: flex; gap: 6px; }
@@ -101,7 +101,7 @@ export function buildPerfBaselineHtml(
     background: var(--vscode-editor-background);
   }
   tr:hover { background: var(--vscode-list-hoverBackground); }
-  .slow-row { background: #ef444411; }
+  .slow-row { background: color-mix(in srgb, var(--status-bad) 7%, transparent); }
   .num { text-align: right; font-family: var(--vscode-editor-font-family); }
   .sql-cell {
     max-width: 400px;
