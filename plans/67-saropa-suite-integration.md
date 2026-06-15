@@ -1,5 +1,12 @@
 # Feature 67: Saropa Suite Integration (Drift Advisor side)
 
+> **Status: Closed — reference guide, not an active plan (2026-06-14).** The Advisor side (R1–R6)
+> shipped in the Drift Viewer extension, is tested, and is published (4.0.1). Retained in place (not
+> moved or archived) because the sibling repos and the cross-repo orchestration doc reference it by
+> absolute path, and it is the canonical envelope schema reference. The one outstanding item — a
+> visual/a11y audit of the Drift Health, Commit Timeline, and Suite Findings panels — is a manual
+> LAUNCH_TEST check, not tracked active work.
+
 **Created:** 2026-06-13
 **What it does:** Defines how Saropa Drift Advisor links with its two sibling tools so a
 developer's static code, live database, and runtime behavior become one correlated picture instead
