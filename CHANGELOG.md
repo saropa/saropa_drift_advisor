@@ -42,7 +42,21 @@ browse source on
 
 ---
 
-## [4.0.1]
+## [Unreleased]
+
+### Added
+
+- **Group tables by name in the Database sidebar.** A new toolbar toggle bundles tables that share a name prefix (every `contact_*` table, every `checklist_*` table, and so on) into collapsible sections, so a wide schema is much easier to scan. Toggle it off to return to the flat list; the choice is remembered per workspace. Pinned tables stay flat at the top either way.
+
+### Changed
+
+- **Reorganized the Database sidebar toolbar.** Everyday actions (Refresh, group toggle, Dashboard, Health Score, Ask in English, Tools) stay as inline buttons; the rest are sorted into labeled sections — Explore, Data, Quality, About — in the `…` overflow menu so they are easier to find. The "Ask in English" button now uses a sparkle icon.
+
+### Fixed
+
+- **Dashboard "Explore Drift Advisor" feature buttons now look like buttons.** In many color themes the secondary-button background blended into the card behind it and the buttons had no border, so they read as plain text. They now carry a visible border and theme-neutral fallbacks.
+- **The Row Count widget no longer shows "NaN".** It read the count by array position, but the server returns each result row as an object keyed by column name, so the lookup missed and produced NaN. It now reads the value correctly and shows 0 for an empty table.
+- **The Table Preview widget now shows column headers and cell values.** It expected positional rows and a separate column list, but the server returns rows as objects keyed by column name (and omits the column list over HTTP), so the preview rendered with no headers and blank cells. It now derives columns from the row data and fills the cells.
 
 <details><summary>Maintenance</summary>
 
@@ -50,6 +64,16 @@ browse source on
 - **Trimmed the published package from bloat (~2 MB archive).** Because pub ignores `.gitignore` once a `.pubignore` exists, `.gitignore`'d directories (`build/`, generated `doc/api/`) plus developer-only directories (`bugs/`, `plans/`, `reports/`, `scripts/`, `tool/`) were being bundled. All are now listed in `.pubignore`; consumers do not need them at runtime.
 - **Added a regression test** (`test/version_sync_test.dart`) asserting `.pubignore` excludes the top-level `docs/` directory, so the publish-blocking pub layout warning cannot silently return.
 - **Made the extension publish idempotent against store propagation lag.** Marketplace/Open VSX listings lag publish acceptance by minutes, so a `--resume` retry could read a stale older version, miss the version-skip guard, and re-attempt a publish the store rejected with "already exists" — aborting the pipeline even though the target version was already live. `publish_marketplace`/`publish_openvsx` now treat that rejection as success.
+
+</details>
+
+---
+
+## [4.0.1]
+
+<!-- cspell:ignore GHSA-gv7w-rqvm-qjhr -->
+<details><summary>Maintenance</summary>
+
 - **Bumped esbuild to 0.28.1** (from 0.28.0) to clear advisory [GHSA-gv7w-rqvm-qjhr](https://github.com/advisories/GHSA-gv7w-rqvm-qjhr) — the esbuild Deno module wrote downloaded native binaries to disk without SHA-256 integrity verification, allowing RCE when `NPM_CONFIG_REGISTRY` is attacker-controlled. The exploit path is Deno-only (`lib/deno/mod.ts`); this project builds via Node (`node esbuild.config.mjs`), so it was not exposed, but the floor is raised to the patched release regardless. esbuild is a devDependency (web-viewer bundle build only) and ships in no released artifact.
 
 </details>

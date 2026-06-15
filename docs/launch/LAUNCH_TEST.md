@@ -41,3 +41,25 @@ window against a running Drift debug server.
       and high-contrast themes; dyslexia-friendly font; RTL editor locale. Check contrast (WCAG AA),
       no overflow/misalignment at narrow and wide widths, and visible keyboard focus on all controls.
       This is the one manual check the code-level work could not self-verify headless.
+
+## Database sidebar toolbar + table grouping
+
+### Group tables by name
+- [ ] In the **Database** sidebar (left activity bar), click the **tree icon** in the header
+      (second inline button). Tables that share a name prefix collapse into groups — e.g. a
+      **contact** group holding `contact_avatars`, `contact_groups`, etc., a **checklist** group, and
+      so on. Tables with no prefix-mate (e.g. `activities`) stay flat.
+- [ ] Expand a group: it lists its member tables alphabetically; each table still expands to its
+      columns + foreign keys.
+- [ ] The header icon now shows the **flat-list icon**; click it to return to the ungrouped list.
+- [ ] Reload the window — the grouped/flat choice is remembered (per workspace).
+- [ ] Pin a table while grouped: it appears flat under **Pinned** at the top, not inside a group.
+
+### Reorganized toolbar
+- [ ] Inline header buttons are: Refresh, group toggle, Dashboard, Health Score, Ask in English
+      (sparkle icon), Tools.
+- [ ] The `…` overflow menu groups the rest into labeled sections separated by dividers: Explore
+      (Open in Browser, DVR, Bookmarks, ER Diagram, Schema Docs), Data (Global Search, Import
+      Dataset, Snippet Library, Isar→Drift, Branches), Quality (Suggest Refactorings, Invariants,
+      Export Report, Clear Annotations), About (About Saropa, Add Package).
+- [ ] When disconnected, the connection-gated buttons hide; Refresh, group toggle, and Tools remain.

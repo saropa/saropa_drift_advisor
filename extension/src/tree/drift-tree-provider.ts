@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import { DriftApiClient, TableMetadata } from '../api-client';
 import type { AnnotationStore } from '../annotations/annotation-store';
 import type { PinStore } from './pin-store';
+import type { TableGroupingStore } from './table-grouping-store';
 import { TableItem } from './tree-items';
 import { type TreeNode, resolveChildren } from './drift-tree-children';
 
@@ -46,6 +47,7 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private _tables: TableMetadata[] = [];
   private _tableItems: TableItem[] = [];
   private _pinStore?: PinStore;
+  private _groupingStore?: TableGroupingStore;
   private _connected = false;
   /** True when [refresh] could not reach the server but loaded schema from persist/cache. */
   private _offlineSchema = false;
@@ -93,6 +95,19 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
   setPinStore(store: PinStore): void {
     this._pinStore = store;
+  }
+
+  setGroupingStore(store: TableGroupingStore): void {
+    this._groupingStore = store;
+  }
+
+  /**
+   * Re-render the tree from the current in-memory schema without re-fetching
+   * from the server. Used by the "group tables by name" toggle: the table set
+   * is unchanged, only its presentation differs.
+   */
+  rerender(): void {
+    this._onDidChangeTreeData.fire();
   }
 
   /**
@@ -243,6 +258,7 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       isDriftUiConnected: this._isDriftUiConnected,
       tableItems: this._tableItems,
       annotationStore: this._annotationStore,
+      grouped: this._groupingStore?.grouped ?? false,
     });
   }
 

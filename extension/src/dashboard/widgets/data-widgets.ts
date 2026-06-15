@@ -50,8 +50,24 @@ export const DATA_WIDGETS: IWidgetDefinition[] = [
       return client.sql(`SELECT * FROM "${config.table}" LIMIT ${limit}`);
     },
     renderHtml: (data, _config) => {
-      const result = data as { columns: string[]; rows: unknown[][] };
-      return renderMiniTable(result.columns, result.rows);
+      const result = data as { columns?: string[]; rows?: unknown[] };
+      const rows = (result.rows ?? []) as Array<Record<string, unknown> | unknown[]>;
+      // The server returns each row as an object keyed by column name, and the
+      // HTTP transport omits the `columns` key entirely (the declared
+      // {columns, unknown[][]} shape is inaccurate). Derive the column list
+      // from the first row's keys when absent, then project each object row
+      // into the positional value array renderMiniTable expects. Without this
+      // the preview rendered with no headers and blank cells.
+      const columns =
+        result.columns && result.columns.length > 0
+          ? result.columns
+          : rows.length > 0 && !Array.isArray(rows[0])
+            ? Object.keys(rows[0] as Record<string, unknown>)
+            : [];
+      const valueRows = rows.map((row) =>
+        Array.isArray(row) ? row : columns.map((c) => (row as Record<string, unknown>)[c]),
+      );
+      return renderMiniTable(columns, valueRows);
     },
   },
 
@@ -66,11 +82,22 @@ export const DATA_WIDGETS: IWidgetDefinition[] = [
     ],
     fetchData: async (client, config) => {
       const result = await client.sql(`SELECT COUNT(*) AS cnt FROM "${config.table}"`);
-      return (result.rows[0] as unknown[])[0];
+      // The server returns each row as an object keyed by column name
+      // ({cnt: N}), NOT a positional array — the declared unknown[][] type is
+      // inaccurate. Indexing [0] on the object yielded undefined -> NaN. Read
+      // the first value by column name, falling back to positional access in
+      // case a transport ever does return an array. Empty result -> 0.
+      const firstRow = result.rows[0] as Record<string, unknown> | unknown[] | undefined;
+      if (firstRow === undefined) return 0;
+      return Array.isArray(firstRow) ? firstRow[0] : Object.values(firstRow)[0];
     },
     renderHtml: (data, config) => {
+      // Guard against a non-numeric/undefined value so the widget shows 0
+      // rather than the NaN that a bare Number(undefined) produced.
+      const count = Number(data);
+      const display = Number.isFinite(count) ? count.toLocaleString() : '0';
       return `<div class="widget-counter">
-        <span class="counter-value">${Number(data).toLocaleString()}</span>
+        <span class="counter-value">${display}</span>
         <span class="counter-label">${esc(String(config.table))} rows</span>
       </div>`;
     },

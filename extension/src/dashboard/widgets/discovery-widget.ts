@@ -112,9 +112,16 @@ function renderDiscoveryHtml(): string {
     .discovery-header { font-size:14px; margin-bottom:6px; }
     .discovery-desc { font-size:12px; color:var(--vscode-descriptionForeground); margin-bottom:10px; }
     .discovery-actions { display:flex; flex-wrap:wrap; gap:6px; }
-    .discovery-btn { background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground);
-      border:none; border-radius:3px; padding:4px 8px; font-size:11px; cursor:pointer; }
-    .discovery-btn:hover { background:var(--vscode-button-secondaryHoverBackground); }
+    /* A visible border + theme-neutral fallbacks are required: in many themes
+       --vscode-button-secondaryBackground is nearly identical to the card's
+       editor-background, so without a border the buttons read as plain text.
+       The gray rgba fallbacks keep them button-shaped even when a theme leaves
+       the secondary-button tokens undefined. */
+    .discovery-btn { background:var(--vscode-button-secondaryBackground,rgba(127,127,127,0.14));
+      color:var(--vscode-button-secondaryForeground,var(--vscode-foreground));
+      border:1px solid var(--vscode-button-border,var(--vscode-widget-border,rgba(127,127,127,0.4)));
+      border-radius:4px; padding:5px 10px; font-size:11px; font-weight:500; cursor:pointer; }
+    .discovery-btn:hover { background:var(--vscode-button-secondaryHoverBackground,rgba(127,127,127,0.28)); }
   </style>
   <div class="discovery-grid">${cards}</div>`;
 }

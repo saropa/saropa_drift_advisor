@@ -47,6 +47,8 @@ plugins:
     rule_packs:
       enabled:
         - collection_compat
+        - dart_sdk_3_2
+        - dart_sdk_3_4
     # ═══════════════════════════════════════════════════════════════════
     # SAROPA LINTS CONFIGURATION
     # ═══════════════════════════════════════════════════════════════════
