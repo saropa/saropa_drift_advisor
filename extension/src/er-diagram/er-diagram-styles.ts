@@ -120,8 +120,8 @@ export function getErDiagramCss(): string {
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 10px;
   }
-  .er-column.pk { fill: #fbbf24; }
-  .er-column.fk { fill: #60a5fa; }
+  .er-column.pk { fill: var(--accent-warning); }
+  .er-column.fk { fill: var(--accent-info); }
   .er-edge {
     fill: none;
     stroke: var(--vscode-editorLineNumber-foreground);

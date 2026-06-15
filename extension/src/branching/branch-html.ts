@@ -20,7 +20,7 @@ function styles(): string {
     .branch { border: 1px solid var(--vscode-panel-border, #444); border-radius: 4px; padding: 10px 12px; margin: 10px 0; }
     .branch .name { font-weight: 600; font-size: 14px; }
     .branch .meta { font-size: 12px; opacity: 0.75; margin: 2px 0 8px; }
-    .truncated { color: #d6a92b; }
+    .truncated { color: var(--accent-warning); }
     button { background: var(--vscode-button-background, #0e639c); color: var(--vscode-button-foreground, #fff); border: none; padding: 4px 10px; border-radius: 3px; cursor: pointer; margin-right: 6px; }
     button.secondary { background: var(--vscode-button-secondaryBackground, #3a3d41); color: var(--vscode-button-secondaryForeground, #ccc); }
     .toolbar { margin-bottom: 12px; }

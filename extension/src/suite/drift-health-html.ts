@@ -198,9 +198,9 @@ function wrapHtml(body: string): string {
   .dh-list { list-style: none; margin: 0; padding: 0; }
   .dh-finding { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 4px 0; }
   .dh-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
-  .dh-dot-error { background: #dc3545; }
-  .dh-dot-warning { background: #e0a800; }
-  .dh-dot-info { background: #0e639c; }
+  .dh-dot-error { background: var(--status-bad); }
+  .dh-dot-warning { background: var(--accent-warning); }
+  .dh-dot-info { background: var(--accent-info); }
   .dh-title { font-size: 13px; }
   .dh-rule { font-size: 11px; opacity: 0.6; }
   .dh-detail { flex-basis: 100%; font-size: 12px; opacity: 0.7; margin-inline-start: 14px; }

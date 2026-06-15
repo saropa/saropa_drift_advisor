@@ -153,9 +153,9 @@ function wrapHtml(body: string): string {
     background: var(--vscode-input-background, #3c3c3c);
   }
   .ct-seg { height: 100%; }
-  .ct-seg-error { background: #dc3545; }
-  .ct-seg-warning { background: #e0a800; }
-  .ct-seg-info { background: #0e639c; }
+  .ct-seg-error { background: var(--status-bad); }
+  .ct-seg-warning { background: var(--accent-warning); }
+  .ct-seg-info { background: var(--accent-info); }
   .ct-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; }
   .ct-sev { opacity: 0.8; }
   .ct-tools { display: flex; flex-wrap: wrap; gap: 8px; }

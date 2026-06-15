@@ -1,5 +1,6 @@
 import type { IDocTable, ISchemaDocsData } from './schema-docs-types';
 import { escapeHtml } from '../shared-utils';
+import { getStandaloneTokens } from '../views/design-tokens';
 
 /** Renders schema documentation as a self-contained HTML page. */
 export class DocsHtmlRenderer {
@@ -98,42 +99,48 @@ export class DocsHtmlRenderer {
   }
 
   private _css(): string {
+    // Standalone exported doc has no host theme to inherit, so it ships the
+    // canonical Saropa brand fallback palette (getStandaloneTokens) — same names
+    // the report export uses — instead of a hand-painted indigo light palette
+    // that ignored dark mode. The token block carries a prefers-color-scheme
+    // dark override, so the exported doc now follows the reader's OS theme.
     return `
+    ${getStandaloneTokens()}
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
         Roboto, Oxygen, sans-serif;
       max-width: 960px; margin: 2rem auto; padding: 0 1rem;
-      color: #1a1a2e; background: #fafafa;
+      color: var(--text); background: var(--surface-0);
     }
     header { margin-bottom: 2rem; }
     h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
-    .meta { color: #666; font-size: 0.9rem; }
+    .meta { color: var(--muted); font-size: 0.9rem; }
     nav ul {
       list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem;
     }
     nav a {
-      padding: 0.25rem 0.5rem; border-radius: 4px;
-      background: #e8eaf6; text-decoration: none; color: #303f9f;
+      padding: 0.25rem 0.5rem; border-radius: var(--radius-sm);
+      background: var(--surface-2); text-decoration: none; color: var(--link);
     }
-    nav a:hover { background: #c5cae9; }
+    nav a:hover { background: var(--surface-3); }
     section { margin: 1.5rem 0; }
-    h2 { font-size: 1.3rem; margin-bottom: 0.5rem; color: #303f9f; }
-    .description { margin-bottom: 0.75rem; color: #555; }
+    h2 { font-size: 1.3rem; margin-bottom: 0.5rem; color: var(--brand-2); }
+    .description { margin-bottom: 0.75rem; color: var(--muted); }
     table {
       width: 100%; border-collapse: collapse; margin-bottom: 0.5rem;
     }
     th, td {
-      padding: 0.4rem 0.6rem; border: 1px solid #ddd;
+      padding: 0.4rem 0.6rem; border: 1px solid var(--border);
       text-align: left; font-size: 0.9rem;
     }
-    th { background: #e8eaf6; }
-    tr:nth-child(even) { background: #f5f5f5; }
+    th { background: var(--surface-2); }
+    tr:nth-child(even) { background: var(--surface-2); }
     code { font-family: 'Fira Code', monospace; font-size: 0.85rem; }
-    hr { border: none; border-top: 1px solid #ddd; margin: 1.5rem 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
     footer {
       margin-top: 3rem; padding-top: 1rem;
-      border-top: 1px solid #ddd; color: #999; font-size: 0.8rem;
+      border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8rem;
     }
     .diagram svg { max-width: 100%; height: auto; }
     `;

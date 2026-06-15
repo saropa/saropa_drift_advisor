@@ -91,9 +91,9 @@ export const SUITE_NOTES_CSS = `
     background: var(--vscode-editor-inactiveSelectionBackground, #333);
     border-left: 4px solid var(--vscode-panel-border, #444);
   }
-  .suite-note.suite-error { border-left-color: #dc3545; }
-  .suite-note.suite-warning { border-left-color: #e0a800; }
-  .suite-note.suite-info { border-left-color: #0e639c; }
+  .suite-note.suite-error { border-left-color: var(--status-bad); }
+  .suite-note.suite-warning { border-left-color: var(--accent-warning); }
+  .suite-note.suite-info { border-left-color: var(--accent-info); }
   .suite-src { display: inline-block; font-size: 11px; font-weight: 600; opacity: 0.8; margin-right: 8px; }
   .suite-title { font-size: 13px; }
   .suite-detail { display: block; font-size: 12px; opacity: 0.7; margin-top: 4px; }

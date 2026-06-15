@@ -1,9 +1,14 @@
 /**
  * Canonical Saropa dashboard design tokens (single source of truth).
  *
- * Implements the token layer of docs/design/SAROPA_DASHBOARD_STYLE_GUIDE.md
- * (§3) so every Drift Advisor webview and HTML export draws from one named
- * palette instead of hand-painted hexes. Two resolution tables, same names:
+ * Implements the token layer of the shared Saropa Dashboard & Webview Style
+ * Guide (§3). The guide is not checked into this repo — it is the single
+ * cross-project source of truth and lives in the saropa_lints repo:
+ * https://github.com/saropa/saropa_lints/blob/main/docs/design/SAROPA_DASHBOARD_STYLE_GUIDE.md
+ * All `§` references below index that file. Tokens here let every Drift Advisor
+ * webview and HTML export draw
+ * from one named palette instead of hand-painted hexes. Two resolution tables,
+ * same names:
  *
  *  - getWebviewTokens(): inside a VS Code webview, surfaces/text/borders/status
  *    bind to the host `--vscode-*` theme tokens so the surface follows the

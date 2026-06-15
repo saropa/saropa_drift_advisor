@@ -168,7 +168,7 @@ function wrapHtml(body: string): string {
     border-top: 1px solid var(--vscode-panel-border, #444);
     padding-top: 12px;
   }
-  .warnings { color: #e0a800; }
+  .warnings { color: var(--accent-warning); }
   .muted { opacity: 0.6; font-style: italic; }
 </style>
 </head>

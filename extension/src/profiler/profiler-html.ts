@@ -198,10 +198,10 @@ function wrapHtml(body: string): string {
   th { font-size: 11px; opacity: 0.7; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .alert { padding: 8px 12px; border-radius: 4px; margin: 6px 0; font-size: 13px; }
-  .alert-warn { background: rgba(224,168,0,0.12);
-    border-left: 4px solid #e0a800; }
-  .alert-info { background: rgba(30,136,229,0.12);
-    border-left: 4px solid #1e88e5; }
+  .alert-warn { background: color-mix(in srgb, var(--accent-warning) 12%, transparent);
+    border-left: 4px solid var(--accent-warning); }
+  .alert-info { background: color-mix(in srgb, var(--accent-info) 12%, transparent);
+    border-left: 4px solid var(--accent-info); }
 </style>
 </head>
 <body>
