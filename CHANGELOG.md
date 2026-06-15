@@ -51,7 +51,7 @@ browse source on
 ### Changed
 
 - **Reorganized the Database sidebar toolbar.** Everyday actions (Refresh, group toggle, Dashboard, Health Score, Ask in English, Tools) stay as inline buttons; the rest are sorted into labeled sections — Explore, Data, Quality, About — in the `…` overflow menu so they are easier to find. The "Ask in English" button now uses a sparkle icon.
-- **Unified panel theming on one Saropa design-token palette.** Health grades, severity badges, and status colors across every panel now draw from a shared token set bound to the editor's own theme, so they read consistently and follow your chosen light / dark / high-contrast theme instead of fixed colors that fought non-default themes. The exported HTML report adopts the same Saropa brand palette. Secondary buttons across panels gained reliable fallbacks so they always read as buttons.
+- **Unified panel theming on one Saropa design-token palette.** Health grades, severity badges, and status colors across the analysis panels now draw from a shared token set bound to the editor's own theme, so they read consistently and follow your chosen light / dark / high-contrast theme instead of fixed colors that fought non-default themes. This covers the dashboard, health, anomalies, and invariants panels plus the query-cost, explain, schema-diff, time-travel, snapshot-diff, drift-health, commit-timeline, mutation-stream, profiler, constraint-wizard, isar-gen, branching, and seeder panels. The exported HTML report and schema-docs export adopt the same Saropa brand palette. Secondary buttons across panels gained reliable fallbacks so they always read as buttons. Deliberately left fixed: SQL syntax-highlight colors and the standalone ER-diagram SVG export.
 
 ### Fixed
 
