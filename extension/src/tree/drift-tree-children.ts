@@ -122,13 +122,46 @@ export async function resolveChildren(
 }
 
 /**
- * Derive the grouping key for a table: the name segment before the first
- * underscore (e.g. `contact_avatars` -> `contact`). Tables with no underscore
- * are their own key, so they never collapse under an unrelated prefix.
+ * Reduce a word to its singular stem so a plural base table groups with its
+ * singular-prefixed children. Drift's convention is a plural entity table
+ * (`contacts`) plus child tables named `<singular>_<plural>` (`contact_avatars`,
+ * `contact_groups`); without this, `contacts` keys to `contacts` and the
+ * children key to `contact`, so the base table never joins its own group.
+ *
+ * Deliberately minimal English rules covering the plural forms that appear as
+ * entity-name table prefixes:
+ *   - `ies -> y`  (`activities -> activity`)
+ *   - sibilant `es` drop after ss/x/z/ch/sh  (`addresses -> address`,
+ *     `boxes -> box`, `classes -> class`, `matches -> match`)
+ *   - trailing `s` otherwise, except `ss`  (`contacts -> contact`,
+ *     `connections -> connection`; `address` is left intact, `houses -> house`)
+ * The `ss`-vs-`s` distinction is what lets a child prefix (`address`) and its
+ * plural base table (`addresses`) resolve to the same stem without mangling a
+ * genuine single-`s` plural like `houses`.
+ */
+function singularize(word: string): string {
+  if (word.length > 3 && word.endsWith('ies')) {
+    return word.slice(0, -3) + 'y';
+  }
+  if (word.length > 3 && /(ss|x|z|ch|sh)es$/.test(word)) {
+    return word.slice(0, -2);
+  }
+  if (word.length > 2 && word.endsWith('s') && !word.endsWith('ss')) {
+    return word.slice(0, -1);
+  }
+  return word;
+}
+
+/**
+ * Derive the grouping key for a table: the singular stem of the name segment
+ * before the first underscore (e.g. both `contacts` and `contact_avatars` ->
+ * `contact`). Tables whose stem is unique never collapse under an unrelated
+ * prefix because a one-member bucket is rendered flat.
  */
 function tableGroupKey(name: string): string {
   const underscore = name.indexOf('_');
-  return underscore === -1 ? name : name.slice(0, underscore);
+  const head = underscore === -1 ? name : name.slice(0, underscore);
+  return singularize(head);
 }
 
 /**

@@ -208,15 +208,21 @@ describe('DriftTreeProvider', () => {
       };
     }
 
-    const groupedMetadata = [
-      { name: 'contact_avatars', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 1 },
-      { name: 'contact_groups', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 1 },
-      { name: 'activities', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 1 },
-    ];
+    function meta(...names: string[]) {
+      return names.map((name) => ({
+        name,
+        columns: [{ name: 'id', type: 'INTEGER', pk: true }],
+        rowCount: 1,
+      }));
+    }
 
-    async function loadGrouped(): Promise<DriftTreeProvider> {
+    // The plural base table `contacts` must join its singular-prefixed children
+    // (`contact_*`); `activities` has no mate and stays flat.
+    const groupedMetadata = meta('contact_avatars', 'contact_groups', 'contacts', 'activities');
+
+    async function loadGroupedWith(metadata: unknown[]): Promise<DriftTreeProvider> {
       fetchStub.onFirstCall().resolves(new Response(JSON.stringify({ ok: true }), { status: 200 }));
-      fetchStub.onSecondCall().resolves(new Response(JSON.stringify(groupedMetadata), { status: 200 }));
+      fetchStub.onSecondCall().resolves(new Response(JSON.stringify(metadata), { status: 200 }));
       const store = new TableGroupingStore(fakeMemento());
       await store.setGrouped(true);
       provider.setGroupingStore(store);
@@ -224,32 +230,48 @@ describe('DriftTreeProvider', () => {
       return provider;
     }
 
-    it('bundles tables sharing a prefix into a TableGroupItem and leaves singletons flat', async () => {
-      await loadGrouped();
+    it('groups a plural base table with its singular-prefixed children, leaving singletons flat', async () => {
+      await loadGroupedWith(groupedMetadata);
       const root = await provider.getChildren();
 
       const group = root.find((n) => n instanceof TableGroupItem) as TableGroupItem | undefined;
-      assert.ok(group, 'expected a contact_* group node');
+      assert.ok(group, 'expected a contact group node');
       assert.strictEqual(group!.groupKey, 'contact');
-      assert.strictEqual(group!.tables.length, 2);
+      // contacts + contact_avatars + contact_groups all resolve to stem "contact".
+      assert.strictEqual(group!.tables.length, 3);
 
-      // The lone "activities" table has no prefix-mate, so it stays a flat TableItem.
       const singleton = root.find(
         (n) => n instanceof TableItem && (n as TableItem).table.name === 'activities',
       );
       assert.ok(singleton, 'activities should remain a flat table, not a group');
     });
 
+    it('merges "es" / "ss" plurals with their prefix stem', async () => {
+      // addresses (base, "sses") + address_lat_longs (child prefix "address")
+      // both singularize to "address"; a lone "connections" stays flat.
+      await loadGroupedWith(meta('addresses', 'address_lat_longs', 'connections'));
+      const root = await provider.getChildren();
+
+      const group = root.find((n) => n instanceof TableGroupItem) as TableGroupItem | undefined;
+      assert.ok(group, 'expected an address group node');
+      assert.strictEqual(group!.groupKey, 'address');
+      assert.strictEqual(group!.tables.length, 2);
+
+      assert.ok(
+        root.some((n) => n instanceof TableItem && (n as TableItem).table.name === 'connections'),
+        'connections should remain flat (no prefix-mate)',
+      );
+    });
+
     it('returns the member tables when a group node is expanded', async () => {
-      await loadGrouped();
+      await loadGroupedWith(groupedMetadata);
       const root = await provider.getChildren();
       const group = root.find((n) => n instanceof TableGroupItem) as TableGroupItem;
 
       const members = await provider.getChildren(group);
-      assert.strictEqual(members.length, 2);
       assert.deepStrictEqual(
         members.map((m) => (m as TableItem).table.name),
-        ['contact_avatars', 'contact_groups'],
+        ['contact_avatars', 'contact_groups', 'contacts'],
       );
     });
 
