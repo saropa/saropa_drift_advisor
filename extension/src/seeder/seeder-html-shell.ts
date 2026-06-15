@@ -20,8 +20,9 @@ export function wrapHtml(body: string): string {
   h3 { margin: 16px 0 8px; }
   .warning {
     padding: 8px 12px; margin-bottom: 12px; border-radius: 4px;
-    background: #5a3e00; color: #ffd080;
-    border: 1px solid #e0a800;
+    background: color-mix(in srgb, var(--accent-warning) 15%, transparent);
+    color: var(--text);
+    border: 1px solid var(--accent-warning);
   }
   .global-controls {
     margin-bottom: 12px; display: flex; gap: 12px; align-items: center;
@@ -71,11 +72,11 @@ export function wrapHtml(body: string): string {
   .col-type { opacity: 0.5; min-width: 60px; font-size: 12px; }
   .pk-badge {
     padding: 1px 5px; border-radius: 3px; font-size: 10px;
-    background: #0e639c; color: #fff; font-weight: 600;
+    background: var(--accent-info); color: #fff; font-weight: 600;
   }
   .fk-badge {
     padding: 1px 5px; border-radius: 3px; font-size: 10px;
-    background: #28a745; color: #fff;
+    background: var(--status-good); color: #fff;
   }
   .gen-select {
     margin-left: auto; padding: 2px 4px; font-size: 12px;

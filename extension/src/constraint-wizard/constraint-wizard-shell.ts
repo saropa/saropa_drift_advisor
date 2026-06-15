@@ -90,7 +90,7 @@ export function wrapConstraintWizardHtml(body: string): string {
   }
   select.input { min-height: 28px; }  select[multiple].input { min-height: 60px; }
   .status { margin-top: 8px; font-size: 13px; }
-  .status-ok { color: #28a745; }  .status-warn { color: #e0a800; }
+  .status-ok { color: var(--status-good); }  .status-warn { color: var(--accent-warning); }
   .violation {
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 12px;

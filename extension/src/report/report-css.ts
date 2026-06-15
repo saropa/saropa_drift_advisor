@@ -1,8 +1,10 @@
 /** Returns self-contained CSS for the portable report HTML. */
 export function getReportCss(): string {
   return `
-/* Standalone export palette: the canonical Saropa brand fallback (style guide
-   §3.6) baked in, since an emailed / CI-artifact report has no host theme to
+/* Standalone export palette: the canonical Saropa brand fallback (shared
+   Saropa Dashboard & Webview Style Guide §3.6, in the saropa_lints repo:
+   https://github.com/saropa/saropa_lints/blob/main/docs/design/SAROPA_DASHBOARD_STYLE_GUIDE.md)
+   baked in, since an emailed / CI-artifact report has no host theme to
    inherit. The local token NAMES (--bg, --accent, …) are kept so the report's
    markup is unchanged; only the VALUES move to the brand palette — brand orange
    replaces the former blue accent, surfaces/text/borders adopt the guide's

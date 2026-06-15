@@ -75,7 +75,7 @@ export const FILTER_BRIDGE_SCRIPT = `
 
     // Save current button
     html += '<button id="drift-filter-save" style="' +
-      'background:#2e7d32;color:#fff;border:none;border-radius:3px;' +
+      'background:var(--status-good);color:#fff;border:none;border-radius:3px;' +
       'padding:3px 10px;cursor:pointer;font-size:12px;">Save As\\u2026</button>';
 
     // Clear button
@@ -86,7 +86,7 @@ export const FILTER_BRIDGE_SCRIPT = `
 
     // Delete button (hidden until a filter is selected)
     html += '<button id="drift-filter-delete" style="' +
-      'background:#d32f2f;color:#fff;border:none;border-radius:3px;' +
+      'background:var(--status-bad);color:#fff;border:none;border-radius:3px;' +
       'padding:3px 10px;cursor:pointer;font-size:12px;display:none;">Delete</button>';
 
     bar.innerHTML = html;
@@ -171,7 +171,7 @@ export const FILTER_BRIDGE_SCRIPT = `
       }
       errOverlay.style.display = 'block';
       errOverlay.innerHTML =
-        '<p style="color:#d32f2f;font-size:14px;' +
+        '<p style="color:var(--status-bad);font-size:14px;' +
         'font-family:var(--vscode-font-family,system-ui);">' +
         'Filter query failed: ' + esc(msg.error) + '</p>';
     }

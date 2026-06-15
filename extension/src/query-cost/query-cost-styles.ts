@@ -57,9 +57,9 @@ export function getQueryCostCss(): string {
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 13px;
   }
-  .node-search { border-left: 4px solid #28a745; background: rgba(40,167,69,0.08); }
-  .node-scan   { border-left: 4px solid #dc3545; background: rgba(220,53,69,0.08); }
-  .node-temp   { border-left: 4px solid #e0a800; background: rgba(224,168,0,0.08); }
+  .node-search { border-left: 4px solid var(--status-good); background: color-mix(in srgb, var(--status-good) 8%, transparent); }
+  .node-scan   { border-left: 4px solid var(--status-bad); background: color-mix(in srgb, var(--status-bad) 8%, transparent); }
+  .node-temp   { border-left: 4px solid var(--accent-warning); background: color-mix(in srgb, var(--accent-warning) 8%, transparent); }
   .node-other  { border-left: 4px solid var(--vscode-panel-border, #444); }
   .badge {
     display: inline-block;
@@ -69,9 +69,9 @@ export function getQueryCostCss(): string {
     margin-left: 8px;
     font-weight: 600;
   }
-  .badge.node-search { color: #28a745; }
-  .badge.node-scan   { color: #dc3545; }
-  .badge.node-temp   { color: #e0a800; }
+  .badge.node-search { color: var(--status-good); }
+  .badge.node-scan   { color: var(--status-bad); }
+  .badge.node-temp   { color: var(--accent-warning); }
   .table-name, .index-name {
     font-size: 11px;
     opacity: 0.6;
@@ -85,8 +85,8 @@ export function getQueryCostCss(): string {
     align-items: baseline;
     gap: 8px;
   }
-  .warn-warning { background: rgba(220,53,69,0.08); }
-  .warn-info { background: rgba(224,168,0,0.08); }
+  .warn-warning { background: color-mix(in srgb, var(--status-bad) 8%, transparent); }
+  .warn-info { background: color-mix(in srgb, var(--accent-warning) 8%, transparent); }
   .warn-icon { font-size: 14px; }
   .warn-msg { font-size: 13px; }
   .warn-suggestion {
@@ -100,9 +100,9 @@ export function getQueryCostCss(): string {
     padding: 4px 0;
     font-size: 13px;
   }
-  .summary-bad { color: #dc3545; }
-  .summary-good { color: #28a745; }
-  .summary-info { color: #e0a800; }
+  .summary-bad { color: var(--status-bad); }
+  .summary-good { color: var(--status-good); }
+  .summary-info { color: var(--accent-warning); }
   .summary-neutral { opacity: 0.7; }
   .suggestion {
     margin: 8px 0;
@@ -123,9 +123,9 @@ export function getQueryCostCss(): string {
     font-size: 11px;
     font-weight: 600;
   }
-  .impact-high { color: #dc3545; background: rgba(220,53,69,0.15); }
-  .impact-medium { color: #e0a800; background: rgba(224,168,0,0.15); }
-  .impact-low { color: #28a745; background: rgba(40,167,69,0.15); }
+  .impact-high { color: var(--status-bad); background: color-mix(in srgb, var(--status-bad) 15%, transparent); }
+  .impact-medium { color: var(--accent-warning); background: color-mix(in srgb, var(--accent-warning) 15%, transparent); }
+  .impact-low { color: var(--status-good); background: color-mix(in srgb, var(--status-good) 15%, transparent); }
   .suggestion-reason {
     font-size: 12px;
     opacity: 0.7;

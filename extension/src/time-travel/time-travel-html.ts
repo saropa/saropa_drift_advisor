@@ -54,16 +54,16 @@ export function buildTimeTravelHtml(): string {
   }
   input[type=range] { flex: 1; }
   .meta { font-size: 12px; opacity: 0.8; }
-  .summary .added { color: #28a745; }
-  .summary .removed { color: #dc3545; }
-  .summary .changed { color: #d6a92b; }
+  .summary .added { color: var(--status-good); }
+  .summary .removed { color: var(--status-bad); }
+  .summary .changed { color: var(--accent-warning); }
   table { border-collapse: collapse; width: 100%; margin-top: 8px; font-size: 13px; }
   th, td { border: 1px solid var(--vscode-panel-border, #444); padding: 4px 8px; text-align: left; }
   th { background: var(--vscode-editor-inactiveSelectionBackground, #333); font-weight: 600; }
-  tr.added td { background: rgba(40, 167, 69, 0.15); border-left: 3px solid #28a745; }
-  tr.removed td { background: rgba(220, 53, 69, 0.15); border-left: 3px solid #dc3545; text-decoration: line-through; opacity: 0.8; }
-  tr.changed td { background: rgba(255, 193, 7, 0.06); }
-  td.cell-changed { background: rgba(255, 193, 7, 0.25); font-weight: 600; }
+  tr.added td { background: color-mix(in srgb, var(--status-good) 15%, transparent); border-left: 3px solid var(--status-good); }
+  tr.removed td { background: color-mix(in srgb, var(--status-bad) 15%, transparent); border-left: 3px solid var(--status-bad); text-decoration: line-through; opacity: 0.8; }
+  tr.changed td { background: color-mix(in srgb, var(--accent-warning) 6%, transparent); }
+  td.cell-changed { background: color-mix(in srgb, var(--accent-warning) 25%, transparent); font-weight: 600; }
   .empty { font-style: italic; opacity: 0.6; margin-top: 12px; }
 </style>
 </head>

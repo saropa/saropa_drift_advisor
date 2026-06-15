@@ -213,9 +213,9 @@ function wrapHtml(body: string): string {
   h3 { margin-top: 20px; }
   .summary { margin-bottom: 16px; }
   .badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:12px; font-weight:600; margin-right:8px; }
-  .badge.ok { background: rgba(40,167,69,0.15); color: #28a745; }
-  .badge.warn { background: rgba(255,193,7,0.25); color: #e0a800; }
-  .badge.err { background: rgba(220,53,69,0.15); color: #dc3545; }
+  .badge.ok { background: color-mix(in srgb, var(--status-good) 15%, transparent); color: var(--status-good); }
+  .badge.warn { background: color-mix(in srgb, var(--accent-warning) 25%, transparent); color: var(--accent-warning); }
+  .badge.err { background: color-mix(in srgb, var(--status-bad) 15%, transparent); color: var(--status-bad); }
   .toolbar { margin-bottom: 8px; }
   .copy-btn { background:var(--vscode-button-background,#0e639c); color:var(--vscode-button-foreground,#fff); border:none; padding:4px 10px; border-radius:3px; cursor:pointer; font-size:12px; }
   .copy-btn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
@@ -223,15 +223,15 @@ function wrapHtml(body: string): string {
   ${sqlHighlightCss}
   details { margin: 4px 0; padding: 8px 12px; border-radius: 4px; }
   summary { cursor:pointer; font-family:var(--vscode-editor-font-family,monospace); font-size:13px; }
-  .row-ok { border-left: 4px solid #28a745; background: rgba(40,167,69,0.08); }
-  .row-warn { border-left: 4px solid #e0a800; background: rgba(224,168,0,0.08); }
-  .row-err { border-left:4px solid #dc3545; background:rgba(220,53,69,0.08); padding:8px 12px; border-radius:4px; margin:4px 0; font-family:var(--vscode-editor-font-family,monospace); font-size:13px; }
+  .row-ok { border-left: 4px solid var(--status-good); background: color-mix(in srgb, var(--status-good) 8%, transparent); }
+  .row-warn { border-left: 4px solid var(--accent-warning); background: color-mix(in srgb, var(--accent-warning) 8%, transparent); }
+  .row-err { border-left:4px solid var(--status-bad); background:color-mix(in srgb, var(--status-bad) 8%, transparent); padding:8px 12px; border-radius:4px; margin:4px 0; font-family:var(--vscode-editor-font-family,monospace); font-size:13px; }
   .col-count { opacity: 0.6; margin-left: 12px; font-size: 12px; }
   .status { float: right; font-size: 12px; font-weight: 600; }
   .details { margin-top: 6px; padding-left: 16px; }
   .detail { font-size:12px; margin:2px 0; font-family:var(--vscode-editor-font-family,monospace); }
-  .detail.warn { color: #e0a800; }
-  .detail.err { color: #dc3545; }
+  .detail.warn { color: var(--accent-warning); }
+  .detail.err { color: var(--status-bad); }
   .nav-link { color:var(--vscode-textLink-foreground,#3794ff); text-decoration:none; cursor:pointer; }
   .nav-link:hover { text-decoration: underline; }
   .table-name { font-family: var(--vscode-editor-font-family, monospace); }

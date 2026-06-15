@@ -90,9 +90,9 @@ export const MUTATION_STREAM_STYLES = `
       letter-spacing: 0.3px;
       background: rgba(255,255,255,0.06);
     }
-    .badge.insert { background: rgba(40,167,69,0.18); color: #7CFFB0; }
-    .badge.update { background: rgba(255,193,7,0.14); color: #FFE68A; }
-    .badge.delete { background: rgba(220,53,69,0.14); color: #FF9BA2; }
+    .badge.insert { background: color-mix(in srgb, var(--status-good) 18%, transparent); color: var(--status-good); }
+    .badge.update { background: color-mix(in srgb, var(--accent-warning) 14%, transparent); color: var(--accent-warning); }
+    .badge.delete { background: color-mix(in srgb, var(--status-bad) 14%, transparent); color: var(--status-bad); }
     .tbl { font-weight: 800; }
     .ts { font-size: 12px; opacity: 0.75; }
     .card-actions { display:flex; gap: 10px; align-items:flex-start; flex-wrap:wrap; justify-content:flex-end; }

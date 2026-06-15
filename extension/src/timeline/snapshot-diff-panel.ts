@@ -135,18 +135,18 @@ function wrapHtml(body: string): string {
     font-weight: 600;
   }
   tr.added td {
-    background: rgba(40, 167, 69, 0.15);
-    border-left: 3px solid #28a745;
+    background: color-mix(in srgb, var(--status-good) 15%, transparent);
+    border-left: 3px solid var(--status-good);
   }
   tr.removed td {
-    background: rgba(220, 53, 69, 0.15);
-    border-left: 3px solid #dc3545;
+    background: color-mix(in srgb, var(--status-bad) 15%, transparent);
+    border-left: 3px solid var(--status-bad);
   }
   tr.changed td {
-    background: rgba(255, 193, 7, 0.08);
+    background: color-mix(in srgb, var(--accent-warning) 8%, transparent);
   }
   td.cell-changed {
-    background: rgba(255, 193, 7, 0.25);
+    background: color-mix(in srgb, var(--accent-warning) 25%, transparent);
     font-weight: 600;
   }
   .badge {
