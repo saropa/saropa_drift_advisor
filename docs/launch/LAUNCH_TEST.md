@@ -46,9 +46,10 @@ window against a running Drift debug server.
 
 ### Group tables by name
 - [ ] In the **Database** sidebar (left activity bar), click the **tree icon** in the header
-      (second inline button). Tables that share a name prefix collapse into groups — e.g. a
+      (second inline button). Tables that share an entity stem collapse into groups — e.g. a
       **contact** group holding `contact_avatars`, `contact_groups`, etc., a **checklist** group, and
-      so on. Tables with no prefix-mate (e.g. `activities`) stay flat.
+      so on. A plural base table joins its own group (`contacts` sits inside the **contact** group;
+      `addresses` would sit with `address_lat_longs`). Tables with no mate (e.g. `activities`) stay flat.
 - [ ] Expand a group: it lists its member tables alphabetically; each table still expands to its
       columns + foreign keys.
 - [ ] The header icon now shows the **flat-list icon**; click it to return to the ungrouped list.

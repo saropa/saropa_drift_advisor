@@ -96,3 +96,46 @@ Maintenance above; the Flutter ARB pipeline does not apply.
 ### Outstanding
 None. Feature is code-complete and covered by automated tests; on-device visual confirmation
 is listed in `docs/launch/LAUNCH_TEST.md`.
+
+## Follow-up: singular/plural stem matching (2026-06-14)
+
+### Problem
+The grouping key used the raw name segment before the first underscore, so a plural base table
+keyed to itself while its children keyed to the singular prefix: `contacts` -> `contacts`, but
+`contact_avatars` / `contact_groups` -> `contact`. The base table therefore never joined its own
+group — a `contacts` table sat apart from the `contact_*` cluster it belongs to.
+
+### Change
+`tableGroupKey` in `extension/src/tree/drift-tree-children.ts` now passes the head segment through
+a new `singularize` helper before bucketing, so a plural base and its singular-prefixed children
+resolve to one stem. Rules, deliberately minimal and scoped to entity-name plurals seen as table
+prefixes:
+- `ies -> y` — `activities -> activity`
+- sibilant `es`-drop after `ss/x/z/ch/sh` (`/(ss|x|z|ch|sh)es$/`) — `addresses -> address`,
+  `boxes -> box`, `classes -> class`, `matches -> match`
+- trailing `s` except `ss` — `contacts -> contact`, `connections -> connection`; `address` is left
+  intact, `houses -> house`
+
+The `ss`-vs-`s` split is what lets a child prefix (`address`) and its plural base (`addresses`)
+collapse to the same stem without mangling a genuine single-`s` plural like `houses`. One-member
+stems still render flat (a one-table group is noise).
+
+### Known limitation
+Structurally ambiguous `-ses` words cannot be disambiguated without a dictionary (`classes` ->
+`class` is correct via the `ss` branch; an irregular base that ends `-ses` but singularizes
+differently would fall to the trailing-`s` branch). For Drift's plural-base + `<singular>_<plural>`
+child convention the heuristic resolves correctly; the cost of a missed exotic plural is only that
+a base table renders flat instead of nested, never a wrong grouping.
+
+### Verification
+- `extension/src/test/drift-tree-provider-items.test.ts` grouping block extended: `contacts` joins
+  `contact_avatars` + `contact_groups` as a 3-member `contact` group; `addresses` joins
+  `address_lat_longs` as an `address` group; `connections` stays flat; grouping-off still yields a
+  flat list.
+- `npx tsc -p ./` clean; full suite via `node node_modules/mocha/bin/mocha.js` → 2852 passing,
+  0 failing.
+- CHANGELOG `[Unreleased]` Added entry reworded to describe entity-stem grouping and the
+  singular/plural + `-s`/`-es` matching. `docs/launch/LAUNCH_TEST.md` grouping check updated to
+  cover the base-table merge.
+
+No bug archive — refines an unreleased feature; no `bugs/*.md` described it.
