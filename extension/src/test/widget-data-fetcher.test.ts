@@ -71,6 +71,61 @@ describe('WidgetDataFetcher', () => {
       assert.ok(!result.error);
     });
 
+    // Regression: the live server returns each row as an OBJECT keyed by column
+    // name ({cnt: N}), not the positional array the type declares. The old code
+    // read rows[0][0] and produced "NaN"; the widget must read the count by
+    // object value.
+    it('should fetch row count when the server returns object-keyed rows', async () => {
+      sinon.stub(client, 'sql').resolves({
+        columns: ['cnt'],
+        rows: [{ cnt: 250 } as unknown as unknown[]],
+      });
+
+      const result = await fetcher.fetchOne({
+        id: 'w2b', type: 'rowCount', title: 'Order Count',
+        gridX: 0, gridY: 0, gridW: 1, gridH: 1, config: { table: 'orders' },
+      });
+
+      assert.ok(result.html.includes('250'), 'renders the count from the object value');
+      assert.ok(!result.html.includes('NaN'), 'never renders NaN');
+      assert.ok(!result.error);
+    });
+
+    // Regression: an empty result (no rows) must render 0, not NaN.
+    it('should render 0 for a row count over an empty table', async () => {
+      sinon.stub(client, 'sql').resolves({ columns: ['cnt'], rows: [] });
+
+      const result = await fetcher.fetchOne({
+        id: 'w2c', type: 'rowCount', title: 'Empty Count',
+        gridX: 0, gridY: 0, gridW: 1, gridH: 1, config: { table: 'empty' },
+      });
+
+      assert.ok(result.html.includes('0'));
+      assert.ok(!result.html.includes('NaN'));
+      assert.ok(!result.error);
+    });
+
+    // Regression: Table Preview must derive columns from object-keyed rows and
+    // fill cells even when the HTTP transport omits the `columns` key.
+    it('should render table preview from object-keyed rows without a columns key', async () => {
+      sinon.stub(client, 'sql').resolves({
+        rows: [
+          { name: 'Alice', email: 'alice@example.com' },
+          { name: 'Bob', email: 'bob@example.com' },
+        ],
+      } as unknown as { columns: string[]; rows: unknown[][] });
+
+      const result = await fetcher.fetchOne({
+        id: 'w2d', type: 'tablePreview', title: 'Preview',
+        gridX: 0, gridY: 0, gridW: 2, gridH: 2, config: { table: 'users', limit: 5 },
+      });
+
+      assert.ok(result.html.includes('name'), 'derives the column header');
+      assert.ok(result.html.includes('Alice'), 'fills the cell values');
+      assert.ok(result.html.includes('bob@example.com'));
+      assert.ok(!result.error);
+    });
+
     it('should fetch query result widget data', async () => {
       sinon.stub(client, 'sql').resolves({
         columns: ['name', 'email'],

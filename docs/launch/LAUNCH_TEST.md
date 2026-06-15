@@ -63,3 +63,26 @@ window against a running Drift debug server.
       Dataset, Snippet Library, Isar→Drift, Branches), Quality (Suggest Refactorings, Invariants,
       Export Report, Clear Annotations), About (About Saropa, Add Package).
 - [ ] When disconnected, the connection-gated buttons hide; Refresh, group toggle, and Tools remain.
+
+## Dashboard panels — design-token theming + widget fixes
+
+### Consistent, theme-aware colors across panels
+- [ ] Open the **Dashboard**, **Health Score**, **Anomalies**, and **Invariants** panels. Health
+      grades (A–F), severity badges, and pass/fail status now draw from the editor theme — switch
+      between a light, a dark, and a high-contrast theme and confirm every status color stays
+      legible (no washed-out or invisible text) and follows the theme rather than a fixed color.
+- [ ] Export the **HTML report** (Tools → Export Report) and open it in a browser. The accent is
+      Saropa orange (not the old blue); toggle the report's light/dark switch and confirm surfaces,
+      text, and anomaly colors read correctly in both.
+
+### Feature discovery buttons look like buttons
+- [ ] Open the **Dashboard**; the "Explore Drift Advisor" card's category actions (Schema Diff,
+      Health Score, Seed Data, …) render as bordered buttons, not plain text links, in every theme.
+- [ ] Secondary buttons across other panels (SQL Notebook, Snippet Library, Query Builder,
+      Refactoring, Bulk Edit) remain visibly button-shaped on a theme with no secondary-button color.
+
+### Row Count and Table Preview widgets
+- [ ] Add a **Row Count** widget (Dashboard → Add Widget → Row Count → pick a table). It shows the
+      numeric count, never "NaN". Point it at an empty table — it shows 0.
+- [ ] Add a **Table Preview** widget for a populated table. It shows column headers and cell values
+      (not blank cells).
