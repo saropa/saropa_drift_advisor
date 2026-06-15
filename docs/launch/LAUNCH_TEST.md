@@ -74,6 +74,15 @@ window against a running Drift debug server.
 - [ ] Export the **HTML report** (Tools → Export Report) and open it in a browser. The accent is
       Saropa orange (not the old blue); toggle the report's light/dark switch and confirm surfaces,
       text, and anomaly colors read correctly in both.
+- [ ] Open the **Query Cost**, **Explain Query Plan**, **Schema Diff**, **Time-Travel**, **Snapshot
+      Diff**, **Drift Health**, **Commit Timeline**, **Mutation Stream**, **Profiler**, **Constraint
+      Wizard**, **Isar Gen**, **Branching**, and **Seeder** panels in a **light** theme. The
+      green/amber/red status markers (index-search vs full-scan badges, added/removed/changed diff
+      rows, health dots, timeline segments) now follow the editor theme — confirm they are legible on
+      a light background (previously they used fixed dark-theme colors and washed out in light mode).
+- [ ] Export **Schema Documentation** (Tools → Generate Schema Docs) and open it with the OS in dark
+      mode. The doc now follows the OS color scheme (dark surfaces, light text) and uses the Saropa
+      orange accent — it previously rendered a fixed indigo light palette regardless of OS theme.
 
 ### Feature discovery buttons look like buttons
 - [ ] Open the **Dashboard**; the "Explore Drift Advisor" card's category actions (Schema Diff,
