@@ -30,7 +30,7 @@ mixin DriftDebugServer {
     })?
     queryWithBindings,
     bool enabled = true,
-    int port = 8_642,
+    int port = 8642,
     bool loopbackOnly = false,
     String? corsOrigin = '*',
     String? authToken,

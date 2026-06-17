@@ -42,7 +42,7 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.0.3]
 
 Connecting the advisor to a running app no longer risks freezing the app at launch. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
 
