@@ -142,7 +142,9 @@ describe('Extension activation', () => {
     // Suite Commit Timeline (plan 67 R6 / §6): openCommitTimeline command (+1).
     // Sidebar grouping: TableGroupingStore groupTablesByName + flattenTables +
     //   onDidChange listener + store dispose (+4).
-    assert.strictEqual(subscriptions.length, 228, `expected 228 disposables, got ${subscriptions.length}`);
+    // Startup-freeze fix (BUG_STARTUP_HANG): deferred-heavy-sweep timer cleanup
+    //   disposable in wireEventListeners (+1).
+    assert.strictEqual(subscriptions.length, 229, `expected 229 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

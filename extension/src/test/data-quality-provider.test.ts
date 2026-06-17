@@ -166,6 +166,40 @@ describe('DataQualityProvider', () => {
       assert.ok(!issue, 'Should skip small tables');
     });
 
+    it('should skip the null-rate scan for very large tables', async () => {
+      // The null-rate scan is a full-table SUM(CASE WHEN col IS NULL ...)
+      // aggregate that reads every row. Run automatically across all tables on
+      // the app's live debug connection, it was a primary cause of the startup
+      // freeze (BUG_STARTUP_HANG). Tables past MAX_ROWS_FOR_NULL_SCAN (100k) are
+      // skipped entirely — verify the expensive scan is never issued, even when
+      // the data would otherwise trip the high-null-rate warning.
+      const ctx = createContext({
+        dartFiles: [createDartFile('public_figure_events', ['id', 'wikidata_id'])],
+        tables: [
+          {
+            name: 'public_figure_events',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'wikidata_id', type: 'TEXT', pk: false },
+            ],
+            rowCount: 200_000,
+          },
+        ],
+        // 75% NULL — would emit high-null-rate if the table were not skipped.
+        nullCounts: { wikidata_id: 150_000 },
+      });
+      const sqlSpy = sinon.spy(ctx.client, 'sql');
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issuedNullScan = sqlSpy
+        .getCalls()
+        .some((c) => typeof c.args[0] === 'string' && c.args[0].includes('IS NULL'));
+      assert.ok(!issuedNullScan, 'Should not issue a full-table null scan on a very large table');
+      const issue = issues.find((i) => i.code === 'high-null-rate');
+      assert.ok(!issue, 'Should not report high-null-rate for a skipped large table');
+    });
+
     it('should return empty array when server is unreachable', async () => {
       const ctx = createContext({ dartFiles: [], tables: [] });
       (ctx.client.schemaMetadata as any) = () => Promise.reject(new Error('Server down'));

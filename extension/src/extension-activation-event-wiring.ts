@@ -33,6 +33,53 @@ export function wireEventListeners(
   // Gate the "open Dashboard" prompt to once per session.
   let dashboardPromptShown = false;
 
+  // Heavy DB sweeps — null-rate scans (DataQualityProvider), per-table row
+  // counts, and the LIMIT-1000 timeline auto-capture — all run over the app's
+  // single live Drift connection. Firing them the instant the app connects
+  // stacks them onto the app's own startup query burst; serialized on one
+  // connection, every query inflates into the 800ms-1.5s range and stalls the
+  // main isolate long enough to skip hundreds of frames and freeze a real app's
+  // launch (see plans/history/2026.06/2026.06.17/BUG_STARTUP_HANG.md). Hold the
+  // heavy sweep off until the
+  // app's startup burst has had a quiet window to drain; cheap schema/UI
+  // refreshes (tree, badges, caches) still run immediately on connect.
+  const STARTUP_SWEEP_GRACE_MS = 6000;
+  let startupGraceUntil = 0;
+  let deferredSweepTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const runHeavySweep = (): void => {
+    d.diagnostics?.diagnosticManager.refresh().catch(() => {});
+    if (d.providers) {
+      void d.providers.codeLensProvider.refreshRowCounts();
+      // Timeline auto-capture re-dumps every physical table (SELECT * LIMIT N);
+      // gated on the same config as the watcher path so behavior is unchanged
+      // apart from timing. requestCapture carries its own trailing-edge debounce.
+      if (
+        vscode.workspace
+          .getConfiguration('driftViewer')
+          .get<boolean>('timeline.autoCapture', true)
+      ) {
+        d.providers.snapshotStore.requestCapture(d.cachedClient);
+      }
+    }
+  };
+
+  // Run the heavy sweep after [delayMs]. A single shared timer dedupes the two
+  // connect-time requesters — the connect handler and the watcher's initial
+  // post-connect poll both ask for the sweep, and only the last schedule wins.
+  const scheduleHeavySweep = (delayMs: number): void => {
+    if (deferredSweepTimer) clearTimeout(deferredSweepTimer);
+    deferredSweepTimer = setTimeout(() => {
+      deferredSweepTimer = undefined;
+      runHeavySweep();
+    }, delayMs);
+  };
+  d.context.subscriptions.push({
+    dispose: () => {
+      if (deferredSweepTimer) clearTimeout(deferredSweepTimer);
+    },
+  });
+
   // Master enable/disable switch.
   const applyEnabledState = (enabled: boolean): void => {
     void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', enabled);
@@ -97,9 +144,14 @@ export function wireEventListeners(
       d.schemaCache.prewarm();
       if (d.providers) {
         if (d.loadOnConnect) void d.providers.treeProvider.refresh();
-        d.providers.codeLensProvider.refreshRowCounts();
       }
-      d.diagnostics?.diagnosticManager.refresh().catch(() => {});
+      // Defer the heavy DB sweep (row counts + null-rate scans + timeline
+      // capture) past the app's startup query burst — running it now contends
+      // on the single live connection and freezes launch (BUG_STARTUP_HANG).
+      // The watcher's initial post-connect poll also requests the sweep; the
+      // shared timer in scheduleHeavySweep dedupes the two into one run.
+      startupGraceUntil = Date.now() + STARTUP_SWEEP_GRACE_MS;
+      scheduleHeavySweep(STARTUP_SWEEP_GRACE_MS);
       if (d.providers && !d.getLightweight()) d.providers.refreshBadges().catch(() => {});
       if (d.providers) d.providers.watchManager.refresh().catch(() => {});
       if (!dashboardPromptShown) {
@@ -150,7 +202,7 @@ export function wireEventListeners(
   }
 
   // Schema generation watcher — refreshes tree, caches, linters, etc.
-  d.watcher.onDidChange(async () => {
+  d.watcher.onDidChange(() => {
     d.schemaCache.invalidate();
     // Drop the SchemaIntelligence cache on a real generation change so schema
     // insights (and the diagnostics built from them, refreshed below) reflect
@@ -161,17 +213,22 @@ export function wireEventListeners(
       void d.providers.treeProvider.refresh();
       d.providers.definitionProvider.clearCache();
       d.providers.hoverCache.clear();
-      await d.providers.codeLensProvider.refreshRowCounts();
       d.providers.codeLensProvider.notifyChange();
-      d.diagnostics?.diagnosticManager.refresh().catch(() => {});
       d.providers.refreshBadges().catch(() => {});
-      if (vscode.workspace.getConfiguration('driftViewer').get<boolean>('timeline.autoCapture', true)) {
-        // Trailing-edge debounce: a write burst coalesces into one re-dump
-        // after a quiet period instead of one full physical-table re-scan per
-        // generation bump (see SnapshotStore.requestCapture).
-        d.providers.snapshotStore.requestCapture(d.cachedClient);
-      }
       d.providers.watchManager.refresh().catch(() => {});
+      // Heavy DB sweep (row counts, null-rate scans, timeline auto-capture).
+      // During the post-connect startup grace window defer it so it doesn't
+      // pile onto the app's launch query burst (the watcher's initial poll
+      // fires right after connect); a genuine later schema regeneration runs it
+      // promptly. See plans/history/2026.06/2026.06.17/BUG_STARTUP_HANG.md.
+      // requestCapture and the
+      // diagnostic refresh keep their own debounce inside runHeavySweep.
+      const graceRemaining = startupGraceUntil - Date.now();
+      if (graceRemaining > 0) {
+        scheduleHeavySweep(graceRemaining);
+      } else {
+        runHeavySweep();
+      }
       if (DashboardPanel.currentPanel) {
         DashboardPanel.currentPanel.refreshAll().catch(() => {});
       }
