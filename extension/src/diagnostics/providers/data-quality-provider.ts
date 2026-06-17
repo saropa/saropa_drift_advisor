@@ -19,6 +19,17 @@ const DATA_SKEW_THRESHOLD = 50;
 const MIN_ROWS_FOR_ANALYSIS = 10;
 
 /**
+ * Upper row bound for the inline null-rate scan. The scan is a full-table
+ * aggregate — SUM(CASE WHEN col IS NULL ...) over every column reads every row
+ * — so on a large table it is a multi-hundred-ms scan. Run automatically across
+ * all tables over the app's single live debug connection, those scans were a
+ * primary contributor to the startup freeze (BUG_STARTUP_HANG). Past this size
+ * the scan costs more than the passive diagnostic is worth; the same per-column
+ * null stats remain available on demand via the "Profile Column" action.
+ */
+const MAX_ROWS_FOR_NULL_SCAN = 100_000;
+
+/**
  * Data quality diagnostic provider.
  * Reports data quality issues including:
  * - High null rates in columns
@@ -131,6 +142,11 @@ export class DataQualityProvider implements IDiagnosticProvider {
   ): Promise<void> {
     for (const table of tables) {
       if (table.rowCount < MIN_ROWS_FOR_ANALYSIS) continue;
+      // Skip the full-table null scan on very large tables — its cost on the
+      // live debug connection outweighs the passive diagnostic. See
+      // MAX_ROWS_FOR_NULL_SCAN and
+      // plans/history/2026.06/2026.06.17/BUG_STARTUP_HANG.md.
+      if (table.rowCount > MAX_ROWS_FOR_NULL_SCAN) continue;
 
       const dartFile = findDartFileForTable(ctx.dartFiles, table.name);
       if (!dartFile) continue;

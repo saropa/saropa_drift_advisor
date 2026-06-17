@@ -42,6 +42,20 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+Connecting the advisor to a running app no longer risks freezing the app at launch. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Fixed
+
+- **The advisor's diagnostics no longer freeze the app's startup.** When the extension connected to a launching app, it immediately ran heavy whole-database scans — per-column NULL-rate aggregates over every table plus a full timeline snapshot — over the app's single live database connection. Stacked onto the app's own startup queries, they serialized on that one connection and stalled the app's main thread long enough to drop hundreds of frames and lock the screen. These scans now wait out a short grace period after connect so the app's launch finishes first, and the NULL-rate scan skips very large tables (their per-column stats remain available on demand via "Profile Column").
+
+<details><summary>Maintenance</summary>
+
+- Deferred the connect-time heavy sweep (row counts, NULL-rate diagnostics, timeline auto-capture) behind a startup grace window shared by the connect handler and the schema-watcher's initial post-connect poll, deduped through one timer; added a `MAX_ROWS_FOR_NULL_SCAN` cap in `DataQualityProvider`. Updated the activation disposable-count assertion for the new timer-cleanup disposable.
+
+</details>
+
 ## [4.0.2]
 
 Big schemas are easier to read now: a sidebar toggle groups related tables together (your `contacts` table sits with `contact_avatars`, `contact_groups`, and friends), and the toolbar got tidied up. The analysis panels, badges, and exported reports all follow your editor's light / dark / high-contrast theme instead of fighting it, and a few widgets that showed "NaN" or blank cells are fixed. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.2/CHANGELOG.md)
