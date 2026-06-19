@@ -25,6 +25,8 @@ Object? normalizeDvrJsonValue(Object? value) {
     return value.substring(0, kDvrMaxParamStringLength);
   }
   if (value is List) {
+    // Recursing into each element is how a nested JSON structure is normalized;
+    // depth is bounded by the declared-binding nesting, never unbounded.
     return value
         .map((e) => normalizeDvrJsonValue(e as Object?))
         .toList(growable: false);
