@@ -287,7 +287,8 @@ void main() {
     test('GET /api/table/unknown_table returns 400 and JSON error', () async {
       await DriftDebugServer.start(
         query: (String sql) async {
-          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          if (sql.contains("type IN ('table','view')") &&
+              sql.contains('ORDER BY name')) {
             return [
               {'name': 'items'},
             ];
@@ -323,7 +324,8 @@ void main() {
       () async {
         await DriftDebugServer.start(
           query: (String sql) async {
-            if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            if (sql.contains("type IN ('table','view')") &&
+                sql.contains('ORDER BY name')) {
               return [
                 {'name': 'items'},
               ];
@@ -376,7 +378,8 @@ void main() {
       () async {
         await DriftDebugServer.start(
           query: (String sql) async {
-            if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            if (sql.contains("type IN ('table','view')") &&
+                sql.contains('ORDER BY name')) {
               return [
                 {'name': 'items'},
               ];
@@ -419,7 +422,8 @@ void main() {
             },
           ];
         }
-        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+        if (sql.contains("type IN ('table','view')") &&
+            sql.contains('ORDER BY name')) {
           return [
             {'name': 'items'},
           ];
@@ -903,7 +907,8 @@ void main() {
 
     setUp(() {
       mockQuery = (String sql) async {
-        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+        if (sql.contains("type IN ('table','view')") &&
+            sql.contains('ORDER BY name')) {
           return [
             {'name': 'items'},
           ];
@@ -1061,7 +1066,8 @@ void main() {
 
     setUp(() {
       mockQuery = (String sql) async {
-        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+        if (sql.contains("type IN ('table','view')") &&
+            sql.contains('ORDER BY name')) {
           return [
             {'name': 'items'},
           ];
@@ -1143,7 +1149,8 @@ void main() {
 
     setUp(() {
       mockQuery = (String sql) async {
-        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+        if (sql.contains("type IN ('table','view')") &&
+            sql.contains('ORDER BY name')) {
           return [
             {'name': 'items'},
           ];
@@ -1286,7 +1293,8 @@ void main() {
             },
           ];
         }
-        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+        if (sql.contains("type IN ('table','view')") &&
+            sql.contains('ORDER BY name')) {
           return [
             {'name': 'items'},
           ];
@@ -1308,7 +1316,8 @@ void main() {
             },
           ];
         }
-        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+        if (sql.contains("type IN ('table','view')") &&
+            sql.contains('ORDER BY name')) {
           return [
             {'name': 'items'},
           ];
@@ -1431,7 +1440,8 @@ void main() {
     test('returns multiple tables with correct row counts', () async {
       await DriftDebugServer.start(
         query: (String sql) async {
-          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          if (sql.contains("type IN ('table','view')") &&
+              sql.contains('ORDER BY name')) {
             return [
               {'name': 'orders'},
               {'name': 'users'},
@@ -1587,7 +1597,8 @@ void main() {
     test('returns single-column table with correct rowCount', () async {
       await DriftDebugServer.start(
         query: (String sql) async {
-          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          if (sql.contains("type IN ('table','view')") &&
+              sql.contains('ORDER BY name')) {
             return [
               {'name': 'items'},
             ];
@@ -1665,7 +1676,7 @@ void main() {
     test('returns empty tables when change detection is disabled', () async {
       await DriftDebugServer.start(
         query: (String sql) async {
-          if (sql.contains("type='table'")) {
+          if (sql.contains("type IN ('table','view')")) {
             return [
               {'name': 'users'},
             ];
@@ -1721,7 +1732,8 @@ void main() {
     test('returns FK metadata for table with foreign keys', () async {
       await DriftDebugServer.start(
         query: (String sql) async {
-          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          if (sql.contains("type IN ('table','view')") &&
+              sql.contains('ORDER BY name')) {
             return [
               {'name': 'orders'},
               {'name': 'users'},
@@ -1775,7 +1787,8 @@ void main() {
     test('returns empty array for table without foreign keys', () async {
       await DriftDebugServer.start(
         query: (String sql) async {
-          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          if (sql.contains("type IN ('table','view')") &&
+              sql.contains('ORDER BY name')) {
             return [
               {'name': 'items'},
             ];
@@ -1812,7 +1825,8 @@ void main() {
     test('returns 400 for unknown table', () async {
       await DriftDebugServer.start(
         query: (String sql) async {
-          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          if (sql.contains("type IN ('table','view')") &&
+              sql.contains('ORDER BY name')) {
             return [
               {'name': 'items'},
             ];
@@ -1853,7 +1867,7 @@ void main() {
     test('GET /api/change-detection returns enabled by default', () async {
       await DriftDebugServer.start(
         query: (sql) async {
-          if (sql.contains("type='table'")) {
+          if (sql.contains("type IN ('table','view')")) {
             return [
               {'name': 'items'},
             ];
@@ -1887,7 +1901,7 @@ void main() {
     test('POST /api/change-detection toggles state', () async {
       await DriftDebugServer.start(
         query: (sql) async {
-          if (sql.contains("type='table'")) {
+          if (sql.contains("type IN ('table','view')")) {
             return [
               {'name': 'items'},
             ];
@@ -1979,7 +1993,7 @@ void main() {
     test('static API setChangeDetection works', () async {
       await DriftDebugServer.start(
         query: (sql) async {
-          if (sql.contains("type='table'")) {
+          if (sql.contains("type IN ('table','view')")) {
             return [
               {'name': 'items'},
             ];

@@ -221,7 +221,8 @@ void main() {
           final ctx = createTestContext();
           final handler = SchemaHandler(ctx);
           final query = (String sql) async {
-            if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            if (sql.contains("type IN ('table','view')") &&
+                sql.contains('ORDER BY name')) {
               return [
                 <String, dynamic>{'name': 'items'},
               ];
@@ -270,7 +271,8 @@ void main() {
         // Custom query that throws on FK query but works for others.
         var callCount = 0;
         final query = (String sql) async {
-          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          if (sql.contains("type IN ('table','view')") &&
+              sql.contains('ORDER BY name')) {
             return [
               <String, dynamic>{'name': 'items'},
             ];

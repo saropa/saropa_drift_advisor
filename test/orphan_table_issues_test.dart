@@ -15,6 +15,9 @@ import 'helpers/test_helpers.dart';
 /// contribute nothing and orphan findings can be asserted in isolation.
 DriftDebugQuery _physicalTablesQuery(List<String> physicalTables) {
   return (String sql) async {
+    // Orphan detection requests base tables only (includeViews: false);
+    // anomaly/index sources use the view-inclusive query and fall through to
+    // the empty default, so orphan findings are asserted in isolation.
     if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
       return physicalTables
           .map((name) => <String, dynamic>{'name': name})

@@ -74,13 +74,25 @@ abstract final class ServerUtils {
     return 0;
   }
 
-  /// Fetches table names from sqlite_master
-  /// (type='table', exclude sqlite_*).
+  /// Fetches object names from sqlite_master (excludes sqlite_* bookkeeping).
   ///
-  /// Returns a sorted list of non-empty table name
-  /// strings.
-  static Future<List<String>> getTableNames(DriftDebugQuery queryFn) async {
-    final dynamic raw = await queryFn(ServerConstants.sqlTableNames);
+  /// Includes views by default so callers that display or browse the schema
+  /// (sidebar, metadata, column pickers, table-data, diff) see the user's full
+  /// data model — e.g. PowerSync fronts JSON-backed storage with views. Pass
+  /// [includeViews] false for callers that reason specifically about base
+  /// tables (the orphan-table check, which would otherwise flag every view as
+  /// an undeclared orphan). See GitHub issue #32.
+  ///
+  /// Returns a sorted list of non-empty names.
+  static Future<List<String>> getTableNames(
+    DriftDebugQuery queryFn, {
+    bool includeViews = true,
+  }) async {
+    final dynamic raw = await queryFn(
+      includeViews
+          ? ServerConstants.sqlTableNames
+          : ServerConstants.sqlBaseTableNames,
+    );
 
     final List<Map<String, dynamic>> rows = normalizeRows(raw);
 

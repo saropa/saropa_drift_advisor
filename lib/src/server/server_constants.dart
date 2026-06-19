@@ -425,6 +425,13 @@ abstract final class ServerConstants {
   static const String sqlTableNames =
       "SELECT name FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name";
 
+  // Base tables only — the orphan-table check compares physical tables against
+  // the declared Drift table set, and a view is never declared there. Feeding
+  // it the view-inclusive list above would flag every view as an orphan, a
+  // false bug report. See GitHub issue #32.
+  static const String sqlBaseTableNames =
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
+
   /// Banner box interior width (between the left and right │).
   static const int bannerInnerWidth = 50;
 

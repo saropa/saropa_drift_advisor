@@ -644,7 +644,7 @@ void main() {
             executedSql.add(sql);
 
             // Return table names for sqlite_master query.
-            if (sql.contains("type='table'")) {
+            if (sql.contains("type IN ('table','view')")) {
               return [
                 <String, dynamic>{'name': 'a'},
                 <String, dynamic>{'name': 'b'},
@@ -675,7 +675,7 @@ void main() {
         int tableNameQueries = 0;
         final ctx = ServerContext(
           query: (sql) async {
-            if (sql.contains("type='table'")) {
+            if (sql.contains("type IN ('table','view')")) {
               tableNameQueries++;
 
               return [
@@ -702,7 +702,7 @@ void main() {
         int tableNameQueries = 0;
         final ctx = ServerContext(
           query: (sql) async {
-            if (sql.contains("type='table'")) {
+            if (sql.contains("type IN ('table','view')")) {
               tableNameQueries++;
 
               return [
@@ -729,7 +729,7 @@ void main() {
         int callCount = 0;
         final ctx = ServerContext(
           query: (sql) async {
-            if (sql.contains("type='table'")) {
+            if (sql.contains("type IN ('table','view')")) {
               return [
                 <String, dynamic>{'name': 'users'},
               ];
@@ -760,7 +760,7 @@ void main() {
           changeDetectionMinInterval: const Duration(seconds: 2),
           query: (sql) async {
             executedSql.add(sql);
-            if (sql.contains("type='table'")) {
+            if (sql.contains("type IN ('table','view')")) {
               return [
                 <String, dynamic>{'name': 't1'},
               ];

@@ -29,7 +29,8 @@ void main() {
       await DriftDebugServer.start(
         query: (sql) async {
           // Table names.
-          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          if (sql.contains("type IN ('table','view')") &&
+              sql.contains('ORDER BY name')) {
             return [
               {'name': 'items'},
             ];

@@ -42,6 +42,22 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+Database views now show up alongside tables, and querying them returns real values instead of "undefined". [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Fixed
+
+- **Views now appear in the sidebar, schema, and column pickers.** The table list only ever queried base tables, so databases that expose their schema through views — PowerSync, for example, stores rows as JSON and fronts them with views — looked empty even though the data was there. Views are now listed everywhere tables are, with their columns resolved the same way.
+- **Querying a view no longer shows "undefined" in every cell.** The SQL Notebook expected result rows in one shape but received them in another, so column headers were correct while every value rendered as the literal text "undefined". Results now display their real values, on both the live-app and HTTP connections.
+
+<details><summary>Maintenance</summary>
+
+- **Views included in the table-discovery query.** `ServerConstants.sqlTableNames` now selects `type IN ('table','view')` instead of `type='table'`. `PRAGMA table_info` resolves view columns identically, so the sidebar tree, schema metadata, and SQL field pickers populate without further change; write paths return empty for views (correct read-only behavior). GitHub issue #32 (`lib/src/server/server_constants.dart`).
+- **Result rows normalized to the columnar contract in both transport adapters.** The server returns object-rows (`{col: value}`), but every extension consumer (notebook renderer, `zipRow`, CSV/JSON export) indexes rows positionally against a `columns` array. The VM-service adapter derived `columns` but left rows as objects — so the notebook read `row[0]` on an object and rendered `String(undefined)` — and the HTTP adapter returned the raw payload with no `columns` at all. A shared `objectRowsToColumnar` helper now converts both to `{columns, rows[][]}`. GitHub issue #32 (`extension/src/shared-utils.ts`, `extension/src/transport/vm-service-api.ts`, `extension/src/api-client-http-query.ts`).
+
+</details>
+
 ## [4.0.5]
 
 Maintenance-only: the publish pipeline now offers **Retry** as the default action whenever a git step fails. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.5/CHANGELOG.md)

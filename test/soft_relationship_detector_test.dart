@@ -26,7 +26,8 @@ DriftDebugQuery _schemaQuery(
       const <String, List<Map<String, dynamic>>>{},
 }) {
   return (String sql) async {
-    if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+    if (sql.contains("type IN ('table','view')") &&
+        sql.contains('ORDER BY name')) {
       return tables.keys
           .map((name) => <String, dynamic>{'name': name})
           .toList();

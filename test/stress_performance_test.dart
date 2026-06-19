@@ -28,7 +28,8 @@ void main() {
         final ctx = ServerContext(
           query: (sql) async {
             executedSql.add(sql);
-            if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            if (sql.contains("type IN ('table','view')") &&
+                sql.contains('ORDER BY name')) {
               return tableNames
                   .map((name) => <String, dynamic>{'name': name})
                   .toList();
@@ -45,7 +46,7 @@ void main() {
         await ctx.checkDataChange();
 
         expect(executedSql.length, 2);
-        expect(executedSql[0], contains("type='table'"));
+        expect(executedSql[0], contains("type IN ('table','view')"));
         final unionSql = executedSql[1];
         expect(unionSql, contains('UNION ALL'));
         final unionCount = 'UNION ALL'.allMatches(unionSql).length;
@@ -62,7 +63,7 @@ void main() {
           int unionCallCount = 0;
           final ctx = ServerContext(
             query: (sql) async {
-              if (sql.contains("type='table'") &&
+              if (sql.contains("type IN ('table','view')") &&
                   sql.contains('ORDER BY name')) {
                 return tableNames
                     .map((name) => <String, dynamic>{'name': name})

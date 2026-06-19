@@ -70,6 +70,34 @@ export function zipRow(
   return obj;
 }
 
+/**
+ * Convert the server's object-row result ({col: value}) into the columnar
+ * `{columns, rows[][]}` shape every result consumer in the extension expects
+ * (notebook renderer, {@link zipRow}, CSV/JSON export all index rows by
+ * position). Column order is taken from the first row's keys; each row is then
+ * mapped to a positional array in that order so a missing key becomes a
+ * predictable `undefined` slot rather than silently misaligning columns.
+ *
+ * Without this, deriving column names but leaving rows as objects made the
+ * notebook index them numerically — `row[0]` on an object is undefined, so
+ * every cell rendered the literal "undefined" (GitHub issue #32).
+ */
+export function objectRowsToColumnar(
+  rows: unknown[],
+): { columns: string[]; rows: unknown[][] } {
+  const first = rows[0];
+  const columns =
+    first !== null && typeof first === 'object'
+      ? Object.keys(first as Record<string, unknown>)
+      : [];
+  const arrayRows = rows.map((r) =>
+    r !== null && typeof r === 'object'
+      ? columns.map((c) => (r as Record<string, unknown>)[c])
+      : [],
+  );
+  return { columns, rows: arrayRows };
+}
+
 /** Escape a value for CSV output (RFC 4180 quoting). */
 export function escapeCsvCell(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);

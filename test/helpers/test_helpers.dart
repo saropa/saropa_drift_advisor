@@ -97,7 +97,8 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
     }
 
     // Table names query (just names).
-    if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+    if (sql.contains("type IN ('table','view')") &&
+        sql.contains('ORDER BY name')) {
       return tableColumns.keys
           .map((name) => <String, dynamic>{'name': name})
           .toList();
@@ -106,7 +107,7 @@ Future<List<Map<String, dynamic>>> Function(String sql) mockQueryWithTables({
     // Single-table schema lookup (used by migration preview to get
     // CREATE TABLE statements for individual tables).
     if (sql.contains('sqlite_master') &&
-        sql.contains("type='table'") &&
+        sql.contains("type IN ('table','view')") &&
         sql.contains("name='")) {
       for (final entry in schemaEntries) {
         final tableNameValue = entry['name'];

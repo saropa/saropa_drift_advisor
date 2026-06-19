@@ -19,7 +19,8 @@ class _FakeSelectable {
 class _FakeDriftDb {
   dynamic customSelect(String sql) {
     // /api/tables uses sqlite_master for table listing.
-    if (sql.contains('sqlite_master') && sql.contains("type='table'")) {
+    if (sql.contains('sqlite_master') &&
+        sql.contains("type IN ('table','view')")) {
       return _FakeSelectable([
         _FakeRow({'name': 'items'}),
       ]);
@@ -109,7 +110,8 @@ void main() {
 
 class _FakeDriftDbNonList {
   dynamic customSelect(String sql) {
-    if (sql.contains('sqlite_master') && sql.contains("type='table'")) {
+    if (sql.contains('sqlite_master') &&
+        sql.contains("type IN ('table','view')")) {
       return _FakeSelectableNonList();
     }
     return _FakeSelectable(const <_FakeRow>[]);
@@ -122,7 +124,8 @@ class _FakeSelectableNonList {
 
 class _FakeDriftDbBadRowData {
   dynamic customSelect(String sql) {
-    if (sql.contains('sqlite_master') && sql.contains("type='table'")) {
+    if (sql.contains('sqlite_master') &&
+        sql.contains("type IN ('table','view')")) {
       return _FakeSelectableBadRows();
     }
     return _FakeSelectable(const <_FakeRow>[]);

@@ -14,7 +14,7 @@ import 'package:test/test.dart';
 /// (the only query the detector issues) with [physicalTables].
 DriftDebugQuery _physicalTablesQuery(List<String> physicalTables) {
   return (String sql) async {
-    // ServerUtils.getTableNames runs:
+    // The orphan check calls getTableNames(includeViews: false), which runs:
     //   SELECT name FROM sqlite_master WHERE type='table'
     //   AND name NOT LIKE 'sqlite_%' ORDER BY name
     if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {

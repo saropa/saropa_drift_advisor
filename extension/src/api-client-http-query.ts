@@ -9,6 +9,7 @@ import type {
 } from './api-types';
 import { fetchWithRetry, fetchWithTimeout } from './transport/fetch-utils';
 import type { ApiHeaders } from './api-client-http';
+import { objectRowsToColumnar } from './shared-utils';
 
 /** Generation poll. */
 export async function httpGeneration(
@@ -96,7 +97,13 @@ export async function httpSql(
     body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`SQL query failed: ${resp.status}`);
-  return resp.json() as Promise<{ columns: string[]; rows: unknown[][] }>;
+  // The server replies with object-rows ({col: value}) and no `columns` key;
+  // the extension's result contract is columnar {columns, rows[][]}. Returning
+  // the raw payload left `columns` undefined (notebook rendered nothing) — the
+  // HTTP twin of the VM-path "undefined cells" bug. Normalize here so both
+  // transports honor the same contract. See GitHub issue #32.
+  const data = (await resp.json()) as { rows?: unknown[] };
+  return objectRowsToColumnar(Array.isArray(data?.rows) ? data.rows : []);
 }
 
 /** Explain SQL. */

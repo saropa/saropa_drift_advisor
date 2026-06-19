@@ -79,9 +79,14 @@ abstract final class OrphanTableDetector {
     required Set<String>? declaredTableNames,
     Set<String> internalTableNames = defaultInternalTableNames,
   }) async {
-    // Physical tables only: getTableNames queries sqlite_master with
-    // type='table' and excludes sqlite_% bookkeeping tables.
-    final physicalTables = await ServerUtils.getTableNames(query);
+    // Base tables only (includeViews: false): an orphan is a physical table
+    // absent from the declared Drift schema, and a view is never declared
+    // there — including views would report every view as an orphan. Excludes
+    // sqlite_% bookkeeping tables upstream via the NOT LIKE clause.
+    final physicalTables = await ServerUtils.getTableNames(
+      query,
+      includeViews: false,
+    );
 
     final orphans = <Map<String, dynamic>>[];
 

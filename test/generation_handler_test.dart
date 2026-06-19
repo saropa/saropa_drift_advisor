@@ -42,7 +42,8 @@ void main() {
         final ctx = createTestContext(
           query: (sql) async {
             // Table names query.
-            if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            if (sql.contains("type IN ('table','view')") &&
+                sql.contains('ORDER BY name')) {
               return [
                 {'name': 'items'},
               ];
@@ -72,7 +73,8 @@ void main() {
       test('returns 0 when schema has no tables', () async {
         final ctx = createTestContext(
           query: (sql) async {
-            if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            if (sql.contains("type IN ('table','view')") &&
+                sql.contains('ORDER BY name')) {
               return <Map<String, dynamic>>[];
             }
             return <Map<String, dynamic>>[];
