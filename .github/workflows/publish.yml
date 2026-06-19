@@ -40,8 +40,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # --fatal-warnings (not --fatal-infos): saropa_lints is a caret dep with no
+      # committed lockfile, so CI resolves whatever version is newest at run time.
+      # A new saropa_lints minor that adds an info-level rule would otherwise fail
+      # the publish on advisory noise. Warnings and errors still fail; the full
+      # lint quality pass runs in scripts/publish.py before tagging.
       - name: Analyze
-        run: flutter analyze --fatal-infos
+        run: flutter analyze --fatal-warnings
 
       - name: Format check
         run: dart format --set-exit-if-changed .
