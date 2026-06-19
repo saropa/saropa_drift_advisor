@@ -76,9 +76,9 @@ export function buildErDiagramHtml(
 <div class="toolbar toolbar-filter">
   <div class="toolbar-group">
     <input type="search" id="fieldSearch" class="filter-input"
-      placeholder="${t('panel.schema.filter.search.placeholder')}"
-      aria-label="${t('panel.schema.filter.search.aria')}" />
-    <select id="typeFilter" aria-label="${t('panel.schema.filter.type.aria')}">
+      placeholder="${escapeHtml(t('panel.schema.filter.search.placeholder'))}"
+      aria-label="${escapeHtml(t('panel.schema.filter.search.aria'))}" />
+    <select id="typeFilter" aria-label="${escapeHtml(t('panel.schema.filter.type.aria'))}">
       <option value="">${t('panel.schema.filter.type.all')}</option>
       ${typeOptions}
     </select>

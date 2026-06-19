@@ -777,6 +777,68 @@
     // --- Schema metadata loader (assets/web/schema-meta.ts) ---
     // {0} is the HTTP status code from the failed metadata request.
     "viewer.schema.meta.loadFailed": "Failed to load schema metadata (HTTP {0})",
+    // --- Structured schema explorer (assets/web/schema-explorer.ts) ---
+    "viewer.schema.explorer.loading": "Loading schema\u2026",
+    "viewer.schema.explorer.error": "Could not load the schema.",
+    "viewer.schema.explorer.empty": "No tables in this database.",
+    "viewer.schema.explorer.searchPlaceholder": "Filter tables and columns\u2026",
+    "viewer.schema.explorer.searchLabel": "Filter schema",
+    "viewer.schema.explorer.typeAll": "All types",
+    "viewer.schema.explorer.typeLabel": "Column type",
+    "viewer.schema.explorer.noMatches": "No tables or columns match the filter.",
+    "viewer.schema.explorer.rawHeading": "Raw DDL",
+    // Summary header. {0} tables shown, {1} total tables, {2} total rows, {3} DB size.
+    "viewer.schema.explorer.summary": "{0} of {1} tables \xB7 {2} rows \xB7 {3}",
+    // Summary header without a size figure. {0} shown, {1} total, {2} rows.
+    "viewer.schema.explorer.summaryNoSize": "{0} of {1} tables \xB7 {2} rows",
+    // Per-table card stat chips. Each takes one numeric/text value.
+    // {0} is the row count.
+    "viewer.schema.explorer.stat.rows": "{0} rows",
+    // {0} is the column count.
+    "viewer.schema.explorer.stat.cols": "{0} cols",
+    // {0} is the index count.
+    "viewer.schema.explorer.stat.indexes": "{0} indexes",
+    // {0} is the count of foreign keys out of this table.
+    "viewer.schema.explorer.stat.fkOut": "{0} FK out",
+    // {0} is the count of tables referencing this table.
+    "viewer.schema.explorer.stat.fkIn": "{0} FK in",
+    // {0} writes seen this session, {1} the relative/absolute time of the last write.
+    "viewer.schema.explorer.stat.writes": "{0} writes",
+    // Detector badges (table header). Titles explain the finding on hover.
+    "viewer.schema.explorer.badge.orphan": "Orphan",
+    "viewer.schema.explorer.badge.orphanTitle": "Physical table not declared in the Drift code schema.",
+    // {0} is the count of anomalies on this table.
+    "viewer.schema.explorer.badge.anomaly": "{0} issues",
+    "viewer.schema.explorer.badge.anomalyTitle": "Data-quality anomalies detected on this table.",
+    // {0} is the count of FK columns missing an index.
+    "viewer.schema.explorer.badge.missingIndex": "{0} missing index",
+    "viewer.schema.explorer.badge.missingIndexTitle": "Foreign-key columns with no supporting index (a common performance trap).",
+    "viewer.schema.explorer.badge.active": "Active",
+    "viewer.schema.explorer.badge.activeTitle": "This table received writes during this session.",
+    // Column table headers and constraint words.
+    "viewer.schema.explorer.col.column": "Column",
+    "viewer.schema.explorer.col.type": "Type",
+    "viewer.schema.explorer.col.constraints": "Constraints",
+    "viewer.schema.explorer.flag.notNull": "NOT NULL",
+    "viewer.schema.explorer.flag.none": "\u2014",
+    "viewer.schema.explorer.badgePk": "PK",
+    "viewer.schema.explorer.badgePkTitle": "Primary key",
+    // {0} target table, {1} target column.
+    "viewer.schema.explorer.badgeFkTitle": "Foreign key \u2192 {0}.{1}",
+    // {0} target table, {1} target column (FK relationship line).
+    "viewer.schema.explorer.fkRefersTo": "references {0}.{1}",
+    // {0} source table, {1} source column (incoming FK line).
+    "viewer.schema.explorer.fkReferencedBy": "referenced by {0}.{1}",
+    "viewer.schema.explorer.relationships": "Relationships",
+    "viewer.schema.explorer.indexes": "Indexes",
+    "viewer.schema.explorer.noIndexes": "No indexes",
+    "viewer.schema.explorer.anomalyHeading": "Data-quality issues",
+    // Copy/export buttons.
+    "viewer.schema.explorer.copySql": "Copy SQL",
+    "viewer.schema.explorer.copyMarkdown": "Copy Markdown",
+    "viewer.schema.explorer.copyJson": "Copy JSON",
+    "viewer.schema.explorer.copied": "Copied to clipboard",
+    "viewer.schema.explorer.copyFailed": "Copy failed",
     // --- Divergence findings (assets/web/schema-divergence.ts detail strings,
     //     rendered by declared-schema.ts) ---
     "viewer.schema.divergence.missingTable": "declared in code but not found in the live database",
@@ -30044,6 +30106,397 @@ ${JSON.stringify(results, void 0, 2)}`);
     initHomeIntro();
   }
 
+  // assets/web/schema-explorer.ts
+  var SEVERITY_COLORS = {
+    error: "#e57373",
+    warning: "#ffb74d",
+    info: "#7cb342"
+  };
+  var inited = false;
+  var sizeByTable = {};
+  var anomaliesByTable = {};
+  var orphanSet = /* @__PURE__ */ new Set();
+  var missingIndexByTable = {};
+  var totalSizeBytes = null;
+  var mutationCountByTable = {};
+  var mutationCursor = 0;
+  var mutationPolling = false;
+  var pendingMutationRender = false;
+  function getFilterTerm() {
+    const el = document.getElementById("schema-explorer-search");
+    return el ? String(el.value || "").trim() : "";
+  }
+  function getTypeFilter() {
+    const el = document.getElementById("schema-explorer-type");
+    return el ? String(el.value || "") : "";
+  }
+  function baseType(raw) {
+    const s = raw == null ? "" : String(raw).trim();
+    if (!s) return "";
+    const m = s.match(/^[A-Za-z_]+/);
+    return m ? m[0].toUpperCase() : s.toUpperCase();
+  }
+  function tableFks(table) {
+    const fks = table && table.foreignKeys || [];
+    return Array.isArray(fks) ? fks : [];
+  }
+  function buildIncomingFkMap(meta) {
+    const map = {};
+    const edges = meta && meta.foreignKeys || [];
+    if (Array.isArray(edges)) {
+      edges.forEach(function(e) {
+        if (e && e.toTable && e.fromTable) {
+          (map[e.toTable] = map[e.toTable] || []).push({ fromTable: e.fromTable, fromColumn: e.fromColumn });
+        }
+      });
+    }
+    return map;
+  }
+  function collectTypes(meta) {
+    const set = {};
+    const tables = meta && meta.tables || [];
+    tables.forEach(function(t) {
+      (t.columns || []).forEach(function(c) {
+        const bt = baseType(c.type);
+        if (bt) set[bt] = true;
+      });
+    });
+    return Object.keys(set).sort();
+  }
+  function tableMatches(table, term, type) {
+    if (type) {
+      const hasType = (table.columns || []).some(function(c) {
+        return baseType(c.type) === type;
+      });
+      if (!hasType) return false;
+    }
+    if (!term) return true;
+    const lower = term.toLowerCase();
+    if (String(table.name || "").toLowerCase().includes(lower)) return true;
+    return (table.columns || []).some(function(c) {
+      return String(c.name || "").toLowerCase().includes(lower);
+    });
+  }
+  function statChip(text) {
+    return '<span class="schema-chip">' + esc2(text) + "</span>";
+  }
+  function detectorBadges(name) {
+    let html = "";
+    if (orphanSet.has(name)) {
+      html += '<span class="schema-badge schema-badge-orphan" title="' + esc2(vt("viewer.schema.explorer.badge.orphanTitle")) + '">' + esc2(vt("viewer.schema.explorer.badge.orphan")) + "</span>";
+    }
+    const anomalies = anomaliesByTable[name] || [];
+    if (anomalies.length) {
+      const worst = anomalies.some(function(a) {
+        return a.severity === "error";
+      }) ? "error" : anomalies.some(function(a) {
+        return a.severity === "warning";
+      }) ? "warning" : "info";
+      html += '<span class="schema-badge" style="color:' + SEVERITY_COLORS[worst] + ";border-color:" + SEVERITY_COLORS[worst] + ';" title="' + esc2(vt("viewer.schema.explorer.badge.anomalyTitle")) + '">' + esc2(vt("viewer.schema.explorer.badge.anomaly", anomalies.length)) + "</span>";
+    }
+    const missing = missingIndexByTable[name] || [];
+    if (missing.length) {
+      html += '<span class="schema-badge schema-badge-warn" title="' + esc2(vt("viewer.schema.explorer.badge.missingIndexTitle")) + '">' + esc2(vt("viewer.schema.explorer.badge.missingIndex", missing.length)) + "</span>";
+    }
+    if ((mutationCountByTable[name] || 0) > 0) {
+      html += '<span class="schema-badge schema-badge-active" title="' + esc2(vt("viewer.schema.explorer.badge.activeTitle")) + '">' + esc2(vt("viewer.schema.explorer.badge.active")) + "</span>";
+    }
+    return html;
+  }
+  function columnRows(table, term) {
+    const fkByCol = {};
+    tableFks(table).forEach(function(fk) {
+      fkByCol[fk.fromColumn] = { toTable: fk.toTable, toColumn: fk.toColumn };
+    });
+    const missingSet = {};
+    (missingIndexByTable[table.name] || []).forEach(function(c) {
+      missingSet[c] = true;
+    });
+    return (table.columns || []).map(function(c) {
+      const rawType = c.type != null ? String(c.type).trim() : "";
+      let badges = "";
+      if (c.pk) {
+        badges += '<span class="table-def-badge table-def-badge-pk" title="' + esc2(vt("viewer.schema.explorer.badgePkTitle")) + '">\u{1F511}</span>';
+      }
+      if (fkByCol[c.name]) {
+        badges += '<span class="table-def-badge table-def-badge-fk" title="' + esc2(vt("viewer.schema.explorer.badgeFkTitle", fkByCol[c.name].toTable, fkByCol[c.name].toColumn)) + '">\u{1F517}</span>';
+      }
+      if (missingSet[c.name]) {
+        badges += '<span class="table-def-badge schema-badge-warn-icon" title="' + esc2(vt("viewer.schema.explorer.badge.missingIndexTitle")) + '">\u26A0</span>';
+      }
+      const flags = c.notnull ? vt("viewer.schema.explorer.flag.notNull") : vt("viewer.schema.explorer.flag.none");
+      const typeCell = rawType ? esc2(rawType) : '<span class="table-def-type-empty">' + esc2(vt("viewer.schema.explorer.flag.none")) + "</span>";
+      const nameCell = term ? highlightText(String(c.name), term) : esc2(c.name);
+      return '<tr><td class="table-def-icons">' + badges + '</td><td class="table-def-name">' + nameCell + '</td><td class="table-def-type">' + typeCell + '</td><td class="table-def-flags">' + esc2(flags) + "</td></tr>";
+    }).join("");
+  }
+  function relationshipsBlock(table, incoming) {
+    const out = tableFks(table);
+    if (!out.length && !incoming.length) return "";
+    let lines = "";
+    out.forEach(function(fk) {
+      lines += '<li class="schema-rel-out"><code>' + esc2(fk.fromColumn) + "</code> " + esc2(vt("viewer.schema.explorer.fkRefersTo", fk.toTable, fk.toColumn)) + "</li>";
+    });
+    incoming.forEach(function(e) {
+      lines += '<li class="schema-rel-in">' + esc2(vt("viewer.schema.explorer.fkReferencedBy", e.fromTable, e.fromColumn)) + "</li>";
+    });
+    return '<div class="schema-rel"><div class="schema-subhead">' + esc2(vt("viewer.schema.explorer.relationships")) + '</div><ul class="schema-rel-list">' + lines + "</ul></div>";
+  }
+  function anomalyBlock(name) {
+    const list = anomaliesByTable[name] || [];
+    if (!list.length) return "";
+    const items = list.map(function(a) {
+      const sev = a.severity || "info";
+      const dot = '<span class="schema-anom-dot" style="background:' + (SEVERITY_COLORS[sev] || SEVERITY_COLORS.info) + ';"></span>';
+      const col = a.column ? "<code>" + esc2(a.column) + "</code> " : "";
+      return "<li>" + dot + col + esc2(a.message || "") + "</li>";
+    }).join("");
+    return '<div class="schema-anom"><div class="schema-subhead">' + esc2(vt("viewer.schema.explorer.anomalyHeading")) + '</div><ul class="schema-anom-list">' + items + "</ul></div>";
+  }
+  function tableCard(table, term, incoming) {
+    const name = table.name;
+    const size = sizeByTable[name];
+    const indexes = size && size.indexes || [];
+    const colCount = size && size.columnCount || (table.columns ? table.columns.length : 0);
+    const rowCount = typeof table.rowCount === "number" ? table.rowCount : 0;
+    const fkOut = tableFks(table).length;
+    let chips = statChip(vt("viewer.schema.explorer.stat.rows", rowCount.toLocaleString("en-US")));
+    chips += statChip(vt("viewer.schema.explorer.stat.cols", colCount));
+    chips += statChip(vt("viewer.schema.explorer.stat.indexes", indexes.length));
+    if (fkOut) chips += statChip(vt("viewer.schema.explorer.stat.fkOut", fkOut));
+    if (incoming.length) chips += statChip(vt("viewer.schema.explorer.stat.fkIn", incoming.length));
+    if ((mutationCountByTable[name] || 0) > 0) {
+      chips += statChip(vt("viewer.schema.explorer.stat.writes", mutationCountByTable[name]));
+    }
+    const nameHtml = term ? highlightText(String(name), term) : esc2(name);
+    const indexBlock = indexes.length ? '<div class="schema-idx"><div class="schema-subhead">' + esc2(vt("viewer.schema.explorer.indexes")) + '</div><div class="schema-idx-names">' + indexes.map(function(i) {
+      return "<code>" + esc2(i) + "</code>";
+    }).join(" ") + "</div></div>" : "";
+    return '<section class="schema-card" data-table="' + esc2(name) + '"><header class="schema-card-head"><span class="schema-card-name">' + nameHtml + '</span><span class="schema-card-badges">' + detectorBadges(name) + '</span></header><div class="schema-card-chips">' + chips + '</div><div class="schema-card-cols"><table class="table-definition"><thead><tr><th class="table-def-icons" scope="col"></th><th scope="col">' + esc2(vt("viewer.schema.explorer.col.column")) + '</th><th scope="col">' + esc2(vt("viewer.schema.explorer.col.type")) + '</th><th scope="col">' + esc2(vt("viewer.schema.explorer.col.constraints")) + "</th></tr></thead><tbody>" + columnRows(table, term) + "</tbody></table></div>" + relationshipsBlock(table, incoming) + indexBlock + anomalyBlock(name) + "</section>";
+  }
+  function populateTypeFilter(meta) {
+    const sel = document.getElementById("schema-explorer-type");
+    if (!sel) return;
+    const current = sel.value;
+    const types = collectTypes(meta);
+    let html = '<option value="">' + esc2(vt("viewer.schema.explorer.typeAll")) + "</option>";
+    types.forEach(function(t) {
+      html += '<option value="' + esc2(t) + '">' + esc2(t) + "</option>";
+    });
+    sel.innerHTML = html;
+    if (current && types.indexOf(current) >= 0) sel.value = current;
+  }
+  function render() {
+    const body = document.getElementById("schema-explorer-body");
+    const summaryEl = document.getElementById("schema-explorer-summary");
+    if (!body) return;
+    const meta = schemaMeta;
+    const tables = meta && meta.tables || [];
+    if (!tables.length) {
+      body.innerHTML = '<p class="meta">' + esc2(vt("viewer.schema.explorer.empty")) + "</p>";
+      if (summaryEl) summaryEl.textContent = "";
+      return;
+    }
+    const term = getFilterTerm();
+    const type = getTypeFilter();
+    const incomingMap = buildIncomingFkMap(meta);
+    const shown = tables.filter(function(t) {
+      return tableMatches(t, term, type);
+    });
+    let totalRows = 0;
+    tables.forEach(function(t) {
+      if (typeof t.rowCount === "number") totalRows += t.rowCount;
+    });
+    if (summaryEl) {
+      const rowsStr = totalRows.toLocaleString("en-US");
+      summaryEl.textContent = totalSizeBytes != null ? vt("viewer.schema.explorer.summary", shown.length, tables.length, rowsStr, formatTableDefBytes(totalSizeBytes)) : vt("viewer.schema.explorer.summaryNoSize", shown.length, tables.length, rowsStr);
+    }
+    if (!shown.length) {
+      body.innerHTML = '<p class="meta">' + esc2(vt("viewer.schema.explorer.noMatches")) + "</p>";
+      return;
+    }
+    body.innerHTML = shown.map(function(t) {
+      return tableCard(t, term, incomingMap[t.name] || []);
+    }).join("");
+  }
+  function buildSchemaMarkdown() {
+    const meta = schemaMeta;
+    const tables = meta && meta.tables || [];
+    const out = ["# Schema", ""];
+    tables.forEach(function(t) {
+      out.push("## " + t.name);
+      const rc = typeof t.rowCount === "number" ? t.rowCount.toLocaleString("en-US") : "0";
+      out.push("_" + rc + " rows_", "");
+      out.push("| Column | Type | Constraints |");
+      out.push("| --- | --- | --- |");
+      (t.columns || []).forEach(function(c) {
+        const cons = [];
+        if (c.pk) cons.push("PK");
+        if (c.notnull) cons.push("NOT NULL");
+        out.push("| " + c.name + " | " + (c.type || "") + " | " + (cons.join(", ") || "\u2014") + " |");
+      });
+      tableFks(t).forEach(function(fk) {
+        out.push("", "- FK: `" + fk.fromColumn + "` \u2192 `" + fk.toTable + "." + fk.toColumn + "`");
+      });
+      out.push("");
+    });
+    return out.join("\n");
+  }
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() {
+        showCopyToast(vt("viewer.schema.explorer.copied"));
+      }).catch(function() {
+        showCopyToast(vt("viewer.schema.explorer.copyFailed"));
+      });
+    }
+  }
+  function handleCopyClick(action) {
+    if (action === "sql") {
+      copyText(formatSqlSafe(cachedSchema || ""));
+    } else if (action === "markdown") {
+      copyText(buildSchemaMarkdown());
+    } else if (action === "json") {
+      copyText(JSON.stringify(schemaMeta && schemaMeta.tables || [], null, 2));
+    }
+  }
+  function scheduleMutationRender() {
+    if (pendingMutationRender) return;
+    pendingMutationRender = true;
+    setTimeout(function() {
+      pendingMutationRender = false;
+      if (mutationPolling) render();
+    }, 1e3);
+  }
+  function pollMutationsOnce() {
+    if (!mutationPolling) return;
+    fetch("/api/mutations?since=" + mutationCursor, authOpts()).then(function(r) {
+      return r.ok ? r.json() : Promise.reject(new Error("mutations unavailable"));
+    }).then(function(data) {
+      if (!mutationPolling) return;
+      const events = data && data.events || [];
+      let changed = false;
+      events.forEach(function(e) {
+        if (e && e.table) {
+          mutationCountByTable[e.table] = (mutationCountByTable[e.table] || 0) + 1;
+          changed = true;
+        }
+      });
+      if (typeof data.cursor === "number") mutationCursor = data.cursor;
+      if (changed) scheduleMutationRender();
+      pollMutationsOnce();
+    }).catch(function() {
+      mutationPolling = false;
+    });
+  }
+  function startMutationPoll() {
+    if (mutationPolling) return;
+    mutationPolling = true;
+    pollMutationsOnce();
+  }
+  function stopSchemaMutationPoll() {
+    mutationPolling = false;
+  }
+  function fetchOptional(path) {
+    return fetch(path, authOpts()).then(function(r) {
+      return r.ok ? r.json() : null;
+    }).catch(function() {
+      return null;
+    });
+  }
+  function loadSchemaExplorer() {
+    const body = document.getElementById("schema-explorer-body");
+    if (body) body.innerHTML = '<p class="meta">' + esc2(vt("viewer.schema.explorer.loading")) + "</p>";
+    sizeByTable = {};
+    anomaliesByTable = {};
+    orphanSet = /* @__PURE__ */ new Set();
+    missingIndexByTable = {};
+    totalSizeBytes = null;
+    Promise.all([
+      loadSchemaMeta().catch(function() {
+        return null;
+      }),
+      fetchOptional("/api/analytics/size"),
+      fetchOptional("/api/analytics/anomalies"),
+      fetchOptional("/api/analytics/orphan-tables"),
+      fetchOptional("/api/index-suggestions")
+    ]).then(function(results) {
+      const meta = results[0];
+      const size = results[1];
+      const anomalies = results[2];
+      const orphans = results[3];
+      const indexSugg = results[4];
+      if (size && Array.isArray(size.tables)) {
+        size.tables.forEach(function(t) {
+          sizeByTable[t.table] = { columnCount: t.columnCount || 0, indexes: t.indexes || [] };
+        });
+        if (typeof size.totalSizeBytes === "number") totalSizeBytes = size.totalSizeBytes;
+      }
+      if (anomalies && Array.isArray(anomalies.anomalies)) {
+        anomalies.anomalies.forEach(function(a) {
+          if (a && a.table) (anomaliesByTable[a.table] = anomaliesByTable[a.table] || []).push(a);
+        });
+      }
+      if (orphans && Array.isArray(orphans.orphans)) {
+        orphans.orphans.forEach(function(o) {
+          if (o && o.table) orphanSet.add(o.table);
+        });
+      }
+      if (indexSugg && Array.isArray(indexSugg.suggestions)) {
+        indexSugg.suggestions.forEach(function(s) {
+          if (s && s.table && s.column) (missingIndexByTable[s.table] = missingIndexByTable[s.table] || []).push(s.column);
+        });
+      }
+      if (!meta) {
+        if (body) body.innerHTML = '<p class="meta">' + esc2(vt("viewer.schema.explorer.error")) + "</p>";
+        return;
+      }
+      populateTypeFilter(meta);
+      render();
+    });
+    loadSchemaIntoPre();
+    startMutationPoll();
+  }
+  function ensureSchemaExplorer() {
+    if (!inited) {
+      inited = true;
+      const search = document.getElementById("schema-explorer-search");
+      if (search) {
+        search.placeholder = vt("viewer.schema.explorer.searchPlaceholder");
+        search.setAttribute("aria-label", vt("viewer.schema.explorer.searchLabel"));
+        search.addEventListener("input", render);
+      }
+      const type = document.getElementById("schema-explorer-type");
+      if (type) {
+        type.setAttribute("aria-label", vt("viewer.schema.explorer.typeLabel"));
+        type.addEventListener("change", render);
+      }
+      const rawSummary = document.getElementById("schema-raw-summary");
+      if (rawSummary) rawSummary.textContent = vt("viewer.schema.explorer.rawHeading");
+      const copyTitles = {
+        sql: vt("viewer.schema.explorer.copySql"),
+        markdown: vt("viewer.schema.explorer.copyMarkdown"),
+        json: vt("viewer.schema.explorer.copyJson")
+      };
+      Object.keys(copyTitles).forEach(function(k) {
+        const btn = document.querySelector('[data-schema-copy="' + k + '"]');
+        if (btn) {
+          btn.setAttribute("title", copyTitles[k]);
+          btn.setAttribute("aria-label", copyTitles[k]);
+        }
+      });
+      const toolbar = document.getElementById("schema-explorer-toolbar");
+      if (toolbar) {
+        toolbar.addEventListener("click", function(ev) {
+          const target = ev.target.closest("[data-schema-copy]");
+          if (target) handleCopyClick(target.getAttribute("data-schema-copy") || "");
+        });
+      }
+    }
+    startMutationPoll();
+    loadSchemaExplorer();
+  }
+
   // assets/web/sidebar-resize.ts
   var DEFAULT_WIDTH = 300;
   var MIN_WIDTH = 180;
@@ -30192,7 +30645,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     }
     return result;
   }
-  function render() {
+  function render2() {
     if (!listEl) return;
     groups = groupEntries(filtered());
     countEl?.replaceChildren(document.createTextNode("(" + groups.length + ")"));
@@ -30297,7 +30750,7 @@ ${JSON.stringify(results, void 0, 2)}`);
       return r.json();
     }).then(function(data) {
       entries = Array.isArray(data.entries) ? data.entries : [];
-      render();
+      render2();
     }).catch(function() {
     });
   }
@@ -30305,7 +30758,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     if (!confirm(vt("viewer.nav.history.clearConfirm"))) return;
     fetch("/api/history", Object.assign({ method: "DELETE" }, authOpts())).then(function() {
       entries = [];
-      render();
+      render2();
     }).catch(function() {
     });
   }
@@ -30331,7 +30784,7 @@ ${JSON.stringify(results, void 0, 2)}`);
           b.classList.toggle("active", isActive);
           b.setAttribute("aria-pressed", isActive ? "true" : "false");
         });
-        render();
+        render2();
       });
     }
     listEl.addEventListener("click", function(e) {
@@ -30372,6 +30825,27 @@ ${JSON.stringify(results, void 0, 2)}`);
     const PAD = 12;
     const COLS = 4;
     let diagramData = null;
+    let filterText = "";
+    let filterType = "";
+    let highlightOn = true;
+    let hideOn = false;
+    function filterActive() {
+      return filterText.trim() !== "" || filterType !== "";
+    }
+    function colMatches(c) {
+      const q = filterText.trim().toLowerCase();
+      const type = (c.type || "").toLowerCase();
+      const textHit = !q || c.name.toLowerCase().indexOf(q) >= 0 || type.indexOf(q) >= 0;
+      const typeHit = !filterType || type === filterType.toLowerCase();
+      return textHit && typeHit;
+    }
+    function tableNameMatches(t) {
+      const q = filterText.trim().toLowerCase();
+      return !filterType && q !== "" && t.name.toLowerCase().indexOf(q) >= 0;
+    }
+    function tableMatches2(t) {
+      return tableNameMatches(t) || (t.columns || []).some(colMatches);
+    }
     function tablePos(index) {
       const row = Math.floor(index / COLS);
       const col = index % COLS;
@@ -30379,12 +30853,61 @@ ${JSON.stringify(results, void 0, 2)}`);
     }
     function renderDiagram(data) {
       const tables = data.tables || [];
-      const fks = data.foreignKeys || [];
-      const softs = data.softRelationships || [];
       if (tables.length === 0) {
         container.innerHTML = '<p class="meta">' + esc2(vt("viewer.settings.diagram.noTables")) + "</p>";
         return;
       }
+      const typeSet = {};
+      tables.forEach(function(t) {
+        (t.columns || []).forEach(function(c) {
+          if (c.type) typeSet[c.type] = true;
+        });
+      });
+      const typeOpts = Object.keys(typeSet).sort(function(a, b) {
+        return a.toLowerCase().localeCompare(b.toLowerCase());
+      }).map(function(ty) {
+        return '<option value="' + esc2(ty) + '">' + esc2(ty) + "</option>";
+      }).join("");
+      const toolbar = '<div class="diagram-filter"><input type="search" id="diagram-field-search" placeholder="' + esc2(vt("viewer.settings.diagram.filter.search.placeholder")) + '" aria-label="' + esc2(vt("viewer.settings.diagram.filter.search.aria")) + '" /><select id="diagram-type-filter" aria-label="' + esc2(vt("viewer.settings.diagram.filter.type.aria")) + '"><option value="">' + esc2(vt("viewer.settings.diagram.filter.type.all")) + "</option>" + typeOpts + '</select><button type="button" class="btn active" id="diagram-highlight-toggle" aria-pressed="true">' + esc2(vt("viewer.settings.diagram.filter.highlight")) + '</button><button type="button" class="btn" id="diagram-hide-toggle" aria-pressed="false">' + esc2(vt("viewer.settings.diagram.filter.hide")) + "</button></div>";
+      container.innerHTML = toolbar + '<div id="diagram-canvas"></div>';
+      const searchEl = document.getElementById("diagram-field-search");
+      const typeEl = document.getElementById("diagram-type-filter");
+      const hlBtn = document.getElementById("diagram-highlight-toggle");
+      const hideBtn = document.getElementById("diagram-hide-toggle");
+      if (searchEl) searchEl.addEventListener("input", function() {
+        filterText = this.value;
+        paintDiagram(data);
+      });
+      if (typeEl) typeEl.addEventListener("change", function() {
+        filterType = this.value;
+        paintDiagram(data);
+      });
+      if (hlBtn) hlBtn.addEventListener("click", function() {
+        highlightOn = !highlightOn;
+        this.classList.toggle("active", highlightOn);
+        this.setAttribute("aria-pressed", String(highlightOn));
+        paintDiagram(data);
+      });
+      if (hideBtn) hideBtn.addEventListener("click", function() {
+        hideOn = !hideOn;
+        this.classList.toggle("active", hideOn);
+        this.setAttribute("aria-pressed", String(hideOn));
+        paintDiagram(data);
+      });
+      paintDiagram(data);
+    }
+    function paintDiagram(data) {
+      const canvas = document.getElementById("diagram-canvas");
+      if (!canvas) return;
+      const tables = data.tables || [];
+      const fks = data.foreignKeys || [];
+      const softs = data.softRelationships || [];
+      const active = filterActive();
+      const hiding = hideOn && active;
+      const matchedSet = {};
+      tables.forEach(function(t) {
+        matchedSet[t.name] = tableMatches2(t);
+      });
       const rows = Math.ceil(tables.length / COLS);
       const width = COLS * (BOX_W + PAD) + PAD;
       const height = rows * (BOX_H + PAD) + PAD;
@@ -30410,6 +30933,7 @@ ${JSON.stringify(results, void 0, 2)}`);
         const iFrom = nameToIndex[fk.fromTable];
         const iTo = nameToIndex[fk.toTable];
         if (iFrom == null || iTo == null) return;
+        if (hiding && (!matchedSet[fk.fromTable] || !matchedSet[fk.toTable])) return;
         const from = getCenter(iFrom, "right");
         const to = getCenter(iTo, "left");
         const mid = (from.x + to.x) / 2;
@@ -30419,6 +30943,7 @@ ${JSON.stringify(results, void 0, 2)}`);
         const iFrom = nameToIndex[s.fromTable];
         const iTo = nameToIndex[s.toTable];
         if (iFrom == null || iTo == null) return;
+        if (hiding && (!matchedSet[s.fromTable] || !matchedSet[s.toTable])) return;
         const from = getCenter(iFrom, "right");
         const to = getCenter(iTo, "left");
         const mid = (from.x + to.x) / 2;
@@ -30427,9 +30952,13 @@ ${JSON.stringify(results, void 0, 2)}`);
       });
       svg += '</g><g class="diagram-tables">';
       tables.forEach(function(t, i) {
+        const matched = matchedSet[t.name];
+        if (hiding && !matched) return;
         const p = tablePos(i);
         const allCols = t.columns || [];
-        const cols = allCols.slice(0, 6);
+        const matchingCols = allCols.filter(colMatches);
+        const baseCols = hiding && matchingCols.length > 0 ? matchingCols : allCols;
+        const cols = baseCols.slice(0, 6);
         const name = esc2(t.name);
         const pkCols = allCols.filter(function(c) {
           return c.pk;
@@ -30440,18 +30969,30 @@ ${JSON.stringify(results, void 0, 2)}`);
         const ariaLabel = vt(allCols.length !== 1 ? "viewer.settings.diagram.aria.tableMany" : "viewer.settings.diagram.aria.tableOne", t.name, allCols.length, pkClause);
         let body = cols.map(function(c) {
           const pk = c.pk ? ' <tspan class="diagram-pk">' + esc2(vt("viewer.settings.diagram.pk")) + "</tspan>" : "";
-          return '<tspan class="diagram-col" x="8" dy="16">' + esc2(c.name) + (c.type ? " " + esc2(c.type) : "") + pk + "</tspan>";
+          let colCls = "diagram-col";
+          let chevron = "";
+          if (highlightOn && active) {
+            if (colMatches(c)) {
+              colCls += " match";
+              chevron = "\u203A ";
+            } else {
+              colCls += " dim";
+            }
+          }
+          return '<tspan class="' + colCls + '" x="8" dy="16">' + esc2(chevron) + esc2(c.name) + (c.type ? " " + esc2(c.type) : "") + pk + "</tspan>";
         }).join("");
-        if (allCols.length > 6) body += '<tspan class="diagram-col" x="8" dy="16">\u2026</tspan>';
-        svg += '<g class="diagram-table" data-table="' + name + '" tabindex="0" role="button" aria-label="' + esc2(ariaLabel) + '" transform="translate(' + p.x + "," + p.y + ')">';
+        if (baseCols.length > cols.length) body += '<tspan class="diagram-col" x="8" dy="16">\u2026</tspan>';
+        let gCls = "diagram-table";
+        if (highlightOn && active) gCls += matched ? " match" : " dim";
+        svg += '<g class="' + gCls + '" data-table="' + name + '" tabindex="0" role="button" aria-label="' + esc2(ariaLabel) + '" transform="translate(' + p.x + "," + p.y + ')">';
         svg += '<rect width="' + BOX_W + '" height="' + BOX_H + '" rx="4"/>';
         svg += '<text class="diagram-name" x="8" y="22" style="fill: var(--link);">' + name + "</text>";
         svg += '<text x="8" y="38">' + body + "</text>";
         svg += "</g>";
       });
       svg += "</g></svg>";
-      container.innerHTML = svg;
-      const tableEls = container.querySelectorAll(".diagram-table");
+      canvas.innerHTML = svg;
+      const tableEls = canvas.querySelectorAll(".diagram-table");
       tableEls.forEach(function(g, i) {
         g.addEventListener("click", function() {
           const name = this.getAttribute("data-table");
@@ -33266,7 +33807,8 @@ ${JSON.stringify(results, void 0, 2)}`);
     btn.click();
   }
   window.onTabSwitch = function(tabId) {
-    if (tabId === "schema") loadSchemaIntoPre();
+    if (tabId === "schema") ensureSchemaExplorer();
+    else stopSchemaMutationPoll();
     if (tabId === "diagram" && typeof window.ensureDiagramInited === "function") window.ensureDiagramInited();
     if (tabId === "search") refreshSearchResultsPanel();
     if (tabId === "index") triggerToolButtonIfReady("index-analyze", { checkDisabled: true });

@@ -78,9 +78,13 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
       const fromNode = nodes.find(n => n.table === edge.from.table);
       const toNode = nodes.find(n => n.table === edge.to.table);
       if (!fromNode || !toNode) continue;
+      // Skip edges whose endpoint table is hidden by the filter.
+      if (hiding && (!visSet[edge.from.table] || !visSet[edge.to.table])) continue;
 
-      const fromY = fromNode.y + getColumnY(fromNode, edge.from.column);
-      const toY = toNode.y + getColumnY(toNode, edge.to.column);
+      const fromCols = visibleColumns(fromNode);
+      const toCols = visibleColumns(toNode);
+      const fromY = fromNode.y + getColumnY(fromNode, fromCols, edge.from.column);
+      const toY = toNode.y + getColumnY(toNode, toCols, edge.to.column);
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       const d = bezierPath(fromNode.x + fromNode.width, fromY, toNode.x, toY);
       path.setAttribute('d', d);
@@ -92,8 +96,8 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
     }
 
     // Render nodes
-    for (const node of nodes) {
-      const g = renderTableNode(node);
+    for (const node of visNodes) {
+      const g = renderTableNode(node, visibleColumns(node));
       svg.appendChild(g);
     }
   }
@@ -254,6 +258,31 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
       vscode.postMessage({ command: 'export', format: e.target.value });
       e.target.value = '';
     }
+  });
+
+  // Field-filter controls. Each updates filter state and re-renders in place; no
+  // round-trip to the extension is needed because all matching happens client-side.
+  document.getElementById('fieldSearch').addEventListener('input', (e) => {
+    filterText = e.target.value;
+    renderDiagram();
+  });
+  document.getElementById('typeFilter').addEventListener('change', (e) => {
+    filterType = e.target.value;
+    renderDiagram();
+  });
+  const highlightBtn = document.getElementById('highlightToggle');
+  highlightBtn.addEventListener('click', () => {
+    highlightOn = !highlightOn;
+    highlightBtn.classList.toggle('active', highlightOn);
+    highlightBtn.setAttribute('aria-pressed', String(highlightOn));
+    renderDiagram();
+  });
+  const hideBtn = document.getElementById('hideToggle');
+  hideBtn.addEventListener('click', () => {
+    hideOn = !hideOn;
+    hideBtn.classList.toggle('active', hideOn);
+    hideBtn.setAttribute('aria-pressed', String(hideOn));
+    renderDiagram();
   });
 
   // Listen for messages from extension

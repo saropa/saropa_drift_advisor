@@ -3139,6 +3139,63 @@ body.theme-light #live-indicator.connection-status {
   outline: none;
 }
 
+/* Field-filter toolbar above the diagram SVG. */
+.diagram-filter {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.diagram-filter input, .diagram-filter select {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-pre);
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.diagram-filter input {
+  min-width: 180px;
+}
+
+.diagram-filter .btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-pre);
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.diagram-filter .btn.active {
+  background: var(--link);
+  color: var(--bg);
+  border-color: var(--link);
+}
+
+/* Highlight mode: emphasize matching columns/tables, dim the rest (nothing removed). */
+.diagram-col.match {
+  fill: var(--link);
+  font-weight: 600;
+}
+
+.diagram-col.dim {
+  opacity: 0.3;
+}
+
+.diagram-table.match rect {
+  stroke: var(--link);
+  stroke-width: 2.5;
+}
+
+.diagram-table.dim {
+  opacity: 0.3;
+}
+
 /* Screen-reader-only text (visually hidden, announced by assistive tech) */
 .sr-only {
   position: absolute;
@@ -4488,6 +4545,235 @@ th.table-def-vis {
   opacity: 0.55;
   font-weight: normal;
   font-size: 0.8rem;
+}
+
+/* Structured Schema explorer (Schema tab) — rendered by schema-explorer.ts.
+ *
+ * Reuses the .table-definition table styles (_query-builder.scss) for each
+ * card's column list; everything here is the surrounding card chrome, the
+ * search/type toolbar, stat chips, detector badges, and relationship/anomaly
+ * blocks. All color/spacing pulls from the theme tokens so dark/midnight and
+ * the light themes stay consistent. */
+.schema-explorer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Sticky filter row so search + type + summary stay reachable while scrolling
+   a long table list. */
+.schema-explorer-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.schema-explorer-search {
+  flex: 1 1 14rem;
+  min-width: 10rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.schema-explorer-type {
+  padding: 0.35rem 0.5rem;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.schema-explorer-summary {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.schema-explorer-copy {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.schema-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.schema-copy-btn:hover {
+  color: var(--fg);
+  background: var(--bg-hover, rgba(127, 127, 127, 0.12));
+}
+
+.schema-copy-btn .material-symbols-outlined {
+  font-size: 17px;
+}
+
+/* --- Per-table card --- */
+.schema-card {
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.schema-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.schema-card-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--fg);
+}
+
+.schema-card-badges {
+  display: inline-flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+/* Detector pills. Default is a neutral outline; orphan/warn/active override the
+   color, and the anomaly badge sets its color inline from the worst severity. */
+.schema-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.12rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.schema-badge-orphan {
+  color: #e57373;
+  border-color: #e57373;
+}
+
+.schema-badge-warn {
+  color: #ffb74d;
+  border-color: #ffb74d;
+}
+
+.schema-badge-active {
+  color: #7cb342;
+  border-color: #7cb342;
+}
+
+.schema-badge-warn-icon {
+  color: #ffb74d;
+}
+
+/* Stat chips: rows / cols / indexes / FK counts / writes. */
+.schema-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.schema-chip {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0.1rem 0.4rem;
+  background: var(--bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+}
+
+.schema-card-cols {
+  overflow-x: auto;
+}
+
+/* Sub-section heads inside a card (Relationships / Indexes / issues). */
+.schema-subhead {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  margin: 0.55rem 0 0.25rem;
+}
+
+.schema-rel-list,
+.schema-anom-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.schema-rel-list li,
+.schema-anom-list li {
+  padding: 0.1rem 0;
+}
+
+.schema-rel-list code,
+.schema-idx-names code {
+  font-size: 11px;
+  padding: 0.05rem 0.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+
+.schema-idx-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.schema-anom-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+/* Raw DDL collapsible at the bottom of the explorer. */
+.schema-raw-details {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.5rem;
+}
+
+.schema-raw-summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  user-select: none;
+}
+
+.schema-raw-summary:hover {
+  color: var(--fg);
 }
 
 /* --- Connection health banner --- */

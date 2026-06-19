@@ -744,7 +744,28 @@ abstract final class HtmlContent {
           </div>
         </div>
         <div id="panel-schema" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-schema" hidden>
-          <div id="schema-collapsible" class="tool-panel-body"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
+          <!-- Structured, searchable schema view. User-visible text (placeholder,
+               type label, copy buttons, raw-DDL summary) is localized by
+               schema-explorer.ts via vt() on first activation, so it reaches the
+               translation overlay; the markup here carries only structure + the
+               English fallback the static shell shows before the bundle runs. -->
+          <div id="schema-explorer" class="schema-explorer">
+            <div id="schema-explorer-toolbar" class="schema-explorer-toolbar">
+              <input type="search" id="schema-explorer-search" class="schema-explorer-search" placeholder="Filter tables and columns…" />
+              <select id="schema-explorer-type" class="schema-explorer-type"></select>
+              <span id="schema-explorer-summary" class="schema-explorer-summary meta"></span>
+              <span class="schema-explorer-copy">
+                <button type="button" class="schema-copy-btn" data-schema-copy="sql" title="Copy SQL"><span class="material-symbols-outlined" aria-hidden="true">code</span></button>
+                <button type="button" class="schema-copy-btn" data-schema-copy="markdown" title="Copy Markdown"><span class="material-symbols-outlined" aria-hidden="true">description</span></button>
+                <button type="button" class="schema-copy-btn" data-schema-copy="json" title="Copy JSON"><span class="material-symbols-outlined" aria-hidden="true">data_object</span></button>
+              </span>
+            </div>
+            <div id="schema-explorer-body" class="schema-explorer-body"><p class="meta">Loading…</p></div>
+            <details id="schema-raw-details" class="schema-raw-details">
+              <summary id="schema-raw-summary" class="schema-raw-summary">Raw DDL</summary>
+              <div id="schema-collapsible" class="tool-panel-body"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
+            </details>
+          </div>
         </div>
         <div id="panel-declared" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-declared" hidden>
           <div id="declared-collapsible" class="tool-panel-body">

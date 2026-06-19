@@ -36,6 +36,7 @@
     import { initHomeScreen } from './home-screen.ts';
     import { goToOffset, ensureColumnConfig, applyColumnConfigAndRender, populateColumnChooserList } from './pagination.ts';
     import { loadSchemaIntoPre, loadSchemaView, loadBothView } from './schema.ts';
+    import { ensureSchemaExplorer, stopSchemaMutationPoll } from './schema-explorer.ts';
     import { initSidebarPanels } from './sidebar-panels.ts';
     import { initSidebarResize } from './sidebar-resize.ts';
     import { initHistorySidebar } from './history-sidebar.ts';
@@ -198,7 +199,11 @@
      */
 
     window.onTabSwitch = function(tabId) {
-      if (tabId === 'schema') loadSchemaIntoPre();
+      // Schema tab: load the structured explorer (which also fills the raw-DDL
+      // collapsible). Leaving the tab stops its live write-activity long-poll so
+      // it doesn't hold a connection open in the background.
+      if (tabId === 'schema') ensureSchemaExplorer();
+      else stopSchemaMutationPoll();
       if (tabId === 'diagram' && typeof window.ensureDiagramInited === 'function') window.ensureDiagramInited();
       if (tabId === 'search') refreshSearchResultsPanel();
       // Auto-run when tool tab opens (no manual button click). checkDisabled avoids duplicate runs if analysis already in progress.

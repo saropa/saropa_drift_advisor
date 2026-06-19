@@ -57,6 +57,23 @@ body.theme-light #live-indicator.connection-status { color: #558b2f; }
 /* Focus ring for keyboard navigation of diagram table boxes */
 .diagram-table:focus rect { stroke: var(--link); stroke-width: 2.5; }
 .diagram-table:focus { outline: none; }
+/* Field-filter toolbar above the diagram SVG. */
+.diagram-filter { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.diagram-filter input, .diagram-filter select {
+  padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-pre); color: var(--fg); font-size: 12px;
+}
+.diagram-filter input { min-width: 180px; }
+.diagram-filter .btn {
+  padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-pre); color: var(--fg); font-size: 12px; cursor: pointer;
+}
+.diagram-filter .btn.active { background: var(--link); color: var(--bg); border-color: var(--link); }
+/* Highlight mode: emphasize matching columns/tables, dim the rest (nothing removed). */
+.diagram-col.match { fill: var(--link); font-weight: 600; }
+.diagram-col.dim { opacity: 0.3; }
+.diagram-table.match rect { stroke: var(--link); stroke-width: 2.5; }
+.diagram-table.dim { opacity: 0.3; }
 /* Screen-reader-only text (visually hidden, announced by assistive tech) */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 /* Chart container: responsive width, minimum height for resize/export (BUG-008). */

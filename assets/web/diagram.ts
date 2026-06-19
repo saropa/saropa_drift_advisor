@@ -17,24 +17,113 @@ export function initDiagram(): void {
   const COLS = 4;
   let diagramData = null;
 
+  // Field-filter state. highlightOn defaults true so a search immediately
+  // emphasizes matches; hideOn is opt-in so the diagram is never silently emptied.
+  let filterText = '';
+  let filterType = '';
+  let highlightOn = true;
+  let hideOn = false;
+
+  function filterActive() {
+    return filterText.trim() !== '' || filterType !== '';
+  }
+  // A column matches when the search appears in its name OR type AND (no type
+  // filter, or the type equals the selected one). Case-insensitive.
+  function colMatches(c) {
+    const q = filterText.trim().toLowerCase();
+    const type = (c.type || '').toLowerCase();
+    const textHit = !q || c.name.toLowerCase().indexOf(q) >= 0 || type.indexOf(q) >= 0;
+    const typeHit = !filterType || type === filterType.toLowerCase();
+    return textHit && typeHit;
+  }
+  // Table name only counts as a match when no type filter is active.
+  function tableNameMatches(t) {
+    const q = filterText.trim().toLowerCase();
+    return !filterType && q !== '' && t.name.toLowerCase().indexOf(q) >= 0;
+  }
+  function tableMatches(t) {
+    return tableNameMatches(t) || (t.columns || []).some(colMatches);
+  }
+
   function tablePos(index) {
     const row = Math.floor(index / COLS);
     const col = index % COLS;
     return { x: col * (BOX_W + PAD) + PAD, y: row * (BOX_H + PAD) + PAD };
   }
 
+  // Builds the filter toolbar once and the (re-paintable) canvas under it. The
+  // toolbar lives OUTSIDE the canvas so re-painting on each keystroke does not
+  // steal focus from the search input.
   function renderDiagram(data) {
+    const tables = data.tables || [];
+    if (tables.length === 0) {
+      container.innerHTML = '<p class="meta">' + esc(vt('viewer.settings.diagram.noTables')) + '</p>';
+      return;
+    }
+
+    // Distinct column types feed the type-filter dropdown, sorted case-insensitively.
+    const typeSet = {};
+    tables.forEach(function(t) {
+      (t.columns || []).forEach(function(c) { if (c.type) typeSet[c.type] = true; });
+    });
+    const typeOpts = Object.keys(typeSet)
+      .sort(function(a, b) { return a.toLowerCase().localeCompare(b.toLowerCase()); })
+      .map(function(ty) { return '<option value="' + esc(ty) + '">' + esc(ty) + '</option>'; })
+      .join('');
+
+    const toolbar = '<div class="diagram-filter">'
+      + '<input type="search" id="diagram-field-search" placeholder="'
+        + esc(vt('viewer.settings.diagram.filter.search.placeholder')) + '" aria-label="'
+        + esc(vt('viewer.settings.diagram.filter.search.aria')) + '" />'
+      + '<select id="diagram-type-filter" aria-label="'
+        + esc(vt('viewer.settings.diagram.filter.type.aria')) + '"><option value="">'
+        + esc(vt('viewer.settings.diagram.filter.type.all')) + '</option>' + typeOpts + '</select>'
+      + '<button type="button" class="btn active" id="diagram-highlight-toggle" aria-pressed="true">'
+        + esc(vt('viewer.settings.diagram.filter.highlight')) + '</button>'
+      + '<button type="button" class="btn" id="diagram-hide-toggle" aria-pressed="false">'
+        + esc(vt('viewer.settings.diagram.filter.hide')) + '</button>'
+      + '</div>';
+    container.innerHTML = toolbar + '<div id="diagram-canvas"></div>';
+
+    const searchEl = document.getElementById('diagram-field-search');
+    const typeEl = document.getElementById('diagram-type-filter');
+    const hlBtn = document.getElementById('diagram-highlight-toggle');
+    const hideBtn = document.getElementById('diagram-hide-toggle');
+    if (searchEl) searchEl.addEventListener('input', function() { filterText = this.value; paintDiagram(data); });
+    if (typeEl) typeEl.addEventListener('change', function() { filterType = this.value; paintDiagram(data); });
+    if (hlBtn) hlBtn.addEventListener('click', function() {
+      highlightOn = !highlightOn;
+      this.classList.toggle('active', highlightOn);
+      this.setAttribute('aria-pressed', String(highlightOn));
+      paintDiagram(data);
+    });
+    if (hideBtn) hideBtn.addEventListener('click', function() {
+      hideOn = !hideOn;
+      this.classList.toggle('active', hideOn);
+      this.setAttribute('aria-pressed', String(hideOn));
+      paintDiagram(data);
+    });
+
+    paintDiagram(data);
+  }
+
+  // Renders the SVG into #diagram-canvas, applying the current filter state:
+  // highlight emphasizes matches and dims the rest; hide drops non-matching
+  // tables/columns (and any FK line whose endpoint vanished).
+  function paintDiagram(data) {
+    const canvas = document.getElementById('diagram-canvas');
+    if (!canvas) return;
     const tables = data.tables || [];
     const fks = data.foreignKeys || [];
     // Soft relationships (Feature 77): edges inferred from column naming that no
     // SQLite FK or manifest declares. Drawn dashed so the link is visible even
     // though nothing declares it.
     const softs = data.softRelationships || [];
-    if (tables.length === 0) {
-      container.innerHTML = '<p class="meta">' + esc(vt('viewer.settings.diagram.noTables')) + '</p>';
-   
-   return;
-    }
+    const active = filterActive();
+    const hiding = hideOn && active;
+    const matchedSet = {};
+    tables.forEach(function(t) { matchedSet[t.name] = tableMatches(t); });
+
     const rows = Math.ceil(tables.length / COLS);
     const width = COLS * (BOX_W + PAD) + PAD;
     const height = rows * (BOX_H + PAD) + PAD;
@@ -63,6 +152,8 @@ export function initDiagram(): void {
       const iFrom = nameToIndex[fk.fromTable];
       const iTo = nameToIndex[fk.toTable];
       if (iFrom == null || iTo == null) return;
+      // Drop the line when hide-mode removed either endpoint table.
+      if (hiding && (!matchedSet[fk.fromTable] || !matchedSet[fk.toTable])) return;
       const from = getCenter(iFrom, 'right');
       const to = getCenter(iTo, 'left');
       const mid = (from.x + to.x) / 2;
@@ -78,6 +169,7 @@ export function initDiagram(): void {
       const iFrom = nameToIndex[s.fromTable];
       const iTo = nameToIndex[s.toTable];
       if (iFrom == null || iTo == null) return;
+      if (hiding && (!matchedSet[s.fromTable] || !matchedSet[s.toTable])) return;
       const from = getCenter(iFrom, 'right');
       const to = getCenter(iTo, 'left');
       const mid = (from.x + to.x) / 2;
@@ -90,9 +182,17 @@ export function initDiagram(): void {
     });
     svg += '</g><g class="diagram-tables">';
     tables.forEach(function(t, i) {
+      const matched = matchedSet[t.name];
+      // Hide-mode drops tables with no match entirely (their grid slot is left
+      // empty rather than re-packed, so other tables keep their positions).
+      if (hiding && !matched) return;
       const p = tablePos(i);
       const allCols = t.columns || [];
-      const cols = allCols.slice(0, 6);
+      // When hiding and the table has matching columns, show only those; a table
+      // kept by its name alone keeps all columns. Still capped at 6 for space.
+      const matchingCols = allCols.filter(colMatches);
+      const baseCols = (hiding && matchingCols.length > 0) ? matchingCols : allCols;
+      const cols = baseCols.slice(0, 6);
       const name = esc(t.name);
       // Build an ARIA label summarising the table for screen readers:
       // e.g. "users table, 5 columns, primary key: id". Column count has
@@ -103,25 +203,34 @@ export function initDiagram(): void {
       const ariaLabel = vt(allCols.length !== 1 ? 'viewer.settings.diagram.aria.tableMany' : 'viewer.settings.diagram.aria.tableOne', t.name, allCols.length, pkClause);
       let body = cols.map(function(c) {
         const pk = c.pk ? ' <tspan class="diagram-pk">' + esc(vt('viewer.settings.diagram.pk')) + '</tspan>' : '';
+        // Highlight mode marks matching columns (chevron + accent) and dims the rest.
+        let colCls = 'diagram-col';
+        let chevron = '';
+        if (highlightOn && active) {
+          if (colMatches(c)) { colCls += ' match'; chevron = '› '; }
+          else { colCls += ' dim'; }
+        }
         // Use local x coordinate (relative to the parent <g> transform),
         // not absolute – the group's translate already positions the box.
-        return '<tspan class="diagram-col" x="8" dy="16">' + esc(c.name) + (c.type ? ' ' + esc(c.type) : '') + pk + '</tspan>';
+        return '<tspan class="' + colCls + '" x="8" dy="16">' + esc(chevron) + esc(c.name) + (c.type ? ' ' + esc(c.type) : '') + pk + '</tspan>';
       }).join('');
-      if (allCols.length > 6) body += '<tspan class="diagram-col" x="8" dy="16">…</tspan>';
+      if (baseCols.length > cols.length) body += '<tspan class="diagram-col" x="8" dy="16">…</tspan>';
       // tabindex="0" makes the box keyboard-focusable; role="button" tells
       // screen readers it is activatable (clicking loads the table view).
-      svg += '<g class="diagram-table" data-table="' + name + '" tabindex="0" role="button" aria-label="' + esc(ariaLabel) + '" transform="translate(' + p.x + ',' + p.y + ')">';
+      let gCls = 'diagram-table';
+      if (highlightOn && active) gCls += matched ? ' match' : ' dim';
+      svg += '<g class="' + gCls + '" data-table="' + name + '" tabindex="0" role="button" aria-label="' + esc(ariaLabel) + '" transform="translate(' + p.x + ',' + p.y + ')">';
       svg += '<rect width="' + BOX_W + '" height="' + BOX_H + '" rx="4"/>';
       svg += '<text class="diagram-name" x="8" y="22" style="fill: var(--link);">' + name + '</text>';
       svg += '<text x="8" y="38">' + body + '</text>';
       svg += '</g>';
     });
     svg += '</g></svg>';
-    container.innerHTML = svg;
+    canvas.innerHTML = svg;
 
     // Attach click + keyboard handlers to each table box.
     // Enter/Space activates (same as click); arrow keys navigate the grid.
-    const tableEls = container.querySelectorAll('.diagram-table');
+    const tableEls = canvas.querySelectorAll('.diagram-table');
     tableEls.forEach(function(g, i) {
       g.addEventListener('click', function() {
         const name = this.getAttribute('data-table');

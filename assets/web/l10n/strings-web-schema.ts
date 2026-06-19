@@ -38,6 +38,75 @@ export const stringsWebSchema: Record<string, string> = {
   // {0} is the HTTP status code from the failed metadata request.
   'viewer.schema.meta.loadFailed': 'Failed to load schema metadata (HTTP {0})',
 
+  // --- Structured schema explorer (assets/web/schema-explorer.ts) ---
+  'viewer.schema.explorer.loading': 'Loading schema…',
+  'viewer.schema.explorer.error': 'Could not load the schema.',
+  'viewer.schema.explorer.empty': 'No tables in this database.',
+  'viewer.schema.explorer.searchPlaceholder': 'Filter tables and columns…',
+  'viewer.schema.explorer.searchLabel': 'Filter schema',
+  'viewer.schema.explorer.typeAll': 'All types',
+  'viewer.schema.explorer.typeLabel': 'Column type',
+  'viewer.schema.explorer.noMatches': 'No tables or columns match the filter.',
+  'viewer.schema.explorer.rawHeading': 'Raw DDL',
+  // Summary header. {0} tables shown, {1} total tables, {2} total rows, {3} DB size.
+  'viewer.schema.explorer.summary': '{0} of {1} tables · {2} rows · {3}',
+  // Summary header without a size figure. {0} shown, {1} total, {2} rows.
+  'viewer.schema.explorer.summaryNoSize': '{0} of {1} tables · {2} rows',
+
+  // Per-table card stat chips. Each takes one numeric/text value.
+  // {0} is the row count.
+  'viewer.schema.explorer.stat.rows': '{0} rows',
+  // {0} is the column count.
+  'viewer.schema.explorer.stat.cols': '{0} cols',
+  // {0} is the index count.
+  'viewer.schema.explorer.stat.indexes': '{0} indexes',
+  // {0} is the count of foreign keys out of this table.
+  'viewer.schema.explorer.stat.fkOut': '{0} FK out',
+  // {0} is the count of tables referencing this table.
+  'viewer.schema.explorer.stat.fkIn': '{0} FK in',
+  // {0} writes seen this session, {1} the relative/absolute time of the last write.
+  'viewer.schema.explorer.stat.writes': '{0} writes',
+
+  // Detector badges (table header). Titles explain the finding on hover.
+  'viewer.schema.explorer.badge.orphan': 'Orphan',
+  'viewer.schema.explorer.badge.orphanTitle':
+    'Physical table not declared in the Drift code schema.',
+  // {0} is the count of anomalies on this table.
+  'viewer.schema.explorer.badge.anomaly': '{0} issues',
+  'viewer.schema.explorer.badge.anomalyTitle': 'Data-quality anomalies detected on this table.',
+  // {0} is the count of FK columns missing an index.
+  'viewer.schema.explorer.badge.missingIndex': '{0} missing index',
+  'viewer.schema.explorer.badge.missingIndexTitle':
+    'Foreign-key columns with no supporting index (a common performance trap).',
+  'viewer.schema.explorer.badge.active': 'Active',
+  'viewer.schema.explorer.badge.activeTitle': 'This table received writes during this session.',
+
+  // Column table headers and constraint words.
+  'viewer.schema.explorer.col.column': 'Column',
+  'viewer.schema.explorer.col.type': 'Type',
+  'viewer.schema.explorer.col.constraints': 'Constraints',
+  'viewer.schema.explorer.flag.notNull': 'NOT NULL',
+  'viewer.schema.explorer.flag.none': '—',
+  'viewer.schema.explorer.badgePk': 'PK',
+  'viewer.schema.explorer.badgePkTitle': 'Primary key',
+  // {0} target table, {1} target column.
+  'viewer.schema.explorer.badgeFkTitle': 'Foreign key → {0}.{1}',
+  // {0} target table, {1} target column (FK relationship line).
+  'viewer.schema.explorer.fkRefersTo': 'references {0}.{1}',
+  // {0} source table, {1} source column (incoming FK line).
+  'viewer.schema.explorer.fkReferencedBy': 'referenced by {0}.{1}',
+  'viewer.schema.explorer.relationships': 'Relationships',
+  'viewer.schema.explorer.indexes': 'Indexes',
+  'viewer.schema.explorer.noIndexes': 'No indexes',
+  'viewer.schema.explorer.anomalyHeading': 'Data-quality issues',
+
+  // Copy/export buttons.
+  'viewer.schema.explorer.copySql': 'Copy SQL',
+  'viewer.schema.explorer.copyMarkdown': 'Copy Markdown',
+  'viewer.schema.explorer.copyJson': 'Copy JSON',
+  'viewer.schema.explorer.copied': 'Copied to clipboard',
+  'viewer.schema.explorer.copyFailed': 'Copy failed',
+
   // --- Divergence findings (assets/web/schema-divergence.ts detail strings,
   //     rendered by declared-schema.ts) ---
   'viewer.schema.divergence.missingTable': 'declared in code but not found in the live database',
