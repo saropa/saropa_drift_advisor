@@ -77,3 +77,28 @@ This repo (`saropa_drift_advisor`) needs **no change** — its single emitter is
 ## Related
 - Prior, distinct duplicate (both emitters were in this repo, resolved 2026-04-22): [plans/history/2026.04/2026.04.22/BUG_anomaly_false_positive_tight_timestamp_range.md](../plans/history/2026.04/2026.04.22/BUG_anomaly_false_positive_tight_timestamp_range.md)
 - Triggering workspace: `d:\src\contacts` — `lib/database/drift/tables/static_data/contact/star_trek_table.dart:80`
+- Cross-project bug filed for the actual fix: `saropa_lints/bugs/infra_drift_advisor_integration_duplicate_diagnostics_with_standalone_extension.md`
+
+## Finish Report (2026-06-18)
+
+### Objective summary
+A duplicate Drift anomaly appeared twice in the Problems panel for the same statistic. Investigation determined the two diagnostics originate from two different VS Code extensions, and that the standalone Saropa Drift Advisor extension (this repo) emits correctly while the duplicate originates in a separate project.
+
+### Defect
+The Problems panel showed two warnings for one anomaly on `star_trek_characters.weight_kilograms` (identical `n=149` / min / mean / σ), differing only by `source` / `code` / message prefix:
+- `Saropa Drift Advisor` / `drift_advisor_anomaly` / prefix `[Drift]`
+- `drift-advisor` / `anomaly` / prefix `[drift_advisor]`
+
+### Root cause
+The two diagnostics come from two distinct extensions both connected to the same Drift Advisor server:
+- Diagnostic with code `anomaly`, source `Drift Advisor`, collection `drift-advisor`, prefix `[drift_advisor]` is this repo's standalone extension (`saropa.drift-viewer`). Constants at `extension/src/diagnostics/diagnostic-types.ts:144-150`; single emitter, correct, lands on the column line.
+- Diagnostic with code `drift_advisor_anomaly`, source `Saropa Drift Advisor`, prefix `[Drift]` is the `saropa_lints` extension's optional "Drift Advisor integration" (`saropa.saropa-lints`), at `saropa_lints/extension/src/driftAdvisor/driftAdvisorTree.ts:67-93`, gated only by `saropaLints.driftAdvisor.showInProblems` (default `true`).
+
+A grep of this repo's `extension/src` for `drift_advisor_anomaly` and the `[Drift]` prefix returns zero matches, confirming this repo does not produce the duplicate. This is a distinct defect from the 2026-04-22 in-repo duplicate, which removed this repo's own second emitter.
+
+### What changed
+- This repo: `bugs/BUG_remove duplicate lint warning.md` rewritten from two raw JSON payloads into a diagnosed report (attribution table, root cause, cross-project fix pointer). No code change — this repo's emitter is already correct.
+- Cross-project deliverable (documentation only, not code edits): a bug report filed at `saropa_lints/bugs/infra_drift_advisor_integration_duplicate_diagnostics_with_standalone_extension.md` with a three-part fix plan (auto-suppress the Lints Problems publish when `saropa.drift-viewer` is active, reusing the existing `ADVISOR_EXTENSION_ID` constant and `suiteAwarenessNudge` detection precedent; a once-gated recommendation toast when the standalone extension is absent; keep `showInProblems` defaulting to `true`). Indexed in that repo's `bugs/BUG_REPORT_GUIDE.md`.
+
+### Status
+Open. This repo requires no change. The fix is tracked in `saropa_lints`; the duplicate persists until that fix ships.
