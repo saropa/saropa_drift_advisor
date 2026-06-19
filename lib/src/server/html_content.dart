@@ -547,6 +547,10 @@ abstract final class HtmlContent {
         <!-- In-dialog sample of the generated SQL's results (first 10 rows),
              so the query can be sanity-checked before clicking Use. -->
         <div id="nl-modal-results" class="nl-modal-results" hidden></div>
+        <!-- Auto-chart toggle: when the generated query is a series (a per-day /
+             per-week count, or any grouped breakdown), Use also runs it and draws
+             the matching chart with the axes pre-set. Off = load the SQL only. -->
+        <label class="nl-auto-chart-toggle" title="When the query is a series, draw a chart automatically with the correct axes"><input type="checkbox" id="nl-auto-chart" checked> Auto-build a chart for series results</label>
         <div class="nl-modal-actions">
           <button type="button" id="nl-preview-run" title="Run the generated SQL and show the first 10 rows here">Preview results</button>
           <button type="button" id="nl-use" class="btn-primary" title="Copy the generated SQL into the Run SQL editor and switch to it">Use</button>
@@ -581,6 +585,7 @@ abstract final class HtmlContent {
       <select id="chart-x"></select>
       <label for="chart-y">Y / Value:</label>
       <select id="chart-y"></select>
+      <label class="chart-toggle" title="Show human-readable axis labels (e.g. &quot;contacts_added&quot; as &quot;Contacts Added&quot;)"><input type="checkbox" id="chart-nl-labels" checked> Friendly axis labels</label>
       <label for="chart-title-input">Title:</label>
       <input type="text" id="chart-title-input" placeholder="Chart title (optional)" title="Optional chart title" />
       <button type="button" id="chart-render" title="Draw chart from result set">Render</button>

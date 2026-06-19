@@ -401,3 +401,59 @@ describe('broad execution sweep: every generated query runs in SQLite', () => {
     });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Fuzzy table resolution for misspelled subjects (item 9). A misspelled table
+// name must still land on its table, not fall through to an arbitrary hub.
+describe('fuzzy table resolution (typo tolerance)', () => {
+  const typoMeta = {
+    tables: [
+      { name: 'activities', rowCount: 10, columns: [
+        { name: 'id', type: 'INTEGER', pk: true, notnull: true },
+        { name: 'activity_date_time', type: 'INTEGER' },
+      ] },
+      { name: 'country_states', rowCount: 200, columns: [
+        { name: 'id', type: 'INTEGER', pk: true, notnull: true },
+        { name: 'name', type: 'TEXT' },
+      ] },
+    ],
+    foreignKeys: [],
+  };
+
+  it('misspelled "activites" resolves to the activities table, not a hub', () => {
+    const r = nlToSql('how many activites were done this year', typoMeta);
+    assert.equal(r.table, 'activities');
+    assert.match(r.sql, /FROM "activities"/);
+    assert.doesNotMatch(r.sql, /country_states/);
+  });
+
+  it('an exact name still wins over fuzzy (no regression)', () => {
+    assert.equal(nlToSql('how many country_states are there', typoMeta).table, 'country_states');
+  });
+
+  it('a word matching nothing close still best-guesses (no false fuzzy hit)', () => {
+    // "widgets" is far from both table names → falls back to the hub guess,
+    // never throws and never invents a table.
+    const r = nlToSql('how many widgets', typoMeta);
+    assert.ok(r.table === 'activities' || r.table === 'country_states');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Recursive calendar time-series for bucketed questions (item 10).
+describe('time-bucket series', () => {
+  it('"by day" builds a recursive calendar series, not a bare GROUP BY column', () => {
+    const sql = S('contacts created this month by day');
+    assert.match(sql, /WITH RECURSIVE calendar/i);
+    assert.match(sql, /LEFT JOIN "contacts"/i);
+    assert.match(sql, /GROUP BY c\.bucket/i);
+  });
+
+  it('the generated series executes in SQLite', () => {
+    assert.ok(relRun('contacts created this month by day') >= 0);
+  });
+
+  it('"per week" picks the week granularity', () => {
+    assert.match(S('contacts added per week'), /WITH RECURSIVE calendar/i);
+  });
+});

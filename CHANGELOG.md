@@ -54,6 +54,11 @@ The web viewer's Home tab is easier to read and to navigate: a plain-language ov
 - **Voice command keywords in the Ask panel.** When dictating, say "clear" / "start again" to empty the box, "run again" to re-run, or "what about last year" to re-ask your last question over a different time window. A new "Ask in English" setting turns this on or off (on by default) — turn it off to dictate those words literally.
 - **Ask in English now answers two time windows at once.** "How many contacts were added this year and last month" returns both totals side by side in one result, instead of needing two separate questions.
 - **Ask in English now understands "weekly", "monthly", and other time buckets.** "Show me the weekly contacts added" builds a calendar of recent weeks and counts each one — including weeks with zero, so gaps are visible — using a recursive query you would otherwise have to hand-write.
+- **Format your SQL with one click.** The Run SQL editor has a new Format button, and queries are tidied automatically when you run them, apply a template, or send one over from Ask in English. SQL shown elsewhere — including the Schema view — is pretty-printed too.
+- **Copy query results as Markdown, CSV, or JSON.** Buttons above the results table copy the whole result set (every page) to the clipboard in the format you pick.
+- **Friendly chart axis labels.** Charts now show readable axis titles ("contacts_added" becomes "Contacts Added") by default; a toggle on the chart turns this off to show the raw column names.
+- **Charts build themselves for Ask-in-English series.** When a question produces a series (a per-day/per-week count, or any breakdown), using it now draws the matching chart with the axes already set. A toggle in the Ask panel (on by default) turns this off.
+- **Misspelled table names still find the right table.** Asking "how many activites…" now lands on your `activities` table instead of an unrelated one.
 
 ### Changed
 
@@ -62,10 +67,15 @@ The web viewer's Home tab is easier to read and to navigate: a plain-language ov
 ### Improved
 
 - **The Ask panel's generated SQL is bigger and easier to read**, and the "Preview results" button now matches the rest of the app's buttons instead of looking like a plain browser default.
+- **The estimated-cost panel and the results table on the Run SQL screen are now collapsible**, so you can fold either away to focus on the query.
+- **Query result tables now match the rest of the app's table styling** — rounded corners, sticky header, zebra rows, and a footer that joins the table cleanly instead of the old mismatched corners.
 
 ### Fixed
 
 - **The Ask panel's dictation mic no longer shows as a dead button in Firefox.** Browsers without speech recognition were still displaying the mic (it did nothing when clicked) because a style override defeated the markup that was meant to hide it. The mic now correctly disappears where dictation is unsupported.
+- **The Run button shows its play icon again.** It had been rendering the words "play_arrow Run" after the first run, because restoring the button's busy state dropped the icon markup.
+- **Charts no longer label the Y axis with the X axis's name.** The Y selector now defaults to a different (value) column than X, so a freshly drawn chart labels each axis correctly.
+- **One-page results no longer show dead Prev/Next buttons.** Pagination only appears when the result set spans more than one page.
 
 ### Removed
 
@@ -74,7 +84,7 @@ The web viewer's Home tab is easier to read and to navigate: a plain-language ov
 <details><summary>Maintenance</summary>
 
 - Home tab (`assets/web/home-screen.ts`, `_home-screen.scss`, `state.ts`, `html_content.dart`): removed the sidebar-toggle markup, styles, and the `_syncHomeSidebarToggles` window hook (its three guarded callers in `sidebar-panels.ts`, `toolbar.ts`, `app.js` deleted). Added per-tool `color` to `HOME_LAUNCHERS`/`HOME_EXTRAS` (driven into a `--tool-accent` CSS custom property), a `HOME_SEARCH_KEYWORDS` synonym dictionary, a per-card token search index with a per-token substring/fuzzy-subsequence matcher, and runtime-populated title/lead/search strings via new `viewer.nav.home.*` l10n keys. Loosened grid gap and card padding.
-- Ask-in-English panel (bug `BUG_Microphone_button_not_work.md`, items 1–7):
+- Ask-in-English panel (bug `plans/history/2026.06/2026.06.18/BUG_Microphone_button_not_work.md`, items 1–7):
   - Mic visibility: added `.nl-icon-btn[hidden]{display:none}` in `_sql-editor.scss` — the button's `display:inline-flex` was overriding the UA `[hidden]` rule, so the mic stayed visible (and dead) on browsers without the Web Speech API.
   - Generated-SQL preview enlarged (`_sql-editor.scss`): `min-height` 5rem→8rem, `font-size` 13px→`--text-sm`, color `--muted`→`--fg`. "Preview results" folded into the shared secondary-button selector group in `_buttons.scss` so it matches `.toolbar`/`.sql-toolbar` buttons.
   - Clear button: new `#nl-clear` control in `html_content.dart` wired to `clearNlQuestion()` in `nl-modal.ts` (empties the box, resets the refine base, re-previews).
@@ -82,6 +92,18 @@ The web viewer's Home tab is easier to read and to navigate: a plain-language ov
   - Multi-window counts: `multiWindowCount()` emits one `SUM(CASE WHEN <window> THEN 1 ELSE 0 END)` per window for a count question naming 2+ windows.
   - Time-bucket series: `detectTimeBucket()` + `timeBucketSeries()` emit a `WITH RECURSIVE calendar(...)` + LEFT JOIN + GROUP BY for "weekly/monthly/…" so empty buckets still report 0.
   - Refactor: extracted `resolveDateColumn()` + `dayExpr()` from `temporalWhere()` (now takes an optional forced column) so the window and bucket builders share its column choice. New tests in `assets/web/test/nl-keywords-buckets.test.mjs` (31 cases); full web suite 218 pass.
+- Run SQL screen (bug `BUG_RUN_SQL_Screen.md`, items 1–11):
+  - Run-button icon: `setButtonBusy` (`utils.ts`) now stashes/restores the button's `innerHTML` via a `data-busy-restore` attribute instead of restoring `textContent`, so icon spans survive a busy cycle (fixes the literal "play_arrow Run").
+  - SQL formatting: added dependency `sql-formatter` (^15) and a `formatSqlSafe()` wrapper (`sql-format.ts`, SQLite dialect, uppercase keywords, fail-soft to original). Wired into the Run SQL editor (new `#sql-format` button + format on run / template / deep-link), the NL preview + Use + narrative (`nl-modal.ts`), and the Schema view (`schema.ts`, via `formatAndHighlightSchema`).
+  - Collapsible cost: `renderExplainInfo` wraps the cost summary in a `<details>` (`.explain-collapsible`); styles in `_sql-editor.scss`.
+  - Single-page pagination: `renderSqlResultPage` only emits the Prev/Next bar when `total > pageSize`.
+  - Result table: SQL result now uses `.drift-table` + `.data-table-scroll-wrap` + `.table-status-bar` inside a collapsible `.results-table-wrap` (`bindResultsToggle`); removed the conflicting SQL-specific table CSS that double-rounded corners.
+  - Copy/export: `rowsToMarkdown` / `rowsToCsv` / `rowsToJson` (exported, pure) + a copy toolbar that writes the full row set to the clipboard with a toast.
+  - Chart axis labels: `humanizeColumnLabel()` (`charts.ts`) + `#chart-nl-labels` toggle (default on) in the chart toolbar; `app.js` render handler humanizes axis titles and re-renders on toggle.
+  - Y-axis default: the run handler now seeds `#chart-y` to the first numeric (or second) column, distinct from `#chart-x`.
+  - Fuzzy table resolution: `editDistance()` + `fuzzyResolveTable()` (`nl-to-sql.ts`) as a typo-recovery fallback in `resolveTable` (gated by a stopword set; accepts only an unambiguous winner).
+  - Auto-chart: `#nl-auto-chart` toggle (default on) in the Ask panel; `useNlModal` stashes `window._nlAutoChart` and runs the query for `answerKind === 'group'`, consumed by the run handler to pick line/bar and render.
+  - New l10n keys under `viewer.sql.result.*` (heading/copy). New web tests for fuzzy resolution + bucket series; full web suite 224 pass.
 
 </details>
 

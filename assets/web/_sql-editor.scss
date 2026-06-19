@@ -137,6 +137,19 @@
 }
 .sql-runner .sql-error { color: #e57373; margin-top: 0.35rem; font-size: 0.875rem; }
 
+/* Friendly-axis-labels toggle in the chart toolbar (item 7): inline checkbox +
+   label that reads as one control alongside the chart selects. */
+.chart-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--text-sm);
+  color: var(--fg);
+  cursor: pointer;
+  user-select: none;
+}
+.chart-toggle input { cursor: pointer; }
+
 /* Collapsible estimated-cost section (item 3): the cost summary is the clickable
    <summary>; folding it hides the index report and plan detail. Reset the native
    marker and supply our own caret so it matches the NL help disclosure style. */
@@ -647,6 +660,20 @@
   margin-top: 0.5rem;
   margin-bottom: 0;
 }
+/* Auto-build-a-chart toggle in the Ask panel (item 11): a quiet checkbox row
+   above the Preview/Use actions. */
+.nl-auto-chart-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.7rem 0 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.nl-auto-chart-toggle input { cursor: pointer; }
+
 .nl-modal-actions {
   display: flex;
   gap: 0.5rem;

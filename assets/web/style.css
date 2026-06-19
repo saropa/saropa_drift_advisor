@@ -2342,50 +2342,103 @@ pre {
   max-height: 50vh;
 }
 
-/* SQL result table: allow natural column widths and horizontal scroll in container */
-.sql-runner .sql-result .data-table-scroll-wrap {
-  overflow: scroll;
-  max-height: 70vh;
-  margin-top: 0.35rem;
+/* The result grid now reuses the shared `.drift-table` + `.data-table-scroll-wrap`
+   + `.table-status-bar` styling from _data-table.scss (item 5) so it matches the
+   Tables / Search grids exactly — rounded scroll-wrap, sticky zebra rows, and a
+   footer status bar that joins the table cleanly. The previous SQL-specific
+   `table` rules added a second border-radius to the inner <table>, which fought
+   the scroll-wrap's corners and produced the mismatched-corner look. Removed. */
+/* Copy / export toolbar above the result table (item 6). */
+.sql-runner .sql-result-copy {
   margin-bottom: 0;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface);
 }
 
-.sql-runner .sql-result table {
-  border-collapse: collapse;
-  width: max-content;
-  font-size: 13px;
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-}
-
-.sql-runner .sql-result th,
-.sql-runner .sql-result td {
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 0.5rem 0.65rem;
-  text-align: left;
-  white-space: nowrap;
-  min-width: 5rem;
-}
-
-.sql-runner .sql-result th {
-  font-weight: 600;
-  background: var(--bg-pre);
-  color: var(--muted);
+.sql-runner .sql-result-copy-label {
   font-size: var(--text-sm);
+  color: var(--muted);
 }
 
-.sql-runner .sql-result tbody tr:nth-child(even) {
-  background: var(--row-alt);
+.sql-runner .sql-result-copy button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 30px;
+  padding: 0 0.55rem;
+  font-size: var(--text-sm);
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.sql-runner .sql-result-copy button .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.sql-runner .sql-result-copy button:hover {
+  border-color: var(--link);
+  color: var(--link);
+}
+
+/* Pagination toolbar beneath the result table (item 4): shown only for
+   multi-page result sets; disabled buttons dim. */
+.sql-runner .sql-result-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .sql-runner .sql-error {
   color: #e57373;
   margin-top: 0.35rem;
   font-size: 0.875rem;
+}
+
+/* Friendly-axis-labels toggle in the chart toolbar (item 7): inline checkbox +
+   label that reads as one control alongside the chart selects. */
+.chart-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--text-sm);
+  color: var(--fg);
+  cursor: pointer;
+  user-select: none;
+}
+
+.chart-toggle input {
+  cursor: pointer;
+}
+
+/* Collapsible estimated-cost section (item 3): the cost summary is the clickable
+   <summary>; folding it hides the index report and plan detail. Reset the native
+   marker and supply our own caret so it matches the NL help disclosure style. */
+.explain-collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.explain-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.explain-collapsible > summary::before {
+  content: "▾";
+  color: var(--muted);
+  margin-right: 0.3rem;
+  transition: transform 0.15s ease;
+}
+
+.explain-collapsible:not([open]) > summary::before {
+  transform: rotate(-90deg);
+}
+
+.explain-collapsible-body {
+  margin-top: 0.3rem;
 }
 
 .sql-runner .sql-result, .sql-runner .sql-error {
@@ -2944,6 +2997,23 @@ pre {
 .nl-modal-error {
   margin-top: 0.5rem;
   margin-bottom: 0;
+}
+
+/* Auto-build-a-chart toggle in the Ask panel (item 11): a quiet checkbox row
+   above the Preview/Use actions. */
+.nl-auto-chart-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.7rem 0 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.nl-auto-chart-toggle input {
+  cursor: pointer;
 }
 
 .nl-modal-actions {

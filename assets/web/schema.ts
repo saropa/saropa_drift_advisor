@@ -7,10 +7,22 @@
 import * as S from './state.ts';
 import { vt } from './l10n.ts';
 import { esc, highlightSqlSafe } from './utils.ts';
+import { formatSqlSafe } from './sql-format.ts';
 import { getScope, filterRows, getTableDisplayData, buildTableFilterMetaSuffix, applySearch } from './search.ts';
 import { rowCountText } from './table-list.ts';
 import { getColumnConfig } from './persistence.ts';
 import { buildDataTableHtml, wrapDataTableInScroll, buildTableStatusBar, getVisibleColumnCount, buildTableDefinitionHtml } from './table-view.ts';
+
+/**
+ * Pretty-prints the schema DDL, then syntax-highlights it (item 2). Format first
+ * so the highlighter colorizes the reflowed multi-line layout; formatSqlSafe
+ * returns the original text if the dump has statements it can't parse, so the
+ * Schema view never blanks. Single code path so every schema render formats
+ * identically.
+ */
+function formatAndHighlightSchema(schema: string): string {
+  return highlightSqlSafe(formatSqlSafe(schema));
+}
 
 /** Renders the schema DDL into the inline <pre> element, using cache when available. */
 export function loadSchemaIntoPre() {
@@ -18,12 +30,12 @@ export function loadSchemaIntoPre() {
       if (!pre) return;
       // Use cached schema if already fetched by another view (both scope, search tab, etc.)
       if (S.cachedSchema !== null) {
-        pre.innerHTML = highlightSqlSafe(S.cachedSchema);
+        pre.innerHTML = formatAndHighlightSchema(S.cachedSchema);
         return;
       }
       fetch('/api/schema', S.authOpts()).then(r => r.text()).then(function(schema) {
         S.setCachedSchema(schema);
-        pre.innerHTML = highlightSqlSafe(schema);
+        pre.innerHTML = formatAndHighlightSchema(schema);
       }).catch(function() { pre.textContent = vt('viewer.schema.load.failed'); });
     }
 
@@ -55,7 +67,7 @@ export function renderSchemaContent(container, schema) {
       if (scope === 'both') {
         container.innerHTML = '<div class="search-section-collapsible expanded">' +
           '<div class="collapsible-header" data-collapsible>' + vt('viewer.schema.heading') + '</div>' +
-          '<div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
+          '<div class="collapsible-body"><pre id="schema-pre">' + formatAndHighlightSchema(schema) + '</pre></div>' +
           '</div>' +
           '<div class="search-section-collapsible expanded" id="both-data-section">' +
           '<div class="collapsible-header" data-collapsible>' + vt('viewer.schema.tableData.heading') + '</div>' +
@@ -77,7 +89,7 @@ export function renderSchemaContent(container, schema) {
           if (dataBody) dataBody.innerHTML = '<p class="meta">' + metaText + '</p>' + buildTableDefinitionHtml(S.currentTableName) + wrapDataTableInScroll(buildDataTableHtml(displayData, fkMap, colTypes, getColumnConfig(S.currentTableName))) + buildTableStatusBar(S.tableCounts[S.currentTableName], S.offset, S.limit, displayData.length, getVisibleColumnCount(Object.keys(displayData[0] || {}), getColumnConfig(S.currentTableName)));
         }
       } else {
-        container.innerHTML = '<p class="meta">' + vt('viewer.schema.heading') + '</p><pre id="content-pre">' + highlightSqlSafe(schema) + '</pre>';
+        container.innerHTML = '<p class="meta">' + vt('viewer.schema.heading') + '</p><pre id="content-pre">' + formatAndHighlightSchema(schema) + '</pre>';
       }
     }
 
@@ -89,7 +101,7 @@ export function buildBothViewSectionsHtml(tableName, metaText, qbHtml, tableHtml
       defHtml = defHtml || '';
       return '<div class="search-section-collapsible expanded">' +
         '<div class="collapsible-header" data-collapsible>' + vt('viewer.schema.heading') + '</div>' +
-        '<div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
+        '<div class="collapsible-body"><pre id="schema-pre">' + formatAndHighlightSchema(schema) + '</pre></div>' +
         '</div>' +
         '<div class="search-section-collapsible expanded" id="both-data-section">' +
         '<div class="collapsible-header" data-collapsible>' + vt('viewer.schema.tableData.headingNamed', esc(tableName)) + '</div>' +
@@ -121,7 +133,7 @@ export function loadBothView() {
         }
         content.innerHTML = '<div class="search-section-collapsible expanded">' +
           '<div class="collapsible-header" data-collapsible>' + vt('viewer.schema.heading') + '</div>' +
-          '<div class="collapsible-body"><pre id="schema-pre">' + highlightSqlSafe(schema) + '</pre></div>' +
+          '<div class="collapsible-body"><pre id="schema-pre">' + formatAndHighlightSchema(schema) + '</pre></div>' +
           '</div>' +
           '<div class="search-section-collapsible expanded" id="both-data-section">' +
           '<div class="collapsible-header" data-collapsible>' + vt('viewer.schema.tableData.heading') + '</div>' +

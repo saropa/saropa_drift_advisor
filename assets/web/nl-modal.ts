@@ -559,6 +559,19 @@ import { openTool } from './tabs.ts';
           // with the generated query loaded, instead of closing a dialog.
           openTool('sql');
           setNlModalError('', false);
+          // Auto-build a chart for series results (item 11), when the toggle is
+          // on. A grouped/series query is the only shape a chart makes sense for;
+          // we stash the chart type (line for a calendar time series, bar for a
+          // plain breakdown) and run the query so the chart wiring in sql-runner
+          // can configure the axes (item 8) and render against real rows.
+          var autoChartEl = document.getElementById('nl-auto-chart') as HTMLInputElement | null;
+          var autoChart = !autoChartEl || autoChartEl.checked;
+          if (autoChart && result.answerKind === 'group') {
+            var isCalendarSeries = /calendar\s*\(\s*bucket\s*\)/i.test(result.sql);
+            (window as any)._nlAutoChart = { type: isCalendarSeries ? 'line' : 'bar' };
+            var runBtn = document.getElementById('sql-run') as HTMLButtonElement | null;
+            if (runBtn) runBtn.click();
+          }
           // Reset the Ask panel's transient UI — stops any live dictation so the
           // mic doesn't keep streaming, and drops the in-panel sample rows.
           closeNlModal();
@@ -765,7 +778,7 @@ import { openTool } from './tabs.ts';
         '<div class="nl-narrative">' +
         '<p class="nl-narrative-say">' + esc(sentence) + '</p>' +
         '<hr class="nl-narrative-rule">' +
-        '<pre class="nl-narrative-sql">' + esc(String(sql || '')) + '</pre>' +
+        '<pre class="nl-narrative-sql">' + esc(formatSqlSafe(sql)) + '</pre>' +
         '</div>';
       resultsEl.insertAdjacentHTML('afterbegin', html);
     }

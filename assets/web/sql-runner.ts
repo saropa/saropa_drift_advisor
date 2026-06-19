@@ -542,10 +542,37 @@ export function initSqlRunner(): void {
             var ySel = document.getElementById('chart-y') as HTMLSelectElement;
             if (xSel) xSel.innerHTML = keys2.map(function(k) { return '<option>' + esc(k) + '</option>'; }).join('');
             if (ySel) ySel.innerHTML = keys2.map(function(k) { return '<option>' + esc(k) + '</option>'; }).join('');
+            // Default X to the first (label) column and Y to a DIFFERENT column —
+            // the first numeric-valued one if any, else the second column (item
+            // 8). Without this both selects defaulted to the first column, so the
+            // Y axis duplicated the X axis label ("week_start" on both axes).
+            if (xSel) xSel.selectedIndex = 0;
+            if (ySel && keys2.length > 1) {
+              var firstRow = rows[0];
+              var numericIdx = -1;
+              for (var ki = 0; ki < keys2.length; ki++) {
+                if (ki === 0) continue; // never pick the X column as the default Y
+                var cell = firstRow[keys2[ki]];
+                if (cell != null && cell !== '' && isFinite(Number(cell))) { numericIdx = ki; break; }
+              }
+              ySel.selectedIndex = numericIdx >= 0 ? numericIdx : 1;
+            }
             if (chartControls) chartControls.style.display = 'flex';
             (window as any)._chartRows = rows;
+            // Auto-configure + draw the chart for an NL series (item 11). The X/Y
+            // defaults were just set above (item 8), so we only pick the chart
+            // type (line for a time series, bar for a breakdown) and render.
+            var autoChart = (window as any)._nlAutoChart;
+            if (autoChart) {
+              (window as any)._nlAutoChart = null;
+              var typeSel = document.getElementById('chart-type') as HTMLSelectElement | null;
+              if (typeSel) typeSel.value = autoChart.type || 'bar';
+              var renderBtn = document.getElementById('chart-render') as HTMLButtonElement | null;
+              if (renderBtn) renderBtn.click();
+            }
           } else {
             if (chartControls) chartControls.style.display = 'none';
+            (window as any)._nlAutoChart = null;
             var cc = document.getElementById('chart-container');
             if (cc) cc.style.display = 'none';
           }

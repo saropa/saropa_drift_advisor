@@ -853,6 +853,100 @@ interface ResolvedTable {
 }
 
 /**
+ * Levenshtein edit distance, capped early at `max` so a far-apart pair bails out
+ * of the inner loop instead of filling the whole DP table. Used by the fuzzy
+ * table matcher to tolerate typos ("activites" → "activities").
+ */
+function editDistance(a: string, b: string, max: number): number {
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > max) return max + 1;
+  if (la === 0) return lb;
+  if (lb === 0) return la;
+  let prev = new Array(lb + 1);
+  let cur = new Array(lb + 1);
+  for (let j = 0; j <= lb; j++) prev[j] = j;
+  for (let i = 1; i <= la; i++) {
+    cur[0] = i;
+    let rowMin = cur[0];
+    const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= lb; j++) {
+      const cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      if (cur[j] < rowMin) rowMin = cur[j];
+    }
+    // Whole row already past the cap — no later row can come back under it.
+    if (rowMin > max) return max + 1;
+    const tmp = prev; prev = cur; cur = tmp;
+  }
+  return prev[lb];
+}
+
+// Words too generic to risk fuzzy-matching to a table name — they'd let a
+// near-miss hijack table resolution ("count" → "counties"). The exact-name pass
+// already ran and missed, so fuzzy only runs as a typo-recovery fallback; this
+// list keeps it from firing on ordinary sentence words.
+const FUZZY_STOPWORDS = new Set([
+  'show', 'list', 'count', 'many', 'much', 'have', 'with', 'from', 'this', 'that',
+  'them', 'they', 'were', 'when', 'what', 'which', 'into', 'over', 'about', 'between',
+  'year', 'years', 'week', 'weeks', 'month', 'months', 'days', 'date', 'time',
+  'last', 'first', 'next', 'name', 'names', 'rows', 'records', 'total', 'number',
+  'created', 'changed', 'added', 'done', 'made', 'there', 'their', 'than', 'then',
+]);
+
+/**
+ * Typo-tolerant table resolution. Compares each meaningful question word against
+ * every table name (and its singular) by edit distance, and returns the single
+ * closest table when the match is both within tolerance AND unambiguously closer
+ * than any other table. Returns null when nothing is close enough or two tables
+ * tie — callers then fall back to the hub best-guess.
+ *
+ * Tolerance scales with length (≤1 edit for short names, ≤2 for ≥6 chars) so
+ * "activites" → "activities" lands while unrelated words stay unmatched. This is
+ * the fix for a misspelled subject mapping to an arbitrary hub table (item 9).
+ */
+function fuzzyResolveTable(q: string, tables: SchemaTable[]): SchemaTable | null {
+  const words = (q.toLowerCase().match(/[a-z][a-z']{3,}/g) || [])
+    .filter(function (w) { return !FUZZY_STOPWORDS.has(w); });
+  if (words.length === 0) return null;
+
+  let best: { table: SchemaTable; dist: number } | null = null;
+  let secondDist = Infinity; // closest distance attributed to a DIFFERENT table
+
+  for (let ti = 0; ti < tables.length; ti++) {
+    const t = tables[ti];
+    const names = [t.name.toLowerCase()];
+    const sing = singularize(t.name.toLowerCase());
+    if (sing !== names[0]) names.push(sing);
+
+    // Best distance from any question word to any spelling of this table.
+    let tableDist = Infinity;
+    for (let ni = 0; ni < names.length; ni++) {
+      const name = names[ni];
+      const tol = name.length >= 6 ? 2 : 1;
+      for (let wi = 0; wi < words.length; wi++) {
+        const w = words[wi];
+        if (Math.abs(w.length - name.length) > tol) continue;
+        const d = editDistance(w, name, tol);
+        if (d <= tol && d < tableDist) tableDist = d;
+      }
+    }
+    if (tableDist === Infinity) continue;
+    if (!best || tableDist < best.dist) {
+      // The previous best becomes the runner-up (a different table).
+      if (best) secondDist = Math.min(secondDist, best.dist);
+      best = { table: t, dist: tableDist };
+    } else {
+      secondDist = Math.min(secondDist, tableDist);
+    }
+  }
+
+  // Accept only a clear winner: within tolerance and strictly closer than the
+  // next table, so an ambiguous typo doesn't silently pick one of two.
+  if (best && best.dist < secondDist) return best.table;
+  return null;
+}
+
+/**
  * Chooses the target table — and never dead-ends. If the question names a
  * table we use it; if several are named we pick the hub and flag it ambiguous;
  * if none is named we best-guess (the only table, else the hub) and flag it a
@@ -886,6 +980,12 @@ function resolveTable(q: string, meta: SchemaMeta): ResolvedTable {
     return { table: earliest, confidence: 'ambiguous', candidates: named.map(function (t) { return t.name; }) };
   }
   if (tables.length === 1) return { table: tables[0], confidence: 'only', candidates: all };
+  // No exact name matched. Before falling back to the hub best-guess, try a
+  // typo-tolerant match so a misspelled subject ("activites") still lands on its
+  // table ("activities") instead of an unrelated hub table (item 9). Surfaced as
+  // a 'guess' so the clarifier still offers a one-click correction.
+  const fuzzy = fuzzyResolveTable(q, tables);
+  if (fuzzy) return { table: fuzzy, confidence: 'guess', candidates: all };
   return { table: pickHubTable(tables, meta), confidence: 'guess', candidates: all };
 }
 

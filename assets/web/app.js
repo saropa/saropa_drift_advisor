@@ -24,7 +24,7 @@
     import { initNlModalListeners } from './nl-modal.ts';
     import { navigateToFk, renderBreadcrumb } from './fk-nav.ts';
     import { tryStartBrowserCellEdit, showCellValuePopup, setupCellValuePopupButtons, hasUnsavedWebEdit, jsonPkValueForCellUpdate } from './cell-edit.ts';
-    import { renderBarChart, renderStackedBarChart, renderPieChart, renderLineChart, renderAreaChart, renderScatterChart, renderHistogram, exportChartPng, exportChartSvg, exportChartCopy, setupChartResize } from './charts.ts';
+    import { renderBarChart, renderStackedBarChart, renderPieChart, renderLineChart, renderAreaChart, renderScatterChart, renderHistogram, exportChartPng, exportChartSvg, exportChartCopy, setupChartResize, humanizeColumnLabel } from './charts.ts';
     import { initConnectionDeps, hideConnectionBanner, updateLiveIndicatorForConnection, doHeartbeat, stopHeartbeat, startKeepAlive, stopKeepAlive } from './connection.ts';
     import { initTheme, initThemeListeners } from './theme.ts';
     import { clearStaleProjectStorage, getColumnConfig, setColumnConfig, saveTableState, clearTableState, saveNavHistory, loadNavHistory } from './persistence.ts';
@@ -834,7 +834,15 @@
         var nth = Math.ceil(rows.length / 500);
         chartData = rows.filter(function(_, i) { return i % nth === 0; });
       }
-      var opts = { title: title, description: '', xLabel: xKey, yLabel: yKey };
+      // Friendly axis labels (item 7): when the toggle is on (default), show
+      // human-readable axis titles ("contacts_added" → "Contacts Added") while
+      // the underlying data keys stay the raw column names. Toggle off to show
+      // the raw column names verbatim.
+      var nlLabelsEl = document.getElementById('chart-nl-labels');
+      var friendlyLabels = !nlLabelsEl || nlLabelsEl.checked;
+      var xLabel = friendlyLabels ? humanizeColumnLabel(xKey) : xKey;
+      var yLabel = friendlyLabels ? humanizeColumnLabel(yKey) : yKey;
+      var opts = { title: title, description: '', xLabel: xLabel, yLabel: yLabel };
       S.setLastChartState({ type: type, xKey: xKey, yKey: yKey, data: chartData, opts: opts });
 
       if (type === 'bar') renderBarChart(container, chartData, xKey, yKey, opts);
@@ -845,6 +853,15 @@
       else if (type === 'scatter') renderScatterChart(container, chartData, xKey, yKey, opts);
       else if (type === 'histogram') renderHistogram(container, chartData, yKey, 10, opts);
     });
+
+    // Re-render the chart when the friendly-labels toggle flips (item 7), so the
+    // axis titles update live instead of waiting for the next Render click.
+    var chartNlLabelsToggle = document.getElementById('chart-nl-labels');
+    if (chartNlLabelsToggle) {
+      chartNlLabelsToggle.addEventListener('change', function() {
+        if (S.lastChartState) document.getElementById('chart-render').click();
+      });
+    }
 
     document.getElementById('chart-export-png').addEventListener('click', exportChartPng);
     document.getElementById('chart-export-svg').addEventListener('click', exportChartSvg);

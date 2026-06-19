@@ -6,6 +6,33 @@
     import { esc } from './utils.ts';
     import { vt } from './l10n.ts';
 
+    /**
+     * Turns a raw column name into a human-readable axis label (item 7):
+     * "contacts_added" → "Contacts Added", "weekStart" → "Week Start",
+     * "COUNT(*)" → "COUNT(*)" (left alone — it has no word boundaries to split).
+     * Splits on underscores and camelCase humps, then title-cases each word.
+     * Pure + exported so it can be unit-tested and reused by the chart wiring.
+     */
+    export function humanizeColumnLabel(key) {
+      var raw = String(key == null ? '' : key);
+      if (!raw) return '';
+      // Leave expressions / aggregates that carry punctuation untouched — there's
+      // no clean word split for "COUNT(*)" or "SUM(amount)" and title-casing them
+      // reads worse than the original.
+      if (/[()*]/.test(raw)) return raw;
+      var spaced = raw
+        .replace(/[_\-]+/g, ' ')                 // snake / kebab → spaces
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')  // camelCase hump → space
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (!spaced) return raw;
+      return spaced.split(' ').map(function(w) {
+        // Preserve all-caps tokens (ID, URL, SQL); title-case ordinary words.
+        if (/^[A-Z0-9]+$/.test(w)) return w;
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      }).join(' ');
+    }
+
     export function getChartSize() {
       var wrap = document.getElementById('chart-wrapper');
       if (!wrap) return { w: 600, h: 320 };

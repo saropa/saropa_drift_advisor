@@ -1,5 +1,7 @@
 # BUG: Ask-in-English (NL) panel — mic button dead + panel polish
 
+**Status:** Fixed (2026-06-18) — see Finish Report below.
+
 **Surface:** Web viewer → sidebar → **Ask in English** panel.
 
 ## Reported issues

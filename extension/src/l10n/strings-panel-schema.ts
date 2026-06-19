@@ -37,6 +37,22 @@ export const stringsPanelSchema: Record<string, string> = {
   'panel.schema.er.menu.seed': 'Seed Test Data',
   'panel.schema.er.menu.profile': 'Profile Columns',
 
+  // --- Field filter controls (shared by ER Diagram + Schema Diagram) ---
+  // Toolbar controls that filter the diagram by column name / type. The search
+  // box matches a field name or its type string (e.g. "integer"); the type
+  // dropdown narrows to one column type; the two toggles choose whether matches
+  // are emphasized in place or whether everything else is hidden.
+  'panel.schema.filter.search.placeholder': 'Search fields & types…',
+  // aria-label for the search input (the visible placeholder is not announced reliably).
+  'panel.schema.filter.search.aria': 'Filter tables by field name or type',
+  // First option of the type dropdown — no type filter applied.
+  'panel.schema.filter.type.all': 'All types',
+  'panel.schema.filter.type.aria': 'Filter by column type',
+  // Toggle: emphasize matching fields/tables without hiding anything.
+  'panel.schema.filter.highlight': 'Highlight matches',
+  // Toggle: hide non-matching fields and tables.
+  'panel.schema.filter.hide': 'Hide non-matching',
+
   // --- Schema Diff (schema-diff-html) ---
   'panel.schema.diff.title': 'Code vs Runtime Schema Diff',
   // {0} = count of tables present in both code and DB.
