@@ -29,6 +29,7 @@ import { loadSchemaIntoPre } from './schema.ts';
 import { formatSqlSafe } from './sql-format.ts';
 import { highlightText } from './search.ts';
 import { showCopyToast, formatTableDefBytes } from './table-view.ts';
+import { tableFks, collectTypes, buildIncomingFkMap, tableMatches, buildSchemaMarkdown } from './schema-explorer-logic.ts';
 
 // Severity → color, matching the palette already used by the analytics tools
 // (tools-analytics.ts) so anomaly badges read the same everywhere.
@@ -67,73 +68,6 @@ function getFilterTerm(): string {
 function getTypeFilter(): string {
   const el = document.getElementById('schema-explorer-type') as HTMLSelectElement | null;
   return el ? String(el.value || '') : '';
-}
-
-/**
- * Normalizes a SQL column type to a base keyword for the type filter:
- * "VARCHAR(255)" → "VARCHAR", "integer" → "INTEGER". Empty/unspecified types
- * collapse to '' and are skipped (no "" option in the dropdown).
- */
-function baseType(raw: unknown): string {
-  const s = raw == null ? '' : String(raw).trim();
-  if (!s) return '';
-  // Cut at the first '(' (length/precision) or whitespace (e.g. "UNSIGNED BIG INT").
-  const m = s.match(/^[A-Za-z_]+/);
-  return m ? m[0].toUpperCase() : s.toUpperCase();
-}
-
-/** Outgoing FK edges declared on a table (PRAGMA + manifest), normalized. */
-function tableFks(table: any): Array<{ fromColumn: string; toTable: string; toColumn: string }> {
-  const fks = (table && table.foreignKeys) || [];
-  return Array.isArray(fks) ? fks : [];
-}
-
-/**
- * Builds a map of table → incoming FK references (which other tables point at
- * it) from the flattened top-level edge list the metadata loader produces.
- */
-function buildIncomingFkMap(meta: any): Record<string, Array<{ fromTable: string; fromColumn: string }>> {
-  const map: Record<string, Array<{ fromTable: string; fromColumn: string }>> = {};
-  const edges = (meta && meta.foreignKeys) || [];
-  if (Array.isArray(edges)) {
-    edges.forEach(function (e: any) {
-      if (e && e.toTable && e.fromTable) {
-        (map[e.toTable] = map[e.toTable] || []).push({ fromTable: e.fromTable, fromColumn: e.fromColumn });
-      }
-    });
-  }
-  return map;
-}
-
-/** Collects the distinct base column types across all tables, sorted. */
-function collectTypes(meta: any): string[] {
-  const set: Record<string, true> = {};
-  const tables = (meta && meta.tables) || [];
-  tables.forEach(function (t: any) {
-    (t.columns || []).forEach(function (c: any) {
-      const bt = baseType(c.type);
-      if (bt) set[bt] = true;
-    });
-  });
-  return Object.keys(set).sort();
-}
-
-/**
- * True when a table passes the active search term and type filter. Search
- * matches the table name OR any column name (substring, case-insensitive);
- * type filter requires at least one column of the selected base type.
- */
-function tableMatches(table: any, term: string, type: string): boolean {
-  if (type) {
-    const hasType = (table.columns || []).some(function (c: any) { return baseType(c.type) === type; });
-    if (!hasType) return false;
-  }
-  if (!term) return true;
-  const lower = term.toLowerCase();
-  if (String(table.name || '').toLowerCase().includes(lower)) return true;
-  return (table.columns || []).some(function (c: any) {
-    return String(c.name || '').toLowerCase().includes(lower);
-  });
 }
 
 // --- Rendering ------------------------------------------------------------
@@ -340,31 +274,6 @@ function render(): void {
 
 // --- Schema-level copy/export --------------------------------------------
 
-/** Builds a Markdown document describing every table and column. */
-function buildSchemaMarkdown(): string {
-  const meta = S.schemaMeta;
-  const tables = (meta && meta.tables) || [];
-  const out: string[] = ['# Schema', ''];
-  tables.forEach(function (t: any) {
-    out.push('## ' + t.name);
-    const rc = typeof t.rowCount === 'number' ? t.rowCount.toLocaleString('en-US') : '0';
-    out.push('_' + rc + ' rows_', '');
-    out.push('| Column | Type | Constraints |');
-    out.push('| --- | --- | --- |');
-    (t.columns || []).forEach(function (c: any) {
-      const cons: string[] = [];
-      if (c.pk) cons.push('PK');
-      if (c.notnull) cons.push('NOT NULL');
-      out.push('| ' + c.name + ' | ' + (c.type || '') + ' | ' + (cons.join(', ') || '—') + ' |');
-    });
-    tableFks(t).forEach(function (fk) {
-      out.push('', '- FK: `' + fk.fromColumn + '` → `' + fk.toTable + '.' + fk.toColumn + '`');
-    });
-    out.push('');
-  });
-  return out.join('\n');
-}
-
 /** Copies text via the clipboard API, with a confirming or failing toast. */
 function copyText(text: string): void {
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -380,7 +289,7 @@ function handleCopyClick(action: string): void {
     // The full formatted DDL — the same single code path the raw view uses.
     copyText(formatSqlSafe(S.cachedSchema || ''));
   } else if (action === 'markdown') {
-    copyText(buildSchemaMarkdown());
+    copyText(buildSchemaMarkdown(S.schemaMeta));
   } else if (action === 'json') {
     copyText(JSON.stringify((S.schemaMeta && S.schemaMeta.tables) || [], null, 2));
   }

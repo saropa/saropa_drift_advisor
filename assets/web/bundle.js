@@ -30106,6 +30106,77 @@ ${JSON.stringify(results, void 0, 2)}`);
     initHomeIntro();
   }
 
+  // assets/web/schema-explorer-logic.ts
+  function baseType(raw) {
+    const s = raw == null ? "" : String(raw).trim();
+    if (!s) return "";
+    const m = s.match(/^[A-Za-z_]+/);
+    return m ? m[0].toUpperCase() : s.toUpperCase();
+  }
+  function tableFks(table) {
+    const fks = table && table.foreignKeys || [];
+    return Array.isArray(fks) ? fks : [];
+  }
+  function collectTypes(meta) {
+    const set = {};
+    const tables = meta && meta.tables || [];
+    tables.forEach(function(t) {
+      (t.columns || []).forEach(function(c) {
+        const bt = baseType(c.type);
+        if (bt) set[bt] = true;
+      });
+    });
+    return Object.keys(set).sort();
+  }
+  function buildIncomingFkMap(meta) {
+    const map = {};
+    const edges = meta && meta.foreignKeys || [];
+    if (Array.isArray(edges)) {
+      edges.forEach(function(e) {
+        if (e && e.toTable && e.fromTable) {
+          (map[e.toTable] = map[e.toTable] || []).push({ fromTable: e.fromTable, fromColumn: e.fromColumn });
+        }
+      });
+    }
+    return map;
+  }
+  function tableMatches(table, term, type) {
+    if (type) {
+      const hasType = (table.columns || []).some(function(c) {
+        return baseType(c.type) === type;
+      });
+      if (!hasType) return false;
+    }
+    if (!term) return true;
+    const lower = term.toLowerCase();
+    if (String(table.name || "").toLowerCase().includes(lower)) return true;
+    return (table.columns || []).some(function(c) {
+      return String(c.name || "").toLowerCase().includes(lower);
+    });
+  }
+  function buildSchemaMarkdown(meta) {
+    const tables = meta && meta.tables || [];
+    const out = ["# Schema", ""];
+    tables.forEach(function(t) {
+      out.push("## " + t.name);
+      const rc = typeof t.rowCount === "number" ? t.rowCount.toLocaleString("en-US") : "0";
+      out.push("_" + rc + " rows_", "");
+      out.push("| Column | Type | Constraints |");
+      out.push("| --- | --- | --- |");
+      (t.columns || []).forEach(function(c) {
+        const cons = [];
+        if (c.pk) cons.push("PK");
+        if (c.notnull) cons.push("NOT NULL");
+        out.push("| " + c.name + " | " + (c.type || "") + " | " + (cons.join(", ") || "\u2014") + " |");
+      });
+      tableFks(t).forEach(function(fk) {
+        out.push("", "- FK: `" + fk.fromColumn + "` \u2192 `" + fk.toTable + "." + fk.toColumn + "`");
+      });
+      out.push("");
+    });
+    return out.join("\n");
+  }
+
   // assets/web/schema-explorer.ts
   var SEVERITY_COLORS = {
     error: "#e57373",
@@ -30129,53 +30200,6 @@ ${JSON.stringify(results, void 0, 2)}`);
   function getTypeFilter() {
     const el = document.getElementById("schema-explorer-type");
     return el ? String(el.value || "") : "";
-  }
-  function baseType(raw) {
-    const s = raw == null ? "" : String(raw).trim();
-    if (!s) return "";
-    const m = s.match(/^[A-Za-z_]+/);
-    return m ? m[0].toUpperCase() : s.toUpperCase();
-  }
-  function tableFks(table) {
-    const fks = table && table.foreignKeys || [];
-    return Array.isArray(fks) ? fks : [];
-  }
-  function buildIncomingFkMap(meta) {
-    const map = {};
-    const edges = meta && meta.foreignKeys || [];
-    if (Array.isArray(edges)) {
-      edges.forEach(function(e) {
-        if (e && e.toTable && e.fromTable) {
-          (map[e.toTable] = map[e.toTable] || []).push({ fromTable: e.fromTable, fromColumn: e.fromColumn });
-        }
-      });
-    }
-    return map;
-  }
-  function collectTypes(meta) {
-    const set = {};
-    const tables = meta && meta.tables || [];
-    tables.forEach(function(t) {
-      (t.columns || []).forEach(function(c) {
-        const bt = baseType(c.type);
-        if (bt) set[bt] = true;
-      });
-    });
-    return Object.keys(set).sort();
-  }
-  function tableMatches(table, term, type) {
-    if (type) {
-      const hasType = (table.columns || []).some(function(c) {
-        return baseType(c.type) === type;
-      });
-      if (!hasType) return false;
-    }
-    if (!term) return true;
-    const lower = term.toLowerCase();
-    if (String(table.name || "").toLowerCase().includes(lower)) return true;
-    return (table.columns || []).some(function(c) {
-      return String(c.name || "").toLowerCase().includes(lower);
-    });
   }
   function statChip(text) {
     return '<span class="schema-chip">' + esc2(text) + "</span>";
@@ -30319,29 +30343,6 @@ ${JSON.stringify(results, void 0, 2)}`);
       return tableCard(t, term, incomingMap[t.name] || []);
     }).join("");
   }
-  function buildSchemaMarkdown() {
-    const meta = schemaMeta;
-    const tables = meta && meta.tables || [];
-    const out = ["# Schema", ""];
-    tables.forEach(function(t) {
-      out.push("## " + t.name);
-      const rc = typeof t.rowCount === "number" ? t.rowCount.toLocaleString("en-US") : "0";
-      out.push("_" + rc + " rows_", "");
-      out.push("| Column | Type | Constraints |");
-      out.push("| --- | --- | --- |");
-      (t.columns || []).forEach(function(c) {
-        const cons = [];
-        if (c.pk) cons.push("PK");
-        if (c.notnull) cons.push("NOT NULL");
-        out.push("| " + c.name + " | " + (c.type || "") + " | " + (cons.join(", ") || "\u2014") + " |");
-      });
-      tableFks(t).forEach(function(fk) {
-        out.push("", "- FK: `" + fk.fromColumn + "` \u2192 `" + fk.toTable + "." + fk.toColumn + "`");
-      });
-      out.push("");
-    });
-    return out.join("\n");
-  }
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function() {
@@ -30355,7 +30356,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     if (action === "sql") {
       copyText(formatSqlSafe(cachedSchema || ""));
     } else if (action === "markdown") {
-      copyText(buildSchemaMarkdown());
+      copyText(buildSchemaMarkdown(schemaMeta));
     } else if (action === "json") {
       copyText(JSON.stringify(schemaMeta && schemaMeta.tables || [], null, 2));
     }

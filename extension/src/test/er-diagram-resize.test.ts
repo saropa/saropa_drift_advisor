@@ -50,12 +50,14 @@ describe('getErDiagramScript', () => {
   });
 
   it('should include SVG rendering helpers from the extracted module', () => {
+    // renderTableNode/getColumnY take the displayed-column list as a parameter so
+    // the field filter can hide non-matching columns and still attach edges.
     assert.ok(
-      script.includes('function renderTableNode(node)'),
+      script.includes('function renderTableNode(node, cols)'),
       'Expected renderTableNode function in composed output',
     );
     assert.ok(
-      script.includes('function getColumnY(node, columnName)'),
+      script.includes('function getColumnY(node, cols, columnName)'),
       'Expected getColumnY function in composed output',
     );
     assert.ok(
@@ -75,8 +77,21 @@ describe('getErDiagramScript', () => {
       'Expected renderDiagram to call bezierPath',
     );
     assert.ok(
-      script.includes('renderTableNode(node)'),
+      script.includes('renderTableNode(node, visibleColumns(node))'),
       'Expected renderDiagram to call renderTableNode',
     );
+  });
+
+  it('should wire the field-filter controls and matching helpers', () => {
+    // The search box, type dropdown, and the two match-mode toggles each update
+    // filter state and re-render in place (no extension round-trip).
+    assert.ok(script.includes("getElementById('fieldSearch')"), 'Expected fieldSearch handler');
+    assert.ok(script.includes("getElementById('typeFilter')"), 'Expected typeFilter handler');
+    assert.ok(script.includes("getElementById('highlightToggle')"), 'Expected highlight toggle handler');
+    assert.ok(script.includes("getElementById('hideToggle')"), 'Expected hide toggle handler');
+    // Matching helpers that decide which columns/tables match the filter.
+    assert.ok(script.includes('function columnMatches('), 'Expected columnMatches helper');
+    assert.ok(script.includes('function visibleColumns('), 'Expected visibleColumns helper');
+    assert.ok(script.includes('function nodeMatches('), 'Expected nodeMatches helper');
   });
 });

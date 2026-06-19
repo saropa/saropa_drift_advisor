@@ -1,5 +1,7 @@
 # Schema screen — improvements
 
+Status: Fixed
+
 Screen: web viewer **Schema** view (`assets/web/schema.ts`), which renders the
 database DDL into a `<pre>` block, plus the combined **Both** (schema + table
 data) view.
@@ -13,7 +15,7 @@ data) view.
    the types actually present in the schema.
 3. Search + type filter should compose (both active narrows the result).
 
-Note: align behavior with the Diagram screen request (`BUG_diagram_screen.md`),
+Note: align behavior with the Diagram screen request (`plans/history/2026.06/2026.06.18/BUG_diagram_screen.md`),
 which asks for the same name/type filtering plus highlight-only vs.
 hide-non-matching toggles — reuse the same filter UI where practical.
 
