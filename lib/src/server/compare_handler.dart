@@ -227,10 +227,13 @@ final class CompareHandler {
   }) async {
     for (final table in tablesB) {
       if (!tablesA.contains(table)) {
+        // Match the view-inclusive table list from getTableNames (issue #32):
+        // a "new" entry can be a view, and filtering to type='table' here would
+        // return no CREATE statement and silently drop it from the migration.
         final schemaRows = ServerUtils.normalizeRows(
           await queryB(
             'SELECT sql FROM sqlite_master '
-            'WHERE type=\'table\' AND name=\'$table\'',
+            'WHERE type IN (\'table\',\'view\') AND name=\'$table\'',
           ),
         );
         final createStmt = schemaRows.firstOrNull?['sql'] as String?;
