@@ -60,6 +60,17 @@ export function loadDiagnosticConfig(): IDiagnosticConfig {
     }
   }
 
+  // Per-column exclusions: { "high-null-rate": ["users.middle_name"], ... }
+  // Finer than tableExclusions — suppresses a rule on a single `table.column`
+  // (e.g. a column expected to be mostly NULL) without silencing the table.
+  const columnExclusionsRaw = cfg.get<Record<string, string[]>>('columnExclusions', {});
+  const columnExclusions = new Map<string, Set<string>>();
+  for (const [code, columns] of Object.entries(columnExclusionsRaw)) {
+    if (Array.isArray(columns) && columns.length > 0) {
+      columnExclusions.set(code, new Set(columns));
+    }
+  }
+
   return {
     enabled: cfg.get('enabled', DEFAULT_DIAGNOSTIC_CONFIG.enabled),
     refreshOnSave: cfg.get('refreshOnSave', DEFAULT_DIAGNOSTIC_CONFIG.refreshOnSave),
@@ -68,5 +79,6 @@ export function loadDiagnosticConfig(): IDiagnosticConfig {
     severityOverrides,
     disabledRules,
     tableExclusions,
+    columnExclusions,
   };
 }

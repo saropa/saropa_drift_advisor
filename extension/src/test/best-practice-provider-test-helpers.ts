@@ -60,6 +60,7 @@ export function createContext(options: {
       severityOverrides: {},
       disabledRules: new Set(),
       tableExclusions: new Map(),
+      columnExclusions: new Map(),
     },
   };
 }

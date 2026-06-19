@@ -53,7 +53,7 @@ export function checkTextPrimaryKey(
       message: `Table "${dartTable.sqlTableName}" uses TEXT primary key (INTEGER recommended for performance)`,
       fileUri: file.uri,
       range: new vscode.Range(line, 0, line, 999),
-      severity: vscode.DiagnosticSeverity.Warning,
+      severity: vscode.DiagnosticSeverity.Information,
     });
   }
 }

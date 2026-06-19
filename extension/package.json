@@ -229,6 +229,16 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.runSaropaLintsDiagnostics",
+        "title": "%command.runSaropaLintsDiagnostics.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.clearSaropaLintsDiagnostics",
+        "title": "%command.clearSaropaLintsDiagnostics.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.copySuggestedSql",
         "title": "%command.copySuggestedSql.title%",
         "category": "Saropa Drift Advisor"
@@ -1633,6 +1643,17 @@
           "type": "object",
           "default": {},
           "description": "%config.diagnostics.tableExclusions.description%",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "driftViewer.diagnostics.columnExclusions": {
+          "type": "object",
+          "default": {},
+          "description": "%config.diagnostics.columnExclusions.description%",
           "additionalProperties": {
             "type": "array",
             "items": {

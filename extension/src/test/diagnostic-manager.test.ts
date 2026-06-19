@@ -294,6 +294,68 @@ describe('DiagnosticManager', () => {
     });
   });
 
+  describe('columnExclusions', () => {
+    it('should suppress a rule on an excluded table.column', async () => {
+      // high-null-rate issue carrying data.table + data.column — should be
+      // filtered when columnExclusions maps the rule to "users.middle_name".
+      const issues: IDiagnosticIssue[] = [
+        createMockIssue('high-null-rate', 'Column "users.middle_name" has 94% NULL values', 10, {
+          table: 'users',
+          column: 'middle_name',
+        }),
+      ];
+
+      manager.registerProvider(createMockProvider('dq', 'dataQuality', issues));
+
+      sinon.stub(workspace, 'getConfiguration').returns({
+        get: (key: string, defaultVal?: unknown) => {
+          if (key === 'columnExclusions') {
+            return { 'high-null-rate': ['users.middle_name'] };
+          }
+          if (key === 'categories.dataQuality') return true;
+          return defaultVal;
+        },
+      } as any);
+
+      (manager as any)._lastRefresh = 0;
+      await manager.refresh();
+
+      const collection = manager.collection as unknown as MockDiagnosticCollection;
+      const allDiags = [...collection.entries().values()].flat();
+      assert.strictEqual(allDiags.length, 0);
+    });
+
+    it('should NOT suppress the rule on a sibling column of the same table', async () => {
+      // Same table, different column — the exclusion is column-scoped, so a
+      // sibling column must still report.
+      const issues: IDiagnosticIssue[] = [
+        createMockIssue('high-null-rate', 'Column "users.nickname" has 80% NULL values', 10, {
+          table: 'users',
+          column: 'nickname',
+        }),
+      ];
+
+      manager.registerProvider(createMockProvider('dq', 'dataQuality', issues));
+
+      sinon.stub(workspace, 'getConfiguration').returns({
+        get: (key: string, defaultVal?: unknown) => {
+          if (key === 'columnExclusions') {
+            return { 'high-null-rate': ['users.middle_name'] };
+          }
+          if (key === 'categories.dataQuality') return true;
+          return defaultVal;
+        },
+      } as any);
+
+      (manager as any)._lastRefresh = 0;
+      await manager.refresh();
+
+      const collection = manager.collection as unknown as MockDiagnosticCollection;
+      const allDiags = [...collection.entries().values()].flat();
+      assert.strictEqual(allDiags.length, 1);
+    });
+  });
+
   describe('clear', () => {
     it('should clear all diagnostics', async () => {
       const issues: IDiagnosticIssue[] = [

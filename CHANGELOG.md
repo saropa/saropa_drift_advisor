@@ -42,6 +42,34 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+Columns that are entirely empty are now called out separately from merely sparse ones, you can silence a data-quality warning on a single column instead of the whole table, and advisory checks now show as informational hints instead of warnings.
+
+### Changed
+
+- **Advisory checks are now Information, not Warnings.** Heuristic, suggestion-style findings no longer show with a warning squiggle — they read as informational hints. Genuine defects (schema drift, integrity violations, orphaned/mismatched foreign keys) keep their Warning/Error severity. Reclassified to Information: high null rate, unused column, data skew, full-table scan, slow-query pattern, N+1 pattern, unindexed WHERE/JOIN, missing FK index, statistical anomalies, TEXT primary key, cascade-delete risk, and duplicate index. You can still re-tune any of these per code with `driftViewer.diagnostics.severityOverrides`.
+
+### Added
+
+- **A new "unused column" warning, split out from high null rate.** A column where *every* row is NULL is now reported as an unused column (nothing ever writes to it) rather than lumped in with columns that are merely mostly-NULL. The two are separate findings you can tune, disable, and suppress independently.
+- **Per-column suppression for data-quality rules.** A new `driftViewer.diagnostics.columnExclusions` setting silences a rule on a single `table.column` — e.g. `{ "high-null-rate": ["users.middle_name"] }` for a column you expect to be mostly empty — without muting the rest of the table. Mirrors the existing `tableExclusions` setting.
+- **A "Disable rule" quick fix on data-quality warnings.** High-null-rate, unused-column, and data-skew diagnostics now offer a lightbulb action to disable the rule, the same as the naming, best-practice, runtime, and compliance categories — no more hand-editing settings.
+- **Saropa Lints findings now show in the Problems panel.** A new "Run Saropa Lints (Publish to Problems)" command runs the scanner and surfaces every finding as a real diagnostic — inline squiggles and Problems-panel entries you can click through — instead of only a text dump in an Output channel. A companion "Clear Saropa Lints Problems" command removes them. The original Output-channel command is unchanged.
+
+<details><summary>Maintenance</summary>
+
+- **Saropa Lints diagnostics ingestion.** New `SaropaLintsDiagnostics` (`extension/src/saropa-lints-diagnostics.ts`) owns a dedicated `saropa-lints` diagnostic collection. It runs `dart run saropa_lints scan . --format json` (the scanner's existing stable v1 JSON report — no saropa_lints change needed), parses stdout tolerantly (slices first `{`..last `}` to survive `dart run` build chatter), and maps each finding to a `vscode.Diagnostic`: `filePath`→Uri (relative paths resolved against the workspace root), 1-based line/column→0-based range, analyzer `severity` name→`DiagnosticSeverity` (case-insensitive, unknown→Information), `ruleName`→code, `correctionMessage` appended to the message. Exit code 1 (findings present) is treated as success, not failure; only a missing/invalid report is an error. Deliberately on-demand (not in the auto-refresh provider pipeline — a full analyzer scan is too costly per refresh) with its own collection (saropa_lints rules are toggled in the consumer's `analysis_options.yaml`, not via the advisor's `disabledRules`). Wired two commands in `saropa-lints-commands.ts` (`runSaropaLintsDiagnostics`, `clearSaropaLintsDiagnostics`) alongside the existing text-dump command; pure parse/map functions unit-tested in `saropa-lints-diagnostics.test.ts`; activation disposable count updated to 232.
+- **Severity reclassification (13 codes Warning → Information).** Flipped `defaultSeverity` in the codes registry and the matching inline `severity:` at each emit site (the inline value overrides the registry default in `DiagnosticManager`, so both had to move). Codes: `high-null-rate`, `unused-column`, `data-skew` (data-quality-provider); `full-table-scan`, `slow-query-pattern`, `n-plus-one`, `unindexed-where-clause`, `unindexed-join` (performance-codes + slow-query/n-plus-one/query-pattern checkers); `missing-fk-index`, `anomaly` (schema-codes + index/anomaly checkers); `text-pk`, `cascade-risk`, `duplicate-index` (best-practice-codes + pk-checker). `slow-query-pattern` and `n-plus-one` previously escalated to Warning when pinned to a known call site — that escalation was removed (pin location still selected, severity now always Information). `anomaly` keeps Error for server-flagged integrity defects (which map to `orphaned-fk`). Updated four severity assertions in the provider tests.
+- **100%-NULL split.** `DataQualityProvider._checkHighNullRates` now branches on the raw null count (`nullCount >= rowCount`, not the rounded percent — so 99.6% rounding to "100%" is not misclassified) to emit the new `unused-column` code; partial high-null stays `high-null-rate`. New code registered in `data-quality-codes.ts` (`extension/src/diagnostics/providers/data-quality-provider.ts`, `extension/src/diagnostics/codes/data-quality-codes.ts`).
+- **`columnExclusions` config.** Added `columnExclusions: Map<string, Set<string>>` to `IDiagnosticConfig` (+ default), parsed in `loadDiagnosticConfig` like `tableExclusions`, and applied in `DiagnosticManager._applyDiagnostics` after the table check — keyed on `${table}.${column}` from `issue.data`. Registered the setting + NLS description (`extension/src/diagnostics/diagnostic-types.ts`, `diagnostic-config.ts`, `diagnostic-manager.ts`, `package.json`, `package.nls.json`).
+- **Data-quality "Disable rule" code action.** `DataQualityProvider.provideCodeActions` now prepends the shared `driftViewer.disableDiagnosticRule` action for every data-quality code.
+- **Tests.** Split coverage (100% → `unused-column`, 94% → `high-null-rate`) and the new disable-rule action in `data-quality-provider.test.ts`; column-exclusion suppress/sibling-not-suppressed cases in `diagnostic-manager.test.ts`; `columnExclusions` added to the shared provider test-context config builders.
+
+</details>
+
+---
+
 ## [4.1.0]
 
 Database views now show up alongside tables, there's a dedicated Views screen for their definitions and output, and querying them returns real values instead of "undefined". [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.0/CHANGELOG.md)

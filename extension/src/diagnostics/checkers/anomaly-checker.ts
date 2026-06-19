@@ -55,13 +55,15 @@ export function checkAnomalies(
     );
     const line = dartColumn?.line ?? dartTable?.line ?? 0;
 
+    // Server 'error' anomalies are real integrity defects (orphaned FK) and
+    // stay Error. Everything else is an advisory statistical observation —
+    // report at Information rather than Warning so the 'anomaly' code does not
+    // read as a defect.
     const code = anomaly.severity === 'error' ? 'orphaned-fk' : 'anomaly';
     const severity =
       anomaly.severity === 'error'
         ? vscode.DiagnosticSeverity.Error
-        : anomaly.severity === 'warning'
-          ? vscode.DiagnosticSeverity.Warning
-          : vscode.DiagnosticSeverity.Information;
+        : vscode.DiagnosticSeverity.Information;
 
     issues.push({
       code,

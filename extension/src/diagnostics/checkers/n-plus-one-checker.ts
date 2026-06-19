@@ -84,11 +84,11 @@ export function checkNPlusOnePatterns(
         ? ' — likely a loop; consider batching with JOIN or IN clause'
         : '';
 
-      // Warning when pinned to a known call site; Information when
-      // falling back to the table definition (server-internal query).
-      const severity = callerLoc
-        ? vscode.DiagnosticSeverity.Warning
-        : vscode.DiagnosticSeverity.Information;
+      // N+1 is an advisory performance heuristic, not a defect — report at
+      // Information regardless of pin location. (callerLoc still chooses the
+      // pin: known call site vs table-definition fallback.) Previously a known
+      // call site escalated this to Warning.
+      const severity = vscode.DiagnosticSeverity.Information;
 
       issues.push({
         code: 'n-plus-one',

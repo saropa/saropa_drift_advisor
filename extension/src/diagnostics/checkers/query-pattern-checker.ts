@@ -36,7 +36,7 @@ export function checkQueryPatterns(
       message: `Frequent WHERE on "${suggestion.table}.${suggestion.column}" without index (${suggestion.usageCount} queries)`,
       fileUri: dartFile.uri,
       range: new vscode.Range(line, 0, line, 999),
-      severity: vscode.DiagnosticSeverity.Warning,
+      severity: vscode.DiagnosticSeverity.Information,
       relatedInfo: [
         new vscode.DiagnosticRelatedInformation(
           new vscode.Location(

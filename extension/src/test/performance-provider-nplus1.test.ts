@@ -84,8 +84,9 @@ describe('PerformanceProvider', () => {
       );
       // callerLine 88 is 1-based → Range line should be 87 (0-based).
       assert.strictEqual(issue.range.start.line, 87);
-      // With caller location → full Warning severity (user-code query).
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Warning);
+      // N+1 is an advisory heuristic, reported at Information regardless of
+      // pin location (callerLoc still decides where it pins, not the severity).
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
     });
 
     it('should report n-plus-one pattern for repeated similar queries', async () => {

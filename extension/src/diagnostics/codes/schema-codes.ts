@@ -16,7 +16,7 @@ export const SCHEMA_CODES: Record<string, IDiagnosticCode> = {
   'missing-fk-index': {
     code: 'missing-fk-index',
     category: 'schema',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate: 'FK column "{table}.{column}" lacks an index',
     hasFix: true,
   },
@@ -101,7 +101,7 @@ export const SCHEMA_CODES: Record<string, IDiagnosticCode> = {
   'anomaly': {
     code: 'anomaly',
     category: 'schema',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate: '{message}',
     hasFix: false,
   },

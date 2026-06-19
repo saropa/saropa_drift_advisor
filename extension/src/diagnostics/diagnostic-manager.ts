@@ -196,6 +196,18 @@ export class DiagnosticManager implements vscode.Disposable {
         if (excludedTables?.has(tableName)) {
           continue;
         }
+
+        // Per-column exclusion: finer than the table check above. Suppress a
+        // rule on a single `table.column` (e.g. a column expected to be mostly
+        // NULL) while leaving the rest of the table reporting. Only applies to
+        // column-scoped diagnostics that carry data.column.
+        const columnName = issue.data?.column;
+        if (typeof columnName === 'string') {
+          const excludedColumns = config.columnExclusions.get(issue.code);
+          if (excludedColumns?.has(`${tableName}.${columnName}`)) {
+            continue;
+          }
+        }
       }
 
       const codeInfo = DIAGNOSTIC_CODES[issue.code];

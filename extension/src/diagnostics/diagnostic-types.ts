@@ -76,6 +76,13 @@ export interface IDiagnosticConfig {
    * tables that deliberately use UUID soft references).
    */
   tableExclusions: Map<string, Set<string>>;
+  /**
+   * Per-column rule exclusions. Keys are diagnostic codes, values are sets of
+   * `table.column` identifiers to skip. Finer-grained than `tableExclusions`:
+   * silences a rule on one column while keeping it active on the rest of the
+   * table (e.g., a column expected to be mostly NULL by design).
+   */
+  columnExclusions: Map<string, Set<string>>;
 }
 
 /** Context passed to providers during diagnostic collection. */
@@ -138,6 +145,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: IDiagnosticConfig = {
   severityOverrides: {},
   disabledRules: new Set(),
   tableExclusions: new Map(),
+  columnExclusions: new Map(),
 };
 
 /** Prefix added to all diagnostic messages for filtering. */

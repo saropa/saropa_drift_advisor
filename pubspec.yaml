@@ -44,7 +44,7 @@ dependencies:
 dev_dependencies:
   # Saropa custom lints; use custom_lint CLI.
   # https://pub.dev/packages/saropa_lints/changelog
-  saropa_lints: ^14.0.2
+  saropa_lints: ^14.0.4
 
   # Unit test framework.
   # https://pub.dev/packages/test/changelog

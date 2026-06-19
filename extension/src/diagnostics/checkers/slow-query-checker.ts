@@ -67,14 +67,12 @@ export function checkSlowQueries(
     // rows is expected, but on 500 rows it's a real problem.
     const rowInfo = query.rowCount > 0 ? `, ${query.rowCount} rows` : '';
 
-    // When caller location is known, this is a user-code query →
-    // full Warning. Without caller location the query was issued by
-    // the server itself and pinned to the table definition as a
-    // fallback → downgrade to Information to avoid false-positive
-    // noise on schema files.
-    const severity = callerLoc
-      ? vscode.DiagnosticSeverity.Warning
-      : vscode.DiagnosticSeverity.Information;
+    // Slow-query is an advisory performance observation, not a defect —
+    // report at Information regardless of caller location. (callerLoc still
+    // decides the pin location above: user-code line vs table-definition
+    // fallback.) Previously a known caller location escalated this to Warning;
+    // these heuristics are now Information so they don't read as errors.
+    const severity = vscode.DiagnosticSeverity.Information;
 
     issues.push({
       code: 'slow-query-pattern',

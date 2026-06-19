@@ -9,7 +9,7 @@ export const PERFORMANCE_CODES: Record<string, IDiagnosticCode> = {
   'full-table-scan': {
     code: 'full-table-scan',
     category: 'performance',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate: 'Query causes full table scan on "{table}"',
     hasFix: true,
   },
@@ -27,7 +27,7 @@ export const PERFORMANCE_CODES: Record<string, IDiagnosticCode> = {
     // them under 'runtime' lets users disable runtime noise without
     // losing schema-level performance checks (full-table-scan, etc.).
     category: 'runtime',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate: 'Slow query pattern detected (avg {avgMs}ms)',
     hasFix: false,
   },
@@ -35,7 +35,7 @@ export const PERFORMANCE_CODES: Record<string, IDiagnosticCode> = {
     code: 'n-plus-one',
     // See slow-query-pattern above — same rationale.
     category: 'runtime',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate:
       'Potential N+1 query pattern: {table} queried {count} times',
     hasFix: false,
@@ -43,7 +43,7 @@ export const PERFORMANCE_CODES: Record<string, IDiagnosticCode> = {
   'unindexed-where-clause': {
     code: 'unindexed-where-clause',
     category: 'performance',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate:
       'Frequent WHERE on "{table}.{column}" without index ({count} queries)',
     hasFix: true,
@@ -51,7 +51,7 @@ export const PERFORMANCE_CODES: Record<string, IDiagnosticCode> = {
   'unindexed-join': {
     code: 'unindexed-join',
     category: 'performance',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate: 'JOIN on "{table}.{column}" without index',
     hasFix: true,
   },

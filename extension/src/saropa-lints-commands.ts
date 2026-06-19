@@ -5,6 +5,7 @@
 
 import { spawn } from 'node:child_process';
 import * as vscode from 'vscode';
+import { SaropaLintsDiagnostics } from './saropa-lints-diagnostics';
 
 const OUTPUT_CHANNEL_NAME = 'Saropa Lints';
 
@@ -71,10 +72,27 @@ async function runSaropaLintsScan(): Promise<void> {
 }
 
 export function registerSaropaLintsCommands(context: vscode.ExtensionContext): void {
+  // Existing text-dump command: streams raw scan output to an Output channel.
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.runSaropaLints',
       runSaropaLintsScan,
+    ),
+  );
+
+  // Diagnostics ingestion: parse the scanner's JSON report and publish findings
+  // to the Problems panel. Kept alongside (not replacing) the text-dump command
+  // so both surfaces remain available.
+  const diagnostics = new SaropaLintsDiagnostics();
+  context.subscriptions.push(diagnostics);
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.runSaropaLintsDiagnostics',
+      () => diagnostics.runAndPublish(),
+    ),
+    vscode.commands.registerCommand(
+      'driftViewer.clearSaropaLintsDiagnostics',
+      () => diagnostics.clear(),
     ),
   );
 }

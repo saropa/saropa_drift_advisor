@@ -144,7 +144,9 @@ describe('Extension activation', () => {
     //   onDidChange listener + store dispose (+4).
     // Startup-freeze fix (BUG_STARTUP_HANG): deferred-heavy-sweep timer cleanup
     //   disposable in wireEventListeners (+1).
-    assert.strictEqual(subscriptions.length, 229, `expected 229 disposables, got ${subscriptions.length}`);
+    // Saropa Lints diagnostics ingestion: SaropaLintsDiagnostics dispose +
+    //   runSaropaLintsDiagnostics + clearSaropaLintsDiagnostics commands (+3).
+    assert.strictEqual(subscriptions.length, 232, `expected 232 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

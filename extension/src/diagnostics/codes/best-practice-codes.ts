@@ -24,7 +24,7 @@ export const BEST_PRACTICE_CODES: Record<string, IDiagnosticCode> = {
   'text-pk': {
     code: 'text-pk',
     category: 'bestPractices',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate:
       'Table "{table}" uses TEXT primary key (INTEGER recommended)',
     hasFix: false,
@@ -47,7 +47,7 @@ export const BEST_PRACTICE_CODES: Record<string, IDiagnosticCode> = {
   'cascade-risk': {
     code: 'cascade-risk',
     category: 'bestPractices',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate:
       'Deleting from "{table}" would cascade to {count} dependent rows',
     hasFix: false,
@@ -62,7 +62,7 @@ export const BEST_PRACTICE_CODES: Record<string, IDiagnosticCode> = {
   'duplicate-index': {
     code: 'duplicate-index',
     category: 'bestPractices',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate:
       'Index "{index1}" and "{index2}" on "{table}" have identical columns',
     hasFix: false,

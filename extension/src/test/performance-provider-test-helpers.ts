@@ -97,6 +97,7 @@ export function createContext(options: ICreateContextOptions): IDiagnosticContex
       disabledRules: new Set(),
       severityOverrides: {},
       tableExclusions: new Map(),
+      columnExclusions: new Map(),
     },
   };
 }

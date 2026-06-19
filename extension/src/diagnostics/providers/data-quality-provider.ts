@@ -67,7 +67,21 @@ export class DataQualityProvider implements IDiagnosticProvider {
     const actions: vscode.CodeAction[] = [];
     const code = diag.code as string;
 
-    if (code === 'high-null-rate') {
+    // Let users disable any data-quality rule straight from the lightbulb,
+    // matching naming/best-practice/runtime/compliance providers. Previously
+    // these codes had no "Disable rule" action, forcing a manual settings edit.
+    const disableAction = new vscode.CodeAction(
+      `Disable "${code}" rule`,
+      vscode.CodeActionKind.QuickFix,
+    );
+    disableAction.command = {
+      command: 'driftViewer.disableDiagnosticRule',
+      title: 'Disable Rule',
+      arguments: [code],
+    };
+    actions.push(disableAction);
+
+    if (code === 'high-null-rate' || code === 'unused-column') {
       const data = (diag as any).data;
       if (data?.table && data?.column) {
         const profileAction = new vscode.CodeAction(
@@ -128,7 +142,7 @@ export class DataQualityProvider implements IDiagnosticProvider {
           message: `Table "${table.table}" has ${percentage.toFixed(0)}% of all database rows (data skew)`,
           fileUri: dartFile.uri,
           range: new vscode.Range(line, 0, line, 999),
-          severity: vscode.DiagnosticSeverity.Warning,
+          severity: vscode.DiagnosticSeverity.Information,
           data: { table: table.table, percentage },
         });
       }
@@ -169,14 +183,32 @@ export class DataQualityProvider implements IDiagnosticProvider {
             );
             const line = dartCol?.line ?? dartTable.line;
 
-            issues.push({
-              code: 'high-null-rate',
-              message: `Column "${table.name}.${col.name}" has ${nullPct.toFixed(0)}% NULL values`,
-              fileUri: dartFile.uri,
-              range: new vscode.Range(line, 0, line, 999),
-              severity: vscode.DiagnosticSeverity.Warning,
-              data: { table: table.name, column: col.name, nullPct },
-            });
+            // A column that is entirely NULL (no row sets a value) is an
+            // "unused column" — a different finding from a merely high null
+            // rate. Emit a distinct code so users can act on / suppress it
+            // separately. Compare on the raw count, not the rounded percent,
+            // so 99.6% rounding up to "100%" is NOT misclassified as unused.
+            const isEntirelyNull = nullCount >= table.rowCount;
+
+            issues.push(
+              isEntirelyNull
+                ? {
+                    code: 'unused-column',
+                    message: `Column "${table.name}.${col.name}" is 100% NULL — no row sets a value (unused column)`,
+                    fileUri: dartFile.uri,
+                    range: new vscode.Range(line, 0, line, 999),
+                    severity: vscode.DiagnosticSeverity.Information,
+                    data: { table: table.name, column: col.name, nullPct },
+                  }
+                : {
+                    code: 'high-null-rate',
+                    message: `Column "${table.name}.${col.name}" has ${nullPct.toFixed(0)}% NULL values`,
+                    fileUri: dartFile.uri,
+                    range: new vscode.Range(line, 0, line, 999),
+                    severity: vscode.DiagnosticSeverity.Information,
+                    data: { table: table.name, column: col.name, nullPct },
+                  },
+            );
           }
         }
       } catch {

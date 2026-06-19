@@ -9,8 +9,20 @@ export const DATA_QUALITY_CODES: Record<string, IDiagnosticCode> = {
   'high-null-rate': {
     code: 'high-null-rate',
     category: 'dataQuality',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate: 'Column "{table}.{column}" has {pct}% NULL values',
+    hasFix: false,
+  },
+  // Split out from high-null-rate: a column that is 100% NULL is never
+  // populated by any row, which is a distinct finding (dead/unused column, or a
+  // write path that never fires) from "mostly but not entirely null." Separate
+  // code so it can be tuned, disabled, and suppressed independently.
+  'unused-column': {
+    code: 'unused-column',
+    category: 'dataQuality',
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
+    messageTemplate:
+      'Column "{table}.{column}" is 100% NULL — no row sets a value (unused column)',
     hasFix: false,
   },
   'unique-violation': {
@@ -48,7 +60,7 @@ export const DATA_QUALITY_CODES: Record<string, IDiagnosticCode> = {
   'data-skew': {
     code: 'data-skew',
     category: 'dataQuality',
-    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    defaultSeverity: vscode.DiagnosticSeverity.Information,
     messageTemplate:
       'Table "{table}" has {pct}% of all database rows (data skew)',
     hasFix: false,

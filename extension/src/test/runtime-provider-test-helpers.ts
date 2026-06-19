@@ -78,6 +78,7 @@ export function createContext(clientOverrides?: Partial<{
       severityOverrides: {},
       disabledRules: new Set(),
       tableExclusions: new Map(),
+      columnExclusions: new Map(),
     },
   };
 }

@@ -70,7 +70,8 @@ describe('DataQualityProvider', () => {
       assert.ok(issue, 'Should report data-skew');
       assert.ok(issue.message.includes('logs'));
       assert.ok(issue.message.includes('90%'));
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Warning);
+      // Data-skew is an advisory observation, reported at Information.
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
     });
 
     it('should not report data-skew when rows are balanced', async () => {
@@ -119,7 +120,68 @@ describe('DataQualityProvider', () => {
       assert.ok(issue, 'Should report high-null-rate');
       assert.ok(issue.message.includes('bio'));
       assert.ok(issue.message.includes('75%'));
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Warning);
+      // High-null-rate is advisory, reported at Information (not a defect).
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
+    });
+
+    it('should report unused-column (not high-null-rate) for a 100% NULL column', async () => {
+      // A column where every row is NULL is "unused" — a distinct finding from
+      // a merely high null rate. It must surface as unused-column so users can
+      // act on / suppress it separately.
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'middle_name'])],
+        tables: [
+          {
+            name: 'users',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'middle_name', type: 'TEXT', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { middle_name: 100 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const unused = issues.find((i) => i.code === 'unused-column');
+      assert.ok(unused, 'Should report unused-column for a 100% NULL column');
+      assert.ok(unused.message.includes('middle_name'));
+      assert.ok(unused.message.includes('100%'));
+      // The 100% case must NOT also fire the partial high-null-rate code.
+      const highNull = issues.find((i) => i.code === 'high-null-rate');
+      assert.ok(!highNull, 'A 100% NULL column should not also be high-null-rate');
+    });
+
+    it('should report high-null-rate (not unused-column) for a 94% NULL column', async () => {
+      // Just-below-100% stays high-null-rate even though it rounds to "94%" —
+      // the split keys on the raw count, not the rounded percentage.
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'middle_name'])],
+        tables: [
+          {
+            name: 'users',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'middle_name', type: 'TEXT', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { middle_name: 94 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        issues.find((i) => i.code === 'high-null-rate'),
+        'Should report high-null-rate for a 94% NULL column',
+      );
+      assert.ok(
+        !issues.find((i) => i.code === 'unused-column'),
+        'A 94% NULL column is not unused',
+      );
     });
 
     it('should not report high-null-rate for columns with low null percentage', async () => {
@@ -225,6 +287,26 @@ describe('DataQualityProvider', () => {
       assert.ok(actions.some((a) => a.title.includes('Profile')));
     });
 
+    it('should provide a Disable rule action for data-quality diagnostics', () => {
+      // Previously the data-quality provider offered no "Disable rule" lightbulb,
+      // forcing a manual settings edit. Every code here should now expose it.
+      for (const code of ['high-null-rate', 'unused-column', 'data-skew']) {
+        const diag = new Diagnostic(
+          new Range(10, 0, 10, 100),
+          `[drift_advisor] ${code}`,
+          DiagnosticSeverity.Warning,
+        );
+        diag.code = code;
+        (diag as any).data = { table: 'users', column: 'bio' };
+
+        const actions = provider.provideCodeActions(diag as any, {} as any);
+        const disable = actions.find((a) => a.title.includes('Disable'));
+        assert.ok(disable, `Should offer Disable rule for ${code}`);
+        assert.strictEqual(disable.command?.command, 'driftViewer.disableDiagnosticRule');
+        assert.deepStrictEqual(disable.command?.arguments, [code]);
+      }
+    });
+
     it('should provide Size Analytics action for data-skew', () => {
       const diag = new Diagnostic(
         new Range(10, 0, 10, 100),
@@ -277,6 +359,7 @@ function createContext(options: {
       enabled: true, refreshOnSave: true, refreshIntervalMs: 30000,
       categories: { schema: true, performance: true, dataQuality: true, bestPractices: true, naming: false, runtime: true, compliance: true },
       disabledRules: new Set(), severityOverrides: {}, tableExclusions: new Map(),
+      columnExclusions: new Map(),
     },
   };
 }

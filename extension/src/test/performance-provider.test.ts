@@ -97,8 +97,9 @@ describe('PerformanceProvider', () => {
       );
       // callerLine 42 is 1-based → Range line should be 41 (0-based).
       assert.strictEqual(issue.range.start.line, 41);
-      // With caller location → full Warning severity (user-code query).
-      assert.strictEqual(issue.severity, DiagnosticSeverity.Warning);
+      // Slow-query is an advisory observation, reported at Information
+      // regardless of pin location (callerLoc still decides where it pins).
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
     });
 
     it('should not report queries under threshold', async () => {

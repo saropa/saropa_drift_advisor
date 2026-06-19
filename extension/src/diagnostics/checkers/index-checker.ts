@@ -31,7 +31,7 @@ function resolveCodeAndMessage(suggestion: IndexSuggestion): {
       return {
         code: 'missing-fk-index',
         message: `FK column "${suggestion.table}.${suggestion.column}" lacks an index`,
-        severity: vscode.DiagnosticSeverity.Warning,
+        severity: vscode.DiagnosticSeverity.Information,
       };
 
     case 'medium':
