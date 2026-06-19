@@ -410,17 +410,12 @@ final class AnalyticsHandler {
   /// §2.1). Unknown sources fall back to `other` rather than echoing the raw
   /// source, so a consumer's category filter never sees an undocumented bucket.
   String _categoryForSource(String source) {
-    switch (source) {
-      case 'index-suggestion':
-        return ServerConstants.categoryPerformance;
-      case 'anomaly':
-        return ServerConstants.categoryData;
-      case 'orphan-table':
-      case 'soft-relationship':
-        return ServerConstants.categorySchema;
-      default:
-        return ServerConstants.categoryOther;
-    }
+    return switch (source) {
+      'index-suggestion' => ServerConstants.categoryPerformance,
+      'anomaly' => ServerConstants.categoryData,
+      'orphan-table' || 'soft-relationship' => ServerConstants.categorySchema,
+      _ => ServerConstants.categoryOther,
+    };
   }
 
   /// Attaches a `fix` deep-link to a table-scoped issue (plan 67 R1) so a

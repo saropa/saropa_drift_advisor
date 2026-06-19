@@ -42,9 +42,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.0.4]
 
-The web viewer's Home tab is easier to read and to navigate: a plain-language overview of every tool, a fuzzy search box to jump to a feature by name, color-coded tool cards, and more breathing room between them. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+The web viewer's Home tab is easier to read and to navigate: a plain-language overview of every tool, a fuzzy search box to jump to a feature by name, color-coded tool cards, and more breathing room between them. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.4/CHANGELOG.md)
 
 ### Added
 
@@ -106,10 +106,9 @@ The web viewer's Home tab is easier to read and to navigate: a plain-language ov
   - Fuzzy table resolution: `editDistance()` + `fuzzyResolveTable()` (`nl-to-sql.ts`) as a typo-recovery fallback in `resolveTable` (gated by a stopword set; accepts only an unambiguous winner).
   - Auto-chart: `#nl-auto-chart` toggle (default on) in the Ask panel; `useNlModal` stashes `window._nlAutoChart` and runs the query for `answerKind === 'group'`, consumed by the run handler to pick line/bar and render.
   - New l10n keys under `viewer.sql.result.*` (heading/copy). New web tests for fuzzy resolution + bucket series; full web suite 224 pass.
+- Linter: disabled the `avoid_adjacent_strings` rule in `analysis_options.yaml` (set to `false`). Multi-line message literals split for readability are intentional here, so the rule's adjacent-string warnings were noise.
 
 </details>
-
-## [4.0.3]
 
 Connecting the advisor to a running app no longer risks freezing the app at launch. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
 
