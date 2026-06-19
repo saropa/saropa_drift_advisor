@@ -10,6 +10,7 @@
 import * as S from './state.ts';
 import { vt } from './l10n.ts';
 import { openTool } from './tabs.ts';
+import { buildSearchTokens, tokensMatch } from './home-search.ts';
 
 /**
  * Per-card search index: the card element plus its lower-cased match tokens
@@ -17,39 +18,6 @@ import { openTool } from './tabs.ts';
  * read by the feature-search filter so matching never re-walks the DOM/data.
  */
 var cardSearchIndex: { el: HTMLElement; tokens: string[] }[] = [];
-
-/** Lower-cased, de-duplicated match tokens for one card. */
-function buildTokens(label: string, blurb: string, keywords: string[]): string[] {
-  // Split label + blurb into words so a single-word query can hit either; keep the
-  // multi-word keyword phrases whole so a phrase like "time travel" still matches.
-  var words = (label + ' ' + blurb).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-  var all = words.concat(keywords.map(function (k) { return k.toLowerCase(); }));
-  // De-dupe to keep the token list tight; Set→Array avoids repeated scans.
-  return Array.from(new Set(all));
-}
-
-/**
- * Fuzzy subsequence test: every character of `query` appears in `token` in order
- * (not necessarily adjacent). Looser than `includes` so "anom"/"anmly" still find
- * "anomaly", but applied PER token (not the whole haystack) to avoid the false
- * positives a subsequence match over concatenated text would produce.
- */
-function fuzzySubsequence(query: string, token: string): boolean {
-  var q = 0;
-  for (var i = 0; i < token.length && q < query.length; i++) {
-    if (token[i] === query[q]) q++;
-  }
-  return q === query.length;
-}
-
-/** True when any of a card's tokens substring- or fuzzy-matches the query. */
-function cardMatches(query: string, tokens: string[]): boolean {
-  for (var i = 0; i < tokens.length; i++) {
-    var t = tokens[i];
-    if (t.indexOf(query) !== -1 || fuzzySubsequence(query, t)) return true;
-  }
-  return false;
-}
 
 /** Applies the typed query: shows matching cards, hides the rest, toggles empty state. */
 function applyFeatureFilter(query: string): void {
@@ -63,7 +31,7 @@ function applyFeatureFilter(query: string): void {
   }
   var shown = 0;
   cardSearchIndex.forEach(function (entry) {
-    var match = cardMatches(q, entry.tokens);
+    var match = tokensMatch(q, entry.tokens);
     entry.el.hidden = !match;
     if (match) shown++;
   });
@@ -115,7 +83,7 @@ function addCard(
   card.appendChild(blurbEl);
   card.addEventListener('click', onClick);
   grid.appendChild(card);
-  cardSearchIndex.push({ el: card, tokens: buildTokens(label, blurb, keywords) });
+  cardSearchIndex.push({ el: card, tokens: buildSearchTokens(label, blurb, keywords) });
 }
 
 function buildToolGrid(): void {

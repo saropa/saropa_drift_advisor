@@ -6,7 +6,7 @@ import type { IErEdge, IErNode, LayoutMode } from './er-diagram-types';
 import { getErDiagramCss } from './er-diagram-styles';
 import { getErDiagramScript } from './er-diagram-script';
 import { t } from '../l10n';
-import { jsonForScript } from '../shared-utils';
+import { jsonForScript, escapeHtml } from '../shared-utils';
 
 export function buildErDiagramHtml(
   nodes: IErNode[],
@@ -27,6 +27,20 @@ export function buildErDiagramHtml(
   // inline <script nonce="__CSP_NONCE__"> below. See plans/full-codebase-audit-2026.06.12.md C2.
   const nodesJson = jsonForScript(nodes);
   const edgesJson = jsonForScript(edges);
+
+  // Distinct column types across the whole schema populate the type-filter
+  // dropdown. Sorted case-insensitively so the list is stable and scannable;
+  // the raw type string is kept as the option value for exact-match filtering.
+  const typeSet = new Set<string>();
+  for (const node of nodes) {
+    for (const col of node.columns) {
+      if (col.type) typeSet.add(col.type);
+    }
+  }
+  const typeOptions = [...typeSet]
+    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+    .map((ty) => `<option value="${escapeHtml(ty)}">${escapeHtml(ty)}</option>`)
+    .join('');
 
   return `<!DOCTYPE html>
 <html lang="en">

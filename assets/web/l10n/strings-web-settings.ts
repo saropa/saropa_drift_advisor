@@ -99,6 +99,15 @@ export const stringsWebSettings: Record<string, string> = {
   'viewer.settings.diagram.rule.sharedUuid': 'shared UUID column',
   // Column primary-key badge shown inside each table box.
   'viewer.settings.diagram.pk': 'PK',
+  // Field-filter toolbar controls. Search matches a field name or its type string
+  // (e.g. "integer"); the type dropdown narrows to one column type; the two toggles
+  // choose whether matches are emphasized in place or whether everything else is hidden.
+  'viewer.settings.diagram.filter.search.placeholder': 'Search fields & types…',
+  'viewer.settings.diagram.filter.search.aria': 'Filter tables by field name or type',
+  'viewer.settings.diagram.filter.type.all': 'All types',
+  'viewer.settings.diagram.filter.type.aria': 'Filter by column type',
+  'viewer.settings.diagram.filter.highlight': 'Highlight matches',
+  'viewer.settings.diagram.filter.hide': 'Hide non-matching',
   // Screen-reader text-alternative section headings.
   'viewer.settings.diagram.alt.tableList': 'Schema table list',
   'viewer.settings.diagram.alt.fkHeading': 'Foreign key relationships',

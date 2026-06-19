@@ -42,10 +42,13 @@ Higher-value additions (the "wow"):
 - **Last-modified / mutation activity** per table if available from the
   mutation-stream data, so the busiest tables stand out.
 - **Copy/export the schema** as SQL, Markdown, JSON (mirror the copy-buttons
-  request in `BUG_RUN_SQL_Screen.md` item 6 for consistency across screens).
+  request in `plans/history/2026.06/2026.06.18/BUG_RUN_SQL_Screen.md` item 6 for
+  consistency across screens).
 
 ## 3. Formatting consistency
 
 - Apply the same SQL auto-formatting requested for the RUN SQL screen
-  (`BUG_RUN_SQL_Screen.md` item 2, `sql-formatter`) to the schema DDL `<pre>`
-  so it is consistently pretty-printed everywhere SQL is shown.
+  (`plans/history/2026.06/2026.06.18/BUG_RUN_SQL_Screen.md` item 2,
+  `sql-formatter`) to the schema DDL `<pre>` so it is consistently
+  pretty-printed everywhere SQL is shown. (Note: the schema-DDL formatting in
+  that item already routes through `formatAndHighlightSchema` in `schema.ts`.)

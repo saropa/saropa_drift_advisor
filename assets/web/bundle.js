@@ -1433,6 +1433,15 @@
     "viewer.settings.diagram.rule.sharedUuid": "shared UUID column",
     // Column primary-key badge shown inside each table box.
     "viewer.settings.diagram.pk": "PK",
+    // Field-filter toolbar controls. Search matches a field name or its type string
+    // (e.g. "integer"); the type dropdown narrows to one column type; the two toggles
+    // choose whether matches are emphasized in place or whether everything else is hidden.
+    "viewer.settings.diagram.filter.search.placeholder": "Search fields & types\u2026",
+    "viewer.settings.diagram.filter.search.aria": "Filter tables by field name or type",
+    "viewer.settings.diagram.filter.type.all": "All types",
+    "viewer.settings.diagram.filter.type.aria": "Filter by column type",
+    "viewer.settings.diagram.filter.highlight": "Highlight matches",
+    "viewer.settings.diagram.filter.hide": "Hide non-matching",
     // Screen-reader text-alternative section headings.
     "viewer.settings.diagram.alt.tableList": "Schema table list",
     "viewer.settings.diagram.alt.fkHeading": "Foreign key relationships",
@@ -29888,9 +29897,8 @@ ${JSON.stringify(results, void 0, 2)}`);
     document.addEventListener("touchcancel", endTouch, { passive: true, capture: true });
   }
 
-  // assets/web/home-screen.ts
-  var cardSearchIndex = [];
-  function buildTokens(label, blurb, keywords21) {
+  // assets/web/home-search.ts
+  function buildSearchTokens(label, blurb, keywords21) {
     var words = (label + " " + blurb).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
     var all = words.concat(keywords21.map(function(k) {
       return k.toLowerCase();
@@ -29904,13 +29912,17 @@ ${JSON.stringify(results, void 0, 2)}`);
     }
     return q === query.length;
   }
-  function cardMatches(query, tokens) {
+  function tokensMatch(query, tokens) {
+    if (!query) return true;
     for (var i = 0; i < tokens.length; i++) {
       var t = tokens[i];
       if (t.indexOf(query) !== -1 || fuzzySubsequence(query, t)) return true;
     }
     return false;
   }
+
+  // assets/web/home-screen.ts
+  var cardSearchIndex = [];
   function applyFeatureFilter(query) {
     var q = query.trim().toLowerCase();
     var empty = document.getElementById("home-feature-search-empty");
@@ -29923,7 +29935,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     }
     var shown = 0;
     cardSearchIndex.forEach(function(entry) {
-      var match = cardMatches(q, entry.tokens);
+      var match = tokensMatch(q, entry.tokens);
       entry.el.hidden = !match;
       if (match) shown++;
     });
@@ -29960,7 +29972,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     card.appendChild(blurbEl);
     card.addEventListener("click", onClick);
     grid.appendChild(card);
-    cardSearchIndex.push({ el: card, tokens: buildTokens(label, blurb, keywords21) });
+    cardSearchIndex.push({ el: card, tokens: buildSearchTokens(label, blurb, keywords21) });
   }
   function buildToolGrid() {
     var grid = document.getElementById("home-tool-grid");

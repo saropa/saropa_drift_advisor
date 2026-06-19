@@ -92,7 +92,7 @@ The web viewer's Home tab is easier to read and to navigate: a plain-language ov
   - Multi-window counts: `multiWindowCount()` emits one `SUM(CASE WHEN <window> THEN 1 ELSE 0 END)` per window for a count question naming 2+ windows.
   - Time-bucket series: `detectTimeBucket()` + `timeBucketSeries()` emit a `WITH RECURSIVE calendar(...)` + LEFT JOIN + GROUP BY for "weekly/monthly/…" so empty buckets still report 0.
   - Refactor: extracted `resolveDateColumn()` + `dayExpr()` from `temporalWhere()` (now takes an optional forced column) so the window and bucket builders share its column choice. New tests in `assets/web/test/nl-keywords-buckets.test.mjs` (31 cases); full web suite 218 pass.
-- Run SQL screen (bug `BUG_RUN_SQL_Screen.md`, items 1–11):
+- Run SQL screen (bug `plans/history/2026.06/2026.06.18/BUG_RUN_SQL_Screen.md`, items 1–11):
   - Run-button icon: `setButtonBusy` (`utils.ts`) now stashes/restores the button's `innerHTML` via a `data-busy-restore` attribute instead of restoring `textContent`, so icon spans survive a busy cycle (fixes the literal "play_arrow Run").
   - SQL formatting: added dependency `sql-formatter` (^15) and a `formatSqlSafe()` wrapper (`sql-format.ts`, SQLite dialect, uppercase keywords, fail-soft to original). Wired into the Run SQL editor (new `#sql-format` button + format on run / template / deep-link), the NL preview + Use + narrative (`nl-modal.ts`), and the Schema view (`schema.ts`, via `formatAndHighlightSchema`).
   - Collapsible cost: `renderExplainInfo` wraps the cost summary in a `<details>` (`.explain-collapsible`); styles in `_sql-editor.scss`.
