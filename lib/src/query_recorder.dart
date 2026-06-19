@@ -126,6 +126,7 @@ final class QueryRecorder {
     if (maxQueries != null && maxQueries > 0) {
       _maxQueries = maxQueries;
       while (_queries.length > _maxQueries) {
+        // Shrink the ring buffer to the new cap; the evicted value is not needed.
         // ignore: avoid_ignoring_return_values -- evicting the oldest entry; the removed value is intentionally discarded
         _queries.removeFirst();
       }
@@ -322,6 +323,7 @@ final class QueryRecorder {
   void _record(RecordedQuery query) {
     _queries.add(query);
     if (_queries.length > _maxQueries) {
+      // Drop the oldest entry to keep the buffer bounded; value not needed.
       // ignore: avoid_ignoring_return_values -- evicting the oldest entry; the removed value is intentionally discarded
       _queries.removeFirst();
     }

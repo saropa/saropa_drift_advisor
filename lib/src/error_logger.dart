@@ -113,9 +113,12 @@ abstract final class DriftDebugErrorLogger {
 
         // Console output so errors are visible without DevTools.
         final String line = '[$name] $error';
+        // Echo the error line to the console; developer.log alone is invisible
+        // in the standard Flutter console, so print is the deliberate channel.
         // ignore: avoid_print -- intentional console output so errors are visible without DevTools
         print(line);
         if (includeTrace) {
+          // Same console-visibility reason as the error line above.
           // ignore: avoid_print -- intentional console output so stack traces are visible without DevTools
           print(stack);
         }

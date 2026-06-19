@@ -294,7 +294,8 @@ final class ServerContext {
   /// eliminating console spam from logStatements.
   /// Toggle at runtime via
   /// DriftDebugServer.setChangeDetection() or the
-  /// POST /api/change-detection endpoint.
+  /// POST /api/change-detection endpoint. Mutated only through
+  /// [setChangeDetection] so the toggle has a single owner.
   bool changeDetectionEnabled = true;
 
   /// Cached table names from sqlite_master. Populated
@@ -313,7 +314,7 @@ final class ServerContext {
   /// When null, no throttling (every [checkDataChange] call runs the query).
   /// When set (e.g. [ServerConstants.changeDetectionMinInterval]), skips
   /// the query if the last check was more recent, reducing log spam.
-  Duration? changeDetectionMinInterval;
+  final Duration? changeDetectionMinInterval;
 
   /// UTC time of the last [checkDataChange] run that executed the
   /// row-count query. Used for throttling when [changeDetectionMinInterval]
@@ -340,6 +341,13 @@ final class ServerContext {
   void invalidateTableNameCache() {
     _cachedTableNames = null;
     _cachedTableCounts = null;
+  }
+
+  /// Enables or disables automatic change detection at runtime.
+  /// The single mutation point for [changeDetectionEnabled]; the VM-service
+  /// and HTTP toggles route through [Router] into here.
+  void setChangeDetection(bool enabled) {
+    changeDetectionEnabled = enabled;
   }
 
   /// UTC timestamp of the last request bearing a

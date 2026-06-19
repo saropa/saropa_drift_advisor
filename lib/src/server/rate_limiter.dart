@@ -13,10 +13,15 @@ class _WindowEntry {
   _WindowEntry(this.windowSecond);
 
   /// The second (epoch milliseconds ÷ 1000) this window covers.
-  int windowSecond;
+  final int windowSecond;
 
-  /// Number of requests seen in this window.
+  /// Number of requests seen in this window. Starts at 1 for the request
+  /// that created the window; bumped by [increment] on each subsequent hit.
   int count = 1;
+
+  /// Records one more request in this window. Kept on [_WindowEntry] so the
+  /// counter owns its own mutation rather than being poked at via the field.
+  void increment() => count++;
 }
 
 /// Per-IP rate limiter using a fixed-window counter algorithm.
@@ -81,7 +86,7 @@ final class RateLimiter {
     }
 
     // Same window: increment and check.
-    entry.count++;
+    entry.increment();
 
     return entry.count > maxRequestsPerSecond;
   }

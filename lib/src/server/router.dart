@@ -1062,7 +1062,7 @@ final class Router {
   /// Sets change detection enabled state (delegate for
   /// VM service and HTTP endpoints).
   void setChangeDetectionEnabled(bool enabled) {
-    _ctx.changeDetectionEnabled = enabled;
+    _ctx.setChangeDetection(enabled);
   }
 
   // --- Change detection HTTP handlers ---
@@ -1118,7 +1118,7 @@ final class Router {
       }
 
       final enabled = enabledValue;
-      _ctx.changeDetectionEnabled = enabled;
+      _ctx.setChangeDetection(enabled);
 
       _ctx.setJsonHeaders(res);
       res.write(

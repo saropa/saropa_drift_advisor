@@ -292,7 +292,13 @@ class _DriftDebugServerImpl {
       if (router == null) {
         return;
       }
-      _serverSubscription = server.listen(router.onRequest);
+      // onError keeps a socket-accept failure from escaping as an uncaught
+      // async error that would tear down the serving isolate; log and keep
+      // the subscription alive so later connections still arrive.
+      _serverSubscription = server.listen(
+        router.onRequest,
+        onError: ctx.logError,
+      );
 
       VmServiceBridge.setRouter(router);
       VmServiceBridge.register();
@@ -328,6 +334,8 @@ class _DriftDebugServerImpl {
       final forwardCmd = _bannerCentered(
         'adb forward tcp:$boundPort tcp:$boundPort',
       );
+      // Startup banner must reach Android logcat (I/flutter); developer.log
+      // and ctx.log do not surface there, so print is the only viable channel.
       // ignore: avoid_print, avoid_print_in_release -- print() is the only output that surfaces as I/flutter on Android; developer.log/ctx.log/stdout are invisible there, so the startup banner must use print
       print(
         '${ServerConstants.bannerTop}\n'

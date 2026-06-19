@@ -261,6 +261,8 @@ final class GenerationHandler {
     // property provable at the read site — the tag is a fixed token like `de`,
     // never user-controlled path text, so `../` can never reach the File path.
     if (packageRoot != null && tag != 'en' && _knownLocales.contains(tag)) {
+      // `tag` is guaranteed allow-listed by the guard above (a fixed catalog
+      // token like `de`), so no user-controlled path text reaches File().
       // ignore: avoid_path_traversal, require_file_path_sanitization -- `tag` is allow-listed on the line above (a fixed catalog token like `de`), never user path text, so `../` cannot appear
       final file = File('$packageRoot/assets/web/l10n/web.$tag.json');
       try {

@@ -598,6 +598,7 @@ abstract final class AnomalyDetector {
       if (logMean == null || logSqMean == null) {
         return false;
       }
+      // Variance formula E[Y²] - E[Y]²; the repeated logMean is the squared mean, not a typo.
       // ignore: avoid_equal_expressions -- E[Y²] - E[Y]²: squaring the mean, identical operands are intentional
       final logVariance = logSqMean - logMean * logMean;
       final logStddev = sqrt(logVariance < 0 ? 0 : logVariance);
@@ -608,6 +609,8 @@ abstract final class AnomalyDetector {
       final logMinDev = (log(min) - logMean).abs();
       final logMaxDev = (log(max) - logMean).abs();
       return logMinDev <= logThreshold && logMaxDev <= logThreshold;
+      // A missing LN() means SQLite was built without math functions: an
+      // expected capability gap, so the catch deliberately does not log.
       // ignore: require_catch_logging -- a missing LN() (build without math functions) is an expected capability gap, not an error to surface; we degrade by not suppressing
     } on Object {
       // No LN() (SQLite built without math functions): cannot evaluate the log
