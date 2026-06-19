@@ -207,7 +207,6 @@
       if (tabId === 'size' && S.lastSizeAnalyticsData == null) triggerToolButtonIfReady('size-analyze', { checkDisabled: true });
       if (tabId === 'perf') triggerToolButtonIfReady('perf-refresh', { checkDisabled: true });
       if (tabId === 'anomaly') triggerToolButtonIfReady('anomaly-analyze', { checkDisabled: true });
-      if (tabId === 'home' && typeof window._syncHomeSidebarToggles === 'function') window._syncHomeSidebarToggles();
       // Sync toolbar icon active state with the current tab.
       if (typeof window._toolbarSyncActiveTab === 'function') window._toolbarSyncActiveTab(tabId);
     };

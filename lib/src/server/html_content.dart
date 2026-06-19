@@ -301,16 +301,18 @@ abstract final class HtmlContent {
       <div id="tab-panels" class="tab-panels">
         <div id="panel-home" class="tab-panel active" role="tabpanel" aria-labelledby="tab-home">
           <div class="home-screen">
-            <div class="home-sidebar-toggles" aria-label="Sidebar panel">
-              <div class="home-sidebar-toggle-row">
-                <span class="home-sidebar-toggle-label" id="home-label-tables-sidebar">Tables panel</span>
-                <button type="button" class="home-switch home-switch-on" id="home-switch-tables" role="switch" aria-labelledby="home-label-tables-sidebar" aria-checked="true"></button>
-              </div>
-              <div class="home-sidebar-toggle-row">
-                <span class="home-sidebar-toggle-label" id="home-label-history-sidebar">History panel</span>
-                <button type="button" class="home-switch" id="home-switch-history" role="switch" aria-labelledby="home-label-history-sidebar" aria-checked="false"></button>
-              </div>
+            <!-- Title, narrative feature overview, and the feature-search placeholder/aria
+                 are populated at runtime by initHomeScreen() via vt() so they flow through
+                 the web l10n registry instead of shipping hardcoded English in this shell. -->
+            <header class="home-intro">
+              <h1 class="home-title" id="home-title"></h1>
+              <p class="home-lead" id="home-lead"></p>
+            </header>
+            <div class="home-feature-search-wrap">
+              <span class="material-symbols-outlined home-feature-search-icon" aria-hidden="true">search</span>
+              <input id="home-feature-search" class="home-feature-search" type="search" autocomplete="off" spellcheck="false">
             </div>
+            <p class="home-feature-search-empty" id="home-feature-search-empty" role="status" hidden></p>
             <div id="home-tool-grid" class="home-tool-grid"></div>
           </div>
         </div>
@@ -521,6 +523,9 @@ abstract final class HtmlContent {
                (e.g. Firefox) never see a dead control. Speech recognition in
                Chromium streams audio to the browser vendor's service. -->
           <button type="button" id="nl-mic" class="nl-icon-btn nl-mic" hidden title="Dictate your question (audio is processed by your browser's speech service)" aria-label="Dictate your question"><span class="material-symbols-outlined" aria-hidden="true">mic</span></button>
+          <!-- Clear button: empties the question box and resets the refine
+               base so the next query starts fresh. Sits beside the mic. -->
+          <button type="button" id="nl-clear" class="nl-icon-btn nl-clear" title="Clear the question" aria-label="Clear the question"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
         </div>
         <textarea id="nl-modal-input" class="nl-modal-input" rows="6" placeholder="e.g. how many users were created today?"></textarea>
         <!-- Refinement chips: schema-derived one-click phrases (relationships,
@@ -555,6 +560,7 @@ abstract final class HtmlContent {
          it from the query body it executes. -->
     <div class="sql-toolbar sql-run-toolbar" style="margin-top:0.4rem;">
       <button type="button" id="sql-run" class="btn-primary" title="Execute the SQL query"><span class="material-symbols-outlined" aria-hidden="true">play_arrow</span> Run</button>
+      <button type="button" id="sql-format" title="Pretty-print the SQL in the editor"><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span> Format</button>
     </div>
     <div id="sql-explain-info" class="sql-explain-info" style="display: none;"></div>
     <div id="sql-error" class="sql-error" style="display: none;"></div>

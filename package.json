@@ -20,5 +20,8 @@
     "husky": "^9.1.7",
     "sass": "^1.99",
     "typescript": "^5.7"
+  },
+  "dependencies": {
+    "sql-formatter": "^15.8.1"
   }
 }

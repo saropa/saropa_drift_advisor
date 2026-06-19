@@ -98,7 +98,21 @@ const BORN_VERB = /\bcreat|\bcraet|\bcreaet|\bkreat|\bcrt\b|\bcre\b|\badd(?:ed|i
  * rolling windows ("past few weeks"), calendar periods ("last month", "this
  * quarter"), weekends, and *-to-date aliases ("ytd", "mtd").
  */
-function temporalWhere(q: string, target: SchemaTable): { sql: string; phrase: string } {
+/**
+ * Picks the timestamp column a temporal phrase should filter on. Verb families
+ * decide WHICH column (and, in nlToSql, the narrated verb): the edit family
+ * ("changed/updated/edited") targets the modified column; the birth family
+ * ("created/added/new/joined") targets the creation column. A bare temporal
+ * mention with no verb falls back to the first timestamp column. The family
+ * regexes are module-level (BORN_VERB / EDIT_VERB) so column choice here and
+ * narration in nlToSql share one source of truth.
+ *
+ * Extracted from temporalWhere so the multi-window conditional count and the
+ * recursive bucket series build their windows against the SAME column the
+ * single-window WHERE would have used. Returns undefined when the table has no
+ * usable timestamp column.
+ */
+function resolveDateColumn(q: string, target: SchemaTable): SchemaColumn | undefined {
   // Candidate timestamp columns. isDateColumn covers the declared temporal
   // type + camelCase suffixes; the extra name tokens here keep the broader
   // intent-gated set this branch already accepted (start/end/seen/login/…).
@@ -106,24 +120,37 @@ function temporalWhere(q: string, target: SchemaTable): { sql: string; phrase: s
     return isDateColumn(c)
       || /\bwhen\b|\bts\b|expiry|\bdue\b|logged|synced|seen|visited|login|logout|access|effective|valid|start|end|registered|inserted|added/i.test(c.name);
   });
-  if (dateCols.length === 0) return { sql: '', phrase: '' };
-
-  // Verb families decide WHICH column (and, in nlToSql, the narrated verb). Edit
-  // family ("changed/updated/edited") targets the modified column; birth family
-  // ("created/added/new/joined") targets the creation column. A bare temporal
-  // mention with no verb falls back to the first timestamp column. The family
-  // regexes are module-level (BORN_VERB / EDIT_VERB) so column choice here and
-  // narration in nlToSql share one source of truth.
+  if (dateCols.length === 0) return undefined;
   const editCol = function (c: SchemaColumn) { return /updat|modif|chang|edit|alter|revis|touch|mtime|last.?mod|lastmod|sync|version|\brev\b|dirty|login|logged|seen|used|access|visit|active/i.test(c.name); };
   const bornCol = function (c: SchemaColumn) { return /creat|add|insert|regist|made|born|origin|ctime|first|since|seed|provision|enrol|subscrib|activat|signup|join|captur|logged|record|posted|import/i.test(c.name); };
-
   let col: SchemaColumn | undefined;
   if (EDIT_VERB.test(q)) col = dateCols.find(editCol);
   else if (BORN_VERB.test(q)) col = dateCols.find(bornCol);
   if (!col) col = dateCols[0];
+  return col;
+}
 
-  // Drift stores DateTime as INTEGER unix-epoch seconds by default; TEXT columns
-  // hold ISO-8601. 'localtime' makes "today" mean the user's local day, not UTC.
+/**
+ * Day-truncated SQL expression for a timestamp column. Drift stores DateTime as
+ * INTEGER unix-epoch seconds by default (TEXT columns hold ISO-8601); 'localtime'
+ * makes the calendar day the user's local day, not UTC. [alias] qualifies the
+ * column when the column lives behind a table alias (the bucket-series LEFT JOIN
+ * aliases its table `m`); pass '' for an unqualified reference.
+ */
+function dayExpr(col: SchemaColumn, alias: string): string {
+  const ref = (alias ? alias + '.' : '') + '"' + col.name + '"';
+  return /int/i.test(col.type)
+    ? `date(${ref}, 'unixepoch', 'localtime')`
+    : `date(${ref})`;
+}
+
+function temporalWhere(q: string, target: SchemaTable, forceCol?: SchemaColumn): { sql: string; phrase: string } {
+  // A forced column (from the multi-window / bucket callers) keeps every window
+  // on the same timestamp; otherwise pick by verb family. No usable column → no
+  // temporal predicate.
+  const col = forceCol || resolveDateColumn(q, target);
+  if (!col) return { sql: '', phrase: '' };
+
   // `d` truncates to a calendar day; `dt` keeps clock time for sub-day windows.
   const isEpoch = /int/i.test(col.type);
   const d = isEpoch ? `date("${col.name}", 'unixepoch', 'localtime')` : `date("${col.name}")`;
@@ -943,6 +970,91 @@ export function combineRefinement(base: string, fragment: string): string {
   return (base.trim() + ' ' + fragment.trim()).replace(/\s+/g, ' ').trim();
 }
 
+// ---------------------------------------------------------------------------
+// Voice / keyword commands (Ask panel, gated by the "Keywords" preference)
+// ---------------------------------------------------------------------------
+
+// Spoken/typed phrases that act as the "clear the question" command rather than
+// literal query text. Matched against the WHOLE trimmed input so a real query
+// mentioning "clear" (e.g. "contacts with a clear flag") is never hijacked.
+const NL_CMD_CLEAR_RE =
+  /^\s*(?:clear(?:\s+it|\s+that)?|start\s+(?:again|over)|begin\s+again|reset|wipe\s+it|scratch\s+that|never\s*mind)\s*[.!?]?\s*$/i;
+
+// Phrases that re-run the current query ("run again", "run it again", "again").
+const NL_CMD_RUN_RE =
+  /^\s*(?:run(?:\s+it|\s+that)?\s+again|run\s+again|do\s+it\s+again|try\s+again|once\s+more|again)\s*[.!?]?\s*$/i;
+
+// Everyday time-window phrases the user swaps between in a follow-up ("what
+// about last year"). Ordered most-specific-first so a longer phrase ("last
+// month") wins over a shorter overlap. Deliberately limited to the common
+// calendar windows temporalWhere already understands — this powers the Ask
+// panel's voice temporal-shift, not a full re-parse of every span the engine
+// knows.
+const TEMPORAL_SWAP_PHRASES = [
+  'the day before yesterday',
+  'year to date', 'month to date', 'week to date',
+  'this morning', 'this afternoon', 'this evening', 'tonight', 'last night',
+  'the weekend', 'this week', 'last week', 'previous week',
+  'this month', 'last month', 'previous month',
+  'this quarter', 'last quarter', 'previous quarter',
+  'this year', 'last year', 'previous year',
+  'today', 'yesterday', 'tomorrow',
+];
+const TEMPORAL_SWAP_RE = new RegExp(
+  '\\b(' + TEMPORAL_SWAP_PHRASES.map(function (p) { return p.replace(/ /g, '\\s+'); }).join('|') + ')\\b',
+  'i',
+);
+
+/** The voice/keyword command an Ask-panel input resolves to, if any. */
+export type NlKeywordCommand =
+  | { kind: 'clear' }
+  | { kind: 'run' }
+  | { kind: 'temporalSwap'; phrase: string }
+  | null;
+
+/**
+ * Classifies an Ask-panel input as a voice/keyword command instead of literal
+ * query text. Pure + exported so the catch-lists are unit-tested directly.
+ *
+ * - "clear" / "start again" → clear the question box.
+ * - "run again" / "again"   → re-run the current query.
+ * - a bare time window ("last year", "what about last year") → swap the prior
+ *   query's window. Conversational framing ("what about", "how about", "and")
+ *   is stripped first; if anything beyond the window remains, it is a fresh
+ *   query, not a swap, and this returns null so the caller parses it normally.
+ *
+ * The caller decides whether to honor the command (it only fires when the
+ * "Keywords" preference is on — see the Ask panel).
+ */
+export function detectNlKeyword(input: string): NlKeywordCommand {
+  const raw = String(input || '').trim();
+  if (!raw) return null;
+  if (NL_CMD_CLEAR_RE.test(raw)) return { kind: 'clear' };
+  if (NL_CMD_RUN_RE.test(raw)) return { kind: 'run' };
+  // Strip leading conversational framing, then require the residue to be ONLY a
+  // time-window phrase for a swap — otherwise it is a real question.
+  const cleaned = raw.toLowerCase()
+    .replace(/^(?:and\s+|so\s+|ok(?:ay)?\s+)?(?:what|how)\s+about\s+/, '')
+    .replace(/^(?:and|also|then|now|show\s+me)\s+/, '')
+    .replace(/[?.!,]+$/, '')
+    .trim();
+  const m = cleaned.match(TEMPORAL_SWAP_RE);
+  if (!m) return null;
+  const residue = cleaned.replace(TEMPORAL_SWAP_RE, '').replace(/\s+/g, ' ').trim();
+  return residue === '' ? { kind: 'temporalSwap', phrase: m[1].toLowerCase() } : null;
+}
+
+/**
+ * Replaces whatever time-window phrase [base] carries with [newPhrase], so
+ * "contacts added last month" + "last year" → "contacts added last year".
+ * Returns null when the base has no recognized window to swap (the caller then
+ * appends the phrase as a normal refinement instead of silently doing nothing).
+ */
+export function applyTemporalSwap(base: string, newPhrase: string): string | null {
+  if (!TEMPORAL_SWAP_RE.test(base)) return null;
+  return base.replace(TEMPORAL_SWAP_RE, newPhrase).replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Formats the spoken-style answer for a wake-phrase question. Pure and
  * exported (no DOM) so it's unit-tested with canned values: given the
@@ -1002,6 +1114,155 @@ export function narrateAnswer(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Multi-window conditional counts + recursive time-bucket series
+// ---------------------------------------------------------------------------
+
+/** Identifier-safe slug for a phrase / table name, used to name result columns. */
+function sqlSlug(text: string): string {
+  return String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+// A count-style question ("how many", "count", "number of") — the only shape a
+// multi-window conditional count makes sense for.
+const COUNT_INTENT_RE = /how many|\bcount\b|total number|number of/i;
+// Connectives that separate two time windows in one question ("this year and
+// last month", "today vs yesterday", "this week, last week").
+const WINDOW_SPLIT_RE = /\s+and\s+|\s*,\s*|\s+vs\.?\s+|\s+versus\s+|\s+compared\s+(?:to|with)\s+/i;
+
+/**
+ * Detects a count question naming TWO or more time windows and builds a single
+ * row of conditional counts — one `SUM(CASE WHEN <window> THEN 1 ELSE 0 END)`
+ * per window — so "how many contacts were added this year and last month"
+ * returns both totals side by side instead of forcing two queries. Every window
+ * is built against the SAME timestamp column (resolved once from the full
+ * question) so the columns are directly comparable. [baseConds] are the
+ * non-temporal predicates (status, relationships); they become a shared outer
+ * WHERE so every window counts the same filtered population. Returns null when
+ * the question is not a multi-window count, so the normal branches handle it.
+ */
+function multiWindowCount(
+  q: string,
+  target: SchemaTable,
+  baseConds: string[],
+): { sql: string; windows: Array<{ sql: string; phrase: string }> } | null {
+  if (!COUNT_INTENT_RE.test(q)) return null;
+  if (!WINDOW_SPLIT_RE.test(q)) return null;
+  const col = resolveDateColumn(q, target);
+  if (!col) return null;
+  // One window per segment, all forced onto `col`; dedupe identical windows so
+  // "this month and this month" can't emit two identical columns.
+  const segments = q.split(WINDOW_SPLIT_RE);
+  const windows: Array<{ sql: string; phrase: string }> = [];
+  const seenSql: { [k: string]: boolean } = {};
+  for (let i = 0; i < segments.length; i++) {
+    const tw = temporalWhere(segments[i], target, col);
+    if (tw.sql && !seenSql[tw.sql]) {
+      seenSql[tw.sql] = true;
+      windows.push(tw);
+    }
+  }
+  if (windows.length < 2) return null;
+  const where = baseConds.length ? ' WHERE ' + baseConds.join(' AND ') : '';
+  const usedAlias: { [k: string]: number } = {};
+  const cols = windows.map(function (w) {
+    let alias = sqlSlug(w.phrase) || 'window';
+    // Guard against two phrases sluggifying to the same alias (SQLite rejects
+    // duplicate result-column aliases referenced by name).
+    if (usedAlias[alias]) alias = alias + '_' + (++usedAlias[alias]);
+    else usedAlias[alias] = 1;
+    return 'SUM(CASE WHEN ' + w.sql + ' THEN 1 ELSE 0 END) AS ' + alias;
+  });
+  const sql = 'SELECT ' + cols.join(', ') + ' FROM "' + target.name + '"' + where;
+  return { sql: sql, windows: windows };
+}
+
+/** Time granularity for a bucket-series question, or null when none is named. */
+type TimeBucket = 'day' | 'week' | 'month' | 'year';
+
+/**
+ * Recognizes a "bucket over time" phrase ("weekly", "by week", "per month",
+ * "year over year") and returns its granularity. Returns null when the question
+ * names no recurring bucket, so it falls through to the plain branches.
+ */
+function detectTimeBucket(q: string): TimeBucket | null {
+  if (/\b(?:daily|by day|per day|each day|every day|day[- ]by[- ]day|day[- ]over[- ]day)\b/i.test(q)) return 'day';
+  if (/\b(?:weekly|by week|per week|each week|every week|week[- ]by[- ]week|week[- ]over[- ]week)\b/i.test(q)) return 'week';
+  if (/\b(?:monthly|by month|per month|each month|every month|month[- ]by[- ]month|month[- ]over[- ]month)\b/i.test(q)) return 'month';
+  if (/\b(?:yearly|annually|annual|by year|per year|each year|every year|year[- ]by[- ]year|year[- ]over[- ]year)\b/i.test(q)) return 'year';
+  return null;
+}
+
+/**
+ * Builds a recursive-CTE calendar series that counts rows per [bucket] over a
+ * fixed window of recent buckets, LEFT JOINed so empty buckets still report 0
+ * (a plain GROUP BY would silently omit weeks with no rows). This is the "WITH …
+ * GROUP BY" shape the plain group-by branch can't express. Each row is mapped to
+ * its bucket's start the same way the calendar seeds it, so the join keys align.
+ * [baseConds] (non-temporal predicates) move into the JOIN's ON clause so a
+ * filtered population ("weekly active contacts added") still keeps empty buckets.
+ * Returns null when the table has no usable timestamp column.
+ */
+function timeBucketSeries(
+  q: string,
+  target: SchemaTable,
+  bucket: TimeBucket,
+  baseConds: string[],
+): { sql: string; col: SchemaColumn } | null {
+  const col = resolveDateColumn(q, target);
+  if (!col) return null;
+  const rowDay = dayExpr(col, 'm');
+  // Per-bucket: the calendar seed (start of the CURRENT bucket), the recursive
+  // step back one bucket, how many buckets to generate, and how a row's day maps
+  // onto its bucket start (must mirror the seed so join keys line up).
+  const cfg: { [k in TimeBucket]: { seed: string; step: string; n: number; map: string } } = {
+    day: {
+      seed: "date('now', 'localtime')",
+      step: "'-1 day'",
+      n: 30,
+      map: rowDay,
+    },
+    week: {
+      // SQLite 'weekday 0' is the next Sunday; '-6 days' backs it up to Monday,
+      // so each bucket is the Monday that opens an ISO-style week.
+      seed: "date('now', 'weekday 0', '-6 days', 'localtime')",
+      step: "'-7 days'",
+      n: 12,
+      map: `date(${rowDay}, 'weekday 0', '-6 days')`,
+    },
+    month: {
+      seed: "date('now', 'start of month', 'localtime')",
+      step: "'-1 month'",
+      n: 12,
+      map: `date(${rowDay}, 'start of month')`,
+    },
+    year: {
+      seed: "date('now', 'start of year', 'localtime')",
+      step: "'-1 year'",
+      n: 5,
+      map: `date(${rowDay}, 'start of year')`,
+    },
+  };
+  const c = cfg[bucket];
+  // Count alias mirrors the question's verb family ("contacts_added") for a
+  // self-describing column; a bare bucket question falls back to "count".
+  const verb = BORN_VERB.test(q) ? 'added' : EDIT_VERB.test(q) ? 'changed' : null;
+  const countAlias = verb ? (sqlSlug(target.name) || 'rows') + '_' + verb : 'count';
+  const onExtra = baseConds.length ? ' AND ' + baseConds.join(' AND ') : '';
+  const sql =
+    'WITH RECURSIVE calendar(bucket) AS (\n' +
+    '  SELECT ' + c.seed + '\n' +
+    '  UNION ALL\n' +
+    '  SELECT date(bucket, ' + c.step + ') FROM calendar LIMIT ' + c.n + '\n' +
+    ')\n' +
+    'SELECT c.bucket AS ' + bucket + '_start, COUNT(m."' + col.name + '") AS ' + countAlias + '\n' +
+    'FROM calendar c\n' +
+    'LEFT JOIN "' + target.name + '" m ON ' + c.map + ' = c.bucket' + onExtra + '\n' +
+    'GROUP BY c.bucket\n' +
+    'ORDER BY c.bucket DESC';
+  return { sql: sql, col: col };
+}
+
 export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: string }): NlResult {
   // "Hey Saropa" wake phrase: stripped up front so it never reaches table /
   // column / value matching. `wake` rides along on the result and only changes
@@ -1055,12 +1316,17 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
   const conds: string[] = [];
   const tw = temporalWhere(q, target);
   if (tw.sql) conds.push(tw.sql);
+  // Non-temporal predicates kept separately so the multi-window count and the
+  // bucket series can reuse them WITHOUT the single-window temporal filter (the
+  // window/bucket IS their time dimension).
+  const nonTemporalConds: string[] = [];
   // valueWhere takes the original-case question so string values keep their case.
   const vw = valueWhere(question, target);
-  for (let i = 0; i < vw.length; i++) conds.push(vw[i]);
+  for (let i = 0; i < vw.length; i++) nonTemporalConds.push(vw[i]);
   // FK-relationship predicates ("with more than one phone", "without orders").
   const rw = relationshipWhere(q, target, meta);
-  for (let i = 0; i < rw.length; i++) conds.push(rw[i]);
+  for (let i = 0; i < rw.length; i++) nonTemporalConds.push(rw[i]);
+  for (let i = 0; i < nonTemporalConds.length; i++) conds.push(nonTemporalConds[i]);
   const where = conds.length ? ' WHERE ' + conds.join(' AND ') : '';
 
   // Ordering and row-cap apply to the row-returning branches; an explicit cap
@@ -1087,7 +1353,34 @@ export function nlToSql(question: string, meta: SchemaMeta, opts?: { table?: str
   let answerKind: AnswerKind = 'rows';
   let aggColumn: string | undefined;
 
-  if (/how many|\bcount\b|total number|number of/i.test(q) && !isGrouping) {
+  // A recurring time bucket ("weekly", "by month") routes to a recursive-CTE
+  // calendar series — checked before the GROUP BY / count branches, which would
+  // otherwise read "by week" as group-by-a-"week"-column. Falls through if the
+  // table has no timestamp column.
+  const bucket = detectTimeBucket(q);
+  if (bucket) {
+    const series = timeBucketSeries(q, target, bucket, nonTemporalConds);
+    if (series) {
+      sql = series.sql;
+      answerKind = 'group';
+    }
+  }
+
+  // A count question naming two+ windows ("this year and last month") becomes a
+  // single row of conditional sums — checked before the plain count branch.
+  if (!sql) {
+    const multi = multiWindowCount(q, target, nonTemporalConds);
+    if (multi) {
+      sql = multi.sql;
+      // One row, several aggregate cells: 'rows' is the closest narration shape.
+      answerKind = 'rows';
+    }
+  }
+
+  if (sql) {
+    // One of the new multi-column branches already built the SQL; skip the
+    // single-result dispatch below.
+  } else if (/how many|\bcount\b|total number|number of/i.test(q) && !isGrouping) {
     sql = 'SELECT COUNT(*) FROM ' + tn + where;
     answerKind = 'count';
   } else if (/duplicate|repeated|dupe/i.test(q)) {

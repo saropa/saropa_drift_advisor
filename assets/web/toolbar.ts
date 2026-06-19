@@ -132,8 +132,6 @@ export function initToolbar(): void {
   // The share button's click handler is wired by session.ts
   // via the #tb-share-btn ID. No additional wiring needed here.
 
-  if (typeof (window as any)._syncHomeSidebarToggles === 'function') (window as any)._syncHomeSidebarToggles();
-
   // --- Sync initial active tool highlight ---
   // Highlight the toolbar button matching the initially active tab (if any).
   var activeTab = document.querySelector('.tab-btn.active');

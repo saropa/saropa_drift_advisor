@@ -252,30 +252,69 @@ export const TOOL_LABELS: Record<string, string> = {
   settings: 'Settings',
 };
 
-/** Ordered list for the Home screen launcher grid (id + one-line blurb). */
-export const HOME_LAUNCHERS: { id: string; blurb: string }[] = [
-  { id: 'tables', blurb: 'browse, open tables, pagination, export' },
-  { id: 'search', blurb: 'schema + data search, filters, jump matches' },
-  { id: 'sql', blurb: 'editor, templates, bookmarks, charts, NL ask' },
-  { id: 'snapshot', blurb: 'capture schema, time travel' },
-  { id: 'compare', blurb: 'diff databases, migrations' },
-  { id: 'index', blurb: 'suggested indexes, query hints' },
-  { id: 'schema', blurb: 'DDL, columns, PRAGMA' },
-  { id: 'diagram', blurb: 'relationship graph' },
-  { id: 'size', blurb: 'table sizes, growth' },
-  { id: 'perf', blurb: 'slow statements, timings' },
-  { id: 'anomaly', blurb: 'health checks, drift signals' },
-  { id: 'import', blurb: 'CSV → table' },
-  { id: 'export', blurb: 'CSV, schema' },
-  { id: 'settings', blurb: 'prefs, masking, confirm navigate' },
+/**
+ * Ordered list for the Home screen launcher grid (id + one-line blurb + accent).
+ *
+ * `color` is the per-tool accent shown on its Home card (left rule + icon tint +
+ * hover ring) so each screen is visually identifiable at a glance. The palette is
+ * deliberately mid-saturation: every hue must keep adequate contrast on BOTH the
+ * light surface and the dark/midnight glass surfaces, since the cards inherit the
+ * theme background. Tune a hue here and it updates the card everywhere — this list
+ * is the single source of truth for the accent (see buildToolGrid()).
+ */
+export const HOME_LAUNCHERS: { id: string; blurb: string; color: string }[] = [
+  { id: 'tables', blurb: 'browse, open tables, pagination, export', color: '#3b82f6' },
+  { id: 'search', blurb: 'schema + data search, filters, jump matches', color: '#06b6d4' },
+  { id: 'sql', blurb: 'editor, templates, bookmarks, charts, NL ask', color: '#8b5cf6' },
+  { id: 'snapshot', blurb: 'capture schema, time travel', color: '#ec4899' },
+  { id: 'compare', blurb: 'diff databases, migrations', color: '#f59e0b' },
+  { id: 'index', blurb: 'suggested indexes, query hints', color: '#10b981' },
+  { id: 'schema', blurb: 'DDL, columns, PRAGMA', color: '#6366f1' },
+  { id: 'diagram', blurb: 'relationship graph', color: '#14b8a6' },
+  { id: 'size', blurb: 'table sizes, growth', color: '#84cc16' },
+  { id: 'perf', blurb: 'slow statements, timings', color: '#ef4444' },
+  { id: 'anomaly', blurb: 'health checks, drift signals', color: '#f43f5e' },
+  { id: 'import', blurb: 'CSV → table', color: '#22c55e' },
+  { id: 'export', blurb: 'CSV, schema', color: '#0ea5e9' },
+  { id: 'settings', blurb: 'prefs, masking, confirm navigate', color: '#64748b' },
 ];
 
 /** Home-only shortcuts for toolbar actions without their own tab panel. */
-export const HOME_EXTRAS: { action: 'mask' | 'theme' | 'share'; icon: string; label: string; blurb: string }[] = [
-  { action: 'mask', icon: 'visibility_off', label: 'Mask PII', blurb: 'redact sensitive columns' },
-  { action: 'theme', icon: 'palette', label: 'Theme', blurb: 'light, dark, showcase, midnight' },
-  { action: 'share', icon: 'share', label: 'Share', blurb: 'read-only session link' },
+export const HOME_EXTRAS: { action: 'mask' | 'theme' | 'share'; icon: string; label: string; blurb: string; color: string }[] = [
+  { action: 'mask', icon: 'visibility_off', label: 'Mask PII', blurb: 'redact sensitive columns', color: '#a855f7' },
+  { action: 'theme', icon: 'palette', label: 'Theme', blurb: 'light, dark, showcase, midnight', color: '#f97316' },
+  { action: 'share', icon: 'share', label: 'Share', blurb: 'read-only session link', color: '#0d9488' },
 ];
+
+/**
+ * Feature-search dictionary for the Home search box (id → synonyms/keywords).
+ *
+ * The box fuzzy-matches the typed query against each card's label, blurb, AND the
+ * terms below — so a user can type a feature they expect ("erd", "redact", "diff",
+ * "appearance") and still land on the right card even when that exact word is not
+ * the tool's name. Keep it generous: extra synonyms only help recall, and a term
+ * appearing for two tools simply surfaces both. Keyed by launcher id / extra action
+ * so it stays aligned with HOME_LAUNCHERS + HOME_EXTRAS above.
+ */
+export const HOME_SEARCH_KEYWORDS: Record<string, string[]> = {
+  tables: ['browse', 'open', 'list', 'rows', 'records', 'columns', 'pagination', 'paginate', 'page', 'view', 'grid', 'data', 'datasheet'],
+  search: ['find', 'lookup', 'query', 'filter', 'filters', 'jump', 'matches', 'locate', 'grep', 'seek', 'full text', 'schema search', 'data search'],
+  sql: ['query', 'editor', 'run sql', 'statement', 'terminal', 'console', 'template', 'templates', 'bookmark', 'bookmarks', 'chart', 'charts', 'graph', 'natural language', 'nl', 'ask', 'ai', 'execute', 'select'],
+  snapshot: ['capture', 'schema', 'time travel', 'history', 'version', 'backup', 'restore', 'point in time', 'photo', 'save state'],
+  compare: ['diff', 'difference', 'databases', 'migration', 'migrations', 'merge', 'delta', 'changes', 'two databases', 'drift'],
+  index: ['indexes', 'indices', 'suggested', 'query hints', 'optimize', 'optimization', 'performance', 'speed up', 'btree', 'key', 'covering'],
+  schema: ['ddl', 'columns', 'pragma', 'structure', 'definition', 'create table', 'fields', 'types', 'metadata', 'constraints'],
+  diagram: ['relationship', 'relationships', 'graph', 'erd', 'entity', 'map', 'visual', 'tree', 'connections', 'foreign key', 'fk', 'links'],
+  size: ['table sizes', 'growth', 'storage', 'bytes', 'disk', 'space', 'row count', 'big tables', 'usage'],
+  perf: ['performance', 'slow', 'statements', 'timings', 'latency', 'profiling', 'speed', 'bottleneck', 'query time', 'duration'],
+  anomaly: ['health', 'checks', 'drift', 'signals', 'issues', 'problems', 'integrity', 'warnings', 'monitor', 'diagnostics'],
+  import: ['csv', 'upload', 'load', 'ingest', 'file', 'data in', 'insert'],
+  export: ['csv', 'download', 'schema', 'save', 'dump', 'backup', 'data out', 'extract'],
+  settings: ['preferences', 'prefs', 'options', 'config', 'configuration', 'masking', 'confirm navigate', 'pii', 'defaults'],
+  mask: ['redact', 'pii', 'sensitive', 'hide', 'privacy', 'obscure', 'columns', 'censor', 'anonymize'],
+  theme: ['appearance', 'color', 'colors', 'light', 'dark', 'showcase', 'midnight', 'style', 'look', 'palette', 'skin', 'mode'],
+  share: ['link', 'session', 'read-only', 'url', 'collaborate', 'send', 'invite'],
+};
 
 // --- Offline disable IDs ---
 export const OFFLINE_DISABLE_IDS = [

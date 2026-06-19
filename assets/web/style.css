@@ -1579,9 +1579,13 @@ body.theme-showcase .tables-browse-card:hover {
 }
 
 /* Secondary buttons: visible border at rest, subtle shadow for depth.
- * Hover elevates with border color change and slightly deeper shadow. */
+ * Hover elevates with border color change and slightly deeper shadow.
+ * The NL "Ask" panel's action row (Preview results) is included so its
+ * secondary button matches the rest of the app instead of rendering as a
+ * bare browser-default button next to the primary "Use". */
 .toolbar button:not(.btn-primary),
-.sql-runner .sql-toolbar button:not(.btn-primary) {
+.sql-runner .sql-toolbar button:not(.btn-primary),
+.nl-modal-actions button:not(.btn-primary) {
   min-height: 36px;
   padding: 0 0.85rem;
   font-size: var(--text-sm);
@@ -1596,7 +1600,8 @@ body.theme-showcase .tables-browse-card:hover {
 }
 
 .toolbar button:not(.btn-primary):hover,
-.sql-runner .sql-toolbar button:not(.btn-primary):hover {
+.sql-runner .sql-toolbar button:not(.btn-primary):hover,
+.nl-modal-actions button:not(.btn-primary):hover {
   border-color: var(--link);
   color: var(--link);
   background: var(--surface);
@@ -1604,7 +1609,8 @@ body.theme-showcase .tables-browse-card:hover {
 }
 
 .toolbar button:not(.btn-primary):focus-visible,
-.sql-runner .sql-toolbar button:not(.btn-primary):focus-visible {
+.sql-runner .sql-toolbar button:not(.btn-primary):focus-visible,
+.nl-modal-actions button:not(.btn-primary):focus-visible {
   outline: 2px solid var(--link);
   outline-offset: 2px;
 }
@@ -1852,90 +1858,97 @@ button.btn-busy {
     transform: rotate(360deg);
   }
 }
-/* --- Home tab: sidebar switches + tool launcher grid --- */
+/* --- Home tab: intro, feature search, tool launcher grid --- */
 .home-screen {
   max-width: 72rem;
   margin: 0 auto;
 }
 
-.home-sidebar-toggles {
+/* Title + narrative feature overview, populated at runtime via vt(). */
+.home-intro {
+  margin-bottom: 1.5rem;
+}
+
+.home-title {
+  font-size: var(--text-xl, 1.5rem);
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1.2;
+  margin: 0 0 0.5rem;
+}
+
+.home-lead {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 60rem;
+  margin: 0;
+}
+
+/* Feature-search box: fuzzy-find a tool by name/synonym. Distinct from the
+   Search tab, which searches table data — this filters the launcher cards. */
+.home-feature-search-wrap {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 1rem 1.75rem;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
 }
 
-.home-sidebar-toggle-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
+.home-feature-search-icon {
+  position: absolute;
+  left: 0.7rem;
+  font-size: 1.2rem;
+  color: var(--muted);
+  pointer-events: none;
 }
 
-.home-sidebar-toggle-label {
+.home-feature-search {
+  width: 100%;
+  padding: 0.6rem 0.75rem 0.6rem 2.4rem;
+  font: inherit;
   font-size: var(--text-sm);
   color: var(--fg);
-  font-weight: 500;
-}
-
-/* Pill switch (tables / history sidebars) */
-.home-switch {
-  position: relative;
-  width: 2.5rem;
-  height: 1.35rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
   background: var(--surface);
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
-.home-switch::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 1.05rem;
-  height: 1.05rem;
-  border-radius: 50%;
-  background: var(--muted);
-  transition: transform 0.15s ease, background 0.15s ease;
+.home-feature-search::placeholder {
+  color: var(--muted);
 }
 
-.home-switch.home-switch-on {
-  background: color-mix(in srgb, var(--link) 18%, var(--surface));
-  border-color: color-mix(in srgb, var(--link) 35%, var(--border));
+.home-feature-search:focus-visible {
+  outline: none;
+  border-color: var(--link);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--link) 25%, transparent);
 }
 
-.home-switch.home-switch-on::after {
-  transform: translateX(1.15rem);
-  background: var(--link);
-}
-
-.home-switch:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 2px;
+.home-feature-search-empty {
+  margin: -0.5rem 0 1.25rem;
+  font-size: var(--text-sm);
+  color: var(--muted);
 }
 
 .home-tool-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
-  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 1rem;
 }
 
+/* `--tool-accent` is set per card from HOME_LAUNCHERS/HOME_EXTRAS; the fallback
+   keeps a sane color if a card is ever rendered without one. */
 .home-tool-card {
+  --tool-accent: var(--link);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.2rem;
+  gap: 0.3rem;
   text-align: left;
-  padding: 0.55rem 0.65rem;
-  min-height: 4.75rem;
+  padding: 0.85rem 0.95rem;
+  min-height: 5.25rem;
   border: 1px solid var(--border);
+  border-left: 3px solid color-mix(in srgb, var(--tool-accent) 70%, var(--border));
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--fg);
@@ -1944,20 +1957,21 @@ button.btn-busy {
   transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 }
 
+/* Hover lifts the card and rings it in the tool's own accent. */
 .home-tool-card:hover {
-  border-color: var(--link);
+  border-color: var(--tool-accent);
   background: var(--bg-pre);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--tool-accent) 22%, transparent);
 }
 
 .home-tool-card:focus-visible {
-  outline: 2px solid var(--link);
+  outline: 2px solid var(--tool-accent);
   outline-offset: 1px;
 }
 
 .home-tool-card-icon {
-  font-size: 1.35rem;
-  color: var(--link);
+  font-size: 1.4rem;
+  color: var(--tool-accent);
   line-height: 1;
 }
 
@@ -1974,22 +1988,17 @@ button.btn-busy {
   line-height: 1.35;
 }
 
-.home-tool-card-extra .home-tool-card-icon {
-  color: var(--muted);
-}
-
-.home-tool-card-extra:hover .home-tool-card-icon {
-  color: var(--link);
-}
-
+/* Older engines without color-mix: fall back to a solid accent left rule. */
 @supports not (background: color-mix(in srgb, red, blue)) {
-  .home-switch.home-switch-on {
-    background: var(--highlight-bg);
+  .home-tool-card {
+    border-left-color: var(--tool-accent);
+  }
+  .home-tool-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .home-switch,
-  .home-switch::after,
+  .home-feature-search,
   .home-tool-card {
     transition: none;
   }
@@ -2675,6 +2684,15 @@ pre {
   border-color: var(--link);
 }
 
+/* The button carries `display: inline-flex`, which beats the UA stylesheet's
+   `[hidden] { display: none }` — so without this rule the mic stays visible even
+   when JS leaves it hidden on browsers without the Web Speech API (Firefox),
+   showing a dead control. Re-assert none for the hidden state at class
+   specificity so the `hidden` attribute is honored. */
+.nl-icon-btn[hidden] {
+  display: none;
+}
+
 .nl-icon-btn .material-symbols-outlined {
   font-size: 1.1rem;
 }
@@ -2900,15 +2918,19 @@ pre {
 
 .nl-modal-sql-preview {
   width: 100%;
-  min-height: 5rem;
+  /* Taller + larger type than before (was 5rem / 13px, muted): the generated
+     SQL is the panel's primary output and was hard to read at the old size.
+     Full --fg color and the standard small-text scale make it legible without
+     squinting; the taller default shows multi-clause queries without scrolling. */
+  min-height: 8rem;
   box-sizing: border-box;
   font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: var(--text-sm);
+  line-height: 1.5;
   padding: 0.65rem 0.75rem;
   background: var(--bg-pre);
   border: 1px solid var(--border);
-  color: var(--muted);
+  color: var(--fg);
   border-radius: var(--radius-md);
   resize: vertical;
   cursor: default;

@@ -28,6 +28,7 @@ export const stringsWebSettings: Record<string, string> = {
   'viewer.settings.group.tableDefaults': 'Table Defaults',
   'viewer.settings.group.performance': 'Performance',
   'viewer.settings.group.dataFormatting': 'Data Formatting',
+  'viewer.settings.group.ask': 'Ask in English',
 
   // --- Settings panel: storage & history ---
   'viewer.settings.storage.sqlHistoryMax': 'SQL history max entries',
@@ -67,6 +68,11 @@ export const stringsWebSettings: Record<string, string> = {
   'viewer.settings.format.confirmNavigate': 'Confirm before leaving page',
   'viewer.settings.format.confirmNavigateSub':
     'Show a browser confirmation dialog when navigating away or closing the tab',
+
+  // --- Settings panel: Ask in English (voice / keyword commands) ---
+  'viewer.settings.ask.keywords': 'Voice command keywords',
+  'viewer.settings.ask.keywordsSub':
+    'Treat spoken phrases like "clear", "run again", and "what about last year" as commands instead of typing them into the question',
 
   // --- Settings panel: footer + confirm dialogs ---
   'viewer.settings.footer.resetAll': 'Reset all to defaults',

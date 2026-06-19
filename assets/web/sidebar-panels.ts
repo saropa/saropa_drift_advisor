@@ -47,9 +47,6 @@ function syncIcons(): void {
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     btn.classList.toggle('active', on);
   });
-  // Keep the Home-screen panel switches in step (defined in home-screen.ts).
-  const sync = (window as any)._syncHomeSidebarToggles;
-  if (typeof sync === 'function') sync();
 }
 
 /** Shows [name] and expands the sidebar if it was collapsed. */

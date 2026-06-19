@@ -67,4 +67,22 @@ export const stringsWebNav: Record<string, string> = {
   // separator is fixed punctuation; both surrounding values are tokens so a
   // translator can reorder them.
   'viewer.nav.home.cardTooltip': '{0} — {1}',
+  // Home page heading.
+  'viewer.nav.home.title': 'Saropa Drift Advisor',
+  // Narrative feature overview shown under the heading. Rolls every launcher/extra
+  // blurb into prose without dropping a capability: browse/pagination/export, schema
+  // + data search with filters and jump-to-match, the SQL editor (templates,
+  // bookmarks, charts, natural-language ask), snapshot/time-travel, database diff for
+  // migrations, suggested indexes + query hints, DDL/columns/PRAGMA, the relationship
+  // diagram, table sizes + growth, slow-statement timings, health checks for drift,
+  // CSV import/export, settings (prefs, masking, confirm-navigate), PII masking,
+  // theme switching, and the read-only share link. Kept as one key (one paragraph)
+  // so a translator handles the whole overview as a unit.
+  'viewer.nav.home.lead':
+    'A read-only console for your SQLite database. Browse and open tables with pagination and export, or run schema and data search with filters that jump straight to matches. Write queries in the SQL editor with templates, bookmarks, charts, and natural-language ask. Capture schema snapshots to time-travel through changes, diff two databases to plan migrations, and review suggested indexes and query hints. Inspect DDL, columns, and PRAGMA, map relationships in the diagram, and track table sizes and growth. Watch slow statements and their timings, run health checks for drift signals, import a CSV into a table, and export to CSV or schema. Tune preferences, masking, and confirm-on-navigate in settings, redact sensitive columns with PII masking, switch between light, dark, showcase, and midnight themes, and share a read-only session link.',
+  // Feature-search box (filters the launcher cards, not table data).
+  'viewer.nav.home.search.placeholder': 'Search features… (e.g. theme, diff, redact)',
+  'viewer.nav.home.search.aria': 'Search Home features',
+  // Empty-result message; {0} is the user's raw query.
+  'viewer.nav.home.search.noResults': 'No features match “{0}”.',
 };

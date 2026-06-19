@@ -61,9 +61,13 @@
 }
 
 /* Secondary buttons: visible border at rest, subtle shadow for depth.
- * Hover elevates with border color change and slightly deeper shadow. */
+ * Hover elevates with border color change and slightly deeper shadow.
+ * The NL "Ask" panel's action row (Preview results) is included so its
+ * secondary button matches the rest of the app instead of rendering as a
+ * bare browser-default button next to the primary "Use". */
 .toolbar button:not(.btn-primary),
-.sql-runner .sql-toolbar button:not(.btn-primary) {
+.sql-runner .sql-toolbar button:not(.btn-primary),
+.nl-modal-actions button:not(.btn-primary) {
   min-height: 36px;
   padding: 0 0.85rem;
   font-size: var(--text-sm);
@@ -78,7 +82,8 @@
 }
 
 .toolbar button:not(.btn-primary):hover,
-.sql-runner .sql-toolbar button:not(.btn-primary):hover {
+.sql-runner .sql-toolbar button:not(.btn-primary):hover,
+.nl-modal-actions button:not(.btn-primary):hover {
   border-color: var(--link);
   color: var(--link);
   background: var(--surface);
@@ -86,7 +91,8 @@
 }
 
 .toolbar button:not(.btn-primary):focus-visible,
-.sql-runner .sql-toolbar button:not(.btn-primary):focus-visible {
+.sql-runner .sql-toolbar button:not(.btn-primary):focus-visible,
+.nl-modal-actions button:not(.btn-primary):focus-visible {
   outline: 2px solid var(--link);
   outline-offset: 2px;
 }

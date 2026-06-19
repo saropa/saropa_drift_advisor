@@ -9,7 +9,55 @@ import { switchTab } from './tabs.ts';
 import { loadSqlHistory, pushSqlHistory, loadBookmarks, refreshBookmarksDropdown, addBookmark, deleteBookmark, exportBookmarks, importBookmarks, bindDropdownToInput } from './sql-history.ts';
 import { fetchHistory } from './history-sidebar.ts';
 import { selectPanel } from './sidebar-panels.ts';
-import { buildTableStatusBar } from './table-view.ts';
+import { buildTableStatusBar, showCopyToast, bindResultsToggle } from './table-view.ts';
+import { formatSqlSafe } from './sql-format.ts';
+
+/** Stringifies a cell for text export: null/undefined → '', everything else String(). */
+function cellText(v: unknown): string {
+  return v == null ? '' : String(v);
+}
+
+/** Result rows → a pretty-printed JSON array string. */
+export function rowsToJson(rows: any[]): string {
+  return JSON.stringify(rows, null, 2);
+}
+
+/**
+ * Result rows → RFC-4180 CSV. The header is the first row's keys; a value is
+ * quote-wrapped only when it contains a comma, quote, or newline, with embedded
+ * quotes doubled. CRLF line endings so the file opens cleanly in spreadsheets.
+ */
+export function rowsToCsv(rows: any[]): string {
+  if (!rows.length) return '';
+  const keys = Object.keys(rows[0]);
+  const quote = function (s: string): string {
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [keys.map(quote).join(',')];
+  rows.forEach(function (row) {
+    lines.push(keys.map(function (k) { return quote(cellText(row[k])); }).join(','));
+  });
+  return lines.join('\r\n');
+}
+
+/**
+ * Result rows → a GitHub-flavored Markdown table. Pipes and backslashes inside a
+ * cell are escaped so they don't break the column layout; newlines become a
+ * literal space so each row stays on one Markdown line.
+ */
+export function rowsToMarkdown(rows: any[]): string {
+  if (!rows.length) return '';
+  const keys = Object.keys(rows[0]);
+  const cell = function (s: string): string {
+    return s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  };
+  const header = '| ' + keys.map(cell).join(' | ') + ' |';
+  const divider = '| ' + keys.map(function () { return '---'; }).join(' | ') + ' |';
+  const body = rows.map(function (row) {
+    return '| ' + keys.map(function (k) { return cell(cellText(row[k])); }).join(' | ') + ' |';
+  });
+  return [header, divider].concat(body).join('\n');
+}
 
 export function initSqlRunner(): void {
   const templateSel = document.getElementById('sql-template') as HTMLSelectElement | null;
@@ -18,6 +66,7 @@ export function initSqlRunner(): void {
   const lockBtn = document.getElementById('sql-template-lock') as HTMLButtonElement | null;
   const applyBtn = document.getElementById('sql-apply-template') as HTMLButtonElement | null;
   const runBtn = document.getElementById('sql-run') as HTMLButtonElement | null;
+  const formatBtn = document.getElementById('sql-format') as HTMLButtonElement | null;
   // History toggle: icon button that opens the History sidebar. Replaces
   // the old #sql-history <select> + "Recent" label, which duplicated data
   // the sidebar already shows and looked empty when nothing was picked.
@@ -82,7 +131,9 @@ export function initSqlRunner(): void {
     const cols = getSelectedFields();
     const sql = table ? fn(table, cols) : ('SELECT * FROM "' + (table || 'table_name') + '" LIMIT 10');
     if (inputEl) {
-      inputEl.value = sql;
+      // Auto-format the generated template SQL (item 2) so a one-line template
+      // lands in the editor already pretty-printed.
+      inputEl.value = formatSqlSafe(sql);
       // Trigger auto-explain after template is applied.
       scheduleAutoExplain();
     }
@@ -151,23 +202,84 @@ export function initSqlRunner(): void {
     const pageRows = rows.slice(start, start + pageSize);
     const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
     const total = rows.length;
-    let tableHtml = '<div class="data-table-scroll-wrap"><table><thead><tr>' + keys.map(function(k) { return '<th data-column-key="' + esc(k) + '">' + esc(k) + '</th>'; }).join('') + '</tr></thead><tbody>';
+
+    // Reuse the shared `.drift-table` styling (item 5) so the SQL result grid
+    // matches the Tables / Search grids — sticky header, zebra rows, and a
+    // footer status bar that joins the rounded scroll-wrap cleanly instead of
+    // the old bare <table> with mismatched corners.
+    let tableHtml = '<div class="data-table-scroll-wrap"><table class="drift-table"><thead><tr>' + keys.map(function(k) { return '<th data-column-key="' + esc(k) + '">' + esc(k) + '</th>'; }).join('') + '</tr></thead><tbody>';
     pageRows.forEach(function(row) {
       tableHtml += '<tr>' + keys.map(function(k) { return '<td>' + esc(row[k] != null ? String(row[k]) : '') + '</td>'; }).join('') + '</tr>';
     });
     tableHtml += '</tbody></table></div>';
     const statusHtml = buildTableStatusBar(total, start, pageSize, pageRows.length, keys.length);
-    const prevDisabled = sqlResultPage <= 0;
-    const nextDisabled = (start + pageSize) >= total;
-    const paginationHtml = '<div class="sql-result-pagination toolbar" style="margin-top:0.35rem;">' +
-      '<button type="button" id="sql-result-prev"' + (prevDisabled ? ' disabled' : '') + '>' + esc(vt('viewer.sql.result.prev')) + '</button>' +
-      '<button type="button" id="sql-result-next"' + (nextDisabled ? ' disabled' : '') + '>' + esc(vt('viewer.sql.result.next')) + '</button>' +
+
+    // Pagination only when the result spans more than one page (item 4). A
+    // single page hides the bar entirely; two permanently-disabled buttons read
+    // as broken controls.
+    let paginationHtml = '';
+    if (total > pageSize) {
+      const prevDisabled = sqlResultPage <= 0;
+      const nextDisabled = (start + pageSize) >= total;
+      paginationHtml = '<div class="sql-result-pagination toolbar" style="margin-top:0.35rem;">' +
+        '<button type="button" id="sql-result-prev"' + (prevDisabled ? ' disabled' : '') + '>' + esc(vt('viewer.sql.result.prev')) + '</button>' +
+        '<button type="button" id="sql-result-next"' + (nextDisabled ? ' disabled' : '') + '>' + esc(vt('viewer.sql.result.next')) + '</button>' +
+        '</div>';
+    }
+
+    // Copy/export toolbar (item 6): each button copies the FULL result set
+    // (every page, not just the visible one) in the chosen format.
+    const copyHtml = rows.length > 0
+      ? '<div class="sql-result-copy toolbar" style="margin-top:0.35rem;">' +
+          '<span class="sql-result-copy-label">' + esc(vt('viewer.sql.result.copy.label')) + '</span>' +
+          '<button type="button" id="sql-copy-md"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> ' + esc(vt('viewer.sql.result.copy.markdown')) + '</button>' +
+          '<button type="button" id="sql-copy-csv"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> ' + esc(vt('viewer.sql.result.copy.csv')) + '</button>' +
+          '<button type="button" id="sql-copy-json"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> ' + esc(vt('viewer.sql.result.copy.json')) + '</button>' +
+          '</div>'
+      : '';
+
+    const rowCountMeta = '<p class="meta">' + esc(vt('viewer.sql.result.rowCount', total)) + '</p>';
+    // Wrap in the collapsible results expander (item 3), expanded by default;
+    // the heading row count gives context when collapsed. bindResultsToggle()
+    // wires the chevron toggle, matching the Tables-grid behavior.
+    const headingKey = total === 1 ? 'viewer.sql.result.heading.one' : 'viewer.sql.result.heading.many';
+    resultEl.innerHTML =
+      '<div class="results-table-wrap" role="region" aria-label="' + esc(vt('viewer.sql.result.regionLabel')) + '">' +
+        '<div class="results-table-heading">' + esc(vt(headingKey, total)) + '</div>' +
+        '<div class="results-table-body">' + rowCountMeta + copyHtml + tableHtml + statusHtml + paginationHtml + '</div>' +
       '</div>';
-    resultEl.innerHTML = '<p class="meta">' + esc(vt('viewer.sql.result.rowCount', total)) + '</p>' + tableHtml + statusHtml + paginationHtml;
+    bindResultsToggle();
+
     const prevBtn = resultEl.querySelector('#sql-result-prev');
     const nextBtn = resultEl.querySelector('#sql-result-next');
     if (prevBtn) prevBtn.addEventListener('click', function() { sqlResultPage--; renderSqlResultPage(); });
     if (nextBtn) nextBtn.addEventListener('click', function() { sqlResultPage++; renderSqlResultPage(); });
+
+    // Copy buttons operate on the complete row set, never the current page only.
+    const copyMd = resultEl.querySelector('#sql-copy-md');
+    const copyCsv = resultEl.querySelector('#sql-copy-csv');
+    const copyJson = resultEl.querySelector('#sql-copy-json');
+    if (copyMd) copyMd.addEventListener('click', function() { copyResult('markdown'); });
+    if (copyCsv) copyCsv.addEventListener('click', function() { copyResult('csv'); });
+    if (copyJson) copyJson.addEventListener('click', function() { copyResult('json'); });
+  }
+
+  /** Copies the full SQL result set to the clipboard in the requested format. */
+  function copyResult(kind: 'markdown' | 'csv' | 'json'): void {
+    const rows = sqlResultAllRows;
+    if (!rows || rows.length === 0) { showCopyToast(vt('viewer.sql.result.copy.empty')); return; }
+    let text: string;
+    let doneKey: string;
+    if (kind === 'json') { text = rowsToJson(rows); doneKey = 'viewer.sql.result.copy.done.json'; }
+    else if (kind === 'csv') { text = rowsToCsv(rows); doneKey = 'viewer.sql.result.copy.done.csv'; }
+    else { text = rowsToMarkdown(rows); doneKey = 'viewer.sql.result.copy.done.markdown'; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(function() { showCopyToast(vt(doneKey)); })
+        .catch(function() { showCopyToast(vt('viewer.sql.result.copy.failed')); });
+    } else {
+      showCopyToast(vt('viewer.sql.result.copy.failed'));
+    }
   }
 
   // Shared: clear previous results and hide chart controls before any SQL operation.
@@ -297,8 +409,10 @@ export function initSqlRunner(): void {
     else if (costScore <= 3) { costLabel = vt('viewer.sql.explain.cost.medium'); costColor = '#ffb74d'; }
     else { costLabel = vt('viewer.sql.explain.cost.high'); costColor = '#e57373'; }
 
-    // Build cost summary
-    let html = '<div class="explain-cost-bar">';
+    // Collapsible cost section (item 3): the cost summary is the always-visible
+    // <summary>; the index report and plan detail tuck inside the open body so
+    // the panel can be folded away without losing the headline estimate.
+    let html = '<details class="explain-collapsible" open><summary class="explain-cost-bar">';
     html += '<strong>' + esc(vt('viewer.sql.explain.estimatedCost')) + '</strong> <span style="color:' + costColor + ';font-weight:600;">' + esc(costLabel) + '</span>';
     // Each part picks a singular/plural key so plural agreement is the
     // translator's, never English suffix concatenation ('s'/'ies').
@@ -309,7 +423,7 @@ export function initSqlRunner(): void {
     if (sortPresent) parts.push(vt('viewer.sql.explain.part.sort'));
     if (tempPresent) parts.push(vt('viewer.sql.explain.part.tempStorage'));
     if (parts.length > 0) html += ' &mdash; ' + esc(parts.join(', '));
-    html += '</div>';
+    html += '</summary><div class="explain-collapsible-body">';
 
     // ─── Index report per table ────────────────────────────
     // For each table in the query, show which indexes are
@@ -356,6 +470,9 @@ export function initSqlRunner(): void {
       html += '</pre></details>';
     }
 
+    // Close the collapsible body + <details> opened with the cost summary.
+    html += '</div></details>';
+
     explainEl.innerHTML = html;
     explainEl.style.display = 'block';
   }
@@ -363,6 +480,17 @@ export function initSqlRunner(): void {
   // Wire up auto-explain on textarea input.
   if (inputEl) {
     inputEl.addEventListener('input', scheduleAutoExplain);
+  }
+
+  // Format button (item 2): pretty-print the editor's current SQL on demand.
+  // Auto-formatting on every keystroke is hostile (the caret jumps), so manual
+  // formatting + the on-set/on-run formatting below cover the "automatic" goal
+  // without fighting the user mid-type.
+  if (formatBtn && inputEl) {
+    formatBtn.addEventListener('click', function() {
+      const formatted = formatSqlSafe(inputEl.value);
+      if (formatted !== inputEl.value) { inputEl.value = formatted; scheduleAutoExplain(); }
+    });
   }
 
   // ─── Run button ────────────────────────────────────────────
@@ -376,6 +504,10 @@ export function initSqlRunner(): void {
 
    return;
       }
+      // Tidy the editor on run (item 2): running is the natural moment to
+      // normalize layout; the formatted text is semantically identical SQL.
+      const formattedOnRun = formatSqlSafe(sql);
+      if (formattedOnRun !== inputEl.value) inputEl.value = formattedOnRun;
       const runBtnOrigText = runBtn.textContent;
       setButtonBusy(runBtn, true, vt('viewer.sql.run.busy'));
       runBtn.disabled = true;
@@ -440,7 +572,9 @@ export function initSqlRunner(): void {
       if (!sqlParam || !inputEl) return;
       var decoded = sqlParam;
       try { decoded = decodeURIComponent(sqlParam); } catch (e2) { /* use raw */ }
-      inputEl.value = decoded;
+      // Auto-format deep-linked SQL (item 2) — incoming queries from Log Capture
+      // history are often single-line; format so the editor opens readable.
+      inputEl.value = formatSqlSafe(decoded);
       switchTab('sql');
       // Trigger auto-explain for deep-linked SQL.
       scheduleAutoExplain();

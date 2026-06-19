@@ -42,6 +42,49 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+The web viewer's Home tab is easier to read and to navigate: a plain-language overview of every tool, a fuzzy search box to jump to a feature by name, color-coded tool cards, and more breathing room between them. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Added
+
+- **Search for a feature on the Home tab.** A new search box filters the tool cards as you type and is fuzzy, so "theme", "diff", "redact", or "erd" all land on the right card even when that exact word is not the tool's name. Press Escape to clear it. This searches features, not your table data — the Search tool still does that.
+- **A narrative overview under the Home heading.** The Home tab now opens with a short paragraph describing everything the viewer does, instead of leaving you to read it off the individual cards.
+- **Clear button in the Ask-in-English panel.** A new button beside the dictation mic empties your question and starts a fresh query in one click.
+- **Voice command keywords in the Ask panel.** When dictating, say "clear" / "start again" to empty the box, "run again" to re-run, or "what about last year" to re-ask your last question over a different time window. A new "Ask in English" setting turns this on or off (on by default) — turn it off to dictate those words literally.
+- **Ask in English now answers two time windows at once.** "How many contacts were added this year and last month" returns both totals side by side in one result, instead of needing two separate questions.
+- **Ask in English now understands "weekly", "monthly", and other time buckets.** "Show me the weekly contacts added" builds a calendar of recent weeks and counts each one — including weeks with zero, so gaps are visible — using a recursive query you would otherwise have to hand-write.
+
+### Changed
+
+- **Each Home tool card now carries its own color.** Every tool shows a colored accent (matching highlight on its card) so screens are easier to tell apart at a glance, and the cards have more space between them so the grid no longer feels crushed.
+
+### Improved
+
+- **The Ask panel's generated SQL is bigger and easier to read**, and the "Preview results" button now matches the rest of the app's buttons instead of looking like a plain browser default.
+
+### Fixed
+
+- **The Ask panel's dictation mic no longer shows as a dead button in Firefox.** Browsers without speech recognition were still displaying the mic (it did nothing when clicked) because a style override defeated the markup that was meant to hide it. The mic now correctly disappears where dictation is unsupported.
+
+### Removed
+
+- **Removed the "Tables panel" / "History panel" switches from the Home tab.** They duplicated the sidebar's own show/hide control; toggle the sidebar from its own chrome instead.
+
+<details><summary>Maintenance</summary>
+
+- Home tab (`assets/web/home-screen.ts`, `_home-screen.scss`, `state.ts`, `html_content.dart`): removed the sidebar-toggle markup, styles, and the `_syncHomeSidebarToggles` window hook (its three guarded callers in `sidebar-panels.ts`, `toolbar.ts`, `app.js` deleted). Added per-tool `color` to `HOME_LAUNCHERS`/`HOME_EXTRAS` (driven into a `--tool-accent` CSS custom property), a `HOME_SEARCH_KEYWORDS` synonym dictionary, a per-card token search index with a per-token substring/fuzzy-subsequence matcher, and runtime-populated title/lead/search strings via new `viewer.nav.home.*` l10n keys. Loosened grid gap and card padding.
+- Ask-in-English panel (bug `BUG_Microphone_button_not_work.md`, items 1–7):
+  - Mic visibility: added `.nl-icon-btn[hidden]{display:none}` in `_sql-editor.scss` — the button's `display:inline-flex` was overriding the UA `[hidden]` rule, so the mic stayed visible (and dead) on browsers without the Web Speech API.
+  - Generated-SQL preview enlarged (`_sql-editor.scss`): `min-height` 5rem→8rem, `font-size` 13px→`--text-sm`, color `--muted`→`--fg`. "Preview results" folded into the shared secondary-button selector group in `_buttons.scss` so it matches `.toolbar`/`.sql-toolbar` buttons.
+  - Clear button: new `#nl-clear` control in `html_content.dart` wired to `clearNlQuestion()` in `nl-modal.ts` (empties the box, resets the refine base, re-previews).
+  - Voice/keyword commands: `detectNlKeyword` + `applyTemporalSwap` (pure, exported) in `nl-to-sql.ts`; `interpretNlKeyword()` in `nl-modal.ts` consumes them in the mic `onresult` path. Gated by new `PREF_NL_KEYWORDS` (default true) with a settings toggle + `viewer.settings.ask.*` / `viewer.settings.group.ask` l10n keys.
+  - Multi-window counts: `multiWindowCount()` emits one `SUM(CASE WHEN <window> THEN 1 ELSE 0 END)` per window for a count question naming 2+ windows.
+  - Time-bucket series: `detectTimeBucket()` + `timeBucketSeries()` emit a `WITH RECURSIVE calendar(...)` + LEFT JOIN + GROUP BY for "weekly/monthly/…" so empty buckets still report 0.
+  - Refactor: extracted `resolveDateColumn()` + `dayExpr()` from `temporalWhere()` (now takes an optional forced column) so the window and bucket builders share its column choice. New tests in `assets/web/test/nl-keywords-buckets.test.mjs` (31 cases); full web suite 218 pass.
+
+</details>
+
 ## [4.0.3]
 
 Connecting the advisor to a running app no longer risks freezing the app at launch. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)

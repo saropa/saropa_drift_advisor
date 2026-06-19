@@ -121,6 +121,12 @@ export const PREF_AUTO_REFRESH = 'autoRefresh';
 export const PREF_EPOCH_DETECTION = 'epochDetection';
 /** Whether the navigate-away confirmation dialog is shown. */
 export const PREF_CONFIRM_NAVIGATE_AWAY = 'confirmNavigateAway';
+/**
+ * Whether the Ask-in-English panel interprets spoken/typed command phrases
+ * ("clear", "run again", "what about last year") as actions instead of literal
+ * query text. On by default; turn off to dictate those words verbatim.
+ */
+export const PREF_NL_KEYWORDS = 'nlKeywords';
 
 // ---------------------------------------------------------------------------
 // Default values — single source of truth
@@ -137,6 +143,7 @@ export const DEFAULTS = {
   [PREF_AUTO_REFRESH]: true,
   [PREF_EPOCH_DETECTION]: true,
   [PREF_CONFIRM_NAVIGATE_AWAY]: true,
+  [PREF_NL_KEYWORDS]: true,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -263,6 +270,19 @@ function buildSettingsHtml(): string {
     </label>
   </section>
 
+  <section class="settings-group">
+    <h3 class="settings-group-title">
+      <span class="material-symbols-outlined" aria-hidden="true">record_voice_over</span>
+      ${vt('viewer.settings.group.ask')}
+    </h3>
+    <label class="settings-row settings-toggle-row">
+      <span class="settings-label">${vt('viewer.settings.ask.keywords')}</span>
+      <span class="settings-sublabel">${vt('viewer.settings.ask.keywordsSub')}</span>
+      <input type="checkbox" id="pref-nlKeywords" class="settings-checkbox" />
+      <span class="settings-switch" role="switch" aria-checked="false"></span>
+    </label>
+  </section>
+
   <div class="settings-footer">
     <button type="button" id="settings-reset-all" class="btn btn-outline settings-btn">
       <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
@@ -290,6 +310,7 @@ function populateForm(): void {
   setToggle('pref-autoRefresh', getPref(PREF_AUTO_REFRESH, DEFAULTS[PREF_AUTO_REFRESH]));
   setToggle('pref-epochDetection', getPref(PREF_EPOCH_DETECTION, DEFAULTS[PREF_EPOCH_DETECTION]));
   setToggle('pref-confirmNavigateAway', getPref(PREF_CONFIRM_NAVIGATE_AWAY, DEFAULTS[PREF_CONFIRM_NAVIGATE_AWAY]));
+  setToggle('pref-nlKeywords', getPref(PREF_NL_KEYWORDS, DEFAULTS[PREF_NL_KEYWORDS]));
 }
 
 function setNumberInput(id: string, value: number): void {
@@ -335,6 +356,7 @@ function bindEvents(): void {
   bindToggleInput('pref-autoRefresh', PREF_AUTO_REFRESH);
   bindToggleInput('pref-epochDetection', PREF_EPOCH_DETECTION);
   bindToggleInput('pref-confirmNavigateAway', PREF_CONFIRM_NAVIGATE_AWAY);
+  bindToggleInput('pref-nlKeywords', PREF_NL_KEYWORDS);
 
   // Clear all stored data button
   const clearBtn = document.getElementById('settings-clear-all');

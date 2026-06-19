@@ -94,42 +94,73 @@
 }
 .sql-runner .sql-result { margin-top: 0.5rem; }
 .sql-runner .sql-result pre { max-height: 50vh; }
-/* SQL result table: allow natural column widths and horizontal scroll in container */
-.sql-runner .sql-result .data-table-scroll-wrap {
-  overflow: scroll;
-  max-height: 70vh;
-  margin-top: 0.35rem;
+/* The result grid now reuses the shared `.drift-table` + `.data-table-scroll-wrap`
+   + `.table-status-bar` styling from _data-table.scss (item 5) so it matches the
+   Tables / Search grids exactly — rounded scroll-wrap, sticky zebra rows, and a
+   footer status bar that joins the table cleanly. The previous SQL-specific
+   `table` rules added a second border-radius to the inner <table>, which fought
+   the scroll-wrap's corners and produced the mismatched-corner look. Removed. */
+
+/* Copy / export toolbar above the result table (item 6). */
+.sql-runner .sql-result-copy {
   margin-bottom: 0;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface);
 }
-.sql-runner .sql-result table {
-  border-collapse: collapse;
-  width: max-content;
-  font-size: 13px;
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-}
-.sql-runner .sql-result th,
-.sql-runner .sql-result td {
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 0.5rem 0.65rem;
-  text-align: left;
-  white-space: nowrap;
-  min-width: 5rem;
-}
-.sql-runner .sql-result th {
-  font-weight: 600;
-  background: var(--bg-pre);
-  color: var(--muted);
+.sql-runner .sql-result-copy-label {
   font-size: var(--text-sm);
+  color: var(--muted);
 }
-.sql-runner .sql-result tbody tr:nth-child(even) {
-  background: var(--row-alt);
+.sql-runner .sql-result-copy button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 30px;
+  padding: 0 0.55rem;
+  font-size: var(--text-sm);
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+  .material-symbols-outlined { font-size: 16px; }
+}
+.sql-runner .sql-result-copy button:hover {
+  border-color: var(--link);
+  color: var(--link);
+}
+
+/* Pagination toolbar beneath the result table (item 4): shown only for
+   multi-page result sets; disabled buttons dim. */
+.sql-runner .sql-result-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .sql-runner .sql-error { color: #e57373; margin-top: 0.35rem; font-size: 0.875rem; }
+
+/* Collapsible estimated-cost section (item 3): the cost summary is the clickable
+   <summary>; folding it hides the index report and plan detail. Reset the native
+   marker and supply our own caret so it matches the NL help disclosure style. */
+.explain-collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.explain-collapsible > summary::-webkit-details-marker { display: none; }
+.explain-collapsible > summary::before {
+  content: "\25BE";
+  color: var(--muted);
+  margin-right: 0.3rem;
+  transition: transform 0.15s ease;
+}
+.explain-collapsible:not([open]) > summary::before {
+  transform: rotate(-90deg);
+}
+.explain-collapsible-body {
+  margin-top: 0.3rem;
+}
 .sql-runner .sql-result, .sql-runner .sql-error { transition: opacity 0.15s ease; }
 
 /* Lock toggle: controls whether template auto-applies on table/field change. */
@@ -385,6 +416,14 @@
   color: var(--fg);
   border-color: var(--link);
 }
+/* The button carries `display: inline-flex`, which beats the UA stylesheet's
+   `[hidden] { display: none }` — so without this rule the mic stays visible even
+   when JS leaves it hidden on browsers without the Web Speech API (Firefox),
+   showing a dead control. Re-assert none for the hidden state at class
+   specificity so the `hidden` attribute is honored. */
+.nl-icon-btn[hidden] {
+  display: none;
+}
 .nl-icon-btn .material-symbols-outlined {
   font-size: 1.1rem;
 }
@@ -583,15 +622,19 @@
 }
 .nl-modal-sql-preview {
   width: 100%;
-  min-height: 5rem;
+  /* Taller + larger type than before (was 5rem / 13px, muted): the generated
+     SQL is the panel's primary output and was hard to read at the old size.
+     Full --fg color and the standard small-text scale make it legible without
+     squinting; the taller default shows multi-clause queries without scrolling. */
+  min-height: 8rem;
   box-sizing: border-box;
   font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: var(--text-sm);
+  line-height: 1.5;
   padding: 0.65rem 0.75rem;
   background: var(--bg-pre);
   border: 1px solid var(--border);
-  color: var(--muted);
+  color: var(--fg);
   border-radius: var(--radius-md);
   resize: vertical;
   cursor: default;

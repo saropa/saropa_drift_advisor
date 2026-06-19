@@ -41,6 +41,24 @@ export const stringsWebSql: Record<string, string> = {
   // {0} is the row count; "row(s)" stays inside the value so plural handling is
   // the translator's, not English concatenation's.
   'viewer.sql.result.rowCount': '{0} row(s)',
+  // Collapsible results-section heading; {0} is the total row count (singular /
+  // plural separate so the translator controls agreement).
+  'viewer.sql.result.heading.one': 'Results ({0} row)',
+  'viewer.sql.result.heading.many': 'Results ({0} rows)',
+  // ARIA label for the results region.
+  'viewer.sql.result.regionLabel': 'Query results',
+
+  // --- Run SQL panel: copy / export result table (sql-runner.ts) ---
+  'viewer.sql.result.copy.label': 'Copy table:',
+  'viewer.sql.result.copy.markdown': 'Markdown',
+  'viewer.sql.result.copy.csv': 'CSV',
+  'viewer.sql.result.copy.json': 'JSON',
+  // Toast confirmations name the exact format copied.
+  'viewer.sql.result.copy.done.markdown': 'Copied table as Markdown',
+  'viewer.sql.result.copy.done.csv': 'Copied table as CSV',
+  'viewer.sql.result.copy.done.json': 'Copied table as JSON',
+  'viewer.sql.result.copy.empty': 'No rows to copy.',
+  'viewer.sql.result.copy.failed': 'Could not copy to the clipboard.',
 
   // --- Run SQL panel: run button + errors (sql-runner.ts) ---
   'viewer.sql.run.busy': 'Running…',

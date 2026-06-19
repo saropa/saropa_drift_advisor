@@ -7,9 +7,11 @@
  */
 import * as S from './state.ts';
 import { vt } from './l10n.ts';
-import { nlToSql, isDateColumn, narrateAnswer, detectRefinement, combineRefinement } from './nl-to-sql.ts';
+import { nlToSql, isDateColumn, narrateAnswer, detectRefinement, combineRefinement, detectNlKeyword, applyTemporalSwap } from './nl-to-sql.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
+import { getPref, PREF_NL_KEYWORDS, DEFAULTS } from './settings.ts';
 import { esc, setButtonBusy } from './utils.ts';
+import { formatSqlSafe } from './sql-format.ts';
 import { selectPanel } from './sidebar-panels.ts';
 import { openTool } from './tabs.ts';
 
@@ -107,6 +109,10 @@ import { openTool } from './tabs.ts';
         }
         transcript = transcript.trim();
         if (!transcript) return;
+        // Voice commands (clear / run again / time-window swap) are handled here
+        // before the transcript is inserted, so saying "clear" runs the command
+        // instead of typing the word. Gated by the Keywords preference.
+        if (interpretNlKeyword(transcript)) return;
         // Append to existing text (with a separating space) rather than
         // overwrite, so dictation adds to whatever the user already typed.
         var existing = String(ta.value || '');
@@ -146,6 +152,59 @@ import { openTool } from './tabs.ts';
         // start() throws if called while already running; resync UI state.
         setNlMicRecording(false);
       }
+    }
+
+    /**
+     * Clears the question box and ends the refine loop. Resets nlBaseQuestion so
+     * the next query starts a fresh base (not a follow-up on the cleared text),
+     * drops any modal error, and re-runs the live preview, which on an empty box
+     * blanks the SQL preview and restores the default refinement chips.
+     */
+    function clearNlQuestion() {
+      var ta = document.getElementById('nl-modal-input') as HTMLTextAreaElement | null;
+      if (!ta) return;
+      ta.value = '';
+      nlBaseQuestion = '';
+      setNlModalError('', false);
+      ta.focus();
+      scheduleNlLivePreview();
+    }
+
+    /**
+     * When the Keywords preference is on, interprets [text] (a dictated phrase
+     * or typed line) as a voice command and performs it, returning true so the
+     * caller skips inserting [text] as literal query text. Returns false when
+     * keywords are off or the text is a normal question.
+     *
+     *   clear / start again       → empties the question box
+     *   run again / again         → re-runs the current query
+     *   "(what about) last year"  → swaps the prior query's time window
+     *
+     * A time-window swap with no prior window to swap falls through (false) so
+     * the spoken phrase seeds a fresh question rather than being silently lost.
+     */
+    function interpretNlKeyword(text): boolean {
+      if (!getPref(PREF_NL_KEYWORDS, DEFAULTS[PREF_NL_KEYWORDS])) return false;
+      var cmd = detectNlKeyword(text);
+      if (!cmd) return false;
+      if (cmd.kind === 'clear') {
+        clearNlQuestion();
+        return true;
+      }
+      if (cmd.kind === 'run') {
+        previewNlResults();
+        return true;
+      }
+      if (cmd.kind === 'temporalSwap') {
+        var swapped = applyTemporalSwap(nlBaseQuestion, cmd.phrase);
+        if (!swapped) return false;
+        var ta = document.getElementById('nl-modal-input') as HTMLTextAreaElement | null;
+        if (ta) ta.value = swapped;
+        nlBaseQuestion = swapped;
+        scheduleNlLivePreview();
+        return true;
+      }
+      return false;
     }
 
     function stopNlMic() {
@@ -418,7 +477,9 @@ import { openTool } from './tabs.ts';
         var result = nlToSql(effective, meta, { table: override });
         lastNlResult = result;
         if (result.sql) {
-          preview.value = result.sql;
+          // Format the generated SQL for the preview (item 2) so the readonly
+          // box shows a readable, multi-line query.
+          preview.value = formatSqlSafe(result.sql);
           setNlModalError('', false);
           // A fresh (non-refining) question that converts becomes the new base
           // for the next follow-up; a refining preview leaves the base untouched
@@ -487,7 +548,8 @@ import { openTool } from './tabs.ts';
         if (result.sql) {
           nlBaseQuestion = effective;
           setNlRefineHint('');
-          sqlEl.value = result.sql;
+          // Format the SQL written into the main editor (item 2).
+          sqlEl.value = formatSqlSafe(result.sql);
           var mainErr = document.getElementById('sql-error');
           if (mainErr) {
             mainErr.textContent = '';
@@ -767,6 +829,8 @@ import { openTool } from './tabs.ts';
         nlMic.hidden = false;
         nlMic.addEventListener('click', toggleNlMic);
       }
+      var nlClear = document.getElementById('nl-clear');
+      if (nlClear) nlClear.addEventListener('click', clearNlQuestion);
       var nlHelp = document.getElementById('nl-help');
       if (nlHelp) nlHelp.addEventListener('click', toggleNlHelp);
       var nlHelpSearch = document.getElementById('nl-help-search');

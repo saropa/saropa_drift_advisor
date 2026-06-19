@@ -768,7 +768,24 @@
     // Tool-card hover tooltip: "{0}" is the tool label, "{1}" its blurb. The em-dash
     // separator is fixed punctuation; both surrounding values are tokens so a
     // translator can reorder them.
-    "viewer.nav.home.cardTooltip": "{0} \u2014 {1}"
+    "viewer.nav.home.cardTooltip": "{0} \u2014 {1}",
+    // Home page heading.
+    "viewer.nav.home.title": "Saropa Drift Advisor",
+    // Narrative feature overview shown under the heading. Rolls every launcher/extra
+    // blurb into prose without dropping a capability: browse/pagination/export, schema
+    // + data search with filters and jump-to-match, the SQL editor (templates,
+    // bookmarks, charts, natural-language ask), snapshot/time-travel, database diff for
+    // migrations, suggested indexes + query hints, DDL/columns/PRAGMA, the relationship
+    // diagram, table sizes + growth, slow-statement timings, health checks for drift,
+    // CSV import/export, settings (prefs, masking, confirm-navigate), PII masking,
+    // theme switching, and the read-only share link. Kept as one key (one paragraph)
+    // so a translator handles the whole overview as a unit.
+    "viewer.nav.home.lead": "A read-only console for your SQLite database. Browse and open tables with pagination and export, or run schema and data search with filters that jump straight to matches. Write queries in the SQL editor with templates, bookmarks, charts, and natural-language ask. Capture schema snapshots to time-travel through changes, diff two databases to plan migrations, and review suggested indexes and query hints. Inspect DDL, columns, and PRAGMA, map relationships in the diagram, and track table sizes and growth. Watch slow statements and their timings, run health checks for drift signals, import a CSV into a table, and export to CSV or schema. Tune preferences, masking, and confirm-on-navigate in settings, redact sensitive columns with PII masking, switch between light, dark, showcase, and midnight themes, and share a read-only session link.",
+    // Feature-search box (filters the launcher cards, not table data).
+    "viewer.nav.home.search.placeholder": "Search features\u2026 (e.g. theme, diff, redact)",
+    "viewer.nav.home.search.aria": "Search Home features",
+    // Empty-result message; {0} is the user's raw query.
+    "viewer.nav.home.search.noResults": "No features match \u201C{0}\u201D."
   };
 
   // assets/web/l10n/strings-web-session.ts
@@ -880,6 +897,7 @@
     "viewer.settings.group.tableDefaults": "Table Defaults",
     "viewer.settings.group.performance": "Performance",
     "viewer.settings.group.dataFormatting": "Data Formatting",
+    "viewer.settings.group.ask": "Ask in English",
     // --- Settings panel: storage & history ---
     "viewer.settings.storage.sqlHistoryMax": "SQL history max entries",
     "viewer.settings.storage.maxAnalyses": "Max saved analyses",
@@ -908,6 +926,9 @@
     "viewer.settings.format.epochDetectionSub": "Automatically format large integers as dates when column names suggest timestamps",
     "viewer.settings.format.confirmNavigate": "Confirm before leaving page",
     "viewer.settings.format.confirmNavigateSub": "Show a browser confirmation dialog when navigating away or closing the tab",
+    // --- Settings panel: Ask in English (voice / keyword commands) ---
+    "viewer.settings.ask.keywords": "Voice command keywords",
+    "viewer.settings.ask.keywordsSub": 'Treat spoken phrases like "clear", "run again", and "what about last year" as commands instead of typing them into the question',
     // --- Settings panel: footer + confirm dialogs ---
     "viewer.settings.footer.resetAll": "Reset all to defaults",
     "viewer.settings.confirm.clearAll": "Clear all stored project data? Theme and sidebar preferences will be kept.",
@@ -1274,11 +1295,20 @@
   function setButtonBusy(btn, loading, label) {
     if (!btn) return;
     if (loading) {
+      if (btn.getAttribute("data-busy-restore") == null) {
+        btn.setAttribute("data-busy-restore", btn.innerHTML);
+      }
       btn.classList.add("btn-busy");
       btn.innerHTML = '<span class="btn-busy-spinner" aria-hidden="true"></span><span class="btn-busy-label">' + esc2(label) + "</span>";
     } else {
       btn.classList.remove("btn-busy");
-      btn.textContent = label;
+      const stashed = btn.getAttribute("data-busy-restore");
+      if (stashed != null) {
+        btn.innerHTML = stashed;
+        btn.removeAttribute("data-busy-restore");
+      } else {
+        btn.textContent = label;
+      }
     }
   }
   function highlightSqlSafe(sql) {
@@ -1747,26 +1777,45 @@
     settings: "Settings"
   };
   var HOME_LAUNCHERS = [
-    { id: "tables", blurb: "browse, open tables, pagination, export" },
-    { id: "search", blurb: "schema + data search, filters, jump matches" },
-    { id: "sql", blurb: "editor, templates, bookmarks, charts, NL ask" },
-    { id: "snapshot", blurb: "capture schema, time travel" },
-    { id: "compare", blurb: "diff databases, migrations" },
-    { id: "index", blurb: "suggested indexes, query hints" },
-    { id: "schema", blurb: "DDL, columns, PRAGMA" },
-    { id: "diagram", blurb: "relationship graph" },
-    { id: "size", blurb: "table sizes, growth" },
-    { id: "perf", blurb: "slow statements, timings" },
-    { id: "anomaly", blurb: "health checks, drift signals" },
-    { id: "import", blurb: "CSV \u2192 table" },
-    { id: "export", blurb: "CSV, schema" },
-    { id: "settings", blurb: "prefs, masking, confirm navigate" }
+    { id: "tables", blurb: "browse, open tables, pagination, export", color: "#3b82f6" },
+    { id: "search", blurb: "schema + data search, filters, jump matches", color: "#06b6d4" },
+    { id: "sql", blurb: "editor, templates, bookmarks, charts, NL ask", color: "#8b5cf6" },
+    { id: "snapshot", blurb: "capture schema, time travel", color: "#ec4899" },
+    { id: "compare", blurb: "diff databases, migrations", color: "#f59e0b" },
+    { id: "index", blurb: "suggested indexes, query hints", color: "#10b981" },
+    { id: "schema", blurb: "DDL, columns, PRAGMA", color: "#6366f1" },
+    { id: "diagram", blurb: "relationship graph", color: "#14b8a6" },
+    { id: "size", blurb: "table sizes, growth", color: "#84cc16" },
+    { id: "perf", blurb: "slow statements, timings", color: "#ef4444" },
+    { id: "anomaly", blurb: "health checks, drift signals", color: "#f43f5e" },
+    { id: "import", blurb: "CSV \u2192 table", color: "#22c55e" },
+    { id: "export", blurb: "CSV, schema", color: "#0ea5e9" },
+    { id: "settings", blurb: "prefs, masking, confirm navigate", color: "#64748b" }
   ];
   var HOME_EXTRAS = [
-    { action: "mask", icon: "visibility_off", label: "Mask PII", blurb: "redact sensitive columns" },
-    { action: "theme", icon: "palette", label: "Theme", blurb: "light, dark, showcase, midnight" },
-    { action: "share", icon: "share", label: "Share", blurb: "read-only session link" }
+    { action: "mask", icon: "visibility_off", label: "Mask PII", blurb: "redact sensitive columns", color: "#a855f7" },
+    { action: "theme", icon: "palette", label: "Theme", blurb: "light, dark, showcase, midnight", color: "#f97316" },
+    { action: "share", icon: "share", label: "Share", blurb: "read-only session link", color: "#0d9488" }
   ];
+  var HOME_SEARCH_KEYWORDS = {
+    tables: ["browse", "open", "list", "rows", "records", "columns", "pagination", "paginate", "page", "view", "grid", "data", "datasheet"],
+    search: ["find", "lookup", "query", "filter", "filters", "jump", "matches", "locate", "grep", "seek", "full text", "schema search", "data search"],
+    sql: ["query", "editor", "run sql", "statement", "terminal", "console", "template", "templates", "bookmark", "bookmarks", "chart", "charts", "graph", "natural language", "nl", "ask", "ai", "execute", "select"],
+    snapshot: ["capture", "schema", "time travel", "history", "version", "backup", "restore", "point in time", "photo", "save state"],
+    compare: ["diff", "difference", "databases", "migration", "migrations", "merge", "delta", "changes", "two databases", "drift"],
+    index: ["indexes", "indices", "suggested", "query hints", "optimize", "optimization", "performance", "speed up", "btree", "key", "covering"],
+    schema: ["ddl", "columns", "pragma", "structure", "definition", "create table", "fields", "types", "metadata", "constraints"],
+    diagram: ["relationship", "relationships", "graph", "erd", "entity", "map", "visual", "tree", "connections", "foreign key", "fk", "links"],
+    size: ["table sizes", "growth", "storage", "bytes", "disk", "space", "row count", "big tables", "usage"],
+    perf: ["performance", "slow", "statements", "timings", "latency", "profiling", "speed", "bottleneck", "query time", "duration"],
+    anomaly: ["health", "checks", "drift", "signals", "issues", "problems", "integrity", "warnings", "monitor", "diagnostics"],
+    import: ["csv", "upload", "load", "ingest", "file", "data in", "insert"],
+    export: ["csv", "download", "schema", "save", "dump", "backup", "data out", "extract"],
+    settings: ["preferences", "prefs", "options", "config", "configuration", "masking", "confirm navigate", "pii", "defaults"],
+    mask: ["redact", "pii", "sensitive", "hide", "privacy", "obscure", "columns", "censor", "anonymize"],
+    theme: ["appearance", "color", "colors", "light", "dark", "showcase", "midnight", "style", "look", "palette", "skin", "mode"],
+    share: ["link", "session", "read-only", "url", "collaborate", "send", "invite"]
+  };
   var OFFLINE_DISABLE_IDS = [
     "sql-run",
     "sql-apply-template",
@@ -1930,11 +1979,11 @@
   // assets/web/nl-to-sql.ts
   var EDIT_VERB = /\b(?:chang|chnag|chagn|chaneg|chnge|chg|modif|modfi|mdoif|\bmod\b|updat|udpat|upadt|updt|\bupd\b|upd8|edit|eddit|edt|alter|altr|amend|ammend|revis|rivis|touch|tweak|twaek|adjust|ajust|adust|refresh|refesh|re-?sav|overwrit|overwrot|rewr|rewrot|rework|reword|mutat|patch|bump|sync|synch|migrat|recalc|reprocess|reindex|restamp|dirtied|flipp|toggl|reset|log(?:ged)?[ -]?in|sign(?:ed)?[ -]?in|seen|used|access|visit)/i;
   var BORN_VERB = /\bcreat|\bcraet|\bcreaet|\bkreat|\bcrt\b|\bcre\b|\badd(?:ed|ing|s)?\b|\bnew\b|\binsert|\binser|\bins\b|\bregist|\breg\b|\bsign(?:ed)?[ -]?up|\bsignup|\bjoin|\bmade\b|\bimport|\bimpor|\benter(?:ed|ing|s)?\b|\bborn\b|\bestablish|\bgenerat|\bspawn|\boriginat|\bonboard|\bseed|\bprovision|\benrol|\bsubscrib|\bactivat|\bcaptur|\brecord|\bposted|\bfirst (?:seen|added|created)/i;
-  function temporalWhere(q, target) {
+  function resolveDateColumn(q, target) {
     const dateCols = target.columns.filter(function(c) {
       return isDateColumn(c) || /\bwhen\b|\bts\b|expiry|\bdue\b|logged|synced|seen|visited|login|logout|access|effective|valid|start|end|registered|inserted|added/i.test(c.name);
     });
-    if (dateCols.length === 0) return { sql: "", phrase: "" };
+    if (dateCols.length === 0) return void 0;
     const editCol = function(c) {
       return /updat|modif|chang|edit|alter|revis|touch|mtime|last.?mod|lastmod|sync|version|\brev\b|dirty|login|logged|seen|used|access|visit|active/i.test(c.name);
     };
@@ -1945,6 +1994,15 @@
     if (EDIT_VERB.test(q)) col = dateCols.find(editCol);
     else if (BORN_VERB.test(q)) col = dateCols.find(bornCol);
     if (!col) col = dateCols[0];
+    return col;
+  }
+  function dayExpr(col, alias) {
+    const ref = (alias ? alias + "." : "") + '"' + col.name + '"';
+    return /int/i.test(col.type) ? `date(${ref}, 'unixepoch', 'localtime')` : `date(${ref})`;
+  }
+  function temporalWhere(q, target, forceCol) {
+    const col = forceCol || resolveDateColumn(q, target);
+    if (!col) return { sql: "", phrase: "" };
     const isEpoch = /int/i.test(col.type);
     const d = isEpoch ? `date("${col.name}", 'unixepoch', 'localtime')` : `date("${col.name}")`;
     const dt = isEpoch ? `datetime("${col.name}", 'unixepoch', 'localtime')` : `datetime("${col.name}")`;
@@ -2628,6 +2686,56 @@
   function combineRefinement(base, fragment) {
     return (base.trim() + " " + fragment.trim()).replace(/\s+/g, " ").trim();
   }
+  var NL_CMD_CLEAR_RE = /^\s*(?:clear(?:\s+it|\s+that)?|start\s+(?:again|over)|begin\s+again|reset|wipe\s+it|scratch\s+that|never\s*mind)\s*[.!?]?\s*$/i;
+  var NL_CMD_RUN_RE = /^\s*(?:run(?:\s+it|\s+that)?\s+again|run\s+again|do\s+it\s+again|try\s+again|once\s+more|again)\s*[.!?]?\s*$/i;
+  var TEMPORAL_SWAP_PHRASES = [
+    "the day before yesterday",
+    "year to date",
+    "month to date",
+    "week to date",
+    "this morning",
+    "this afternoon",
+    "this evening",
+    "tonight",
+    "last night",
+    "the weekend",
+    "this week",
+    "last week",
+    "previous week",
+    "this month",
+    "last month",
+    "previous month",
+    "this quarter",
+    "last quarter",
+    "previous quarter",
+    "this year",
+    "last year",
+    "previous year",
+    "today",
+    "yesterday",
+    "tomorrow"
+  ];
+  var TEMPORAL_SWAP_RE = new RegExp(
+    "\\b(" + TEMPORAL_SWAP_PHRASES.map(function(p) {
+      return p.replace(/ /g, "\\s+");
+    }).join("|") + ")\\b",
+    "i"
+  );
+  function detectNlKeyword(input) {
+    const raw = String(input || "").trim();
+    if (!raw) return null;
+    if (NL_CMD_CLEAR_RE.test(raw)) return { kind: "clear" };
+    if (NL_CMD_RUN_RE.test(raw)) return { kind: "run" };
+    const cleaned = raw.toLowerCase().replace(/^(?:and\s+|so\s+|ok(?:ay)?\s+)?(?:what|how)\s+about\s+/, "").replace(/^(?:and|also|then|now|show\s+me)\s+/, "").replace(/[?.!,]+$/, "").trim();
+    const m = cleaned.match(TEMPORAL_SWAP_RE);
+    if (!m) return null;
+    const residue = cleaned.replace(TEMPORAL_SWAP_RE, "").replace(/\s+/g, " ").trim();
+    return residue === "" ? { kind: "temporalSwap", phrase: m[1].toLowerCase() } : null;
+  }
+  function applyTemporalSwap(base, newPhrase) {
+    if (!TEMPORAL_SWAP_RE.test(base)) return null;
+    return base.replace(TEMPORAL_SWAP_RE, newPhrase).replace(/\s+/g, " ").trim();
+  }
   function narrateAnswer(r, value, totalCount) {
     const table = r.table || vt("viewer.sql.narrate.fallback.rows");
     const qual = r.qualifier ? " " + r.qualifier : "";
@@ -2661,6 +2769,84 @@
       default:
         return vt("viewer.sql.narrate.found", n(totalCount), table, qual);
     }
+  }
+  function sqlSlug(text) {
+    return String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  }
+  var COUNT_INTENT_RE = /how many|\bcount\b|total number|number of/i;
+  var WINDOW_SPLIT_RE = /\s+and\s+|\s*,\s*|\s+vs\.?\s+|\s+versus\s+|\s+compared\s+(?:to|with)\s+/i;
+  function multiWindowCount(q, target, baseConds) {
+    if (!COUNT_INTENT_RE.test(q)) return null;
+    if (!WINDOW_SPLIT_RE.test(q)) return null;
+    const col = resolveDateColumn(q, target);
+    if (!col) return null;
+    const segments = q.split(WINDOW_SPLIT_RE);
+    const windows = [];
+    const seenSql = {};
+    for (let i = 0; i < segments.length; i++) {
+      const tw = temporalWhere(segments[i], target, col);
+      if (tw.sql && !seenSql[tw.sql]) {
+        seenSql[tw.sql] = true;
+        windows.push(tw);
+      }
+    }
+    if (windows.length < 2) return null;
+    const where = baseConds.length ? " WHERE " + baseConds.join(" AND ") : "";
+    const usedAlias = {};
+    const cols = windows.map(function(w) {
+      let alias = sqlSlug(w.phrase) || "window";
+      if (usedAlias[alias]) alias = alias + "_" + ++usedAlias[alias];
+      else usedAlias[alias] = 1;
+      return "SUM(CASE WHEN " + w.sql + " THEN 1 ELSE 0 END) AS " + alias;
+    });
+    const sql = "SELECT " + cols.join(", ") + ' FROM "' + target.name + '"' + where;
+    return { sql, windows };
+  }
+  function detectTimeBucket(q) {
+    if (/\b(?:daily|by day|per day|each day|every day|day[- ]by[- ]day|day[- ]over[- ]day)\b/i.test(q)) return "day";
+    if (/\b(?:weekly|by week|per week|each week|every week|week[- ]by[- ]week|week[- ]over[- ]week)\b/i.test(q)) return "week";
+    if (/\b(?:monthly|by month|per month|each month|every month|month[- ]by[- ]month|month[- ]over[- ]month)\b/i.test(q)) return "month";
+    if (/\b(?:yearly|annually|annual|by year|per year|each year|every year|year[- ]by[- ]year|year[- ]over[- ]year)\b/i.test(q)) return "year";
+    return null;
+  }
+  function timeBucketSeries(q, target, bucket, baseConds) {
+    const col = resolveDateColumn(q, target);
+    if (!col) return null;
+    const rowDay = dayExpr(col, "m");
+    const cfg = {
+      day: {
+        seed: "date('now', 'localtime')",
+        step: "'-1 day'",
+        n: 30,
+        map: rowDay
+      },
+      week: {
+        // SQLite 'weekday 0' is the next Sunday; '-6 days' backs it up to Monday,
+        // so each bucket is the Monday that opens an ISO-style week.
+        seed: "date('now', 'weekday 0', '-6 days', 'localtime')",
+        step: "'-7 days'",
+        n: 12,
+        map: `date(${rowDay}, 'weekday 0', '-6 days')`
+      },
+      month: {
+        seed: "date('now', 'start of month', 'localtime')",
+        step: "'-1 month'",
+        n: 12,
+        map: `date(${rowDay}, 'start of month')`
+      },
+      year: {
+        seed: "date('now', 'start of year', 'localtime')",
+        step: "'-1 year'",
+        n: 5,
+        map: `date(${rowDay}, 'start of year')`
+      }
+    };
+    const c = cfg[bucket];
+    const verb = BORN_VERB.test(q) ? "added" : EDIT_VERB.test(q) ? "changed" : null;
+    const countAlias = verb ? (sqlSlug(target.name) || "rows") + "_" + verb : "count";
+    const onExtra = baseConds.length ? " AND " + baseConds.join(" AND ") : "";
+    const sql = "WITH RECURSIVE calendar(bucket) AS (\n  SELECT " + c.seed + "\n  UNION ALL\n  SELECT date(bucket, " + c.step + ") FROM calendar LIMIT " + c.n + "\n)\nSELECT c.bucket AS " + bucket + '_start, COUNT(m."' + col.name + '") AS ' + countAlias + '\nFROM calendar c\nLEFT JOIN "' + target.name + '" m ON ' + c.map + " = c.bucket" + onExtra + "\nGROUP BY c.bucket\nORDER BY c.bucket DESC";
+    return { sql, col };
   }
   function nlToSql(question, meta, opts) {
     const wakeStrip = stripWakePhrase(question);
@@ -2697,10 +2883,12 @@
     const conds = [];
     const tw = temporalWhere(q, target);
     if (tw.sql) conds.push(tw.sql);
+    const nonTemporalConds = [];
     const vw = valueWhere(question, target);
-    for (let i = 0; i < vw.length; i++) conds.push(vw[i]);
+    for (let i = 0; i < vw.length; i++) nonTemporalConds.push(vw[i]);
     const rw = relationshipWhere(q, target, meta);
-    for (let i = 0; i < rw.length; i++) conds.push(rw[i]);
+    for (let i = 0; i < rw.length; i++) nonTemporalConds.push(rw[i]);
+    for (let i = 0; i < nonTemporalConds.length; i++) conds.push(nonTemporalConds[i]);
     const where = conds.length ? " WHERE " + conds.join(" AND ") : "";
     const order = orderClause(q, target);
     const lim = limitFrom(q);
@@ -2715,7 +2903,23 @@
     };
     let answerKind = "rows";
     let aggColumn;
-    if (/how many|\bcount\b|total number|number of/i.test(q) && !isGrouping) {
+    const bucket = detectTimeBucket(q);
+    if (bucket) {
+      const series = timeBucketSeries(q, target, bucket, nonTemporalConds);
+      if (series) {
+        sql = series.sql;
+        answerKind = "group";
+      }
+    }
+    if (!sql) {
+      const multi = multiWindowCount(q, target, nonTemporalConds);
+      if (multi) {
+        sql = multi.sql;
+        answerKind = "rows";
+      }
+    }
+    if (sql) {
+    } else if (/how many|\bcount\b|total number|number of/i.test(q) && !isGrouping) {
       sql = "SELECT COUNT(*) FROM " + tn + where;
       answerKind = "count";
     } else if (/duplicate|repeated|dupe/i.test(q)) {
@@ -5661,6 +5865,7 @@
   var PREF_AUTO_REFRESH = "autoRefresh";
   var PREF_EPOCH_DETECTION = "epochDetection";
   var PREF_CONFIRM_NAVIGATE_AWAY = "confirmNavigateAway";
+  var PREF_NL_KEYWORDS = "nlKeywords";
   var DEFAULTS = {
     [PREF_SQL_HISTORY_MAX]: 200,
     [PREF_ANALYSIS_MAX]: 50,
@@ -5671,7 +5876,8 @@
     [PREF_SLOW_QUERY_THRESHOLD]: 100,
     [PREF_AUTO_REFRESH]: true,
     [PREF_EPOCH_DETECTION]: true,
-    [PREF_CONFIRM_NAVIGATE_AWAY]: true
+    [PREF_CONFIRM_NAVIGATE_AWAY]: true,
+    [PREF_NL_KEYWORDS]: true
   };
   function numberField(id, min, max, step) {
     return `<span class="settings-stepper">
@@ -5783,6 +5989,19 @@
     </label>
   </section>
 
+  <section class="settings-group">
+    <h3 class="settings-group-title">
+      <span class="material-symbols-outlined" aria-hidden="true">record_voice_over</span>
+      ${vt("viewer.settings.group.ask")}
+    </h3>
+    <label class="settings-row settings-toggle-row">
+      <span class="settings-label">${vt("viewer.settings.ask.keywords")}</span>
+      <span class="settings-sublabel">${vt("viewer.settings.ask.keywordsSub")}</span>
+      <input type="checkbox" id="pref-nlKeywords" class="settings-checkbox" />
+      <span class="settings-switch" role="switch" aria-checked="false"></span>
+    </label>
+  </section>
+
   <div class="settings-footer">
     <button type="button" id="settings-reset-all" class="btn btn-outline settings-btn">
       <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
@@ -5803,6 +6022,7 @@
     setToggle("pref-autoRefresh", getPref(PREF_AUTO_REFRESH, DEFAULTS[PREF_AUTO_REFRESH]));
     setToggle("pref-epochDetection", getPref(PREF_EPOCH_DETECTION, DEFAULTS[PREF_EPOCH_DETECTION]));
     setToggle("pref-confirmNavigateAway", getPref(PREF_CONFIRM_NAVIGATE_AWAY, DEFAULTS[PREF_CONFIRM_NAVIGATE_AWAY]));
+    setToggle("pref-nlKeywords", getPref(PREF_NL_KEYWORDS, DEFAULTS[PREF_NL_KEYWORDS]));
   }
   function setNumberInput(id, value) {
     const el = document.getElementById(id);
@@ -5832,6 +6052,7 @@
     bindToggleInput("pref-autoRefresh", PREF_AUTO_REFRESH);
     bindToggleInput("pref-epochDetection", PREF_EPOCH_DETECTION);
     bindToggleInput("pref-confirmNavigateAway", PREF_CONFIRM_NAVIGATE_AWAY);
+    bindToggleInput("pref-nlKeywords", PREF_NL_KEYWORDS);
     const clearBtn = document.getElementById("settings-clear-all");
     if (clearBtn) {
       clearBtn.addEventListener("click", () => {
@@ -6746,8 +6967,6 @@
       btn.setAttribute("aria-pressed", on ? "true" : "false");
       btn.classList.toggle("active", on);
     });
-    const sync = window._syncHomeSidebarToggles;
-    if (typeof sync === "function") sync();
   }
   function selectPanel(name) {
     if (!sidebar || !layout) return;
@@ -6859,6 +7078,7 @@
       }
       transcript = transcript.trim();
       if (!transcript) return;
+      if (interpretNlKeyword(transcript)) return;
       var existing = String(ta.value || "");
       ta.value = existing ? existing.replace(/\s*$/, "") + " " + transcript : transcript;
       scheduleNlLivePreview();
@@ -6893,6 +7113,38 @@
     } catch (err) {
       setNlMicRecording(false);
     }
+  }
+  function clearNlQuestion() {
+    var ta = document.getElementById("nl-modal-input");
+    if (!ta) return;
+    ta.value = "";
+    nlBaseQuestion = "";
+    setNlModalError("", false);
+    ta.focus();
+    scheduleNlLivePreview();
+  }
+  function interpretNlKeyword(text) {
+    if (!getPref(PREF_NL_KEYWORDS, DEFAULTS[PREF_NL_KEYWORDS])) return false;
+    var cmd = detectNlKeyword(text);
+    if (!cmd) return false;
+    if (cmd.kind === "clear") {
+      clearNlQuestion();
+      return true;
+    }
+    if (cmd.kind === "run") {
+      previewNlResults();
+      return true;
+    }
+    if (cmd.kind === "temporalSwap") {
+      var swapped = applyTemporalSwap(nlBaseQuestion, cmd.phrase);
+      if (!swapped) return false;
+      var ta = document.getElementById("nl-modal-input");
+      if (ta) ta.value = swapped;
+      nlBaseQuestion = swapped;
+      scheduleNlLivePreview();
+      return true;
+    }
+    return false;
   }
   function stopNlMic() {
     if (nlRecognition && nlMicActive) {
@@ -7360,6 +7612,8 @@
       nlMic.hidden = false;
       nlMic.addEventListener("click", toggleNlMic);
     }
+    var nlClear = document.getElementById("nl-clear");
+    if (nlClear) nlClear.addEventListener("click", clearNlQuestion);
     var nlHelp = document.getElementById("nl-help");
     if (nlHelp) nlHelp.addEventListener("click", toggleNlHelp);
     var nlHelpSearch = document.getElementById("nl-help-search");
@@ -8397,108 +8651,147 @@
   }
 
   // assets/web/home-screen.ts
-  function syncSidebarTogglesFromLayout() {
-    var layout3 = document.getElementById("app-layout");
-    var sidebar2 = document.getElementById("app-sidebar");
-    var tablesSw = document.getElementById("home-switch-tables");
-    var historySw = document.getElementById("home-switch-history");
-    if (!layout3 || !sidebar2) return;
-    var collapsed = layout3.classList.contains("app-sidebar-panel-collapsed");
-    var active = sidebar2.getAttribute("data-active-panel");
-    var tablesOn = !collapsed && active === "tables";
-    var historyOn = !collapsed && active === "history";
-    if (tablesSw) {
-      tablesSw.setAttribute("aria-checked", tablesOn ? "true" : "false");
-      tablesSw.classList.toggle("home-switch-on", tablesOn);
+  var cardSearchIndex = [];
+  function buildTokens(label, blurb, keywords) {
+    var words = (label + " " + blurb).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    var all = words.concat(keywords.map(function(k) {
+      return k.toLowerCase();
+    }));
+    return Array.from(new Set(all));
+  }
+  function fuzzySubsequence(query, token) {
+    var q = 0;
+    for (var i = 0; i < token.length && q < query.length; i++) {
+      if (token[i] === query[q]) q++;
     }
-    if (historySw) {
-      historySw.setAttribute("aria-checked", historyOn ? "true" : "false");
-      historySw.classList.toggle("home-switch-on", historyOn);
+    return q === query.length;
+  }
+  function cardMatches(query, tokens) {
+    for (var i = 0; i < tokens.length; i++) {
+      var t = tokens[i];
+      if (t.indexOf(query) !== -1 || fuzzySubsequence(query, t)) return true;
+    }
+    return false;
+  }
+  function applyFeatureFilter(query) {
+    var q = query.trim().toLowerCase();
+    var empty = document.getElementById("home-feature-search-empty");
+    if (!q) {
+      cardSearchIndex.forEach(function(entry) {
+        entry.el.hidden = false;
+      });
+      if (empty) empty.hidden = true;
+      return;
+    }
+    var shown = 0;
+    cardSearchIndex.forEach(function(entry) {
+      var match = cardMatches(q, entry.tokens);
+      entry.el.hidden = !match;
+      if (match) shown++;
+    });
+    if (empty) {
+      if (shown === 0) {
+        empty.textContent = vt("viewer.nav.home.search.noResults", query.trim());
+        empty.hidden = false;
+      } else {
+        empty.hidden = true;
+      }
     }
   }
-  function wireHomeSwitch(id, toggle) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener("click", function() {
-      toggle();
-      syncSidebarTogglesFromLayout();
-    });
+  function addCard(grid, id, label, iconName, blurb, color, keywords, onClick, extra) {
+    var card = document.createElement("button");
+    card.type = "button";
+    card.className = extra ? "home-tool-card home-tool-card-extra" : "home-tool-card";
+    card.setAttribute(extra ? "data-home-extra" : "data-tool", id);
+    card.style.setProperty("--tool-accent", color);
+    card.title = vt("viewer.nav.home.cardTooltip", label, blurb);
+    if (iconName) {
+      var icon = document.createElement("span");
+      icon.className = "material-symbols-outlined home-tool-card-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = iconName;
+      card.appendChild(icon);
+    }
+    var name = document.createElement("span");
+    name.className = "home-tool-card-name";
+    name.textContent = label;
+    card.appendChild(name);
+    var blurbEl = document.createElement("span");
+    blurbEl.className = "home-tool-card-blurb";
+    blurbEl.textContent = blurb;
+    card.appendChild(blurbEl);
+    card.addEventListener("click", onClick);
+    grid.appendChild(card);
+    cardSearchIndex.push({ el: card, tokens: buildTokens(label, blurb, keywords) });
   }
   function buildToolGrid() {
     var grid = document.getElementById("home-tool-grid");
     if (!grid) return;
     grid.replaceChildren();
+    cardSearchIndex = [];
     HOME_LAUNCHERS.forEach(function(item) {
-      var iconName = TOOL_ICONS[item.id];
       var label = TOOL_LABELS[item.id] || item.id;
-      var card = document.createElement("button");
-      card.type = "button";
-      card.className = "home-tool-card";
-      card.setAttribute("data-tool", item.id);
-      card.title = vt("viewer.nav.home.cardTooltip", label, item.blurb);
-      if (iconName) {
-        var icon = document.createElement("span");
-        icon.className = "material-symbols-outlined home-tool-card-icon";
-        icon.setAttribute("aria-hidden", "true");
-        icon.textContent = iconName;
-        card.appendChild(icon);
-      }
-      var name = document.createElement("span");
-      name.className = "home-tool-card-name";
-      name.textContent = label;
-      card.appendChild(name);
-      var blurb = document.createElement("span");
-      blurb.className = "home-tool-card-blurb";
-      blurb.textContent = item.blurb;
-      card.appendChild(blurb);
-      card.addEventListener("click", function() {
-        openTool(item.id);
-      });
-      grid.appendChild(card);
+      addCard(
+        grid,
+        item.id,
+        label,
+        TOOL_ICONS[item.id],
+        item.blurb,
+        item.color,
+        HOME_SEARCH_KEYWORDS[item.id] || [],
+        function() {
+          openTool(item.id);
+        },
+        false
+      );
     });
     HOME_EXTRAS.forEach(function(item) {
-      var card = document.createElement("button");
-      card.type = "button";
-      card.className = "home-tool-card home-tool-card-extra";
-      card.setAttribute("data-home-extra", item.action);
-      card.title = vt("viewer.nav.home.cardTooltip", item.label, item.blurb);
-      var icon = document.createElement("span");
-      icon.className = "material-symbols-outlined home-tool-card-icon";
-      icon.setAttribute("aria-hidden", "true");
-      icon.textContent = item.icon;
-      card.appendChild(icon);
-      var name = document.createElement("span");
-      name.className = "home-tool-card-name";
-      name.textContent = item.label;
-      card.appendChild(name);
-      var blurb = document.createElement("span");
-      blurb.className = "home-tool-card-blurb";
-      blurb.textContent = item.blurb;
-      card.appendChild(blurb);
-      card.addEventListener("click", function() {
-        if (item.action === "mask") {
-          document.getElementById("tb-mask-toggle")?.click();
-          return;
-        }
-        if (item.action === "theme") {
-          document.getElementById("tb-theme-trigger")?.click();
-          return;
-        }
-        if (item.action === "share") document.getElementById("tb-share-btn")?.click();
-      });
-      grid.appendChild(card);
+      addCard(
+        grid,
+        item.action,
+        item.label,
+        item.icon,
+        item.blurb,
+        item.color,
+        HOME_SEARCH_KEYWORDS[item.action] || [],
+        function() {
+          if (item.action === "mask") {
+            document.getElementById("tb-mask-toggle")?.click();
+            return;
+          }
+          if (item.action === "theme") {
+            document.getElementById("tb-theme-trigger")?.click();
+            return;
+          }
+          if (item.action === "share") document.getElementById("tb-share-btn")?.click();
+        },
+        true
+      );
     });
+  }
+  function initHomeIntro() {
+    var title = document.getElementById("home-title");
+    if (title) title.textContent = vt("viewer.nav.home.title");
+    var lead = document.getElementById("home-lead");
+    if (lead) lead.textContent = vt("viewer.nav.home.lead");
+    var search = document.getElementById("home-feature-search");
+    if (search) {
+      search.placeholder = vt("viewer.nav.home.search.placeholder");
+      search.setAttribute("aria-label", vt("viewer.nav.home.search.aria"));
+      search.addEventListener("input", function() {
+        applyFeatureFilter(search.value);
+      });
+      search.addEventListener("keydown", function(e) {
+        if (e.key === "Escape" && search.value) {
+          search.value = "";
+          applyFeatureFilter("");
+        }
+      });
+    }
   }
   function initHomeScreen() {
     buildToolGrid();
-    wireHomeSwitch("home-switch-tables", function() {
-      togglePanel("tables");
-    });
-    wireHomeSwitch("home-switch-history", function() {
-      togglePanel("history");
-    });
-    syncSidebarTogglesFromLayout();
-    window._syncHomeSidebarToggles = syncSidebarTogglesFromLayout;
+    initHomeIntro();
   }
 
   // assets/web/sidebar-resize.ts
@@ -11078,7 +11371,7 @@
       const pageRows = rows.slice(start, start + pageSize);
       const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
       const total = rows.length;
-      let tableHtml = '<div class="data-table-scroll-wrap"><table><thead><tr>' + keys.map(function(k) {
+      let tableHtml = '<div class="data-table-scroll-wrap"><table class="drift-table"><thead><tr>' + keys.map(function(k) {
         return '<th data-column-key="' + esc2(k) + '">' + esc2(k) + "</th>";
       }).join("") + "</tr></thead><tbody>";
       pageRows.forEach(function(row) {
@@ -11088,10 +11381,17 @@
       });
       tableHtml += "</tbody></table></div>";
       const statusHtml = buildTableStatusBar(total, start, pageSize, pageRows.length, keys.length);
-      const prevDisabled = sqlResultPage <= 0;
-      const nextDisabled = start + pageSize >= total;
-      const paginationHtml = '<div class="sql-result-pagination toolbar" style="margin-top:0.35rem;"><button type="button" id="sql-result-prev"' + (prevDisabled ? " disabled" : "") + ">" + esc2(vt("viewer.sql.result.prev")) + '</button><button type="button" id="sql-result-next"' + (nextDisabled ? " disabled" : "") + ">" + esc2(vt("viewer.sql.result.next")) + "</button></div>";
-      resultEl.innerHTML = '<p class="meta">' + esc2(vt("viewer.sql.result.rowCount", total)) + "</p>" + tableHtml + statusHtml + paginationHtml;
+      let paginationHtml = "";
+      if (total > pageSize) {
+        const prevDisabled = sqlResultPage <= 0;
+        const nextDisabled = start + pageSize >= total;
+        paginationHtml = '<div class="sql-result-pagination toolbar" style="margin-top:0.35rem;"><button type="button" id="sql-result-prev"' + (prevDisabled ? " disabled" : "") + ">" + esc2(vt("viewer.sql.result.prev")) + '</button><button type="button" id="sql-result-next"' + (nextDisabled ? " disabled" : "") + ">" + esc2(vt("viewer.sql.result.next")) + "</button></div>";
+      }
+      const copyHtml = rows.length > 0 ? '<div class="sql-result-copy toolbar" style="margin-top:0.35rem;"><span class="sql-result-copy-label">' + esc2(vt("viewer.sql.result.copy.label")) + '</span><button type="button" id="sql-copy-md"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> ' + esc2(vt("viewer.sql.result.copy.markdown")) + '</button><button type="button" id="sql-copy-csv"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> ' + esc2(vt("viewer.sql.result.copy.csv")) + '</button><button type="button" id="sql-copy-json"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> ' + esc2(vt("viewer.sql.result.copy.json")) + "</button></div>" : "";
+      const rowCountMeta = '<p class="meta">' + esc2(vt("viewer.sql.result.rowCount", total)) + "</p>";
+      const headingKey = total === 1 ? "viewer.sql.result.heading.one" : "viewer.sql.result.heading.many";
+      resultEl.innerHTML = '<div class="results-table-wrap" role="region" aria-label="' + esc2(vt("viewer.sql.result.regionLabel")) + '"><div class="results-table-heading">' + esc2(vt(headingKey, total)) + '</div><div class="results-table-body">' + rowCountMeta + copyHtml + tableHtml + statusHtml + paginationHtml + "</div></div>";
+      bindResultsToggle();
       const prevBtn = resultEl.querySelector("#sql-result-prev");
       const nextBtn = resultEl.querySelector("#sql-result-next");
       if (prevBtn) prevBtn.addEventListener("click", function() {
@@ -11102,6 +11402,46 @@
         sqlResultPage++;
         renderSqlResultPage();
       });
+      const copyMd = resultEl.querySelector("#sql-copy-md");
+      const copyCsv = resultEl.querySelector("#sql-copy-csv");
+      const copyJson = resultEl.querySelector("#sql-copy-json");
+      if (copyMd) copyMd.addEventListener("click", function() {
+        copyResult("markdown");
+      });
+      if (copyCsv) copyCsv.addEventListener("click", function() {
+        copyResult("csv");
+      });
+      if (copyJson) copyJson.addEventListener("click", function() {
+        copyResult("json");
+      });
+    }
+    function copyResult(kind) {
+      const rows = sqlResultAllRows;
+      if (!rows || rows.length === 0) {
+        showCopyToast(vt("viewer.sql.result.copy.empty"));
+        return;
+      }
+      let text;
+      let doneKey;
+      if (kind === "json") {
+        text = rowsToJson(rows);
+        doneKey = "viewer.sql.result.copy.done.json";
+      } else if (kind === "csv") {
+        text = rowsToCsv(rows);
+        doneKey = "viewer.sql.result.copy.done.csv";
+      } else {
+        text = rowsToMarkdown(rows);
+        doneKey = "viewer.sql.result.copy.done.markdown";
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          showCopyToast(vt(doneKey));
+        }).catch(function() {
+          showCopyToast(vt("viewer.sql.result.copy.failed"));
+        });
+      } else {
+        showCopyToast(vt("viewer.sql.result.copy.failed"));
+      }
     }
     function clearSqlResults() {
       if (errorEl) {
@@ -11610,7 +11950,6 @@
     if (tabId === "size" && lastSizeAnalyticsData == null) triggerToolButtonIfReady("size-analyze", { checkDisabled: true });
     if (tabId === "perf") triggerToolButtonIfReady("perf-refresh", { checkDisabled: true });
     if (tabId === "anomaly") triggerToolButtonIfReady("anomaly-analyze", { checkDisabled: true });
-    if (tabId === "home" && typeof window._syncHomeSidebarToggles === "function") window._syncHomeSidebarToggles();
     if (typeof window._toolbarSyncActiveTab === "function") window._toolbarSyncActiveTab(tabId);
   };
   initTabsAndToolbar();
@@ -12444,7 +12783,6 @@
         }
       });
     }
-    if (typeof window._syncHomeSidebarToggles === "function") window._syncHomeSidebarToggles();
     var activeTab = document.querySelector(".tab-btn.active");
     if (activeTab) {
       var activeToolId = activeTab.getAttribute("data-tab");

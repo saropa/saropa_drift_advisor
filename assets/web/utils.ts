@@ -13,18 +13,37 @@ export function esc(s: unknown): string {
 
 /**
  * Shows a small spinning indicator plus label inside a button while a slow request runs.
- * When loading is false, restores plain text (drops spinner markup).
+ *
+ * On the way in we stash the button's ORIGINAL innerHTML (icon span + label) in a
+ * data attribute and, on the way out, restore that markup verbatim. Restoring via
+ * `textContent = label` (the old behavior) discarded any child markup — for the
+ * Run button that meant the `<span class="material-symbols-outlined">play_arrow</span>`
+ * icon was replaced by the literal ligature text "play_arrow Run" after the first
+ * run. Restoring the stashed HTML keeps the icon. The `label` arg is now only a
+ * fallback for buttons that were never stashed (defensive — every caller stashes
+ * by going through the loading=true branch first).
  */
 export function setButtonBusy(btn: HTMLElement | null | undefined, loading: boolean, label: string): void {
   if (!btn) return;
   if (loading) {
+    // Stash once: a double loading=true (e.g. re-entrant click) must not overwrite
+    // the real original markup with the spinner markup.
+    if (btn.getAttribute('data-busy-restore') == null) {
+      btn.setAttribute('data-busy-restore', btn.innerHTML);
+    }
     btn.classList.add('btn-busy');
     btn.innerHTML =
       '<span class="btn-busy-spinner" aria-hidden="true"></span>' +
       '<span class="btn-busy-label">' + esc(label) + '</span>';
   } else {
     btn.classList.remove('btn-busy');
-    btn.textContent = label;
+    const stashed = btn.getAttribute('data-busy-restore');
+    if (stashed != null) {
+      btn.innerHTML = stashed;
+      btn.removeAttribute('data-busy-restore');
+    } else {
+      btn.textContent = label;
+    }
   }
 }
 
