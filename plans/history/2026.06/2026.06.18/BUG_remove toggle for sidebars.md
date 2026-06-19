@@ -72,5 +72,74 @@ dictionary (extend `HOME_LAUNCHERS` or a sibling map). Filter/highlight cards as
 
 ## Status
 
-Cleaned up and scoped. Not yet implemented. Item 1 (remove toggles) is the only pure-removal task;
-items 2-5 are additive features and should each be confirmed before building.
+Fixed. All five items implemented.
+
+## Finish Report (2026-06-18)
+
+All five Home-tab requests were implemented in the web viewer and the generated
+assets (`bundle.js`, `style.css`) were regenerated.
+
+### 1. Sidebar toggles removed
+
+The "Tables panel" / "History panel" switches duplicated the sidebar's own
+show/hide control. Removed:
+
+- Markup in [html_content.dart](../lib/src/server/html_content.dart) (the
+  `.home-sidebar-toggles` block).
+- The toggle logic, switch-sync function, and `window._syncHomeSidebarToggles`
+  hook in [home-screen.ts](../assets/web/home-screen.ts).
+- The `.home-switch*` / `.home-sidebar-toggle*` styles in
+  [_home-screen.scss](../assets/web/_home-screen.scss).
+- The three guarded callers of the removed hook
+  ([sidebar-panels.ts](../assets/web/sidebar-panels.ts),
+  [toolbar.ts](../assets/web/toolbar.ts), [app.js](../assets/web/app.js)) and the
+  stale type in [dom-globals.d.ts](../assets/web/dom-globals.d.ts), which would
+  otherwise have been dead no-ops referencing a removed feature.
+
+### 2. More spacing
+
+`.home-tool-grid` gap raised from `0.65rem` to `1rem`; card padding from
+`0.55/0.65rem` to `0.85/0.95rem`; min-height and inner gaps loosened.
+
+### 3. Per-tool accent color
+
+A `color` field was added to each `HOME_LAUNCHERS` / `HOME_EXTRAS` entry in
+[state.ts](../assets/web/state.ts) (single source of truth). The card sets it as a
+`--tool-accent` CSS custom property, which drives the card's left rule, icon tint,
+hover ring, and focus outline. The palette is mid-saturation so each hue keeps
+contrast on the light, dark, and midnight surfaces the cards inherit. A
+`color-mix` fallback keeps a solid accent on engines without `color-mix`.
+
+### 4. Narrative feature overview
+
+A page heading and a narrative paragraph were added above the launcher grid,
+populated at runtime via `vt()` from new `viewer.nav.home.title` /
+`viewer.nav.home.lead` keys in
+[strings-web-nav.ts](../assets/web/l10n/strings-web-nav.ts). The paragraph rolls
+every launcher/extra blurb into prose without dropping a listed capability.
+
+### 5. Fuzzy feature search box
+
+A search input above the grid filters the cards live. The pure matching logic was
+extracted into [home-search.ts](../assets/web/home-search.ts) (DOM-free, so it is
+unit-testable): per-card tokens are built from the label, blurb words, and a
+generous synonym dictionary (`HOME_SEARCH_KEYWORDS` in state.ts), and a query
+matches a card by substring OR in-order fuzzy subsequence per token. Empty query
+restores the full grid; no match shows a localized empty-state
+(`viewer.nav.home.search.noResults`); Escape clears the box. It searches
+features/tools, distinct from the table-data Search tab.
+
+### Verification
+
+- `npm run typecheck:web` — clean for all touched Home files.
+- `node --test assets/web/test/home-search.test.mjs` — 14 new tests pass
+  (token building, fuzzy subsequence, synonym/substring/typo matching,
+  empty-query passthrough).
+- `dart analyze lib/src/server/html_content.dart` — no new issues introduced by
+  the edit (pre-existing style lints in the class header are unrelated).
+- `npm run build` — bundle and stylesheet regenerated; generated assets confirmed
+  to contain the new code and to be free of the removed toggle markup/styles.
+
+Not visually verified: the per-tool accent colors rendered in each of the three
+themes (light, dark, midnight) in a running viewer. The hues were chosen for
+cross-theme contrast but not observed on screen.

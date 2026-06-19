@@ -19,6 +19,14 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
   let selectedTable = null;
   let didDrag = false;
 
+  // Field-filter state, read by the matching helpers (er-diagram-script-helpers).
+  // highlightOn defaults true so typing a search immediately emphasizes matches;
+  // hideOn is opt-in so the diagram is never silently emptied.
+  let filterText = '';
+  let filterType = '';
+  let highlightOn = true;
+  let hideOn = false;
+
   const svg = document.getElementById('er-svg');
   const container = document.getElementById('canvasContainer');
   const contextMenu = document.getElementById('contextMenu');
@@ -35,11 +43,19 @@ export function getErDiagramScript(nodesJson: string, edgesJson: string): string
   function renderDiagram() {
     svg.innerHTML = '';
 
-    // Calculate bounds
+    // With hide-mode + an active filter, only matching tables render; their edges
+    // are dropped too. Build the visible set once so edge filtering is O(1).
+    const hiding = hideOn && filterActive();
+    const visNodes = hiding ? nodes.filter(nodeMatches) : nodes;
+    const visSet = {};
+    for (const n of visNodes) visSet[n.table] = true;
+
+    // Bounds use each node's DISPLAYED height (hide-mode shrinks boxes that lost
+    // rows) so the viewBox is not padded by hidden columns.
     let maxX = 0, maxY = 0;
-    for (const node of nodes) {
+    for (const node of visNodes) {
       maxX = Math.max(maxX, node.x + node.width);
-      maxY = Math.max(maxY, node.y + node.height);
+      maxY = Math.max(maxY, node.y + nodeDisplayHeight(visibleColumns(node)));
     }
     const svgWidth = maxX + 100;
     const svgHeight = maxY + 100;

@@ -73,6 +73,20 @@ export function buildErDiagramHtml(
   </div>
 </div>
 
+<div class="toolbar toolbar-filter">
+  <div class="toolbar-group">
+    <input type="search" id="fieldSearch" class="filter-input"
+      placeholder="${t('panel.schema.filter.search.placeholder')}"
+      aria-label="${t('panel.schema.filter.search.aria')}" />
+    <select id="typeFilter" aria-label="${t('panel.schema.filter.type.aria')}">
+      <option value="">${t('panel.schema.filter.type.all')}</option>
+      ${typeOptions}
+    </select>
+    <button class="btn active" id="highlightToggle" aria-pressed="true">${t('panel.schema.filter.highlight')}</button>
+    <button class="btn" id="hideToggle" aria-pressed="false">${t('panel.schema.filter.hide')}</button>
+  </div>
+</div>
+
 <div class="canvas-container" id="canvasContainer">
   <svg id="er-svg"></svg>
   <div class="loading-overlay hidden" id="loadingOverlay">

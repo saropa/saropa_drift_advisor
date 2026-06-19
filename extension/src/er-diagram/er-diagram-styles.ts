@@ -57,9 +57,24 @@ export function getErDiagramCss(): string {
     border-radius: 3px;
     font-size: 12px;
   }
+  .toolbar-filter {
+    justify-content: flex-start;
+    border-top: none;
+  }
+  .filter-input {
+    padding: 4px 8px;
+    border: 1px solid var(--vscode-widget-border);
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 3px;
+    font-size: 12px;
+    min-width: 180px;
+  }
+  .filter-input::placeholder { color: var(--vscode-input-placeholderForeground); }
+  /* Two stacked toolbar rows: subtract both so the canvas does not overflow. */
   .canvas-container {
     width: 100%;
-    height: calc(100vh - 50px);
+    height: calc(100vh - 88px);
     overflow: hidden;
     cursor: grab;
   }
@@ -122,6 +137,16 @@ export function getErDiagramCss(): string {
   }
   .er-column.pk { fill: var(--accent-warning); }
   .er-column.fk { fill: var(--accent-info); }
+  /* Field-filter visual states. In highlight mode a matching column is drawn in
+     the focus accent and bold (with a leading chevron added by the script), and
+     non-matching columns/tables are dimmed rather than removed. */
+  .er-column.match { fill: var(--vscode-focusBorder); font-weight: bold; }
+  .er-column.dim { opacity: 0.3; }
+  .er-node.match rect {
+    stroke: var(--vscode-focusBorder);
+    stroke-width: 2;
+  }
+  .er-node.dim { opacity: 0.3; }
   .er-edge {
     fill: none;
     stroke: var(--vscode-editorLineNumber-foreground);
