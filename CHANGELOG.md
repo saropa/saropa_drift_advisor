@@ -42,9 +42,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.1]
 
-Columns that are entirely empty are now called out separately from merely sparse ones, you can silence a data-quality warning on a single column instead of the whole table, and advisory checks now show as informational hints instead of warnings.
+Columns that are entirely empty are now called out separately from merely sparse ones, you can silence a data-quality warning on a single column instead of the whole table, and advisory checks now show as informational hints instead of warnings. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.1/CHANGELOG.md)
 
 ### Changed
 
