@@ -414,8 +414,16 @@ abstract final class ServerConstants {
   static const String attachmentDiffReport =
       'attachment; filename="diff-report.json"';
   static const String messageSnapshotCleared = 'Snapshot cleared.';
+  // Include views, not just base tables: PowerSync (and any ORM that fronts
+  // JSON-backed storage with SELECT views) exposes its real schema through
+  // views, so filtering to type='table' hid the user's entire data model from
+  // the sidebar, schema metadata, and column pickers. PRAGMA table_info works
+  // on views as well as tables, so every downstream consumer keyed off this
+  // list resolves view columns the same way. Write paths (foreign_key_list,
+  // edits) simply return empty for a view, which is the correct read-only
+  // behavior. See GitHub issue #32.
   static const String sqlTableNames =
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
+      "SELECT name FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name";
 
   /// Banner box interior width (between the left and right │).
   static const int bannerInnerWidth = 50;

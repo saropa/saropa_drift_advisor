@@ -11,6 +11,7 @@ import type {
   PerformanceData,
   TableMetadata,
 } from '../api-types';
+import { objectRowsToColumnar } from '../shared-utils';
 
 export const EXT_PREFIX = 'ext.saropa.drift.';
 
@@ -83,17 +84,19 @@ export async function apiRunSql(
     }
   }
   const raw = await request(`${EXT_PREFIX}runSql`, params);
-  const obj = parseJson<{ error?: string; rows?: unknown[][] }>(raw);
+  const obj = parseJson<{ error?: string; rows?: unknown[] }>(raw);
   if (obj?.error) throw new Error(String(obj.error));
-  const rows = obj?.rows as unknown[][];
+  const rows = obj?.rows;
   if (!Array.isArray(rows)) {
     throw new Error('Invalid runSql response');
   }
-  const columns =
-    rows.length > 0 && typeof rows[0] === 'object' && rows[0] !== null
-      ? (Object.keys(rows[0] as object) as string[])
-      : [];
-  return { columns, rows };
+  // The server returns object-rows ({col: value}); every result consumer in
+  // the extension (notebook renderer, zipRow, CSV/JSON export) expects
+  // positional array-rows aligned to `columns`. Deriving columns but leaving
+  // the rows as objects made the notebook index them numerically — row[0] on
+  // an object is undefined, so every cell rendered the literal "undefined"
+  // (GitHub issue #32). Convert here so the {columns, rows[][]} contract holds.
+  return objectRowsToColumnar(rows);
 }
 
 /**
