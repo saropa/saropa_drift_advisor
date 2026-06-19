@@ -49,6 +49,7 @@ Maintenance-only: the publish pipeline now offers **Retry** as the default actio
 <details><summary>Maintenance</summary>
 
 - **Git failure prompts in the publish pipeline now offer Retry (default), Skip, Abort** instead of just Skip/Abort. The common cause of a failed commit here is a husky pre-commit hook (`dart format` / saropa_lints) that rewrites a staged file and fails the first attempt; a bare Enter now re-runs the step. For commits, retry restarts from `git add` so the hook's reformatted files get re-staged. Tag creation and tag push use separate retry loops so retrying a push never tries to recreate an existing tag. EOF / Ctrl+C maps to Abort so a closed stdin cannot loop forever (`scripts/modules/git_ops.py`, `scripts/modules/display.py`).
+- **Fixed a publish-pipeline ordering bug that shipped a drifted version constant.** The pipeline synced `ServerConstants.packageVersion` to pubspec.yaml *before* the version/CHANGELOG validation step could raise pubspec to the CHANGELOG's max version, so the constant could lag one release behind (pubspec `4.0.5`, constant `4.0.4`). `version_sync_test` then failed `flutter test` on `main` and on every dependabot PR branched from it, turning CI permanently red. The constant is now re-synced *after* version validation, and the lagging constant was corrected to `4.0.5` (`scripts/modules/pipeline.py`, `lib/src/server/server_constants.dart`).
 
 </details>
 

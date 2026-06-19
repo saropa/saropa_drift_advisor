@@ -489,7 +489,27 @@ def run_dart_analysis(
     if not _run_dart_build_steps(args, results):
         return "", False
 
-    return _validate_version_step(args, results, DART, "Dart \u00b7 Version & CHANGELOG")
+    version, version_ok = _validate_version_step(
+        args, results, DART, "Dart \u00b7 Version & CHANGELOG"
+    )
+    if not version_ok:
+        return version, False
+
+    # Re-sync AFTER version validation: validate_version_changelog (and --bump)
+    # can raise pubspec.yaml to the CHANGELOG's max version here, AFTER the
+    # earlier sync above already matched the constant to the pre-bump version.
+    # Without this second pass the constant ships one version behind pubspec
+    # (the exact drift that broke v4.0.5: pubspec 4.0.5, constant 4.0.4, and
+    # version_sync_test then failed CI on main and every branched PR).
+    heading("Dart \u00b7 Server constants version (post-bump)")
+    if not run_step(
+        "Server constants version (post-bump)",
+        ensure_server_constants_version_sync,
+        results,
+    ):
+        return version, False
+
+    return version, True
 
 
 def run_ext_analysis(
