@@ -90,9 +90,10 @@ describe('SnippetRunner', () => {
 
   describe('run', () => {
     it('should execute interpolated SQL against client', async () => {
+      // Server emits object-rows; client.sql() converts to columnar (issue #32).
       const result = { columns: ['count'], rows: [[42]] };
       fetchStub.resolves(
-        new Response(JSON.stringify(result), { status: 200 }),
+        new Response(JSON.stringify({ rows: [{ count: 42 }] }), { status: 200 }),
       );
 
       const snippet: ISqlSnippet = {

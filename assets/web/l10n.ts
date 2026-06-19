@@ -24,6 +24,7 @@ import { webStrings } from './l10n/strings-web.ts';
 import { stringsWebTable } from './l10n/strings-web-table.ts';
 import { stringsWebQueryBuilder } from './l10n/strings-web-query-builder.ts';
 import { stringsWebSchema } from './l10n/strings-web-schema.ts';
+import { stringsWebViews } from './l10n/strings-web-views.ts';
 import { stringsWebSql } from './l10n/strings-web-sql.ts';
 import { stringsWebTools } from './l10n/strings-web-tools.ts';
 import { stringsWebNav } from './l10n/strings-web-nav.ts';
@@ -40,6 +41,7 @@ const WEB_STRING_REGISTRIES: Array<Record<string, string>> = [
   stringsWebTable,
   stringsWebQueryBuilder,
   stringsWebSchema,
+  stringsWebViews,
   stringsWebSql,
   stringsWebTools,
   stringsWebNav,

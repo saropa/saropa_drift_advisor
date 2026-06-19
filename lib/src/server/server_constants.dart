@@ -56,6 +56,8 @@ abstract final class ServerConstants {
   static const String pathApiSqlExplainAlt = 'api/sql/explain';
   static const String pathApiSchema = '/api/schema';
   static const String pathApiSchemaAlt = 'api/schema';
+  static const String pathApiViews = '/api/views';
+  static const String pathApiViewsAlt = 'api/views';
   static const String pathApiSchemaDiagram = '/api/schema/diagram';
   static const String pathApiSchemaDiagramAlt = 'api/schema/diagram';
   static const String pathApiSchemaMetadata = '/api/schema/metadata';
@@ -283,6 +285,7 @@ abstract final class ServerConstants {
   static const String jsonKeyCreatedAt = 'createdAt';
   static const String jsonKeyTableCount = 'tableCount';
   static const String jsonKeyTables = 'tables';
+  static const String jsonKeyViews = 'views';
   static const String jsonKeyEvents = 'events';
   static const String jsonKeyCursor = 'cursor';
   static const String jsonKeyName = 'name';
@@ -424,6 +427,13 @@ abstract final class ServerConstants {
   // behavior. See GitHub issue #32.
   static const String sqlTableNames =
       "SELECT name FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name";
+
+  // View name + CREATE VIEW DDL, for the dedicated Views screen. Kept separate
+  // from sqlSchemaMaster (which dumps every object's DDL as one blob) so the
+  // client gets a structured per-view list it can pair with each view's output
+  // without parsing the combined dump. See GitHub issue #32.
+  static const String sqlViewDefinitions =
+      "SELECT name, sql FROM sqlite_master WHERE type='view' AND name NOT LIKE 'sqlite_%' ORDER BY name";
 
   // Base tables only — the orphan-table check compares physical tables against
   // the declared Drift table set, and a view is never declared there. Feeding

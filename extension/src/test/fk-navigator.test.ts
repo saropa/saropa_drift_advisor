@@ -11,8 +11,12 @@ describe('FkNavigator', () => {
   const tick = () => new Promise((r) => setTimeout(r, 10));
 
   function stubSql(columns: string[], rows: unknown[][]): void {
+    // The real /api/sql emits object-rows ({col: value}); client.sql() converts
+    // to the columnar {columns, rows[][]} contract. Stub the server shape so the
+    // test exercises that conversion (GitHub issue #32).
+    const objectRows = rows.map((r) => Object.fromEntries(columns.map((c, i) => [c, r[i]])));
     fetchStub.resolves(new Response(
-      JSON.stringify({ columns, rows }), { status: 200 },
+      JSON.stringify({ rows: objectRows }), { status: 200 },
     ));
   }
 

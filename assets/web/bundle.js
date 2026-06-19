@@ -915,6 +915,26 @@
     "viewer.schema.searchTab.rangeNone": "no rows in this range"
   };
 
+  // assets/web/l10n/strings-web-views.ts
+  var stringsWebViews = {
+    "viewer.views.loading": "Loading\u2026",
+    "viewer.views.loadError": "Could not load views.",
+    // Shown when the database has no views at all.
+    "viewer.views.empty": "This database has no views.",
+    // {0} is the number of views found.
+    "viewer.views.count": "{0} views",
+    "viewer.views.countOne": "1 view",
+    "viewer.views.selectHint": "Select a view to see its definition and output.",
+    "viewer.views.definition": "Definition",
+    "viewer.views.output": "Output",
+    // Shown next to the Output label when results are capped. {0} is the row cap.
+    "viewer.views.outputLimited": "first {0} rows",
+    "viewer.views.outputEmpty": "This view returned no rows.",
+    "viewer.views.outputError": "Could not run this view.",
+    // Shown in the definition box when sqlite_master stored no DDL for the view.
+    "viewer.views.noDefinition": "No stored definition for this view."
+  };
+
   // assets/web/l10n/strings-web-sql.ts
   var stringsWebSql = {
     // --- Run SQL panel: template lock toggle (sql-runner.ts) ---
@@ -1551,6 +1571,7 @@
     stringsWebTable,
     stringsWebQueryBuilder,
     stringsWebSchema,
+    stringsWebViews,
     stringsWebSql,
     stringsWebTools,
     stringsWebNav,
@@ -2306,6 +2327,7 @@
     anomaly: "favorite",
     import: "upload",
     schema: "grid_on",
+    views: "table_view",
     declared: "code",
     diagram: "account_tree",
     export: "download",
@@ -2324,6 +2346,7 @@
     anomaly: "Health",
     import: "Import",
     schema: "Schema",
+    views: "Views",
     declared: "Code schema",
     diagram: "Diagram",
     export: "Export",
@@ -2337,6 +2360,7 @@
     { id: "compare", blurb: "diff databases, migrations", color: "#f59e0b" },
     { id: "index", blurb: "suggested indexes, query hints", color: "#10b981" },
     { id: "schema", blurb: "DDL, columns, PRAGMA", color: "#6366f1" },
+    { id: "views", blurb: "view definitions + their output", color: "#7c3aed" },
     { id: "diagram", blurb: "relationship graph", color: "#14b8a6" },
     { id: "size", blurb: "table sizes, growth", color: "#84cc16" },
     { id: "perf", blurb: "slow statements, timings", color: "#ef4444" },
@@ -2358,6 +2382,7 @@
     compare: ["diff", "difference", "databases", "migration", "migrations", "merge", "delta", "changes", "two databases", "drift"],
     index: ["indexes", "indices", "suggested", "query hints", "optimize", "optimization", "performance", "speed up", "btree", "key", "covering"],
     schema: ["ddl", "columns", "pragma", "structure", "definition", "create table", "fields", "types", "metadata", "constraints"],
+    views: ["view", "views", "create view", "virtual table", "saved query", "powersync", "definition", "sql view", "output", "derived"],
     diagram: ["relationship", "relationships", "graph", "erd", "entity", "map", "visual", "tree", "connections", "foreign key", "fk", "links"],
     size: ["table sizes", "growth", "storage", "bytes", "disk", "space", "row count", "big tables", "usage"],
     perf: ["performance", "slow", "statements", "timings", "latency", "profiling", "speed", "bottleneck", "query time", "duration"],
@@ -5101,8 +5126,8 @@
     renderTableView(currentTableName, currentTableJson);
   }
   function populateColumnChooserList() {
-    var listEl2 = document.getElementById("column-chooser-list");
-    listEl2.innerHTML = "";
+    var listEl3 = document.getElementById("column-chooser-list");
+    listEl3.innerHTML = "";
     if (!currentTableName || !currentTableJson || !currentTableJson.length) return;
     var dataKeys = Object.keys(currentTableJson[0]);
     var config = ensureColumnConfig(currentTableName, dataKeys);
@@ -5143,7 +5168,7 @@
       li.appendChild(cb);
       li.appendChild(label);
       li.appendChild(pinBtn);
-      listEl2.appendChild(li);
+      listEl3.appendChild(li);
     });
   }
 
@@ -32341,6 +32366,126 @@ ${JSON.stringify(results, void 0, 2)}`);
     if (btn) btn.addEventListener("click", load);
   }
 
+  // assets/web/views-screen.ts
+  var VIEW_OUTPUT_LIMIT = 200;
+  var viewsCache = null;
+  var selectedView = null;
+  var outputRequestToken = 0;
+  function quoteIdent(name) {
+    return '"' + name.replace(/"/g, '""') + '"';
+  }
+  function listEl2() {
+    return document.getElementById("views-list");
+  }
+  function renderList(views) {
+    const el = listEl2();
+    if (!el) return;
+    if (views.length === 0) {
+      el.innerHTML = '<p class="meta">' + esc2(vt("viewer.views.empty")) + "</p>";
+      return;
+    }
+    const countKey = views.length === 1 ? "viewer.views.countOne" : "viewer.views.count";
+    let html = '<div class="views-list-count meta">' + esc2(vt(countKey, views.length)) + "</div>";
+    views.forEach(function(v) {
+      const active = v.name === selectedView ? " active" : "";
+      html += '<button type="button" class="views-list-item' + active + '" role="listitem" data-view="' + esc2(v.name) + '">' + esc2(v.name) + "</button>";
+    });
+    el.innerHTML = html;
+    el.querySelectorAll(".views-list-item").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        const name = btn.getAttribute("data-view");
+        if (name) selectView(name);
+      });
+    });
+  }
+  function renderOutputTable(rows) {
+    if (rows.length === 0) {
+      return '<p class="meta">' + esc2(vt("viewer.views.outputEmpty")) + "</p>";
+    }
+    const keys = Object.keys(rows[0]);
+    let html = '<div class="data-table-scroll-wrap"><table class="drift-table"><thead><tr>' + keys.map(function(k) {
+      return "<th>" + esc2(k) + "</th>";
+    }).join("") + "</tr></thead><tbody>";
+    rows.forEach(function(row) {
+      html += "<tr>" + keys.map(function(k) {
+        return "<td>" + esc2(row[k] != null ? String(row[k]) : "") + "</td>";
+      }).join("") + "</tr>";
+    });
+    html += "</tbody></table></div>";
+    return html;
+  }
+  function selectView(name) {
+    selectedView = name;
+    const views = viewsCache || [];
+    const def = views.find(function(v) {
+      return v.name === name;
+    });
+    const el = listEl2();
+    if (el) {
+      el.querySelectorAll(".views-list-item").forEach(function(btn) {
+        btn.classList.toggle("active", btn.getAttribute("data-view") === name);
+      });
+    }
+    const hint = document.getElementById("views-empty-hint");
+    const body = document.getElementById("views-detail-body");
+    const nameEl = document.getElementById("views-detail-name");
+    const sqlEl = document.getElementById("views-detail-sql");
+    const outEl = document.getElementById("views-detail-output");
+    const outMeta = document.getElementById("views-output-meta");
+    if (hint) hint.style.display = "none";
+    if (body) body.style.display = "";
+    if (nameEl) nameEl.textContent = name;
+    if (sqlEl) {
+      const sql3 = def && def.sql ? def.sql : "";
+      sqlEl.innerHTML = sql3 ? highlightSqlSafe(sql3) : '<span class="meta">' + esc2(vt("viewer.views.noDefinition")) + "</span>";
+    }
+    if (outMeta) outMeta.textContent = "";
+    if (outEl) outEl.innerHTML = '<p class="meta">' + esc2(vt("viewer.views.loading")) + "</p>";
+    const token = ++outputRequestToken;
+    const sql2 = "SELECT * FROM " + quoteIdent(name) + " LIMIT " + VIEW_OUTPUT_LIMIT;
+    fetch("/api/sql", authOpts({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sql: sql2 })
+    })).then(function(r) {
+      return r.json().then(function(data) {
+        return { ok: r.ok, data };
+      });
+    }).then(function(res) {
+      if (token !== outputRequestToken) return;
+      if (!outEl) return;
+      if (!res.ok || res.data && res.data.error) {
+        outEl.innerHTML = '<p class="meta">' + esc2(vt("viewer.views.outputError")) + "</p>" + (res.data && res.data.error ? '<pre class="meta">' + esc2(String(res.data.error)) + "</pre>" : "");
+        return;
+      }
+      const rows = res.data && res.data.rows || [];
+      if (outMeta && rows.length >= VIEW_OUTPUT_LIMIT) {
+        outMeta.textContent = "(" + vt("viewer.views.outputLimited", VIEW_OUTPUT_LIMIT) + ")";
+      }
+      outEl.innerHTML = renderOutputTable(rows);
+    }).catch(function() {
+      if (token !== outputRequestToken) return;
+      if (outEl) outEl.innerHTML = '<p class="meta">' + esc2(vt("viewer.views.outputError")) + "</p>";
+    });
+  }
+  function ensureViewsLoaded() {
+    if (viewsCache !== null) return;
+    const el = listEl2();
+    if (el) el.innerHTML = '<p class="meta">' + esc2(vt("viewer.views.loading")) + "</p>";
+    fetch("/api/views", authOpts()).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      const views = Array.isArray(data && data.views) ? data.views : [];
+      viewsCache = views;
+      renderList(views);
+    }).catch(function() {
+      const e = listEl2();
+      if (e) e.innerHTML = '<p class="meta">' + esc2(vt("viewer.views.loadError")) + "</p>";
+    });
+  }
+  function initViewsScreen() {
+  }
+
   // assets/web/tools-import.ts
   function initImport() {
     const toggle = document.getElementById("import-toggle");
@@ -33810,6 +33955,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   window.onTabSwitch = function(tabId) {
     if (tabId === "schema") ensureSchemaExplorer();
     else stopSchemaMutationPoll();
+    if (tabId === "views") ensureViewsLoaded();
     if (tabId === "diagram" && typeof window.ensureDiagramInited === "function") window.ensureDiagramInited();
     if (tabId === "search") refreshSearchResultsPanel();
     if (tabId === "index") triggerToolButtonIfReady("index-analyze", { checkDisabled: true });
@@ -33832,6 +33978,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   initSizeAnalytics();
   initAnomalyDetection();
   initDeclaredSchema();
+  initViewsScreen();
   initImport();
   initSearchTab();
   initSqlRunner();
@@ -34689,7 +34836,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   }
 
   // assets/web/table-def-meta.ts
-  function quoteIdent(name) {
+  function quoteIdent2(name) {
     return '"' + String(name).replace(/"/g, '""') + '"';
   }
   function isBlobLikeType(rawType) {
@@ -34703,7 +34850,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     if (!t || !t.columns || t.columns.length === 0) return {};
     const selects = ['COUNT(*) AS "__total__"'];
     t.columns.forEach(function(c, i) {
-      const col = quoteIdent(c.name);
+      const col = quoteIdent2(c.name);
       const rawType = c.type != null ? String(c.type) : "";
       selects.push("COUNT(" + col + ') AS "c' + i + '__nn"');
       selects.push("COUNT(DISTINCT " + col + ') AS "c' + i + '__d"');
@@ -34716,7 +34863,7 @@ ${JSON.stringify(results, void 0, 2)}`);
         selects.push("SUM(CASE WHEN " + col + ` = '' THEN 1 ELSE 0 END) AS "c` + i + '__blank"');
       }
     });
-    const sql2 = "SELECT " + selects.join(", ") + " FROM " + quoteIdent(tableName);
+    const sql2 = "SELECT " + selects.join(", ") + " FROM " + quoteIdent2(tableName);
     const resp = await fetch("/api/sql", authOpts({
       method: "POST",
       headers: { "Content-Type": "application/json" },

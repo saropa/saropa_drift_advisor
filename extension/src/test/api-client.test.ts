@@ -91,11 +91,14 @@ describe('DriftApiClient', () => {
   });
 
   describe('sql()', () => {
-    it('should POST query and return result', async () => {
-      const result = { columns: ['id', 'name'], rows: [[1, 'Alice']] };
-      fetchStub.resolves(new Response(JSON.stringify(result), { status: 200 }));
+    it('should POST query and convert object-rows to the columnar contract', async () => {
+      // The server replies with object-rows ({col: value}); client.sql() must
+      // normalize that to the columnar {columns, rows[][]} contract every
+      // consumer indexes positionally. See GitHub issue #32.
+      const serverResponse = { rows: [{ id: 1, name: 'Alice' }] };
+      fetchStub.resolves(new Response(JSON.stringify(serverResponse), { status: 200 }));
       const data = await client.sql('SELECT * FROM users');
-      assert.deepStrictEqual(data, result);
+      assert.deepStrictEqual(data, { columns: ['id', 'name'], rows: [[1, 'Alice']] });
 
       const [url, opts] = fetchStub.firstCall.args;
       assert.strictEqual(url, 'http://127.0.0.1:8642/api/sql');

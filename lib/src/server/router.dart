@@ -433,6 +433,16 @@ final class Router {
       return true;
     }
 
+    // GET /api/views — structured list of views ({name, sql}) for the Views
+    // screen. Independent of change detection: it reads sqlite_master directly
+    // (no PRAGMA/COUNT spam), so the screen works even with detection off.
+    if (path == ServerConstants.pathApiViews ||
+        path == ServerConstants.pathApiViewsAlt) {
+      await _schema.sendViews(response, query);
+
+      return true;
+    }
+
     // GET /api/schema/diagram — when change detection off, return
     // empty data to avoid PRAGMA table_info/foreign_key_list spam.
     if (path == ServerConstants.pathApiSchemaDiagram ||

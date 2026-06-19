@@ -44,7 +44,11 @@ browse source on
 
 ## [Unreleased]
 
-Database views now show up alongside tables, and querying them returns real values instead of "undefined". [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+Database views now show up alongside tables, there's a dedicated Views screen for their definitions and output, and querying them returns real values instead of "undefined". [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Added
+
+- **A dedicated Views screen.** A new Views tab lists every view in your database; selecting one shows its `CREATE VIEW` definition and a sample of its output side by side. Reach it from the toolbar (next to Schema) or the Home launcher. Views are read-only, so this is a focused place to inspect them — handy when a tool like PowerSync exposes your whole data model through views.
 
 ### Fixed
 
@@ -54,7 +58,8 @@ Database views now show up alongside tables, and querying them returns real valu
 <details><summary>Maintenance</summary>
 
 - **Views included in the table-discovery query.** `ServerConstants.sqlTableNames` now selects `type IN ('table','view')` instead of `type='table'`. `PRAGMA table_info` resolves view columns identically, so the sidebar tree, schema metadata, and SQL field pickers populate without further change; write paths return empty for views (correct read-only behavior). GitHub issue #32 (`lib/src/server/server_constants.dart`).
-- **Result rows normalized to the columnar contract in both transport adapters.** The server returns object-rows (`{col: value}`), but every extension consumer (notebook renderer, `zipRow`, CSV/JSON export) indexes rows positionally against a `columns` array. The VM-service adapter derived `columns` but left rows as objects — so the notebook read `row[0]` on an object and rendered `String(undefined)` — and the HTTP adapter returned the raw payload with no `columns` at all. A shared `objectRowsToColumnar` helper now converts both to `{columns, rows[][]}`. GitHub issue #32 (`extension/src/shared-utils.ts`, `extension/src/transport/vm-service-api.ts`, `extension/src/api-client-http-query.ts`).
+- **Result rows normalized to the columnar contract in both transport adapters.** The server returns object-rows (`{col: value}`), but every extension consumer (notebook renderer, `zipRow`, CSV/JSON export, watch/snapshot/diff) indexes rows positionally against a `columns` array. The VM-service adapter derived `columns` but left rows as objects — so the notebook read `row[0]` on an object and rendered `String(undefined)` — and the HTTP adapter returned the raw payload with no `columns` at all. A shared `objectRowsToColumnar` helper now converts both to `{columns, rows[][]}`. Test fixtures that stubbed the never-emitted columnar response shape were moved to the real object-row shape. GitHub issue #32 (`extension/src/shared-utils.ts`, `extension/src/transport/vm-service-api.ts`, `extension/src/api-client-http-query.ts`).
+- **New Views screen (web viewer).** `GET /api/views` returns `[{name, sql}]` from `sqlite_master` (new `SchemaHandler.getViewsList` + `sqlViewDefinitions`); the `views-screen.ts` tab renders the list, highlights each view's DDL, and runs a capped `SELECT` through the read-only `/api/sql` path for the output. New tab registration (`state.ts`), panel markup + toolbar button (`html_content.dart`), styles (`_views-screen.scss`), themed tab accents, and l10n keys (`strings-web-views.ts`). GitHub issue #32.
 
 </details>
 

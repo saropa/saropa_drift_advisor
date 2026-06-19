@@ -44,6 +44,7 @@
     import { initSnapshot, initCompare, initMigrationPreview } from './tools-compare.ts';
     import { initIndexSuggestions, initSizeAnalytics, initAnomalyDetection } from './tools-analytics.ts';
     import { initDeclaredSchema } from './declared-schema.ts';
+    import { initViewsScreen, ensureViewsLoaded } from './views-screen.ts';
     import { initImport } from './tools-import.ts';
     import { initSearchTab } from './search-tab.ts';
     import { initSqlRunner } from './sql-runner.ts';
@@ -204,6 +205,8 @@
       // it doesn't hold a connection open in the background.
       if (tabId === 'schema') ensureSchemaExplorer();
       else stopSchemaMutationPoll();
+      // Views tab: load the view list lazily on first activation.
+      if (tabId === 'views') ensureViewsLoaded();
       if (tabId === 'diagram' && typeof window.ensureDiagramInited === 'function') window.ensureDiagramInited();
       if (tabId === 'search') refreshSearchResultsPanel();
       // Auto-run when tool tab opens (no manual button click). checkDisabled avoids duplicate runs if analysis already in progress.
@@ -233,6 +236,7 @@
     initSizeAnalytics();
     initAnomalyDetection();
     initDeclaredSchema();
+    initViewsScreen();
     initImport();
     initSearchTab();
     initSqlRunner();

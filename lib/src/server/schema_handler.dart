@@ -73,6 +73,57 @@ final class SchemaHandler {
     await res.close();
   }
 
+  /// Returns the database's views as `[{name, sql}]`, sorted by name.
+  ///
+  /// `sql` is the stored `CREATE VIEW …` DDL from sqlite_master. SQLite can
+  /// store a null `sql` for internally-created objects, so a null is coerced to
+  /// an empty string rather than dropped — the view name still matters to the
+  /// caller (it can browse the view's output even when the DDL is unavailable).
+  Future<List<Map<String, dynamic>>> getViewsList(DriftDebugQuery query) async {
+    final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(
+      await query(ServerConstants.sqlViewDefinitions),
+    );
+
+    final views = <Map<String, dynamic>>[];
+    for (final r in rows) {
+      final name = r[ServerConstants.jsonKeyName]?.toString() ?? '';
+      // Skip nameless rows: a view with no name can't be browsed or labeled.
+      if (name.isEmpty) continue;
+      views.add(<String, dynamic>{
+        ServerConstants.jsonKeyName: name,
+        ServerConstants.jsonKeySql:
+            r[ServerConstants.jsonKeySql]?.toString() ?? '',
+      });
+    }
+    return views;
+  }
+
+  /// Sends GET /api/views: `{"views": [{name, sql}]}`.
+  Future<void> sendViews(HttpResponse response, DriftDebugQuery query) async {
+    final res = response;
+
+    try {
+      final List<Map<String, dynamic>> views = await getViewsList(query);
+
+      _ctx.setJsonHeaders(res);
+      res.write(
+        jsonEncode(<String, dynamic>{ServerConstants.jsonKeyViews: views}),
+      );
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      res.statusCode = HttpStatus.internalServerError;
+      res.headers.contentType = ContentType.json;
+      _ctx.setCors(res);
+      res.write(
+        jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: error.toString(),
+        }),
+      );
+    } finally {
+      await res.close();
+    }
+  }
+
   /// Returns diagram data: tables with columns and foreign keys.
   Future<Map<String, dynamic>> getDiagramData(DriftDebugQuery query) async {
     final List<String> tableNames = await ServerUtils.getTableNames(query);

@@ -12,10 +12,17 @@ describe('WatchManager', () => {
   let manager: WatchManager;
   let memento: MockMemento;
 
-  const sampleResponse = {
-    columns: ['id', 'name', 'age'],
-    rows: [[1, 'Alice', 30], [2, 'Bob', 25]],
-  };
+  // The real /api/sql emits object-rows ({col: value}); client.sql() converts
+  // to the columnar {columns, rows[][]} contract. Build the server shape here so
+  // tests exercise that conversion (GitHub issue #32).
+  function serverSql(columns: string[], rows: unknown[][]): { rows: object[] } {
+    return { rows: rows.map((r) => Object.fromEntries(columns.map((c, i) => [c, r[i]]))) };
+  }
+
+  const sampleResponse = serverSql(
+    ['id', 'name', 'age'],
+    [[1, 'Alice', 30], [2, 'Bob', 25]],
+  );
 
   function stubSqlResponse(data: object): void {
     fetchStub.resolves(
@@ -147,10 +154,10 @@ describe('WatchManager', () => {
       stubSqlResponse(sampleResponse);
       await manager.add('SELECT * FROM users', 'users');
 
-      const updated = {
-        columns: ['id', 'name', 'age'],
-        rows: [[1, 'Alice', 31], [2, 'Bob', 25]],
-      };
+      const updated = serverSql(
+        ['id', 'name', 'age'],
+        [[1, 'Alice', 31], [2, 'Bob', 25]],
+      );
       stubSqlResponse(updated);
       await manager.refresh();
 
@@ -188,10 +195,7 @@ describe('WatchManager', () => {
       await manager.add('SELECT * FROM users', 'users');
       manager.resetUnseen();
 
-      const updated = {
-        columns: ['id', 'name', 'age'],
-        rows: [[1, 'Alice', 31]],
-      };
+      const updated = serverSql(['id', 'name', 'age'], [[1, 'Alice', 31]]);
       stubSqlResponse(updated);
       await manager.refresh();
 

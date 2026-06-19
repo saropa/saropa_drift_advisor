@@ -4,6 +4,7 @@
 // Tests the data-returning methods directly with mock query callbacks.
 
 import 'package:saropa_drift_advisor/src/server/schema_handler.dart';
+import 'package:saropa_drift_advisor/src/server/server_typedefs.dart';
 import 'package:saropa_drift_advisor/src/server/server_types.dart';
 import 'package:test/test.dart';
 
@@ -303,6 +304,77 @@ void main() {
         expect(data['foreignKeys'] as List, isEmpty);
         // Verify the FK query was actually attempted.
         expect(callCount, 1);
+      });
+    });
+
+    // -------------------------------------------------------
+    // getViewsList — powers the Views screen (GitHub issue #32)
+    // -------------------------------------------------------
+    group('getViewsList', () {
+      // Mock that answers the view-definitions query (type='view') and returns
+      // empty for anything else, so the result is asserted in isolation.
+      DriftDebugQuery viewsQuery(List<Map<String, dynamic>> rows) {
+        return (String sql) async {
+          if (sql.contains("type='view'") && sql.contains('ORDER BY name')) {
+            return rows;
+          }
+          return <Map<String, dynamic>>[];
+        };
+      }
+
+      test('returns view name + CREATE VIEW sql', () async {
+        final ctx = createTestContext();
+        final handler = SchemaHandler(ctx);
+        final query = viewsQuery([
+          {
+            'name': 'active_users',
+            'sql': 'CREATE VIEW active_users AS SELECT 1',
+          },
+          {'name': 'recent', 'sql': 'CREATE VIEW recent AS SELECT 2'},
+        ]);
+
+        final views = await handler.getViewsList(query);
+
+        expect(views, hasLength(2));
+        expect(views.first['name'], 'active_users');
+        expect(views.first['sql'], 'CREATE VIEW active_users AS SELECT 1');
+      });
+
+      test('coerces a null stored sql to empty string', () async {
+        final ctx = createTestContext();
+        final handler = SchemaHandler(ctx);
+        final query = viewsQuery([
+          {'name': 'no_ddl', 'sql': null},
+        ]);
+
+        final views = await handler.getViewsList(query);
+
+        expect(views, hasLength(1));
+        expect(views.first['name'], 'no_ddl');
+        expect(views.first['sql'], '');
+      });
+
+      test('drops nameless rows', () async {
+        final ctx = createTestContext();
+        final handler = SchemaHandler(ctx);
+        final query = viewsQuery([
+          {'name': '', 'sql': 'CREATE VIEW x AS SELECT 1'},
+          {'name': 'ok', 'sql': 'CREATE VIEW ok AS SELECT 1'},
+        ]);
+
+        final views = await handler.getViewsList(query);
+
+        expect(views, hasLength(1));
+        expect(views.first['name'], 'ok');
+      });
+
+      test('empty database returns no views', () async {
+        final ctx = createTestContext();
+        final handler = SchemaHandler(ctx);
+
+        final views = await handler.getViewsList(viewsQuery([]));
+
+        expect(views, isEmpty);
       });
     });
 

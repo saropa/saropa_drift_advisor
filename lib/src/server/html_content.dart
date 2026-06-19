@@ -195,6 +195,7 @@ abstract final class HtmlContent {
         <hr class="tb-divider" />
         <button type="button" class="tb-icon-btn" data-tool="index" data-label="Index" title="Index"><span class="material-symbols-outlined" aria-hidden="true">format_list_bulleted</span></button>
         <button type="button" class="tb-icon-btn" data-tool="schema" data-label="Schema" title="Schema"><span class="material-symbols-outlined" aria-hidden="true">grid_on</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="views" data-label="Views" title="Views"><span class="material-symbols-outlined" aria-hidden="true">table_view</span></button>
         <button type="button" class="tb-icon-btn" data-tool="declared" data-label="Code" title="Code schema"><span class="material-symbols-outlined" aria-hidden="true">data_object</span></button>
         <button type="button" class="tb-icon-btn" data-tool="diagram" data-label="Diagram" title="Diagram"><span class="material-symbols-outlined" aria-hidden="true">account_tree</span></button>
         <hr class="tb-divider" />
@@ -765,6 +766,29 @@ abstract final class HtmlContent {
               <summary id="schema-raw-summary" class="schema-raw-summary">Raw DDL</summary>
               <div id="schema-collapsible" class="tool-panel-body"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
             </details>
+          </div>
+        </div>
+        <div id="panel-views" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-views" hidden>
+          <!-- Views screen: left list of database views; selecting one shows
+               its CREATE VIEW definition and a sample of its output. User-visible
+               text is localized by views-screen.ts via vt() on first activation;
+               the markup here carries only structure + the English fallback shown
+               before the bundle runs. -->
+          <div id="views-screen" class="views-screen">
+            <p class="meta">Database views — their SQL definition and output. Views are read-only (e.g. PowerSync exposes JSON-backed tables this way).</p>
+            <div id="views-layout" class="views-layout">
+              <div id="views-list" class="views-list" role="list"><p class="meta">Loading…</p></div>
+              <div id="views-detail" class="views-detail">
+                <p class="meta" id="views-empty-hint">Select a view to see its definition and output.</p>
+                <div id="views-detail-body" style="display:none;">
+                  <h3 id="views-detail-name" class="views-detail-name"></h3>
+                  <div class="views-section-label meta">Definition</div>
+                  <pre id="views-detail-sql" class="views-detail-sql"></pre>
+                  <div class="views-section-label meta">Output <span id="views-output-meta" class="meta"></span></div>
+                  <div id="views-detail-output" class="views-detail-output"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <div id="panel-declared" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-declared" hidden>

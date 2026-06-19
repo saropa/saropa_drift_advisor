@@ -4776,6 +4776,116 @@ th.table-def-vis {
   color: var(--fg);
 }
 
+/* Views screen (Views tab) — rendered by views-screen.ts.
+ *
+ * Two-column layout: a scrollable list of view names on the left, and the
+ * selected view's CREATE VIEW definition + output sample on the right. All
+ * color/spacing pulls from theme tokens so light/dark/midnight stay consistent;
+ * the output reuses the shared `.drift-table` grid (_data-table.scss). */
+.views-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Side-by-side on wide viewports; stacks under a narrow panel (e.g. the
+   embedded VS Code dashboard at a small width). */
+.views-layout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.views-list {
+  flex: 0 0 14rem;
+  max-width: 16rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.views-list-count {
+  padding: 0.2rem 0.1rem 0.35rem;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 0.25rem;
+}
+
+.views-list-item {
+  text-align: left;
+  padding: 0.4rem 0.55rem;
+  font-size: 13px;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.views-list-item:hover {
+  background: var(--bg-pre);
+}
+
+.views-list-item.active {
+  background: var(--bg-pre);
+  border-color: var(--border);
+  font-weight: 600;
+}
+
+.views-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.views-detail-name {
+  margin: 0 0 0.5rem;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.views-section-label {
+  margin: 0.6rem 0 0.25rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+
+.views-detail-sql {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg-pre);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.views-detail-output {
+  margin-top: 0.25rem;
+}
+
+/* Stack the list above the detail when the panel is too narrow for two columns. */
+@media (max-width: 720px) {
+  .views-layout {
+    flex-direction: column;
+  }
+  .views-list {
+    flex-basis: auto;
+    max-width: none;
+    width: 100%;
+    max-height: 14rem;
+  }
+}
 /* --- Connection health banner --- */
 /* Fixed banner slides down from top with a smooth CSS transition.
    Warm amber/orange is visible in both light and dark themes.
@@ -5349,6 +5459,9 @@ body.theme-showcase .tab-bar .tab-btn[data-tab-type=import] {
 body.theme-showcase .tab-bar .tab-btn[data-tab-type=schema] {
   --tab-accent: #059669;
 } /* emerald */
+body.theme-showcase .tab-bar .tab-btn[data-tab-type=views] {
+  --tab-accent: #7c3aed;
+} /* violet */
 body.theme-showcase .tab-bar .tab-btn[data-tab-type=diagram] {
   --tab-accent: #2563eb;
 } /* blue */
@@ -5683,6 +5796,9 @@ body.theme-midnight .tab-bar .tab-btn[data-tab-type=import] {
 body.theme-midnight .tab-bar .tab-btn[data-tab-type=schema] {
   --tab-accent: #34d399;
 } /* emerald */
+body.theme-midnight .tab-bar .tab-btn[data-tab-type=views] {
+  --tab-accent: #c4b5fd;
+} /* light violet */
 body.theme-midnight .tab-bar .tab-btn[data-tab-type=diagram] {
   --tab-accent: #38bdf8;
 } /* sky blue */

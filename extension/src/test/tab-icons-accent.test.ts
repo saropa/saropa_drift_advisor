@@ -197,7 +197,7 @@ describe('Tab accent colors — theme SCSS', () => {
   const tabTypes = [
     'home', 'tables', 'search', 'sql', 'snapshot', 'compare',
     'index', 'size', 'perf', 'anomaly', 'import',
-    'schema', 'diagram', 'export', 'settings',
+    'schema', 'views', 'diagram', 'export', 'settings',
   ];
 
   before(() => {
