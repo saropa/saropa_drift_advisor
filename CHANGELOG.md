@@ -42,6 +42,16 @@ browse source on
 
 ---
 
+## [4.0.5]
+
+Maintenance-only: the publish pipeline now offers **Retry** as the default action whenever a git step fails. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.5/CHANGELOG.md)
+
+<details><summary>Maintenance</summary>
+
+- **Git failure prompts in the publish pipeline now offer Retry (default), Skip, Abort** instead of just Skip/Abort. The common cause of a failed commit here is a husky pre-commit hook (`dart format` / saropa_lints) that rewrites a staged file and fails the first attempt; a bare Enter now re-runs the step. For commits, retry restarts from `git add` so the hook's reformatted files get re-staged. Tag creation and tag push use separate retry loops so retrying a push never tries to recreate an existing tag. EOF / Ctrl+C maps to Abort so a closed stdin cannot loop forever (`scripts/modules/git_ops.py`, `scripts/modules/display.py`).
+
+</details>
+
 ## [4.0.4]
 
 The web viewer's Home tab is easier to read and to navigate: a plain-language overview of every tool, a fuzzy search box to jump to a feature by name, color-coded tool cards, and more breathing room between them. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.4/CHANGELOG.md)

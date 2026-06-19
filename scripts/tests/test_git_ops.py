@@ -103,7 +103,7 @@ class TestGitCommitAndPush(unittest.TestCase):
 
     # ── git add fails → prompts skip/abort ──────────────────────
 
-    @patch("modules.git_ops._prompt_skip_or_abort", return_value=False)
+    @patch("modules.git_ops._decide_after_git_failure", return_value=False)
     @patch("modules.git_ops.fail")
     @patch("modules.git_ops.info")
     @patch("modules.git_ops.run")
@@ -165,7 +165,7 @@ class TestGitCommitAndPush(unittest.TestCase):
 
     # ── git commit fails → prompts, shows both stderr and stdout ─
 
-    @patch("modules.git_ops._prompt_skip_or_abort", return_value=False)
+    @patch("modules.git_ops._decide_after_git_failure", return_value=False)
     @patch("modules.git_ops.fail")
     @patch("modules.git_ops.info")
     @patch("modules.git_ops.run")
@@ -198,6 +198,52 @@ class TestGitCommitAndPush(unittest.TestCase):
         self.assertIn("more details here", fail_msg)
         # Must prompt instead of hard-aborting.
         mock_prompt.assert_called_once()
+
+    # ── commit fails, operator retries, second attempt succeeds ──
+
+    @patch("modules.git_ops._warn_dirty_working_tree")
+    @patch("modules.git_ops._push_to_origin", return_value=True)
+    @patch("modules.git_ops._decide_after_git_failure", return_value=None)
+    @patch("modules.git_ops.fail")
+    @patch("modules.git_ops.ok")
+    @patch("modules.git_ops.info")
+    @patch("modules.git_ops.run")
+    def test_commit_failure_retry_restages_and_succeeds(
+        self,
+        mock_run: MagicMock,
+        mock_info: MagicMock,
+        mock_ok: MagicMock,
+        mock_fail: MagicMock,
+        mock_decide: MagicMock,
+        mock_push: MagicMock,
+        mock_warn_dirty: MagicMock,
+    ) -> None:
+        """A pre-commit hook (husky → dart format) fails the first commit; retry
+        re-runs git add + commit, which then passes. This is the exact scenario
+        the retry option exists for, so the retry must restart from git add."""
+        config = _make_config()
+
+        # First attempt: add → diff(staged) → commit FAILS (hook reformatted).
+        # Operator picks retry (_decide_after_git_failure → None), so a second
+        # attempt runs: add → diff(staged) → commit OK.
+        mock_run.side_effect = [
+            _run_result(),                                   # git add (1st)
+            _run_result(stdout="lib/src/server/analytics_handler.dart\n"),  # diff
+            _run_result(returncode=1, stderr="husky - pre-commit script failed"),  # commit fail
+            _run_result(),                                   # git add (retry)
+            _run_result(stdout="lib/src/server/analytics_handler.dart\n"),  # diff
+            _run_result(),                                   # git commit OK
+        ]
+
+        result = git_commit_and_push(config, "4.0.5")
+
+        self.assertTrue(result)
+        # Re-staged: git add ran twice (call indexes 0 and 3).
+        self.assertIn("add", mock_run.call_args_list[0][0][0])
+        self.assertIn("add", mock_run.call_args_list[3][0][0])
+        # Prompted exactly once (the first commit failure).
+        mock_decide.assert_called_once()
+        mock_push.assert_called_once()
 
     # ── staged files are logged ────────────────────────────────
 

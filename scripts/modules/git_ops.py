@@ -13,18 +13,33 @@ if TYPE_CHECKING:
     from modules.target_config import TargetConfig
 
 
-def _prompt_skip_or_abort(label: str) -> bool:
-    """Show a skip/abort prompt after a git failure.
+def _decide_after_git_failure(label: str) -> bool | None:
+    """Prompt retry / skip / abort after a git failure.
 
-    Returns True if the developer chose to skip (continue), False to abort.
-    Every git failure in the publish pipeline must go through this so the
-    script never hard-aborts without asking.
+    Retry is the default: the most common cause of a git failure here is a
+    pre-commit hook (husky → ``dart format`` / saropa_lints) that just rewrote
+    the tree and failed the first attempt — re-running the same step then
+    succeeds because the hook's edits are now picked up. A bare Enter therefore
+    re-attempts.
+
+    Returns:
+        None  – retry: the caller should re-attempt the failed step.
+        True  – skip: warn and continue the pipeline.
+        False – abort: stop the pipeline.
+
+    EOF / Ctrl+C maps to abort (not retry) so a closed stdin cannot loop on the
+    same failing step forever. Every git failure in the publish pipeline must
+    go through this so the script never hard-aborts without asking.
     """
     choice = ask_choice(
         f"{label}. Choose what to do next",
-        choices=("skip", "abort"),
-        default="abort",
+        choices=("retry", "skip", "abort"),
+        default="retry",
+        eof_default="abort",
     )
+    if choice == "retry":
+        warn(f"Retrying: {label}...")
+        return None
     if choice == "skip":
         warn(f"Skipping: {label} (by user choice).")
         return True
@@ -64,32 +79,45 @@ def _push_to_origin() -> bool:
     """
     branch_name = get_current_branch()
 
-    info("Pushing to origin...")
-    push = run(["git", "push", "origin", branch_name], cwd=REPO_ROOT)
-    if push.returncode == 0:
-        ok(f"Pushed to origin/{branch_name}")
-        return True
+    # Retry loop so a transient push failure (network blip, a race with another
+    # pusher) can be re-attempted in place. `continue` re-runs the whole push;
+    # skip/abort fall through via _decide_after_git_failure.
+    while True:
+        info("Pushing to origin...")
+        push = run(["git", "push", "origin", branch_name], cwd=REPO_ROOT)
+        if push.returncode == 0:
+            ok(f"Pushed to origin/{branch_name}")
+            return True
 
-    stderr = push.stderr or ""
-    if "non-fast-forward" in stderr or "rejected" in stderr.lower():
-        fix("Remote has new commits; pulling with merge then re-pushing...")
-        pull = run(
-            ["git", "pull", "origin", branch_name, "--no-edit"],
-            cwd=REPO_ROOT,
-        )
-        if pull.returncode != 0:
-            fail(f"git pull failed: {pull.stderr.strip()}")
-            return _prompt_skip_or_abort("git pull failed")
-        ok("Merged remote changes")
-        push2 = run(["git", "push", "origin", branch_name], cwd=REPO_ROOT)
-        if push2.returncode != 0:
-            fail(f"git push failed after merge: {push2.stderr.strip()}")
-            return _prompt_skip_or_abort("git push failed after merge")
-        ok(f"Pushed to origin/{branch_name}")
-        return True
+        stderr = push.stderr or ""
+        if "non-fast-forward" in stderr or "rejected" in stderr.lower():
+            fix("Remote has new commits; pulling with merge then re-pushing...")
+            pull = run(
+                ["git", "pull", "origin", branch_name, "--no-edit"],
+                cwd=REPO_ROOT,
+            )
+            if pull.returncode != 0:
+                fail(f"git pull failed: {pull.stderr.strip()}")
+                decision = _decide_after_git_failure("git pull failed")
+                if decision is None:
+                    continue
+                return decision
+            ok("Merged remote changes")
+            push2 = run(["git", "push", "origin", branch_name], cwd=REPO_ROOT)
+            if push2.returncode != 0:
+                fail(f"git push failed after merge: {push2.stderr.strip()}")
+                decision = _decide_after_git_failure("git push failed after merge")
+                if decision is None:
+                    continue
+                return decision
+            ok(f"Pushed to origin/{branch_name}")
+            return True
 
-    fail(f"git push failed: {stderr.strip()}")
-    return _prompt_skip_or_abort("git push failed")
+        fail(f"git push failed: {stderr.strip()}")
+        decision = _decide_after_git_failure("git push failed")
+        if decision is None:
+            continue
+        return decision
 
 
 def git_commit_and_push(config: "TargetConfig", version: str) -> bool:
@@ -105,31 +133,44 @@ def git_commit_and_push(config: "TargetConfig", version: str) -> bool:
     the operator knows the working tree is not fully clean.
     """
     tag = f"{config.tag_prefix}{version}"
-    paths_display = ", ".join(config.git_stage_paths)
-    info(f"Staging changes for {config.display_name} ({paths_display})...")
-    add_result = run(["git", "add", *config.git_stage_paths], cwd=REPO_ROOT)
-    if add_result.returncode != 0:
-        fail(f"git add failed: {(add_result.stderr or add_result.stdout).strip()}")
-        return _prompt_skip_or_abort("git add failed")
-
-    # Check only the staging area (index) — unstaged changes in files
-    # outside git_stage_paths must not trick us into attempting a commit
-    # that has nothing staged.
-    staged = run(["git", "diff", "--cached", "--name-only"], cwd=REPO_ROOT)
-    staged_files = staged.stdout.strip()
-    if not staged_files:
-        ok("No staged changes to commit")
-        _warn_dirty_working_tree(config)
-        return True
-
-    # Log what we are about to commit for auditability.
-    for path in staged_files.splitlines():
-        info(f"  staged: {path}")
-
     msg = config.commit_msg_fmt.format(version=version)
-    info(f"Committing {tag}...")
-    commit = run(["git", "commit", "-m", msg], cwd=REPO_ROOT)
-    if commit.returncode != 0:
+    paths_display = ", ".join(config.git_stage_paths)
+
+    # Retry loop around stage + commit. A pre-commit hook (husky → dart format /
+    # saropa_lints) can rewrite a staged file and fail the first commit; the
+    # hook's edits then sit UNSTAGED in the tree. Re-staging and re-committing is
+    # what makes the second attempt pass, so retry restarts from `git add` — not
+    # just the commit — and that re-stage is the whole point of looping here.
+    while True:
+        info(f"Staging changes for {config.display_name} ({paths_display})...")
+        add_result = run(["git", "add", *config.git_stage_paths], cwd=REPO_ROOT)
+        if add_result.returncode != 0:
+            fail(f"git add failed: {(add_result.stderr or add_result.stdout).strip()}")
+            decision = _decide_after_git_failure("git add failed")
+            if decision is None:
+                continue
+            return decision
+
+        # Check only the staging area (index) — unstaged changes in files
+        # outside git_stage_paths must not trick us into attempting a commit
+        # that has nothing staged.
+        staged = run(["git", "diff", "--cached", "--name-only"], cwd=REPO_ROOT)
+        staged_files = staged.stdout.strip()
+        if not staged_files:
+            ok("No staged changes to commit")
+            _warn_dirty_working_tree(config)
+            return True
+
+        # Log what we are about to commit for auditability.
+        for path in staged_files.splitlines():
+            info(f"  staged: {path}")
+
+        info(f"Committing {tag}...")
+        commit = run(["git", "commit", "-m", msg], cwd=REPO_ROOT)
+        if commit.returncode == 0:
+            ok(f"Committed: {msg}")
+            break
+
         # "nothing to commit" means an earlier manual commit (or a
         # previous pipeline run) already captured all staged changes.
         # Skip straight to push instead of prompting.
@@ -146,9 +187,14 @@ def git_commit_and_push(config: "TargetConfig", version: str) -> bool:
         if stdout_detail:
             detail = f"{detail}\n{stdout_detail}" if detail else stdout_detail
         fail(f"git commit failed:\n{detail}")
-        return _prompt_skip_or_abort("git commit failed")
+        decision = _decide_after_git_failure("git commit failed")
+        if decision is None:
+            # Retry: re-stage (picks up the hook's reformat) and commit again.
+            continue
+        # Skip preserves the original behavior — return without pushing, since a
+        # failed commit produced nothing new for the push to carry.
+        return decision
 
-    ok(f"Committed: {msg}")
     _warn_dirty_working_tree(config)
     return _push_to_origin()
 
@@ -176,20 +222,32 @@ def _warn_dirty_working_tree(config: "TargetConfig") -> None:
 def create_git_tag(config: "TargetConfig", version: str) -> bool:
     """Create and push an annotated git tag."""
     tag = f"{config.tag_prefix}{version}"
-    info(f"Creating tag {tag}...")
-    result = run(
-        ["git", "tag", "-a", tag, "-m", f"Release {config.display_name} {version}"],
-        cwd=REPO_ROOT,
-    )
-    if result.returncode != 0:
+
+    # Tag creation and tag push get separate retry loops on purpose: once the
+    # tag exists locally, retrying a failed *push* must not re-run `git tag -a`
+    # (which would fail "tag already exists"). So a push retry re-pushes only.
+    while True:
+        info(f"Creating tag {tag}...")
+        result = run(
+            ["git", "tag", "-a", tag, "-m", f"Release {config.display_name} {version}"],
+            cwd=REPO_ROOT,
+        )
+        if result.returncode == 0:
+            break
         fail(f"git tag failed: {result.stderr.strip()}")
-        return _prompt_skip_or_abort(f"git tag {tag} failed")
+        decision = _decide_after_git_failure(f"git tag {tag} failed")
+        if decision is None:
+            continue
+        return decision
 
-    info(f"Pushing tag {tag}...")
-    push = run(["git", "push", "origin", tag], cwd=REPO_ROOT)
-    if push.returncode != 0:
+    while True:
+        info(f"Pushing tag {tag}...")
+        push = run(["git", "push", "origin", tag], cwd=REPO_ROOT)
+        if push.returncode == 0:
+            ok(f"Tag {tag} created and pushed")
+            return True
         fail(f"git push tag failed: {push.stderr.strip()}")
-        return _prompt_skip_or_abort(f"git push tag {tag} failed")
-
-    ok(f"Tag {tag} created and pushed")
-    return True
+        decision = _decide_after_git_failure(f"git push tag {tag} failed")
+        if decision is None:
+            continue
+        return decision

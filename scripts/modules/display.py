@@ -196,13 +196,19 @@ def ask_choice(
     question: str,
     choices: tuple[str, ...],
     default: str,
+    eof_default: str | None = None,
 ) -> str:
     """Prompt the user to pick one choice from a fixed list.
 
     Args:
         question: Prompt text shown before the available options.
         choices: Allowed lowercase values (for example: ("retry", "skip", "abort")).
-        default: Value returned when the user presses Enter, EOF, or Ctrl+C.
+        default: Value returned when the user presses Enter (the interactive default).
+        eof_default: Value returned on EOF / Ctrl+C (no human at the keyboard).
+            Defaults to ``default`` when omitted. Callers whose interactive
+            default is a *retry* must set this to a terminal choice (e.g.
+            "abort") — otherwise a closed stdin would re-issue the same failing
+            step forever, because EOF would map to retry on every iteration.
 
     Returns:
         The selected normalized choice value.
@@ -212,6 +218,10 @@ def ask_choice(
         raise ValueError("choices must include at least one non-empty option")
     if default.lower() not in normalized:
         raise ValueError("default must be one of choices")
+    # When no explicit EOF fallback is given, mirror the interactive default.
+    eof_choice = (eof_default if eof_default is not None else default).lower()
+    if eof_choice not in normalized:
+        raise ValueError("eof_default must be one of choices")
 
     # Build a map from first-letter abbreviation to full choice name,
     # so the user can type "r" instead of "retry", etc.  If two choices
@@ -249,7 +259,7 @@ def ask_choice(
             ).strip().lower()
         except (EOFError, KeyboardInterrupt):
             print()
-            return default.lower()
+            return eof_choice
         if not raw:
             return default.lower()
         if raw in normalized:
