@@ -37,6 +37,17 @@ class _DriftDebugServerImpl {
   HttpServer? _server;
   StreamSubscription<HttpRequest>? _serverSubscription;
 
+  /// Synchronous re-entrancy guard for [start].
+  ///
+  /// [_server] is the "is running" signal, but it is not assigned until after
+  /// several awaits inside [start] (loadPersistedSnapshots, HttpServer.bind).
+  /// A second start() arriving during that window would pass an
+  /// `_server != null` check while the first call is still binding; with
+  /// `shared: true` (SO_REUSEPORT) both binds succeed and BOTH print the
+  /// startup banner — the duplicate-banner bug. This flag is set before the
+  /// first await and cleared in a finally, closing that race window.
+  bool _starting = false;
+
   /// Router for dispatching requests; null when server is not running.
   Router? _router;
 
@@ -137,11 +148,66 @@ class _DriftDebugServerImpl {
     if (!enabled) {
       return;
     }
-    final existing = _server;
-    if (existing != null) {
+    // Re-entrancy guard: reject if already running OR a start() is in flight.
+    // Checking [_starting] (not just [_server]) is required because [_server]
+    // is assigned only after the awaits below; without this a concurrent/rapid
+    // second start() would race through and print a duplicate banner.
+    if (_server != null || _starting) {
       return;
     }
+    _starting = true;
+    try {
+      await _startInternal(
+        query: query,
+        queryWithBindings: queryWithBindings,
+        port: port,
+        loopbackOnly: loopbackOnly,
+        corsOrigin: corsOrigin,
+        authToken: authToken,
+        basicAuthUser: basicAuthUser,
+        basicAuthPassword: basicAuthPassword,
+        getDatabaseBytes: getDatabaseBytes,
+        queryCompare: queryCompare,
+        writeQuery: writeQuery,
+        writeQueryWithBindings: writeQueryWithBindings,
+        onLog: onLog,
+        onError: onError,
+        sessionDuration: sessionDuration,
+        maxRequestsPerSecond: maxRequestsPerSecond,
+        declaredTableNames: declaredTableNames,
+        declaredSchema: declaredSchema,
+        declaredRelationships: declaredRelationships,
+        snapshotStorePath: snapshotStorePath,
+      );
+    } finally {
+      _starting = false;
+    }
+  }
 
+  /// Body of [start]; runs under the [_starting] re-entrancy guard so the
+  /// flag is cleared exactly once whether this returns, throws, or binds.
+  Future<void> _startInternal({
+    required DriftDebugQuery query,
+    DriftDebugQueryWithBindings? queryWithBindings,
+    int port = ServerConstants.defaultPort,
+    bool loopbackOnly = true,
+    String? corsOrigin,
+    String? authToken,
+    String? basicAuthUser,
+    String? basicAuthPassword,
+    DriftDebugGetDatabaseBytes? getDatabaseBytes,
+    DriftDebugQuery? queryCompare,
+    DriftDebugWriteQuery? writeQuery,
+    DriftDebugWriteQueryWithBindings? writeQueryWithBindings,
+    DriftDebugOnLog? onLog,
+    DriftDebugOnError? onError,
+    Duration? sessionDuration,
+    int? maxRequestsPerSecond,
+    Set<String>? declaredTableNames,
+    DeclaredSchemaCallback? declaredSchema,
+    DeclaredRelationshipsCallback? declaredRelationships,
+    String? snapshotStorePath,
+  }) async {
     // Construct session store with the configured duration
     // (or default 1 hour if not specified).
     _sessionStore = DriftDebugSessionStore(sessionExpiry: sessionDuration);

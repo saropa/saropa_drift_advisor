@@ -2057,5 +2057,48 @@ void main() {
       // ephemeral port here proves the value is interpolated, not hardcoded.
       expect(banner, contains('adb forward tcp:$port tcp:$port'));
     });
+
+    // Two concurrent start() calls must print the banner exactly once.
+    // Regression: the running-state guard tested _server, which is assigned
+    // only after the awaits in start() (loadPersistedSnapshots, bind). A
+    // second start() arriving during that window passed the guard while the
+    // first was still binding; with shared:true both binds succeeded and BOTH
+    // printed the banner (the duplicate "DRIFT DEBUG SERVER" banner bug). The
+    // synchronous _starting flag must collapse the second call to a no-op.
+    test('concurrent start() prints the banner only once', () async {
+      final printed = <String>[];
+      await runZoned(
+        () async {
+          // Launch both without awaiting the first — this reproduces the race
+          // window. A fixed (non-zero) port forces both onto the same bind.
+          await Future.wait(<Future<void>>[
+            DriftDebugServer.start(
+              query: (_) async => <Map<String, dynamic>>[],
+              enabled: true,
+              port: 0,
+            ),
+            DriftDebugServer.start(
+              query: (_) async => <Map<String, dynamic>>[],
+              enabled: true,
+              port: 0,
+            ),
+          ]);
+        },
+        zoneSpecification: ZoneSpecification(
+          print: (self, parent, zone, line) => printed.add(line),
+        ),
+      );
+
+      final bannerCount = printed
+          .where((line) => line.contains('DRIFT DEBUG SERVER'))
+          .length;
+      expect(
+        bannerCount,
+        1,
+        reason:
+            'startup banner must print exactly once, even when start() '
+            'is called concurrently',
+      );
+    });
   });
 }
