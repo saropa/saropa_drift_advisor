@@ -363,6 +363,7 @@ _STEP_EXIT_CODES = {
     "Global npm pkgs": ExitCode.PREREQUISITE_FAILED,
     "VS Code extensions": ExitCode.PREREQUISITE_FAILED,
     "Dependencies": ExitCode.DEPENDENCY_FAILED,
+    "VS Code API compatibility": ExitCode.DEPENDENCY_FAILED,
     "Compile": ExitCode.COMPILE_FAILED,
     "Tests": ExitCode.TEST_FAILED,
     "File line limits": ExitCode.QUALITY_FAILED,

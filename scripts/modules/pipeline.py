@@ -205,11 +205,20 @@ def _run_ext_build_and_validate(
     Returns (version, all_passed, lint_report_path). lint_report_path is set when
     the saropa_lints step runs and produces a report file.
     """
-    from modules.ext_build import step_compile, step_test, check_file_line_limits
+    from modules.ext_build import (
+        step_compile, step_test, check_file_line_limits, check_engines_vscode_compat,
+    )
     from modules.target_config import EXTENSION
 
     heading("Step 7 \u00b7 Quality Checks")
     if not run_step("File line limits", check_file_line_limits, results):
+        return "", False, None
+
+    # Catch an @types/vscode > engines.vscode mismatch here (fast manifest read)
+    # instead of letting it blow up at the much later vsce packaging step. A
+    # Dependabot bump to @types/vscode crossed this line and only surfaced as a
+    # hard packaging failure mid-publish.
+    if not run_step("VS Code API compatibility", check_engines_vscode_compat, results):
         return "", False, None
 
     lint_step_name = "Lint (saropa_lints)"

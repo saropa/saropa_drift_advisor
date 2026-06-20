@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """Extension build steps: dependencies, compile, test, quality."""
 
+import json
 import os
+import re
 
 from modules.constants import (
     C,
@@ -12,6 +14,72 @@ from modules.constants import (
 )
 from modules.display import ask_yn, fail, fix, info, ok, print_cmd_output, warn
 from modules.utils import run
+
+
+def _semver_tuple(spec: str) -> tuple[int, int, int] | None:
+    """Extract a (major, minor, patch) tuple from an npm version spec.
+
+    Strips a leading range operator (``^``, ``~``, ``>=``, ``=``, ``v``) and
+    parses the first three dotted numeric components. Returns None when no
+    numeric version can be found (e.g. ``"*"``, ``"latest"``, a git URL) so
+    callers can skip the comparison rather than crash on an unparseable range.
+    """
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", spec or "")
+    if not match:
+        return None
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def check_engines_vscode_compat() -> bool:
+    """Verify ``@types/vscode`` is not newer than ``engines.vscode``.
+
+    ``vsce package`` hard-fails when the ``@types/vscode`` dev dependency
+    promises a VS Code API version higher than the minimum declared in
+    ``engines.vscode`` — the type definitions would expose APIs that the
+    extension claims to run without. A Dependabot bump to ``@types/vscode``
+    silently crossed this line and only surfaced at the packaging step deep
+    in the pipeline; this check moves the failure to the fast quality phase
+    with an actionable message. See the matching ``vsce`` rule:
+    "@types/vscode ^X greater than engines.vscode ^Y".
+    """
+    pkg_json = os.path.join(EXTENSION_DIR, "package.json")
+    try:
+        with open(pkg_json, "r", encoding="utf-8") as fh:
+            pkg = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        fail(f"Could not read extension package.json: {exc}")
+        return False
+
+    engines_spec = (pkg.get("engines") or {}).get("vscode", "")
+    types_spec = (pkg.get("devDependencies") or {}).get("@types/vscode", "")
+
+    # Missing either field is not this check's failure mode — a project may
+    # legitimately omit @types/vscode. Only an actual, parseable mismatch fails.
+    if not engines_spec or not types_spec:
+        ok("engines.vscode / @types/vscode compatibility: nothing to compare")
+        return True
+
+    engines_ver = _semver_tuple(engines_spec)
+    types_ver = _semver_tuple(types_spec)
+    if engines_ver is None or types_ver is None:
+        warn(
+            "engines.vscode / @types/vscode compatibility: unparseable range "
+            f"(engines={engines_spec!r}, @types/vscode={types_spec!r}) -- skipped"
+        )
+        return True
+
+    if types_ver > engines_ver:
+        fail(
+            f"@types/vscode {types_spec} is newer than engines.vscode "
+            f"{engines_spec}. vsce will reject packaging. Either pin "
+            f"@types/vscode down to ^{engines_ver[0]}.{engines_ver[1]}.{engines_ver[2]} "
+            f"to match the supported VS Code floor (keeps existing users), or "
+            f"raise engines.vscode (drops users on older VS Code)."
+        )
+        return False
+
+    ok(f"@types/vscode {types_spec} <= engines.vscode {engines_spec}")
+    return True
 
 
 def ensure_dependencies() -> bool:
