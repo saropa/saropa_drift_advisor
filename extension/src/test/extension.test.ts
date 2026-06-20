@@ -146,7 +146,10 @@ describe('Extension activation', () => {
     //   disposable in wireEventListeners (+1).
     // Saropa Lints diagnostics ingestion: SaropaLintsDiagnostics dispose +
     //   runSaropaLintsDiagnostics + clearSaropaLintsDiagnostics commands (+3).
-    assert.strictEqual(subscriptions.length, 232, `expected 232 disposables, got ${subscriptions.length}`);
+    // Inline suppression + Rules UI: suppressDiagnosticInColumn +
+    //   suppressDiagnosticInFile commands (+2); Rules tree view + onDidRefresh
+    //   listener + rules.toggleRule + rules.refresh commands (+4).
+    assert.strictEqual(subscriptions.length, 238, `expected 238 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

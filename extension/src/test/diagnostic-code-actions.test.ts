@@ -6,6 +6,7 @@ import {
   Diagnostic,
   DiagnosticSeverity,
   Range,
+  Uri,
 } from './vscode-mock-classes';
 import { resetMocks } from './vscode-mock';
 import { DriftApiClient } from '../api-client';
@@ -80,12 +81,17 @@ describe('DiagnosticCodeActionProvider', () => {
     diag.code = 'missing-fk-index';
 
     const actions = actionProvider.provideCodeActions(
-      {} as any,
+      { uri: Uri.parse('file:///lib/x.dart') } as any,
       new Range(0, 0, 0, 10) as any,
       { diagnostics: [diag] } as any,
     );
 
-    assert.strictEqual(actions.length, 1);
-    assert.deepStrictEqual(actions[0].diagnostics, [diag]);
+    // Provider's "Fix it" plus the two always-on inline-ignore quick fixes the
+    // manager appends. Every returned action gets the source diagnostic attached.
+    assert.strictEqual(actions.length, 3);
+    assert.ok(actions.some((a) => a.title === 'Fix it'));
+    for (const a of actions) {
+      assert.deepStrictEqual(a.diagnostics, [diag]);
+    }
   });
 });

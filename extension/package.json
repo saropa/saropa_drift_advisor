@@ -76,6 +76,12 @@
           "name": "%view.toolbox.name%",
           "icon": "$(tools)",
           "when": "driftViewer.isDriftProject"
+        },
+        {
+          "id": "driftViewer.rules",
+          "name": "%view.rules.name%",
+          "icon": "$(checklist)",
+          "when": "driftViewer.isDriftProject"
         }
       ],
       "debug": [
@@ -912,6 +918,27 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.rules.refresh",
+        "title": "%command.rules.refresh.title%",
+        "icon": "$(refresh)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.rules.toggleRule",
+        "title": "%command.rules.toggleRule.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.suppressDiagnosticInColumn",
+        "title": "%command.suppressDiagnosticInColumn.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.suppressDiagnosticInFile",
+        "title": "%command.suppressDiagnosticInFile.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.seedWithProfiles",
         "title": "%command.seedWithProfiles.title%",
         "icon": "$(beaker)",
@@ -959,6 +986,11 @@
         {
           "command": "driftViewer.refreshTree",
           "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "driftViewer.rules.refresh",
+          "when": "view == driftViewer.rules",
           "group": "navigation@1"
         },
         {

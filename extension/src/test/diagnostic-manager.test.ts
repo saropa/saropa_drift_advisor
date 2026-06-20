@@ -8,6 +8,7 @@ import {
   DiagnosticSeverity,
   MockDiagnosticCollection,
   Range,
+  Uri,
 } from './vscode-mock-classes';
 import { resetMocks, workspace } from './vscode-mock';
 import { DriftApiClient } from '../api-client';
@@ -395,10 +396,14 @@ describe('DiagnosticManager', () => {
       );
       diag.code = 'missing-fk-index';
 
-      const actions = manager.provideCodeActions(diag as any, {} as any);
+      const doc = { uri: Uri.parse('file:///lib/x.dart') };
+      const actions = manager.provideCodeActions(diag as any, doc as any);
 
-      assert.strictEqual(actions.length, 1);
-      assert.strictEqual(actions[0].title, 'Fix it');
+      // Provider action plus the two always-on inline-ignore quick fixes
+      // (column + file) the manager appends to every advisor diagnostic.
+      assert.ok(actions.some((a) => a.title === 'Fix it'));
+      assert.ok(actions.some((a) => a.title.includes('for this column')));
+      assert.ok(actions.some((a) => a.title.includes('in this file')));
     });
 
     it('should return empty array for unknown diagnostic code', () => {

@@ -42,6 +42,28 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+Silence advisor findings right in your Dart source — one column or a whole file — and manage every rule from a new sidebar that shows how noisy each one is and lets you mute it in one click.
+
+### Added
+
+- **In-code suppression.** Silence a finding from the Dart source, the way Dart's own `// ignore:` works, with a dedicated marker:
+  - Field level: `// drift-advisor:ignore high-null-rate` on the line above a column getter (or as a trailing comment) silences that code for that column.
+  - File level: `// drift-advisor:ignore-file high-null-rate` anywhere silences that code for the whole file.
+  - The code list is optional — a bare `// drift-advisor:ignore` / `ignore-file` silences every advisor code — and accepts several comma- or space-separated codes.
+- **One-click "Ignore" quick fixes.** Every advisor finding's lightbulb now offers "Ignore … for this column" and "Ignore … in this file", which insert the right directive for you — no typing, and the finding clears immediately.
+- **A "Drift Advisor Rules" sidebar.** A new view lists every rule grouped by category with its live finding count and on/off state, noisiest first. Click a rule to mute or un-mute it everywhere — the fast way to tame a workspace with hundreds of findings without hand-editing settings.
+
+<details><summary>Maintenance</summary>
+
+- **Inline suppression engine.** New `diagnostics/suppression.ts` parses `// drift-advisor:ignore[-file]` directives (CRLF-safe, case-insensitive marker, codes lowercased; full-line directive targets the next non-blank line, trailing directive targets its own line). `IDartFileInfo` gains a `suppressions` field populated in `dart-file-parser.ts`; `DiagnosticManager._applyDiagnostics` indexes suppressions by file URI and skips file-level and field-level (line-matched) hits centrally — no per-provider changes, so it covers every column-/table-scoped diagnostic automatically.
+- **Suppression-insert commands.** `diagnostics/suppression-commands.ts` adds `driftViewer.suppressDiagnosticInColumn` / `…InFile`, registered in `extension-diagnostics.ts` with a refresh callback so the parser (which reads in-memory document text) honors the new directive before save. The two quick-fix actions are appended to every advisor diagnostic in `DiagnosticManager.provideCodeActions`.
+- **Rules tree view.** `diagnostics/rules-tree-provider.ts` renders `DIAGNOSTIC_CODES` grouped by category with live counts from a new `DiagnosticManager.getCollectedCountsByCode()`; a new `onDidRefresh` event re-renders it after each cycle. `driftViewer.rules.toggleRule` writes `disabledRules`; `driftViewer.rules.refresh` is a view title button. Registered the `driftViewer.rules` view + four commands in `package.json` with NLS titles; regenerated `nls-coverage-data.ts`.
+- **Tests.** `suppression.test.ts` (field/file/trailing/bare/multi-code/CRLF/case parsing); updated four `IDartFileInfo` construction sites and two code-action tests for the new actions; activation disposable count 232 → 238. Full suite 2883 passing.
+
+</details>
+
 ## [4.1.1]
 
 Columns that are entirely empty are now called out separately from merely sparse ones, you can silence a data-quality warning on a single column instead of the whole table, and advisory checks now show as informational hints instead of warnings. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.1/CHANGELOG.md)

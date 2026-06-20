@@ -3,6 +3,7 @@ import type { DriftApiClient } from '../api-client';
 import type { SchemaIntelligence } from '../engines/schema-intelligence';
 import type { QueryIntelligence } from '../engines/query-intelligence';
 import type { IDartTable } from '../schema-diff/dart-schema';
+import type { IInlineSuppressions } from './suppression';
 
 /** Diagnostic category for grouping and filtering. */
 export type DiagnosticCategory =
@@ -53,6 +54,8 @@ export interface IDartFileInfo {
   uri: vscode.Uri;
   text: string;
   tables: IDartTable[];
+  /** Inline `// drift-advisor:ignore[-file]` directives parsed from the source. */
+  suppressions: IInlineSuppressions;
 }
 
 /** Configuration for diagnostic collection. */

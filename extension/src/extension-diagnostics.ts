@@ -18,6 +18,11 @@ import {
   RuntimeProvider,
   SchemaProvider,
 } from './diagnostics';
+import { registerSuppressionCommands } from './diagnostics/suppression-commands';
+import {
+  RulesTreeProvider,
+  type RuleItem,
+} from './diagnostics/rules-tree-provider';
 
 export interface DiagnosticSetupResult {
   diagnosticManager: DiagnosticManager;
@@ -48,6 +53,50 @@ export function setupDiagnostics(
         diagnosticManager.refresh().catch(() => {});
       }),
     ),
+  );
+
+  // Inline-suppression insert commands (used by the quick-fix lightbulbs).
+  // Refresh after a directive is inserted so the silenced finding clears now.
+  registerSuppressionCommands(context, () => diagnosticManager.refresh());
+
+  // "Drift Advisor Rules" sidebar: every rule with its live finding count and
+  // enabled/disabled state. Clicking a rule mutes/unmutes it — the relief valve
+  // for a workspace with hundreds of findings.
+  const rulesProvider = new RulesTreeProvider(
+    () => diagnosticManager.getCollectedCountsByCode(),
+    (code) =>
+      vscode.workspace
+        .getConfiguration('driftViewer.diagnostics')
+        .get<string[]>('disabledRules', [])
+        .includes(code),
+  );
+  context.subscriptions.push(
+    vscode.window.createTreeView('driftViewer.rules', {
+      treeDataProvider: rulesProvider,
+    }),
+    // Re-render counts whenever a refresh cycle completes.
+    diagnosticManager.onDidRefresh(() => rulesProvider.refresh()),
+    vscode.commands.registerCommand(
+      'driftViewer.rules.toggleRule',
+      async (item: RuleItem) => {
+        const cfg = vscode.workspace.getConfiguration('driftViewer.diagnostics');
+        const disabled = cfg.get<string[]>('disabledRules', []);
+        const next = item.disabled
+          ? disabled.filter((c) => c !== item.code)
+          : [...new Set([...disabled, item.code])];
+        await cfg.update(
+          'disabledRules',
+          next,
+          vscode.ConfigurationTarget.Workspace,
+        );
+        rulesProvider.refresh();
+        void diagnosticManager.refresh();
+      },
+    ),
+    vscode.commands.registerCommand('driftViewer.rules.refresh', () => {
+      void diagnosticManager.refresh();
+      rulesProvider.refresh();
+    }),
   );
 
   context.subscriptions.push(

@@ -8,6 +8,7 @@ import {
 } from './vscode-mock-classes';
 import type { IDartFileInfo, IDiagnosticIssue, IDiagnosticProvider } from '../diagnostics/diagnostic-types';
 import type { IDartTable } from '../schema-diff/dart-schema';
+import { emptySuppressions } from '../diagnostics/suppression';
 
 /**
  * Regex matching column names that would be `DateTimeColumn` in Drift.
@@ -60,6 +61,7 @@ export function createDartFile(
     uri: Uri.parse(`file:///lib/database/${tableName}.dart`) as any,
     text: `class ${dartTable.dartClassName} extends Table {}`,
     tables: [dartTable],
+    suppressions: emptySuppressions(),
   };
 }
 

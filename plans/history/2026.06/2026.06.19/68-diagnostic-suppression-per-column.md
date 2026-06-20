@@ -193,7 +193,7 @@ gap) so the rule is toggleable from the diagnostic itself, not only settings.
 
 Phase 0 and Phase 1 are implemented and verified. Phase 2 (the in-source
 `// drift-advisor:ignore` directive) was deferred and is tracked separately in
-[plan 69](../../../69-inline-comment-diagnostic-suppression.md).
+[plan 69](69-inline-comment-diagnostic-suppression.md) (now complete).
 
 ### Problem addressed
 The advisor's `high-null-rate` data-quality check fired on columns that are

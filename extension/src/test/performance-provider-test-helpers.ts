@@ -8,6 +8,7 @@
 
 import { Uri } from './vscode-mock-classes';
 import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-types';
+import { emptySuppressions } from '../diagnostics/suppression';
 import type { IDartTable } from '../schema-diff/dart-schema';
 
 // ───────────────────────────────────────────────────────────
@@ -145,5 +146,6 @@ export function createDartFile(
     uri: Uri.parse(`file:///lib/database/${tableName}.dart`) as any,
     text: `class ${dartTable.dartClassName} extends Table {}`,
     tables: [dartTable],
+    suppressions: emptySuppressions(),
   };
 }

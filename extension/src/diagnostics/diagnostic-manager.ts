@@ -7,6 +7,7 @@ import {
   DIAGNOSTIC_COLLECTION_NAME,
   DIAGNOSTIC_PREFIX,
   DIAGNOSTIC_SOURCE,
+  type IDartFileInfo,
   type IDiagnosticConfig,
   type IDiagnosticContext,
   type IDiagnosticIssue,
@@ -14,6 +15,10 @@ import {
 } from './diagnostic-types';
 import { parseDartFilesInWorkspace } from './dart-file-parser';
 import { loadDiagnosticConfig } from './diagnostic-config';
+import {
+  isInlineSuppressed,
+  type IInlineSuppressions,
+} from './suppression';
 
 /** Minimum interval between refreshes (ms). */
 const MIN_REFRESH_INTERVAL_MS = 5000;
@@ -31,6 +36,9 @@ export class DiagnosticManager implements vscode.Disposable {
   private _lastRefresh = 0;
   /** Last collected issues (for Log Capture integration). */
   private _lastIssues: IDiagnosticIssue[] = [];
+  /** Fires after each refresh cycle so views (e.g. the Rules tree) can update. */
+  private readonly _onDidRefresh = new vscode.EventEmitter<void>();
+  readonly onDidRefresh = this._onDidRefresh.event;
 
   constructor(
     private readonly _client: DriftApiClient,
@@ -126,10 +134,25 @@ export class DiagnosticManager implements vscode.Disposable {
       }
 
       this._lastIssues = [...allIssues];
-      this._applyDiagnostics(allIssues, config);
+      this._applyDiagnostics(allIssues, config, context.dartFiles);
     } finally {
       this._isRefreshing = false;
+      // Notify listeners (Rules tree) that counts may have changed.
+      this._onDidRefresh.fire();
     }
+  }
+
+  /**
+   * Count the last collected issues by diagnostic code. Drives the live counts
+   * in the Rules tree. Counts the collected set (pre-suppression) so the view
+   * reflects how much each rule actually fires.
+   */
+  getCollectedCountsByCode(): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const issue of this._lastIssues) {
+      counts.set(issue.code, (counts.get(issue.code) ?? 0) + 1);
+    }
+    return counts;
   }
 
   /** Clear all diagnostics. */
@@ -167,22 +190,69 @@ export class DiagnosticManager implements vscode.Disposable {
       (p) => p.category === codeInfo.category,
     );
 
-    if (provider?.provideCodeActions) {
-      return provider.provideCodeActions(diagnostic, document);
-    }
+    const actions: vscode.CodeAction[] = provider?.provideCodeActions
+      ? provider.provideCodeActions(diagnostic, document)
+      : [];
 
-    return [];
+    // Inline-suppression quick fixes, offered on every advisor diagnostic so a
+    // user drowning in findings can silence one column or a whole file in one
+    // click instead of editing settings JSON. These insert the
+    // `// drift-advisor:ignore[-file]` directives the parser honors.
+    const line = diagnostic.range.start.line;
+    const ignoreColumn = new vscode.CodeAction(
+      `Ignore "${codeStr}" for this column`,
+      vscode.CodeActionKind.QuickFix,
+    );
+    ignoreColumn.command = {
+      command: 'driftViewer.suppressDiagnosticInColumn',
+      title: 'Ignore for this column',
+      arguments: [{ uri: document.uri.toString(), line, code: codeStr }],
+    };
+    actions.push(ignoreColumn);
+
+    const ignoreFile = new vscode.CodeAction(
+      `Ignore "${codeStr}" in this file`,
+      vscode.CodeActionKind.QuickFix,
+    );
+    ignoreFile.command = {
+      command: 'driftViewer.suppressDiagnosticInFile',
+      title: 'Ignore in this file',
+      arguments: [{ uri: document.uri.toString(), code: codeStr }],
+    };
+    actions.push(ignoreFile);
+
+    return actions;
   }
 
   private _applyDiagnostics(
     issues: IDiagnosticIssue[],
     config: IDiagnosticConfig,
+    dartFiles: IDartFileInfo[],
   ): void {
     const byFile = new Map<string, vscode.Diagnostic[]>();
+
+    // Index inline-suppression directives by file URI so an issue can be
+    // checked against the `// drift-advisor:ignore[-file]` comments in its own
+    // source file. Built once per refresh rather than per issue.
+    const suppressionsByUri = new Map<string, IInlineSuppressions>();
+    for (const file of dartFiles) {
+      suppressionsByUri.set(file.uri.toString(), file.suppressions);
+    }
 
     for (const issue of issues) {
       // Skip disabled rules
       if (config.disabledRules.has(issue.code)) {
+        continue;
+      }
+
+      // Skip inline-suppressed issues (file-level or field-level directives in
+      // the source). Field-level matches on the diagnostic's pinned line, which
+      // is the column getter / table class line the providers anchor to.
+      const supps = suppressionsByUri.get(issue.fileUri.toString());
+      if (
+        supps &&
+        isInlineSuppressed(supps, issue.code, issue.range.start.line)
+      ) {
         continue;
       }
 
@@ -296,6 +366,7 @@ export class DiagnosticManager implements vscode.Disposable {
     }
     this._providers.forEach((p) => p.dispose());
     this._providers.clear();
+    this._onDidRefresh.dispose();
     for (const d of this._disposables) {
       d.dispose();
     }

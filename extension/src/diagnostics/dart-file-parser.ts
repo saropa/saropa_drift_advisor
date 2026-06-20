@@ -9,6 +9,7 @@
 import * as vscode from 'vscode';
 import { parseDartTables } from '../schema-diff/dart-parser';
 import type { IDartFileInfo } from './diagnostic-types';
+import { parseInlineSuppressions } from './suppression';
 
 /**
  * Returns true when pubspec content declares `drift` or `saropa_drift_advisor`
@@ -65,7 +66,12 @@ export async function parseDartFilesInWorkspace(): Promise<IDartFileInfo[]> {
       const tables = parseDartTables(text, uri.toString());
 
       if (tables.length > 0) {
-        files.push({ uri, text, tables });
+        files.push({
+          uri,
+          text,
+          tables,
+          suppressions: parseInlineSuppressions(text),
+        });
       }
     } catch {
       // Skip files that can't be read
