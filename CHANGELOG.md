@@ -44,6 +44,25 @@ browse source on
 
 ## [Unreleased]
 
+Internal code cleanup only — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+<details><summary>Maintenance</summary>
+
+- **Modularized six extension source files that exceeded the line-count gate** (production cap 300 lines, test cap 500). Each original file stays the public entry point — importers and tests are unchanged — and the extracted logic moved to a sibling file following the existing `-helpers` / `-checks` split convention:
+  - `saropa-lints-diagnostics.ts` (303) → pure report parsing/mapping (severity map, JSON parse, per-file diagnostic mapping, interfaces) moved to new `saropa-lints-report.ts`; the original re-exports them so the test imports still resolve.
+  - `dashboard/dashboard-css.ts` (302) → widget-content and modal styles moved to new `dashboard/dashboard-css-widgets.ts`, appended by `getDashboardCss`.
+  - `diagnostics/diagnostic-manager.ts` (376) → diagnostic-building/suppression filtering and the inline-suppression quick-fix builder moved to new `diagnostics/diagnostic-apply.ts` (`buildDiagnosticsByFile`, `buildSuppressionQuickFixes`).
+  - `diagnostics/providers/data-quality-provider.ts` (316) → data-skew and null-rate check logic plus the null-by-design / SQL-probe helpers moved to new `diagnostics/providers/data-quality-checks.ts`; the provider now only holds the VS Code wiring.
+  - `er-diagram/er-diagram-script.ts` (320) → the webview event-handler block (drag/pan/zoom, context menu, toolbar, filters, message/resize listeners) moved to new `er-diagram/er-diagram-script-events.ts`, concatenated into the same IIFE alongside the existing helpers.
+  - `test/data-quality-provider.test.ts` (512) → the shared `createContext` fixture moved to new `test/data-quality-test-helpers.ts`, and the `provideCodeActions` suite moved to new `test/data-quality-provider-actions.test.ts`.
+  - Verified: `tsc --noEmit` clean and the full test suite (2905 tests) passes.
+
+</details>
+
+## [4.1.5]
+
+A quick fix to stop the debug server from printing its startup banner twice in your logs, plus a few behind-the-scenes dependency updates. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.5/CHANGELOG.md)
+
 ### Fixed
 
 - **Duplicate "DRIFT DEBUG SERVER" startup banner.** When `DriftDebugServer.start()` was called twice in quick succession (or concurrently), both calls bound the same port and printed the startup banner, so the banner appeared twice in the logs. The "already running" check now also covers a start that is still in flight, so only one banner is ever printed.

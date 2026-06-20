@@ -1,14 +1,10 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import {
-  Diagnostic,
-  DiagnosticSeverity,
-  Range,
-} from './vscode-mock-classes';
+import { DiagnosticSeverity } from './vscode-mock-classes';
 import { resetMocks } from './vscode-mock';
 import { DataQualityProvider } from '../diagnostics/providers/data-quality-provider';
-import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-types';
 import { createDartFile } from './diagnostic-test-helpers';
+import { createContext } from './data-quality-test-helpers';
 
 describe('DataQualityProvider', () => {
   let provider: DataQualityProvider;
@@ -416,97 +412,4 @@ describe('DataQualityProvider', () => {
       assert.strictEqual(issues.length, 0);
     });
   });
-
-  describe('provideCodeActions', () => {
-    it('should provide Profile Column action for high-null-rate', () => {
-      const diag = new Diagnostic(
-        new Range(10, 0, 10, 100),
-        '[drift_advisor] High null rate',
-        DiagnosticSeverity.Warning,
-      );
-      diag.code = 'high-null-rate';
-      (diag as any).data = { table: 'users', column: 'bio' };
-
-      const actions = provider.provideCodeActions(diag as any, {} as any);
-
-      assert.ok(actions.some((a) => a.title.includes('Profile')));
-    });
-
-    it('should provide a Disable rule action for data-quality diagnostics', () => {
-      // Previously the data-quality provider offered no "Disable rule" lightbulb,
-      // forcing a manual settings edit. Every code here should now expose it.
-      for (const code of ['high-null-rate', 'unused-column', 'data-skew']) {
-        const diag = new Diagnostic(
-          new Range(10, 0, 10, 100),
-          `[drift_advisor] ${code}`,
-          DiagnosticSeverity.Warning,
-        );
-        diag.code = code;
-        (diag as any).data = { table: 'users', column: 'bio' };
-
-        const actions = provider.provideCodeActions(diag as any, {} as any);
-        const disable = actions.find((a) => a.title.includes('Disable'));
-        assert.ok(disable, `Should offer Disable rule for ${code}`);
-        assert.strictEqual(disable.command?.command, 'driftViewer.disableDiagnosticRule');
-        assert.deepStrictEqual(disable.command?.arguments, [code]);
-      }
-    });
-
-    it('should provide Size Analytics action for data-skew', () => {
-      const diag = new Diagnostic(
-        new Range(10, 0, 10, 100),
-        '[drift_advisor] Data skew',
-        DiagnosticSeverity.Warning,
-      );
-      diag.code = 'data-skew';
-
-      const actions = provider.provideCodeActions(diag as any, {} as any);
-
-      assert.ok(actions.some((a) => a.title.includes('Size Analytics')));
-    });
-  });
 });
-
-function createContext(options: {
-  dartFiles: IDartFileInfo[];
-  tables?: Array<{ name: string; columns: Array<{ name: string; type: string; pk: boolean }>; rowCount: number }>;
-  sizeAnalytics?: { tables: Array<{ table: string; rowCount: number; columnCount: number; indexCount: number; indexes: string[] }> };
-  nullCounts?: Record<string, number>;
-  userDataTables?: string[];
-}): IDiagnosticContext {
-  const tables = options.tables ?? [];
-  const sizeAnalytics = options.sizeAnalytics ?? {
-    pageSize: 4096, pageCount: 10, totalSizeBytes: 40960,
-    freeSpaceBytes: 1000, usedSizeBytes: 39960, journalMode: 'wal',
-    tableCount: tables.length,
-    tables: tables.map((t) => ({
-      table: t.name, rowCount: t.rowCount, columnCount: t.columns.length, indexCount: 1, indexes: [],
-    })),
-  };
-  const nullCounts = options.nullCounts ?? {};
-  const client = {
-    schemaMetadata: () => Promise.resolve(tables),
-    sizeAnalytics: () => Promise.resolve(sizeAnalytics),
-    sql: (query: string) => {
-      if (query.includes('IS NULL')) {
-        const result: number[] = [];
-        for (const table of tables) {
-          for (const col of table.columns) { result.push(nullCounts[col.name] ?? 0); }
-        }
-        return Promise.resolve({ columns: [], rows: [result] });
-      }
-      return Promise.resolve({ columns: [], rows: [] });
-    },
-  } as any;
-  return {
-    client, schemaIntel: {} as any, queryIntel: {} as any,
-    dartFiles: options.dartFiles,
-    config: {
-      enabled: true, refreshOnSave: true, refreshIntervalMs: 30000,
-      categories: { schema: true, performance: true, dataQuality: true, bestPractices: true, naming: false, runtime: true, compliance: true },
-      disabledRules: new Set(), severityOverrides: {}, tableExclusions: new Map(),
-      columnExclusions: new Map(),
-      userDataTables: new Set(options.userDataTables ?? []),
-    },
-  };
-}
