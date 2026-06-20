@@ -42,9 +42,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.3]
 
-A fix so the new Rules sidebar can't error out while the extension is reloading.
+A fix so the new Rules sidebar can't error out while the extension is reloading. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.3/CHANGELOG.md)
 
 ### Fixed
 
