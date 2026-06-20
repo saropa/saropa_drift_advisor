@@ -42,9 +42,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.6]
 
-Internal code cleanup only — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+Internal code cleanup only — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.6/CHANGELOG.md)
 
 <details><summary>Maintenance</summary>
 
@@ -70,7 +70,8 @@ A quick fix to stop the debug server from printing its startup banner twice in y
 <details><summary>Maintenance</summary>
 
 - **Re-entrancy guard in `_DriftDebugServerImpl.start`.** The running-state guard tested `_server`, which is assigned only after the awaits in `start` (`loadPersistedSnapshots`, `HttpServer.bind`). A second concurrent/rapid `start()` passed the guard while the first was still binding; with `shared: true` (SO_REUSEPORT) both binds succeeded and both printed the banner. Added a synchronous `bool _starting` flag set before the first await and cleared in a `finally`; the start body moved to a private `_startInternal` so the flag is cleared on every exit path (return, throw, or successful bind). File: `lib/src/drift_debug_server_io.dart`.
-- **Dependency upgrades (Dependabot).** TypeScript `5.9.3` → `6.0.3` (root and `extension/`); `sass` `1.99.0` → `1.101.0` (root); `js-yaml` `4.1.1` → `4.2.0` (`extension/`); `@types/vscode` `1.115.0` → `1.125.0` and `mocha` `11.3.0` → `11.7.6` (`extension/`); CI `actions/checkout` `6` → `7`. TypeScript 6 (a major version) was confirmed to type-check both the extension (`tsc -p ./`) and the root web bundle (`tsconfig.web.json`) with zero errors, and the extension `compile` step (`tsc` + NLS verify + NLS coverage) passes on it. Dev/build dependencies only — no change to shipped runtime behavior.
+- **Dependency upgrades (Dependabot).** TypeScript `5.9.3` → `6.0.3` (root and `extension/`); `sass` `1.99.0` → `1.101.0` (root); `js-yaml` `4.1.1` → `4.2.0` (`extension/`); `mocha` `11.3.0` → `11.7.6` (`extension/`); CI `actions/checkout` `6` → `7`. TypeScript 6 (a major version) was confirmed to type-check both the extension (`tsc -p ./`) and the root web bundle (`tsconfig.web.json`) with zero errors, and the extension `compile` step (`tsc` + NLS verify + NLS coverage) passes on it. Dev/build dependencies only — no change to shipped runtime behavior.
+- **`@types/vscode` kept at `^1.115.0`.** Dependabot's group bump raised it to `^1.125.0`, but `vsce package` rejects `@types/vscode` newer than `engines.vscode` (`^1.115.0`) — the type definitions must not promise APIs beyond the minimum supported VS Code. Pinned back to match the engine so the extension stays installable on VS Code 1.115+.
 
 </details>
 

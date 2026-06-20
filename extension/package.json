@@ -2,7 +2,7 @@
   "name": "drift-viewer",
   "displayName": "Saropa Drift Advisor",
   "description": "%extension.description%",
-  "version": "4.1.4",
+  "version": "4.1.6",
   "publisher": "saropa",
   "license": "MIT",
   "repository": {
@@ -1819,7 +1819,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.6.0",
     "@types/sinon": "^21.0.1",
-    "@types/vscode": "^1.125.0",
+    "@types/vscode": "^1.115.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "mocha": "^11.7.6",
