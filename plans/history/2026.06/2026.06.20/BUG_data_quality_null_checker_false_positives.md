@@ -1,5 +1,7 @@
 # Bug Report: data-quality null checker fires `high-null-rate` / `unused-column` on unrepresentative live data and on null-by-design columns
 
+**Status: Fixed**
+
 ## Title
 
 The data-quality null checker (`high-null-rate`, `unused-column`) emits two large classes of false positives when run against a Flutter app's **live debug database**: (1) tables that are only partially populated in the debug session (demo/user data, or static tables not yet fully loaded), and (2) columns that are null-by-design (event timestamps, phonetic helpers, pre-generated linking columns, default-bearing columns).
