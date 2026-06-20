@@ -162,3 +162,67 @@ Keeping the rule active on fully-loaded static reference tables preserves the tr
 - **What is blocked:** signal-to-noise. ~210 of 221 findings were noise, burying the ~11 real content gaps; consumers are pushed toward blanket file-level ignores that then hide real regressions.
 - **Data risk:** none directly, but the noise indirectly risks real data-quality gaps going unnoticed.
 - **Frequency:** every run, deterministic.
+
+---
+
+## Finish Report (2026-06-20)
+
+### Resolution
+
+Both false-positive classes are suppressed inside `_checkHighNullRates`
+(`extension/src/diagnostics/providers/data-quality-provider.ts`), with no new
+diagnostic mechanism — the existing exclusion model is extended.
+
+**FP-2 (null-by-design columns) — generic, no per-project config.** A new
+`_isNullByDesign(col)` helper returns true, and the loop `continue`s before
+emitting, when the matched Dart column declaration shows the NULL is
+intentional:
+
+- `.withDefault(...)` / `.clientDefault(...)` — newly captured by the Dart
+  parser as `IDartColumn.hasDefault` (`HAS_DEFAULT_RE` in
+  `extension/src/schema-diff/dart-parser.ts`; optional field added to
+  `IDartColumn` in `dart-schema.ts` so existing fixtures/constructors are
+  untouched).
+- `.autoIncrement()` — already parsed.
+- a nullable column whose SQL name ends with `_at` or `_phonetic`
+  (`NULL_BY_DESIGN_NAME_SUFFIXES`). Gated on `nullable` so a non-nullable
+  timestamp that is unexpectedly NULL still reports.
+
+Suppression only applies when the Dart declaration is found; an unmatched column
+still reports, so genuine gaps are not hidden. The Saropa-specific linking
+columns named in the original report (`relationships_json`,
+`contact_saropa_uuid`) were deliberately NOT baked into the generic extension —
+they remain the consuming project's responsibility via the existing
+`columnExclusions` config.
+
+**FP-1 (unrepresentative live data) — opt-in table list.** A new
+`driftViewer.diagnostics.userDataTables` setting (a flat array, read into
+optional `IDiagnosticConfig.userDataTables` in `diagnostic-config.ts`) lists
+tables whose live debug rows are not representative (user/demo data, or static
+reference tables loaded lazily/partially). Such tables are skipped wholesale in
+`_checkHighNullRates` before any null scan. A flat list was chosen over
+repeating each table under both the `high-null-rate` and `unused-column` keys of
+the existing `tableExclusions`. The `MIN_ROWS_FOR_ANALYSIS = 10` guard is left
+as-is; it was never intended as a representativeness check and raising it would
+silence legitimately small fully-loaded tables.
+
+True positives are preserved: a plain high-null nullable column on a table not
+listed in `userDataTables` (the `public_figures.description` case) and a
+non-nullable `*_at` column with a high null rate both continue to report.
+
+### Files changed
+
+- `extension/src/schema-diff/dart-schema.ts` — optional `hasDefault` on `IDartColumn`.
+- `extension/src/schema-diff/dart-parser.ts` — `HAS_DEFAULT_RE`, populate `hasDefault`.
+- `extension/src/diagnostics/diagnostic-types.ts` — optional `userDataTables` on `IDiagnosticConfig` + default.
+- `extension/src/diagnostics/diagnostic-config.ts` — read `userDataTables`.
+- `extension/src/diagnostics/providers/data-quality-provider.ts` — `userDataTables` table guard, `_isNullByDesign` column guard, `NULL_BY_DESIGN_NAME_SUFFIXES`.
+- `extension/package.json` + `extension/package.nls.json` — `driftViewer.diagnostics.userDataTables` contribution; `nls-coverage-data.ts` regenerated (250 keys).
+- Tests: `dart-parser.test.ts` (hasDefault), `data-quality-provider.test.ts` (both FP classes + over-suppression guards), `diagnostic-test-helpers.ts` (`MockColumnSpec` per-column overrides).
+- `CHANGELOG.md` — Unreleased Fixed/Added + Maintenance entries.
+
+### Verification
+
+- `tsc --noEmit` clean.
+- `npm run compile` green (NLS verify + coverage check after regenerating `nls-coverage-data.ts`).
+- Mocha full suite: 2905 passing. New tests: 3 parser (`hasDefault`), 4 provider (FP-1 skip, FP-2 `*_at`/`*_phonetic`, FP-2 `.withDefault`, non-nullable `*_at` still reports, representative-table column still reports).
