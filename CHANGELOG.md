@@ -42,6 +42,20 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+A fix so the new Rules sidebar can't error out while the extension is reloading.
+
+### Fixed
+
+- **"No view is registered with id: driftViewer.rules" on activation.** The Drift Advisor Rules view used an eager registration call that throws if the editor hasn't re-read the extension manifest yet (which happens right after a reload), and that error could interrupt the rest of diagnostics setup. The view now registers with the tolerant API that never throws and simply wires up once the view is available.
+
+<details><summary>Maintenance</summary>
+
+- **Rules view registration hardened.** `extension-diagnostics.ts` now calls `vscode.window.registerTreeDataProvider('driftViewer.rules', …)` instead of `createTreeView`. `createTreeView` resolves the view eagerly and throws "No view is registered with id" when the loaded manifest lacks the contribution (JS reloaded before `package.json` was re-read), which aborted the remaining provider/command registrations in `setupDiagnostics`. `registerTreeDataProvider` does not validate the id at call time and the `TreeView` handle was unused. Added `registerTreeDataProvider` to the `vscode` test mock (`vscode-mock.ts`); full suite 2883 passing.
+
+</details>
+
 ## [4.1.2]
 
 Silence advisor findings right in your Dart source — one column or a whole file — and manage every rule from a new sidebar that shows how noisy each one is and lets you mute it in one click. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.2/CHANGELOG.md)
