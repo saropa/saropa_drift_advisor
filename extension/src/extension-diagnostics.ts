@@ -71,9 +71,14 @@ export function setupDiagnostics(
         .includes(code),
   );
   context.subscriptions.push(
-    vscode.window.createTreeView('driftViewer.rules', {
-      treeDataProvider: rulesProvider,
-    }),
+    // registerTreeDataProvider (not createTreeView): createTreeView throws
+    // "No view is registered with id" synchronously if VS Code's currently
+    // loaded manifest doesn't yet contain the view — which happens whenever the
+    // extension's JS reloads but the package.json contribution hasn't been
+    // re-read yet — and that exception would break the rest of diagnostics
+    // setup. registerTreeDataProvider is tolerant: it wires up once the view
+    // exists and never throws. The TreeView handle is unused here.
+    vscode.window.registerTreeDataProvider('driftViewer.rules', rulesProvider),
     // Re-render counts whenever a refresh cycle completes.
     diagnosticManager.onDidRefresh(() => rulesProvider.refresh()),
     vscode.commands.registerCommand(

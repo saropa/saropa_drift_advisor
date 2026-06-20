@@ -87,6 +87,10 @@ export const window = {
     createdTreeViews.push(tv);
     return tv as any;
   },
+  registerTreeDataProvider: (
+    _viewId: string,
+    _provider: any,
+  ): { dispose: () => void } => ({ dispose: () => { /* no-op */ } }),
   createOutputChannel: (name: string) => new MockOutputChannel(name),
   createStatusBarItem: (_alignment?: any, _priority?: number) => ({
     text: '',
