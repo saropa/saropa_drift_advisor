@@ -42,6 +42,22 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+Snapshots, branches, hovers, and the lineage/impact tools now work against databases whose tables have no rowid — including PowerSync, which exposes its tables as views and uses WITHOUT ROWID system tables. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.4/CHANGELOG.md)
+
+### Fixed
+
+- **"no such column: rowid" on PowerSync and other rowid-less databases.** Several features ordered or keyed table rows by `rowid`, but views and `WITHOUT ROWID` tables (such as PowerSync's `ps_updated_rows`) have no `rowid` column, so those reads threw `no such column: rowid` and the feature failed. Snapshot, branch, snapshot-diff, and hover previews now order by each table's primary key (or omit ordering when none is declared), and the lineage, impact, global-search, mutation-stream, constraint-validator, and data-narrator tools key rows by the primary key — or an `id` column on a view — instead of `rowid`. ([#32](https://github.com/saropa/saropa_drift_advisor/issues/32))
+
+<details><summary>Maintenance</summary>
+
+- **rowid-free SQL helpers.** Two new helpers under `extension/src/sql/`: `samplingOrderBy(pkColumns, descending?)` returns an `ORDER BY` over the declared PK (always valid, including for `WITHOUT ROWID` tables, which SQLite requires to declare a PK) or an empty clause when no PK exists; `rowKeyColumn(columns)` picks a row-identity column preferring the PK, then a literal `id` column (the PowerSync table-view case), then `rowid` only as a last resort. Applied to the sampling sweeps (`timeline/snapshot-store.ts`, `branching/branch-manager.ts`, `timeline/snapshot-commands.ts`, `hover/drift-hover-provider.ts`) and to the keyed-operation sites (`lineage/*`, `impact/*`, `global-search/global-search-engine.ts`, `mutation-stream/mutation-stream-panel.ts`, `constraint-wizard/constraint-validator.ts`, `narrator/narrator-commands.ts`). The hover preview now fetches schema metadata before its data read so the order clause can use the PK. Added `test/sampling-order.test.ts`, `test/row-key.test.ts`, and a rowid-less-sweep regression test in `test/snapshot-store.test.ts` that asserts no emitted sweep references `rowid`; full suite 2897 passing.
+
+</details>
+
+---
+
 ## [4.1.3]
 
 A fix so the new Rules sidebar can't error out while the extension is reloading. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.3/CHANGELOG.md)

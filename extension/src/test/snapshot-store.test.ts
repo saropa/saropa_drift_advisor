@@ -152,6 +152,63 @@ describe('SnapshotStore', () => {
       assert.strictEqual(snap.tables.has('bad'), false, 'bad table should be skipped');
       assert.strictEqual(snap.tables.get('good')!.rows.length, 1);
     });
+
+    it('sweeps rowid-less relations without ORDER BY rowid (GitHub #32)', async () => {
+      // PowerSync exposes user tables as views (no rowid) and uses WITHOUT
+      // ROWID system tables such as ps_updated_rows. ORDER BY rowid threw
+      // "no such column: rowid" and aborted the sweep on them. The sweep must
+      // now order by the declared PK, or omit ordering when none is declared.
+      fetchStub.withArgs(sinon.match(/schema\/metadata/)).callsFake(async () =>
+        makeResponse(metadataJson([
+          // WITHOUT ROWID system table: composite PK, no rowid.
+          {
+            name: 'ps_updated_rows',
+            rowCount: 1,
+            columns: [
+              { name: 'row_type', type: 'TEXT', pk: true },
+              { name: 'row_id', type: 'TEXT', pk: true },
+            ],
+          },
+          // PowerSync table view: keyed on id but PRAGMA reports no PK.
+          {
+            name: 'todos',
+            rowCount: 1,
+            columns: [
+              { name: 'id', type: 'TEXT', pk: false },
+              { name: 'data', type: 'TEXT', pk: false },
+            ],
+          },
+        ])),
+      );
+
+      const sentSql: string[] = [];
+      fetchStub.withArgs(sinon.match(/api\/sql/)).callsFake(async (_url, init) => {
+        sentSql.push(JSON.parse((init as RequestInit).body as string).sql);
+        return makeResponse(sqlJson(['id'], [[1]]));
+      });
+
+      const store = new SnapshotStore(20, 0);
+      const snap = await store.capture(client);
+      assert.ok(snap);
+      // Both relations captured, neither skipped by a rowid error.
+      assert.ok(snap.tables.has('ps_updated_rows'));
+      assert.ok(snap.tables.has('todos'));
+
+      // No emitted sweep references rowid.
+      assert.ok(
+        sentSql.every((s) => !s.includes('rowid')),
+        `expected no rowid in sweeps, got: ${sentSql.join(' | ')}`,
+      );
+      // Composite-PK table orders by its PK columns.
+      assert.ok(
+        sentSql.some((s) =>
+          s.includes('FROM "ps_updated_rows" ORDER BY "row_type", "row_id"')),
+      );
+      // No-PK view falls back to no ORDER BY clause.
+      assert.ok(
+        sentSql.some((s) => /FROM "todos"\s+LIMIT/.test(s)),
+      );
+    });
   });
 
   describe('requestCapture() — write-burst coalescing', () => {

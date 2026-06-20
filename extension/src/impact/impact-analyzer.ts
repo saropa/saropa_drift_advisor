@@ -3,6 +3,7 @@ import type { TableMetadata } from '../api-types';
 import type { IFkMap, IFkRef } from '../lineage/lineage-types';
 import { sqlLiteral } from '../lineage/lineage-tracer';
 import { rowsToObjects } from '../timeline/snapshot-store';
+import { rowKeyColumn } from '../sql/row-key';
 import type {
   IImpactBranch, IImpactResult, IImpactRow,
   IImpactSummary, IOutboundRef,
@@ -55,7 +56,7 @@ export class ImpactAnalyzer {
       (t) => !t.name.startsWith('sqlite_'),
     );
     for (const table of userTables) {
-      const pkCol = table.columns.find((c) => c.pk)?.name ?? 'rowid';
+      const pkCol = rowKeyColumn(table.columns);
       pkColumns.set(table.name, pkCol);
     }
 

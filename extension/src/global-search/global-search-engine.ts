@@ -4,6 +4,7 @@
  */
 
 import { DriftApiClient } from '../api-client';
+import { rowKeyColumn } from '../sql/row-key';
 import { zipRow } from '../shared-utils';
 import type {
   ISearchMatch, ISearchResult, SearchMode, SearchScope,
@@ -33,7 +34,7 @@ export class GlobalSearchEngine {
 
       if (cols.length === 0) return;
 
-      const pkCol = table.columns.find((c) => c.pk)?.name ?? 'rowid';
+      const pkCol = rowKeyColumn(table.columns);
       const conditions = cols.map(
         (c) => buildCondition(c.name, query, mode),
       );

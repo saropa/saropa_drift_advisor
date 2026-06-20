@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { DriftApiClient, TableMetadata } from '../api-client';
 import type { AnnotationService } from '../annotations/annotation-service';
 import { TableNameMapper } from '../codelens/table-name-mapper';
+import { samplingOrderBy } from '../sql/sampling-order';
 
 /** Maximum display width for a cell value in the hover table. */
 const MAX_CELL_WIDTH = 20;
@@ -160,15 +161,19 @@ export class DriftHoverProvider implements vscode.HoverProvider {
       const maxRows = Math.max(1, Math.min(10, rawMax));
       // Escape double quotes in table name for safe SQL identifier quoting
       const escaped = sqlTable.replace(/"/g, '""');
-      const [metadata, result] = await Promise.all([
-        this._client.schemaMetadata(),
-        this._client.sql(
-          `SELECT * FROM "${escaped}" ORDER BY rowid DESC LIMIT ${maxRows}`,
-        ),
-      ]);
-
+      // Fetch metadata first so the preview can order by the declared PK rather
+      // than rowid: views and WITHOUT ROWID tables have no rowid column, so
+      // ORDER BY rowid throws on them (#32). Falls back to no ordering (first
+      // rows) when the table declares no key. The two reads are serialized
+      // because the order clause depends on the metadata; the result is cached.
+      const metadata = await this._client.schemaMetadata();
       const table = metadata.find((t) => t.name === sqlTable);
       if (!table) return null;
+
+      const pkCols = table.columns.filter((c) => c.pk).map((c) => c.name);
+      const result = await this._client.sql(
+        `SELECT * FROM "${escaped}"${samplingOrderBy(pkCols, true)} LIMIT ${maxRows}`,
+      );
 
       // Get annotations for this table
       let annotationText: string | undefined;

@@ -7,6 +7,7 @@ import type { DriftApiClient } from '../api-client';
 import type { TableItem } from '../tree/tree-items';
 import { DataNarrator } from './data-narrator';
 import { NarratorPanel } from './narrator-panel';
+import { rowKeyColumn } from '../sql/row-key';
 
 export function registerNarratorCommands(
   context: vscode.ExtensionContext,
@@ -44,7 +45,7 @@ async function narrateRow(
     return;
   }
 
-  const pkCol = tableMeta.columns.find((c) => c.pk)?.name ?? 'rowid';
+  const pkCol = rowKeyColumn(tableMeta.columns);
   const pkInput = await vscode.window.showInputBox({
     prompt: `Enter ${pkCol} value to narrate in "${table}"`,
     placeHolder: 'e.g., 42',

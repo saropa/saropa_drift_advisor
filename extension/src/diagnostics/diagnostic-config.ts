@@ -71,6 +71,13 @@ export function loadDiagnosticConfig(): IDiagnosticConfig {
     }
   }
 
+  // Tables whose live debug rows are unrepresentative (user/demo data or
+  // partially-loaded static reference tables). Null-rate / unused-column
+  // analysis is skipped for these — a null rate measured on a partial table is
+  // meaningless. One flat list instead of repeating each table under both the
+  // `high-null-rate` and `unused-column` keys of tableExclusions.
+  const userDataTables = new Set(cfg.get<string[]>('userDataTables', []));
+
   return {
     enabled: cfg.get('enabled', DEFAULT_DIAGNOSTIC_CONFIG.enabled),
     refreshOnSave: cfg.get('refreshOnSave', DEFAULT_DIAGNOSTIC_CONFIG.refreshOnSave),
@@ -80,5 +87,6 @@ export function loadDiagnosticConfig(): IDiagnosticConfig {
     disabledRules,
     tableExclusions,
     columnExclusions,
+    userDataTables,
   };
 }

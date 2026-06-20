@@ -3,6 +3,7 @@ import type { DriftApiClient } from '../api-client';
 import type { TableItem } from '../tree/tree-items';
 import { LineageTracer } from './lineage-tracer';
 import { LineagePanel } from './lineage-panel';
+import { rowKeyColumn } from '../sql/row-key';
 
 async function pickTable(
   client: DriftApiClient,
@@ -51,7 +52,7 @@ async function traceLineage(
   const tableMeta = meta.find((t) => t.name === table);
   if (!tableMeta) return;
 
-  const pkCol = tableMeta.columns.find((c) => c.pk)?.name ?? 'rowid';
+  const pkCol = rowKeyColumn(tableMeta.columns);
   const pkInput = await vscode.window.showInputBox({
     prompt: `Enter ${pkCol} value to trace in "${table}"`,
     validateInput: (v) => (v.trim() ? null : 'Enter a primary key value'),

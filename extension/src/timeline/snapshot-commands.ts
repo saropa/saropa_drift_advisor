@@ -7,6 +7,7 @@ import { computeTableDiff, ROW_LIMIT, rowsToObjects, SnapshotStore } from './sna
 import { TimeTravelPanel } from '../time-travel/time-travel-panel';
 import { TimeTravelEngine } from '../time-travel/time-travel-engine';
 import type { TableItem } from '../tree/tree-items';
+import { samplingOrderBy } from '../sql/sampling-order';
 
 const CONTEXT_HAS_SQL_AT_CURSOR = 'driftViewer.hasSqlAtCursor';
 /** Debounce (ms) for selection-based context update to avoid work on every cursor move. */
@@ -78,9 +79,11 @@ export function registerSnapshotCommands(
         const snapTable = snapshot.tables.get(tableName);
         if (!snapTable) return;
         try {
+          // Order by the captured PK, never rowid: WITHOUT ROWID tables and
+          // views lack a rowid column and ORDER BY rowid aborts the read (#32).
           const [result, meta] = await Promise.all([
             client.sql(
-              `SELECT * FROM "${tableName}" ORDER BY rowid LIMIT ${ROW_LIMIT}`,
+              `SELECT * FROM "${tableName}"${samplingOrderBy(snapTable.pkColumns)} LIMIT ${ROW_LIMIT}`,
               { internal: true },
             ),
             client.schemaMetadata(),

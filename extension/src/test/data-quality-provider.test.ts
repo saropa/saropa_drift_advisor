@@ -228,6 +228,151 @@ describe('DataQualityProvider', () => {
       assert.ok(!issue, 'Should skip small tables');
     });
 
+    it('should skip null-rate analysis for tables listed in userDataTables', async () => {
+      // FP-1: a table whose live debug rows are unrepresentative (user/demo
+      // data, or a partially-loaded static table) must be skipped entirely —
+      // a null rate measured on a partial table says nothing about the source.
+      const ctx = createContext({
+        dartFiles: [createDartFile('contacts', ['id', 'bio'])],
+        tables: [
+          {
+            name: 'contacts',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'bio', type: 'TEXT', pk: false },
+            ],
+            rowCount: 339,
+          },
+        ],
+        nullCounts: { bio: 339 },
+        userDataTables: ['contacts'],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        !issues.find((i) => i.code === 'high-null-rate' || i.code === 'unused-column'),
+        'Should not report null findings for an unrepresentative user-data table',
+      );
+    });
+
+    it('should not flag a nullable null-by-design column (*_at / *_phonetic)', async () => {
+      // FP-2: nullable event timestamps and phonetic search-helper columns are
+      // correct to be mostly/entirely NULL. They must not surface as findings.
+      const ctx = createContext({
+        dartFiles: [
+          createDartFile('contacts', [
+            'id',
+            { name: 'blocked_at', nullable: true },
+            { name: 'name_phonetic', nullable: true },
+          ]),
+        ],
+        tables: [
+          {
+            name: 'contacts',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'blocked_at', type: 'INTEGER', pk: false },
+              { name: 'name_phonetic', type: 'TEXT', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { blocked_at: 100, name_phonetic: 90 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        !issues.find((i) => i.data?.column === 'blocked_at'),
+        'A nullable *_at column should not be flagged',
+      );
+      assert.ok(
+        !issues.find((i) => i.data?.column === 'name_phonetic'),
+        'A nullable *_phonetic column should not be flagged',
+      );
+    });
+
+    it('should still flag a non-nullable *_at column with a high null rate', async () => {
+      // The null-by-design suffix only applies to nullable columns. A column the
+      // schema declares NOT-NULL that is nonetheless measured mostly NULL is a
+      // genuine anomaly and must keep reporting.
+      const ctx = createContext({
+        dartFiles: [createDartFile('events', ['id', { name: 'occurred_at', nullable: false }])],
+        tables: [
+          {
+            name: 'events',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'occurred_at', type: 'INTEGER', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { occurred_at: 80 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        issues.find((i) => i.data?.column === 'occurred_at'),
+        'A non-nullable *_at column with high nulls is a real finding',
+      );
+    });
+
+    it('should not flag a column declared with a default (.withDefault/.clientDefault)', async () => {
+      // FP-2: a defaulted column is null-by-design — unset rows take the default,
+      // so a high NULL rate is expected, not a content gap.
+      const ctx = createContext({
+        dartFiles: [createDartFile('settings', ['id', { name: 'sort_order', hasDefault: true }])],
+        tables: [
+          {
+            name: 'settings',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'sort_order', type: 'INTEGER', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { sort_order: 100 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        !issues.find((i) => i.data?.column === 'sort_order'),
+        'A defaulted column should not be flagged',
+      );
+    });
+
+    it('should still flag a plain high-null column on a representative table', async () => {
+      // Guard against over-suppression: a normal column (not by-design NULL) on a
+      // table not in userDataTables must keep reporting — the true positives the
+      // checker correctly surfaces (e.g. public_figures.description) stay intact.
+      const ctx = createContext({
+        dartFiles: [createDartFile('public_figures', ['id', { name: 'description', nullable: true }])],
+        tables: [
+          {
+            name: 'public_figures',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'description', type: 'TEXT', pk: false },
+            ],
+            rowCount: 746,
+          },
+        ],
+        nullCounts: { description: 740 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        issues.find((i) => i.data?.column === 'description'),
+        'A genuine content gap on a representative table must still report',
+      );
+    });
+
     it('should skip the null-rate scan for very large tables', async () => {
       // The null-rate scan is a full-table SUM(CASE WHEN col IS NULL ...)
       // aggregate that reads every row. Run automatically across all tables on
@@ -327,6 +472,7 @@ function createContext(options: {
   tables?: Array<{ name: string; columns: Array<{ name: string; type: string; pk: boolean }>; rowCount: number }>;
   sizeAnalytics?: { tables: Array<{ table: string; rowCount: number; columnCount: number; indexCount: number; indexes: string[] }> };
   nullCounts?: Record<string, number>;
+  userDataTables?: string[];
 }): IDiagnosticContext {
   const tables = options.tables ?? [];
   const sizeAnalytics = options.sizeAnalytics ?? {
@@ -360,6 +506,7 @@ function createContext(options: {
       categories: { schema: true, performance: true, dataQuality: true, bestPractices: true, naming: false, runtime: true, compliance: true },
       disabledRules: new Set(), severityOverrides: {}, tableExclusions: new Map(),
       columnExclusions: new Map(),
+      userDataTables: new Set(options.userDataTables ?? []),
     },
   };
 }

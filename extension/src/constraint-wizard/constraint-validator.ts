@@ -1,4 +1,5 @@
 import type { DriftApiClient } from '../api-client';
+import { rowKeyColumn } from '../sql/row-key';
 import { zipRow } from '../shared-utils';
 import type {
   IConstraintDraft,
@@ -144,7 +145,6 @@ export class ConstraintValidator {
   private async _findPkColumn(table: string): Promise<string> {
     const meta = await this._client.schemaMetadata();
     const t = meta.find((m) => m.name === table);
-    const pk = t?.columns.find((col) => col.pk);
-    return pk?.name ?? 'rowid';
+    return t ? rowKeyColumn(t.columns) : 'rowid';
   }
 }

@@ -13,6 +13,7 @@
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { IBranchTable, IDataBranch } from './branch-types';
+import { samplingOrderBy } from '../sql/sampling-order';
 
 const STATE_KEY = 'driftViewer.branches';
 
@@ -23,9 +24,11 @@ async function captureTable(
   rowLimit: number,
 ): Promise<{ branchTable: IBranchTable; truncated: boolean }> {
   const pkColumns = table.columns.filter((c) => c.pk).map((c) => c.name);
-  // ORDER BY rowid keeps capture deterministic; cap + 1 lets us detect truncation.
+  // Order by the declared PK (deterministic and always valid) — never rowid,
+  // which WITHOUT ROWID tables and views lack and which aborts the capture on
+  // them (#32). cap + 1 lets us detect truncation.
   const result = await client.sql(
-    `SELECT * FROM "${table.name}" ORDER BY rowid LIMIT ${rowLimit + 1}`,
+    `SELECT * FROM "${table.name}"${samplingOrderBy(pkColumns)} LIMIT ${rowLimit + 1}`,
     { internal: true },
   );
   const allRows = result.rows.map((row) => {

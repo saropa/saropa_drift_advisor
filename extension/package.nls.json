@@ -226,6 +226,7 @@
   "config.diagnostics.categories.compliance.description": "Enable schema compliance checks from .drift-rules.json.",
   "config.diagnostics.tableExclusions.description": "Suppress specific diagnostic rules on specific tables. Keys are rule codes, values are arrays of SQL table names.",
   "config.diagnostics.columnExclusions.description": "Suppress specific diagnostic rules on specific columns. Keys are rule codes, values are arrays of 'table.column' identifiers (e.g. 'users.middle_name' for a column expected to be mostly NULL).",
+  "config.diagnostics.userDataTables.description": "SQL table names whose live debug rows are not representative of production data (user/demo tables, or static reference tables that load lazily/partially in a debug session). Null-rate and unused-column analysis is skipped for these, since a null rate measured on a partial table is meaningless.",
   "config.dashboard.showOnConnect.description": "Show a notification to open the Dashboard when a server first connects.",
   "config.dvr.autoRecord.description": "Automatically start Query Replay DVR recording when a Dart/Flutter debug session begins.",
   "config.dvr.maxQueries.description": "Maximum number of DVR query events retained by the server ring buffer.",

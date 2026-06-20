@@ -3,6 +3,7 @@ import type { DriftApiClient } from '../api-client';
 import type { TableItem } from '../tree/tree-items';
 import { ImpactAnalyzer } from './impact-analyzer';
 import { ImpactPanel } from './impact-panel';
+import { rowKeyColumn } from '../sql/row-key';
 
 /** Register the analyzeRowImpact command. */
 export function registerImpactCommands(
@@ -38,7 +39,7 @@ async function analyzeImpact(
   const tableMeta = meta.find((t) => t.name === table);
   if (!tableMeta) return;
 
-  const pkCol = tableMeta.columns.find((c) => c.pk)?.name ?? 'rowid';
+  const pkCol = rowKeyColumn(tableMeta.columns);
   const pkInput = await vscode.window.showInputBox({
     prompt: `Enter ${pkCol} value to analyze in "${table}"`,
     validateInput: (v) => (v.trim() ? null : 'Enter a primary key value'),

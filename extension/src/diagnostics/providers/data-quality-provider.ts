@@ -8,9 +8,25 @@ import type {
   IDiagnosticProvider,
 } from '../diagnostic-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
+import type { IDartColumn } from '../../schema-diff/dart-schema';
 
 /** Threshold for high null rate warning (percentage). */
 const HIGH_NULL_RATE_THRESHOLD = 50;
+
+/**
+ * Column-name suffixes whose NULLs are intentional by convention, so a high
+ * null rate on them is signal-free noise rather than a data-quality finding:
+ *
+ * - `_at`: nullable event timestamps (`deleted_at`, `blocked_at`, `favorite_at`)
+ *   where NULL means "the event has not happened" — the common state.
+ * - `_phonetic`: search-helper columns populated only when a phonetic variant
+ *   exists, so mostly NULL by design.
+ *
+ * Gated on the column being nullable (a non-nullable column can never be NULL,
+ * so the suffix is irrelevant), which also keeps a non-nullable `created_at`
+ * from being matched. See BUG_data_quality_null_checker_false_positives.
+ */
+const NULL_BY_DESIGN_NAME_SUFFIXES = ['_at', '_phonetic'];
 
 /** Threshold for data skew warning (percentage of total rows). */
 const DATA_SKEW_THRESHOLD = 50;
@@ -154,7 +170,14 @@ export class DataQualityProvider implements IDiagnosticProvider {
     tables: TableMetadata[],
     ctx: IDiagnosticContext,
   ): Promise<void> {
+    // Tables whose live debug rows are unrepresentative — user/demo data, or
+    // static reference tables loaded lazily/partially in a debug session. A
+    // null rate computed on a partial table says nothing about the source data,
+    // so the rule must not run there at all (FP-1 in the bug report).
+    const userDataTables = ctx.config.userDataTables ?? new Set<string>();
+
     for (const table of tables) {
+      if (userDataTables.has(table.name)) continue;
       if (table.rowCount < MIN_ROWS_FOR_ANALYSIS) continue;
       // Skip the full-table null scan on very large tables — its cost on the
       // live debug connection outweighs the passive diagnostic. See
@@ -181,6 +204,15 @@ export class DataQualityProvider implements IDiagnosticProvider {
             const dartCol = dartTable.columns.find(
               (c) => c.sqlName === col.name,
             );
+
+            // Skip columns whose NULLs are intentional by declaration or naming
+            // convention (defaulted / autoincrement / event-timestamp /
+            // phonetic-helper columns). These are correct to be mostly or
+            // entirely NULL, so flagging them is pure noise (FP-2 in the bug
+            // report). Only suppress when the Dart declaration is known; an
+            // unmatched column still reports so genuine gaps are not hidden.
+            if (dartCol && this._isNullByDesign(dartCol)) continue;
+
             const line = dartCol?.line ?? dartTable.line;
 
             // A column that is entirely NULL (no row sets a value) is an
@@ -215,6 +247,32 @@ export class DataQualityProvider implements IDiagnosticProvider {
         // Skip table if null count query fails
       }
     }
+  }
+
+  /**
+   * True when a column's NULLs are intentional, so a high null rate on it is
+   * not a data-quality finding. Three independent signals:
+   *
+   * - `.withDefault(...)` / `.clientDefault(...)`: the value comes from the
+   *   default, not from every insert, so unset rows are correctly NULL.
+   * - `.autoIncrement()`: the column is engine-populated; a NULL/default is
+   *   intentional rather than missing content.
+   * - a null-by-design name suffix on a nullable column (`*_at`, `*_phonetic`).
+   *
+   * See BUG_data_quality_null_checker_false_positives (FP-2).
+   */
+  private _isNullByDesign(col: IDartColumn): boolean {
+    if (col.hasDefault === true) return true;
+    if (col.autoIncrement) return true;
+
+    if (col.nullable) {
+      const name = col.sqlName.toLowerCase();
+      if (NULL_BY_DESIGN_NAME_SUFFIXES.some((suffix) => name.endsWith(suffix))) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private async _queryNullCounts(

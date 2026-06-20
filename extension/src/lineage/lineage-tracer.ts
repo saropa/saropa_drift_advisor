@@ -1,4 +1,5 @@
 import type { DriftApiClient } from '../api-client';
+import { rowKeyColumn } from '../sql/row-key';
 import type { TableMetadata } from '../api-types';
 import { rowsToObjects } from '../timeline/snapshot-store';
 import type {
@@ -161,7 +162,7 @@ export class LineageTracer {
       (t) => !t.name.startsWith('sqlite_'),
     );
     for (const table of userTables) {
-      const pkCol = table.columns.find((c) => c.pk)?.name ?? 'rowid';
+      const pkCol = rowKeyColumn(table.columns);
       pkColumns.set(table.name, pkCol);
     }
 

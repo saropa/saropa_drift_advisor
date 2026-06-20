@@ -19,6 +19,7 @@ import { MAX_MUTATION_BUFFER_SIZE, MutationStreamPoller } from './mutation-strea
 import type { MutationStreamFilters, MutationStreamWebviewMessage } from './mutation-stream-types';
 import { viewMutationEventRow } from './mutation-stream-view-row';
 import { secureWebviewHtml } from '../webview-csp';
+import { rowKeyColumn } from '../sql/row-key';
 
 export class MutationStreamPanel {
   private static _currentPanel: MutationStreamPanel | undefined;
@@ -119,7 +120,7 @@ export class MutationStreamPanel {
         this._tables = tables.map((t) => t.name);
         this._columnsByTable = new Map();
         for (const t of tables) {
-          const pk = t.columns.find((c) => c.pk)?.name ?? 'rowid';
+          const pk = rowKeyColumn(t.columns);
           this._pkColumns.set(t.name, pk);
           const cols = t.columns.map((c) => c.name);
           this._columnsByTable.set(t.name, cols);

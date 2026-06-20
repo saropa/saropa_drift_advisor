@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { DriftApiClient } from '../api-client';
 import type { ISnapshot, ISnapshotTable } from './snapshot-types';
 import { rowsToObjects } from './snapshot-diff';
+import { samplingOrderBy } from '../sql/sampling-order';
 
 // Re-export the data shapes and diff helpers that used to live here, so the
 // many modules importing them from './snapshot-store' keep their import paths.
@@ -152,8 +153,11 @@ export class SnapshotStore {
           const pkCols = table.columns
             .filter((c) => c.pk)
             .map((c) => c.name);
+          // Order by the declared PK, never rowid: WITHOUT ROWID tables and
+          // views (e.g. PowerSync's ps_updated_rows and its table views) have
+          // no rowid column, and ORDER BY rowid aborts the sweep on them (#32).
           const result = await client.sql(
-            `SELECT * FROM "${table.name}" ORDER BY rowid LIMIT ${ROW_LIMIT}`,
+            `SELECT * FROM "${table.name}"${samplingOrderBy(pkCols)} LIMIT ${ROW_LIMIT}`,
             { internal: true },
           );
           tables.set(table.name, {

@@ -39,6 +39,10 @@ const TABLE_NAME_RE =
 const NAMED_RE = /\.named\(\s*['"](\w+)['"]\s*\)/;
 const NULLABLE_RE = /\.nullable\(\)/;
 const AUTO_INCREMENT_RE = /\.autoIncrement\(\)/;
+// A column-level default supplied by the schema (constant default or a
+// per-insert client default). Either makes a NULL value intentional, so the
+// data-quality null-rate rules must not flag the column.
+const HAS_DEFAULT_RE = /\.(?:withDefault|clientDefault)\(/;
 
 const INDEX_GETTER_RE = /List<Index>\s+get\s+indexes\s*=>/;
 const UNIQUE_KEYS_GETTER_RE = /List<Set<Column>>\s+get\s+uniqueKeys\s*=>/;
@@ -102,6 +106,7 @@ export function parseColumn(
     sqlType,
     nullable: NULLABLE_RE.test(builderChain),
     autoIncrement: AUTO_INCREMENT_RE.test(builderChain),
+    hasDefault: HAS_DEFAULT_RE.test(builderChain),
     line: lineOffset,
   };
 }

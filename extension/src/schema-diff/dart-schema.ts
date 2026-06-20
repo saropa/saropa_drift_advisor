@@ -22,6 +22,15 @@ export interface IDartColumn {
   nullable: boolean;
   /** Whether .autoIncrement() was detected. */
   autoIncrement: boolean;
+  /**
+   * Whether a column-level default was declared (`.withDefault(...)` or
+   * `.clientDefault(...)`). A defaulted column is null-by-design at the row
+   * level — the value is supplied by the default, not by every insert — so the
+   * data-quality null-rate rules treat it as expected-NULL and do not flag it.
+   * Optional so existing test fixtures and non-parser constructors of this type
+   * need not be touched; the Dart parser always populates it.
+   */
+  hasDefault?: boolean;
   /** Line number in the source file (0-based). */
   line: number;
 }

@@ -86,6 +86,16 @@ export interface IDiagnosticConfig {
    * table (e.g., a column expected to be mostly NULL by design).
    */
   columnExclusions: Map<string, Set<string>>;
+  /**
+   * SQL table names whose live debug rows are NOT a representative sample of
+   * the production data — user/demo tables and static reference tables that
+   * load lazily or partially in a debug session. Null-rate / unused-column
+   * analysis is skipped entirely for these, because a null rate computed on a
+   * partially-loaded or demo-only table says nothing about the source data
+   * (see BUG_data_quality_null_checker_false_positives). Optional so existing
+   * config constructors need not be updated; absence means "no tables excluded".
+   */
+  userDataTables?: Set<string>;
 }
 
 /** Context passed to providers during diagnostic collection. */
@@ -149,6 +159,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: IDiagnosticConfig = {
   disabledRules: new Set(),
   tableExclusions: new Map(),
   columnExclusions: new Map(),
+  userDataTables: new Set(),
 };
 
 /** Prefix added to all diagnostic messages for filtering. */

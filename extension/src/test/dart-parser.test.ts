@@ -140,6 +140,28 @@ describe('parseColumn', () => {
     assert.strictEqual(col.autoIncrement, true);
   });
 
+  it('should detect .withDefault() as hasDefault', () => {
+    const col = parseColumn(
+      'IntColumn', 'version', 'integer().withDefault(const Constant(1))', 0,
+    );
+    assert.ok(col);
+    assert.strictEqual(col.hasDefault, true);
+  });
+
+  it('should detect .clientDefault() as hasDefault', () => {
+    const col = parseColumn(
+      'DateTimeColumn', 'createdAt', 'dateTime().clientDefault(() => DateTime.now())', 0,
+    );
+    assert.ok(col);
+    assert.strictEqual(col.hasDefault, true);
+  });
+
+  it('should default hasDefault to false', () => {
+    const col = parseColumn('TextColumn', 'name', 'text()', 0);
+    assert.ok(col);
+    assert.strictEqual(col.hasDefault, false);
+  });
+
   it('should detect .named() override', () => {
     const col = parseColumn(
       'TextColumn', 'userName', "text().named('user_login')", 0,

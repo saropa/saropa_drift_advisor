@@ -1693,6 +1693,14 @@
             }
           }
         },
+        "driftViewer.diagnostics.userDataTables": {
+          "type": "array",
+          "default": [],
+          "description": "%config.diagnostics.userDataTables.description%",
+          "items": {
+            "type": "string"
+          }
+        },
         "driftViewer.dashboard.showOnConnect": {
           "type": "boolean",
           "default": true,

@@ -29,20 +29,31 @@ function inferDartType(name: string): { dartType: string; sqlType: string } {
   return { dartType: 'TextColumn', sqlType: 'TEXT' };
 }
 
+/**
+ * A column for {@link createDartFile}: either a bare SQL name (defaults applied)
+ * or an object overriding the parsed declaration flags. The object form lets
+ * tests exercise null-by-design detection (nullable `*_at`, `.withDefault(...)`).
+ */
+export type MockColumnSpec =
+  | string
+  | { name: string; nullable?: boolean; autoIncrement?: boolean; hasDefault?: boolean };
+
 /** Create a mock Dart file with the given table name and columns. */
 export function createDartFile(
   tableName: string,
-  columns: string[],
+  columns: MockColumnSpec[],
 ): IDartFileInfo {
-  const dartColumns = columns.map((name, idx) => {
-    const { dartType, sqlType } = inferDartType(name);
+  const dartColumns = columns.map((spec, idx) => {
+    const col = typeof spec === 'string' ? { name: spec } : spec;
+    const { dartType, sqlType } = inferDartType(col.name);
     return {
-      dartName: name,
-      sqlName: name,
+      dartName: col.name,
+      sqlName: col.name,
       dartType,
       sqlType,
-      nullable: false,
-      autoIncrement: name === 'id',
+      nullable: col.nullable ?? false,
+      autoIncrement: col.autoIncrement ?? col.name === 'id',
+      hasDefault: col.hasDefault ?? false,
       line: 10 + idx,
     };
   });
