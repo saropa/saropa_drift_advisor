@@ -89,6 +89,10 @@ void main() {
       expect(r.body['extensionConnected'], isA<bool>());
       expect(r.body['writeEnabled'], isFalse);
       expect(r.body['compareEnabled'], isFalse);
+      // Bind mode advertised so a remote probe can tell "up but loopback-only"
+      // from "absent"; default start is loopback-only.
+      // See BUG_drift_server_unreachable_by_lan_ip.
+      expect(r.body['loopbackOnly'], isTrue);
       expect(r.body['capabilities'], isA<List<dynamic>>());
       expect(
         (r.body['capabilities'] as List<dynamic>),

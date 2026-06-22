@@ -103,6 +103,11 @@ final class GenerationHandler {
             ServerConstants.issuesSchemaVersion,
         ServerConstants.jsonKeyWriteEnabled: _ctx.writeQuery != null,
         ServerConstants.jsonKeyCompareEnabled: _ctx.queryCompare != null,
+        // Advertise the bind interface so a remote probe (Saropa Lints) can
+        // distinguish "up but loopback-only" from "absent": a LAN-IP scan that
+        // gets connection-refused otherwise looks identical to no server.
+        // See BUG_drift_server_unreachable_by_lan_ip.
+        ServerConstants.jsonKeyLoopbackOnly: _ctx.loopbackOnly,
         ServerConstants.jsonKeyCapabilities: _ctx.writeQuery != null
             ? <String>[
                 ServerConstants.capabilityIssues,

@@ -53,6 +53,7 @@ final class ServerContext {
     this.declaredSchema,
     this.declaredRelationships,
     this.snapshotStorePath,
+    this.loopbackOnly = true,
   }) : queryRaw = query,
        _queryExec =
            queryWithBindings ??
@@ -101,6 +102,13 @@ final class ServerContext {
   /// excluded from user-facing slow-query diagnostics.
   Future<List<Map<String, dynamic>>> internalQuery(String sql) =>
       timedQuery(sql, isInternal: true);
+
+  /// Whether the server bound to loopback (127.0.0.1) only. Reflects the
+  /// `loopbackOnly` start option so GET /api/health can advertise the bind
+  /// mode: a remote client (Saropa Lints) reads it to tell "up but
+  /// loopback-only" from "absent" when a LAN-IP probe is refused. Defaults to
+  /// true to match the secure start default.
+  final bool loopbackOnly;
 
   /// Value for Access-Control-Allow-Origin header; null
   /// omits the header.

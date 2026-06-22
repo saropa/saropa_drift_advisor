@@ -43,7 +43,7 @@ linter:
 
 plugins:
   saropa_lints:
-    version: "14.0.4"
+    version: "14.0.7"
     rule_packs:
       enabled:
         - collection_compat
@@ -121,7 +121,7 @@ plugins:
       avoid_nested_try: false  # [INFO] Try-catch block nested inside another try-catch, creating layered error handling that is difficult to trace. Nested try blocks obscure which catch clause handles which error, increasing the risk of swallowing exceptions or applying the wrong recovery logic. {v4}
       avoid_nullable_interpolation: false  # [WARNING] Nullable value in string interpolation produces the literal text 'null' instead of a meaningful fallback. Users may see 'Hello null' or 'Order #null' in the UI, which looks like a bug and erodes trust in the application quality and data integrity. {v6}
       avoid_nullable_parameters_with_default_values: false  # [INFO] Parameter with default value must not be nullable. If a parameter has a default value, it doesn't need to be nullable. Quick fix available: Adds a comment to flag for manual review. {v5}
-      avoid_parameter_mutation: false  # [WARNING] Parameter object is being mutated. This modifies the caller's data. {v2}
+      avoid_parameter_mutation: false  # [WARNING] Parameter object is being mutated. This modifies the caller's data. {v3}
       avoid_passing_default_values: false  # [INFO] Argument explicitly passes a value that matches the parameter default (e.g. empty list, false, 0). Passing the default adds noise to the call site without changing behavior, and if the library updates its default, this call site will not benefit from the change. {v4}
       avoid_platform_specific_imports: false  # [WARNING] dart:io import detected in shared code. dart:io is unavailable on web and will cause compile failures when targeting browser platforms. Shared library code and packages that support multiple platforms should use conditional imports or package:universal_io to remain platform-agnostic. {v1}
       avoid_positional_boolean_parameters: false  # [INFO] Positional bool parameter makes call sites unreadable. Use named parameters for clarity.

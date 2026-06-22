@@ -320,6 +320,7 @@ class _DriftDebugServerImpl {
       declaredSchema: declaredSchema,
       declaredRelationships: declaredRelationships,
       snapshotStorePath: snapshotStorePath,
+      loopbackOnly: loopbackOnly,
     );
 
     // Restore any snapshots persisted by a previous run before serving, so the
@@ -400,6 +401,36 @@ class _DriftDebugServerImpl {
       final forwardCmd = _bannerCentered(
         'adb forward tcp:$boundPort tcp:$boundPort',
       );
+
+      // Bind-mode block: the loopback-only default is reachable ONLY via the
+      // host loopback (so adb forward, never the device LAN IP). State that
+      // explicitly so a developer debugging over Wi-Fi who tries
+      // http://<device-lan-ip>:<port> understands the connection-refused is by
+      // design, not a dead server — the discoverability gap the security
+      // hardening left. When loopbackOnly is false, print the actual reachable
+      // LAN URL(s) so the same user gets a copy-paste address.
+      // See BUG_drift_server_unreachable_by_lan_ip.
+      final bindModeLines = <String>[];
+      if (loopbackOnly) {
+        bindModeLines
+          ..add(_bannerCentered(ServerConstants.bannerLanDisabledHint))
+          ..add(_bannerCentered(ServerConstants.bannerLanEnableHint));
+      } else {
+        final lanIps = await _lanIpv4Addresses();
+        if (lanIps.isEmpty) {
+          bindModeLines.add(
+            _bannerCentered(ServerConstants.bannerLanNoInterface),
+          );
+        } else {
+          bindModeLines.add(
+            _bannerCentered(ServerConstants.bannerLanReachableHeader),
+          );
+          for (final ip in lanIps) {
+            bindModeLines.add(_bannerCentered('http://$ip:$boundPort'));
+          }
+        }
+      }
+
       // Startup banner must reach Android logcat (I/flutter); developer.log
       // and ctx.log do not surface there, so print is the only viable channel.
       // ignore: avoid_print, avoid_print_in_release -- print() is the only output that surfaces as I/flutter on Android; developer.log/ctx.log/stdout are invisible there, so the startup banner must use print
@@ -413,6 +444,8 @@ class _DriftDebugServerImpl {
         '${ServerConstants.bannerEmpty}\n'
         '$hint\n'
         '$forwardCmd\n'
+        '${ServerConstants.bannerEmpty}\n'
+        '${bindModeLines.join('\n')}\n'
         '${ServerConstants.bannerEmpty}\n'
         '${ServerConstants.bannerBottom}',
       );
@@ -433,6 +466,33 @@ class _DriftDebugServerImpl {
     final left = ' ' * pad;
     final right = ' ' * (w - pad - text.length);
     return '│$left$text$right│';
+  }
+
+  /// Enumerates the host's non-loopback IPv4 addresses for the startup banner.
+  ///
+  /// Only called when the server bound a non-loopback interface
+  /// (`loopbackOnly: false`), so the banner can print a copy-paste
+  /// `http://<lan-ip>:<port>` URL instead of leaving a Wi-Fi-by-IP user to
+  /// guess the device address. Loopback is excluded (`includeLoopback: false`)
+  /// because the 127.0.0.1 URL is already printed above. Best-effort: a
+  /// platform that throws on interface enumeration yields an empty list, and
+  /// the caller falls back to [ServerConstants.bannerLanNoInterface] rather
+  /// than failing the banner.
+  static Future<List<String>> _lanIpv4Addresses() async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        includeLoopback: false,
+        type: InternetAddressType.IPv4,
+      );
+      return <String>[
+        for (final iface in interfaces)
+          for (final addr in iface.addresses) addr.address,
+      ];
+    } on Object {
+      // Interface enumeration is unsupported / denied on some platforms; the
+      // banner degrades to a generic LAN-on line rather than crashing startup.
+      return const <String>[];
+    }
   }
 
   /// The port the server is bound to, or null if not running.

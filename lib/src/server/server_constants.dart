@@ -260,6 +260,14 @@ abstract final class ServerConstants {
 
   /// True when HTTP clients may call write endpoints ([writeQuery] configured).
   static const String jsonKeyWriteEnabled = 'writeEnabled';
+
+  /// Health field advertising the server's bind interface. `true` = bound to
+  /// loopback (127.0.0.1) only, so the server is reachable from the host that
+  /// runs the app — but NOT by the device's LAN IP. A remote probe (Saropa
+  /// Lints) reads this to distinguish "up but loopback-only" from "absent": a
+  /// connection-refused on the LAN IP with no health response otherwise looks
+  /// identical to no server at all. See BUG_drift_server_unreachable_by_lan_ip.
+  static const String jsonKeyLoopbackOnly = 'loopbackOnly';
   static const String jsonKeyGeneration = 'generation';
   static const String jsonKeySnapshot = 'snapshot';
   static const String jsonKeySnapshots = 'snapshots';
@@ -467,6 +475,33 @@ abstract final class ServerConstants {
   /// _bannerCentered pads (longer text yields a broken, unpadded box line).
   static const String bannerEmulatorHint =
       'On emulator/device, forward to the host first:';
+
+  /// Banner line shown under the default loopback-only bind, stating that the
+  /// device's LAN IP route is closed by design. Without it, a developer
+  /// debugging over Wi-Fi who tries `http://<device-lan-ip>:<port>` gets a
+  /// silent connection-refused indistinguishable from "no server" — the
+  /// discoverability gap the loopback-only security default left open. Kept
+  /// ≤ [bannerInnerWidth] chars so _bannerCentered pads instead of breaking
+  /// the box. See BUG_drift_server_unreachable_by_lan_ip.
+  static const String bannerLanDisabledHint =
+      'LAN-IP access off (loopbackOnly: true).';
+
+  /// Banner line naming the opt-in that enables LAN-IP access. Paired with
+  /// [bannerLanDisabledHint] so the user sees both the constraint and the fix.
+  static const String bannerLanEnableHint =
+      'Enable: loopbackOnly: false + authToken';
+
+  /// Banner header printed above the reachable LAN URLs when the server is NOT
+  /// loopback-only, so a Wi-Fi-by-IP user gets a copy-paste URL beside the
+  /// existing adb-forward hint rather than having to guess the device IP.
+  static const String bannerLanReachableHeader =
+      'Reachable on your network at:';
+
+  /// Banner line shown when loopbackOnly is false but no non-loopback IPv4
+  /// interface could be enumerated (NetworkInterface.list returned none), so
+  /// the box still explains the bind mode instead of silently omitting it.
+  static const String bannerLanNoInterface =
+      'LAN access on (no IPv4 interface found).';
   static const String jsonKeyCounts = 'counts';
   static const String jsonKeyType = 'type';
   static const String jsonKeyPk = 'pk';

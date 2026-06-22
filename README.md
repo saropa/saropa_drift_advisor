@@ -415,6 +415,11 @@ If you see **"command 'driftViewer.refreshTree' not found"** in VS Code, open a 
 
 **Browser:** Open **http://127.0.0.1:8642** (on emulator, run `adb forward tcp:8642 tcp:8642` first).
 
+**Physical device over Wi-Fi.** The server binds inside the device's network namespace, so by default it is reachable from your dev machine in exactly one way — there are two supported paths:
+
+1. **`adb forward` (default, recommended).** With the default `loopbackOnly: true`, forward the port and connect to loopback: `adb forward tcp:8642 tcp:8642`, then open `http://127.0.0.1:8642`. This works over both USB and Wi-Fi debugging.
+2. **Device LAN IP.** Connecting directly to `http://<device-lan-ip>:8642` requires `loopbackOnly: false` **and** an `authToken` (the server otherwise binds 127.0.0.1 only and the LAN IP is refused at the socket — a silent connection-refused that looks identical to "no server"). Once enabled, the startup banner prints the reachable `http://<lan-ip>:8642` URL.
+
 **Example app:** [example/](example/) — multi-table schema (users, posts, comments, tags) with FKs, Import, and opt-in auth. From repo root: `flutter run -d windows`, then connect via VS Code or browser. See [example/README.md](example/README.md).
 
 ### 4. View your data
@@ -448,7 +453,7 @@ Use the **VS Code extension** (recommended) or open **http://127.0.0.1:8642** in
 | **`onLog`**, **`onError`**                    | Optional; for your logger or `debugPrint` / `print`.                                                                 |
 
 - Only one server per process; calling `start` again when running is a no-op. Use **`DriftDebugServer.stop()`** to shut down and restart (e.g. tests or graceful shutdown).
-- **Health:** `GET /api/health` → `{"ok": true, "version": "<package semver>", …}` (and optional `writeEnabled`, `capabilities`, etc.).
+- **Health:** `GET /api/health` → `{"ok": true, "version": "<package semver>", "loopbackOnly": true, …}` (and optional `writeEnabled`, `capabilities`, etc.). `loopbackOnly` advertises the bind interface so a remote client can tell "up but loopback-only" from "absent."
 - **Live refresh:** `GET /api/generation`; use `?since=N` to long-poll until generation changes (30s timeout).
 
 ---
