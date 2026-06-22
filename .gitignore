@@ -70,3 +70,6 @@ bugs/BUG_finish_skill_narration_voice.md
 
 # Kept locally, must never be committed/pushed (removed from history 2026-06-20)
 bugs/BUG_lint_report.md
+
+# Local-only bug report, excluded from git
+bugs/PROBABLE_marketplace_failure_blocks_open_vsx_publish.md
