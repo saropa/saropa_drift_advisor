@@ -416,7 +416,7 @@ class _DriftDebugServerImpl {
           ..add(_bannerCentered(ServerConstants.bannerLanDisabledHint))
           ..add(_bannerCentered(ServerConstants.bannerLanEnableHint));
       } else {
-        final lanIps = await _lanIpv4Addresses();
+        final lanIps = await _lanIpv4Addresses(ctx.logError);
         if (lanIps.isEmpty) {
           bindModeLines.add(
             _bannerCentered(ServerConstants.bannerLanNoInterface),
@@ -477,8 +477,12 @@ class _DriftDebugServerImpl {
   /// because the 127.0.0.1 URL is already printed above. Best-effort: a
   /// platform that throws on interface enumeration yields an empty list, and
   /// the caller falls back to [ServerConstants.bannerLanNoInterface] rather
-  /// than failing the banner.
-  static Future<List<String>> _lanIpv4Addresses() async {
+  /// than failing the banner. The failure is routed to [logError] so an
+  /// enumeration problem is still visible for debugging even though it never
+  /// blocks startup.
+  static Future<List<String>> _lanIpv4Addresses(
+    void Function(Object, StackTrace) logError,
+  ) async {
     try {
       final interfaces = await NetworkInterface.list(
         includeLoopback: false,
@@ -488,9 +492,11 @@ class _DriftDebugServerImpl {
         for (final iface in interfaces)
           for (final addr in iface.addresses) addr.address,
       ];
-    } on Object {
+    } on Object catch (error, stack) {
       // Interface enumeration is unsupported / denied on some platforms; the
       // banner degrades to a generic LAN-on line rather than crashing startup.
+      // Log so the degradation is not silent, then return the empty fallback.
+      logError(error, stack);
       return const <String>[];
     }
   }

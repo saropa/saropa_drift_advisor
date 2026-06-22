@@ -1,5 +1,7 @@
 # Bug / Friction Report
 
+**Status:** Fixed
+
 ## Title
 
 Drift debug server is unreachable by its device LAN IP over Wi-Fi debugging — loopback-only default refuses the connection, and the startup banner only documents the `adb forward` path, so a LAN-IP client gets a silent connection-refused indistinguishable from "no server."
@@ -132,3 +134,26 @@ All three suggested directions landed in `saropa_drift_advisor` (documentation/U
 1. **Banner** (`lib/src/drift_debug_server_io.dart`). When `loopbackOnly: true`, the startup banner now prints two lines stating LAN-IP access is off and how to enable it (`loopbackOnly: false` + `authToken`), alongside the existing `adb forward` hint. When `loopbackOnly: false`, it enumerates the host's non-loopback IPv4 interfaces (`NetworkInterface.list`) and prints a copy-paste `http://<lan-ip>:<port>` for each (or a generic "LAN access on" line if none enumerate). New strings live in `ServerConstants` (`bannerLanDisabledHint`, `bannerLanEnableHint`, `bannerLanReachableHeader`, `bannerLanNoInterface`).
 2. **`/api/health`** (`lib/src/server/generation_handler.dart`). The response now carries `loopbackOnly: true|false` (threaded through `ServerContext.loopbackOnly`), so a remote probe distinguishes "up but loopback-only" from "absent." Asserted in `test/handler_integration_test.dart`.
 3. **Docs** (`README.md`). The "Connect a client" section now states the two supported physical-device-over-Wi-Fi paths explicitly (`adb forward` + loopback, or `loopbackOnly: false` + `authToken` + device LAN IP), and the health summary documents the new `loopbackOnly` field.
+
+---
+
+## Finish Report (2026-06-22)
+
+### Defect
+
+The debug server binds `InternetAddress.loopbackIPv4` inside the host app's network namespace under the secure default (`loopbackOnly: true`). On a physical device debugged over Wi-Fi, a connection to the device's LAN IP (`http://<device-lan-ip>:<port>`) is refused at the socket layer before any HTTP, producing a silent connection-refused indistinguishable from "no server running." Nothing in the startup banner or the `/api/health` payload disclosed the bind mode, so a developer (or the Saropa Lints client probing by IP) had no in-product signal that the IP route was closed by design rather than the server being absent.
+
+### Change
+
+Documentation/UX surfacing only; the loopback-only security default is unchanged.
+
+- **Banner bind-mode block** — `lib/src/drift_debug_server_io.dart`. The startup banner gained a conditional block after the `adb forward` hint. Under `loopbackOnly: true` it prints two centered lines: that LAN-IP access is off, and the opt-in that enables it. Under `loopbackOnly: false` it enumerates non-loopback IPv4 interfaces via a new best-effort static helper `_lanIpv4Addresses(logError)` and prints a copy-paste `http://<lan-ip>:<port>` per interface, or a generic "LAN access on" line when none enumerate. The helper routes enumeration failures to the context error logger and returns an empty list rather than failing the banner.
+- **Bind-mode constants** — `lib/src/server/server_constants.dart`. Added `bannerLanDisabledHint`, `bannerLanEnableHint`, `bannerLanReachableHeader`, `bannerLanNoInterface` (all ≤ `bannerInnerWidth` so the box pads correctly) and the `jsonKeyLoopbackOnly` health key.
+- **Health advertisement** — `lib/src/server/generation_handler.dart` + `lib/src/server/server_context.dart`. `ServerContext` carries a `loopbackOnly` field (defaulting to true to match the secure start default), threaded from `_startInternal`. `GET /api/health` now emits `loopbackOnly`, letting a remote probe distinguish "up but loopback-only" from "absent."
+- **Tests** — `test/handler_integration_test.dart`. The health-shape test now asserts `loopbackOnly` is present and true by default.
+- **Docs** — `README.md` documents the two supported Wi-Fi access paths and the new health field; `CHANGELOG.md` records the change under `[Unreleased]`.
+
+### Verification
+
+- `dart analyze` on the five touched files: no issues (an initial `require_catch_logging` warning on the enumeration catch was resolved by logging the failure rather than swallowing it).
+- `dart test test/handler_integration_test.dart --name "health"`: all 12 tests pass; the captured banner output confirms the new LAN lines render centered within the box.
