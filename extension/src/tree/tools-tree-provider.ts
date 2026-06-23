@@ -1,8 +1,13 @@
 /**
  * Static tree view provider for the "Drift Tools" sidebar.
- * Lists all major commands grouped by category. Server-dependent items
- * show a disabled state when not connected, teaching users what the
- * extension can do even before they connect.
+ *
+ * Slimmed to a thin launcher: the full per-tool catalog now lives in the Drift
+ * Tools Hub webview (`driftViewer.openDriftToolsHub`), which indexes every tool
+ * grouped by category. This docked view keeps only what a launcher needs — a
+ * prominent "Drift Tools Hub" entry, the package-setup gate when the dependency
+ * is missing, and a connection-status row — so the sidebar opens the Hub in one
+ * click and still teaches connection state before you connect. The old
+ * category-per-tool tree was redundant with the Hub and was removed.
  */
 
 import * as vscode from 'vscode';
@@ -10,27 +15,55 @@ import * as vscode from 'vscode';
 // ── Node types ────────────────────────────────────────────────────────
 
 /** Union of all node types in the tools tree. */
-export type ToolsTreeNode = ToolCategoryItem | ToolCommandItem;
+export type ToolsTreeNode = ToolLauncherItem | ToolCommandItem | ToolsStatusItem;
 
-/** Collapsible category header (e.g. "Schema & Migrations"). */
-export class ToolCategoryItem extends vscode.TreeItem {
-  /** Child tool commands belonging to this category. */
-  readonly tools: ToolCommandItem[];
+/**
+ * The prominent top entry that opens the Drift Tools Hub. Kept distinct from
+ * ToolCommandItem so its version description survives `getTreeItem` (the command
+ * item clears its description when wiring connection state).
+ */
+export class ToolLauncherItem extends vscode.TreeItem {
+  /** The VS Code command ID to execute when clicked. */
+  readonly commandId: string;
 
-  constructor(
-    categoryName: string,
-    icon: string,
-    tools: ToolCommandItem[],
-  ) {
-    super(categoryName, vscode.TreeItemCollapsibleState.Expanded);
-    this.tools = tools;
-    this.iconPath = new vscode.ThemeIcon(icon);
-    this.contextValue = 'toolCategory';
-    this.description = `${tools.length}`;
+  constructor(label: string, commandId: string, version: string) {
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.commandId = commandId;
+    this.description = `v${version}`;
+    this.iconPath = new vscode.ThemeIcon('layout');
+    this.contextValue = 'toolLauncher';
+    this.tooltip = 'Open the Drift Tools Hub — dashboard, health, and every tool on one page';
+    this.command = { command: commandId, title: label };
   }
 }
 
-/** Leaf item representing a single command. */
+/**
+ * Connection-status row. Mirrors the live server state so a user can tell at a
+ * glance whether the server-dependent tools in the Hub will work; when not
+ * connected, clicking opens the connection-help panel rather than being inert.
+ */
+export class ToolsStatusItem extends vscode.TreeItem {
+  constructor(connected: boolean) {
+    super(connected ? 'Connected' : 'Not connected', vscode.TreeItemCollapsibleState.None);
+    this.contextValue = 'toolsConnectionStatus';
+    if (connected) {
+      this.description = 'server live';
+      this.iconPath = new vscode.ThemeIcon('database', new vscode.ThemeColor('testing.iconPassed'));
+      this.tooltip = 'A Drift debug server is connected — all tools are available.';
+    } else {
+      this.description = 'click for help';
+      this.iconPath = new vscode.ThemeIcon('plug', new vscode.ThemeColor('testing.iconSkipped'));
+      this.tooltip = 'No Drift server connected — server-dependent tools will prompt you to connect.';
+      this.command = {
+        command: 'driftViewer.showTroubleshooting',
+        title: 'Open Connection Help',
+        arguments: ['disconnected'],
+      };
+    }
+  }
+}
+
+/** Leaf item representing a single command (used for the package-setup gate). */
 export class ToolCommandItem extends vscode.TreeItem {
   /** The VS Code command ID to execute when clicked. */
   readonly commandId: string;
@@ -115,7 +148,7 @@ export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode>
   }
 
   getTreeItem(element: ToolsTreeNode): vscode.TreeItem {
-    // Apply dynamic enable/disable state to command items
+    // Only the command-gate item carries connection-dependent enable/disable.
     if (element instanceof ToolCommandItem) {
       element.applyConnectionState(this._connected);
     }
@@ -124,13 +157,11 @@ export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode>
 
   getChildren(element?: ToolsTreeNode): ToolsTreeNode[] {
     try {
-      if (!element) {
-        return buildCategories(this._version, this._packageInstalled);
+      // Flat launcher — no nesting, so any non-root element has no children.
+      if (element) {
+        return [];
       }
-      if (element instanceof ToolCategoryItem) {
-        return element.tools;
-      }
-      return [];
+      return buildLauncher(this._version, this._packageInstalled, this._connected);
     } catch {
       // Never throw so the view never shows "no data provider" errors.
       return [];
@@ -138,31 +169,26 @@ export class ToolsTreeProvider implements vscode.TreeDataProvider<ToolsTreeNode>
   }
 }
 
-// ── Static category definitions ───────────────────────────────────────
+// ── Launcher contents ─────────────────────────────────────────────────
 
-/** Build the full categorised tool list. Called on every render. */
-function buildCategories(version: string, packageInstalled: boolean): ToolCategoryItem[] {
-  // "Getting Started" tools — the "Add Package" item is only shown when the
-  // package is not yet present in pubspec.yaml.
-  const gettingStartedTools: ToolCommandItem[] = [
-    // The hub is the front door: it composes Dashboard + Health snapshots and
-    // links out to every other tool, so it stays clickable even when offline
-    // (panes degrade to a placeholder; the launcher grid still works).
-    new ToolCommandItem(
-      'Drift Tools Hub', 'driftViewer.openDriftToolsHub', 'layout',
-      false, 'Dashboard, health, and every tool on one page',
-    ),
-    new ToolCommandItem(
-      `About Saropa Drift Advisor v${version}`, 'driftViewer.about', 'book',
-      false, 'View release notes and changelog',
-    ),
-    new ToolCommandItem(
-      'Open Walkthrough', 'driftViewer.openWalkthrough', 'info',
-      false, 'Step-by-step guide to the extension',
-    ),
+/**
+ * Build the slim launcher: the Hub entry, the package-setup gate (only when the
+ * dependency is missing), and the connection-status row. Order puts the primary
+ * action first and the status last.
+ */
+function buildLauncher(
+  version: string,
+  packageInstalled: boolean,
+  connected: boolean,
+): ToolsTreeNode[] {
+  const items: ToolsTreeNode[] = [
+    new ToolLauncherItem('Drift Tools Hub', 'driftViewer.openDriftToolsHub', version),
   ];
+
+  // The setup gate appears only until the package is present in pubspec.yaml —
+  // it does not need a connection, so it stays clickable offline.
   if (!packageInstalled) {
-    gettingStartedTools.push(
+    items.push(
       new ToolCommandItem(
         'Add Saropa Drift Advisor', 'driftViewer.addPackageToProject', 'package',
         false, 'Add saropa_drift_advisor to pubspec.yaml',
@@ -170,116 +196,6 @@ function buildCategories(version: string, packageInstalled: boolean): ToolCatego
     );
   }
 
-  return [
-    new ToolCategoryItem('Getting Started', 'star', gettingStartedTools),
-
-    new ToolCategoryItem('Schema & Migrations', 'diff', [
-      new ToolCommandItem(
-        'Schema Diff', 'driftViewer.schemaDiff', 'diff',
-        true, 'Compare Dart code vs runtime schema',
-      ),
-      new ToolCommandItem(
-        'Generate Migration', 'driftViewer.generateMigration', 'file-code',
-        true, 'Generate Dart migration code with version number',
-      ),
-      new ToolCommandItem(
-        'Generate Rollback', 'driftViewer.generateRollback', 'discard',
-        true, 'Generate reverse migration from schema timeline',
-      ),
-      new ToolCommandItem(
-        'Generate Dart', 'driftViewer.generateDart', 'code',
-        true, 'Generate Dart table classes from runtime schema',
-      ),
-    ]),
-
-    new ToolCategoryItem('Health & Quality', 'heart', [
-      new ToolCommandItem(
-        'Health Score', 'driftViewer.healthScore', 'heart',
-        true, 'Compute database health score',
-      ),
-      new ToolCommandItem(
-        'Run Linter', 'driftViewer.runLinter', 'warning',
-        true, 'Check schema for diagnostics and issues',
-      ),
-      new ToolCommandItem(
-        // No server connection required: rule enable/disable + severity
-        // overrides are pure settings edits, configurable before connecting.
-        'Configure Rules', 'driftViewer.openRulesConfig', 'checklist',
-        false, 'Enable/disable diagnostic rules and set their severity',
-      ),
-      new ToolCommandItem(
-        'Anomaly Detection', 'driftViewer.showAnomalies', 'bug',
-        true, 'Detect FK violations, duplicates, empty strings',
-      ),
-      new ToolCommandItem(
-        'Query Cost', 'driftViewer.analyzeQueryCost', 'pulse',
-        true, 'Analyze query performance with EXPLAIN',
-      ),
-      new ToolCommandItem(
-        'Manage Invariants', 'driftViewer.manageInvariants', 'shield',
-        true, 'Define and run data integrity rules',
-      ),
-    ]),
-
-    new ToolCategoryItem('Data Management', 'database', [
-      new ToolCommandItem(
-        'Seed Data', 'driftViewer.seedAllTables', 'beaker',
-        true, 'Generate test data for all tables',
-      ),
-      new ToolCommandItem(
-        'Import Dataset', 'driftViewer.importDataset', 'cloud-download',
-        true, 'Import a dataset JSON file',
-      ),
-      new ToolCommandItem(
-        'Export Dataset', 'driftViewer.exportDataset', 'cloud-upload',
-        true, 'Export current data as portable JSON',
-      ),
-      new ToolCommandItem(
-        'Clear All Tables', 'driftViewer.clearAllTables', 'trash',
-        true, 'Delete all rows from all tables',
-      ),
-      new ToolCommandItem(
-        'Download Database', 'driftViewer.downloadDatabase', 'desktop-download',
-        true, 'Save the SQLite database file locally',
-      ),
-    ]),
-
-    new ToolCategoryItem('Visualization', 'type-hierarchy', [
-      new ToolCommandItem(
-        'ER Diagram', 'driftViewer.showErDiagram', 'type-hierarchy',
-        true, 'Entity-relationship diagram with FK links',
-      ),
-      new ToolCommandItem(
-        'Dashboard', 'driftViewer.openDashboard', 'dashboard',
-        true, 'Open custom dashboard with widgets',
-      ),
-      new ToolCommandItem(
-        'Schema Docs', 'driftViewer.generateSchemaDocs', 'book',
-        true, 'Generate schema documentation',
-      ),
-    ]),
-
-    new ToolCategoryItem('Tools', 'tools', [
-      new ToolCommandItem(
-        'Toggle Polling', 'driftViewer.togglePolling', 'radio-tower',
-        true, 'Enable/disable database change detection polling',
-      ),
-      new ToolCommandItem(
-        'SQL Notebook', 'driftViewer.openSqlNotebook', 'terminal',
-        true, 'Interactive SQL console',
-      ),
-      new ToolCommandItem(
-        'Snippet Library', 'driftViewer.openSnippetLibrary', 'notebook',
-        true, 'Browse and manage saved SQL snippets',
-      ),
-      new ToolCommandItem(
-        'Global Search', 'driftViewer.globalSearch', 'search',
-        true, 'Search across all tables',
-      ),
-      new ToolCommandItem(
-        'Isar Converter', 'driftViewer.isarToDrift', 'arrow-swap',
-        false, 'Convert Isar schema to Drift code',
-      ),
-    ]),
-  ];
+  items.push(new ToolsStatusItem(connected));
+  return items;
 }

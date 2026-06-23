@@ -1,24 +1,25 @@
 /**
- * Tests for the Drift Tools tree view provider.
- * Covers root/children, connection state (enabled/disabled items), and
- * package-installed state (Add Package visibility).
+ * Tests for the slimmed "Drift Tools" launcher tree provider.
+ * The full per-tool catalog moved to the Drift Tools Hub webview; this docked
+ * view is now just a launcher: a Hub entry, the package-setup gate, and a
+ * connection-status row. Covers root contents, the gate's install-state
+ * visibility, the always-clickable Hub entry, and connection-status wiring.
  */
 
 import * as assert from 'assert';
-import { ToolsTreeProvider, ToolCategoryItem, ToolCommandItem } from '../tree/tools-tree-provider';
+import {
+  ToolsTreeProvider,
+  ToolLauncherItem,
+  ToolCommandItem,
+  ToolsStatusItem,
+} from '../tree/tools-tree-provider';
 
-/** TreeItem.label can be string or TreeItemLabel; normalize to string for assertions. */
-function categoryLabel(c: ToolCategoryItem): string {
-  return typeof c.label === 'string' ? c.label : (c.label as { label?: string })?.label ?? '';
+/** TreeItem.label normalized to string for assertions. */
+function label(node: { label?: unknown }): string {
+  return typeof node.label === 'string' ? node.label : (node.label as { label?: string })?.label ?? '';
 }
 
-/** Find root category whose label contains the given substring. */
-function findCategory(provider: ToolsTreeProvider, labelSubstring: string): ToolCategoryItem | undefined {
-  const children = provider.getChildren() as ToolCategoryItem[];
-  return children.find((c) => categoryLabel(c).includes(labelSubstring));
-}
-
-describe('ToolsTreeProvider', () => {
+describe('ToolsTreeProvider (slim launcher)', () => {
   let provider: ToolsTreeProvider;
 
   beforeEach(() => {
@@ -26,126 +27,79 @@ describe('ToolsTreeProvider', () => {
   });
 
   describe('getChildren() — root', () => {
-    it('should return category items at root', () => {
+    it('leads with the Drift Tools Hub launcher entry', () => {
       const children = provider.getChildren();
-      assert.ok(children.length > 0);
-      for (const c of children) {
-        assert.ok(c instanceof ToolCategoryItem);
-      }
+      const hub = children[0];
+      assert.ok(hub instanceof ToolLauncherItem, 'first item is the Hub launcher');
+      assert.strictEqual((hub as ToolLauncherItem).commandId, 'driftViewer.openDriftToolsHub');
     });
 
-    it('should include Getting Started, Schema & Migrations, Health, Data, Visualization, Tools', () => {
-      const children = provider.getChildren() as ToolCategoryItem[];
-      const labels = children.map(categoryLabel);
-      assert.ok(labels.some((l) => l.includes('Getting Started')));
-      assert.ok(labels.some((l) => l.includes('Schema')));
-      assert.ok(labels.some((l) => l.includes('Health')));
-      assert.ok(labels.some((l) => l.includes('Data Management')));
-      assert.ok(labels.some((l) => l.includes('Visualization')));
-      assert.ok(labels.some((l) => l.includes('Tools')));
+    it('shows the extension version on the Hub entry', () => {
+      const hub = provider.getChildren()[0] as ToolLauncherItem;
+      assert.ok((hub.description as string)?.includes('1.2.3'));
     });
 
-    it('should include Toggle Polling under Tools', () => {
-      const toolsCategory = findCategory(provider, 'Tools');
-      assert.ok(toolsCategory);
-      const tools = provider.getChildren(toolsCategory) as ToolCommandItem[];
-      const togglePolling = tools.find((t) => t.commandId === 'driftViewer.togglePolling');
-      assert.ok(togglePolling);
+    it('ends with a connection-status row', () => {
+      const children = provider.getChildren();
+      const last = children[children.length - 1];
+      assert.ok(last instanceof ToolsStatusItem);
     });
 
-    it('should show Add Package when package not installed', () => {
+    it('is a flat list — non-root elements have no children', () => {
+      const root = provider.getChildren();
+      assert.deepStrictEqual(provider.getChildren(root[0]), []);
+    });
+  });
+
+  describe('package-setup gate', () => {
+    it('shows Add Package when the package is not installed', () => {
       provider.setPackageInstalled(false);
-      const gettingStarted = findCategory(provider, 'Getting Started');
-      assert.ok(gettingStarted);
-      const items = provider.getChildren(gettingStarted) as ToolCommandItem[];
-      const addPkg = items.find((t) => t.commandId === 'driftViewer.addPackageToProject');
+      const items = provider.getChildren() as ToolCommandItem[];
+      const addPkg = items.find((t) => (t as ToolCommandItem).commandId === 'driftViewer.addPackageToProject');
       assert.ok(addPkg, 'Add Package should be visible when not installed');
     });
 
-    it('should hide Add Package when package is installed', () => {
+    it('hides Add Package when the package is installed', () => {
       provider.setPackageInstalled(true);
-      const gettingStarted = findCategory(provider, 'Getting Started');
-      assert.ok(gettingStarted);
-      const items = provider.getChildren(gettingStarted) as ToolCommandItem[];
-      const addPkg = items.find((t) => t.commandId === 'driftViewer.addPackageToProject');
+      const items = provider.getChildren();
+      const addPkg = items.find(
+        (t) => t instanceof ToolCommandItem && t.commandId === 'driftViewer.addPackageToProject',
+      );
       assert.strictEqual(addPkg, undefined, 'Add Package should be hidden when installed');
     });
   });
 
-  describe('getChildren() — category', () => {
-    it('should return tool command items for a category', () => {
-      const root = provider.getChildren() as ToolCategoryItem[];
-      const firstCategory = root[0];
-      const items = provider.getChildren(firstCategory);
-      assert.ok(items.length > 0);
-      for (const item of items) {
-        assert.ok(item instanceof ToolCommandItem);
-      }
-    });
-
-    it('should return empty array for non-category element', () => {
-      const root = provider.getChildren() as ToolCategoryItem[];
-      const firstCategory = root[0];
-      const items = provider.getChildren(firstCategory);
-      const leaf = items[0];
-      const empty = provider.getChildren(leaf);
-      assert.deepStrictEqual(empty, []);
+  describe('Hub entry is always clickable', () => {
+    it('wires the open-Hub command even when disconnected', () => {
+      provider.setConnected(false);
+      const hub = provider.getTreeItem(provider.getChildren()[0]) as ToolLauncherItem;
+      assert.ok(hub.command, 'Hub launcher should always be clickable');
+      assert.strictEqual(hub.command!.command, 'driftViewer.openDriftToolsHub');
     });
   });
 
-  describe('getTreeItem() — connection state', () => {
-    it('should apply disabled state to connection-required items when disconnected', () => {
+  describe('connection-status row', () => {
+    it('offers connection help when disconnected', () => {
       provider.setConnected(false);
-      const toolsCategory = findCategory(provider, 'Tools');
-      const tools = provider.getChildren(toolsCategory!) as ToolCommandItem[];
-      const togglePolling = tools.find((t) => t.commandId === 'driftViewer.togglePolling');
-      assert.ok(togglePolling?.requiresConnection);
-      const item = provider.getTreeItem(togglePolling!);
-      assert.strictEqual(item.command, undefined, 'command should be cleared when disabled');
-      assert.ok(
-        (item.description as string)?.includes('not connected'),
-        'should show (not connected)',
-      );
+      const status = provider.getChildren().find((n) => n instanceof ToolsStatusItem) as ToolsStatusItem;
+      assert.strictEqual(label(status), 'Not connected');
+      assert.strictEqual(status.command?.command, 'driftViewer.showTroubleshooting');
     });
 
-    it('should apply enabled state to connection-required items when connected', () => {
+    it('reads as connected (no help command) when connected', () => {
       provider.setConnected(true);
-      const toolsCategory = findCategory(provider, 'Tools');
-      const tools = provider.getChildren(toolsCategory!) as ToolCommandItem[];
-      const togglePolling = tools.find((t) => t.commandId === 'driftViewer.togglePolling');
-      const item = provider.getTreeItem(togglePolling!);
-      assert.ok(item.command, 'command should be set when connected');
-      assert.strictEqual(item.command!.command, 'driftViewer.togglePolling');
-    });
-
-    it('should leave About command enabled when disconnected', () => {
-      provider.setConnected(false);
-      const gettingStarted = findCategory(provider, 'Getting Started');
-      const items = provider.getChildren(gettingStarted!) as ToolCommandItem[];
-      const about = items.find((t) => t.commandId === 'driftViewer.about');
-      assert.ok(about && !about.requiresConnection);
-      const item = provider.getTreeItem(about!);
-      assert.ok(item.command, 'About should always be clickable');
+      const status = provider.getChildren().find((n) => n instanceof ToolsStatusItem) as ToolsStatusItem;
+      assert.strictEqual(label(status), 'Connected');
+      assert.strictEqual(status.command, undefined);
     });
   });
 
   describe('refresh()', () => {
-    it('should fire onDidChangeTreeData when refresh is called', () => {
+    it('fires onDidChangeTreeData when refresh is called', () => {
       let fired = false;
       provider.onDidChangeTreeData(() => { fired = true; });
       provider.refresh();
       assert.strictEqual(fired, true);
-    });
-  });
-
-  describe('version in label', () => {
-    it('should include extension version in About item', () => {
-      const providerWithVersion = new ToolsTreeProvider('2.0.0');
-      const gettingStarted = findCategory(providerWithVersion, 'Getting Started');
-      const items = providerWithVersion.getChildren(gettingStarted!) as ToolCommandItem[];
-      const about = items.find((t) => t.commandId === 'driftViewer.about');
-      assert.ok(about);
-      assert.ok((about.label as string).includes('2.0.0'));
     });
   });
 });

@@ -60,6 +60,12 @@
     "views": {
       "driftViewer": [
         {
+          "id": "driftViewer.toolbox",
+          "name": "%view.toolbox.name%",
+          "icon": "$(tools)",
+          "when": "driftViewer.isDriftProject"
+        },
+        {
           "id": "driftViewer.databaseExplorer",
           "name": "%view.databaseExplorer.name%",
           "icon": "media/icon-activitybar.svg",
@@ -70,12 +76,6 @@
           "name": "%view.pendingChanges.name%",
           "icon": "$(edit)",
           "when": "driftViewer.hasEdits"
-        },
-        {
-          "id": "driftViewer.toolbox",
-          "name": "%view.toolbox.name%",
-          "icon": "$(tools)",
-          "when": "driftViewer.isDriftProject"
         }
       ],
       "debug": [
