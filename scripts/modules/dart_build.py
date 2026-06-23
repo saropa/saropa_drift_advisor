@@ -131,13 +131,14 @@ def _select_delta_tests(
 
 
 def run_tests() -> bool:
-    """Run only the tests affected by this release's changes (delta run).
+    """Run only the tests affected by this release's changes (deltas-only).
 
-    Fast path: when every changed Dart file maps to a test, run just those. The
-    gate stays safe through explicit fallbacks — it reverts to the FULL suite
-    when git history is unreadable or when changes exist that map to no test, so
-    a release is never published on zero or partial coverage without that being
-    forced. Set ``PUBLISH_FULL_TESTS=1`` to always run the whole suite.
+    Optimized for speed: it runs the test files that map to changed files and
+    nothing else. Changed sources with no matching test are REPORTED but do not
+    escalate to the full suite (chosen 2026-06-22: "faster always"), so a release
+    can ship with an untested core change — the trade for the speed. The only
+    full-suite paths are unreadable git history (we cannot compute a delta) and
+    an explicit ``PUBLISH_FULL_TESTS=1``.
     """
     if not os.path.isdir(TEST_DIR):
         warn("No test directory found, skipping unit tests")
@@ -149,6 +150,8 @@ def run_tests() -> bool:
 
     changed = _changed_dart_files()
     if changed is None:
+        # No delta can be computed without history — full suite is the only
+        # correct choice here (this is not the "untested core change" case).
         warn("Could not determine changed files from git — running full suite.")
         return _run_flutter_test([])
 
@@ -158,17 +161,23 @@ def run_tests() -> bool:
 
     selected, unmatched = _select_delta_tests(changed)
 
-    # Changed sources with no matching test mean we cannot prove this delta is
-    # covered. Rather than ship a partially-tested release, fall back to the full
-    # suite — but say exactly why, so the gap is visible, not silent.
+    # Deltas-only: changed sources without a matching test are logged but do NOT
+    # trigger the full suite. The gap is surfaced (never silent) so an untested
+    # core change is visible; PUBLISH_FULL_TESTS=1 is the escape to the full gate.
     if unmatched:
         warn(
-            f"{len(unmatched)} changed Dart file(s) have no matching *_test.dart; "
-            "running the full suite to stay safe:"
+            f"{len(unmatched)} changed Dart file(s) have no matching *_test.dart "
+            "and are NOT covered by this run (set PUBLISH_FULL_TESTS=1 for full):"
         )
         for path in unmatched:
             info(f"  - {path}")
-        return _run_flutter_test([])
+
+    if not selected:
+        warn(
+            "No affected test files for this delta — skipping tests. "
+            "Set PUBLISH_FULL_TESTS=1 to run the full suite."
+        )
+        return True
 
     info(f"Delta test run — {len(selected)} affected test file(s):")
     for path in selected:

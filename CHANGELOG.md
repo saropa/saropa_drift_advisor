@@ -62,7 +62,7 @@ The debug server now tells you how to reach it when you debug on a physical devi
 
 <details><summary>Maintenance</summary>
 
-- **Publish pipeline runs a delta test pass instead of the whole suite.** `scripts/modules/dart_build.py` `run_tests` now diffs the working tree against the last release tag and runs only the affected test files: a changed `*_test.dart` runs directly, and a changed source file runs its basename-matching `*_test.dart`. Safety fallbacks keep the gate honest — it reverts to the full `flutter test` when git history is unreadable or when a changed source has no matching test (so a release is never published on partial coverage without that being forced). `PUBLISH_FULL_TESTS=1` forces the full suite; `PUBLISH_TEST_BASELINE=<rev>` overrides the diff baseline.
+- **Publish pipeline runs a deltas-only test pass instead of the whole suite.** `scripts/modules/dart_build.py` `run_tests` now diffs the working tree against the last release tag and runs only the affected test files: a changed `*_test.dart` runs directly, and a changed source file runs its basename-matching `*_test.dart`. Optimized for speed — changed sources with no matching test are logged but do not escalate to the full suite, so a release can ship with an untested core change. The only full-suite paths are unreadable git history and an explicit `PUBLISH_FULL_TESTS=1`; `PUBLISH_TEST_BASELINE=<rev>` overrides the diff baseline.
 
 </details>
 
