@@ -289,25 +289,65 @@ describe('ServerDiscovery', () => {
     await clock.tickAsync(1);
     assert.strictEqual(messageMock.warnings.length, 0);
 
-    // Keep the server up well past NOTIFY_THROTTLE_MS (60s) so the later "lost"
-    // toast is not suppressed by the per-port throttle it shares with "found".
-    await clock.tickAsync(70001);
-    assert.strictEqual(discovery.servers.length, 1, 'still up before the outage');
-
-    // Server goes down for good (2 misses → removed, lost toast deferred)
+    // Server goes down for good (2 misses → removed, lost toast deferred). The
+    // warning fires even though the "detected" toast was recent: the lost path
+    // bypasses the per-port throttle (the once-per-session latch is the guard).
     fetchStub.reset();
     fetchStub.rejects(new Error('connection refused'));
     await clock.tickAsync(10001);
     await clock.tickAsync(10001);
     assert.strictEqual(messageMock.warnings.length, 0, 'not warned during grace window');
 
-    // Grace window elapses with the server still gone → warning fires once
     await clock.tickAsync(35001);
     assert.strictEqual(messageMock.warnings.length, 1, 'genuine outage warns once');
     assert.ok(
       messageMock.warnings[0].includes('no longer responding'),
       'warning names the lost server',
     );
+  });
+
+  it('should warn at most once per session no matter how many times it flaps', async () => {
+    stubPortAlive(8642);
+    discovery = new ServerDiscovery(defaultConfig());
+    discovery.start();
+    await clock.tickAsync(1);
+    assert.strictEqual(messageMock.infos.length, 1, 'detected once on first connect');
+
+    // First sustained drop → the one allowed warning fires after the grace window.
+    fetchStub.reset();
+    fetchStub.rejects(new Error('connection refused'));
+    await clock.tickAsync(10001);
+    await clock.tickAsync(10001);
+    await clock.tickAsync(35001);
+    assert.strictEqual(messageMock.warnings.length, 1, 'first outage warns');
+
+    // Reconnect after the warning: no "detected" toast (still the same flap episode).
+    stubPortAlive(8642);
+    await clock.tickAsync(30001);
+    assert.strictEqual(discovery.servers.length, 1, 'reconnected');
+    assert.strictEqual(messageMock.infos.length, 1, 'no detected toast after the warning');
+
+    // Second sustained drop → no second warning; the session stays silent.
+    fetchStub.reset();
+    fetchStub.rejects(new Error('connection refused'));
+    await clock.tickAsync(10001);
+    await clock.tickAsync(10001);
+    await clock.tickAsync(35001);
+    assert.strictEqual(messageMock.warnings.length, 1, 'still only one warning all session');
+
+    // A fresh discovery session (e.g. Retry Discovery) re-arms the warning.
+    // Stub the live port BEFORE retry(): retry() kicks off a poll synchronously,
+    // so the alive stub must already be in place for that poll to re-find it.
+    stubPortAlive(8642);
+    discovery.retry();
+    await clock.tickAsync(1);
+    assert.strictEqual(discovery.servers.length, 1, 're-found after retry');
+    fetchStub.reset();
+    fetchStub.rejects(new Error('connection refused'));
+    await clock.tickAsync(10001);
+    await clock.tickAsync(10001);
+    await clock.tickAsync(35001);
+    assert.strictEqual(messageMock.warnings.length, 2, 'new session warns again');
   });
 
   it('should throttle notifications per port', async () => {

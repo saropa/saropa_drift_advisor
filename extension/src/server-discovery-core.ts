@@ -41,6 +41,15 @@ export class ServerDiscovery {
    * links produce no popups. See [LOST_NOTIFY_GRACE_MS].
    */
   private _pendingLostTimers = new Map<number, ReturnType<typeof setTimeout>>();
+  /**
+   * Once a "server lost" warning has been shown this discovery session, all
+   * further found/lost toasts are suppressed until discovery restarts (a fresh
+   * [start], e.g. a new debug session or an explicit Retry Discovery). On a
+   * flaky link (Wi-Fi debugging) the server flaps repeatedly; the user wants a
+   * single warning, not one per flap. Ongoing state stays visible in the
+   * sidebar/status bar regardless. Reset in [start].
+   */
+  private _lostNotifiedThisSession = false;
   private _log: IDiscoveryLog | undefined;
   private _scanCount = 0;
   private _lastOutcomeLine =
@@ -83,6 +92,8 @@ export class ServerDiscovery {
     if (this._running) return;
     this._running = true;
     this._scanCount = 0;
+    // A fresh discovery session re-arms the once-per-session "lost" warning.
+    this._lostNotifiedThisSession = false;
     this._logLine(
       `Starting — scanning ${this._config.host} ports ${portsProbeLabel(this._config)} `
       + `every ${SEARCH_INTERVAL / 1000}s (backoff after ${BACKOFF_THRESHOLD} empty scans to ${BACKOFF_INTERVAL / 1000}s)`,
@@ -215,18 +226,22 @@ export class ServerDiscovery {
    * once it fires so a later rediscovery is treated as a genuine "found".
    */
   private _scheduleLostNotification(port: number): void {
+    // Once per session: after the first warning, never schedule another. The
+    // server is still removed by the caller (state/sidebar update intact) — only
+    // the toast is suppressed.
+    if (this._lostNotifiedThisSession) return;
     const existing = this._pendingLostTimers.get(port);
     if (existing !== undefined) clearTimeout(existing);
     const timer = setTimeout(() => {
       this._pendingLostTimers.delete(port);
-      if (!this._running) return;
-      maybeNotifyServerEvent(
-        this._config.host,
-        port,
-        'lost',
-        this._notifiedAt,
-        NOTIFY_THROTTLE_MS,
-      );
+      if (!this._running || this._lostNotifiedThisSession) return;
+      // Latch BEFORE notifying so any concurrent port's grace timer that fires
+      // in the same tick stays silent — the user gets exactly one warning.
+      this._lostNotifiedThisSession = true;
+      // Bypass the per-port throttle (pass 0): the latch above already caps this
+      // to once per session, and the shared throttle map would otherwise let a
+      // recent "detected" toast suppress the single warning the user does want.
+      maybeNotifyServerEvent(this._config.host, port, 'lost', this._notifiedAt, 0);
     }, LOST_NOTIFY_GRACE_MS);
     this._pendingLostTimers.set(port, timer);
   }
@@ -260,7 +275,10 @@ export class ServerDiscovery {
         if (pendingLost !== undefined) {
           clearTimeout(pendingLost);
           this._pendingLostTimers.delete(port);
-        } else {
+        } else if (!this._lostNotifiedThisSession) {
+          // Stay silent once we've already warned this session: a reconnect on a
+          // flaky link is part of the same flap the user asked not to be nagged
+          // about. The initial discovery (before any loss) still announces.
           maybeNotifyServerEvent(
             this._config.host,
             port,
