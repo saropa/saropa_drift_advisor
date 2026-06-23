@@ -107,3 +107,64 @@ regenerated `l10n/nls-coverage-data.ts`, and `CHANGELOG.md`.
 - The hub does not gate tiles by live connection state; tools that need a running
   app surface their own disconnected guidance when invoked. The guidance note
   states this.
+
+## Finish Report (2026-06-22) — Sidebar slimmed to a launcher
+
+Follow-up to the Hub: with the Hub now indexing every tool grouped by category,
+the docked "Drift Tools" sidebar tree (`driftViewer.toolbox`,
+`ToolsTreeProvider`) duplicated that catalog. The tree was slimmed to a thin
+launcher and moved to the top of the Saropa activity-bar container.
+
+### Scope
+
+VS Code extension only (`tools-tree-provider.ts` + its test, `package.json`) plus
+CHANGELOG. No Flutter/Dart code.
+
+### What changed
+
+- `ToolsTreeProvider` no longer builds six categories of per-tool items. Its root
+  is now a flat launcher:
+  1. `ToolLauncherItem` — a prominent "Drift Tools Hub" entry running
+     `driftViewer.openDriftToolsHub`, with the extension version as its
+     description. It is a separate class from `ToolCommandItem` specifically
+     because `ToolCommandItem.applyConnectionState` clears `description` when
+     wiring the enabled state, which would have erased the version.
+  2. `ToolCommandItem` package-setup gate ("Add Saropa Drift Advisor") shown only
+     while the dependency is absent; not connection-gated.
+  3. `ToolsStatusItem` connection row reflecting live server state, opening the
+     connection-help panel (`driftViewer.showTroubleshooting` with a
+     `'disconnected'` argument) when no server is connected.
+- `getChildren` returns the flat list at root and `[]` for any element (no
+  nesting); `getTreeItem` applies connection state only to `ToolCommandItem`.
+- `package.json` reorders the `driftViewer` views so `toolbox` precedes
+  `databaseExplorer` and `pendingChanges` — the launcher is now the first view in
+  the activity-bar container.
+
+### Entry points after the change
+
+The Hub is reachable from the launcher's top entry and from the command palette
+("Saropa Drift Advisor: Open Drift Tools Hub", which carries no `commandPalette`
+`when: false` exclusion). The standalone Dashboard remains reachable via "Saropa
+Drift Advisor: Open Dashboard" and from inside the Hub.
+
+### Compatibility
+
+`ToolsTreeProvider`'s public surface used by other modules (`connection-ui-state`,
+`extension-providers`, `polling-commands`) is unchanged — they call only the
+constructor, `setConnected`, `setPackageInstalled`, and `refresh`, none of which
+inspected the category structure.
+
+### Verification
+
+- `tsc -p ./` clean; `npm run compile` green (tsc + `verify-nls` +
+  `verify:nls-coverage`).
+- `tools-tree-provider.test.ts` rewritten to pin the slim launcher (Hub leads,
+  version shown, flat list, gate install-state visibility, always-clickable Hub,
+  status-row wiring). The polling test (constructs the provider only) is
+  unaffected. `mocha --grep "ToolsTreeProvider|polling"` → 22 passing.
+
+### Known follow-up
+
+- The connection-status row now appears both in the slimmed launcher and in the
+  Database explorer view directly below it. If the duplication reads as noise, the
+  launcher's row can be dropped since the Database view already carries one.
