@@ -7,20 +7,28 @@
 import * as vscode from 'vscode';
 import { buildTroubleshootingHtml } from './troubleshooting-html';
 import { secureWebviewHtml } from '../webview-csp';
+import type { ConnectionDiagnostics } from './connection-diagnostics';
 
 /** Singleton panel showing troubleshooting and connection guidance. */
 export class TroubleshootingPanel {
   private static _currentPanel: TroubleshootingPanel | undefined;
   private readonly _panel: vscode.WebviewPanel;
   private readonly _disposables: vscode.Disposable[] = [];
-  /** Configured server port, used in help text and diagrams. */
-  private readonly _port: number;
+  /** Live diagnostics snapshot rendered into the panel (state + config). */
+  private _diag: ConnectionDiagnostics;
 
-  /** Show the troubleshooting panel (or reveal if already open). */
-  static createOrShow(port: number): void {
+  /**
+   * Show the troubleshooting panel, or reveal + REFRESH it if already open.
+   * Refreshing on reveal matters: the panel is a singleton, and reopening it
+   * from a now-offline tree row must update the status header rather than show
+   * the stale state captured when it first opened.
+   */
+  static createOrShow(diag: ConnectionDiagnostics): void {
     const column = vscode.ViewColumn.One;
 
     if (TroubleshootingPanel._currentPanel) {
+      TroubleshootingPanel._currentPanel._diag = diag;
+      TroubleshootingPanel._currentPanel._render();
       TroubleshootingPanel._currentPanel._panel.reveal(column);
       return;
     }
@@ -31,12 +39,12 @@ export class TroubleshootingPanel {
       column,
       { enableScripts: true },
     );
-    TroubleshootingPanel._currentPanel = new TroubleshootingPanel(panel, port);
+    TroubleshootingPanel._currentPanel = new TroubleshootingPanel(panel, diag);
   }
 
-  private constructor(panel: vscode.WebviewPanel, port: number) {
+  private constructor(panel: vscode.WebviewPanel, diag: ConnectionDiagnostics) {
     this._panel = panel;
-    this._port = port;
+    this._diag = diag;
 
     this._panel.onDidDispose(
       () => this._dispose(), null, this._disposables,
@@ -51,7 +59,7 @@ export class TroubleshootingPanel {
   }
 
   private _render(): void {
-    this._panel.webview.html = secureWebviewHtml(buildTroubleshootingHtml(this._port));
+    this._panel.webview.html = secureWebviewHtml(buildTroubleshootingHtml(this._diag));
   }
 
   /** Route button actions from the webview back to VS Code commands, with error handling. */

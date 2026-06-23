@@ -169,6 +169,42 @@ describe('Extension manifest validation', () => {
    * `onStartupFinished` plus `workspaceContains` cover activation, and VS Code
    * auto-generates `onCommand` hooks from `contributes.commands` declarations.
    */
+  /**
+   * Guards configuration registration: every setting the extension WRITES at
+   * runtime via `WorkspaceConfiguration.update()` must be declared in
+   * `contributes.configuration.properties`. VS Code throws
+   * "<id> is not a registered configuration" and refuses the write otherwise —
+   * which is exactly what broke the Drift Advisor Rules sidebar toggle (it
+   * writes `driftViewer.diagnostics.disabledRules`) and the Set Log Verbosity
+   * command (writes `driftViewer.logVerbosity`) when those keys were used in
+   * code but never declared in the manifest.
+   *
+   * Reads of an unregistered key fall back to the default silently, so this list
+   * is intentionally limited to keys the extension UPDATES. When you add a new
+   * `cfg.update('<key>', …)` call, add the full setting id here.
+   */
+  it('every runtime-written setting is declared in contributes.configuration', () => {
+    const writtenSettings = [
+      // Drift Advisor Rules sidebar toggle (driftViewer.rules.toggleRule) and
+      // the driftViewer.disableDiagnosticRule command both write this.
+      'driftViewer.diagnostics.disabledRules',
+      // Set Log Verbosity quick-pick command writes this.
+      'driftViewer.logVerbosity',
+    ];
+    const packagePath = path.join(__dirname, '..', '..', 'package.json');
+    const raw = fs.readFileSync(packagePath, 'utf-8');
+    const pkg = JSON.parse(raw) as {
+      contributes?: { configuration?: { properties?: Record<string, unknown> } };
+    };
+    const registered = pkg.contributes?.configuration?.properties ?? {};
+    const missing = writtenSettings.filter((id) => !(id in registered));
+    assert.deepStrictEqual(
+      missing,
+      [],
+      `setting(s) written via WorkspaceConfiguration.update() but NOT declared in contributes.configuration.properties — VS Code will reject the write with "not a registered configuration":\n  ${missing.join('\n  ')}`,
+    );
+  });
+
   it('package.json activationEvents should not use legacy "*" wildcard', () => {
     const packagePath = path.join(__dirname, '..', '..', 'package.json');
     const raw = fs.readFileSync(packagePath, 'utf-8');

@@ -1701,6 +1701,38 @@
             "type": "string"
           }
         },
+        "driftViewer.logVerbosity": {
+          "type": "string",
+          "enum": [
+            "quiet",
+            "normal",
+            "verbose"
+          ],
+          "default": "verbose",
+          "description": "%config.logVerbosity.description%"
+        },
+        "driftViewer.diagnostics.disabledRules": {
+          "type": "array",
+          "default": [],
+          "description": "%config.diagnostics.disabledRules.description%",
+          "items": {
+            "type": "string"
+          }
+        },
+        "driftViewer.diagnostics.severityOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "%config.diagnostics.severityOverrides.description%",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info",
+              "hint"
+            ]
+          }
+        },
         "driftViewer.dashboard.showOnConnect": {
           "type": "boolean",
           "default": true,

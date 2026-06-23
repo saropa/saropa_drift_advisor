@@ -6,20 +6,23 @@
 
 import * as vscode from 'vscode';
 import { TroubleshootingPanel } from './troubleshooting-panel';
+import { gatherConnectionDiagnostics } from './connection-diagnostics';
 
 export function registerTroubleshootingCommands(
   context: vscode.ExtensionContext,
   connectionChannel: vscode.OutputChannel,
 ): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand('driftViewer.showTroubleshooting', () => {
+    // [stateHint] is supplied by the Database tree's status row ('offline' /
+    // 'disconnected') so the panel can render the precise state; it is undefined
+    // when opened from the Tools list, which resolves to the 'unknown' header.
+    vscode.commands.registerCommand('driftViewer.showTroubleshooting', (stateHint?: unknown) => {
       connectionChannel.appendLine(
         `[${new Date().toISOString()}] Troubleshooting: opened panel (user triggered)`,
       );
       try {
-        const cfg = vscode.workspace.getConfiguration('driftViewer');
-        const port = cfg.get<number>('port', 8642) ?? 8642;
-        TroubleshootingPanel.createOrShow(port);
+        const diag = gatherConnectionDiagnostics(stateHint);
+        TroubleshootingPanel.createOrShow(diag);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         connectionChannel.appendLine(

@@ -7,12 +7,61 @@
 import { TROUBLESHOOTING_STYLES } from './troubleshooting-styles';
 import { t } from '../l10n';
 import { escapeHtml } from '../shared-utils';
+import {
+  deriveStatus,
+  type ConnectionDiagnostics,
+} from './connection-diagnostics';
 
 /** Escape HTML special characters to prevent injection. */
 const esc = escapeHtml;
 
-/** Build the full troubleshooting HTML page. */
-export function buildTroubleshootingHtml(port: number): string {
+/** Renders one key/value row in the live "Current configuration" grid. */
+function kvRow(label: string, value: string): string {
+  return `<div class="k">${label}</div><div class="v">${value}</div>`;
+}
+
+/**
+ * Build the full troubleshooting HTML page from a live diagnostics snapshot.
+ * The header reflects the actual connection state and names the next step; the
+ * configuration grid shows what the extension is targeting, so the page is a
+ * dashboard, not just static help.
+ */
+export function buildTroubleshootingHtml(diag: ConnectionDiagnostics): string {
+  const port = diag.port;
+  const status = deriveStatus(diag);
+
+  // Live status banner: tone + title + the single concrete next step derived
+  // from the current state and whether a debug session is attached.
+  const statusBanner = `<div class="status status-${status.tone}">
+  <div class="status-title"><span class="status-dot"></span> ${t(status.titleKey)}</div>
+  <div class="status-detail">${t(status.detailKey, esc(port))}</div>
+</div>`;
+
+  // Current configuration grid: what the extension is actually targeting right
+  // now, so the user can confirm it matches their app without digging in settings.
+  const debugLabel = diag.debugSessionActive
+    ? t('panel.tools.trouble.state.debug.active')
+    : t('panel.tools.trouble.state.debug.none');
+  const discoveryLabel = diag.discoveryEnabled
+    ? t(
+        'panel.tools.trouble.state.discovery.on',
+        esc(diag.portRangeStart),
+        esc(diag.portRangeEnd),
+      )
+    : t('panel.tools.trouble.state.discovery.off');
+  const offlineLabel = diag.allowOfflineSchema
+    ? t('panel.tools.trouble.state.offline.allowed')
+    : t('panel.tools.trouble.state.offline.off');
+  const configGrid = `<div class="section">
+  <div class="section-title"><span class="icon">&#9881;</span> ${t('panel.tools.trouble.state.title')}</div>
+  <div class="kv">
+    ${kvRow(t('panel.tools.trouble.state.target'), `<code>${esc(diag.host)}:${esc(port)}</code>`)}
+    ${kvRow(t('panel.tools.trouble.state.discovery'), discoveryLabel)}
+    ${kvRow(t('panel.tools.trouble.state.debug'), debugLabel)}
+    ${kvRow(t('panel.tools.trouble.state.offlineCache'), offlineLabel)}
+  </div>
+</div>`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,6 +74,10 @@ export function buildTroubleshootingHtml(port: number): string {
 
 <h1>${t('panel.tools.trouble.title')}</h1>
 <div class="subtitle">${t('panel.tools.trouble.subtitle')}</div>
+
+${statusBanner}
+
+${configGrid}
 
 <!-- Quick Setup Checklist -->
 <div class="section">

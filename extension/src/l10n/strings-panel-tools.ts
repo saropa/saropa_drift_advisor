@@ -96,6 +96,40 @@ export const stringsPanelTools: Record<string, string> = {
   'panel.tools.trouble.title': 'Troubleshooting',
   'panel.tools.trouble.subtitle':
     'Saropa Drift Advisor — connection and setup help',
+
+  // --- Live status banner (top of panel; reflects the actual connection state) ---
+  'panel.tools.trouble.status.connected.title': 'Connected',
+  'panel.tools.trouble.status.connected.detail':
+    'The extension is connected to your app and serving live data.',
+  'panel.tools.trouble.status.connecting.title': 'Connecting…',
+  'panel.tools.trouble.status.connecting.detail':
+    'A transport is up; waiting for the database schema to load.',
+  'panel.tools.trouble.status.offline.title': 'Offline — showing cached schema',
+  'panel.tools.trouble.status.disconnected.title': 'Not connected',
+  'panel.tools.trouble.status.unknown.title': 'Connection help',
+  'panel.tools.trouble.status.unknown.detail':
+    'Start your app in debug mode, then use the actions below to connect.',
+  // The two real causes of a non-working state, split on the debug-session signal.
+  // {0} = configured server port. `F5` and `DriftDebugServer.start()` are literal.
+  'panel.tools.trouble.status.next.noDebugSession':
+    'No Flutter/Dart debug session is active. Start your app from VS Code (F5) so the extension can attach over the VM Service.',
+  'panel.tools.trouble.status.next.noServer':
+    'A debug session is active, but nothing is serving on port {0}. Confirm your app calls DriftDebugServer.start() and that the build is debug (enabled: kDebugMode is false in profile/release).',
+
+  // --- Current configuration grid (what the extension is targeting now) ---
+  'panel.tools.trouble.state.title': 'Current configuration',
+  'panel.tools.trouble.state.target': 'Target',
+  'panel.tools.trouble.state.discovery': 'Discovery',
+  'panel.tools.trouble.state.debug': 'Debug session',
+  'panel.tools.trouble.state.offlineCache': 'Offline cache',
+  // {0} = scan range start, {1} = scan range end.
+  'panel.tools.trouble.state.discovery.on': 'On — scanning ports {0}–{1}',
+  'panel.tools.trouble.state.discovery.off': 'Off',
+  'panel.tools.trouble.state.debug.active': 'Active (VM Service available)',
+  'panel.tools.trouble.state.debug.none': 'None — start your app with F5',
+  'panel.tools.trouble.state.offline.allowed': 'Allowed (cached schema shown when offline)',
+  'panel.tools.trouble.state.offline.off': 'Off',
+
   'panel.tools.trouble.checklist.title': 'Quick Checklist',
   // `pubspec.yaml` and `dependencies` are code identifiers, kept literal in markup
   // at the call site; the surrounding sentence is the translatable value.

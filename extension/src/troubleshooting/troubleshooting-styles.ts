@@ -169,4 +169,64 @@ export const TROUBLESHOOTING_STYLES = `
   details[open] summary {
     margin-bottom: 8px;
   }
+
+  /* Live status banner — tone-keyed background/border with a leading dot so the
+     connection state reads at a glance before any of the help text. */
+  .status {
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    border: 1px solid var(--vscode-widget-border, #444);
+  }
+  .status-title {
+    font-weight: bold;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .status-detail {
+    margin-top: 6px;
+    font-size: 13px;
+    opacity: 0.9;
+  }
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    background: currentColor;
+  }
+  .status-ok {
+    background: var(--vscode-inputValidation-infoBackground, #0c2f1a);
+    border-color: var(--vscode-testing-iconPassed, #4caf50);
+    color: var(--vscode-testing-iconPassed, #4caf50);
+  }
+  .status-info {
+    background: var(--vscode-inputValidation-infoBackground, #063b49);
+    border-color: var(--vscode-inputValidation-infoBorder, #007acc);
+    color: var(--vscode-inputValidation-infoBorder, #3794ff);
+  }
+  .status-warn {
+    background: var(--vscode-inputValidation-warningBackground, #352a05);
+    border-color: var(--vscode-inputValidation-warningBorder, #b89500);
+    color: var(--vscode-inputValidation-warningBorder, #e0b400);
+  }
+  .status-error {
+    background: var(--vscode-inputValidation-errorBackground, #3a1d1d);
+    border-color: var(--vscode-inputValidation-errorBorder, #be1100);
+    color: var(--vscode-testing-iconFailed, #f14c4c);
+  }
+  /* Keep the detail text readable rather than tinted with the tone color. */
+  .status-detail { color: var(--vscode-editor-foreground, #ccc); }
+
+  /* Current-configuration grid: two columns, label muted, value emphasized. */
+  .kv {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+    font-size: 13px;
+  }
+  .kv .k { opacity: 0.7; }
+  .kv .v { word-break: break-word; }
 `;
