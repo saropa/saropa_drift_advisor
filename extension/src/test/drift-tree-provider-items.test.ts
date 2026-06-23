@@ -181,9 +181,20 @@ describe('DriftTreeProvider', () => {
       );
     });
 
-    it('should not set a command when disconnected', () => {
+    it('should open the troubleshooting panel when disconnected', () => {
+      // The disconnected/offline row used to be inert (no command). It now opens
+      // the connection-help panel with a state hint so the user has an action.
       const item = new ConnectionStatusItem('http://127.0.0.1:8642', false);
-      assert.strictEqual(item.command, undefined);
+      assert.ok(item.command, 'disconnected item should have a command');
+      assert.strictEqual(item.command!.command, 'driftViewer.showTroubleshooting');
+      assert.deepStrictEqual(item.command!.arguments, ['disconnected']);
+    });
+
+    it('should open the troubleshooting panel with the offline hint when offline', () => {
+      const item = new ConnectionStatusItem('http://127.0.0.1:8642', false, true);
+      assert.ok(item.command, 'offline item should have a command');
+      assert.strictEqual(item.command!.command, 'driftViewer.showTroubleshooting');
+      assert.deepStrictEqual(item.command!.arguments, ['offline']);
     });
   });
 
