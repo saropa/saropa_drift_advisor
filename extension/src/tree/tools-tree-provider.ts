@@ -145,6 +145,13 @@ function buildCategories(version: string, packageInstalled: boolean): ToolCatego
   // "Getting Started" tools — the "Add Package" item is only shown when the
   // package is not yet present in pubspec.yaml.
   const gettingStartedTools: ToolCommandItem[] = [
+    // The hub is the front door: it composes Dashboard + Health snapshots and
+    // links out to every other tool, so it stays clickable even when offline
+    // (panes degrade to a placeholder; the launcher grid still works).
+    new ToolCommandItem(
+      'Drift Tools Hub', 'driftViewer.openDriftToolsHub', 'layout',
+      false, 'Dashboard, health, and every tool on one page',
+    ),
     new ToolCommandItem(
       `About Saropa Drift Advisor v${version}`, 'driftViewer.about', 'book',
       false, 'View release notes and changelog',

@@ -89,6 +89,44 @@ ${advisorHtml}
 </html>`;
 }
 
+/**
+ * Read-only Health pane for the Drift Tools Hub: the same score/cards/recs/
+ * advisor markup as the full panel, but WITHOUT the header action buttons
+ * (refresh / copy / snapshot / compare) — those mutate panel-private state
+ * (history store, compare panel) that the hub does not own, so they stay on the
+ * standalone panel reached via "Open full screen". The metric cards keep their
+ * `data-command` / `data-action-command` attributes so cross-pane drill-down
+ * still works; the hub's single click handler forwards them.
+ *
+ * Returns the `body` (no `<html>`/`<head>`/script) and the pane-`scope`d `style`
+ * so the hub can place both inside one composed document. The empty-metrics case
+ * collapses to a short status line rather than a whole document.
+ */
+export function buildHealthFragment(
+  score: IHealthScore,
+  scope: string,
+  advisor?: IRefactoringAdvisorSession,
+): { body: string; style: string } {
+  const style = getHealthCss(scope);
+  if (score.metrics.length === 0) {
+    return { body: `<div class="empty">${t('panel.health.empty')}</div>`, style };
+  }
+  const gradeClass = gradeColorClass(score.grade);
+  const cards = score.metrics.map((m) => buildMetricCard(m)).join('\n');
+  const recs = buildRecommendations(score.recommendations);
+  const advisorHtml = advisor ? buildRefactoringAdvisorSection(advisor) : '';
+  const body = `<div class="overall">
+  <div class="overall-grade ${gradeClass}">${esc(score.grade)}</div>
+  <div class="overall-score">${t('panel.health.overall.score', score.overall)}</div>
+</div>
+<div class="cards">
+  ${cards}
+</div>
+${recs}
+${advisorHtml}`;
+  return { body, style };
+}
+
 function buildRefactoringAdvisorSection(a: IRefactoringAdvisorSession): string {
   const titles = a.topTitles.map((t) => `<li>${esc(t)}</li>`).join('');
   const when = esc(a.updatedAt);

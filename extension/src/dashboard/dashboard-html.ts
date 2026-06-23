@@ -87,6 +87,45 @@ ${getDashboardJs(widgetTypesJson, layoutJson)}
 </html>`;
 }
 
+/**
+ * Read-only Dashboard pane for the Drift Tools Hub: the widget grid with data
+ * already populated (the hub pre-fetches every widget server-side before
+ * composing), but WITHOUT the editing chrome — no header buttons, no modals, no
+ * drag/drop, no resize handle, no script. Editing the layout stays on the
+ * standalone Dashboard panel reached via "Open full screen", because the live
+ * editor relies on a per-panel message protocol the hub does not host.
+ *
+ * Returns the `body` and the pane-`scope`d `style`; `widgetHtml` maps each
+ * widget id to its rendered inner HTML.
+ */
+export function buildDashboardFragment(
+  layout: IDashboardLayout,
+  widgetHtml: Map<string, string>,
+  scope: string,
+): { body: string; style: string } {
+  const style = getDashboardCss(scope);
+  const widgets = layout.widgets
+    .map((w) => buildReadOnlyWidgetHtml(w, widgetHtml.get(w.id)))
+    .join('\n');
+  const grid = layout.widgets.length > 0
+    ? `<div class="grid" style="grid-template-columns: repeat(${layout.columns}, 1fr);">${widgets}</div>`
+    : `<div class="empty-state"><p>${t('panel.dashboard.empty.title')}</p></div>`;
+  return { body: `<div class="dashboard">${grid}</div>`, style };
+}
+
+/** Static widget card for the hub snapshot — title + body only, no controls. */
+function buildReadOnlyWidgetHtml(widget: IWidgetConfig, bodyHtml?: string): string {
+  return `<div class="widget"
+    style="grid-column: ${widget.gridX + 1} / span ${widget.gridW}; grid-row: ${widget.gridY + 1} / span ${widget.gridH};">
+    <div class="widget-header" style="cursor: default;">
+      <span class="widget-title">${esc(widget.title)}</span>
+    </div>
+    <div class="widget-body">
+      ${bodyHtml || `<p class="loading">${t('panel.dashboard.widget.loading')}</p>`}
+    </div>
+  </div>`;
+}
+
 function buildWidgetHtml(widget: IWidgetConfig, bodyHtml?: string): string {
   return `<div class="widget" 
     data-id="${esc(widget.id)}" 

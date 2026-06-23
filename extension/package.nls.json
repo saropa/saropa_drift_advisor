@@ -124,6 +124,7 @@
   "command.unpinTable.title": "Unpin Table",
   "command.healthScore.title": "Database Health Score",
   "command.openDashboard.title": "Open Dashboard",
+  "command.openDriftToolsHub.title": "Open Drift Tools Hub",
   "command.addQueryWidgetToDashboard.title": "Add SQL Query Widget to Dashboard",
   "command.saveDashboard.title": "Save Dashboard Layout",
   "command.loadDashboard.title": "Load Dashboard Layout",

@@ -5,9 +5,17 @@
  *
  * The design tokens referenced here (var(--grade-*), var(--status-*), etc.) are
  * injected centrally by secureWebviewHtml — see views/design-tokens.ts.
+ *
+ * `scope` is used only by the Drift Tools Hub, which embeds this stylesheet
+ * alongside another pane's CSS in one document; passing a wrapper selector
+ * (e.g. `.pane-health`) prefixes every rule so the two panes cannot collide on
+ * shared selectors (`body`, `.btn`, `.card`). The standalone Health panel calls
+ * this with NO argument and gets byte-identical output.
  */
-export function getHealthCss(): string {
-  return `
+import { scopeCss } from '../webview-scope-css';
+
+export function getHealthCss(scope?: string): string {
+  return scopeCss(`
   body {
     font-family: var(--vscode-font-family);
     color: var(--vscode-foreground);
@@ -169,5 +177,5 @@ export function getHealthCss(): string {
   .advisor h2 { font-size: 14px; margin: 0 0 8px 0; }
   .advisor ul { margin: 6px 0 0 18px; padding: 0; }
   .advisor .advisor-meta { opacity: 0.75; font-size: 11px; margin-top: 8px; }
-`;
+`, scope);
 }

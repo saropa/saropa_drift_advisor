@@ -738,6 +738,12 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.openDriftToolsHub",
+        "title": "%command.openDriftToolsHub.title%",
+        "icon": "$(layout)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.addQueryWidgetToDashboard",
         "title": "%command.addQueryWidgetToDashboard.title%",
         "icon": "$(add)",

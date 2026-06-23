@@ -5,9 +5,17 @@
  * centrally by secureWebviewHtml — see views/design-tokens.ts. */
 
 import { getDashboardWidgetCss } from './dashboard-css-widgets';
+import { scopeCss } from '../webview-scope-css';
 
-export function getDashboardCss(): string {
-  return `
+/**
+ * `scope` is used only by the Drift Tools Hub, which embeds this stylesheet next
+ * to another pane's CSS in one document; a wrapper selector (e.g.
+ * `.pane-dashboard`) prefixes every rule so the panes cannot collide on shared
+ * selectors (`body`, `.btn`, `.header`, `.grid`). The standalone Dashboard panel
+ * passes NO argument and gets byte-identical output.
+ */
+export function getDashboardCss(scope?: string): string {
+  return scopeCss(`
 * { box-sizing: border-box; }
 body {
   font-family: var(--vscode-font-family);
@@ -123,5 +131,5 @@ body {
   background: linear-gradient(135deg, transparent 50%, var(--vscode-widget-border) 50%);
   border-radius: 0 0 3px 0;
 }
-` + getDashboardWidgetCss();
+` + getDashboardWidgetCss(), scope);
 }

@@ -49,6 +49,7 @@ import { refreshDvrStatusBar } from './dvr/dvr-status-bar';
 import { registerNlSqlCommands } from './nl-sql/nl-sql-commands';
 import { registerQueryBuilderCommands } from './query-builder/query-builder-commands';
 import { registerRefactoringCommands } from './refactoring/refactoring-commands';
+import { registerHubCommands } from './hub/hub-commands';
 import { HealthScorer } from './health/health-scorer';
 
 /**
@@ -149,6 +150,7 @@ export function registerFeatureModules(
     ],
     ['refactoring', () => registerRefactoringCommands(context, client)],
     ['dashboard', () => registerDashboardCommands(context, client, new HealthScorer())],
+    ['hub', () => registerHubCommands(context, client, new HealthScorer())],
     ['invariant', () => registerInvariantCommands(context, client, watcher)],
     ['narrator', () => registerNarratorCommands(context, client)],
     ['erDiagram', () => registerErDiagramCommands(context, client, watcher)],
