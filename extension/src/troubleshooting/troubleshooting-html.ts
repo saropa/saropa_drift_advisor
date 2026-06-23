@@ -21,6 +21,21 @@ function kvRow(label: string, value: string): string {
 }
 
 /**
+ * Renders one collapsible explainer. [bodyArgs] are passed to the body's `t()`
+ * so a value like the configured port can be interpolated by the catalog.
+ */
+function knowRow(
+  summaryKey: string,
+  bodyKey: string,
+  ...bodyArgs: (string | number)[]
+): string {
+  return `<details>
+    <summary>${t(summaryKey)}</summary>
+    <p>${t(bodyKey, ...bodyArgs)}</p>
+  </details>`;
+}
+
+/**
  * Build the full troubleshooting HTML page from a live diagnostics snapshot.
  * The header reflects the actual connection state and names the next step; the
  * configuration grid shows what the extension is targeting, so the page is a
@@ -139,6 +154,16 @@ ${configGrid}
     <p>${t('panel.tools.trouble.android.customBody', esc(port))}</p>
     <pre><code>adb forward tcp:YOUR_PORT tcp:YOUR_PORT</code></pre>
   </details>
+</div>
+
+<!-- Good to know -->
+<div class="section">
+  <div class="section-title"><span class="icon">&#128161;</span> ${t('panel.tools.trouble.know.title')}</div>
+  ${knowRow('panel.tools.trouble.know.loopback.summary', 'panel.tools.trouble.know.loopback.body')}
+  ${knowRow('panel.tools.trouble.know.offline.summary', 'panel.tools.trouble.know.offline.body')}
+  ${knowRow('panel.tools.trouble.know.debugBuild.summary', 'panel.tools.trouble.know.debugBuild.body')}
+  ${knowRow('panel.tools.trouble.know.portReroll.summary', 'panel.tools.trouble.know.portReroll.body', esc(port))}
+  ${knowRow('panel.tools.trouble.know.hotRestart.summary', 'panel.tools.trouble.know.hotRestart.body')}
 </div>
 
 <!-- Common Issues -->

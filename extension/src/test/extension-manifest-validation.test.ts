@@ -185,9 +185,11 @@ describe('Extension manifest validation', () => {
    */
   it('every runtime-written setting is declared in contributes.configuration', () => {
     const writtenSettings = [
-      // Drift Advisor Rules sidebar toggle (driftViewer.rules.toggleRule) and
-      // the driftViewer.disableDiagnosticRule command both write this.
+      // The Configure Rules webview (driftViewer.openRulesConfig) and the
+      // driftViewer.disableDiagnosticRule quick-fix both write this.
       'driftViewer.diagnostics.disabledRules',
+      // The Configure Rules webview severity dropdowns write this.
+      'driftViewer.diagnostics.severityOverrides',
       // Set Log Verbosity quick-pick command writes this.
       'driftViewer.logVerbosity',
     ];

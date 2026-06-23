@@ -130,6 +130,33 @@ export const stringsPanelTools: Record<string, string> = {
   'panel.tools.trouble.state.offline.allowed': 'Allowed (cached schema shown when offline)',
   'panel.tools.trouble.state.offline.off': 'Off',
 
+  // --- "Good to know" explainers (collapsible; distilled from the codebase) ---
+  'panel.tools.trouble.know.title': 'Good to know',
+  'panel.tools.trouble.know.loopback.summary':
+    'Why is the server private to my machine?',
+  // `loopbackOnly` / `authToken` are API identifiers, kept literal.
+  'panel.tools.trouble.know.loopback.body':
+    'The debug server exposes your whole database, so by default it binds to 127.0.0.1 (loopback) only — reachable from this machine, not from any other host on your network. To reach it from a physical device by its LAN IP, start it with loopbackOnly: false and set an authToken.',
+  'panel.tools.trouble.know.offline.summary':
+    'What does "Offline — cached schema" mean?',
+  'panel.tools.trouble.know.offline.body':
+    'The sidebar remembered your database structure from the last connection and is showing it from a workspace cache. Table and column names are real, but there is no live data and the row counts are stale. Reconnect to the running app to load live data.',
+  'panel.tools.trouble.know.debugBuild.summary':
+    'Why must the app run in debug mode?',
+  // `enabled: kDebugMode` / `enabled: !kReleaseMode` are code, kept literal.
+  'panel.tools.trouble.know.debugBuild.body':
+    'Most apps start the server with enabled: kDebugMode, which is true only in debug builds — it is false in profile and release. If you launch a profile or release build, the server never starts. Run a debug build, or pass enabled: !kReleaseMode to also allow profile.',
+  'panel.tools.trouble.know.portReroll.summary':
+    'Why does my Wi-Fi debug port keep changing?',
+  // {0} = configured Drift server port.
+  'panel.tools.trouble.know.portReroll.body':
+    'Android assigns a new random wireless-debugging port each time the device restarts adb, so a port that worked yesterday is often refused today. Re-pair or re-discover the device to pick up the current one. This is the adb connection port, not the Drift server port (default {0}).',
+  'panel.tools.trouble.know.hotRestart.summary':
+    'Will it reconnect after a hot restart?',
+  // <strong>Retry Connection</strong> emphasis matches the button label below.
+  'panel.tools.trouble.know.hotRestart.body':
+    'Yes. A hot restart creates a new Dart isolate; the extension detects the drop and reconnects automatically over the VM Service. If it does not, use <strong>Retry Connection</strong> below.',
+
   'panel.tools.trouble.checklist.title': 'Quick Checklist',
   // `pubspec.yaml` and `dependencies` are code identifiers, kept literal in markup
   // at the call site; the surrounding sentence is the translatable value.

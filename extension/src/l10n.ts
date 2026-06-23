@@ -31,6 +31,7 @@ import { stringsPanelReplay } from './l10n/strings-panel-replay';
 import { stringsPanelQuality } from './l10n/strings-panel-quality';
 import { stringsPanelTools } from './l10n/strings-panel-tools';
 import { stringsPanelNotes } from './l10n/strings-panel-notes';
+import { stringsPanelRules } from './l10n/strings-panel-rules';
 
 /**
  * Every host English registry, merged into one lookup. Explicit list (not a glob)
@@ -49,6 +50,7 @@ const HOST_STRING_REGISTRIES: Array<Record<string, string>> = [
   stringsPanelQuality,
   stringsPanelTools,
   stringsPanelNotes,
+  stringsPanelRules,
 ];
 
 /** Merged symbolic-key → English map. */

@@ -19,10 +19,7 @@ import {
   SchemaProvider,
 } from './diagnostics';
 import { registerSuppressionCommands } from './diagnostics/suppression-commands';
-import {
-  RulesTreeProvider,
-  type RuleItem,
-} from './diagnostics/rules-tree-provider';
+import { RulesConfigPanel } from './diagnostics/rules-config-panel';
 
 export interface DiagnosticSetupResult {
   diagnosticManager: DiagnosticManager;
@@ -59,49 +56,21 @@ export function setupDiagnostics(
   // Refresh after a directive is inserted so the silenced finding clears now.
   registerSuppressionCommands(context, () => diagnosticManager.refresh());
 
-  // "Drift Advisor Rules" sidebar: every rule with its live finding count and
-  // enabled/disabled state. Clicking a rule mutes/unmutes it — the relief valve
-  // for a workspace with hundreds of findings.
-  const rulesProvider = new RulesTreeProvider(
-    () => diagnosticManager.getCollectedCountsByCode(),
-    (code) =>
-      vscode.workspace
-        .getConfiguration('driftViewer.diagnostics')
-        .get<string[]>('disabledRules', [])
-        .includes(code),
-  );
+  // "Drift Advisor Rules" configuration screen: a webview listing every rule
+  // grouped by category, each with an enable/disable toggle, live finding count,
+  // and a severity-override dropdown. Replaces the old sidebar mute/unmute tree
+  // — the relief valve for a workspace with hundreds of findings. Opened from
+  // the Drift Tools sidebar and the command palette.
   context.subscriptions.push(
-    // registerTreeDataProvider (not createTreeView): createTreeView throws
-    // "No view is registered with id" synchronously if VS Code's currently
-    // loaded manifest doesn't yet contain the view — which happens whenever the
-    // extension's JS reloads but the package.json contribution hasn't been
-    // re-read yet — and that exception would break the rest of diagnostics
-    // setup. registerTreeDataProvider is tolerant: it wires up once the view
-    // exists and never throws. The TreeView handle is unused here.
-    vscode.window.registerTreeDataProvider('driftViewer.rules', rulesProvider),
-    // Re-render counts whenever a refresh cycle completes.
-    diagnosticManager.onDidRefresh(() => rulesProvider.refresh()),
-    vscode.commands.registerCommand(
-      'driftViewer.rules.toggleRule',
-      async (item: RuleItem) => {
-        const cfg = vscode.workspace.getConfiguration('driftViewer.diagnostics');
-        const disabled = cfg.get<string[]>('disabledRules', []);
-        const next = item.disabled
-          ? disabled.filter((c) => c !== item.code)
-          : [...new Set([...disabled, item.code])];
-        await cfg.update(
-          'disabledRules',
-          next,
-          vscode.ConfigurationTarget.Workspace,
-        );
-        rulesProvider.refresh();
-        void diagnosticManager.refresh();
-      },
-    ),
-    vscode.commands.registerCommand('driftViewer.rules.refresh', () => {
-      void diagnosticManager.refresh();
-      rulesProvider.refresh();
+    vscode.commands.registerCommand('driftViewer.openRulesConfig', () => {
+      RulesConfigPanel.createOrShow(
+        () => diagnosticManager.getCollectedCountsByCode(),
+        () => void diagnosticManager.refresh(),
+      );
     }),
+    // Re-render the open panel whenever a refresh cycle completes so its finding
+    // counts track the latest analysis.
+    diagnosticManager.onDidRefresh(() => RulesConfigPanel.refreshIfOpen()),
   );
 
   context.subscriptions.push(

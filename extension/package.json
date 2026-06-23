@@ -76,12 +76,6 @@
           "name": "%view.toolbox.name%",
           "icon": "$(tools)",
           "when": "driftViewer.isDriftProject"
-        },
-        {
-          "id": "driftViewer.rules",
-          "name": "%view.rules.name%",
-          "icon": "$(checklist)",
-          "when": "driftViewer.isDriftProject"
         }
       ],
       "debug": [
@@ -918,14 +912,9 @@
         "category": "Saropa Drift Advisor"
       },
       {
-        "command": "driftViewer.rules.refresh",
-        "title": "%command.rules.refresh.title%",
-        "icon": "$(refresh)",
-        "category": "Saropa Drift Advisor"
-      },
-      {
-        "command": "driftViewer.rules.toggleRule",
-        "title": "%command.rules.toggleRule.title%",
+        "command": "driftViewer.openRulesConfig",
+        "title": "%command.openRulesConfig.title%",
+        "icon": "$(checklist)",
         "category": "Saropa Drift Advisor"
       },
       {
@@ -986,11 +975,6 @@
         {
           "command": "driftViewer.refreshTree",
           "when": "view == driftViewer.databaseExplorer",
-          "group": "navigation@1"
-        },
-        {
-          "command": "driftViewer.rules.refresh",
-          "when": "view == driftViewer.rules",
           "group": "navigation@1"
         },
         {

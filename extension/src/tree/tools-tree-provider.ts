@@ -195,6 +195,12 @@ function buildCategories(version: string, packageInstalled: boolean): ToolCatego
         true, 'Check schema for diagnostics and issues',
       ),
       new ToolCommandItem(
+        // No server connection required: rule enable/disable + severity
+        // overrides are pure settings edits, configurable before connecting.
+        'Configure Rules', 'driftViewer.openRulesConfig', 'checklist',
+        false, 'Enable/disable diagnostic rules and set their severity',
+      ),
+      new ToolCommandItem(
         'Anomaly Detection', 'driftViewer.showAnomalies', 'bug',
         true, 'Detect FK violations, duplicates, empty strings',
       ),

@@ -147,9 +147,10 @@ describe('Extension activation', () => {
     // Saropa Lints diagnostics ingestion: SaropaLintsDiagnostics dispose +
     //   runSaropaLintsDiagnostics + clearSaropaLintsDiagnostics commands (+3).
     // Inline suppression + Rules UI: suppressDiagnosticInColumn +
-    //   suppressDiagnosticInFile commands (+2); Rules tree view + onDidRefresh
-    //   listener + rules.toggleRule + rules.refresh commands (+4).
-    assert.strictEqual(subscriptions.length, 238, `expected 238 disposables, got ${subscriptions.length}`);
+    //   suppressDiagnosticInFile commands (+2); Rules config webview replaced the
+    //   old rules tree — openRulesConfig command + onDidRefresh panel-refresh
+    //   listener (+2, down from the tree view's +4).
+    assert.strictEqual(subscriptions.length, 236, `expected 236 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
