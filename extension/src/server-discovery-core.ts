@@ -8,6 +8,7 @@ import {
   BACKOFF_INTERVAL,
   BACKOFF_THRESHOLD,
   CONNECTED_INTERVAL,
+  LOST_NOTIFY_GRACE_MS,
   MISS_THRESHOLD,
   NOTIFY_THROTTLE_MS,
   SEARCH_INTERVAL,
@@ -33,6 +34,13 @@ export class ServerDiscovery {
   private _pollId = 0;
   private _pollTimeout: ReturnType<typeof setTimeout> | undefined;
   private _notifiedAt = new Map<number, number>();
+  /**
+   * Per-port deferred "server lost" toasts. A loss schedules the warning after
+   * [LOST_NOTIFY_GRACE_MS]; a rediscovery within that window clears the timer
+   * (and suppresses the matching "detected" toast) so transient flaps on flaky
+   * links produce no popups. See [LOST_NOTIFY_GRACE_MS].
+   */
+  private _pendingLostTimers = new Map<number, ReturnType<typeof setTimeout>>();
   private _log: IDiscoveryLog | undefined;
   private _scanCount = 0;
   private _lastOutcomeLine =
@@ -90,6 +98,7 @@ export class ServerDiscovery {
       clearTimeout(this._pollTimeout);
       this._pollTimeout = undefined;
     }
+    this._clearPendingLostTimers();
   }
   pause(): void {
     if (!this._running || this._paused) return;
@@ -199,6 +208,33 @@ export class ServerDiscovery {
       );
     }
   }
+  /**
+   * Schedule the deferred "server lost" warning for [port]. Replaces any timer
+   * already pending for the port (a re-loss restarts the grace window). The
+   * timer is a no-op if discovery has stopped, and removes itself from the map
+   * once it fires so a later rediscovery is treated as a genuine "found".
+   */
+  private _scheduleLostNotification(port: number): void {
+    const existing = this._pendingLostTimers.get(port);
+    if (existing !== undefined) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      this._pendingLostTimers.delete(port);
+      if (!this._running) return;
+      maybeNotifyServerEvent(
+        this._config.host,
+        port,
+        'lost',
+        this._notifiedAt,
+        NOTIFY_THROTTLE_MS,
+      );
+    }, LOST_NOTIFY_GRACE_MS);
+    this._pendingLostTimers.set(port, timer);
+  }
+  /** Cancel and drop all deferred "server lost" timers (called on stop). */
+  private _clearPendingLostTimers(): void {
+    for (const timer of this._pendingLostTimers.values()) clearTimeout(timer);
+    this._pendingLostTimers.clear();
+  }
   private _updateServers(alivePorts: number[]): void {
     const now = Date.now();
     const aliveSet = new Set(alivePorts);
@@ -216,14 +252,24 @@ export class ServerDiscovery {
           lastSeen: now,
           missedPolls: 0,
         });
-        maybeNotifyServerEvent(
-          this._config.host,
-          port,
-          'found',
-          this._notifiedAt,
-          NOTIFY_THROTTLE_MS,
-          this._onAfterOpenUrlFromNotification,
-        );
+        // A rediscovery within the grace window means the loss never surfaced a
+        // toast — this is a flap, so cancel the pending warning and stay silent
+        // (no "detected" toast either) rather than announcing recovery from an
+        // unannounced loss.
+        const pendingLost = this._pendingLostTimers.get(port);
+        if (pendingLost !== undefined) {
+          clearTimeout(pendingLost);
+          this._pendingLostTimers.delete(port);
+        } else {
+          maybeNotifyServerEvent(
+            this._config.host,
+            port,
+            'found',
+            this._notifiedAt,
+            NOTIFY_THROTTLE_MS,
+            this._onAfterOpenUrlFromNotification,
+          );
+        }
         changed = true;
       }
     }
@@ -232,13 +278,11 @@ export class ServerDiscovery {
         info.missedPolls++;
         if (info.missedPolls >= MISS_THRESHOLD) {
           this._servers.delete(port);
-          maybeNotifyServerEvent(
-            this._config.host,
-            port,
-            'lost',
-            this._notifiedAt,
-            NOTIFY_THROTTLE_MS,
-          );
+          // Defer the "lost" toast: a flaky link drops and recovers within a
+          // scan or two, so only warn if the server is still gone after the
+          // grace window. Detection (the delete above, which drives the sidebar
+          // disconnect) is unchanged — only the toast is debounced.
+          this._scheduleLostNotification(port);
           changed = true;
         }
       }

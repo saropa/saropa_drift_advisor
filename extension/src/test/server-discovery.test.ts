@@ -254,6 +254,62 @@ describe('ServerDiscovery', () => {
     assert.strictEqual(discovery.servers[0].port, 8642);
   });
 
+  it('should NOT warn when a lost server reappears within the grace window (flap)', async () => {
+    stubPortAlive(8642);
+    discovery = new ServerDiscovery(defaultConfig());
+    discovery.start();
+    await clock.tickAsync(1);
+    assert.strictEqual(messageMock.infos.length, 1, 'detected once');
+    assert.strictEqual(messageMock.warnings.length, 0);
+
+    // Server flaps off (2 misses → removed, lost toast deferred ~35s)
+    fetchStub.reset();
+    fetchStub.rejects(new Error('connection refused'));
+    await clock.tickAsync(10001);
+    await clock.tickAsync(10001);
+    assert.strictEqual(discovery.servers.length, 0, 'removed after 2 misses');
+    assert.strictEqual(messageMock.warnings.length, 0, 'lost toast deferred, not shown yet');
+
+    // Reappears on the next searching scan, before the grace window elapses
+    stubPortAlive(8642);
+    await clock.tickAsync(30001);
+    assert.strictEqual(discovery.servers.length, 1, 'rediscovered');
+
+    // Let the (now-cancelled) grace timer's deadline pass — still no warning,
+    // and no second "detected" toast (the loss was never announced).
+    await clock.tickAsync(35001);
+    assert.strictEqual(messageMock.warnings.length, 0, 'flap should produce no lost warning');
+    assert.strictEqual(messageMock.infos.length, 1, 'flap should produce no extra detected toast');
+  });
+
+  it('should warn once a lost server stays gone past the grace window', async () => {
+    stubPortAlive(8642);
+    discovery = new ServerDiscovery(defaultConfig());
+    discovery.start();
+    await clock.tickAsync(1);
+    assert.strictEqual(messageMock.warnings.length, 0);
+
+    // Keep the server up well past NOTIFY_THROTTLE_MS (60s) so the later "lost"
+    // toast is not suppressed by the per-port throttle it shares with "found".
+    await clock.tickAsync(70001);
+    assert.strictEqual(discovery.servers.length, 1, 'still up before the outage');
+
+    // Server goes down for good (2 misses → removed, lost toast deferred)
+    fetchStub.reset();
+    fetchStub.rejects(new Error('connection refused'));
+    await clock.tickAsync(10001);
+    await clock.tickAsync(10001);
+    assert.strictEqual(messageMock.warnings.length, 0, 'not warned during grace window');
+
+    // Grace window elapses with the server still gone → warning fires once
+    await clock.tickAsync(35001);
+    assert.strictEqual(messageMock.warnings.length, 1, 'genuine outage warns once');
+    assert.ok(
+      messageMock.warnings[0].includes('no longer responding'),
+      'warning names the lost server',
+    );
+  });
+
   it('should throttle notifications per port', async () => {
     stubPortAlive(8642);
     discovery = new ServerDiscovery(defaultConfig());
