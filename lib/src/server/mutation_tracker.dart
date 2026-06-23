@@ -15,6 +15,7 @@
  * For UPDATE/DELETE it only captures before/after rows when a simple WHERE
  * clause can be extracted from the SQL.
  */
+library;
 
 import 'dart:async';
 import 'dart:developer' as developer;

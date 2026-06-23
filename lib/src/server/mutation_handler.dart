@@ -3,6 +3,7 @@
  *
  * Enabled only when `writeQuery` was provided to DriftDebugServer.start().
  */
+library;
 
 import 'dart:io';
 import 'dart:convert';

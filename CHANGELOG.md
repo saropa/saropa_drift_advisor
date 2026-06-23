@@ -42,7 +42,7 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.8]
 
 Internal tooling only — no user-facing change.
 
@@ -55,10 +55,7 @@ Internal tooling only — no user-facing change.
 
 </details>
 
-## [4.1.7]
-
 The debug server now tells you how to reach it when you debug on a physical device over Wi-Fi, instead of leaving a silent connection-refused when you try the device's network address. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.7/CHANGELOG.md)
-
 
 ### Added
 

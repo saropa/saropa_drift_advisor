@@ -22,6 +22,8 @@
 ///
 /// The **Tables** sidebar shows skeleton rows under the Tables heading until the web bundle
 /// completes `GET /api/tables`; failures surface in the same block (see `buildIndexHtml` markup).
+library;
+
 import 'dart:convert';
 
 import 'server_constants.dart';
