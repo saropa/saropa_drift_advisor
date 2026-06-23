@@ -45,15 +45,17 @@ window against a running Drift debug server.
 ## Database sidebar toolbar + table grouping
 
 ### Group tables by name
-- [ ] In the **Database** sidebar (left activity bar), click the **tree icon** in the header
-      (second inline button). Tables that share an entity stem collapse into groups — e.g. a
-      **contact** group holding `contact_avatars`, `contact_groups`, etc., a **checklist** group, and
-      so on. A plural base table joins its own group (`contacts` sits inside the **contact** group;
-      `addresses` would sit with `address_lat_longs`). Tables with no mate (e.g. `activities`) stay flat.
-- [ ] Expand a group: it lists its member tables alphabetically; each table still expands to its
-      columns + foreign keys.
-- [ ] The header icon now shows the **flat-list icon**; click it to return to the ungrouped list.
-- [ ] Reload the window — the grouped/flat choice is remembered (per workspace).
+- [ ] Open the **Database** sidebar (left activity bar). Grouping is **on by default**: tables that
+      share an entity stem appear under **expanded** group nodes — e.g. a **contact** group holding
+      `contact_avatars`, `contact_groups`, etc., a **checklist** group, and so on. A plural base table
+      joins its own group (`contacts` sits inside the **contact** group; `addresses` would sit with
+      `address_lat_longs`). Tables with no mate (e.g. `activities`) stay flat.
+- [ ] Click the **flat-list icon** in the header to switch to the ungrouped list; the **tree icon**
+      switches back to groups.
+- [ ] A group lists its member tables alphabetically; each table still expands to its columns +
+      foreign keys.
+- [ ] Reload the window — the grouped/flat choice is remembered (per workspace), and groups reopen
+      expanded.
 - [ ] Pin a table while grouped: it appears flat under **Pinned** at the top, not inside a group.
 
 ### Reorganized toolbar

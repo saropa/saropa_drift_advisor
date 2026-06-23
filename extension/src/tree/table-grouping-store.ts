@@ -19,7 +19,10 @@ export class TableGroupingStore {
   constructor(private readonly _state: vscode.Memento) {}
 
   get grouped(): boolean {
-    return this._state.get<boolean>(GROUP_KEY, false);
+    // On by default: a wide schema reads far better grouped, and the toggle lets
+    // a user opt back to the flat list. Persisted state overrides this default
+    // once the user has toggled either way.
+    return this._state.get<boolean>(GROUP_KEY, true);
   }
 
   async setGrouped(value: boolean): Promise<void> {

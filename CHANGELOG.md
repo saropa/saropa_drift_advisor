@@ -42,18 +42,21 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.7]
 
-The debug server now tells you how to reach it when you debug on a physical device over Wi-Fi, instead of leaving a silent connection-refused when you try the device's network address. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+The debug server now tells you how to reach it when you debug on a physical device over Wi-Fi, instead of leaving a silent connection-refused when you try the device's network address. Internal code cleanup only — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.7/CHANGELOG.md)
+
 
 ### Added
 
 - **Startup banner now explains LAN-IP access.** With the secure default (`loopbackOnly: true`), the banner states that connecting by the device's network IP is off and how to turn it on (`loopbackOnly: false` + an `authToken`). When you do bind a non-loopback interface, the banner prints the reachable `http://<lan-ip>:<port>` URL(s) beside the existing `adb forward` hint, so a Wi-Fi-by-IP user gets a copy-paste address instead of guessing the device IP.
 - **`GET /api/health` advertises the bind mode** via a new `loopbackOnly` field. A remote client (e.g. Saropa Lints) can now tell "server up but loopback-only" from "no server" — previously both looked like a bare connection-refused.
+- **Clicking "Offline" in the Database sidebar now opens a live connection panel.** The "Offline — cached schema" (and "Disconnected") row used to do nothing when clicked. It now opens the Troubleshooting panel showing your actual state: a status banner with the precise next step (start a debug session, or — if one is already running — check that the app calls `DriftDebugServer.start()` and is a debug build), plus a configuration grid (target host/port, discovery range, debug-session status, offline-cache setting) above the existing setup guidance.
 
 ### Fixed
 
 - **Wi-Fi-by-IP debugging looked like a dead server.** Reaching the debug server by a physical device's LAN IP failed silently under the loopback-only default, with nothing in-product explaining that the IP route is closed by design. The banner and health endpoint now make the bind mode and the two supported access paths explicit. Documentation-only on the security side — the loopback-only default is unchanged.
+- **Toggling a rule in the Drift Advisor Rules sidebar errored out.** Clicking a rule (e.g. "no-primary-key") to mute it failed with "…is not a registered configuration" because the settings the extension reads and writes — `driftViewer.diagnostics.disabledRules`, `driftViewer.diagnostics.severityOverrides`, and `driftViewer.logVerbosity` — were never declared in the manifest, so VS Code refused to save them. All three are now registered, so muting/unmuting rules, severity overrides, and the Set Log Verbosity command write successfully.
 
 ## [4.1.6]
 
@@ -295,7 +298,7 @@ Big schemas are easier to read now: a sidebar toggle groups related tables toget
 
 ### Added
 
-- **Group tables by name in the Database sidebar.** A new toolbar toggle bundles related tables into collapsible sections, so a wide schema is much easier to scan. Tables are grouped by their entity stem, so a `contacts` table sits with `contact_avatars`, `contact_groups`, and the rest (singular/plural and `-s`/`-es` forms are matched). Toggle it off to return to the flat list; the choice is remembered per workspace. Pinned tables stay flat at the top either way.
+- **Group tables by name in the Database sidebar.** Related tables are bundled into expanded sections so a wide schema is much easier to scan — on by default. Tables are grouped by their entity stem, so a `contacts` table sits with `contact_avatars`, `contact_groups`, and the rest (singular/plural and `-s`/`-es` forms are matched). A toolbar toggle switches to a flat list; the choice is remembered per workspace. Pinned tables stay flat at the top either way.
 
 ### Changed
 

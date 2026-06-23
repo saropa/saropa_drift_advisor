@@ -275,7 +275,18 @@ describe('DriftTreeProvider', () => {
       );
     });
 
-    it('shows a flat table list when grouping is off (default)', async () => {
+    it('defaults to grouped (on) with expanded group nodes', async () => {
+      const store = new TableGroupingStore(fakeMemento());
+      assert.strictEqual(store.grouped, true, 'grouping should be on by default');
+
+      await loadGroupedWith(groupedMetadata);
+      const root = await provider.getChildren();
+      const group = root.find((n) => n instanceof TableGroupItem) as TableGroupItem;
+      // Expanded so the grouped view reveals tables without an extra click.
+      assert.strictEqual(group.collapsibleState, 2 /* Expanded */);
+    });
+
+    it('shows a flat table list when no grouping store is attached', async () => {
       fetchStub.onFirstCall().resolves(new Response(JSON.stringify({ ok: true }), { status: 200 }));
       fetchStub.onSecondCall().resolves(new Response(JSON.stringify(groupedMetadata), { status: 200 }));
       await provider.refresh();

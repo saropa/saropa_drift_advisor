@@ -39,9 +39,21 @@ export class ConnectionStatusItem extends vscode.TreeItem {
         title: 'Open in Browser',
       };
       this.tooltip = `${baseUrl} — click to open in browser`;
-    } else if (offlineSchema) {
-      this.tooltip =
-        `${baseUrl} — schema from workspace cache; connect to the app for live data.`;
+    } else {
+      // Offline or disconnected: clicking opens the connection help panel (live
+      // diagnostics + setup guidance) instead of being inert. Previously this row
+      // had no command, so a user who saw "Offline" had nothing to act on — the
+      // exact dead-end this wiring removes. The state hint lets the panel render
+      // the precise status header and next step for offline vs. never-connected.
+      const stateHint = offlineSchema ? 'offline' : 'disconnected';
+      this.command = {
+        command: 'driftViewer.showTroubleshooting',
+        title: 'Open Connection Help',
+        arguments: [stateHint],
+      };
+      this.tooltip = offlineSchema
+        ? `${baseUrl} — schema from workspace cache; click for connection help.`
+        : `${baseUrl} — not connected; click for connection help.`;
     }
   }
 }
@@ -56,9 +68,11 @@ export class PinnedGroupItem extends vscode.TreeItem {
 }
 
 /**
- * Collapsible group node for the "group tables by name" toggle. Bundles all
- * tables that share a name prefix (the part before the first underscore, e.g.
- * every `contact_*` table) so a wide schema collapses into navigable sections.
+ * Group node for the "group tables by name" toggle. Bundles all tables that
+ * share an entity stem (the singularized segment before the first underscore,
+ * so `contacts` joins every `contact_*` table) into a navigable section.
+ * Starts EXPANDED so the grouped view reveals its tables without an extra click
+ * — grouping is meant to add structure, not hide the table list behind a chevron.
  * Carries its member [TableItem]s so the provider can return them on expand
  * without recomputing the grouping.
  */
@@ -67,12 +81,12 @@ export class TableGroupItem extends vscode.TreeItem {
     public readonly groupKey: string,
     public readonly tables: TableItem[],
   ) {
-    super(groupKey, vscode.TreeItemCollapsibleState.Collapsed);
+    super(groupKey, vscode.TreeItemCollapsibleState.Expanded);
     const count = tables.length;
     this.description = `${count} table${count === 1 ? '' : 's'}`;
     this.iconPath = new vscode.ThemeIcon('symbol-namespace');
     this.contextValue = 'driftTableGroup';
-    this.tooltip = `${count} tables prefixed "${groupKey}_"`;
+    this.tooltip = `${count} tables in the "${groupKey}" group`;
   }
 }
 
