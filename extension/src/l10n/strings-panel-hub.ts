@@ -17,6 +17,7 @@ export const stringsPanelHub: Record<string, string> = {
   'panel.hub.tile.erDiagram': 'ER Diagram',
   'panel.hub.tile.schemaDiff': 'Schema Diff',
   'panel.hub.tile.anomalies': 'Anomaly Detection',
+  'panel.hub.tile.configureRules': 'Configure Rules',
   'panel.hub.tile.queryCost': 'Query Cost',
   'panel.hub.tile.invariants': 'Manage Invariants',
   'panel.hub.tile.seed': 'Seed Data',

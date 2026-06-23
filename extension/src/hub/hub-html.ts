@@ -41,6 +41,7 @@ export const HUB_TILES: HubTile[] = [
   { id: 'driftViewer.showErDiagram', labelKey: 'panel.hub.tile.erDiagram' },
   { id: 'driftViewer.schemaDiff', labelKey: 'panel.hub.tile.schemaDiff' },
   { id: 'driftViewer.showAnomalies', labelKey: 'panel.hub.tile.anomalies' },
+  { id: 'driftViewer.openRulesConfig', labelKey: 'panel.hub.tile.configureRules' },
   { id: 'driftViewer.analyzeQueryCost', labelKey: 'panel.hub.tile.queryCost' },
   { id: 'driftViewer.manageInvariants', labelKey: 'panel.hub.tile.invariants' },
   { id: 'driftViewer.seedAllTables', labelKey: 'panel.hub.tile.seed' },
