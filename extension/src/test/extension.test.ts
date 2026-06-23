@@ -150,7 +150,8 @@ describe('Extension activation', () => {
     //   suppressDiagnosticInFile commands (+2); Rules config webview replaced the
     //   old rules tree — openRulesConfig command + onDidRefresh panel-refresh
     //   listener (+2, down from the tree view's +4).
-    assert.strictEqual(subscriptions.length, 236, `expected 236 disposables, got ${subscriptions.length}`);
+    // Drift Tools Hub: openDriftToolsHub command launching the Hub webview (+1).
+    assert.strictEqual(subscriptions.length, 237, `expected 237 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
