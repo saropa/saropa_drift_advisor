@@ -48,6 +48,7 @@ Every connection between these components has broken, repeatedly, in different w
 
 | Fix | Component |
 |-----|-----------|
+| **VS Code: "server lost" warning now fires at most once per discovery session** — On a flaky link (Wi-Fi debugging on a physical device) the debug server flaps: it drops for a scan or two and reconnects, repeatedly. Discovery removed the server after `MISS_THRESHOLD` (2) missed polls (~20s) and immediately showed a `showWarningMessage` "…no longer responding" toast, plus a "detected" `showInformationMessage` on each recovery — so the notifications stacked up indefinitely. Two-part fix in `server-discovery-core.ts`: (1) a per-port grace window (`LOST_NOTIFY_GRACE_MS`, 35s = one `SEARCH_INTERVAL` + margin) defers the lost toast, so a blip that recovers within the window cancels the pending warning and suppresses the matching "detected" toast; (2) a session-level latch (`_lostNotifiedThisSession`) caps the warning to once per discovery session — after it fires, all further found/lost toasts are suppressed until a fresh `start()` (new debug session or Retry Discovery) re-arms it. The lost toast bypasses the per-port `NOTIFY_THROTTLE_MS` (passes 0) because the latch is the real guard and the shared throttle map would otherwise let a recent "detected" toast swallow the single warning. Server deletion / connection-state timing is unchanged, so the sidebar, status bar, and `ConnectionStateMachine` still reflect the drop in real time. Covered by 3 new `server-discovery.test.ts` cases (flap-suppression, genuine-outage-warns-once, at-most-once-per-session-with-retry-re-arm). | Extension |
 | **Dart server: startup banner now prints the `adb forward` command** — The banner already showed `http://127.0.0.1:<port>`, but on an Android emulator or physical device that URL lives in the device's network namespace and is unreachable from a host browser/viewer until the port is forwarded. With no on-screen guidance, "server started" (banner visible after the v1.4.1/v1.7.0/086152f print() fixes) plus "viewer offline" looked contradictory — the exact failure this doc's "Active Regression" section warned about ("Combined with the need for `adb forward` on emulators, this creates a perfect storm"). The banner now prints `adb forward tcp:<port> tcp:<port>` with the ACTUAL bound port directly below the URL. Also fixed a latent bug where the banner printed the *requested* port (`:0` for ephemeral binds) instead of `server.port`. A new guard test (`drift_debug_server_test.dart`) captures the banner via a print-intercepting Zone and pins both the hint line and the port-accurate command, so the next `avoid_print`-style lint sweep that mangles the banner fails loudly instead of silently shipping. | Dart server |
 | **VS Code: "Browse all tables" link in Schema Search did nothing** — Periodic server-discovery updates fired `connectionState` messages to the webview, which called `doSearch()` when the query box was empty, replacing browse results with the idle placeholder. Added a `browseActive` flag in the webview script that prevents `applyConnectionState` from calling `doSearch()` while browse-all results are displayed. The flag is cleared on user input, scope/type filter changes, errors, and disconnect. | Extension |
 | **VS Code: phased activation — "command not found" can no longer kill the extension** — The entire `activate()` function was a ~270-line monolith with zero error isolation. A single throw anywhere caused VS Code to dispose ALL registered commands, while tree views (UI elements) survived — making the sidebar look normal while every button gave "command not found". This was silently breaking the extension for users. Activation is now split into 11 isolated phases (bootstrap → about-commands → schema-cache → providers → intelligence → diagnostics → editing → status-bars → commands → event-wiring), each wrapped in a `runPhase()` utility. On failure: error toast shown, stack trace logged to Output channel, later phases continue. The outer `activate()` never re-throws. 8 resilience tests verify that any phase can crash without killing commands from surviving phases. | Extension |
@@ -515,3 +516,68 @@ None of them cover the full picture. This document is the first attempt to do so
 **Outstanding (this phase).** None. The test is headless and runs in the existing mocha suite. It does NOT exercise the VM Service transport path or the browser long-poll path (out of scope for this gate, which targets the HTTP discovery → tree → command chain); extending it to the VM path is reasonable follow-on but not required by Phase 2. Phases 3–5 (circuit breaker, unified webview handshake, server→extension push) remain.
 
 **Finish report appended:** plans/connection-reliability-ongoing.md (this section). Plan stays active — Phases 1–2 of 5 complete.
+
+---
+
+## Finish Report (2026-06-22) — "server lost" notification flap suppression
+
+**Defect.** When the host app is debugged on a physical device over Wi-Fi, the
+HTTP debug server flaps — it disappears for one or two discovery scans and
+reconnects, repeatedly, as the link wavers. `ServerDiscovery._updateServers`
+removed a server after `MISS_THRESHOLD` (2) consecutive missed polls (~20s) and
+*immediately* raised a `showWarningMessage` ("Drift debug server on port N is no
+longer responding"), then raised a `showInformationMessage` ("…detected on port
+N") on the next rediscovery. Each flap therefore produced two modal-style
+notification toasts the developer had to dismiss, recurring for the whole
+session. The per-port `NOTIFY_THROTTLE_MS` (60s) only bounded the rate; it did
+not stop the stream.
+
+**Scope.** (B) VS Code extension (TypeScript). No Dart/Flutter app code; no
+user-facing string added or changed (the toast text is pre-existing).
+
+**Resolution.** Two coordinated changes in `extension/src/server-discovery-core.ts`,
+with a new constant in `extension/src/server-discovery-constants.ts`:
+
+1. **Grace-window debounce.** A new `LOST_NOTIFY_GRACE_MS` (35000 ms = one
+   `SEARCH_INTERVAL` + margin) defers the "lost" toast. Per-port timers live in
+   `_pendingLostTimers`. On threshold the server is still deleted (state
+   unchanged) but the toast is scheduled, not shown. A rediscovery within the
+   window clears the pending timer and suppresses the matching "detected" toast,
+   so a transient blip produces no popups.
+
+2. **Once-per-session latch.** `_lostNotifiedThisSession` is set the instant the
+   deferred warning fires and gates every subsequent found/lost toast until the
+   next `start()` (a fresh debug session or an explicit Retry Discovery, which
+   resets it). After the first warning the session goes silent regardless of how
+   many further flaps occur. The latch is set *before* the notify call so a
+   second port's grace timer firing in the same tick cannot double-warn.
+
+3. **Throttle bypass for the lost warning.** The deferred warning calls
+   `maybeNotifyServerEvent(..., 'lost', _notifiedAt, 0)`. Routing it through the
+   shared `NOTIFY_THROTTLE_MS` map risked the single allowed warning being
+   swallowed by a recent "detected" toast on the same port (both share the map);
+   the latch is the correct and only guard for the once-per-session contract.
+
+Connection-state detection (server deletion, `ConnectionStateMachine`, the
+sidebar Database tree, and the status bar) is unchanged — only the toast cadence
+is altered.
+
+**Tests.** `extension/src/test/server-discovery.test.ts` gained three cases
+using `sinon` fake timers: (a) a flap within the grace window produces no
+warning and no extra "detected" toast; (b) a sustained outage warns exactly once
+after the window, even when "detected" fired moments earlier (proves the
+throttle bypass); (c) repeated flaps yield at most one warning per session, and
+`retry()` re-arms a second warning in the next session. `mocha --grep
+"ServerDiscovery"` → 17 passing.
+
+**Verification.** `tsc -p ./` clean (also enforced by the commit lint hook);
+scoped mocha run green. A pre-existing, unrelated failure in `extension.test.ts`
+("should push expected disposables", 236→237) is in a file this change did not
+touch and registers no activation disposables — out of scope and not caused by
+this work.
+
+**Commits.** `601b860` (grace-window debounce), `c3dee96` (once-per-session
+latch + throttle bypass). Plan stays active — this is a tactical notification
+fix, independent of the five structural phases (single state authority,
+lifecycle test, circuit breaker, unified webview handshake, server→extension
+push), which remain outstanding.
