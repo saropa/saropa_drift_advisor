@@ -2,6 +2,8 @@
 """Dart package build steps: format, test, analyze, docs, dry-run."""
 
 import os
+import posixpath
+import re
 import shutil
 
 from modules.constants import REPO_ROOT, TEST_DIR
@@ -83,62 +85,157 @@ def _changed_dart_files() -> list[str] | None:
     return [n for n in names if n.endswith(".dart")]
 
 
-def _index_test_files() -> dict[str, str]:
-    """Map each ``*_test.dart`` basename under TEST_DIR to its repo-relative path."""
-    index: dict[str, str] = {}
-    for root, _dirs, filenames in os.walk(TEST_DIR):
-        for name in filenames:
-            if name.endswith("_test.dart"):
-                full = os.path.join(root, name)
-                index[name] = os.path.relpath(full, REPO_ROOT).replace("\\", "/")
-    return index
+def _package_name() -> str:
+    """Read the package name from pubspec.yaml (for resolving package: imports)."""
+    pubspec = os.path.join(REPO_ROOT, "pubspec.yaml")
+    try:
+        with open(pubspec, encoding="utf-8") as f:
+            for line in f:
+                # The top-level `name:` key; first match wins (it is unindented).
+                m = re.match(r"^name:\s*(\S+)", line)
+                if m:
+                    return m.group(1)
+    except OSError:
+        pass
+    # Fallback to the known package name so resolution still works offline.
+    return "saropa_drift_advisor"
 
 
-def _select_delta_tests(
+def _all_dart_files() -> list[str]:
+    """Every ``.dart`` file under lib/ and test/, repo-relative with / separators."""
+    found: list[str] = []
+    for sub in ("lib", "test"):
+        root_dir = os.path.join(REPO_ROOT, sub)
+        if not os.path.isdir(root_dir):
+            continue
+        for root, _dirs, filenames in os.walk(root_dir):
+            for name in filenames:
+                if name.endswith(".dart"):
+                    rel = os.path.relpath(os.path.join(root, name), REPO_ROOT)
+                    found.append(rel.replace("\\", "/"))
+    return found
+
+
+# A whole import/export/part DIRECTIVE statement, from a line-leading keyword to
+# its terminating `;`. Spanning to the `;` (re.S) is required because a
+# conditional directive wraps across lines:
+#     export 'stub.dart'
+#         if (dart.library.io) 'io.dart';
+# A per-line scan would see only the first path. `re.M` anchors `^` at line
+# starts so the keyword is a real directive, not the word "import" inside code.
+_DIRECTIVE_RE = re.compile(r"^\s*(?:import|export|part)\b.*?;", re.M | re.S)
+# Block comments are stripped before matching so a commented-out directive does
+# not register as a real dependency.
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+# Every quoted `.dart` target within a directive (both conditional branches).
+_QUOTED_DART_RE = re.compile(r"""['"]([^'"]+\.dart)['"]""")
+
+
+def _direct_deps(rel_path: str, pkg: str, valid: set[str]) -> set[str]:
+    """Intra-package files [rel_path] imports/exports/parts, resolved to repo paths.
+
+    Resolves both `package:<pkg>/...` (→ ``lib/...``) and relative targets against
+    the importing file's directory, across multi-line conditional directives.
+    Anything outside the package (``dart:``, other `package:` deps) or not present
+    in [valid] is dropped, so the graph stays inside this repo.
+    """
+    abs_path = os.path.join(REPO_ROOT, rel_path)
+    deps: set[str] = set()
+    try:
+        with open(abs_path, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return deps
+
+    text = _BLOCK_COMMENT_RE.sub("", text)
+    base_dir = posixpath.dirname(rel_path)
+    pkg_prefix = f"package:{pkg}/"
+    for stmt in _DIRECTIVE_RE.findall(text):
+        for target in _QUOTED_DART_RE.findall(stmt):
+            if target.startswith(pkg_prefix):
+                cand = "lib/" + target[len(pkg_prefix):]
+            elif target.startswith("package:") or target.startswith("dart:"):
+                continue
+            else:
+                cand = posixpath.normpath(posixpath.join(base_dir, target))
+            if cand in valid:
+                deps.add(cand)
+    return deps
+
+
+def _select_affected_tests(
     changed: list[str],
 ) -> tuple[list[str], list[str]]:
-    """Pick the test files to run for [changed]; report unmatched source files.
+    """Select tests whose import closure touches a changed file (true impact).
 
-    Two mapping rules, matching this package's flat ``test/`` layout:
-      * a changed ``*_test.dart`` runs directly, and
-      * a changed source file ``foo.dart`` runs ``foo_test.dart`` when one exists
-        (matched by basename, since tests are not nested to mirror ``lib/src/``).
+    Builds the package import graph, then for each ``*_test.dart`` computes its
+    transitive dependency closure (including itself). A test is selected when its
+    closure intersects [changed] — so editing ``drift_debug_server_io.dart`` pulls
+    in every test that imports it (directly or through a chain), and editing a
+    test file selects that test. This is the "outdated tests" set the editor's
+    Test Explorer shows, computed without the editor.
 
-    Returns ``(test_files, unmatched_sources)`` where unmatched_sources are
-    changed Dart sources with no basename-matching test — surfaced to the caller
-    so the gap is logged, never silently dropped.
+    Returns ``(selected_tests, uncovered_sources)`` where uncovered_sources are
+    changed library files that NO test reaches — a genuine coverage gap (not a
+    naming miss), surfaced so it is logged rather than hidden.
     """
-    test_index = _index_test_files()
+    pkg = _package_name()
+    valid = set(_all_dart_files())
+    changed_set = {c.replace("\\", "/") for c in changed} & valid
+
+    # Adjacency list for the whole package.
+    graph = {f: _direct_deps(f, pkg, valid) for f in valid}
+
+    # Memoized transitive closure (iterative DFS; closure includes the start node).
+    closures: dict[str, set[str]] = {}
+
+    def closure(start: str) -> set[str]:
+        cached = closures.get(start)
+        if cached is not None:
+            return cached
+        seen: set[str] = set()
+        stack = [start]
+        while stack:
+            cur = stack.pop()
+            if cur in seen:
+                continue
+            seen.add(cur)
+            for dep in graph.get(cur, ()):  # noqa: B905 - set has no len concern
+                if dep not in seen:
+                    stack.append(dep)
+        closures[start] = seen
+        return seen
+
+    test_files = [
+        f for f in valid if f.startswith("test/") and f.endswith("_test.dart")
+    ]
+
     selected: set[str] = set()
-    unmatched: list[str] = []
+    covered: set[str] = set()
+    for test in test_files:
+        reach = closure(test)
+        covered |= reach
+        if reach & changed_set:
+            selected.add(test)
 
-    for path in changed:
-        norm = path.replace("\\", "/")
-        base = os.path.basename(norm)
-        if base.endswith("_test.dart"):
-            # A changed test file: run it if it still exists on disk.
-            if os.path.isfile(os.path.join(REPO_ROOT, norm)):
-                selected.add(norm)
-            continue
-        # A changed source file: look for its basename-mirror test.
-        mirror = base[: -len(".dart")] + "_test.dart"
-        if mirror in test_index:
-            selected.add(test_index[mirror])
-        else:
-            unmatched.append(norm)
-
-    return sorted(selected), unmatched
+    # Changed library sources reached by no test at all = real coverage gap.
+    uncovered = sorted(
+        c for c in changed_set if c.startswith("lib/") and c not in covered
+    )
+    return sorted(selected), uncovered
 
 
 def run_tests() -> bool:
-    """Run only the tests affected by this release's changes (deltas-only).
+    """Run the tests actually affected by this release's changes (import-graph).
 
-    Optimized for speed: it runs the test files that map to changed files and
-    nothing else. Changed sources with no matching test are REPORTED but do not
-    escalate to the full suite (chosen 2026-06-22: "faster always"), so a release
-    can ship with an untested core change — the trade for the speed. The only
-    full-suite paths are unreadable git history (we cannot compute a delta) and
-    an explicit ``PUBLISH_FULL_TESTS=1``.
+    A test is selected when its transitive import closure includes a changed file
+    — the same "this result is stale" set the editor's Test Explorer fades, but
+    computed from the dependency graph instead of the editor. This removes the
+    naming-heuristic blind spot: a change to a core file with no same-named test
+    still runs every test that imports it through any chain. A changed library
+    file that NO test reaches is a real coverage gap and is logged. The only
+    full-suite paths are unreadable git history (no delta computable) and an
+    explicit ``PUBLISH_FULL_TESTS=1``.
     """
     if not os.path.isdir(TEST_DIR):
         warn("No test directory found, skipping unit tests")
@@ -151,7 +248,7 @@ def run_tests() -> bool:
     changed = _changed_dart_files()
     if changed is None:
         # No delta can be computed without history — full suite is the only
-        # correct choice here (this is not the "untested core change" case).
+        # correct choice here (this is not the "uncovered change" case).
         warn("Could not determine changed files from git — running full suite.")
         return _run_flutter_test([])
 
@@ -159,27 +256,26 @@ def run_tests() -> bool:
         ok("No Dart changes since the last release — skipping tests.")
         return True
 
-    selected, unmatched = _select_delta_tests(changed)
+    selected, uncovered = _select_affected_tests(changed)
 
-    # Deltas-only: changed sources without a matching test are logged but do NOT
-    # trigger the full suite. The gap is surfaced (never silent) so an untested
-    # core change is visible; PUBLISH_FULL_TESTS=1 is the escape to the full gate.
-    if unmatched:
+    # A changed library file no test imports is a genuine coverage gap, not a
+    # naming miss. Log it (never silent); PUBLISH_FULL_TESTS=1 forces the full gate.
+    if uncovered:
         warn(
-            f"{len(unmatched)} changed Dart file(s) have no matching *_test.dart "
-            "and are NOT covered by this run (set PUBLISH_FULL_TESTS=1 for full):"
+            f"{len(uncovered)} changed library file(s) are imported by NO test "
+            "(genuine coverage gap):"
         )
-        for path in unmatched:
+        for path in uncovered:
             info(f"  - {path}")
 
     if not selected:
         warn(
-            "No affected test files for this delta — skipping tests. "
+            "No tests import the changed files — skipping tests. "
             "Set PUBLISH_FULL_TESTS=1 to run the full suite."
         )
         return True
 
-    info(f"Delta test run — {len(selected)} affected test file(s):")
+    info(f"Affected test run — {len(selected)} test file(s) import a change:")
     for path in selected:
         info(f"  - {path}")
     return _run_flutter_test(selected)

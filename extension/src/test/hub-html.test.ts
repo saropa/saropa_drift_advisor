@@ -7,7 +7,8 @@
  */
 
 import * as assert from 'assert';
-import { buildHubDocument, buildHubLoadingShell, HUB_TILES, type PaneRender } from '../hub/hub-html';
+import { buildHubDocument, buildHubLoadingShell, type PaneRender } from '../hub/hub-html';
+import { HUB_GROUPS, allHubTiles } from '../hub/hub-tiles';
 
 const okPane = (marker: string): PaneRender => ({
   ok: true,
@@ -31,11 +32,24 @@ describe('buildHubDocument', () => {
     assert.ok(html.includes('acquireVsCodeApi()'));
   });
 
-  it('wires every launcher tile with its command id', () => {
+  it('wires every launcher tile across all groups with its command id', () => {
     const html = buildHubDocument(okPane('dashboard'), okPane('health'));
-    for (const tile of HUB_TILES) {
+    for (const tile of allHubTiles()) {
       assert.ok(html.includes(`data-cmd-id="${tile.id}"`), `tile missing: ${tile.id}`);
     }
+  });
+
+  it('renders one collapsible <details> section per category group', () => {
+    const html = buildHubDocument(okPane('dashboard'), okPane('health'));
+    const details = html.match(/<details class="hub-group"/g) ?? [];
+    assert.strictEqual(details.length, HUB_GROUPS.length);
+  });
+
+  it('only the Clear All Tables tile carries the danger accent', () => {
+    const html = buildHubDocument(okPane('dashboard'), okPane('health'));
+    const danger = html.match(/launcher-tile danger/g) ?? [];
+    assert.strictEqual(danger.length, 1);
+    assert.ok(html.includes('data-cmd-id="driftViewer.clearAllTables"'));
   });
 
   it('isolates a failed pane to a placeholder without blanking the other', () => {
@@ -48,9 +62,11 @@ describe('buildHubDocument', () => {
 });
 
 describe('buildHubLoadingShell', () => {
-  it('renders the launcher grid immediately (usable before scans finish)', () => {
+  it('renders the full grouped launcher immediately (usable before scans finish)', () => {
     const shell = buildHubLoadingShell();
     assert.ok(shell.includes('launcher-grid'));
-    assert.ok(shell.includes(`data-cmd-id="${HUB_TILES[0].id}"`));
+    assert.ok(shell.includes(`data-cmd-id="${allHubTiles()[0].id}"`));
+    const details = shell.match(/<details class="hub-group"/g) ?? [];
+    assert.strictEqual(details.length, HUB_GROUPS.length);
   });
 });
