@@ -91,22 +91,41 @@ def _push_to_origin() -> bool:
 
         stderr = push.stderr or ""
         if "non-fast-forward" in stderr or "rejected" in stderr.lower():
-            fix("Remote has new commits; pulling with merge then re-pushing...")
+            # Remote moved ahead. Recover ONLY when the remote strictly contains
+            # our history, i.e. a clean fast-forward pull. The previous code ran
+            # `git pull --no-edit` (a MERGE), which on a diverged history (origin
+            # rewritten, local on old SHAs) merged two near-duplicate ~240-commit
+            # histories into a 25-conflict tangle mid-publish (the v4.1.7 incident).
+            # `--ff-only` cannot merge: it succeeds on a true fast-forward and
+            # fails on divergence, which we then surface as a hard stop so the
+            # operator reconciles deliberately (rebase) instead of auto-merging.
+            fix("Remote has new commits; attempting fast-forward pull then re-push...")
             pull = run(
-                ["git", "pull", "origin", branch_name, "--no-edit"],
+                ["git", "pull", "--ff-only", "origin", branch_name],
                 cwd=REPO_ROOT,
             )
             if pull.returncode != 0:
-                fail(f"git pull failed: {pull.stderr.strip()}")
-                decision = _decide_after_git_failure("git pull failed")
+                fail(
+                    "Fast-forward pull failed — local and origin/"
+                    f"{branch_name} have diverged. Refusing to auto-merge "
+                    "(a blind merge here tangled two rewritten histories during "
+                    "the v4.1.7 release)."
+                )
+                fail(
+                    "Reconcile manually before re-running publish, e.g.:\n"
+                    f"  git fetch origin && git rebase origin/{branch_name}\n"
+                    "or, if origin's history was rewritten:\n"
+                    f"  git rebase --onto origin/{branch_name} <last-shared-commit> {branch_name}"
+                )
+                decision = _decide_after_git_failure("ff-only pull failed (diverged)")
                 if decision is None:
                     continue
                 return decision
-            ok("Merged remote changes")
+            ok("Fast-forwarded to remote changes")
             push2 = run(["git", "push", "origin", branch_name], cwd=REPO_ROOT)
             if push2.returncode != 0:
-                fail(f"git push failed after merge: {push2.stderr.strip()}")
-                decision = _decide_after_git_failure("git push failed after merge")
+                fail(f"git push failed after fast-forward: {push2.stderr.strip()}")
+                decision = _decide_after_git_failure("git push failed after fast-forward")
                 if decision is None:
                     continue
                 return decision

@@ -150,7 +150,7 @@ def _run_ext_dev_checks(
 ) -> bool:
     """Extension dev environment + git state checks."""
     from modules.ext_prereqs import check_global_npm_packages, check_vscode_extensions
-    from modules.checks_git import check_working_tree, check_remote_sync
+    from modules.checks_git import check_no_tracked_gitignored, check_remote_sync, check_working_tree
     from modules.ext_build import ensure_dependencies
 
     if getattr(args, "skip_global_npm", False):
@@ -174,6 +174,7 @@ def _run_ext_dev_checks(
         ok("Checked during Dart analysis")
         heading("Step 5 \u00b7 Remote Sync (already checked)")
         ok("Checked during Dart analysis")
+        # The Dart leg already ran the tracked-vs-gitignored guard for this run.
     else:
         heading("Step 4 \u00b7 Working Tree")
         # analyze / --analyze-only must not show "publish will push" copy.
@@ -187,6 +188,11 @@ def _run_ext_dev_checks(
 
         heading("Step 5 \u00b7 Remote Sync")
         if not run_step("Remote sync", check_remote_sync, results):
+            return False
+
+        # Catch a committed-and-gitignored file before tag/push (pub exit 65).
+        heading("Step 5b \u00b7 Tracked vs gitignored")
+        if not run_step("Tracked-ignored check", check_no_tracked_gitignored, results):
             return False
 
     heading("Step 6 \u00b7 Dependencies")
@@ -459,7 +465,12 @@ def run_dart_analysis(
 ) -> tuple[str, bool]:
     """Run all Dart analysis steps. Returns (version, all_passed)."""
     from modules.dart_prereqs import check_dart, check_flutter, check_publish_workflow
-    from modules.checks_git import check_git, check_working_tree, check_remote_sync
+    from modules.checks_git import (
+        check_git,
+        check_no_tracked_gitignored,
+        check_remote_sync,
+        check_working_tree,
+    )
     from modules.target_config import DART, ensure_server_constants_version_sync
 
     heading("Dart \u00b7 Prerequisites")
@@ -484,6 +495,12 @@ def run_dart_analysis(
 
     heading("Dart \u00b7 Remote Sync")
     if not run_step("Remote sync", check_remote_sync, results):
+        return "", False
+
+    # Catch a file that is both committed and gitignored here \u2014 pub's --dry-run
+    # rejects it with exit 65, but only in CI after the tag/release exist.
+    heading("Dart \u00b7 Tracked vs gitignored")
+    if not run_step("Tracked-ignored check", check_no_tracked_gitignored, results):
         return "", False
 
     from modules.web_assets import ensure_web_assets_sync

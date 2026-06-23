@@ -54,6 +54,19 @@ jobs:
       - name: Run tests
         run: flutter test
 
+      # Fail fast with a clear message if any file is both committed and
+      # gitignored. pub's --dry-run rejects this with a cryptic exit 65; here we
+      # name the offending files and the fix. (A re-tracked gitignored bug doc
+      # broke the v4.1.7 publish after the tag/release were already created.)
+      - name: Check no tracked file is gitignored
+        run: |
+          offenders="$(git ls-files -i -c --exclude-standard)"
+          if [ -n "$offenders" ]; then
+            echo "::error::These files are tracked but matched by .gitignore (pub publish exits 65). Untrack them with 'git rm --cached <path>' or remove the .gitignore rule:"
+            echo "$offenders"
+            exit 1
+          fi
+
       - name: Dry run
         run: dart pub publish --dry-run
 

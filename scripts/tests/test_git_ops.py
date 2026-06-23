@@ -320,5 +320,100 @@ class TestWarnDirtyWorkingTree(unittest.TestCase):
         mock_warn.assert_not_called()
 
 
+class TestPushToOriginDivergence(unittest.TestCase):
+    """Verify _push_to_origin fast-forwards on a clean non-ff, but refuses to
+    auto-merge a diverged history (the v4.1.7 tangle the old `git pull --no-edit`
+    merge caused)."""
+
+    @patch("modules.git_ops.get_current_branch", return_value="main")
+    @patch("modules.git_ops.ok")
+    @patch("modules.git_ops.fix")
+    @patch("modules.git_ops.info")
+    @patch("modules.git_ops.run")
+    def test_non_ff_recovers_via_ff_only_pull(
+        self,
+        mock_run: MagicMock,
+        mock_info: MagicMock,
+        mock_fix: MagicMock,
+        mock_ok: MagicMock,
+        mock_branch: MagicMock,
+    ) -> None:
+        """A non-ff push where remote strictly contains us: ff-only pull, re-push."""
+        from modules.git_ops import _push_to_origin
+
+        mock_run.side_effect = [
+            _run_result(returncode=1, stderr="! [rejected] main -> main (non-fast-forward)"),  # push 1
+            _run_result(),  # git pull --ff-only OK
+            _run_result(),  # push 2 OK
+        ]
+
+        self.assertTrue(_push_to_origin())
+        # The recovery pull MUST be --ff-only (never a merge).
+        pull_call = mock_run.call_args_list[1][0][0]
+        self.assertIn("pull", pull_call)
+        self.assertIn("--ff-only", pull_call)
+        self.assertNotIn("--no-edit", pull_call)
+
+    @patch("modules.git_ops._decide_after_git_failure", return_value=False)
+    @patch("modules.git_ops.get_current_branch", return_value="main")
+    @patch("modules.git_ops.fail")
+    @patch("modules.git_ops.fix")
+    @patch("modules.git_ops.info")
+    @patch("modules.git_ops.run")
+    def test_diverged_history_refuses_to_merge(
+        self,
+        mock_run: MagicMock,
+        mock_info: MagicMock,
+        mock_fix: MagicMock,
+        mock_fail: MagicMock,
+        mock_branch: MagicMock,
+        mock_decide: MagicMock,
+    ) -> None:
+        """When the ff-only pull fails (divergence), the function must NOT attempt
+        a merge or a second push — it stops and prompts (operator aborts here)."""
+        from modules.git_ops import _push_to_origin
+
+        mock_run.side_effect = [
+            _run_result(returncode=1, stderr="! [rejected] main -> main (non-fast-forward)"),  # push 1
+            _run_result(returncode=1, stderr="fatal: Not possible to fast-forward, aborting."),  # ff-only pull FAILS
+        ]
+
+        self.assertFalse(_push_to_origin())
+        # Exactly two git invocations: the rejected push and the failed ff-only
+        # pull. No merge, no blind second push on a tangled tree.
+        self.assertEqual(mock_run.call_count, 2)
+        self.assertIn("--ff-only", mock_run.call_args_list[1][0][0])
+        mock_decide.assert_called_once()
+
+
+class TestCheckNoTrackedGitignored(unittest.TestCase):
+    """Verify the guard that blocks committed-and-gitignored files (pub exit 65)."""
+
+    @patch("modules.checks_git.ok")
+    @patch("modules.checks_git.run")
+    def test_clean_tree_passes(self, mock_run: MagicMock, mock_ok: MagicMock) -> None:
+        from modules.checks_git import check_no_tracked_gitignored
+
+        mock_run.return_value = _run_result(stdout="")
+        self.assertTrue(check_no_tracked_gitignored())
+        mock_ok.assert_called_once()
+
+    @patch("modules.checks_git.info")
+    @patch("modules.checks_git.fail")
+    @patch("modules.checks_git.run")
+    def test_offender_fails_with_path(
+        self, mock_run: MagicMock, mock_fail: MagicMock, mock_info: MagicMock
+    ) -> None:
+        from modules.checks_git import check_no_tracked_gitignored
+
+        mock_run.return_value = _run_result(
+            stdout="bugs/PROBABLE_marketplace_failure_blocks_open_vsx_publish.md\n"
+        )
+        self.assertFalse(check_no_tracked_gitignored())
+        # The fix hint must mention git rm --cached.
+        hint = " ".join(c[0][0] for c in mock_info.call_args_list)
+        self.assertIn("git rm --cached", hint)
+
+
 if __name__ == "__main__":
     unittest.main()

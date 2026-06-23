@@ -93,6 +93,54 @@ def check_working_tree(will_publish: bool = True) -> bool:
     return ask_yn("Continue with uncommitted changes?", default=True)
 
 
+def check_no_tracked_gitignored() -> bool:
+    """Fail if any tracked file is also matched by a `.gitignore` rule.
+
+    `dart pub publish` treats "1 checked-in file is ignored by a `.gitignore`"
+    as a fatal warning and exits 65 — but only at the very end, inside the CI
+    `--dry-run` step that runs AFTER the tag and GitHub release are already
+    created. That left v4.1.7 with a dangling tag/release and nothing on
+    pub.dev. The inconsistent state (a file both committed and gitignored) is
+    cheaply detectable here with `git ls-files -i -c --exclude-standard`, so we
+    catch it at pre-flight — before anything irreversible — with a plain message
+    naming the file and the fix, instead of a cryptic exit 65.
+
+    A `.pubignore` does NOT suppress this: pub emits the warning about the
+    tracked+gitignored inconsistency independently of which files it bundles.
+    The only resolution is to stop tracking the file (`git rm --cached`) or stop
+    ignoring it.
+    """
+    # -i (ignored) -c (cached/tracked) --exclude-standard (honor .gitignore +
+    # core.excludesFile + .git/info/exclude). Output is the offending paths.
+    result = run(
+        ["git", "ls-files", "-i", "-c", "--exclude-standard"],
+        cwd=REPO_ROOT,
+    )
+    if result.returncode != 0:
+        fail(f"Could not check for tracked-but-gitignored files: {result.stderr.strip()}")
+        return False
+
+    offenders = result.stdout.strip().splitlines()
+    if not offenders:
+        ok("No tracked files are gitignored")
+        return True
+
+    fail(
+        f"{len(offenders)} tracked file(s) are also matched by .gitignore — "
+        "dart pub publish --dry-run rejects this with exit 65:"
+    )
+    for path in offenders[:20]:
+        print(f"         {C.DIM}{path}{C.RESET}")
+    if len(offenders) > 20:
+        print(f"         {C.DIM}... and {len(offenders) - 20} more{C.RESET}")
+    info(
+        "  Fix: untrack each file (keeps it on disk, stays gitignored):\n"
+        "    git rm --cached <path>\n"
+        "  or remove its .gitignore rule if it should be published."
+    )
+    return False
+
+
 def _check_if_behind() -> bool:
     """Compare local HEAD against upstream. Pull if behind."""
     local = run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT)
@@ -105,7 +153,13 @@ def _check_if_behind() -> bool:
         return True
 
     base = run(["git", "merge-base", "HEAD", "@{u}"], cwd=REPO_ROOT)
-    if base.stdout.strip() == local.stdout.strip():
+    base_sha = base.stdout.strip()
+    local_sha = local.stdout.strip()
+    remote_sha = remote.stdout.strip()
+
+    # Local is strictly behind: merge-base equals local HEAD, so remote is a
+    # superset. Fast-forward is safe.
+    if base_sha == local_sha:
         fix("Local is behind origin. Pulling...")
         pull = run(["git", "pull", "--ff-only"], cwd=REPO_ROOT)
         if pull.returncode != 0:
@@ -113,8 +167,37 @@ def _check_if_behind() -> bool:
             return False
         ok("Pulled latest from origin")
         return True
-    ok("Local is ahead of origin (will push during publish)")
-    return True
+
+    # Local is strictly ahead: merge-base equals the remote tip, so the publish
+    # push is a clean fast-forward. This is the normal release case.
+    if base_sha == remote_sha:
+        ok("Local is ahead of origin (will push during publish)")
+        return True
+
+    # True divergence: merge-base is an ANCESTOR of both sides, equal to neither.
+    # This is the state a remote history rewrite produces (e.g. a filter-repo run
+    # re-hashes every commit, so the local clone keeps the old SHAs and both sides
+    # advance independently). Letting publish proceed here would hit a non-ff push,
+    # which the old recovery path "fixed" with a blind `git pull --no-edit` merge —
+    # tangling the two near-duplicate histories into a 25-conflict merge (the v4.1.7
+    # incident). Fail loudly at pre-flight instead; reconciliation must be a
+    # deliberate manual rebase, never an automatic merge inside the publish run.
+    fail(
+        "Local and origin/{branch} have DIVERGED (common ancestor is an "
+        "ancestor of both, equal to neither tip)."
+    )
+    info(
+        f"  local HEAD : {local_sha[:9]}\n"
+        f"  origin tip : {remote_sha[:9]}\n"
+        f"  merge-base : {base_sha[:9]}"
+    )
+    info(
+        "  This usually means origin's history was rewritten. Do NOT let the "
+        "publish auto-merge — reconcile manually, e.g. rebase your new commits "
+        "onto origin:"
+    )
+    info(f"  {C.WHITE}git rebase --onto origin/<branch> <last-shared-commit> <branch>{C.RESET}")
+    return False
 
 
 def check_remote_sync() -> bool:
