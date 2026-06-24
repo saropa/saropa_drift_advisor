@@ -994,24 +994,29 @@
           "group": "navigation@2"
         },
         {
-          "command": "driftViewer.openDashboard",
+          "command": "driftViewer.openInBrowser",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation@3"
         },
         {
-          "command": "driftViewer.healthScore",
+          "command": "driftViewer.openDashboard",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation@4"
         },
         {
-          "command": "driftViewer.askNaturalLanguage",
+          "command": "driftViewer.healthScore",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation@5"
         },
         {
+          "command": "driftViewer.askNaturalLanguage",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation@6"
+        },
+        {
           "command": "driftViewer.showToolsQuickPick",
           "when": "view == driftViewer.databaseExplorer",
-          "group": "navigation@6"
+          "group": "navigation@7"
         },
         {
           "command": "driftViewer.openInBrowser",

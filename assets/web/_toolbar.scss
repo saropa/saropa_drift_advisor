@@ -91,16 +91,41 @@
  * whitespace; the buttons override it back to pointer for their own affordance. */
 #toolbar-bar.tb-labeled {
   cursor: pointer;
+  /* Stretch children to the strip's content width so every labeled button is
+   * the SAME width (the widest label sets it) instead of each shrink-wrapping
+   * to its own word. Overrides the base `align-items: center`. */
+  align-items: stretch;
+  /* Vertical breathing room between the now wider, taller-feeling labeled rows
+   * (the icon-only mode keeps gap:0 for a dense strip). */
+  gap: var(--space-1);
 }
 
 #toolbar-bar.tb-labeled .tb-icon-btn {
-  /* Let the button size to icon + label instead of the fixed 2rem square. */
+  /* Fill the strip width (set by align-items: stretch above) so all buttons
+   * share one width and their labels share a single left edge. */
   width: auto;
+  align-self: stretch;
+  /* Left-align icon + label as a left-justified row rather than centering the
+   * pair in the button (base rule centers for the icon-only square). */
+  justify-content: flex-start;
+  /* Keep a fixed row height so stretch only affects width, not height. */
+  height: 2rem;
   gap: 0.3rem;
   padding: 0 0.5rem;
   /* Permanent dim border requested for the labeled style — uses the same
    * --border token as :hover but stays on at rest so the box is always shown. */
   border-color: var(--border);
+}
+
+/* The trailing theme button lives inside a flyout wrapper; stretch the wrapper
+ * and let its button fill it so it matches the other labeled rows' width and
+ * left edge instead of shrink-wrapping. */
+#toolbar-bar.tb-labeled .tb-flyout-wrap {
+  align-self: stretch;
+}
+
+#toolbar-bar.tb-labeled .tb-flyout-wrap .tb-icon-btn {
+  width: 100%;
 }
 
 /* The short word: pulled from data-label so the tooltip `title` can stay a

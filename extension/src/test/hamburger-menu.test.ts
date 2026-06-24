@@ -147,6 +147,45 @@ describe('Toolbar — style.css', () => {
       'Old .hamburger-menu CSS must be removed',
     );
   });
+
+  // Labeled (density) mode must render the activity-bar buttons as an aligned
+  // list: equal width (the strip stretches its children), labels left-aligned,
+  // and vertical spacing between rows. These three are the user-visible contract
+  // for labeled mode — pin them against accidental reversion to the icon-only
+  // centered/auto-width/zero-gap layout. Helper slices each rule's body so a
+  // generic property like `justify-content: flex-start` (used elsewhere) is
+  // matched only inside the intended selector block.
+  function ruleBody(selector: string): string {
+    const start = css.indexOf(selector + ' {');
+    assert.ok(start !== -1, `Compiled CSS must contain "${selector}" rule`);
+    const open = css.indexOf('{', start);
+    const close = css.indexOf('}', open);
+    return css.slice(open, close);
+  }
+
+  it('labeled mode strip stretches children to equal width with row spacing', () => {
+    const strip = ruleBody('#toolbar-bar.tb-labeled');
+    assert.ok(
+      strip.includes('align-items: stretch'),
+      'Labeled strip must stretch children so every button is the same width',
+    );
+    assert.ok(
+      /gap:\s*var\(--space-1\)/.test(strip),
+      'Labeled strip must add vertical spacing (gap) between rows',
+    );
+  });
+
+  it('labeled mode buttons fill width and left-align their labels', () => {
+    const btn = ruleBody('#toolbar-bar.tb-labeled .tb-icon-btn');
+    assert.ok(
+      btn.includes('align-self: stretch'),
+      'Labeled button must stretch to the strip width (equal width)',
+    );
+    assert.ok(
+      btn.includes('justify-content: flex-start'),
+      'Labeled button must left-align its icon + label',
+    );
+  });
 });
 
 describe('Toolbar — bundle.js', () => {

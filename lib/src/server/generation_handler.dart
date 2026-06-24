@@ -115,6 +115,38 @@ final class GenerationHandler {
                 ServerConstants.capabilityEditsApply,
               ]
             : <String>[ServerConstants.capabilityIssues],
+        // Advertise the read endpoints so a non-UI client (AI agent, CLI) can
+        // discover the API from the health response alone — the richer
+        // method+description catalog is served by GET /api/. See E1 in
+        // bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md.
+        ServerConstants.jsonKeyEndpoints: ServerConstants.healthEndpoints,
+      }),
+    );
+    await res.close();
+  }
+
+  /// GET /api/ — a self-describing index of the read API for non-UI clients.
+  ///
+  /// Returns the product name, version, key flags, a link to the full REST
+  /// reference, and a `{method, path, description}` list of the endpoints an
+  /// external agent uses to inspect a live database. This closes the
+  /// discoverability gap where a headless client had to grep the bundled web
+  /// assets to learn the `/api/sql` contract (E1).
+  Future<void> sendApiIndex(HttpResponse response) async {
+    final res = response;
+    _ctx.setJsonHeaders(res);
+    res.write(
+      jsonEncode(<String, dynamic>{
+        ServerConstants.jsonKeyName: ServerConstants.appDisplayName,
+        ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
+        ServerConstants.jsonKeySchemaVersion:
+            ServerConstants.issuesSchemaVersion,
+        ServerConstants.jsonKeyWriteEnabled: _ctx.writeQuery != null,
+        ServerConstants.jsonKeyLoopbackOnly: _ctx.loopbackOnly,
+        ServerConstants.jsonKeyDocs:
+            '${ServerConstants.cdnBaseUrl}@v'
+            '${ServerConstants.packageVersion}/doc/API.md',
+        ServerConstants.jsonKeyEndpoints: ServerConstants.apiIndexEndpoints,
       }),
     );
     await res.close();

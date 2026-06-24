@@ -2,6 +2,7 @@
 // Handles POST /api/sql and POST /api/sql/explain.
 // Read-only validation lives in sql_validator.dart.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -49,16 +50,49 @@ final class SqlHandler {
       // Route through internalQuery so the timing record is stamped as
       // extension-owned. This is what prevents the detector from seeing
       // its own diagnostic scans as user-app regressions.
+      //
+      // The execution is bounded by [ServerConstants.sqlStatementTimeout]: a
+      // query that hangs in the host DB layer otherwise keeps this handler
+      // awaiting forever, holding its connection open — the suspected cause of
+      // the all-endpoints wedge. On timeout we abandon the await (the underlying
+      // query is not cancellable from here, but it no longer blocks the
+      // response) and fall through to a JSON error, so the connection is freed
+      // and /api/health keeps answering.
       final dynamic raw = isInternal
-          ? await _ctx.internalQuery(sql)
+          ? await _ctx
+                .internalQuery(sql)
+                .timeout(ServerConstants.sqlStatementTimeout)
           : await _runUserSqlWithOptionalDvr(
               query,
               sql,
               dvrArgs: dvrArgs,
               dvrNamedArgs: dvrNamedArgs,
-            );
+            ).timeout(ServerConstants.sqlStatementTimeout);
       final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(raw);
+
+      // Bound the response: a query matching more than [maxSqlResultRows] is
+      // clipped and the envelope reports the true count + a truncated flag, so a
+      // wide query degrades to a well-formed bounded body instead of an
+      // unbounded stream that can exhaust memory or stall the socket.
+      final int total = rows.length;
+      if (total > ServerConstants.maxSqlResultRows) {
+        return <String, dynamic>{
+          ServerConstants.jsonKeyRows: rows.sublist(
+            0,
+            ServerConstants.maxSqlResultRows,
+          ),
+          ServerConstants.jsonKeyRowCount: total,
+          ServerConstants.jsonKeyTruncated: true,
+        };
+      }
       return <String, dynamic>{ServerConstants.jsonKeyRows: rows};
+    } on TimeoutException catch (error, stack) {
+      // Statement timeout: log for the host, but return a calm JSON error the
+      // client can act on rather than the raw exception text.
+      _ctx.logError(error, stack);
+      return <String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.errorSqlTimeout,
+      };
     } on Object catch (error, stack) {
       return _handleQueryError(error, stack, sql);
     }
@@ -103,12 +137,17 @@ final class SqlHandler {
       dvrArgs: body.dvrArgs,
       dvrNamedArgs: body.dvrNamedArgs,
     );
-    _ctx.setJsonHeaders(res);
-    if (result.containsKey(ServerConstants.jsonKeyError)) {
-      res.statusCode = HttpStatus.internalServerError;
-    }
-    res.write(jsonEncode(result));
-    await res.close();
+    // Encode-safe write: a query result may carry a value (DateTime, etc.) that
+    // jsonEncode cannot encode directly; writeJsonResponse routes through
+    // ServerUtils.jsonEncodeFallback so the body is always well-formed rather
+    // than throwing mid-encode and leaving an empty 200.
+    await _ctx.writeJsonResponse(
+      res,
+      result,
+      statusCode: result.containsKey(ServerConstants.jsonKeyError)
+          ? HttpStatus.internalServerError
+          : null,
+    );
   }
 
   /// Returns explain result for VM service RPC (Plan 68).
@@ -133,7 +172,11 @@ final class SqlHandler {
     }
     try {
       final explainSql = 'EXPLAIN QUERY PLAN $sql';
-      final dynamic raw = await query(explainSql);
+      // Same statement-timeout guard as runSqlResult: a hung EXPLAIN must not
+      // hold the connection open (the all-endpoints wedge).
+      final dynamic raw = await query(
+        explainSql,
+      ).timeout(ServerConstants.sqlStatementTimeout);
       final rows = ServerUtils.normalizeRows(raw);
 
       // Extract table names from EXPLAIN detail rows
@@ -188,6 +231,11 @@ final class SqlHandler {
         ServerConstants.jsonKeySql: explainSql,
         'indexes': indexes,
       };
+    } on TimeoutException catch (error, stack) {
+      _ctx.logError(error, stack);
+      return <String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.errorSqlTimeout,
+      };
     } on Object catch (error, stack) {
       return _handleQueryError(error, stack, sql);
     }
@@ -209,12 +257,13 @@ final class SqlHandler {
     // through the normal instrumented path regardless.
     final res = request.response;
     final result = await explainSqlResult(query, body.sql);
-    _ctx.setJsonHeaders(res);
-    if (result.containsKey(ServerConstants.jsonKeyError)) {
-      res.statusCode = HttpStatus.internalServerError;
-    }
-    res.write(jsonEncode(result));
-    await res.close();
+    await _ctx.writeJsonResponse(
+      res,
+      result,
+      statusCode: result.containsKey(ServerConstants.jsonKeyError)
+          ? HttpStatus.internalServerError
+          : null,
+    );
   }
 
   /// Validated POST /api/sql request body. Checks Content-Type then

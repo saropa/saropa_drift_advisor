@@ -67,6 +67,8 @@
  * bare browser-default button next to the primary "Use". */
 .toolbar button:not(.btn-primary),
 .sql-runner .sql-toolbar button:not(.btn-primary),
+.sql-builder button:not(.btn-primary),
+.sql-subbar button:not(.btn-primary),
 .nl-modal-actions button:not(.btn-primary) {
   min-height: 36px;
   padding: 0 0.85rem;
@@ -83,6 +85,8 @@
 
 .toolbar button:not(.btn-primary):hover,
 .sql-runner .sql-toolbar button:not(.btn-primary):hover,
+.sql-builder button:not(.btn-primary):hover,
+.sql-subbar button:not(.btn-primary):hover,
 .nl-modal-actions button:not(.btn-primary):hover {
   border-color: var(--link);
   color: var(--link);

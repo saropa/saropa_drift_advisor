@@ -7,6 +7,7 @@ export const stringsPanelHub: Record<string, string> = {
   'panel.hub.title': 'Saropa Drift Tools',
   'panel.hub.subtitle': 'Dashboard and health at a glance, with every tool one click away.',
   'panel.hub.btn.rescan': 'Rescan',
+  'panel.hub.btn.browser': 'Open Database Browser',
   'panel.hub.btn.website': 'Open website',
   'panel.hub.btn.openFull': 'Open full screen',
   'panel.hub.pane.dashboard': 'Dashboard',

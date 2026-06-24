@@ -8,6 +8,7 @@
 // ignore_for_file: document_ignores -- rationales live in block comments above each ignore for readability rather than inline
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 // Use a relative import instead of `package:saropa_drift_advisor/...` because
@@ -449,6 +450,18 @@ class _DriftDebugServerImpl {
         '${ServerConstants.bannerEmpty}\n'
         '${ServerConstants.bannerBottom}',
       );
+
+      // Write the discovery manifest so an external agent (or CLI) can find the
+      // running server by reading one well-known file instead of guessing the
+      // port. Best-effort: a failure (no home dir on a mobile embedder, a
+      // read-only disk) is logged and ignored — it never blocks startup.
+      // See E1 in BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md.
+      await _writeDiscoveryManifest(
+        port: boundPort,
+        loopbackOnly: loopbackOnly,
+        writeEnabled: ctx.writeQuery != null,
+        logError: ctx.logError,
+      );
     } on Object catch (error, stack) {
       // Print server startup failure visibly — same reasoning as the
       // banner above: developer.log is invisible on Android.
@@ -517,6 +530,92 @@ class _DriftDebugServerImpl {
     _router = null;
     _server = null;
     await server.close();
+
+    // Remove this process's discovery manifest so a later agent does not read a
+    // stale host:port for a server that is gone. Only deletes the file when it
+    // belongs to this process (pid match), so a second server still running in
+    // another process keeps its own manifest. Best-effort.
+    await _removeDiscoveryManifest();
+  }
+
+  /// Resolves the discovery manifest file path under the user's home directory,
+  /// or null when no home dir is known (e.g. a mobile embedder), in which case
+  /// discovery is silently skipped.
+  static File? _discoveryManifestFile() {
+    final env = Platform.environment;
+    // USERPROFILE on Windows, HOME on POSIX. Prefer USERPROFILE first so the
+    // Windows desktop case (the primary agent host) resolves even when a shell
+    // also exports a HOME.
+    final home = env['USERPROFILE'] ?? env['HOME'];
+    if (home == null || home.isEmpty) {
+      return null;
+    }
+    return File(
+      '$home/${ServerConstants.discoveryDirName}/'
+      '${ServerConstants.discoveryFileName}',
+    );
+  }
+
+  /// Writes the discovery manifest JSON (host, port, version, flags, pid,
+  /// workspace, startedAt, endpoints). Best-effort and fully guarded: any
+  /// failure is routed to [logError] and swallowed so it cannot break startup.
+  static Future<void> _writeDiscoveryManifest({
+    required int port,
+    required bool loopbackOnly,
+    required bool writeEnabled,
+    required void Function(Object, StackTrace) logError,
+  }) async {
+    try {
+      final file = _discoveryManifestFile();
+      if (file == null) {
+        return;
+      }
+      await file.parent.create(recursive: true);
+      final manifest = <String, dynamic>{
+        ServerConstants.jsonKeyHost: ServerConstants.discoveryHost,
+        ServerConstants.jsonKeyPort: port,
+        ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
+        ServerConstants.jsonKeySchemaVersion:
+            ServerConstants.issuesSchemaVersion,
+        ServerConstants.jsonKeyWriteEnabled: writeEnabled,
+        ServerConstants.jsonKeyLoopbackOnly: loopbackOnly,
+        ServerConstants.jsonKeyPid: pid,
+        ServerConstants.jsonKeyWorkspace: Directory.current.path,
+        ServerConstants.jsonKeyStartedAt: DateTime.now()
+            .toUtc()
+            .toIso8601String(),
+        ServerConstants.jsonKeyEndpoints: ServerConstants.healthEndpoints,
+      };
+      await file.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(manifest),
+        flush: true,
+      );
+    } on Object catch (error, stack) {
+      // Disk/permission/home-dir problems must never block the server.
+      logError(error, stack);
+    }
+  }
+
+  /// Deletes the discovery manifest if it exists AND records this process's pid,
+  /// so a still-running server in another process keeps its own manifest. Fully
+  /// guarded — a delete failure is ignored.
+  static Future<void> _removeDiscoveryManifest() async {
+    try {
+      final file = _discoveryManifestFile();
+      if (file == null || !await file.exists()) {
+        return;
+      }
+      // Only remove our own manifest: parse the file and compare pid. A parse
+      // failure or pid mismatch leaves the file untouched (another live server).
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is Map<String, dynamic> &&
+          decoded[ServerConstants.jsonKeyPid] == pid) {
+        await file.delete();
+      }
+    } on Object catch (_) {
+      // Best-effort cleanup; a leftover manifest is harmless (a probing client
+      // gets connection-refused on the dead port and moves on).
+    }
   }
 
   /// Whether change detection (row-count fingerprinting)

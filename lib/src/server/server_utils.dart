@@ -41,6 +41,32 @@ abstract final class ServerUtils {
     return out;
   }
 
+  /// `toEncodable` callback for [jsonEncode] that guarantees the encode never
+  /// throws on a value SQLite/Drift can return but `dart:convert` cannot encode
+  /// directly.
+  ///
+  /// `jsonEncode` throws `JsonUnsupportedObjectError` the moment it meets a
+  /// value outside its built-in set (num, String, bool, null, List, Map). A
+  /// query result can carry such a value — most commonly a `DateTime` (Drift
+  /// `DateTimeColumn` rows), but also `BigInt`, `Duration`, or any custom type a
+  /// host executor maps a column to. Before this, such a row made the SQL
+  /// response handler's `jsonEncode` throw AFTER headers were set, producing an
+  /// ambiguous truncated/empty body instead of either rows or a JSON error —
+  /// exactly the "empty 200, no rows, no error" symptom reported by an external
+  /// agent (bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md).
+  ///
+  /// Routing the encode through this fallback turns any unencodable value into a
+  /// string (ISO-8601 for [DateTime]) so the response is always well-formed.
+  /// `List<int>` (BLOB bytes) is intentionally NOT handled here — `jsonEncode`
+  /// already encodes it as a JSON array of integers, so it never reaches this
+  /// callback.
+  static Object? jsonEncodeFallback(Object? value) {
+    if (value is DateTime) {
+      return value.toIso8601String();
+    }
+    return value.toString();
+  }
+
   /// Extracts COUNT(*) result from a single-row query
   /// (column 'c').
   ///

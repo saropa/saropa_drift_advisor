@@ -87,7 +87,11 @@ function launcherSection(): string {
 </section>`;
 }
 
-/** Hero band: title/subtitle plus Rescan and Open-website actions. */
+/**
+ * Hero band: title/subtitle plus Rescan, Open-database-browser (the primary
+ * action — opens the live web viewer at http://host:port, the thing users
+ * most often want and previously could not find), and Open-website actions.
+ */
 function hero(): string {
   return `<div class="hub-hero">
   <div>
@@ -96,7 +100,8 @@ function hero(): string {
   </div>
   <div class="hub-hero-actions">
     <button class="hub-btn" data-hub-cmd="rescan"><span class="btn-icon">${hubIcon('rotateCcw')}</span>${t('panel.hub.btn.rescan')}</button>
-    <button class="hub-btn primary" data-hub-cmd="openWebsite">${t('panel.hub.btn.website')}</button>
+    <button class="hub-btn primary" data-hub-cmd="runCommand" data-cmd-id="driftViewer.openInBrowser"><span class="btn-icon">${hubIcon('database')}</span>${t('panel.hub.btn.browser')}</button>
+    <button class="hub-btn" data-hub-cmd="openWebsite">${t('panel.hub.btn.website')}</button>
   </div>
 </div>`;
 }

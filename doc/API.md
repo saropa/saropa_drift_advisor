@@ -1,18 +1,26 @@
 # Saropa Drift Advisor — REST API Reference
 
-**API version:** 1.6.1 (synced with `ServerConstants.packageVersion`)
+**API version:** 4.1.8 (synced with `ServerConstants.packageVersion`)
 **Base URL:** `http://localhost:{port}` (default port: **8642**)
+
+> **Finding a running server (non-UI clients):** on startup the server writes a
+> discovery manifest to `~/.saropa_drift_advisor/server.json` (host, port,
+> version, flags, pid, workspace, endpoints). Read it to learn the port without
+> guessing, then call `GET /api/` for the endpoint catalog. See
+> [Server Discovery](#server-discovery).
 
 ---
 
 ## Table of Contents
 
+- [Server Discovery](#server-discovery)
 - [Common Conventions](#common-conventions)
 - [Authentication](#authentication)
 - [Error Format](#error-format)
 - [HTTP Status Codes](#http-status-codes)
 - [Query Parameters Reference](#query-parameters-reference)
 - **Endpoints**
+  - [API Index (`GET /api/`)](#api-index)
   - [Health & Generation](#health--generation)
   - [Tables](#tables)
   - [SQL](#sql)
@@ -29,6 +37,65 @@
   - [Import](#import)
   - [Change Detection](#change-detection)
   - [Special Routes](#special-routes)
+
+---
+
+## Server Discovery
+
+Two mechanisms let a non-UI client (AI coding agent, CLI script, CI check) find
+and understand the server without being handed the URL or reading the source.
+
+### Discovery manifest file
+
+On startup the server writes a JSON manifest to a well-known path under the
+user's home directory:
+
+- **Windows:** `%USERPROFILE%\.saropa_drift_advisor\server.json`
+- **macOS / Linux:** `$HOME/.saropa_drift_advisor/server.json`
+
+```json
+{
+  "host": "127.0.0.1",
+  "port": 8642,
+  "version": "4.1.8",
+  "schemaVersion": 1,
+  "writeEnabled": false,
+  "loopbackOnly": true,
+  "pid": 12345,
+  "workspace": "d:/src/contacts",
+  "startedAt": "2026-06-24T12:00:00.000Z",
+  "endpoints": ["/api/health", "/api/", "/api/sql", "..."]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `host` | string | Loopback host to connect to (`127.0.0.1`) |
+| `port` | int | The actually-bound port (matters when the app started with `port: 0`) |
+| `version` | string | Package version |
+| `schemaVersion` | int | Saropa Diagnostic Envelope version |
+| `writeEnabled` | boolean | Whether write endpoints are configured |
+| `loopbackOnly` | boolean | Whether the server bound 127.0.0.1 only |
+| `pid` | int | Host process id (used to clean up the manifest on shutdown) |
+| `workspace` | string | The host process's working directory |
+| `startedAt` | string | ISO 8601 UTC start time |
+| `endpoints` | array | Compact list of read endpoint paths |
+
+Notes:
+
+- **Best-effort and desktop-only.** When no home directory is resolvable (e.g. a
+  mobile embedder), the manifest is silently skipped — it never blocks startup.
+- **Removed on shutdown** (only when the file's `pid` matches the stopping
+  process, so a second server in another process keeps its own manifest). A
+  stale manifest left by a crash is harmless: a client that connects gets a
+  connection refused on the dead port and should re-check the manifest or scan.
+- **Single file, last writer wins.** If multiple apps run servers, the manifest
+  reflects the most recently started one; read `port` and confirm with
+  `GET /api/health` before relying on it.
+
+### `GET /api/`
+
+See [API Index (`GET /api/`)](#api-index) below.
 
 ---
 
@@ -110,6 +177,46 @@ The `error` field is always a string. The HTTP status code indicates the error c
 
 ---
 
+<a id="api-index"></a>
+
+## API Index
+
+### `GET /api/`
+
+A self-describing index of the read API for non-UI clients. Also matched at
+`GET /api` (no trailing slash). Returns the product name, version, key flags, a
+link to this reference, and a `{method, path, description}` list of the
+endpoints an external agent uses to inspect a live database.
+
+**Response** `200 OK`
+
+```json
+{
+  "name": "Saropa Drift Advisor",
+  "version": "4.1.8",
+  "schemaVersion": 1,
+  "writeEnabled": false,
+  "loopbackOnly": true,
+  "docs": "https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v4.1.8/doc/API.md",
+  "endpoints": [
+    { "method": "GET", "path": "/api/health", "description": "Liveness probe; reports version, flags, capabilities, endpoints." },
+    { "method": "POST", "path": "/api/sql", "description": "Run read-only SQL. Body {\"sql\":\"SELECT ...\"}; returns {\"rows\":[...]}." }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Product display name |
+| `version` | string | Package version |
+| `schemaVersion` | int | Saropa Diagnostic Envelope version |
+| `writeEnabled` | boolean | Whether write endpoints are configured |
+| `loopbackOnly` | boolean | Whether the server bound 127.0.0.1 only |
+| `docs` | string | URL to this full REST reference (version-pinned on the CDN) |
+| `endpoints` | array | `{ method, path, description }` for each read endpoint |
+
+---
+
 ## Health & Generation
 
 ### `GET /api/health`
@@ -122,9 +229,13 @@ Health check. Always succeeds when the server is running.
 {
   "ok": true,
   "extensionConnected": false,
-  "version": "2.6.0",
+  "version": "4.1.8",
   "schemaVersion": 1,
-  "capabilities": ["issues"]
+  "writeEnabled": false,
+  "compareEnabled": false,
+  "loopbackOnly": true,
+  "capabilities": ["issues"],
+  "endpoints": ["/api/health", "/api/", "/api/sql", "/api/sql/explain", "/api/tables", "/api/table/", "/api/schema", "/api/schema/metadata", "/api/views", "/api/issues", "/api/generation"]
 }
 ```
 
@@ -134,7 +245,11 @@ Health check. Always succeeds when the server is running.
 | `extensionConnected` | boolean | Whether a VS Code extension client has connected recently (detected via `X-Drift-Client: vscode` header) |
 | `version` | string | Package version from `pubspec.yaml` |
 | `schemaVersion` | int | Saropa Diagnostic Envelope version (see [`GET /api/issues`](#get-apiissues)). Lets a suite client (Saropa Lints, Saropa Log Capture) confirm the issue shape before parsing. Bumped only on a breaking change; consumers ignore unknown fields and refuse a higher major. |
+| `writeEnabled` | boolean | Whether write endpoints (`/api/cell/update`, `/api/edits/apply`, `/api/import`) are configured |
+| `compareEnabled` | boolean | Whether a comparison database (`queryCompare`) is configured |
+| `loopbackOnly` | boolean | Whether the server bound 127.0.0.1 only. Lets a remote probe tell "up but loopback-only" from "absent" |
 | `capabilities` | array of strings | Server feature flags. Contains `"issues"` when `GET /api/issues` is supported; clients can use this to prefer the merged issues endpoint over separate index-suggestions and anomalies calls. |
+| `endpoints` | array of strings | Compact list of read endpoint paths (the richer form is at [`GET /api/`](#api-index)) |
 
 **Note:** The VS Code extension’s **port discovery** treats a host as a Saropa Drift server only when **`ok` is true and `version` is a non-empty string**, so it does not need a follow-up schema request per port.
 

@@ -385,41 +385,64 @@ abstract final class HtmlContent {
         </div>
         <div id="panel-sql" class="tab-panel" role="tabpanel" aria-labelledby="tab-sql" hidden>
       <div class="sql-runner">
-    <div class="sql-toolbar">
-      <label for="sql-template">Template:</label>
-      <select id="sql-template">
-        <option value="custom">Custom</option>
-        <option value="select-star-limit">SELECT * FROM table LIMIT 10</option>
-        <option value="select-star">SELECT * FROM table</option>
-        <option value="count">SELECT COUNT(*) FROM table</option>
-        <option value="select-fields">SELECT columns FROM table LIMIT 10</option>
-      </select>
-      <label for="sql-table">Table:</label>
-      <select id="sql-table"><option value="">—</option></select>
-      <label for="sql-fields">Fields:</label>
-      <select id="sql-fields" multiple title="Hold Ctrl/Cmd to pick multiple"><option value="">—</option></select>
-      <button type="button" id="sql-template-lock" class="sql-lock-btn locked" title="Lock: auto-apply template when table or fields change"><span class="material-symbols-outlined" aria-hidden="true">lock</span></button>
-      <button type="button" id="sql-apply-template" title="Insert template query into editor"><span class="material-symbols-outlined" aria-hidden="true">post_add</span> Apply template</button>
-      <!-- History toggle (replaces the old "Recent" label + select).
-           A dropdown read as a form control — the em-dash placeholder
-           looked like an empty value — and duplicated the History
-           sidebar, which after the click-to-open-Run-SQL fix is a
-           strict superset (full SQL, duration, rows, timestamp, source
-           badge). Collapsing both affordances into this single icon
-           button eliminates the "nothing after the label" problem AND
-           the data duplication. Button toggles #history-sidebar
-           visibility, matching the toolbar-level #tb-history-toggle. -->
-      <button type="button" id="sql-history-toggle" title="Show recent queries in the History sidebar" aria-label="Show recent queries"><span class="material-symbols-outlined" aria-hidden="true">history</span></button>
+    <!-- Query builder: template + table + field picker grouped as one card,
+         visually distinct from the editor below. Each control is a stacked
+         label+input cell on a grid so the three align; the Fields list is a
+         fixed-height scroll box (size=4) instead of the browser-default tall
+         expansion that previously ballooned the toolbar into a narrow column.
+         IDs are unchanged — sql-runner.ts binds every control by id. -->
+    <div class="sql-builder">
+      <div class="sql-builder-row">
+        <div class="sql-field">
+          <label for="sql-template">Template</label>
+          <select id="sql-template">
+            <option value="custom">Custom</option>
+            <option value="select-star-limit">SELECT * FROM table LIMIT 10</option>
+            <option value="select-star">SELECT * FROM table</option>
+            <option value="count">SELECT COUNT(*) FROM table</option>
+            <option value="select-fields">SELECT columns FROM table LIMIT 10</option>
+          </select>
+        </div>
+        <div class="sql-field">
+          <label for="sql-table">Table</label>
+          <select id="sql-table"><option value="">—</option></select>
+        </div>
+        <div class="sql-field sql-field--fields">
+          <label for="sql-fields">Fields</label>
+          <select id="sql-fields" multiple size="4" title="Hold Ctrl/Cmd to pick multiple"><option value="">—</option></select>
+        </div>
+        <!-- Lock toggle, Apply template, and the History-sidebar toggle. The
+             history icon replaces the old "Recent" dropdown, which duplicated
+             the History sidebar (a strict superset) and showed an empty
+             em-dash placeholder. The spacer keeps the buttons aligned with the
+             selects rather than the label row under top alignment. -->
+        <div class="sql-field sql-field--actions">
+          <span class="sql-field-spacer" aria-hidden="true">&nbsp;</span>
+          <div class="sql-builder-actions">
+            <button type="button" id="sql-template-lock" class="sql-lock-btn locked" title="Lock: auto-apply template when table or fields change"><span class="material-symbols-outlined" aria-hidden="true">lock</span></button>
+            <button type="button" id="sql-apply-template" title="Insert template query into editor"><span class="material-symbols-outlined" aria-hidden="true">post_add</span> Apply</button>
+            <button type="button" id="sql-history-toggle" title="Show recent queries in the History sidebar" aria-label="Show recent queries"><span class="material-symbols-outlined" aria-hidden="true">history</span></button>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="sql-toolbar" style="margin-top:0;">
-      <label for="sql-bookmarks">Saved queries:</label>
-      <select id="sql-bookmarks" title="Load a saved query" style="max-width:14rem;"><option value="">— Saved queries —</option></select>
-      <button type="button" id="sql-bookmark-save" title="Save current query"><span class="material-symbols-outlined" aria-hidden="true">bookmark_add</span> Save</button>
-      <button type="button" id="sql-bookmark-delete" title="Delete selected"><span class="material-symbols-outlined" aria-hidden="true">delete</span> Del</button>
-      <button type="button" id="sql-bookmark-export" title="Export as JSON"><span class="material-symbols-outlined" aria-hidden="true">download</span> Export</button>
-      <button type="button" id="sql-bookmark-import" title="Import from JSON"><span class="material-symbols-outlined" aria-hidden="true">upload</span> Import</button>
-      <label for="sql-result-format">Show as:</label>
-      <select id="sql-result-format"><option value="table">Table</option><option value="json">JSON</option></select>
+    <!-- Saved queries + output format. Bookmark verbs are clustered together;
+         "Show as" is pushed to the right edge as a separate output concern. -->
+    <div class="sql-subbar">
+      <div class="sql-field sql-field--inline">
+        <label for="sql-bookmarks">Saved</label>
+        <select id="sql-bookmarks" title="Load a saved query"><option value="">— Saved queries —</option></select>
+      </div>
+      <div class="sql-btn-group">
+        <button type="button" id="sql-bookmark-save" title="Save current query"><span class="material-symbols-outlined" aria-hidden="true">bookmark_add</span> Save</button>
+        <button type="button" id="sql-bookmark-delete" title="Delete selected"><span class="material-symbols-outlined" aria-hidden="true">delete</span> Del</button>
+        <button type="button" id="sql-bookmark-export" title="Export as JSON"><span class="material-symbols-outlined" aria-hidden="true">download</span> Export</button>
+        <button type="button" id="sql-bookmark-import" title="Import from JSON"><span class="material-symbols-outlined" aria-hidden="true">upload</span> Import</button>
+      </div>
+      <div class="sql-field sql-field--inline sql-subbar-right">
+        <label for="sql-result-format">Show as</label>
+        <select id="sql-result-format"><option value="table">Table</option><option value="json">JSON</option></select>
+      </div>
     </div>
     <!-- NL "Ask" panel: authored here next to the SQL runner, but moved into
          #app-sidebar at runtime by sidebar-panels.ts so it becomes one of the

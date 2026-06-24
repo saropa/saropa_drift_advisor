@@ -586,6 +586,36 @@ final class ServerContext {
     setCors(response);
   }
 
+  /// Writes [body] as JSON, sets headers + optional [statusCode], and closes —
+  /// guaranteeing a well-formed response even when [body] holds a value
+  /// `jsonEncode` cannot encode directly.
+  ///
+  /// Encoding goes through [ServerUtils.jsonEncodeFallback] so a stray
+  /// `DateTime` (or other non-primitive) in a query result can never make the
+  /// encode throw after headers were committed — the failure mode that produced
+  /// the "empty 200, no rows, no error" body reported by an external agent. The
+  /// final `close()` is guarded because the socket can race away after headers
+  /// are sent (client aborted the read); that is logged, not rethrown, so one
+  /// hung/aborted client cannot escalate into an unhandled error.
+  Future<void> writeJsonResponse(
+    HttpResponse response,
+    Object body, {
+    int? statusCode,
+  }) async {
+    if (statusCode != null) {
+      response.statusCode = statusCode;
+    }
+    setJsonHeaders(response);
+    response.write(
+      jsonEncode(body, toEncodable: ServerUtils.jsonEncodeFallback),
+    );
+    try {
+      await response.close();
+    } on Object catch (error, stack) {
+      logError(error, stack);
+    }
+  }
+
   /// Sends a 500 JSON error response and closes the
   /// response.
   Future<void> sendErrorResponse(HttpResponse response, Object error) async {

@@ -107,13 +107,41 @@ final class Router {
     return recorder;
   }
 
+  /// Serving entry point: a crash-proof wrapper around [_dispatch].
+  ///
+  /// Every incoming connection is handled here. The whole dispatch — including
+  /// the pre-dispatch auth, rate-limit, and favicon checks that sit OUTSIDE
+  /// [_dispatch]'s own try/catch blocks — is wrapped so that no handler error
+  /// can escape as an unhandled async error (which would surface on the
+  /// HttpServer stream and could tear down the serving subscription) or leak an
+  /// open response that wedges the connection. On any escaped error we log it
+  /// and best-effort send a 500 + close, so one bad request never takes the
+  /// server down for the next one. This is the structural backstop for the
+  /// "all endpoints stop responding and never recover" wedge
+  /// (bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md).
+  Future<void> onRequest(HttpRequest request) async {
+    try {
+      await _dispatch(request);
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      // Best-effort recovery: send a JSON 500 and close. If the response was
+      // already (partly) committed this itself throws — swallow that so the
+      // failure stays contained to this one request.
+      try {
+        await _ctx.sendErrorResponse(request.response, error);
+      } on Object catch (closeError, closeStack) {
+        _ctx.logError(closeError, closeStack);
+      }
+    }
+  }
+
   /// Main request handler: auth -> rate limit -> route by
   /// method and path.
   ///
   /// Route groups are dispatched in order — the first
   /// match wins. Each `_route*` method returns true when
   /// it matches and handles the request.
-  Future<void> onRequest(HttpRequest request) async {
+  Future<void> _dispatch(HttpRequest request) async {
     final req = request;
     final res = req.response;
     final String path = req.uri.path;
@@ -223,6 +251,19 @@ final class Router {
         (path == ServerConstants.pathApiHealth ||
             path == ServerConstants.pathApiHealthAlt)) {
       await _generation.sendHealth(response);
+
+      return true;
+    }
+
+    // GET /api/ (or /api) — self-describing API index for non-UI clients
+    // (AI agents, CLI). Lets a discovered server explain its own read API in
+    // one request instead of forcing the client to grep the web assets.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiIndex ||
+            path == ServerConstants.pathApiIndexAlt ||
+            path == ServerConstants.pathApiIndexBare ||
+            path == ServerConstants.pathApiIndexBareAlt)) {
+      await _generation.sendApiIndex(response);
 
       return true;
     }
@@ -1010,6 +1051,9 @@ final class Router {
             ServerConstants.capabilityEditsApply,
           ]
         : <String>[ServerConstants.capabilityIssues],
+    // Mirror the HTTP health endpoint list so a VM-service client discovers the
+    // same read API (E1).
+    ServerConstants.jsonKeyEndpoints: ServerConstants.healthEndpoints,
   };
 
   /// Returns current generation for VM service RPC getGeneration.

@@ -24,6 +24,28 @@ abstract final class ServerConstants {
 
   static const Duration longPollTimeout = Duration(seconds: 30);
 
+  /// Wall-clock cap on a single POST /api/sql (and /explain) execution.
+  ///
+  /// Without this, a query that hangs in the host DB layer (a lock wait, a
+  /// stalled VM-service proxy, a pathological full scan) keeps the request
+  /// handler awaiting forever, holding its connection open. A pile-up of such
+  /// stuck handlers is the leading suspect for the "server stops answering
+  /// every endpoint and never recovers" wedge reported by an external agent
+  /// (bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md). On
+  /// timeout the handler abandons the await and returns a JSON error so the
+  /// connection is released and /api/health keeps responding. The underlying
+  /// query is not cancellable from here, but the SERVER stays live. 30s matches
+  /// [longPollTimeout] — generous for a real read, short enough to bound a hang.
+  static const Duration sqlStatementTimeout = Duration(seconds: 30);
+
+  /// Maximum rows POST /api/sql returns in one response. A query that matches
+  /// far more rows is truncated to this many and the JSON envelope carries
+  /// `rowCount` (the true match count) and `truncated: true`, so a wide query
+  /// degrades to a bounded, well-formed response instead of streaming an
+  /// unbounded body that can exhaust memory or stall the socket. Generous
+  /// enough that normal inspection queries are never clipped.
+  static const int maxSqlResultRows = 10_000;
+
   /// Poll interval during long-poll wait.
   static const Duration longPollCheckInterval = Duration(milliseconds: 300);
 
@@ -41,6 +63,16 @@ abstract final class ServerConstants {
   static const String methodPut = 'PUT';
   static const String pathApiHealth = '/api/health';
   static const String pathApiHealthAlt = 'api/health';
+
+  /// API index — a self-describing endpoint listing for non-UI clients
+  /// (AI coding agents, CLI scripts). Both the trailing-slash and bare forms
+  /// are matched. Added so an external client can learn the read API by
+  /// fetching one URL instead of grepping the bundled web assets
+  /// (bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md, E1).
+  static const String pathApiIndex = '/api/';
+  static const String pathApiIndexAlt = 'api/';
+  static const String pathApiIndexBare = '/api';
+  static const String pathApiIndexBareAlt = 'api';
   static const String pathApiGeneration = '/api/generation';
   static const String pathApiGenerationAlt = 'api/generation';
   static const String pathApiTables = '/api/tables';
@@ -268,6 +300,130 @@ abstract final class ServerConstants {
   /// connection-refused on the LAN IP with no health response otherwise looks
   /// identical to no server at all. See BUG_drift_server_unreachable_by_lan_ip.
   static const String jsonKeyLoopbackOnly = 'loopbackOnly';
+
+  /// Health + API-index field listing the server's read endpoints so a non-UI
+  /// client can discover the API from one response (E1 discoverability).
+  static const String jsonKeyEndpoints = 'endpoints';
+
+  /// API-index field: a stable URL to the full REST reference (doc/API.md on
+  /// the CDN), so a discovered client can read the contract without the repo.
+  static const String jsonKeyDocs = 'docs';
+
+  /// API-index field: short human-readable name of each listed endpoint.
+  static const String jsonKeyDescription = 'description';
+
+  /// API-index field: HTTP method for each listed endpoint.
+  static const String jsonKeyMethod = 'method';
+
+  /// API-index / discovery-manifest field: a single endpoint path.
+  static const String jsonKeyPath = 'path';
+
+  /// Compact endpoint list advertised by GET /api/health and written into the
+  /// discovery manifest — just the read paths an external agent most needs.
+  /// The richer method+description form is served by GET /api/ ([apiIndex]).
+  static const List<String> healthEndpoints = <String>[
+    pathApiHealth,
+    pathApiIndex,
+    pathApiSql,
+    pathApiSqlExplain,
+    pathApiTables,
+    pathApiTablePrefix,
+    pathApiSchema,
+    pathApiSchemaMetadata,
+    pathApiViews,
+    pathApiIssues,
+    pathApiGeneration,
+  ];
+
+  /// Self-describing endpoint catalog served by GET /api/ for non-UI clients.
+  /// Each entry is `{method, path, description}`. Kept to the read API an
+  /// external agent uses to inspect a live DB; the full contract (write/session/
+  /// snapshot endpoints, query params, response shapes) lives in doc/API.md,
+  /// linked via [jsonKeyDocs].
+  static const List<Map<String, String>>
+  apiIndexEndpoints = <Map<String, String>>[
+    <String, String>{
+      jsonKeyMethod: methodGet,
+      jsonKeyPath: pathApiHealth,
+      jsonKeyDescription:
+          'Liveness probe; reports version, flags, capabilities, endpoints.',
+    },
+    <String, String>{
+      jsonKeyMethod: methodPost,
+      jsonKeyPath: pathApiSql,
+      jsonKeyDescription:
+          'Run read-only SQL. Body {"sql":"SELECT ..."}; returns {"rows":[...]}.',
+    },
+    <String, String>{
+      jsonKeyMethod: methodPost,
+      jsonKeyPath: pathApiSqlExplain,
+      jsonKeyDescription:
+          'EXPLAIN QUERY PLAN for read-only SQL; returns {rows, sql, indexes}.',
+    },
+    <String, String>{
+      jsonKeyMethod: methodGet,
+      jsonKeyPath: pathApiTables,
+      jsonKeyDescription: 'List all table and view names.',
+    },
+    <String, String>{
+      jsonKeyMethod: methodGet,
+      jsonKeyPath: '$pathApiTablePrefix{name}',
+      jsonKeyDescription:
+          'Rows for one table (?limit=&offset=); also /count, /columns, /fk-meta.',
+    },
+    <String, String>{
+      jsonKeyMethod: methodGet,
+      jsonKeyPath: pathApiSchema,
+      jsonKeyDescription: 'All CREATE statements as plain-text SQL.',
+    },
+    <String, String>{
+      jsonKeyMethod: methodGet,
+      jsonKeyPath: pathApiSchemaMetadata,
+      jsonKeyDescription:
+          'Per-table columns + row counts (?includeForeignKeys=1).',
+    },
+    <String, String>{
+      jsonKeyMethod: methodGet,
+      jsonKeyPath: pathApiViews,
+      jsonKeyDescription: 'Structured list of views ({name, sql}).',
+    },
+    <String, String>{
+      jsonKeyMethod: methodGet,
+      jsonKeyPath: pathApiIssues,
+      jsonKeyDescription:
+          'Merged index suggestions, anomalies, and orphan tables.',
+    },
+    <String, String>{
+      jsonKeyMethod: methodGet,
+      jsonKeyPath: pathApiGeneration,
+      jsonKeyDescription:
+          'Data-change generation counter (?since= long-polls for changes).',
+    },
+  ];
+
+  /// Discovery-manifest fields (E1): a JSON file written to a well-known path on
+  /// startup so an external agent can find the running server (host + port +
+  /// flags) without being told the URL. See [discoveryDirName].
+  static const String jsonKeyHost = 'host';
+  static const String jsonKeyPort = 'port';
+  static const String jsonKeyPid = 'pid';
+  static const String jsonKeyWorkspace = 'workspace';
+  static const String jsonKeyStartedAt = 'startedAt';
+
+  /// Loopback host the manifest advertises; the server's secure default binds
+  /// 127.0.0.1, and even with `loopbackOnly:false` the host loopback is always
+  /// reachable, so this is the address an on-host agent connects to.
+  static const String discoveryHost = '127.0.0.1';
+
+  /// Directory (under the user's home) holding the discovery manifest. Resolved
+  /// against `USERPROFILE` (Windows) or `HOME` (POSIX); when neither is set
+  /// (e.g. a mobile embedder) the manifest is silently skipped — it is a
+  /// best-effort desktop convenience, never required for the server to run.
+  static const String discoveryDirName = '.saropa_drift_advisor';
+
+  /// Manifest filename inside [discoveryDirName].
+  static const String discoveryFileName = 'server.json';
+
   static const String jsonKeyGeneration = 'generation';
   static const String jsonKeySnapshot = 'snapshot';
   static const String jsonKeySnapshots = 'snapshots';
@@ -404,6 +560,19 @@ abstract final class ServerConstants {
       'Request body too large (limit 64 MiB).';
   static const String errorInvalidJson = 'Invalid JSON';
   static const String errorMissingSql = 'Missing or empty sql';
+
+  /// Returned by POST /api/sql (and /explain) when execution exceeds
+  /// [sqlStatementTimeout]. Phrased so a client knows the server is still up and
+  /// the query was abandoned, not that the connection died. The exact timeout
+  /// duration is deliberately not embedded so this message can never drift from
+  /// [sqlStatementTimeout] when that value is retuned.
+  static const String errorSqlTimeout =
+      'Query exceeded the statement timeout and was abandoned. The server is '
+      'still running; narrow the query (add a WHERE/LIMIT) and retry.';
+
+  /// JSON envelope flag on POST /api/sql when the result was clipped to
+  /// [maxSqlResultRows]; paired with [jsonKeyRowCount] (the true match count).
+  static const String jsonKeyTruncated = 'truncated';
   static const String errorReadOnlyOnly =
       'Only read-only SQL is allowed (SELECT or WITH ... SELECT). INSERT/UPDATE/DELETE and DDL are rejected.';
   static const String errorUnknownTablePrefix = 'Unknown table: ';
