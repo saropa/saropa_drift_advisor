@@ -853,6 +853,47 @@ void main() {
       }
     });
 
+    test('GET / Run SQL builder uses the grouped card layout', () async {
+      // Pins the Run SQL controls redesign: the Template/Table/Fields pickers
+      // are wrapped in the .sql-builder card and the Fields multi-select carries
+      // size="4". The old flat toolbar left the <select multiple> with no size,
+      // so the browser expanded it into a tall narrow box (the layout defect
+      // this redesign fixed). Without this guard a future markup edit could
+      // silently drop the wrapper or the size attribute and regress the layout.
+      await DriftDebugServer.start(query: mockQuery, enabled: true, port: 0);
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.transform(utf8.decoder).join();
+        // Grouped builder card + secondary saved-queries strip.
+        expect(body, contains('class="sql-builder"'));
+        expect(body, contains('class="sql-subbar"'));
+        // Fields list is a compact fixed-size scroll box, not the default
+        // full-height expansion.
+        expect(body, contains('id="sql-fields" multiple size="4"'));
+        // Every control the runner JS binds by id must survive the restructure.
+        for (final id in const [
+          'sql-template',
+          'sql-table',
+          'sql-template-lock',
+          'sql-apply-template',
+          'sql-history-toggle',
+          'sql-bookmarks',
+          'sql-bookmark-save',
+          'sql-result-format',
+        ]) {
+          expect(body, contains('id="$id"'), reason: 'missing control id="$id"');
+        }
+      } finally {
+        client.close();
+      }
+    });
+
     test(
       'GET /api/generation returns JSON with generation number for live refresh',
       () async {

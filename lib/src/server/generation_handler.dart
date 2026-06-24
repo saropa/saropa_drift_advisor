@@ -118,7 +118,7 @@ final class GenerationHandler {
         // Advertise the read endpoints so a non-UI client (AI agent, CLI) can
         // discover the API from the health response alone — the richer
         // method+description catalog is served by GET /api/. See E1 in
-        // bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md.
+        // plans/history/2026.06/2026.06.24/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md.
         ServerConstants.jsonKeyEndpoints: ServerConstants.healthEndpoints,
       }),
     );

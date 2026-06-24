@@ -31,7 +31,7 @@ abstract final class ServerConstants {
   /// handler awaiting forever, holding its connection open. A pile-up of such
   /// stuck handlers is the leading suspect for the "server stops answering
   /// every endpoint and never recovers" wedge reported by an external agent
-  /// (bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md). On
+  /// (plans/history/2026.06/2026.06.24/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md). On
   /// timeout the handler abandons the await and returns a JSON error so the
   /// connection is released and /api/health keeps responding. The underlying
   /// query is not cancellable from here, but the SERVER stays live. 30s matches
@@ -68,7 +68,7 @@ abstract final class ServerConstants {
   /// (AI coding agents, CLI scripts). Both the trailing-slash and bare forms
   /// are matched. Added so an external client can learn the read API by
   /// fetching one URL instead of grepping the bundled web assets
-  /// (bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md, E1).
+  /// (plans/history/2026.06/2026.06.24/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md, E1).
   static const String pathApiIndex = '/api/';
   static const String pathApiIndexAlt = 'api/';
   static const String pathApiIndexBare = '/api';

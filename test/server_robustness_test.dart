@@ -1,5 +1,5 @@
 // Tests for the server robustness + discovery hardening filed in
-// bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md:
+// plans/history/2026.06/2026.06.24/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md:
 //   E2 — POST /api/sql never wedges: statement timeout, always-JSON responses
 //        (encode-safe), and a bounded (truncated) result envelope.
 //   E1 — discoverability: GET /api/health advertises endpoints, and GET /api/

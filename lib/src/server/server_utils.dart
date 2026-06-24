@@ -53,7 +53,7 @@ abstract final class ServerUtils {
   /// response handler's `jsonEncode` throw AFTER headers were set, producing an
   /// ambiguous truncated/empty body instead of either rows or a JSON error —
   /// exactly the "empty 200, no rows, no error" symptom reported by an external
-  /// agent (bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md).
+  /// agent (plans/history/2026.06/2026.06.24/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md).
   ///
   /// Routing the encode through this fallback turns any unencodable value into a
   /// string (ISO-8601 for [DateTime]) so the response is always well-formed.

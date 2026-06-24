@@ -118,7 +118,7 @@ final class Router {
   /// and best-effort send a 500 + close, so one bad request never takes the
   /// server down for the next one. This is the structural backstop for the
   /// "all endpoints stop responding and never recover" wedge
-  /// (bugs/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md).
+  /// (plans/history/2026.06/2026.06.24/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md).
   Future<void> onRequest(HttpRequest request) async {
     try {
       await _dispatch(request);

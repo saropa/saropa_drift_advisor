@@ -1,5 +1,7 @@
 # Bug + Enhancement Report
 
+**Status:** Fixed
+
 Two related problems found while an AI coding agent (Claude Code) tried to use
 the Drift Advisor loopback server (`http://127.0.0.1:8642`) as a live-DB research
 tool during a Saropa Contacts debugging session on 2026-06-24:
@@ -235,3 +237,86 @@ evidence used from it (the `contacts` table having no BLOB columns) is quoted
 above with the exact grep. No diagnostic `(owner, code)` pair is involved — this
 is a runtime server bug, not an analyzer/linter diagnostic, so the Emitter
 Attribution section of the guide does not apply.
+
+---
+
+## Finish Report (2026-06-24)
+
+### Scope
+
+Dart package server (`lib/src/server/`, `lib/src/drift_debug_server_io.dart`),
+package tests (`test/`), and docs (`doc/API.md`, `CHANGELOG.md`). No VS Code
+extension and no Flutter UI code. No new dependencies.
+
+### Resolution summary
+
+Both reported problems were addressed by hardening the loopback HTTP server
+against a single bad request and by making the server self-describing to non-UI
+clients. The two empty-body / wedge root causes were never reproduced (the
+report flagged them as unproven candidates), so every fixable failure path was
+closed rather than one cause asserted.
+
+### E2 — robustness (the wedge + empty bodies)
+
+1. **Per-statement timeout.** `POST /api/sql` and `POST /api/sql/explain`
+   execution is now bounded by `ServerConstants.sqlStatementTimeout` (30s,
+   surfaced as `ServerContext.sqlStatementTimeout` so tests can inject a short
+   value). A query that hangs in the host DB layer previously kept its request
+   handler awaiting forever, holding the connection open; a pile-up of such
+   stuck handlers is the leading suspect for the "every endpoint dies, no
+   recovery" wedge. On timeout the handler abandons the await (the underlying
+   query is not cancellable from Dart) and returns `ServerConstants.errorSqlTimeout`,
+   freeing the connection so `/api/health` keeps answering.
+2. **Always well-formed JSON.** SQL responses now go through
+   `ServerContext.writeJsonResponse`, which encodes with
+   `ServerUtils.jsonEncodeFallback` as the `toEncodable` callback. A query result
+   carrying a value `jsonEncode` cannot encode directly (most commonly a
+   `DateTime`) previously made the encode throw *after* headers were committed,
+   producing the reported "empty 200, no rows, no error" body; the fallback
+   converts such a value to a string (ISO-8601 for `DateTime`) so the body is
+   always either `{"rows":[...]}` or `{"error":"..."}`.
+3. **Bounded result.** A result wider than `ServerConstants.maxSqlResultRows`
+   (10,000) is clipped, and the envelope carries `rowCount` (the true match
+   count) and `truncated: true`, so a wide query degrades to a bounded body
+   instead of streaming an unbounded one.
+4. **Crash-proof dispatch.** `Router.onRequest` now wraps the whole request —
+   including the pre-dispatch auth, rate-limit, and favicon checks that sat
+   outside the existing inner try/catch — so no handler error escapes as an
+   unhandled async error (which could fault the HttpServer subscription) or
+   leaks an open response. On any escaped error it logs and best-effort sends a
+   500 + close, contained to that one request.
+
+### E1 — discoverability
+
+1. **`GET /api/health` and the VM-service health JSON** now include an
+   `endpoints` array (`ServerConstants.healthEndpoints`).
+2. **New `GET /api/` (and `GET /api`)** serves a self-describing index:
+   product name, version, flags, a `{method, path, description}` catalog
+   (`ServerConstants.apiIndexEndpoints`), and a CDN link to `doc/API.md`. A
+   headless client no longer has to grep the bundled web assets to learn the
+   `/api/sql` contract.
+3. **Discovery manifest.** On startup the server writes
+   `~/.saropa_drift_advisor/server.json` (host, port, version, flags, pid,
+   workspace, startedAt, endpoints) via best-effort, fully guarded I/O — skipped
+   silently when no home directory resolves (e.g. a mobile embedder). It is
+   removed on `stop()` only when the file's pid matches the stopping process, so
+   a second server in another process keeps its own manifest.
+
+### Tests
+
+New `test/server_robustness_test.dart` (9 tests, all passing): statement-timeout
+recovery and the fast-path; `DateTime` encode-safety; row-cap truncation; a
+failing query returning JSON error while `/api/health` stays live; `endpoints`
+in health; the `GET /api/` and `GET /api` index; and the discovery-manifest
+write/remove lifecycle (guarded for hosts without a home dir). The existing
+`handler_integration_test.dart` (health-shape) and `sql_validation_test.dart`
+suites remain green — the new health field is additive and those assertions are
+field-wise, not exact-match.
+
+### Notes for maintainers
+
+- Every `DriftDebugServer.start()` now writes the discovery manifest to the
+  user's home directory (cleaned up on `stop()`), which also occurs during the
+  test suite. The write is guarded and non-fatal.
+- The statement timeout abandons but does not cancel a hung query; the host
+  query continues in the background until it completes or the isolate exits.
