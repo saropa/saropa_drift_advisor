@@ -151,7 +151,9 @@ describe('Extension activation', () => {
     //   old rules tree — openRulesConfig command + onDidRefresh panel-refresh
     //   listener (+2, down from the tree view's +4).
     // Drift Tools Hub: openDriftToolsHub command launching the Hub webview (+1).
-    assert.strictEqual(subscriptions.length, 237, `expected 237 disposables, got ${subscriptions.length}`);
+    // Host discovery manifest (Finding 1 / E1): deactivate-time removeHostManifest
+    // cleanup disposable in bootstrapExtension (+1).
+    assert.strictEqual(subscriptions.length, 238, `expected 238 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

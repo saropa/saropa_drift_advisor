@@ -10,6 +10,7 @@ import { GenerationWatcher } from './generation-watcher';
 import { ServerDiscovery } from './server-discovery';
 import { ServerManager } from './server-manager';
 import { hasFlutterOrDartDebugSession, tryAdbForwardAndRetry } from './android-forward';
+import { removeHostManifest, writeHostManifest } from './host-discovery-manifest';
 import { isDriftUiConnected } from './connection-ui-state';
 import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
@@ -152,6 +153,10 @@ export function bootstrapExtension(
   context.subscriptions.push({ dispose: () => discovery.dispose() });
   context.subscriptions.push({ dispose: () => serverManager.dispose() });
 
+  // Tracks the port last advertised in the host discovery manifest so we only
+  // rewrite the file when the reachable server actually changes, not on every
+  // scan that re-fires onDidChangeServers. -1 means "no manifest written".
+  let lastManifestPort = -1;
   context.subscriptions.push(
     discovery.onDidChangeServers((servers) => {
       if (servers.length > 0) {
@@ -163,12 +168,49 @@ export function bootstrapExtension(
           'driftViewer.serverConnected',
           isDriftUiConnected(serverManager, client),
         );
+        // Publish a HOST discovery manifest for the now-reachable server so an
+        // external agent (CLI / curl / Claude Code) finds it by reading one
+        // well-known file instead of port-scanning or running `adb forward` by
+        // hand. The in-app manifest is written on the device and never reaches
+        // the host in the device-hosted case — this closes that gap. Prefer the
+        // configured port when it is among the live servers, else the first.
+        const primary =
+          servers.find((s) => s.port === client.port) ?? servers[0];
+        if (primary.port !== lastManifestPort) {
+          lastManifestPort = primary.port;
+          // A live Flutter/Dart debug session means the app runs on a
+          // device/emulator and the host reaches it only via adb forward; a
+          // plain loopback hit (desktop app) is reached directly.
+          const transport = hasFlutterOrDartDebugSession()
+            ? 'adb-forward'
+            : 'loopback';
+          void writeHostManifest(
+            primary.host,
+            primary.port,
+            transport,
+            new Date().toISOString(),
+            { log: (msg) => gatedConnectionLog.appendLine(msg) },
+          );
+        }
         return;
+      }
+      // No reachable server: drop our manifest so a later agent does not read a
+      // stale host:port. Only our own (extension-stamped) manifest is removed.
+      if (lastManifestPort !== -1) {
+        lastManifestPort = -1;
+        void removeHostManifest({ log: (msg) => gatedConnectionLog.appendLine(msg) });
       }
       if (!hasFlutterOrDartDebugSession()) return;
       void tryAdbForwardAndRetry(client.port, discovery, context.workspaceState);
     }),
   );
+  // Remove the host manifest on deactivation so it does not outlive the session
+  // and point an agent at a server that is no longer forwarded.
+  context.subscriptions.push({
+    dispose: () => {
+      void removeHostManifest({ log: (msg) => gatedConnectionLog.appendLine(msg) });
+    },
+  });
 
   // When a Flutter/Dart debug session starts on an emulator, the server inside
   // the app needs adb port-forwarding before the host can reach it. Wait a few
