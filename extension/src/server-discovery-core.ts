@@ -4,17 +4,17 @@
  */
 import * as vscode from 'vscode';
 import {
-  BACKOFF_CYCLES,
   BACKOFF_INTERVAL,
   BACKOFF_THRESHOLD,
-  CONNECTED_INTERVAL,
   LOST_NOTIFY_GRACE_MS,
   MISS_THRESHOLD,
   NOTIFY_THROTTLE_MS,
   SEARCH_INTERVAL,
 } from './server-discovery-constants';
+import { ServerLostDebouncer } from './server-discovery-lost-debounce';
 import { maybeNotifyServerEvent } from './server-discovery-notify';
 import { scanPorts } from './server-discovery-scan';
+import { nextDiscoveryState, pollIntervalForState } from './server-discovery-state-machine';
 import type { IServerInfo, IDiscoveryConfig, DiscoveryOpenUrlHook, DiscoveryState, DiscoveryUiState, IDiscoveryLog } from './server-discovery-ui-state';
 import { portsProbeLabel, scanOutcomeLine, buildDiscoveryUiState } from './server-discovery-ui-state';
 export type { IServerInfo, IDiscoveryConfig, DiscoveryOpenUrlHook, DiscoveryState, DiscoveryUiState, IDiscoveryLog } from './server-discovery-ui-state';
@@ -35,21 +35,19 @@ export class ServerDiscovery {
   private _pollTimeout: ReturnType<typeof setTimeout> | undefined;
   private _notifiedAt = new Map<number, number>();
   /**
-   * Per-port deferred "server lost" toasts. A loss schedules the warning after
-   * [LOST_NOTIFY_GRACE_MS]; a rediscovery within that window clears the timer
-   * (and suppresses the matching "detected" toast) so transient flaps on flaky
-   * links produce no popups. See [LOST_NOTIFY_GRACE_MS].
+   * Defers and collapses "server lost" toasts so a flaky link that flaps
+   * produces a single warning at most. State/sidebar updates are unaffected —
+   * see [ServerLostDebouncer]. Re-armed each [start].
    */
-  private _pendingLostTimers = new Map<number, ReturnType<typeof setTimeout>>();
-  /**
-   * Once a "server lost" warning has been shown this discovery session, all
-   * further found/lost toasts are suppressed until discovery restarts (a fresh
-   * [start], e.g. a new debug session or an explicit Retry Discovery). On a
-   * flaky link (Wi-Fi debugging) the server flaps repeatedly; the user wants a
-   * single warning, not one per flap. Ongoing state stays visible in the
-   * sidebar/status bar regardless. Reset in [start].
-   */
-  private _lostNotifiedThisSession = false;
+  private readonly _lostDebouncer = new ServerLostDebouncer({
+    isRunning: () => this._running,
+    graceMs: LOST_NOTIFY_GRACE_MS,
+    // Bypass the per-port throttle (pass 0): the debouncer's session latch
+    // already caps this to once per session, and the shared throttle map would
+    // otherwise let a recent "detected" toast suppress the one warning we want.
+    notifyLost: (port) =>
+      maybeNotifyServerEvent(this._config.host, port, 'lost', this._notifiedAt, 0),
+  });
   private _log: IDiscoveryLog | undefined;
   private _scanCount = 0;
   private _lastOutcomeLine =
@@ -93,7 +91,7 @@ export class ServerDiscovery {
     this._running = true;
     this._scanCount = 0;
     // A fresh discovery session re-arms the once-per-session "lost" warning.
-    this._lostNotifiedThisSession = false;
+    this._lostDebouncer.reset();
     this._logLine(
       `Starting — scanning ${this._config.host} ports ${portsProbeLabel(this._config)} `
       + `every ${SEARCH_INTERVAL / 1000}s (backoff after ${BACKOFF_THRESHOLD} empty scans to ${BACKOFF_INTERVAL / 1000}s)`,
@@ -109,7 +107,7 @@ export class ServerDiscovery {
       clearTimeout(this._pollTimeout);
       this._pollTimeout = undefined;
     }
-    this._clearPendingLostTimers();
+    this._lostDebouncer.clearAll();
   }
   pause(): void {
     if (!this._running || this._paused) return;
@@ -152,7 +150,7 @@ export class ServerDiscovery {
       emptyScans: this._emptyScans,
       servers: this._servers,
       lastOutcomeLine: this._lastOutcomeLine,
-      intervalMs: this._getInterval(),
+      intervalMs: pollIntervalForState(this._state),
       scanInFlight,
     };
   }
@@ -209,7 +207,7 @@ export class ServerDiscovery {
     this._emitDiscoveryUi(false);
     if (this._running && id === this._pollId) {
       if (this._paused) return;
-      const interval = this._getInterval();
+      const interval = pollIntervalForState(this._state);
       this._logLine(
         `Next scan in ${interval / 1000}s [state=${this._state}, empty=${this._emptyScans}]`,
       );
@@ -218,37 +216,6 @@ export class ServerDiscovery {
         interval,
       );
     }
-  }
-  /**
-   * Schedule the deferred "server lost" warning for [port]. Replaces any timer
-   * already pending for the port (a re-loss restarts the grace window). The
-   * timer is a no-op if discovery has stopped, and removes itself from the map
-   * once it fires so a later rediscovery is treated as a genuine "found".
-   */
-  private _scheduleLostNotification(port: number): void {
-    // Once per session: after the first warning, never schedule another. The
-    // server is still removed by the caller (state/sidebar update intact) — only
-    // the toast is suppressed.
-    if (this._lostNotifiedThisSession) return;
-    const existing = this._pendingLostTimers.get(port);
-    if (existing !== undefined) clearTimeout(existing);
-    const timer = setTimeout(() => {
-      this._pendingLostTimers.delete(port);
-      if (!this._running || this._lostNotifiedThisSession) return;
-      // Latch BEFORE notifying so any concurrent port's grace timer that fires
-      // in the same tick stays silent — the user gets exactly one warning.
-      this._lostNotifiedThisSession = true;
-      // Bypass the per-port throttle (pass 0): the latch above already caps this
-      // to once per session, and the shared throttle map would otherwise let a
-      // recent "detected" toast suppress the single warning the user does want.
-      maybeNotifyServerEvent(this._config.host, port, 'lost', this._notifiedAt, 0);
-    }, LOST_NOTIFY_GRACE_MS);
-    this._pendingLostTimers.set(port, timer);
-  }
-  /** Cancel and drop all deferred "server lost" timers (called on stop). */
-  private _clearPendingLostTimers(): void {
-    for (const timer of this._pendingLostTimers.values()) clearTimeout(timer);
-    this._pendingLostTimers.clear();
   }
   private _updateServers(alivePorts: number[]): void {
     const now = Date.now();
@@ -271,11 +238,8 @@ export class ServerDiscovery {
         // toast — this is a flap, so cancel the pending warning and stay silent
         // (no "detected" toast either) rather than announcing recovery from an
         // unannounced loss.
-        const pendingLost = this._pendingLostTimers.get(port);
-        if (pendingLost !== undefined) {
-          clearTimeout(pendingLost);
-          this._pendingLostTimers.delete(port);
-        } else if (!this._lostNotifiedThisSession) {
+        const wasPendingLost = this._lostDebouncer.cancelPending(port);
+        if (!wasPendingLost && !this._lostDebouncer.hasNotified) {
           // Stay silent once we've already warned this session: a reconnect on a
           // flaky link is part of the same flap the user asked not to be nagged
           // about. The initial discovery (before any loss) still announces.
@@ -300,30 +264,20 @@ export class ServerDiscovery {
           // scan or two, so only warn if the server is still gone after the
           // grace window. Detection (the delete above, which drives the sidebar
           // disconnect) is unchanged — only the toast is debounced.
-          this._scheduleLostNotification(port);
+          this._lostDebouncer.scheduleLost(port);
           changed = true;
         }
       }
     }
     const prevState = this._state;
-    if (this._servers.size > 0) {
-      this._state = 'connected';
-      this._emptyScans = 0;
-      this._backoffPolls = 0;
-    } else if (alivePorts.length === 0) {
-      this._emptyScans++;
-      if (this._state === 'backoff') {
-        this._backoffPolls++;
-        if (this._backoffPolls >= BACKOFF_CYCLES) {
-          this._state = 'searching';
-          this._emptyScans = 0;
-          this._backoffPolls = 0;
-        }
-      } else {
-        this._state =
-          this._emptyScans >= BACKOFF_THRESHOLD ? 'backoff' : 'searching';
-      }
-    }
+    const next = nextDiscoveryState(
+      { state: this._state, emptyScans: this._emptyScans, backoffPolls: this._backoffPolls },
+      this._servers.size,
+      alivePorts.length,
+    );
+    this._state = next.state;
+    this._emptyScans = next.emptyScans;
+    this._backoffPolls = next.backoffPolls;
     if (this._state !== prevState) {
       this._logLine(
         `State: ${prevState} → ${this._state} (empty scans: ${this._emptyScans})`,
@@ -331,16 +285,6 @@ export class ServerDiscovery {
     }
     if (changed || this._state !== prevState) {
       this._onDidChangeServers.fire(this.servers);
-    }
-  }
-  private _getInterval(): number {
-    switch (this._state) {
-      case 'searching':
-        return SEARCH_INTERVAL;
-      case 'connected':
-        return CONNECTED_INTERVAL;
-      case 'backoff':
-        return BACKOFF_INTERVAL;
     }
   }
 }

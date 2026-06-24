@@ -16,6 +16,8 @@
 import { t } from '../l10n';
 import { escapeHtml } from '../shared-utils';
 import type { DiagnosticCategory } from './diagnostic-types';
+import { RULES_CONFIG_CLIENT_SCRIPT } from './rules-config-client';
+import { RULES_CONFIG_STYLES } from './rules-config-styles';
 
 /** The override tokens a rule's severity dropdown can emit; '' = use default. */
 export type RuleSeverityValue = '' | 'error' | 'warning' | 'info' | 'hint';
@@ -135,110 +137,7 @@ export function buildRulesConfigHtml(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-  body {
-    font-family: var(--vscode-font-family);
-    color: var(--vscode-foreground);
-    background: var(--vscode-editor-background);
-    margin: 0;
-    padding: 16px 20px 32px;
-  }
-  .header { margin-bottom: 16px; }
-  .header h1 { margin: 0 0 4px; font-size: 18px; }
-  .subtitle { margin: 0 0 8px; font-size: 12px; opacity: 0.75; max-width: 70ch; }
-  .summary { font-size: 12px; opacity: 0.85; }
-  .toolbar {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    margin: 14px 0 18px;
-    flex-wrap: wrap;
-  }
-  .search {
-    flex: 1 1 240px;
-    min-width: 180px;
-    padding: 5px 10px;
-    font-size: 12px;
-    color: var(--vscode-input-foreground);
-    background: var(--vscode-input-background);
-    border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
-    border-radius: 3px;
-  }
-  .btn {
-    padding: 5px 12px;
-    border: 1px solid var(--vscode-button-border, var(--vscode-widget-border));
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-  .btn:hover { opacity: 0.9; }
-  .btn-secondary {
-    background: var(--vscode-button-secondaryBackground, transparent);
-    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-  }
-  .category { margin-bottom: 22px; }
-  .category-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    opacity: 0.8;
-    margin: 0 0 6px;
-    border-bottom: 1px solid var(--vscode-widget-border);
-    padding-bottom: 4px;
-  }
-  .category-count {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 0 6px;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--accent-warning) 20%, transparent);
-    color: var(--accent-warning);
-  }
-  .rules-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .rules-table th {
-    text-align: left;
-    font-weight: 600;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    opacity: 0.6;
-    padding: 4px 10px;
-  }
-  .rules-table td {
-    padding: 7px 10px;
-    border-bottom: 1px solid var(--vscode-widget-border);
-    vertical-align: top;
-  }
-  .th-enabled, .enabled-cell { width: 56px; text-align: center; }
-  .enabled-cell { text-align: center; }
-  .th-count, .count-cell { width: 70px; }
-  .th-sev, .sev-cell { width: 180px; }
-  .rule-code { font-family: var(--vscode-editor-font-family, monospace); font-weight: 600; }
-  .rule-desc { opacity: 0.7; margin-top: 2px; line-height: 1.4; }
-  .rule-disabled .rule-code,
-  .rule-disabled .rule-desc { opacity: 0.4; }
-  .count { display: inline-block; min-width: 18px; text-align: center; font-weight: 600; }
-  .count-warn { color: var(--accent-warning); }
-  .count-zero { opacity: 0.4; }
-  .sev-select {
-    width: 100%;
-    padding: 3px 6px;
-    font-size: 12px;
-    color: var(--vscode-dropdown-foreground);
-    background: var(--vscode-dropdown-background);
-    border: 1px solid var(--vscode-dropdown-border, var(--vscode-widget-border));
-    border-radius: 3px;
-  }
-  .rule-disabled .sev-select { opacity: 0.5; }
-  .empty { padding: 32px; text-align: center; opacity: 0.6; }
-  .hidden { display: none; }
-</style>
+<style>${RULES_CONFIG_STYLES}</style>
 </head>
 <body>
 <div class="header">
@@ -259,59 +158,7 @@ export function buildRulesConfigHtml(
 </div>
 <div class="empty hidden" id="emptyState">${esc(t('panel.rules.empty'))}</div>
 
-<script nonce="__CSP_NONCE__">
-  const vscode = acquireVsCodeApi();
-
-  // Enable/disable checkbox → toggleRule. The host writes disabledRules and
-  // re-renders, so the checked state always reflects persisted config.
-  document.addEventListener('change', (e) => {
-    const toggle = e.target.closest('.rule-toggle');
-    if (toggle) {
-      vscode.postMessage({
-        command: 'toggleRule',
-        code: toggle.dataset.code,
-        disabled: !toggle.checked,
-      });
-      return;
-    }
-    const sev = e.target.closest('.sev-select');
-    if (sev) {
-      vscode.postMessage({
-        command: 'setSeverity',
-        code: sev.dataset.code,
-        severity: sev.value,
-      });
-    }
-  });
-
-  // Toolbar buttons.
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-action]');
-    if (btn) {
-      vscode.postMessage({ command: btn.dataset.action });
-    }
-  });
-
-  // Client-side filter: hide non-matching rows and any category left with no
-  // visible rows, then toggle the empty-state notice.
-  const search = document.getElementById('search');
-  const emptyState = document.getElementById('emptyState');
-  search.addEventListener('input', () => {
-    const q = search.value.trim().toLowerCase();
-    let anyVisible = false;
-    document.querySelectorAll('.category').forEach((cat) => {
-      let catVisible = false;
-      cat.querySelectorAll('.rule-row').forEach((row) => {
-        const match = !q || row.dataset.text.indexOf(q) !== -1;
-        row.classList.toggle('hidden', !match);
-        if (match) catVisible = true;
-      });
-      cat.classList.toggle('hidden', !catVisible);
-      if (catVisible) anyVisible = true;
-    });
-    emptyState.classList.toggle('hidden', anyVisible);
-  });
-</script>
+<script nonce="__CSP_NONCE__">${RULES_CONFIG_CLIENT_SCRIPT}</script>
 </body>
 </html>`;
 }

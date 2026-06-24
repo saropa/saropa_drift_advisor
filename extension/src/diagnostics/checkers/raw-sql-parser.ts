@@ -19,7 +19,13 @@
  *     identifiers in non-column positions are never treated as columns.
  *   - A qualified `x.col` is validated only when `x` is the table name or its
  *     alias; an unknown qualifier is skipped.
+ *
+ * The lexer (literal/comment masking + tokenizer) lives in raw-sql-tokenizer to
+ * keep both files under the line cap.
  */
+
+import type { IToken } from './raw-sql-tokenizer';
+import { blankLiteralsAndComments, tokenize } from './raw-sql-tokenizer';
 
 /** A column identifier extracted from a raw SQL string, with its source span. */
 export interface IRawSqlColumnRef {
@@ -85,84 +91,6 @@ const FROM_TERMINATORS = new Set([
   'where', 'group', 'order', 'limit', 'having', 'union', 'intersect',
   'except', 'on', 'using', 'window', 'returning',
 ]);
-
-interface IToken {
-  text: string;
-  offset: number;
-  kind: 'word' | 'lparen' | 'rparen' | 'comma' | 'star' | 'op';
-}
-
-/**
- * Replace SQL string literals (`'...'`) and comments (`-- ...`, block) with
- * spaces of equal length so their contents are not parsed as identifiers while
- * every other token keeps its original offset. Double-quoted identifiers are
- * also blanked (quoted identifiers are rare and not worth the parsing risk).
- */
-function blankLiteralsAndComments(sql: string): string {
-  const out = sql.split('');
-  let i = 0;
-  while (i < out.length) {
-    const c = sql[i];
-    // Line comment: -- to end of line.
-    if (c === '-' && sql[i + 1] === '-') {
-      while (i < out.length && sql[i] !== '\n') out[i++] = ' ';
-      continue;
-    }
-    // Block comment: /* ... */
-    if (c === '/' && sql[i + 1] === '*') {
-      out[i++] = ' ';
-      out[i++] = ' ';
-      while (i < out.length && !(sql[i] === '*' && sql[i + 1] === '/')) {
-        out[i] = sql[i] === '\n' ? '\n' : ' ';
-        i++;
-      }
-      if (i < out.length) {
-        out[i++] = ' ';
-        out[i++] = ' ';
-      }
-      continue;
-    }
-    // String literal or quoted identifier: blank through the closing quote.
-    if (c === "'" || c === '"') {
-      const quote = c;
-      out[i++] = ' ';
-      while (i < out.length) {
-        // SQL escapes a quote by doubling it ('' inside '...').
-        if (sql[i] === quote && sql[i + 1] === quote) {
-          out[i++] = ' ';
-          out[i++] = ' ';
-          continue;
-        }
-        const closing = sql[i] === quote;
-        out[i] = sql[i] === '\n' ? '\n' : ' ';
-        i++;
-        if (closing) break;
-      }
-      continue;
-    }
-    i++;
-  }
-  return out.join('');
-}
-
-const TOKEN_RE =
-  /([A-Za-z_][A-Za-z0-9_$]*(?:\.[A-Za-z_][A-Za-z0-9_$]*)*)|(\()|(\))|(,)|(\*)|(::|\|\||<=|>=|!=|<>|[=<>+\-/%])/g;
-
-/** Tokenize cleaned SQL into words and the punctuation that frames columns. */
-function tokenize(sql: string): IToken[] {
-  const tokens: IToken[] = [];
-  TOKEN_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = TOKEN_RE.exec(sql)) !== null) {
-    if (m[1] !== undefined) tokens.push({ text: m[1], offset: m.index, kind: 'word' });
-    else if (m[2] !== undefined) tokens.push({ text: '(', offset: m.index, kind: 'lparen' });
-    else if (m[3] !== undefined) tokens.push({ text: ')', offset: m.index, kind: 'rparen' });
-    else if (m[4] !== undefined) tokens.push({ text: ',', offset: m.index, kind: 'comma' });
-    else if (m[5] !== undefined) tokens.push({ text: '*', offset: m.index, kind: 'star' });
-    else tokens.push({ text: m[0], offset: m.index, kind: 'op' });
-  }
-  return tokens;
-}
 
 /** Last segment of a possibly-dotted identifier (`a.b.c` -> `c`). */
 function lastSegment(text: string): string {

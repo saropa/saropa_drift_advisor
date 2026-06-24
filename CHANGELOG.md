@@ -42,13 +42,26 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.11]
 
-Raw SQL strings in your Drift code now get the same column checking as the typed query builder — if a `customSelect`/`customStatement` query names a column that does not exist on the table, you see a warning while editing instead of a crash at runtime.
+Raw SQL strings in your Drift code now get the same column checking as the typed query builder — if a `customSelect`/`customStatement` query names a column that does not exist on the table, you see a warning while editing instead of a crash at runtime. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.11/CHANGELOG.md)
 
 ### Added
 
 - **New diagnostic `raw-sql-unknown-column`.** Validates column references inside `customSelect(...)` / `customStatement(...)` raw SQL against the live profiled schema and flags any column absent from the referenced table, suggesting the closest real column name. Catches the case where a hardcoded name does not match Drift's generated column (e.g. an acronym getter `contactSaropaUUID` produces `contact_saropa_u_u_i_d`, not `contact_saropa_uuid`) — a bug invisible to the existing Dart-vs-DB drift checks because it lives in an opaque string. Conservative by design: only single-table queries are checked (JOINs and comma-FROM are skipped), aliases and function names are excluded, and unknown tables are ignored. Default severity Warning; suppress per line/file with `// drift-advisor:ignore raw-sql-unknown-column`.
+
+### Fixed
+
+- **Activity bar icon slightly undersized.** The database glyph in `media/icon-activitybar.svg` spanned 14 of the 24-unit viewBox width (`cx=12, rx=7`), so VS Code drew it a touch narrow next to the codicons around it. Nudged the cylinder width up (`rx=8`) to bring it in line with the neighboring sidebar icons.
+
+<details><summary>Maintenance</summary>
+
+- **Split three over-cap source files to satisfy the 300-line quality gate; no behavior change.**
+  - `server-discovery-core.ts` (346 → 290): extracted the once-per-session "server lost" flap debouncer into `server-discovery-lost-debounce.ts` (`ServerLostDebouncer`) and the searching/backoff/connected cadence into a pure, independently testable `server-discovery-state-machine.ts` (`nextDiscoveryState` / `pollIntervalForState`).
+  - `diagnostics/rules-config-html.ts` (317 → 164): moved the inline panel CSS into `rules-config-styles.ts` and the client `postMessage` script into `rules-config-client.ts`, matching the pure-builder pattern of the other `*-html.ts` panels.
+  - `diagnostics/checkers/raw-sql-parser.ts` (321 → 249): extracted the lexer (literal/comment masking + tokenizer) into `raw-sql-tokenizer.ts`, leaving the parser to do table/column resolution only.
+
+</details>
 
 ## [4.1.10]
 
