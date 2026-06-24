@@ -42,7 +42,7 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.11]
 
 Raw SQL strings in your Drift code now get the same column checking as the typed query builder — if a `customSelect`/`customStatement` query names a column that does not exist on the table, you see a warning while editing instead of a crash at runtime. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.11/CHANGELOG.md)
 
