@@ -887,7 +887,11 @@ void main() {
           'sql-bookmark-save',
           'sql-result-format',
         ]) {
-          expect(body, contains('id="$id"'), reason: 'missing control id="$id"');
+          expect(
+            body,
+            contains('id="$id"'),
+            reason: 'missing control id="$id"',
+          );
         }
       } finally {
         client.close();
