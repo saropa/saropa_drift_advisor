@@ -1559,16 +1559,38 @@ void main() {
       );
       port = DriftDebugServer.port;
 
-      // First 2 requests should succeed.
-      final r1 = await httpGet(port!, '/api/tables');
-      expect(r1.status, HttpStatus.ok);
-      final r2 = await httpGet(port!, '/api/tables');
-      expect(r2.status, HttpStatus.ok);
+      // The limiter uses a fixed one-second wall-clock window, so a
+      // sequence of requests can straddle a second boundary and reset
+      // the counter mid-test (this caused CI flakiness when the 3rd of
+      // 3 sequential requests landed in a fresh window and returned 200).
+      // Fire a burst of concurrent requests instead: with a limit of 2,
+      // even if the burst spans two windows the requests cluster densely
+      // enough that the limit is exceeded in at least one window, so at
+      // least one response must be 429.
+      const burst = 12;
+      final responses = await Future.wait(
+        List.generate(burst, (_) => httpGet(port!, '/api/tables')),
+      );
 
-      // 3rd request should be throttled.
-      final r3 = await httpGet(port!, '/api/tables');
-      expect(r3.status, HttpStatus.tooManyRequests);
-      expect(r3.body['error'], contains('Rate limit'));
+      final throttled = responses.where(
+        (r) => r.status == HttpStatus.tooManyRequests,
+      );
+      expect(
+        throttled,
+        isNotEmpty,
+        reason:
+            'a burst of $burst concurrent requests with a limit of 2/s '
+            'must exceed the limit and produce at least one 429',
+      );
+      expect(throttled.first.body['error'], contains('Rate limit'));
+
+      // Sanity check: the limit lets some requests through, it does not
+      // throttle everything.
+      expect(
+        responses.where((r) => r.status == HttpStatus.ok),
+        isNotEmpty,
+        reason: 'requests up to the limit should still succeed',
+      );
     });
 
     test('health endpoint is exempt from rate limiting', () async {
