@@ -12,7 +12,7 @@ from modules.constants import (
     EXTENSION_DIR,
     REPO_ROOT,
 )
-from modules.display import ask_yn, fail, fix, info, ok, print_cmd_output, warn
+from modules.display import ask_choice, fail, fix, info, ok, print_cmd_output, warn
 from modules.utils import run
 
 
@@ -178,8 +178,25 @@ def check_file_line_limits() -> bool:
         warn(f"{len(violations)} file(s) exceed the line limit:")
         for v in violations:
             print(f"         {C.YELLOW}{v}{C.RESET}")
-        if not ask_yn("Continue anyway?", default=True):
-            return False
+        # A line-limit overrun is advisory, so the gate offers three proceed-style
+        # paths and no abort: retry re-scans after the user trims the files,
+        # continue proceeds keeping the warning on record, ignore proceeds and
+        # drops it. eof_default must be a terminal choice (continue), not retry —
+        # a closed stdin in CI would otherwise re-scan the same files forever.
+        choice = ask_choice(
+            "Line limit exceeded.",
+            choices=("retry", "continue", "ignore"),
+            default="retry",
+            eof_default="continue",
+        )
+        if choice == "retry":
+            return check_file_line_limits()
+        if choice == "ignore":
+            ok("File line limits ignored")
+            return True
+        # continue
+        ok(f"File line limits checked ({len(violations)} warning(s), continuing)")
+        return True
 
     ok(f"File line limits checked ({len(violations)} warning(s))")
     return True
