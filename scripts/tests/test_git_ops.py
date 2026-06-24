@@ -24,6 +24,7 @@ def _make_config(
     tag_prefix: str = "ext-v",
     display_name: str = "VS Code Extension",
     commit_msg_fmt: str = "Release ext-v{version}",
+    format_before_stage: bool = False,
 ) -> SimpleNamespace:
     """Build a minimal TargetConfig-like object for testing."""
     return SimpleNamespace(
@@ -31,6 +32,7 @@ def _make_config(
         tag_prefix=tag_prefix,
         display_name=display_name,
         commit_msg_fmt=commit_msg_fmt,
+        format_before_stage=format_before_stage,
     )
 
 
@@ -277,6 +279,101 @@ class TestGitCommitAndPush(unittest.TestCase):
         self.assertEqual(len(staged_calls), 2)
         self.assertIn("extension/package.json", staged_calls[0])
         self.assertIn("extension/out/ext.js", staged_calls[1])
+
+
+class TestFormatBeforeStage(unittest.TestCase):
+    """Verify the Dart format-before-stage gate that keeps the staged index in
+    sync with what the husky pre-commit hook (`dart format --set-exit-if-changed
+    .`) checks. Without it, an unformatted file in the index aborts the commit —
+    the recurring failure that motivated the flag."""
+
+    @patch("modules.git_ops._warn_dirty_working_tree")
+    @patch("modules.git_ops._push_to_origin", return_value=True)
+    @patch("modules.git_ops.ok")
+    @patch("modules.git_ops.info")
+    @patch("modules.git_ops.run")
+    def test_format_runs_before_add_when_enabled(
+        self,
+        mock_run: MagicMock,
+        mock_info: MagicMock,
+        mock_ok: MagicMock,
+        mock_push: MagicMock,
+        mock_warn_dirty: MagicMock,
+    ) -> None:
+        """With format_before_stage=True, `dart format .` runs first, before git add."""
+        config = _make_config(stage_paths=(".",), format_before_stage=True)
+
+        mock_run.side_effect = [
+            _run_result(),                                   # dart format .
+            _run_result(),                                   # git add
+            _run_result(stdout="lib/src/x.dart\n"),          # git diff --cached
+            _run_result(),                                   # git commit
+        ]
+
+        result = git_commit_and_push(config, "4.1.9")
+
+        self.assertTrue(result)
+        # First invocation must be dart format over the whole repo, before add.
+        self.assertEqual(mock_run.call_args_list[0][0][0], ["dart", "format", "."])
+        self.assertIn("add", mock_run.call_args_list[1][0][0])
+        mock_push.assert_called_once()
+
+    @patch("modules.git_ops._warn_dirty_working_tree")
+    @patch("modules.git_ops._push_to_origin", return_value=True)
+    @patch("modules.git_ops.ok")
+    @patch("modules.git_ops.info")
+    @patch("modules.git_ops.run")
+    def test_format_skipped_when_disabled(
+        self,
+        mock_run: MagicMock,
+        mock_info: MagicMock,
+        mock_ok: MagicMock,
+        mock_push: MagicMock,
+        mock_warn_dirty: MagicMock,
+    ) -> None:
+        """With the flag off (extension target), no dart format call is made."""
+        config = _make_config(format_before_stage=False)
+
+        mock_run.side_effect = [
+            _run_result(),                                   # git add
+            _run_result(stdout="extension/package.json\n"),  # git diff --cached
+            _run_result(),                                   # git commit
+        ]
+
+        result = git_commit_and_push(config, "2.17.6")
+
+        self.assertTrue(result)
+        # The very first call is git add — format must not have run.
+        self.assertIn("add", mock_run.call_args_list[0][0][0])
+        self.assertFalse(
+            any(call[0][0][:2] == ["dart", "format"] for call in mock_run.call_args_list),
+            "dart format must not run when format_before_stage is False",
+        )
+
+    @patch("modules.git_ops._decide_after_git_failure", return_value=False)
+    @patch("modules.git_ops.fail")
+    @patch("modules.git_ops.info")
+    @patch("modules.git_ops.run")
+    def test_format_failure_prompts(
+        self,
+        mock_run: MagicMock,
+        mock_info: MagicMock,
+        mock_fail: MagicMock,
+        mock_prompt: MagicMock,
+    ) -> None:
+        """A failing `dart format .` prompts (retry/skip/abort) and never stages."""
+        config = _make_config(stage_paths=(".",), format_before_stage=True)
+
+        mock_run.return_value = _run_result(returncode=1, stderr="format error")
+
+        result = git_commit_and_push(config, "4.1.9")
+
+        # Operator aborts.
+        self.assertFalse(result)
+        # Only one run() call (the failed format); git add was never reached.
+        self.assertEqual(mock_run.call_count, 1)
+        self.assertEqual(mock_run.call_args_list[0][0][0], ["dart", "format", "."])
+        mock_prompt.assert_called_once()
 
 
 class TestWarnDirtyWorkingTree(unittest.TestCase):
