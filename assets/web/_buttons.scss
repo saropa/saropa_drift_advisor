@@ -96,6 +96,8 @@
 
 .toolbar button:not(.btn-primary):focus-visible,
 .sql-runner .sql-toolbar button:not(.btn-primary):focus-visible,
+.sql-builder button:not(.btn-primary):focus-visible,
+.sql-subbar button:not(.btn-primary):focus-visible,
 .nl-modal-actions button:not(.btn-primary):focus-visible {
   outline: 2px solid var(--link);
   outline-offset: 2px;

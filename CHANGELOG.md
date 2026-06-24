@@ -55,7 +55,7 @@ browse source on
 ### Changed
 
 - Activity-bar label mode (web viewer): when the sidebar strip shows text labels, every button is now the same width with its icon and label left-aligned, and the rows have vertical spacing so the labels read as a clean aligned list.
-- Run SQL editor (web viewer): the query box now opens taller by default (about seven lines instead of three) so a typical formatted query fits without scrolling. It is still drag-resizable.
+- Run SQL screen (web viewer): redesigned the controls above the editor. The Template, Table and Fields pickers are now a clean aligned card instead of a cramped wrapping toolbar, and the Fields list is a compact fixed-height scroll box rather than the tall narrow column it used to balloon into. Saved-query actions are grouped together with "Show as" pushed to the right. The query box also opens taller by default (about seven lines instead of three) so a typical formatted query fits without scrolling; it is still drag-resizable.
 
 ## [4.1.8]
 

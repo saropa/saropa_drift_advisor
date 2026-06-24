@@ -39,6 +39,17 @@ describe('buildHubDocument', () => {
     }
   });
 
+  it('puts a primary "Open Database Browser" action in the hero wired to openInBrowser', () => {
+    // Discoverability fix: the live web viewer was only reachable from a
+    // buried menu entry. The hero must carry a primary CTA that routes through
+    // the validated runCommand path to driftViewer.openInBrowser.
+    const html = buildHubDocument(okPane('dashboard'), okPane('health'));
+    assert.ok(
+      html.includes('class="hub-btn primary" data-hub-cmd="runCommand" data-cmd-id="driftViewer.openInBrowser"'),
+      'hero missing the primary Open Database Browser button',
+    );
+  });
+
   it('renders one collapsible <details> section per category group', () => {
     const html = buildHubDocument(okPane('dashboard'), okPane('health'));
     const details = html.match(/<details class="hub-group"/g) ?? [];

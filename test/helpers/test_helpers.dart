@@ -31,6 +31,10 @@ ServerContext createTestContext({
   Set<String>? declaredTableNames,
   DeclaredSchemaCallback? declaredSchema,
   DeclaredRelationshipsCallback? declaredRelationships,
+
+  /// Short SQL statement timeout for tests that exercise the hang-recovery
+  /// path without waiting the production 30s default.
+  Duration? sqlStatementTimeout,
 }) {
   return ServerContext(
     query: query ?? (_) async => <Map<String, dynamic>>[],
@@ -46,6 +50,7 @@ ServerContext createTestContext({
     declaredTableNames: declaredTableNames,
     declaredSchema: declaredSchema,
     declaredRelationships: declaredRelationships,
+    sqlStatementTimeout: sqlStatementTimeout ?? const Duration(seconds: 30),
   );
 }
 

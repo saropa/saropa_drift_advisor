@@ -59,15 +59,13 @@ final class SqlHandler {
       // response) and fall through to a JSON error, so the connection is freed
       // and /api/health keeps answering.
       final dynamic raw = isInternal
-          ? await _ctx
-                .internalQuery(sql)
-                .timeout(ServerConstants.sqlStatementTimeout)
+          ? await _ctx.internalQuery(sql).timeout(_ctx.sqlStatementTimeout)
           : await _runUserSqlWithOptionalDvr(
               query,
               sql,
               dvrArgs: dvrArgs,
               dvrNamedArgs: dvrNamedArgs,
-            ).timeout(ServerConstants.sqlStatementTimeout);
+            ).timeout(_ctx.sqlStatementTimeout);
       final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(raw);
 
       // Bound the response: a query matching more than [maxSqlResultRows] is
@@ -176,7 +174,7 @@ final class SqlHandler {
       // hold the connection open (the all-endpoints wedge).
       final dynamic raw = await query(
         explainSql,
-      ).timeout(ServerConstants.sqlStatementTimeout);
+      ).timeout(_ctx.sqlStatementTimeout);
       final rows = ServerUtils.normalizeRows(raw);
 
       // Extract table names from EXPLAIN detail rows

@@ -54,6 +54,7 @@ final class ServerContext {
     this.declaredRelationships,
     this.snapshotStorePath,
     this.loopbackOnly = true,
+    this.sqlStatementTimeout = ServerConstants.sqlStatementTimeout,
   }) : queryRaw = query,
        _queryExec =
            queryWithBindings ??
@@ -102,6 +103,12 @@ final class ServerContext {
   /// excluded from user-facing slow-query diagnostics.
   Future<List<Map<String, dynamic>>> internalQuery(String sql) =>
       timedQuery(sql, isInternal: true);
+
+  /// Wall-clock cap applied to a single POST /api/sql (and /explain)
+  /// execution. Defaults to [ServerConstants.sqlStatementTimeout]; exposed as a
+  /// field (not read straight from the constant) so handler tests can inject a
+  /// short timeout and verify the hang-recovery path without a real 30s wait.
+  final Duration sqlStatementTimeout;
 
   /// Whether the server bound to loopback (127.0.0.1) only. Reflects the
   /// `loopbackOnly` start option so GET /api/health can advertise the bind

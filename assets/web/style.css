@@ -2320,12 +2320,12 @@ pre {
 }
 
 /* ── Query builder card + saved-queries subbar ───────────────────────
-   Replaces the old two flat `.sql-toolbar` flex rows. The biggest defect
-   they had: the Fields <select multiple> had no fixed height, so the
-   browser expanded it into a tall narrow box that dominated the panel
-   (the "1/10" look). Here the three builder controls are stacked
-   label+input cells on one aligned grid, wrapped in a surface card that
-   reads as a distinct "build a query" region above the editor. */
+   Replaces the old two flat `.sql-toolbar` flex rows. Their worst defect:
+   the Fields <select multiple> had no fixed height, so the browser
+   expanded it into a tall narrow box that dominated the panel (the
+   "1/10" look). Here the three builder controls are stacked label+input
+   cells on one aligned grid inside a surface card that reads as a
+   distinct "build a query" region above the editor. */
 .sql-builder {
   background: var(--surface);
   border: 1px solid var(--border-subtle);
@@ -2334,10 +2334,10 @@ pre {
   margin-bottom: var(--space-3);
 }
 
-/* Template | Table | Fields | actions. Fields gets a touch more width
-   for the column list; actions size to content. Items align to the top
-   so the short selects and the taller Fields list share a baseline at
-   the label row. */
+/* Template | Table | Fields | actions. Fields gets a little more width for
+   the column list; the actions group sizes to its content. Cells align to
+   the top so the short selects and the taller Fields list share a baseline
+   at the label row. */
 .sql-builder-row {
   display: grid;
   grid-template-columns: minmax(9rem, 1fr) minmax(9rem, 1fr) minmax(10rem, 1.3fr) auto;
@@ -2345,19 +2345,19 @@ pre {
   align-items: start;
 }
 
-/* Stacked label-above-control cell, used by both the builder grid and
-   (in --inline form) the subbar. */
+/* Stacked label-above-control cell, shared by the builder grid and (in the
+   --inline variant) the subbar. */
 .sql-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
+  /* Small muted uppercase caption so labels read as quiet field captions,
+     not competing body text — mirrors the data-table header treatment.
+     The spacer shares the style so it occupies the exact label height. */
 }
-
-/* Small muted uppercase caption so labels read as quiet field captions,
-   not competing body text — matches the data-table header treatment. */
 .sql-field > label,
-.sql-field-spacer {
+.sql-field .sql-field-spacer {
   font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -2365,14 +2365,13 @@ pre {
   color: var(--muted);
   line-height: 1.4;
 }
-
 .sql-field > select {
   width: 100%;
 }
 
-/* Fields multi-select: a compact fixed-height scroll box (size=4) instead
-   of the browser's default full-height expansion. Keeps the builder row
-   from ballooning; long column lists scroll inside it. */
+/* Fields multi-select: a compact fixed-height scroll box (size=4) instead of
+   the browser's default full-height expansion. Long column lists scroll
+   inside it, so the builder row never balloons. */
 .sql-field--fields > select[multiple] {
   height: 6rem;
   min-height: 0;
@@ -2384,51 +2383,45 @@ pre {
   border-radius: var(--radius-sm);
 }
 
-/* Actions cell (lock + apply + history): an invisible spacer matches the
-   label height in the sibling cells so the buttons line up with the
-   selects, not the labels, under top alignment. */
-.sql-field--actions {
-  align-self: stretch;
-}
+/* Actions cell (lock + apply + history). The spacer above matches the label
+   height in the sibling cells, so under top alignment the buttons line up
+   with the selects rather than the label row. */
 .sql-builder-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  /* Re-assert the icon-only square padding: the generic builder-button rule
+     above adds horizontal padding that would stretch the lock toggle; the
+     rest of its square sizing comes from `.sql-lock-btn`. */
 }
-
-/* Re-assert the icon-only square padding: the generic `.sql-builder button`
-   rule above adds horizontal padding that would stretch the lock toggle; the
-   rest of its square sizing already comes from `.sql-lock-btn` below. */
 .sql-builder-actions .sql-lock-btn {
   padding: 0;
 }
 
-/* Saved-queries + output-format strip: secondary to the builder card, so
-   it stays a light inline bar rather than a second card. */
+/* Saved-queries + output-format strip: secondary to the builder card, so it
+   stays a light inline bar rather than a second card. */
 .sql-subbar {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
   margin-bottom: var(--space-3);
+  /* Inline label+control (label beside control) for the subbar fields. */
 }
-
-/* Inline label+control (label beside control) for the subbar fields. */
-.sql-field--inline {
+.sql-subbar .sql-field--inline {
   flex-direction: row;
   align-items: center;
   gap: var(--space-2);
 }
-.sql-field--inline > select {
+.sql-subbar .sql-field--inline > select {
   width: auto;
 }
-.sql-subbar .sql-bookmarks,
 .sql-subbar #sql-bookmarks {
   max-width: 14rem;
 }
 
-/* Bookmark verbs (Save/Del/Export/Import) grouped as one cluster so they
-   read as a related set distinct from the Saved dropdown they act on. */
+/* Bookmark verbs (Save / Del / Export / Import) grouped as one cluster so
+   they read as a related set distinct from the Saved dropdown they act on. */
 .sql-btn-group {
   display: flex;
   align-items: center;
@@ -2436,24 +2429,23 @@ pre {
   flex-wrap: wrap;
 }
 
-/* "Show as" is a separate concern (output rendering), so push it to the
-   far right edge of the strip. */
+/* "Show as" is a separate concern (output rendering), so push it to the far
+   right edge of the strip. */
 .sql-subbar-right {
   margin-left: auto;
 }
 
 @media (max-width: 640px) {
-  /* Collapse the four-column builder to two on narrow viewports; the
-     Fields list and actions wrap onto their own rows. */
+  /* Collapse the four-column builder to two on narrow viewports; the Fields
+     list and actions wrap onto their own full-width rows. */
   .sql-builder-row {
     grid-template-columns: 1fr 1fr;
   }
   .sql-field--fields,
   .sql-field--actions {
-    grid-column: 1 / -1;
+    grid-column: 1/-1;
   }
 }
-
 /* Run button gets its own row directly beneath the editor.
    Left-aligned inside that row and visually emphasized so it stands
    out as the primary action for the query body just above. */
