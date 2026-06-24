@@ -60,7 +60,7 @@ abstract final class ServerUtils {
   /// `List<int>` (BLOB bytes) is intentionally NOT handled here — `jsonEncode`
   /// already encodes it as a JSON array of integers, so it never reaches this
   /// callback.
-  static Object? jsonEncodeFallback(Object? value) {
+  static Object jsonEncodeFallback(Object? value) {
     if (value is DateTime) {
       return value.toIso8601String();
     }

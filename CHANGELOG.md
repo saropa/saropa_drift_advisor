@@ -42,6 +42,18 @@ browse source on
 
 ---
 
+## [4.1.10]
+
+Github CI cleanup tasks. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.10/CHANGELOG.md)
+
+<details><summary>Maintenance</summary>
+
+- **Discovery-manifest cleanup no longer swallows its errors.** The best-effort manifest delete in `stop()` caught and discarded any failure (satisfying `avoid_swallowing_exceptions` / `require_catch_logging`). The server now captures the context's `logError` sink on start and routes a cleanup failure through the same channel (dart:developer + the caller's `onError`), so a recurring delete failure is diagnosable instead of silent.
+- Tightened `ServerUtils.jsonEncodeFallback` return type from `Object?` to `Object` — it never returns null (a null input encodes to the string `"null"`), so callers no longer carry a redundant null check (`avoid_unnecessary_nullable_return_type`).
+- **Publish pre-flight analyze now matches CI exactly, so it can no longer ship one store while the other fails.** The Dart analysis step in `scripts/publish.py` used to strip the `plugins:` block from `analysis_options.yaml` and run `flutter analyze --fatal-infos`, which disabled saropa_lints locally — the exact rules CI enforces with `flutter analyze --fatal-warnings`. The local gate passed on code CI would reject, the script committed/tagged/pushed, the VS Code extension published, and only then did CI catch the warnings and block the pub.dev publish. The step now runs `flutter analyze --fatal-warnings` with the plugins block intact, byte-for-byte the CI command, before any commit/tag/push — a lint failure now stops the publish locally instead of after a tag triggers CI.
+
+</details>
+
 ## [4.1.9]
 
 The debug server can now tell tools and AI agents what it offers and where to find it, a runaway query can't knock it offline anymore, and the web viewer's sidebar labels and Run SQL screen got a tidy-up. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.9/CHANGELOG.md)

@@ -70,6 +70,13 @@ class _DriftDebugServerImpl {
   /// directory isolates it so its manifest lifecycle is deterministic.
   String? _discoveryDir;
 
+  /// Error sink captured from the running [ServerContext] (`ctx.logError`) so
+  /// best-effort cleanup in [stop] / [_removeDiscoveryManifest] can route a
+  /// failure through the SAME channel as the rest of the server (dart:developer
+  /// + the caller's onError callback). Stored because [stop] runs after [start]
+  /// returns and has no `ctx` in scope; null until the first successful start.
+  void Function(Object, StackTrace)? _logError;
+
   /// Starts the debug server if [enabled] is true and [query] is provided.
   ///
   /// No-op if [enabled] is false or the server is already running. [query]
@@ -342,6 +349,10 @@ class _DriftDebugServerImpl {
       snapshotStorePath: snapshotStorePath,
       loopbackOnly: loopbackOnly,
     );
+
+    // Capture the context error sink so [stop]'s manifest cleanup (which has no
+    // ctx in scope) logs through the same channel instead of swallowing.
+    _logError = ctx.logError;
 
     // Restore any snapshots persisted by a previous run before serving, so the
     // list survives a server restart (Feature 72 Phase 4). No-op when no store
@@ -639,9 +650,12 @@ class _DriftDebugServerImpl {
           decoded[ServerConstants.jsonKeyPid] == pid) {
         await file.delete();
       }
-    } on Object catch (_) {
+    } on Object catch (error, stack) {
       // Best-effort cleanup; a leftover manifest is harmless (a probing client
-      // gets connection-refused on the dead port and moves on).
+      // gets connection-refused on the dead port and moves on). Logged (not
+      // swallowed) so a recurring delete failure is still diagnosable. _logError
+      // is null only if stop() somehow runs before a successful start.
+      _logError?.call(error, stack);
     }
   }
 

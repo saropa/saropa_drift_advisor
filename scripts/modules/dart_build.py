@@ -4,7 +4,6 @@
 import os
 import posixpath
 import re
-import shutil
 
 from modules.constants import REPO_ROOT, TEST_DIR
 from modules.display import fail, fix, info, ok, print_cmd_output, warn
@@ -281,54 +280,39 @@ def run_tests() -> bool:
     return _run_flutter_test(selected)
 
 
-def _analysis_options_without_plugins() -> tuple[str, str] | None:
-    """Return ``(content_without_plugins, original)`` or None if no plugins block."""
-    opts_path = os.path.join(REPO_ROOT, "analysis_options.yaml")
-    try:
-        with open(opts_path, encoding="utf-8") as f:
-            text = f.read()
-    except OSError:
-        return None
-
-    lines = text.splitlines(keepends=True)
-    for i, line in enumerate(lines):
-        if line.startswith("plugins:") and not line.strip().startswith("#"):
-            without = "".join(lines[:i]).rstrip() + "\n"
-            return (without, text)
-    return None
-
-
 def run_analysis() -> bool:
-    """Run ``dart analyze --fatal-infos``.
+    """Run the EXACT analyze command the publish CI runs, as a pre-tag gate.
 
-    Temporarily strips the ``plugins:`` block from analysis_options.yaml
-    to avoid saropa_lints compatibility crashes during publish.
+    Mirrors `.github/workflows/publish.yml` step ``flutter analyze
+    --fatal-warnings`` byte-for-byte:
+      - ``--fatal-warnings`` (NOT ``--fatal-infos``): same threshold as CI, so a
+        clean local run guarantees a clean CI analyze. CI deliberately tolerates
+        info-level diagnostics because saropa_lints is an unpinned caret dep whose
+        newest version can add an info rule at any time; matching that here avoids
+        the reverse divergence where the local gate fails on advisory noise CI
+        would have passed.
+      - the ``plugins:`` block in analysis_options.yaml is left INTACT, so
+        saropa_lints runs exactly as it does in CI.
+
+    BUG FIX: this step previously stripped the ``plugins:`` block and ran
+    ``--fatal-infos``. Stripping the plugins disabled saropa_lints locally — the
+    very rules (avoid_swallowing_exceptions, require_catch_logging, etc.) that
+    fail CI's ``flutter analyze --fatal-warnings``. The local gate therefore
+    PASSED on code CI would reject, the script went on to commit/tag/push, and CI
+    only then caught the warnings — blocking the pub.dev publish AFTER the VS Code
+    extension had already been published locally. That is the "publishes to one
+    store with obvious problems" failure: the pre-publish gate must run the same
+    analyzer configuration CI does, or it is not a gate. Run BEFORE any
+    commit/tag/push so a failure here never triggers CI and never ships either
+    store.
     """
-    opts_path = os.path.join(REPO_ROOT, "analysis_options.yaml")
-    backup_path = opts_path + ".publish_backup"
-    modified = _analysis_options_without_plugins()
-
-    try:
-        if modified is not None:
-            without_plugins, original = modified
-            with open(backup_path, "w", encoding="utf-8") as f:
-                f.write(original)
-            with open(opts_path, "w", encoding="utf-8") as f:
-                f.write(without_plugins)
-            info("Temporarily disabled analyzer plugins")
-
-        result = run(["flutter", "analyze", "--fatal-infos"], cwd=REPO_ROOT)
-        if result.returncode != 0:
-            fail("Static analysis failed")
-            print_cmd_output(result)
-            return False
-        ok("Static analysis passed")
-        return True
-    finally:
-        if os.path.isfile(backup_path):
-            shutil.copy2(backup_path, opts_path)
-            os.unlink(backup_path)
-            info("Restored analysis_options.yaml")
+    result = run(["flutter", "analyze", "--fatal-warnings"], cwd=REPO_ROOT)
+    if result.returncode != 0:
+        fail("Static analysis failed (flutter analyze --fatal-warnings)")
+        print_cmd_output(result)
+        return False
+    ok("Static analysis passed (matches CI: flutter analyze --fatal-warnings)")
+    return True
 
 
 def generate_docs() -> bool:
