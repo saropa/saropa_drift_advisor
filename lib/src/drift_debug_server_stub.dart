@@ -53,6 +53,7 @@ mixin DriftDebugServer {
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
     String? snapshotStorePath,
+    String? discoveryDirectory,
   }) {
     throw UnsupportedError(_kUnsupportedMessage);
   }

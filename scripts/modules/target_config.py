@@ -52,6 +52,16 @@ class TargetConfig:
     work_dir: str
     git_stage_paths: tuple[str, ...] = field(default_factory=tuple)
     commit_msg_fmt: str = "Release {version}"
+    # When True, run ``dart format .`` immediately before ``git add`` in the
+    # release commit. The husky pre-commit hook runs
+    # ``dart format --set-exit-if-changed .`` whenever .dart files are staged
+    # and aborts the commit if anything is unformatted. The analysis phase
+    # formats early, but on a ``--resume`` run analysis is skipped, and any
+    # step (or manual edit) between analysis and commit can re-dirty a file —
+    # so formatting at stage time is the only place that guarantees the staged
+    # content matches what the hook checks. Dart-only; the extension stages no
+    # .dart files so the hook's format gate never fires for it.
+    format_before_stage: bool = False
 
     @property
     def changelog_path(self) -> str:
@@ -67,6 +77,7 @@ DART = TargetConfig(
     work_dir=REPO_ROOT,
     git_stage_paths=(".",),
     commit_msg_fmt="Release v{version}",
+    format_before_stage=True,
 )
 
 EXTENSION = TargetConfig(

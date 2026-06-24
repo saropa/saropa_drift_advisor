@@ -216,50 +216,59 @@ void main() {
   });
 
   // =====================================================
-  // E1 — discovery manifest lifecycle. Guarded: when no home directory is
-  // resolvable (some CI), the manifest is skipped by design, so skip the test
-  // rather than assert a file that is never written.
+  // E1 — discovery manifest lifecycle.
+  //
+  // The manifest must NOT target the default $home/.saropa_drift_advisor path
+  // here: that location is a single global file shared by every server in the
+  // process, and dart's `pid` is identical across the in-process suite
+  // isolates, so the other test files that start servers concurrently
+  // overwrite or delete this manifest between the write and the assertions —
+  // the test passed alone but failed in the full suite. Pointing this server
+  // at its own temp directory (the `discoveryDirectory` override) isolates the
+  // manifest so its lifecycle is deterministic, and removes the prior
+  // home-not-resolvable skip entirely.
   // =====================================================
   group('discovery manifest', () {
-    final env = Platform.environment;
-    final home = env['USERPROFILE'] ?? env['HOME'];
-
     test('written on start with the bound port, removed on stop', () async {
-      if (home == null || home.isEmpty) {
-        // No home dir → manifest is intentionally skipped; nothing to assert.
-        return;
+      final tempDir = Directory.systemTemp.createTempSync(
+        'saropa_drift_discovery_test',
+      );
+      final file = File('${tempDir.path}/${ServerConstants.discoveryFileName}');
+
+      try {
+        await DriftDebugServer.start(
+          query: (_) async => <Map<String, dynamic>>[],
+          port: 0,
+          discoveryDirectory: tempDir.path,
+        );
+        final boundPort = DriftDebugServer.port;
+
+        expect(await file.exists(), isTrue, reason: 'manifest must be written');
+        final decoded =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        expect(decoded[ServerConstants.jsonKeyPort], boundPort);
+        expect(
+          decoded[ServerConstants.jsonKeyHost],
+          ServerConstants.discoveryHost,
+        );
+        expect(
+          decoded[ServerConstants.jsonKeyVersion],
+          ServerConstants.packageVersion,
+        );
+        expect(decoded[ServerConstants.jsonKeyEndpoints], isA<List<dynamic>>());
+
+        await DriftDebugServer.stop();
+        expect(
+          await file.exists(),
+          isFalse,
+          reason: 'manifest must be removed on stop (own pid)',
+        );
+      } finally {
+        // Best-effort cleanup of the isolated temp dir regardless of outcome.
+        if (tempDir.existsSync()) {
+          tempDir.deleteSync(recursive: true);
+        }
       }
-      final file = File(
-        '$home/${ServerConstants.discoveryDirName}/'
-        '${ServerConstants.discoveryFileName}',
-      );
-
-      await DriftDebugServer.start(
-        query: (_) async => <Map<String, dynamic>>[],
-        port: 0,
-      );
-      final boundPort = DriftDebugServer.port;
-
-      expect(await file.exists(), isTrue, reason: 'manifest must be written');
-      final decoded =
-          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      expect(decoded[ServerConstants.jsonKeyPort], boundPort);
-      expect(
-        decoded[ServerConstants.jsonKeyHost],
-        ServerConstants.discoveryHost,
-      );
-      expect(
-        decoded[ServerConstants.jsonKeyVersion],
-        ServerConstants.packageVersion,
-      );
-      expect(decoded[ServerConstants.jsonKeyEndpoints], isA<List<dynamic>>());
-
-      await DriftDebugServer.stop();
-      expect(
-        await file.exists(),
-        isFalse,
-        reason: 'manifest must be removed on stop (own pid)',
-      );
     });
   });
 }

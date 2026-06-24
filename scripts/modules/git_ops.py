@@ -161,6 +161,22 @@ def git_commit_and_push(config: "TargetConfig", version: str) -> bool:
     # what makes the second attempt pass, so retry restarts from `git add` — not
     # just the commit — and that re-stage is the whole point of looping here.
     while True:
+        # Format before staging so the index always matches what the husky
+        # pre-commit hook checks (`dart format --set-exit-if-changed .`).
+        # Without this, an unformatted staged file aborts the commit on the
+        # husky gate — which recurs on `--resume` runs (analysis, and its early
+        # `dart format`, are skipped) and whenever a step between analysis and
+        # commit re-dirties a .dart file. Formatting here, then staging the
+        # result, closes that gap on every path. Dart-only via the config flag.
+        if getattr(config, "format_before_stage", False):
+            fmt = run(["dart", "format", "."], cwd=REPO_ROOT)
+            if fmt.returncode != 0:
+                fail(f"dart format failed before staging:\n{(fmt.stderr or fmt.stdout).strip()}")
+                decision = _decide_after_git_failure("dart format failed")
+                if decision is None:
+                    continue
+                return decision
+
         info(f"Staging changes for {config.display_name} ({paths_display})...")
         add_result = run(["git", "add", *config.git_stage_paths], cwd=REPO_ROOT)
         if add_result.returncode != 0:

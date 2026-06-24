@@ -58,6 +58,18 @@ class _DriftDebugServerImpl {
   /// (or default 1 hour if not specified).
   DriftDebugSessionStore _sessionStore = DriftDebugSessionStore();
 
+  /// Directory the discovery manifest is written into for THIS server, or null
+  /// to use the user-home default (`$home/.saropa_drift_advisor`).
+  ///
+  /// Set from the [start] `discoveryDirectory` argument and read again by
+  /// [stop] so write and remove target the same file. The default home path is
+  /// a single global location shared by every server in the process; when
+  /// multiple servers run concurrently (most visibly: parallel test suites,
+  /// where dart's `pid` is identical across in-process suite isolates) they
+  /// clobber and delete each other's manifest. Pointing a server at its own
+  /// directory isolates it so its manifest lifecycle is deterministic.
+  String? _discoveryDir;
+
   /// Starts the debug server if [enabled] is true and [query] is provided.
   ///
   /// No-op if [enabled] is false or the server is already running. [query]
@@ -145,6 +157,7 @@ class _DriftDebugServerImpl {
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
     String? snapshotStorePath,
+    String? discoveryDirectory,
   }) async {
     if (!enabled) {
       return;
@@ -179,6 +192,7 @@ class _DriftDebugServerImpl {
         declaredSchema: declaredSchema,
         declaredRelationships: declaredRelationships,
         snapshotStorePath: snapshotStorePath,
+        discoveryDirectory: discoveryDirectory,
       );
     } finally {
       _starting = false;
@@ -208,7 +222,12 @@ class _DriftDebugServerImpl {
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
     String? snapshotStorePath,
+    String? discoveryDirectory,
   }) async {
+    // Record the discovery-manifest directory override (null = home default)
+    // so both the write below and the remove in [stop] target the same file.
+    _discoveryDir = discoveryDirectory;
+
     // Construct session store with the configured duration
     // (or default 1 hour if not specified).
     _sessionStore = DriftDebugSessionStore(sessionExpiry: sessionDuration);
@@ -538,10 +557,18 @@ class _DriftDebugServerImpl {
     await _removeDiscoveryManifest();
   }
 
-  /// Resolves the discovery manifest file path under the user's home directory,
-  /// or null when no home dir is known (e.g. a mobile embedder), in which case
-  /// discovery is silently skipped.
-  static File? _discoveryManifestFile() {
+  /// Resolves the discovery manifest file path.
+  ///
+  /// When [_discoveryDir] is set (the `discoveryDirectory` override) the
+  /// manifest lives directly in that directory; otherwise it resolves under the
+  /// user's home directory (`$home/.saropa_drift_advisor`), or null when no
+  /// home dir is known (e.g. a mobile embedder), in which case discovery is
+  /// silently skipped.
+  File? _discoveryManifestFile() {
+    final override = _discoveryDir;
+    if (override != null && override.isNotEmpty) {
+      return File('$override/${ServerConstants.discoveryFileName}');
+    }
     final env = Platform.environment;
     // USERPROFILE on Windows, HOME on POSIX. Prefer USERPROFILE first so the
     // Windows desktop case (the primary agent host) resolves even when a shell
@@ -559,7 +586,7 @@ class _DriftDebugServerImpl {
   /// Writes the discovery manifest JSON (host, port, version, flags, pid,
   /// workspace, startedAt, endpoints). Best-effort and fully guarded: any
   /// failure is routed to [logError] and swallowed so it cannot break startup.
-  static Future<void> _writeDiscoveryManifest({
+  Future<void> _writeDiscoveryManifest({
     required int port,
     required bool loopbackOnly,
     required bool writeEnabled,
@@ -599,7 +626,7 @@ class _DriftDebugServerImpl {
   /// Deletes the discovery manifest if it exists AND records this process's pid,
   /// so a still-running server in another process keeps its own manifest. Fully
   /// guarded — a delete failure is ignored.
-  static Future<void> _removeDiscoveryManifest() async {
+  Future<void> _removeDiscoveryManifest() async {
     try {
       final file = _discoveryManifestFile();
       if (file == null || !await file.exists()) {
@@ -738,6 +765,14 @@ mixin DriftDebugServer {
     /// browser reload still re-fetches them, but a process restart clears them.
     /// Host configuration; never user/network input.
     String? snapshotStorePath,
+
+    /// Optional directory the discovery manifest is written into, overriding the
+    /// default `$home/.saropa_drift_advisor`. The default is a single global
+    /// path shared by every server in the process; concurrent servers (most
+    /// visibly parallel test suites, where `pid` is identical across in-process
+    /// isolates) otherwise clobber and delete each other's manifest. Point a
+    /// server at its own directory to isolate its manifest. Host configuration.
+    String? discoveryDirectory,
   }) => _instance.start(
     query: query,
     queryWithBindings: queryWithBindings,
@@ -760,6 +795,7 @@ mixin DriftDebugServer {
     declaredSchema: declaredSchema,
     declaredRelationships: declaredRelationships,
     snapshotStorePath: snapshotStorePath,
+    discoveryDirectory: discoveryDirectory,
   );
 
   /// The port the server is bound to, or null if not running.

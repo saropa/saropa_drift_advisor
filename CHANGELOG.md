@@ -42,7 +42,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.9]
+
+The debug server can now tell tools and AI agents what it offers and where to find it, a runaway query can't knock it offline anymore, and the web viewer's sidebar labels and Run SQL screen got a tidy-up. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.9/CHANGELOG.md)
 
 ### Added
 
@@ -56,6 +58,13 @@ browse source on
 
 - Activity-bar label mode (web viewer): when the sidebar strip shows text labels, every button is now the same width with its icon and label left-aligned, and the rows have vertical spacing so the labels read as a clean aligned list.
 - Run SQL screen (web viewer): redesigned the controls above the editor. The Template, Table and Fields pickers are now a clean aligned card instead of a cramped wrapping toolbar, and the Fields list is a compact fixed-height scroll box rather than the tall narrow column it used to balloon into. Saved-query actions are grouped together with "Show as" pushed to the right. The query box also opens taller by default (about seven lines instead of three) so a typical formatted query fits without scrolling; it is still drag-resizable.
+
+<details><summary>Maintenance</summary>
+
+- **Publish pipeline: format Dart sources at stage time so the husky pre-commit hook never aborts the release commit.** The hook runs `dart format --set-exit-if-changed .` whenever `.dart` files are staged; the analysis phase formatted early, but `--resume` runs skip analysis and any step (or manual edit) between analysis and commit could re-dirty a file, leaving an unformatted file in the index and failing the commit. `git_commit_and_push` now runs `dart format .` immediately before `git add` (gated by a new `TargetConfig.format_before_stage`, Dart-only), so the staged content always matches what the hook checks.
+- **Fixed a flaky discovery-manifest test that passed alone but failed in the full suite.** The discovery manifest is written to a single global path (`$home/.saropa_drift_advisor/server.json`), and dart's `pid` is identical across the in-process suite isolates, so the other server-starting test files running concurrently overwrote or deleted this test's manifest between its write and its assertions. `DriftDebugServer.start` now accepts an optional `discoveryDirectory` override (threaded as instance state and reused on `stop` so write and remove target the same file); the test points each run at its own temp directory, making the manifest lifecycle deterministic and removing the prior "home not resolvable" skip.
+
+</details>
 
 ## [4.1.8]
 
