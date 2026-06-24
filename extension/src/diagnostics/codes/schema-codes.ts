@@ -75,6 +75,15 @@ export const SCHEMA_CODES: Record<string, IDiagnosticCode> = {
       'Rename the Dart getter so Drift produces "{dbColumn}", or add .named(\'{dbColumn}\') to override',
     hasFix: true,
   },
+  'raw-sql-unknown-column': {
+    code: 'raw-sql-unknown-column',
+    category: 'schema',
+    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    messageTemplate:
+      'Column "{column}" not found in table "{table}". Raw SQL column names ' +
+      'must match the database exactly — prefer the Drift getter\'s .name',
+    hasFix: false,
+  },
   'extra-column-in-db': {
     code: 'extra-column-in-db',
     category: 'schema',

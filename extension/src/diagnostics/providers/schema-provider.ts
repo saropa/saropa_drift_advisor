@@ -17,6 +17,7 @@ import { checkAnomalies } from '../checkers/anomaly-checker';
 import { checkColumnDrift } from '../checkers/column-checker';
 import { checkMissingIndexes } from '../checkers/index-checker';
 import { checkMissingPrimaryKey, checkTextPrimaryKey } from '../checkers/pk-checker';
+import { checkRawSqlColumns } from '../checkers/raw-sql-column-checker';
 import { checkExtraTablesInDb, checkMissingTableInDb } from '../checkers/table-checker';
 import { TableNameMapper } from '../../codelens/table-name-mapper';
 
@@ -73,6 +74,14 @@ export class SchemaProvider implements IDiagnosticProvider {
           checkMissingPrimaryKey(issues, file, dartTable, dbTable);
           checkColumnDrift(issues, file, dartTable, dbTable);
           checkTextPrimaryKey(issues, file, dartTable, dbTable);
+        }
+
+        // Validate raw-SQL column references in customSelect/customStatement
+        // strings against the live schema. Skipped on an empty DB — no table
+        // resolves, so the check naturally finds nothing, but guarding here
+        // avoids the per-file extraction work entirely.
+        if (!dbIsEmpty) {
+          checkRawSqlColumns(issues, file, dbTableMap, dbNormalizedMap);
         }
       }
 

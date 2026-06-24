@@ -42,6 +42,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+Raw SQL strings in your Drift code now get the same column checking as the typed query builder — if a `customSelect`/`customStatement` query names a column that does not exist on the table, you see a warning while editing instead of a crash at runtime.
+
+### Added
+
+- **New diagnostic `raw-sql-unknown-column`.** Validates column references inside `customSelect(...)` / `customStatement(...)` raw SQL against the live profiled schema and flags any column absent from the referenced table, suggesting the closest real column name. Catches the case where a hardcoded name does not match Drift's generated column (e.g. an acronym getter `contactSaropaUUID` produces `contact_saropa_u_u_i_d`, not `contact_saropa_uuid`) — a bug invisible to the existing Dart-vs-DB drift checks because it lives in an opaque string. Conservative by design: only single-table queries are checked (JOINs and comma-FROM are skipped), aliases and function names are excluded, and unknown tables are ignored. Default severity Warning; suppress per line/file with `// drift-advisor:ignore raw-sql-unknown-column`.
+
 ## [4.1.10]
 
 Github CI cleanup tasks. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.10/CHANGELOG.md)
