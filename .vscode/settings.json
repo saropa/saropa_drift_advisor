@@ -27,6 +27,12 @@
     "saropaLints.sidebar.showPackageDetails": true,
     "saropaLints.todosAndHacks.workspaceScanEnabled": true,
     "saropaLints.violationsGroupBy": "severity",
+    // Exclude the generated example app build output (~1.1 GB) from the file
+    // watcher so opening the project doesn't crawl/index it. Only the build/
+    // output is excluded, not example/ source, so example edits still reload.
+    "files.watcherExclude": {
+        "**/example/build/**": true
+    },
     "saropaLogCapture.integrations.adapters": [
         "packages",
         "git",
