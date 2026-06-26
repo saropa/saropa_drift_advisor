@@ -42,8 +42,9 @@ browse source on
 
 ---
 
-## [Unreleased]
- [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.12/CHANGELOG.md)
+## [4.1.12]
+
+Rewind a table in Time Travel, then save that moment as a branch you can diff or restore later. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.12/CHANGELOG.md)
 
 ### Added
 
