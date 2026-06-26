@@ -1,5 +1,7 @@
 # Bug Report: Timeline snapshot auto-capture issues a full-table `SELECT *` sweep over every table on connect, hanging the host app's startup
 
+**Status: Fixed** — see the Finish Report at the foot of this file.
+
 ## Title
 
 On connect, the timeline auto-capture runs `SELECT * FROM "<table>" ORDER BY <pk> LIMIT 1000` against **every** table on the live connection with no row-count skip, monopolizing the host app's single SQLite connection and freezing its startup.
