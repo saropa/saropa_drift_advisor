@@ -1868,6 +1868,9 @@ button.btn-busy {
 .home-screen {
   max-width: 72rem;
   margin: 0 auto;
+  /* Breathing room below the launcher grid so the last card row isn't flush
+     against the main content's bottom edge when the page doesn't scroll. */
+  padding-bottom: 2rem;
 }
 
 /* Title + narrative feature overview, populated at runtime via vt(). */
@@ -1910,7 +1913,10 @@ button.btn-busy {
 
 .home-feature-search {
   width: 100%;
-  padding: 0.6rem 0.75rem 0.6rem 2.4rem;
+  /* Left padding indents both the typed value and the placeholder clear of the
+     search glyph (icon ends ~1.9rem in); bumped from 2.4rem so the text no
+     longer butts against the icon. */
+  padding: 0.6rem 0.75rem 0.6rem 3rem;
   font: inherit;
   font-size: var(--text-sm);
   color: var(--fg);
@@ -5139,7 +5145,9 @@ body.has-connection-banner {
   align-items: center;
   gap: 0;
   margin: 0;
-  padding: var(--space-2) 0.35rem;
+  /* Horizontal padding widened ~10% (0.35rem -> 0.49rem each side) per request:
+     the strip width is content (2rem icon) + padding, so 2.7rem -> ~2.98rem. */
+  padding: var(--space-2) 0.49rem;
   flex-wrap: nowrap;
   flex: 0 0 auto;
   align-self: stretch;
@@ -5290,12 +5298,12 @@ body.has-connection-banner {
 
 .tb-flyout {
   display: none;
-  position: absolute;
-  /* Open to the RIGHT of the button in the vertical strip (was downward when
-     the toolbar was a top row). */
-  top: 0;
-  left: 100%;
-  margin-left: 0.3rem;
+  /* Fixed, not absolute: #toolbar-bar sets overflow-y:auto, which per CSS spec
+     forces overflow-x to compute to a clip too — an absolutely-positioned
+     flyout opening to the RIGHT (left:100%) was cropped by the narrow strip.
+     Fixed positioning escapes the clip; toolbar.ts sets top/left from the
+     trigger's rect on open (and clamps it to the viewport). */
+  position: fixed;
   /* z-index must sit above the tab panel chrome (border + bg) that starts
    * directly beneath the tab bar; 200 was getting covered in some themes
    * because the tab panels establish their own stacking via
@@ -5312,7 +5320,6 @@ body.has-connection-banner {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  margin-top: 0.25rem;
 }
 
 /* Show flyout when trigger has aria-expanded="true". */
@@ -5396,12 +5403,8 @@ body.theme-midnight .tb-flyout {
     border-left: 1px solid var(--border);
     margin: 0 0.25rem;
   }
-  .tb-flyout {
-    top: 100%;
-    left: auto;
-    right: 0;
-    margin-left: 0;
-  }
+  /* .tb-flyout is position:fixed and placed by toolbar.ts (clamped to the
+     viewport), so no per-breakpoint positioning override is needed here. */
 }
 /* --- Hide dividers on very narrow viewports --- */
 @media (max-width: 600px) {

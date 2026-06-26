@@ -32195,6 +32195,9 @@ ${JSON.stringify(results, void 0, 2)}`);
     const dCols = declared.columns || [];
     const rCols = indexColumns(runtime.columns);
     const dColNames = indexColumns(dCols);
+    const declaredPkCount = dCols.filter(
+      (c) => c && c.isPk === true
+    ).length;
     for (const dc of dCols) {
       if (!dc || typeof dc.name !== "string") continue;
       const rc = rCols.get(dc.name);
@@ -32219,7 +32222,8 @@ ${JSON.stringify(results, void 0, 2)}`);
       }
       const dNullable = dc.nullable !== false;
       const rNullable = rc.notnull !== true;
-      if (dNullable !== rNullable) {
+      const isRowidPk = dc.isPk === true && declaredPkCount === 1 && typeAffinity(dc.sqlType) === "INTEGER";
+      if (!isRowidPk && dNullable !== rNullable) {
         out.push({
           table,
           column: dc.name,
@@ -34776,10 +34780,27 @@ ${JSON.stringify(results, void 0, 2)}`);
     var themeTrigger = document.getElementById("tb-theme-trigger");
     var themeFlyout = document.getElementById("tb-theme-flyout");
     if (themeTrigger && themeFlyout) {
+      var positionThemeFlyout = function() {
+        var r = themeTrigger.getBoundingClientRect();
+        themeFlyout.style.top = r.top + "px";
+        themeFlyout.style.left = r.right + 6 + "px";
+        var fr = themeFlyout.getBoundingClientRect();
+        if (fr.right > window.innerWidth - 8) {
+          themeFlyout.style.left = Math.max(8, r.left - fr.width - 6) + "px";
+        }
+        if (fr.bottom > window.innerHeight - 8) {
+          themeFlyout.style.top = Math.max(8, window.innerHeight - 8 - fr.height) + "px";
+        }
+      };
       themeTrigger.addEventListener("click", function(e) {
         e.stopPropagation();
         var isOpen = themeTrigger.getAttribute("aria-expanded") === "true";
-        themeTrigger.setAttribute("aria-expanded", isOpen ? "false" : "true");
+        var next = isOpen ? "false" : "true";
+        themeTrigger.setAttribute("aria-expanded", next);
+        if (next === "true") positionThemeFlyout();
+      });
+      window.addEventListener("resize", function() {
+        if (themeTrigger.getAttribute("aria-expanded") === "true") positionThemeFlyout();
       });
       themeFlyout.querySelectorAll(".tb-theme-option").forEach(function(btn) {
         btn.addEventListener("click", function() {
