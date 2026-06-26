@@ -134,6 +134,13 @@ export function setupProviders(
     cfg.get<number>('timeline.minIntervalMs', 10000) ?? 10000,
     cfg.get<number>('timeline.captureDebounceMs', 200) ?? 200,
     log ? (msg) => log.appendLine(`[${new Date().toISOString()}] ${msg}`) : undefined,
+    // Throttle between per-table capture reads so an auto-capture sweep cannot
+    // monopolize the host's single live Drift connection and freeze its launch
+    // (BUG_timeline_snapshot_capture_full_table_scan_hangs_host_startup). Read
+    // from config if present; the 25ms default spaces ~10 static-content tables
+    // by ~225ms total — negligible for a background capture, enough of a gap for
+    // the host's own startup queries to interleave on a same-isolate executor.
+    cfg.get<number>('timeline.captureInterTableYieldMs', 25) ?? 25,
   );
   const timelineProvider = new DriftTimelineProvider(snapshotStore);
   // registerTimelineProvider is a proposed API in @types/vscode but stable

@@ -3,6 +3,7 @@ import * as sinon from 'sinon';
 import { DriftApiClient } from '../api-client';
 import {
   SnapshotStore,
+  CAPTURE_MAX_ROWS,
   computeTableDiff,
   rowsToObjects,
 } from '../timeline/snapshot-store';
@@ -151,6 +152,84 @@ describe('SnapshotStore', () => {
       assert.ok(snap.tables.has('good'), 'good table should be present');
       assert.strictEqual(snap.tables.has('bad'), false, 'bad table should be skipped');
       assert.strictEqual(snap.tables.get('good')!.rows.length, 1);
+    });
+
+    it('captures tables above CAPTURE_MAX_ROWS metadata-only, issuing no SELECT for them', async () => {
+      // Defect A: a huge table must not get a per-table SELECT * — its captured
+      // rows would be a misleading first-1000 slice and the read is one of the
+      // expensive pulls that stall the host's startup. Metadata (rowCount /
+      // columns / pk) is still recorded so the timeline shows the count delta.
+      fetchStub.withArgs(sinon.match(/schema\/metadata/)).callsFake(async () =>
+        makeResponse(metadataJson([
+          {
+            name: 'huge',
+            rowCount: CAPTURE_MAX_ROWS + 1,
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'blob', type: 'TEXT', pk: false },
+            ],
+          },
+          { name: 'small', rowCount: 2, columns: [{ name: 'id', type: 'INTEGER', pk: true }] },
+        ])),
+      );
+
+      const sentSql: string[] = [];
+      fetchStub.withArgs(sinon.match(/api\/sql/)).callsFake(async (_url, init) => {
+        sentSql.push(JSON.parse((init as RequestInit).body as string).sql);
+        return makeResponse(sqlJson(['id'], [[1], [2]]));
+      });
+
+      const store = new SnapshotStore(20, 0);
+      const snap = await store.capture(client);
+      assert.ok(snap);
+
+      const huge = snap.tables.get('huge');
+      assert.ok(huge, 'huge table should be present');
+      assert.strictEqual(huge.rows.length, 0, 'huge table captured metadata-only');
+      assert.strictEqual(huge.rowCount, CAPTURE_MAX_ROWS + 1);
+      assert.deepStrictEqual(huge.columns, ['id', 'blob'], 'columns come from metadata');
+      assert.deepStrictEqual(huge.pkColumns, ['id']);
+
+      // The small table is read; no SELECT references the huge table.
+      assert.ok(snap.tables.get('small')!.rows.length === 2);
+      assert.ok(
+        sentSql.every((s) => !s.includes('"huge"')),
+        `huge table must not be queried, got: ${sentSql.join(' | ')}`,
+      );
+    });
+
+    it('throttles between per-table reads when interTableYieldMs is set', async () => {
+      // Defect B: with a nonzero inter-table yield, the capture must not finish
+      // synchronously — the second table's read is gated behind a real delay so
+      // the host's own queries can interleave on the shared connection. Drive
+      // the fake clock to prove the gap blocks then releases the read.
+      fetchStub.withArgs(sinon.match(/schema\/metadata/)).callsFake(async () =>
+        makeResponse(metadataJson([
+          { name: 't1', rowCount: 1, columns: [{ name: 'id', type: 'INTEGER', pk: true }] },
+          { name: 't2', rowCount: 1, columns: [{ name: 'id', type: 'INTEGER', pk: true }] },
+        ])),
+      );
+      let sqlCalls = 0;
+      fetchStub.withArgs(sinon.match(/api\/sql/)).callsFake(async () => {
+        sqlCalls++;
+        return makeResponse(sqlJson(['id'], [[1]]));
+      });
+
+      const store = new SnapshotStore(20, 0, 200, undefined, 50);
+      let resolved = false;
+      const promise = store.capture(client).then((s) => { resolved = true; return s; });
+
+      // Flush metadata + the first table's read; the second is held by the 50ms
+      // throttle, so the capture has not completed.
+      await clock.tickAsync(0);
+      assert.strictEqual(resolved, false, 'capture should be blocked on the inter-table throttle');
+      assert.strictEqual(sqlCalls, 1, 'only the first table read before the throttle elapses');
+
+      await clock.tickAsync(50);
+      const snap = await promise;
+      assert.ok(snap);
+      assert.strictEqual(sqlCalls, 2, 'second table read after the throttle elapses');
+      assert.strictEqual(resolved, true);
     });
 
     it('sweeps rowid-less relations without ORDER BY rowid (GitHub #32)', async () => {

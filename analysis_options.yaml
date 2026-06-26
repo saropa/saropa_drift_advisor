@@ -47,7 +47,7 @@ linter:
 
 plugins:
   saropa_lints:
-    version: "14.0.7"
+    version: "14.2.4"
     rule_packs:
       enabled:
         - collection_compat
@@ -58,7 +58,7 @@ plugins:
     # SAROPA LINTS CONFIGURATION
     # ═══════════════════════════════════════════════════════════════════
     # Regenerate with: dart run saropa_lints:init --tier professional
-    # Tier: professional (1481 of 2320 rules enabled)
+    # Tier: professional (1483 of 2327 rules enabled)
     # Lint rules are disabled by default. Set to true to enable.
     # User customizations are preserved unless --reset is used
     #
@@ -248,13 +248,14 @@ plugins:
       #
 
       #
-      # --- TIER 1: ESSENTIAL (243 rules) ---
+      # --- TIER 1: ESSENTIAL (245 rules) ---
       #
       abi_specific_integer_invalid: true  # [WARNING] A class extending AbiSpecificInteger must be final, have no type parameters, declare exactly one const constructor, no other members, and an AbiSpecificIntegerMapping annotation. {v1}
       abstract_field_initializer: true  # [WARNING] Abstract fields cannot have initializers. Remove the initializer or drop the abstract modifier so the declaration matches valid Dart semantics. {v1}
       always_remove_listener: true  # [WARNING] Listener added via addListener() but no matching removeListener() call found in dispose(). Orphaned listeners retain references to the widget, preventing garbage collection and causing memory leaks that accumulate as users navigate between screens. {v3}
       annotate_inherited_member_redeclaration: true  # [INFO] This member hides an inherited instance member with the same name. Add @override if it is an override, or document why the name is reused intentionally. {v1}
       avoid_android_cleartext_traffic: true  # [WARNING] HTTP URL detected. Android 9+ blocks cleartext traffic by default. This request will fail silently. {v2}
+      avoid_animated_size_in_wrap: true  # [ERROR] AnimatedSize cannot be a direct child of Wrap/Flow — it re-dirties itself during the parent layout pass and throws "RenderAnimatedSize was mutated in its own performLayout" at runtime, every frame, once its size animates. {v1}
       avoid_app_links_sensitive_params: true  # [ERROR] Deep link params are logged by OS and analytics, exposing tokens in crash reports and logs. {v2}
       avoid_assert_in_production: true  # [WARNING] assert() is compiled out of release builds by the Dart compiler. Any validation, input checking, or security enforcement using assert() will silently stop running in production, allowing invalid data, unauthorized access, or corrupted state to pass through unchecked. {v2}
       avoid_asset_manifest_json: true  # [ERROR] The 'AssetManifest.json' file was removed in Flutter 3.38.0 (PR #172594). Code that loads this path at runtime — such as rootBundle.loadString('AssetManifest.json') — will throw a FlutterError because the file no longer exists in the built app bundle. Migrate to the typed AssetManifest API (AssetManifest.loadFromAssetBundle) or use 'AssetManifest.bin' for the binary format. {v1}
@@ -393,6 +394,7 @@ plugins:
       prefer_timeout_on_requests: true  # [WARNING] Making HTTP requests without a timeout can cause your app to hang indefinitely if the server is slow or unresponsive. This degrades user experience and can block critical app flows. {v3}
       prefer_try_parse_for_dynamic_data: true  # [ERROR] Using parse methods (like int.parse or double.parse) on dynamic or user-provided data can throw exceptions and crash your app if the input is invalid. This exposes your app to stability and security risks, especially when handling external or untrusted data. Always use tryParse to safely handle potentially malformed input and provide a fallback for invalid values. See https://dart.dev/guides/libraries/library-tour#numbers. {v4}
       provide_correct_intl_args: true  # [ERROR] Intl.message args count does not match placeholders. This will cause runtime errors. {v2}
+      require_android_exact_alarm_permission: true  # [WARNING] An exact alarm is scheduled but AndroidManifest.xml declares neither SCHEDULE_EXACT_ALARM nor USE_EXACT_ALARM. Android 14+ (API 34) denies the exact-alarm capability by default, so the alarm is silently downgraded to inexact and fires late or not at all — a timing failure with no error on screen and none in the logs. {v1}
       require_android_manifest_entries: true  # [WARNING] Android permission-gated API is used but AndroidManifest.xml is missing the required <uses-permission> entry. This causes runtime denials on device. {v1}
       require_android_permission_request: true  # [ERROR] Permission-gated API called without runtime permission request. Android 6+ will deny access or crash. {v2}
       require_animation_controller_dispose: true  # [ERROR] Neglecting to dispose of an AnimationController when a widget is removed from the tree causes memory leaks and can lead to performance degradation, as the controller continues to consume resources and tick animations in the background. This can eventually crash your app or cause unexpected behavior. Always dispose of AnimationControllers to maintain optimal app performance. See https://api.flutter.dev/flutter/animation/AnimationController/dispose.html. {v3}
@@ -495,7 +497,7 @@ plugins:
       yield_in_non_generator: true  # [WARNING] Yield is only valid inside a generator function (marked with async* or sync*). {v1}
 
       #
-      # --- TIER 2: RECOMMENDED (517 rules) ---
+      # --- TIER 2: RECOMMENDED (515 rules) ---
       #
       avoid_accessing_collections_by_constant_index: true  # [WARNING] Collection accessed by a constant index inside a loop body. This retrieves the same element on every iteration, which is wasteful and usually indicates a logic error where the loop variable was intended as the index instead. {v5}
       avoid_analytics_in_build: true  # [WARNING] Analytics calls inside build() are triggered on every rebuild, resulting in duplicate events, inaccurate tracking data, degraded app performance, and inflated backend costs. This can skew business metrics, produce misleading dashboards, and make it difficult to analyze real user behavior. Persistent analytics spam may also trigger rate limits or data quality flags in analytics platforms. {v3}
@@ -521,7 +523,7 @@ plugins:
       avoid_closure_memory_leak: true  # [WARNING] Closure capturing setState retains a strong reference to the State object, preventing garbage collection after the widget is disposed. The entire parent widget subtree leaks memory, and calling setState on an unmounted widget throws a framework error that crashes the app during subsequent navigation. {v3}
       avoid_collection_equality_checks: true  # [WARNING] Comparing collections with == uses reference equality. This can cause false positives/negatives, leading to logic errors and unexpected app behavior. Collections (List, Set, Map) use reference equality by default, not value equality. Use listEquals, setEquals, or mapEquals instead. {v5}
       avoid_collection_methods_with_unrelated_types: true  # [WARNING] Collection method called with unrelated type. Using contains, indexOf, remove, etc. with a type that can never match the collection's element type is likely a bug. {v5}
-      avoid_color_only_indicators: true  # [WARNING] Color-only status indicator fails for approximately 8% of men and 0.5% of women who have color vision deficiency and cannot distinguish red from green, making the UI completely inaccessible to colorblind users. Relying solely on color to convey meaning violates WCAG 1.4.1 (Use of Color), which requires a secondary visual cue such as an icon, text label, or pattern to communicate status information. {v6}
+      avoid_color_only_indicators: true  # [WARNING] Color-only status indicator fails for approximately 8% of men and 0.5% of women who have color vision deficiency and cannot distinguish red from green, making the UI completely inaccessible to colorblind users. Relying solely on color to convey meaning violates WCAG 1.4.1 (Use of Color), which requires a secondary visual cue such as an icon, text label, or pattern to communicate status information. {v7}
       avoid_conditions_with_boolean_literals: true  # [INFO] Boolean literal used in a logical expression where it has no effect or makes the result constant. Expressions like x || true are always true and x && false are always false, indicating dead code or a logic error where a variable was intended. {v6}
       avoid_constant_assert_conditions: true  # [WARNING] Assert condition evaluates to a compile-time constant, making it either always pass (true) or always fail (false). A constant assert provides no runtime safety check and misleads readers into thinking a dynamic invariant is being verified. {v5}
       avoid_constant_conditions: true  # [WARNING] Condition evaluates to a compile-time constant, making one branch unreachable dead code. This usually indicates a logic error where the condition was intended to be dynamic, or leftover debugging code that was never cleaned up. {v4}
@@ -581,7 +583,7 @@ plugins:
       avoid_global_state: true  # [WARNING] Mutable global state detected. Top-level mutable variables create hidden dependencies between functions, make unit testing unreliable because tests share state, and cause race conditions in concurrent or isolate-based code. {v5}
       avoid_go_router_push_replacement_confusion: true  # [INFO] context.go() used to navigate to a detail route with a dynamic ID parameter. go() replaces the entire navigation stack, destroying the back button history and preventing users from returning to the previous screen. {v2}
       avoid_gradient_in_build: true  # [WARNING] Creating Gradient in build() prevents reuse and causes allocations. This leads to unnecessary memory usage, slower UI performance, and increased battery drain. {v3}
-      avoid_hardcoded_api_urls: true  # [WARNING] Hardcoded API URLs prevent switching between development, staging, and production environments, making code inflexible and error-prone. This practice also risks leaking sensitive endpoints and complicates maintenance. Always extract API URLs to configuration constants (e.g., ApiConfig.baseUrl) to enable environment switching and improve security. {v5}
+      avoid_hardcoded_api_urls: true  # [WARNING] Hardcoded API URLs prevent switching between development, staging, and production environments, making code inflexible and error-prone. This practice also risks leaking sensitive endpoints and complicates maintenance. Always extract API URLs to configuration constants (e.g., ApiConfig.baseUrl) to enable environment switching and improve security. {v7}
       avoid_hardcoded_layout_values: true  # [INFO] Hardcoded numeric value in layout widget prevents responsive adaptation across screen sizes and text scales. Fixed pixel values that look correct on one device may cause overflow, clipping, or wasted space on devices with different screen densities, orientations, or accessibility font size settings. {v6}
       avoid_hardcoded_signing_config: true  # [WARNING] Hardcoding keystore paths, passwords, or signing configuration in source code exposes them to reverse engineering. These values are extractable from compiled binaries and enable attackers to sign malicious builds. {v3}
       avoid_hardcoded_test_delays: true  # [WARNING] Test has hardcoded delay which makes tests slow and flaky. This weakens test quality, making failures harder to diagnose and reducing confidence in the test suite. {v5}
@@ -681,8 +683,6 @@ plugins:
       avoid_shadowed_extension_methods: true  # [WARNING] Extension method has the same name as an instance method on the target class. The instance method always takes precedence, so the extension method is never called through normal dispatch, making it dead code that misleads developers. {v3}
       avoid_shadowing_type_parameters: true  # [WARNING] A method type parameter with the same name as the enclosing class type parameter creates a new, unrelated type that shadows the outer one. This causes confusing compile errors where values of the "same" type T are incompatible. Rename the method type parameter to avoid the collision. {v1}
       avoid_shared_prefs_sync_race: true  # [WARNING] SharedPreferences write method called without await in async context. Un-awaited writes execute concurrently with non-deterministic ordering, so the last write wins and earlier values may be silently lost. This is especially dangerous during logout or cleanup flows where multiple preferences are cleared. {v1}
-      avoid_shrink_wrap_in_lists: true  # [WARNING] Using 'shrinkWrap: true' inside a nested scrollable (such as a ListView within another scrollable) can cause significant performance issues. It forces the inner list to compute the size of all its children, leading to poor scroll performance and increased memory usage, especially with large or dynamic lists. {v4}
-      avoid_shrinkwrap_in_scrollview: true  # [WARNING] shrinkWrap: true on a scrollable list disables virtualization, forcing Flutter to lay out and render every child widget immediately regardless of visibility. This causes severe jank, high memory usage, and slow initial rendering for lists with more than a few dozen items, degrading the user experience. {v6}
       avoid_single_child_column_row: true  # [INFO] Column/Row with single child is unnecessary. A Column or Row has only a single child. This layout configuration can trigger RenderFlex overflow errors or unexpected visual behavior at runtime. {v5}
       avoid_singlechildscrollview_with_column: true  # [WARNING] SingleChildScrollView with Column may cause layout issues. SingleChildScrollView wraps a Column with Expanded children. This layout configuration can trigger RenderFlex overflow errors or unexpected visual behavior at runtime. {v6}
       avoid_small_touch_targets: true  # [INFO] Touch target under 44px violates WCAG 2.5.5 (Target Size). Users with motor impairments, tremors, or limited dexterity will struggle to tap accurately, causing frustration and excluding them from core functionality. The minimum recommended touch target size is 48x48 logical pixels to ensure reliable interaction across all ability levels. {v6}
@@ -1016,7 +1016,7 @@ plugins:
       use_truncating_division: true  # [WARNING] Prefer truncating division (`~/`) instead of `/` followed by `.toInt()`.
 
       #
-      # --- TIER 3: PROFESSIONAL (569 rules) ---
+      # --- TIER 3: PROFESSIONAL (571 rules) ---
       #
       avoid_absorb_pointer_misuse: true  # [INFO] AbsorbPointer blocks ALL touch events. Prefer IgnorePointer instead. This layout configuration can trigger RenderFlex overflow errors or unexpected visual behavior at runtime. {v3}
       avoid_accessing_other_classes_private_members: true  # [WARNING] Accessing a private member of another class in the same file. In Dart, underscore-prefixed members are private to the library (file), not to the class. This means classes in the same file can reach into each other's internal state — but this violates encapsulation and creates maintenance debt. When the code is later refactored (classes split into different files), these accesses break. {v1}
@@ -1395,6 +1395,7 @@ plugins:
       prefer_sqflite_singleton: true  # [INFO] openDatabase called directly. May create multiple connections. Calling openDatabase repeatedly creates connection overhead and may cause locking issues. Use a singleton pattern. {v2}
       prefer_stale_while_revalidate: true  # [INFO] Consider stale-while-revalidate for cached API data.
       prefer_static_const_widgets: true  # [INFO] Non-static const field is created per instance instead of sharing single compile-time object. {v3}
+      prefer_static_final_for_session_constant: true  # [INFO] This expression combines only session-constant values (numeric literals, const fields, and device-scaled design-token getters that resolve once per app session), so its result is identical on every rebuild yet is recomputed on every frame inside build(). The token getters are not compile-time const, so const will not compile; hoist the whole expression to a lazily computed static final field so it is evaluated once rather than per build. {v1}
       prefer_stream_transformer: true  # [INFO] Consider Stream.transform() for reusable stream pipelines.
       prefer_streaming_for_large_files: true  # [INFO] Reading potentially large file into memory. Consider streaming for logs, media, or data exports. {v2}
       prefer_streaming_response: true  # [INFO] bodyBytes loads entire file into memory, causing OutOfMemoryError for large downloads. Stream to disk instead. {v2}
@@ -1428,6 +1429,7 @@ plugins:
       proper_super_calls: true  # [WARNING] Super lifecycle method called in wrong order. In State classes, super.initState() must be called first, and super.dispose() must be called last. {v5}
       require_analytics_event_naming: true  # [INFO] Analytics event name does not follow snake_case convention. Inconsistent naming fragments dashboards, breaks funnel queries, and makes cross-platform analysis unreliable. Most analytics platforms recommend or require snake_case for event names. {v1}
       require_android_backup_rules: true  # [INFO] Sensitive data in SharedPreferences may be included in Android auto-backup. {v3}
+      require_android_partial_media_permission: true  # [INFO] This app declares broad media permissions (READ_MEDIA_IMAGES / READ_MEDIA_VIDEO) and uses a gallery plugin, but AndroidManifest.xml omits READ_MEDIA_VISUAL_USER_SELECTED. On Android 14+ (API 34) that omission hides the "Select photos" partial access option, forcing users to grant all-or-nothing access to their entire library. {v1}
       require_animation_curve: true  # [INFO] Animation uses the default linear curve, which often results in unnatural or robotic motion. Without specifying a curve, transitions may feel abrupt and lack the smoothness users expect. Always wrap with CurvedAnimation or use .animate() with a curve parameter to create more natural, visually appealing animations that enhance user experience. {v2}
       require_animation_status_listener: true  # [INFO] AnimationController.forward() called without addStatusListener to detect completion. The animation will run but your application cannot respond when it finishes, preventing cleanup, sequencing, or triggering follow-up actions. {v2}
       require_api_error_mapping: true  # [INFO] Raw API exceptions are exposed to users, leaking implementation details and providing unhelpful error messages. This can confuse users and expose sensitive information such as server paths, stack traces, or internal status codes. Always catch specific exceptions and map them to domain errors with clear, actionable messages to protect against information disclosure and improve error recovery. {v4}

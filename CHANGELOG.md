@@ -42,6 +42,16 @@ browse source on
 
 ---
 
+## [4.1.13]
+
+The timeline auto-capture no longer freezes your app's launch when the extension is connected in debug. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.13/CHANGELOG.md)
+
+### Fixed
+
+- **Timeline auto-capture no longer stalls host-app startup.** On connect, the timeline snapshot sweep read every table with a full `SELECT *` in one back-to-back burst over the app's single live database connection. On a host that runs Drift on its main isolate (the standard debug setup), that burst monopolized the connection and froze the app's launch for several seconds. Two fixes: very large tables (over 50,000 rows) are now captured metadata-only — the sweep already truncated them to a misleading partial slice, so it skips the expensive read and still records the row-count change; and a short pause between table reads lets the app's own startup queries run in between, so a capture spreads out instead of blocking the launch.
+
+---
+
 ## [4.1.12]
 
 Rewind a table in Time Travel, then save that moment as a branch you can diff or restore later. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.12/CHANGELOG.md)
