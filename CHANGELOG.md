@@ -46,6 +46,10 @@ browse source on
 
 The "Code vs database" schema view no longer reports false drift for DateTime columns or autoincrement id columns. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.14/CHANGELOG.md)
 
+### Added
+
+- **Search box in the History sidebar.** A filter field above the history list narrows entries to those whose SQL contains your text (case-insensitive), working alongside the existing All / Browser / App / Internal source filters. Typing filters instantly, and a clear "no queries match" message shows when nothing matches.
+
 ### Fixed
 
 - **DateTime columns no longer show a false `code TEXT vs database INTEGER` divergence.** The code-declared schema hard-mapped every Drift `DateTime` column to TEXT, but Drift's default storage is INTEGER (unix-epoch seconds) — TEXT only when the database sets `storeDateTimeAsText`. The declared schema now reads that option and maps DateTime to the affinity the live database actually uses, so default-storage apps (the common case) report no drift.

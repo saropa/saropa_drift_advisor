@@ -1302,6 +1302,10 @@
     "viewer.nav.tab.closeOthers.many": "Close {0} other tabs?",
     // --- Query history sidebar (assets/web/history-sidebar.ts) ---
     "viewer.nav.history.empty": "No queries yet.",
+    // Placeholder for the search box that filters history rows by SQL substring.
+    "viewer.nav.history.searchPlaceholder": "Filter by SQL\u2026",
+    // Empty state shown when a non-empty search matches no rows; {0} is the query.
+    "viewer.nav.history.noMatch": "No queries match \u201C{0}\u201D.",
     // Row-count suffix in a history entry's meta line; {0} is the count.
     "viewer.nav.history.rows": "{0} row(s)",
     // Error marker shown in a history row / occurrences table when a run failed.
@@ -30643,16 +30647,27 @@ ${JSON.stringify(results, void 0, 2)}`);
     resizer.addEventListener("keydown", onKeyDown);
   }
 
+  // assets/web/history-filter.ts
+  function entryMatchesHistoryFilter(entry, sourceFilter, query) {
+    if (sourceFilter !== "all" && entry.source !== sourceFilter) return false;
+    const needle = query.trim().toLowerCase();
+    if (needle && entry.sql.toLowerCase().indexOf(needle) < 0) return false;
+    return true;
+  }
+
   // assets/web/history-sidebar.ts
   var entries = [];
   var groups = [];
   var activeFilter = "all";
+  var searchQuery = "";
   var listEl = null;
   var countEl = null;
   var sidebarEl = null;
+  var searchEl = null;
   function filtered() {
-    if (activeFilter === "all") return entries;
-    return entries.filter((e) => e.source === activeFilter);
+    return entries.filter(
+      (e) => entryMatchesHistoryFilter(e, activeFilter, searchQuery)
+    );
   }
   function groupEntries(list) {
     const bySql = /* @__PURE__ */ new Map();
@@ -30676,7 +30691,8 @@ ${JSON.stringify(results, void 0, 2)}`);
     groups = groupEntries(filtered());
     countEl?.replaceChildren(document.createTextNode("(" + groups.length + ")"));
     if (groups.length === 0) {
-      listEl.innerHTML = '<li class="history-empty">' + esc2(vt("viewer.nav.history.empty")) + "</li>";
+      const emptyMsg = searchQuery ? vt("viewer.nav.history.noMatch", searchQuery) : vt("viewer.nav.history.empty");
+      listEl.innerHTML = '<li class="history-empty">' + esc2(emptyMsg) + "</li>";
       return;
     }
     listEl.innerHTML = groups.map((g, i) => {
@@ -30794,7 +30810,15 @@ ${JSON.stringify(results, void 0, 2)}`);
       "query-history-list"
     );
     countEl = document.getElementById("history-count");
+    searchEl = document.getElementById("history-search");
     if (!sidebarEl || !listEl) return;
+    if (searchEl) {
+      searchEl.placeholder = vt("viewer.nav.history.searchPlaceholder");
+      searchEl.addEventListener("input", function() {
+        searchQuery = (searchEl ? searchEl.value : "").trim();
+        render2();
+      });
+    }
     const filterBar = sidebarEl.querySelector(".history-filter-bar");
     if (filterBar) {
       filterBar.addEventListener("click", function(e) {
@@ -30896,11 +30920,11 @@ ${JSON.stringify(results, void 0, 2)}`);
       }).join("");
       const toolbar = '<div class="diagram-filter"><input type="search" id="diagram-field-search" placeholder="' + esc2(vt("viewer.settings.diagram.filter.search.placeholder")) + '" aria-label="' + esc2(vt("viewer.settings.diagram.filter.search.aria")) + '" /><select id="diagram-type-filter" aria-label="' + esc2(vt("viewer.settings.diagram.filter.type.aria")) + '"><option value="">' + esc2(vt("viewer.settings.diagram.filter.type.all")) + "</option>" + typeOpts + '</select><button type="button" class="btn active" id="diagram-highlight-toggle" aria-pressed="true">' + esc2(vt("viewer.settings.diagram.filter.highlight")) + '</button><button type="button" class="btn" id="diagram-hide-toggle" aria-pressed="false">' + esc2(vt("viewer.settings.diagram.filter.hide")) + "</button></div>";
       container.innerHTML = toolbar + '<div id="diagram-canvas"></div>';
-      const searchEl = document.getElementById("diagram-field-search");
+      const searchEl2 = document.getElementById("diagram-field-search");
       const typeEl = document.getElementById("diagram-type-filter");
       const hlBtn = document.getElementById("diagram-highlight-toggle");
       const hideBtn = document.getElementById("diagram-hide-toggle");
-      if (searchEl) searchEl.addEventListener("input", function() {
+      if (searchEl2) searchEl2.addEventListener("input", function() {
         filterText = this.value;
         paintDiagram(data);
       });

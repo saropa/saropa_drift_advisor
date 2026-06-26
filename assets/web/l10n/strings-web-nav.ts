@@ -35,6 +35,10 @@ export const stringsWebNav: Record<string, string> = {
 
   // --- Query history sidebar (assets/web/history-sidebar.ts) ---
   'viewer.nav.history.empty': 'No queries yet.',
+  // Placeholder for the search box that filters history rows by SQL substring.
+  'viewer.nav.history.searchPlaceholder': 'Filter by SQL…',
+  // Empty state shown when a non-empty search matches no rows; {0} is the query.
+  'viewer.nav.history.noMatch': 'No queries match “{0}”.',
   // Row-count suffix in a history entry's meta line; {0} is the count.
   'viewer.nav.history.rows': '{0} row(s)',
   // Error marker shown in a history row / occurrences table when a run failed.

@@ -14,6 +14,7 @@ import { vt } from './l10n.ts';
 import * as S from './state.ts';
 import { openTool } from './tabs.ts';
 import { showCopyToast } from './table-view.ts';
+import { entryMatchesHistoryFilter } from './history-filter.ts';
 
 /** Shape of a single history entry from GET /api/history. */
 interface HistoryEntry {
@@ -53,21 +54,35 @@ let groups: HistoryGroup[] = [];
 /** Currently active source filter. */
 let activeFilter: string = 'all';
 
+/**
+ * Free-text filter applied on top of the source filter, matched as a
+ * case-insensitive substring against each entry's SQL. Empty string means no
+ * text filter. Stored as the user typed it (trimmed) so the no-match message
+ * echoes their exact text; the lower-casing happens at compare time.
+ */
+let searchQuery: string = '';
+
 // -------------------------------------------------------
 // DOM references (resolved once in init)
 // -------------------------------------------------------
 let listEl: HTMLUListElement | null = null;
 let countEl: HTMLElement | null = null;
 let sidebarEl: HTMLElement | null = null;
+let searchEl: HTMLInputElement | null = null;
 
 // -------------------------------------------------------
 // Rendering
 // -------------------------------------------------------
 
-/** Returns entries matching the current filter. */
+/**
+ * Returns entries matching both the active source filter and the free-text SQL
+ * search. The per-entry predicate lives in history-filter.ts so it can be
+ * unit-tested without this module's DOM-coupled imports.
+ */
 function filtered(): HistoryEntry[] {
-  if (activeFilter === 'all') return entries;
-  return entries.filter((e) => e.source === activeFilter);
+  return entries.filter((e) =>
+    entryMatchesHistoryFilter(e, activeFilter, searchQuery),
+  );
 }
 
 /**
@@ -108,7 +123,12 @@ function render(): void {
   countEl?.replaceChildren(document.createTextNode('(' + groups.length + ')'));
 
   if (groups.length === 0) {
-    listEl.innerHTML = '<li class="history-empty">' + esc(vt('viewer.nav.history.empty')) + '</li>';
+    // Distinguish "nothing recorded" from "search filtered everything out" so a
+    // non-matching filter doesn't read as an empty history.
+    const emptyMsg = searchQuery
+      ? vt('viewer.nav.history.noMatch', searchQuery)
+      : vt('viewer.nav.history.empty');
+    listEl.innerHTML = '<li class="history-empty">' + esc(emptyMsg) + '</li>';
     return;
   }
 
@@ -408,8 +428,21 @@ export function initHistorySidebar(): void {
     'query-history-list',
   ) as HTMLUListElement | null;
   countEl = document.getElementById('history-count');
+  searchEl = document.getElementById('history-search') as HTMLInputElement | null;
 
   if (!sidebarEl || !listEl) return;
+
+  // --- Free-text SQL search ---
+  // Placeholder is set here (not in the static HTML shell) so the translated
+  // string is the single source of truth via vt(). 'input' re-renders against
+  // the in-memory cache, so filtering is instant with no server round-trip.
+  if (searchEl) {
+    searchEl.placeholder = vt('viewer.nav.history.searchPlaceholder');
+    searchEl.addEventListener('input', function () {
+      searchQuery = (searchEl ? searchEl.value : '').trim();
+      render();
+    });
+  }
 
   // Visibility is no longer owned here: History is one of the single sidebar's
   // swappable panels, shown/hidden by sidebar-panels.ts via #app-sidebar's

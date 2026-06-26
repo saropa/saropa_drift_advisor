@@ -285,6 +285,7 @@ abstract final class HtmlContent {
           <button type="button" class="history-filter" data-filter="app" aria-pressed="false">App</button>
           <button type="button" class="history-filter" data-filter="internal" aria-pressed="false">Internal</button>
         </div>
+        <input type="search" id="history-search" class="history-search" autocomplete="off" spellcheck="false" aria-label="Filter query history by SQL text">
         <ul id="query-history-list" class="query-history-list"></ul>
         <div class="history-actions">
           <button type="button" id="history-refresh" class="history-action-btn" title="Refresh history"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>

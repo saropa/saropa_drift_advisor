@@ -61,6 +61,33 @@
   outline-offset: 2px;
 }
 
+/* --- Free-text SQL search box --- */
+/* Sits between the source filters and the list; filters the in-memory cache
+   client-side, so typing is instant. type="search" gives the browser-native
+   clear (×) affordance for free. */
+.history-search {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: var(--text-xs);
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  padding: 0.3rem 0.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  transition: border-color 0.15s ease;
+}
+
+.history-search::placeholder {
+  color: var(--muted);
+}
+
+.history-search:focus-visible {
+  outline: none;
+  border-color: var(--link);
+}
+
 /* --- History entry list --- */
 /* No max-height needed — the sidebar itself is the scroll container. */
 .query-history-list {
