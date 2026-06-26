@@ -23,6 +23,7 @@ export class TimeTravelPanel {
 
   private readonly _panel: vscode.WebviewPanel;
   private readonly _engine: TimeTravelEngine;
+  private readonly _store: SnapshotStore;
   private readonly _disposables: vscode.Disposable[] = [];
   private _table: string;
   private _index = 0;
@@ -46,6 +47,7 @@ export class TimeTravelPanel {
 
   private constructor(panel: vscode.WebviewPanel, store: SnapshotStore, initialTable: string) {
     this._panel = panel;
+    this._store = store;
     this._engine = new TimeTravelEngine(store);
     this._table = initialTable;
     // Start at the most recent snapshot so the panel opens on "now", not the oldest frame.
@@ -80,6 +82,7 @@ export class TimeTravelPanel {
         this._panel.title = `Time Travel: ${this._table}`;
         this._sendTables();
         this._sendInfoAndState();
+        void this._sendCapabilities();
         break;
       case 'seekTo':
         if (typeof msg.index === 'number') {
@@ -94,9 +97,36 @@ export class TimeTravelPanel {
           this._sendState();
         }
         break;
+      case 'createBranch':
+        void this._createBranchHere();
+        break;
       default:
         break;
     }
+  }
+
+  /**
+   * Tell the webview whether "Create Branch Here" is available. The button is hidden unless Data
+   * Branching (Feature 37) registered its command, so the panel stays functional on its own when
+   * that module failed to load (each feature module is registered in isolation) — the plan's
+   * "when absent, hidden not broken" gate.
+   */
+  private async _sendCapabilities(): Promise<void> {
+    const commands = await vscode.commands.getCommands(true);
+    const canBranch = commands.includes('driftViewer.branchFromSnapshot');
+    void this._panel.webview.postMessage({ command: 'capabilities', canBranch });
+  }
+
+  /** Branch the snapshot at the current slider position (delegates to Feature 37's command). */
+  private async _createBranchHere(): Promise<void> {
+    const snapshot = this._store.snapshots[this._index];
+    if (!snapshot) {
+      void vscode.window.showInformationMessage(
+        'No snapshot at the current position to branch from.',
+      );
+      return;
+    }
+    await vscode.commands.executeCommand('driftViewer.branchFromSnapshot', snapshot);
   }
 
   private _sendTables(): void {

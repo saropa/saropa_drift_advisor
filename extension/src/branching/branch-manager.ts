@@ -103,6 +103,33 @@ export class BranchManager {
   /** Create and persist a new branch from the current live database state. */
   async createBranch(name: string, description?: string): Promise<IDataBranch> {
     const { tables, truncated } = await this.captureLiveTables();
+    return this._storeBranch(name, tables, truncated, description);
+  }
+
+  /**
+   * Create and persist a branch from already-captured tables rather than from the live DB.
+   *
+   * Used by "Create Branch Here" (Feature 60 Phase 5), which branches a historical snapshot:
+   * the rows come from the time-travel snapshot, not a fresh SELECT, so the branch records the
+   * database as it was at that point in time. `truncated` is supplied by the caller because only
+   * the capture source knows whether its rows were capped.
+   */
+  async createBranchFromTables(
+    name: string,
+    tables: IBranchTable[],
+    truncated: boolean,
+    description?: string,
+  ): Promise<IDataBranch> {
+    return this._storeBranch(name, tables, truncated, description);
+  }
+
+  /** Build, store (FIFO-pruned), persist, and announce a branch from captured tables. */
+  private async _storeBranch(
+    name: string,
+    tables: IBranchTable[],
+    truncated: boolean,
+    description?: string,
+  ): Promise<IDataBranch> {
     const branch: IDataBranch = {
       id: `${name}-${tables.reduce((s, t) => s + t.rows.length, 0)}-${this._branches.length}`,
       name,

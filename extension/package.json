@@ -322,6 +322,12 @@
         "icon": "$(git-branch)"
       },
       {
+        "command": "driftViewer.branchFromSnapshot",
+        "title": "%command.branchFromSnapshot.title%",
+        "category": "Saropa Drift Advisor",
+        "icon": "$(git-branch)"
+      },
+      {
         "command": "driftViewer.explainQuery",
         "title": "%command.explainQuery.title%",
         "category": "Saropa Drift Advisor"
@@ -977,6 +983,12 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "driftViewer.branchFromSnapshot",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "driftViewer.refreshTree",

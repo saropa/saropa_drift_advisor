@@ -72,6 +72,10 @@ export const stringsPanelReplay: Record<string, string> = {
   'panel.replay.timeTravel.playPause.title': 'Play / pause',
   'panel.replay.timeTravel.next.title': 'Next snapshot',
   'panel.replay.timeTravel.position.empty': 'No snapshots',
+  // "Create Branch Here" (Feature 60 Phase 5): branch the snapshot at the slider position.
+  'panel.replay.timeTravel.branch.label': 'Create Branch Here',
+  'panel.replay.timeTravel.branch.title':
+    'Save this snapshot as a data branch you can diff, merge to SQL, or restore',
 
   // --- Time-travel: client-script strings (resolved in-browser via the __VT
   //     bridge, since renderState() runs client-side). {0}/{1}/{2} tokens carry

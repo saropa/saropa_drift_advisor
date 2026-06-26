@@ -134,6 +134,7 @@ describe('Extension activation', () => {
     // Connection Phase 1: ConnectionStateMachine added to subscriptions (+1).
     // Time-Travel (Feature 60): driftViewer.timeTravel command registration (+1).
     // Data Branching (Feature 37): BranchManager dispose + openBranches + createBranch (+3).
+    // Branch-from-snapshot (Feature 60 Phase 5): driftViewer.branchFromSnapshot command (+1).
     // Suite integration (plan 67 R5): openExplainForSql, openTable,
     //   openSchemaForTable, openIssues, goToDefinitionForTable (+5).
     // Suite diagnostics mirror (plan 67 R2): watcher.onDidChange subscription,
@@ -153,7 +154,7 @@ describe('Extension activation', () => {
     // Drift Tools Hub: openDriftToolsHub command launching the Hub webview (+1).
     // Host discovery manifest (Finding 1 / E1): deactivate-time removeHostManifest
     // cleanup disposable in bootstrapExtension (+1).
-    assert.strictEqual(subscriptions.length, 238, `expected 238 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 239, `expected 239 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

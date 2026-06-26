@@ -796,7 +796,7 @@ Build the read-only path (capture → diff → merge SQL) fully before the destr
 
 **Outstanding (cross-feature, deferred).** Two integration hooks from the plan's narrative remain, both depending on other features and both additive:
 1. Bulk Edit "Create Branch before destructive edit" prompt ([47](./history/2026.04/2026.04.30/47-bulk-edit-grid.md)) — a safety hook in the bulk-edit commit path.
-2. Time-Travel "Create Branch from Snapshot" ([60](./60-time-travel-data-slider.md) Phase 5) — now buildable since `BranchManager` exists.
-The core feature (create / diff / merge-SQL / restore / delete) is complete and tested. Plan stays active for these two cross-feature hooks.
+2. ~~Time-Travel "Create Branch from Snapshot" ([60](./60-time-travel-data-slider.md) Phase 5)~~ — **DONE (2026-06-25).** Shipped as `driftViewer.branchFromSnapshot` + `BranchManager.createBranchFromTables` + `branching/snapshot-to-branch.ts`; the Time-Travel panel's "Create Branch Here" button persists the snapshot at the slider position as a branch. See the Phase 5 finish report in [60](./60-time-travel-data-slider.md).
+The core feature (create / diff / merge-SQL / restore / delete) is complete and tested. Plan stays active for the remaining cross-feature hook (Bulk Edit "Create Branch before destructive edit", item 1 above).
 
 **Finish report appended:** plans/37-data-branching.md (this section). Plan stays active — Phases 1–5 of the core feature complete; two cross-feature integration hooks remain.

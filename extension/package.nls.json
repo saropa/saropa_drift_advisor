@@ -48,6 +48,7 @@
   "command.timeTravel.title": "Time Travel",
   "command.openBranches.title": "Data Branches",
   "command.createBranch.title": "Create Data Branch",
+  "command.branchFromSnapshot.title": "Create Branch from Snapshot",
   "command.explainQuery.title": "Explain Query Plan",
   "command.analyzeQueryCost.title": "Analyze Query Cost",
   "command.watchTable.title": "Watch Table",

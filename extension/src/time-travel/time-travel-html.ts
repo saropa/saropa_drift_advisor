@@ -90,6 +90,9 @@ export function buildTimeTravelHtml(): string {
       <span id="position">${t('panel.replay.timeTravel.position.empty')}</span>
       <span id="summary" class="summary"></span>
     </div>
+    <div class="row">
+      <button id="createBranch" hidden title="${t('panel.replay.timeTravel.branch.title')}">${t('panel.replay.timeTravel.branch.label')}</button>
+    </div>
   </div>
   <div id="grid"></div>
 
@@ -115,6 +118,7 @@ export function buildTimeTravelHtml(): string {
     const playPause = document.getElementById('playPause');
     const positionEl = document.getElementById('position');
     const summaryEl = document.getElementById('summary');
+    const createBranchBtn = document.getElementById('createBranch');
     const grid = document.getElementById('grid');
 
     let total = 0;
@@ -169,6 +173,10 @@ export function buildTimeTravelHtml(): string {
       stopPlayback();
       vscode.postMessage({ command: 'setTable', table: tablePicker.value });
     });
+    createBranchBtn.addEventListener('click', () => {
+      stopPlayback();
+      vscode.postMessage({ command: 'createBranch' });
+    });
 
     function renderState(state) {
       const s = state.diffSummary || { added: 0, removed: 0, changed: 0 };
@@ -207,6 +215,9 @@ export function buildTimeTravelHtml(): string {
       } else if (msg.command === 'state') {
         slider.value = String(msg.state.snapshotIndex);
         renderState(msg.state);
+      } else if (msg.command === 'capabilities') {
+        // Show "Create Branch Here" only when Data Branching (Feature 37) is available.
+        createBranchBtn.hidden = !msg.canBranch;
       }
     });
 

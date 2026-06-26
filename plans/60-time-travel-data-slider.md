@@ -413,3 +413,26 @@ Build bottom-up so the diff logic is proven before any UI consumes it. Each phas
 **Outstanding.** Phase 5 only — the optional cross-feature hooks ("Create Branch Here" needs Feature 37; DVR sync needs Feature 26). Both are explicitly gated/optional in the plan above ("ship phases 1–4 without them"). Feature 37 is the next build item (top-5 Item 5), after which the branch-from-snapshot hook can be wired. Plan stays active for Phase 5.
 
 **Finish report appended:** plans/60-time-travel-data-slider.md (this section). Plan stays active — Phases 1–4 complete, Phase 5 (optional cross-feature hooks) deferred and documented in-place.
+
+---
+
+## Finish Report (2026-06-25) — Phase 5 "Create Branch Here" (branch-from-snapshot)
+
+**What shipped.** The Time-Travel panel now has a **Create Branch Here** button that saves the snapshot at the current slider position as a real data branch (Feature 37), which can then be diffed, merged-to-SQL, or restored like any live-captured branch. This was the only remaining unbuilt piece of Phase 5; it became buildable once Feature 37's `BranchManager` shipped. The other Phase 5 hook (DVR sync, needs Feature 26) is still deferred.
+
+**Scope.** (B) VS Code extension (TypeScript). No Dart/server code.
+
+**Files.**
+- `branching/branch-manager.ts` — refactored `createBranch` to delegate to a private `_storeBranch`; added public `createBranchFromTables(name, tables, truncated, description?)` so a branch can be built from already-captured rows (a historical snapshot) instead of a fresh live SELECT.
+- `branching/snapshot-to-branch.ts` (new) — `snapshotToBranchTables(snapshot)`: converts an `ISnapshot` to `IBranchTable[]`, synthesizing `ColumnMetadata` from the snapshot's column names + captured `pkColumns`, excluding `sqlite_*` tables, and flagging `truncated` when a table's real `rowCount` exceeds its captured rows.
+- `branching/branch-commands.ts` — registered `driftViewer.branchFromSnapshot` (accepts the snapshot from the panel; prompts for a name; persists via `createBranchFromTables`; opens the Branch panel). Snapshot-scoped, so hidden from the command palette.
+- `time-travel/time-travel-panel.ts` — keeps a `SnapshotStore` reference; handles a `createBranch` webview message by executing `driftViewer.branchFromSnapshot` with the snapshot at the current index; on `ready`, posts a `capabilities` message so the button is hidden when Feature 37 is unavailable ("when absent, hidden not broken").
+- `time-travel/time-travel-html.ts` — added the (initially hidden) "Create Branch Here" button, its click→`createBranch` message, and the `capabilities` handler that reveals it.
+- `l10n/strings-panel-replay.ts` — `panel.replay.timeTravel.branch.label` / `.title`.
+- `package.json` — declared `driftViewer.branchFromSnapshot` (+ `commandPalette` `when:false` to hide it); `package.nls.json` — `command.branchFromSnapshot.title`; regenerated `nls-coverage-data.ts`.
+- `test/snapshot-to-branch.test.ts` (new, 6 cases): metadata synthesis + PK marking, composite PK, `sqlite_` exclusion, truncation flagged / not flagged, empty snapshot.
+- `test/extension.test.ts` — disposable count 238 → 239 (the new command).
+
+**Testing.** `npm run compile` clean (tsc + verify-nls + nls-coverage OK); `npm test` → **2981 passing** (+6 converter cases). The exhaustive command-wiring/manifest tests pass, confirming `driftViewer.branchFromSnapshot` is declared and registered and hidden from the palette.
+
+**Outstanding.** Only the DVR-sync Phase 5 hook (needs Feature 26) remains; it is explicitly optional. Plan stays active for that one hook.

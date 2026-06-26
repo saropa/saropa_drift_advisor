@@ -9,8 +9,10 @@
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
+import type { ISnapshot } from '../timeline/snapshot-types';
 import { BranchManager } from './branch-manager';
 import { BranchPanel } from './branch-panel';
+import { snapshotToBranchTables } from './snapshot-to-branch';
 
 export function registerBranchCommands(
   context: vscode.ExtensionContext,
@@ -49,5 +51,49 @@ export function registerBranchCommands(
         vscode.window.showErrorMessage(`Could not create branch: ${m}`);
       }
     }),
+  );
+
+  // "Create Branch Here" (Feature 60 Phase 5): the Time-Travel panel passes the snapshot at the
+  // current slider position; we persist its captured state as a branch. Snapshot-scoped, so it is
+  // hidden from the command palette (a palette invocation arrives with no snapshot and no-ops).
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.branchFromSnapshot',
+      async (snapshot?: ISnapshot) => {
+        if (!snapshot) return;
+
+        const captured = new Date(snapshot.timestamp);
+        const name = await vscode.window.showInputBox({
+          prompt: 'Branch name (from this snapshot)',
+          value: `snapshot-${captured.toISOString().slice(11, 19).replace(/:/g, '')}`,
+          validateInput: (v) => (v.trim() ? null : 'Name required'),
+        });
+        if (!name) return;
+
+        const { tables, truncated } = snapshotToBranchTables(snapshot);
+        if (tables.length === 0) {
+          vscode.window.showWarningMessage('This snapshot has no user tables to branch.');
+          return;
+        }
+
+        try {
+          const branch = await manager.createBranchFromTables(
+            name.trim(),
+            tables,
+            truncated,
+            `Captured from time-travel snapshot at ${captured.toLocaleString()}`,
+          );
+          vscode.window.showInformationMessage(
+            `Branch "${branch.name}" created from snapshot — ${branch.metadata.tableCount} tables, ${branch.metadata.totalRows.toLocaleString()} rows`
+            + (branch.metadata.truncated ? ' (some tables truncated to the row cap)' : ''),
+          );
+          // Reveal the new branch so it is immediately diff/restore-able.
+          BranchPanel.createOrShow(manager, client);
+        } catch (err) {
+          const m = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Could not create branch from snapshot: ${m}`);
+        }
+      },
+    ),
   );
 }

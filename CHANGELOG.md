@@ -44,7 +44,11 @@ browse source on
 
 ## [Unreleased]
  [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.12/CHANGELOG.md)
- 
+
+### Added
+
+- **"Create Branch Here" in Time Travel.** While scrubbing a table's history in the Time-Travel panel, a new button saves the database state at the current snapshot position as a named data branch — which you can then diff, generate merge/rollback SQL from, or restore, exactly like a branch captured from live state. The button appears only when Data Branching is available. Snapshots cap rows per table, so a branch made from a large historical snapshot is flagged as truncated rather than passed off as complete.
+
 <details><summary>Maintenance</summary>
 
 - **Fixed flaky rate-limiting integration test.** `handler_integration_test.dart`'s "returns 429 when rate limit exceeded" test fired three sequential HTTP requests and assumed all three landed in the same one-second window; on a slow CI runner the third request crossed into the next wall-clock window, where the fixed-window counter reset to 1 and returned 200, failing the assertion. The test now fires a burst of concurrent requests so they cluster densely in one window and asserts at least one is throttled (and at least one succeeds), which holds regardless of where second boundaries fall.
