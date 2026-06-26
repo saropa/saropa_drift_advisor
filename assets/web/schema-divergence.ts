@@ -154,6 +154,17 @@ function compareColumns(
   const rCols = indexColumns(runtime.columns) as Map<string, RuntimeColumn>;
   const dColNames = indexColumns(dCols);
 
+  // A single-column INTEGER PRIMARY KEY is a SQLite rowid alias: PRAGMA
+  // table_info always reports notnull=0 for it even though it cannot store NULL
+  // (https://sqlite.org/lang_createtable.html, "ROWID and INTEGER PRIMARY KEY").
+  // Drift's autoIncrement() PK is declared NOT NULL, so the runtime notnull=0
+  // would otherwise fire a false nullable-mismatch on every such column. Count
+  // declared PK columns once to distinguish this single-column case from a real
+  // composite PK (where the notnull quirk does not apply).
+  const declaredPkCount = dCols.filter(
+    (c) => c && c.isPk === true,
+  ).length;
+
   for (const dc of dCols) {
     if (!dc || typeof dc.name !== 'string') continue;
     const rc = rCols.get(dc.name);
@@ -179,7 +190,14 @@ function compareColumns(
     // Runtime nullability is the inverse of PRAGMA's NOT NULL flag.
     const dNullable = dc.nullable !== false; // default nullable when unset
     const rNullable = rc.notnull !== true;
-    if (dNullable !== rNullable) {
+    // Suppress the rowid-alias false positive: a single-column INTEGER PK reports
+    // runtime notnull=0 (PRAGMA quirk) despite being NOT NULL, so skip the check
+    // rather than report drift that does not exist.
+    const isRowidPk =
+      dc.isPk === true &&
+      declaredPkCount === 1 &&
+      typeAffinity(dc.sqlType) === 'INTEGER';
+    if (!isRowidPk && dNullable !== rNullable) {
       out.push({
         table,
         column: dc.name,

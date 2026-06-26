@@ -42,6 +42,17 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+The "Code vs database" schema view no longer reports false drift for DateTime columns or autoincrement id columns. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.14/CHANGELOG.md)
+
+### Fixed
+
+- **DateTime columns no longer show a false `code TEXT vs database INTEGER` divergence.** The code-declared schema hard-mapped every Drift `DateTime` column to TEXT, but Drift's default storage is INTEGER (unix-epoch seconds) — TEXT only when the database sets `storeDateTimeAsText`. The declared schema now reads that option and maps DateTime to the affinity the live database actually uses, so default-storage apps (the common case) report no drift.
+- **Autoincrement `id` columns no longer show a false `code not null vs database nullable` divergence.** A single-column `INTEGER PRIMARY KEY` is a SQLite rowid alias, and SQLite always reports it as nullable in `PRAGMA table_info` even though it cannot hold NULL. The divergence check now skips the nullability comparison for these rowid-alias primary keys, while still flagging real nullability drift on ordinary columns and on composite or non-integer keys.
+
+---
+
 ## [4.1.13]
 
 The timeline auto-capture no longer freezes your app's launch when the extension is connected in debug. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.13/CHANGELOG.md)

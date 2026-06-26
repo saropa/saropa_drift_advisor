@@ -89,11 +89,42 @@ export function initToolbar(): void {
   var themeTrigger = document.getElementById('tb-theme-trigger');
   var themeFlyout = document.getElementById('tb-theme-flyout');
   if (themeTrigger && themeFlyout) {
+    // The flyout is position:fixed (so it escapes #toolbar-bar's overflow clip),
+    // which means it has no automatic anchor — place it next to the trigger and
+    // clamp it inside the viewport each time it opens.
+    var positionThemeFlyout = function () {
+      var r = themeTrigger!.getBoundingClientRect();
+      // Default: open to the right of the trigger, a small gap clear of it.
+      themeFlyout!.style.top = r.top + 'px';
+      themeFlyout!.style.left = r.right + 6 + 'px';
+      // Measure now that it's visible to decide whether it overflows an edge.
+      var fr = themeFlyout!.getBoundingClientRect();
+      // No room on the right (narrow / mobile horizontal strip): flip left.
+      if (fr.right > window.innerWidth - 8) {
+        themeFlyout!.style.left = Math.max(8, r.left - fr.width - 6) + 'px';
+      }
+      // The theme button sits low in the strip, so a downward menu can run past
+      // the bottom edge — pull it up by the overflow, never above the top edge.
+      if (fr.bottom > window.innerHeight - 8) {
+        themeFlyout!.style.top = Math.max(8, window.innerHeight - 8 - fr.height) + 'px';
+      }
+    };
+
     // Toggle flyout on click.
     themeTrigger.addEventListener('click', function (e: Event) {
       e.stopPropagation();
       var isOpen = themeTrigger!.getAttribute('aria-expanded') === 'true';
-      themeTrigger!.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+      var next = isOpen ? 'false' : 'true';
+      themeTrigger!.setAttribute('aria-expanded', next);
+      // Position only after it's shown (CSS keys display off aria-expanded), so
+      // getBoundingClientRect() measures the real, laid-out menu.
+      if (next === 'true') positionThemeFlyout();
+    });
+
+    // Keep the fixed menu glued to the trigger if the viewport changes while
+    // it's open (the trigger itself stays put — the toolbar is sticky).
+    window.addEventListener('resize', function () {
+      if (themeTrigger!.getAttribute('aria-expanded') === 'true') positionThemeFlyout();
     });
 
     // Wire theme option clicks.

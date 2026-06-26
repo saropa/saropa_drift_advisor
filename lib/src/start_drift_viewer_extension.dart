@@ -117,12 +117,21 @@ void _logDeclaredSchemaSkip(Object error, StackTrace stack) {
 /// SQLite storage type string for the declared-schema view. Best-effort: an
 /// unrecognized type falls back to TEXT. May throw if `column.type` is absent;
 /// the per-table catch in [_deriveDeclaredSchema] handles that.
-String _declaredSqlType(dynamic column) {
+///
+/// [storeDateTimeAsText] is the database's `DriftDatabaseOptions.storeDateTimeAsText`
+/// flag, read once in [_deriveDeclaredSchema]. It decides DateTime storage: Drift's
+/// DEFAULT is INTEGER (unix-epoch seconds), and only TEXT (ISO-8601) when the option
+/// is set. Hard-mapping DateTime to TEXT regardless made every DateTime column read
+/// as a `code TEXT vs database INTEGER` divergence on the common default-storage app.
+String _declaredSqlType(dynamic column, {required bool storeDateTimeAsText}) {
   final String t = column.type.toString().toLowerCase();
+  // DateTime must be checked before the generic int branch: its default storage
+  // is INTEGER, flipping to TEXT only when the database opts into text storage.
+  if (t.contains('datetime')) return storeDateTimeAsText ? 'TEXT' : 'INTEGER';
   if (t.contains('int') || t.contains('bool')) return 'INTEGER';
   if (t.contains('double') || t.contains('real')) return 'REAL';
   if (t.contains('blob') || t.contains('uint8')) return 'BLOB';
-  // string and dateTime (text/int storage) and anything else → TEXT.
+  // string and anything else → TEXT.
   return 'TEXT';
 }
 
@@ -144,7 +153,14 @@ String? _declaredDriftType(dynamic column) {
 }
 
 /// Reads the PK column names from a duck-typed Drift `TableInfo.$primaryKey`.
-DeclaredTable _declaredTableFrom(dynamic table, String name) {
+///
+/// [storeDateTimeAsText] is forwarded to [_declaredSqlType] so DateTime columns
+/// map to the database's actual storage affinity (INTEGER by default).
+DeclaredTable _declaredTableFrom(
+  dynamic table,
+  String name, {
+  required bool storeDateTimeAsText,
+}) {
   final pkNames = <String>{};
   final dynamic pkSet = table.$primaryKey;
   if (pkSet is Iterable) {
@@ -164,7 +180,10 @@ DeclaredTable _declaredTableFrom(dynamic table, String name) {
       declaredCols.add(
         DeclaredColumn(
           name: cn,
-          sqlType: _declaredSqlType(c),
+          sqlType: _declaredSqlType(
+            c,
+            storeDateTimeAsText: storeDateTimeAsText,
+          ),
           driftType: _declaredDriftType(c),
           nullable: nullable is bool ? nullable : true,
           isPk: pkNames.contains(cn),
@@ -186,6 +205,24 @@ DeclaredTable _declaredTableFrom(dynamic table, String name) {
 /// rethrown — the declared-schema tab is optional and must not break startup.
 /// Each table is derived independently so one malformed table cannot drop the
 /// rest.
+/// Reads the duck-typed Drift `GeneratedDatabase.options.storeDateTimeAsText`
+/// flag, defaulting to false (Drift's default INTEGER/unix-epoch DateTime
+/// storage). A non-Drift db or an older Drift without `options` legitimately
+/// lacks this getter, so the absence is a benign default — not a derivation
+/// failure worth logging — and we return false rather than surfacing it.
+bool _readStoreDateTimeAsText(dynamic driftDb) {
+  try {
+    final dynamic value = driftDb.options.storeDateTimeAsText;
+    return value is bool ? value : false;
+    // A missing `options`/`storeDateTimeAsText` getter is the EXPECTED path for a
+    // non-Drift db; logging it on every such startup would be misleading noise, and
+    // the false default is correct (Drift's default INTEGER DateTime storage).
+    // ignore: require_catch_logging -- expected non-Drift path; false is the correct default, logging would be noise
+  } on Object {
+    return false;
+  }
+}
+
 DeclaredSchema? _deriveDeclaredSchema(Object db) {
   try {
     final dynamic driftDb = db;
@@ -193,6 +230,9 @@ DeclaredSchema? _deriveDeclaredSchema(Object db) {
     if (tables is! Iterable) {
       return null;
     }
+    // Read the DateTime-storage option once so every DateTime column maps to the
+    // affinity the live DB actually uses (INTEGER by default, TEXT only when set).
+    final bool storeDateTimeAsText = _readStoreDateTimeAsText(driftDb);
     final result = <DeclaredTable>[];
     for (final dynamic table in tables) {
       try {
@@ -200,7 +240,13 @@ DeclaredSchema? _deriveDeclaredSchema(Object db) {
         if (name is! String || name.isEmpty) {
           continue;
         }
-        result.add(_declaredTableFrom(table, name));
+        result.add(
+          _declaredTableFrom(
+            table,
+            name,
+            storeDateTimeAsText: storeDateTimeAsText,
+          ),
+        );
       } on Object catch (error, stack) {
         // One malformed table (missing $columns/$primaryKey/type) is skipped;
         // the remaining tables still produce a usable declared schema.

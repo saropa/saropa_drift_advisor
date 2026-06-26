@@ -2,6 +2,9 @@
 .home-screen {
   max-width: 72rem;
   margin: 0 auto;
+  /* Breathing room below the launcher grid so the last card row isn't flush
+     against the main content's bottom edge when the page doesn't scroll. */
+  padding-bottom: 2rem;
 }
 
 /* Title + narrative feature overview, populated at runtime via vt(). */
@@ -44,7 +47,10 @@
 
 .home-feature-search {
   width: 100%;
-  padding: 0.6rem 0.75rem 0.6rem 2.4rem;
+  /* Left padding indents both the typed value and the placeholder clear of the
+     search glyph (icon ends ~1.9rem in); bumped from 2.4rem so the text no
+     longer butts against the icon. */
+  padding: 0.6rem 0.75rem 0.6rem 3rem;
   font: inherit;
   font-size: var(--text-sm);
   color: var(--fg);

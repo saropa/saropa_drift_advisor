@@ -136,6 +136,65 @@ describe('computeSchemaDivergence', () => {
     ]);
   });
 
+  it('does not flag an autoincrement INTEGER PK as nullable (rowid alias)', () => {
+    // SQLite's PRAGMA table_info reports notnull=0 for a single-column INTEGER
+    // PRIMARY KEY (rowid alias) even though it cannot store NULL. Drift declares
+    // such a PK NOT NULL, so without the rowid guard this would false-positive a
+    // nullable-mismatch on every autoincrement id.
+    const declared = [
+      dt('things', [
+        { name: 'id', sqlType: 'INTEGER', nullable: false, isPk: true },
+        { name: 'label', sqlType: 'TEXT', nullable: true, isPk: false },
+      ]),
+    ];
+    const runtime = [
+      rt('things', [
+        { name: 'id', type: 'INTEGER', notnull: false, pk: true },
+        { name: 'label', type: 'TEXT', notnull: false, pk: false },
+      ]),
+    ];
+    assert.deepEqual(computeSchemaDivergence(declared, runtime), []);
+  });
+
+  it('still flags a nullable-mismatch on a non-INTEGER single PK', () => {
+    // The rowid-alias suppression is INTEGER-only: a TEXT primary key is NOT a
+    // rowid alias, so PRAGMA reports its real nullability and a true mismatch
+    // must still surface.
+    const declared = [
+      dt('codes', [
+        { name: 'code', sqlType: 'TEXT', nullable: false, isPk: true },
+      ]),
+    ];
+    const runtime = [
+      rt('codes', [{ name: 'code', type: 'TEXT', notnull: false, pk: true }]),
+    ];
+    const f = computeSchemaDivergence(declared, runtime);
+    assert.deepEqual(f.map((x) => x.kind), ['nullable-mismatch']);
+  });
+
+  it('still flags nullable-mismatch on a composite INTEGER PK member', () => {
+    // The rowid quirk only applies to a SINGLE-column INTEGER PK. A composite PK
+    // is not a rowid alias, so PRAGMA reports real nullability and the guard must
+    // not suppress a genuine mismatch.
+    const declared = [
+      dt('edges', [
+        { name: 'a', sqlType: 'INTEGER', nullable: false, isPk: true },
+        { name: 'b', sqlType: 'INTEGER', nullable: false, isPk: true },
+      ]),
+    ];
+    const runtime = [
+      rt('edges', [
+        { name: 'a', type: 'INTEGER', notnull: false, pk: true },
+        { name: 'b', type: 'INTEGER', notnull: true, pk: true },
+      ]),
+    ];
+    const f = computeSchemaDivergence(declared, runtime);
+    assert.deepEqual(
+      f.map((x) => x.kind + ':' + x.column),
+      ['nullable-mismatch:a'],
+    );
+  });
+
   it('defaults an unset nullable to nullable (matches db nullable)', () => {
     const declared = [dt('t', [{ name: 'a', sqlType: 'TEXT', isPk: false }])];
     const runtime = [
