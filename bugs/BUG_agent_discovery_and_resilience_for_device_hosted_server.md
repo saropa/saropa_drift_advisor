@@ -1,5 +1,19 @@
 # Bug + Enhancement Report
 
+**Status: Fixed (duplicate).** All three findings were resolved and the canonical
+report — with the full Finish Report — is archived at
+`plans/history/2026.06/2026.06.24/BUG_agent_discovery_and_resilience_for_device_hosted_server.md`.
+This file is a stale re-creation (see the recreation note below); it is retained
+only because deletion was not authorized. Resolution in brief: Finding 1
+(resilience) — the SQL handler already catches every throw and returns a JSON
+error, with a crash-proof request wrapper (`Router.onRequest`), a 30s statement
+timeout, and a 10,000-row cap; Finding 2 (host discovery) — the VS Code extension
+now writes a host-side manifest with the forwarded port and
+`transport:"adb-forward"` (`extension/src/host-discovery-manifest.ts`); Finding 3
+— met in this repo's extension rather than by editing the cross-repo Contacts
+script. The only open item is operational, not a code defect here: the device
+must run a Contacts build embedding advisor >= 4.1.11 (it was on 4.1.10).
+
 Found while an AI coding agent (Claude Code) used the Drift Advisor loopback
 server as a live-DB research tool during a Saropa Contacts debugging session
 (2026-06-24). The app runs on a **physical Motorola device** (wifi adb).
