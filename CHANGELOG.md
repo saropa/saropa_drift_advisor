@@ -42,7 +42,7 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.14]
 
 The "Code vs database" schema view no longer reports false drift for DateTime columns or autoincrement id columns. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.14/CHANGELOG.md)
 
