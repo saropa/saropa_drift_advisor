@@ -42,6 +42,16 @@ browse source on
 
 ---
 
+## [UNreleased]
+
+The "Drift debug server detected" toast no longer keeps re-popping on a flaky wireless-debugging connection. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.15/CHANGELOG.md)
+
+### Fixed
+
+- **No more repeated "Drift debug server detected on port 8642" toasts on a flapping wireless link.** When the Drift server runs inside the app on a device reached over Android Wireless Debugging, a dropped-and-recovered link triggered an automatic `adb forward` recovery that restarted discovery and re-armed the once-per-session toast latch — so every reconnect (roughly every 1–few minutes on a flaky link) re-showed the "detected" toast with its action buttons. The automatic recovery path now preserves the latch, so the link flap stays silent after the first detection (and the single "no longer responding" warning). A user-initiated "Retry Discovery" still re-announces as before.
+
+---
+
 ## [4.1.14]
 
 The "Code vs database" schema view no longer reports false drift for DateTime columns or autoincrement id columns. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.14/CHANGELOG.md)

@@ -62,7 +62,11 @@ export async function tryAdbForwardAndRetry(
   try {
     await runAdbForward(port, execOverride);
     await workspaceState.update(WORKSPACE_KEY, now);
-    discovery.retry();
+    // Preserve the once-per-session "detected"/"lost" latch: this is an
+    // automatic recovery after a wireless-debugging flap, not a fresh session.
+    // Re-arming it (the default) is what re-fired a "detected" toast on every
+    // reconnect on a flaky adb-forward link.
+    discovery.retry({ resetNotifyLatch: false });
     return true;
   } catch {
     return false;

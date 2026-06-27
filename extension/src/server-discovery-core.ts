@@ -86,12 +86,22 @@ export class ServerDiscovery {
   getDiscoverySnapshot(): DiscoveryUiState {
     return buildDiscoveryUiState(this._snapshot(false));
   }
-  start(): void {
+  /**
+   * @param reArmLostLatch — When true (a genuinely fresh session: extension
+   *   activate, user "Retry Discovery"), re-arm the once-per-session "lost"
+   *   warning so the next discovery announces. When false (an internal restart
+   *   from [retry] on the automatic adb-forward recovery path), preserve the
+   *   latch: a wireless link that flaps and re-forwards is the same session the
+   *   user already asked not to be re-notified about.
+   */
+  start(reArmLostLatch = true): void {
     if (this._running) return;
     this._running = true;
     this._scanCount = 0;
-    // A fresh discovery session re-arms the once-per-session "lost" warning.
-    this._lostDebouncer.reset();
+    // A fresh discovery session re-arms the once-per-session "lost" warning; an
+    // internal auto-recovery restart (reArmLostLatch=false) keeps it latched so
+    // the per-reconnect "detected" toast stays suppressed on a flaky link.
+    if (reArmLostLatch) this._lostDebouncer.reset();
     this._logLine(
       `Starting — scanning ${this._config.host} ports ${portsProbeLabel(this._config)} `
       + `every ${SEARCH_INTERVAL / 1000}s (backoff after ${BACKOFF_THRESHOLD} empty scans to ${BACKOFF_INTERVAL / 1000}s)`,
@@ -126,13 +136,25 @@ export class ServerDiscovery {
     this._emitDiscoveryUi(false);
     void this._poll(this._pollId);
   }
-  retry(): void {
-    this._logLine('Retry requested — resetting to searching state');
+  /**
+   * Restart discovery in the fast "searching" state.
+   * @param options.resetNotifyLatch — Default true: a user-initiated retry
+   *   re-arms the once-per-session toast so the next discovery re-announces.
+   *   Pass false on the automatic adb-forward recovery path so a flapping
+   *   wireless link does not re-fire a "detected" toast on every reconnect
+   *   (the latch survives [stop]; only [start]'s re-arm is skipped).
+   */
+  retry(options: { resetNotifyLatch?: boolean } = {}): void {
+    const resetNotifyLatch = options.resetNotifyLatch ?? true;
+    this._logLine(
+      `Retry requested — resetting to searching state`
+      + `${resetNotifyLatch ? '' : ' (preserving notify latch — auto-recovery)'}`,
+    );
     this._paused = false;
     this.stop();
     this._state = 'searching';
     this._emptyScans = 0;
-    this.start();
+    this.start(resetNotifyLatch);
   }
   dispose(): void {
     this.stop();

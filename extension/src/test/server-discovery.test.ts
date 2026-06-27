@@ -350,6 +350,50 @@ describe('ServerDiscovery', () => {
     assert.strictEqual(messageMock.warnings.length, 2, 'new session warns again');
   });
 
+  it('auto-recovery retry (resetNotifyLatch:false) must not re-announce on a flap', async () => {
+    // Reproduces the wireless-debugging repeat-toast bug: the empty-servers
+    // adb-forward recovery path calls retry() on every reconnect. A blanket
+    // retry() re-armed the latch and re-fired "detected"; the auto path must
+    // preserve the latch so a flapping link stays silent after the first warning.
+    stubPortAlive(8642);
+    discovery = new ServerDiscovery(defaultConfig());
+    discovery.start();
+    await clock.tickAsync(1);
+    assert.strictEqual(messageMock.infos.length, 1, 'detected once on first connect');
+
+    // Sustained drop → the one allowed "lost" warning fires after the grace window.
+    fetchStub.reset();
+    fetchStub.rejects(new Error('connection refused'));
+    await clock.tickAsync(10001);
+    await clock.tickAsync(10001);
+    await clock.tickAsync(35001);
+    assert.strictEqual(messageMock.warnings.length, 1, 'first outage warns');
+
+    // adb-forward recovery restarts discovery WITHOUT re-arming the latch.
+    // Stub the live port before retry(): retry() polls synchronously.
+    stubPortAlive(8642);
+    discovery.retry({ resetNotifyLatch: false });
+    await clock.tickAsync(1);
+    assert.strictEqual(discovery.servers.length, 1, 're-found after auto-recovery retry');
+    assert.strictEqual(
+      messageMock.infos.length,
+      1,
+      'auto-recovery must NOT re-fire the "detected" toast',
+    );
+
+    // A later sustained drop still warns at most once for the whole session.
+    fetchStub.reset();
+    fetchStub.rejects(new Error('connection refused'));
+    await clock.tickAsync(10001);
+    await clock.tickAsync(10001);
+    await clock.tickAsync(35001);
+    assert.strictEqual(
+      messageMock.warnings.length,
+      1,
+      'auto-recovery keeps the latch — no second warning',
+    );
+  });
+
   it('should throttle notifications per port', async () => {
     stubPortAlive(8642);
     discovery = new ServerDiscovery(defaultConfig());
