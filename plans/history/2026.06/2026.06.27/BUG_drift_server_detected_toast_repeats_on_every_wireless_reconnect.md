@@ -1,5 +1,7 @@
 # Bug Report
 
+Status: Fixed
+
 ## Title
 
 The "Drift debug server detected on port 8642" information toast re-fires on every wireless-debugging reconnect (every 1–few minutes on a flaky link), instead of the intended once-per-session, because `tryAdbForwardAndRetry` calls `discovery.retry()` which resets the once-per-session de-dup latch.
@@ -132,3 +134,36 @@ Applied option (1) — distinguish user-initiated retry from automatic adb-forwa
 - `tryAdbForwardAndRetry` (the automatic recovery path) now calls `discovery.retry({ resetNotifyLatch: false })`, so a wireless-debugging flap re-forwards and re-discovers the port without re-firing a "detected" toast. `android-forward.ts`.
 
 Test added in `server-discovery.test.ts`: "auto-recovery retry (resetNotifyLatch:false) must not re-announce on a flap" — asserts that after the once-per-session warning fires, an auto-recovery `retry({ resetNotifyLatch: false })` re-finds the port with no extra "detected" toast and no second "lost" warning. The existing "warn at most once per session" test continues to cover the user-initiated `retry()` re-arm. Full discovery suite passes.
+
+## Finish Report (2026-06-27)
+
+### Defect
+
+On a flapping Android Wireless Debugging link, the "Drift debug server detected on port 8642" information toast re-fired on every reconnect (roughly every 1–few minutes, floored by the 60s adb-forward throttle) instead of the intended once per discovery session. The grace-window plus once-per-session latch in `ServerLostDebouncer` was designed precisely to collapse such flapping to a single notification; the automatic `adb forward` recovery path defeated it.
+
+### Root cause
+
+When discovery lost all servers while a Dart/Flutter debug session was live, the empty-servers handler called `tryAdbForwardAndRetry`, which ran `adb forward` and then `discovery.retry()`. `retry()` performed `stop()` then `start()`, and `start()` unconditionally called `this._lostDebouncer.reset()`, clearing `_notifiedThisSession`. The next successful scan re-added the port and emitted a fresh `'found'` toast. A genuine wireless flap therefore re-announced on each recovery cycle.
+
+### Change
+
+The fix distinguishes a user-initiated retry (should reset the latch and re-announce) from an automatic adb-forward recovery (should preserve it):
+
+- `ServerDiscovery.start(reArmLostLatch = true)` only calls `_lostDebouncer.reset()` when `reArmLostLatch` is true. `stop()` already clears only the pending grace timers (`clearAll()`), not the session latch, so the latch survives an internal restart when the re-arm is skipped.
+- `ServerDiscovery.retry(options: { resetNotifyLatch?: boolean } = {})` defaults `resetNotifyLatch` to true and threads it into `start()`. Every existing caller keeps its prior behavior: the "Retry Discovery" command/button, the no-servers warning's Retry action, and the new-debug-session recovery in `debug-commands-vm.ts` all still re-announce.
+- `tryAdbForwardAndRetry` (`android-forward.ts`) is the sole caller passing `{ resetNotifyLatch: false }`, so a wireless flap re-forwards and re-discovers silently after the first detection and the single "no longer responding" warning.
+
+### Files
+
+- `extension/src/server-discovery-core.ts` — `start()` gains the `reArmLostLatch` parameter; `retry()` gains the `resetNotifyLatch` option.
+- `extension/src/android-forward.ts` — auto-recovery path calls `retry({ resetNotifyLatch: false })`.
+- `extension/src/test/server-discovery.test.ts` — regression test for the auto-recovery path.
+- `CHANGELOG.md` — user-facing Fixed entry under `[UNreleased]`.
+
+### Verification
+
+`node node_modules/mocha/bin/mocha.js out/test/server-discovery.test.js` — the new test and the existing retry/flap/once-per-session tests pass. TypeScript compiles clean (`tsc -p ./`), and the pre-commit lint hook (`tsc --noEmit`) passed.
+
+### Risk / regression surface
+
+Behavioral change is confined to the once-per-session toast latch on the automatic recovery path. Server detection, removal, sidebar/status-bar disconnect indication, and the single "lost" warning are unchanged. User-initiated retry still re-announces, so no loss of the legitimate "detected" toast on a real new session.
