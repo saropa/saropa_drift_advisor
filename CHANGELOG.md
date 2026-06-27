@@ -42,7 +42,7 @@ browse source on
 
 ---
 
-## [UNreleased]
+## [4.1.15]
 
 The "Drift debug server detected" toast no longer keeps re-popping on a flaky wireless-debugging connection. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.15/CHANGELOG.md)
 
