@@ -42,6 +42,22 @@ browse source on
 
 ---
 
+## [4.1.16]
+
+Row-count file badges now render on every Drift table file — including large tables — and no longer spam the extension-host log. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.16/CHANGELOG.md)
+
+### Fixed
+
+- **Row-count file badges now show on tables of every size and stop flooding the extension-host log.** The badge label could exceed VS Code's two-character limit for whole row-count bands (100–999 rows, and roughly 9 500 rows and up — e.g. `"100"`, `"10K"`, `"999K"`, `"10M"`). VS Code rejects an over-length badge: it dropped the decoration entirely (so exactly the large tables that most need a count showed none) and logged an `INVALID decoration … 'badge'-property must be undefined or a short character` warning once per offending file on every badge refresh — hundreds of lines per refresh, compounding on a reconnecting link. The badge is now always two characters or fewer: exact counts under 100, then a leading digit plus a magnitude letter (`3H`, `5K`, `2M`, `1B`) or the bare letter when even that won't fit, with the full per-table counts still in the hover tooltip.
+
+<details><summary>Maintenance</summary>
+
+- `formatBadge` rewritten to be total-safe to ≤2 characters (`Math.floor` instead of `Math.round` so values like 9 500 stay `"9K"` rather than overflowing to the 3-char `"10K"`; guards non-finite and non-positive input). Added a defensive guard at the `FileDecoration` call site that omits the badge (keeping the tooltip) if a label ever exceeds two characters, so a future regression cannot reach VS Code. Added a unit test asserting `formatBadge(n).length <= 2` across the full range plus updated the band-specific expectations. Fixes `plans/history/2026.06/2026.06.27/BUG_file_decoration_badge_exceeds_two_chars_floods_exthost_log.md`.
+
+</details>
+
+---
+
 ## [4.1.15]
 
 The "Drift debug server detected" toast no longer keeps re-popping on a flaky wireless-debugging connection. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.15/CHANGELOG.md)
@@ -488,89 +504,4 @@ Big schemas are easier to read now: a sidebar toggle groups related tables toget
 
 ---
 
-## [4.0.1]
-
-Housekeeping release — a behind-the-scenes security update to a build tool, with no changes to how the package or extension behaves for you. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.1/CHANGELOG.md)
-
-<!-- cspell:ignore GHSA-gv7w-rqvm-qjhr -->
-<details><summary>Maintenance</summary>
-
-- **Bumped esbuild to 0.28.1** (from 0.28.0) to clear advisory [GHSA-gv7w-rqvm-qjhr](https://github.com/advisories/GHSA-gv7w-rqvm-qjhr) — the esbuild Deno module wrote downloaded native binaries to disk without SHA-256 integrity verification, allowing RCE when `NPM_CONFIG_REGISTRY` is attacker-controlled. The exploit path is Deno-only (`lib/deno/mod.ts`); this project builds via Node (`node esbuild.config.mjs`), so it was not exposed, but the floor is raised to the patched release regardless. esbuild is a devDependency (web-viewer bundle build only) and ships in no released artifact.
-
-</details>
-
----
-
-## [4.0.0]
-
-The debug server is now private by default: it binds to your machine only (127.0.0.1) and no longer sends a wildcard cross-origin header, so other devices on your network — and random websites you visit while debugging — can't reach your app's database. If you relied on connecting from another device, pass `loopbackOnly: false` (and set an `authToken`). [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
-
-### Added
-
-- **`GET /api/issues` now returns the Saropa Diagnostic Envelope** — the shared cross-tool format used across Saropa Lints, Drift Advisor, and Saropa Log Capture. The response gains top-level `schemaVersion`, `producer`, and `generatedAt`, and each issue gains a stable `id` (locale-independent dedupe key), a `category` (`performance` / `data` / `schema`), and a `title` (the suite-standard alias of `message`). The change is additive — every existing field is unchanged — so current consumers need no update; `GET /api/health` now advertises the envelope's `schemaVersion` so a client can version-gate before parsing.
-- **Five stable deep-link commands for cross-tool integration** — `driftViewer.openExplainForSql`, `openTable`, `openSchemaForTable`, `openIssues`, and `goToDefinitionForTable` let another extension (Saropa Lints, Saropa Log Capture) jump straight into the matching Drift Advisor surface — e.g. a slow-query signal opens its EXPLAIN plan, a runtime issue opens the table definition. Each takes a plain options object so it can be invoked programmatically; the ids are a public contract and will stay stable across releases.
-- **Offline diagnostics mirror for the Saropa suite.** While the debug server is running, the extension keeps a copy of the live issues at `.saropa/diagnostics/advisor.json` (refreshed as your data changes), so Saropa Lints and Saropa Log Capture can still read Advisor's index suggestions and anomalies after the app — and its debug server — has stopped. Run **Saropa Drift Advisor: Write Diagnostics Mirror (Suite)** to refresh it on demand. Best-effort and harmless: it never overwrites a good copy with an error response, and does nothing when no workspace is open.
-- **The Explain panel now shows related findings from the rest of the Saropa suite.** When you explain a query plan, a **Related Saropa Suite Findings** section lists Saropa Lints rules and Saropa Log Capture signals that apply to the same tables or query — so a full-table scan, the static rule that flags it, and the times it ran slow in a session all sit together. Findings are read from the sibling tools' diagnostics files; nothing shows when those tools aren't present.
-- **New Drift Health view brings all three Saropa tools together per table.** Run **Saropa Drift Advisor: Open Drift Health (Suite)** for one screen that groups, by table, Drift Advisor's live runtime issues, Saropa Lints' static findings, and Saropa Log Capture's runtime signals — so the static rule, the data problem, and the production symptom for a table sit side by side. Tables are ordered by how many findings they carry; a Refresh button re-reads everything. Theme-aware and works with whichever sibling tools are present.
-- **Suite findings now carry the commit they were captured at.** The diagnostics mirror records your current Git commit, and the Drift Health view marks any finding captured at a different commit as **stale** (dimmed) — so a finding left over from before your latest changes is obvious rather than misleading. Findings with no commit, or when the commit can't be determined, are never guessed at.
-- **Related suite findings now appear on the Index Suggestions and Anomaly panels too** — not just on Explain — so the static rule and runtime signal for a table sit next to its index/anomaly analysis.
-- **Drift Health refreshes itself as your data changes** (no manual Refresh needed while the panel is open), and gains a **severity filter** (All / Errors / Warnings / Info) and a **sort** control (by finding count or table name).
-- **Cross-tool jump actions on findings.** A table-scoped issue now offers a one-click action to jump to the table's Drift class; the button only appears when the target command is installed, and every action is re-validated against an allowlist before it runs (no arbitrary command execution from a diagnostics file).
-- **New Suite Findings dashboard widget.** Add it from the dashboard's widget picker for an at-a-glance count of cross-tool findings — total, errors vs warnings, and a per-tool breakdown (Drift Advisor / Saropa Lints / Log Capture) — with one click through to the full Drift Health view. It reads the same live issues and sibling diagnostics as that view, so the numbers always match.
-- **New Suite Commit Timeline.** Run **Saropa Drift Advisor: Open Commit Timeline (Suite)** to see how many suite findings each commit carried over time — newest first, with a per-commit severity bar, a per-tool breakdown, a badge on your current checkout, and a +/- change versus the previous commit so a regression or a cleanup stands out. Counts are recorded per commit while the debug server runs (kept in `.saropa/diagnostics/history.json`); the view refreshes itself as your data changes.
-- **Log Capture sessions now record the suite commit.** The Drift Advisor session sidecar tags each session with your Git commit and references the other tools' diagnostics captured at that commit (which were present, at which commit, and how many findings) — so a saved session can be lined up against your static-code and runtime-behavior findings for the exact checkout it ran on. References only; it never copies the other tools' data into the session file.
-- **Opening a table now lands on that table.** Clicking **View Table Data** in the Database tree — or a cross-tool "open table" / "open schema" deep-link from Saropa Lints or Log Capture — now opens the panel focused on that specific table (and centers it in the ER diagram), instead of the default view. Previously the table name was accepted but ignored.
-- **Helpful one-time suite suggestions.** If your project depends on the Saropa Lints or Saropa Log Capture package but you don't have that extension installed, Drift Advisor offers to install it — once, ever, per tool. It only appears when you already use the package (read from `pubspec.yaml`), so it never nags projects that don't.
-
-### Improved
-
-- **Cleaner Settings panel.** Numeric limits (SQL history size, saved analyses, slow-query threshold, page size) now show thousands separators in your language's format (e.g. `1,000`) and have a tidier stepper with more room around the value. Every setting row now lines its control up on the right with its description underneath, so values, dropdowns, and toggles all sit on one consistent column instead of some dropping onto their own line.
-
-### Fixed
-
-- **Offline diagnostics mirror is now readable by the other Saropa tools.** The `.saropa/diagnostics/advisor.json` mirror was written in the live API's shape (an `issues` array, each entry tagged with its detector name), but Saropa Lints and Saropa Log Capture read the mirror with the strict suite format (a `diagnostics` array, each entry tagged `advisor`) — so the file parsed to nothing on their side and the offline "Database issues (Drift Advisor)" section stayed empty whenever the debug server was down. The mirror now writes the canonical suite shape; the detector name is preserved as each finding's `ruleId`. The live `GET /api/issues` response is unchanged.
-- **Backslash data corruption on write.** Importing or cell-editing a value containing a backslash (for example a Windows path like `C:\Users`) no longer silently doubles the backslash in storage. SQLite string literals never used a backslash escape; the extra escaping corrupted data on every write path.
-- **Cell edits now report how many rows changed.** A cell update against a stale or mistyped primary key used to report success even when it matched no row; the response now carries the affected-row count so the editor can tell you nothing changed.
-- **Data-quality scan no longer silently under-reports.** When the host database returned row counts as text, the anomaly scan treated the count as zero and reported no issues; counts are now parsed whether numeric or text.
-
-### Changed
-
-- **BREAKING (secure defaults):** `DriftDebugServer.start` and `startDriftViewer` now default to `loopbackOnly: true` (was `false`, which bound `0.0.0.0` and exposed the database to the whole network) and `corsOrigin: null` (was `'*'`, which let any web page read DB responses cross-origin). The bundled web viewer is served same-origin and is unaffected. To restore the old behavior, pass `loopbackOnly: false` and `corsOrigin: '*'` explicitly — and set an `authToken` when binding beyond loopback.
-
-<details>
-<summary>Maintenance</summary>
-
-- Full-codebase security/quality audit recorded in `plans/full-codebase-audit-2026.06.12.md`. Phase 1 (secure boundaries): loopback default + no wildcard CORS; extension Bearer token withheld from non-loopback hosts; fixed confirmed webview/SPA XSS sinks (query-result rendering, lineage/impact inline handlers, ER-diagram `<script>` embedding, dashboard config form) via new `attrJsString`/`jsonForScript`/`isLoopbackHost` helpers; allowlisted dashboard `executeAction` to `driftViewer.*` commands.
-- Phase 2 (SQL integrity): all SQL identifier interpolation now routes through a single `ServerUtils.quoteIdent` helper (doubles embedded `"`); read-only SQL validator rewritten as a single-pass tokenizer that cannot be desynchronized by comments-inside-strings or strings-inside-comments (e.g. `SELECT 'a -- b' ; DROP TABLE t --` is now correctly rejected); cell-update PK value coerced against column affinity. Regression tests added for each.
-- Phase 3 (resource safety) — H3: every POST handler now reads its body through a shared `ServerUtils.readBodyBytes` cap (64 MiB) and returns HTTP 413 on overflow, instead of buffering an unbounded body into memory before validation.
-- Phase 3 — M4: `fetchWithRetry` no longer retries non-idempotent requests by default. A transient error on a mutating POST (data import, session create/annotate) is surfaced instead of silently re-sent, so a connection drop after the server applied the write can't duplicate it. Read/idempotent POSTs (`/api/sql`, `/api/sql/explain`, `/api/change-detection`, DVR stop/pause/config) opt back into retry explicitly.
-- Phase 5 (hardening) — L1: the auth token/password comparison no longer early-returns on a length mismatch (which leaked the expected secret's length via timing); the length difference is folded into the constant-time comparison.
-- Phase 5 — L7: removed the duplicate, weaker `ServerUtils.parseCsvLines` (used only by its own tests); the single canonical CSV parser is `DriftDebugImportProcessor.parseCsvLines`.
-- Phase 5 — L7 (TS helpers): the three near-identical `makeId` id generators (annotations, saved filters, query-builder nodes) are now one `shared-utils.makeId(prefix?)`; the Dart CodeLens provider computes a match's line with `document.positionAt` (O(log n)) instead of `substring(0, index).split('\n')`, which was O(n) per match — O(n²) per keystroke on a large file. The snake/PascalCase converters were intentionally left separate: they encode different domain rules (Drift acronym splitting vs. plan-naming fallbacks) and are not interchangeable.
-- Phase 5 — L4: `ServerUtils.safeSubstring` now returns a direct `substring(start, safeEnd)`; its own guard clauses already prove the bounds, so the previous double-`replaceRange` (correct but obscure and double-allocating) was unnecessary. No behavior change.
-- Phase 5 — L5: the ~50 near-identical HTML escapers across the extension are consolidated into one canonical `shared-utils.escapeHtml` (`& < > " '` + `String()` coercion). ~43 host-side `esc` copies now alias it; the three prior `escapeHtml` definitions (dashboard, DVR) re-export it; and the in-browser escapers that can't import it (filter/FK bridges, query-builder, portable report) were given the previously-missing `'` escape. Several copies omitted `'` — a latent breakout the moment any sink used a single-quoted attribute; `'` → `&#39;` renders identically, so this is pure hardening + de-duplication with no visible change.
-- Phase 5 — L6: removed three stale duplicate web assets — `assets/web/masthead.js`, `sql-highlight.js`, and `table-def-toggle.js` — left from the TypeScript migration. The served bundle is built by esbuild from the `.ts` sources (`index.js` imports `./masthead.ts` etc.), so the standalone `.js` copies were unreferenced.
-- Phase 1 (defense-in-depth) — C2b: every extension webview panel now renders through a shared `secureWebviewHtml` post-processor that injects a per-render nonce Content-Security-Policy (`default-src 'none'; script-src 'nonce-…'`) and replaces the old `script-src 'unsafe-inline'` on the dashboard, bulk-edit, and data-grid surfaces. Only scripts the panel author marks with the `__CSP_NONCE__` placeholder receive the nonce, so an injected `<script>` from any future escaping miss is inert rather than executable. Because a nonce CSP also blocks inline `on*` handlers, the panels' inline handlers were converted to `data-<event>` attributes dispatched by one delegated listener. `style-src` keeps `'unsafe-inline'` (inline `style=` attributes can't carry a nonce and style injection isn't code execution). The portable HTML report (exported to a file, no webview) is out of scope. No user-facing behavior change. The served-SPA half of C2b remains tracked in the audit doc.
-- `ServerUtils.readBodyBytes` rewritten from an `async`/`await for` loop to an explicit `StreamSubscription` (`listen` + `Completer`), dropping the now-unneeded `async` keyword that tripped `avoid_redundant_async` (the rule doesn't count `await for`, and the committed inline ignore wasn't suppressing it). Overflow still cancels the subscription to stop reading immediately; stream errors still surface to the caller. No behavior change.
-- Phase 3 — M7/M8: the Query Replay (DVR) recorder now uses a circular buffer so evicting the oldest entry is O(1) instead of O(n) per insert (and config shrink O(n) instead of O(n²)); the table-name parser bounds its input to avoid a CPU spike on very long generated SQL. No behavior change for users.
-- Historical finish/plan report files under `plans/history/**` had a stray AI-session-narration boilerplate line removed (carried in by `/finish` runs after the first generator fix only partially closed the leak). The report-generator instruction was corrected so future runs cannot reintroduce it. Documentation hygiene only — no package code changed.
-- Plan housekeeping — the pub.dev publisher-identity plan was closed: its doable scope (rename the package to `saropa_drift_advisor`, rename the repo, publish under the `saropa.com` verified publisher) is complete, so the parent plan was archived to `plans/history/2026.06/2026.06.14/fix-pub-dev-publisher.md`. The one remaining task — poison-pilling the old `saropa_drift_viewer` package, blocked on pub.dev admin access — was split into a new `plans/deferred/poison-pill-old-package.md` so blocked work no longer sits inside a "mostly complete" plan. Documentation only — no package code changed.
-- `relationship-engine.ts` was over the 300-line file limit (312). Its stateless SQL helpers (`sqlLiteral`, `getFkValue`, `getDependentRows`) and tree walkers (`collectTables`, `generateDeleteStatements`) moved to a new `relationship-engine-sql.ts` as free functions (the engine passes its API client in where a query is needed), matching the existing `relationship-engine-cache.ts` / `relationship-types.ts` split. The engine is now 220 lines; no behavior change.
-
-### Fixed
-
-- **Restoring a data branch is now atomic.** A branch restore applies all its table clears and row re-inserts in one server-side transaction that rolls back on any failure — a partway failure no longer leaves the database with some tables wiped and others repopulated. (It also now uses the write-enabled apply path; the previous path went through the read-only query endpoint and could not perform the restore at all.)
-- **CSV import preserves quoted data faithfully.** A newline inside a quoted CSV field no longer splits the row, and whitespace inside a quoted field is kept exactly (only unquoted fields are trimmed).
-- **SQL import handles semicolons inside string values.** A statement like `INSERT INTO t VALUES ('a;b')` is no longer shattered at the embedded semicolon; statements are split only at real statement boundaries (semicolons inside strings and comments are ignored).
-- **More accurate numeric outlier detection.** The data-quality scan now computes column variance in a numerically stable two-pass form (the previous one-pass formula lost precision on large-magnitude columns, so it could miss real outliers or flag normal values), and its log-scale check for wide, log-normal columns is now based on the actual distribution of the values rather than a circular range estimate.
-- **Correct "safe delete" planning and relationship traversal.** The cascade-delete plan now includes the leaf rows that actually hold the blocking foreign keys (previously skipped, so the plan could never complete), targets each row by its own primary-key column (not the root's), tracks the true nesting depth, and guards against cyclic foreign-key graphs.
-- **Accurate query statistics.** Query execution counts (which drive slow-query detection and index suggestions) no longer inflate over time — each recorded query is now counted once instead of being re-tallied on every periodic refresh.
-- **Diagnostics fixes.** A diagnostic on an `INSERT … SELECT` statement is now attributed to the inserted-into table (not the source table); per-table diagnostic exclusions now also apply to runtime/query events (the key they carried was never matched); and schema insights refresh on a real schema change instead of serving stale data until a timer lapses.
-- **Robust persisted-data handling.** Importing a corrupted snippet file now fails with a clear message instead of throwing; a corrupted saved performance-baseline value no longer breaks the panel on load; and snapshot/branch row-diffing no longer mis-pairs rows whose primary key differs only by null-ness or type (e.g. `null` vs `""`, `1` vs `"1"`).
-- **Naming-compliance config is stricter.** A typo'd naming convention in `.drift-rules.json` now fails closed (the rule is enforced as not-matching) instead of silently marking every name compliant, and a JSON array is rejected as an invalid config object.
-
-</details>
-
----
-
-For versions 3.7.3 and prior, see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
+For versions 4.0.1 and prior, see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).

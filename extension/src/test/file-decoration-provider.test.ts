@@ -17,28 +17,65 @@ function apiResponse(tables: Array<{ name: string; rowCount: number }>): Respons
 }
 
 describe('formatBadge', () => {
-  it('returns raw number below 1000', () => {
+  it('returns the exact count below 100', () => {
     assert.strictEqual(formatBadge(0), '0');
     assert.strictEqual(formatBadge(42), '42');
-    assert.strictEqual(formatBadge(999), '999');
+    assert.strictEqual(formatBadge(99), '99');
   });
 
-  it('abbreviates thousands with rounding', () => {
+  it('shows leading digit + H for hundreds', () => {
+    assert.strictEqual(formatBadge(100), '1H');
+    assert.strictEqual(formatBadge(350), '3H');
+    assert.strictEqual(formatBadge(999), '9H');
+  });
+
+  it('shows leading digit + K for single-digit thousands', () => {
     assert.strictEqual(formatBadge(1000), '1K');
-    assert.strictEqual(formatBadge(1499), '1K');
-    assert.strictEqual(formatBadge(1500), '2K');
-    assert.strictEqual(formatBadge(45000), '45K');
+    assert.strictEqual(formatBadge(1999), '1K'); // floors, never rounds up
+    assert.strictEqual(formatBadge(5000), '5K');
+    assert.strictEqual(formatBadge(9499), '9K');
+    assert.strictEqual(formatBadge(9500), '9K'); // would have overflowed to "10K"
+    assert.strictEqual(formatBadge(9999), '9K');
   });
 
-  it('abbreviates millions with rounding', () => {
+  it('falls back to the bare unit letter for two-digit-or-more units', () => {
+    assert.strictEqual(formatBadge(10_000), 'K');
+    assert.strictEqual(formatBadge(45_000), 'K');
+    assert.strictEqual(formatBadge(999_499), 'K');
+    assert.strictEqual(formatBadge(999_999), 'K');
+    assert.strictEqual(formatBadge(10_000_000), 'M');
+    assert.strictEqual(formatBadge(10_000_000_000), 'B');
+  });
+
+  it('shows leading digit + M/B for single-digit millions/billions', () => {
     assert.strictEqual(formatBadge(1_000_000), '1M');
-    assert.strictEqual(formatBadge(2_500_000), '3M');
+    assert.strictEqual(formatBadge(2_500_000), '2M'); // floors
+    assert.strictEqual(formatBadge(9_999_999), '9M');
+    assert.strictEqual(formatBadge(1_000_000_000), '1B');
   });
 
-  it('promotes to M at the K/M rounding boundary', () => {
-    assert.strictEqual(formatBadge(999_499), '999K');
-    assert.strictEqual(formatBadge(999_500), '1M');
-    assert.strictEqual(formatBadge(999_999), '1M');
+  it('handles invalid and non-positive inputs as "0"', () => {
+    assert.strictEqual(formatBadge(-5), '0');
+    assert.strictEqual(formatBadge(NaN), '0');
+    assert.strictEqual(formatBadge(Infinity), '0'); // non-finite guarded out
+  });
+
+  // The defect this bug fixes: VS Code drops a decoration and logs an
+  // "INVALID decoration" warning when the badge exceeds two characters.
+  it('never produces a badge longer than two characters', () => {
+    const samples = [
+      0, 1, 9, 10, 99, 100, 101, 350, 999, 1000, 1499, 1500, 9499, 9500,
+      9999, 10_000, 12_345, 45_000, 99_999, 100_000, 999_499, 999_999,
+      1_000_000, 2_500_000, 9_999_999, 10_000_000, 999_999_999,
+      1_000_000_000, 9_999_999_999, 1_000_000_000_000,
+    ];
+    for (const n of samples) {
+      const badge = formatBadge(n);
+      assert.ok(
+        badge.length <= 2,
+        `formatBadge(${n}) = ${JSON.stringify(badge)} exceeds 2 chars`,
+      );
+    }
   });
 });
 
@@ -94,7 +131,7 @@ describe('DriftFileDecorationProvider', () => {
       const uri = vscode.Uri.file('/lib/tables.dart');
       const deco = provider.provideFileDecoration(uri as any);
       assert.ok(deco);
-      assert.strictEqual(deco.badge, '800');
+      assert.strictEqual(deco.badge, '8H'); // 500 + 300 = 800 -> hundreds tier
     });
 
     it('keeps separate badges for different files', async () => {
@@ -115,7 +152,7 @@ describe('DriftFileDecorationProvider', () => {
       const postsDeco = provider.provideFileDecoration(
         vscode.Uri.file('/lib/posts.dart') as any,
       );
-      assert.strictEqual(usersDeco?.badge, '100');
+      assert.strictEqual(usersDeco?.badge, '1H'); // 100 rows -> hundreds tier
       assert.strictEqual(postsDeco?.badge, '5K');
     });
 
@@ -165,7 +202,7 @@ describe('DriftFileDecorationProvider', () => {
 
       const uri = vscode.Uri.file('/lib/users.dart');
       const deco = provider.provideFileDecoration(uri as any);
-      assert.strictEqual(deco?.badge, '100');
+      assert.strictEqual(deco?.badge, '1H'); // 100 rows -> hundreds tier
     });
 
     it('tooltip lists all tables with formatted counts', async () => {
