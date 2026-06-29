@@ -8,6 +8,7 @@ import { TimeTravelPanel } from '../time-travel/time-travel-panel';
 import { TimeTravelEngine } from '../time-travel/time-travel-engine';
 import type { TableItem } from '../tree/tree-items';
 import { samplingOrderBy } from '../sql/sampling-order';
+import { blobSafeSelectList } from '../sql/blob-safe-select';
 
 const CONTEXT_HAS_SQL_AT_CURSOR = 'driftViewer.hasSqlAtCursor';
 /** Debounce (ms) for selection-based context update to avoid work on every cursor move. */
@@ -79,17 +80,25 @@ export function registerSnapshotCommands(
         const snapTable = snapshot.tables.get(tableName);
         if (!snapTable) return;
         try {
+          // Fetch metadata first so the current read can mirror the capture's
+          // BLOB-safe projection: the stored snapshot recorded blob columns as
+          // length() (see snapshot-store), so comparing against a raw `SELECT *`
+          // current read would flag every blob row as changed AND re-introduce
+          // the same blob-payload OOM the capture avoids. Project length() here
+          // too — diff stays length-vs-length and no blob bytes are transferred.
+          // BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM.md.
+          const meta = await client.schemaMetadata();
+          const tableMeta = meta.find((t) => t.name === tableName);
+          const selectList = tableMeta
+            ? blobSafeSelectList(tableMeta.columns)
+            : '*';
           // Order by the captured PK, never rowid: WITHOUT ROWID tables and
           // views lack a rowid column and ORDER BY rowid aborts the read (#32).
-          const [result, meta] = await Promise.all([
-            client.sql(
-              `SELECT * FROM "${tableName}"${samplingOrderBy(snapTable.pkColumns)} LIMIT ${ROW_LIMIT}`,
-              { internal: true },
-            ),
-            client.schemaMetadata(),
-          ]);
+          const result = await client.sql(
+            `SELECT ${selectList} FROM "${tableName}"${samplingOrderBy(snapTable.pkColumns)} LIMIT ${ROW_LIMIT}`,
+            { internal: true },
+          );
           const currentRows = rowsToObjects(result.columns, result.rows);
-          const tableMeta = meta.find((t) => t.name === tableName);
           const diff = computeTableDiff(
             tableName,
             snapTable.columns,

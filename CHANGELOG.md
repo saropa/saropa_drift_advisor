@@ -42,6 +42,24 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+The snapshot, branch, and data-breakpoint sweeps no longer pull raw image/attachment BLOB bytes, so they can't crash a connected app that stores them — and timeline auto-capture stays off by default for extra safety. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.17/CHANGELOG.md)
+
+### Fixed
+
+- **Capture sweeps no longer crash a connected app that stores image/attachment BLOBs.** The timeline snapshot, data branch, and data-breakpoint "row changed" sweeps issued `SELECT *` over every table; on a table holding avatar/photo/attachment BLOBs under the row-count cap, that pulled up to a thousand multi-KB–multi-MB blob rows into the connected app's isolate to serialize the response, exhausting native memory and aborting the process (`plans/history/2026.06/2026.06.28/BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM.md`). These sweeps now read a `length()` of each BLOB column instead of its bytes — enough to detect a row changed without ever transferring the payload — so the connected app stays alive regardless of how large its blobs are. A blob edited to a different value of the same byte length is the one change this won't flag.
+
+### Changed
+
+- **`driftViewer.timeline.autoCapture` now defaults to off.** Auto-capture re-dumps every physical table with `SELECT *` (up to the row limit); on a schema with large BLOB tables (avatars, attachments, encoded payloads) under the row-count cap, that pulls megabytes of blob rows into the connected app's isolate and can crash it with a native out-of-memory abort (`plans/history/2026.06/2026.06.28/BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM.md`). Snapshots are still available any time via the **Capture Snapshot** command; enable the setting only when your schema has no large-BLOB tables. The setting description and README now document the trade-off.
+
+### Added
+
+- **Auto-capture is recommended automatically when your schema is safe.** On connect, if auto-capture is off and the connected database declares no BLOB columns (so the out-of-memory failure mode above cannot occur), a one-time prompt offers to enable auto-capture for that workspace. It is shown at most once per workspace and never for a schema that has BLOB tables, so it never nags and never re-introduces the crash.
+
+---
+
 ## [4.1.16]
 
 Row-count file badges now render on every Drift table file — including large tables — and no longer spam the extension-host log. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.16/CHANGELOG.md)

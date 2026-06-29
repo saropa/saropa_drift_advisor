@@ -1532,7 +1532,7 @@
         },
         "driftViewer.timeline.autoCapture": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "%config.timeline.autoCapture.description%"
         },
         "driftViewer.timeline.minIntervalMs": {

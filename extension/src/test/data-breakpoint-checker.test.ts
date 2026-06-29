@@ -235,16 +235,36 @@ describe('DataBreakpointChecker', () => {
   // --- rowChanged -----------------------------------------------------------
 
   describe('rowChanged', () => {
-    it('should not hit on first evaluation (baseline)', async () => {
-      fetchStub.resolves(
+    // rowChanged first resolves the table's columns from schema metadata (to
+    // project BLOB columns as length() and avoid the blob-payload OOM), then
+    // reads the rows. Stub both endpoints; the `users` table has no BLOB column,
+    // so the read column list is plain.
+    function stubRowChanged(rows: unknown[][]): void {
+      fetchStub.withArgs(sinon.match(/schema\/metadata/)).resolves(
         new Response(
-          JSON.stringify({
-            columns: ['id', 'name'],
-            rows: [[1, 'Alice']],
-          }),
+          JSON.stringify([
+            {
+              name: 'users',
+              rowCount: rows.length,
+              columns: [
+                { name: 'id', type: 'INTEGER', pk: true },
+                { name: 'name', type: 'TEXT', pk: false },
+              ],
+            },
+          ]),
           { status: 200 },
         ),
       );
+      fetchStub.withArgs(sinon.match(/api\/sql/)).resolves(
+        new Response(
+          JSON.stringify({ columns: ['id', 'name'], rows }),
+          { status: 200 },
+        ),
+      );
+    }
+
+    it('should not hit on first evaluation (baseline)', async () => {
+      stubRowChanged([[1, 'Alice']]);
       const bp = makeBp({ type: 'rowChanged', table: 'users' });
 
       const hit = await checker.evaluate(bp);
@@ -258,15 +278,7 @@ describe('DataBreakpointChecker', () => {
         table: 'users',
         lastRowHash: JSON.stringify([[1, 'Alice']]),
       });
-      fetchStub.resolves(
-        new Response(
-          JSON.stringify({
-            columns: ['id', 'name'],
-            rows: [[1, 'Bob']],
-          }),
-          { status: 200 },
-        ),
-      );
+      stubRowChanged([[1, 'Bob']]);
 
       const hit = await checker.evaluate(bp);
       assert.ok(hit);
@@ -279,18 +291,45 @@ describe('DataBreakpointChecker', () => {
         table: 'users',
         lastRowHash: JSON.stringify([[1, 'Alice']]),
       });
-      fetchStub.resolves(
-        new Response(
-          JSON.stringify({
-            columns: ['id', 'name'],
-            rows: [[1, 'Alice']],
-          }),
-          { status: 200 },
-        ),
-      );
+      stubRowChanged([[1, 'Alice']]);
 
       const hit = await checker.evaluate(bp);
       assert.strictEqual(hit, null);
+    });
+
+    it('projects a BLOB column as length() to avoid the blob-payload OOM', async () => {
+      // Regression guard for BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM: the read
+      // must not SELECT * over a table with image bytes.
+      fetchStub.withArgs(sinon.match(/schema\/metadata/)).resolves(
+        new Response(
+          JSON.stringify([
+            {
+              name: 'contact_avatars',
+              rowCount: 1,
+              columns: [
+                { name: 'id', type: 'INTEGER', pk: true },
+                { name: 'image', type: 'BLOB', pk: false },
+              ],
+            },
+          ]),
+          { status: 200 },
+        ),
+      );
+      let sentSql = '';
+      fetchStub.withArgs(sinon.match(/api\/sql/)).callsFake(async (_url, init) => {
+        sentSql = JSON.parse((init as RequestInit).body as string).sql;
+        return new Response(
+          JSON.stringify({ columns: ['id', 'image'], rows: [[1, 4096]] }),
+          { status: 200 },
+        );
+      });
+      const bp = makeBp({ type: 'rowChanged', table: 'contact_avatars' });
+
+      await checker.evaluate(bp);
+      assert.strictEqual(
+        sentSql,
+        'SELECT "id", length("image") AS "image" FROM "contact_avatars" LIMIT 1000',
+      );
     });
   });
 });

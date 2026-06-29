@@ -1,5 +1,6 @@
 import { DriftApiClient } from '../api-client';
 import type { IBreakpointHit, IDataBreakpoint } from './data-breakpoint-types';
+import { blobSafeSelectList } from '../sql/blob-safe-select';
 
 /**
  * Evaluates data breakpoints against the live database.
@@ -74,8 +75,19 @@ export class DataBreakpointChecker {
   private async _evalRowChanged(
     bp: IDataBreakpoint,
   ): Promise<IBreakpointHit | null> {
+    // Project BLOB columns as length() rather than SELECT *: pulling raw blob
+    // bytes for up to 1000 rows makes the same-isolate host materialize every
+    // blob payload (a JSON int-array) into one response and OOM-crash the
+    // connected app. The hash only needs to notice a change, and a length delta
+    // captures it without moving the bytes. BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM.md.
+    //
+    // The projection needs column types, so resolve them from schema metadata.
+    // If that lookup is unavailable (transport error, table absent), fall back to
+    // SELECT * rather than failing the evaluation — same behavior as before this
+    // guard for any non-BLOB table.
+    const selectList = await this._blobSafeSelectList(bp.table);
     const result = await this._client.sql(
-      `SELECT * FROM "${bp.table}" LIMIT 1000`,
+      `SELECT ${selectList} FROM "${bp.table}" LIMIT 1000`,
     );
     const hash = this._hashRows(result.rows);
     if (bp.lastRowHash !== undefined && hash !== bp.lastRowHash) {
@@ -91,6 +103,23 @@ export class DataBreakpointChecker {
   }
 
   // --- Helpers --------------------------------------------------------------
+
+  /**
+   * Build a BLOB-safe SELECT list for [table] from live schema metadata, or `*`
+   * when the metadata cannot be resolved. The fallback keeps the evaluator
+   * working (a non-BLOB table reads identically to a plain `SELECT *`); only the
+   * blob-OOM protection is lost on the rare metadata-fetch failure.
+   */
+  private async _blobSafeSelectList(table: string): Promise<string> {
+    try {
+      const meta = await this._client.schemaMetadata();
+      if (!Array.isArray(meta)) return '*';
+      const tableMeta = meta.find((t) => t.name === table);
+      return tableMeta ? blobSafeSelectList(tableMeta.columns) : '*';
+    } catch {
+      return '*';
+    }
+  }
 
   private async _tableRowCount(table: string): Promise<number> {
     const result = await this._client.sql(

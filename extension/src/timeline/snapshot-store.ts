@@ -3,6 +3,7 @@ import { DriftApiClient } from '../api-client';
 import type { ISnapshot, ISnapshotTable } from './snapshot-types';
 import { rowsToObjects } from './snapshot-diff';
 import { samplingOrderBy } from '../sql/sampling-order';
+import { blobSafeSelectList } from '../sql/blob-safe-select';
 
 // Re-export the data shapes and diff helpers that used to live here, so the
 // many modules importing them from './snapshot-store' keep their import paths.
@@ -216,11 +217,18 @@ export class SnapshotStore {
           }
           issuedReads++;
 
+          // Project BLOB columns as length(), never raw bytes: SELECT * over a
+          // table with image/attachment blobs makes the same-isolate host
+          // materialize every blob payload (serialized as a JSON int-array) for
+          // up to ROW_LIMIT rows, exhausting the native heap and SIGABRT-crashing
+          // the connected app. length() detects row change without moving the
+          // bytes. See BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM.md.
+          //
           // Order by the declared PK, never rowid: WITHOUT ROWID tables and
           // views (e.g. PowerSync's ps_updated_rows and its table views) have
           // no rowid column, and ORDER BY rowid aborts the sweep on them (#32).
           const result = await client.sql(
-            `SELECT * FROM "${table.name}"${samplingOrderBy(pkCols)} LIMIT ${ROW_LIMIT}`,
+            `SELECT ${blobSafeSelectList(table.columns)} FROM "${table.name}"${samplingOrderBy(pkCols)} LIMIT ${ROW_LIMIT}`,
             { internal: true },
           );
           tables.set(table.name, {

@@ -12,23 +12,31 @@
 
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
+import type { ColumnMetadata } from '../api-types';
 import type { IBranchTable, IDataBranch } from './branch-types';
 import { samplingOrderBy } from '../sql/sampling-order';
+import { blobSafeSelectList } from '../sql/blob-safe-select';
 
 const STATE_KEY = 'driftViewer.branches';
 
 /** Capture a single table's current rows (up to {@link rowLimit}). */
 async function captureTable(
   client: DriftApiClient,
-  table: { name: string; columns: { name: string; pk: boolean }[] },
+  table: { name: string; columns: ColumnMetadata[] },
   rowLimit: number,
 ): Promise<{ branchTable: IBranchTable; truncated: boolean }> {
   const pkColumns = table.columns.filter((c) => c.pk).map((c) => c.name);
+  // Project BLOB columns as length(), never raw bytes: a SELECT * over a blob
+  // table makes the same-isolate host materialize every blob payload (a JSON
+  // int-array) for up to rowLimit rows, which OOM-crashes the connected app.
+  // Restore round-trips are unaffected — the int-array form was never faithfully
+  // restorable (sqlLiteral stringifies it). BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM.md.
+  //
   // Order by the declared PK (deterministic and always valid) — never rowid,
   // which WITHOUT ROWID tables and views lack and which aborts the capture on
   // them (#32). cap + 1 lets us detect truncation.
   const result = await client.sql(
-    `SELECT * FROM "${table.name}"${samplingOrderBy(pkColumns)} LIMIT ${rowLimit + 1}`,
+    `SELECT ${blobSafeSelectList(table.columns)} FROM "${table.name}"${samplingOrderBy(pkColumns)} LIMIT ${rowLimit + 1}`,
     { internal: true },
   );
   const allRows = result.rows.map((row) => {
@@ -41,7 +49,7 @@ async function captureTable(
   return {
     branchTable: {
       name: table.name,
-      columns: table.columns as IBranchTable['columns'],
+      columns: table.columns,
       rows,
       pkColumns,
     },

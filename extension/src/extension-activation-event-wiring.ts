@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { isDriftUiConnected } from './connection-ui-state';
 import { DashboardPanel } from './dashboard/dashboard-panel';
 import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
+import { isBlobColumn } from './sql/blob-safe-select';
 import type { HealthStatusBar } from './status-bar-health';
 import type { ToolsQuickPickStatusBar } from './status-bar-tools';
 import type { FinalPhaseDeps } from './extension-activation-final';
@@ -33,6 +34,67 @@ export function wireEventListeners(
   // Gate the "open Dashboard" prompt to once per session.
   let dashboardPromptShown = false;
 
+  // Gate the auto-capture recommendation to one schema scan per session; the
+  // persistent workspaceState key below stops it ever re-appearing once offered.
+  let autoCaptureRecommendChecked = false;
+
+  // Persistent workspaceState key for the auto-capture recommendation. Once the
+  // prompt has been shown in a workspace it is never shown again there, whatever
+  // the user chose — the recommendation is informational, not a nag.
+  const AUTO_CAPTURE_RECOMMEND_KEY = 'driftViewer.autoCaptureRecommendShown';
+
+  // Offer to turn ON timeline auto-capture, but ONLY when it is currently off AND
+  // the connected schema declares no BLOB columns. Auto-capture re-dumps every
+  // table with SELECT *; on a schema with image/attachment BLOB tables that can
+  // OOM-crash the connected app (BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM.md),
+  // which is why it ships off by default. When the schema has no BLOB columns that
+  // failure mode is absent, so enabling auto-capture is safe and worth suggesting.
+  const maybeRecommendAutoCapture = (client: typeof d.cachedClient): void => {
+    if (autoCaptureRecommendChecked) return;
+    autoCaptureRecommendChecked = true;
+
+    const cfg = vscode.workspace.getConfiguration('driftViewer');
+    // Already on, or already offered in this workspace — nothing to suggest.
+    if (cfg.get<boolean>('timeline.autoCapture', false)) return;
+    if (d.context.workspaceState.get<boolean>(AUTO_CAPTURE_RECOMMEND_KEY, false)) return;
+
+    // Metadata-only read (no row/BLOB payloads); the schema cache is prewarmed on
+    // connect, so this is cheap and does not pile onto the app's startup burst.
+    void client
+      .schemaMetadata()
+      .then((metadata) => {
+        // Recommend only for a non-empty schema that is entirely BLOB-free; an
+        // empty metadata result means we could not read the schema, so stay silent.
+        const hasTables = metadata.length > 0;
+        const hasBlob = metadata.some((t) => t.columns.some((c) => isBlobColumn(c.type)));
+        if (!hasTables || hasBlob) return;
+
+        // Mark shown before awaiting the choice so a fast reconnect cannot race a
+        // second prompt into existence.
+        void d.context.workspaceState.update(AUTO_CAPTURE_RECOMMEND_KEY, true);
+        void vscode.window
+          .showInformationMessage(
+            'This database has no large-BLOB tables, so timeline auto-capture is safe here. Enable it to snapshot the database on every data change?',
+            'Enable',
+            'Not now',
+          )
+          .then((choice) => {
+            if (choice === 'Enable') {
+              // Scope to the workspace: "no BLOB tables" was verified for THIS
+              // schema, so the safety guarantee is workspace-specific, not global.
+              void vscode.workspace
+                .getConfiguration('driftViewer')
+                .update('timeline.autoCapture', true, vscode.ConfigurationTarget.Workspace);
+            }
+          });
+      })
+      .catch(() => {
+        // Schema unreadable (server dropped, auth, etc.) — allow a later
+        // reconnect this session to retry the check rather than silently burning it.
+        autoCaptureRecommendChecked = false;
+      });
+  };
+
   // Heavy DB sweeps — null-rate scans (DataQualityProvider), per-table row
   // counts, and the LIMIT-1000 timeline auto-capture — all run over the app's
   // single live Drift connection. Firing them the instant the app connects
@@ -52,12 +114,15 @@ export function wireEventListeners(
     if (d.providers) {
       void d.providers.codeLensProvider.refreshRowCounts();
       // Timeline auto-capture re-dumps every physical table (SELECT * LIMIT N);
-      // gated on the same config as the watcher path so behavior is unchanged
-      // apart from timing. requestCapture carries its own trailing-edge debounce.
+      // gated on the same config as the watcher path. OFF by default: the sweep's
+      // SELECT * can materialize BLOB-bearing rows in the connected app and OOM-crash
+      // it (plans/history/2026.06/2026.06.28/BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM.md), so the fallback when
+      // the key is absent must match package.json's `false` default — never re-enable
+      // here. requestCapture carries its own trailing-edge debounce.
       if (
         vscode.workspace
           .getConfiguration('driftViewer')
-          .get<boolean>('timeline.autoCapture', true)
+          .get<boolean>('timeline.autoCapture', false)
       ) {
         d.providers.snapshotStore.requestCapture(d.cachedClient);
       }
@@ -175,6 +240,10 @@ export function wireEventListeners(
           });
         }
       }
+      // Offer to enable timeline auto-capture when this schema has no BLOB tables
+      // (the OOM precondition that keeps auto-capture off by default). One-time per
+      // workspace; reads metadata only.
+      if (d.cachedClient) maybeRecommendAutoCapture(d.cachedClient);
     }
   });
 

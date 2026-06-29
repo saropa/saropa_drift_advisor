@@ -232,6 +232,41 @@ describe('SnapshotStore', () => {
       assert.strictEqual(resolved, true);
     });
 
+    it('projects BLOB columns as length(), never raw bytes (OOM guard)', async () => {
+      // BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM: a SELECT * over a blob table
+      // makes the same-isolate host materialize every blob payload and crash.
+      // The sweep must read length("blobcol") instead of the bytes, while plain
+      // columns pass through unchanged.
+      fetchStub.withArgs(sinon.match(/schema\/metadata/)).callsFake(async () =>
+        makeResponse(metadataJson([
+          {
+            name: 'contact_avatars',
+            rowCount: 2,
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'image', type: 'BLOB', pk: false },
+              { name: 'color_hash', type: 'TEXT', pk: false },
+            ],
+          },
+        ])),
+      );
+      const sentSql: string[] = [];
+      fetchStub.withArgs(sinon.match(/api\/sql/)).callsFake(async (_url, init) => {
+        sentSql.push(JSON.parse((init as RequestInit).body as string).sql);
+        return makeResponse(sqlJson(['id', 'image', 'color_hash'], [[1, 4096, 'a']]));
+      });
+
+      const store = new SnapshotStore(20, 0);
+      const snap = await store.capture(client);
+      assert.ok(snap);
+      assert.strictEqual(
+        sentSql[0],
+        'SELECT "id", length("image") AS "image", "color_hash" FROM "contact_avatars" ORDER BY "id" LIMIT 1000',
+      );
+      // No raw-bytes SELECT * leaked through for the blob table.
+      assert.ok(sentSql.every((s) => !s.startsWith('SELECT * FROM "contact_avatars"')));
+    });
+
     it('sweeps rowid-less relations without ORDER BY rowid (GitHub #32)', async () => {
       // PowerSync exposes user tables as views (no rowid) and uses WITHOUT
       // ROWID system tables such as ps_updated_rows. ORDER BY rowid threw

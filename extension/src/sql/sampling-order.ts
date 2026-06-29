@@ -20,7 +20,7 @@
  */
 
 /** Quotes a SQL identifier, escaping embedded double quotes. */
-function quoteIdent(name: string): string {
+export function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
