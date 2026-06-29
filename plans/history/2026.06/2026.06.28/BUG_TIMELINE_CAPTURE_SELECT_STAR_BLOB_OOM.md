@@ -228,3 +228,66 @@ edits. Documented in the helper's header and the changelog.
 - Result: 73 passing across the affected files (blob-safe-select, snapshot-store,
   data-breakpoint-checker, branch-merge-sql, snapshot-to-branch,
   snapshot-diff-pkkey, sampling-order). `tsc -p ./` clean.
+
+## Finish Report (2026-06-28) — auto-capture default + connect-time recommendation
+
+### Resolution summary
+
+This is a follow-on to the `length()` projection fix above. With blob bytes no
+longer transferred, the timeline capture sweep is safe on any schema, so the two
+remaining changes are a default-behavior change and a usability prompt, not a
+further crash fix.
+
+Timeline auto-capture (`driftViewer.timeline.autoCapture`) now ships **off by
+default**. The reason is no longer the out-of-memory crash (that is closed by the
+projection fix) but that auto-capture re-dumps every physical table on each data
+change; making that automatic re-scan opt-in rather than a surprise is the intent.
+On connect, when auto-capture is off and the connected database has a readable
+schema, a one-time-per-workspace prompt offers to enable it.
+
+### What changed
+
+- **Default flipped to `false`.** `extension/package.json` setting default is
+  `false`; `extension/src/extension-activation-event-wiring.ts` `runHeavySweep`
+  reads `get<boolean>('timeline.autoCapture', false)` so the absent-key fallback
+  matches the manifest default and never silently re-enables the sweep.
+- **Connect-time recommendation.** `wireEventListeners` gained
+  `maybeRecommendAutoCapture(client)`, called from the server-connect handler
+  after the dashboard prompt. It is guarded by a per-session boolean
+  (`autoCaptureRecommendChecked`) and a persistent
+  `workspaceState` key (`driftViewer.autoCaptureRecommendShown`) so it appears at
+  most once per workspace. It returns early when the setting is already on or the
+  key is already set. It then reads schema metadata (metadata-only; the schema
+  cache is prewarmed on connect) purely to confirm a non-empty schema exists —
+  it is NOT gated on schema shape or size. An empty/unreadable metadata result
+  frees the session guard so a later reconnect can retry; on accept, the setting
+  is written to `ConfigurationTarget.Workspace`.
+- **No blob/size gate (design correction).** An earlier draft gated the prompt on
+  "schema has no BLOB columns" and a "small database" size threshold. Both were
+  wrong: blob-bearing schemas never drop their blobs (so a no-blob gate never
+  reaches the apps that have them), large databases should not be excluded from
+  snapshots, and the projection fix already makes capture blob-safe everywhere.
+  The gate was removed; `isBlobColumn` in `blob-safe-select.ts` was briefly
+  exported for the gate and is now reverted to module-private.
+
+### Documentation
+
+- `extension/package.nls.json` — `config.timeline.autoCapture.description`
+  rewritten: off by default so the per-change re-dump is opt-in; safe on any
+  schema including BLOB tables because capture reads each blob's length, not its
+  bytes; capture on demand via the Capture Snapshot command.
+- `extension/README.md` — settings table row and the Snapshot Timeline feature
+  blurb updated to match (off by default, safe on any schema, once-per-workspace
+  offer on connect).
+- `CHANGELOG.md` [Unreleased] — Changed entry (default off, reason is opt-in
+  re-dump not crash) and Added entry (one-time recommendation, not gated on shape
+  or size).
+
+### Tests
+
+- `tsc --noEmit -p ./` clean; full compiled mocha suite green (2994 passing).
+- No test covers `extension-activation-event-wiring.ts` (its sibling dashboard
+  prompt is likewise untested); the recommendation logic was verified by
+  inspection plus the clean typecheck. The `isBlobColumn` un-export is covered by
+  the existing passing `blob-safe-select.test.ts` (imports `blobSafeSelectList`,
+  unaffected).

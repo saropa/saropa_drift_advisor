@@ -42,9 +42,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.17]
 
-The snapshot, branch, and data-breakpoint sweeps no longer pull raw image/attachment BLOB bytes, so they can't crash a connected app that stores them — and timeline auto-capture stays off by default for extra safety. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.17/CHANGELOG.md)
+The snapshot, branch, and data-breakpoint sweeps no longer pull raw image/attachment BLOB bytes, so they can't crash a connected app that stores them — and timeline auto-capture now ships off by default, with a one-time prompt offering to turn it on. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.17/CHANGELOG.md)
 
 ### Fixed
 
@@ -52,11 +52,11 @@ The snapshot, branch, and data-breakpoint sweeps no longer pull raw image/attach
 
 ### Changed
 
-- **`driftViewer.timeline.autoCapture` now defaults to off.** Auto-capture re-dumps every physical table with `SELECT *` (up to the row limit); on a schema with large BLOB tables (avatars, attachments, encoded payloads) under the row-count cap, that pulls megabytes of blob rows into the connected app's isolate and can crash it with a native out-of-memory abort (`plans/history/2026.06/2026.06.28/BUG_TIMELINE_CAPTURE_SELECT_STAR_BLOB_OOM.md`). Snapshots are still available any time via the **Capture Snapshot** command; enable the setting only when your schema has no large-BLOB tables. The setting description and README now document the trade-off.
+- **`driftViewer.timeline.autoCapture` now defaults to off.** Auto-capture re-dumps every physical table on each data change; shipping it off makes that automatic re-dump opt-in rather than a surprise. It is safe on any schema — including BLOB-bearing ones — because the capture reads each blob's length, not its bytes (see the crash fix above). Snapshots are still available any time via the **Capture Snapshot** command. The setting description and README document the behavior.
 
 ### Added
 
-- **Auto-capture is recommended automatically when your schema is safe.** On connect, if auto-capture is off and the connected database declares no BLOB columns (so the out-of-memory failure mode above cannot occur), a one-time prompt offers to enable auto-capture for that workspace. It is shown at most once per workspace and never for a schema that has BLOB tables, so it never nags and never re-introduces the crash.
+- **A one-time prompt offers to enable auto-capture.** On connect, if auto-capture is off and the connected database has a readable schema, a prompt (shown at most once per workspace) offers to turn it on for that workspace. It is not gated on schema shape or size — auto-capture is safe everywhere now that the sweep never transfers blob bytes.
 
 ---
 

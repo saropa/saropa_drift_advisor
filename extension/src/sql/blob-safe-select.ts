@@ -36,7 +36,7 @@ import { quoteIdent } from './sampling-order';
  * substring "BLOB" case-insensitively, mirroring SQLite's own affinity rule
  * (any declared type containing "BLOB" gets BLOB affinity).
  */
-export function isBlobColumn(type: string): boolean {
+function isBlobColumn(type: string): boolean {
   return type.toUpperCase().includes('BLOB');
 }
 

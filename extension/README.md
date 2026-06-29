@@ -58,7 +58,7 @@ Works in Dart files with Drift table definitions:
 ### Debugging
 
 - **Query Performance** — debug sidebar with slow query stats and timing
-- **Snapshot Timeline** — capture snapshots, compare to current state, view diffs (capture on demand via **Capture Snapshot**; auto-capture is off by default, see `driftViewer.timeline.autoCapture`. When a connected database has no BLOB tables, the extension offers — once per workspace — to enable auto-capture, since the out-of-memory risk is absent there)
+- **Snapshot Timeline** — capture snapshots, compare to current state, view diffs (capture on demand via **Capture Snapshot**; auto-capture is off by default, see `driftViewer.timeline.autoCapture`. On connect, the extension offers — once per workspace — to enable auto-capture)
 - **Database Comparison** — diff two databases (schema match, row count differences)
 - **Size Analytics** — storage dashboard with table sizes, indexes, journal mode
 - **Terminal Links** — clickable SQLite error messages
@@ -96,7 +96,7 @@ Integration with the sibling Saropa tools (Saropa Lints, Saropa Log Capture) —
 | `driftViewer.hover.enabled` | `true` | Hover preview during debug |
 | `driftViewer.hover.maxRows` | `3` | Rows shown in hover preview |
 | `driftViewer.linter.enabled` | `true` | Schema linter diagnostics |
-| `driftViewer.timeline.autoCapture` | `false` | Auto-capture snapshots on data change. **Off by default** — auto-capture re-dumps every table (`SELECT *`) and can crash a connected app that has large BLOB tables (images/attachments). Enable only when your schema has no large-BLOB tables; otherwise use the **Capture Snapshot** command on demand. |
+| `driftViewer.timeline.autoCapture` | `false` | Auto-capture snapshots on data change. **Off by default** so the automatic re-dump of every table on each change is opt-in. Safe on any schema (BLOB tables included) — the capture reads each blob's length, not its bytes. Enable for continuous snapshots, or use the **Capture Snapshot** command on demand. |
 | `driftViewer.watch.notifications` | `false` | Desktop notifications for watch changes |
 | `driftViewer.database.loadOnConnect` | `true` | When false, Database tree loads on first view focus instead of on connect |
 | `driftViewer.database.allowOfflineSchema` | `true` | When the server is unreachable, try to fill the Database tree from last-known persisted schema for this workspace |

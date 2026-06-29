@@ -199,7 +199,7 @@
   "config.linter.enabled.description": "Show database diagnostics on Drift table definitions.",
   "config.linter.anomalySeverity.description": "Severity level for data anomaly diagnostics.",
   "config.timeline.maxSnapshots.description": "Maximum number of snapshots to keep in memory.",
-  "config.timeline.autoCapture.description": "Automatically capture a timeline snapshot when database data changes. Off by default: each capture re-dumps every physical table (SELECT * up to the row limit), which can pull large BLOB rows into the connected app and crash it (out of memory). Enable this only when your schema has no large-BLOB tables (images/attachments/encoded payloads), or capture on demand with the Capture Snapshot command.",
+  "config.timeline.autoCapture.description": "Automatically capture a timeline snapshot whenever database data changes. Off by default so the automatic re-dump of every table on each change is opt-in; it is safe on any schema, including image/attachment BLOB tables, because the capture reads each blob's length, not its bytes. Enable this for continuous snapshots, or capture on demand with the Capture Snapshot command.",
   "config.timeline.minIntervalMs.description": "Minimum milliseconds between automatic snapshot captures.",
   "config.timeline.captureDebounceMs.description": "Quiet-period (milliseconds) used to coalesce a burst of database writes into a single snapshot re-dump. Writes arriving within this window reset the timer, so one full physical-table re-scan runs after the writes settle rather than one per write.",
   "config.watch.notifications.description": "Show desktop notifications when watched data changes.",
