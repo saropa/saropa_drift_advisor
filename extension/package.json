@@ -2,7 +2,7 @@
   "name": "drift-viewer",
   "displayName": "Saropa Drift Advisor",
   "description": "%extension.description%",
-  "version": "4.1.17",
+  "version": "4.1.18",
   "publisher": "saropa",
   "license": "MIT",
   "repository": {

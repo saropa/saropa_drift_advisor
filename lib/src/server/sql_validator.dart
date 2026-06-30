@@ -187,10 +187,15 @@ abstract final class SqlValidator {
     }
 
     // 6. Require SELECT or WITH prefix (case-insensitive).
+    //
+    // The keyword must be followed by ANY whitespace (space, tab, newline, CR),
+    // not a literal space: a query formatted with a line break right after the
+    // verb — `SELECT\n  id, ...` — is valid SQL and a normal pretty-printer
+    // output. The previous `startsWith('SELECT ')` demanded one specific space
+    // character and wrongly rejected every multi-line query, surfacing the
+    // "Only read-only SQL is allowed" error for a plain SELECT.
     final upper = withoutTrailingSemicolon.toUpperCase();
-    const selectPrefix = 'SELECT ';
-    const withPrefix = 'WITH ';
-    if (!upper.startsWith(selectPrefix) && !upper.startsWith(withPrefix)) {
+    if (!RegExp(r'^(SELECT|WITH)\s').hasMatch(upper)) {
       return false;
     }
 

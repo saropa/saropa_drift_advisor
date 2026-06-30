@@ -34,6 +34,31 @@ void main() {
         expect(SqlValidator.isReadOnlySql('  SELECT 1  '), isTrue);
       });
 
+      // Regression: the prefix check used startsWith('SELECT ') with a literal
+      // space, so a pretty-printed query with a newline right after the verb
+      // (the default editor formatting) was rejected as non-read-only.
+      test('multi-line SELECT with newline after the verb', () {
+        expect(
+          SqlValidator.isReadOnlySql(
+            'SELECT\n  id,\n  length(phones_json) AS pj\nFROM\n  contacts',
+          ),
+          isTrue,
+        );
+      });
+
+      test('SELECT followed by a tab', () {
+        expect(SqlValidator.isReadOnlySql('SELECT\tid FROM contacts'), isTrue);
+      });
+
+      test('multi-line WITH (CTE) with newline after the verb', () {
+        expect(
+          SqlValidator.isReadOnlySql(
+            'WITH\n  cte AS (SELECT 1)\nSELECT * FROM cte',
+          ),
+          isTrue,
+        );
+      });
+
       test('case-insensitive SELECT', () {
         expect(SqlValidator.isReadOnlySql('select * from users'), isTrue);
         expect(SqlValidator.isReadOnlySql('Select * From Users'), isTrue);

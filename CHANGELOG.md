@@ -42,6 +42,14 @@ browse source on
 
 ---
 
+## [4.1.18]
+
+Multi-line SELECT queries in the web SQL tab no longer get wrongly rejected as "read-only only." [log](https://github.com/saropa/saropa_drift_advisor/v4.1.18/main/CHANGELOG.md)
+
+### Fixed
+
+- **Multi-line `SELECT`/`WITH` queries are no longer rejected as non-read-only.** The read-only check required a literal space right after the leading verb, so a pretty-printed query with a newline after `SELECT` (the default editor formatting, e.g. `SELECT\n  id, ...`) failed with "Only read-only SQL is allowed (SELECT or WITH ... SELECT)." The check now accepts any whitespace — space, tab, or newline — after the verb (`bugs/BUG_showing_false-read-only-error.md`).
+
 ## [4.1.17]
 
 The snapshot, branch, and data-breakpoint sweeps no longer pull raw image/attachment BLOB bytes, so they can't crash a connected app that stores them — and timeline auto-capture now ships off by default, with a one-time prompt offering to turn it on. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.17/CHANGELOG.md)
