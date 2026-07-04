@@ -12,6 +12,7 @@ import 'server_constants.dart';
 import 'server_context.dart';
 import 'server_utils.dart';
 import 'server_types.dart';
+import 'sql_error_enricher.dart';
 import 'sql_validator.dart';
 
 /// Handles SQL execution and explain plan endpoints.
@@ -92,7 +93,7 @@ final class SqlHandler {
         ServerConstants.jsonKeyError: ServerConstants.errorSqlTimeout,
       };
     } on Object catch (error, stack) {
-      return _handleQueryError(error, stack, sql);
+      return await _handleQueryError(error, stack, sql);
     }
   }
 
@@ -235,7 +236,7 @@ final class SqlHandler {
         ServerConstants.jsonKeyError: ServerConstants.errorSqlTimeout,
       };
     } on Object catch (error, stack) {
-      return _handleQueryError(error, stack, sql);
+      return await _handleQueryError(error, stack, sql);
     }
   }
 
@@ -367,17 +368,38 @@ final class SqlHandler {
   ///
   /// All other errors are logged with the full stack trace via
   /// [ServerContext.logError].
-  Map<String, String> _handleQueryError(
+  Future<Map<String, String>> _handleQueryError(
     Object error,
     StackTrace stack,
     String sql,
-  ) {
-    final message = error.toString();
+  ) async {
+    final rawMessage = error.toString();
 
-    if (message.contains('no such table') || message.contains('no such view')) {
+    // A dropped/renamed table is expected after a schema change; log it quietly
+    // and return the bare message — there is no column to suggest.
+    if (rawMessage.contains('no such table') ||
+        rawMessage.contains('no such view')) {
       _ctx.log('Query skipped (table/view not found): $sql');
-    } else {
-      _ctx.logError(error, stack);
+      return <String, String>{ServerConstants.jsonKeyError: rawMessage};
+    }
+
+    _ctx.logError(error, stack);
+
+    // Schema-mismatch failures (unknown column, or a reserved word misused as
+    // an alias) are the common /api/sql mistakes the source-file checker
+    // already explains for Dart code. Enrich the message with the nearest real
+    // column + the table's actual columns so an interactive client gets the
+    // same guidance instead of a bare SqliteException. Schema lookups run
+    // through internalQuery so they stay out of slow-query diagnostics.
+    var message = rawMessage;
+    if (rawMessage.contains('no such column') ||
+        rawMessage.contains('syntax error')) {
+      message = await SqlErrorEnricher.enrich(
+        message: rawMessage,
+        sql: sql,
+        query: _ctx.internalQuery,
+        onError: _ctx.logError,
+      );
     }
 
     return <String, String>{ServerConstants.jsonKeyError: message};
