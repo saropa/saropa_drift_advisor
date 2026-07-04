@@ -42,15 +42,13 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.19]
 
 Interactive SQL errors now help you fix the query: a `no such column` reply names the table's real columns (and the nearest match), and a query that trips over a reserved word like `primary` used as an alias now says to quote it. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
 
 ### Added
 
 - **`/api/sql` errors now carry schema-aware hints instead of a bare `SqliteException`.** A `no such column` failure previously returned only SQLite's terse text, so a client had to already know the exact Drift-generated name — including acronym splitting (`contactSaropaUUID` → `contact_saropa_u_u_i_d`) and reserved-word rules — with zero assistance from a tool whose whole purpose is schema awareness. The Advisor now enriches these errors after SQLite rejects the statement (so there are no false positives): it resolves the referenced table from the query's `FROM`/`JOIN` clauses, appends that table's actual column names, and — when the mistake is a plausible typo — suggests the nearest real column, matching the guidance the source-file column checker already gives for Dart raw SQL. A reserved SQLite keyword used as a bare alias (`... AS primary`) now returns a hint to quote or rename it (`plans/history/2026.07/2026.07.04/BUG_API_SQL_UNVALIDATED_COLUMN_REFS.md`).
-
-## [4.1.18]
 
 Multi-line SELECT queries in the web SQL tab no longer get wrongly rejected as "read-only only." [log](https://github.com/saropa/saropa_drift_advisor/v4.1.18/main/CHANGELOG.md)
 
