@@ -1860,7 +1860,7 @@
     "@types/sinon": "^21.0.1",
     "@types/vscode": "^1.115.0",
     "husky": "^9.1.7",
-    "lint-staged": "^16.4.0",
+    "lint-staged": "^17.0.8",
     "mocha": "^11.7.6",
     "sinon": "^21.1.2",
     "typescript": "^6.0.3"
