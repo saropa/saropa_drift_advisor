@@ -54,6 +54,8 @@ Multi-line SELECT queries in the web SQL tab no longer get wrongly rejected as "
 
 ### Fixed
 
+- **Boolean columns now display as `true`/`false` instead of `0`/`1` whenever the connected app declares its Drift schema.** SQLite stores Drift booleans as `INTEGER`, and the viewer previously guessed booleans from column names alone (`is_*`, `has_*`, …), so any boolean with a non-matching name rendered as a bare integer. The data grid, the search tab, the inline cell editor, and custom SQL results now read the `driftType` the backend already sends (exact, no guessing); the VS Code sidebar shows a boolean icon and a `bool (INTEGER)` label for these columns. Custom SQL results only format a column when its name is a bool in every table that declares it — an ambiguous name stays raw. Raw SQLite hosts and older servers keep today's name-heuristic behavior (`bugs/BUG_bools_showing_as_ints.md`).
+- **Boolean name detection now matches suffix-named columns (`user_active`, `account_enabled`, …).** The suffix pattern used a Dart-style escaped `\$`, which in a JavaScript regex matches a literal dollar sign rather than end-of-string, so the entire suffix branch never matched any real column name.
 - **Multi-line `SELECT`/`WITH` queries are no longer rejected as non-read-only.** The read-only check required a literal space right after the leading verb, so a pretty-printed query with a newline after `SELECT` (the default editor formatting, e.g. `SELECT\n  id, ...`) failed with "Only read-only SQL is allowed (SELECT or WITH ... SELECT)." The check now accepts any whitespace — space, tab, or newline — after the verb (`bugs/BUG_showing_false-read-only-error.md`).
 
 ## [4.1.17]

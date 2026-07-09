@@ -91,8 +91,12 @@ function tryBeginUnsavedWebEdit(): boolean {
 
       // Boolean-ish integer columns: check before generic integer validation
       // so "true"/"false" get the right error message instead of "expected integer".
+      // colMeta comes straight from /api/schema/metadata, so `driftType` is the
+      // exact semantic signal when the host declared its Drift schema; the name
+      // heuristic remains the fallback for raw SQLite hosts / older servers.
       var isIntLike = typ === 'INTEGER' || typ === 'INT' || typ === 'BIGINT' || typ === 'SMALLINT' || typ === 'TINYINT';
-      if ((isIntLike || typ === '') && isBooleanColumn(colMeta.name)) {
+      if (colMeta.driftType === 'bool' ||
+          ((isIntLike || typ === '') && isBooleanColumn(colMeta.name))) {
         var lower = trimmed.toLowerCase();
         if (lower !== '0' && lower !== '1' && lower !== 'true' && lower !== 'false') {
           return vt('viewer.table.edit.expectBool');

@@ -1,88 +1,76 @@
-# Feature & Fix Specification: Semantic Boolean Mapping via Drift Metadata
+# Bug: Booleans Showing as Integers in the UI
 
-## Overview & Objective
+## Overview
 
-In SQLite, a native boolean type does not exist; booleans are stored as `INTEGER` types containing `0` or `1`. Because `saropa_drift_advisor` currently reads column structures directly from raw SQLite query results or `PRAGMA table_info`, boolean fields authored in Drift are incorrectly displayed as `int` (showing `0` or `1`) in the VS Code data grids and table inspector.
+SQLite stores booleans as `INTEGER` (0 or 1). The Dart backend already derives the semantic Drift type and sends `driftType: 'bool'` in schema API responses, but no UI surface consumes it for display. The data grid falls back to a column-NAME heuristic that only recognizes some boolean names; the VS Code sidebar ignores semantics entirely. Boolean columns whose names don't match the heuristic render as `0`/`1`.
 
-The objective is to fix this by bridging the raw SQLite results with Drift's generated Dart metadata (`TableInfo` and `DriftSqlType`). By inspecting the actual Drift schema in the Dart debug server, we can instruct the VS Code extension to render these specific integers as `true` / `false` booleans.
+## Current State (verified against code)
 
----
+### Backend (COMPLETE — no work needed)
+- `lib/src/start_drift_viewer_extension.dart:187` — derives `driftType` from Drift's `GeneratedColumn` when the host wires the integration.
+- `lib/src/server/schema_handler.dart:331–395` — enriches `GET /api/schema/metadata` columns with `driftType` from the host's `declaredSchema` callback.
+- `lib/src/server/schema_handler.dart:621–622` — `GET /api/schema/declared` serializes `driftType` per column.
+- `lib/src/server/server_types.dart:99–104` — `driftType` vocabulary: `'dateTime' | 'bool' | 'int' | 'double' | 'string' | 'blob'`. Null for raw SQLite hosts.
+- Proof the plumbing works end-to-end: `assets/web/nl-to-sql.ts` already consumes `driftType` for NL-to-SQL date/bool detection.
 
-## 1. Technical Analysis & Root Cause
+### Web app data grid (the actual bug site)
+The "View Table Data" panel in VS Code is the Dart-served web app loaded into a webview (`extension/src/panel.ts`), so grid fixes land in `assets/web/`, not `extension/src/`.
 
-When a user defines a boolean in Drift:
-```dart
-BoolColumn get isActive => boolean()();
+1. **`driftType` is dropped on the floor:** `loadColumnTypes` (`assets/web/table-view.ts:25–35`) fetches `/api/schema/metadata` but keeps only `c.type` (line 31) — `c.driftType` never reaches the renderer.
+2. **Name heuristic is the only bool signal:** `formatCellValue` (`assets/web/table-view.ts:69–88`) shows true/false only when `isBooleanColumn(columnName)` matches (`table-view.ts:45–50`): prefixes `is_ / has_ / can_ / should_ / allow_ / enable` plus four exact names. Any other boolean column (`verified_flag`, `notifications`, camelCase names, etc.) renders as an integer.
+3. **Broken suffix regex in the heuristic:** `table-view.ts:48` uses `/_(enabled|active|...)\$/` — in a JavaScript regex, `\$` matches a literal dollar-sign character, not end-of-string, so the entire suffix branch (`_enabled`, `_active`, `_deleted`, …) never matches anything. Looks ported from Dart, where `$` needs escaping in strings.
+4. **Cell editor uses the same heuristic:** `assets/web/cell-edit.ts:95` gates its bool editing behavior on `isBooleanColumn` too.
+
+### VS Code extension sidebar
+- `extension/src/api-types.ts:11–15` — `ColumnMetadata` has no `driftType` field; the JSON carries it but the type drops it.
+- `extension/src/tree/tree-items.ts:6–13` — `columnIcon` keys off the SQLite storage type only (`INTEGER`/`REAL` → number icon); `tree-items.ts:113` shows `column.type` (`INTEGER`) as the description. Boolean columns are indistinguishable from ints.
+
+### Example backend response
+`GET /api/schema/metadata` for a table with a boolean column:
+```json
+{
+  "tables": [
+    {
+      "name": "users",
+      "columns": [
+        { "name": "id", "type": "INTEGER", "driftType": "int", "pk": true, "notnull": true },
+        { "name": "is_active", "type": "INTEGER", "driftType": "bool", "pk": false, "notnull": true }
+      ]
+    }
+  ]
+}
 ```
-Drift's generator builds a `TableInfo` class where this column's `.type` property is explicitly set to `DriftSqlType.bool`. However, when the database is queried, the underlying `sqlite3` driver returns standard integers. 
-
-To fix this, the Dart debug server must map the raw SQLite columns to their corresponding `GeneratedColumn` in Drift's `TableInfo`, extract the `DriftSqlType`, and pass this semantic type across the IPC/WebSocket boundary to the extension.
+`driftType` is present only when the host supplied the `declaredSchema` callback (raw SQLite hosts and older servers omit it).
 
 ---
 
-## 2. Implementation Architecture
+## Required Changes
 
-As a mixed-language repository, the fix requires coordinated changes in both the Dart server and the TypeScript extension.
+### 1. Web grid — use `driftType` as the exact bool signal
+- Extend `loadColumnTypes` (`assets/web/table-view.ts:25–35`) to also keep `c.driftType` per column (e.g. store `{ type, driftType }` or a parallel map — whichever disturbs `colTypes` consumers least).
+- In `formatCellValue` (`table-view.ts:69`), check `driftType === 'bool'` first (exact); keep the name heuristic as the fallback for raw/legacy hosts where `driftType` is absent.
+- Apply the same signal in the cell editor gate (`assets/web/cell-edit.ts:95`).
+- Fix the broken suffix regex at `table-view.ts:48` (`\$` → `$`) so the heuristic fallback works as intended.
 
-### 2a. Dart Debug Server (`lib/src/`)
-The server's schema-discovery mechanism must be upgraded to read from the `GeneratedDatabase` instance rather than relying solely on database pragmas.
+### 2. Extension sidebar — semantic type in icon and label
+- Add `driftType?: string` to `ColumnMetadata` (`extension/src/api-types.ts:11`).
+- In `columnIcon` (`extension/src/tree/tree-items.ts:6`), return `symbol-boolean` when `driftType === 'bool'` before the storage-type checks.
+- In the column item description (`tree-items.ts:113`), show the semantic type (`bool`) when known, falling back to the storage type.
 
-1. **Extracting Drift Types:**
-   When generating the table manifest to send to the client, iterate through the database's tables and check the `type` property of each column:
-   ```dart
-   final db = // ... instance of GeneratedDatabase
-   for (final table in db.allTables) {
-     for (final column in table.$columns) {
-       final isBoolean = column.type == DriftSqlType.bool;
-       // Package this flag into the schema payload
-     }
-   }
-   ```
-2. **Payload Enrichment:**
-   The JSON payload sent to the VS Code extension must now include a `driftType` alongside the raw SQLite type:
-   ```json
-   {
-     "name": "is_active",
-     "sqliteType": "INTEGER",
-     "driftType": "bool"
-   }
-   ```
+### 3. Custom SQL query results
+When a query's result column can be matched by name to a known table's schema, resolve its `driftType` and format bools per change 1. Unmatched columns (expressions, aliases, unknown context) fall back to raw integer display without error.
 
-### 2b. VS Code Extension (`extension/src/`)
-The TypeScript layer must consume the `driftType` property to format the UI correctly.
-
-1. **Data Grid Formatting:**
-   In the grid renderer, intercept the cell value evaluation. If the schema defines the column as `driftType: 'bool'`, cast the raw `0`/`1` integer to a boolean string:
-   ```typescript
-   function formatCell(value: any, meta: ColumnMetadata): string {
-     if (meta.driftType === 'bool') {
-       if (value === 1) return 'true';
-       if (value === 0) return 'false';
-       if (value === null) return 'NULL';
-     }
-     return String(value);
-   }
-   ```
-2. **Database Sidebar Icons:**
-   Update the tree view provider. Columns matching `driftType === 'bool'` should display a distinct boolean icon (e.g., a checkbox or `[B]`) instead of the numeric `[#]` icon used for standard integers.
+### Fallback behavior (all surfaces)
+`driftType` absent — raw SQLite host, no `declaredSchema` callback, or older server — degrades to today's behavior (storage type + name heuristic). No crashes, no missing columns.
 
 ---
 
-## 3. Edge Cases & Fallbacks
+## Verification
 
-* **Raw Custom SQL Queries:** When a user executes a custom `SELECT` statement in the SQL Notebook (e.g., `SELECT is_active, COUNT(*) FROM users`), the result set might not immediately map to a known `TableInfo` column. The extension should attempt to match the column name to the table's schema if the context is known. If it cannot be matched, it must safely fall back to displaying the raw integer without crashing.
-* **Legacy Compatibility:** If the extension connects to an older version of the Dart debug server that does not transmit `driftType`, the UI must gracefully default to the raw `sqliteType`.
-
----
-
-## 4. Verification & Testing Guardrails
-
-Prior to release, the following checks must be satisfied, matching the strict standards of the repository:
-
-- [ ] **Dart Schema Serialization Test:** Write a unit test in `lib/src/` asserting that a table defined with `BoolColumn` correctly outputs `"driftType": "bool"` in its JSON map.
-- [ ] **TypeScript Renderer Test:** Write a unit test in `extension/src/` asserting that `formatCell(1, { driftType: 'bool' })` outputs `'true'` and not `'1'`.
-- [ ] **Mixed-Language CI Pass:** Ensure all builds pass cleanly without warnings:
-  ```bash
-  npm run check-types
-  npm run lint
-  npm run compile
+- [ ] **Grid, heuristic-miss name:** a Drift `boolean()` column named e.g. `notifications` shows true/false in the data grid (previously `0`/`1`).
+- [ ] **Grid, suffix name:** a column named `user_active` matches the fixed suffix regex even without `driftType`.
+- [ ] **Cell editor:** bool editing behavior triggers on `driftType === 'bool'` columns.
+- [ ] **Sidebar:** boolean columns show the boolean icon and `bool` description.
+- [ ] **Custom query:** a SELECT including a boolean column formats as true/false; unmatched expression columns stay numeric.
+- [ ] **Fallback:** with no `declaredSchema` callback (raw SQLite host), everything renders as today — no errors.
+- [ ] **Extension checks:** `npm run check-types && npm run lint` pass with no new violations.

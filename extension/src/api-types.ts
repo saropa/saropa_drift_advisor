@@ -13,6 +13,13 @@ export interface ColumnMetadata {
   type: string; // INTEGER, TEXT, REAL, BLOB
   pk: boolean;
   notnull?: boolean;
+  /**
+   * Drift SEMANTIC type ('dateTime' | 'bool' | 'int' | 'double' | 'string' |
+   * 'blob'), present only when the host app supplied a declared Drift schema.
+   * Drift stores bools and DateTimes as INTEGER, so `type` alone cannot
+   * distinguish them — this carries the lost distinction for display.
+   */
+  driftType?: string;
 }
 
 export interface ForeignKey {

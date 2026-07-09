@@ -140,7 +140,9 @@ export function initSearchTab(): void {
 
     // FIX #5: Replace id="data-table" with id="st-data-table" to avoid
     // duplicate ids when both Tables and Search panels are in the DOM.
-    var rawTableHtml = buildDataTableHtml(display, fkMap, colTypes, getColumnConfig(tableName));
+    // Pass tableName explicitly: the searched table may differ from
+    // S.currentTableName, and drift-type lookup must not read the wrong table.
+    var rawTableHtml = buildDataTableHtml(display, fkMap, colTypes, getColumnConfig(tableName), tableName);
     var tableHtml = wrapDataTableInScroll(rawTableHtml.replace('id="data-table"', 'id="st-data-table"'))
       + buildTableStatusBar(total, stOffset, stLimit, display.length,
           getVisibleColumnCount(Object.keys(display[0] || {}), getColumnConfig(tableName)));

@@ -9,7 +9,7 @@ import { switchTab } from './tabs.ts';
 import { loadSqlHistory, pushSqlHistory, loadBookmarks, refreshBookmarksDropdown, addBookmark, deleteBookmark, exportBookmarks, importBookmarks, bindDropdownToInput } from './sql-history.ts';
 import { fetchHistory } from './history-sidebar.ts';
 import { selectPanel } from './sidebar-panels.ts';
-import { buildTableStatusBar, showCopyToast, bindResultsToggle } from './table-view.ts';
+import { buildTableStatusBar, showCopyToast, bindResultsToggle, isUnambiguousDriftBoolColumn } from './table-view.ts';
 import { formatSqlSafe } from './sql-format.ts';
 
 /** Stringifies a cell for text export: null/undefined → '', everything else String(). */
@@ -207,9 +207,28 @@ export function initSqlRunner(): void {
     // matches the Tables / Search grids — sticky header, zebra rows, and a
     // footer status bar that joins the rounded scroll-wrap cleanly instead of
     // the old bare <table> with mismatched corners.
+    // Resolve which result columns are Drift bools by name, once per render.
+    // Custom SQL has no table context, so only names that are bool in EVERY
+    // declaring table qualify; everything else stays raw. Copy/export is
+    // untouched — it reads the raw rows, not this display formatting.
+    const boolCols: Record<string, boolean> = {};
+    keys.forEach(function(k) { boolCols[k] = isUnambiguousDriftBoolColumn(k); });
+
     let tableHtml = '<div class="data-table-scroll-wrap"><table class="drift-table"><thead><tr>' + keys.map(function(k) { return '<th data-column-key="' + esc(k) + '">' + esc(k) + '</th>'; }).join('') + '</tr></thead><tbody>';
     pageRows.forEach(function(row) {
-      tableHtml += '<tr>' + keys.map(function(k) { return '<td>' + esc(row[k] != null ? String(row[k]) : '') + '</td>'; }).join('') + '</tr>';
+      tableHtml += '<tr>' + keys.map(function(k) {
+        const v = row[k];
+        // 0/1 only — an expression result (SUM, COUNT) sharing the column name
+        // can exceed 0/1 and must fall through to raw display.
+        if (boolCols[k] && (v === 0 || v === 1 || v === '0' || v === '1')) {
+          const label = (v === 1 || v === '1')
+            ? vt('viewer.table.grid.boolTrue')
+            : vt('viewer.table.grid.boolFalse');
+          // Keep the raw value on hover, matching the data grid's raw-on-hover posture.
+          return '<td title="' + esc(String(v)) + '">' + esc(label) + '</td>';
+        }
+        return '<td>' + esc(v != null ? String(v) : '') + '</td>';
+      }).join('') + '</tr>';
     });
     tableHtml += '</tbody></table></div>';
     const statusHtml = buildTableStatusBar(total, start, pageSize, pageRows.length, keys.length);

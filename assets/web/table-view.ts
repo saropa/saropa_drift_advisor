@@ -44,8 +44,12 @@ export function isEpochTimestamp(value) {
 }
 export function isBooleanColumn(name) {
   var lower = name.toLowerCase();
+  // BUG FIX (2026-07-09): the suffix branch used `\$` which in a JS regex
+  // matches a literal dollar-sign character (a Dart string-escaping artifact),
+  // so names like `user_active` never matched. `$` restores the intended
+  // end-of-string anchor.
   return /^(is_|has_|can_|should_|allow_|enable)/.test(lower) ||
-    /_(enabled|active|visible|deleted|archived|verified|confirmed|locked|published)\$/.test(lower) ||
+    /_(enabled|active|visible|deleted|archived|verified|confirmed|locked|published)$/.test(lower) ||
     lower === 'active' || lower === 'enabled' || lower === 'deleted' || lower === 'verified';
 }
 export function isDateColumn(name) {
@@ -66,11 +70,16 @@ export var BLOB_PREVIEW_CHARS = 48;
 export function isBlobType(colType) {
   return /BLOB|BINARY/.test((colType || '').toUpperCase());
 }
-export function formatCellValue(value, columnName, columnType) {
+export function formatCellValue(value, columnName, columnType, driftType?: string) {
   var raw = value != null ? String(value) : '';
   if (value == null || value === '') return { formatted: raw, raw: raw, wasFormatted: false };
   var type = (columnType || '').toUpperCase();
-  if ((type === 'INTEGER' || type === '') && isBooleanColumn(columnName)) {
+  // `driftType === 'bool'` is the EXACT semantic signal from the host's
+  // declared Drift schema (Drift stores bools as INTEGER, so the SQLite type
+  // alone can't distinguish them). The name heuristic stays as the fallback
+  // for raw SQLite hosts and older servers that don't send driftType.
+  if (driftType === 'bool' ||
+      ((type === 'INTEGER' || type === '') && isBooleanColumn(columnName))) {
     if (value === 0 || value === '0') return { formatted: vt('viewer.table.grid.boolFalse'), raw: raw, wasFormatted: true };
     if (value === 1 || value === '1') return { formatted: vt('viewer.table.grid.boolTrue'), raw: raw, wasFormatted: true };
   }
@@ -106,8 +115,49 @@ export function copyCellValue(text) {
   }
 }
 
-export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
+/**
+ * Builds a column-name → Drift semantic type map for one table from the
+ * cached schema metadata. Empty when the host declared no schema (raw SQLite
+ * host / older server) — callers then fall back to the name heuristic.
+ */
+export function schemaDriftTypesForTable(tableName) {
+  var map = {};
+  var t = schemaTableByName(tableName);
+  if (t && t.columns) {
+    t.columns.forEach(function(c) { if (c.driftType) map[c.name] = c.driftType; });
+  }
+  return map;
+}
+
+/**
+ * True when [columnName] is a Drift bool in EVERY table that declares a column
+ * with that name. For custom SQL results the source table of a result column is
+ * unknown, so an ambiguous name (bool in one table, int in another) must NOT be
+ * formatted — this errs toward raw display. False when no schema was declared.
+ */
+export function isUnambiguousDriftBoolColumn(columnName) {
+  var meta = S.schemaMeta;
+  if (!meta || !meta.tables) return false;
+  var seen = false;
+  for (var i = 0; i < meta.tables.length; i++) {
+    var cols = meta.tables[i].columns || [];
+    for (var j = 0; j < cols.length; j++) {
+      if (cols[j].name === columnName) {
+        if (cols[j].driftType !== 'bool') return false;
+        seen = true;
+      }
+    }
+  }
+  return seen;
+}
+
+export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig, tableName?: string) {
   if (!filtered || filtered.length === 0) return '<p class="meta">' + vt('viewer.table.grid.empty') + '</p>';
+  // Semantic Drift types for exact bool rendering. The optional tableName
+  // matters for the search tab, which renders a table other than
+  // S.currentTableName — without it a same-named column in the current table
+  // could leak its type onto the searched table's grid.
+  var driftTypes = schemaDriftTypesForTable(tableName || S.currentTableName);
   var dataKeys = Object.keys(filtered[0]);
   var order = dataKeys.slice();
   var hidden = [];
@@ -191,7 +241,7 @@ export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig) {
           cellContent = esc(displayStr);
         }
       } else if (S.displayFormat === 'formatted' && colTypes && !(maskOn && piiCols[k])) {
-        var fmt = formatCellValue(val, k, colTypes[k]);
+        var fmt = formatCellValue(val, k, colTypes[k], driftTypes[k]);
         if (fmt.wasFormatted) {
           cellContent = '<span title="' + esc(vt('viewer.table.grid.rawTitle', fmt.raw)) + '">' + esc(fmt.formatted) + '</span>'
             + '<span class="cell-raw">' + esc(fmt.raw) + '</span>';

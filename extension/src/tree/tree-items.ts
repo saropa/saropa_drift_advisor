@@ -3,6 +3,13 @@ import { ColumnMetadata, ForeignKey, TableMetadata } from '../api-client';
 
 function columnIcon(col: ColumnMetadata): vscode.ThemeIcon {
   if (col.pk) return new vscode.ThemeIcon('key');
+  // Semantic Drift type first: bools are stored as INTEGER in SQLite, so
+  // without this check a boolean column is indistinguishable from an int.
+  // Only sent when the host declared its Drift schema; storage-type checks
+  // below remain the fallback.
+  if (col.driftType === 'bool') {
+    return new vscode.ThemeIcon('symbol-boolean');
+  }
   const upper = col.type.toUpperCase();
   if (upper === 'INTEGER' || upper === 'REAL') {
     return new vscode.ThemeIcon('symbol-number');
@@ -110,7 +117,12 @@ export class ColumnItem extends vscode.TreeItem {
     public readonly tableName: string,
   ) {
     super(column.name, vscode.TreeItemCollapsibleState.None);
-    this.description = column.type;
+    // Prefer the Drift semantic type (e.g. "bool") over the raw storage type
+    // ("INTEGER") when the host declared it — keep the storage type alongside
+    // so the on-disk representation stays visible.
+    this.description = column.driftType
+      ? `${column.driftType} (${column.type})`
+      : column.type;
     this.iconPath = columnIcon(column);
     this.contextValue = column.pk ? 'driftColumnPk' : 'driftColumn';
   }
