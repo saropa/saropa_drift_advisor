@@ -1854,6 +1854,9 @@
   "overrides": {
     "serialize-javascript": "^7.0.3"
   },
+  "dependencies": {
+    "sql-formatter": "^15.4.0"
+  },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "^26.1.0",
