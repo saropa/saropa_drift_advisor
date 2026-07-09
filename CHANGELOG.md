@@ -42,6 +42,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+The web viewer's left icon bar is a touch roomier, and its icons now carry a soft color so they're easier to scan at a glance. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Improved
+
+- **Web viewer activity bar widened ~20% with lightly tinted icons.** The vertical icon strip (Home, Tables, Search, and the tool launchers) now uses larger 2.4rem buttons and slightly more side padding, giving the 20+ icons more breathing room and bigger tap targets. The resting icons are tinted with a soft, theme-aware blend of the accent and muted colors instead of flat gray, so the strip reads as interactive and scans faster; hover and active states still escalate to the full foreground/accent color. Scoped to the activity bar, so the tab-bar icons are unchanged.
+
 ## [4.1.19]
 
 Interactive SQL errors now help you fix the query: a `no such column` reply names the table's real columns (and the nearest match), and a query that trips over a reserved word like `primary` used as an alias now says to quote it. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)

@@ -25972,14 +25972,15 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
   };
   var dialectFromOptions = (dialectOptions) => ({
     tokenizer: new Tokenizer(dialectOptions.tokenizerOptions, dialectOptions.name),
-    formatOptions: processDialectFormatOptions(dialectOptions.formatOptions)
+    formatOptions: processDialectFormatOptions(dialectOptions)
   });
-  var processDialectFormatOptions = (options) => {
-    var _a;
+  var processDialectFormatOptions = ({ tokenizerOptions, formatOptions: options }) => {
+    var _a, _b;
     return {
       alwaysDenseOperators: options.alwaysDenseOperators || [],
       onelineClauses: Object.fromEntries(options.onelineClauses.map((name) => [name, true])),
-      tabularOnelineClauses: Object.fromEntries(((_a = options.tabularOnelineClauses) !== null && _a !== void 0 ? _a : options.onelineClauses).map((name) => [name, true]))
+      tabularOnelineClauses: Object.fromEntries(((_a = options.tabularOnelineClauses) !== null && _a !== void 0 ? _a : options.onelineClauses).map((name) => [name, true])),
+      identifierDashes: Boolean((_b = tokenizerOptions.identChars) === null || _b === void 0 ? void 0 : _b.dashes)
     };
   };
 
@@ -27090,7 +27091,9 @@ ${JSON.stringify(results, void 0, 2)}`);
       this.layout.add(this.params.get(node), WS.SPACE);
     }
     formatOperator({ text }) {
-      if (this.cfg.denseOperators || this.dialectCfg.alwaysDenseOperators.includes(text)) {
+      if (text === "-" && this.dialectCfg.identifierDashes) {
+        this.layout.add(text, WS.SPACE);
+      } else if (this.cfg.denseOperators || this.dialectCfg.alwaysDenseOperators.includes(text)) {
         this.layout.add(WS.NO_SPACE, text);
       } else if (text === ":") {
         this.layout.add(WS.NO_SPACE, text, WS.SPACE);
@@ -27610,7 +27613,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   }
   function isBooleanColumn(name) {
     var lower = name.toLowerCase();
-    return /^(is_|has_|can_|should_|allow_|enable)/.test(lower) || /_(enabled|active|visible|deleted|archived|verified|confirmed|locked|published)\$/.test(lower) || lower === "active" || lower === "enabled" || lower === "deleted" || lower === "verified";
+    return /^(is_|has_|can_|should_|allow_|enable)/.test(lower) || /_(enabled|active|visible|deleted|archived|verified|confirmed|locked|published)$/.test(lower) || lower === "active" || lower === "enabled" || lower === "deleted" || lower === "verified";
   }
   function isDateColumn2(name) {
     var lower = name.toLowerCase();
@@ -27620,11 +27623,11 @@ ${JSON.stringify(results, void 0, 2)}`);
   function isBlobType(colType) {
     return /BLOB|BINARY/.test((colType || "").toUpperCase());
   }
-  function formatCellValue(value, columnName, columnType) {
+  function formatCellValue(value, columnName, columnType, driftType) {
     var raw = value != null ? String(value) : "";
     if (value == null || value === "") return { formatted: raw, raw, wasFormatted: false };
     var type = (columnType || "").toUpperCase();
-    if ((type === "INTEGER" || type === "") && isBooleanColumn(columnName)) {
+    if (driftType === "bool" || (type === "INTEGER" || type === "") && isBooleanColumn(columnName)) {
       if (value === 0 || value === "0") return { formatted: vt("viewer.table.grid.boolFalse"), raw, wasFormatted: true };
       if (value === 1 || value === "1") return { formatted: vt("viewer.table.grid.boolTrue"), raw, wasFormatted: true };
     }
@@ -27656,8 +27659,34 @@ ${JSON.stringify(results, void 0, 2)}`);
       });
     }
   }
-  function buildDataTableHtml(filtered2, fkMap, colTypes, columnConfig) {
+  function schemaDriftTypesForTable(tableName) {
+    var map = {};
+    var t = schemaTableByName2(tableName);
+    if (t && t.columns) {
+      t.columns.forEach(function(c) {
+        if (c.driftType) map[c.name] = c.driftType;
+      });
+    }
+    return map;
+  }
+  function isUnambiguousDriftBoolColumn(columnName) {
+    var meta = schemaMeta;
+    if (!meta || !meta.tables) return false;
+    var seen = false;
+    for (var i = 0; i < meta.tables.length; i++) {
+      var cols = meta.tables[i].columns || [];
+      for (var j = 0; j < cols.length; j++) {
+        if (cols[j].name === columnName) {
+          if (cols[j].driftType !== "bool") return false;
+          seen = true;
+        }
+      }
+    }
+    return seen;
+  }
+  function buildDataTableHtml(filtered2, fkMap, colTypes, columnConfig, tableName) {
     if (!filtered2 || filtered2.length === 0) return '<p class="meta">' + vt("viewer.table.grid.empty") + "</p>";
+    var driftTypes = schemaDriftTypesForTable(tableName || currentTableName);
     var dataKeys = Object.keys(filtered2[0]);
     var order = dataKeys.slice();
     var hidden = [];
@@ -27721,7 +27750,7 @@ ${JSON.stringify(results, void 0, 2)}`);
             cellContent = esc2(displayStr);
           }
         } else if (displayFormat === "formatted" && colTypes && !(maskOn && piiCols[k])) {
-          var fmt = formatCellValue(val, k, colTypes[k]);
+          var fmt = formatCellValue(val, k, colTypes[k], driftTypes[k]);
           if (fmt.wasFormatted) {
             cellContent = '<span title="' + esc2(vt("viewer.table.grid.rawTitle", fmt.raw)) + '">' + esc2(fmt.formatted) + '</span><span class="cell-raw">' + esc2(fmt.raw) + "</span>";
           } else {
@@ -29027,7 +29056,7 @@ ${JSON.stringify(results, void 0, 2)}`);
       return null;
     }
     var isIntLike = typ === "INTEGER" || typ === "INT" || typ === "BIGINT" || typ === "SMALLINT" || typ === "TINYINT";
-    if ((isIntLike || typ === "") && isBooleanColumn(colMeta.name)) {
+    if (colMeta.driftType === "bool" || (isIntLike || typ === "") && isBooleanColumn(colMeta.name)) {
       var lower = trimmed.toLowerCase();
       if (lower !== "0" && lower !== "1" && lower !== "true" && lower !== "false") {
         return vt("viewer.table.edit.expectBool");
@@ -32849,7 +32878,7 @@ ${JSON.stringify(results, void 0, 2)}`);
         filterSuffix = stOnlyMatching ? vt("viewer.schema.search.filteredOf", filtered2.length, data.length) : vt("viewer.schema.search.showingAll", filtered2.length);
       }
       metaText += filterSuffix;
-      var rawTableHtml = buildDataTableHtml(display, fkMap, colTypes, getColumnConfig(tableName));
+      var rawTableHtml = buildDataTableHtml(display, fkMap, colTypes, getColumnConfig(tableName), tableName);
       var tableHtml = wrapDataTableInScroll(rawTableHtml.replace('id="data-table"', 'id="st-data-table"')) + buildTableStatusBar(
         total,
         stOffset,
@@ -33374,12 +33403,21 @@ ${JSON.stringify(results, void 0, 2)}`);
       const pageRows = rows.slice(start, start + pageSize);
       const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
       const total = rows.length;
+      const boolCols = {};
+      keys.forEach(function(k) {
+        boolCols[k] = isUnambiguousDriftBoolColumn(k);
+      });
       let tableHtml = '<div class="data-table-scroll-wrap"><table class="drift-table"><thead><tr>' + keys.map(function(k) {
         return '<th data-column-key="' + esc2(k) + '">' + esc2(k) + "</th>";
       }).join("") + "</tr></thead><tbody>";
       pageRows.forEach(function(row) {
         tableHtml += "<tr>" + keys.map(function(k) {
-          return "<td>" + esc2(row[k] != null ? String(row[k]) : "") + "</td>";
+          const v = row[k];
+          if (boolCols[k] && (v === 0 || v === 1 || v === "0" || v === "1")) {
+            const label = v === 1 || v === "1" ? vt("viewer.table.grid.boolTrue") : vt("viewer.table.grid.boolFalse");
+            return '<td title="' + esc2(String(v)) + '">' + esc2(label) + "</td>";
+          }
+          return "<td>" + esc2(v != null ? String(v) : "") + "</td>";
         }).join("") + "</tr>";
       });
       tableHtml += "</tbody></table></div>";

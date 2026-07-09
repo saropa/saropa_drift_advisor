@@ -129,6 +129,25 @@ describe('DriftTreeProvider', () => {
       assert.strictEqual((children[3].iconPath as any).id, 'symbol-number');
     });
 
+    it('should show a boolean icon and semantic label for driftType bool columns', () => {
+      // Drift stores bools as INTEGER; without driftType this column would get
+      // the number icon and a bare "INTEGER" label (bugs/BUG_bools_showing_as_ints.md).
+      const boolItem = new ColumnItem(
+        { name: 'notifications', type: 'INTEGER', pk: false, driftType: 'bool' },
+        'users',
+      );
+      assert.strictEqual((boolItem.iconPath as any).id, 'symbol-boolean');
+      assert.strictEqual(boolItem.description, 'bool (INTEGER)');
+
+      // No driftType (raw SQLite host / older server) → unchanged fallback.
+      const intItem = new ColumnItem(
+        { name: 'count', type: 'INTEGER', pk: false },
+        'users',
+      );
+      assert.strictEqual((intItem.iconPath as any).id, 'symbol-number');
+      assert.strictEqual(intItem.description, 'INTEGER');
+    });
+
     it('should show row count on table items', async () => {
       fetchStub.onFirstCall().resolves(
         new Response(JSON.stringify({ ok: true }), { status: 200 }),
