@@ -340,3 +340,28 @@ ref:
     "text": "[log] [database] Drift REPEAT x8 in ≤500ms SELECT: SELECT * FROM \"image_blur_metas\" WHERE \"url\" = ? LIMIT 1; [N+1 origin: ImageBlurMetaDriftIO.dbLoadByUrl ./lib/database/drift_middleware/user_data/image_blur_meta_drift_io.dart:45:11 ← _NetworkImagePlaceholderState._loadHash ./lib/components/primitive/image/common_network_image.dart:504:40]  » DriftDebugInterceptor._lightLog (./lib/database/drift/drift_debug_interceptor.dart:282:5)"
   }
 ]
+
+## Finish Report (2026-07-09)
+
+### Changes Made
+
+1. **Contacts — `lib/database/drift/drift_debug_interceptor.dart`**
+   - Modified `_lightLog()` method to prefix all performance-related messages with `[Perf]` instead of generic subsystem labels.
+   - Changed line 283 from `'Drift $label: …'` to `'[Perf] Drift $label: …'`.
+   - Added clarifying comment explaining why both `[Perf]` (human-readable search marker) and `Database` debugType tag (machine-readable Log Capture routing) appear.
+   - Affects all light-mode database logs: REPEAT bursts (N+1 detection), SLOW queries, errors.
+
+2. **Drift Advisor — `extension/package.json`**
+   - Added missing `sql-formatter@^15.4.0` dependency.
+   - Module was imported in `assets/web/sql-format.ts` but not declared in package.json.
+   - Ran `npm install` to verify build.
+
+3. **Bug Archival**
+   - Moved bug report from `bugs/` to `plans/history/2026.07/2026.07.09/` with status: Fixed.
+
+### Review Findings
+
+- **No test failures:** Existing tests unaffected by message format change.
+- **Coverage gap noted:** No unit tests for `[Perf]` prefix or `formatSqlSafe()`, but non-blocking.
+- **Architecture compliant:** Log Capture routing unchanged; detectors unaffected.
+- **Zero runtime cost:** Cosmetic change at string-build time.
