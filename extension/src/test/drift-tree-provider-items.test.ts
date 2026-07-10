@@ -131,7 +131,8 @@ describe('DriftTreeProvider', () => {
 
     it('should show a boolean icon and semantic label for driftType bool columns', () => {
       // Drift stores bools as INTEGER; without driftType this column would get
-      // the number icon and a bare "INTEGER" label (bugs/BUG_bools_showing_as_ints.md).
+      // the number icon and a bare "INTEGER" label
+      // (plans/history/2026.07/2026.07.09/BUG_bools_showing_as_ints.md).
       const boolItem = new ColumnItem(
         { name: 'notifications', type: 'INTEGER', pk: false, driftType: 'bool' },
         'users',

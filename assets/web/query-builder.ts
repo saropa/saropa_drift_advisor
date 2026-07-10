@@ -300,7 +300,12 @@ import { bindColumnTableEvents } from './pagination.ts';
           // used by the main table view, expanded by default.
           var qbDataKeys = Object.keys(rows[0] || {});
           var qbColConfig = getColumnConfig(S.currentTableName);
-          var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, qbColConfig));
+          // Raw-SQL and multi-table results have no single-table context, so
+          // pass null: buildDataTableHtml then formats only columns that are
+          // bool in EVERY declaring table, instead of wrongly attributing the
+          // current table's drift types to joined/arbitrary result columns.
+          var qbDriftContext = (isRawMode || MQ.getQbScope() === 'multi') ? null : S.currentTableName;
+          var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, qbColConfig, qbDriftContext));
           rawTableHtml += buildTableStatusBar(S.tableCounts[S.currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(qbDataKeys, qbColConfig));
           // Query-builder results are the full result set (no separate server
           // total), so rows collapse to a single count; columns reflect hiding.

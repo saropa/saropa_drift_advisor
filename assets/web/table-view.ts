@@ -54,7 +54,26 @@ export function isBooleanColumn(name) {
 }
 export function isDateColumn(name) {
   var lower = name.toLowerCase();
-  return /date|time|created|updated|deleted|_at\$|_on\$/.test(lower);
+  // BUG FIX (2026-07-09): `_at\$` / `_on\$` matched a literal dollar sign (the
+  // same Dart string-escaping artifact fixed in isBooleanColumn above), so
+  // `expires_at` / `starts_on` style names never got date formatting.
+  return /date|time|created|updated|deleted|_at$|_on$/.test(lower);
+}
+
+/**
+ * Single decision point for "render/validate this column as a boolean":
+ * the exact `driftType` signal wins; otherwise an INTEGER-affinity storage
+ * type plus the name heuristic. Shared by the grid formatter and the cell
+ * editor so their intLike sets cannot drift apart (they previously diverged —
+ * the editor accepted INT/BIGINT/SMALLINT/TINYINT, the grid only INTEGER,
+ * so a `user_active INT` column validated as bool but displayed as 0/1).
+ */
+export function isBoolSemanticColumn(name, type, driftType) {
+  if (driftType === 'bool') return true;
+  var typ = (type || '').toUpperCase();
+  var intLike = typ === '' || typ === 'INTEGER' || typ === 'INT' ||
+    typ === 'BIGINT' || typ === 'SMALLINT' || typ === 'TINYINT';
+  return intLike && isBooleanColumn(name);
 }
 
 /**
@@ -78,8 +97,7 @@ export function formatCellValue(value, columnName, columnType, driftType?: strin
   // declared Drift schema (Drift stores bools as INTEGER, so the SQLite type
   // alone can't distinguish them). The name heuristic stays as the fallback
   // for raw SQLite hosts and older servers that don't send driftType.
-  if (driftType === 'bool' ||
-      ((type === 'INTEGER' || type === '') && isBooleanColumn(columnName))) {
+  if (isBoolSemanticColumn(columnName, type, driftType)) {
     if (value === 0 || value === '0') return { formatted: vt('viewer.table.grid.boolFalse'), raw: raw, wasFormatted: true };
     if (value === 1 || value === '1') return { formatted: vt('viewer.table.grid.boolTrue'), raw: raw, wasFormatted: true };
   }
@@ -151,13 +169,23 @@ export function isUnambiguousDriftBoolColumn(columnName) {
   return seen;
 }
 
-export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig, tableName?: string) {
+export function buildDataTableHtml(filtered, fkMap, colTypes, columnConfig, tableName?: string | null) {
   if (!filtered || filtered.length === 0) return '<p class="meta">' + vt('viewer.table.grid.empty') + '</p>';
-  // Semantic Drift types for exact bool rendering. The optional tableName
-  // matters for the search tab, which renders a table other than
-  // S.currentTableName — without it a same-named column in the current table
-  // could leak its type onto the searched table's grid.
-  var driftTypes = schemaDriftTypesForTable(tableName || S.currentTableName);
+  // Semantic Drift types for exact bool rendering. INVARIANT: any caller
+  // rendering rows that are NOT from S.currentTableName must pass tableName —
+  // otherwise a same-named column in the current table leaks its type onto
+  // this grid (the search tab passes its searched table for exactly this).
+  // `null` means "no single-table context" (raw SQL / multi-table joins):
+  // per-table lookup is impossible, so only names that are bool in EVERY
+  // declaring table are formatted, matching the SQL tab's posture.
+  var driftTypes = {};
+  if (tableName === null) {
+    Object.keys(filtered[0]).forEach(function(k) {
+      if (isUnambiguousDriftBoolColumn(k)) driftTypes[k] = 'bool';
+    });
+  } else {
+    driftTypes = schemaDriftTypesForTable(tableName || S.currentTableName);
+  }
   var dataKeys = Object.keys(filtered[0]);
   var order = dataKeys.slice();
   var hidden = [];

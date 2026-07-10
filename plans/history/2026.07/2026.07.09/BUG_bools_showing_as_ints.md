@@ -1,5 +1,7 @@
 # Bug: Booleans Showing as Integers in the UI
 
+Status: Fixed
+
 ## Overview
 
 SQLite stores booleans as `INTEGER` (0 or 1). The Dart backend already derives the semantic Drift type and sends `driftType: 'bool'` in schema API responses, but no UI surface consumes it for display. The data grid falls back to a column-NAME heuristic that only recognizes some boolean names; the VS Code sidebar ignores semantics entirely. Boolean columns whose names don't match the heuristic render as `0`/`1`.
@@ -86,3 +88,32 @@ When a query's result column can be matched by name to a known table's schema, r
 - `CHANGELOG.md` — two Fixed entries under 4.1.19.
 
 Remaining: the four manual running-app checks above.
+
+## Finish Report (2026-07-09)
+
+Boolean columns rendered as raw `0`/`1` integers across the viewer UI because no display surface consumed the `driftType` semantic field the Dart backend already emitted in `/api/schema/metadata`. The only boolean detection was a column-name heuristic whose suffix branch was additionally dead — a Dart-escaped `\$` in a JavaScript regex matches a literal dollar sign, so `user_active`-style names never matched.
+
+### Changes
+
+**Web viewer (`assets/web/`)**
+- `table-view.ts` — `formatCellValue` gained an optional `driftType` parameter; `driftType === 'bool'` formats exactly, the name heuristic remains the fallback for raw SQLite hosts and older servers. New helpers: `schemaDriftTypesForTable(tableName)` (per-table column → drift type map from cached schema metadata), `isUnambiguousDriftBoolColumn(name)` (bool in every declaring table — the rule for table-less results), and `isBoolSemanticColumn(name, type, driftType)` (the single shared bool predicate; previously the grid accepted only `INTEGER` while the cell editor also accepted `INT`/`BIGINT`/`SMALLINT`/`TINYINT`, so the two surfaces disagreed on the same column). `buildDataTableHtml` gained an optional `tableName` parameter with a stated invariant: callers rendering rows not from `S.currentTableName` must pass it (search tab) or pass `null` for no-single-table contexts (raw SQL / multi-table joins), which restricts formatting to unambiguous bool names. Fixed the `\$` end-anchor artifact in both `isBooleanColumn` (suffix names) and `isDateColumn` (`_at`/`_on` names).
+- `search-tab.ts` — passes the searched table's name so drift-type lookup cannot read the wrong table.
+- `cell-edit.ts` — bool edit validation uses the shared `isBoolSemanticColumn` predicate.
+- `sql-runner.ts` — SQL result cells render localized true/false for unambiguous bool columns with 0/1 values (raw value preserved in the `title` attribute); copy/export reads raw rows unchanged. Result rendering now awaits `loadSchemaMeta()` so a deep-linked `?sql=` run formats correctly when the SQL tab is the first surface opened.
+- `query-builder.ts` — raw-SQL and multi-table results pass `null` table context instead of silently inheriting the current table's drift types for same-named columns.
+
+**VS Code extension (`extension/src/`)**
+- `api-types.ts` — `ColumnMetadata.driftType?` added as the closed literal union the server emits (`'dateTime' | 'bool' | 'int' | 'double' | 'string' | 'blob'`).
+- `tree/tree-items.ts` — `columnIcon` returns `symbol-boolean` for `driftType === 'bool'` before storage-type dispatch; column descriptions show `bool (INTEGER)` (semantic first, storage kept visible).
+
+### Verification
+
+- `assets/web/test/table-view-bools.test.mjs` (new, node --test, 11 assertions): the driftType-exact path, heuristic fallback, suffix-regex regression (`user_active` matches; `last_active_since` does not), predicate unification, cross-table ambiguity rule, and per-table map lookups — exercising the real TypeScript via esbuild.
+- `extension/src/test/drift-tree-provider-items.test.ts` — new case pins the boolean icon/label and the no-driftType fallback; full file passes 17/17 scoped (`mocha --no-config --require test/register-mock.js out/test/drift-tree-provider-items.test.js`).
+- `npm run typecheck:web` clean; `npm run build:js` bundles; extension `npm run lint` (tsc --noEmit) clean.
+
+### Known limits
+
+- Cell-edit accepts `true`/`false` input for bool columns but `cellUpdateValueJson` forwards the raw string to `POST /api/cell/update`; whether the server normalizes it to an integer is a server-side concern outside this change (pre-existing behavior, now reachable on more columns).
+- The in-page table-definition panel (`buildTableDefinitionHtml` / `columnTypeIcon`) still shows the storage type only; its `/BOOL/` icon branch cannot fire for Drift-stored booleans. Left unchanged pending a decision on that surface.
+- SQL-result bool formatting can label an aliased 0/1 expression (`SELECT 0 AS is_verified`) — accepted trade-off, documented at the guard site.

@@ -10,6 +10,7 @@ import { loadSqlHistory, pushSqlHistory, loadBookmarks, refreshBookmarksDropdown
 import { fetchHistory } from './history-sidebar.ts';
 import { selectPanel } from './sidebar-panels.ts';
 import { buildTableStatusBar, showCopyToast, bindResultsToggle, isUnambiguousDriftBoolColumn } from './table-view.ts';
+import { loadSchemaMeta } from './schema-meta.ts';
 import { formatSqlSafe } from './sql-format.ts';
 
 /** Stringifies a cell for text export: null/undefined → '', everything else String(). */
@@ -548,7 +549,13 @@ export function initSqlRunner(): void {
           if (asTable && rows.length > 0) {
             sqlResultAllRows = rows;
             sqlResultPage = 0;
-            renderSqlResultPage();
+            // Ensure the schema metadata powering exact bool formatting is
+            // cached before the first render: a deep-linked `?sql=` run can
+            // reach this tab before any other surface has fetched it, which
+            // would silently render bools as 0/1 with no recovery until the
+            // next run. Results must still render if the fetch fails —
+            // formatting is a display nicety, never a gate.
+            loadSchemaMeta().catch(function() {}).then(function() { renderSqlResultPage(); });
           } else {
             resultEl.innerHTML = '<p class="meta">' + esc(vt('viewer.sql.result.rowCount', rows.length)) + '</p><pre>' + esc(JSON.stringify(rows, null, 2)) + '</pre>';
           }

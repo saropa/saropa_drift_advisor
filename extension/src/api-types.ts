@@ -14,12 +14,13 @@ export interface ColumnMetadata {
   pk: boolean;
   notnull?: boolean;
   /**
-   * Drift SEMANTIC type ('dateTime' | 'bool' | 'int' | 'double' | 'string' |
-   * 'blob'), present only when the host app supplied a declared Drift schema.
-   * Drift stores bools and DateTimes as INTEGER, so `type` alone cannot
-   * distinguish them — this carries the lost distinction for display.
+   * Drift SEMANTIC type, present only when the host app supplied a declared
+   * Drift schema. Drift stores bools and DateTimes as INTEGER, so `type` alone
+   * cannot distinguish them — this carries the lost distinction for display.
+   * Typed as the closed vocabulary the Dart server emits (server_types.dart)
+   * so a consumer typo like 'boolean' fails to compile.
    */
-  driftType?: string;
+  driftType?: 'dateTime' | 'bool' | 'int' | 'double' | 'string' | 'blob';
 }
 
 export interface ForeignKey {

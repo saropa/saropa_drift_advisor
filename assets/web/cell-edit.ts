@@ -6,7 +6,7 @@
  */
 import * as S from './state.ts';
 import { vt } from './l10n.ts';
-import { schemaTableByName, getPkColumnNameForDataTable, getVisibleDataColumnKeys, copyCellValue, isBooleanColumn } from './table-view.ts';
+import { schemaTableByName, getPkColumnNameForDataTable, getVisibleDataColumnKeys, copyCellValue, isBoolSemanticColumn } from './table-view.ts';
 import { loadTable } from './table-list.ts';
 import { loadSchemaMeta } from './schema-meta.ts';
 
@@ -94,9 +94,10 @@ function tryBeginUnsavedWebEdit(): boolean {
       // colMeta comes straight from /api/schema/metadata, so `driftType` is the
       // exact semantic signal when the host declared its Drift schema; the name
       // heuristic remains the fallback for raw SQLite hosts / older servers.
+      // isBoolSemanticColumn is the SAME predicate the grid formatter uses, so
+      // a column can never validate as bool while displaying as an int.
       var isIntLike = typ === 'INTEGER' || typ === 'INT' || typ === 'BIGINT' || typ === 'SMALLINT' || typ === 'TINYINT';
-      if (colMeta.driftType === 'bool' ||
-          ((isIntLike || typ === '') && isBooleanColumn(colMeta.name))) {
+      if (isBoolSemanticColumn(colMeta.name, typ, colMeta.driftType)) {
         var lower = trimmed.toLowerCase();
         if (lower !== '0' && lower !== '1' && lower !== 'true' && lower !== 'false') {
           return vt('viewer.table.edit.expectBool');

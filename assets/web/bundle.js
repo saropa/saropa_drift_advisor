@@ -5468,7 +5468,8 @@
       html += buildQueryBuilderHtml(currentTableName, colTypes);
       var qbDataKeys = Object.keys(rows[0] || {});
       var qbColConfig = getColumnConfig(currentTableName);
-      var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, qbColConfig));
+      var qbDriftContext = isRawMode || getQbScope() === "multi" ? null : currentTableName;
+      var rawTableHtml = wrapDataTableInScroll(buildDataTableHtml(rows, fkMap, colTypes, qbColConfig, qbDriftContext));
       rawTableHtml += buildTableStatusBar(tableCounts[currentTableName] || null, 0, rows.length, rows.length, getVisibleColumnCount(qbDataKeys, qbColConfig));
       var resultsLabel = buildResultsLabel(rows.length, null, getVisibleColumnCount(qbDataKeys, qbColConfig), qbDataKeys.length);
       html += '<div class="results-table-wrap" role="region" aria-label="' + esc2(vt("viewer.qb.results.ariaLabel")) + '"><div class="results-table-heading">' + vt("viewer.qb.results.heading", resultsLabel) + '</div><div class="results-table-body">' + rawTableHtml + "</div></div>";
@@ -27617,7 +27618,13 @@ ${JSON.stringify(results, void 0, 2)}`);
   }
   function isDateColumn2(name) {
     var lower = name.toLowerCase();
-    return /date|time|created|updated|deleted|_at\$|_on\$/.test(lower);
+    return /date|time|created|updated|deleted|_at$|_on$/.test(lower);
+  }
+  function isBoolSemanticColumn(name, type, driftType) {
+    if (driftType === "bool") return true;
+    var typ = (type || "").toUpperCase();
+    var intLike = typ === "" || typ === "INTEGER" || typ === "INT" || typ === "BIGINT" || typ === "SMALLINT" || typ === "TINYINT";
+    return intLike && isBooleanColumn(name);
   }
   var BLOB_PREVIEW_CHARS = 48;
   function isBlobType(colType) {
@@ -27627,7 +27634,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     var raw = value != null ? String(value) : "";
     if (value == null || value === "") return { formatted: raw, raw, wasFormatted: false };
     var type = (columnType || "").toUpperCase();
-    if (driftType === "bool" || (type === "INTEGER" || type === "") && isBooleanColumn(columnName)) {
+    if (isBoolSemanticColumn(columnName, type, driftType)) {
       if (value === 0 || value === "0") return { formatted: vt("viewer.table.grid.boolFalse"), raw, wasFormatted: true };
       if (value === 1 || value === "1") return { formatted: vt("viewer.table.grid.boolTrue"), raw, wasFormatted: true };
     }
@@ -27686,7 +27693,14 @@ ${JSON.stringify(results, void 0, 2)}`);
   }
   function buildDataTableHtml(filtered2, fkMap, colTypes, columnConfig, tableName) {
     if (!filtered2 || filtered2.length === 0) return '<p class="meta">' + vt("viewer.table.grid.empty") + "</p>";
-    var driftTypes = schemaDriftTypesForTable(tableName || currentTableName);
+    var driftTypes = {};
+    if (tableName === null) {
+      Object.keys(filtered2[0]).forEach(function(k) {
+        if (isUnambiguousDriftBoolColumn(k)) driftTypes[k] = "bool";
+      });
+    } else {
+      driftTypes = schemaDriftTypesForTable(tableName || currentTableName);
+    }
     var dataKeys = Object.keys(filtered2[0]);
     var order = dataKeys.slice();
     var hidden = [];
@@ -29056,7 +29070,7 @@ ${JSON.stringify(results, void 0, 2)}`);
       return null;
     }
     var isIntLike = typ === "INTEGER" || typ === "INT" || typ === "BIGINT" || typ === "SMALLINT" || typ === "TINYINT";
-    if (colMeta.driftType === "bool" || (isIntLike || typ === "") && isBooleanColumn(colMeta.name)) {
+    if (isBoolSemanticColumn(colMeta.name, typ, colMeta.driftType)) {
       var lower = trimmed.toLowerCase();
       if (lower !== "0" && lower !== "1" && lower !== "true" && lower !== "false") {
         return vt("viewer.table.edit.expectBool");
@@ -33674,7 +33688,10 @@ ${JSON.stringify(results, void 0, 2)}`);
           if (asTable && rows.length > 0) {
             sqlResultAllRows = rows;
             sqlResultPage = 0;
-            renderSqlResultPage();
+            loadSchemaMeta().catch(function() {
+            }).then(function() {
+              renderSqlResultPage();
+            });
           } else {
             resultEl.innerHTML = '<p class="meta">' + esc2(vt("viewer.sql.result.rowCount", rows.length)) + "</p><pre>" + esc2(JSON.stringify(rows, null, 2)) + "</pre>";
           }
