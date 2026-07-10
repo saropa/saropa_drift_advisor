@@ -70,6 +70,20 @@ describe('buildHubDocument', () => {
     // A failed pane contributes no stylesheet.
     assert.ok(!html.includes('.pane-dashboard .btn{'), 'no style from failed pane');
   });
+
+  it('always carries the monitoring kill-switch status card', () => {
+    // The card IS the hub's monitoring control: green + kill command by
+    // default, red + resume command while killed. It must be present in
+    // BOTH states — a hub without it has no way back from a kill.
+    const active = buildHubDocument(okPane('dashboard'), okPane('health'));
+    assert.ok(active.includes('kill-switch-card'), 'card present while active');
+    assert.ok(!active.includes('kill-switch-card killed'));
+    assert.ok(active.includes('data-cmd-id="driftViewer.monitoring.kill"'));
+
+    const killed = buildHubDocument(okPane('dashboard'), okPane('health'), false);
+    assert.ok(killed.includes('kill-switch-card killed'), 'killed accent applied');
+    assert.ok(killed.includes('data-cmd-id="driftViewer.monitoring.resume"'));
+  });
 });
 
 describe('buildHubLoadingShell', () => {
@@ -79,5 +93,13 @@ describe('buildHubLoadingShell', () => {
     assert.ok(shell.includes(`data-cmd-id="${allHubTiles()[0].id}"`));
     const details = shell.match(/<details class="hub-group"/g) ?? [];
     assert.strictEqual(details.length, HUB_GROUPS.length);
+  });
+
+  it('renders the killed status card while monitoring is disabled', () => {
+    // The loading shell appears first — the killed state must be visible
+    // (with the resume path) before the pane scans finish, not after.
+    const shell = buildHubLoadingShell(false);
+    assert.ok(shell.includes('kill-switch-card killed'));
+    assert.ok(shell.includes('data-cmd-id="driftViewer.monitoring.resume"'));
   });
 });

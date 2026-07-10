@@ -91,12 +91,42 @@ abstract final class VmServiceBridge {
       '${_kExtPrefix}applyEditsBatch',
       _handleApplyEditsBatch,
     );
+    developer.registerExtension(
+      '${_kExtPrefix}getMonitoring',
+      _handleGetMonitoring,
+    );
+    developer.registerExtension(
+      '${_kExtPrefix}setMonitoring',
+      _handleSetMonitoring,
+    );
   }
 
   /// Clears the router reference so handlers return "not running" after
   /// server stop.
   static void clear() {
     _router = null;
+  }
+
+  /// Global kill-switch gate for VM-service data-inspection RPCs.
+  ///
+  /// Returns the refusal response when monitoring is disabled, or null when
+  /// the RPC may proceed. The VM bridge is a SECOND full transport into the
+  /// same data the HTTP 403 gate protects — without this check, a killed
+  /// server still served schema, SQL, performance data, and even writes to
+  /// any VM-service client, silently defeating the switch. Mirrors the
+  /// change-detection precedent where VM handlers check the router flag.
+  /// Deliberately NOT applied to: getHealth (dormant must stay observable),
+  /// getGeneration (checkDataChange self-gates; no data in the response),
+  /// get/setChangeDetection (flag toggles), and get/setMonitoring (the
+  /// resume path must stay reachable while killed).
+  static developer.ServiceExtensionResponse? _monitoringGate(Router router) {
+    if (router.isMonitoringEnabled) {
+      return null;
+    }
+    return developer.ServiceExtensionResponse.error(
+      developer.ServiceExtensionResponse.extensionErrorMin,
+      ServerConstants.errorMonitoringDisabled,
+    );
   }
 
   static Future<developer.ServiceExtensionResponse> _handleGetHealth(
@@ -133,6 +163,10 @@ abstract final class VmServiceBridge {
         'Drift server not running',
       );
     }
+
+    // Kill switch first: schema metadata is data inspection.
+    final gate = _monitoringGate(router);
+    if (gate != null) return gate;
 
     // When change detection is off, skip the heavy
     // per-table PRAGMA + COUNT queries that produce
@@ -178,6 +212,10 @@ abstract final class VmServiceBridge {
         'Drift server not running',
       );
     }
+    // Kill switch: FK metadata is data inspection.
+    final gate = _monitoringGate(router);
+    if (gate != null) return gate;
+
     final tableName = params['tableName'];
     if (tableName == null || tableName.isEmpty) {
       return developer.ServiceExtensionResponse.error(
@@ -207,6 +245,10 @@ abstract final class VmServiceBridge {
         'Drift server not running',
       );
     }
+    // Kill switch: arbitrary read SQL is the core of data inspection.
+    final gate = _monitoringGate(router);
+    if (gate != null) return gate;
+
     final sql = params['sql'];
     if (sql == null || sql.isEmpty) {
       return developer.ServiceExtensionResponse.error(
@@ -290,6 +332,10 @@ abstract final class VmServiceBridge {
         'Drift server not running',
       );
     }
+    // Kill switch: batch edits are writes — the strongest reason to gate.
+    final gate = _monitoringGate(router);
+    if (gate != null) return gate;
+
     final encoded = params['statements'];
     if (encoded == null || encoded.isEmpty) {
       return developer.ServiceExtensionResponse.error(
@@ -399,6 +445,10 @@ abstract final class VmServiceBridge {
         'Drift server not running',
       );
     }
+    // Kill switch: performance stats expose recorded SQL and timings.
+    final gate = _monitoringGate(router);
+    if (gate != null) return gate;
+
     try {
       final data = await router.getPerformanceData();
       return developer.ServiceExtensionResponse.result(jsonEncode(data));
@@ -423,6 +473,13 @@ abstract final class VmServiceBridge {
         ),
       );
     }
+    // Kill switch: nothing is being recorded while killed, and the buffers
+    // are deliberately unreadable/untouchable until resume.
+    final gate = _monitoringGate(router);
+    if (gate != null) {
+      return Future<developer.ServiceExtensionResponse>.value(gate);
+    }
+
     try {
       router.clearPerformance();
       return Future<developer.ServiceExtensionResponse>.value(
@@ -451,6 +508,10 @@ abstract final class VmServiceBridge {
         'Drift server not running',
       );
     }
+    // Kill switch: anomaly detection scans table data.
+    final gate = _monitoringGate(router);
+    if (gate != null) return gate;
+
     try {
       final data = await router.getAnomaliesResult();
       return developer.ServiceExtensionResponse.result(jsonEncode(data));
@@ -473,6 +534,10 @@ abstract final class VmServiceBridge {
         'Drift server not running',
       );
     }
+    // Kill switch: EXPLAIN runs against live schema/data.
+    final gate = _monitoringGate(router);
+    if (gate != null) return gate;
+
     final sql = params['sql'];
     if (sql == null || sql.isEmpty) {
       return developer.ServiceExtensionResponse.error(
@@ -502,6 +567,10 @@ abstract final class VmServiceBridge {
         'Drift server not running',
       );
     }
+    // Kill switch: index analysis inspects schema and row statistics.
+    final gate = _monitoringGate(router);
+    if (gate != null) return gate;
+
     try {
       final list = await router.getIndexSuggestionsList();
       return developer.ServiceExtensionResponse.result(jsonEncode(list));
@@ -527,6 +596,10 @@ abstract final class VmServiceBridge {
         'Drift server not running',
       );
     }
+    // Kill switch: the merged issues list is built from data scans.
+    final gate = _monitoringGate(router);
+    if (gate != null) return gate;
+
     try {
       final sources = params['sources'];
       final result = await router.getIssuesResult(sources: sources);
@@ -544,6 +617,76 @@ abstract final class VmServiceBridge {
         e.toString(),
       );
     }
+  }
+
+  /// Handles ext.saropa.drift.getMonitoring.
+  /// Returns {"monitoringEnabled": true|false}. Reachable while killed.
+  static Future<developer.ServiceExtensionResponse> _handleGetMonitoring(
+    String method,
+    Map<String, String> params,
+  ) {
+    final router = _router;
+    if (router == null) {
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'Drift server not running',
+        ),
+      );
+    }
+    return Future<developer.ServiceExtensionResponse>.value(
+      developer.ServiceExtensionResponse.result(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyMonitoringEnabled: router.isMonitoringEnabled,
+        }),
+      ),
+    );
+  }
+
+  /// Handles ext.saropa.drift.setMonitoring.
+  /// Expects param "enabled" = "true" or "false".
+  /// Returns {"monitoringEnabled": true|false}. Reachable while killed —
+  /// this is the VM-transport resume path, and it lets a VM-only client
+  /// (no reachable HTTP port) engage the kill switch at all. Routes through
+  /// [Router.setMonitoringEnabled] → [ServerContext.setMonitoring] so the
+  /// discovery-manifest rewrite hook fires for VM toggles too.
+  static Future<developer.ServiceExtensionResponse> _handleSetMonitoring(
+    String method,
+    Map<String, String> params,
+  ) {
+    final router = _router;
+    if (router == null) {
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'Drift server not running',
+        ),
+      );
+    }
+
+    // VM service params are always strings; parse "true"/"false" to bool.
+    final enabledStr = params[ServerConstants.jsonKeyEnabled];
+
+    if (enabledStr == null || (enabledStr != 'true' && enabledStr != 'false')) {
+      return Future<developer.ServiceExtensionResponse>.value(
+        developer.ServiceExtensionResponse.error(
+          developer.ServiceExtensionResponse.extensionErrorMin,
+          'Missing or invalid "${ServerConstants.jsonKeyEnabled}" '
+          'parameter (expected "true" or "false")',
+        ),
+      );
+    }
+
+    final enabled = enabledStr == 'true';
+    router.setMonitoringEnabled(enabled);
+
+    return Future<developer.ServiceExtensionResponse>.value(
+      developer.ServiceExtensionResponse.result(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyMonitoringEnabled: enabled,
+        }),
+      ),
+    );
   }
 
   /// Handles ext.saropa.drift.getChangeDetection.

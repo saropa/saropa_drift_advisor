@@ -181,6 +181,32 @@ describe('fetchWithRetry', () => {
     assert.strictEqual(fetchStub.callCount, 1);
   });
 
+  it('should throw the server error body on a JSON-bodied 403 (kill switch)', async () => {
+    // The monitoring kill switch answers every data endpoint with 403 + a
+    // structured JSON error; the funnel converts it so every surface toasts
+    // the explanation instead of a bare status.
+    const message = 'Access Denied: halted by the global kill switch.';
+    fetchStub.resolves(
+      new Response(JSON.stringify({ error: message }), { status: 403 }),
+    );
+    await assert.rejects(
+      () => fetchWithRetry('http://localhost:8642/api/tables'),
+      (err: Error) => err.message === message,
+    );
+    // The kill-switch error is not transient — exactly one fetch, even
+    // though a GET is idempotent and 5xx/network failures WOULD retry.
+    assert.strictEqual(fetchStub.callCount, 1);
+  });
+
+  it('should pass a bodyless/non-JSON 403 through untouched', async () => {
+    // Existing per-endpoint handlers format their own "… failed: 403";
+    // only the kill switch's JSON error shape is intercepted.
+    fetchStub.resolves(new Response('forbidden', { status: 403 }));
+    const resp = await fetchWithRetry('http://localhost:8642/api/database');
+    assert.strictEqual(resp.status, 403);
+    assert.strictEqual(fetchStub.callCount, 1);
+  });
+
   it('should not retry on non-transient error', async () => {
     fetchStub.rejects(new Error('JSON parse error'));
     await assert.rejects(

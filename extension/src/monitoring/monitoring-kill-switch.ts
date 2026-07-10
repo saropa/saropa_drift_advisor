@@ -66,7 +66,9 @@ export function wireMonitoringKillSwitch(
       enabled,
     );
 
-    // Server first, so recording stops (or resumes) before the UI repaints.
+    // Fire-and-forget push: the server flip and the UI repaint proceed
+    // concurrently (awaiting the push would hold every surface hostage to
+    // an 8s network timeout). A push failure surfaces its own warning.
     void pushToServer(enabled);
 
     if (enabled) {
@@ -144,14 +146,56 @@ export function wireMonitoringKillSwitch(
         apply(isMonitoringEnabled(), true);
       }
     }),
-    // On every connect, push the current state so a freshly discovered
-    // server honors an already-engaged kill switch. Only the kill is pushed
-    // proactively: force-enabling on connect could override a host app that
-    // deliberately started dormant (monitoringEnabled: false in Dart).
+    // On every connect, reconcile with the server. Two directions:
+    // - Extension killed → push the kill so a freshly discovered server
+    //   honors it. Only the kill is pushed proactively: force-enabling
+    //   could override a host app that deliberately started dormant
+    //   (monitoringEnabled: false in Dart).
+    // - Extension active → read the server's state back. A server that is
+    //   itself killed (dormant start, or another tool flipped it) would
+    //   otherwise present as "Monitoring Active" UI over data fetches that
+    //   all fail — offer the resume instead of leaving 403s to explain it.
     d.serverManager.onDidChangeActive((server) => {
-      if (server && isMonitoringKilled()) {
+      if (!server) return;
+      if (isMonitoringKilled()) {
         void pushToServer(false);
+        return;
       }
+      void d.cachedClient
+        .getMonitoring()
+        .then((serverEnabled) => {
+          if (serverEnabled) return;
+          void vscode.window
+            .showWarningMessage(
+              t('host.monitoring.serverDormantToast'),
+              t('host.monitoring.resumeAction'),
+            )
+            .then((choice) => {
+              if (choice !== t('host.monitoring.resumeAction')) return;
+              // Resume the SERVER directly — the extension setting is
+              // already true, so writing it again would not fire the
+              // config listener. Refresh the surfaces once it lands.
+              void d.cachedClient
+                .setMonitoring(true)
+                .then(() => {
+                  if (d.providers) {
+                    void d.providers.treeProvider.refresh();
+                    d.providers.refreshBadges().catch(() => {});
+                  }
+                  d.diagnostics?.diagnosticManager.refresh().catch(() => {});
+                  DriftToolsHubPanel.refreshIfOpen();
+                })
+                .catch((err: unknown) => {
+                  const msg = err instanceof Error ? err.message : String(err);
+                  void vscode.window.showWarningMessage(
+                    t('host.monitoring.serverSyncFailed', msg),
+                  );
+                });
+            });
+        })
+        // Unreachable state read (server dropped mid-connect, older server
+        // without the endpoint) — stay silent; this is a courtesy check.
+        .catch(() => {});
     }),
   );
 

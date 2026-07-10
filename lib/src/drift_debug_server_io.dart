@@ -77,6 +77,13 @@ class _DriftDebugServerImpl {
   /// returns and has no `ctx` in scope; null until the first successful start.
   void Function(Object, StackTrace)? _logError;
 
+  /// The running server's context, held so [stop] can detach the
+  /// kill-switch manifest hook ([ServerContext.onMonitoringChanged]) BEFORE
+  /// deleting the discovery manifest. Without the detach, a monitoring
+  /// toggle racing [stop] could rewrite server.json after its removal and
+  /// leave a stale manifest advertising a dead server. Null when not running.
+  ServerContext? _runningCtx;
+
   /// Starts the debug server if [enabled] is true and [query] is provided.
   ///
   /// No-op if [enabled] is false or the server is already running. [query]
@@ -362,6 +369,8 @@ class _DriftDebugServerImpl {
     // Capture the context error sink so [stop]'s manifest cleanup (which has no
     // ctx in scope) logs through the same channel instead of swallowing.
     _logError = ctx.logError;
+    // Held so [stop] can detach the kill-switch manifest hook (see field doc).
+    _runningCtx = ctx;
 
     // Restore any snapshots persisted by a previous run before serving, so the
     // list survives a server restart (Feature 72 Phase 4). No-op when no store
@@ -587,6 +596,12 @@ class _DriftDebugServerImpl {
     _router = null;
     _server = null;
     await server.close();
+
+    // Detach the kill-switch manifest hook BEFORE removing the manifest: a
+    // monitoring toggle still in flight must not rewrite server.json after
+    // the removal below, or a stale manifest advertises a dead server.
+    _runningCtx?.onMonitoringChanged = null;
+    _runningCtx = null;
 
     // Remove this process's discovery manifest so a later agent does not read a
     // stale host:port for a server that is gone. Only deletes the file when it

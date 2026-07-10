@@ -355,6 +355,10 @@ abstract final class ServerConstants {
   static const List<String> healthEndpoints = <String>[
     pathApiHealth,
     pathApiIndex,
+    // The kill-switch endpoint belongs in the compact list: an agent that
+    // discovers a dormant server (health: monitoringEnabled false) needs to
+    // see the one path that can resume it without reading the full index.
+    pathApiMonitoring,
     pathApiSql,
     pathApiSqlExplain,
     pathApiTables,

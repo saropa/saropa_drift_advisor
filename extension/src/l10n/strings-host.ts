@@ -77,4 +77,8 @@ export const hostStrings: Record<string, string> = {
   'host.monitoring.treeBannerTooltip':
     'The global kill switch is engaged: no query recording, no diagnostics, no background sweeps. Data endpoints on the Drift debug server answer 403 until monitoring is resumed.',
   'host.monitoring.treeResumeAction': 'Resume All Monitoring and Logging',
+  'host.monitoring.treeResumeTooltip':
+    'Turn query recording, diagnostics, file badges, and background sweeps back on — no restart needed.',
+  'host.monitoring.serverDormantToast':
+    'The connected Drift debug server has its monitoring kill switch engaged (it may have started dormant), so data requests will be refused until it is resumed.',
 };

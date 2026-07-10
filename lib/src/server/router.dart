@@ -206,12 +206,14 @@ final class Router {
 
     // Global kill switch: every /api/* route past this point inspects or
     // mutates data, so a killed server answers them all with one structured
-    // 403 instead of running any handler. Endpoints that must survive the
-    // kill (health, API index, generation/mutations long-polls, web assets,
-    // change-detection, and the /api/monitoring resume path itself) are
-    // dispatched earlier in [_routePreQuery] and never reach this gate.
+    // 403 instead of running any handler. Endpoints that survive the kill
+    // (health, API index, the /api/generation long-poll — which issues no
+    // queries while killed — web assets, change-detection, and the
+    // /api/monitoring resume path itself) are dispatched earlier in
+    // [_routePreQuery] and never reach this gate; /api/mutations carries
+    // its own explicit kill check there because its buffer holds row data.
     // Root HTML and non-API paths stay served so a browser still loads the
-    // viewer shell and can render a clear "monitoring disabled" state.
+    // viewer shell; its API calls then surface the structured 403 message.
     // ([pathApiIndex] is the literal '/api/', reused here as the prefix.)
     if (!_ctx.monitoringEnabled &&
         (path.startsWith(ServerConstants.pathApiIndex) ||
@@ -295,9 +297,18 @@ final class Router {
     }
 
     // GET /api/mutations — long-poll for semantic mutation events.
+    // Explicitly kill-gated even though it sits in the pre-gate group
+    // (it is here for the rate-limit exemption): buffered events carry
+    // full SQL plus before/after ROW DATA captured before the kill, so
+    // serving them while killed would leak exactly the data the switch
+    // exists to protect. Buffers are retained for resume, not readable.
     if (request.method == ServerConstants.methodGet &&
         (path == ServerConstants.pathApiMutations ||
             path == ServerConstants.pathApiMutationsAlt)) {
+      if (!_ctx.monitoringEnabled) {
+        await _sendMonitoringDisabled(response);
+        return true;
+      }
       await _mutations.handleMutations(request);
       return true;
     }
@@ -1079,6 +1090,9 @@ final class Router {
     ServerConstants.jsonKeySchemaVersion: ServerConstants.issuesSchemaVersion,
     ServerConstants.jsonKeyWriteEnabled: _ctx.writeQuery != null,
     ServerConstants.jsonKeyCompareEnabled: _ctx.queryCompare != null,
+    // Kill-switch state, mirrored from the HTTP health payload so a
+    // VM-service client can also tell "deliberately dormant" from "broken".
+    ServerConstants.jsonKeyMonitoringEnabled: _ctx.monitoringEnabled,
     ServerConstants.jsonKeyCapabilities: _ctx.writeQuery != null
         ? <String>[
             ServerConstants.capabilityIssues,

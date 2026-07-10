@@ -450,6 +450,7 @@ Use the **VS Code extension** (recommended) or open **http://127.0.0.1:8642** in
 | **`queryCompare`**                            | Optional; enables database diff vs another DB (e.g. staging).                                                        |
 | **`sessionDuration`**                         | Optional; expiry for shared session URLs (default 1 hour).                                                           |
 | **`maxRequestsPerSecond`**                    | Optional; per-IP rate limiting; 429 when exceeded.                                                                   |
+| **`monitoringEnabled`**                       | Default `true`. `false` starts the server dormant (global kill switch): nothing is recorded, data endpoints answer 403, health stays live. Flip at runtime via `DriftDebugServer.setMonitoringEnabled()` or `POST /api/monitoring`. |
 | **`onLog`**, **`onError`**                    | Optional; for your logger or `debugPrint` / `print`.                                                                 |
 
 - Only one server per process; calling `start` again when running is a no-op. Use **`DriftDebugServer.stop()`** to shut down and restart (e.g. tests or graceful shutdown).

@@ -12,6 +12,7 @@ import {
 } from './diagnostic-types';
 import { parseDartFilesInWorkspace } from './dart-file-parser';
 import { loadDiagnosticConfig } from './diagnostic-config';
+import { isMonitoringKilled } from '../monitoring/monitoring-state';
 import {
   buildDiagnosticsByFile,
   buildSuppressionQuickFixes,
@@ -111,11 +112,8 @@ export class DiagnosticManager implements vscode.Disposable {
       // sweep, generation watcher). Checking here — the single choke point
       // for this collection — is what makes the plan's "zero vscode.Diagnostic
       // emissions" guarantee hold without gating every call site.
-      const killSwitchOn = vscode.workspace
-        .getConfiguration('driftViewer')
-        .get<boolean>('enableMonitoringAndLogging', true) === false;
       const config = loadDiagnosticConfig();
-      if (!config.enabled || killSwitchOn) {
+      if (!config.enabled || isMonitoringKilled()) {
         this._collection.clear();
         this._lastIssues = [];
         return;

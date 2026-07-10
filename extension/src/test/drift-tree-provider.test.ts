@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { DriftApiClient } from '../api-client';
 import { DriftTreeProvider } from '../tree/drift-tree-provider';
-import { commands as vscodeCommands, resetMocks } from './vscode-mock';
+import { commands as vscodeCommands, resetMocks, workspace } from './vscode-mock';
 import {
   ConnectionStatusItem,
   DisconnectedBannerItem,
@@ -11,6 +11,7 @@ import {
 } from '../tree/tree-items';
 import {
   ActionItem,
+  MonitoringKilledBannerItem,
   getDisconnectedActions,
   getSchemaRestFailureActions,
 } from '../tree/quick-action-items';
@@ -120,6 +121,59 @@ describe('DriftTreeProvider', () => {
       provider.onDidChangeTreeData(() => { fired = true; });
       await provider.refresh();
       assert.strictEqual(fired, true);
+    });
+  });
+
+  describe('monitoring kill switch', () => {
+    // Force the kill-switch setting to false for this block only; the mock's
+    // default getConfiguration returns package.json defaults (enabled).
+    const originalGetConfig = workspace.getConfiguration;
+
+    beforeEach(() => {
+      workspace.getConfiguration = (_section?: string) => ({
+        get: <T>(key: string, defaultValue?: T): T | undefined => {
+          if (key === 'enableMonitoringAndLogging') {
+            return false as unknown as T;
+          }
+          return defaultValue;
+        },
+      });
+    });
+
+    afterEach(() => {
+      workspace.getConfiguration = originalGetConfig;
+    });
+
+    it('refresh() issues no requests and clears state while killed', async () => {
+      // Zero background traffic is the switch's contract: no health probe,
+      // no schema fetch — the fetch stub must never be hit.
+      let fired = false;
+      provider.onDidChangeTreeData(() => { fired = true; });
+      await provider.refresh();
+      assert.strictEqual(fetchStub.callCount, 0, 'no fetch while killed');
+      assert.strictEqual(provider.connected, false);
+      assert.strictEqual(fired, true, 'tree re-renders into the banner state');
+    });
+
+    it('root children are the kill banner + one resume action only', async () => {
+      const children = await provider.getChildren();
+      assert.strictEqual(children.length, 2);
+      assert.ok(
+        children[0] instanceof MonitoringKilledBannerItem,
+        'first row is the kill-switch banner',
+      );
+      const action = children[1] as ActionItem;
+      assert.ok(action instanceof ActionItem);
+      assert.strictEqual(
+        (action.command as { command: string }).command,
+        'driftViewer.monitoring.resume',
+      );
+      // The disconnected/REST-failure triage rows must NOT appear — a killed
+      // sidebar is deliberately dormant, not a broken connection to diagnose.
+      assert.ok(
+        !children.some((c) => c instanceof DisconnectedBannerItem),
+        'no disconnected banner while killed',
+      );
     });
   });
 

@@ -130,17 +130,6 @@ function methodIsIdempotent(method?: string): boolean {
 }
 
 /**
- * Fetch with timeout + a single retry on transient errors.
- * Adds 200ms delay before retry to avoid hammering a recovering server.
- * Non-transient errors (4xx, parse failures) are thrown immediately.
- * Does not retry if the caller's signal was intentionally aborted.
- *
- * Retry is gated on idempotency: a non-idempotent request (POST/PATCH without
- * `idempotent: true`) is NEVER retried, because the first attempt may have
- * reached the server and applied a write before the connection dropped —
- * re-sending would duplicate it (audit M4).
- */
-/**
  * Turn a kill-switch 403 into a self-explanatory error. The server answers
  * every data endpoint with HTTP 403 + a structured `error` JSON body while
  * its global monitoring kill switch is engaged; without this, each call site
@@ -168,6 +157,17 @@ async function throwIfMonitoringBlocked(resp: Response): Promise<void> {
   }
 }
 
+/**
+ * Fetch with timeout + a single retry on transient errors.
+ * Adds 200ms delay before retry to avoid hammering a recovering server.
+ * Non-transient errors (4xx, parse failures) are thrown immediately.
+ * Does not retry if the caller's signal was intentionally aborted.
+ *
+ * Retry is gated on idempotency: a non-idempotent request (POST/PATCH without
+ * `idempotent: true`) is NEVER retried, because the first attempt may have
+ * reached the server and applied a write before the connection dropped —
+ * re-sending would duplicate it (audit M4).
+ */
 export async function fetchWithRetry(
   url: string,
   init?: FetchWithTimeoutInit,

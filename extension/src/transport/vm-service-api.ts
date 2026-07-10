@@ -178,6 +178,32 @@ export async function apiGetIndexSuggestions(
   return arr as IndexSuggestion[];
 }
 
+/**
+ * Global monitoring kill-switch state over VM transport. Both RPCs stay
+ * reachable while the server is killed — setMonitoring is the resume path,
+ * and on a VM-only connection (no reachable HTTP port) it is the ONLY way
+ * to engage or release the switch.
+ */
+export async function apiGetMonitoring(
+  request: ExtensionRequest,
+): Promise<boolean> {
+  const raw = await request(`${EXT_PREFIX}getMonitoring`, {});
+  const obj = parseJson<{ monitoringEnabled?: boolean }>(raw);
+  return obj?.monitoringEnabled !== false;
+}
+
+/** Flip the global monitoring kill switch over VM transport. */
+export async function apiSetMonitoring(
+  request: ExtensionRequest,
+  enabled: boolean,
+): Promise<boolean> {
+  const raw = await request(`${EXT_PREFIX}setMonitoring`, {
+    enabled: String(enabled),
+  });
+  const obj = parseJson<{ monitoringEnabled?: boolean }>(raw);
+  return obj?.monitoringEnabled !== false;
+}
+
 export async function apiGetChangeDetection(
   request: ExtensionRequest,
 ): Promise<boolean> {

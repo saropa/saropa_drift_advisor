@@ -68,6 +68,42 @@ void main() {
       },
     );
 
+    test('timedQuery still forwards declared bindings while killed', () async {
+      // Regression: the kill branch originally called the executor without
+      // positional/named args, so a parameterized query executed while
+      // killed ran with unbound parameters. Only CAPTURE is suppressed by
+      // the kill switch — execution semantics must be identical.
+      List<Object?>? seenPositional;
+      Map<String, Object?>? seenNamed;
+      final ctx = ServerContext(
+        query: (_) async => <Map<String, dynamic>>[],
+        queryWithBindings:
+            (
+              String sql, {
+              List<Object?>? positionalArgs,
+              Map<String, Object?>? namedArgs,
+            }) async {
+              seenPositional = positionalArgs;
+              seenNamed = namedArgs;
+              return <Map<String, dynamic>>[];
+            },
+        monitoringEnabled: false,
+      );
+
+      await ctx.timedQuery(
+        'SELECT * FROM items WHERE id = ? AND name = :n',
+        dvrHasDeclaredBindings: true,
+        dvrDeclaredParams: <String, Object?>{
+          'positional': <Object?>[42],
+          'named': <String, Object?>{'n': 'abc'},
+        },
+      );
+
+      expect(seenPositional, [42]);
+      expect(seenNamed, {'n': 'abc'});
+      expect(ctx.queryTimings, isEmpty);
+    });
+
     test('setMonitoring fires the manifest-rewrite hook', () {
       final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
       final observed = <bool>[];
@@ -160,6 +196,17 @@ void main() {
       // Zero leakage: no probe above may have reached the query callback.
       expect(queryCalls, 0);
 
+      // /api/mutations must ALSO refuse while killed even though it lives in
+      // the pre-gate route group: its buffer holds full SQL plus
+      // before/after ROW DATA captured before the kill — serving it would
+      // leak exactly the data the switch exists to protect.
+      final mutations = await httpGet(port!, '/api/mutations');
+      expect(mutations.status, HttpStatus.forbidden);
+      expect(
+        (mutations.body as Map<String, dynamic>)[ServerConstants.jsonKeyError],
+        ServerConstants.errorMonitoringDisabled,
+      );
+
       // The manifest advertises the dormant state for external tools.
       final manifest = await readManifest();
       expect(
@@ -208,6 +255,16 @@ void main() {
         expect(
           (sql.body as Map<String, dynamic>)[ServerConstants.jsonKeyRows],
           hasLength(1),
+        );
+
+        // Health now advertises the resumed (enabled) state — the true-state
+        // counterpart of the dormant-start health assertion above.
+        final health = await httpGet(port!, '/api/health');
+        expect(health.status, HttpStatus.ok);
+        expect(
+          (health.body as Map<String, dynamic>)[ServerConstants
+              .jsonKeyMonitoringEnabled],
+          isTrue,
         );
 
         // The manifest rewrite is fire-and-forget, so poll briefly instead of

@@ -1459,9 +1459,17 @@ answers a structured `403 Forbidden`:
 
 Endpoints that survive the kill: `GET /api/health` (reports
 `"monitoringEnabled": false`), `GET /api/` (API index), `GET /api/generation`
-and `GET /api/mutations` (long-polls; they issue no queries while killed),
-`GET/POST /api/change-detection`, the web-viewer assets, and the
-`/api/monitoring` endpoint itself — the HTTP path back to a live server.
+(long-poll; it issues no queries while killed), `GET/POST
+/api/change-detection`, the web-viewer assets, and the `/api/monitoring`
+endpoint itself — the path back to a live server. `GET /api/mutations` is
+explicitly 403-gated: its buffer holds full SQL plus before/after row data
+captured before the kill, which must not be readable while killed (the
+buffer is retained and becomes readable again on resume).
+
+The same gate applies over the Dart VM Service transport: every
+`ext.saropa.drift.*` data-inspection RPC (including `runSql` and
+`applyEditsBatch`) refuses with the same message while killed, and
+`ext.saropa.drift.getMonitoring` / `setMonitoring` mirror the HTTP endpoint.
 
 The discovery manifest (`server.json`) carries the same state as
 `"monitoring": "enabled" | "disabled"` and is rewritten on runtime flips.

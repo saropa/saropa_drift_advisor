@@ -464,21 +464,11 @@ final class ServerContext {
     bool dvrDeclaredParamsTruncated = false,
     bool dvrHasDeclaredBindings = false,
   }) async {
-    // Kill switch: execute without ANY capture. No stack parse, no timing
-    // record, no DVR entry — "disabled" must mean zero tracking overhead
-    // and zero retained SQL, not just hidden results. The few endpoints
-    // still reachable while killed (none today issue user queries; internal
-    // probes are also short-circuited upstream) get plain execution.
-    if (!monitoringEnabled) {
-      return _queryExec(sql);
-    }
-
-    // Capture the stack before awaiting so we get the
-    // actual call site, not the async continuation.
-    final caller = _parseCallerFrame(StackTrace.current);
-
-    final stopwatch = Stopwatch()..start();
-
+    // Declared execution bindings must be extracted BEFORE the kill-switch
+    // branch below: a parameterized query executed while killed still needs
+    // its positional/named args forwarded, or it runs with unbound
+    // parameters (a hard failure or wrong results). Only the CAPTURE is
+    // suppressed by the kill switch, never the execution semantics.
     List<Object?>? execPos;
     Map<String, Object?>? execNamed;
     if (dvrHasDeclaredBindings && dvrDeclaredParams != null) {
@@ -494,6 +484,24 @@ final class ServerContext {
         }
       }
     }
+
+    // Kill switch: execute without ANY capture. No stack parse, no timing
+    // record, no DVR entry — "disabled" must mean zero tracking overhead
+    // and zero retained SQL, not just hidden results.
+    if (!monitoringEnabled) {
+      // return await preserves the async stack trace (prefer_return_await).
+      return await _queryExec(
+        sql,
+        positionalArgs: execPos,
+        namedArgs: execNamed,
+      );
+    }
+
+    // Capture the stack before awaiting so we get the
+    // actual call site, not the async continuation.
+    final caller = _parseCallerFrame(StackTrace.current);
+
+    final stopwatch = Stopwatch()..start();
 
     try {
       final result = await _queryExec(

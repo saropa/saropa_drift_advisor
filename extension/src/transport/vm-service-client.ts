@@ -21,11 +21,13 @@ import {
   apiGetGeneration,
   apiGetHealth,
   apiGetIndexSuggestions,
+  apiGetMonitoring,
   apiGetPerformance,
   apiGetSchemaMetadata,
   apiGetTableFkMeta,
   apiRunSql,
   apiSetChangeDetection,
+  apiSetMonitoring,
   type ExtensionRequest,
 } from './vm-service-api';
 
@@ -242,5 +244,15 @@ export class VmServiceClient {
 
   async setChangeDetection(enabled: boolean): Promise<boolean> {
     return apiSetChangeDetection(this._callExtension, enabled);
+  }
+
+  /** Kill-switch state; reachable while the server is killed. */
+  async getMonitoring(): Promise<boolean> {
+    return apiGetMonitoring(this._callExtension);
+  }
+
+  /** Flip the kill switch; the VM-only kill/resume path. */
+  async setMonitoring(enabled: boolean): Promise<boolean> {
+    return apiSetMonitoring(this._callExtension, enabled);
   }
 }

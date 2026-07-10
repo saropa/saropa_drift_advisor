@@ -79,7 +79,7 @@ export function getMonitoringKilledActions(): ActionItem[] {
       t('host.monitoring.treeResumeAction'),
       'driftViewer.monitoring.resume',
       'debug-start',
-      t('host.monitoring.resumedToast'),
+      t('host.monitoring.treeResumeTooltip'),
     ),
   ];
 }

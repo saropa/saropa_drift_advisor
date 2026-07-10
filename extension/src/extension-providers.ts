@@ -21,6 +21,7 @@ import { DriftTreeProvider } from './tree/drift-tree-provider';
 import { ToolsTreeProvider } from './tree/tools-tree-provider';
 import { WatchManager } from './watch/watch-manager';
 import { DataBreakpointProvider } from './data-breakpoint/data-breakpoint-provider';
+import { isMonitoringKilled } from './monitoring/monitoring-state';
 
 export interface ProviderSetupResult {
   treeProvider: DriftTreeProvider;
@@ -174,15 +175,15 @@ export function setupProviders(
   }
 
   async function refreshBadges(): Promise<void> {
-    const driftCfg = vscode.workspace.getConfiguration('driftViewer');
     // Global kill switch: clear existing badges and skip the schema fetch
     // entirely — the point of the switch is zero background traffic, and the
     // server would answer the metadata request with 403 anyway.
-    if (!driftCfg.get<boolean>('enableMonitoringAndLogging', true)) {
+    if (isMonitoringKilled()) {
       fileDecoProvider.clearAll();
       return;
     }
     const map = await ensureTableFileMap();
+    const driftCfg = vscode.workspace.getConfiguration('driftViewer');
     if (!driftCfg.get<boolean>('fileBadges.enabled', true)) return;
     await fileDecoProvider.refresh(client, map);
   }

@@ -134,7 +134,7 @@ Prior to release staging, implementation must satisfy the following integration 
 
 ---
 
-## Implementation Report (2026-07-09)
+## Finish Report (2026-07-09)
 
 Implemented in full across both surfaces. Key decisions and deviations:
 
@@ -205,3 +205,46 @@ Implemented in full across both surfaces. Key decisions and deviations:
 - **Failsafe Re-enabling** — POST /api/monitoring resume verified to restore
   `/api/sql` immediately with no rebind/restart; extension resume refreshes
   tree, diagnostics, and badges without a window reload.
+
+### Post-review hardening (same day)
+
+A deep review of the initial implementation found three substantive defects,
+all fixed and pinned by tests in a follow-up commit:
+
+1. **VM Service bridge bypass.** The `ext.saropa.drift.*` RPCs are a second
+   full transport into the same data the HTTP 403 gate protects; none of them
+   checked the kill switch, so a killed server still served schema, SQL,
+   performance data — and executed `applyEditsBatch` writes — to any
+   VM-service client. Every data-inspection RPC now refuses with the same
+   structured message while killed (`_monitoringGate` in
+   `vm_service_bridge.dart`), and new `getMonitoring`/`setMonitoring` RPCs
+   (mirroring the change-detection precedent) let a VM-only debug session
+   flip the switch when no HTTP port is reachable. The extension's
+   `DriftApiClient` prefers the VM transport for both calls when connected.
+2. **`/api/mutations` pre-kill data leak.** The endpoint sits in the pre-gate
+   route group (for the rate-limit exemption) and its ring buffer holds full
+   SQL plus before/after row contents captured before the kill — a killed
+   server handed that data to any caller. The route now carries its own
+   explicit 403 check; buffers are retained for resume but unreadable while
+   killed (documented in doc/API.md).
+3. **Dropped bindings in the `timedQuery` kill branch.** The zero-capture
+   short-circuit called the executor without positional/named args, so a
+   parameterized query executed while killed ran with unbound parameters.
+   Binding extraction now precedes the branch; only capture is suppressed,
+   never execution semantics.
+
+Additional review outcomes: `/api/monitoring` added to the compact
+`healthEndpoints` list (a discovered dormant server must advertise its own
+resume path); `stop()` detaches the manifest-rewrite hook before deleting the
+manifest (closes a stale-manifest race with in-flight toggles); the VM health
+payload mirrors `monitoringEnabled`; on connect with monitoring active the
+extension reads the server's state back and offers a one-tap resume when the
+server is itself dormant (previously `getMonitoring` had no caller and a
+dormant server presented as unexplained 403s); the kill-switch 403
+interception was narrowed to JSON-`error`-bodied responses so pre-existing
+per-endpoint "failed: 403" contracts hold; `fetchWithRetry` regained the doc
+block displaced by the interception helper; duplicated inline config reads
+were replaced with the `monitoring-state.ts` helpers; and tests were extended
+(Dart: bindings-while-killed, mutations 403, resumed-state health field;
+TS: funnel 403 both shapes + no-retry pin, hub card in both builders, tree
+banner/no-fetch while killed).
