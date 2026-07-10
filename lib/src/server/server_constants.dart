@@ -181,6 +181,13 @@ abstract final class ServerConstants {
   static const String pathApiHistoryAlt = 'api/history';
   static const String pathApiChangeDetection = '/api/change-detection';
   static const String pathApiChangeDetectionAlt = 'api/change-detection';
+
+  /// GET/POST toggle for the global monitoring & logging kill switch.
+  /// Must stay reachable while monitoring is disabled — it is the only
+  /// HTTP path back to a live server (the resume action), so the 403
+  /// gate in the router explicitly exempts it alongside /api/health.
+  static const String pathApiMonitoring = '/api/monitoring';
+  static const String pathApiMonitoringAlt = 'api/monitoring';
   static const String pathApiMutations = '/api/mutations';
   static const String pathApiMutationsAlt = 'api/mutations';
   static const String pathApiDvrStatus = '/api/dvr/status';
@@ -255,6 +262,30 @@ abstract final class ServerConstants {
   static const String valueFalse = 'false';
   static const String jsonKeyEnabled = 'enabled';
   static const String jsonKeyChangeDetection = 'changeDetection';
+
+  /// Health / monitoring-endpoint field advertising the kill-switch state.
+  /// `false` = the global monitoring & logging kill switch is engaged: no
+  /// query recording, no timing capture, no change-detection sweeps, and all
+  /// data-inspection endpoints answer 403 ([errorMonitoringDisabled]).
+  static const String jsonKeyMonitoringEnabled = 'monitoringEnabled';
+
+  /// Discovery-manifest field naming the kill-switch state so external
+  /// profiling tools can tell a deliberately dormant server from a broken
+  /// one. Values: [monitoringStateEnabled] / [monitoringStateDisabled].
+  static const String jsonKeyMonitoring = 'monitoring';
+
+  /// Manifest value for [jsonKeyMonitoring] when monitoring is active.
+  static const String monitoringStateEnabled = 'enabled';
+
+  /// Manifest value for [jsonKeyMonitoring] when the kill switch is engaged.
+  static const String monitoringStateDisabled = 'disabled';
+
+  /// 403 body sent by every data-inspection endpoint while the global kill
+  /// switch is engaged. A structured error (not a dropped connection) so
+  /// clients keep their connection contracts and can render a clear state.
+  static const String errorMonitoringDisabled =
+      'Access Denied: All monitoring and data inspection has been halted '
+      'by the global kill switch.';
   static const String jsonKeyError = 'error';
   static const String jsonKeyRows = 'rows';
   static const String jsonKeySql = 'sql';
@@ -347,6 +378,14 @@ abstract final class ServerConstants {
       jsonKeyPath: pathApiHealth,
       jsonKeyDescription:
           'Liveness probe; reports version, flags, capabilities, endpoints.',
+    },
+    <String, String>{
+      jsonKeyMethod: methodPost,
+      jsonKeyPath: pathApiMonitoring,
+      jsonKeyDescription:
+          'Global monitoring kill switch. Body {"enabled":true|false}; '
+          'while disabled all data endpoints answer 403. GET reports state. '
+          'Reachable while killed (the resume path).',
     },
     <String, String>{
       jsonKeyMethod: methodPost,

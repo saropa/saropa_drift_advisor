@@ -36,6 +36,7 @@
   - [Sessions](#sessions)
   - [Import](#import)
   - [Change Detection](#change-detection)
+  - [Monitoring Kill Switch](#monitoring-kill-switch)
   - [Special Routes](#special-routes)
 
 ---
@@ -61,6 +62,7 @@ user's home directory:
   "schemaVersion": 1,
   "writeEnabled": false,
   "loopbackOnly": true,
+  "monitoring": "enabled",
   "pid": 12345,
   "workspace": "d:/src/contacts",
   "startedAt": "2026-06-24T12:00:00.000Z",
@@ -76,6 +78,7 @@ user's home directory:
 | `schemaVersion` | int | Saropa Diagnostic Envelope version |
 | `writeEnabled` | boolean | Whether write endpoints are configured |
 | `loopbackOnly` | boolean | Whether the server bound 127.0.0.1 only |
+| `monitoring` | string | `"enabled"` or `"disabled"` — the global kill-switch state (see [Monitoring Kill Switch](#monitoring-kill-switch)). Rewritten on runtime flips so external tools can tell a deliberately dormant server from a broken one |
 | `pid` | int | Host process id (used to clean up the manifest on shutdown) |
 | `workspace` | string | The host process's working directory |
 | `startedAt` | string | ISO 8601 UTC start time |
@@ -233,6 +236,7 @@ Health check. Always succeeds when the server is running.
   "schemaVersion": 1,
   "writeEnabled": false,
   "compareEnabled": false,
+  "monitoringEnabled": true,
   "loopbackOnly": true,
   "capabilities": ["issues"],
   "endpoints": ["/api/health", "/api/", "/api/sql", "/api/sql/explain", "/api/tables", "/api/table/", "/api/schema", "/api/schema/metadata", "/api/views", "/api/issues", "/api/generation"]
@@ -247,6 +251,7 @@ Health check. Always succeeds when the server is running.
 | `schemaVersion` | int | Saropa Diagnostic Envelope version (see [`GET /api/issues`](#get-apiissues)). Lets a suite client (Saropa Lints, Saropa Log Capture) confirm the issue shape before parsing. Bumped only on a breaking change; consumers ignore unknown fields and refuse a higher major. |
 | `writeEnabled` | boolean | Whether write endpoints (`/api/cell/update`, `/api/edits/apply`, `/api/import`) are configured |
 | `compareEnabled` | boolean | Whether a comparison database (`queryCompare`) is configured |
+| `monitoringEnabled` | boolean | Global monitoring & logging kill-switch state. `false` = the server is deliberately dormant: no query recording, timing capture, or change-detection sweeps, and every data-inspection endpoint answers `403 Forbidden`. Health keeps answering so probes can tell "dormant" from "gone". Toggle via [`POST /api/monitoring`](#post-apimonitoring). |
 | `loopbackOnly` | boolean | Whether the server bound 127.0.0.1 only. Lets a remote probe tell "up but loopback-only" from "absent" |
 | `capabilities` | array of strings | Server feature flags. Contains `"issues"` when `GET /api/issues` is supported; clients can use this to prefer the merged issues endpoint over separate index-suggestions and anomalies calls. |
 | `endpoints` | array of strings | Compact list of read endpoint paths (the richer form is at [`GET /api/`](#api-index)) |
@@ -1426,6 +1431,80 @@ Enables or disables automatic change detection.
 ```json
 {
   "changeDetection": false
+}
+```
+
+**Error** `400 Bad Request`
+
+```json
+{
+  "error": "Expected JSON body with \"enabled\": true|false"
+}
+```
+
+---
+
+## Monitoring Kill Switch
+
+The global monitoring & logging kill switch makes the server deliberately
+dormant without stopping it: query recording, timing capture, and
+change-detection sweeps halt entirely, and every data-inspection endpoint
+answers a structured `403 Forbidden`:
+
+```json
+{
+  "error": "Access Denied: All monitoring and data inspection has been halted by the global kill switch."
+}
+```
+
+Endpoints that survive the kill: `GET /api/health` (reports
+`"monitoringEnabled": false`), `GET /api/` (API index), `GET /api/generation`
+and `GET /api/mutations` (long-polls; they issue no queries while killed),
+`GET/POST /api/change-detection`, the web-viewer assets, and the
+`/api/monitoring` endpoint itself — the HTTP path back to a live server.
+
+The discovery manifest (`server.json`) carries the same state as
+`"monitoring": "enabled" | "disabled"` and is rewritten on runtime flips.
+Initial state comes from the `monitoringEnabled` parameter of
+`DriftDebugServer.start()` (default `true`); Dart hosts can also flip it via
+`DriftDebugServer.setMonitoringEnabled(bool)`.
+
+### `GET /api/monitoring`
+
+Returns the current kill-switch state. Reachable while killed.
+
+**Response** `200 OK`
+
+```json
+{
+  "monitoringEnabled": true
+}
+```
+
+---
+
+### `POST /api/monitoring`
+
+Engages or releases the global kill switch. Reachable while killed (this is
+the resume path).
+
+**Request** `Content-Type: application/json`
+
+```json
+{
+  "enabled": false
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `enabled` | boolean | Yes | `false` engages the kill switch; `true` resumes monitoring |
+
+**Response** `200 OK`
+
+```json
+{
+  "monitoringEnabled": false
 }
 ```
 

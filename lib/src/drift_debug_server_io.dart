@@ -116,6 +116,11 @@ class _DriftDebugServerImpl {
   ///   flags physical tables absent from this set. When null, that check is
   ///   report-only and emits no findings. The `startDriftViewer` extension
   ///   derives this automatically from a Drift database.
+  /// * [monitoringEnabled] — Global monitoring & logging kill switch
+  ///   (default true). When false the server starts dormant: no recording,
+  ///   no sweeps, data endpoints answer 403; /api/health and /api/monitoring
+  ///   stay live. Flip at runtime via [setMonitoringEnabled] or
+  ///   POST /api/monitoring.
   ///
   /// Throws [ArgumentError] for invalid port or partial Basic auth.
   ///
@@ -165,6 +170,7 @@ class _DriftDebugServerImpl {
     DeclaredRelationshipsCallback? declaredRelationships,
     String? snapshotStorePath,
     String? discoveryDirectory,
+    bool monitoringEnabled = true,
   }) async {
     if (!enabled) {
       return;
@@ -200,6 +206,7 @@ class _DriftDebugServerImpl {
         declaredRelationships: declaredRelationships,
         snapshotStorePath: snapshotStorePath,
         discoveryDirectory: discoveryDirectory,
+        monitoringEnabled: monitoringEnabled,
       );
     } finally {
       _starting = false;
@@ -230,6 +237,7 @@ class _DriftDebugServerImpl {
     DeclaredRelationshipsCallback? declaredRelationships,
     String? snapshotStorePath,
     String? discoveryDirectory,
+    bool monitoringEnabled = true,
   }) async {
     // Record the discovery-manifest directory override (null = home default)
     // so both the write below and the remove in [stop] target the same file.
@@ -348,6 +356,7 @@ class _DriftDebugServerImpl {
       declaredRelationships: declaredRelationships,
       snapshotStorePath: snapshotStorePath,
       loopbackOnly: loopbackOnly,
+      monitoringEnabled: monitoringEnabled,
     );
 
     // Capture the context error sink so [stop]'s manifest cleanup (which has no
@@ -490,8 +499,26 @@ class _DriftDebugServerImpl {
         port: boundPort,
         loopbackOnly: loopbackOnly,
         writeEnabled: ctx.writeQuery != null,
+        monitoringEnabled: ctx.monitoringEnabled,
         logError: ctx.logError,
       );
+
+      // Keep the manifest's `monitoring` field current across runtime
+      // kill-switch flips (setMonitoringEnabled or POST /api/monitoring),
+      // so an external profiling tool reading server.json sees the live
+      // state without a restart. Fire-and-forget: the manifest is a
+      // desktop convenience and must never block or fail a toggle.
+      ctx.onMonitoringChanged = (bool enabled) {
+        unawaited(
+          _writeDiscoveryManifest(
+            port: boundPort,
+            loopbackOnly: loopbackOnly,
+            writeEnabled: ctx.writeQuery != null,
+            monitoringEnabled: enabled,
+            logError: ctx.logError,
+          ),
+        );
+      };
     } on Object catch (error, stack) {
       // Print server startup failure visibly — same reasoning as the
       // banner above: developer.log is invisible on Android.
@@ -601,6 +628,7 @@ class _DriftDebugServerImpl {
     required int port,
     required bool loopbackOnly,
     required bool writeEnabled,
+    required bool monitoringEnabled,
     required void Function(Object, StackTrace) logError,
   }) async {
     try {
@@ -617,6 +645,11 @@ class _DriftDebugServerImpl {
             ServerConstants.issuesSchemaVersion,
         ServerConstants.jsonKeyWriteEnabled: writeEnabled,
         ServerConstants.jsonKeyLoopbackOnly: loopbackOnly,
+        // Kill-switch state so external profiling tools can tell a
+        // deliberately dormant server ("disabled") from a broken one.
+        ServerConstants.jsonKeyMonitoring: monitoringEnabled
+            ? ServerConstants.monitoringStateEnabled
+            : ServerConstants.monitoringStateDisabled,
         ServerConstants.jsonKeyPid: pid,
         ServerConstants.jsonKeyWorkspace: Directory.current.path,
         ServerConstants.jsonKeyStartedAt: DateTime.now()
@@ -668,6 +701,16 @@ class _DriftDebugServerImpl {
   /// at runtime. No-op if the server is not running.
   void setChangeDetection(bool enabled) {
     _router?.setChangeDetectionEnabled(enabled);
+  }
+
+  /// Whether monitoring & logging are currently enabled (the global kill
+  /// switch is off). Returns null if the server is not running.
+  bool? get monitoringEnabled => _router?.isMonitoringEnabled;
+
+  /// Flips the global monitoring & logging kill switch at runtime.
+  /// No-op if the server is not running.
+  void setMonitoringEnabled(bool enabled) {
+    _router?.setMonitoringEnabled(enabled);
   }
 
   @override
@@ -787,6 +830,17 @@ mixin DriftDebugServer {
     /// isolates) otherwise clobber and delete each other's manifest. Point a
     /// server at its own directory to isolate its manifest. Host configuration.
     String? discoveryDirectory,
+
+    /// Global monitoring & logging kill switch (default true = monitoring
+    /// active). When false the server starts deliberately dormant: no query
+    /// recording, no timing capture, no change-detection sweeps, and every
+    /// data-inspection endpoint answers a structured 403 while
+    /// GET /api/health keeps responding (with `monitoringEnabled: false`)
+    /// and GET/POST /api/monitoring stays live so the switch can be flipped
+    /// back over HTTP. Unlike [enabled] (which skips starting the server at
+    /// all), the server binds and stays discoverable. Flip at runtime via
+    /// [setMonitoringEnabled] or POST /api/monitoring.
+    bool monitoringEnabled = true,
   }) => _instance.start(
     query: query,
     queryWithBindings: queryWithBindings,
@@ -810,10 +864,26 @@ mixin DriftDebugServer {
     declaredRelationships: declaredRelationships,
     snapshotStorePath: snapshotStorePath,
     discoveryDirectory: discoveryDirectory,
+    monitoringEnabled: monitoringEnabled,
   );
 
   /// The port the server is bound to, or null if not running.
   static int? get port => _instance.port;
+
+  /// Whether monitoring & logging are currently enabled (the global kill
+  /// switch is off). Returns null if the server is not running.
+  static bool? get monitoringEnabled => _instance.monitoringEnabled;
+
+  /// Flips the global monitoring & logging kill switch at runtime.
+  ///
+  /// When [enabled] is false, all query recording, timing capture, and
+  /// change-detection sweeps stop immediately and every data-inspection
+  /// endpoint answers a structured 403. GET /api/health keeps responding
+  /// (advertising `monitoringEnabled: false`) and GET/POST /api/monitoring
+  /// stays live so the switch can be flipped back. The discovery manifest
+  /// is rewritten with the new state. No-op if the server is not running.
+  static void setMonitoringEnabled(bool enabled) =>
+      _instance.setMonitoringEnabled(enabled);
 
   /// Whether change detection (generation bumping via
   /// periodic row-count fingerprinting) is currently

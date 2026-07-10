@@ -7,6 +7,7 @@
  */
 
 import * as vscode from 'vscode';
+import { t } from '../l10n';
 
 // ── Node types ────────────────────────────────────────────────────────
 
@@ -47,6 +48,39 @@ export function getDisconnectedActions(): ActionItem[] {
       'Open the Drift viewer in an external browser'),
     new ActionItem('Refresh sidebar UI', 'driftViewer.refreshConnectionUi', 'layout',
       'Refresh the connection status display'),
+  ];
+}
+
+/**
+ * Blank-state banner shown as the ONLY tree row while the global monitoring
+ * kill switch is engaged. A real TreeItem (not viewsWelcome markdown) for the
+ * same fork-reliability reason as the other banners; localized via `t()`.
+ */
+export class MonitoringKilledBannerItem extends vscode.TreeItem {
+  constructor() {
+    super(t('host.monitoring.treeBanner'), vscode.TreeItemCollapsibleState.None);
+    this.iconPath = new vscode.ThemeIcon(
+      'circle-slash',
+      new vscode.ThemeColor('problemsWarningIcon.foreground'),
+    );
+    this.contextValue = 'monitoringKilledBanner';
+    this.tooltip = t('host.monitoring.treeBannerTooltip');
+  }
+}
+
+/**
+ * The single action row under the kill-switch banner: one tap back to a live
+ * tree. Kept to one action on purpose — a killed sidebar should read as
+ * intentionally dormant, not as a broken connection needing triage.
+ */
+export function getMonitoringKilledActions(): ActionItem[] {
+  return [
+    new ActionItem(
+      t('host.monitoring.treeResumeAction'),
+      'driftViewer.monitoring.resume',
+      'debug-start',
+      t('host.monitoring.resumedToast'),
+    ),
   ];
 }
 

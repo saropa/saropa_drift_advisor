@@ -53,6 +53,41 @@ export async function httpGetChangeDetection(
   return data?.changeDetection !== false;
 }
 
+/** Get the server's global monitoring & logging kill-switch state. */
+export async function httpGetMonitoring(
+  baseUrl: string,
+  headers: ApiHeaders,
+): Promise<boolean> {
+  const resp = await fetchWithRetry(`${baseUrl}/api/monitoring`, {
+    headers,
+  });
+  if (!resp.ok) throw new Error(`Get monitoring state failed: ${resp.status}`);
+  const data = (await resp.json()) as { monitoringEnabled?: boolean };
+  return data?.monitoringEnabled !== false;
+}
+
+/**
+ * Flip the server's global monitoring & logging kill switch. The endpoint
+ * stays reachable while the server is killed (it is the resume path), so
+ * this call works in both directions.
+ */
+export async function httpSetMonitoring(
+  baseUrl: string,
+  headers: ApiHeaders,
+  enabled: boolean,
+): Promise<boolean> {
+  const resp = await fetchWithRetry(`${baseUrl}/api/monitoring`, {
+    method: 'POST',
+    // Setting a flag to a fixed value is idempotent; safe to retry.
+    idempotent: true,
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!resp.ok) throw new Error(`Set monitoring state failed: ${resp.status}`);
+  const data = (await resp.json()) as { monitoringEnabled?: boolean };
+  return data?.monitoringEnabled !== false;
+}
+
 /** Set change detection. */
 export async function httpSetChangeDetection(
   baseUrl: string,

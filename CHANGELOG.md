@@ -44,7 +44,14 @@ browse source on
 
 ## [Unreleased]
 
-The web viewer's left icon bar is a touch roomier, and its icons now carry a soft color so they're easier to scan at a glance. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+One switch now turns ALL monitoring off: a power button in the Database sidebar (plus a card in Drift Tools and two commands) instantly stops query recording, background sweeps, diagnostics, and file badges on both the extension and the in-app debug server — and turns them all back on without any restart. The web viewer's left icon bar is also a touch roomier, and its icons now carry a soft color so they're easier to scan at a glance. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Added
+
+- **Global monitoring & logging kill switch across the whole toolchain.** For performance-sensitive debugging, privacy compliance, or constrained devices, one control now silences everything at once (`plans/PLAN_BUILD a KILL SWITCH.md`):
+  - **VS Code:** a new `driftViewer.enableMonitoringAndLogging` setting (default on), a power toggle in the Database sidebar toolbar, a status card at the top of the Drift Tools Hub ("Monitoring Active" / "Monitoring Suppressed" with a one-click Kill/Resume button), and two Command Palette commands — `Drift Viewer: Kill All Monitoring and Logging` / `Resume All Monitoring and Logging`. Killing clears all Problems-panel diagnostics and row-count file badges immediately, blanks the Database sidebar with a "Monitoring and Logging are disabled via Kill Switch." notice (with a one-tap resume row), and stops the heavy background sweeps. Resuming re-arms everything without a window reload.
+  - **Dart server:** `DriftDebugServer.start(monitoringEnabled: false)` boots the server dormant, and `DriftDebugServer.setMonitoringEnabled()` or the new `GET/POST /api/monitoring` endpoint flip it live. While killed, the server records no query timings, no DVR entries, and runs no change-detection sweeps; every data-inspection endpoint answers a structured `403` ("Access Denied: All monitoring and data inspection has been halted by the global kill switch.") while `/api/health` keeps responding with `monitoringEnabled: false` and the discovery manifest advertises `"monitoring": "disabled"` so external tools can tell "deliberately dormant" from "broken".
+  - The extension pushes the kill state to any server it connects to, and API errors caused by the kill switch surface the explanatory message instead of a bare `403`.
 
 ### Improved
 

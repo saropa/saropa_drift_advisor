@@ -131,3 +131,77 @@ Prior to release staging, implementation must satisfy the following integration 
 - [ ] **Zero Leakage:** Running the extension with `enableMonitoringAndLogging: false` yields 0 active `vscode.Diagnostic` emissions[cite: 2].
 - [ ] **State Resilience:** Toggling the kill switch mid-session cleanly terminates ongoing heavy database sweeps without throwing async unhandled socket or isolate exceptions[cite: 2].
 - [ ] **Failsafe Re-enabling:** Transitioning from `false` back to `true` re-arms the discovery loops, refreshes table metrics, and successfully syncs settings without requiring a VS Code window reload or a host application restart[cite: 2].
+
+---
+
+## Implementation Report (2026-07-09)
+
+Implemented in full across both surfaces. Key decisions and deviations:
+
+### Dart server (`lib/src/`)
+
+- `ServerContext.monitoringEnabled` (seeded from the new `monitoringEnabled`
+  start parameter, default `true`) with a single mutation point
+  `setMonitoring()` mirroring the existing change-detection pattern.
+  `DriftDebugServer.setMonitoringEnabled()` / `monitoringEnabled` exposed on
+  the public mixin, stub mirrored for web builds, and `startDriftViewer`
+  forwards the parameter.
+- **Zero-capture guarantee:** `timedQuery` executes without stack parsing,
+  timing records, or DVR entries while killed; `checkDataChange` aborts before
+  the sqlite_master lookup. Write-capture paths need no extra guard — they are
+  only reachable through HTTP endpoints the 403 gate blocks.
+- **Endpoint gate:** one structural check in `Router._dispatch` answers every
+  `/api/*` route past the pre-query group with a structured 403
+  (`ServerConstants.errorMonitoringDisabled`). Surviving endpoints: health
+  (adds `monitoringEnabled`), API index, generation/mutations long-polls
+  (issue no queries while killed), web assets, change-detection, root HTML,
+  and the new `GET/POST /api/monitoring` (deliberately pre-gate — it is the
+  HTTP resume path).
+- Discovery manifest carries `"monitoring": "enabled"|"disabled"` and is
+  rewritten (best-effort, fire-and-forget) on every runtime flip via a
+  `ServerContext.onMonitoringChanged` hook.
+- Regression tests: `test/monitoring_kill_switch_test.dart` — 7 tests
+  (unit short-circuits + full HTTP integration incl. resume-without-restart
+  and manifest state), all passing.
+
+### VS Code extension (`extension/src/`)
+
+- Setting `driftViewer.enableMonitoringAndLogging` (default true) + commands
+  `driftViewer.monitoring.kill` / `driftViewer.monitoring.resume`; sidebar
+  power toggle swaps between the two via the `driftViewer.monitoringEnabled`
+  context key; Drift Tools Hub gets a status card (green "Monitoring Active" /
+  red "Monitoring Suppressed") wired to the same commands.
+- New `monitoring/monitoring-state.ts` (leaf read-side, no import cycles) +
+  `monitoring/monitoring-kill-switch.ts` (commands, reactive config listener,
+  on-connect server push, apply function). Reactive like `driftViewer.enabled`,
+  not lazily-polled like `lightweight`, so the flip is immediate.
+- Kill purges the DiagnosticManager collection (and the manager self-gates in
+  `refresh()`, making the zero-leakage guarantee caller-independent), clears
+  file badges via a new `clearAll()`, blanks the Database tree with the
+  spec's kill-switch banner + one-tap resume row (real TreeItems, matching the
+  house pattern), and skips the heavy background sweep.
+- Server sync: `GET/POST /api/monitoring` client methods; on connect the
+  extension pushes only a KILL (never a force-resume, so a host app that
+  deliberately started dormant is not overridden).
+- Soft-fail: `fetchWithRetry` converts a 403 carrying the kill switch's JSON
+  `error` body into that message, so every surface toasts the explanation
+  instead of a bare "failed: 403". Plain/bodyless 403s pass through unchanged
+  (existing per-endpoint contracts kept — this surfaced in the suite run and
+  was deliberately narrowed).
+- Tests: `src/test/monitoring-kill-switch.test.ts` (client endpoints, 403
+  interception both ways, config default, hub card composition). Full mocha
+  suite passing; `vscode-mock` gained `ConfigurationTarget` + an optional
+  `update()` so settings-writing commands run under test.
+
+### Verification checklist from this plan
+
+- **Zero Leakage** — DiagnosticManager clears and refuses collection while
+  killed (single choke point); badges cleared; tree blanked; server records
+  nothing (Dart tests assert zero query callbacks and empty timing/DVR
+  buffers).
+- **State Resilience** — runtime kill mid-session verified over HTTP (Dart
+  integration test); long-polls stay exempt so no socket churn; manifest
+  rewrite is fire-and-forget and cannot fail the toggle.
+- **Failsafe Re-enabling** — POST /api/monitoring resume verified to restore
+  `/api/sql` immediately with no rebind/restart; extension resume refreshes
+  tree, diagnostics, and badges without a window reload.

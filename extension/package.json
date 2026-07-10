@@ -133,6 +133,18 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.monitoring.kill",
+        "title": "%command.monitoring.kill.title%",
+        "icon": "$(circle-slash)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.monitoring.resume",
+        "title": "%command.monitoring.resume.title%",
+        "icon": "$(debug-disconnect)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.groupTablesByName",
         "title": "%command.groupTablesByName.title%",
         "icon": "$(list-tree)",
@@ -996,6 +1008,16 @@
           "group": "navigation@1"
         },
         {
+          "command": "driftViewer.monitoring.kill",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.monitoringEnabled",
+          "group": "navigation@1"
+        },
+        {
+          "command": "driftViewer.monitoring.resume",
+          "when": "view == driftViewer.databaseExplorer && !driftViewer.monitoringEnabled",
+          "group": "navigation@1"
+        },
+        {
           "command": "driftViewer.groupTablesByName",
           "when": "view == driftViewer.databaseExplorer && !driftViewer.tablesGrouped",
           "group": "navigation@2"
@@ -1348,6 +1370,11 @@
           "type": "boolean",
           "default": true,
           "description": "%config.enabled.description%"
+        },
+        "driftViewer.enableMonitoringAndLogging": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.enableMonitoringAndLogging.description%"
         },
         "driftViewer.branching.maxBranches": {
           "type": "number",

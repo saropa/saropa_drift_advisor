@@ -153,6 +153,20 @@ export class DriftFileDecorationProvider
     }
   }
 
+  /**
+   * Drop every badge immediately (global monitoring kill switch). Unlike
+   * [refresh], this touches no server endpoint — the kill switch must clear
+   * decorations even while the server is refusing data requests with 403.
+   */
+  clearAll(): void {
+    if (this._decorations.size === 0) return;
+    const cleared = Array.from(this._decorations.keys(), (k) =>
+      vscode.Uri.parse(k),
+    );
+    this._decorations.clear();
+    this._onDidChange.fire(cleared);
+  }
+
   dispose(): void {
     this._onDidChange.dispose();
   }

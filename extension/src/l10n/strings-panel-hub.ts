@@ -51,4 +51,12 @@ export const stringsPanelHub: Record<string, string> = {
   'panel.hub.tile.snippets': 'Snippet Library',
   'panel.hub.tile.globalSearch': 'Global Search',
   'panel.hub.tile.isar': 'Isar Converter',
+  'panel.hub.killSwitch.activeBadge': 'Monitoring Active',
+  'panel.hub.killSwitch.activeDesc':
+    'Query recording, diagnostics, and background sweeps are running.',
+  'panel.hub.killSwitch.killBtn': 'Kill All Monitoring & Logs',
+  'panel.hub.killSwitch.killedBadge': 'Monitoring Suppressed',
+  'panel.hub.killSwitch.killedDesc':
+    'The global kill switch is engaged — nothing is recorded and data endpoints answer 403.',
+  'panel.hub.killSwitch.resumeBtn': 'Resume Monitoring',
 };

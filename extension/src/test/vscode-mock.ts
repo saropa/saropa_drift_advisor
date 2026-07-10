@@ -168,9 +168,33 @@ export const mockCommands = {
   reset() { executedCommands.length = 0; },
 };
 
+/**
+ * Mirrors vscode.ConfigurationTarget so code that names an explicit settings
+ * scope (e.g. the monitoring kill-switch commands) runs under the mock.
+ */
+export enum ConfigurationTarget {
+  Global = 1,
+  Workspace = 2,
+  WorkspaceFolder = 3,
+}
+
+/**
+ * Shape returned by the mock `workspace.getConfiguration`. `update` is
+ * optional in the TYPE so tests that substitute their own minimal
+ * `{ get }` stubs keep compiling, while the default mock supplies it for
+ * code paths that write settings (e.g. the monitoring kill-switch commands).
+ */
+interface MockWorkspaceConfiguration {
+  get<T>(key: string, defaultValue?: T): T | undefined;
+  update?(key: string, value: unknown, target?: unknown): Promise<void>;
+}
+
 export const workspace = {
-  getConfiguration: (_section?: string) => ({
+  getConfiguration: (_section?: string): MockWorkspaceConfiguration => ({
     get: <T>(key: string, defaultValue?: T): T | undefined => defaultValue,
+    // Settings writes are accepted and dropped: the mock has no settings
+    // store, and callers only need the promise to resolve.
+    update: async (_key: string, _value: unknown, _target?: unknown) => { /* no-op */ },
   }),
   onDidChangeConfiguration: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
   onDidChangeTextDocument: (_listener: any) => ({ dispose: () => { /* no-op */ } }),

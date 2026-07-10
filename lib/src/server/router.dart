@@ -204,6 +204,23 @@ final class Router {
       return;
     }
 
+    // Global kill switch: every /api/* route past this point inspects or
+    // mutates data, so a killed server answers them all with one structured
+    // 403 instead of running any handler. Endpoints that must survive the
+    // kill (health, API index, generation/mutations long-polls, web assets,
+    // change-detection, and the /api/monitoring resume path itself) are
+    // dispatched earlier in [_routePreQuery] and never reach this gate.
+    // Root HTML and non-API paths stay served so a browser still loads the
+    // viewer shell and can render a clear "monitoring disabled" state.
+    // ([pathApiIndex] is the literal '/api/', reused here as the prefix.)
+    if (!_ctx.monitoringEnabled &&
+        (path.startsWith(ServerConstants.pathApiIndex) ||
+            path.startsWith(ServerConstants.pathApiIndexAlt))) {
+      await _sendMonitoringDisabled(res);
+
+      return;
+    }
+
     final DriftDebugQuery query = _ctx.instrumentedQuery;
 
     try {
@@ -312,6 +329,24 @@ final class Router {
       }
       if (request.method == ServerConstants.methodPost) {
         await _handleSetChangeDetection(request);
+
+        return true;
+      }
+    }
+
+    // GET/POST /api/monitoring — query or flip the global monitoring &
+    // logging kill switch. Routed pre-gate on purpose: this endpoint must
+    // stay reachable while monitoring is disabled, or a killed server
+    // could never be resumed over HTTP.
+    if (path == ServerConstants.pathApiMonitoring ||
+        path == ServerConstants.pathApiMonitoringAlt) {
+      if (request.method == ServerConstants.methodGet) {
+        await _handleGetMonitoring(response);
+
+        return true;
+      }
+      if (request.method == ServerConstants.methodPost) {
+        await _handleSetMonitoring(request);
 
         return true;
       }
@@ -1119,6 +1154,17 @@ final class Router {
     _ctx.setChangeDetection(enabled);
   }
 
+  /// Whether the global monitoring & logging kill switch is off (true =
+  /// monitoring active). Delegate for the public DriftDebugServer API.
+  bool get isMonitoringEnabled => _ctx.monitoringEnabled;
+
+  /// Flips the global monitoring & logging kill switch (delegate for the
+  /// public DriftDebugServer API). Routes through the single mutation
+  /// point so the discovery-manifest rewrite hook fires.
+  void setMonitoringEnabled(bool enabled) {
+    _ctx.setMonitoring(enabled);
+  }
+
   // --- Change detection HTTP handlers ---
 
   /// Handles GET /api/change-detection.
@@ -1133,6 +1179,89 @@ final class Router {
       }),
     );
     await res.close();
+  }
+
+  // --- Monitoring kill-switch HTTP handlers ---
+
+  /// Handles GET /api/monitoring.
+  /// Returns {"monitoringEnabled": true|false}.
+  Future<void> _handleGetMonitoring(HttpResponse response) async {
+    final res = response;
+
+    _ctx.setJsonHeaders(res);
+    res.write(
+      jsonEncode(<String, dynamic>{
+        ServerConstants.jsonKeyMonitoringEnabled: _ctx.monitoringEnabled,
+      }),
+    );
+    await res.close();
+  }
+
+  /// Handles POST /api/monitoring.
+  /// Expects JSON body: {"enabled": true|false}.
+  /// Returns {"monitoringEnabled": true|false}. Routes through
+  /// [ServerContext.setMonitoring] (the single mutation point) so the
+  /// discovery-manifest rewrite hook fires for HTTP toggles too.
+  Future<void> _handleSetMonitoring(HttpRequest request) async {
+    final res = request.response;
+
+    try {
+      final bytes = await ServerUtils.readBodyBytes(
+        request,
+        maxBytes: ServerConstants.maxRequestBodyBytes,
+      );
+      if (bytes == null) {
+        await _ctx.sendPayloadTooLarge(res);
+        return;
+      }
+
+      final body = utf8.decode(bytes);
+      final decoded = ServerUtils.parseJsonMap(body);
+
+      final enabledValue = decoded?[ServerConstants.jsonKeyEnabled];
+      if (enabledValue is! bool) {
+        res.statusCode = HttpStatus.badRequest;
+        _ctx.setJsonHeaders(res);
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError:
+                'Expected JSON body with '
+                '"${ServerConstants.jsonKeyEnabled}": '
+                'true|false',
+          }),
+        );
+        await res.close();
+
+        return;
+      }
+
+      _ctx.setMonitoring(enabledValue);
+
+      _ctx.setJsonHeaders(res);
+      res.write(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyMonitoringEnabled: enabledValue,
+        }),
+      );
+      await res.close();
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      await _ctx.sendErrorResponse(res, error);
+    }
+  }
+
+  /// Sends the structured 403 every data-inspection endpoint returns while
+  /// the kill switch is engaged. A well-formed JSON error (never a dropped
+  /// or hung connection) so clients keep their connection contracts.
+  Future<void> _sendMonitoringDisabled(HttpResponse response) async {
+    response.statusCode = HttpStatus.forbidden;
+    _ctx.setJsonHeaders(response);
+    response.write(
+      jsonEncode(<String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.errorMonitoringDisabled,
+      }),
+    );
+    await response.close();
   }
 
   /// Handles POST /api/change-detection.

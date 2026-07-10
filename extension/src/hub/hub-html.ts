@@ -88,6 +88,29 @@ function launcherSection(): string {
 }
 
 /**
+ * Global kill-switch status card, pinned directly under the hero. Always
+ * present in both states — the card IS the hub's monitoring control, so it
+ * must be visible (green) before a kill and offer the resume (red) after.
+ * The button routes through the same `driftViewer.monitoring.*` commands as
+ * the sidebar and Command Palette, so state stays single-sourced in the
+ * `driftViewer.enableMonitoringAndLogging` setting.
+ */
+function killSwitchCard(monitoringEnabled: boolean): string {
+  if (monitoringEnabled) {
+    return `<section class="kill-switch-card">
+  <span class="kill-switch-badge"><span class="kill-switch-dot"></span>${t('panel.hub.killSwitch.activeBadge')}</span>
+  <span class="kill-switch-desc">${t('panel.hub.killSwitch.activeDesc')}</span>
+  <button class="hub-btn danger" data-hub-cmd="runCommand" data-cmd-id="driftViewer.monitoring.kill">${t('panel.hub.killSwitch.killBtn')}</button>
+</section>`;
+  }
+  return `<section class="kill-switch-card killed">
+  <span class="kill-switch-badge"><span class="kill-switch-dot"></span>${t('panel.hub.killSwitch.killedBadge')}</span>
+  <span class="kill-switch-desc">${t('panel.hub.killSwitch.killedDesc')}</span>
+  <button class="hub-btn primary" data-hub-cmd="runCommand" data-cmd-id="driftViewer.monitoring.resume">${t('panel.hub.killSwitch.resumeBtn')}</button>
+</section>`;
+}
+
+/**
  * Hero band: title/subtitle plus Rescan, Open-database-browser (the primary
  * action — opens the live web viewer at http://host:port, the thing users
  * most often want and previously could not find), and Open-website actions.
@@ -157,12 +180,17 @@ ${bodyInner}
  * Compose the assembled hub document from both pane renders. Pure: no webview
  * argument, so tests can assert the composition contract directly.
  */
-export function buildHubDocument(dashboard: PaneRender, health: PaneRender): string {
+export function buildHubDocument(
+  dashboard: PaneRender,
+  health: PaneRender,
+  monitoringEnabled = true,
+): string {
   const paneStyles = [
     dashboard.ok ? dashboard.style : '',
     health.ok ? health.style : '',
   ].join('\n');
   const bodyInner = `${hero()}
+${killSwitchCard(monitoringEnabled)}
 <div class="dash-grid">
 ${paneCard({ titleKey: 'panel.hub.pane.dashboard', icon: 'grid', fullCmd: 'driftViewer.openDashboard', scopeClass: 'pane-dashboard', pane: dashboard })}
 ${paneCard({ titleKey: 'panel.hub.pane.health', icon: 'heart', fullCmd: 'driftViewer.healthScore', scopeClass: 'pane-health', pane: health })}
@@ -176,7 +204,7 @@ ${launcherSection()}`;
  * "scanning…" status + the full launcher (which needs no scan and is usable at
  * once). Revealed the moment the panel opens so the hub never shows a blank tab.
  */
-export function buildHubLoadingShell(): string {
+export function buildHubLoadingShell(monitoringEnabled = true): string {
   const scanning = `<div class="pane-body"><div class="pane-failed">${t('panel.hub.loading')}</div></div>`;
   // The loading shell omits the per-pane "Open full screen" button — there is
   // nothing rendered to escalate yet (it appears once the assembled doc lands).
@@ -185,6 +213,7 @@ export function buildHubLoadingShell(): string {
   ${scanning}
 </section>`;
   const bodyInner = `${hero()}
+${killSwitchCard(monitoringEnabled)}
 <div class="dash-grid">
 ${pane('panel.hub.pane.dashboard', 'grid')}
 ${pane('panel.hub.pane.health', 'heart')}

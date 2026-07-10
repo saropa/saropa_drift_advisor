@@ -17,7 +17,9 @@ import {
 } from './tree-items';
 import {
   ActionItem,
+  MonitoringKilledBannerItem,
   getDisconnectedActions,
+  getMonitoringKilledActions,
   getSchemaRestFailureActions,
 } from './quick-action-items';
 
@@ -26,6 +28,7 @@ export type TreeNode =
   | ConnectionStatusItem
   | DisconnectedBannerItem
   | SchemaRestFailureBannerItem
+  | MonitoringKilledBannerItem
   | PinnedGroupItem
   | TableGroupItem
   | ActionItem
@@ -39,6 +42,13 @@ export interface TreeChildrenState {
   connected: boolean;
   offlineSchema: boolean;
   isDriftUiConnected: () => boolean;
+  /**
+   * True while the global monitoring & logging kill switch is engaged. Root
+   * resolution then shows ONLY the kill-switch banner + resume action —
+   * never the disconnected/REST-failure triage rows, which would misread a
+   * deliberately dormant server as a broken connection.
+   */
+  monitoringKilled?: boolean;
   tableItems: TableItem[];
   annotationStore?: AnnotationStore;
   /**
@@ -61,6 +71,14 @@ export async function resolveChildren(
 ): Promise<TreeNode[]> {
   // Root level
   if (!element) {
+    // Kill switch engaged: replace the whole tree with the blank-state
+    // banner + a single resume action, per the kill-switch spec.
+    if (state.monitoringKilled) {
+      return [
+        new MonitoringKilledBannerItem(),
+        ...getMonitoringKilledActions(),
+      ];
+    }
     if (!state.connected && !state.offlineSchema) {
       // Hosts where welcome-view markdown `command:` links do nothing still execute
       // TreeItem.command, so surface the same actions as real clickable tree rows.

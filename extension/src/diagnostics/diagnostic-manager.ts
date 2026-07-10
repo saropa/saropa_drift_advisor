@@ -106,8 +106,16 @@ export class DiagnosticManager implements vscode.Disposable {
     this._lastRefresh = now;
 
     try {
+      // Global monitoring kill switch: refuse to collect OR keep any issue
+      // while it is engaged, whoever the caller is (connect handler, heavy
+      // sweep, generation watcher). Checking here — the single choke point
+      // for this collection — is what makes the plan's "zero vscode.Diagnostic
+      // emissions" guarantee hold without gating every call site.
+      const killSwitchOn = vscode.workspace
+        .getConfiguration('driftViewer')
+        .get<boolean>('enableMonitoringAndLogging', true) === false;
       const config = loadDiagnosticConfig();
-      if (!config.enabled) {
+      if (!config.enabled || killSwitchOn) {
         this._collection.clear();
         this._lastIssues = [];
         return;

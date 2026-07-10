@@ -63,4 +63,18 @@ export const hostStrings: Record<string, string> = {
   'host.suite.recommend.logCapture':
     'This project uses the Saropa Log Capture package, but the Saropa Log Capture extension is not installed — it records the logs, crashes, and slow queries behind Drift Advisor findings. Install it?',
   'host.suite.recommend.install': 'Install',
+
+  // --- Global monitoring & logging kill switch ---
+  'host.monitoring.killedToast':
+    'All monitoring and logging are disabled. Diagnostics were cleared, file badges removed, and the Drift debug server stopped recording queries and sweeps.',
+  'host.monitoring.resumedToast':
+    'Monitoring and logging resumed. Diagnostics, file badges, query recording, and background sweeps are active again.',
+  'host.monitoring.resumeAction': 'Resume Monitoring',
+  'host.monitoring.serverSyncFailed':
+    'Could not update the Drift debug server monitoring state: {0}',
+  'host.monitoring.treeBanner':
+    'Monitoring and Logging are disabled via Kill Switch.',
+  'host.monitoring.treeBannerTooltip':
+    'The global kill switch is engaged: no query recording, no diagnostics, no background sweeps. Data endpoints on the Drift debug server answer 403 until monitoring is resumed.',
+  'host.monitoring.treeResumeAction': 'Resume All Monitoring and Logging',
 };

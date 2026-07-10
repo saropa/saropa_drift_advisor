@@ -96,5 +96,32 @@ svg { display: block; width: 100%; height: 100%; }
 .launcher-tile.danger .tile-icon { color: var(--status-bad); opacity: 1; }
 .launcher-tile.danger:hover { border-color: var(--status-bad);
   background: color-mix(in srgb, var(--status-bad) 9%, transparent); }
+
+/* Global monitoring kill-switch status card (top of hub, below the hero).
+   State color comes from the shared status tokens so it tracks the theme:
+   green (--status-good) while monitoring runs, red (--status-bad) when the
+   switch is engaged. */
+.kill-switch-card { display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; margin-bottom: 14px; border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--status-good) 35%, var(--vscode-widget-border));
+  background: color-mix(in srgb, var(--status-good) 7%, transparent); }
+.kill-switch-card.killed {
+  border-color: color-mix(in srgb, var(--status-bad) 45%, var(--vscode-widget-border));
+  background: color-mix(in srgb, var(--status-bad) 9%, transparent); }
+.kill-switch-badge { display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 11px;
+  flex-shrink: 0; color: var(--status-good);
+  background: color-mix(in srgb, var(--status-good) 16%, transparent); }
+.kill-switch-card.killed .kill-switch-badge { color: var(--status-bad);
+  background: color-mix(in srgb, var(--status-bad) 16%, transparent); }
+.kill-switch-dot { width: 8px; height: 8px; border-radius: 50%;
+  background: currentColor; }
+.kill-switch-desc { font-size: 12px; opacity: 0.85; min-width: 0; }
+.kill-switch-card .hub-btn { margin-left: auto; flex-shrink: 0; }
+.kill-switch-card .hub-btn.danger {
+  border-color: color-mix(in srgb, var(--status-bad) 45%, var(--vscode-widget-border));
+  color: var(--status-bad); }
+.kill-switch-card .hub-btn.danger:hover {
+  background: color-mix(in srgb, var(--status-bad) 12%, transparent); }
 `;
 }

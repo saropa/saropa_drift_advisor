@@ -54,6 +54,7 @@ mixin DriftDebugServer {
     DeclaredRelationshipsCallback? declaredRelationships,
     String? snapshotStorePath,
     String? discoveryDirectory,
+    bool monitoringEnabled = true,
   }) {
     throw UnsupportedError(_kUnsupportedMessage);
   }
@@ -67,6 +68,12 @@ mixin DriftDebugServer {
 
   /// Stub: no-op (server not available on web).
   static void setChangeDetection(bool enabled) {}
+
+  /// Stub: always returns null (server not available on web).
+  static bool? get monitoringEnabled => null;
+
+  /// Stub: no-op (server not available on web).
+  static void setMonitoringEnabled(bool enabled) {}
 
   /// Stub: no-op.
   static Future<void> stop() => Future<void>.value();

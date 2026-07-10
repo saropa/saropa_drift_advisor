@@ -14,6 +14,7 @@ import type { PinStore } from './pin-store';
 import type { TableGroupingStore } from './table-grouping-store';
 import { TableItem } from './tree-items';
 import { type TreeNode, resolveChildren } from './drift-tree-children';
+import { isMonitoringKilled } from '../monitoring/monitoring-state';
 
 /**
  * Maximum wall-clock time (ms) a single [refresh] cycle may take before being
@@ -136,6 +137,20 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
    * that would have succeeded.
    */
   async refresh(): Promise<void> {
+    // Global kill switch: no health probe, no schema fetch — the switch
+    // promises zero background traffic, and the child resolver renders the
+    // blank-state banner instead of the table list. State is cleared so a
+    // later resume starts from a clean fetch rather than stale tables.
+    if (isMonitoringKilled()) {
+      this._tables = [];
+      this._tableItems = [];
+      this._connected = false;
+      this._offlineSchema = false;
+      this._syncDatabaseTreeEmptyContext();
+      this._onDidChangeTreeData.fire();
+      this.postRefreshHook?.();
+      return;
+    }
     if (this._refreshing) {
       // Queue a follow-up refresh instead of silently dropping the call.
       this._pendingRefresh = true;
@@ -256,6 +271,7 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       connected: this._connected,
       offlineSchema: this._offlineSchema,
       isDriftUiConnected: this._isDriftUiConnected,
+      monitoringKilled: isMonitoringKilled(),
       tableItems: this._tableItems,
       annotationStore: this._annotationStore,
       grouped: this._groupingStore?.grouped ?? false,

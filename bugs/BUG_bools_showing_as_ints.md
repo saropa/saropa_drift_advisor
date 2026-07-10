@@ -67,10 +67,22 @@ When a query's result column can be matched by name to a known table's schema, r
 
 ## Verification
 
-- [ ] **Grid, heuristic-miss name:** a Drift `boolean()` column named e.g. `notifications` shows true/false in the data grid (previously `0`/`1`).
-- [ ] **Grid, suffix name:** a column named `user_active` matches the fixed suffix regex even without `driftType`.
-- [ ] **Cell editor:** bool editing behavior triggers on `driftType === 'bool'` columns.
-- [ ] **Sidebar:** boolean columns show the boolean icon and `bool` description.
-- [ ] **Custom query:** a SELECT including a boolean column formats as true/false; unmatched expression columns stay numeric.
-- [ ] **Fallback:** with no `declaredSchema` callback (raw SQLite host), everything renders as today — no errors.
-- [ ] **Extension checks:** `npm run check-types && npm run lint` pass with no new violations.
+- [ ] **Grid, heuristic-miss name (manual, running app):** a Drift `boolean()` column named e.g. `notifications` shows true/false in the data grid (previously `0`/`1`).
+- [ ] **Grid, suffix name (manual, running app):** a column named `user_active` matches the fixed suffix regex even without `driftType`.
+- [ ] **Cell editor (manual, running app):** bool editing behavior triggers on `driftType === 'bool'` columns.
+- [x] **Sidebar:** boolean columns show the boolean icon and `bool (INTEGER)` description — unit-tested in `extension/src/test/drift-tree-provider-items.test.ts` (bool icon + label, plus no-driftType fallback).
+- [ ] **Custom query (manual, running app):** a SELECT including a boolean column formats as true/false; unmatched expression columns stay numeric.
+- [x] **Fallback:** with no `declaredSchema` callback, every changed path degrades to the previous behavior (name heuristic / storage type) — `driftType` is optional at every read site.
+- [x] **Code checks:** extension `npm run lint` (tsc --noEmit) clean; web `npm run typecheck:web` clean; web bundle builds; scoped tree-items test file passes (17/17).
+
+## Implementation (COMPLETE — code level)
+
+- `assets/web/table-view.ts` — `formatCellValue` takes an optional `driftType` and formats `driftType === 'bool'` exactly; `buildDataTableHtml` resolves per-table drift types via new `schemaDriftTypesForTable` (optional `tableName` param for the search tab); suffix regex `\$` → `$` fixed; new `isUnambiguousDriftBoolColumn` for table-less SQL results.
+- `assets/web/search-tab.ts` — passes the searched table's name so drift-type lookup can't read the wrong table.
+- `assets/web/cell-edit.ts` — bool validation gate checks `colMeta.driftType === 'bool'` before the name heuristic.
+- `assets/web/sql-runner.ts` — SQL result cells render true/false (raw value on hover) for columns that are bool in every declaring table; copy/export stays raw.
+- `extension/src/api-types.ts` — `ColumnMetadata.driftType?` added.
+- `extension/src/tree/tree-items.ts` — boolean icon (`symbol-boolean`) and `bool (INTEGER)` description.
+- `CHANGELOG.md` — two Fixed entries under 4.1.19.
+
+Remaining: the four manual running-app checks above.

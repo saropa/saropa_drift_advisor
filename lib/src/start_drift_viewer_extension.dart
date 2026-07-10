@@ -301,6 +301,10 @@ extension StartDriftViewerExtension on Object {
     DriftDebugWriteQueryWithBindings? writeQueryWithBindings,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
+    // Global monitoring & logging kill switch (default true = active). False
+    // starts the server dormant: health answers, data endpoints return 403,
+    // nothing is recorded. See [DriftDebugServer.start] for full semantics.
+    bool monitoringEnabled = true,
   }) async {
     // Preserve return await so async stack trace is retained (prefer_return_await).
     return await DriftDebugServer.start(
@@ -331,6 +335,7 @@ extension StartDriftViewerExtension on Object {
       writeQueryWithBindings: writeQueryWithBindings,
       onLog: onLog,
       onError: onError,
+      monitoringEnabled: monitoringEnabled,
     );
   }
 }

@@ -19,6 +19,7 @@ import { DashboardState } from '../dashboard/dashboard-state';
 import { WidgetDataFetcher } from '../dashboard/widget-data-fetcher';
 import { buildDashboardFragment } from '../dashboard/dashboard-html';
 import { buildHubDocument, buildHubLoadingShell, type PaneRender } from './hub-html';
+import { isMonitoringEnabled } from '../monitoring/monitoring-state';
 import { secureWebviewHtml } from '../webview-csp';
 
 /** External site opened by the hero "Open website" button. */
@@ -64,6 +65,15 @@ export class DriftToolsHubPanel {
     DriftToolsHubPanel._current = new DriftToolsHubPanel(panel, client, healthScorer, workspaceState);
   }
 
+  /**
+   * Re-render the open hub (no-op when closed). Used by the monitoring kill
+   * switch so the status card at the top of the hub flips between "Monitoring
+   * Active" and "Monitoring Suppressed" the moment the state changes.
+   */
+  static refreshIfOpen(): void {
+    void DriftToolsHubPanel._current?._runAndRender();
+  }
+
   private constructor(
     panel: vscode.WebviewPanel,
     client: DriftApiClient,
@@ -83,7 +93,9 @@ export class DriftToolsHubPanel {
     );
 
     // Show the skeleton at once so the tab is never blank, then scan.
-    this._panel.webview.html = secureWebviewHtml(buildHubLoadingShell());
+    this._panel.webview.html = secureWebviewHtml(
+      buildHubLoadingShell(isMonitoringEnabled()),
+    );
     void this._runAndRender();
   }
 
@@ -116,7 +128,9 @@ export class DriftToolsHubPanel {
           if (token.isCancellationRequested || this._disposed) {
             return;
           }
-          this._panel.webview.html = secureWebviewHtml(buildHubDocument(dashboard, health));
+          this._panel.webview.html = secureWebviewHtml(
+            buildHubDocument(dashboard, health, isMonitoringEnabled()),
+          );
         },
       );
     } catch (err: unknown) {

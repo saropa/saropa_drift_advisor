@@ -140,6 +140,34 @@ function methodIsIdempotent(method?: string): boolean {
  * reached the server and applied a write before the connection dropped —
  * re-sending would duplicate it (audit M4).
  */
+/**
+ * Turn a kill-switch 403 into a self-explanatory error. The server answers
+ * every data endpoint with HTTP 403 + a structured `error` JSON body while
+ * its global monitoring kill switch is engaged; without this, each call site
+ * surfaces a bare "… failed: 403" that reads like a crash. Central here (the
+ * one funnel every endpoint uses) so the informative message reaches every
+ * toast without per-endpoint handling.
+ *
+ * Only a 403 WITH a JSON `error` body is converted — the kill switch always
+ * sends one. A bodyless/non-JSON 403 passes through unchanged so existing
+ * per-endpoint status handling ("… failed: 403") keeps its contract.
+ */
+async function throwIfMonitoringBlocked(resp: Response): Promise<void> {
+  if (resp.status !== 403) return;
+  let serverMessage: string | undefined;
+  try {
+    const body = (await resp.clone().json()) as { error?: string };
+    if (typeof body?.error === 'string' && body.error.length > 0) {
+      serverMessage = body.error;
+    }
+  } catch {
+    // Non-JSON 403 body — not the kill switch's shape; pass through.
+  }
+  if (serverMessage !== undefined) {
+    throw new Error(serverMessage);
+  }
+}
+
 export async function fetchWithRetry(
   url: string,
   init?: FetchWithTimeoutInit,
@@ -150,6 +178,7 @@ export async function fetchWithRetry(
     if (resp.status >= 500) {
       throw new Error(`Server error: ${resp.status}`);
     }
+    await throwIfMonitoringBlocked(resp);
     return resp;
   } catch (err) {
     // Don't retry if the caller intentionally aborted the request.
@@ -161,6 +190,7 @@ export async function fetchWithRetry(
       if (resp.status >= 500) {
         throw new Error(`Server error: ${resp.status}`);
       }
+      await throwIfMonitoringBlocked(resp);
       return resp;
     }
     throw err;

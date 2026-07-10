@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { isDriftUiConnected } from './connection-ui-state';
 import { DashboardPanel } from './dashboard/dashboard-panel';
 import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
+import { wireMonitoringKillSwitch, isMonitoringKilled } from './monitoring/monitoring-kill-switch';
 import type { HealthStatusBar } from './status-bar-health';
 import type { ToolsQuickPickStatusBar } from './status-bar-tools';
 import type { FinalPhaseDeps } from './extension-activation-final';
@@ -30,6 +31,12 @@ export function wireEventListeners(
   statusBars: IFinalStatusBars | undefined,
   connectionUiRefresh: { fn?: () => void },
 ): void {
+  // Global monitoring & logging kill switch: commands, reactive config
+  // listener, on-connect server push, and initial context-key seed. Wired
+  // first so a session that starts killed blanks its surfaces before the
+  // connect/refresh listeners below can paint them.
+  wireMonitoringKillSwitch(d, statusBars, connectionUiRefresh);
+
   // Gate the "open Dashboard" prompt to once per session.
   let dashboardPromptShown = false;
 
@@ -112,6 +119,11 @@ export function wireEventListeners(
   let deferredSweepTimer: ReturnType<typeof setTimeout> | undefined;
 
   const runHeavySweep = (): void => {
+    // Global kill switch: the heavy sweep IS the background monitoring the
+    // switch exists to stop — no diagnostics collection, no row counts, no
+    // timeline capture while it is engaged. (DiagnosticManager also
+    // self-gates; this check saves the row-count and capture work too.)
+    if (isMonitoringKilled()) return;
     d.diagnostics?.diagnosticManager.refresh().catch(() => {});
     if (d.providers) {
       void d.providers.codeLensProvider.refreshRowCounts();

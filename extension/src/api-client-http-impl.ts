@@ -22,6 +22,8 @@ export {
   httpApplyEditsBatch,
   httpGetChangeDetection,
   httpSetChangeDetection,
+  httpGetMonitoring,
+  httpSetMonitoring,
 } from './api-client-http-edits';
 export {
   httpDvrStatus,

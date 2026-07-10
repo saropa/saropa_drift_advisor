@@ -103,6 +103,10 @@ final class GenerationHandler {
             ServerConstants.issuesSchemaVersion,
         ServerConstants.jsonKeyWriteEnabled: _ctx.writeQuery != null,
         ServerConstants.jsonKeyCompareEnabled: _ctx.queryCompare != null,
+        // Kill-switch state: health keeps answering while monitoring is
+        // disabled so probes can tell "deliberately dormant" (this field
+        // false) from "server gone" (no response at all).
+        ServerConstants.jsonKeyMonitoringEnabled: _ctx.monitoringEnabled,
         // Advertise the bind interface so a remote probe (Saropa Lints) can
         // distinguish "up but loopback-only" from "absent": a LAN-IP scan that
         // gets connection-refused otherwise looks identical to no server.

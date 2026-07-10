@@ -54,6 +54,7 @@ final class ServerContext {
     this.declaredRelationships,
     this.snapshotStorePath,
     this.loopbackOnly = true,
+    this.monitoringEnabled = true,
     this.sqlStatementTimeout = ServerConstants.sqlStatementTimeout,
   }) : queryRaw = query,
        _queryExec =
@@ -313,6 +314,38 @@ final class ServerContext {
   /// [setChangeDetection] so the toggle has a single owner.
   bool changeDetectionEnabled = true;
 
+  /// Global monitoring & logging kill switch. When false the server is
+  /// deliberately dormant: [timedQuery] stops recording timings and DVR
+  /// entries, [checkDataChange] issues no sweeps, and the router answers
+  /// every data-inspection endpoint with a structured 403
+  /// ([ServerConstants.errorMonitoringDisabled]) while /api/health and
+  /// /api/monitoring stay live. Distinct from [changeDetectionEnabled]
+  /// (a narrower log-spam toggle): the kill switch guarantees ZERO
+  /// tracking overhead for privacy/performance-sensitive sessions.
+  /// Seeded from the `monitoringEnabled` start parameter; mutated only
+  /// through [setMonitoring] so the toggle has a single owner.
+  bool monitoringEnabled;
+
+  /// Optional hook invoked after [setMonitoring] flips the flag. The server
+  /// impl assigns this to rewrite the discovery manifest so external tools
+  /// see the current `monitoring: enabled|disabled` state without a restart.
+  /// Best-effort: the callback itself must never throw into the toggle path.
+  void Function(bool enabled)? onMonitoringChanged;
+
+  /// Enables or disables all monitoring & logging at runtime. The single
+  /// mutation point for [monitoringEnabled]; the public
+  /// DriftDebugServer.setMonitoringEnabled() and the POST /api/monitoring
+  /// endpoint both route through here. Fires [onMonitoringChanged] inside a
+  /// guard so a manifest-rewrite failure cannot break the toggle itself.
+  void setMonitoring(bool enabled) {
+    monitoringEnabled = enabled;
+    try {
+      onMonitoringChanged?.call(enabled);
+    } on Object catch (error, stack) {
+      logError(error, stack);
+    }
+  }
+
   /// Cached table names from sqlite_master. Populated
   /// on first [checkDataChange] call; cleared by
   /// [invalidateTableNameCache].
@@ -431,6 +464,15 @@ final class ServerContext {
     bool dvrDeclaredParamsTruncated = false,
     bool dvrHasDeclaredBindings = false,
   }) async {
+    // Kill switch: execute without ANY capture. No stack parse, no timing
+    // record, no DVR entry — "disabled" must mean zero tracking overhead
+    // and zero retained SQL, not just hidden results. The few endpoints
+    // still reachable while killed (none today issue user queries; internal
+    // probes are also short-circuited upstream) get plain execution.
+    if (!monitoringEnabled) {
+      return _queryExec(sql);
+    }
+
     // Capture the stack before awaiting so we get the
     // actual call site, not the async continuation.
     final caller = _parseCallerFrame(StackTrace.current);
@@ -681,6 +723,13 @@ final class ServerContext {
   /// minimizing console spam when logStatements is
   /// enabled on the user's Drift database.
   Future<void> checkDataChange() async {
+    // Kill switch: no background sweeps of any kind while monitoring is
+    // disabled — abort before the sqlite_master lookup or the UNION ALL
+    // COUNT query is even built (zero query traffic, zero allocation).
+    if (!monitoringEnabled) {
+      return;
+    }
+
     // Skip entirely when change detection is off.
     if (!changeDetectionEnabled) {
       return;

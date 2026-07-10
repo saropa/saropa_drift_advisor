@@ -154,7 +154,10 @@ describe('Extension activation', () => {
     // Drift Tools Hub: openDriftToolsHub command launching the Hub webview (+1).
     // Host discovery manifest (Finding 1 / E1): deactivate-time removeHostManifest
     // cleanup disposable in bootstrapExtension (+1).
-    assert.strictEqual(subscriptions.length, 239, `expected 239 disposables, got ${subscriptions.length}`);
+    // Monitoring kill switch (PLAN_BUILD a KILL SWITCH): monitoring.kill +
+    //   monitoring.resume commands, config listener, and on-connect
+    //   server-state push in wireMonitoringKillSwitch (+4).
+    assert.strictEqual(subscriptions.length, 243, `expected 243 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

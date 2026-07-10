@@ -202,6 +202,20 @@ export class DriftApiClient extends DriftApiClientBase {
     return http.httpSetChangeDetection(this._baseUrl, this._headers(), enabled);
   }
 
+  /**
+   * Global monitoring & logging kill-switch state on the server. HTTP-only:
+   * the /api/monitoring endpoint is deliberately exempt from the server's
+   * 403 gate so it works while the server is killed (the resume path).
+   */
+  async getMonitoring(): Promise<boolean> {
+    return http.httpGetMonitoring(this._baseUrl, this._headers());
+  }
+
+  /** Flip the server's global monitoring & logging kill switch. */
+  async setMonitoring(enabled: boolean): Promise<boolean> {
+    return http.httpSetMonitoring(this._baseUrl, this._headers(), enabled);
+  }
+
   async clearPerformance(): Promise<void> {
     if (this._vmClient?.connected) {
       await this._vmClient.clearPerformance();

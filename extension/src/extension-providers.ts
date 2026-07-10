@@ -174,8 +174,15 @@ export function setupProviders(
   }
 
   async function refreshBadges(): Promise<void> {
-    const map = await ensureTableFileMap();
     const driftCfg = vscode.workspace.getConfiguration('driftViewer');
+    // Global kill switch: clear existing badges and skip the schema fetch
+    // entirely — the point of the switch is zero background traffic, and the
+    // server would answer the metadata request with 403 anyway.
+    if (!driftCfg.get<boolean>('enableMonitoringAndLogging', true)) {
+      fileDecoProvider.clearAll();
+      return;
+    }
+    const map = await ensureTableFileMap();
     if (!driftCfg.get<boolean>('fileBadges.enabled', true)) return;
     await fileDecoProvider.refresh(client, map);
   }
