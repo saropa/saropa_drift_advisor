@@ -42,7 +42,7 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.1.20]
 
 One switch now turns ALL monitoring off: a power button in the Database sidebar (plus a card in Drift Tools and two commands) instantly stops query recording, background sweeps, diagnostics, and file badges on both the extension and the in-app debug server — and turns them all back on without any restart. The web viewer's left icon bar is also a touch roomier, and its icons now carry a soft color so they're easier to scan at a glance. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
 
@@ -64,8 +64,6 @@ One switch now turns ALL monitoring off: a power button in the Database sidebar 
 
 - **Web viewer activity bar widened ~20% with lightly tinted icons.** The vertical icon strip (Home, Tables, Search, and the tool launchers) now uses larger 2.4rem buttons and slightly more side padding, giving the 20+ icons more breathing room and bigger tap targets. The resting icons are tinted with a soft, theme-aware blend of the accent and muted colors instead of flat gray, so the strip reads as interactive and scans faster; hover and active states still escalate to the full foreground/accent color. Scoped to the activity bar, so the tab-bar icons are unchanged.
 
-## [4.1.19]
-
 Interactive SQL errors now help you fix the query: a `no such column` reply names the table's real columns (and the nearest match), and a query that trips over a reserved word like `primary` used as an alias now says to quote it. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
 
 ### Added
@@ -77,6 +75,12 @@ Multi-line SELECT queries in the web SQL tab no longer get wrongly rejected as "
 ### Fixed
 
 - **Multi-line `SELECT`/`WITH` queries are no longer rejected as non-read-only.** The read-only check required a literal space right after the leading verb, so a pretty-printed query with a newline after `SELECT` (the default editor formatting, e.g. `SELECT\n  id, ...`) failed with "Only read-only SQL is allowed (SELECT or WITH ... SELECT)." The check now accepts any whitespace — space, tab, or newline — after the verb (`bugs/BUG_showing_false-read-only-error.md`).
+
+<details><summary>Maintenance</summary>
+
+- **Split five over-cap extension source/test files into focused modules** to satisfy the 300-line (source) and 500-line (test) caps: the Phase-10 event wiring extracted its auto-capture recommender and heavy-sweep scheduler; the discovery core extracted its scan-result/state-machine updater and UI-snapshot builder; the tree provider extracted its refresh orchestrator; the vscode test mock split its clipboard/dialog/message/fs backing stores into separate files; and the snapshot-store test split its `rowsToObjects`/`computeTableDiff` blocks and shared helpers into their own files. Behavior is unchanged. A review pass caught and corrected four behavior-parity breaks introduced by the extraction before they shipped: the discovery change event was firing a one-generation-stale server list (would have blocked first-scan auto-connect), the tree refresh cleared the table list on a safety-timeout abort (should preserve the last-known/offline schema), the coalesced pending refresh bypassed the monitoring kill switch, and the tree refresh captured the pin store at construction (before `setPinStore` runs, so pins never rendered). Added a discovery regression test asserting the change event's payload — not just the `servers` getter — carries the freshly-found server.
+
+</details>
 
 ## [4.1.17]
 

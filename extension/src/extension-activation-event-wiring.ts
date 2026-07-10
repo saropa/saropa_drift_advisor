@@ -9,7 +9,9 @@ import * as vscode from 'vscode';
 import { isDriftUiConnected } from './connection-ui-state';
 import { DashboardPanel } from './dashboard/dashboard-panel';
 import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
-import { wireMonitoringKillSwitch, isMonitoringKilled } from './monitoring/monitoring-kill-switch';
+import { wireMonitoringKillSwitch } from './monitoring/monitoring-kill-switch';
+import { createAutoCaptureRecommender } from './extension-activation-autocapture-recommender';
+import { createHeavySweepScheduler, STARTUP_SWEEP_GRACE_MS } from './extension-activation-heavy-sweep';
 import type { HealthStatusBar } from './status-bar-health';
 import type { ToolsQuickPickStatusBar } from './status-bar-tools';
 import type { FinalPhaseDeps } from './extension-activation-final';
@@ -40,123 +42,11 @@ export function wireEventListeners(
   // Gate the "open Dashboard" prompt to once per session.
   let dashboardPromptShown = false;
 
-  // Gate the auto-capture recommendation to one schema scan per session; the
-  // persistent workspaceState key below stops it ever re-appearing once offered.
-  let autoCaptureRecommendChecked = false;
+  // Auto-capture recommendation: gated to once per session via factory function.
+  const maybeRecommendAutoCapture = createAutoCaptureRecommender(d);
 
-  // Persistent workspaceState key for the auto-capture recommendation. Once the
-  // prompt has been shown in a workspace it is never shown again there, whatever
-  // the user chose — the recommendation is informational, not a nag.
-  const AUTO_CAPTURE_RECOMMEND_KEY = 'driftViewer.autoCaptureRecommendShown';
-
-  // Offer to turn ON timeline auto-capture when it is currently off. Auto-capture
-  // is safe on ANY schema — big, small, blob-bearing or not — because the capture
-  // sweep projects length() over BLOB columns instead of their bytes, so it never
-  // materializes blob payloads in the connected app (blob-safe-select.ts). It ships
-  // off only so the automatic full-table re-dump on every data change is opt-in,
-  // not a surprise. The recommendation is therefore not gated on schema shape; the
-  // only check is that there is a real schema to capture (so an empty/failed
-  // connection does not draw a pointless prompt).
-  const maybeRecommendAutoCapture = (client: typeof d.cachedClient): void => {
-    if (autoCaptureRecommendChecked) return;
-    autoCaptureRecommendChecked = true;
-
-    const cfg = vscode.workspace.getConfiguration('driftViewer');
-    // Already on, or already offered in this workspace — nothing to suggest.
-    if (cfg.get<boolean>('timeline.autoCapture', false)) return;
-    if (d.context.workspaceState.get<boolean>(AUTO_CAPTURE_RECOMMEND_KEY, false)) return;
-
-    // Metadata-only read (no row payloads); the schema cache is prewarmed on
-    // connect, so this is cheap and does not pile onto the app's startup burst.
-    void client
-      .schemaMetadata()
-      .then((metadata) => {
-        // An empty metadata result means the schema could not be read — stay silent
-        // rather than offer to capture nothing, and free the session guard so a
-        // later reconnect with a readable schema can still make the offer.
-        if (metadata.length === 0) {
-          autoCaptureRecommendChecked = false;
-          return;
-        }
-
-        // Mark shown before awaiting the choice so a fast reconnect cannot race a
-        // second prompt into existence.
-        void d.context.workspaceState.update(AUTO_CAPTURE_RECOMMEND_KEY, true);
-        void vscode.window
-          .showInformationMessage(
-            'Timeline auto-capture is off. Enable it to automatically snapshot the database whenever its data changes?',
-            'Enable',
-            'Not now',
-          )
-          .then((choice) => {
-            if (choice === 'Enable') {
-              // Scope to the workspace where the offer was accepted, not globally.
-              void vscode.workspace
-                .getConfiguration('driftViewer')
-                .update('timeline.autoCapture', true, vscode.ConfigurationTarget.Workspace);
-            }
-          });
-      })
-      .catch(() => {
-        // Schema unreadable (server dropped, auth, etc.) — allow a later
-        // reconnect this session to retry the check rather than silently burning it.
-        autoCaptureRecommendChecked = false;
-      });
-  };
-
-  // Heavy DB sweeps — null-rate scans (DataQualityProvider), per-table row
-  // counts, and the LIMIT-1000 timeline auto-capture — all run over the app's
-  // single live Drift connection. Firing them the instant the app connects
-  // stacks them onto the app's own startup query burst; serialized on one
-  // connection, every query inflates into the 800ms-1.5s range and stalls the
-  // main isolate long enough to skip hundreds of frames and freeze a real app's
-  // launch (see plans/history/2026.06/2026.06.17/BUG_STARTUP_HANG.md). Hold the
-  // heavy sweep off until the
-  // app's startup burst has had a quiet window to drain; cheap schema/UI
-  // refreshes (tree, badges, caches) still run immediately on connect.
-  const STARTUP_SWEEP_GRACE_MS = 6000;
-  let startupGraceUntil = 0;
-  let deferredSweepTimer: ReturnType<typeof setTimeout> | undefined;
-
-  const runHeavySweep = (): void => {
-    // Global kill switch: the heavy sweep IS the background monitoring the
-    // switch exists to stop — no diagnostics collection, no row counts, no
-    // timeline capture while it is engaged. (DiagnosticManager also
-    // self-gates; this check saves the row-count and capture work too.)
-    if (isMonitoringKilled()) return;
-    d.diagnostics?.diagnosticManager.refresh().catch(() => {});
-    if (d.providers) {
-      void d.providers.codeLensProvider.refreshRowCounts();
-      // Timeline auto-capture re-dumps every physical table (length()-projected,
-      // never raw blob bytes — see blob-safe-select.ts) on every data change. OFF by
-      // default so that automatic re-dump is opt-in, not a surprise; the fallback
-      // when the key is absent must match package.json's `false` default.
-      // requestCapture carries its own trailing-edge debounce.
-      if (
-        vscode.workspace
-          .getConfiguration('driftViewer')
-          .get<boolean>('timeline.autoCapture', false)
-      ) {
-        d.providers.snapshotStore.requestCapture(d.cachedClient);
-      }
-    }
-  };
-
-  // Run the heavy sweep after [delayMs]. A single shared timer dedupes the two
-  // connect-time requesters — the connect handler and the watcher's initial
-  // post-connect poll both ask for the sweep, and only the last schedule wins.
-  const scheduleHeavySweep = (delayMs: number): void => {
-    if (deferredSweepTimer) clearTimeout(deferredSweepTimer);
-    deferredSweepTimer = setTimeout(() => {
-      deferredSweepTimer = undefined;
-      runHeavySweep();
-    }, delayMs);
-  };
-  d.context.subscriptions.push({
-    dispose: () => {
-      if (deferredSweepTimer) clearTimeout(deferredSweepTimer);
-    },
-  });
+  // Heavy sweep scheduler (deferred past app's startup burst to avoid freezing launch).
+  const heavySweep = createHeavySweepScheduler(d);
 
   // Master enable/disable switch.
   const applyEnabledState = (enabled: boolean): void => {
@@ -228,8 +118,8 @@ export function wireEventListeners(
       // on the single live connection and freezes launch (BUG_STARTUP_HANG).
       // The watcher's initial post-connect poll also requests the sweep; the
       // shared timer in scheduleHeavySweep dedupes the two into one run.
-      startupGraceUntil = Date.now() + STARTUP_SWEEP_GRACE_MS;
-      scheduleHeavySweep(STARTUP_SWEEP_GRACE_MS);
+      heavySweep.setStartupGraceUntil(Date.now() + STARTUP_SWEEP_GRACE_MS);
+      heavySweep.scheduleHeavySweep(STARTUP_SWEEP_GRACE_MS);
       if (d.providers && !d.getLightweight()) d.providers.refreshBadges().catch(() => {});
       if (d.providers) d.providers.watchManager.refresh().catch(() => {});
       if (!dashboardPromptShown) {
@@ -302,13 +192,11 @@ export function wireEventListeners(
       // pile onto the app's launch query burst (the watcher's initial poll
       // fires right after connect); a genuine later schema regeneration runs it
       // promptly. See plans/history/2026.06/2026.06.17/BUG_STARTUP_HANG.md.
-      // requestCapture and the
-      // diagnostic refresh keep their own debounce inside runHeavySweep.
-      const graceRemaining = startupGraceUntil - Date.now();
+      const graceRemaining = heavySweep.getStartupGraceUntil() - Date.now();
       if (graceRemaining > 0) {
-        scheduleHeavySweep(graceRemaining);
+        heavySweep.scheduleHeavySweep(graceRemaining);
       } else {
-        runHeavySweep();
+        heavySweep.runHeavySweep();
       }
       if (DashboardPanel.currentPanel) {
         DashboardPanel.currentPanel.refreshAll().catch(() => {});

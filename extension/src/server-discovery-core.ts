@@ -7,16 +7,16 @@ import {
   BACKOFF_INTERVAL,
   BACKOFF_THRESHOLD,
   LOST_NOTIFY_GRACE_MS,
-  MISS_THRESHOLD,
-  NOTIFY_THROTTLE_MS,
   SEARCH_INTERVAL,
 } from './server-discovery-constants';
 import { ServerLostDebouncer } from './server-discovery-lost-debounce';
 import { maybeNotifyServerEvent } from './server-discovery-notify';
 import { scanPorts } from './server-discovery-scan';
-import { nextDiscoveryState, pollIntervalForState } from './server-discovery-state-machine';
+import { pollIntervalForState } from './server-discovery-state-machine';
+import { updateServersFromScan } from './server-discovery-state-updater';
+import { buildSnapshot, snapshotToUiState } from './server-discovery-snapshot';
+import { portsProbeLabel, scanOutcomeLine } from './server-discovery-ui-state';
 import type { IServerInfo, IDiscoveryConfig, DiscoveryOpenUrlHook, DiscoveryState, DiscoveryUiState, IDiscoveryLog } from './server-discovery-ui-state';
-import { portsProbeLabel, scanOutcomeLine, buildDiscoveryUiState } from './server-discovery-ui-state';
 export type { IServerInfo, IDiscoveryConfig, DiscoveryOpenUrlHook, DiscoveryState, DiscoveryUiState, IDiscoveryLog } from './server-discovery-ui-state';
 export class ServerDiscovery {
   private readonly _onDidChangeServers = new vscode.EventEmitter<IServerInfo[]>();
@@ -84,7 +84,18 @@ export class ServerDiscovery {
     return this._paused;
   }
   getDiscoverySnapshot(): DiscoveryUiState {
-    return buildDiscoveryUiState(this._snapshot(false));
+    return snapshotToUiState(
+      buildSnapshot(
+        this._running,
+        this._paused,
+        this._state,
+        this._config,
+        this._emptyScans,
+        this._servers,
+        this._lastOutcomeLine,
+        false,
+      ),
+    );
   }
   /**
    * @param reArmLostLatch — When true (a genuinely fresh session: extension
@@ -161,23 +172,21 @@ export class ServerDiscovery {
     this._onDidChangeServers.dispose();
     this._onDidChangeDiscoveryUi.dispose();
   }
-  /** Build a [DiscoverySnapshot] for the pure [buildDiscoveryUiState] helper. */
-  private _snapshot(scanInFlight: boolean) {
-    return {
-      running: this._running,
-      paused: this._paused,
-      state: this._state,
-      host: this._config.host,
-      portsLabel: portsProbeLabel(this._config),
-      emptyScans: this._emptyScans,
-      servers: this._servers,
-      lastOutcomeLine: this._lastOutcomeLine,
-      intervalMs: pollIntervalForState(this._state),
-      scanInFlight,
-    };
-  }
   private _emitDiscoveryUi(scanInFlight: boolean): void {
-    this._onDidChangeDiscoveryUi.fire(buildDiscoveryUiState(this._snapshot(scanInFlight)));
+    this._onDidChangeDiscoveryUi.fire(
+      snapshotToUiState(
+        buildSnapshot(
+          this._running,
+          this._paused,
+          this._state,
+          this._config,
+          this._emptyScans,
+          this._servers,
+          this._lastOutcomeLine,
+          scanInFlight,
+        ),
+      ),
+    );
   }
   private async _poll(id: number): Promise<void> {
     if (!this._running || id !== this._pollId) return;
@@ -240,72 +249,30 @@ export class ServerDiscovery {
     }
   }
   private _updateServers(alivePorts: number[]): void {
-    const now = Date.now();
-    const aliveSet = new Set(alivePorts);
-    let changed = false;
-    for (const port of alivePorts) {
-      const existing = this._servers.get(port);
-      if (existing) {
-        existing.lastSeen = now;
-        existing.missedPolls = 0;
-      } else {
-        this._servers.set(port, {
-          host: this._config.host,
-          port,
-          firstSeen: now,
-          lastSeen: now,
-          missedPolls: 0,
-        });
-        // A rediscovery within the grace window means the loss never surfaced a
-        // toast — this is a flap, so cancel the pending warning and stay silent
-        // (no "detected" toast either) rather than announcing recovery from an
-        // unannounced loss.
-        const wasPendingLost = this._lostDebouncer.cancelPending(port);
-        if (!wasPendingLost && !this._lostDebouncer.hasNotified) {
-          // Stay silent once we've already warned this session: a reconnect on a
-          // flaky link is part of the same flap the user asked not to be nagged
-          // about. The initial discovery (before any loss) still announces.
-          maybeNotifyServerEvent(
-            this._config.host,
-            port,
-            'found',
-            this._notifiedAt,
-            NOTIFY_THROTTLE_MS,
-            this._onAfterOpenUrlFromNotification,
-          );
-        }
-        changed = true;
-      }
-    }
-    for (const [port, info] of this._servers) {
-      if (!aliveSet.has(port)) {
-        info.missedPolls++;
-        if (info.missedPolls >= MISS_THRESHOLD) {
-          this._servers.delete(port);
-          // Defer the "lost" toast: a flaky link drops and recovers within a
-          // scan or two, so only warn if the server is still gone after the
-          // grace window. Detection (the delete above, which drives the sidebar
-          // disconnect) is unchanged — only the toast is debounced.
-          this._lostDebouncer.scheduleLost(port);
-          changed = true;
-        }
-      }
-    }
-    const prevState = this._state;
-    const next = nextDiscoveryState(
-      { state: this._state, emptyScans: this._emptyScans, backoffPolls: this._backoffPolls },
-      this._servers.size,
-      alivePorts.length,
+    const result = updateServersFromScan(
+      {
+        state: this._state,
+        emptyScans: this._emptyScans,
+        backoffPolls: this._backoffPolls,
+        servers: this._servers,
+      },
+      alivePorts,
+      this._config,
+      this._lostDebouncer,
+      this._notifiedAt,
+      this._onAfterOpenUrlFromNotification,
+      (msg) => this._logLine(msg),
     );
-    this._state = next.state;
-    this._emptyScans = next.emptyScans;
-    this._backoffPolls = next.backoffPolls;
-    if (this._state !== prevState) {
-      this._logLine(
-        `State: ${prevState} → ${this._state} (empty scans: ${this._emptyScans})`,
-      );
-    }
-    if (changed || this._state !== prevState) {
+    // Reassign the tracked map BEFORE firing so any listener that reads back
+    // `this.servers` (the getter) sees the newly-added/removed servers, not the
+    // pre-scan copy. The updater returns [changed] rather than firing itself
+    // precisely so this ordering is under the core's control (a regression where
+    // the event fired the stale list broke first-scan auto-connect).
+    this._state = result.nextState.state;
+    this._emptyScans = result.nextState.emptyScans;
+    this._backoffPolls = result.nextState.backoffPolls;
+    this._servers = result.nextState.servers;
+    if (result.changed) {
       this._onDidChangeServers.fire(this.servers);
     }
   }

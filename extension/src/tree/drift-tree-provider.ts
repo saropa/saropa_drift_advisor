@@ -15,19 +15,7 @@ import type { TableGroupingStore } from './table-grouping-store';
 import { TableItem } from './tree-items';
 import { type TreeNode, resolveChildren } from './drift-tree-children';
 import { isMonitoringKilled } from '../monitoring/monitoring-state';
-
-/**
- * Maximum wall-clock time (ms) a single [refresh] cycle may take before being
- * force-aborted. This is a last-resort safety net: if both the
- * `fetchWithTimeout` AbortController AND the per-call timeout somehow hang
- * (observed on some Windows/undici builds), this ensures `_refreshing` is
- * cleared so coalesced pending refreshes are not blocked forever.
- *
- * Set generously — well above the worst-case for
- * `health()` (8s + retry 8s) + `schemaMetadata()` (30s cache safety)
- * so it never interferes with legitimate slow responses.
- */
-const REFRESH_SAFETY_TIMEOUT_MS = 55_000;
+import { createTreeRefreshOrchestrator, type TreeRefreshOrchestrator } from './drift-tree-refresh';
 
 /** Minimal log sink — matches vscode.OutputChannel.appendLine signature. */
 interface LogSink {
@@ -43,8 +31,6 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
    * [TreeItem] commands instead.
    */
   private readonly _isDriftUiConnected: () => boolean;
-  /** Optional log sink for refresh errors. Prevents silent failure in the tree. */
-  private readonly _log?: LogSink;
   private _tables: TableMetadata[] = [];
   private _tableItems: TableItem[] = [];
   private _pinStore?: PinStore;
@@ -52,9 +38,8 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private _connected = false;
   /** True when [refresh] could not reach the server but loaded schema from persist/cache. */
   private _offlineSchema = false;
-  private _refreshing = false;
-  /** When true, another refresh will run after the current one completes (coalesced). */
-  private _pendingRefresh = false;
+  /** Refresh orchestrator: coalesces concurrent requests and wraps fetches in a safety timeout. */
+  private readonly _refreshOrchestrator: TreeRefreshOrchestrator;
   /** Fires after [refresh] fully completes (for syncing connection UI). */
   postRefreshHook?: () => void;
 
@@ -72,7 +57,9 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     this._client = client;
     this._annotationStore = annotationStore;
     this._isDriftUiConnected = isDriftUiConnected ?? (() => false);
-    this._log = log;
+    // Pass a live accessor, not this._pinStore: the pin store is assigned by
+    // setPinStore() AFTER construction, so a captured value would always be undefined.
+    this._refreshOrchestrator = createTreeRefreshOrchestrator(client, () => this._pinStore, log);
     // Drives viewsWelcome "when": `serverConnected && databaseTreeEmpty` so a stale
     // `driftViewer.serverConnected` (VM/HTTP) cannot hide all guidance while the tree stays empty.
     this._syncDatabaseTreeEmptyContext();
@@ -129,9 +116,8 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
    * is still in flight).
    *
    * **Safety timeout:** the entire refresh cycle is wrapped in a `Promise.race`
-   * with [REFRESH_SAFETY_TIMEOUT_MS] so that `_refreshing` is always cleared
-   * even if `health()` or `schemaMetadata()` hang due to the Windows/undici
-   * AbortController bug (same root cause as `SchemaCache.FETCH_SAFETY_TIMEOUT_MS`).
+   * so that pending refreshes are always cleared even if `health()` or
+   * `schemaMetadata()` hang due to the Windows/undici AbortController bug.
    * Without this, a single hanging `health()` call permanently deadlocks
    * every future refresh — including the coalesced discovery-triggered one
    * that would have succeeded.
@@ -151,100 +137,30 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       this.postRefreshHook?.();
       return;
     }
-    if (this._refreshing) {
-      // Queue a follow-up refresh instead of silently dropping the call.
-      this._pendingRefresh = true;
-      return;
-    }
-    this._refreshing = true;
-    this._pendingRefresh = false;
+
+    // Clear the offline flag synchronously at the start of a fetch (matching the
+    // pre-refactor behavior): a getChildren() that races the in-flight fetch must
+    // not still report an offline schema from the previous cycle.
     this._offlineSchema = false;
 
-    // Last-resort safety: reject if the inner work hangs beyond all per-call
-    // timeouts (AbortController + schema cache safety). Uses setTimeout +
-    // Promise.race — does not depend on AbortController, so it always fires.
-    let safetyTimer: ReturnType<typeof setTimeout> | undefined;
-    const safety = new Promise<never>((_, reject) => {
-      safetyTimer = setTimeout(
-        () => reject(new Error('Tree refresh safety timeout')),
-        REFRESH_SAFETY_TIMEOUT_MS,
-      );
-    });
-
-    try {
-      await Promise.race([this._refreshInner(), safety]);
-    } catch (err: unknown) {
-      // Safety timeout or unhandled _refreshInner error.
-      const msg = err instanceof Error ? err.message : String(err);
-      this._log?.appendLine(`[${new Date().toISOString()}] Tree refresh aborted: ${msg}`);
-    } finally {
-      if (safetyTimer !== undefined) clearTimeout(safetyTimer);
-      this._refreshing = false;
-    }
-    this._syncDatabaseTreeEmptyContext();
-    this._onDidChangeTreeData.fire();
-    this.postRefreshHook?.();
-
-    // Run the coalesced pending refresh (e.g. discovery found the server while
-    // the initial loadOnConnect refresh was still in flight and failed).
-    if (this._pendingRefresh) {
-      this._pendingRefresh = false;
-      void this.refresh();
-    }
-  }
-
-  /**
-   * Inner refresh logic extracted so [refresh] can wrap it in a safety
-   * `Promise.race` without duplicating the try/catch/finally structure.
-   */
-  private async _refreshInner(): Promise<void> {
-    try {
-      await this._client.health();
-      this._tables = await this._client.schemaMetadata();
-      this._tableItems = this._tables.map(
-        (t) => new TableItem(t, this._pinStore?.isPinned(t.name)),
-      );
-      this._connected = true;
-      this._log?.appendLine(
-        `[${new Date().toISOString()}] Tree refresh: loaded ${this._tables.length} table(s) from live server.`,
-      );
-    } catch (err: unknown) {
-      // Log the ACTUAL error so "Could not load schema" is never a mystery.
-      const msg = err instanceof Error ? err.message : String(err);
-      this._log?.appendLine(
-        `[${new Date().toISOString()}] Tree refresh FAILED (health or schema): ${msg}`,
-      );
-      this._connected = false;
-      this._tables = [];
-      this._tableItems = [];
-      const allowOffline =
-        vscode.workspace.getConfiguration('driftViewer').get<boolean>(
-          'database.allowOfflineSchema',
-          true,
-        ) !== false;
-      if (allowOffline) {
-        try {
-          // Cached client may return workspace-persisted last-known schema without a live server.
-          this._tables = await this._client.schemaMetadata();
-          if (this._tables.length > 0) {
-            this._offlineSchema = true;
-            this._tableItems = this._tables.map(
-              (t) => new TableItem(t, this._pinStore?.isPinned(t.name)),
-            );
-            this._log?.appendLine(
-              `[${new Date().toISOString()}] Tree refresh: fell back to offline schema (${this._tables.length} table(s)).`,
-            );
-          }
-        } catch (offlineErr: unknown) {
-          const offlineMsg = offlineErr instanceof Error ? offlineErr.message : String(offlineErr);
-          this._log?.appendLine(
-            `[${new Date().toISOString()}] Tree refresh: offline schema fallback also failed: ${offlineMsg}`,
-          );
-          this._tables = [];
-          this._tableItems = [];
-        }
-      }
-    }
+    await this._refreshOrchestrator.refresh(
+      (state) => {
+        // Apply fetched state (success path only; on abort the state is left
+        // untouched so the last-known/offline schema stays visible).
+        this._tables = state.tables;
+        this._tableItems = state.tableItems;
+        this._connected = state.connected;
+        this._offlineSchema = state.offlineSchema;
+      },
+      () => {
+        // Post-refresh cleanup, runs after both success and abort.
+        this._syncDatabaseTreeEmptyContext();
+        this._onDidChangeTreeData.fire();
+        this.postRefreshHook?.();
+      },
+      // Coalesced pending re-run re-enters refresh() so the kill switch is re-checked.
+      () => this.refresh(),
+    );
   }
 
   getTreeItem(element: TreeNode): vscode.TreeItem {

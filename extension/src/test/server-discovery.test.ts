@@ -83,6 +83,31 @@ describe('ServerDiscovery', () => {
     assert.deepStrictEqual(ports, [8642, 8643]);
   });
 
+  it('fires onDidChangeServers with the freshly-found server in the payload, not a stale list', async () => {
+    // Regression guard: the scan pipeline builds an updated server map and the
+    // discovery must fire the change event with THAT list. A refactor once fired
+    // the pre-scan (empty) copy while the tracked map was reassigned only after,
+    // so the very first fire carried zero servers and downstream auto-connect
+    // (ServerManager) never selected the server. Assert the EVENT ARGUMENT, not
+    // just discovery.servers (the getter, which read correct state after the fire
+    // and therefore hid the bug).
+    stubPortAlive(8642);
+    discovery = new ServerDiscovery(defaultConfig());
+
+    let firedPayload: number[] | undefined;
+    discovery.onDidChangeServers((servers) => {
+      firedPayload = servers.map((s) => s.port);
+    });
+    discovery.start();
+    await clock.tickAsync(1);
+
+    assert.deepStrictEqual(
+      firedPayload,
+      [8642],
+      'the change event must carry the newly-found server, not a stale empty list',
+    );
+  });
+
   it('should require 2 consecutive misses before removing a server', async () => {
     stubPortAlive(8642);
     discovery = new ServerDiscovery(defaultConfig());

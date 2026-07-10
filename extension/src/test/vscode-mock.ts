@@ -1,14 +1,23 @@
 /**
  * Mock implementation of the vscode API for unit testing outside VS Code.
- * Classes and types are split into vscode-mock-classes.ts and vscode-mock-types.ts.
+ * Classes and types are split into vscode-mock-classes.ts, vscode-mock-types.ts,
+ * vscode-mock-extras.ts, and feature-specific mocks.
  */
 
 export * from './vscode-mock-classes';
 export * from './vscode-mock-types';
 export * from './vscode-mock-extras';
+export { clipboardMock } from './vscode-mock-clipboard';
+export { dialogMock } from './vscode-mock-dialog';
+export { messageMock } from './vscode-mock-message';
+export { writtenFiles } from './vscode-mock-fs';
 
 import { MockDiagnosticCollection, MockOutputChannel, MockTreeView } from './vscode-mock-classes';
 import { MockWebviewPanel } from './vscode-mock-types';
+import { clipboardMock, setClipboardText, getClipboardText } from './vscode-mock-clipboard';
+import { dialogMock, dialogResults } from './vscode-mock-dialog';
+import { messageMock } from './vscode-mock-message';
+import { writtenFiles } from './vscode-mock-fs';
 
 // Track panels, tree views & CodeLens providers created
 export const createdPanels: MockWebviewPanel[] = [];
@@ -22,51 +31,6 @@ export const registeredFileDecorationProviders: any[] = [];
 export const registeredTerminalLinkProviders: Array<{ provider: any }> = [];
 export const registeredTimelineProviders: Array<{ scheme: string; provider: any }> = [];
 export const createdTextDocuments: Array<{ content: string; language: string }> = [];
-
-// --- Clipboard mock ---
-let _clipboardText = '';
-export const clipboardMock = {
-  get text() { return _clipboardText; },
-  reset() { _clipboardText = ''; },
-};
-
-// --- Dialog mock ---
-let _saveDialogResult: any = undefined;
-let _infoMessageResult: string | undefined = undefined;
-let _warningMessageResult: string | undefined = undefined;
-let _quickPickResult: string | undefined = undefined;
-let _inputBoxResult: string | undefined = undefined;
-
-export const dialogMock = {
-  set saveResult(uri: any) { _saveDialogResult = uri; },
-  set infoMessageResult(v: string | undefined) { _infoMessageResult = v; },
-  /** Simulate the user clicking a button on a showWarningMessage toast. */
-  set warningMessageResult(v: string | undefined) { _warningMessageResult = v; },
-  set quickPickResult(v: string | undefined) { _quickPickResult = v; },
-  set inputBoxResult(v: string | undefined) { _inputBoxResult = v; },
-  reset() {
-    _saveDialogResult = undefined;
-    _infoMessageResult = undefined;
-    _warningMessageResult = undefined;
-    _quickPickResult = undefined;
-    _inputBoxResult = undefined;
-  },
-};
-
-// --- Info/error message tracking ---
-export const messageMock = {
-  infos: [] as string[],
-  errors: [] as string[],
-  warnings: [] as string[],
-  reset() {
-    this.infos.length = 0;
-    this.errors.length = 0;
-    this.warnings.length = 0;
-  },
-};
-
-// --- fs mock ---
-export const writtenFiles: Array<{ uri: any; content: Uint8Array }> = [];
 
 export const window = {
   createWebviewPanel: (
@@ -103,20 +67,24 @@ export const window = {
   }),
   withProgress: async (_options: any, task: (progress: any) => Promise<any>) =>
     task({ report: () => { /* no-op */ } }),
-  showSaveDialog: async (_options?: any) => _saveDialogResult,
+  // Dialog results come from dialogMock (vscode-mock-dialog.ts); the message
+  // arrays are tracked in messageMock (vscode-mock-message.ts). The two are
+  // coupled here because a shown info/warning both records the message AND
+  // returns the pre-set button click.
+  showSaveDialog: async (_options?: any) => dialogResults.save,
   showInformationMessage: async (msg: string, ..._items: string[]) => {
     messageMock.infos.push(msg);
-    return _infoMessageResult;
+    return dialogResults.info;
   },
   showWarningMessage: async (msg: string, ..._items: string[]) => {
     messageMock.warnings.push(msg);
-    return _warningMessageResult;
+    return dialogResults.warning;
   },
   showErrorMessage: async (msg: string) => {
     messageMock.errors.push(msg);
   },
-  showQuickPick: async (_items: any[], _options?: any) => _quickPickResult,
-  showInputBox: async (_options?: any) => _inputBoxResult,
+  showQuickPick: async (_items: any[], _options?: any) => dialogResults.quickPick,
+  showInputBox: async (_options?: any) => dialogResults.inputBox,
   showTextDocument: async (_doc: any, _column?: any) => { /* no-op */ },
   registerFileDecorationProvider: (provider: any) => {
     registeredFileDecorationProviders.push(provider);
@@ -220,6 +188,8 @@ export const workspace = {
     onDidDelete: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
     dispose: () => { /* no-op */ },
   }),
+  // File writes are recorded in writtenFiles (vscode-mock-fs.ts) so tests can
+  // inspect them; reads return empty and directory creation is a no-op.
   fs: {
     readFile: async (_uri: any): Promise<Uint8Array> => new Uint8Array(),
     writeFile: async (uri: any, content: Uint8Array) => {
@@ -232,8 +202,8 @@ export const workspace = {
 export const env = {
   openExternal: async (_uri: any) => true,
   clipboard: {
-    writeText: async (text: string) => { _clipboardText = text; },
-    readText: async () => _clipboardText,
+    writeText: async (text: string) => { setClipboardText(text); },
+    readText: async () => getClipboardText(),
   },
 };
 
