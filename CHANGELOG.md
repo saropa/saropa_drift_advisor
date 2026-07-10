@@ -42,9 +42,9 @@ browse source on
 
 ---
 
-## [4.1.20]
+## [4.2.0]
 
-One switch now turns ALL monitoring off: a power button in the Database sidebar (plus a card in Drift Tools and two commands) instantly stops query recording, background sweeps, diagnostics, and file badges on both the extension and the in-app debug server — and turns them all back on without any restart. The web viewer's left icon bar is also a touch roomier, and its icons now carry a soft color so they're easier to scan at a glance. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+One switch now turns ALL monitoring off: a power button in the Database sidebar (plus a card in Drift Tools and two commands) instantly stops query recording, background sweeps, diagnostics, and file badges on both the extension and the in-app debug server — and turns them all back on without any restart. Booleans now render as `true`/`false` instead of `0`/`1`, interactive SQL errors now suggest the right column name, and the web viewer's left icon bar is a touch roomier with softly tinted icons. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.0/CHANGELOG.md)
 
 ### Added
 
@@ -53,34 +53,26 @@ One switch now turns ALL monitoring off: a power button in the Database sidebar 
   - **Dart server:** `DriftDebugServer.start(monitoringEnabled: false)` boots the server dormant, and `DriftDebugServer.setMonitoringEnabled()` or the new `GET/POST /api/monitoring` endpoint flip it live. While killed, the server records no query timings, no DVR entries, and runs no change-detection sweeps; every data-inspection endpoint answers a structured `403` ("Access Denied: All monitoring and data inspection has been halted by the global kill switch.") while `/api/health` keeps responding with `monitoringEnabled: false` and the discovery manifest advertises `"monitoring": "disabled"` so external tools can tell "deliberately dormant" from "broken".
   - The extension pushes the kill state to any server it connects to (and warns, with a one-tap resume, when a connected server is itself dormant), and API errors caused by the kill switch surface the explanatory message instead of a bare `403`.
   - The switch covers BOTH transports: the Dart VM Service RPCs (`ext.saropa.drift.*`, including SQL and batch edits) refuse with the same message while killed, and new `getMonitoring`/`setMonitoring` RPCs let a VM-only debug session flip the switch when no HTTP port is reachable. `GET /api/mutations` is also gated so row data captured before a kill cannot be read while killed.
+- **`/api/sql` errors now carry schema-aware hints instead of a bare `SqliteException`.** A `no such column` failure previously returned only SQLite's terse text, so a client had to already know the exact Drift-generated name — including acronym splitting (`contactSaropaUUID` → `contact_saropa_u_u_i_d`) and reserved-word rules — with zero assistance from a tool whose whole purpose is schema awareness. The Advisor now enriches these errors after SQLite rejects the statement (so there are no false positives): it resolves the referenced table from the query's `FROM`/`JOIN` clauses, appends that table's actual column names, and — when the mistake is a plausible typo — suggests the nearest real column, matching the guidance the source-file column checker already gives for Dart raw SQL. A reserved SQLite keyword used as a bare alias (`... AS primary`) now returns a hint to quote or rename it (`plans/history/2026.07/2026.07.04/BUG_API_SQL_UNVALIDATED_COLUMN_REFS.md`).
 
 ### Fixed
 
 - **Boolean columns now display as `true`/`false` instead of `0`/`1` whenever the connected app declares its Drift schema.** SQLite stores Drift booleans as `INTEGER`, and the viewer previously guessed booleans from column names alone (`is_*`, `has_*`, …), so any boolean with a non-matching name rendered as a bare integer. The data grid, the search tab, the inline cell editor, and custom SQL results now read the `driftType` the backend already sends (exact, no guessing); the VS Code sidebar shows a boolean icon and a `bool (INTEGER)` label for these columns. Custom SQL results only format a column when its name is a bool in every table that declares it — an ambiguous name stays raw. Raw SQLite hosts and older servers keep today's name-heuristic behavior (`plans/history/2026.07/2026.07.09/BUG_bools_showing_as_ints.md`).
 - **Boolean name detection now matches suffix-named columns (`user_active`, `account_enabled`, …).** The suffix pattern used a Dart-style escaped `\$`, which in a JavaScript regex matches a literal dollar sign rather than end-of-string, so the entire suffix branch never matched any real column name. Date name detection (`expires_at`, `starts_on`) carried the same `\$` artifact and is fixed the same way.
 - **The grid and the inline cell editor now agree on which columns are booleans.** They previously used different integer-type lists, so a `user_active INT` column validated its edits as a boolean while still displaying as `0`/`1`; both now share one predicate. Query-builder results from raw SQL or multi-table joins no longer borrow the current table's declared types for same-named result columns — like custom SQL results, they format only names that are bool in every declaring table. A deep-linked `?sql=` run now loads schema metadata before rendering its first result, so booleans format correctly even when the SQL tab is the first surface opened.
+- **Multi-line `SELECT`/`WITH` queries are no longer rejected as non-read-only.** The read-only check required a literal space right after the leading verb, so a pretty-printed query with a newline after `SELECT` (the default editor formatting, e.g. `SELECT\n  id, ...`) failed with "Only read-only SQL is allowed (SELECT or WITH ... SELECT)." The check now accepts any whitespace — space, tab, or newline — after the verb (`bugs/BUG_showing_false-read-only-error.md`).
 
 ### Improved
 
 - **Web viewer activity bar widened ~20% with lightly tinted icons.** The vertical icon strip (Home, Tables, Search, and the tool launchers) now uses larger 2.4rem buttons and slightly more side padding, giving the 20+ icons more breathing room and bigger tap targets. The resting icons are tinted with a soft, theme-aware blend of the accent and muted colors instead of flat gray, so the strip reads as interactive and scans faster; hover and active states still escalate to the full foreground/accent color. Scoped to the activity bar, so the tab-bar icons are unchanged.
-
-Interactive SQL errors now help you fix the query: a `no such column` reply names the table's real columns (and the nearest match), and a query that trips over a reserved word like `primary` used as an alias now says to quote it. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
-
-### Added
-
-- **`/api/sql` errors now carry schema-aware hints instead of a bare `SqliteException`.** A `no such column` failure previously returned only SQLite's terse text, so a client had to already know the exact Drift-generated name — including acronym splitting (`contactSaropaUUID` → `contact_saropa_u_u_i_d`) and reserved-word rules — with zero assistance from a tool whose whole purpose is schema awareness. The Advisor now enriches these errors after SQLite rejects the statement (so there are no false positives): it resolves the referenced table from the query's `FROM`/`JOIN` clauses, appends that table's actual column names, and — when the mistake is a plausible typo — suggests the nearest real column, matching the guidance the source-file column checker already gives for Dart raw SQL. A reserved SQLite keyword used as a bare alias (`... AS primary`) now returns a hint to quote or rename it (`plans/history/2026.07/2026.07.04/BUG_API_SQL_UNVALIDATED_COLUMN_REFS.md`).
-
-Multi-line SELECT queries in the web SQL tab no longer get wrongly rejected as "read-only only." [log](https://github.com/saropa/saropa_drift_advisor/v4.1.18/main/CHANGELOG.md)
-
-### Fixed
-
-- **Multi-line `SELECT`/`WITH` queries are no longer rejected as non-read-only.** The read-only check required a literal space right after the leading verb, so a pretty-printed query with a newline after `SELECT` (the default editor formatting, e.g. `SELECT\n  id, ...`) failed with "Only read-only SQL is allowed (SELECT or WITH ... SELECT)." The check now accepts any whitespace — space, tab, or newline — after the verb (`bugs/BUG_showing_false-read-only-error.md`).
 
 <details><summary>Maintenance</summary>
 
 - **Split five over-cap extension source/test files into focused modules** to satisfy the 300-line (source) and 500-line (test) caps: the Phase-10 event wiring extracted its auto-capture recommender and heavy-sweep scheduler; the discovery core extracted its scan-result/state-machine updater and UI-snapshot builder; the tree provider extracted its refresh orchestrator; the vscode test mock split its clipboard/dialog/message/fs backing stores into separate files; and the snapshot-store test split its `rowsToObjects`/`computeTableDiff` blocks and shared helpers into their own files. Behavior is unchanged. A review pass caught and corrected four behavior-parity breaks introduced by the extraction before they shipped: the discovery change event was firing a one-generation-stale server list (would have blocked first-scan auto-connect), the tree refresh cleared the table list on a safety-timeout abort (should preserve the last-known/offline schema), the coalesced pending refresh bypassed the monitoring kill switch, and the tree refresh captured the pin store at construction (before `setPinStore` runs, so pins never rendered). Added a discovery regression test asserting the change event's payload — not just the `servers` getter — carries the freshly-found server.
 
 </details>
+
+---
 
 ## [4.1.17]
 
