@@ -75,6 +75,13 @@ mixin DriftDebugServer {
   /// Stub: no-op (server not available on web).
   static void setMonitoringEnabled(bool enabled) {}
 
+  /// Stub: silent no-op — deliberately NOT a throw. This is a hot per-query
+  /// hook the host may wire into drift's `logStatements`/`QueryInterceptor`
+  /// unconditionally; throwing here would crash every query of a web build
+  /// that shares that wiring, when the correct web behavior is simply
+  /// "no capture" (the server never runs on web anyway).
+  static void reportActivity(String sql) {}
+
   /// Stub: no-op.
   static Future<void> stop() => Future<void>.value();
 }

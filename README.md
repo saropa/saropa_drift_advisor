@@ -29,7 +29,7 @@
 - **See the DB your app actually has** — Emulator, device, or desktop: one URL or one sidebar instead of juggling `sqlite3` and file paths.
 - **Keep code and schema honest** — Schema diff, linter-style hints, migration preview/rollback helpers, **scan Drift definitions from Dart** with no running app, and a merged **`GET /api/issues`** surface for tools like Saropa Lints.
 - **Debug without drowning in logs** — Mutation stream, snapshots, compare-to-current, row-level navigation along foreign keys.
-- **Watch the database's pulse** — A Heartbeat screen glows each active table on read/write and charts overall activity like a heart-rate monitor (`GET /api/activity`).
+- **Watch the database's pulse** — A Heartbeat screen glows each active table on read/write and charts overall activity like a heart-rate monitor (`GET /api/activity`). Optionally wire one line — `DriftDebugServer.reportActivity(sql)` from drift's `logStatements` or a `QueryInterceptor` — and the screen's capture toggle shows the app's OWN live reads and writes too; capture is lease-guarded, so it can never stay hot without an open heartbeat screen, and costs one boolean check per query while off.
 - **Share safely** — Mask PII in the viewer, optional auth on the wire, and time-boxed collaborative sessions for QA or reviews.
 
 ### Screenshots

@@ -753,6 +753,21 @@ abstract final class HtmlContent {
               </div>
               <div class="hb-monitor-msg" id="hb-monitor-msg" role="status" hidden></div>
             </div>
+            <!-- Phase 2 capture toggle: structure only (text via vt() in
+                 heartbeat-capture.ts). Hidden until the first poll proves the
+                 server supports capture; the pulsing live badge is visible
+                 ONLY while the host per-query hook is armed. -->
+            <div class="hb-capture" id="hb-capture" hidden>
+              <label class="hb-capture-toggle" id="hb-capture-toggle">
+                <input type="checkbox" id="hb-capture-input" disabled>
+                <span class="hb-capture-label" id="hb-capture-label"></span>
+                <span class="hb-capture-live" id="hb-capture-live" hidden>
+                  <span class="hb-capture-live-dot" aria-hidden="true"></span>
+                  <span id="hb-capture-live-text"></span>
+                </span>
+              </label>
+              <p class="meta hb-capture-note" id="hb-capture-note"></p>
+            </div>
             <div class="hb-grid" id="hb-grid"></div>
             <p class="hb-empty meta" id="hb-empty" hidden></p>
           </div>

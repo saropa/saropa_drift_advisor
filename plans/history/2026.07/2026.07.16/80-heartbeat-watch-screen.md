@@ -225,7 +225,7 @@ exactly the window where the user is watching the screen.
 
 Phase 1 shipped. Phase 2 (host statement reporting with the on-screen capture
 toggle and poll-renewed lease) was split into
-`plans/80-heartbeat-phase2-host-capture.md`; this file is archived to history.
+`plans/history/2026.07/2026.07.16/80-heartbeat-phase2-host-capture.md`; this file is archived to history.
 
 ### What was built
 

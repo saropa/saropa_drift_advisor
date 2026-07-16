@@ -573,5 +573,203 @@ void main() {
         ServerConstants.errorMonitoringDisabled,
       );
     });
+
+    // ---- Phase 2: host-statement capture over HTTP ----
+
+    test('capture toggle round-trip: arm via POST, reportActivity records, '
+        'disarm stops recording', () async {
+      await startServer();
+
+      // Default: disarmed on every start, advertised on the poll payload.
+      final before = await httpGet(port!, '/api/activity');
+      expect(
+        (before.body
+            as Map<String, dynamic>)[ServerConstants.jsonKeyCaptureArmed],
+        isFalse,
+      );
+
+      // Disarmed reportActivity records nothing (the permanent hot path).
+      DriftDebugServer.reportActivity('SELECT * FROM items');
+      final still = await httpGet(port!, '/api/activity');
+      final stillBody = still.body as Map<String, dynamic>;
+      expect(stillBody[ServerConstants.jsonKeyTables], isEmpty);
+
+      final arm = await httpPost(
+        port!,
+        '/api/activity/capture',
+        json: <String, dynamic>{ServerConstants.jsonKeyEnabled: true},
+      );
+      expect(arm.status, HttpStatus.ok);
+      expect(
+        (arm.body as Map<String, dynamic>)[ServerConstants.jsonKeyCaptureArmed],
+        isTrue,
+      );
+
+      // Armed: reads AND writes attribute, including a quoted identifier.
+      DriftDebugServer.reportActivity('SELECT * FROM items');
+      DriftDebugServer.reportActivity('INSERT INTO "users" (id) VALUES (1)');
+      // Transaction framing / DDL record nothing even while armed.
+      DriftDebugServer.reportActivity('BEGIN');
+      DriftDebugServer.reportActivity('CREATE TABLE nope (id INTEGER)');
+
+      final after = await httpGet(port!, '/api/activity');
+      final afterBody = after.body as Map<String, dynamic>;
+      expect(afterBody[ServerConstants.jsonKeyCaptureArmed], isTrue);
+      final tables = afterBody[ServerConstants.jsonKeyTables] as List<dynamic>;
+      expect(
+        {
+          for (final t in tables)
+            (t as Map<String, dynamic>)[ServerConstants.jsonKeyTable],
+        },
+        {'items', 'users'},
+      );
+      final users =
+          tables.firstWhere(
+                (dynamic t) =>
+                    (t as Map<String, dynamic>)[ServerConstants.jsonKeyTable] ==
+                    'users',
+              )
+              as Map<String, dynamic>;
+      expect(users[ServerConstants.jsonKeyWrites], 1);
+
+      // Disarm: subsequent reports record nothing.
+      final disarm = await httpPost(
+        port!,
+        '/api/activity/capture',
+        json: <String, dynamic>{ServerConstants.jsonKeyEnabled: false},
+      );
+      expect(
+        (disarm.body
+            as Map<String, dynamic>)[ServerConstants.jsonKeyCaptureArmed],
+        isFalse,
+      );
+      final genBefore =
+          afterBody[ServerConstants.jsonKeyActivityGeneration] as int;
+      DriftDebugServer.reportActivity('SELECT * FROM items');
+      final last = await httpGet(port!, '/api/activity');
+      expect(
+        (last.body
+            as Map<String, dynamic>)[ServerConstants.jsonKeyActivityGeneration],
+        genBefore,
+      );
+    });
+
+    test(
+      'capture POST: malformed body is a 400, kill switch is a 403',
+      () async {
+        await startServer();
+        final bad = await httpPost(
+          port!,
+          '/api/activity/capture',
+          json: <String, dynamic>{ServerConstants.jsonKeyEnabled: 'yes'},
+        );
+        expect(bad.status, HttpStatus.badRequest);
+        await DriftDebugServer.stop();
+
+        await startServer(monitoringEnabled: false);
+        final forbidden = await httpPost(
+          port!,
+          '/api/activity/capture',
+          json: <String, dynamic>{ServerConstants.jsonKeyEnabled: true},
+        );
+        expect(forbidden.status, HttpStatus.forbidden);
+      },
+    );
+
+    test('reportActivity is a safe no-op when the server is not running', () {
+      // The host wires this into a per-query hook that may fire before
+      // start() or after stop() — it must never throw.
+      DriftDebugServer.reportActivity('SELECT * FROM items');
+    });
+  });
+
+  group('host-statement capture (phase 2, tracker unit)', () {
+    test('disarmed by default; recordHostStatement records nothing', () {
+      final tracker = TableActivityTracker();
+      expect(tracker.captureArmed, isFalse);
+      tracker.recordHostStatement('SELECT * FROM items');
+      expect(tracker.activityGeneration, 0);
+      expect(tracker.toJson()[ServerConstants.jsonKeyCaptureArmed], isFalse);
+    });
+
+    test('armed: SELECT/WITH record reads, DML records writes, '
+        'framing/DDL record nothing', () {
+      var now = 1000;
+      final tracker = TableActivityTracker(nowMs: () => now);
+      tracker.armCapture();
+      expect(tracker.captureArmed, isTrue);
+
+      tracker.recordHostStatement('SELECT * FROM items');
+      tracker.recordHostStatement('WITH x AS (SELECT 1) SELECT * FROM "users"');
+      tracker.recordHostStatement('UPDATE orders SET n = 1');
+      tracker.recordHostStatement('BEGIN');
+      tracker.recordHostStatement('COMMIT');
+      tracker.recordHostStatement('PRAGMA user_version');
+      tracker.recordHostStatement('CREATE INDEX i ON items (id)');
+
+      final events = tracker.eventsSince(0);
+      expect(
+        {for (final e in events) '${e.table}:${e.kind.name}'},
+        {'items:read', 'users:read', 'orders:write'},
+      );
+    });
+
+    test('lease expiry: no renewal within the window self-disarms and '
+        'records nothing until re-armed', () {
+      var now = 0;
+      final tracker = TableActivityTracker(nowMs: () => now);
+      tracker.armCapture();
+
+      // Inside the window: records normally.
+      now += ServerConstants.activityCaptureLeaseMs - 1;
+      tracker.recordHostStatement('SELECT * FROM items');
+      expect(tracker.activityGeneration, 1);
+
+      // Renewal (the poll) restarts the window.
+      tracker.renewCaptureLease();
+      now += ServerConstants.activityCaptureLeaseMs - 1;
+      tracker.recordHostStatement('SELECT * FROM items');
+      expect(tracker.activityGeneration, 2);
+
+      // Past the window with no renewal: self-disarm, record nothing —
+      // a killed tab / dropped adb forward can never leave the hook hot.
+      now += ServerConstants.activityCaptureLeaseMs + 1;
+      tracker.recordHostStatement('SELECT * FROM items');
+      expect(tracker.captureArmed, isFalse);
+      expect(tracker.activityGeneration, 2);
+
+      // Stays disarmed (cheap-bail path) until an explicit re-arm.
+      tracker.recordHostStatement('SELECT * FROM items');
+      expect(tracker.activityGeneration, 2);
+      tracker.armCapture();
+      tracker.recordHostStatement('SELECT * FROM items');
+      expect(tracker.activityGeneration, 3);
+    });
+
+    test('renewCaptureLease never arms a disarmed tracker', () {
+      final tracker = TableActivityTracker();
+      tracker.renewCaptureLease();
+      expect(tracker.captureArmed, isFalse);
+    });
+
+    test('kill switch: refuses arming and force-disarms an armed tracker', () {
+      var monitoring = true;
+      final tracker = TableActivityTracker()
+        ..monitoringEnabledProbe = () => monitoring;
+
+      // Refused arm while monitoring is disabled.
+      monitoring = false;
+      tracker.armCapture();
+      expect(tracker.captureArmed, isFalse);
+
+      // Armed, then the kill switch flips: the next reported statement
+      // force-disarms and records nothing.
+      monitoring = true;
+      tracker.armCapture();
+      monitoring = false;
+      tracker.recordHostStatement('SELECT * FROM items');
+      expect(tracker.captureArmed, isFalse);
+      expect(tracker.activityGeneration, 0);
+    });
   });
 }

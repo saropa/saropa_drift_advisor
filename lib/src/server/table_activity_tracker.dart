@@ -262,6 +262,10 @@ final class TableActivityTracker {
     final names = _tables.keys.toList()..sort();
     return <String, dynamic>{
       ServerConstants.jsonKeyActivityGeneration: _activityGeneration,
+      // Additive phase 2 field: lets the heartbeat screen keep its capture
+      // toggle synced to the server truth on every poll (a lease can expire,
+      // or another viewer can disarm, while the local toggle still shows on).
+      ServerConstants.jsonKeyCaptureArmed: _captureArmed,
       ServerConstants.jsonKeyTables: <Map<String, dynamic>>[
         for (final name in names) _tableJson(name, rowCounts),
       ],

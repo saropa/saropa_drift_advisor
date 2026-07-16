@@ -1,6 +1,6 @@
 # Saropa Drift Advisor — Roadmap
 
-**Status:** 11 features remaining • Last updated March 16, 2026
+**Status:** 11 features remaining • Last updated July 16, 2026
 
 > Completed features are documented in [CHANGELOG.md](CHANGELOG.md) and [README.md](README.md).
 
@@ -37,7 +37,7 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 
 ---
 
-## Remaining Features (12)
+## Remaining Features (11)
 
 ### Tier 1: Extension-Only (no Dart changes)
 
@@ -59,7 +59,6 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 | 35  | [Multi-Server Federation](plans/35-multi-server-federation.md) |  5→6  |  High  | Multiple clients        |
 | 37  | [Data Branching](plans/37-data-branching.md)                   |  5→7  |  High  | Fork/restore endpoints  |
 | 47  | [Bulk Edit Grid](plans/history/2026.04/2026.04.30/47-bulk-edit-grid.md) |  5→7  |  High  | `writeQuery` callback   |
-| 80  | [Heartbeat phase 2: host capture](plans/80-heartbeat-phase2-host-capture.md) |  4→5  | Medium | Phase 1 shipped; `reportActivity` hook + capture lease remain |
 
 ### Low Priority Integrations (P3)
 

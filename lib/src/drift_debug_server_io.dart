@@ -800,6 +800,18 @@ class _DriftDebugServerImpl {
     _router?.setMonitoringEnabled(enabled);
   }
 
+  /// Instance half of [DriftDebugServer.reportActivity]; see the static
+  /// facade for the full contract. The disarmed/not-running cost is the
+  /// point: two null-safe field reads and a boolean — the host wires this
+  /// into a PER-QUERY hook, so this path must stay allocation-free.
+  void reportActivity(String sql) {
+    final tracker = _runningCtx?.tableActivity;
+    if (tracker == null || !tracker.captureArmed) {
+      return;
+    }
+    tracker.recordHostStatement(sql);
+  }
+
   @override
   String toString() =>
       '_DriftDebugServerImpl(port: ${_server?.port}, '
@@ -990,6 +1002,26 @@ mixin DriftDebugServer {
   /// No-op if the server is not running.
   static void setChangeDetection(bool enabled) =>
       _instance.setChangeDetection(enabled);
+
+  /// Reports one host-app SQL statement for the Heartbeat screen's live
+  /// capture (Feature 80, phase 2). Wire it into drift's `logStatements`
+  /// or a `QueryInterceptor`:
+  ///
+  /// ```dart
+  /// // e.g. in a QueryInterceptor, or a logStatements listener:
+  /// DriftDebugServer.reportActivity(statement.sql);
+  /// ```
+  ///
+  /// Safe to call unconditionally on every statement: while capture is
+  /// DISARMED (the default — only the heartbeat screen's toggle arms it,
+  /// and a ~5 s poll-renewed lease disarms it the moment no screen is
+  /// watching) this is a couple of field reads and a branch, with no
+  /// parsing or allocation. While armed, SELECT/WITH statements record
+  /// per-table reads and INSERT/UPDATE/DELETE/REPLACE record writes;
+  /// everything else (DDL, PRAGMA, transaction framing) records nothing.
+  /// Not wiring it at all is fine — the screen then shows phase 1 signals
+  /// only (advisor traffic + detected row-count changes).
+  static void reportActivity(String sql) => _instance.reportActivity(sql);
 
   /// Stops the server and releases the port. No-op if not running.
   static Future<void> stop() => _instance.stop();

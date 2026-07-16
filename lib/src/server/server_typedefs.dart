@@ -51,3 +51,11 @@ typedef DriftDebugWriteQueryWithBindings =
       List<Object?>? positionalArgs,
       Map<String, Object?>? namedArgs,
     });
+
+/// Shape of the host-statement reporting hook for the Heartbeat screen's
+/// live capture (Feature 80, phase 2). The host wires drift's
+/// `logStatements` output or a `QueryInterceptor` to
+/// `DriftDebugServer.reportActivity` (which matches this signature). Not
+/// wiring it is fine — the heartbeat screen then degrades gracefully to
+/// phase 1 signals (advisor traffic + detected row-count changes).
+typedef DriftDebugReportActivity = void Function(String sql);

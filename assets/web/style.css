@@ -5286,6 +5286,70 @@ th.table-def-vis {
   padding: var(--space-6) var(--space-4);
 }
 
+/* --- Host-capture toggle (phase 2) ----------------------------------------- */
+/* One compact row under the monitor: checkbox + label, then the pulsing
+   "Capturing" badge while the host per-query hook is armed. The whole block
+   is [hidden] until the first poll proves the server supports capture. */
+.hb-capture {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.hb-capture-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.hb-capture-toggle input:disabled {
+  cursor: not-allowed;
+}
+
+.hb-capture-note {
+  margin: 0;
+}
+
+/* Warn tone for the kill-switch / failed-POST captions. */
+.hb-capture-note--warn {
+  color: var(--hb-warm);
+}
+
+/* Live badge: warm-tinted pill + pulsing dot — the always-visible signal
+   that the host app's statements are being captured RIGHT NOW. */
+.hb-capture-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hb-warm);
+  background: color-mix(in srgb, var(--hb-warm) 12%, transparent);
+}
+
+.hb-capture-live-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--hb-warm);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--hb-warm) 60%, transparent);
+  animation: hb-capture-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes hb-capture-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
 /* --- Fallbacks & preferences ------------------------------------------------ */
 /* Older engines without color-mix (same guard as _home-screen.scss): drop the
    mixed glow, keep a plain accent border pulse so heat is still legible. */
@@ -5304,9 +5368,18 @@ th.table-def-vis {
   .hb-dot--write {
     box-shadow: none;
   }
+  .hb-capture-live {
+    background: transparent;
+    border: 1px solid var(--hb-warm);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .hb-card-enter {
+    animation: none;
+  }
+  /* The armed state must stay legible without motion: keep the solid dot
+     (the tinted pill + text already carry the signal), drop the pulse. */
+  .hb-capture-live-dot {
     animation: none;
   }
 }

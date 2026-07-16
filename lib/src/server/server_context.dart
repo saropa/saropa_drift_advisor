@@ -35,6 +35,10 @@ final class ServerContext {
   ///
   /// The [query] callback is wrapped with timing
   /// instrumentation so all queries are recorded.
+  // The capture kill-switch probe closes over `this.monitoringEnabled` (a
+  // MUTABLE field), which an initializer list cannot reference — the body is
+  // the only place this wiring can live.
+  // ignore: avoid_non_empty_constructor_bodies
   ServerContext({
     required DriftDebugQuery query,
     DriftDebugQueryWithBindings? queryWithBindings,
@@ -66,7 +70,14 @@ final class ServerContext {
              String sql, {
              List<Object?>? positionalArgs,
              Map<String, Object?>? namedArgs,
-           }) => query(sql));
+           }) => query(sql)) {
+    // Kill-switch precedence for host-statement capture (Feature 80 phase 2):
+    // a late-bound probe, not a captured bool, because monitoringEnabled
+    // flips at runtime via POST /api/monitoring. With this wired, disabling
+    // monitoring force-disarms capture on the next reported statement and
+    // refuses any re-arm attempt.
+    this.tableActivity.monitoringEnabledProbe = () => monitoringEnabled;
+  }
 
   /// The raw (unwrapped) query callback, before timing
   /// instrumentation.

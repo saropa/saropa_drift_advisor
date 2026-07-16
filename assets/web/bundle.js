@@ -1599,7 +1599,22 @@
     // The /api/activity endpoint is missing (older server) — quiet degradation.
     "viewer.heartbeat.unavailable": "This server does not provide the activity feed.",
     // Poll failed; retrying with backoff. Complements the global connection banner.
-    "viewer.heartbeat.reconnecting": "Connection lost \u2014 retrying\u2026"
+    "viewer.heartbeat.reconnecting": "Connection lost \u2014 retrying\u2026",
+    // ---- Phase 2: host-statement capture toggle ----
+    "viewer.heartbeat.capture.label": "Capture live app traffic",
+    // Pulsing indicator text while the per-query hook is armed. The screen must
+    // always make it obvious the hook is hot.
+    "viewer.heartbeat.capture.live": "Capturing",
+    // Wiring-honesty caption: the server cannot tell whether the app actually
+    // wired reportActivity, so an armed toggle with no events must not read as
+    // "capturing everything".
+    "viewer.heartbeat.capture.note": "Shows the app\u2019s own reads and writes while this screen is open. Requires the app to wire DriftDebugServer.reportActivity \u2014 see the package README.",
+    // Multi-viewer semantics, shown as the toggle tooltip.
+    "viewer.heartbeat.capture.multiClient": "Any open heartbeat screen keeps capture alive; turning it off here turns it off for all viewers.",
+    // Kill switch: arming refused while server monitoring is disabled.
+    "viewer.heartbeat.capture.unavailable": "Capture is unavailable while server monitoring is disabled.",
+    // The toggle POST failed (network/server error) — state snapped back.
+    "viewer.heartbeat.capture.error": "Could not change capture \u2014 try again."
   };
 
   // assets/web/l10n.ts
@@ -35609,6 +35624,152 @@ ${JSON.stringify(results, void 0, 2)}`);
     });
   }
 
+  // assets/web/heartbeat-capture-logic.ts
+  function captureUi(availability2, serverArmed2, postPending2, localChecked2) {
+    if (availability2 === "unsupported") {
+      return { visible: false, checked: false, disabled: true, live: false };
+    }
+    if (availability2 !== "available") {
+      return { visible: true, checked: false, disabled: true, live: false };
+    }
+    const checked = postPending2 ? localChecked2 : serverArmed2;
+    return {
+      visible: true,
+      checked,
+      disabled: postPending2,
+      // The live indicator follows the rendered toggle, not raw serverArmed:
+      // during an in-flight disarm the dot must stop pulsing immediately, or
+      // the screen claims "capturing" for a hook the user just turned off.
+      live: checked
+    };
+  }
+  function shouldSendLifecycleDisarm(availability2, armed) {
+    return availability2 === "available" && armed;
+  }
+
+  // assets/web/heartbeat-capture.ts
+  var availability = "unknown";
+  var serverArmed = false;
+  var postPending = false;
+  var localChecked = false;
+  function byId2(id2) {
+    return document.getElementById(id2);
+  }
+  function setNote(msg, warn) {
+    const note = byId2("hb-capture-note");
+    if (!note) return;
+    note.textContent = msg != null ? msg : vt("viewer.heartbeat.capture.note");
+    note.className = "meta hb-capture-note" + (warn ? " hb-capture-note--warn" : "");
+  }
+  function render3() {
+    const wrap = byId2("hb-capture");
+    const input = byId2("hb-capture-input");
+    const live = byId2("hb-capture-live");
+    if (!wrap || !input) return;
+    const ui = captureUi(availability, serverArmed, postPending, localChecked);
+    wrap.hidden = !ui.visible;
+    input.checked = ui.checked;
+    input.disabled = ui.disabled;
+    if (live) live.hidden = !ui.live;
+  }
+  function captureSyncFromPoll(armed) {
+    if (typeof armed !== "boolean") {
+      availability = "unsupported";
+    } else {
+      availability = "available";
+      serverArmed = armed;
+      if (!postPending) localChecked = armed;
+    }
+    render3();
+  }
+  function captureSetForbidden() {
+    availability = "forbidden";
+    serverArmed = false;
+    localChecked = false;
+    setNote(vt("viewer.heartbeat.capture.unavailable"), true);
+    render3();
+  }
+  function captureSetUnsupported() {
+    availability = "unsupported";
+    serverArmed = false;
+    localChecked = false;
+    render3();
+  }
+  function postCapture(enabled) {
+    postPending = true;
+    localChecked = enabled;
+    setNote(null);
+    render3();
+    fetch("/api/activity/capture", authOpts({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled })
+    })).then(function(r) {
+      return r.json().then(function(d) {
+        return { status: r.status, ok: r.ok, data: d };
+      });
+    }).then(function(res) {
+      postPending = false;
+      if (res.status === 403) {
+        captureSetForbidden();
+        return;
+      }
+      if (!res.ok) throw new Error("capture POST HTTP " + res.status);
+      availability = "available";
+      serverArmed = !!(res.data && res.data.captureArmed);
+      localChecked = serverArmed;
+      render3();
+    }).catch(function() {
+      postPending = false;
+      localChecked = serverArmed;
+      setNote(vt("viewer.heartbeat.capture.error"), true);
+      render3();
+    });
+  }
+  function captureDisarmBestEffort(unloading) {
+    if (!shouldSendLifecycleDisarm(availability, serverArmed || localChecked)) return;
+    serverArmed = false;
+    localChecked = false;
+    postPending = false;
+    render3();
+    const body = JSON.stringify({ enabled: false });
+    try {
+      if (unloading && !DRIFT_VIEWER_AUTH_TOKEN && navigator.sendBeacon) {
+        navigator.sendBeacon("/api/activity/capture", new Blob([body], { type: "application/json" }));
+        return;
+      }
+      fetch("/api/activity/capture", authOpts({
+        method: "POST",
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body
+      })).catch(function() {
+      });
+    } catch (_e) {
+    }
+  }
+  function initHeartbeatCapture() {
+    const input = byId2("hb-capture-input");
+    if (!input) return;
+    const label = byId2("hb-capture-label");
+    if (label) label.textContent = vt("viewer.heartbeat.capture.label");
+    const liveText = byId2("hb-capture-live-text");
+    if (liveText) liveText.textContent = vt("viewer.heartbeat.capture.live");
+    const toggle = byId2("hb-capture-toggle");
+    if (toggle) toggle.title = vt("viewer.heartbeat.capture.multiClient");
+    setNote(null);
+    input.addEventListener("change", function() {
+      postCapture(input.checked);
+    });
+    window.addEventListener("pagehide", function() {
+      captureDisarmBestEffort(true);
+    });
+    window.addEventListener("beforeunload", function() {
+      captureDisarmBestEffort(true);
+    });
+    render3();
+  }
+
   // assets/web/heartbeat-screen.ts
   var POLL_MS = 750;
   var POLL_IDLE_CEILING_MS = 2500;
@@ -35622,13 +35783,13 @@ ${JSON.stringify(results, void 0, 2)}`);
   var rafId = null;
   var lastFrameTs = 0;
   var pollToken = 0;
-  function byId2(id2) {
+  function byId3(id2) {
     return document.getElementById(id2);
   }
   var statusShowing = false;
   function setMonitorMessage(msg, tone) {
     statusShowing = msg != null;
-    const el = byId2("hb-monitor-msg");
+    const el = byId3("hb-monitor-msg");
     if (el) {
       el.hidden = msg == null;
       el.textContent = msg || "";
@@ -35637,15 +35798,15 @@ ${JSON.stringify(results, void 0, 2)}`);
     updateEmptyState();
   }
   function updateEmptyState() {
-    const empty = byId2("hb-empty");
+    const empty = byId3("hb-empty");
     if (empty) empty.hidden = hasCards() || statusShowing;
   }
   function updateVital() {
     if (!monitor) return;
     const epm = monitor.eventsPerMinute();
-    const valEl = byId2("hb-vitals-value");
+    const valEl = byId3("hb-vitals-value");
     if (valEl) valEl.textContent = String(epm);
-    const wrap = byId2("hb-vitals");
+    const wrap = byId3("hb-vitals");
     if (wrap) wrap.setAttribute("aria-label", vt("viewer.heartbeat.vitalSummary", epm));
   }
   function schedulePoll(delayMs) {
@@ -35665,16 +35826,19 @@ ${JSON.stringify(results, void 0, 2)}`);
       if (res.status === 403) {
         const msg = res.data && (res.data.error || res.data.message) || vt("viewer.heartbeat.disabled");
         setMonitorMessage(String(msg), "disabled");
+        captureSetForbidden();
         return;
       }
       if (res.status === 404 || res.status === 501) {
         setMonitorMessage(vt("viewer.heartbeat.unavailable"), "muted");
+        captureSetUnsupported();
         return;
       }
       if (!res.ok) throw new Error("activity poll HTTP " + res.status);
       pollFailures = 0;
       setMonitorMessage(null);
       const data = res.data || {};
+      captureSyncFromPoll(data.captureArmed);
       if (typeof data.activityGeneration === "number") sinceGen = data.activityGeneration;
       applyTables(Array.isArray(data.tables) ? data.tables : []);
       updateEmptyState();
@@ -35722,21 +35886,23 @@ ${JSON.stringify(results, void 0, 2)}`);
         pollTimer = null;
       }
       pollToken++;
+      captureDisarmBestEffort();
     }
   }
   function localizeShell() {
-    const lead = byId2("hb-lead");
+    const lead = byId3("hb-lead");
     if (lead) lead.textContent = vt("viewer.heartbeat.lead");
-    const label = byId2("hb-vitals-label");
+    const label = byId3("hb-vitals-label");
     if (label) label.textContent = vt("viewer.heartbeat.vitalLabel");
-    const empty = byId2("hb-empty");
+    const empty = byId3("hb-empty");
     if (empty) empty.textContent = vt("viewer.heartbeat.waiting");
   }
   function initHeartbeatScreen() {
-    const canvas = byId2("hb-monitor");
+    const canvas = byId3("hb-monitor");
     if (!canvas) return;
     localizeShell();
     monitor = createHeartbeatMonitor(canvas);
+    initHeartbeatCapture();
     updateEmptyState();
     document.addEventListener("sda-tab-switch", function(e) {
       tabActive = e.detail === "heartbeat";

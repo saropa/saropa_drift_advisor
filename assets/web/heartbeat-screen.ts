@@ -17,6 +17,13 @@ import { nextPollDelay } from './heartbeat-heat.ts';
 import { createHeartbeatMonitor, HeartbeatMonitor } from './heartbeat-chart.ts';
 import { applyCardEvents, applyTables, cardsFrame, hasCards } from './heartbeat-cards.ts';
 import { invalidateSparklines } from './heartbeat-sparkline.ts';
+import {
+  captureDisarmBestEffort,
+  captureSetForbidden,
+  captureSetUnsupported,
+  captureSyncFromPoll,
+  initHeartbeatCapture,
+} from './heartbeat-capture.ts';
 
 /** Steady poll cadence while events are arriving. */
 const POLL_MS = 750;
@@ -94,18 +101,24 @@ function pollOnce(): void {
       if (res.status === 403) {
         const msg = (res.data && (res.data.error || res.data.message)) || vt('viewer.heartbeat.disabled');
         setMonitorMessage(String(msg), 'disabled');
+        captureSetForbidden();
         return;
       }
       // Endpoint missing (older server / server half not deployed yet):
       // degrade quietly rather than hammering a 404.
       if (res.status === 404 || res.status === 501) {
         setMonitorMessage(vt('viewer.heartbeat.unavailable'), 'muted');
+        captureSetUnsupported();
         return;
       }
       if (!res.ok) throw new Error('activity poll HTTP ' + res.status);
       pollFailures = 0;
       setMonitorMessage(null);
       const data = res.data || {};
+      // Capture sync (phase 2): while armed, this very poll renewed the
+      // server-side lease; the response's captureArmed is the authority the
+      // toggle snaps to (lease expiry, other viewers, kill switch flips).
+      captureSyncFromPoll(data.captureArmed);
       if (typeof data.activityGeneration === 'number') sinceGen = data.activityGeneration;
       applyTables(Array.isArray(data.tables) ? data.tables : []);
       updateEmptyState();
@@ -164,6 +177,10 @@ function updateRunState(): void {
     if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
     if (pollTimer != null) { clearTimeout(pollTimer); pollTimer = null; }
     pollToken++; // invalidate any in-flight response
+    // Screen-inactive ⇒ capture off (phase 2): tab switch and visibility
+    // hidden both land here, the same suspension points that stop the poll
+    // loop. Best-effort — the server's poll-renewed lease is the guarantee.
+    captureDisarmBestEffort();
   }
 }
 
@@ -186,6 +203,9 @@ export function initHeartbeatScreen(): void {
   if (!canvas) return; // panel absent (e.g. older shell) — degrade silently
   localizeShell();
   monitor = createHeartbeatMonitor(canvas);
+  // Capture toggle (phase 2): wires the control + the unload-time disarms;
+  // tab-switch/visibility disarms ride updateRunState above.
+  initHeartbeatCapture();
   updateEmptyState();
   document.addEventListener('sda-tab-switch', function (e) {
     tabActive = (e as CustomEvent).detail === 'heartbeat';

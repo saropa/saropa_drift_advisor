@@ -47,4 +47,22 @@ export const stringsWebHeartbeat: Record<string, string> = {
   'viewer.heartbeat.unavailable': 'This server does not provide the activity feed.',
   // Poll failed; retrying with backoff. Complements the global connection banner.
   'viewer.heartbeat.reconnecting': 'Connection lost — retrying…',
+  // ---- Phase 2: host-statement capture toggle ----
+  'viewer.heartbeat.capture.label': 'Capture live app traffic',
+  // Pulsing indicator text while the per-query hook is armed. The screen must
+  // always make it obvious the hook is hot.
+  'viewer.heartbeat.capture.live': 'Capturing',
+  // Wiring-honesty caption: the server cannot tell whether the app actually
+  // wired reportActivity, so an armed toggle with no events must not read as
+  // "capturing everything".
+  'viewer.heartbeat.capture.note':
+    'Shows the app’s own reads and writes while this screen is open. Requires the app to wire DriftDebugServer.reportActivity — see the package README.',
+  // Multi-viewer semantics, shown as the toggle tooltip.
+  'viewer.heartbeat.capture.multiClient':
+    'Any open heartbeat screen keeps capture alive; turning it off here turns it off for all viewers.',
+  // Kill switch: arming refused while server monitoring is disabled.
+  'viewer.heartbeat.capture.unavailable':
+    'Capture is unavailable while server monitoring is disabled.',
+  // The toggle POST failed (network/server error) — state snapped back.
+  'viewer.heartbeat.capture.error': 'Could not change capture — try again.',
 };

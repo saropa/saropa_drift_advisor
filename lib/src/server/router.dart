@@ -395,6 +395,11 @@ final class Router {
           ) ??
           0;
 
+      // Lease renewal (phase 2): the poll IS the liveness proof — a heartbeat
+      // screen that stops polling stops renewing, and recordHostStatement
+      // self-disarms once the lease window lapses. No-op while disarmed.
+      _ctx.tableActivity.renewCaptureLease();
+
       // writeJsonResponse guarantees headers + close even when encoding
       // hits a non-primitive, honoring the "response always closed" rule.
       await _ctx.writeJsonResponse(
@@ -408,7 +413,75 @@ final class Router {
       return true;
     }
 
+    // POST /api/activity/capture — arm/disarm host-statement capture
+    // (Feature 80, phase 2). Dispatched after the global kill-switch gate, so
+    // a killed server already answers the structured 403; armCapture()
+    // additionally refuses while monitoring is disabled (belt and braces for
+    // any future dispatch reordering).
+    if (request.method == ServerConstants.methodPost &&
+        (path == ServerConstants.pathApiActivityCapture ||
+            path == ServerConstants.pathApiActivityCaptureAlt)) {
+      await _handleActivityCapture(request);
+
+      return true;
+    }
+
     return false;
+  }
+
+  /// Handles POST /api/activity/capture.
+  /// Expects JSON body: {"enabled": true|false}.
+  /// Returns {"captureArmed": true|false} — the RESULTING state, which is
+  /// what the client toggle renders (arming can be refused, so echoing the
+  /// request value would lie).
+  Future<void> _handleActivityCapture(HttpRequest request) async {
+    final res = request.response;
+
+    try {
+      final bytes = await ServerUtils.readBodyBytes(
+        request,
+        maxBytes: ServerConstants.maxRequestBodyBytes,
+      );
+      if (bytes == null) {
+        await _ctx.sendPayloadTooLarge(res);
+        return;
+      }
+
+      final decoded = ServerUtils.parseJsonMap(utf8.decode(bytes));
+      final enabledValue = decoded?[ServerConstants.jsonKeyEnabled];
+      if (enabledValue is! bool) {
+        res.statusCode = HttpStatus.badRequest;
+        _ctx.setJsonHeaders(res);
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError:
+                'Expected JSON body with '
+                '"${ServerConstants.jsonKeyEnabled}": '
+                'true|false',
+          }),
+        );
+        await res.close();
+
+        return;
+      }
+
+      if (enabledValue) {
+        _ctx.tableActivity.armCapture();
+      } else {
+        _ctx.tableActivity.disarmCapture();
+      }
+
+      _ctx.setJsonHeaders(res);
+      res.write(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyCaptureArmed: _ctx.tableActivity.captureArmed,
+        }),
+      );
+      await res.close();
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      await _ctx.sendErrorResponse(res, error);
+    }
   }
 
   // -------- Table route group --------

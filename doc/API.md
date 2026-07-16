@@ -291,7 +291,9 @@ Returns the current data-change generation number. Supports long-polling with th
 
 Live per-table activity aggregates plus a ring of recent events, powering the Heartbeat / Watch screen. Served entirely from in-memory state — the endpoint never queries the database, so polling it cannot generate activity of its own.
 
-Activity is fed by three signals only: reads executed through the advisor (table browsing, SQL runner), writes executed through the advisor (cell edits, batch edits, import), and host-app changes **detected** as row-count deltas between change-detection sweeps. The server does not see the host app's own reads, or host writes that leave a row count unchanged (e.g. UPDATE-in-place) — `hostChanges` means "detected changes", never "all writes". Internal server/extension probes (change-detection sweeps, diagnostic queries, this endpoint's own polling) are never recorded.
+Activity is fed by three signals: reads executed through the advisor (table browsing, SQL runner), writes executed through the advisor (cell edits, batch edits, import), and host-app changes **detected** as row-count deltas between change-detection sweeps. By default the server does not see the host app's own reads, or host writes that leave a row count unchanged (e.g. UPDATE-in-place) — `hostChanges` means "detected changes", never "all writes". A fourth, opt-in signal exists when the host wires `DriftDebugServer.reportActivity` and a viewer arms capture (see [`POST /api/activity/capture`](#post-apiactivitycapture)): the host's own SELECT/WITH statements then record reads and INSERT/UPDATE/DELETE/REPLACE record writes. Internal server/extension probes (change-detection sweeps, diagnostic queries, this endpoint's own polling) are never recorded.
+
+While capture is armed, every request to this endpoint renews the capture lease (see below).
 
 Returns `403 Forbidden` with the standard structured error while the [monitoring kill switch](#monitoring-kill-switch) is engaged.
 
@@ -306,6 +308,7 @@ Returns `403 Forbidden` with the standard structured error while the [monitoring
 ```json
 {
   "activityGeneration": 12,
+  "captureArmed": false,
   "tables": [
     {
       "table": "items",
@@ -327,6 +330,7 @@ Returns `403 Forbidden` with the standard structured error while the [monitoring
 | Field | Type | Description |
 |-------|------|-------------|
 | `activityGeneration` | int | Monotonic counter; bumps on every recorded event. Poll with `?since=` against it. |
+| `captureArmed` | bool | Whether host-statement capture is currently armed. The server is the authority — a lease can expire, or another viewer can disarm, between a client's own toggles. |
 | `tables` | array | Only tables with at least one recorded event this session — untouched tables are never listed (seed the full grid from [`GET /api/tables`](#get-apitables)). Sorted by table name. |
 | `tables[].table` | string | Table name. |
 | `tables[].reads` / `writes` / `hostChanges` | int | Per-kind counters since server start (not capped by the event ring). |
@@ -335,6 +339,34 @@ Returns `403 Forbidden` with the standard structured error while the [monitoring
 | `recentEvents` | array | Bounded ring of the most recent 200 events, oldest first, filtered to `gen > since`. |
 | `recentEvents[].kind` | string | `"read"` \| `"write"` \| `"hostChange"`. |
 | `recentEvents[].gen` | int | The `activityGeneration` value stamped when the event was recorded (use as the next `since`). |
+
+### `POST /api/activity/capture`
+
+Arms or disarms host-statement capture for the Heartbeat screen. While armed, statements the host app reports via `DriftDebugServer.reportActivity(sql)` are classified and recorded: `SELECT`/`WITH` as per-table reads, `INSERT`/`UPDATE`/`DELETE`/`REPLACE` as writes; everything else (DDL, `PRAGMA`, transaction framing) records nothing. If the host never wired `reportActivity`, arming succeeds but produces no data — the server cannot detect whether the hook is wired.
+
+Capture is a session-scoped observation tool, never configuration: it always starts **disarmed** on server start, is never persisted, and arming grants a **lease**, not a latch. Every `GET /api/activity` poll renews the lease; if no poll arrives within ~5 s (the screen polls every ~750 ms, so this tolerates several missed polls), the server disarms itself on the next reported statement. A killed browser tab, a dropped adb forward, or a crashed webview can therefore never leave the host's per-query hook hot. While disarmed, `reportActivity` costs one field read and a branch — no parsing, no allocation.
+
+Multi-client semantics: any polling heartbeat screen renews the lease; a disarm from one viewer disarms for all.
+
+Returns `403 Forbidden` with the standard structured error while the [monitoring kill switch](#monitoring-kill-switch) is engaged; disabling monitoring also force-disarms an armed capture.
+
+**Request Body**
+
+```json
+{ "enabled": true }
+```
+
+**Response** `200 OK`
+
+```json
+{ "captureArmed": true }
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `captureArmed` | bool | The **resulting** state (arming can be refused, so the request value is not echoed). |
+
+Returns `400 Bad Request` when the body is missing `enabled` or it is not a boolean.
 
 ---
 
