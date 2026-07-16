@@ -220,3 +220,77 @@ exactly the window where the user is watching the screen.
 - [ ] Phase 2 only: capture can never stay armed without a live heartbeat
       screen — lease expiry test is mandatory, and the disarmed path stays
       one-branch cheap.
+
+## Finish Report (2026-07-16)
+
+Phase 1 shipped. Phase 2 (host statement reporting with the on-screen capture
+toggle and poll-renewed lease) was split into
+`plans/80-heartbeat-phase2-host-capture.md`; this file is archived to history.
+
+### What was built
+
+- `lib/src/server/table_activity_tracker.dart` — per-table aggregate counters
+  (reads / writes / hostChanges with last-seen timestamps), a 200-entry
+  `ListQueue` recent-event ring (O(1) eviction), monotonic
+  `activityGeneration`, and best-effort FROM/JOIN table-name extraction over
+  SQL masked by a single-pass lexical state machine mirroring
+  `sql_validator.dart` (string literals and comments can never false-match;
+  `sqlite_%` internals excluded at extraction and record time).
+- Feed points: `ServerContext.timedQuery` records reads only inside the
+  existing `!isInternal` branch (the change-detection sweep, extension
+  probes, and the screen's own polling never light the board);
+  the wrapped `writeQuery` closure in `drift_debug_server_io.dart` records
+  writes reusing `MutationTracker`'s table inference; `_buildDataSignature`
+  diffs per-table row counts against the previous cycle to record
+  `hostChange` events with zero extra queries. All recording is disabled
+  under the monitoring kill switch.
+- `GET /api/activity?since=N` (`router.dart`, constants in
+  `server_constants.dart`, documented in `doc/API.md`): in-memory read only,
+  no DB queries; lists ONLY tables with recorded activity; `recentEvents`
+  filtered to `gen > since`; structured 403 under the kill switch via the
+  router's global gate.
+- Web viewer heartbeat tab (`assets/web/heartbeat-screen.ts`,
+  `heartbeat-chart.ts`, `heartbeat-heat.ts`, `_heartbeat-screen.scss`,
+  l10n slice `l10n/strings-web-heartbeat.ts`): active-tables-only card grid
+  sorted most-recently-active first, dual-channel glow via `--read-heat` /
+  `--write-heat` custom properties (impulse `min(1, heat + 0.35)`, decay
+  `exp(-dt/450ms)`, max 3 impulses per table per channel per tick), one
+  shared rAF loop that fully suspends with the frame clock reset on tab
+  switch / `visibilitychange`; canvas ECG monitor (250 ms × 120 buckets,
+  30 s window, DPI-aware, theme colors read from computed style at ~1 Hz)
+  with an events/min vital; ~750 ms polling using `activityGeneration` as
+  the next `since`, capped backoff on failure; distinct empty / 403 /
+  unavailable / reconnecting states. Host-change copy is exactly
+  "Detected changes" (inferred, never claimed as full write capture).
+- Tab registration touched only the existing inventories (`tabs.ts` id list
+  plus a `sda-tab-switch` CustomEvent so standalone screens activate without
+  editing the app.js monolith; `state.ts` `TOOL_ICONS` / `TOOL_LABELS` /
+  `HOME_LAUNCHERS` / `HOME_SEARCH_KEYWORDS`), and the shell markup in
+  `html_content.dart` is structure-only with all text filled via `vt()`.
+
+### Verification
+
+- `dart test test/table_activity_tracker_test.dart` — 18 passing (rerun on
+  the final merged tree, so the parallel-built halves compile together).
+- `node --test assets/web/test/heartbeat-heat.test.mjs` — 16 passing.
+- `npm run typecheck:web` clean; `npm run build` regenerated `bundle.js` /
+  `style.css` (never hand-edited).
+- Client/server contract cross-checked by grep on the merged tree: paths,
+  JSON key strings, and event kind names (`read` / `write` / `hostChange`)
+  match; the client renders `hostChange` on the warm channel by design.
+
+### Known limits (stated in doc/API.md and the UI copy)
+
+- Host-app reads are invisible in phase 1; host writes are detected only via
+  row-count deltas (≥ 2 s granularity; UPDATE-in-place and balanced
+  insert+delete do not register). Phase 2 closes this behind an armed-only
+  capture lease.
+- Chart buckets are stamped at poll arrival, not server timestamps —
+  deliberate, so device/browser clock skew cannot distort the trace
+  (commented at the site).
+- `table_activity_tracker.dart` (339 lines) and `heartbeat-screen.ts`
+  (310 lines) sit marginally over the ~300-line guideline; no gate enforces
+  the cap and a split was judged worse than the overage.
+- The warm glow channel uses `var(--warning, #e67e22)` because no theme
+  defines a warning token — mirrors the existing `_masthead.scss` pattern;
+  a future `--warning` token takes over automatically.

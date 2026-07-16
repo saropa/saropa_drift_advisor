@@ -1,0 +1,410 @@
+diff --git a/extension/src/transport/circuit-breaker.ts b/extension/src/transport/circuit-breaker.ts
+new file mode 100644
+index 0000000..487c998
+--- /dev/null
++++ b/extension/src/transport/circuit-breaker.ts
+@@ -0,0 +1,134 @@
++/**
++ * Global circuit breaker for outbound requests to the Drift debug server.
++ *
++ * When the server is genuinely down, each subsystem (discovery, schema cache,
++ * generation watcher, mutation poller) retries independently — fanning out
++ * uncapped requests against a dead endpoint. The breaker collapses all of them
++ * into a single backoff cadence:
++ *
++ *  closed  → consecutive failures reach FAILURE_THRESHOLD → open
++ *  open    → cooldown elapses                             → half-open (one probe)
++ *  half-open → probe succeeds                             → closed
++ *  half-open → probe fails                                → open (restart cooldown)
++ *
++ * Wired into {@link fetchWithTimeout} via {@link setGlobalCircuitBreaker}: every
++ * outbound HTTP request checks the breaker first. Discovery health probes set
++ * `bypassCircuitBreaker: true` so they can still run as the recovery mechanism.
++ *
++ * Phase 3 of the connection reliability plan
++ * (see `plans/connection-reliability-ongoing.md`, gap 3).
++ */
++
++import type { Event } from 'vscode';
++import { EventEmitter } from 'vscode';
++
++export type BreakerState = 'closed' | 'open' | 'half-open';
++
++/** Consecutive transient failures before the breaker trips open. */
++export const FAILURE_THRESHOLD = 5;
++
++/**
++ * Milliseconds to wait in `open` state before allowing a single half-open
++ * probe. Matches the discovery `SEARCH_INTERVAL` (30s) so the first recovery
++ * probe aligns with the next discovery scan rather than adding traffic.
++ */
++export const COOLDOWN_MS = 30_000;
++
++export class CircuitBreaker {
++  private _state: BreakerState = 'closed';
++  private _consecutiveFailures = 0;
++  private _lastFailureTime = 0;
++
++  private readonly _onDidChange = new EventEmitter<BreakerState>();
++  /** Fires only on state transitions (closed→open, open→half-open, etc.). */
++  readonly onDidChange: Event<BreakerState> = this._onDidChange.event;
++
++  get state(): BreakerState {
++    return this._state;
++  }
++
++  /**
++   * Check whether a request may proceed. Returns `true` if it may.
++   *
++   * In `open` state, requests are rejected immediately — except when the
++   * cooldown has elapsed, which auto-transitions to `half-open` and allows
++   * exactly one probe through to test recovery.
++   */
++  mayAttempt(): boolean {
++    if (this._state === 'closed') return true;
++    if (this._state === 'half-open') return true;
++    // open: check cooldown
++    if (Date.now() - this._lastFailureTime >= COOLDOWN_MS) {
++      this._transition('half-open');
++      return true;
++    }
++    return false;
++  }
++
++  /** Call after a successful response. Closes the breaker and resets the counter. */
++  recordSuccess(): void {
++    this._consecutiveFailures = 0;
++    if (this._state !== 'closed') {
++      this._transition('closed');
++    }
++  }
++
++  /** Call after a transient failure. Increments the counter and may trip the breaker. */
++  recordFailure(): void {
++    this._consecutiveFailures++;
++    this._lastFailureTime = Date.now();
++    if (this._state === 'closed' && this._consecutiveFailures >= FAILURE_THRESHOLD) {
++      this._transition('open');
++    } else if (this._state === 'half-open') {
++      // Half-open probe failed — back to open, restart cooldown.
++      this._transition('open');
++    }
++  }
++
++  /** Force-reset to closed (e.g. when the user clicks "Retry Discovery"). */
++  reset(): void {
++    this._consecutiveFailures = 0;
++    this._lastFailureTime = 0;
++    if (this._state !== 'closed') {
++      this._transition('closed');
++    }
++  }
++
++  dispose(): void {
++    this._onDidChange.dispose();
++  }
++
++  private _transition(next: BreakerState): void {
++    if (next === this._state) return;
++    this._state = next;
++    this._onDidChange.fire(next);
++  }
++}
++
++/**
++ * Error thrown when the circuit breaker is open and a request is rejected
++ * without hitting the network. Callers can check `instanceof` to distinguish
++ * breaker rejections from real network errors.
++ */
++export class CircuitBreakerOpenError extends Error {
++  constructor() {
++    super('Circuit breaker is open — server unreachable, request suppressed');
++    this.name = 'CircuitBreakerOpenError';
++  }
++}
++
++// ---------------------------------------------------------------------------
++// Module-level singleton wiring — keeps fetch-utils free of import cycles.
++// ---------------------------------------------------------------------------
++
++let _globalBreaker: CircuitBreaker | undefined;
++
++/** Install the singleton breaker that {@link fetchWithTimeout} checks. */
++export function setGlobalCircuitBreaker(breaker: CircuitBreaker): void {
++  _globalBreaker = breaker;
++}
++
++/** Read the singleton (returns `undefined` before activation wires it). */
++export function getGlobalCircuitBreaker(): CircuitBreaker | undefined {
++  return _globalBreaker;
++}
+diff --git a/extension/src/transport/fetch-utils.ts b/extension/src/transport/fetch-utils.ts
+index 0180cda..ff1f900 100644
+--- a/extension/src/transport/fetch-utils.ts
++++ b/extension/src/transport/fetch-utils.ts
+@@ -6,7 +6,17 @@
+  * does not reliably cancel an in-flight `fetch()` (undici bug). A second-layer
+  * `Promise.race` safety timeout fires shortly after the abort timer, guaranteeing
+  * that `fetchWithTimeout` always settles even when the signal is ignored.
++ *
++ * **Circuit breaker (Phase 3).** When a global {@link CircuitBreaker} is installed
++ * via {@link setGlobalCircuitBreaker}, every call checks it before hitting the
++ * network. Open breaker → immediate {@link CircuitBreakerOpenError} (no I/O).
++ * Discovery probes set `bypassCircuitBreaker: true` so they can still run as
++ * the recovery mechanism. Success/failure of every request feeds the breaker.
+  */
++import {
++  CircuitBreakerOpenError,
++  getGlobalCircuitBreaker,
++} from './circuit-breaker';
+ 
+ /** Default timeout for API requests (ms). */
+ export const DEFAULT_FETCH_TIMEOUT_MS = 8000;
+@@ -32,10 +42,15 @@ const SAFETY_MARGIN_MS = 2000;
+  * `/api/sql`, `/api/change-detection`) to opt back into retry. Leave it unset on
+  * a mutating POST (import, session create/annotate) so a connection drop after
+  * the server applied the write does not duplicate it. See audit M4.
++ *
++ * `bypassCircuitBreaker` lets discovery health probes through even when the
++ * global circuit breaker is open — they ARE the recovery mechanism and must
++ * still reach the network to detect that the server came back.
+  */
+ export type FetchWithTimeoutInit = RequestInit & {
+   timeoutMs?: number;
+   idempotent?: boolean;
++  bypassCircuitBreaker?: boolean;
+ };
+ 
+ /**
+@@ -58,6 +73,14 @@ export async function fetchWithTimeout(
+   url: string,
+   init?: FetchWithTimeoutInit,
+ ): Promise<Response> {
++  // Circuit breaker gate: reject immediately when the breaker is open, unless
++  // this is a discovery probe that must bypass to detect recovery.
++  const breaker = getGlobalCircuitBreaker();
++  const bypass = init?.bypassCircuitBreaker === true;
++  if (breaker && !bypass && !breaker.mayAttempt()) {
++    throw new CircuitBreakerOpenError();
++  }
++
+   const ms = init?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+   const controller = new AbortController();
+ 
+@@ -89,11 +112,21 @@ export async function fetchWithTimeout(
+ 
+   try {
+     // Strip our extra options before passing to native fetch
+-    const { timeoutMs: _, signal: __, idempotent: ___, ...rest } = init ?? {};
+-    return await Promise.race([
++    const { timeoutMs: _, signal: __, idempotent: ___, bypassCircuitBreaker: ____, ...rest } = init ?? {};
++    const resp = await Promise.race([
+       fetch(url, { ...rest, signal: controller.signal }),
+       safety,
+     ]);
++    // Feed success back to the breaker so it can close after a half-open probe.
++    breaker?.recordSuccess();
++    return resp;
++  } catch (err) {
++    // Feed transient failures to the breaker (but not intentional aborts from
++    // the caller's own signal — those aren't server failures).
++    if (breaker && !init?.signal?.aborted && isTransientError(err)) {
++      breaker.recordFailure();
++    }
++    throw err;
+   } finally {
+     clearTimeout(abortTimer);
+     if (safetyTimer !== undefined) clearTimeout(safetyTimer);
+diff --git a/extension/src/transport/vm-service-client.ts b/extension/src/transport/vm-service-client.ts
+index 6e58481..ce59def 100644
+--- a/extension/src/transport/vm-service-client.ts
++++ b/extension/src/transport/vm-service-client.ts
+@@ -2,6 +2,11 @@
+  * Minimal VM Service protocol client (Plan 68).
+  * Connects via WebSocket, sends JSON-RPC requests, resolves main isolate ID,
+  * and calls ext.saropa.drift.* extension methods.
++ *
++ * **Extension stream (Phase 5).** After connecting, subscribes to the VM
++ * Service `Extension` stream. Events posted by the Dart server via
++ * `developer.postEvent('ext.saropa.drift.*', ...)` arrive as `streamNotify`
++ * messages and are surfaced through {@link onExtensionEvent}.
+  */
+ 
+ import type {
+@@ -31,11 +36,21 @@ import {
+   type ExtensionRequest,
+ } from './vm-service-api';
+ 
++/** An event from the VM Service Extension stream (developer.postEvent). */
++export interface VmExtensionEvent {
++  /** e.g. 'ext.saropa.drift.ServerStarted' */
++  kind: string;
++  /** The data map passed to developer.postEvent. */
++  data: Record<string, unknown>;
++}
++
+ export interface VmServiceClientConfig {
+   wsUri: string;
+   timeoutMs?: number;
+   /** Called when the WebSocket closes (e.g. hot restart). Use to clear UI state. */
+   onClose?: () => void;
++  /** Called when a VM Service Extension stream event arrives. */
++  onExtensionEvent?: (event: VmExtensionEvent) => void;
+ }
+ 
+ export class VmServiceClient {
+@@ -50,11 +65,13 @@ export class VmServiceClient {
+   >();
+ 
+   private readonly _onClose: (() => void) | undefined;
++  private readonly _onExtensionEvent: ((event: VmExtensionEvent) => void) | undefined;
+ 
+   constructor(config: VmServiceClientConfig) {
+     this._wsUri = config.wsUri;
+     this._timeoutMs = config.timeoutMs ?? 10_000;
+     this._onClose = config.onClose;
++    this._onExtensionEvent = config.onExtensionEvent;
+   }
+ 
+   /** Connect, resolve main isolate ID, and prepare for RPC. */
+@@ -92,6 +109,15 @@ export class VmServiceClient {
+       throw new Error('VM Service: no isolates');
+     }
+     this._isolateId = list[0].id;
++
++    // Subscribe to the Extension event stream so push notifications from the
++    // Dart server (developer.postEvent) arrive as streamNotify messages.
++    // Best-effort: failure to subscribe falls back to polling discovery.
++    try {
++      await this._request('streamListen', { streamId: 'Extension' });
++    } catch {
++      // Some embedders or older Dart VMs may not support streamListen.
++    }
+   }
+ 
+   private async _resolveIsolates(): Promise<{ id: string }[] | undefined> {
+@@ -157,12 +183,31 @@ export class VmServiceClient {
+   };
+ 
+   private _onMessage(ev: MessageEvent): void {
+-    let data: { id?: number; result?: unknown; error?: { message?: string } };
++    let data: {
++      id?: number;
++      method?: string;
++      params?: { streamId?: string; event?: { extensionKind?: string; extensionData?: Record<string, unknown> } };
++      result?: unknown;
++      error?: { message?: string };
++    };
+     try {
+       data = JSON.parse(ev.data as string);
+     } catch {
+       return;
+     }
++
++    // VM Service push events arrive as streamNotify with no id.
++    if (data.method === 'streamNotify' && data.params?.streamId === 'Extension') {
++      const event = data.params.event;
++      if (event?.extensionKind && this._onExtensionEvent) {
++        this._onExtensionEvent({
++          kind: event.extensionKind,
++          data: event.extensionData ?? {},
++        });
++      }
++      return;
++    }
++
+     const id = data.id;
+     if (id === undefined || !this._pending.has(id)) return;
+     const entry = this._pending.get(id)!;
+diff --git a/extension/src/webview-ready-queue.ts b/extension/src/webview-ready-queue.ts
+new file mode 100644
+index 0000000..b84d48a
+--- /dev/null
++++ b/extension/src/webview-ready-queue.ts
+@@ -0,0 +1,86 @@
++/**
++ * Queues `postMessage` calls until the webview script signals readiness.
++ *
++ * Setting `webview.html` loads the document asynchronously. If the extension
++ * calls `webview.postMessage()` before the inline script registers its
++ * `message` event listener, the message is silently dropped and the panel
++ * is stuck on stale/empty state. Time Travel already avoids this with a
++ * manual `ready` handshake; this utility extracts the pattern so Dashboard,
++ * Watch, and future panels can adopt it with one line.
++ *
++ * Usage:
++ *   1. In the panel constructor, create a queue:
++ *        this._queue = new WebviewReadyQueue(panel.webview);
++ *   2. Replace `panel.webview.postMessage(msg)` with `this._queue.post(msg)`.
++ *   3. After setting `webview.html`, the queue holds messages until the
++ *      webview script posts `{ command: 'ready' }`.
++ *   4. In the webview script, add at the end of the initialization block:
++ *        vscode.postMessage({ command: 'ready' });
++ *
++ * Phase 4 of the connection reliability plan
++ * (see `plans/connection-reliability-ongoing.md`, gap 4).
++ */
++
++import type * as vscode from 'vscode';
++
++export const READY_COMMAND = 'ready';
++
++export class WebviewReadyQueue {
++  private _ready = false;
++  private _queue: unknown[] = [];
++  private readonly _webview: vscode.Webview;
++  private readonly _disposable: vscode.Disposable;
++
++  constructor(webview: vscode.Webview) {
++    this._webview = webview;
++    this._disposable = webview.onDidReceiveMessage((msg) => {
++      if (
++        msg !== null
++        && typeof msg === 'object'
++        && (msg as { command?: string }).command === READY_COMMAND
++        && !this._ready
++      ) {
++        this._ready = true;
++        this._flush();
++      }
++    });
++  }
++
++  /**
++   * Post a message to the webview. If the webview has not signaled `ready`
++   * yet, the message is queued and delivered in order once it does.
++   */
++  post(message: unknown): void {
++    if (this._ready) {
++      void this._webview.postMessage(message);
++    } else {
++      this._queue.push(message);
++    }
++  }
++
++  /**
++   * Reset the queue for a fresh HTML load (e.g. when `webview.html` is
++   * reassigned). Drops any pending messages from the prior document and
++   * waits for a new `ready` signal.
++   */
++  resetForNewHtml(): void {
++    this._ready = false;
++    this._queue = [];
++  }
++
++  get isReady(): boolean {
++    return this._ready;
++  }
++
++  dispose(): void {
++    this._disposable.dispose();
++    this._queue = [];
++  }
++
++  private _flush(): void {
++    for (const msg of this._queue) {
++      void this._webview.postMessage(msg);
++    }
++    this._queue = [];
++  }
++}

@@ -10,9 +10,11 @@
  *
  * Colors are resolved from CSS custom properties on the canvas's container
  * (--hb-read / --hb-warm / --hb-grid, defined per theme in
- * _heartbeat-screen.scss), so the monitor recolors itself in every theme with
- * zero hex here. Values are re-read at ~1 Hz — cheap, and picks up a live
- * theme switch without a MutationObserver.
+ * _heartbeat-screen.scss), so the monitor recolors itself in every theme; the
+ * only literals below are neutral '#888' last-resort fallbacks for a computed
+ * style that fails to resolve (detached canvas, unloaded stylesheet). Values
+ * are re-read at ~1 Hz — cheap, and picks up a live theme switch without a
+ * MutationObserver.
  */
 import {
   HeartbeatBucket,

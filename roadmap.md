@@ -59,7 +59,7 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 | 35  | [Multi-Server Federation](plans/35-multi-server-federation.md) |  5→6  |  High  | Multiple clients        |
 | 37  | [Data Branching](plans/37-data-branching.md)                   |  5→7  |  High  | Fork/restore endpoints  |
 | 47  | [Bulk Edit Grid](plans/history/2026.04/2026.04.30/47-bulk-edit-grid.md) |  5→7  |  High  | `writeQuery` callback   |
-| 80  | [Heartbeat / Watch Screen](plans/80-heartbeat-watch-screen.md) |  4→5  | Medium | New activity tracker + `/api/activity` |
+| 80  | [Heartbeat phase 2: host capture](plans/80-heartbeat-phase2-host-capture.md) |  4→5  | Medium | Phase 1 shipped; `reportActivity` hook + capture lease remain |
 
 ### Low Priority Integrations (P3)
 

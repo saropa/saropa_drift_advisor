@@ -92,7 +92,14 @@ export const window = {
   showErrorMessage: async (msg: string) => {
     messageMock.errors.push(msg);
   },
-  showQuickPick: async (_items: any[], _options?: any) => dialogResults.quickPick,
+  // A test can set `dialogMock.quickPickResult` to a plain value, or to a
+  // function run at pick-resolution time — the latter lets a test perform a
+  // side effect (e.g. mutate mockDiagnosticsByUri) exactly at the point the
+  // real user's pick would resolve, to exercise races against that await.
+  showQuickPick: async (_items: any[], _options?: any) =>
+    typeof dialogResults.quickPick === 'function'
+      ? dialogResults.quickPick()
+      : dialogResults.quickPick,
   showInputBox: async (_options?: any) => dialogResults.inputBox,
   showTextDocument: async (_doc: any, _column?: any) => { /* no-op */ },
   registerFileDecorationProvider: (provider: any) => {
@@ -107,9 +114,42 @@ export const window = {
     return { dispose: () => { /* no-op */ } };
   },
   activeTextEditor: undefined as any,
-  onDidChangeActiveTextEditor: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
-  onDidChangeTextEditorSelection: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+  onDidChangeActiveTextEditor: (listener: (e: any) => void) => {
+    activeEditorChangeListeners.push(listener);
+    return {
+      dispose: () => {
+        const i = activeEditorChangeListeners.indexOf(listener);
+        if (i !== -1) activeEditorChangeListeners.splice(i, 1);
+      },
+    };
+  },
+  onDidChangeTextEditorSelection: (listener: (e: any) => void) => {
+    selectionChangeListeners.push(listener);
+    return {
+      dispose: () => {
+        const i = selectionChangeListeners.indexOf(listener);
+        if (i !== -1) selectionChangeListeners.splice(i, 1);
+      },
+    };
+  },
 };
+
+const activeEditorChangeListeners: Array<(e: any) => void> = [];
+const selectionChangeListeners: Array<(e: any) => void> = [];
+
+/** Test helper: fire every registered `onDidChangeTextEditorSelection` listener. */
+export function fireSelectionChanged(e: any = {}): void {
+  for (const listener of selectionChangeListeners) {
+    listener(e);
+  }
+}
+
+/** Test helper: fire every registered `onDidChangeActiveTextEditor` listener. */
+export function fireActiveEditorChanged(e: any = window.activeTextEditor): void {
+  for (const listener of activeEditorChangeListeners) {
+    listener(e);
+  }
+}
 
 const registeredCommands: Record<string, (...args: any[]) => any> = {};
 
@@ -250,6 +290,16 @@ export const l10n = {
 /** Registry a test populates so `languages.getDiagnostics(uri)` returns fixtures. */
 export const mockDiagnosticsByUri = new Map<string, any[]>();
 
+/** Listeners registered via `languages.onDidChangeDiagnostics`, so a test can fire the event. */
+const diagnosticsChangeListeners: Array<(e: { uris: any[] }) => void> = [];
+
+/** Test helper: invoke every registered `onDidChangeDiagnostics` listener with the given uris. */
+export function fireDiagnosticsChanged(uris: any[]): void {
+  for (const listener of diagnosticsChangeListeners) {
+    listener({ uris });
+  }
+}
+
 export const languages = {
   createDiagnosticCollection: (name: string): MockDiagnosticCollection => {
     const col = new MockDiagnosticCollection(name);
@@ -278,7 +328,17 @@ export const languages = {
     }
     return mockDiagnosticsByUri.get(uri.toString()) ?? [];
   },
-  onDidChangeDiagnostics: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+  onDidChangeDiagnostics: (listener: (e: { uris: any[] }) => void) => {
+    diagnosticsChangeListeners.push(listener);
+    return {
+      dispose: () => {
+        const i = diagnosticsChangeListeners.indexOf(listener);
+        if (i !== -1) {
+          diagnosticsChangeListeners.splice(i, 1);
+        }
+      },
+    };
+  },
 };
 
 import { resetExtras } from './vscode-mock-extras';
@@ -302,6 +362,9 @@ export function resetMocks(): void {
   createdDiagnosticCollections.length = 0;
   createdTextDocuments.length = 0;
   mockDiagnosticsByUri.clear();
+  diagnosticsChangeListeners.length = 0;
+  activeEditorChangeListeners.length = 0;
+  selectionChangeListeners.length = 0;
   resetTextDocumentMocks();
   resetExtras();
   for (const key of Object.keys(registeredCommands)) {

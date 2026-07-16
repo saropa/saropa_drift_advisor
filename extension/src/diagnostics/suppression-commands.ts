@@ -29,6 +29,17 @@
  *    same line or not. The fallback is bounded by the same window the
  *    right-click menu's visibility uses, so a menu click and a Command
  *    Palette invocation always resolve consistently.
+ *
+ * Two additional hardening notes for future edits:
+ * - The QuickPick tie-break is the one place this module awaits user input
+ *   mid-resolution — the picked diagnostic is re-validated against a fresh
+ *   `getDiagnostics` call afterward (same code + line) so a directive is
+ *   never inserted for a finding that changed or vanished while the pick was
+ *   pending.
+ * - `onDidChangeDiagnostics` fires for every extension's diagnostics in
+ *   every open document, so the listener filters the event's `uris` down to
+ *   the active editor's document before doing any work — see
+ *   `scheduleContextUpdateIfActiveDocAffected`.
  */
 
 import * as vscode from 'vscode';
@@ -167,6 +178,27 @@ async function resolveDiagnosticAtCursor(): Promise<
       return undefined;
     }
     chosen = picked.diagnostic;
+
+    // The QuickPick await is the one real gap where the document can change
+    // underneath the pick (edit, save-triggered refresh, or a background
+    // diagnostics sweep) — the `chosen` object is a snapshot from before the
+    // user answered. Re-read current diagnostics and require a same
+    // (code, line) match before acting, so a stale pick can't insert a
+    // directive at a line the finding no longer occupies.
+    const stillPresent = vscode.languages
+      .getDiagnostics(document.uri)
+      .some(
+        (d) =>
+          d.source === DIAGNOSTIC_SOURCE &&
+          d.code === chosen.code &&
+          d.range.start.line === chosen.range.start.line,
+      );
+    if (!stillPresent) {
+      vscode.window.showWarningMessage(
+        'This finding changed before the pick was confirmed — run the command again.',
+      );
+      return undefined;
+    }
   }
 
   // Diagnostics without a usable code cannot become a targeted directive —
@@ -267,10 +299,23 @@ export function registerSuppressionCommands(
       updateHasFindingNearCursorContext();
     }, SELECTION_DEBOUNCE_MS);
   };
+  // `onDidChangeDiagnostics` fires for every extension's diagnostics in
+  // every open document, not just Drift Advisor's or the active editor's —
+  // in a large multi-extension workspace that can be frequent. The event
+  // carries the affected `uris`, so skip the recompute entirely unless one
+  // of them is the active editor's document; nothing else could change
+  // `hasFindingNearCursor`.
+  const scheduleContextUpdateIfActiveDocAffected = (e: vscode.DiagnosticChangeEvent): void => {
+    const activeUri = vscode.window.activeTextEditor?.document.uri.toString();
+    if (activeUri !== undefined && e.uris.some((u) => u.toString() === activeUri)) {
+      scheduleContextUpdate();
+    }
+  };
+
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(updateHasFindingNearCursorContext),
     vscode.window.onDidChangeTextEditorSelection(scheduleContextUpdate),
-    vscode.languages.onDidChangeDiagnostics(scheduleContextUpdate),
+    vscode.languages.onDidChangeDiagnostics(scheduleContextUpdateIfActiveDocAffected),
     {
       dispose: () => {
         if (selectionDebounce !== undefined) {
