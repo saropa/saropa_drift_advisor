@@ -2,6 +2,11 @@
  * Minimal VM Service protocol client (Plan 68).
  * Connects via WebSocket, sends JSON-RPC requests, resolves main isolate ID,
  * and calls ext.saropa.drift.* extension methods.
+ *
+ * **Extension stream (Phase 5).** After connecting, subscribes to the VM
+ * Service `Extension` stream. Events posted by the Dart server via
+ * `developer.postEvent('ext.saropa.drift.*', ...)` arrive as `streamNotify`
+ * messages and are surfaced through {@link onExtensionEvent}.
  */
 
 import type {
@@ -31,11 +36,21 @@ import {
   type ExtensionRequest,
 } from './vm-service-api';
 
+/** An event from the VM Service Extension stream (developer.postEvent). */
+export interface VmExtensionEvent {
+  /** e.g. 'ext.saropa.drift.ServerStarted' */
+  kind: string;
+  /** The data map passed to developer.postEvent. */
+  data: Record<string, unknown>;
+}
+
 export interface VmServiceClientConfig {
   wsUri: string;
   timeoutMs?: number;
   /** Called when the WebSocket closes (e.g. hot restart). Use to clear UI state. */
   onClose?: () => void;
+  /** Called when a VM Service Extension stream event arrives. */
+  onExtensionEvent?: (event: VmExtensionEvent) => void;
 }
 
 export class VmServiceClient {
@@ -50,11 +65,13 @@ export class VmServiceClient {
   >();
 
   private readonly _onClose: (() => void) | undefined;
+  private readonly _onExtensionEvent: ((event: VmExtensionEvent) => void) | undefined;
 
   constructor(config: VmServiceClientConfig) {
     this._wsUri = config.wsUri;
     this._timeoutMs = config.timeoutMs ?? 10_000;
     this._onClose = config.onClose;
+    this._onExtensionEvent = config.onExtensionEvent;
   }
 
   /** Connect, resolve main isolate ID, and prepare for RPC. */
@@ -92,6 +109,15 @@ export class VmServiceClient {
       throw new Error('VM Service: no isolates');
     }
     this._isolateId = list[0].id;
+
+    // Subscribe to the Extension event stream so push notifications from the
+    // Dart server (developer.postEvent) arrive as streamNotify messages.
+    // Best-effort: failure to subscribe falls back to polling discovery.
+    try {
+      await this._request('streamListen', { streamId: 'Extension' });
+    } catch {
+      // Some embedders or older Dart VMs may not support streamListen.
+    }
   }
 
   private async _resolveIsolates(): Promise<{ id: string }[] | undefined> {
@@ -157,12 +183,31 @@ export class VmServiceClient {
   };
 
   private _onMessage(ev: MessageEvent): void {
-    let data: { id?: number; result?: unknown; error?: { message?: string } };
+    let data: {
+      id?: number;
+      method?: string;
+      params?: { streamId?: string; event?: { extensionKind?: string; extensionData?: Record<string, unknown> } };
+      result?: unknown;
+      error?: { message?: string };
+    };
     try {
       data = JSON.parse(ev.data as string);
     } catch {
       return;
     }
+
+    // VM Service push events arrive as streamNotify with no id.
+    if (data.method === 'streamNotify' && data.params?.streamId === 'Extension') {
+      const event = data.params.event;
+      if (event?.extensionKind && this._onExtensionEvent) {
+        this._onExtensionEvent({
+          kind: event.extensionKind,
+          data: event.extensionData ?? {},
+        });
+      }
+      return;
+    }
+
     const id = data.id;
     if (id === undefined || !this._pending.has(id)) return;
     const entry = this._pending.get(id)!;

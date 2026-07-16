@@ -43,6 +43,7 @@ export async function tryConnectVmInner(
   client: DriftApiClient,
   logConnection: (msg: string) => void,
   onClose: (healthConfirmed: boolean) => void,
+  onExtensionEvent?: (event: import('../transport/vm-service-client').VmExtensionEvent) => void,
 ): Promise<ConnectVmResult> {
   logConnection(
     `VM Service: connecting to ${vmUri.replace(/\/[^/]+\/?$/, '/…')}`,
@@ -61,6 +62,7 @@ export async function tryConnectVmInner(
       vmClient = new VmServiceClient({
         wsUri: vmUri,
         onClose: handleSocketClose,
+        onExtensionEvent,
       });
       await vmClient.connect();
       break;

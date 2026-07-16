@@ -88,6 +88,18 @@ export function registerDebugCommandsVm(
             );
           }
         },
+        // Phase 5: when the Dart server posts ext.saropa.drift.ServerStarted,
+        // trigger an immediate discovery scan so the extension reflects the
+        // new server without waiting for the next 30-60s poll cycle.
+        (event) => {
+          if (event.kind === 'ext.saropa.drift.ServerStarted') {
+            const port = typeof event.data.port === 'number' ? event.data.port : undefined;
+            logConnection(
+              `VM Service push: server started${port ? ` on port ${port}` : ''}`,
+            );
+            discovery.retry({ resetNotifyLatch: false });
+          }
+        },
       );
 
       if (!result.success) {

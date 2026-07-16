@@ -150,6 +150,7 @@ async function defaultFetchHealth(
   try {
     const resp = await fetchWithTimeout(`http://${host}:${port}/api/health`, {
       timeoutMs: HEALTH_PROBE_TIMEOUT_MS,
+      bypassCircuitBreaker: true,
     });
     if (!resp.ok) return undefined;
     const body: unknown = await resp.json();

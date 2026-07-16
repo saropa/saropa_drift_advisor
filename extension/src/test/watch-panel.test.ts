@@ -51,8 +51,11 @@ describe('WatchPanel', () => {
     assert.ok(html.includes('Watch Table'), 'should reference Watch Table action');
   });
 
-  it('should post update message on create', () => {
+  it('should post update message on create (after ready handshake)', () => {
     WatchPanel.createOrShow(fakeContext(), manager);
+    // The initial _postUpdate is queued until the webview script sends 'ready'
+    // (Phase 4 ready-handshake protocol).
+    latestPanel().webview.simulateMessage({ command: 'ready' });
     const messages = latestPanel().webview.postedMessages as any[];
     assert.ok(messages.length >= 1);
     assert.strictEqual(messages[0].command, 'update');

@@ -204,6 +204,10 @@ window.addEventListener('message', (event) => {
   }
 });
 
+// Signal the extension that the message listener is registered and queued
+// messages can be delivered (Phase 4 ready-handshake protocol).
+vscode.postMessage({ command: 'ready' });
+
 function renderConfigForm(schema, existingConfig, tables) {
   const fields = document.getElementById('configFields');
   fields.innerHTML = schema.map(field => {

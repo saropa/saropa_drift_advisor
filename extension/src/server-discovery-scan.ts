@@ -12,13 +12,19 @@
 
 import { fetchWithTimeout, HEALTH_PROBE_TIMEOUT_MS } from './transport/fetch-utils';
 
-/** Optional fetch init shared by discovery probes (e.g. Bearer token). */
+/**
+ * Optional fetch init shared by discovery probes (e.g. Bearer token).
+ * Sets `bypassCircuitBreaker` because discovery probes ARE the recovery
+ * mechanism — they must reach the network even when the breaker is open.
+ */
 function probeInit(authHeaders?: Record<string, string>): {
   timeoutMs: number;
+  bypassCircuitBreaker: true;
   headers?: Record<string, string>;
 } {
   return {
     timeoutMs: HEALTH_PROBE_TIMEOUT_MS,
+    bypassCircuitBreaker: true,
     ...(authHeaders ? { headers: authHeaders } : {}),
   };
 }

@@ -393,7 +393,7 @@ The five entries in **What Has NOT Been Fixed** are the work. The history above 
 - Replace polling-only discovery with a push signal from the server (e.g. the server announces its bound port/health over the VM Service extension the extension already connects to), so the "server running but extension doesn't know yet" window closes. Polling stays as the fallback for hosts where push is unavailable — additive, not a replacement.
 - **Gate:** with push active, the extension reflects a freshly-started server without waiting for the next 30–60s scan; with push disabled, behavior is identical to today's polling. Both paths covered by tests.
 
-**Progress (updated 2026-07-16).** Phases 1–2 are complete and verified (see Finish Reports below). Phases 3–5 remain. The print()-banner regression and the `adb forward` hint (top of this doc, [Unreleased]) are fixed and guard-tested; they are not part of the phases. The flap-suppression work (Finish Report 2026-06-22) is a tactical notification fix, also independent of these structural phases. The next structural step is Phase 3 (circuit breaker), which depends on the Phase 1 state machine already in place.
+**Progress (updated 2026-07-16).** All five structural phases are complete and verified (see Finish Reports below). Gap 6 (Schema Search browse bug) is moot — the Schema Search sidebar panel was removed in v2.17.1 and has no current surface. The print()-banner regression and the `adb forward` hint (top of this doc, [Unreleased]) are fixed and guard-tested; they are not part of the phases. The flap-suppression work (Finish Report 2026-06-22) is a tactical notification fix, also independent of these structural phases.
 
 ---
 
@@ -588,3 +588,129 @@ latch + throttle bypass). Plan stays active — this is a tactical notification
 fix, independent of the five structural phases (single state authority,
 lifecycle test, circuit breaker, unified webview handshake, server→extension
 push), which remain outstanding.
+
+## Finish Report (2026-07-16) — Implementation Plan Phase 3
+
+**Goal.** When the debug server is genuinely unreachable, prevent the extension's
+multiple subsystems (discovery, health probes, schema fetches, VM connect) from
+independently hammering the network with unbounded retries. Collapse all
+outbound HTTP to a single circuit breaker with a clear backoff.
+
+**Scope.** (B) VS Code extension (TypeScript). No Dart/Flutter app code changed.
+
+**Resolution.** A new `CircuitBreaker` class (`extension/src/transport/circuit-breaker.ts`)
+tracks consecutive transient failures against `FAILURE_THRESHOLD` (5). When the
+threshold trips, the breaker enters `open` state and rejects all requests via
+`CircuitBreakerOpenError` for `COOLDOWN_MS` (30s), then transitions to `half-open`
+to allow a single probe. Success closes the breaker; failure re-opens it.
+
+Integration points:
+
+1. **`fetchWithTimeout()`** (`extension/src/transport/fetch-utils.ts`) — the single
+   HTTP funnel (38+ call sites). A gate at the top rejects when the breaker is
+   open (unless `bypassCircuitBreaker: true` is set). Success/failure are recorded
+   after each attempt. A new `bypassCircuitBreaker` option on `FetchWithTimeoutInit`
+   lets callers opt out.
+
+2. **Discovery probes** (`server-discovery-scan.ts`, `host-discovery-manifest.ts`) —
+   set `bypassCircuitBreaker: true` because health probes ARE the recovery
+   mechanism and must always reach the network.
+
+3. **User-initiated retry** (`server-discovery-core.ts`) — `retry()` calls
+   `getGlobalCircuitBreaker()?.reset()` so a manual retry clears the breaker
+   immediately.
+
+4. **Activation** (`extension-activation-final.ts`) — creates the singleton
+   `CircuitBreaker`, installs it as the global via `setGlobalCircuitBreaker()`,
+   registers it as a disposable, and logs state transitions.
+
+**Tests.** `extension/src/test/circuit-breaker.test.ts` — 12 cases: stays closed
+below threshold; trips at threshold; rejects when open; half-open after cooldown;
+closes on successful probe; re-opens on failed probe; success resets counter;
+`reset()` force-closes; no-op event suppression; `CircuitBreakerOpenError` name;
+retry budget bounded over 5min window; recovery within one cooldown cycle.
+
+**Gate: PASSED.** `tsc -p ./` clean; all 12 circuit-breaker tests pass; the
+retry-budget test asserts total attempts stay bounded; recovery-resume test
+asserts the breaker re-closes within one cooldown cycle.
+
+## Finish Report (2026-07-16) — Implementation Plan Phase 4
+
+**Goal.** Eliminate the init race on Dashboard and Watch panels: `postMessage`
+calls fired immediately after setting `webview.html` are silently dropped
+because the webview script's `addEventListener('message', ...)` has not yet
+registered.
+
+**Scope.** (B) VS Code extension (TypeScript). No Dart/Flutter app code changed.
+Investigation (2026-07-16) narrowed the original "all 30+ panels" scope to just
+Dashboard and Watch — the only two panels that `postMessage` immediately after
+HTML render. All other panels use full HTML replacement (no messages to lose),
+or already have a working handshake (Time Travel), or have a trivial no-op
+handshake (DVR, Mutation Stream). Schema Search was removed in v2.17.1.
+
+**Resolution.** A new `WebviewReadyQueue` utility (`extension/src/webview-ready-queue.ts`)
+queues `postMessage` calls until the webview script sends `{ command: 'ready' }`.
+
+1. **Dashboard** (`dashboard-panel.ts`, `dashboard-scripts.ts`) — constructor
+   creates a `WebviewReadyQueue`; all 4 `postMessage` calls replaced with
+   `_queue.post()`; `_render()` calls `_queue.resetForNewHtml()` before setting
+   HTML; the script sends `{ command: 'ready' }` after registering its listener.
+
+2. **Watch** (`watch-panel.ts`, `watch-html.ts`) — same pattern; the initial
+   `_postUpdate()` and any subsequent updates go through the queue; the script
+   sends `{ command: 'ready' }` after its listener registration.
+
+**Tests.** `extension/src/test/webview-ready-queue.test.ts` — 7 cases: queues
+before ready; flushes in order on ready; immediate after ready; ignores
+duplicate ready; `resetForNewHtml` drops stale messages; reproduces the init
+race (the exact failure mode); ignores non-ready messages.
+
+`extension/src/test/watch-panel.test.ts` — existing "should post update message
+on create" test updated to simulate the `{ command: 'ready' }` handshake before
+asserting posted messages, verifying the queue integration.
+
+**Gate: PASSED.** `tsc -p ./` clean; all 7 queue contract tests pass; the
+watch-panel test passes with the handshake simulation.
+
+## Finish Report (2026-07-16) — Implementation Plan Phase 5
+
+**Goal.** Close the "server running but extension doesn't know yet" window by
+pushing a notification from the Dart server to the extension when the server
+starts, instead of relying solely on the 30–60s discovery poll cycle.
+
+**Scope.** (A) Dart package + (B) VS Code extension.
+
+**Resolution.** Leverages the existing VM Service infrastructure — no new
+protocols or transports.
+
+1. **Dart side** (`lib/src/drift_debug_server_io.dart`) — after the VM Service
+   bridge registration and startup banner, the server posts a
+   `developer.postEvent('ext.saropa.drift.ServerStarted', { port, version })`
+   event. This travels over the VM Service Extension stream that the extension
+   already connects to. The `postEvent` call is wrapped in a catch block that
+   logs via `ctx.logError` (the event is best-effort; failure to post does not
+   block server startup).
+
+2. **Extension VM client** (`transport/vm-service-client.ts`) — added a
+   `VmExtensionEvent` interface and an `onExtensionEvent` callback to the config.
+   After isolate resolution in `connect()`, the client sends
+   `streamListen({ streamId: 'Extension' })` (best-effort, caught). The
+   `_onMessage()` handler routes `streamNotify` messages with
+   `streamId === 'Extension'` to the callback, extracting `extensionKind` and
+   `extensionData`.
+
+3. **Connection wiring** (`debug-vm-connect.ts`, `debug-commands-vm.ts`) — the
+   `onExtensionEvent` callback is threaded through `tryConnectVmInner()` to the
+   `VmServiceClient` constructor. The callback in `debug-commands-vm.ts` checks
+   for `ext.saropa.drift.ServerStarted` and triggers
+   `discovery.retry({ resetNotifyLatch: false })` — an immediate discovery scan
+   that reflects the new server without any poll delay.
+
+**Tests.** `extension/src/test/vm-service-push.test.ts` — 6 cases: routes
+`ServerStarted` event to callback; ignores non-Extension stream; ignores
+missing `extensionKind`; returns null with no callback (push disabled); handles
+malformed JSON; handles missing `extensionData`.
+
+**Gate: PASSED.** `tsc -p ./` clean; all 6 push-discovery tests pass; Dart
+`dart analyze lib/src/drift_debug_server_io.dart` passes (lint warnings for the
+catch block resolved by using `ctx.logError`).

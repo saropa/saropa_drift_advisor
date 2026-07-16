@@ -152,6 +152,10 @@ export function getWatchHtml(): string {
     if (msg.command === 'update') renderWatches(msg.entries);
   });
 
+  // Signal the extension that the message listener is registered and queued
+  // messages can be delivered (Phase 4 ready-handshake protocol).
+  vscode.postMessage({ command: 'ready' });
+
   // Event delegation for all watch buttons
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-cmd]');

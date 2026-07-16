@@ -6,7 +6,17 @@
  * does not reliably cancel an in-flight `fetch()` (undici bug). A second-layer
  * `Promise.race` safety timeout fires shortly after the abort timer, guaranteeing
  * that `fetchWithTimeout` always settles even when the signal is ignored.
+ *
+ * **Circuit breaker (Phase 3).** When a global {@link CircuitBreaker} is installed
+ * via {@link setGlobalCircuitBreaker}, every call checks it before hitting the
+ * network. Open breaker → immediate {@link CircuitBreakerOpenError} (no I/O).
+ * Discovery probes set `bypassCircuitBreaker: true` so they can still run as
+ * the recovery mechanism. Success/failure of every request feeds the breaker.
  */
+import {
+  CircuitBreakerOpenError,
+  getGlobalCircuitBreaker,
+} from './circuit-breaker';
 
 /** Default timeout for API requests (ms). */
 export const DEFAULT_FETCH_TIMEOUT_MS = 8000;
@@ -32,10 +42,15 @@ const SAFETY_MARGIN_MS = 2000;
  * `/api/sql`, `/api/change-detection`) to opt back into retry. Leave it unset on
  * a mutating POST (import, session create/annotate) so a connection drop after
  * the server applied the write does not duplicate it. See audit M4.
+ *
+ * `bypassCircuitBreaker` lets discovery health probes through even when the
+ * global circuit breaker is open — they ARE the recovery mechanism and must
+ * still reach the network to detect that the server came back.
  */
 export type FetchWithTimeoutInit = RequestInit & {
   timeoutMs?: number;
   idempotent?: boolean;
+  bypassCircuitBreaker?: boolean;
 };
 
 /**
@@ -58,6 +73,14 @@ export async function fetchWithTimeout(
   url: string,
   init?: FetchWithTimeoutInit,
 ): Promise<Response> {
+  // Circuit breaker gate: reject immediately when the breaker is open, unless
+  // this is a discovery probe that must bypass to detect recovery.
+  const breaker = getGlobalCircuitBreaker();
+  const bypass = init?.bypassCircuitBreaker === true;
+  if (breaker && !bypass && !breaker.mayAttempt()) {
+    throw new CircuitBreakerOpenError();
+  }
+
   const ms = init?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
   const controller = new AbortController();
 
@@ -89,11 +112,21 @@ export async function fetchWithTimeout(
 
   try {
     // Strip our extra options before passing to native fetch
-    const { timeoutMs: _, signal: __, idempotent: ___, ...rest } = init ?? {};
-    return await Promise.race([
+    const { timeoutMs: _, signal: __, idempotent: ___, bypassCircuitBreaker: ____, ...rest } = init ?? {};
+    const resp = await Promise.race([
       fetch(url, { ...rest, signal: controller.signal }),
       safety,
     ]);
+    // Feed success back to the breaker so it can close after a half-open probe.
+    breaker?.recordSuccess();
+    return resp;
+  } catch (err) {
+    // Feed transient failures to the breaker (but not intentional aborts from
+    // the caller's own signal — those aren't server failures).
+    if (breaker && !init?.signal?.aborted && isTransientError(err)) {
+      breaker.recordFailure();
+    }
+    throw err;
   } finally {
     clearTimeout(abortTimer);
     if (safetyTimer !== undefined) clearTimeout(safetyTimer);

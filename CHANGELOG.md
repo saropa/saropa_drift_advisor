@@ -49,6 +49,18 @@ Other Saropa Suite tools can now pull a small daily digest from Drift Advisor fo
 ### Added
 
 - **Saropa Suite daily-summary API.** The extension's exports now implement the cross-tool Suite contract (`apiVersion: 1`, `getDailySummary(date)`) alongside the existing Log Capture snapshot. A sibling extension calls `getExtension('saropa.drift-viewer')?.exports.getDailySummary('YYYY-MM-DD')` and gets a one-sentence headline, named counts (queries, slow queries, anomalies, index suggestions), a failure-only Trouble list with deep-links, and an open-command — or `undefined` when no database is connected. It is a thin read-only projection of already-computed session data, built lazily on call so activation is unaffected; per-day history is not retained, so apiVersion 1 returns the live session view stamped with the requested date. Documented in `doc/EXTENSION_API.md` (`plans/history/2026.07/2026.07.16/PLAN_suite_daily_summary_api.md`).
+- **Ignore a Drift Advisor finding from a right-click, not just the lightbulb.** The Problems panel's row context menu is a fixed VS Code menu extensions cannot add to, so double-clicking a finding there only moved the cursor near it without exposing a way to suppress it. Right-clicking anywhere on or near a finding in the editor now shows "Ignore Finding for This Column" / "Ignore Finding in This File" (also in the Command Palette), which resolve the intended finding from the cursor's line — falling back to the nearest finding in the file, and prompting to choose when several sit on one line — before inserting the same `// drift-advisor:ignore` directive the lightbulb quick fix writes.
+
+<details><summary>Maintenance</summary>
+
+- **Connection reliability phases 3–5.** Three structural improvements to how the extension handles an unreachable or newly-started debug server (`plans/connection-reliability-ongoing.md`):
+  - **Global circuit breaker (Phase 3).** A `CircuitBreaker` gates all outbound HTTP through `fetchWithTimeout` — after 5 consecutive transient failures, requests are rejected immediately for 30s instead of every subsystem independently hammering the network. Discovery health probes bypass the breaker (they are the recovery mechanism). User-initiated retry resets the breaker.
+  - **Webview ready-handshake (Phase 4).** Dashboard and Watch panels now queue `postMessage` calls until the webview script signals `ready`, eliminating a race where the first data push was silently dropped because the script's listener had not yet registered.
+  - **Server→extension push discovery (Phase 5).** The Dart server posts a `developer.postEvent('ext.saropa.drift.ServerStarted')` over the VM Service Extension stream when it starts. The extension listens for it and triggers an immediate discovery scan, closing the 30–60s "server running but extension doesn't know yet" window. Polling remains as the fallback.
+- **Publish pipeline: Dependabot PR gate.** The pipeline now checks for open Dependabot PRs after fetching origin — blocks publish (with override prompt) if stale dependency PRs are waiting, so releases never ship on deps that Dependabot already flagged.
+- **Audit closure:** C2b phase 2 (nonce CSP for the browser-served SPA + data-grid webview) closed WONTFIX — defense-in-depth only on surfaces already protected by loopback default + fixed XSS sinks. The full codebase audit has no remaining open items. Deferred plan archived to `plans/history/`.
+
+</details>
 
 ---
 

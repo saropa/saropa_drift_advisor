@@ -9,6 +9,7 @@ import { ToolsQuickPickStatusBar, registerToolsQuickPickCommand } from './status
 import { registerAllCommands } from './extension-commands';
 import { refreshDriftConnectionUi as syncDriftConnectionUi } from './connection-ui-state';
 import { ConnectionStateMachine } from './connection-state';
+import { CircuitBreaker, setGlobalCircuitBreaker } from './transport/circuit-breaker';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 import { wireEventListeners } from './extension-activation-event-wiring';
 import { maybeShowCoverageNotice } from './l10n/coverage-notice';
@@ -80,6 +81,18 @@ export function setupFinalPhases(
   // databaseTreeEmpty. Every connection refresh below feeds it the four signals.
   const connectionStateMachine = new ConnectionStateMachine();
   d.context.subscriptions.push(connectionStateMachine);
+
+  // Global circuit breaker (Phase 3): collapses uncapped independent retries into
+  // a single backoff when the server is genuinely down. Installed as the singleton
+  // that fetchWithTimeout checks before every outbound request.
+  const circuitBreaker = new CircuitBreaker();
+  setGlobalCircuitBreaker(circuitBreaker);
+  d.context.subscriptions.push(circuitBreaker);
+  d.context.subscriptions.push(
+    circuitBreaker.onDidChange((state) => {
+      d.channel.appendLine(`[${ts()}] Circuit breaker → ${state}`);
+    }),
+  );
 
   // Connection UI refresh callback — needs providers and schemaCache.
   const connectionUiRefresh: { fn?: () => void } = {};

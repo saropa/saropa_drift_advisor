@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getWatchHtml } from './watch-html';
 import { WatchManager } from './watch-manager';
 import { secureWebviewHtml } from '../webview-csp';
+import { WebviewReadyQueue } from '../webview-ready-queue';
 
 /**
  * Singleton webview panel that displays all active data watches
@@ -12,6 +13,7 @@ export class WatchPanel {
 
   private readonly _panel: vscode.WebviewPanel;
   private readonly _manager: WatchManager;
+  private readonly _queue: WebviewReadyQueue;
   private _disposed = false;
   private _disposables: vscode.Disposable[] = [];
 
@@ -41,6 +43,7 @@ export class WatchPanel {
   ) {
     this._panel = panel;
     this._manager = manager;
+    this._queue = new WebviewReadyQueue(panel.webview);
 
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
@@ -58,7 +61,7 @@ export class WatchPanel {
     // Set initial HTML scaffold
     this._panel.webview.html = secureWebviewHtml(getWatchHtml());
 
-    // Send current state immediately
+    // Send current state — queued until the webview script signals 'ready'.
     this._postUpdate();
   }
 
@@ -91,7 +94,7 @@ export class WatchPanel {
       diff: e.diff,
     }));
 
-    this._panel.webview.postMessage({ command: 'update', entries });
+    this._queue.post({ command: 'update', entries });
 
     // Update tab title badge
     const unseen = this._manager.unseenChanges;
@@ -103,6 +106,7 @@ export class WatchPanel {
     if (this._disposed) return;
     this._disposed = true;
     WatchPanel.currentPanel = undefined;
+    this._queue.dispose();
     this._panel.dispose();
     for (const d of this._disposables) {
       d.dispose();

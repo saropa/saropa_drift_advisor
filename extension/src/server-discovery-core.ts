@@ -16,6 +16,7 @@ import { pollIntervalForState } from './server-discovery-state-machine';
 import { updateServersFromScan } from './server-discovery-state-updater';
 import { buildSnapshot, snapshotToUiState } from './server-discovery-snapshot';
 import { portsProbeLabel, scanOutcomeLine } from './server-discovery-ui-state';
+import { getGlobalCircuitBreaker } from './transport/circuit-breaker';
 import type { IServerInfo, IDiscoveryConfig, DiscoveryOpenUrlHook, DiscoveryState, DiscoveryUiState, IDiscoveryLog } from './server-discovery-ui-state';
 export type { IServerInfo, IDiscoveryConfig, DiscoveryOpenUrlHook, DiscoveryState, DiscoveryUiState, IDiscoveryLog } from './server-discovery-ui-state';
 export class ServerDiscovery {
@@ -165,6 +166,9 @@ export class ServerDiscovery {
     this.stop();
     this._state = 'searching';
     this._emptyScans = 0;
+    // User-initiated retry resets the circuit breaker so suppressed requests
+    // resume immediately instead of waiting for the cooldown to elapse.
+    getGlobalCircuitBreaker()?.reset();
     this.start(resetNotifyLatch);
   }
   dispose(): void {

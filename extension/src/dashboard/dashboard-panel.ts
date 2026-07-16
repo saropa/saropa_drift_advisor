@@ -15,6 +15,7 @@ import { findNextGridX, findNextGridY, generateId } from './panel/widget-layout'
 import { getDefaultWidgetConfig, WidgetDataFetcher } from './widget-data-fetcher';
 import { getWidgetDefinition, getWidgetTypeInfoList } from './widget-registry';
 import { secureWebviewHtml } from '../webview-csp';
+import { WebviewReadyQueue } from '../webview-ready-queue';
 
 /** Singleton webview panel for the custom dashboard builder. */
 export class DashboardPanel {
@@ -24,6 +25,7 @@ export class DashboardPanel {
   private readonly _client: DriftApiClient;
   private readonly _state: DashboardState;
   private readonly _fetcher: WidgetDataFetcher;
+  private readonly _queue: WebviewReadyQueue;
   private _layout: IDashboardLayout;
 
   /** Get the current panel instance if it exists. */
@@ -122,6 +124,7 @@ export class DashboardPanel {
     this._layout = layout;
     this._state = state;
     this._fetcher = new WidgetDataFetcher(client, healthScorer);
+    this._queue = new WebviewReadyQueue(panel.webview);
 
     this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
     this._panel.webview.onDidReceiveMessage(
@@ -153,6 +156,9 @@ export class DashboardPanel {
   }
 
   private async _render(): Promise<void> {
+    // Reset the queue so messages from the prior document are dropped and
+    // new ones queue until the fresh script sends 'ready'.
+    this._queue.resetForNewHtml();
     const widgetTypes = getWidgetTypeInfoList();
     const initialHtml = new Map<string, string>();
     this._panel.webview.html = secureWebviewHtml(buildDashboardHtml(this._layout, widgetTypes, initialHtml));
@@ -162,7 +168,7 @@ export class DashboardPanel {
     if (this._layout.widgets.length === 0) return;
 
     const updates = await this._fetcher.fetchAllAsArray(this._layout.widgets);
-    this._panel.webview.postMessage({ command: 'updateAll', updates });
+    this._queue.post({ command: 'updateAll', updates });
   }
 
   private async _refreshWidget(id: string): Promise<void> {
@@ -170,7 +176,7 @@ export class DashboardPanel {
     if (!widget) return;
 
     const result = await this._fetcher.fetchOne(widget);
-    this._panel.webview.postMessage({
+    this._queue.post({
       command: 'updateWidget',
       id: result.id,
       html: result.html,
@@ -211,7 +217,7 @@ export class DashboardPanel {
     if (!def) return;
 
     const tables = await this._fetcher.getTableNames();
-    this._panel.webview.postMessage({
+    this._queue.post({
       command: 'showConfigForm',
       schema: def.configSchema,
       existingConfig: existingConfig || getDefaultWidgetConfig(type),
@@ -221,7 +227,7 @@ export class DashboardPanel {
 
   private _saveAndNotify(): void {
     this._state.save(this._layout);
-    this._panel.webview.postMessage({
+    this._queue.post({
       command: 'layoutChanged',
       layout: this._layout,
     });
@@ -229,6 +235,7 @@ export class DashboardPanel {
 
   private _dispose(): void {
     DashboardPanel._currentPanel = undefined;
+    this._queue.dispose();
     this._panel.dispose();
     for (const d of this._disposables) {
       d.dispose();

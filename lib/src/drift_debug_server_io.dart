@@ -9,6 +9,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 // Use a relative import instead of `package:saropa_drift_advisor/...` because
@@ -23,6 +24,7 @@ import 'server/server_constants.dart';
 import 'server/server_context.dart';
 import 'server/server_types.dart';
 import 'server/mutation_tracker.dart';
+import 'server/table_activity_tracker.dart';
 import 'server/vm_service_bridge.dart';
 import 'query_recorder.dart';
 
@@ -287,6 +289,13 @@ class _DriftDebugServerImpl {
     late DriftDebugQuery readQueryForMutation;
     DriftDebugWriteQuery? wrappedWriteQuery;
 
+    // Assigned right after the ServerContext is constructed below (same
+    // deferred-capture pattern as readQueryForMutation): the write wrapper
+    // closure is built BEFORE the context exists but only runs afterward.
+    // Nullable rather than late so a write racing startup degrades to
+    // "record no activity" instead of a LateInitializationError.
+    ServerContext? activityCtx;
+
     queryRecorder = QueryRecorder();
 
     // Prefer [writeQueryWithBindings] when both are set so hosts can migrate
@@ -308,6 +317,11 @@ class _DriftDebugServerImpl {
         // Capture semantic mutation events around the existing writeQuery
         // behavior (best-effort row capture + ring-buffer storage).
         final startedAt = DateTime.now().toUtc();
+        // Feature 80: remember the mutation-event high-water mark so the
+        // activity feed below can read back the table name(s) the tracker
+        // inferred for THIS statement via eventsSince(), reusing its
+        // inference through public API instead of widening its return type.
+        final mutationIdBefore = tracker.latestId;
         final snapshots = await tracker.captureFromWriteQuery(
           originalWrite: originalWrite,
           readQuery: readQueryForMutation,
@@ -340,6 +354,29 @@ class _DriftDebugServerImpl {
           beforeState: snapshots?.beforeRows,
           afterState: snapshots?.afterRows,
         );
+
+        // Feature 80: record a heartbeat "write" per affected table.
+        // Preferred source: the mutation event(s) MutationTracker appended
+        // during captureFromWriteQuery (its table inference already ran).
+        // Concurrent writes could interleave events here — best-effort by
+        // design, same accepted weakness as the tracker's regex parsing.
+        // When no event was appended (SQL not recognized as tracked DML,
+        // e.g. the batch handler's BEGIN/COMMIT framing) fall back to the
+        // same best-effort extraction; unattributable SQL records nothing.
+        // Kill switch: monitoringEnabled false must record nothing anywhere.
+        final ctxForActivity = activityCtx;
+        if (ctxForActivity != null && ctxForActivity.monitoringEnabled) {
+          final newEvents = tracker.eventsSince(mutationIdBefore);
+          if (newEvents.isEmpty) {
+            for (final table in TableActivityTracker.extractTableNames(sql)) {
+              ctxForActivity.tableActivity.recordWrite(table);
+            }
+          } else {
+            for (final event in newEvents) {
+              ctxForActivity.tableActivity.recordWrite(event.table);
+            }
+          }
+        }
       };
     }
 
@@ -371,6 +408,9 @@ class _DriftDebugServerImpl {
     _logError = ctx.logError;
     // Held so [stop] can detach the kill-switch manifest hook (see field doc).
     _runningCtx = ctx;
+    // Late-bind the context into the write wrapper's activity feed (the
+    // closure was built before ctx existed — see the declaration comment).
+    activityCtx = ctx;
 
     // Restore any snapshots persisted by a previous run before serving, so the
     // list survives a server restart (Feature 72 Phase 4). No-op when no store
@@ -511,6 +551,24 @@ class _DriftDebugServerImpl {
         monitoringEnabled: ctx.monitoringEnabled,
         logError: ctx.logError,
       );
+
+      // Push-notify the VS Code extension (via the VM Service Extension
+      // stream) that the server is ready, so discovery does not have to wait
+      // for the next 30-60s poll cycle. The event carries the bound port so
+      // the extension can target it directly. Try/catch because postEvent
+      // is a best-effort signal — it must never block startup or fail on
+      // embedders that do not support the VM service.
+      // Phase 5 of plans/connection-reliability-ongoing.md (gap 5).
+      try {
+        developer.postEvent('ext.saropa.drift.ServerStarted', {
+          'port': boundPort,
+          'version': ServerConstants.packageVersion,
+        });
+      } on Object catch (e) {
+        // postEvent may throw on web stubs or restricted embedders — log but
+        // never block startup. The extension falls back to polling discovery.
+        ctx.logError(e, StackTrace.current);
+      }
 
       // Keep the manifest's `monitoring` field current across runtime
       // kill-switch flips (setMonitoringEnabled or POST /api/monitoring),
