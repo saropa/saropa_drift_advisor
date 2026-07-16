@@ -14,6 +14,7 @@ import { vt } from './l10n.ts';
 import { esc } from './utils.ts';
 import { applyImpulses, decayHeat } from './heartbeat-heat.ts';
 import { CardSparkline, createCardSparkline } from './heartbeat-sparkline.ts';
+import { openStatementFlyout } from './heartbeat-statements.ts';
 
 /** One table's activity row from GET /api/activity. */
 export interface TableActivity {
@@ -65,6 +66,13 @@ function buildCard(t: TableActivity): CardState {
     '<div class="hb-card-head">' +
     '<span class="hb-card-name" title="' + esc(t.table) + '">' + esc(t.table) + '</span>' +
     '<span class="hb-card-rows meta" data-hb="rows"></span>' +
+    // Statement tap: opens the flyout of last captured host statements for
+    // this table. Always rendered (the flyout's empty state explains when
+    // capture is off) so the affordance is discoverable, not conditional.
+    '<button type="button" class="hb-card-tap" data-hb="tap" title="' +
+    esc(vt('viewer.heartbeat.statements.button', t.table)) + '" aria-label="' +
+    esc(vt('viewer.heartbeat.statements.button', t.table)) + '">' +
+    '<span class="material-symbols-outlined" aria-hidden="true">receipt_long</span></button>' +
     '</div>' +
     '<div class="hb-card-stats">' +
     '<span class="hb-stat hb-stat--read" title="' + esc(vt('viewer.heartbeat.reads.tooltip')) + '">' +
@@ -90,6 +98,15 @@ function buildCard(t: TableActivity): CardState {
   // The enter animation class is dropped after it plays so re-sorting the grid
   // (which re-appends nodes) does not replay it on every reorder.
   el.addEventListener('animationend', function () { el.classList.remove('hb-card-enter'); });
+  const tapBtn = el.querySelector('[data-hb="tap"]');
+  if (tapBtn) {
+    tapBtn.addEventListener('click', function (e) {
+      // Stop propagation so the flyout's document-level outside-click
+      // dismisser does not immediately close what this click just opened.
+      e.stopPropagation();
+      openStatementFlyout(t.table, el);
+    });
+  }
   const sparkCanvas = el.querySelector('.hb-spark-canvas') as HTMLCanvasElement;
   return {
     el: el,

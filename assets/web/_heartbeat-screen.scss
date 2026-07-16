@@ -233,6 +233,122 @@
   padding: var(--space-6) var(--space-4);
 }
 
+/* --- Statement tap: card button + flyout ------------------------------------ */
+
+/* Quiet icon button in the card head; brightens on hover so idle cards stay
+   calm but the affordance is discoverable on approach. */
+.hb-card-tap {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+
+  .material-symbols-outlined {
+    font-size: 1.1rem;
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: var(--hb-read);
+  }
+}
+
+/* Fixed-position popover (position set inline from the anchor card's rect,
+   clamped to the viewport) so grid resorts/scrolls while open cannot strand
+   it inside a moved card. */
+.hb-stmt-flyout {
+  // The flyout is appended to <body>, OUTSIDE .heartbeat-screen — the channel
+  // tokens must be redeclared here or the reused .hb-dot--read/--write dots
+  // would resolve var(--hb-read/--hb-warm) to nothing and render invisible.
+  --hb-read: var(--link);
+  --hb-warm: var(--warning, #e67e22);
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.hb-stmt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.hb-stmt-title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hb-stmt-close {
+  flex: none;
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--fg);
+  }
+}
+
+.hb-stmt-body {
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-3);
+}
+
+.hb-stmt-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+
+  + .hb-stmt-row {
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+/* Truncated server-side to ~300 chars; wrap (not scroll) so a long statement
+   is readable in place — the flyout body scrolls vertically instead. */
+.hb-stmt-sql {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.hb-stmt-age {
+  flex: none;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.hb-stmt-empty {
+  margin: 0;
+  padding: var(--space-2) 0;
+}
+
 /* --- Host-capture toggle (phase 2) ----------------------------------------- */
 
 /* One compact row under the monitor: checkbox + label, then the pulsing
@@ -247,10 +363,19 @@
 .hb-capture-toggle {
   display: inline-flex;
   align-items: center;
+  // Narrow viewports: let the live badge wrap under the label instead of
+  // forcing the row wide (the caption below already wraps as normal text).
+  flex-wrap: wrap;
   gap: var(--space-2);
   align-self: flex-start;
   font-size: var(--text-sm);
   cursor: pointer;
+}
+
+// Readability measure for the wiring-honesty caption: unwrapped it spans the
+// full grid width on desktop, which reads as a wall of text.
+.hb-capture-note {
+  max-width: 64ch;
 }
 
 .hb-capture-toggle input:disabled {

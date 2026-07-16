@@ -7,6 +7,7 @@
 
 import 'dart:collection';
 
+import 'host_statement_capture.dart';
 import 'server_constants.dart';
 import 'table_name_extractor.dart';
 
@@ -70,7 +71,19 @@ final class TableActivityTracker {
   /// per-query hook hot. [nowMs] is an injectable clock (defaults to wall
   /// clock) so the lease-expiry test can advance time instead of sleeping
   /// out the real 5 s window.
-  TableActivityTracker({int Function()? nowMs}) : _nowMs = nowMs ?? _wallNowMs;
+  // ignore: avoid_non_empty_constructor_bodies -- the capture module is fed this tracker's own recordRead/recordWrite (instance methods, i.e. `this`), which an initializer list cannot reference; the body is the only place this wiring can live
+  TableActivityTracker({int Function()? nowMs}) {
+    // The capture state machine (arm/lease/classification/statement rings)
+    // lives in host_statement_capture.dart to keep this file near the
+    // ~300-line guideline; it feeds back through recordRead/recordWrite so
+    // captured host statements bump the same generation, event ring, and
+    // aggregates as advisor traffic.
+    _capture = HostStatementCapture(
+      nowMs: nowMs ?? _wallNowMs,
+      recordRead: recordRead,
+      recordWrite: recordWrite,
+    );
+  }
 
   static int _wallNowMs() => DateTime.now().millisecondsSinceEpoch;
 
@@ -78,106 +91,50 @@ final class TableActivityTracker {
   /// several polls under burst traffic and still see every pulse.
   static const int maxRecentEvents = 200;
 
-  final int Function() _nowMs;
+  late final HostStatementCapture _capture;
 
   /// Kill-switch probe, wired by ServerContext to `() => monitoringEnabled`.
-  /// A late-bound getter (not a captured bool) because the kill switch flips
-  /// at runtime; null (standalone tracker, e.g. unit tests) means enabled.
-  bool Function()? monitoringEnabledProbe;
-
-  bool _captureArmed = false;
-
-  /// Millisecond timestamp of the last arm/renewal; meaningless while
-  /// disarmed. Compared (never scheduled) — the lease needs no timer.
-  int _captureLeaseRenewedAtMs = 0;
+  /// Forwarded to the capture state machine (which owns every use of it).
+  bool Function()? get monitoringEnabledProbe =>
+      _capture.monitoringEnabledProbe;
+  set monitoringEnabledProbe(bool Function()? probe) =>
+      _capture.monitoringEnabledProbe = probe;
 
   /// Whether host-statement capture is armed (and [recordHostStatement]
   /// therefore does real work). Surfaced in [toJson] as `captureArmed`.
-  bool get captureArmed => _captureArmed;
+  bool get captureArmed => _capture.armed;
 
-  /// Arms host-statement capture and starts the lease window.
-  ///
-  /// Kill-switch precedence: refuses to arm while monitoring is disabled —
-  /// the kill switch guarantees ZERO capture, so arming must not create a
-  /// hook that goes hot the moment monitoring is re-enabled.
-  void armCapture() {
-    if (!(monitoringEnabledProbe?.call() ?? true)) {
-      return;
-    }
-    _captureArmed = true;
-    _captureLeaseRenewedAtMs = _nowMs();
-  }
+  /// Arms host-statement capture and starts the lease window. Refused while
+  /// monitoring is disabled (kill-switch precedence).
+  void armCapture() => _capture.arm();
 
   /// Disarms host-statement capture immediately.
-  void disarmCapture() {
-    _captureArmed = false;
-  }
+  void disarmCapture() => _capture.disarm();
 
   /// Renews the capture lease. Called by the GET /api/activity handler on
   /// every poll while armed — the poll IS the proof a heartbeat screen is
   /// alive and watching. No-op while disarmed (a poll never arms).
-  void renewCaptureLease() {
-    if (_captureArmed) {
-      _captureLeaseRenewedAtMs = _nowMs();
-    }
-  }
-
-  /// Statement head word, used to classify a host statement. Leading
-  /// whitespace is tolerated; a comment-prefixed statement fails the match
-  /// and records nothing (accepted — drift emits bare statements, and
-  /// "record nothing when unsure" is the feature's failure mode).
-  static final RegExp _statementHead = RegExp(r'^\s*([A-Za-z]+)');
+  void renewCaptureLease() => _capture.renewLease();
 
   /// Records a host-app statement reported via `reportActivity` (Feature 80,
   /// phase 2). SELECT/WITH → reads, INSERT/UPDATE/DELETE/REPLACE → writes,
   /// anything else (DDL, PRAGMA, BEGIN/COMMIT framing) records nothing —
-  /// schema churn and transaction framing are not table traffic.
+  /// schema churn and transaction framing are not table traffic. Leading SQL
+  /// comments are skipped before classification; recorded statements also
+  /// land in the per-table statement-tap rings ([hostStatementsFor]).
   void recordHostStatement(String sql) {
     // Cheap bail FIRST: while disarmed this method costs one field read and
     // a branch — no parsing, no allocation. The host wires this into a
     // per-query hook, so the disarmed path is the permanent hot path.
-    if (!_captureArmed) {
+    if (!_capture.armed) {
       return;
     }
-
-    // Kill-switch precedence: monitoring disabled force-disarms and records
-    // nothing. Checked inside the armed branch (not before the bail) so the
-    // disarmed path stays one-branch cheap.
-    if (!(monitoringEnabledProbe?.call() ?? true)) {
-      _captureArmed = false;
-      return;
-    }
-
-    // Lease compare: no poll within the window means no live heartbeat
-    // screen, so a killed tab / dropped adb forward / crashed webview can
-    // never leave this hook hot. Self-disarm keeps every later call on the
-    // cheap bail until an explicit re-arm.
-    if (_nowMs() - _captureLeaseRenewedAtMs >
-        ServerConstants.activityCaptureLeaseMs) {
-      _captureArmed = false;
-      return;
-    }
-
-    final head = _statementHead.firstMatch(sql)?.group(1)?.toLowerCase();
-    if (head == null) {
-      return;
-    }
-    final isRead = head == 'select' || head == 'with';
-    final isWrite =
-        head == 'insert' ||
-        head == 'update' ||
-        head == 'delete' ||
-        head == 'replace';
-    if (!isRead && !isWrite) {
-      return;
-    }
-
-    // Route through recordRead/recordWrite so generation bumps, the event
-    // ring, and aggregates behave identically to advisor-driven traffic.
-    for (final table in TableNameExtractor.extractTableNames(sql)) {
-      isRead ? recordRead(table) : recordWrite(table);
-    }
+    _capture.recordStatement(sql);
   }
+
+  /// Captured host statements for [table], newest first ("statement tap").
+  List<HostStatement> hostStatementsFor(String table) =>
+      _capture.statementsFor(table);
 
   final Map<String, _TableActivityCounters> _tables =
       <String, _TableActivityCounters>{};
@@ -265,7 +222,7 @@ final class TableActivityTracker {
       // Additive phase 2 field: lets the heartbeat screen keep its capture
       // toggle synced to the server truth on every poll (a lease can expire,
       // or another viewer can disarm, while the local toggle still shows on).
-      ServerConstants.jsonKeyCaptureArmed: _captureArmed,
+      ServerConstants.jsonKeyCaptureArmed: _capture.armed,
       ServerConstants.jsonKeyTables: <Map<String, dynamic>>[
         for (final name in names) _tableJson(name, rowCounts),
       ],

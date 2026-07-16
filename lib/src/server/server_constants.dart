@@ -206,6 +206,30 @@ abstract final class ServerConstants {
   /// leave the per-query interceptor hot. Timestamp compare only — no timer.
   static const int activityCaptureLeaseMs = 5000;
 
+  /// GET the last captured host statements for one table ("statement tap"):
+  /// `?table=<name>` → newest-first ring of truncated SQL + kind + timestamp.
+  /// Pure in-memory read, dispatched after the global kill-switch gate.
+  static const String pathApiActivityStatements = '/api/activity/statements';
+  static const String pathApiActivityStatementsAlt = 'api/activity/statements';
+
+  /// Per-table "statement tap" ring cap. Small on purpose: the flyout is a
+  /// glanceable "what just ran here", not a DVR — the DVR and mutation
+  /// stream already keep full-fidelity history when that is needed.
+  static const int maxHostStatementsPerTable = 10;
+
+  /// Stored-SQL truncation for statement-tap ring entries. Bounds memory to
+  /// tables × ring cap × this many chars even when the host runs giant
+  /// generated queries; a truncated entry ends with an ellipsis.
+  static const int maxHostStatementSqlChars = 300;
+
+  /// Per-second cap on captured host statements while armed. Protects the
+  /// HOST app's CPU when a write burst hits an armed capture: past the cap,
+  /// statements are dropped before any parsing or table extraction (one
+  /// subtraction + compare each). Capture is a live visualization, not an
+  /// audit — losing events past ~200/s is the accepted trade, and the
+  /// heartbeat board is visually saturated far below this rate anyway.
+  static const int maxHostStatementsPerSecond = 200;
+
   /// GET/POST toggle for the global monitoring & logging kill switch.
   /// Must stay reachable while monitoring is disabled — it is the only
   /// HTTP path back to a live server (the resume action), so the 403
@@ -278,6 +302,10 @@ abstract final class ServerConstants {
   /// table names (defaults to all), `maxRows` caps embedded rows per table, and
   /// `schema`/`anomalies` set to [valueFalse] omit those sections.
   static const String queryParamTables = 'tables';
+
+  /// Single-table selector for the statement-tap endpoint
+  /// (`GET /api/activity/statements?table=<name>`).
+  static const String queryParamTable = 'table';
   static const String queryParamMaxRows = 'maxRows';
   static const String queryParamSchema = 'schema';
   static const String queryParamAnomalies = 'anomalies';

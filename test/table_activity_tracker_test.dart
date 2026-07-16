@@ -681,6 +681,78 @@ void main() {
       // start() or after stop() — it must never throw.
       DriftDebugServer.reportActivity('SELECT * FROM items');
     });
+
+    test('statement tap endpoint: ring shape, 400 without ?table', () async {
+      await startServer();
+
+      await httpPost(
+        port!,
+        '/api/activity/capture',
+        json: <String, dynamic>{ServerConstants.jsonKeyEnabled: true},
+      );
+      DriftDebugServer.reportActivity('SELECT * FROM items');
+      DriftDebugServer.reportActivity("INSERT INTO items (id) VALUES (1)");
+
+      final r = await httpGet(port!, '/api/activity/statements?table=items');
+      expect(r.status, HttpStatus.ok);
+      final body = r.body as Map<String, dynamic>;
+      expect(body[ServerConstants.jsonKeyTable], 'items');
+      expect(body[ServerConstants.jsonKeyCaptureArmed], isTrue);
+      final statements =
+          body[ServerConstants.jsonKeyStatements] as List<dynamic>;
+      expect(statements, hasLength(2));
+      // Newest first: the INSERT on top.
+      final top = statements.firstOrNull as Map<String, dynamic>?;
+      expect(top?[ServerConstants.jsonKeySql], contains('INSERT'));
+      expect(top?[ServerConstants.jsonKeyKind], 'write');
+      expect(top?[ServerConstants.jsonKeyAt], isA<String>());
+
+      // A table with no captured statements: empty list, still 200.
+      final none = await httpGet(port!, '/api/activity/statements?table=zz');
+      expect(
+        (none.body as Map<String, dynamic>)[ServerConstants.jsonKeyStatements],
+        isEmpty,
+      );
+
+      // Missing selector is a 400 (which table's ring?).
+      final bad = await httpGet(port!, '/api/activity/statements');
+      expect(bad.status, HttpStatus.badRequest);
+    });
+
+    test('multi-viewer: any poll sees shared capture state; one disarm '
+        'disarms for all', () async {
+      await startServer();
+
+      await httpPost(
+        port!,
+        '/api/activity/capture',
+        json: <String, dynamic>{ServerConstants.jsonKeyEnabled: true},
+      );
+
+      // Two independent polls (viewer A and viewer B) both see armed — the
+      // flag is server-global by design, and each poll renews the lease.
+      for (var viewer = 0; viewer < 2; viewer++) {
+        final poll = await httpGet(port!, '/api/activity');
+        expect(
+          (poll.body
+              as Map<String, dynamic>)[ServerConstants.jsonKeyCaptureArmed],
+          isTrue,
+        );
+      }
+
+      // Viewer B disarms; viewer A's next poll shows disarmed.
+      await httpPost(
+        port!,
+        '/api/activity/capture',
+        json: <String, dynamic>{ServerConstants.jsonKeyEnabled: false},
+      );
+      final after = await httpGet(port!, '/api/activity');
+      expect(
+        (after.body
+            as Map<String, dynamic>)[ServerConstants.jsonKeyCaptureArmed],
+        isFalse,
+      );
+    });
   });
 
   group('host-statement capture (phase 2, tracker unit)', () {
@@ -799,6 +871,117 @@ void main() {
       tracker.recordHostStatement('SELECT * FROM items');
       expect(tracker.captureArmed, isFalse);
       expect(tracker.activityGeneration, 0);
+    });
+
+    test('leading SQL comments are skipped before classification', () {
+      final tracker = TableActivityTracker();
+      tracker.armCapture();
+
+      // Line comment, block comment, and stacked comments before the head
+      // word — hand-written queries and some ORMs tag statements this way;
+      // without the skip they would silently record nothing.
+      tracker.recordHostStatement('-- app tag\nSELECT * FROM items');
+      tracker.recordHostStatement('/* trace 42 */ UPDATE users SET n = 1');
+      tracker.recordHostStatement(
+        '  /* a */ -- b\n  /* c */ SELECT * FROM orders',
+      );
+
+      expect(
+        {for (final e in tracker.eventsSince(0)) '${e.table}:${e.kind.name}'},
+        {'items:read', 'users:write', 'orders:read'},
+      );
+
+      // Comment-only / unterminated-comment input still records nothing.
+      tracker.recordHostStatement('-- nothing here');
+      tracker.recordHostStatement('/* never closed SELECT * FROM fake');
+      expect(tracker.activityGeneration, 3);
+    });
+
+    test('per-second rate cap drops burst overflow, resumes next second', () {
+      var now = 0;
+      final tracker = TableActivityTracker(nowMs: () => now);
+      tracker.armCapture();
+
+      // Saturate the current second past the cap.
+      final overCap = ServerConstants.maxHostStatementsPerSecond + 25;
+      for (var i = 0; i < overCap; i++) {
+        tracker.recordHostStatement('SELECT * FROM items');
+      }
+      expect(
+        tracker.activityGeneration,
+        ServerConstants.maxHostStatementsPerSecond,
+      );
+
+      // Next second: the window resets and recording resumes.
+      now += 1000;
+      tracker.recordHostStatement('SELECT * FROM items');
+      expect(
+        tracker.activityGeneration,
+        ServerConstants.maxHostStatementsPerSecond + 1,
+      );
+    });
+  });
+
+  group('statement tap (per-table host-statement rings)', () {
+    test(
+      'records newest first, only while armed, JOIN lands in both rings',
+      () {
+        final tracker = TableActivityTracker();
+
+        // Disarmed: nothing is ringed.
+        tracker.recordHostStatement('SELECT * FROM items');
+        expect(tracker.hostStatementsFor('items'), isEmpty);
+
+        tracker.armCapture();
+        tracker.recordHostStatement('SELECT * FROM items');
+        tracker.recordHostStatement('INSERT INTO items (id) VALUES (1)');
+        // A JOIN answers "what ran against THIS table" for BOTH tables, so it
+        // appears in each ring by design.
+        tracker.recordHostStatement(
+          'SELECT * FROM items JOIN users ON users.id = items.uid',
+        );
+
+        final items = tracker.hostStatementsFor('items');
+        expect(items, hasLength(3));
+        // Newest first: the JOIN is on top.
+        expect(items.firstOrNull?.sql, contains('JOIN users'));
+        expect(items.firstOrNull?.kind, 'read');
+        expect(items.lastOrNull?.sql, 'SELECT * FROM items');
+        expect([for (final s in items) s.kind], ['read', 'write', 'read']);
+
+        final users = tracker.hostStatementsFor('users');
+        expect(users, hasLength(1));
+        expect(users.firstOrNull?.sql, contains('JOIN users'));
+
+        // Unknown table: empty, never null/throw.
+        expect(tracker.hostStatementsFor('nope'), isEmpty);
+      },
+    );
+
+    test('ring is bounded per table and long SQL is truncated', () {
+      final tracker = TableActivityTracker();
+      tracker.armCapture();
+
+      final overflow = ServerConstants.maxHostStatementsPerTable + 5;
+      for (var i = 0; i < overflow; i++) {
+        tracker.recordHostStatement('SELECT $i FROM items');
+      }
+      final ring = tracker.hostStatementsFor('items');
+      expect(ring, hasLength(ServerConstants.maxHostStatementsPerTable));
+      // Newest first; the oldest 5 were evicted.
+      expect(ring.firstOrNull?.sql, 'SELECT ${overflow - 1} FROM items');
+
+      // Truncation: stored SQL is capped and marked with an ellipsis.
+      final longSql =
+          'SELECT * FROM items WHERE note = '
+          "'${'x' * ServerConstants.maxHostStatementSqlChars}'";
+      tracker.recordHostStatement(longSql);
+      final stored = tracker.hostStatementsFor('items').firstOrNull;
+      expect(
+        stored?.sql.length,
+        ServerConstants.maxHostStatementSqlChars + 1, // +1 for the ellipsis
+      );
+      expect(stored?.sql.endsWith('…'), isTrue);
     });
   });
 }

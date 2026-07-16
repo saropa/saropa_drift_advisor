@@ -65,4 +65,20 @@ export const stringsWebHeartbeat: Record<string, string> = {
     'Capture is unavailable while server monitoring is disabled.',
   // The toggle POST failed (network/server error) — state snapped back.
   'viewer.heartbeat.capture.error': 'Could not change capture — try again.',
+  // ---- Statement tap: per-card flyout of last captured host statements ----
+  // {0} is the table name — the affordance names the exact item it inspects.
+  'viewer.heartbeat.statements.button': 'Show recent captured statements for {0}',
+  'viewer.heartbeat.statements.title': 'Recent statements — {0}',
+  'viewer.heartbeat.statements.close': 'Close recent statements',
+  'viewer.heartbeat.statements.fetching': 'Fetching statements…',
+  // Armed but nothing captured for this table yet.
+  'viewer.heartbeat.statements.empty': 'No statements captured for this table yet.',
+  // Capture is off — tell the user the action that fills this list.
+  'viewer.heartbeat.statements.disarmed':
+    'Turn on "Capture live app traffic" to record the app’s statements here.',
+  'viewer.heartbeat.statements.error': 'Could not fetch statements — try again.',
+  'viewer.heartbeat.statements.justNow': 'just now',
+  // {0} = whole seconds / minutes since the statement ran.
+  'viewer.heartbeat.statements.secondsAgo': '{0}s ago',
+  'viewer.heartbeat.statements.minutesAgo': '{0}m ago',
 };

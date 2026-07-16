@@ -23,6 +23,7 @@ import {
   captureSetUnsupported,
   captureSyncFromPoll,
   initHeartbeatCapture,
+  isCaptureArmed,
 } from './heartbeat-capture.ts';
 
 /** Steady poll cadence while events are arriving. */
@@ -128,8 +129,11 @@ function pollOnce(): void {
       updateVital();
       // Adaptive cadence: any event snaps back to the steady 750 ms; proven
       // silence decays stepwise toward the ceiling (pure schedule, unit-tested
-      // in heartbeat-heat.test.mjs).
-      emptyPolls = events.length > 0 ? 0 : emptyPolls + 1;
+      // in heartbeat-heat.test.mjs). While capture is ARMED the cadence never
+      // decays: each poll renews the server's ~5 s capture lease, and at the
+      // 2.5 s idle ceiling only one missed poll of headroom would remain —
+      // an armed capture is active observation, not an idle screen.
+      emptyPolls = events.length > 0 || isCaptureArmed() ? 0 : emptyPolls + 1;
       schedulePoll(nextPollDelay(emptyPolls, POLL_MS, POLL_IDLE_CEILING_MS));
     })
     .catch(function () {

@@ -1017,10 +1017,21 @@ mixin DriftDebugServer {
   /// and a ~5 s poll-renewed lease disarms it the moment no screen is
   /// watching) this is a couple of field reads and a branch, with no
   /// parsing or allocation. While armed, SELECT/WITH statements record
-  /// per-table reads and INSERT/UPDATE/DELETE/REPLACE record writes;
-  /// everything else (DDL, PRAGMA, transaction framing) records nothing.
-  /// Not wiring it at all is fine — the screen then shows phase 1 signals
-  /// only (advisor traffic + detected row-count changes).
+  /// per-table reads and INSERT/UPDATE/DELETE/REPLACE record writes
+  /// (leading SQL comments are skipped before classification); everything
+  /// else (DDL, PRAGMA, transaction framing) records nothing, and a
+  /// per-second cap drops burst overflow before any parsing. Recorded
+  /// statements also feed the per-table "statement tap" rings
+  /// (GET /api/activity/statements).
+  ///
+  /// Pass RAW SQL (e.g. `statement.sql` from a QueryInterceptor), not a
+  /// formatted log line — text like `"Executed SELECT …"` has no SQL head
+  /// word and records nothing. Call from the SAME isolate the server runs
+  /// in: isolates do not share memory, so a call from another isolate
+  /// reaches a different (never-armed) copy of the capture state and is a
+  /// silent no-op. Not wiring the hook at all is fine — the screen then
+  /// shows phase 1 signals only (advisor traffic + detected row-count
+  /// changes).
   static void reportActivity(String sql) => _instance.reportActivity(sql);
 
   /// Stops the server and releases the port. No-op if not running.

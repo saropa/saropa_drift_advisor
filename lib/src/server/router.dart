@@ -426,6 +426,41 @@ final class Router {
       return true;
     }
 
+    // GET /api/activity/statements?table=X — the "statement tap" ring: the
+    // last captured host statements for one table, newest first. Pure
+    // in-memory read (no DB query), same self-exclusion guarantee as the
+    // main activity endpoint.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiActivityStatements ||
+            path == ServerConstants.pathApiActivityStatementsAlt)) {
+      final table =
+          request.uri.queryParameters[ServerConstants.queryParamTable];
+      if (table == null || table.isEmpty) {
+        response.statusCode = HttpStatus.badRequest;
+        _ctx.setJsonHeaders(response);
+        response.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError:
+                'Expected ?${ServerConstants.queryParamTable}=<name>',
+          }),
+        );
+        await response.close();
+
+        return true;
+      }
+
+      await _ctx.writeJsonResponse(response, <String, dynamic>{
+        ServerConstants.jsonKeyTable: table,
+        ServerConstants.jsonKeyCaptureArmed: _ctx.tableActivity.captureArmed,
+        ServerConstants.jsonKeyStatements: <Map<String, dynamic>>[
+          for (final s in _ctx.tableActivity.hostStatementsFor(table))
+            s.toJson(),
+        ],
+      });
+
+      return true;
+    }
+
     return false;
   }
 

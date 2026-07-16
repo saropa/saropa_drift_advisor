@@ -1614,7 +1614,22 @@
     // Kill switch: arming refused while server monitoring is disabled.
     "viewer.heartbeat.capture.unavailable": "Capture is unavailable while server monitoring is disabled.",
     // The toggle POST failed (network/server error) — state snapped back.
-    "viewer.heartbeat.capture.error": "Could not change capture \u2014 try again."
+    "viewer.heartbeat.capture.error": "Could not change capture \u2014 try again.",
+    // ---- Statement tap: per-card flyout of last captured host statements ----
+    // {0} is the table name — the affordance names the exact item it inspects.
+    "viewer.heartbeat.statements.button": "Show recent captured statements for {0}",
+    "viewer.heartbeat.statements.title": "Recent statements \u2014 {0}",
+    "viewer.heartbeat.statements.close": "Close recent statements",
+    "viewer.heartbeat.statements.fetching": "Fetching statements\u2026",
+    // Armed but nothing captured for this table yet.
+    "viewer.heartbeat.statements.empty": "No statements captured for this table yet.",
+    // Capture is off — tell the user the action that fills this list.
+    "viewer.heartbeat.statements.disarmed": 'Turn on "Capture live app traffic" to record the app\u2019s statements here.',
+    "viewer.heartbeat.statements.error": "Could not fetch statements \u2014 try again.",
+    "viewer.heartbeat.statements.justNow": "just now",
+    // {0} = whole seconds / minutes since the statement ran.
+    "viewer.heartbeat.statements.secondsAgo": "{0}s ago",
+    "viewer.heartbeat.statements.minutesAgo": "{0}m ago"
   };
 
   // assets/web/l10n.ts
@@ -35524,6 +35539,94 @@ ${JSON.stringify(results, void 0, 2)}`);
     };
   }
 
+  // assets/web/heartbeat-statements.ts
+  var flyout = null;
+  var openFor = null;
+  function relativeAge(iso) {
+    const ms = Date.parse(iso);
+    if (isNaN(ms)) return "";
+    const s = Math.max(0, Math.round((Date.now() - ms) / 1e3));
+    if (s < 2) return vt("viewer.heartbeat.statements.justNow");
+    if (s < 60) return vt("viewer.heartbeat.statements.secondsAgo", s);
+    return vt("viewer.heartbeat.statements.minutesAgo", Math.round(s / 60));
+  }
+  function buildFlyout() {
+    const el = document.createElement("div");
+    el.id = "hb-stmt-flyout";
+    el.className = "hb-stmt-flyout";
+    el.setAttribute("role", "dialog");
+    el.hidden = true;
+    el.innerHTML = '<div class="hb-stmt-head"><span class="hb-stmt-title" id="hb-stmt-title"></span><button type="button" class="hb-stmt-close" id="hb-stmt-close" aria-label="' + esc2(vt("viewer.heartbeat.statements.close")) + '"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div><div class="hb-stmt-body" id="hb-stmt-body"></div>';
+    document.body.appendChild(el);
+    const close = el.querySelector("#hb-stmt-close");
+    if (close) close.addEventListener("click", closeStatementFlyout);
+    document.addEventListener("click", function(e) {
+      if (!openFor || !flyout) return;
+      const t = e.target;
+      if (!flyout.contains(t)) closeStatementFlyout();
+    }, true);
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape") closeStatementFlyout();
+    });
+    document.addEventListener("sda-tab-switch", closeStatementFlyout);
+    return el;
+  }
+  function closeStatementFlyout() {
+    openFor = null;
+    if (flyout) flyout.hidden = true;
+  }
+  function place(anchor) {
+    if (!flyout) return;
+    const r = anchor.getBoundingClientRect();
+    const w = Math.min(420, window.innerWidth - 16);
+    flyout.style.width = w + "px";
+    flyout.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + "px";
+    const h = Math.min(320, window.innerHeight * 0.6);
+    flyout.style.maxHeight = h + "px";
+    const below = r.bottom + 6;
+    flyout.style.top = (below + h <= window.innerHeight ? below : Math.max(8, r.top - h - 6)) + "px";
+  }
+  function renderList2(statements, armed) {
+    const body = flyout && flyout.querySelector("#hb-stmt-body");
+    if (!body) return;
+    if (!statements.length) {
+      body.innerHTML = '<p class="meta hb-stmt-empty">' + esc2(vt(armed ? "viewer.heartbeat.statements.empty" : "viewer.heartbeat.statements.disarmed")) + "</p>";
+      return;
+    }
+    body.innerHTML = statements.map(function(s) {
+      const kindClass = s.kind === "write" ? "hb-dot--write" : "hb-dot--read";
+      return '<div class="hb-stmt-row"><span class="hb-dot ' + kindClass + '" aria-hidden="true"></span><code class="hb-stmt-sql">' + esc2(s.sql) + '</code><span class="hb-stmt-age meta">' + esc2(relativeAge(s.at)) + "</span></div>";
+    }).join("");
+  }
+  function openStatementFlyout(table, anchor) {
+    if (!flyout) flyout = buildFlyout();
+    if (openFor === table && !flyout.hidden) {
+      closeStatementFlyout();
+      return;
+    }
+    openFor = table;
+    const title = flyout.querySelector("#hb-stmt-title");
+    if (title) title.textContent = vt("viewer.heartbeat.statements.title", table);
+    const body = flyout.querySelector("#hb-stmt-body");
+    if (body) body.innerHTML = '<p class="meta hb-stmt-empty">' + esc2(vt("viewer.heartbeat.statements.fetching")) + "</p>";
+    flyout.hidden = false;
+    place(anchor);
+    fetch("/api/activity/statements?table=" + encodeURIComponent(table), authOpts()).then(function(r) {
+      return r.json().then(function(d) {
+        return { ok: r.ok, data: d };
+      });
+    }).then(function(res) {
+      if (openFor !== table) return;
+      if (!res.ok) throw new Error("statements HTTP error");
+      const list = Array.isArray(res.data && res.data.statements) ? res.data.statements : [];
+      renderList2(list, !!(res.data && res.data.captureArmed));
+    }).catch(function() {
+      if (openFor !== table) return;
+      const b = flyout && flyout.querySelector("#hb-stmt-body");
+      if (b) b.innerHTML = '<p class="meta hb-stmt-empty">' + esc2(vt("viewer.heartbeat.statements.error")) + "</p>";
+    });
+  }
+
   // assets/web/heartbeat-cards.ts
   var cards = /* @__PURE__ */ new Map();
   function byId(id2) {
@@ -35544,10 +35647,17 @@ ${JSON.stringify(results, void 0, 2)}`);
   function buildCard(t) {
     const el = document.createElement("div");
     el.className = "hb-card hb-card-enter";
-    el.innerHTML = '<div class="hb-card-head"><span class="hb-card-name" title="' + esc2(t.table) + '">' + esc2(t.table) + '</span><span class="hb-card-rows meta" data-hb="rows"></span></div><div class="hb-card-stats"><span class="hb-stat hb-stat--read" title="' + esc2(vt("viewer.heartbeat.reads.tooltip")) + '"><span class="hb-dot hb-dot--read" aria-hidden="true"></span><span class="hb-stat-val" data-hb="reads">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.reads")) + '</span></span><span class="hb-stat hb-stat--write" title="' + esc2(vt("viewer.heartbeat.writes.tooltip")) + '"><span class="hb-dot hb-dot--write" aria-hidden="true"></span><span class="hb-stat-val" data-hb="writes">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.writes")) + '</span></span><span class="hb-stat hb-stat--host" title="' + esc2(vt("viewer.heartbeat.detectedChanges.tooltip")) + '"><span class="hb-dot hb-dot--host" aria-hidden="true"></span><span class="hb-stat-val" data-hb="host">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.detectedChanges")) + '</span></span></div><div class="hb-spark" title="' + esc2(vt("viewer.heartbeat.sparkline.aria", t.table)) + '"><canvas class="hb-spark-canvas" role="img" aria-label="' + esc2(vt("viewer.heartbeat.sparkline.aria", t.table)) + '"></canvas></div>';
+    el.innerHTML = '<div class="hb-card-head"><span class="hb-card-name" title="' + esc2(t.table) + '">' + esc2(t.table) + '</span><span class="hb-card-rows meta" data-hb="rows"></span><button type="button" class="hb-card-tap" data-hb="tap" title="' + esc2(vt("viewer.heartbeat.statements.button", t.table)) + '" aria-label="' + esc2(vt("viewer.heartbeat.statements.button", t.table)) + '"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span></button></div><div class="hb-card-stats"><span class="hb-stat hb-stat--read" title="' + esc2(vt("viewer.heartbeat.reads.tooltip")) + '"><span class="hb-dot hb-dot--read" aria-hidden="true"></span><span class="hb-stat-val" data-hb="reads">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.reads")) + '</span></span><span class="hb-stat hb-stat--write" title="' + esc2(vt("viewer.heartbeat.writes.tooltip")) + '"><span class="hb-dot hb-dot--write" aria-hidden="true"></span><span class="hb-stat-val" data-hb="writes">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.writes")) + '</span></span><span class="hb-stat hb-stat--host" title="' + esc2(vt("viewer.heartbeat.detectedChanges.tooltip")) + '"><span class="hb-dot hb-dot--host" aria-hidden="true"></span><span class="hb-stat-val" data-hb="host">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.detectedChanges")) + '</span></span></div><div class="hb-spark" title="' + esc2(vt("viewer.heartbeat.sparkline.aria", t.table)) + '"><canvas class="hb-spark-canvas" role="img" aria-label="' + esc2(vt("viewer.heartbeat.sparkline.aria", t.table)) + '"></canvas></div>';
     el.addEventListener("animationend", function() {
       el.classList.remove("hb-card-enter");
     });
+    const tapBtn = el.querySelector('[data-hb="tap"]');
+    if (tapBtn) {
+      tapBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        openStatementFlyout(t.table, el);
+      });
+    }
     const sparkCanvas = el.querySelector(".hb-spark-canvas");
     return {
       el,
@@ -35672,6 +35782,9 @@ ${JSON.stringify(results, void 0, 2)}`);
     input.checked = ui.checked;
     input.disabled = ui.disabled;
     if (live) live.hidden = !ui.live;
+  }
+  function isCaptureArmed() {
+    return availability === "available" && (postPending ? localChecked : serverArmed);
   }
   function captureSyncFromPoll(armed) {
     if (typeof armed !== "boolean") {
@@ -35851,7 +35964,7 @@ ${JSON.stringify(results, void 0, 2)}`);
       const totals = applyCardEvents(events);
       if (monitor && (totals.reads || totals.writes)) monitor.recordEvents(totals.reads, totals.writes);
       updateVital();
-      emptyPolls = events.length > 0 ? 0 : emptyPolls + 1;
+      emptyPolls = events.length > 0 || isCaptureArmed() ? 0 : emptyPolls + 1;
       schedulePoll(nextPollDelay(emptyPolls, POLL_MS, POLL_IDLE_CEILING_MS));
     }).catch(function() {
       if (token !== pollToken || !shouldRun()) return;

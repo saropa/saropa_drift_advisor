@@ -342,7 +342,7 @@ Returns `403 Forbidden` with the standard structured error while the [monitoring
 
 ### `POST /api/activity/capture`
 
-Arms or disarms host-statement capture for the Heartbeat screen. While armed, statements the host app reports via `DriftDebugServer.reportActivity(sql)` are classified and recorded: `SELECT`/`WITH` as per-table reads, `INSERT`/`UPDATE`/`DELETE`/`REPLACE` as writes; everything else (DDL, `PRAGMA`, transaction framing) records nothing. If the host never wired `reportActivity`, arming succeeds but produces no data — the server cannot detect whether the hook is wired.
+Arms or disarms host-statement capture for the Heartbeat screen. While armed, statements the host app reports via `DriftDebugServer.reportActivity(sql)` are classified and recorded: `SELECT`/`WITH` as per-table reads, `INSERT`/`UPDATE`/`DELETE`/`REPLACE` as writes (leading SQL comments are skipped before the head word is read); everything else (DDL, `PRAGMA`, transaction framing) records nothing. A per-second cap (~200 statements) drops burst overflow before any parsing, protecting the host app's CPU — capture is a live visualization, not an audit. Recorded statements also feed the per-table statement rings served by [`GET /api/activity/statements`](#get-apiactivitystatements). If the host never wired `reportActivity`, arming succeeds but produces no data — the server cannot detect whether the hook is wired.
 
 Capture is a session-scoped observation tool, never configuration: it always starts **disarmed** on server start, is never persisted, and arming grants a **lease**, not a latch. Every `GET /api/activity` poll renews the lease; if no poll arrives within ~5 s (the screen polls every ~750 ms, so this tolerates several missed polls), the server disarms itself on the next reported statement. A killed browser tab, a dropped adb forward, or a crashed webview can therefore never leave the host's per-query hook hot. While disarmed, `reportActivity` costs one field read and a branch — no parsing, no allocation.
 
@@ -367,6 +367,38 @@ Returns `403 Forbidden` with the standard structured error while the [monitoring
 | `captureArmed` | bool | The **resulting** state (arming can be refused, so the request value is not echoed). |
 
 Returns `400 Bad Request` when the body is missing `enabled` or it is not a boolean.
+
+### `GET /api/activity/statements`
+
+The "statement tap" ring: the most recent host statements captured for one table, newest first — the Heartbeat screen's card flyout uses it as a live query inspector. Served entirely from in-memory state (never a DB query). The ring fills only while capture is armed (see [`POST /api/activity/capture`](#post-apiactivitycapture)) and is bounded to the last 10 statements per table, with stored SQL truncated to ~300 characters (a truncated entry ends with `…`). A statement that touches several tables (a JOIN) appears in each table's ring.
+
+Returns `403 Forbidden` with the standard structured error while the [monitoring kill switch](#monitoring-kill-switch) is engaged.
+
+**Query Parameters**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `table` | string (required) | The table whose ring to return. Missing/empty → `400 Bad Request`. An unknown table returns an empty list, not an error. |
+
+**Response** `200 OK`
+
+```json
+{
+  "table": "items",
+  "captureArmed": true,
+  "statements": [
+    { "sql": "SELECT * FROM items WHERE id = ?", "kind": "read", "at": "2026-07-16T10:15:00.000Z" }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `captureArmed` | bool | Whether capture is currently armed — an empty list with `false` here means "turn capture on", not "no traffic". |
+| `statements` | array | Newest first, at most 10. |
+| `statements[].sql` | string | The captured statement, truncated to ~300 chars. |
+| `statements[].kind` | string | `"read"` \| `"write"` (same channel names as `recentEvents[].kind`). |
+| `statements[].at` | string | ISO8601 UTC capture timestamp. |
 
 ---
 

@@ -56,6 +56,14 @@ function render(): void {
   if (live) live.hidden = !ui.live;
 }
 
+/** Whether capture is currently rendered as armed. The poll loop reads this
+ *  to hold the steady 750 ms cadence while armed: at the idle ceiling
+ *  (2.5 s) only one missed poll of lease headroom remains, and an armed
+ *  capture is active observation — never "idle" — regardless of traffic. */
+export function isCaptureArmed(): boolean {
+  return availability === 'available' && (postPending ? localChecked : serverArmed);
+}
+
 /** Feed from heartbeat-screen.ts on every successful /api/activity poll.
  *  A non-boolean value means an older server without phase 2 — hide the
  *  control rather than leaving a permanently dead toggle. */
