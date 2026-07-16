@@ -8,13 +8,13 @@
  *  - breaker trips open after FAILURE_THRESHOLD consecutive transient failures
  *  - open breaker rejects via mayAttempt() → false
  *  - cooldown elapses → half-open → one probe allowed
+ *  - half-open allows exactly one concurrent probe (second caller rejected)
+ *  - stale success after reopen is ignored (does not close the breaker)
  *  - half-open probe success → closed
  *  - half-open probe failure → open (restart cooldown)
  *  - reset() force-closes from any state
  *  - state change events fire only on transitions
- *  - integration: fetchWithTimeout rejects with CircuitBreakerOpenError when open
- *  - integration: bypassCircuitBreaker lets discovery probes through
- *  - integration: total outbound attempts stay bounded over a fixed window
+ *  - total outbound attempts stay bounded over a fixed window
  */
 
 import * as assert from 'assert';
@@ -80,6 +80,37 @@ describe('CircuitBreaker', () => {
     clock.tick(1);
     assert.strictEqual(breaker.mayAttempt(), true);
     assert.strictEqual(breaker.state, 'half-open');
+  });
+
+  it('half-open allows exactly one concurrent probe', () => {
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) breaker.recordFailure();
+    clock.tick(COOLDOWN_MS);
+
+    // First caller passes — the single-probe slot is taken.
+    assert.strictEqual(breaker.mayAttempt(), true);
+    assert.strictEqual(breaker.state, 'half-open');
+
+    // Second concurrent caller is rejected — probe already in flight.
+    assert.strictEqual(breaker.mayAttempt(), false);
+    assert.strictEqual(breaker.mayAttempt(), false);
+  });
+
+  it('ignores stale success after breaker reopened from a concurrent failure', () => {
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) breaker.recordFailure();
+    clock.tick(COOLDOWN_MS);
+
+    // Half-open probe starts.
+    breaker.mayAttempt();
+    assert.strictEqual(breaker.state, 'half-open');
+
+    // Probe fails — breaker reopens.
+    breaker.recordFailure();
+    assert.strictEqual(breaker.state, 'open');
+
+    // A stale success from a previously-started request arrives late.
+    // It must NOT close the breaker — the failure is authoritative.
+    breaker.recordSuccess();
+    assert.strictEqual(breaker.state, 'open');
   });
 
   it('closes on successful half-open probe', () => {

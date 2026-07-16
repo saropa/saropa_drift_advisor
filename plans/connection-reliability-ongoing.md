@@ -714,3 +714,65 @@ malformed JSON; handles missing `extensionData`.
 **Gate: PASSED.** `tsc -p ./` clean; all 6 push-discovery tests pass; Dart
 `dart analyze lib/src/drift_debug_server_io.dart` passes (lint warnings for the
 catch block resolved by using `ctx.logError`).
+
+---
+
+## Finish Report (2026-07-16) — Phase 3 Circuit Breaker Bug Fixes
+
+**Goal.** Fix two high-severity bugs in the Phase 3 circuit breaker discovered
+during a post-merge review, plus update the test suite to match the corrected
+behavior.
+
+**Scope.** `extension/src/transport/circuit-breaker.ts`,
+`extension/src/transport/fetch-utils.ts`,
+`extension/src/test/circuit-breaker.test.ts`.
+
+### Bug 1 — Safety-timeout failures never fed the breaker (Windows)
+
+The `fetchWithTimeout` catch block gated breaker feeding on `isTransientError()`,
+which checks for specific substrings (`econnreset`, `etimedout`, `aborted`, etc.).
+The Layer-2 safety timeout — the dominant failure path on Windows where
+`AbortController.abort()` is silently ignored by undici — throws
+`'Fetch timed out (safety)'`, which matched none of those substrings. Result: on
+Windows, a genuinely dead server whose requests all resolved via the safety
+timeout never tripped the breaker.
+
+**Fix.** The breaker feeding condition was broadened: all errors except
+caller-initiated aborts (`init?.signal?.aborted`) and `CircuitBreakerOpenError`
+(the breaker itself rejected — no double-count) now feed `recordFailure()`. The
+`isTransientError` function retains its original, narrower scope — it still gates
+retry eligibility in `fetchWithRetry`, which is a different question ("is this
+worth retrying?") from the breaker's ("is the server down?").
+
+### Bug 2 — Half-open allowed unlimited concurrent probes
+
+`mayAttempt()` returned `true` unconditionally for all callers during `half-open`
+state. If multiple subsystems (discovery, schema cache, mutation poller, etc.)
+called `fetchWithTimeout` around the same tick after cooldown elapsed, all of
+them passed `mayAttempt()` and hit the network — the uncapped fan-out the breaker
+exists to prevent, during the recovery moment.
+
+Compounding: `recordSuccess()` unconditionally closed the breaker from any state.
+If one probe failed (reopening → restart cooldown) and a second, stale probe
+then succeeded, the late success silently closed the breaker despite the server
+being confirmed still down.
+
+**Fix.** Added `_halfOpenProbeInFlight` guard: the first `mayAttempt()` caller in
+half-open state sets the flag and passes; all subsequent callers are rejected
+until `recordSuccess()` or `recordFailure()` clears it. `recordSuccess()` now
+only transitions to closed from `half-open` — a success arriving when the breaker
+is already `open` (from a concurrent probe's failure) is ignored.
+
+### Tests
+
+Two new tests added to `circuit-breaker.test.ts`:
+- `'half-open allows exactly one concurrent probe'` — verifies second
+  `mayAttempt()` returns false while first probe is in flight.
+- `'ignores stale success after breaker reopened from a concurrent failure'` —
+  verifies `recordSuccess()` after re-open leaves state as `open`.
+
+Test header docblock trimmed to remove three aspirational integration test
+descriptions that did not exist in the file.
+
+**Gate: PASSED.** `tsc --noEmit` clean; all 16 circuit-breaker tests pass
+(14 in `circuit-breaker.test.ts` + 2 from grep-matched files).

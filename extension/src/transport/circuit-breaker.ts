@@ -38,6 +38,8 @@ export class CircuitBreaker {
   private _state: BreakerState = 'closed';
   private _consecutiveFailures = 0;
   private _lastFailureTime = 0;
+  /** Guards half-open so only one concurrent probe passes; the rest are rejected. */
+  private _halfOpenProbeInFlight = false;
 
   private readonly _onDidChange = new EventEmitter<BreakerState>();
   /** Fires only on state transitions (closed→open, open→half-open, etc.). */
@@ -52,14 +54,22 @@ export class CircuitBreaker {
    *
    * In `open` state, requests are rejected immediately — except when the
    * cooldown has elapsed, which auto-transitions to `half-open` and allows
-   * exactly one probe through to test recovery.
+   * exactly one probe through to test recovery. Concurrent callers during
+   * half-open are rejected until that single probe resolves.
    */
   mayAttempt(): boolean {
     if (this._state === 'closed') return true;
-    if (this._state === 'half-open') return true;
+    if (this._state === 'half-open') {
+      // Only one probe at a time — concurrent callers are rejected so the
+      // recovery test isn't fanned out across every subsystem simultaneously.
+      if (this._halfOpenProbeInFlight) return false;
+      this._halfOpenProbeInFlight = true;
+      return true;
+    }
     // open: check cooldown
     if (Date.now() - this._lastFailureTime >= COOLDOWN_MS) {
       this._transition('half-open');
+      this._halfOpenProbeInFlight = true;
       return true;
     }
     return false;
@@ -68,15 +78,23 @@ export class CircuitBreaker {
   /** Call after a successful response. Closes the breaker and resets the counter. */
   recordSuccess(): void {
     this._consecutiveFailures = 0;
-    if (this._state !== 'closed') {
+    this._halfOpenProbeInFlight = false;
+    // A late success arriving after the breaker already reopened (from a
+    // concurrent probe's failure) must NOT close the breaker — the failure
+    // is the authoritative signal, not this stale success.
+    if (this._state === 'half-open') {
       this._transition('closed');
+    } else if (this._state === 'closed') {
+      // Already closed — no-op (normal steady-state success).
     }
+    // If state is 'open', a stale success is ignored — the reopen wins.
   }
 
   /** Call after a transient failure. Increments the counter and may trip the breaker. */
   recordFailure(): void {
     this._consecutiveFailures++;
     this._lastFailureTime = Date.now();
+    this._halfOpenProbeInFlight = false;
     if (this._state === 'closed' && this._consecutiveFailures >= FAILURE_THRESHOLD) {
       this._transition('open');
     } else if (this._state === 'half-open') {
@@ -89,6 +107,7 @@ export class CircuitBreaker {
   reset(): void {
     this._consecutiveFailures = 0;
     this._lastFailureTime = 0;
+    this._halfOpenProbeInFlight = false;
     if (this._state !== 'closed') {
       this._transition('closed');
     }

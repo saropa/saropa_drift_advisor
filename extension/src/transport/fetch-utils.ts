@@ -121,9 +121,14 @@ export async function fetchWithTimeout(
     breaker?.recordSuccess();
     return resp;
   } catch (err) {
-    // Feed transient failures to the breaker (but not intentional aborts from
-    // the caller's own signal — those aren't server failures).
-    if (breaker && !init?.signal?.aborted && isTransientError(err)) {
+    // Feed failures to the breaker. Excluded: intentional aborts from the
+    // caller's own signal (not a server failure) and CircuitBreakerOpenError
+    // (the breaker itself rejected — don't double-count).
+    // Uses a broader check than isTransientError (which gates retry eligibility)
+    // because the breaker answers a different question: "is the server down?"
+    // The Layer-2 safety timeout ('Fetch timed out (safety)') is a genuine
+    // server-unreachable signal but doesn't match isTransientError's patterns.
+    if (breaker && !init?.signal?.aborted && !(err instanceof CircuitBreakerOpenError)) {
       breaker.recordFailure();
     }
     throw err;
