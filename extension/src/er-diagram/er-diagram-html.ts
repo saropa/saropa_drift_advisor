@@ -24,7 +24,7 @@ export function buildErDiagramHtml(
 
   // jsonForScript (not plain JSON.stringify): nodes/edges carry DB table and
   // column names; a name containing `</script>` would otherwise break out of the
-  // inline <script nonce="__CSP_NONCE__"> below. See plans/full-codebase-audit-2026.06.12.md C2.
+  // inline <script nonce="__CSP_NONCE__"> below. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md C2.
   const nodesJson = jsonForScript(nodes);
   const edgesJson = jsonForScript(edges);
 

@@ -289,7 +289,7 @@ extension StartDriftViewerExtension on Object {
     // the whole database; the old `false`/`'*'` defaults made it reachable by any
     // host on the network and readable cross-origin by any website. Opt into a
     // non-loopback bind explicitly (and set authToken) only when needed.
-    // See plans/full-codebase-audit-2026.06.12.md C1.
+    // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md C1.
     bool loopbackOnly = true,
     String? corsOrigin,
     String? authToken,

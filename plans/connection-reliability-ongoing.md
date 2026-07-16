@@ -1,6 +1,16 @@
 # Connection Reliability: The Ongoing War
 
-## Status: ONGOING / UNRESOLVED
+## Status: CLOSED (2026-07-16) — all five structural phases complete; monitoring via telemetry
+
+All five phases of the Implementation Plan are complete and gate-verified (single
+connection-state authority, end-to-end lifecycle test, global circuit breaker,
+webview ready-handshake, server→extension push), and two hardening candidates from
+the campaign skill shipped on top: connection telemetry (measured flap counts and
+reconnect latency in the Output channel) and adb-forward supervision (a dropped
+device port-forward is detected and re-established within one 15s poll). The file
+stays at this path because the campaign/debugging skills reference it as the
+tracker of record; new connection defects get their own bug reports, with this
+document as the history.
 
 This document catalogs the full history of connection failures between the three components of Saropa Drift Advisor — the **Dart debug server** (running inside the user's app), the **VS Code extension**, and the **browser web UI** — and the relentless stream of patches, hacks, and workarounds that have been applied across **25+ releases** spanning the project's entire lifetime.
 
@@ -48,6 +58,8 @@ Every connection between these components has broken, repeatedly, in different w
 
 | Fix | Component |
 |-----|-----------|
+| **VS Code: connection telemetry (campaign candidate D)** — `ConnectionTelemetry` (`extension/src/connection-telemetry.ts`) subscribes to the Phase 1 `ConnectionStateMachine.onDidChange` (fires only on real phase transitions) and writes one machine-readable Output-channel line per transition: phase pair, ms-since-activation, running flap count, and reconnect latency when `connected` is re-reached. Derived metrics (time-to-first-connect, flap count, per-flap reconnect latency) exposed via `snapshot`. Log-only and additive — the measurement instrument that hysteresis tuning (candidate F) is explicitly gated on. 6 tests in `connection-telemetry.test.ts` drive a scripted flap sequence through the real state machine with a fake clock. | Extension |
+| **VS Code: adb-forward supervision (campaign candidate E)** — `AdbForwardSupervisor` (`extension/src/adb-forward-supervisor.ts`) polls `adb forward --list` every 15s while a Dart/Flutter debug session is active and re-establishes the expected `tcp:<port> tcp:<port>` mapping when it silently dies (device reconnect, adb server restart, editor crash mid-debug). Previously a dead forward healed only reactively (empty scan while debugging, 60s throttle) — up to scan-interval + 60s of unexplained "server lost". Drop-only semantics: the forward must be observed alive this session before absence counts (desktop sessions with no device stay silent); recovery goes through the shared `tryAdbForwardAndRetry`, so the 60s throttle and the `resetNotifyLatch: false` contract (wrong path W2) both hold; supervision stops for the session if adb itself is unavailable. 7 tests in `adb-forward-supervisor.test.ts` including the scripted forward-drop recovery and the throttle case. | Extension |
 | **VS Code: "server lost" warning now fires at most once per discovery session** — On a flaky link (Wi-Fi debugging on a physical device) the debug server flaps: it drops for a scan or two and reconnects, repeatedly. Discovery removed the server after `MISS_THRESHOLD` (2) missed polls (~20s) and immediately showed a `showWarningMessage` "…no longer responding" toast, plus a "detected" `showInformationMessage` on each recovery — so the notifications stacked up indefinitely. Two-part fix originally in `server-discovery-core.ts`, later extracted into the `ServerLostDebouncer` class in `server-discovery-lost-debounce.ts` (commit `9ede770` file-splitting refactor): (1) a per-port grace window (`LOST_NOTIFY_GRACE_MS`, 35s = one `SEARCH_INTERVAL` + margin) defers the lost toast, so a blip that recovers within the window cancels the pending warning and suppresses the matching "detected" toast; (2) a session-level latch (`_notifiedThisSession`) caps the warning to once per discovery session — after it fires, all further found/lost toasts are suppressed until a fresh `start()` (new debug session or Retry Discovery) re-arms it. The lost toast bypasses the per-port `NOTIFY_THROTTLE_MS` (passes 0) because the latch is the real guard and the shared throttle map would otherwise let a recent "detected" toast swallow the single warning. Server deletion / connection-state timing is unchanged, so the sidebar, status bar, and `ConnectionStateMachine` still reflect the drop in real time. Covered by 3 new `server-discovery.test.ts` cases (flap-suppression, genuine-outage-warns-once, at-most-once-per-session-with-retry-re-arm). | Extension |
 | **Dart server: startup banner now prints the `adb forward` command** — The banner already showed `http://127.0.0.1:<port>`, but on an Android emulator or physical device that URL lives in the device's network namespace and is unreachable from a host browser/viewer until the port is forwarded. With no on-screen guidance, "server started" (banner visible after the v1.4.1/v1.7.0/086152f print() fixes) plus "viewer offline" looked contradictory — the exact failure this doc's "Active Regression" section warned about ("Combined with the need for `adb forward` on emulators, this creates a perfect storm"). The banner now prints `adb forward tcp:<port> tcp:<port>` with the ACTUAL bound port directly below the URL. Also fixed a latent bug where the banner printed the *requested* port (`:0` for ephemeral binds) instead of `server.port`. A new guard test (`drift_debug_server_test.dart`) captures the banner via a print-intercepting Zone and pins both the hint line and the port-accurate command, so the next `avoid_print`-style lint sweep that mangles the banner fails loudly instead of silently shipping. | Dart server |
 | **~~VS Code: "Browse all tables" link in Schema Search did nothing~~** — ~~Periodic server-discovery updates fired `connectionState` messages to the webview, which called `doSearch()` when the query box was empty, replacing browse results with the idle placeholder.~~ **STALE → MOOT (2026-07-16): the Schema Search sidebar panel was removed entirely in v2.17.1. The replacement (Global Search command) does not have this bug.** | Extension |
@@ -393,7 +405,7 @@ The five entries in **What Has NOT Been Fixed** are the work. The history above 
 - Replace polling-only discovery with a push signal from the server (e.g. the server announces its bound port/health over the VM Service extension the extension already connects to), so the "server running but extension doesn't know yet" window closes. Polling stays as the fallback for hosts where push is unavailable — additive, not a replacement.
 - **Gate:** with push active, the extension reflects a freshly-started server without waiting for the next 30–60s scan; with push disabled, behavior is identical to today's polling. Both paths covered by tests.
 
-**Progress (updated 2026-07-16).** All five structural phases are complete and verified (see Finish Reports below). Gap 6 (Schema Search browse bug) is moot — the Schema Search sidebar panel was removed in v2.17.1 and has no current surface. The print()-banner regression and the `adb forward` hint (top of this doc, [Unreleased]) are fixed and guard-tested; they are not part of the phases. The flap-suppression work (Finish Report 2026-06-22) is a tactical notification fix, also independent of these structural phases.
+**Progress (updated 2026-07-16, closing).** All five structural phases are complete and verified (see Finish Reports below), and campaign candidates D (connection telemetry) and E (adb-forward supervision) shipped the same day — see the final Finish Report. The plan is CLOSED; remaining campaign candidates (C manifest-first discovery, F hysteresis tuning gated on D's data, G was Phase 5 and is done) stay in the campaign skill's solution menu as future options, not open work. Gap 6 (Schema Search browse bug) is moot — the Schema Search sidebar panel was removed in v2.17.1 and has no current surface. The print()-banner regression and the `adb forward` hint (top of this doc, [Unreleased]) are fixed and guard-tested; they are not part of the phases. The flap-suppression work (Finish Report 2026-06-22) is a tactical notification fix, also independent of these structural phases.
 
 ---
 
@@ -776,3 +788,95 @@ descriptions that did not exist in the file.
 
 **Gate: PASSED.** `tsc --noEmit` clean; all 16 circuit-breaker tests pass
 (14 in `circuit-breaker.test.ts` + 2 from grep-matched files).
+
+---
+
+## Finish Report (2026-07-16) — Campaign candidates D + E; plan closed
+
+**Trigger.** User report: "VS Code may be dropping connections with the device;
+VS Code often dies mid-debug" — plus the request to close this document. The
+five structural phases were already complete; the two campaign-skill candidates
+that target exactly the device-drop symptom were implemented as the closing
+hardening pass.
+
+**Scope.** (B) VS Code extension (TypeScript) only. No Dart/Flutter code.
+
+### Candidate D — Connection telemetry (`extension/src/connection-telemetry.ts`)
+
+`ConnectionTelemetry` subscribes to `ConnectionStateMachine.onDidChange` (the
+Phase 1 authority; fires only on real phase transitions) and records a bounded
+transition log (cap 200) plus three derived metrics: time-to-first-connect,
+flap count (exits from `connected`), and reconnect latency per flap. Each
+transition writes one machine-readable Output-channel line
+(`Telemetry: phase connected → disconnected (+41200ms since activation;
+flaps=1)`), so a session's connection story is reconstructable from the log
+alone. Log-only — no connection behavior changed. This is the measurement
+instrument that hysteresis tuning (candidate F) is gated on; F remains
+unimplemented BY DESIGN until D's data from real wireless/emulator sessions
+justifies it (wrong path W3: never tune intervals blind).
+
+Wired in `extension-activation-final.ts` immediately after the state machine
+is created; disposed via context subscriptions.
+
+### Candidate E — adb-forward supervision (`extension/src/adb-forward-supervisor.ts`)
+
+The gap: a working `adb forward` dies silently on device reconnect, adb server
+restart, or an editor crash mid-debug. The only prior recovery was reactive —
+an EMPTY discovery scan while a debug session is active triggers one
+re-forward, throttled to once per 60s — so a dead forward could take up to
+scan-interval + 60s to heal, presenting as an unexplained "server lost".
+
+`AdbForwardSupervisor` polls `adb forward --list` every 15s (a local
+child-process call, not a network probe — outside wrong path W3's scope)
+while a Dart/Flutter debug session is active, and re-forwards on a detected
+DROP. Contracts held:
+
+- **Drop-only semantics.** The expected `tcp:<port> tcp:<port>` entry must be
+  observed alive once this session before absence counts as a drop — a
+  desktop-only session (no device, no forward ever) stays silent forever.
+  `start()` resets the observation so a previous session's forward is not
+  evidence for this one.
+- **Shared recovery path.** Re-forwarding goes through the existing
+  `tryAdbForwardAndRetry`, so the 60s workspace-state throttle and
+  `discovery.retry({ resetNotifyLatch: false })` (wrong path W2 — never re-arm
+  the toast latch on auto-recovery) both hold by construction.
+- **adb-unavailable self-stop.** If `adb forward --list` itself fails (adb not
+  on PATH), supervision logs once and stops for the session instead of
+  spawning a failing process every 15s.
+
+Wired in `extension-bootstrap.ts`: starts on Dart/Flutter debug-session start
+(and immediately when a session is already active at activation — the v1.6.1
+late-activation case), stops when no Dart/Flutter session remains, disposed on
+deactivation.
+
+**What this does NOT cover, stated plainly.** If the VS Code window / extension
+host itself crashes, no extension code can act during the outage. What these
+changes fix is the recovery after: adb forwards live in the adb server and
+survive an editor crash, discovery re-finds the server on restart, and if the
+device re-attached during the crash (killing the forward), the supervisor now
+re-establishes it within one 15s poll instead of leaving the sidebar
+disconnected for minutes. If the editor crashes are frequent, that is a
+separate defect to diagnose from the extension-host log — not a connection
+issue this plan owns.
+
+**Tests.** `connection-telemetry.test.ts` (6 cases: time-to-first-connect,
+scripted flap sequence with measured reconnect latencies, machine-readable log
+lines, no-op suppression, connected→connecting counts as a flap,
+dispose stops observing) and `adb-forward-supervisor.test.ts` (7 cases:
+drop→re-forward within one tick with `resetNotifyLatch: false` asserted,
+desktop-silent, 60s throttle honored and logged, half-matching forward is a
+drop, adb-unavailable self-stop, start() resets observation, idempotent
+start/stop/dispose). `extension.test.ts` disposable count updated 251 → 254
+(+1 telemetry, +2 supervisor + terminate listener), with comments.
+
+**Verification.** `npm run compile` clean (tsc + verify-nls + nls-coverage);
+scoped mocha runs green: 13/13 new tests, and `extension.test.js` +
+`connection-lifecycle.test.js` → 33 passing. (Scoping note: `--spec` on the
+CLI does NOT override `.mocharc.yml`'s glob — use
+`mocha --no-config --require test/register-mock.js <files>` to run a subset.)
+
+**Plan closed.** Status header updated. The document stays at
+`plans/connection-reliability-ongoing.md` because the campaign, debugging, and
+architecture skills reference this path as the tracker of record; moving it to
+`plans/history/` would break those references for no benefit. New connection
+defects get their own `bugs/` reports; this file is the settled history.

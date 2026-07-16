@@ -17,7 +17,7 @@ const CONVENTION_PATTERNS: Record<NamingConvention, RegExp> = {
  * Fails CLOSED on an unknown convention (returns false). A typo'd convention in
  * `.drift-rules.json` (e.g. `"snakecase"`) previously returned true, silently
  * marking every name compliant and disabling the rule without any signal.
- * See plans/full-codebase-audit-2026.06.12.md M13.
+ * See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M13.
  */
 export function matchesConvention(
   name: string,

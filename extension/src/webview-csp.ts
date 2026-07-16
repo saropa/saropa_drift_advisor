@@ -19,7 +19,7 @@
  * is not code execution — `default-src 'none'` already removes every
  * exfiltration channel (no connect/img/font to an attacker origin). Locking
  * scripts is the security-defining change; locking styles would be enormous
- * churn for no real gain. See plans/full-codebase-audit-2026.06.12.md C2 (C2b).
+ * churn for no real gain. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md C2 (C2b).
  */
 
 import * as crypto from 'crypto';

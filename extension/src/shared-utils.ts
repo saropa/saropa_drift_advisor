@@ -6,7 +6,7 @@
  * free-form workspace config, so a cloned repo's `.vscode/settings.json` can
  * redirect every request — and the token — to an attacker-chosen address the
  * moment the workspace opens. Anything not on this list is treated as remote.
- * See plans/full-codebase-audit-2026.06.12.md H4.
+ * See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md H4.
  */
 export function isLoopbackHost(host: string): boolean {
   const h = host.trim().toLowerCase().replace(/^\[|\]$/g, '');
@@ -29,7 +29,7 @@ export function q(name: string): string {
  * containing `</script>` would terminate the script element and inject markup.
  * Escaping `<`, `>`, `&` to `\uXXXX` keeps the JSON valid JS while making a
  * `</script>` (or `<!--`) breakout impossible.
- * See plans/full-codebase-audit-2026.06.12.md C2.
+ * See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md C2.
  */
 export function jsonForScript(value: unknown): string {
   return JSON.stringify(value)

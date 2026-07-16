@@ -161,7 +161,10 @@ describe('Extension activation', () => {
     //   suppressDiagnosticAtCursorFile commands, plus onDidChangeActiveTextEditor /
     //   onDidChangeTextEditorSelection / onDidChangeDiagnostics listeners and their
     //   shared debounce-cleanup disposable for the hasFindingNearCursor context key (+8).
-    assert.strictEqual(subscriptions.length, 251, `expected 251 disposables, got ${subscriptions.length}`);
+    // Connection telemetry (campaign candidate D): ConnectionTelemetry subscription (+1).
+    // adb-forward supervision (campaign candidate E): AdbForwardSupervisor +
+    //   onDidTerminateDebugSession stop-listener in bootstrapExtension (+2).
+    assert.strictEqual(subscriptions.length, 254, `expected 254 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

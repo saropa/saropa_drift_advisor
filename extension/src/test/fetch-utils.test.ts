@@ -6,6 +6,12 @@ import {
   isTransientError,
   DEFAULT_FETCH_TIMEOUT_MS,
 } from '../transport/fetch-utils';
+import {
+  CircuitBreakerOpenError,
+  CircuitBreakerRegistry,
+  FAILURE_THRESHOLD,
+  setGlobalBreakerRegistry,
+} from '../transport/circuit-breaker';
 
 describe('fetchWithTimeout', () => {
   let fetchStub: sinon.SinonStub;
@@ -99,6 +105,103 @@ describe('fetchWithTimeout — safety layer (Windows/undici)', () => {
     // All timers (abort + safety) should be cleared in the finally block.
     // A leaked timer would cause an unhandled rejection when the clock advances.
     assert.strictEqual(clock.countTimers(), 0, 'all timers should be cleared after success');
+  });
+});
+
+describe('fetchWithTimeout — circuit breaker integration', () => {
+  let fetchStub: sinon.SinonStub;
+  let clock: sinon.SinonFakeTimers;
+  let registry: CircuitBreakerRegistry;
+
+  beforeEach(() => {
+    fetchStub = sinon.stub(globalThis, 'fetch');
+    clock = sinon.useFakeTimers();
+    registry = new CircuitBreakerRegistry();
+    setGlobalBreakerRegistry(registry);
+  });
+
+  afterEach(() => {
+    fetchStub.restore();
+    clock.restore();
+    registry.dispose();
+    setGlobalBreakerRegistry(undefined as never);
+  });
+
+  it('rejects immediately with CircuitBreakerOpenError when breaker is open', async () => {
+    // Trip the 'schema' group breaker — the URL determines the group.
+    const breaker = registry.getOrCreate('schema');
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) breaker.recordFailure();
+    assert.strictEqual(breaker.state, 'open');
+
+    await assert.rejects(
+      () => fetchWithTimeout('http://localhost:8642/api/schema/metadata'),
+      (err: Error) => err instanceof CircuitBreakerOpenError,
+    );
+    assert.strictEqual(fetchStub.callCount, 0, 'no network call when breaker is open');
+  });
+
+  it('feeds failure to breaker on network error', async () => {
+    fetchStub.rejects(new Error('fetch failed'));
+
+    await assert.rejects(
+      () => fetchWithTimeout('http://localhost:8642/api/health', { bypassCircuitBreaker: true }),
+      /fetch failed/,
+    );
+    // One failure is not enough to trip.
+    const breaker = registry.getOrCreate('health');
+    assert.strictEqual(breaker.state, 'closed');
+  });
+
+  it('feeds safety-timeout to breaker (the Windows/undici fix)', async () => {
+    // Simulate FAILURE_THRESHOLD hanging fetches that all trigger the safety timer.
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) {
+      fetchStub.returns(new Promise<Response>(() => { /* never settles */ }));
+      const promise = fetchWithTimeout('http://localhost:8642/api/schema/metadata', {
+        timeoutMs: 100,
+        bypassCircuitBreaker: true,
+      });
+      await clock.tickAsync(2101);
+      await assert.rejects(promise, /Fetch timed out \(safety\)/);
+      fetchStub.resetHistory();
+    }
+    const breaker = registry.getOrCreate('schema');
+    assert.strictEqual(breaker.state, 'open',
+      'safety timeouts must feed the breaker — this was the Phase 3 bug');
+  });
+
+  it('does not double-count CircuitBreakerOpenError (instanceof or name match)', async () => {
+    // Trip the 'health' group breaker, then allow one half-open probe.
+    const breaker = registry.getOrCreate('health');
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) breaker.recordFailure();
+    clock.tick(30_000); // cooldown
+    breaker.mayAttempt(); // half-open, probe in flight
+
+    // Simulate an error whose name matches but isn't the same constructor
+    // (cross-module duplication scenario).
+    const foreignError = new Error('Circuit breaker is open');
+    foreignError.name = 'CircuitBreakerOpenError';
+    fetchStub.rejects(foreignError);
+
+    const failuresBefore = (breaker as unknown as { _consecutiveFailures: number })._consecutiveFailures;
+    await assert.rejects(
+      () => fetchWithTimeout('http://localhost:8642/api/health', { bypassCircuitBreaker: true }),
+    );
+    const failuresAfter = (breaker as unknown as { _consecutiveFailures: number })._consecutiveFailures;
+    assert.strictEqual(failuresAfter, failuresBefore,
+      'breaker-open errors must not be counted as server failures');
+  });
+
+  it('isolates failures: one endpoint group tripped does not block another', async () => {
+    // Trip the 'analytics' group breaker.
+    const analytics = registry.getOrCreate('analytics');
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) analytics.recordFailure();
+    assert.strictEqual(analytics.state, 'open');
+
+    // A schema request to a different group should still pass through.
+    fetchStub.resolves(new Response('ok', { status: 200 }));
+    const resp = await fetchWithTimeout('http://localhost:8642/api/schema/metadata');
+    assert.strictEqual(resp.status, 200);
+    assert.strictEqual(fetchStub.callCount, 1, 'schema group is unaffected by analytics outage');
   });
 });
 

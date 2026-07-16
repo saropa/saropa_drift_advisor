@@ -27,7 +27,7 @@ export class QueryIntelligence implements vscode.Disposable {
    * cursor every refresh re-ingested every query, inflating executionCount /
    * totalDurationMs (and thus the slow-query and index advice) on every TTL
    * expiry. ISO-8601 UTC strings sort chronologically, so a `>` compare admits
-   * only genuinely newer queries. See plans/full-codebase-audit-2026.06.12.md M3.
+   * only genuinely newer queries. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M3.
    */
   private _lastIngestedAt = '';
 

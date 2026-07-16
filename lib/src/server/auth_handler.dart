@@ -111,7 +111,7 @@ final class AuthHandler {
   /// is folded into the accumulator and the loop always runs for the expected
   /// secret's length [b] (a per-config constant), reading [a] modulo its own
   /// length so a shorter candidate still costs the same number of iterations.
-  /// See plans/full-codebase-audit-2026.06.12.md L1.
+  /// See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md L1.
   bool _secureCompare(String a, String b) {
     final int lenA = a.length;
     final int lenB = b.length;

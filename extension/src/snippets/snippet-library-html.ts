@@ -205,7 +205,7 @@ export function buildSnippetLibraryHtml(data: ILibraryData): string {
     // DB column names + cell values and msg.message is SQLite error text (which
     // echoes table/column/value) — any of them can contain HTML. Without this,
     // a cell like <img src=x onerror=...> is stored XSS in the developer's
-    // browser. See plans/full-codebase-audit-2026.06.12.md C2.
+    // browser. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md C2.
     function escHtml(v) {
       return String(v === null || v === undefined ? '' : v)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')

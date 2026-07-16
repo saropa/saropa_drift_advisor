@@ -7,15 +7,17 @@
  * `Promise.race` safety timeout fires shortly after the abort timer, guaranteeing
  * that `fetchWithTimeout` always settles even when the signal is ignored.
  *
- * **Circuit breaker (Phase 3).** When a global {@link CircuitBreaker} is installed
- * via {@link setGlobalCircuitBreaker}, every call checks it before hitting the
- * network. Open breaker → immediate {@link CircuitBreakerOpenError} (no I/O).
+ * **Circuit breaker (Phase 3).** A per-endpoint {@link CircuitBreakerRegistry}
+ * (installed via {@link setGlobalBreakerRegistry}) manages one breaker per
+ * endpoint group (extracted from the URL path). A failing analytics endpoint
+ * trips only the `analytics` breaker — schema and DVR continue unaffected.
+ * Open breaker → immediate {@link CircuitBreakerOpenError} (no I/O).
  * Discovery probes set `bypassCircuitBreaker: true` so they can still run as
  * the recovery mechanism. Success/failure of every request feeds the breaker.
  */
 import {
   CircuitBreakerOpenError,
-  getGlobalCircuitBreaker,
+  getGlobalBreakerRegistry,
 } from './circuit-breaker';
 
 /** Default timeout for API requests (ms). */
@@ -73,9 +75,10 @@ export async function fetchWithTimeout(
   url: string,
   init?: FetchWithTimeoutInit,
 ): Promise<Response> {
-  // Circuit breaker gate: reject immediately when the breaker is open, unless
-  // this is a discovery probe that must bypass to detect recovery.
-  const breaker = getGlobalCircuitBreaker();
+  // Per-endpoint circuit breaker: each endpoint group (schema, dvr, analytics,
+  // etc.) has its own breaker so a single failing category doesn't block the rest.
+  const registry = getGlobalBreakerRegistry();
+  const breaker = registry?.forUrl(url);
   const bypass = init?.bypassCircuitBreaker === true;
   if (breaker && !bypass && !breaker.mayAttempt()) {
     throw new CircuitBreakerOpenError();
@@ -128,7 +131,11 @@ export async function fetchWithTimeout(
     // because the breaker answers a different question: "is the server down?"
     // The Layer-2 safety timeout ('Fetch timed out (safety)') is a genuine
     // server-unreachable signal but doesn't match isTransientError's patterns.
-    if (breaker && !init?.signal?.aborted && !(err instanceof CircuitBreakerOpenError)) {
+    // instanceof can fail if the error originates from a different module copy
+    // (e.g., bundler duplication). Fall back to checking the error name string.
+    const isBreakerRejection = err instanceof CircuitBreakerOpenError
+      || (err instanceof Error && err.name === 'CircuitBreakerOpenError');
+    if (breaker && !init?.signal?.aborted && !isBreakerRejection) {
       breaker.recordFailure();
     }
     throw err;

@@ -97,7 +97,7 @@ export class SchemaIntelligence implements vscode.Disposable {
       // Commit only if this load is still the current one. checkGeneration may
       // have superseded it (a migration landed mid-load); committing then would
       // cache pre-migration data. The `=== load` guard drops the stale result.
-      // See plans/full-codebase-audit-2026.06.12.md M12.
+      // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M12.
       if (this._loadPromise === load) {
         this._cache = result;
         this._cacheTime = Date.now();

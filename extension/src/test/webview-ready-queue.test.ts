@@ -149,6 +149,31 @@ describe('WebviewReadyQueue', () => {
     queue.dispose();
   });
 
+  it('dispose drops queued messages and detaches the listener', () => {
+    const mock = createMockWebview();
+    const queue = new WebviewReadyQueue(mock.webview as never);
+
+    queue.post({ command: 'a' });
+    queue.post({ command: 'b' });
+    queue.dispose();
+
+    // After dispose, a late 'ready' signal must not flush the dropped queue
+    // (listener was detached, and the queue was cleared).
+    mock.simulateMessage({ command: READY_COMMAND });
+    assert.strictEqual(mock.posted.length, 0, 'disposed queue must not deliver');
+  });
+
+  it('post after dispose silently queues without throwing', () => {
+    const mock = createMockWebview();
+    const queue = new WebviewReadyQueue(mock.webview as never);
+    queue.dispose();
+
+    // post() after dispose must not throw — the message is silently dropped
+    // because no 'ready' signal can ever arrive (listener is gone).
+    assert.doesNotThrow(() => queue.post({ command: 'orphan' }));
+    assert.strictEqual(mock.posted.length, 0);
+  });
+
   it('ignores non-ready messages', () => {
     const mock = createMockWebview();
     const queue = new WebviewReadyQueue(mock.webview as never);

@@ -35,7 +35,7 @@ export class PerfBaselineStore {
   constructor(private readonly _state: vscode.Memento) {
     // Guard against a corrupted/version-mismatched persisted value: a non-array
     // (or entries missing normalizedSql) would otherwise throw in the
-    // constructor and break store creation. See plans/full-codebase-audit-2026.06.12.md M5.
+    // constructor and break store creation. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M5.
     const raw = _state.get<IPerfBaseline[]>(STORAGE_KEY, []);
     const valid = Array.isArray(raw)
       ? raw.filter(

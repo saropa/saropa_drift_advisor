@@ -1,5 +1,5 @@
 /**
- * Global circuit breaker for outbound requests to the Drift debug server.
+ * Per-endpoint circuit breakers for outbound requests to the Drift debug server.
  *
  * When the server is genuinely down, each subsystem (discovery, schema cache,
  * generation watcher, mutation poller) retries independently — fanning out
@@ -11,9 +11,17 @@
  *  half-open → probe succeeds                             → closed
  *  half-open → probe fails                                → open (restart cooldown)
  *
- * Wired into {@link fetchWithTimeout} via {@link setGlobalCircuitBreaker}: every
- * outbound HTTP request checks the breaker first. Discovery health probes set
- * `bypassCircuitBreaker: true` so they can still run as the recovery mechanism.
+ * **Per-endpoint isolation.** A {@link CircuitBreakerRegistry} manages one
+ * {@link CircuitBreaker} per endpoint group (extracted from the URL path:
+ * `/api/schema/metadata` → group `schema`). A single misbehaving endpoint
+ * (e.g. analytics returning 500 due to a server bug) trips only its own
+ * breaker — schema, DVR, and other groups continue unaffected. If the server
+ * is genuinely down, all groups trip independently within seconds.
+ *
+ * Wired into {@link fetchWithTimeout} via {@link setGlobalBreakerRegistry}:
+ * every outbound HTTP request looks up the group breaker before hitting the
+ * network. Discovery health probes set `bypassCircuitBreaker: true` so they
+ * can still run as the recovery mechanism.
  *
  * Phase 3 of the connection reliability plan
  * (see `plans/connection-reliability-ongoing.md`, gap 3).
@@ -137,17 +145,103 @@ export class CircuitBreakerOpenError extends Error {
 }
 
 // ---------------------------------------------------------------------------
+// Per-endpoint registry
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the endpoint group from a URL path. The group is the first path
+ * segment after `/api/`: `/api/schema/metadata` → `schema`,
+ * `/api/dvr/start` → `dvr`, `/api/sql` → `sql`.
+ * Falls back to `'default'` if the path doesn't match `/api/<group>`.
+ */
+export function endpointGroupFromUrl(url: string): string {
+  try {
+    const path = new URL(url).pathname;
+    const match = path.match(/^\/api\/([^/]+)/);
+    return match ? match[1] : 'default';
+  } catch {
+    return 'default';
+  }
+}
+
+/**
+ * Manages one {@link CircuitBreaker} per endpoint group. Groups are auto-
+ * extracted from the URL path by {@link endpointGroupFromUrl}. Each group
+ * trips independently so a single failing endpoint category does not block
+ * healthy ones.
+ */
+export class CircuitBreakerRegistry {
+  private readonly _breakers = new Map<string, CircuitBreaker>();
+  private readonly _onDidChange = new EventEmitter<{ group: string; state: BreakerState }>();
+  readonly onDidChange: Event<{ group: string; state: BreakerState }> = this._onDidChange.event;
+
+  /** Get (or lazily create) the breaker for an endpoint group. */
+  getOrCreate(group: string): CircuitBreaker {
+    let breaker = this._breakers.get(group);
+    if (!breaker) {
+      breaker = new CircuitBreaker();
+      this._breakers.set(group, breaker);
+      breaker.onDidChange((state) => this._onDidChange.fire({ group, state }));
+    }
+    return breaker;
+  }
+
+  /** Look up the breaker for a full URL (extracts the group automatically). */
+  forUrl(url: string): CircuitBreaker {
+    return this.getOrCreate(endpointGroupFromUrl(url));
+  }
+
+  /** Force-close all breakers (e.g. when the user clicks "Retry Discovery"). */
+  resetAll(): void {
+    for (const breaker of this._breakers.values()) {
+      breaker.reset();
+    }
+  }
+
+  /** All currently tracked groups and their states — for diagnostics/logging. */
+  snapshot(): Array<{ group: string; state: BreakerState }> {
+    return Array.from(this._breakers.entries()).map(
+      ([group, b]) => ({ group, state: b.state }),
+    );
+  }
+
+  dispose(): void {
+    for (const breaker of this._breakers.values()) {
+      breaker.dispose();
+    }
+    this._breakers.clear();
+    this._onDidChange.dispose();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Module-level singleton wiring — keeps fetch-utils free of import cycles.
 // ---------------------------------------------------------------------------
 
-let _globalBreaker: CircuitBreaker | undefined;
+let _globalRegistry: CircuitBreakerRegistry | undefined;
 
-/** Install the singleton breaker that {@link fetchWithTimeout} checks. */
-export function setGlobalCircuitBreaker(breaker: CircuitBreaker): void {
-  _globalBreaker = breaker;
+/** Install the singleton registry that {@link fetchWithTimeout} checks. */
+export function setGlobalBreakerRegistry(registry: CircuitBreakerRegistry): void {
+  _globalRegistry = registry;
 }
 
-/** Read the singleton (returns `undefined` before activation wires it). */
+/** Read the singleton registry (returns `undefined` before activation wires it). */
+export function getGlobalBreakerRegistry(): CircuitBreakerRegistry | undefined {
+  return _globalRegistry;
+}
+
+// Backward-compat shims — used by tests that wire a single CircuitBreaker.
+// Wraps the breaker in a single-group registry keyed as 'default'.
+
+/** @deprecated Use {@link setGlobalBreakerRegistry} in production code. */
+export function setGlobalCircuitBreaker(breaker: CircuitBreaker): void {
+  const registry = new CircuitBreakerRegistry();
+  // Inject the provided breaker as the 'default' group.
+  (registry as unknown as { _breakers: Map<string, CircuitBreaker> })._breakers.set('default', breaker);
+  _globalRegistry = registry;
+}
+
+/** @deprecated Use {@link getGlobalBreakerRegistry} in production code. */
 export function getGlobalCircuitBreaker(): CircuitBreaker | undefined {
-  return _globalBreaker;
+  return _globalRegistry?.getOrCreate('default');
 }

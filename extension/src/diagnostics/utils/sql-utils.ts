@@ -25,7 +25,7 @@ export function extractTableFromSql(sql: string): string | null {
   // table for `INSERT INTO logs SELECT * FROM users` (it picked `users`, the
   // source, not `logs`, the target). INSERT/UPDATE/DELETE are anchored to the
   // statement start so the write target wins over any later FROM.
-  // See plans/full-codebase-audit-2026.06.12.md M12.
+  // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M12.
   const insertMatch = sql.match(/^\s*INSERT\s+INTO\s+"?(\w+)"?/i);
   if (insertMatch) return insertMatch[1];
 

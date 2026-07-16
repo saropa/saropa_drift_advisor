@@ -50,7 +50,7 @@ export function buildDiagnosticsByFile(
     // Skip per-table exclusions. Most providers set data.tableName, but the
     // runtime event converter emits data.table; accept either so runtime/query
     // diagnostics are actually suppressible (they previously never matched
-    // because only `tableName` was read). See plans/full-codebase-audit-2026.06.12.md M12.
+    // because only `tableName` was read). See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M12.
     const tableName = issue.data?.tableName ?? issue.data?.table;
     if (typeof tableName === 'string') {
       const excludedTables = config.tableExclusions.get(issue.code);

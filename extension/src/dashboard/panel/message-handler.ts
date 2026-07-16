@@ -93,7 +93,7 @@ export async function handleDashboardMessage(
       // webview. Without this, an XSS in a dashboard widget (DB-derived content
       // is rendered here) could postMessage any registered VS Code command —
       // escalating script injection into editor-level actions.
-      // See plans/full-codebase-audit-2026.06.12.md C2.
+      // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md C2.
       if (
         typeof msg.actionCommand === 'string' &&
         msg.actionCommand.startsWith('driftViewer.')

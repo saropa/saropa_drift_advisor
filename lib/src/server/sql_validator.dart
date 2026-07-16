@@ -23,7 +23,7 @@ abstract final class SqlValidator {
   /// read-only. A single state machine cannot desync because it only enters a
   /// comment when not already inside a string, and vice versa. It also masks
   /// `[bracket]` and `` `backtick` `` identifier quoting, which the regex chain
-  /// ignored entirely. See plans/full-codebase-audit-2026.06.12.md H1.
+  /// ignored entirely. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md H1.
   static String _maskCommentsAndLiterals(String sql) {
     final buf = StringBuffer();
     final n = sql.length;

@@ -9,7 +9,8 @@ import { ToolsQuickPickStatusBar, registerToolsQuickPickCommand } from './status
 import { registerAllCommands } from './extension-commands';
 import { refreshDriftConnectionUi as syncDriftConnectionUi } from './connection-ui-state';
 import { ConnectionStateMachine } from './connection-state';
-import { CircuitBreaker, setGlobalCircuitBreaker } from './transport/circuit-breaker';
+import { ConnectionTelemetry } from './connection-telemetry';
+import { CircuitBreakerRegistry, setGlobalBreakerRegistry } from './transport/circuit-breaker';
 import { getLogVerbosity, shouldLogConnectionLine } from './log-verbosity';
 import { wireEventListeners } from './extension-activation-event-wiring';
 import { maybeShowCoverageNotice } from './l10n/coverage-notice';
@@ -82,15 +83,22 @@ export function setupFinalPhases(
   const connectionStateMachine = new ConnectionStateMachine();
   d.context.subscriptions.push(connectionStateMachine);
 
-  // Global circuit breaker (Phase 3): collapses uncapped independent retries into
-  // a single backoff when the server is genuinely down. Installed as the singleton
-  // that fetchWithTimeout checks before every outbound request.
-  const circuitBreaker = new CircuitBreaker();
-  setGlobalCircuitBreaker(circuitBreaker);
-  d.context.subscriptions.push(circuitBreaker);
+  // Connection telemetry (campaign candidate D): logs every REAL phase
+  // transition with time-since-activation, flap count, and reconnect latency.
+  // Log-only — this is the measurement instrument that any future threshold
+  // tuning (candidate F) is gated on; it changes no connection behavior.
+  const connectionTelemetry = new ConnectionTelemetry(connectionStateMachine, d.channel);
+  d.context.subscriptions.push(connectionTelemetry);
+
+  // Per-endpoint circuit breaker registry (Phase 3): each endpoint group
+  // (schema, dvr, analytics, etc.) has its own breaker so a single failing
+  // category doesn't block healthy endpoints.
+  const breakerRegistry = new CircuitBreakerRegistry();
+  setGlobalBreakerRegistry(breakerRegistry);
+  d.context.subscriptions.push(breakerRegistry);
   d.context.subscriptions.push(
-    circuitBreaker.onDidChange((state) => {
-      d.channel.appendLine(`[${ts()}] Circuit breaker → ${state}`);
+    breakerRegistry.onDidChange(({ group, state }) => {
+      d.channel.appendLine(`[${ts()}] Circuit breaker [${group}] → ${state}`);
     }),
   );
 

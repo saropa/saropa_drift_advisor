@@ -28,7 +28,7 @@ export function rowsToObjects(
  * types or null-ness don't collide: `String(null)` and `String('')` were both
  * `''`, and `String(1)` matched `String('1')` — making `(null,'x')` collide with
  * `('','x')` and `1` with `'1'`, which mis-pairs added/removed rows as matched.
- * See plans/full-codebase-audit-2026.06.12.md M14.
+ * See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M14.
  */
 export function pkKey(row: Record<string, unknown>, pkCols: string[]): string {
   return pkCols.map((c) => JSON.stringify(row[c] ?? null)).join('\0');

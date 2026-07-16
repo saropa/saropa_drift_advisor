@@ -10,6 +10,7 @@ import { GenerationWatcher } from './generation-watcher';
 import { ServerDiscovery } from './server-discovery';
 import { ServerManager } from './server-manager';
 import { hasFlutterOrDartDebugSession, tryAdbForwardAndRetry } from './android-forward';
+import { AdbForwardSupervisor } from './adb-forward-supervisor';
 import { removeHostManifest, writeHostManifest } from './host-discovery-manifest';
 import { isDriftUiConnected } from './connection-ui-state';
 import { workspaceUsesDrift } from './diagnostics/dart-file-parser';
@@ -64,7 +65,7 @@ export function bootstrapExtension(
   // DriftApiClientBase._headers and below for discovery). Warn loudly when a
   // remote host is configured alongside a token so the user understands the
   // token is being withheld rather than silently sent off-box.
-  // See plans/full-codebase-audit-2026.06.12.md H4.
+  // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md H4.
   const hostIsLoopback = isLoopbackHost(host);
   if (authToken && !hostIsLoopback) {
     connectionChannel.appendLine(
@@ -212,6 +213,30 @@ export function bootstrapExtension(
     },
   });
 
+  // adb-forward supervision (campaign candidate E): while a Dart/Flutter
+  // debug session runs, watch `adb forward --list` for the expected entry and
+  // re-establish it when it silently dies (device reconnect, adb restart,
+  // editor crash mid-debug). The reactive empty-scan path below still covers
+  // FIRST-time establishment; the supervisor covers the drop-after-working
+  // case, which previously took up to scan-interval + 60 s throttle to heal.
+  const adbSupervisor = new AdbForwardSupervisor({
+    port: client.port,
+    discovery,
+    workspaceState: context.workspaceState,
+    log: gatedConnectionLog,
+  });
+  context.subscriptions.push(adbSupervisor);
+  // Late activation: a debug session may already be running when the
+  // extension activates (the v1.6.1 "existing debug session detection" case).
+  if (hasFlutterOrDartDebugSession()) adbSupervisor.start();
+  context.subscriptions.push(
+    vscode.debug.onDidTerminateDebugSession(() => {
+      // Stop only when NO dart/flutter session remains — a multi-session
+      // workspace (e.g. app + tests) keeps supervision while any one is live.
+      if (!hasFlutterOrDartDebugSession()) adbSupervisor.stop();
+    }),
+  );
+
   // When a Flutter/Dart debug session starts on an emulator, the server inside
   // the app needs adb port-forwarding before the host can reach it. Wait a few
   // seconds for the server to boot, then try adb forward if no server found.
@@ -222,6 +247,7 @@ export function bootstrapExtension(
     vscode.debug.onDidStartDebugSession((session) => {
       const t = session.type?.toLowerCase() ?? '';
       if (t !== 'dart' && t !== 'flutter') return;
+      adbSupervisor.start();
       const autoRecord = vscode.workspace
         .getConfiguration('driftViewer')
         .get<boolean>('dvr.autoRecord', true) !== false;

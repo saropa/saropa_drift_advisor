@@ -54,7 +54,7 @@ export class SnippetStore {
     // Parse defensively: an edited/truncated import file is untrusted input.
     // A bare JSON.parse threw a SyntaxError, and a valid-JSON-but-wrong-shape
     // file made `for (… of data.snippets)` throw "not iterable". Both now
-    // surface as a clear error. See plans/full-codebase-audit-2026.06.12.md M5.
+    // surface as a clear error. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M5.
     let data: ISnippetExport;
     try {
       data = JSON.parse(json) as ISnippetExport;

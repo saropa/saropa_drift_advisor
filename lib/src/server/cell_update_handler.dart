@@ -175,7 +175,7 @@ final class CellUpdateHandler {
     // Coerce the PK value against the PK column's affinity, same as the cell
     // value. Without this a string pkValue against an integer PK (or a JSON
     // list/map) produces a WHERE that matches no row, yet the update reported
-    // success — a silent no-op. See plans/full-codebase-audit-2026.06.12.md H5.
+    // success — a silent no-op. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md H5.
     final pkCoerced = _validateAndCoerceColumnValue(pkMeta, pkValueRaw);
     if (pkCoerced.errorMessage != null) {
       await _badRequest(

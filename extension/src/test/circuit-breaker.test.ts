@@ -3,18 +3,39 @@
  * collapses uncapped independent retries into a single backoff when the server
  * is genuinely down.
  *
- * Tests verify:
- *  - breaker stays closed under the failure threshold
- *  - breaker trips open after FAILURE_THRESHOLD consecutive transient failures
- *  - open breaker rejects via mayAttempt() → false
- *  - cooldown elapses → half-open → one probe allowed
- *  - half-open allows exactly one concurrent probe (second caller rejected)
- *  - stale success after reopen is ignored (does not close the breaker)
- *  - half-open probe success → closed
- *  - half-open probe failure → open (restart cooldown)
- *  - reset() force-closes from any state
- *  - state change events fire only on transitions
- *  - total outbound attempts stay bounded over a fixed window
+ * Unit tests (CircuitBreaker):
+ *  - starts in closed state
+ *  - stays closed when failures are below the threshold
+ *  - trips open after FAILURE_THRESHOLD consecutive failures
+ *  - rejects requests when open (before cooldown)
+ *  - transitions to half-open after cooldown elapses
+ *  - half-open allows exactly one concurrent probe
+ *  - ignores stale success after breaker reopened from a concurrent failure
+ *  - closes on successful half-open probe
+ *  - reopens on failed half-open probe (restarts cooldown)
+ *  - success resets the consecutive failure counter
+ *  - reset() force-closes from open state
+ *  - reset() force-closes from half-open state
+ *  - does not fire onDidChange for no-op transitions
+ *  - CircuitBreakerOpenError has the expected name
+ *
+ * Integration tests (retry budget):
+ *  - total mayAttempt() successes are bounded while breaker is open
+ *  - recovery resumes within one cooldown cycle of the server returning
+ *
+ * URL group extraction (endpointGroupFromUrl):
+ *  - extracts first path segment after /api/
+ *  - returns 'default' for non-/api/ paths
+ *  - returns 'default' for malformed URLs
+ *
+ * Registry (CircuitBreakerRegistry):
+ *  - lazily creates separate breakers per group
+ *  - forUrl extracts the group and returns the matching breaker
+ *  - isolates failures: tripping one group leaves others closed
+ *  - resetAll force-closes every group
+ *  - fires onDidChange with group name on state transitions
+ *  - snapshot returns all tracked groups and their states
+ *  - dispose cleans up all breakers
  */
 
 import * as assert from 'assert';
@@ -22,9 +43,10 @@ import * as sinon from 'sinon';
 import {
   CircuitBreaker,
   CircuitBreakerOpenError,
+  CircuitBreakerRegistry,
   FAILURE_THRESHOLD,
   COOLDOWN_MS,
-  setGlobalCircuitBreaker,
+  endpointGroupFromUrl,
 } from '../transport/circuit-breaker';
 
 describe('CircuitBreaker', () => {
@@ -253,5 +275,113 @@ describe('CircuitBreaker — retry budget integration', () => {
     for (let i = 0; i < 10; i++) {
       assert.strictEqual(breaker.mayAttempt(), true);
     }
+  });
+});
+
+describe('endpointGroupFromUrl', () => {
+  it('extracts the first path segment after /api/', () => {
+    assert.strictEqual(endpointGroupFromUrl('http://localhost:8642/api/schema/metadata'), 'schema');
+    assert.strictEqual(endpointGroupFromUrl('http://localhost:8642/api/dvr/start'), 'dvr');
+    assert.strictEqual(endpointGroupFromUrl('http://localhost:8642/api/sql'), 'sql');
+    assert.strictEqual(endpointGroupFromUrl('http://localhost:8642/api/analytics/anomalies'), 'analytics');
+    assert.strictEqual(endpointGroupFromUrl('http://localhost:8642/api/health'), 'health');
+  });
+
+  it('returns "default" for non-/api/ paths', () => {
+    assert.strictEqual(endpointGroupFromUrl('http://localhost:8642/other/path'), 'default');
+    assert.strictEqual(endpointGroupFromUrl('http://localhost:8642/'), 'default');
+  });
+
+  it('returns "default" for malformed URLs', () => {
+    assert.strictEqual(endpointGroupFromUrl('not-a-url'), 'default');
+    assert.strictEqual(endpointGroupFromUrl(''), 'default');
+  });
+});
+
+describe('CircuitBreakerRegistry', () => {
+  let registry: CircuitBreakerRegistry;
+  let clock: sinon.SinonFakeTimers;
+
+  beforeEach(() => {
+    registry = new CircuitBreakerRegistry();
+    clock = sinon.useFakeTimers();
+  });
+
+  afterEach(() => {
+    registry.dispose();
+    clock.restore();
+  });
+
+  it('lazily creates separate breakers per group', () => {
+    const schema = registry.getOrCreate('schema');
+    const dvr = registry.getOrCreate('dvr');
+    assert.notStrictEqual(schema, dvr);
+    // Same group returns the same instance.
+    assert.strictEqual(registry.getOrCreate('schema'), schema);
+  });
+
+  it('forUrl extracts the group and returns the matching breaker', () => {
+    const breaker = registry.forUrl('http://localhost:8642/api/schema/metadata');
+    assert.strictEqual(breaker, registry.getOrCreate('schema'));
+  });
+
+  it('isolates failures: tripping one group leaves others closed', () => {
+    const schema = registry.getOrCreate('schema');
+    const analytics = registry.getOrCreate('analytics');
+
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) schema.recordFailure();
+    assert.strictEqual(schema.state, 'open');
+    assert.strictEqual(analytics.state, 'closed',
+      'analytics must stay closed when only schema failed');
+    assert.strictEqual(analytics.mayAttempt(), true);
+  });
+
+  it('resetAll force-closes every group', () => {
+    const schema = registry.getOrCreate('schema');
+    const dvr = registry.getOrCreate('dvr');
+
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) {
+      schema.recordFailure();
+      dvr.recordFailure();
+    }
+    assert.strictEqual(schema.state, 'open');
+    assert.strictEqual(dvr.state, 'open');
+
+    registry.resetAll();
+    assert.strictEqual(schema.state, 'closed');
+    assert.strictEqual(dvr.state, 'closed');
+  });
+
+  it('fires onDidChange with group name on state transitions', () => {
+    const events: Array<{ group: string; state: string }> = [];
+    registry.onDidChange((e) => events.push(e));
+
+    const breaker = registry.getOrCreate('analytics');
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) breaker.recordFailure();
+
+    assert.strictEqual(events.length, 1);
+    assert.strictEqual(events[0].group, 'analytics');
+    assert.strictEqual(events[0].state, 'open');
+  });
+
+  it('snapshot returns all tracked groups and their states', () => {
+    registry.getOrCreate('schema');
+    const dvr = registry.getOrCreate('dvr');
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) dvr.recordFailure();
+
+    const snap = registry.snapshot();
+    assert.strictEqual(snap.length, 2);
+
+    const schemaEntry = snap.find((s) => s.group === 'schema');
+    const dvrEntry = snap.find((s) => s.group === 'dvr');
+    assert.strictEqual(schemaEntry?.state, 'closed');
+    assert.strictEqual(dvrEntry?.state, 'open');
+  });
+
+  it('dispose cleans up all breakers', () => {
+    registry.getOrCreate('schema');
+    registry.getOrCreate('dvr');
+    // Should not throw.
+    registry.dispose();
   });
 });

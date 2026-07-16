@@ -1,6 +1,6 @@
 # Full-codebase audit remediation — closeout
 
-A full security and code-quality audit of the `saropa_drift_advisor` package (the debug-only Drift/SQLite HTTP server) and its `Drift Viewer` VS Code extension produced a ranked findings list in `plans/full-codebase-audit-2026.06.12.md`. This file records the remediation of that list: which findings were fixed, which were reviewed without change, and which are handed off. Each fixed finding has its own dated report in this directory; this is the index and overall verification record.
+A full security and code-quality audit of the `saropa_drift_advisor` package (the debug-only Drift/SQLite HTTP server) and its `Drift Viewer` VS Code extension produced a ranked findings list in `plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md`. This file records the remediation of that list: which findings were fixed, which were reviewed without change, and which are handed off. Each fixed finding has its own dated report in this directory; this is the index and overall verification record.
 
 ## Finish Report (2026-06-13)
 
@@ -41,7 +41,7 @@ A full security and code-quality audit of the `saropa_drift_advisor` package (th
 ### Handed off (not done) — as of this 2026-06-13 report
 
 Subsequent progress (2026-06-14) is noted inline; the audit doc
-`plans/full-codebase-audit-2026.06.12.md` is the live source of truth.
+`plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md` is the live source of truth.
 
 - **C2b** nonce-based CSP. Phase 1 (all 47 extension webview panels) shipped 2026-06-14. Phase 2 (the Dart-served SPA + the data-grid webview) was closed WONTFIX on 2026-07-16 — defense-in-depth only, not worth the boot-path regression risk. Archived at `plans/history/2026.07/2026.07.16/c2b-phase2-served-spa-csp.md`.
 - **L5** consolidation of the remaining duplicate `esc()` helpers (latent-only; canonical helpers already exist). Still open.

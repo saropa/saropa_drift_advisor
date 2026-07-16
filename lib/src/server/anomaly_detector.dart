@@ -421,7 +421,7 @@ abstract final class AnomalyDetector {
     // equal sums and loses most significant bits to floating-point cancellation
     // for large-magnitude, low-spread columns — yielding a garbage σ that either
     // suppressed real outliers (σ rounded to ~0) or flagged everything (tiny σ).
-    // See plans/full-codebase-audit-2026.06.12.md M2.
+    // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M2.
     final col = ServerUtils.quoteIdent(colName);
     final tbl = ServerUtils.quoteIdent(tableName);
     final statsRows = ServerUtils.normalizeRows(
@@ -574,7 +574,7 @@ abstract final class AnomalyDetector {
   /// safe here because log values are small-magnitude, unlike the raw column).
   /// SQLite exposes `LN` only when built with math functions; on a build without
   /// them the query throws and this returns false (do not suppress — report the
-  /// outlier rather than silently swallow it). See plans/full-codebase-audit-2026.06.12.md M2.
+  /// outlier rather than silently swallow it). See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M2.
   static Future<bool> _passesLogScaleCheck({
     required DriftDebugQuery query,
     required String col,

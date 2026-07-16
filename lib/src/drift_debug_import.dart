@@ -254,7 +254,7 @@ final class DriftDebugImportProcessor {
   /// a string literal (e.g. `INSERT INTO t VALUES ('a;b')`) into broken
   /// fragments. This single-pass scanner tracks lexical state so a `;` only ends
   /// a statement when it is genuinely at statement level.
-  /// See plans/full-codebase-audit-2026.06.12.md M11.
+  /// See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M11.
   static List<String> _splitSqlStatements(String sql) {
     final out = <String>[];
     final buf = StringBuffer();
@@ -349,7 +349,7 @@ final class DriftDebugImportProcessor {
   /// are trimmed, matching the lenient `a, b` → `a`,`b` convention. The previous
   /// implementation split on `\n` before parsing quotes (so a quoted newline
   /// broke the record) and trimmed every field (corrupting quoted whitespace).
-  /// See plans/full-codebase-audit-2026.06.12.md M10.
+  /// See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M10.
   static List<List<String>> parseCsvLines(String csv) {
     // Strip BOM and normalize line endings.
     String normalized = csv;

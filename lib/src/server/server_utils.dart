@@ -87,7 +87,7 @@ abstract final class ServerUtils {
     // branch a string COUNT silently became 0, making every count-based anomaly
     // check (nulls, empty strings, duplicates, orphan FKs) report no findings.
     // Mirrors the String-tolerant parsing already in report_handler/analytics.
-    // See plans/full-codebase-audit-2026.06.12.md M1.
+    // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M1.
     if (countValue is int) {
       return countValue;
     }
@@ -173,7 +173,7 @@ abstract final class ServerUtils {
   ///
   /// Every POST handler buffers the whole body before validating it; without a
   /// cap a client could stream an arbitrarily large body and exhaust memory
-  /// before any size check ran. See plans/full-codebase-audit-2026.06.12.md H3.
+  /// before any size check ran. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md H3.
   ///
   /// Implemented with an explicit [StreamSubscription] rather than `await for`
   /// so the method needs no `async` wrapper — the overflow path cancels the
@@ -232,7 +232,7 @@ abstract final class ServerUtils {
   /// is a legal SQLite identifier even when it contains `"` (`CREATE TABLE
   /// "a""b" …`), so interpolating it raw as `"$name"` lets that `"` break out of
   /// the quoting — identifier injection / broken SQL. Doubling the quote closes
-  /// that. See plans/full-codebase-audit-2026.06.12.md H2.
+  /// that. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md H2.
   static String quoteIdent(String name) => '"${name.replaceAll('"', '""')}"';
 
   /// Escapes a value for use in a SQL INSERT literal.
@@ -246,7 +246,7 @@ abstract final class ServerUtils {
   /// previous `\` → `\\` doubling silently corrupted any value containing a
   /// backslash (e.g. `C:\path` was stored as `C:\\path`). Doubling the quote is
   /// both necessary and sufficient to neutralize injection here.
-  /// See plans/full-codebase-audit-2026.06.12.md C3.
+  /// See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md C3.
   static String sqlLiteral(Object? value) {
     if (value == null) {
       return 'NULL';

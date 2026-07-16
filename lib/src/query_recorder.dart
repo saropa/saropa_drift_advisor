@@ -85,7 +85,7 @@ final class QueryRecorder {
   // ListQueue (circular buffer) so the oldest entry evicts in O(1). A plain
   // List.removeAt(0) shifts every element — at the 5000-entry default that made
   // each insert past the cap O(n), and updateConfig's shrink loop O(n²).
-  // See plans/full-codebase-audit-2026.06.12.md M7.
+  // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M7.
   final ListQueue<RecordedQuery> _queries = ListQueue<RecordedQuery>();
   bool _recording = false;
   int _nextId = 0;
@@ -356,7 +356,7 @@ final class QueryRecorder {
     // heavily on a long SELECT with no early FROM (big IN-lists, generated SQL) —
     // a ReDoS-shaped CPU spike on the recording hot path. Matching only the first
     // 2000 chars caps that work without losing the table name.
-    // See plans/full-codebase-audit-2026.06.12.md M8.
+    // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M8.
     final flattened = sql.replaceAll('\n', ' ').trim();
     final cleaned = flattened.length > 2000
         ? flattened.substring(0, 2000)

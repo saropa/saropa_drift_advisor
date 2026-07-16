@@ -1,6 +1,6 @@
 # Audit document remediation-status annotation
 
-The full-codebase audit (`plans/full-codebase-audit-2026.06.12.md`) listed every
+The full-codebase audit (`plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md`) listed every
 finding in present-tense "here is the defect" form with no indication that
 remediation had occurred. In reality 15 commits on branch
 `security/audit-phases-1-2` had already closed every Critical, High, and Medium
@@ -18,7 +18,7 @@ test code was touched.
 
 ### What changed
 
-- `plans/full-codebase-audit-2026.06.12.md`
+- `plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md`
   - A new **Remediation status** section sits directly after the verdict. It
     states that every Critical/High/Medium finding is fixed and verified (Dart
     `analyze` clean + 648 tests; extension `tsc` clean + 2749 tests), links the

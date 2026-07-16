@@ -1,6 +1,6 @@
 # C2b phase 2 — nonce CSP for the Dart-served SPA + the data-grid webview
 
-**Status:** CLOSED — WONTFIX (2026-07-16). Defense-in-depth only; the exploitable sinks are already fixed (C2a) and the server is loopback-only by default (C1). The marginal security gain does not justify the boot-path regression risk and mandatory manual verification cost. Parent: `plans/full-codebase-audit-2026.06.12.md` finding **C2b**.
+**Status:** CLOSED — WONTFIX (2026-07-16). Defense-in-depth only; the exploitable sinks are already fixed (C2a) and the server is loopback-only by default (C1). The marginal security gain does not justify the boot-path regression risk and mandatory manual verification cost. Parent: `plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md` finding **C2b**.
 
 **Phase 1 (done, shipped):** all 47 VS Code extension webview panels render through
 the shared `secureWebviewHtml` post-processor (per-render nonce CSP, `'unsafe-inline'`

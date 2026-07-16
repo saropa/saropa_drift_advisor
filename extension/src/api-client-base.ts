@@ -67,7 +67,7 @@ export class DriftApiClientBase {
     // `.vscode/settings.json` could otherwise exfiltrate the token to an
     // attacker-chosen address on workspace open. Sending the token to a remote
     // host is opt-out by omission here, not by trust of the config value.
-    // See plans/full-codebase-audit-2026.06.12.md H4.
+    // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md H4.
     if (this._authToken && isLoopbackHost(this.host)) {
       h['Authorization'] = `Bearer ${this._authToken}`;
     }

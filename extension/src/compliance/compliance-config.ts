@@ -85,7 +85,7 @@ export class ComplianceConfigLoader implements vscode.Disposable {
       const parsed = JSON.parse(content);
       // Reject non-objects AND arrays: `typeof [] === 'object'`, so the prior
       // guard let a JSON array through as a config. A config is a plain object.
-      // See plans/full-codebase-audit-2026.06.12.md M13.
+      // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M13.
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
         return null;
       }

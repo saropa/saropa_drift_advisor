@@ -4,7 +4,7 @@
  * injection/replacement, delegated dispatcher). The security-defining property
  * is that ONLY author-marked scripts get the nonce — an injected bare <script>
  * (an escaping miss) must stay unstamped and therefore blocked.
- * See plans/full-codebase-audit-2026.06.12.md C2 (C2b).
+ * See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md C2 (C2b).
  */
 
 import * as assert from 'assert';

@@ -155,7 +155,7 @@ class _DriftDebugServerImpl {
     // entire database; binding to 0.0.0.0 (the old default) made it readable
     // by any host on the network. Hosts that genuinely need a non-loopback
     // bind (e.g. an emulator/dev-tunnel scenario) must opt in explicitly and
-    // should also set an authToken. See plans/full-codebase-audit-2026.06.12.md C1.
+    // should also set an authToken. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md C1.
     bool loopbackOnly = true,
     // SECURE DEFAULT: no Access-Control-Allow-Origin header. The wildcard '*'
     // default let any website the developer visited read DB responses
