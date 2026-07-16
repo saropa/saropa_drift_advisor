@@ -1,11 +1,12 @@
 # Feature 67: Saropa Suite Integration (Drift Advisor side)
 
-> **Status: Closed — reference guide, not an active plan (2026-06-14).** The Advisor side (R1–R6)
-> shipped in the Drift Viewer extension, is tested, and is published (4.0.1). Retained in place (not
-> moved or archived) because the sibling repos and the cross-repo orchestration doc reference it by
-> absolute path, and it is the canonical envelope schema reference. The one outstanding item — a
-> visual/a11y audit of the Drift Health, Commit Timeline, and Suite Findings panels — is a manual
-> LAUNCH_TEST check, not tracked active work.
+> **Status: Closed and archived (closed 2026-06-14; archived to history 2026-07-16).** The Advisor
+> side (R1–R6) shipped in the Drift Viewer extension, is tested, and is published. No engineering work
+> remains. This file was the canonical Saropa Diagnostic Envelope schema reference and is still linked
+> by absolute path from the three sibling repos' plans; it was moved here from `plans/` on 2026-07-16
+> and those cross-repo links now point at the old location (redirect notes were left in each sibling
+> repo). The visual/a11y audit of the Drift Health, Commit Timeline, and Suite Findings panels is a
+> post-deployment manual check, tracked in `docs/launch/LAUNCH_TEST.md`.
 
 **Created:** 2026-06-13
 **What it does:** Defines how Saropa Drift Advisor links with its two sibling tools so a
@@ -14,8 +15,9 @@ of three disconnected panels.
 
 This doc is the **Drift Advisor** half of a three-repo plan. The sibling docs:
 
-- **Saropa Lints** — `D:\src\saropa_lints\plans\SAROPA_SUITE_INTEGRATION.md`
-  (repo `saropa/saropa_lints`, plugin + VS Code extension, static AST findings).
+- **Saropa Lints** — `D:\src\saropa_lints\plans\history\2026.06\2026.06.24\SAROPA_SUITE_INTEGRATION.md`
+  (repo `saropa/saropa_lints`, plugin + VS Code extension, static AST findings; Lints side complete,
+  plan archived to history 2026-06-24).
 - **Saropa Log Capture** — `D:\src\saropa-log-capture\plans\105_plan-saropa-suite-integration.md`
   (repo `saropa/saropa-log-capture`, VS Code extension, runtime logs / crashes / signals).
 - **Saropa Dart Utils** — `D:\src\saropa_dart_utils\plans\SAROPA_SUITE_INTEGRATION.md`
@@ -40,7 +42,7 @@ The same Drift database and the same app flow through all three. Lints catches t
 statically; Advisor catches the bad *data/schema* at runtime; Log Capture catches the *crash or slow
 query* in the wild. Integration makes that correlation automatic and bidirectional — **without
 merging the products**. The README's standing commitment holds: these stay complementary and neither
-subsumes the other (see [README.md](../README.md) "Scope: Runtime Data vs. Static Code").
+subsumes the other (see [README.md](../../../../README.md) "Scope: Runtime Data vs. Static Code").
 
 Existing touchpoints today (ad-hoc, mostly one-directional):
 
@@ -99,7 +101,7 @@ serializes that differently. This section defines the one shape they all produce
 ```jsonc
 {
   "schemaVersion": 1,
-  "producer": { "name": "saropa_drift_advisor", "version": "3.7.3" },
+  "producer": { "name": "saropa_drift_advisor", "version": "4.2.0" },
   "generatedAt": "2026-06-13T...Z",
   "diagnostics": [ /* Diagnostic[] */ ]
 }
@@ -158,10 +160,10 @@ one of these documented ids.
     `category` (`performance`/`data`/`schema`/`other`), and `title` (alias of `message`); the same
     wrap on the VM-service `getIssues` RPC; `schemaVersion` advertised on `GET /api/health` (HTTP +
     VM). Additive — existing fields untouched. Implemented in
-    [analytics_handler.dart](../lib/src/server/analytics_handler.dart) (`_wrapIssuesEnvelope`,
-    `_categoryForSource`, `_issueId`), [server_constants.dart](../lib/src/server/server_constants.dart),
-    [generation_handler.dart](../lib/src/server/generation_handler.dart),
-    [router.dart](../lib/src/server/router.dart); documented in [doc/API.md](../doc/API.md); covered by
+    [analytics_handler.dart](../../../../lib/src/server/analytics_handler.dart) (`_wrapIssuesEnvelope`,
+    `_categoryForSource`, `_issueId`), [server_constants.dart](../../../../lib/src/server/server_constants.dart),
+    [generation_handler.dart](../../../../lib/src/server/generation_handler.dart),
+    [router.dart](../../../../lib/src/server/router.dart); documented in [doc/API.md](../../../../doc/API.md); covered by
     `test/handler_integration_test.dart`.
   - **`fix.command` — shipped (this build).** Each table-scoped issue now carries a `fix` deep-link
     in the envelope. **Finding:** Advisor's runtime detectors have **no** static Lints counterpart to
@@ -170,7 +172,7 @@ one of these documented ids.
     rule, because a missing index is a runtime concern). So the `fix` targets Advisor's own
     `driftViewer.goToDefinitionForTable` (a valid, always-available navigation action) rather than a
     fabricated Lints rule id. Consumer side: a shared, **security-gated** renderer
-    ([extension/src/suite/suite-notes-html.ts](../extension/src/suite/suite-notes-html.ts)) shows a
+    ([extension/src/suite/suite-notes-html.ts](../../../../extension/src/suite/suite-notes-html.ts)) shows a
     fix button only when the command is allowlisted (`driftViewer.`/`saropaLints.`/`saropaLogCapture.`
     prefixes) AND registered, and `executeSuiteFix` re-validates before running — so a sibling-emitted
     `fix.command` (pointing at an Advisor command) will render and run safely once siblings ship them.
@@ -181,14 +183,14 @@ one of these documented ids.
     Advisor** and is not a gap: Advisor's four detectors don't run a query to find a problem, so there
     is no originating query text to normalize — index-suggestion and orphan-table carry `suggestedSql`
     (the `CREATE INDEX` / `DROP` *fix*, not a query), and anomaly / soft-relationship have no SQL at
-    all (verified in [analytics_handler.dart](../lib/src/server/analytics_handler.dart) `getIssuesList`).
+    all (verified in [analytics_handler.dart](../../../../lib/src/server/analytics_handler.dart) `getIssuesList`).
     The envelope's `sql` is for query-shaped diagnostics (Log Capture's slow queries); the consumer
     already matches on it (`relatedDiagnostics`, `buildDriftHealth` untabled routing). Emitting it on
     Advisor issues would ship an always-empty field.
 - **R2 — Write the offline mirror** to `.saropa/diagnostics/advisor.json` on each scan, so Lints and
   Log Capture can read Advisor's issues when the debug server is not running (Section 2.3).
   - **Status: shipped (this build).** Implemented in
-    [extension/src/suite/diagnostics-mirror.ts](../extension/src/suite/diagnostics-mirror.ts): the
+    [extension/src/suite/diagnostics-mirror.ts](../../../../extension/src/suite/diagnostics-mirror.ts): the
     extension fetches the live `/api/issues` envelope (new `client.issues()` →
     `httpIssuesEnvelope`) and writes it verbatim to `<workspace>/.saropa/diagnostics/advisor.json`.
     Refresh trigger is the generation watcher (debounced) — the mirror is captured *while the server
@@ -204,21 +206,21 @@ one of these documented ids.
   in the EXPLAIN / Index panels show "Lints rule `X` also governs this" and "Log Capture saw this
   query run slow N times this session."
   - **Status: partially shipped (this build).** Reader + matcher implemented in
-    [extension/src/suite/suite-diagnostics.ts](../extension/src/suite/suite-diagnostics.ts)
+    [extension/src/suite/suite-diagnostics.ts](../../../../extension/src/suite/suite-diagnostics.ts)
     (`readSiblingDiagnostics`, `parseEnvelope`, `relatedDiagnostics`) — malformed-safe, tolerant of
     either `issues`/`diagnostics` carrier key, matching a query by referenced table or exact SQL. The
     **EXPLAIN panel** now renders a "Related Saropa Suite Findings" section
-    ([explain-html.ts](../extension/src/explain/explain-html.ts) `renderSuiteNotes`,
-    [explain-panel.ts](../extension/src/explain/explain-panel.ts) `findReferencedTables` +
+    ([explain-html.ts](../../../../extension/src/explain/explain-html.ts) `renderSuiteNotes`,
+    [explain-panel.ts](../../../../extension/src/explain/explain-panel.ts) `findReferencedTables` +
     `createOrShow`), showing each sibling finding's tool, its own already-localized title/detail, and
     rule id; HTML-escaped. Covered by `extension/src/test/suite-diagnostics.test.ts`.
   - **Index + Anomaly surfaces — shipped (this build).** The shared renderer
-    ([suite-notes-html.ts](../extension/src/suite/suite-notes-html.ts) `buildSuiteSectionFor`) now also
+    ([suite-notes-html.ts](../../../../extension/src/suite/suite-notes-html.ts) `buildSuiteSectionFor`) now also
     feeds the Index Suggestions and Anomalies panels (matched by their tables), and the EXPLAIN
     renderer was refactored onto the same shared code. Covered by `suite-notes.test.ts`.
   - **Holistic dashboard surface — shipped (this build).** A **Suite Findings** widget on the
     customizable dashboard
-    ([extension/src/dashboard/widgets/suite-findings-widget.ts](../extension/src/dashboard/widgets/suite-findings-widget.ts))
+    ([extension/src/dashboard/widgets/suite-findings-widget.ts](../../../../extension/src/dashboard/widgets/suite-findings-widget.ts))
     joins all three lenses into compact counts — total findings, per-severity (errors / warnings),
     and per-tool (Advisor / Lints / Log Capture) — with an "Open Drift Health" deep link
     (`driftViewer.openDriftHealth`). It reuses the same reader (`readSiblingDiagnostics`), envelope
@@ -234,14 +236,14 @@ one of these documented ids.
 - **R5 — Reciprocal deep-link targets.** Register the commands in Section 3 and keep their ids
   stable; treat them as public API (changelog any change).
   - **Status: shipped (this build).** All five Section 3 command ids are registered as stable public
-    wrappers in [extension/src/suite/suite-commands.ts](../extension/src/suite/suite-commands.ts),
+    wrappers in [extension/src/suite/suite-commands.ts](../../../../extension/src/suite/suite-commands.ts),
     wired through the feature-module registry, declared in `extension/package.json` (NLS titles), and
     asserted by `extension/src/test/extension.test.ts`. They delegate to existing internal commands
     (or, for `openExplainForSql`, run the explain panel against the supplied SQL via the API client),
     so the cross-tool contract is decoupled from internal command churn.
   - **Per-table focus — shipped (this build).** `openTable` and `openSchemaForTable` now act on their
     `table` argument instead of opening a generic view. `openTable` threads the table to
-    [DriftViewerPanel](../extension/src/panel.ts), which injects a `location.hash` so the web app's
+    [DriftViewerPanel](../../../../extension/src/panel.ts), which injects a `location.hash` so the web app's
     existing `#TableName` deep-link (in the served `bundle.js`) opens that table — reloading to re-fire
     it when the panel is already open on the same server (the app reads the hash only on load); the
     table name is `encodeURIComponent` + `JSON.stringify` hardened against script-tag breakout
@@ -253,7 +255,7 @@ one of these documented ids.
   already records session metadata SHAs for the Log Capture bridge) so Section 6 can align all three
   tools per commit.
   - **Status: shipped (this build).** A dependency-free
-    [extension/src/suite/workspace-commit.ts](../extension/src/suite/workspace-commit.ts) resolves the
+    [extension/src/suite/workspace-commit.ts](../../../../extension/src/suite/workspace-commit.ts) resolves the
     workspace commit by reading `.git/HEAD` (loose ref → packed-refs fallback; pure `parseHeadRef` /
     `findPackedRef` are unit-tested). The diagnostics mirror stamps the resolved `commitSha` at the
     envelope top level on write; `diagnosticsFromEnvelope` backfills each diagnostic's `commitSha` from
@@ -265,15 +267,15 @@ one of these documented ids.
     accumulates a per-commit snapshot of suite finding counts and renders the trend. On each mirror
     write it records `{commitSha, generatedAt, total, errors, warnings, advisor, lints, logCapture}`
     into `.saropa/diagnostics/history.json`
-    ([commit-history-store.ts](../extension/src/suite/commit-history-store.ts) `recordCommitSnapshot`,
+    ([commit-history-store.ts](../../../../extension/src/suite/commit-history-store.ts) `recordCommitSnapshot`,
     reading all three on-disk mirrors via `readAllSuiteDiagnostics` and the shared count reducer
     `summarizeDriftHealth`). The pure model
-    ([commit-history.ts](../extension/src/suite/commit-history.ts)) is malformed-safe and upserts by
+    ([commit-history.ts](../../../../extension/src/suite/commit-history.ts)) is malformed-safe and upserts by
     commit (re-scanning a checkout updates its row, never duplicates it; capped at 200 commits). The
     `driftViewer.openCommitTimeline` command opens a read-only webview
-    ([commit-timeline.ts](../extension/src/suite/commit-timeline.ts) →
-    [commit-timeline-html.ts](../extension/src/suite/commit-timeline-html.ts) →
-    [commit-timeline-panel.ts](../extension/src/suite/commit-timeline-panel.ts)) showing commits
+    ([commit-timeline.ts](../../../../extension/src/suite/commit-timeline.ts) →
+    [commit-timeline-html.ts](../../../../extension/src/suite/commit-timeline-html.ts) →
+    [commit-timeline-panel.ts](../../../../extension/src/suite/commit-timeline-panel.ts)) showing commits
     newest-first, a stacked severity bar scaled to the busiest commit, per-tool counts, a current-commit
     badge, and the +/- delta versus the previous commit so a regression or a cleanup is obvious.
     Auto-refreshes on the generation watcher (debounced, visible-only). Covered by
@@ -282,10 +284,10 @@ one of these documented ids.
     Log Capture), so this was in-repo: the Log Capture session sidecar + meta payload now carry the
     session `commitSha` and a `suiteMirrors` reference block — for each tool (advisor / lints /
     log-capture) its mirror's presence, capture commit, and finding count
-    ([log-capture-session-builder.ts](../extension/src/debug/log-capture-session-builder.ts),
-    [log-capture-types.ts](../extension/src/debug/log-capture-types.ts), reader
+    ([log-capture-session-builder.ts](../../../../extension/src/debug/log-capture-session-builder.ts),
+    [log-capture-types.ts](../../../../extension/src/debug/log-capture-types.ts), reader
     `readSuiteMirrorRefs` in
-    [suite-diagnostics.ts](../extension/src/suite/suite-diagnostics.ts)). It references the mirrors
+    [suite-diagnostics.ts](../../../../extension/src/suite/suite-diagnostics.ts)). It references the mirrors
     rather than copying their contents (the mirror files stay the single source of truth; a different
     `commitSha` on a tool's ref means its findings are stale for this session). Both reads are
     filesystem-only and best-effort, so a missing `.git`/`.saropa` never blocks session contributions;
@@ -315,11 +317,11 @@ from `log-capture.json` (or the live Log Capture command in Section 3).
 **Status: MVP shipped (this build).** The `driftViewer.openDriftHealth` command opens a Drift Health
 webview that joins all three lenses **per table**: Advisor's live `/api/issues` (fetched and relabeled
 `source: advisor`), Saropa Lints' `lints.json`, and Saropa Log Capture's `log-capture.json`. Pure join
-model in [extension/src/suite/drift-health.ts](../extension/src/suite/drift-health.ts)
+model in [extension/src/suite/drift-health.ts](../../../../extension/src/suite/drift-health.ts)
 (`buildDriftHealth` — group by table, case-folded merge, sort by finding count); theme-aware,
 HTML-escaped rendering in
-[extension/src/suite/drift-health-html.ts](../extension/src/suite/drift-health-html.ts); panel +
-Refresh in [extension/src/suite/drift-health-panel.ts](../extension/src/suite/drift-health-panel.ts).
+[extension/src/suite/drift-health-html.ts](../../../../extension/src/suite/drift-health-html.ts); panel +
+Refresh in [extension/src/suite/drift-health-panel.ts](../../../../extension/src/suite/drift-health-panel.ts).
 Covered by `extension/src/test/drift-health.test.ts`.
 **Post-MVP — shipped (this build):** per-finding fix-action buttons (R1, security-gated), severity
 filter + sort controls, auto-refresh on the generation watcher (debounced, visible-only), and
@@ -396,26 +398,27 @@ preferred over publishing new units; revisit then, scoped to the specific shared
 6. **Extension Pack + cross-discovery.** **Cross-discovery shipped** — when the workspace's
    `pubspec.yaml` depends on a sibling Saropa package (`saropa_lints` / `saropa_log_capture`) but that
    tool's VS Code extension is not installed, Advisor offers to install it once, ever, per tool
-   ([extension/src/suite/cross-discovery.ts](../extension/src/suite/cross-discovery.ts),
+   ([extension/src/suite/cross-discovery.ts](../../../../extension/src/suite/cross-discovery.ts),
    `maybeRecommendSuiteTools`; pure `pubspecDeclaresPackage` / `recommendableSiblings` are unit-tested
    in `cross-discovery.test.ts`). Evidence-based (the user already adopted the package) and gated
    before the toast shows, so it never nags; fire-and-forget from activation. **Extension Pack —
    already published:** the bundle exists as **Saropa Suite**
    (`marketplace.visualstudio.com/items?itemName=saropa.saropa-suite`), a one-click install of Drift
-   Advisor + Saropa Lints + Saropa Log Capture (see [ABOUT_SAROPA.md](../ABOUT_SAROPA.md)). Phase 6 is
+   Advisor + Saropa Lints + Saropa Log Capture (see [ABOUT_SAROPA.md](../../../../ABOUT_SAROPA.md)). Phase 6 is
    complete; nothing remains here.
 
 ---
 
 ## Related plans
 
-- Sibling: `saropa_lints` — `D:\src\saropa_lints\plans\SAROPA_SUITE_INTEGRATION.md`
+- Sibling: `saropa_lints` — `D:\src\saropa_lints\plans\history\2026.06\2026.06.24\SAROPA_SUITE_INTEGRATION.md` (archived; Lints side complete)
 - Sibling: `saropa-log-capture` — `D:\src\saropa-log-capture\plans\105_plan-saropa-suite-integration.md`
 - Sibling: `saropa_dart_utils` — `D:\src\saropa_dart_utils\plans\SAROPA_SUITE_INTEGRATION.md`
   (remediation layer: the `fix.command` / "enable rule X" recommendations resolve to its safe helpers)
-- Internal: [59-ai-schema-reviewer.md](59-ai-schema-reviewer.md),
-  [66-drift-refactoring-engine.md](66-drift-refactoring-engine.md) — findings that open the
-  refactoring panel with structured hints are a natural consumer of the envelope's `fix.command`.
+- Internal: [59-ai-schema-reviewer.md](../../../59-ai-schema-reviewer.md),
+  [66-drift-refactoring-engine.md](../../2026.04/2026.04.30/66-drift-refactoring-engine.md)
+  (shipped Features 69/70; plan moved to history) — findings that open the refactoring panel with
+  structured hints are a natural consumer of the envelope's `fix.command`.
 
 ---
 
@@ -464,9 +467,10 @@ per-table focus injection + escaping, and cross-discovery selection. The Dart `h
 covers the envelope. (A separate in-flight workstream's `drift-codelens-provider` tests are
 order-dependent flaky and unrelated to this work; they pass on a clean run.)
 
-**Outstanding:** a visual design audit of the Drift Health, Commit Timeline, and Suite Findings panels
-(RTL / dyslexia / high-contrast rendering, WCAG AA contrast) — code-level a11y work is in, but the
-visual result needs a rendered VS Code window; tracked in `docs/launch/LAUNCH_TEST.md`. The sibling
+**Outstanding:** none that holds this doc open. The visual design audit of the Drift Health, Commit
+Timeline, and Suite Findings panels (RTL / dyslexia / high-contrast rendering, WCAG AA contrast) is a
+post-deployment manual check owned by `docs/launch/LAUNCH_TEST.md` — code-level a11y work is in; the
+visual result is confirmed after deployment, not from this plan. The sibling
 halves of the protocol (Saropa Lints contributing `saropaLints.explainRule`; Log Capture consuming the
 sidecar) live in their own repos and are tracked in the sibling plan docs above.
 

@@ -43,7 +43,7 @@ A full security and code-quality audit of the `saropa_drift_advisor` package (th
 Subsequent progress (2026-06-14) is noted inline; the audit doc
 `plans/full-codebase-audit-2026.06.12.md` is the live source of truth.
 
-- **C2b** nonce-based CSP. Phase 1 (all 47 extension webview panels) shipped 2026-06-14. Phase 2 (the Dart-served SPA + the data-grid webview) is deferred with a full plan at `plans/deferred/c2b-phase2-served-spa-csp.md`.
+- **C2b** nonce-based CSP. Phase 1 (all 47 extension webview panels) shipped 2026-06-14. Phase 2 (the Dart-served SPA + the data-grid webview) was closed WONTFIX on 2026-07-16 — defense-in-depth only, not worth the boot-path regression risk. Archived at `plans/history/2026.07/2026.07.16/c2b-phase2-served-spa-csp.md`.
 - **L5** consolidation of the remaining duplicate `esc()` helpers (latent-only; canonical helpers already exist). Still open.
 - **L6** stale artifacts — the two `.bak` files were deleted 2026-06-14; the duplicated `*.js` next to their `*.ts` sources still remain.
 - **L7** TS helper dedup — DONE 2026-06-14 (`makeId` consolidated; codelens line scan now `positionAt`). The case converters were left intentionally distinct (domain-specific rules, not redundant).
@@ -62,4 +62,4 @@ Subsequent progress (2026-06-14) is noted inline; the audit doc
 
 ### Outstanding (as of 2026-06-14)
 
-Only **C2b phase 2** (served-SPA + data-grid CSP — deferred, see `plans/deferred/c2b-phase2-served-spa-csp.md`). L5 (esc consolidation) and L6 (duplicate `.js`/`.bak` removal) were completed 2026-06-14. The umbrella audit document `plans/full-codebase-audit-2026.06.12.md` remains active solely because of C2b phase 2; it carries per-finding status tags and is the live source of truth.
+None. C2b phase 2 was closed WONTFIX on 2026-07-16 (archived at `plans/history/2026.07/2026.07.16/c2b-phase2-served-spa-csp.md`). L5 and L6 were completed 2026-06-14. The audit is fully closed.

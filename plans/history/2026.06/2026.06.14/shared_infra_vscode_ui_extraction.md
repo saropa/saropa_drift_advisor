@@ -1,7 +1,7 @@
 # Shared-infra extraction task: `saropa-vscode-ui`
 
 **Type:** Cross-repo shared-infrastructure extraction (tracked under `bugs/` as an actionable task).
-**Status:** Won't Do — rejected (see `plans/67-saropa-suite-integration.md` §7). Closed 2026-06-14.
+**Status:** Won't Do — rejected (see `plans/history/2026.07/2026.07.16/67-saropa-suite-integration.md` §7). Closed 2026-06-14.
 
 ## Resolution: WON'T DO (2026-06-14)
 
@@ -87,6 +87,6 @@ Alternatives: published npm (cleaner semver, internal publish step + registry de
 
 - Canonical: `saropa_lints/plans/SHARED_INFRA_VSCODE_UI.md`
 - Suite plan: `saropa_lints/plans/SAROPA_SUITE_INTEGRATION.md`; this repo's half:
-  `plans/67-saropa-suite-integration.md`
+  `plans/history/2026.07/2026.07.16/67-saropa-suite-integration.md`
 - Sibling extraction tasks: `bugs/shared_infra_vscode_i18n_extraction.md`,
   `bugs/shared_infra_release_tools_extraction.md`

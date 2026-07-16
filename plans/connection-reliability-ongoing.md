@@ -8,7 +8,7 @@ This is not a single bug. It is a systemic, cross-cutting reliability problem th
 
 ---
 
-## Active Regression (March 2026)
+## Active Regression (March 2026) — RESOLVED
 
 Commit `086152f` (`fix(lints): address server and test lint findings`, March 19, made with Cursor) silently broke the server startup banner by replacing `print()` with `ctx.log()`. The `ctx.log()` path routes through the user's `onLog` callback which calls `developer.log()` — **invisible on Android** because Flutter only intercepts `print()`/Zone output for `I/flutter` terminal lines.
 
@@ -20,7 +20,7 @@ The Cursor lint fix deleted this comment and replaced `print()` with `ctx.log()`
 
 **Impact:** The server likely IS starting but the startup banner is invisible on Android. Users see zero output and believe the server never started. Combined with the need for `adb forward` on emulators, this creates a perfect storm: no banner → user thinks server is down → opens browser to `127.0.0.1:8642` on host → connection refused (because no port forwarding) → user concludes everything is broken.
 
-**Fix applied:** Restored `print()` with `// ignore: avoid_print, avoid_print_in_release` directives and an 8-line anchored comment explaining why `print()` is the only correct choice, citing the three regressions and pointing to this document. Also added visible `print()` for server startup errors (catch block), which were previously also invisible via `developer.log()` only.
+**Fix applied:** Restored `print()` with `// ignore: avoid_print, avoid_print_in_release` directives and an 8-line anchored comment explaining why `print()` is the only correct choice, citing the three regressions and pointing to this document. Also added visible `print()` for server startup errors (catch block), which were previously also invisible via `developer.log()` only. A guard test in `drift_debug_server_test.dart` captures the banner via a print-intercepting Zone so future lint sweeps that mangle the banner fail loudly.
 
 ---
 
@@ -48,9 +48,9 @@ Every connection between these components has broken, repeatedly, in different w
 
 | Fix | Component |
 |-----|-----------|
-| **VS Code: "server lost" warning now fires at most once per discovery session** — On a flaky link (Wi-Fi debugging on a physical device) the debug server flaps: it drops for a scan or two and reconnects, repeatedly. Discovery removed the server after `MISS_THRESHOLD` (2) missed polls (~20s) and immediately showed a `showWarningMessage` "…no longer responding" toast, plus a "detected" `showInformationMessage` on each recovery — so the notifications stacked up indefinitely. Two-part fix in `server-discovery-core.ts`: (1) a per-port grace window (`LOST_NOTIFY_GRACE_MS`, 35s = one `SEARCH_INTERVAL` + margin) defers the lost toast, so a blip that recovers within the window cancels the pending warning and suppresses the matching "detected" toast; (2) a session-level latch (`_lostNotifiedThisSession`) caps the warning to once per discovery session — after it fires, all further found/lost toasts are suppressed until a fresh `start()` (new debug session or Retry Discovery) re-arms it. The lost toast bypasses the per-port `NOTIFY_THROTTLE_MS` (passes 0) because the latch is the real guard and the shared throttle map would otherwise let a recent "detected" toast swallow the single warning. Server deletion / connection-state timing is unchanged, so the sidebar, status bar, and `ConnectionStateMachine` still reflect the drop in real time. Covered by 3 new `server-discovery.test.ts` cases (flap-suppression, genuine-outage-warns-once, at-most-once-per-session-with-retry-re-arm). | Extension |
+| **VS Code: "server lost" warning now fires at most once per discovery session** — On a flaky link (Wi-Fi debugging on a physical device) the debug server flaps: it drops for a scan or two and reconnects, repeatedly. Discovery removed the server after `MISS_THRESHOLD` (2) missed polls (~20s) and immediately showed a `showWarningMessage` "…no longer responding" toast, plus a "detected" `showInformationMessage` on each recovery — so the notifications stacked up indefinitely. Two-part fix originally in `server-discovery-core.ts`, later extracted into the `ServerLostDebouncer` class in `server-discovery-lost-debounce.ts` (commit `9ede770` file-splitting refactor): (1) a per-port grace window (`LOST_NOTIFY_GRACE_MS`, 35s = one `SEARCH_INTERVAL` + margin) defers the lost toast, so a blip that recovers within the window cancels the pending warning and suppresses the matching "detected" toast; (2) a session-level latch (`_notifiedThisSession`) caps the warning to once per discovery session — after it fires, all further found/lost toasts are suppressed until a fresh `start()` (new debug session or Retry Discovery) re-arms it. The lost toast bypasses the per-port `NOTIFY_THROTTLE_MS` (passes 0) because the latch is the real guard and the shared throttle map would otherwise let a recent "detected" toast swallow the single warning. Server deletion / connection-state timing is unchanged, so the sidebar, status bar, and `ConnectionStateMachine` still reflect the drop in real time. Covered by 3 new `server-discovery.test.ts` cases (flap-suppression, genuine-outage-warns-once, at-most-once-per-session-with-retry-re-arm). | Extension |
 | **Dart server: startup banner now prints the `adb forward` command** — The banner already showed `http://127.0.0.1:<port>`, but on an Android emulator or physical device that URL lives in the device's network namespace and is unreachable from a host browser/viewer until the port is forwarded. With no on-screen guidance, "server started" (banner visible after the v1.4.1/v1.7.0/086152f print() fixes) plus "viewer offline" looked contradictory — the exact failure this doc's "Active Regression" section warned about ("Combined with the need for `adb forward` on emulators, this creates a perfect storm"). The banner now prints `adb forward tcp:<port> tcp:<port>` with the ACTUAL bound port directly below the URL. Also fixed a latent bug where the banner printed the *requested* port (`:0` for ephemeral binds) instead of `server.port`. A new guard test (`drift_debug_server_test.dart`) captures the banner via a print-intercepting Zone and pins both the hint line and the port-accurate command, so the next `avoid_print`-style lint sweep that mangles the banner fails loudly instead of silently shipping. | Dart server |
-| **VS Code: "Browse all tables" link in Schema Search did nothing** — Periodic server-discovery updates fired `connectionState` messages to the webview, which called `doSearch()` when the query box was empty, replacing browse results with the idle placeholder. Added a `browseActive` flag in the webview script that prevents `applyConnectionState` from calling `doSearch()` while browse-all results are displayed. The flag is cleared on user input, scope/type filter changes, errors, and disconnect. | Extension |
+| **~~VS Code: "Browse all tables" link in Schema Search did nothing~~** — ~~Periodic server-discovery updates fired `connectionState` messages to the webview, which called `doSearch()` when the query box was empty, replacing browse results with the idle placeholder.~~ **STALE → MOOT (2026-07-16): the Schema Search sidebar panel was removed entirely in v2.17.1. The replacement (Global Search command) does not have this bug.** | Extension |
 | **VS Code: phased activation — "command not found" can no longer kill the extension** — The entire `activate()` function was a ~270-line monolith with zero error isolation. A single throw anywhere caused VS Code to dispose ALL registered commands, while tree views (UI elements) survived — making the sidebar look normal while every button gave "command not found". This was silently breaking the extension for users. Activation is now split into 11 isolated phases (bootstrap → about-commands → schema-cache → providers → intelligence → diagnostics → editing → status-bars → commands → event-wiring), each wrapped in a `runPhase()` utility. On failure: error toast shown, stack trace logged to Output channel, later phases continue. The outer `activate()` never re-throws. 8 resilience tests verify that any phase can crash without killing commands from surviving phases. | Extension |
 | **VS Code: activation milestone logging** — Every phase logs its start and completion (or failure) to the Output channel with timestamps. The activation summary line shows "N/M phases succeeded". This makes it trivial to diagnose what broke when a user reports "commands not found" — just check Output → Saropa Drift Advisor for the phase that failed. | Extension |
 | **VS Code: Output channel created before bootstrap** — The connection Output channel is now created in `activate()` (Phase 0) and passed into `bootstrapExtension()` as a parameter, rather than being created inside bootstrap. This means phase logging is available from the very first line of activation, and if bootstrap itself throws, the error is still logged. | Extension |
@@ -351,15 +351,17 @@ Each layer was added to fix a specific failure. Together they form a complex, fr
 
 Despite all the patches above, these issues remain or recur:
 
-1. **No end-to-end connection health contract** — There is no single source of truth for "are we connected and working." `driftViewer.serverConnected`, `driftViewer.databaseTreeEmpty`, `isDriftUiConnected`, the health endpoint, the tree provider state, the Schema Search state, and the browser's connection state machine are all separate booleans that can disagree.
+1. ~~**No end-to-end connection health contract**~~ — **RESOLVED (Phase 1, 2026-06-10).** `ConnectionStateMachine` in `connection-state.ts` is now the single authority. `driftViewer.serverConnected` and `driftViewer.databaseTreeEmpty` are derived outputs of one phase computed in one place; the documented contradictions ("connected but no data", "disconnected but server running") are structurally unrepresentable. Unit tests drive the machine through all 16 signal combinations and the full lifecycle. See Finish Report (2026-06-10) — Phase 1.
 
-2. **No connection integration tests** — *(Partially addressed)* The extension now has 21 integration tests verifying every Database tree button produces visible output (toast, output channel line, or webview panel), 8 activation-resilience tests verifying that any activation phase can crash without killing commands from surviving phases, 2 exhaustive command-wiring tests verifying bidirectional consistency between `contributes.commands` declarations and runtime command registration (catches silent feature-module throws before publication), 3 import-integrity tests verifying that explain-panel and explain-html modules load without throwing (guards against `import type` regressions that silently kill queryCost), and 3 `acquireVsCodeApi` contract tests verifying the single-call invariant (early script stores globally, main script reuses, at most 2 call sites). However, there are still no tests that simulate the full connection lifecycle: extension activates → discovery scans → server found → tree loads → user clicks button → data appears. That end-to-end flow is only covered by manual testing.
+2. ~~**No connection integration tests**~~ — **RESOLVED (Phase 2, 2026-06-10).** A full end-to-end lifecycle test (`connection-lifecycle.test.ts`) now exercises: extension activates → discovery scans → server found → tree loads → button clicked → data appears. Three negative cases break one link each and assert the end state is NOT reached. This is the regression net the project never had. The existing integration, activation-resilience, command-wiring, import-integrity, and `acquireVsCodeApi` contract tests also remain in place. See Finish Report (2026-06-10) — Phase 2.
 
 3. **No retry budget or circuit breaker** — Each subsystem retries independently. When the server is genuinely down, the extension hammers it with health probes, schema fetches, discovery scans, and VM connection attempts simultaneously. There is no global circuit breaker that says "the server is down, stop everything and show a clear message."
 
-4. **Webview communication is fire-and-forget** — The ready-handshake pattern was added for Schema Search but the extension has multiple webview panels (Troubleshooting, Dashboard, ER Diagram, etc.) and not all of them use the same protocol. A message lost during initialization means a permanently broken panel.
+4. **Webview `postMessage` race on init** — Dashboard and Watch panels set `webview.html` and immediately call `postMessage` in the same constructor. The webview document loads asynchronously, so the message can arrive before the inline script registers its `message` listener — silently dropped, panel stuck on stale/empty state. Time Travel already avoids this with a `ready` handshake; Dashboard and Watch do not. (The original description referenced Schema Search and a broad "fire-and-forget" problem across all panels. Investigation (2026-07-16) found that Schema Search was removed in v2.17.1 and most panels use full HTML replacement — no messages to lose. Only Dashboard and Watch have the init race.)
 
 5. **Discovery is polling-based** — The extension scans ports every 30-60 seconds. There is no push notification from the server to the extension. This means connection is always delayed and there is always a window where the server is running but the extension doesn't know about it.
+
+6. ~~**Schema Search "Browse all tables" results replaced on connection-state update**~~ — **RESOLVED (2026-07-16): the Schema Search sidebar panel was removed entirely in v2.17.1.** The replacement (Global Search command) does not receive `connectionState` messages and its `doSearch()` is a no-op when the query is empty — the bug is structurally absent.
 
 ---
 
@@ -369,27 +371,29 @@ The five entries in **What Has NOT Been Fixed** are the work. The history above 
 
 > **Constraint that overrides ordering:** this is a reliability plan. No phase may remove an existing workaround until its replacement is proven by a test. The layered stack in **Recurring Patterns §5** stays in place until a phase explicitly subsumes a layer AND a test pins the new behavior. "Delete the old hack" is never its own step.
 
-### Phase 1 — Single connection-state authority (fixes gap 1)
-- Introduce one `ConnectionState` machine that owns the connected/working truth, derived from the underlying signals (HTTP discovery, VM Service, REST schema load). Every surface — Database tree, Schema Search, Drift Tools, status bar — reads from it instead of its own boolean. Keep `driftViewer.serverConnected` / `databaseTreeEmpty` / `isDriftUiConnected` as *derived outputs* of the machine, not independent inputs, so existing consumers keep working.
-- **Gate:** a unit test drives the machine through every transition and asserts no two derived flags can disagree (the exact contradiction — "connected but no data", "disconnected but server running" — is now impossible to represent); all existing surfaces compile against the derived outputs.
+### Phase 1 — Single connection-state authority (fixes gap 1) — COMPLETE
 
-### Phase 2 — End-to-end lifecycle test (fixes gap 2)
-- Build the missing full-flow test: extension activates → discovery scans → server found → tree loads → button clicked → data appears. Use the existing mock command registry plus a stub server so it runs headless. This is the regression net the project has never had.
-- **Gate:** the lifecycle test passes against the current build and fails if any single link (activation phase, discovery, tree load, command) is broken — verified by deliberately breaking each link once.
+- `ConnectionStateMachine` in `connection-state.ts` owns the connected/working truth, derived from four signals (`httpServerSelected`, `vmServiceActive`, `schemaLoaded`, `offlineSchema`). `driftViewer.serverConnected` and `driftViewer.databaseTreeEmpty` are derived outputs. Wired into production via the existing refresh funnel in `extension-activation-final.ts`.
+- **Gate: PASSED.** Unit tests (`connection-state.test.ts`) enumerate all 16 signal combinations, drive the full lifecycle, and assert single-writer context agreement. All existing surfaces compile against the derived outputs. See Finish Report (2026-06-10) — Phase 1.
+
+### Phase 2 — End-to-end lifecycle test (fixes gap 2) — COMPLETE
+
+- `connection-lifecycle.test.ts` wires the real chain (`DriftApiClient` + `ServerDiscovery` + `ServerManager` + `DriftTreeProvider` + `ConnectionStateMachine`) against a fetch-stubbed HTTP server. Happy path walks all six links; three negative cases break one link each.
+- **Gate: PASSED.** The lifecycle test passes against the current build and fails if any single link is broken. See Finish Report (2026-06-10) — Phase 2.
 
 ### Phase 3 — Global circuit breaker + retry budget (fixes gap 3)
 - Add one breaker keyed on the Phase 1 state: when the server is genuinely down, health probes, schema fetches, discovery scans, and VM connect attempts stop hammering and collapse to a single backoff with a clear "server down" surface. Per-subsystem retries become budget-bounded, not independent.
 - **Gate:** a test simulating a down server asserts total outbound attempts across all subsystems stay within the budget over a fixed window (today they fan out uncapped), and recovery resumes within one backoff cycle of the server returning.
 
-### Phase 4 — Unified webview ready-handshake (fixes gap 4)
-- Extract the Schema Search ready-handshake into one shared protocol module and adopt it in every webview panel (Troubleshooting, Dashboard, ER Diagram, and the feature panels). No panel may post connection state before its handshake completes; the `acquireVsCodeApi` single-call invariant is enforced by the shared module, not re-implemented per panel.
-- **Gate:** a contract test asserts each panel uses the shared handshake and that a connection-state message sent before handshake is queued, not dropped — reproducing the "message lost during init → permanently broken panel" failure and proving it can't recur.
+### Phase 4 — Webview ready-handshake for init-racing panels (fixes gap 4)
+- Add a shared `WebviewReadyQueue` utility that queues `postMessage` calls until the webview script sends a `ready` message. Apply it to Dashboard and Watch — the two panels that `postMessage` immediately after setting `webview.html`, racing the script's `addEventListener('message', ...)` registration. Time Travel already has a working handshake; DVR and Mutation Stream have one but it is trivial (triggers fetch or is a no-op). All other panels use full HTML replacement (no messages to lose). The original plan targeted all 30+ panels; investigation (2026-07-16) found only two have the init race.
+- **Gate:** a contract test reproduces the race — `postMessage` before `ready` — and asserts messages are queued and delivered after the handshake, not dropped.
 
 ### Phase 5 — Server→extension push (fixes gap 5)
 - Replace polling-only discovery with a push signal from the server (e.g. the server announces its bound port/health over the VM Service extension the extension already connects to), so the "server running but extension doesn't know yet" window closes. Polling stays as the fallback for hosts where push is unavailable — additive, not a replacement.
 - **Gate:** with push active, the extension reflects a freshly-started server without waiting for the next 30–60s scan; with push disabled, behavior is identical to today's polling. Both paths covered by tests.
 
-**Sequencing note for the active regression.** The print()-banner regression and the `adb forward` hint (top of this doc, [Unreleased]) are already fixed and guard-tested; they are not part of the phases above. This plan is the structural follow-on so the *next* silent break is caught by Phase 2/3/4 gates rather than a user screenshot.
+**Progress (updated 2026-07-16).** Phases 1–2 are complete and verified (see Finish Reports below). Phases 3–5 remain. The print()-banner regression and the `adb forward` hint (top of this doc, [Unreleased]) are fixed and guard-tested; they are not part of the phases. The flap-suppression work (Finish Report 2026-06-22) is a tactical notification fix, also independent of these structural phases. The next structural step is Phase 3 (circuit breaker), which depends on the Phase 1 state machine already in place.
 
 ---
 
@@ -535,7 +539,9 @@ not stop the stream.
 **Scope.** (B) VS Code extension (TypeScript). No Dart/Flutter app code; no
 user-facing string added or changed (the toast text is pre-existing).
 
-**Resolution.** Two coordinated changes in `extension/src/server-discovery-core.ts`,
+**Resolution.** Two coordinated changes originally in `extension/src/server-discovery-core.ts`
+(later extracted into `extension/src/server-discovery-lost-debounce.ts` as the
+`ServerLostDebouncer` class during the file-splitting refactor, commit `9ede770`),
 with a new constant in `extension/src/server-discovery-constants.ts`:
 
 1. **Grace-window debounce.** A new `LOST_NOTIFY_GRACE_MS` (35000 ms = one
@@ -545,7 +551,8 @@ with a new constant in `extension/src/server-discovery-constants.ts`:
    window clears the pending timer and suppresses the matching "detected" toast,
    so a transient blip produces no popups.
 
-2. **Once-per-session latch.** `_lostNotifiedThisSession` is set the instant the
+2. **Once-per-session latch.** `_notifiedThisSession` (originally `_lostNotifiedThisSession`,
+   renamed during extraction into `ServerLostDebouncer`) is set the instant the
    deferred warning fires and gates every subsequent found/lost toast until the
    next `start()` (a fresh debug session or an explicit Retry Discovery, which
    resets it). After the first warning the session goes silent regardless of how

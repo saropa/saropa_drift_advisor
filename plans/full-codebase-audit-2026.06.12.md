@@ -10,13 +10,11 @@
 
 ## Remediation status — CLOSED (2026-06-14)
 
-> This completed audit is kept in place (not moved to `plans/history/`) because 27 source files cite it by this exact path as stable anchors (`// See plans/full-codebase-audit-2026.06.12.md <finding>`). Relocating it would break those references; the doc is closed logically, not relocated.
+> This completed audit is kept in place (not moved to `plans/history/`) because 30 source files cite it by this exact path as stable anchors (`// See plans/full-codebase-audit-2026.06.12.md <finding>`). Relocating it would break those references; the doc is closed logically, not relocated.
 
 **Every finding in this audit is resolved.** All Critical, High, and Medium findings are fixed and verified; all Low findings are either fixed or reviewed-as-acceptable. Verification on close: Dart `analyze` clean; extension `tsc` clean and the full Mocha suite (2845 tests) green. Per-finding reports and the original verification record live in [`plans/history/2026.06/2026.06.13/audit-remediation-closeout.md`](history/2026.06/2026.06.13/audit-remediation-closeout.md).
 
-One follow-on enhancement was scoped OUT of this audit and tracked as its own active plan, so it does not hold this audit open:
-
-- **C2b phase 2 — nonce CSP for the Dart-served browser SPA + the data-grid webview.** Defense-in-depth only; the exploitable XSS sinks (C2a) are already fixed and the server is loopback-only by default (C1). It is deferred because the served viewer boots via inline `onerror=` CDN-fallback handlers and a dynamic `createElement('script')` loader, both of which a strict nonce CSP blocks — so it needs a careful boot-path rework plus manual verification of both load modes. Full plan: [`plans/deferred/c2b-phase2-served-spa-csp.md`](deferred/c2b-phase2-served-spa-csp.md).
+The one follow-on enhancement (C2b phase 2 — nonce CSP for the served SPA + data-grid webview) was closed WONTFIX on 2026-07-16: defense-in-depth only on a loopback-only surface whose exploitable sinks are already fixed; the boot-path regression risk and manual verification cost outweigh the marginal gain. See [`plans/history/2026.07/2026.07.16/c2b-phase2-served-spa-csp.md`](history/2026.07/2026.07.16/c2b-phase2-served-spa-csp.md).
 
 Each finding below carries its final status tag (`✅ DONE` / `☑ REVIEWED — no change`). Summary of what changed since the original audit, by severity:
 
@@ -69,7 +67,7 @@ Severity reflects this package's real threat model (a debug tool, often on local
 `drift_debug_server_io.dart:109,268-270` and `start_drift_viewer_extension.dart:242-243`. Defaults are `loopbackOnly: false` (→ `InternetAddress.anyIPv4`, i.e. `0.0.0.0`), `corsOrigin: '*'`, `authToken: null`. With no auth the entire database is readable by any host that can reach the port; with `writeQuery` wired it is also writable. The wildcard CORS header means *any* web page the developer opens can `fetch('http://localhost:8642/api/dump')` and read the response cross-origin (a DNS-rebinding / malicious-site vector), even when the server is "only" on localhost.
 **Fix:** default `loopbackOnly: true`; do not emit `Access-Control-Allow-Origin: *` by default (omit the header, or echo a vetted origin); require an explicit opt-in (and ideally a generated token) before binding to a non-loopback address. Document the posture in the README's first server example.
 
-**C2 — Stored XSS in served SPA and extension webviews; no CSP backstop** ✓ verified (3 sinks + CSP) — `✅ exploitable sinks fixed (C2a)` · `✅ executeAction allowlisted (C2c)` · `✅ CSP on all 47 webview panels (C2b phase 1)` · `⏳ CSP on the served SPA + data-grid panel DEFERRED (C2b phase 2 → plans/deferred/c2b-phase2-served-spa-csp.md)`
+**C2 — Stored XSS in served SPA and extension webviews; no CSP backstop** ✓ verified (3 sinks + CSP) — `✅ exploitable sinks fixed (C2a)` · `✅ executeAction allowlisted (C2c)` · `✅ CSP on all 47 webview panels (C2b phase 1)` · `❌ CSP on the served SPA + data-grid panel WONTFIX (C2b phase 2 → plans/history/2026.07/2026.07.16/c2b-phase2-served-spa-csp.md)`
 DB content reaches HTML unescaped in several places, and there is no Content-Security-Policy (or `'unsafe-inline'` where one exists), so each miss executes script.
 - `assets/web/.../snippets`→ no; the SPA result path: `snippets/snippet-library-html.ts:198-210` builds `'<th>'+c+'</th>'`, `'<td>'+v+'</td>'`, and `'<p class="error">'+msg.message` straight into `innerHTML` — DB column names, **cell values**, and SQLite error text. The file's own `esc()` is never called here. ✓
 - `lineage/lineage-html.ts:100` — `onclick="navigate('${escAttr(node.table)}',...)"` where `escAttr` escapes only `\` and `'`, inside a **double-quoted** attribute; an unescaped `"` in a table/column/PK value breaks out. Same defect in `impact/impact-html.ts:68,106`. ✓
@@ -144,7 +142,7 @@ Every handler does `await for (chunk in request) builder.add(chunk)` with no cap
 
 ## Detailed Remediation Plan
 
-> **Status: Phases 1–4 are shipped and verified.** The only remaining open work is C2b phase 2 (served SPA + data-grid CSP — deferred to [`plans/deferred/c2b-phase2-served-spa-csp.md`](deferred/c2b-phase2-served-spa-csp.md)). All of Phase 5 hygiene (L1, L4, L5, L6, L7) is done; L2/L8 reviewed. The detailed plan below is kept verbatim as the original specification.
+> **Status: All phases shipped and verified; no open work remains.** C2b phase 2 (served SPA + data-grid CSP) was closed WONTFIX on 2026-07-16. The detailed plan below is kept verbatim as the original specification.
 
 Ordered by leverage. Each phase is independently shippable; phases 1–2 are the security-defining ones.
 
@@ -208,7 +206,7 @@ Ordered by leverage. Each phase is independently shippable; phases 1–2 are the
 
 ### Status
 
-This audit is **closed**. Every Critical, High, and Medium finding is fixed and verified; every Low finding is fixed or reviewed-as-acceptable. One follow-on enhancement (C2b phase 2) is scoped out and tracked as its own active plan, so it does not hold this audit open.
+This audit is **closed**. Every Critical, High, and Medium finding is fixed and verified; every Low finding is fixed or reviewed-as-acceptable. The one follow-on enhancement (C2b phase 2) was closed WONTFIX on 2026-07-16. No outstanding work remains.
 
 ### Scope
 
@@ -217,7 +215,7 @@ The remediation spanned the Dart debug server (`lib/`, `test/`), the VS Code ext
 ### What changed, by theme
 
 - **Network boundary (C1, H4):** the server defaults to `loopbackOnly: true` with no wildcard CORS header; the extension withholds the Bearer token from non-loopback hosts. BREAKING for anyone who relied on `0.0.0.0` + `'*'`.
-- **Content boundary / XSS (C2):** the confirmed stored-XSS sinks were fixed (C2a), the dashboard `executeAction` command id was allowlisted (C2c), and a per-render nonce Content-Security-Policy was added to all 47 extension webview panels through one shared `secureWebviewHtml` post-processor (C2b phase 1). The post-processor swaps an author `__CSP_NONCE__` placeholder rather than auto-stamping every `<script>`, so an injected script from any future escaping miss is inert. Inline `on*` handlers were converted to delegated `data-*` dispatch because a nonce CSP blocks inline handlers. The browser-served SPA and the data-grid webview (C2b phase 2) are deferred — see `plans/deferred/c2b-phase2-served-spa-csp.md`.
+- **Content boundary / XSS (C2):** the confirmed stored-XSS sinks were fixed (C2a), the dashboard `executeAction` command id was allowlisted (C2c), and a per-render nonce Content-Security-Policy was added to all 47 extension webview panels through one shared `secureWebviewHtml` post-processor (C2b phase 1). The post-processor swaps an author `__CSP_NONCE__` placeholder rather than auto-stamping every `<script>`, so an injected script from any future escaping miss is inert. Inline `on*` handlers were converted to delegated `data-*` dispatch because a nonce CSP blocks inline handlers. The browser-served SPA and the data-grid webview (C2b phase 2) are deferred — see `plans/history/2026.07/2026.07.16/c2b-phase2-served-spa-csp.md`.
 - **SQL correctness (C3, H1, H2, H5):** `ServerUtils.sqlLiteral` no longer doubles backslashes (silent data corruption); all identifier interpolation routes through `ServerUtils.quoteIdent`; the read-only validator is a single-pass tokenizer that cannot be desynchronized by comments-in-strings or strings-in-comments; cell updates coerce the PK value and report affected rows.
 - **Resource safety (H3, M4, M7, M8, M9, M10, M11):** a POST body-size cap (HTTP 413), no-retry for non-idempotent requests, an O(1) DVR ring buffer with a bounded table-name parser, transactional branch restore, and RFC-4180 CSV + literal-aware SQL statement parsing.
 - **Detector / engine accuracy (M1, M2, M3, M5, M6, M12, M13, M14, H6):** string-tolerant count extraction, numerically-stable variance, single-count query statistics, hardened persisted-state loading, diagnostic table attribution + cache freshness, fail-closed naming compliance, key-collision fixes, and a corrected relationship-engine traversal / safe-delete planner.
@@ -230,7 +228,7 @@ The remediation spanned the Dart debug server (`lib/`, `test/`), the VS Code ext
 
 ### Out of scope
 
-- **C2b phase 2** — deferred with a full plan (`plans/deferred/c2b-phase2-served-spa-csp.md`): defense-in-depth on a loopback-only surface whose exploitable sinks are already fixed, requiring a careful viewer-boot-path rework plus manual verification of both the inline-asset and CDN-fallback load modes.
+- **C2b phase 2** — closed WONTFIX (2026-07-16). Defense-in-depth only on a loopback-only surface whose exploitable sinks are already fixed; boot-path regression risk and manual verification cost outweigh the marginal gain. Plan retained at `plans/history/2026.07/2026.07.16/c2b-phase2-served-spa-csp.md`.
 - **OVSX publish-token rotation** (former L3) — a credential-management action handled outside this audit.
 
 ### Verification on close
@@ -239,6 +237,6 @@ Dart `analyze` clean; extension `tsc --noEmit` clean; the full extension Mocha s
 
 ### Disposition
 
-This completed audit is retained at its original path rather than moved to `plans/history/`, because 27 source files cite it by that exact path as stable cross-reference anchors (`// See plans/full-codebase-audit-2026.06.12.md <finding>`); relocating it would break those references. It is closed logically (status marked CLOSED, finish report appended) without physical relocation.
+This completed audit is retained at its original path rather than moved to `plans/history/`, because 30 source files cite it by that exact path as stable cross-reference anchors (`// See plans/full-codebase-audit-2026.06.12.md <finding>`); relocating it would break those references. It is closed logically (status marked CLOSED, finish report appended) without physical relocation.
 
 Finish report appended: `plans/full-codebase-audit-2026.06.12.md` (closed in place).

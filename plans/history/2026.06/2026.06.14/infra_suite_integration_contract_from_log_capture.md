@@ -9,7 +9,7 @@ Finish Report below.
 
 Created: 2026-06-13
 Type: Infrastructure / cross-tool integration
-Related plan (this repo, canonical protocol owner): `plans/67-saropa-suite-integration.md`
+Related plan (this repo, canonical protocol owner): `plans/history/2026.07/2026.07.16/67-saropa-suite-integration.md`
 Sibling plan (Log Capture): `D:\src\saropa-log-capture\plans\105_plan-saropa-suite-integration.md`
 Sibling plan (Lints): `D:\src\saropa_lints\plans\SAROPA_SUITE_INTEGRATION.md`
 
