@@ -157,7 +157,11 @@ describe('Extension activation', () => {
     // Monitoring kill switch (PLAN_BUILD a KILL SWITCH): monitoring.kill +
     //   monitoring.resume commands, config listener, and on-connect
     //   server-state push in wireMonitoringKillSwitch (+4).
-    assert.strictEqual(subscriptions.length, 243, `expected 243 disposables, got ${subscriptions.length}`);
+    // Cursor-based ignore commands: suppressDiagnosticAtCursor +
+    //   suppressDiagnosticAtCursorFile commands, plus onDidChangeActiveTextEditor /
+    //   onDidChangeTextEditorSelection / onDidChangeDiagnostics listeners and their
+    //   shared debounce-cleanup disposable for the hasFindingNearCursor context key (+8).
+    assert.strictEqual(subscriptions.length, 251, `expected 251 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

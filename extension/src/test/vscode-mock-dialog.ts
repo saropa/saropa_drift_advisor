@@ -7,7 +7,9 @@
 let _saveDialogResult: any = undefined;
 let _infoMessageResult: string | undefined = undefined;
 let _warningMessageResult: string | undefined = undefined;
-let _quickPickResult: string | undefined = undefined;
+// `any`, not `string`: showQuickPick resolves to the picked ITEM, and some
+// callers (e.g. suppression-commands.ts) pass rich objects, not plain labels.
+let _quickPickResult: any = undefined;
 let _inputBoxResult: string | undefined = undefined;
 
 export const dialogMock = {
@@ -15,7 +17,7 @@ export const dialogMock = {
   set infoMessageResult(v: string | undefined) { _infoMessageResult = v; },
   /** Simulate the user clicking a button on a showWarningMessage toast. */
   set warningMessageResult(v: string | undefined) { _warningMessageResult = v; },
-  set quickPickResult(v: string | undefined) { _quickPickResult = v; },
+  set quickPickResult(v: any) { _quickPickResult = v; },
   set inputBoxResult(v: string | undefined) { _inputBoxResult = v; },
   reset() {
     _saveDialogResult = undefined;

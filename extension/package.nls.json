@@ -158,6 +158,8 @@
   "command.openRulesConfig.title": "Configure Diagnostic Rules",
   "command.suppressDiagnosticInColumn.title": "Ignore Diagnostic for This Column",
   "command.suppressDiagnosticInFile.title": "Ignore Diagnostic in This File",
+  "command.suppressDiagnosticAtCursor.title": "Drift Advisor: Ignore Finding for This Column",
+  "command.suppressDiagnosticAtCursorFile.title": "Drift Advisor: Ignore Finding in This File",
   "command.clearRuntimeAlerts.title": "Clear Runtime Alerts",
   "command.copySuggestedName.title": "Copy Suggested Name",
   "command.seedWithProfiles.title": "Seed Table with Profiles",

@@ -31,6 +31,7 @@ import { stringsWebNav } from './l10n/strings-web-nav.ts';
 import { stringsWebSession } from './l10n/strings-web-session.ts';
 import { stringsWebSettings } from './l10n/strings-web-settings.ts';
 import { stringsWebMisc } from './l10n/strings-web-misc.ts';
+import { stringsWebHeartbeat } from './l10n/strings-web-heartbeat.ts';
 
 /**
  * Every web English registry, merged into one lookup. Explicit (not a glob)
@@ -48,6 +49,7 @@ const WEB_STRING_REGISTRIES: Array<Record<string, string>> = [
   stringsWebSession,
   stringsWebSettings,
   stringsWebMisc,
+  stringsWebHeartbeat,
 ];
 
 /** Merged symbolic-key → English map. Built once at module load. */

@@ -22,6 +22,7 @@
 - **Endpoints**
   - [API Index (`GET /api/`)](#api-index)
   - [Health & Generation](#health--generation)
+  - [Table Activity](#table-activity)
   - [Tables](#tables)
   - [SQL](#sql)
     - [Web viewer (`GET /?sql=`)](#api-sql-web-viewer)
@@ -281,6 +282,59 @@ Returns the current data-change generation number. Supports long-polling with th
 | Field | Type | Description |
 |-------|------|-------------|
 | `generation` | int | Monotonically increasing counter; increments when table data changes |
+
+---
+
+## Table Activity
+
+### `GET /api/activity`
+
+Live per-table activity aggregates plus a ring of recent events, powering the Heartbeat / Watch screen. Served entirely from in-memory state — the endpoint never queries the database, so polling it cannot generate activity of its own.
+
+Activity is fed by three signals only: reads executed through the advisor (table browsing, SQL runner), writes executed through the advisor (cell edits, batch edits, import), and host-app changes **detected** as row-count deltas between change-detection sweeps. The server does not see the host app's own reads, or host writes that leave a row count unchanged (e.g. UPDATE-in-place) — `hostChanges` means "detected changes", never "all writes". Internal server/extension probes (change-detection sweeps, diagnostic queries, this endpoint's own polling) are never recorded.
+
+Returns `403 Forbidden` with the standard structured error while the [monitoring kill switch](#monitoring-kill-switch) is engaged.
+
+**Query Parameters**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `since` | int (optional, default 0) | Filters `recentEvents` to events with `gen > since`. Malformed values degrade to 0 (full ring). Does not filter `tables`. |
+
+**Response** `200 OK`
+
+```json
+{
+  "activityGeneration": 12,
+  "tables": [
+    {
+      "table": "items",
+      "reads": 4,
+      "writes": 1,
+      "hostChanges": 2,
+      "rowCount": 42,
+      "lastReadAt": "2026-07-16T10:15:00.000Z",
+      "lastWriteAt": "2026-07-16T10:14:20.000Z",
+      "lastHostChangeAt": "2026-07-16T10:13:05.000Z"
+    }
+  ],
+  "recentEvents": [
+    { "table": "items", "kind": "read", "at": "2026-07-16T10:15:00.000Z", "gen": 12 }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `activityGeneration` | int | Monotonic counter; bumps on every recorded event. Poll with `?since=` against it. |
+| `tables` | array | Only tables with at least one recorded event this session — untouched tables are never listed (seed the full grid from [`GET /api/tables`](#get-apitables)). Sorted by table name. |
+| `tables[].table` | string | Table name. |
+| `tables[].reads` / `writes` / `hostChanges` | int | Per-kind counters since server start (not capped by the event ring). |
+| `tables[].rowCount` | int | Latest cached row count from change detection. **Omitted** when unknown (no sweep has run yet). |
+| `tables[].lastReadAt` / `lastWriteAt` / `lastHostChangeAt` | string | ISO8601 UTC timestamp of the most recent event of that kind. **Omitted** when that kind never occurred. |
+| `recentEvents` | array | Bounded ring of the most recent 200 events, oldest first, filtered to `gen > since`. |
+| `recentEvents[].kind` | string | `"read"` \| `"write"` \| `"hostChange"`. |
+| `recentEvents[].gen` | int | The `activityGeneration` value stamped when the event was recorded (use as the next `since`). |
 
 ---
 

@@ -182,6 +182,13 @@ abstract final class ServerConstants {
   static const String pathApiChangeDetection = '/api/change-detection';
   static const String pathApiChangeDetectionAlt = 'api/change-detection';
 
+  /// GET live table-activity aggregates + recent events for the Heartbeat /
+  /// Watch screen (Feature 80). Served entirely from in-memory state (the
+  /// [TableActivityTracker] plus cached row counts) — never a DB query, so
+  /// the screen's own polling cannot generate traffic that lights the board.
+  static const String pathApiActivity = '/api/activity';
+  static const String pathApiActivityAlt = 'api/activity';
+
   /// GET/POST toggle for the global monitoring & logging kill switch.
   /// Must stay reachable while monitoring is disabled — it is the only
   /// HTTP path back to a live server (the resume action), so the 403
@@ -508,6 +515,32 @@ abstract final class ServerConstants {
   static const String jsonKeyDiff = 'diff';
   static const String jsonKeyOnlyInA = 'onlyInA';
   static const String jsonKeyOnlyInB = 'onlyInB';
+  // --- Table activity (Feature 80 heartbeat / watch screen) ---
+  // Payload keys for GET /api/activity. `table`, `kind`, and `rowCount` reuse
+  // the existing constants above so the wire vocabulary stays single-sourced.
+
+  /// Monotonic counter bumped on every recorded activity event; clients poll
+  /// `?since=N` against it.
+  static const String jsonKeyActivityGeneration = 'activityGeneration';
+
+  /// Ring of recent activity events (oldest first, filtered by `since`).
+  static const String jsonKeyRecentEvents = 'recentEvents';
+  static const String jsonKeyReads = 'reads';
+  static const String jsonKeyWrites = 'writes';
+
+  /// Host-app changes DETECTED via row-count deltas between change-detection
+  /// sweeps — inferred, never observed statements. UI copy must say
+  /// "detected changes", not "writes".
+  static const String jsonKeyHostChanges = 'hostChanges';
+  static const String jsonKeyLastReadAt = 'lastReadAt';
+  static const String jsonKeyLastWriteAt = 'lastWriteAt';
+  static const String jsonKeyLastHostChangeAt = 'lastHostChangeAt';
+
+  /// Per-event fields: ISO8601 UTC timestamp + the generation stamped at
+  /// record time (integer compare for since-filtering; no clock parsing).
+  static const String jsonKeyAt = 'at';
+  static const String jsonKeyGen = 'gen';
+
   static const String headerDriftClient = 'x-drift-client';
   static const String clientVscode = 'vscode';
   static const String jsonKeyExtensionConnected = 'extensionConnected';

@@ -20,7 +20,7 @@ import { loadTable } from './table-list.ts';
  * Table-specific tabs use the 'tbl:' prefix (e.g. 'tbl:users') and share
  * the #panel-tables panel. The "tables" tab shows a browse-all list;
  * 'tbl:{name}' tabs show that table's data in the shared content area.
- * @param {string} tabId - One of: home, tables, tbl:{name}, sql, search, snapshot, compare, index, size, perf, anomaly, import, schema, diagram
+ * @param {string} tabId - One of: home, tables, tbl:{name}, sql, search, snapshot, compare, index, size, perf, anomaly, import, schema, diagram, heartbeat
  */
 export function switchTab(tabId) {
   var tabBar = document.getElementById('tab-bar');
@@ -84,6 +84,12 @@ export function switchTab(tabId) {
   }
 
   if (typeof window.onTabSwitch === 'function') window.onTabSwitch(tabId);
+
+  // Decoupled tab-change signal: standalone TS screens (e.g.
+  // heartbeat-screen.ts) subscribe to this event instead of adding cases to
+  // app.js's onTabSwitch monolith, so a new screen ships without touching
+  // app.js. Dispatched AFTER onTabSwitch so legacy handlers run first.
+  document.dispatchEvent(new CustomEvent('sda-tab-switch', { detail: tabId }));
 }
 
 /**

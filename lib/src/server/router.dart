@@ -235,6 +235,7 @@ final class Router {
       }
 
       // Dispatch to domain-specific route groups.
+      if (await _routeActivityApi(req, res, path)) return;
       if (await _routeTableApi(req, res, path, query)) return;
       if (await _routeSqlApi(req, res, path, query)) return;
       if (await _routeSchemaApi(req, res, path, query)) return;
@@ -361,6 +362,50 @@ final class Router {
 
         return true;
       }
+    }
+
+    return false;
+  }
+
+  // -------- Activity route group --------
+
+  /// Routes GET /api/activity — table-activity aggregates + recent events for
+  /// the Heartbeat / Watch screen (Feature 80).
+  ///
+  /// Reads ONLY in-memory state ([ServerContext.tableActivity] plus the
+  /// change-detection row-count cache) — it must never run
+  /// instrumentedQuery/timedQuery, or the screen's ~750 ms polling would
+  /// generate the very read activity it renders (a feedback loop that makes
+  /// every board glow constantly). Dispatched AFTER the global kill-switch
+  /// gate in [_dispatch], so a killed server answers it with the same
+  /// structured 403 as every other data-inspection endpoint.
+  Future<bool> _routeActivityApi(
+    HttpRequest request,
+    HttpResponse response,
+    String path,
+  ) async {
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiActivity ||
+            path == ServerConstants.pathApiActivityAlt)) {
+      // Malformed/absent ?since= degrades to 0 (full recent-event ring)
+      // rather than a 400 — a poller recovering from a reset just resyncs.
+      final since =
+          int.tryParse(
+            request.uri.queryParameters[ServerConstants.queryParamSince] ?? '',
+          ) ??
+          0;
+
+      // writeJsonResponse guarantees headers + close even when encoding
+      // hits a non-primitive, honoring the "response always closed" rule.
+      await _ctx.writeJsonResponse(
+        response,
+        _ctx.tableActivity.toJson(
+          rowCounts: _ctx.cachedTableCounts,
+          since: since,
+        ),
+      );
+
+      return true;
     }
 
     return false;

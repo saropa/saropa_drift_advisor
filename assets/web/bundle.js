@@ -1569,6 +1569,35 @@
   // assets/web/l10n/strings-web-misc.ts
   var stringsWebMisc = {};
 
+  // assets/web/l10n/strings-web-heartbeat.ts
+  var stringsWebHeartbeat = {
+    // One-line intro under the tab title.
+    "viewer.heartbeat.lead": "Live database activity. Tables light up as they are read and written; the monitor traces every event.",
+    // Calm empty state — shown over the flatlining monitor until the first event.
+    "viewer.heartbeat.waiting": "Waiting for database activity\u2026",
+    "viewer.heartbeat.reads": "Reads",
+    "viewer.heartbeat.writes": "Writes",
+    // REQUIRED COPY: host-app writes are inferred from row-count diffs, never
+    // fully observed — so this channel must say "detected", not claim capture.
+    "viewer.heartbeat.detectedChanges": "Detected changes",
+    "viewer.heartbeat.detectedChanges.tooltip": "Changes made by the app itself, inferred from row-count differences. In-place updates that keep the row count are not visible.",
+    "viewer.heartbeat.reads.tooltip": "Read queries observed for this table.",
+    "viewer.heartbeat.writes.tooltip": "Write statements observed for this table.",
+    // {0} is the cached row count for the table card.
+    "viewer.heartbeat.rowCount": "{0} rows",
+    "viewer.heartbeat.rowCountOne": "1 row",
+    // Vital readout label next to the live number on the monitor.
+    "viewer.heartbeat.vitalLabel": "events/min",
+    // Accessible summary of the monitor for screen readers. {0} is events/min.
+    "viewer.heartbeat.vitalSummary": "Database activity: {0} events per minute",
+    // Kill switch (server returned 403): monitoring is disabled server-side.
+    "viewer.heartbeat.disabled": "Server monitoring is disabled \u2014 activity is not being recorded.",
+    // The /api/activity endpoint is missing (older server) — quiet degradation.
+    "viewer.heartbeat.unavailable": "This server does not provide the activity feed.",
+    // Poll failed; retrying with backoff. Complements the global connection banner.
+    "viewer.heartbeat.reconnecting": "Connection lost \u2014 retrying\u2026"
+  };
+
   // assets/web/l10n.ts
   var WEB_STRING_REGISTRIES = [
     webStrings,
@@ -1581,7 +1610,8 @@
     stringsWebNav,
     stringsWebSession,
     stringsWebSettings,
-    stringsWebMisc
+    stringsWebMisc,
+    stringsWebHeartbeat
   ];
   var englishStrings = Object.assign({}, ...WEB_STRING_REGISTRIES);
   var KNOWN_LOCALES = ["pt-br", "zh-cn", "zh-tw", "de", "es", "fr", "it", "ja", "ko", "ru", "en"];
@@ -2329,6 +2359,7 @@
     size: "bar_chart",
     perf: "speed",
     anomaly: "favorite",
+    heartbeat: "monitor_heart",
     import: "upload",
     schema: "grid_on",
     views: "table_view",
@@ -2348,6 +2379,7 @@
     size: "Size",
     perf: "Perf",
     anomaly: "Health",
+    heartbeat: "Heartbeat",
     import: "Import",
     schema: "Schema",
     views: "Views",
@@ -2369,6 +2401,7 @@
     { id: "size", blurb: "table sizes, growth", color: "#84cc16" },
     { id: "perf", blurb: "slow statements, timings", color: "#ef4444" },
     { id: "anomaly", blurb: "health checks, drift signals", color: "#f43f5e" },
+    { id: "heartbeat", blurb: "live table activity, glowing cards", color: "#e11d48" },
     { id: "import", blurb: "CSV \u2192 table", color: "#22c55e" },
     { id: "export", blurb: "CSV, schema", color: "#0ea5e9" },
     { id: "settings", blurb: "prefs, masking, confirm navigate", color: "#64748b" }
@@ -2391,6 +2424,7 @@
     size: ["table sizes", "growth", "storage", "bytes", "disk", "space", "row count", "big tables", "usage"],
     perf: ["performance", "slow", "statements", "timings", "latency", "profiling", "speed", "bottleneck", "query time", "duration"],
     anomaly: ["health", "checks", "drift", "signals", "issues", "problems", "integrity", "warnings", "monitor", "diagnostics"],
+    heartbeat: ["activity", "live", "watch", "pulse", "traffic", "reads", "writes", "glow", "monitor", "ecg", "heart", "realtime", "real-time", "events"],
     import: ["csv", "upload", "load", "ingest", "file", "data in", "insert"],
     export: ["csv", "download", "schema", "save", "dump", "backup", "data out", "extract"],
     settings: ["preferences", "prefs", "options", "config", "configuration", "masking", "confirm navigate", "pii", "defaults"],
@@ -6064,6 +6098,7 @@
       loadTable(tableName);
     }
     if (typeof window.onTabSwitch === "function") window.onTabSwitch(tabId);
+    document.dispatchEvent(new CustomEvent("sda-tab-switch", { detail: tabId }));
   }
   function findTabBtn(tabId) {
     var tabBar = document.getElementById("tab-bar");
@@ -35133,6 +35168,413 @@ ${JSON.stringify(results, void 0, 2)}`);
     return String(v).replace(/["\\]/g, "\\$&");
   }
 
+  // assets/web/heartbeat-heat.ts
+  var HEAT_IMPULSE = 0.35;
+  var HEAT_DECAY_TAU_MS = 450;
+  var MAX_IMPULSES_PER_TICK = 3;
+  var HEAT_FLOOR = 4e-3;
+  function applyImpulses(heat, eventCount) {
+    const impulses = Math.min(
+      Math.max(0, Math.floor(eventCount)),
+      MAX_IMPULSES_PER_TICK
+    );
+    return Math.min(1, Math.max(0, heat) + HEAT_IMPULSE * impulses);
+  }
+  function decayHeat(heat, dtMs) {
+    if (heat <= HEAT_FLOOR) return 0;
+    if (dtMs <= 0) return heat;
+    const next = heat * Math.exp(-dtMs / HEAT_DECAY_TAU_MS);
+    return next <= HEAT_FLOOR ? 0 : next;
+  }
+  function makeBucketRing(count) {
+    const ring = [];
+    for (let i = 0; i < count; i++) ring.push({ reads: 0, writes: 0 });
+    return ring;
+  }
+  function advanceBuckets(ring, steps) {
+    const n = Math.max(0, Math.floor(steps));
+    if (n === 0) return;
+    if (n >= ring.length) {
+      for (let i = 0; i < ring.length; i++) {
+        ring[i].reads = 0;
+        ring[i].writes = 0;
+      }
+      return;
+    }
+    ring.splice(0, n);
+    for (let i = 0; i < n; i++) ring.push({ reads: 0, writes: 0 });
+  }
+  function spikeHeight(totalEvents) {
+    if (totalEvents <= 0) return 0;
+    return 1 - Math.exp(-totalEvents / 3);
+  }
+  function eventsPerMinute(ring, bucketMs) {
+    if (ring.length === 0 || bucketMs <= 0) return 0;
+    let total = 0;
+    for (let i = 0; i < ring.length; i++) total += ring[i].reads + ring[i].writes;
+    const windowMs = ring.length * bucketMs;
+    return Math.round(total * (6e4 / windowMs));
+  }
+
+  // assets/web/heartbeat-chart.ts
+  var BUCKET_MS = 250;
+  var BUCKET_COUNT = 120;
+  var SWEEP_PERIOD_MS = 5e3;
+  function withAlpha(ctx, color, alpha) {
+    ctx.fillStyle = color;
+    const norm = String(ctx.fillStyle);
+    if (norm.charAt(0) === "#") {
+      const r = parseInt(norm.slice(1, 3), 16);
+      const g = parseInt(norm.slice(3, 5), 16);
+      const b = parseInt(norm.slice(5, 7), 16);
+      return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+    }
+    return norm.replace(/rgba?\(([^)]+)\)/, function(_m, inner) {
+      const parts = String(inner).split(",").slice(0, 3).join(",");
+      return "rgba(" + parts + "," + alpha + ")";
+    });
+  }
+  function createHeartbeatMonitor(canvas) {
+    const ring = makeBucketRing(BUCKET_COUNT);
+    let lastAdvanceMs = 0;
+    let colors = { read: "#888", warm: "#888", grid: "#888" };
+    let lastColorReadMs = 0;
+    function refreshColors(nowMs) {
+      if (nowMs - lastColorReadMs < 1e3 && lastColorReadMs !== 0) return;
+      lastColorReadMs = nowMs;
+      const cs = getComputedStyle(canvas.parentElement || canvas);
+      colors = {
+        read: cs.getPropertyValue("--hb-read").trim() || "#888",
+        warm: cs.getPropertyValue("--hb-warm").trim() || "#888",
+        grid: cs.getPropertyValue("--hb-grid").trim() || "rgba(128,128,128,0.2)"
+      };
+    }
+    function fitCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      const bw = Math.max(1, Math.round(w * dpr));
+      const bh = Math.max(1, Math.round(h * dpr));
+      if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw;
+        canvas.height = bh;
+      }
+      return { w: bw, h: bh };
+    }
+    function tracePath(ctx, w, baseY, amp, pick) {
+      const step = w / BUCKET_COUNT;
+      ctx.beginPath();
+      ctx.moveTo(0, baseY);
+      for (let i = 0; i < BUCKET_COUNT; i++) {
+        const total = pick(ring[i]);
+        const x = (i + 0.5) * step;
+        if (total <= 0) {
+          ctx.lineTo(x, baseY);
+          continue;
+        }
+        const h = spikeHeight(total) * amp;
+        ctx.lineTo(x - step * 0.5, baseY);
+        ctx.lineTo(x, baseY - h);
+        ctx.lineTo(x + step * 0.35, baseY + h * 0.18);
+        ctx.lineTo(x + step * 0.6, baseY);
+      }
+      ctx.lineTo(w, baseY);
+    }
+    function draw(nowMs) {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const { w, h } = fitCanvas();
+      refreshColors(nowMs);
+      ctx.clearRect(0, 0, w, h);
+      const dpr = window.devicePixelRatio || 1;
+      const baseY = h * 0.7;
+      const amp = h * 0.58;
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = colors.grid;
+      ctx.beginPath();
+      for (let i = 10; i < BUCKET_COUNT; i += 10) {
+        const x = Math.round(i / BUCKET_COUNT * w) + 0.5;
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+      }
+      for (let r = 1; r < 4; r++) {
+        const y = Math.round(r / 4 * h) + 0.5;
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+      }
+      ctx.stroke();
+      const readGrad = ctx.createLinearGradient(0, 0, w, 0);
+      readGrad.addColorStop(0, withAlpha(ctx, colors.read, 0.06));
+      readGrad.addColorStop(0.35, withAlpha(ctx, colors.read, 0.55));
+      readGrad.addColorStop(1, withAlpha(ctx, colors.read, 1));
+      ctx.lineWidth = 2 * dpr;
+      ctx.lineJoin = "round";
+      ctx.shadowColor = withAlpha(ctx, colors.read, 0.85);
+      ctx.shadowBlur = 9 * dpr;
+      ctx.strokeStyle = readGrad;
+      tracePath(ctx, w, baseY, amp, function(b) {
+        return b.reads + b.writes;
+      });
+      ctx.stroke();
+      ctx.shadowColor = withAlpha(ctx, colors.warm, 0.85);
+      ctx.strokeStyle = withAlpha(ctx, colors.warm, 0.95);
+      tracePath(ctx, w, baseY, amp, function(b) {
+        return b.writes > 0 ? b.reads + b.writes : 0;
+      });
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      const sweepX = nowMs % SWEEP_PERIOD_MS / SWEEP_PERIOD_MS * (w * 1.2) - w * 0.1;
+      const band = w * 0.08;
+      const sweep = ctx.createLinearGradient(sweepX - band, 0, sweepX + band, 0);
+      sweep.addColorStop(0, withAlpha(ctx, colors.read, 0));
+      sweep.addColorStop(0.5, withAlpha(ctx, colors.read, 0.1));
+      sweep.addColorStop(1, withAlpha(ctx, colors.read, 0));
+      ctx.fillStyle = sweep;
+      ctx.fillRect(sweepX - band, 0, band * 2, h);
+    }
+    return {
+      recordEvents: function(reads, writes) {
+        const last2 = ring[ring.length - 1];
+        if (!last2) return;
+        last2.reads += Math.max(0, reads);
+        last2.writes += Math.max(0, writes);
+      },
+      frame: function(nowMs) {
+        if (lastAdvanceMs === 0) lastAdvanceMs = nowMs;
+        const steps = Math.floor((nowMs - lastAdvanceMs) / BUCKET_MS);
+        if (steps > 0) {
+          advanceBuckets(ring, steps);
+          lastAdvanceMs += steps * BUCKET_MS;
+        }
+        draw(nowMs);
+      },
+      eventsPerMinute: function() {
+        return eventsPerMinute(ring, BUCKET_MS);
+      },
+      isFlat: function() {
+        for (let i = 0; i < ring.length; i++) {
+          if (ring[i].reads + ring[i].writes > 0) return false;
+        }
+        return true;
+      }
+    };
+  }
+
+  // assets/web/heartbeat-screen.ts
+  var POLL_MS = 750;
+  var POLL_BACKOFF_MAX_MS = 6e3;
+  var cards = /* @__PURE__ */ new Map();
+  var monitor = null;
+  var tabActive = false;
+  var pollTimer = null;
+  var pollFailures = 0;
+  var sinceGen = 0;
+  var rafId = null;
+  var lastFrameTs = 0;
+  var pollToken = 0;
+  function byId(id2) {
+    return document.getElementById(id2);
+  }
+  function lastActivityMs(t) {
+    let best = 0;
+    [t.lastReadAt, t.lastWriteAt, t.lastHostChangeAt].forEach(function(iso) {
+      if (!iso) return;
+      const ms = Date.parse(iso);
+      if (!isNaN(ms) && ms > best) best = ms;
+    });
+    return best;
+  }
+  var statusShowing = false;
+  function setMonitorMessage(msg, tone) {
+    statusShowing = msg != null;
+    const el = byId("hb-monitor-msg");
+    if (el) {
+      el.hidden = msg == null;
+      el.textContent = msg || "";
+      el.className = "hb-monitor-msg" + (tone ? " hb-monitor-msg--" + tone : "");
+    }
+    updateEmptyState();
+  }
+  function updateEmptyState() {
+    const empty = byId("hb-empty");
+    if (empty) empty.hidden = cards.size > 0 || statusShowing;
+  }
+  function buildCard(t) {
+    const el = document.createElement("div");
+    el.className = "hb-card hb-card-enter";
+    el.innerHTML = '<div class="hb-card-head"><span class="hb-card-name" title="' + esc2(t.table) + '">' + esc2(t.table) + '</span><span class="hb-card-rows meta" data-hb="rows"></span></div><div class="hb-card-stats"><span class="hb-stat hb-stat--read" title="' + esc2(vt("viewer.heartbeat.reads.tooltip")) + '"><span class="hb-dot hb-dot--read" aria-hidden="true"></span><span class="hb-stat-val" data-hb="reads">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.reads")) + '</span></span><span class="hb-stat hb-stat--write" title="' + esc2(vt("viewer.heartbeat.writes.tooltip")) + '"><span class="hb-dot hb-dot--write" aria-hidden="true"></span><span class="hb-stat-val" data-hb="writes">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.writes")) + '</span></span><span class="hb-stat hb-stat--host" title="' + esc2(vt("viewer.heartbeat.detectedChanges.tooltip")) + '"><span class="hb-dot hb-dot--host" aria-hidden="true"></span><span class="hb-stat-val" data-hb="host">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.detectedChanges")) + "</span></span></div>";
+    el.addEventListener("animationend", function() {
+      el.classList.remove("hb-card-enter");
+    });
+    return {
+      el,
+      readsEl: el.querySelector('[data-hb="reads"]'),
+      writesEl: el.querySelector('[data-hb="writes"]'),
+      hostEl: el.querySelector('[data-hb="host"]'),
+      rowsEl: el.querySelector('[data-hb="rows"]'),
+      readHeat: 0,
+      writeHeat: 0,
+      lastActiveMs: 0
+    };
+  }
+  function applyTables(tables) {
+    const grid = byId("hb-grid");
+    if (!grid) return;
+    tables.forEach(function(t) {
+      if (!t || !t.table) return;
+      let card = cards.get(t.table);
+      if (!card) {
+        card = buildCard(t);
+        cards.set(t.table, card);
+        grid.appendChild(card.el);
+      }
+      if (card.readsEl) card.readsEl.textContent = String(t.reads || 0);
+      if (card.writesEl) card.writesEl.textContent = String(t.writes || 0);
+      if (card.hostEl) card.hostEl.textContent = String(t.hostChanges || 0);
+      if (card.rowsEl && typeof t.rowCount === "number") {
+        card.rowsEl.textContent = t.rowCount === 1 ? vt("viewer.heartbeat.rowCountOne") : vt("viewer.heartbeat.rowCount", t.rowCount);
+      }
+      card.lastActiveMs = Math.max(card.lastActiveMs, lastActivityMs(t));
+    });
+    const ordered = Array.from(cards.values()).sort(function(a, b) {
+      return b.lastActiveMs - a.lastActiveMs;
+    });
+    for (let i = 0; i < ordered.length; i++) {
+      if (grid.children[i] !== ordered[i].el) grid.insertBefore(ordered[i].el, grid.children[i] || null);
+    }
+    updateEmptyState();
+  }
+  function applyEvents(events) {
+    let readCount = 0;
+    let writeCount = 0;
+    const perTable = {};
+    events.forEach(function(e) {
+      if (!e || !e.table) return;
+      const slot = perTable[e.table] || (perTable[e.table] = { reads: 0, writes: 0 });
+      if (e.kind === "read") {
+        slot.reads++;
+        readCount++;
+      } else {
+        slot.writes++;
+        writeCount++;
+      }
+    });
+    Object.keys(perTable).forEach(function(name) {
+      const card = cards.get(name);
+      if (!card) return;
+      card.readHeat = applyImpulses(card.readHeat, perTable[name].reads);
+      card.writeHeat = applyImpulses(card.writeHeat, perTable[name].writes);
+      card.lastActiveMs = Math.max(card.lastActiveMs, Date.now());
+    });
+    if (monitor && (readCount || writeCount)) monitor.recordEvents(readCount, writeCount);
+  }
+  function updateVital() {
+    if (!monitor) return;
+    const epm = monitor.eventsPerMinute();
+    const valEl = byId("hb-vitals-value");
+    if (valEl) valEl.textContent = String(epm);
+    const wrap = byId("hb-vitals");
+    if (wrap) wrap.setAttribute("aria-label", vt("viewer.heartbeat.vitalSummary", epm));
+  }
+  function schedulePoll(delayMs) {
+    if (pollTimer != null) clearTimeout(pollTimer);
+    pollTimer = window.setTimeout(pollOnce, delayMs);
+  }
+  function pollOnce() {
+    pollTimer = null;
+    if (!shouldRun()) return;
+    const token = ++pollToken;
+    fetch("/api/activity?since=" + sinceGen, authOpts()).then(function(r) {
+      return r.json().then(function(data) {
+        return { status: r.status, ok: r.ok, data };
+      });
+    }).then(function(res) {
+      if (token !== pollToken || !shouldRun()) return;
+      if (res.status === 403) {
+        const msg = res.data && (res.data.error || res.data.message) || vt("viewer.heartbeat.disabled");
+        setMonitorMessage(String(msg), "disabled");
+        return;
+      }
+      if (res.status === 404 || res.status === 501) {
+        setMonitorMessage(vt("viewer.heartbeat.unavailable"), "muted");
+        return;
+      }
+      if (!res.ok) throw new Error("activity poll HTTP " + res.status);
+      pollFailures = 0;
+      setMonitorMessage(null);
+      const data = res.data || {};
+      if (typeof data.activityGeneration === "number") sinceGen = data.activityGeneration;
+      applyTables(Array.isArray(data.tables) ? data.tables : []);
+      applyEvents(Array.isArray(data.recentEvents) ? data.recentEvents : []);
+      updateVital();
+      schedulePoll(POLL_MS);
+    }).catch(function() {
+      if (token !== pollToken || !shouldRun()) return;
+      pollFailures++;
+      setMonitorMessage(vt("viewer.heartbeat.reconnecting"), "muted");
+      schedulePoll(Math.min(POLL_MS * Math.pow(2, pollFailures), POLL_BACKOFF_MAX_MS));
+    });
+  }
+  function frame(ts) {
+    rafId = requestAnimationFrame(frame);
+    const dt = lastFrameTs === 0 ? 0 : ts - lastFrameTs;
+    lastFrameTs = ts;
+    cards.forEach(function(card) {
+      const r = decayHeat(card.readHeat, dt);
+      const w = decayHeat(card.writeHeat, dt);
+      if (r !== card.readHeat || r > 0) card.el.style.setProperty("--read-heat", r.toFixed(3));
+      if (w !== card.writeHeat || w > 0) card.el.style.setProperty("--write-heat", w.toFixed(3));
+      card.readHeat = r;
+      card.writeHeat = w;
+    });
+    if (monitor) monitor.frame(ts);
+  }
+  function shouldRun() {
+    return tabActive && document.visibilityState === "visible";
+  }
+  function updateRunState() {
+    if (shouldRun()) {
+      if (rafId == null) {
+        lastFrameTs = 0;
+        rafId = requestAnimationFrame(frame);
+      }
+      if (pollTimer == null) {
+        pollFailures = 0;
+        pollOnce();
+      }
+    } else {
+      if (rafId != null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      if (pollTimer != null) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      }
+      pollToken++;
+    }
+  }
+  function localizeShell() {
+    const lead = byId("hb-lead");
+    if (lead) lead.textContent = vt("viewer.heartbeat.lead");
+    const label = byId("hb-vitals-label");
+    if (label) label.textContent = vt("viewer.heartbeat.vitalLabel");
+    const empty = byId("hb-empty");
+    if (empty) empty.textContent = vt("viewer.heartbeat.waiting");
+  }
+  function initHeartbeatScreen() {
+    const canvas = byId("hb-monitor");
+    if (!canvas) return;
+    localizeShell();
+    monitor = createHeartbeatMonitor(canvas);
+    updateEmptyState();
+    document.addEventListener("sda-tab-switch", function(e) {
+      tabActive = e.detail === "heartbeat";
+      updateRunState();
+    });
+    document.addEventListener("visibilitychange", updateRunState);
+  }
+
   // assets/web/index.js
   console.log("[SDA] index.js bridge: initWebL10n()");
   initWebL10n();
@@ -35150,5 +35592,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   initTableDefMeta();
   console.log("[SDA] index.js bridge: calling initSettings()");
   initSettings();
+  console.log("[SDA] index.js bridge: calling initHeartbeatScreen()");
+  initHeartbeatScreen();
   console.log("[SDA] index.js bridge: init complete");
 })();

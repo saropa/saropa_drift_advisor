@@ -35,6 +35,7 @@ import { initToolbar } from './toolbar.ts';
 import { initTableDefToggle } from './table-def-toggle.ts';
 import { initTableDefMeta } from './table-def-meta.ts';
 import { initSettings } from './settings.ts';
+import { initHeartbeatScreen } from './heartbeat-screen.ts';
 
 console.log('[SDA] index.js bridge: calling initToolbar()');
 initToolbar();
@@ -44,4 +45,8 @@ console.log('[SDA] index.js bridge: calling initTableDefMeta()');
 initTableDefMeta();
 console.log('[SDA] index.js bridge: calling initSettings()');
 initSettings();
+// Heartbeat screen: self-contained — activates via the 'sda-tab-switch'
+// event tabs.ts dispatches, so no app.js onTabSwitch wiring is needed.
+console.log('[SDA] index.js bridge: calling initHeartbeatScreen()');
+initHeartbeatScreen();
 console.log('[SDA] index.js bridge: init complete');

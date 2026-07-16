@@ -168,13 +168,14 @@ def _run_ext_dev_checks(
             return False
 
     # When running the "all" target the Dart leg already checked the working
-    # tree and remote sync, so skip these to avoid a duplicate prompt.
+    # tree, remote sync, and Dependabot PRs, so skip these to avoid duplicate
+    # prompts.
     if getattr(args, "_skip_git_state", False):
         heading("Step 4 \u00b7 Working Tree (already checked)")
         ok("Checked during Dart analysis")
         heading("Step 5 \u00b7 Remote Sync (already checked)")
         ok("Checked during Dart analysis")
-        # The Dart leg already ran the tracked-vs-gitignored guard for this run.
+        # The Dart leg already ran Dependabot PR + tracked-vs-gitignored guards.
     else:
         heading("Step 4 \u00b7 Working Tree")
         # analyze / --analyze-only must not show "publish will push" copy.
@@ -190,8 +191,13 @@ def _run_ext_dev_checks(
         if not run_step("Remote sync", check_remote_sync, results):
             return False
 
+        heading("Step 5b \u00b7 Dependabot PRs")
+        from modules.checks_git import check_pending_dependabot_prs
+        if not run_step("Dependabot PRs", check_pending_dependabot_prs, results):
+            return False
+
         # Catch a committed-and-gitignored file before tag/push (pub exit 65).
-        heading("Step 5b \u00b7 Tracked vs gitignored")
+        heading("Step 5c \u00b7 Tracked vs gitignored")
         if not run_step("Tracked-ignored check", check_no_tracked_gitignored, results):
             return False
 

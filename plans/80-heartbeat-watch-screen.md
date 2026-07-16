@@ -1,6 +1,6 @@
 # Feature 80 — Heartbeat / Watch Screen (live table activity board)
 
-Status: PLANNED
+Status: PHASE 1 IMPLEMENTED (server tracker + /api/activity + heartbeat screen with ECG monitor; untouched tables hidden). Phase 2 (host statement reporting with on-screen capture toggle) NOT started — separate decision.
 
 ## Purpose
 

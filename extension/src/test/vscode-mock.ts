@@ -18,6 +18,15 @@ import { clipboardMock, setClipboardText, getClipboardText } from './vscode-mock
 import { dialogMock, dialogResults } from './vscode-mock-dialog';
 import { messageMock } from './vscode-mock-message';
 import { writtenFiles } from './vscode-mock-fs';
+import {
+  MockTextDocument,
+  WorkspaceEdit,
+  mockTextDocuments,
+  appliedEdits,
+  resetTextDocumentMocks,
+} from './vscode-mock-textdocument';
+
+export { MockTextDocument, WorkspaceEdit, mockTextDocuments, appliedEdits };
 
 // Track panels, tree views & CodeLens providers created
 export const createdPanels: MockWebviewPanel[] = [];
@@ -174,8 +183,20 @@ export const workspace = {
   openTextDocument: async (options: any) => {
     if (options && typeof options === 'object' && 'content' in options) {
       createdTextDocuments.push(options);
+      return options;
     }
-    return options;
+    // Called with a Uri (the suppression-commands.ts path): return the
+    // fixture a test registered in mockTextDocuments, or an empty document
+    // so lineAt()/lineCount don't throw when a test doesn't need line text.
+    const key = options?.toString?.() ?? String(options);
+    return mockTextDocuments.get(key) ?? new MockTextDocument(options, ['']);
+  },
+  // Applies only `.insert()` edits (the sole WorkspaceEdit operation this
+  // codebase's suppression commands use) by recording them; no test needs
+  // the mock document's own text to reflect the edit afterward.
+  applyEdit: async (edit: WorkspaceEdit): Promise<boolean> => {
+    appliedEdits.push(edit);
+    return true;
   },
   findFiles: async (_include: any, _exclude?: any): Promise<any[]> => [],
   registerTimelineProvider: (scheme: string, provider: any) => {
@@ -226,6 +247,9 @@ export const l10n = {
 };
 
 
+/** Registry a test populates so `languages.getDiagnostics(uri)` returns fixtures. */
+export const mockDiagnosticsByUri = new Map<string, any[]>();
+
 export const languages = {
   createDiagnosticCollection: (name: string): MockDiagnosticCollection => {
     const col = new MockDiagnosticCollection(name);
@@ -248,6 +272,13 @@ export const languages = {
     registeredCodeActionProviders.push({ selector, provider, metadata });
     return { dispose: () => { /* no-op */ } };
   },
+  getDiagnostics: (uri?: any): any[] => {
+    if (!uri) {
+      return [];
+    }
+    return mockDiagnosticsByUri.get(uri.toString()) ?? [];
+  },
+  onDidChangeDiagnostics: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
 };
 
 import { resetExtras } from './vscode-mock-extras';
@@ -270,6 +301,8 @@ export function resetMocks(): void {
   registeredTimelineProviders.length = 0;
   createdDiagnosticCollections.length = 0;
   createdTextDocuments.length = 0;
+  mockDiagnosticsByUri.clear();
+  resetTextDocumentMocks();
   resetExtras();
   for (const key of Object.keys(registeredCommands)) {
     delete registeredCommands[key];
@@ -277,4 +310,5 @@ export function resetMocks(): void {
   for (const key of Object.keys(contextValues)) {
     delete contextValues[key];
   }
+  window.activeTextEditor = undefined;
 }

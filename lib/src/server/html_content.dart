@@ -204,6 +204,7 @@ abstract final class HtmlContent {
         <button type="button" class="tb-icon-btn" data-tool="size" data-label="Size" title="Size"><span class="material-symbols-outlined" aria-hidden="true">bar_chart</span></button>
         <button type="button" class="tb-icon-btn" data-tool="perf" data-label="Perf" title="Perf"><span class="material-symbols-outlined" aria-hidden="true">speed</span></button>
         <button type="button" class="tb-icon-btn" data-tool="anomaly" data-label="Health" title="Health"><span class="material-symbols-outlined" aria-hidden="true">favorite</span></button>
+        <button type="button" class="tb-icon-btn" data-tool="heartbeat" data-label="Heartbeat" title="Heartbeat"><span class="material-symbols-outlined" aria-hidden="true">monitor_heart</span></button>
         <hr class="tb-divider" />
         <button type="button" class="tb-icon-btn" data-tool="import" data-label="Import" title="Import"><span class="material-symbols-outlined" aria-hidden="true">upload</span></button>
         <button type="button" class="tb-icon-btn" data-tool="export" data-label="Export" title="Export"><span class="material-symbols-outlined" aria-hidden="true">download</span></button>
@@ -733,6 +734,27 @@ abstract final class HtmlContent {
           <button type="button" id="anomaly-compare" title="Compare two saved or current results">Compare</button>
         </div>
         <div id="anomaly-results" style="display:none;"></div>
+          </div>
+        </div>
+        <div id="panel-heartbeat" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-heartbeat" hidden>
+          <!-- Heartbeat screen: live table-activity board (Feature 80). The
+               markup carries structure only — every user-visible string is
+               filled at runtime by heartbeat-screen.ts via vt() so it flows
+               through the web l10n registry (same pattern as the Views tab).
+               Top: ECG-style monitor canvas with the events/min vital readout;
+               below: the active-table card grid rendered into #hb-grid. -->
+          <div id="heartbeat-screen" class="heartbeat-screen">
+            <p class="meta" id="hb-lead"></p>
+            <div class="hb-monitor-wrap" id="hb-monitor-wrap">
+              <canvas id="hb-monitor" aria-hidden="true"></canvas>
+              <div class="hb-vitals" id="hb-vitals" role="status">
+                <span class="hb-vitals-value" id="hb-vitals-value">0</span>
+                <span class="hb-vitals-label" id="hb-vitals-label"></span>
+              </div>
+              <div class="hb-monitor-msg" id="hb-monitor-msg" role="status" hidden></div>
+            </div>
+            <div class="hb-grid" id="hb-grid"></div>
+            <p class="hb-empty meta" id="hb-empty" hidden></p>
           </div>
         </div>
         <div id="panel-import" class="tab-panel tool-panel" role="tabpanel" aria-labelledby="tab-import" hidden>

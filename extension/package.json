@@ -992,6 +992,16 @@
         "title": "%command.viewInvariantViolations.title%",
         "icon": "$(warning)",
         "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.suppressDiagnosticAtCursor",
+        "title": "%command.suppressDiagnosticAtCursor.title%",
+        "category": "Saropa Drift Advisor"
+      },
+      {
+        "command": "driftViewer.suppressDiagnosticAtCursorFile",
+        "title": "%command.suppressDiagnosticAtCursorFile.title%",
+        "category": "Saropa Drift Advisor"
       }
     ],
     "menus": {
@@ -1168,6 +1178,16 @@
           "command": "driftViewer.explainQuery",
           "when": "editorLangId == dart && driftViewer.hasSqlAtCursor",
           "group": "drift@1"
+        },
+        {
+          "command": "driftViewer.suppressDiagnosticAtCursor",
+          "when": "editorLangId == dart && driftViewer.hasFindingNearCursor",
+          "group": "drift@2"
+        },
+        {
+          "command": "driftViewer.suppressDiagnosticAtCursorFile",
+          "when": "editorLangId == dart && driftViewer.hasFindingNearCursor",
+          "group": "drift@2"
         }
       ],
       "view/item/context": [

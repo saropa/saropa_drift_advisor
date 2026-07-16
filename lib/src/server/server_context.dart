@@ -15,6 +15,7 @@ import 'server_typedefs.dart';
 import 'server_types.dart';
 import 'server_utils.dart';
 import 'snapshot_store.dart';
+import 'table_activity_tracker.dart';
 import '../query_recorder.dart';
 
 // Re-export typedefs so handlers that import
@@ -56,7 +57,9 @@ final class ServerContext {
     this.loopbackOnly = true,
     this.monitoringEnabled = true,
     this.sqlStatementTimeout = ServerConstants.sqlStatementTimeout,
-  }) : queryRaw = query,
+    TableActivityTracker? tableActivity,
+  }) : tableActivity = tableActivity ?? TableActivityTracker(),
+       queryRaw = query,
        _queryExec =
            queryWithBindings ??
            ((
@@ -157,6 +160,14 @@ final class ServerContext {
 
   /// Optional Query Replay DVR recorder for timeline playback.
   final QueryRecorder? queryRecorder;
+
+  /// Per-table activity aggregates + recent-event ring backing
+  /// GET /api/activity (Feature 80 heartbeat screen). Always present (a
+  /// default instance is created when none is injected) so feed points never
+  /// need a null branch. Fed only from [timedQuery] (non-internal reads), the
+  /// wrapped writeQuery path, and [checkDataChange] count diffs — the tracker
+  /// itself never issues queries.
+  final TableActivityTracker tableActivity;
 
   /// Names of the tables the app's Drift schema declares
   /// (Drift `GeneratedDatabase.allTables` → `actualTableName`).
@@ -531,6 +542,16 @@ final class ServerContext {
           declaredParamsTruncated: dvrDeclaredParamsTruncated,
           hasDeclaredBindings: dvrHasDeclaredBindings,
         );
+
+        // Feature 80: light the heartbeat board for advisor-driven reads.
+        // MUST stay inside the !isInternal branch — internal probes (the
+        // change-detection COUNT sweep, extension diagnostics, the heartbeat
+        // screen's own polling) would otherwise make the board glow from
+        // watching itself, the load-bearing exclusion of the whole feature.
+        // Extraction is best-effort: unattributable SQL records nothing.
+        for (final table in TableActivityTracker.extractTableNames(sql)) {
+          tableActivity.recordRead(table);
+        }
       }
 
       return result;
@@ -829,6 +850,23 @@ final class ServerContext {
       final count = row[ServerConstants.jsonKeyCountColumn];
 
       counts[name] = count is int ? count : (count is num ? count.toInt() : 0);
+    }
+
+    // Feature 80: host-app writes are invisible to the server in phase 1, so
+    // a moved row count between change-detection sweeps is the only signal.
+    // Diff the previous cycle's counts against the new ones — zero extra
+    // queries, the sweep above already ran. The first cycle (previous null)
+    // is baseline-only, or every table would light up on startup. A table
+    // that appears or disappears counts as changed (null != count). Kill
+    // switch needs no check here: checkDataChange returns before the sweep
+    // when monitoring is disabled, so this code never runs killed.
+    final previousCounts = _cachedTableCounts;
+    if (previousCounts != null) {
+      for (final name in <String>{...previousCounts.keys, ...counts.keys}) {
+        if (previousCounts[name] != counts[name]) {
+          tableActivity.recordHostChange(name);
+        }
+      }
     }
 
     // Store the parsed counts so handlers can reuse

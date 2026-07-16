@@ -1,0 +1,244 @@
+/* Heartbeat screen (Heartbeat tab) — rendered by heartbeat-screen.ts.
+ *
+ * Top: ECG-style activity monitor (canvas, heartbeat-chart.ts). Below: a
+ * responsive grid of active-table cards. Each card exposes two heat scalars
+ * as CSS custom properties (--read-heat / --write-heat, 0..1, written by the
+ * screen's rAF loop); the rules here map heat onto glow (box-shadow blur +
+ * alpha) and border tint via color-mix, so ALL animation cost is two custom
+ * properties per hot card — no class churn, no repaint of cold cards.
+ *
+ * Channel tokens (single source for card glow AND canvas stroke — the chart
+ * reads them back with getComputedStyle):
+ *   --hb-read  cool channel = the theme accent (--link), every theme.
+ *   --hb-warm  warm channel = the warning hue. No theme defines a warning
+ *              token, so this mirrors the codebase's existing pattern for
+ *              exactly that gap: `var(--warning, #e67e22)` as used by the
+ *              masthead MASKED badge (_masthead.scss). If --warning is ever
+ *              added to _themes.scss it takes over automatically.
+ *   --hb-grid  faint monitor gridline color derived from the theme border. */
+
+.heartbeat-screen {
+  --hb-read: var(--link);
+  --hb-warm: var(--warning, #e67e22);
+  --hb-grid: color-mix(in srgb, var(--border-subtle) 55%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* --- ECG monitor strip ---------------------------------------------------- */
+
+.hb-monitor-wrap {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-pre);
+  /* Inner shadow gives the strip the recessed-glass depth of a real monitor
+     face without needing a theme-specific background. */
+  box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+#hb-monitor {
+  display: block;
+  width: 100%;
+  height: 8.5rem;
+}
+
+/* Vital readout — styled like a patient-monitor number block: large mono
+   value in the accent, small muted unit label underneath. */
+.hb-vitals {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+  pointer-events: none;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--hb-read) 45%, transparent);
+}
+
+.hb-vitals-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--hb-read);
+}
+
+.hb-vitals-label {
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Status/empty message centered over the flatlining trace. */
+.hb-monitor-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.hb-monitor-msg--disabled {
+  color: var(--hb-warm);
+}
+
+/* --- Active-table card grid ------------------------------------------------ */
+
+.hb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--space-4);
+}
+
+/* Card glow: the two heat channels stack as separate box-shadow layers so a
+   table being read AND written shows both halos at once. Border color mixes
+   warm over cool over the theme border, weighted by each channel's heat. */
+.hb-card {
+  --read-heat: 0;
+  --write-heat: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--hb-warm) calc(var(--write-heat) * 65%),
+      color-mix(in srgb, var(--hb-read) calc(var(--read-heat) * 65%), var(--border))
+    );
+  box-shadow:
+    0 0 calc(var(--read-heat) * 16px) calc(var(--read-heat) * 2px)
+      color-mix(in srgb, var(--hb-read) calc(var(--read-heat) * 55%), transparent),
+    0 0 calc(var(--write-heat) * 16px) calc(var(--write-heat) * 2px)
+      color-mix(in srgb, var(--hb-warm) calc(var(--write-heat) * 55%), transparent);
+}
+
+/* A table newly entering the board announces itself with a soft rise-in. */
+.hb-card-enter {
+  animation: hb-card-enter 0.35s ease-out;
+}
+
+@keyframes hb-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.hb-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.hb-card-name {
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hb-card-rows {
+  flex: none;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.hb-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.hb-stat-val {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+/* Channel dots double as the legend: cool = reads, warm = writes; detected
+   changes reuse the warm hue but hollow, marking them as inferred. */
+.hb-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  align-self: center;
+  flex: none;
+}
+
+.hb-dot--read {
+  background: var(--hb-read);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--hb-read) 60%, transparent);
+}
+
+.hb-dot--write {
+  background: var(--hb-warm);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--hb-warm) 60%, transparent);
+}
+
+.hb-dot--host {
+  background: transparent;
+  border: 1.5px solid var(--hb-warm);
+}
+
+.hb-empty {
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+}
+
+/* --- Fallbacks & preferences ------------------------------------------------ */
+
+/* Older engines without color-mix (same guard as _home-screen.scss): drop the
+   mixed glow, keep a plain accent border pulse so heat is still legible. */
+@supports not (background: color-mix(in srgb, red, blue)) {
+  .heartbeat-screen {
+    --hb-grid: var(--border-subtle);
+  }
+  .hb-card {
+    border-color: var(--border);
+    box-shadow: none;
+  }
+  .hb-vitals {
+    text-shadow: none;
+  }
+  .hb-dot--read,
+  .hb-dot--write {
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-card-enter {
+    animation: none;
+  }
+}

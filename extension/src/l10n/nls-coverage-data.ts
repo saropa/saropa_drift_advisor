@@ -3,13 +3,13 @@
  * Regenerate with: npm run generate:nls-coverage
  *
  * Manifest NLS value-coverage snapshot (plan 75 §2). `NLS_COVERAGE` maps each
- * translated locale to the percent of the 255 manifest keys whose value
+ * translated locale to the percent of the 257 manifest keys whose value
  * differs from English. English is the source (always 100%) and is not listed.
  * Consumed by the future activation coverage notice; guarded for staleness by
  * `npm run verify:nls-coverage`.
  */
 
-export const NLS_TOTAL_KEYS = 255;
+export const NLS_TOTAL_KEYS = 257;
 
 /** Translated-locale → percent of manifest values that differ from English (0–100). */
 export const NLS_COVERAGE: Record<string, number> = {};
