@@ -752,6 +752,35 @@ void main() {
       expect(tracker.captureArmed, isFalse);
     });
 
+    test('lease boundary: exactly the window is NOT expired (strict >)', () {
+      // Pins the inclusive boundary so a future `>` -> `>=` refactor that
+      // silently tightens the window fails here instead of shipping.
+      var now = 0;
+      final tracker = TableActivityTracker(nowMs: () => now);
+      tracker.armCapture();
+      now = ServerConstants.activityCaptureLeaseMs;
+      tracker.recordHostStatement('SELECT * FROM items');
+      expect(tracker.captureArmed, isTrue);
+      expect(tracker.activityGeneration, 1);
+    });
+
+    test('setMonitoring(false) eagerly disarms — no statement needed', () {
+      // The tracker's own probe check only disarms on the NEXT reported
+      // statement; a kill/resume cycle with zero statements in between must
+      // not let an armed capture survive the kill switch. setMonitoring is
+      // the single mutation point, so the eager disarm lives there.
+      final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
+      ctx.tableActivity.armCapture();
+      expect(ctx.tableActivity.captureArmed, isTrue);
+
+      ctx.setMonitoring(false);
+      expect(ctx.tableActivity.captureArmed, isFalse);
+
+      // Resuming monitoring must NOT re-arm.
+      ctx.setMonitoring(true);
+      expect(ctx.tableActivity.captureArmed, isFalse);
+    });
+
     test('kill switch: refuses arming and force-disarms an armed tracker', () {
       var monitoring = true;
       final tracker = TableActivityTracker()

@@ -94,6 +94,9 @@ show the host app's own live reads and writes when the host wires
   `ServerContext` to `monitoringEnabled`) refuses arming and force-disarms on
   the next reported statement when monitoring is disabled — checked inside
   the armed branch so the disarmed path stays one field read + one branch.
+  Additionally, `ServerContext.setMonitoring(false)` disarms EAGERLY, so a
+  kill/resume cycle with zero host statements in between cannot leave an
+  armed capture surviving the kill switch (review finding, fixed same day).
 - `DriftDebugServer.reportActivity(String sql)` added to the VM
   implementation (delegating to the tracker only when armed) and as a silent
   no-op on the web stub — deliberately not a throw, because the host may wire

@@ -24,6 +24,11 @@ let availability: CaptureAvailability = 'unknown';
 let serverArmed = false;
 /** True while a toggle POST is in flight — the click wins over stale polls. */
 let postPending = false;
+/** Monotonic POST sequence (same pattern as panel.ts's _loadSeq): a toggle
+ *  click or lifecycle disarm bumps it, and a response whose token no longer
+ *  matches is discarded — so overlapping POSTs (arm, then tab-switch disarm
+ *  before the arm resolves) can never apply out of order. */
+let postSeq = 0;
 /** The user's in-flight choice, shown optimistically while postPending. */
 let localChecked = false;
 
@@ -88,6 +93,7 @@ export function captureSetUnsupported(): void {
 
 /** User clicked the toggle: POST the new state; the response is authoritative. */
 function postCapture(enabled: boolean): void {
+  const token = ++postSeq;
   postPending = true;
   localChecked = enabled;
   setNote(null);
@@ -99,6 +105,9 @@ function postCapture(enabled: boolean): void {
   }))
     .then(function (r) { return r.json().then(function (d) { return { status: r.status, ok: r.ok, data: d }; }); })
     .then(function (res) {
+      // A newer POST (or a lifecycle disarm) superseded this one — its
+      // response is stale and must not overwrite the later state.
+      if (token !== postSeq) return;
       postPending = false;
       // 403 = kill switch: capture unavailable, render off/disabled.
       if (res.status === 403) { captureSetForbidden(); return; }
@@ -109,6 +118,7 @@ function postCapture(enabled: boolean): void {
       render();
     })
     .catch(function () {
+      if (token !== postSeq) return;
       // Failed POST: snap back to the server's last known state and say so —
       // a silently reverting toggle would look like the click never landed.
       postPending = false;
@@ -131,6 +141,9 @@ function postCapture(enabled: boolean): void {
  */
 export function captureDisarmBestEffort(unloading?: boolean): void {
   if (!shouldSendLifecycleDisarm(availability, serverArmed || localChecked)) return;
+  // Supersede any in-flight toggle POST: its late response must not re-arm
+  // the UI after this disarm (the fire-and-forget below is not awaited).
+  postSeq++;
   serverArmed = false;
   localChecked = false;
   postPending = false;

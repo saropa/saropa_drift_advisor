@@ -35651,6 +35651,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   var availability = "unknown";
   var serverArmed = false;
   var postPending = false;
+  var postSeq = 0;
   var localChecked = false;
   function byId2(id2) {
     return document.getElementById(id2);
@@ -35696,6 +35697,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     render3();
   }
   function postCapture(enabled) {
+    const token = ++postSeq;
     postPending = true;
     localChecked = enabled;
     setNote(null);
@@ -35709,6 +35711,7 @@ ${JSON.stringify(results, void 0, 2)}`);
         return { status: r.status, ok: r.ok, data: d };
       });
     }).then(function(res) {
+      if (token !== postSeq) return;
       postPending = false;
       if (res.status === 403) {
         captureSetForbidden();
@@ -35720,6 +35723,7 @@ ${JSON.stringify(results, void 0, 2)}`);
       localChecked = serverArmed;
       render3();
     }).catch(function() {
+      if (token !== postSeq) return;
       postPending = false;
       localChecked = serverArmed;
       setNote(vt("viewer.heartbeat.capture.error"), true);
@@ -35728,6 +35732,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   }
   function captureDisarmBestEffort(unloading) {
     if (!shouldSendLifecycleDisarm(availability, serverArmed || localChecked)) return;
+    postSeq++;
     serverArmed = false;
     localChecked = false;
     postPending = false;

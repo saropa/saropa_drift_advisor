@@ -361,6 +361,15 @@ final class ServerContext {
   /// guard so a manifest-rewrite failure cannot break the toggle itself.
   void setMonitoring(bool enabled) {
     monitoringEnabled = enabled;
+    // Eager force-disarm of host-statement capture (Feature 80 phase 2). The
+    // tracker's own probe check would disarm lazily on the NEXT reported
+    // statement, but a kill/resume cycle with zero statements in between
+    // would then let an armed capture silently survive the kill switch.
+    // Disarming here makes "disabling monitoring force-disarms capture"
+    // deterministic; monitoring toggles are rare, never a hot path.
+    if (!enabled) {
+      tableActivity.disarmCapture();
+    }
     try {
       onMonitoringChanged?.call(enabled);
     } on Object catch (error, stack) {
