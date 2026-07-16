@@ -189,6 +189,23 @@ abstract final class ServerConstants {
   static const String pathApiActivity = '/api/activity';
   static const String pathApiActivityAlt = 'api/activity';
 
+  /// POST arm/disarm host-statement capture for the Heartbeat screen
+  /// (Feature 80, phase 2). Body {"enabled": true|false}; response
+  /// {"captureArmed": <bool>} reflecting the RESULTING state. Dispatched
+  /// after the global kill-switch gate, so a killed server answers the
+  /// same structured 403 as every other data-inspection endpoint.
+  static const String pathApiActivityCapture = '/api/activity/capture';
+  static const String pathApiActivityCaptureAlt = 'api/activity/capture';
+
+  /// Host-statement capture lease window in milliseconds. Arming and every
+  /// GET /api/activity poll stamp a renewal timestamp; when
+  /// `recordHostStatement` sees now − lastRenewal exceed this window it
+  /// self-disarms and records nothing. The heartbeat screen polls every
+  /// ~750 ms, so 5000 ms tolerates several missed polls while guaranteeing a
+  /// killed browser tab, dropped adb forward, or crashed webview can never
+  /// leave the per-query interceptor hot. Timestamp compare only — no timer.
+  static const int activityCaptureLeaseMs = 5000;
+
   /// GET/POST toggle for the global monitoring & logging kill switch.
   /// Must stay reachable while monitoring is disabled — it is the only
   /// HTTP path back to a live server (the resume action), so the 403
@@ -525,6 +542,11 @@ abstract final class ServerConstants {
 
   /// Ring of recent activity events (oldest first, filtered by `since`).
   static const String jsonKeyRecentEvents = 'recentEvents';
+
+  /// Top-level GET /api/activity field (and the POST /api/activity/capture
+  /// response body) advertising whether host-statement capture is armed.
+  /// Additive to the phase 1 payload — existing keys are unchanged.
+  static const String jsonKeyCaptureArmed = 'captureArmed';
   static const String jsonKeyReads = 'reads';
   static const String jsonKeyWrites = 'writes';
 
