@@ -103,7 +103,49 @@ this change, since no prior test exercised these VS Code APIs.
 
 - The 3-line `NEAR_CURSOR_LINE_WINDOW` is a fixed constant, not user
   configurable. No user request has surfaced for tuning it.
-- Debounce-coalescing behavior itself (rapid selection changes collapsing to
-  one context-key update) is not unit tested — it mirrors the pre-existing,
-  also-untested pattern in `timeline/snapshot-commands.ts`'s
-  `hasSqlAtCursor` context key.
+
+## Follow-up hardening (same day)
+
+The original handoff's self-identified risk areas were addressed rather than
+left as open questions:
+
+1. **Stale QuickPick pick.** The tie-break QuickPick is the one place
+   `resolveDiagnosticAtCursor` awaits user input mid-resolution — the picked
+   diagnostic was a snapshot taken before the user answered, with no check
+   that it still matched reality afterward. Added a re-validation: after the
+   QuickPick resolves, a fresh `getDiagnostics` read confirms a Drift Advisor
+   diagnostic with the same `(code, range.start.line)` still exists before
+   any edit is applied; otherwise the command aborts with "This finding
+   changed before the pick was confirmed — run the command again."
+2. **Unscoped `onDidChangeDiagnostics` listener.** The listener recomputed
+   `hasFindingNearCursor` on every diagnostics change in every open document
+   from any extension, not just the active editor's. It now reads the
+   event's `uris` and only schedules a recompute when one matches the active
+   editor's document (`scheduleContextUpdateIfActiveDocAffected`).
+3. **Debounce coalescing was asserted but never proven.** Added a test that
+   fires `onDidChangeTextEditorSelection` five times synchronously and
+   confirms exactly one `setContext` call reaches the mock command bus after
+   the debounce settles, rather than five.
+
+Required extending the mock harness further:
+`extension/src/test/vscode-mock.ts` now captures listeners registered via
+`onDidChangeDiagnostics`, `onDidChangeActiveTextEditor`, and
+`onDidChangeTextEditorSelection` (previously all three silently dropped their
+listener and returned a no-op disposable), with `fireDiagnosticsChanged`,
+`fireActiveEditorChanged`, and `fireSelectionChanged` test helpers to trigger
+them. `dialogMock.quickPickResult` now also accepts a function, invoked at
+pick-resolution time, so a test can perform a side effect (mutating
+diagnostics) at the exact point a real user's pick would resolve — this is
+what makes the stale-pick race reproducible in a test at all.
+
+Added 6 test cases to `suppression-commands.test.ts` (11 → 17 total): stale
+pick refused, non-stale pick after a no-op side effect still accepted,
+diagnostics-change ignored for an unrelated document, diagnostics-change
+honored for the active document, and the five-selection-changes-collapse-to-one
+coalescing assertion. All 17 pass; the broader shared-mock regression check
+(93 tests across every file touching the extended mocks) also passes with no
+regressions. Full `npx tsc -p ./`, `verify-nls`, `verify:nls-coverage` clean.
+
+Deliberately not chased: real VS Code Extension Development Host
+verification (menu rendering, actual debounce timing under real user input)
+remains unverified — the mock harness proves the logic, not the live UI.

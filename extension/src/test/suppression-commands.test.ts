@@ -3,6 +3,7 @@ import { Diagnostic, DiagnosticSeverity, Position, Range, Uri } from './vscode-m
 import {
   window,
   commands,
+  mockCommands,
   resetMocks,
   mockDiagnosticsByUri,
   mockTextDocuments,
@@ -10,6 +11,8 @@ import {
   MockTextDocument,
   dialogMock,
   messageMock,
+  fireDiagnosticsChanged,
+  fireSelectionChanged,
 } from './vscode-mock';
 import { registerSuppressionCommands } from '../diagnostics/suppression-commands';
 import { DIAGNOSTIC_SOURCE } from '../diagnostics/diagnostic-types';
@@ -165,6 +168,45 @@ describe('suppression-commands', () => {
       assert.strictEqual(appliedEdits.length, 0);
       assert.ok(messageMock.warnings.some((w) => w.includes('cannot be ignored individually')));
     });
+
+    it('refuses a stale QuickPick pick if the finding changed while the pick was pending', async () => {
+      setCursor(5);
+      const first = driftDiagnostic(5, 'code-a');
+      const second = driftDiagnostic(5, 'code-b');
+      mockDiagnosticsByUri.set(FILE_URI.toString(), [first, second]);
+      // Simulates the diagnostics refreshing (e.g. an edit or a background
+      // sweep) in the gap between the QuickPick opening and the user
+      // answering it — the picked object is now stale.
+      dialogMock.quickPickResult = () => {
+        mockDiagnosticsByUri.set(FILE_URI.toString(), [driftDiagnostic(5, 'code-a')]);
+        return { label: 'code-b', diagnostic: second };
+      };
+
+      await commands.executeRegistered('driftViewer.suppressDiagnosticAtCursor');
+
+      assert.strictEqual(appliedEdits.length, 0);
+      assert.strictEqual(refreshCalls, 0);
+      assert.ok(
+        messageMock.warnings.some((w) => w.includes('changed before the pick was confirmed')),
+      );
+    });
+
+    it('accepts a QuickPick pick that is still present after the pick resolves', async () => {
+      setCursor(5);
+      const first = driftDiagnostic(5, 'code-a');
+      const second = driftDiagnostic(5, 'code-b');
+      mockDiagnosticsByUri.set(FILE_URI.toString(), [first, second]);
+      // Side effect that does NOT remove the picked finding — the accepted case.
+      dialogMock.quickPickResult = () => {
+        mockDiagnosticsByUri.set(FILE_URI.toString(), [first, second]);
+        return { label: 'code-b', diagnostic: second };
+      };
+
+      await commands.executeRegistered('driftViewer.suppressDiagnosticAtCursor');
+
+      assert.strictEqual(appliedEdits.length, 1);
+      assert.strictEqual(appliedEdits[0].inserts[0].text, '// drift-advisor:ignore code-b\n');
+    });
   });
 
   describe('suppressDiagnosticAtCursorFile (file scope)', () => {
@@ -197,6 +239,57 @@ describe('suppression-commands', () => {
       registerSuppressionCommands({ subscriptions: [] } as any, () => {});
 
       assert.strictEqual(commands.getContext('driftViewer.hasFindingNearCursor'), false);
+    });
+
+    /** Debounce settles at 50ms; wait comfortably past it before asserting. */
+    const DEBOUNCE_SETTLE_MS = 80;
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    it('does not recompute when onDidChangeDiagnostics fires for an unrelated document', async () => {
+      resetMocks();
+      setCursor(5);
+      registerSuppressionCommands({ subscriptions: [] } as any, () => {});
+      assert.strictEqual(commands.getContext('driftViewer.hasFindingNearCursor'), false);
+
+      // A finding now exists near the cursor, but the change event names a
+      // DIFFERENT document — must not trigger a recompute.
+      mockDiagnosticsByUri.set(FILE_URI.toString(), [driftDiagnostic(5, 'code')]);
+      fireDiagnosticsChanged([Uri.parse('file:///lib/some/other_file.dart')]);
+      await sleep(DEBOUNCE_SETTLE_MS);
+
+      assert.strictEqual(commands.getContext('driftViewer.hasFindingNearCursor'), false);
+    });
+
+    it('recomputes when onDidChangeDiagnostics fires for the active document', async () => {
+      resetMocks();
+      setCursor(5);
+      registerSuppressionCommands({ subscriptions: [] } as any, () => {});
+      assert.strictEqual(commands.getContext('driftViewer.hasFindingNearCursor'), false);
+
+      mockDiagnosticsByUri.set(FILE_URI.toString(), [driftDiagnostic(5, 'code')]);
+      fireDiagnosticsChanged([FILE_URI]);
+      await sleep(DEBOUNCE_SETTLE_MS);
+
+      assert.strictEqual(commands.getContext('driftViewer.hasFindingNearCursor'), true);
+    });
+
+    it('coalesces rapid selection changes into a single setContext call', async () => {
+      resetMocks();
+      setCursor(5);
+      registerSuppressionCommands({ subscriptions: [] } as any, () => {});
+      mockDiagnosticsByUri.set(FILE_URI.toString(), [driftDiagnostic(5, 'code')]);
+      mockCommands.reset(); // Drop the registration-time setContext call from the count.
+
+      // Five selection changes back-to-back, no await between them — each
+      // should reset the debounce timer rather than firing its own update.
+      for (let i = 0; i < 5; i++) {
+        fireSelectionChanged();
+      }
+      await sleep(DEBOUNCE_SETTLE_MS);
+
+      const setContextCalls = mockCommands.executed.filter((id) => id === 'setContext');
+      assert.strictEqual(setContextCalls.length, 1);
+      assert.strictEqual(commands.getContext('driftViewer.hasFindingNearCursor'), true);
     });
   });
 });
