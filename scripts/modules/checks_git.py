@@ -15,6 +15,7 @@ will not happen. When ``will_publish=True``, the guidance matches
 ``git_ops.git_commit_and_push`` (``TargetConfig.git_stage_paths``).
 """
 
+import json
 import shutil
 import subprocess
 
@@ -91,6 +92,55 @@ def check_working_tree(will_publish: bool = True) -> bool:
             "extension/ and scripts/ only."
         )
     return ask_yn("Continue with uncommitted changes?", default=True)
+
+
+def check_pending_dependabot_prs() -> bool:
+    """Fail if open Dependabot PRs exist that should be merged before release.
+
+    Dependabot PRs carry dependency bumps (actions, npm, pub) that accumulate
+    silently. Shipping a release while they sit open means the release ships on
+    stale deps that Dependabot already flagged. This gate surfaces them early
+    so the operator merges or closes them before the publish pipeline commits
+    a tag.
+
+    Requires ``gh`` on PATH and authenticated (checked separately by
+    ``check_gh_cli``). If ``gh`` is missing or the query fails, the check is
+    skipped with a warning rather than blocking the pipeline — the operator
+    may be offline or in a fork without PRs.
+    """
+    if not shutil.which("gh"):
+        warn("GitHub CLI (gh) not found — skipping Dependabot PR check.")
+        return True
+
+    try:
+        result = subprocess.run(
+            ["gh", "pr", "list", "--state", "open", "--app", "dependabot",
+             "--json", "number,title,url"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except subprocess.TimeoutExpired:
+        warn("Dependabot PR check timed out — skipping.")
+        return True
+
+    if result.returncode != 0:
+        warn("Could not query Dependabot PRs — skipping.")
+        return True
+
+    prs = json.loads(result.stdout or "[]")
+    if not prs:
+        ok("No open Dependabot PRs")
+        return True
+
+    fail(f"{len(prs)} open Dependabot PR(s) — merge or close before publishing:")
+    for pr in prs:
+        print(f"         {C.DIM}#{pr['number']}: {pr['title']}{C.RESET}")
+        if pr.get("url"):
+            print(f"         {C.DIM}  {pr['url']}{C.RESET}")
+    info(
+        "Merge these PRs (or close if intentionally skipping a bump), then "
+        "re-run the pipeline."
+    )
+    return ask_yn("Continue anyway with stale Dependabot PRs?", default=False)
 
 
 def check_no_tracked_gitignored() -> bool:

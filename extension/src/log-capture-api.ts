@@ -16,12 +16,24 @@ import {
   severityToString,
   toWorkspaceRelativePath,
 } from './debug/log-capture-bridge';
+import type { DailySummary, SaropaSuiteApi } from './suite/suite-daily-summary';
+import { buildDailySummary } from './suite/suite-daily-summary';
 
 /** Public snapshot shape: same as sidecar (full export). Returned by getSessionSnapshot(). */
 export type DriftAdvisorSnapshot = DriftAdvisorSidecar;
 
-/** API surface exposed via context.exports for extension ID saropa.drift-viewer. */
-export interface DriftAdvisorApi {
+export type { DailySummary, SaropaSuiteApi } from './suite/suite-daily-summary';
+
+/**
+ * API surface exposed via context.exports for extension ID saropa.drift-viewer.
+ *
+ * Two contracts share one exports object:
+ *   - getSessionSnapshot() — the Log Capture integration (full session export).
+ *   - The Saropa Suite daily-summary contract ({@link SaropaSuiteApi}):
+ *     `apiVersion` + getDailySummary(). Siblings resolve this via
+ *     `getExtension('saropa.drift-viewer')?.exports` and ignore unknown fields.
+ */
+export interface DriftAdvisorApi extends SaropaSuiteApi {
   /** Returns current session snapshot (performance, anomalies, schema, health, issues) or null if not connected. */
   getSessionSnapshot(): Promise<DriftAdvisorSnapshot | null>;
 }
@@ -97,8 +109,12 @@ export function createDriftAdvisorApi(
   getIssues?: () => LogCaptureIssueLike[],
 ): DriftAdvisorApi {
   return {
+    apiVersion: 1,
     async getSessionSnapshot(): Promise<DriftAdvisorSnapshot | null> {
       return buildSessionSnapshot(getClient(), getIssues);
+    },
+    async getDailySummary(date: string): Promise<DailySummary | undefined> {
+      return buildDailySummary(getClient(), date);
     },
   };
 }

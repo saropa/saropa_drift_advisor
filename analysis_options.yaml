@@ -47,7 +47,7 @@ linter:
 
 plugins:
   saropa_lints:
-    version: "14.3.0"
+    version: "14.3.2"
     rule_packs:
       enabled:
         - collection_compat

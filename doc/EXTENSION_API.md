@@ -52,6 +52,41 @@ if (snapshot === null) {
 
 Use this API when you need to pull the same data that Drift Advisor contributes to Saropa Log Capture at session end, without relying on the Log Capture integration provider having run.
 
+## Saropa Suite daily-summary contract
+
+The same exports object also implements the cross-tool **Saropa Suite** API, so a consolidated Suite daily report can pull one small digest from each tool without scraping internals:
+
+```typescript
+const api = vscode.extensions.getExtension('saropa.drift-viewer')?.exports;
+if (api?.apiVersion === 1) {
+  const summary = await api.getDailySummary('2026-07-16'); // YYYY-MM-DD
+  if (summary) {
+    // summary.headline, summary.counts, summary.trouble, summary.openCommand
+  }
+}
+```
+
+### `apiVersion: 1`
+
+Contract version. Bumps only on a breaking shape change; consumers ignore unknown fields, so growth is additive. Treat every emitted field with the same never-rename discipline as the `driftViewer.*` deep-link ids.
+
+### `getDailySummary(date: string): Promise<DailySummary | undefined>`
+
+- **Returns:** the day's summary when a database has been observed (a Drift server is connected), or `undefined` otherwise so the caller omits the section.
+- **Lazy:** built on call from data the dashboard/anomaly-detector/index-analyzer already compute — nothing runs at activation.
+- **Per-day history is not retained (apiVersion 1).** The server keeps a live session view (ring buffers of query timings, current anomalies), so the returned summary is that session/snapshot view stamped with the requested `date`.
+
+### Summary shape (`DailySummary`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tool` | `'drift-viewer'` | Stable tool id within the Suite report |
+| `date` | string | Echo of the requested day (`YYYY-MM-DD`) |
+| `headline` | string | One plain-language sentence for the executive summary |
+| `counts` | `Record<string, number>` | `queries`, `slowQueries`, `anomalies`, `indexSuggestions` |
+| `trouble` | array | Failure-only items: `{ label, detail?, command?, args? }` (anomalies + slow-query offenders, worst first) |
+| `openCommand` | string (optional) | Deep-link to open the full view (`driftViewer.openInPanel`) |
+
 ## References
 
 - Plan: [Log Capture integration](../plans/log-capture-integration.md)

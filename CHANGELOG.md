@@ -42,6 +42,16 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+Other Saropa Suite tools can now pull a small daily digest from Drift Advisor for a consolidated Suite report. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Added
+
+- **Saropa Suite daily-summary API.** The extension's exports now implement the cross-tool Suite contract (`apiVersion: 1`, `getDailySummary(date)`) alongside the existing Log Capture snapshot. A sibling extension calls `getExtension('saropa.drift-viewer')?.exports.getDailySummary('YYYY-MM-DD')` and gets a one-sentence headline, named counts (queries, slow queries, anomalies, index suggestions), a failure-only Trouble list with deep-links, and an open-command — or `undefined` when no database is connected. It is a thin read-only projection of already-computed session data, built lazily on call so activation is unaffected; per-day history is not retained, so apiVersion 1 returns the live session view stamped with the requested date. Documented in `doc/EXTENSION_API.md` (`plans/history/2026.07/2026.07.16/PLAN_suite_daily_summary_api.md`).
+
+---
+
 ## [4.2.0]
 
 One switch now turns ALL monitoring off: a power button in the Database sidebar (plus a card in Drift Tools and two commands) instantly stops query recording, background sweeps, diagnostics, and file badges on both the extension and the in-app debug server — and turns them all back on without any restart. Booleans now render as `true`/`false` instead of `0`/`1`, interactive SQL errors now suggest the right column name, and the web viewer's left icon bar is a touch roomier with softly tinted icons. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.0/CHANGELOG.md)

@@ -468,6 +468,7 @@ def run_dart_analysis(
     from modules.checks_git import (
         check_git,
         check_no_tracked_gitignored,
+        check_pending_dependabot_prs,
         check_remote_sync,
         check_working_tree,
     )
@@ -495,6 +496,10 @@ def run_dart_analysis(
 
     heading("Dart \u00b7 Remote Sync")
     if not run_step("Remote sync", check_remote_sync, results):
+        return "", False
+
+    heading("Dart \u00b7 Dependabot PRs")
+    if not run_step("Dependabot PRs", check_pending_dependabot_prs, results):
         return "", False
 
     # Catch a file that is both committed and gitignored here \u2014 pub's --dry-run
