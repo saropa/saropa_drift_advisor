@@ -21,6 +21,12 @@ export function applyTheme(theme) {
         opt.classList.toggle('active', isActive);
         opt.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       }
+
+      // Decoupled theme-change signal (mirrors tabs.ts's sda-tab-switch):
+      // canvas surfaces cache colors resolved via getComputedStyle, which a
+      // body-class flip alone cannot invalidate — this event lets them
+      // recolor on the next frame instead of waiting out a refresh throttle.
+      document.dispatchEvent(new CustomEvent('sda-theme-change', { detail: theme }));
     }
 
     // All four themes are fully supported via inline CSS.

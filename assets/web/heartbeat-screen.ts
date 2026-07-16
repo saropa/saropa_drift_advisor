@@ -2,56 +2,39 @@
  * Heartbeat screen (Feature 80, phase 1): live table-activity board.
  *
  * Top: ECG-style monitor (heartbeat-chart.ts) aggregating all recent events.
- * Below: a card grid of ACTIVE tables only (the server already hides idle
- * tables), most-recently-active first. Each card carries two heat scalars —
- * reads (cool, theme accent) and writes + detected changes (warm) — driven
- * onto CSS custom properties --read-heat / --write-heat; _heartbeat-screen.scss
- * maps them to glow and border color.
+ * Below: a card grid of ACTIVE tables only (heartbeat-cards.ts — card DOM,
+ * heat glow, per-table sparklines). This module owns the lifecycle: the
+ * adaptive activity poll and the single rAF loop that drives monitor + cards.
  *
- * Lifecycle: polling (~750 ms) and the single rAF loop run ONLY while the
- * heartbeat tab is active AND the document is visible; both fully suspend
- * otherwise (no background CPU, and the board never glows from its own
- * polling — the server additionally excludes internal probes).
+ * Lifecycle: polling and the rAF loop run ONLY while the heartbeat tab is
+ * active AND the document is visible; both fully suspend otherwise (no
+ * background CPU, and the board never glows from its own polling — the
+ * server additionally excludes internal probes).
  */
 import * as S from './state.ts';
 import { vt } from './l10n.ts';
-import { esc } from './utils.ts';
-import { applyImpulses, decayHeat } from './heartbeat-heat.ts';
+import { nextPollDelay } from './heartbeat-heat.ts';
 import { createHeartbeatMonitor, HeartbeatMonitor } from './heartbeat-chart.ts';
+import { applyCardEvents, applyTables, cardsFrame, hasCards } from './heartbeat-cards.ts';
+import { invalidateSparklines } from './heartbeat-sparkline.ts';
 
-/** Steady poll cadence while the screen is watched. */
+/** Steady poll cadence while events are arriving. */
 const POLL_MS = 750;
+/** Idle cadence ceiling — see nextPollDelay in heartbeat-heat.ts for WHY the
+ *  interval decays (a fixed 750 ms cadence polled idle battery-powered debug
+ *  targets ~80×/min). */
+const POLL_IDLE_CEILING_MS = 2500;
 /** Failure backoff cap — keeps retries polite when the server is gone. */
 const POLL_BACKOFF_MAX_MS = 6000;
 
-interface TableActivity {
-  table: string;
-  reads: number;
-  writes: number;
-  hostChanges: number;
-  rowCount?: number;
-  lastReadAt?: string;
-  lastWriteAt?: string;
-  lastHostChangeAt?: string;
-}
-
-interface CardState {
-  el: HTMLElement;
-  readsEl: HTMLElement | null;
-  writesEl: HTMLElement | null;
-  hostEl: HTMLElement | null;
-  rowsEl: HTMLElement | null;
-  readHeat: number;
-  writeHeat: number;
-  /** Epoch ms of the newest server-reported activity — drives grid order. */
-  lastActiveMs: number;
-}
-
-const cards: Map<string, CardState> = new Map();
 let monitor: HeartbeatMonitor | null = null;
 let tabActive = false;
 let pollTimer: number | null = null;
 let pollFailures = 0;
+/** Successful polls in a row that carried zero events — drives the adaptive
+ *  idle cadence (nextPollDelay). Reset to 0 by any event, which snaps the
+ *  very next poll back to the steady 750 ms. */
+let emptyPolls = 0;
 let sinceGen = 0;
 let rafId: number | null = null;
 let lastFrameTs = 0;
@@ -59,17 +42,6 @@ let lastFrameTs = 0;
 let pollToken = 0;
 
 function byId(id: string): HTMLElement | null { return document.getElementById(id); }
-
-/** Latest ISO timestamp among a table's three activity channels, as epoch ms. */
-function lastActivityMs(t: TableActivity): number {
-  let best = 0;
-  [t.lastReadAt, t.lastWriteAt, t.lastHostChangeAt].forEach(function (iso) {
-    if (!iso) return;
-    const ms = Date.parse(iso);
-    if (!isNaN(ms) && ms > best) best = ms;
-  });
-  return best;
-}
 
 /** True while a status message (disabled/unavailable/reconnecting) is up. */
 let statusShowing = false;
@@ -92,99 +64,7 @@ function setMonitorMessage(msg: string | null, tone?: string): void {
  *  alongside a monitor status message (see setMonitorMessage). */
 function updateEmptyState(): void {
   const empty = byId('hb-empty');
-  if (empty) empty.hidden = cards.size > 0 || statusShowing;
-}
-
-function buildCard(t: TableActivity): CardState {
-  const el = document.createElement('div');
-  el.className = 'hb-card hb-card-enter';
-  el.innerHTML =
-    '<div class="hb-card-head">' +
-    '<span class="hb-card-name" title="' + esc(t.table) + '">' + esc(t.table) + '</span>' +
-    '<span class="hb-card-rows meta" data-hb="rows"></span>' +
-    '</div>' +
-    '<div class="hb-card-stats">' +
-    '<span class="hb-stat hb-stat--read" title="' + esc(vt('viewer.heartbeat.reads.tooltip')) + '">' +
-    '<span class="hb-dot hb-dot--read" aria-hidden="true"></span>' +
-    '<span class="hb-stat-val" data-hb="reads">0</span>' +
-    '<span class="hb-stat-label">' + esc(vt('viewer.heartbeat.reads')) + '</span></span>' +
-    '<span class="hb-stat hb-stat--write" title="' + esc(vt('viewer.heartbeat.writes.tooltip')) + '">' +
-    '<span class="hb-dot hb-dot--write" aria-hidden="true"></span>' +
-    '<span class="hb-stat-val" data-hb="writes">0</span>' +
-    '<span class="hb-stat-label">' + esc(vt('viewer.heartbeat.writes')) + '</span></span>' +
-    '<span class="hb-stat hb-stat--host" title="' + esc(vt('viewer.heartbeat.detectedChanges.tooltip')) + '">' +
-    '<span class="hb-dot hb-dot--host" aria-hidden="true"></span>' +
-    '<span class="hb-stat-val" data-hb="host">0</span>' +
-    '<span class="hb-stat-label">' + esc(vt('viewer.heartbeat.detectedChanges')) + '</span></span>' +
-    '</div>';
-  // The enter animation class is dropped after it plays so re-sorting the grid
-  // (which re-appends nodes) does not replay it on every reorder.
-  el.addEventListener('animationend', function () { el.classList.remove('hb-card-enter'); });
-  return {
-    el: el,
-    readsEl: el.querySelector('[data-hb="reads"]'),
-    writesEl: el.querySelector('[data-hb="writes"]'),
-    hostEl: el.querySelector('[data-hb="host"]'),
-    rowsEl: el.querySelector('[data-hb="rows"]'),
-    readHeat: 0,
-    writeHeat: 0,
-    lastActiveMs: 0,
-  };
-}
-
-/** Creates/updates cards from the payload, then reorders the grid so the
- *  most-recently-active table is first. Counter text is patched in place —
- *  no innerHTML churn on updates, so the glow transition never restarts. */
-function applyTables(tables: TableActivity[]): void {
-  const grid = byId('hb-grid');
-  if (!grid) return;
-  tables.forEach(function (t) {
-    if (!t || !t.table) return;
-    let card = cards.get(t.table);
-    if (!card) {
-      card = buildCard(t);
-      cards.set(t.table, card);
-      grid.appendChild(card.el);
-    }
-    if (card.readsEl) card.readsEl.textContent = String(t.reads || 0);
-    if (card.writesEl) card.writesEl.textContent = String(t.writes || 0);
-    if (card.hostEl) card.hostEl.textContent = String(t.hostChanges || 0);
-    if (card.rowsEl && typeof t.rowCount === 'number') {
-      card.rowsEl.textContent =
-        t.rowCount === 1 ? vt('viewer.heartbeat.rowCountOne') : vt('viewer.heartbeat.rowCount', t.rowCount);
-    }
-    card.lastActiveMs = Math.max(card.lastActiveMs, lastActivityMs(t));
-  });
-  // Stable resort: only move nodes when order actually changed, so the DOM
-  // stays quiet during steady-state polling.
-  const ordered = Array.from(cards.values()).sort(function (a, b) { return b.lastActiveMs - a.lastActiveMs; });
-  for (let i = 0; i < ordered.length; i++) {
-    if (grid.children[i] !== ordered[i].el) grid.insertBefore(ordered[i].el, grid.children[i] || null);
-  }
-  updateEmptyState();
-}
-
-/** Applies one poll's recent events: heat impulses per table per channel
- *  (capped inside applyImpulses) + monitor bucket counts. */
-function applyEvents(events: Array<{ table: string; kind: string }>): void {
-  let readCount = 0;
-  let writeCount = 0;
-  const perTable: Record<string, { reads: number; writes: number }> = {};
-  events.forEach(function (e) {
-    if (!e || !e.table) return;
-    const slot = perTable[e.table] || (perTable[e.table] = { reads: 0, writes: 0 });
-    // hostChange renders on the warm channel: it is inferred write activity.
-    if (e.kind === 'read') { slot.reads++; readCount++; }
-    else { slot.writes++; writeCount++; }
-  });
-  Object.keys(perTable).forEach(function (name) {
-    const card = cards.get(name);
-    if (!card) return;
-    card.readHeat = applyImpulses(card.readHeat, perTable[name].reads);
-    card.writeHeat = applyImpulses(card.writeHeat, perTable[name].writes);
-    card.lastActiveMs = Math.max(card.lastActiveMs, Date.now());
-  });
-  if (monitor && (readCount || writeCount)) monitor.recordEvents(readCount, writeCount);
+  if (empty) empty.hidden = hasCards() || statusShowing;
 }
 
 function updateVital(): void {
@@ -228,9 +108,16 @@ function pollOnce(): void {
       const data = res.data || {};
       if (typeof data.activityGeneration === 'number') sinceGen = data.activityGeneration;
       applyTables(Array.isArray(data.tables) ? data.tables : []);
-      applyEvents(Array.isArray(data.recentEvents) ? data.recentEvents : []);
+      updateEmptyState();
+      const events = Array.isArray(data.recentEvents) ? data.recentEvents : [];
+      const totals = applyCardEvents(events);
+      if (monitor && (totals.reads || totals.writes)) monitor.recordEvents(totals.reads, totals.writes);
       updateVital();
-      schedulePoll(POLL_MS);
+      // Adaptive cadence: any event snaps back to the steady 750 ms; proven
+      // silence decays stepwise toward the ceiling (pure schedule, unit-tested
+      // in heartbeat-heat.test.mjs).
+      emptyPolls = events.length > 0 ? 0 : emptyPolls + 1;
+      schedulePoll(nextPollDelay(emptyPolls, POLL_MS, POLL_IDLE_CEILING_MS));
     })
     .catch(function () {
       if (token !== pollToken || !shouldRun()) return;
@@ -243,21 +130,13 @@ function pollOnce(): void {
     });
 }
 
-// --- Single rAF loop: decays every card's heat + advances the monitor. ---
+// --- Single rAF loop: decays card heat, draws sparklines + the monitor. ---
 
 function frame(ts: number): void {
   rafId = requestAnimationFrame(frame);
   const dt = lastFrameTs === 0 ? 0 : ts - lastFrameTs;
   lastFrameTs = ts;
-  cards.forEach(function (card) {
-    const r = decayHeat(card.readHeat, dt);
-    const w = decayHeat(card.writeHeat, dt);
-    // Write CSS props only while hot: idle cards cost zero style work.
-    if (r !== card.readHeat || r > 0) card.el.style.setProperty('--read-heat', r.toFixed(3));
-    if (w !== card.writeHeat || w > 0) card.el.style.setProperty('--write-heat', w.toFixed(3));
-    card.readHeat = r;
-    card.writeHeat = w;
-  });
+  cardsFrame(dt, ts);
   if (monitor) monitor.frame(ts);
 }
 
@@ -274,7 +153,13 @@ function updateRunState(): void {
       lastFrameTs = 0;
       rafId = requestAnimationFrame(frame);
     }
-    if (pollTimer == null) { pollFailures = 0; pollOnce(); }
+    if (pollTimer == null) {
+      pollFailures = 0;
+      // Fresh watch = fresh cadence: the user just navigated here, so poll
+      // eagerly again even if the previous session had decayed to idle.
+      emptyPolls = 0;
+      pollOnce();
+    }
   } else {
     if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
     if (pollTimer != null) { clearTimeout(pollTimer); pollTimer = null; }
@@ -307,4 +192,19 @@ export function initHeartbeatScreen(): void {
     updateRunState();
   });
   document.addEventListener('visibilitychange', updateRunState);
+  // Theme switches recolor the canvases on the very next frame (theme.ts
+  // dispatches sda-theme-change); the canvases' own 1 Hz color refresh stays
+  // as the fallback for theme changes that bypass applyTheme (none known).
+  document.addEventListener('sda-theme-change', function () {
+    if (monitor) monitor.invalidateColors();
+    invalidateSparklines();
+  });
+  // Activation audit: every navigation path (toolbar icon, home launcher
+  // card, home search result card, tab-close fallback) runs through tabs.ts
+  // switchTab and therefore fires sda-tab-switch. The one case an event can
+  // never cover is heartbeat ALREADY being the active tab when this init
+  // runs (e.g. a future restored-session boot) — read the live tab state
+  // once so the screen starts polling instead of waiting for a switch.
+  tabActive = S.activeTabId === 'heartbeat';
+  updateRunState();
 }

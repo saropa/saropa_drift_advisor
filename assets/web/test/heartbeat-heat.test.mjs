@@ -33,12 +33,14 @@ const {
   HEAT_DECAY_TAU_MS,
   MAX_IMPULSES_PER_TICK,
   HEAT_FLOOR,
+  IDLE_POLL_THRESHOLD,
   applyImpulses,
   decayHeat,
   makeBucketRing,
   advanceBuckets,
   spikeHeight,
   eventsPerMinute,
+  nextPollDelay,
 } = mod;
 
 describe('applyImpulses — impulse and clamp', () => {
@@ -141,6 +143,56 @@ describe('spikeHeight — bounded, monotonic', () => {
     assert.ok(spikeHeight(1000) <= 1);
     assert.ok(spikeHeight(1000) > 0.99);
     assert.ok(spikeHeight(10) < 1); // realistic counts stay strictly inside
+  });
+});
+
+describe('nextPollDelay — adaptive idle cadence', () => {
+  const BASE = 750;
+  const CEILING = 2500;
+
+  it('holds the steady cadence while events are arriving (counter at 0)', () => {
+    assert.equal(nextPollDelay(0, BASE, CEILING), BASE);
+  });
+
+  it('tolerates up to the idle threshold of empty polls at the steady cadence', () => {
+    for (let n = 1; n <= IDLE_POLL_THRESHOLD; n++) {
+      assert.equal(nextPollDelay(n, BASE, CEILING), BASE);
+    }
+  });
+
+  it('decays stepwise past the threshold and never speeds back up while idle', () => {
+    let prev = BASE;
+    for (let n = IDLE_POLL_THRESHOLD + 1; n <= IDLE_POLL_THRESHOLD + 10; n++) {
+      const d = nextPollDelay(n, BASE, CEILING);
+      assert.ok(d >= prev, `delay must be non-decreasing (n=${n})`);
+      assert.ok(d > BASE, `past the threshold the cadence must actually slow (n=${n})`);
+      prev = d;
+    }
+  });
+
+  it('clamps at the ceiling instead of growing without bound', () => {
+    assert.equal(nextPollDelay(1000, BASE, CEILING), CEILING);
+    // The very first decayed step must not jump straight to the ceiling —
+    // "stepwise" means at least one intermediate cadence exists.
+    assert.ok(nextPollDelay(IDLE_POLL_THRESHOLD + 1, BASE, CEILING) < CEILING);
+  });
+
+  it('an event reset (counter back to 0) snaps the next delay to base instantly', () => {
+    // Simulate: deep idle, then one event arrives → caller resets to 0.
+    assert.equal(nextPollDelay(1000, BASE, CEILING), CEILING);
+    assert.equal(nextPollDelay(0, BASE, CEILING), BASE);
+  });
+
+  it('never returns faster than base, even with a misconfigured ceiling below base', () => {
+    assert.equal(nextPollDelay(IDLE_POLL_THRESHOLD + 5, BASE, 100), BASE);
+  });
+
+  it('floors negative or fractional counters instead of misbehaving', () => {
+    assert.equal(nextPollDelay(-3, BASE, CEILING), BASE);
+    assert.equal(
+      nextPollDelay(IDLE_POLL_THRESHOLD + 0.9, BASE, CEILING),
+      nextPollDelay(IDLE_POLL_THRESHOLD, BASE, CEILING),
+    );
   });
 });
 

@@ -1586,6 +1586,10 @@
     // {0} is the cached row count for the table card.
     "viewer.heartbeat.rowCount": "{0} rows",
     "viewer.heartbeat.rowCountOne": "1 row",
+    // Accessible name (and hover tooltip) for a card's per-table sparkline
+    // canvas. {0} is the table name — the announcement must be tied to a
+    // specific item, never a generic "activity chart".
+    "viewer.heartbeat.sparkline.aria": "Last 30 seconds of activity for {0}",
     // Vital readout label next to the live number on the monitor.
     "viewer.heartbeat.vitalLabel": "events/min",
     // Accessible summary of the monitor for screen readers. {0} is events/min.
@@ -29842,6 +29846,7 @@ ${JSON.stringify(results, void 0, 2)}`);
       opt.classList.toggle("active", isActive);
       opt.setAttribute("aria-pressed", isActive ? "true" : "false");
     }
+    document.dispatchEvent(new CustomEvent("sda-theme-change", { detail: theme }));
   }
   function detectVscodeTheme() {
     if (document.body.classList.contains("vscode-dark")) return "dark";
@@ -32162,9 +32167,9 @@ ${JSON.stringify(results, void 0, 2)}`);
       if (infoCount) breakdown.push('<span style="color:#7cb342;">' + vt("viewer.tools.anomaly.info", infoCount) + "</span>");
       html += '<p class="meta">' + vt("viewer.tools.anomaly.findings", anomalies.length, breakdown.join(", ")) + "</p>";
       var icons = { error: "!!", warning: "!", info: "i" };
-      var colors = { error: "#e57373", warning: "#ffb74d", info: "#7cb342" };
+      var colors2 = { error: "#e57373", warning: "#ffb74d", info: "#7cb342" };
       anomalies.forEach(function(a) {
-        var color = colors[a.severity] || "var(--fg)";
+        var color = colors2[a.severity] || "var(--fg)";
         var icon = icons[a.severity] || "";
         html += '<div style="padding:0.3rem 0.5rem;margin:0.2rem 0;border-left:3px solid ' + color + ';background:rgba(0,0,0,0.1);">';
         html += '<span style="color:' + color + ';font-weight:bold;">[' + icon + "] " + esc2(a.severity).toUpperCase() + "</span> ";
@@ -35208,6 +35213,14 @@ ${JSON.stringify(results, void 0, 2)}`);
     if (totalEvents <= 0) return 0;
     return 1 - Math.exp(-totalEvents / 3);
   }
+  var IDLE_POLL_THRESHOLD = 8;
+  var IDLE_POLL_GROWTH = 1.5;
+  function nextPollDelay(consecutiveEmpty, baseMs, ceilingMs) {
+    const n = Math.max(0, Math.floor(consecutiveEmpty));
+    if (n <= IDLE_POLL_THRESHOLD) return baseMs;
+    const grown = baseMs * Math.pow(IDLE_POLL_GROWTH, n - IDLE_POLL_THRESHOLD);
+    return Math.max(baseMs, Math.min(ceilingMs, Math.round(grown)));
+  }
   function eventsPerMinute(ring, bucketMs) {
     if (ring.length === 0 || bucketMs <= 0) return 0;
     let total = 0;
@@ -35234,16 +35247,35 @@ ${JSON.stringify(results, void 0, 2)}`);
       return "rgba(" + parts + "," + alpha + ")";
     });
   }
+  function buildTracePath(ctx, ring, w, baseY, amp, pick) {
+    const step = w / ring.length;
+    ctx.beginPath();
+    ctx.moveTo(0, baseY);
+    for (let i = 0; i < ring.length; i++) {
+      const total = pick(ring[i]);
+      const x = (i + 0.5) * step;
+      if (total <= 0) {
+        ctx.lineTo(x, baseY);
+        continue;
+      }
+      const h = spikeHeight(total) * amp;
+      ctx.lineTo(x - step * 0.5, baseY);
+      ctx.lineTo(x, baseY - h);
+      ctx.lineTo(x + step * 0.35, baseY + h * 0.18);
+      ctx.lineTo(x + step * 0.6, baseY);
+    }
+    ctx.lineTo(w, baseY);
+  }
   function createHeartbeatMonitor(canvas) {
     const ring = makeBucketRing(BUCKET_COUNT);
     let lastAdvanceMs = 0;
-    let colors = { read: "#888", warm: "#888", grid: "#888" };
-    let lastColorReadMs = 0;
-    function refreshColors(nowMs) {
-      if (nowMs - lastColorReadMs < 1e3 && lastColorReadMs !== 0) return;
-      lastColorReadMs = nowMs;
+    let colors2 = { read: "#888", warm: "#888", grid: "#888" };
+    let lastColorReadMs2 = 0;
+    function refreshColors2(nowMs) {
+      if (nowMs - lastColorReadMs2 < 1e3 && lastColorReadMs2 !== 0) return;
+      lastColorReadMs2 = nowMs;
       const cs = getComputedStyle(canvas.parentElement || canvas);
-      colors = {
+      colors2 = {
         read: cs.getPropertyValue("--hb-read").trim() || "#888",
         warm: cs.getPropertyValue("--hb-warm").trim() || "#888",
         grid: cs.getPropertyValue("--hb-grid").trim() || "rgba(128,128,128,0.2)"
@@ -35261,36 +35293,17 @@ ${JSON.stringify(results, void 0, 2)}`);
       }
       return { w: bw, h: bh };
     }
-    function tracePath(ctx, w, baseY, amp, pick) {
-      const step = w / BUCKET_COUNT;
-      ctx.beginPath();
-      ctx.moveTo(0, baseY);
-      for (let i = 0; i < BUCKET_COUNT; i++) {
-        const total = pick(ring[i]);
-        const x = (i + 0.5) * step;
-        if (total <= 0) {
-          ctx.lineTo(x, baseY);
-          continue;
-        }
-        const h = spikeHeight(total) * amp;
-        ctx.lineTo(x - step * 0.5, baseY);
-        ctx.lineTo(x, baseY - h);
-        ctx.lineTo(x + step * 0.35, baseY + h * 0.18);
-        ctx.lineTo(x + step * 0.6, baseY);
-      }
-      ctx.lineTo(w, baseY);
-    }
     function draw(nowMs) {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       const { w, h } = fitCanvas();
-      refreshColors(nowMs);
+      refreshColors2(nowMs);
       ctx.clearRect(0, 0, w, h);
       const dpr = window.devicePixelRatio || 1;
       const baseY = h * 0.7;
       const amp = h * 0.58;
       ctx.lineWidth = 1;
-      ctx.strokeStyle = colors.grid;
+      ctx.strokeStyle = colors2.grid;
       ctx.beginPath();
       for (let i = 10; i < BUCKET_COUNT; i += 10) {
         const x = Math.round(i / BUCKET_COUNT * w) + 0.5;
@@ -35304,21 +35317,21 @@ ${JSON.stringify(results, void 0, 2)}`);
       }
       ctx.stroke();
       const readGrad = ctx.createLinearGradient(0, 0, w, 0);
-      readGrad.addColorStop(0, withAlpha(ctx, colors.read, 0.06));
-      readGrad.addColorStop(0.35, withAlpha(ctx, colors.read, 0.55));
-      readGrad.addColorStop(1, withAlpha(ctx, colors.read, 1));
+      readGrad.addColorStop(0, withAlpha(ctx, colors2.read, 0.06));
+      readGrad.addColorStop(0.35, withAlpha(ctx, colors2.read, 0.55));
+      readGrad.addColorStop(1, withAlpha(ctx, colors2.read, 1));
       ctx.lineWidth = 2 * dpr;
       ctx.lineJoin = "round";
-      ctx.shadowColor = withAlpha(ctx, colors.read, 0.85);
+      ctx.shadowColor = withAlpha(ctx, colors2.read, 0.85);
       ctx.shadowBlur = 9 * dpr;
       ctx.strokeStyle = readGrad;
-      tracePath(ctx, w, baseY, amp, function(b) {
+      buildTracePath(ctx, ring, w, baseY, amp, function(b) {
         return b.reads + b.writes;
       });
       ctx.stroke();
-      ctx.shadowColor = withAlpha(ctx, colors.warm, 0.85);
-      ctx.strokeStyle = withAlpha(ctx, colors.warm, 0.95);
-      tracePath(ctx, w, baseY, amp, function(b) {
+      ctx.shadowColor = withAlpha(ctx, colors2.warm, 0.85);
+      ctx.strokeStyle = withAlpha(ctx, colors2.warm, 0.95);
+      buildTracePath(ctx, ring, w, baseY, amp, function(b) {
         return b.writes > 0 ? b.reads + b.writes : 0;
       });
       ctx.stroke();
@@ -35326,9 +35339,9 @@ ${JSON.stringify(results, void 0, 2)}`);
       const sweepX = nowMs % SWEEP_PERIOD_MS / SWEEP_PERIOD_MS * (w * 1.2) - w * 0.1;
       const band = w * 0.08;
       const sweep = ctx.createLinearGradient(sweepX - band, 0, sweepX + band, 0);
-      sweep.addColorStop(0, withAlpha(ctx, colors.read, 0));
-      sweep.addColorStop(0.5, withAlpha(ctx, colors.read, 0.1));
-      sweep.addColorStop(1, withAlpha(ctx, colors.read, 0));
+      sweep.addColorStop(0, withAlpha(ctx, colors2.read, 0));
+      sweep.addColorStop(0.5, withAlpha(ctx, colors2.read, 0.1));
+      sweep.addColorStop(1, withAlpha(ctx, colors2.read, 0));
       ctx.fillStyle = sweep;
       ctx.fillRect(sweepX - band, 0, band * 2, h);
     }
@@ -35356,24 +35369,153 @@ ${JSON.stringify(results, void 0, 2)}`);
           if (ring[i].reads + ring[i].writes > 0) return false;
         }
         return true;
+      },
+      invalidateColors: function() {
+        lastColorReadMs2 = 0;
       }
     };
   }
 
-  // assets/web/heartbeat-screen.ts
-  var POLL_MS = 750;
-  var POLL_BACKOFF_MAX_MS = 6e3;
+  // assets/web/heartbeat-sparkline.ts
+  var SPARK_BUCKET_MS = 500;
+  var SPARK_BUCKET_COUNT = 60;
+  var colors = { read: "#888", warm: "#888", grid: "rgba(128,128,128,0.2)" };
+  var lastColorReadMs = 0;
+  var redrawGen = 1;
+  var resizeHooked = false;
+  var reduceMotion = typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  function invalidateSparklines() {
+    lastColorReadMs = 0;
+    redrawGen++;
+  }
+  function ensureResizeHook() {
+    if (resizeHooked || typeof window === "undefined") return;
+    resizeHooked = true;
+    window.addEventListener("resize", function() {
+      redrawGen++;
+    });
+  }
+  function refreshColors(el, nowMs) {
+    if (nowMs - lastColorReadMs < 1e3 && lastColorReadMs !== 0) return;
+    lastColorReadMs = nowMs;
+    const cs = getComputedStyle(el);
+    colors = {
+      read: cs.getPropertyValue("--hb-read").trim() || "#888",
+      warm: cs.getPropertyValue("--hb-warm").trim() || "#888",
+      grid: cs.getPropertyValue("--hb-grid").trim() || "rgba(128,128,128,0.2)"
+    };
+  }
+  function createCardSparkline(canvas) {
+    const ring = makeBucketRing(SPARK_BUCKET_COUNT);
+    let lastAdvanceMs = 0;
+    let dirty = true;
+    let hasData = false;
+    let drawnGen = 0;
+    ensureResizeHook();
+    function ringEmpty() {
+      for (let i = 0; i < ring.length; i++) {
+        if (ring[i].reads + ring[i].writes > 0) return false;
+      }
+      return true;
+    }
+    function fitCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const bw = Math.max(1, Math.round(canvas.clientWidth * dpr));
+      const bh = Math.max(1, Math.round(canvas.clientHeight * dpr));
+      if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw;
+        canvas.height = bh;
+      }
+      return { w: bw, h: bh };
+    }
+    function drawBars(ctx, w, baseY, amp) {
+      const step = w / SPARK_BUCKET_COUNT;
+      for (let i = 0; i < SPARK_BUCKET_COUNT; i++) {
+        const b = ring[i];
+        const total = b.reads + b.writes;
+        if (total <= 0) continue;
+        const h = Math.max(1, spikeHeight(total) * amp);
+        ctx.fillStyle = withAlpha(ctx, b.writes > 0 ? colors.warm : colors.read, 0.85);
+        ctx.fillRect(i * step + step * 0.2, baseY - h, step * 0.6, h);
+      }
+    }
+    function draw(nowMs) {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const { w, h } = fitCanvas();
+      refreshColors(canvas.parentElement || canvas, nowMs);
+      ctx.clearRect(0, 0, w, h);
+      const dpr = window.devicePixelRatio || 1;
+      const baseY = h * 0.74;
+      const amp = h * 0.62;
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = colors.grid;
+      ctx.beginPath();
+      ctx.moveTo(0, Math.round(baseY) + 0.5);
+      ctx.lineTo(w, Math.round(baseY) + 0.5);
+      ctx.stroke();
+      if (reduceMotion && reduceMotion.matches) {
+        drawBars(ctx, w, baseY, amp);
+        return;
+      }
+      const grad = ctx.createLinearGradient(0, 0, w, 0);
+      grad.addColorStop(0, withAlpha(ctx, colors.read, 0.05));
+      grad.addColorStop(0.35, withAlpha(ctx, colors.read, 0.5));
+      grad.addColorStop(1, withAlpha(ctx, colors.read, 1));
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.lineJoin = "round";
+      ctx.shadowColor = withAlpha(ctx, colors.read, 0.75);
+      ctx.shadowBlur = 5 * dpr;
+      ctx.strokeStyle = grad;
+      buildTracePath(ctx, ring, w, baseY, amp, function(b) {
+        return b.reads + b.writes;
+      });
+      ctx.stroke();
+      ctx.shadowColor = withAlpha(ctx, colors.warm, 0.75);
+      ctx.strokeStyle = withAlpha(ctx, colors.warm, 0.9);
+      buildTracePath(ctx, ring, w, baseY, amp, function(b) {
+        return b.writes > 0 ? b.reads + b.writes : 0;
+      });
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+    return {
+      recordEvents: function(reads, writes) {
+        const last2 = ring[ring.length - 1];
+        if (!last2) return;
+        last2.reads += Math.max(0, reads);
+        last2.writes += Math.max(0, writes);
+        if (reads > 0 || writes > 0) {
+          hasData = true;
+          dirty = true;
+        }
+      },
+      frame: function(nowMs) {
+        if (lastAdvanceMs === 0) lastAdvanceMs = nowMs;
+        const steps = Math.floor((nowMs - lastAdvanceMs) / SPARK_BUCKET_MS);
+        if (steps > 0) {
+          advanceBuckets(ring, steps);
+          lastAdvanceMs += steps * SPARK_BUCKET_MS;
+          if (hasData) {
+            dirty = true;
+            hasData = !ringEmpty();
+          }
+        }
+        if (!dirty && drawnGen === redrawGen) return;
+        draw(nowMs);
+        dirty = false;
+        drawnGen = redrawGen;
+      }
+    };
+  }
+
+  // assets/web/heartbeat-cards.ts
   var cards = /* @__PURE__ */ new Map();
-  var monitor = null;
-  var tabActive = false;
-  var pollTimer = null;
-  var pollFailures = 0;
-  var sinceGen = 0;
-  var rafId = null;
-  var lastFrameTs = 0;
-  var pollToken = 0;
   function byId(id2) {
     return document.getElementById(id2);
+  }
+  function hasCards() {
+    return cards.size > 0;
   }
   function lastActivityMs(t) {
     let best = 0;
@@ -35384,34 +35526,21 @@ ${JSON.stringify(results, void 0, 2)}`);
     });
     return best;
   }
-  var statusShowing = false;
-  function setMonitorMessage(msg, tone) {
-    statusShowing = msg != null;
-    const el = byId("hb-monitor-msg");
-    if (el) {
-      el.hidden = msg == null;
-      el.textContent = msg || "";
-      el.className = "hb-monitor-msg" + (tone ? " hb-monitor-msg--" + tone : "");
-    }
-    updateEmptyState();
-  }
-  function updateEmptyState() {
-    const empty = byId("hb-empty");
-    if (empty) empty.hidden = cards.size > 0 || statusShowing;
-  }
   function buildCard(t) {
     const el = document.createElement("div");
     el.className = "hb-card hb-card-enter";
-    el.innerHTML = '<div class="hb-card-head"><span class="hb-card-name" title="' + esc2(t.table) + '">' + esc2(t.table) + '</span><span class="hb-card-rows meta" data-hb="rows"></span></div><div class="hb-card-stats"><span class="hb-stat hb-stat--read" title="' + esc2(vt("viewer.heartbeat.reads.tooltip")) + '"><span class="hb-dot hb-dot--read" aria-hidden="true"></span><span class="hb-stat-val" data-hb="reads">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.reads")) + '</span></span><span class="hb-stat hb-stat--write" title="' + esc2(vt("viewer.heartbeat.writes.tooltip")) + '"><span class="hb-dot hb-dot--write" aria-hidden="true"></span><span class="hb-stat-val" data-hb="writes">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.writes")) + '</span></span><span class="hb-stat hb-stat--host" title="' + esc2(vt("viewer.heartbeat.detectedChanges.tooltip")) + '"><span class="hb-dot hb-dot--host" aria-hidden="true"></span><span class="hb-stat-val" data-hb="host">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.detectedChanges")) + "</span></span></div>";
+    el.innerHTML = '<div class="hb-card-head"><span class="hb-card-name" title="' + esc2(t.table) + '">' + esc2(t.table) + '</span><span class="hb-card-rows meta" data-hb="rows"></span></div><div class="hb-card-stats"><span class="hb-stat hb-stat--read" title="' + esc2(vt("viewer.heartbeat.reads.tooltip")) + '"><span class="hb-dot hb-dot--read" aria-hidden="true"></span><span class="hb-stat-val" data-hb="reads">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.reads")) + '</span></span><span class="hb-stat hb-stat--write" title="' + esc2(vt("viewer.heartbeat.writes.tooltip")) + '"><span class="hb-dot hb-dot--write" aria-hidden="true"></span><span class="hb-stat-val" data-hb="writes">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.writes")) + '</span></span><span class="hb-stat hb-stat--host" title="' + esc2(vt("viewer.heartbeat.detectedChanges.tooltip")) + '"><span class="hb-dot hb-dot--host" aria-hidden="true"></span><span class="hb-stat-val" data-hb="host">0</span><span class="hb-stat-label">' + esc2(vt("viewer.heartbeat.detectedChanges")) + '</span></span></div><div class="hb-spark" title="' + esc2(vt("viewer.heartbeat.sparkline.aria", t.table)) + '"><canvas class="hb-spark-canvas" role="img" aria-label="' + esc2(vt("viewer.heartbeat.sparkline.aria", t.table)) + '"></canvas></div>';
     el.addEventListener("animationend", function() {
       el.classList.remove("hb-card-enter");
     });
+    const sparkCanvas = el.querySelector(".hb-spark-canvas");
     return {
       el,
       readsEl: el.querySelector('[data-hb="reads"]'),
       writesEl: el.querySelector('[data-hb="writes"]'),
       hostEl: el.querySelector('[data-hb="host"]'),
       rowsEl: el.querySelector('[data-hb="rows"]'),
+      spark: createCardSparkline(sparkCanvas),
       readHeat: 0,
       writeHeat: 0,
       lastActiveMs: 0
@@ -35442,9 +35571,8 @@ ${JSON.stringify(results, void 0, 2)}`);
     for (let i = 0; i < ordered.length; i++) {
       if (grid.children[i] !== ordered[i].el) grid.insertBefore(ordered[i].el, grid.children[i] || null);
     }
-    updateEmptyState();
   }
-  function applyEvents(events) {
+  function applyCardEvents(events) {
     let readCount = 0;
     let writeCount = 0;
     const perTable = {};
@@ -35464,16 +35592,60 @@ ${JSON.stringify(results, void 0, 2)}`);
       if (!card) return;
       card.readHeat = applyImpulses(card.readHeat, perTable[name].reads);
       card.writeHeat = applyImpulses(card.writeHeat, perTable[name].writes);
+      card.spark.recordEvents(perTable[name].reads, perTable[name].writes);
       card.lastActiveMs = Math.max(card.lastActiveMs, Date.now());
     });
-    if (monitor && (readCount || writeCount)) monitor.recordEvents(readCount, writeCount);
+    return { reads: readCount, writes: writeCount };
+  }
+  function cardsFrame(dtMs, nowMs) {
+    cards.forEach(function(card) {
+      const r = decayHeat(card.readHeat, dtMs);
+      const w = decayHeat(card.writeHeat, dtMs);
+      if (r !== card.readHeat || r > 0) card.el.style.setProperty("--read-heat", r.toFixed(3));
+      if (w !== card.writeHeat || w > 0) card.el.style.setProperty("--write-heat", w.toFixed(3));
+      card.readHeat = r;
+      card.writeHeat = w;
+      card.spark.frame(nowMs);
+    });
+  }
+
+  // assets/web/heartbeat-screen.ts
+  var POLL_MS = 750;
+  var POLL_IDLE_CEILING_MS = 2500;
+  var POLL_BACKOFF_MAX_MS = 6e3;
+  var monitor = null;
+  var tabActive = false;
+  var pollTimer = null;
+  var pollFailures = 0;
+  var emptyPolls = 0;
+  var sinceGen = 0;
+  var rafId = null;
+  var lastFrameTs = 0;
+  var pollToken = 0;
+  function byId2(id2) {
+    return document.getElementById(id2);
+  }
+  var statusShowing = false;
+  function setMonitorMessage(msg, tone) {
+    statusShowing = msg != null;
+    const el = byId2("hb-monitor-msg");
+    if (el) {
+      el.hidden = msg == null;
+      el.textContent = msg || "";
+      el.className = "hb-monitor-msg" + (tone ? " hb-monitor-msg--" + tone : "");
+    }
+    updateEmptyState();
+  }
+  function updateEmptyState() {
+    const empty = byId2("hb-empty");
+    if (empty) empty.hidden = hasCards() || statusShowing;
   }
   function updateVital() {
     if (!monitor) return;
     const epm = monitor.eventsPerMinute();
-    const valEl = byId("hb-vitals-value");
+    const valEl = byId2("hb-vitals-value");
     if (valEl) valEl.textContent = String(epm);
-    const wrap = byId("hb-vitals");
+    const wrap = byId2("hb-vitals");
     if (wrap) wrap.setAttribute("aria-label", vt("viewer.heartbeat.vitalSummary", epm));
   }
   function schedulePoll(delayMs) {
@@ -35505,9 +35677,13 @@ ${JSON.stringify(results, void 0, 2)}`);
       const data = res.data || {};
       if (typeof data.activityGeneration === "number") sinceGen = data.activityGeneration;
       applyTables(Array.isArray(data.tables) ? data.tables : []);
-      applyEvents(Array.isArray(data.recentEvents) ? data.recentEvents : []);
+      updateEmptyState();
+      const events = Array.isArray(data.recentEvents) ? data.recentEvents : [];
+      const totals = applyCardEvents(events);
+      if (monitor && (totals.reads || totals.writes)) monitor.recordEvents(totals.reads, totals.writes);
       updateVital();
-      schedulePoll(POLL_MS);
+      emptyPolls = events.length > 0 ? 0 : emptyPolls + 1;
+      schedulePoll(nextPollDelay(emptyPolls, POLL_MS, POLL_IDLE_CEILING_MS));
     }).catch(function() {
       if (token !== pollToken || !shouldRun()) return;
       pollFailures++;
@@ -35519,14 +35695,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     rafId = requestAnimationFrame(frame);
     const dt = lastFrameTs === 0 ? 0 : ts - lastFrameTs;
     lastFrameTs = ts;
-    cards.forEach(function(card) {
-      const r = decayHeat(card.readHeat, dt);
-      const w = decayHeat(card.writeHeat, dt);
-      if (r !== card.readHeat || r > 0) card.el.style.setProperty("--read-heat", r.toFixed(3));
-      if (w !== card.writeHeat || w > 0) card.el.style.setProperty("--write-heat", w.toFixed(3));
-      card.readHeat = r;
-      card.writeHeat = w;
-    });
+    cardsFrame(dt, ts);
     if (monitor) monitor.frame(ts);
   }
   function shouldRun() {
@@ -35540,6 +35709,7 @@ ${JSON.stringify(results, void 0, 2)}`);
       }
       if (pollTimer == null) {
         pollFailures = 0;
+        emptyPolls = 0;
         pollOnce();
       }
     } else {
@@ -35555,15 +35725,15 @@ ${JSON.stringify(results, void 0, 2)}`);
     }
   }
   function localizeShell() {
-    const lead = byId("hb-lead");
+    const lead = byId2("hb-lead");
     if (lead) lead.textContent = vt("viewer.heartbeat.lead");
-    const label = byId("hb-vitals-label");
+    const label = byId2("hb-vitals-label");
     if (label) label.textContent = vt("viewer.heartbeat.vitalLabel");
-    const empty = byId("hb-empty");
+    const empty = byId2("hb-empty");
     if (empty) empty.textContent = vt("viewer.heartbeat.waiting");
   }
   function initHeartbeatScreen() {
-    const canvas = byId("hb-monitor");
+    const canvas = byId2("hb-monitor");
     if (!canvas) return;
     localizeShell();
     monitor = createHeartbeatMonitor(canvas);
@@ -35573,6 +35743,12 @@ ${JSON.stringify(results, void 0, 2)}`);
       updateRunState();
     });
     document.addEventListener("visibilitychange", updateRunState);
+    document.addEventListener("sda-theme-change", function() {
+      if (monitor) monitor.invalidateColors();
+      invalidateSparklines();
+    });
+    tabActive = activeTabId === "heartbeat";
+    updateRunState();
   }
 
   // assets/web/index.js

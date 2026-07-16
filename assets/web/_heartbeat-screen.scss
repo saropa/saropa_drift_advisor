@@ -211,6 +211,23 @@
   border: 1.5px solid var(--hb-warm);
 }
 
+/* Per-table sparkline: a footer-strip echo of the main monitor. Recessed
+   like the monitor face (same --bg-pre + inset shadow, smaller radius) so the
+   two surfaces read as one instrument family. Fixed 2.5rem height keeps every
+   card the same size and leaves the counters uncrowded above it. */
+.hb-spark {
+  border-radius: var(--radius-sm);
+  background: var(--bg-pre);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.hb-spark-canvas {
+  display: block;
+  width: 100%;
+  height: 2.5rem;
+}
+
 .hb-empty {
   text-align: center;
   padding: var(--space-6) var(--space-4);

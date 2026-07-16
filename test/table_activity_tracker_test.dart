@@ -17,6 +17,7 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 import 'package:saropa_drift_advisor/saropa_drift_advisor.dart';
+import 'package:saropa_drift_advisor/src/server/mutation_tracker.dart';
 import 'package:saropa_drift_advisor/src/server/server_constants.dart';
 import 'package:saropa_drift_advisor/src/server/server_context.dart';
 import 'package:saropa_drift_advisor/src/server/table_activity_tracker.dart';
@@ -492,6 +493,73 @@ void main() {
       ];
       expect(writeEvents, hasLength(1));
       expect(writeEvents.firstOrNull?[ServerConstants.jsonKeyTable], 'items');
+    });
+
+    // Feature 22 tripwire (see the COUPLING WARNING in
+    // drift_debug_server_io.dart): write attribution prefers MutationTracker
+    // events; when the tracker produces NO event for a statement, the
+    // fallback extraction must still record the write. These tests pin both
+    // halves so a MutationTracker/eventsSince refactor that silently stops
+    // emitting events fails HERE instead of silently killing write glow.
+    group('write-path fallback safety net', () {
+      // A DML quoting shape MutationTracker's inference regexes do not
+      // match: they accept only `"table"` or a bare identifier after
+      // INSERT INTO, so a backtick-quoted table falls through.
+      const backtickInsert = 'INSERT INTO `items` (id) VALUES (1)';
+
+      test('MutationTracker emits NO event for backtick-quoted DML '
+          '(the premise the fallback exists for)', () async {
+        final mutations = MutationTracker();
+        var wrote = false;
+        final snapshots = await mutations.captureFromWriteQuery(
+          originalWrite: (_) async => wrote = true,
+          readQuery: (_) async => <Map<String, dynamic>>[],
+          sql: backtickInsert,
+        );
+        // Not recognized as tracked DML: no snapshots, no event appended —
+        // but the write itself still executed.
+        expect(snapshots, isNull);
+        expect(mutations.latestId, 0);
+        expect(mutations.eventsSince(0), isEmpty);
+        expect(wrote, isTrue);
+        // The extraction fallback DOES attribute it (masking unquotes the
+        // backtick identifier), so the write path has a net to land in.
+        expect(TableActivityTracker.extractTableNames(backtickInsert), {
+          'items',
+        });
+      });
+
+      test('write glow survives a statement MutationTracker misses '
+          '(fallback extraction records the write)', () async {
+        await startServer(writeQuery: (_) async {});
+
+        final apply = await httpPost(
+          port!,
+          '/api/edits/apply',
+          json: <String, dynamic>{
+            ServerConstants.jsonKeyStatements: <String>[backtickInsert],
+          },
+        );
+        expect(apply.status, HttpStatus.ok);
+
+        final activity = await httpGet(port!, '/api/activity');
+        final tables =
+            (activity.body
+                    as Map<String, dynamic>)[ServerConstants.jsonKeyTables]
+                as List<dynamic>;
+        final items =
+            tables.firstWhere(
+                  (dynamic t) =>
+                      (t as Map<String, dynamic>)[ServerConstants
+                          .jsonKeyTable] ==
+                      'items',
+                )
+                as Map<String, dynamic>;
+        // Attribution came from the fallback (the tracker emitted nothing
+        // for this shape — pinned by the unit test above).
+        expect(items[ServerConstants.jsonKeyWrites], 1);
+        expect(items.containsKey(ServerConstants.jsonKeyLastWriteAt), isTrue);
+      });
     });
 
     test('kill switch: 403 with the shared structured error', () async {

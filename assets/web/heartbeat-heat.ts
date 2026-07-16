@@ -96,6 +96,43 @@ export function spikeHeight(totalEvents: number): number {
   return 1 - Math.exp(-totalEvents / 3);
 }
 
+/** Empty polls tolerated at the steady cadence before the poll interval
+ *  starts to decay. Eight polls × 750 ms ≈ 6 s of proven silence — long
+ *  enough that a human pausing between actions never sees a laggy board. */
+export const IDLE_POLL_THRESHOLD = 8;
+
+/** Geometric growth per empty poll beyond the threshold. 1.5× steps reach a
+ *  2.5 s ceiling from 750 ms in three steps — gentle, not a cliff. */
+export const IDLE_POLL_GROWTH = 1.5;
+
+/**
+ * Adaptive poll schedule: returns the delay before the NEXT activity poll
+ * given how many consecutive polls came back with zero events.
+ *
+ * WHY: the original fixed 750 ms cadence meant an idle Heartbeat tab issued
+ * ~80 HTTP requests/min against the debug target — a real battery/radio cost
+ * on physical phones that sit connected for hours. The schedule keeps the
+ * steady cadence while events arrive, then decays stepwise toward `ceilingMs`
+ * once the screen is provably idle. The CALLER resets `consecutiveEmpty` to 0
+ * the instant any event arrives, which snaps the very next delay back to
+ * `baseMs` — responsiveness under load is unchanged.
+ *
+ * Pure by design (like the heat math above) so `node --test` exercises the
+ * exact schedule the screen runs.
+ */
+export function nextPollDelay(
+  consecutiveEmpty: number,
+  baseMs: number,
+  ceilingMs: number,
+): number {
+  const n = Math.max(0, Math.floor(consecutiveEmpty));
+  if (n <= IDLE_POLL_THRESHOLD) return baseMs;
+  const grown = baseMs * Math.pow(IDLE_POLL_GROWTH, n - IDLE_POLL_THRESHOLD);
+  // max() guards a misconfigured ceiling below base: base always wins so the
+  // schedule can never return a FASTER-than-steady cadence while idle.
+  return Math.max(baseMs, Math.min(ceilingMs, Math.round(grown)));
+}
+
 /**
  * Events-per-minute over the whole ring window, for the monitor vital
  * readout. `bucketMs` is each bucket's width; the window is ring × bucketMs.

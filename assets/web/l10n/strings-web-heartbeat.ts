@@ -33,6 +33,10 @@ export const stringsWebHeartbeat: Record<string, string> = {
   // {0} is the cached row count for the table card.
   'viewer.heartbeat.rowCount': '{0} rows',
   'viewer.heartbeat.rowCountOne': '1 row',
+  // Accessible name (and hover tooltip) for a card's per-table sparkline
+  // canvas. {0} is the table name — the announcement must be tied to a
+  // specific item, never a generic "activity chart".
+  'viewer.heartbeat.sparkline.aria': 'Last 30 seconds of activity for {0}',
   // Vital readout label next to the live number on the monitor.
   'viewer.heartbeat.vitalLabel': 'events/min',
   // Accessible summary of the monitor for screen readers. {0} is events/min.

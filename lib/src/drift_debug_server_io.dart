@@ -361,8 +361,22 @@ class _DriftDebugServerImpl {
         // Concurrent writes could interleave events here — best-effort by
         // design, same accepted weakness as the tracker's regex parsing.
         // When no event was appended (SQL not recognized as tracked DML,
-        // e.g. the batch handler's BEGIN/COMMIT framing) fall back to the
-        // same best-effort extraction; unattributable SQL records nothing.
+        // e.g. the batch handler's BEGIN/COMMIT framing, or quoting shapes
+        // the tracker's regexes don't match) fall back to the extraction
+        // below; unattributable SQL records nothing.
+        //
+        // COUPLING WARNING (Feature 22): heartbeat write attribution rides
+        // MutationTracker's eventsSince(id) semantics via the high-water
+        // mark captured above. A Mutation Stream / MutationTracker refactor
+        // that changes what eventsSince returns (non-monotonic ids, deferred
+        // or batched event appends, events emitted on a different tick than
+        // captureFromWriteQuery) will SILENTLY kill write glow — no error,
+        // the board just stops lighting on writes. The extraction fallback
+        // in the empty-events branch is the safety net that keeps SOME
+        // attribution alive; tests in test/table_activity_tracker_test.dart
+        // ("write-path fallback safety net") pin it. If Feature 22 lands,
+        // re-verify this block against the new event semantics first.
+        //
         // Kill switch: monitoringEnabled false must record nothing anywhere.
         final ctxForActivity = activityCtx;
         if (ctxForActivity != null && ctxForActivity.monitoringEnabled) {

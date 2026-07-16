@@ -52,12 +52,18 @@ export interface HeartbeatMonitor {
   eventsPerMinute(): number;
   /** True when no event is left in the window (flatline). */
   isFlat(): boolean;
+  /** Forces the next frame to re-read theme colors. Called on the
+   *  sda-theme-change event so a theme switch recolors the trace on the very
+   *  next frame instead of waiting out the 1 Hz refresh throttle. */
+  invalidateColors(): void;
 }
 
 /** Normalizes any CSS color (hex, rgb(), named) to `rgba(...)` with a forced
  *  alpha. Uses the canvas fillStyle round-trip, which the 2D context spec
- *  guarantees returns a parseable normalized form. */
-function withAlpha(ctx: CanvasRenderingContext2D, color: string, alpha: number): string {
+ *  guarantees returns a parseable normalized form. Exported for the per-card
+ *  sparklines (heartbeat-sparkline.ts) so both traces normalize colors
+ *  identically. */
+export function withAlpha(ctx: CanvasRenderingContext2D, color: string, alpha: number): string {
   ctx.fillStyle = color;
   const norm = String(ctx.fillStyle);
   if (norm.charAt(0) === '#') {
@@ -71,6 +77,43 @@ function withAlpha(ctx: CanvasRenderingContext2D, color: string, alpha: number):
     const parts = String(inner).split(',').slice(0, 3).join(',');
     return 'rgba(' + parts + ',' + alpha + ')';
   });
+}
+
+/**
+ * Builds the ECG trace path onto `ctx`: baseline with a sharp triangular
+ * spike per active bucket, plus a small undershoot after tall spikes for the
+ * classic cardiac-trace silhouette. `pick` selects which channel drives the
+ * path. Shared by the main monitor and the per-card sparklines
+ * (heartbeat-sparkline.ts) so both surfaces speak the same visual language —
+ * a second hand-rolled path would drift apart over time.
+ */
+export function buildTracePath(
+  ctx: CanvasRenderingContext2D,
+  ring: HeartbeatBucket[],
+  w: number,
+  baseY: number,
+  amp: number,
+  pick: (b: HeartbeatBucket) => number,
+): void {
+  const step = w / ring.length;
+  ctx.beginPath();
+  ctx.moveTo(0, baseY);
+  for (let i = 0; i < ring.length; i++) {
+    const total = pick(ring[i]);
+    const x = (i + 0.5) * step;
+    if (total <= 0) {
+      ctx.lineTo(x, baseY);
+      continue;
+    }
+    const h = spikeHeight(total) * amp;
+    // Sharp rise/fall over half a bucket width, then a shallow undershoot —
+    // the spike reads as a beat, not a bar.
+    ctx.lineTo(x - step * 0.5, baseY);
+    ctx.lineTo(x, baseY - h);
+    ctx.lineTo(x + step * 0.35, baseY + h * 0.18);
+    ctx.lineTo(x + step * 0.6, baseY);
+  }
+  ctx.lineTo(w, baseY);
 }
 
 export function createHeartbeatMonitor(canvas: HTMLCanvasElement): HeartbeatMonitor {
@@ -103,37 +146,6 @@ export function createHeartbeatMonitor(canvas: HTMLCanvasElement): HeartbeatMoni
       canvas.height = bh;
     }
     return { w: bw, h: bh };
-  }
-
-  /** Builds the ECG trace path: baseline with a sharp triangular spike per
-   *  active bucket, plus a small undershoot after tall spikes for the classic
-   *  cardiac-trace silhouette. `pick` selects which channel drives the path. */
-  function tracePath(
-    ctx: CanvasRenderingContext2D,
-    w: number,
-    baseY: number,
-    amp: number,
-    pick: (b: HeartbeatBucket) => number,
-  ): void {
-    const step = w / BUCKET_COUNT;
-    ctx.beginPath();
-    ctx.moveTo(0, baseY);
-    for (let i = 0; i < BUCKET_COUNT; i++) {
-      const total = pick(ring[i]);
-      const x = (i + 0.5) * step;
-      if (total <= 0) {
-        ctx.lineTo(x, baseY);
-        continue;
-      }
-      const h = spikeHeight(total) * amp;
-      // Sharp rise/fall over half a bucket width, then a shallow undershoot —
-      // the spike reads as a beat, not a bar.
-      ctx.lineTo(x - step * 0.5, baseY);
-      ctx.lineTo(x, baseY - h);
-      ctx.lineTo(x + step * 0.35, baseY + h * 0.18);
-      ctx.lineTo(x + step * 0.6, baseY);
-    }
-    ctx.lineTo(w, baseY);
   }
 
   function draw(nowMs: number): void {
@@ -175,7 +187,7 @@ export function createHeartbeatMonitor(canvas: HTMLCanvasElement): HeartbeatMoni
     ctx.shadowColor = withAlpha(ctx, colors.read, 0.85);
     ctx.shadowBlur = 9 * dpr;
     ctx.strokeStyle = readGrad;
-    tracePath(ctx, w, baseY, amp, function (b) { return b.reads + b.writes; });
+    buildTracePath(ctx, ring, w, baseY, amp, function (b) { return b.reads + b.writes; });
     ctx.stroke();
 
     // Warm overlay: re-stroke only the spikes of buckets that contain writes /
@@ -183,7 +195,7 @@ export function createHeartbeatMonitor(canvas: HTMLCanvasElement): HeartbeatMoni
     // read-only traffic stays in the cool accent.
     ctx.shadowColor = withAlpha(ctx, colors.warm, 0.85);
     ctx.strokeStyle = withAlpha(ctx, colors.warm, 0.95);
-    tracePath(ctx, w, baseY, amp, function (b) { return b.writes > 0 ? b.reads + b.writes : 0; });
+    buildTracePath(ctx, ring, w, baseY, amp, function (b) { return b.writes > 0 ? b.reads + b.writes : 0; });
     ctx.stroke();
     ctx.shadowBlur = 0;
 
@@ -224,6 +236,11 @@ export function createHeartbeatMonitor(canvas: HTMLCanvasElement): HeartbeatMoni
         if (ring[i].reads + ring[i].writes > 0) return false;
       }
       return true;
+    },
+    invalidateColors: function (): void {
+      // Zeroing the throttle clock makes the next refreshColors() call
+      // unconditionally re-read the CSS custom properties.
+      lastColorReadMs = 0;
     },
   };
 }
