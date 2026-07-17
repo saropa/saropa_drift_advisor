@@ -1913,6 +1913,6 @@
     "lint-staged": "^17.0.8",
     "mocha": "^11.7.6",
     "sinon": "^22.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }
