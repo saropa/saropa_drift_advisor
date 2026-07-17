@@ -250,14 +250,14 @@ describe('Web theme contract — premium theme effects in style.css', () => {
   });
 
   it('reduced motion disables all theme animations', () => {
-    // Extract the reduced-motion block that contains theme animation overrides.
-    // We match the @media rule whose body includes 'animation: none' —
-    // other reduced-motion blocks only disable transitions.
+    // Find the reduced-motion block for premium theme animations specifically.
+    // Multiple reduced-motion blocks contain `animation: none` (e.g. heartbeat),
+    // so match on the theme selector, not just the property.
     const rmRe = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\n\}/g;
     let block = '';
     let m: RegExpExecArray | null;
     while ((m = rmRe.exec(css)) !== null) {
-      if (m[0].includes('animation: none')) {
+      if (m[0].includes('animation: none') && m[0].includes('body.theme-showcase')) {
         block = m[0];
         break;
       }
