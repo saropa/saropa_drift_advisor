@@ -705,6 +705,7 @@
   "viewer.tools.size.error": "Error: {0} El error fue el siguiente:",
   "viewer.tools.size.requestFailed": "La solicitud falló.",
   "viewer.tools.size.tt.freeCard": "Bytes en páginas de SQLite  ⁇ s freelist (PRAGMA freelists_count × page_size). Páginas sin usar dentro del archivo que <B 0> puede reutilizar para nuevos datos sin hacer crecer el archivo.",
+  "viewer.tools.size.tt.journalCard": "SQLite PRAGMA journal_mode. wal significa WAL (write-ahead logging): las nuevas escrituras van a un archivo .wal separado y se fusionan en la base de datos principal en el checkpoint; los lectores pueden ejecutarse al mismo tiempo que un escritor. Otros modos incluyen delete, truncate, persist, memory y off.",
   "viewer.tools.size.tt.pagesFormula": "PRAGMA page_count (número de páginas) × PRAgma page_size (octetos por página, a menudo 4096).",
   "viewer.tools.size.tt.pagesTotal": "Total de bytes en todas las páginas: page_count × page_size. mismo número que el tamaño total.",
   "viewer.tools.size.tt.tdColumns": "Cuántas columnas tiene esta tabla.",

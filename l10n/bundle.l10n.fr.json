@@ -26,6 +26,7 @@
   "...and {0} more updates": "...et {0} plus de mises à jour.",
   "0 rows (no violations)": "0 lignes (aucune infraction)",
   "1 row": "1ère ligne, première rangée.",
+  "<strong>HTTP discovery</strong> — Falls back to scanning ports {0}&ndash;{1} on localhost for a running Drift debug server.": "<strong>Découverte HTTP</strong> — Se rabat sur le scan des ports {0}&ndash;{1} sur localhost à la recherche d'un Drift debug server en cours d'exécution.",
   "<strong>NOTE:</strong> After running adb forward, click <strong>Retry Connection</strong> below to re-scan for the server.": "<strong>REMARQUE:</strong> Après avoir exécuté adb forward, cliquez sur Reprendre la connexion ci-dessous pour rechercher à nouveau le serveur.",
   "<strong>TIP:</strong> Check <strong>Output</strong> &rarr; <strong>Saropa Drift Advisor</strong> for detailed connection logs and error messages.": "<strong>TIP :</strong> Vérifiez <strong>Sortie</strong> &rarr; <strong>Saropa Drift Advisor</strong> pour des journaux de connexion détaillés et des messages d'erreur.",
   "<strong>VM Service (preferred)</strong> — When you start a Flutter/Dart debug session, the extension connects automatically via VM Service. No port forwarding needed.": "<strong>VM Service (préféré)</strong>  ⁇  Lorsque vous démarrez une session de débogage Flutter/Dart, l'extension se connecte automatiquement via <B0 >. Aucun transfert de port n'est nécessaire.",

@@ -705,6 +705,7 @@
   "viewer.tools.size.error": "Erreur: {0} est une erreur.",
   "viewer.tools.size.requestFailed": "La requête a échoué.",
   "viewer.tools.size.tt.freeCard": "Octets dans les pages de la liste libre (PRAGMA freelist_count × page_size) de SQLite. Pages inutilisées à l'intérieur du fichier que <B2> peut réutiliser pour de nouvelles données sans faire croître le fichiers.",
+  "viewer.tools.size.tt.journalCard": "SQLite PRAGMA journal_mode. wal signifie WAL (write-ahead logging) : les nouvelles écritures vont dans un fichier .wal séparé et sont fusionnées dans la base de données principale au checkpoint ; les lecteurs peuvent s'exécuter en même temps qu'un rédacteur. Les autres modes incluent delete, truncate, persist, memory et off.",
   "viewer.tools.size.tt.pagesFormula": "PRAGMA page_count (nombre de pages) × PRAgma page_size (octets par page, souvent 4096).",
   "viewer.tools.size.tt.pagesTotal": "Nombre total d'octets dans toutes les pages: page_count × page_size. le même nombre que Total Size.",
   "viewer.tools.size.tt.tdColumns": "Combien de colonnes cette table a-t-elle ?",

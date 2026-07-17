@@ -54,6 +54,7 @@
   "All": "Alle, alle, alles ist gut.",
   "All ({0})": "Alle ({0}) sind dabei.",
   "All columns": "Alle Spalten alle Spalten.",
+  "All monitoring and logging are disabled. Diagnostics were cleared, file badges removed, and the Drift debug server stopped recording queries and sweeps.": "Alle Überwachung und Protokollierung sind deaktiviert. Diagnosen wurden gelöscht, Datei-Badges entfernt und der Drift debug server hat die Aufzeichnung von Abfragen und Sweeps beendet.",
   "All operations": "Alle Operationen Alle Operations sind alle Operationen.",
   "All tables": "Alle Tische, alle Tabellen.",
   "All tools": "Alle Werkzeuge alle Tools",
