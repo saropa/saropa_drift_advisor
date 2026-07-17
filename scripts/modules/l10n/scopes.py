@@ -5,7 +5,7 @@
 |--------------|------------------------------------------------------|---------|
 | `missing`    | only keys absent from the locale bundle              | publish (never re-sends en-copies) |
 | `gaps`       | absent keys AND en-copies (value == English)         | the deliberate translate run |
-| `low_quality`| existing translations with weak/untracked provenance | the Google → NLLB upgrade pass |
+| `low_quality`| existing translations with weak/untracked/NLLB provenance | the low/NLLB → Qwen upgrade pass |
 
 All scopes operate on the SYMBOLIC-KEY space: `source` maps key → English, and
 `translated` maps key → its current locale value (the caller adapts the host's

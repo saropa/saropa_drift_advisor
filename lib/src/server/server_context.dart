@@ -38,7 +38,7 @@ final class ServerContext {
   // The capture kill-switch probe closes over `this.monitoringEnabled` (a
   // MUTABLE field), which an initializer list cannot reference — the body is
   // the only place this wiring can live.
-  // ignore: avoid_non_empty_constructor_bodies
+  // ignore: avoid_non_empty_constructor_bodies -- body needed: kill-switch probe closes over mutable monitoringEnabled
   ServerContext({
     required DriftDebugQuery query,
     DriftDebugQueryWithBindings? queryWithBindings,

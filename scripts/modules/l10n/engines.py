@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
-"""Translation engines — NLLB (offline) + Google fallback (plan 75 §4 "Engines").
+"""Translation engines — Qwen (primary) + NLLB fallback + Google last resort.
+
+Engine cascade: Qwen 2.5 7B via Ollama (best quality, local, no spend) → NLLB-200
+3.3B via CTranslate2 (offline fallback when Ollama is not running) → Google via
+deep-translator (network fallback when neither local engine is available).
 
 GATED. Nothing here runs during `audit` or `sync`. `translate_one` refuses unless
 the caller passes `authorized=True`, which only the deliberate, operator-run
 `translate` action sets after an explicit confirmation (plan 75 §7: never translate
 unattended). Engine model imports are lazy so importing this module — which the CLI
-always does — never pulls in `deep_translator` or a multi-GB NLLB model.
+always does — never pulls in `deep_translator` or loads a multi-GB model.
 
 Network safeguards live in [CircuitBreaker]: after N consecutive failures the
 breaker opens and further calls fail fast instead of hammering a dead endpoint. The
@@ -13,6 +17,7 @@ breaker is pure (no I/O) and unit-tested; the actual MT calls are not exercised 
 this repo's tests (and never run here).
 """
 
+ENGINE_QWEN = "qwen_2.5_7b_local"
 ENGINE_NLLB = "nllb"
 ENGINE_GOOGLE = "google"
 
@@ -60,6 +65,18 @@ class CircuitBreaker:
             self.opened = True
 
 
+def qwen_is_available() -> bool:
+    """True when Qwen 2.5 7B is reachable via Ollama — never loads the model.
+
+    Probes Ollama's /api/tags with a 5s timeout to check the model is pulled.
+    """
+    try:
+        from modules.l10n import qwen_engine
+        return qwen_engine.is_available()
+    except Exception:
+        return False
+
+
 def nllb_model_is_cached() -> bool:
     """True only if the NLLB model is already on disk — never triggers a download.
 
@@ -75,6 +92,7 @@ def nllb_model_is_cached() -> bool:
 
 
 # Engine labels stamped into provenance (mirror modules.l10n.provenance).
+ENGINE_LABEL_QWEN = "qwen_2.5_7b_local"
 ENGINE_LABEL_NLLB = "nllb"
 ENGINE_LABEL_GOOGLE = "google"
 
@@ -88,13 +106,17 @@ def make_locale_translator(
 ):
     """Build a per-string translator for `locale` + the engine label it uses.
 
-    GATED — raises `TranslationNotAuthorizedError` unless `authorized=True`. Picks
-    NLLB-200 when its model is cached and not disabled (`SAROPA_SKIP_NLLB`),
-    constructing it ONCE here (the model loads on first use and is reused across
-    every string + locale); otherwise Google. Returns
-    `(translate(text) -> str, engine_label)`. The returned callable brand-shields
-    (`<B0>` placeholders) before the engine and restores after, records the circuit
-    breaker, and on an NLLB miss (None) keeps the English source rather than blank.
+    GATED — raises `TranslationNotAuthorizedError` unless `authorized=True`.
+
+    Engine cascade (best to worst):
+      1. Qwen 2.5 7B via Ollama — best quality, local, no spend.
+      2. NLLB-200 3.3B via CTranslate2 — offline fallback when Ollama is down.
+      3. Google via deep-translator — network fallback when no local engine works.
+
+    Returns `(translate(text) -> str, engine_label)`. The returned callable
+    brand-shields (`<B0>` placeholders) before the engine and restores after,
+    records the circuit breaker, and on a Qwen/NLLB miss (None) falls through
+    to the next engine rather than returning blank.
     """
     if not authorized:
         raise TranslationNotAuthorizedError(
@@ -104,35 +126,62 @@ def make_locale_translator(
 
     from modules.l10n.brands import shield_brands, unshield_brands
 
+    qwen = None
     nllb = None
     label = ENGINE_LABEL_GOOGLE
-    if prefer_nllb:
+
+    # Qwen is the primary engine — try it first.
+    try:
+        from modules.l10n import qwen_engine
+        if qwen_engine.is_available():
+            qwen = qwen_engine.QwenTranslator(locale)
+            label = ENGINE_LABEL_QWEN
+    except Exception:
+        qwen = None
+
+    # NLLB is the fallback — only load the 3.3B model when Qwen is NOT available.
+    # Constructing NllbTranslator loads the full model into GPU memory, so doing it
+    # eagerly when Qwen is already handling translation wastes ~2GB VRAM + startup.
+    if prefer_nllb and qwen is None:
         try:
             from modules.l10n import nllb_engine
             if nllb_engine.is_available():
-                nllb = nllb_engine.NllbTranslator(locale)  # loads the model
+                nllb = nllb_engine.NllbTranslator(locale)
                 label = ENGINE_LABEL_NLLB
         except Exception:
-            nllb = None  # any NLLB setup failure → fall back to Google
+            nllb = None
 
     def translate(text: str) -> str:
         breaker.check()
         shielded, replacements = shield_brands(text)
         try:
+            # Qwen primary — its circuit breaker is internal (qwen_engine manages
+            # its own cooldown), so a None here means "try next engine" not "abort".
+            if qwen is not None:
+                out = qwen.translate(shielded)
+                if out is not None:
+                    breaker.record_success()
+                    return unshield_brands(out, replacements)
+
+            # NLLB fallback — None means timeout/echo/over-length, not a crash.
             if nllb is not None:
                 out = nllb.translate(shielded)
-                if out is None:  # NLLB miss (timeout / echo / over-length) → keep English
+                if out is not None:
                     breaker.record_success()
-                    return text
-            else:
-                out = _google_translate(shielded, locale)
+                    return unshield_brands(out, replacements)
+                # NLLB miss → keep English rather than hitting Google.
+                breaker.record_success()
+                return text
+
+            # Google last resort.
+            out = _google_translate(shielded, locale)
             breaker.record_success()
+            return unshield_brands(out, replacements)
         except EngineUnavailableError:
             raise
         except Exception:
             breaker.record_failure()
             raise
-        return unshield_brands(out, replacements)
 
     return translate, label
 
@@ -177,37 +226,10 @@ def translate_one(
 ) -> str:
     """Translate one string en→`target_locale`. GATED — raises unless authorized.
 
-    Brand tokens are shielded (`<B0>` placeholders) before the engine call and
-    restored after, so the translator can never mangle a brand. NLLB is used only
-    when its model is already cached AND not skipped (`SAROPA_SKIP_NLLB`); since the
-    NLLB GPU path is what once locked the machine, the safe default is Google
-    (network-only). A failed call records against the circuit breaker and re-raises;
-    a success resets it.
+    Delegates to `make_locale_translator` for the full Qwen → NLLB → Google
+    cascade. Brand tokens are shielded before the engine and restored after.
     """
-    if not authorized:
-        raise TranslationNotAuthorizedError(
-            "translate_one called without authorization — the translate pass is "
-            "operator-gated (plan 75 §7). No machine translation was performed."
-        )
-    breaker.check()
-
-    from modules.l10n.brands import shield_brands, unshield_brands
-
-    shielded, replacements = shield_brands(text)
-    try:
-        # NLLB intentionally stays unwired unless explicitly built out (GPU risk);
-        # the engine is Google. `prefer_nllb` is honored only when a cached model
-        # exists, which this probe gates — today that is never, so Google is used.
-        import os
-
-        use_nllb = prefer_nllb and nllb_model_is_cached() and not os.environ.get("SAROPA_SKIP_NLLB")
-        if use_nllb:  # pragma: no cover - no cached model in this repo
-            raise EngineUnavailableError("NLLB path not wired; falling back to Google.")
-        out = _google_translate(shielded, target_locale)
-        breaker.record_success()
-    except EngineUnavailableError:
-        raise
-    except Exception:
-        breaker.record_failure()
-        raise
-    return unshield_brands(out, replacements)
+    fn, _ = make_locale_translator(
+        target_locale, authorized=authorized, breaker=breaker, prefer_nllb=prefer_nllb,
+    )
+    return fn(text)

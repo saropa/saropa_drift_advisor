@@ -44,7 +44,19 @@ browse source on
 
 ## [Unreleased]
 
-A new Heartbeat screen shows your database's pulse live — tables glow as they are read and written — and other Saropa Suite tools can now pull a small daily digest from Drift Advisor for a consolidated Suite report. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+### Fixed
+
+- **NLLB no longer loads when Qwen is available.** The engine cascade was eagerly constructing `NllbTranslator` (loading the 3.3B model into GPU memory) even when Qwen was the active engine, wasting ~2 GB VRAM and adding startup delay. NLLB now only loads when Qwen is unavailable.
+- **Brand-token placeholders survive Qwen translation.** Brand-shield tokens (`<B0>`, `<B1>`, …) were sent raw to the Qwen model, which dropped or mangled them. `validate_brands` then rejected every translation containing a brand name ("wrote 0 translations"). The placeholders are now masked alongside format placeholders (`{count}`, `{name}`) before the model sees the text, then restored after.
+
+### Changed
+
+- **Translation engine: NLLB → Qwen 2.5 7B (via Ollama).** The primary offline translation engine is now Qwen 2.5 7B running locally through Ollama's OpenAI-compatible API, replacing NLLB-200 3.3B. NLLB remains as a fallback when Ollama is not running; Google Translate is the last resort. Qwen produces materially better translations for UI strings. Existing NLLB-provenance translations are now classified as medium quality and eligible for upgrade via the "Upgrade LOW/NLLB-QUALITY → Qwen" menu action.
+- **Qwen prerequisite diagnostics.** The interactive menu now checks Ollama status at startup and shows actionable fix instructions when something is missing — env-disabled, server not running, or model not pulled — instead of silently falling back to a weaker engine.
+
+## [4.2.1]
+
+A new Heartbeat screen shows your database's pulse live — tables glow as they are read and written — and other Saropa Suite tools can now pull a small daily digest from Drift Advisor for a consolidated Suite report. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.1/CHANGELOG.md)
 
 ### Added
 
@@ -554,37 +566,4 @@ Connecting the advisor to a running app no longer risks freezing the app at laun
 
 ---
 
-## [4.0.2]
-
-Big schemas are easier to read now: a sidebar toggle groups related tables together (your `contacts` table sits with `contact_avatars`, `contact_groups`, and friends), and the toolbar got tidied up. The analysis panels, badges, and exported reports all follow your editor's light / dark / high-contrast theme instead of fighting it, and a few widgets that showed "NaN" or blank cells are fixed. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.2/CHANGELOG.md)
-
-### Added
-
-- **Group tables by name in the Database sidebar.** Related tables are bundled into expanded sections so a wide schema is much easier to scan — on by default. Tables are grouped by their entity stem, so a `contacts` table sits with `contact_avatars`, `contact_groups`, and the rest (singular/plural and `-s`/`-es` forms are matched). A toolbar toggle switches to a flat list; the choice is remembered per workspace. Pinned tables stay flat at the top either way.
-
-### Changed
-
-- **Reorganized the Database sidebar toolbar.** Everyday actions (Refresh, group toggle, Dashboard, Health Score, Ask in English, Tools) stay as inline buttons; the rest are sorted into labeled sections — Explore, Data, Quality, About — in the `…` overflow menu so they are easier to find. The "Ask in English" button now uses a sparkle icon.
-- **Unified panel theming on one Saropa design-token palette.** Health grades, severity badges, and status colors across the analysis panels now draw from a shared token set bound to the editor's own theme, so they read consistently and follow your chosen light / dark / high-contrast theme instead of fixed colors that fought non-default themes. This covers the dashboard, health, anomalies, and invariants panels plus the query-cost, explain, schema-diff, time-travel, snapshot-diff, drift-health, commit-timeline, mutation-stream, profiler, constraint-wizard, isar-gen, branching, and seeder panels. The exported HTML report and schema-docs export adopt the same Saropa brand palette. Secondary buttons across panels gained reliable fallbacks so they always read as buttons. Deliberately left fixed: SQL syntax-highlight colors and the standalone ER-diagram SVG export.
-
-### Fixed
-
-- **Dashboard "Explore Drift Advisor" feature buttons now look like buttons.** In many color themes the secondary-button background blended into the card behind it and the buttons had no border, so they read as plain text. They now carry a visible border and theme-neutral fallbacks.
-- **The Row Count widget no longer shows "NaN".** It read the count by array position, but the server returns each result row as an object keyed by column name, so the lookup missed and produced NaN. It now reads the value correctly and shows 0 for an empty table.
-- **The Table Preview widget now shows column headers and cell values.** It expected positional rows and a separate column list, but the server returns rows as objects keyed by column name (and omits the column list over HTTP), so the preview rendered with no headers and blank cells. It now derives columns from the row data and fills the cells.
-- **Foreign-key navigator, filter bar, in-grid edit buttons, and the SQL Notebook EXPLAIN badges now follow the editor theme.** The FK navigator overlay, the filter Save/Delete buttons, the in-grid delete/add-row buttons, and the SQL Notebook query-plan badges hardcoded fixed colors that washed out or clashed in light and high-contrast themes. The data-grid overlays (which live in the table viewer, not a themed panel) now use the editor's own theme variables; the SQL Notebook badges use the shared status tokens. The transient connecting/error screen also follows the theme instead of a fixed gray.
-
-<details><summary>Maintenance</summary>
-
-- **Fixed the publish workflow failing at `dart pub publish --dry-run` with exit code 65.** A new top-level `docs/launch/` directory tripped pub's "rename top-level docs to doc" layout warning, and the dry-run treats any warning as a failure. Excluded `docs/` via `.pubignore`.
-- **Trimmed the published package from bloat (~2 MB archive).** Because pub ignores `.gitignore` once a `.pubignore` exists, `.gitignore`'d directories (`build/`, generated `doc/api/`) plus developer-only directories (`bugs/`, `plans/`, `reports/`, `scripts/`, `tool/`) were being bundled. All are now listed in `.pubignore`; consumers do not need them at runtime.
-- **Added a regression test** (`test/version_sync_test.dart`) asserting `.pubignore` excludes the top-level `docs/` directory, so the publish-blocking pub layout warning cannot silently return.
-- **Made the extension publish idempotent against store propagation lag.** Marketplace/Open VSX listings lag publish acceptance by minutes, so a `--resume` retry could read a stale older version, miss the version-skip guard, and re-attempt a publish the store rejected with "already exists" — aborting the pipeline even though the target version was already live. `publish_marketplace`/`publish_openvsx` now treat that rejection as success.
-- **Repointed the design-token style-guide citations at their real source.** The `§` references in `design-tokens.ts` and `report-css.ts` cited `docs/design/SAROPA_DASHBOARD_STYLE_GUIDE.md`, a path that does not resolve in this repo — the guide is the shared cross-project source of truth and lives in the saropa_lints repo. The comments now point at the resolvable GitHub URL so the references are no longer dangling.
-- **Extended the design-token migration to the second status-color cluster the first pass missed.** The initial token migration converted the fourteen panels that shared one hex set (`#22c55e`/`#ef4444`/…). A separate group of panels hardcoded a different palette — Bootstrap-style `#28a745`/`#dc3545`/`#e0a800` and fixed dark backgrounds — and so still ignored the editor theme. Converted those bare status hexes to the semantic tokens (`--status-good`/`--status-bad`/`--accent-warning`/`--accent-info`) and their `rgba()` tints to `color-mix` across query-cost, explain, schema-diff, time-travel, snapshot-diff, drift-health, commit-timeline, mutation-stream, profiler, er-diagram, constraint-wizard, isar-gen, branching, seeder, suite-notes, and the filter/editing bridge scripts. The standalone schema-docs export now adopts the brand fallback palette (with dark-mode support) like the report export. Theme-bound `var(--vscode-*, #hex)` fallbacks and intentionally-fixed colors (SQL syntax highlighting, the standalone ER-diagram SVG export) were left as-is. `tsc` clean; full mocha suite (2851) passing.
-
-</details>
-
----
-
-For versions 4.0.1 and prior, see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
+For versions 4.0.2 and prior, see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).

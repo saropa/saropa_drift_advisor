@@ -2,16 +2,19 @@
 """Per-key translation provenance: which engine produced each locale string.
 
 Each locale gets a sidecar `l10n/provenance/<locale>.json` mapping
-`symbolic_key -> engine` ("nllb", "google", "manual", …). The bundles themselves
-stay plain value maps; provenance lives beside them (kept out of the bundle glob)
-so the audit can report quality and an upgrade pass can target only the weak ones.
+`symbolic_key -> engine` ("qwen_2.5_7b_local", "nllb", "google", "manual", …).
+The bundles themselves stay plain value maps; provenance lives beside them (kept
+out of the bundle glob) so the audit can report quality and an upgrade pass can
+target only the weak ones.
 
-Quality model: NLLB / manual / gemini / translation-memory / identity are high
-quality; Google and the other free MT engines are low; and a translated key with
-NO provenance record is treated as **untracked = low quality** — which is exactly
-what lets an "upgrade low-quality" pass sweep old Google output into NLLB later.
-Keyed by SYMBOLIC KEY (the source-of-truth key the audit iterates), uniform across
-the host and web surfaces.
+Quality model (best → worst):
+  HIGH   — qwen / manual / gemini / translation-memory / identity: never upgraded.
+  MEDIUM — nllb: acceptable but worth upgrading to Qwen when possible.
+  LOW    — google / mymemory / libretranslate / lingva / argos / legacy: upgrade.
+  UNTRACKED — no provenance record at all: treated as low quality.
+
+`is_low_quality(engine)` returns True for MEDIUM, LOW, and UNTRACKED — all are
+upgrade candidates. The "upgrade low-quality" pass sweeps them into Qwen.
 """
 
 import json
@@ -28,6 +31,7 @@ _MODULE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _MODULE_DIR.parents[2]
 PROVENANCE_DIR = PROJECT_ROOT / "l10n" / "provenance"
 
+ENGINE_QWEN = "qwen_2.5_7b_local"
 ENGINE_NLLB = "nllb"
 ENGINE_GOOGLE = "google"
 ENGINE_MANUAL = "manual"
@@ -40,7 +44,13 @@ ENGINE_IDENTITY = "identity"
 
 # High quality — never an upgrade candidate.
 HIGH_QUALITY_ENGINES = frozenset({
-    ENGINE_NLLB, ENGINE_MANUAL, ENGINE_IDENTITY, "translation_memory", "gemini",
+    ENGINE_QWEN, ENGINE_MANUAL, ENGINE_IDENTITY, "translation_memory", "gemini",
+})
+# Medium quality — acceptable but worth upgrading to Qwen. NLLB output is
+# functional but Qwen produces materially better translations; existing NLLB
+# provenance keys are upgrade candidates alongside the low-quality engines.
+MEDIUM_QUALITY_ENGINES = frozenset({
+    ENGINE_NLLB,
 })
 # Low quality — produced by a weaker MT engine. Upgrade candidates.
 LOW_QUALITY_ENGINES = frozenset({
@@ -50,7 +60,8 @@ LOW_QUALITY_ENGINES = frozenset({
 
 # Left-to-right order for the audit table: best quality first.
 ENGINE_DISPLAY_ORDER = [
-    ENGINE_NLLB, "gemini", ENGINE_MANUAL, "translation_memory", ENGINE_IDENTITY,
+    ENGINE_QWEN, "gemini", ENGINE_MANUAL, "translation_memory", ENGINE_IDENTITY,
+    ENGINE_NLLB,
     ENGINE_GOOGLE, "mymemory", "libretranslate", "lingva", "argos",
     "legacy_pre_provenance", ENGINE_UNTRACKED,
 ]

@@ -82,7 +82,7 @@ def _resolve_menu_default(report: dict) -> tuple[str, str]:
     if audit.has_gaps(report):
         return "3", "translate gaps, all locales"
     if any(loc["low_quality"] for loc in report["locales"]):
-        return "5", "upgrade low-quality, all locales"
+        return "5", "upgrade low/NLLB-quality to Qwen, all locales"
     return "1", "nothing outstanding"
 
 
@@ -93,10 +93,10 @@ def _print_menu(emit: Callable[[str], None]) -> None:
     heading("Localization actions")
     emit("  1  Audit only (write the coverage report)")
     emit("  2  Sync the English baseline (build host bundle, prune orphans)")
-    emit("  3  Translate GAPS (NLLB) — all 10 locales")
-    emit("  4  Translate GAPS (NLLB) — specific locales")
-    emit("  5  Upgrade LOW-QUALITY → NLLB — all 10 locales")
-    emit("  6  Upgrade LOW-QUALITY → NLLB — specific locales")
+    emit("  3  Translate GAPS (Qwen) — all 10 locales")
+    emit("  4  Translate GAPS (Qwen) — specific locales")
+    emit("  5  Upgrade LOW/NLLB-QUALITY → Qwen — all 10 locales")
+    emit("  6  Upgrade LOW/NLLB-QUALITY → Qwen — specific locales")
     emit("  0  Exit")
 
 
@@ -141,14 +141,28 @@ def interactive_menu(
     explicit_reports = reports_dir is not None
     reports_dir = reports_dir or (REPO_ROOT / "reports" / "interactive")
 
-    engine_name = "NLLB-200 (offline, cached)" if engines.nllb_model_is_cached() \
-        else "Google Translate (fallback — NLLB model not cached)"
+    # Structured Qwen diagnostic — tells the operator exactly what's wrong and
+    # how to fix it, instead of a silent fallback to a weaker engine.
+    from modules.l10n import qwen_engine
+    qwen_status, qwen_summary, qwen_fix = qwen_engine.diagnose()
+
+    if qwen_status == "ready":
+        engine_line = f"{C.GREEN}Qwen 2.5 7B{C.RESET} (offline, via Ollama)"
+    elif engines.nllb_model_is_cached():
+        engine_line = f"{C.YELLOW}NLLB-200{C.RESET} (offline fallback — Qwen unavailable)"
+    else:
+        engine_line = f"{C.RED}Google Translate{C.RESET} (network fallback — no local engine)"
 
     report = audit.run_audit(TRANSLATED_LOCALES)
     emit(f"Runtime l10n — {C.BOLD}{report['source_keys']}{C.RESET} source keys "
          f"({report['host_keys']} host + {report['web_keys']} web). "
          f"Target locales: {len(TRANSLATED_LOCALES)}.")
-    emit(f"Engine: {C.MAGENTA}{engine_name}{C.RESET}")
+    emit(f"Engine: {engine_line}")
+
+    if qwen_status != "ready":
+        emit(f"  {C.YELLOW}⚠ {qwen_summary}{C.RESET}")
+        for fix_line in qwen_fix.splitlines():
+            emit(f"    {C.DIM}{fix_line}{C.RESET}")
     for loc in report["locales"]:
         pct = loc["coverage_pct"]
         emit(f"  {C.BOLD}{loc['locale']:>6}{C.RESET}: "
