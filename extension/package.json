@@ -1906,7 +1906,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "@types/sinon": "^21.0.1",
     "@types/vscode": "^1.115.0",
     "husky": "^9.1.7",
