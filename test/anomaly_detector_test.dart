@@ -823,7 +823,11 @@ void main() {
             'duration',
             'item_count',
             'num_pixels',
-            'count',
+            'bandwidth',
+            'throughput',
+            'latency',
+            'network_latency',
+            'max_throughput',
           ]) {
             final result = await AnomalyDetector.getAnomaliesResult(
               _anomalyQuery(
@@ -1666,6 +1670,184 @@ void main() {
         // error must appear before warning, which must appear before info.
         expect(firstError, lessThan(firstWarning));
         expect(firstWarning, lessThan(firstInfo));
+      });
+
+      // -------------------------------------------------------
+      // Server-side suppression (drift-advisor:ignore)
+      // -------------------------------------------------------
+
+      test(
+        'suppression removes matching anomalies by table and column',
+        () async {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
+              },
+              counts: {'items': 50},
+              numericStats: {
+                'items.price': {
+                  'avg_val': 10.0,
+                  'min_val': 5.0,
+                  'max_val': 150.0,
+                  'variance': 100.0,
+                  'cnt': 50,
+                },
+              },
+            ),
+            suppressions: const [
+              AnomalySuppression(table: 'items', column: 'price'),
+            ],
+          );
+
+          final outliers = (result['anomalies'] as List)
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(outliers, isEmpty);
+        },
+      );
+
+      test('suppression with type filter only removes matching type', () async {
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'items': [
+                _col('id', 'INTEGER', pk: 1),
+                _col('title', 'TEXT', notnull: 1),
+                _col('price', 'REAL'),
+              ],
+            },
+            counts: {'items': 50},
+            emptyCounts: {'items.title': 3},
+            numericStats: {
+              'items.price': {
+                'avg_val': 10.0,
+                'min_val': 5.0,
+                'max_val': 150.0,
+                'variance': 100.0,
+                'cnt': 50,
+              },
+            },
+          ),
+          suppressions: const [
+            AnomalySuppression(table: 'items', type: 'potential_outlier'),
+          ],
+        );
+
+        final anomalies = (result['anomalies'] as List)
+            .cast<Map<String, dynamic>>();
+        final outliers = anomalies.where(
+          (a) => a['type'] == 'potential_outlier',
+        );
+        final empties = anomalies.where((a) => a['type'] == 'empty_strings');
+        expect(outliers, isEmpty, reason: 'Outlier suppressed by type filter');
+        expect(
+          empties,
+          isNotEmpty,
+          reason: 'Empty strings NOT suppressed — different type',
+        );
+      });
+
+      test(
+        'wildcard table suppression removes anomalies from all tables',
+        () async {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
+                'products': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col('price', 'REAL'),
+                ],
+              },
+              counts: {'items': 50, 'products': 50},
+              numericStats: {
+                'items.price': {
+                  'avg_val': 10.0,
+                  'min_val': 5.0,
+                  'max_val': 150.0,
+                  'variance': 100.0,
+                  'cnt': 50,
+                },
+                'products.price': {
+                  'avg_val': 10.0,
+                  'min_val': 5.0,
+                  'max_val': 150.0,
+                  'variance': 100.0,
+                  'cnt': 50,
+                },
+              },
+            ),
+            suppressions: const [
+              AnomalySuppression(table: '*', type: 'potential_outlier'),
+            ],
+          );
+
+          final outliers = (result['anomalies'] as List)
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason: 'Wildcard table should suppress across all tables',
+          );
+        },
+      );
+
+      test('suppression does not remove non-matching anomalies', () async {
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
+            },
+            counts: {'items': 50},
+            numericStats: {
+              'items.price': {
+                'avg_val': 10.0,
+                'min_val': 5.0,
+                'max_val': 150.0,
+                'variance': 100.0,
+                'cnt': 50,
+              },
+            },
+          ),
+          suppressions: const [
+            AnomalySuppression(table: 'other_table', column: 'price'),
+          ],
+        );
+
+        final outliers = (result['anomalies'] as List)
+            .where((a) => (a as Map)['type'] == 'potential_outlier')
+            .toList();
+        expect(
+          outliers,
+          isNotEmpty,
+          reason: 'Non-matching suppression should not remove anomalies',
+        );
+      });
+
+      test('table-level suppression removes column-less anomalies', () async {
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'items': [_col('id', 'INTEGER', pk: 1), _col('name', 'TEXT')],
+            },
+            counts: {'items': 10},
+            distinctCounts: {'items': 8},
+          ),
+          suppressions: const [
+            AnomalySuppression(table: 'items', type: 'duplicate_rows'),
+          ],
+        );
+
+        final dups = (result['anomalies'] as List)
+            .where((a) => (a as Map)['type'] == 'duplicate_rows')
+            .toList();
+        expect(
+          dups,
+          isEmpty,
+          reason: 'Table-level duplicate_rows should be suppressible',
+        );
       });
     });
   });

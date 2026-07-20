@@ -179,6 +179,50 @@ typedef DeclaredRelationships = List<DeclaredRelationship>;
 /// as [DeclaredSchemaCallback]).
 typedef DeclaredRelationshipsCallback = DeclaredRelationships Function();
 
+// --- Anomaly suppression (server-side ignore directives) ---
+
+/// A server-side suppression rule that silences a specific anomaly finding.
+///
+/// Mirrors the extension's `// drift-advisor:ignore` inline directive system
+/// but operates at the server level — suppressed anomalies are excluded from
+/// the JSON response and server log output, not just from VS Code diagnostics.
+///
+/// The caller (extension or host) is responsible for collecting suppressions
+/// from whatever source (parsed Dart `// drift-advisor:ignore` comments,
+/// host configuration, user settings) and passing them to
+/// [AnomalyDetector.getAnomaliesResult].
+class AnomalySuppression {
+  const AnomalySuppression({required this.table, this.column, this.type});
+
+  /// Table name to suppress, or `*` to match all tables.
+  final String table;
+
+  /// Column name to suppress, or `null` to match all columns in [table].
+  /// Table-level anomalies (e.g., `duplicate_rows`) have no column — they
+  /// match when [column] is `null`.
+  final String? column;
+
+  /// Anomaly type code to suppress (e.g., `potential_outlier`, `null_values`,
+  /// `empty_strings`, `orphaned_fk`, `duplicate_rows`), or `null` to suppress
+  /// all anomaly types for the matched table/column.
+  final String? type;
+
+  /// Whether [anomaly] is suppressed by this rule.
+  bool matches(Map<String, dynamic> anomaly) {
+    final anomalyTable = anomaly['table'] as String?;
+    if (anomalyTable == null) return false;
+
+    if (table != '*' && table != anomalyTable) return false;
+
+    final anomalyColumn = anomaly['column'] as String?;
+    if (column != null && column != anomalyColumn) return false;
+
+    if (type != null && type != anomaly['type']) return false;
+
+    return true;
+  }
+}
+
 /// A single query timing record for the performance monitor.
 class QueryTiming {
   QueryTiming({

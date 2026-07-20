@@ -41,13 +41,22 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.2.2]
 
-[log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.2/CHANGELOG.md)
+Servers can now suppress specific anomalies before they hit the response, and outlier detection stops crying wolf on size, duration, and measurement columns. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.2/CHANGELOG.md)
+
+### Added
+
+- **Server-side anomaly suppression.** `AnomalyDetector.getAnomaliesResult` accepts a `suppressions` parameter — a list of `AnomalySuppression` rules that filter anomalies by table, column, and/or type before they reach the JSON response or server logs. This is the server-side equivalent of the extension's `// drift-advisor:ignore` inline directives: callers collect suppressions from any source (parsed Dart comments, host configuration, user settings) and pass them to the detector. Wildcard table (`*`) and null column/type (match all) are supported.
+
+### Improved
+
+- **Publish pipeline offers to merge Dependabot PRs inline.** The Dependabot gate now lists open PRs and prompts to squash-merge them via `gh pr merge` without leaving the terminal. On success it pulls the merged commits into the local branch automatically. Declining the merge falls back to the previous continue-anyway prompt.
 
 ### Fixed
 
-- **Outlier false positives on dimensional and physical measurement columns.** The anomaly detector now skips columns whose names indicate byte sizes, pixel dimensions, durations, counts (`byte_size`, `width`, `height`, `file_size`, `content_length`, `pixel_*`, `num_*`, `*_count`, `duration`, `area`, `volume`, `depth`), and physical measurements (`weight_*`, `mass`, `distance`, `speed`, `velocity`, `temperature`, `pressure`, `capacity`). Previously these triggered spurious INFO-level `potential_outlier` findings because their naturally wide or bimodal distributions are not Gaussian.
+- **Outlier false positives on dimensional and physical measurement columns.** The anomaly detector now skips columns whose names indicate byte sizes, pixel dimensions, durations, counts, bandwidth, throughput, and latency (`byte_size`, `width`, `height`, `file_size`, `content_length`, `pixel_*`, `num_*`, `*_count`, `duration`, `area`, `volume`, `depth`, `bandwidth`, `throughput`, `latency`), and physical measurements (`weight_*`, `mass`, `distance`, `speed`, `velocity`, `temperature`, `pressure`, `capacity`). Previously these triggered spurious INFO-level `potential_outlier` findings because their naturally wide or bimodal distributions are not Gaussian.
+- **Bare `count` column no longer suppressed.** Removed the over-broad `^count$` match from the dimension skip pattern — a column named exactly `count` is ambiguous and could be a meaningful metric. Suffixed forms like `item_count` and prefixed forms like `num_items` remain skipped.
 
 ## [4.2.1]
 

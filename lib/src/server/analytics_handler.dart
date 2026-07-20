@@ -83,11 +83,15 @@ final class AnalyticsHandler {
   ///
   /// Delegates to [AnomalyDetector.getAnomaliesResult]
   /// and wraps errors with [ServerContext.logError].
-  Future<Map<String, dynamic>> getAnomaliesResult(DriftDebugQuery query) async {
+  Future<Map<String, dynamic>> getAnomaliesResult(
+    DriftDebugQuery query, {
+    List<AnomalySuppression> suppressions = const <AnomalySuppression>[],
+  }) async {
     try {
       return await AnomalyDetector.getAnomaliesResult(
         query,
         declaredRelationships: _resolveDeclaredRelationships(),
+        suppressions: suppressions,
       );
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
@@ -210,6 +214,7 @@ final class AnalyticsHandler {
   Future<Map<String, dynamic>> getIssuesList(
     DriftDebugQuery query, {
     String? sources,
+    List<AnomalySuppression> suppressions = const <AnomalySuppression>[],
   }) async {
     final filter = _parseSourcesFilter(sources);
     final issues = <Map<String, dynamic>>[];
@@ -258,6 +263,7 @@ final class AnalyticsHandler {
         final result = await AnomalyDetector.getAnomaliesResult(
           query,
           declaredRelationships: _resolveDeclaredRelationships(),
+          suppressions: suppressions,
         );
         if (result.containsKey(ServerConstants.jsonKeyError)) {
           return result;

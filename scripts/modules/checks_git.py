@@ -94,14 +94,39 @@ def check_working_tree(will_publish: bool = True) -> bool:
     return ask_yn("Continue with uncommitted changes?", default=True)
 
 
+def _merge_dependabot_pr(pr: dict) -> bool:
+    """Merge a single Dependabot PR via ``gh pr merge --squash``.
+
+    Returns True on success, False on failure.
+    """
+    number = pr["number"]
+    fix(f"Merging #{number}...")
+    try:
+        result = subprocess.run(
+            ["gh", "pr", "merge", str(number), "--squash", "--delete-branch"],
+            capture_output=True, text=True, timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        fail(f"Merge of #{number} timed out.")
+        return False
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        fail(f"Merge of #{number} failed: {stderr}")
+        return False
+
+    ok(f"Merged #{number}")
+    return True
+
+
 def check_pending_dependabot_prs() -> bool:
-    """Fail if open Dependabot PRs exist that should be merged before release.
+    """Surface open Dependabot PRs and offer to merge them inline.
 
     Dependabot PRs carry dependency bumps (actions, npm, pub) that accumulate
     silently. Shipping a release while they sit open means the release ships on
     stale deps that Dependabot already flagged. This gate surfaces them early
-    so the operator merges or closes them before the publish pipeline commits
-    a tag.
+    and offers to squash-merge each one so the operator doesn't need to leave
+    the terminal.
 
     Requires ``gh`` on PATH and authenticated (checked separately by
     ``check_gh_cli``). If ``gh`` is missing or the query fails, the check is
@@ -131,16 +156,35 @@ def check_pending_dependabot_prs() -> bool:
         ok("No open Dependabot PRs")
         return True
 
-    fail(f"{len(prs)} open Dependabot PR(s) — merge or close before publishing:")
+    warn(f"{len(prs)} open Dependabot PR(s):")
     for pr in prs:
         print(f"         {C.DIM}#{pr['number']}: {pr['title']}{C.RESET}")
         if pr.get("url"):
             print(f"         {C.DIM}  {pr['url']}{C.RESET}")
-    info(
-        "Merge these PRs (or close if intentionally skipping a bump), then "
-        "re-run the pipeline."
-    )
-    return ask_yn("Continue anyway with stale Dependabot PRs?", default=False)
+
+    if not ask_yn("Squash-merge these Dependabot PRs now?", default=True):
+        return ask_yn("Continue anyway with stale Dependabot PRs?", default=False)
+
+    failed: list[dict] = []
+    for pr in prs:
+        if not _merge_dependabot_pr(pr):
+            failed.append(pr)
+
+    if failed:
+        fail(f"{len(failed)} PR(s) failed to merge:")
+        for pr in failed:
+            print(f"         {C.DIM}#{pr['number']}: {pr['title']}{C.RESET}")
+        return ask_yn("Continue anyway?", default=False)
+
+    # Pull the newly merged commits into the local branch so the release
+    # tags the correct history.
+    fix("Pulling merged commits into local branch...")
+    pull = run(["git", "pull", "--ff-only"], cwd=REPO_ROOT)
+    if pull.returncode != 0:
+        fail("git pull --ff-only failed after merging Dependabot PRs.")
+        return False
+    ok(f"All {len(prs)} Dependabot PR(s) merged and pulled")
+    return True
 
 
 def check_no_tracked_gitignored() -> bool:

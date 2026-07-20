@@ -37,10 +37,19 @@ abstract final class AnomalyDetector {
   /// caller resolves [ServerContext.declaredRelationships] to a plain list and
   /// hands it down here, keeping this function pure and parameter-only for
   /// tests. Defaults to empty (a host that links by real FKs supplies nothing).
+  ///
+  /// [suppressions] is the server-side equivalent of the extension's
+  /// `// drift-advisor:ignore` inline directives. Each [AnomalySuppression]
+  /// specifies a table[.column][.type] combination to exclude from the
+  /// result. The caller collects suppressions from whatever source (parsed
+  /// Dart comments, host configuration, user settings) and passes them here.
+  /// Suppressed anomalies are removed before sorting and returning, so they
+  /// never appear in JSON or server logs. Defaults to empty (no suppressions).
   static Future<Map<String, dynamic>> getAnomaliesResult(
     DriftDebugQuery query, {
     List<DeclaredRelationship> declaredRelationships =
         const <DeclaredRelationship>[],
+    List<AnomalySuppression> suppressions = const <AnomalySuppression>[],
   }) async {
     final tableNames = await ServerUtils.getTableNames(query);
     final anomalies = <Map<String, dynamic>>[];
@@ -154,6 +163,13 @@ abstract final class AnomalyDetector {
         tableRowCount: tableRowCount,
         anomalies: anomalies,
       );
+    }
+
+    // Remove anomalies matching caller-supplied suppressions. Each
+    // suppression targets a table[.column][.type] combination — the
+    // server-side equivalent of `// drift-advisor:ignore` in Dart source.
+    if (suppressions.isNotEmpty) {
+      anomalies.removeWhere((a) => suppressions.any((s) => s.matches(a)));
     }
 
     // Sort anomalies by severity: error → warning → info.
@@ -341,15 +357,16 @@ abstract final class AnomalyDetector {
   );
 
   /// Column name patterns for dimensional / size columns —
-  /// byte sizes, pixel dimensions, durations, and counts that
-  /// naturally span orders of magnitude (a 16 px thumbnail vs
-  /// a 1200 px photo, a 195-byte icon vs a 148 KB source image).
-  /// Bimodal distributions are by design, not defects, and
-  /// sigma-based detection produces false positives because the
-  /// data is neither normal nor log-normal.
+  /// byte sizes, pixel dimensions, durations, counts, bandwidth,
+  /// throughput, and latency that naturally span orders of magnitude
+  /// (a 16 px thumbnail vs a 1200 px photo, a 195-byte icon vs a
+  /// 148 KB source image, 2 ms vs 3 s API latency). Bimodal
+  /// distributions are by design, not defects, and sigma-based
+  /// detection produces false positives because the data is neither
+  /// normal nor log-normal.
   /// See plans/history/2026.07/2026.07.20/BUG_outlier_false_positive_dimensions_and_physical_measurements.md.
   static final _dimensionPattern = RegExp(
-    r'((?:^|_)(?:width|height|depth|area|volume|size|length|duration)(?:$|_)|^pixel_|^num_|_count$|^count$)',
+    r'((?:^|_)(?:width|height|depth|area|volume|size|length|duration|bandwidth|throughput|latency)(?:$|_)|^pixel_|^num_|_count$)',
     caseSensitive: false,
   );
 
