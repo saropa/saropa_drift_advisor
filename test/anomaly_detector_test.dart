@@ -802,6 +802,119 @@ void main() {
         },
       );
 
+      test(
+        'no outlier for dimension columns (byte_size, width, height skip)',
+        () async {
+          // Dimensional columns naturally span orders of magnitude
+          // (thumbnails vs full-resolution images). The bimodal
+          // distribution is by design, not a defect.
+          // See plans/history/2026.07/2026.07.20/BUG_outlier_false_positive_dimensions_and_physical_measurements.md.
+          for (final colName in [
+            'byte_size',
+            'width',
+            'height',
+            'file_size',
+            'content_length',
+            'image_width',
+            'pixel_height',
+            'depth',
+            'area',
+            'volume',
+            'duration',
+            'item_count',
+            'num_pixels',
+            'count',
+          ]) {
+            final result = await AnomalyDetector.getAnomaliesResult(
+              _anomalyQuery(
+                tableColumns: {
+                  'image_blur_metas': [
+                    _col('id', 'INTEGER', pk: 1),
+                    _col(colName, 'INTEGER'),
+                  ],
+                },
+                counts: {'image_blur_metas': 226},
+                numericStats: {
+                  'image_blur_metas.$colName': {
+                    'avg_val': 3797.21,
+                    'min_val': 195.0,
+                    'max_val': 147776.0,
+                    'variance': 100000000.0,
+                    'cnt': 226,
+                  },
+                },
+              ),
+            );
+
+            final outliers = (result['anomalies'] as List)
+                .where((a) => (a as Map)['type'] == 'potential_outlier')
+                .toList();
+            expect(
+              outliers,
+              isEmpty,
+              reason:
+                  'Dimension column "$colName" should be skipped '
+                  'from outlier detection',
+            );
+          }
+        },
+      );
+
+      test(
+        'no outlier for physical measurement columns (weight, mass skip)',
+        () async {
+          // Physical measurement columns are bounded real-world
+          // quantities where small populations are non-Gaussian.
+          // See plans/history/2026.07/2026.07.20/BUG_outlier_false_positive_dimensions_and_physical_measurements.md.
+          for (final colName in [
+            'weight_kilograms',
+            'mass',
+            'distance',
+            'speed',
+            'velocity',
+            'temperature',
+            'pressure',
+            'capacity',
+            'body_weight',
+            'net_weight',
+            'top_speed',
+            'max_distance',
+          ]) {
+            final result = await AnomalyDetector.getAnomaliesResult(
+              _anomalyQuery(
+                tableColumns: {
+                  'characters': [
+                    _col('id', 'INTEGER', pk: 1),
+                    _col(colName, 'REAL'),
+                  ],
+                },
+                counts: {'characters': 149},
+                numericStats: {
+                  'characters.$colName': {
+                    'avg_val': 70.84,
+                    'min_val': 40.0,
+                    'max_val': 110.0,
+                    'variance': 150.0,
+                    'cnt': 149,
+                  },
+                },
+              ),
+            );
+
+            final outliers = (result['anomalies'] as List)
+                .where((a) => (a as Map)['type'] == 'potential_outlier')
+                .toList();
+            expect(
+              outliers,
+              isEmpty,
+              reason:
+                  'Physical measurement column "$colName" should be '
+                  'skipped from outlier detection',
+            );
+          }
+        },
+      );
+
       test('no outlier for bounded-scale data (0–10 rating range)', () async {
         // Even without a rating-like column name, data that
         // fits within a known bounded scale (e.g., 0–10, 0–100)

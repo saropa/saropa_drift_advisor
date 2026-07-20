@@ -112,8 +112,9 @@ abstract final class AnomalyDetector {
           //    (e.g., 9% true) are valid data patterns,
           //    not anomalies. Domain-specific columns
           //    (coordinates, timestamps, sort order,
-          //    year/founded, versions, identifiers) and
-          //    primary key columns are also skipped.
+          //    year/founded, versions, identifiers,
+          //    dimensions/sizes, physical measurements)
+          //    and primary key columns are also skipped.
           if (ServerUtils.isNumericType(colType) &&
               !ServerUtils.isBooleanType(colType)) {
             final isPrimaryKey = col['pk'] != null && col['pk'] != 0;
@@ -339,6 +340,31 @@ abstract final class AnomalyDetector {
     caseSensitive: false,
   );
 
+  /// Column name patterns for dimensional / size columns —
+  /// byte sizes, pixel dimensions, durations, and counts that
+  /// naturally span orders of magnitude (a 16 px thumbnail vs
+  /// a 1200 px photo, a 195-byte icon vs a 148 KB source image).
+  /// Bimodal distributions are by design, not defects, and
+  /// sigma-based detection produces false positives because the
+  /// data is neither normal nor log-normal.
+  /// See plans/history/2026.07/2026.07.20/BUG_outlier_false_positive_dimensions_and_physical_measurements.md.
+  static final _dimensionPattern = RegExp(
+    r'((?:^|_)(?:width|height|depth|area|volume|size|length|duration)(?:$|_)|^pixel_|^num_|_count$|^count$)',
+    caseSensitive: false,
+  );
+
+  /// Column name patterns for physical measurement columns —
+  /// weight, mass, distance, speed, temperature, and capacity.
+  /// These are bounded real-world quantities where populations
+  /// are small and non-Gaussian; sigma-based detection is
+  /// unreliable (e.g., Worf at 110 kg in a 149-row table
+  /// triggers a 3.2σ flag that is pure artifact).
+  /// See plans/history/2026.07/2026.07.20/BUG_outlier_false_positive_dimensions_and_physical_measurements.md.
+  static final _physicalMeasurementPattern = RegExp(
+    r'((?:^|_)(?:weight|mass|distance|speed|velocity|temperature|pressure|capacity)(?:$|_))',
+    caseSensitive: false,
+  );
+
   /// Known bounded numeric scales. If the observed data range
   /// [min, max] fits entirely within one of these scales, the
   /// column is treated as bounded and outlier detection is
@@ -368,7 +394,8 @@ abstract final class AnomalyDetector {
   ///    opaque external IDs, not measurements.
   /// 3. Domain-specific columns: coordinates, versions,
   ///    timestamps, sort/ordering, year/founded,
-  ///    rating/score/percent.
+  ///    rating/score/percent, dimensions/sizes,
+  ///    physical measurements.
   /// 4. Small samples (n < 30) — sigma estimates are
   ///    unreliable and a single value can dominate.
   /// 5. Binary domain (range exactly 0–1).
@@ -411,7 +438,9 @@ abstract final class AnomalyDetector {
         _timestampPattern.hasMatch(colName) ||
         _sortOrderPattern.hasMatch(colName) ||
         _yearPattern.hasMatch(colName) ||
-        _ratingPattern.hasMatch(colName)) {
+        _ratingPattern.hasMatch(colName) ||
+        _dimensionPattern.hasMatch(colName) ||
+        _physicalMeasurementPattern.hasMatch(colName)) {
       return;
     }
 

@@ -41,6 +41,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+[log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.2/CHANGELOG.md)
+
+### Fixed
+
+- **Outlier false positives on dimensional and physical measurement columns.** The anomaly detector now skips columns whose names indicate byte sizes, pixel dimensions, durations, counts (`byte_size`, `width`, `height`, `file_size`, `content_length`, `pixel_*`, `num_*`, `*_count`, `duration`, `area`, `volume`, `depth`), and physical measurements (`weight_*`, `mass`, `distance`, `speed`, `velocity`, `temperature`, `pressure`, `capacity`). Previously these triggered spurious INFO-level `potential_outlier` findings because their naturally wide or bimodal distributions are not Gaussian.
+
 ## [4.2.1]
 
 A new Heartbeat screen shows your database's pulse live — tables glow as they are read and written — and other Saropa Suite tools can now pull a small daily digest from Drift Advisor for a consolidated Suite report. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.1/CHANGELOG.md)
