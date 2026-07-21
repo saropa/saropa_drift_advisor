@@ -41,6 +41,16 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+<details><summary>Maintenance</summary>
+
+- **Simplified `AnomalySuppression.matches` guard.** Replaced trailing if-return-false / return-true with a single boolean return to satisfy `avoid_unnecessary_if` lint.
+
+</details>
+
+---
+
 ## [4.2.2]
 
 Servers can now suppress specific anomalies before they hit the response, and outlier detection stops crying wolf on size, duration, and measurement columns. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.2/CHANGELOG.md)

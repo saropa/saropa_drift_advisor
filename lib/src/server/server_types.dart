@@ -217,9 +217,7 @@ class AnomalySuppression {
     final anomalyColumn = anomaly['column'] as String?;
     if (column != null && column != anomalyColumn) return false;
 
-    if (type != null && type != anomaly['type']) return false;
-
-    return true;
+    return type == null || type == anomaly['type'];
   }
 }
 
