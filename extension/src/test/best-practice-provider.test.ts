@@ -32,6 +32,7 @@ describe('BestPracticeProvider', () => {
   afterEach(() => {
     provider.dispose();
     sinon.restore();
+    (workspace as any).workspaceFolders = undefined;
   });
 
   describe('collectDiagnostics', () => {
@@ -308,7 +309,7 @@ describe('BestPracticeProvider', () => {
         ];
         const origFindFiles = workspace.findFiles;
         (workspace as any).findFiles = async (pattern: string) => {
-          if (typeof pattern === 'string' && pattern.startsWith('drift_schemas')) {
+          if (typeof pattern === 'string' && pattern.includes('drift_schemas')) {
             return [Uri.parse('file:///project/drift_schemas/v1.json')];
           }
           return [];

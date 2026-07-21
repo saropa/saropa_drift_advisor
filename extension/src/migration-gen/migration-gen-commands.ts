@@ -1,7 +1,6 @@
 /**
- * Registers the Generate Migration command on the extension context.
- * Computes schema diff, prompts for version numbers, and opens
- * generated Dart migration code in a new editor.
+ * Registers migration-related commands: Generate Migration and
+ * Generate SchemaVerifier Test.
  */
 
 import * as vscode from 'vscode';
@@ -12,6 +11,7 @@ import {
   hasDifferences,
 } from '../schema-diff/schema-diff';
 import { generateMigrationDart } from './migration-codegen';
+import { generateSchemaVerifierTest } from './schema-verifier-codegen';
 
 /** Register migration-gen commands on the extension context. */
 export function registerMigrationGenCommands(
@@ -86,6 +86,39 @@ export function registerMigrationGenCommands(
             err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(
             `Generate migration failed: ${msg}`,
+          );
+        }
+      },
+    ),
+
+    vscode.commands.registerCommand(
+      'driftViewer.generateSchemaVerifierTest',
+      async () => {
+        try {
+          const dbImportPath = await vscode.window.showInputBox({
+            prompt: 'Dart import path for the database class (without package: prefix)',
+            placeHolder: 'e.g., my_app/database.dart',
+            validateInput: (v) =>
+              v.endsWith('.dart') ? null : 'Path must end with .dart',
+          });
+          if (!dbImportPath) return;
+
+          const dartCode = generateSchemaVerifierTest(dbImportPath);
+          const doc = await vscode.workspace.openTextDocument({
+            content: dartCode,
+            language: 'dart',
+          });
+          await vscode.window.showTextDocument(doc);
+
+          vscode.window.showInformationMessage(
+            'Save as test/migration_test.dart, then run: ' +
+            'dart run drift_dev schema dump lib/database.dart drift_schemas/',
+          );
+        } catch (err: unknown) {
+          const msg =
+            err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(
+            `Generate SchemaVerifier test failed: ${msg}`,
           );
         }
       },

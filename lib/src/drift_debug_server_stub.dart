@@ -52,6 +52,7 @@ mixin DriftDebugServer {
     Set<String>? declaredTableNames,
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
+    int? declaredSchemaVersion,
     String? snapshotStorePath,
     String? discoveryDirectory,
     bool monitoringEnabled = true,

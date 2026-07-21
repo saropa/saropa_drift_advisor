@@ -73,6 +73,6 @@ export const BEST_PRACTICE_CODES: Record<string, IDiagnosticCode> = {
     defaultSeverity: vscode.DiagnosticSeverity.Warning,
     messageTemplate:
       'No Drift schema snapshots found — run "dart run drift_dev schema dump" to enable migration path testing with SchemaVerifier',
-    hasFix: false,
+    hasFix: true,
   },
 };

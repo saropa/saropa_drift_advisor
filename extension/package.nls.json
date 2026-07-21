@@ -116,6 +116,7 @@
   "command.toggleDataBreakpoint.title": "Toggle Data Breakpoint",
   "command.generateMigration.title": "Generate Migration Code",
   "command.generateRollback.title": "Generate Migration Rollback",
+  "command.generateSchemaVerifierTest.title": "Generate SchemaVerifier Test",
   "command.constraintWizard.title": "Constraint Wizard",
   "command.analyzeRowImpact.title": "Analyze Row Impact",
   "command.isarToDrift.title": "Generate Drift from Isar Schema",

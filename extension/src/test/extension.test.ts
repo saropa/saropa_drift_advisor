@@ -164,7 +164,7 @@ describe('Extension activation', () => {
     // Connection telemetry (campaign candidate D): ConnectionTelemetry subscription (+1).
     // adb-forward supervision (campaign candidate E): AdbForwardSupervisor +
     //   onDidTerminateDebugSession stop-listener in bootstrapExtension (+2).
-    assert.strictEqual(subscriptions.length, 254, `expected 254 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 255, `expected 255 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

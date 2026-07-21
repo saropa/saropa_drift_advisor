@@ -231,7 +231,8 @@ int? _deriveDeclaredSchemaVersion(Object db) {
     final dynamic driftDb = db;
     final dynamic v = driftDb.schemaVersion;
     return v is int ? v : null;
-    // ignore: require_catch_logging -- expected non-Drift path; null is the correct fallback
+    // Non-Drift objects lack schemaVersion; null is the correct fallback.
+    // ignore: require_catch_logging -- expected for dynamic dispatch probes
   } on Object {
     return null;
   }

@@ -119,6 +119,19 @@ export class BestPracticeProvider implements IDiagnosticProvider {
       actions.push(impactAction);
     }
 
+    if (code === 'no-schema-snapshots') {
+      const genAction = new vscode.CodeAction(
+        'Generate SchemaVerifier Test',
+        vscode.CodeActionKind.QuickFix,
+      );
+      genAction.command = {
+        command: 'driftViewer.generateSchemaVerifierTest',
+        title: 'Generate SchemaVerifier Test',
+      };
+      genAction.isPreferred = true;
+      actions.push(genAction);
+    }
+
     return actions;
   }
 
@@ -134,9 +147,10 @@ export class BestPracticeProvider implements IDiagnosticProvider {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders?.length) return;
 
+    // ** globs cover monorepo sub-packages (e.g. packages/app/drift_schemas/)
     const [driftSchemas, generatedMigrations] = await Promise.all([
-      vscode.workspace.findFiles('drift_schemas/**', null, 1),
-      vscode.workspace.findFiles('test/generated_migrations/**', null, 1),
+      vscode.workspace.findFiles('**/drift_schemas/**', null, 1),
+      vscode.workspace.findFiles('**/test/generated_migrations/**', null, 1),
     ]);
 
     if (driftSchemas.length > 0 || generatedMigrations.length > 0) return;

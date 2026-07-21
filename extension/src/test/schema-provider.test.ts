@@ -42,6 +42,7 @@ describe('SchemaProvider', () => {
   afterEach(() => {
     provider.dispose();
     sinon.restore();
+    (workspace as any).workspaceFolders = undefined;
   });
 
   describe('collectDiagnostics', () => {

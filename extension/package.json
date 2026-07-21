@@ -703,6 +703,12 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.generateSchemaVerifierTest",
+        "title": "%command.generateSchemaVerifierTest.title%",
+        "icon": "$(beaker)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.constraintWizard",
         "title": "%command.constraintWizard.title%",
         "icon": "$(shield)",

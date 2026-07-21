@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:saropa_drift_advisor/src/query_recorder.dart';
 import 'package:saropa_drift_advisor/src/server/server_context.dart';
 import 'package:saropa_drift_advisor/src/server/server_types.dart';
 
@@ -31,6 +32,8 @@ ServerContext createTestContext({
   Set<String>? declaredTableNames,
   DeclaredSchemaCallback? declaredSchema,
   DeclaredRelationshipsCallback? declaredRelationships,
+  int? declaredSchemaVersion,
+  QueryRecorder? queryRecorder,
 
   /// Short SQL statement timeout for tests that exercise the hang-recovery
   /// path without waiting the production 30s default.
@@ -50,6 +53,8 @@ ServerContext createTestContext({
     declaredTableNames: declaredTableNames,
     declaredSchema: declaredSchema,
     declaredRelationships: declaredRelationships,
+    declaredSchemaVersion: declaredSchemaVersion,
+    queryRecorder: queryRecorder,
     sqlStatementTimeout: sqlStatementTimeout ?? const Duration(seconds: 30),
   );
 }
