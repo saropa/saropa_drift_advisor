@@ -709,6 +709,12 @@
         "category": "Saropa Drift Advisor"
       },
       {
+        "command": "driftViewer.validateMigrationPaths",
+        "title": "%command.validateMigrationPaths.title%",
+        "icon": "$(checklist)",
+        "category": "Saropa Drift Advisor"
+      },
+      {
         "command": "driftViewer.constraintWizard",
         "title": "%command.constraintWizard.title%",
         "icon": "$(shield)",

@@ -29,6 +29,8 @@ void main() {
   late SchemaVerifier verifier;
 
   setUpAll(() {
+    // GeneratedHelper is the default class name drift_dev schema dump emits
+    // in generated_migrations/schema.dart. If Drift changes the name, update here.
     verifier = SchemaVerifier(GeneratedHelper());
   });
 

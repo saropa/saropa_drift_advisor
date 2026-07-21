@@ -1,6 +1,6 @@
 /**
- * Registers migration-related commands: Generate Migration and
- * Generate SchemaVerifier Test.
+ * Registers migration-related commands: Generate Migration,
+ * Generate SchemaVerifier Test, and Validate Migration Paths.
  */
 
 import * as vscode from 'vscode';
@@ -11,6 +11,7 @@ import {
   hasDifferences,
 } from '../schema-diff/schema-diff';
 import { generateMigrationDart } from './migration-codegen';
+import { validateMigrationPaths } from './migration-path-validator';
 import { generateSchemaVerifierTest } from './schema-verifier-codegen';
 
 /** Register migration-gen commands on the extension context. */
@@ -98,8 +99,11 @@ export function registerMigrationGenCommands(
           const dbImportPath = await vscode.window.showInputBox({
             prompt: 'Dart import path for the database class (without package: prefix)',
             placeHolder: 'e.g., my_app/database.dart',
-            validateInput: (v) =>
-              v.endsWith('.dart') ? null : 'Path must end with .dart',
+            validateInput: (v) => {
+              if (v.startsWith('package:')) return 'Omit the package: prefix — it is added automatically';
+              if (!v.endsWith('.dart')) return 'Path must end with .dart';
+              return null;
+            },
           });
           if (!dbImportPath) return;
 
@@ -111,7 +115,8 @@ export function registerMigrationGenCommands(
           await vscode.window.showTextDocument(doc);
 
           vscode.window.showInformationMessage(
-            'Save as test/migration_test.dart, then run: ' +
+            'Save under test/ (e.g. test/migration_test.dart) so the relative ' +
+            'generated_migrations import resolves. Then run: ' +
             'dart run drift_dev schema dump lib/database.dart drift_schemas/',
           );
         } catch (err: unknown) {
@@ -119,6 +124,60 @@ export function registerMigrationGenCommands(
             err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(
             `Generate SchemaVerifier test failed: ${msg}`,
+          );
+        }
+      },
+    ),
+
+    vscode.commands.registerCommand(
+      'driftViewer.validateMigrationPaths',
+      async () => {
+        try {
+          const snapshotUris = await vscode.workspace.findFiles(
+            '**/drift_schemas/*.json',
+            '**/build/**',
+          );
+
+          if (snapshotUris.length === 0) {
+            vscode.window.showWarningMessage(
+              'No schema snapshots found. Run: ' +
+              'dart run drift_dev schema dump lib/database.dart drift_schemas/',
+            );
+            return;
+          }
+
+          const result = validateMigrationPaths(
+            snapshotUris.map((u) => u.toString()),
+          );
+
+          if (result.versions.length === 0) {
+            vscode.window.showWarningMessage(
+              'Found .json files in drift_schemas/ but none matched ' +
+              'the version pattern (v1.json, v2.json, ...).',
+            );
+            return;
+          }
+
+          if (result.gaps.length > 0) {
+            const gapList = result.gaps.join(', ');
+            vscode.window.showWarningMessage(
+              `Schema snapshot gaps detected: missing v${gapList}. ` +
+              `Found versions: ${result.versions.join(', ')}. ` +
+              'Run drift_dev schema dump for each missing version ' +
+              'so SchemaVerifier can test every upgrade path.',
+            );
+          } else {
+            vscode.window.showInformationMessage(
+              `Schema snapshots complete: ${result.versions.length} versions ` +
+              `(v${result.versions[0]}–v${result.versions[result.versions.length - 1]}), ` +
+              'no gaps. All migration paths are testable.',
+            );
+          }
+        } catch (err: unknown) {
+          const msg =
+            err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(
+            `Validate migration paths failed: ${msg}`,
           );
         }
       },

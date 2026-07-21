@@ -52,14 +52,18 @@ New schema diagnostics warn about missing schema snapshots and catch version mis
 - **`declaredSchemaVersion` threading.** The Dart server now derives the host database's declared `schemaVersion` via duck typing and exposes it alongside `dbSchemaVersion` (from `PRAGMA user_version`) in the `/api/schema/metadata` response and VM Service bridge.
 - **`AnomalySuppression.copyWith`.** Returns a copy with selectively replaced fields. Nullable fields (`column`, `type`) use a factory-function parameter to distinguish "not specified" from "explicitly set to null".
 
+- **"Validate Migration Paths" command.** Scans `drift_schemas/` for version snapshot files, reports any gaps between the lowest and highest version number (e.g. v1 and v3 present but v2 missing), so developers know which `drift_dev schema dump` runs are needed before SchemaVerifier can cover every upgrade path.
+
 ### Fixed
 
 - **`no-schema-snapshots` now uses monorepo-safe glob patterns.** `findFiles` calls use `**/drift_schemas/**` and `**/test/generated_migrations/**` instead of root-anchored globs, so schema snapshot directories inside sub-packages are correctly detected.
+- **Lint compliance for `_deriveDeclaredSchemaVersion` ignore directive.** Added rationale comments satisfying both `document_analyzer_ignore_rationale` and `prefer_commenting_analyzer_ignores` rules.
+- **SchemaVerifier codegen input hardening.** Import path prompt now rejects a `package:` prefix (the template prepends it automatically), preventing a double-prefix in the generated import. Info message clarifies that the file must be saved under `test/` for the relative `generated_migrations` import to resolve.
 
 <details><summary>Maintenance</summary>
 
 - **Simplified `AnomalySuppression.matches` guard.** Replaced trailing if-return-false / return-true with a single boolean return to satisfy `avoid_unnecessary_if` lint. Added explicit `String?` cast on the `anomaly['type']` lookup for type-safe comparison, matching the existing pattern for `table` and `column`.
-- **"Generate SchemaVerifier Test" code action.** The `no-schema-snapshots` diagnostic now offers a quick fix that scaffolds a Drift `SchemaVerifier` test file — prompts for the database class name and import path, then opens an editor with the generated test code.
+- **"Generate SchemaVerifier Test" code action.** The `no-schema-snapshots` diagnostic now offers a quick fix that scaffolds a Drift `SchemaVerifier` test file — prompts for the import path, then opens an editor with the generated test code.
 - **Test mock isolation.** `afterEach` in schema-provider and best-practice-provider tests now resets `workspace.workspaceFolders` to prevent state leaking between test files.
 - **Dart-side `getDbSchemaVersion` and `declaredSchemaVersion` test coverage.** New `test/schema_version_test.dart` covers PRAGMA user_version parsing (int, non-int, empty, error), `declaredSchemaVersion` threading through `ServerContext`, and `normalizeRows` key-casing behavior.
 - **`createTestContext` accepts `queryRecorder`.** Tests that construct a `Router` can now supply a `QueryRecorder` without building a full server.
