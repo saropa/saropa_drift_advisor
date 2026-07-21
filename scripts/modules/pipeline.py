@@ -188,7 +188,24 @@ def _run_ext_dev_checks(
             return False
 
         heading("Step 5 \u00b7 Remote Sync")
-        if not run_step("Remote sync", check_remote_sync, results):
+        while True:
+            if run_step("Remote sync", check_remote_sync, results):
+                break
+            if results and results[-1][0] == "Remote sync":
+                results.pop()
+            choice = ask_choice(
+                "Remote sync failed. Choose what to do next",
+                choices=("retry", "ignore", "cancel"),
+                default="retry",
+                eof_default="cancel",
+            )
+            if choice == "retry":
+                warn("Retrying remote sync...")
+                continue
+            if choice == "ignore":
+                warn("Ignoring remote sync failure by user choice.")
+                results.append(("Remote sync (ignored)", True, 0.0))
+                break
             return False
 
         heading("Step 5b \u00b7 Dependabot PRs")
@@ -202,7 +219,24 @@ def _run_ext_dev_checks(
             return False
 
     heading("Step 6 \u00b7 Dependencies")
-    if not run_step("Dependencies", ensure_dependencies, results):
+    while True:
+        if run_step("Dependencies", ensure_dependencies, results):
+            break
+        if results and results[-1][0] == "Dependencies":
+            results.pop()
+        choice = ask_choice(
+            "Dependencies step failed. Choose what to do next",
+            choices=("retry", "ignore", "cancel"),
+            default="retry",
+            eof_default="cancel",
+        )
+        if choice == "retry":
+            warn("Retrying dependencies...")
+            continue
+        if choice == "ignore":
+            warn("Ignoring dependency failure by user choice.")
+            results.append(("Dependencies (ignored)", True, 0.0))
+            break
         return False
 
     return True
@@ -501,7 +535,24 @@ def run_dart_analysis(
         return "", False
 
     heading("Dart \u00b7 Remote Sync")
-    if not run_step("Remote sync", check_remote_sync, results):
+    while True:
+        if run_step("Remote sync", check_remote_sync, results):
+            break
+        if results and results[-1][0] == "Remote sync":
+            results.pop()
+        choice = ask_choice(
+            "Remote sync failed. Choose what to do next",
+            choices=("retry", "ignore", "cancel"),
+            default="retry",
+            eof_default="cancel",
+        )
+        if choice == "retry":
+            warn("Retrying remote sync...")
+            continue
+        if choice == "ignore":
+            warn("Ignoring remote sync failure by user choice.")
+            results.append(("Remote sync (ignored)", True, 0.0))
+            break
         return "", False
 
     heading("Dart \u00b7 Dependabot PRs")

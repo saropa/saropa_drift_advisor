@@ -68,6 +68,7 @@ New schema diagnostics warn about missing schema snapshots and catch version mis
 - **Dart-side `getDbSchemaVersion` and `declaredSchemaVersion` test coverage.** New `test/schema_version_test.dart` covers PRAGMA user_version parsing (int, non-int, empty, error), `declaredSchemaVersion` threading through `ServerContext`, and `normalizeRows` key-casing behavior.
 - **`createTestContext` accepts `queryRecorder`.** Tests that construct a `Router` can now supply a `QueryRecorder` without building a full server.
 - **Web stub parity.** Added `declaredSchemaVersion` parameter to `DriftDebugServer.start` stub so web builds compile.
+- **Publish pipeline: retry prompts on failures.** Remote sync and dependency steps now ask retry/ignore/cancel instead of aborting immediately.
 
 </details>
 
