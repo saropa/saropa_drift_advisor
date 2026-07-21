@@ -18,6 +18,7 @@ import { findDartFileForTable } from '../utils/dart-file-utils';
  *   table names but have no declared foreign key — skips intentionally isolated
  *   tables and tables already participating in the FK graph via inbound refs)
  * - Circular FK relationships
+ * - Missing schema version snapshots (drift_schemas/ directory absent)
  */
 export class BestPracticeProvider implements IDiagnosticProvider {
   readonly id = 'bestPractices';
@@ -25,6 +26,11 @@ export class BestPracticeProvider implements IDiagnosticProvider {
 
   async collectDiagnostics(ctx: IDiagnosticContext): Promise<IDiagnosticIssue[]> {
     const issues: IDiagnosticIssue[] = [];
+
+    // Workspace-level check — runs even without a server connection
+    if (ctx.dartFiles.length > 0) {
+      await this._checkSchemaSnapshots(issues);
+    }
 
     try {
       const tables = await ctx.client.schemaMetadata();
@@ -117,6 +123,33 @@ export class BestPracticeProvider implements IDiagnosticProvider {
   }
 
   dispose(): void {}
+
+  /**
+   * Warns when the workspace has Drift tables but no schema version snapshots
+   * for migration path testing. Anchored to pubspec.yaml line 0.
+   */
+  private async _checkSchemaSnapshots(
+    issues: IDiagnosticIssue[],
+  ): Promise<void> {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders?.length) return;
+
+    const [driftSchemas, generatedMigrations] = await Promise.all([
+      vscode.workspace.findFiles('drift_schemas/**', null, 1),
+      vscode.workspace.findFiles('test/generated_migrations/**', null, 1),
+    ]);
+
+    if (driftSchemas.length > 0 || generatedMigrations.length > 0) return;
+
+    const pubspecUri = vscode.Uri.joinPath(folders[0].uri, 'pubspec.yaml');
+    issues.push({
+      code: 'no-schema-snapshots',
+      message:
+        'No Drift schema snapshots found — run "dart run drift_dev schema dump" to enable migration path testing with SchemaVerifier',
+      fileUri: pubspecUri,
+      range: new vscode.Range(0, 0, 0, 999),
+    });
+  }
 
   private _checkAutoIncrementNotPk(
     issues: IDiagnosticIssue[],

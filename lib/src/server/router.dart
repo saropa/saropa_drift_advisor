@@ -1202,6 +1202,24 @@ final class Router {
     includeForeignKeys: includeForeignKeys,
   );
 
+  /// The Dart-declared `schemaVersion` from the host database object, or null.
+  int? get declaredSchemaVersion => _ctx.declaredSchemaVersion;
+
+  /// Queries `PRAGMA user_version` for the DB's stored schema version.
+  /// Best-effort — returns null on any failure.
+  Future<int?> getDbSchemaVersion() async {
+    try {
+      final rows = ServerUtils.normalizeRows(
+        await _ctx.queryRaw('PRAGMA user_version'),
+      );
+      final v = rows.firstOrNull?['user_version'];
+      return v is int ? v : null;
+    } on Object catch (error, stack) {
+      _ctx.logError(error, stack);
+      return null;
+    }
+  }
+
   /// Returns FK metadata for a table for VM service RPC getTableFkMeta.
   Future<List<Map<String, dynamic>>> getTableFkMetaList(String tableName) =>
       _table.getTableFkMetaList(

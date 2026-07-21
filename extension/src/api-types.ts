@@ -29,6 +29,12 @@ export interface ForeignKey {
   toColumn: string;
 }
 
+/** Schema version info from GET /api/schema/metadata envelope. */
+export interface SchemaVersionInfo {
+  dbSchemaVersion?: number;
+  declaredSchemaVersion?: number;
+}
+
 export interface HealthResponse {
   ok: boolean;
   extensionConnected?: boolean;

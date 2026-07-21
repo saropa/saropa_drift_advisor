@@ -189,6 +189,16 @@ abstract final class VmServiceBridge {
         includeForeignKeys: includeForeignKeys,
       );
       final body = <String, dynamic>{ServerConstants.jsonKeyTables: tables};
+
+      final dbVersion = await router.getDbSchemaVersion();
+      if (dbVersion != null) {
+        body[ServerConstants.jsonKeyDbSchemaVersion] = dbVersion;
+      }
+      final declaredVersion = router.declaredSchemaVersion;
+      if (declaredVersion != null) {
+        body[ServerConstants.jsonKeyDeclaredSchemaVersion] = declaredVersion;
+      }
+
       return developer.ServiceExtensionResponse.result(jsonEncode(body));
     } on Object catch (e) {
       // Same rationale as the null-router branch above: async wraps the

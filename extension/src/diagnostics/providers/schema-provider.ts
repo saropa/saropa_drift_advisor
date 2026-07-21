@@ -1,6 +1,7 @@
 /**
  * Schema diagnostic provider.
- * Reports schema quality: FK indexes, orphaned FKs, Dart/DB drift, PK issues.
+ * Reports schema quality: FK indexes, orphaned FKs, Dart/DB drift, PK issues,
+ * and DB-vs-declared schema version mismatch.
  * Checker logic lives in diagnostics/checkers/.
  */
 
@@ -88,6 +89,8 @@ export class SchemaProvider implements IDiagnosticProvider {
       checkMissingIndexes(issues, insights.missingIndexes, ctx.dartFiles);
       checkAnomalies(issues, insights.anomalies, ctx.dartFiles);
       checkExtraTablesInDb(issues, dbTableMap, ctx.dartFiles);
+
+      await this._checkSchemaVersionMatch(issues, ctx);
     } catch {
       // Server unreachable or other error - return empty
     }
@@ -175,6 +178,46 @@ export class SchemaProvider implements IDiagnosticProvider {
     }
 
     return actions;
+  }
+
+  /**
+   * Compares `PRAGMA user_version` against the Dart-declared `schemaVersion`.
+   * A mismatch means a migration failed or was skipped — the exact scenario
+   * from the Reddit post where older installs get a black screen.
+   */
+  private async _checkSchemaVersionMatch(
+    issues: IDiagnosticIssue[],
+    ctx: IDiagnosticContext,
+  ): Promise<void> {
+    try {
+      const info = await ctx.client.schemaVersionInfo();
+      if (
+        info.dbSchemaVersion == null ||
+        info.declaredSchemaVersion == null
+      ) {
+        return;
+      }
+      if (info.dbSchemaVersion === info.declaredSchemaVersion) return;
+
+      const folders = vscode.workspace.workspaceFolders;
+      const anchorUri = folders?.length
+        ? vscode.Uri.joinPath(folders[0].uri, 'pubspec.yaml')
+        : ctx.dartFiles[0]?.uri;
+      if (!anchorUri) return;
+
+      issues.push({
+        code: 'schema-version-mismatch',
+        message:
+          `Database schema version (${info.dbSchemaVersion}) does not match ` +
+          `Dart-declared version (${info.declaredSchemaVersion}) — ` +
+          'migration may have failed or been skipped',
+        fileUri: anchorUri,
+        range: new vscode.Range(0, 0, 0, 999),
+        severity: vscode.DiagnosticSeverity.Error,
+      });
+    } catch {
+      // Server may not support version info yet — skip silently
+    }
   }
 
   dispose(): void {}

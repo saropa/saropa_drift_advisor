@@ -476,10 +476,34 @@ final class SchemaHandler {
         query,
         includeForeignKeys: includeForeignKeys,
       );
+
+      // PRAGMA user_version: the DB's stored schema version (set by Drift's
+      // migrator after running onUpgrade). Best-effort — a PRAGMA failure
+      // must not break the metadata response.
+      // queryRaw bypasses instrumentation so this probe does not pollute
+      // user-facing perf stats or DVR timelines (architecture invariant #9).
+      int? dbSchemaVersion;
+      try {
+        final rows = ServerUtils.normalizeRows(
+          await _ctx.queryRaw('PRAGMA user_version'),
+        );
+        final v = rows.firstOrNull?['user_version'];
+        if (v is int) dbSchemaVersion = v;
+      } on Object catch (error, stack) {
+        _ctx.logError(error, stack);
+      }
+
+      final body = <String, dynamic>{ServerConstants.jsonKeyTables: tables};
+      if (dbSchemaVersion != null) {
+        body[ServerConstants.jsonKeyDbSchemaVersion] = dbSchemaVersion;
+      }
+      if (_ctx.declaredSchemaVersion != null) {
+        body[ServerConstants.jsonKeyDeclaredSchemaVersion] =
+            _ctx.declaredSchemaVersion;
+      }
+
       _ctx.setJsonHeaders(res);
-      res.write(
-        jsonEncode(<String, dynamic>{ServerConstants.jsonKeyTables: tables}),
-      );
+      res.write(jsonEncode(body));
       await res.close();
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);

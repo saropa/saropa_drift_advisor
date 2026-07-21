@@ -16,6 +16,7 @@ import type {
   IndexSuggestion,
   IMutationStreamResponse,
   PerformanceData,
+  SchemaVersionInfo,
   TableMetadata,
 } from './api-types';
 import type { VmServiceClient } from './transport/vm-service-client';
@@ -87,6 +88,11 @@ export class DriftApiClient extends DriftApiClientBase {
       return this._vmClient.getSchemaMetadata(options);
     }
     return http.httpSchemaMetadata(this._baseUrl, this._headers(), options);
+  }
+
+  async schemaVersionInfo(): Promise<SchemaVersionInfo> {
+    if (this._vmClient?.connected) return this._vmClient.getSchemaVersionInfo();
+    return http.httpSchemaVersionInfo(this._baseUrl, this._headers());
   }
 
   async tableFkMeta(tableName: string): Promise<ForeignKey[]> {

@@ -57,6 +57,7 @@ final class ServerContext {
     this.declaredTableNames,
     this.declaredSchema,
     this.declaredRelationships,
+    this.declaredSchemaVersion,
     this.snapshotStorePath,
     this.loopbackOnly = true,
     this.monitoringEnabled = true,
@@ -205,6 +206,12 @@ final class ServerContext {
   /// `available: false` and the wizard falls back to its column-name heuristic —
   /// same opt-in posture as [declaredSchema].
   final DeclaredRelationshipsCallback? declaredRelationships;
+
+  /// The Drift database's declared `schemaVersion` getter value, duck-typed
+  /// from the host object at startup. Compared against `PRAGMA user_version`
+  /// to detect incomplete or skipped migrations. Null when the host is not a
+  /// Drift `GeneratedDatabase` or the getter is inaccessible.
+  final int? declaredSchemaVersion;
 
   /// In-memory snapshots (oldest first): each holds id, createdAt, optional
   /// label, and full table data per table. Capped at [maxSnapshots] with

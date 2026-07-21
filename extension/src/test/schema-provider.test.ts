@@ -17,8 +17,9 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import {
   DiagnosticSeverity,
+  Uri,
 } from './vscode-mock-classes';
-import { resetMocks } from './vscode-mock';
+import { resetMocks, workspace } from './vscode-mock';
 import { SchemaProvider } from '../diagnostics/providers/schema-provider';
 import { createDartFile } from './diagnostic-test-helpers';
 import { createContext } from './schema-provider-test-helpers';
@@ -235,5 +236,68 @@ describe('SchemaProvider', () => {
       assert.ok(issue.message.includes('INTEGER recommended'));
     });
 
+  });
+
+  describe('schema-version-mismatch', () => {
+    it('should report when DB version differs from declared version', async () => {
+      (workspace as any).workspaceFolders = [
+        { uri: Uri.parse('file:///project'), name: 'project', index: 0 },
+      ];
+
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'name'])],
+        dbTables: [{ name: 'users', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'name', type: 'TEXT', pk: false },
+        ], rowCount: 10 }],
+      });
+      (ctx.client as any).schemaVersionInfo = () => Promise.resolve({
+        dbSchemaVersion: 3,
+        declaredSchemaVersion: 5,
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'schema-version-mismatch');
+      assert.ok(issue, 'Should report schema-version-mismatch');
+      assert.ok(issue.message.includes('3'));
+      assert.ok(issue.message.includes('5'));
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Error);
+    });
+
+    it('should not report when versions match', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'name'])],
+        dbTables: [{ name: 'users', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'name', type: 'TEXT', pk: false },
+        ], rowCount: 10 }],
+      });
+      (ctx.client as any).schemaVersionInfo = () => Promise.resolve({
+        dbSchemaVersion: 5,
+        declaredSchemaVersion: 5,
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'schema-version-mismatch');
+      assert.ok(!issue, 'Should NOT report when versions match');
+    });
+
+    it('should skip when version info is unavailable', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'name'])],
+        dbTables: [{ name: 'users', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'name', type: 'TEXT', pk: false },
+        ], rowCount: 10 }],
+      });
+      (ctx.client as any).schemaVersionInfo = () => Promise.resolve({});
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'schema-version-mismatch');
+      assert.ok(!issue, 'Should NOT report when version info is missing');
+    });
   });
 });

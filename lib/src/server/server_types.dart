@@ -217,7 +217,21 @@ class AnomalySuppression {
     final anomalyColumn = anomaly['column'] as String?;
     if (column != null && column != anomalyColumn) return false;
 
-    return type == null || type == anomaly['type'];
+    final anomalyType = anomaly['type'] as String?;
+    return type == null || type == anomalyType;
+  }
+
+  /// Returns a copy with the given fields replaced.
+  AnomalySuppression copyWith({
+    String? table,
+    String? Function()? column,
+    String? Function()? type,
+  }) {
+    return AnomalySuppression(
+      table: table ?? this.table,
+      column: column != null ? column() : this.column,
+      type: type != null ? type() : this.type,
+    );
   }
 }
 

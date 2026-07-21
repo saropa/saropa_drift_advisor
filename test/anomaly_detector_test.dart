@@ -1851,6 +1851,73 @@ void main() {
       });
     });
   });
+
+  group('AnomalySuppression', () {
+    test('copyWith replaces table', () {
+      const original = AnomalySuppression(
+        table: 'items',
+        column: 'price',
+        type: 'potential_outlier',
+      );
+      final copy = original.copyWith(table: 'orders');
+      expect(copy.table, 'orders');
+      expect(copy.column, 'price');
+      expect(copy.type, 'potential_outlier');
+    });
+
+    test('copyWith replaces column', () {
+      const original = AnomalySuppression(table: 'items', column: 'price');
+      final copy = original.copyWith(column: () => 'quantity');
+      expect(copy.table, 'items');
+      expect(copy.column, 'quantity');
+    });
+
+    test('copyWith clears column to null', () {
+      const original = AnomalySuppression(table: 'items', column: 'price');
+      final copy = original.copyWith(column: () => null);
+      expect(copy.column, isNull);
+    });
+
+    test('copyWith clears type to null', () {
+      const original = AnomalySuppression(
+        table: 'items',
+        type: 'potential_outlier',
+      );
+      final copy = original.copyWith(type: () => null);
+      expect(copy.type, isNull);
+    });
+
+    test('copyWith with no arguments returns identical values', () {
+      const original = AnomalySuppression(
+        table: '*',
+        column: 'name',
+        type: 'empty_strings',
+      );
+      final copy = original.copyWith();
+      expect(copy.table, original.table);
+      expect(copy.column, original.column);
+      expect(copy.type, original.type);
+    });
+
+    test('matches casts anomaly type to String for type-safe comparison', () {
+      const suppression = AnomalySuppression(
+        table: 'items',
+        type: 'potential_outlier',
+      );
+      // anomaly['type'] is dynamic from JSON — verify the String cast works
+      final anomaly = <String, dynamic>{
+        'table': 'items',
+        'type': 'potential_outlier',
+      };
+      expect(suppression.matches(anomaly), isTrue);
+
+      final mismatch = <String, dynamic>{
+        'table': 'items',
+        'type': 'null_values',
+      };
+      expect(suppression.matches(mismatch), isFalse);
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------

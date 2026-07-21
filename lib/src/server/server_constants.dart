@@ -629,6 +629,8 @@ abstract final class ServerConstants {
   static const String productName = 'saropa_drift_advisor';
 
   static const String jsonKeySchemaVersion = 'schemaVersion';
+  static const String jsonKeyDbSchemaVersion = 'dbSchemaVersion';
+  static const String jsonKeyDeclaredSchemaVersion = 'declaredSchemaVersion';
   static const String jsonKeyProducer = 'producer';
   // `jsonKeyGeneratedAt` ('generatedAt') is already declared below and reused
   // here for the envelope's generation timestamp.

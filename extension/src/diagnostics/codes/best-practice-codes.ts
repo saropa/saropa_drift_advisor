@@ -67,4 +67,12 @@ export const BEST_PRACTICE_CODES: Record<string, IDiagnosticCode> = {
       'Index "{index1}" and "{index2}" on "{table}" have identical columns',
     hasFix: false,
   },
+  'no-schema-snapshots': {
+    code: 'no-schema-snapshots',
+    category: 'bestPractices',
+    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    messageTemplate:
+      'No Drift schema snapshots found — run "dart run drift_dev schema dump" to enable migration path testing with SchemaVerifier',
+    hasFix: false,
+  },
 };

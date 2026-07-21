@@ -114,4 +114,12 @@ export const SCHEMA_CODES: Record<string, IDiagnosticCode> = {
     messageTemplate: '{message}',
     hasFix: false,
   },
+  'schema-version-mismatch': {
+    code: 'schema-version-mismatch',
+    category: 'schema',
+    defaultSeverity: vscode.DiagnosticSeverity.Error,
+    messageTemplate:
+      'Database schema version ({dbVersion}) does not match Dart-declared version ({dartVersion}) — migration may have failed or been skipped',
+    hasFix: false,
+  },
 };

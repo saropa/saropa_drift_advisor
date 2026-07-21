@@ -10,8 +10,9 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import {
   DiagnosticSeverity,
+  Uri,
 } from './vscode-mock-classes';
-import { resetMocks } from './vscode-mock';
+import { resetMocks, workspace } from './vscode-mock';
 import { BestPracticeProvider } from '../diagnostics/providers/best-practice-provider';
 import { createDartFile } from './diagnostic-test-helpers';
 import { createContext } from './best-practice-provider-test-helpers';
@@ -281,6 +282,66 @@ describe('BestPracticeProvider', () => {
       const issues = await provider.collectDiagnostics(ctx);
 
       assert.strictEqual(issues.length, 0);
+    });
+
+    describe('no-schema-snapshots', () => {
+      it('should warn when no drift_schemas directory exists', async () => {
+        (workspace as any).workspaceFolders = [
+          { uri: Uri.parse('file:///project'), name: 'project', index: 0 },
+        ];
+
+        const ctx = createContext({
+          dartFiles: [createDartFile('users', ['id', 'name'])],
+          tables: [],
+        });
+
+        const issues = await provider.collectDiagnostics(ctx);
+
+        const issue = issues.find((i) => i.code === 'no-schema-snapshots');
+        assert.ok(issue, 'Should report no-schema-snapshots');
+        assert.ok(issue.message.includes('drift_dev schema dump'));
+      });
+
+      it('should not warn when drift_schemas directory exists', async () => {
+        (workspace as any).workspaceFolders = [
+          { uri: Uri.parse('file:///project'), name: 'project', index: 0 },
+        ];
+        const origFindFiles = workspace.findFiles;
+        (workspace as any).findFiles = async (pattern: string) => {
+          if (typeof pattern === 'string' && pattern.startsWith('drift_schemas')) {
+            return [Uri.parse('file:///project/drift_schemas/v1.json')];
+          }
+          return [];
+        };
+
+        const ctx = createContext({
+          dartFiles: [createDartFile('users', ['id', 'name'])],
+          tables: [],
+        });
+
+        const issues = await provider.collectDiagnostics(ctx);
+
+        const issue = issues.find((i) => i.code === 'no-schema-snapshots');
+        assert.ok(!issue, 'Should NOT report no-schema-snapshots when directory exists');
+
+        (workspace as any).findFiles = origFindFiles;
+      });
+
+      it('should not warn when no Dart files with tables are found', async () => {
+        (workspace as any).workspaceFolders = [
+          { uri: Uri.parse('file:///project'), name: 'project', index: 0 },
+        ];
+
+        const ctx = createContext({
+          dartFiles: [],
+          tables: [],
+        });
+
+        const issues = await provider.collectDiagnostics(ctx);
+
+        const issue = issues.find((i) => i.code === 'no-schema-snapshots');
+        assert.ok(!issue, 'Should NOT report when workspace has no Drift tables');
+      });
     });
   });
 });

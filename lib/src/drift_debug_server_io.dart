@@ -177,6 +177,7 @@ class _DriftDebugServerImpl {
     Set<String>? declaredTableNames,
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
+    int? declaredSchemaVersion,
     String? snapshotStorePath,
     String? discoveryDirectory,
     bool monitoringEnabled = true,
@@ -213,6 +214,7 @@ class _DriftDebugServerImpl {
         declaredTableNames: declaredTableNames,
         declaredSchema: declaredSchema,
         declaredRelationships: declaredRelationships,
+        declaredSchemaVersion: declaredSchemaVersion,
         snapshotStorePath: snapshotStorePath,
         discoveryDirectory: discoveryDirectory,
         monitoringEnabled: monitoringEnabled,
@@ -244,6 +246,7 @@ class _DriftDebugServerImpl {
     Set<String>? declaredTableNames,
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
+    int? declaredSchemaVersion,
     String? snapshotStorePath,
     String? discoveryDirectory,
     bool monitoringEnabled = true,
@@ -412,6 +415,7 @@ class _DriftDebugServerImpl {
       declaredTableNames: declaredTableNames,
       declaredSchema: declaredSchema,
       declaredRelationships: declaredRelationships,
+      declaredSchemaVersion: declaredSchemaVersion,
       snapshotStorePath: snapshotStorePath,
       loopbackOnly: loopbackOnly,
       monitoringEnabled: monitoringEnabled,
@@ -914,6 +918,12 @@ mixin DriftDebugServer {
     /// keeps its heuristic.
     DeclaredRelationshipsCallback? declaredRelationships,
 
+    /// The Drift database's declared `schemaVersion` getter value. Compared
+    /// against `PRAGMA user_version` at runtime to detect incomplete or
+    /// skipped migrations. The `startDriftViewer` extension derives this
+    /// automatically; null when the host is not a Drift database.
+    int? declaredSchemaVersion,
+
     /// Optional file path the website snapshot list is mirrored to so it
     /// survives a server restart (Feature 72). On start the list is reloaded
     /// from this file; every capture/delete/rename rewrites it atomically.
@@ -961,6 +971,7 @@ mixin DriftDebugServer {
     declaredTableNames: declaredTableNames,
     declaredSchema: declaredSchema,
     declaredRelationships: declaredRelationships,
+    declaredSchemaVersion: declaredSchemaVersion,
     snapshotStorePath: snapshotStorePath,
     discoveryDirectory: discoveryDirectory,
     monitoringEnabled: monitoringEnabled,

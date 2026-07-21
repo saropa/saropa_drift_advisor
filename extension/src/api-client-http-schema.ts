@@ -8,6 +8,7 @@ import type {
   ICompareReport,
   IDiagramData,
   IMigrationPreview,
+  SchemaVersionInfo,
   TableMetadata,
 } from './api-types';
 import { fetchWithRetry } from './transport/fetch-utils';
@@ -37,6 +38,22 @@ export async function httpSchemaMetadata(
   if (!resp.ok) throw new Error(`Schema metadata failed: ${resp.status}`);
   const data = (await resp.json()) as { tables?: TableMetadata[] };
   return Array.isArray(data?.tables) ? data.tables : (data as unknown as TableMetadata[]);
+}
+
+/** Schema version info (db vs declared) from the metadata envelope. */
+export async function httpSchemaVersionInfo(
+  baseUrl: string,
+  headers: ApiHeaders,
+): Promise<SchemaVersionInfo> {
+  const resp = await fetchWithRetry(`${baseUrl}/api/schema/metadata`, {
+    headers,
+  });
+  if (!resp.ok) throw new Error(`Schema version info failed: ${resp.status}`);
+  const data = (await resp.json()) as SchemaVersionInfo;
+  return {
+    dbSchemaVersion: typeof data?.dbSchemaVersion === 'number' ? data.dbSchemaVersion : undefined,
+    declaredSchemaVersion: typeof data?.declaredSchemaVersion === 'number' ? data.declaredSchemaVersion : undefined,
+  };
 }
 
 /** FK metadata for a table. */

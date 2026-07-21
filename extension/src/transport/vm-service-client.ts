@@ -15,6 +15,7 @@ import type {
   HealthResponse,
   IndexSuggestion,
   PerformanceData,
+  SchemaVersionInfo,
   TableMetadata,
 } from '../api-types';
 import {
@@ -29,6 +30,7 @@ import {
   apiGetMonitoring,
   apiGetPerformance,
   apiGetSchemaMetadata,
+  apiGetSchemaVersionInfo,
   apiGetTableFkMeta,
   apiRunSql,
   apiSetChangeDetection,
@@ -232,6 +234,10 @@ export class VmServiceClient {
     includeForeignKeys?: boolean;
   }): Promise<TableMetadata[]> {
     return apiGetSchemaMetadata(this._callExtension, options);
+  }
+
+  async getSchemaVersionInfo(): Promise<SchemaVersionInfo> {
+    return apiGetSchemaVersionInfo(this._callExtension);
   }
 
   async getTableFkMeta(tableName: string): Promise<ForeignKey[]> {

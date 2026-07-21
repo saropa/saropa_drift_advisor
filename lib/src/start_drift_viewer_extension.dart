@@ -223,6 +223,20 @@ bool _readStoreDateTimeAsText(dynamic driftDb) {
   }
 }
 
+/// Duck-types the Drift `GeneratedDatabase.schemaVersion` getter.
+/// Returns null when the host object is not a Drift database or the getter
+/// is inaccessible — same best-effort posture as [_deriveDeclaredTableNames].
+int? _deriveDeclaredSchemaVersion(Object db) {
+  try {
+    final dynamic driftDb = db;
+    final dynamic v = driftDb.schemaVersion;
+    return v is int ? v : null;
+    // ignore: require_catch_logging -- expected non-Drift path; null is the correct fallback
+  } on Object {
+    return null;
+  }
+}
+
 DeclaredSchema? _deriveDeclaredSchema(Object db) {
   try {
     final dynamic driftDb = db;
@@ -320,6 +334,7 @@ extension StartDriftViewerExtension on Object {
         final schema = _deriveDeclaredSchema(this);
         return schema == null ? null : () => schema;
       })(),
+      declaredSchemaVersion: _deriveDeclaredSchemaVersion(this),
       enabled: enabled,
       port: port,
       loopbackOnly: loopbackOnly,

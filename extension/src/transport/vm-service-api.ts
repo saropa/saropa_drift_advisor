@@ -9,6 +9,7 @@ import type {
   HealthResponse,
   IndexSuggestion,
   PerformanceData,
+  SchemaVersionInfo,
   TableMetadata,
 } from '../api-types';
 import { objectRowsToColumnar } from '../shared-utils';
@@ -46,6 +47,17 @@ export async function apiGetSchemaMetadata(
     throw new Error('Invalid getSchemaMetadata response');
   }
   return obj.tables;
+}
+
+export async function apiGetSchemaVersionInfo(
+  request: ExtensionRequest,
+): Promise<SchemaVersionInfo> {
+  const raw = await request(`${EXT_PREFIX}getSchemaMetadata`, {});
+  const obj = parseJson<SchemaVersionInfo>(raw);
+  return {
+    dbSchemaVersion: typeof obj?.dbSchemaVersion === 'number' ? obj.dbSchemaVersion : undefined,
+    declaredSchemaVersion: typeof obj?.declaredSchemaVersion === 'number' ? obj.declaredSchemaVersion : undefined,
+  };
 }
 
 export async function apiGetTableFkMeta(

@@ -43,9 +43,16 @@ browse source on
 
 ## [Unreleased]
 
+### Added
+
+- **`no-schema-snapshots` diagnostic (Warning).** Warns when a Drift project has no `drift_schemas/` or `test/generated_migrations/` directory — prompts developers to run `dart run drift_dev schema dump` and set up `SchemaVerifier` for migration path testing.
+- **`schema-version-mismatch` diagnostic (Error).** Reports when the database's `PRAGMA user_version` differs from the Dart-declared `schemaVersion`, indicating a migration that failed or was skipped — the exact scenario that causes silent black screens on older installs.
+- **`declaredSchemaVersion` threading.** The Dart server now derives the host database's declared `schemaVersion` via duck typing and exposes it alongside `dbSchemaVersion` (from `PRAGMA user_version`) in the `/api/schema/metadata` response and VM Service bridge.
+- **`AnomalySuppression.copyWith`.** Returns a copy with selectively replaced fields. Nullable fields (`column`, `type`) use a factory-function parameter to distinguish "not specified" from "explicitly set to null".
+
 <details><summary>Maintenance</summary>
 
-- **Simplified `AnomalySuppression.matches` guard.** Replaced trailing if-return-false / return-true with a single boolean return to satisfy `avoid_unnecessary_if` lint.
+- **Simplified `AnomalySuppression.matches` guard.** Replaced trailing if-return-false / return-true with a single boolean return to satisfy `avoid_unnecessary_if` lint. Added explicit `String?` cast on the `anomaly['type']` lookup for type-safe comparison, matching the existing pattern for `table` and `column`.
 
 </details>
 
