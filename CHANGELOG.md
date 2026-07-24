@@ -49,7 +49,7 @@ Exported reports no longer count the schema browser's own lookups as app queries
 
 - **Performance analytics no longer counts schema-browser introspection as application queries.** Opening the schema browser issues one `PRAGMA table_info` per table; these were filling the "recent queries" list (and could evict real app queries from the timing buffer), so an exported report showed the advisor measuring itself instead of the app. PRAGMA statements are now excluded from query totals, slow queries, patterns, and the recent-queries list. See `bugs/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md`.
 
-- **Anomaly outlier checks can be silenced on static/seed tables.** `startDriftViewer` (and `DriftDebugServer.start`) accept a new `staticTables:` list; the max-vs-mean outlier scan is skipped for those tables, since an outlier in immutable seed data can never indicate a defect. Other checks (missing values, orphaned references) still run on them. When an outlier is found on a table you have *not* marked static, the finding now carries a one-line hint naming the table and the exact `staticTables:` snippet, so the fix is discoverable from the finding itself.
+- **Anomaly outlier checks can be silenced on static/seed tables.** `startDriftViewer` (and `DriftDebugServer.start`) accept a new `staticTables:` list; the max-vs-mean outlier scan is skipped for those tables, since an outlier in immutable seed data can never indicate a defect. Other checks (missing values, orphaned references) still run on them. When an outlier is found on a table you have *not* marked static, the finding now carries a one-line hint naming the table and the exact `staticTables:` snippet, so the fix is discoverable from the finding itself. The hint also **auto-suggests which tables are the likely static candidates** — outlier tables with no writes or data changes observed during the session — and flags the ones that did change as probably not static, so you can copy the snippet with more confidence.
 
 ### Added
 
@@ -61,6 +61,8 @@ Exported reports no longer count the schema browser's own lookups as app queries
 - `staticTables` threaded through `start()`/`_startInternal`/stub/`startDriftViewer` → `ServerContext.staticTables` → `AnomalyDetector.getAnomaliesResult` (auto-derives `potential_outlier` suppressions) and the two `analytics_handler` call sites. New `outlier_check_hint` anomaly type (additive to the issues envelope). Regression tests in `test/anomaly_detector_test.dart`.
 
 </details>
+
+---
 
 ## [4.2.3]
 

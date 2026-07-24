@@ -426,6 +426,77 @@ void main() {
         },
       );
 
+      // Fixture with outliers on TWO tables, for the mutation-ranking tests.
+      Future<List<Map<String, dynamic>>> Function(String) twoOutlierFixture() =>
+          _anomalyQuery(
+            tableColumns: {
+              'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
+              'orders': [_col('id', 'INTEGER', pk: 1), _col('total', 'REAL')],
+            },
+            counts: {'items': 50, 'orders': 50},
+            numericStats: {
+              'items.price': {
+                'avg_val': 10.0,
+                'min_val': 5.0,
+                'max_val': 150.0,
+                'variance': 100.0,
+                'cnt': 50,
+              },
+              'orders.total': {
+                'avg_val': 10.0,
+                'min_val': 5.0,
+                'max_val': 150.0,
+                'variance': 100.0,
+                'cnt': 50,
+              },
+            },
+          );
+
+      test(
+        'auto-suggest: a mutated outlier table is excluded from the snippet',
+        () async {
+          // `orders` had observed mutations this session, so only `items` is
+          // offered as a likely-static candidate.
+          final result = await AnomalyDetector.getAnomaliesResult(
+            twoOutlierFixture(),
+            tablesWithObservedMutations: {'orders'},
+          );
+
+          final anomalies = (result['anomalies'] as List)
+              .cast<Map<String, dynamic>>();
+          final hint = anomalies.firstWhere(
+            (a) => a['type'] == 'outlier_check_hint',
+          );
+          final message = hint['message'] as String;
+          // Snippet suggests only the no-mutation table.
+          expect(message, contains("staticTables: ['items']"));
+          expect(message, isNot(contains("'orders']")));
+          // And names the mutated table as likely NOT static.
+          expect(message, contains('orders had writes/changes'));
+        },
+      );
+
+      test(
+        'auto-suggest: all outlier tables mutated yields a no-candidate message',
+        () async {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            outlierFixture(),
+            tablesWithObservedMutations: {'items'},
+          );
+
+          final anomalies = (result['anomalies'] as List)
+              .cast<Map<String, dynamic>>();
+          final hint = anomalies.firstWhere(
+            (a) => a['type'] == 'outlier_check_hint',
+          );
+          final message = hint['message'] as String;
+          // No table is claimed static; the full list is still offered.
+          expect(message, contains('none look static'));
+          expect(message, isNot(contains('Likely static')));
+          expect(message, contains("staticTables: ['items']"));
+        },
+      );
+
       test('no hint when there are no outliers', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(

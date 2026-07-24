@@ -310,6 +310,8 @@ void main() {
               '  pragma table_info("orders")',
               5,
             ), // lowercase + leading ws
+            // sqlite_master catalog read is introspection, not app workload.
+            _timing('SELECT name FROM sqlite_master WHERE type=?', 300),
           ]);
           final handler = PerformanceHandler(ctx);
 
@@ -319,12 +321,12 @@ void main() {
           expect(data['totalQueries'], 1);
           expect(data['totalDurationMs'], 150);
 
-          // The 200ms PRAGMA must not appear as a slow query.
+          // Neither the 200ms PRAGMA nor the 300ms sqlite_master read is slow.
           final slowQueries = data['slowQueries'] as List;
           expect(slowQueries, hasLength(1));
           expect((slowQueries.first as Map)['sql'], 'SELECT * FROM users');
 
-          // recentQueries carries only the real query — no PRAGMA rows.
+          // recentQueries carries only the real query — no introspection rows.
           final recent = data['recentQueries'] as List;
           expect(recent, hasLength(1));
           expect((recent.first as Map)['sql'], 'SELECT * FROM users');

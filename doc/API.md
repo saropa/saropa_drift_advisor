@@ -1034,7 +1034,7 @@ Scans all tables for data quality anomalies: NULL values, empty strings, orphane
 | `anomalies[].severity` | string | `"error"`, `"warning"`, or `"info"` |
 | `anomalies[].count` | int | Number of affected rows (not present for `potential_outlier` / `outlier_check_hint`) |
 | `anomalies[].column` | string | Affected column (not present for `duplicate_rows` / `outlier_check_hint`) |
-| `anomalies[].message` | string | For `outlier_check_hint` (info): names the tables that produced outlier findings and the exact `startDriftViewer(db, staticTables: [...])` snippet to suppress them. Emitted once per scan only when unsuppressed outliers exist; has no `table`/`column`. |
+| `anomalies[].message` | string | For `outlier_check_hint` (info): names the tables that produced outlier findings and the exact `startDriftViewer(db, staticTables: [...])` snippet to suppress them. Auto-suggests the likely-static candidates (outlier tables with no writes or data changes observed this session) and flags tables that did change as probably not static. Emitted once per scan only when unsuppressed outliers exist; has no `table`/`column`. |
 | `tablesScanned` | int | Number of tables analyzed |
 | `analyzedAt` | string | ISO 8601 UTC timestamp |
 

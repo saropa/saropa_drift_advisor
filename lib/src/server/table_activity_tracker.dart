@@ -148,6 +148,25 @@ final class TableActivityTracker {
   /// cheap-poll "anything new since N?" without diffing payloads.
   int get activityGeneration => _activityGeneration;
 
+  /// Tables with at least one observed mutation this session — an advisor
+  /// write (`writes`) or a host change inferred from a row-count delta
+  /// (`hostChanges`). Used by the anomaly detector to rank static-table
+  /// candidates: a table that produced a numeric outlier but has NO observed
+  /// mutation is a stronger "static/seed" candidate than one the app is
+  /// actively changing.
+  ///
+  /// LIMITATION (directional, not definitive): the advisor does not see the
+  /// app's own read/UPDATE traffic (app queries bypass the server — the same
+  /// gap as Finding 1), and `hostChange` only fires when a change-detection
+  /// sweep observes a ROW-COUNT delta, so a row-preserving UPDATE leaves no
+  /// trace. Absence of a mutation here means "none observed this session", not
+  /// "never written". Once app query-timing ingest lands (plans/61) this signal
+  /// becomes reliable.
+  Set<String> tablesWithObservedMutations() => <String>{
+    for (final entry in _tables.entries)
+      if (entry.value.writes > 0 || entry.value.hostChanges > 0) entry.key,
+  };
+
   /// Records an advisor-driven read of [table].
   void recordRead(String table) => _record(table, TableActivityKind.read);
 

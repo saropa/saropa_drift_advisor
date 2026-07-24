@@ -51,6 +51,7 @@ abstract final class AnomalyDetector {
         const <DeclaredRelationship>[],
     List<AnomalySuppression> suppressions = const <AnomalySuppression>[],
     Set<String> staticTables = const <String>{},
+    Set<String> tablesWithObservedMutations = const <String>{},
   }) async {
     final tableNames = await ServerUtils.getTableNames(query);
     final anomalies = <Map<String, dynamic>>[];
@@ -188,8 +189,7 @@ abstract final class AnomalyDetector {
     // table NOT declared static (static ones were just suppressed). Emit ONE
     // hint — not one per finding — naming those tables and the exact snippet
     // that silences them, so the fix is visible from the finding itself rather
-    // than buried in docs. The tool cannot know which tables are truly static,
-    // so the message states the mechanism and lets the developer decide.
+    // than buried in docs.
     final outlierSet = <String>{};
     for (final a in anomalies) {
       final t = a['table'];
@@ -200,15 +200,49 @@ abstract final class AnomalyDetector {
     }
     final outlierTables = outlierSet.toList()..sort();
     if (outlierTables.isNotEmpty) {
-      final snippetList = outlierTables.map((t) => "'$t'").join(', ');
+      // Auto-suggest which outlier tables are the likely static candidates:
+      // a table that produced an outlier but had NO observed mutation this
+      // session is a stronger static/seed candidate than one the app is
+      // actively changing. `tablesWithObservedMutations` is directional, not
+      // definitive (see TableActivityTracker.tablesWithObservedMutations) —
+      // when it is empty (no activity data, e.g. a fresh session) NO table can
+      // be ruled out, so every outlier table is offered as a candidate.
+      final candidates = outlierTables
+          .where((t) => !tablesWithObservedMutations.contains(t))
+          .toList();
+      final active = outlierTables
+          .where(tablesWithObservedMutations.contains)
+          .toList();
+      final activeNote = active.isEmpty
+          ? ''
+          : ' (${active.join(', ')} had writes/changes this session, so '
+                'likely NOT static.)';
+      // Two shapes: if the mutation signal left any no-mutation table, name
+      // those as the likely-static candidates and put only them in the
+      // snippet. If EVERY outlier table was mutated (no candidate), do not
+      // claim any is static — offer the full list for the developer to judge.
+      final String suggestionSentence;
+      final List<String> snippetTables;
+      if (candidates.isNotEmpty) {
+        snippetTables = candidates;
+        suggestionSentence =
+            'Likely static (no mutations observed this session): '
+            '${candidates.join(', ')}.$activeNote';
+      } else {
+        snippetTables = outlierTables;
+        suggestionSentence =
+            'All had writes/changes this session, so none look static; '
+            'mark any you know to hold static content.';
+      }
+      final snippetList = snippetTables.map((t) => "'$t'").join(', ');
       anomalies.add(<String, dynamic>{
         'type': 'outlier_check_hint',
         'severity': 'info',
         'message':
             'Outlier checks ran on ${outlierTables.join(', ')}. '
             'The max-vs-mean (3σ) check cannot indicate a defect on static or '
-            'seed data. If any of these hold bundled/static content, mark them '
-            'static to silence this: '
+            'seed data. $suggestionSentence '
+            'Mark them static to silence this: '
             'startDriftViewer(db, staticTables: [$snippetList]).',
       });
     }

@@ -96,14 +96,26 @@ final class PerformanceHandler {
   }
 
   /// True when a timing records the advisor's own schema introspection rather
-  /// than application workload. Currently that is any `PRAGMA` statement — the
-  /// schema browser's `PRAGMA table_info` sweeps and the handlers that inspect
-  /// column metadata all emit PRAGMAs the developer never wrote. Matching the
-  /// keyword (case-insensitively, after trimming) is sufficient: PRAGMA is the
-  /// only statement kind here that is pure introspection, and it is never a
-  /// legitimate application query the report should surface.
-  static bool _isIntrospection(QueryTiming t) =>
-      t.sql.trimLeft().toUpperCase().startsWith('PRAGMA');
+  /// than application workload. Two forms:
+  ///  - any `PRAGMA` statement — the schema browser's `PRAGMA table_info`
+  ///    sweeps and the handlers that inspect column metadata all emit PRAGMAs
+  ///    the developer never wrote;
+  ///  - any statement referencing `sqlite_master` / `sqlite_schema` — the
+  ///    engine's schema catalog, read only to enumerate tables/indexes, never
+  ///    application data.
+  ///
+  /// The original fix matched PRAGMA alone; the catalog check hardens against a
+  /// future internal helper that introspects via `SELECT ... FROM sqlite_master`
+  /// on the instrumented path instead of PRAGMA. A developer who manually runs
+  /// such a query in the SQL console is likewise inspecting the schema, not
+  /// exercising app workload, so excluding it from performance stats is correct
+  /// either way. Matching is case-insensitive after trimming leading space.
+  static bool _isIntrospection(QueryTiming t) {
+    final normalized = t.sql.trimLeft().toUpperCase();
+    return normalized.startsWith('PRAGMA') ||
+        normalized.contains('SQLITE_MASTER') ||
+        normalized.contains('SQLITE_SCHEMA');
+  }
 
   /// GET /api/analytics/performance — returns query timing stats,
   /// slow queries, and patterns.
