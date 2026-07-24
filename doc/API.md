@@ -21,6 +21,7 @@
 - [Query Parameters Reference](#query-parameters-reference)
 - **Endpoints**
   - [API Index (`GET /api/`)](#api-index)
+  - [API Docs (`GET /api/docs`)](#get-apidocs)
   - [Health & Generation](#health--generation)
   - [Table Activity](#table-activity)
   - [Tables](#tables)
@@ -229,6 +230,22 @@ endpoints an external agent uses to inspect a live database.
 | `loopbackOnly` | boolean | Whether the server bound 127.0.0.1 only |
 | `docs` | string | URL to this full REST reference (version-pinned on the CDN) |
 | `endpoints` | array | `{ method, path, description }` for each read endpoint |
+
+---
+
+### `GET /api/docs`
+
+Returns the full REST API reference (`doc/API.md`) as plain-text Markdown. Served from the package root on disk — no internet connection or CDN access required. Available regardless of the monitoring kill-switch state (routed pre-gate).
+
+**Response** `200 OK`
+
+```
+Content-Type: text/markdown; charset=utf-8
+```
+
+Body: the raw Markdown content of this document.
+
+**Error** `404 Not Found` — package root cannot be resolved or `doc/API.md` is missing from the installed package.
 
 ---
 
@@ -1789,10 +1806,12 @@ Returns a single recorded query by session ID and query ID.
 
 **Response** `200 OK` — `data` payload: a single query record (same shape as entries in the `queries` array above).
 
-**Error** `404 Not Found` — query outside the ring buffer window:
+**Error** `404 Not Found` — query outside the ring buffer window. The envelope is still present; `error` and `message` are added as sibling keys alongside `data`:
 
 ```json
 {
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-24T10:30:00.000Z",
   "error": "QUERY_NOT_AVAILABLE",
   "message": "Query id is outside current ring buffer window.",
   "data": {

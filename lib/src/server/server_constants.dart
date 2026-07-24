@@ -255,6 +255,13 @@ abstract final class ServerConstants {
   static const String pathFavicon = '/favicon.ico';
   static const String pathFaviconAlt = 'favicon.ico';
 
+  /// GET /api/docs — serves the full REST API reference (doc/API.md) as
+  /// plain-text Markdown. Independent of DB state and the monitoring kill
+  /// switch: routed in the pre-gate group so a killed or unconfigured server
+  /// still serves its own documentation.
+  static const String pathApiDocs = '/api/docs';
+  static const String pathApiDocsAlt = 'api/docs';
+
   /// Local web UI stylesheet (served from package `assets/web/style.css`).
   static const String pathWebStyle = '/assets/web/style.css';
   static const String pathWebStyleAlt = 'assets/web/style.css';
@@ -420,6 +427,7 @@ abstract final class ServerConstants {
     pathApiViews,
     pathApiIssues,
     pathApiGeneration,
+    pathApiDocs,
   ];
 
   /// Self-describing endpoint catalog served by GET /api/ for non-UI clients.
@@ -493,6 +501,12 @@ abstract final class ServerConstants {
       jsonKeyPath: pathApiGeneration,
       jsonKeyDescription:
           'Data-change generation counter (?since= long-polls for changes).',
+    },
+    <String, String>{
+      jsonKeyMethod: methodGet,
+      jsonKeyPath: pathApiDocs,
+      jsonKeyDescription:
+          'Full REST API reference (doc/API.md) as plain-text Markdown.',
     },
   ];
 

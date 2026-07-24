@@ -306,6 +306,17 @@ final class Router {
       return true;
     }
 
+    // GET /api/docs — full REST API reference as plain-text Markdown.
+    // Pre-gate: no DB, no monitoring dependency; a killed or unconfigured
+    // server still serves its own documentation.
+    if (request.method == ServerConstants.methodGet &&
+        (path == ServerConstants.pathApiDocs ||
+            path == ServerConstants.pathApiDocsAlt)) {
+      await _generation.sendApiDocs(response);
+
+      return true;
+    }
+
     // GET /api/generation — long-poll for data changes.
     if (request.method == ServerConstants.methodGet &&
         (path == ServerConstants.pathApiGeneration ||

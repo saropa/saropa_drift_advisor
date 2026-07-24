@@ -320,6 +320,18 @@ final class GenerationHandler {
     return contents;
   }
 
+  /// GET /api/docs — serves the full REST API reference (`doc/API.md`) as
+  /// plain-text Markdown so a non-UI client can read the contract from
+  /// the running server without an internet connection or GitHub access.
+  /// Reuses the same package-root resolution as the web assets.
+  Future<void> sendApiDocs(HttpResponse response) async {
+    await _sendWebAsset(
+      response: response,
+      relativePath: 'doc/API.md',
+      contentType: ContentType('text', 'markdown', charset: 'utf-8'),
+    );
+  }
+
   /// Serves the local CSS asset for backward-compatible direct access.
   ///
   /// The HTML viewer now inlines CSS, so this route is only needed by

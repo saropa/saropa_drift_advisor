@@ -95,6 +95,35 @@ void main() {
     );
   });
 
+  test('doc/API.md version header matches ServerConstants.packageVersion', () {
+    final apiDoc = File('doc/API.md');
+    expect(
+      apiDoc.existsSync(),
+      isTrue,
+      reason: 'doc/API.md must exist at the project root',
+    );
+
+    final content = apiDoc.readAsStringSync();
+
+    // The header line reads: **API version:** X.Y.Z (synced with ...)
+    final match = RegExp(r'\*\*API version:\*\*\s*(\S+)').firstMatch(content);
+    expect(
+      match,
+      isNotNull,
+      reason: 'doc/API.md must contain an **API version:** header',
+    );
+
+    final docVersion = match!.group(1);
+    expect(
+      docVersion,
+      equals(ServerConstants.packageVersion),
+      reason:
+          'doc/API.md version ($docVersion) does not match '
+          'ServerConstants.packageVersion (${ServerConstants.packageVersion}). '
+          'Update the version header in doc/API.md.',
+    );
+  });
+
   test('ServerConstants.packageVersion matches pubspec.yaml version', () {
     // Read the pubspec.yaml file from the project root to extract the
     // canonical version string. This catches cases where a developer bumps
