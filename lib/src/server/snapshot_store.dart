@@ -80,6 +80,8 @@ abstract final class SnapshotStore {
       // ignore: avoid_path_traversal, require_file_path_sanitization -- path is trusted host config passed to DriftDebugServer.start, never user/network input
       final File tmp = File('$path.tmp');
       await tmp.parent.create(recursive: true);
+      // Must create dir before writing, then write before atomic rename.
+      // ignore: avoid_sequential_awaits
       await tmp.writeAsString(json, flush: true);
       // rename is atomic on the same filesystem; replaces any existing target.
       await tmp.rename(path);

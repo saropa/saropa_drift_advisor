@@ -590,19 +590,19 @@ final class AnalyticsHandler {
 
       // Fetch database-level storage metrics from SQLite
       // PRAGMAs (page size, page count, freelist, journal).
-      final pageSize = pragmaInt(
-        ServerUtils.normalizeRows(await query('PRAGMA page_size')),
-      );
-      final pageCount = pragmaInt(
-        ServerUtils.normalizeRows(await query('PRAGMA page_count')),
-      );
+      final pragmaResults = await Future.wait([
+        query('PRAGMA page_size'),
+        query('PRAGMA page_count'),
+        query('PRAGMA freelist_count'),
+        query('PRAGMA journal_mode'),
+      ]);
+      final pageSize = pragmaInt(ServerUtils.normalizeRows(pragmaResults[0]));
+      final pageCount = pragmaInt(ServerUtils.normalizeRows(pragmaResults[1]));
       final freelistCount = pragmaInt(
-        ServerUtils.normalizeRows(await query('PRAGMA freelist_count')),
+        ServerUtils.normalizeRows(pragmaResults[2]),
       );
 
-      final journalModeRows = ServerUtils.normalizeRows(
-        await query('PRAGMA journal_mode'),
-      );
+      final journalModeRows = ServerUtils.normalizeRows(pragmaResults[3]);
       final journalMode =
           journalModeRows.firstOrNull?.values.firstOrNull?.toString() ??
           'unknown';

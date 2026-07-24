@@ -115,8 +115,13 @@ final class ReportHandler {
     String table,
     int maxRows,
   ) async {
+    final tableResults = await Future.wait([
+      query('PRAGMA table_info(${ServerUtils.quoteIdent(table)})'),
+      query('SELECT * FROM ${ServerUtils.quoteIdent(table)} LIMIT $maxRows'),
+      query('SELECT COUNT(*) AS cnt FROM ${ServerUtils.quoteIdent(table)}'),
+    ]);
     final List<Map<String, dynamic>> infoRows = ServerUtils.normalizeRows(
-      await query('PRAGMA table_info(${ServerUtils.quoteIdent(table)})'),
+      tableResults[0],
     );
     final List<String> columns = infoRows
         .map(
@@ -127,15 +132,11 @@ final class ReportHandler {
         .toList();
 
     final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(
-      await query(
-        'SELECT * FROM ${ServerUtils.quoteIdent(table)} LIMIT $maxRows',
-      ),
+      tableResults[1],
     );
 
     final List<Map<String, dynamic>> countRows = ServerUtils.normalizeRows(
-      await query(
-        'SELECT COUNT(*) AS cnt FROM ${ServerUtils.quoteIdent(table)}',
-      ),
+      tableResults[2],
     );
     final Object? rawCount = countRows.isNotEmpty
         ? countRows.first['cnt']

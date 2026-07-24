@@ -37,6 +37,8 @@ final class TableHandler {
     // Prefer cached table names (populated by
     // checkDataChange) to avoid a redundant
     // sqlite_master query.
+    // Fallback query depends on checkDataChange populating the cache above.
+    // ignore: avoid_sequential_awaits
     final List<String> names =
         _ctx.cachedTableNames ?? await ServerUtils.getTableNames(query);
 
@@ -70,6 +72,8 @@ final class TableHandler {
       tableName: tableName,
     ))
       return;
+    // Query runs only after the guard above confirms the table exists.
+    // ignore: avoid_sequential_awaits
     final dynamic rawInfo = await query(
       'PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})',
     );
@@ -158,6 +162,8 @@ final class TableHandler {
       tableName: tableName,
     ))
       return;
+    // Query runs only after the guard above confirms the table exists.
+    // ignore: avoid_sequential_awaits
     final dynamic rawCount = await query(
       'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(tableName)}',
     );
@@ -183,6 +189,8 @@ final class TableHandler {
       tableName: tableName,
     ))
       return;
+    // Query runs only after the guard above confirms the table exists.
+    // ignore: avoid_sequential_awaits
     final dynamic raw = await query(
       'SELECT * FROM ${ServerUtils.quoteIdent(tableName)} LIMIT $limit OFFSET $offset',
     );

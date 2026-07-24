@@ -675,6 +675,8 @@ class _DriftDebugServerImpl {
     VmServiceBridge.clear();
     _router = null;
     _server = null;
+    // Shutdown steps must run in order: cancel subscription before closing server.
+    // ignore: avoid_sequential_awaits
     await server.close();
 
     // Detach the kill-switch manifest hook BEFORE removing the manifest: a
@@ -1088,7 +1090,10 @@ mixin DriftDebugServer {
   ///
   /// Wire it with a Drift `QueryInterceptor` that times each query. Because
   /// this package must not depend on `package:drift`, the interceptor lives in
-  /// YOUR code (drift is already a dependency there):
+  /// YOUR code (drift is already a dependency there). A complete, tested one is
+  /// shipped at `example/lib/database/advisor_timing_interceptor.dart` — copy
+  /// it and install with `executor.interceptWith(AdvisorTimingInterceptor())`.
+  /// The essential shape:
   ///
   /// ```dart
   /// class AdvisorTimingInterceptor extends QueryInterceptor {

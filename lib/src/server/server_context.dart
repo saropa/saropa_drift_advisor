@@ -317,6 +317,8 @@ final class ServerContext {
   /// Replaces the snapshot with [id] with [updated] (used for label rename).
   /// No-op when no snapshot matches [id].
   void replaceSnapshot(String id, Snapshot updated) {
+    // Needs index for in-place list mutation via snapshots[i] = updated.
+    // ignore: prefer_asmap_over_indexed_iteration
     for (var i = 0; i < snapshots.length; i++) {
       if (snapshots[i].id == id) {
         snapshots[i] = updated;

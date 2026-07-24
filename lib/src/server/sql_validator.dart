@@ -309,15 +309,15 @@ abstract final class SqlValidator {
       'ANALYZE',
     };
     final words = RegExp(r'\b\w+\b').allMatches(upper).toList();
-    for (var i = 0; i < words.length; i++) {
-      final word = words[i].group(0);
+    for (final entry in words.asMap().entries) {
+      final word = entry.value.group(0);
       if (word == null) continue;
       if (forbidden.contains(word)) {
         return false;
       }
       // The leading verb is the only legitimate CREATE; a later one indicates
       // stacking that escaped the single-statement check.
-      if (i > 0 && word == 'CREATE') {
+      if (entry.key > 0 && word == 'CREATE') {
         return false;
       }
     }

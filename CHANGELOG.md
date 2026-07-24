@@ -53,13 +53,14 @@ Exported reports no longer count the schema browser's own lookups as app queries
 
 ### Added
 
-- **App query timings now reach the performance report.** New `DriftDebugServer.reportAppQuery(...)` lets your app forward its own Drift query timings to the advisor, so `performance.totalQueries`, slow queries, and the exported report finally reflect real application traffic instead of only advisor-issued queries (which is why exports previously showed `totalQueries: 0`). Wire it with a Drift `QueryInterceptor` — a copy-paste recipe is in the `reportAppQuery` doc comment. Reported queries are tagged `source: "app"`, and writes feed the static-table candidate ranking so those suggestions become reliable.
+- **App query timings now reach the performance report.** New `DriftDebugServer.reportAppQuery(...)` lets your app forward its own Drift query timings to the advisor, so `performance.totalQueries`, slow queries, and the exported report finally reflect real application traffic instead of only advisor-issued queries (which is why exports previously showed `totalQueries: 0`). Wire it with a Drift `QueryInterceptor` — a complete, tested one ships in the example (`example/lib/database/advisor_timing_interceptor.dart`), installed with `executor.interceptWith(...)`. Reported queries are tagged `source: "app"`, and writes feed the static-table candidate ranking so those suggestions become reliable.
 - **Exported reports are now version-stamped.** The `.drift-advisor.json` sidecar carries a `versions` block with the extension version and the connected server version, so a report can be tied to the release that produced it.
 
 <details><summary>Maintenance</summary>
 
 - `HealthResponse` type gains an optional `version` field (already emitted by `/api/health`). `DriftAdvisorSidecar` gains an optional `versions` block. Regression test added in `test/performance_handler_test.dart` for PRAGMA exclusion.
 - `staticTables` threaded through `start()`/`_startInternal`/stub/`startDriftViewer` → `ServerContext.staticTables` → `AnomalyDetector.getAnomaliesResult` (auto-derives `potential_outlier` suppressions) and the two `analytics_handler` call sites. New `outlier_check_hint` anomaly type (additive to the issues envelope). Regression tests in `test/anomaly_detector_test.dart`.
+- Parallelized independent sequential awaits with `Future.wait` in `analytics_handler` (PRAGMA queries), `compare_handler` (schema/table queries, column maps), and `report_handler` (table info/rows/count). Converted manual index loops to `asMap().entries` in `edits_batch_handler`, `index_batch_handler`, and `sql_validator`. Added long-poll delay comment in `generation_handler`. Suppressed false-positive lint warnings where sequential execution is intentional (shutdown ordering, guard-then-query, in-place mutation, ordered dispatch).
 
 </details>
 

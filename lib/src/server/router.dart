@@ -234,7 +234,8 @@ final class Router {
         return;
       }
 
-      // Dispatch to domain-specific route groups.
+      // Dispatch to domain-specific route groups (sequential: first match wins).
+      // ignore: avoid_sequential_awaits
       if (await _routeActivityApi(req, res, path)) return;
       if (await _routeTableApi(req, res, path, query)) return;
       if (await _routeSqlApi(req, res, path, query)) return;

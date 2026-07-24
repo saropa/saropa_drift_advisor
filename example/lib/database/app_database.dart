@@ -8,6 +8,8 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'advisor_timing_interceptor.dart';
+
 part 'app_database.g.dart';
 
 /// Users table: author of posts and comments.
@@ -77,7 +79,13 @@ class AppDatabase extends _$AppDatabase {
       }
       final path = p.join(dirPath, _dbFileName);
       final file = File(path);
-      final executor = NativeDatabase(file);
+      // interceptWith forwards every read/write through AdvisorTimingInterceptor,
+      // which reports each query's timing to the advisor so the performance
+      // report reflects real app traffic (Feature 61). The interceptor is a
+      // no-op when the advisor server is not running (release builds).
+      final executor = NativeDatabase(
+        file,
+      ).interceptWith(AdvisorTimingInterceptor());
       return AppDatabase._(executor, dbPath: path);
     } on Object catch (e, st) {
       Error.throwWithStackTrace(

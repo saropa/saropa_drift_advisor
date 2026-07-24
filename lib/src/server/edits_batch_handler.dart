@@ -52,14 +52,14 @@ final class EditsBatchHandler {
     if (statements.length > maxStatements) {
       throw ArgumentError('Too many statements (max $maxStatements).');
     }
-    for (var i = 0; i < statements.length; i++) {
-      final rawStmt = statements[i];
+    for (final entry in statements.asMap().entries) {
+      final rawStmt = entry.value;
       if (rawStmt.trim().isEmpty) {
-        throw FormatException('Empty statement at index $i');
+        throw FormatException('Empty statement at index ${entry.key}');
       }
       if (!SqlValidator.isSingleDataMutationSql(rawStmt)) {
         throw FormatException(
-          'Invalid data statement at index $i (allowed: single UPDATE, '
+          'Invalid data statement at index ${entry.key} (allowed: single UPDATE, '
           'INSERT INTO, or DELETE FROM).',
         );
       }
@@ -67,8 +67,8 @@ final class EditsBatchHandler {
 
     try {
       await writeQuery('BEGIN IMMEDIATE;');
-      for (var i = 0; i < statements.length; i++) {
-        final rawStmt = statements[i];
+      for (final entry in statements.asMap().entries) {
+        final rawStmt = entry.value;
         var s = rawStmt.trim();
         if (!s.endsWith(';')) {
           s = '$s;';
@@ -79,7 +79,7 @@ final class EditsBatchHandler {
           // Use as throw operand so the [Never] return is not treated as discarded.
           throw Error.throwWithStackTrace(
             BatchApplyStatementError(
-              index: i,
+              index: entry.key,
               statement: rawStmt,
               cause: statementError,
             ),

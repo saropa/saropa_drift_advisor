@@ -180,6 +180,7 @@ final class GenerationHandler {
 
       while (DateTime.now().toUtc().isBefore(deadline) &&
           _ctx.generation <= since) {
+        // Long-poll tick: sleep between data-change checks to avoid busy-waiting.
         await Future<void>.delayed(ServerConstants.longPollCheckInterval);
         await _ctx.checkDataChange();
       }

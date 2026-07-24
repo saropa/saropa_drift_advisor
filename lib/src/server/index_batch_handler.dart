@@ -47,13 +47,13 @@ final class IndexBatchHandler {
 
     final valid = <String>[];
     final rejected = <Map<String, dynamic>>[];
-    for (var i = 0; i < sqls.length; i++) {
-      final sql = sqls[i];
+    for (final entry in sqls.asMap().entries) {
+      final sql = entry.value;
       if (SqlValidator.isSingleCreateIndexSql(sql)) {
         valid.add(sql);
       } else {
         rejected.add(<String, dynamic>{
-          ServerConstants.jsonKeyIndex: i,
+          ServerConstants.jsonKeyIndex: entry.key,
           ServerConstants.jsonKeySql: sql,
           ServerConstants.jsonKeyReason: rejectionReason,
         });
@@ -97,13 +97,13 @@ final class IndexBatchHandler {
 
     final results = <Map<String, dynamic>>[];
     var applied = 0;
-    for (var i = 0; i < sqls.length; i++) {
-      final sql = sqls[i];
+    for (final entry in sqls.asMap().entries) {
+      final sql = entry.value;
       // Reject up front so a bad statement is reported, not executed, while the
       // remaining valid ones still apply (best-effort).
       if (!SqlValidator.isSingleCreateIndexSql(sql)) {
         results.add(<String, dynamic>{
-          ServerConstants.jsonKeyIndex: i,
+          ServerConstants.jsonKeyIndex: entry.key,
           ServerConstants.jsonKeySql: sql,
           ServerConstants.jsonKeyOk: false,
           ServerConstants.jsonKeyError: rejectionReason,
@@ -118,7 +118,7 @@ final class IndexBatchHandler {
         await writeQuery(stmt);
         applied++;
         results.add(<String, dynamic>{
-          ServerConstants.jsonKeyIndex: i,
+          ServerConstants.jsonKeyIndex: entry.key,
           ServerConstants.jsonKeySql: sql,
           ServerConstants.jsonKeyOk: true,
         });
@@ -127,7 +127,7 @@ final class IndexBatchHandler {
         // must not drop the indexes that succeeded.
         _ctx.logError(error, stack);
         results.add(<String, dynamic>{
-          ServerConstants.jsonKeyIndex: i,
+          ServerConstants.jsonKeyIndex: entry.key,
           ServerConstants.jsonKeySql: sql,
           ServerConstants.jsonKeyOk: false,
           ServerConstants.jsonKeyError: error.toString(),
