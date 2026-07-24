@@ -30,6 +30,8 @@ A secondary gap: several per-locale cognates (`Schema` in Italian, `Status` /
 
 ## Changes
 
+### Initial fix
+
 - **`scripts/modules/l10n/brands.py`**: Added `NULL`, `PNG`, `SVG` to
   `ACRONYM_ONLY_STRINGS`. Populated `VERIFIED_IDENTICAL` with confirmed
   per-locale cognates. Enhanced `is_no_translatable_content` to strip known
@@ -44,10 +46,41 @@ A secondary gap: several per-locale cognates (`Schema` in Italian, `Status` /
   the new acronym entries, the acronym-stripping behavior in
   `is_no_translatable_content`, and `VERIFIED_IDENTICAL` lookups.
 
+### Hardening pass
+
+- **Word-boundary-aware acronym stripping.** Replaced plain `str.replace` in
+  `is_no_translatable_content` with a pre-compiled `\b(?:...)\b` regex, so
+  acronym substrings inside real words (e.g., `NULL` inside `NULLIFY`) are not
+  stripped. Test added for this edge case.
+
+- **Placeholder-aware cognate matching.** `is_verified_identical` now strips
+  `{n}` placeholders and trailing punctuation before matching, so a single
+  cognate entry (e.g., `Total`) covers all placeholder variants (e.g.,
+  `Total: {0}`) without requiring every variant to be listed. Removed the
+  fragile `"Total: {0}"` entry from `VERIFIED_IDENTICAL`.
+
+- **Idempotent identity-key writes.** The pre-loop block now checks whether
+  each key is already present in the bundle before writing, and only emits
+  the diagnostic line when keys are actually added. Test added to verify a
+  second translate run produces no identity-key output.
+
+- **Identity-key write path tested.** Added assertion in the existing
+  `test_translate_writes_bundles_with_injected_fake` that the forced-identity
+  key (`SQLite`) is written to the web bundle with its English value.
+
+### Auto-cognate detector
+
+- **`_write_cognate_candidates` in `actions.py`.** After a translate pass, any
+  key where MT returned the English text unchanged is collected per locale and
+  written to `reports/<date>/<stamp>_cognate_candidates.json`. The file lists
+  `{locale: [{key, english}, ...]}` for human review. Confirmed entries go into
+  `VERIFIED_IDENTICAL` in `brands.py`. The translate action emits a summary
+  count and the file path when candidates are found.
+
 ## Verification
 
 - All 10 locales show 0 untranslated after the fix (verified via Python script
   against live source registries and locale bundles).
-- All 9 audit tests pass; all 7 brand tests pass (including 3 new).
+- All 13 brand + audit-sync tests pass (7 brand + 6 audit-sync).
 - Three pre-existing test failures in `TestProvenance` (NLLB quality
   classification) are unrelated and predate this change.

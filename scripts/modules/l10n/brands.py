@@ -47,7 +47,7 @@ ACRONYM_ONLY_STRINGS: frozenset[str] = frozenset({
 VERIFIED_IDENTICAL: dict[str, frozenset[str]] = {
     "it": frozenset({"Schema"}),
     "ko": frozenset({"ms"}),
-    "pt-br": frozenset({"TOTAL", "Total", "Total: {0}", "Status", "Regex"}),
+    "pt-br": frozenset({"TOTAL", "Total", "Status", "Regex"}),
 }
 
 # Substrings that must survive translation verbatim. Longest-first so
@@ -100,13 +100,31 @@ def is_acronym_only(en_value: str) -> bool:
 
 
 def is_verified_identical(en_value: str, locale: str) -> bool:
-    """True if a human verified English is the correct rendering in this locale."""
-    return en_value in VERIFIED_IDENTICAL.get(locale, frozenset())
+    """True if a human verified English is the correct rendering in this locale.
+
+    Matches both the exact string and the words remaining after placeholder
+    stripping, so a cognate entry for "Total" also covers "Total: {0}" without
+    requiring every placeholder variant to be listed separately.
+    """
+    pool = VERIFIED_IDENTICAL.get(locale, frozenset())
+    if en_value in pool:
+        return True
+    words_only = _PLACEHOLDER_RE.sub("", en_value).strip().rstrip(":")
+    return words_only != en_value and words_only in pool
 
 
 # Format placeholders ({0}, {1}, {count}) are substituted at runtime and are not
 # translatable text. Drop them before deciding whether a real word remains.
 _PLACEHOLDER_RE = re.compile(r"\{[^}]*\}")
+
+# Word-boundary-aware pattern for stripping known acronyms. Longest-first so
+# "PRAGMA" matches before "PK" in adjacent positions. Uses \b to avoid
+# substring collisions (e.g., "NULL" inside "NULLIFY").
+_ACRONYM_STRIP_RE = re.compile(
+    r"\b(?:" + "|".join(
+        re.escape(a) for a in sorted(ACRONYM_ONLY_STRINGS, key=len, reverse=True)
+    ) + r")\b"
+)
 
 
 def is_no_translatable_content(en_value: str) -> bool:
@@ -119,9 +137,8 @@ def is_no_translatable_content(en_value: str) -> bool:
     translatable; a lone letter-shaped symbol does not.
     """
     stripped = _PLACEHOLDER_RE.sub("", en_value)
-    # Strip known acronyms so "✓ FK {0} → {1}" becomes "✓  → " (no ASCII left).
-    for acronym in sorted(ACRONYM_ONLY_STRINGS, key=len, reverse=True):
-        stripped = stripped.replace(acronym, "")
+    # Strip whole-word acronyms so "✓ FK {0} → {1}" becomes "✓   → " (no ASCII).
+    stripped = _ACRONYM_STRIP_RE.sub("", stripped)
     if any("a" <= ch.lower() <= "z" for ch in stripped):
         return False
     run = 0

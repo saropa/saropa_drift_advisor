@@ -212,6 +212,29 @@ class _TranslateLogger:
                 pass
 
 
+def _write_cognate_candidates(
+    reports_dir: Path,
+    timestamp: str,
+    candidates: dict[str, list[tuple[str, str]]],
+) -> Path:
+    """Write a JSON file listing keys where MT returned English unchanged.
+
+    Format: `{locale: [{key, english}, ...]}`. A human reviews the file and
+    adds confirmed entries to `VERIFIED_IDENTICAL` in `brands.py`.
+    """
+    import json
+    path = reports_dir / f"{timestamp}_cognate_candidates.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        loc: [{"key": k, "english": en} for k, en in entries]
+        for loc, entries in sorted(candidates.items())
+    }
+    path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8",
+    )
+    return path
+
+
 def run_translate_action(
     emit: Emit,
     locales: list[str],
@@ -277,6 +300,7 @@ def run_translate_action(
     )
 
     grand_total = 0
+    cognate_candidates: dict[str, list[tuple[str, str]]] = {}
     try:
         for locale in locales:
             web_bundle = bundles.load_json(bundles.web_locale_bundle_path(locale))
@@ -294,17 +318,24 @@ def run_translate_action(
             # Forced-identity keys (brands/acronyms/symbols) that are missing from
             # the bundles get their English value written now — they don't need MT
             # but must be present so the audit stops counting them as "missing".
-            identity_keys = [k for k in keys if is_forced_identity(source[k], locale)]
-            for k in identity_keys:
+            identity_added = 0
+            for k in keys:
+                if not is_forced_identity(source[k], locale):
+                    continue
                 english = source[k]
                 if k in web_keys:
-                    web_bundle[k] = english
+                    if k not in web_bundle:
+                        web_bundle[k] = english
+                        identity_added += 1
                 else:
-                    host_bundle[source_host[k]] = english
-            if identity_keys:
+                    host_english = source_host[k]
+                    if host_english not in host_bundle:
+                        host_bundle[host_english] = english
+                        identity_added += 1
+            if identity_added:
                 bundles.write_json_atomic(bundles.web_locale_bundle_path(locale), web_bundle)
                 bundles.write_json_atomic(bundles.host_locale_bundle_path(locale), host_bundle)
-                emit(f"  {C.DIM}{locale}: wrote {len(identity_keys)} identity keys{C.RESET}")
+                emit(f"  {C.DIM}{locale}: wrote {identity_added} identity keys{C.RESET}")
 
             # Pre-filter to the keys whose correct value is genuinely a translation.
             # The progress denominator AND the per-locale word total are taken from
@@ -332,7 +363,6 @@ def run_translate_action(
                     processed += 1
                     processed_words += len(english.split())
                     if brands.validate_brands(english, value):
-                        # Dropped a brand — keep English, don't ship mangled; record it.
                         logger.dropped(locale, key, english, "DROPPED (brand mangled)")
                     else:
                         if key in web_keys:
@@ -342,6 +372,9 @@ def run_translate_action(
                         prov_updates[key] = engine_label
                         logger.translated(locale, key, english, value)
                         done += 1
+                        # MT returned the English text unchanged — probable cognate.
+                        if value == english:
+                            cognate_candidates.setdefault(locale, []).append((key, english))
                     meter.update(processed, processed_words)
             except engines.EngineUnavailableError as exc:
                 logger.dropped(locale, "—", "—", f"ENGINE UNAVAILABLE ({exc})")
@@ -366,6 +399,13 @@ def run_translate_action(
 
         emit(f"{C.GREEN}Done{C.RESET} — {C.BOLD}{grand_total}{C.RESET} translations "
              f"across {len(locales)} locale(s). Run --run-mode audit to review coverage.")
+        if cognate_candidates:
+            cognate_path = _write_cognate_candidates(reports_dir, timestamp, cognate_candidates)
+            total_cands = sum(len(v) for v in cognate_candidates.values())
+            emit(f"  {C.YELLOW}Cognate candidates{C.RESET}: {total_cands} keys across "
+                 f"{len(cognate_candidates)} locale(s) returned English unchanged.")
+            emit(f"  Review: {C.WHITE}{cognate_path}{C.RESET}")
+            emit(f"  {C.DIM}Confirmed entries go into VERIFIED_IDENTICAL in brands.py.{C.RESET}")
         return 0
     finally:
         # Always close the logs and surface their locations — including on an early

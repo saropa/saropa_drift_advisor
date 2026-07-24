@@ -74,6 +74,8 @@ class TestBrands(unittest.TestCase):
         self.assertTrue(brands.is_no_translatable_content("FK → {0}.{1}"))
         # Mixed: acronym + real word → still translatable.
         self.assertFalse(brands.is_no_translatable_content("Copy SQL"))
+        # Word-boundary safety: acronym as substring of a real word.
+        self.assertFalse(brands.is_no_translatable_content("NULLIFY"))
 
     def test_acronym_only_includes_null_png_svg(self):
         for acr in ("NULL", "PNG", "SVG"):
@@ -84,6 +86,9 @@ class TestBrands(unittest.TestCase):
         self.assertTrue(brands.is_verified_identical("Status", "pt-br"))
         self.assertFalse(brands.is_verified_identical("Schema", "de"))
         self.assertFalse(brands.is_verified_identical("Status", "ja"))
+        # Placeholder-stripping: "Total" covers "Total: {0}" without listing variants.
+        self.assertTrue(brands.is_verified_identical("Total: {0}", "pt-br"))
+        self.assertTrue(brands.is_verified_identical("Total", "pt-br"))
 
     def test_shield_unshield_roundtrip(self):
         text = "Open Saropa Drift Advisor with SQLite"
@@ -282,10 +287,28 @@ class TestAuditSync(unittest.TestCase):
         self.assertEqual(web.get("viewer.bye"), "[de]Bye")
         self.assertEqual(host.get("Hello"), "[de]Hello")
         self.assertEqual(provenance.load_provenance("de").get("viewer.bye"), ENGINE_GOOGLE)
+        # Forced-identity key "SQLite" (brand) written with its English value.
+        self.assertEqual(web.get("viewer.brand"), "SQLite")
         # The success log and (always-created) error log exist and are surfaced.
         self.assertTrue((reports_dir / "testrun_translate.log").exists())
         self.assertTrue((reports_dir / "testrun_translate_errors.log").exists())
         self.assertTrue(any("Translation log:" in line for line in out))
+
+    def test_translate_identity_keys_idempotent(self):
+        # Second translate run emits no identity-key message (keys already present).
+        from modules.l10n import actions
+        fake = lambda english, locale: f"[{locale}]{english}"
+        reports_dir = Path(self._tmp.name) / "reports"
+        actions.run_translate_action(
+            lambda _: None, ["de"], "gaps", confirmed=True, translate_fn=fake,
+            throttle=0, reports_dir=reports_dir, timestamp="run1",
+        )
+        out: list[str] = []
+        actions.run_translate_action(
+            out.append, ["de"], "gaps", confirmed=True, translate_fn=fake,
+            throttle=0, reports_dir=reports_dir, timestamp="run2",
+        )
+        self.assertFalse(any("identity keys" in line for line in out))
 
 
 class TestMenu(unittest.TestCase):
