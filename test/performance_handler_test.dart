@@ -402,7 +402,8 @@ void main() {
         ctx.queryTimings.add(_timing('SELECT * FROM contacts', 5));
         var data = await handler.getPerformanceData();
         expect(data['hint'], contains('QueryInterceptor'));
-        expect(data['hint'], contains('advisor_timing_interceptor.dart'));
+        expect(data['hint'], contains('reportAppQuery'));
+        expect(data['hint'], contains('APP_QUERY_TIMING.md'));
 
         // Once the app reports a query, the hint clears itself.
         ctx.recordAppTiming(

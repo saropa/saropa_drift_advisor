@@ -420,6 +420,8 @@ final executor = NativeDatabase(file).interceptWith(AdvisorTimingInterceptor());
 
 A complete, tested interceptor ships in the example — copy [example/lib/database/advisor_timing_interceptor.dart](example/lib/database/advisor_timing_interceptor.dart) (it lives in the example, not the package, because the package intentionally does not depend on `drift`). It calls `DriftDebugServer.reportAppQuery(...)`, which is a no-op in release builds and when the server is not running, so it is safe to leave installed. Reported queries appear tagged `source: "app"`, and writes make the static-table anomaly suggestions accurate.
 
+**Full integration guide — [doc/APP_QUERY_TIMING.md](doc/APP_QUERY_TIMING.md)** covers the wiring, the same-isolate requirement, verification, troubleshooting, and the callback-API alternative. Start there when integrating into another project.
+
 ### 3. Connect a client
 
 **VS Code extension (recommended):** Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the Marketplace. It auto-discovers the running server — no configuration needed. On Android emulator, the extension automatically forwards the debug server port when a Flutter/Dart debug session is active.
@@ -497,6 +499,7 @@ With token auth, open `https://your-tunnel.example/?token=your-secret-token`; th
 | Resource                                                                                | Description                                                                                                            |
 | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | **[doc/API.md](doc/API.md)**                                                            | REST endpoints, request/response shapes, and error codes for the debug server.                                         |
+| **[doc/APP_QUERY_TIMING.md](doc/APP_QUERY_TIMING.md)**                                  | How to make the Performance tab and exports reflect your app's real queries (Drift `QueryInterceptor` integration).     |
 | **[extension/README.md](extension/README.md)**                                          | Extension commands, **25+** `driftViewer.*` settings, keyboard shortcuts, and troubleshooting.                         |
 | **[example/README.md](example/README.md)**                                              | Runnable sample app (multi-table schema, FKs, optional auth).                                                          |
 | **[pub.dev documentation](https://pub.dev/documentation/saropa_drift_advisor/latest/)** | Generated Dart API docs for the package.                                                                               |

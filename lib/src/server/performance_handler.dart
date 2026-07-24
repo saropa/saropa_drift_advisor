@@ -110,10 +110,9 @@ final class PerformanceHandler {
       data['hint'] =
           'No application queries captured — recorded timings are advisor- or '
           'browser-issued only. Forward your app query timings via '
-          'DriftDebugServer.reportAppQuery (the easiest way is a Drift '
-          'QueryInterceptor — see '
-          'example/lib/database/advisor_timing_interceptor.dart) so this report '
-          'reflects real app traffic.';
+          'DriftDebugServer.reportAppQuery (usually a Drift QueryInterceptor) '
+          'so this report reflects real app traffic. Guide: '
+          'doc/APP_QUERY_TIMING.md.';
     }
 
     return Future<Map<String, dynamic>>.value(data);

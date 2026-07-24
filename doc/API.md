@@ -1,6 +1,6 @@
 # Saropa Drift Advisor — REST API Reference
 
-**API version:** 4.1.8 (synced with `ServerConstants.packageVersion`)
+**API version:** 4.2.3 (synced with `ServerConstants.packageVersion`)
 **Base URL:** `http://localhost:{port}` (default port: **8642**)
 
 > **Finding a running server (non-UI clients):** on startup the server writes a
@@ -33,9 +33,13 @@
   - [Compare](#compare)
   - [Analytics](#analytics)
   - [Issues](#issues)
+  - [Soft Relationships](#soft-relationships)
   - [Performance](#performance)
+  - [Query History](#query-history)
+  - [Query Replay (DVR)](#query-replay-dvr)
+  - [Mutations](#mutations)
   - [Sessions](#sessions)
-  - [Import](#import)
+  - [Write Endpoints](#write-endpoints)
   - [Change Detection](#change-detection)
   - [Monitoring Kill Switch](#monitoring-kill-switch)
   - [Special Routes](#special-routes)
@@ -59,7 +63,7 @@ user's home directory:
 {
   "host": "127.0.0.1",
   "port": 8642,
-  "version": "4.1.8",
+  "version": "4.2.3",
   "schemaVersion": 1,
   "writeEnabled": false,
   "loopbackOnly": true,
@@ -197,11 +201,11 @@ endpoints an external agent uses to inspect a live database.
 ```json
 {
   "name": "Saropa Drift Advisor",
-  "version": "4.1.8",
+  "version": "4.2.3",
   "schemaVersion": 1,
   "writeEnabled": false,
   "loopbackOnly": true,
-  "docs": "https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v4.1.8/doc/API.md",
+  "docs": "https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v4.2.3/doc/API.md",
   "endpoints": [
     { "method": "GET", "path": "/api/health", "description": "Liveness probe; reports version, flags, capabilities, endpoints." },
     { "method": "POST", "path": "/api/sql", "description": "Run read-only SQL. Body {\"sql\":\"SELECT ...\"}; returns {\"rows\":[...]}." }
@@ -233,7 +237,7 @@ Health check. Always succeeds when the server is running.
 {
   "ok": true,
   "extensionConnected": false,
-  "version": "4.1.8",
+  "version": "4.2.3",
   "schemaVersion": 1,
   "writeEnabled": false,
   "compareEnabled": false,
@@ -705,6 +709,139 @@ Returns table metadata including column info and row counts. When change detecti
 
 ---
 
+### `GET /api/views`
+
+Returns a list of SQL views defined in the database. Independent of change detection — reads `sqlite_master` directly.
+
+**Response** `200 OK`
+
+```json
+{
+  "views": [
+    {
+      "name": "active_users",
+      "sql": "CREATE VIEW active_users AS SELECT * FROM users WHERE active = 1"
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `views` | array | List of view objects |
+| `views[].name` | string | View name |
+| `views[].sql` | string | The `CREATE VIEW` statement |
+
+---
+
+### `GET /api/schema/declared`
+
+Returns the host-declared (code-side) Drift schema, when the host app supplies a `declaredSchema` callback. Independent of change detection — reads an in-memory callback, issues no DB queries.
+
+**Response** `200 OK` — callback configured
+
+```json
+{
+  "available": true,
+  "tables": [
+    {
+      "name": "items",
+      "columns": [
+        { "name": "id", "sqlType": "INTEGER", "driftType": "int", "nullable": false, "isPk": true },
+        { "name": "title", "sqlType": "TEXT", "nullable": true, "isPk": false }
+      ],
+      "indexes": []
+    }
+  ]
+}
+```
+
+**Response** `200 OK` — no callback
+
+```json
+{
+  "available": false,
+  "tables": []
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `available` | boolean | Whether the host supplied a `declaredSchema` callback |
+| `tables` | array | Declared table definitions; empty when unavailable |
+| `tables[].columns[].sqlType` | string | SQL affinity type (`INTEGER`, `TEXT`, etc.) |
+| `tables[].columns[].driftType` | string (optional) | Drift-level type name when the host provides it |
+| `tables[].columns[].nullable` | boolean | Whether the column allows NULL |
+| `tables[].columns[].isPk` | boolean | Whether the column is (part of) the primary key |
+
+---
+
+### `GET /api/schema/relationships`
+
+Returns the host-declared relationship manifest. Independent of change detection — reads an in-memory callback, issues no DB queries.
+
+**Response** `200 OK` — callback configured
+
+```json
+{
+  "available": true,
+  "relationships": [
+    {
+      "fromTable": "orders",
+      "fromColumn": "user_id",
+      "toTable": "users",
+      "toColumn": "id",
+      "label": "placed by"
+    }
+  ]
+}
+```
+
+**Response** `200 OK` — no callback
+
+```json
+{
+  "available": false,
+  "relationships": []
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `available` | boolean | Whether the host supplied a relationship manifest callback |
+| `relationships` | array | Declared relationships; empty when unavailable |
+| `relationships[].fromTable` | string | Source table name |
+| `relationships[].fromColumn` | string | Source column name |
+| `relationships[].toTable` | string | Target table name |
+| `relationships[].toColumn` | string | Target column name |
+| `relationships[].label` | string (optional) | Human-readable edge label, when the host sets one |
+
+---
+
+### `GET /api/report`
+
+Downloads a self-contained HTML report of the database state: schema, table data, and anomalies.
+
+**Query Parameters**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `tables` | string (optional) | all | Comma-separated table names to include. Unknown names are silently filtered out. |
+| `maxRows` | int (optional) | 1000 | Maximum rows per table (clamped 1–50,000) |
+| `schema` | string (optional) | include | Pass `"false"` to omit the schema section |
+| `anomalies` | string (optional) | include | Pass `"false"` to omit the anomalies section |
+
+**Response** `200 OK`
+
+```
+Content-Type: text/html
+Content-Disposition: attachment; filename="drift-report-2026-07-24.html"
+```
+
+Body: a self-contained HTML page with inline CSS, suitable for sharing or archiving.
+
+---
+
 ### `GET /api/dump`
 
 Returns full SQL dump (schema + INSERT statements for all data) as a downloadable text file.
@@ -863,9 +1000,37 @@ Diffs the current database state against the stored snapshot.
 
 ---
 
+### `GET /api/snapshots`
+
+Lists all stored snapshots (oldest first).
+
+**Response** `200 OK`
+
+```json
+{
+  "snapshots": [
+    {
+      "id": "2025-06-15T10:30:00.000Z",
+      "createdAt": "2025-06-15T10:30:00.000Z",
+      "label": "before migration",
+      "tableCount": 3
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `snapshots[].id` | string | Snapshot identifier (ISO 8601 timestamp) |
+| `snapshots[].createdAt` | string | When the snapshot was taken (ISO 8601 UTC) |
+| `snapshots[].label` | string or null | User-assigned label, when set |
+| `snapshots[].tableCount` | int | Number of tables captured |
+
+---
+
 ### `DELETE /api/snapshot`
 
-Clears the in-memory snapshot.
+Clears all in-memory snapshots.
 
 **Response** `200 OK`
 
@@ -874,6 +1039,71 @@ Clears the in-memory snapshot.
   "ok": "Snapshot cleared."
 }
 ```
+
+---
+
+### `DELETE /api/snapshot/{id}`
+
+Deletes a single snapshot by ID.
+
+**Path Parameters**
+
+| Param | Description |
+|-------|-------------|
+| `id` | URL-encoded snapshot ID |
+
+**Response** `200 OK`
+
+```json
+{
+  "ok": true,
+  "id": "2025-06-15T10:30:00.000Z"
+}
+```
+
+**Error** `404 Not Found` — snapshot not found
+
+```json
+{
+  "error": "No snapshot..."
+}
+```
+
+---
+
+### `PUT /api/snapshot/{id}`
+
+Renames a snapshot (sets or clears its label).
+
+**Path Parameters**
+
+| Param | Description |
+|-------|-------------|
+| `id` | URL-encoded snapshot ID |
+
+**Request** `Content-Type: application/json`
+
+```json
+{
+  "label": "after migration"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `label` | string | New label; empty or blank clears the label |
+
+**Response** `200 OK`
+
+```json
+{
+  "ok": true,
+  "id": "2025-06-15T10:30:00.000Z",
+  "label": "after migration"
+}
+```
+
+**Error** `404 Not Found` — snapshot not found (same as above).
 
 ---
 

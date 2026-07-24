@@ -1088,6 +1088,10 @@ mixin DriftDebugServer {
   /// unless the app forwards them here. Recorded timings are tagged
   /// `source: "app"`.
   ///
+  /// Full integration guide: `doc/APP_QUERY_TIMING.md` (wiring, the same-isolate
+  /// requirement, verification, troubleshooting, and the callback-API
+  /// alternative) — the single source to hand another project.
+  ///
   /// Wire it with a Drift `QueryInterceptor` that times each query. Because
   /// this package must not depend on `package:drift`, the interceptor lives in
   /// YOUR code (drift is already a dependency there). A complete, tested one is

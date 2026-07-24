@@ -1,6 +1,130 @@
 # Changelog Archive
 
-Versions 4.0.2 and prior. For current changes see [CHANGELOG.md](./CHANGELOG.md).
+Versions 4.1.0 and prior. For current changes see [CHANGELOG.md](./CHANGELOG.md).
+
+---
+
+## [4.1.0]
+
+Database views now show up alongside tables, there's a dedicated Views screen for their definitions and output, and querying them returns real values instead of "undefined". [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.0/CHANGELOG.md)
+
+### Added
+
+- **A dedicated Views screen.** A new Views tab lists every view in your database; selecting one shows its `CREATE VIEW` definition and a sample of its output side by side. Reach it from the toolbar (next to Schema) or the Home launcher. Views are read-only, so this is a focused place to inspect them — handy when a tool like PowerSync exposes your whole data model through views.
+
+### Fixed
+
+- **Views now appear in the sidebar, schema, and column pickers.** The table list only ever queried base tables, so databases that expose their schema through views — PowerSync, for example, stores rows as JSON and fronts them with views — looked empty even though the data was there. Views are now listed everywhere tables are, with their columns resolved the same way.
+- **Querying a view no longer shows "undefined" in every cell.** The SQL Notebook expected result rows in one shape but received them in another, so column headers were correct while every value rendered as the literal text "undefined". Results now display their real values, on both the live-app and HTTP connections.
+
+<details><summary>Maintenance</summary>
+
+- **Views included in the table-discovery query.** `ServerConstants.sqlTableNames` now selects `type IN ('table','view')` instead of `type='table'`. `PRAGMA table_info` resolves view columns identically, so the sidebar tree, schema metadata, and SQL field pickers populate without further change; write paths return empty for views (correct read-only behavior). GitHub issue #32 (`lib/src/server/server_constants.dart`).
+- **Result rows normalized to the columnar contract in both transport adapters.** The server returns object-rows (`{col: value}`), but every extension consumer (notebook renderer, `zipRow`, CSV/JSON export, watch/snapshot/diff) indexes rows positionally against a `columns` array. The VM-service adapter derived `columns` but left rows as objects — so the notebook read `row[0]` on an object and rendered `String(undefined)` — and the HTTP adapter returned the raw payload with no `columns` at all. A shared `objectRowsToColumnar` helper now converts both to `{columns, rows[][]}`. Test fixtures that stubbed the never-emitted columnar response shape were moved to the real object-row shape. GitHub issue #32 (`extension/src/shared-utils.ts`, `extension/src/transport/vm-service-api.ts`, `extension/src/api-client-http-query.ts`).
+- **New Views screen (web viewer).** `GET /api/views` returns `[{name, sql}]` from `sqlite_master` (new `SchemaHandler.getViewsList` + `sqlViewDefinitions`); the `views-screen.ts` tab renders the list, highlights each view's DDL, and runs a capped `SELECT` through the read-only `/api/sql` path for the output. New tab registration (`state.ts`), panel markup + toolbar button (`html_content.dart`), styles (`_views-screen.scss`), themed tab accents, and l10n keys (`strings-web-views.ts`). GitHub issue #32.
+- **Migration preview new-table lookup made view-inclusive.** `CompareHandler._migrationNewTables` still filtered its single-object `sqlite_master` lookup to `type='table'`, so once the table list began including views a view-backed "new" object returned no CREATE statement and was silently dropped from the generated DDL (and `compare_handler_test` got empty `migrationSql`). The lookup now selects `type IN ('table','view')` to match `getTableNames`. GitHub issue #32 (`lib/src/server/compare_handler.dart`).
+
+</details>
+
+---
+
+## [4.0.5]
+
+Maintenance-only: the publish pipeline now offers **Retry** as the default action whenever a git step fails. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.5/CHANGELOG.md)
+
+<details><summary>Maintenance</summary>
+
+- **Git failure prompts in the publish pipeline now offer Retry (default), Skip, Abort** instead of just Skip/Abort. The common cause of a failed commit here is a husky pre-commit hook (`dart format` / saropa_lints) that rewrites a staged file and fails the first attempt; a bare Enter now re-runs the step. For commits, retry restarts from `git add` so the hook's reformatted files get re-staged. Tag creation and tag push use separate retry loops so retrying a push never tries to recreate an existing tag. EOF / Ctrl+C maps to Abort so a closed stdin cannot loop forever (`scripts/modules/git_ops.py`, `scripts/modules/display.py`).
+- **Fixed a publish-pipeline ordering bug that shipped a drifted version constant.** The pipeline synced `ServerConstants.packageVersion` to pubspec.yaml *before* the version/CHANGELOG validation step could raise pubspec to the CHANGELOG's max version, so the constant could lag one release behind (pubspec `4.0.5`, constant `4.0.4`). `version_sync_test` then failed `flutter test` on `main` and on every dependabot PR branched from it, turning CI permanently red. The constant is now re-synced *after* version validation, and the lagging constant was corrected to `4.0.5` (`scripts/modules/pipeline.py`, `lib/src/server/server_constants.dart`).
+- **CI Analyze step no longer fails on advisory `info`-level lints.** Both workflows now run `flutter analyze --fatal-warnings` instead of `--fatal-infos`. `saropa_lints` is a caret dependency with no committed lockfile, so CI resolves whatever version is newest at run time; a new saropa_lints minor adding an info-level rule would otherwise red Analyze on every PR — including unrelated dependency bumps — for non-blocking noise. Warnings and errors still fail the build, and the full saropa_lints quality pass still runs in `scripts/publish.py` before any release (`.github/workflows/main.yaml`, `.github/workflows/publish.yml`).
+
+</details>
+
+---
+
+## [4.0.4]
+
+The web viewer's Home tab is easier to read and to navigate: a plain-language overview of every tool, a fuzzy search box to jump to a feature by name, color-coded tool cards, and more breathing room between them. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.4/CHANGELOG.md)
+
+### Added
+
+- **Search for a feature on the Home tab.** A new search box filters the tool cards as you type and is fuzzy, so "theme", "diff", "redact", or "erd" all land on the right card even when that exact word is not the tool's name. Press Escape to clear it. This searches features, not your table data — the Search tool still does that.
+- **A narrative overview under the Home heading.** The Home tab now opens with a short paragraph describing everything the viewer does, instead of leaving you to read it off the individual cards.
+- **Clear button in the Ask-in-English panel.** A new button beside the dictation mic empties your question and starts a fresh query in one click.
+- **Voice command keywords in the Ask panel.** When dictating, say "clear" / "start again" to empty the box, "run again" to re-run, or "what about last year" to re-ask your last question over a different time window. A new "Ask in English" setting turns this on or off (on by default) — turn it off to dictate those words literally.
+- **Ask in English now answers two time windows at once.** "How many contacts were added this year and last month" returns both totals side by side in one result, instead of needing two separate questions.
+- **Ask in English now understands "weekly", "monthly", and other time buckets.** "Show me the weekly contacts added" builds a calendar of recent weeks and counts each one — including weeks with zero, so gaps are visible — using a recursive query you would otherwise have to hand-write.
+- **Format your SQL with one click.** The Run SQL editor has a new Format button, and queries are tidied automatically when you run them, apply a template, or send one over from Ask in English. SQL shown elsewhere — including the Schema view — is pretty-printed too.
+- **Copy query results as Markdown, CSV, or JSON.** Buttons above the results table copy the whole result set (every page) to the clipboard in the format you pick.
+- **Friendly chart axis labels.** Charts now show readable axis titles ("contacts_added" becomes "Contacts Added") by default; a toggle on the chart turns this off to show the raw column names.
+- **Charts build themselves for Ask-in-English series.** When a question produces a series (a per-day/per-week count, or any breakdown), using it now draws the matching chart with the axes already set. A toggle in the Ask panel (on by default) turns this off.
+- **Misspelled table names still find the right table.** Asking "how many activites…" now lands on your `activities` table instead of an unrelated one.
+- **Find fields fast on every diagram.** The ER Diagram, Schema Diagram, and the web viewer's diagram each gained a toolbar: search by field name or column type (type "integer" to spotlight every integer column), pick a single type from a dropdown, and choose whether matches are just highlighted (a chevron and accent border, with everything else dimmed) or whether non-matching tables and fields are hidden outright. Clearing the search restores the full diagram.
+- **The Schema tab is now a structured explorer, not just a wall of SQL.** Every table gets a card showing its columns with type, primary-key, foreign-key, and NOT NULL badges, plus quick stats (row count, column count, indexes, and how many tables it links to or is linked from). A filter box narrows the list by table or column name, and a type dropdown shows only tables that use a given column type. Cards flag problems at a glance: tables not declared in your Drift code, data-quality issues, foreign-key columns missing an index, and tables being written to right now. Copy buttons export the whole schema as SQL, Markdown, or JSON, and the raw DDL is still one click away at the bottom.
+
+### Changed
+
+- **Each Home tool card now carries its own color.** Every tool shows a colored accent (matching highlight on its card) so screens are easier to tell apart at a glance, and the cards have more space between them so the grid no longer feels crushed.
+
+### Improved
+
+- **The Ask panel's generated SQL is bigger and easier to read**, and the "Preview results" button now matches the rest of the app's buttons instead of looking like a plain browser default.
+- **The estimated-cost panel and the results table on the Run SQL screen are now collapsible**, so you can fold either away to focus on the query.
+- **Query result tables now match the rest of the app's table styling** — rounded corners, sticky header, zebra rows, and a footer that joins the table cleanly instead of the old mismatched corners.
+
+### Fixed
+
+- **The Ask panel's dictation mic no longer shows as a dead button in Firefox.** Browsers without speech recognition were still displaying the mic (it did nothing when clicked) because a style override defeated the markup that was meant to hide it. The mic now correctly disappears where dictation is unsupported.
+- **The Run button shows its play icon again.** It had been rendering the words "play_arrow Run" after the first run, because restoring the button's busy state dropped the icon markup.
+- **Charts no longer label the Y axis with the X axis's name.** The Y selector now defaults to a different (value) column than X, so a freshly drawn chart labels each axis correctly.
+- **One-page results no longer show dead Prev/Next buttons.** Pagination only appears when the result set spans more than one page.
+
+### Removed
+
+- **Removed the "Tables panel" / "History panel" switches from the Home tab.** They duplicated the sidebar's own show/hide control; toggle the sidebar from its own chrome instead.
+
+<details><summary>Maintenance</summary>
+
+- Home tab (`assets/web/home-screen.ts`, `_home-screen.scss`, `state.ts`, `html_content.dart`): removed the sidebar-toggle markup, styles, and the `_syncHomeSidebarToggles` window hook (its three guarded callers in `sidebar-panels.ts`, `toolbar.ts`, `app.js` deleted). Added per-tool `color` to `HOME_LAUNCHERS`/`HOME_EXTRAS` (driven into a `--tool-accent` CSS custom property), a `HOME_SEARCH_KEYWORDS` synonym dictionary, a per-card token search index with a per-token substring/fuzzy-subsequence matcher, and runtime-populated title/lead/search strings via new `viewer.nav.home.*` l10n keys. Loosened grid gap and card padding.
+- Ask-in-English panel (bug `plans/history/2026.06/2026.06.18/BUG_Microphone_button_not_work.md`, items 1–7):
+  - Mic visibility: added `.nl-icon-btn[hidden]{display:none}` in `_sql-editor.scss` — the button's `display:inline-flex` was overriding the UA `[hidden]` rule, so the mic stayed visible (and dead) on browsers without the Web Speech API.
+  - Generated-SQL preview enlarged (`_sql-editor.scss`): `min-height` 5rem→8rem, `font-size` 13px→`--text-sm`, color `--muted`→`--fg`. "Preview results" folded into the shared secondary-button selector group in `_buttons.scss` so it matches `.toolbar`/`.sql-toolbar` buttons.
+  - Clear button: new `#nl-clear` control in `html_content.dart` wired to `clearNlQuestion()` in `nl-modal.ts` (empties the box, resets the refine base, re-previews).
+  - Voice/keyword commands: `detectNlKeyword` + `applyTemporalSwap` (pure, exported) in `nl-to-sql.ts`; `interpretNlKeyword()` in `nl-modal.ts` consumes them in the mic `onresult` path. Gated by new `PREF_NL_KEYWORDS` (default true) with a settings toggle + `viewer.settings.ask.*` / `viewer.settings.group.ask` l10n keys.
+  - Multi-window counts: `multiWindowCount()` emits one `SUM(CASE WHEN <window> THEN 1 ELSE 0 END)` per window for a count question naming 2+ windows.
+  - Time-bucket series: `detectTimeBucket()` + `timeBucketSeries()` emit a `WITH RECURSIVE calendar(...)` + LEFT JOIN + GROUP BY for "weekly/monthly/…" so empty buckets still report 0.
+  - Refactor: extracted `resolveDateColumn()` + `dayExpr()` from `temporalWhere()` (now takes an optional forced column) so the window and bucket builders share its column choice. New tests in `assets/web/test/nl-keywords-buckets.test.mjs` (31 cases); full web suite 218 pass.
+- Run SQL screen (bug `plans/history/2026.06/2026.06.18/BUG_RUN_SQL_Screen.md`, items 1–11):
+  - Run-button icon: `setButtonBusy` (`utils.ts`) now stashes/restores the button's `innerHTML` via a `data-busy-restore` attribute instead of restoring `textContent`, so icon spans survive a busy cycle (fixes the literal "play_arrow Run").
+  - SQL formatting: added dependency `sql-formatter` (^15) and a `formatSqlSafe()` wrapper (`sql-format.ts`, SQLite dialect, uppercase keywords, fail-soft to original). Wired into the Run SQL editor (new `#sql-format` button + format on run / template / deep-link), the NL preview + Use + narrative (`nl-modal.ts`), and the Schema view (`schema.ts`, via `formatAndHighlightSchema`).
+  - Collapsible cost: `renderExplainInfo` wraps the cost summary in a `<details>` (`.explain-collapsible`); styles in `_sql-editor.scss`.
+  - Single-page pagination: `renderSqlResultPage` only emits the Prev/Next bar when `total > pageSize`.
+  - Result table: SQL result now uses `.drift-table` + `.data-table-scroll-wrap` + `.table-status-bar` inside a collapsible `.results-table-wrap` (`bindResultsToggle`); removed the conflicting SQL-specific table CSS that double-rounded corners.
+  - Copy/export: `rowsToMarkdown` / `rowsToCsv` / `rowsToJson` (exported, pure) + a copy toolbar that writes the full row set to the clipboard with a toast.
+  - Chart axis labels: `humanizeColumnLabel()` (`charts.ts`) + `#chart-nl-labels` toggle (default on) in the chart toolbar; `app.js` render handler humanizes axis titles and re-renders on toggle.
+  - Y-axis default: the run handler now seeds `#chart-y` to the first numeric (or second) column, distinct from `#chart-x`.
+  - Fuzzy table resolution: `editDistance()` + `fuzzyResolveTable()` (`nl-to-sql.ts`) as a typo-recovery fallback in `resolveTable` (gated by a stopword set; accepts only an unambiguous winner).
+  - Auto-chart: `#nl-auto-chart` toggle (default on) in the Ask panel; `useNlModal` stashes `window._nlAutoChart` and runs the query for `answerKind === 'group'`, consumed by the run handler to pick line/bar and render.
+  - New l10n keys under `viewer.sql.result.*` (heading/copy). New web tests for fuzzy resolution + bucket series; full web suite 224 pass.
+- Linter: disabled the `avoid_adjacent_strings` rule in `analysis_options.yaml` (set to `false`). Multi-line message literals split for readability are intentional here, so the rule's adjacent-string warnings were noise.
+- Linter: disabled 52 Tier-3 saropa_lints rules in `analysis_options.yaml` that produced noise or false positives for this package — cutting the report from 426 to 44 issues. Removed two confirmed false-positive rules (`avoid_unassigned_fields` fired on `required this.x` constructor fields; `require_platform_check` fired on `dart:io` use inside `*_io.dart` files that never load on web), the documentation-mandate rules (`require_return_documentation`, `require_example_in_documentation`, `require_public_api_documentation`, `verify_documented_parameters_exist`, `avoid_unmarked_public_class`, `require_complex_logic_comments`), and a set of style-opinion rules (`avoid_default_tostring`, `no_magic_number`, `prefer_descriptive_test_name`, `prefer_correct_identifier_length`, and others). Kept ON the 13 rules that catch real correctness/quality issues (stream error handling, production logging, cache stampede, final fields, etc.) for follow-up fixes.
+- Linter: disabled two more saropa_lints rules confirmed as false positives for this package's logging design — `prefer_logger_over_print` (every hit is an intentional, documented `print()`: the Android startup banner and failure messages that `developer.log` cannot surface in logcat) and `require_log_level_for_production` (every hit calls `ServerContext.log(String)`, a forwarder to the host's level-less `onLog` callback).
+- Server: `HttpServer.listen` in `drift_debug_server_io.dart` now passes an `onError` (routes to `ServerContext.logError`) so a socket-accept failure is logged instead of escaping as an uncaught async error that would tear down the serving isolate (`require_stream_error_handling`).
+- Server: `RateLimiter._WindowEntry` now owns its counter mutation via an `increment()` method and `windowSecond` is `final`; `ServerContext.changeDetectionMinInterval` is `final` and `changeDetectionEnabled` is mutated only through a new `setChangeDetection()` method (routed from `Router`). These make the immutability/ownership explicit and clear `prefer_final_fields` (which only checks same-class mutation).
+- Server: added the explanatory comment each `// ignore:` directive needs on the line above it (10 sites across `error_logger.dart`, `drift_debug_server_io.dart`, `query_recorder.dart`, `anomaly_detector.dart`, `generation_handler.dart`, `snapshot_store.dart`) to satisfy `prefer_commenting_analyzer_ignores`; no behavior change.
+- Linter: disabled the final 8 saropa_lints rules, taking the report to 0 — four are confirmed false positives filed upstream as bug reports in `saropa_lints/bugs/` (`move_variable_outside_iteration` flags a path var built from a loop-reassigned `dir`; `avoid_recursive_calls` flags depth-bounded JSON normalization recursion; `avoid_throw_objects_without_tostring` fires on a class that has a `toString()`; `require_permission_status_check` matches the name `startRecording` on an in-memory query recorder, not an OS permission API), two flag intentional code (`avoid_ios_debug_code_in_release` on the release-visible startup-failure banner; `avoid_throw_in_catch_block` on a deliberate wrap-and-rethrow that preserves cause + stack via `Error.throwWithStackTrace`), and two are low-value for a single-viewer local debug server (`require_future_timeout` on a local snapshot file read; `avoid_cache_stampede` on per-tag lazy asset caches). Per-line `// ignore:` cannot suppress these — saropa_lints' native-plugin report path skips analyzer ignore handling (also filed upstream as an infra bug).
+
+Connecting the advisor to a running app no longer risks freezing the app at launch. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Fixed
+
+- **The advisor's diagnostics no longer freeze the app's startup.** When the extension connected to a launching app, it immediately ran heavy whole-database scans — per-column NULL-rate aggregates over every table plus a full timeline snapshot — over the app's single live database connection. Stacked onto the app's own startup queries, they serialized on that one connection and stalled the app's main thread long enough to drop hundreds of frames and lock the screen. These scans now wait out a short grace period after connect so the app's launch finishes first, and the NULL-rate scan skips very large tables (their per-column stats remain available on demand via "Profile Column").
+
+<details><summary>Maintenance</summary>
+
+- Deferred the connect-time heavy sweep (row counts, NULL-rate diagnostics, timeline auto-capture) behind a startup grace window shared by the connect handler and the schema-watcher's initial post-connect poll, deduped through one timer; added a `MAX_ROWS_FOR_NULL_SCAN` cap in `DataQualityProvider`. Updated the activation disposable-count assertion for the new timer-cleanup disposable.
+
+</details>
 
 ---
 
