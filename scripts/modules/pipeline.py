@@ -210,7 +210,24 @@ def _run_ext_dev_checks(
 
         heading("Step 5b \u00b7 Dependabot PRs")
         from modules.checks_git import check_pending_dependabot_prs
-        if not run_step("Dependabot PRs", check_pending_dependabot_prs, results):
+        while True:
+            if run_step("Dependabot PRs", check_pending_dependabot_prs, results):
+                break
+            if results and results[-1][0] == "Dependabot PRs":
+                results.pop()
+            choice = ask_choice(
+                "Dependabot PRs step failed. Choose what to do next",
+                choices=("retry", "ignore", "cancel"),
+                default="retry",
+                eof_default="cancel",
+            )
+            if choice == "retry":
+                warn("Retrying Dependabot PRs...")
+                continue
+            if choice == "ignore":
+                warn("Ignoring Dependabot PRs failure by user choice.")
+                results.append(("Dependabot PRs (ignored)", True, 0.0))
+                break
             return False
 
         # Catch a committed-and-gitignored file before tag/push (pub exit 65).
@@ -556,7 +573,24 @@ def run_dart_analysis(
         return "", False
 
     heading("Dart \u00b7 Dependabot PRs")
-    if not run_step("Dependabot PRs", check_pending_dependabot_prs, results):
+    while True:
+        if run_step("Dependabot PRs", check_pending_dependabot_prs, results):
+            break
+        if results and results[-1][0] == "Dependabot PRs":
+            results.pop()
+        choice = ask_choice(
+            "Dependabot PRs step failed. Choose what to do next",
+            choices=("retry", "ignore", "cancel"),
+            default="retry",
+            eof_default="cancel",
+        )
+        if choice == "retry":
+            warn("Retrying Dependabot PRs...")
+            continue
+        if choice == "ignore":
+            warn("Ignoring Dependabot PRs failure by user choice.")
+            results.append(("Dependabot PRs (ignored)", True, 0.0))
+            break
         return "", False
 
     # Catch a file that is both committed and gitignored here \u2014 pub's --dry-run
