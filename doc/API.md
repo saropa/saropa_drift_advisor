@@ -165,6 +165,7 @@ The `error` field is always a string. The HTTP status code indicates the error c
 | 204 | No Content | Favicon request |
 | 400 | Bad Request | Invalid input, missing fields, unknown table, non-read-only SQL |
 | 401 | Unauthorized | Authentication required but missing/invalid |
+| 403 | Forbidden | Monitoring kill switch engaged (data-inspection endpoints) |
 | 404 | Not Found | Unknown route, session not found or expired |
 | 429 | Too Many Requests | Rate limit exceeded (when configured) |
 | 500 | Internal Server Error | Query execution error, unhandled exception |
@@ -178,10 +179,16 @@ The `error` field is always a string. The HTTP status code indicates the error c
 |-----------|---------|------|---------|-------|-------------|
 | `limit` | `GET /api/table/{name}` | int | 200 | 1–1000 | Maximum rows to return |
 | `offset` | `GET /api/table/{name}` | int | 0 | 0–2,000,000 | Number of rows to skip |
-| `since` | `GET /api/generation` | int | — | ≥ 0 | Long-poll: block until generation > since |
+| `since` | `GET /api/generation`, `GET /api/activity`, `GET /api/mutations` | int | — | ≥ 0 | Long-poll or filter: block until generation/cursor > since |
 | `format` | `GET /api/snapshot/compare`, `GET /api/compare/report` | string | — | `download` | Return as downloadable JSON attachment |
 | `detail` | `GET /api/snapshot/compare` | string | — | `rows` | Include row-level diffs |
 | `sql` | `GET /` (HTML viewer) | string | — | — | URL-encoded read-only SQL to prefill **Run SQL**; does not auto-execute. See [Web viewer (`GET /?sql=`)](#api-sql-web-viewer). |
+| `table` | `GET /api/activity/statements` | string | — | — | Table whose statement ring to return (required) |
+| `sources` | `GET /api/issues` | string | all | — | Comma-separated source filter |
+| `tables` | `GET /api/report` | string | all | — | Comma-separated table names to include in report |
+| `maxRows` | `GET /api/report` | int | 1000 | 1–50,000 | Maximum rows per table in report |
+| `cursor` | `GET /api/dvr/queries` | int | -1 | — | Pagination cursor for DVR queries |
+| `direction` | `GET /api/dvr/queries` | string | `"forward"` | — | Pagination direction |
 
 ---
 
@@ -1447,6 +1454,55 @@ The list is wrapped in the **Saropa Diagnostic Envelope** — the shared cross-t
 
 ---
 
+## Soft Relationships
+
+### `GET /api/issues/soft-relationships`
+
+Scans column naming conventions (`<noun>_id`, `<noun>Id`, shared `*UUID` identity columns) to infer table relationships that have no declared SQLite foreign key or host relationship manifest entry. Report-only — suggests adding to the manifest, not adding DDL.
+
+When a host relationship manifest is supplied (via `startDriftViewer`), manifested edges are subtracted — only undeclared inferred edges are reported. Similarly, edges that have a declared SQLite FK are excluded.
+
+**Response** `200 OK`
+
+```json
+{
+  "softRelationships": [
+    {
+      "fromTable": "orders",
+      "fromColumn": "user_id",
+      "toTable": "users",
+      "toColumn": "id",
+      "rule": "noun_id",
+      "severity": "info",
+      "type": "soft_relationship",
+      "message": "orders.user_id looks like a link to users (user_id reference convention), but no foreign key or relationship is declared..."
+    }
+  ],
+  "manifestAvailable": true,
+  "declaredFkCount": 3,
+  "tablesScanned": 5,
+  "analyzedAt": "2026-07-24T10:30:00.000Z"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `softRelationships` | array | Inferred edges not covered by declared FKs or manifest entries |
+| `softRelationships[].fromTable` | string | Source table name |
+| `softRelationships[].fromColumn` | string | Source column name |
+| `softRelationships[].toTable` | string | Target table name |
+| `softRelationships[].toColumn` | string | Target column name (inferred PK of the target table) |
+| `softRelationships[].rule` | string | The naming convention that fired: `"noun_id"` or `"shared_uuid"` |
+| `softRelationships[].severity` | string | Always `"info"` |
+| `softRelationships[].type` | string | Always `"soft_relationship"` |
+| `softRelationships[].message` | string | Human-readable description of the inferred link and call-to-action |
+| `manifestAvailable` | boolean | Whether the host supplied a relationship manifest callback |
+| `declaredFkCount` | int | Number of declared SQLite FK edges found across all tables |
+| `tablesScanned` | int | Number of tables scanned |
+| `analyzedAt` | string | ISO 8601 UTC timestamp |
+
+---
+
 ## Performance
 
 ### `GET /api/analytics/performance`
@@ -1511,6 +1567,291 @@ Clears all recorded query timing data.
   "status": "cleared"
 }
 ```
+
+---
+
+## Query History
+
+### `GET /api/history`
+
+Returns the full query execution history (all recorded `QueryTiming` entries), most recent first. Used by the SQL runner's history sidebar.
+
+**Response** `200 OK`
+
+```json
+{
+  "entries": [
+    {
+      "sql": "SELECT * FROM items WHERE id > 10",
+      "durationMs": 3,
+      "rowCount": 5,
+      "error": null,
+      "at": "2026-07-24T10:30:00.000Z",
+      "source": "browser",
+      "callerFile": null,
+      "callerLine": null
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entries[].sql` | string | The executed SQL statement |
+| `entries[].durationMs` | int | Execution duration in milliseconds |
+| `entries[].rowCount` | int | Number of rows returned |
+| `entries[].error` | string or null | Error message if the query failed |
+| `entries[].at` | string | ISO 8601 UTC execution timestamp |
+| `entries[].source` | string | `"app"`, `"browser"`, or `"internal"` |
+| `entries[].callerFile` | string or null | Source file of the caller (when available) |
+| `entries[].callerLine` | int or null | Source line of the caller (when available) |
+| `entries[].isInternal` | boolean (optional) | Present and `true` for extension-owned diagnostic queries |
+| `entries[].appReported` | boolean (optional) | Present and `true` for queries reported via `DriftDebugServer.reportAppQuery` |
+
+---
+
+### `DELETE /api/history`
+
+Clears the query execution history.
+
+**Response** `200 OK`
+
+```json
+{
+  "status": "cleared"
+}
+```
+
+---
+
+## Query Replay (DVR)
+
+The DVR (Digital Video Recorder) captures query executions into an in-memory ring buffer for later replay and inspection. All DVR responses share a common envelope:
+
+```json
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-24T10:30:00.000Z",
+  "data": { ... }
+}
+```
+
+### `GET /api/dvr/status`
+
+Returns the current DVR recording state.
+
+**Response** `200 OK` — `data` payload:
+
+```json
+{
+  "recording": false,
+  "queryCount": 42,
+  "sessionId": "abc123",
+  "minAvailableId": 1,
+  "maxAvailableId": 42,
+  "maxQueries": 500,
+  "captureBeforeAfter": false
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `recording` | boolean | Whether queries are currently being recorded |
+| `queryCount` | int | Number of queries in the ring buffer |
+| `sessionId` | string | Current recording session identifier |
+| `minAvailableId` | int | Lowest query ID still in the buffer |
+| `maxAvailableId` | int | Highest query ID in the buffer |
+| `maxQueries` | int | Ring buffer capacity |
+| `captureBeforeAfter` | boolean | Whether before/after row snapshots are captured for write queries |
+
+---
+
+### `POST /api/dvr/start`
+
+Starts recording queries.
+
+**Response** `200 OK` — `data` payload:
+
+```json
+{
+  "recording": true,
+  "sessionId": "abc123"
+}
+```
+
+---
+
+### `POST /api/dvr/stop`
+
+Stops recording queries. Also available at `POST /api/dvr/pause` (same behavior).
+
+**Response** `200 OK` — `data` payload:
+
+```json
+{
+  "recording": false,
+  "sessionId": "abc123"
+}
+```
+
+---
+
+### `POST /api/dvr/config`
+
+Updates DVR configuration (ring buffer size and/or before/after capture).
+
+**Request** `Content-Type: application/json`
+
+```json
+{
+  "maxQueries": 1000,
+  "captureBeforeAfter": true
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `maxQueries` | int | No | New ring buffer capacity |
+| `captureBeforeAfter` | boolean | No | Whether to capture row snapshots for writes |
+
+At least one field must be present.
+
+**Response** `200 OK` — `data` payload:
+
+```json
+{
+  "maxQueries": 1000,
+  "captureBeforeAfter": true,
+  "queryCount": 42,
+  "sessionId": "abc123"
+}
+```
+
+**Error** `400 Bad Request` — missing both fields or invalid JSON.
+
+---
+
+### `GET /api/dvr/queries`
+
+Returns a paginated list of recorded queries.
+
+**Query Parameters**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `cursor` | int | -1 | Starting position for pagination |
+| `limit` | int | 100 | Maximum queries to return |
+| `direction` | string | `"forward"` | Pagination direction |
+
+**Response** `200 OK` — `data` payload:
+
+```json
+{
+  "queries": [
+    {
+      "sessionId": "abc123",
+      "id": 1,
+      "sequence": 1,
+      "sql": "SELECT * FROM items",
+      "params": null,
+      "type": "select",
+      "timestamp": "2026-07-24T10:30:00.000Z",
+      "durationMs": 3,
+      "affectedRowCount": null,
+      "resultRowCount": 42,
+      "table": "items",
+      "beforeState": null,
+      "afterState": null,
+      "meta": null
+    }
+  ],
+  "total": 42,
+  "sessionId": "abc123",
+  "minAvailableId": 1,
+  "maxAvailableId": 42,
+  "nextCursor": 101,
+  "prevCursor": null
+}
+```
+
+---
+
+### `GET /api/dvr/query/{sessionId}/{id}`
+
+Returns a single recorded query by session ID and query ID.
+
+**Path Parameters**
+
+| Param | Description |
+|-------|-------------|
+| `sessionId` | Recording session identifier |
+| `id` | Query ID (integer) |
+
+**Response** `200 OK` — `data` payload: a single query record (same shape as entries in the `queries` array above).
+
+**Error** `404 Not Found` — query outside the ring buffer window:
+
+```json
+{
+  "error": "QUERY_NOT_AVAILABLE",
+  "message": "Query id is outside current ring buffer window.",
+  "data": {
+    "sessionId": "abc123",
+    "requestedId": 999,
+    "minAvailableId": 1,
+    "maxAvailableId": 42
+  }
+}
+```
+
+---
+
+## Mutations
+
+### `GET /api/mutations`
+
+Long-polls for semantic mutation events (INSERT/UPDATE/DELETE with before/after row snapshots). Requires `writeQuery` to be configured (the mutation tracker piggybacks on the write query path).
+
+Explicitly kill-gated: returns `403 Forbidden` while the [monitoring kill switch](#monitoring-kill-switch) is engaged, because the buffer holds full SQL and row data captured before the kill. Rate-limit exempt (long-poll endpoint).
+
+**Query Parameters**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `since` | int | 0 | Cursor: return events with `id > since`. Long-polls up to 30 s if no new events. |
+
+**Response** `200 OK`
+
+```json
+{
+  "events": [
+    {
+      "id": 1,
+      "type": "insert",
+      "table": "items",
+      "sql": "INSERT INTO \"items\" (\"title\") VALUES ('New')",
+      "timestamp": "2026-07-24T10:30:00.000Z",
+      "before": null,
+      "after": [{ "id": 43, "title": "New" }]
+    }
+  ],
+  "cursor": 1
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `events` | array | Mutation events since the cursor |
+| `events[].id` | int | Monotonic event ID (use as the next `since` cursor) |
+| `events[].type` | string | `"insert"`, `"update"`, or `"delete"` |
+| `events[].table` | string | Affected table name |
+| `events[].sql` | string | The executed SQL statement |
+| `events[].timestamp` | string | ISO 8601 UTC timestamp |
+| `events[].before` | array or null | Row snapshots before the mutation (null for inserts) |
+| `events[].after` | array or null | Row snapshots after the mutation (null for deletes) |
+| `cursor` | int | Latest event ID (use as `?since=` for the next poll) |
+
+**Error** `501 Not Implemented` — `writeQuery` not configured.
 
 ---
 
@@ -1647,7 +1988,48 @@ Adds a text annotation to a session.
 
 ---
 
-## Import
+## Write Endpoints
+
+All write endpoints require `writeQuery` to be configured via `DriftDebugServer.start()`. Without it, they return `501 Not Implemented`.
+
+### `POST /api/cell/update`
+
+Updates a single cell value in a table. The target column must not be a primary key column.
+
+**Request** `Content-Type: application/json`
+
+```json
+{
+  "table": "items",
+  "pkColumn": "id",
+  "pkValue": 1,
+  "column": "title",
+  "value": "Updated Title"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `table` | string | Yes | Table name (must exist) |
+| `pkColumn` | string | Yes | Primary key column name (must be the actual PK) |
+| `pkValue` | any | Yes | Primary key value identifying the row |
+| `column` | string | Yes | Column to update (must not be PK) |
+| `value` | any | Yes | New value; `null` for SQL NULL (column must be nullable). Type is coerced against the column's SQL affinity. BLOB columns reject non-empty text edits. |
+
+**Response** `200 OK`
+
+```json
+{
+  "ok": true,
+  "rowsAffected": 1
+}
+```
+
+**Error** `501 Not Implemented` — `writeQuery` not configured.
+
+**Error** `400 Bad Request` — missing/invalid fields, unknown table, non-PK column used as PK, PK column targeted for update.
+
+---
 
 ### `POST /api/import`
 
@@ -1741,6 +2123,81 @@ Applies a batch of **validated** data-mutation statements in a **single SQLite t
 Validation runs **before** any transaction begins, so invalid input does not leave an open transaction.
 
 The same batch semantics are available over the Dart VM Service as **`ext.saropa.drift.applyEditsBatch`** with parameter **`statements`** set to a **JSON-encoded array** of strings (same content as the HTTP body field).
+
+---
+
+### `POST /api/indexes/preview`
+
+Validates a batch of `CREATE INDEX` statements without executing them. Does **not** require `writeQuery` — read-only servers can preview index SQL.
+
+**Request** `Content-Type: application/json`
+
+```json
+{
+  "indexSqls": [
+    "CREATE INDEX idx_orders_user_id ON \"orders\"(\"user_id\");",
+    "CREATE INDEX idx_items_title ON \"items\"(\"title\");"
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `indexSqls` | array of string | Yes | Non-empty, max 200 entries. Each must be a `CREATE INDEX` statement. |
+
+**Response** `200 OK`
+
+```json
+{
+  "valid": [
+    "CREATE INDEX idx_orders_user_id ON \"orders\"(\"user_id\");"
+  ],
+  "rejected": [
+    {
+      "index": 1,
+      "sql": "CREATE INDEX idx_items_title ON \"items\"(\"title\");",
+      "reason": "Index already exists"
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | array of string | Statements that passed validation |
+| `rejected` | array | Statements that failed, with reason |
+| `rejected[].index` | int | Zero-based position in the input array |
+| `rejected[].sql` | string | The rejected statement |
+| `rejected[].reason` | string | Why validation failed |
+
+---
+
+### `POST /api/indexes/apply`
+
+Executes validated `CREATE INDEX` statements. Requires `writeQuery`.
+
+**Request** same as `POST /api/indexes/preview`.
+
+**Response** `200 OK`
+
+```json
+{
+  "results": [
+    { "index": 0, "sql": "CREATE INDEX idx_orders_user_id ON \"orders\"(\"user_id\");", "ok": true },
+    { "index": 1, "sql": "CREATE INDEX idx_items_title ON \"items\"(\"title\");", "ok": false, "error": "index already exists" }
+  ],
+  "applied": 1
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `results` | array | Per-statement outcome |
+| `results[].ok` | boolean | Whether the statement executed |
+| `results[].error` | string (optional) | Error message when `ok` is false |
+| `applied` | int | Number of statements that executed |
+
+**Error** `501 Not Implemented` — `writeQuery` not configured.
 
 ---
 
