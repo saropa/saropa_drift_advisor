@@ -51,16 +51,12 @@ final class CompareHandler {
     }
 
     try {
-      final compareResults = await Future.wait([
+      final (schemaA, schemaB, tablesA, tablesB) = await (
         ServerUtils.getSchemaSql(query),
         ServerUtils.getSchemaSql(queryB),
         ServerUtils.getTableNames(query),
         ServerUtils.getTableNames(queryB),
-      ]);
-      final schemaA = compareResults[0] as String;
-      final schemaB = compareResults[1] as String;
-      final tablesA = compareResults[2] as List<String>;
-      final tablesB = compareResults[3] as List<String>;
+      ).wait;
       final allTables = <String>{...tablesA, ...tablesB}.toList()..sort();
       final isSchemaSame = schemaA == schemaB;
 
@@ -196,7 +192,7 @@ final class CompareHandler {
         tablesB: tablesB,
       );
       // Migration steps append to a shared list in presentation order.
-      // ignore: avoid_sequential_awaits
+      // ignore: avoid_sequential_awaits -- shared mutations require ordering
       await _migrationModifiedTables(
         migrations: migrations,
         tablesA: tablesA,
@@ -280,12 +276,10 @@ final class CompareHandler {
   }) async {
     for (final table in tablesA) {
       if (tablesB.contains(table)) {
-        final colMaps = await Future.wait([
+        final (colMapA, colMapB) = await (
           _migrationColumnMap(queryA, table),
           _migrationColumnMap(queryB, table),
-        ]);
-        final colMapA = colMaps[0];
-        final colMapB = colMaps[1];
+        ).wait;
         final tableChanges = <String>[];
 
         _migrationAddedColumns(

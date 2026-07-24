@@ -1265,7 +1265,8 @@ Returns query performance statistics collected since server start (or last clear
 | `avgDurationMs` | int | Average duration (rounded) |
 | `slowQueries` | array | Queries exceeding 100 ms, sorted by duration desc (max 20) |
 | `queryPatterns` | array | Grouped query patterns, sorted by total duration desc (max 20) |
-| `recentQueries` | array | Most recent queries in reverse chronological order (max 50) |
+| `recentQueries` | array | Most recent queries in reverse chronological order (max 50). Each has a `source` of `app`, `browser`, or `internal`. |
+| `hint` | string | Present ONLY when no `source: "app"` query has been captured — advises installing a Drift `QueryInterceptor` (via `DriftDebugServer.reportAppQuery`) so the report reflects real app traffic. Clears once any app query is recorded. Absent otherwise. |
 
 ---
 

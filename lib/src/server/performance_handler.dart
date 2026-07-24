@@ -92,6 +92,24 @@ final class PerformanceHandler {
           .map((t) => t.toJson())
           .toList(),
     };
+
+    // Self-advertising discoverability (Finding 1): when NO query the advisor
+    // has seen is app-sourced, the host almost certainly has not installed the
+    // Drift QueryInterceptor, so this report reflects only advisor/browser
+    // traffic — the `totalQueries: 0` (or PRAGMA-only) symptom the bug was filed
+    // for. Attach the fix right where the symptom is read (this payload rides
+    // into the exported sidecar). The hint clears itself the moment one app
+    // query is recorded. A wired server with no traffic yet shows it briefly,
+    // which is still correct guidance.
+    final hasAppQueries = timings.any((t) => t.source == 'app');
+    if (!hasAppQueries) {
+      data['hint'] =
+          'No application queries captured — recorded timings are advisor- or '
+          'browser-issued only. Install a Drift QueryInterceptor that calls '
+          'DriftDebugServer.reportAppQuery so this report reflects real app '
+          'traffic. See example/lib/database/advisor_timing_interceptor.dart.';
+    }
+
     return Future<Map<String, dynamic>>.value(data);
   }
 

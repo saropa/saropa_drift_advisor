@@ -372,6 +372,27 @@ void main() {
         expect((recent.first as Map)['source'], 'app');
       });
 
+      test('perf hint appears until an app query is captured', () async {
+        final ctx = createTestContext();
+        final handler = PerformanceHandler(ctx);
+
+        // No app-sourced timing yet (only browser/internal) → hint present so
+        // the developer learns why totalQueries is empty and how to fix it.
+        ctx.queryTimings.add(_timing('SELECT * FROM contacts', 5));
+        var data = await handler.getPerformanceData();
+        expect(data['hint'], contains('QueryInterceptor'));
+        expect(data['hint'], contains('advisor_timing_interceptor.dart'));
+
+        // Once the app reports a query, the hint clears itself.
+        ctx.recordAppTiming(
+          sql: 'SELECT * FROM contacts',
+          durationMs: 4,
+          rowCount: 1,
+        );
+        data = await handler.getPerformanceData();
+        expect(data.containsKey('hint'), isFalse);
+      });
+
       test('kill switch: nothing recorded while monitoring disabled', () {
         final ctx = createTestContext()..monitoringEnabled = false;
         ctx.recordAppTiming(

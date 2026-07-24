@@ -410,6 +410,16 @@ await DriftDebugServer.start(
 
 If you see **"command 'driftViewer.refreshTree' not found"** in VS Code, open a Dart file first so the extension activates (`onLanguage:dart`), then try again or reload the window. **About Saropa** and **Save Current Filter** activate the extension when run from the Command Palette or the Database header even before a Dart file is open.
 
+### Capture your app's query performance (optional)
+
+By default the advisor only times queries **it** issues; your app's own Drift queries run in the app and never reach it, so the **Performance** tab and the exported report show `totalQueries: 0`. To make them reflect real app traffic, install a Drift `QueryInterceptor` that forwards each query's timing:
+
+```dart
+final executor = NativeDatabase(file).interceptWith(AdvisorTimingInterceptor());
+```
+
+A complete, tested interceptor ships in the example — copy [example/lib/database/advisor_timing_interceptor.dart](example/lib/database/advisor_timing_interceptor.dart) (it lives in the example, not the package, because the package intentionally does not depend on `drift`). It calls `DriftDebugServer.reportAppQuery(...)`, which is a no-op in release builds and when the server is not running, so it is safe to leave installed. Reported queries appear tagged `source: "app"`, and writes make the static-table anomaly suggestions accurate.
+
 ### 3. Connect a client
 
 **VS Code extension (recommended):** Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the Marketplace. It auto-discovers the running server — no configuration needed. On Android emulator, the extension automatically forwards the debug server port when a Flutter/Dart debug session is active.
