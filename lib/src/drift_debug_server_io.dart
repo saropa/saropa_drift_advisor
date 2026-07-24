@@ -1133,10 +1133,18 @@ mixin DriftDebugServer {
   ///
   /// [isWrite] must be true for INSERT/UPDATE/DELETE so the query attributes to
   /// the table-activity board and the static-table candidate ranking; false for
-  /// reads. Safe to call unconditionally: while monitoring is disabled, or the
-  /// server is not running, or called from a different isolate than the one the
-  /// server runs in, it is a silent no-op. Pass RAW SQL, not a formatted log
-  /// line.
+  /// reads. Safe to call unconditionally: while monitoring is disabled or the
+  /// server is not running it is a silent no-op. Pass RAW SQL, not a formatted
+  /// log line.
+  ///
+  /// ISOLATE SCOPE: the report must originate in the SAME isolate the server
+  /// runs in. `DriftDebugServer` is a per-isolate singleton, so a call from a
+  /// different isolate reaches a never-started instance and no-ops silently. If
+  /// your Drift database runs on a background isolate (e.g. drift's
+  /// `computeWithDatabase` / an isolate-hosted executor), install the server
+  /// AND the interceptor on that same isolate, or those queries stay invisible —
+  /// the most likely reason app timings still don't appear after wiring the
+  /// interceptor.
   static void reportAppQuery({
     required String sql,
     required int durationMs,

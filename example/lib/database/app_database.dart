@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -79,13 +80,15 @@ class AppDatabase extends _$AppDatabase {
       }
       final path = p.join(dirPath, _dbFileName);
       final file = File(path);
-      // interceptWith forwards every read/write through AdvisorTimingInterceptor,
-      // which reports each query's timing to the advisor so the performance
-      // report reflects real app traffic (Feature 61). The interceptor is a
-      // no-op when the advisor server is not running (release builds).
-      final executor = NativeDatabase(
-        file,
-      ).interceptWith(AdvisorTimingInterceptor());
+      // In debug, wrap the executor so every read/write is timed and reported
+      // to the advisor (Feature 61), making the performance report reflect real
+      // app traffic. Gated on kDebugMode so release builds carry ZERO
+      // interceptor overhead — the advisor server never runs there anyway, so
+      // the interceptor would only add a per-query no-op worth skipping.
+      final baseExecutor = NativeDatabase(file);
+      final executor = kDebugMode
+          ? baseExecutor.interceptWith(AdvisorTimingInterceptor())
+          : baseExecutor;
       return AppDatabase._(executor, dbPath: path);
     } on Object catch (e, st) {
       Error.throwWithStackTrace(

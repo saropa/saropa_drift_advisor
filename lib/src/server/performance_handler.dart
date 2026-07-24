@@ -103,11 +103,17 @@ final class PerformanceHandler {
     // which is still correct guidance.
     final hasAppQueries = timings.any((t) => t.source == 'app');
     if (!hasAppQueries) {
+      // Lead with the general mechanism (reportAppQuery) so the advice is right
+      // for BOTH interceptor users and callback-API consumers who wire the
+      // server manually; the Drift QueryInterceptor is named as the turnkey
+      // path, not the only one.
       data['hint'] =
           'No application queries captured — recorded timings are advisor- or '
-          'browser-issued only. Install a Drift QueryInterceptor that calls '
-          'DriftDebugServer.reportAppQuery so this report reflects real app '
-          'traffic. See example/lib/database/advisor_timing_interceptor.dart.';
+          'browser-issued only. Forward your app query timings via '
+          'DriftDebugServer.reportAppQuery (the easiest way is a Drift '
+          'QueryInterceptor — see '
+          'example/lib/database/advisor_timing_interceptor.dart) so this report '
+          'reflects real app traffic.';
     }
 
     return Future<Map<String, dynamic>>.value(data);
@@ -127,12 +133,23 @@ final class PerformanceHandler {
   /// on the instrumented path instead of PRAGMA. A developer who manually runs
   /// such a query in the SQL console is likewise inspecting the schema, not
   /// exercising app workload, so excluding it from performance stats is correct
-  /// either way. Matching is case-insensitive after trimming leading space.
+  /// either way.
+  ///
+  /// The catalog match requires `sqlite_master`/`sqlite_schema` to appear as a
+  /// `FROM`/`JOIN` target, NOT anywhere in the text — a real app query that
+  /// merely mentions the name in a string literal or a column alias
+  /// (`WHERE note = 'sqlite_master'`) must still count as workload. Match is
+  /// case-insensitive; leading space is trimmed for the PRAGMA prefix check.
+  static final RegExp _catalogFromJoin = RegExp(
+    r'\b(from|join)\s+"?sqlite_(master|schema)\b',
+    caseSensitive: false,
+  );
   static bool _isIntrospection(QueryTiming t) {
-    final normalized = t.sql.trimLeft().toUpperCase();
-    return normalized.startsWith('PRAGMA') ||
-        normalized.contains('SQLITE_MASTER') ||
-        normalized.contains('SQLITE_SCHEMA');
+    final trimmed = t.sql.trimLeft();
+    if (trimmed.toUpperCase().startsWith('PRAGMA')) {
+      return true;
+    }
+    return _catalogFromJoin.hasMatch(trimmed);
   }
 
   /// GET /api/analytics/performance — returns query timing stats,

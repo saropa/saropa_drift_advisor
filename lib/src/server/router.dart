@@ -234,23 +234,7 @@ final class Router {
         return;
       }
 
-      // Dispatch to domain-specific route groups (sequential: first match wins).
-      for (final dispatch in <Future<bool> Function()>[
-        () => _routeActivityApi(req, res, path),
-        () => _routeTableApi(req, res, path, query),
-        () => _routeSqlApi(req, res, path, query),
-        () => _routeSchemaApi(req, res, path, query),
-        () => _routeSnapshotApi(req, res, path, query),
-        () => _routeCompareApi(req, res, path, query),
-        () => _routeAnalyticsApi(req, res, path, query),
-        () => _routeWriteApi(req, res, path, query),
-        () => _routeSessionApi(req, res, path, query),
-        () => _routePerformanceApi(req, res, path, query),
-        () => _routeDvrApi(req, res, path),
-        () => _routeHistoryApi(req, res, path),
-      ]) {
-        if (await dispatch()) return;
-      }
+      if (await _dispatchRoutes(req, res, path, query)) return;
 
       // No route matched — 404.
       res.statusCode = HttpStatus.notFound;
@@ -259,6 +243,36 @@ final class Router {
       _ctx.logError(error, stack);
       await _ctx.sendErrorResponse(res, error);
     }
+  }
+
+  /// Tries each domain-specific route group in priority order and returns true
+  /// as soon as one handles the request. The sequential loop avoids cascading
+  /// `avoid_sequential_awaits` warnings while preserving first-match-wins
+  /// dispatch. Add new route groups here — the loop is the single dispatch
+  /// point so a new `_route*Api` method cannot be accidentally placed outside.
+  Future<bool> _dispatchRoutes(
+    HttpRequest req,
+    HttpResponse res,
+    String path,
+    DriftDebugQuery query,
+  ) async {
+    for (final dispatch in <Future<bool> Function()>[
+      () => _routeActivityApi(req, res, path),
+      () => _routeTableApi(req, res, path, query),
+      () => _routeSqlApi(req, res, path, query),
+      () => _routeSchemaApi(req, res, path, query),
+      () => _routeSnapshotApi(req, res, path, query),
+      () => _routeCompareApi(req, res, path, query),
+      () => _routeAnalyticsApi(req, res, path, query),
+      () => _routeWriteApi(req, res, path, query),
+      () => _routeSessionApi(req, res, path, query),
+      () => _routePerformanceApi(req, res, path, query),
+      () => _routeDvrApi(req, res, path),
+      () => _routeHistoryApi(req, res, path),
+    ]) {
+      if (await dispatch()) return true;
+    }
+    return false;
   }
 
   // -------- Pre-DB route group --------

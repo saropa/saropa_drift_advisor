@@ -107,8 +107,41 @@ class AdvisorTimingInterceptor extends QueryInterceptor {
     () => executor.runDelete(statement, args),
   );
 
-  // runCustom / runBatched are intentionally left to the default (untimed):
-  // runCustom carries DDL, PRAGMA, and transaction framing — not app-data
-  // workload the perf report is about — and per-statement timing of a batch
-  // would need to split the batch. Add overrides here if you want them.
+  @override
+  Future<void> runCustom(
+    QueryExecutor executor,
+    String statement,
+    List<Object?> args,
+  ) => _timed(
+    statement,
+    // customStatement carries anything: DDL, PRAGMA, or an app INSERT/UPDATE.
+    // Classify by the leading keyword so app writes issued this way still count
+    // toward the mutation signal; introspection PRAGMAs are filtered out
+    // server-side anyway. runCustom returns void → row count 0.
+    !_isReadKeyword(statement),
+    (_) => 0,
+    () => executor.runCustom(statement, args),
+  );
+
+  @override
+  Future<void> runBatched(
+    QueryExecutor executor,
+    BatchedStatements statements,
+  ) => _timed(
+    // A batch is one or more writes applied together; time it as a single
+    // write pulse. The combined statement text is not reconstructed here — a
+    // short label keeps the perf row readable.
+    'BATCH (${statements.statements.length} statements)',
+    true,
+    (_) => 0,
+    () => executor.runBatched(statements),
+  );
+
+  /// True when [sql]'s first keyword is a read (SELECT/WITH). Used only to
+  /// classify runCustom; leading whitespace and a `--`/`/* */` comment prefix
+  /// are tolerated so a commented statement is not misclassified.
+  static bool _isReadKeyword(String sql) {
+    final head = sql.trimLeft().toUpperCase();
+    return head.startsWith('SELECT') || head.startsWith('WITH');
+  }
 }

@@ -45,6 +45,16 @@ class _RecordingExecutor implements QueryExecutor {
   }
 
   @override
+  Future<void> runCustom(String statement, [List<Object?>? args]) async {
+    calls.add('custom:$statement');
+  }
+
+  @override
+  Future<void> runBatched(BatchedStatements statements) async {
+    calls.add('batched:${statements.statements.length}');
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -76,6 +86,23 @@ void main() {
         'update:UPDATE t ...',
         'delete:DELETE FROM t ...',
       ]);
+    });
+
+    test('runCustom forwards and classifies read vs write', () async {
+      await interceptor.runCustom(executor, 'SELECT 1', []);
+      await interceptor.runCustom(executor, 'INSERT INTO t VALUES (1)', []);
+      expect(executor.calls, [
+        'custom:SELECT 1',
+        'custom:INSERT INTO t VALUES (1)',
+      ]);
+    });
+
+    test('runBatched forwards', () async {
+      final batch = BatchedStatements([
+        'INSERT INTO t VALUES (?)',
+      ], const <ArgumentsForBatchedStatement>[]);
+      await interceptor.runBatched(executor, batch);
+      expect(executor.calls, ['batched:1']);
     });
 
     test(

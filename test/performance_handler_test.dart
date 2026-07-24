@@ -333,6 +333,27 @@ void main() {
         },
       );
 
+      test(
+        'a literal mention of sqlite_master still counts as workload',
+        () async {
+          // The catalog filter must match sqlite_master only as a FROM/JOIN
+          // target, not anywhere in the text — an app query that references the
+          // name in a string literal is real workload, not introspection.
+          final ctx = createTestContext();
+          ctx.queryTimings.addAll([
+            _timing("SELECT * FROM notes WHERE body = 'sqlite_master'", 10),
+            _timing('SELECT COUNT(*) AS sqlite_master FROM notes', 12),
+          ]);
+          final handler = PerformanceHandler(ctx);
+
+          final data = await handler.getPerformanceData();
+
+          // Both are counted; neither is treated as introspection.
+          expect(data['totalQueries'], 2);
+          expect((data['recentQueries'] as List), hasLength(2));
+        },
+      );
+
       test('recentQueries capped at 50 entries', () async {
         final ctx = createTestContext();
         // Add 60 timings.
