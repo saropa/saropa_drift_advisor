@@ -22,13 +22,16 @@ already synced `server_constants.dart` and `add-package.ts` from pubspec, but
 
 - `scripts/modules/constants.py` -- added `API_MD_PATH`.
 - `scripts/modules/target_config.py` -- added `sync_api_md_version()` with
-  three targeted regex patterns (header, standalone JSON `"version"` fields,
-  `@vX.Y.Z` CDN tag). A `^`-anchored multiline match on the `"version"` key
-  prevents corruption of nested example objects (e.g., the `"producer"` block
-  with version `3.7.3`). Added `_read_api_md_header_version()` and
-  `ensure_api_md_version_sync()` mirroring the server-constants pattern.
-  `write_version(DART, ...)` now calls `sync_api_md_version` so `--bump` flows
-  also update the doc.
+  old-to-new replacement: reads the current header version and replaces only
+  that exact semver in three contexts (header, standalone JSON `"version"`
+  fields, jsDelivr `@vX.Y.Z` CDN tag anchored to `cdn.jsdelivr.net`).
+  Unrelated semver text, nested example objects (e.g., the `"producer"` block
+  with version `3.7.3`), and IP addresses are never matched. Dry-run mode
+  (`dry_run=True`) returns a change report without writing. Added
+  `_read_api_md_header_version()`, `_read_api_md_content()`,
+  `_apply_api_md_replacements()`, and `ensure_api_md_version_sync()` mirroring
+  the server-constants pattern. `write_version(DART, ...)` now calls
+  `sync_api_md_version` so `--bump` flows also update the doc.
 - `scripts/modules/pipeline.py` -- added pre-bump and post-bump "API doc
   version" steps in the Dart analysis pipeline.
 - `scripts/publish.py` -- added `"API doc version"` exit-code mapping.
@@ -38,7 +41,8 @@ already synced `server_constants.dart` and `add-package.ts` from pubspec, but
 ### Verification
 
 - `dart test test/version_sync_test.dart` -- 4/4 pass.
-- Python round-trip test: `sync_api_md_version('9.9.9')` updates exactly the
-  three JSON version fields, the header, and the CDN tag; `"version": "3.7.3"`
-  in the producer example and `127.0.0.1` IP addresses are untouched;
-  restoring to `4.2.4` yields byte-identical output.
+- `test_target_config_api_md.py` -- 20/20 pass. Covers: replacement of header,
+  JSON fields, and CDN tag; preservation of producer example version, IP
+  addresses, unrelated prose semver, and unanchored `@v` tags; round-trip
+  identity; dry-run reporting and no-write guarantee; `ensure_api_md_version_sync`
+  guard rails (invalid pubspec, missing header, dry-run, match/mismatch).

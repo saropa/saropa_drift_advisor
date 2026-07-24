@@ -312,44 +312,99 @@ def sync_server_constants_version(version: str) -> bool:
     return True
 
 
-# Patterns in doc/API.md that carry the package version.  Each targets a
-# specific context so example versions (e.g. "3.7.3") and IP addresses
-# ("127.0.0.1") are left untouched.
-_API_MD_VERSION_PATTERNS = [
-    # **API version:** X.Y.Z
-    (r"(\*\*API version:\*\*\s*)\d+\.\d+\.\d+", r"\g<1>{v}"),
-    # "version": "X.Y.Z" as a standalone JSON field (line starts with
-    # optional whitespace then the key).  Excludes inline nested objects
-    # like "producer": { ..., "version": "3.7.3" } which are examples.
-    (r'^(\s*"version"\s*:\s*")\d+\.\d+\.\d+(")', r"\g<1>{v}\2"),
-    # @vX.Y.Z in jsDelivr CDN URLs
-    (r"(@v)\d+\.\d+\.\d+", r"\g<1>{v}"),
-]
+def _api_md_version_patterns(old: str) -> list[tuple[str, str]]:
+    """Build replacement patterns that match the *current* version only.
 
-
-def sync_api_md_version(version: str) -> bool:
-    """Update package-version references in doc/API.md.
-
-    Targets three specific patterns: the **API version:** header, JSON
-    ``"version"`` fields, and the jsDelivr ``@vX.Y.Z`` tag.  Other
-    semver-shaped text (example payloads, IP addresses) is left alone.
+    Each tuple is (regex, replacement-template with ``{v}`` placeholder).
+    Matching a concrete old version instead of ``\\d+\\.\\d+\\.\\d+``
+    prevents false hits on unrelated semver text (example payloads,
+    dependency versions) and IP addresses.
     """
+    esc = re.escape(old)
+    return [
+        # **API version:** X.Y.Z
+        (rf"(\*\*API version:\*\*\s*){esc}", r"\g<1>{v}"),
+        # "version": "X.Y.Z"  — standalone JSON field only (line starts
+        # with whitespace + key).  Nested objects like
+        # "producer": { ..., "version": "3.7.3" } never match.
+        (rf'^(\s*"version"\s*:\s*"){esc}(")', r"\g<1>{v}\2"),
+        # @vX.Y.Z in jsDelivr CDN URLs (anchored to jsdelivr.net host)
+        (rf"(cdn\.jsdelivr\.net/[^@]*@v){esc}", r"\g<1>{v}"),
+    ]
+
+
+def _read_api_md_content() -> str | None:
+    """Return the full text of doc/API.md, or None on read error."""
     try:
         with open(API_MD_PATH, encoding="utf-8") as f:
-            content = f.read()
+            return f.read()
     except OSError:
-        fail(f"Could not read {os.path.basename(API_MD_PATH)}")
-        return False
+        return None
 
+
+def _read_api_md_header_version(content: str | None = None) -> str | None:
+    """Return the semver from the **API version:** header, or None."""
+    if content is None:
+        content = _read_api_md_content()
+    if content is None:
+        return None
+    m = re.search(r"\*\*API version:\*\*\s*(\d+\.\d+\.\d+)", content)
+    return m.group(1) if m else None
+
+
+def _apply_api_md_replacements(content: str, old: str, new: str) -> str:
+    """Return *content* with old→new version applied to known patterns."""
     updated = content
-    for pattern, replacement in _API_MD_VERSION_PATTERNS:
+    for pattern, replacement in _api_md_version_patterns(old):
         updated = re.sub(
-            pattern, replacement.format(v=version), updated, flags=re.MULTILINE,
+            pattern, replacement.format(v=new), updated, flags=re.MULTILINE,
         )
+    return updated
 
-    if updated == content:
-        ok(f"doc/API.md already at {version}")
-        return True
+
+def sync_api_md_version(
+    version: str, *, dry_run: bool = False,
+) -> bool | dict[str, object]:
+    """Update package-version references in doc/API.md.
+
+    Reads the current header version and replaces only that exact semver
+    in three specific contexts: the **API version:** header, standalone
+    JSON ``"version"`` fields, and the jsDelivr ``@vX.Y.Z`` CDN tag.
+    Unrelated semver text (example payloads, dependency versions, IP
+    addresses) is never touched.
+
+    When *dry_run* is True, returns a dict
+    ``{"changed": bool, "old": str, "new": str, "diff_count": int}``
+    without writing.  Returns False on error, True on success (write
+    mode only).
+    """
+    content = _read_api_md_content()
+    if content is None:
+        fail(f"Could not read {os.path.basename(API_MD_PATH)}")
+        return {"changed": False, "error": "unreadable"} if dry_run else False
+
+    current = _read_api_md_header_version(content)
+    if current is None:
+        fail("Could not parse **API version:** header from doc/API.md")
+        return {"changed": False, "error": "unparseable"} if dry_run else False
+
+    if current == version:
+        if not dry_run:
+            ok(f"doc/API.md already at {version}")
+        return {"changed": False, "old": current, "new": version, "diff_count": 0} if dry_run else True
+
+    updated = _apply_api_md_replacements(content, current, version)
+    diff_count = sum(
+        1 for a, b in zip(content.splitlines(), updated.splitlines()) if a != b
+    )
+
+    if dry_run:
+        return {
+            "changed": True,
+            "old": current,
+            "new": version,
+            "diff_count": diff_count,
+        }
 
     try:
         with open(API_MD_PATH, "w", encoding="utf-8") as f:
@@ -360,22 +415,13 @@ def sync_api_md_version(version: str) -> bool:
     return True
 
 
-def _read_api_md_header_version() -> str | None:
-    """Return the semver from the **API version:** header, or None."""
-    try:
-        with open(API_MD_PATH, encoding="utf-8") as f:
-            content = f.read()
-    except OSError:
-        return None
-    m = re.search(r"\*\*API version:\*\*\s*(\d+\.\d+\.\d+)", content)
-    return m.group(1) if m else None
-
-
-def ensure_api_md_version_sync() -> bool:
+def ensure_api_md_version_sync(*, dry_run: bool = False) -> bool:
     """Ensure doc/API.md version header matches pubspec.yaml.
 
     Mirrors ensure_server_constants_version_sync — catches manual bumps
     that bypass write_version().
+
+    When *dry_run* is True, reports drift without writing.
     """
     pub_ver = read_version(DART)
     if not _SEMVER_RE.match(pub_ver):
@@ -390,6 +436,13 @@ def ensure_api_md_version_sync() -> bool:
     if current == pub_ver:
         ok(f"doc/API.md version matches pubspec ({pub_ver})")
         return True
+
+    if dry_run:
+        info(
+            f"doc/API.md ({current}) out of sync with pubspec ({pub_ver}); "
+            f"would update (dry-run)."
+        )
+        return False
 
     info(
         f"doc/API.md ({current}) out of sync with pubspec ({pub_ver}); updating."
