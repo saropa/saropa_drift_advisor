@@ -1,5 +1,7 @@
 name: example
+
 description: Example Flutter app using saropa_drift_advisor with a Drift database.
+
 publish_to: none
 
 environment:
@@ -16,8 +18,8 @@ dependencies:
     path: ..
 
 dev_dependencies:
-  drift_dev: ">=2.31.0 <2.32.0" # 2.32.0 requires analyzer ^10.0.0, incompatible with saropa_lints (analyzer ^9.0.0)
   build_runner: ^2.4.0
+  drift_dev: ">=2.31.0 <2.32.0" # 2.32.0 requires analyzer ^10.0.0, incompatible with saropa_lints (analyzer ^9.0.0)
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0

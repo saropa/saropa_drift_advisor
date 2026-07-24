@@ -617,26 +617,21 @@ final class AnalyticsHandler {
       final tableStats = <Map<String, dynamic>>[];
 
       for (final tableName in tableNames) {
-        final countRows = ServerUtils.normalizeRows(
-          await query(
+        final (rawCount, rawColInfo, rawIndex) = await (
+          query(
             'SELECT COUNT(*) AS '
             '${ServerConstants.jsonKeyCountColumn} '
             'FROM ${ServerUtils.quoteIdent(tableName)}',
           ),
-        );
+          query('PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})'),
+          query('PRAGMA index_list(${ServerUtils.quoteIdent(tableName)})'),
+        ).wait;
+        final countRows = ServerUtils.normalizeRows(rawCount);
         final rowCount = ServerUtils.extractCountFromRows(countRows);
 
-        final colInfoRows = ServerUtils.normalizeRows(
-          await query(
-            'PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})',
-          ),
-        );
+        final colInfoRows = ServerUtils.normalizeRows(rawColInfo);
 
-        final indexRows = ServerUtils.normalizeRows(
-          await query(
-            'PRAGMA index_list(${ServerUtils.quoteIdent(tableName)})',
-          ),
-        );
+        final indexRows = ServerUtils.normalizeRows(rawIndex);
         final indexNames = indexRows
             .map((r) => r[ServerConstants.jsonKeyName]?.toString() ?? '')
             .where((n) => n.isNotEmpty)

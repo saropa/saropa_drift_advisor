@@ -602,7 +602,7 @@ abstract final class AnomalyDetector {
     // first pass interpolated as a numeric literal (a double — no injection).
     // This is numerically stable where the naive one-pass form was not.
     // Variance query depends on avg computed from the first-pass stats query.
-    // ignore: avoid_sequential_awaits
+    // ignore: avoid_sequential_awaits -- uses avg from the first-pass query
     final varianceRows = ServerUtils.normalizeRows(
       await query(
         'SELECT AVG(($col - $avg) * ($col - $avg)) AS variance '

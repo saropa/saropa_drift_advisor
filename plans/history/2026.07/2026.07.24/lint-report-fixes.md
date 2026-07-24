@@ -51,6 +51,41 @@ sequential execution (or manual indexing) is intentional, followed by the
   SQLite uses a single connection, so Dart's event loop serializes the actual
   I/O regardless. The value is lint compliance and expressing the independence
   of the queries in the code structure.
-- `compare_handler.dart`'s `compareResults` unpacking uses positional casts
-  (`as String`, `as List<String>`) that would silently break if the list order
-  is changed in the future. Flagged for awareness; no action taken.
+
+## Finish Report — Pass 2 (2026-07-24)
+
+Follow-up pass to fix 25 regressions introduced by the initial lint triage.
+
+### Changes
+
+**Cast elimination (10 issues):**
+Replaced `Future.wait` + positional `as` casts with Dart 3's typed record
+`.wait` extension in `compare_handler.dart` (schema/table queries and
+column-map queries) and `analytics_handler.dart` (per-table COUNT,
+`table_info`, `index_list`). This eliminates `avoid_unsafe_cast`,
+`prefer_correct_json_casts`, and `avoid_accessing_collections_by_constant_index`
+warnings while preserving full type safety without runtime casts.
+
+**Ignore rationale format (10 issues):**
+All `// ignore:` directives gained an inline `-- rationale` suffix to satisfy
+`document_analyzer_ignore_rationale`. The preceding explanatory comment is
+retained for `prefer_commenting_analyzer_ignores` compliance.
+
+**Router dispatch restructure (2 issues):**
+Replaced the sequential `if (await route()) return;` chain in `router.dart`
+with a closure-based loop: `for (final dispatch in [...]) { if (await dispatch()) return; }`.
+This eliminates cascading `avoid_sequential_awaits` warnings while preserving
+first-match-wins dispatch order. Closure captures are safe — `req`, `res`,
+`path`, `query` are final per-request locals.
+
+**Pubspec formatting (3 issues):**
+Added blank lines before `description:` and `publish_to:` in
+`example/pubspec.yaml`. Sorted `dev_dependencies` alphabetically
+(`build_runner` before `drift_dev`).
+
+### Verification
+
+- 246 tests pass (85 directly affected + 161 router/server integration).
+- Subagent review confirmed router loop is semantically identical to the
+  original chain, analytics `.wait` is safe (independent reads), and closure
+  allocation overhead is negligible.

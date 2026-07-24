@@ -186,7 +186,7 @@ final class DriftDebugImportProcessor {
     final errors = <String>[];
 
     // Starts at 1 to skip the header row; 1-based index used in error messages.
-    // ignore: prefer_asmap_over_indexed_iteration
+    // ignore: prefer_asmap_over_indexed_iteration -- starts at 1, 1-based error index
     for (int i = 1; i < lines.length; i++) {
       try {
         final rowValues = lines[i];

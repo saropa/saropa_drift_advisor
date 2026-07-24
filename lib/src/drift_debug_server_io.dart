@@ -676,7 +676,7 @@ class _DriftDebugServerImpl {
     _router = null;
     _server = null;
     // Shutdown steps must run in order: cancel subscription before closing server.
-    // ignore: avoid_sequential_awaits
+    // ignore: avoid_sequential_awaits -- subscription cancel must precede close
     await server.close();
 
     // Detach the kill-switch manifest hook BEFORE removing the manifest: a

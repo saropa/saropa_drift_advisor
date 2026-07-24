@@ -235,19 +235,22 @@ final class Router {
       }
 
       // Dispatch to domain-specific route groups (sequential: first match wins).
-      // ignore: avoid_sequential_awaits
-      if (await _routeActivityApi(req, res, path)) return;
-      if (await _routeTableApi(req, res, path, query)) return;
-      if (await _routeSqlApi(req, res, path, query)) return;
-      if (await _routeSchemaApi(req, res, path, query)) return;
-      if (await _routeSnapshotApi(req, res, path, query)) return;
-      if (await _routeCompareApi(req, res, path, query)) return;
-      if (await _routeAnalyticsApi(req, res, path, query)) return;
-      if (await _routeWriteApi(req, res, path, query)) return;
-      if (await _routeSessionApi(req, res, path, query)) return;
-      if (await _routePerformanceApi(req, res, path, query)) return;
-      if (await _routeDvrApi(req, res, path)) return;
-      if (await _routeHistoryApi(req, res, path)) return;
+      for (final dispatch in <Future<bool> Function()>[
+        () => _routeActivityApi(req, res, path),
+        () => _routeTableApi(req, res, path, query),
+        () => _routeSqlApi(req, res, path, query),
+        () => _routeSchemaApi(req, res, path, query),
+        () => _routeSnapshotApi(req, res, path, query),
+        () => _routeCompareApi(req, res, path, query),
+        () => _routeAnalyticsApi(req, res, path, query),
+        () => _routeWriteApi(req, res, path, query),
+        () => _routeSessionApi(req, res, path, query),
+        () => _routePerformanceApi(req, res, path, query),
+        () => _routeDvrApi(req, res, path),
+        () => _routeHistoryApi(req, res, path),
+      ]) {
+        if (await dispatch()) return;
+      }
 
       // No route matched — 404.
       res.statusCode = HttpStatus.notFound;

@@ -81,7 +81,7 @@ abstract final class SnapshotStore {
       final File tmp = File('$path.tmp');
       await tmp.parent.create(recursive: true);
       // Must create dir before writing, then write before atomic rename.
-      // ignore: avoid_sequential_awaits
+      // ignore: avoid_sequential_awaits -- write depends on dir create above
       await tmp.writeAsString(json, flush: true);
       // rename is atomic on the same filesystem; replaces any existing target.
       await tmp.rename(path);
