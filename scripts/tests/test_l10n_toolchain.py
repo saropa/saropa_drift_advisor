@@ -68,6 +68,22 @@ class TestBrands(unittest.TestCase):
         self.assertTrue(brands.is_no_translatable_content("{0}/100"))
         self.assertTrue(brands.is_no_translatable_content("{0} #"))
         self.assertFalse(brands.is_no_translatable_content("Rows {0}"))
+        # Acronym-only residue after placeholder stripping — no translatable word.
+        self.assertTrue(brands.is_no_translatable_content("✓ FK {0} → {1}"))
+        self.assertTrue(brands.is_no_translatable_content("PK {0}: {1}"))
+        self.assertTrue(brands.is_no_translatable_content("FK → {0}.{1}"))
+        # Mixed: acronym + real word → still translatable.
+        self.assertFalse(brands.is_no_translatable_content("Copy SQL"))
+
+    def test_acronym_only_includes_null_png_svg(self):
+        for acr in ("NULL", "PNG", "SVG"):
+            self.assertTrue(brands.is_acronym_only(acr), f"{acr} should be acronym-only")
+
+    def test_verified_identical(self):
+        self.assertTrue(brands.is_verified_identical("Schema", "it"))
+        self.assertTrue(brands.is_verified_identical("Status", "pt-br"))
+        self.assertFalse(brands.is_verified_identical("Schema", "de"))
+        self.assertFalse(brands.is_verified_identical("Status", "ja"))
 
     def test_shield_unshield_roundtrip(self):
         text = "Open Saropa Drift Advisor with SQLite"

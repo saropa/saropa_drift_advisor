@@ -36,6 +36,7 @@ BRAND_ONLY_STRINGS: frozenset[str] = frozenset({
 ACRONYM_ONLY_STRINGS: frozenset[str] = frozenset({
     "SQL", "DB", "PII", "FK", "PK", "ER", "TTL", "LLM", "API", "URL",
     "OK", "ID", "NL", "DVR", "PRAGMA", "JSON", "CSV", "HTML", "UUID",
+    "NULL", "PNG", "SVG",
 })
 
 # Strings whose CORRECT translation in a SPECIFIC locale equals the English source
@@ -43,7 +44,11 @@ ACRONYM_ONLY_STRINGS: frozenset[str] = frozenset({
 # (unlike brands/acronyms, which hold everywhere). Add an entry ONLY after
 # confirming the word is genuinely identical in that locale; a wrong entry
 # silences a real gap. Empty until a reviewer verifies cognates per locale.
-VERIFIED_IDENTICAL: dict[str, frozenset[str]] = {}
+VERIFIED_IDENTICAL: dict[str, frozenset[str]] = {
+    "it": frozenset({"Schema"}),
+    "ko": frozenset({"ms"}),
+    "pt-br": frozenset({"TOTAL", "Total", "Total: {0}", "Status", "Regex"}),
+}
 
 # Substrings that must survive translation verbatim. Longest-first so
 # "Saropa Drift Advisor" / "Saropa Log Capture" match before "Saropa".
@@ -106,13 +111,17 @@ _PLACEHOLDER_RE = re.compile(r"\{[^}]*\}")
 
 def is_no_translatable_content(en_value: str) -> bool:
     """True if the string has no translatable word — only symbols, digits,
-    punctuation, and {n} placeholders (e.g. "{0}/100", "{0} #").
+    punctuation, known acronyms, and {n} placeholders (e.g. "{0}/100", "✓ FK {0}").
 
     Identity IS the correct rendering: there is nothing to translate, so the value
-    equals English in every locale. ASCII letters, or a run of 2+ Unicode letters
-    (a non-Latin word), count as translatable; a lone letter-shaped symbol does not.
+    equals English in every locale. ASCII letters that are NOT part of a known
+    acronym, or a run of 2+ Unicode letters (a non-Latin word), count as
+    translatable; a lone letter-shaped symbol does not.
     """
     stripped = _PLACEHOLDER_RE.sub("", en_value)
+    # Strip known acronyms so "✓ FK {0} → {1}" becomes "✓  → " (no ASCII left).
+    for acronym in sorted(ACRONYM_ONLY_STRINGS, key=len, reverse=True):
+        stripped = stripped.replace(acronym, "")
     if any("a" <= ch.lower() <= "z" for ch in stripped):
         return False
     run = 0

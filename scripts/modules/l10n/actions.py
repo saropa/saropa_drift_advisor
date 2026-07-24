@@ -291,11 +291,25 @@ def run_translate_action(
                 emit("REFUSED: translation is operator-gated (plan 75 §7).")
                 return 1
 
-            # Pre-filter to the keys whose correct value is genuinely a translation
-            # (brands / acronyms / pure symbols keep their English form and are
-            # skipped). The progress denominator AND the per-locale word total are
-            # taken from THIS list, so the bar reaches 100% exactly when the real
-            # work is done and the ETA is computed against translatable words only.
+            # Forced-identity keys (brands/acronyms/symbols) that are missing from
+            # the bundles get their English value written now — they don't need MT
+            # but must be present so the audit stops counting them as "missing".
+            identity_keys = [k for k in keys if is_forced_identity(source[k], locale)]
+            for k in identity_keys:
+                english = source[k]
+                if k in web_keys:
+                    web_bundle[k] = english
+                else:
+                    host_bundle[source_host[k]] = english
+            if identity_keys:
+                bundles.write_json_atomic(bundles.web_locale_bundle_path(locale), web_bundle)
+                bundles.write_json_atomic(bundles.host_locale_bundle_path(locale), host_bundle)
+                emit(f"  {C.DIM}{locale}: wrote {len(identity_keys)} identity keys{C.RESET}")
+
+            # Pre-filter to the keys whose correct value is genuinely a translation.
+            # The progress denominator AND the per-locale word total are taken from
+            # THIS list, so the bar reaches 100% exactly when the real work is done
+            # and the ETA is computed against translatable words only.
             translatable = [k for k in keys if not is_forced_identity(source[k], locale)]
             total_words = sum(len(source[k].split()) for k in translatable)
             emit(

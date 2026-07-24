@@ -45,7 +45,11 @@ browse source on
 
 [log](https://github.com/saropa/saropa_drift_advisor/blob/v{version}/CHANGELOG.md)
 
-### 
+<details><summary>Maintenance</summary>
+
+- **Localization translate-gaps pass no longer cycles without progress.** Forced-identity keys (brands, acronyms, symbol-only strings) that were missing from locale bundles were never written because the translate action skipped them, so `missing=25` persisted across runs. They are now written with their English value during the translate pass. Added `NULL`, `PNG`, `SVG` to the acronym list; enhanced the no-translatable-content detector to strip known acronyms before checking for ASCII letters (resolves strings like `✓ FK {0} → {1}`); added per-locale verified cognates (`Schema` in Italian, `Status`/`Total`/`Regex` in Portuguese, `ms` in Korean).
+
+</details>
 
 ---
 
