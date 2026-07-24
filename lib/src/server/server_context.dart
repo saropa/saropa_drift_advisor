@@ -220,7 +220,7 @@ final class ServerContext {
   /// noise in every export. Other anomaly kinds (NULL-in-NOT-NULL, orphan FKs)
   /// still run — a constraint violation is a real bug even in seed data. Empty
   /// by default (no suppression). See
-  /// bugs/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md (Finding 3).
+  /// plans/history/2026.07/2026.07.24/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md (Finding 3).
   final Set<String> staticTables;
 
   /// In-memory snapshots (oldest first): each holds id, createdAt, optional

@@ -73,3 +73,6 @@ bugs/BUG_lint_report.md
 
 # Local-only bug report, excluded from git
 bugs/PROBABLE_marketplace_failure_blocks_open_vsx_publish.md
+
+# saropa_lints report artifacts dropped into bugs/ by the pre-commit tooling
+bugs/*_lint_report*.json

@@ -155,13 +155,16 @@ final class TableActivityTracker {
   /// mutation is a stronger "static/seed" candidate than one the app is
   /// actively changing.
   ///
-  /// LIMITATION (directional, not definitive): the advisor does not see the
-  /// app's own read/UPDATE traffic (app queries bypass the server — the same
-  /// gap as Finding 1), and `hostChange` only fires when a change-detection
-  /// sweep observes a ROW-COUNT delta, so a row-preserving UPDATE leaves no
-  /// trace. Absence of a mutation here means "none observed this session", not
-  /// "never written". Once app query-timing ingest lands (plans/61) this signal
-  /// becomes reliable.
+  /// LIMITATION (directional, not definitive): whether the app's own writes
+  /// register depends on how the host wired up capture. If the app installs the
+  /// Feature 61 Drift `QueryInterceptor` (reporting via
+  /// `DriftDebugServer.reportAppQuery` → `ServerContext.recordAppTiming`),
+  /// INSERT/UPDATE/DELETE arrive as `recordWrite` and this set is reliable. If
+  /// it does not, the only write signals are advisor-issued writes and
+  /// `hostChange` (inferred from a change-detection ROW-COUNT delta, so a
+  /// row-preserving UPDATE leaves no trace). Either way, absence here means
+  /// "no mutation observed this session", never a guarantee the table is
+  /// immutable.
   Set<String> tablesWithObservedMutations() => <String>{
     for (final entry in _tables.entries)
       if (entry.value.writes > 0 || entry.value.hostChanges > 0) entry.key,

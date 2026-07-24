@@ -29,7 +29,7 @@ final class PerformanceHandler {
     // 500-entry ring buffer — with the advisor measuring its own
     // introspection. These are never application workload, so they must not
     // appear in performance analytics or the exported report.
-    // See bugs/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md (Finding 2).
+    // See plans/history/2026.07/2026.07.24/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md (Finding 2).
     final workloadTimings = timings.where((t) => !_isIntrospection(t)).toList();
 
     // Exclude extension-internal queries (change-detection probes,

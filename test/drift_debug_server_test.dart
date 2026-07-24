@@ -2146,4 +2146,67 @@ void main() {
       );
     });
   });
+
+  // End-to-end coverage of the public reportAppQuery facade (Feature 61):
+  // the static -> instance -> ServerContext.recordAppTiming chain and its
+  // not-running no-op. The recording logic itself is unit-tested in
+  // performance_handler_test; here we prove the facade forwards over a real
+  // running server and surfaces as source:"app" in the perf endpoint.
+  group('reportAppQuery (Feature 61)', () {
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    test('is a no-op (does not throw) when the server is not running', () {
+      expect(
+        () => DriftDebugServer.reportAppQuery(
+          sql: 'SELECT 1',
+          durationMs: 1,
+          rowCount: 1,
+        ),
+        returnsNormally,
+      );
+    });
+
+    test(
+      'reported query surfaces in /api/analytics/performance as source app',
+      () async {
+        await DriftDebugServer.start(
+          query: (_) async => <Map<String, dynamic>>[],
+          enabled: true,
+          port: 0,
+        );
+        final port = DriftDebugServer.port;
+        expect(port, isNotNull);
+
+        DriftDebugServer.reportAppQuery(
+          sql: 'SELECT * FROM contacts',
+          durationMs: 12,
+          rowCount: 3,
+        );
+
+        final client = HttpClient();
+        try {
+          final req = await client.get(
+            'localhost',
+            port!,
+            '/api/analytics/performance',
+          );
+          final resp = await req.close();
+          expect(resp.statusCode, HttpStatus.ok);
+          final body = await resp.transform(utf8.decoder).join();
+          final decoded = jsonDecode(body) as Map<String, dynamic>;
+
+          expect(decoded['totalQueries'], 1);
+          final recent = decoded['recentQueries'] as List<dynamic>;
+          expect(recent, isNotEmpty);
+          expect((recent.first as Map)['source'], 'app');
+          // The "install an interceptor" hint clears once an app query lands.
+          expect(decoded.containsKey('hint'), isFalse);
+        } finally {
+          client.close();
+        }
+      },
+    );
+  });
 }

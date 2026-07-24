@@ -3,7 +3,7 @@
 Status: IMPLEMENTED 2026-07-24 (advisor side). In-process ingest chosen; HTTP
 endpoint deferred (§"Decision needed" resolved below). Consumer-side
 `QueryInterceptor` wiring remains in the app repo (Saropa Contacts).
-Origin: `bugs/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md` Finding 1.
+Origin: `plans/history/2026.07/2026.07.24/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md` Finding 1.
 
 ## Resolution (2026-07-24)
 

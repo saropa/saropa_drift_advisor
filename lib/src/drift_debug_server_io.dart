@@ -972,7 +972,7 @@ mixin DriftDebugServer {
     /// the anomaly result carries a one-line hint naming it and the exact
     /// `staticTables:` snippet, so the fix is discoverable from the finding
     /// itself. Host configuration. See
-    /// bugs/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md (Finding 3).
+    /// plans/history/2026.07/2026.07.24/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md (Finding 3).
     List<String> staticTables = const <String>[],
 
     /// Global monitoring & logging kill switch (default true = monitoring
