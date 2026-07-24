@@ -820,6 +820,24 @@ class _DriftDebugServerImpl {
     tracker.recordHostStatement(sql);
   }
 
+  /// Instance half of [DriftDebugServer.reportAppQuery]; see the static facade
+  /// for the full contract. No-op when the server is not running (the app may
+  /// call this from a per-query hook that outlives a stopped server); the
+  /// kill-switch check lives in [ServerContext.recordAppTiming].
+  void reportAppQuery({
+    required String sql,
+    required int durationMs,
+    required int rowCount,
+    bool isWrite = false,
+    String? error,
+  }) => _runningCtx?.recordAppTiming(
+    sql: sql,
+    durationMs: durationMs,
+    rowCount: rowCount,
+    isWrite: isWrite,
+    error: error,
+  );
+
   @override
   String toString() =>
       '_DriftDebugServerImpl(port: ${_server?.port}, '
@@ -1060,6 +1078,73 @@ mixin DriftDebugServer {
   /// shows phase 1 signals only (advisor traffic + detected row-count
   /// changes).
   static void reportActivity(String sql) => _instance.reportActivity(sql);
+
+  /// Reports one host-application query timing so `performance.totalQueries`,
+  /// the slow-query list, and the exported report reflect REAL app traffic
+  /// (Feature 61). The advisor only ever sees queries it issues itself; the
+  /// app's own Drift queries run in the app isolate and never reach the server
+  /// unless the app forwards them here. Recorded timings are tagged
+  /// `source: "app"`.
+  ///
+  /// Wire it with a Drift `QueryInterceptor` that times each query. Because
+  /// this package must not depend on `package:drift`, the interceptor lives in
+  /// YOUR code (drift is already a dependency there):
+  ///
+  /// ```dart
+  /// class AdvisorTimingInterceptor extends QueryInterceptor {
+  ///   Future<T> _timed<T>(String description, bool isWrite,
+  ///       Future<T> Function() op) async {
+  ///     final sw = Stopwatch()..start();
+  ///     try {
+  ///       final result = await op();
+  ///       DriftDebugServer.reportAppQuery(
+  ///         sql: description,
+  ///         durationMs: sw.elapsedMilliseconds,
+  ///         rowCount: result is List ? result.length : 0,
+  ///         isWrite: isWrite,
+  ///       );
+  ///       return result;
+  ///     } on Object catch (e) {
+  ///       DriftDebugServer.reportAppQuery(
+  ///         sql: description, durationMs: sw.elapsedMilliseconds,
+  ///         rowCount: 0, isWrite: isWrite, error: e.toString());
+  ///       rethrow;
+  ///     }
+  ///   }
+  ///
+  ///   @override
+  ///   Future<List<Map<String, Object?>>> runSelect(String statement,
+  ///           List<Object?> args, QueryExecutor inner) =>
+  ///       _timed(statement, false, () => inner.runSelect(statement, args));
+  ///   @override
+  ///   Future<int> runUpdate(String statement, List<Object?> args,
+  ///           QueryExecutor inner) =>
+  ///       _timed(statement, true, () => inner.runUpdate(statement, args));
+  ///   // ...runInsert / runDelete likewise with isWrite: true.
+  /// }
+  ///
+  /// final db = MyDatabase(myExecutor.interceptWith(AdvisorTimingInterceptor()));
+  /// ```
+  ///
+  /// [isWrite] must be true for INSERT/UPDATE/DELETE so the query attributes to
+  /// the table-activity board and the static-table candidate ranking; false for
+  /// reads. Safe to call unconditionally: while monitoring is disabled, or the
+  /// server is not running, or called from a different isolate than the one the
+  /// server runs in, it is a silent no-op. Pass RAW SQL, not a formatted log
+  /// line.
+  static void reportAppQuery({
+    required String sql,
+    required int durationMs,
+    required int rowCount,
+    bool isWrite = false,
+    String? error,
+  }) => _instance.reportAppQuery(
+    sql: sql,
+    durationMs: durationMs,
+    rowCount: rowCount,
+    isWrite: isWrite,
+    error: error,
+  );
 
   /// Stops the server and releases the port. No-op if not running.
   static Future<void> stop() => _instance.stop();

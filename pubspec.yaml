@@ -48,4 +48,5 @@ dev_dependencies:
 
   # Unit test framework.
   # https://pub.dev/packages/test/changelog
-  test: ^1.31.0
+  ######### Because test >=1.31.2 depends on analyzer >=13.0.0 <15.0.0 and saropa_lints 14.3.7 depends on analyzer ^12.1.0, test >=1.31.2 is incompat
+  test: ^1.31.1

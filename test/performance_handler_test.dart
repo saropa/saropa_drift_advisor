@@ -348,6 +348,62 @@ void main() {
       });
     });
 
+    // -------------------------------------------------------
+    // recordAppTiming — host-reported app query ingest
+    // (BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md Finding 1)
+    // -------------------------------------------------------
+    group('recordAppTiming', () {
+      test('app-reported query counts and is tagged source "app"', () async {
+        final ctx = createTestContext();
+        ctx.recordAppTiming(
+          sql: 'SELECT * FROM contacts',
+          durationMs: 42,
+          rowCount: 7,
+        );
+        final handler = PerformanceHandler(ctx);
+
+        final data = await handler.getPerformanceData();
+
+        // A real app query now shows up in the perf stats (Finding 1).
+        expect(data['totalQueries'], 1);
+        expect(data['totalDurationMs'], 42);
+        final recent = data['recentQueries'] as List;
+        expect(recent, hasLength(1));
+        expect((recent.first as Map)['source'], 'app');
+      });
+
+      test('kill switch: nothing recorded while monitoring disabled', () {
+        final ctx = createTestContext()..monitoringEnabled = false;
+        ctx.recordAppTiming(
+          sql: 'SELECT * FROM contacts',
+          durationMs: 42,
+          rowCount: 7,
+        );
+        expect(ctx.queryTimings, isEmpty);
+      });
+
+      test('isWrite feeds the static-table candidate signal', () {
+        final ctx = createTestContext();
+        ctx.recordAppTiming(
+          sql: 'UPDATE contacts SET name = ? WHERE id = ?',
+          durationMs: 5,
+          rowCount: 1,
+          isWrite: true,
+        );
+        ctx.recordAppTiming(
+          sql: 'SELECT * FROM currency_rates',
+          durationMs: 3,
+          rowCount: 50,
+        );
+
+        // The written table is observed as mutated; the read-only one is not,
+        // so it stays a valid static-table candidate (Finding 3 synergy).
+        final mutated = ctx.tableActivity.tablesWithObservedMutations();
+        expect(mutated, contains('contacts'));
+        expect(mutated, isNot(contains('currency_rates')));
+      });
+    });
+
     group('clearPerformance', () {
       test('clears all timings from context', () {
         final ctx = createTestContext();

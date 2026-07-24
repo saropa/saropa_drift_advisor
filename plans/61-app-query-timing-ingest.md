@@ -1,7 +1,25 @@
 # 61 — App query-timing ingest (make `totalQueries` reflect real app traffic)
 
-Status: proposed (design only; no code yet)
+Status: IMPLEMENTED 2026-07-24 (advisor side). In-process ingest chosen; HTTP
+endpoint deferred (§"Decision needed" resolved below). Consumer-side
+`QueryInterceptor` wiring remains in the app repo (Saropa Contacts).
 Origin: `bugs/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md` Finding 1.
+
+## Resolution (2026-07-24)
+
+Decisions taken: (1) in-process only — no HTTP endpoint (the server is
+in-process; no out-of-process consumer exists); (2) explicit `app` origin via a
+new `QueryTiming.appReported` flag — the interceptor has no meaningful caller
+frame; (3) no per-query `StackTrace.current` capture — cost refused.
+
+Shipped: `DriftDebugServer.reportAppQuery(sql, durationMs, rowCount, isWrite,
+error)` (static → instance → `ServerContext.recordAppTiming`), tagged
+`source: "app"`, kill-switch- and ring-buffer-bounded, feeding
+`TableActivityTracker` so app writes drive the Finding 3 static-table ranking.
+Web stub gained a matching no-op. The `QueryInterceptor` recipe lives in the
+`reportAppQuery` doc comment (the package can't ship the interceptor itself
+under the zero-`package:drift` contract). Tests in
+`test/performance_handler_test.dart` (`recordAppTiming` group).
 
 ## Problem
 

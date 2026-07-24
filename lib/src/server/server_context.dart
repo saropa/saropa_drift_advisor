@@ -665,6 +665,7 @@ final class ServerContext {
     String? callerFile,
     int? callerLine,
     bool isInternal = false,
+    bool appReported = false,
   }) {
     queryTimings.add(
       QueryTiming(
@@ -675,12 +676,58 @@ final class ServerContext {
         callerFile: callerFile,
         callerLine: callerLine,
         isInternal: isInternal,
+        appReported: appReported,
         at: DateTime.now().toUtc(),
       ),
     );
 
     if (queryTimings.length > ServerConstants.maxQueryTimings) {
       queryTimings.removeAt(0);
+    }
+  }
+
+  /// Records a timing the HOST APPLICATION measured for one of its own Drift
+  /// queries (Feature 61), so `performance.totalQueries` and the exported
+  /// report finally reflect real app traffic instead of only advisor-issued
+  /// queries. The app wires a Drift `QueryInterceptor` that times each query
+  /// and calls [DriftDebugServer.reportAppQuery], which routes here.
+  ///
+  /// The timing is tagged `appReported` (→ `source: "app"`) and, unlike the
+  /// server's own [timedQuery] path, NO stack frame is parsed — the interceptor
+  /// runs inside Drift, not at the app's call site, so a frame would be
+  /// meaningless and per-query `StackTrace.current` capture is a cost we refuse.
+  ///
+  /// [isWrite] feeds the table-activity board (reads glow, writes count toward
+  /// the static-table candidate ranking in [AnomalyDetector]), making that
+  /// ranking reliable now that the app's own writes are observable.
+  ///
+  /// Honors the kill switch: while monitoring is disabled nothing is recorded.
+  void recordAppTiming({
+    required String sql,
+    required int durationMs,
+    required int rowCount,
+    bool isWrite = false,
+    String? error,
+  }) {
+    if (!monitoringEnabled) {
+      return;
+    }
+    recordTiming(
+      sql: sql,
+      durationMs: durationMs,
+      rowCount: rowCount,
+      error: error,
+      appReported: true,
+    );
+    // Attribute the query to its tables so app writes light the heartbeat board
+    // and drive the static-table candidate ranking. Best-effort: unattributable
+    // SQL records nothing.
+    for (final table in TableActivityTracker.extractTableNames(sql)) {
+      if (isWrite) {
+        tableActivity.recordWrite(table);
+      } else {
+        tableActivity.recordRead(table);
+      }
     }
   }
 

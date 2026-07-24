@@ -246,6 +246,7 @@ class QueryTiming {
     this.callerFile,
     this.callerLine,
     this.isInternal = false,
+    this.appReported = false,
   });
 
   final String sql;
@@ -270,13 +271,22 @@ class QueryTiming {
   /// overhead is reported as an application performance problem.
   final bool isInternal;
 
-  /// Computed query source based on [isInternal] and [callerFile].
+  /// True when the host application reported this timing through
+  /// [DriftDebugServer.reportAppQuery] (Feature 61) rather than the timing
+  /// being captured by the server executing the query itself. Such a query is
+  /// definitively app-originated even though no server-side stack frame
+  /// resolves ([callerFile] is null), so [source] treats it as `"app"`.
+  final bool appReported;
+
+  /// Computed query source based on [isInternal], [appReported], and
+  /// [callerFile].
   /// - `"internal"` — extension-owned diagnostic probe
-  /// - `"app"` — originated from the Flutter app (callerFile resolved)
-  /// - `"browser"` — manual SQL from the web UI (no callerFile)
+  /// - `"app"` — host application query (reported via reportAppQuery, or a
+  ///   server-executed query whose app caller frame resolved)
+  /// - `"browser"` — manual SQL from the web UI (no caller frame)
   String get source {
     if (isInternal) return 'internal';
-    if (callerFile != null) return 'app';
+    if (appReported || callerFile != null) return 'app';
     return 'browser';
   }
 
@@ -290,6 +300,7 @@ class QueryTiming {
     'callerFile': ?callerFile,
     'callerLine': ?callerLine,
     if (isInternal) 'isInternal': true,
+    if (appReported) 'appReported': true,
   };
 }
 

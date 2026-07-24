@@ -84,6 +84,17 @@ mixin DriftDebugServer {
   /// "no capture" (the server never runs on web anyway).
   static void reportActivity(String sql) {}
 
+  /// Stub: no-op. Same rationale as [reportActivity] — the app wires this into
+  /// a per-query hook and calls it unconditionally; the server never runs on
+  /// web, so the correct behavior is "no capture", not a throw.
+  static void reportAppQuery({
+    required String sql,
+    required int durationMs,
+    required int rowCount,
+    bool isWrite = false,
+    String? error,
+  }) {}
+
   /// Stub: no-op.
   static Future<void> stop() => Future<void>.value();
 }

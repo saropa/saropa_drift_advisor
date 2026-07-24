@@ -53,6 +53,7 @@ Exported reports no longer count the schema browser's own lookups as app queries
 
 ### Added
 
+- **App query timings now reach the performance report.** New `DriftDebugServer.reportAppQuery(...)` lets your app forward its own Drift query timings to the advisor, so `performance.totalQueries`, slow queries, and the exported report finally reflect real application traffic instead of only advisor-issued queries (which is why exports previously showed `totalQueries: 0`). Wire it with a Drift `QueryInterceptor` — a copy-paste recipe is in the `reportAppQuery` doc comment. Reported queries are tagged `source: "app"`, and writes feed the static-table candidate ranking so those suggestions become reliable.
 - **Exported reports are now version-stamped.** The `.drift-advisor.json` sidecar carries a `versions` block with the extension version and the connected server version, so a report can be tied to the release that produced it.
 
 <details><summary>Maintenance</summary>
